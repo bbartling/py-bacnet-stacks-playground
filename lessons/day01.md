@@ -1,96 +1,90 @@
-# Day 01 – Installing Python & Pip
+# Day 01 – Installing Python & Pip (BACnet Ready)
 
 ## Goal
 
-Set up your development environment by installing Python and pip, then verify
-that everything works.  By the end of this lesson you’ll be able to run
-`python3 --version` on your command line and use pip to install a package from
-the Python Package Index.
+Set up your development environment by installing Python and pip, then verify that everything works **including installing BACnet libraries**. By the end of this lesson you’ll be able to run:
+
+* `python --version`
+* `python -m pip --version`
+* install **BAC0** and **bacpypes3**
+* run a quick import test for both
 
 ## Concept
 
-Python is a high‑level programming language that is **easy to learn** and has
-extensive standard and third‑party libraries【898692921316456†L48-L59】.  To run
-Python code you need the interpreter installed on your computer.  The
-recommended way to install Python on Windows or macOS is to download it from
-the official [python.org](https://www.python.org/downloads/) page; on many
-Linux distributions Python is already available via the package manager.  Once
-Python is installed, **pip** provides a way to install additional libraries
-from the Python Package Index (PyPI).  The pip documentation describes pip as
-*“the package installer for Python”* and notes that you can install packages
-with `python -m pip install`【884625456392658†L111-L113】.  The Python Packaging
-User Guide recommends using pip and shows how to specify packages when
-installing from PyPI【588230187165224†L424-L437】.
+Python is a high-level programming language that is **easy to learn** and has extensive standard and third-party libraries. To run Python code you need the interpreter installed on your computer.
+
+Once Python is installed, **pip** provides a way to install additional libraries from the Python Package Index (PyPI). For this course, pip is how we install building automation tooling—especially BACnet libraries.
+
+
 
 ## How to Use It
 
-1. **Download and install Python.**  Visit the
-   [python.org/downloads](https://www.python.org/downloads/) page and choose
-   the installer for your operating system.  Run the installer and allow it
-   to add Python to your system path.
-2. **Verify your installation.**  Open a terminal (Command Prompt on
-   Windows, Terminal on macOS/Linux) and run `python --version` or
-   `python3 --version`.  You should see a version number such as `3.12.1`.
-3. **Check pip.**  In the same terminal run `python -m pip --version`.
-   Pip is installed automatically with Python on most systems.  If it isn’t
-   available, consult the packaging documentation for installation
-   instructions【588230187165224†L424-L437】.
-4. **Install a package.**  Use pip to install a third‑party library.  For
-   example, try installing the `requests` library:
+### Install Python
 
-   ```bash
-   python -m pip install requests
-   ```
+Download Python from the official site latest version of `3.14.x` and install it:
 
-   This command downloads `requests` from PyPI and installs it into your
-   environment.  You can verify the installation inside Python:
+* https://www.python.org/downloads/windows/
 
-   ```python
-   >>> import requests
-   >>> print(requests.__version__)
-   ```
+* Windows/macOS: use the installer and **check “Add Python to PATH”**
+* Linux: use your package manager if needed (often already installed)
+
+### Verify your installation
+
+Open a terminal and run:
+
+```bash
+python --version
+python -m pip --version
+```
+
+### Install BACnet libraries: BAC0 + bacpypes3
+
+Install both in your venv:
+
+```bash
+python -m pip install bac0 bacpypes3 ifaddr
+```
+
+> If you’re on Linux and plan to do real BACnet/IP work later, you may also want:
+> `python -m pip install ifaddr`
+> (Some BACnet tooling uses it to find network interfaces.)
+
+### Verify the BACnet installs
+
+Run this one-liner:
+
+```bash
+pip show BAC0
+```
+
+### Confirm imports
+
+```bash
+pip show bacpypes3
+```
+
+If it prints version numbers without errors, you’re ready.
 
 ## Why This Matters
 
-Before you can experiment with Python you must have a working interpreter and
-package installer.  Installing Python and pip ensures that you can run the
-examples in this course and install additional libraries when needed.  Many
-data modelling and building automation tools—such as BACnet scanners and RDF
-libraries—are distributed on PyPI, so a proper setup is essential for
-building more advanced projects.
+Before you can experiment with Python you must have a working interpreter and package installer. Installing Python and pip ensures that you can run the examples in this course and install additional libraries when needed.
 
-## Mini Examples
+For building automation, **BAC0** and **bacpypes3** are foundational:
 
-Try the following commands in your terminal:
+* **BAC0** is a friendly, higher-level interface for common BACnet tasks.
+* **bacpypes3** is a modern BACnet stack for building your own BACnet tools and services.
 
-- **Check your Python version**:
+You’ll use these later to scan devices, read present values, and build repeatable data collection scripts.
 
-  ```bash
-  python --version
-  ```
-
-- **Install and import a package**:
-
-  ```bash
-  python -m pip install rdflib
-  python -c "import rdflib; print(rdflib.__version__)"
-  ```
-
-  The `-c` flag runs a short command.  If you see a version number printed
-  without an error then the installation was successful.
 
 ## Micro Exercises
 
-1. Verify that `python` or `python3` is on your path by running the version
-   command.
-2. Use pip to install the `numpy` library.  After installation, open a
-   Python shell and import `numpy` to verify it worked.  Print the value of
-   `numpy.pi`.
-3. Research how to upgrade pip to the latest version and run the upgrade
-   command.  (Hint: `python -m pip install --upgrade pip`.)
+1. Create and activate a virtual environment named `env`.
+2. Upgrade pip inside your venv.
+3. Install **BAC0** and **bacpypes3**.
+4. Run the example to print "Hello Python!"
+
 
 ## Key Takeaway
 
-Installing Python and pip is the first step on your programming journey.  Once
-Python is set up, you can use pip to add any library you need【884625456392658†L111-L113】,
-ensuring that you’re ready for the hands‑on challenges in this course.
+Installing Python and pip is the first step. Setting up a virtual environment and installing **BAC0** + **bacpypes3** makes your machine **BACnet-ready**, so you can move on to scanning and reading real building automation data in the next lessons.
