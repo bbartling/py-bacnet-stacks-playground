@@ -11,15 +11,14 @@ measure string length.
 
 A **string** is a sequence of Unicode characters enclosed in single (`'...'`)
 or double (`"..."`) quotes.  Python lets you embed quotes inside strings by
-using different quote types or escaping with backslashes【126592705671557†L189-L245】.
+using different quote types or escaping with backslashes.
 For multi‑line text, triple quotes (`'''` or `"""`) span several lines and
-preserve line breaks【126592705671557†L269-L294】.  Two string literals placed
-adjacent to each other are automatically concatenated【126592705671557†L269-L294】.
+preserve line breaks.  Two string literals placed
+adjacent to each other are automatically concatenated.
 Strings support indexing and slicing: index 0 refers to the first character,
 negative indices count from the end, and slicing syntax `[start:stop]` returns
-the substring from `start` up to but not including `stop`【126592705671557†L318-L426】.
-The built‑in function `len()` returns the number of characters in a string
-【126592705671557†L436-L442】.
+the substring from `start` up to but not including `stop`.
+The built‑in function `len()` returns the number of characters in a string.
 
 ## How to Use It
 
@@ -105,5 +104,5 @@ print(cfg_path)
 
 Strings are sequences of characters.  Use quotes to create them, `+` and
 `*` to concatenate and repeat them, and slicing to extract substrings
-【126592705671557†L318-L426】.  The `len()` function returns the length of a
-string【126592705671557†L436-L442】.
+.  The `len()` function returns the length of a
+string.

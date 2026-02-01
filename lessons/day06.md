@@ -9,14 +9,13 @@ obtain sublists and use basic methods like `append()` and `len()`.
 ## Concept
 
 Lists are ordered collections of items and are created by placing comma‑
-separated values inside square brackets【126592705671557†L471-L498】.  Items can
+separated values inside square brackets.  Items can
 be of any type and lists can even contain other lists.  Like strings, lists
 support indexing and slicing; index 0 refers to the first element, negative
 indices count from the end and the slice notation `[start:stop]` returns a
-new list containing items from `start` up to but not including `stop`
-【126592705671557†L471-L498】.  Lists are **mutable**: you can change, add or
-remove elements after creation【126592705671557†L501-L521】.  The built‑in
-function `len()` returns the number of items in a list【126592705671557†L471-L498】.
+new list containing items from `start` up to but not including `stop`.  Lists are **mutable**: you can change, add or
+remove elements after creation.  The built‑in
+function `len()` returns the number of items in a list.
 
 ## How to Use It
 
@@ -44,7 +43,7 @@ function `len()` returns the number of items in a list【126592705671557†L471-
    ```
 
 4. **Append items.**  Use `append()` to add a single element to the end of
-   a list【126592705671557†L501-L521】:
+   a list:
 
    ```python
    sensors = ['temp', 'humidity']
@@ -98,4 +97,4 @@ print(discovered)
 ## Key Takeaway
 
 Lists are ordered, mutable sequences.  Use indexing and slicing to access
-elements, `append()` to add items and `len()` to measure the list’s size【126592705671557†L471-L521】.
+elements, `append()` to add items and `len()` to measure the list’s size.

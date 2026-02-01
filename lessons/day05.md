@@ -11,14 +11,13 @@ results clearly using f‑strings.
 
 The built‑in `input()` function writes an optional prompt to standard output,
 reads a line from the user, strips the trailing newline and returns it as a
-string【417584007695887†L1064-L1076】.  You can then convert the returned string
+string.  You can then convert the returned string
 to an integer or float using `int()` or `float()`.
 
 To display information you use the `print()` function, which prints its
 arguments separated by spaces followed by a newline.  Python also supports
 **formatted string literals**, or *f‑strings*.  If you prefix a string with
-`f` or `F`, expressions inside braces are evaluated and formatted at runtime
-【363542897074291†L73-L83】.  F‑strings provide a concise way to combine text
+`f` or `F`, expressions inside braces are evaluated and formatted at runtime.  F‑strings provide a concise way to combine text
 and variables.
 
 ## How to Use It
@@ -69,7 +68,7 @@ Interactive programs need to collect information from users and respond
 appropriately.  Reading input and printing output are fundamental building
 blocks for scripts such as configuration wizards, calculators or simple
 command‑line tools.  F‑strings make it easy to embed variable values in
-messages without cumbersome concatenation【363542897074291†L73-L83】.
+messages without cumbersome concatenation.
 
 ## Mini Examples
 
@@ -95,6 +94,6 @@ print(f'Hello, {name}! Welcome to the Python mini challenge.')
 
 ## Key Takeaway
 
-Use `input()` to read a line of text from the user【417584007695887†L1064-L1076】,
+Use `input()` to read a line of text from the user,
 convert it to the appropriate type, and display results with f‑strings for
-clear formatting【363542897074291†L73-L83】.
+clear formatting.

@@ -11,17 +11,17 @@ assign the results to descriptive variable names.
 
 In Python you assign a value to a variable using the `=` operator.  Variable
 names can contain letters, digits and underscores but must not start with a
-digit.  Comments begin with a `#` and extend to the end of the line【369182417897566†L67-L82】,
+digit.  Comments begin with a `#` and extend to the end of the line,
 allowing you to document your code.
 
 Python’s arithmetic operators follow mathematical notation.  The plus (`+`),
 minus (`-`), multiplication (`*`) and division (`/`) operators behave as
-expected【369182417897566†L91-L105】.  Division always returns a floating‑point
+expected.  Division always returns a floating‑point
 result—`7/2` yields `3.5`.  Floor division (`//`) drops the fractional part and
 returns the largest integer less than or equal to the result, while the
-modulo operator (`%`) returns the remainder【369182417897566†L111-L124】.  The
+modulo operator (`%`) returns the remainder.  The
 exponentiation operator (`**`) raises the left operand to the power of the
-right operand【369182417897566†L117-L133】.
+right operand.
 
 ## How to Use It
 
@@ -99,4 +99,4 @@ print("Perimeter:", perimeter)
 
 Variables store values and arithmetic operators perform calculations.  Use
 parentheses to control precedence and remember that `/` returns a float while
-`//` performs floor division【369182417897566†L111-L124】.
+`//` performs floor division.

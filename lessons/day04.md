@@ -11,15 +11,15 @@ values, use Boolean logic and convert between numeric types.
 Python supports several numeric types: integers (`int`), floating point
 numbers (`float`) and complex numbers.  Integers have unlimited precision and
 floats support fractional values.  Python also has a `bool` type, which is a
-subclass of `int` and can be either `True` or `False`【361933470286636†L126-L144】.
+subclass of `int` and can be either `True` or `False`.
 Anything with a non‑zero length or non‑zero numeric value is considered
 **truthy**; empty sequences (`''`, `[]`, `{}`, `set()`, `range(0)`) and the
-value `0` are considered **false**【361933470286636†L126-L144】.
+value `0` are considered **false**.
 
 Comparison operators `<`, `<=`, `>`, `>=`, `==` and `!=` compare values and
-return a Boolean result【158729984520153†L103-L138】.  You can chain comparisons
+return a Boolean result.  You can chain comparisons
 (e.g., `0 < x <= 5`) and combine them with Boolean operators `and`, `or` and
-`not`【158729984520153†L62-L99】 to build complex conditions.
+`not` to build complex conditions.
 
 ## How to Use It
 
@@ -71,7 +71,7 @@ an alarm when a temperature exceeds a set point or only process data if
 lists are non‑empty.  Understanding comparison operators and Boolean logic
 enables you to write these conditions correctly.  Knowing which values are
 truthy or falsey helps avoid surprises when using objects in `if` and `while`
-statements【361933470286636†L126-L144】.
+statements.
 
 ## Mini Examples
 
@@ -110,4 +110,4 @@ print(bool(user))      # True because non‑empty
 
 Python has multiple numeric types and a dedicated Boolean type.  Use
 comparison operators and Boolean logic to build conditions, and remember
-that empty sequences and zero values evaluate to `False`【361933470286636†L126-L144】.
+that empty sequences and zero values evaluate to `False`.

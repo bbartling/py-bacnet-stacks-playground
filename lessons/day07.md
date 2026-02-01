@@ -12,12 +12,12 @@ Python lists provide many methods for manipulating their contents.  The
 `append(x)` method adds a single item to the end; `extend(t)` concatenates
 another iterable; `insert(i, x)` inserts at a given index; `remove(x)`
 removes the first occurrence; `pop(i)` removes and returns the item at index
-`i` (defaulting to the last item) and `clear()` removes all items【499479381673287†L68-L156】.
+`i` (defaulting to the last item) and `clear()` removes all items.
 `index(x)` returns the index of the first occurrence and `count(x)` returns
 the number of times x appears.  `sort()` sorts the list in place and
-`reverse()` reverses the elements【499479381673287†L68-L156】.  These methods
+`reverse()` reverses the elements.  These methods
 modify the list and return `None` as a reminder that they act by side
-effect【499479381673287†L154-L156】.
+effect.
 
 ## How to Use It
 
@@ -70,7 +70,7 @@ example, you can build a list of discovered BACnet devices using
 `append()`, remove faulty entries with `remove()`, sort the list by instance
 number and create a copy for safe experimentation.  Understanding that
 methods modify the list and return `None` avoids mistakes when chaining
-operations【499479381673287†L154-L156】.
+operations.
 
 ## Mini Examples
 
@@ -109,5 +109,5 @@ print(ids)          # [3456790, 3456789, 123456]
 ## Key Takeaway
 
 Python lists provide many methods for adding, removing, searching, sorting and
-copying items【499479381673287†L68-L156】.  These methods modify the list
-in‑place and return `None` to emphasise their side effect【499479381673287†L154-L156】.
+copying items.  These methods modify the list
+in‑place and return `None` to emphasise their side effect.
