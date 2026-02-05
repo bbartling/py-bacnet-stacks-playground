@@ -1,5 +1,7 @@
 # Day 07 – List Operations & Methods
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Explore the rich set of operations available for Python lists.  By the end of
@@ -109,5 +111,10 @@ print(ids)          # [3456790, 3456789, 123456]
 ## Key Takeaway
 
 Python lists provide many methods for adding, removing, searching, sorting and
-copying items.  These methods modify the list
-in‑place and return `None` to emphasise their side effect.
+copying items.  These methods modify the list in‑place and return `None` to emphasise their side effect.
+
+---
+
+## Vibe Code Checkpoint 1 — Complete!
+
+By the end of today you should have a BAC0 app that can **read**, **write**, and **write null release**. Use a list to hold multiple read requests if you like, or build your address strings with f-strings. Demo on your test bench — your Python app should match scanner results. Next week: data collection and CSV logging!

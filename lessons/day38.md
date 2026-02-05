@@ -11,11 +11,11 @@ applications behave as expected.
 
 ## Concept
 
-Because BACnet/IP runs over UDP and uses a fixed port (47808)【875468702266391†L28-L30】,
+Because BACnet/IP runs over UDP and uses a fixed port (47808),
 you can capture all BACnet traffic by filtering on that port.  The
 Wireshark protocol guide notes that you cannot directly filter on
 BACnet while capturing; instead, “capture only the BACnet/IP traffic
-over the default port (47808)”【875468702266391†L75-L80】.  Tools like
+over the default port (47808)”.  Tools like
 `tcpdump` or Wireshark’s built‑in capture can write packet capture
 files (PCAP) that you can examine later.  Analysing captures helps
 diagnose network problems, verify message flow and identify port
@@ -31,7 +31,7 @@ conflicts.
    ```
    The script saves a PCAP file in the `pcaps/` directory and prints
    the filename.  It uses `tcpdump -i <iface> udp port 47808` to
-   capture only BACnet traffic【875468702266391†L75-L80】.
+   capture only BACnet traffic.
 
 2. **Capture on Windows or macOS with Wireshark** – Install
    [Wireshark](https://www.wireshark.org/) and select the network
@@ -61,7 +61,7 @@ Network issues are a common source of frustration in building
 automation.  Being able to capture and inspect BACnet/IP traffic
 quickly reveals misconfigured ports, devices that fail to respond and
 incorrect message sequences.  Knowing how to filter on the BACnet
-default port【875468702266391†L75-L80】 helps you isolate relevant traffic in
+default port helps you isolate relevant traffic in
 Wireshark.  By analysing PCAP files you can verify that your control
 algorithms are sending the expected requests and that the mini devices
 respond correctly.
@@ -93,7 +93,7 @@ respond correctly.
 ## Key Takeaway
 
 Wireshark and tcpdump are invaluable tools for diagnosing BACnet/IP
-networks.  Capture traffic on UDP port 47808【875468702266391†L75-L80】 to
+networks.  Capture traffic on UDP port 47808 to
 isolate BACnet messages, then analyse the packets to verify that
 devices and clients are communicating correctly.  Troubleshooting
 network issues early saves time and prevents subtle bugs in your

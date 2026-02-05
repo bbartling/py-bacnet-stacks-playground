@@ -11,13 +11,13 @@ statements and `while` loops.  You’ll also practise using `break` and
 An `if` statement evaluates a condition and executes the corresponding block
 of code if the condition is true.  You can chain multiple tests with
 `elif` (short for “else if”) and end with an optional `else` for the
-fall‑through case【361868988149850†L82-L101】.  A `while` loop executes its body
+fall‑through case.  A `while` loop executes its body
 repeatedly as long as its condition remains true.  In the Python tutorial, a
 `while` loop generates the Fibonacci series until the value of the variable
-`a` reaches 10【690482164421068†L593-L633】.
+`a` reaches 10.
 
 The `break` statement immediately exits the nearest loop, and `continue`
-skips the rest of the current iteration and proceeds to the next【361868988149850†L224-L259】.
+skips the rest of the current iteration and proceeds to the next.
 
 ## How to Use It
 
@@ -67,7 +67,7 @@ Conditionals let your program make decisions based on sensor values or
 configuration options.  `while` loops are useful when you don’t know how
 many iterations will be needed in advance—for example, reading lines from a
 file until you hit the end.  Understanding `break` and `continue` helps you
-control loops precisely and write efficient, readable code【361868988149850†L224-L259】.
+control loops precisely and write efficient, readable code.
 
 ## Mini Examples
 
@@ -109,6 +109,6 @@ while True:
 
 ## Key Takeaway
 
-Use `if`/`elif`/`else` to branch based on conditions【361868988149850†L82-L101】,
-`while` loops to repeat until a condition changes【690482164421068†L593-L633】,
-and `break` or `continue` to control loop execution【361868988149850†L224-L259】.
+Use `if`/`elif`/`else` to branch based on conditions,
+`while` loops to repeat until a condition changes,
+and `break` or `continue` to control loop execution.

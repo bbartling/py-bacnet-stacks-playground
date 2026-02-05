@@ -6,9 +6,9 @@ Improve your ability to work with sequences by practising **slicing** and review
 
 ### Concept
 
-**Slicing** allows you to extract a contiguous portion of a list or string using the syntax `seq[start:stop:step]`. Both `start` and `stop` are optional; negative indices count from the end. The Python tutorial shows that you can slice strings to obtain substrings and that strings and lists support indexing and slicing【126592705671557†L318-L426】. For example, `s[1:3]` returns characters at positions 1 and 2.
+**Slicing** allows you to extract a contiguous portion of a list or string using the syntax `seq[start:stop:step]`. Both `start` and `stop` are optional; negative indices count from the end. The Python tutorial shows that you can slice strings to obtain substrings and that strings and lists support indexing and slicing. For example, `s[1:3]` returns characters at positions 1 and 2.
 
-String formatting lets you build readable output. An **f‑string** is a string literal prefixed with `f` that contains expressions in curly braces, which are evaluated at runtime. The Input/Output section of the tutorial demonstrates that prefixing a string with `f` and embedding expressions like `{year}` produces formatted results【363542897074291†L73-L84】. You can also use the `format()` method or old‑style `%` formatting, but f‑strings are the most concise.
+String formatting lets you build readable output. An **f‑string** is a string literal prefixed with `f` that contains expressions in curly braces, which are evaluated at runtime. The Input/Output section of the tutorial demonstrates that prefixing a string with `f` and embedding expressions like `{year}` produces formatted results. You can also use the `format()` method or old‑style `%` formatting, but f‑strings are the most concise.
 
 ### How to Use It
 
@@ -56,4 +56,4 @@ Being comfortable with slicing lets you quickly extract or modify parts of seque
 
 ### Key Takeaway
 
-Slicing allows you to extract portions of sequences and reverse them easily【126592705671557†L318-L426】. F‑strings provide concise, readable string formatting for embedding variable values in output【363542897074291†L73-L84】.
+Slicing allows you to extract portions of sequences and reverse them easily. F‑strings provide concise, readable string formatting for embedding variable values in output.

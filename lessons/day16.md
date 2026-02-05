@@ -10,11 +10,11 @@ modules like `math` and `random` and write your own simple module.
 
 A **module** is a file containing Python definitions and statements.  The
 Python tutorial notes that modules allow you to split your program into
-several files and reuse functions in multiple programs【583691231774654†L61-L73】.
+several files and reuse functions in multiple programs.
 You import a module using the `import` statement.  This adds the module
 name to your program’s namespace; you can then access functions and
 variables with `module.name`.  A variant of the import statement allows
-you to import specific attributes directly into your namespace【583691231774654†L70-L121】.
+you to import specific attributes directly into your namespace.
 The standard library provides many useful modules for mathematics, random
 numbers, date/time, and more.
 
@@ -96,4 +96,4 @@ you leverage these capabilities immediately.
 
 Modules allow you to split your program into multiple files and reuse
 code.  You import standard modules like `math` and `random` to access
-additional functions, or write your own modules for your projects【583691231774654†L61-L73】.
+additional functions, or write your own modules for your projects.

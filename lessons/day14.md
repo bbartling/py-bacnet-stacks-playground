@@ -9,18 +9,18 @@ input, and control loop execution with `break` and `continue`.
 ### Concept
 
 Python’s `for` statement iterates over the items of a sequence, such as a
-list or string【361868988149850†L107-L124】.  You can nest loops to process
+list or string.  You can nest loops to process
 multi‑dimensional data (for example, iterating over rows and columns of a
 matrix).  A `while` loop runs until its condition becomes false; in many
 programs you don’t know in advance how many iterations are required.  The
 Fibonacci example in the tutorial demonstrates that a `while` loop continues
-as long as the condition remains true【690482164421068†L593-L633】.
+as long as the condition remains true.
 
 Sometimes you need an *indefinite loop* that repeatedly asks the user for
 input until they signal that they’re done.  Using `while True` creates an
 infinite loop; you exit it by calling `break` when a sentinel value is
 entered.  Python’s `break` statement exits the nearest enclosing loop and
-`continue` skips to the next iteration【361868988149850†L224-L259】.
+`continue` skips to the next iteration.
 
 ### How to Use It
 
@@ -88,4 +88,4 @@ versus equipment.
 
 Use nested loops to handle multi‑dimensional data and `while True` loops
 with a sentinel value to process input of unknown length.  `break`
-terminates a loop early, and `continue` skips to the next iteration【361868988149850†L224-L259】.
+terminates a loop early, and `continue` skips to the next iteration.

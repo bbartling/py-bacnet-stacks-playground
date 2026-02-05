@@ -6,7 +6,7 @@ Understand how to sort data in Python using the built‑in `sorted()` function a
 
 ### Concept
 
-Python’s `sorted()` function returns a new sorted list from the items in an iterable and accepts optional `key` and `reverse` arguments【329836770204326†L1876-L1894】. The `list.sort()` method sorts a list in place and has the same arguments. If you need to control the sort order (e.g., sort dictionaries by a nested value) you can pass a `key` function such as a lambda expression.
+Python’s `sorted()` function returns a new sorted list from the items in an iterable and accepts optional `key` and `reverse` arguments. The `list.sort()` method sorts a list in place and has the same arguments. If you need to control the sort order (e.g., sort dictionaries by a nested value) you can pass a `key` function such as a lambda expression.
 
 **Bubble sort** is a simple sorting algorithm that repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order. It continues until no swaps are needed. Bubble sort is inefficient for large lists (O(n²)), but implementing it helps you understand sorting.
 
@@ -67,4 +67,4 @@ Sorting is ubiquitous in data processing: you might sort rooms by area or temper
 
 ### Key Takeaway
 
-Use `sorted()` or `list.sort()` with optional `key` and `reverse` arguments to sort sequences efficiently【329836770204326†L1876-L1894】. Implementing simple algorithms like bubble sort helps you understand the mechanics behind sorting and appreciate the efficiency of Python’s built‑ins.
+Use `sorted()` or `list.sort()` with optional `key` and `reverse` arguments to sort sequences efficiently. Implementing simple algorithms like bubble sort helps you understand the mechanics behind sorting and appreciate the efficiency of Python’s built‑ins.

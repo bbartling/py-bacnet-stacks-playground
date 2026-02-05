@@ -10,7 +10,7 @@ maintain.
 ### Concept
 
 Documentation comes in two main forms: **comments** and **docstrings**.
-Comments start with `#` and continue to the end of the line【369182417897566†L67-L82】; they
+Comments start with `#` and continue to the end of the line; they
 explain the *why* behind your code.  A docstring is a string literal
 that appears as the first statement in a module, function, class or
 method.  Python stores the docstring in the object’s `__doc__`
@@ -89,4 +89,4 @@ good documentation reduces bugs and accelerates onboarding.
 Comments and docstrings explain *why* and *how* your code works.  Use
 `help()` to explore modules and functions and check your own
 docstrings.  Clear documentation makes your code more maintainable and
-user‑friendly【369182417897566†L67-L82】.
+user‑friendly.

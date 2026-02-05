@@ -6,7 +6,7 @@ Practise simple algorithms on strings, including concatenation, splitting, joini
 
 ### Concept
 
-Python strings support many operations: `split()` divides a string into words and returns a list【158729984520153†L1646-L1679】; `join()` concatenates an iterable of strings using the string as a separator【361933470286636†L2326-L2339】; `strip()` removes leading/trailing characters【158729984520153†L1769-L1790】; and `lower()` returns a lowercase copy【361933470286636†L2362-L2369】. You can reverse a string by slicing `s[::-1]`. A string is a **palindrome** if it reads the same forwards and backwards (ignoring case and non‑alphanumeric characters).
+Python strings support many operations: `split()` divides a string into words and returns a list; `join()` concatenates an iterable of strings using the string as a separator; `strip()` removes leading/trailing characters; and `lower()` returns a lowercase copy. You can reverse a string by slicing `s[::-1]`. A string is a **palindrome** if it reads the same forwards and backwards (ignoring case and non‑alphanumeric characters).
 
 ### How to Use It
 
@@ -63,4 +63,4 @@ String manipulation is fundamental to programming. You’ll often parse CSV line
 
 ### Key Takeaway
 
-String methods like `split()`, `join()`, `strip()` and `lower()` are powerful tools for manipulating text【158729984520153†L1646-L1679】【361933470286636†L2326-L2339】. You can reverse strings with slicing and implement simple algorithms like palindrome detection with just a few lines of code.
+String methods like `split()`, `join()`, `strip()` and `lower()` are powerful tools for manipulating text. You can reverse strings with slicing and implement simple algorithms like palindrome detection with just a few lines of code.

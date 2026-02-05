@@ -14,24 +14,24 @@ When running IoT edge tasks – such as scraping BACnet sensor values into a
 CSV file – you need a way to keep the program alive across reboots and
 recover automatically if it crashes.  On most Linux distributions the
 **systemd** init system manages services.  To use systemd you create a
-small configuration file in `/etc/systemd/system/`【113913917272701†L105-L126】
+small configuration file in `/etc/systemd/system/`
 rather than `/lib/systemd/system/`.  Local modifications belong in
-`/etc/systemd/system/`【113913917272701†L105-L126】.  Each service file has
+`/etc/systemd/system/`.  Each service file has
 three sections:
 
 * **[Unit]** – describes the service and when it should start; use
   `After=multi‑user.target` so the service runs once the system is up.
 * **[Service]** – defines how to start your script with `ExecStart`, which user
   should run it, and how to handle restarts.  The `Restart` directive
-  controls what happens when the process ends【113913917272701†L218-L252】.  Common
-  values include `no`, `on‑success`, `on‑failure` and `always`【113913917272701†L218-L252】.
+  controls what happens when the process ends.  Common
+  values include `no`, `on‑success`, `on‑failure` and `always`.
   Setting `Restart=always` and optionally `RestartSec=60` tells systemd
-  to relaunch your script 60 seconds after it exits【113913917272701†L218-L252】.
+  to relaunch your script 60 seconds after it exits.
 * **[Install]** – tells systemd when to start the service; typically
   `WantedBy=multi‑user.target` so it starts at boot.
 
 After creating the service file you reload the systemd daemon and enable
-the service so it starts automatically【113913917272701†L303-L321】.  You can
+the service so it starts automatically.  You can
 manually start, stop and check status with `systemctl start/stop/status`.
 
 ## How to Use It
@@ -80,8 +80,8 @@ manually start, stop and check status with `systemctl start/stop/status`.
    ```
 
    This file lives in `/etc/systemd/system/` because it is a local
-   modification【113913917272701†L105-L126】.  It tells systemd to run your
-   script using Python, restart it unconditionally【113913917272701†L218-L252】 and
+   modification.  It tells systemd to run your
+   script using Python, restart it unconditionally and
    start it once the system reaches the multi‑user target.
 
 3. **Apply permissions** – Make the service file readable by all and
@@ -101,7 +101,7 @@ manually start, stop and check status with `systemctl start/stop/status`.
    ```
 
    The `daemon-reload` and `enable` commands tell systemd to pick up
-   changes and start the service automatically on boot【113913917272701†L303-L321】.
+   changes and start the service automatically on boot.
 
 5. **Monitor the service** – Use the following commands to manage and
    troubleshoot your scraper:
@@ -113,23 +113,23 @@ manually start, stop and check status with `systemctl start/stop/status`.
 
 6. **Test recovery** – Kill your scraper process or simulate a crash.
    Systemd should restart it automatically after `RestartSec` seconds
-   because you set `Restart=always`【113913917272701†L218-L252】.
+   because you set `Restart=always`.
 
 ## Why This Matters
 
 In real building automation systems, edge devices continuously collect
 data and must run reliably for years.  The systemd init system is
 designed to manage services and recover them if they exit.  By
-creating a service unit file in `/etc/systemd/system/`【113913917272701†L105-L126】,
+creating a service unit file in `/etc/systemd/system/`,
 you ensure that your Python scraper starts when your Raspberry Pi
 boots, runs under the correct user, and restarts automatically if it
-fails【113913917272701†L218-L252】.  This avoids manual re‑launching and
+fails.  This avoids manual re‑launching and
 prevents lost data during outages.
 
 ## Mini Examples
 
 * Use `systemctl is-enabled csv-scraper.service` to verify that the
-  service is enabled at boot【113913917272701†L373-L381】.
+  service is enabled at boot.
 * Change `RestartSec` to 10 and observe how quickly the service
   restarts after you kill the process.
 * Modify `ExecStart` to pass additional arguments (e.g., a device
@@ -149,7 +149,7 @@ prevents lost data during outages.
 ## Key Takeaway
 
 Systemd is the standard Linux service manager.  By placing your
-service file in `/etc/systemd/system/`【113913917272701†L105-L126】 and using
-`Restart=always`【113913917272701†L218-L252】, you can turn a simple Python script
+service file in `/etc/systemd/system/` and using
+`Restart=always`, you can turn a simple Python script
 into a robust IoT edge service that starts on boot and recovers from
 failures automatically.

@@ -20,13 +20,13 @@ examines each element in turn until it finds a match or reaches the end.
 
 For loops in Python iterate over the items of any sequence, which makes it
 easy to implement a search.  The official tutorial notes that
-`for` “loops can iterate over the items of any sequence”【361868988149850†L107-L124】,
+`for` “loops can iterate over the items of any sequence”,
 and you can combine this with the `range()` function, which yields a
-sequence of indices from `0` to `n − 1`【361868988149850†L146-L207】, to track
+sequence of indices from `0` to `n − 1`, to track
 positions.  You will also need the `len()` function, which returns the
-number of items in a sequence【126592705671557†L436-L442】, to know when to stop.
+number of items in a sequence, to know when to stop.
 
-Although dictionaries support membership testing on their keys【972561048532027†L550-L566】,
+Although dictionaries support membership testing on their keys,
 the same `in` operator works for lists and strings as well.  Remember that
 searching through a list or a long string manually takes time proportional
 to the length of the sequence.  For small lists the cost is minimal, but
@@ -49,7 +49,7 @@ understanding the process helps you appreciate how algorithms work.
    each element:
    ```python
    def linear_search(lst, target):
-       for i in range(len(lst)):         # iterate over index positions【361868988149850†L146-L207】
+       for i in range(len(lst)):         # iterate over index positions
            if lst[i] == target:
                return i                  # return the index of the match
        return -1                         # return -1 if not found
@@ -113,5 +113,5 @@ print(linear_search([10, 20, 30], 20))  # → 1
 The `in` operator offers a simple way to check whether a value exists in
 strings, lists and other containers.  When you need more control, such as
 finding the position of a match, you can implement a linear search using a
-`for` loop and the `range()` function【361868988149850†L146-L207】.  These
+`for` loop and the `range()` function.  These
 techniques form the foundation of more sophisticated search algorithms.

@@ -11,10 +11,10 @@ to access both index and value.
 
 In Python the `for` statement iterates over the items of any sequence such as
 a list or a string.  In the tutorial, a `for` loop prints each word and its
-length from a list【361868988149850†L107-L124】.  The built‑in `range()`
+length from a list.  The built‑in `range()`
 function returns an iterable sequence of numbers which can be used in loops.
 `range(n)` produces numbers from `0` up to but not including `n`, and you can
-provide a start and step to control the sequence【361868988149850†L146-L207】.
+provide a start and step to control the sequence.
 
 ## How to Use It
 
@@ -67,7 +67,7 @@ provide a start and step to control the sequence【361868988149850†L146-L207�
 Iterating over sequences lets you perform operations on each element of a
 collection—vital for tasks such as printing sensor names, computing average
 temperatures or generating tables.  The `range()` function gives you control
-over numeric loops and is used in many algorithms【361868988149850†L146-L207】.
+over numeric loops and is used in many algorithms.
 
 ## Mini Examples
 
@@ -100,4 +100,4 @@ for ch in name:
 
 `for` loops iterate over sequences and `range()` generates arithmetic
 progressions.  These constructs let you process lists, strings and numbers
-cleanly【361868988149850†L107-L124】【361868988149850†L146-L207】.
+cleanly.

@@ -3,7 +3,7 @@
 ### Goal
 
 Write your own functions to find the **minimum** and **maximum** values
-in a list.  Although Python provides `min()` and `max()`【329836770204326†L1277-L1294】【329836770204326†L1306-L1316】,
+in a list.  Although Python provides `min()` and `max()`,
 implementing these functions yourself reinforces your understanding of
 scanning algorithms.
 
@@ -75,5 +75,5 @@ for more complex comparisons (e.g., based on multiple attributes).
 
 Manual min/max functions initialise an accumulator and update it when a
 smaller or larger element is found.  Although Python’s `min()` and
-`max()` functions automate this process【329836770204326†L1277-L1294】【329836770204326†L1306-L1316】,
+`max()` functions automate this process,
 implementing the algorithm yourself improves algorithmic thinking.

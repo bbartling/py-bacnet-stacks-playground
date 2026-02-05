@@ -24,7 +24,7 @@ device exposes four objects:
   off).
 
 Running the script starts a BACnet/IP server bound to UDP port 47808—the
-default BACnet port【875468702266391†L28-L30】—so ensure no other BACnet
+default BACnet port—so ensure no other BACnet
 applications are running.  The server updates the read‑only values every
 few seconds.  You can then connect using another BACpypes 3 script to
 read and write properties.
@@ -121,7 +121,13 @@ programming fundamentals and real‑world HVAC control.
 ## Key Takeaway
 
 By running a miniature BACnet server and controlling its commandable
-points, you get hands‑on experience with building automation concepts and
-practise writing algorithms that respond to real‑time data.  This
+points, you get hands-on experience with building automation concepts and
+practise writing algorithms that respond to real-time data. This
 exercise strengthens your understanding of Python loops, conditionals
 and network I/O in a practical HVAC context.
+
+---
+
+## Vibe Code Checkpoint 5 (Week 5 / Bonus)
+
+Run the **mini-device-revisited** and **mini-schedule-calendar-device** scripts. Write simple control logic against commandable points — e.g. read analogValue,1 and write to binaryValue,2 based on a threshold. Day 37 adds the schedule/calendar device for occupancy and holiday logic. These are the BACnet server patterns you'll use in the final project.

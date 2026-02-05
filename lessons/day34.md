@@ -15,15 +15,15 @@ Aggregating data means combining multiple values into a single result,
 such as adding up temperatures to get a total or computing their average.
 In Python you can write a loop that accumulates a running total and
 divides by the length of the list to compute the **mean**.  The `len()`
-function returns the number of items in a sequence【126592705671557†L436-L442】,
+function returns the number of items in a sequence,
 so you can use it to avoid hard‑coding the length.
 
 Finding the minimum and maximum values is even easier with the
 built‑in functions `min()` and `max()`, which return the smallest and
-largest items from an iterable or a sequence【329836770204326†L1277-L1294】.
+largest items from an iterable or a sequence.
 To compute a **median** you need to sort the list first: the `sorted()`
 function returns a new list containing all the items in ascending order
-and guarantees a stable sort【329836770204326†L1876-L1894】.  For an odd
+and guarantees a stable sort.  For an odd
 number of items the median is the middle value; for an even number you
 typically average the two middle values.
 
@@ -36,7 +36,7 @@ typically average the two middle values.
    total = 0
    for t in temperatures:
        total += t
-   average = total / len(temperatures)      # len() returns number of items【126592705671557†L436-L442】
+   average = total / len(temperatures)      # len() returns number of items
    print(f"Average temperature = {average:.2f}")
    ```
 
@@ -47,15 +47,15 @@ typically average the two middle values.
    any iterable:
    ```python
    points = [13, 7, 19, 3]
-   print(min(points))   # → 3【329836770204326†L1277-L1294】
-   print(max(points))   # → 19【329836770204326†L1277-L1294】
+   print(min(points))   # → 3
+   print(max(points))   # → 19
    ```
 
 3. **Compute the median** — Sort the list then select the middle value(s):
    ```python
    def median(data):
        n = len(data)
-       sorted_data = sorted(data)           # returns new sorted list【329836770204326†L1876-L1894】
+       sorted_data = sorted(data)           # returns new sorted list
        mid = n // 2
        if n % 2 == 1:
            return sorted_data[mid]
@@ -71,8 +71,8 @@ typically average the two middle values.
 Engineers frequently need to summarise large sets of data, such as sensor
 readings or energy consumption.  Calculating the sum, mean and median
 provides insight into central tendencies and helps identify outliers.  Using
-built‑in functions like `min()`, `max()`【329836770204326†L1277-L1294】 and
-`sorted()`【329836770204326†L1876-L1894】 reduces the chance of errors and keeps
+built‑in functions like `min()`, `max()` and
+`sorted()` reduces the chance of errors and keeps
 your code concise.
 
 ## Mini Examples
@@ -117,8 +117,8 @@ print('Original list remains:', pressures)
 ## Key Takeaway
 
 Aggregating numeric data helps you understand the overall behaviour of a
-system.  Use loops and `len()`【126592705671557†L436-L442】 to compute averages,
-built‑ins `min()` and `max()` to find extremes【329836770204326†L1277-L1294】,
-and `sorted()`【329836770204326†L1876-L1894】 to prepare data for median
+system.  Use loops and `len()` to compute averages,
+built‑ins `min()` and `max()` to find extremes,
+and `sorted()` to prepare data for median
 calculations.  These patterns are the basis for more advanced statistical
 analysis.

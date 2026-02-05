@@ -13,9 +13,9 @@ pairs.  Keys must be immutable types such as strings, numbers or tuples.
 You create a dictionary using braces `{}` or the `dict()` constructor.  Access
 and update values using square‑bracket indexing: `d[key] = value`.  Trying
 to access a non‑existent key raises a `KeyError`; to avoid this, use
-`get(key, default)` which returns a default if the key is missing【972561048532027†L550-L566】.
-The `in` operator tests whether a dictionary contains a given key【972561048532027†L550-L566】.  The
-function `list(d)` returns a list of the dictionary’s keys【972561048532027†L550-L566】.
+`get(key, default)` which returns a default if the key is missing.
+The `in` operator tests whether a dictionary contains a given key.  The
+function `list(d)` returns a list of the dictionary’s keys.
 
 ## How to Use It
 
@@ -43,7 +43,7 @@ function `list(d)` returns a list of the dictionary’s keys【972561048532027�
    ```
 
 4. **Handle missing keys.**  Use `get()` with a default to avoid exceptions
-   when a key isn’t present【972561048532027†L550-L566】:
+   when a key isn’t present:
 
    ```python
    priority = device.get('priority', 16)  # returns 16 if no priority key
@@ -61,7 +61,7 @@ Dictionaries are ideal for representing structured data such as BACnet
 device objects where each point has a name, instance number and value.
 Unlike lists, dictionaries provide constant‑time lookups by key.  Using
 `get()` instead of indexing helps avoid crashes when optional metadata is
-missing【972561048532027†L550-L566】.
+missing.
 
 ## Mini Examples
 
@@ -100,4 +100,4 @@ print('instance' in point)  # True
 
 Dictionaries store key–value pairs and provide fast lookups.  Use `d[key]`
 to get or set values, `get(key, default)` to handle missing keys and the
-`in` operator to test for membership【972561048532027†L550-L566】.
+`in` operator to test for membership.

@@ -1,5 +1,7 @@
 # Day 01 – Installing Python & Pip (BACnet Ready)
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Set up your development environment by installing Python and pip, then verify that everything works **including installing BACnet libraries**. By the end of this lesson you’ll be able to run:

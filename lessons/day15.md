@@ -6,7 +6,7 @@ Learn how to encapsulate code into **functions**. Functions let you organise rep
 
 ### Concept
 
-A function is defined using the `def` keyword followed by the function name, parentheses enclosing any parameters, and a colon. The body of the function must be indented. You can include a **docstring** (a string literal on the first line of the body) to describe what the function does. Functions return `None` by default, but you can use the `return` statement to send a value back to the caller. The Python tutorial explains that defining functions creates a new local scope and parameters are passed by assignment; if no `return` is executed, the function returns `None`【361868988149850†L540-L624】.
+A function is defined using the `def` keyword followed by the function name, parentheses enclosing any parameters, and a colon. The body of the function must be indented. You can include a **docstring** (a string literal on the first line of the body) to describe what the function does. Functions return `None` by default, but you can use the `return` statement to send a value back to the caller. The Python tutorial explains that defining functions creates a new local scope and parameters are passed by assignment; if no `return` is executed, the function returns `None`.
 
 ### How to Use It
 
@@ -61,4 +61,4 @@ Functions let you divide a program into reusable blocks, which makes maintenance
 
 ### Key Takeaway
 
-Use `def` to define functions with optional parameters and docstrings. Return values with `return` when needed. Functions provide reusable building blocks and separate logic into manageable pieces【361868988149850†L540-L624】.
+Use `def` to define functions with optional parameters and docstrings. Return values with `return` when needed. Functions provide reusable building blocks and separate logic into manageable pieces.

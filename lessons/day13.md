@@ -8,7 +8,7 @@ Understand two additional built‑in container types—**tuples** and **sets**�
 
 A **tuple** is an ordered, immutable sequence of values. Unlike lists, tuples cannot be modified after creation (you can’t append or assign to an index). Tuples are created by separating items with commas, and parentheses are optional in most contexts. Tuples are useful when the number and order of elements should not change—for example, representing a point in 2‑D space or a date as `(year, month, day)`. Python’s `tuple()` function can also convert other iterables into a tuple.
 
-A **set** is an unordered collection of *unique* elements. Sets are created with curly braces `{}` or by calling `set()` with an iterable. Unlike lists, sets automatically remove duplicates and support efficient membership tests and mathematical operations like union, intersection and difference. The data structures chapter of the Python tutorial notes that *sets are unordered collections with no duplicate elements* and can be created using braces or the `set()` constructor【972561048532027†L483-L518】.
+A **set** is an unordered collection of *unique* elements. Sets are created with curly braces `{}` or by calling `set()` with an iterable. Unlike lists, sets automatically remove duplicates and support efficient membership tests and mathematical operations like union, intersection and difference. The data structures chapter of the Python tutorial notes that *sets are unordered collections with no duplicate elements* and can be created using braces or the `set()` constructor.
 
 ### How to Use It
 
@@ -70,4 +70,4 @@ Tuples and sets are lightweight alternatives to lists and dictionaries for simpl
 
 ### Key Takeaway
 
-Tuples group a fixed number of values in order and cannot be changed, while sets hold unordered unique elements and support fast membership tests and set operations【972561048532027†L483-L518】.
+Tuples group a fixed number of values in order and cannot be changed, while sets hold unordered unique elements and support fast membership tests and set operations.

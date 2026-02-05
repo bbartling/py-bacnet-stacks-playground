@@ -10,15 +10,15 @@ case.  By the end of this lesson you’ll be able to use `split()`,
 
 Python’s string objects provide many useful methods for common text
 operations.  The `str.split()` method returns a list of words in the string,
-using an optional separator to determine where to split【158729984520153†L1646-L1679】.
+using an optional separator to determine where to split.
 If no separator is provided, runs of whitespace are treated as a single
-separator and empty results are suppressed【158729984520153†L1666-L1679】.  The
+separator and empty results are suppressed.  The
 `str.join()` method performs the inverse operation: it concatenates the
 strings in an iterable, inserting the string it is called on between
-elements and returning the result【361933470286636†L2326-L2339】.  The
+elements and returning the result.  The
 `str.strip()` method removes leading and trailing characters (defaulting to
-whitespace)【158729984520153†L1769-L1790】, and `str.lower()` returns a copy of
-the string with all cased characters converted to lowercase【361933470286636†L2362-L2369】.
+whitespace), and `str.lower()` returns a copy of
+the string with all cased characters converted to lowercase.
 
 ## How to Use It
 
@@ -59,8 +59,10 @@ the string with all cased characters converted to lowercase【361933470286636†
    ```python
    raw = '  SENSOR1;SENSOR2;SENSOR3  '
    sensors = raw.strip().split(';')
-   sensors = [s.lower() for s in sensors]
-   result = ', '.join(sensors)  # 'sensor1, sensor2, sensor3'
+   lower_sensors = []
+   for s in sensors:
+       lower_sensors.append(s.lower())
+   result = ', '.join(lower_sensors)  # 'sensor1, sensor2, sensor3'
    ```
 
 ## Why This Matters
@@ -103,7 +105,7 @@ print(normalized)  # 'boiler'
 
 ## Key Takeaway
 
-Use `split()` to break a string into parts【158729984520153†L1646-L1679】,
-`join()` to concatenate an iterable of strings with a separator【361933470286636†L2326-L2339】,
-`strip()` to remove leading and trailing characters【158729984520153†L1769-L1790】,
-and `lower()` to normalise case【361933470286636†L2362-L2369】.
+Use `split()` to break a string into parts,
+`join()` to concatenate an iterable of strings with a separator,
+`strip()` to remove leading and trailing characters,
+and `lower()` to normalise case.

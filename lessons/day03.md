@@ -1,5 +1,7 @@
 # Day 03 – Working with Strings
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Understand how to create, manipulate and inspect text (strings) in Python.  By
@@ -103,50 +105,11 @@ print(cfg_path)
 ## Key Takeaway
 
 Strings are sequences of characters.  Use quotes to create them, `+` and
-`*` to concatenate and repeat them, and slicing to extract substrings
-.  The `len()` function returns the length of a
-string.
+`*` to concatenate and repeat them, and slicing to extract substrings.
+The `len()` function returns the length of a string.
 
+---
 
-## Py Code App so far
+## Vibe Code Checkpoint 1 (Week 1)
 
-```python
-
-
-
-
-"""
-192.168.204.12
-
-3456790
-analog-input,1
-"""
-
-import BAC0
-import asyncio
-
-
-
-address = "192.168.204.12"
-obj_typpe = "analog-input"
-point_addr = "2"
-
-
-async def main():
-    bacnet = BAC0.lite()
-    
-    request = f"{address} {obj_typpe} {point_addr} present-value"
-    sensor = await bacnet.read(request)
-
-    desc = f"{address} {obj_typpe} {point_addr} description"
-    desc_final = await bacnet.read(desc)
-
-    units = f"{address} {obj_typpe} {point_addr} units"
-    units_final = await bacnet.read(units)
-
-    print(f"The sensor reading is {sensor:.2f} {units_final} for the {desc_final}.")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-
-```
+Your BAC0 app uses **f-strings** to build address requests: `f"{address} {obj_type} {point_addr} present-value"`. String concatenation and formatting are how you assemble BACnet object references in Python — BAC0 handles the rest.

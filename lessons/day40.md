@@ -17,11 +17,11 @@ when the process exits by supplying a **restart policy**.  The
 official Docker documentation lists several options for the
 `--restart` flag: `no` (don’t automatically restart),
 `on‑failure[:max-retries]` (restart on error), `always` (restart the
-container if it stops) and `unless‑stopped`【596820571461369†L920-L941】.  Using
+container if it stops) and `unless‑stopped`.  Using
 `always` or `unless‑stopped` ensures that your scraper restarts after
-a crash or after the Docker daemon restarts【596820571461369†L920-L941】.  You
+a crash or after the Docker daemon restarts.  You
 should not combine Docker restart policies with host‑level process
-managers like systemd to avoid conflicts【596820571461369†L1034-L1043】.
+managers like systemd to avoid conflicts.
 
 ## How to Use It
 
@@ -74,7 +74,7 @@ managers like systemd to avoid conflicts【596820571461369†L1034-L1043】.
    ```
 
    The `--restart unless-stopped` option tells Docker to restart the
-   container if it stops, except when you explicitly stop it【596820571461369†L920-L941】.
+   container if it stops, except when you explicitly stop it.
    Using a volume (`-v`) maps the container’s `/app/data` directory to
    `~/data` on the host so your CSV logs persist.  You can inspect
    running containers with `docker ps` and view logs with
@@ -108,13 +108,13 @@ managers like systemd to avoid conflicts【596820571461369†L1034-L1043】.
    the container.  When using `unless-stopped`, it will not restart
    until the host reboots or you run `docker start csv-scraper`.  To
    change the restart policy for an existing container, use
-   `docker update --restart always csv-scraper`【596820571461369†L920-L941】.
+   `docker update --restart always csv-scraper`.
 
 ## Why This Matters
 
 Containers provide an easy way to deploy the same scraping code on any
 host without worrying about dependencies.  Docker’s restart policies
-allow your application to recover from failures automatically【596820571461369†L920-L941】,
+allow your application to recover from failures automatically,
 making it suitable for unattended operation in industrial and
 building‑automation environments.  Using Compose you can describe
 multiple services (e.g. a scraper, a database and a web UI) in a
@@ -147,6 +147,6 @@ single file and ensure they all start with the correct policies.
 Docker’s `--restart` flag and Compose’s `restart` option let you
 deploy your Python scraper as a self‑healing service.  The
 `always` and `unless-stopped` policies cause the container to restart
-after crashes and host reboots【596820571461369†L920-L941】, providing
+after crashes and host reboots, providing
 production‑ready reliability without relying on host‑level process
-managers【596820571461369†L1034-L1043】.
+managers.

@@ -1,5 +1,7 @@
 # Day 02 – Variables & Arithmetic
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Learn how to store values in variables and perform arithmetic operations.  By

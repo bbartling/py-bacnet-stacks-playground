@@ -1,5 +1,7 @@
 # Day 06 – Introducing Lists
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Learn how to work with Python’s list data type.  By the end of this lesson

@@ -13,11 +13,11 @@ When a Python statement causes an error during execution, an **exception**
 is raised.  Exceptions are not always fatal; you can handle them to
 recover from errors.  The Python tutorial shows a pattern where a
 `while` loop repeatedly prompts the user for input until a valid
-integer is entered【733975047827136†L135-L149】.  Within a `try` block you
+integer is entered.  Within a `try` block you
 place code that might fail.  If an exception occurs, execution jumps to
 the corresponding `except` block.  The tutorial explains that the
 `try` clause executes first; if an exception occurs and matches the
-`except` clause, the handler runs and the loop continues【733975047827136†L135-L166】.
+`except` clause, the handler runs and the loop continues.
 
 ### How to Use It
 
@@ -86,4 +86,4 @@ when scripts need to run unattended on controllers or servers.
 Use `try`/`except` blocks to catch and handle exceptions.  Place code
 that might fail in the `try` block and catch specific exceptions in
 `except` clauses.  This allows your program to recover gracefully from
-errors【733975047827136†L135-L166】.
+errors.

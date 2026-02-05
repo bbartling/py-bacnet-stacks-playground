@@ -10,9 +10,9 @@ exception handling.
 
 ### Concept
 
-In the previous days you learned how to define functions【361868988149850†L540-L624】,
-import modules【583691231774654†L61-L73】, read and write files【363542897074291†L362-L378】 and
-handle errors with `try`/`except`【733975047827136†L135-L166】.  Today you’ll combine
+In the previous days you learned how to define functions,
+import modules, read and write files and
+handle errors with `try`/`except`.  Today you’ll combine
 those skills.  The project asks you to read a CSV file of sensor
 readings, compute statistics using functions, and gracefully handle
 missing files or bad data.
@@ -55,14 +55,20 @@ into small steps—reading data, processing it and reporting results.
 
 1. Extend your script to compute not only the average but also the
    minimum and maximum values using loops or Python’s `min()` and
-   `max()` built‑ins【329836770204326†L1277-L1294】.
+   `max()` built‑ins.
 2. Modify `read_data()` to skip lines that don’t contain a comma.
 3. Split your script into a module with the functions and a separate
    file that imports the module and calls the functions.  Run both
    files.
 
-### Key Takeaway
+## Key Takeaway
 
 Pulling together functions, modules, file I/O and error handling lets
-you build useful scripts.  Practice reading data, processing it and
+you build useful scripts. Practice reading data, processing it and
 handling problems gracefully to prepare for more advanced modelling tasks.
+
+---
+
+## Vibe Code Checkpoint 3 (Week 3–4)
+
+Your **bacpypes3** app should do the same as Checkpoint 1 (read, write, write null release) but using raw BACpypes instead of BAC0. Use `Application.from_args()`, `read_property()`, and `write_property()`. Build your requests with `ReadPropertyRequest` and `WritePropertyRequest`. The BACpypes3 docs and samples show the pattern — you vibe code it on YouTube!

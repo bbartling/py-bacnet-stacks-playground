@@ -15,8 +15,8 @@ instructions and produce output.  They can be described in natural
 language, pseudocode or implemented in code.  In this final week you’ll
 learn some classic algorithms—linear search, min/max, counting and
 simple sorting—that operate on lists of values.  Although Python
-provides built‑in functions like `min()`, `max()`【329836770204326†L1277-L1294】【329836770204326†L1306-L1316】 and
-`sorted()`【329836770204326†L1876-L1894】, understanding how they work will make you a
+provides built‑in functions like `min()`, `max()` and
+`sorted()`, understanding how they work will make you a
 better programmer.
 
 ### How to Use It
@@ -60,4 +60,4 @@ measurements; algorithmic thinking helps you design these routines.
 
 An algorithm is a finite sequence of instructions for solving a problem.
 Knowing basic algorithms prepares you to analyse and manipulate data
-without always relying on built‑in functions【329836770204326†L1277-L1294】【329836770204326†L1876-L1894】.
+without always relying on built‑in functions.

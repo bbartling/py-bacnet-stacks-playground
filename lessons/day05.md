@@ -1,5 +1,7 @@
 # Day 05 – User Input & Output
 
+*Part I: Fundamentals | Week 1*
+
 ## Goal
 
 Learn how to interact with users by reading input from the keyboard and
@@ -97,3 +99,17 @@ print(f'Hello, {name}! Welcome to the Python mini challenge.')
 Use `input()` to read a line of text from the user,
 convert it to the appropriate type, and display results with f‑strings for
 clear formatting.
+
+---
+
+## Vibe Code Checkpoint 1 (Week 1 Goal)
+
+By the end of Week 1 you will vibe code a **BAC0 app** that can:
+
+1. **Read** — Read `present-value`, `description`, and `units` from an analog-input (or similar) on your test bench.
+2. **Write** — Write a value to a writable point (e.g. analog-value or binary-value).
+3. **Write Null Release** — Write null to a priority to release a command.
+
+**Ideas to try:** Use `BAC0.start()` or `BAC0.lite()` with `async with`. Build your address string as `"{ip} {object-type} {instance} property-name"`. Use `bacnet.read()` and `bacnet.write()`. For write null release, check BAC0 docs for how to write `null` to a priority. Demo on your test bench with a scanner or BACnet tool — your Python app should match the same results.
+
+*No full app code here — you vibe code it on YouTube!*
