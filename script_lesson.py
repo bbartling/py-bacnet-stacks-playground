@@ -1,10 +1,16 @@
 
 
 
+"""
 
-#  (1 inch = 2.54 cm)
+Combine split() and join() to reverse the order of words in a sentence.
+
+"""
 
 
-color = input('Enter Color ')
 
-print(f"{color} - " * 2 + color)
+line = 'and observe the empty strings in the result'
+fields = line.split()
+fields.reverse()
+final = " ".join(fields)
+print(final)

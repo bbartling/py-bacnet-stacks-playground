@@ -1,80 +1,51 @@
 import asyncio
 import BAC0
 
-address = "192.168.204.12"
-obj_type = "analog-input"
-point_addr = "1"
+"""
+BACnet read on a bacnet.read
+<addr> <obj> <inst> <prop> <value>
 
-HIGH_ALARM = 80.0
-WARNING = 75.0
+BACnet write notes on a bacnet._write
+<addr> <obj> <inst> <prop> <value> - <priority>
+"""
 
+DEVICE_IP = "192.168.204.12"
+
+READ_OBJ_TYPE = "analog-input"
+READ_INSTANCE = "1"
+
+WRITE_OBJ_TYPE = "analog-output"
+WRITE_INSTANCE = "1"
 
 async def main():
     async with BAC0.start(ping=False) as bacnet:
+        await asyncio.sleep(1)
 
-        await asyncio.sleep(1)  # small settle time
+        """ONLY for demo purposes dont execute a WHOIS in production scraping
+        It is a global request and can conjest networks
+        ONLY conduct WHO-IS less than a once an hour interval"""
+        devices = await bacnet.who_is(low_limit=1, high_limit=3456800, timeout=5)
 
-        # -------------------------
-        # WHO-IS discovery first
-        # -------------------------
-        print("Starting whois discovery...")
+        for d in devices:
+            src = str(getattr(d, "pduSource", "")).split(":")[0]
+            dev = getattr(d, "iAmDeviceIdentifier", None)  # usually ('device', instance)
+            print("Device IP Address: ", src, " - Instance ID: ", dev[1])
 
-        devices = await bacnet.who_is()
+        sensor = await bacnet.read(f"{DEVICE_IP} {READ_OBJ_TYPE} {READ_INSTANCE} present-value")
+        print("sensor:", sensor)
 
-        device_mapping = {}
+        before = await bacnet.read(f"{DEVICE_IP} {WRITE_OBJ_TYPE} {WRITE_INSTANCE} present-value")
+        print("writing_point before:", before)
 
-        for device in devices:
-            if isinstance(device, tuple):
-                addr, dev_id = device
-                device_mapping[dev_id] = addr
-                print(f"Detected device {dev_id} with address {addr}")
+        await bacnet._write(f"{DEVICE_IP} {WRITE_OBJ_TYPE} {WRITE_INSTANCE} present-value 88.0 - 10")
 
-        print(device_mapping)
-        print(f"{len(device_mapping)} devices discovered on network.\n")
+        after = await bacnet.read(f"{DEVICE_IP} {WRITE_OBJ_TYPE} {WRITE_INSTANCE} present-value")
+        print("writing_point after:", after)
 
-        # -------------------------
-        # Now your original reads
-        # -------------------------
-        sensor = await bacnet.read(
-            f"{address} {obj_type} {point_addr} present-value"
-        )
+        await bacnet._write(f"{DEVICE_IP} {WRITE_OBJ_TYPE} {WRITE_INSTANCE} present-value null - 10")
 
-        desc = await bacnet.read(
-            f"{address} {obj_type} {point_addr} description"
-        )
-
-        units = await bacnet.read(
-            f"{address} {obj_type} {point_addr} units"
-        )
-
-    # -------------------------------------------------
-    # Boolean / comparison lesson logic (outside BACnet)
-    # -------------------------------------------------
-
-    if sensor is None:
-        print("Sensor returned no value")
-        return
-
-    if not isinstance(sensor, (int, float)):
-        print("Non-numeric sensor value:", sensor)
-        return
-
-    if sensor >= HIGH_ALARM:
-        state = "HIGH ALARM"
-    elif WARNING <= sensor < HIGH_ALARM:
-        state = "WARNING"
-    else:
-        state = "NORMAL"
-
-    sensor_ok = 0 <= sensor <= 200
-    has_desc = bool(desc)
-    has_units = bool(units)
-
-    if sensor_ok and has_desc and has_units:
-        print(f"{desc}: {sensor:.2f} {units} → {state}")
-    else:
-        print("Bad metadata or invalid reading")
-
+        after_release = await bacnet.read(f"{DEVICE_IP} {WRITE_OBJ_TYPE} {WRITE_INSTANCE} present-value")
+        print("writing_point after:", after_release)
 
 
 if __name__ == "__main__":
