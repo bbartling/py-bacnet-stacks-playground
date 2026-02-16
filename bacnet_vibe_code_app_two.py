@@ -36,66 +36,65 @@ AHU_SF_S = "binary-input,1"
 AHU_SF_C = "binary-output,1"
 AHU_OCC_SCHEDULE = "multi-state-value,1" 
 
+VAV_RPM_REQ = {
+    "address": VAV_DEVICE_IP,
+    "objects": {
+        ZONE_TEMP: ["present-value"],
+        VAV_FLOW: ["present-value"],
+        ZONE_COOL_STP: ["present-value"],
+        ZONE_DEMAND: ["present-value"],
+        VAV_FLOW_STP: ["present-value"],
+        VAV_DPR_CMD: ["present-value"],
+    },
+}
+
+AHU_RPM_REQ = {
+    "address": AHU_DEVICE_IP,
+    "objects": {
+        AHU_DAP: ["present-value"],
+        AHU_SAT: ["present-value"],
+        AHU_MAT: ["present-value"],
+        AHU_RAT: ["present-value"],
+        AHU_SAFLOW: ["present-value"],
+        AHU_OAT: ["present-value"],
+        AHU_POWER_MTR: ["present-value"],
+        AHU_SF_O: ["present-value"],
+        AHU_HTG_VLV: ["present-value"],
+        AHU_CLG_VLV: ["present-value"],
+        AHU_OA_DPR: ["present-value"],
+        AHU_DAP_SP: ["present-value"],
+        AHU_SAT_SP: ["present-value"],
+        OAT_NETWORKED: ["present-value"],
+        AHU_SF_S: ["present-value"],
+        AHU_SF_C: ["present-value"],
+        AHU_OCC_SCHEDULE: ["present-value"], 
+    },
+}
+
 
 async def main():
-    async with BAC0.start(ping=False) as bacnet:
+
+    # Get IP address of your NIC card
+    async with BAC0.start(ip="192.168.204.11/24", ping=False) as bacnet: 
         await asyncio.sleep(1)
 
         while True:
 
-            vav_rpm_request = {
-                "address": VAV_DEVICE_IP,
-                "objects": {
-                    ZONE_TEMP: ["present-value"],
-                    VAV_FLOW: ["present-value"],
-                    ZONE_COOL_STP: ["present-value"],
-                    ZONE_DEMAND: ["present-value"],
-                    VAV_FLOW_STP: ["present-value"],
-                    VAV_DPR_CMD: ["present-value"],
-                },
-            }
+            result_vav, result_ahu = await asyncio.gather(
+                bacnet.readMultiple(VAV_DEVICE_IP, request_dict=VAV_RPM_REQ),
+                bacnet.readMultiple(AHU_DEVICE_IP, request_dict=AHU_RPM_REQ),
+            )
 
-            result_vav = await bacnet.readMultiple("", request_dict=vav_rpm_request)
+            all_results = [result_vav, result_ahu]
+            print("\n All RPM Results:")
 
-            print("\n VAV RPM Results:")
-            for obj, props in result_vav.items():
-                value = props[0][1] if props else None
-                print(f"{obj} -> {value}")
-
-            ahu_rpm_request = {
-                "address": AHU_DEVICE_IP,
-                "objects": {
-                    AHU_DAP: ["present-value"],
-                    AHU_SAT: ["present-value"],
-                    AHU_MAT: ["present-value"],
-                    AHU_RAT: ["present-value"],
-                    AHU_SAFLOW: ["present-value"],
-                    AHU_OAT: ["present-value"],
-                    AHU_POWER_MTR: ["present-value"],
-                    AHU_SF_O: ["present-value"],
-                    AHU_HTG_VLV: ["present-value"],
-                    AHU_CLG_VLV: ["present-value"],
-                    AHU_OA_DPR: ["present-value"],
-                    AHU_DAP_SP: ["present-value"],
-                    AHU_SAT_SP: ["present-value"],
-                    OAT_NETWORKED: ["present-value"],
-                    AHU_SF_S: ["present-value"],
-                    AHU_SF_C: ["present-value"],
-                    AHU_OCC_SCHEDULE: ["present-value"], 
-                },
-            }
-
-
-            result_ahu = await bacnet.readMultiple("", request_dict=ahu_rpm_request)
-
-            print("\n AHU RPM Results:")
-            for obj, props in result_ahu.items():
-                value = props[0][1] if props else None
-                print(f"{obj} -> {value}")
-
+            for req in all_results:
+                for obj, props in req.items():
+                    value = props[0][1] if props else None
+                    print(f"{obj} -> {value}")
+                print()
 
             print("\n SLEEPING NOW ... ")
-
             await asyncio.sleep(SLEEP_TIME_SECONDS)
 
 
