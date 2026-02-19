@@ -1,13 +1,26 @@
 import asyncio
+import csv
+import os
+from datetime import datetime, date, timezone
+
 import BAC0
 
 """
-Visit https://github.com/JoelBender/BACpypes3/blob/main/bacpypes3/object.py
+Hard-coded RPM polling + append-to-CSV logging (Excel-friendly) with DAILY ROTATION.
 
-bacpypes3/object.py
+Behavior:
+- Writes to:   data_logs/bacnet_rpm_YYYY-MM-DD.csv
+- Auto-rotates at local midnight (new file each day)
+- Creates file with headers if missing/empty
+- Appends one row per poll cycle
 """
 
-SLEEP_TIME_SECONDS = 30
+SLEEP_TIME_SECONDS = 60
+
+LOG_DIR = "data_logs"  # long-term storage directory
+BASE_NAME = "bacnet_rpm"  # file prefix
+
+MY_IP_ADDRESS = "192.168.204.11/24"
 
 VAV_DEVICE_IP = "192.168.204.12"
 ZONE_TEMP = "analog-input,1"
@@ -34,7 +47,7 @@ AHU_SAT_SP = "analog-value,2"
 OAT_NETWORKED = "analog-value,3"
 AHU_SF_S = "binary-input,1"
 AHU_SF_C = "binary-output,1"
-AHU_OCC_SCHEDULE = "multi-state-value,1" 
+AHU_OCC_SCHEDULE = "multi-state-value,1"
 
 VAV_RPM_REQ = {
     "address": VAV_DEVICE_IP,
@@ -67,34 +80,153 @@ AHU_RPM_REQ = {
         OAT_NETWORKED: ["present-value"],
         AHU_SF_S: ["present-value"],
         AHU_SF_C: ["present-value"],
-        AHU_OCC_SCHEDULE: ["present-value"], 
+        AHU_OCC_SCHEDULE: ["present-value"],
     },
 }
 
 
-async def main():
+# -----------------------------
+# CSV helpers
+# -----------------------------
+def _excel_timestamp_local() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Get IP address of your NIC card
-    async with BAC0.start(ip="192.168.204.11/24", ping=False) as bacnet: 
+
+def _timestamp_utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _safe_value(props):
+    if not props:
+        return None
+    try:
+        return props[0][1]
+    except Exception:
+        return None
+
+
+def _make_headers():
+    base = ["timestamp_local", "timestamp_utc"]
+
+    vav_cols = [
+        ("VAV.ZoneTemp", ZONE_TEMP),
+        ("VAV.Flow", VAV_FLOW),
+        ("VAV.CoolSP", ZONE_COOL_STP),
+        ("VAV.Demand", ZONE_DEMAND),
+        ("VAV.FlowSP", VAV_FLOW_STP),
+        ("VAV.DPR_Cmd", VAV_DPR_CMD),
+    ]
+
+    ahu_cols = [
+        ("AHU.DAP", AHU_DAP),
+        ("AHU.SAT", AHU_SAT),
+        ("AHU.MAT", AHU_MAT),
+        ("AHU.RAT", AHU_RAT),
+        ("AHU.SAFlow", AHU_SAFLOW),
+        ("AHU.OAT", AHU_OAT),
+        ("AHU.Power", AHU_POWER_MTR),
+        ("AHU.SF_Out", AHU_SF_O),
+        ("AHU.HtgVlv", AHU_HTG_VLV),
+        ("AHU.ClgVlv", AHU_CLG_VLV),
+        ("AHU.OA_DPR", AHU_OA_DPR),
+        ("AHU.DAP_SP", AHU_DAP_SP),
+        ("AHU.SAT_SP", AHU_SAT_SP),
+        ("AHU.OAT_Networked", OAT_NETWORKED),
+        ("AHU.SF_Status", AHU_SF_S),
+        ("AHU.SF_Cmd", AHU_SF_C),
+        ("AHU.OccSchedule", AHU_OCC_SCHEDULE),
+    ]
+
+    headers = base + [name for name, _ in vav_cols] + [name for name, _ in ahu_cols]
+    mapping = {name: obj for name, obj in (vav_cols + ahu_cols)}
+    return headers, mapping
+
+
+HEADERS, HEADER_TO_OBJ = _make_headers()
+
+
+def ensure_dir(path: str):
+    os.makedirs(path, exist_ok=True)
+
+
+def csv_path_for_day(day: date) -> str:
+    # Daily file name like: data_logs/bacnet_rpm_2026-02-18.csv
+    return os.path.join(LOG_DIR, f"{BASE_NAME}_{day.isoformat()}.csv")
+
+
+def ensure_csv_exists(path: str):
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=HEADERS)
+        writer.writeheader()
+
+
+def append_row(path: str, row: dict):
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=HEADERS)
+        writer.writerow(row)
+
+
+# -----------------------------
+# Main loop
+# -----------------------------
+async def main():
+    ensure_dir(LOG_DIR)
+
+    current_day = date.today()
+    current_csv = csv_path_for_day(current_day)
+    ensure_csv_exists(current_csv)
+
+    async with BAC0.start(ip=MY_IP_ADDRESS, ping=False) as bacnet:
         await asyncio.sleep(1)
 
         while True:
+            # Rotate at local midnight (day changed)
+            today = date.today()
+            if today != current_day:
+                current_day = today
+                current_csv = csv_path_for_day(current_day)
+                ensure_csv_exists(current_csv)
+                print(f"\n=== Rotated log file: {current_csv} ===")
 
-            result_vav, result_ahu = await asyncio.gather(
-                bacnet.readMultiple(VAV_DEVICE_IP, request_dict=VAV_RPM_REQ),
-                bacnet.readMultiple(AHU_DEVICE_IP, request_dict=AHU_RPM_REQ),
-            )
+            try:
+                result_vav, result_ahu = await asyncio.gather(
+                    bacnet.readMultiple(VAV_DEVICE_IP, request_dict=VAV_RPM_REQ),
+                    bacnet.readMultiple(AHU_DEVICE_IP, request_dict=AHU_RPM_REQ),
+                )
 
-            all_results = [result_vav, result_ahu]
-            print("\n All RPM Results:")
+                row = {h: "" for h in HEADERS}
+                row["timestamp_local"] = _excel_timestamp_local()
+                row["timestamp_utc"] = _timestamp_utc_iso()
 
-            for req in all_results:
-                for obj, props in req.items():
-                    value = props[0][1] if props else None
-                    print(f"{obj} -> {value}")
-                print()
+                merged = {}
+                merged.update(result_vav or {})
+                merged.update(result_ahu or {})
 
-            print("\n SLEEPING NOW ... ")
+                for col_name, obj_key in HEADER_TO_OBJ.items():
+                    props = merged.get(obj_key)
+                    val = _safe_value(props)
+                    row[col_name] = "" if val is None else val
+
+
+                # NEW: robust against deletion mid-write
+                for attempt in (1, 2):
+                    try:
+                        ensure_csv_exists(current_csv)
+                        append_row(current_csv, row)
+                        break
+                    except FileNotFoundError:
+                        if attempt == 2:
+                            raise
+
+                print(f"\nLogged row -> {current_csv} @ {row['timestamp_local']}")
+
+            except Exception as e:
+                # Note: with this structure, if the RPM fails, no row is written for that cycle.
+                # If you want "always write a row" with blanks + error columns, say so and I'll patch it.
+                print(f"\nRPM/logging error: {type(e).__name__}: {e}")
+
             await asyncio.sleep(SLEEP_TIME_SECONDS)
 
 
