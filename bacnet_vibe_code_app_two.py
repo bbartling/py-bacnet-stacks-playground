@@ -13,6 +13,18 @@ Behavior:
 - Auto-rotates at local midnight (new file each day)
 - Creates file with headers if missing/empty
 - Appends one row per poll cycle
+
+Why we chunk ReadPropertyMultiple (RPM) requests:
+Many older or low-cost BACnet field controllers do not support Segmentation
+(the ability to split a large BACnet response across multiple APDUs).
+If you request too many points in one RPM, these devices may abort with
+"segmentation-not-supported" or fail intermittently. Chunking keeps each
+RPM request small so the device never needs to segment the response.
+
+Rule of thumb (varies by device/network):
+- 1–10 points: ultra-safe
+- ~20–25 points: usually safe for MS/TP and BACnet/IP
+- 50+ points: riskier on non-segmenting devices
 """
 
 SLEEP_TIME_SECONDS = 60
@@ -84,7 +96,6 @@ AHU_RPM_REQ = {
     },
 }
 
-
 # -----------------------------
 # CSV helpers
 # -----------------------------
@@ -105,37 +116,49 @@ def _safe_value(props):
         return None
 
 
+def _short_obj_id(obj_id: str) -> str:
+    """
+    Convert 'analog-input,1' -> 'AI_1', 'analog-value,3' -> 'AV_3', etc.
+    """
+    try:
+        obj_type, inst = obj_id.split(",", 1)
+        obj_type = obj_type.strip().lower()
+        inst = inst.strip()
+    except Exception:
+        # fallback: make something safe
+        return obj_id.replace("-", "_").replace(",", "_").replace(" ", "")
+
+    type_map = {
+        "analog-input": "AI",
+        "analog-output": "AO",
+        "analog-value": "AV",
+        "binary-input": "BI",
+        "binary-output": "BO",
+        "binary-value": "BV",
+        "multi-state-input": "MSI",
+        "multi-state-output": "MSO",
+        "multi-state-value": "MSV",
+    }
+    prefix = type_map.get(obj_type, obj_type.upper().replace("-", "_"))
+    return f"{prefix}_{inst}"
+
+
+def _make_cols_from_req(prefix: str, rpm_req: dict):
+    """
+    Build [(col_name, obj_id), ...] from rpm_req['objects'] in stable order.
+    """
+    objs = (rpm_req or {}).get("objects", {})
+    cols = []
+    for obj_id in objs.keys():  # dict order preserved (py3.7+)
+        cols.append((f"{prefix}.{_short_obj_id(obj_id)}", obj_id))
+    return cols
+
+
 def _make_headers():
     base = ["timestamp_local", "timestamp_utc"]
 
-    vav_cols = [
-        ("VAV.ZoneTemp", ZONE_TEMP),
-        ("VAV.Flow", VAV_FLOW),
-        ("VAV.CoolSP", ZONE_COOL_STP),
-        ("VAV.Demand", ZONE_DEMAND),
-        ("VAV.FlowSP", VAV_FLOW_STP),
-        ("VAV.DPR_Cmd", VAV_DPR_CMD),
-    ]
-
-    ahu_cols = [
-        ("AHU.DAP", AHU_DAP),
-        ("AHU.SAT", AHU_SAT),
-        ("AHU.MAT", AHU_MAT),
-        ("AHU.RAT", AHU_RAT),
-        ("AHU.SAFlow", AHU_SAFLOW),
-        ("AHU.OAT", AHU_OAT),
-        ("AHU.Power", AHU_POWER_MTR),
-        ("AHU.SF_Out", AHU_SF_O),
-        ("AHU.HtgVlv", AHU_HTG_VLV),
-        ("AHU.ClgVlv", AHU_CLG_VLV),
-        ("AHU.OA_DPR", AHU_OA_DPR),
-        ("AHU.DAP_SP", AHU_DAP_SP),
-        ("AHU.SAT_SP", AHU_SAT_SP),
-        ("AHU.OAT_Networked", OAT_NETWORKED),
-        ("AHU.SF_Status", AHU_SF_S),
-        ("AHU.SF_Cmd", AHU_SF_C),
-        ("AHU.OccSchedule", AHU_OCC_SCHEDULE),
-    ]
+    vav_cols = _make_cols_from_req("VAV", VAV_RPM_REQ)
+    ahu_cols = _make_cols_from_req("AHU", AHU_RPM_REQ)
 
     headers = base + [name for name, _ in vav_cols] + [name for name, _ in ahu_cols]
     mapping = {name: obj for name, obj in (vav_cols + ahu_cols)}
@@ -150,7 +173,6 @@ def ensure_dir(path: str):
 
 
 def csv_path_for_day(day: date) -> str:
-    # Daily file name like: data_logs/bacnet_rpm_2026-02-18.csv
     return os.path.join(LOG_DIR, f"{BASE_NAME}_{day.isoformat()}.csv")
 
 
@@ -169,6 +191,43 @@ def append_row(path: str, row: dict):
 
 
 # -----------------------------
+# NEW: RPM chunking helper
+# -----------------------------
+def _chunk_items(items, chunk_size: int):
+    for i in range(0, len(items), chunk_size):
+        yield items[i : i + chunk_size]
+
+
+async def readMultiple_chunked(bacnet, device_ip: str, request_dict: dict, chunk_size: int = 25):
+    """
+    Chunk a BAC0 readMultiple (RPM) into smaller batches to avoid segmentation issues.
+
+    Returns a merged dict shaped like BAC0's readMultiple output:
+        { "<object_id>": [("present-value", <value>), ...], ... }
+    """
+    objects = (request_dict or {}).get("objects", {})
+    if not objects:
+        return {}
+
+    # Preserve insertion order (dict order) so results are stable
+    obj_items = list(objects.items())
+    merged = {}
+
+    for chunk in _chunk_items(obj_items, chunk_size):
+        chunk_req = {
+            "address": request_dict.get("address", device_ip),
+            "objects": dict(chunk),
+        }
+
+        # Important: call BAC0 with same signature you used before
+        res = await bacnet.readMultiple(device_ip, request_dict=chunk_req)
+        if res:
+            merged.update(res)
+
+    return merged
+
+
+# -----------------------------
 # Main loop
 # -----------------------------
 async def main():
@@ -182,7 +241,6 @@ async def main():
         await asyncio.sleep(1)
 
         while True:
-            # Rotate at local midnight (day changed)
             today = date.today()
             if today != current_day:
                 current_day = today
@@ -191,9 +249,10 @@ async def main():
                 print(f"\n=== Rotated log file: {current_csv} ===")
 
             try:
+                # Use chunked RPM reads (safe for non-segmenting devices)
                 result_vav, result_ahu = await asyncio.gather(
-                    bacnet.readMultiple(VAV_DEVICE_IP, request_dict=VAV_RPM_REQ),
-                    bacnet.readMultiple(AHU_DEVICE_IP, request_dict=AHU_RPM_REQ),
+                    readMultiple_chunked(bacnet, VAV_DEVICE_IP, VAV_RPM_REQ, chunk_size=25),
+                    readMultiple_chunked(bacnet, AHU_DEVICE_IP, AHU_RPM_REQ, chunk_size=25),
                 )
 
                 row = {h: "" for h in HEADERS}
@@ -209,8 +268,7 @@ async def main():
                     val = _safe_value(props)
                     row[col_name] = "" if val is None else val
 
-
-                # NEW: robust against deletion mid-write
+                # robust against deletion mid-write
                 for attempt in (1, 2):
                     try:
                         ensure_csv_exists(current_csv)
@@ -223,8 +281,6 @@ async def main():
                 print(f"\nLogged row -> {current_csv} @ {row['timestamp_local']}")
 
             except Exception as e:
-                # Note: with this structure, if the RPM fails, no row is written for that cycle.
-                # If you want "always write a row" with blanks + error columns, say so and I'll patch it.
                 print(f"\nRPM/logging error: {type(e).__name__}: {e}")
 
             await asyncio.sleep(SLEEP_TIME_SECONDS)

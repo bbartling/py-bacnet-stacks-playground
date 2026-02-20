@@ -76,12 +76,14 @@ You vibe code each app on YouTube — no full solutions in the lessons. The cour
 | Checkpoint | What to Build | When |
 |------------|---------------|------|
 | **1** | BAC0 app: read present-value, write to a point, write null release | End of Week 1 |
-| **2** | BAC0 app: collect data from points, save to CSV, rotate log files per day (Python `csv` library, daily rotation) | Week 2–3 |
+| **2** | BAC0 app: collect data from points with a BACnet read muliple request (RPM), save to CSV, rotate log files per day (Python `csv` library, daily rotation) | Week 2–3 |
 | **3** | bacpypes3 app: same as Checkpoint 1 (read, write, release) but using raw BACpypes | Week 3–4 |
 | **4** | bacpypes3 app: Who-Is discovery → read object list → CSV with device_id, object_identifier, object_name, description, present_value, units | Week 4 |
 | **5** | Run mini BACnet device + mini schedule/calendar device; write simple control logic against commandable points | Week 5 (Algorithms) |
 | **Final** | Web weather station: fetch Open Weather Map API → expose as BACnet objects (BACnet server) | End of Part IV |
 | **Bonus** | Wireshark (BACnet/IP capture), systemd service, Docker container for scraper | Week 6 |
+
+> Notes: test out `priority-array` issues on RPM, and also `relinquish-default` writes and write releases on vibe code checkpoint 3.
 
 ---
 

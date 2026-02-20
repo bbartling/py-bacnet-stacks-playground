@@ -1,16 +1,15 @@
 
 
 
-
 """
 
-Convert the list ['hi', 'hi', 'hello', 'hello', 'hola'] into a set and print the result.
-Make two sets x = {1, 2, 3, 4} and y = {3, 4, 5}. Compute and print x.union(y), x.intersection(y) and x.difference(y).
+Modify a list of numbers by replacing all negative values with 0 using continue.
 """
 
-x = {1, 2, 3, 4} 
-y = {3, 4, 5}
 
-print(x.union(y))
-print(x.intersection(y)) 
-print(x.difference(y))
+numbers = [0,4,2,1,-1,4,-6]
+
+for number in numbers:
+    if number < 0:
+        continue
+    print(number)
