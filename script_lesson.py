@@ -2,14 +2,17 @@
 
 
 """
-
-Modify a list of numbers by replacing all negative values with 0 using continue.
+Create a text file notes.txt and append a new timestamped note each time the script runs.
+Read a configuration file line by line and ignore blank lines or lines starting with # (comments).
 """
 
 
-numbers = [0,4,2,1,-1,4,-6]
+with open('site_scan.csv', 'r', newline='', encoding='utf-8') as f:
+    count = 0
+    for line in f:
+        if count == 5:
+            break
+        print(line.strip())
+        count += 1
 
-for number in numbers:
-    if number < 0:
-        continue
-    print(number)
+
