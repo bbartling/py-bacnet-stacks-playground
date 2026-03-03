@@ -73,17 +73,17 @@ Inspired by the EdX *Computing in Python* series. Four parts plus bonus:
 
 You vibe code each app on YouTube — no full solutions in the lessons. The course gives you **ideas and challenges** to meet at each checkpoint.
 
-| Checkpoint | What to Build | When |
-|------------|---------------|------|
-| **1** | BAC0 app: read present-value, write to a point, write null release | End of Week 1 |
-| **2** | BAC0 app: collect data from points with a BACnet read muliple request (RPM), save to CSV, rotate log files per day (Python `csv` library, daily rotation) | Week 2–3 |
-| **3** | bacpypes3 app: same as Checkpoint 1 (read, write, release) but using raw BACpypes | Week 3–4 |
-| **4** | bacpypes3 app: Who-Is discovery → read object list → CSV with device_id, object_identifier, object_name, description, present_value, units | Week 4 |
-| **5** | Run mini BACnet device + mini schedule/calendar device; write simple control logic against commandable points | Week 5 (Algorithms) |
-| **Final** | Web weather station: fetch Open Weather Map API → expose as BACnet objects (BACnet server) | End of Part IV |
-| **Bonus** | Wireshark (BACnet/IP capture), systemd service, Docker container for scraper | Week 6 |
+| Checkpoint                | What to Build                                                                                                                                                      | When       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| **1**                     | **BAC0 + bacpypes3 apps:** read present-value, write to a point, write null release (commandable objects, priority levels)                                         | **Week 1** |
+| **2**                     | **BAC0 + bacpypes3 RPM apps:** ReadPropertyMultiple (RPM) across multiple devices, save to CSV, daily log rotation (`csv` module)                                  | **Week 2** |
+| **3**                     | **Priority Array inspection apps (BAC0 + bacpypes3):** read `priority-array`, parse values correctly, handle `_choice`, debug overrides, inspect control authority | **Week 3** |
+| **4**                     | **BACnet Servers (BAC0 + bacpypes3):** run mini device, mini schedule/calendar device, implement simple control logic against commandable points                   | **Week 4** |
+| **Final Project**         | Web Weather Station: fetch OpenWeatherMap API → expose as BACnet objects (custom BACnet server)                                                                    | **Week 5** |
+| **Advanced / Operations** | Linux fundamentals, systemd service deployment, Docker containerisation, Wireshark BACnet/IP debugging, production hardening                                       | **Week 6** |
 
-> Notes: test out `priority-array` issues on RPM, and also `relinquish-default` writes and write releases on vibe code checkpoint 3.
+
+
 
 ---
 

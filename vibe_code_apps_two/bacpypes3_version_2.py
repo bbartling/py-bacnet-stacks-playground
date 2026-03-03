@@ -11,6 +11,8 @@ from bacpypes3.apdu import PropertyReference, ErrorType
 from bacpypes3.constructeddata import AnyAtomic
 
 """
+python bacpypes3_version_2.py --name BensReadApp --instance 100 --address 192.168.204.11/24:47808 --debug
+
 Hard-coded RPM polling + append-to-CSV logging (Excel-friendly) with DAILY ROTATION.
 Retrofitted for bacpypes3.
 
