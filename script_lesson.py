@@ -1,28 +1,27 @@
 
 """
 
-
+Write a formatted string that prints the filename and size (in kilobytes) of a file using variables name and size.
 """
 
 
-while True:
-    data = input("What numbers do you want to divide? (or type 'q' to quit): ")
-    if data.lower() == 'q':
-        break
-    
-    string_split = data.split()
-    
-    # Ensure we have enough input
-    if len(string_split) < 2:
-        print("Please enter two numbers separated by a space.")
-        continue
 
-    try:
-        num1 = float(string_split[0]) # Use float for decimal support
-        num2 = float(string_split[1])
-        result = num1 / num2
-        print(f"Result: {result}")
-    except ValueError:
-        print("These are not parsable numbers.")
-    except ZeroDivisionError:
-        print("Divide by zero error!")
+import os
+
+# The filename
+name = "site_scan.csv"
+
+try:
+    size_bytes = os.path.getsize(name)
+    # Convert bytes to kilobytes (1 KB = 1024 bytes)
+    size_kb = size_bytes / 1024
+    formatted_string = f"Filename: {name}, Size: {size_kb:.2f} KB"
+
+    # Print the formatted string
+    print(formatted_string)
+    
+except FileNotFoundError:
+    print(f"Error: The file '{name}' was not found.")
+except PermissionError:
+    print(f"Error: Insufficient permissions to access '{name}'.")
+

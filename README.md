@@ -1,5 +1,8 @@
 # Py BACnet Stacks Playground
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Ta48yQF8fC)
+
+
 **Applied Python + BACnet for HVAC Controls Technicians & IoT Practitioners**
 
 Welcome to the **Py BACnet Stacks Playground** — a hands-on course that teaches Python fundamentals while you build real BACnet applications. Each day you'll study applied computer science in Python (easy 101 level) and vibe code a BACnet app that matches the pace of the lesson plan. No deep dives into the BACnet spec or bytes-on-the-wire networking — just Python, BAC0, and BACpypes3 doing the heavy lifting while you focus on building useful tools.
