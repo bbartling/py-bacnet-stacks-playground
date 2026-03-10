@@ -1,190 +1,265 @@
 #!/usr/bin/env python3
 """
-Mini BACnet Device Example
-========================================
+Mini BACnet Weather Device
+--------------------------
+Fetches OpenWeather data every 15 minutes and updates BACnet points every 5 seconds.
 
-This script initializes a minimal BACnet server device using BACpypes3.
-It is ideal for rapid prototyping and testing with BACnet client tools
-or supervisory platforms. You can easily add or remove objects to fit
-your use case.
-
-Included Objects:
------------------
-- 1 Read-Only Analog Value (AV)
-- 1 Read-Only Binary Value (BV)
-- 1 Commandable Analog Value (AV)
-- 1 Commandable Binary Value (BV)
-
-Commandable Points:
--------------------
-Commandable AV and BV points support writes via the BACnet priority array.
-They emulate real-world control points, such as thermostat setpoints,
-damper commands, etc.
-
-Usage:
-------
-Run the script with the device name, instance ID, and optional debug flag:
-
-    python mini_weather_device.py --name WebWeatherServer --instance 3456 --debug
-
-Arguments:
-----------
-- --name       : The BACnet device name (e.g., "BensServerTest")
-- --instance   : The BACnet device instance ID (e.g., 3456789)
-- --address    : Optional — override the automatically detected IP address and port.
-                 Requires ifaddr package for auto-detection.
-                 See: https://bacpypes3.readthedocs.io/en/latest/gettingstarted/addresses.html#bacpypes3-addresses
-- --debug      : Enables verbose debug logging (built-in to BACpypes3)
+BACnet objects:
+- analogValue,1  -> web-weather-drybulb-temp
+- analogValue,2  -> web-weather-dewpoint-temp
+- analogValue,3  -> web-weather-relative-humidity
+- binaryValue,1  -> web-weather-fetch-ok
 """
 
 import asyncio
+import math
+import os
 import sys
+
+import requests
+from dotenv import load_dotenv
 
 from bacpypes3.argparse import SimpleArgumentParser
 from bacpypes3.app import Application
 from bacpypes3.local.analog import AnalogValueObject
 from bacpypes3.local.binary import BinaryValueObject
-from bacpypes3.local.cmd import Commandable
 from bacpypes3.debugging import bacpypes_debugging, ModuleLogger
 
-# Debug logging setup
+# -----------------------------------------------------------------------------
+# Config / constants
+# -----------------------------------------------------------------------------
+
+INTERVAL = 5.0  # keep existing BACnet presentValue update interval
+WEATHER_FETCH_INTERVAL = 900.0  # 15 minutes
+
+load_dotenv()
+
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+CITY = os.getenv("CITY", "Madison,WI,US")
+UNITS = os.getenv("UNITS", "imperial")  # imperial / metric / standard
+
 _debug = 0
 _log = ModuleLogger(globals())
 
-# Interval for updating values
-INTERVAL = 5.0
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+
+def calc_dewpoint(temp_value: float, rh_percent: float, units: str) -> float:
+    """
+    Calculate dew point from dry bulb temperature and relative humidity.
+
+    Magnus formula is used internally in degC, then converted back if needed.
+    """
+    if rh_percent <= 0:
+        raise ValueError("Relative humidity must be greater than 0")
+
+    # Convert input temp to C
+    if units == "imperial":
+        temp_c = (temp_value - 32.0) * 5.0 / 9.0
+    elif units == "metric":
+        temp_c = temp_value
+    elif units == "standard":
+        temp_c = temp_value - 273.15
+    else:
+        temp_c = temp_value
+
+    # Magnus approximation
+    a = 17.625
+    b = 243.04  # degC
+    gamma = math.log(rh_percent / 100.0) + (a * temp_c) / (b + temp_c)
+    dewpoint_c = (b * gamma) / (a - gamma)
+
+    # Convert back to requested units
+    if units == "imperial":
+        return (dewpoint_c * 9.0 / 5.0) + 32.0
+    elif units == "metric":
+        return dewpoint_c
+    elif units == "standard":
+        return dewpoint_c + 273.15
+    return dewpoint_c
 
 
-@bacpypes_debugging
-class CommandableAnalogValueObject(Commandable, AnalogValueObject):
-    """Commandable Analog Value Object"""
+def build_weather_url() -> str:
+    if not API_KEY:
+        raise ValueError("OPENWEATHER_API_KEY environment variable is not set")
+
+    return (
+        "https://api.openweathermap.org/data/2.5/weather"
+        f"?q={CITY}&appid={API_KEY}&units={UNITS}"
+    )
 
 
-@bacpypes_debugging
-class CommandableBinaryValueObject(Commandable, BinaryValueObject):
-    """Commandable Binary Value Object"""
+def fetch_weather() -> dict:
+    """
+    Fetch current weather from OpenWeather and return normalized values.
+    """
+    url = build_weather_url()
+    response = requests.get(url, timeout=15)
+    response.raise_for_status()
 
+    data = response.json()
+    main = data["main"]
+
+    drybulb = float(main["temp"])
+    rh = float(main["humidity"])
+    dewpoint = calc_dewpoint(drybulb, rh, UNITS)
+
+    return {
+        "drybulb": drybulb,
+        "rh": rh,
+        "dewpoint": dewpoint,
+        "fetch_ok": True,
+        "raw": data,
+    }
+
+
+# -----------------------------------------------------------------------------
+# BACnet object classes
+# -----------------------------------------------------------------------------
 
 @bacpypes_debugging
 class SampleApplication:
     """
-    Simple BACnet application exposing four points:
+    BACnet application exposing four points:
 
-    - analogValue,1: read-only, simulated ramp
-    - binaryValue,1: read-only, simulated on/off
-    - analogValue,2: commandable (priority array)
-    - binaryValue,2: commandable (priority array)
+    - analogValue,1: web-weather-drybulb-temp
+    - analogValue,2: web-weather-dewpoint-temp
+    - analogValue,3: web-weather-relative-humidity
+    - binaryValue,1: web-weather-fetch-ok
     """
 
     def __init__(self, args):
         if _debug:
-            _log.debug("Initializing SampleApplication (no schedule)")
+            _log.debug("Initializing SampleApplication")
 
-        # Build application (DeviceObject is created from args)
         self.app = Application.from_args(args)
 
-        # --- Read-only points ---
-        self.web_weather_temp = AnalogValueObject(
+        temp_units = {
+            "imperial": "degreesFahrenheit",
+            "metric": "degreesCelsius",
+            "standard": "kelvin",
+        }.get(UNITS, "degreesFahrenheit")
+
+        # Weather cache
+        self.latest_weather = {
+            "drybulb": 0.0,
+            "dewpoint": 0.0,
+            "rh": 0.0,
+            "fetch_ok": False,
+        }
+
+        # BACnet read-only weather points
+        self.web_weather_temp_av = AnalogValueObject(
             objectIdentifier=("analogValue", 1),
             objectName="web-weather-drybulb-temp",
-            presentValue=4.0,
+            presentValue=0.0,
             statusFlags=[0, 0, 0, 0],
-            covIncrement=1.0,
-            units="degreesFahrenheit",
-            description="Weather data from the web!!!!",
+            covIncrement=0.5,
+            units=temp_units,
+            description="Outdoor dry bulb temperature from OpenWeather",
         )
 
-        # --- Read-only points ---
-        self.web_weather_dewpoint = AnalogValueObject(
+        self.web_weather_dewpoint_av = AnalogValueObject(
             objectIdentifier=("analogValue", 2),
             objectName="web-weather-dewpoint-temp",
-            presentValue=4.0,
+            presentValue=0.0,
             statusFlags=[0, 0, 0, 0],
-            covIncrement=1.0,
-            units="degreesFahrenheit",
-            description="Weather data from the web!!!!",
+            covIncrement=0.5,
+            units=temp_units,
+            description="Outdoor dew point calculated from dry bulb and RH",
         )
 
-        # --- Read-only points ---
-        self.web_weather_rh = AnalogValueObject(
+        self.web_weather_rh_av = AnalogValueObject(
             objectIdentifier=("analogValue", 3),
             objectName="web-weather-relative-humidity",
-            presentValue=4.0,
-            statusFlags=[0, 0, 0, 0],
-            covIncrement=1.0,
-            units="percentRelativeHumidity",
-            description="Weather data from the web!!!!",
-        )
-
-        self.read_only_bv = BinaryValueObject(
-            objectIdentifier=("binaryValue", 1),
-            objectName="read-only-bv",
-            presentValue="active",
-            statusFlags=[0, 0, 0, 0],
-            description="Simulated Read-Only Binary Value",
-        )
-
-        # --- Commandable points ---
-        self.commandable_av = CommandableAnalogValueObject(
-            objectIdentifier=("analogValue", 4),
-            objectName="commandable-av",
             presentValue=0.0,
             statusFlags=[0, 0, 0, 0],
             covIncrement=1.0,
-            units="degreesFahrenheit",
-            description="Commandable Analog Value (Simulated)",
+            units="percentRelativeHumidity",
+            description="Outdoor relative humidity from OpenWeather",
         )
 
-        self.commandable_bv = CommandableBinaryValueObject(
-            objectIdentifier=("binaryValue", 2),
-            objectName="commandable-bv",
+        self.web_weather_fetch_ok_bv = BinaryValueObject(
+            objectIdentifier=("binaryValue", 1),
+            objectName="web-weather-fetch-ok",
             presentValue="inactive",
             statusFlags=[0, 0, 0, 0],
-            description="Commandable Binary Value (Simulated)",
+            description="Active when latest web weather fetch succeeded",
         )
 
-        # Register all objects with the application
         for obj in [
-            self.web_weather_temp,
-            self.web_weather_dewpoint,
-            self.web_weather_rh,
-            self.read_only_bv,
-            self.commandable_av,
-            self.commandable_bv,
+            self.web_weather_temp_av,
+            self.web_weather_dewpoint_av,
+            self.web_weather_rh_av,
+            self.web_weather_fetch_ok_bv,
         ]:
             self.app.add_object(obj)
 
-        _log.info("BACnet Objects initialized (no schedule).")
+        _log.info("BACnet weather objects initialized.")
 
-        # Start a simple simulation task
+        # Start loops
+        asyncio.create_task(self.weather_fetch_loop())
         asyncio.create_task(self.update_values())
+
+    async def weather_fetch_loop(self) -> None:
+        """
+        Fetch weather every 15 minutes and store in cache.
+        """
+        while True:
+            try:
+                weather = await asyncio.to_thread(fetch_weather)
+
+                self.latest_weather["drybulb"] = weather["drybulb"]
+                self.latest_weather["dewpoint"] = weather["dewpoint"]
+                self.latest_weather["rh"] = weather["rh"]
+                self.latest_weather["fetch_ok"] = True
+
+                _log.info(
+                    "Weather fetch OK | drybulb=%.2f dewpoint=%.2f rh=%.2f",
+                    self.latest_weather["drybulb"],
+                    self.latest_weather["dewpoint"],
+                    self.latest_weather["rh"],
+                )
+
+                if _debug:
+                    _log.debug(f"Raw weather payload: {weather['raw']}")
+
+            except Exception as err:
+                self.latest_weather["fetch_ok"] = False
+                _log.error(f"Weather fetch failed: {err}")
+
+            await asyncio.sleep(WEATHER_FETCH_INTERVAL)
 
     async def update_values(self) -> None:
         """
-        Periodically update the read-only AV/BV to simulate activity.
-        Commandable points are left alone so client writes are not overridden.
+        Keep existing 5-second BACnet presentValue update loop,
+        but now publish the latest cached weather values into BACnet objects.
         """
-        test_values = [
-            ("active", 1.0),
-            ("inactive", 2.0),
-            ("active", 3.0),
-            ("inactive", 4.0),
-        ]
-
         while True:
             await asyncio.sleep(INTERVAL)
-            next_value = test_values.pop(0)
-            test_values.append(next_value)
 
-            self.web_weather_temp.presentValue = next_value[1]
-            self.read_only_bv.presentValue = next_value[0]
+            self.web_weather_temp_av.presentValue = float(self.latest_weather["drybulb"])
+            self.web_weather_dewpoint_av.presentValue = float(self.latest_weather["dewpoint"])
+            self.web_weather_rh_av.presentValue = float(self.latest_weather["rh"])
+            self.web_weather_fetch_ok_bv.presentValue = (
+                "active" if self.latest_weather["fetch_ok"] else "inactive"
+            )
 
             if _debug:
-                _log.debug(f"Read-Only AV: {self.web_weather_temp.presentValue}")
-                _log.debug(f"Read-Only BV: {self.read_only_bv.presentValue}")
-                _log.debug(f"Commandable AV: {self.commandable_av.presentValue}")
-                _log.debug(f"Commandable BV: {self.commandable_bv.presentValue}")
+                _log.debug(
+                    "BACnet updated | temp=%.2f dewpoint=%.2f rh=%.2f fetch_ok=%s",
+                    self.web_weather_temp_av.presentValue,
+                    self.web_weather_dewpoint_av.presentValue,
+                    self.web_weather_rh_av.presentValue,
+                    self.web_weather_fetch_ok_bv.presentValue,
+                )
 
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
 
 async def main() -> None:
     global _debug
@@ -200,9 +275,9 @@ async def main() -> None:
     if _debug:
         _log.debug(f"Parsed arguments: {args}")
 
-    app = SampleApplication(args)
+    SampleApplication(args)
 
-    # Keep running forever
+    # run forever
     await asyncio.Future()
 
 
