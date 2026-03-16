@@ -1,13 +1,26 @@
 
+
+
 """
 
-Given schedule = {'Mon': ['8am', '5pm'], 'Tue': ['9am', '6pm']}, loop through the dictionary and print the day along with the start and end times.
+Write a function all_in_range(readings, low, high) that returns True if every reading is between low and high inclusive.
+Write a function any_alarm(readings, threshold) that returns True if any reading exceeds the threshold.
+
 """
 
 
+def any_alarm(readings, high):
 
-schedule = {'Mon': ['8am', '5pm'], 'Tue': ['9am', '6pm']}
+    is_between_low_and_high = False
+    for i in range(len(readings)):
+        if readings[i] >= high:
+            is_between_low_and_high = True
+    return is_between_low_and_high
 
-# Use .items() to get key-value pairs
-for day, times in schedule.items():
-    print(f"{day}: Start {times[0]}, End {times[1]}")
+
+temperatures = [42.4, 422.34, 45.3, 43.2]
+ALARM = 50.0
+
+check = any_alarm(temperatures, ALARM)
+
+print(check)
