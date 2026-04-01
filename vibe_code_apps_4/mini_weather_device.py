@@ -9,6 +9,11 @@ BACnet objects:
 - analogValue,2  -> web-weather-dewpoint-temp
 - analogValue,3  -> web-weather-relative-humidity
 - binaryValue,1  -> web-weather-fetch-ok
+
+
+How to Run:
+python mini_weather_device.py --name WebWeatherServer --instance 3456 --debug
+
 """
 
 import asyncio
