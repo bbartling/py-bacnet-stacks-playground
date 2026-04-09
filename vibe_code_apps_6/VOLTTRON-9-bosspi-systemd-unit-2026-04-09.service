@@ -1,0 +1,21 @@
+[Unit]
+Description=VOLTTRON platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=ben
+Group=ben
+WorkingDirectory=/home/ben/volttron
+Environment=VOLTTRON_HOME=/home/ben/.volttron
+PIDFile=/home/ben/.volttron/VOLTTRON_PID
+ExecStart=/home/ben/volttron/start-volttron
+ExecStop=/home/ben/volttron/stop-volttron
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=90
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
