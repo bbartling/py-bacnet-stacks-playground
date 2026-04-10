@@ -3,9 +3,9 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Ta48yQF8fC)
 
 
-**Applied Python + BACnet for HVAC Controls Technicians & IoT Practitioners**
+**Applied Python + BACnet + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
 
-Welcome to the **Py BACnet Stacks Playground** — a hands-on course that teaches Python fundamentals while you build real BACnet applications. Each day you'll study applied computer science in Python (easy 101 level) and vibe code a BACnet app that matches the pace of the lesson plan. No deep dives into the BACnet spec or bytes-on-the-wire networking — just Python, BAC0, and BACpypes3 doing the heavy lifting while you focus on building useful tools.
+Welcome to the **Py BACnet Stacks Playground** — a hands-on applied repo that starts with Python fundamentals and direct BACnet scripting, then grows into **AI-assisted edge automation demos**. The early vibe code apps stay focused on Python, BAC0, and BACpypes3 doing the heavy lifting while you build useful tools. The newer direction extends that same spirit into **VOLTTRON-based edge workflows**, where small custom agents, platform services, and supervisory logic can run continuously on a Raspberry Pi or gateway.
 
 ---
 
@@ -177,6 +177,51 @@ Inspired by the EdX *Computing in Python* series. Four parts plus bonus:
 
 ---
 
+
+## New Direction: Vibe Code App 6 as a VOLTTRON AI-Assisted Setup Demo
+
+The repository's newer direction is not just "write another BACnet script." It now also demonstrates how those BACnet skills can feed a real **edge automation stack**.
+
+### Why `vibe_code_apps_6` matters
+
+`vibe_code_apps_6` is the current bridge from:
+
+- direct Python/BACnet learning, to
+- operational edge agents and supervisory logic running inside **VOLTTRON 9**
+
+That folder now serves as a practical demo of:
+
+- a Raspberry Pi-hosted VOLTTRON 9 bench
+- Platform Driver and BACnet Proxy in a live workflow
+- AI-assisted creation of small custom agents
+- CSV logging, request aggregation, and safe trim/respond recommendation logic
+- durable handoff notes and source backups for future continuation
+
+Read first:
+
+- `vibe_code_apps_6/README.md`
+- `vibe_code_apps_6/2026-04-10-openfdd-volttron-architecture-notes.md`
+- `vibe_code_apps_6/VOLTTRON-9-bosspi-demo-agent-handoff.md`
+- `vibe_code_apps_6/VOLTTRON-9-bosspi-GL36-agents-handoff.md`
+- `vibe_code_apps_6/VOLTTRON-9-bosspi-systemd-and-ops-notes-2026-04-09.md`
+
+### Project direction in one line
+
+A useful way to read this repo now is:
+
+- **Apps 1–5:** direct BACnet scripting and learning exercises
+- **App 6:** a VOLTTRON-based AI-assisted edge setup demo built on those BACnet foundations
+
+### How this connects to Open-FDD
+
+A promising future direction is to pair:
+
+- **Open-FDD** for knowledge graphing, validated BACnet/Modbus addressing, and fault/validation logic
+- **VOLTTRON** for edge algorithms, local pipelines, and continuous runtime behavior
+
+That combined architecture is documented in:
+
+- `vibe_code_apps_6/2026-04-10-openfdd-volttron-architecture-notes.md`
 
 ## Using This Repository
 
