@@ -1,386 +1,287 @@
-# Vibe Code App 6 — VOLTTRON 9 AI-Assisted Edge Demo on `bosspi`
+# Vibe Code App 6 — VOLTTRON edge bench (bosspi)
 
-_Last updated: 2026-04-10_
+**What this is:** VOLTTRON 9 on a Raspberry Pi ingests BACnet via Platform Driver + BACnet Proxy. Three small custom agents subscribe, log CSV, and run GL36-style supervisory logic (recommendations only by default).
 
-This folder is the current **VOLTTRON-focused demo area** for the playground.
-
-It shows how to move from simple Python/BACnet scripts into a more operational edge stack:
-
-- **VOLTTRON 9.x** running on a Raspberry Pi bench host
-- **Platform Driver** and **BACnet Proxy** handling live device access
-- small custom Python agents built quickly with AI assistance
-- safe supervisory logic that **publishes recommendations first** instead of blindly commanding equipment
-- durable Windows-side notes and code backups so another OpenClaw or human can continue the work without re-discovering everything
-
-This is not a polished product package. It is a practical, working **bench demo + tutorial trail**.
+**What this folder is for:** One place so you (or another AI session) can **verify the bench** or **recreate it** without rereading long handoff docs. Deep narrative and full agent source live in `archive/`.
 
 ---
 
-## What this app demonstrates
+## Frozen facts (change these if the bench moves)
 
-On Raspberry Pi host `ben@192.168.204.12` (`bosspi`), the VOLTTRON bench currently includes:
+| Item | Value |
+|------|--------|
+| SSH | `ben@192.168.204.12` (hostname `bosspi`) |
+| VOLTTRON repo | `/home/ben/volttron` |
+| `VOLTTRON_HOME` | `/home/ben/.volttron` |
+| venv | `source /home/ben/volttron/env/bin/activate` |
+| Bench data | `/home/ben/volttron/volttron_data/ben_bacnet` |
+| CSV output | `.../ben_bacnet/csv_logs/` |
 
-- a running VOLTTRON 9 platform at `/home/ben/volttron`
-- `VOLTTRON_HOME=/home/ben/.volttron`
-- core agents for:
-  - `platform.bacnet_proxy`
-  - `platform.driver`
-  - `listener.bacnet`
-- custom demo agents for:
-  - CSV logging of Platform Driver publishes
-  - GL36-ish VAV request aggregation
-  - GL36-ish AHU trim/respond recommendation logic
-- systemd boot persistence via `/etc/systemd/system/volttron.service`
+**Devices (Platform Driver):**
 
-In plain English:
+| Name | BACnet IP | device_id |
+|------|-----------|-----------|
+| BensFakeAHU | 192.168.204.13 | 3456789 |
+| Zone1VAV | 192.168.204.14 | 3456790 |
 
-1. VOLTTRON scrapes BACnet devices through its normal driver path.
-2. Custom agents subscribe to those device topics.
-3. One agent logs device values to CSV.
-4. Another agent turns VAV telemetry into supervisory request counts.
-5. Another agent converts those requests into AHU static-pressure and SAT reset recommendations.
-6. The recommendation agent stays in **publish-only mode** by default for safety.
+**Agents (VIP identity → tag):**
 
----
-
-## Why this matters
-
-The earlier vibe code apps in this repo teach direct BACnet scripting with BAC0 and BACpypes3.
-
-This app is the next step:
-
-- not just "read a BACnet point"
-- but "run an edge platform that continuously ingests device data, hosts agents, and supports supervisory control logic"
-
-That makes app 6 a good bridge between:
-
-- **field scripting / Python learning**, and
-- **real edge automation architecture**
+| Identity | Tag | Role |
+|----------|-----|------|
+| `platform.bacnet_proxy` | `bacnet-proxy` | BACnet stack |
+| `platform.driver` | `platform-driver` | scrapes devices |
+| `listener.bacnet` | `listener-bacnet` | example listener |
+| `ben.csv-logger` | `ben-csv-logger` | daily CSV from publishes + startup RPC demo |
+| `gl36.vav.requests` | `gl36-vav-requests` | VAV request counts → pubsub |
+| `gl36.ahu.trimrespond` | `gl36-ahu-trimrespond` | AHU SP/SAT **recommendations** (safe default) |
 
 ---
 
-## Bench status snapshot
+## Another AI session: do this first
 
-As of the 2026-04-10 documentation pass, the Pi bench looked healthy after the prior systemd/autostart work:
-
-- `volttron.service` was `active` and `enabled`
-- the core and custom agents were running
-- `vctl status` showed all expected agents `GOOD`
-- the custom agents were still producing normal log activity after restart
-- no new custom-agent traceback was found in the focused post-restart validation window
-
-Important nuance:
-
-- the historical VOLTTRON log contains earlier errors from development and restart work
-- the current claim is **not** "the log has never had errors"
-- the claim is that the custom agents and platform path looked clean in the latest focused overnight re-check after the service came back and the bench had been running stably
-
-See the durable architecture/handoff note in this folder for exact evidence and commands.
+1. SSH to `ben@192.168.204.12`
+2. `cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate`
+3. `systemctl is-active volttron.service` and `vctl status`
+4. `tail -n 80 /home/ben/.volttron/volttron.log`
+5. If recreating from scratch, follow **`RECREATE.md`** in order — do not skip BACnet Proxy before Platform Driver config.
 
 ---
 
-## Folder contents
-
-### Core handoff/tutorial notes
-
-- `README.md`
-  - you are here
-- `VOLTTRON-9-bosspi-demo-agent-handoff.md`
-  - what the CSV logger agent does, how it was installed, and how to inspect it
-- `VOLTTRON-9-bosspi-GL36-agents-handoff.md`
-  - the GL36-ish VAV request and AHU trim/respond agents, logic, safety mode, and future direction
-- `VOLTTRON-9-bosspi-systemd-and-ops-notes-2026-04-09.md`
-  - systemd persistence and day-2 operations on the Pi
-- `VOLTTRON-9-bosspi-agent-source-backup-2026-04-09.md`
-  - Windows-side source/config backup for the installed custom agents
-- `VOLTTRON-9-bosspi-systemd-unit-2026-04-09.service`
-  - saved copy of the systemd unit
-- `2026-04-10-openfdd-volttron-architecture-notes.md`
-  - durable Open-FDD + VOLTTRON architecture notes and next-step guidance
-- `2026-04-10-bosspi-native-recreate-runbook.md`
-  - exact SSH, `vctl`, systemd, BACnet proxy, Platform Driver, and custom-agent recreate steps for the current working native Pi setup
-
-### Legacy/older backup note variants
-
-- `VOLTTRON-9-bosspi-demo-agent-source-backup.md`
-- `VOLTTRON-9-bosspi-GL36-agent-source-backup.md`
-
-Keep the dated files as the preferred reference when they overlap.
-
----
-
-## The shortest path to understanding the live demo
-
-If you only have a few minutes, read these in order:
-
-1. `VOLTTRON-9-bosspi-systemd-and-ops-notes-2026-04-09.md`
-2. `VOLTTRON-9-bosspi-demo-agent-handoff.md`
-3. `VOLTTRON-9-bosspi-GL36-agents-handoff.md`
-4. `2026-04-10-openfdd-volttron-architecture-notes.md`
-
-That gets you:
-
-- platform lifecycle and operations
-- what the custom agents do
-- how the bench is wired today
-- where Open-FDD could fit into the architecture next
-
----
-
-## How to inspect the live Pi bench
-
-SSH into the Pi:
+## Daily commands
 
 ```bash
 ssh ben@192.168.204.12
 cd /home/ben/volttron
 export VOLTTRON_HOME=/home/ben/.volttron
 source env/bin/activate
-```
 
-### Check service status
-
-```bash
-systemctl status volttron.service
-systemctl is-enabled volttron.service
-systemctl is-active volttron.service
-```
-
-### Check agents
-
-```bash
 vctl status
-vctl list
-```
-
-Expected running identities/tags include:
-
-- `platform.bacnet_proxy` / `bacnet-proxy`
-- `platform.driver` / `platform-driver`
-- `listener.bacnet` / `listener-bacnet`
-- `ben.csv-logger` / `ben-csv-logger`
-- `gl36.vav.requests` / `gl36-vav-requests`
-- `gl36.ahu.trimrespond` / `gl36-ahu-trimrespond`
-
-### Watch the main log
-
-```bash
 tail -f /home/ben/.volttron/volttron.log
 ```
 
-Useful focused grep:
-
 ```bash
-grep -n -E 'ben_csv_loggeragent|gl36_vav_requestagent|gl36_ahu_trim_respondagent|BACnet proxy RPC demo|GL36 VAV summary|GL36 AHU recommendation|Traceback|ERROR|Exception' /home/ben/.volttron/volttron.log | tail -n 120
+# Custom agents + errors (last lines)
+grep -n -E 'ben_csv_logger|gl36_vav|gl36_ahu|Traceback|ERROR|Exception' /home/ben/.volttron/volttron.log | tail -n 80
 ```
 
-### Inspect CSV output from the demo logger
-
 ```bash
-ls -lah /home/ben/volttron/volttron_data/ben_bacnet/csv_logs
-sed -n '1,5p' /home/ben/volttron/volttron_data/ben_bacnet/csv_logs/BensFakeAHU_$(date +%F).csv
-sed -n '1,5p' /home/ben/volttron/volttron_data/ben_bacnet/csv_logs/Zone1VAV_$(date +%F).csv
+ls -la /home/ben/volttron/volttron_data/ben_bacnet/csv_logs/
 ```
 
 ---
 
-## The custom agents, in plain language
+## Systemd (boot persistence)
 
-### 1) Demo CSV logger agent
+Canonical unit file in this folder: **`volttron.service`** (copy to `/etc/systemd/system/volttron.service` on the Pi).
 
-Purpose:
+```ini
+[Unit]
+Description=VOLTTRON platform
+After=network-online.target
+Wants=network-online.target
 
-- subscribe to Platform Driver topics
-- write device values to daily CSV files
-- prove that a small custom VOLTTRON agent can observe bench traffic and persist it cheaply
-- demonstrate direct `platform.bacnet_proxy` RPC reads at startup
+[Service]
+Type=forking
+User=ben
+Group=ben
+WorkingDirectory=/home/ben/volttron
+Environment=VOLTTRON_HOME=/home/ben/.volttron
+PIDFile=/home/ben/.volttron/VOLTTRON_PID
+ExecStart=/home/ben/volttron/start-volttron
+ExecStop=/home/ben/volttron/stop-volttron
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=90
+TimeoutStopSec=60
 
-Why it is useful:
+[Install]
+WantedBy=multi-user.target
+```
 
-- easy proof that BACnet ingestion is alive
-- gives a simple historian-like trail without introducing a full database
-- creates a concrete bridge between field telemetry and later analytics
-
-Primary note:
-
-- `VOLTTRON-9-bosspi-demo-agent-handoff.md`
-
-### 2) GL36-ish VAV request agent
-
-Purpose:
-
-- listen to VAV telemetry
-- convert zone/load/flow/damper conditions into cooling and pressure requests
-- publish request totals that a supervisory layer can consume
-
-Why it is useful:
-
-- turns raw telemetry into control intent
-- separates VAV evaluation from AHU supervisory action
-- makes later scaling to many VAVs straightforward
-
-Primary note:
-
-- `VOLTTRON-9-bosspi-GL36-agents-handoff.md`
-
-### 3) GL36-ish AHU trim/respond agent
-
-Purpose:
-
-- combine AHU telemetry with aggregated VAV request counts
-- compute reset recommendations for:
-  - duct static pressure setpoint
-  - supply air temperature setpoint
-- publish recommendations instead of commanding live writes by default
-
-Why it is useful:
-
-- demonstrates supervisory logic in a safe, inspectable way
-- provides a solid starting point for later closed-loop tests
-- clearly separates "recommend" from "control"
-
-Primary note:
-
-- `VOLTTRON-9-bosspi-GL36-agents-handoff.md`
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now volttron.service
+```
 
 ---
 
-## How this relates to the earlier vibe code apps
+## BACnet proxy config (minimal)
 
-If you came here from the rest of the playground, the progression is roughly:
+Path on Pi: `volttron_data/ben_bacnet/bacnet-proxy-config.json`
 
-- `vibe_code_apps_1`
-  - basic BAC0 and BACpypes3 reads/writes/releases
-- `vibe_code_apps_2`
-  - more structured polling / RPM-style workflows
-- `vibe_code_apps_3`
-  - priority array inspection and deeper control-state understanding
-- `vibe_code_apps_4`
-  - simple BACnet server/device examples, schedules, and weather ideas
-- `vibe_code_apps_5`
-  - point discovery / inventory workflows
-- `vibe_code_apps_6`
-  - operational edge orchestration with VOLTTRON agents and bench-safe supervisory logic
-
-Useful cross-references in this repo:
-
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_1\bac0_version_1.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_1\bacpypes3_version_1.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_2\bac0_version_2.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_2\bacpypes3_version_2.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_3\BAC0_version_3.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_3\bacypes_version_3.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_4\mini-schedule-calendar-device.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_4\mini_weather_device.py`
-- `C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_5\bacpypes3_point_discover.py`
-
-Those apps teach the direct protocol and Python side.
-
-This app teaches what happens when you put those ideas inside a continuously running edge platform.
+```json
+{
+  "device_address": "192.168.204.12/24",
+  "max_apdu_length": 1024,
+  "object_id": 299599,
+  "object_name": "bosspi VOLTTRON BACnet proxy",
+  "vendor_id": 15,
+  "segmentation_supported": "segmentedBoth"
+}
+```
 
 ---
 
-## Where Open-FDD fits
+## Install custom agents (`vctl`)
 
-The strongest near-term combined architecture is not "replace VOLTTRON with Open-FDD" or "replace Open-FDD with VOLTTRON."
+Source on Pi (sync from `archive/` backups if missing):
 
-It is:
+- `.../ben_bacnet/demo_csv_logger_agent`
+- `.../ben_bacnet/gl36_vav_request_agent`
+- `.../ben_bacnet/gl36_ahu_trim_respond_agent`
 
-- **Open-FDD** for model-driven understanding of equipment, points, relationships, and validated addressing
-- **VOLTTRON** for edge execution, local agent workflows, data movement, and supervisory algorithms
+```bash
+vctl install --vip-identity ben.csv-logger --tag ben-csv-logger \
+  /home/ben/volttron/volttron_data/ben_bacnet/demo_csv_logger_agent \
+  --config /home/ben/volttron/volttron_data/ben_bacnet/demo_csv_logger_agent/config
 
-A practical split looks like this:
+vctl install --vip-identity gl36.vav.requests --tag gl36-vav-requests \
+  /home/ben/volttron/volttron_data/ben_bacnet/gl36_vav_request_agent \
+  --config /home/ben/volttron/volttron_data/ben_bacnet/gl36_vav_request_agent/config
 
-### Open-FDD is strongest at
+vctl install --vip-identity gl36.ahu.trimrespond --tag gl36-ahu-trimrespond \
+  /home/ben/volttron/volttron_data/ben_bacnet/gl36_ahu_trim_respond_agent \
+  --config /home/ben/volttron/volttron_data/ben_bacnet/gl36_ahu_trim_respond_agent/config
 
-- knowledge graph / device model management
-- point semantics and relationships
-- BACnet and Modbus address knowledge that has been validated against the live system
-- FDD rules and validation workflows
-- identifying which telemetry and control points are trustworthy enough to drive analytics or control logic
+vctl start --tag ben-csv-logger
+vctl start --tag gl36-vav-requests
+vctl start --tag gl36-ahu-trimrespond
+```
 
-### VOLTTRON is strongest at
+Alternate dev install (CSV logger example):
 
-- running always-on edge agents
-- local publish/subscribe pipelines
-- safely hosting supervisory algorithms near the equipment
-- coordinating ingestion, lightweight transformations, and action logic on a gateway or Pi
-- acting even when cloud connectivity is intermittent
-
-### Combined model
-
-1. Open-FDD defines the building understanding.
-2. Open-FDD validates the actual BACnet/Modbus addressing and point semantics.
-3. That validated point map is exported to VOLTTRON-friendly config or topic-generation artifacts.
-4. VOLTTRON agents consume that config to:
-   - subscribe to the right telemetry
-   - run edge algorithms
-   - publish recommendations or actions
-   - feed local or cloud pipelines
-5. Results can flow back into Open-FDD for validation, fault context, and operator understanding.
-
-That architecture is described in more detail in:
-
-- `2026-04-10-openfdd-volttron-architecture-notes.md`
+```bash
+python scripts/install-agent.py \
+  -s /home/ben/volttron/volttron_data/ben_bacnet/demo_csv_logger_agent \
+  -c /home/ben/volttron/volttron_data/ben_bacnet/demo_csv_logger_agent/config \
+  -i ben.csv-logger \
+  --tag ben-csv-logger \
+  --start
+```
 
 ---
 
-## Practical rules for future work
+## Agent code shape (VOLTTRON 9)
 
-### Prefer recommendation mode first
+Every agent is a **Python package** + **`setup.py`** + **`config`** JSON. Pattern:
 
-For any new supervisory/control agent:
+**`setup.py`** (standard VOLTTRON agent — finds package containing `agent.py`):
 
-1. publish recommendations
-2. validate them against telemetry and operator expectations
-3. only then consider controlled writes
+```python
+from os import path
+from setuptools import setup, find_packages
 
-### Treat point mapping as a first-class problem
+MAIN_MODULE = "agent"
+packages = find_packages(".")
+agent_package = ""
+for package in packages:
+    if path.isfile(package + "/" + MAIN_MODULE + ".py"):
+        agent_package = package
+        break
+if not agent_package:
+    raise RuntimeError("No agent package found")
+agent_module = agent_package + "." + MAIN_MODULE
+_temp = __import__(agent_module, globals(), locals(), ["__version__"], 0)
+__version__ = _temp.__version__
 
-Do not bury equipment/point knowledge inside handwritten agent code if Open-FDD or a graph can provide a cleaner source of truth.
+setup(
+    name=agent_package + "agent",
+    version=__version__,
+    install_requires=["volttron"],
+    packages=packages,
+    entry_points={"setuptools.installation": ["eggsecutable = " + agent_module + ":main"]},
+)
+```
 
-### Keep Windows-side backups
+**`your_pkg/agent.py`** (minimal skeleton):
 
-If source or config changes on the Pi, mirror the important parts back into this folder. That makes recovery and handoff much easier.
+```python
+import logging
+import sys
+from volttron.platform.agent import utils
+from volttron.platform.vip.agent import Agent, Core
 
-### Keep exact paths in the docs
+utils.setup_logging()
+_log = logging.getLogger(__name__)
+__version__ = "0.1"
 
-Avoid fuzzy notes like "the VOLTTRON folder on the Pi." Use exact paths such as:
 
-- `/home/ben/volttron`
-- `/home/ben/.volttron`
-- `/home/ben/volttron/volttron_data/ben_bacnet`
+class MyAgent(Agent):
+    def __init__(self, config_path, **kwargs):
+        super().__init__(**kwargs)
+        self.config = utils.load_config(config_path)
+
+    @Core.receiver("onstart")
+    def onstart(self, sender, **kwargs):
+        _log.info("started")
+        # self.vip.pubsub.subscribe(peer="pubsub", prefix="devices/Zone1VAV/all", callback=...)
+
+
+def main(argv=sys.argv):
+    utils.vip_main(MyAgent, version=__version__)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+**CSV logger `config`** (example — topics + optional BACnet RPC demo on start):
+
+```json
+{
+  "agentid": "ben_csv_logger",
+  "csv_output_dir": "/home/ben/volttron/volttron_data/ben_bacnet/csv_logs",
+  "devices": [
+    {
+      "name": "BensFakeAHU",
+      "topic": "devices/BensFakeAHU/all",
+      "address": "192.168.204.13",
+      "proxy_identity": "platform.bacnet_proxy",
+      "rpc_read_points": {
+        "OA_T": ["analogInput", 6, "presentValue"],
+        "SA_T": ["analogInput", 2, "presentValue"]
+      }
+    },
+    {
+      "name": "Zone1VAV",
+      "topic": "devices/Zone1VAV/all",
+      "address": "192.168.204.14",
+      "proxy_identity": "platform.bacnet_proxy",
+      "rpc_read_points": {
+        "ZoneTemp": ["analogInput", 1, "presentValue"],
+        "VAVFlow": ["analogInput", 2, "presentValue"]
+      }
+    }
+  ],
+  "rpc_demo_onstart": true,
+  "log_level": "INFO"
+}
+```
+
+Full production code for all three agents → **`archive/VOLTTRON-9-bosspi-agent-source-backup-2026-04-09.md`**.
 
 ---
 
-## Good next steps
+## GL36 agents (one sentence each)
 
-If this demo continues, the highest-value next upgrades are:
+- **`gl36_vav_request_agent`:** Reads VAV publishes → cooling + static-pressure **request counts** → publishes `gl36/vav/request_summary` (and details).
+- **`gl36_ahu_trim_respond_agent`:** Reads AHU publishes + VAV summary → **recommended** duct static and SAT setpoints; **publish/log only** unless you deliberately enable writes later.
 
-1. generate VOLTTRON config from Open-FDD/graph output instead of hand-maintained point-name mappings
-2. add more VAVs so request aggregation actually behaves like a multi-zone supervisory workflow
-3. persist agent state/timers across restarts where it matters
-4. add explicit health/status RPC methods for the custom agents
-5. keep recommendation mode as the default until a deliberate closed-loop test plan exists
-6. define a clean export contract from Open-FDD to VOLTTRON:
-   - equipment identity
-   - point semantics
-   - validated address path
-   - read/write capability
-   - confidence / review status
+Logic reference (Niagara-style notes): [bbartling/niagara4-vibe-code-addict — README_TRIM_RESPOND.md](https://github.com/bbartling/niagara4-vibe-code-addict/blob/develop/README_TRIM_RESPOND.md)
 
 ---
 
-## Handoff note for another OpenClaw
+## Repo layout after cleanup
 
-If another OpenClaw instance picks this up later, start here:
+| Path | Purpose |
+|------|---------|
+| `README.md` | This file — ops + snippets |
+| `RECREATE.md` | Step-by-step rebuild + Platform Driver JSON/CSVs |
+| `volttron.service` | systemd unit |
+| `archive/` | Old OpenClaw handoffs, Open-FDD notes, full runbook copy |
 
-1. read this README
-2. read `2026-04-10-openfdd-volttron-architecture-notes.md`
-3. SSH to `ben@192.168.204.12`
-4. verify `volttron.service` and `vctl status`
-5. inspect `/home/ben/.volttron/volttron.log`
-6. confirm whether the point names and bench devices still match the documented assumptions
-7. only then change code or docs
+---
 
-That sequence will save a lot of wasted motion.
+## Progression (rest of playground)
+
+`vibe_code_apps_1` … `vibe_code_apps_5` → direct BAC0/BACpypes scripts. **App 6** → same ideas running **inside VOLTTRON** (always-on edge, pubsub, agents).

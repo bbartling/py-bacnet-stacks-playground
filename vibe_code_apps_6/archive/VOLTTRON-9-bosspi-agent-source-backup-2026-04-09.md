@@ -183,7 +183,7 @@ class BenCsvLoggerAgent(Agent):
                 _log.info('BACnet proxy RPC demo for %s at %s -> %r', device['name'], device['address'], result)
             except Exception as exc:
                 _log.exception('BACnet proxy RPC demo failed for %s: %s', device['name'], exc)
-                self.vip.health.set_status(STATUS_BAD, f'RPC demo failed for {device[name]}: {exc}')
+                self.vip.health.set_status(STATUS_BAD, f'RPC demo failed for {device['name']}: {exc}')
 
 
 def main(argv=sys.argv):

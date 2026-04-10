@@ -1,0 +1,12 @@
+{
+  "driver_config": {
+    "device_address": "192.168.204.13",
+    "device_id": 3456789
+  },
+  "driver_type": "bacnet",
+  "registry_config": "config://registry_configs/bensfakeahu.csv",
+  "interval": 10,
+  "timezone": "US/Central",
+  "heart_beat_point": "",
+  "group": 0
+}

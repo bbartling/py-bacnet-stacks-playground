@@ -1,75 +1,3 @@
-# Demo agent source backup
-
-This is a documentation/back-up copy of the demo agent that was installed on the Raspberry Pi.
-
-Pi source root:
-
-- `/home/ben/volttron/volttron_data/ben_bacnet/demo_csv_logger_agent`
-
-## setup.py
-
-```python
-from os import path
-from setuptools import setup, find_packages
-
-MAIN_MODULE = 'agent'
-packages = find_packages('.')
-agent_package = ''
-for package in packages:
-    if path.isfile(package + '/' + MAIN_MODULE + '.py'):
-        agent_package = package
-        break
-if not agent_package:
-    raise RuntimeError('No agent package found')
-agent_module = agent_package + '.' + MAIN_MODULE
-_temp = __import__(agent_module, globals(), locals(), ['__version__'], 0)
-__version__ = _temp.__version__
-
-setup(
-    name=agent_package + 'agent',
-    version=__version__,
-    install_requires=['volttron'],
-    packages=packages,
-    entry_points={'setuptools.installation': ['eggsecutable = ' + agent_module + ':main']}
-)
-```
-
-## config
-
-```json
-{
-  "agentid": "ben_csv_logger",
-  "csv_output_dir": "/home/ben/volttron/volttron_data/ben_bacnet/csv_logs",
-  "devices": [
-    {
-      "name": "BensFakeAHU",
-      "topic": "devices/BensFakeAHU/all",
-      "address": "192.168.204.13",
-      "proxy_identity": "platform.bacnet_proxy",
-      "rpc_read_points": {
-        "OA_T": ["analogInput", 6, "presentValue"],
-        "SA_T": ["analogInput", 2, "presentValue"]
-      }
-    },
-    {
-      "name": "Zone1VAV",
-      "topic": "devices/Zone1VAV/all",
-      "address": "192.168.204.14",
-      "proxy_identity": "platform.bacnet_proxy",
-      "rpc_read_points": {
-        "ZoneTemp": ["analogInput", 1, "presentValue"],
-        "VAVFlow": ["analogInput", 2, "presentValue"]
-      }
-    }
-  ],
-  "rpc_demo_onstart": true,
-  "log_level": "INFO"
-}
-```
-
-## ben_csv_logger/agent.py
-
-```python
 import csv
 import logging
 import os
@@ -169,7 +97,7 @@ class BenCsvLoggerAgent(Agent):
                 _log.info('BACnet proxy RPC demo for %s at %s -> %r', device['name'], device['address'], result)
             except Exception as exc:
                 _log.exception('BACnet proxy RPC demo failed for %s: %s', device['name'], exc)
-                self.vip.health.set_status(STATUS_BAD, f'RPC demo failed for {device[name]}: {exc}')
+                self.vip.health.set_status(STATUS_BAD, f'RPC demo failed for {device["name"]}: {exc}')
 
 
 def main(argv=sys.argv):
@@ -181,26 +109,3 @@ def main(argv=sys.argv):
 
 if __name__ == '__main__':
     sys.exit(main())
-```
-
-## Important note
-
-The installed agent is working for the successful path that was verified:
-
-- topic subscriptions work
-- CSV writing works
-- startup BACnet proxy RPC demo works with the current config above
-
-There is, however, one small cleanup item still worth making in the source backup above:
-
-```python
-self.vip.health.set_status(STATUS_BAD, f'RPC demo failed for {device[name]}: {exc}')
-```
-
-That line should be corrected before relying on the failure path. A safe replacement would be:
-
-```python
-self.vip.health.set_status(STATUS_BAD, 'RPC demo failed for %s: %s' % (device['name'], exc))
-```
-
-Because the verified startup RPC reads succeeded, that bad-path bug did not block the working demo outcome.

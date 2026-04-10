@@ -1,0 +1,28 @@
+{
+  "agentid": "ben_csv_logger",
+  "csv_output_dir": "/home/ben/volttron/volttron_data/ben_bacnet/csv_logs",
+  "devices": [
+    {
+      "name": "BensFakeAHU",
+      "topic": "devices/BensFakeAHU/all",
+      "address": "192.168.204.13",
+      "proxy_identity": "platform.bacnet_proxy",
+      "rpc_read_points": {
+        "OA_T": ["analogInput", 6, "presentValue"],
+        "SA_T": ["analogInput", 2, "presentValue"]
+      }
+    },
+    {
+      "name": "Zone1VAV",
+      "topic": "devices/Zone1VAV/all",
+      "address": "192.168.204.14",
+      "proxy_identity": "platform.bacnet_proxy",
+      "rpc_read_points": {
+        "ZoneTemp": ["analogInput", 1, "presentValue"],
+        "VAVFlow": ["analogInput", 2, "presentValue"]
+      }
+    }
+  ],
+  "rpc_demo_onstart": true,
+  "log_level": "INFO"
+}

@@ -1,0 +1,8 @@
+{
+  "driver_scrape_interval": 0.5,
+  "publish_breadth_first_all": false,
+  "publish_depth_first": false,
+  "publish_breadth_first": false,
+  "publish_depth_first_all": true,
+  "group_offset_interval": 0.0
+}

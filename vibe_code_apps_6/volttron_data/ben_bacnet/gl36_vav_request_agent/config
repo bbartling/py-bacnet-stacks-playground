@@ -1,0 +1,23 @@
+{
+  "agentid": "gl36_vav_request_agent",
+  "publish_topic": "gl36/vav/request_summary",
+  "publish_detail_topic": "gl36/vav/request_details",
+  "exec_period_sec": 10,
+  "press_persist_sec": 60,
+  "temp_persist_sec": 120,
+  "temp_suppress_sec": 60,
+  "use_imperial": true,
+  "log_level": "INFO",
+  "vavs": [
+    {
+      "name": "Zone1VAV",
+      "topic": "devices/Zone1VAV/all",
+      "zone_temp_point": "ZoneTemp",
+      "zone_cooling_setpoint_point": "ZoneCoolingSpt",
+      "zone_demand_point": "ZoneDemand",
+      "vav_flow_point": "VAVFlow",
+      "vav_flow_setpoint_point": "VAVFlowSpt",
+      "vav_damper_cmd_point": "VAVDamperCmd"
+    }
+  ]
+}

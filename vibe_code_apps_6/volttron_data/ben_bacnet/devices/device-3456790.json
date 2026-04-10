@@ -1,0 +1,8 @@
+{
+    "driver_config": {
+        "device_address": "192.168.204.14",
+        "device_id": 3456790
+    },
+    "driver_type": "bacnet",
+    "registry_config": "config://registry_configs/device-3456790.csv"
+}

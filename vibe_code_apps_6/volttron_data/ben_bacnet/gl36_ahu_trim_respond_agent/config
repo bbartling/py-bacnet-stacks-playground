@@ -1,0 +1,30 @@
+{
+  "agentid": "gl36_ahu_trim_respond_agent",
+  "ahu_topic": "devices/BensFakeAHU/all",
+  "vav_request_topic": "gl36/vav/request_summary",
+  "publish_topic": "gl36/ahu/recommendations",
+  "platform_driver_identity": "platform.driver",
+  "static_pressure_setpoint_point": "DAP_SP",
+  "sat_setpoint_point": "SAT_SP",
+  "fan_status_point": "SF_S",
+  "fan_command_point": "SF_C",
+  "write_recommendations": false,
+  "startup_delay_sec": 30,
+  "update_interval_sec": 30,
+  "ignore_requests": 0,
+  "log_level": "INFO",
+  "static_pressure": {
+    "min": 0.5,
+    "max": 1.5,
+    "trim": -0.04,
+    "respond": 0.06,
+    "respond_max": 0.15
+  },
+  "supply_air_temperature": {
+    "min": 52.0,
+    "max": 62.0,
+    "trim": 0.5,
+    "respond": -1.0,
+    "respond_max": 3.0
+  }
+}
