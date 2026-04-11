@@ -18,6 +18,9 @@ const state = {
 }
 
 let refreshTimer = null
+let initialLoadPromise = null
+let refreshInFlight = false
+let renderScheduled = false
 
 async function getJson(path) {
   const response = await fetch(path)
@@ -130,15 +133,30 @@ async function refreshLiveData() {
 }
 
 async function ensureTrend(pointId) {
-  if (!state.cache.trendsByPoint[pointId]) {
-    state.cache.trendsByPoint[pointId] = await getJson(`/app7/api/trends?pointId=${encodeURIComponent(pointId)}`)
+  const cached = state.cache.trendsByPoint[pointId]
+  if (!cached) {
+    const promise = getJson(`/app7/api/trends?pointId=${encodeURIComponent(pointId)}`).then(result => {
+      state.cache.trendsByPoint[pointId] = result
+      return result
+    })
+    state.cache.trendsByPoint[pointId] = promise
+    await promise
+  } else if (typeof cached.then === 'function') {
+    await cached
   }
 }
 
 async function ensureSetpoints(deviceId) {
-  if (!state.cache.setpointsByDevice[deviceId]) {
-    const result = await getJson(`/app7/api/setpoints?deviceId=${encodeURIComponent(deviceId)}`)
-    state.cache.setpointsByDevice[deviceId] = result.items || []
+  const cached = state.cache.setpointsByDevice[deviceId]
+  if (!cached) {
+    const promise = getJson(`/app7/api/setpoints?deviceId=${encodeURIComponent(deviceId)}`).then(result => {
+      state.cache.setpointsByDevice[deviceId] = result.items || []
+      return state.cache.setpointsByDevice[deviceId]
+    })
+    state.cache.setpointsByDevice[deviceId] = promise
+    await promise
+  } else if (typeof cached.then === 'function') {
+    await cached
   }
 }
 
@@ -251,7 +269,7 @@ function renderSetpoints(setpoints) {
             <div class="muted">Current: ${escapeHtml(formatValue(point.value, point.units))}</div>
           </div>
           <div class="setpoint-controls">
-            <input type="number" step="0.1" name="value" value="${typeof point.value === 'number' ? point.value : ''}" />
+            <input type="text" inputmode="decimal" name="value" placeholder="Enter number" />
             <button type="submit">Write</button>
           </div>
         </form>
@@ -317,6 +335,7 @@ function renderPlotlyTrend(trend) {
 }
 
 function renderApp() {
+  renderScheduled = false
   const app = document.getElementById('app')
   const health = state.cache.health
   const selectedDevice = getSelectedDevice()
@@ -329,7 +348,8 @@ function renderApp() {
   const trend = getCurrentTrend()
   const graphics = state.cache.graphics
   const equipmentGraphics = selectedDevice.id === 'Zone1VAV' ? graphics.equipmentGraphics.vav.points : graphics.equipmentGraphics.ahu.points
-  const setpoints = state.cache.setpointsByDevice[selectedDevice.id] || []
+  const rawSetpoints = state.cache.setpointsByDevice[selectedDevice.id]
+  const setpoints = rawSetpoints && typeof rawSetpoints.then !== 'function' ? rawSetpoints : []
 
   app.innerHTML = `
     <div class="app-shell simple-shell">
@@ -420,12 +440,21 @@ function renderApp() {
   state.initialized = true
 }
 
+function scheduleRender() {
+  if (renderScheduled) return
+  renderScheduled = true
+  requestAnimationFrame(() => renderApp())
+}
+
 async function initialLoad() {
+  if (initialLoadPromise) return initialLoadPromise
   const app = document.getElementById('app')
   app.innerHTML = '<div style="padding:24px">Loading App 7…</div>'
   setTheme(state.theme)
-  await fetchInitialData()
-  renderApp()
+  initialLoadPromise = fetchInitialData().then(() => {
+    renderApp()
+  })
+  return initialLoadPromise
 }
 
 async function selectDevice(deviceId) {
@@ -454,7 +483,7 @@ async function selectPoint(pointId) {
 
 async function submitSetpoint(pointId, value) {
   state.writeMessage = `Writing ${pointId}…`
-  renderApp()
+  scheduleRender()
   try {
     const result = await postJson('/app7/api/setpoints/write', { pointId, value })
     state.writeMessage = result.status === 'ok'
@@ -466,7 +495,7 @@ async function submitSetpoint(pointId, value) {
   } catch (error) {
     state.writeMessage = `Write failed for ${pointId}: ${error.message}`
   }
-  renderApp()
+  scheduleRender()
 }
 
 function bindEvents() {
@@ -485,21 +514,21 @@ function bindEvents() {
   document.querySelectorAll('[data-theme]').forEach(el => {
     el.addEventListener('click', () => {
       setTheme(el.dataset.theme)
-      renderApp()
+      scheduleRender()
     })
   })
 
   document.querySelectorAll('[data-open-plotly]').forEach(el => {
     el.addEventListener('click', () => {
       state.plotFullscreen = true
-      renderApp()
+      scheduleRender()
     })
   })
 
   document.querySelectorAll('[data-close-plotly]').forEach(el => {
     el.addEventListener('click', () => {
       state.plotFullscreen = false
-      renderApp()
+      scheduleRender()
     })
   })
 
@@ -507,7 +536,13 @@ function bindEvents() {
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
       const pointId = form.dataset.setpointForm
-      const value = Number(form.querySelector('input[name="value"]').value)
+      const raw = form.querySelector('input[name="value"]').value.trim()
+      const value = Number(raw)
+      if (raw === '' || Number.isNaN(value)) {
+        state.writeMessage = `Write failed for ${pointId}: enter a valid number.`
+        scheduleRender()
+        return
+      }
       await submitSetpoint(pointId, value)
     })
   })
@@ -517,6 +552,8 @@ function startBackgroundRefresh() {
   if (refreshTimer) clearInterval(refreshTimer)
   refreshTimer = setInterval(async () => {
     if (refreshInFlight) return
+    const active = document.activeElement
+    if (active && active.matches && active.matches('[data-setpoint-input]')) return
     refreshInFlight = true
     try {
       await refreshLiveData()
@@ -527,19 +564,6 @@ function startBackgroundRefresh() {
       refreshInFlight = false
     }
   }, 30000)
-}
-
-initialLoad().then(startBackgroundRefresh).catch(error => {
-  document.getElementById('app').innerHTML = `<div style="padding:24px; color:#ffb4ae; font-family:Segoe UI, sans-serif;"><h2>App 7 failed to load</h2><p>${escapeHtml(error.message)}</p></div>`
-})
-</div>`
-})
-)
-      renderApp()
-    } catch (error) {
-      console.error('Background refresh failed', error)
-    }
-  }, 15000)
 }
 
 initialLoad().then(startBackgroundRefresh).catch(error => {

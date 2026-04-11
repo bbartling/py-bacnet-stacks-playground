@@ -57,10 +57,11 @@ This means yes: keeping high-churn dashboard/trend state in memory first is a va
 | `docs/backend-contract.md` | UI-facing API draft |
 | `docs/alarm-model.md` | first-pass alarm/event model |
 | `docs/hosting-options.md` | why option 1 is being tried first |
+| `docs/tech-setup-cheatsheet.md` | commissioning / OpenClaw / Linux service / agent cheat sheet |
+| `docs/model-context-notes.md` | big-stuff-only model context, lessons learned, and what-not-to-do notes |
 | `RECREATE.md` | installation / recreate notes |
-| `volttron_data/ben_bacnet/app7_web_agent/` | actual VOLTTRON web-enabled agent scaffold |
+| `volttron_data/ben_bacnet/app7_web_agent/` | current app 7 source-of-truth VOLTTRON web agent |
 | `archive/` | Pi checkpoint backup, config/log snapshots, and pause-status handoff |
-| `src/` | earlier React/Vite shell used to define UI feel |
 
 ---
 

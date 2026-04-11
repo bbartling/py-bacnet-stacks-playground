@@ -86,7 +86,7 @@ tr.row-selected td { background: color-mix(in srgb, var(--brand) 12%, transparen
 .setpoint-grid { display: grid; gap: 12px; }
 .setpoint-card { display: flex; justify-content: space-between; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .setpoint-controls { display: flex; gap: 10px; align-items: center; }
-.setpoint-controls input { width: 120px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.setpoint-controls input { width: 140px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); appearance: none; -webkit-appearance: none; -moz-appearance: textfield; }
 .setpoint-controls button { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--brand); background: color-mix(in srgb, var(--brand) 15%, var(--panel-2)); color: var(--text); cursor: pointer; }
 .write-message { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
 .small-note, .muted { color: var(--muted); font-size: 13px; }
