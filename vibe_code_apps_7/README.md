@@ -1,163 +1,217 @@
-# Vibe Code App 7 — VOLTTRON-hosted BAS Lite web app (option 1)
+# Vibe Code App 7 — BAS Lite on VOLTTRON (bosspi)
 
-**What this is:** a first-pass BAS/BMS Lite app where **VOLTTRON itself serves the operator UI**. The UI is a static web app served from a web-enabled agent, with lightweight JSON endpoints exposed from that same agent.
+**What this is:** a lightweight BAS/BMS Lite web app hosted by VOLTTRON on the Raspberry Pi bench. It serves a simple operator dashboard for two BACnet devices, shows live values/trends/alarms, and supports approved writable setpoints through Platform Driver.
 
-**What this folder is for:** one place so you (or another AI session) can **understand the shape**, **install the web agent**, and **try the "serve React/static from VOLTTRON first" approach** before deciding whether to split the frontend/backend later.
-
----
-
-## Current intent
-
-This is the explicit **option 1** experiment:
-
-- custom operator-facing UI
-- served by a VOLTTRON web-enabled agent
-- lightweight backend/API shape
-- VOLTTRON remains BACnet/middleware/runtime
-- if this path gets nasty, move later to a separately hosted frontend/backend
-
-This folder is **not** pretending to be the final polished product. It is the clean starting point for the "let VOLTTRON host the web app first" trial.
-
-## Data / retention posture
-
-For the current 2-device Pi bench, app 7 is intentionally biased toward **in-memory / bounded retention** to reduce Raspberry Pi SD-card wear.
-
-Current posture:
-
-- live dashboard state is served from the running agent process
-- trend samples are currently held in bounded in-memory deques
-- current config targets **5-minute trend handling** with a **31-day retention goal**
-- this is a bench-friendly runtime cache shape, not a finished historian/database layer yet
-- notification config/log state is lightweight and bench-oriented for now
-
-This means yes: keeping high-churn dashboard/trend state in memory first is a valid anti-SD-wear strategy on this Pi-class bench.
+**What this folder is for:** one place so a human or another OpenClaw session can understand the setup, redeploy it, debug it, and continue the work without rereading a long chat log.
 
 ---
 
-## Frozen facts / working assumptions
+## Quick links
+
+- [Frozen facts](#frozen-facts)
+- [What works today](#what-works-today)
+- [One-line install + start](#one-line-install--start-run-this-once)
+- [Future deploys](#future-deploys)
+- [If install says identity already exists](#if-install-says-identity-already-exists)
+- [OpenClaw / tech commissioning flow](#openclaw--tech-commissioning-flow)
+- [Data retention / logging posture](#data-retention--logging-posture)
+- [Files that actually matter](#files-that-actually-matter)
+- [What not to do](#what-not-to-do)
+
+---
+
+## Frozen facts
 
 | Item | Value |
 |------|--------|
-| Bench target | Raspberry Pi `bosspi` |
+| Pi host | `bosspi` |
 | SSH | `ben@192.168.204.12` |
 | VOLTTRON repo | `/home/ben/volttron` |
 | `VOLTTRON_HOME` | `/home/ben/.volttron` |
-| venv | `source /home/ben/volttron/env/bin/activate` |
-| App 7 agent source target on Pi | `/home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent` |
-| UI route target | `/app7/` |
-| JSON API example | `/app7/api/health` |
+| Service | `volttron.service` |
+| App 7 path on Pi | `/home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent` |
+| Live UI URL | `http://192.168.204.12:8080/app7/index.html` |
+| Agent identity | `ben.app7.web` |
+| Agent tag | `ben-app7-web` |
+
+### Bench BACnet devices
+
+| Name | BACnet IP | device_id |
+|------|-----------|-----------|
+| `BensFakeAHU` | `192.168.204.13` | `3456789` |
+| `Zone1VAV` | `192.168.204.14` | `3456790` |
 
 ---
 
-## What is in this folder
+## What works today
 
-| Path | Purpose |
-|------|---------|
-| `docs/architecture.md` | architecture notes |
-| `docs/backend-contract.md` | UI-facing API draft |
-| `docs/alarm-model.md` | first-pass alarm/event model |
-| `docs/hosting-options.md` | why option 1 is being tried first |
-| `docs/tech-setup-cheatsheet.md` | commissioning / OpenClaw / Linux service / agent cheat sheet |
-| `docs/model-context-notes.md` | big-stuff-only model context, lessons learned, and what-not-to-do notes |
-| `RECREATE.md` | installation / recreate notes |
-| `volttron_data/ben_bacnet/app7_web_agent/` | current app 7 source-of-truth VOLTTRON web agent |
-| `archive/` | Pi checkpoint backup, config/log snapshots, and pause-status handoff |
+- VOLTTRON web-hosted BAS Lite UI on the Pi
+- simple operator dashboard
+- theme toggle
+- equipment tree
+- live point table
+- Plotly trend view
+- bottom setpoint write dock
+- live BACnet-fed values through `platform.driver`
+- real writable setpoint path through Platform Driver
+- app agent runs under the proper `volttron.service` systemd-managed platform
 
----
+### Current tested healthy agents
 
-## Another AI session: do this first
-
-1. SSH to `ben@192.168.204.12`
-2. `cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate`
-3. `systemctl is-active volttron.service` and `vctl status`
-4. copy `volttron_data/ben_bacnet/app7_web_agent` from this folder onto the Pi
-5. install the agent with `enable_web=True` scaffold already in place
-6. hit `/app7/` and `/app7/api/health`
-7. only then judge whether the VOLTTRON-hosted path is clean enough to keep
+- `ben.app7.web`
+- `platform.driver`
+- `platform.bacnet_proxy`
+- `listener.bacnet`
+- GL36 bench agents
 
 ---
 
-## App 7, option 1 shape
+## One-line install + start (run this once)
 
-### Operator UI
+This was validated during the current workstream.
 
-The app should feel like a slimmed-down Open-FDD-style interface, but intentionally simpler on this 2-device bench:
+```powershell
+ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl install --vip-identity ben.app7.web --tag ben-app7-web /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent --config /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/config && vctl start --tag ben-app7-web && sleep 3 && vctl status"
+```
 
-- sidebar with only theme toggle + equipment tree
-- click a device in the tree and the main dashboard repopulates for that device
-- point table / current values
-- strong red alarm visibility
-- trend view for the selected point
-- minimal notification/trend/alarm notes instead of overbuilt config UI
+You should see a row for:
 
-For this bench phase, configuring alarms/trends through OpenClaw chat is acceptable and should be documented instead of forcing a heavy operator config surface too early.
-
-Also document that another OpenClaw instance should be able to recreate this deployment, configure trends/alarms, assist the technician with SMTP dial-out testing during setup, and verify approved writable BACnet setpoints.
-
-### API boundary
-
-The frontend should still think in terms of a normal app API, even if the first pass is hosted from the same VOLTTRON agent.
-
-That means the UI reads routes like:
-
-- `/app7/api/health`
-- `/app7/api/devices`
-- `/app7/api/alarms/events`
-
-### VOLTTRON role
-
-VOLTTRON should keep doing the runtime-heavy work:
-
-- BACnet Proxy
-- Platform Driver
-- scrape/publish
-- supervisory logic
-- shared/global coordination logic
-
-The point of this option is **not** to turn VOLTTRON Central into the product UI. The point is to see whether a custom app can be hosted cleanly enough from a VOLTTRON web agent for MVP use.
-
-## Current frontend performance posture
-
-The current app-7 frontend was simplified to reduce lag on the Pi/VOLTTRON path:
-
-- remove the click-time loading splash after initial page load
-- fetch static-ish payloads once and cache them client-side
-- keep selected device / selected point in browser state
-- refresh only live points / alarms / selected trend on an interval
-- use `Plotly.react()` instead of recreating charts from scratch each click
-
-This should make the app feel materially less sluggish even before changing the hosting architecture.
+- `ben.app7.web`
+- `ben-app7-web`
+- `running`
+- `GOOD`
 
 ---
 
-## Files to care about inside the agent
+## Future deploys
 
-| Path | Purpose |
-|------|---------|
-| `setup.py` | installable VOLTTRON package definition |
-| `MANIFEST.in` | includes packaged static assets |
-| `config` | route prefix / app metadata |
-| `app7_web_agent/agent.py` | live API + BACnet/trend/setpoint logic |
-| `app7_web_agent/__init__.py` | package marker |
-| `app7_web_agent/webroot/app7/index.html` | operator UI shell served by VOLTTRON |
-| `app7_web_agent/webroot/app7/app.js` | current browser-side UI logic |
-| `app7_web_agent/webroot/app7/styles.css` | current app styling |
+If you only changed front-end files, copy the changed files and restart the agent.
+
+### Minimal file copy pattern
+
+```powershell
+scp "C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_7\volttron_data\ben_bacnet\app7_web_agent\app7_web_agent\webroot\app7\app.js" ben@192.168.204.12:/home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/app.js
+```
+
+```powershell
+scp "C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_7\volttron_data\ben_bacnet\app7_web_agent\app7_web_agent\webroot\app7\styles.css" ben@192.168.204.12:/home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/styles.css
+```
+
+```powershell
+scp "C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_7\volttron_data\ben_bacnet\app7_web_agent\app7_web_agent\webroot\app7\index.html" ben@192.168.204.12:/home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/index.html
+```
+
+### Restart the app 7 agent
+
+This restart command was validated.
+
+```powershell
+ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl restart --tag ben-app7-web && sleep 2 && vctl status"
+```
+
+### Or use the repo script
+
+This PowerShell script was validated and now works:
+
+```powershell
+cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_7
+.\deploy-app7-to-bosspi.ps1
+```
+
+Behavior:
+
+- copies the whole `app7_web_agent` folder to the Pi
+- if the agent already exists → restarts it
+- if the agent is missing → installs + starts it
 
 ---
 
-## Data / logging / Linux service notes
+## If install says identity already exists
 
-Current Pi posture should be documented and preserved:
+First inspect what is there:
 
-- `volttron.service` is the main Linux service hosting the app platform
-- app 7 runs as an agent under that service
-- dashboard/trend state is currently in-memory and bounded to reduce SD-card wear
-- file logging can be enabled/tuned when needed, but should stay deliberate
-- advanced users may prefer `systemd-journald` retention/rotation controls for robust Linux service behavior
+```powershell
+ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl list && vctl status"
+```
 
-See also: `docs/tech-setup-cheatsheet.md`
+If App 7 already exists and you need to remove the old one explicitly:
 
-## Daily commands
+```powershell
+ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl remove <UUID-HERE> && vctl install --vip-identity ben.app7.web --tag ben-app7-web /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent --config /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/config && vctl start --tag ben-app7-web"
+```
+
+Replace `<UUID-HERE>` with the real UUID from `vctl list`.
+
+---
+
+## OpenClaw / tech commissioning flow
+
+This folder should be enough context for another OpenClaw instance or a technician-assisted setup.
+
+### OpenClaw should be able to help with
+
+- deploying/redeploying the app on the Pi
+- validating BACnet Proxy + Platform Driver health
+- checking the live UI/API path
+- verifying writable setpoints on approved points
+- setting up trend/alarm posture through chat + notes
+- helping test SMTP dial-out during commissioning
+
+### Human-readable expectation
+
+This app is **not** trying to be a giant full BAS front-end yet.
+
+The intended bench UX is:
+
+- simple device tree
+- one selected-device dashboard
+- point table
+- current alarms
+- trend view
+- bottom setpoint writer
+
+And then use OpenClaw chat for:
+
+- high limits
+- low limits
+- alarm enable/disable
+- retention tweaks
+- SMTP testing/dial-out verification
+
+That is cleaner than overbuilding forms for a 2-device bench.
+
+---
+
+## Data retention / logging posture
+
+Current app 7 posture is intentionally Raspberry Pi / SD-card friendly.
+
+### Current storage idea
+
+- live dashboard state is served by the running agent
+- trend data is bounded and memory-first
+- current target shape is:
+  - 5-minute trend handling
+  - 31-day retention goal
+- this is **not** a finished historian/database layer yet
+
+### Why
+
+To reduce SD-card wear.
+
+### Practical guidance
+
+- keep high-churn trend/UI state in memory first
+- avoid chatty per-sample file writes unless really needed
+- file logging should be deliberate
+- advanced users may prefer journald/systemd retention controls for Linux service hygiene
+- VOLTTRON startup/log rotation options may still be useful, but journald/systemd is often the clearer ops story on Linux
+
+---
+
+## Linux service / bench commands
+
+### Check service + agents
 
 ```bash
 ssh ben@192.168.204.12
@@ -165,62 +219,73 @@ cd /home/ben/volttron
 export VOLTTRON_HOME=/home/ben/.volttron
 source env/bin/activate
 
+systemctl status volttron.service --no-pager
 vctl status
 ```
 
-```bash
-# Install / reinstall the app 7 web agent
-vctl install --vip-identity ben.app7.web --tag ben-app7-web \
-  /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent \
-  --config /home/ben/volttron/volttron_data/ben_bacnet/app7_web_agent/config
+### Restart whole VOLTTRON service if needed
+
+```powershell
+ssh ben@192.168.204.12 "sudo systemctl restart volttron.service && sleep 8 && systemctl status volttron.service --no-pager"
 ```
 
-```bash
-vctl start --tag ben-app7-web
-vctl status
+Then:
+
+```powershell
+ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl status"
 ```
 
-```bash
-# Check logs for the agent
-grep -n -E 'app7|web|Traceback|ERROR|Exception' /home/ben/.volttron/volttron.log | tail -n 80
+### Check logs
+
+```powershell
+ssh ben@192.168.204.12 "tail -n 80 /home/ben/volttron/volttron.log"
+```
+
+```powershell
+ssh ben@192.168.204.12 "grep -n -E 'app7|Traceback|ERROR|Exception' /home/ben/volttron/volttron.log | tail -n 80"
 ```
 
 ---
 
-## Expected URLs once installed
+## Files that actually matter
 
-Current live bench path on `bosspi`:
+### Core app code
 
-- `http://192.168.204.12:8080/app7/index.html`
-- `http://192.168.204.12:8080/app7/api/health`
-- `http://192.168.204.12:8080/app7/api/devices`
-- `http://192.168.204.12:8080/app7/api/points`
-- `http://192.168.204.12:8080/app7/api/trends?pointId=Zone1VAV::ZoneTemp`
+- `volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/agent.py`
+- `volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/index.html`
+- `volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/app.js`
+- `volttron_data/ben_bacnet/app7_web_agent/app7_web_agent/webroot/app7/styles.css`
 
-The Pi web surface is currently coming from the proper systemd-managed VOLTTRON platform with `bind-web-address = http://192.168.204.12:8080` enabled.
+### Important docs
 
----
+- `RECREATE.md`
+- `docs/tech-setup-cheatsheet.md`
+- `docs/model-context-notes.md`
+- `docs/backend-contract.md`
+- `docs/architecture.md`
 
-## Decision rule for this option-1 trial
+### Historical snapshots
 
-**Keep option 1** if:
+- `archive/`
+- `archive/backups/`
 
-- static assets serve cleanly
-- route prefix handling is tolerable
-- basic JSON endpoints are clean
-- redeploy/update flow is not annoying
-
-**Bail to option 2 later** if:
-
-- path-prefix routing gets brittle
-- auth/session behavior gets awkward
-- frontend rebuild/redeploy becomes annoying
-- app logic starts feeling forced into VOLTTRON just because it is there
+Snapshots are useful, but they are not the main source-of-truth code.
 
 ---
 
-## Relationship to app 6
+## What not to do
 
-`vibe_code_apps_6` is the proven VOLTTRON-on-Pi bench and custom-agent baseline.
+- do **not** hammer the VOLTTRON web service with overlapping endpoint calls on every click
+- do **not** trust a redeploy without checking the actual installed Pi file if behavior looks unchanged
+- do **not** assume browser cache is innocent — hard refresh matters
+- do **not** leave stale prototype code as if it were current source-of-truth
+- do **not** let background refresh stomp form input while a human is typing
+- do **not** overbuild config UI for this 2-device bench when OpenClaw chat is the cleaner tool
 
-`vibe_code_apps_7` is the next experiment: use that VOLTTRON base to host a small operator UI and app-shaped API, starting with the simplest integrated deployment path first.
+---
+
+## See also
+
+- `RECREATE.md`
+- `docs/tech-setup-cheatsheet.md`
+- `docs/model-context-notes.md`

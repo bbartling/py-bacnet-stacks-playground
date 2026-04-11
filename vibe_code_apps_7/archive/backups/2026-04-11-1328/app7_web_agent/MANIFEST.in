@@ -1,0 +1,2 @@
+recursive-include app7_web_agent/webroot *
+recursive-include webroot *
