@@ -25,6 +25,8 @@ The purpose is to keep the frontend stable even if the VOLTTRON-side integration
 - `/api/trends`
 - `/api/notifications/config`
 - `/api/notifications/logs`
+- `/api/setpoints`
+- `/api/setpoints/write`
 
 ## Health
 
@@ -205,6 +207,8 @@ Fields might include:
 
 For the first pass:
 
-- build these routes as mock/static or in-memory-backed endpoints
+- build these routes as live in-memory-backed endpoints over the 2-device bench data
 - keep response shapes stable
 - avoid overcommitting to internal implementation too early
+- allow OpenClaw chat to act as the practical operator/config layer for alarm/trend setup during early bench work
+- keep the browser UI lighter and simpler than the API surface

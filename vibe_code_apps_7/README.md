@@ -18,6 +18,20 @@ This is the explicit **option 1** experiment:
 
 This folder is **not** pretending to be the final polished product. It is the clean starting point for the "let VOLTTRON host the web app first" trial.
 
+## Data / retention posture
+
+For the current 2-device Pi bench, app 7 is intentionally biased toward **in-memory / bounded retention** to reduce Raspberry Pi SD-card wear.
+
+Current posture:
+
+- live dashboard state is served from the running agent process
+- trend samples are currently held in bounded in-memory deques
+- current config targets **5-minute trend handling** with a **31-day retention goal**
+- this is a bench-friendly runtime cache shape, not a finished historian/database layer yet
+- notification config/log state is lightweight and bench-oriented for now
+
+This means yes: keeping high-churn dashboard/trend state in memory first is a valid anti-SD-wear strategy on this Pi-class bench.
+
 ---
 
 ## Frozen facts / working assumptions
@@ -66,14 +80,18 @@ This folder is **not** pretending to be the final polished product. It is the cl
 
 ### Operator UI
 
-The app should feel like a slimmed-down Open-FDD-style interface:
+The app should feel like a slimmed-down Open-FDD-style interface, but intentionally simpler on this 2-device bench:
 
-- device tree
+- sidebar with only theme toggle + equipment tree
+- click a device in the tree and the main dashboard repopulates for that device
 - point table / current values
 - strong red alarm visibility
-- simple trend area
-- alarm config
-- SMTP / notification config visibility
+- trend view for the selected point
+- minimal notification/trend/alarm notes instead of overbuilt config UI
+
+For this bench phase, configuring alarms/trends through OpenClaw chat is acceptable and should be documented instead of forcing a heavy operator config surface too early.
+
+Also document that another OpenClaw instance should be able to recreate this deployment, configure trends/alarms, assist the technician with SMTP dial-out testing during setup, and verify approved writable BACnet setpoints.
 
 ### API boundary
 
@@ -104,15 +122,27 @@ The point of this option is **not** to turn VOLTTRON Central into the product UI
 | Path | Purpose |
 |------|---------|
 | `setup.py` | installable VOLTTRON package definition |
-| `MANIFEST.in` | includes static `webroot/` files in the package |
+| `MANIFEST.in` | includes packaged static assets |
 | `config` | route prefix / app metadata |
-| `app7_web_agent/agent.py` | registers static path + JSON endpoints |
+| `app7_web_agent/agent.py` | live API + BACnet/trend/setpoint logic |
 | `app7_web_agent/__init__.py` | package marker |
-| `webroot/index.html` | operator UI shell served by VOLTTRON |
-| `webroot/app.js` | simple browser-side UI logic |
-| `webroot/styles.css` | app styling |
+| `app7_web_agent/webroot/app7/index.html` | operator UI shell served by VOLTTRON |
+| `app7_web_agent/webroot/app7/app.js` | current browser-side UI logic |
+| `app7_web_agent/webroot/app7/styles.css` | current app styling |
 
 ---
+
+## Data / logging / Linux service notes
+
+Current Pi posture should be documented and preserved:
+
+- `volttron.service` is the main Linux service hosting the app platform
+- app 7 runs as an agent under that service
+- dashboard/trend state is currently in-memory and bounded to reduce SD-card wear
+- file logging can be enabled/tuned when needed, but should stay deliberate
+- advanced users may prefer `systemd-journald` retention/rotation controls for robust Linux service behavior
+
+See also: `docs/tech-setup-cheatsheet.md`
 
 ## Daily commands
 
@@ -146,14 +176,15 @@ grep -n -E 'app7|web|Traceback|ERROR|Exception' /home/ben/.volttron/volttron.log
 
 ## Expected URLs once installed
 
-Assuming the Platform Web Service Agent is running and reachable:
+Current live bench path on `bosspi`:
 
-- `http(s)://<host>/app7/`
-- `http(s)://<host>/app7/api/health`
-- `http(s)://<host>/app7/api/devices`
-- `http(s)://<host>/app7/api/alarms/events`
+- `http://192.168.204.12:8080/app7/index.html`
+- `http://192.168.204.12:8080/app7/api/health`
+- `http://192.168.204.12:8080/app7/api/devices`
+- `http://192.168.204.12:8080/app7/api/points`
+- `http://192.168.204.12:8080/app7/api/trends?pointId=Zone1VAV::ZoneTemp`
 
-Exact host/port/TLS handling depends on the Pi’s actual VOLTTRON web setup.
+The Pi web surface is currently coming from the proper systemd-managed VOLTTRON platform with `bind-web-address = http://192.168.204.12:8080` enabled.
 
 ---
 

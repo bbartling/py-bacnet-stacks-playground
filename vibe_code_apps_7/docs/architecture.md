@@ -21,13 +21,21 @@ A React-based UI focused on operations visibility and control.
 
 Primary responsibilities:
 
-- show device tree and point inventory
+- show a very simple device tree for the current bench equipment
+- repopulate the main dashboard when a device is selected
 - show live-ish point values / freshness / status
-- show trends over short windows
+- show trends over short windows, ideally with Plotly-style zoom/pan/export behavior
 - show alarms, alarm severity, and acknowledgement state
-- manage alarm rules/configuration
-- show notification configuration and send logs
+- keep config surfaces minimal during the bench phase
 - surface basic health state for the app/runtime
+
+For the current 2-device bench, prefer a simpler operator dashboard over a many-pane control center. Alarm/trend setup can be driven by OpenClaw chat and reflected in notes/APIs before a full UI editor exists.
+
+Future commissioning posture should explicitly allow another OpenClaw instance to:
+- deploy the app on a fresh VOLTTRON Pi base
+- configure alarm/trend posture
+- guide SMTP dial-out testing with the technician present
+- verify writable BACnet setpoints on approved points
 
 Frontend should talk only to the app backend, not directly to VOLTTRON.
 
@@ -78,12 +86,14 @@ Separate storage classes on purpose:
 - device freshness / heartbeat
 - runtime health summary
 - keep lightweight and replaceable
+- current bench preference: in-memory
 
 ### Short-term trends
 
 - recent time series for operator graphs
 - bounded retention
 - likely rollups/downsampling later
+- current bench preference: in-memory bounded cache sized around a month-scale target, not unbounded disk writes
 
 ### Alarm/event history
 
@@ -91,6 +101,7 @@ Separate storage classes on purpose:
 - transitions
 - acknowledgements
 - notification attempts/results
+- current bench preference: lightweight/in-memory until the write policy is worth hardening
 
 ### Config/state
 
@@ -99,6 +110,7 @@ Separate storage classes on purpose:
 - alarm definitions
 - retention config
 - SMTP / notification config
+- current bench preference: simple/static or lightweight state before introducing a heavier DB layer
 
 ## Raspberry Pi / SD-card posture
 

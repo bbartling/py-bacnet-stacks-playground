@@ -15,6 +15,7 @@ Use `vibe_code_apps_6` as the Pi baseline and try **app 7 option 1** first:
 
 - confirmed `bosspi` baseline is healthy
 - confirmed app 6 agents and BACnet path were the correct starting point
+- confirmed the bench is using the proper `volttron.service` systemd-managed platform base on the Pi
 - added `bind-web-address = http://192.168.204.12:8080` to `/home/ben/.volttron/config`
 - installed missing VOLTTRON web dependencies with:
 
@@ -55,25 +56,27 @@ python3 bootstrap.py --web
 - real BACnet values visible in logs
 - app 7 agent installed and healthy from VOLTTRON’s perspective
 
-## Current blocker
+## Current implementation posture
 
-The app 7 agent is installed, but these still return `404 Not Found`:
+The old `/app7` route-registration blocker has been solved since this pause note was first written.
 
-- `/app7/`
-- `/app7/api/health`
-- `/app7/api/devices`
-- `/app7/api/points`
+Current live posture now is:
 
-So the remaining issue is now **web route registration / path shape**, not BACnet, not deployment, and not Pi reachability.
+- `/app7/index.html` is serving from the Pi
+- `/app7/api/health`, `/app7/api/devices`, `/app7/api/points`, and trend/config endpoints are live
+- dashboard is intentionally being simplified around theme toggle + equipment tree + one repopulated device dashboard
+- trend view is moving toward Plotly-style zoom/pan/export behavior
+- alarm/trend setup via OpenClaw chat is considered acceptable for this bench phase
 
-## Most likely next debugging direction
+## Follow-on simplification direction
 
-Compare `app7_web_agent/app7_web_agent/agent.py` against VOLTTRON’s `examples/SimpleWebAgent/simpleweb/agent.py` and adjust route registration to match what this platform expects.
+After getting the shell/API working, the next UI direction is to simplify the dashboard:
 
-Key suspicion:
-
-- using regex-ish path registration was probably wrong for this platform version
-- the next iteration should likely use the simpler registration style shown by `SimpleWebAgent`
+- sidebar should contain only theme toggle + equipment tree
+- clicking a device should repopulate a single simpler dashboard for that device
+- avoid heavy config panels for this 2-device bench
+- document that alarm/trend setup can be driven via OpenClaw chat for now
+- trend view should move toward a Plotly-style chart with zoom/pan/export instead of a homemade sparkline
 
 ## Handy current commands
 

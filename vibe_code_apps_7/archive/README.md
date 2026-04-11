@@ -16,4 +16,5 @@ This folder is the pause-point backup for the first live Pi run of **app 7 optio
 - the Pi is now listening on `http://192.168.204.12:8080`
 - BACnet Proxy + Platform Driver + GL36 agents are running and seeing the 2 real bench devices
 - `ben.app7.web` is installed and shows `GOOD`
-- current known bug at pause: `/app7/...` still returns `404 Not Found`, so the next task is fixing the route registration behavior for the web-enabled agent
+- app 7 is using a lightweight in-memory/bounded retention posture for dashboard and trend state to help reduce Raspberry Pi SD-card wear
+- the original `/app7` route bug from the first live run was fixed later in the same work stream; the archive here still preserves that earlier checkpoint context

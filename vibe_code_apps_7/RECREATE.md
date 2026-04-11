@@ -17,12 +17,15 @@ source env/bin/activate
 
 ## 2. Confirm base platform health
 
+Use the proper Pi systemd-managed VOLTTRON base, not a random ad-hoc launch.
+
 ```bash
 systemctl is-active volttron.service
+systemctl status volttron.service --no-pager
 vctl status
 ```
 
-If the Platform Web Service Agent is not running, this app will not serve web content correctly.
+For the current app 7 bench, the Pi platform is expected to be running under `volttron.service` with web support enabled through the main VOLTTRON config.
 
 ---
 
@@ -97,10 +100,24 @@ It is **not** trying to prove the final full product yet.
 
 ---
 
+## OpenClaw / tech commissioning notes
+
+A future OpenClaw instance should be able to use this folder as context to:
+
+- deploy/redeploy app 7 onto a proper `volttron.service` Pi base
+- validate BACnet discovery / driver state
+- configure trends and alarms through OpenClaw chat + notes
+- assist a tech with SMTP dial-out testing during setup
+- verify approved writable setpoints through the app 7 write path
+
 ## Notes
 
 - static files are packaged through `MANIFEST.in`
 - `agent.py` uses `enable_web=True`
-- static assets are served from `webroot/`
+- current static assets are served from `app7_web_agent/webroot/app7/`
 - JSON endpoints are registered separately
+- current bench data/trend cache is intentionally in-memory and bounded to reduce SD-card wear
+- current config targets 5-minute trend handling with a 31-day retention goal, but the present bench implementation is still a lightweight runtime cache rather than a finished historian database
+- another OpenClaw instance should be able to copy this folder, deploy the agent, configure alarm/trend posture, and assist with SMTP dial-out testing during setup
+- writable BACnet setpoints should be verified only on approved adjustable points during commissioning; app 7 now includes a simple setpoints panel aimed at the real Platform Driver write path
 - this is the explicit option-1 experiment before considering a split frontend/backend hosting model
