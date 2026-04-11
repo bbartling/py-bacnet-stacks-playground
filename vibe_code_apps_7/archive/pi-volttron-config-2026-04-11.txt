@@ -1,6 +1,0 @@
-[volttron]
-message-bus = zmq
-instance-name = bosspi
-bind-web-address = http://192.168.204.12:8080
-web-secret-key = 89c5530cb5389ad30d5fc414750f45a7c434444e3cc0c3a234ceffbd4ea57a2e8ee9cb993a72bf8e3752e4debb050ce26a6d714d7fd5a9097271e497668feb02c7
-

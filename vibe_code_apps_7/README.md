@@ -16,6 +16,7 @@
 - [OpenClaw / tech commissioning flow](#openclaw--tech-commissioning-flow)
 - [Data retention / logging posture](#data-retention--logging-posture)
 - [Files that actually matter](#files-that-actually-matter)
+- [Why there is no archive folder](#why-there-is-no-archive-folder)
 - [What not to do](#what-not-to-do)
 
 ---
@@ -264,12 +265,24 @@ ssh ben@192.168.204.12 "grep -n -E 'app7|Traceback|ERROR|Exception' /home/ben/vo
 - `docs/backend-contract.md`
 - `docs/architecture.md`
 
-### Historical snapshots
+## Why there is no archive folder
 
-- `archive/`
-- `archive/backups/`
+This app-7 directory is meant to be **clean context**, not a graveyard of stale snapshots.
 
-Snapshots are useful, but they are not the main source-of-truth code.
+So the directory should prefer:
+
+- the current completed codebase
+- markdown tutorials
+- markdown lessons learned
+- markdown operator / AI context
+
+and avoid:
+
+- old backup piles
+- stale logs
+- multiple half-current copies of the same app
+
+If historical backups are needed later, keep them somewhere else. The main `vibe_code_apps_7` folder should stay readable.
 
 ---
 
@@ -279,6 +292,17 @@ Snapshots are useful, but they are not the main source-of-truth code.
 - do **not** trust a redeploy without checking the actual installed Pi file if behavior looks unchanged
 - do **not** assume browser cache is innocent — hard refresh matters
 - do **not** leave stale prototype code as if it were current source-of-truth
+- do **not** let background refresh stomp form input while a human is typing
+- do **not** overbuild config UI for this 2-device bench when OpenClaw chat is the cleaner tool
+
+---
+
+## See also
+
+- `RECREATE.md`
+- `docs/tech-setup-cheatsheet.md`
+- `docs/model-context-notes.md`
+ source-of-truth
 - do **not** let background refresh stomp form input while a human is typing
 - do **not** overbuild config UI for this 2-device bench when OpenClaw chat is the cleaner tool
 
