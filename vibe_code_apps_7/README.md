@@ -4,6 +4,11 @@
 
 **What this folder is for:** one place so a human or another OpenClaw session can understand the setup, redeploy it, debug it, and continue the work without rereading a long chat log.
 
+This folder is intentionally **context-first, not backup-hoarding**:
+- keep the current completed codebase
+- keep markdown notes/tutorials/lessons learned
+- do not keep stale snapshot piles unless they are actively useful
+
 ---
 
 ## Quick links
@@ -210,44 +215,6 @@ To reduce SD-card wear.
 
 ---
 
-## Linux service / bench commands
-
-### Check service + agents
-
-```bash
-ssh ben@192.168.204.12
-cd /home/ben/volttron
-export VOLTTRON_HOME=/home/ben/.volttron
-source env/bin/activate
-
-systemctl status volttron.service --no-pager
-vctl status
-```
-
-### Restart whole VOLTTRON service if needed
-
-```powershell
-ssh ben@192.168.204.12 "sudo systemctl restart volttron.service && sleep 8 && systemctl status volttron.service --no-pager"
-```
-
-Then:
-
-```powershell
-ssh ben@192.168.204.12 "cd /home/ben/volttron && export VOLTTRON_HOME=/home/ben/.volttron && source env/bin/activate && vctl status"
-```
-
-### Check logs
-
-```powershell
-ssh ben@192.168.204.12 "tail -n 80 /home/ben/volttron/volttron.log"
-```
-
-```powershell
-ssh ben@192.168.204.12 "grep -n -E 'app7|Traceback|ERROR|Exception' /home/ben/volttron/volttron.log | tail -n 80"
-```
-
----
-
 ## Files that actually matter
 
 ### Core app code
@@ -259,11 +226,18 @@ ssh ben@192.168.204.12 "grep -n -E 'app7|Traceback|ERROR|Exception' /home/ben/vo
 
 ### Important docs
 
+- `README.md`
 - `RECREATE.md`
+- `deploy-app7-to-bosspi.ps1`
 - `docs/tech-setup-cheatsheet.md`
 - `docs/model-context-notes.md`
+- `docs/completed-codebase-map.md`
 - `docs/backend-contract.md`
 - `docs/architecture.md`
+- `docs/alarm-model.md`
+- `docs/hosting-options.md`
+
+---
 
 ## Why there is no archive folder
 
@@ -302,14 +276,4 @@ If historical backups are needed later, keep them somewhere else. The main `vibe
 - `RECREATE.md`
 - `docs/tech-setup-cheatsheet.md`
 - `docs/model-context-notes.md`
- source-of-truth
-- do **not** let background refresh stomp form input while a human is typing
-- do **not** overbuild config UI for this 2-device bench when OpenClaw chat is the cleaner tool
-
----
-
-## See also
-
-- `RECREATE.md`
-- `docs/tech-setup-cheatsheet.md`
-- `docs/model-context-notes.md`
+- `docs/completed-codebase-map.md`
