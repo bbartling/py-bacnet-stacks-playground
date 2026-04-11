@@ -120,4 +120,5 @@ A future OpenClaw instance should be able to use this folder as context to:
 - current config targets 5-minute trend handling with a 31-day retention goal, but the present bench implementation is still a lightweight runtime cache rather than a finished historian database
 - another OpenClaw instance should be able to copy this folder, deploy the agent, configure alarm/trend posture, and assist with SMTP dial-out testing during setup
 - writable BACnet setpoints should be verified only on approved adjustable points during commissioning; app 7 now includes a simple setpoints panel aimed at the real Platform Driver write path
+- frontend performance tuning now favors client caching + selective refresh over full page rerenders on every click
 - this is the explicit option-1 experiment before considering a split frontend/backend hosting model

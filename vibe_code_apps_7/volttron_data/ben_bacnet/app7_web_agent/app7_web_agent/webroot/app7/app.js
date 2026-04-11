@@ -2,8 +2,22 @@ const state = {
   theme: localStorage.getItem('app7-theme') || 'dark',
   selectedDeviceId: 'BensFakeAHU',
   selectedPointId: 'BensFakeAHU::SA_T',
-  writeMessage: ''
+  writeMessage: '',
+  plotFullscreen: false,
+  initialized: false,
+  cache: {
+    devices: [],
+    allPoints: [],
+    alarms: [],
+    notificationConfig: null,
+    graphics: null,
+    setpointsByDevice: {},
+    trendsByPoint: {},
+    health: null
+  }
 }
+
+let refreshTimer = null
 
 async function getJson(path) {
   const response = await fetch(path)
@@ -45,6 +59,87 @@ function setTheme(theme) {
 
 function statusClass(status) {
   return status === 'alarm' ? 'alarm' : status === 'online' ? 'online' : 'unknown'
+}
+
+function getSelectedDevice() {
+  return state.cache.devices.find(d => d.id === state.selectedDeviceId) || state.cache.devices[0]
+}
+
+function getDevicePoints(deviceId) {
+  return state.cache.allPoints.filter(point => point.deviceId === deviceId)
+}
+
+function getCurrentTrend() {
+  const trend = state.cache.trendsByPoint[state.selectedPointId]
+  if (trend && typeof trend.then !== 'function') return trend
+  return { pointId: state.selectedPointId, label: state.selectedPointId, units: '', items: [] }
+}
+
+async function fetchInitialData() {
+  const [health, devicesRes, allPointsRes, alarmsRes, notificationConfig, graphics] = await Promise.all([
+    getJson('/app7/api/health'),
+    getJson('/app7/api/devices'),
+    getJson('/app7/api/points'),
+    getJson('/app7/api/alarms/events'),
+    getJson('/app7/api/notifications/config'),
+    getJson('/app7/api/graphics/overview')
+  ])
+
+  state.cache.health = health
+  state.cache.devices = devicesRes.items || []
+  state.cache.allPoints = allPointsRes.items || []
+  state.cache.alarms = alarmsRes.items || []
+  state.cache.notificationConfig = notificationConfig
+  state.cache.graphics = graphics
+
+  if (!state.cache.devices.find(d => d.id === state.selectedDeviceId) && state.cache.devices[0]) {
+    state.selectedDeviceId = state.cache.devices[0].id
+  }
+
+  const selectedDevice = getSelectedDevice()
+  const devicePoints = getDevicePoints(selectedDevice.id)
+  if (!devicePoints.find(p => p.id === state.selectedPointId) && devicePoints[0]) {
+    state.selectedPointId = devicePoints[0].id
+  }
+
+  await Promise.all([
+    ensureTrend(state.selectedPointId),
+    ensureSetpoints(selectedDevice.id)
+  ])
+}
+
+async function refreshLiveData() {
+  const selectedDevice = getSelectedDevice()
+  const [health, allPointsRes, alarmsRes, trend] = await Promise.all([
+    getJson('/app7/api/health'),
+    getJson('/app7/api/points'),
+    getJson('/app7/api/alarms/events'),
+    getJson(`/app7/api/trends?pointId=${encodeURIComponent(state.selectedPointId)}`)
+  ])
+
+  state.cache.health = health
+  state.cache.allPoints = allPointsRes.items || []
+  state.cache.alarms = alarmsRes.items || []
+  state.cache.trendsByPoint[state.selectedPointId] = trend
+
+  const refreshedPoints = getDevicePoints(selectedDevice.id)
+  if (!refreshedPoints.find(p => p.id === state.selectedPointId) && refreshedPoints[0]) {
+    state.selectedPointId = refreshedPoints[0].id
+    await ensureTrend(state.selectedPointId)
+  }
+}
+
+async function ensureTrend(pointId) {
+  if (!state.cache.trendsByPoint[pointId]) {
+    state.cache.trendsByPoint[pointId] = await getJson(`/app7/api/trends?pointId=${encodeURIComponent(pointId)}`)
+  }
+}
+
+async function ensureSetpoints(deviceId) {
+  if (!state.cache.setpointsByDevice[deviceId]) {
+    const result = await getJson(`/app7/api/setpoints?deviceId=${encodeURIComponent(deviceId)}`)
+    state.cache.setpointsByDevice[deviceId] = result.items || []
+  }
 }
 
 function renderDeviceTree(devices) {
@@ -130,6 +225,21 @@ function renderPlotlyMount() {
   return '<div id="plotly-trend" class="plotly-trend"></div>'
 }
 
+function renderPlotlyFullscreenShell() {
+  if (!state.plotFullscreen) return ''
+  return `
+    <div class="plotly-modal-backdrop" data-close-plotly="true">
+      <div class="plotly-modal" onclick="event.stopPropagation()">
+        <div class="panel-header">
+          <h3>Full Screen Trend</h3>
+          <button class="theme-btn" data-close-plotly="true">Close</button>
+        </div>
+        <div id="plotly-trend-fullscreen" class="plotly-trend fullscreen"></div>
+      </div>
+    </div>
+  `
+}
+
 function renderSetpoints(setpoints) {
   if (!setpoints.length) return '<div class="small-note">No writable setpoints exposed for this device.</div>'
   return `
@@ -169,129 +279,6 @@ function renderNotes(notificationConfig) {
   `
 }
 
-async function render() {
-  const app = document.getElementById('app')
-  app.innerHTML = '<div style="padding:24px">Loading App 7 from VOLTTRON...</div>'
-  setTheme(state.theme)
-
-  try {
-    const [health, devicesRes, allPointsRes, alarmsRes, notificationConfig, graphics, setpointsRes] = await Promise.all([
-      getJson('/app7/api/health'),
-      getJson('/app7/api/devices'),
-      getJson('/app7/api/points'),
-      getJson('/app7/api/alarms/events'),
-      getJson('/app7/api/notifications/config'),
-      getJson('/app7/api/graphics/overview'),
-      getJson(`/app7/api/setpoints?deviceId=${encodeURIComponent(state.selectedDeviceId)}`)
-    ])
-
-    const devices = devicesRes.items || []
-    if (!devices.find(d => d.id === state.selectedDeviceId) && devices[0]) state.selectedDeviceId = devices[0].id
-    const selectedDevice = devices.find(d => d.id === state.selectedDeviceId) || devices[0]
-    const devicePoints = (allPointsRes.items || []).filter(point => point.deviceId === selectedDevice.id)
-    if (!devicePoints.find(p => p.id === state.selectedPointId) && devicePoints[0]) state.selectedPointId = devicePoints[0].id
-
-    const [trend, setpointsRefresh] = await Promise.all([
-      getJson(`/app7/api/trends?pointId=${encodeURIComponent(state.selectedPointId)}`),
-      getJson(`/app7/api/setpoints?deviceId=${encodeURIComponent(selectedDevice.id)}`)
-    ])
-    const equipmentGraphics = selectedDevice.id === 'Zone1VAV' ? graphics.equipmentGraphics.vav.points : graphics.equipmentGraphics.ahu.points
-
-    app.innerHTML = `
-      <div class="app-shell simple-shell">
-        <aside class="sidebar">
-          <div class="brand">
-            <h1>App 7</h1>
-            <p>BAS / BMS Lite</p>
-          </div>
-          <div class="sidebar-section">
-            <div class="sidebar-label">Theme</div>
-            <div class="theme-toggle">
-              <button class="theme-btn ${state.theme === 'dark' ? 'active' : ''}" data-theme="dark">Dark</button>
-              <button class="theme-btn ${state.theme === 'light' ? 'active' : ''}" data-theme="light">Light</button>
-            </div>
-          </div>
-          <div class="sidebar-section">
-            <div class="sidebar-label">Equipment Tree</div>
-            <div class="device-tree">${renderDeviceTree(devices)}</div>
-          </div>
-        </aside>
-
-        <main class="main">
-          <header class="topbar simple-topbar">
-            <div>
-              <h2>${escapeHtml(selectedDevice.displayName || selectedDevice.name)}</h2>
-              <p>Click a device in the tree and this dashboard repopulates for that equipment.</p>
-            </div>
-            <div class="topbar-actions">
-              <div class="status-pill ${alarmsRes.items.filter(a => a.deviceId === selectedDevice.id).length ? 'alarm' : 'ok'}">${alarmsRes.items.filter(a => a.deviceId === selectedDevice.id).length} active alarm(s)</div>
-              <div class="status-pill ok">${escapeHtml(health.volttron.status)}</div>
-            </div>
-          </header>
-
-          ${renderEquipmentSummary(selectedDevice, alarmsRes.items || [], equipmentGraphics)}
-
-          <section class="simple-main-grid">
-            <div class="panel table-panel">
-              <div class="panel-header">
-                <h3>Point Table</h3>
-                <span>${devicePoints.length} points</span>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Point</th>
-                      <th>Value</th>
-                      <th>Last Updated</th>
-                      <th>Adj.</th>
-                      <th>Alarm</th>
-                    </tr>
-                  </thead>
-                  <tbody>${renderPointRows(devicePoints)}</tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="panel trend-panel">
-              <div class="panel-header">
-                <h3>Trend</h3>
-                <div class="trend-actions">
-                  <span>${escapeHtml(trend.label)}</span>
-                  <button class="theme-btn trend-expand-btn" data-open-plotly="true">Full Screen Plotly</button>
-                </div>
-              </div>
-              ${renderPlotlyMount()}
-            </div>
-          </section>
-
-          <section class="simple-main-grid">
-            <div class="panel setpoints-panel">
-              <div class="panel-header">
-                <h3>Setpoints</h3>
-                <span>real platform-driver write path</span>
-              </div>
-              ${renderSetpoints(setpointsRefresh.items || [])}
-              ${state.writeMessage ? `<div class="write-message">${escapeHtml(state.writeMessage)}</div>` : ''}
-            </div>
-            ${renderNotes(notificationConfig)}
-          </section>
-        </main>
-      </div>
-    `
-
-    bindEvents()
-    renderPlotlyTrend(trend)
-  } catch (error) {
-    app.innerHTML = `
-      <div style="padding:24px; color:#ffb4ae; font-family:Segoe UI, sans-serif;">
-        <h2>App 7 failed to load</h2>
-        <p>${escapeHtml(error.message)}</p>
-      </div>
-    `
-  }
-}
-
 function plotLayout(trend) {
   return {
     margin: { l: 48, r: 16, t: 16, b: 42 },
@@ -313,63 +300,206 @@ function plotConfig(trend) {
 
 function renderPlotlyTrend(trend) {
   const mount = document.getElementById('plotly-trend')
-  if (!mount) return
-  const x = (trend.items || []).map(item => item.ts)
-  const y = (trend.items || []).map(item => item.value)
-  if (window.Plotly) {
-    const trace = [{
-      x,
-      y,
-      type: 'scatter',
-      mode: 'lines+markers',
-      line: { color: state.theme === 'light' ? '#0f62fe' : '#58a6ff', width: 3 },
-      marker: { size: 6 }
-    }]
-    window.Plotly.newPlot(mount, trace, plotLayout(trend), plotConfig(trend))
-    const full = document.getElementById('plotly-trend-fullscreen')
-    if (state.plotFullscreen && full) {
-      window.Plotly.newPlot(full, trace, plotLayout(trend), plotConfig(trend))
-    }
-  } else {
-    mount.innerHTML = '<div class="small-note">Plotly failed to load.</div>'
+  if (!mount || !window.Plotly) return
+  const trace = [{
+    x: (trend.items || []).map(item => item.ts),
+    y: (trend.items || []).map(item => item.value),
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: state.theme === 'light' ? '#0f62fe' : '#58a6ff', width: 3 },
+    marker: { size: 6 }
+  }]
+  window.Plotly.react(mount, trace, plotLayout(trend), plotConfig(trend))
+  const full = document.getElementById('plotly-trend-fullscreen')
+  if (state.plotFullscreen && full) {
+    window.Plotly.react(full, trace, plotLayout(trend), plotConfig(trend))
   }
+}
+
+function renderApp() {
+  const app = document.getElementById('app')
+  const health = state.cache.health
+  const selectedDevice = getSelectedDevice()
+  if (!health || !selectedDevice) {
+    if (!state.initialized) app.innerHTML = '<div style="padding:24px">Loading App 7…</div>'
+    return
+  }
+
+  const devicePoints = getDevicePoints(selectedDevice.id)
+  const trend = getCurrentTrend()
+  const graphics = state.cache.graphics
+  const equipmentGraphics = selectedDevice.id === 'Zone1VAV' ? graphics.equipmentGraphics.vav.points : graphics.equipmentGraphics.ahu.points
+  const setpoints = state.cache.setpointsByDevice[selectedDevice.id] || []
+
+  app.innerHTML = `
+    <div class="app-shell simple-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <h1>App 7</h1>
+          <p>BAS / BMS Lite</p>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-label">Theme</div>
+          <div class="theme-toggle">
+            <button class="theme-btn ${state.theme === 'dark' ? 'active' : ''}" data-theme="dark">Dark</button>
+            <button class="theme-btn ${state.theme === 'light' ? 'active' : ''}" data-theme="light">Light</button>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-label">Equipment Tree</div>
+          <div class="device-tree">${renderDeviceTree(state.cache.devices)}</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar simple-topbar">
+          <div>
+            <h2>${escapeHtml(selectedDevice.displayName || selectedDevice.name)}</h2>
+            <p>Device dashboard cached client-side for faster interactions.</p>
+          </div>
+          <div class="topbar-actions">
+            <div class="status-pill ${state.cache.alarms.filter(a => a.deviceId === selectedDevice.id).length ? 'alarm' : 'ok'}">${state.cache.alarms.filter(a => a.deviceId === selectedDevice.id).length} active alarm(s)</div>
+            <div class="status-pill ok">${escapeHtml(health.volttron.status)}</div>
+          </div>
+        </header>
+
+        ${renderEquipmentSummary(selectedDevice, state.cache.alarms, equipmentGraphics)}
+
+        <section class="simple-main-grid">
+          <div class="panel table-panel">
+            <div class="panel-header">
+              <h3>Point Table</h3>
+              <span>${devicePoints.length} points</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Point</th>
+                    <th>Value</th>
+                    <th>Last Updated</th>
+                    <th>Adj.</th>
+                    <th>Alarm</th>
+                  </tr>
+                </thead>
+                <tbody>${renderPointRows(devicePoints)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel trend-panel">
+            <div class="panel-header">
+              <h3>Trend</h3>
+              <div class="trend-actions">
+                <span>${escapeHtml(trend.label)}</span>
+                <button class="theme-btn trend-expand-btn" data-open-plotly="true">Full Screen Plotly</button>
+              </div>
+            </div>
+            ${renderPlotlyMount()}
+          </div>
+        </section>
+
+        <section class="simple-main-grid">
+          <div class="panel setpoints-panel">
+            <div class="panel-header">
+              <h3>Setpoints</h3>
+              <span>real platform-driver write path</span>
+            </div>
+            ${renderSetpoints(setpoints)}
+            ${state.writeMessage ? `<div class="write-message">${escapeHtml(state.writeMessage)}</div>` : ''}
+          </div>
+          ${renderNotes(state.cache.notificationConfig)}
+        </section>
+        ${renderPlotlyFullscreenShell()}
+      </main>
+    </div>
+  `
+
+  bindEvents()
+  renderPlotlyTrend(trend)
+  state.initialized = true
+}
+
+async function initialLoad() {
+  const app = document.getElementById('app')
+  app.innerHTML = '<div style="padding:24px">Loading App 7…</div>'
+  setTheme(state.theme)
+  await fetchInitialData()
+  renderApp()
+}
+
+async function selectDevice(deviceId) {
+  if (state.selectedDeviceId === deviceId) return
+  state.selectedDeviceId = deviceId
+  const devicePoints = getDevicePoints(deviceId)
+  if (!devicePoints.find(p => p.id === state.selectedPointId) && devicePoints[0]) {
+    state.selectedPointId = devicePoints[0].id
+  }
+  state.writeMessage = ''
+  scheduleRender()
+  await Promise.all([
+    ensureSetpoints(deviceId),
+    ensureTrend(state.selectedPointId)
+  ])
+  scheduleRender()
+}
+
+async function selectPoint(pointId) {
+  if (state.selectedPointId === pointId) return
+  state.selectedPointId = pointId
+  scheduleRender()
+  await ensureTrend(pointId)
+  scheduleRender()
+}
+
+async function submitSetpoint(pointId, value) {
+  state.writeMessage = `Writing ${pointId}…`
+  renderApp()
+  try {
+    const result = await postJson('/app7/api/setpoints/write', { pointId, value })
+    state.writeMessage = result.status === 'ok'
+      ? `Write succeeded for ${result.pointName}: ${result.requestedValue}`
+      : `Write failed for ${pointId}: ${result.message}`
+    await refreshLiveData()
+    state.cache.setpointsByDevice[state.selectedDeviceId] = undefined
+    await ensureSetpoints(state.selectedDeviceId)
+  } catch (error) {
+    state.writeMessage = `Write failed for ${pointId}: ${error.message}`
+  }
+  renderApp()
 }
 
 function bindEvents() {
   document.querySelectorAll('[data-device-id]').forEach(el => {
     el.addEventListener('click', () => {
-      state.selectedDeviceId = el.dataset.deviceId
-      state.selectedPointId = state.selectedDeviceId === 'Zone1VAV' ? 'Zone1VAV::ZoneTemp' : 'BensFakeAHU::SA_T'
-      state.writeMessage = ''
-      render()
+      selectDevice(el.dataset.deviceId)
     })
   })
 
   document.querySelectorAll('[data-point-id]').forEach(el => {
     el.addEventListener('click', () => {
-      state.selectedPointId = el.dataset.pointId
-      render()
+      selectPoint(el.dataset.pointId)
     })
   })
 
   document.querySelectorAll('[data-theme]').forEach(el => {
     el.addEventListener('click', () => {
       setTheme(el.dataset.theme)
-      render()
+      renderApp()
     })
   })
 
   document.querySelectorAll('[data-open-plotly]').forEach(el => {
     el.addEventListener('click', () => {
       state.plotFullscreen = true
-      render()
+      renderApp()
     })
   })
 
   document.querySelectorAll('[data-close-plotly]').forEach(el => {
     el.addEventListener('click', () => {
       state.plotFullscreen = false
-      render()
+      renderApp()
     })
   })
 
@@ -378,20 +508,40 @@ function bindEvents() {
       event.preventDefault()
       const pointId = form.dataset.setpointForm
       const value = Number(form.querySelector('input[name="value"]').value)
-      state.writeMessage = `Writing ${pointId}…`
-      render()
-      try {
-        const result = await postJson('/app7/api/setpoints/write', { pointId, value })
-        state.writeMessage = result.status === 'ok'
-          ? `Write succeeded for ${result.pointName}: ${result.requestedValue}`
-          : `Write failed for ${pointId}: ${result.message}`
-      } catch (error) {
-        state.writeMessage = `Write failed for ${pointId}: ${error.message}`
-      }
-      render()
+      await submitSetpoint(pointId, value)
     })
   })
 }
 
-render()
-setInterval(() => render(), 60000)
+function startBackgroundRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer)
+  refreshTimer = setInterval(async () => {
+    if (refreshInFlight) return
+    refreshInFlight = true
+    try {
+      await refreshLiveData()
+      scheduleRender()
+    } catch (error) {
+      console.error('Background refresh failed', error)
+    } finally {
+      refreshInFlight = false
+    }
+  }, 30000)
+}
+
+initialLoad().then(startBackgroundRefresh).catch(error => {
+  document.getElementById('app').innerHTML = `<div style="padding:24px; color:#ffb4ae; font-family:Segoe UI, sans-serif;"><h2>App 7 failed to load</h2><p>${escapeHtml(error.message)}</p></div>`
+})
+</div>`
+})
+)
+      renderApp()
+    } catch (error) {
+      console.error('Background refresh failed', error)
+    }
+  }, 15000)
+}
+
+initialLoad().then(startBackgroundRefresh).catch(error => {
+  document.getElementById('app').innerHTML = `<div style="padding:24px; color:#ffb4ae; font-family:Segoe UI, sans-serif;"><h2>App 7 failed to load</h2><p>${escapeHtml(error.message)}</p></div>`
+})

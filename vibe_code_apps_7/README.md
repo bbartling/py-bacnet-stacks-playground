@@ -115,6 +115,18 @@ VOLTTRON should keep doing the runtime-heavy work:
 
 The point of this option is **not** to turn VOLTTRON Central into the product UI. The point is to see whether a custom app can be hosted cleanly enough from a VOLTTRON web agent for MVP use.
 
+## Current frontend performance posture
+
+The current app-7 frontend was simplified to reduce lag on the Pi/VOLTTRON path:
+
+- remove the click-time loading splash after initial page load
+- fetch static-ish payloads once and cache them client-side
+- keep selected device / selected point in browser state
+- refresh only live points / alarms / selected trend on an interval
+- use `Plotly.react()` instead of recreating charts from scratch each click
+
+This should make the app feel materially less sluggish even before changing the hosting architecture.
+
 ---
 
 ## Files to care about inside the agent
