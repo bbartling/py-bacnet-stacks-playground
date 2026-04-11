@@ -1,0 +1,8 @@
+{
+  "agentid": "ben_app7_web",
+  "route_prefix": "/app7",
+  "app_title": "App 7 - BAS Lite",
+  "site_name": "bosspi",
+  "max_trend_samples": 180,
+  "log_level": "INFO"
+}
