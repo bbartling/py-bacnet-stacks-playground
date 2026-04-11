@@ -3,9 +3,45 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Ta48yQF8fC)
 
 
-**Applied Python + BACnet + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
 
-Welcome to the **Py BACnet Stacks Playground** — a hands-on applied repo that starts with Python fundamentals and direct BACnet scripting, then grows into **AI-assisted edge automation demos**. The early vibe code apps stay focused on Python, BAC0, and BACpypes3 doing the heavy lifting while you build useful tools. The newer direction extends that same spirit into **VOLTTRON-based edge workflows**, where small custom agents, platform services, and supervisory logic can run continuously on a Raspberry Pi or gateway.
+## **Applied Python + BACnet + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
+
+Welcome to the **Py BACnet Stacks Playground** — a hands-on, applied repository that starts with Python fundamentals and direct BACnet scripting, then evolves into **AI-assisted edge automation demos**.
+
+The early *vibe code* apps stay grounded in **Python, BAC0, and BACpypes3**, where you build practical tools by directly interacting with BACnet devices—reading values, writing commands, inspecting priority arrays, and understanding real control behavior in the field.
+
+From there, the project naturally expands into **VOLTTRON-based edge workflows**, where lightweight agents, platform services, and supervisory logic run continuously on a Raspberry Pi or edge gateway—bringing your scripts closer to real-world building automation deployments.
+
+---
+
+### 🤖 AI-Assisted Workflows (New Direction)
+
+This repository also doubles as **model context for AI-assisted development**, enabling tools like Open Claw to:
+
+* Bootstrap environments (e.g., VOLTTRON installs, BACnet apps) automatically
+* Generate and refine BACnet scripts and edge agents
+* Assist with debugging, testing, and system setup
+* Orchestrate multi-step workflows across the stack
+
+The goal is simple:
+👉 let AI handle the repetitive, time-consuming setup and glue code
+👉 while you focus on **control logic, system behavior, and engineering insight**
+
+---
+
+### 🚀 Where This Is Headed
+
+* Python → BACnet fundamentals → real device interaction
+* Edge deployment → VOLTTRON agents → continuous operation
+* AI integration → faster builds, smarter workflows, less manual setup
+
+Ultimately, this repo becomes a **playground for building smarter buildings faster**—combining:
+
+* Hands-on HVAC controls knowledge
+* Open protocols like BACnet
+* Edge computing
+* And AI-driven development workflows
+
 
 ---
 
@@ -13,26 +49,7 @@ Welcome to the **Py BACnet Stacks Playground** — a hands-on applied repo that 
 
 - **HVAC controls technicians** who want to automate scans, collect data, and build simple tools
 - **IoT practitioners** working with building automation
-- **Anyone** who knows BACnet from the field and wants to code it in Python
-
-**What this is NOT:** An advanced networking course. Not a low-level BACnet protocol / bytes-on-the-wire programming course. We stay in the Python world — BAC0 and BACpypes3 handle BACnet conversions for you.
-
----
-
-## Go Above & Beyond — Earn a Real Badge
-
-This applied course gets you building BACnet apps fast and focuses on practical, hands-on skills you can use immediately. To go deeper and earn a **professional certificate you can add to your LinkedIn**, consider the **Georgia Institute of Technology Introduction to Python Programming Professional Certificate** offered through **edX**. It follows a similar learning style—short videos and hands-on exercises—but provides a formal, recognized credential at the end.
-
-After completing this course and that certificate, adding **Linux fundamentals** rounds out the full skill set. Linux command-line and operating system knowledge is essential in OT, IoT, and building automation environments, where edge devices, gateways, servers, containers, and embedded systems commonly run Linux. Combining Python, Linux, networking, and data skills positions you to work comfortably across both IT and OT systems and makes you significantly more valuable in modern smart-building roles.
-
-Together, these skills form a complete, highly marketable foundation for automation, controls, and edge computing careers:
-
-* **Linux & Systems** — command line, processes, networking, Docker, edge devices, Raspberry Pi/industrial gateways
-* **IT & IoT** — network automation, device integration, building systems, BACnet/Modbus/MQTT
-* **Databases** — storing and querying sensor data, time-series storage, analytics pipelines
-* **Machine Learning & Data Science** — forecasting, anomaly detection, fault detection (FDD), optimization
-* **Software Engineering** — APIs, web apps, testing, CI/CD, and production deployments
-
+- **Anyone** who knows BACnet from the field and wants to code it in Python and play around with AI!
 
 ---
 
@@ -47,45 +64,63 @@ Together, these skills form a complete, highly marketable foundation for automat
 - Simple algorithms: linear search, min/max, basic sorting
 - Basic objects and instances (no advanced OOP)
 
-**Scope:** Strings, lists, and dictionaries only. No list/dictionary comprehensions. No advanced data structures.
-
-### BACnet Applications
-
-- **BAC0:** Read, write, write null release, Who-Is discovery, data collection
-- **BACpypes3:** Same workflows in raw BACpypes — read, write, release, discover to CSV
-- **BACnet servers:** Mini device, mini schedule/calendar device
-- **Final project:** Web weather station — Open Weather Map API → BACnet objects as a server
+**Scope:** Strings, lists, and dictionaries only. No advanced Python practices of list/dictionary comprehensions. No advanced data structures. See the `lessons` directory for the daily mini challenges and some of the YouTube videos demo theory lectures.
 
 ---
 
-## Course Structure
+## Open Claw Model Routing Prompt
 
-Inspired by the EdX *Computing in Python* series. Four parts plus bonus:
+Just drop this prompt right into Open Claw—it’s helped me avoid hitting API limits. I think it encourages the framework to use simple, low-cost models for easier tasks, while reserving more advanced (and expensive) models only for the tasks that truly require deeper reasoning.
 
-| Part | Focus | Vibe Code Checkpoint |
-|------|-------|----------------------|
-| **Part I — Fundamentals** | Variables, operators, strings, numbers, booleans, input/output, lists | **Checkpoint 1:** BAC0 app that reads, writes, and writes null release |
-| **Part II — Control Structures** | Loops, conditionals, functions, modules, files, error handling | **Checkpoint 2:** BAC0 app that collects data, saves to CSV, rotates log files per day |
-| **Part III — Data Structures** | Strings, lists, dictionaries, file I/O (no comprehensions) | **Checkpoint 3:** bacpypes3 read/write/release app; **Checkpoint 4:** BACnet discover → CSV (Who-Is, object list, name/description/present-value/units) |
-| **Part IV — Objects & Algorithms** | Simple objects, linear search, min/max, basic sorting | **Checkpoint 5:** BACnet servers (mini device, mini schedule); **Final Project:** Web weather station BACnet server |
-| **Bonus — Operations** | Wireshark, systemd, Docker | Troubleshooting BACnet/IP, deploying scrapers with systemd and Docker |
+
+```text
+## Model Routing Policy
+When analyzing test results, classify each task before processing:
+SIMPLE (use primary model):
+- Pass/fail test results
+- HTTP status code errors (404, 500, timeout)
+- Missing UI elements or broken selectors
+- Test environment setup failures
+- Syntax errors or import failures
+COMPLEX (use thinking model)
+- Unexpected behavior that passed but shouldn't have
+- Race conditions or timing-dependent failures
+- Security vulnerabilities
+- Performance degradation patterns
+- Failures that span multiple components or files
+Default to SIMPLE unless the test result shows ambiguous or multi-layered behavior.
+Always classify first, then process. Never use the thinking model for a task that fits the SIMPLE list.
+
+```
+
 
 ---
+
 
 ## Vibe Code Checkpoints
 
-| Checkpoint     | What to Build                                                                                                                                 | When       |
-|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|------------|
-| **1**          | **BAC0 + bacpypes3 apps:** read present-value, write to a point, write null release (commandable objects, priority levels)                  | **Week 1** |
-| **2**          | **BAC0 + bacpypes3 RPM apps:** ReadPropertyMultiple (RPM) across multiple devices, save to CSV, daily log rotation (`csv` module)           | **Week 2** |
-| **3**          | **Priority Array inspection apps (BAC0 + bacpypes3):** read `priority-array`, parse values correctly, inspect overrides and control authority | **Week 3** |
-| **4**          | **BACnet Server Apps (BAC0 + bacpypes3):** run mini BACnet device, schedule/calendar device, and a weather BACnet server using OpenWeatherMap | **Week 4** |
-| **5**          | **BACnet Device Discovery Tools:** implement Who-Is / I-Am scanning and device enumeration using both BAC0 and bacpypes3                    | **Week 5** |
-| **6**          | **COV Monitoring Apps:** subscribe to Change-of-Value notifications and stream live point updates from BACnet devices                       | **Week 6** |
-| **7**          | **Rust BACnet Stack (rusty-bacnet):** run the Rust BACnet stack with Python bindings and rebuild several course apps using the Rust engine  | **Week 7** |
-| **Final Week** | **Protocol Debugging + Packet Analysis:** introduce Wireshark and inspect BACnet/IP traffic generated by the apps built during the course   | **Week 8** |
+| Checkpoint   | What to Build                                                                                                                                       | When       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **1**        | **BAC0 + bacpypes3 basics:** read `present-value`, write to a point, write null (release), understand commandable objects + priority levels         | **Week 1** |
+| **2**        | **RPM apps (BAC0 + bacpypes3):** ReadPropertyMultiple across devices, log to CSV, implement daily rotation (`csv` module)                           | **Week 2** |
+| **3**        | **Priority Array tools:** read + parse `priority-array`, inspect overrides, understand control authority                                            | **Week 3** |
+| **4**        | **BACnet server apps:** mini device, schedule/calendar objects, weather server using OpenWeatherMap                                                 | **Week 4** |
+| **5**        | **Device discovery tools:** Who-Is / I-Am scanning, device enumeration (BAC0 + bacpypes3)                                                           | **Week 5** |
+| **6**        | **COV monitoring apps:** subscribe to Change-of-Value, stream live updates from devices                                                             | **Week 6** |
+| **7**        | **Open Claw + VOLTTRON bootstrap:** auto-provision VOLTTRON on edge (e.g., Raspberry Pi), build a simple BAS/BMS-style GUI (lightweight “vibe app”) | **Week 7** |
+| **8**        | **Advanced BAS web app:** React frontend + Caddy reverse proxy, clean API layer, evolve Week 7 into a more production-style UI                      | **Week 8** |
+| **9 (TODO)** | **Rust BACnet stack:** integrate rusty-bacnet with Python bindings, rebuild key apps using Rust backend                                             | **Future** |
+| **(TODO)**    | **Protocol debugging:** Wireshark + Linux tooling, inspect BACnet/IP traffic, validate and troubleshoot all apps built                              | **Final**  |
 
-* https://github.com/jscott3201/rusty-bacnet
+---
+
+### Notes / Direction
+
+* Week 7–8 is where things get **really interesting** → agentic workflows + real BAS-style UI
+* Open Claw becomes your **automation layer** (bootstrapping, testing, orchestration)
+* React + Caddy introduces **real-world web architecture patterns**
+* Rust + Wireshark = **next-level protocol + performance understanding**
+
 
 ---
 
@@ -177,70 +212,6 @@ Inspired by the EdX *Computing in Python* series. Four parts plus bonus:
 
 ---
 
-
-## New Direction: Vibe Code App 6 as a VOLTTRON AI-Assisted Setup Demo
-
-The repository's newer direction is not just "write another BACnet script." It now also demonstrates how those BACnet skills can feed a real **edge automation stack**.
-
-### Why `vibe_code_apps_6` matters
-
-`vibe_code_apps_6` is the current bridge from:
-
-- direct Python/BACnet learning, to
-- operational edge agents and supervisory logic running inside **VOLTTRON 9**
-
-That folder now serves as a practical demo of:
-
-- a Raspberry Pi-hosted VOLTTRON 9 bench
-- Platform Driver and BACnet Proxy in a live workflow
-- AI-assisted creation of small custom agents
-- CSV logging, request aggregation, and safe trim/respond recommendation logic
-- durable handoff notes and source backups for future continuation
-
-Read first:
-
-- `vibe_code_apps_6/README.md`
-- `vibe_code_apps_6/2026-04-10-openfdd-volttron-architecture-notes.md`
-- `vibe_code_apps_6/VOLTTRON-9-bosspi-demo-agent-handoff.md`
-- `vibe_code_apps_6/VOLTTRON-9-bosspi-GL36-agents-handoff.md`
-- `vibe_code_apps_6/VOLTTRON-9-bosspi-systemd-and-ops-notes-2026-04-09.md`
-
-### Project direction in one line
-
-A useful way to read this repo now is:
-
-- **Apps 1–5:** direct BACnet scripting and learning exercises
-- **App 6:** a VOLTTRON-based AI-assisted edge setup demo built on those BACnet foundations
-
-### How this connects to Open-FDD
-
-A promising future direction is to pair:
-
-- **Open-FDD** for knowledge graphing, validated BACnet/Modbus addressing, and fault/validation logic
-- **VOLTTRON** for edge algorithms, local pipelines, and continuous runtime behavior
-
-That combined architecture is documented in:
-
-- `vibe_code_apps_6/2026-04-10-openfdd-volttron-architecture-notes.md`
-
-## Using This Repository
-
-- Lessons live in `lessons/` as `dayXX.md`.
-- Each lesson has: Goal, Concept, How to Use It, Mini Examples, Micro Exercises, Key Takeaway.
-- **Vibe code** your BACnet apps — lessons give ideas and checkpoints, not full app code.
-- Work through one lesson per day; checkpoints align with the weekly outline.
-
----
-
-## Reference Scripts (Not Course Code)
-
-These exist elsewhere for reference; the course does not include their full code:
-
-- `mini-device-revisited.py` — BACpypes3 mini BACnet server (read-only + commandable AV/BV).
-- `mini-schedule-calendar-device.py` — BACpypes3 schedule + calendar device.
-- `discover-objects-csv-only.py` — Who-Is → object list → CSV export.
-
----
 
 ## License
 
