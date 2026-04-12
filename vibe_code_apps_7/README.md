@@ -236,6 +236,7 @@ To reduce SD-card wear.
 - `docs/architecture.md`
 - `docs/alarm-model.md`
 - `docs/hosting-options.md`
+- `docs/bosspi-volttron-dataflow-and-storage-tutorial.md`
 
 ---
 
