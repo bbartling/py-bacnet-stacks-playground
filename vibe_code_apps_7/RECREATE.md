@@ -199,3 +199,191 @@ Also read:
 
 - `docs/tech-setup-cheatsheet.md`
 - `docs/model-context-notes.md`
+
+---
+
+## 13. Open-FDD VOLTTRON Central PoC integration notes (2026-04-12)
+
+This bench was integrated to the active Open-FDD monorepo at:
+
+- `https://github.com/bbartling/open-fdd`
+- branch used during this PoC: `dev/work`
+
+Central host used for this PoC:
+
+- `192.168.204.16` (`hvac-edge-01`)
+- user: `ben`
+- Open-FDD repo path: `~/open-fdd`
+- VOLTTRON Central runtime: `volttron1` via upstream `~/volttron-docker`
+
+Edge host used for this PoC:
+
+- `192.168.204.12` (`bosspi`)
+- native VOLTTRON in `~/volttron`
+- `VOLTTRON_HOME=/home/ben/.volttron`
+
+### What was proven
+
+- Open-FDD helper scripts on `.16` were enough to avoid drilling into Docker for most Central tasks.
+- Central web worked at:
+  - `https://192.168.204.16:8443/vc/index.html`
+  - `https://192.168.204.16:8443/admin/login.html`
+- On Central, the useful helper commands were:
+  - `./scripts/bootstrap.sh --print-forward-historian-cheatsheet`
+  - `./scripts/bootstrap.sh --volttron-docker-serverkey`
+  - `./scripts/bootstrap.sh --volttron-docker-agents`
+  - `./scripts/bootstrap.sh --volttron-docker-agent-status`
+  - `OFDD_VOLTTRON_AUTH_CREDENTIALS='<edge-public-key>' ./scripts/bootstrap.sh --volttron-docker-auth-add`
+- On the Pi, the ForwardHistorian agent changed from `BAD` to `GOOD` after the Central auth add + agent restart.
+
+### Edge to Central Forward Agent Auth Cheat Sheet
+
+### 1) On the Central Docker host, get the Central server key via the Open-FDD helper
+
+```bash
+cd ~/open-fdd
+./scripts/bootstrap.sh --volttron-docker-serverkey
+```
+
+PoC output seen during this run:
+
+```text
+j6yIJQ1dqOeqd1yJsQ5lzBq4gLZOnb2oCA6PeoAvJik
+```
+
+### 2) On the Central Docker host, confirm current Central agents
+
+```bash
+cd ~/open-fdd
+./scripts/bootstrap.sh --volttron-docker-agent-status
+```
+
+PoC posture on `.16` at validation time:
+
+- `platform.historian` → `GOOD`
+- `volttron.central` → `GOOD`
+
+### 3) On the Boss Pi, go to VOLTTRON and activate the environment
+
+```bash
+cd ~/volttron
+export VOLTTRON_HOME=/home/ben/.volttron
+source env/bin/activate
+mkdir -p configs
+```
+
+### 4) Create the Forward Historian config
+
+```bash
+nano configs/forward-to-central.json
+```
+
+Template:
+
+```json
+{
+  "destination-vip": "tcp://192.168.204.16:22916",
+  "destination-serverkey": "j6yIJQ1dqOeqd1yJsQ5lzBq4gLZOnb2oCA6PeoAvJik",
+  "capture_log_data": false
+}
+```
+
+Important note:
+
+- The edge ForwardHistorian uses the Central VIP socket (`tcp://192.168.204.16:22916`), not the Central web UI URL.
+- The edge VCP / Central-control config separately used:
+  - `volttron-central-address = https://192.168.204.16:8443`
+
+### 5) Install and start the Forward Historian on the Pi
+
+```bash
+vctl install --agent-config configs/forward-to-central.json services/core/ForwardHistorian --tag forward-to-central
+vctl start --tag forward-to-central
+vctl status
+```
+
+### 6) Get the Pi forwarder public key
+
+```bash
+vctl auth publickey --tag forward-to-central
+```
+
+PoC output seen during this run:
+
+```text
+kVT4pZVTUlS72U1CccZJk8nR0rIVdpEoMqTGpeBH6k4
+```
+
+### 7) Back on Central, add the Pi forwarder key without drilling into Docker
+
+```bash
+cd ~/open-fdd
+OFDD_VOLTTRON_AUTH_CREDENTIALS='kVT4pZVTUlS72U1CccZJk8nR0rIVdpEoMqTGpeBH6k4' ./scripts/bootstrap.sh --volttron-docker-auth-add
+```
+
+Expected shape:
+
+```text
+added entry {'credentials': 'kVT4pZVTUlS72U1CccZJk8nR0rIVdpEoMqTGpeBH6k4', 'enabled': True}
+```
+
+### 8) Back on the Boss Pi, restart the Forward Historian
+
+```bash
+vctl stop --tag forward-to-central
+vctl start --tag forward-to-central
+vctl status
+```
+
+PoC result after this step:
+
+- `forward-to-central` → `GOOD`
+
+### 9) Quick validation
+
+On the Boss Pi:
+
+```bash
+vctl status
+```
+
+Healthy PoC posture included:
+
+- `platform.bacnet_proxy` → `GOOD`
+- `platform.driver` → `GOOD`
+- `vcp` → `GOOD`
+- `forward-to-central` → `GOOD`
+
+On the Central Docker host via Open-FDD helper:
+
+```bash
+cd ~/open-fdd
+./scripts/bootstrap.sh --volttron-docker-agent-status
+```
+
+### Where the Open-FDD helper scripts were good
+
+They were good for:
+
+- server key retrieval
+- central agent list / status
+- auth add for the edge forwarder key
+- cheat-sheet reminders of the edge ↔ central flow
+
+### Where the Open-FDD helper scripts fell short
+
+At this PoC stage, they still fell short on:
+
+- a clean one-command log tail for the current `volttron-docker` layout
+- a one-command proof that forwarded historian data landed in Central storage
+
+Observed shortfall:
+
+- `./scripts/bootstrap.sh --volttron-docker-tail-logs` looked for a Central log path that did not exist in the current container layout
+
+### Important recreate notes
+
+- Treat `~/open-fdd` on `.16` as the control surface for Central helper commands.
+- Treat the Pi `~/volttron` as the control surface for native edge commands.
+- For this PoC, the critical auth bridge was the ForwardHistorian public key add on Central.
+- If the forwarder is `BAD`, first check whether its public key has been added on Central, then restart the forward agent on the Pi.
