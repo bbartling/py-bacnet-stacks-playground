@@ -85,10 +85,10 @@ export function BasDriverConfigPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Platform Driver configs</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tree of <code className="rounded bg-muted px-1">vctl config list platform.driver</code> entries.
-          Edit JSON device configs (interval, BACnet address, registry path) or CSV registries (limits,
-          scaling). After saving, restart <code className="rounded bg-muted px-1">platform.driver</code> from
-          the System page.
+          Files under the API container <code className="rounded bg-muted px-1">/data/driver_configs</code> (JSON/CSV).
+          Use this tree for site-specific BACnet registry exports, notes, or JSON you want beside SQLite. For live polling,
+          configure devices/points in easy-aso (<code className="rounded bg-muted px-1">/api/v1</code> or{" "}
+          <code className="rounded bg-muted px-1">/docs</code>) and restart the API container if you change driver wiring.
         </p>
       </div>
 

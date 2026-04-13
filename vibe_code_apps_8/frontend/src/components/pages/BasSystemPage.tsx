@@ -72,8 +72,9 @@ export function BasSystemPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">System</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Raspberry Pi resources and VOLTTRON agent list from <code className="rounded bg-muted px-1">vctl list</code>.
-          Right-click a row for start / stop / restart / remove (remove requires care).
+          Raspberry Pi resources from the API container. Agent list is replaced by a Docker-oriented stub (use{" "}
+          <code className="rounded bg-muted px-1">docker compose ps</code> on the host). Right-click rows only apply
+          when UUIDs exist (legacy VOLTTRON bench).
         </p>
       </div>
 
@@ -113,7 +114,7 @@ export function BasSystemPage() {
         <Card className="lg:col-span-2">
           <CardContent className="pt-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">VOLTTRON agents</p>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Edge agents (stub)</p>
               <button
                 type="button"
                 className="rounded border border-border px-2 py-1 text-xs hover:bg-muted"

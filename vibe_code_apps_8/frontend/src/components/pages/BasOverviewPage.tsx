@@ -38,8 +38,8 @@ export function BasOverviewPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          BAS / BMS Lite on VOLTTRON — live BACnet via Platform Driver, operator dashboard, driver
-          config tools, and weekly occupancy schedules.
+          BAS / BMS Lite on Docker + easy-aso — asyncio supervisor, operator dashboard, driver file
+          store, and weekly occupancy schedules (no VOLTTRON).
         </p>
       </div>
 
@@ -70,7 +70,7 @@ export function BasOverviewPage() {
               </li>
               <li>
                 <Link className="text-primary hover:underline" to="/system">
-                  Pi resources &amp; VOLTTRON agents
+                  Pi resources &amp; containers
                 </Link>
               </li>
               <li>

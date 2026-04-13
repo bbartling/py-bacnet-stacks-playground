@@ -37,7 +37,7 @@ export function Sidebar() {
       <div className="flex items-center gap-2.5 border-border/60 px-5 py-4">
         <span className="text-lg font-semibold tracking-tight text-foreground">BAS Lite</span>
         <Badge variant="outline" className="text-[10px]">
-          VOLTTRON
+          Docker
         </Badge>
       </div>
 

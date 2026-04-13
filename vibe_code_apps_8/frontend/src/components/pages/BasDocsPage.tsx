@@ -1,44 +1,38 @@
 import { Card, CardContent } from "@/components/ui/card";
 
-const CHEAT = String.raw`VOLTTRON BACnet — Platform Driver (edge)
+const CHEAT = String.raw`BAS Lite — Docker + easy-aso (edge)
 
-Assumptions: repo at ~/volttron, env activated, Python 3.10+ for current VOLTTRON 9.x / modular stacks.
+Assumptions: docker compose up on the Pi; Caddy on :80; API uses SUPERVISOR_BACNET_RPC_URL for diy-bacnet JSON-RPC.
 
-1) BACnet utilities
-   cd ~/volttron && source env/bin/activate && cd scripts/bacnet && ls
+1) Check API + BACnet RPC
+   docker compose ps
+   docker compose logs -f api
+   curl -sS http://127.0.0.1:8080/health    # on Pi host if diy-bacnet listens here
 
-2) BACpypes.ini — set address to the edge NIC (not the remote device), e.g.
-   [BACpypes]
-   address: 192.168.1.50/24
+2) easy-aso supervisor (CRUD devices / points)
+   curl -sS http://127.0.0.1/api/v1/health   # through Caddy from another machine use http://PI_IP/api/v1/health
+   curl -sS http://PI_IP/openapi.json        # machine-readable OpenAPI (Swagger: port-forward to api:8090 /docs)
 
-3) Scan
-   python bacnet_scan.py --range 0 4194303 --timeout 15 --csv-out devices.csv
+3) Legacy SPA JSON (same contract as old /app8/api)
+   curl -sS http://PI_IP/app8/api/health
 
-4) Bulk configs
-   python grab_multiple_configs.py devices.csv --out-directory ./scan_output --ini ./BACpypes.ini
+4) Driver config files (volume /data/driver_configs in api container)
+   docker compose exec api ls -la /data/driver_configs
 
-5) Platform + proxy (examples — match your packaging: volttron-bacnet-proxy vs repo paths)
-   vctl install volttron-bacnet-proxy --agent-config configs/bacnet-proxy.json \\
-     --vip-identity platform.bacnet_proxy --start
+5) SQLite + schedule
+   docker compose exec api ls -la /data
+   # supervisor.sqlite + schedule.json live here
 
-   python scripts/install-agent.py -s services/core/PlatformDriverAgent \\
-     -c services/core/PlatformDriverAgent/config --tag platform_driver --start
+6) Rebuild UI after React edits
+   docker compose build frontend --no-cache && docker compose up -d
 
-6) Driver main config (optional pacing)
-   vctl config store platform.driver config configs/platform-driver.agent
+7) SD card / logs
+   docker compose uses capped log drivers; docker system prune occasionally
 
-7) Load BACnet device + registry
-   vctl config store platform.driver registry_configs/ahu1.csv configs/ahu1.csv --csv
-   vctl config store platform.driver devices/site/building/ahu1 configs/ahu1.config
+8) Optional auth / TLS
+   See docs/BOSS_PI_BAS_LITE_DOCKER.md and docker/caddy/Caddyfile.with-auth
 
-8) Restart driver after edits
-   vctl restart --tag platform_driver
-
-9) Inspect
-   vctl config list platform.driver
-   vctl status
-
-Notes: standalone bacnet_scan / grab scripts conflict with a running BACnet Proxy unless you use proxy_* variants. For weak devices set use_read_multiple false and tune max_per_request.
+Notes: BACnet/IP UDP still belongs on the host or a dedicated container with host networking — this stack focuses on HTTP + JSON-RPC to your BACnet gateway.
 `;
 
 export function BasDocsPage() {
@@ -47,8 +41,16 @@ export function BasDocsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">BACnet &amp; driver cheat sheet</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Condensed operator notes. See VOLTTRON readthedocs for authoritative install and BACnet driver
-          pages.
+          Docker + easy-aso operator notes. Authoritative easy-aso docs:{" "}
+          <a
+            className="text-primary underline"
+            href="https://bbartling.github.io/easy-aso/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            bbartling.github.io/easy-aso
+          </a>
+          .
         </p>
       </div>
       <Card>

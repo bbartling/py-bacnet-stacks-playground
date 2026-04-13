@@ -13,14 +13,14 @@ export function TopBar() {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-foreground">BMS / BAS Lite operator UI</p>
         <p className="truncate text-xs text-muted-foreground">
-          Served by the VOLTTRON web-enabled agent on this edge host
+          Served by Docker (Caddy + nginx) with easy-aso FastAPI on this edge host
         </p>
       </div>
       <div className="flex items-center gap-2">
         <TutorialPopover
           title="About this build"
-          meaning="React + TypeScript SPA compiled into the agent webroot. APIs are same-origin under /app8/api/*."
-          status="No separate Docker API — everything hits the VOLTTRON process."
+          meaning="React + TypeScript SPA behind Caddy. Legacy JSON under /app8/api/*; easy-aso REST under /api/v1/*."
+          status="API is easy-aso (FastAPI). Legacy JSON stays under /app8/api/* for this SPA."
           side="bottom"
         >
           <span className="cursor-help text-xs text-muted-foreground">Help</span>

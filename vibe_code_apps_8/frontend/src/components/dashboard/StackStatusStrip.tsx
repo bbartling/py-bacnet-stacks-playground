@@ -44,7 +44,7 @@ export function StackStatusStrip() {
         title={apiStatus === "green" ? "API healthy" : apiStatus === "red" ? "API unreachable" : "Checking…"}
       />
       <span className="text-xs text-muted-foreground">
-        Field protocols (BACnet, Modbus, MQTT, …) live on <strong>VOLTTRON</strong> (Central + platform driver)—not in this UI.
+        Field protocols (BACnet, …) terminate in <strong>easy-aso + diy-bacnet JSON-RPC</strong>—not inside this SPA.
       </span>
     </div>
   );

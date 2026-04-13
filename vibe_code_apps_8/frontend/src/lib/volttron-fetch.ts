@@ -1,5 +1,5 @@
 /**
- * Fetch JSON from the BAS Lite agent when the SPA is served from VOLTTRON under `base` (e.g. `/app8/`).
+ * Fetch JSON same-origin under the SPA base (e.g. `/app8/`) — Docker + Caddy + easy-aso API.
  */
 export function volttronBase(): string {
   const b = (import.meta.env.BASE_URL ?? "/").replace(/\/?$/, "/");
