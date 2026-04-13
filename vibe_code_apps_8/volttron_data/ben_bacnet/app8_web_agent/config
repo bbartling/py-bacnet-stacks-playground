@@ -1,0 +1,15 @@
+{
+  "agentid": "ben_app8_web",
+  "route_prefix": "/app8",
+  "app_title": "BAS Lite on VOLTTRON",
+  "site_name": "bosspi",
+  "max_trend_samples": 9500,
+  "trend_interval_minutes": 5,
+  "default_trend_retention_days": 31,
+  "log_level": "INFO",
+  "bacnet_devices": ["BensFakeAHU", "Zone1VAV"],
+  "volttron_root": "/home/ben/volttron",
+  "vctl_path": "/home/ben/volttron/env/bin/vctl",
+  "allow_agent_lifecycle": true,
+  "allow_driver_config_writes": true
+}

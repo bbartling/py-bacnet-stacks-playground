@@ -1,0 +1,94 @@
+{
+  "devices": {
+    "ahu_main": {
+      "displayName": "Main AHU",
+      "kind": "ahu",
+      "address": "10.20.30.40",
+      "deviceId": 1001,
+      "status": "unknown",
+      "pollingEnabled": true,
+      "lastSeen": null,
+      "points": {}
+    },
+    "vav_zone_01": {
+      "displayName": "Zone 01 VAV",
+      "kind": "vav",
+      "address": "10.20.30.41",
+      "deviceId": 2001,
+      "status": "unknown",
+      "pollingEnabled": true,
+      "lastSeen": null,
+      "points": {}
+    }
+  },
+  "points": [
+    {
+      "pointId": "ahu_main::OA_T",
+      "deviceId": "ahu_main",
+      "name": "OA_T",
+      "label": "Outdoor air temperature",
+      "units": "°F",
+      "kind": "analog",
+      "adjustable": false,
+      "graphicGroup": "overview"
+    },
+    {
+      "pointId": "ahu_main::SF_S",
+      "deviceId": "ahu_main",
+      "name": "SF_S",
+      "label": "Supply fan status",
+      "units": "bool",
+      "kind": "binary",
+      "adjustable": false,
+      "graphicGroup": "ahu"
+    },
+    {
+      "pointId": "vav_zone_01::ZoneTemp",
+      "deviceId": "vav_zone_01",
+      "name": "ZoneTemp",
+      "label": "Zone temperature",
+      "units": "°F",
+      "kind": "analog",
+      "adjustable": false,
+      "graphicGroup": "vav"
+    },
+    {
+      "pointId": "vav_zone_01::ZoneCoolingSpt",
+      "deviceId": "vav_zone_01",
+      "name": "ZoneCoolingSpt",
+      "label": "Zone cooling setpoint",
+      "units": "°F",
+      "kind": "analog",
+      "adjustable": true,
+      "graphicGroup": "vav"
+    }
+  ],
+  "alarm_definitions": [
+    {
+      "id": "zone-temp-high",
+      "name": "Zone temperature high vs cooling setpoint",
+      "enabled": true,
+      "deviceId": "vav_zone_01",
+      "pointId": "vav_zone_01::ZoneTemp",
+      "severity": "warning",
+      "conditionType": "greaterThanSetpointPlusOffset",
+      "condition": { "referencePointId": "vav_zone_01::ZoneCoolingSpt", "offset": 1.0 },
+      "messageTemplate": "Zone temp high: {value:.1f} vs setpoint {ref:.1f}",
+      "persistenceSeconds": 0,
+      "notifyChannels": ["smtp"]
+    },
+    {
+      "id": "ahu-fan-off",
+      "name": "Supply fan commanded off / failed",
+      "enabled": true,
+      "deviceId": "ahu_main",
+      "pointId": "ahu_main::SF_S",
+      "severity": "critical",
+      "conditionType": "boolFalse",
+      "condition": {},
+      "messageTemplate": "Supply fan status is false",
+      "persistenceSeconds": 0,
+      "notifyChannels": ["smtp"]
+    }
+  ]
+}
