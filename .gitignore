@@ -208,3 +208,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# JavaScript / Vite (e.g. vibe_code_apps_8/frontend — root rules back up nested .gitignore)
+node_modules/
+.vite/
+coverage/
+*.tsbuildinfo

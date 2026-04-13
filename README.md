@@ -99,27 +99,34 @@ Always classify first, then process. Never use the thinking model for a task tha
 
 ## Vibe Code Checkpoints
 
-| Checkpoint   | What to Build                                                                                                                                       | When       |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **1**        | **BAC0 + bacpypes3 basics:** read `present-value`, write to a point, write null (release), understand commandable objects + priority levels         | **Week 1** |
-| **2**        | **RPM apps (BAC0 + bacpypes3):** ReadPropertyMultiple across devices, log to CSV, implement daily rotation (`csv` module)                           | **Week 2** |
-| **3**        | **Priority Array tools:** read + parse `priority-array`, inspect overrides, understand control authority                                            | **Week 3** |
-| **4**        | **BACnet server apps:** mini device, schedule/calendar objects, weather server using OpenWeatherMap                                                 | **Week 4** |
-| **5**        | **Device discovery tools:** Who-Is / I-Am scanning, device enumeration (BAC0 + bacpypes3)                                                           | **Week 5** |
-| **6**        | **COV monitoring apps:** subscribe to Change-of-Value, stream live updates from devices                                                             | **Week 6** |
-| **7**        | **Open Claw + VOLTTRON bootstrap:** auto-provision VOLTTRON on edge (e.g., Raspberry Pi), build a simple BAS/BMS-style GUI (lightweight “vibe app”) | **Week 7** |
-| **8**        | **Advanced BAS web app:** React frontend + Caddy reverse proxy, clean API layer, evolve Week 7 into a more production-style UI                      | **Week 8** |
-| **9 (TODO)** | **Rust BACnet stack:** integrate rusty-bacnet with Python bindings, rebuild key apps using Rust backend                                             | **Future** |
-| **(TODO)**    | **Protocol debugging:** Wireshark + Linux tooling, inspect BACnet/IP traffic, validate and troubleshoot all apps built                              | **Final**  |
+| Checkpoint    | What to Build                                                                                                                                       | When       |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **1**         | **BAC0 + bacpypes3 basics:** read `present-value`, write to a point, write null (release), understand commandable objects + priority levels         | **Week 1** |
+| **2**         | **RPM apps (BAC0 + bacpypes3):** ReadPropertyMultiple across devices, log to CSV, implement daily rotation (`csv` module)                           | **Week 2** |
+| **3**         | **Priority Array tools:** read + parse `priority-array`, inspect overrides, understand control authority                                            | **Week 3** |
+| **4**         | **BACnet server apps:** mini device, schedule/calendar objects, weather server using OpenWeatherMap                                                 | **Week 4** |
+| **5**         | **Device discovery tools:** Who-Is / I-Am scanning, device enumeration (BAC0 + bacpypes3)                                                           | **Week 5** |
+| **6**         | **COV monitoring apps:** subscribe to Change-of-Value, stream live updates from devices                                                             | **Week 6** |
+| **7**         | **Open Claw + VOLTTRON bootstrap:** auto-provision VOLTTRON on edge (e.g., Raspberry Pi), build a simple BAS/BMS-style GUI (lightweight “vibe app”) | **Week 7** |
+| **8** *(current)* | **BAS Lite (Vibe App 8):** newest stack in **`vibe_code_apps_8`** — React/TypeScript UI built into the VOLTTRON web agent, Platform Driver–aligned APIs, optional Caddy on :80, site-model JSON for any building/LAN topology (`docs/replicate-any-building-lan-topology.md`). Evolves Week 7 into a production-style edge dashboard. | **Week 8** |
+| **9** | **VOLTTRON Central + Timescale + Forward (ZMQ):** **`vibe_code_apps_9`** — fresh **Ubuntu** central with **SQLHistorian** ([Timescale](https://volttron.readthedocs.io/en/main/volttron-api/services/SQLHistorian/README.html)), **VolttronCentralPlatform** + **VolttronCentral** ([VC stack](https://volttron.readthedocs.io/en/main/volttron-api/services/VolttronCentral/modules.html)), **boss Pi** with **ForwardHistorian** ([multi-platform ZMQ](https://volttron.readthedocs.io/en/main/deploying-volttron/multi-platform/forward-historian-deployment.html)); Docker TimescaleDB. Tutorial: `vibe_code_apps_9/docs/volttron-central-forward-timescale-tutorial.md`. | **Week 9** |
+| **10**        |                                                                                                                                                     |            |
+| **11**        |                                                                                                                                                     |            |
+| **12**        |                                                                                                                                                     |            |
+| **13** *(TODO)* | **Rust BACnet stack:** integrate [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) with Python bindings, rebuild key apps using a Rust backend | **Future** |
+| **14** *(TODO)* | **Protocol debugging:** Wireshark + Linux tooling, inspect BACnet/IP traffic, validate and troubleshoot all apps built                              | **Final**  |
 
 ---
 
 ### Notes / Direction
 
+* **Checkpoint 8** is the live edge dashboard: **`vibe_code_apps_8`**, tutorial `vibe_code_apps_8/docs/bas-lite-app8-tutorial.md`.
+* **Checkpoint 9** is multi-platform centralization: **`vibe_code_apps_9`**, tutorial `vibe_code_apps_9/docs/volttron-central-forward-timescale-tutorial.md`.
+* Checkpoints **10–12** are intentionally open for future vibe apps.
 * Week 7–8 is where things get **really interesting** → agentic workflows + real BAS-style UI
 * Open Claw becomes your **automation layer** (bootstrapping, testing, orchestration)
 * React + Caddy introduces **real-world web architecture patterns**
-* Rust + Wireshark = **next-level protocol + performance understanding**
+* **Checkpoint 13** ([rusty-bacnet](https://github.com/jscott3201/rusty-bacnet)) + **checkpoint 14** (Wireshark) = **next-level protocol + performance understanding**
 
 
 ---
