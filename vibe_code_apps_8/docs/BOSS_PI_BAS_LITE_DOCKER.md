@@ -92,7 +92,7 @@ docker compose ps
 docker compose logs -f caddy
 ```
 
-The **api** image installs **easy-aso** from **GitHub** (`docker/bas_lite_api/Dockerfile`) so **JSON-RPC Bearer** support is available before **PyPI** catches up. After **easy-aso ≥ 0.1.5** is on PyPI, you can delete that `git+https://…` install line and rely on **`pip install .`** only.
+The **api** image installs **easy-aso** from **PyPI** via **`pip install .`** in `docker/bas_lite_api/Dockerfile` (declared in `docker/bas_lite_api/pyproject.toml`). **JSON-RPC Bearer** (`BACNET_RPC_API_KEY`) requires **easy-aso ≥ 0.1.5**; rebuild after that version appears on PyPI so the resolver picks it up. If you are still on **0.1.3** from PyPI, leave **`BACNET_RPC_API_KEY`** unset unless diy-bacnet is also running without RPC auth.
 
 Open a browser:
 

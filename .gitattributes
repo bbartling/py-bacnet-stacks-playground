@@ -1,0 +1,2 @@
+# Shell scripts must use LF so Docker/Linux runs them (avoid CRLF "invalid option" errors).
+scripts/docker-docs-pdf/*.sh text eol=lf

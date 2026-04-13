@@ -5,7 +5,7 @@ description = "BAS Lite Docker API — easy-aso supervisor + App8 legacy /app8/a
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "easy-aso[platform]>=0.1.3",
+  "easy-aso[platform]>=0.1.3,<0.2",
   "httpx>=0.27",
   "psutil>=6.0",
 ]
