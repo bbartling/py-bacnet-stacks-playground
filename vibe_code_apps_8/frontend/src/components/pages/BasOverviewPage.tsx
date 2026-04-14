@@ -38,8 +38,7 @@ export function BasOverviewPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          BAS / BMS Lite on Docker + easy-aso — asyncio supervisor, operator dashboard, driver file
-          store, and weekly occupancy schedules.
+          BAS / BMS Lite on modular VOLTTRON — web agent APIs, operator dashboard, driver config tools, and weekly occupancy schedules.
         </p>
       </div>
 

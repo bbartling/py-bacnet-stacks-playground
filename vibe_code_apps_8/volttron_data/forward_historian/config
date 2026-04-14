@@ -1,0 +1,10 @@
+{
+  "destination-vip": "tcp://CHANGEME-CENTRAL-IP:22916",
+  "destination-serverkey": "CHANGEME_FROM_CENTRAL_vctl_auth_serverkey",
+  "required_target_agents": ["platform.historian"],
+  "capture_device_data": true,
+  "capture_analysis_data": true,
+  "capture_log_data": true,
+  "capture_record_data": true,
+  "custom_topic_list": []
+}

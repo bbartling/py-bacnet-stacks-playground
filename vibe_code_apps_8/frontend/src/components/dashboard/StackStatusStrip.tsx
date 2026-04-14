@@ -44,7 +44,7 @@ export function StackStatusStrip() {
         title={apiStatus === "green" ? "API healthy" : apiStatus === "red" ? "API unreachable" : "Checking…"}
       />
       <span className="text-xs text-muted-foreground">
-        Field protocols (BACnet, …) terminate in <strong>easy-aso + diy-bacnet JSON-RPC</strong>—not inside this SPA.
+        Field protocols (BACnet, etc.) terminate in <strong>VOLTTRON Platform Driver / BACnet services</strong>—not inside this SPA.
       </span>
     </div>
   );

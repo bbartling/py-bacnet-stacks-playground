@@ -85,10 +85,8 @@ export function BasDriverConfigPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Driver config files</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Files under the API container <code className="rounded bg-muted px-1">/data/driver_configs</code> (JSON/CSV).
-          Use this tree for site-specific BACnet registry exports, notes, or JSON you want beside SQLite. For live polling,
-          configure devices and points in easy-aso (<code className="rounded bg-muted px-1">/api/v1</code> or{" "}
-          <code className="rounded bg-muted px-1">/docs</code>) and restart the API container if you change wiring.
+          Files exposed by the App 8 web agent for Platform Driver config-store workflows (JSON/CSV). Use this tree for
+          site-specific driver and registry content, then store/retrieve keys through VOLTTRON config APIs.
         </p>
       </div>
 

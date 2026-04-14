@@ -177,7 +177,7 @@ export function DataModelPage() {
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Data Model BRICK</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Build your Brick data model here: export JSON for AI tagging, import tagged points, browse equipment, and run SPARQL.
-        Field protocols and historian data are owned by your <strong>edge data plane</strong> (easy-aso + BACnet RPC); align points in this app with
+        Field protocols and historian data are owned by your <strong>edge data plane</strong> (VOLTTRON drivers and historians); align points in this app with
         historian topics (for example <code className="rounded bg-muted px-1 text-xs">external_id</code>) and use import/export or
         CRUD to keep the semantic graph in sync.
       </p>
@@ -207,7 +207,7 @@ export function DataModelPage() {
               <strong>Sites</strong> — Create at least one site (card above). Equipment and points belong to a site.
             </li>
             <li>
-              <strong>Field alignment</strong> — Use the <strong>easy-aso supervisor</strong> (or your historian) for
+              <strong>Field alignment</strong> — Use the <strong>VOLTTRON Platform Driver</strong> (or your historian) for
               live data. In Open-FDD, set <code className="rounded bg-muted px-1 text-xs">external_id</code> (and optional Brick
               metadata) on points so rules and SQL line up with historian topics.
             </li>

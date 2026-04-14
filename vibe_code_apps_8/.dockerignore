@@ -1,8 +1,6 @@
 **/node_modules
 **/dist
 **/.git
-**/volttron_data/**/csv_logs
-**/volttron_data/**/*.pyc
 **/__pycache__
 **/.venv
 frontend/node_modules

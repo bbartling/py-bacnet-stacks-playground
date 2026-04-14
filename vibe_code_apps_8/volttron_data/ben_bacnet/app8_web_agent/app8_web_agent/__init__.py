@@ -1,1 +1,1 @@
-# BAS / BAS Lite web agent (App 8)
+"""App 8 VOLTTRON web agent package."""

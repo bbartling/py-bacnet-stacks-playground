@@ -72,7 +72,7 @@ export function BasSystemPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">System</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Raspberry Pi resources from the API container. Container status is summarized here, and deeper service checks
+          Raspberry Pi and container resources from the App 8 web agent. Service status is summarized here; deeper checks
           still belong to <code className="rounded bg-muted px-1">docker compose ps</code> and logs on the host.
         </p>
       </div>
@@ -169,7 +169,7 @@ export function BasSystemPage() {
           style={{ left: menu.x, top: menu.y }}
           role="menu"
         >
-          {(["start", "stop", "restart"] as const).map((action) => (
+              {(["start", "stop", "restart"] as const).map((action) => (
             <button
               key={action}
               type="button"
@@ -179,7 +179,7 @@ export function BasSystemPage() {
                 closeMenu();
               }}
             >
-              {action} (legacy stub)
+              {action}
             </button>
           ))}
           <button
@@ -188,7 +188,7 @@ export function BasSystemPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  "Remove this legacy item from the stub list? This action is not implemented in Docker BAS Lite.",
+                  "Remove this agent from VOLTTRON?",
                 )
               ) {
                 lifecycle.mutate({ action: "remove", uuid: menu.uuid });

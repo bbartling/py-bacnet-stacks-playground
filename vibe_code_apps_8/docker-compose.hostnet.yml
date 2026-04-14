@@ -1,0 +1,4 @@
+services:
+  volttron:
+    network_mode: host
+    ports: []

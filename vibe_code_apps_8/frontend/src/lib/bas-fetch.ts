@@ -1,5 +1,5 @@
 /**
- * Fetch JSON same-origin under the SPA base (e.g. `/app8/`) — Docker + Caddy + easy-aso API.
+ * Fetch JSON same-origin under the SPA base (e.g. `/app8/`) — Docker + Caddy + VOLTTRON web-agent API.
  */
 export function apiBase(): string {
   const b = (import.meta.env.BASE_URL ?? "/").replace(/\/?$/, "/");

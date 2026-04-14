@@ -1,31 +1,26 @@
-# Vibe Code App 8 — BAS Lite (**Docker + easy-aso**)
+# Vibe Code App 8 — BAS Lite (**Docker + modular VOLTTRON**)
 
-**Operator UI:** TypeScript **React** SPA (**BAS / BMS Lite**) with live points, trends, driver file store, occupancy schedule, and system metrics.
+**Operator UI:** TypeScript **React** SPA (**BAS / BMS Lite**) with live points, trends, driver config tools, occupancy schedule, and system metrics.
 
-**Backend:** **[easy-aso](https://pypi.org/project/easy-aso/)** supervisor (**FastAPI**, asyncio, SQLite) plus a thin **legacy JSON** layer at **`/app8/api/*`** so the existing SPA keeps working.
+**Backend:** **VOLTTRON web agent** (`app8_web_agent`) serves static assets and `/app8/api/*`, with live data from `platform.driver` topic publishes and RPC writes.
 
-**Edge:** **Caddy** on port **80** → static UI (**nginx**) + API. Optional **TLS** + **Basic Auth** patterns live under `docker/caddy/`.
+**Edge:** **Caddy** on port **80/443** for TLS + Basic Auth in front of the VOLTTRON web endpoint.
 
-There is **no systemd** requirement for the app layer — only **Docker** (use `restart: unless-stopped`).
-
-This stack is inspired by platform-style BAS architectures, but it is implemented directly with Docker, easy-aso, and diy-bacnet-server.
+This stack runs in Docker but keeps VOLTTRON-native patterns for agents, auth, config-store, and future forwarding to App 9 central.
 
 ---
 
 ## Quick start (Raspberry Pi or any Docker host)
 
-1. Install **Docker Engine** + **Compose** (see **[Boss Pi tutorial](docs/BOSS_PI_BAS_LITE_DOCKER.md)**).
-2. Ensure **diy-bacnet-server** (or compatible JSON-RPC BACnet) is reachable from containers — default **`http://host.docker.internal:8080`** (see `.env.example`).
+1. Install **Docker Engine** + **Compose**.
+2. Configure `.env` values (Caddy credentials + VOLTTRON branch/ref if needed).
 3. From this directory:
 
    ```bash
-   docker compose build
-   docker compose up -d
+   ./rebuild-bas-lite.sh --rebuild-frontend
    ```
 
 4. Browse to **`http://<host-ip>/`** (redirects to **`/app8/`**).
-
-**Full beginner walkthrough:** [docs/BOSS_PI_BAS_LITE_DOCKER.md](docs/BOSS_PI_BAS_LITE_DOCKER.md)
 
 ---
 
@@ -33,13 +28,14 @@ This stack is inspired by platform-style BAS architectures, but it is implemente
 
 | Path | Purpose |
 |------|---------|
-| `docker-compose.yml` | **Caddy** + **api** (easy-aso) + **frontend** (nginx) |
-| `docker/bas_lite_api/` | FastAPI image: supervisor + `/app8/api` compatibility |
-| `docker/Dockerfile.frontend` | Multi-stage **Node build → nginx** |
+| `docker-compose.yml` | **Caddy** + **VOLTTRON runtime** |
+| `Dockerfile` | VOLTTRON runtime image build (branch/ref configurable) |
+| `docker/volttron/start-volttron.sh` | Idempotent platform + agent bootstrap |
 | `docker/caddy/Caddyfile` | Reverse proxy routes |
-| `frontend/` | React app (`npm run build` runs in Docker) |
-| `docs/BOSS_PI_BAS_LITE_DOCKER.md` | **Start here on a new Pi** |
-| `volttron_data/` | Legacy archived material (not part of this runtime stack) |
+| `frontend/` | React app; build output synced into `app8_web_agent/webroot` |
+| `volttron_data/ben_bacnet/app8_web_agent/` | App 8 VOLTTRON web agent package + config |
+| `volttron_data/ben_bacnet/oat_share_agent/` | Optional OAT share supervisory agent |
+| `volttron_data/forward_historian/config` | Optional App 9-forwarding hook config |
 
 ---
 

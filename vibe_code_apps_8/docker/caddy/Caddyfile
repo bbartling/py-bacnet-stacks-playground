@@ -1,8 +1,6 @@
-# BAS Lite — Caddy: HTTPS (self-signed), Basic Auth, API gateway header.
-# Secrets come from .env (see .env.example). Generate operator password:
+# BAS Lite — Caddy in front of modular VOLTTRON App 8.
+# Secrets come from .env (see .env.example). Generate password hash with:
 #   docker run --rm caddy:2.8-alpine caddy hash-password --plaintext 'YOUR_PASSWORD'
-#
-# Strip any client-supplied gateway header before proxying so browsers cannot spoof it.
 
 :80 {
 	redir https://{host}{uri} permanent
@@ -16,28 +14,11 @@
 		{$BAS_AUTH_USER} {$BAS_AUTH_HASH}
 	}
 
-	handle /app8/api/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
-	}
-
-	handle /api/v1/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
-	}
-
-	handle /openapi.json {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+	handle /app8* {
+		reverse_proxy volttron:8080
 	}
 
 	handle {
-		reverse_proxy frontend:80
+		redir /app8/ 302
 	}
 }

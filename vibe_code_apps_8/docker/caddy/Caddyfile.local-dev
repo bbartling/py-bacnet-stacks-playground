@@ -1,23 +1,14 @@
-# Lab / developer: HTTP only, no Basic Auth, no API gateway header.
+# Lab / developer: HTTP only, no Basic Auth.
 # Use: in .env set CADDYFILE=docker/caddy/Caddyfile.local-dev (see docker-compose.yml).
-# Leave BAS_LITE_GATEWAY_TOKEN unset on the api service when using this file.
 
 :80 {
 	encode zstd gzip
 
-	handle /app8/api/* {
-		reverse_proxy api:8090
-	}
-
-	handle /api/v1/* {
-		reverse_proxy api:8090
-	}
-
-	handle /openapi.json {
-		reverse_proxy api:8090
+	handle /app8* {
+		reverse_proxy volttron:8080
 	}
 
 	handle {
-		reverse_proxy frontend:80
+		redir /app8/ 302
 	}
 }

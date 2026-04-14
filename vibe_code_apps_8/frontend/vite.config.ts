@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-/** Production: nginx serves under /app8/ (Docker BAS Lite + Caddy). */
+/** Production: VOLTTRON web agent serves under /app8/. */
 const rawBase = (process.env.VITE_BASE_PATH ?? "/app8").trim();
 const base = rawBase ? (rawBase.startsWith("/") ? rawBase : `/${rawBase}`).replace(/\/?$/, "/") : "/";
 
@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
-    outDir: "dist",
+    outDir: "../volttron_data/ben_bacnet/app8_web_agent/app8_web_agent/webroot",
     emptyOutDir: true,
   },
   server: {

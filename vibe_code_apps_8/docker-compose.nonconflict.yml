@@ -1,0 +1,5 @@
+services:
+  volttron:
+    ports:
+      # BACnet/IP into the container (47808/udp inside). Use 47809 on the host if 47808 is taken.
+      - "${APP8_BACNET_HOST_PORT:-47809}:47808/udp"

@@ -64,8 +64,7 @@ export function BasLivePointsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Live points</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Live values from the easy-aso supervisor. Writable setpoints use BACnet JSON-RPC through
-          the BAS Lite API.
+          Live values from VOLTTRON Platform Driver publishes. Writable setpoints call platform.driver RPC via the BAS Lite web agent.
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 # Recreating BAS Lite (App 8) on any HVAC OT LAN
 
-This note is for operators and integrators who need the same App 8 BAS Lite edge stack on a different site, VLAN, or BACnet plant layout. Nothing here assumes a particular bench hostname or IP range.
+This note is for operators and integrators who need the same App 8 **modular VOLTTRON** edge stack on a different site, VLAN, or BACnet plant layout. Nothing here assumes a particular bench hostname or IP range.
 
 ## 1. What must stay aligned
 
@@ -9,64 +9,39 @@ This note is for operators and integrators who need the same App 8 BAS Lite edge
 | **Network** | Edge host can reach field controllers on the BACnet / OT VLAN (routing, ACLs, BBMD if used). |
 | **BACnet** | `BACpypes.ini` (or stack equivalent), UDP 47808 bind interface, BBMD table if applicable. |
 | **Platform Driver** | One registry CSV (or driver-specific config) per device identity; device names must match what the agent subscribes to. |
-| **App 8 API/UI config** | `bacnet_devices`, optional `site_model_path` / inline `devices` + `points`, alarms, `site_name`. |
+| **App 8 web agent config** | `bacnet_devices`, `route_prefix`, alarms, `site_name`, optional schedule/driver store paths. |
 | **Reverse proxy** | Caddy (or other) upstream URL, Basic Auth secrets, TLS policy. See `vibe_code_apps_8/caddy/README.md`. |
 
 ## 2. Platform Driver device identities
 
-The runtime polls configured devices and points using the driver/backend configuration in the API stack.
+The runtime subscribes to driver publishes (`devices/<id>/all`) and writes via `platform.driver` RPC.
 
 - Use **stable string identities** that match your driver config (often the same as the CSV/registry folder name under `devices/`).
 - Prefer a naming convention that scales: `campus/building/ahu_01` or `SITE_AHU01` — avoid embedding IP addresses in the identity unless that is already your standard.
 
 ## 3. Site model (no Python edits for a new building)
 
-You can describe equipment and points in JSON instead of editing `agent.py`.
-
-**Option A — external file** (next to the agent package or absolute path):
-
-```json
-{
-  "site_model_path": "site_model.json"
-}
-```
-
-**Option B — inline** in `config` (same schema as the file): top-level keys `devices`, `points`, optional `alarm_definitions`.
-
-Schema summary:
-
-- **`devices`**: object keyed by device id; each value may include `displayName`, `kind`, `address`, BACnet `deviceId`, `pollingEnabled`, etc.
-- **`points`**: array of objects with `pointId`, `deviceId`, `name` (driver point name), `label`, `units`, `kind` (`analog` | `binary`), `adjustable`, optional `graphicGroup`.
-- **`alarm_definitions`**: array of rules. Supported `conditionType` values in the agent today: `greaterThanSetpointPlusOffset` (needs `referencePointId` and `offset`), `boolFalse`.
-
-Copy the local site model example used by your current deployment and align names with your driver registries.
-
-Optional config keys:
-
-- **`default_trend_point_id`**: first trend shown in the UI / API default.
-- **`bacnet_devices`**: overrides the default list taken from all device keys in the site model (useful if the edge should only subscribe to a subset).
+Define device identities in Platform Driver first, then align App 8 point metadata and alarms in `app8_web_agent/agent.py` or future site-model config.
 
 ## 4. OAT share and other small agents
 
 Any agent that references device or point names must use the **same identities** as Platform Driver. After renaming devices, update `oat_share_agent` config (or equivalent) so source and target device ids and point names match the live plant.
 
-## 5. Deploy scripts from a Windows workstation
+## 5. Deploy from a Windows workstation
 
-`deploy-app8-to-bosspi.ps1` and `deploy-oat-share-to-bosspi.ps1` accept parameters so you can target another host without editing the file:
+Build + run from this folder:
 
 ```powershell
-.\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50'
+.\rebuild-bas-lite.ps1 -RebuildFrontend
 ```
-
-Defaults match the original bench layout.
 
 ## 6. Checklist before go-live
 
-1. From the edge shell: `docker compose ps` and `docker compose logs --tail=100 api diy-bacnet caddy frontend`.
-2. `curl -sS http://127.0.0.1:8080/app8/api/health` (adjust port/prefix) — `counts.devices` / `points` non-zero when the model is loaded.
+1. From the edge shell: `docker compose ps` and `docker compose logs --tail=100 volttron caddy`.
+2. `curl -sS http://127.0.0.1:8080/app8/api/health` — `counts.devices` / `points` non-zero when live topics flow.
 3. BACnet **who-is / read** from the same interface the driver uses (firewall and binding).
-4. Journald / SD card: follow Pi logging guidance in `docs/bas-lite-app8-tutorial.md` (§8).
+4. For BACnet broadcast issues on Linux, use `docker-compose.hostnet.yml` fallback profile.
 
 ## 7. Non-BACnet drivers
 
-The UI and site model are **driver-agnostic**: anything exposed through the selected backend contract can use the same `devices` / `points` metadata. BACnet is the reference implementation in this repo; Modbus, SNMP, or custom drivers follow the same pattern as long as device ids and point names match.
+The UI is **driver-agnostic**: anything published through VOLTTRON and mapped by point metadata can render in the same pages. BACnet is the reference implementation in this repo; Modbus, SNMP, or custom drivers follow the same pattern as long as identities and point names match.
