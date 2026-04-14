@@ -1,4 +1,4 @@
-# Boss Pi — BAS Lite without VOLTTRON (Docker + easy-aso + Caddy)
+# Boss Pi — BAS Lite (Docker + easy-aso + Caddy)
 
 This tutorial is for **beginners** who want the **React “BAS Lite” operator UI** on a Raspberry Pi (**Pi 5 or older 3B+**) using:
 
@@ -8,7 +8,7 @@ This tutorial is for **beginners** who want the **React “BAS Lite” operator 
 - **Caddy** on **80 → 443 redirect**, **TLS internal** (self-signed), **Basic Auth** for the operator UI, and a **gateway-only header** so the API is not meant to be called without going through Caddy (see **`.env.example`**).
 - **nginx** serves the static React build under **`/app8/`**.
 
-The old **VOLTTRON + `app8_web_agent`** tree under `volttron_data/` is **archived reference only** — see `volttron_data/ARCHIVE_NOTE.md`.
+This deployment is inspired by platform-driver style workflows, implemented here with Docker + easy-aso + diy-bacnet-server.
 
 ---
 
@@ -23,25 +23,40 @@ sudo apt update && sudo apt full-upgrade -y
 sudo reboot   # optional but recommended after a large upgrade
 ```
 
-### 1.2 Install Docker (official convenience script)
+### 1.2 Install Docker on Raspberry Pi OS
+
+On newer Raspberry Pi OS releases, the Docker convenience script may point at a repo that is not published yet for your codename. If that happens, use the distro package instead.
+
+Try the convenience script first:
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER"
 ```
 
+If that fails with a Docker apt repo error, install the distro package path instead:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io
+sudo usermod -aG docker "$USER"
+sudo systemctl enable --now docker
+```
+
 Log out and back in so the **`docker`** group applies.
 
-### 1.3 Install Compose plugin (often bundled)
+### 1.3 Install Compose support
 
 ```bash
 docker compose version
 ```
 
-If missing:
+If the Compose plugin is missing, try the distro package set in this order:
 
 ```bash
 sudo apt install -y docker-compose-plugin
+# or, if the plugin package is unavailable on your Pi image:
+sudo apt install -y docker-compose
 ```
 
 ### 1.4 Quick test
@@ -169,15 +184,48 @@ npm run dev
 
 ---
 
-## 9. Where did VOLTTRON go?
+## 9. Runtime model
 
 Supervisory polling, device/point config, and HTTP APIs are handled by **easy-aso** inside the **`api`** container. The React app keeps the same **`/app8/api/*`** JSON shape for pages like Overview, Live points, and Trends.
 
-If you need the **old bench** (Platform Driver + `vctl`), it remains under **`vibe_code_apps_6`** / archived **`volttron_data/`** trees for reference — not used by this Docker stack.
-
 ---
 
-## 10. Troubleshooting
+## 10. BACnet bench workflow on Boss Pi
+
+A practical beginner loop after the stack is up:
+
+1. Confirm containers are healthy:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 diy-bacnet api caddy frontend
+```
+
+2. Confirm the local JSON-RPC BACnet surface answers on the Pi host:
+
+```bash
+curl -sS http://127.0.0.1:8080/
+```
+
+3. Open the operator UI through Caddy:
+
+```text
+https://<pi-ip>/app8/
+```
+
+4. Add or verify devices and points through the easy-aso API, then confirm the legacy SPA endpoints reflect them:
+
+```bash
+curl -k -u operator:YOUR_PASSWORD https://<pi-ip>/app8/api/health
+curl -k -u operator:YOUR_PASSWORD https://<pi-ip>/app8/api/devices
+curl -k -u operator:YOUR_PASSWORD https://<pi-ip>/app8/api/points
+```
+
+5. Exercise BACnet discovery and point reads from diy-bacnet, then verify the BAS Lite pages update.
+
+If discovery finds two bench BACnet devices, capture their addresses, learned points, and any writeable objects in your bench notes before you change anything.
+
+## 11. Troubleshooting
 
 | Symptom | Check |
 |--------|--------|
@@ -190,8 +238,8 @@ If you need the **old bench** (Platform Driver + `vctl`), it remains under **`vi
 
 ---
 
-## 11. “As bad-ass as VOLTTRON?”
+## 12. Stack tradeoffs
 
-You get **asyncio**, **typed FastAPI**, **SQLite-backed** config, **hot reload** of drivers, **Docker-first** packaging, **Caddy** edge routing, and **PyPI-installable** core (`easy-aso`). What you **do not** get out of the box is VOLTTRON’s full **VIP bus**, **historian ecosystem**, and **years of BACnet proxy edge cases** — trade intentionally for a **smaller** modern stack you can own.
+You get **asyncio**, **typed FastAPI**, **SQLite-backed** config, **hot reload** of drivers, **Docker-first** packaging, **Caddy** edge routing, and **PyPI-installable** core (`easy-aso`). The trade is a focused, smaller stack with fewer moving parts.
 
 When you outgrow the shim, point the React app at **`/api/v1`** directly and drop legacy `/app8/api` routes.

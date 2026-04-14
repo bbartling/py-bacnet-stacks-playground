@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 
 type Health = {
   status: string;
@@ -12,7 +12,7 @@ type Health = {
 export function BasHealthStrip() {
   const { data } = useQuery({
     queryKey: ["bas-health"],
-    queryFn: () => vtFetch<Health>("api/health"),
+    queryFn: () => apiFetch<Health>("api/health"),
     refetchInterval: 15_000,
   });
 

@@ -1,18 +1,18 @@
 /**
  * Fetch JSON same-origin under the SPA base (e.g. `/app8/`) — Docker + Caddy + easy-aso API.
  */
-export function volttronBase(): string {
+export function apiBase(): string {
   const b = (import.meta.env.BASE_URL ?? "/").replace(/\/?$/, "/");
   return b === "//" ? "/" : b;
 }
 
-export function volttronUrl(path: string): string {
+export function apiUrl(path: string): string {
   const p = path.startsWith("/") ? path.slice(1) : path;
-  return `${volttronBase()}${p}`;
+  return `${apiBase()}${p}`;
 }
 
-export async function vtFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = volttronUrl(path);
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = apiUrl(path);
   const res = await fetch(url, {
     ...init,
     headers: {

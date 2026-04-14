@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 
 type Event = {
   id: string;
@@ -24,7 +24,7 @@ type Event = {
 export function BasFaultsPage() {
   const events = useQuery({
     queryKey: ["bas-alarm-events"],
-    queryFn: () => vtFetch<{ items: Event[] }>("api/alarms/events"),
+    queryFn: () => apiFetch<{ items: Event[] }>("api/alarms/events"),
     refetchInterval: 5000,
   });
 

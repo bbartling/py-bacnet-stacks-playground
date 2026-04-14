@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 import { ChevronRight, FileJson, Table2 } from "lucide-react";
 
 type ListResp = { items: string[]; stderr: string; exitCode: number };
@@ -29,13 +29,13 @@ export function BasDriverConfigPage() {
 
   const list = useQuery({
     queryKey: ["driver-configs"],
-    queryFn: () => vtFetch<ListResp>("api/driver/configs"),
+    queryFn: () => apiFetch<ListResp>("api/driver/configs"),
     refetchInterval: 30_000,
   });
 
   const detail = useQuery({
     queryKey: ["driver-config", selected],
-    queryFn: () => vtFetch<GetResp>(`api/driver/config?name=${encodeURIComponent(selected!)}`),
+    queryFn: () => apiFetch<GetResp>(`api/driver/config?name=${encodeURIComponent(selected!)}`),
     enabled: !!selected,
   });
 
@@ -51,7 +51,7 @@ export function BasDriverConfigPage() {
   const store = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error("No config selected");
-      return vtFetch("api/driver/config/store", {
+      return apiFetch("api/driver/config/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: selected, content: text, csv: isCsv }),
@@ -63,7 +63,7 @@ export function BasDriverConfigPage() {
   const del = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error("No config selected");
-      return vtFetch("api/driver/config/delete", {
+      return apiFetch("api/driver/config/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: selected }),
@@ -83,12 +83,12 @@ export function BasDriverConfigPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Platform Driver configs</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Driver config files</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Files under the API container <code className="rounded bg-muted px-1">/data/driver_configs</code> (JSON/CSV).
           Use this tree for site-specific BACnet registry exports, notes, or JSON you want beside SQLite. For live polling,
-          configure devices/points in easy-aso (<code className="rounded bg-muted px-1">/api/v1</code> or{" "}
-          <code className="rounded bg-muted px-1">/docs</code>) and restart the API container if you change driver wiring.
+          configure devices and points in easy-aso (<code className="rounded bg-muted px-1">/api/v1</code> or{" "}
+          <code className="rounded bg-muted px-1">/docs</code>) and restart the API container if you change wiring.
         </p>
       </div>
 
@@ -148,7 +148,7 @@ export function BasDriverConfigPage() {
                 disabled={!selected || del.isPending}
                 className="rounded border border-destructive px-3 py-1.5 text-xs text-destructive disabled:opacity-50"
                 onClick={() => {
-                  if (window.confirm(`Delete config "${selected}" from platform.driver?`)) del.mutate();
+                  if (window.confirm(`Delete config "${selected}" from BAS Lite driver storage?`)) del.mutate();
                 }}
               >
                 Delete…

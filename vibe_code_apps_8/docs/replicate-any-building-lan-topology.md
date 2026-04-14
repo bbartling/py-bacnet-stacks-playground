@@ -1,6 +1,6 @@
 # Recreating BAS Lite (App 8) on any HVAC OT LAN
 
-This note is for operators and integrators who need the same **VOLTTRON + Platform Driver** edge stack on a different site, VLAN, or BACnet plant layout. Nothing here assumes a particular bench hostname or IP range.
+This note is for operators and integrators who need the same App 8 BAS Lite edge stack on a different site, VLAN, or BACnet plant layout. Nothing here assumes a particular bench hostname or IP range.
 
 ## 1. What must stay aligned
 
@@ -9,12 +9,12 @@ This note is for operators and integrators who need the same **VOLTTRON + Platfo
 | **Network** | Edge host can reach field controllers on the BACnet / OT VLAN (routing, ACLs, BBMD if used). |
 | **BACnet** | `BACpypes.ini` (or stack equivalent), UDP 47808 bind interface, BBMD table if applicable. |
 | **Platform Driver** | One registry CSV (or driver-specific config) per device identity; device names must match what the agent subscribes to. |
-| **App 8 agent** | `bacnet_devices`, optional `site_model_path` / inline `devices` + `points`, alarms, `site_name`, `volttron_root`, `vctl_path`. |
+| **App 8 API/UI config** | `bacnet_devices`, optional `site_model_path` / inline `devices` + `points`, alarms, `site_name`. |
 | **Reverse proxy** | Caddy (or other) upstream URL, Basic Auth secrets, TLS policy. See `vibe_code_apps_8/caddy/README.md`. |
 
 ## 2. Platform Driver device identities
 
-The web agent subscribes to `devices/<device_id>/all` for each id in **`bacnet_devices`** in `app8_web_agent/config`.
+The runtime polls configured devices and points using the driver/backend configuration in the API stack.
 
 - Use **stable string identities** that match your driver config (often the same as the CSV/registry folder name under `devices/`).
 - Prefer a naming convention that scales: `campus/building/ahu_01` or `SITE_AHU01` — avoid embedding IP addresses in the identity unless that is already your standard.
@@ -35,11 +35,11 @@ You can describe equipment and points in JSON instead of editing `agent.py`.
 
 Schema summary:
 
-- **`devices`**: object keyed by device id; each value may include `displayName`, `kind`, `address`, BACnet `deviceId`, `pollingEnabled`, etc. Point live values still arrive via VOLTTRON publish; `points` starts as `{}`.
+- **`devices`**: object keyed by device id; each value may include `displayName`, `kind`, `address`, BACnet `deviceId`, `pollingEnabled`, etc.
 - **`points`**: array of objects with `pointId`, `deviceId`, `name` (driver point name), `label`, `units`, `kind` (`analog` | `binary`), `adjustable`, optional `graphicGroup`.
 - **`alarm_definitions`**: array of rules. Supported `conditionType` values in the agent today: `greaterThanSetpointPlusOffset` (needs `referencePointId` and `offset`), `boolFalse`.
 
-Copy `volttron_data/ben_bacnet/app8_web_agent/site_model.example.json` as a starting point and align names with your Platform Driver registries.
+Copy the local site model example used by your current deployment and align names with your driver registries.
 
 Optional config keys:
 
@@ -52,21 +52,21 @@ Any agent that references device or point names must use the **same identities**
 
 ## 5. Deploy scripts from a Windows workstation
 
-`deploy-app8-to-bosspi.ps1` and `deploy-oat-share-to-bosspi.ps1` accept parameters so you can target another host or tree without editing the file:
+`deploy-app8-to-bosspi.ps1` and `deploy-oat-share-to-bosspi.ps1` accept parameters so you can target another host without editing the file:
 
 ```powershell
-.\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50' -RemoteVolttronRoot '/home/user/volttron'
+.\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50'
 ```
 
 Defaults match the original bench layout.
 
 ## 6. Checklist before go-live
 
-1. From the edge shell: `vctl status` — Platform Driver and `ben.app8.web` (or your identity) **running**.
+1. From the edge shell: `docker compose ps` and `docker compose logs --tail=100 api diy-bacnet caddy frontend`.
 2. `curl -sS http://127.0.0.1:8080/app8/api/health` (adjust port/prefix) — `counts.devices` / `points` non-zero when the model is loaded.
 3. BACnet **who-is / read** from the same interface the driver uses (firewall and binding).
 4. Journald / SD card: follow Pi logging guidance in `docs/bas-lite-app8-tutorial.md` (§8).
 
 ## 7. Non-BACnet drivers
 
-The UI and site model are **driver-agnostic**: anything exposed through the Platform Driver RPC and publish contract can use the same `devices` / `points` metadata. BACnet is the reference implementation in this repo; Modbus, SNMP, or custom drivers follow the same pattern as long as device ids and point names match.
+The UI and site model are **driver-agnostic**: anything exposed through the selected backend contract can use the same `devices` / `points` metadata. BACnet is the reference implementation in this repo; Modbus, SNMP, or custom drivers follow the same pattern as long as device ids and point names match.

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 
 type PointRow = {
   id: string;
@@ -30,13 +30,13 @@ export function BasLivePointsPage() {
 
   const points = useQuery({
     queryKey: ["bas-points"],
-    queryFn: () => vtFetch<{ items: PointRow[] }>("api/points"),
+    queryFn: () => apiFetch<{ items: PointRow[] }>("api/points"),
     refetchInterval: 5000,
   });
 
   const write = useMutation({
     mutationFn: async (body: { pointId: string; value: number | string }) =>
-      vtFetch<{ status: string; message?: string }>("api/setpoints/write", {
+      apiFetch<{ status: string; message?: string }>("api/setpoints/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -64,8 +64,8 @@ export function BasLivePointsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Live points</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Values from Platform Driver publishes. Writable setpoints use BACnet write through the
-          agent RPC path.
+          Live values from the easy-aso supervisor. Writable setpoints use BACnet JSON-RPC through
+          the BAS Lite API.
         </p>
       </div>
 

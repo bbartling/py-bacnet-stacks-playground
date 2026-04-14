@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { vtFetch, volttronUrl } from "@/lib/volttron-fetch";
+import { apiFetch, apiUrl } from "@/lib/bas-fetch";
 
 type Metrics = {
   timestamp: string;
@@ -39,19 +39,19 @@ export function BasSystemPage() {
 
   const metrics = useQuery({
     queryKey: ["bas-metrics"],
-    queryFn: () => vtFetch<Metrics>("api/system/metrics"),
+    queryFn: () => apiFetch<Metrics>("api/system/metrics"),
     refetchInterval: 5000,
   });
 
   const vctl = useQuery({
     queryKey: ["bas-vctl"],
-    queryFn: () => vtFetch<Vctl>("api/agents/vctl"),
+    queryFn: () => apiFetch<Vctl>("api/agents/vctl"),
     refetchInterval: 8000,
   });
 
   const lifecycle = useMutation({
     mutationFn: async (body: { action: string; tag?: string; uuid?: string }) => {
-      return vtFetch<{ status: string; stderr: string; stdout: string; exitCode: number }>(
+      return apiFetch<{ status: string; stderr: string; stdout: string; exitCode: number }>(
         "api/agents/lifecycle",
         {
           method: "POST",
@@ -72,9 +72,8 @@ export function BasSystemPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">System</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Raspberry Pi resources from the API container. Agent list is replaced by a Docker-oriented stub (use{" "}
-          <code className="rounded bg-muted px-1">docker compose ps</code> on the host). Right-click rows only apply
-          when UUIDs exist (legacy VOLTTRON bench).
+          Raspberry Pi resources from the API container. Container status is summarized here, and deeper service checks
+          still belong to <code className="rounded bg-muted px-1">docker compose ps</code> and logs on the host.
         </p>
       </div>
 
@@ -114,7 +113,7 @@ export function BasSystemPage() {
         <Card className="lg:col-span-2">
           <CardContent className="pt-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Edge agents (stub)</p>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Container and edge status</p>
               <button
                 type="button"
                 className="rounded border border-border px-2 py-1 text-xs hover:bg-muted"
@@ -130,7 +129,7 @@ export function BasSystemPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[280px]">UUID</TableHead>
+                      <TableHead className="w-[280px]">Identifier</TableHead>
                       <TableHead>Summary</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -158,7 +157,7 @@ export function BasSystemPage() {
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              vctl: <code className="rounded bg-muted px-1">{volttronUrl("api/agents/vctl")}</code>
+              Status endpoint: <code className="rounded bg-muted px-1">{apiUrl("api/agents/vctl")}</code>
             </p>
           </CardContent>
         </Card>
@@ -180,7 +179,7 @@ export function BasSystemPage() {
                 closeMenu();
               }}
             >
-              {action} (by uuid)
+              {action} (legacy stub)
             </button>
           ))}
           <button
@@ -189,7 +188,7 @@ export function BasSystemPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  "Remove this agent UUID from the platform? This cannot be undone from the UI.",
+                  "Remove this legacy item from the stub list? This action is not implemented in Docker BAS Lite.",
                 )
               ) {
                 lifecycle.mutate({ action: "remove", uuid: menu.uuid });

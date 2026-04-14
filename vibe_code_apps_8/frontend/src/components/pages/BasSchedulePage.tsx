@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 type DayKey = (typeof DAYS)[number];
@@ -30,7 +30,7 @@ export function BasSchedulePage() {
 
   const loaded = useQuery({
     queryKey: ["bas-schedule"],
-    queryFn: () => vtFetch<ScheduleDoc>("api/schedule"),
+    queryFn: () => apiFetch<ScheduleDoc>("api/schedule"),
   });
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function BasSchedulePage() {
 
   const save = useMutation({
     mutationFn: async (body: ScheduleDoc) =>
-      vtFetch("api/schedule", {
+      apiFetch("api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -51,7 +51,7 @@ export function BasSchedulePage() {
 
   const points = useQuery({
     queryKey: ["bas-points"],
-    queryFn: () => vtFetch<{ items: { deviceId: string; name: string; label: string }[] }>("api/points"),
+    queryFn: () => apiFetch<{ items: { deviceId: string; name: string; label: string }[] }>("api/points"),
   });
 
   const working = doc ?? loaded.data;

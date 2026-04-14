@@ -1,12 +1,12 @@
-# Caddy reverse proxy for BAS Lite (VOLTTRON)
+# Caddy reverse proxy for BAS Lite
 
-Put **Caddy** on **port 80** (and optionally **443**) so operators hit a normal URL while VOLTTRON keeps its platform web on **8080** (e.g. `http://192.168.204.12:8080/index.html` plus your app at `/app8/`).
+Put **Caddy** on **port 80** (and optionally **443**) so operators hit a normal URL while internal services stay behind the edge proxy.
 
 This pack does the following:
 
 1. **Root redirect** — `http://<pi>/` → `http://<pi>/app8/index.html` (path is configurable via **`CADDY_APP_PREFIX`**, so `/app7` works the same way).
 2. **Reverse proxy** — all other paths (including `/app8/api/...` and static assets) are forwarded to **`127.0.0.1:8080`** with `X-Forwarded-*` headers so the SPA and APIs behave as if they were accessed on the same host/port the browser used.
-3. **Optional Basic Auth** — browser login enforced by Caddy before any traffic reaches VOLTTRON (bcrypt hash in env file, suitable for boot-time configuration).
+3. **Optional Basic Auth** — browser login enforced by Caddy before any traffic reaches the backend services (bcrypt hash in env file, suitable for boot-time configuration).
 4. **Optional TLS** — self-signed certificate pair on **443**, with **HTTP → HTTPS** redirect on 80.
 
 ## Files
@@ -35,8 +35,8 @@ Then open `http://<pi-ip>/` — you should land on the React app after the redir
 
 ## Boot-time knobs (`/etc/default/caddy-bas-lite`)
 
-- **`CADDY_APP_PREFIX`** — `/app8` for App 8, `/app7` for App 7, etc. Must match the agent `route_prefix` in VOLTTRON.
-- **`CADDY_UPSTREAM`** — default `127.0.0.1:8080` (VOLTTRON web).
+- **`CADDY_APP_PREFIX`** — `/app8` for this stack.
+- **`CADDY_UPSTREAM`** — default `127.0.0.1:8080` (API/backend upstream).
 - **`CADDY_BASIC_AUTH_ENABLE=1`** — turn on Basic Auth; set **`CADDY_BASIC_AUTH_USER`** and **`CADDY_BASIC_AUTH_HASH`** (bcrypt from `caddy hash-password --plaintext 'secret'`).
 - **`CADDY_TLS_ENABLE=1`** — listen on **443** with **`CADDY_TLS_CERT`** / **`CADDY_TLS_KEY`**; port **80** redirects to HTTPS only.
 

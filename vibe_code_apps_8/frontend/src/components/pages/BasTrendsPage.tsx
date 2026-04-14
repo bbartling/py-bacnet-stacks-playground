@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 
 type TrendResp = {
   pointId: string;
@@ -25,14 +25,14 @@ type HealthLite = { defaultTrendPointId?: string };
 export function BasTrendsPage() {
   const health = useQuery({
     queryKey: ["bas-health"],
-    queryFn: () => vtFetch<HealthLite>("api/health"),
+    queryFn: () => apiFetch<HealthLite>("api/health"),
   });
   const [manualPointId, setManualPointId] = useState<string | null>(null);
   const pointId = manualPointId ?? health.data?.defaultTrendPointId ?? "";
 
   const trend = useQuery({
     queryKey: ["bas-trend", pointId],
-    queryFn: () => vtFetch<TrendResp>(`api/trends?pointId=${encodeURIComponent(pointId)}`),
+    queryFn: () => apiFetch<TrendResp>(`api/trends?pointId=${encodeURIComponent(pointId)}`),
     enabled: Boolean(pointId),
     refetchInterval: 15_000,
   });

@@ -1,4 +1,4 @@
-# Vibe Code App 8 — BAS Lite (**Docker + easy-aso**, no VOLTTRON)
+# Vibe Code App 8 — BAS Lite (**Docker + easy-aso**)
 
 **Operator UI:** TypeScript **React** SPA (**BAS / BMS Lite**) with live points, trends, driver file store, occupancy schedule, and system metrics.
 
@@ -7,6 +7,8 @@
 **Edge:** **Caddy** on port **80** → static UI (**nginx**) + API. Optional **TLS** + **Basic Auth** patterns live under `docker/caddy/`.
 
 There is **no systemd** requirement for the app layer — only **Docker** (use `restart: unless-stopped`).
+
+This stack is inspired by platform-style BAS architectures, but it is implemented directly with Docker, easy-aso, and diy-bacnet-server.
 
 ---
 
@@ -37,13 +39,7 @@ There is **no systemd** requirement for the app layer — only **Docker** (use `
 | `docker/caddy/Caddyfile` | Reverse proxy routes |
 | `frontend/` | React app (`npm run build` runs in Docker) |
 | `docs/BOSS_PI_BAS_LITE_DOCKER.md` | **Start here on a new Pi** |
-| `volttron_data/` | **Archived** VOLTTRON-era agent copies — see `volttron_data/ARCHIVE_NOTE.md` |
-
----
-
-## Legacy VOLTTRON bench
-
-If you still need the **VOLTTRON 9 + Platform Driver** bench, use **`vibe_code_apps_6`** in the parent playground repo — not this Docker stack.
+| `volttron_data/` | Legacy archived material (not part of this runtime stack) |
 
 ---
 

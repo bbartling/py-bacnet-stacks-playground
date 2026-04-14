@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { vtFetch } from "@/lib/volttron-fetch";
+import { apiFetch } from "@/lib/bas-fetch";
 import { Link } from "react-router-dom";
 
 type Health = {
@@ -23,11 +23,11 @@ type Device = {
 export function BasOverviewPage() {
   const health = useQuery({
     queryKey: ["bas-health"],
-    queryFn: () => vtFetch<Health>("api/health"),
+    queryFn: () => apiFetch<Health>("api/health"),
   });
   const devices = useQuery({
     queryKey: ["bas-devices"],
-    queryFn: () => vtFetch<{ items: Device[] }>("api/devices"),
+    queryFn: () => apiFetch<{ items: Device[] }>("api/devices"),
     refetchInterval: 10_000,
   });
 
@@ -39,7 +39,7 @@ export function BasOverviewPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           BAS / BMS Lite on Docker + easy-aso — asyncio supervisor, operator dashboard, driver file
-          store, and weekly occupancy schedules (no VOLTTRON).
+          store, and weekly occupancy schedules.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export function BasOverviewPage() {
               </li>
               <li>
                 <Link className="text-primary hover:underline" to="/driver">
-                  Platform Driver configs
+                  Driver config files
                 </Link>
               </li>
               <li>
