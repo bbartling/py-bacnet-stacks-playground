@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch, apiUrl } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Metrics = {
   timestamp: string;
@@ -65,7 +64,6 @@ function fmtGb(bytes: number | null | undefined): string {
 }
 
 export function BasSystemPage() {
-  useBasWebSocket();
   const qc = useQueryClient();
   const [menu, setMenu] = useState<{ x: number; y: number; uuid: string; summary: string } | null>(null);
   const [selectedContainer, setSelectedContainer] = useState("");

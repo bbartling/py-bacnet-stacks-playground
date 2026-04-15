@@ -15,13 +15,19 @@ cd "$ROOT"
 
 DO_COMPOSE_UP=true
 SD_FRIENDLY=false
+GIT_UPDATE=false
+REFRESH_DIY_BACNET=false
+DIY_BACNET_TESTS=false
 for arg in "$@"; do
   case "$arg" in
     --env-only) DO_COMPOSE_UP=false ;;
     --sd-friendly) SD_FRIENDLY=true ;;
+    --git-update) GIT_UPDATE=true ;;
+    --refresh-diy-bacnet) REFRESH_DIY_BACNET=true ;;
+    --diy-bacnet-tests) DIY_BACNET_TESTS=true ;;
     -h|--help)
       cat <<'EOF'
-Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly]
+Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-update] [--refresh-diy-bacnet] [--diy-bacnet-tests]
 
   (default)   Merge .env from .env.example + bosspi.env (if present), ensure
               BACNET_RPC_API_KEY is a real random secret (diy-bacnet + api),
@@ -30,6 +36,11 @@ Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly]
   --sd-friendly  Apply generic SD-card wear defaults into .env
                  (slower trend cadence, bounded in-memory trend depth, and
                  runtime knobs for log/state write throttling).
+  --git-update   If this checkout is a git repo, run git pull before compose.
+  --refresh-diy-bacnet  Force a no-cache rebuild of diy-bacnet image so latest
+                 upstream diy-bacnet-server HEAD is re-cloned at build time.
+  --diy-bacnet-tests  After compose up, run pytest in diy-bacnet container
+                 when pytest/tests are available (fails if tests fail).
 EOF
       exit 0
       ;;
@@ -164,6 +175,15 @@ if $SD_FRIENDLY; then
   echo "Tip: for maximum SD protection on Linux, mount /var/lib/docker with SSD/USB or use tmpfs for hot logs."
 fi
 
+if $GIT_UPDATE; then
+  if [[ -d .git ]] && have_cmd git; then
+    echo "=== git pull (requested by --git-update) ==="
+    git pull --rebase || git pull
+  else
+    echo "--git-update requested, but this directory is not a git checkout or git is missing."
+  fi
+fi
+
 if ! $DO_COMPOSE_UP; then
   echo "Done (--env-only). Run: docker compose up -d"
   exit 0
@@ -177,9 +197,24 @@ fi
 echo ""
 echo "=== docker compose down && build && up -d ==="
 docker compose down
+if $REFRESH_DIY_BACNET; then
+  echo "=== forcing diy-bacnet rebuild (no cache) ==="
+  docker compose build --no-cache diy-bacnet
+fi
 docker compose build
 docker compose up -d
 docker compose ps
+
+if $DIY_BACNET_TESTS; then
+  echo ""
+  echo "=== diy-bacnet pytest (optional) ==="
+  if docker compose exec -T diy-bacnet sh -lc 'python3 -m pytest --version >/dev/null 2>&1 && test -d /app/tests'; then
+    docker compose exec -T diy-bacnet sh -lc 'cd /app && python3 -m pytest tests/ -q'
+  else
+    echo "Skipping diy-bacnet tests: pytest or /app/tests not available in container."
+    echo "Tip: include pytest/test deps in diy-bacnet image if you want CI-style in-container tests."
+  fi
+fi
 
 echo ""
 echo "UI (with bosspi.env): http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo THIS_HOST):18080/app8/"

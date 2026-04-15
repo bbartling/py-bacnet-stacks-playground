@@ -2,8 +2,10 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BasHealthStrip } from "@/components/dashboard/BasHealthStrip";
+import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 export function AppLayout() {
+  useBasWebSocket();
   const { pathname } = useLocation();
   const fullWidthContent = pathname === "/trends";
 

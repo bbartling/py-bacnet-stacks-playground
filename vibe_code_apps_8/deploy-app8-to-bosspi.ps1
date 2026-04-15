@@ -17,7 +17,10 @@ param(
     [string]$SshTarget = 'ben@192.168.204.12',
     [switch]$SkipFrontendBuild,
     [switch]$SyncOnly,
-    [switch]$SdFriendly
+    [switch]$SdFriendly,
+    [switch]$GitDeploy,
+    [string]$RepoUrl = 'https://github.com/bbartling/py-bacnet-stacks-playground.git',
+    [string]$RepoBranch = 'develop'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,7 +35,11 @@ function Assert-Cmd([string]$Name) {
 Assert-Cmd ssh
 Assert-Cmd scp
 
-if (-not $SkipFrontendBuild) {
+if ($GitDeploy -and $SyncOnly) {
+    throw "Use either -GitDeploy or -SyncOnly, not both."
+}
+
+if (-not $SkipFrontendBuild -and -not $GitDeploy) {
     Write-Host "==> Frontend build check (npm run build)" -ForegroundColor Cyan
     Push-Location (Join-Path $PSScriptRoot 'frontend')
     try {
@@ -48,11 +55,44 @@ if (-not $SkipFrontendBuild) {
     }
 }
 else {
-    Write-Host "Skipping frontend build check (--SkipFrontendBuild)." -ForegroundColor Yellow
+    if ($GitDeploy) {
+        Write-Host "Skipping local frontend build check in -GitDeploy mode." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "Skipping frontend build check (--SkipFrontendBuild)." -ForegroundColor Yellow
+    }
+}
+
+if ($GitDeploy) {
+    $bootstrapArgs = @()
+    if ($SdFriendly) { $bootstrapArgs += "--sd-friendly" }
+    $bootstrapArgString = ($bootstrapArgs -join ' ')
+    $remote = @"
+set -e
+if [ ! -d ~/bas-lite/.git ]; then
+  rm -rf ~/bas-lite
+  git clone --branch $RepoBranch --depth 1 $RepoUrl ~/bas-lite
+fi
+cd ~/bas-lite/vibe_code_apps_8
+chmod +x ./scripts/bootstrap-bas-lite.sh
+if ./scripts/bootstrap-bas-lite.sh --help 2>/dev/null | grep -q -- '--git-update'; then
+  ./scripts/bootstrap-bas-lite.sh --git-update $bootstrapArgString
+else
+  echo "bootstrap script does not support --git-update yet - running fallback path"
+  git pull --rebase || git pull || true
+  ./scripts/bootstrap-bas-lite.sh $bootstrapArgString
+fi
+"@
+    Write-Host "==> Git-based deploy on $SshTarget (clone/pull + bootstrap)" -ForegroundColor Cyan
+    ssh $SshTarget $remote
+    if ($LASTEXITCODE -ne 0) { throw "Git-based remote bootstrap failed ($LASTEXITCODE)." }
+    Write-Host ""
+    Write-Host "Done. Try: http://$($SshTarget.Split('@')[-1]):18080/app8/" -ForegroundColor Green
+    exit 0
 }
 
 Write-Host "==> Preparing remote directories on $SshTarget" -ForegroundColor Cyan
-ssh $SshTarget "mkdir -p ~/bas-lite ~/bas-lite/docker ~/bas-lite/scripts ~/bas-lite/frontend"
+ssh $SshTarget "mkdir -p ~/bas-lite ~/bas-lite/docker ~/bas-lite/docker/diy-bacnet ~/bas-lite/scripts ~/bas-lite/frontend"
 if ($LASTEXITCODE -ne 0) { throw "ssh mkdir failed ($LASTEXITCODE)." }
 
 $files = @(
@@ -100,8 +140,14 @@ foreach ($rel in $dirs) {
     if (-not (Test-Path -LiteralPath $local)) {
         throw "Missing required directory: $local"
     }
-    Write-Host "scp -r $rel -> ${SshTarget}:~/bas-lite/" -ForegroundColor Cyan
-    scp -r $local "${SshTarget}:~/bas-lite/"
+    # Destination must preserve repo-relative parents (e.g. docker/diy-bacnet), not flatten into ~/bas-lite/.
+    $parent = Split-Path -Parent $rel
+    if ([string]::IsNullOrEmpty($parent)) {
+        throw "Unexpected top-level dir sync: $rel"
+    }
+    $remoteParent = "~/bas-lite/$($parent -replace '\\', '/')"
+    Write-Host "scp -r $rel -> ${SshTarget}:$remoteParent/" -ForegroundColor Cyan
+    scp -r $local "${SshTarget}:$remoteParent/"
     if ($LASTEXITCODE -ne 0) { throw "scp -r failed for $rel ($LASTEXITCODE)." }
 }
 
@@ -113,6 +159,7 @@ if ($SyncOnly) {
     Write-Host ""
     Write-Host "Sync complete (SyncOnly)." -ForegroundColor Green
     Write-Host "Next on Pi: cd ~/bas-lite && ./scripts/bootstrap-bas-lite.sh"
+    Write-Host '  (Layout: same paths as repo, e.g. ~/bas-lite/docker/diy-bacnet/Dockerfile must exist.)'
     exit 0
 }
 

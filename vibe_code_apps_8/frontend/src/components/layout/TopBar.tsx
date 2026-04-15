@@ -30,8 +30,8 @@ export function TopBar() {
         </span>
         <TutorialPopover
           title="About this build"
-          meaning="React + TypeScript SPA behind Caddy. Legacy JSON under /app8/api/*; easy-aso REST under /api/v1/*."
-          status="API is easy-aso (FastAPI). Legacy JSON stays under /app8/api/* for this SPA."
+          meaning="React + TypeScript SPA behind Caddy with realtime websocket + SSE updates."
+          status="Runtime: Docker services (frontend, api, diy-bacnet, caddy) with high-frequency operator refresh."
           side="bottom"
         >
           <span className="cursor-help text-xs text-muted-foreground">Help</span>

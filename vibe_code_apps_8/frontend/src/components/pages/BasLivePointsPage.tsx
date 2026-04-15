@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type PointRow = {
   id: string;
@@ -26,9 +25,10 @@ type PointRow = {
 };
 
 export function BasLivePointsPage() {
-  useBasWebSocket();
   const qc = useQueryClient();
   const [edit, setEdit] = useState<{ pointId: string; value: string } | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [filter, setFilter] = useState("");
 
   const points = useQuery({
     queryKey: ["bas-points"],
@@ -52,12 +52,24 @@ export function BasLivePointsPage() {
   const byDevice = useMemo(() => {
     const m = new Map<string, PointRow[]>();
     for (const p of points.data?.items ?? []) {
+      if (filter.trim()) {
+        const q = filter.trim().toLowerCase();
+        const hay = `${p.deviceId} ${p.label} ${p.name}`.toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
       const list = m.get(p.deviceId) ?? [];
       list.push(p);
       m.set(p.deviceId, list);
     }
     return m;
-  }, [points.data]);
+  }, [points.data, filter]);
+
+  useEffect(() => {
+    const next: Record<string, boolean> = {};
+    for (const [d] of byDevice.entries()) next[d] = expanded[d] ?? true;
+    setExpanded(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points.data, filter]);
 
   if (points.isLoading) return <Skeleton className="h-96 w-full rounded-xl" />;
 
@@ -66,16 +78,30 @@ export function BasLivePointsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Live points</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Live values from the easy-aso supervisor. Writable setpoints use BACnet JSON-RPC through
-          the BAS Lite API.
+          Point tree by device with live values and writable setpoints using BACnet JSON-RPC.
         </p>
+        <input
+          className="mt-3 w-full max-w-md rounded border border-border bg-background px-2 py-1 text-sm"
+          placeholder="Filter device/point..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
       </div>
 
       {Array.from(byDevice.entries()).map(([deviceId, rows]) => (
         <Card key={deviceId}>
           <CardContent className="pt-6">
-            <h2 className="mb-3 text-sm font-semibold">{deviceId}</h2>
-            <Table>
+            <button
+              type="button"
+              className="mb-3 inline-flex items-center gap-2 text-left text-sm font-semibold"
+              onClick={() => setExpanded((p) => ({ ...p, [deviceId]: !p[deviceId] }))}
+            >
+              <span>{expanded[deviceId] ? "▾" : "▸"}</span>
+              <span>{deviceId}</span>
+              <span className="text-xs text-muted-foreground">({rows.length} points)</span>
+            </button>
+            {expanded[deviceId] ? (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Point</TableHead>
@@ -137,7 +163,8 @@ export function BasLivePointsPage() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            ) : null}
           </CardContent>
         </Card>
       ))}

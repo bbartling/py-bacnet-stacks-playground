@@ -3,7 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/bas-fetch";
 import { Link } from "react-router-dom";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Health = {
   status: string;
@@ -11,6 +10,14 @@ type Health = {
   siteName: string;
   routePrefix: string;
   trendPolicy: { intervalMinutes: number; retentionDays: number; maxSamplesPerPoint: number };
+};
+type Messaging = {
+  bacnetOnline: boolean;
+  bacnetRpcUrl: string;
+  mqttBridgeOnline: boolean;
+  mqttBrokerUrl: string;
+  note: string;
+  error?: string;
 };
 
 type Device = {
@@ -22,7 +29,6 @@ type Device = {
 };
 
 export function BasOverviewPage() {
-  useBasWebSocket();
   const health = useQuery({
     queryKey: ["bas-health"],
     queryFn: () => apiFetch<Health>("api/health"),
@@ -35,6 +41,11 @@ export function BasOverviewPage() {
   const points = useQuery({
     queryKey: ["bas-points"],
     queryFn: () => apiFetch<{ items: { deviceId: string; label: string; value: unknown; units: string }[] }>("api/points"),
+    staleTime: 15_000,
+  });
+  const messaging = useQuery({
+    queryKey: ["bas-messaging-status"],
+    queryFn: () => apiFetch<Messaging>("api/system/messaging"),
     staleTime: 15_000,
   });
 
@@ -107,7 +118,45 @@ export function BasOverviewPage() {
             )}
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium uppercase text-muted-foreground">BACnet RPC</p>
+            <p
+              className={`mt-1 text-lg font-semibold ${
+                messaging.data?.bacnetOnline ? "text-emerald-600" : "text-destructive"
+              }`}
+            >
+              {messaging.data?.bacnetOnline ? "Online" : "Offline"}
+            </p>
+            <p className="mt-2 truncate font-mono text-xs text-muted-foreground">
+              {messaging.data?.bacnetRpcUrl ?? "loading..."}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Full container and live logs in{" "}
+              <Link className="text-primary hover:underline" to="/system">
+                System
+              </Link>
+              .
+            </p>
+          </CardContent>
+        </Card>
       </div>
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-xs font-medium uppercase text-muted-foreground">AI-assisted BAS workflow</p>
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            <li>1) Discover/define points in Driver + Live Points.</li>
+            <li>2) Build occupancy strategy in Schedule (weekly + holidays).</li>
+            <li>3) Configure alarms and SMTP in Alarms.</li>
+            <li>4) Use backup export JSON as AI context, then restore into blank instances.</li>
+          </ul>
+          <p className="mt-2 text-xs">
+            <Link className="text-primary hover:underline" to="/docs">
+              Open deployment and AI notes
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="pt-6">
           <p className="text-xs font-medium uppercase text-muted-foreground">Points by equipment</p>

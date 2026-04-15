@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Health = {
   status: string;
@@ -11,7 +10,6 @@ type Health = {
 };
 
 export function BasHealthStrip() {
-  useBasWebSocket();
   const { data } = useQuery({
     queryKey: ["bas-health"],
     queryFn: () => apiFetch<Health>("api/health"),

@@ -13,7 +13,14 @@ Design inspiration comes from VOLTTRON platform-driver patterns and Open-FDD fro
 3. From this directory:
 
    ```powershell
-   .\run-bas-lite.ps1
+   .\run-bas-lite.ps1 -DownFirst
+   ```
+
+   Useful local test/log options:
+
+   ```powershell
+   .\run-bas-lite.ps1 -NoBuild -FollowLogs
+   .\run-bas-lite.ps1 -NoBuild -FollowLogs -Service api
    ```
 
 4. Open the UI (defaults bind **loopback** — see `.env.example`):
@@ -23,7 +30,33 @@ Design inspiration comes from VOLTTRON platform-driver patterns and Open-FDD fro
 
 Full operator notes: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**.
 
-**Boss Pi (copy from your PC):** run **`.\sync-bas-lite-to-bosspi.ps1`**, then on the Pi **`cd ~/bas-lite && ./scripts/bootstrap-bas-lite.sh`**. That script merges **`.env`** from **`.env.example`** + **`bosspi.env`**, generates **`BACNET_RPC_API_KEY`** when it is still the placeholder (same pattern as Open-FDD’s BACnet RPC key), strips CRLF, and runs **`docker compose up -d`**. Use **`--env-only`** to patch **`.env`** without starting Docker.
+**Boss Pi deploy (single script from your Windows PC):**
+
+```powershell
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12
+```
+
+Optional deploy flags:
+
+```powershell
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SyncOnly
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SdFriendly
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SkipFrontendBuild
+```
+
+`deploy-app8-to-bosspi.ps1` copies stack files to `~/bas-lite` and runs Pi bootstrap unless `-SyncOnly` is set.
+
+Pi bootstrap script and args:
+
+```bash
+cd ~/bas-lite
+./scripts/bootstrap-bas-lite.sh
+./scripts/bootstrap-bas-lite.sh --env-only
+./scripts/bootstrap-bas-lite.sh --sd-friendly
+./scripts/bootstrap-bas-lite.sh --env-only --sd-friendly
+```
+
+`bootstrap-bas-lite.sh` merges `.env.example` (+ `bosspi.env` when present), strips CRLF, generates `BACNET_RPC_API_KEY` if placeholder, and runs `docker compose down && build && up -d` unless `--env-only` is used.
 
 ---
 
@@ -33,8 +66,10 @@ Full operator notes: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**.
 |------|---------|
 | `docker-compose.yml` | **diy-bacnet**, **api** (`bas_lite_api`), **frontend** (nginx), **caddy** |
 | `bosspi.env` | LAN + non-default BACnet UDP host port — append to `.env` on Raspberry Pi (see sync script) |
-| `sync-bas-lite-to-bosspi.ps1` | **PowerShell:** push key compose/Docker/env files to `ben@192.168.204.12:~/bas-lite/` |
-| `scripts/bootstrap-bas-lite.sh` | **Pi / Linux:** merge **`.env`**, auto **BACNET_RPC_API_KEY**, optional **`docker compose up -d`** |
+| `run-bas-lite.ps1` | **PowerShell local-only:** build/up/test, optional follow logs (`-FollowLogs`, `-Service api`) |
+| `deploy-app8-to-bosspi.ps1` | **PowerShell deploy:** optional local build check, copy to Pi, run bootstrap (`-SyncOnly`, `-SdFriendly`) |
+| `sync-bas-lite-to-bosspi.ps1` | Backward-compatible wrapper around `deploy-app8-to-bosspi.ps1 -SyncOnly` |
+| `scripts/bootstrap-bas-lite.sh` | **Pi / Linux:** merge **`.env`**, auto **BACNET_RPC_API_KEY**, optional `--env-only`, optional `--sd-friendly` |
 | `docker/diy-bacnet/` | Image build: clones `bbartling/diy-bacnet-server` at build time |
 | `docker/bas_lite_api/` | FastAPI supervisor / driver config / gateway |
 | `docker/Dockerfile.frontend` | Multi-stage: Vite build `VITE_BASE_PATH=/app8` → nginx |

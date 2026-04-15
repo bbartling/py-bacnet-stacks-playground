@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type AlarmEvent = {
   id: string;
@@ -53,7 +52,6 @@ function prettyJson(v: unknown): string {
 }
 
 export function BasAlarmsPage() {
-  useBasWebSocket();
   const qc = useQueryClient();
   const [draft, setDraft] = useState<string>("");
   const [draftTouched, setDraftTouched] = useState(false);

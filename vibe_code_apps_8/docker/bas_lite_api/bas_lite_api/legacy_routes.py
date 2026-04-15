@@ -261,6 +261,73 @@ def _effective_for_schedule(s: dict[str, Any], now: datetime) -> dict[str, Any]:
     return {"occupied": False, "reason": "outside_window", "day": day_key}
 
 
+def _schedule_item_to_bacnet_weekly(s: dict[str, Any]) -> list[list[dict[str, Any]]]:
+    days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    weekly = s.get("weekly", {}) if isinstance(s, dict) else {}
+    out: list[list[dict[str, Any]]] = []
+    for d in days:
+        row = weekly.get(d, {}) if isinstance(weekly, dict) else {}
+        occ = bool(row.get("occupied", False)) if isinstance(row, dict) else False
+        start_m = int(row.get("startMinutes", 8 * 60)) if isinstance(row, dict) else 8 * 60
+        end_m = int(row.get("endMinutes", 17 * 60)) if isinstance(row, dict) else 17 * 60
+        start_m = max(0, min(24 * 60, start_m))
+        end_m = max(0, min(24 * 60, end_m))
+        if not occ:
+            out.append([])
+            continue
+
+        def _fmt(m: int) -> str:
+            h = m // 60
+            mm = m % 60
+            return f"{h:02d}:{mm:02d}"
+
+        if start_m < end_m:
+            out.append([{"time": _fmt(start_m), "value": 1}, {"time": _fmt(end_m), "value": 0}])
+        elif start_m == end_m:
+            out.append([{"time": _fmt(start_m), "value": 1}])
+        else:
+            # Overnight split; keep this day occupied from start->midnight.
+            out.append([{"time": _fmt(start_m), "value": 1}, {"time": "23:59:59", "value": 0}])
+    return out
+
+
+async def _push_hosted_schedule_to_bacnet(doc: dict[str, Any]) -> dict[str, Any]:
+    schedules = doc.get("schedules", [])
+    if not isinstance(schedules, list) or not schedules:
+        return {"ok": False, "message": "no schedules available"}
+    selected = schedules[0] if isinstance(schedules[0], dict) else {}
+    schedule_name = str(doc.get("hostedScheduleName") or "occupancy-schedule")
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "bas-lite-schedule-sync",
+        "method": "server_update_schedule",
+        "params": {
+            "update": {
+                "name": schedule_name,
+                "schedule_default": 0,
+                "weekly_schedule": _schedule_item_to_bacnet_weekly(selected),
+            }
+        },
+    }
+    base = os.environ.get("SUPERVISOR_BACNET_RPC_URL", "http://diy-bacnet:8080").rstrip("/")
+    entry = os.environ.get("SUPERVISOR_BACNET_RPC_ENTRYPOINT", "/api").strip()
+    if not entry.startswith("/"):
+        entry = "/" + entry
+    url = f"{base}{entry}"
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    tok = (os.environ.get("BACNET_RPC_API_KEY") or "").strip()
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
+    async with httpx.AsyncClient(timeout=8.0) as c:
+        r = await c.post(url, headers=headers, json=payload)
+        if r.status_code >= 400:
+            return {"ok": False, "message": f"rpc http {r.status_code}", "body": r.text[:300]}
+        body = r.json() if r.text else {}
+        if isinstance(body, dict) and body.get("error"):
+            return {"ok": False, "message": str(body.get("error"))}
+        return {"ok": True, "url": url, "scheduleName": schedule_name}
+
+
 def _load_alarm_rules() -> list[dict[str, Any]]:
     body = _read_json_file(ALARM_RULES_PATH, {"items": []})
     items = body.get("items") if isinstance(body, dict) else []
@@ -908,7 +975,8 @@ async def schedule_get() -> dict:
 async def schedule_post(body: dict = Body(...)) -> dict:
     doc = _normalize_schedule_doc(body)
     SCHEDULE_PATH.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    return {"status": "ok"}
+    sync_result = await _push_hosted_schedule_to_bacnet(doc)
+    return {"status": "ok", "bacnetScheduleSync": sync_result}
 
 
 @router.get("/schedule/effective")

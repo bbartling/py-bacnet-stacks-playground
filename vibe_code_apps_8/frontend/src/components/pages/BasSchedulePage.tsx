@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiFetch } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 type DayKey = (typeof DAYS)[number];
@@ -48,11 +47,15 @@ function defaultSchedule(id: string, label: string): ScheduleItem {
   };
 }
 
+function holidayMode(h: Holiday): "single" | "range" {
+  return h.date ? "single" : "range";
+}
+
 export function BasSchedulePage() {
-  useBasWebSocket();
   const qc = useQueryClient();
   const [doc, setDoc] = useState<ScheduleDoc | null>(null);
   const [selectedId, setSelectedId] = useState("");
+  const [syncNote, setSyncNote] = useState<string>("");
 
   const loaded = useQuery({
     queryKey: ["bas-schedule"],
@@ -68,7 +71,7 @@ export function BasSchedulePage() {
 
   const save = useMutation({
     mutationFn: async (body: ScheduleDoc) =>
-      apiFetch("api/schedule", {
+      apiFetch<{ status: string; bacnetScheduleSync?: { ok?: boolean; message?: string; scheduleName?: string } }>("api/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -95,26 +98,20 @@ export function BasSchedulePage() {
   });
 
   const working = doc ?? loaded.data;
-  if (!working) {
-    return <p className="text-sm text-muted-foreground">Loading schedule…</p>;
-  }
-  const current = working.schedules.find((s) => s.id === selectedId) ?? working.schedules[0];
-  if (!current) {
-    return <p className="text-sm text-muted-foreground">No schedules yet.</p>;
-  }
+  const current = working?.schedules.find((s) => s.id === selectedId) ?? working?.schedules[0];
 
   const updateCurrent = (patch: Partial<ScheduleItem>) => {
     setDoc({
-      ...working,
-      schedules: working.schedules.map((s) => (s.id === current.id ? { ...s, ...patch } : s)),
+      ...working!,
+      schedules: working!.schedules.map((s) => (s.id === current!.id ? { ...s, ...patch } : s)),
     });
   };
 
   const setDay = (d: DayKey, patch: Partial<DayBlock>) => {
     setDoc({
-      ...working,
-      schedules: working.schedules.map((s) =>
-        s.id === current.id
+      ...working!,
+      schedules: working!.schedules.map((s) =>
+        s.id === current!.id
           ? { ...s, weekly: { ...s.weekly, [d]: { ...s.weekly[d], ...patch } } }
           : s,
       ),
@@ -123,36 +120,41 @@ export function BasSchedulePage() {
 
   const addHoliday = () => {
     const today = new Date().toISOString().slice(0, 10);
-    updateCurrent({ holidays: [...current.holidays, { date: today, occupied: false }] });
+    updateCurrent({ holidays: [...current!.holidays, { date: today, occupied: false }] });
   };
 
   const updateHoliday = (i: number, h: Partial<Holiday>) => {
-    const next = [...current.holidays];
+    const next = [...current!.holidays];
     next[i] = { ...next[i], ...h };
     updateCurrent({ holidays: next });
   };
 
   const removeHoliday = (i: number) => {
-    updateCurrent({ holidays: current.holidays.filter((_, j) => j !== i) });
+    updateCurrent({ holidays: current!.holidays.filter((_, j) => j !== i) });
   };
 
   const addSchedule = () => {
-    const blank = defaultSchedule(`sched_${Math.random().toString(36).slice(2, 8)}`, `Schedule ${working.schedules.length + 1}`);
-    setDoc({ ...working, schedules: [...working.schedules, blank] });
+    const blank = defaultSchedule(`sched_${Math.random().toString(36).slice(2, 8)}`, `Schedule ${working!.schedules.length + 1}`);
+    setDoc({ ...working!, schedules: [...working!.schedules, blank] });
     setSelectedId(blank.id);
   };
 
   const removeSchedule = (id: string) => {
-    const next = working.schedules.filter((s) => s.id !== id);
-    setDoc({ ...working, schedules: next });
+    const next = working!.schedules.filter((s) => s.id !== id);
+    setDoc({ ...working!, schedules: next });
     if (selectedId === id) setSelectedId(next[0]?.id ?? "");
   };
 
-  const pointByDevice = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const p of points.data?.items ?? []) m.set(p.deviceId, (m.get(p.deviceId) ?? 0) + 1);
-    return m;
-  }, [points.data]);
+  if (!working) {
+    return <p className="text-sm text-muted-foreground">Loading schedule…</p>;
+  }
+  if (!current) {
+    return <p className="text-sm text-muted-foreground">No schedules yet.</p>;
+  }
+  const pointByDevice = new Map<string, number>();
+  for (const p of points.data?.items ?? []) {
+    pointByDevice.set(p.deviceId, (pointByDevice.get(p.deviceId) ?? 0) + 1);
+  }
 
   return (
     <div className="space-y-6">
@@ -211,12 +213,26 @@ export function BasSchedulePage() {
             <button
               type="button"
               className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-              onClick={() => save.mutate(working)}
+              onClick={() =>
+                save.mutate(working, {
+                  onSuccess: (res) => {
+                    const s = res?.bacnetScheduleSync;
+                    if (!s) {
+                      setSyncNote("Saved schedule set.");
+                    } else if (s.ok) {
+                      setSyncNote(`Saved + pushed to BACnet schedule object "${s.scheduleName ?? "occupancy-schedule"}".`);
+                    } else {
+                      setSyncNote(`Saved locally, but BACnet schedule push failed: ${s.message ?? "unknown error"}`);
+                    }
+                  },
+                })
+              }
               disabled={save.isPending}
             >
               Save schedule set
             </button>
           </div>
+          {syncNote ? <p className="text-xs text-muted-foreground">{syncNote}</p> : null}
 
           <div className="space-y-5">
             {DAYS.map((d) => {
@@ -285,14 +301,47 @@ export function BasSchedulePage() {
             {current.holidays.map((h, i) => (
               <li key={i} className="flex flex-wrap items-end gap-2 rounded-md border border-border/60 p-2">
                 <label className="text-xs">
-                  Date
+                  Mode
+                  <select
+                    className="ml-1 rounded border border-border bg-background px-1 py-0.5"
+                    value={holidayMode(h)}
+                    onChange={(e) => {
+                      if (e.target.value === "single") {
+                        updateHoliday(i, { date: h.date ?? h.start ?? "", start: undefined, end: undefined });
+                      } else {
+                        const d = h.date ?? new Date().toISOString().slice(0, 10);
+                        updateHoliday(i, { date: undefined, start: h.start ?? d, end: h.end ?? d });
+                      }
+                    }}
+                  >
+                    <option value="single">Single day</option>
+                    <option value="range">Date range</option>
+                  </select>
+                </label>
+                <label className="text-xs">
+                  {holidayMode(h) === "single" ? "Date" : "From"}
                   <input
                     type="date"
                     className="ml-1 rounded border border-border bg-background px-1 py-0.5"
                     value={h.date ?? h.start ?? ""}
-                    onChange={(e) => updateHoliday(i, { date: e.target.value })}
+                    onChange={(e) =>
+                      holidayMode(h) === "single"
+                        ? updateHoliday(i, { date: e.target.value })
+                        : updateHoliday(i, { start: e.target.value })
+                    }
                   />
                 </label>
+                {holidayMode(h) === "range" ? (
+                  <label className="text-xs">
+                    To
+                    <input
+                      type="date"
+                      className="ml-1 rounded border border-border bg-background px-1 py-0.5"
+                      value={h.end ?? h.start ?? ""}
+                      onChange={(e) => updateHoliday(i, { end: e.target.value })}
+                    />
+                  </label>
+                ) : null}
                 <label className="flex items-center gap-1 text-xs">
                   <input
                     type="checkbox"

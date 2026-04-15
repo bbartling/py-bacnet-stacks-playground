@@ -1,2 +1,0 @@
-# Deprecated: use the default `Caddyfile` (HTTPS + Basic Auth + gateway header) or
-# `Caddyfile.local-dev` for HTTP-only lab. See docs/BOSS_PI_BAS_LITE_DOCKER.md.

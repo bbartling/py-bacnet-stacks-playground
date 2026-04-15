@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/bas-fetch";
-import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Event = {
   id: string;
@@ -23,7 +22,6 @@ type Event = {
 };
 
 export function BasFaultsPage() {
-  useBasWebSocket();
   const events = useQuery({
     queryKey: ["bas-alarm-events"],
     queryFn: () => apiFetch<{ items: Event[] }>("api/alarms/events"),
