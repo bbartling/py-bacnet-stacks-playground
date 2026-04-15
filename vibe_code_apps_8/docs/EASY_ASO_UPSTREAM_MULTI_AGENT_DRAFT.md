@@ -2,6 +2,8 @@
 
 > **Purpose:** Paste or adapt this document into the **easy-aso** repo (e.g. `docs/MULTI_AGENT_RUNTIME.md` or an RFC issue). Demo repos such as **py-bacnet-stacks-playground** should stay **thin**: Compose services, `.env`, and **declarative agent definitions**—not duplicate runtime code.
 
+> **Status in `vibe_code_apps_8` (this repo):** **Implemented** for the BAS Lite stack — **`easy-aso[platform]==0.1.7`**, **`easy-aso-agent run`**, **`RpcDockedEasyASO`** from PyPI, three profile-**`agents`** services (**OAT share**, **GL36 VAV requests**, **GL36 AHU SAT reset**) plus optional **`docker-compose.easy-aso-agents.example.yml`**. Operator runbook: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** §9. The sections below remain a useful upstream / library-oriented sketch.
+
 ---
 
 ## 1. Goals
