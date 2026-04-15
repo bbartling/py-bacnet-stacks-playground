@@ -109,6 +109,7 @@ $dirs = @(
     'docker/bas_lite_api',
     'docker/caddy',
     'docker/diy-bacnet',
+    'docker/easy_aso_oat',
     'docker/nginx',
     'frontend/src'
 )
@@ -158,7 +159,11 @@ if ($LASTEXITCODE -ne 0) { throw "ssh chmod failed ($LASTEXITCODE)." }
 if ($SyncOnly) {
     Write-Host ""
     Write-Host "Sync complete (SyncOnly)." -ForegroundColor Green
-    Write-Host "Next on Pi: cd ~/bas-lite && ./scripts/bootstrap-bas-lite.sh"
+    $bootHint = "./scripts/bootstrap-bas-lite.sh"
+    if ($SdFriendly) {
+        $bootHint = "$bootHint --sd-friendly"
+    }
+    Write-Host "Next on Pi: cd ~/bas-lite && $bootHint"
     Write-Host '  (Layout: same paths as repo, e.g. ~/bas-lite/docker/diy-bacnet/Dockerfile must exist.)'
     exit 0
 }

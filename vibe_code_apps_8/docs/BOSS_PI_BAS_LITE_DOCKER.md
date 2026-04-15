@@ -8,7 +8,7 @@ This tutorial is for **beginners** who want the **React “BAS Lite” operator 
 - **Caddy** (default in this repo: **HTTP-only** `Caddyfile.local-dev` on **`127.0.0.1:18080`**; on Boss Pi set **`CADDY_HTTP_PORTS=18080:80`** in **`.env`** so the UI is reachable from the LAN — see **`.env.example`** (avoid **`0.0.0.0` in `.env`** if the file has Windows CRLF; it can trigger **`Invalid ip address: 0.0.0.`**). Optional TLS + Basic Auth + gateway header via `docker/caddy/Caddyfile`.
 - **nginx** serves the static React build under **`/app8/`**.
 
-This deployment is inspired by platform-driver style workflows, implemented here with Docker + easy-aso + diy-bacnet-server.
+The operator model borrows **one** idea from classic **Volttron**-style edge stacks (an optional host `vctl` hook exposed by the API for power users); **everything else here is Docker + [easy-aso](https://github.com/bbartling/easy-aso) + diy-bacnet-server**.
 
 ---
 
@@ -238,7 +238,17 @@ npm run dev
 
 ## 9. Runtime model
 
-Supervisory polling, device/point config, and HTTP APIs are handled by **easy-aso** inside the **`api`** container. The React app keeps the same **`/app8/api/*`** JSON shape for pages like Overview, Live points, and Trends.
+Supervisory polling, device/point config, and HTTP APIs are handled by **easy-aso** inside the **`api`** container. The React app keeps the same **`/app8/api/*`** JSON shape for pages like Overview, Live points, occupancy schedule (weekly visual + holidays + supervisor point bindings), and System (Docker logs plus **restart / stop / start** for compose-scoped containers).
+
+### Optional outside-air share (`easy-aso-oat`)
+
+Compose includes an **optional** service **`easy-aso-oat`** (profile **`oat`**) that `pip install`s the same **easy-aso** line as the API and runs a small loop: **read** one BACnet object via **diy-bacnet JSON-RPC**, then **write** the value to one or more targets. It does **not** open a second BACnet **UDP 47808** socket (only **diy-bacnet** binds the field port). Enable with:
+
+```bash
+docker compose --profile oat up -d easy-aso-oat
+```
+
+See **`.env.example`** for **`OAT_SOURCE_DEVICE`**, **`OAT_SOURCE_OBJECT`**, and **`OAT_TARGET_WRITES`** (JSON array).
 
 ---
 

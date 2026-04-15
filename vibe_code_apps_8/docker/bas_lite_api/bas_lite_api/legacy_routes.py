@@ -151,6 +151,7 @@ def _normalize_schedule_doc(raw: Any) -> dict[str, Any]:
         out = dict(raw)
         out.setdefault("version", 2)
         out.setdefault("timezone", "local")
+        out["hostedScheduleName"] = str(out.get("hostedScheduleName") or "occupancy-schedule").strip() or "occupancy-schedule"
         normalized = []
         for s in out["schedules"]:
             if not isinstance(s, dict):
@@ -166,6 +167,23 @@ def _normalize_schedule_doc(raw: Any) -> dict[str, Any]:
                         "startMinutes": int(v.get("startMinutes", 8 * 60)),
                         "endMinutes": int(v.get("endMinutes", 17 * 60)),
                     }
+            bindings_in = s.get("bacnetBindings") if isinstance(s.get("bacnetBindings"), list) else []
+            bacnet_bindings: List[dict[str, Any]] = []
+            for x in bindings_in:
+                if not isinstance(x, dict):
+                    continue
+                pid = str(x.get("pointId") or "").strip()
+                if not pid:
+                    continue
+                oid = str(x.get("objectId") or "").strip()
+                bacnet_bindings.append(
+                    {
+                        "id": str(x.get("id") or str(uuid4())),
+                        "pointId": pid,
+                        "name": str(x.get("name") or pid),
+                        "objectId": oid or None,
+                    }
+                )
             normalized.append(
                 {
                     "id": str(s.get("id") or f"sched_{uuid4().hex[:8]}"),
@@ -174,6 +192,7 @@ def _normalize_schedule_doc(raw: Any) -> dict[str, Any]:
                     "assignments": [str(x) for x in (s.get("assignments") or []) if str(x).strip()],
                     "weekly": merged_weekly,
                     "holidays": [h for h in (s.get("holidays") or []) if isinstance(h, dict)],
+                    "bacnetBindings": bacnet_bindings,
                 }
             )
         out["schedules"] = normalized
@@ -204,6 +223,7 @@ def _normalize_schedule_doc(raw: Any) -> dict[str, Any]:
     return {
         "version": 2,
         "timezone": "local",
+        "hostedScheduleName": "occupancy-schedule",
         "schedules": [
             {
                 "id": "default",
@@ -212,6 +232,7 @@ def _normalize_schedule_doc(raw: Any) -> dict[str, Any]:
                 "assignments": assignments,
                 "weekly": merged_weekly,
                 "holidays": holidays if isinstance(holidays, list) else [],
+                "bacnetBindings": [],
             }
         ],
     }
@@ -1201,6 +1222,45 @@ async def system_container_logs_stream(name: str = Query(...), backlog: int = Qu
             await asyncio.sleep(1.0)
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+class ContainerActionBody(BaseModel):
+    name: str
+    action: str
+
+
+def _compose_guarded_container(client: Any, name: str) -> Any:
+    c = client.containers.get(name)
+    labels = c.labels or {}
+    if labels.get("com.docker.compose.project") != COMPOSE_PROJECT_NAME:
+        raise HTTPException(status_code=403, detail="container is not part of this compose project")
+    return c
+
+
+@router.post("/system/container-action")
+async def system_container_action(body: ContainerActionBody) -> dict:
+    """restart | stop | start for compose-labeled containers (BAS Lite stack + optional agents)."""
+    client = _docker_client()
+    if client is None:
+        raise HTTPException(status_code=503, detail="Docker socket/client unavailable.")
+    action = (body.action or "").strip().lower()
+    if action not in ("restart", "stop", "start"):
+        raise HTTPException(status_code=400, detail="action must be restart, stop, or start")
+    try:
+        c = _compose_guarded_container(client, body.name)
+        if action == "restart":
+            c.restart(timeout=60)
+        elif action == "stop":
+            c.stop(timeout=45)
+        else:
+            c.start()
+        c.reload()
+        return {"ok": True, "action": action, "name": body.name, "status": c.status}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("container action")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/agents/vctl")

@@ -7,23 +7,23 @@ This note is for operators and integrators who need the same App 8 BAS Lite edge
 | Layer | What to configure |
 |--------|-------------------|
 | **Network** | Edge host can reach field controllers on the BACnet / OT VLAN (routing, ACLs, BBMD if used). |
-| **BACnet** | `BACpypes.ini` (or stack equivalent), UDP 47808 bind interface, BBMD table if applicable. |
-| **Platform Driver** | One registry CSV (or driver-specific config) per device identity; device names must match what the agent subscribes to. |
-| **App 8 API/UI config** | `bacnet_devices`, optional `site_model_path` / inline `devices` + `points`, alarms, `site_name`. |
-| **Reverse proxy** | Caddy (or other) upstream URL, Basic Auth secrets, TLS policy. See `vibe_code_apps_8/caddy/README.md`. |
+| **BACnet** | diy-bacnet binds **UDP 47808** on the host (only one listener per host). JSON-RPC is published separately (see **`.env.example`**). |
+| **Driver / supervisor** | Device and point definitions under **`BAS_LITE_DRIVER_CONFIG_DIR`** (SQLite + JSON) must match what easy-aso polls and what the React UI lists. |
+| **App 8 API/UI config** | Alarms, notifications, **schedule JSON** (`/data/schedule.json` by default), and optional **`hostedScheduleName`** for BACnet schedule push. |
+| **Reverse proxy** | Caddy upstream URL, Basic Auth secrets, TLS policy. See `docker/caddy/`. |
 
-## 2. Platform Driver device identities
+## 2. Device and point identities
 
-The runtime polls configured devices and points using the driver/backend configuration in the API stack.
+The runtime polls configured devices and points using the **easy-aso** supervisor configuration.
 
-- Use **stable string identities** that match your driver config (often the same as the CSV/registry folder name under `devices/`).
+- Use **stable string identities** that match your driver JSON (often the same as the logical device folder name).
 - Prefer a naming convention that scales: `campus/building/ahu_01` or `SITE_AHU01` — avoid embedding IP addresses in the identity unless that is already your standard.
 
 ## 3. Site model (no Python edits for a new building)
 
-You can describe equipment and points in JSON instead of editing `agent.py`.
+Describe equipment and points in JSON instead of editing bespoke agent code.
 
-**Option A — external file** (next to the agent package or absolute path):
+**Option A — external file** (next to the supervisor data path or absolute path):
 
 ```json
 {
@@ -31,28 +31,29 @@ You can describe equipment and points in JSON instead of editing `agent.py`.
 }
 ```
 
-**Option B — inline** in `config` (same schema as the file): top-level keys `devices`, `points`, optional `alarm_definitions`.
+**Option B — inline** in `config`: top-level keys `devices`, `points`, optional `alarm_definitions`.
 
 Schema summary:
 
 - **`devices`**: object keyed by device id; each value may include `displayName`, `kind`, `address`, BACnet `deviceId`, `pollingEnabled`, etc.
 - **`points`**: array of objects with `pointId`, `deviceId`, `name` (driver point name), `label`, `units`, `kind` (`analog` | `binary`), `adjustable`, optional `graphicGroup`.
-- **`alarm_definitions`**: array of rules. Supported `conditionType` values in the agent today: `greaterThanSetpointPlusOffset` (needs `referencePointId` and `offset`), `boolFalse`.
+- **`alarm_definitions`**: array of rules. Supported `conditionType` values in the supervisor today: `greaterThanSetpointPlusOffset` (needs `referencePointId` and `offset`), `boolFalse`.
 
-Copy the local site model example used by your current deployment and align names with your driver registries.
+Copy the local site model example used by your current deployment and align names with your BACnet plant.
 
 Optional config keys:
 
-- **`default_trend_point_id`**: first trend shown in the UI / API default.
+- **`default_trend_point_id`**: default trend point for API defaults.
 - **`bacnet_devices`**: overrides the default list taken from all device keys in the site model (useful if the edge should only subscribe to a subset).
 
-## 4. OAT share and other small agents
+## 4. Occupancy schedule + optional OAT sidecar
 
-Any agent that references device or point names must use the **same identities** as Platform Driver. After renaming devices, update `oat_share_agent` config (or equivalent) so source and target device ids and point names match the live plant.
+- **Schedule UI** stores **`version` 2** JSON with `schedules[]`, weekly `mon`…`sun` windows, holiday overrides, equipment **`assignments`**, optional **`bacnetBindings`** (rows reference **supervisor `pointId`** values from your driver setup), and **`hostedScheduleName`** for diy-bacnet `server_update_schedule`. Use **Export JSON** / **AI-assisted import** on the Occupancy page for bulk edits.
+- **Outside-air share**: enable Compose profile **`oat`** (`easy-aso-oat` service). It reads one BACnet object and writes through **JSON-RPC** to targets listed in **`OAT_TARGET_WRITES`**, sharing the same **easy-aso** client stack as the API without a second BACnet UDP listener.
 
 ## 5. Deploy scripts from a Windows workstation
 
-`deploy-app8-to-bosspi.ps1` and `deploy-oat-share-to-bosspi.ps1` accept parameters so you can target another host without editing the file:
+`deploy-app8-to-bosspi.ps1` accepts parameters so you can target another host without editing the file:
 
 ```powershell
 .\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50'
@@ -65,7 +66,7 @@ Defaults match the original bench layout.
 1. From the edge shell: `docker compose ps` and `docker compose logs --tail=100 api diy-bacnet caddy frontend`.
 2. `curl -sS http://127.0.0.1:8080/app8/api/health` (adjust port/prefix) — `counts.devices` / `points` non-zero when the model is loaded.
 3. BACnet **who-is / read** from the same interface the driver uses (firewall and binding).
-4. Journald / SD card: follow Pi logging guidance in `docs/bas-lite-app8-tutorial.md` (§8).
+4. Journald / SD card: follow Pi logging guidance in `docs/BOSS_PI_BAS_LITE_DOCKER.md` (§5).
 
 ## 7. Non-BACnet drivers
 

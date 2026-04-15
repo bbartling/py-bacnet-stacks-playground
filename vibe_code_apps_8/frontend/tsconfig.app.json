@@ -33,12 +33,14 @@
     "src/App.tsx",
     "src/index.css",
     "src/vite-env.d.ts",
+    "src/types/**/*.d.ts",
     "src/lib/**/*",
     "src/contexts/**/*",
     "src/components/layout/**/*",
     "src/components/ui/**/*",
     "src/components/dashboard/BasHealthStrip.tsx",
-    "src/components/pages/Bas*.tsx"
+    "src/components/pages/Bas*.tsx",
+    "src/components/schedule-widget/**/*"
   ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

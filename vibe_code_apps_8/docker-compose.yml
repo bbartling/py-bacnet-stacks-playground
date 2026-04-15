@@ -32,6 +32,29 @@ services:
       retries: 5
       start_period: 60s
 
+  # Optional: copies outside-air (or any) reading through diy-bacnet JSON-RPC using easy-aso client (no extra BACnet UDP bind).
+  easy-aso-oat:
+    build:
+      context: ./docker/easy_aso_oat
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles:
+      - oat
+    environment:
+      SUPERVISOR_BACNET_RPC_URL: ${SUPERVISOR_BACNET_RPC_URL:-http://diy-bacnet:8080}
+      SUPERVISOR_BACNET_RPC_ENTRYPOINT: ${SUPERVISOR_BACNET_RPC_ENTRYPOINT:-/api}
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      OAT_INTERVAL_SEC: ${OAT_INTERVAL_SEC:-300}
+      OAT_SOURCE_DEVICE: ${OAT_SOURCE_DEVICE:-}
+      OAT_SOURCE_OBJECT: ${OAT_SOURCE_OBJECT:-}
+      OAT_TARGET_WRITES: ${OAT_TARGET_WRITES:-[]}
+    logging: *flash_log
+    networks:
+      - bas_internal
+    depends_on:
+      diy-bacnet:
+        condition: service_healthy
+
   api:
     build:
       context: ./docker/bas_lite_api

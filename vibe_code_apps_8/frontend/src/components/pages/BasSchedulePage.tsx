@@ -1,81 +1,85 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScheduleWidgetBody } from "@/components/schedule-widget/ScheduleWidgetBody";
+import type { HolidayEntry, ScheduleProfile, WeekFormState } from "@/components/schedule-widget/scheduleTypes";
 import { apiFetch } from "@/lib/bas-fetch";
+import {
+  defaultWeekForm,
+  entriesToHolidays,
+  holidaysToEntries,
+  mergeProfileIntoItem,
+  profileToWeekly,
+  scheduleItemToProfile,
+  type ScheduleDocBridge,
+  type ScheduleItemBridge,
+  parseScheduleAiJson,
+} from "@/lib/schedule-bridge";
 
-const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-type DayKey = (typeof DAYS)[number];
+import "@/components/schedule-widget/schedule-widget.css";
 
-type DayBlock = { occupied: boolean; startMinutes: number; endMinutes: number };
-type Holiday = { date?: string; start?: string; end?: string; occupied: boolean };
-type ScheduleItem = {
-  id: string;
-  label: string;
-  description?: string;
-  assignments: string[];
-  weekly: Record<DayKey, DayBlock>;
-  holidays: Holiday[];
-};
-type ScheduleDoc = { version: number; timezone?: string; schedules: ScheduleItem[] };
 type Effective = {
   localTime: string;
   devices: { deviceId: string; deviceName: string; occupied: boolean; reason: string }[];
 };
 
-function minutesToLabel(m: number): string {
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-}
-
-function defaultSchedule(id: string, label: string): ScheduleItem {
+function newBlankSchedule(id: string, label: string): ScheduleItemBridge {
   return {
     id,
     label,
     description: "",
     assignments: [],
-    weekly: {
-      mon: { occupied: true, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      tue: { occupied: true, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      wed: { occupied: true, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      thu: { occupied: true, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      fri: { occupied: true, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      sat: { occupied: false, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-      sun: { occupied: false, startMinutes: 8 * 60, endMinutes: 17 * 60 },
-    },
+    weekly: profileToWeekly(defaultWeekForm()),
     holidays: [],
+    bacnetBindings: [],
   };
-}
-
-function holidayMode(h: Holiday): "single" | "range" {
-  return h.date ? "single" : "range";
 }
 
 export function BasSchedulePage() {
   const qc = useQueryClient();
-  const [doc, setDoc] = useState<ScheduleDoc | null>(null);
+  const [doc, setDoc] = useState<ScheduleDocBridge | null>(null);
   const [selectedId, setSelectedId] = useState("");
-  const [syncNote, setSyncNote] = useState<string>("");
+  const [newProfileName, setNewProfileName] = useState("");
+  const [holidayDraft, setHolidayDraft] = useState<HolidayEntry[]>([]);
+  const [syncNote, setSyncNote] = useState("");
+  const [aiJson, setAiJson] = useState("");
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const loaded = useQuery({
     queryKey: ["bas-schedule"],
-    queryFn: () => apiFetch<ScheduleDoc>("api/schedule"),
+    queryFn: () => apiFetch<ScheduleDocBridge>("api/schedule"),
   });
 
   useEffect(() => {
-    if (loaded.data) {
-      setDoc((prev) => prev ?? structuredClone(loaded.data!));
-      setSelectedId((prev) => prev || loaded.data!.schedules?.[0]?.id || "");
-    }
+    if (!loaded.data) return;
+    setDoc((prev) => prev ?? structuredClone(loaded.data));
+    setSelectedId((prev) => prev || loaded.data.schedules?.[0]?.id || "");
   }, [loaded.data]);
 
+  const currentItem = useMemo(
+    () => doc?.schedules.find((s) => s.id === selectedId) ?? doc?.schedules[0],
+    [doc, selectedId],
+  );
+
+  const prevSelectedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!doc || !selectedId) return;
+    if (prevSelectedRef.current === selectedId) return;
+    prevSelectedRef.current = selectedId;
+    const item = doc.schedules.find((s) => s.id === selectedId);
+    if (item) setHolidayDraft(holidaysToEntries(item.holidays));
+  }, [doc, selectedId]);
+
   const save = useMutation({
-    mutationFn: async (body: ScheduleDoc) =>
-      apiFetch<{ status: string; bacnetScheduleSync?: { ok?: boolean; message?: string; scheduleName?: string } }>("api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: ScheduleDocBridge) =>
+      apiFetch<{ status: string; bacnetScheduleSync?: { ok?: boolean; message?: string; scheduleName?: string } }>(
+        "api/schedule",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["bas-schedule"] });
       qc.invalidateQueries({ queryKey: ["bas-schedule-effective"] });
@@ -84,73 +88,111 @@ export function BasSchedulePage() {
 
   const points = useQuery({
     queryKey: ["bas-points"],
-    queryFn: () => apiFetch<{ items: { deviceId: string; name: string; label: string }[] }>("api/points"),
+    queryFn: () => apiFetch<{ items: { id: string; deviceId: string; label: string; name: string }[] }>("api/points"),
   });
+
   const devices = useQuery({
     queryKey: ["bas-devices"],
     queryFn: () => apiFetch<{ items: { id: string; displayName: string }[] }>("api/devices"),
     staleTime: 20_000,
   });
+
   const effective = useQuery({
     queryKey: ["bas-schedule-effective"],
     queryFn: () => apiFetch<Effective>("api/schedule/effective"),
     staleTime: 15_000,
   });
 
-  const working = doc ?? loaded.data;
-  const current = working?.schedules.find((s) => s.id === selectedId) ?? working?.schedules[0];
+  const profiles: ScheduleProfile[] = useMemo(
+    () => (doc?.schedules ?? []).map((s) => scheduleItemToProfile(s)),
+    [doc],
+  );
 
-  const updateCurrent = (patch: Partial<ScheduleItem>) => {
-    setDoc({
-      ...working!,
-      schedules: working!.schedules.map((s) => (s.id === current!.id ? { ...s, ...patch } : s)),
-    });
-  };
+  const patchCurrentItem = useCallback(
+    (fn: (item: ScheduleItemBridge) => ScheduleItemBridge) => {
+      if (!doc || !selectedId) return;
+      setDoc({
+        ...doc,
+        schedules: doc.schedules.map((s) => (s.id === selectedId ? fn(s) : s)),
+      });
+    },
+    [doc, selectedId],
+  );
 
-  const setDay = (d: DayKey, patch: Partial<DayBlock>) => {
-    setDoc({
-      ...working!,
-      schedules: working!.schedules.map((s) =>
-        s.id === current!.id
-          ? { ...s, weekly: { ...s.weekly, [d]: { ...s.weekly[d], ...patch } } }
-          : s,
-      ),
-    });
-  };
+  const onUpdateActiveForm = useCallback(
+    (updater: (prev: WeekFormState) => WeekFormState) => {
+      patchCurrentItem((item) => {
+        const prof = scheduleItemToProfile(item);
+        const nextForm = updater(prof.form);
+        return mergeProfileIntoItem(item, { ...prof, form: nextForm }, holidayDraft);
+      });
+    },
+    [holidayDraft, patchCurrentItem],
+  );
 
-  const addHoliday = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    updateCurrent({ holidays: [...current!.holidays, { date: today, occupied: false }] });
-  };
+  const onBindingsChange = useCallback(
+    (next: ScheduleProfile["bacnetBindings"]) => {
+      patchCurrentItem((item) => ({ ...item, bacnetBindings: next }));
+    },
+    [patchCurrentItem],
+  );
 
-  const updateHoliday = (i: number, h: Partial<Holiday>) => {
-    const next = [...current!.holidays];
-    next[i] = { ...next[i], ...h };
-    updateCurrent({ holidays: next });
-  };
-
-  const removeHoliday = (i: number) => {
-    updateCurrent({ holidays: current!.holidays.filter((_, j) => j !== i) });
-  };
+  const onHolidaysChange = useCallback(
+    (h: HolidayEntry[]) => {
+      setHolidayDraft(h);
+      patchCurrentItem((item) => ({ ...item, holidays: entriesToHolidays(h) }));
+    },
+    [patchCurrentItem],
+  );
 
   const addSchedule = () => {
-    const blank = defaultSchedule(`sched_${Math.random().toString(36).slice(2, 8)}`, `Schedule ${working!.schedules.length + 1}`);
-    setDoc({ ...working!, schedules: [...working!.schedules, blank] });
-    setSelectedId(blank.id);
+    if (!doc) return;
+    const name = newProfileName.trim() || `Schedule ${doc.schedules.length + 1}`;
+    const id = `sched_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    const blank = newBlankSchedule(id, name);
+    setDoc({ ...doc, schedules: [...doc.schedules, blank] });
+    setSelectedId(id);
+    setNewProfileName("");
   };
 
-  const removeSchedule = (id: string) => {
-    const next = working!.schedules.filter((s) => s.id !== id);
-    setDoc({ ...working!, schedules: next });
-    if (selectedId === id) setSelectedId(next[0]?.id ?? "");
+  const deleteActive = () => {
+    if (!doc || doc.schedules.length <= 1) return;
+    const next = doc.schedules.filter((s) => s.id !== selectedId);
+    setDoc({ ...doc, schedules: next });
+    setSelectedId(next[0]?.id ?? "");
   };
 
-  if (!working) {
+  const applyAiImport = () => {
+    setAiError(null);
+    try {
+      const imported = parseScheduleAiJson(aiJson);
+      setDoc(structuredClone(imported));
+      setSelectedId(imported.schedules[0]?.id ?? "");
+      setHolidayDraft(holidaysToEntries(imported.schedules[0]?.holidays ?? []));
+      setAiJson("");
+      setSyncNote("Imported schedule JSON into the editor (not saved until you click Save).");
+    } catch (e) {
+      setAiError((e as Error).message);
+    }
+  };
+
+  const exportDocJson = () => {
+    if (!doc) return;
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "bas-lite-schedule-export.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  if (!doc) {
     return <p className="text-sm text-muted-foreground">Loading schedule…</p>;
   }
-  if (!current) {
+  if (!currentItem) {
     return <p className="text-sm text-muted-foreground">No schedules yet.</p>;
   }
+
   const pointByDevice = new Map<string, number>();
   for (const p of points.data?.items ?? []) {
     pointByDevice.set(p.deviceId, (pointByDevice.get(p.deviceId) ?? 0) + 1);
@@ -161,69 +203,47 @@ export function BasSchedulePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Occupancy schedule</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generic weekly occupied/unoccupied windows with holiday day-picker overrides. Create multiple
-          schedules and assign each one to multiple equipment devices.
+          Weekly visual from the standalone schedule widget demo, wired to BAS Lite schedule JSON, BACnet hosted
+          schedule push, and supervisor point ids from your driver setup.
         </p>
       </div>
 
       <Card>
-        <CardContent className="space-y-6 pt-6">
-          <div className="flex flex-wrap items-center gap-3">
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-wrap items-end gap-3">
             <label className="text-sm">
-              Schedule
-              <select
-                className="ml-2 rounded border border-border bg-background px-2 py-1 text-sm"
-                value={current.id}
-                onChange={(e) => setSelectedId(e.target.value)}
-              >
-                {working.schedules.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" className="text-xs text-primary hover:underline" onClick={addSchedule}>
-              Add schedule
-            </button>
-            {working.schedules.length > 1 ? (
-              <button type="button" className="text-xs text-destructive" onClick={() => removeSchedule(current.id)}>
-                Remove schedule
-              </button>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm">
-              Label{" "}
+              Schedule name
               <input
                 className="ml-2 w-56 rounded border border-border bg-background px-2 py-1 text-sm"
-                value={current.label ?? ""}
-                onChange={(e) => updateCurrent({ label: e.target.value })}
+                value={currentItem.label}
+                onChange={(e) =>
+                  patchCurrentItem((s) => ({
+                    ...s,
+                    label: e.target.value,
+                  }))
+                }
               />
             </label>
             <label className="text-sm">
-              Description{" "}
+              Hosted BACnet name
               <input
-                className="ml-2 w-80 rounded border border-border bg-background px-2 py-1 text-sm"
-                value={current.description ?? ""}
-                onChange={(e) => updateCurrent({ description: e.target.value })}
+                className="ml-2 w-48 rounded border border-border bg-background px-2 py-1 font-mono text-xs"
+                value={doc.hostedScheduleName ?? "occupancy-schedule"}
+                onChange={(e) => setDoc({ ...doc, hostedScheduleName: e.target.value })}
+                title="Passed to diy-bacnet server_update_schedule"
               />
             </label>
             <button
               type="button"
               className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
               onClick={() =>
-                save.mutate(working, {
+                save.mutate(doc, {
                   onSuccess: (res) => {
                     const s = res?.bacnetScheduleSync;
-                    if (!s) {
-                      setSyncNote("Saved schedule set.");
-                    } else if (s.ok) {
+                    if (!s) setSyncNote("Saved schedule set.");
+                    else if (s.ok)
                       setSyncNote(`Saved + pushed to BACnet schedule object "${s.scheduleName ?? "occupancy-schedule"}".`);
-                    } else {
-                      setSyncNote(`Saved locally, but BACnet schedule push failed: ${s.message ?? "unknown error"}`);
-                    }
+                    else setSyncNote(`Saved locally, but BACnet schedule push failed: ${s.message ?? "unknown error"}`);
                   },
                 })
               }
@@ -231,133 +251,48 @@ export function BasSchedulePage() {
             >
               Save schedule set
             </button>
+            <button type="button" className="rounded border border-border px-3 py-2 text-sm hover:bg-muted" onClick={exportDocJson}>
+              Export JSON
+            </button>
           </div>
           {syncNote ? <p className="text-xs text-muted-foreground">{syncNote}</p> : null}
 
-          <div className="space-y-5">
-            {DAYS.map((d) => {
-              const row = current.weekly[d];
-              return (
-                <div key={d} className="grid gap-3 border-b border-border/60 pb-4 sm:grid-cols-12">
-                  <div className="font-medium capitalize sm:col-span-2">{d}</div>
-                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={row.occupied}
-                      onChange={(e) => setDay(d, { occupied: e.target.checked })}
-                    />
-                    Occupied
-                  </label>
-                  <div className="sm:col-span-8 space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Start {minutesToLabel(row.startMinutes)}</span>
-                      <span>End {minutesToLabel(row.endMinutes)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={24 * 60}
-                      value={row.startMinutes}
-                      disabled={!row.occupied}
-                      onChange={(e) =>
-                        setDay(d, {
-                          startMinutes: Number(e.target.value),
-                          endMinutes: Math.max(row.endMinutes, Number(e.target.value) + 30),
-                        })
-                      }
-                      className="w-full"
-                    />
-                    <input
-                      type="range"
-                      min={0}
-                      max={24 * 60}
-                      value={row.endMinutes}
-                      disabled={!row.occupied}
-                      onChange={(e) =>
-                        setDay(d, {
-                          endMinutes: Number(e.target.value),
-                          startMinutes: Math.min(row.startMinutes, Number(e.target.value) - 30),
-                        })
-                      }
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="space-y-2 rounded-md border border-border/60 bg-muted/30 p-3">
+            <p className="text-xs font-medium text-muted-foreground">AI-assisted import (paste JSON)</p>
+            <textarea
+              className="min-h-[120px] w-full rounded border border-border bg-background p-2 font-mono text-xs"
+              placeholder='{ "version": 2, "schedules": [ ... ] }'
+              value={aiJson}
+              onChange={(e) => setAiJson(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="rounded border border-border px-3 py-1 text-xs hover:bg-muted" onClick={applyAiImport}>
+                Merge into editor
+              </button>
+              {aiError ? <span className="text-xs text-destructive">{aiError}</span> : null}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Holiday overrides</h2>
-            <button type="button" className="text-xs text-primary hover:underline" onClick={addHoliday}>
-              Add holiday
-            </button>
-          </div>
-          <ul className="space-y-2">
-            {current.holidays.map((h, i) => (
-              <li key={i} className="flex flex-wrap items-end gap-2 rounded-md border border-border/60 p-2">
-                <label className="text-xs">
-                  Mode
-                  <select
-                    className="ml-1 rounded border border-border bg-background px-1 py-0.5"
-                    value={holidayMode(h)}
-                    onChange={(e) => {
-                      if (e.target.value === "single") {
-                        updateHoliday(i, { date: h.date ?? h.start ?? "", start: undefined, end: undefined });
-                      } else {
-                        const d = h.date ?? new Date().toISOString().slice(0, 10);
-                        updateHoliday(i, { date: undefined, start: h.start ?? d, end: h.end ?? d });
-                      }
-                    }}
-                  >
-                    <option value="single">Single day</option>
-                    <option value="range">Date range</option>
-                  </select>
-                </label>
-                <label className="text-xs">
-                  {holidayMode(h) === "single" ? "Date" : "From"}
-                  <input
-                    type="date"
-                    className="ml-1 rounded border border-border bg-background px-1 py-0.5"
-                    value={h.date ?? h.start ?? ""}
-                    onChange={(e) =>
-                      holidayMode(h) === "single"
-                        ? updateHoliday(i, { date: e.target.value })
-                        : updateHoliday(i, { start: e.target.value })
-                    }
-                  />
-                </label>
-                {holidayMode(h) === "range" ? (
-                  <label className="text-xs">
-                    To
-                    <input
-                      type="date"
-                      className="ml-1 rounded border border-border bg-background px-1 py-0.5"
-                      value={h.end ?? h.start ?? ""}
-                      onChange={(e) => updateHoliday(i, { end: e.target.value })}
-                    />
-                  </label>
-                ) : null}
-                <label className="flex items-center gap-1 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={h.occupied}
-                    onChange={(e) => updateHoliday(i, { occupied: e.target.checked })}
-                  />
-                  Occupied override (default OFF)
-                </label>
-                <button type="button" className="text-xs text-destructive" onClick={() => removeHoliday(i)}>
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="bas-schedule-widget">
+        <div className="layout">
+          <ScheduleWidgetBody
+            schedules={profiles}
+            activeScheduleId={selectedId}
+            onSelectSchedule={setSelectedId}
+            newProfileName={newProfileName}
+            onNewProfileName={setNewProfileName}
+            onAddProfile={addSchedule}
+            onDeleteActiveProfile={deleteActive}
+            onUpdateActiveForm={onUpdateActiveForm}
+            onBindingsChange={onBindingsChange}
+            holidays={holidayDraft}
+            onHolidaysChange={onHolidaysChange}
+            points={points.data?.items ?? []}
+          />
+        </div>
+      </div>
 
       <Card>
         <CardContent className="space-y-3 pt-6">
@@ -366,20 +301,24 @@ export function BasSchedulePage() {
           </div>
           <ul className="space-y-2">
             {(devices.data?.items ?? []).map((d) => {
-              const assigned = current.assignments.includes(d.id);
+              const assigned = currentItem.assignments.includes(d.id);
               const eff = effective.data?.devices.find((x) => x.deviceId === d.id);
               return (
-                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2 text-sm">
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2 text-sm"
+                >
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={assigned}
                       onChange={(e) =>
-                        updateCurrent({
+                        patchCurrentItem((s) => ({
+                          ...s,
                           assignments: e.target.checked
-                            ? [...current.assignments, d.id]
-                            : current.assignments.filter((x) => x !== d.id),
-                        })
+                            ? [...s.assignments, d.id]
+                            : s.assignments.filter((x) => x !== d.id),
+                        }))
                       }
                     />
                     <span className="font-medium">{d.displayName}</span>

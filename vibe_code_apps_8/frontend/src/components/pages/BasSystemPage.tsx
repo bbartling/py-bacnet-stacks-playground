@@ -136,6 +136,18 @@ export function BasSystemPage() {
     return logs.data?.logs || logs.data?.message || "No logs.";
   }, [liveLogLines, logs.data]);
 
+  const containerAction = useMutation({
+    mutationFn: async (body: { name: string; action: "restart" | "stop" | "start" }) =>
+      apiFetch<{ ok: boolean; action?: string; name?: string; status?: string }>("api/system/container-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bas-system-containers"] });
+    },
+  });
+
   const lifecycle = useMutation({
     mutationFn: async (body: { action: string; tag?: string; uuid?: string }) => {
       return apiFetch<{ status: string; stderr: string; stdout: string; exitCode: number }>(
@@ -277,7 +289,7 @@ export function BasSystemPage() {
         <Card className="lg:col-span-2">
           <CardContent className="pt-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Docker containers</p>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Docker stack (compose project)</p>
               <button
                 type="button"
                 className="rounded border border-border px-2 py-1 text-xs hover:bg-muted"
@@ -286,6 +298,10 @@ export function BasSystemPage() {
                 Refresh
               </button>
             </div>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Includes optional easy-aso sidecars (for example the OAT share agent). Use restart/stop/start for quick
+              operator cycles; logs still tail below.
+            </p>
             {containers.isLoading ? (
               <Skeleton className="h-48 w-full" />
             ) : !containers.data?.dockerAvailable ? (
@@ -301,7 +317,7 @@ export function BasSystemPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Service</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Logs</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -310,13 +326,37 @@ export function BasSystemPage() {
                         <TableCell className="font-mono text-xs">{c.name}</TableCell>
                         <TableCell className="text-xs">{c.service || "—"}</TableCell>
                         <TableCell className="text-xs">{c.status}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-2 whitespace-nowrap">
                           <button
                             type="button"
                             className="text-xs text-primary hover:underline"
                             onClick={() => setSelectedContainer(c.name)}
                           >
-                            tail
+                            logs
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline disabled:opacity-40"
+                            disabled={containerAction.isPending}
+                            onClick={() => containerAction.mutate({ name: c.name, action: "restart" })}
+                          >
+                            restart
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline disabled:opacity-40"
+                            disabled={containerAction.isPending}
+                            onClick={() => containerAction.mutate({ name: c.name, action: "stop" })}
+                          >
+                            stop
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline disabled:opacity-40"
+                            disabled={containerAction.isPending}
+                            onClick={() => containerAction.mutate({ name: c.name, action: "start" })}
+                          >
+                            start
                           </button>
                         </TableCell>
                       </TableRow>

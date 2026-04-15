@@ -23,4 +23,4 @@ Practical workflow:
 
 ## Project positioning
 
-This project is inspired by platform-style BAS patterns, but it is implemented directly with Docker + easy-aso and does not depend on external platform runtime files.
+BAS Lite is intentionally compact: **Docker Compose**, the **easy-aso** supervisor + FastAPI surfaces, **diy-bacnet** JSON-RPC, and the React operator UI. Driver JSON and SQLite state ship in the **`bas_lite_data`** volume; extend behavior with additional Compose services (for example the optional **`easy-aso-oat`** profile) rather than pulling in a separate platform runtime.

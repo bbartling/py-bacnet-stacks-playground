@@ -6,7 +6,6 @@ import { BasOverviewPage } from "@/components/pages/BasOverviewPage";
 import { BasLivePointsPage } from "@/components/pages/BasLivePointsPage";
 import { BasDriverConfigPage } from "@/components/pages/BasDriverConfigPage";
 import { BasSystemPage } from "@/components/pages/BasSystemPage";
-import { BasTrendsPage } from "@/components/pages/BasTrendsPage";
 import { BasFaultsPage } from "@/components/pages/BasFaultsPage";
 import { BasAlarmsPage } from "@/components/pages/BasAlarmsPage";
 import { BasSchedulePage } from "@/components/pages/BasSchedulePage";
@@ -35,7 +34,6 @@ function App() {
               <Route path="live-points" element={<BasLivePointsPage />} />
               <Route path="driver" element={<BasDriverConfigPage />} />
               <Route path="system" element={<BasSystemPage />} />
-              <Route path="trends" element={<BasTrendsPage />} />
               <Route path="faults" element={<BasFaultsPage />} />
               <Route path="alarms" element={<BasAlarmsPage />} />
               <Route path="schedule" element={<BasSchedulePage />} />

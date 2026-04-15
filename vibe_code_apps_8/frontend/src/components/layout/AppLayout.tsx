@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { BasHealthStrip } from "@/components/dashboard/BasHealthStrip";
@@ -6,9 +6,6 @@ import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 export function AppLayout() {
   useBasWebSocket();
-  const { pathname } = useLocation();
-  const fullWidthContent = pathname === "/trends";
-
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
@@ -16,11 +13,7 @@ export function AppLayout() {
         <TopBar />
         <BasHealthStrip />
         <main className="flex-1 overflow-y-auto">
-          <div
-            className={
-              fullWidthContent ? "w-full px-6 py-8" : "mx-auto max-w-7xl px-6 py-8"
-            }
-          >
+          <div className="mx-auto max-w-7xl px-6 py-8">
             <Outlet />
           </div>
         </main>

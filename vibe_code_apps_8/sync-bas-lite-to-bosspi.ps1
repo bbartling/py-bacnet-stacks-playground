@@ -6,11 +6,13 @@
 .EXAMPLE
   .\sync-bas-lite-to-bosspi.ps1
   .\sync-bas-lite-to-bosspi.ps1 -Target ben@192.168.204.12
+  .\sync-bas-lite-to-bosspi.ps1 -Target ben@192.168.204.12 -SdFriendly
 #>
 [CmdletBinding()]
 param(
     [string]$Target = 'ben@192.168.204.12',
-    [switch]$SkipFrontendBuild
+    [switch]$SkipFrontendBuild,
+    [switch]$SdFriendly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,5 +23,5 @@ if (-not (Test-Path -LiteralPath $deployScript)) {
 }
 
 Write-Host "sync-bas-lite-to-bosspi.ps1 is now a wrapper around deploy-app8-to-bosspi.ps1 -SyncOnly" -ForegroundColor Yellow
-& $deployScript -SshTarget $Target -SyncOnly -SkipFrontendBuild:$SkipFrontendBuild
+& $deployScript -SshTarget $Target -SyncOnly -SkipFrontendBuild:$SkipFrontendBuild -SdFriendly:$SdFriendly
 if ($LASTEXITCODE -ne 0) { throw "sync wrapper failed ($LASTEXITCODE)." }
