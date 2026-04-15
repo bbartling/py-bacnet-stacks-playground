@@ -40,11 +40,12 @@ Optional deploy flags:
 
 ```powershell
 .\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SyncOnly
-.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SdFriendly
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SdFriendly:$false
+.\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -PrebuiltFrontend:$false
 .\deploy-app8-to-bosspi.ps1 -SshTarget ben@192.168.204.12 -SkipFrontendBuild
 ```
 
-`deploy-app8-to-bosspi.ps1` copies stack files to `~/bas-lite` and runs Pi bootstrap unless `-SyncOnly` is set.
+`deploy-app8-to-bosspi.ps1` copies stack files to `~/bas-lite` and runs Pi bootstrap unless `-SyncOnly` is set. Defaults: **`-SdFriendly:$true`** (bootstrap `--sd-friendly`) and **`-PrebuiltFrontend:$true`** (PC `npm run build`, sync `frontend/dist`, Pi Docker skips Vite).
 
 Pi bootstrap script and args:
 
@@ -67,8 +68,8 @@ cd ~/bas-lite
 | `docker-compose.yml` | **diy-bacnet**, **api** (`bas_lite_api`), **frontend** (nginx), **caddy** |
 | `bosspi.env` | LAN + non-default BACnet UDP host port — append to `.env` on Raspberry Pi (see sync script) |
 | `run-bas-lite.ps1` | **PowerShell local-only:** build/up/test, optional follow logs (`-FollowLogs`, `-Service api`) |
-| `deploy-app8-to-bosspi.ps1` | **PowerShell deploy:** optional local build check, copy to Pi, run bootstrap (`-SyncOnly`, `-SdFriendly`) |
-| `sync-bas-lite-to-bosspi.ps1` | Backward-compatible wrapper around `deploy-app8-to-bosspi.ps1 -SyncOnly` |
+| `deploy-app8-to-bosspi.ps1` | **PowerShell deploy:** copy to Pi; bootstrap unless `-SyncOnly` (defaults: SD-friendly + prebuilt UI) |
+| `sync-bas-lite-to-bosspi.ps1` | Same as deploy with **Pi-first defaults**; use `-SyncOnly` for files-only |
 | `scripts/bootstrap-bas-lite.sh` | **Pi / Linux:** merge **`.env`**, auto **BACNET_RPC_API_KEY**, optional `--env-only`, optional `--sd-friendly` |
 | `docker/diy-bacnet/` | Image build: clones `bbartling/diy-bacnet-server` at build time |
 | `docker/bas_lite_api/` | FastAPI supervisor / driver config / gateway |

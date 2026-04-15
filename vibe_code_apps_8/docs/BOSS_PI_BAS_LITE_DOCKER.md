@@ -106,11 +106,14 @@ cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
 .\sync-bas-lite-to-bosspi.ps1
 ```
 
+By default this runs a **full deploy**: local `npm run build`, copies `frontend/dist` (Pi Docker skips Vite), enables **SD-friendly** bootstrap on the Pi, and runs **`docker compose`**. Use **`-SyncOnly`** if you only want files and will run **`bootstrap-bas-lite.sh`** yourself.
+
 Or manually:
 
 ```powershell
 cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
 scp .\docker-compose.yml ben@192.168.204.12:~/bas-lite/
+scp .\docker-compose.easy-aso-agents.example.yml ben@192.168.204.12:~/bas-lite/
 scp .\.env.example ben@192.168.204.12:~/bas-lite/
 ```
 
@@ -130,15 +133,17 @@ docker compose ps
 docker compose logs -f caddy
 ```
 
-### 4.0a Bootstrap script (recommended after PC sync)
+### 4.0a Bootstrap script (after `sync-bas-lite-to-bosspi.ps1 -SyncOnly`)
 
-After **`sync-bas-lite-to-bosspi.ps1`** from your laptop, on the Pi:
+If you synced with **`-SyncOnly`** (files only), run bootstrap on the Pi:
 
 ```bash
 cd ~/bas-lite
 chmod +x scripts/bootstrap-bas-lite.sh   # once, if sync did not preserve +x
-./scripts/bootstrap-bas-lite.sh
+./scripts/bootstrap-bas-lite.sh --sd-friendly
 ```
+
+A default **`sync-bas-lite-to-bosspi.ps1`** (no `-SyncOnly`) already runs bootstrap from the PC over SSH, with **SD-friendly** and **prebuilt UI** defaults.
 
 **`scripts/bootstrap-bas-lite.sh`** merges **`.env`** from **`.env.example`** (if missing), appends **`bosspi.env`** when **`CADDY_HTTP_PORTS`** is not already set, replaces placeholder **`BACNET_RPC_API_KEY`** with a random hex secret (diy-bacnet and **api** both read **`BACNET_RPC_API_KEY`** — same pattern as Open-FDD generating **`OFDD_BACNET_SERVER_API_KEY`**), strips Windows **`\\r`**, then runs **`docker compose down && up -d`**. Use **`--env-only`** to patch **`.env`** without Docker; **`--help`** for options.
 
@@ -249,6 +254,36 @@ docker compose --profile oat up -d easy-aso-oat
 ```
 
 See **`.env.example`** for **`OAT_SOURCE_DEVICE`**, **`OAT_SOURCE_OBJECT`**, and **`OAT_TARGET_WRITES`** (JSON array).
+
+### Optional EasyASO subclass agents (`easy-aso-agent`, profile `agents`)
+
+If you want a **real `EasyASO` subclass** with its own **`on_start` / `on_step` / `on_stop`** loop in a **separate container** (next to the lightweight **`easy-aso-oat`** helper), use the **`easy-aso-agent`** service. It installs the same **`easy-aso[platform]`** pin as the API and runs **`RpcDockedEasyASO`**: BACnet reads/writes go through **diy-bacnet JSON-RPC** (`JsonRpcBacnetClient`), so you do **not** get a second process binding **UDP 47808**. A plain `EasyASO.run()` with **`Application.from_args`** would try to own BACnet/IP on the host; that conflicts with **diy-bacnet**, so the docked base class skips the local BACnet application and wires **`bacnet_read` / `bacnet_write`** to RPC instead. **`bacnet_rpm`** is not supported in this mode unless you extend it for your gateway.
+
+**Environment (container):**
+
+| Variable | Purpose |
+|----------|---------|
+| **`SUPERVISOR_BACNET_RPC_URL`** | Base URL for diy-bacnet (default `http://diy-bacnet:8080`). |
+| **`SUPERVISOR_BACNET_RPC_ENTRYPOINT`** | Path prefix for JSON-RPC (default `/api`). |
+| **`BACNET_RPC_API_KEY`** | Same Bearer secret as **api** / **diy-bacnet** when RPC auth is enabled. |
+| **`EASY_ASO_AGENT_MODULE`** | Dotted Python module path on `PYTHONPATH` (default `agents.sample_agent`). |
+| **`EASY_ASO_AGENT_CLASS`** | Class name to instantiate (default `SampleAgent`). |
+| **`EASY_ASO_STEP_SEC`** | Minimum sleep between **`on_step`** iterations in the sample agent (seconds). |
+| **`EASY_ASO_DEMO_READ_DEVICE`** / **`EASY_ASO_DEMO_READ_OBJECT`** | Optional BACnet address + object id for a demo **`bacnet_read`** each step in the sample. |
+
+**Enable the first agent:**
+
+```bash
+docker compose --profile agents up -d easy-aso-agent
+```
+
+**Second container (template):** copy **`docker-compose.easy-aso-agents.example.yml`** to e.g. **`docker-compose.local-agents.yml`**, set **`EASY_ASO_AGENT_2_MODULE`** / **`EASY_ASO_AGENT_2_CLASS`** in **`.env`**, and run:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local-agents.yml --profile agents up -d
+```
+
+Image sources live under **`docker/easy_aso_agent/`** (`rpc_docked_easy_aso.py`, **`agents/`**). Rebuild after editing packaged agents, or add a **volume** mount for **`./docker/easy_aso_agent/agents`** in a local override file.
 
 ---
 

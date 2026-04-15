@@ -21,7 +21,7 @@ DIY_BACNET_TESTS=false
 for arg in "$@"; do
   case "$arg" in
     --env-only) DO_COMPOSE_UP=false ;;
-    --sd-friendly) SD_FRIENDLY=true ;;
+    --sd-friendly|--sd_friendly) SD_FRIENDLY=true ;;
     --git-update) GIT_UPDATE=true ;;
     --refresh-diy-bacnet) REFRESH_DIY_BACNET=true ;;
     --diy-bacnet-tests) DIY_BACNET_TESTS=true ;;
@@ -34,8 +34,10 @@ Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-updat
               strip CRLF, then docker compose down && build && up -d.
   --env-only  Only fix .env; do not run Docker.
   --sd-friendly  Apply generic SD-card wear defaults into .env
-                 (slower trend cadence, bounded in-memory trend depth, and
-                 runtime knobs for log/state write throttling).
+                 (slower trend cadence, bounded in-memory trend depth,
+                 runtime knobs for log/state write throttling, and gentler
+                 easy-aso / OAT poll intervals when those vars are unset or
+                 more aggressive than the SD defaults).
   --git-update   If this checkout is a git repo, run git pull before compose.
   --refresh-diy-bacnet  Force a no-cache rebuild of diy-bacnet image so latest
                  upstream diy-bacnet-server HEAD is re-cloned at build time.
@@ -85,6 +87,20 @@ env_get_kv() {
   local f="$1" key="$2"
   [[ -f "$f" ]] || return 0
   awk -F= -v k="$key" '$1==k {v=$0} END{if(v!=""){sub(/^[^=]*=/,"",v); print v}}' "$f" | tr -d '\r'
+}
+
+# If current value is empty or a non-negative integer below min, set to newval (SD / edge throttling).
+env_bump_int_if_aggressive() {
+  local f="$1" key="$2" min="$3" newval="$4"
+  local cur
+  cur="$(env_get_kv "$f" "$key" || true)"
+  if [[ -z "${cur:-}" ]]; then
+    env_set_kv "$f" "$key" "$newval"
+    return 0
+  fi
+  if [[ "$cur" =~ ^[0-9]+$ ]] && [[ "$cur" -lt "$min" ]]; then
+    env_set_kv "$f" "$key" "$newval"
+  fi
 }
 
 rpc_key_is_placeholder() {
@@ -171,6 +187,17 @@ if $SD_FRIENDLY; then
   echo "  BAS_LITE_TREND_MAX_SAMPLES=$(env_get_kv .env BAS_LITE_TREND_MAX_SAMPLES)"
   echo "  BAS_LITE_ALARM_STATE_FLUSH_SEC=$(env_get_kv .env BAS_LITE_ALARM_STATE_FLUSH_SEC)"
   echo "  BAS_LITE_NOTIFICATIONS_LOG_MAX_LINES=$(env_get_kv .env BAS_LITE_NOTIFICATIONS_LOG_MAX_LINES)"
+  echo ""
+
+  # Gentler BACnet JSON-RPC / agent cadence when profiles oat|agents are used (fewer writes & RPC round-trips).
+  env_bump_int_if_aggressive .env "OAT_INTERVAL_SEC" 300 600
+  env_bump_int_if_aggressive .env "EASY_ASO_OAT_STEP_SEC" 300 600
+  env_bump_int_if_aggressive .env "EASY_ASO_GL36_VAV_STEP_SEC" 90 120
+  env_bump_int_if_aggressive .env "EASY_ASO_GL36_AHU_STEP_SEC" 120 180
+  echo "  OAT_INTERVAL_SEC=$(env_get_kv .env OAT_INTERVAL_SEC) (legacy oat profile)"
+  echo "  EASY_ASO_OAT_STEP_SEC=$(env_get_kv .env EASY_ASO_OAT_STEP_SEC)"
+  echo "  EASY_ASO_GL36_VAV_STEP_SEC=$(env_get_kv .env EASY_ASO_GL36_VAV_STEP_SEC)"
+  echo "  EASY_ASO_GL36_AHU_STEP_SEC=$(env_get_kv .env EASY_ASO_GL36_AHU_STEP_SEC)"
   echo ""
   echo "Tip: for maximum SD protection on Linux, mount /var/lib/docker with SSD/USB or use tmpfs for hot logs."
 fi

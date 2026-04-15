@@ -11,13 +11,18 @@
     3) run remote bootstrap to build/up containers.
 
   Use -SyncOnly if you only want to copy files.
+
+  Defaults favor Raspberry Pi labs: -SdFriendly:$true (bootstrap --sd-friendly) and
+  -PrebuiltFrontend:$true (local npm run build, sync frontend/dist, Pi Docker skips Vite).
+  Opt out with -SdFriendly:$false and/or -PrebuiltFrontend:$false (Pi runs npm/vite in Docker).
 #>
 [CmdletBinding()]
 param(
     [string]$SshTarget = 'ben@192.168.204.12',
     [switch]$SkipFrontendBuild,
     [switch]$SyncOnly,
-    [switch]$SdFriendly,
+    [bool]$SdFriendly = $true,
+    [bool]$PrebuiltFrontend = $true,
     [switch]$GitDeploy,
     [string]$RepoUrl = 'https://github.com/bbartling/py-bacnet-stacks-playground.git',
     [string]$RepoBranch = 'develop'
@@ -39,6 +44,19 @@ if ($GitDeploy -and $SyncOnly) {
     throw "Use either -GitDeploy or -SyncOnly, not both."
 }
 
+# Prebuilt UI is a Windows→SCP path; git-only deploy builds on the Pi instead.
+$usePrebuilt = [bool]$PrebuiltFrontend -and -not $GitDeploy
+if ($GitDeploy -and $PrebuiltFrontend) {
+    Write-Host "Note: -GitDeploy skips prebuilt frontend (no PC dist to sync)." -ForegroundColor Yellow
+}
+
+if ($usePrebuilt -and $SkipFrontendBuild) {
+    $distIndex = Join-Path $PSScriptRoot 'frontend/dist/index.html'
+    if (-not (Test-Path -LiteralPath $distIndex)) {
+        throw "-PrebuiltFrontend with -SkipFrontendBuild requires an existing frontend/dist (run npm run build in frontend/ first)."
+    }
+}
+
 if (-not $SkipFrontendBuild -and -not $GitDeploy) {
     Write-Host "==> Frontend build check (npm run build)" -ForegroundColor Cyan
     Push-Location (Join-Path $PSScriptRoot 'frontend')
@@ -52,6 +70,12 @@ if (-not $SkipFrontendBuild -and -not $GitDeploy) {
     }
     finally {
         Pop-Location
+    }
+    if ($usePrebuilt) {
+        $distIndex = Join-Path $PSScriptRoot 'frontend/dist/index.html'
+        if (-not (Test-Path -LiteralPath $distIndex)) {
+            throw "Prebuilt frontend requires frontend/dist after build (missing $distIndex)."
+        }
     }
 }
 else {
@@ -97,6 +121,7 @@ if ($LASTEXITCODE -ne 0) { throw "ssh mkdir failed ($LASTEXITCODE)." }
 
 $files = @(
     'docker-compose.yml',
+    'docker-compose.easy-aso-agents.example.yml',
     '.env.example',
     '.dockerignore',
     'bosspi.env',
@@ -110,6 +135,7 @@ $dirs = @(
     'docker/caddy',
     'docker/diy-bacnet',
     'docker/easy_aso_oat',
+    'docker/easy_aso_agent',
     'docker/nginx',
     'frontend/src'
 )
@@ -152,9 +178,34 @@ foreach ($rel in $dirs) {
     if ($LASTEXITCODE -ne 0) { throw "scp -r failed for $rel ($LASTEXITCODE)." }
 }
 
+if ($usePrebuilt) {
+    $distDir = Join-Path $PSScriptRoot 'frontend/dist'
+    if (-not (Test-Path -LiteralPath (Join-Path $distDir 'index.html'))) {
+        throw "frontend/dist/index.html missing; run npm run build in frontend/ (or use -PrebuiltFrontend:`$false)."
+    }
+    Write-Host "scp -r frontend/dist -> ${SshTarget}:~/bas-lite/frontend/dist (prebuilt UI)" -ForegroundColor Cyan
+    ssh $SshTarget "mkdir -p ~/bas-lite/frontend"
+    if ($LASTEXITCODE -ne 0) { throw "ssh mkdir frontend failed ($LASTEXITCODE)." }
+    scp -r $distDir "${SshTarget}:~/bas-lite/frontend/"
+    if ($LASTEXITCODE -ne 0) { throw "scp -r frontend/dist failed ($LASTEXITCODE)." }
+}
+
 Write-Host "==> Ensure bootstrap script executable" -ForegroundColor Cyan
 ssh $SshTarget "chmod +x ~/bas-lite/scripts/bootstrap-bas-lite.sh"
 if ($LASTEXITCODE -ne 0) { throw "ssh chmod failed ($LASTEXITCODE)." }
+
+if ($usePrebuilt) {
+    Write-Host "==> Pi .env: FRONTEND_SKIP_NODE_BUILD=1 (nginx image uses synced dist, no Vite on Pi)" -ForegroundColor Cyan
+    $patchCmd = "cd ~/bas-lite && touch .env && if grep -q '^FRONTEND_SKIP_NODE_BUILD=' .env; then sed -i 's/^FRONTEND_SKIP_NODE_BUILD=.*/FRONTEND_SKIP_NODE_BUILD=1/' .env; else echo FRONTEND_SKIP_NODE_BUILD=1 >> .env; fi"
+    ssh $SshTarget $patchCmd
+    if ($LASTEXITCODE -ne 0) { throw "ssh .env patch for FRONTEND_SKIP_NODE_BUILD failed ($LASTEXITCODE)." }
+}
+elseif (-not $SyncOnly) {
+    Write-Host "==> Pi .env: FRONTEND_SKIP_NODE_BUILD=0 (Vite/npm build inside Docker on Pi)" -ForegroundColor Cyan
+    $patch0 = "cd ~/bas-lite && touch .env && if grep -q '^FRONTEND_SKIP_NODE_BUILD=' .env; then sed -i 's/^FRONTEND_SKIP_NODE_BUILD=.*/FRONTEND_SKIP_NODE_BUILD=0/' .env; else echo FRONTEND_SKIP_NODE_BUILD=0 >> .env; fi"
+    ssh $SshTarget $patch0
+    if ($LASTEXITCODE -ne 0) { throw "ssh .env patch for FRONTEND_SKIP_NODE_BUILD=0 failed ($LASTEXITCODE)." }
+}
 
 if ($SyncOnly) {
     Write-Host ""
@@ -165,6 +216,9 @@ if ($SyncOnly) {
     }
     Write-Host "Next on Pi: cd ~/bas-lite && $bootHint"
     Write-Host '  (Layout: same paths as repo, e.g. ~/bas-lite/docker/diy-bacnet/Dockerfile must exist.)'
+    if ($usePrebuilt) {
+        Write-Host '  Prebuilt frontend: Pi .env has FRONTEND_SKIP_NODE_BUILD=1; docker compose build frontend uses synced dist only.'
+    }
     exit 0
 }
 

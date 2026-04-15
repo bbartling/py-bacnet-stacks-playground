@@ -34,6 +34,9 @@ type ContainerRow = {
   service: string;
   status: string;
   image: string;
+  easyAsoAgentModule?: string;
+  easyAsoAgentClass?: string;
+  easyAsoRole?: string;
 };
 
 type ContainersResponse = {
@@ -135,6 +138,18 @@ export function BasSystemPage() {
     if (liveLogLines.length > 0) return liveLogLines.join("\n");
     return logs.data?.logs || logs.data?.message || "No logs.";
   }, [liveLogLines, logs.data]);
+
+  const easyAsoContainers = useMemo(() => {
+    const items = containers.data?.items ?? [];
+    return items.filter(
+      (c) =>
+        Boolean(c.easyAsoRole) ||
+        (c.service ?? "").startsWith("easy-aso-agent") ||
+        (c.easyAsoAgentModule ?? "").startsWith("agents."),
+    );
+  }, [containers.data?.items]);
+
+  const displayContainerName = useCallback((name: string) => name.replace(/^\//, ""), []);
 
   const containerAction = useMutation({
     mutationFn: async (body: { name: string; action: "restart" | "stop" | "start" }) =>
@@ -299,8 +314,10 @@ export function BasSystemPage() {
               </button>
             </div>
             <p className="mb-2 text-xs text-muted-foreground">
-              Includes optional easy-aso sidecars (for example the OAT share agent). Use restart/stop/start for quick
-              operator cycles; logs still tail below.
+              Optional <code className="rounded bg-muted px-1">oat</code> profile (legacy script) plus three{" "}
+              <code className="rounded bg-muted px-1">agents</code> profile RpcDockedEasyASO sidecars (OAT share, GL36 VAV
+              requests, GL36 AHU SAT reset). Start/stop/restart applies per container; use the quick log bar for
+              easy-aso services, or pick any row for full-stack logs.
             </p>
             {containers.isLoading ? (
               <Skeleton className="h-48 w-full" />
@@ -316,6 +333,8 @@ export function BasSystemPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Service</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Agent</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -323,8 +342,20 @@ export function BasSystemPage() {
                   <TableBody>
                     {containers.data.items.map((c) => (
                       <TableRow key={c.id}>
-                        <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{displayContainerName(c.name)}</TableCell>
                         <TableCell className="text-xs">{c.service || "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          {c.easyAsoRole ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                              {c.easyAsoRole}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {[c.easyAsoAgentModule, c.easyAsoAgentClass].filter(Boolean).join(":") || "—"}
+                        </TableCell>
                         <TableCell className="text-xs">{c.status}</TableCell>
                         <TableCell className="text-right space-x-2 whitespace-nowrap">
                           <button
@@ -369,12 +400,46 @@ export function BasSystemPage() {
         </Card>
       </div>
 
+      {easyAsoContainers.length > 0 ? (
+        <Card>
+          <CardContent className="pt-6 space-y-2">
+            <p className="text-xs font-medium uppercase text-muted-foreground">Easy ASO agent logs</p>
+            <p className="text-xs text-muted-foreground">
+              Jump to a sidecar stream (same SSE tail as below). Other compose services still use the table above.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {easyAsoContainers.map((c) => {
+                const label = c.easyAsoRole || c.service || displayContainerName(c.name);
+                const active = selectedContainer === c.name;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+                    }`}
+                    onClick={() => {
+                      setLiveLogLines([]);
+                      setSelectedContainer(c.name);
+                      qc.invalidateQueries({ queryKey: ["bas-container-logs", c.name] });
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {selectedContainer ? (
         <Card>
           <CardContent className="pt-6">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase text-muted-foreground">
-                Container logs: <span className="normal-case font-mono">{selectedContainer}</span>
+                Container logs:{" "}
+                <span className="normal-case font-mono">{displayContainerName(selectedContainer)}</span>
               </p>
               <div className="flex items-center gap-2">
                 <span

@@ -1,14 +1,26 @@
 # Build React SPA (BASE /app8/) and serve with nginx, no Node in production image.
 FROM node:22-bookworm-slim AS build
+# When FRONTEND_SKIP_NODE_BUILD=1, expect frontend/dist in the build context (sync from a dev machine
+# after `npm run build`) so armv7 / low-RAM hosts skip Vite inside Docker.
+ARG FRONTEND_SKIP_NODE_BUILD=0
+# Vite + Plotly can exceed Node's default old-space limit on armv7 / small RAM builders (OOM during transform).
+# Override at build time: docker compose build --build-arg NODE_MAX_OLD_SPACE=1536 frontend
+ARG NODE_MAX_OLD_SPACE=2048
+ENV NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE}"
 WORKDIR /src
 COPY frontend/package.json frontend/package-lock.json ./
 COPY frontend/ .
 # If the build context included a host copy of node_modules (e.g. Windows scp), it would land here
 # without Unix +x on .bin wrappers → "Permission denied" on tsc. Always reinstall on Linux.
-RUN rm -rf node_modules \
-    && npm install --include=dev --ignore-scripts
 ENV VITE_BASE_PATH=/app8
-RUN npx tsc -b && npx vite build
+RUN if [ "$FRONTEND_SKIP_NODE_BUILD" = "1" ]; then \
+      test -f dist/index.html || (echo "FRONTEND_SKIP_NODE_BUILD=1 but dist/index.html missing — sync frontend/dist from host after npm run build" && exit 1); \
+      echo "Using prebuilt frontend/dist (skip npm/vite in image)."; \
+    else \
+      rm -rf node_modules \
+      && npm install --include=dev --ignore-scripts \
+      && npx tsc -b && npx vite build; \
+    fi
 
 FROM nginx:1.27-alpine
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf

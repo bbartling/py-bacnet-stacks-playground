@@ -47,7 +47,85 @@ services:
       OAT_INTERVAL_SEC: ${OAT_INTERVAL_SEC:-300}
       OAT_SOURCE_DEVICE: ${OAT_SOURCE_DEVICE:-}
       OAT_SOURCE_OBJECT: ${OAT_SOURCE_OBJECT:-}
-      OAT_TARGET_WRITES: ${OAT_TARGET_WRITES:-[]}
+      OAT_TARGET_WRITES: "${OAT_TARGET_WRITES:-[]}"
+    logging: *flash_log
+    networks:
+      - bas_internal
+    depends_on:
+      diy-bacnet:
+        condition: service_healthy
+
+  # Optional: three RpcDockedEasyASO sidecars (profile agents) — OAT fan-out, GL36 VAV request accounting, GL36 SAT reset.
+  easy-aso-agent-oat:
+    build:
+      context: ./docker/easy_aso_agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles:
+      - agents
+    environment:
+      SUPERVISOR_BACNET_RPC_URL: ${SUPERVISOR_BACNET_RPC_URL:-http://diy-bacnet:8080}
+      SUPERVISOR_BACNET_RPC_ENTRYPOINT: ${SUPERVISOR_BACNET_RPC_ENTRYPOINT:-/api}
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      EASY_ASO_AGENT_MODULE: agents.oat_share_agent
+      EASY_ASO_AGENT_CLASS: OatShareAgent
+      EASY_ASO_STEP_SEC: ${EASY_ASO_OAT_STEP_SEC:-300}
+      OAT_SOURCE_DEVICE: ${OAT_SOURCE_DEVICE:-}
+      OAT_SOURCE_OBJECT: ${OAT_SOURCE_OBJECT:-}
+      OAT_TARGET_WRITES: "${OAT_TARGET_WRITES:-[]}"
+    labels:
+      bas-lite.easy-aso.agent: "rpc-docked"
+      bas-lite.easy-aso.role: "oat-share"
+    logging: *flash_log
+    networks:
+      - bas_internal
+    depends_on:
+      diy-bacnet:
+        condition: service_healthy
+
+  easy-aso-agent-gl36-vav:
+    build:
+      context: ./docker/easy_aso_agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles:
+      - agents
+    environment:
+      SUPERVISOR_BACNET_RPC_URL: ${SUPERVISOR_BACNET_RPC_URL:-http://diy-bacnet:8080}
+      SUPERVISOR_BACNET_RPC_ENTRYPOINT: ${SUPERVISOR_BACNET_RPC_ENTRYPOINT:-/api}
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      EASY_ASO_AGENT_MODULE: agents.gl36_vav_requests_agent
+      EASY_ASO_AGENT_CLASS: Gl36VavRequestsAgent
+      EASY_ASO_STEP_SEC: ${EASY_ASO_GL36_VAV_STEP_SEC:-60}
+      EASY_ASO_GL36_VAV_CONFIG: "${EASY_ASO_GL36_VAV_CONFIG:-}"
+    labels:
+      bas-lite.easy-aso.agent: "rpc-docked"
+      bas-lite.easy-aso.role: "gl36-vav-requests"
+    logging: *flash_log
+    networks:
+      - bas_internal
+    depends_on:
+      diy-bacnet:
+        condition: service_healthy
+
+  easy-aso-agent-gl36-ahu:
+    build:
+      context: ./docker/easy_aso_agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles:
+      - agents
+    environment:
+      SUPERVISOR_BACNET_RPC_URL: ${SUPERVISOR_BACNET_RPC_URL:-http://diy-bacnet:8080}
+      SUPERVISOR_BACNET_RPC_ENTRYPOINT: ${SUPERVISOR_BACNET_RPC_ENTRYPOINT:-/api}
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      EASY_ASO_AGENT_MODULE: agents.gl36_ahu_supply_reset_agent
+      EASY_ASO_AGENT_CLASS: Gl36AhuSupplyResetAgent
+      EASY_ASO_STEP_SEC: ${EASY_ASO_GL36_AHU_STEP_SEC:-120}
+      EASY_ASO_GL36_AHU_CONFIG: "${EASY_ASO_GL36_AHU_CONFIG:-}"
+    labels:
+      bas-lite.easy-aso.agent: "rpc-docked"
+      bas-lite.easy-aso.role: "gl36-ahu-sat-reset"
     logging: *flash_log
     networks:
       - bas_internal
@@ -86,6 +164,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+      args:
+        NODE_MAX_OLD_SPACE: ${FRONTEND_NODE_MAX_OLD_SPACE:-2048}
+        FRONTEND_SKIP_NODE_BUILD: ${FRONTEND_SKIP_NODE_BUILD:-0}
     restart: unless-stopped
     logging: *flash_log
     networks:

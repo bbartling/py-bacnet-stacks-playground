@@ -1151,13 +1151,23 @@ async def system_containers() -> dict:
         # Focus this compose project first.
         containers = client.containers.list(all=True, filters={"label": [f"com.docker.compose.project={COMPOSE_PROJECT_NAME}"]})
         for c in containers:
+            env_list = (c.attrs or {}).get("Config", {}).get("Env") or []
+            env_map: dict[str, str] = {}
+            for entry in env_list:
+                if "=" in entry:
+                    k, _, v = entry.partition("=")
+                    env_map[k] = v
+            lbl = c.labels or {}
             items.append(
                 {
                     "id": c.short_id,
                     "name": c.name,
                     "status": c.status,
                     "image": c.image.tags[0] if c.image.tags else "unknown",
-                    "service": c.labels.get("com.docker.compose.service", ""),
+                    "service": lbl.get("com.docker.compose.service", ""),
+                    "easyAsoAgentModule": env_map.get("EASY_ASO_AGENT_MODULE", ""),
+                    "easyAsoAgentClass": env_map.get("EASY_ASO_AGENT_CLASS", ""),
+                    "easyAsoRole": lbl.get("bas-lite.easy-aso.role", ""),
                 }
             )
         items.sort(key=lambda x: x["name"])

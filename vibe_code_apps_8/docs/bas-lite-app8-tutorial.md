@@ -23,4 +23,4 @@ Practical workflow:
 
 ## Project positioning
 
-BAS Lite is intentionally compact: **Docker Compose**, the **easy-aso** supervisor + FastAPI surfaces, **diy-bacnet** JSON-RPC, and the React operator UI. Driver JSON and SQLite state ship in the **`bas_lite_data`** volume; extend behavior with additional Compose services (for example the optional **`easy-aso-oat`** profile) rather than pulling in a separate platform runtime.
+BAS Lite is intentionally compact: **Docker Compose**, the **easy-aso** supervisor + FastAPI surfaces, **diy-bacnet** JSON-RPC, and the React operator UI. Driver JSON and SQLite state ship in the **`bas_lite_data`** volume; extend behavior with additional Compose services (for example the optional **`easy-aso-oat`** profile, or **`easy-aso-agent`** under the **`agents`** profile for JSON-RPC-docked **`EasyASO`** subclasses) rather than pulling in a separate platform runtime.

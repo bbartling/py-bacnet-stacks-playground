@@ -50,6 +50,7 @@ Optional config keys:
 
 - **Schedule UI** stores **`version` 2** JSON with `schedules[]`, weekly `mon`…`sun` windows, holiday overrides, equipment **`assignments`**, optional **`bacnetBindings`** (rows reference **supervisor `pointId`** values from your driver setup), and **`hostedScheduleName`** for diy-bacnet `server_update_schedule`. Use **Export JSON** / **AI-assisted import** on the Occupancy page for bulk edits.
 - **Outside-air share**: enable Compose profile **`oat`** (`easy-aso-oat` service). It reads one BACnet object and writes through **JSON-RPC** to targets listed in **`OAT_TARGET_WRITES`**, sharing the same **easy-aso** client stack as the API without a second BACnet UDP listener.
+- **EasyASO subclass sidecars**: enable Compose profile **`agents`** (`easy-aso-agent` and optional merge from **`docker-compose.easy-aso-agents.example.yml`**). Each container runs a **`RpcDockedEasyASO`** subclass with its own **`on_step`** loop; BACnet I/O is JSON-RPC to **diy-bacnet**, not a second **UDP 47808** bind (see **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**).
 
 ## 5. Deploy scripts from a Windows workstation
 

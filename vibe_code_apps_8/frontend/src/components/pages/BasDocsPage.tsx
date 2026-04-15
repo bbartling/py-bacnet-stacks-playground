@@ -51,7 +51,7 @@ const CHEAT = String.raw`BAS Lite deployment + platform-driver notes
    cd vibe_code_apps_8/frontend
    npm install
    npm run build
-   # then sync via .\sync-bas-lite-to-bosspi.ps1 and run bootstrap-bas-lite.sh on Pi
+   # then .\sync-bas-lite-to-bosspi.ps1 (full deploy by default) or -SyncOnly then bootstrap on Pi
 
 10) Compose rebuild on Pi
    docker compose build frontend --no-cache && docker compose up -d
