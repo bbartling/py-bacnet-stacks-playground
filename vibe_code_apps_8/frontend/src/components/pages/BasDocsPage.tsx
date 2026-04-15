@@ -1,48 +1,105 @@
 import { Card, CardContent } from "@/components/ui/card";
 
-const CHEAT = String.raw`BAS Lite — Docker + modular VOLTTRON (edge)
+const CHEAT = String.raw`BAS Lite deployment + platform-driver notes
 
-Assumptions: docker compose up on the Pi; Caddy on :80/:443; App 8 web agent exposed through VOLTTRON web.
+1) One-command bootstrap on Boss Pi
+   cd ~/bas-lite
+   ./scripts/bootstrap-bas-lite.sh
+   # does:
+   # - cp .env.example .env (if needed)
+   # - append bosspi.env once (LAN ports + BACNET_UDP_HOST_PORT=47809 fallback)
+   # - generate BACNET_RPC_API_KEY if placeholder
+   # - docker compose down && up -d
 
-1) Check platform + web agent
+2) Verify runtime health
    docker compose ps
-   docker compose logs -f volttron
-   curl -sS http://127.0.0.1:8080/app8/api/health
+   docker compose logs -f caddy api diy-bacnet
+   curl -sS http://127.0.0.1:18080/app8/api/health
 
-2) VOLTTRON agent/runtime status
-   docker compose exec volttron vctl status
-   docker compose exec volttron vctl auth list
+3) LAN UI path
+   http://PI_IP:18080/app8/
+   # if refused: check caddy container is Up and port bind in .env:
+   # CADDY_HTTP_PORTS=18080:80
 
-3) SPA JSON API
-   curl -sS http://PI_IP/app8/api/health
-   curl -sS http://PI_IP/app8/api/points
+4) BACnet JSON-RPC bearer key (diy-bacnet + easy-aso)
+   grep BACNET_RPC_API_KEY .env
+   # same key is used by both diy-bacnet service and api service
 
-4) Driver config files
-   curl -sS http://PI_IP/app8/api/driver/configs
-   docker compose exec volttron vctl config list platform.driver
+5) BACnet driver / point config storage
+   docker compose exec api ls -la /data/driver_configs
+   # JSON and CSV driver config files
 
-5) Schedule store
-   curl -sS http://PI_IP/app8/api/schedule
+6) Discovery export/import for AI-assisted modeling
+   # export current discovered devices + points:
+   curl -sS http://127.0.0.1:18080/app8/api/discovery/export | jq .
+   # import edited JSON from LLM/OpenClaw workflow:
+   curl -sS -X POST http://127.0.0.1:18080/app8/api/discovery/import \
+     -H "Content-Type: application/json" \
+     --data @edited_discovery.json
 
-6) Rebuild UI after React edits
-   ./rebuild-bas-lite.sh --rebuild-frontend
+7) Alarms + trends + SD-card discipline
+   # alarm definitions are JSON:
+   curl -sS http://127.0.0.1:18080/app8/api/alarms/definitions
+   # trends are ring-buffered in memory and sampled at BAS_LITE_TREND_SAMPLE_SEC.
+   # long retention should be centralized off-Pi when possible.
 
-7) Optional auth / TLS
-   See docs/bas-lite-app8-tutorial.md and docker/caddy/Caddyfile
+8) SQLite + schedule
+   docker compose exec api ls -la /data
+   # supervisor.sqlite + schedule.json live here
 
-8) BACnet networking fallback
-   For broadcast/routing issues on Linux:
-   docker compose -f docker-compose.yml -f docker-compose.hostnet.yml up -d
+9) Rebuild UI/API after edits (on PC first)
+   cd vibe_code_apps_8/frontend
+   npm install
+   npm run build
+   # then sync via .\sync-bas-lite-to-bosspi.ps1 and run bootstrap-bas-lite.sh on Pi
+
+10) Compose rebuild on Pi
+   docker compose build frontend --no-cache && docker compose up -d
+
+11) Optional auth / TLS
+   See docs/BOSS_PI_BAS_LITE_DOCKER.md and docker/caddy/Caddyfile.with-auth
+
+Roadmap notes:
+- BACnet + Modbus point trees should converge to one editable hierarchy in Live points.
+- AI-assisted workflow: discovery export -> LLM edits polling/trending/alarm flags -> import -> operator review.
+- Keep Faults and Alarms as separate tabs: Faults for diagnostics/rules, Alarms for actionable events.
 `;
 
 export function BasDocsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">BACnet &amp; driver cheat sheet</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Deployment &amp; platform notes</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Docker + modular VOLTTRON operator notes. App 8 web agent API lives under{" "}
-          <code className="rounded bg-muted px-1">/app8/api/*</code>.
+          Docker + easy-aso operator notes, inspired by Open-FDD style bootstrap and docs workflows. Authoritative
+          easy-aso docs:{" "}
+          <a
+            className="text-primary underline"
+            href="https://bbartling.github.io/easy-aso/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            bbartling.github.io/easy-aso
+          </a>{" "}
+          · Open-FDD references:{" "}
+          <a
+            className="text-primary underline"
+            href="https://github.com/bbartling/open-fdd-afdd-stack/tree/main/docs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            docs
+          </a>{" "}
+          and{" "}
+          <a
+            className="text-primary underline"
+            href="https://github.com/bbartling/open-fdd-afdd-stack/tree/main/frontend"
+            target="_blank"
+            rel="noreferrer"
+          >
+            frontend
+          </a>
+          .
         </p>
       </div>
       <Card>

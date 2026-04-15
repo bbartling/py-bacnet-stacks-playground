@@ -108,7 +108,7 @@ Always classify first, then process. Never use the thinking model for a task tha
 | **5**         | **Device discovery tools:** Who-Is / I-Am scanning, device enumeration (BAC0 + bacpypes3)                                                           | **Week 5** |
 | **6**         | **COV monitoring apps:** subscribe to Change-of-Value, stream live updates from devices                                                             | **Week 6** |
 | **7**         | **Open Claw + VOLTTRON bootstrap:** auto-provision VOLTTRON on edge (e.g., Raspberry Pi), build a simple BAS/BMS-style GUI (lightweight “vibe app”) | **Week 7** |
-| **8** *(current)* | **BAS Lite (Vibe App 8):** newest stack in **`vibe_code_apps_8`** — React/TypeScript UI built into the VOLTTRON web agent, Platform Driver–aligned APIs, optional Caddy on :80, site-model JSON for any building/LAN topology (`docs/replicate-any-building-lan-topology.md`). Evolves Week 7 into a production-style edge dashboard. | **Week 8** |
+| **8** *(current)* | **BAS Lite (Vibe App 8):** **`vibe_code_apps_8`** — React/TypeScript UI + **easy-aso** Docker stack (**`bas_lite_api`**, **diy-bacnet-server**, nginx static `/app8/`, Caddy). Operator runbook: `vibe_code_apps_8/docs/BOSS_PI_BAS_LITE_DOCKER.md`. A shelved **modular VOLTTRON** attempt lives in **`vibe_code_apps_8/archived/modular-volttron-bas-lite/`**. Site / LAN notes: `vibe_code_apps_8/docs/replicate-any-building-lan-topology.md`. | **Week 8** |
 | **9** | **VOLTTRON Central + Timescale + Forward (ZMQ):** **`vibe_code_apps_9`** — fresh **Ubuntu** central with **SQLHistorian** ([Timescale](https://volttron.readthedocs.io/en/main/volttron-api/services/SQLHistorian/README.html)), **VolttronCentralPlatform** + **VolttronCentral** ([VC stack](https://volttron.readthedocs.io/en/main/volttron-api/services/VolttronCentral/modules.html)), **boss Pi** with **ForwardHistorian** ([multi-platform ZMQ](https://volttron.readthedocs.io/en/main/deploying-volttron/multi-platform/forward-historian-deployment.html)); Docker TimescaleDB. Tutorial: `vibe_code_apps_9/docs/volttron-central-forward-timescale-tutorial.md`. | **Week 9** |
 | **10**        |                                                                                                                                                     |            |
 | **11**        |                                                                                                                                                     |            |
@@ -120,12 +120,12 @@ Always classify first, then process. Never use the thinking model for a task tha
 
 ### Notes / Direction
 
-* **Checkpoint 8** is the live edge dashboard: **`vibe_code_apps_8`**, tutorial `vibe_code_apps_8/docs/bas-lite-app8-tutorial.md`.
+* **Checkpoint 8** is the live edge dashboard: **`vibe_code_apps_8`** (easy-aso Docker stack); tutorial `vibe_code_apps_8/docs/bas-lite-app8-tutorial.md`, runbook `vibe_code_apps_8/docs/BOSS_PI_BAS_LITE_DOCKER.md`.
 * **Checkpoint 9** is multi-platform centralization: **`vibe_code_apps_9`**, tutorial `vibe_code_apps_9/docs/volttron-central-forward-timescale-tutorial.md`.
 * Checkpoints **10–12** are intentionally open for future vibe apps.
 * Week 7–8 is where things get **really interesting** → agentic workflows + real BAS-style UI
 * Open Claw becomes your **automation layer** (bootstrapping, testing, orchestration)
-* React + Caddy introduces **real-world web architecture patterns**
+* React + optional **Docker Caddy** introduces **real-world web ingress patterns**
 * **Checkpoint 13** ([rusty-bacnet](https://github.com/jscott3201/rusty-bacnet)) + **checkpoint 14** (Wireshark) = **next-level protocol + performance understanding**
 
 

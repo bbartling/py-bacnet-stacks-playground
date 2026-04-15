@@ -8,6 +8,7 @@ import { BasDriverConfigPage } from "@/components/pages/BasDriverConfigPage";
 import { BasSystemPage } from "@/components/pages/BasSystemPage";
 import { BasTrendsPage } from "@/components/pages/BasTrendsPage";
 import { BasFaultsPage } from "@/components/pages/BasFaultsPage";
+import { BasAlarmsPage } from "@/components/pages/BasAlarmsPage";
 import { BasSchedulePage } from "@/components/pages/BasSchedulePage";
 import { BasDocsPage } from "@/components/pages/BasDocsPage";
 
@@ -36,6 +37,7 @@ function App() {
               <Route path="system" element={<BasSystemPage />} />
               <Route path="trends" element={<BasTrendsPage />} />
               <Route path="faults" element={<BasFaultsPage />} />
+              <Route path="alarms" element={<BasAlarmsPage />} />
               <Route path="schedule" element={<BasSchedulePage />} />
               <Route path="docs" element={<BasDocsPage />} />
             </Route>

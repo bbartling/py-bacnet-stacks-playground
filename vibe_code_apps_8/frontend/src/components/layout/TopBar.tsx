@@ -1,9 +1,17 @@
 import { Sun, Moon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/contexts/theme-context";
 import { TutorialPopover } from "@/components/ui/tutorial-popover";
+import { apiFetch } from "@/lib/bas-fetch";
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();
+  const hostTime = useQuery({
+    queryKey: ["bas-system-time"],
+    queryFn: () => apiFetch<{ weekday: string; localDate: string; localTime: string }>("api/system/time"),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+  });
   const isDark =
     theme === "dark" ||
     (theme === "system" && typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
@@ -11,16 +19,19 @@ export function TopBar() {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-card/80 px-6 backdrop-blur-lg">
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-foreground">BMS / BAS Lite operator UI</p>
+        <p className="truncate text-sm font-medium text-foreground">BAS Lite: Open, Free, and Built for Makers</p>
         <p className="truncate text-xs text-muted-foreground">
-          Served by Docker (Caddy + VOLTTRON web agent) on this edge host
+          Discover fast, automate freely, and keep your building data in your hands
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">
+          {hostTime.data ? `${hostTime.data.weekday} ${hostTime.data.localDate} ${hostTime.data.localTime}` : "Host time…"}
+        </span>
         <TutorialPopover
           title="About this build"
-          meaning="React + TypeScript SPA behind Caddy. APIs are served by the App 8 VOLTTRON web agent under /app8/api/*."
-          status="API is VOLTTRON-native under /app8/api/* for this SPA."
+          meaning="React + TypeScript SPA behind Caddy. Legacy JSON under /app8/api/*; easy-aso REST under /api/v1/*."
+          status="API is easy-aso (FastAPI). Legacy JSON stays under /app8/api/* for this SPA."
           side="bottom"
         >
           <span className="cursor-help text-xs text-muted-foreground">Help</span>

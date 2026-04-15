@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/bas-fetch";
+import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type PointRow = {
   id: string;
@@ -25,13 +26,14 @@ type PointRow = {
 };
 
 export function BasLivePointsPage() {
+  useBasWebSocket();
   const qc = useQueryClient();
   const [edit, setEdit] = useState<{ pointId: string; value: string } | null>(null);
 
   const points = useQuery({
     queryKey: ["bas-points"],
     queryFn: () => apiFetch<{ items: PointRow[] }>("api/points"),
-    refetchInterval: 5000,
+    staleTime: 15_000,
   });
 
   const write = useMutation({
@@ -64,7 +66,8 @@ export function BasLivePointsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Live points</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Live values from VOLTTRON Platform Driver publishes. Writable setpoints call platform.driver RPC via the BAS Lite web agent.
+          Live values from the easy-aso supervisor. Writable setpoints use BACnet JSON-RPC through
+          the BAS Lite API.
         </p>
       </div>
 

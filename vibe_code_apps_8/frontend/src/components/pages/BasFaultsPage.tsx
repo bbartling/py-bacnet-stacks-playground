@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/bas-fetch";
+import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Event = {
   id: string;
@@ -22,10 +23,11 @@ type Event = {
 };
 
 export function BasFaultsPage() {
+  useBasWebSocket();
   const events = useQuery({
     queryKey: ["bas-alarm-events"],
     queryFn: () => apiFetch<{ items: Event[] }>("api/alarms/events"),
-    refetchInterval: 5000,
+    staleTime: 15_000,
   });
 
   if (events.isLoading) return <Skeleton className="h-64 w-full rounded-xl" />;
@@ -33,9 +35,9 @@ export function BasFaultsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Faults &amp; alarms</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Faults</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Derived alarm state from live BACnet values (bench logic mirrors App 7).
+          Fault analytics view for rule outcomes and diagnostics. Active alarm workflow is on the Alarms tab.
         </p>
       </div>
       <Card>

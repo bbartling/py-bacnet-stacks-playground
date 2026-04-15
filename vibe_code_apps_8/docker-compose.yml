@@ -1,55 +1,102 @@
+# BAS Lite — Docker + easy-aso (container-first runtime).
+# See docs/BOSS_PI_BAS_LITE_DOCKER.md
+
 name: bas-lite
 
 services:
-  volttron:
+  diy-bacnet:
     build:
-      context: .
+      context: ./docker/diy-bacnet
       dockerfile: Dockerfile
-    image: bas-lite-volttron:local
     restart: unless-stopped
-    hostname: bas-lite-volttron
     environment:
-      VOLTTRON_HOME: ${VOLTTRON_HOME:-/home/volttron/datavolume/volttron_home}
-      APP8_CONFIG_PATH: /workspace/volttron_data/ben_bacnet/app8_web_agent/config
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
     ports:
-      - "127.0.0.1:${APP8_HTTP_HOST_PORT:-18080}:8080"
-      - "${APP8_ZMQ_HOST_PORT:-22916}:22916"
-    volumes:
-      - volttron_datavolume:/home/volttron/datavolume
-      - ./volttron_data:/workspace/volttron_data
-      - ./docker/volttron/start-volttron.sh:/workspace/start-volttron.sh:ro
+      # BACnet/IP — only one process per host can bind UDP 47808. If compose fails, free the port or set BACNET_UDP_HOST_PORT in .env (see .env.example).
+      - "${BACNET_UDP_HOST_PORT:-47808}:47808/udp"
+      # JSON-RPC + docs on the host (default 28090 avoids clashing with other stacks on 8080).
+      # LAN: set DIY_BACNET_PORTS=28090:8080 (two-part form = all interfaces). Avoid 0.0.0.0 in .env on Windows CRLF.
+      - "${DIY_BACNET_PORTS:-127.0.0.1:${DIY_BACNET_HOST_PORT:-28090}:8080}"
     logging: &flash_log
       driver: local
       options:
         max-size: "8m"
         max-file: "3"
-    entrypoint: ["/bin/bash", "/workspace/start-volttron.sh"]
+    networks:
+      - bas_internal
+    # Root GET returns 200 without Bearer (current diy-bacnet layout); avoids /openapi.json 404 vs 401 confusion.
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/app8/api/health"]
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 60s
+
+  api:
+    build:
+      context: ./docker/bas_lite_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SUPERVISOR_DB_PATH: /data/supervisor.sqlite
+      SUPERVISOR_BACNET_RPC_URL: ${SUPERVISOR_BACNET_RPC_URL:-http://diy-bacnet:8080}
+      SUPERVISOR_BACNET_RPC_ENTRYPOINT: ${SUPERVISOR_BACNET_RPC_ENTRYPOINT:-/api}
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      BAS_LITE_SITE_NAME: ${BAS_LITE_SITE_NAME:-Boss Pi BAS Lite}
+      BAS_LITE_DRIVER_CONFIG_DIR: /data/driver_configs
+      BAS_LITE_GATEWAY_TOKEN: ${BAS_LITE_GATEWAY_TOKEN:-}
+    volumes:
+      - bas_lite_data:/data
+      # Optional host Docker introspection for System page (container status/log tails).
+      # Safe read-only mount; if unavailable, API returns "dockerUnavailable" for those endpoints.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging: *flash_log
+    networks:
+      - bas_internal
+    depends_on:
+      diy-bacnet:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    restart: unless-stopped
+    logging: *flash_log
+    networks:
+      - bas_internal
 
   caddy:
-    profiles: ["caddy"]
     image: caddy:2.8-alpine
     restart: unless-stopped
-    depends_on:
-      - volttron
     ports:
-      - "127.0.0.1:${CADDY_HTTP_PORT:-18088}:80"
-      - "127.0.0.1:${CADDY_HTTPS_PORT:-18443}:443"
+      # Defaults avoid privileged host :80/:443; set CADDY_HTTP_HOST_PORT / CADDY_HTTPS_HOST_PORT in .env to change.
+      # LAN from your laptop: set CADDY_HTTP_PORTS=18080:80 (and CADDY_HTTPS_PORTS=18443:443) — two-part = all interfaces, no 0.0.0.0.
+      - "${CADDY_HTTP_PORTS:-127.0.0.1:${CADDY_HTTP_HOST_PORT:-18080}:80}"
+      - "${CADDY_HTTPS_PORTS:-127.0.0.1:${CADDY_HTTPS_HOST_PORT:-18443}:443}"
     environment:
+      BAS_LITE_GATEWAY_TOKEN: ${BAS_LITE_GATEWAY_TOKEN:-}
       BAS_AUTH_USER: ${BAS_AUTH_USER:-}
       BAS_AUTH_HASH: ${BAS_AUTH_HASH:-}
     volumes:
+      # Default HTTP-only lab Caddyfile; use docker/caddy/Caddyfile for TLS + Basic Auth (see .env.example).
       - ${CADDYFILE:-./docker/caddy/Caddyfile.local-dev}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     logging: *flash_log
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - bas_internal
 
 volumes:
-  volttron_datavolume:
+  bas_lite_data:
   caddy_data:
   caddy_config:
+
+networks:
+  bas_internal:
+    driver: bridge

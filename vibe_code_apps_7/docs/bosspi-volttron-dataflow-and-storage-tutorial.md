@@ -308,7 +308,7 @@ vctl status
 
 ### Optional: port 80 “front door” with Caddy
 
-If you want **`http://<pi>/`** to land on the web agent (instead of VOLTTRON’s default **`/index.html`** on **8080**), use the **Caddy** pack in **`vibe_code_apps_8/caddy/`**: reverse proxy to **`127.0.0.1:8080`**, redirect `/` → **`/app7/index.html`** or **`/app8/index.html`**, optional **Basic Auth** and **TLS**, driven by **`/etc/default/caddy-bas-lite`**. See **`vibe_code_apps_8/docs/bas-lite-app8-tutorial.md`** §7 and **`vibe_code_apps_8/caddy/README.md`**.
+If you want a **reverse proxy** in front of the web agent (instead of hitting VOLTTRON’s listener directly), use **App 8’s Docker Caddy** profile: **`vibe_code_apps_8/docker/caddy/`** Caddyfiles, **`docker compose --profile caddy`**, and **`.env.example`** (`BAS_AUTH_*`, published ports). Upstream remains the VOLTTRON HTTP bind (container **8080**, host port **`APP8_HTTP_HOST_PORT`**). See **`vibe_code_apps_8/docs/bas-lite-app8-tutorial.md`**.
 
 ---
 

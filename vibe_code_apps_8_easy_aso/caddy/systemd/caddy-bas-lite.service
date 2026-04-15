@@ -1,0 +1,29 @@
+[Unit]
+Description=Caddy reverse proxy for BAS Lite (VOLTTRON web UI)
+Documentation=https://caddyserver.com/docs/
+After=network-online.target
+Wants=network-online.target
+After=volttron.service
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+EnvironmentFile=-/etc/default/caddy-bas-lite
+ExecStartPre=/usr/local/bin/bas-lite-render-caddyfile.sh
+ExecStart=/usr/bin/caddy run --config /etc/caddy/bas-lite.caddy --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/bas-lite.caddy --adapter caddyfile --force
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=8s
+LimitNOFILE=1048576
+
+# Bind to :80 / :443 as non-root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

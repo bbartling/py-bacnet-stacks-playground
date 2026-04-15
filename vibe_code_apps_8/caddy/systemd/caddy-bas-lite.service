@@ -1,9 +1,8 @@
 [Unit]
-Description=Caddy reverse proxy for BAS Lite (VOLTTRON web UI)
+Description=Caddy reverse proxy for BAS Lite web UI
 Documentation=https://caddyserver.com/docs/
 After=network-online.target
 Wants=network-online.target
-After=volttron.service
 
 [Service]
 Type=notify

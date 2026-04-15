@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   CircleDot,
   AlertTriangle,
+  Siren,
   LineChart,
   Cpu,
   BookOpen,
@@ -19,9 +20,10 @@ const NAV_ITEMS = [
   { to: "/driver", label: "Driver configs", icon: Database, end: false },
   { to: "/trends", label: "Trends", icon: LineChart, end: false },
   { to: "/faults", label: "Faults", icon: AlertTriangle, end: false },
+  { to: "/alarms", label: "Alarms", icon: Siren, end: false },
   { to: "/schedule", label: "Occupancy", icon: CalendarClock, end: false },
   { to: "/system", label: "System", icon: Cpu, end: false },
-  { to: "/docs", label: "BACnet notes", icon: BookOpen, end: false },
+  { to: "/docs", label: "Deployment notes", icon: BookOpen, end: false },
 ] as const;
 
 const THEME_OPTIONS = [

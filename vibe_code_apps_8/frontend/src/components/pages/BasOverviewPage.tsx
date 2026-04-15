@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/bas-fetch";
 import { Link } from "react-router-dom";
+import { useBasWebSocket } from "@/hooks/use-bas-websocket";
 
 type Health = {
   status: string;
@@ -21,6 +22,7 @@ type Device = {
 };
 
 export function BasOverviewPage() {
+  useBasWebSocket();
   const health = useQuery({
     queryKey: ["bas-health"],
     queryFn: () => apiFetch<Health>("api/health"),
@@ -28,7 +30,12 @@ export function BasOverviewPage() {
   const devices = useQuery({
     queryKey: ["bas-devices"],
     queryFn: () => apiFetch<{ items: Device[] }>("api/devices"),
-    refetchInterval: 10_000,
+    staleTime: 15_000,
+  });
+  const points = useQuery({
+    queryKey: ["bas-points"],
+    queryFn: () => apiFetch<{ items: { deviceId: string; label: string; value: unknown; units: string }[] }>("api/points"),
+    staleTime: 15_000,
   });
 
   if (health.isLoading) return <Skeleton className="h-40 w-full rounded-xl" />;
@@ -38,7 +45,8 @@ export function BasOverviewPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          BAS / BMS Lite on modular VOLTTRON — web agent APIs, operator dashboard, driver config tools, and weekly occupancy schedules.
+          BAS / BMS Lite on Docker + easy-aso — asyncio supervisor, operator dashboard, driver file
+          store, and weekly occupancy schedules.
         </p>
       </div>
 
@@ -100,6 +108,29 @@ export function BasOverviewPage() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Points by equipment</p>
+          <div className="mt-3 space-y-3">
+            {(devices.data?.items ?? []).map((d) => {
+              const rows = (points.data?.items ?? []).filter((p) => p.deviceId === d.id).slice(0, 5);
+              return (
+                <div key={d.id} className="rounded-md border border-border/60 p-3">
+                  <p className="text-sm font-medium">{d.displayName}</p>
+                  <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                    {rows.map((p, idx) => (
+                      <li key={`${d.id}-${idx}`}>
+                        {p.label}: {String(p.value ?? "—")} {p.units}
+                      </li>
+                    ))}
+                    {rows.length === 0 ? <li>No points available.</li> : null}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,47 +1,46 @@
-# Vibe Code App 8 — BAS Lite (**Docker + modular VOLTTRON**)
+# Vibe Code App 8 — BAS Lite (**easy-aso stack**, API **v1.5.0**)
 
-**Operator UI:** TypeScript **React** SPA (**BAS / BMS Lite**) with live points, trends, driver config tools, occupancy schedule, and system metrics.
+This directory is the **active** App 8 operator stack: **React** UI + **`bas_lite_api`** (Python package **v1.5.0**, which pins **`easy-aso[platform]==0.1.5`** from **PyPI**) + **diy-bacnet-server** (BACnet / JSON-RPC) behind **Docker Caddy** + **nginx** for static `/app8/`.
 
-**Backend:** **VOLTTRON web agent** (`app8_web_agent`) serves static assets and `/app8/api/*`, with live data from `platform.driver` topic publishes and RPC writes.
-
-**Edge:** **Caddy** on port **80/443** for TLS + Basic Auth in front of the VOLTTRON web endpoint.
-
-This stack runs in Docker but keeps VOLTTRON-native patterns for agents, auth, config-store, and future forwarding to App 9 central.
+Design inspiration comes from VOLTTRON platform-driver patterns and Open-FDD frontend/operator workflows, now oriented toward AI-assisted deployment/modeling and human-in-the-loop edits.
 
 ---
 
-## Quick start (Raspberry Pi or any Docker host)
+## Quick start (Windows / any Docker host)
 
-1. Install **Docker Engine** + **Compose**.
-2. Configure `.env` values (Caddy credentials + VOLTTRON branch/ref if needed).
+1. Install **Docker Engine** + **Compose** (with build + network access for image builds that clone `diy-bacnet-server`).
+2. Copy **`.env.example`** → **`.env`** and set secrets (`BACNET_RPC_API_KEY`, `BAS_LITE_GATEWAY_TOKEN` when using the TLS Caddyfile).
 3. From this directory:
 
-   ```bash
-   ./rebuild-bas-lite.sh --rebuild-frontend
+   ```powershell
+   .\run-bas-lite.ps1
    ```
 
-4. Browse to **`http://<host-ip>/`** (redirects to **`/app8/`**).
+4. Open the UI (defaults bind **loopback** — see `.env.example`):
+
+   - **`http://127.0.0.1:18080/app8/`** (Caddy → nginx frontend; HTTP lab Caddyfile by default)
+   - diy-bacnet JSON-RPC on the host: **`http://127.0.0.1:28090/`** (only if you need it directly)
+
+Full operator notes: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**.
+
+**Boss Pi (copy from your PC):** run **`.\sync-bas-lite-to-bosspi.ps1`**, then on the Pi **`cd ~/bas-lite && ./scripts/bootstrap-bas-lite.sh`**. That script merges **`.env`** from **`.env.example`** + **`bosspi.env`**, generates **`BACNET_RPC_API_KEY`** when it is still the placeholder (same pattern as Open-FDD’s BACnet RPC key), strips CRLF, and runs **`docker compose up -d`**. Use **`--env-only`** to patch **`.env`** without starting Docker.
 
 ---
 
-## Repo layout
+## Layout
 
 | Path | Purpose |
 |------|---------|
-| `docker-compose.yml` | **Caddy** + **VOLTTRON runtime** |
-| `Dockerfile` | VOLTTRON runtime image build (branch/ref configurable) |
-| `docker/volttron/start-volttron.sh` | Idempotent platform + agent bootstrap |
-| `docker/caddy/Caddyfile` | Reverse proxy routes |
-| `frontend/` | React app; build output synced into `app8_web_agent/webroot` |
-| `volttron_data/ben_bacnet/app8_web_agent/` | App 8 VOLTTRON web agent package + config |
-| `volttron_data/ben_bacnet/oat_share_agent/` | Optional OAT share supervisory agent |
-| `volttron_data/forward_historian/config` | Optional App 9-forwarding hook config |
-
----
-
-## Branding
-
-Operator chrome stays **BAS Lite** / **BMS Lite** — not Open-FDD product styling.
+| `docker-compose.yml` | **diy-bacnet**, **api** (`bas_lite_api`), **frontend** (nginx), **caddy** |
+| `bosspi.env` | LAN + non-default BACnet UDP host port — append to `.env` on Raspberry Pi (see sync script) |
+| `sync-bas-lite-to-bosspi.ps1` | **PowerShell:** push key compose/Docker/env files to `ben@192.168.204.12:~/bas-lite/` |
+| `scripts/bootstrap-bas-lite.sh` | **Pi / Linux:** merge **`.env`**, auto **BACNET_RPC_API_KEY**, optional **`docker compose up -d`** |
+| `docker/diy-bacnet/` | Image build: clones `bbartling/diy-bacnet-server` at build time |
+| `docker/bas_lite_api/` | FastAPI supervisor / driver config / gateway |
+| `docker/Dockerfile.frontend` | Multi-stage: Vite build `VITE_BASE_PATH=/app8` → nginx |
+| `docker/caddy/` | `Caddyfile` (TLS + auth) and `Caddyfile.local-dev` (HTTP lab) |
+| `frontend/` | React source |
+| `../vibe_code_apps_8_easy_aso/` | Original easy-aso copy (see **`MOVED_HERE.md`** there); prefer this root |
 
 ---
 
