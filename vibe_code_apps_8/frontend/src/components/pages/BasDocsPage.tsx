@@ -2,8 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const CHEAT = String.raw`BAS Lite deployment + platform-driver notes
 
-1) One-command bootstrap on Boss Pi
-   cd ~/bas-lite
+1) One-command bootstrap (Pi or Linux host — from this app root after git clone)
+   cd /path/to/py-bacnet-stacks-playground/vibe_code_apps_8
    ./scripts/bootstrap-bas-lite.sh
    # does:
    # - cp .env.example .env (if needed)
@@ -47,13 +47,12 @@ const CHEAT = String.raw`BAS Lite deployment + platform-driver notes
    docker compose exec api ls -la /data
    # supervisor.sqlite + schedule.json live here
 
-9) Rebuild UI/API after edits (on PC first)
-   cd vibe_code_apps_8/frontend
-   npm install
-   npm run build
-   # then .\sync-bas-lite-to-bosspi.ps1 (full deploy by default) or -SyncOnly then bootstrap on Pi
+9) Rebuild UI after edits (commit + pull on the host, or build locally)
+   cd frontend && npm install && VITE_BASE_PATH=/app8 npm run build
+   # set FRONTEND_SKIP_NODE_BUILD=1 in .env to bake dist into the nginx image, then:
+   docker compose build frontend && docker compose up -d
 
-10) Compose rebuild on Pi
+10) Compose rebuild on the host
    docker compose build frontend --no-cache && docker compose up -d
 
 11) Optional auth / TLS

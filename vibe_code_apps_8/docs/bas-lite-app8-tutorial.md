@@ -3,13 +3,13 @@
 This App 8 stack runs as a **Docker Compose** deployment with:
 
 - **`caddy`** — edge proxy (TLS + auth optional)
-- **`frontend`** — static SPA under **`/app8/`** (nginx; build on PC by default for Pi deploys — see **`deploy-app8-to-bosspi.ps1`**)
+- **`frontend`** — static SPA under **`/app8/`** (nginx; build with **`VITE_BASE_PATH=/app8`** before **`docker compose build frontend`** when using prebuilt **`frontend/dist`** — see **`docker/Dockerfile.frontend`** and **`.env.example`** **`FRONTEND_SKIP_NODE_BUILD`**)
 - **`api`** — **`bas_lite_api`** + **easy-aso** supervisor (**PyPI `easy-aso[platform]==0.1.7`**), legacy **`/app8/api/*`** and **`/api/v1/*`**
 - **`diy-bacnet`** — BACnet **UDP 47808** + JSON-RPC gateway (single field stack owner)
 - **Optional profile `oat`** — **`easy-aso-oat`** lightweight OAT copy loop
 - **Optional profile `agents`** — three **`RpcDockedEasyASO`** sidecars (**OAT share**, **GL36 VAV requests**, **GL36 AHU SAT reset**) via **`easy-aso-agent run`**
 
-If you are setting up a new host, use **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** as the primary operator runbook (includes Windows **`sync-bas-lite-to-bosspi.ps1`** / Pi **`bootstrap-bas-lite.sh`**).
+If you are setting up a new host, use **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** as the primary operator runbook (Git clone on the Pi + **`scripts/bootstrap-bas-lite.sh`**).
 
 ## BACnet discovery in this stack
 

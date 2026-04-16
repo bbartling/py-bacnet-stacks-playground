@@ -83,57 +83,45 @@ If you run diy-bacnet **elsewhere** instead, remove or disable the **`diy-bacnet
 
 ---
 
-## 3. Copy this folder to the Pi
+## 3. Get the stack on the Pi (Git clone)
 
-From your laptop (example):
+On the Raspberry Pi (SSH session), clone the monorepo and work inside **`vibe_code_apps_8`** (this folder must contain **`docker-compose.yml`**):
 
 ```bash
-scp -r vibe_code_apps_8 ben@192.168.204.12:~/bas-lite
-ssh ben@192.168.204.12
-cd ~/bas-lite
+git clone https://github.com/bbartling/py-bacnet-stacks-playground.git
+cd py-bacnet-stacks-playground/vibe_code_apps_8
 ```
 
-### 3.1 Windows / PowerShell (read this if you use Windows)
+Use your fork URL if you develop on a fork. Pull updates with **`git pull`** (or **`./scripts/bootstrap-bas-lite.sh --git-update`** before compose).
 
-- **`scp` copies from the machine where the command runs.** Run **`scp` on your Windows PC**, not inside `ssh` on the Pi. On the Pi there is no `C:\Users\...` path and no `$env:USERPROFILE`.
-- **Do not** `scp` from the Pi to `192.168.204.11` unless your PC runs an **SSH server** and the firewall allows it; that path usually **times out** or **connection refused**.
-- **PowerShell is not bash:** `cp -n` does not exist. Use: `if (-not (Test-Path .env)) { Copy-Item .env.example .env }`. The Pi’s home folder is **`~/bas-lite` on Linux**, not `C:\Users\ben\bas-lite`.
+### 3.1 Windows developers (local Docker only)
 
-**Update only `docker-compose.yml` + `.env.example` from your repo clone** (in PowerShell, from the `vibe_code_apps_8` directory):
+Use **`scripts/run-bas-lite.ps1`** on your PC for **Docker Desktop** — it does not deploy to the Pi. For the Pi, SSH in and use **§4** / **`bootstrap-bas-lite.sh`**.
 
-```powershell
-cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
-.\sync-bas-lite-to-bosspi.ps1
-```
-
-By default this runs a **full deploy**: local `npm run build`, copies `frontend/dist` (Pi Docker skips Vite), enables **SD-friendly** bootstrap on the Pi, and runs **`docker compose`**. Use **`-SyncOnly`** if you only want files and will run **`bootstrap-bas-lite.sh`** yourself.
-
-Or manually:
-
-```powershell
-cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
-scp .\docker-compose.yml ben@192.168.204.12:~/bas-lite/
-scp .\docker-compose.easy-aso-agents.example.yml ben@192.168.204.12:~/bas-lite/
-scp .\.env.example ben@192.168.204.12:~/bas-lite/
-```
-
-Then SSH to the Pi and edit **`~/bas-lite/.env`** (see **§4.0** for **`CADDY_HTTP_PORTS`** LAN lines).
-
-### 3.2 Scripts quick reference (Windows vs Pi)
+### 3.2 Scripts quick reference
 
 | Script | Where it runs | Purpose |
 |--------|---------------|---------|
-| **`sync-bas-lite-to-bosspi.ps1`** | Windows | **Default:** full deploy — `npm run build`, `scp` stack + **`frontend/dist`**, Pi **`.env`** gets **`FRONTEND_SKIP_NODE_BUILD=1`**, SSH **`bootstrap-bas-lite.sh --sd-friendly`**, then **`docker compose`**. **`-SyncOnly`:** copy files only. **`-SdFriendly:$false`** / **`-PrebuiltFrontend:$false`** to opt out. |
-| **`deploy-app8-to-bosspi.ps1`** | Windows | Same behavior and defaults as sync (or use **`-GitDeploy`** for clone-on-Pi path; prebuilt UI is skipped there). |
-| **`run-bas-lite.ps1`** | Windows | **Local Docker Desktop only:** `compose build` / `up`, optional **`-FollowLogs`**. Does not touch the Pi. |
-| **`scripts/bootstrap-bas-lite.sh`** | Pi (or via SSH from deploy) | Merge **`.env`**, optional **`--sd-friendly`**, **`--env-only`**, **`--git-update`**, **`--refresh-diy-bacnet`**, **`--diy-bacnet-tests`**. Default compose path: **`down` → `build` → `up -d`**. Run **`./scripts/bootstrap-bas-lite.sh --help`** for the full flag list. |
+| **`scripts/run-bas-lite.ps1`** | Windows | **Local Docker Desktop:** `compose build` / `up`, optional **`-ProductionFrontend`**, **`-FollowLogs`**. |
+| **`scripts/test-bas-lite-http.ps1`** | Windows | Optional HTTP smoke tests against **`http://127.0.0.1:18080`** or **`-BaseUrl`**. |
+| **`scripts/bootstrap-bas-lite.sh`** | Pi / Linux | Merge **`.env`**, optional **`--sd-friendly`**, **`--env-only`**, **`--git-update`**, **`--refresh-diy-bacnet`**, **`--diy-bacnet-tests`**. Default: **`docker compose down` → `build` → `up -d`**. **`./scripts/bootstrap-bas-lite.sh --help`** for the full flag list. |
 
 ---
 
 ## 4. Build and start BAS Lite
 
+Recommended: use the bootstrap script (handles **`.env`**, secrets, CRLF, then compose):
+
 ```bash
-cd ~/bas-lite   # folder that contains docker-compose.yml
+cd py-bacnet-stacks-playground/vibe_code_apps_8   # or your clone path; must contain docker-compose.yml
+chmod +x scripts/bootstrap-bas-lite.sh scripts/troubleshoot-bas-lite.sh   # once
+./scripts/bootstrap-bas-lite.sh --sd-friendly
+```
+
+Manual equivalent:
+
+```bash
+cd py-bacnet-stacks-playground/vibe_code_apps_8
 cp .env.example .env
 # Edit .env: set BACNET_RPC_API_KEY for OT. For TLS ingress, also set CADDYFILE, BAS_LITE_GATEWAY_TOKEN, BAS_AUTH_HASH.
 docker compose build
@@ -142,17 +130,7 @@ docker compose ps
 docker compose logs -f caddy
 ```
 
-### 4.0a Bootstrap script (after `sync-bas-lite-to-bosspi.ps1 -SyncOnly`)
-
-If you synced with **`-SyncOnly`** (files only), run bootstrap on the Pi:
-
-```bash
-cd ~/bas-lite
-chmod +x scripts/bootstrap-bas-lite.sh   # once, if sync did not preserve +x
-./scripts/bootstrap-bas-lite.sh --sd-friendly
-```
-
-A default **`sync-bas-lite-to-bosspi.ps1`** (no `-SyncOnly`) already runs bootstrap from the PC over SSH, with **SD-friendly** and **prebuilt UI** defaults.
+### 4.0a Bootstrap script (details)
 
 **`scripts/bootstrap-bas-lite.sh`** merges **`.env`** from **`.env.example`** (if missing), appends **`bosspi.env`** when **`CADDY_HTTP_PORTS`** is not already set, replaces placeholder **`BACNET_RPC_API_KEY`** with a random hex secret (diy-bacnet and **api** both read **`BACNET_RPC_API_KEY`** — same pattern as Open-FDD generating **`OFDD_BACNET_SERVER_API_KEY`**), strips Windows **`\\r`**, then runs **`docker compose down`**, **`docker compose build`**, **`docker compose up -d`**. Use **`--env-only`** to patch **`.env`** without Docker; **`--help`** for all flags (**`--sd-friendly`**, **`--git-update`**, etc.).
 

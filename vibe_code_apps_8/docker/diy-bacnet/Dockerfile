@@ -1,7 +1,8 @@
 # Clone bbartling/diy-bacnet-server default branch (shallow). Compose git URLs are unreliable on Windows.
 # To pin a revision, replace this RUN with a COPY from a vendored checkout or add a git checkout of a tag/SHA.
 
-FROM python:3.13-slim-bookworm
+# diy-bacnet-server master requires-python >=3.14 (see upstream pyproject.toml).
+FROM python:3.14-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

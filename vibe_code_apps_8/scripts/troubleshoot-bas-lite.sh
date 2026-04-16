@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke-test Caddy → nginx (SPA) + /app8/api from the host (Pi or laptop).
-# Run on the Pi from ~/bas-lite:
+# Run on the edge host from the directory that contains docker-compose.yml (e.g. .../vibe_code_apps_8):
 #   ./scripts/troubleshoot-bas-lite.sh
 #   BAS_LITE_TROUBLESHOOT_URL=http://192.168.204.12:18080 ./scripts/troubleshoot-bas-lite.sh
 #
@@ -77,11 +77,11 @@ if [[ -n "$js_path" ]]; then
   js_url="${BASE}${js_path}"
   ct="$(http_head_ct "$js_url")"
   if [[ -z "$ct" ]]; then
-    flunk "HEAD $js_path — no Content-Type (connection refused or empty response?)"
+    flunk "HEAD $js_path - no Content-Type (connection refused or empty response?)"
   elif echo "$ct" | grep -qiE 'javascript|ecmascript|jscript'; then
     pass "HEAD entry script Content-Type looks like JS: ${ct%%;*}"
   elif echo "$ct" | grep -qi 'text/html'; then
-    flunk "HEAD $js_path returned text/html (nginx SPA fallback or wrong URL — same symptom as blank React app)."
+    flunk "HEAD $js_path returned text/html (nginx SPA fallback or wrong URL - same symptom as blank React app)."
   else
     echo "  [??] entry script Content-Type: $ct (if the app loads, this may be fine)" >&2
   fi
@@ -90,7 +90,7 @@ if [[ -n "$js_path" ]]; then
   if [[ -z "$headc" ]]; then
     flunk "GET entry script returned empty body."
   elif [[ "${headc:0:1}" == '<' ]]; then
-    flunk "GET entry script body starts with '<' (HTML, not JS) — wrong URL or nginx served index.html instead of the bundle."
+    flunk "GET entry script body starts with '<' (HTML, not JS) - wrong URL or nginx served index.html instead of the bundle."
   else
     pass "GET entry script body does not look like HTML"
   fi

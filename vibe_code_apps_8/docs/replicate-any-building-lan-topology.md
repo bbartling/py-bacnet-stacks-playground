@@ -52,18 +52,11 @@ Optional config keys:
 - **Outside-air (legacy helper):** Compose profile **`oat`** → **`easy-aso-oat`**. Reads one BACnet object, writes **`OAT_TARGET_WRITES`** over JSON-RPC (no second **UDP 47808**).
 - **Multi-agent EasyASO:** profile **`agents`** → **`easy-aso-agent-oat`**, **`easy-aso-agent-gl36-vav`**, **`easy-aso-agent-gl36-ahu`** ( **`easy-aso[platform]==0.1.7`**, **`easy-aso-agent run`**, **`RpcDockedEasyASO`**). Building-agnostic JSON in **`.env`** (**`EASY_ASO_GL36_VAV_CONFIG`**, **`EASY_ASO_GL36_AHU_CONFIG`**, **`OAT_*`**). Optional fourth service: merge **`docker-compose.easy-aso-agents.example.yml`**. Details: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** §9.
 
-## 5. Deploy scripts from a Windows workstation
+## 5. Deploy from Git on the edge host
 
-**`sync-bas-lite-to-bosspi.ps1`** (or **`deploy-app8-to-bosspi.ps1`**) — same **Pi-first defaults**: SD-friendly bootstrap, PC **`npm run build`** + synced **`frontend/dist`** (Pi skips in-Docker Vite unless you opt out). Target another host:
+On each Raspberry Pi or Linux edge server: **`git clone`** this monorepo (or your fork), **`cd .../vibe_code_apps_8`**, then **`./scripts/bootstrap-bas-lite.sh --sd-friendly`** (see **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**). Pull updates with **`git pull`** or **`./scripts/bootstrap-bas-lite.sh --git-update`** before rebuilding.
 
-```powershell
-.\sync-bas-lite-to-bosspi.ps1 -Target 'user@10.0.0.50'
-.\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50'
-```
-
-**`-SyncOnly`** — copy files only; run **`./scripts/bootstrap-bas-lite.sh`** on the edge yourself. **`-SdFriendly:$false`** / **`-PrebuiltFrontend:$false`** — power-user overrides.
-
-Pi bootstrap: **`./scripts/bootstrap-bas-lite.sh`** (flags in **`--help`**).
+Windows **Docker Desktop** for local dev only: **`scripts/run-bas-lite.ps1`** (optional **`-ProductionFrontend`**). Optional HTTP checks: **`scripts/test-bas-lite-http.ps1 -BaseUrl http://EDGE_IP:18080`**.
 
 ## 6. Checklist before go-live
 

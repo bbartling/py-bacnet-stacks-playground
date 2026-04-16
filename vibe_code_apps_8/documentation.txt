@@ -93,57 +93,45 @@ If you run diy-bacnet **elsewhere** instead, remove or disable the **`diy-bacnet
 
 ---
 
-## 3. Copy this folder to the Pi
+## 3. Get the stack on the Pi (Git clone)
 
-From your laptop (example):
+On the Raspberry Pi (SSH session), clone the monorepo and work inside **`vibe_code_apps_8`** (this folder must contain **`docker-compose.yml`**):
 
 ```bash
-scp -r vibe_code_apps_8 ben@192.168.204.12:~/bas-lite
-ssh ben@192.168.204.12
-cd ~/bas-lite
+git clone https://github.com/bbartling/py-bacnet-stacks-playground.git
+cd py-bacnet-stacks-playground/vibe_code_apps_8
 ```
 
-### 3.1 Windows / PowerShell (read this if you use Windows)
+Use your fork URL if you develop on a fork. Pull updates with **`git pull`** (or **`./scripts/bootstrap-bas-lite.sh --git-update`** before compose).
 
-- **`scp` copies from the machine where the command runs.** Run **`scp` on your Windows PC**, not inside `ssh` on the Pi. On the Pi there is no `C:\Users\...` path and no `$env:USERPROFILE`.
-- **Do not** `scp` from the Pi to `192.168.204.11` unless your PC runs an **SSH server** and the firewall allows it; that path usually **times out** or **connection refused**.
-- **PowerShell is not bash:** `cp -n` does not exist. Use: `if (-not (Test-Path .env)) { Copy-Item .env.example .env }`. The Pi’s home folder is **`~/bas-lite` on Linux**, not `C:\Users\ben\bas-lite`.
+### 3.1 Windows developers (local Docker only)
 
-**Update only `docker-compose.yml` + `.env.example` from your repo clone** (in PowerShell, from the `vibe_code_apps_8` directory):
+Use **`scripts/run-bas-lite.ps1`** on your PC for **Docker Desktop** — it does not deploy to the Pi. For the Pi, SSH in and use **§4** / **`bootstrap-bas-lite.sh`**.
 
-```powershell
-cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
-.\sync-bas-lite-to-bosspi.ps1
-```
-
-By default this runs a **full deploy**: local `npm run build`, copies `frontend/dist` (Pi Docker skips Vite), enables **SD-friendly** bootstrap on the Pi, and runs **`docker compose`**. Use **`-SyncOnly`** if you only want files and will run **`bootstrap-bas-lite.sh`** yourself.
-
-Or manually:
-
-```powershell
-cd $env:USERPROFILE\Documents\py-bacnet-stacks-playground\vibe_code_apps_8
-scp .\docker-compose.yml ben@192.168.204.12:~/bas-lite/
-scp .\docker-compose.easy-aso-agents.example.yml ben@192.168.204.12:~/bas-lite/
-scp .\.env.example ben@192.168.204.12:~/bas-lite/
-```
-
-Then SSH to the Pi and edit **`~/bas-lite/.env`** (see **§4.0** for **`CADDY_HTTP_PORTS`** LAN lines).
-
-### 3.2 Scripts quick reference (Windows vs Pi)
+### 3.2 Scripts quick reference
 
 | Script | Where it runs | Purpose |
 |--------|---------------|---------|
-| **`sync-bas-lite-to-bosspi.ps1`** | Windows | **Default:** full deploy — `npm run build`, `scp` stack + **`frontend/dist`**, Pi **`.env`** gets **`FRONTEND_SKIP_NODE_BUILD=1`**, SSH **`bootstrap-bas-lite.sh --sd-friendly`**, then **`docker compose`**. **`-SyncOnly`:** copy files only. **`-SdFriendly:$false`** / **`-PrebuiltFrontend:$false`** to opt out. |
-| **`deploy-app8-to-bosspi.ps1`** | Windows | Same behavior and defaults as sync (or use **`-GitDeploy`** for clone-on-Pi path; prebuilt UI is skipped there). |
-| **`run-bas-lite.ps1`** | Windows | **Local Docker Desktop only:** `compose build` / `up`, optional **`-FollowLogs`**. Does not touch the Pi. |
-| **`scripts/bootstrap-bas-lite.sh`** | Pi (or via SSH from deploy) | Merge **`.env`**, optional **`--sd-friendly`**, **`--env-only`**, **`--git-update`**, **`--refresh-diy-bacnet`**, **`--diy-bacnet-tests`**. Default compose path: **`down` → `build` → `up -d`**. Run **`./scripts/bootstrap-bas-lite.sh --help`** for the full flag list. |
+| **`scripts/run-bas-lite.ps1`** | Windows | **Local Docker Desktop:** `compose build` / `up`, optional **`-ProductionFrontend`**, **`-FollowLogs`**. |
+| **`scripts/test-bas-lite-http.ps1`** | Windows | Optional HTTP smoke tests against **`http://127.0.0.1:18080`** or **`-BaseUrl`**. |
+| **`scripts/bootstrap-bas-lite.sh`** | Pi / Linux | Merge **`.env`**, optional **`--sd-friendly`**, **`--env-only`**, **`--git-update`**, **`--refresh-diy-bacnet`**, **`--diy-bacnet-tests`**. Default: **`docker compose down` → `build` → `up -d`**. **`./scripts/bootstrap-bas-lite.sh --help`** for the full flag list. |
 
 ---
 
 ## 4. Build and start BAS Lite
 
+Recommended: use the bootstrap script (handles **`.env`**, secrets, CRLF, then compose):
+
 ```bash
-cd ~/bas-lite   # folder that contains docker-compose.yml
+cd py-bacnet-stacks-playground/vibe_code_apps_8   # or your clone path; must contain docker-compose.yml
+chmod +x scripts/bootstrap-bas-lite.sh scripts/troubleshoot-bas-lite.sh   # once
+./scripts/bootstrap-bas-lite.sh --sd-friendly
+```
+
+Manual equivalent:
+
+```bash
+cd py-bacnet-stacks-playground/vibe_code_apps_8
 cp .env.example .env
 # Edit .env: set BACNET_RPC_API_KEY for OT. For TLS ingress, also set CADDYFILE, BAS_LITE_GATEWAY_TOKEN, BAS_AUTH_HASH.
 docker compose build
@@ -152,17 +140,7 @@ docker compose ps
 docker compose logs -f caddy
 ```
 
-### 4.0a Bootstrap script (after `sync-bas-lite-to-bosspi.ps1 -SyncOnly`)
-
-If you synced with **`-SyncOnly`** (files only), run bootstrap on the Pi:
-
-```bash
-cd ~/bas-lite
-chmod +x scripts/bootstrap-bas-lite.sh   # once, if sync did not preserve +x
-./scripts/bootstrap-bas-lite.sh --sd-friendly
-```
-
-A default **`sync-bas-lite-to-bosspi.ps1`** (no `-SyncOnly`) already runs bootstrap from the PC over SSH, with **SD-friendly** and **prebuilt UI** defaults.
+### 4.0a Bootstrap script (details)
 
 **`scripts/bootstrap-bas-lite.sh`** merges **`.env`** from **`.env.example`** (if missing), appends **`bosspi.env`** when **`CADDY_HTTP_PORTS`** is not already set, replaces placeholder **`BACNET_RPC_API_KEY`** with a random hex secret (diy-bacnet and **api** both read **`BACNET_RPC_API_KEY`** — same pattern as Open-FDD generating **`OFDD_BACNET_SERVER_API_KEY`**), strips Windows **`\\r`**, then runs **`docker compose down`**, **`docker compose build`**, **`docker compose up -d`**. Use **`--env-only`** to patch **`.env`** without Docker; **`--help`** for all flags (**`--sd-friendly`**, **`--git-update`**, etc.).
 
@@ -617,13 +595,13 @@ CMD ["easy-aso-agent", "run"]
 This App 8 stack runs as a **Docker Compose** deployment with:
 
 - **`caddy`** — edge proxy (TLS + auth optional)
-- **`frontend`** — static SPA under **`/app8/`** (nginx; build on PC by default for Pi deploys — see **`deploy-app8-to-bosspi.ps1`**)
+- **`frontend`** — static SPA under **`/app8/`** (nginx; build with **`VITE_BASE_PATH=/app8`** before **`docker compose build frontend`** when using prebuilt **`frontend/dist`** — see **`docker/Dockerfile.frontend`** and **`.env.example`** **`FRONTEND_SKIP_NODE_BUILD`**)
 - **`api`** — **`bas_lite_api`** + **easy-aso** supervisor (**PyPI `easy-aso[platform]==0.1.7`**), legacy **`/app8/api/*`** and **`/api/v1/*`**
 - **`diy-bacnet`** — BACnet **UDP 47808** + JSON-RPC gateway (single field stack owner)
 - **Optional profile `oat`** — **`easy-aso-oat`** lightweight OAT copy loop
 - **Optional profile `agents`** — three **`RpcDockedEasyASO`** sidecars (**OAT share**, **GL36 VAV requests**, **GL36 AHU SAT reset**) via **`easy-aso-agent run`**
 
-If you are setting up a new host, use **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** as the primary operator runbook (includes Windows **`sync-bas-lite-to-bosspi.ps1`** / Pi **`bootstrap-bas-lite.sh`**).
+If you are setting up a new host, use **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** as the primary operator runbook (Git clone on the Pi + **`scripts/bootstrap-bas-lite.sh`**).
 
 ## BACnet discovery in this stack
 
@@ -698,18 +676,11 @@ Optional config keys:
 - **Outside-air (legacy helper):** Compose profile **`oat`** → **`easy-aso-oat`**. Reads one BACnet object, writes **`OAT_TARGET_WRITES`** over JSON-RPC (no second **UDP 47808**).
 - **Multi-agent EasyASO:** profile **`agents`** → **`easy-aso-agent-oat`**, **`easy-aso-agent-gl36-vav`**, **`easy-aso-agent-gl36-ahu`** ( **`easy-aso[platform]==0.1.7`**, **`easy-aso-agent run`**, **`RpcDockedEasyASO`**). Building-agnostic JSON in **`.env`** (**`EASY_ASO_GL36_VAV_CONFIG`**, **`EASY_ASO_GL36_AHU_CONFIG`**, **`OAT_*`**). Optional fourth service: merge **`docker-compose.easy-aso-agents.example.yml`**. Details: **`docs/BOSS_PI_BAS_LITE_DOCKER.md`** §9.
 
-## 5. Deploy scripts from a Windows workstation
+## 5. Deploy from Git on the edge host
 
-**`sync-bas-lite-to-bosspi.ps1`** (or **`deploy-app8-to-bosspi.ps1`**) — same **Pi-first defaults**: SD-friendly bootstrap, PC **`npm run build`** + synced **`frontend/dist`** (Pi skips in-Docker Vite unless you opt out). Target another host:
+On each Raspberry Pi or Linux edge server: **`git clone`** this monorepo (or your fork), **`cd .../vibe_code_apps_8`**, then **`./scripts/bootstrap-bas-lite.sh --sd-friendly`** (see **`docs/BOSS_PI_BAS_LITE_DOCKER.md`**). Pull updates with **`git pull`** or **`./scripts/bootstrap-bas-lite.sh --git-update`** before rebuilding.
 
-```powershell
-.\sync-bas-lite-to-bosspi.ps1 -Target 'user@10.0.0.50'
-.\deploy-app8-to-bosspi.ps1 -SshTarget 'user@10.0.0.50'
-```
-
-**`-SyncOnly`** — copy files only; run **`./scripts/bootstrap-bas-lite.sh`** on the edge yourself. **`-SdFriendly:$false`** / **`-PrebuiltFrontend:$false`** — power-user overrides.
-
-Pi bootstrap: **`./scripts/bootstrap-bas-lite.sh`** (flags in **`--help`**).
+Windows **Docker Desktop** for local dev only: **`scripts/run-bas-lite.ps1`** (optional **`-ProductionFrontend`**). Optional HTTP checks: **`scripts/test-bas-lite-http.ps1 -BaseUrl http://EDGE_IP:18080`**.
 
 ## 6. Checklist before go-live
 

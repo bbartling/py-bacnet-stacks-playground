@@ -156,4 +156,4 @@ Write-Host "Tips:" -ForegroundColor Cyan
 Write-Host "  Pi-like prebuilt UI: .\scripts\run-bas-lite.ps1 -ProductionFrontend"
 Write-Host "  Follow all logs: .\scripts\run-bas-lite.ps1 -NoBuild -FollowLogs"
 Write-Host "  Follow api only: .\scripts\run-bas-lite.ps1 -NoBuild -FollowLogs -Service api"
-Write-Host "  Test Boss Pi: .\scripts\test-bas-lite-http.ps1 -BossPi"
+Write-Host "  Test remote URL: .\scripts\test-bas-lite-http.ps1 -BaseUrl http://HOST:18080"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # BAS Lite (easy-aso) — Pi / Linux bootstrap: merge .env, generate BACnet RPC Bearer, optional compose up.
-# Run on the Pi from the repo directory (e.g. ~/bas-lite):
+# Run from this directory (the folder that contains docker-compose.yml), e.g. after:
+#   git clone https://github.com/bbartling/py-bacnet-stacks-playground.git
+#   cd py-bacnet-stacks-playground/vibe_code_apps_8
 #   chmod +x scripts/bootstrap-bas-lite.sh
 #   ./scripts/bootstrap-bas-lite.sh
 #   ./scripts/bootstrap-bas-lite.sh --env-only
