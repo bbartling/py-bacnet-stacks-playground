@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 # BAS Lite (easy-aso) — Pi / Linux bootstrap: merge .env, generate BACnet RPC Bearer, optional compose up.
-# Run from this directory (the folder that contains docker-compose.yml), e.g. after:
+#
+# Typical Raspberry Pi (or any Linux edge) over SSH — clone on the Pi, then bootstrap in one place:
+#   ssh pi@raspberrypi.local                    # or your user@host
 #   git clone https://github.com/bbartling/py-bacnet-stacks-playground.git
 #   cd py-bacnet-stacks-playground/vibe_code_apps_8
-#   chmod +x scripts/bootstrap-bas-lite.sh
-#   ./scripts/bootstrap-bas-lite.sh
+#   chmod +x scripts/bootstrap-bas-lite.sh scripts/troubleshoot-bas-lite.sh
+#   ./scripts/bootstrap-bas-lite.sh           # add --sd-friendly on SD-card Pis
+#
+# docker compose runs on whatever machine executes this script. If you cloned on a laptop,
+# copy/sync the repo (or at least this vibe_code_apps_8 tree + .env) to the Pi and run
+# bootstrap there over SSH — do not rely on Docker Desktop on your PC for the edge stack.
+#
+# Other modes:
 #   ./scripts/bootstrap-bas-lite.sh --env-only
 #   ./scripts/bootstrap-bas-lite.sh --sd-friendly
+#   ./scripts/bootstrap-bas-lite.sh --git-update   # git pull then compose (repo must be a git checkout)
 #
+# Operator UI: static SPA built with Vite + TypeScript + lit-html, served under /app8/ (see frontend/).
 # Inspired by open-fdd-afdd-stack bootstrap (generate secrets, idempotent .env writes).
 
 set -euo pipefail
@@ -32,6 +42,9 @@ for arg in "$@"; do
     -h|--help)
       cat <<'EOF'
 Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-update] [--refresh-diy-bacnet] [--diy-bacnet-tests] [--skip-smoke]
+
+  Pi / Linux (SSH)  From the directory that contains docker-compose.yml (vibe_code_apps_8),
+              after git clone on the edge host (see header comments). Requires Docker + Compose.
 
   (default)   Merge .env from .env.example + bosspi.env (if present), ensure
               BACNET_RPC_API_KEY is a real random secret (diy-bacnet + api),
@@ -273,5 +286,5 @@ if $DIY_BACNET_TESTS; then
 fi
 
 echo ""
-echo "UI (with bosspi.env): http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo THIS_HOST):18080/app8/"
+echo "Operator UI (Vite + lit-html SPA): http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo THIS_HOST):18080/app8/"
 echo "Health: curl -sS http://127.0.0.1:18080/app8/api/health | head -c 200; echo"
