@@ -20,8 +20,15 @@ RUN git clone --depth 1 https://github.com/bbartling/diy-bacnet-server.git /tmp/
     && cp -a /tmp/diy/. /app/ \
     && rm -rf /tmp/diy
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r /app/requirements.txt
+# Upstream may ship requirements.txt (older) or pyproject.toml only (current master).
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && if [ -f /app/requirements.txt ]; then \
+         pip install --no-cache-dir -r /app/requirements.txt; \
+       elif [ -f /app/pyproject.toml ]; then \
+         pip install --no-cache-dir "/app"; \
+       else \
+         echo "diy-bacnet-server: no requirements.txt or pyproject.toml under /app" >&2; ls -la /app; exit 1; \
+       fi
 
 EXPOSE 47808/udp
 EXPOSE 8080

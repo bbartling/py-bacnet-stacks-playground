@@ -18,6 +18,7 @@ SD_FRIENDLY=false
 GIT_UPDATE=false
 REFRESH_DIY_BACNET=false
 DIY_BACNET_TESTS=false
+SKIP_SMOKE=false
 for arg in "$@"; do
   case "$arg" in
     --env-only) DO_COMPOSE_UP=false ;;
@@ -25,9 +26,10 @@ for arg in "$@"; do
     --git-update) GIT_UPDATE=true ;;
     --refresh-diy-bacnet) REFRESH_DIY_BACNET=true ;;
     --diy-bacnet-tests) DIY_BACNET_TESTS=true ;;
+    --skip-smoke) SKIP_SMOKE=true ;;
     -h|--help)
       cat <<'EOF'
-Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-update] [--refresh-diy-bacnet] [--diy-bacnet-tests]
+Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-update] [--refresh-diy-bacnet] [--diy-bacnet-tests] [--skip-smoke]
 
   (default)   Merge .env from .env.example + bosspi.env (if present), ensure
               BACNET_RPC_API_KEY is a real random secret (diy-bacnet + api),
@@ -43,6 +45,7 @@ Usage: ./scripts/bootstrap-bas-lite.sh [--env-only] [--sd-friendly] [--git-updat
                  upstream diy-bacnet-server HEAD is re-cloned at build time.
   --diy-bacnet-tests  After compose up, run pytest in diy-bacnet container
                  when pytest/tests are available (fails if tests fail).
+  --skip-smoke  Do not run scripts/troubleshoot-bas-lite.sh after compose up.
 EOF
       exit 0
       ;;
@@ -131,12 +134,22 @@ else
 fi
 
 if [[ -f bosspi.env ]]; then
-  if grep -qE '^CADDY_HTTP_PORTS=' .env 2>/dev/null; then
-    echo "bosspi.env: skip append (CADDY_HTTP_PORTS already in .env)"
-  else
-    echo "Appending bosspi.env"
-    cat bosspi.env >> .env
-  fi
+  echo "Merging missing keys from bosspi.env"
+  # Append only keys that are not already present in .env; preserve existing operator choices.
+  while IFS= read -r ln || [[ -n "${ln:-}" ]]; do
+    [[ -z "${ln//[[:space:]]/}" ]] && continue
+    [[ "$ln" =~ ^[[:space:]]*# ]] && continue
+    if [[ "$ln" != *"="* ]]; then
+      continue
+    fi
+    k="${ln%%=*}"
+    k="$(echo "$k" | tr -d '[:space:]')"
+    [[ -z "$k" ]] && continue
+    if grep -qE "^${k}=" .env 2>/dev/null; then
+      continue
+    fi
+    echo "$ln" >> .env
+  done < bosspi.env
 else
   echo "No bosspi.env (optional LAN / BACnet UDP overrides); continuing"
 fi
@@ -231,6 +244,20 @@ fi
 docker compose build
 docker compose up -d
 docker compose ps
+
+if ! $SKIP_SMOKE && [[ -x ./scripts/troubleshoot-bas-lite.sh ]]; then
+  echo ""
+  echo "=== HTTP smoke checks (Caddy, SPA shell, JS bundle MIME, /app8/api/health) ==="
+  if ! ./scripts/troubleshoot-bas-lite.sh; then
+    echo "" >&2
+    echo "Smoke checks failed — UI may be blank in the browser until this is green." >&2
+    echo "Re-run: ./scripts/troubleshoot-bas-lite.sh" >&2
+    echo "Or from another machine: BAS_LITE_TROUBLESHOOT_URL=http://PI:18080 ./scripts/troubleshoot-bas-lite.sh" >&2
+  fi
+elif ! $SKIP_SMOKE && [[ -f ./scripts/troubleshoot-bas-lite.sh ]]; then
+  echo ""
+  echo "=== Skipping smoke checks (chmod +x scripts/troubleshoot-bas-lite.sh) ==="
+fi
 
 if $DIY_BACNET_TESTS; then
   echo ""

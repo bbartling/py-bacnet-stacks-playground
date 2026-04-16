@@ -50,6 +50,8 @@ Optional deploy flags:
 
 `deploy-app8-to-bosspi.ps1` copies stack files to `~/bas-lite` and runs Pi bootstrap unless `-SyncOnly` is set. Defaults: **`-SdFriendly:$true`** (bootstrap `--sd-friendly`) and **`-PrebuiltFrontend:$true`** (PC `npm run build`, sync `frontend/dist`, Pi Docker skips Vite).
 
+When prebuilding on Windows for Pi deploy, the script sets **`VITE_BASE_PATH=/app8`** during `npm run build` so remote `/app8/` loads JS assets with correct MIME type (prevents `/assets/*.js` resolving to HTML fallback).
+
 Pi bootstrap script and args:
 
 ```bash

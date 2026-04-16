@@ -40,6 +40,7 @@ ALARM_STATE_PATH = Path(os.environ.get("BAS_LITE_ALARM_STATE_PATH", "/data/alarm
 NOTIFICATIONS_CFG_PATH = Path(os.environ.get("BAS_LITE_NOTIFICATIONS_CFG_PATH", "/data/notifications_config.json"))
 NOTIFICATIONS_LOG_PATH = Path(os.environ.get("BAS_LITE_NOTIFICATIONS_LOG_PATH", "/data/notifications.log.jsonl"))
 COMPOSE_PROJECT_NAME = os.environ.get("COMPOSE_PROJECT_NAME", "bas-lite")
+SMTP_PASSWORD_MASK = "********"
 
 try:
     import docker  # type: ignore
@@ -392,8 +393,44 @@ def _notification_cfg() -> dict[str, Any]:
     return cfg if isinstance(cfg, dict) else {"smtp": {"enabled": False}}
 
 
+def _smtp_password_from_env() -> str:
+    return str(os.environ.get("BAS_LITE_SMTP_PASSWORD", "")).strip()
+
+
+def _effective_smtp_cfg() -> dict[str, Any]:
+    cfg = _notification_cfg()
+    smtp = cfg.get("smtp", {})
+    if not isinstance(smtp, dict):
+        smtp = {}
+    smtp = dict(smtp)
+    # Optional runtime secret override so UI/API never needs to return the real secret.
+    env_pw = _smtp_password_from_env()
+    if env_pw:
+        smtp["password"] = env_pw
+    cfg = dict(cfg)
+    cfg["smtp"] = smtp
+    return cfg
+
+
+def _masked_notifications_cfg() -> dict[str, Any]:
+    cfg = _effective_smtp_cfg()
+    smtp = cfg.get("smtp", {})
+    if not isinstance(smtp, dict):
+        smtp = {}
+    smtp = dict(smtp)
+    has_pw = bool(str(smtp.get("password", "")).strip())
+    if has_pw:
+        smtp["password"] = SMTP_PASSWORD_MASK
+    return {
+        "smtp": smtp,
+        "emailNotificationSupported": True,
+        "passwordStored": has_pw,
+        "passwordFromEnv": bool(_smtp_password_from_env()),
+    }
+
+
 def _send_email_if_configured(subject: str, body: str) -> dict[str, Any]:
-    cfg = _notification_cfg().get("smtp", {})
+    cfg = _effective_smtp_cfg().get("smtp", {})
     if not isinstance(cfg, dict) or not cfg.get("enabled"):
         return {"ok": False, "message": "smtp disabled"}
     host = str(cfg.get("host", "")).strip()
@@ -931,7 +968,7 @@ async def backup_export() -> dict:
         "schedule": _read_json_file(SCHEDULE_PATH, {}),
         "alarmDefinitions": _read_json_file(ALARM_RULES_PATH, {"items": []}),
         "alarmState": _load_alarm_state(),
-        "notifications": _notification_cfg(),
+        "notifications": {"smtp": _masked_notifications_cfg().get("smtp", {})},
         "driverConfigs": _driver_configs_bundle(),
         "discoveryExports": {
             p.name: p.read_text(encoding="utf-8")
@@ -954,7 +991,16 @@ async def backup_restore(body: dict = Body(...)) -> dict:
     if "alarmState" in payload and isinstance(payload["alarmState"], dict):
         _save_alarm_state(payload["alarmState"])
     if "notifications" in payload and isinstance(payload["notifications"], dict):
-        _write_json_file(NOTIFICATIONS_CFG_PATH, payload["notifications"])
+        notif = payload["notifications"]
+        existing_smtp = _notification_cfg().get("smtp", {})
+        if not isinstance(existing_smtp, dict):
+            existing_smtp = {}
+        smtp = notif.get("smtp", {})
+        if isinstance(smtp, dict):
+            merged = dict(smtp)
+            if str(merged.get("password", "")).strip() == SMTP_PASSWORD_MASK:
+                merged["password"] = str(existing_smtp.get("password", ""))
+            _write_json_file(NOTIFICATIONS_CFG_PATH, {"smtp": merged})
     if "driverConfigs" in payload and isinstance(payload["driverConfigs"], dict):
         for rel, text in payload["driverConfigs"].items():
             if not isinstance(rel, str) or not isinstance(text, str):
@@ -1392,8 +1438,7 @@ async def notification_logs() -> dict:
 
 @router.get("/notifications/config")
 async def notifications_config() -> dict:
-    cfg = _notification_cfg()
-    return {"smtp": cfg.get("smtp", {}), "emailNotificationSupported": True}
+    return _masked_notifications_cfg()
 
 
 @router.post("/notifications/config")
@@ -1401,7 +1446,15 @@ async def notifications_config_store(body: dict = Body(...)) -> dict:
     smtp_cfg = body.get("smtp", {}) if isinstance(body, dict) else {}
     if not isinstance(smtp_cfg, dict):
         raise HTTPException(400, "smtp must be object")
-    _write_json_file(NOTIFICATIONS_CFG_PATH, {"smtp": smtp_cfg})
+    existing = _notification_cfg().get("smtp", {})
+    if not isinstance(existing, dict):
+        existing = {}
+    merged = dict(smtp_cfg)
+    incoming_pw = str(merged.get("password", ""))
+    # Do not overwrite stored secret when UI posts a mask placeholder.
+    if incoming_pw.strip() == SMTP_PASSWORD_MASK:
+        merged["password"] = str(existing.get("password", ""))
+    _write_json_file(NOTIFICATIONS_CFG_PATH, {"smtp": merged})
     return {"status": "ok", "path": str(NOTIFICATIONS_CFG_PATH)}
 
 

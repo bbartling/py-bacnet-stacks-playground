@@ -45,6 +45,9 @@ type NotificationsCfg = {
     ssl?: boolean;
     timeoutSec?: number;
   };
+  emailNotificationSupported?: boolean;
+  passwordStored?: boolean;
+  passwordFromEnv?: boolean;
 };
 
 function prettyJson(v: unknown): string {
@@ -211,6 +214,28 @@ export function BasAlarmsPage() {
                 type="button"
                 className="rounded border border-border px-2 py-1 text-xs hover:bg-muted"
                 onClick={() => {
+                  const base = (notifications.data?.smtp ?? {}) as NotificationsCfg["smtp"];
+                  const merged: NotificationsCfg = {
+                    smtp: {
+                      ...base,
+                      enabled: true,
+                      host: "smtp.gmail.com",
+                      port: 587,
+                      starttls: true,
+                      ssl: false,
+                      timeoutSec: 8,
+                    },
+                  };
+                  setSmtpDraft(prettyJson(merged));
+                  setSmtpTouched(true);
+                }}
+              >
+                Use Gmail preset
+              </button>
+              <button
+                type="button"
+                className="rounded border border-border px-2 py-1 text-xs hover:bg-muted"
+                onClick={() => {
                   setSmtpDraft(smtpLoaded);
                   setSmtpTouched(false);
                 }}
@@ -244,6 +269,16 @@ export function BasAlarmsPage() {
               setSmtpTouched(true);
             }}
           />
+          <p className="text-xs text-muted-foreground">
+            Password is masked on read and not returned by the API. To rotate, replace{" "}
+            <code className="rounded bg-muted px-1">"password": "********"</code> with a new secret. Prefer app
+            passwords (Gmail/Workspace) and optional env override{" "}
+            <code className="rounded bg-muted px-1">BAS_LITE_SMTP_PASSWORD</code>.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Stored password: {notifications.data?.passwordStored ? "yes" : "no"} · source:{" "}
+            {notifications.data?.passwordFromEnv ? "env (BAS_LITE_SMTP_PASSWORD)" : "notifications config"}
+          </p>
           {testEmail.data ? (
             <p className={`text-xs ${testEmail.data.ok ? "text-emerald-600" : "text-destructive"}`}>
               Test email: {testEmail.data.message}

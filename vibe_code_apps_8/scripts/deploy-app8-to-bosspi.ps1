@@ -29,7 +29,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
+# Stack root is parent of scripts/ (docker-compose.yml, frontend/, docker/).
+$StackRoot = Split-Path -Path $PSScriptRoot -Parent
+Set-Location -Path $StackRoot
 
 function Assert-Cmd([string]$Name) {
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -51,7 +53,7 @@ if ($GitDeploy -and $PrebuiltFrontend) {
 }
 
 if ($usePrebuilt -and $SkipFrontendBuild) {
-    $distIndex = Join-Path $PSScriptRoot 'frontend/dist/index.html'
+    $distIndex = Join-Path $StackRoot 'frontend/dist/index.html'
     if (-not (Test-Path -LiteralPath $distIndex)) {
         throw "-PrebuiltFrontend with -SkipFrontendBuild requires an existing frontend/dist (run npm run build in frontend/ first)."
     }
@@ -59,8 +61,10 @@ if ($usePrebuilt -and $SkipFrontendBuild) {
 
 if (-not $SkipFrontendBuild -and -not $GitDeploy) {
     Write-Host "==> Frontend build check (npm run build)" -ForegroundColor Cyan
-    Push-Location (Join-Path $PSScriptRoot 'frontend')
+    Push-Location (Join-Path $StackRoot 'frontend')
     try {
+        $oldViteBase = $env:VITE_BASE_PATH
+        $env:VITE_BASE_PATH = "/app8"
         if (-not (Test-Path -LiteralPath 'node_modules')) {
             npm install
             if ($LASTEXITCODE -ne 0) { throw "npm install failed ($LASTEXITCODE)." }
@@ -69,10 +73,16 @@ if (-not $SkipFrontendBuild -and -not $GitDeploy) {
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed ($LASTEXITCODE)." }
     }
     finally {
+        if ($null -eq $oldViteBase) {
+            Remove-Item Env:VITE_BASE_PATH -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:VITE_BASE_PATH = $oldViteBase
+        }
         Pop-Location
     }
     if ($usePrebuilt) {
-        $distIndex = Join-Path $PSScriptRoot 'frontend/dist/index.html'
+        $distIndex = Join-Path $StackRoot 'frontend/dist/index.html'
         if (-not (Test-Path -LiteralPath $distIndex)) {
             throw "Prebuilt frontend requires frontend/dist after build (missing $distIndex)."
         }
@@ -125,8 +135,10 @@ $files = @(
     '.env.example',
     '.dockerignore',
     'bosspi.env',
-    'run-bas-lite.ps1',
+    'scripts/run-bas-lite.ps1',
+    'scripts/test-bas-lite-http.ps1',
     'scripts/bootstrap-bas-lite.sh',
+    'scripts/troubleshoot-bas-lite.sh',
     'docker/Dockerfile.frontend'
 )
 
@@ -153,7 +165,7 @@ $frontendRootFiles = @(
 )
 
 foreach ($rel in $files + $frontendRootFiles) {
-    $local = Join-Path $PSScriptRoot $rel
+    $local = Join-Path $StackRoot $rel
     if (-not (Test-Path -LiteralPath $local)) {
         throw "Missing required path: $local"
     }
@@ -163,7 +175,7 @@ foreach ($rel in $files + $frontendRootFiles) {
 }
 
 foreach ($rel in $dirs) {
-    $local = Join-Path $PSScriptRoot $rel
+    $local = Join-Path $StackRoot $rel
     if (-not (Test-Path -LiteralPath $local)) {
         throw "Missing required directory: $local"
     }
@@ -179,10 +191,13 @@ foreach ($rel in $dirs) {
 }
 
 if ($usePrebuilt) {
-    $distDir = Join-Path $PSScriptRoot 'frontend/dist'
+    $distDir = Join-Path $StackRoot 'frontend/dist'
     if (-not (Test-Path -LiteralPath (Join-Path $distDir 'index.html'))) {
         throw "frontend/dist/index.html missing; run npm run build in frontend/ (or use -PrebuiltFrontend:`$false)."
     }
+    # Bust Docker build-cache on the Pi when only dist changed (otherwise an old image can keep missing assets).
+    $stampPath = Join-Path $distDir '.bas-lite-deploy-stamp'
+    Set-Content -Path $stampPath -Value ([DateTime]::UtcNow.ToString('o')) -Encoding ascii
     Write-Host "scp -r frontend/dist -> ${SshTarget}:~/bas-lite/frontend/dist (prebuilt UI)" -ForegroundColor Cyan
     ssh $SshTarget "mkdir -p ~/bas-lite/frontend"
     if ($LASTEXITCODE -ne 0) { throw "ssh mkdir frontend failed ($LASTEXITCODE)." }
@@ -191,7 +206,7 @@ if ($usePrebuilt) {
 }
 
 Write-Host "==> Ensure bootstrap script executable" -ForegroundColor Cyan
-ssh $SshTarget "chmod +x ~/bas-lite/scripts/bootstrap-bas-lite.sh"
+ssh $SshTarget "chmod +x ~/bas-lite/scripts/bootstrap-bas-lite.sh ~/bas-lite/scripts/troubleshoot-bas-lite.sh"
 if ($LASTEXITCODE -ne 0) { throw "ssh chmod failed ($LASTEXITCODE)." }
 
 if ($usePrebuilt) {
