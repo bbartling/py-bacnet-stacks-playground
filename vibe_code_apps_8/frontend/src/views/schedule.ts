@@ -12,6 +12,8 @@ type Effective = {
 export const mountSchedule: MountFn = (outlet) => {
   let docJson = "";
   let effective: Effective | null = null;
+  let effectiveError: string | null = null;
+  let effectiveReady = false;
   let loading = true;
   let saving = false;
   let message = "";
@@ -24,8 +26,9 @@ export const mountSchedule: MountFn = (outlet) => {
           <div>
             <h1 class="text-2xl font-semibold tracking-tight">Occupancy schedule</h1>
             <p class="mt-1 text-sm text-muted-foreground">
-              Edit the supervisory schedule document as JSON (replaces the React calendar/grid widget with a smaller
-              operator surface). Use the API or prior exports for large edits, then save here.
+              Edit the supervisory schedule as JSON (same document the API stores under
+              <code class="rounded bg-muted px-1">schedule.json</code>). After saving, BACnet sync runs when configured.
+              For large edits, export from the API, edit offline, then paste here.
             </p>
           </div>
           <div class="rounded-xl border border-border/60 bg-card/50 shadow-sm">
@@ -63,33 +66,37 @@ export const mountSchedule: MountFn = (outlet) => {
           <div class="rounded-xl border border-border/60 bg-card/50 shadow-sm">
             <div class="p-6 pt-6">
               <h2 class="mb-2 text-sm font-semibold">Effective occupancy</h2>
-              ${effective
-                ? html`
-                    <p class="mb-2 text-xs text-muted-foreground">Host local time: ${effective.localTime}</p>
-                    <div class="max-h-[280px] overflow-auto rounded-md border border-border/50">
-                      <table class="w-full border-collapse text-sm">
-                        <thead>
-                          <tr class="border-b border-border/60 bg-muted/40 text-left text-xs text-muted-foreground">
-                            <th class="px-3 py-2 font-medium">Device</th>
-                            <th class="px-3 py-2 font-medium">Occupied</th>
-                            <th class="px-3 py-2 font-medium">Reason</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${effective.devices.map(
-                            (d) => html`
-                              <tr class="border-b border-border/40 last:border-0">
-                                <td class="px-3 py-2 font-mono text-xs">${d.deviceName}</td>
-                                <td class="px-3 py-2">${d.occupied ? "yes" : "no"}</td>
-                                <td class="px-3 py-2 text-xs text-muted-foreground">${d.reason}</td>
+              ${!effectiveReady
+                ? html`<p class="text-sm text-muted-foreground">Loading effective schedule…</p>`
+                : effectiveError
+                  ? html`<p class="text-sm text-destructive">${effectiveError}</p>`
+                  : effective
+                    ? html`
+                        <p class="mb-2 text-xs text-muted-foreground">Host local time: ${effective.localTime}</p>
+                        <div class="max-h-[280px] overflow-auto rounded-md border border-border/50">
+                          <table class="w-full border-collapse text-sm">
+                            <thead>
+                              <tr class="border-b border-border/60 bg-muted/40 text-left text-xs text-muted-foreground">
+                                <th class="px-3 py-2 font-medium">Device</th>
+                                <th class="px-3 py-2 font-medium">Occupied</th>
+                                <th class="px-3 py-2 font-medium">Reason</th>
                               </tr>
-                            `,
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  `
-                : html`<p class="text-sm text-muted-foreground">Loading effective schedule…</p>`}
+                            </thead>
+                            <tbody>
+                              ${effective.devices.map(
+                                (d) => html`
+                                  <tr class="border-b border-border/40 last:border-0">
+                                    <td class="px-3 py-2 font-mono text-xs">${d.deviceName}</td>
+                                    <td class="px-3 py-2">${d.occupied ? "yes" : "no"}</td>
+                                    <td class="px-3 py-2 text-xs text-muted-foreground">${d.reason}</td>
+                                  </tr>
+                                `,
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      `
+                    : html`<p class="text-sm text-muted-foreground">No effective occupancy data.</p>`}
             </div>
           </div>
         </div>
@@ -99,17 +106,25 @@ export const mountSchedule: MountFn = (outlet) => {
   };
 
   const loadEffective = async () => {
+    effectiveReady = false;
+    effectiveError = null;
+    paint();
     try {
       effective = await apiFetch<Effective>("api/schedule/effective");
-    } catch {
+      effectiveError = null;
+    } catch (e) {
       effective = null;
+      effectiveError = e instanceof Error ? e.message : "Failed to load effective schedule";
+    } finally {
+      effectiveReady = true;
+      paint();
     }
-    paint();
   };
 
   const load = async () => {
     loading = true;
     message = "";
+    effectiveReady = false;
     paint();
     try {
       const doc = await apiFetch<unknown>("api/schedule");

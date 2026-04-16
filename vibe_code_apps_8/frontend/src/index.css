@@ -33,61 +33,62 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Light palette: cool gray canvas + teal accent (aligned with BAS schedule widget demo). */
 :root {
-  --background: 220 14% 96%;
-  --foreground: 220 13% 10%;
+  --background: 216 20% 96%;
+  --foreground: 217 33% 15%;
   --card: 0 0% 100%;
-  --card-foreground: 220 13% 10%;
-  --primary: 215 60% 42%;
+  --card-foreground: 217 33% 15%;
+  --primary: 168 72% 28%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 94%;
-  --secondary-foreground: 220 13% 25%;
-  --muted: 220 14% 94%;
-  --muted-foreground: 220 8% 46%;
-  --accent: 220 14% 94%;
-  --accent-foreground: 220 13% 25%;
+  --secondary: 216 18% 93%;
+  --secondary-foreground: 217 28% 22%;
+  --muted: 216 16% 92%;
+  --muted-foreground: 215 16% 42%;
+  --accent: 160 35% 94%;
+  --accent-foreground: 168 72% 22%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --success: 142 71% 35%;
+  --success: 160 72% 28%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 10%;
-  --border: 220 13% 90%;
-  --input: 220 13% 90%;
-  --ring: 215 60% 42%;
-  --radius: 0.75rem;
-  --chart-1: 215 60% 42%;
+  --border: 216 16% 87%;
+  --input: 216 16% 87%;
+  --ring: 168 72% 28%;
+  --radius: 0.625rem;
+  --chart-1: 168 72% 28%;
   --chart-2: 338 65% 48%;
-  --chart-3: 142 71% 35%;
+  --chart-3: 160 55% 38%;
   --chart-4: 38 92% 50%;
   --chart-5: 262 52% 50%;
 }
 
 .dark {
-  --background: 222 14% 7%;
-  --foreground: 210 20% 92%;
-  --card: 222 14% 10%;
-  --card-foreground: 210 20% 92%;
-  --primary: 215 70% 55%;
-  --primary-foreground: 0 0% 100%;
+  --background: 222 18% 8%;
+  --foreground: 210 25% 93%;
+  --card: 222 16% 11%;
+  --card-foreground: 210 25% 93%;
+  --primary: 160 55% 42%;
+  --primary-foreground: 168 90% 8%;
   --secondary: 220 14% 16%;
-  --secondary-foreground: 210 20% 85%;
-  --muted: 220 14% 16%;
-  --muted-foreground: 218 10% 55%;
-  --accent: 220 14% 16%;
-  --accent-foreground: 210 20% 85%;
+  --secondary-foreground: 210 20% 88%;
+  --muted: 220 14% 17%;
+  --muted-foreground: 218 12% 58%;
+  --accent: 168 22% 16%;
+  --accent-foreground: 158 45% 78%;
   --destructive: 0 62% 58%;
   --destructive-foreground: 0 0% 100%;
-  --success: 142 60% 45%;
+  --success: 160 50% 42%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 55%;
   --warning-foreground: 0 0% 10%;
-  --border: 220 13% 18%;
-  --input: 220 13% 18%;
-  --ring: 215 70% 55%;
-  --chart-1: 215 70% 55%;
+  --border: 220 13% 20%;
+  --input: 220 13% 20%;
+  --ring: 160 55% 42%;
+  --chart-1: 160 55% 42%;
   --chart-2: 338 60% 58%;
-  --chart-3: 142 60% 45%;
+  --chart-3: 160 50% 42%;
   --chart-4: 38 90% 55%;
   --chart-5: 262 55% 60%;
 }
