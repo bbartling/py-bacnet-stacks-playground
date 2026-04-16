@@ -1,5 +1,4 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
@@ -11,7 +10,7 @@ const devProxyTarget = (process.env.VITE_DEV_PROXY_TARGET ?? "").trim();
 
 export default defineConfig({
   base,
-  plugins: [react(), tailwindcss()],
+  plugins: [tailwindcss()],
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
     outDir: "dist",

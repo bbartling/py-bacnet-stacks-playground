@@ -6,16 +6,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -28,19 +23,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": [
-    "src/main.tsx",
-    "src/App.tsx",
-    "src/index.css",
-    "src/vite-env.d.ts",
-    "src/types/**/*.d.ts",
-    "src/lib/**/*",
-    "src/contexts/**/*",
-    "src/components/layout/**/*",
-    "src/components/ui/**/*",
-    "src/components/dashboard/BasHealthStrip.tsx",
-    "src/components/pages/Bas*.tsx",
-    "src/components/schedule-widget/**/*"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/index.css", "src/vite-env.d.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

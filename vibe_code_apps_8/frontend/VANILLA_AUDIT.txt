@@ -1,0 +1,52 @@
+BAS Lite frontend — dependency audit (Bas* routes only)
+========================================================
+Target stack (2026-04): Vanilla ES modules + Vite + lit-html + History API.
+React, TanStack Query, react-router, shadcn-style React UI, and non-Bas pages were removed from src/.
+
+Per-route API + heavy dependency decisions
+------------------------------------------
+
+1) Overview (was BasOverviewPage.tsx)
+   - APIs: api/health, api/devices, api/points, api/alarms/events, api/notifications/config,
+            api/trends?pointId=, api/setpoints?deviceId=, POST api/setpoints/write
+   - Heavy: Plotly (dynamic import) — KEEP for parity with operator trend UX.
+   - TanStack Query → explicit fetch + interval + websocket-driven refetch in views/overview.ts
+
+2) Live points (BasLivePointsPage.tsx)
+   - APIs: api/points, POST api/setpoints/write
+   - Heavy: none (tables are plain HTML).
+   - KEEP lightweight DOM.
+
+3) Driver configs (BasDriverConfigPage.tsx)
+   - APIs: api/driver/configs, api/driver/config?name=, POST store/delete
+   - Heavy: none (lucide icons dropped; text labels only).
+   - KEEP.
+
+4) System (BasSystemPage.tsx)
+   - APIs: api/system/metrics, api/agents/vctl, api/system/containers, api/system/messaging,
+           api/system/container-logs, api/system/container-logs/stream (SSE), POST api/system/container-action,
+           POST api/agents/lifecycle, api/system/time (shell top bar)
+   - Heavy: none; SSE via native EventSource — KEEP.
+   - Context menu lifecycle parity preserved in views/system.ts
+
+5) Faults (BasFaultsPage.tsx)
+   - APIs: api/alarms/events (read-only table)
+   - Heavy: none.
+
+6) Alarms (BasAlarmsPage.tsx)
+   - APIs: events, definitions GET/POST {items}, notifications GET/POST, test-email, backup export/restore, ack
+   - Heavy: none (JSON textareas replace card chrome only).
+
+7) Schedule (BasSchedulePage.tsx)
+   - Previously: react-day-picker + react-grid-layout + ScheduleWidgetBody + schedule-bridge (large).
+   - Vanilla: raw JSON editor for GET/POST api/schedule + api/schedule/effective table — REPLACE complex UI
+     with operator-grade “edit JSON + save” to shed day-picker/grid/widget bundle and LOC.
+
+8) Docs (BasDocsPage.tsx)
+   - Static CHEAT string + links — no chart libs.
+
+Repo-wide removals (bundle / confusion)
+---------------------------------------
+- Recharts, react-grid-layout, react-day-picker, @tanstack/react-query, react*, react-router*,
+  lucide-react, papaparse, cva/clsx/tailwind-merge were removed from package.json where unused by the new tree.
+- plotly.js-dist-min remains for Overview trends only (dynamic import).
