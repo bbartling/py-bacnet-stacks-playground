@@ -1,31 +1,21 @@
 # Lab / developer: HTTP only, no Basic Auth.
-# When BAS_LITE_GATEWAY_TOKEN is set (see .env.example), the API requires the same
-# X-Bas-Lite-Gateway-Token header as production Caddy — inject it here so the SPA
-# (schedule save, etc.) works without switching to docker/caddy/Caddyfile.
+# Gateway token is sent by the SPA (see nginx runtime config.runtime.js + api.ts).
+# Caddy must not strip X-Bas-Lite-Gateway-Token — plain reverse_proxy only.
 # Use: in .env set CADDYFILE=docker/caddy/Caddyfile.local-dev (see docker-compose.yml).
 
 :80 {
 	encode zstd gzip
 
 	handle /app8/api/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle /api/v1/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle /openapi.json {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle {

@@ -168,6 +168,9 @@ services:
         NODE_MAX_OLD_SPACE: ${FRONTEND_NODE_MAX_OLD_SPACE:-2048}
         FRONTEND_SKIP_NODE_BUILD: ${FRONTEND_SKIP_NODE_BUILD:-0}
     restart: unless-stopped
+    environment:
+      # Written into /app8/config.runtime.js at container start (same secret as api gateway check).
+      BAS_LITE_GATEWAY_TOKEN: ${BAS_LITE_GATEWAY_TOKEN:-}
     logging: *flash_log
     networks:
       - bas_internal

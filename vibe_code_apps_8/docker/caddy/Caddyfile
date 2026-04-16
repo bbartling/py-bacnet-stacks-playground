@@ -2,7 +2,7 @@
 # Secrets come from .env (see .env.example). Generate operator password:
 #   docker run --rm caddy:2.8-alpine caddy hash-password --plaintext 'YOUR_PASSWORD'
 #
-# Strip any client-supplied gateway header before proxying so browsers cannot spoof it.
+# Gateway token: SPA sends X-Bas-Lite-Gateway-Token (runtime config from nginx); do not strip here.
 
 :80 {
 	redir https://{host}{uri} permanent
@@ -17,24 +17,15 @@
 	}
 
 	handle /app8/api/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle /api/v1/* {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle /openapi.json {
-		reverse_proxy api:8090 {
-			header_up -X-Bas-Lite-Gateway-Token
-			header_up X-Bas-Lite-Gateway-Token "Bearer {$BAS_LITE_GATEWAY_TOKEN}"
-		}
+		reverse_proxy api:8090
 	}
 
 	handle {

@@ -9,13 +9,30 @@ export function apiUrl(path: string): string {
   return `${apiBase()}${p}`;
 }
 
+/** Gateway bearer from nginx-generated /app8/config.runtime.js (Docker); not used in dev unless file is present. */
+function gatewayBearerFromRuntime(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = (window as unknown as { __BAS_LITE__?: { gatewayTokenB64?: string } }).__BAS_LITE__;
+  const b64 = w?.gatewayTokenB64?.trim();
+  if (!b64) return undefined;
+  try {
+    const raw = atob(b64);
+    if (!raw) return undefined;
+    return `Bearer ${raw}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = apiUrl(path);
+  const gw = gatewayBearerFromRuntime();
   const res = await fetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers as Record<string, string>),
+      ...(gw ? { "X-Bas-Lite-Gateway-Token": gw } : {}),
     },
   });
   if (!res.ok) {
