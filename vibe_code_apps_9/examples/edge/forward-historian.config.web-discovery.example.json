@@ -1,8 +1,0 @@
-{
-  "destination-address": "https://CENTRAL_HOST:8443",
-  "required_target_agents": ["platform.historian"],
-  "capture_device_data": true,
-  "capture_log_data": true,
-  "capture_analysis_data": true,
-  "capture_record_data": true
-}

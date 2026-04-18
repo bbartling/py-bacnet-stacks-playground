@@ -1,7 +1,0 @@
-**/node_modules
-# Keep frontend/dist in context when using FRONTEND_SKIP_NODE_BUILD=1 (prebuilt SPA for Pi).
-**/.git
-**/__pycache__
-**/.venv
-frontend/node_modules
-archived
