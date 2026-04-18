@@ -1,0 +1,45 @@
+# Orchestrate diy-bacnet-server + this supervisor on one host (recommended on Raspberry Pi).
+#
+# Layout: place this repo and diy-bacnet-server as siblings on disk, for example:
+#   ~/bacnet-edge/diy-bacnet-server/
+#   ~/bacnet-edge/py-bacnet-stacks-playground/vibe_code_apps_8/   ← this compose file
+#
+# From vibe_code_apps_8:
+#   cp .env.example .env
+#   # edit .env — set BACNET_RPC_API_KEY
+#   docker compose up --build
+#
+# Both services use host networking so BACnet UDP (47808) and loopback JSON-RPC work like
+# the upstream diy docs (https://github.com/bbartling/diy-bacnet-server).
+
+services:
+  diy-bacnet:
+    build:
+      context: ${DIY_BACNET_REPO:-../diy-bacnet-server}
+      dockerfile: Dockerfile
+    network_mode: host
+    environment:
+      # Set the same secret in .env for production; leave empty only if diy has no key set.
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+    restart: unless-stopped
+
+  supervisor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+    environment:
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY}
+      DIY_BACNET_URL: ${DIY_BACNET_URL:-http://127.0.0.1:5000}
+      DIY_SCHEDULE_OBJECT_NAME: ${DIY_SCHEDULE_OBJECT_NAME:-WeeklyOccupancy}
+      PORT: ${SUPERVISOR_PORT:-5050}
+      BIND: 0.0.0.0
+      SUPERVISOR_DATA_DIR: /data
+    volumes:
+      - supervisor_data:/data
+    depends_on:
+      - diy-bacnet
+    restart: unless-stopped
+
+volumes:
+  supervisor_data:

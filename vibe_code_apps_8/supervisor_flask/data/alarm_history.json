@@ -1,0 +1,10 @@
+{
+  "items": [
+    {
+      "message": "Demo alarm (edit alarm_history.json)",
+      "state": "cleared",
+      "severity": "info",
+      "triggeredAt": "2026-01-01 00:00"
+    }
+  ]
+}

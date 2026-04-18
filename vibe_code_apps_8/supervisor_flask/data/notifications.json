@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "ts": "2026-04-18 13:08:47",
+      "channel": "supervisor",
+      "detail": "Schedule saved; BACnet push failed: HTTPConnectionPool(host='127.0.0.1', port=8080): Max retries exceeded with url: /server_update_schedule (Caused by NewConnectionError(\"HTTPConnection(host='127.0.0.1', port=8080): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))"
+    },
+    {
+      "ts": "2026-04-18 13:05:26",
+      "channel": "supervisor",
+      "detail": "Schedule saved; BACnet push failed: 501 Server Error: Unsupported method ('POST') for url: http://127.0.0.1:8080/server_update_schedule"
+    },
+    {
+      "ts": "2026-01-01 00:00",
+      "channel": "log",
+      "detail": "Supervisor started (seed)"
+    }
+  ]
+}

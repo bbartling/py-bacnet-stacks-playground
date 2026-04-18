@@ -1,0 +1,7 @@
+__pycache__
+*.pyc
+.git
+react
+**/data/*.json
+.env
+*.md

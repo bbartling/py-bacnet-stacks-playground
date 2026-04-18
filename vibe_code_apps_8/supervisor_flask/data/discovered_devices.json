@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "AHU-1",
+      "status": "online",
+      "pointCount": 48,
+      "lastSeen": "demo",
+      "pollingEnabled": true
+    },
+    {
+      "name": "VAV-101",
+      "status": "online",
+      "pointCount": 12,
+      "lastSeen": "demo",
+      "pollingEnabled": true
+    }
+  ]
+}
