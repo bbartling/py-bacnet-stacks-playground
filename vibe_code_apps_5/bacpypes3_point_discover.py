@@ -12,8 +12,8 @@ _debug = 0
 _log = ModuleLogger(globals())
 
 # Configuration
-DEVICE_IP = "192.168.204.13"
-DEVICE_INSTANCE = 3456789  # change to the real remote device instance
+DEVICE_IP = "192.168.204.18"
+DEVICE_INSTANCE = 123456  # change to the real remote device instance
 
 """
 Run example:
