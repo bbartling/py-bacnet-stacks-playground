@@ -1,7 +1,0 @@
-{
-  "siteName": "Edge supervisor (learning)",
-  "appTitle": "BAS Lite supervisor",
-  "routePrefix": "/api",
-  "diyBacnetUrl": "http://127.0.0.1:8080",
-  "diyScheduleObjectName": "WeeklyOccupancy"
-}

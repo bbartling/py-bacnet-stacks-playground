@@ -1,0 +1,26 @@
+services:
+  diy-bacnet-server:
+    build:
+      context: ../diy-bacnet-server
+    container_name: diy-bacnet-server
+    command: python3 -u -m bacpypes_server.main --name BensServer --instance 123456 --public
+    environment:
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+    ports:
+      - "8080:8080"
+      - "47808:47808/udp"
+
+  diy-bas:
+    build:
+      context: .
+    container_name: diy-bas
+    depends_on:
+      - diy-bacnet-server
+    environment:
+      DIY_BACNET_URL: http://diy-bacnet-server:8080
+      BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
+      PORT: 5050
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./data:/app/data

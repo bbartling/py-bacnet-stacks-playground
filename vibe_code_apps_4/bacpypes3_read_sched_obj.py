@@ -8,7 +8,7 @@ from bacpypes3.pdu import Address
 from bacpypes3.primitivedata import ObjectIdentifier
 
 # Configuration
-DEVICE_IP = "192.168.204.18:47808"
+DEVICE_IP = "192.168.204.12:47808"
 READ_POINT = "schedule,1"
 
 """
