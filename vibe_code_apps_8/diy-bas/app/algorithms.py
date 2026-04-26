@@ -46,7 +46,7 @@ def get_shared_outside_air_temp() -> dict[str, Any]:
         'outsideAirTemp': oat,
         'relativeHumidity': rh,
         'dewPoint': dew,
-        'sharedWith': [f'AHU-{settings.ahu_device_instance}', f'VAV-{settings.vav_device_instance}'],
+        'sharedWith': [],
     }
 
 
@@ -56,8 +56,6 @@ def get_test_bench_snapshot() -> dict[str, Any]:
         'ok': True,
         'sharedOutsideAirPoint': settings.shared_outside_air_point,
         'devices': {
-            'ahu': {'deviceInstance': settings.ahu_device_instance, 'outsideAirTemp': values.get(settings.shared_outside_air_point)},
-            'vav': {'deviceInstance': settings.vav_device_instance, 'outsideAirTemp': values.get(settings.shared_outside_air_point)},
             'weatherHost': {
                 'dryBulb': values.get(settings.shared_outside_air_point),
                 'relativeHumidity': values.get('web-weather-relative-humidity'),

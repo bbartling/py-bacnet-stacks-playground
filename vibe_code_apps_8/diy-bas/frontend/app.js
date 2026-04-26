@@ -19,12 +19,21 @@
   /** @type {string} */
   let currentRoute = 'overview';
 
+  function applyTopPill(meta) {
+    if (!elTopPill) return;
+    elTopPill.textContent = meta?.pill || '…';
+    elTopPill.classList.remove('bas-status-pill-ok', 'bas-status-pill-bad');
+    if (meta?.pillTone === 'ok') elTopPill.classList.add('bas-status-pill-ok');
+    if (meta?.pillTone === 'bad') elTopPill.classList.add('bas-status-pill-bad');
+  }
+
   function updateTopbarForSchedule() {
     if (!elTopTitle || !elTopSub || !elTopPill) return;
     elTopTitle.textContent = 'Weekly equipment schedule';
     elTopSub.textContent =
       'Operating week, holidays, and BACnet points for the active profile. Switch to Overview for site-wide status.';
     elTopPill.textContent = 'Editor';
+    elTopPill.classList.remove('bas-status-pill-ok', 'bas-status-pill-bad');
   }
 
   function setNavActive(route) {
@@ -65,7 +74,7 @@
       const m = window.DiyBasDashboard.getTopbarMeta();
       elTopTitle.textContent = m.title;
       elTopSub.textContent = m.subtitle;
-      elTopPill.textContent = m.pill;
+      applyTopPill(m);
     }
   }
 
@@ -137,7 +146,7 @@
       const m = window.DiyBasDashboard.getTopbarMeta();
       if (elTopTitle) elTopTitle.textContent = m.title;
       if (elTopSub) elTopSub.textContent = m.subtitle;
-      if (elTopPill) elTopPill.textContent = m.pill;
+      applyTopPill(m);
     });
   }
 

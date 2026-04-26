@@ -835,6 +835,18 @@ body {
   white-space: nowrap;
 }
 
+.bas-status-pill-ok {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.bas-status-pill-bad {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+
 .bas-body {
   flex: 1;
   min-height: 0;
@@ -1048,6 +1060,102 @@ body {
   color: #b91c1c;
 }
 
+.dash-point-fresh td {
+  background: #eefbf6;
+}
+
+.dash-point-stale td {
+  background: #fff9db;
+}
+
+.dash-point-offline td {
+  background: #ffe8e8;
+}
+
+.dash-point-error {
+  color: #b91c1c;
+  font-size: 0.7rem;
+  margin-top: 0.2rem;
+}
+
+.dash-error-banner {
+  margin: 0 0 0.8rem;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.dash-discovery-status-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin: 0 0 0.8rem;
+}
+
+.dash-discovery-status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  background: #f8fafc;
+}
+
+.dash-discovery-ts {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.dash-discovery-idle {
+  color: var(--muted);
+}
+
+.dash-discovery-running {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.dash-discovery-success {
+  color: #065f46;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.dash-discovery-error {
+  color: #991b1b;
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.dash-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid #93c5fd;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  display: inline-block;
+  animation: dash-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dash-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .dash-discovery-status-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .dash-trend-list {
   display: flex;
   flex-direction: column;
@@ -1089,6 +1197,104 @@ body {
   background: #fafbfc;
   padding: 0.5rem;
   min-height: 220px;
+}
+
+.dash-plotly-trend {
+  min-height: 320px;
+  width: 100%;
+}
+
+.points-tree {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafbfc;
+  padding: 0.5rem;
+}
+
+.points-tree-device {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: #fff;
+}
+
+.points-tree-device summary {
+  cursor: pointer;
+  padding: 0.45rem 0.6rem;
+  font-weight: 650;
+}
+
+.points-tree-count {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.points-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0.5rem 0.6rem;
+}
+
+.points-tree-head {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.4fr) minmax(150px, 1fr) minmax(90px, 0.6fr) minmax(150px, 1fr) minmax(90px, 0.6fr);
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-weight: 650;
+  border-top: 1px solid var(--border);
+}
+
+.points-tree-item {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.4fr) minmax(150px, 1fr) minmax(90px, 0.6fr) minmax(150px, 1fr) minmax(90px, 0.6fr);
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.points-tree-name {
+  font-weight: 600;
+}
+
+.points-tree-meta {
+  color: var(--muted);
+}
+
+.points-tree-value {
+  font-weight: 650;
+}
+
+.points-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 170px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  padding: 0.25rem;
+}
+
+.points-menu button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.points-menu button:hover {
+  background: var(--accent-soft);
 }
 
 .dash-chart-svg {

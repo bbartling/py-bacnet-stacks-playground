@@ -53,13 +53,7 @@ def ensure_seed_files() -> None:
             'items': []
         },
         'discovered_points.json': {
-            'items': [
-                {'deviceId': 'diy-bacnet-server', 'label': 'Outside air temp', 'units': '°F', 'alarmState': 'normal', 'hostedKey': settings.shared_outside_air_point, 'value': None},
-                {'deviceId': 'diy-bacnet-server', 'label': 'Outside air humidity', 'units': '%', 'alarmState': 'normal', 'hostedKey': 'web-weather-relative-humidity', 'value': None},
-                {'deviceId': 'diy-bacnet-server', 'label': 'Outside air dew point', 'units': '°F', 'alarmState': 'normal', 'hostedKey': 'web-weather-dew-point', 'value': None},
-                {'deviceId': 'AHU-1100', 'label': 'Shared OAT reference', 'units': '°F', 'alarmState': 'normal', 'valueKey': settings.shared_outside_air_point, 'value': None},
-                {'deviceId': 'VAV-12026', 'label': 'Shared OAT reference', 'units': '°F', 'alarmState': 'normal', 'valueKey': settings.shared_outside_air_point, 'value': None},
-            ]
+            'items': []
         },
         'latest_values.json': {'updatedAt': None, 'values': {}},
         'polling_config.json': {'items': [], 'updatedAt': None},

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from datetime import datetime
@@ -16,6 +17,7 @@ from .schedules_bridge import active_profile_payload
 WEBROOT = settings.webroot
 app = Flask(__name__)
 sock = Sock(app)
+log = logging.getLogger(__name__)
 
 _clients_lock = threading.Lock()
 _ws_clients: list = []
@@ -26,6 +28,7 @@ _poll_buffer: list[dict] = []
 _point_due_at: dict[str, float] = {}
 _last_purge_monotonic = 0.0
 _last_flush_monotonic = 0.0
+_point_runtime: dict[str, dict] = {}
 
 
 def _now_iso() -> str:
@@ -81,6 +84,7 @@ def _start_poll_thread() -> None:
                     _last_purge_monotonic = time.monotonic()
                 _broadcast({'type': 'values', 'values': doc['values'], 'updatedAt': doc['updatedAt']})
             except Exception as exc:  # noqa: BLE001
+                log.warning('poll loop error: %s', exc)
                 _broadcast({'type': 'diy_error', 'message': str(exc)})
             _poll_stop.wait(settings.ws_poll_interval)
 
@@ -101,6 +105,11 @@ def _ensure_data_dir() -> None:
 @app.get('/')
 def index() -> object:
     return send_from_directory(WEBROOT, 'index.html')
+
+
+@app.get('/favicon.ico')
+def favicon() -> object:
+    return ('', 204)
 
 
 @app.get('/<path:filename>')
@@ -128,6 +137,7 @@ def api_health() -> object:
             'routePrefix': '/api',
             'diy': {
                 'reachable': ok,
+                'status': 'online' if ok else 'offline',
                 'baseUrl': settings.diy_bacnet_url,
                 'scheduleObject': settings.diy_schedule_object_name,
                 'detail': msg,
@@ -139,25 +149,41 @@ def api_health() -> object:
 
 @app.get('/api/devices')
 def api_devices() -> object:
-    return jsonify(json_store.read_json('discovered_devices.json', {'items': []}))
+    items = _filtered_devices(trend_store.read_devices())
+    if items:
+        return jsonify({'items': items})
+    fallback = json_store.read_json('discovered_devices.json', {'items': []})
+    fallback['items'] = _filtered_devices(fallback.get('items', []))
+    return jsonify(fallback)
 
 
 @app.get('/api/points')
 def api_points() -> object:
-    base = json_store.read_json('discovered_points.json', {'items': []})
-    latest = json_store.read_json('latest_values.json', {}).get('values') or {}
+    db_points = trend_store.read_points()
+    base = {'items': db_points} if db_points else json_store.read_json('discovered_points.json', {'items': []})
+    latest_doc = json_store.read_json('latest_values.json', {})
+    latest = latest_doc.get('values') or {}
+    latest_updated = str(latest_doc.get('updatedAt') or '')
     polling = _polling_config_map()
     items = []
     for row in base.get('items', []):
+        if settings.hide_gateway_device and int(row.get('deviceInstance') or -1) == settings.bacnet_gateway_instance:
+            continue
         merged = dict(row)
         point_id = str(row.get('pointId') or '')
         value_key = row.get('valueKey') or row.get('hostedKey') or point_id
         if value_key and value_key in latest:
             merged['value'] = latest[value_key]
-            merged['lastUpdated'] = json_store.read_json('latest_values.json', {}).get('updatedAt')
+            merged['lastUpdated'] = latest_updated
         if point_id and point_id in polling:
             merged['pollingEnabled'] = bool(polling[point_id].get('enabled', False))
             merged['intervalSec'] = int(polling[point_id].get('intervalSec', settings.default_poll_interval))
+        runtime = _point_runtime.get(point_id, {})
+        if runtime.get('lastSuccessTs'):
+            merged['lastUpdatedTs'] = int(runtime['lastSuccessTs'])
+        if runtime.get('lastError'):
+            merged['lastError'] = str(runtime.get('lastError'))
+        merged['valueState'] = _point_value_state(merged, runtime)
         items.append(merged)
     return jsonify({'items': items})
 
@@ -195,7 +221,12 @@ def api_trends_query() -> object:
 
 @app.get('/api/discovery/devices')
 def api_discovery_devices() -> object:
-    return jsonify(json_store.read_json('discovered_devices.json', {'items': []}))
+    items = _filtered_devices(trend_store.read_devices())
+    if items:
+        return jsonify({'items': items})
+    fallback = json_store.read_json('discovered_devices.json', {'items': []})
+    fallback['items'] = _filtered_devices(fallback.get('items', []))
+    return jsonify(fallback)
 
 
 @app.post('/api/discovery/whois')
@@ -203,10 +234,27 @@ def api_discovery_whois() -> object:
     body = request.get_json(force=True, silent=True) or {}
     start_instance = int(body.get('startInstance', settings.default_whois_start))
     end_instance = int(body.get('endInstance', settings.default_whois_end))
-    payload = rpc_client.client_whois_range(start_instance, end_instance)
+    try:
+        payload = rpc_client.client_whois_range(start_instance, end_instance)
+    except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        log.warning('whois failed (%s-%s): %s', start_instance, end_instance, detail)
+        return (
+            jsonify(
+                {
+                    'ok': False,
+                    'error': 'BACnet discovery failed',
+                    'detail': detail,
+                    'diyOnline': algorithms.ping_diy_bacnet()[0],
+                }
+            ),
+            502,
+        )
     discovered = _extract_device_rows(payload)
+    discovered = _filtered_devices(discovered)
     current = json_store.read_json('discovered_devices.json', {'items': []}).get('items', [])
     merged = _merge_devices(current, discovered)
+    trend_store.upsert_devices(merged)
     json_store.write_json('discovered_devices.json', {'items': merged, 'updatedAt': _now_iso()})
     return jsonify({'ok': True, 'items': merged, 'count': len(merged)})
 
@@ -217,14 +265,42 @@ def api_discovery_device_points() -> object:
     if 'deviceInstance' not in body:
         return jsonify({'ok': False, 'error': 'deviceInstance is required'}), 400
     device_instance = int(body['deviceInstance'])
-    payload = rpc_client.client_point_discovery(device_instance)
+    try:
+        payload = rpc_client.client_point_discovery(device_instance)
+    except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        log.warning('point discovery failed for %s: %s', device_instance, detail)
+        return jsonify({'ok': False, 'error': 'Point discovery failed', 'detail': detail}), 502
     points = _extract_point_rows(device_instance, payload)
+    trend_store.upsert_points(device_instance, points)
     point_doc = json_store.read_json('discovered_points.json', {'items': []})
     existing = [item for item in point_doc.get('items', []) if int(item.get('deviceInstance') or -1) != device_instance]
     existing.extend(points)
     json_store.write_json('discovered_points.json', {'items': existing, 'updatedAt': _now_iso()})
     _upsert_device_point_count(device_instance, len(points))
     return jsonify({'ok': True, 'items': points, 'count': len(points)})
+
+
+@app.delete('/api/points/<path:point_id>')
+def api_point_delete(point_id: str) -> object:
+    removed = trend_store.delete_point(point_id)
+    doc = json_store.read_json('discovered_points.json', {'items': []})
+    doc['items'] = [i for i in doc.get('items', []) if str(i.get('pointId')) != point_id]
+    json_store.write_json('discovered_points.json', doc)
+    return jsonify({'ok': True, 'removed': removed})
+
+
+@app.delete('/api/devices/<int:device_instance>')
+def api_device_delete(device_instance: int) -> object:
+    removed = trend_store.delete_device(device_instance)
+    dev_doc = json_store.read_json('discovered_devices.json', {'items': []})
+    dev_doc['items'] = [i for i in dev_doc.get('items', []) if int(i.get('deviceInstance') or -1) != int(device_instance)]
+    json_store.write_json('discovered_devices.json', dev_doc)
+
+    points_doc = json_store.read_json('discovered_points.json', {'items': []})
+    points_doc['items'] = [i for i in points_doc.get('items', []) if int(i.get('deviceInstance') or -1) != int(device_instance)]
+    json_store.write_json('discovered_points.json', points_doc)
+    return jsonify({'ok': True, 'removed': removed})
 
 
 @app.get('/api/polling/config')
@@ -356,6 +432,8 @@ def _extract_device_rows(payload: dict) -> list[dict]:
     result = _extract_result(payload)
     if isinstance(result, dict):
         raw_items = result.get('items', result.get('devices', result))
+        if isinstance(result.get('data'), dict):
+            raw_items = result['data'].get('devices', raw_items)
         if isinstance(raw_items, dict):
             raw_items = raw_items.get('items', [])
     elif isinstance(result, list):
@@ -368,7 +446,13 @@ def _extract_device_rows(payload: dict) -> list[dict]:
     for row in raw_items:
         if not isinstance(row, dict):
             continue
+        raw_dev_id = row.get('i-am-device-identifier')
         instance = row.get('device_instance', row.get('deviceInstance', row.get('instance')))
+        if instance is None and isinstance(raw_dev_id, str) and ',' in raw_dev_id:
+            try:
+                instance = int(raw_dev_id.split(',')[1])
+            except ValueError:
+                instance = None
         if instance is None:
             continue
         instance = int(instance)
@@ -376,9 +460,11 @@ def _extract_device_rows(payload: dict) -> list[dict]:
             {
                 'id': f'bacnet-device-{instance}',
                 'name': str(row.get('object_name') or row.get('name') or f'Device {instance}'),
+                'address': str(row.get('device-address') or row.get('address') or ''),
                 'status': str(row.get('status') or 'online'),
                 'deviceInstance': instance,
                 'pointCount': int(row.get('pointCount') or 0),
+                'vendorId': row.get('vendor-id'),
                 'lastSeen': _now_iso(),
                 'pollingEnabled': False,
             }
@@ -390,6 +476,8 @@ def _extract_point_rows(device_instance: int, payload: dict) -> list[dict]:
     result = _extract_result(payload)
     if isinstance(result, dict):
         raw_items = result.get('items', result.get('points', result))
+        if isinstance(result.get('data'), dict):
+            raw_items = result['data'].get('objects', raw_items)
         if isinstance(raw_items, dict):
             raw_items = raw_items.get('items', [])
     elif isinstance(result, list):
@@ -419,6 +507,7 @@ def _extract_point_rows(device_instance: int, payload: dict) -> list[dict]:
                 'deviceInstance': device_instance,
                 'label': label,
                 'units': str(row.get('units') or row.get('engineering_units') or ''),
+                'commandable': bool(row.get('commandable', False)),
                 'alarmState': 'normal',
                 'objectIdentifier': object_identifier,
                 'propertyIdentifier': 'present-value',
@@ -504,14 +593,26 @@ def _poll_selected_points() -> list[dict]:
         property_identifier = str(row.get('propertyIdentifier', 'present-value')).strip() or 'present-value'
         if not device_instance or not object_identifier:
             continue
-        payload = rpc_client.client_read_property(device_instance, object_identifier, property_identifier)
-        result = _extract_result(payload)
-        value = None
-        if isinstance(result, dict):
-            value = result.get('value', result.get('present-value', result.get('presentValue')))
-        elif isinstance(result, (int, float, str, bool)):
-            value = result
-        out.append({'pointId': point_id, 'value': value, 'ts': int(time.time())})
+        try:
+            payload = rpc_client.client_read_property(device_instance, object_identifier, property_identifier)
+            result = _extract_result(payload)
+            value = None
+            if isinstance(result, dict):
+                value = result.get('value', result.get('present-value', result.get('presentValue')))
+            elif isinstance(result, (int, float, str, bool)):
+                value = result
+            ts = int(time.time())
+            _point_runtime.setdefault(point_id, {})
+            _point_runtime[point_id]['lastSuccessTs'] = ts
+            _point_runtime[point_id]['lastError'] = ''
+            _point_runtime[point_id]['lastAttemptTs'] = ts
+            out.append({'pointId': point_id, 'value': value, 'ts': ts})
+        except Exception as exc:  # noqa: BLE001
+            ts = int(time.time())
+            _point_runtime.setdefault(point_id, {})
+            _point_runtime[point_id]['lastAttemptTs'] = ts
+            _point_runtime[point_id]['lastError'] = str(exc)
+            log.warning('poll read failed for %s (%s): %s', point_id, object_identifier, exc)
     return out
 
 
@@ -534,3 +635,33 @@ def _flush_trend_buffer_if_needed(force: bool) -> None:
         rows = list(_poll_buffer)
         _poll_buffer.clear()
     trend_store.insert_samples(rows)
+
+
+def _point_value_state(row: dict, runtime: dict) -> str:
+    if runtime.get('lastError'):
+        return 'offline'
+    if not row.get('pollingEnabled'):
+        return 'fresh'
+    interval = int(row.get('intervalSec') or settings.default_poll_interval)
+    stale_after = max(settings.stale_min_seconds, int(interval * settings.stale_multiplier))
+    last_success = int(runtime.get('lastSuccessTs') or 0)
+    if last_success == 0:
+        return 'stale'
+    age = int(time.time()) - last_success
+    if age >= stale_after:
+        return 'stale'
+    return 'fresh'
+
+
+def _filtered_devices(items: list[dict]) -> list[dict]:
+    if not settings.hide_gateway_device:
+        return list(items)
+    out = []
+    for row in items:
+        try:
+            if int(row.get('deviceInstance') or -1) == settings.bacnet_gateway_instance:
+                continue
+        except Exception:
+            pass
+        out.append(row)
+    return out

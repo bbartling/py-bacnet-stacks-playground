@@ -15,6 +15,14 @@
     trends: [],
     lastRefreshTs: null,
     source: 'live',
+    discoveryError: '',
+    trendError: '',
+    discoveryStatus: {
+      whois: { state: 'idle', message: 'Idle', ts: '' },
+      points: { state: 'idle', message: 'Idle', ts: '' },
+    },
+    discoveryBusyInstance: null,
+    selectedDiscoveryDevices: [],
   };
 
   let mountEl = null;
@@ -29,7 +37,14 @@
 
   async function fetchJson(url, init) {
     const response = await fetch(url, init);
-    if (!response.ok) throw new Error(String(response.status));
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const payload = await response.json();
+        detail = payload.detail || payload.error || '';
+      } catch (_) {}
+      throw new Error(`${response.status}${detail ? `: ${detail}` : ''}`);
+    }
     return response.json();
   }
 
@@ -52,17 +67,34 @@
     return d.toLocaleString();
   }
 
+  function unixToIso(unixTs) {
+    const d = new Date(Number(unixTs) * 1000);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toISOString();
+  }
+
+  function nowLabel() {
+    return new Date().toLocaleTimeString();
+  }
+
+  function selectedDeviceInstances() {
+    return new Set((state.selectedDiscoveryDevices || []).map((v) => Number(v)));
+  }
+
   function getDiscoveryDeviceRows() {
+    const selected = selectedDeviceInstances();
     return state.devices.map((d) => {
       const instance = d.deviceInstance || d.instance || d.id;
+      const instNum = Number(instance);
+      const checked = selected.has(instNum);
       return `
       <tr>
+        <td><input type="checkbox" data-act="discover-device-check" data-inst="${escapeHtml(String(instance))}" ${checked ? 'checked' : ''} /></td>
         <td>${escapeHtml(String(instance ?? '—'))}</td>
         <td>${escapeHtml(d.name || `Device ${instance}`)}</td>
         <td>${escapeHtml(d.status || 'online')}</td>
         <td>${escapeHtml(String(d.pointCount || 0))}</td>
         <td>${escapeHtml(d.lastSeen || '—')}</td>
-        <td><button class="btn btn-sm" data-act="discover-points" data-inst="${escapeHtml(String(instance))}">Discover points</button></td>
       </tr>`;
     }).join('');
   }
@@ -75,12 +107,12 @@
            <input class="control" data-act="poll-interval" data-point="${escapeHtml(p.pointId)}" type="number" min="5" max="900" value="${Number(p.intervalSec || 30)}" style="max-width:92px; margin-left:.5rem;" />`
         : escapeHtml(isEnabled ? `enabled (${p.intervalSec || 30}s)` : 'disabled');
       return `
-        <tr>
+        <tr class="${escapeHtml(`dash-point-${p.valueState || 'fresh'}`)}">
           <td>${escapeHtml(p.deviceId || '')}</td>
           <td>${escapeHtml(p.label || p.objectIdentifier || p.pointId)}</td>
           <td>${escapeHtml(p.objectIdentifier || '')}</td>
           <td>${escapeHtml(formatValue(p.value, p.units))}</td>
-          <td>${escapeHtml(p.lastUpdated || '—')}</td>
+          <td>${escapeHtml(p.lastUpdated || '—')}${p.lastError ? `<div class="dash-point-error">${escapeHtml(p.lastError)}</div>` : ''}</td>
           <td>${pollCell}</td>
         </tr>`;
     }).join('');
@@ -130,23 +162,45 @@
   }
 
   function viewDiscovery() {
+    const whoisStatus = state.discoveryStatus?.whois || { state: 'idle', message: 'Idle', ts: '' };
+    const pointsStatus = state.discoveryStatus?.points || { state: 'idle', message: 'Idle', ts: '' };
+    const whoisRunning = whoisStatus.state === 'running';
+    const pointsRunning = pointsStatus.state === 'running';
+    const allSelected = state.devices.length > 0 && state.selectedDiscoveryDevices.length === state.devices.length;
     return `
       <div class="dash-view-inner">
         <section class="panel">
           <div class="dash-panel-head"><h2>BACnet Discovery</h2><span>Who-Is + point import</span></div>
+          ${state.discoveryError ? `<p class="dash-error-banner">${escapeHtml(state.discoveryError)}</p>` : ''}
+          <div class="dash-discovery-status-row">
+            <div class="dash-discovery-status ${escapeHtml(`dash-discovery-${whoisStatus.state}`)}">
+              ${whoisRunning ? '<span class="dash-spinner" aria-hidden="true"></span>' : ''}
+              <span><strong>Who-Is:</strong> ${escapeHtml(whoisStatus.message || 'Idle')}</span>
+              <span class="dash-discovery-ts">${escapeHtml(whoisStatus.ts || '')}</span>
+            </div>
+            <div class="dash-discovery-status ${escapeHtml(`dash-discovery-${pointsStatus.state}`)}">
+              ${pointsRunning ? '<span class="dash-spinner" aria-hidden="true"></span>' : ''}
+              <span><strong>Points:</strong> ${escapeHtml(pointsStatus.message || 'Idle')}</span>
+              <span class="dash-discovery-ts">${escapeHtml(pointsStatus.ts || '')}</span>
+            </div>
+          </div>
           <div class="dash-config-row">
             <span>
               <input class="control" id="whois-start" type="number" placeholder="start instance" value="1" style="max-width:180px" />
               <input class="control" id="whois-end" type="number" placeholder="end instance" value="4194303" style="max-width:180px; margin-left:.5rem;" />
             </span>
-            <span><button class="btn primary" data-act="run-whois">Run Who-Is discovery</button></span>
+            <span><button class="btn primary" data-act="run-whois" ${whoisRunning ? 'disabled' : ''}>Run Who-Is discovery</button></span>
           </div>
         </section>
         <section class="panel">
           <div class="dash-panel-head"><h2>Discovered Devices</h2><span>${state.devices.length} found</span></div>
+          <div class="dash-config-row">
+            <span><label><input type="checkbox" data-act="discover-select-all" ${allSelected ? 'checked' : ''}/> Select all devices</label></span>
+            <span><button class="btn" data-act="discover-points-selected" ${pointsRunning || state.selectedDiscoveryDevices.length === 0 ? 'disabled' : ''}>Discover points for selected (${state.selectedDiscoveryDevices.length})</button></span>
+          </div>
           <div class="dash-table-wrap">
             <table class="dash-table">
-              <thead><tr><th>Instance</th><th>Name</th><th>Status</th><th>Points</th><th>Last seen</th><th>Actions</th></tr></thead>
+              <thead><tr><th></th><th>Instance</th><th>Name</th><th>Status</th><th>Points</th><th>Last seen</th></tr></thead>
               <tbody>${getDiscoveryDeviceRows()}</tbody>
             </table>
           </div>
@@ -155,10 +209,16 @@
   }
 
   function viewPolling() {
+    const enabledCount = state.points.filter((p) => p.pollingEnabled).length;
+    const allChecked = state.points.length > 0 && enabledCount === state.points.length;
     return `
       <div class="dash-view-inner">
         <section class="panel">
           <div class="dash-panel-head"><h2>Polling Configuration</h2><span>${state.points.length} points</span></div>
+          <div class="dash-config-row">
+            <span>Polling selection</span>
+            <span><label><input type="checkbox" data-act="poll-toggle-all" ${allChecked ? 'checked' : ''}/> Select all points</label></span>
+          </div>
           <p class="dash-small-note">Enable points and set interval seconds. Click save to persist settings for the polling loop.</p>
           <div class="dash-table-wrap">
             <table class="dash-table">
@@ -172,16 +232,12 @@
   }
 
   function viewPoints() {
+    const treeHtml = window.DiyBasPointsTree ? window.DiyBasPointsTree.renderTree(state.points) : '<p class="dash-small-note">Points tree unavailable.</p>';
     return `
       <div class="dash-view-inner">
         <section class="panel">
-          <div class="dash-panel-head"><h2>Points</h2><span>${state.points.length} total</span></div>
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead><tr><th>Device</th><th>Point</th><th>Object</th><th>Value</th><th>Last updated</th><th>Polling</th></tr></thead>
-              <tbody>${getPointRows(false)}</tbody>
-            </table>
-          </div>
+          <div class="dash-panel-head"><h2>Points Tree</h2><span>${state.points.length} total</span></div>
+          ${treeHtml}
         </section>
       </div>`;
   }
@@ -199,7 +255,8 @@
     return `
       <div class="dash-view-inner">
         <section class="panel">
-          <div class="dash-panel-head"><h2>Trend Explorer</h2><span>SQLite (14-day retention)</span></div>
+          <div class="dash-panel-head"><h2>Trend Explorer</h2><span>SQLite retention + Plotly zoom/export</span></div>
+          ${state.trendError ? `<p class="dash-error-banner">${escapeHtml(state.trendError)}</p>` : ''}
           <div class="dash-config-row">
             <span>
               <select class="control" id="trend-point" style="min-width:340px">${options}</select>
@@ -211,8 +268,9 @@
             <span><button class="btn" data-act="load-trend">Load trend</button></span>
           </div>
           <div class="dash-chart-wrap">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="dash-chart-svg">
-              <path d="${path}" class="dash-chart-line"></path>
+            <div id="plotly-trend" class="dash-plotly-trend"></div>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="dash-chart-svg" ${path ? 'hidden' : ''}>
+              <path d="" class="dash-chart-line"></path>
             </svg>
           </div>
           <div class="dash-trend-list">${trendRows || '<p class="dash-small-note">No trend samples in selected range.</p>'}</div>
@@ -223,8 +281,9 @@
   function viewDevices() {
     return `
       <div class="dash-view-inner"><section class="panel"><div class="dash-panel-head"><h2>Devices</h2><span>${state.devices.length} total</span></div>
+      <p class="dash-small-note">Right-click a device row to remove it and its discovered points.</p>
       <div class="dash-table-wrap"><table class="dash-table"><thead><tr><th>Instance</th><th>Name</th><th>Status</th><th>Points</th><th>Last seen</th></tr></thead>
-      <tbody>${state.devices.map((d) => `<tr><td>${escapeHtml(String(d.deviceInstance || '—'))}</td><td>${escapeHtml(d.name || '')}</td><td>${escapeHtml(d.status || '')}</td><td>${escapeHtml(String(d.pointCount || 0))}</td><td>${escapeHtml(d.lastSeen || '—')}</td></tr>`).join('')}</tbody>
+      <tbody>${state.devices.map((d) => `<tr data-device-inst="${escapeHtml(String(d.deviceInstance || ''))}" class="dash-device-row"><td>${escapeHtml(String(d.deviceInstance || '—'))}</td><td>${escapeHtml(d.name || '')}</td><td>${escapeHtml(d.status || '')}</td><td>${escapeHtml(String(d.pointCount || 0))}</td><td>${escapeHtml(d.lastSeen || '—')}</td></tr>`).join('')}</tbody>
       </table></div></section></div>`;
   }
 
@@ -256,36 +315,201 @@
     };
     const fn = viewMap[state.route] || viewOverview;
     mountEl.innerHTML = fn();
+    renderTrendPlotly();
     bindEvents();
+    bindPointsTree();
+    bindDevicesContextMenu();
+  }
+
+  function bindPointsTree() {
+    if (!mountEl || state.route !== 'points' || !window.DiyBasPointsTree) return;
+    window.DiyBasPointsTree.bindContextMenu(mountEl, {
+      onSetPolling: async (pointId, enabled) => {
+        const row = state.points.find((p) => p.pointId === pointId);
+        if (row) row.pollingEnabled = !!enabled;
+        const items = state.points.map((p) => ({
+          pointId: p.pointId,
+          enabled: !!p.pollingEnabled,
+          intervalSec: Number(p.intervalSec || 30),
+          deviceInstance: Number(p.deviceInstance || 0),
+          objectIdentifier: p.objectIdentifier || '',
+          propertyIdentifier: p.propertyIdentifier || 'present-value',
+          label: p.label || '',
+        }));
+        await fetchJson(`${state.apiBase}/polling/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        });
+        await refresh();
+        state.route = 'points';
+        paint();
+      },
+      onDeletePoint: async (pointId) => {
+        await fetchJson(`${state.apiBase}/points/${encodeURIComponent(pointId)}`, { method: 'DELETE' });
+        await refresh();
+        state.route = 'points';
+        paint();
+      },
+    });
+  }
+
+  function bindDevicesContextMenu() {
+    if (!mountEl || state.route !== 'devices') return;
+    mountEl.querySelectorAll('.dash-device-row').forEach((row) => {
+      row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const inst = Number(row.getAttribute('data-device-inst') || 0);
+        if (!inst) return;
+        showDeviceMenu(e.clientX, e.clientY, inst);
+      });
+    });
+  }
+
+  function showDeviceMenu(x, y, deviceInstance) {
+    closeDeviceMenu();
+    const m = document.createElement('div');
+    m.className = 'points-menu';
+    m.innerHTML = '<button data-act="delete-device">Delete device and points</button>';
+    m.style.left = `${x}px`;
+    m.style.top = `${y}px`;
+    m.addEventListener('click', async (e) => {
+      const act = e.target && e.target.getAttribute ? e.target.getAttribute('data-act') : '';
+      closeDeviceMenu();
+      if (act !== 'delete-device') return;
+      await fetchJson(`${state.apiBase}/devices/${deviceInstance}`, { method: 'DELETE' });
+      await refresh();
+      state.route = 'devices';
+      paint();
+    });
+    document.body.appendChild(m);
+    setTimeout(() => document.addEventListener('click', closeDeviceMenu, { once: true }), 0);
+  }
+
+  function closeDeviceMenu() {
+    const old = document.querySelector('.points-menu');
+    if (old) old.remove();
+  }
+
+  function renderTrendPlotly() {
+    if (!mountEl || state.route !== 'trends') return;
+    const el = mountEl.querySelector('#plotly-trend');
+    if (!el) return;
+    if (!window.Plotly) {
+      el.innerHTML = '<p class="dash-small-note">Plotly failed to load; trend table still available.</p>';
+      return;
+    }
+    const rows = (state.trends || []).filter((r) => r && r.ts !== undefined && r.value !== undefined);
+    const trace = [
+      {
+        x: rows.map((r) => unixToIso(r.ts)),
+        y: rows.map((r) => Number(r.value)),
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#0d7a5f', width: 2 },
+        marker: { size: 5 },
+        name: 'Value',
+      },
+    ];
+    const layout = {
+      margin: { l: 42, r: 16, t: 12, b: 42 },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      xaxis: { title: 'Time', type: 'date' },
+      yaxis: { title: 'Value' },
+      showlegend: false,
+    };
+    const config = {
+      responsive: true,
+      displaylogo: false,
+      toImageButtonOptions: { format: 'png', filename: `trend-${state.selectedPointId || 'point'}`, height: 600, width: 1000, scale: 1 },
+    };
+    window.Plotly.react(el, trace, layout, config);
   }
 
   function bindEvents() {
     if (!mountEl) return;
     mountEl.querySelectorAll('[data-act="run-whois"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const start = Number(mountEl.querySelector('#whois-start')?.value || 1);
-        const end = Number(mountEl.querySelector('#whois-end')?.value || 4194303);
-        await fetchJson(`${state.apiBase}/discovery/whois`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startInstance: start, endInstance: end }),
-        });
-        await refresh();
-        state.route = 'discovery';
+        try {
+          state.discoveryError = '';
+          state.discoveryStatus.whois = { state: 'running', message: 'Running discovery...', ts: nowLabel() };
+          paint();
+          const start = Number(mountEl.querySelector('#whois-start')?.value || 1);
+          const end = Number(mountEl.querySelector('#whois-end')?.value || 4194303);
+          const payload = await fetchJson(`${state.apiBase}/discovery/whois`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startInstance: start, endInstance: end }),
+          });
+          state.discoveryStatus.whois = { state: 'success', message: `OK (${Number(payload?.count || 0)} devices)`, ts: nowLabel() };
+          await refresh();
+          state.selectedDiscoveryDevices = (state.devices || [])
+            .map((d) => Number(d.deviceInstance || d.instance || d.id))
+            .filter((n) => Number.isFinite(n));
+          state.route = 'discovery';
+          paint();
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          state.discoveryError = msg;
+          state.discoveryStatus.whois = { state: 'error', message: msg, ts: nowLabel() };
+          paint();
+        }
+      });
+    });
+    mountEl.querySelectorAll('[data-act="discover-device-check"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        const inst = Number(el.getAttribute('data-inst'));
+        const current = selectedDeviceInstances();
+        if (el.checked) current.add(inst);
+        else current.delete(inst);
+        state.selectedDiscoveryDevices = Array.from(current.values());
         paint();
       });
     });
-    mountEl.querySelectorAll('[data-act="discover-points"]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const inst = Number(btn.getAttribute('data-inst'));
-        await fetchJson(`${state.apiBase}/discovery/device-points`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceInstance: inst }),
-        });
-        await refresh();
-        state.route = 'polling';
+    mountEl.querySelectorAll('[data-act="discover-select-all"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        if (el.checked) {
+          state.selectedDiscoveryDevices = (state.devices || [])
+            .map((d) => Number(d.deviceInstance || d.instance || d.id))
+            .filter((n) => Number.isFinite(n));
+        } else {
+          state.selectedDiscoveryDevices = [];
+        }
         paint();
+      });
+    });
+    mountEl.querySelectorAll('[data-act="discover-points-selected"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const selected = Array.from(selectedDeviceInstances().values());
+        if (!selected.length) return;
+        let totalPoints = 0;
+        try {
+          state.discoveryError = '';
+          for (const inst of selected) {
+            state.discoveryBusyInstance = inst;
+            state.discoveryStatus.points = { state: 'running', message: `Discovering points for ${inst}...`, ts: nowLabel() };
+            paint();
+            const payload = await fetchJson(`${state.apiBase}/discovery/device-points`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deviceInstance: inst }),
+            });
+            totalPoints += Number(payload?.count || 0);
+          }
+          state.discoveryStatus.points = { state: 'success', message: `OK (${totalPoints} points from ${selected.length} device(s))`, ts: nowLabel() };
+          state.discoveryBusyInstance = null;
+          await refresh();
+          state.route = 'discovery';
+          paint();
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          state.discoveryError = msg;
+          state.discoveryStatus.points = { state: 'error', message: msg, ts: nowLabel() };
+          state.discoveryBusyInstance = null;
+          state.route = 'discovery';
+          paint();
+        }
       });
     });
     mountEl.querySelectorAll('[data-act="poll-toggle"]').forEach((el) => {
@@ -293,6 +517,13 @@
         const pointId = el.getAttribute('data-point');
         const row = state.points.find((p) => p.pointId === pointId);
         if (row) row.pollingEnabled = el.checked;
+      });
+    });
+    mountEl.querySelectorAll('[data-act="poll-toggle-all"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        const checked = !!el.checked;
+        state.points = state.points.map((p) => ({ ...p, pollingEnabled: checked }));
+        paint();
       });
     });
     mountEl.querySelectorAll('[data-act="poll-interval"]').forEach((el) => {
@@ -323,10 +554,16 @@
     });
     mountEl.querySelectorAll('[data-act="load-trend"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const pointId = mountEl.querySelector('#trend-point')?.value || state.selectedPointId;
-        const seconds = Number(mountEl.querySelector('#trend-range')?.value || 86400);
-        await loadTrend(pointId, seconds);
-        paint();
+        try {
+          state.trendError = '';
+          const pointId = mountEl.querySelector('#trend-point')?.value || state.selectedPointId;
+          const seconds = Number(mountEl.querySelector('#trend-range')?.value || 86400);
+          await loadTrend(pointId, seconds);
+          paint();
+        } catch (err) {
+          state.trendError = String(err && err.message ? err.message : err);
+          paint();
+        }
       });
     });
   }
@@ -399,17 +636,29 @@
     state.notifications = Array.isArray(result.notificationLogs?.items) ? result.notificationLogs.items : [];
     state.lastRefreshTs = new Date().toLocaleTimeString();
     state.source = 'live';
+    const validInstances = new Set(
+      (state.devices || [])
+        .map((d) => Number(d.deviceInstance || d.instance || d.id))
+        .filter((n) => Number.isFinite(n))
+    );
+    state.selectedDiscoveryDevices = (state.selectedDiscoveryDevices || []).filter((n) => validInstances.has(Number(n)));
     mergePollingConfig();
     if (!state.selectedPointId && state.points.length) state.selectedPointId = state.points[0].pointId;
     if (state.selectedPointId) {
-      await loadTrend(state.selectedPointId, 86400);
+      try {
+        state.trendError = '';
+        await loadTrend(state.selectedPointId, 86400);
+      } catch (err) {
+        state.trends = [];
+        state.trendError = String(err && err.message ? err.message : err);
+      }
     }
     paint();
   }
 
   function getTopbarMeta() {
     if (!state.health) {
-      return { title: 'Dashboard', subtitle: 'Loading…', pill: '…' };
+      return { title: 'Dashboard', subtitle: 'Loading…', pill: '…', pillTone: 'neutral' };
     }
     const h = state.health;
     const source = state.source === 'live' ? 'Live API' : 'Offline';
@@ -427,6 +676,7 @@
       title: `${h.appTitle || 'diy-bas'} — ${titles[state.route] || 'Overview'}`,
       subtitle: `${h.siteName || 'site'} · ${source} (${state.apiBase})`,
       pill: h.diy?.reachable ? 'BACnet OK' : source,
+      pillTone: h.diy?.reachable ? 'ok' : 'bad',
     };
   }
 

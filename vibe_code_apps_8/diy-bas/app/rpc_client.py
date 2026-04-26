@@ -19,7 +19,14 @@ def call_method(method: str, params: dict[str, Any] | None = None) -> dict[str, 
     headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
     if settings.bacnet_rpc_api_key:
         headers['Authorization'] = f'Bearer {settings.bacnet_rpc_api_key}'
-    response = requests.post(url, json=body, headers=headers, timeout=settings.rpc_timeout)
+    try:
+        response = requests.post(url, json=body, headers=headers, timeout=settings.rpc_timeout)
+    except requests.RequestException as exc:
+        raise RuntimeError(f'Unable to reach diy-bacnet-server at {settings.diy_bacnet_url}: {exc}') from exc
+    if response.status_code in (401, 403):
+        raise RuntimeError(
+            f'BACnet RPC authorization failed ({response.status_code}). Check BACNET_RPC_API_KEY and server auth settings.'
+        )
     response.raise_for_status()
     payload = response.json()
     if isinstance(payload, dict) and payload.get('error'):
