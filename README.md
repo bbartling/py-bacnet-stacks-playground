@@ -68,30 +68,7 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 
 ---
 
-## Open Claw Model Routing Prompt
 
-Just drop this prompt right into Open Claw—it’s helped me avoid hitting API limits. I think it encourages the framework to use simple, low-cost models for easier tasks, while reserving more advanced (and expensive) models only for the tasks that truly require deeper reasoning.
-
-
-```text
-## Model Routing Policy
-When analyzing test results, classify each task before processing:
-SIMPLE (use primary model):
-- Pass/fail test results
-- HTTP status code errors (404, 500, timeout)
-- Missing UI elements or broken selectors
-- Test environment setup failures
-- Syntax errors or import failures
-COMPLEX (use thinking model)
-- Unexpected behavior that passed but shouldn't have
-- Race conditions or timing-dependent failures
-- Security vulnerabilities
-- Performance degradation patterns
-- Failures that span multiple components or files
-Default to SIMPLE unless the test result shows ambiguous or multi-layered behavior.
-Always classify first, then process. Never use the thinking model for a task that fits the SIMPLE list.
-
-```
 
 
 ---
@@ -100,22 +77,22 @@ Always classify first, then process. Never use the thinking model for a task tha
 
 ## Vibe Code Checkpoints
 
-| Checkpoint      | What to Build                                                                                                                                              | When        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **1**           | **BAC0 + bacpypes3 basics:** Read `present-value`, write to a point, write `NULL` (release), and understand commandable objects + priority arrays          | **Week 1**  |
-| **2**           | **RPM apps (BAC0 + bacpypes3):** Use ReadPropertyMultiple across devices, log to CSV, and implement daily file rotation (`csv` module)                     | **Week 2**  |
-| **3**           | **Priority Array tools:** Read and parse `priority-array`, inspect overrides, and understand control authority                                             | **Week 3**  |
-| **4**           | **BACnet server apps:** Build a mini device, implement schedule/calendar objects, and create a weather server using OpenWeatherMap                         | **Week 4**  |
-| **5**           | **Device discovery tools:** Implement Who-Is / I-Am scanning and device enumeration (BAC0 + bacpypes3)                                                     | **Week 5**  |
-| **6**           | **COV monitoring apps:** Subscribe to Change-of-Value and stream live updates from devices                                                                 | **Week 6**  |
-| **7**           | **OpenClaw + VOLTTRON bootstrap:** Auto-provision VOLTTRON on edge devices (e.g., Raspberry Pi) and build a simple BAS/BMS-style GUI (“vibe app”)          | **Week 7**  |
-| **8**           | **React BAS widget:** Vibe-code a BAS-style calendar/schedule widget from scratch in React (vanilla UI)                                                    | **Week 8**  |
-| **9**           | **Flask UI app:** Vibe-code a Flask app to serve the vanilla BAS UI                                                                                        | **Week 9**  |
-| **10**          | **Django UI app:** Rebuild the UI using Django, adding features like authentication and SMTP email alerts (“dial-out” style notifications)                 | **Week 10** |
-| **11**          | **(TBD)** Expand UI + backend integration (e.g., tie UI to BACnet services or APIs)                                                                        | **Week 11** |
-| **12**          | **(TBD)** Add persistence, logging, or simple FDD logic to the app                                                                                         | **Week 12** |
-| **13** *(TODO)* | **Rust BACnet stack:** Integrate [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) with Python bindings and rebuild key apps using a Rust backend | **Future**  |
-| **14** *(TODO)* | **Protocol debugging:** Use Wireshark + Linux tools to inspect BACnet/IP traffic, validate behavior, and troubleshoot all apps                             | **Final**   |
+| Checkpoint | What to Build | When |
+| --- | --- | --- |
+| **1** | **BAC0 + bacpypes3 basics:** read `present-value`, write points, release with `NULL`, and learn priority arrays. | **Week 1** |
+| **2** | **RPM apps:** use ReadPropertyMultiple across devices, log to CSV, and rotate daily files. | **Week 2** |
+| **3** | **Priority array tools:** parse `priority-array`, inspect overrides, and understand control authority. | **Week 3** |
+| **4** | **BACnet server apps:** build a mini device with schedule/calendar objects and weather server inputs. | **Week 4** |
+| **5** | **Device discovery tools:** implement Who-Is / I-Am scanning and device enumeration. | **Week 5** |
+| **6** | **COV monitoring apps:** subscribe to COV updates and stream live values. | **Week 6** |
+| **7** | **Frontend vibe coding foundation:** create a BAS/BMS-style GUI prototype (frontend only). | **Week 7** |
+| **8** | **BAS schedule widget demo:** build/polish Week 8 UI in `vibe_code_apps_8/bas_schedule_widget_demo`. | **Week 8** |
+| **9** | **diy-bas beginning phase:** primitive first-stab code in `vibe_code_apps_9/diy-bas-primitive`. | **Week 9** |
+| **10** | **diy-bas integration:** combine auth, alarms, schedules, trends, and BACnet discovery. | **Week 10** |
+| **11** | **diy-bas hardening:** add persistence, audit logging, role polish, and deploy/ops workflows. | **Week 11** |
+| **12** | **diy-bas final app release:** ship the Raspberry Pi-ready supervisory BAS app. | **Final** |
+| **13** *(TODO)* | **Rust BACnet stack (bonus):** integrate [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** |
+| **14** *(TODO)* | **Protocol debugging (bonus):** use Wireshark/Linux tools to validate BACnet/IP behavior. | **Bonus** |
 
 
 ---

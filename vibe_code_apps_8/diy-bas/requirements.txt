@@ -1,5 +1,0 @@
-flask>=3.0.0
-flask-sock>=0.7.0
-requests>=2.31.0
-simple-websocket>=1.0.0
-python-dotenv>=1.0.1
