@@ -74,25 +74,27 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 ---
 
 
-
 ## Vibe Code Checkpoints
 
-| Checkpoint | What to Build | When |
-| --- | --- | --- |
-| **1** | **BAC0 + bacpypes3 basics:** read `present-value`, write points, release with `NULL`, and learn priority arrays. | **Week 1** |
-| **2** | **RPM apps:** use ReadPropertyMultiple across devices, log to CSV, and rotate daily files. | **Week 2** |
-| **3** | **Priority array tools:** parse `priority-array`, inspect overrides, and understand control authority. | **Week 3** |
-| **4** | **BACnet server apps:** build a mini device with schedule/calendar objects and weather server inputs. | **Week 4** |
-| **5** | **Device discovery tools:** implement Who-Is / I-Am scanning and device enumeration. | **Week 5** |
-| **6** | **COV monitoring apps:** subscribe to COV updates and stream live values. | **Week 6** |
-| **7** | **Frontend vibe coding foundation:** create a BAS/BMS-style GUI prototype (frontend only). | **Week 7** |
-| **8** | **BAS schedule widget demo:** build/polish Week 8 UI in `vibe_code_apps_8/bas_schedule_widget_demo`. | **Week 8** |
-| **9** | **diy-bas beginning phase:** primitive first-stab code in `vibe_code_apps_9/diy-bas-primitive`. | **Week 9** |
-| **10** | **diy-bas integration:** combine auth, alarms, schedules, trends, and BACnet discovery. | **Week 10** |
-| **11** | **diy-bas hardening:** add persistence, audit logging, role polish, and deploy/ops workflows. | **Week 11** |
-| **12** | **diy-bas final app release:** ship the Raspberry Pi-ready supervisory BAS app. | **Final** |
-| **13** *(TODO)* | **Rust BACnet stack (bonus):** integrate [rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** |
-| **14** *(TODO)* | **Protocol debugging (bonus):** use Wireshark/Linux tools to validate BACnet/IP behavior. | **Bonus** |
+> **Current status:** Currently on **Week 10 — diy-bas integration**  
+> The project is now moving from standalone demos into a more complete supervisory BAS-style application.
+
+| # | Checkpoint | Build Goal | Timeline | Status |
+| --- | --- | --- | --- | --- |
+| **1** | **BAC0 + bacpypes3 basics** | Read `present-value`, write points, release with `NULL`, and learn priority arrays. | **Week 1** | Done |
+| **2** | **RPM apps** | Use `ReadPropertyMultiple` across devices, log to CSV, and rotate daily files. | **Week 2** | Done |
+| **3** | **Priority array tools** | Parse `priority-array`, inspect overrides, and understand control authority. | **Week 3** | Done |
+| **4** | **BACnet server apps** | Build a mini BACnet device with schedule/calendar objects and weather server inputs. | **Week 4** | Done |
+| **5** | **Device discovery tools** | Implement `Who-Is` / `I-Am` scanning and device enumeration. | **Week 5** | Done |
+| **6** | **VOLTTRON deployment exploration with OpenClaw** | Explore deploying VOLTTRON with OpenClaw support, test the environment setup, and investigate how AI-assisted workflows can help scaffold edge BAS/FDD applications. | **Week 6** | Done |
+| **7** | **VOLTTRON v9 BAS-style web agent** | Build and test a VOLTTRON v9 web agent with BACnet integration, mimicking a lightweight BAS supervisory interface. | **Week 7** | Done |
+| **8** | **BAS schedule widget demo** | Build out a BAS-style schedule widget and frontend UI concepts. | **Week 8** | Done |
+| **9** | **diy-bas beginning phase** | Create the first primitive version of the `diy-bas` application. | **Week 9** | Done |
+| **10** | **diy-bas integration** | Combine authentication, alarms, schedules, trends, and BACnet discovery. | **Week 10** | **Current** |
+| **11** | **diy-bas hardening** | Add persistence, audit logging, role polish, security cleanup, and deploy/ops workflows. | **Week 11** | Next |
+| **12** | **diy-bas final app release** | Ship the Raspberry Pi-ready supervisory BAS application. | **Final** | Planned |
+| **13** | **Rust BACnet stack** | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** | TODO |
+| **14** | **Protocol debugging** | Bonus: use Wireshark and Linux tools to validate BACnet/IP behavior. | **Bonus** | TODO |
 
 
 ---
