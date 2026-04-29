@@ -69,11 +69,6 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 ---
 
 
-
-
----
-
-
 ## Vibe Code Checkpoints
 
 > **Current status:** Currently on **Week 10 — diy-bas integration**  
