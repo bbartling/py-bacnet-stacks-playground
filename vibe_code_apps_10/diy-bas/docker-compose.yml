@@ -1,9 +1,10 @@
-services:
+﻿services:
   caddy:
     image: caddy:2.8-alpine
     container_name: diy-bas-caddy
     depends_on:
-      - diy-bas
+      diy-bas:
+        condition: service_healthy
     ports:
       - "${DIY_BAS_HTTP_PORT:-80}:80"
     volumes:
@@ -25,7 +26,10 @@ services:
     build:
       context: .
     container_name: diy-bas
+    env_file:
+      - .env
     environment:
+      DIY_BAS_DATA_DIR: /app/data
       DIY_BACNET_URL: ${DIY_BACNET_URL:-http://host.docker.internal:8080}
       BACNET_RPC_API_KEY: ${BACNET_RPC_API_KEY:-}
       DIY_BACNET_SERVER_INSTANCE: ${DIY_BACNET_SERVER_INSTANCE:-123456}
@@ -35,3 +39,9 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/api/health', timeout=5)"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s

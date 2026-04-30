@@ -1,9 +1,8 @@
-FROM python:3.12-slim
+﻿FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5050
-ENV BIND=0.0.0.0
 
 WORKDIR /app
 
@@ -11,10 +10,17 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY bas ./bas
+COPY diybas ./diybas
 COPY frontend ./frontend
-COPY run.py ./run.py
+COPY manage.py ./manage.py
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh \
+    && chmod +x /app/docker-entrypoint.sh \
+    && python manage.py collectstatic --noinput
 
 EXPOSE 5050
 VOLUME ["/app/data"]
 
-CMD ["python", "run.py"]
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]

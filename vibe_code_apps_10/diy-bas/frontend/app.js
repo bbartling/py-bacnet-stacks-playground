@@ -31,6 +31,20 @@
   };
   const NAV_ACCENT = new Set(['schedule', 'builder', 'wiresheet']);
 
+  function adminLinksHtml() {
+    if (!currentUser) return '';
+    const br = currentUser.basRole || '';
+    const showManage = currentUser.isSuperuser || br === 'system_integrator' || br === 'maintenance';
+    if (!showManage) return '';
+    const parts = ['<br/><span class="bas-sidebar-links">'];
+    parts.push('<a href="/bas/manage/" target="_blank" rel="noopener">Users &amp; roles</a>');
+    if (currentUser.isSuperuser) {
+      parts.push(' · <a href="/admin/" target="_blank" rel="noopener">Django admin</a>');
+    }
+    parts.push('</span>');
+    return parts.join('');
+  }
+
   function applyTopPill(meta) {
     if (!elTopPill) return;
     elTopPill.textContent = meta?.pill || '…';
@@ -120,7 +134,8 @@
         </div>
         <nav class="bas-nav" aria-label="Views">${navItemsForRole().join('')}</nav>
         <p class="bas-sidebar-foot">
-          Signed in as <strong>${currentUser?.username || 'unknown'}</strong><br/>Role: <strong>${currentUser?.role || 'unknown'}</strong>
+          Signed in as <strong>${currentUser?.username || 'unknown'}</strong><br/>Role: <strong>${currentUser?.basRole || currentUser?.role || 'unknown'}</strong>${currentUser?.readOnly ? ' · <span title="Write actions blocked server-side">read-only</span>' : ''}
+          ${adminLinksHtml()}
         </p>
       </aside>
       <div class="bas-main">
@@ -182,18 +197,24 @@
       <div class="bas-login-card">
         <h2>diy-bas sign in</h2>
         <p>System Integrator and Building Operator roles are enforced server-side.</p>
+        <p class="bas-login-hint">Use the username and password from the server <code>.env</code> (<code>DIY_BAS_ADMIN_*</code> / <code>DIY_BAS_MAINT_*</code>). Fresh installs often use <code>integrator</code> + <code>ChangeMeNow!123</code> until you change them.</p>
         ${errorText ? `<p class="dash-error-banner">${errorText}</p>` : ''}
-        <label>Username <input id="login-username" class="control" value="integrator" /></label>
-        <label>Password <input id="login-password" class="control" type="password" /></label>
+        <label>Username <input id="login-username" class="control" value="integrator" autocomplete="username" /></label>
+        <label>Password <input id="login-password" class="control" type="password" placeholder="required — e.g. ChangeMeNow!123" autocomplete="current-password" /></label>
         <button class="btn primary" id="login-submit">Sign in</button>
       </div>`;
     root.querySelector('#login-submit')?.addEventListener('click', async () => {
-      const username = root.querySelector('#login-username')?.value || '';
+      const username = root.querySelector('#login-username')?.value?.trim() || '';
       const password = root.querySelector('#login-password')?.value || '';
+      if (!password) {
+        showLogin('Enter a password (the field starts empty). For a default install, use the value of DIY_BAS_ADMIN_PASSWORD from the server .env.');
+        return;
+      }
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ username, password }),
         });
         const data = await res.json();

@@ -57,6 +57,8 @@ Default bootstrap user (change immediately):
 - maintenance username: `maintenance`
 - maintenance password: `ChangeMeNow!123`
 
+**How to log in:** Open the app in your browser (for example `http://127.0.0.1/` with Docker Compose + Caddy, or `http://<host>:5050` if you hit Flask directly). The first screen is the login form. Use the **integrator** or **maintenance** username and password above unless you changed them in `.env` (`DIY_BAS_ADMIN_*` and `DIY_BAS_MAINT_*`). After a successful login, Flask-Login keeps you signed in with a **session cookie** (default lifetime **24 hours**, see `DIY_BAS_SESSION_*` in `.env.example`).
+
 Notes:
 - If you hit Debian/Raspberry Pi OS externally managed environment errors, the `--copies` venv flow above is the recommended fix.
 - The `.env` warning from Flask is non-fatal when you manually export variables.
@@ -115,9 +117,11 @@ cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_10\diy-bas
 What it does:
 - zips `diy-bas` (excluding `.venv`, caches, local data db files),
 - uploads via `scp`,
+- runs `docker compose down` in the previous install (when present), then removes `diy-bas.bak` with **`sudo rm -rf`** when needed so root-owned `data/` from Docker does not block deploy,
 - unpacks into `/home/ben/diy-bas` on the Pi,
 - runs `bootstrap_pi.sh` in setup mode,
-- starts Docker stack (Caddy mode by default) and checks `GET /api/health`.
+- starts Docker stack (Caddy mode by default) and checks `GET /api/health`,
+- runs **`POST /api/auth/login`** on the Pi using `DIY_BAS_ADMIN_*` from the remote `.env` (skip with `-TestLogin:$false` if you use passwordless-sudo restrictions or a custom check).
 
 ## Docker run
 
@@ -203,8 +207,33 @@ docker compose up --build
 - Set `DIY_BAS_SECRET_KEY` in `.env` (bootstrap now generates if missing).
 - Set and secure `DIY_BAS_ADMIN_USERNAME` / `DIY_BAS_ADMIN_PASSWORD` in `.env`.
 - Set and secure `DIY_BAS_MAINT_USERNAME` / `DIY_BAS_MAINT_PASSWORD` in `.env`.
-- Use persistent data directory: `DIY_BAS_DATA_DIR=/var/lib/diy-bas` on Pi.
+- Use persistent data directory: `DIY_BAS_DATA_DIR=/var/lib/diy-bas` on Pi **when running Flask directly on the host** (venv / `python run.py`).
+- **Docker Compose** forces `DIY_BAS_DATA_DIR=/app/data` for the `diy-bas` service so SQLite always lives on the bind-mounted `./data` folder next to the compose file (do not expect `/var/lib/diy-bas` inside the container unless you add a matching volume).
 - `deploy_to_pi.ps1` rotates app code directories but keeps persistent data path outside the release folder.
+
+## Troubleshooting login and `.env` on the Pi
+
+### `./.env: line 19: user: No such file or directory`
+
+That message comes from **bash** when `bootstrap_pi.sh` runs `. ./.env`. If a line contains angle brackets, bash treats `<user>` as **input redirection** (read from a file named `user`), not as a placeholder.
+
+- **Fix:** In `.env`, set a real path, for example `DIY_BACNET_SERVER_DIR=/home/ben/diy-bacnet-server`. Never use `/home/<user>/...` in a file that gets sourced by bash.
+
+### Login fails but health works
+
+Users and password hashes live in **SQLite** (`trends.sqlite3` under the app data directory). On first run the app creates missing users from `DIY_BAS_ADMIN_*` and `DIY_BAS_MAINT_*`. **Changing `.env` later does not change existing hashes** unless you turn on refresh or reset the DB.
+
+- **Use the same credentials as in your Pi’s `.env`**, not an old copy of `.env.example`, unless they match.
+- Set **`DIY_BAS_BOOTSTRAP_REFRESH_PASSWORDS=true`** in `.env` (default in `.env.example`) so integrator/maintenance passwords are **re-applied from `.env` on every start** while that flag stays true. Set it to **`false`** after passwords are stable and you rely on the in-app change-password flow.
+- After fixing `docker-compose.yml` to load `.env` into the container, run **`docker compose up -d --build`** again.
+- Quick check from the Pi: `curl -s -X POST http://127.0.0.1/api/auth/login -H 'Content-Type: application/json' -d '{"username":"integrator","password":"ChangeMeNow!123"}'` (adjust user/password to match `.env`).
+
+### `poll loop error: unable to open database file`
+
+Usually the app cannot create or open `trends.sqlite3` under the configured data directory (permissions, missing directory, or wrong path inside Docker).
+
+- **Docker:** ensure the compose file keeps SQLite on `./data:/app/data` and that `DIY_BAS_DATA_DIR` inside the container is `/app/data` (compose now forces this so it does not inherit `/var/lib/diy-bas` from the host `.env` by mistake).
+- On the Pi host: `ls -la ~/diy-bas/data` and ensure the user running Docker can write there (often `chmod`/`chown` on `data/` after a restore).
 
 ## SD card friendly defaults (Raspberry Pi)
 

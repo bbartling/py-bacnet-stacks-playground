@@ -11,6 +11,13 @@ sudo apt install -y python3-full python3-venv
 echo "[bootstrap] Preparing .env..."
 cp -n .env.example .env || true
 
+# Angle brackets in DIY_BACNET_SERVER_DIR break `source .env` (bash treats <user> as redirection).
+if grep -q '^DIY_BACNET_SERVER_DIR=.*<.*>' .env 2>/dev/null; then
+  _u="$(id -un)"
+  sed -i "s|^DIY_BACNET_SERVER_DIR=.*|DIY_BACNET_SERVER_DIR=/home/${_u}/diy-bacnet-server|" .env || true
+  echo "[bootstrap] Repaired DIY_BACNET_SERVER_DIR in .env (removed invalid <...> placeholder)."
+fi
+
 if ! grep -q '^DIY_BAS_DATA_DIR=' .env; then
   echo "DIY_BAS_DATA_DIR=/var/lib/diy-bas" >> .env
 fi
@@ -20,6 +27,18 @@ import secrets
 print(secrets.token_urlsafe(48))
 PY
 )" >> .env
+fi
+if ! grep -q '^DIY_BAS_SERVICE_API_KEY=' .env 2>/dev/null; then
+  if command -v openssl >/dev/null 2>&1; then
+    echo "DIY_BAS_SERVICE_API_KEY=$(openssl rand -hex 24)" >> .env
+  else
+    echo "DIY_BAS_SERVICE_API_KEY=$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(24))
+PY
+)" >> .env
+  fi
+  echo "[bootstrap] Added DIY_BAS_SERVICE_API_KEY (reserved for future service integrations)."
 fi
 if ! grep -q '^DIY_BAS_ADMIN_USERNAME=' .env; then
   echo "DIY_BAS_ADMIN_USERNAME=integrator" >> .env
@@ -32,6 +51,9 @@ if ! grep -q '^DIY_BAS_MAINT_USERNAME=' .env; then
 fi
 if ! grep -q '^DIY_BAS_MAINT_PASSWORD=' .env; then
   echo "DIY_BAS_MAINT_PASSWORD=ChangeMeNow!123" >> .env
+fi
+if ! grep -q '^DIY_BAS_BOOTSTRAP_REFRESH_PASSWORDS=' .env; then
+  echo "DIY_BAS_BOOTSTRAP_REFRESH_PASSWORDS=true" >> .env
 fi
 if ! grep -q '^DIY_BAS_LOG_TO_FILE=' .env; then
   echo "DIY_BAS_LOG_TO_FILE=false" >> .env
@@ -190,3 +212,4 @@ fi
 
 echo "[bootstrap] Launching app on http://<raspberry-pi-ip>:5050 ..."
 python run.py
+

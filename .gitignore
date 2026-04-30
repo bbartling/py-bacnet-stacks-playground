@@ -214,3 +214,7 @@ node_modules/
 .vite/
 coverage/
 *.tsbuildinfo
+
+# diy-bas: local DBs and collected static (built in Docker / collectstatic)
+vibe_code_apps_10/diy-bas/data/*.sqlite3
+vibe_code_apps_10/diy-bas/staticfiles/

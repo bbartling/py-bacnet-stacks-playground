@@ -1,28 +1,14 @@
-:80 {
-	header {
-		X-Content-Type-Options nosniff
-		X-Frame-Options SAMEORIGIN
-		Referrer-Policy strict-origin-when-cross-origin
-	}
+﻿:80 {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
 
-	# Flask app and API
-	handle /api* {
-		reverse_proxy diy-bas:5050
-	}
-	handle /ws* {
-		reverse_proxy diy-bas:5050
-	}
-
-	# Optional direct BACnet server pass-through
-	handle /bacnet* {
-		reverse_proxy diy-bacnet-server:8080
-	}
-	handle /rpc* {
-		reverse_proxy diy-bacnet-server:8080
-	}
-
-	# Frontend/index and static assets from Flask
-	handle /* {
-		reverse_proxy diy-bas:5050
-	}
+    handle /api* {
+        reverse_proxy diy-bas:5050
+    }
+    handle /* {
+        reverse_proxy diy-bas:5050
+    }
 }
