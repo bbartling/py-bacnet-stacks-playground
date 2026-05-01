@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import mimetypes
 import subprocess
 import threading
@@ -33,6 +34,8 @@ from app.migrate_legacy import migrate_legacy_json_once
 from app.roles import ROLE_INTEGRATOR, ROLE_OPERATOR
 
 from bas.models import BasRole, UserProfile
+
+logger = logging.getLogger(__name__)
 
 WEBROOT = settings.webroot
 _SIGNER = TimestampSigner(salt='diy-bas-bearer')
@@ -642,7 +645,21 @@ def api_polling_read_now(request: HttpRequest) -> JsonResponse:
     for di in ok_di:
         alarm_runtime_store.touch_device_poll_success(di, ts)
     if samples:
-        trend_store.insert_samples(samples)
+        n_ins = trend_store.insert_samples(samples)
+        logger.info(
+            'polling.read_now trend_samples user=%s inserted=%s attempted=%s read_ok=%s',
+            getattr(request.user, 'username', '') or 'anon',
+            n_ins,
+            len(targets),
+            read_ok,
+        )
+    else:
+        logger.info(
+            'polling.read_now no_samples user=%s attempted=%s read_ok=%s (trend DB unchanged until a successful BACnet read)',
+            getattr(request.user, 'username', '') or 'anon',
+            len(targets),
+            read_ok,
+        )
     if merges:
         json_store.merge_latest_point_values(merges)
         alarm_engine.evaluate_alarms_for_live_values(set(merges.keys()))
@@ -830,22 +847,87 @@ def api_wiresheet_run(request: HttpRequest, rule_id: str) -> JsonResponse:
 
 @_require_auth
 def api_trends_query(request: HttpRequest) -> JsonResponse:
-    point_id = str(request.GET.get('pointId') or '').strip()
-    if not point_id:
-        return JsonResponse({'detail': 'pointId required'}, status=400)
     start_ts = int(request.GET.get('startTs') or 0)
     end_ts = int(request.GET.get('endTs') or 0)
     limit = int(request.GET.get('limit') or 2000)
+    user = getattr(request, 'user', None)
+    uname = getattr(user, 'username', '') or 'anon'
+    multi = str(request.GET.get('pointIds') or '').strip()
+    if multi:
+        ids = [x.strip() for x in multi.split(',') if x.strip()][:8]
+        if not ids:
+            return JsonResponse({'detail': 'pointIds required'}, status=400)
+        n = len(ids)
+        each = max(200, min(limit // max(1, n), 4000))
+        series: list[dict[str, Any]] = []
+        per_counts: dict[str, int] = {}
+        for pid in ids:
+            items = trend_store.query_samples(pid, start_ts, end_ts, each)
+            per_counts[pid] = len(items)
+            series.append({'pointId': pid, 'items': items})
+        total = sum(per_counts.values())
+        logger.info(
+            'trends.query multi user=%s startTs=%s endTs=%s limit=%s each=%s pointIds=%s returned=%s perPoint=%s',
+            uname,
+            start_ts,
+            end_ts,
+            limit,
+            each,
+            ids,
+            total,
+            per_counts,
+        )
+        return JsonResponse(
+            {
+                'series': series,
+                'pointIds': ids,
+                'diagnostic': {
+                    'startTs': start_ts,
+                    'endTs': end_ts,
+                    'windowSec': max(0, end_ts - start_ts),
+                    'perPointSampleCount': per_counts,
+                    'totalSamples': total,
+                },
+            }
+        )
+    point_id = str(request.GET.get('pointId') or '').strip()
+    if not point_id:
+        return JsonResponse({'detail': 'pointId or pointIds required'}, status=400)
     items = trend_store.query_samples(point_id, start_ts, end_ts, limit)
-    return JsonResponse({'items': items})
+    logger.info(
+        'trends.query single user=%s pointId=%s startTs=%s endTs=%s limit=%s returned=%s',
+        uname,
+        point_id,
+        start_ts,
+        end_ts,
+        limit,
+        len(items),
+    )
+    return JsonResponse(
+        {
+            'items': items,
+            'pointId': point_id,
+            'diagnostic': {
+                'startTs': start_ts,
+                'endTs': end_ts,
+                'windowSec': max(0, end_ts - start_ts),
+                'sampleCount': len(items),
+            },
+        }
+    )
 
 
 @_require_auth
 def api_trends_stream(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
     """Server-Sent Events stream of new trend samples (works with Gunicorn WSGI; no WebSocket upgrade)."""
-    point_id = str(request.GET.get('pointId') or '').strip()
-    if not point_id:
-        return JsonResponse({'detail': 'pointId required'}, status=400)
+    multi = str(request.GET.get('pointIds') or '').strip()
+    if multi:
+        point_ids = [x.strip() for x in multi.split(',') if x.strip()][:8]
+    else:
+        one = str(request.GET.get('pointId') or '').strip()
+        point_ids = [one] if one else []
+    if not point_ids:
+        return JsonResponse({'detail': 'pointId or pointIds required'}, status=400)
     try:
         poll_sec = max(1, min(int(request.GET.get('interval') or 3), 15))
     except ValueError:
@@ -857,16 +939,40 @@ def api_trends_stream(request: HttpRequest) -> StreamingHttpResponse | JsonRespo
     if since_ts <= 0:
         since_ts = int(time.time()) - 86400
 
+    user = getattr(request, 'user', None)
+    uname = getattr(user, 'username', '') or 'anon'
+    logger.info(
+        'trends.stream start user=%s pointIds=%s interval=%s sinceTs=%s',
+        uname,
+        point_ids,
+        poll_sec,
+        since_ts,
+    )
+
     def event_stream():
-        cursor = since_ts
-        yield f"data: {json.dumps({'type': 'hello', 'pointId': point_id, 'sinceTs': since_ts})}\n\n"
+        cursors: dict[str, int] = {pid: since_ts for pid in point_ids}
+        yield f"data: {json.dumps({'type': 'hello', 'pointIds': point_ids, 'sinceTs': since_ts})}\n\n"
         deadline = time.time() + 900
+        iter_n = 0
         while time.time() < deadline:
             now = int(time.time())
-            new_rows = trend_store.query_samples_after(point_id, cursor, now, 2000)
-            if new_rows:
-                cursor = max(int(r['ts']) for r in new_rows)
-                yield f"data: {json.dumps({'type': 'samples', 'items': new_rows})}\n\n"
+            batch: dict[str, list[dict[str, Any]]] = {}
+            for pid in point_ids:
+                new_rows = trend_store.query_samples_after(pid, cursors[pid], now, 2000)
+                if new_rows:
+                    cursors[pid] = max(int(r['ts']) for r in new_rows)
+                    batch[pid] = new_rows
+            if batch:
+                n_by = {k: len(v) for k, v in batch.items()}
+                logger.info('trends.stream batch user=%s iter=%s new_rows=%s', uname, iter_n, n_by)
+            if len(point_ids) == 1:
+                pid0 = point_ids[0]
+                rows = batch.get(pid0) or []
+                if rows:
+                    yield f"data: {json.dumps({'type': 'samples', 'items': rows, 'pointId': pid0})}\n\n"
+            elif batch:
+                yield f"data: {json.dumps({'type': 'samples', 'series': batch})}\n\n"
+            iter_n += 1
             time.sleep(poll_sec)
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

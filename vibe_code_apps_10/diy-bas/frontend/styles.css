@@ -1293,6 +1293,25 @@ body {
   width: 100%;
 }
 
+.dash-trend-diag-wrap summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.dash-trend-diag {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .points-tree {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1326,6 +1345,18 @@ body {
 
 .points-tree-hpick {
   min-width: 1.25rem;
+}
+
+.points-tree-head--trends,
+.points-tree--trends .points-tree-item {
+  grid-template-columns: 28px minmax(140px, 1.35fr) minmax(110px, 1fr) minmax(110px, 0.9fr) minmax(72px, 0.65fr);
+}
+
+.points-tree--points .points-tree-head,
+.points-tree--points .points-tree-item {
+  grid-template-columns:
+    28px minmax(140px, 1.15fr) minmax(110px, 1fr) minmax(72px, 0.55fr) minmax(52px, 0.4fr) minmax(110px, 0.8fr)
+    minmax(88px, 0.42fr) minmax(64px, 0.55fr);
 }
 
 .points-tree-head {
@@ -1400,6 +1431,61 @@ body {
   border-color: #f87171;
   background: linear-gradient(90deg, #fef2f2 0%, #fff 100%);
   box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+}
+
+.points-tree-alarm-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.points-tree-alarm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.28rem;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.points-tree-alarm-dash {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.points-tree-alarm-info {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem !important;
+  min-height: auto;
+  line-height: 1.2;
+}
+
+.point-alarm-detail-item {
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.point-alarm-detail-state {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .points-alarm-hint {

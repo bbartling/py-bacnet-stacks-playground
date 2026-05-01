@@ -44,42 +44,83 @@
     return map;
   }
 
-  function renderTree(points) {
+  /**
+   * @param {object[]} points
+   * @param {{ variant?: 'points' | 'trends' }} [options]
+   */
+  function renderTree(points, options) {
+    const opts = options || {};
+    const variant = opts.variant === 'trends' ? 'trends' : 'points';
+    const pickClass = variant === 'trends' ? 'points-trend-pick' : 'points-tree-pick';
+    const ariaPick = variant === 'trends' ? 'Select for trend chart' : 'Select for bulk actions';
     const byDevice = groupByDevice(points);
     const devices = Array.from(byDevice.keys()).sort();
     if (!devices.length) return '<p class="dash-small-note">No discovered points yet.</p>';
-    return `
-      <div class="points-tree">
-        ${devices
-          .map((dev) => {
-            const rows = byDevice.get(dev) || [];
-            return `
-              <details class="points-tree-device" open>
-                <summary>${esc(dev)} <span class="points-tree-count">(${rows.length})</span></summary>
-                <div class="points-tree-head">
+    const headRow =
+      variant === 'trends'
+        ? `<div class="points-tree-head points-tree-head--trends">
+                  <span class="points-tree-hpick"></span>
+                  <span>Point</span>
+                  <span>Object</span>
+                  <span>Updated</span>
+                  <span>Value</span>
+                </div>`
+        : `<div class="points-tree-head">
                   <span class="points-tree-hpick"></span>
                   <span>Point</span>
                   <span>Object</span>
                   <span>Mode</span>
                   <span>Poll</span>
                   <span>Updated</span>
+                  <span>Alarm</span>
                   <span>Value</span>
-                </div>
-                <ul class="points-tree-list">
-                  ${rows
-                    .map(
-                      (p) => `
+                </div>`;
+    const rootCls =
+      variant === 'trends' ? 'points-tree points-tree--trends' : 'points-tree points-tree--points';
+    const alarmCell = (p) => {
+      if (variant === 'trends') return '';
+      if (!p.inAlarm) {
+        return '<span class="points-tree-alarm-cell"><span class="points-tree-alarm-dash">—</span></span>';
+      }
+      const kinds = Array.isArray(p.alarmKinds) ? p.alarmKinds.join(', ') : '';
+      const sum = String(p.alarmSummary || '').slice(0, 240);
+      const t = esc(`${kinds ? kinds + ' · ' : ''}${sum}`.trim() || 'In alarm');
+      return `<span class="points-tree-alarm-cell"><span class="points-tree-alarm-badge" title="${t}">ALM</span><button type="button" class="points-tree-alarm-info btn btn-sm" data-point-id="${esc(
+        p.pointId
+      )}" title="View alarm details" aria-label="Alarm details for ${esc(p.label || p.pointId)}">i</button></span>`;
+    };
+    const rowTpl = (p) =>
+      variant === 'trends'
+        ? `
                       <li class="points-tree-item points-tree-${esc(p.valueState || 'fresh')}${p.inAlarm ? ' points-tree-alarm' : ''}" data-point-id="${esc(p.pointId)}">
-                        <span class="points-tree-pick-wrap"><input type="checkbox" class="points-tree-pick" data-point-id="${esc(p.pointId)}" aria-label="Select for bulk actions" /></span>
+                        <span class="points-tree-pick-wrap"><input type="checkbox" class="${pickClass}" data-point-id="${esc(p.pointId)}" aria-label="${ariaPick}" /></span>
+                        <span class="points-tree-name">${esc(p.label || p.objectIdentifier || p.pointId)}</span>
+                        <span class="points-tree-meta">${esc(p.objectIdentifier || '')}</span>
+                        <span class="points-tree-meta">${esc(p.lastUpdated || '—')}</span>
+                        <span class="points-tree-value">${esc(formatPointValue(p.value))}</span>
+                      </li>`
+        : `
+                      <li class="points-tree-item points-tree-${esc(p.valueState || 'fresh')}${p.inAlarm ? ' points-tree-alarm' : ''}" data-point-id="${esc(p.pointId)}">
+                        <span class="points-tree-pick-wrap"><input type="checkbox" class="${pickClass}" data-point-id="${esc(p.pointId)}" aria-label="${ariaPick}" /></span>
                         <span class="points-tree-name">${esc(p.label || p.objectIdentifier || p.pointId)}</span>
                         <span class="points-tree-meta">${esc(p.objectIdentifier || '')}</span>
                         <span class="points-tree-meta">${p.commandable ? 'commandable' : 'readonly'}</span>
                         <span class="points-tree-meta">${pollChip(p)}</span>
                         <span class="points-tree-meta">${esc(p.lastUpdated || '—')}</span>
+                        ${alarmCell(p)}
                         <span class="points-tree-value">${esc(formatPointValue(p.value))}</span>
-                      </li>`
-                    )
-                    .join('')}
+                      </li>`;
+    return `
+      <div class="${rootCls}">
+        ${devices
+          .map((dev) => {
+            const rows = byDevice.get(dev) || [];
+            return `
+              <details class="points-tree-device" open>
+                <summary>${esc(dev)} <span class="points-tree-count">(${rows.length})</span></summary>
+                ${headRow}
+                <ul class="points-tree-list">
+                  ${rows.map((p) => rowTpl(p)).join('')}
                 </ul>
               </details>
             `;

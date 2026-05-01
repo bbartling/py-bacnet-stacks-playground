@@ -54,11 +54,33 @@
     trendsWindowStartTs: 0,
     trendsLive: false,
     trendStreamStatus: '',
+    /** Up to 8 point IDs selected in Trend Explorer (checkboxes). */
+    trendSelectedIds: [],
+    /** Per-point sample rows for chart: { [pointId]: [{ ts, value, ... }] } */
+    trendByPoint: {},
+    trendOrder: [],
+    /** Last multiline diagnostics for Trend Explorer (also mirrored to #trend-diag-pre). */
+    trendDiagText: '',
   };
 
   let mountEl = null;
   let trendsEventSource = null;
   let trendsStreamReconnectTimer = null;
+  /** Ring buffer of trend troubleshooting lines (max ~40). */
+  let trendDiagBuf = [];
+
+  function trendPushDiag(line) {
+    const ts = new Date().toISOString().slice(11, 23);
+    const full = `[${ts}] ${String(line)}`;
+    trendDiagBuf.push(full);
+    while (trendDiagBuf.length > 40) trendDiagBuf.shift();
+    state.trendDiagText = trendDiagBuf.join('\n');
+    if (typeof console !== 'undefined' && console.info) {
+      console.info('[diy-bas][trends-diag]', line);
+    }
+    const pre = mountEl && mountEl.querySelector('#trend-diag-pre');
+    if (pre) pre.textContent = state.trendDiagText;
+  }
 
   function logTab(action, detail) {
     if (typeof console !== 'undefined' && console.info) {
@@ -339,7 +361,9 @@
   }
 
   function viewPoints() {
-    const treeHtml = window.DiyBasPointsTree ? window.DiyBasPointsTree.renderTree(state.points) : '<p class="dash-small-note">Points tree unavailable.</p>';
+    const treeHtml = window.DiyBasPointsTree
+      ? window.DiyBasPointsTree.renderTree(state.points)
+      : '<p class="dash-small-note">Points tree unavailable.</p>';
     const bulkBar = canBulkPoints()
       ? `<div class="points-toolbar" id="points-bulk-toolbar">
           <span><strong>Bulk</strong></span>
@@ -361,8 +385,8 @@
     const alarmBar = isIntegrator()
       ? `<div class="points-toolbar points-toolbar--alarms" id="points-alarm-toolbar">
           <span><strong>Alarms</strong></span>
-          <button type="button" class="btn primary btn-sm" id="points-bulk-alarm-threshold">High / low &amp; binary (selected)…</button>
-          <button type="button" class="btn primary btn-sm" id="points-bulk-alarm-cross">Point vs point (selected)…</button>
+          <button type="button" class="btn primary btn-sm" id="points-bulk-alarm-threshold">High / low (selected)…</button>
+          <button type="button" class="btn primary btn-sm" id="points-bulk-alarm-cross">Motor status vs command (selected)…</button>
           <button type="button" class="btn btn-sm" id="points-bulk-alarm-runtime">Device offline timing…</button>
           <button type="button" class="btn btn-sm" id="points-bulk-alarm-clear">Turn off alarms (selected)</button>
           <span class="dash-small-note" style="margin:0">Rows highlight <strong class="points-alarm-hint">red</strong> when a point (or its device) has an active alarm.</span>
@@ -435,17 +459,24 @@
     const rangeOpts = [3600, 21600, 86400, 604800, 1209600]
       .map((v) => `<option value="${v}" ${v === rangeSec ? 'selected' : ''}>${rangeLabels[v] || v + 's'}</option>`)
       .join('');
-    const options = state.points
-      .map((p) => `<option value="${escapeHtml(p.pointId)}" ${p.pointId === state.selectedPointId ? 'selected' : ''}>${escapeHtml(p.label || p.pointId)}</option>`)
-      .join('');
+    const nSel = (state.trendSelectedIds || []).length;
+    const nSelId = 'trend-selected-count';
+    const treeHtml = window.DiyBasPointsTree
+      ? window.DiyBasPointsTree.renderTree(state.points, { variant: 'trends' })
+      : '<p class="dash-small-note">Points tree unavailable.</p>';
     const path = trendPath(state.trends);
-    const trendRows = state.trends
-      .slice(-20)
+    const trendRows = (state.trends || [])
+      .slice(-24)
       .reverse()
-      .map((i) => `<div class="dash-config-row"><span>${escapeHtml(unixToLabel(i.ts))}</span><span>${escapeHtml(formatNumericForDisplay(i.value) ?? '—')}</span></div>`)
+      .map((i) => {
+        const pid = i.pointId ? `<span class="dash-small-note">${escapeHtml(String(i.pointId))}</span> · ` : '';
+        return `<div class="dash-config-row"><span>${pid}${escapeHtml(unixToLabel(i.ts))}</span><span>${escapeHtml(
+          formatNumericForDisplay(i.value) ?? '—'
+        )}</span></div>`;
+      })
       .join('');
     const liveNote =
-      '<p class="dash-small-note" style="margin-top:.35rem">Live stream uses <strong>Server-Sent Events</strong> (one-way push, works with the current Gunicorn stack). New samples appear as BACnet polling writes trends. Reconnects refresh the cursor automatically.</p>';
+      '<p class="dash-small-note" style="margin-top:.35rem">Select up to <strong>8</strong> points. <strong>Load trend</strong> reads SQLite history. <strong>Important:</strong> samples are written only after a <strong>successful BACnet read</strong> (Points tab → <em>Read value now</em> / bulk read, or <em>Read BACnet &amp; reload</em> below). Polling interval alone does not fill the trend DB.</p>';
     const streamStatus = state.trendStreamStatus
       ? `<p class="dash-small-note" id="trend-live-status">${escapeHtml(state.trendStreamStatus)}</p>`
       : '<p class="dash-small-note" id="trend-live-status" hidden></p>';
@@ -454,18 +485,32 @@
         <section class="panel">
           <div class="dash-panel-head"><h2>Trend Explorer</h2><span>SQLite retention + Plotly zoom/export</span></div>
           ${state.trendError ? `<p class="dash-error-banner">${escapeHtml(state.trendError)}</p>` : ''}
+          <div class="points-toolbar points-toolbar--alarms" id="trend-points-toolbar">
+            <span><strong>Points for chart</strong></span>
+            <button type="button" class="btn btn-sm" id="trend-pick-all">Select all</button>
+            <button type="button" class="btn btn-sm" id="trend-pick-none">Clear</button>
+            <span class="dash-small-note" style="margin:0"><span id="${nSelId}">${nSel}</span> selected (max 8)</span>
+          </div>
+          <div class="dash-trend-picker-wrap" style="max-height:240px;overflow:auto;margin-bottom:.75rem;border:1px solid var(--border);border-radius:10px">
+            ${treeHtml}
+          </div>
           <div class="dash-config-row">
             <span>
-              <select class="control" id="trend-point" style="min-width:340px">${options}</select>
-              <select class="control" id="trend-range" style="max-width:160px; margin-left:.5rem;">${rangeOpts}</select>
+              <label>Window <select class="control" id="trend-range" style="max-width:160px">${rangeOpts}</select></label>
             </span>
             <span>
-              <button class="btn" data-act="load-trend">Load trend</button>
+              <button class="btn primary" data-act="load-trend">Load trend</button>
+              <button type="button" class="btn btn-sm" data-act="trend-read-bacnet" title="POST /api/polling/read-now for selected points, then reload chart">Read BACnet &amp; reload</button>
               <label class="dash-trend-live-label"><input type="checkbox" id="trend-live" ${state.trendsLive ? 'checked' : ''} /> Live stream</label>
             </span>
           </div>
           ${liveNote}
           ${streamStatus}
+          <details class="dash-trend-diag-wrap" style="margin:.5rem 0">
+            <summary>Trend diagnostics (server logs + API hints)</summary>
+            <p class="dash-small-note" style="margin:.35rem 0">Server: Django logger <code>bas.views</code> at INFO logs each <code>/api/trends/query</code> and stream batches. Client lines below update as you use this tab.</p>
+            <pre id="trend-diag-pre" class="dash-trend-diag"></pre>
+          </details>
           <div class="dash-chart-wrap">
             <div id="plotly-trend" class="dash-plotly-trend"></div>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="dash-chart-svg" ${path ? 'hidden' : ''}>
@@ -622,12 +667,15 @@
     }
     mountEl.innerHTML = feedbackBannerHtml() + fn();
     renderTrendPlotly();
+    const trendPre = mountEl.querySelector('#trend-diag-pre');
+    if (trendPre) trendPre.textContent = state.trendDiagText || trendDiagBuf.join('\n');
     bindEvents();
     bindPointsTree();
     bindPointsToolbar();
     bindPointsAlarmToolbar();
     bindDockerLogs();
     bindTrendLive();
+    bindTrendExplorer();
     bindDevicesContextMenu();
   }
 
@@ -722,6 +770,16 @@
       },
       onConfigureAlarm: async (pointId) => {
         if (!isIntegrator()) return;
+        const p = state.points.find((x) => String(x.pointId) === String(pointId));
+        if (p && inferPointAlarmKind(p) === 'bool') {
+          setFeedback(
+            'Status vs command: select an even number of points in order (status, command, …), then use **Motor status vs command** on the toolbar.',
+            'err'
+          );
+          state.route = 'points';
+          paint();
+          return;
+        }
         openAlarmThresholdModal([pointId]);
       },
       onDeletePoint: async (pointId) => {
@@ -740,6 +798,14 @@
         state.route = 'points';
         paint();
       },
+    });
+    mountEl.querySelectorAll('.points-tree-alarm-info').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const pid = btn.getAttribute('data-point-id');
+        if (pid) openPointAlarmDetailModal(pid);
+      });
     });
   }
 
@@ -821,11 +887,84 @@
       document.removeEventListener('keydown', closeAlarmModals._esc);
       closeAlarmModals._esc = null;
     }
-    ['points-alarm-threshold-overlay', 'points-alarm-cross-overlay', 'points-alarm-runtime-overlay', 'points-alarm-modal-overlay'].forEach(
-      (id) => {
-        document.getElementById(id)?.remove();
-      }
-    );
+    [
+      'points-alarm-threshold-overlay',
+      'points-alarm-cross-overlay',
+      'points-alarm-runtime-overlay',
+      'points-alarm-modal-overlay',
+      'points-alarm-point-detail-overlay',
+    ].forEach((id) => {
+      document.getElementById(id)?.remove();
+    });
+  }
+
+  function alarmKindUiLabel(kind) {
+    const k = String(kind || '');
+    const m = {
+      threshold_low: 'Low limit',
+      threshold_high: 'High limit',
+      bool_mismatch: 'Binary mismatch',
+      cross_mismatch: 'Status vs command',
+      device_offline: 'Device offline',
+    };
+    return m[k] || k || 'Alarm';
+  }
+
+  function openPointAlarmDetailModal(pointId) {
+    closeAlarmModals();
+    const p = state.points.find((x) => String(x.pointId) === String(pointId));
+    if (!p || !p.inAlarm) {
+      setFeedback('No active alarm on this point (try refreshing).', 'err');
+      return;
+    }
+    const title = escapeHtml(p.label || p.objectIdentifier || pointId);
+    const details = Array.isArray(p.alarmDetails) ? p.alarmDetails : [];
+    const body =
+      details.length > 0
+        ? `<ul style="margin:0;padding:0">${details
+            .map((d) => {
+              const lbl = escapeHtml(alarmKindUiLabel(d.kind));
+              const msg = escapeHtml(d.message || '—');
+              const opened = d.openedAt
+                ? `<div class="dash-small-note">Opened: ${escapeHtml(d.openedAt)}</div>`
+                : '';
+              const vv = d.valueAtOpen
+                ? `<div class="dash-small-note">Snapshot: <code>${escapeHtml(d.valueAtOpen)}</code></div>`
+                : '';
+              return `<li class="point-alarm-detail-item"><div><strong>${lbl}</strong><span class="point-alarm-detail-state">active</span></div><div>${msg}</div>${opened}${vv}</li>`;
+            })
+            .join('')}</ul>`
+        : `<p class="dash-small-note">${escapeHtml(p.alarmSummary || 'In alarm')}</p>`;
+    const overlay = document.createElement('div');
+    overlay.id = 'points-alarm-point-detail-overlay';
+    overlay.className = 'dash-modal-overlay';
+    overlay.innerHTML = `
+      <div class="dash-modal" role="dialog" aria-modal="true" aria-labelledby="point-alarm-detail-title">
+        <div class="dash-modal-head">
+          <h2 id="point-alarm-detail-title">Alarm on point</h2>
+          <button type="button" class="btn btn-sm" data-act="alarm-modal-close" aria-label="Close">✕</button>
+        </div>
+        <div class="dash-modal-body">
+          <p><strong>${title}</strong> <span class="dash-small-note">(${escapeHtml(String(pointId))})</span></p>
+          ${body}
+          <p class="dash-small-note" style="margin-top:.75rem">Open alarms clear automatically when the condition clears. Use the Alarms tab for history.</p>
+          <div class="dash-modal-actions">
+            <button type="button" class="btn primary" data-act="alarm-modal-close">Close</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const finish = () => closeAlarmModals();
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) finish();
+    });
+    overlay.querySelectorAll('[data-act="alarm-modal-close"]').forEach((b) => {
+      b.addEventListener('click', finish);
+    });
+    closeAlarmModals._esc = (ev) => {
+      if (ev.key === 'Escape') finish();
+    };
+    document.addEventListener('keydown', closeAlarmModals._esc);
   }
 
   function _alarmRuleBaseDisabled(p) {
@@ -872,35 +1011,28 @@
     overlay.innerHTML = `
       <div class="dash-modal" role="dialog" aria-modal="true" aria-labelledby="points-alarm-threshold-title">
         <div class="dash-modal-head">
-          <h2 id="points-alarm-threshold-title">High / low &amp; binary alarms</h2>
+          <h2 id="points-alarm-threshold-title">High / low alarms</h2>
           <button type="button" class="btn btn-sm" data-act="alarm-modal-close" aria-label="Close">✕</button>
         </div>
         <div class="dash-modal-body">
-          <p class="dash-small-note">${rows.length} point(s). Threshold and “normal state” rules apply per point. Use <strong>Point vs point</strong> for command/status cross-checks.</p>
+          <p class="dash-small-note">${rows.length} point(s). <strong>Analog limits only</strong> (numeric BACnet types). Use <strong>Motor status vs command</strong> for binary vs normal or status vs command cross-checks.</p>
           <div class="dash-table-wrap" style="max-height:180px;overflow:auto;margin-bottom:.75rem">
             <table class="dash-table dash-table--compact"><thead><tr><th>Label</th><th>Point ID</th><th>Inferred</th><th>Current value</th></tr></thead><tbody>${preview}</tbody></table>
           </div>
           <fieldset class="dash-modal-fieldset">
             <legend class="dash-small-note">Rule type</legend>
-            <label><input type="radio" name="alarm-threshold-mode" value="numeric" checked /> High / low thresholds (analog-style)</label>
-            <label style="margin-left:.75rem"><input type="radio" name="alarm-threshold-mode" value="bool" /> Binary / multi-state vs normal</label>
+            <label><input type="radio" name="alarm-threshold-mode" value="numeric" checked /> High / low thresholds</label>
             <label style="margin-left:.75rem"><input type="radio" name="alarm-threshold-mode" value="off" /> Turn off alarm rules</label>
           </fieldset>
           <div id="alarm-threshold-numeric-fields" class="dash-modal-grid">
             <label>Low limit <input class="control" id="alarm-threshold-low" type="text" placeholder="blank = none" /></label>
             <label>High limit <input class="control" id="alarm-threshold-high" type="text" placeholder="blank = none" /></label>
-            <label>Deadband <input class="control" id="alarm-threshold-dead" type="number" step="0.01" value="0" /></label>
-          </div>
-          <div id="alarm-threshold-bool-fields" class="dash-modal-grid" hidden>
-            <label>Normal state is
-              <select class="control" id="alarm-threshold-expected"><option value="true">TRUE / On / Active</option><option value="false">FALSE / Off / Inactive</option></select>
-            </label>
-            <p class="dash-small-note">Values are normalized from BACnet (0/1, strings, booleans). Mismatch raises an alarm after the delay.</p>
+            <label>Deadband <input class="control" id="alarm-threshold-dead" type="number" step="0.01" value="1" /></label>
           </div>
           <label class="dash-modal-grid" style="margin-top:.5rem">Alarm delay (seconds)
-            <input class="control" id="alarm-threshold-delay" type="number" min="0" max="86400" value="0" />
+            <input class="control" id="alarm-threshold-delay" type="number" min="0" max="86400" value="30" />
           </label>
-          <p class="dash-small-note">Delay is how long the condition must hold before an alarm opens (per kind: low, high, or mismatch).</p>
+          <p class="dash-small-note">Default 30s: condition must hold before a low/high alarm opens.</p>
           <p class="dash-small-note" id="alarm-threshold-skip-note"></p>
           <div class="dash-modal-actions">
             <button type="button" class="btn" data-act="alarm-modal-close">Cancel</button>
@@ -912,9 +1044,7 @@
     const syncMode = () => {
       const mode = overlay.querySelector('input[name="alarm-threshold-mode"]:checked')?.value || 'numeric';
       const num = overlay.querySelector('#alarm-threshold-numeric-fields');
-      const bo = overlay.querySelector('#alarm-threshold-bool-fields');
       if (num) num.hidden = mode !== 'numeric';
-      if (bo) bo.hidden = mode !== 'bool';
     };
     overlay.querySelectorAll('input[name="alarm-threshold-mode"]').forEach((r) => {
       r.addEventListener('change', syncMode);
@@ -931,17 +1061,17 @@
 
     overlay.querySelector('[data-act="alarm-threshold-apply"]')?.addEventListener('click', async () => {
       const mode = overlay.querySelector('input[name="alarm-threshold-mode"]:checked')?.value || 'numeric';
-      const delaySec = Math.max(0, Math.min(86400, Number(overlay.querySelector('#alarm-threshold-delay')?.value || 0)));
+      const delaySec = Math.max(0, Math.min(86400, Number(overlay.querySelector('#alarm-threshold-delay')?.value || 30)));
       const items = [];
       let skipped = 0;
       if (mode === 'off') {
         rows.forEach((p) => {
           items.push(_alarmRuleBaseDisabled(p));
         });
-      } else if (mode === 'numeric') {
+      } else {
         const lowRaw = overlay.querySelector('#alarm-threshold-low')?.value?.trim() || '';
         const highRaw = overlay.querySelector('#alarm-threshold-high')?.value?.trim() || '';
-        const dead = Number(overlay.querySelector('#alarm-threshold-dead')?.value || 0);
+        const dead = Number(overlay.querySelector('#alarm-threshold-dead')?.value || 1);
         const low = lowRaw === '' ? null : Number(lowRaw);
         const high = highRaw === '' ? null : Number(highRaw);
         if (low == null && high == null) {
@@ -967,29 +1097,6 @@
             delaySec,
             deadband: dead,
             notes: 'bulk numeric',
-          });
-        });
-      } else {
-        const exp = overlay.querySelector('#alarm-threshold-expected')?.value === 'true';
-        rows.forEach((p) => {
-          if (inferPointAlarmKind(p) !== 'bool') {
-            skipped += 1;
-            return;
-          }
-          items.push({
-            pointId: p.pointId,
-            pointType: 'bool',
-            enabled: true,
-            ruleKind: 'threshold',
-            comparePointId: '',
-            compareOperator: 'eq',
-            lowThreshold: null,
-            highThreshold: null,
-            expectedBool: exp,
-            boolDelaySec: delaySec,
-            delaySec,
-            deadband: 0,
-            notes: 'bulk bool',
           });
         });
       }
@@ -1022,9 +1129,12 @@
     document.addEventListener('keydown', closeAlarmModals._esc);
   }
 
-  function openAlarmCrossModal(pointIds) {
+  /** Checkbox order on Points tab: status, command, status, command, … */
+  function openAlarmMotorStatusCommandModal(orderedPointIds) {
     closeAlarmModals();
-    const ids = [...new Set((pointIds || []).map(String).filter(Boolean))];
+    const ids = Array.isArray(orderedPointIds)
+      ? orderedPointIds.map(String).filter(Boolean)
+      : [];
     const rows = ids
       .map((id) => state.points.find((p) => String(p.pointId) === id))
       .filter(Boolean);
@@ -1033,53 +1143,40 @@
       paint();
       return;
     }
-    const idSet = new Set(ids);
-    const bCandidates = (state.points || []).filter((p) => p && p.pointId && !idSet.has(String(p.pointId)));
-    const bOpts = bCandidates
-      .map((p) => {
-        const lab = `${p.label || p.pointId} — ${p.pointId}`;
-        return `<option value="${escapeHtml(String(p.pointId))}">${escapeHtml(lab)}</option>`;
-      })
-      .join('');
-    const preview = rows
-      .map((p) => {
+    const preview = ids
+      .map((id, idx) => {
+        const p = state.points.find((x) => String(x.pointId) === id);
+        if (!p) return '';
+        const role = idx % 2 === 0 ? 'Status' : 'Command';
+        const pair = Math.floor(idx / 2) + 1;
         const k = inferPointAlarmKind(p);
-        return `<tr><td>${escapeHtml(p.label || p.pointId)}</td><td class="dash-small-note">${escapeHtml(p.pointId)}</td><td>${escapeHtml(
-          k
-        )}</td></tr>`;
+        return `<tr><td>${escapeHtml(role)} (pair ${pair})</td><td>${escapeHtml(p.label || p.pointId)}</td><td class="dash-small-note">${escapeHtml(
+          p.pointId
+        )}</td><td>${escapeHtml(k)}</td></tr>`;
       })
+      .filter(Boolean)
       .join('');
     const overlay = document.createElement('div');
     overlay.id = 'points-alarm-cross-overlay';
     overlay.className = 'dash-modal-overlay';
     overlay.innerHTML = `
-      <div class="dash-modal" role="dialog" aria-modal="true" aria-labelledby="points-alarm-cross-title">
+      <div class="dash-modal" role="dialog" aria-modal="true" aria-labelledby="points-alarm-motor-title">
         <div class="dash-modal-head">
-          <h2 id="points-alarm-cross-title">Point vs point (status / command)</h2>
+          <h2 id="points-alarm-motor-title">Motor status vs command</h2>
           <button type="button" class="btn btn-sm" data-act="alarm-modal-close" aria-label="Close">✕</button>
         </div>
         <div class="dash-modal-body">
-          <p class="dash-small-note">${rows.length} point(s) as <strong>A</strong>. Choose <strong>B</strong> and the relationship. An alarm opens when the relationship is violated (after delay).</p>
-          <div class="dash-table-wrap" style="max-height:160px;overflow:auto;margin-bottom:.75rem">
-            <table class="dash-table dash-table--compact"><thead><tr><th>Point A (label)</th><th>Point ID</th><th>Inferred</th></tr></thead><tbody>${preview}</tbody></table>
+          <p class="dash-small-note">Use the same <strong>checkbox column</strong> as bulk alarms. Tick points in <strong>order</strong>: <strong>status</strong>, <strong>command</strong>, <strong>status</strong>, <strong>command</strong>, … (an <strong>even</strong> count). The rule is: alarm if <strong>status ≠ command</strong> after values stay mismatched for the hold time below (default 300&nbsp;s).</p>
+          <div class="dash-table-wrap" style="max-height:200px;overflow:auto;margin-bottom:.75rem">
+            <table class="dash-table dash-table--compact"><thead><tr><th>Role</th><th>Label</th><th>Point ID</th><th>Inferred</th></tr></thead><tbody>${preview}</tbody></table>
           </div>
-          <div class="dash-modal-grid">
-            <label>Point B
-              <select class="control" id="alarm-cross-point-b">${bOpts || '<option value="">(no other points)</option>'}</select>
-            </label>
-            <label>Relationship
-              <select class="control" id="alarm-cross-op">
-                <option value="eq">A equals B (alarm if A ≠ B)</option>
-                <option value="ne">A differs from B (alarm if A = B)</option>
-              </select>
-            </label>
-            <label>Alarm delay (seconds)
-              <input class="control" id="alarm-cross-delay" type="number" min="0" max="86400" value="0" />
-            </label>
-          </div>
-          <fieldset class="dash-modal-fieldset" style="margin-top:.75rem">
-            <label><input type="radio" name="alarm-cross-mode" value="apply" checked /> Apply cross rule</label>
-            <label style="margin-left:.75rem"><input type="radio" name="alarm-cross-mode" value="off" /> Turn off rules for selected points</label>
+          <label style="display:block;margin-bottom:.75rem">Mismatch hold time (seconds)
+            <input class="control" id="alarm-motor-mismatch-sec" type="number" min="10" max="86400" value="300" style="max-width:10rem;margin-top:.25rem" />
+          </label>
+          <p class="dash-small-note" style="margin-top:-0.35rem;margin-bottom:.75rem">Allowed range 10–86400 (saved per rule; engine clamps).</p>
+          <fieldset class="dash-modal-fieldset">
+            <label><input type="radio" name="alarm-cross-mode" value="apply" checked /> Apply status vs command pairs</label>
+            <label style="margin-left:.75rem"><input type="radio" name="alarm-cross-mode" value="off" /> Turn off rules for these points</label>
           </fieldset>
           <div class="dash-modal-actions">
             <button type="button" class="btn" data-act="alarm-modal-close">Cancel</button>
@@ -1088,6 +1185,7 @@
         </div>
       </div>`;
     document.body.appendChild(overlay);
+
     const finish = () => closeAlarmModals();
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) finish();
@@ -1097,45 +1195,65 @@
     });
     overlay.querySelector('[data-act="alarm-cross-apply"]')?.addEventListener('click', async () => {
       const sub = overlay.querySelector('input[name="alarm-cross-mode"]:checked')?.value || 'apply';
-      const delaySec = Math.max(0, Math.min(86400, Number(overlay.querySelector('#alarm-cross-delay')?.value || 0)));
       const items = [];
-      let skipped = 0;
       if (sub === 'off') {
-        rows.forEach((p) => items.push(_alarmRuleBaseDisabled(p)));
+        const seen = new Set();
+        ids.forEach((id) => {
+          const p = state.points.find((x) => String(x.pointId) === id);
+          if (p && !seen.has(p.pointId)) {
+            seen.add(p.pointId);
+            items.push(_alarmRuleBaseDisabled(p));
+          }
+        });
       } else {
-        const bid = String(overlay.querySelector('#alarm-cross-point-b')?.value || '').trim();
-        if (!bid || !bCandidates.length) {
-          setFeedback('Select a valid point B (another point on the site).', 'err');
+        if (ids.length < 2 || ids.length % 2 !== 0) {
+          setFeedback('Select an even number of points in checkbox order: status, command, status, command, …', 'err');
           return;
         }
-        const op = overlay.querySelector('#alarm-cross-op')?.value === 'ne' ? 'ne' : 'eq';
-        rows.forEach((p) => {
-          if (String(p.pointId) === bid) {
+        const rawHold = Number(overlay.querySelector('#alarm-motor-mismatch-sec')?.value);
+        const delaySec = Math.max(10, Math.min(86400, Number.isFinite(rawHold) ? Math.floor(rawHold) : 300));
+        let skipped = 0;
+        for (let i = 0; i < ids.length; i += 2) {
+          const statusPid = ids[i];
+          const commandPid = ids[i + 1];
+          if (!statusPid || !commandPid || statusPid === commandPid) {
             skipped += 1;
-            return;
+            continue;
+          }
+          const p = state.points.find((x) => String(x.pointId) === statusPid);
+          if (!p) {
+            skipped += 1;
+            continue;
           }
           items.push({
-            pointId: p.pointId,
+            pointId: statusPid,
             pointType: inferPointAlarmKind(p),
             enabled: true,
             ruleKind: 'cross_compare',
-            comparePointId: bid,
-            compareOperator: op,
+            comparePointId: commandPid,
+            compareOperator: 'eq',
             lowThreshold: null,
             highThreshold: null,
             expectedBool: null,
             boolDelaySec: delaySec,
             delaySec,
             deadband: 0,
-            notes: 'bulk cross',
+            notes: 'status vs command',
           });
-        });
+        }
       }
       if (!items.length) {
-        setFeedback('Nothing to save (check point B vs selection).', 'err');
+        setFeedback('Nothing to save (check pair count and point order).', 'err');
         return;
       }
-      const msg = `Save cross-point alarm rules for ${items.length} point(s)?${skipped ? ` (${skipped} skipped: B same as A.)` : ''}`;
+      const hold =
+        sub === 'off'
+          ? 0
+          : Math.max(10, Math.min(86400, Math.floor(Number(overlay.querySelector('#alarm-motor-mismatch-sec')?.value) || 300)));
+      const msg =
+        sub === 'off'
+          ? `Turn off alarm rules for ${items.length} point(s)?`
+          : `Save ${items.length} status-vs-command rule(s) (${hold}s mismatch hold, alarm when status ≠ command)?`;
       if (!window.confirm(msg)) return;
       try {
         await fetchJson(`${state.apiBase}/alarm-rules`, {
@@ -1143,10 +1261,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items }),
         });
-        logTab('alarm cross bulk saved', { count: items.length, skipped });
+        logTab('alarm motor pairs saved', { count: items.length });
         finish();
         await refresh();
-        setFeedback(`Saved cross-point rules for ${items.length} point(s).`, 'ok');
+        setFeedback(sub === 'off' ? `Rules cleared for ${items.length} point(s).` : `Saved ${items.length} status vs command rule(s).`, 'ok');
         state.route = 'points';
         paint();
       } catch (err) {
@@ -1216,12 +1334,26 @@
     document.addEventListener('keydown', closeAlarmModals._esc);
   }
 
+  function pickPointsTreeIdsDomOrder() {
+    if (!mountEl) return [];
+    return Array.from(mountEl.querySelectorAll('.points-tree-pick:checked'))
+      .map((c) => c.getAttribute('data-point-id'))
+      .filter(Boolean);
+  }
+
   function bindPointsAlarmToolbar() {
     if (!mountEl || state.route !== 'points' || !isIntegrator()) return;
-    const pickIds = () =>
-      Array.from(mountEl.querySelectorAll('.points-tree-pick:checked'))
-        .map((c) => c.getAttribute('data-point-id'))
-        .filter(Boolean);
+    const pickIds = () => {
+      const seen = new Set();
+      const out = [];
+      pickPointsTreeIdsDomOrder().forEach((id) => {
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          out.push(id);
+        }
+      });
+      return out;
+    };
     const th = mountEl.querySelector('#points-bulk-alarm-threshold');
     if (th) {
       th.onclick = () => {
@@ -1237,13 +1369,18 @@
     const cr = mountEl.querySelector('#points-bulk-alarm-cross');
     if (cr) {
       cr.onclick = () => {
-        const ids = pickIds();
-        if (!ids.length) {
-          setFeedback('Select at least one point as A for cross-point rules.', 'err');
+        const ids = pickPointsTreeIdsDomOrder();
+        if (ids.length < 2) {
+          setFeedback('Select at least two points in order: status, then command (repeat for more pairs).', 'err');
           paint();
           return;
         }
-        openAlarmCrossModal(ids);
+        if (ids.length % 2 !== 0) {
+          setFeedback('Select an even number of points (pairs: status, command, …) in checkbox list order.', 'err');
+          paint();
+          return;
+        }
+        openAlarmMotorStatusCommandModal(ids);
       };
     }
     const rt = mountEl.querySelector('#points-bulk-alarm-runtime');
@@ -1469,8 +1606,50 @@
     state.trendStreamStatus = '';
   }
 
+  function trendPointLabelFromId(pid) {
+    const p = state.points.find((x) => String(x.pointId) === String(pid));
+    return p ? p.label || pid : pid;
+  }
+
+  function rebuildTrendsFlatten() {
+    const rows = [];
+    (state.trendOrder || []).forEach((pid) => {
+      (state.trendByPoint[pid] || []).forEach((r) => {
+        rows.push({ ...r, pointId: pid });
+      });
+    });
+    rows.sort((a, b) => Number(a.ts) - Number(b.ts));
+    state.trends = rows;
+  }
+
+  function mergeTrendSamplesForPid(pid, newItems) {
+    if (!pid || !Array.isArray(newItems) || !newItems.length) return;
+    const cur = state.trendByPoint[pid] || [];
+    const byKey = new Map(cur.map((r) => [`${r.ts}:${pid}`, { ...r, pointId: pid }]));
+    newItems.forEach((row) => {
+      if (!row || row.ts === undefined) return;
+      byKey.set(`${row.ts}:${pid}`, { ...row, pointId: pid });
+    });
+    const now = Math.floor(Date.now() / 1000);
+    const win = Number(state.trendsRangeSec) || 86400;
+    const minTs = now - win;
+    let merged = Array.from(byKey.values())
+      .filter((r) => Number(r.ts) >= minTs)
+      .sort((a, b) => Number(a.ts) - Number(b.ts));
+    const cap = 3500;
+    if (merged.length > cap) merged = merged.slice(-cap);
+    state.trendByPoint[pid] = merged;
+    rebuildTrendsFlatten();
+  }
+
   function maxTrendSampleTs() {
     let m = 0;
+    const order = state.trendOrder && state.trendOrder.length ? state.trendOrder : Object.keys(state.trendByPoint || {});
+    order.forEach((pid) => {
+      (state.trendByPoint[pid] || []).forEach((r) => {
+        if (r && Number.isFinite(Number(r.ts)) && Number(r.ts) > m) m = Number(r.ts);
+      });
+    });
     (state.trends || []).forEach((r) => {
       if (r && Number.isFinite(Number(r.ts)) && Number(r.ts) > m) m = Number(r.ts);
     });
@@ -1484,35 +1663,38 @@
     return end - (Number(state.trendsRangeSec) || 86400);
   }
 
-  function mergeTrendLiveSamples(items) {
-    if (!Array.isArray(items) || !items.length) return;
-    const byTs = new Map((state.trends || []).map((r) => [r.ts, r]));
-    items.forEach((row) => {
-      if (!row || row.ts === undefined) return;
-      byTs.set(row.ts, row);
-    });
-    const now = Math.floor(Date.now() / 1000);
-    const win = Number(state.trendsRangeSec) || 86400;
-    const minTs = now - win;
-    state.trends = Array.from(byTs.values())
-      .filter((r) => Number(r.ts) >= minTs)
-      .sort((a, b) => Number(a.ts) - Number(b.ts));
-    const cap = 3500;
-    if (state.trends.length > cap) state.trends = state.trends.slice(-cap);
+  /** @param {unknown[] | { type?: string, items?: unknown[], series?: Record<string, unknown[]>, pointId?: string }} arg */
+  function mergeTrendLiveSamples(arg) {
+    if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+      const msg = arg;
+      if (msg.type === 'samples' && msg.series && typeof msg.series === 'object') {
+        Object.entries(msg.series).forEach(([pid, arr]) => mergeTrendSamplesForPid(pid, arr));
+        return;
+      }
+      if (msg.type === 'samples' && Array.isArray(msg.items) && msg.items.length) {
+        const pid = msg.pointId || (state.trendOrder && state.trendOrder[0]) || state.selectedPointId;
+        mergeTrendSamplesForPid(pid, msg.items);
+        return;
+      }
+    }
+    const items = Array.isArray(arg) ? arg : [];
+    if (!items.length) return;
+    const pid = (state.trendOrder && state.trendOrder[0]) || state.selectedPointId;
+    mergeTrendSamplesForPid(pid, items);
   }
 
   function updateTrendSampleListDom() {
     const wrap = mountEl?.querySelector('.dash-trend-list');
     if (!wrap) return;
     const trendRows = (state.trends || [])
-      .slice(-20)
+      .slice(-24)
       .reverse()
-      .map(
-        (i) =>
-          `<div class="dash-config-row"><span>${escapeHtml(unixToLabel(i.ts))}</span><span>${escapeHtml(
-            formatNumericForDisplay(i.value) ?? '—'
-          )}</span></div>`
-      )
+      .map((i) => {
+        const pid = i.pointId ? `<span class="dash-small-note">${escapeHtml(String(i.pointId))}</span> · ` : '';
+        return `<div class="dash-config-row"><span>${pid}${escapeHtml(unixToLabel(i.ts))}</span><span>${escapeHtml(
+          formatNumericForDisplay(i.value) ?? '—'
+        )}</span></div>`;
+      })
       .join('');
     wrap.innerHTML = trendRows || '<p class="dash-small-note">No trend samples in selected range.</p>';
   }
@@ -1536,24 +1718,31 @@
 
   function openTrendEventSource() {
     if (!mountEl || state.route !== 'trends' || !state.trendsLive) return;
-    const pointId = mountEl.querySelector('#trend-point')?.value || state.selectedPointId;
-    if (!pointId) {
-      setTrendStreamStatus('Select a point to stream.');
+    syncTrendSelectedFromDom();
+    const ids = (state.trendSelectedIds || []).filter(Boolean).slice(0, 8);
+    if (!ids.length) {
+      setTrendStreamStatus('Select at least one point to stream.');
       return;
     }
     closeTrendEventSource();
-    state.selectedPointId = pointId;
+    state.trendOrder = [...ids];
+    state.selectedPointId = ids[0];
     const sinceTs = trendStreamSinceTsParam();
     const interval = 3;
-    const url = `${state.apiBase}/trends/stream?pointId=${encodeURIComponent(pointId)}&interval=${interval}&sinceTs=${sinceTs}`;
+    const url =
+      ids.length === 1
+        ? `${state.apiBase}/trends/stream?pointId=${encodeURIComponent(ids[0])}&interval=${interval}&sinceTs=${sinceTs}`
+        : `${state.apiBase}/trends/stream?pointIds=${encodeURIComponent(ids.join(','))}&interval=${interval}&sinceTs=${sinceTs}`;
     setTrendStreamStatus('Live: connecting…');
+    trendPushDiag(`SSE open ${url}`);
     const es = new EventSource(url);
     trendsEventSource = es;
     es.addEventListener('message', (ev) => {
       try {
         const msg = JSON.parse(ev.data || '{}');
         if (msg.type === 'hello') {
-          setTrendStreamStatus('Live: watching for new samples…');
+          trendPushDiag(`SSE hello pointIds=${(msg.pointIds || []).join(',')} sinceTs=${msg.sinceTs}`);
+          setTrendStreamStatus(ids.length > 1 ? `Live: watching ${ids.length} series…` : 'Live: watching for new samples…');
           return;
         }
         if (msg.type === 'done') {
@@ -1562,8 +1751,17 @@
           if (state.trendsLive && state.route === 'trends') scheduleTrendStreamReconnect(400);
           return;
         }
-        if (msg.type === 'samples' && Array.isArray(msg.items) && msg.items.length) {
-          mergeTrendLiveSamples(msg.items);
+        if (msg.type === 'samples') {
+          if (msg.series && typeof msg.series === 'object' && Object.keys(msg.series).length) {
+            const sizes = Object.fromEntries(Object.entries(msg.series).map(([k, v]) => [k, Array.isArray(v) ? v.length : 0]));
+            trendPushDiag(`SSE samples (multi): ${JSON.stringify(sizes)}`);
+            mergeTrendLiveSamples(msg);
+          } else if (Array.isArray(msg.items) && msg.items.length) {
+            trendPushDiag(`SSE samples (single): pointId=${msg.pointId || ''} n=${msg.items.length}`);
+            mergeTrendLiveSamples(msg);
+          } else {
+            trendPushDiag('SSE samples event with empty payload (no new rows in this poll)');
+          }
           renderTrendPlotly();
           updateTrendSampleListDom();
           setTrendStreamStatus(`Live: ${state.trends.length} samples in window`);
@@ -1573,6 +1771,7 @@
       }
     });
     es.addEventListener('error', () => {
+      trendPushDiag('SSE error event (network, 401, or proxy closed stream) — retrying');
       setTrendStreamStatus('Live: connection error, retrying…');
       closeTrendEventSource();
       if (state.trendsLive && state.route === 'trends') scheduleTrendStreamReconnect(2500);
@@ -1594,16 +1793,6 @@
         }
       };
     }
-    const pointSel = mountEl.querySelector('#trend-point');
-    if (pointSel) {
-      pointSel.onchange = () => {
-        state.selectedPointId = pointSel.value || '';
-        if (state.trendsLive) {
-          closeTrendEventSource();
-          openTrendEventSource();
-        }
-      };
-    }
     const rangeSel = mountEl.querySelector('#trend-range');
     if (rangeSel) {
       rangeSel.onchange = () => {
@@ -1613,40 +1802,158 @@
     if (state.trendsLive) openTrendEventSource();
   }
 
+  function syncTrendSelectedFromDom() {
+    if (!mountEl) return;
+    state.trendSelectedIds = Array.from(mountEl.querySelectorAll('.points-trend-pick:checked'))
+      .map((c) => c.getAttribute('data-point-id'))
+      .filter(Boolean)
+      .slice(0, 8);
+    const cEl = mountEl.querySelector('#trend-selected-count');
+    if (cEl) cEl.textContent = String(state.trendSelectedIds.length);
+  }
+
+  function restoreTrendPickerChecks() {
+    let ids = (state.trendSelectedIds || []).filter(Boolean).slice(0, 8);
+    if (!ids.length && state.selectedPointId) ids = [state.selectedPointId];
+    if (!ids.length && state.points && state.points.length) ids = [state.points[0].pointId];
+    const want = new Set(ids);
+    mountEl?.querySelectorAll('.points-trend-pick').forEach((cb) => {
+      cb.checked = want.has(cb.getAttribute('data-point-id'));
+    });
+    syncTrendSelectedFromDom();
+  }
+
+  function bindTrendExplorer() {
+    if (!mountEl || state.route !== 'trends') return;
+    const pa = mountEl.querySelector('#trend-pick-all');
+    if (pa) {
+      pa.onclick = () => {
+        mountEl.querySelectorAll('.points-trend-pick').forEach((c) => {
+          c.checked = true;
+        });
+        syncTrendSelectedFromDom();
+        paint();
+      };
+    }
+    const pn = mountEl.querySelector('#trend-pick-none');
+    if (pn) {
+      pn.onclick = () => {
+        mountEl.querySelectorAll('.points-trend-pick').forEach((c) => {
+          c.checked = false;
+        });
+        syncTrendSelectedFromDom();
+        paint();
+      };
+    }
+    mountEl.querySelectorAll('.points-trend-pick').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        syncTrendSelectedFromDom();
+        paint();
+      });
+    });
+    restoreTrendPickerChecks();
+  }
+
   function renderTrendPlotly() {
     if (!mountEl || state.route !== 'trends') return;
     const el = mountEl.querySelector('#plotly-trend');
     if (!el) return;
     if (!window.Plotly) {
       el.innerHTML = '<p class="dash-small-note">Plotly failed to load; trend table still available.</p>';
+      trendPushDiag('plotly: window.Plotly missing (check script CDN / network)');
       return;
     }
-    const rows = (state.trends || []).filter((r) => r && r.ts !== undefined && r.value !== undefined);
-    const trace = [
-      {
+    const order =
+      state.trendOrder && state.trendOrder.length
+        ? state.trendOrder
+        : Object.keys(state.trendByPoint || {}).filter((k) => (state.trendByPoint[k] || []).length);
+    const palette = ['#0d7a5f', '#2563eb', '#b45309', '#9333ea', '#dc2626', '#0891b2', '#4d7c0f', '#92400e'];
+    let rawTotal = 0;
+    let skippedVal = 0;
+    const traces = order.map((pid, i) => {
+      const all = state.trendByPoint[pid] || [];
+      rawTotal += all.length;
+      const rows = all.filter((r) => {
+        if (!r || r.ts === undefined) return false;
+        if (r.value === undefined) {
+          skippedVal += 1;
+          return false;
+        }
+        return true;
+      });
+      return {
         x: rows.map((r) => unixToIso(r.ts)),
-        y: rows.map((r) => Number(r.value)),
+        y: rows.map((r) => {
+          const n = Number(r.value);
+          return Number.isFinite(n) ? n : null;
+        }),
         type: 'scatter',
         mode: 'lines+markers',
-        line: { color: '#0d7a5f', width: 2 },
-        marker: { size: 5 },
-        name: 'Value',
-      },
-    ];
+        line: { color: palette[i % palette.length], width: 2 },
+        marker: { size: 4 },
+        name: trendPointLabelFromId(pid),
+      };
+    });
+    const plotted = traces.reduce((n, t) => n + (t.x && t.x.length ? t.x.length : 0), 0);
+    const finiteY = traces.reduce((n, t) => n + (t.y || []).filter((v) => v !== null && Number.isFinite(v)).length, 0);
+    trendPushDiag(
+      `plotly: series=${order.length} rawRows=${rawTotal} plottedRows=${plotted} finiteY=${finiteY} skippedMissingValue=${skippedVal}`
+    );
+    if (plotted === 0 && rawTotal === 0 && order.length) {
+      try {
+        window.Plotly.purge(el);
+      } catch (e) {
+        el.innerHTML = '';
+      }
+      el.innerHTML =
+        '<p class="dash-small-note">No trend samples in SQLite for this time window. Run <strong>Read BACnet &amp; reload</strong> (or Points tab reads) while the BACnet gateway is online so values are recorded, then widen the window if needed.</p>';
+      return;
+    }
+    if (!traces.length) {
+      try {
+        window.Plotly.purge(el);
+      } catch (e) {
+        el.innerHTML = '';
+      }
+      el.innerHTML =
+        '<p class="dash-small-note">No series to plot. Select points and click <strong>Load trend</strong>, or use <strong>Read BACnet &amp; reload</strong> to capture samples first.</p>';
+      return;
+    }
+    if (plotted === 0 && rawTotal > 0) {
+      try {
+        window.Plotly.purge(el);
+      } catch (e) {
+        el.innerHTML = '';
+      }
+      el.innerHTML =
+        '<p class="dash-small-note">Samples exist but none are plottable on a numeric Y axis (e.g. only non-numeric / enum values). See the table below; check diagnostics for raw counts.</p>';
+      return;
+    }
+    if (finiteY === 0 && plotted > 0) {
+      try {
+        window.Plotly.purge(el);
+      } catch (e) {
+        el.innerHTML = '';
+      }
+      el.innerHTML =
+        '<p class="dash-small-note">All sample values are non-numeric in this window (Plotly line chart needs numbers). Boolean points plot as 0/1; pure strings need another chart type later.</p>';
+      return;
+    }
     const layout = {
       margin: { l: 42, r: 16, t: 12, b: 42 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       xaxis: { title: 'Time', type: 'date' },
-      yaxis: { title: 'Value' },
-      showlegend: false,
+      yaxis: { title: traces.length > 1 ? 'Value (multi-series)' : 'Value' },
+      showlegend: traces.length > 1,
     };
+    const safe = (state.trendOrder && state.trendOrder[0]) || state.selectedPointId || 'point';
     const config = {
       responsive: true,
       displaylogo: false,
-      toImageButtonOptions: { format: 'png', filename: `trend-${state.selectedPointId || 'point'}`, height: 600, width: 1000, scale: 1 },
+      toImageButtonOptions: { format: 'png', filename: `trend-${safe}`, height: 600, width: 1000, scale: 1 },
     };
-    window.Plotly.react(el, trace, layout, config);
+    window.Plotly.react(el, traces, layout, config);
   }
 
   function bindEvents() {
@@ -1751,15 +2058,22 @@
         try {
           state.trendError = '';
           stopTrendLive();
-          const pointId = mountEl.querySelector('#trend-point')?.value || state.selectedPointId;
+          syncTrendSelectedFromDom();
+          const ids = (state.trendSelectedIds || []).filter(Boolean).slice(0, 8);
+          if (!ids.length) {
+            setFeedback('Select one or more points in the list above (max 8).', 'err');
+            paint();
+            return;
+          }
           const seconds = Number(mountEl.querySelector('#trend-range')?.value || 86400);
           state.trendsRangeSec = seconds;
-          logTab('trend load', { pointId, seconds });
-          await loadTrend(pointId, seconds);
+          logTab('trend load', { pointIds: ids, seconds });
+          await loadTrend(ids, seconds);
           if (typeof console !== 'undefined' && console.info) {
-            console.info('[diy-bas][trends]', 'loaded', pointId, state.trends?.length || 0, 'samples');
+            console.info('[diy-bas][trends]', 'loaded', ids, state.trends?.length || 0, 'samples');
           }
-          setFeedback(`Trend loaded (${state.trends?.length || 0} samples).`, 'ok');
+          trendPushDiag(`Load trend button: done series=${ids.length} flatSamples=${state.trends?.length || 0}`);
+          setFeedback(`Trend loaded (${ids.length} series, ${state.trends?.length || 0} samples).`, 'ok');
           paint();
         } catch (err) {
           state.trendError = String(err && err.message ? err.message : err);
@@ -1767,6 +2081,39 @@
             console.warn('[diy-bas][trends]', state.trendError);
           }
           setFeedback(`Trend load failed: ${state.trendError}`, 'err');
+          paint();
+        }
+      });
+    });
+    mountEl.querySelectorAll('[data-act="trend-read-bacnet"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          state.trendError = '';
+          stopTrendLive();
+          syncTrendSelectedFromDom();
+          const ids = (state.trendSelectedIds || []).filter(Boolean).slice(0, 8);
+          if (!ids.length) {
+            setFeedback('Select one or more points first (checkboxes in the tree).', 'err');
+            paint();
+            return;
+          }
+          const seconds = Number(mountEl.querySelector('#trend-range')?.value || 86400);
+          state.trendsRangeSec = seconds;
+          trendPushDiag(`Read BACnet & reload: POST read-now for ${ids.length} point(s)`);
+          const r = await pollReadNowApi(ids);
+          trendPushDiag(
+            `read-now result read=${r.read} attempted=${r.attempted || ids.length} errors=${(r.errors && r.errors.length) || 0}`
+          );
+          await loadTrend(ids, seconds);
+          setFeedback(
+            `BACnet read ${r.read}/${r.attempted || ids.length} ok, trend reloaded (${state.trends?.length || 0} samples in window).`,
+            r.errors && r.errors.length ? 'err' : 'ok'
+          );
+          paint();
+        } catch (err) {
+          state.trendError = String(err && err.message ? err.message : err);
+          trendPushDiag(`Read BACnet & reload FAILED ${state.trendError}`);
+          setFeedback(state.trendError, 'err');
           paint();
         }
       });
@@ -1852,16 +2199,46 @@
     }
   }
 
-  async function loadTrend(pointId, secondsBack) {
-    if (!pointId) return;
+  async function loadTrend(pointIds, secondsBack) {
+    const raw = Array.isArray(pointIds) ? pointIds : [pointIds];
+    const ids = [...new Set(raw.map(String).filter(Boolean))].slice(0, 8);
+    if (!ids.length) return;
     const sec = Number(secondsBack || 86400);
     state.trendsRangeSec = sec;
     const endTs = Math.floor(Date.now() / 1000);
     const startTs = endTs - sec;
     state.trendsWindowStartTs = startTs;
-    const trend = await fetchJson(`${state.apiBase}/trends/query?pointId=${encodeURIComponent(pointId)}&startTs=${startTs}&endTs=${endTs}&limit=3000`);
-    state.selectedPointId = pointId;
-    state.trends = Array.isArray(trend.items) ? trend.items : [];
+    state.trendOrder = [...ids];
+    state.trendSelectedIds = [...ids];
+    state.selectedPointId = ids[0];
+    state.trendByPoint = {};
+    trendPushDiag(`GET /trends/query startTs=${startTs} endTs=${endTs} windowSec=${sec} pointIds=${ids.join(',')}`);
+    if (ids.length === 1) {
+      const qUrl = `${state.apiBase}/trends/query?pointId=${encodeURIComponent(ids[0])}&startTs=${startTs}&endTs=${endTs}&limit=3000`;
+      const trend = await fetchJson(qUrl);
+      const items = Array.isArray(trend.items) ? trend.items : [];
+      state.trendByPoint[ids[0]] = items.map((r) => ({ ...r, pointId: ids[0] }));
+      trendPushDiag(
+        `trends/query single: returned items=${items.length} diagnostic=${JSON.stringify(trend.diagnostic || {})}`
+      );
+    } else {
+      const qp = encodeURIComponent(ids.join(','));
+      const qUrl = `${state.apiBase}/trends/query?pointIds=${qp}&startTs=${startTs}&endTs=${endTs}&limit=4000`;
+      const trend = await fetchJson(qUrl);
+      const ser = Array.isArray(trend.series) ? trend.series : [];
+      ser.forEach((s) => {
+        const pid = s.pointId;
+        if (!pid) return;
+        state.trendByPoint[pid] = (Array.isArray(s.items) ? s.items : []).map((r) => ({ ...r, pointId: pid }));
+      });
+      trendPushDiag(
+        `trends/query multi: series=${ser.length} diagnostic=${JSON.stringify(trend.diagnostic || {})} perSeries=${ser
+          .map((s) => `${s.pointId}:${(s.items || []).length}`)
+          .join(';')}`
+      );
+    }
+    rebuildTrendsFlatten();
+    trendPushDiag(`rebuildTrendsFlatten: total flat rows=${(state.trends || []).length}`);
   }
 
   async function loadLiveBundle(prefixes) {
@@ -2024,10 +2401,17 @@
     if (state.selectedPointId && !state.trendsLive) {
       try {
         state.trendError = '';
-        await loadTrend(state.selectedPointId, state.trendsRangeSec || 86400);
+        const tids = (state.trendSelectedIds || []).filter(Boolean).length
+          ? state.trendSelectedIds.slice(0, 8)
+          : [state.selectedPointId];
+        trendPushDiag(`refresh: auto loadTrend route=${state.route} ids=${tids.join(',')}`);
+        await loadTrend(tids, state.trendsRangeSec || 86400);
       } catch (err) {
         state.trends = [];
+        state.trendByPoint = {};
+        state.trendOrder = [];
         state.trendError = String(err && err.message ? err.message : err);
+        trendPushDiag(`refresh: loadTrend FAILED ${state.trendError}`);
         if (typeof console !== 'undefined' && console.warn) {
           console.warn('[diy-bas][trends] initial load failed', state.trendError);
         }

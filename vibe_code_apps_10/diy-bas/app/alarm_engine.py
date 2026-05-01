@@ -203,15 +203,24 @@ def _eval_cross_rule(rule: dict[str, Any], pid: str, vals: dict[str, Any], now: 
     vb, okb = _row_val(vals, bid)
     if not oka or not okb:
         return
-    delay = int(rule.get('delaySec') if rule.get('delaySec') is not None else rule.get('boolDelaySec') or 0)
+    try:
+        raw = int(
+            float(
+                rule.get('delaySec')
+                if rule.get('delaySec') is not None
+                else (rule.get('boolDelaySec') if rule.get('boolDelaySec') is not None else 0)
+            )
+        )
+    except (TypeError, ValueError):
+        raw = 0
+    delay = max(10, min(raw if raw > 0 else 300, 86400))
     eq = _values_equivalent(va, vb)
     mismatch = (not eq) if op == 'eq' else eq
     vstr = f'A={_fmt_val(va)} B={_fmt_val(vb)}'
     key = f'{pid}:cross_mismatch'
 
     def fire() -> None:
-        lab = '≠' if op == 'eq' else '='
-        msg = f'Cross-point mismatch ({op}): present values {lab} expected relationship (A vs {bid})'
+        msg = f'Status vs command mismatch (expected equal; {delay}s hold): vs {bid}'
         trend_store.try_insert_open_alarm_event(pid, 'cross_mismatch', msg, now, vstr)
 
     def clear() -> None:
@@ -308,9 +317,17 @@ def attach_alarm_flags_to_points(points: list[dict[str, Any]]) -> None:
             except ValueError:
                 continue
             continue
-        agg = by_pid.setdefault(pkey, {'kinds': [], 'messages': []})
+        agg = by_pid.setdefault(pkey, {'kinds': [], 'messages': [], 'details': []})
         agg['kinds'].append(str(r.get('kind') or ''))
         agg['messages'].append(str(r.get('message') or ''))
+        agg['details'].append(
+            {
+                'kind': str(r.get('kind') or ''),
+                'message': str(r.get('message') or ''),
+                'openedAt': str(r.get('openedAt') or ''),
+                'valueAtOpen': str(r.get('valueOpen') or ''),
+            }
+        )
 
     for p in points:
         pid = str(p.get('pointId') or '')
@@ -322,15 +339,26 @@ def attach_alarm_flags_to_points(points: list[dict[str, Any]]) -> None:
             p['inAlarm'] = True
             kinds = list(agg['kinds']) if agg else []
             msgs = list(agg['messages']) if agg else []
+            details = list(agg['details']) if agg else []
             if dev_off:
                 kinds.append('device_offline')
                 msgs.append(f'Device {di} offline (BACnet)')
+                details.append(
+                    {
+                        'kind': 'device_offline',
+                        'message': f'Device {di} offline (BACnet)',
+                        'openedAt': '',
+                        'valueAtOpen': '',
+                    }
+                )
             p['alarmKinds'] = kinds
             p['alarmSummary'] = '; '.join(msgs[:4])
+            p['alarmDetails'] = details
         else:
             p['inAlarm'] = False
             p['alarmKinds'] = []
             p['alarmSummary'] = ''
+            p['alarmDetails'] = []
 
 
 def attach_device_alarm_flags(devices: list[dict[str, Any]]) -> None:

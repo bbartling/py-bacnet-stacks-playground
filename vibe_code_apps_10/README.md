@@ -10,7 +10,7 @@ This folder (`vibe_code_apps_10`) holds the **diy-bas** supervisory app: **Djang
 - BACnet discovery and reads via `diy-bacnet-server` JSON-RPC
 - Roles: `system_integrator` vs `building_operator` (and Django `BasRole` / maintenance where configured)
 - **Sidebar (integrator):** **Building & operations** (black/neutral nav) vs **System integrator** (green nav); first integrator tab is **Discovery**, then Devices, Points, Wire sheet, Custom dashboard
-- Plotly trends, SSE live trend stream (`/api/trends/stream`), points bulk polling & split alarm modals (threshold vs cross-point vs device-offline timing)
+- Plotly trends, SSE live trend stream (`/api/trends/stream` supports `pointIds`), points bulk polling & split alarm modals (high/low vs motor status/command vs device-offline timing)
 - Caddy + Docker Compose entry on port **80** (recommended on Pi); Gunicorn WSGI inside `diy-bas` container
 
 ## Django for BAS technicians
@@ -33,7 +33,7 @@ Django projects are organized into **apps** (e.g. `bas/` for HTTP views and temp
 
 1. **Browser** loads static JS (`dashboard.js`) and calls `/api/*` with the session cookie.
 2. **Django views** (`bas/views.py`) authenticate the user, read/write SQLite or JSON, and call **BACnet RPC** where needed.
-3. **Alarm engine** (`app/alarm_engine.py`) runs when live values refresh: threshold rules, optional **point-vs-point** (`rule_kind: cross_compare`), and **device offline** if no successful read for `deviceOfflineSec` on any polling-enabled device instance.
+3. **Alarm engine** (`app/alarm_engine.py`) runs when live values refresh: **high/low** thresholds, **motor status vs command** (`rule_kind: cross_compare`, fixed **5 min** mismatch delay), optional **binary vs normal** (`threshold` + `expectedBool`), and **device offline** if no successful read for `deviceOfflineSec` on any polling-enabled device instance.
 
 ### “Batteries included” Django features you can grow into for a BAS
 
@@ -199,10 +199,10 @@ docker compose up --build
 
 ## Alarm extensions
 
-- **Threshold (default `rule_kind: threshold`)** — numeric high/low + `deadband`, or binary `expectedBool`; **`delay_sec` / `boolDelaySec`** hold time in seconds before opening (per condition in the engine).
-- **Cross-point (`rule_kind: cross_compare`)** — `compare_point_id` = point B, `compare_operator` `eq` or `ne`; alarms on relationship violation after the same delay fields.
+- **High / low (`rule_kind: threshold`)** — numeric limits + `deadband`; UI default alarm delay **30s** (stored in `delay_sec` / `boolDelaySec`).
+- **Motor status vs command (`rule_kind: cross_compare`)** — pick points in **pairs** (checkbox order: status, command, …). Stored on the **status** row with `compare_point_id` = command; **alarm when status ≠ command** after values stay mismatched for **5 minutes** (fixed in `alarm_engine`, not from `delay_sec`). High/low modal **deadband** defaults to **1** in the UI.
 - **Device offline** — synthetic alarm `point_id` like `device:<instance>` with `kind: device_offline` when no **successful** BACnet read is seen for that device instance for longer than **`deviceOfflineSec`** (default **300**, clamped **60–86400**). Attempts are tracked per read-now batch; success timestamps live in `data/alarm_runtime.json`. Configure via **`GET/POST /api/alarm-settings`** (`{ "deviceOfflineSec": 300 }` on POST; integrator-only write).
-- UI: **Points** tab exposes separate modals for threshold/binary vs cross-point vs device-offline timing.
+- UI: **Points** tab — **High / low** (analog only), **Motor status vs command** (paired checkbox order, status ≠ command), **Device offline timing**; **Trends** tab uses the same checkbox grid (up to 8 points) for history + live SSE.
 
 ## Useful API routes (Django diy-bas)
 
@@ -213,7 +213,7 @@ docker compose up --build
 - `POST /api/discovery/whois` · `POST /api/discovery/device-points` · `GET /api/discovery/devices`
 - `GET/POST /api/polling/config` · `POST /api/polling/read-now`
 - `GET/POST /api/schedules` (JSON document; POST also pushes active profile to BACnet when RPC succeeds)
-- `GET /api/trends/query` · `GET /api/trends/stream` (SSE)
+- `GET /api/trends/query` (`pointId` or comma-separated `pointIds`, max 8) · `GET /api/trends/stream` (SSE: `pointId` or `pointIds`)
 - `GET /api/alarms/events` (active + history)
 - `GET/POST /api/alarm-rules` (POST body may be `{ "items": [ … ] }` for batch; rules may include `ruleKind`, `comparePointId`, `compareOperator`, `delaySec`)
 - `GET/POST /api/alarm-settings` (`deviceOfflineSec`; POST integrator-only)
