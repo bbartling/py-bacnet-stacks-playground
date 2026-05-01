@@ -38,6 +38,25 @@ def server_hello() -> dict[str, Any]:
     return call_method('server_hello', {})
 
 
+def extract_read_property_value(payload: dict[str, Any]) -> Any:
+    """Best-effort present-value extraction from diy-bacnet ``client_read_property`` JSON-RPC result."""
+    r: Any = payload.get('result', payload)
+    if not isinstance(r, dict):
+        return r
+    for key in ('value', 'present-value', 'presentValue', 'propertyValue'):
+        if key in r:
+            return r[key]
+    req = r.get('request')
+    if isinstance(req, dict) and 'value' in req:
+        return req['value']
+    data = r.get('data')
+    if isinstance(data, dict):
+        for key in ('value', 'present-value', 'presentValue'):
+            if key in data:
+                return data[key]
+    return None
+
+
 def server_read_all_values() -> dict[str, Any]:
     return call_method('server_read_all_values', {})
 

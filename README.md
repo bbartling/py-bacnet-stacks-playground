@@ -71,8 +71,8 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 
 ## Vibe Code Checkpoints
 
-> **Current status:** Currently on **Week 10 — diy-bas integration**  
-> The project is now moving from standalone demos into a more complete supervisory BAS-style application.
+> **Current status:** **Checkpoint 10** — diy-bas integration (**Week 10**, current). **Checkpoint 11** (**Week 11**) — vibe app production cutover: Django with a production-grade database, React front end, SMTP, and user/role services. **Checkpoint 12** — hardening (**Week 12**). **Checkpoint 13** — final release.
+> The project is moving from standalone demos into a full supervisory BAS-style application with a clearer multi-week path.
 
 | # | Checkpoint | Build Goal | Timeline | Status |
 | --- | --- | --- | --- | --- |
@@ -86,10 +86,11 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 | **8** | **BAS schedule widget demo** | Build out a BAS-style schedule widget and frontend UI concepts. | **Week 8** | Done |
 | **9** | **diy-bas beginning phase** | Create the first primitive version of the `diy-bas` application. | **Week 9** | Done |
 | **10** | **diy-bas integration** | Combine authentication, alarms, schedules, trends, and BACnet discovery. | **Week 10** | **Current** |
-| **11** | **diy-bas hardening** | Add persistence, audit logging, role polish, security cleanup, and deploy/ops workflows. | **Week 11** | Next |
-| **12** | **diy-bas final app release** | Ship the Raspberry Pi-ready supervisory BAS application. | **Final** | Planned |
-| **13** | **Rust BACnet stack** | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** | TODO |
-| **14** | **Protocol debugging** | Bonus: use Wireshark and Linux tools to validate BACnet/IP behavior. | **Bonus** | TODO |
+| **11** | **diy-bas: Django production DB, unit tests, React front end, SMTP, role services** | Move the supervisory app toward production: managed database (e.g. PostgreSQL), **unit/integration tests** for critical paths, React UI shell, outgoing **SMTP** for notifications/alerts, and clearer **user/role services** (auth, RBAC, and integration boundaries). | **Week 11** | Next |
+| **12** | **diy-bas hardening** | Add persistence depth, audit logging polish, security cleanup, and deploy/ops workflows beyond the initial integration. | **Week 12** | Next |
+| **13** | **diy-bas final app release** | Ship the Raspberry Pi-ready supervisory BAS application. | **Final** | Planned |
+| **14** | **Rust BACnet stack** | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** | TODO |
+| **15** | **Protocol debugging** | Bonus: use Wireshark and Linux tools to validate BACnet/IP behavior. | **Bonus** | TODO |
 
 
 ---

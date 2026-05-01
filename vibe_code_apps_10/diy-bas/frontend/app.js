@@ -12,24 +12,51 @@
   let scheduleMounted = false;
   let currentUser = null;
 
-  const NAV_BY_ROLE = {
-    system_integrator: ['overview', 'wiresheet', 'builder', 'discovery', 'polling', 'devices', 'points', 'trends', 'alarms', 'notifications', 'schedule'],
-    building_operator: ['overview', 'devices', 'alarms', 'trends'],
-  };
+  /** Day-to-day / building operations (integrator sidebar — neutral “user” styling). */
+  const NAV_USER_INTEGRATOR = [
+    'overview',
+    'trends',
+    'alarms',
+    'notifications',
+    'schedule',
+    'dockerlogs',
+  ];
+  /** Engineering + point/device administration (integrator sidebar — green styling). */
+  const NAV_SYSTEM_INTEGRATOR = ['discovery', 'devices', 'points', 'wiresheet', 'builder'];
+
+  const NAV_INTEGRATOR_ALL = NAV_USER_INTEGRATOR.concat(NAV_SYSTEM_INTEGRATOR);
+
+  const NAV_BUILDING_OPERATOR_BASE = ['overview', 'devices', 'alarms', 'trends'];
+
   const NAV_LABELS = {
     overview: 'Overview',
     builder: 'Custom Dashboard',
     wiresheet: 'Global Logic Wire Sheet',
     discovery: 'Discovery',
-    polling: 'Polling',
     devices: 'Devices',
     points: 'Points',
     trends: 'Trends',
     alarms: 'Alarms',
     notifications: 'Notifications',
     schedule: 'Schedule',
+    dockerlogs: 'Docker logs',
   };
-  const NAV_ACCENT = new Set(['schedule', 'builder', 'wiresheet']);
+  function routesForUser() {
+    if (!currentUser) return [];
+    if (currentUser.role === 'system_integrator') {
+      return NAV_INTEGRATOR_ALL.slice();
+    }
+    const routes = NAV_BUILDING_OPERATOR_BASE.slice();
+    if (currentUser.basRole === 'maintenance') routes.push('dockerlogs');
+    return routes;
+  }
+
+  function escNav(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  }
 
   function adminLinksHtml() {
     if (!currentUser) return '';
@@ -73,16 +100,31 @@
 
   function canAccessRoute(route) {
     if (!currentUser) return false;
-    const allowed = NAV_BY_ROLE[currentUser.role] || NAV_BY_ROLE.building_operator;
-    return allowed.includes(route);
+    return routesForUser().includes(route);
   }
 
   async function navigate(route) {
     if (!canAccessRoute(route)) route = 'overview';
+    const fromRoute = currentRoute;
+    if (typeof console !== 'undefined' && console.info) {
+      console.info('[diy-bas][shell]', 'navigate', {
+        from: fromRoute,
+        to: route,
+        role: currentUser?.role,
+        basRole: currentUser?.basRole,
+      });
+    }
     currentRoute = route;
     setNavActive(route);
 
     if (route === 'schedule') {
+      if (!dashboardInited && dashboardInner && window.DiyBasDashboard) {
+        await window.DiyBasDashboard.init(dashboardInner);
+        dashboardInited = true;
+      }
+      if (window.DiyBasDashboard) {
+        window.DiyBasDashboard.setRoute('schedule');
+      }
       if (panelDashboard) panelDashboard.hidden = true;
       if (panelSchedule) panelSchedule.hidden = false;
       updateTopbarForSchedule();
@@ -111,14 +153,45 @@
     }
   }
 
-  function navItemsForRole() {
-    if (!currentUser) return [];
-    return (NAV_BY_ROLE[currentUser.role] || NAV_BY_ROLE.building_operator).map((route) => {
-      const cls = ['bas-nav-item'];
-      if (route === currentRoute) cls.push('bas-nav-item-active');
-      if (NAV_ACCENT.has(route)) cls.push('bas-nav-item-accent');
-      return `<button type="button" class="${cls.join(' ')}" data-route="${route}">${NAV_LABELS[route] || route}</button>`;
-    });
+  function navItemTone(route) {
+    if (currentUser?.role === 'system_integrator' && NAV_SYSTEM_INTEGRATOR.includes(route)) {
+      return 'integrator';
+    }
+    return 'user';
+  }
+
+  function navButton(route) {
+    const tone = navItemTone(route);
+    const cls = ['bas-nav-item', tone === 'integrator' ? 'bas-nav-item--integrator' : 'bas-nav-item--user'];
+    if (route === currentRoute) cls.push('bas-nav-item-active');
+    const label = escNav(NAV_LABELS[route] || route);
+    return `<button type="button" class="${cls.join(' ')}" data-route="${route}">${label}</button>`;
+  }
+
+  /** Sidebar: grouped for integrators; single block for operators. */
+  function navHtmlForRole() {
+    if (!currentUser) return '';
+    const role = currentUser.role;
+    if (role === 'system_integrator') {
+      const userBtns = NAV_USER_INTEGRATOR.map(navButton).join('');
+      const intBtns = NAV_SYSTEM_INTEGRATOR.map(navButton).join('');
+      return `
+        <div class="bas-nav-group bas-nav-group--user" role="group" aria-label="Building and operations">
+          <div class="bas-nav-group-label">Building &amp; operations</div>
+          <div class="bas-nav-group-items">${userBtns}</div>
+        </div>
+        <div class="bas-nav-group bas-nav-group--integrator" role="group" aria-label="System integrator">
+          <div class="bas-nav-group-label">System integrator</div>
+          <div class="bas-nav-group-items">${intBtns}</div>
+        </div>`;
+    }
+    const routes = routesForUser();
+    const btns = routes.map(navButton).join('');
+    return `
+      <div class="bas-nav-group bas-nav-group--user" role="group" aria-label="Operations">
+        <div class="bas-nav-group-label">Operations</div>
+        <div class="bas-nav-group-items">${btns}</div>
+      </div>`;
   }
 
   function buildShell() {
@@ -132,7 +205,7 @@
           <h1 class="bas-brand-title">diy-bas</h1>
           <p class="bas-brand-sub">supervisory UI</p>
         </div>
-        <nav class="bas-nav" aria-label="Views">${navItemsForRole().join('')}</nav>
+        <nav class="bas-nav" aria-label="Views">${navHtmlForRole()}</nav>
         <p class="bas-sidebar-foot">
           Signed in as <strong>${currentUser?.username || 'unknown'}</strong><br/>Role: <strong>${currentUser?.basRole || currentUser?.role || 'unknown'}</strong>${currentUser?.readOnly ? ' · <span title="Write actions blocked server-side">read-only</span>' : ''}
           ${adminLinksHtml()}
@@ -175,6 +248,9 @@
 
     root.querySelector('#bas-btn-refresh')?.addEventListener('click', async () => {
       if (currentRoute === 'schedule' || !window.DiyBasDashboard || !dashboardInited) return;
+      if (typeof console !== 'undefined' && console.info) {
+        console.info('[diy-bas][shell]', 'manual refresh');
+      }
       await window.DiyBasDashboard.refresh();
       window.DiyBasDashboard.setRoute(currentRoute);
       const m = window.DiyBasDashboard.getTopbarMeta();
@@ -195,19 +271,21 @@
     root.className = 'bas-login-root';
     root.innerHTML = `
       <div class="bas-login-card">
-        <h2>diy-bas sign in</h2>
-        <p>System Integrator and Building Operator roles are enforced server-side.</p>
-        <p class="bas-login-hint">Use the username and password from the server <code>.env</code> (<code>DIY_BAS_ADMIN_*</code> / <code>DIY_BAS_MAINT_*</code>). Fresh installs often use <code>integrator</code> + <code>ChangeMeNow!123</code> until you change them.</p>
+        <h1 class="bas-login-brand">DIY BAS</h1>
         ${errorText ? `<p class="dash-error-banner">${errorText}</p>` : ''}
-        <label>Username <input id="login-username" class="control" value="integrator" autocomplete="username" /></label>
-        <label>Password <input id="login-password" class="control" type="password" placeholder="required — e.g. ChangeMeNow!123" autocomplete="current-password" /></label>
+        <label><span class="bas-login-label">Username</span><input id="login-username" class="control" type="text" value="" autocomplete="username" /></label>
+        <label><span class="bas-login-label">Password</span><input id="login-password" class="control" type="password" value="" autocomplete="current-password" /></label>
         <button class="btn primary" id="login-submit">Sign in</button>
       </div>`;
     root.querySelector('#login-submit')?.addEventListener('click', async () => {
       const username = root.querySelector('#login-username')?.value?.trim() || '';
       const password = root.querySelector('#login-password')?.value || '';
+      if (!username) {
+        showLogin('Enter your username.');
+        return;
+      }
       if (!password) {
-        showLogin('Enter a password (the field starts empty). For a default install, use the value of DIY_BAS_ADMIN_PASSWORD from the server .env.');
+        showLogin('Enter your password.');
         return;
       }
       try {
@@ -220,6 +298,9 @@
         const data = await res.json();
         if (!res.ok || !data?.ok) throw new Error(data?.error || 'login failed');
         currentUser = data.user;
+        if (typeof console !== 'undefined' && console.info) {
+          console.info('[diy-bas][shell]', 'login ok', { user: currentUser.username, role: currentUser.role });
+        }
         if (window.DiyBasDashboard) window.DiyBasDashboard.setAuthContext(currentUser);
         boot();
       } catch (err) {

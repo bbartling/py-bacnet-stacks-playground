@@ -481,31 +481,58 @@
   async function saveSchedulesToServer() {
     const st = mountRoot?.querySelector('#schedule-save-status');
     if (st) st.textContent = 'Saving…';
+    if (typeof console !== 'undefined' && console.info) {
+      console.info('[diy-bas][schedule]', 'POST /api/schedules');
+    }
     try {
       const r = await fetch('/api/schedules', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(serializeState()),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        if (st) st.textContent = data.error || `Save failed (${r.status})`;
+        const errLine = data.error || `Save failed (${r.status})`;
+        if (st) st.textContent = errLine;
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[diy-bas][schedule]', 'save failed', r.status, errLine);
+        }
         return;
       }
       if (data.diyError) {
         if (st) st.textContent = `Saved; BACnet: ${data.diyError}`;
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[diy-bas][schedule]', 'saved with BACnet note', data.diyError);
+        }
       } else {
         if (st) st.textContent = 'Saved and pushed to diy-bacnet-server';
+        if (typeof console !== 'undefined' && console.info) {
+          console.info('[diy-bas][schedule]', 'saved and pushed to BACnet');
+        }
       }
     } catch (e) {
       if (st) st.textContent = 'Save failed (network)';
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[diy-bas][schedule]', 'save network error', e);
+      }
     }
   }
 
   function connectScheduleWebSocket() {
     try {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const sock = new WebSocket(`${proto}//${location.host}/ws`);
+      const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+      const sock = new WebSocket(wsUrl);
+      sock.addEventListener('open', () => {
+        if (typeof console !== 'undefined' && console.info) {
+          console.info('[diy-bas][schedule] WebSocket open', wsUrl);
+        }
+      });
+      sock.addEventListener('error', () => {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[diy-bas][schedule] WebSocket error (server may not expose /ws)', wsUrl);
+        }
+      });
       sock.addEventListener('message', (ev) => {
         try {
           const msg = JSON.parse(ev.data);
@@ -1066,13 +1093,18 @@
     void (async () => {
       let loaded = false;
       try {
-        const r = await fetch('/api/schedules', { headers: { Accept: 'application/json' } });
+        const r = await fetch('/api/schedules', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
         if (r.ok) {
           const data = await r.json();
           if (data && Array.isArray(data.schedules) && data.schedules.length) {
             applyPayload(data);
             loaded = true;
           }
+        } else if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[diy-bas][schedule] GET /api/schedules not ok', r.status, r.statusText);
         }
       } catch {
         /* static hosting or backend down */

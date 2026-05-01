@@ -17,8 +17,9 @@ def add_notification(channel: str, detail: str) -> None:
 
 
 def active_alarm_count() -> int:
-    alarms = json_store.read_json('alarm_history.json', {'items': []})
-    return sum(1 for item in alarms.get('items', []) if str(item.get('state', '')).lower() == 'active')
+    from . import trend_store
+
+    return trend_store.count_open_alarm_events()
 
 
 def ping_diy_bacnet() -> tuple[bool, str]:

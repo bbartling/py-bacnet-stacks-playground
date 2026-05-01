@@ -2,21 +2,31 @@
 
 import json
 import mimetypes
+import subprocess
 import threading
+import time
 from functools import wraps
-from pathlib import Path
 from typing import Any
 
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_http_methods
 from werkzeug.security import check_password_hash
 
-from app import algorithms, json_store, trend_store
+from app import alarm_engine, alarm_runtime_store, algorithms, json_store, rpc_client, schedules_bridge, trend_store
+from app.discovery import (
+    extract_device_rows,
+    extract_point_rows,
+    filtered_devices,
+    merge_devices,
+    now_iso,
+    sync_device_point_count_sqlite,
+    upsert_device_point_count,
+)
 from app.auth_bootstrap import bootstrap_default_users
 from app.config import settings
 from app.migrate_legacy import migrate_legacy_json_once
@@ -42,6 +52,7 @@ def _ensure_seeded() -> None:
         trend_store.initialize()
         trend_store.purge_old(settings.trend_retention_days)
         trend_store.purge_old_audit(settings.audit_retention_days)
+        trend_store.purge_old_alarm_events(settings.alarm_event_retention_days)
         bootstrap_default_users()
         if not _legacy_migrated:
             migrate_legacy_json_once()
@@ -94,6 +105,10 @@ def _can_mutate_users(user, profile: UserProfile) -> bool:
     return bool(user.is_superuser or profile.bas_role == BasRole.INTEGRATOR)
 
 
+def _can_view_docker_logs(user, profile: UserProfile) -> bool:
+    return bool(user.is_superuser or profile.bas_role in (BasRole.INTEGRATOR, BasRole.MAINTENANCE))
+
+
 def _require_auth(view):
     @wraps(view)
     def inner(request: HttpRequest, *args, **kwargs):
@@ -129,6 +144,19 @@ def _require_write(view):
         if request.method != 'GET' and request.method != 'HEAD':
             if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
                 return JsonResponse({'detail': 'read only'}, status=403)
+        return view(request, *args, **kwargs)
+
+    return inner
+
+
+def _require_docker_logs(view):
+    @_require_auth
+    @wraps(view)
+    def inner(request: HttpRequest, *args, **kwargs):
+        u = request.user
+        p = _get_profile(u)
+        if not _can_view_docker_logs(u, p):
+            return JsonResponse({'detail': 'forbidden'}, status=403)
         return view(request, *args, **kwargs)
 
     return inner
@@ -265,12 +293,122 @@ def api_auth_token(request: HttpRequest) -> JsonResponse:
 
 @_require_auth
 def api_devices(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({'items': trend_store.read_devices()})
+    alarm_engine.evaluate_alarms_for_live_values(None)
+    items = trend_store.read_devices()
+    alarm_engine.attach_device_alarm_flags(items)
+    return JsonResponse({'items': items})
 
 
 @_require_auth
 def api_points(request: HttpRequest) -> JsonResponse:
-    return JsonResponse({'items': trend_store.read_points()})
+    pts = trend_store.read_points_merged_with_polling()
+    live_doc = json_store.read_json('latest_values.json', {'updatedAt': None, 'values': {}})
+    vals = live_doc.get('values') if isinstance(live_doc.get('values'), dict) else {}
+    for p in pts:
+        row = vals.get(p['pointId']) if isinstance(vals, dict) else None
+        if isinstance(row, dict):
+            p['value'] = row.get('value')
+            p['lastUpdated'] = row.get('lastUpdated')
+            p['lastError'] = row.get('lastError') or ''
+            if p.get('lastError'):
+                p['valueState'] = 'stale'
+            elif 'value' in row:
+                p['valueState'] = 'fresh'
+            else:
+                p['valueState'] = 'fresh'
+        else:
+            p['valueState'] = 'fresh'
+    alarm_engine.evaluate_alarms_for_live_values(None)
+    alarm_engine.attach_alarm_flags_to_points(pts)
+    return JsonResponse({'items': pts})
+
+
+@_require_auth
+def api_discovery_devices(request: HttpRequest) -> JsonResponse:
+    items = filtered_devices(trend_store.read_devices())
+    if items:
+        return JsonResponse({'items': items})
+    fallback = json_store.read_json('discovered_devices.json', {'items': []})
+    return JsonResponse({'items': filtered_devices(fallback.get('items', []))})
+
+
+@csrf_exempt
+@_require_integrator
+def api_discovery_whois(request: HttpRequest) -> JsonResponse:
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    body = _json_body(request)
+    start = int(body.get('startInstance', settings.default_whois_start))
+    end = int(body.get('endInstance', settings.default_whois_end))
+    try:
+        payload = rpc_client.client_whois_range(start, end)
+    except Exception as exc:  # noqa: BLE001
+        ok, _msg = algorithms.ping_diy_bacnet()
+        return JsonResponse(
+            {
+                'ok': False,
+                'error': 'BACnet discovery failed',
+                'detail': str(exc),
+                'diyOnline': ok,
+            },
+            status=502,
+        )
+    discovered = filtered_devices(extract_device_rows(payload))
+    current = json_store.read_json('discovered_devices.json', {'items': []}).get('items', [])
+    merged = merge_devices(current, discovered)
+    trend_store.upsert_devices(merged)
+    json_store.write_json('discovered_devices.json', {'items': merged, 'updatedAt': now_iso()})
+    _audit(request, 'discovery.whois', True, {'count': len(merged), 'startInstance': start, 'endInstance': end})
+    return JsonResponse({'ok': True, 'items': merged, 'count': len(merged)})
+
+
+@csrf_exempt
+@_require_integrator
+def api_discovery_device_points(request: HttpRequest) -> JsonResponse:
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    body = _json_body(request)
+    if 'deviceInstance' not in body:
+        return JsonResponse({'ok': False, 'error': 'deviceInstance is required'}, status=400)
+    device_instance = int(body['deviceInstance'])
+    try:
+        payload = rpc_client.client_point_discovery(device_instance)
+    except Exception as exc:  # noqa: BLE001
+        return JsonResponse({'ok': False, 'error': 'Point discovery failed', 'detail': str(exc)}, status=502)
+    points = extract_point_rows(device_instance, payload)
+    trend_store.upsert_points(device_instance, points)
+    point_doc = json_store.read_json('discovered_points.json', {'items': []})
+    existing = [item for item in point_doc.get('items', []) if int(item.get('deviceInstance') or -1) != device_instance]
+    existing.extend(points)
+    json_store.write_json('discovered_points.json', {'items': existing, 'updatedAt': now_iso()})
+    upsert_device_point_count(device_instance, len(points))
+    sync_device_point_count_sqlite(device_instance, len(points))
+    _audit(request, 'discovery.device_points', True, {'deviceInstance': device_instance, 'count': len(points)})
+    return JsonResponse({'ok': True, 'items': points, 'count': len(points)})
+
+
+@csrf_exempt
+@_require_auth
+def api_alarm_settings(request: HttpRequest) -> JsonResponse:
+    if request.method == 'GET':
+        return JsonResponse({'deviceOfflineSec': alarm_runtime_store.get_device_offline_sec()})
+    if request.method == 'POST':
+        u = request.user
+        p = _get_profile(u)
+        if not (u.is_superuser or p.bas_role == BasRole.INTEGRATOR):
+            return JsonResponse({'detail': 'forbidden'}, status=403)
+        if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+            return JsonResponse({'detail': 'read only'}, status=403)
+        body = _json_body(request)
+        if 'deviceOfflineSec' in body:
+            alarm_runtime_store.set_device_offline_sec(int(body.get('deviceOfflineSec') or 300))
+        _audit(request, 'alarm_settings.update', True, {'deviceOfflineSec': alarm_runtime_store.get_device_offline_sec()})
+        return JsonResponse({'ok': True, 'deviceOfflineSec': alarm_runtime_store.get_device_offline_sec()})
+    return JsonResponse({'detail': 'method not allowed'}, status=405)
 
 
 @csrf_exempt
@@ -282,6 +420,15 @@ def api_alarm_rules(request: HttpRequest) -> JsonResponse:
         if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
             return JsonResponse({'detail': 'read only'}, status=403)
         body = _json_body(request)
+        batch = body.get('items')
+        if isinstance(batch, list):
+            n = 0
+            for row in batch:
+                if isinstance(row, dict) and row.get('pointId'):
+                    trend_store.upsert_alarm_rule(row)
+                    n += 1
+            _audit(request, 'alarm_rule.batch', True, {'count': n})
+            return JsonResponse({'ok': True, 'count': n})
         trend_store.upsert_alarm_rule(body)
         _audit(request, 'alarm_rule.upsert', True, {'pointId': body.get('pointId')})
         return JsonResponse({'ok': True})
@@ -327,6 +474,430 @@ def api_dashboard_layouts(request: HttpRequest) -> JsonResponse:
 def api_audit_logs(request: HttpRequest) -> JsonResponse:
     limit = int(request.GET.get('limit', '500') or 500)
     return JsonResponse({'items': trend_store.query_audit_events(limit=limit), 'retentionDays': settings.audit_retention_days})
+
+
+@_require_auth
+def api_alarms_events(request: HttpRequest) -> JsonResponse:
+    limit = max(50, min(int(request.GET.get('limit') or 400), 2000))
+    active = trend_store.list_open_alarm_events()
+    history = trend_store.query_alarm_event_history(limit=limit)
+    items = [
+        {
+            'pointId': r['pointId'],
+            'message': r['message'],
+            'state': 'active',
+            'kind': r['kind'],
+            'triggeredAt': r['openedAt'],
+            'ts': r['openedAt'],
+            'valueAtOpen': r.get('valueOpen') or '',
+            'eventId': r['id'],
+        }
+        for r in active
+    ]
+    return JsonResponse({'items': items, 'history': history})
+
+
+@_require_auth
+def api_notifications_logs(request: HttpRequest) -> JsonResponse:
+    doc = json_store.read_json('notifications.json', {'items': []})
+    return JsonResponse({'items': doc.get('items', []) if isinstance(doc.get('items'), list) else []})
+
+
+@csrf_exempt
+@_require_auth
+def api_schedules(request: HttpRequest) -> JsonResponse:
+    """Weekly schedule document (`schedules.json`) + optional push to diy-bacnet-server on POST."""
+    default_doc: dict[str, Any] = {'schedules': [], 'activeScheduleId': None, 'holidays': []}
+    if request.method == 'GET':
+        doc = json_store.read_json('schedules.json', default_doc)
+        if not isinstance(doc, dict):
+            doc = dict(default_doc)
+        schedules = doc.get('schedules')
+        if not isinstance(schedules, list):
+            schedules = []
+        holidays = doc.get('holidays')
+        if not isinstance(holidays, list):
+            holidays = []
+        return JsonResponse(
+            {
+                'schedules': schedules,
+                'activeScheduleId': doc.get('activeScheduleId'),
+                'holidays': holidays,
+            }
+        )
+    if request.method == 'POST':
+        if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+            return JsonResponse({'detail': 'read only'}, status=403)
+        body = _json_body(request)
+        schedules = body.get('schedules')
+        if not isinstance(schedules, list):
+            return JsonResponse({'detail': 'schedules array required'}, status=400)
+        holidays = body.get('holidays')
+        doc_out: dict[str, Any] = {
+            'schedules': schedules,
+            'activeScheduleId': body.get('activeScheduleId'),
+            'holidays': holidays if isinstance(holidays, list) else [],
+        }
+        json_store.write_json('schedules.json', doc_out)
+        diy_error = ''
+        try:
+            upd = schedules_bridge.active_profile_payload(
+                doc_out,
+                object_name=settings.diy_schedule_object_name,
+            )
+            rpc_client.server_update_schedule(upd)
+        except Exception as exc:  # noqa: BLE001
+            diy_error = str(exc)
+        _audit(request, 'schedules.save', True, {'profiles': len(schedules), 'bacnetError': bool(diy_error)})
+        return JsonResponse({'ok': True, 'diyError': diy_error or None})
+    return JsonResponse({'detail': 'method not allowed'}, status=405)
+
+
+@csrf_exempt
+@_require_write
+def api_polling_config(request: HttpRequest) -> JsonResponse:
+    if request.method == 'GET':
+        return JsonResponse({'items': trend_store.read_polling_config()})
+    if request.method == 'POST':
+        body = _json_body(request)
+        items = body.get('items')
+        if not isinstance(items, list):
+            return JsonResponse({'detail': 'items array required'}, status=400)
+        trend_store.write_polling_config(items)
+        _audit(request, 'polling.config', True, {'count': len(items)})
+        return JsonResponse({'ok': True})
+    return JsonResponse({'detail': 'method not allowed'}, status=405)
+
+
+_MAX_POLL_READ_BATCH = 80
+_DOCKER_LOG_CONTAINERS: tuple[tuple[str, str], ...] = (
+    ('diy-bas', 'diy-bas (Django app)'),
+    ('diy-bas-caddy', 'diy-bas-caddy (reverse proxy)'),
+    ('diy-bacnet-server', 'diy-bacnet-server (BACnet / RPC)'),
+)
+
+
+@csrf_exempt
+@_require_auth
+def api_polling_read_now(request: HttpRequest) -> JsonResponse:
+    """Read present-value for selected point IDs (or all polling-enabled points) and update live cache + trends."""
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    u = request.user
+    p = _get_profile(u)
+    if not (u.is_superuser or p.bas_role in (BasRole.INTEGRATOR, BasRole.MAINTENANCE)):
+        return JsonResponse({'detail': 'forbidden'}, status=403)
+    body = _json_body(request)
+    want_ids = body.get('pointIds')
+    pts = trend_store.read_points_merged_with_polling()
+    targets: list[dict[str, Any]]
+    if isinstance(want_ids, list) and want_ids:
+        want_set = {str(x) for x in want_ids}
+        targets = [p for p in pts if str(p.get('pointId')) in want_set]
+    else:
+        targets = [p for p in pts if p.get('pollingEnabled')]
+    if len(targets) > _MAX_POLL_READ_BATCH:
+        return JsonResponse({'ok': False, 'error': f'max {_MAX_POLL_READ_BATCH} points per request'}, status=400)
+    merges: dict[str, dict[str, Any]] = {}
+    read_ok = 0
+    errors: list[dict[str, str]] = []
+    ts = int(time.time())
+    dis_attempt = {int(p.get('deviceInstance') or 0) for p in targets if int(p.get('deviceInstance') or 0)}
+    alarm_runtime_store.touch_device_poll_batch(dis_attempt, ts)
+    now_label = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts))
+    samples: list[dict[str, Any]] = []
+    for p in targets:
+        pid = str(p.get('pointId') or '')
+        if not pid:
+            continue
+        di = int(p.get('deviceInstance') or 0)
+        oi = str(p.get('objectIdentifier') or '')
+        pi = str(p.get('propertyIdentifier') or 'present-value')
+        if not di or not oi:
+            msg = 'missing device_instance or object_identifier'
+            errors.append({'pointId': pid, 'error': msg})
+            merges[pid] = {'lastUpdated': now_label, 'lastError': msg, 'value': None}
+            continue
+        try:
+            payload = rpc_client.client_read_property(di, oi, pi)
+            val = rpc_client.extract_read_property_value(payload)
+            merges[pid] = {'value': val, 'lastUpdated': now_label, 'lastError': ''}
+            samples.append({'pointId': pid, 'ts': ts, 'value': val})
+            read_ok += 1
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            errors.append({'pointId': pid, 'error': msg})
+            merges[pid] = {'value': None, 'lastUpdated': now_label, 'lastError': msg}
+    ok_di: set[int] = set()
+    for p in targets:
+        pid = str(p.get('pointId') or '')
+        di = int(p.get('deviceInstance') or 0)
+        if not pid or not di:
+            continue
+        row = merges.get(pid)
+        if row and not (isinstance(row, dict) and row.get('lastError')):
+            ok_di.add(di)
+    for di in ok_di:
+        alarm_runtime_store.touch_device_poll_success(di, ts)
+    if samples:
+        trend_store.insert_samples(samples)
+    if merges:
+        json_store.merge_latest_point_values(merges)
+        alarm_engine.evaluate_alarms_for_live_values(set(merges.keys()))
+    else:
+        alarm_engine.evaluate_alarms_for_live_values(None)
+    _audit(request, 'polling.read_now', True, {'read': read_ok, 'errors': len(errors), 'attempted': len(targets)})
+    return JsonResponse({'ok': True, 'read': read_ok, 'errors': errors, 'attempted': len(targets)})
+
+
+@_require_docker_logs
+def api_docker_containers(request: HttpRequest) -> JsonResponse:
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    items = [{'id': cid, 'label': label} for cid, label in _DOCKER_LOG_CONTAINERS]
+    return JsonResponse({'items': items})
+
+
+@_require_docker_logs
+def api_docker_logs(request: HttpRequest) -> JsonResponse:
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    name = str(request.GET.get('container') or request.GET.get('name') or '').strip()
+    allowed = {c[0] for c in _DOCKER_LOG_CONTAINERS}
+    if name not in allowed:
+        return JsonResponse({'detail': 'unknown container', 'allowed': sorted(allowed)}, status=400)
+    try:
+        lines = max(50, min(int(request.GET.get('lines') or '400'), 5000))
+    except ValueError:
+        lines = 400
+    try:
+        proc = subprocess.run(
+            ['docker', 'logs', '--tail', str(lines), name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        out = (proc.stdout or '') + (('\n' + proc.stderr) if proc.stderr else '')
+        if proc.returncode != 0 and not out.strip():
+            return JsonResponse(
+                {'ok': False, 'error': 'docker logs failed', 'detail': proc.stderr or f'exit {proc.returncode}'},
+                status=502,
+            )
+        return JsonResponse({'ok': True, 'container': name, 'lines': lines, 'text': out})
+    except FileNotFoundError:
+        return JsonResponse({'ok': False, 'error': 'docker CLI not available in this environment'}, status=503)
+    except subprocess.TimeoutExpired:
+        return JsonResponse({'ok': False, 'error': 'docker logs timed out'}, status=504)
+    except Exception as exc:  # noqa: BLE001
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=502)
+
+
+def _wiresheet_status_items() -> list[dict[str, Any]]:
+    cache_doc = json_store.read_json('wiresheet_status.json', {'items': []})
+    cache: dict[str, dict[str, Any]] = {}
+    for row in cache_doc.get('items', []) if isinstance(cache_doc.get('items'), list) else []:
+        if isinstance(row, dict) and row.get('id') is not None:
+            cache[str(row['id'])] = row
+    items: list[dict[str, Any]] = []
+    for r in trend_store.read_wiresheet_rules():
+        rid = str(r['id'])
+        base = cache.get(rid, {})
+        items.append(
+            {
+                'id': rid,
+                'state': str(base.get('state') or 'waiting'),
+                'message': str(base.get('message') or ''),
+                'inputValue': base.get('inputValue'),
+                'priority': base.get('priority', r.get('priority')),
+            }
+        )
+    return items
+
+
+def _wiresheet_status_upsert(rule_id: str, **fields: Any) -> None:
+    doc = json_store.read_json('wiresheet_status.json', {'items': []})
+    items = [x for x in doc.get('items', []) if isinstance(x, dict)]
+    cur: dict[str, Any] | None = None
+    rest: list[dict[str, Any]] = []
+    for row in items:
+        if str(row.get('id')) == str(rule_id):
+            cur = dict(row)
+        else:
+            rest.append(row)
+    if cur is None:
+        cur = {'id': str(rule_id)}
+    cur.update(fields)
+    cur['id'] = str(rule_id)
+    rest.append(cur)
+    json_store.write_json('wiresheet_status.json', {'items': rest})
+
+
+@_require_auth
+def api_wiresheet_status(request: HttpRequest) -> JsonResponse:
+    return JsonResponse({'items': _wiresheet_status_items()})
+
+
+@csrf_exempt
+@_require_auth
+def api_wiresheet_config(request: HttpRequest) -> JsonResponse:
+    if request.method == 'GET':
+        return JsonResponse({'items': trend_store.read_wiresheet_rules()})
+    if request.method == 'POST':
+        u = request.user
+        p = _get_profile(u)
+        if not _is_integrator_capable(u, p):
+            return JsonResponse({'detail': 'forbidden'}, status=403)
+        if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+            return JsonResponse({'detail': 'read only'}, status=403)
+        body = _json_body(request)
+        trend_store.upsert_wiresheet_rule(body)
+        _audit(request, 'wiresheet.upsert', True, {'ruleId': body.get('id')})
+        return JsonResponse({'ok': True})
+    return JsonResponse({'detail': 'method not allowed'}, status=405)
+
+
+@csrf_exempt
+@_require_integrator
+def api_wiresheet_config_item(request: HttpRequest, rule_id: str) -> JsonResponse:
+    if request.method != 'DELETE':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    n = trend_store.delete_wiresheet_rule(rule_id)
+    st_doc = json_store.read_json('wiresheet_status.json', {'items': []})
+    st_rows = [x for x in st_doc.get('items', []) if isinstance(x, dict) and str(x.get('id')) != str(rule_id)]
+    json_store.write_json('wiresheet_status.json', {'items': st_rows})
+    _audit(request, 'wiresheet.delete', True, {'ruleId': rule_id, 'removed': n})
+    return JsonResponse({'ok': True, 'removed': n})
+
+
+@csrf_exempt
+@_require_integrator
+def api_wiresheet_run(request: HttpRequest, rule_id: str) -> JsonResponse:
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    rules = trend_store.read_wiresheet_rules()
+    rule = next((r for r in rules if str(r.get('id')) == str(rule_id)), None)
+    if not rule:
+        return JsonResponse({'ok': False, 'error': 'rule not found'}, status=404)
+    pri = rule.get('priority')
+    if pri in ('', None):
+        write_priority: int | None = None
+    else:
+        try:
+            write_priority = int(pri)
+        except (TypeError, ValueError):
+            write_priority = None
+    try:
+        read_payload = rpc_client.client_read_property(
+            int(rule.get('inputDeviceInstance') or 0),
+            str(rule.get('inputObjectIdentifier') or ''),
+            str(rule.get('inputPropertyIdentifier') or 'present-value'),
+        )
+        val = rpc_client.extract_read_property_value(read_payload)
+        outputs = rule.get('outputs') if isinstance(rule.get('outputs'), list) else []
+        for out in outputs:
+            if not isinstance(out, dict):
+                continue
+            di = int(out.get('deviceInstance') or 0)
+            oi = str(out.get('objectIdentifier') or '').strip()
+            if not di or not oi:
+                continue
+            rpc_client.client_write_property(
+                di,
+                oi,
+                val,
+                str(out.get('propertyIdentifier') or 'present-value'),
+                write_priority,
+            )
+        _wiresheet_status_upsert(
+            rule_id,
+            state='good',
+            message='Input broadcast to outputs',
+            inputValue=val,
+            priority=write_priority,
+        )
+        _audit(request, 'wiresheet.run', True, {'ruleId': rule_id})
+        return JsonResponse({'ok': True})
+    except Exception as exc:  # noqa: BLE001
+        _wiresheet_status_upsert(rule_id, state='down', message=str(exc), inputValue=None, priority=write_priority)
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=502)
+
+
+@_require_auth
+def api_trends_query(request: HttpRequest) -> JsonResponse:
+    point_id = str(request.GET.get('pointId') or '').strip()
+    if not point_id:
+        return JsonResponse({'detail': 'pointId required'}, status=400)
+    start_ts = int(request.GET.get('startTs') or 0)
+    end_ts = int(request.GET.get('endTs') or 0)
+    limit = int(request.GET.get('limit') or 2000)
+    items = trend_store.query_samples(point_id, start_ts, end_ts, limit)
+    return JsonResponse({'items': items})
+
+
+@_require_auth
+def api_trends_stream(request: HttpRequest) -> StreamingHttpResponse | JsonResponse:
+    """Server-Sent Events stream of new trend samples (works with Gunicorn WSGI; no WebSocket upgrade)."""
+    point_id = str(request.GET.get('pointId') or '').strip()
+    if not point_id:
+        return JsonResponse({'detail': 'pointId required'}, status=400)
+    try:
+        poll_sec = max(1, min(int(request.GET.get('interval') or 3), 15))
+    except ValueError:
+        poll_sec = 3
+    try:
+        since_ts = int(request.GET.get('sinceTs') or 0)
+    except ValueError:
+        since_ts = 0
+    if since_ts <= 0:
+        since_ts = int(time.time()) - 86400
+
+    def event_stream():
+        cursor = since_ts
+        yield f"data: {json.dumps({'type': 'hello', 'pointId': point_id, 'sinceTs': since_ts})}\n\n"
+        deadline = time.time() + 900
+        while time.time() < deadline:
+            now = int(time.time())
+            new_rows = trend_store.query_samples_after(point_id, cursor, now, 2000)
+            if new_rows:
+                cursor = max(int(r['ts']) for r in new_rows)
+                yield f"data: {json.dumps({'type': 'samples', 'items': new_rows})}\n\n"
+            time.sleep(poll_sec)
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    resp = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    resp['Cache-Control'] = 'no-cache'
+    resp['X-Accel-Buffering'] = 'no'
+    return resp
+
+
+@csrf_exempt
+@_require_integrator
+def api_device_instance(request: HttpRequest, device_instance: int) -> JsonResponse:
+    if request.method != 'DELETE':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    counts = trend_store.delete_device(int(device_instance))
+    _audit(request, 'device.delete', True, {'deviceInstance': device_instance, **counts})
+    return JsonResponse({'ok': True, **counts})
+
+
+@csrf_exempt
+@_require_integrator
+def api_point_id(request: HttpRequest, point_id: str) -> JsonResponse:
+    if request.method != 'DELETE':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    n = trend_store.delete_point(point_id)
+    _audit(request, 'point.delete', True, {'pointId': point_id, 'removed': n})
+    return JsonResponse({'ok': True, 'removed': n})
 
 
 def _manage_context(request: HttpRequest) -> dict[str, Any]:

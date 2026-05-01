@@ -30,6 +30,7 @@ class Settings:
     hide_gateway_device: bool = os.environ.get('DIY_BAS_HIDE_GATEWAY_DEVICE', 'true').lower() in ('1', 'true', 'yes')
     shared_outside_air_point: str = os.environ.get('DIY_BAS_SHARED_OAT_POINT', '').strip()
     audit_retention_days: int = int(os.environ.get('DIY_BAS_AUDIT_RETENTION_DAYS', '30'))
+    alarm_event_retention_days: int = int(os.environ.get('DIY_BAS_ALARM_EVENT_RETENTION_DAYS', '90'))
     session_hours: int = max(1, int(os.environ.get('DIY_BAS_SESSION_HOURS', '24')))
 
 

@@ -79,7 +79,7 @@
       </div>`;
   }
 
-  function bind({ mountEl, state, isIntegrator, fetchJson, refresh, setRoute, paint, apiBase }) {
+  function bind({ mountEl, state, isIntegrator, fetchJson, refresh, setRoute, paint, apiBase, setFeedback }) {
     mountEl.querySelectorAll('[data-act="wire-save"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!isIntegrator()) return;
@@ -98,24 +98,31 @@
             objectIdentifier: p.objectIdentifier || '',
             propertyIdentifier: p.propertyIdentifier || 'present-value',
           }));
-        await fetchJson(`${apiBase}/wiresheet/config`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: mountEl.querySelector('#wire-name')?.value || 'Global Logic',
-            enabled: true,
-            pollMinutes: Number(mountEl.querySelector('#wire-poll')?.value || 5),
-            priority: mountEl.querySelector('#wire-priority')?.value || null,
-            inputPointId: inputPoint.pointId,
-            inputDeviceInstance: Number(inputPoint.deviceInstance || 0),
-            inputObjectIdentifier: inputPoint.objectIdentifier || '',
-            inputPropertyIdentifier: inputPoint.propertyIdentifier || 'present-value',
-            outputs,
-          }),
-        });
-        await refresh();
-        setRoute('wiresheet');
-        paint();
+        try {
+          await fetchJson(`${apiBase}/wiresheet/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: mountEl.querySelector('#wire-name')?.value || 'Global Logic',
+              enabled: true,
+              pollMinutes: Number(mountEl.querySelector('#wire-poll')?.value || 5),
+              priority: mountEl.querySelector('#wire-priority')?.value || null,
+              inputPointId: inputPoint.pointId,
+              inputDeviceInstance: Number(inputPoint.deviceInstance || 0),
+              inputObjectIdentifier: inputPoint.objectIdentifier || '',
+              inputPropertyIdentifier: inputPoint.propertyIdentifier || 'present-value',
+              outputs,
+            }),
+          });
+          if (typeof console !== 'undefined' && console.info) console.info('[diy-bas][wiresheet]', 'rule saved');
+          await refresh();
+          if (setFeedback) setFeedback('Wire sheet rule saved.', 'ok');
+          setRoute('wiresheet');
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          if (typeof console !== 'undefined' && console.warn) console.warn('[diy-bas][wiresheet]', 'save failed', msg);
+          if (setFeedback) setFeedback(`Wire sheet save failed: ${msg}`, 'err');
+        }
       });
     });
     mountEl.querySelectorAll('[data-act="wire-delete"]').forEach((btn) => {
@@ -123,10 +130,17 @@
         if (!isIntegrator()) return;
         const id = btn.getAttribute('data-id');
         if (!id) return;
-        await fetchJson(`${apiBase}/wiresheet/config/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        await refresh();
-        setRoute('wiresheet');
-        paint();
+        try {
+          await fetchJson(`${apiBase}/wiresheet/config/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (typeof console !== 'undefined' && console.info) console.info('[diy-bas][wiresheet]', 'rule deleted', id);
+          await refresh();
+          if (setFeedback) setFeedback('Wire sheet rule removed.', 'ok');
+          setRoute('wiresheet');
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          if (typeof console !== 'undefined' && console.warn) console.warn('[diy-bas][wiresheet]', 'delete failed', msg);
+          if (setFeedback) setFeedback(`Wire sheet delete failed: ${msg}`, 'err');
+        }
       });
     });
     mountEl.querySelectorAll('[data-act="wire-run"]').forEach((btn) => {
@@ -134,10 +148,17 @@
         if (!isIntegrator()) return;
         const id = btn.getAttribute('data-id');
         if (!id) return;
-        await fetchJson(`${apiBase}/wiresheet/run/${encodeURIComponent(id)}`, { method: 'POST' });
-        await refresh();
-        setRoute('wiresheet');
-        paint();
+        try {
+          await fetchJson(`${apiBase}/wiresheet/run/${encodeURIComponent(id)}`, { method: 'POST' });
+          if (typeof console !== 'undefined' && console.info) console.info('[diy-bas][wiresheet]', 'run ok', id);
+          await refresh();
+          if (setFeedback) setFeedback('Wire sheet run completed (see status column).', 'ok');
+          setRoute('wiresheet');
+        } catch (err) {
+          const msg = String(err && err.message ? err.message : err);
+          if (typeof console !== 'undefined' && console.warn) console.warn('[diy-bas][wiresheet]', 'run failed', msg);
+          if (setFeedback) setFeedback(`Wire sheet run failed: ${msg}`, 'err');
+        }
       });
     });
   }

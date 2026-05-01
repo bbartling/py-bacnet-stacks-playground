@@ -168,8 +168,49 @@ def initialize() -> None:
                 '''
             )
             conn.execute('CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_logs(ts)')
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS alarm_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    point_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    opened_ts INTEGER NOT NULL,
+                    cleared_ts INTEGER,
+                    value_open TEXT NOT NULL DEFAULT '',
+                    value_clear TEXT NOT NULL DEFAULT ''
+                )
+                '''
+            )
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_alarm_events_point ON alarm_events(point_id, opened_ts DESC)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_alarm_events_opened ON alarm_events(opened_ts DESC)')
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS alarm_delay_state (
+                    rule_key TEXT PRIMARY KEY,
+                    violation_since INTEGER NOT NULL
+                )
+                '''
+            )
+            _migrate_alarm_rules_columns(conn)
         finally:
             conn.close()
+
+
+def _migrate_alarm_rules_columns(conn: sqlite3.Connection) -> None:
+    cur = conn.execute('PRAGMA table_info(alarm_rules)')
+    cols = {row[1] for row in cur.fetchall()}
+    alters: list[str] = []
+    if 'rule_kind' not in cols:
+        alters.append("ALTER TABLE alarm_rules ADD COLUMN rule_kind TEXT NOT NULL DEFAULT 'threshold'")
+    if 'compare_point_id' not in cols:
+        alters.append("ALTER TABLE alarm_rules ADD COLUMN compare_point_id TEXT NOT NULL DEFAULT ''")
+    if 'compare_operator' not in cols:
+        alters.append("ALTER TABLE alarm_rules ADD COLUMN compare_operator TEXT NOT NULL DEFAULT 'eq'")
+    if 'delay_sec' not in cols:
+        alters.append('ALTER TABLE alarm_rules ADD COLUMN delay_sec INTEGER NOT NULL DEFAULT 0')
+    for sql in alters:
+        conn.execute(sql)
 
 
 def _normalize_value(value: Any) -> tuple[float | None, str | None]:
@@ -238,6 +279,32 @@ def query_samples(point_id: str, start_ts: int, end_ts: int, limit: int = 2000) 
                 LIMIT ?
                 ''',
                 (point_id, int(start_ts), int(end_ts), limit),
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        val: Any = row['value_real'] if row['value_real'] is not None else row['value_text']
+        out.append({'pointId': row['point_id'], 'ts': int(row['ts']), 'value': val})
+    return out
+
+
+def query_samples_after(point_id: str, after_ts: int, until_ts: int, limit: int = 500) -> list[dict[str, Any]]:
+    """Samples strictly after ``after_ts`` (for live / incremental readers)."""
+    limit = max(1, min(int(limit), 5000))
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                '''
+                SELECT point_id, ts, value_real, value_text
+                FROM trend_samples
+                WHERE point_id = ? AND ts > ? AND ts <= ?
+                ORDER BY ts ASC
+                LIMIT ?
+                ''',
+                (point_id, int(after_ts), int(until_ts), limit),
             )
             rows = cur.fetchall()
         finally:
@@ -424,23 +491,82 @@ def read_points() -> list[dict[str, Any]]:
     ]
 
 
+def read_points_merged_with_polling() -> list[dict[str, Any]]:
+    """Return discovered points with ``polling_enabled`` / ``interval_sec`` from ``polling_config`` when present."""
+    points = read_points()
+    cfg_by_id = {str(r['pointId']): r for r in read_polling_config()}
+    for p in points:
+        pid = str(p.get('pointId') or '')
+        if pid in cfg_by_id:
+            c = cfg_by_id[pid]
+            p['pollingEnabled'] = bool(c.get('enabled'))
+            p['intervalSec'] = int(c.get('intervalSec') or 30)
+    return points
+
+
 def delete_point(point_id: str) -> int:
     with _LOCK:
         conn = _connect()
         try:
+            conn.execute('BEGIN')
+            conn.execute('DELETE FROM alarm_delay_state WHERE rule_key LIKE ?', (f'{point_id}:%',))
+            conn.execute('DELETE FROM alarm_rules WHERE compare_point_id = ?', (point_id,))
+            conn.execute('DELETE FROM alarm_events WHERE point_id = ?', (point_id,))
+            conn.execute('DELETE FROM alarm_rules WHERE point_id = ?', (point_id,))
+            conn.execute('DELETE FROM polling_config WHERE point_id = ?', (point_id,))
             cur = conn.execute('DELETE FROM discovered_points WHERE point_id = ?', (point_id,))
+            conn.execute('COMMIT')
             return int(cur.rowcount or 0)
+        except Exception:
+            conn.execute('ROLLBACK')
+            raise
         finally:
             conn.close()
 
 
 def delete_device(device_instance: int) -> dict[str, int]:
+    di = int(device_instance)
     with _LOCK:
         conn = _connect()
         try:
-            cur_points = conn.execute('DELETE FROM discovered_points WHERE device_instance = ?', (int(device_instance),))
-            cur_device = conn.execute('DELETE FROM discovered_devices WHERE device_instance = ?', (int(device_instance),))
+            conn.execute('BEGIN')
+            conn.execute('DELETE FROM alarm_events WHERE point_id = ?', (f'device:{di}',))
+            conn.execute(
+                '''
+                DELETE FROM alarm_events WHERE point_id IN (
+                    SELECT point_id FROM discovered_points WHERE device_instance = ?
+                )
+                ''',
+                (di,),
+            )
+            conn.execute(
+                '''
+                DELETE FROM alarm_rules WHERE point_id IN (
+                    SELECT point_id FROM discovered_points WHERE device_instance = ?
+                )
+                ''',
+                (di,),
+            )
+            conn.execute(
+                '''
+                DELETE FROM polling_config WHERE point_id IN (
+                    SELECT point_id FROM discovered_points WHERE device_instance = ?
+                )
+                ''',
+                (di,),
+            )
+            curp = conn.execute('SELECT point_id FROM discovered_points WHERE device_instance = ?', (di,))
+            for row in curp.fetchall():
+                pid = str(row[0])
+                conn.execute('DELETE FROM alarm_delay_state WHERE rule_key LIKE ?', (f'{pid}:%',))
+            conn.execute('DELETE FROM alarm_rules WHERE compare_point_id IN (SELECT point_id FROM discovered_points WHERE device_instance = ?)', (di,))
+            cur_points = conn.execute('DELETE FROM discovered_points WHERE device_instance = ?', (di,))
+            cur_device = conn.execute('DELETE FROM discovered_devices WHERE device_instance = ?', (di,))
+            conn.execute('COMMIT')
             return {'devices': int(cur_device.rowcount or 0), 'points': int(cur_points.rowcount or 0)}
+        except Exception:
+            conn.execute('ROLLBACK')
+            raise
         finally:
             conn.close()
 
@@ -587,7 +713,8 @@ def read_alarm_rules() -> list[dict[str, Any]]:
         try:
             cur = conn.execute(
                 '''
-                SELECT point_id, point_type, enabled, low_threshold, high_threshold, expected_bool, bool_delay_sec, deadband, notes
+                SELECT point_id, point_type, enabled, low_threshold, high_threshold, expected_bool, bool_delay_sec,
+                       deadband, notes, rule_kind, compare_point_id, compare_operator, delay_sec
                 FROM alarm_rules
                 ORDER BY point_id
                 '''
@@ -595,32 +722,46 @@ def read_alarm_rules() -> list[dict[str, Any]]:
             rows = cur.fetchall()
         finally:
             conn.close()
-    return [
-        {
-            'pointId': r['point_id'],
-            'pointType': r['point_type'],
-            'enabled': bool(r['enabled']),
-            'lowThreshold': r['low_threshold'],
-            'highThreshold': r['high_threshold'],
-            'expectedBool': None if r['expected_bool'] is None else bool(r['expected_bool']),
-            'boolDelaySec': int(r['bool_delay_sec'] or 0),
-            'deadband': float(r['deadband'] or 0.0),
-            'notes': r['notes'] or '',
-        }
-        for r in rows
-    ]
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        dsec = int(r['delay_sec'] if r['delay_sec'] is not None else r['bool_delay_sec'] or 0)
+        out.append(
+            {
+                'pointId': r['point_id'],
+                'pointType': r['point_type'],
+                'enabled': bool(r['enabled']),
+                'lowThreshold': r['low_threshold'],
+                'highThreshold': r['high_threshold'],
+                'expectedBool': None if r['expected_bool'] is None else bool(r['expected_bool']),
+                'boolDelaySec': dsec,
+                'delaySec': dsec,
+                'deadband': float(r['deadband'] or 0.0),
+                'notes': r['notes'] or '',
+                'ruleKind': (r['rule_kind'] or 'threshold') if r['rule_kind'] is not None else 'threshold',
+                'comparePointId': (r['compare_point_id'] or '') if r['compare_point_id'] is not None else '',
+                'compareOperator': (r['compare_operator'] or 'eq') if r['compare_operator'] is not None else 'eq',
+            }
+        )
+    return out
 
 
 def upsert_alarm_rule(rule: dict[str, Any]) -> None:
     ts = int(time.time())
+    delay = int(rule.get('delaySec') if rule.get('delaySec') is not None else rule.get('boolDelaySec') or 0)
+    rk = str(rule.get('ruleKind') or 'threshold').strip() or 'threshold'
+    cmp_id = str(rule.get('comparePointId') or '').strip()
+    cmp_op = str(rule.get('compareOperator') or 'eq').strip() or 'eq'
+    if cmp_op not in ('eq', 'ne'):
+        cmp_op = 'eq'
     with _LOCK:
         conn = _connect()
         try:
             conn.execute(
                 '''
                 INSERT INTO alarm_rules(
-                    point_id, point_type, enabled, low_threshold, high_threshold, expected_bool, bool_delay_sec, deadband, notes, updated_ts
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    point_id, point_type, enabled, low_threshold, high_threshold, expected_bool, bool_delay_sec, deadband, notes,
+                    updated_ts, rule_kind, compare_point_id, compare_operator, delay_sec
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(point_id) DO UPDATE SET
                     point_type=excluded.point_type,
                     enabled=excluded.enabled,
@@ -630,7 +771,11 @@ def upsert_alarm_rule(rule: dict[str, Any]) -> None:
                     bool_delay_sec=excluded.bool_delay_sec,
                     deadband=excluded.deadband,
                     notes=excluded.notes,
-                    updated_ts=excluded.updated_ts
+                    updated_ts=excluded.updated_ts,
+                    rule_kind=excluded.rule_kind,
+                    compare_point_id=excluded.compare_point_id,
+                    compare_operator=excluded.compare_operator,
+                    delay_sec=excluded.delay_sec
                 ''',
                 (
                     str(rule.get('pointId') or '').strip(),
@@ -639,12 +784,66 @@ def upsert_alarm_rule(rule: dict[str, Any]) -> None:
                     rule.get('lowThreshold'),
                     rule.get('highThreshold'),
                     None if rule.get('expectedBool') is None else (1 if bool(rule.get('expectedBool')) else 0),
-                    int(rule.get('boolDelaySec') or 0),
+                    delay,
                     float(rule.get('deadband') or 0.0),
                     str(rule.get('notes') or ''),
                     ts,
+                    rk,
+                    cmp_id,
+                    cmp_op,
+                    delay,
                 ),
             )
+        finally:
+            conn.close()
+
+
+def alarm_delay_get(rule_key: str) -> int | None:
+    k = str(rule_key or '').strip()
+    if not k:
+        return None
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                'SELECT violation_since FROM alarm_delay_state WHERE rule_key = ? LIMIT 1',
+                (k,),
+            )
+            row = cur.fetchone()
+        finally:
+            conn.close()
+    if not row:
+        return None
+    return int(row['violation_since'])
+
+
+def alarm_delay_set(rule_key: str, since_ts: int) -> None:
+    k = str(rule_key or '').strip()
+    if not k:
+        return
+    ts = int(since_ts)
+    with _LOCK:
+        conn = _connect()
+        try:
+            conn.execute(
+                '''
+                INSERT INTO alarm_delay_state(rule_key, violation_since) VALUES (?, ?)
+                ON CONFLICT(rule_key) DO UPDATE SET violation_since = excluded.violation_since
+                ''',
+                (k, ts),
+            )
+        finally:
+            conn.close()
+
+
+def alarm_delay_clear(rule_key: str) -> None:
+    k = str(rule_key or '').strip()
+    if not k:
+        return
+    with _LOCK:
+        conn = _connect()
+        try:
+            conn.execute('DELETE FROM alarm_delay_state WHERE rule_key = ?', (k,))
         finally:
             conn.close()
 
@@ -881,3 +1080,164 @@ def purge_old_audit(retention_days: int) -> int:
             return int(cur.rowcount or 0)
         finally:
             conn.close()
+
+
+def purge_old_alarm_events(retention_days: int) -> int:
+    """Drop cleared alarm segments whose clear time is older than retention."""
+    cutoff = int(time.time()) - (max(1, int(retention_days)) * 86400)
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                'DELETE FROM alarm_events WHERE cleared_ts IS NOT NULL AND cleared_ts < ?',
+                (cutoff,),
+            )
+            return int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+
+def _fmt_ts(ts: int) -> str:
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(ts)))
+
+
+def list_open_alarm_events() -> list[dict[str, Any]]:
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                '''
+                SELECT id, point_id, kind, message, opened_ts, value_open
+                FROM alarm_events
+                WHERE cleared_ts IS NULL
+                ORDER BY opened_ts DESC
+                '''
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    return [
+        {
+            'id': int(r['id']),
+            'pointId': r['point_id'],
+            'kind': r['kind'],
+            'message': r['message'],
+            'openedTs': int(r['opened_ts']),
+            'openedAt': _fmt_ts(int(r['opened_ts'])),
+            'valueOpen': r['value_open'] or '',
+        }
+        for r in rows
+    ]
+
+
+def query_alarm_event_history(limit: int = 400) -> list[dict[str, Any]]:
+    lim = max(50, min(int(limit), 5000))
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                '''
+                SELECT id, point_id, kind, message, opened_ts, cleared_ts, value_open, value_clear
+                FROM alarm_events
+                ORDER BY opened_ts DESC
+                LIMIT ?
+                ''',
+                (lim,),
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        ots = int(r['opened_ts'])
+        cts = r['cleared_ts']
+        ctsi = int(cts) if cts is not None else None
+        out.append(
+            {
+                'id': int(r['id']),
+                'pointId': r['point_id'],
+                'kind': r['kind'],
+                'message': r['message'],
+                'openedTs': ots,
+                'openedAt': _fmt_ts(ots),
+                'clearedTs': ctsi,
+                'clearedAt': _fmt_ts(ctsi) if ctsi is not None else None,
+                'valueOpen': r['value_open'] or '',
+                'valueClear': r['value_clear'] or '',
+                'durationSec': (ctsi - ots) if ctsi is not None else None,
+                'state': 'cleared' if ctsi is not None else 'active',
+            }
+        )
+    return out
+
+
+def count_open_alarm_events() -> int:
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute('SELECT COUNT(*) AS c FROM alarm_events WHERE cleared_ts IS NULL')
+            row = cur.fetchone()
+        finally:
+            conn.close()
+    return int(row['c']) if row else 0
+
+
+def try_insert_open_alarm_event(
+    point_id: str, kind: str, message: str, opened_ts: int, value_open: str
+) -> int | None:
+    pid = str(point_id or '').strip()
+    if not pid:
+        return None
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                '''
+                SELECT id FROM alarm_events
+                WHERE point_id = ? AND kind = ? AND cleared_ts IS NULL
+                LIMIT 1
+                ''',
+                (pid, str(kind)),
+            )
+            if cur.fetchone():
+                return None
+            cur = conn.execute(
+                '''
+                INSERT INTO alarm_events(point_id, kind, message, opened_ts, cleared_ts, value_open, value_clear)
+                VALUES (?, ?, ?, ?, NULL, ?, '')
+                ''',
+                (pid, str(kind), str(message), int(opened_ts), str(value_open or '')),
+            )
+            return int(cur.lastrowid or 0) or None
+        finally:
+            conn.close()
+
+
+def close_open_alarm_event(point_id: str, kind: str, cleared_ts: int, value_clear: str) -> int:
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                '''
+                UPDATE alarm_events
+                SET cleared_ts = ?, value_clear = ?
+                WHERE point_id = ? AND kind = ? AND cleared_ts IS NULL
+                ''',
+                (int(cleared_ts), str(value_clear or ''), str(point_id), str(kind)),
+            )
+            return int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+
+def load_open_alarm_index() -> dict[tuple[str, str], int]:
+    with _LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                'SELECT id, point_id, kind FROM alarm_events WHERE cleared_ts IS NULL'
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+    return {(str(r['point_id']), str(r['kind'])): int(r['id']) for r in rows}

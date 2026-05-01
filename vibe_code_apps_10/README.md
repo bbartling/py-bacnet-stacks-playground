@@ -1,23 +1,58 @@
-# diy-bas
+# diy-bas (vibe stack)
 
-Flask + vanilla JavaScript supervisory UI for BACnet test bench / small BAS supervisory deployments with role-based access and configurable alarm/dashboard tooling.
+This folder (`vibe_code_apps_10`) holds the **diy-bas** supervisory app: **Django** + **Gunicorn** serving a vanilla JS front end (`app.js`, `dashboard.js`, `schedule.js`, `styles.css`). Source lives in **`diy-bas/`** (project root `diybas/`, app code under `bas/` and `app/`).
 
 ## What is included
 
-- Flask backend
-- vanilla frontend (`app.js`, `dashboard.js`, `schedule.js`, `styles.css`)
-- Plotly trend charts (zoom, pan, export image) via CDN
-- `config.py` for app and JSON-RPC settings
-- `algorithms.py` for shared supervisory helpers
-- BACnet discovery via `diy-bacnet-server` JSON-RPC (`client_whois_range`, `client_point_discovery`)
-- secure login + role RBAC (`system_integrator`, `building_operator`)
-- polling configuration and trend retention in SQLite (WAL mode)
-- alarm rule configuration for point types (numeric high/low and boolean mismatch/failure)
-- custom dashboard layout storage and device notes for operator overview context
-- global logic wire sheet (integrator tab) for input->many output BACnet value sharing
-- audit logging for auth, overrides, and configuration changes
-- Docker Compose for sibling `diy-bas` + `diy-bacnet-server` containers
-- Caddy reverse proxy in front of both services (single entrypoint on port 80)
+- Django REST-style JSON APIs under `/api/*` (session auth + RBAC)
+- SQLite (`data/trends.sqlite3`) for devices, points, polling, alarm rules, trend samples, **alarm audit** (`alarm_events`), audit logs
+- JSON files in `data/` for schedules, notifications, latest BACnet values, wiresheet cache, etc.
+- BACnet discovery and reads via `diy-bacnet-server` JSON-RPC
+- Roles: `system_integrator` vs `building_operator` (and Django `BasRole` / maintenance where configured)
+- **Sidebar (integrator):** **Building & operations** (black/neutral nav) vs **System integrator** (green nav); first integrator tab is **Discovery**, then Devices, Points, Wire sheet, Custom dashboard
+- Plotly trends, SSE live trend stream (`/api/trends/stream`), points bulk polling & split alarm modals (threshold vs cross-point vs device-offline timing)
+- Caddy + Docker Compose entry on port **80** (recommended on Pi); Gunicorn WSGI inside `diy-bas` container
+
+## Django for BAS technicians
+
+If you commission BACnet for a living, you already think in **objects**, **points**, **graphics**, **alarms**, **schedules**, and **users**. **Django** is a Python **web application framework**: it gives you a structured way to ship those ideas as a secure browser app plus JSON APIs, with a large standard library of “batteries included” features so you do not reinvent plumbing.
+
+### Mental model: where BAS concepts live in Django
+
+| Familiar BAS idea | Rough Django / diy-bas mapping |
+| --- | --- |
+| Alarm definition (limits, delays, comparisons) | Rows in SQLite `alarm_rules` (saved via `POST /api/alarm-rules`); runtime such as “last good poll per device” in `data/alarm_runtime.json` |
+| Alarm annunciator / history | `alarm_events` table + `/api/alarms/events` |
+| Point list / metadata | `discovered_points` + merged polling config |
+| Schedules, notifications, latest values | JSON documents under `data/` (schedules are still “site configuration” like a JACE archive) |
+| Integrator vs operator | Django auth user + `UserProfile.bas_role` (RBAC checked in views) |
+
+Django projects are organized into **apps** (e.g. `bas/` for HTTP views and templates, `app/` for BACnet-facing services). A **model** (Django’s ORM class) is like a **record type** in a controller: one table, one responsibility. diy-bas uses **both** Django models (users/profiles) and **plain SQLite** tables in `app/trend_store.py` for high-volume trend and alarm data—same idea, less ORM overhead for samples.
+
+### How this app hangs together
+
+1. **Browser** loads static JS (`dashboard.js`) and calls `/api/*` with the session cookie.
+2. **Django views** (`bas/views.py`) authenticate the user, read/write SQLite or JSON, and call **BACnet RPC** where needed.
+3. **Alarm engine** (`app/alarm_engine.py`) runs when live values refresh: threshold rules, optional **point-vs-point** (`rule_kind: cross_compare`), and **device offline** if no successful read for `deviceOfflineSec` on any polling-enabled device instance.
+
+### “Batteries included” Django features you can grow into for a BAS
+
+These ship with or alongside Django and map cleanly to building automation products:
+
+- **Auth & sessions** — operator logins, integrator-only screens, session timeout (already used for the dashboard).
+- **Password validation & password change flows** — same patterns as corporate IT; can enforce complexity and rotation policies.
+- **Email backend (SMTP)** — alarm email dial-out, digest summaries, or “device offline” notifications without a separate mailer service in the first iteration.
+- **Password reset by email** — built-in views and tokens; useful for forgotten integrator passwords on a customer site.
+- **Admin site** (`/admin/`) — quick CRUD on users, profiles, or future “site config” models without building a custom UI.
+- **Forms & CSRF protection** — server-side validation for any future HTML forms; APIs use session/JSON patterns with `@csrf_exempt` only where intentional.
+- **Internationalization / time zones** — localize operator-facing strings and timestamps per building.
+- **Caching framework** — reduce SQLite or RPC load for heavy graphics pages.
+- **Management commands** — one-off imports, backups, BACnet object exports (`python manage.py …`), like running a script on a JACE shell but reproducible.
+- **Migrations** — versioned schema changes for anything stored in Django’s ORM (SQLite/Postgres in production).
+- **Static file handling & security middleware** — HTTPS headers, clickjacking protection, MIME safety for operator kiosks.
+- **Task queues (Celery / RQ, common add-on)** — async alarm routing to SMS/pager/Teams, long BACnet batch jobs, or report generation without blocking the web worker.
+
+None of these require abandoning BACnet—they sit **above** the field stack as supervisory glue, the same role Niagara, Distech, or vendor portals play today.
 
 ## Test bench assumptions
 
@@ -28,10 +63,10 @@ Flask + vanilla JavaScript supervisory UI for BACnet test bench / small BAS supe
   - `web-weather-dew-point`
 - AHU and VAV both use the shared outside-air temperature reference from diy-bacnet-server
 
-## Local run
+## Local run (Django)
 
 ```bash
-cd ~/diy-bas
+cd ~/path/to/vibe_code_apps_10/diy-bas
 
 sudo apt update
 sudo apt install -y python3-full python3-venv
@@ -46,10 +81,11 @@ python -m pip install -r requirements.txt
 cp -n .env.example .env
 export $(grep -v '^#' .env | xargs)
 
-python run.py
+python manage.py migrate
+python manage.py runserver 0.0.0.0:5050
 ```
 
-Open `http://<raspberry-pi-ip>:5050`.
+Open `http://<raspberry-pi-ip>:5050` (or use Docker Compose + Caddy on port 80 per below).
 
 Default bootstrap user (change immediately):
 - username: `integrator`
@@ -57,11 +93,13 @@ Default bootstrap user (change immediately):
 - maintenance username: `maintenance`
 - maintenance password: `ChangeMeNow!123`
 
-**How to log in:** Open the app in your browser (for example `http://127.0.0.1/` with Docker Compose + Caddy, or `http://<host>:5050` if you hit Flask directly). The first screen is the login form. Use the **integrator** or **maintenance** username and password above unless you changed them in `.env` (`DIY_BAS_ADMIN_*` and `DIY_BAS_MAINT_*`). After a successful login, Flask-Login keeps you signed in with a **session cookie** (default lifetime **24 hours**, see `DIY_BAS_SESSION_*` in `.env.example`).
+**How to log in:** Open the app in your browser (for example `http://127.0.0.1/` with Docker Compose + Caddy, or `http://<host>:5050` if you hit Django directly). The first screen is the login form. Use the **integrator** or **maintenance** username and password above unless you changed them in `.env` (`DIY_BAS_ADMIN_*` and `DIY_BAS_MAINT_*`). After a successful login, Django keeps you signed in with a **session cookie** (default lifetime **24 hours**, see `DIY_BAS_SESSION_*` in `.env.example`).
+
+**Debugging blank dashboard tabs:** the browser console shows `[diy-bas][dash] paint` with `route`, `devices`, and `points` counts after each paint, and `[diy-bas][tab] navigate` when the dashboard route changes. If you open **Schedule** first, the shell still syncs the hidden dashboard route to `schedule` so logs stay aligned with the sidebar.
 
 Notes:
 - If you hit Debian/Raspberry Pi OS externally managed environment errors, the `--copies` venv flow above is the recommended fix.
-- The `.env` warning from Flask is non-fatal when you manually export variables.
+- The `.env` warning from Django is non-fatal when you manually export variables.
 - `GET/POST /server_hello` on `diy-bacnet-server` does not require auth and is used for connectivity checks.
 - Discovery and points metadata are stored in SQLite metadata tables (including `commandable`) for site-agnostic setup.
 
@@ -153,50 +191,35 @@ docker compose up --build
 ## Role model
 
 - `system_integrator`
-  - full setup/config visibility in left nav
-  - can run discovery, edit polling, configure alarms, save dashboard layouts, edit device notes, and schedules
+  - **Building & operations** nav: overview, trends, alarms, notifications, schedule, docker logs (black styling)
+  - **System integrator** nav: discovery, devices, points, wire sheet, custom dashboard (green styling)
 - `building_operator`
-  - dashboard/overview + devices + trends + active alarms
-  - read-only runtime operations
+  - overview, devices, alarms, trends (and docker logs when `basRole` is maintenance)
+  - read-only runtime operations where enforced server-side
 
 ## Alarm extensions
 
-- Numeric point alarm rule:
-  - `pointType: numeric`
-  - thresholds: `lowThreshold`, `highThreshold`
-  - optional `deadband`
-- Boolean point alarm rule:
-  - `pointType: bool`
-  - expected state: `expectedBool`
-  - mismatch delay: `boolDelaySec`
+- **Threshold (default `rule_kind: threshold`)** — numeric high/low + `deadband`, or binary `expectedBool`; **`delay_sec` / `boolDelaySec`** hold time in seconds before opening (per condition in the engine).
+- **Cross-point (`rule_kind: cross_compare`)** — `compare_point_id` = point B, `compare_operator` `eq` or `ne`; alarms on relationship violation after the same delay fields.
+- **Device offline** — synthetic alarm `point_id` like `device:<instance>` with `kind: device_offline` when no **successful** BACnet read is seen for that device instance for longer than **`deviceOfflineSec`** (default **300**, clamped **60–86400**). Attempts are tracked per read-now batch; success timestamps live in `data/alarm_runtime.json`. Configure via **`GET/POST /api/alarm-settings`** (`{ "deviceOfflineSec": 300 }` on POST; integrator-only write).
+- UI: **Points** tab exposes separate modals for threshold/binary vs cross-point vs device-offline timing.
 
-## Useful API routes
+## Useful API routes (Django diy-bas)
 
 - `GET /api/health`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- `POST /api/auth/change-password`
-- `GET /api/points`
-- `POST /api/discovery/whois`
-- `POST /api/discovery/device-points`
-- `GET /api/discovery/devices`
-- `GET /api/polling/config`
-- `POST /api/polling/config`
-- `GET /api/schedules`
-- `POST /api/schedules`
-- `GET /api/trends/query`
-- `GET /api/diy/schedule`
-- `GET /api/algorithms/oat`
-- `GET /api/algorithms/test-bench`
-- `GET /api/alarm-rules`
-- `POST /api/alarm-rules`
-- `GET /api/device-notes`
-- `POST /api/device-notes`
-- `GET /api/dashboard-layouts`
-- `POST /api/dashboard-layouts`
-- `GET /api/wiresheet/config`
-- `POST /api/wiresheet/config`
+- `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` · `POST /api/auth/token`
+- `GET /api/points` (merged live values + alarm flags)
+- `GET /api/devices` · `DELETE /api/devices/<id>`
+- `POST /api/discovery/whois` · `POST /api/discovery/device-points` · `GET /api/discovery/devices`
+- `GET/POST /api/polling/config` · `POST /api/polling/read-now`
+- `GET/POST /api/schedules` (JSON document; POST also pushes active profile to BACnet when RPC succeeds)
+- `GET /api/trends/query` · `GET /api/trends/stream` (SSE)
+- `GET /api/alarms/events` (active + history)
+- `GET/POST /api/alarm-rules` (POST body may be `{ "items": [ … ] }` for batch; rules may include `ruleKind`, `comparePointId`, `compareOperator`, `delaySec`)
+- `GET/POST /api/alarm-settings` (`deviceOfflineSec`; POST integrator-only)
+- `GET/POST /api/device-notes`
+- `GET/POST /api/dashboard-layouts`
+- `GET/POST /api/wiresheet/config` · …
 - `DELETE /api/wiresheet/config/<id>`
 - `POST /api/wiresheet/run/<id>`
 - `GET /api/wiresheet/status`
@@ -207,7 +230,7 @@ docker compose up --build
 - Set `DIY_BAS_SECRET_KEY` in `.env` (bootstrap now generates if missing).
 - Set and secure `DIY_BAS_ADMIN_USERNAME` / `DIY_BAS_ADMIN_PASSWORD` in `.env`.
 - Set and secure `DIY_BAS_MAINT_USERNAME` / `DIY_BAS_MAINT_PASSWORD` in `.env`.
-- Use persistent data directory: `DIY_BAS_DATA_DIR=/var/lib/diy-bas` on Pi **when running Flask directly on the host** (venv / `python run.py`).
+- Use persistent data directory: `DIY_BAS_DATA_DIR=/var/lib/diy-bas` on Pi **when running Django directly on the host** (venv / `gunicorn` or `runserver`).
 - **Docker Compose** forces `DIY_BAS_DATA_DIR=/app/data` for the `diy-bas` service so SQLite always lives on the bind-mounted `./data` folder next to the compose file (do not expect `/var/lib/diy-bas` inside the container unless you add a matching volume).
 - `deploy_to_pi.ps1` rotates app code directories but keeps persistent data path outside the release folder.
 

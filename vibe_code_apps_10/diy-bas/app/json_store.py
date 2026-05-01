@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,26 @@ def write_json(name: str, obj: Any) -> None:
     _atomic_write(DATA_DIR / name, obj)
 
 
+def merge_latest_point_values(updates: dict[str, dict[str, Any]]) -> None:
+    """Merge live read results into ``latest_values.json`` (pointId → value, lastUpdated, lastError)."""
+    if not updates:
+        return
+    doc = read_json('latest_values.json', {'updatedAt': None, 'values': {}})
+    vals = doc.get('values')
+    if not isinstance(vals, dict):
+        vals = {}
+    stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+    for pid, patch in updates.items():
+        if not isinstance(patch, dict):
+            continue
+        cur = vals.get(pid) if isinstance(vals.get(pid), dict) else {}
+        merged = {**cur, **patch}
+        vals[str(pid)] = merged
+    doc['values'] = vals
+    doc['updatedAt'] = stamp
+    write_json('latest_values.json', doc)
+
+
 def ensure_seed_files() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     defaults = {
@@ -58,6 +79,12 @@ def ensure_seed_files() -> None:
         'latest_values.json': {'updatedAt': None, 'values': {}},
         'polling_config.json': {'items': [], 'updatedAt': None},
         'alarm_history.json': {'items': []},
+        'alarm_runtime.json': {
+            'deviceOfflineSec': 300,
+            'lastDevicePollSuccessTs': {},
+            'lastDevicePollBatchTs': {},
+        },
+        'wiresheet_status.json': {'items': []},
         'notifications.json': {'items': [{'ts': '2026-04-23 00:00:00', 'channel': 'diy-bas', 'detail': 'App seeded'}]},
         'schedules.json': {
             'schedules': [
