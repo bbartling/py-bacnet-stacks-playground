@@ -176,10 +176,9 @@ echo "[bootstrap] Installing dependencies in venv..."
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
-echo "[bootstrap] Loading .env into current shell..."
-set -a
-. ./.env
-set +a
+# Do not `source .env` here: arbitrary values (parentheses, spaces, !, etc.) break bash and are
+# unnecessary — Django loads .env via python-dotenv; docker compose reads the file on the Pi.
+echo "[bootstrap] Skipping shell 'source .env' (app loads .env safely at runtime)."
 
 if [[ "${BOOTSTRAP_NO_RUN:-0}" == "1" ]]; then
   echo "[bootstrap] BOOTSTRAP_NO_RUN=1, setup complete. Skipping run.py."

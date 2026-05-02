@@ -39,7 +39,59 @@
   }
 
   function cloneBacnetPoints(points) {
-    return points.map((p) => ({ ...p }));
+    return points.map((p) => ({
+      id: p.id,
+      name: p.name,
+      objectId: p.objectId,
+      pointId: p.pointId,
+    }));
+  }
+
+  /** @type {Array<{deviceInstance?: number, name?: string, vendorName?: string}>} */
+  let discoveryDevices = [];
+  /** @type {Array<{pointId: string, deviceInstance: number, objectIdentifier: string, label?: string, commandable?: boolean}>} */
+  let discoveryPoints = [];
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let bacnetStatusTimer = null;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let autoSyncTimer = null;
+
+  function clearScheduleBacnetTimers() {
+    if (bacnetStatusTimer) {
+      clearInterval(bacnetStatusTimer);
+      bacnetStatusTimer = null;
+    }
+    if (autoSyncTimer) {
+      clearInterval(autoSyncTimer);
+      autoSyncTimer = null;
+    }
+  }
+
+  function deviceInstanceFromPointId(pointId) {
+    if (!pointId || typeof pointId !== 'string') return '';
+    const m = /^bacnet:(\d+):/.exec(pointId);
+    return m ? m[1] : '';
+  }
+
+  async function loadDiscoveryStores() {
+    discoveryDevices = [];
+    discoveryPoints = [];
+    try {
+      const [rd, rp] = await Promise.all([
+        fetch('/api/devices', { credentials: 'include', headers: { Accept: 'application/json' } }),
+        fetch('/api/points', { credentials: 'include', headers: { Accept: 'application/json' } }),
+      ]);
+      if (rd.ok) {
+        const j = await rd.json();
+        discoveryDevices = Array.isArray(j.items) ? j.items : [];
+      }
+      if (rp.ok) {
+        const j = await rp.json();
+        discoveryPoints = Array.isArray(j.items) ? j.items : [];
+      }
+    } catch {
+      /* offline */
+    }
   }
 
   function blocksFromOperatingWeek(form, profileName) {
@@ -335,21 +387,77 @@
         </div>
       </section>
 
+      <section class="panel schedule-ntfy-panel" aria-labelledby="ntfy-sched-heading">
+        <h2 id="ntfy-sched-heading">Push test (ntfy)</h2>
+        <p class="section-hint">
+          Same flow as PowerShell <code>Invoke-RestMethod -Uri "https://ntfy.sh/$Topic" -Method Post -Headers @{ Title = "..."; Priority = "high"; Tags = "warning" } -Body $Message</code>.
+          Server must have <code>DIY_BAS_NTFY_ALLOWED=true</code> and topic in <code>.env</code> (deploy GUI can set both on deploy). You can override <strong>topic</strong> here for a quick try. Requires login.
+        </p>
+        <div class="schedule-ntfy-grid">
+          <label class="schedule-ntfy-field"><span>Topic</span><input id="sched-ntfy-topic" class="control" type="text" placeholder="your-topic-name" autocomplete="off" /></label>
+          <label class="schedule-ntfy-field"><span>Title</span><input id="sched-ntfy-title" class="control" type="text" value="BAS Alarm" autocomplete="off" /></label>
+          <label class="schedule-ntfy-field"><span>Priority</span>
+            <select id="sched-ntfy-priority" class="control">
+              <option>min</option>
+              <option>low</option>
+              <option>default</option>
+              <option selected>high</option>
+              <option>max</option>
+              <option>1</option>
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+            </select>
+          </label>
+          <label class="schedule-ntfy-field"><span>Tags</span><input id="sched-ntfy-tags" class="control" type="text" value="warning" autocomplete="off" /></label>
+        </div>
+        <label class="schedule-ntfy-msg"><span>Message</span><textarea id="sched-ntfy-body" class="control" rows="2">Occupied hours saved — schedule test push from diy-bas.</textarea></label>
+        <div class="schedule-ntfy-actions">
+          <button type="button" class="btn secondary" id="btn-sched-ntfy-test">Send ntfy test</button>
+          <span id="sched-ntfy-status" class="schedule-save-status" aria-live="polite"></span>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="bacnet-heading">
-        <h2 id="bacnet-heading">BACnet points</h2>
+        <h2 id="bacnet-heading">BACnet outputs &amp; occupancy</h2>
         <p class="section-hint" id="bacnet-hint"></p>
+        <div class="schedule-bacnet-toolbar" role="region" aria-label="BACnet schedule live status">
+          <div class="schedule-live-pv">
+            <strong>Schedule object</strong>
+            <code id="schedule-obj-name">—</code>
+            <span class="schedule-pv-label">present value:</span>
+            <span id="schedule-pv-text" class="schedule-pv-text">—</span>
+            <span id="schedule-pv-bool" class="schedule-pv-bool" hidden></span>
+            <span id="schedule-pv-err" class="schedule-pv-err" role="alert"></span>
+          </div>
+          <div class="schedule-sync-controls">
+            <button type="button" class="btn secondary" id="btn-schedule-sync-out">Write occupancy to linked BV/BO</button>
+            <label class="schedule-auto-label"><input type="checkbox" id="chk-schedule-auto-sync" /> Auto-sync every</label>
+            <input type="number" class="control schedule-interval-inp" id="inp-schedule-sync-sec" min="15" max="600" value="30" title="Seconds between BACnet writes" />
+            <span class="schedule-sec-suffix">s</span>
+          </div>
+        </div>
+        <p class="section-hint schedule-link-hint">
+          Link rows to <strong>commandable binary-value or binary-output</strong> points from discovery.
+          Values come from diy-bacnet <code>server_read_schedule</code> (same object name as <strong>Save &amp; push to BACnet</strong>).
+        </p>
         <div class="bacnet-table">
           <div class="bacnet-row bacnet-row-head">
             <span>Display name</span>
-            <span>BACnet object ID (optional)</span>
+            <span>Device</span>
+            <span>Binary point</span>
+            <span>Object ID</span>
             <span class="bacnet-actions-col"></span>
           </div>
           <div id="bacnet-rows"></div>
           <div class="bacnet-row bacnet-add">
-            <input class="control" id="bacnet-new-name" placeholder="New point name" aria-label="New BACnet point name" />
-            <input class="control" id="bacnet-new-oid" placeholder="Object ID (optional)" aria-label="New BACnet object ID" />
+            <input class="control" id="bacnet-new-name" placeholder="Label (e.g. AHU OCC)" aria-label="New BACnet row name" />
+            <span class="bacnet-add-muted" aria-hidden="true">—</span>
+            <span class="bacnet-add-muted" aria-hidden="true">—</span>
+            <input class="control" id="bacnet-new-oid" placeholder="Manual OID if no picker" aria-label="Manual BACnet object ID" />
             <div class="bacnet-actions">
-              <button type="button" class="btn primary" id="btn-bacnet-add">Add point</button>
+              <button type="button" class="btn primary" id="btn-bacnet-add">Add row</button>
             </div>
           </div>
         </div>
@@ -422,6 +530,7 @@
       if (e.key === 'Enter') onBacnetAdd();
     });
     elBacnetTbody?.addEventListener('input', onBacnetInput);
+    elBacnetTbody?.addEventListener('change', onBacnetSelectChange);
     elBacnetTbody?.addEventListener('click', onBacnetClick);
 
     wireScheduleServerUi(root);
@@ -431,6 +540,161 @@
     root.querySelector('#btn-schedule-save')?.addEventListener('click', () => {
       void saveSchedulesToServer();
     });
+    wireScheduleBacnetToolbar(root);
+    root.querySelector('#btn-sched-ntfy-test')?.addEventListener('click', () => void postSchedNtfyTest());
+  }
+
+  async function loadNtfyConfigForSchedule() {
+    try {
+      const r = await fetch('/api/notifications/ntfy-config', {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      if (!r.ok) return;
+      const j = await r.json();
+      const topic = mountRoot?.querySelector('#sched-ntfy-topic');
+      if (topic instanceof HTMLInputElement && j.defaultTopic) {
+        topic.value = String(j.defaultTopic);
+      }
+    } catch {
+      /* offline */
+    }
+  }
+
+  async function postSchedNtfyTest() {
+    const st = mountRoot?.querySelector('#sched-ntfy-status');
+    const topicEl = mountRoot?.querySelector('#sched-ntfy-topic');
+    const titleEl = mountRoot?.querySelector('#sched-ntfy-title');
+    const priEl = mountRoot?.querySelector('#sched-ntfy-priority');
+    const tagsEl = mountRoot?.querySelector('#sched-ntfy-tags');
+    const bodyEl = mountRoot?.querySelector('#sched-ntfy-body');
+    if (st) st.textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/notifications/ntfy-test', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          message: bodyEl && 'value' in bodyEl ? String(bodyEl.value) : '',
+          title: titleEl && 'value' in titleEl ? String(titleEl.value) : 'BAS Alarm',
+          topic: topicEl && 'value' in topicEl ? String(topicEl.value).trim() : '',
+          priority: priEl && 'value' in priEl ? String(priEl.value) : 'high',
+          tags: tagsEl && 'value' in tagsEl ? String(tagsEl.value) : 'warning',
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (st) st.textContent = (data && data.detail) || `Failed (${r.status})`;
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[diy-bas][schedule] ntfy-test', r.status, data);
+        }
+        return;
+      }
+      if (st) st.textContent = 'Sent. Check ntfy (phone app or ntfy.sh topic URL).';
+      if (typeof console !== 'undefined' && console.info) {
+        console.info('[diy-bas][schedule] ntfy-test ok', data.result);
+      }
+    } catch (e) {
+      if (st) st.textContent = 'Network error';
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[diy-bas][schedule] ntfy-test', e);
+      }
+    }
+  }
+
+  function wireScheduleBacnetToolbar(root) {
+    root.querySelector('#btn-schedule-sync-out')?.addEventListener('click', () => void postScheduleSyncOutputs(true));
+    root.querySelector('#chk-schedule-auto-sync')?.addEventListener('change', () => restartAutoSyncFromUi());
+    root.querySelector('#inp-schedule-sync-sec')?.addEventListener('change', () => restartAutoSyncFromUi());
+  }
+
+  function restartAutoSyncFromUi() {
+    if (autoSyncTimer) {
+      clearInterval(autoSyncTimer);
+      autoSyncTimer = null;
+    }
+    if (!mountRoot) return;
+    const chk = mountRoot.querySelector('#chk-schedule-auto-sync');
+    const inp = mountRoot.querySelector('#inp-schedule-sync-sec');
+    if (!(chk instanceof HTMLInputElement) || !chk.checked) return;
+    let sec = 30;
+    if (inp instanceof HTMLInputElement) {
+      sec = Math.min(600, Math.max(15, parseInt(String(inp.value), 10) || 30));
+      inp.value = String(sec);
+    }
+    autoSyncTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void postScheduleSyncOutputs(false);
+    }, sec * 1000);
+  }
+
+  async function refreshBacnetScheduleLine() {
+    const nameEl = mountRoot?.querySelector('#schedule-obj-name');
+    const pvEl = mountRoot?.querySelector('#schedule-pv-text');
+    const boolEl = mountRoot?.querySelector('#schedule-pv-bool');
+    const errEl = mountRoot?.querySelector('#schedule-pv-err');
+    try {
+      const r = await fetch('/api/schedules/bacnet-status', {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (errEl) errEl.textContent = (data && data.detail) || `HTTP ${r.status}`;
+        return;
+      }
+      if (nameEl) nameEl.textContent = data.scheduleObjectName || '—';
+      if (pvEl) {
+        const v = data.schedulePresentValue;
+        pvEl.textContent = v === null || v === undefined ? '—' : String(v);
+      }
+      if (boolEl) {
+        if (data.scheduleOccupancyBool === undefined || data.scheduleOccupancyBool === null) {
+          boolEl.hidden = true;
+        } else {
+          boolEl.hidden = false;
+          boolEl.textContent = data.scheduleOccupancyBool ? ' (occupied / ON)' : ' (unoccupied / OFF)';
+        }
+      }
+      if (errEl) errEl.textContent = data.scheduleReadError || '';
+    } catch {
+      if (errEl) errEl.textContent = 'Network error';
+    }
+  }
+
+  async function postScheduleSyncOutputs(showStatusLine) {
+    const st = mountRoot?.querySelector('#schedule-save-status');
+    try {
+      const r = await fetch('/api/schedules/sync-outputs', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await r.json().catch(() => ({}));
+      await refreshBacnetScheduleLine();
+      const n = (data.written || []).length;
+      const ne = (data.errors || []).length;
+      if (showStatusLine && st) {
+        if (data.scheduleReadError) {
+          st.textContent = `Sync skipped: ${data.scheduleReadError}`;
+        } else if (data.ok) {
+          st.textContent = n ? `Linked outputs: wrote ${n} BACnet point(s)` : 'Sync: no linked BV/BO rows with pointId';
+        } else {
+          st.textContent = `Sync: wrote ${n}, ${ne} error(s) (see server log)`;
+        }
+      }
+    } catch {
+      if (showStatusLine && st) st.textContent = 'Sync failed (network)';
+    }
+  }
+
+  function startScheduleBacnetPoll() {
+    clearScheduleBacnetTimers();
+    void refreshBacnetScheduleLine();
+    bacnetStatusTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshBacnetScheduleLine();
+    }, 12000);
+    restartAutoSyncFromUi();
   }
 
   function serializeState() {
@@ -439,7 +703,12 @@
         id: s.id,
         name: s.name,
         form: cloneWeekForm(s.form),
-        bacnetPoints: cloneBacnetPoints(s.bacnetPoints),
+        bacnetPoints: (s.bacnetPoints || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          objectId: p.objectId,
+          pointId: p.pointId || undefined,
+        })),
       })),
       activeScheduleId: state.activeScheduleId,
       holidays: state.holidays.map((h) => ({
@@ -457,7 +726,12 @@
       name: s.name,
       form: mergeWeekForm(s.form),
       bacnetPoints: Array.isArray(s.bacnetPoints)
-        ? cloneBacnetPoints(s.bacnetPoints)
+        ? s.bacnetPoints.map((p) => ({
+            id: p.id,
+            name: p.name,
+            objectId: p.objectId,
+            pointId: p.pointId,
+          }))
         : cloneBacnetPoints(INITIAL_BACNET_POINTS),
     }));
     if (
@@ -511,47 +785,12 @@
           console.info('[diy-bas][schedule]', 'saved and pushed to BACnet');
         }
       }
+      void refreshBacnetScheduleLine();
     } catch (e) {
       if (st) st.textContent = 'Save failed (network)';
       if (typeof console !== 'undefined' && console.warn) {
         console.warn('[diy-bas][schedule]', 'save network error', e);
       }
-    }
-  }
-
-  function connectScheduleWebSocket() {
-    try {
-      const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
-      const sock = new WebSocket(wsUrl);
-      sock.addEventListener('open', () => {
-        if (typeof console !== 'undefined' && console.info) {
-          console.info('[diy-bas][schedule] WebSocket open', wsUrl);
-        }
-      });
-      sock.addEventListener('error', () => {
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn('[diy-bas][schedule] WebSocket error (server may not expose /ws)', wsUrl);
-        }
-      });
-      sock.addEventListener('message', (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg.type === 'schedule_updated' && msg.payload) {
-            applyPayload(msg.payload);
-            syncAll();
-            const st = mountRoot?.querySelector('#schedule-save-status');
-            if (st) {
-              st.textContent = msg.diyError
-                ? `Remote update (BACnet: ${msg.diyError})`
-                : 'Remote schedule update';
-            }
-          }
-        } catch {
-          /* ignore non-JSON */
-        }
-      });
-    } catch {
-      /* WebSocket not available */
     }
   }
 
@@ -908,6 +1147,7 @@
       id: uuid(),
       name,
       objectId: oidRaw || undefined,
+      pointId: undefined,
     });
     if (n && 'value' in n) n.value = '';
     if (o && 'value' in o) o.value = '';
@@ -927,6 +1167,7 @@
     } else if (t.classList.contains('bac-oid')) {
       const v = t.value.trim();
       p.objectId = v || undefined;
+      p.pointId = undefined;
     }
   }
 
@@ -940,20 +1181,91 @@
     syncBacnetRows();
   }
 
+  function buildDeviceSelectHtml(selectedDi) {
+    const sel = String(selectedDi || '');
+    const parts = ['<option value="">Device…</option>'];
+    for (const d of discoveryDevices) {
+      const di = String(d.deviceInstance ?? '');
+      if (!di) continue;
+      const nm = d.name || d.vendorName || d.modelName || `Device ${di}`;
+      parts.push(
+        `<option value="${escapeAttr(di)}" ${di === sel ? 'selected' : ''}>${escapeHtml(nm)} (${escapeHtml(di)})</option>`
+      );
+    }
+    return parts.join('');
+  }
+
+  function buildPointSelectHtml(deviceInstance, selectedPointId) {
+    const di = Number(deviceInstance);
+    const sp = selectedPointId || '';
+    const parts = ['<option value="">Binary BV/BO…</option>'];
+    if (!di) return parts.join('');
+    for (const p of discoveryPoints) {
+      if (Number(p.deviceInstance) !== di) continue;
+      if (!p.commandable) continue;
+      const oi = String(p.objectIdentifier || '').toLowerCase();
+      if (!oi.startsWith('binary-value') && !oi.startsWith('binary-output')) continue;
+      const pid = p.pointId || '';
+      parts.push(
+        `<option value="${escapeAttr(pid)}" ${pid === sp ? 'selected' : ''}>${escapeHtml(p.label || p.objectIdentifier || pid)}</option>`
+      );
+    }
+    return parts.join('');
+  }
+
+  function onBacnetSelectChange(ev) {
+    const t = ev.target;
+    if (!(t instanceof HTMLSelectElement)) return;
+    if (!t.classList.contains('bac-dev-sel') && !t.classList.contains('bac-pt-sel')) return;
+    const id = t.dataset.pointId;
+    if (!id) return;
+    const profile = getActiveProfile();
+    const p = profile.bacnetPoints.find((x) => x.id === id);
+    if (!p) return;
+    if (t.classList.contains('bac-dev-sel')) {
+      p.pointId = undefined;
+      p.objectId = undefined;
+      syncBacnetRows();
+      return;
+    }
+    if (t.classList.contains('bac-pt-sel')) {
+      const pid = t.value.trim();
+      if (!pid) {
+        p.pointId = undefined;
+        p.objectId = undefined;
+      } else {
+        p.pointId = pid;
+        const hit = discoveryPoints.find((x) => x.pointId === pid);
+        if (hit) {
+          p.objectId = hit.objectIdentifier;
+          if (!String(p.name || '').trim()) {
+            p.name = hit.label || hit.objectIdentifier || 'Linked point';
+          }
+        }
+      }
+      syncBacnetRows();
+    }
+  }
+
   function syncBacnetRows() {
     if (!elBacnetTbody) return;
     const profile = getActiveProfile();
     elBacnetTbody.innerHTML = profile.bacnetPoints
-      .map(
-        (p) => `
+      .map((p) => {
+        const di = deviceInstanceFromPointId(p.pointId || '');
+        return `
       <div class="bacnet-row" data-point-row="${p.id}">
-        <input class="control bac-name" data-point-id="${p.id}" value="${escapeAttr(p.name)}" aria-label="Name for point ${p.id}" />
-        <input class="control bac-oid" data-point-id="${p.id}" placeholder="e.g. AV:1" value="${escapeAttr(p.objectId ?? '')}" aria-label="Object ID for ${escapeAttr(p.name)}" />
+        <input class="control bac-name" data-point-id="${p.id}" value="${escapeAttr(p.name)}" aria-label="Display name" />
+        <select class="control bac-dev-sel" data-point-id="${p.id}" aria-label="BACnet device">${buildDeviceSelectHtml(di)}</select>
+        <select class="control bac-pt-sel" data-point-id="${p.id}" aria-label="Binary commandable point">${buildPointSelectHtml(di, p.pointId)}</select>
+        <input class="control bac-oid" data-point-id="${p.id}" placeholder="binary-value,N" value="${escapeAttr(
+          p.objectId ?? ''
+        )}" aria-label="Object ID" title="Filled from picker; editable for manual OIDs" />
         <div class="bacnet-actions">
           <button type="button" class="btn danger" data-action="bacnet-remove" data-point-id="${p.id}">Remove</button>
         </div>
-      </div>`
-      )
+      </div>`;
+      })
       .join('');
   }
 
@@ -1018,7 +1330,7 @@
     const el = mountRoot?.querySelector('#bacnet-hint');
     const p = getActiveProfile();
     if (el) {
-      el.innerHTML = `Points assigned to the <strong>${escapeHtml(p.name)}</strong> schedule only (switch schedule above to edit another profile's list). Object ID is optional metadata for integration (e.g. AV:1).`;
+      el.innerHTML = `Rows for <strong>${escapeHtml(p.name)}</strong> only (change schedule above to edit another profile). Pick a device, then a <strong>commandable BV/BO</strong> from discovery, or type an object ID manually. Use <strong>Write occupancy</strong> to push the live schedule bool to every linked row.`;
     }
   }
 
@@ -1109,12 +1421,19 @@
       } catch {
         /* static hosting or backend down */
       }
+      await loadDiscoveryStores();
       boot();
+      void loadNtfyConfigForSchedule();
       const st = mountRoot?.querySelector('#schedule-save-status');
       if (st) st.textContent = loaded ? 'Loaded from diy-bas backend' : '';
-      connectScheduleWebSocket();
+      startScheduleBacnetPoll();
     })();
   }
 
-  window.DiyBasSchedule = { init };
+  async function reloadDiscoveryFromServer() {
+    await loadDiscoveryStores();
+    syncBacnetRows();
+  }
+
+  window.DiyBasSchedule = { init, reloadDiscovery: reloadDiscoveryFromServer };
 })();

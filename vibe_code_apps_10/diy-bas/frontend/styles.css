@@ -333,9 +333,127 @@ body {
   overflow: hidden;
 }
 
+.schedule-bacnet-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.schedule-live-pv {
+  flex: 1 1 220px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.schedule-live-pv code {
+  font-size: 0.8rem;
+  margin: 0 0.2rem;
+}
+
+.schedule-pv-label {
+  color: var(--muted);
+  margin-left: 0.35rem;
+}
+
+.schedule-pv-text {
+  font-weight: 600;
+}
+
+.schedule-pv-bool {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.schedule-pv-err {
+  display: block;
+  color: #b91c1c;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.schedule-sync-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.schedule-auto-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.schedule-interval-inp {
+  width: 4.25rem;
+  min-width: 0;
+}
+
+.schedule-sec-suffix {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.schedule-link-hint {
+  margin-top: 0 !important;
+}
+
+.schedule-ntfy-panel .schedule-ntfy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.schedule-ntfy-field,
+.schedule-ntfy-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.schedule-ntfy-field span,
+.schedule-ntfy-msg span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.schedule-ntfy-msg {
+  margin-bottom: 0.65rem;
+}
+
+.schedule-ntfy-msg textarea.control {
+  min-height: 3.2rem;
+  resize: vertical;
+}
+
+.schedule-ntfy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.bacnet-add-muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  align-self: center;
+}
+
 .bacnet-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: minmax(100px, 1.1fr) minmax(120px, 0.95fr) minmax(140px, 1.2fr) minmax(90px, 0.85fr) auto;
   gap: 0.65rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
@@ -689,6 +807,14 @@ body {
   .bacnet-row,
   .bacnet-row-head {
     grid-template-columns: 1fr;
+  }
+
+  .bacnet-row.bacnet-add {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-bacnet-toolbar {
+    flex-direction: column;
   }
 
   .bacnet-actions-col {
@@ -1431,6 +1557,25 @@ body {
   border-color: #f87171;
   background: linear-gradient(90deg, #fef2f2 0%, #fff 100%);
   box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+}
+
+/* Niagara-style: device offline, not in point alarm */
+.points-tree-item.points-tree-dev-offline:not(.points-tree-alarm) {
+  border-color: #b45309;
+  background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 55%, #fff 100%);
+  box-shadow: inset 3px 0 0 #ca8a04;
+}
+
+/* Session hint after Override @ P8 (cleared on Release) */
+.points-tree-item.points-tree-pri-override:not(.points-tree-alarm) {
+  border-color: #3b82f6;
+  background: linear-gradient(90deg, #eff6ff 0%, #fff 100%);
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.dash-device-row--offline-warn td {
+  background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 70%, #fff 100%);
+  box-shadow: inset 3px 0 0 #ca8a04;
 }
 
 .points-tree-alarm-cell {

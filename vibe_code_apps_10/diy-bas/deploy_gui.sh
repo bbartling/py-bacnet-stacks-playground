@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Launch the Tkinter deploy + .env editor GUI (diy-bas). Linux / macOS.
+# (On Windows, Run Deploy uses repo-root deploy_to_pi.ps1; here the GUI runs tools/deploy_via_ssh.py.)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"

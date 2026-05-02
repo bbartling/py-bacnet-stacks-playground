@@ -4,10 +4,13 @@
 
 .DESCRIPTION
   Single Django app deployment (Caddy + diy-bas). After upload, optionally syncs
-  bootstrap login values from .env.example into Pi .env, runs bootstrap setup,
+  bootstrap login values from .env.example into Pi .env, then applies -LoginUsername/-LoginPassword
+  and maintenance credentials onto Pi .env (so browser login matches the GUI). With -NtfyPush 1,
+  merges DIY_BAS_NTFY_* from -NtfyEnvB64 into Pi .env (same pattern as deploy GUI). Runs bootstrap setup,
   starts docker compose, checks /api/health, and verifies /api/auth/login.
   Runs tools/pi_post_unzip_fix.sh on the Pi so Docker build context can read all files
-  (fixes permission denied on bas/templates/bas). Use -VerboseDeploy:$true for plain build logs.
+  (fixes permission denied on bas/templates/bas). Use -VerboseDeploy 1 for plain build logs.
+  Switch-like options use 0/1 so GUI and cmd.exe can pass them reliably (not `$true` / `$false` strings).
 #>
 param(
     [Parameter(Mandatory = $true)]
@@ -16,15 +19,27 @@ param(
     [string]$PiUser,
     [string]$RemoteDir = "",
     [string]$RemoteBacnetDir = "",
-    [bool]$RunBootstrap = $true,
-    [bool]$StartApp = $true,
-    [bool]$UseDockerStack = $true,
-    [bool]$TestLogin = $true,
-    [bool]$SyncBootstrapCredentialsFromExample = $true,
-    [bool]$DockerMaintenance = $true,
+    [ValidateRange(0, 1)]
+    [int]$RunBootstrap = 1,
+    [ValidateRange(0, 1)]
+    [int]$StartApp = 1,
+    [ValidateRange(0, 1)]
+    [int]$UseDockerStack = 1,
+    [ValidateRange(0, 1)]
+    [int]$TestLogin = 1,
+    [ValidateRange(0, 1)]
+    [int]$SyncBootstrapCredentialsFromExample = 1,
+    [ValidateRange(0, 1)]
+    [int]$DockerMaintenance = 1,
     [string]$LoginUsername = "integrator",
     [string]$LoginPassword = "ChangeMeNow!123",
-    [bool]$VerboseDeploy = $false,
+    [string]$MaintUsername = "maintenance",
+    [string]$MaintPassword = "ChangeMeNow!123",
+    [ValidateRange(0, 1)]
+    [int]$NtfyPush = 0,
+    [string]$NtfyEnvB64 = "",
+    [ValidateRange(0, 1)]
+    [int]$VerboseDeploy = 0,
     [int]$BootstrapLogTail = 80,
     [int]$ComposeLogTail = 50
 )
@@ -105,6 +120,32 @@ if ($SyncBootstrapCredentialsFromExample) {
     ssh "${PiUser}@${PiHost}" "cd '${resolvedRemoteDir}' && python3 tools/sync_bootstrap_env_from_example.py" | Out-Host
 }
 
+Write-DeployLog "Applying deploy credential overrides to Pi .env (Integrator + Building Operator from this run) ..."
+$credObj = @{
+    DIY_BAS_ADMIN_USERNAME = $LoginUsername
+    DIY_BAS_ADMIN_PASSWORD = $LoginPassword
+    DIY_BAS_MAINT_USERNAME = $MaintUsername
+    DIY_BAS_MAINT_PASSWORD = $MaintPassword
+}
+$json = $credObj | ConvertTo-Json -Compress
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+$b64 = [Convert]::ToBase64String($utf8NoBom.GetBytes($json))
+ssh "${PiUser}@${PiHost}" "cd '${resolvedRemoteDir}' && printf '%s' '$b64' | base64 -d | python3 tools/apply_deploy_credentials_from_stdin.py" | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "apply_deploy_credentials_from_stdin.py failed on Pi (exit $LASTEXITCODE). Check JSON/base64 pipeline."
+}
+
+if ($NtfyPush -eq 1) {
+    Write-DeployLog "Applying ntfy settings to Pi .env ..."
+    if (-not $NtfyEnvB64) {
+        throw "NtfyPush=1 requires NtfyEnvB64 (base64 UTF-8 JSON with DIY_BAS_NTFY_* keys)."
+    }
+    ssh "${PiUser}@${PiHost}" "cd '${resolvedRemoteDir}' && printf '%s' '$NtfyEnvB64' | base64 -d | python3 tools/apply_ntfy_env_from_stdin.py" | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "apply_ntfy_env_from_stdin.py failed on Pi (exit $LASTEXITCODE)."
+    }
+}
+
 if ($StartApp) {
     if ($UseDockerStack) {
         Write-DeployLog "Docker: compose directory = $resolvedRemoteDir ; DIY_BACNET_SERVER_DIR = $resolvedRemoteBacnetDir"
@@ -127,7 +168,7 @@ if ($StartApp) {
             if ($LASTEXITCODE -ne 0) {
                 Write-DeployLog "compose up failed (exit $LASTEXITCODE). Diagnostics:"
                 ssh "${PiUser}@${PiHost}" "$composeEnv && docker compose ps -a 2>&1; echo '---'; ls -laR bas/templates 2>&1 | head -40" | Out-Host
-                throw "docker compose up --build failed on Pi. Re-run with -VerboseDeploy:`$true for full build log, or on Pi: sudo chown -R ${PiUser}:${PiUser} ${resolvedRemoteDir}"
+                throw "docker compose up --build failed on Pi. Re-run with -VerboseDeploy 1 for full build log, or on Pi: sudo chown -R ${PiUser}:${PiUser} ${resolvedRemoteDir}"
             }
         }
     }
@@ -168,7 +209,10 @@ if ($StartApp) {
         $loginSpec = @{ url = $loginUrl; username = $LoginUsername; password = $LoginPassword } | ConvertTo-Json -Compress
         $loginSpec | ssh "${PiUser}@${PiHost}" "cd '$resolvedRemoteDir' && python3 tools/pi_verify_login.py" | Out-Host
         if ($LASTEXITCODE -ne 0) {
-            throw 'Login verification failed on Pi. Verify -LoginUsername/-LoginPassword (or use -TestLogin:$false to skip).'
+            throw (
+                "Login verification failed on Pi. Credentials should match -LoginUsername / -LoginPassword (same as GUI Integrator fields); " +
+                "those are written into Pi .env before compose. Pass -TestLogin 0 to skip this check."
+            )
         }
     }
 }

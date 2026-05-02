@@ -27,7 +27,7 @@ if sudo -n true 2>/dev/null; then
   log "running: sudo chown -R $USER_NAME:$USER_NAME $DIR"
   sudo -n chown -R "$USER_NAME:$USER_NAME" "$DIR"
 else
-  log "running: chown -R $USER_NAME:$USER_NAME $DIR (no passwordless sudo — may not fix root-owned files)"
+  log "running: chown -R $USER_NAME:$USER_NAME $DIR (no passwordless sudo - may not fix root-owned files)"
   chown -R "$USER_NAME:$USER_NAME" "$DIR" || log "WARN: chown failed (e.g. root-owned files). On the Pi run: sudo chown -R $USER_NAME:$USER_NAME $DIR"
 fi
 
@@ -35,7 +35,7 @@ log "chmod: dirs u+rwx, files u+rw"
 find "$DIR" -type d -exec chmod u+rwx {} \;
 find "$DIR" -type f -exec chmod u+rw {} \;
 
-log "after fix — bas/templates/bas:"
+log "after fix - bas/templates/bas:"
 ls -la "$DIR/bas/templates/bas" 2>&1 || true
 log "remaining wrong-owner (first 10, should be empty):"
 find "$DIR" ! -user "$USER_NAME" 2>/dev/null | head -10 || true

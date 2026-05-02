@@ -46,11 +46,20 @@
 
   /**
    * @param {object[]} points
-   * @param {{ variant?: 'points' | 'trends' }} [options]
+   * @param {{ variant?: 'points' | 'trends', pointOverrideIds?: Record<string, boolean> }} [options]
    */
   function renderTree(points, options) {
     const opts = options || {};
     const variant = opts.variant === 'trends' ? 'trends' : 'points';
+    const ovIds = opts.pointOverrideIds && typeof opts.pointOverrideIds === 'object' ? opts.pointOverrideIds : {};
+    function liClasses(p) {
+      const parts = ['points-tree-item', `points-tree-${esc(p.valueState || 'fresh')}`];
+      if (p.inAlarm) parts.push('points-tree-alarm');
+      else if (p.deviceOfflineAlarm) parts.push('points-tree-dev-offline');
+      const pid = String(p.pointId || '');
+      if (ovIds[pid]) parts.push('points-tree-pri-override');
+      return parts.join(' ');
+    }
     const pickClass = variant === 'trends' ? 'points-trend-pick' : 'points-tree-pick';
     const ariaPick = variant === 'trends' ? 'Select for trend chart' : 'Select for bulk actions';
     const byDevice = groupByDevice(points);
@@ -92,7 +101,7 @@
     const rowTpl = (p) =>
       variant === 'trends'
         ? `
-                      <li class="points-tree-item points-tree-${esc(p.valueState || 'fresh')}${p.inAlarm ? ' points-tree-alarm' : ''}" data-point-id="${esc(p.pointId)}">
+                      <li class="${liClasses(p)}" data-point-id="${esc(p.pointId)}">
                         <span class="points-tree-pick-wrap"><input type="checkbox" class="${pickClass}" data-point-id="${esc(p.pointId)}" aria-label="${ariaPick}" /></span>
                         <span class="points-tree-name">${esc(p.label || p.objectIdentifier || p.pointId)}</span>
                         <span class="points-tree-meta">${esc(p.objectIdentifier || '')}</span>
@@ -100,7 +109,7 @@
                         <span class="points-tree-value">${esc(formatPointValue(p.value))}</span>
                       </li>`
         : `
-                      <li class="points-tree-item points-tree-${esc(p.valueState || 'fresh')}${p.inAlarm ? ' points-tree-alarm' : ''}" data-point-id="${esc(p.pointId)}">
+                      <li class="${liClasses(p)}" data-point-id="${esc(p.pointId)}">
                         <span class="points-tree-pick-wrap"><input type="checkbox" class="${pickClass}" data-point-id="${esc(p.pointId)}" aria-label="${ariaPick}" /></span>
                         <span class="points-tree-name">${esc(p.label || p.objectIdentifier || p.pointId)}</span>
                         <span class="points-tree-meta">${esc(p.objectIdentifier || '')}</span>
@@ -147,6 +156,13 @@
     m.className = 'points-menu';
     const title = point ? esc(point.label || point.objectIdentifier || pointId) : esc(pointId);
     const cur = point ? pollLabel(point) : '—';
+    const writeBlock =
+      handlers.canBacnetWrite && point && point.commandable
+        ? `<div class="points-menu-head">BACnet (commandable)</div>
+      <button type="button" data-act="writer-override">Override @ priority 8…</button>
+      <button type="button" data-act="writer-set">Set @ default priority…</button>
+      <button type="button" data-act="writer-release">Release @ priority 8…</button>`
+        : '';
     m.innerHTML = `
       <div class="points-menu-head">Polling <span class="points-menu-cur">(${esc(cur)})</span></div>
       <button type="button" data-act="poll-off">Off</button>
@@ -158,6 +174,7 @@
       <button type="button" data-act="poll-read-now">Read value now</button>
       <hr class="points-menu-divider" />
       <div class="points-menu-head">${title}</div>
+      ${writeBlock}
       ${handlers.canConfigureAlarms ? '<button type="button" data-act="alarm-config">Configure alarm…</button>' : ''}
       <button type="button" data-act="delete">Delete point</button>
     `;
@@ -175,6 +192,9 @@
       if (act === 'poll-300' && handlers.onSetPollingPreset) await handlers.onSetPollingPreset(pointId, 300);
       if (act === 'poll-read-now' && handlers.onReadPointNow) await handlers.onReadPointNow(pointId);
       if (act === 'alarm-config' && handlers.onConfigureAlarm) await handlers.onConfigureAlarm(pointId);
+      if (act === 'writer-override' && handlers.onBacnetOverride) await handlers.onBacnetOverride(pointId);
+      if (act === 'writer-set' && handlers.onBacnetSet) await handlers.onBacnetSet(pointId);
+      if (act === 'writer-release' && handlers.onBacnetRelease) await handlers.onBacnetRelease(pointId);
       if (act === 'delete' && handlers.onDeletePoint) await handlers.onDeletePoint(pointId);
     });
     document.body.appendChild(m);

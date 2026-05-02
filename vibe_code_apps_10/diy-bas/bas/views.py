@@ -18,7 +18,7 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_http_methods
 from werkzeug.security import check_password_hash
 
-from app import alarm_engine, alarm_runtime_store, algorithms, json_store, rpc_client, schedules_bridge, trend_store
+from app import alarm_engine, alarm_runtime_store, algorithms, json_store, ntfy_out, rpc_client, schedule_bacnet, schedules_bridge, trend_store
 from app.discovery import (
     extract_device_rows,
     extract_point_rows,
@@ -302,6 +302,79 @@ def api_devices(request: HttpRequest) -> JsonResponse:
     return JsonResponse({'items': items})
 
 
+def _coerce_bacnet_write_value(raw: Any) -> Any:
+    """Coerce JSON body ``value`` for BACnet present-value writes."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip()
+        low = s.lower()
+        if low in ('true', 'on', 'yes'):
+            return True
+        if low in ('false', 'off', 'no'):
+            return False
+        if low in ('null', 'none', ''):
+            return None
+        try:
+            return float(s) if '.' in s or 'e' in low else int(s, 10)
+        except ValueError:
+            return s
+    return raw
+
+
+@csrf_exempt
+@_require_auth
+def api_point_write(request: HttpRequest) -> JsonResponse:
+    """BACnet write via diy-bacnet: priority-8 override/release, or default-priority set (present-value)."""
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    u = request.user
+    prof = _get_profile(u)
+    if not (u.is_superuser or prof.bas_role in (BasRole.INTEGRATOR, BasRole.MAINTENANCE)):
+        return JsonResponse({'detail': 'forbidden'}, status=403)
+    body = _json_body(request)
+    point_id = str(body.get('pointId') or '').strip()
+    action = str(body.get('action') or '').strip().lower()
+    if not point_id or action not in ('override', 'release', 'set'):
+        return JsonResponse({'detail': 'pointId and action override|release|set required'}, status=400)
+    pts = trend_store.read_points_merged_with_polling()
+    row = next((x for x in pts if str(x.get('pointId')) == point_id), None)
+    if not row:
+        return JsonResponse({'detail': 'point not found'}, status=404)
+    if not row.get('commandable'):
+        return JsonResponse({'detail': 'point is not commandable'}, status=400)
+    di = int(row.get('deviceInstance') or 0)
+    oi = str(row.get('objectIdentifier') or '')
+    if not di or not oi:
+        return JsonResponse({'detail': 'missing device_instance or object_identifier'}, status=400)
+    try:
+        if action == 'release':
+            rpc_client.client_write_property(di, oi, None, 'present-value', priority=8)
+        elif action == 'override':
+            if 'value' not in body:
+                return JsonResponse({'detail': 'value required for override'}, status=400)
+            val = _coerce_bacnet_write_value(body.get('value'))
+            rpc_client.client_write_property(di, oi, val, 'present-value', priority=8)
+        else:
+            if 'value' not in body:
+                return JsonResponse({'detail': 'value required for set'}, status=400)
+            val = _coerce_bacnet_write_value(body.get('value'))
+            rpc_client.client_write_property(di, oi, val, 'present-value', priority=None)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning('point.write failed pointId=%s action=%s: %s', point_id, action, exc)
+        return JsonResponse({'detail': str(exc), 'ok': False}, status=502)
+    _audit(request, 'point.write', True, {'pointId': point_id, 'action': action, 'deviceInstance': di})
+    return JsonResponse({'ok': True, 'pointId': point_id, 'action': action})
+
+
 @_require_auth
 def api_points(request: HttpRequest) -> JsonResponse:
     pts = trend_store.read_points_merged_with_polling()
@@ -328,11 +401,10 @@ def api_points(request: HttpRequest) -> JsonResponse:
 
 @_require_auth
 def api_discovery_devices(request: HttpRequest) -> JsonResponse:
+    # Always use SQLite as source of truth. Do not fall back to discovered_devices.json when the
+    # DB list is empty — otherwise deleted devices reappear after refresh (empty list is falsy in Python).
     items = filtered_devices(trend_store.read_devices())
-    if items:
-        return JsonResponse({'items': items})
-    fallback = json_store.read_json('discovered_devices.json', {'items': []})
-    return JsonResponse({'items': filtered_devices(fallback.get('items', []))})
+    return JsonResponse({'items': items})
 
 
 @csrf_exempt
@@ -506,6 +578,72 @@ def api_notifications_logs(request: HttpRequest) -> JsonResponse:
     return JsonResponse({'items': doc.get('items', []) if isinstance(doc.get('items'), list) else []})
 
 
+@_require_auth
+def api_notifications_ntfy_config(request: HttpRequest) -> JsonResponse:
+    """Defaults for the Schedule tab ntfy tester (no secrets beyond topic name)."""
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    return JsonResponse(
+        {
+            'ntfyAllowed': settings.ntfy_allowed,
+            'ntfyUrl': settings.ntfy_url,
+            'defaultTopic': settings.ntfy_topic,
+        }
+    )
+
+
+@csrf_exempt
+@_require_auth
+def api_notifications_ntfy_test(request: HttpRequest) -> JsonResponse:
+    """POST JSON: message (required), optional title, topic, priority, tags, baseUrl, username, password."""
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    u = request.user
+    prof = _get_profile(u)
+    if not (u.is_superuser or prof.bas_role in (BasRole.INTEGRATOR, BasRole.MAINTENANCE)):
+        return JsonResponse({'detail': 'forbidden'}, status=403)
+    body = _json_body(request)
+    message = str(body.get('message') or '').strip()
+    if not message:
+        return JsonResponse({'detail': 'message required'}, status=400)
+    if not settings.ntfy_allowed:
+        return JsonResponse(
+            {'detail': 'Set DIY_BAS_NTFY_ALLOWED=true in .env on the server and restart the app.'},
+            status=400,
+        )
+    topic_override = str(body.get('topic') or '').strip()
+    if not topic_override and not (settings.ntfy_topic or '').strip():
+        return JsonResponse(
+            {'detail': 'Set DIY_BAS_NTFY_TOPIC in .env or pass topic in this request.'},
+            status=400,
+        )
+    title = str(body.get('title') or 'BAS Alarm')
+    priority = str(body.get('priority') or 'high')
+    tags = str(body.get('tags') or 'warning')
+    base_url = str(body.get('baseUrl') or '').strip() or None
+    user_o = str(body.get('username') or '').strip() or None
+    pass_o = body.get('password')
+    pass_s = str(pass_o) if pass_o is not None else None
+    try:
+        result = ntfy_out.send_ntfy(
+            message,
+            title=title,
+            topic=topic_override or None,
+            priority=priority,
+            tags=tags,
+            base_url=base_url,
+            username=user_o,
+            password=pass_s,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning('ntfy test failed: %s', exc)
+        return JsonResponse({'ok': False, 'detail': str(exc)}, status=502)
+    _audit(request, 'notifications.ntfy_test', True, {'topic': topic_override or settings.ntfy_topic})
+    return JsonResponse({'ok': True, 'result': result})
+
+
 @csrf_exempt
 @_require_auth
 def api_schedules(request: HttpRequest) -> JsonResponse:
@@ -549,11 +687,52 @@ def api_schedules(request: HttpRequest) -> JsonResponse:
                 object_name=settings.diy_schedule_object_name,
             )
             rpc_client.server_update_schedule(upd)
+            logger.info(
+                'schedules.save pushed server_update_schedule name=%s weekdays=%s',
+                settings.diy_schedule_object_name,
+                len(upd.get('weekly_schedule') or []),
+            )
         except Exception as exc:  # noqa: BLE001
             diy_error = str(exc)
+            logger.warning('schedules.save BACnet push failed: %s', exc)
         _audit(request, 'schedules.save', True, {'profiles': len(schedules), 'bacnetError': bool(diy_error)})
         return JsonResponse({'ok': True, 'diyError': diy_error or None})
     return JsonResponse({'detail': 'method not allowed'}, status=405)
+
+
+@csrf_exempt
+@_require_auth
+def api_schedules_bacnet_status(request: HttpRequest) -> JsonResponse:
+    """Live schedule present-value from diy-bacnet ``server_read_schedule`` (for Schedule tab UI)."""
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    out = schedule_bacnet.read_schedule_status(object_name=settings.diy_schedule_object_name)
+    return JsonResponse(out)
+
+
+@csrf_exempt
+@_require_auth
+def api_schedules_sync_outputs(request: HttpRequest) -> JsonResponse:
+    """Read occupancy from the BACnet schedule object and write linked binary points (priority 8)."""
+    if request.method != 'POST':
+        return JsonResponse({'detail': 'method not allowed'}, status=405)
+    if request.diy_user.get('readOnly'):  # type: ignore[attr-defined]
+        return JsonResponse({'detail': 'read only'}, status=403)
+    u = request.user
+    prof = _get_profile(u)
+    if not (u.is_superuser or prof.bas_role in (BasRole.INTEGRATOR, BasRole.MAINTENANCE)):
+        return JsonResponse({'detail': 'forbidden'}, status=403)
+    doc = json_store.read_json('schedules.json', {'schedules': [], 'activeScheduleId': None, 'holidays': []})
+    if not isinstance(doc, dict):
+        doc = {'schedules': [], 'activeScheduleId': None, 'holidays': []}
+    result = schedule_bacnet.sync_linked_binary_outputs(doc, object_name=settings.diy_schedule_object_name)
+    _audit(
+        request,
+        'schedules.sync_outputs',
+        bool(result.get('ok')),
+        {'written': len(result.get('written') or []), 'errors': len(result.get('errors') or [])},
+    )
+    return JsonResponse(result)
 
 
 @csrf_exempt

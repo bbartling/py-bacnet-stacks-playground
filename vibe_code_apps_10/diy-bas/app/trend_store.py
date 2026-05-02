@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from app import json_store
+
 from .config import settings
 
 DB_PATH = settings.data_dir / 'trends.sqlite3'
@@ -526,6 +528,7 @@ def delete_point(point_id: str) -> int:
 
 def delete_device(device_instance: int) -> dict[str, int]:
     di = int(device_instance)
+    out: dict[str, int] = {'devices': 0, 'points': 0}
     with _LOCK:
         conn = _connect()
         try:
@@ -563,12 +566,28 @@ def delete_device(device_instance: int) -> dict[str, int]:
             cur_points = conn.execute('DELETE FROM discovered_points WHERE device_instance = ?', (di,))
             cur_device = conn.execute('DELETE FROM discovered_devices WHERE device_instance = ?', (di,))
             conn.execute('COMMIT')
-            return {'devices': int(cur_device.rowcount or 0), 'points': int(cur_points.rowcount or 0)}
-        except Exception:
+            out = {'devices': int(cur_device.rowcount or 0), 'points': int(cur_points.rowcount or 0)}
+        except Exception:  # noqa: BLE001
             conn.execute('ROLLBACK')
             raise
         finally:
             conn.close()
+    # Keep legacy JSON in sync so any other tool reading discovered_devices.json does not resurrect rows.
+    try:
+        doc = json_store.read_json('discovered_devices.json', {'items': []})
+        raw = doc.get('items') if isinstance(doc.get('items'), list) else []
+        kept = []
+        for row in raw:
+            if not isinstance(row, dict):
+                continue
+            inst = int(row.get('deviceInstance', row.get('device_instance', 0)) or 0)
+            if inst != di:
+                kept.append(row)
+        doc['items'] = kept
+        json_store.write_json('discovered_devices.json', doc)
+    except Exception:
+        pass
+    return out
 
 
 def get_user(username: str) -> dict[str, Any] | None:

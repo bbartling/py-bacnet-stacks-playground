@@ -1,6 +1,10 @@
 <#
 .SYNOPSIS
   Launch the Tkinter deploy + .env editor GUI (diy-bas).
+
+.DESCRIPTION
+  On Windows, Run Deploy in the GUI invokes the same repo-root deploy_to_pi.ps1 as running
+  .\deploy_to_pi.ps1 manually from this directory (tools\ only holds deploy_gui.py, not a second copy of the deploy script).
 #>
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path

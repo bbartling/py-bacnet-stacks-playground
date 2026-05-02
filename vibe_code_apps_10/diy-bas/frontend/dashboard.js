@@ -61,6 +61,8 @@
     trendOrder: [],
     /** Last multiline diagnostics for Trend Explorer (also mirrored to #trend-diag-pre). */
     trendDiagText: '',
+    /** Points tab: session hint for priority-8 override (blue row) until Release. */
+    pointPri8OverrideIds: {},
   };
 
   let mountEl = null;
@@ -207,8 +209,9 @@
       const instance = d.deviceInstance || d.instance || d.id;
       const instNum = Number(instance);
       const checked = selected.has(instNum);
+      const trCls = d.deviceOfflineAlarm ? 'dash-device-row--offline-warn' : '';
       return `
-      <tr>
+      <tr${trCls ? ` class="${trCls}"` : ''}>
         <td><input type="checkbox" data-act="discover-device-check" data-inst="${escapeHtml(String(instance))}" ${checked ? 'checked' : ''} /></td>
         <td>${escapeHtml(String(instance ?? '—'))}</td>
         <td>${escapeHtml(d.name || `Device ${instance}`)}</td>
@@ -362,7 +365,7 @@
 
   function viewPoints() {
     const treeHtml = window.DiyBasPointsTree
-      ? window.DiyBasPointsTree.renderTree(state.points)
+      ? window.DiyBasPointsTree.renderTree(state.points, { pointOverrideIds: state.pointPri8OverrideIds || {} })
       : '<p class="dash-small-note">Points tree unavailable.</p>';
     const bulkBar = canBulkPoints()
       ? `<div class="points-toolbar" id="points-bulk-toolbar">
@@ -462,7 +465,10 @@
     const nSel = (state.trendSelectedIds || []).length;
     const nSelId = 'trend-selected-count';
     const treeHtml = window.DiyBasPointsTree
-      ? window.DiyBasPointsTree.renderTree(state.points, { variant: 'trends' })
+      ? window.DiyBasPointsTree.renderTree(state.points, {
+          variant: 'trends',
+          pointOverrideIds: state.pointPri8OverrideIds || {},
+        })
       : '<p class="dash-small-note">Points tree unavailable.</p>';
     const path = trendPath(state.trends);
     const trendRows = (state.trends || [])
@@ -534,10 +540,8 @@
       <tbody>${state.devices
         .map((d) => {
           const di = String(d.deviceInstance || '');
-          const devAl = (state.points || []).some(
-            (p) => String(p.deviceInstance) === di && p.deviceOfflineAlarm
-          );
-          const rowCls = `dash-device-row${devAl ? ' dash-device-row--alarm' : ''}`;
+          const devOff = !!d.deviceOfflineAlarm;
+          const rowCls = `dash-device-row${devOff ? ' dash-device-row--offline-warn' : ''}`;
           return `<tr data-device-inst="${escapeHtml(di)}" class="${rowCls}"><td>${escapeHtml(String(d.deviceInstance || '—'))}</td><td>${escapeHtml(d.name || '')}</td><td>${escapeHtml(d.status || '')}</td><td>${escapeHtml(String(d.pointCount || 0))}</td><td>${escapeHtml(d.lastSeen || '—')}</td><td>${isIntegrator() ? `<input class="control" data-act="device-note" data-device-inst="${escapeHtml(di)}" value="${escapeHtml(notesByDevice[di] || '')}" placeholder="Room / Area description" />` : escapeHtml(notesByDevice[di] || '—')}</td></tr>`;
         })
         .join('')}</tbody>
@@ -683,6 +687,8 @@
     if (!mountEl || state.route !== 'points' || !window.DiyBasPointsTree) return;
     window.DiyBasPointsTree.bindContextMenu(mountEl, {
       canConfigureAlarms: isIntegrator(),
+      canBacnetWrite: canBulkPoints(),
+      pointOverrideIds: state.pointPri8OverrideIds || {},
       getPoint: (pointId) => state.points.find((p) => String(p.pointId) === String(pointId)) || null,
       onReadPointNow: async (pointId) => {
         try {
@@ -794,6 +800,76 @@
           logTab('point delete failed', msg);
           if (typeof console !== 'undefined' && console.warn) console.warn('[diy-bas][points]', msg);
           setFeedback(`Delete failed: ${msg}`, 'err');
+        }
+        state.route = 'points';
+        paint();
+      },
+      onBacnetOverride: async (pointId) => {
+        if (!canBulkPoints()) return;
+        const raw = window.prompt('Override at priority 8 — present-value (number, true/false, or text):', '');
+        if (raw === null) return;
+        let value = raw.trim();
+        try {
+          if (/^(true|false|null)$/i.test(value)) value = JSON.parse(value.toLowerCase());
+          else if (/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(value)) value = Number(value);
+        } catch (_) {}
+        try {
+          await fetchJson(`${state.apiBase}/points/write`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pointId, action: 'override', value }),
+          });
+          state.pointPri8OverrideIds = { ...(state.pointPri8OverrideIds || {}), [pointId]: true };
+          logTab('bacnet override', { pointId });
+          await refresh();
+          setFeedback('Override written at priority 8.', 'ok');
+        } catch (err) {
+          setFeedback(String(err && err.message ? err.message : err), 'err');
+        }
+        state.route = 'points';
+        paint();
+      },
+      onBacnetSet: async (pointId) => {
+        if (!canBulkPoints()) return;
+        const raw = window.prompt('Set present-value (default priority — number, true/false, or text):', '');
+        if (raw === null) return;
+        let value = raw.trim();
+        try {
+          if (/^(true|false|null)$/i.test(value)) value = JSON.parse(value.toLowerCase());
+          else if (/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(value)) value = Number(value);
+        } catch (_) {}
+        try {
+          await fetchJson(`${state.apiBase}/points/write`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pointId, action: 'set', value }),
+          });
+          logTab('bacnet set', { pointId });
+          await refresh();
+          setFeedback('Set (default priority) written.', 'ok');
+        } catch (err) {
+          setFeedback(String(err && err.message ? err.message : err), 'err');
+        }
+        state.route = 'points';
+        paint();
+      },
+      onBacnetRelease: async (pointId) => {
+        if (!canBulkPoints()) return;
+        if (!window.confirm('Release priority 8 (write null at priority 8)?')) return;
+        try {
+          await fetchJson(`${state.apiBase}/points/write`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pointId, action: 'release' }),
+          });
+          const next = { ...(state.pointPri8OverrideIds || {}) };
+          delete next[pointId];
+          state.pointPri8OverrideIds = next;
+          logTab('bacnet release p8', { pointId });
+          await refresh();
+          setFeedback('Priority 8 released.', 'ok');
+        } catch (err) {
+          setFeedback(String(err && err.message ? err.message : err), 'err');
         }
         state.route = 'points';
         paint();

@@ -131,6 +131,8 @@
       if (!scheduleMounted && panelSchedule && window.DiyBasSchedule) {
         window.DiyBasSchedule.init(panelSchedule);
         scheduleMounted = true;
+      } else if (scheduleMounted && window.DiyBasSchedule && typeof window.DiyBasSchedule.reloadDiscovery === 'function') {
+        void window.DiyBasSchedule.reloadDiscovery();
       }
       return;
     }

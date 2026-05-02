@@ -6,6 +6,8 @@ Use on Linux/macOS (or anywhere without robocopy). On Windows the GUI prefers de
 from __future__ import annotations
 
 import argparse
+import base64
+import json
 import shutil
 import subprocess
 import sys
@@ -92,9 +94,13 @@ class DeployConfig:
     docker_maintenance: bool = True
     login_username: str = "integrator"
     login_password: str = "ChangeMeNow!123"
+    maint_username: str = "maintenance"
+    maint_password: str = "ChangeMeNow!123"
     verbose_deploy: bool = False
     bootstrap_log_tail: int = 80
     compose_log_tail: int = 50
+    ntfy_push: bool = False
+    ntfy_env_b64: str = ""
 
 
 def run_deploy(project_dir: Path, cfg: DeployConfig) -> None:
@@ -171,6 +177,40 @@ def run_deploy(project_dir: Path, cfg: DeployConfig) -> None:
     if cfg.sync_bootstrap_credentials_from_example:
         _log("Merging bootstrap auth from .env.example into .env ...")
         _ssh(pi_user, pi_host, f"cd {rd_q} && python3 tools/sync_bootstrap_env_from_example.py", check=False)
+
+    _log("Applying deploy credential overrides to Pi .env (Integrator + Building Operator) ...")
+    cred_spec = json.dumps(
+        {
+            "DIY_BAS_ADMIN_USERNAME": cfg.login_username,
+            "DIY_BAS_ADMIN_PASSWORD": cfg.login_password,
+            "DIY_BAS_MAINT_USERNAME": cfg.maint_username,
+            "DIY_BAS_MAINT_PASSWORD": cfg.maint_password,
+        },
+        separators=(",", ":"),
+    )
+    p = subprocess.Popen(
+        ["ssh", f"{pi_user}@{pi_host}", f"cd {rd_q} && python3 tools/apply_deploy_credentials_from_stdin.py"],
+        stdin=subprocess.PIPE,
+        text=True,
+    )
+    p.communicate(cred_spec)
+    if (p.returncode or 0) != 0:
+        raise SystemExit("apply_deploy_credentials_from_stdin.py failed on Pi.")
+
+    if cfg.ntfy_push and (cfg.ntfy_env_b64 or "").strip():
+        _log("Applying ntfy settings to Pi .env ...")
+        try:
+            ntfy_json = base64.b64decode(cfg.ntfy_env_b64.strip()).decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as e:
+            raise SystemExit(f"Invalid --ntfy-env-b64 payload: {e}") from e
+        p2 = subprocess.Popen(
+            ["ssh", f"{pi_user}@{pi_host}", f"cd {rd_q} && python3 tools/apply_ntfy_env_from_stdin.py"],
+            stdin=subprocess.PIPE,
+            text=True,
+        )
+        p2.communicate(ntfy_json)
+        if (p2.returncode or 0) != 0:
+            raise SystemExit("apply_ntfy_env_from_stdin.py failed on Pi.")
 
     if cfg.start_app:
         compose_env = f"cd {rd_q} && export DIY_BACNET_SERVER_DIR={shlex.quote(resolved_bacnet)}"
@@ -255,8 +295,6 @@ def run_deploy(project_dir: Path, cfg: DeployConfig) -> None:
         if cfg.test_login:
             login_url = "http://127.0.0.1/api/auth/login" if cfg.use_docker_stack else "http://127.0.0.1:5050/api/auth/login"
             _log(f"Verifying POST {login_url} ...")
-            import json
-
             spec = json.dumps({"url": login_url, "username": cfg.login_username, "password": cfg.login_password})
             p = subprocess.Popen(
                 ["ssh", f"{pi_user}@{pi_host}", f"cd {rd_q} && python3 tools/pi_verify_login.py"],
@@ -265,7 +303,10 @@ def run_deploy(project_dir: Path, cfg: DeployConfig) -> None:
             )
             p.communicate(spec)
             if (p.returncode or 0) != 0:
-                raise SystemExit("Login verification failed on Pi.")
+                raise SystemExit(
+                    "Login verification failed on Pi. Check Integrator / Building Operator fields match what you expect; "
+                    "or disable the login test with --no-test-login."
+                )
 
     if cfg.docker_maintenance and cfg.start_app and cfg.use_docker_stack:
         _log("Docker maintenance: compose down in ~/diy-bas.bak* and prune ...")
@@ -294,9 +335,13 @@ def main() -> None:
     p.add_argument("--no-docker-maintenance", action="store_true")
     p.add_argument("--login-username", default="integrator")
     p.add_argument("--login-password", default="ChangeMeNow!123")
+    p.add_argument("--maint-username", default="maintenance")
+    p.add_argument("--maint-password", default="ChangeMeNow!123")
     p.add_argument("--verbose-deploy", action="store_true")
     p.add_argument("--bootstrap-log-tail", type=int, default=80)
     p.add_argument("--compose-log-tail", type=int, default=50)
+    p.add_argument("--ntfy-push", action="store_true", help="Merge DIY_BAS_NTFY_* from --ntfy-env-b64 into Pi .env after credentials.")
+    p.add_argument("--ntfy-env-b64", default="", help="Base64 UTF-8 JSON object with DIY_BAS_NTFY_* keys (used with --ntfy-push).")
     args = p.parse_args()
     cfg = DeployConfig(
         pi_host=args.pi_host,
@@ -311,9 +356,13 @@ def main() -> None:
         docker_maintenance=not args.no_docker_maintenance,
         login_username=args.login_username,
         login_password=args.login_password,
+        maint_username=args.maint_username,
+        maint_password=args.maint_password,
         verbose_deploy=args.verbose_deploy,
         bootstrap_log_tail=args.bootstrap_log_tail,
         compose_log_tail=args.compose_log_tail,
+        ntfy_push=bool(args.ntfy_push),
+        ntfy_env_b64=str(args.ntfy_env_b64 or ""),
     )
     run_deploy(project_dir, cfg)
 

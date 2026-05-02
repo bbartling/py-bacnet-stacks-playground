@@ -32,6 +32,18 @@ class Settings:
     audit_retention_days: int = int(os.environ.get('DIY_BAS_AUDIT_RETENTION_DAYS', '30'))
     alarm_event_retention_days: int = int(os.environ.get('DIY_BAS_ALARM_EVENT_RETENTION_DAYS', '90'))
     session_hours: int = max(1, int(os.environ.get('DIY_BAS_SESSION_HOURS', '24')))
+    # ntfy.sh (or self-hosted) push — POST body = message, headers Title / Priority / Tags
+    # DIY_BAS_NTFY_ALLOWED is the primary switch; if unset, DIY_BAS_NTFY_ENABLED is still honored.
+    ntfy_allowed: bool = (
+        os.environ.get('DIY_BAS_NTFY_ALLOWED', 'false').lower() in ('1', 'true', 'yes')
+        if 'DIY_BAS_NTFY_ALLOWED' in os.environ
+        else os.environ.get('DIY_BAS_NTFY_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+    )
+    ntfy_url: str = (os.environ.get('DIY_BAS_NTFY_URL', 'https://ntfy.sh') or 'https://ntfy.sh').rstrip('/')
+    ntfy_topic: str = os.environ.get('DIY_BAS_NTFY_TOPIC', '').strip()
+    ntfy_username: str = os.environ.get('DIY_BAS_NTFY_USERNAME', '').strip()
+    ntfy_password: str = os.environ.get('DIY_BAS_NTFY_PASSWORD', '')
+    ntfy_timeout_sec: float = float(os.environ.get('DIY_BAS_NTFY_TIMEOUT_SEC', '20') or '20')
 
 
 settings = Settings()
