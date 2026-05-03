@@ -2,6 +2,8 @@
 
 This folder (`vibe_code_apps_10`) holds the **diy-bas** supervisory app: **Django** + **Gunicorn** serving a vanilla JS front end (`app.js`, `dashboard.js`, `schedule.js`, `styles.css`). Source lives in **`diy-bas/`** (project root `diybas/`, app code under `bas/` and `app/`).
 
+![schematic](Vibe_Code_App_10.png)
+
 ## What is included
 
 - Django REST-style JSON APIs under `/api/*` (session auth + RBAC)
