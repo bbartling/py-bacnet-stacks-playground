@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import time
+from pathlib import Path
+from typing import Any
+
+from .config import settings
+
+DATA_DIR = settings.data_dir
+
+
+def _atomic_write(path: Path, obj: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json.dumps(obj, indent=2)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix='.tmp_', suffix='.json')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(data)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def read_json(name: str, default: Any) -> Any:
+    path = DATA_DIR / name
+    if not path.is_file():
+        return default
+    with path.open(encoding='utf-8') as handle:
+        return json.load(handle)
+
+
+def write_json(name: str, obj: Any) -> None:
+    _atomic_write(DATA_DIR / name, obj)
+
+
+def merge_latest_point_values(updates: dict[str, dict[str, Any]]) -> None:
+    """Merge live read results into ``latest_values.json`` (pointId → value, lastUpdated, lastError)."""
+    if not updates:
+        return
+    doc = read_json('latest_values.json', {'updatedAt': None, 'values': {}})
+    vals = doc.get('values')
+    if not isinstance(vals, dict):
+        vals = {}
+    stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+    for pid, patch in updates.items():
+        if not isinstance(patch, dict):
+            continue
+        cur = vals.get(pid) if isinstance(vals.get(pid), dict) else {}
+        merged = {**cur, **patch}
+        vals[str(pid)] = merged
+    doc['values'] = vals
+    doc['updatedAt'] = stamp
+    write_json('latest_values.json', doc)
+
+
+def ensure_seed_files() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    defaults = {
+        'app_settings.json': {
+            'siteName': settings.site_name,
+            'appTitle': settings.app_title,
+            'routePrefix': '/api',
+            'diyBacnetUrl': settings.diy_bacnet_url,
+            'diyScheduleObjectName': settings.diy_schedule_object_name,
+        },
+        'discovered_devices.json': {
+            'items': []
+        },
+        'discovered_points.json': {
+            'items': []
+        },
+        'latest_values.json': {'updatedAt': None, 'values': {}},
+        'polling_config.json': {'items': [], 'updatedAt': None},
+        'alarm_history.json': {'items': []},
+        'alarm_runtime.json': {
+            'deviceOfflineSec': 300,
+            'lastDevicePollSuccessTs': {},
+            'lastDevicePollBatchTs': {},
+        },
+        'wiresheet_status.json': {'items': []},
+        'notifications.json': {'items': [{'ts': '2026-04-23 00:00:00', 'channel': 'diy-bas', 'detail': 'App seeded'}]},
+        'schedules.json': {
+            'schedules': [
+                {
+                    'id': 'default-profile',
+                    'name': 'Occupied Week',
+                    'form': {
+                        'Sunday': {'noSchedule': True, 'start': '08:00', 'end': '17:00'},
+                        'Monday': {'noSchedule': False, 'start': '07:00', 'end': '17:00'},
+                        'Tuesday': {'noSchedule': False, 'start': '07:00', 'end': '17:00'},
+                        'Wednesday': {'noSchedule': False, 'start': '07:00', 'end': '17:00'},
+                        'Thursday': {'noSchedule': False, 'start': '07:00', 'end': '17:00'},
+                        'Friday': {'noSchedule': False, 'start': '07:00', 'end': '17:00'},
+                        'Saturday': {'noSchedule': True, 'start': '08:00', 'end': '17:00'},
+                    },
+                    'bacnetPoints': [
+                        {'id': 'oat', 'name': 'Shared outside air temp', 'objectId': 'analog-value,1'},
+                        {'id': 'ahu-enable', 'name': 'AHU occupancy logic', 'objectId': 'schedule,1'},
+                        {'id': 'vav-occupancy', 'name': 'VAV occupied mode reference', 'objectId': 'schedule,1'},
+                    ],
+                }
+            ],
+            'activeScheduleId': 'default-profile',
+            'holidays': [],
+        },
+    }
+    for name, payload in defaults.items():
+        path = DATA_DIR / name
+        if not path.is_file():
+            _atomic_write(path, payload)

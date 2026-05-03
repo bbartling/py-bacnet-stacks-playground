@@ -1,0 +1,14 @@
+﻿:80 {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    handle /api* {
+        reverse_proxy diy-bas:5050
+    }
+    handle /* {
+        reverse_proxy diy-bas:5050
+    }
+}

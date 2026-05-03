@@ -1,0 +1,52 @@
+﻿from django.contrib import admin
+from django.urls import path
+
+from bas import views
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('bas/manage/', views.bas_manage_users, name='bas_manage_users'),
+    path('api/health', views.api_health),
+    path('api/auth/login', views.api_auth_login),
+    path('api/auth/logout', views.api_auth_logout),
+    path('api/auth/me', views.api_auth_me),
+    path('api/auth/token', views.api_auth_token),
+    path('api/devices', views.api_devices),
+    path('api/points', views.api_points),
+    path('api/points/write', views.api_point_write),
+    path('api/discovery/devices', views.api_discovery_devices),
+    path('api/discovery/whois', views.api_discovery_whois),
+    path('api/discovery/device-points', views.api_discovery_device_points),
+    path('api/alarm-settings', views.api_alarm_settings),
+    path('api/alarm-rules', views.api_alarm_rules),
+    path('api/device-notes', views.api_device_notes),
+    path('api/dashboard-layouts', views.api_dashboard_layouts),
+    path('api/alarms/events', views.api_alarms_events),
+    path('api/notifications/logs', views.api_notifications_logs),
+    path('api/notifications/ntfy-config', views.api_notifications_ntfy_config),
+    path('api/notifications/ntfy-test', views.api_notifications_ntfy_test),
+    path('api/schedules', views.api_schedules),
+    path('api/schedules/bacnet-status', views.api_schedules_bacnet_status),
+    path('api/schedules/sync-outputs', views.api_schedules_sync_outputs),
+    path('api/polling/config', views.api_polling_config),
+    path('api/polling/read-now', views.api_polling_read_now),
+    path('api/docker/containers', views.api_docker_containers),
+    path('api/docker/logs', views.api_docker_logs),
+    path('api/wiresheet/config', views.api_wiresheet_config),
+    path('api/wiresheet/config/<str:rule_id>', views.api_wiresheet_config_item),
+    path('api/wiresheet/run/<str:rule_id>', views.api_wiresheet_run),
+    path('api/wiresheet/status', views.api_wiresheet_status),
+    path('api/trends/query', views.api_trends_query),
+    path('api/trends/stream', views.api_trends_stream),
+    path('api/devices/<int:device_instance>', views.api_device_instance),
+    path('api/points/<path:point_id>', views.api_point_id),
+    path('api/audit/logs', views.api_audit_logs),
+    # Diagnostic endpoints for retrieving point/device status. These routes
+    # allow the frontend to query points or devices that are down, disabled,
+    # overridden, stale or in fault. See ``bas/views.py`` for implementation.
+    path('api/status/points', views.api_status_points),
+    path('api/status/devices', views.api_status_devices),
+    path('favicon.ico', views.favicon),
+    path('', views.index),
+    path('<path:filename>', views.static_file),
+]

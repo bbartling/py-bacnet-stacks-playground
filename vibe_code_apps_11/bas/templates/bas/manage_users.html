@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>diy-bas — user administration</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0 auto; max-width: 960px; padding: 1.25rem; line-height: 1.45; }
+    h1 { font-size: 1.25rem; margin-top: 0; }
+    .muted { opacity: 0.85; font-size: 0.9rem; }
+    .err { background: #b00020; color: #fff; padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.75rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid #8884; padding: 0.4rem 0.5rem; vertical-align: top; }
+    th { text-align: left; background: #8882; }
+    .actions form { margin: 0.25rem 0; }
+    input[type="text"], input[type="password"], select { max-width: 100%; box-sizing: border-box; }
+    button, .btn { cursor: pointer; padding: 0.35rem 0.65rem; border-radius: 6px; border: 1px solid #8886; background: #4442; }
+    .btn-danger { border-color: #b00020; color: #b00020; }
+    fieldset { border: 1px solid #8884; border-radius: 8px; margin: 1rem 0; padding: 0.75rem 1rem; }
+    legend { padding: 0 0.35rem; }
+    .row-flex { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
+    .row-flex label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>User administration</h1>
+  <p class="muted">BAS-style accounts: <strong>system integrator</strong> maps to Django superuser; <strong>maintenance</strong> is typically read-only. Operators may be read-only for supervisory write actions.</p>
+  <p><a href="/">← Back to supervisory UI</a>{% if user.is_superuser %} · <a href="/admin/">Django admin (full)</a>{% endif %}</p>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+
+  {% if can_write %}
+  <fieldset>
+    <legend>Create user</legend>
+    <form method="post" class="row-flex">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create" />
+      <label>Username <input type="text" name="username" required autocomplete="username" /></label>
+      <label>Password <input type="password" name="password" required minlength="8" autocomplete="new-password" /></label>
+      <label>Email <input type="text" name="email" autocomplete="email" /></label>
+      <label>Phone <input type="text" name="phone_number" autocomplete="tel" /></label>
+      <label>Role
+        <select name="bas_role">
+          {% for value, label in bas_roles %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label><input type="checkbox" name="read_only" /> Read-only BAS</label>
+      <label><input type="checkbox" name="is_staff" /> Django staff (admin UI)</label>
+      {% if user.is_superuser %}
+      <label><input type="checkbox" name="is_superuser" /> Superuser</label>
+      {% endif %}
+      <label><input type="checkbox" name="must_change_password" checked /> Must change password</label>
+      <button type="submit">Create</button>
+    </form>
+  </fieldset>
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Roles / flags</th>
+        {% if can_write %}<th>Update</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          <strong>{{ u.username }}</strong>{% if u.username == current_username %} (you){% endif %}
+          {% if not u.is_active %}<br/><span class="muted">inactive</span>{% endif %}
+        </td>
+        <td class="muted">
+          BAS: {{ u.bas_role }}{% if u.read_only %}, read-only{% endif %}
+          {% if u.phone_number %}<br/>Phone: {{ u.phone_number }}{% endif %}
+          <br/>Django: {% if u.is_superuser %}superuser{% elif u.is_staff %}staff{% else %}standard{% endif %}
+        </td>
+        {% if can_write %}
+        <td class="actions">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_profile" />
+            <input type="hidden" name="user_id" value="{{ u.id }}" />
+            <label>Role
+              <select name="bas_role">
+                {% for value, label in bas_roles %}
+                <option value="{{ value }}" {% if u.bas_role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label><input type="checkbox" name="read_only" {% if u.read_only %}checked{% endif %} /> Read-only</label>
+            <label><input type="checkbox" name="must_change_password" {% if u.must_change_password %}checked{% endif %} /> Must change pwd</label>
+            <label>Phone <input type="text" name="phone_number" value="{{ u.phone_number }}" /></label>
+            {% if user.is_superuser %}
+            <label><input type="checkbox" name="is_staff" {% if u.is_staff %}checked{% endif %} /> Staff</label>
+            <label><input type="checkbox" name="is_superuser" {% if u.is_superuser %}checked{% endif %} /> Superuser</label>
+            <label><input type="checkbox" name="is_active" {% if u.is_active %}checked{% endif %} /> Active</label>
+            {% endif %}
+            <button type="submit">Save profile</button>
+          </form>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="set_password" />
+            <input type="hidden" name="user_id" value="{{ u.id }}" />
+            <label>New password <input type="password" name="password" minlength="8" autocomplete="new-password" /></label>
+            <button type="submit">Set password</button>
+          </form>
+          {% if u.username != current_username %}
+          <form method="post" onsubmit="return confirm('Delete user {{ u.username }}?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="user_id" value="{{ u.id }}" />
+            <button type="submit" class="btn-danger">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="{% if can_write %}3{% else %}2{% endif %}">No users.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

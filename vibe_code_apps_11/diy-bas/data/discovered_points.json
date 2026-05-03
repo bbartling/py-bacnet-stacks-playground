@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "deviceId": "diy-bacnet-server",
+      "label": "Outside air temp",
+      "units": "\u00b0F",
+      "alarmState": "normal",
+      "hostedKey": "web-weather-dry-bulb",
+      "value": null
+    },
+    {
+      "deviceId": "diy-bacnet-server",
+      "label": "Outside air humidity",
+      "units": "%",
+      "alarmState": "normal",
+      "hostedKey": "web-weather-relative-humidity",
+      "value": null
+    },
+    {
+      "deviceId": "diy-bacnet-server",
+      "label": "Outside air dew point",
+      "units": "\u00b0F",
+      "alarmState": "normal",
+      "hostedKey": "web-weather-dew-point",
+      "value": null
+    },
+    {
+      "deviceId": "AHU-1100",
+      "label": "Shared OAT reference",
+      "units": "\u00b0F",
+      "alarmState": "normal",
+      "valueKey": "web-weather-dry-bulb",
+      "value": null
+    },
+    {
+      "deviceId": "VAV-12026",
+      "label": "Shared OAT reference",
+      "units": "\u00b0F",
+      "alarmState": "normal",
+      "valueKey": "web-weather-dry-bulb",
+      "value": null
+    }
+  ]
+}
