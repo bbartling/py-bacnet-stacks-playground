@@ -152,6 +152,26 @@ cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_10\diy-bas
 .\deploy_to_pi.ps1 -PiHost 192.168.204.12 -PiUser ben -UseDockerStack $true
 ```
 
+### Deploy GUI (Tkinter — same zip + Pi bootstrap)
+
+The GUI is a front end around the same `deploy_to_pi.ps1` flow: it edits local `.env`, Pi host/user, Integrator credentials, and optional ntfy settings, then **Run Deploy** builds the same PowerShell command and streams logs in a window.
+
+From the `diy-bas` repo root on Windows:
+
+```powershell
+cd C:\path\to\diy-bas
+.\deploy_gui.ps1
+```
+
+Equivalent if you prefer calling Python directly:
+
+```powershell
+cd C:\path\to\diy-bas
+py -3 .\tools\deploy_gui.py
+```
+
+Fill in **Pi address**, **Pi login**, and (from the tabs) **.env** / logins as needed, then click **Run Deploy**. That uploads the app, runs bootstrap on the Pi, applies credential overrides to the remote `.env`, and starts the Docker stack when those options are left enabled—same end state as running `.\deploy_to_pi.ps1` manually with matching parameters.
+
 What it does:
 - zips `diy-bas` (excluding `.venv`, caches, local data db files),
 - uploads via `scp`,
