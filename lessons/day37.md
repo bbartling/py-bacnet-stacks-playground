@@ -1,119 +1,43 @@
-# Day 37 – Scheduling with a Mini BACnet Calendar Device
+## Day 37 – Sliding windows with lists (running average, no Pandas)
 
-## Goal
+### Goal
 
-Run the `mini-schedule-calendar-device.py` script to simulate a simple
-scheduling and holiday calendar, inspect the schedule and calendar
-objects, and write Python code to read the schedule’s `presentValue`
-and weekly schedule via BACnet.  You will practise working with
-time‑based control and understand how building automation systems
-schedule occupancy.
+Compute a **running mean** (and optionally min/max) over the last `k` samples using **indexes and loops**—the same window idea as `.rolling()` in Pandas, but explicit for learning.
 
-## Concept
+### Concept
 
-The `mini-schedule-calendar-device.py` script creates a BACnet server
-that exposes three objects:
+For index `i`, consider samples from `max(0, i - k + 1)` through `i` inclusive. Average those entries. Edge windows are shorter until `i >= k - 1`. This is \(O(n \cdot k)\) if implemented naïvely; for CS 101 and small `k` that is fine.
 
-* A **Calendar** object (`calendar,1`) that holds dates for holidays.
-* A **Schedule** object (`schedule,1`) that defines a weekly schedule
-  (Monday to Friday 8:00–17:00 on, weekends off) with an exception
-  list for holidays.
-* A **Binary Value** object (`binaryValue,1`) that mirrors the schedule’s
-  `presentValue`—it is `active` when the schedule is on.
+```python
+def running_mean(series, k):
+    out = []
+    for i in range(len(series)):
+        start = max(0, i - k + 1)
+        window = series[start : i + 1]
+        out.append(sum(window) / len(window))
+    return out
 
-The schedule’s `presentValue` updates automatically based on the
-current date and time.  Reading the weekly schedule via BACnet
-requires sending a `ReadPropertyRequest` for the `weeklySchedule`
-property.  Writing to the schedule or calendar is more advanced and
-requires understanding the BACnet `ScheduleObject` and `CalendarObject`.
 
-## How to Use It
+oat = [40, 41, 39, 38, 42, 43]
+print(running_mean(oat, 3))
+```
 
-1. **Start the schedule device** – Run the script in a terminal:
-   ```bash
-   python3 mini-schedule-calendar-device.py --name ScheduleTest --instance 5678
-   ```
-   The server registers the calendar, schedule and BV objects.
+### Why this matters
 
-2. **Read the schedule present value** – In a separate Python script,
-   use BACpypes 3 to read the `presentValue` of the schedule.  The
-   request is similar to Day 36 but uses a different object
-   identifier:
-   ```python
-   import asyncio
-   from bacpypes3.app import Application
-   from bacpypes3.argparse import SimpleArgumentParser
-   from bacpypes3.pdu import Address
-   from bacpypes3.apdu import ReadPropertyRequest
+Smoothing SAT or static pressure before thresholds reduces false trips. Understanding windows helps you read FDD code that uses **rolling means**, **max over last N minutes**, etc.—even when a library implements them efficiently.
 
-   async def read_schedule():
-       app = Application.from_args(SimpleArgumentParser().parse_args(args=[]))
-       target = Address("localhost")
-       rreq = ReadPropertyRequest(
-           objectIdentifier=("schedule", 1),
-           propertyIdentifier="presentValue",
-           destination=target,
-       )
-       value = await app.read_property(rreq)
-       print("Schedule present value =", value)
-       # Read the weekly schedule (returns an array of DailySchedule)
-       rreq_week = ReadPropertyRequest(
-           objectIdentifier=("schedule", 1),
-           propertyIdentifier="weeklySchedule",
-           destination=target,
-       )
-       weekly = await app.read_property(rreq_week)
-       print("Weekly schedule:", weekly)
+### Mini examples
 
-   asyncio.run(read_schedule())
-   ```
-   The `weeklySchedule` property returns a list of seven daily schedules
-   (Monday–Sunday).  Each `DailySchedule` contains a list of `(time,
-   value)` entries.  You can parse this to generate an occupancy
-   timetable.
+- **Trailing max:** max valve command in last `k` samples (use inner loop or Python `max()` on slice).
+- Drop `None` in window: build `clean = [x for x in window if x is not None]` before averaging.
+- Compare `k=3` vs `k=12` on the same synthetic noisy list and describe delay vs smoothness tradeoff.
 
-3. **Experiment with the schedule** – Change the start and end times in
-   `mini-schedule-calendar-device.py` (see the `build_weekly_schedule()`
-   function) to adjust office hours.  Restart the server and verify that
-   the schedule `presentValue` reflects your new hours.
+### Micro exercises
 
-## Why This Matters
+1. Write `rolling_max(series, k)` returning a list of same length as `series`.
+2. Given parallel `timestamps` and `values`, ensure windows never cross a **gap** > `gap_sec` (reset window after gap)—pseudocode first, then code if time permits.
+3. For `k=5`, how many multiplications/additions does the naive algorithm do for \(n=1000\)? (Big-O reasoning only.)
 
-Real BAS controllers use schedules and calendars to control equipment
-based on occupancy and holidays.  Understanding how to read and
-interpret schedule objects via BACnet is essential for writing
-algorithms that adapt HVAC operation to time of day.  The mirroring
-binary value demonstrates how other objects can listen to a schedule and
-react accordingly.
+### Key takeaway
 
-## Mini Examples
-
-* Run the script and read the schedule’s `presentValue` every minute
-  for an hour.  Observe how it toggles between `0` and `1` based on
-  time of day.
-* Modify the holiday calendar to include another date (e.g., your
-  birthday) and verify that the schedule turns off on that date.
-* Write a function that generates a human‑readable summary of the
-  weekly schedule using the `weeklySchedule` property.
-
-## Micro Exercises
-
-1. Use the `CalendarObject` to add a new holiday date to the
-   `holiday_calendar` in the script.  How does this affect the
-   schedule’s `presentValue`?
-2. Write Python code that, given a date and time, determines whether
-   the schedule is active or inactive based solely on the `weeklySchedule`
-   property (ignore holidays).
-3. Modify the schedule so that it turns on at 7:30 AM instead of
-   8:00 AM.  Restart the server and confirm the change.
-4. Explore BACpypes 3 documentation to find out how to write a new
-   exception event into the `exceptionSchedule` list.  (Hint: you need
-   to write an array of `SpecialEvent` structures.)
-
-## Key Takeaway
-
-Scheduling and calendar objects are fundamental to building control
-systems.  Running a mini schedule device and reading its properties
-teaches you how BACnet represents time‑based control logic and how to
-interact with these objects programmatically.  You will apply similar
-techniques when modelling schedules in more advanced semantic models.
+Sliding windows = **controlled memory** of recent behavior. Implementing them with slices builds intuition for **time-series FDD** without importing a dataframe stack.

@@ -1,70 +1,66 @@
-## Day 31 – Sorting Lists
+## Day 31 – Ordering data (sorting for setpoints, rankings, and medians)
 
 ### Goal
 
-Understand how to sort data in Python using the built‑in `sorted()` function and the `list.sort()` method, and implement a simple **bubble sort** algorithm by hand.
+Use Python’s **`sorted()`** and **`list.sort()`** with `key` and `reverse` to rank **HVAC-related records**. See a tiny **bubble sort** only as a teaching toy—production code should use Timsort via the built-ins.
 
 ### Concept
 
-Python’s `sorted()` function returns a new sorted list from the items in an iterable and accepts optional `key` and `reverse` arguments. The `list.sort()` method sorts a list in place and has the same arguments. If you need to control the sort order (e.g., sort dictionaries by a nested value) you can pass a `key` function such as a lambda expression.
+**Sorting** orders data so you can pick medians, percentiles, or “worst zones first.” Python’s sort is highly optimized (\(O(n \log n)\)). **Bubble sort** repeatedly swaps neighbors; it is \(O(n^2)\) and mainly useful to appreciate **why** good libraries matter.
 
-**Bubble sort** is a simple sorting algorithm that repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order. It continues until no swaps are needed. Bubble sort is inefficient for large lists (O(n²)), but implementing it helps you understand sorting.
-
-### How to Use It
-
-**Using `sorted()` and `sort()`:**
+### How to use it
 
 ```python
-numbers = [5, 2, 9, 1]
+# Zone temperature error (actual - setpoint); rank worst first
+zones = [("Z1", 0.5), ("Z2", -1.2), ("Z3", 2.1), ("Z4", 0.1)]
+by_error = sorted(zones, key=lambda z: abs(z[1]), reverse=True)
+print(by_error)  # [('Z3', 2.1), ('Z2', -1.2), ...]
 
-# get a new sorted list
-sorted_numbers = sorted(numbers)  # [1, 2, 5, 9]
+def median_sorted(values):
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2
 
-# sort in place
-numbers.sort(reverse=True)
-print(numbers)  # [9, 5, 2, 1]
-
-# sort list of tuples by second element
-pairs = [('a', 3), ('b', 1), ('c', 2)]
-sorted_pairs = sorted(pairs, key=lambda p: p[1])  # [('b', 1), ('c', 2), ('a', 3)]
+oat = [38, 40, 35, 39, 41]
+print(median_sorted(oat))
 ```
 
-**Bubble sort implementation:**
+**Bubble sort (optional lab only):**
 
 ```python
-def bubble_sort(lst):
-    """Sort a list in ascending order using bubble sort and return a new list."""
-    result = lst.copy()
-    n = len(result)
-    # repeat passes
+def bubble_sort_asc(lst):
+    a = list(lst)
+    n = len(a)
     for i in range(n):
-        # last i elements are already sorted
-        for j in range(0, n - i - 1):
-            if result[j] > result[j + 1]:
-                # swap
-                result[j], result[j + 1] = result[j + 1], result[j]
-    return result
-
-nums = [3, 2, 5, 1, 4]
-print(bubble_sort(nums))  # [1, 2, 3, 4, 5]
+        swapped = False
+        for j in range(n - 1 - i):
+            if a[j] > a[j + 1]:
+                a[j], a[j + 1] = a[j + 1], a[j]
+                swapped = True
+        if not swapped:
+            break
+    return a
 ```
 
-### Why This Matters
+### Why this matters
 
-Sorting is ubiquitous in data processing: you might sort rooms by area or temperatures by value. Understanding Python’s sort functions and implementing a simple sort yourself deepens your algorithmic intuition and helps you appreciate the efficiency of built‑in tools.
+You might sort VAVs by **reheat valve position** during unoccupied hours, SAT samples to compute a **median** for stable thresholds, or order alarms by **severity** then **time**. Median and order statistics resist a single bad sensor spike better than a naive max.
 
-### Mini Examples
+### Mini examples
 
-- Use `sorted()` to sort a list of dictionaries by a nested value, such as sorting devices by their `points['temp']` reading.
-- Adapt bubble sort to sort a list of strings alphabetically.
-- Compare the number of swaps bubble sort makes on an already sorted list versus a reversed list.
+- Sort dicts `{"zone": "...", "deviation_f": ...}` by `deviation_f`.
+- Sort timestamps paired with values (list of tuples) by time for plotting prep.
+- Compare bubble sort vs `sorted()` on \(n=200\) random floats (time discussion only—no formal big-O proof required).
 
-### Micro Exercises
+### Micro exercises
 
-1. Write a function `selection_sort(lst)` that implements the selection sort algorithm (find the smallest element and put it at the beginning, then repeat for the remaining list).
-2. Given a list of `(name, value)` tuples, use `sorted()` with a `key` to sort the list by the numeric value in descending order.
-3. Modify `bubble_sort` so that it can sort in descending order when a `reverse=True` parameter is passed.
+1. Given static pressure readings, return the **middle two averaged** median for even length (reuse `median_sorted` pattern).
+2. Sort a list of `(ahu_name, kw)` by **descending** `kw` to rank energy users for a report.
+3. Explain in one sentence why you would **not** ship bubble sort to production for 10,000-point files.
 
-### Key Takeaway
+### Key takeaway
 
-Use `sorted()` or `list.sort()` with optional `key` and `reverse` arguments to sort sequences efficiently. Implementing simple algorithms like bubble sort helps you understand the mechanics behind sorting and appreciate the efficiency of Python’s built‑ins.
+For real work: **`sorted` / `sort` + `key`**. Bubble sort is pedagogy. Sorting unlocks **ranking** and **robust statistics** for HVAC telemetry.

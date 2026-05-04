@@ -1,100 +1,49 @@
-# Day 38 – Troubleshooting BACnet with Wireshark
+## Day 38 – Thermal R–C analogy (high level, no heavy physics)
 
-## Goal
+### Goal
 
-Learn how to capture and analyse BACnet/IP traffic using `tcpdump` and
-Wireshark.  You will run a simple capture script while interacting with
-the mini devices from Days 36 and 37, open the resulting PCAP file in
-Wireshark, and apply filters to isolate BACnet messages.  This exercise
-will help you troubleshoot network issues and verify that your
-applications behave as expected.
+Connect **first-order room / coil dynamics** to a **resistance–capacitance (R–C)** picture used in controls textbooks: one state variable, energy balance, **time constant** \(\tau = R \cdot C\). Stay qualitative + one discrete update—full PDEs are out of scope.
 
-## Concept
+### Concept
 
-Because BACnet/IP runs over UDP and uses a fixed port (47808),
-you can capture all BACnet traffic by filtering on that port.  The
-Wireshark protocol guide notes that you cannot directly filter on
-BACnet while capturing; instead, “capture only the BACnet/IP traffic
-over the default port (47808)”.  Tools like
-`tcpdump` or Wireshark’s built‑in capture can write packet capture
-files (PCAP) that you can examine later.  Analysing captures helps
-diagnose network problems, verify message flow and identify port
-conflicts.
+Think of a zone air temperature \(T\) like a capacitor voltage. Heat flows proportional to driving differences (**resistors**). A crude lumped model:
 
-## How to Use It
+\[
+C \frac{dT}{dt} \approx \frac{T_{\text{amb}} - T}{R} + Q_{\text{in}}
+\]
 
-1. **Capture on Linux using tcpdump** – The repository includes a
-   helper script `capture_bacnet_pingpong.sh` that wraps `tcpdump`.  To
-   capture 60 seconds of BACnet traffic on interface `eth0`:
-   ```bash
-   sudo bash capture_bacnet_pingpong.sh eth0 60
-   ```
-   The script saves a PCAP file in the `pcaps/` directory and prints
-   the filename.  It uses `tcpdump -i <iface> udp port 47808` to
-   capture only BACnet traffic.
+- \(C\): **thermal capacitance** (air + lightweight mass tied to the node)—bigger \(C\) ⇒ slower temperature moves.
+- \(R\): **thermal resistance** to ambient (envelope + infiltration path lumped).
+- \(Q_{\text{in}}\): net **HVAC + internal gains** into the node (W or BTU/h simplified as a source term for this lesson).
 
-2. **Capture on Windows or macOS with Wireshark** – Install
-   [Wireshark](https://www.wireshark.org/) and select the network
-   interface connected to your BACnet devices.  Start a capture and
-   apply a **display filter** of `bacnet` or `udp.port == 47808` to
-   show only BACnet packets.  You can also set a **capture filter**
-   `udp port 47808` before starting to limit captured data.
+You are **not** solving partial differential equations for walls here; you are learning the **structure** that underlies many gray-box building models.
 
-3. **Generate traffic** – While capturing, run your mini device from
-   Day 36 and interact with it using your control script, or read the
-   schedule from Day 37.  This will generate `ReadProperty` and
-   `WriteProperty` messages on the network.  If you are using a
-   schedule device, note that the mirror BV updates every few seconds,
-   producing regular BACnet traffic.
+### Discrete intuition (preview of Day 39)
 
-4. **Analyse the PCAP file** – Open the `.pcap` file in Wireshark.
-   Expand the BACnet layer to inspect APDUs (application protocol data
-   units).  You should see `Who‑Is`/`I‑Am` messages during device
-   discovery, followed by `ReadProperty` and `WriteProperty` requests
-   and acknowledgements.  Verify that messages originate from your
-   client and target your mini device’s address.  If you see unexpected
-   broadcasts (e.g., frequent `Who‑Is` spam), adjust your client code.
+With small step \(\Delta t\):
 
-## Why This Matters
+\[
+T_{n+1} \approx T_n + \frac{\Delta t}{C}\left(\frac{T_{\text{amb}} - T_n}{R} + Q_{\text{in}}\right)
+\]
 
-Network issues are a common source of frustration in building
-automation.  Being able to capture and inspect BACnet/IP traffic
-quickly reveals misconfigured ports, devices that fail to respond and
-incorrect message sequences.  Knowing how to filter on the BACnet
-default port helps you isolate relevant traffic in
-Wireshark.  By analysing PCAP files you can verify that your control
-algorithms are sending the expected requests and that the mini devices
-respond correctly.
+That is **explicit Euler**—an algorithm you can code in five lines.
 
-## Mini Examples
+### Why this matters
 
-* Capture while your control script from Day 36 is running.  Open the
-  PCAP and count the number of `WriteProperty` requests.  Do they
-  correspond to your control loop’s interval?
-* Use Wireshark’s “Follow UDP Stream” feature to view the entire
-  conversation between your client and the mini device.
-* Apply a display filter of `bacnet.apdu.service == 12` to show only
-  `ReadProperty` services.
+When you see “**time constant**” on a spec sheet or in a trend, the R–C story explains **why** PID gains and FDD windows must match process dynamics. It also links HVAC domain knowledge to **differential equations** you will discretize tomorrow.
 
-## Micro Exercises
+### Mini examples
 
-1. Use `capture_bacnet_pingpong.sh` to capture traffic while both
-   mini devices (Day 36 and Day 37) are running simultaneously.  How
-   does the traffic differ between the two devices?
-2. On Windows, start a Wireshark capture with the display filter
-   `bacnet`.  Interact with the schedule device and identify the
-   property values being read.
-3. Experiment with an incorrect port filter (e.g., `udp port 47809`).
-   Does any traffic appear?  Why or why not?
-4. Research how to enable **promiscuous mode** on your network
-   interface and explain why it might be necessary for capturing
-   broadcast packets.
+- If \(R\) doubles (better insulation), what happens to steady-state heat flow for the same \(\Delta T\)?
+- If \(C\) doubles (more mass in the control volume), what happens to the speed of response after a step in \(Q_{\text{in}}\)?
+- Sketch (words only) why **sensor in sun** vs **sensor in shade** looks like a **bias** on \(T\), not a change in \(C\).
 
-## Key Takeaway
+### Micro exercises
 
-Wireshark and tcpdump are invaluable tools for diagnosing BACnet/IP
-networks.  Capture traffic on UDP port 47808 to
-isolate BACnet messages, then analyse the packets to verify that
-devices and clients are communicating correctly.  Troubleshooting
-network issues early saves time and prevents subtle bugs in your
-control algorithms.
+1. If \(\tau = RC = 30\) minutes, roughly how long until a step response is “mostly settled” (rule of thumb: \(3\tau\) to \(5\tau\))?
+2. Units check: if \(C\) is in J/K and \(R\) in K/W, what are the units of \(Q_{\text{in}}\) in the discrete formula above?
+3. Give one reason a **single-node** model might miss real room behavior.
+
+### Key takeaway
+
+R–C language is the bridge between **mechanical intuition** (mass, insulation, gains) and **code-friendly differential equations**—the right level for this crash course.

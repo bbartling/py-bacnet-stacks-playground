@@ -1,46 +1,52 @@
-## Day 28 – Linear Search
+## Day 28 – Linear Search (first match in trend data)
 
 ### Goal
 
-Implement the **linear search** algorithm to find an item in a list. You will write a function that scans through a sequence until it locates a target value or determines the value is not present.
+Implement **linear search**: scan a sequence in order until you find a target or finish the list. Frame it with **HVAC examples** (first over-temp, first matching point name).
 
 ### Concept
 
-Linear search is the simplest search algorithm. Given a list and a target value, it checks each element in order until it finds the target. If it reaches the end without finding the value, it returns `None` (or another sentinel). Even though Python’s `in` operator performs a similar check under the hood, implementing linear search yourself helps you understand how membership testing works.
+**Linear search** is \(O(n)\): in the worst case you inspect every element. That is acceptable for small BACnet point lists or short trend slices and is exactly how “find first occurrence” works on **unsorted** data.
 
-### How to Use It
-
-Here is a linear search function that returns the index of the target value or `-1` if the value is not found:
+### How to use it
 
 ```python
-def linear_search(seq, target):
-    """Return the index of target in seq or -1 if not found."""
-    for index, item in enumerate(seq):
+def linear_search_index(seq, target):
+    """Return first index where seq[i] == target, else -1."""
+    for i, item in enumerate(seq):
         if item == target:
-            return index
+            return i
     return -1
 
-values = ['Temp', 'Flow', 'Humidity']
-print(linear_search(values, 'Flow'))     # 1
-print(linear_search(values, 'Pressure'))  # -1
+
+def first_index_above_threshold(temps_f, limit_f):
+    """First index where temperature exceeds limit, else -1."""
+    for i, t in enumerate(temps_f):
+        if t > limit_f:
+            return i
+    return -1
+
+
+sat_f = [72.1, 73.0, 78.4, 77.9, 74.0]
+print(first_index_above_threshold(sat_f, 76.0))  # 2
 ```
 
-### Why This Matters
+### Why this matters
 
-Linear search is useful when you have an unsorted list and need to determine whether a value exists. In building automation, you might scan through a list of device instances to find a particular object. Knowing the algorithm reminds you that search time grows linearly with the size of the list, and that sorting or using a dictionary can improve performance for large datasets.
+Unsorted trend exports and ad-hoc lists from gateways are common. Linear search answers: **“When did we first cross this limit?”** and **“Does this device name appear in this list?”**—building blocks for simple diagnostics before you add rolling windows or physics models.
 
-### Mini Examples
+### Mini examples
 
-- Adapt the function to return `True` or `False` instead of an index.
-- Modify the function to search a list of dictionaries for a matching `name` key.
-- Use the algorithm to find the first temperature above 75 °F in a list.
+- Return `True`/`False` for “is `device_id` in this list?” using a loop (same logic as `in` on a list).
+- Find the first **static pressure** below a low alarm threshold (similar loop, different comparison).
+- Search a list of small dicts `{"name": ..., "value": ...}` for the first dict whose `name` matches `"SAT"`.
 
-### Micro Exercises
+### Micro exercises
 
-1. Write a function `find_min_index(nums)` that returns the index of the smallest number in `nums` using a linear scan.
-2. Given a list of sensor names, use a loop to check whether `'ZoneTemp'` appears in the list and print an appropriate message.
-3. Modify `linear_search` so that it returns a list of all indices where the target value occurs (useful if the value appears multiple times).
+1. Write `first_negative_index(flows)` returning the first index where airflow (cfm) is negative, or `-1`.
+2. Given parallel lists `timestamps` and `oat` of the same length, return the **timestamp** at the first index where `oat < 35.0` (freezing concern), or `None` if never.
+3. Extend linear search to return **all** indices where `target` occurs (still one pass; append to a list).
 
-### Key Takeaway
+### Key takeaway
 
-Linear search scans each element in a sequence until it finds the target value or reaches the end. Understanding this algorithm illustrates how membership testing works in Python and why searching unordered data is O(n).
+Linear search = inspect in order, stop early when possible. For HVAC lists, it is the straightforward way to locate **first faults** or **first excursions** without sorting.

@@ -1,41 +1,51 @@
-# Day 35 – Final Project: Web Weather Station BACnet Server
+## Day 35 – Fault detection as Boolean logic (no Pandas)
 
-*Part IV: Objects & Algorithms | Week 5*
+### Goal
 
-## Goal
+Express **simple AFDD-style rules** the way rule engines do conceptually: comparisons, **AND / OR / NOT**, thresholds from parameters. Use **plain Python** on scalars or aligned lists—**no Pandas**, no `eval` on strings—mirroring the *spirit* of open-fdd **expression** rules (see `open-fdd/docs/expression_rule_cookbook.md`) while staying CS-101 sized.
 
-Today you will build the **final project**: a **Web Weather Station BACnet Server**. Fetch weather data from the Open Weather Map API, expose it as BACnet objects (analog values, etc.), and run a mini BACnet server. This ties together everything you have learned: HTTP requests, parsing JSON, BACnet server objects, and Python data structures.
+### Concept
 
-## Concept
+A **fault flag** is often “expression is True.” Example pattern from cookbook thinking (GL36-inspired duct static idea, simplified):
 
-A BACnet server exposes objects that clients can read. The Open Weather Map API returns JSON with temperature, humidity, pressure, etc. Your app will: (1) fetch weather data via HTTP, (2) parse the JSON into Python dicts, (3) create BACnet Analog Value objects with present-value set from the API, (4) run a BACpypes3 Application that serves these objects. Use the mini-device-revisited pattern — add AnalogValueObject instances, update their presentValue periodically from the API.
+- Inputs: `duct_static`, `static_setpoint`, `fan_cmd_frac` (0–1 or 0–100—**pick one convention** and document it).
+- Params: margins (numbers), high-drive fraction.
+- Logic (read as math, not YAML):
 
-## How to Use It
+\[
+\text{fault} = (\text{static} < \text{setpoint} - m) \land (\text{fan\_cmd} \ge f_{\text{hi}} - \epsilon)
+\]
 
-**Ideas (no full code — you vibe code it):**
+In Python for **one timestep**:
 
-1. Use `urllib.request` or the `requests` library to call the Open Weather Map API. You need an API key (free tier).
-2. Parse the JSON response into a dictionary. Extract `main.temp`, `main.humidity`, `main.pressure`, etc.
-3. Create BACpypes3 AnalogValueObject instances for each weather metric. Register them with your Application.
-4. Run a loop that fetches the API every few minutes and updates each object's presentValue.
-5. Run the server; use a BACnet client or scanner to read the weather objects.
+```python
+def rule_duct_static_low(static, setpoint, fan_cmd, sp_margin, drv_hi, drv_near_hi):
+    low_static = static < setpoint - sp_margin
+    fan_near_max = fan_cmd >= drv_hi - drv_near_hi
+    return low_static and fan_near_max
+```
 
-## Why This Matters
+### Why this matters
 
-This project combines HTTP, JSON, dictionaries, loops, and BACnet servers. It demonstrates how external data (weather) can be exposed as BACnet points — a common pattern for integrating third-party APIs into building automation.
+Production tools (e.g. **open-fdd**) add schedules, column maps, and vectorized `numpy`/`pandas`—but the **underlying idea** is still Boolean algebra on aligned signals. Writing rules explicitly trains you to **normalize units**, **name variables**, and **avoid contradictions**.
 
-## Mini Examples
+### Mini examples
 
-- Start with the mini-device-revisited structure. Replace the simulated ramp with an HTTP fetch to Open Weather Map.
-- Add one AnalogValueObject for temperature. Update it every 5 minutes from the API.
-- Extend to humidity, pressure, and any other metrics you want to expose.
+- Add **occupancy gating**: `fault = raw_fault and occupied` where `occupied` is a bool you pass in.
+- OR two independent symptoms: `leak_suspect = low_static or unexpected_flow`.
+- NOT: `equipment_on = not (fan_cmd < 0.01)`.
 
-## Micro Exercises
+### Micro exercises
 
-1. Add error handling: if the API request fails, keep serving the last known values.
-2. Add a description property to each object so clients see "Outdoor Temperature" etc.
-3. Consider adding units (degreesFahrenheit, percentRelativeHumidity, etc.).
+1. Implement `economizer_cooling_when_cold(oat, sat, sat_sp, oat_high_limit)` returning `True` when `oat < oat_high_limit` and `sat < sat_sp - 2.0` (toy rule—tune later).
+2. Write `weather_band_ok(oat, low_f, high_f)` and combine with another flag using `and`.
+3. List three ways **bad units** (0–1 vs 0–100 commands) make Boolean rules silently wrong.
 
-## Key Takeaway
+### See also
 
-The final project ties together HTTP, JSON, dictionaries, and BACnet servers. You fetch real-world data and expose it as BACnet objects — a powerful pattern for HVAC and IoT integration.
+- **open-fdd** cookbook (full engine uses Pandas/NumPy): clone **open-fdd** and read `docs/expression_rule_cookbook.md` (path depends on your machine).
+- BACnet mini servers / Wireshark / deployment topics live in other weeks of this repo’s lesson set or `README.md`—this week stays focused on **algorithms + light FDD math**.
+
+### Key takeaway
+
+Fault detection at its simplest is **comparison + Boolean structure**. Master that on scalars before trusting a framework to do it across whole DataFrames.

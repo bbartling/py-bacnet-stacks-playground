@@ -1,66 +1,47 @@
-## Day 32 – String Algorithms
+## Day 32 – String parsing for BAS text (split, join, strip)
 
 ### Goal
 
-Practise simple algorithms on strings, including concatenation, splitting, joining, reversing and palindrome checking. These tasks illustrate how to manipulate textual data efficiently.
+Manipulate **strings** the way you do with trend filenames, CSV headers, Haystack-ish tags, or simple `name=value` lines—**split**, **join**, **strip**, case normalization. Skip “puzzle” string problems; stay close to **field data**.
 
 ### Concept
 
-Python strings support many operations: `split()` divides a string into words and returns a list; `join()` concatenates an iterable of strings using the string as a separator; `strip()` removes leading/trailing characters; and `lower()` returns a lowercase copy. You can reverse a string by slicing `s[::-1]`. A string is a **palindrome** if it reads the same forwards and backwards (ignoring case and non‑alphanumeric characters).
+- **`strip()`** removes leading/trailing whitespace (common in CSV/API exports).
+- **`split(delim)`** breaks a line into tokens.
+- **`join(iterable)`** builds text efficiently from parts.
+- **Case:** `lower()` / `upper()` for comparisons when vendors disagree on casing.
 
-### How to Use It
-
-**Concatenation and joining:**
-
-```python
-# inefficient concatenation in a loop (avoid for large lists)
-words = ['HVAC', 'data', 'model']
-result = ''
-for w in words:
-    result += w + ' '
-print(result.strip())
-
-# efficient concatenation using join
-sentence = ' '.join(words)
-print(sentence)
-```
-
-**Splitting and stripping:**
+### How to use it
 
 ```python
-text = "  Temperature: 72, Humidity: 45  "
-parts = text.strip().split(',')  # ['Temperature: 72', ' Humidity: 45']
+line = "  Supply_Air_Temperature_Sensor, 72.4, degF  "
+parts = [p.strip() for p in line.split(",")]
+print(parts)  # ['Supply_Air_Temperature_Sensor', '72.4', 'degF']
+
+def parse_float_after_colon(s):
+    """Parse 'SAT: 55.2' style fragment to float."""
+    left, _, right = s.partition(":")
+    return float(right.strip())
+
+print(parse_float_after_colon("MAT: 62.5"))
 ```
 
-**Reversing and palindrome check:**
+### Why this matters
 
-```python
-def is_palindrome(s):
-    """Return True if s is a palindrome, ignoring case and non-letters."""
-    cleaned = ''.join(c.lower() for c in s if c.isalnum())
-    return cleaned == cleaned[::-1]
+Before any numeric algorithm you must **get clean numbers and identifiers**. Point lists, Brick-style labels, and historian exports are text-first. Reliable parsing prevents garbage from entering your **threshold** and **statistics** functions.
 
-print(is_palindrome('Radar'))           # True
-print(is_palindrome('BACnet'))          # False
-print(is_palindrome('A man, a plan, a canal, Panama'))  # True
-```
+### Mini examples
 
-### Why This Matters
+- Split a BACnet-ish object string `"analogValue:12"` on `:` → `("analogValue", 12)` with `int` conversion.
+- Join a list of alarm messages with `"; "` for a single log line.
+- Normalize: `tag.strip().lower()` before comparing to `"occupied"`.
 
-String manipulation is fundamental to programming. You’ll often parse CSV lines, build file paths or check for patterns in sensor names. Understanding efficient concatenation and basic algorithms like palindrome checking prepares you for more complex text processing.
+### Micro exercises
 
-### Mini Examples
+1. Write `parse_kv_line("  static_pressure = 1.25  ")` → `("static_pressure", 1.25)`.
+2. Given multiline text with one `point,value` per line, return a `list[tuple[str, float]]` (skip blank lines).
+3. Count how many lines contain the substring `"SAT"` (case insensitive).
 
-- Use `split()` to parse a `name=value` pair and extract the value as a float.
-- Use `join()` to combine a list of device names into a comma‑separated string.
-- Write a function that counts the number of vowels in a string.
+### Key takeaway
 
-### Micro Exercises
-
-1. Implement a function `reverse_words(sentence)` that returns a sentence with the words in reverse order. Hint: use `split()` and `join()`.
-2. Write a function `count_char(s, char)` that counts how many times `char` appears in `s` (case insensitive).
-3. Use the palindrome function above to check if user input is a palindrome and print an appropriate message.
-
-### Key Takeaway
-
-String methods like `split()`, `join()`, `strip()` and `lower()` are powerful tools for manipulating text. You can reverse strings with slicing and implement simple algorithms like palindrome detection with just a few lines of code.
+String algorithms here are **data hygiene**: split, strip, validate—then hand floats to your HVAC math and rules.

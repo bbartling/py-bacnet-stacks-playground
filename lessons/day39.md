@@ -1,155 +1,68 @@
-# Day 39 – Deploying a CSV Scraper with systemd
+## Day 39 – Explicit Euler for a 1-state thermal model (hands-on)
 
-## Goal
+### Goal
 
-Learn how to turn your Python CSV‐scraping script into a **systemd service**
-that runs continuously on a Raspberry Pi or other Linux host.  By the end of
-this lesson you will be able to create a service unit file, configure it to
-restart on failure, enable it to start at boot, and monitor it using
-`systemctl`.
+Implement **explicit (forward) Euler** integration for a single zone temperature state—your first **differential equation algorithm** tied to Day 38’s R–C story. Still **no Pandas**: a `while` loop or `for` over timesteps.
 
-## Concept
+### Concept
 
-When running IoT edge tasks – such as scraping BACnet sensor values into a
-CSV file – you need a way to keep the program alive across reboots and
-recover automatically if it crashes.  On most Linux distributions the
-**systemd** init system manages services.  To use systemd you create a
-small configuration file in `/etc/systemd/system/`
-rather than `/lib/systemd/system/`.  Local modifications belong in
-`/etc/systemd/system/`.  Each service file has
-three sections:
+Given state \(T_n\) at time \(t_n\), choose step \(\Delta t\) and compute derivative \(f(T_n)\) from the model, then:
 
-* **[Unit]** – describes the service and when it should start; use
-  `After=multi‑user.target` so the service runs once the system is up.
-* **[Service]** – defines how to start your script with `ExecStart`, which user
-  should run it, and how to handle restarts.  The `Restart` directive
-  controls what happens when the process ends.  Common
-  values include `no`, `on‑success`, `on‑failure` and `always`.
-  Setting `Restart=always` and optionally `RestartSec=60` tells systemd
-  to relaunch your script 60 seconds after it exits.
-* **[Install]** – tells systemd when to start the service; typically
-  `WantedBy=multi‑user.target` so it starts at boot.
+\[
+T_{n+1} = T_n + \Delta t \cdot f(T_n)
+\]
 
-After creating the service file you reload the systemd daemon and enable
-the service so it starts automatically.  You can
-manually start, stop and check status with `systemctl start/stop/status`.
+For the simplified balance (same signs as Day 38):
 
-## How to Use It
+\[
+f(T) = \frac{1}{C}\left(\frac{T_{\text{amb}} - T}{R} + Q_{\text{in}}\right)
+\]
 
-1. **Write your CSV scraper** – Save your Python script (for example
-   `csv_scraper.py`) in a convenient directory.  The script should read
-   values from your mini BACnet device or schedule and append them to a
-   CSV file.  For example:
+This is a **fixed-step algorithm**; if \(\Delta t\) is too large, the numerical solution can oscillate or blow up—an important CS + numerics lesson.
 
-   ```python
-   # csv_scraper.py
-   import csv, time
-   from datetime import datetime
+### How to use it
 
-   def read_value():
-       # placeholder for BACnet read – return a dummy value
-       return 42.0
+```python
+def simulate_zone_temperature(t0, tamb, q_in, r_k_per_w, c_j_per_k, dt_s, n_steps):
+    """Very small explicit-Euler demo. r_k_per_w is R in K/W; c_j_per_k is C in J/K."""
+    t = t0
+    series = [t]
+    for _ in range(n_steps):
+        dtdt = (1.0 / c_j_per_k) * ((tamb - t) / r_k_per_w + q_in)
+        t = t + dt_s * dtdt
+        series.append(t)
+    return series
 
-   with open('/home/pi/data/log.csv', 'a', newline='') as f:
-       writer = csv.writer(f)
-       while True:
-           ts = datetime.now().isoformat()
-           writer.writerow([ts, read_value()])
-           f.flush()            # ensure data is written to disk
-           time.sleep(10)       # scrape every 10 seconds
-   ```
 
-2. **Create a service file** – Using `sudo nano` (or your favourite
-   editor), create `/etc/systemd/system/csv‑scraper.service` and enter the
-   following content:
+# Toy numbers: not calibrated to a real room—pedagogy only
+out = simulate_zone_temperature(
+    t0=22.0,
+    tamb=18.0,
+    q_in=800.0,
+    r_k_per_w=0.02,
+    c_j_per_k=5e6,
+    dt_s=60.0,
+    n_steps=180,
+)
+print(out[0], out[-1], len(out))
+```
 
-   ```ini
-   [Unit]
-   Description=CSV scraping service
-   After=multi-user.target
+### Why this matters
 
-   [Service]
-   Type=simple
-   User=pi
-   ExecStart=/usr/bin/python3 /home/pi/csv_scraper.py
-   Restart=always
-   RestartSec=60
+Every simulation stack (Modelica exports, EnergyPlus coupling, digital twins) eventually evaluates **right-hand sides** and steps time forward. Euler is the simplest stepping rule; understanding its **stability limits** prepares you for better integrators later—without requiring a full numerical-methods course here.
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
+### Mini examples
 
-   This file lives in `/etc/systemd/system/` because it is a local
-   modification.  It tells systemd to run your
-   script using Python, restart it unconditionally and
-   start it once the system reaches the multi‑user target.
+- Halve `dt_s` and compare final `T`—convergence toward a finer reference.
+- Replace constant `q_in` with a **piecewise schedule** (list of `(t_switch, q)`).
+- Log `dtdt` each step; when does it cross near zero (approaching pseudo–steady state)?
 
-3. **Apply permissions** – Make the service file readable by all and
-   writable only by root:
+### Micro exercises
 
-   ```bash
-   sudo chmod 644 /etc/systemd/system/csv-scraper.service
-   ```
+1. Wrap the simulator in a function `time_to_cross(t0, ..., threshold)` returning first step index where `T > threshold`, or `-1`.
+2. What happens if `dt_s` is huge (e.g., 3600 s with the toy constants)? Experiment and describe.
+3. **No recursion:** implement with a `for` loop only (course constraint).
 
-4. **Reload and enable** – Inform systemd about your new service and
-   enable it to start at boot:
+### Key takeaway
 
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable csv-scraper.service
-   sudo systemctl start csv-scraper.service
-   ```
-
-   The `daemon-reload` and `enable` commands tell systemd to pick up
-   changes and start the service automatically on boot.
-
-5. **Monitor the service** – Use the following commands to manage and
-   troubleshoot your scraper:
-
-   - Check status: `systemctl status csv-scraper.service`
-   - View logs: `journalctl -u csv-scraper.service`
-   - Stop the service: `sudo systemctl stop csv-scraper.service`
-   - Restart the service: `sudo systemctl restart csv-scraper.service`
-
-6. **Test recovery** – Kill your scraper process or simulate a crash.
-   Systemd should restart it automatically after `RestartSec` seconds
-   because you set `Restart=always`.
-
-## Why This Matters
-
-In real building automation systems, edge devices continuously collect
-data and must run reliably for years.  The systemd init system is
-designed to manage services and recover them if they exit.  By
-creating a service unit file in `/etc/systemd/system/`,
-you ensure that your Python scraper starts when your Raspberry Pi
-boots, runs under the correct user, and restarts automatically if it
-fails.  This avoids manual re‑launching and
-prevents lost data during outages.
-
-## Mini Examples
-
-* Use `systemctl is-enabled csv-scraper.service` to verify that the
-  service is enabled at boot.
-* Change `RestartSec` to 10 and observe how quickly the service
-  restarts after you kill the process.
-* Modify `ExecStart` to pass additional arguments (e.g., a device
-  address) to your scraper script.
-
-## Micro Exercises
-
-1. Create a systemd service for your control script from Day 36.
-   Test that it restarts automatically if you kill it.
-2. Experiment with other `Restart=` options (`on-failure`, `no`).
-   Observe how systemd behaves differently.
-3. Use `journalctl -u csv-scraper.service` to view log output and
-   identify any errors.
-4. Change the user in the service file to run your scraper under
-   another account (e.g., `nobody`).  Does this work?  Why or why not?
-
-## Key Takeaway
-
-Systemd is the standard Linux service manager.  By placing your
-service file in `/etc/systemd/system/` and using
-`Restart=always`, you can turn a simple Python script
-into a robust IoT edge service that starts on boot and recovers from
-failures automatically.
+ODEs + algorithms = **update rule in a loop**. HVAC context makes the state and parameters meaningful instead of abstract \(x\) and \(y\).

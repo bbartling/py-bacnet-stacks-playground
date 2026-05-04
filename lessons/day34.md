@@ -1,124 +1,55 @@
-# Day 34 – Aggregating Data & Basic Statistics
+## Day 34 – Aggregates: sum, mean, median (one zone, one air handler)
 
-## Goal
+### Goal
 
-After this lesson you will be able to calculate the **sum**, **mean**
-and **median** of a list of numbers using simple loops and a few built‑in
-functions.  You will also practise using `min()` and `max()` to find the
-smallest and largest values in a sequence and understand how to sort a
-list before computing the median.  These skills let you summarise sensor
-readings or other datasets with a few lines of code.
+Compute **sum**, **mean**, and **median** with clear preconditions (empty list handling). Interpret results for **short HVAC samples** (15-minute SAT slice, weekly peak static).
 
-## Concept
+### Concept
 
-Aggregating data means combining multiple values into a single result,
-such as adding up temperatures to get a total or computing their average.
-In Python you can write a loop that accumulates a running total and
-divides by the length of the list to compute the **mean**.  The `len()`
-function returns the number of items in a sequence,
-so you can use it to avoid hard‑coding the length.
+- **Mean:** `sum / n` (watch empty lists).
+- **Median:** sort a **copy**, pick middle (average two middles if even length).
+- **Min/max:** from Day 29; combine with sorted data for reporting.
 
-Finding the minimum and maximum values is even easier with the
-built‑in functions `min()` and `max()`, which return the smallest and
-largest items from an iterable or a sequence.
-To compute a **median** you need to sort the list first: the `sorted()`
-function returns a new list containing all the items in ascending order
-and guarantees a stable sort.  For an odd
-number of items the median is the middle value; for an even number you
-typically average the two middle values.
-
-## How to Use It
-
-1. **Compute the sum and mean** — Use a loop to accumulate a running
-   total; divide by the length to get the mean:
-   ```python
-   temperatures = [70.3, 68.5, 72.1, 69.4]
-   total = 0
-   for t in temperatures:
-       total += t
-   average = total / len(temperatures)      # len() returns number of items
-   print(f"Average temperature = {average:.2f}")
-   ```
-
-   Python also provides a built‑in `sum()` function, but writing the loop
-   yourself reinforces how accumulation works.
-
-2. **Find minimum and maximum values** — Use `min()` and `max()` on
-   any iterable:
-   ```python
-   points = [13, 7, 19, 3]
-   print(min(points))   # → 3
-   print(max(points))   # → 19
-   ```
-
-3. **Compute the median** — Sort the list then select the middle value(s):
-   ```python
-   def median(data):
-       n = len(data)
-       sorted_data = sorted(data)           # returns new sorted list
-       mid = n // 2
-       if n % 2 == 1:
-           return sorted_data[mid]
-       else:
-           return (sorted_data[mid - 1] + sorted_data[mid]) / 2
-
-   values = [5, 2, 9, 1, 7]
-   print(median(values))  # → 5
-   ```
-
-## Why This Matters
-
-Engineers frequently need to summarise large sets of data, such as sensor
-readings or energy consumption.  Calculating the sum, mean and median
-provides insight into central tendencies and helps identify outliers.  Using
-built‑in functions like `min()`, `max()` and
-`sorted()` reduces the chance of errors and keeps
-your code concise.
-
-## Mini Examples
+### How to use it
 
 ```python
-# Summarise a list of pressure readings (in Pascals)
-pressures = [101.2, 99.8, 100.5, 102.1, 98.9]
-total = 0
-for p in pressures:
-    total += p
-print('Total pressure:', total)
-print('Mean pressure:', total / len(pressures))
+def mean(values):
+    if not values:
+        return None
+    return sum(values) / len(values)
 
-# Use min, max and median
-print('Minimum pressure:', min(pressures))
-print('Maximum pressure:', max(pressures))
-print('Median pressure:', median(pressures))
 
-# Sorted copy without modifying original
-print('Sorted pressures:', sorted(pressures))
-print('Original list remains:', pressures)
+def median(values):
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    m = n // 2
+    if n % 2:
+        return s[m]
+    return (s[m - 1] + s[m]) / 2
+
+
+sat_f = [72.1, 71.9, 72.4, 72.0, 72.2]
+print(round(mean(sat_f), 2), median(sat_f))
 ```
 
-## Micro Exercises
+### Why this matters
 
-1. Create a list of five random humidity values (floating‑point numbers).
-   Write code to compute the total and average without using `sum()`.  Then
-   verify the minimum and maximum using `min()` and `max()`.
+Mean SAT over an interval smooths jitter; **median** resists single spikes when a sensor glitches. Same tools support **energy normalization** (mean kW) and **simple quality checks** (“median OAT overnight should match weather station roughly”).
 
-2. Write a function `compute_stats(values)` that returns a tuple
-   `(min_value, max_value, average, median_value)`.  Use the helper
-   `median()` function shown above.
+### Mini examples
 
-3. Explain why it is important to sort a list before computing the
-   median, and describe what happens if you try to take the middle value
-   from an unsorted list.
+- Compute **mean absolute deviation** from setpoint: `mean(abs(t - sp) for t in zone_temps)`.
+- Drop `None` readings before stats (small loop to build a clean list).
+- Compare mean vs median on `[72.0, 72.1, 95.0, 72.0]` and comment which reflects “typical” better.
 
-4. For an even‑length list `[4, 2, 9, 8]`, calculate the median using the
-   provided formula.  Confirm your result by sorting the list and taking
-   the two middle values.
+### Micro exercises
 
-## Key Takeaway
+1. Write `stats_summary(values)` → dict with keys `min`, `max`, `mean`, `median` (or `None` if empty).
+2. Given hourly OAT for 24 values, compute mean and median; which is less sensitive to one hour of bad data?
+3. Explain why sorting is required for median but **not** for mean.
 
-Aggregating numeric data helps you understand the overall behaviour of a
-system.  Use loops and `len()` to compute averages,
-built‑ins `min()` and `max()` to find extremes,
-and `sorted()` to prepare data for median
-calculations.  These patterns are the basis for more advanced statistical
-analysis.
+### Key takeaway
+
+Aggregates compress time series into decisions humans (and rules) can digest—foundation for both **operations** and **lightweight FDD**.

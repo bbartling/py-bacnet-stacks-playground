@@ -1,79 +1,56 @@
-## Day 29 – Finding Minimum & Maximum
+## Day 29 – Min, max, and “extreme event” scanning
 
 ### Goal
 
-Write your own functions to find the **minimum** and **maximum** values
-in a list.  Although Python provides `min()` and `max()`,
-implementing these functions yourself reinforces your understanding of
-scanning algorithms.
+Implement **minimum** and **maximum** with a single forward scan (accumulator pattern). Use **HVAC readings** (duct static, supply temp, zone deltas) as mental models.
 
 ### Concept
 
-To find the smallest value in a list, initialise a variable to the
-first element and then iterate through the remaining elements,
-updating the variable whenever a smaller value is found.  The
-procedure is similar for finding the largest value.  This pattern is
-commonly called an **accumulation** or **reduction** pattern.
+Initialize `best` to the first element, then for each remaining value compare and update. That is one form of **reduction**: many values → one summary. Same pattern finds **longest run** later with a small change of state.
 
-### How to Use It
-
-**Find the minimum:**
+### How to use it
 
 ```python
 def find_min(values):
-    """Return the smallest value in the list values."""
+    if not values:
+        return None
     smallest = values[0]
     for v in values[1:]:
         if v < smallest:
             smallest = v
     return smallest
 
-numbers = [3, 1, 4, 1, 5, 9]
-print(find_min(numbers))  # 1
-```
 
-**Find the maximum:**
-
-```python
 def find_max(values):
-    """Return the largest value in the list values."""
+    if not values:
+        return None
     largest = values[0]
     for v in values[1:]:
         if v > largest:
             largest = v
     return largest
 
-print(find_max(numbers))  # 9
+
+static_inwg = [1.2, 1.15, 1.08, 1.11, 1.09]
+print(find_min(static_inwg), find_max(static_inwg))
 ```
 
-### Why This Matters
+### Why this matters
 
-Computing minima and maxima manually teaches you how to accumulate
-information while iterating over data.  In sensor networks you might
-need to find the highest airflow or lowest temperature.  Knowing
-how to implement the search yourself ensures you can adapt the logic
-for more complex comparisons (e.g., based on multiple attributes).
+Operators care about **peak SAT** during a demand event, **minimum discharge air** during economizer operation, or **max zone deviation** during occupied hours. Knowing the scan pattern lets you add rules (“ignore readings when fan command is zero”) without reaching for a library.
 
-### Mini Examples
+### Mini examples
 
-- Extend `find_min` to return both the smallest value and its index.
-- Modify `find_max` to handle an empty list by returning `None`.
-- Create a function `find_extremes(values)` that returns a tuple
-  `(min_value, max_value)` in a single pass.
+- Single pass: return `(min_val, max_val)` for a non-empty list of floats.
+- Track **index** of max as well as value (useful to align with timestamps in parallel lists).
+- Compare **two** lists of same length element-wise and return the max **absolute difference** (simple loop; no NumPy).
 
-### Micro Exercises
+### Micro exercises
 
-1. Write a function `find_longest_word(words)` that returns the longest
-   string in a list of words.  If multiple words have the same length,
-   return the first one.
-2. Create a list of random integers and verify that your `find_min`
-   matches Python’s built‑in `min()` for the same list.
-3. Modify the `find_min` algorithm to work on a list of `(name, value)`
-   tuples by comparing the numeric value.
+1. Write `max_abs_deviation(setpoints, actuals)` assuming equal-length lists of floats.
+2. Verify your `find_min` / `find_max` match Python’s `min()` / `max()` on a random list of 10 integers.
+3. **Stretch (still CS 101):** return `(min_val, min_index, max_val, max_index)` in one pass.
 
-### Key Takeaway
+### Key takeaway
 
-Manual min/max functions initialise an accumulator and update it when a
-smaller or larger element is found.  Although Python’s `min()` and
-`max()` functions automate this process,
-implementing the algorithm yourself improves algorithmic thinking.
+Min/max are accumulator algorithms. They mirror how many **AFDD** summaries are computed on bounded windows—same idea, smaller code.

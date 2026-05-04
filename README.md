@@ -61,17 +61,17 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - Variables, arithmetic, strings, lists, dictionaries
 - Conditionals, loops, functions, modules, file I/O
 - Error handling with `try`/`except`
-- Simple algorithms: linear search, min/max, basic sorting
-- Basic objects and instances (no advanced OOP)
+- Simple algorithms: linear search, min/max, basic sorting; light HVAC fault-detection logic and a tiny thermal simulation (Days 27–40)
+- **After Day 40:** graph-thinking for **smart buildings** — only the data structures needed to read **RDF**, relate it to **Brick**, and run **SPARQL** (Days 41–68). Still **no list/dict comprehensions** in lesson examples unless noted optional.
 
-**Scope:** Strings, lists, and dictionaries only. No advanced Python practices of list/dictionary comprehensions. No advanced data structures. See the `lessons` directory for the daily mini challenges and some of the YouTube videos demo theory lectures.
+**Scope:** Early weeks: strings, lists, dictionaries. **Days 41–68:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week.
 
 ---
 
 
 ## Vibe Code Checkpoints
 
-> **Current status:** **Checkpoint 10** — diy-bas integration (**Week 10**, current). **Checkpoint 11** (**Week 11**) — vibe app production cutover: Django with a production-grade database, React front end, SMTP, and user/role services. **Checkpoint 12** — hardening (**Week 12**). **Checkpoint 13** — final release.
+> **Current status:** **Checkpoint 10** — diy-bas integration (**Week 10**, current). **Checkpoint 11** (**Week 11**) — vibe app production cutover: Django with a production-grade database, React front end, **ntfy** (or similar) notifications, and user/role services. **Checkpoint 12** — hardening (**Week 12**). **Checkpoint 13** — final release.
 > The project is moving from standalone demos into a full supervisory BAS-style application with a clearer multi-week path.
 
 | # | Checkpoint | Build Goal | Timeline | Status |
@@ -86,7 +86,7 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 | **8** | **BAS schedule widget demo** | Build out a BAS-style schedule widget and frontend UI concepts. | **Week 8** | Done |
 | **9** | **diy-bas beginning phase** | Create the first primitive version of the `diy-bas` application. | **Week 9** | Done |
 | **10** | **diy-bas integration** | Combine authentication, alarms, schedules, trends, and BACnet discovery. | **Week 10** | **Current** |
-| **11** | **diy-bas: Django production DB, unit tests, React front end, SMTP, role services** | Move the supervisory app toward production: managed database (e.g. PostgreSQL), **unit/integration tests** for critical paths, React UI shell, outgoing **SMTP** for notifications/alerts, and clearer **user/role services** (auth, RBAC, and integration boundaries). | **Week 11** | Next |
+| **11** | **diy-bas: Django production DB, unit tests, React front end, notifications, role services** | Move the supervisory app toward production: managed database (e.g. PostgreSQL), **unit/integration tests** for critical paths, React UI shell, outgoing **notifications** (e.g. ntfy) for alerts, and clearer **user/role services** (auth, RBAC, and integration boundaries). | **Week 11** | Next |
 | **12** | **diy-bas hardening** | Add persistence depth, audit logging polish, security cleanup, and deploy/ops workflows beyond the initial integration. | **Week 12** | Next |
 | **13** | **diy-bas final app release** | Ship the Raspberry Pi-ready supervisory BAS application. | **Final** | Planned |
 | **14** | **Rust BACnet stack** | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** | TODO |
@@ -107,8 +107,6 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - **Day 5 — User Input & Output:** `input()`, type conversion, f-strings.
 - **Day 6 — Introducing Lists:** Create, index, slice, append, `len()`.
 - **Day 7 — List Operations & Methods:** append, extend, insert, remove, sort, copy.
-
-**Checkpoint 1:** BAC0 app — read, write, write null release.
 
 ---
 
@@ -136,9 +134,6 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - **Day 20 — Built-in Functions:** `min()`, `max()`, `sorted()`, `sum()`, `zip()` (no comprehensions).
 - **Day 21 — Slicing & String Formatting:** Advanced f-strings, slicing.
 
-**Checkpoint 2:** BAC0 app — collect data, save to CSV, rotate logs per day.  
-**Checkpoint 3:** bacpypes3 read/write/release app.
-
 ---
 
 ### Week 4 — Data Structures & Discovery  
@@ -149,37 +144,84 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - **Day 24 — any(), all() & Simple Patterns:** Boolean checks on collections.
 - **Day 25 — Documentation & help():** Docstrings, comments, `help()`.
 - **Day 26 — Week 4 Review:** Nested data, built-ins, loops.
-- **Day 27 — What Is an Algorithm?:** Steps, efficiency, problem decomposition.
-- **Day 28 — Linear Search:** Implement and analyse linear search.
-
-**Checkpoint 4:** BACnet discover → CSV (Who-Is, object list, properties).
 
 ---
 
-### Week 5 — Algorithms & BACnet Servers  
-*Part IV: Simple algorithms, objects, final project*
+### Week 5 — Algorithms & HVAC Data (Part A)  
+*Part IV: Search, sort, strings, membership*
 
-- **Day 29 — Finding Min & Max:** Compute smallest/largest in a list.
-- **Day 30 — Counting Occurrences:** Frequency tables with dictionaries.
-- **Day 31 — Sorting Lists:** Basic sorting, `sort()` and `sorted()`.
-- **Day 32 — String Algorithms:** Substring search, prefixes, suffixes.
-- **Day 33 — Membership & Searching:** `in`, sets, dict lookups.
-- **Day 34 — Aggregating Data:** Sums, averages, simple statistics.
-- **Day 35 — Final Project:** Web weather station BACnet server.
-
-**Checkpoint 5:** Mini BACnet device + mini schedule/calendar device.  
-**Final Project:** Open Weather Map API → BACnet server.
+- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs, course framing.
+- **Day 28 — Linear Search:** First match / threshold scans on trend-like lists.
+- **Day 29 — Min & Max:** Accumulator scans on readings.
+- **Day 30 — Counting Occurrences:** Frequency tables (fault codes, equipment types).
+- **Day 31 — Sorting & Median:** `sorted()`, keys, median; bubble sort as pedagogy only.
+- **Day 32 — String Parsing for BAS Text:** `split`, `join`, `strip` for exports and tags.
+- **Day 33 — Membership & Index Search:** `in` vs explicit loops for position.
 
 ---
 
-### Week 6 — Bonus: Operations  
-*Troubleshooting & deployment*
+### Week 6 — Algorithms, FDD Logic, Thermal Lite, Capstone (Part B)  
+*Part IV continued: stats, Boolean FDD patterns, R–C + Euler, no Pandas*
 
-- **Day 36 — Playing with a Mini BACnet Device:** Run mini-device-revisited.py, read/write, simple control logic.
-- **Day 37 — Scheduling with a Mini BACnet Calendar Device:** Run mini-schedule-calendar-device.py, read schedule/calendar.
-- **Day 38 — Troubleshooting BACnet with Wireshark:** Capture BACnet/IP with tcpdump, inspect in Wireshark.
-- **Day 39 — Deploying a CSV Scraper with systemd:** systemd service for auto-start and restart.
-- **Day 40 — Containerising Your Scraper with Docker:** Docker container, restart policies.
+- **Day 34 — Aggregates:** Mean, median, short HVAC samples.
+- **Day 35 — Fault Detection as Boolean Logic:** Thresholds, AND/OR/NOT (open-fdd *expression* mindset; plain Python).
+- **Day 36 — Deadbands & Envelopes:** Chattering, MAT vs OAT/RAT band (high-level).
+- **Day 37 — Sliding Windows:** Running mean/max with list slices (no Pandas).
+- **Day 38 — Thermal R–C Analogy:** One-node intuition for building dynamics.
+- **Day 39 — Explicit Euler:** Integrate a 1-state toy thermal model in a loop.
+- **Day 40 — Capstone:** Parallel lists + simple fault timeline + course self-check.
+
+---
+
+### Week 7 — Python Bridge for RDF (Smart Buildings)  
+*Only structures needed later: identity, nesting, uniqueness, tiny “graphs”*
+
+- **Day 41 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
+- **Day 42 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
+- **Day 43 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
+- **Day 44 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
+- **Day 45 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
+- **Day 46 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
+- **Day 47 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
+
+---
+
+### Week 8 — RDF & Turtle (Theory + `rdflib`)  
+*Triple model, syntax, loading graphs in Python*
+
+- **Day 48 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
+- **Day 49 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
+- **Day 50 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
+- **Day 51 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
+- **Day 52 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
+- **Day 53 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
+- **Day 54 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
+
+---
+
+### Week 9 — Brick Ontology on RDF  
+*Classes and relationships for equipment and points*
+
+- **Day 55 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
+- **Day 56 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
+- **Day 57 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
+- **Day 58 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
+- **Day 59 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
+- **Day 60 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
+
+---
+
+### Week 10 — SPARQL for Brick Graphs  
+*Patterns, filters, optional data, capstone query*
+
+- **Day 61 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
+- **Day 62 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
+- **Day 63 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
+- **Day 64 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
+- **Day 65 — `UNION`:** Alternative patterns (this OR that equipment layout).
+- **Day 66 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
+- **Day 67 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
+- **Day 68 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
 
 ---
 

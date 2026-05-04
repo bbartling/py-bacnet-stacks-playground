@@ -1,63 +1,43 @@
-## Day 27 – What Is an Algorithm?
+## Day 27 – What Is an Algorithm? (HVAC & data)
 
 ### Goal
 
-Introduce the concept of an **algorithm** and explain why understanding
-simple algorithms is useful for programming.  You will see that an
-algorithm is just a finite set of steps to solve a problem, and that
-even everyday tasks involve algorithms.
+Define an **algorithm** in plain language and see why it matters for **HVAC data and controls**: finite steps, inputs, outputs, and no magic—just repeatable logic you could hand to an operator or a computer.
 
 ### Concept
 
-An **algorithm** is a step‑by‑step procedure for solving a problem or
-performing a task.  Algorithms take input, follow a sequence of
-instructions and produce output.  They can be described in natural
-language, pseudocode or implemented in code.  In this final week you’ll
-learn some classic algorithms—linear search, min/max, counting and
-simple sorting—that operate on lists of values.  Although Python
-provides built‑in functions like `min()`, `max()` and
-`sorted()`, understanding how they work will make you a
-better programmer.
+An **algorithm** is a finite sequence of well-defined steps that transforms **input** into **output**. You can write it in English, pseudocode, or Python. Examples in this course stay in **CS 101 territory**: searching lists, comparing numbers, counting, sorting small sets, aggregating readings, and (later) simple **fault-detection style** rules and **tiny simulation** steps—not dynamic programming, recursion-heavy designs, or advanced graph algorithms.
+
+**HVAC intuition:** Starting an AHU safely is an algorithm (pre-start checks → enable supply fan → wait for proof → enable heating/cooling). Finding the first zone over setpoint in an **unsorted** list of readings is another: check each value in order (**linear search**). Tallying how many VAVs report a given fault code uses the same “walk the data once” mindset you will code in the coming days.
 
 ### How to Use It
 
-Think about everyday algorithms:
+Sketch algorithms before coding:
 
-- Making a cup of coffee: boil water, grind beans, brew, pour.
-- Finding a name in an unsorted list: check each element until you find
-  a match (linear search).
-- Sorting playing cards: repeatedly pick the smallest card and build a
-  sorted pile.
-
-In the coming days you’ll implement these types of procedures in
-Python.
+- **Natural language:** “If supply air temp > high limit for two consecutive samples, set `fault = True`.”
+- **Pseudocode:** `for each sample: update state; if condition: flag fault`.
+- **Python:** small functions with clear names (`check_high_sat`, `first_over_setpoint`).
 
 ### Why This Matters
 
-Algorithms are the building blocks of software.  Even though Python
-provides powerful built‑ins, you should know how to re‑implement
-basic operations and understand their efficiency.  In HVAC data
-analysis you might need to filter, sort and summarise large lists of
-measurements; algorithmic thinking helps you design these routines.
+BACnet trends, CSV exports, and edge scripts give you **lists and tables** (often as parallel lists: timestamps, OAT, SAT, …). Basic algorithms let you **summarize**, **filter**, and **evaluate rules** without always depending on heavy libraries. Later lessons connect this style of thinking to **automated fault detection (AFDD)** ideas used in projects like **open-fdd**—but here we stay at the level of **plain Python loops and arithmetic** that would sit *under* tools that use Pandas or vectorized engines.
 
-### Mini Examples
+### Mini examples
 
-- Write pseudocode for brushing your teeth.
-- Describe the steps for finding the coldest temperature in a list of
-  readings.
-- Explain how you would count the number of occurrences of each device
-  type in a BACnet scan.
+- List the steps to decide if an economizer is “likely calling for cooling when it should not” using only SAT, OAT, and a return-air temperature (high-level, no code yet).
+- Pseudocode: find the **index** of the first static pressure reading below 0.5 in a list (or report “none”).
+- Describe how you would count occurrences of each **fault priority** in a log list.
 
-### Micro Exercises
+### Micro exercises
 
-1. In your own words, describe what an algorithm is and give an
-   example from your daily life.
-2. List the steps required to prepare a meeting room for a class.
-3. Explain why understanding algorithms might help you write more
-   efficient Python code.
+1. In your own words: what makes a procedure an algorithm? Give one **non-HVAC** and one **HVAC** example.
+2. Write pseudocode (not Python) for “return the coldest **zone temperature** in a list of floats.”
+3. Why might a controls engineer prefer a **clear** 20-line loop over a one-liner nobody can audit?
 
-### Key Takeaway
+### Course fit (CS 101 mini-track)
 
-An algorithm is a finite sequence of instructions for solving a problem.
-Knowing basic algorithms prepares you to analyse and manipulate data
-without always relying on built‑in functions.
+This two-week arc (Days 27–40) is designed as a **daily mini-lesson**: one main idea per day, small functions, **no recursion requirement**, **no dynamic programming**, and **no Pandas**. It is appropriate for a **first exposure to algorithms** in an HVAC analytics context—not a substitute for a full semester on data structures.
+
+### Key takeaway
+
+Algorithms are explicit recipes. In building systems, they show up in **control sequences**, **trend analysis**, and **fault rules**; learning to implement a few by hand builds judgment when you later use libraries or AFDD frameworks.

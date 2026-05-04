@@ -1,152 +1,71 @@
-# Day 40 – Containerising Your Scraper with Docker
+## Day 40 – Capstone: parallel lists + simple fault timeline (still no Pandas)
 
-## Goal
+### Goal
 
-Learn how to package your CSV‑scraping script into a Docker container and
-deploy it with a restart policy so that it automatically recovers from
-crashes and survives host reboots.  By the end of this lesson you
-will be able to write a simple `Dockerfile`, build an image, run it
-with the `--restart` flag and use a `docker‑compose.yml` file to
-configure persistent volumes and restart policies.
+Combine the arc: **aligned sequences** (timestamps + signals), **Boolean rules**, optional **smoothing**, and a tiny **post-processing** pass to build a **fault timeline** (list of bools or `0/1`). This mimics one column an AFDD tool might produce—implemented with lists and loops only.
 
-## Concept
+### Concept
 
-Containerisation makes it easy to run your Python scraper on any
-platform.  When you run a container you can tell Docker what to do
-when the process exits by supplying a **restart policy**.  The
-official Docker documentation lists several options for the
-`--restart` flag: `no` (don’t automatically restart),
-`on‑failure[:max-retries]` (restart on error), `always` (restart the
-container if it stops) and `unless‑stopped`.  Using
-`always` or `unless‑stopped` ensures that your scraper restarts after
-a crash or after the Docker daemon restarts.  You
-should not combine Docker restart policies with host‑level process
-managers like systemd to avoid conflicts.
+Assume equal-length lists:
 
-## How to Use It
+- `t_sec` — time from start in seconds (monotonic)
+- `sat`, `sat_sp`, `fan_cmd` — floats you trust are aligned sample-by-sample
 
-1. **Prepare your script** – Place the same `csv_scraper.py` from
-   Day 39 into a new directory.  This script will be the entry point of
-   your Docker image.
+Pipeline sketch:
 
-2. **Write a Dockerfile** – Create a file named `Dockerfile` with the
-   following content:
+1. Optional: `sat_smooth = running_mean(sat, k=3)` (Day 37).
+2. Rule: `high_sat = s > sat_sp + 2.0` for each index `i` (Day 35–36 style).
+3. Optional gate: `fan_on = fan_cmd[i] > 0.01`.
+4. `fault[i] = high_sat[i] and fan_on`.
 
-   ```Dockerfile
-   # Use the official Python image as a base
-   FROM python:3.11-slim
+```python
+def zip_fault_timeline(sat, sat_sp, fan_cmd, margin, fan_eps):
+    fault = []
+    for i in range(len(sat)):
+        hi = sat[i] > sat_sp[i] + margin
+        fan_on = fan_cmd[i] > fan_eps
+        fault.append(hi and fan_on)
+    return fault
 
-   # Create a working directory in the container
-   WORKDIR /app
 
-   # Copy your scraping script into the container
-   COPY csv_scraper.py .
+def count_true(flags):
+    n = 0
+    for f in flags:
+        if f:
+            n += 1
+    return n
+```
 
-   # Install any dependencies here (e.g. bacpypes3, pandas)
-   RUN pip install --no-cache-dir bacpypes3 pandas
+### Why this matters
 
-   # Run the script when the container starts
-   CMD ["python", "csv_scraper.py"]
-   ```
+Real stacks add **column maps**, **ontology labels** (Brick/Haystack), **schedules**, and **vectorized** evaluation—but the **logical skeleton** is what you just wrote. Understanding the skeleton makes open-fdd-style YAML readable instead of magic.
 
-   This image starts from a minimal Python base, copies your script,
-   installs dependencies and runs the scraper.  When the container
-   exits, Docker uses the restart policy to decide what to do.
+### Mini examples
 
-3. **Build the image** – In the directory containing your
-   `Dockerfile` and script, run:
+- Append `fault_id` strings instead of bools: `"NONE"` vs `"HIGH_SAT"`.
+- Count **consecutive** `True` run length after index `i` (simple forward scan).
+- Export CSV lines with `zip(t_sec, sat, fault)` and `",".join(...)` (Day 32).
 
-   ```bash
-   docker build -t csv-scraper:latest .
-   ```
+### Micro exercises
 
-   This command creates a local image tagged `csv-scraper:latest`.
+1. Given `fault` bools, return a list of `(start_index, end_index)` for each contiguous `True` run (linear scan; one pass).
+2. Add `occupied[i]` bool list; require `occupied[i]` for fault to trigger.
+3. Write five bullet **test cases** (inputs → expected fault pattern) for your rule.
 
-4. **Run with a restart policy** – Start the container with a restart
-   policy and mount a host directory to store CSV data:
+### Course fit — self-evaluation
 
-   ```bash
-   mkdir -p ~/data
-   docker run -d --name csv-scraper \
-     --restart unless-stopped \
-     -v ~/data:/app/data \
-     csv-scraper:latest
-   ```
+| Criterion | How this arc behaves |
+|-----------|----------------------|
+| CS 101 appropriate? | Yes: loops, conditionals, functions, lists, sorting, dict counting, simple numerics. |
+| Avoids advanced algos? | No shortest-path, no DP, no recursive backtracking required. |
+| HVAC + FDD relevant? | Yes: thresholds, envelopes, windows, R–C + Euler tie domain to code. |
+| open-fdd alignment? | Conceptual Boolean + cookbook patterns; **not** a Pandas/RuleRunner tutorial. |
+| Daily size | Each day targets **one** skill; capstone stitches them. |
 
-   The `--restart unless-stopped` option tells Docker to restart the
-   container if it stops, except when you explicitly stop it.
-   Using a volume (`-v`) maps the container’s `/app/data` directory to
-   `~/data` on the host so your CSV logs persist.  You can inspect
-   running containers with `docker ps` and view logs with
-   `docker logs csv-scraper`.
+### Where topics moved
 
-5. **Use docker‑compose** – For more complex setups, create a
-   `docker-compose.yml` file:
+Earlier versions of Days **35–40** included a weather BACnet final project, mini BACnet devices, Wireshark, **systemd**, and **Docker**—valuable **operations** skills. Those are **not deleted from the repo history**; they can live in a separate “ops week” or be revived beside this algorithms track. Ask your instructor which track you are following.
 
-   ```yaml
-   version: '3'
-   services:
-     scraper:
-       build: .
-       container_name: csv-scraper
-       restart: unless-stopped
-       volumes:
-         - ./data:/app/data
-   ```
+### Key takeaway
 
-   Then start the service in detached mode:
-
-   ```bash
-   docker compose up -d
-   ```
-
-   Docker Compose automatically applies the `restart: unless-stopped`
-   policy to the `scraper` service.  The container restarts on failure
-   and after host reboots but stays stopped if you manually stop it.
-
-6. **Manage the container** – Use `docker stop csv-scraper` to stop
-   the container.  When using `unless-stopped`, it will not restart
-   until the host reboots or you run `docker start csv-scraper`.  To
-   change the restart policy for an existing container, use
-   `docker update --restart always csv-scraper`.
-
-## Why This Matters
-
-Containers provide an easy way to deploy the same scraping code on any
-host without worrying about dependencies.  Docker’s restart policies
-allow your application to recover from failures automatically,
-making it suitable for unattended operation in industrial and
-building‑automation environments.  Using Compose you can describe
-multiple services (e.g. a scraper, a database and a web UI) in a
-single file and ensure they all start with the correct policies.
-
-## Mini Examples
-
-* Build and run the example container, then kill it with `docker kill
-  csv-scraper`.  It should restart automatically thanks to the
-  `unless-stopped` policy.
-* Change the restart policy to `on-failure:5` and observe how the
-  container stops after exceeding the maximum number of retries.
-* Use `docker-compose logs -f scraper` to watch the CSV file being
-  written in real time.
-
-## Micro Exercises
-
-1. Modify the `Dockerfile` to install additional packages (e.g.,
-   `hvac` for BACnet communications) and rebuild the image.
-2. Create a second service in `docker-compose.yml` that tails the CSV
-   file using `tail -f` and restart it with the `always` policy.
-3. Inspect the restart policy of a running container using
-   `docker inspect -f '{{ .HostConfig.RestartPolicy.Name }}' csv-scraper`.
-4. Research the difference between `restart: always` and
-   `restart: unless-stopped` and choose which is more appropriate for a
-   production deployment.
-
-## Key Takeaway
-
-Docker’s `--restart` flag and Compose’s `restart` option let you
-deploy your Python scraper as a self‑healing service.  The
-`always` and `unless-stopped` policies cause the container to restart
-after crashes and host reboots, providing
-production‑ready reliability without relying on host‑level process
-managers.
+**Algorithms + physics-lite models + Boolean FDD** form a coherent mini-course: you can explain, test, and ship small Python tools before adopting heavier frameworks.
