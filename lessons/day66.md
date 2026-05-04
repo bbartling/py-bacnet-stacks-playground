@@ -1,4 +1,4 @@
-## Day 63 — `FILTER` and `BIND` (numbers and computed values)
+## Day 66 — `FILTER` and `BIND` (numbers and computed values)
 
 ### Goal
 

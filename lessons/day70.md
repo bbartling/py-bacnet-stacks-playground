@@ -1,4 +1,4 @@
-## Day 67 — `DISTINCT`, `ORDER BY`, `LIMIT` (query hygiene)
+## Day 70 — `DISTINCT`, `ORDER BY`, `LIMIT` (query hygiene)
 
 ### Goal
 

@@ -1,4 +1,4 @@
-## Day 48 — RDF triple model (formal one-liner)
+## Day 51 — RDF triple model (formal one-liner)
 
 ### Goal
 
@@ -11,7 +11,7 @@ State RDF’s core unit: **triple** \((s, p, o)\). **Subject** and **predicate**
 
 ### How to use it
 
-Revisit your `list` of triples from Day 44. Classify each `o`:
+Revisit your `list` of triples from Day 47. Classify each `o`:
 
 - If `o` starts with `http` and matches resource naming → **resource**.
 - Else if `o` is your `(lexical, datatype)` tuple → **literal**.

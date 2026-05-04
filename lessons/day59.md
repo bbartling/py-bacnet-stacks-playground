@@ -1,4 +1,4 @@
-## Day 56 — Equipment taxonomy (AHU, VAV, terminal units)
+## Day 59 — Equipment taxonomy (AHU, VAV, terminal units)
 
 ### Goal
 

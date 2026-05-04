@@ -1,4 +1,4 @@
-## Day 52 — `rdflib`: parse Turtle into a `Graph`
+## Day 55 — `rdflib`: parse Turtle into a `Graph`
 
 ### Goal
 
@@ -37,4 +37,4 @@ Every SPARQL query in the next week runs **against** a `Graph` (or endpoint). Lo
 
 ### Key takeaway
 
-**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 44 mental model.
+**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 47 mental model.

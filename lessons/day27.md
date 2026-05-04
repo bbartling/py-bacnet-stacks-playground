@@ -6,7 +6,7 @@ Define an **algorithm** in plain language and see why it matters for **HVAC data
 
 ### Concept
 
-An **algorithm** is a finite sequence of well-defined steps that transforms **input** into **output**. You can write it in English, pseudocode, or Python. Examples in this course stay in **CS 101 territory**: searching lists, comparing numbers, counting, sorting small sets, aggregating readings, and (later) simple **fault-detection style** rules and **tiny simulation** steps—not dynamic programming, recursion-heavy designs, or advanced graph algorithms.
+An **algorithm** is a finite sequence of well-defined steps that transforms **input** into **output**. You can write it in English, pseudocode, or Python. Examples in this course stay in **CS 101 territory**: searching lists, comparing numbers, counting, sorting small sets, aggregating readings, and (later) simple **fault-detection style** rules and **tiny simulation** steps—not dynamic programming or advanced graph-theory proofs. **Optional hobby days (41–43)** apply the same definition to **grids**, **stacks**, and **maze carving**—still finite steps, just a different playground than HVAC lists.
 
 **HVAC intuition:** Starting an AHU safely is an algorithm (pre-start checks → enable supply fan → wait for proof → enable heating/cooling). Finding the first zone over setpoint in an **unsorted** list of readings is another: check each value in order (**linear search**). Tallying how many VAVs report a given fault code uses the same “walk the data once” mindset you will code in the coming days.
 

@@ -57,7 +57,7 @@ Real stacks add **column maps**, **ontology labels** (Brick/Haystack), **schedul
 | Criterion | How this arc behaves |
 |-----------|----------------------|
 | CS 101 appropriate? | Yes: loops, conditionals, functions, lists, sorting, dict counting, simple numerics. |
-| Avoids advanced algos? | No shortest-path, no DP, no recursive backtracking required. |
+| Avoids advanced algos? | Core HVAC arc: no shortest-path, no DP. **Optional Days 41–43** add stack + maze **backtracking** as hobby after this capstone. |
 | HVAC + FDD relevant? | Yes: thresholds, envelopes, windows, R–C + Euler tie domain to code. |
 | open-fdd alignment? | Conceptual Boolean + cookbook patterns; **not** a Pandas/RuleRunner tutorial. |
 | Daily size | Each day targets **one** skill; capstone stitches them. |
@@ -68,4 +68,4 @@ Earlier versions of Days **35–40** included a weather BACnet final project, mi
 
 ### Key takeaway
 
-**Algorithms + physics-lite models + Boolean FDD** form a coherent mini-course: you can explain, test, and ship small Python tools before adopting heavier frameworks.
+**Algorithms + physics-lite models + Boolean FDD** form a coherent mini-course: you can explain, test, and ship small Python tools before adopting heavier frameworks. **Optional Days 41–43** (grid, stack, maze carve) are pure hobby glue to **maze-algorithm-sandbox**; **Day 44** starts the RDF/Brick track whether or not you did them.

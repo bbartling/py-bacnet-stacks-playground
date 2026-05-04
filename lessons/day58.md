@@ -1,4 +1,4 @@
-## Day 55 — The `brick:` namespace and what it defines
+## Day 58 — The `brick:` namespace and what it defines
 
 ### Goal
 

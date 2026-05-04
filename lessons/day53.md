@@ -1,4 +1,4 @@
-## Day 50 — Properties: domain and range (intuition)
+## Day 53 — Properties: domain and range (intuition)
 
 ### Goal
 

@@ -1,4 +1,4 @@
-## Day 58 — Hand-author a tiny Brick TTL model
+## Day 61 — Hand-author a tiny Brick TTL model
 
 ### Goal
 

@@ -24,7 +24,7 @@ print(running_mean(oat, 3))
 
 ### Why this matters
 
-Smoothing SAT or static pressure before thresholds reduces false trips. Understanding windows helps you read FDD code that uses **rolling means**, **max over last N minutes**, etc.—even when a library implements them efficiently.
+Smoothing SAT or static pressure before thresholds reduces false trips. Understanding windows helps you read FDD code that uses **rolling means**, **max over last N minutes**, etc.—even when a library implements them efficiently. **Optional Days 41–43** reuse **index pairs** `(row, col)` on a **2D grid** the way window code uses `(start, end)` on a **1D** series—same discipline, different shape (hobby mazes vs trends).
 
 ### Mini examples
 

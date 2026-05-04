@@ -1,4 +1,4 @@
-## Day 49 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
+## Day 52 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
 
 ### Goal
 

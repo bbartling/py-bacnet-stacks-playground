@@ -1,4 +1,4 @@
-## Day 47 — From flat rows to nested equipment records
+## Day 50 — From flat rows to nested equipment records
 
 ### Goal
 

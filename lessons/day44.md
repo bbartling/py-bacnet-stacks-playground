@@ -1,10 +1,12 @@
-## Day 41 — Buildings as graphs, not only tables
+## Day 44 — Buildings as graphs, not only tables
 
 ### Goal
 
 See why **smart-building digital twins** and **ontology pipelines** (Brick, Haystack+TTL, 223P) use **graphs**: things (equipment, spaces, sensors) as **nodes**, relationships as **edges**. Tables (CSV, SQL rows) are still useful—graphs add **mergeable, global identity** for data integration.
 
 ### Concept
+
+If you tried the **optional maze block (Days 41–43)**, you already practiced **local adjacency** on a grid (four neighbors, visited flags). **Brick graphs** are the same *idea* at a different scale: named things and typed links instead of `(row, col)` and open walls.
 
 A **graph** here means: **vertices** (things) and **edges** (relationships with a direction and a label). A BACnet device list is often a **table**. A Brick model says: *this AHU* **hasPoint** *that SAT sensor* **feeds** *that VAV*—relationships matter as much as columns.
 

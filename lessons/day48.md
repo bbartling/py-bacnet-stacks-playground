@@ -1,4 +1,4 @@
-## Day 45 — Literals: lexical value + datatype IRI
+## Day 48 — Literals: lexical value + datatype IRI
 
 ### Goal
 

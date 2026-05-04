@@ -62,9 +62,10 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - Conditionals, loops, functions, modules, file I/O
 - Error handling with `try`/`except`
 - Simple algorithms: linear search, min/max, basic sorting; light HVAC fault-detection logic and a tiny thermal simulation (Days 27–40)
-- **After Day 40:** graph-thinking for **smart buildings** — only the data structures needed to read **RDF**, relate it to **Brick**, and run **SPARQL** (Days 41–68). Still **no list/dict comprehensions** in lesson examples unless noted optional.
+- **Optional hobby (Days 41–43):** grids, **stacks**, depth-first walks, and iterative **maze generation** (same spirit as **maze-algorithm-sandbox**); skip if you want to go straight to building data.
+- **After Day 43 (or Day 40 if you skip the hobby block):** graph-thinking for **smart buildings** — only the data structures needed to read **RDF**, relate it to **Brick**, and run **SPARQL** (Days 44–71). Still **no list/dict comprehensions** in lesson examples unless noted optional.
 
-**Scope:** Early weeks: strings, lists, dictionaries. **Days 41–68:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week and explains how to use **Micro exercises** and capstones as **hands-on coding challenges** (students implement in their own `.py` / Turtle / SPARQL files).
+**Scope:** Early weeks: strings, lists, dictionaries. **Days 44–71:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week and explains how to use **Micro exercises** and capstones as **hands-on coding challenges** (students implement in their own `.py` / Turtle / SPARQL files).
 
 ---
 
@@ -173,55 +174,64 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 
 ---
 
+### Optional — Grid & maze hobby (Lua reference: maze-algorithm-sandbox)  
+*Optional CS play after the HVAC algorithms arc; skip straight to Week 7 if you prefer*
+
+- **Day 41 — Grids & Neighbors:** 2D nested lists, four-connected neighbors, `visited` flags.
+- **Day 42 — Stacks & DFS:** `list` as LIFO; depth-first walk on a tiny character maze.
+- **Day 43 — Maze generation:** Iterative recursive-backtracking carve (stack, random neighbor), Python counterpart to the Lua **MazeGenerator** pattern.
+
+---
+
 ### Week 7 — Python Bridge for RDF (Smart Buildings)  
 *Only structures needed later: identity, nesting, uniqueness, tiny “graphs”*
 
-- **Day 41 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
-- **Day 42 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
-- **Day 43 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
-- **Day 44 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
-- **Day 45 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
-- **Day 46 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
-- **Day 47 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
+- **Day 44 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
+- **Day 45 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
+- **Day 46 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
+- **Day 47 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
+- **Day 48 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
+- **Day 49 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
+- **Day 50 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
 
 ---
 
 ### Week 8 — RDF & Turtle (Theory + `rdflib`)  
 *Triple model, syntax, loading graphs in Python*
 
-- **Day 48 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
-- **Day 49 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
-- **Day 50 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
-- **Day 51 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
-- **Day 52 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
-- **Day 53 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
-- **Day 54 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
+- **Day 51 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
+- **Day 52 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
+- **Day 53 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
+- **Day 54 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
+- **Day 55 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
+- **Day 56 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
+- **Day 57 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
 
 ---
 
 ### Week 9 — Brick Ontology on RDF  
 *Classes and relationships for equipment and points*
 
-- **Day 55 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
-- **Day 56 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
-- **Day 57 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
-- **Day 58 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
-- **Day 59 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
-- **Day 60 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
+- **Day 58 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
+- **Day 59 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
+- **Day 60 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
+- **Day 61 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
+- **Day 62 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
+- **Day 63 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
 
 ---
 
 ### Week 10 — SPARQL for Brick Graphs  
 *Patterns, filters, optional data, capstone query*
 
-- **Day 61 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
-- **Day 62 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
-- **Day 63 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
-- **Day 64 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
-- **Day 65 — `UNION`:** Alternative patterns (this OR that equipment layout).
-- **Day 66 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
-- **Day 67 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
-- **Day 68 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
+- **Day 64 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
+- **Day 65 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
+- **Day 66 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
+- **Day 67 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
+- **Day 68 — `UNION`:** Alternative patterns (this OR that equipment layout).
+- **Day 69 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
+- **Day 70 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
+- **Day 71 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
 
 ---
 

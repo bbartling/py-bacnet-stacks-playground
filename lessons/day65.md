@@ -1,8 +1,8 @@
-## Day 62 — `SELECT` and basic `WHERE` patterns (`rdflib`)
+## Day 65 — `SELECT` and basic `WHERE` patterns (`rdflib`)
 
 ### Goal
 
-Run your **first** SPARQL `SELECT` against the **Day 58** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
+Run your **first** SPARQL `SELECT` against the **Day 61** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
 
 ### Concept
 

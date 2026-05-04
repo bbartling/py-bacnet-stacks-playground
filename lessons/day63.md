@@ -1,4 +1,4 @@
-## Day 60 — FDD inputs and Brick class names (open-fdd bridge)
+## Day 63 — FDD inputs and Brick class names (open-fdd bridge)
 
 ### Goal
 
@@ -16,7 +16,7 @@ Same idea as **223P** / **DBO** fields in that cookbook: **first match wins** re
 
 1. For Rule A (duct static), list **inputs** and which are **sensors** vs **setpoints** vs **commands**.
 2. Write a Python `dict` `logical_to_brick_class` with two entries from that rule.
-3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 68.
+3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 71.
 
 ### Key takeaway
 

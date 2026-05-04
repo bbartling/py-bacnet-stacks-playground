@@ -1,4 +1,4 @@
-## Day 42 — URIs and IRIs as identity strings
+## Day 45 — URIs and IRIs as identity strings
 
 ### Goal
 
@@ -31,7 +31,7 @@ RDF **never** merges rows on “column name”; it merges on **same URI** (or ex
 
 ### Mini exercises
 
-1. Given two lists of URI strings, write a loop to print URIs that appear in **both** (set intersection pattern—Day 45 preview, or double loop now).
+1. Given two lists of URI strings, write a loop to print URIs that appear in **both** (set intersection pattern—Day 48 preview, or double loop now).
 2. Why is `http://` vs `https://` a problem if two sources mint “the same” equipment differently?
 3. Look up **Brick’s published namespace** string (read-only web search or Brick docs) and write it in a variable `BRICK_NS`.
 

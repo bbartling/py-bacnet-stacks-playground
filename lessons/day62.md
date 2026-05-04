@@ -1,4 +1,4 @@
-## Day 59 — Haystack tags vs Brick RDF graphs
+## Day 62 — Haystack tags vs Brick RDF graphs
 
 ### Goal
 

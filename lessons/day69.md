@@ -1,4 +1,4 @@
-## Day 66 — `ASK` (yes/no commissioning checks)
+## Day 69 — `ASK` (yes/no commissioning checks)
 
 ### Goal
 

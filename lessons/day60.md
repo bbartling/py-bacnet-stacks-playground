@@ -1,4 +1,4 @@
-## Day 57 — Key Brick predicates (`hasPoint`, `isPartOf`, `feeds`)
+## Day 60 — Key Brick predicates (`hasPoint`, `isPartOf`, `feeds`)
 
 ### Goal
 

@@ -1,4 +1,4 @@
-## Day 68 — Capstone: SPARQL over a small Brick model
+## Day 71 — Capstone: SPARQL over a small Brick model
 
 ### Goal
 
@@ -50,4 +50,4 @@ ORDER BY ?ahu ?p
 
 ### Key takeaway
 
-**RDF data modeling + SPARQL pattern matching** closes the loop from **Python lists** (Days 41–47) to **interoperable building graphs**—the same stack Brick tools and graph-first FDD workshops build on.
+**RDF data modeling + SPARQL pattern matching** closes the loop from **Python lists** (Days 44–50, after optional maze Days 41–43) to **interoperable building graphs**—the same stack Brick tools and graph-first FDD workshops build on.

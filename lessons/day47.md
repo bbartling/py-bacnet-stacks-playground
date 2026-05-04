@@ -1,4 +1,4 @@
-## Day 44 — Triples as tuples; a list as a toy graph
+## Day 47 — Triples as tuples; a list as a toy graph
 
 ### Goal
 
@@ -12,7 +12,7 @@ Each triple is one **statement**: *subject* **predicate** *object*.
 - Predicate: IRI (property / relationship type).
 - Object: IRI **or** literal (later lessons add datatype).
 
-Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 54 revisits deduplication.
+Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 57 revisits deduplication.
 
 ### How to use it
 

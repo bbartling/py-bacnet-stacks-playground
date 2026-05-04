@@ -1,4 +1,4 @@
-## Day 61 — Why SPARQL for smart-building graphs
+## Day 64 — Why SPARQL for smart-building graphs
 
 ### Goal
 

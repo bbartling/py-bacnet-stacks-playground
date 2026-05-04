@@ -1,4 +1,4 @@
-## Day 46 — Adjacency list: `dict` of outgoing edges
+## Day 49 — Adjacency list: `dict` of outgoing edges
 
 ### Goal
 
@@ -6,7 +6,7 @@ Store a **directed multigraph** as `dict[str, list[tuple[str, str]]]`: **subject
 
 ### Concept
 
-Same triples as Day 44, reorganized for fast “**all edges from this node**” lookup.
+Same triples as Day 47, reorganized for fast “**all edges from this node**” lookup.
 
 ```python
 def add_edge(graph, subj, pred, obj):
@@ -27,7 +27,7 @@ Graph databases still answer “**outgoing edges**” and **pattern matching**. 
 
 ### Mini exercises
 
-1. Build `adj` from the flat `triples` list of Day 44 (one loop: `add_edge` each).
+1. Build `adj` from the flat `triples` list of Day 47 (one loop: `add_edge` each).
 2. Write `has_edge(adj, subj, pred, obj)` returning `bool`.
 3. Count distinct **subjects** that appear as **object** anywhere (two passes over data—no set comprehension: use empty dict keys as set stand-in, or introduce `set()` explicitly if allowed—**using `set()` is fine**; course avoided *comprehensions*, not `set()`).
 

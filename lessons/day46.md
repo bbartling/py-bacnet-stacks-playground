@@ -1,4 +1,4 @@
-## Day 43 — Prefix maps: expand `brick:Thing` by hand
+## Day 46 — Prefix maps: expand `brick:Thing` by hand
 
 ### Goal
 

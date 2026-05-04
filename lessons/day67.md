@@ -1,4 +1,4 @@
-## Day 64 — `OPTIONAL` (missing points, partial models)
+## Day 67 — `OPTIONAL` (missing points, partial models)
 
 ### Goal
 
