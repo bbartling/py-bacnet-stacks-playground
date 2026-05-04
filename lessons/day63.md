@@ -1,34 +1,23 @@
-## Day 63 — `FILTER` and `BIND` (numbers and computed values)
+## Day 60 — FDD inputs and Brick class names (open-fdd bridge)
 
 ### Goal
 
-Narrow results with **`FILTER` expressions** and create **computed columns** with **`BIND`**—e.g. only points whose **numeric literal** (if modeled) passes a test. For this course, **`FILTER`** on **IRIs** or **regex on string form** is enough if you did not add `xsd:decimal` literals.
+Connect **open-fdd** style **`inputs`** blocks (logical names + optional `brick:` hints) to **ontology**: the **string** after `brick:` in YAML is meant to align with **Brick class** IRIs for that concept—not arbitrary prose.
 
 ### Concept
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?p
-WHERE {
-  ?p rdf:type brick:Supply_Air_Temperature_Sensor .
-  FILTER ( STRSTARTS( STR(?p), "https://example.edu/bldg/ahu1" ) )
-}
-```
-
-(`STRSTARTS` availability depends on SPARQL engine; `rdflib` supports much of SPARQL 1.1—if a function fails, fall back to **Python post-filter** on query results for 101.)
+Read one recipe from **`open-fdd/docs/expression_rule_cookbook.md`** (local clone). List each **input** key and its **Brick** field. In Python, model that as `dict` mapping **logical name** → **Brick class IRI string** (column mapping to historian columns stays separate).
 
 ### Why this matters
 
-**FDD** thresholds on **trend data** live in Pandas in open-fdd; in **ontology land**, you filter **metadata** (“sensors on this AHU only”) before joining to historians.
+Same idea as **223P** / **DBO** fields in that cookbook: **first match wins** resolvers—the **advanced data structure** is the **resolver chain**, but you implement a **single dict** first (`logical_name -> column_name`) before learning priority composites.
 
 ### Mini exercises
 
-1. Write `FILTER ( ?p != <https://example.edu/bldg/ahu1/oat> )` style inequality on two IRIs you know.
-2. `BIND` a boolean `?is_sat` using `CONTAINS` or `regex` on `STR(?p)`—optional if your engine supports those functions.
-3. If `rdflib` rejects a function, filter results in Python with a `for` loop—same outcome.
+1. For Rule A (duct static), list **inputs** and which are **sensors** vs **setpoints** vs **commands**.
+2. Write a Python `dict` `logical_to_brick_class` with two entries from that rule.
+3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 68.
 
 ### Key takeaway
 
-**FILTER/BIND = SQL HAVING/SELECT expressions** at the graph-pattern layer—useful for **metadata slicing**.
+**FDD rules consume logical columns; ontologies name the semantics.** Brick IRIs are the bridge vocabulary.

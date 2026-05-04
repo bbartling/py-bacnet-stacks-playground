@@ -1,32 +1,32 @@
-## Day 64 — `OPTIONAL` (missing points, partial models)
+## Day 61 — Why SPARQL for smart-building graphs
 
 ### Goal
 
-Use **`OPTIONAL { ... }`** so rows still return when a **nested fact** is absent—e.g. every AHU with an **optional** `brick:hasPoint` to an OAT sensor.
+Define **SPARQL** as a **query language for RDF**: you describe a **graph pattern**; the engine returns **bindings** for variables that **match** the pattern in the dataset (in-memory `rdflib` graph or remote endpoint).
 
 ### Concept
 
-```sparql
-SELECT ?ahu ?oat
+Core shape:
+
+```text
+SELECT ?variable
 WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  OPTIONAL { ?ahu brick:hasPoint ?oat .
-             ?oat rdf:type brick:Outside_Air_Temperature_Sensor . }
+  ?subject ?predicate ?object .
 }
 ```
 
-If no OAT exists, `?oat` is **unbound** but `?ahu` still appears (SPARQL semantics).
+**WHERE** is not “SQL where clause” first—think **pattern match** on triples.
 
 ### Why this matters
 
-Real campuses ship **partial** Brick. **OPTIONAL** prevents queries from silently dropping whole equipment lines.
+**Commissioning queries:** “Every `Supply_Air_Temperature_Sensor` that **has** location in **this** wing.” **FDD prep:** “All AHUs without an **outside air flow** point.” These are multi-hop patterns—awkward in CSV, natural in SPARQL.
 
 ### Mini exercises
 
-1. Run OPTIONAL query on your toy model; remove OAT triples and compare result rows.
-2. In Python after `query`, detect unbound `None` cells in `rdflib` rows (print `row` objects).
-3. When would **forbidden OPTIONAL** be better as a **separate validation query** instead?
+1. In English, translate: “Find all subjects `?e` such that `?e rdf:type brick:Air_Handler_Unit`.”
+2. List two reasons a **triplestore** might be used instead of only files on disk.
+3. Install / verify `rdflib` and read `help(Graph.query)` one screen.
 
 ### Key takeaway
 
-**OPTIONAL = outer join** intuition for graph people. Use it for **commissioning completeness** checks.
+**SPARQL = patterns + variables.** Next days add `FILTER`, `OPTIONAL`, `UNION`, and hygiene keywords.

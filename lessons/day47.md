@@ -1,34 +1,57 @@
-## Day 47 — From flat rows to nested equipment records
+## Day 44 — Triples as tuples; a list as a toy graph
 
 ### Goal
 
-**Bridge** BACnet/CSV thinking to graph prep: given **rows** as `list` of `dict` (keys like `device`, `point_name`, `brick_class`), build a **nested dict**: `equipment_id -> { "class": ..., "points": [ ... ] }` using only loops—same grouping you would need before emitting Turtle.
+Represent RDF **triples** as **`(subject, predicate, object)`** tuples (all `str` for now). Store many in a **`list`**. That list is your **in-memory graph** for exercises—unordered unless you sort a copy for debugging.
 
 ### Concept
 
-Many exports are **relational**. Brick wants **things and links**. Grouping rows **by equipment** is an algorithm you already know (counting pattern with dict of lists).
+Each triple is one **statement**: *subject* **predicate** *object*.
+
+- Subject: usually an IRI (resource).
+- Predicate: IRI (property / relationship type).
+- Object: IRI **or** literal (later lessons add datatype).
+
+Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 54 revisits deduplication.
+
+### How to use it
 
 ```python
-def group_points_by_equipment(rows):
-    out = {}
-    for row in rows:
-        eq = row["equipment_id"]
-        if eq not in out:
-            out[eq] = []
-        out[eq].append(row)
-    return out
+triples = []
+triples.append(
+    (
+        "https://example.edu/bldg/ahu1",
+        "https://brickschema.org/schema/Brick#hasPoint",
+        "https://example.edu/bldg/ahu1/sat",
+    )
+)
+triples.append(
+    (
+        "https://example.edu/bldg/ahu1/sat",
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor",
+    )
+)
+
+
+def count_predicates(graph, predicate_iri):
+    n = 0
+    for s, p, o in graph:
+        if p == predicate_iri:
+            n += 1
+    return n
 ```
 
 ### Why this matters
 
-Real pipelines **normalize** tabular BACnet discovery into **entities** before `owl:sameAs` / Brick typing. This step is pure Python **data structuring**—no RDF parser required.
+`rdflib` will iterate `(s, p, o)` the same way. Your mental model should match the library’s iterator.
 
 ### Mini exercises
 
-1. Extend grouping so each equipment node also stores `row["equip_type"]` once (first-seen wins).
-2. Emit a **sorted** list of equipment IDs for stable Turtle output (`sorted(out.keys())`).
-3. List one **relationship** you cannot represent in one grouped dict without adding a second pass (e.g. `feeds` between two equipment IDs).
+1. Write `objects_for_subject(graph, subj)` returning a **list** of all `o` where `(subj, any, o)` in `graph`.
+2. Write `predicates_for_subject_object(graph, subj, obj)` returning predicates linking `subj` to `obj`.
+3. Add a third triple: `ahu1` **feeds** `vav101` (use IRIs you invent under `ex:`).
 
 ### Key takeaway
 
-**Nested dicts + sorted keys** = human-readable, diff-friendly RDF generation later. You are now “shaping” data the way ontology tooling expects.
+**Graph = collection of triples.** A Python `list` of 3-tuples is enough to practice every RDF idea until you load Turtle with `rdflib`.

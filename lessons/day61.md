@@ -1,32 +1,30 @@
-## Day 61 — Why SPARQL for smart-building graphs
+## Day 58 — Hand-author a tiny Brick TTL model
 
 ### Goal
 
-Define **SPARQL** as a **query language for RDF**: you describe a **graph pattern**; the engine returns **bindings** for variables that **match** the pattern in the dataset (in-memory `rdflib` graph or remote endpoint).
+Write **20–40 lines** of Turtle (in a `.ttl` file) describing:
+
+- one **AHU** instance,
+- one **SAT** sensor instance,
+- `rdf:type` for each,
+- `brick:hasPoint` from AHU to sensor.
+
+Validate by **parsing with `rdflib`** and printing triple count.
 
 ### Concept
 
-Core shape:
-
-```text
-SELECT ?variable
-WHERE {
-  ?subject ?predicate ?object .
-}
-```
-
-**WHERE** is not “SQL where clause” first—think **pattern match** on triples.
+Use `@prefix` for `ex`, `brick`, `rdf`. Use `a` for `rdf:type`. Keep **IRIs stable** and **human-readable** local names after `#` or final `/`.
 
 ### Why this matters
 
-**Commissioning queries:** “Every `Supply_Air_Temperature_Sensor` that **has** location in **this** wing.” **FDD prep:** “All AHUs without an **outside air flow** point.” These are multi-hop patterns—awkward in CSV, natural in SPARQL.
+**Authoring** is how you learn syntax muscle memory before generators do it for you.
 
 ### Mini exercises
 
-1. In English, translate: “Find all subjects `?e` such that `?e rdf:type brick:Air_Handler_Unit`.”
-2. List two reasons a **triplestore** might be used instead of only files on disk.
-3. Install / verify `rdflib` and read `help(Graph.query)` one screen.
+1. Add `ex:floor3` as a `brick:Floor` and `brick:isPartOf` from AHU to floor (if predicate fits your reading).
+2. Add **labels** using `rdfs:label` if you looked up `rdfs:` prefix—optional stretch.
+3. Break Turtle on purpose (missing period); confirm parser error message is readable.
 
 ### Key takeaway
 
-**SPARQL = patterns + variables.** Next days add `FILTER`, `OPTIONAL`, `UNION`, and hygiene keywords.
+**Small correct models > large wrong models.** This file becomes SPARQL homework input.

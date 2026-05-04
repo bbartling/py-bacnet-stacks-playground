@@ -1,36 +1,43 @@
-## Day 65 — `UNION` (alternative shapes)
+## Day 62 — `SELECT` and basic `WHERE` patterns (`rdflib`)
 
 ### Goal
 
-Combine **two graph patterns** with **`UNION`** when equipment might satisfy **either** layout—e.g. SAT under AHU **or** under a downstream assembly (toy example).
+Run your **first** SPARQL `SELECT` against the **Day 58** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
 
 ### Concept
 
-```sparql
-SELECT ?temp_sensor
+```python
+from rdflib import Graph
+
+g = Graph()
+g.parse("my_ahu.ttl", format="turtle")
+
+q = """
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?ahu
 WHERE {
-  { ?ahu rdf:type brick:Air_Handler_Unit .
-    ?ahu brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
-  UNION
-  { ?vav rdf:type brick:Variable_Air_Volume_Box .
-    ?vav brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
+  ?ahu rdf:type brick:Air_Handler_Unit .
 }
+"""
+
+for row in g.query(q):
+    print(row[0])
 ```
 
-(Use class IRIs that exist in **your** Brick release; VAV class name may differ—consult Brick docs.)
+Variables start with `?`. Each `WHERE` line is a **triple pattern**; shared `?ahu` joins patterns.
 
 ### Why this matters
 
-**Vendor diversity** means the same **semantic** sensor appears under different parents. `UNION` collects both without forcing one false `OPTIONAL` chain.
+Same query runs on a **file** or a **Blazegraph** endpoint—only the **connection** changes.
 
 ### Mini exercises
 
-1. Draw two small graphs that differ only in parent equipment; confirm `UNION` returns both sensors.
-2. Could two branches of `UNION` **double-count** the same sensor? When?
-3. Rewrite (conceptually) `UNION` as two queries + Python `set` merge—when is that acceptable offline?
+1. Extend the query to also return `?label` if you added `rdfs:label` triples.
+2. Return pairs `(?ahu, ?p)` where `?ahu brick:hasPoint ?p`.
+3. Explain: why must **prefixes** in SPARQL match the Turtle file’s IRIs?
 
 ### Key takeaway
 
-**UNION = OR over patterns.** Use sparingly; document why both branches exist.
+**One graph, many queries.** `SELECT` lists which columns (variables) you want bound.

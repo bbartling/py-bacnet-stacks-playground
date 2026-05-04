@@ -1,53 +1,36 @@
-## Day 68 — Capstone: SPARQL over a small Brick model
+## Day 65 — `UNION` (alternative shapes)
 
 ### Goal
 
-Combine **Weeks 7–10**: load a **small Turtle file** you author (or start from the template below), run **at least three** SPARQL queries:
+Combine **two graph patterns** with **`UNION`** when equipment might satisfy **either** layout—e.g. SAT under AHU **or** under a downstream assembly (toy example).
 
-1. **List** all `brick:Air_Handler_Unit` instances.
-2. **List** all points related via `brick:hasPoint` to a chosen AHU (variable `?p`).
-3. **`OPTIONAL`** list SAT sensors per AHU; note unbound slots.
-
-Write **short prose** documenting what each query answers for a **commissioning tech**.
-
-### Sample model (save as `capstone.ttl` and extend)
-
-```turtle
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-ex:ahu1 a brick:Air_Handler_Unit ;
-    brick:hasPoint ex:ahu1/sat ;
-    brick:hasPoint ex:ahu1/oat .
-
-ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
-ex:ahu1/oat a brick:Outside_Air_Temperature_Sensor .
-# Class IRIs: confirm against the Brick version you use in production.
-```
-
-### Starter query (extend)
+### Concept
 
 ```sparql
-PREFIX ex: <https://example.edu/bldg/>
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?ahu ?p ?ptype
+SELECT ?temp_sensor
 WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  ?ahu brick:hasPoint ?p .
-  ?p rdf:type ?ptype .
+  { ?ahu rdf:type brick:Air_Handler_Unit .
+    ?ahu brick:hasPoint ?temp_sensor .
+    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
+  UNION
+  { ?vav rdf:type brick:Variable_Air_Volume_Box .
+    ?vav brick:hasPoint ?temp_sensor .
+    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
 }
-ORDER BY ?ahu ?p
 ```
 
-### Deliverables
+(Use class IRIs that exist in **your** Brick release; VAV class name may differ—consult Brick docs.)
 
-- `capstone.ttl` (≥ your template size, with at least **two** AHUs or **one** AHU + **floor**).
-- `queries.rq` or a Python script using `rdflib` that prints results for queries 1–3.
-- **README fragment** (5 sentences): how you would connect these IRIs to **historian columns** for an open-fdd-style rule.
+### Why this matters
+
+**Vendor diversity** means the same **semantic** sensor appears under different parents. `UNION` collects both without forcing one false `OPTIONAL` chain.
+
+### Mini exercises
+
+1. Draw two small graphs that differ only in parent equipment; confirm `UNION` returns both sensors.
+2. Could two branches of `UNION` **double-count** the same sensor? When?
+3. Rewrite (conceptually) `UNION` as two queries + Python `set` merge—when is that acceptable offline?
 
 ### Key takeaway
 
-**RDF data modeling + SPARQL pattern matching** closes the loop from **Python lists** (Days 41–47) to **interoperable building graphs**—the same stack Brick tools and graph-first FDD workshops build on.
+**UNION = OR over patterns.** Use sparingly; document why both branches exist.

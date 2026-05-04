@@ -1,43 +1,24 @@
-## Day 62 — `SELECT` and basic `WHERE` patterns (`rdflib`)
+## Day 59 — Haystack tags vs Brick RDF graphs
 
 ### Goal
 
-Run your **first** SPARQL `SELECT` against the **Day 58** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
+Contrast **Haystack** (tagged dicts / Zinc /Refs—**semi-structured**) with **Brick** (**RDF graph**, mergeable across sites). Neither replaces the other in the field; **bridges** exist (project Haystack *relationships* and Brick alignment efforts—mention at high level only).
 
 ### Concept
 
-```python
-from rdflib import Graph
-
-g = Graph()
-g.parse("my_ahu.ttl", format="turtle")
-
-q = """
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?ahu
-WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-}
-"""
-
-for row in g.query(q):
-    print(row[0])
-```
-
-Variables start with `?`. Each `WHERE` line is a **triple pattern**; shared `?ahu` joins patterns.
+- **Tags** answer: “What is this point?” quickly in a **single** document.
+- **Brick** answers: “How does this point relate to **equipment**, **spaces**, and **other points** across **datasets**?”
 
 ### Why this matters
 
-Same query runs on a **file** or a **Blazegraph** endpoint—only the **connection** changes.
+Your **Python** course avoided Pandas; in operations you still see **CSV + tags**. RDF is the **interchange** shape when semantic interoperability matters (utilities, campus digital twins, FDD graph workshops).
 
 ### Mini exercises
 
-1. Extend the query to also return `?label` if you added `rdfs:label` triples.
-2. Return pairs `(?ahu, ?p)` where `?ahu brick:hasPoint ?p`.
-3. Explain: why must **prefixes** in SPARQL match the Turtle file’s IRIs?
+1. Model the same SAT as (a) a Haystack-style `dict` with `dis`, `point`, `equipRef` keys vs (b) two Brick triples—side by side in notes.
+2. Which representation is easier to **`git diff`** when a VAV is moved from one AHU to another?
+3. One sentence: why **SPARQL** is unnecessary for a single tagged JSON file but useful for a **merged** campus graph.
 
 ### Key takeaway
 
-**One graph, many queries.** `SELECT` lists which columns (variables) you want bound.
+**Tags = local convenience; RDF = global composition.** You will use both in real stacks.

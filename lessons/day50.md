@@ -1,27 +1,34 @@
-## Day 50 — Properties: domain and range (intuition)
+## Day 47 — From flat rows to nested equipment records
 
 ### Goal
 
-At **documentation level**, understand **`rdfs:domain`** and **`rdfs:range`**: “when you see `p` used, subject is expected to be a *kind of* D; object is expected to be a *kind of* R.” You will not prove entailment—just read Brick/RDFS diagrams and Turtle snippets.
+**Bridge** BACnet/CSV thinking to graph prep: given **rows** as `list` of `dict` (keys like `device`, `point_name`, `brick_class`), build a **nested dict**: `equipment_id -> { "class": ..., "points": [ ... ] }` using only loops—same grouping you would need before emitting Turtle.
 
 ### Concept
 
-Example pattern (illustrative):
+Many exports are **relational**. Brick wants **things and links**. Grouping rows **by equipment** is an algorithm you already know (counting pattern with dict of lists).
 
-- Predicate `brick:hasPoint` might be documented with domain **Equipment** and range **Point** (exact Brick RDFS is authoritative—treat lesson as pattern).
-
-In **Python validation**, you can fake a tiny checker: if `p == HAS_POINT` and `subj` not in `known_equipment_ids`, append a **warning string** to a list.
+```python
+def group_points_by_equipment(rows):
+    out = {}
+    for row in rows:
+        eq = row["equipment_id"]
+        if eq not in out:
+            out[eq] = []
+        out[eq].append(row)
+    return out
+```
 
 ### Why this matters
 
-When generating Turtle from BACnet, **domain/range docs** tell you whether you attached a sensor to a **space** vs **equipment** incorrectly.
+Real pipelines **normalize** tabular BACnet discovery into **entities** before `owl:sameAs` / Brick typing. This step is pure Python **data structuring**—no RDF parser required.
 
 ### Mini exercises
 
-1. Read one Brick **relationship** definition in published Turtle/OWL (browser) and copy domain/range English gloss into your notes.
-2. Write `validate_has_point(triples)` that warns if the same **subject** has two `hasPoint` edges to objects with **different** `rdf:type` Point classes (toy rule).
-3. Why is **range** documentation weaker than a SQL `FOREIGN KEY` in practice?
+1. Extend grouping so each equipment node also stores `row["equip_type"]` once (first-seen wins).
+2. Emit a **sorted** list of equipment IDs for stable Turtle output (`sorted(out.keys())`).
+3. List one **relationship** you cannot represent in one grouped dict without adding a second pass (e.g. `feeds` between two equipment IDs).
 
 ### Key takeaway
 
-**RDFS domain/range = soft schema hints** for humans and some reasoners. Your FDD + analytics code may still need explicit QA.
+**Nested dicts + sorted keys** = human-readable, diff-friendly RDF generation later. You are now “shaping” data the way ontology tooling expects.

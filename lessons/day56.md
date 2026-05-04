@@ -1,27 +1,38 @@
-## Day 56 — Equipment taxonomy (AHU, VAV, terminal units)
+## Day 53 — Serialization and round-trip
 
 ### Goal
 
-Navigate **subclass** chains at a **high level**: e.g. terminal units, air handlers, chillers. You read **taxonomy** to pick the **most specific correct** `rdf:type` for commissioning data—not to memorize the whole lattice.
+Control **ordering** only indirectly (serializers may reorder blank nodes). Practice **`graph.serialize(format="turtle")`** to bytes/str, write to `.ttl` file, **re-parse**, and compare **triple set** equality—not string equality.
 
 ### Concept
 
-Draw a **tiny** hierarchy on paper (English):
+Build two graphs from two strings that **look different** but assert the same triples (use `;` in one, fully expanded in other). Use:
 
-- `Air_Handler_Unit` ⊂ `HVAC_Equipment` (illustrative—verify in Brick).
+```python
+def triple_set(graph):
+    s = set()
+    for tr in graph:
+        s.add(tr)
+    return s
 
-In data, **subClassOf** triples come from the ontology file, not always from your site file. Your site file usually asserts **instances** with **specific** classes.
+
+g1 = Graph()
+g1.parse(data=ttl_a, format="turtle")
+g2 = Graph()
+g2.parse(data=ttl_b, format="turtle")
+print(triple_set(g1) == triple_set(g2))
+```
 
 ### Why this matters
 
-Under-specifying types (`brick:Equipment` everywhere) makes **SPARQL** and **FDD rules** noisy. Over-specifying wrong types breaks **validation**.
+**CI pipelines** for Brick models should diff **semantics** (canonicalization tools exist in the wild); for this course, **set equality** of triples is enough intuition.
 
 ### Mini exercises
 
-1. List two **sibling** classes under a common parent (from Brick docs) relevant to your campus.
-2. If a device is **both** packaged RTU and AHU in vendor docs, which risk do you choose when typing in Brick (under- vs over-modeling)?
-3. Add `rdf:type` triples for two VAVs and one AHU in a toy `Graph`.
+1. Serialize with `format="nt"` (N-Triples); note one triple per line—easier for `diff`.
+2. Save Turtle to `model.ttl`, read back with `open(...).read()`, parse.
+3. Explain why **pretty-print** order must not be used as a merge conflict resolution strategy.
 
 ### Key takeaway
 
-**Taxonomy guides typing.** Brick’s class tree is the shared language between **engineers** and **software**.
+**Round-trip = parse(serialize(g)) ≈ g** at triple level. Strings will differ; graphs should match.

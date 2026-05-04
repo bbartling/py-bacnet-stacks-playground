@@ -1,31 +1,36 @@
-## Day 49 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
+## Day 46 — Adjacency list: `dict` of outgoing edges
 
 ### Goal
 
-Read **instance typing**: `ex:ahu1 rdf:type brick:Air_Handler_Unit`. Read **taxonomy**: `brick:VAV rdfs:subClassOf brick:Terminal_Unit` (examples illustrative—verify current Brick class names in official Brick for production).
+Store a **directed multigraph** as `dict[str, list[tuple[str, str]]]`: **subject IRI** maps to a **list** of `(predicate_iri, object_iri_or_literal_repr)` pairs. This is a classic **adjacency list**—useful for Brick-style “what hangs off this AHU?” queries before SPARQL.
 
 ### Concept
 
-- **`rdf:type`**: “this individual is a member of that class.”
-- **`rdfs:subClassOf`**: “every A is a B” for reasoning; not the same as `rdf:type`.
-
-In Python triple lists, these are just **more rows** with well-known predicate IRIs:
+Same triples as Day 44, reorganized for fast “**all edges from this node**” lookup.
 
 ```python
-RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-RDFS_SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+def add_edge(graph, subj, pred, obj):
+    if subj not in graph:
+        graph[subj] = []
+    graph[subj].append((pred, obj))
+
+
+def neighbors(graph, subj):
+    if subj not in graph:
+        return []
+    return list(graph[subj])  # copy
 ```
 
 ### Why this matters
 
-SPARQL `FILTER` and **RDFS inference** (in engines that support it) use these predicates. Even without a reasoner, **you** manually assert enough `rdf:type` rows for queries to work.
+Graph databases still answer “**outgoing edges**” and **pattern matching**. Your dict mirrors how you might **index** triples in a tiny edge service on a Pi.
 
 ### Mini exercises
 
-1. Add triples: `vav101` `rdf:type` `brick:VAV` (use full IRIs you control).
-2. Explain: if `brick:VAV` is subclass of `brick:Terminal_Unit`, does your data **need** both type triples? When might you add both anyway?
-3. Find Brick’s **namespace** and one **AHU** class IRI from official docs; paste into a comment in a `.py` file.
+1. Build `adj` from the flat `triples` list of Day 44 (one loop: `add_edge` each).
+2. Write `has_edge(adj, subj, pred, obj)` returning `bool`.
+3. Count distinct **subjects** that appear as **object** anywhere (two passes over data—no set comprehension: use empty dict keys as set stand-in, or introduce `set()` explicitly if allowed—**using `set()` is fine**; course avoided *comprehensions*, not `set()`).
 
 ### Key takeaway
 
-**Taxonomies = extra triples** using `rdfs:subClassOf`. **Instances** use `rdf:type`. SPARQL will ask both kinds of questions.
+**Same graph, many views:** list of triples vs adjacency dict. SPARQL engines use far smarter indexes—but your mental model starts here.

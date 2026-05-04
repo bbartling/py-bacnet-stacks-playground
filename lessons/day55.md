@@ -1,26 +1,40 @@
-## Day 55 — The `brick:` namespace and what it defines
+## Day 52 — `rdflib`: parse Turtle into a `Graph`
 
 ### Goal
 
-Articulate what **Brick** adds on top of raw RDF: a **curated vocabulary** of **classes** (equipment, locations, points, substances, quantities…) and **relationships** tuned for buildings. Brick reuses **RDF/RDFS/OWL** machinery; you do not memorize every class.
+Install **`rdflib`** (`pip install rdflib`), parse a **Turtle string**, iterate **all triples**, and print human-readable lines. No SPARQL yet—just **load + walk**.
 
 ### Concept
 
-Official Brick publishes **OWL** + documentation. Practically:
+```python
+from rdflib import Graph
 
-- Class IRIs live under the Brick namespace (see current Brick release for exact IRI pattern).
-- You **reuse** class IRIs in `rdf:type` triples and in **SHACL** / documentation elsewhere (SHACL optional for this course).
+g = Graph()
+ttl = """
+@prefix ex: <https://example.edu/bldg/> .
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+ex:ahu1 a brick:Air_Handler_Unit .
+"""
+g.parse(data=ttl, format="turtle")
+
+for s, p, o in g:
+    print(s, p, o)
+```
+
+`rdflib` uses **URIRef**, **Literal**, **BNode** types—`str(s)` often works for printing.
 
 ### Why this matters
 
-**open-fdd** `brick:` keys in YAML inputs are **labels** that resolve, via `column_map`, to **columns**—but in a graph pipeline the same strings align with **Brick class IRIs** for discovery and SPARQL.
+Every SPARQL query in the next week runs **against** a `Graph` (or endpoint). Loading Turtle is the handshake between **files in git** and **queries**.
 
 ### Mini exercises
 
-1. Open Brick documentation index; bookmark **three** class names you actually have on site (e.g. AHU, VAV, SAT sensor).
-2. Write one sentence: difference between **Brick class** and **BACnet object type**.
-3. In Turtle, assert `ex:room101 a brick:Room` (use real namespace from docs).
+1. Print `len(g)` after parse; add a second `parse` of another small string—does length increase as expected?
+2. Catch **ParserError** (or broad `Exception` for 101) on bad Turtle and print a friendly message.
+3. Serialize back with `g.serialize(format="turtle")` to a string; confirm your AHU line still exists.
 
 ### Key takeaway
 
-**Brick = building-centric vocabulary layer.** RDF is the file format; Brick names the *kinds* of things in a BAS.
+**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 44 mental model.

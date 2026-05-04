@@ -1,29 +1,31 @@
-## Day 57 — Key Brick predicates (`hasPoint`, `isPartOf`, `feeds`)
+## Day 54 — Merging graphs and deduplicating triples
 
 ### Goal
 
-Memorize **meanings**, not every predicate in Brick: **`brick:hasPoint`** links equipment (or space) to a **point**; **`brick:isPartOf`** composes systems; **`brick:feeds`** suggests **upstream/downstream** airflow or hydronic flow context (read Brick definitions for precise semantics).
+Parse **two** Turtle snippets into `g1` and `g2`, **`g1 += g2`** (or `graph1 += graph2` in rdflib), then reason about **duplicates**. Practice converting to a **Python `set`** of **frozen** triple representations only if hashable—`rdflib` terms are not always trivially hashable in older patterns, so use: **“add all triples from g2 into g1 and trust rdflib”** + **count** before/after.
 
 ### Concept
 
-Represent in Python as normal predicate IRIs in triples:
-
 ```python
-HAS_POINT = "https://brickschema.org/schema/Brick#hasPoint"
-IS_PART_OF = "https://brickschema.org/schema/Brick#isPartOf"
-FEEDS = "https://brickschema.org/schema/Brick#feeds"
+from rdflib import Graph
+
+g_merged = Graph()
+g_merged.parse(data=ttl_site, format="turtle")
+g_merged.parse(data=ttl_vendor_addon, format="turtle")
 ```
+
+If the same triple appears twice, RDF set semantics treat it as one **edge**. `rdflib` `Graph` is **like a set of triples** for addition.
 
 ### Why this matters
 
-**Graph traversals** for “all SAT sensors on AHUs that feed this corridor” are **multi-hop patterns**—exactly SPARQL’s strength next week.
+**Site model + vendor asset pack + FDD ontology slice** = merge in memory or store in triplestore. Conflicts are **same subject/predicate, different object**—resolution is policy, not syntax.
 
 ### Mini exercises
 
-1. Assert: `ex:ahu1` **hasPoint** `ex:ahu1/sat`; `ex:vav12` **isPartOf** `ex:floor3`; `ex:ahu1` **feeds** `ex:vav12` (if `feeds` applies in your reading of Brick—if not, replace with a predicate your instructor approves).
-2. Write `points_of(graph, equipment_iri)` returning a list of point IRIs using loops over triples.
-3. What is the **direction** of `feeds` (who is subject)? Quote Brick’s English gloss.
+1. Merge a graph that asserts `ex:ahu1 brick:hasPoint ex:p1` with another that asserts the same triple—did `len` change?
+2. Merge graphs that **conflict** on `ex:ahu1 ex:commissionedOn` object—list both objects after merge (rdflib keeps both unless you remove—observe behavior).
+3. Write English **policy** rules for resolving commissioning date conflicts (no code).
 
 ### Key takeaway
 
-**Predicates are verbs.** Brick picks verbs that match how **MEP** engineers already talk—then machines can query them.
+**Merge = union of assertions.** Duplicates vanish; **conflicts** need human or rule-based resolution outside raw RDF.

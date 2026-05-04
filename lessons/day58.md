@@ -1,30 +1,26 @@
-## Day 58 — Hand-author a tiny Brick TTL model
+## Day 55 — The `brick:` namespace and what it defines
 
 ### Goal
 
-Write **20–40 lines** of Turtle (in a `.ttl` file) describing:
-
-- one **AHU** instance,
-- one **SAT** sensor instance,
-- `rdf:type` for each,
-- `brick:hasPoint` from AHU to sensor.
-
-Validate by **parsing with `rdflib`** and printing triple count.
+Articulate what **Brick** adds on top of raw RDF: a **curated vocabulary** of **classes** (equipment, locations, points, substances, quantities…) and **relationships** tuned for buildings. Brick reuses **RDF/RDFS/OWL** machinery; you do not memorize every class.
 
 ### Concept
 
-Use `@prefix` for `ex`, `brick`, `rdf`. Use `a` for `rdf:type`. Keep **IRIs stable** and **human-readable** local names after `#` or final `/`.
+Official Brick publishes **OWL** + documentation. Practically:
+
+- Class IRIs live under the Brick namespace (see current Brick release for exact IRI pattern).
+- You **reuse** class IRIs in `rdf:type` triples and in **SHACL** / documentation elsewhere (SHACL optional for this course).
 
 ### Why this matters
 
-**Authoring** is how you learn syntax muscle memory before generators do it for you.
+**open-fdd** `brick:` keys in YAML inputs are **labels** that resolve, via `column_map`, to **columns**—but in a graph pipeline the same strings align with **Brick class IRIs** for discovery and SPARQL.
 
 ### Mini exercises
 
-1. Add `ex:floor3` as a `brick:Floor` and `brick:isPartOf` from AHU to floor (if predicate fits your reading).
-2. Add **labels** using `rdfs:label` if you looked up `rdfs:` prefix—optional stretch.
-3. Break Turtle on purpose (missing period); confirm parser error message is readable.
+1. Open Brick documentation index; bookmark **three** class names you actually have on site (e.g. AHU, VAV, SAT sensor).
+2. Write one sentence: difference between **Brick class** and **BACnet object type**.
+3. In Turtle, assert `ex:room101 a brick:Room` (use real namespace from docs).
 
 ### Key takeaway
 
-**Small correct models > large wrong models.** This file becomes SPARQL homework input.
+**Brick = building-centric vocabulary layer.** RDF is the file format; Brick names the *kinds* of things in a BAS.

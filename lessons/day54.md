@@ -1,31 +1,34 @@
-## Day 54 — Merging graphs and deduplicating triples
+## Day 51 — Reading Turtle: `.` `;` `,` and `@prefix`
 
 ### Goal
 
-Parse **two** Turtle snippets into `g1` and `g2`, **`g1 += g2`** (or `graph1 += graph2` in rdflib), then reason about **duplicates**. Practice converting to a **Python `set`** of **frozen** triple representations only if hashable—`rdflib` terms are not always trivially hashable in older patterns, so use: **“add all triples from g2 into g1 and trust rdflib”** + **count** before/after.
+Read **Turtle** (Terse RDF Triple Language) well enough to **hand-debug** small Brick snippets: **period** ends a statement; **semicolon** repeats subject; **comma** repeats subject+predicate.
 
 ### Concept
 
-```python
-from rdflib import Graph
+```turtle
+@prefix ex: <https://example.edu/bldg/> .
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
-g_merged = Graph()
-g_merged.parse(data=ttl_site, format="turtle")
-g_merged.parse(data=ttl_vendor_addon, format="turtle")
+ex:ahu1 a brick:Air_Handler_Unit ;
+    brick:hasPoint ex:ahu1/sat .
+
+ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
 ```
 
-If the same triple appears twice, RDF set semantics treat it as one **edge**. `rdflib` `Graph` is **like a set of triples** for addition.
+Read line 5–6 as **two** triples sharing `ex:ahu1`.
 
 ### Why this matters
 
-**Site model + vendor asset pack + FDD ontology slice** = merge in memory or store in triplestore. Conflicts are **same subject/predicate, different object**—resolution is policy, not syntax.
+Brick distribution, **GraphDB**, **Blazegraph**, **Oxigraph** dumps, and **git** diffs of building models are mostly Turtle or TriG. Reading beats guessing.
 
 ### Mini exercises
 
-1. Merge a graph that asserts `ex:ahu1 brick:hasPoint ex:p1` with another that asserts the same triple—did `len` change?
-2. Merge graphs that **conflict** on `ex:ahu1 ex:commissionedOn` object—list both objects after merge (rdflib keeps both unless you remove—observe behavior).
-3. Write English **policy** rules for resolving commissioning date conflicts (no code).
+1. Rewrite the snippet above as an **explicit** list of `(s,p,o)` tuples (no `;` or `,`).
+2. What triple does `a` expand to?
+3. Find one **syntax error** in a deliberately broken Turtle snippet (instructor-provided) by eye.
 
 ### Key takeaway
 
-**Merge = union of assertions.** Duplicates vanish; **conflicts** need human or rule-based resolution outside raw RDF.
+**Turtle sugar = shared subject/predicate.** Parsing is a machine job next lesson; **reading** is your job today.

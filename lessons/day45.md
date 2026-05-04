@@ -1,44 +1,40 @@
-## Day 45 — Literals: lexical value + datatype IRI
+## Day 42 — URIs and IRIs as identity strings
 
 ### Goal
 
-Model **RDF literals** in Python without a full RDF library: store **`(lexical_string, datatype_iri_or_none)`** as the **object** side when the object is not a resource URI. Compare to **plain string object** mistakes ( `"72.5"` vs float semantics).
+Treat a **URI** / **IRI** as an **immutable identifier string**—not a file path you `open()`, though it may look like a URL. Distinguish **resource** (thing in the world or model) from **literal** (string, number, date encoded as lexical value).
 
 ### Concept
 
-RDF 1.1 literals have:
+Examples (illustrative only—your site would use your own base):
 
-- **Lexical form** (characters), e.g. `"22.1"`.
-- **Datatype** IRI, often `http://www.w3.org/2001/XMLSchema#decimal` for numbers.
+- `https://example.edu/bldg/ahu1` — might identify an AHU instance.
+- `https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor` — a **class** IRI from the Brick namespace.
 
-In tiny exercises you may keep `object` as a single string `"22.1^^http://www.w3.org/2001/XMLSchema#decimal"` with a **documented convention**, or use a **tuple** as above—pick one style for your own code and stay consistent.
+In Python you store these as **`str`**. Equality is string equality. **Normalization** (trailing slash, scheme, encoding) matters when merging data from two vendors.
 
 ### How to use it
 
 ```python
-XSD_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal"
+def same_resource(uri_a, uri_b):
+    return uri_a.strip() == uri_b.strip()
 
 
-def literal_decimal(lexical):
-    return (lexical, XSD_DECIMAL)
-
-
-def parse_if_decimal(lit):
-    if isinstance(lit, tuple) and lit[1] == XSD_DECIMAL:
-        return float(lit[0])
-    return None
+AHU_A = "https://example.edu/bldg/ahu1"
+AHU_B = "https://example.edu/bldg/ahu1 "
+print(same_resource(AHU_A, AHU_B))  # True after strip
 ```
 
 ### Why this matters
 
-Brick + timeseries integrations attach **numeric readings** to **sensor resources**; the *reading* is often a literal with a datatype, while the *sensor* is a URI. Mixing them up causes subtle export bugs.
+RDF **never** merges rows on “column name”; it merges on **same URI** (or explicit `sameAs`). BACnet instance numbers are local; URIs are how **BMS + analytics + FDD** agree on *the same* asset across systems.
 
 ### Mini exercises
 
-1. Add a triple: `ex:ahu1/sat` has **present value** literal `"55.2"` as `xsd:decimal` using your tuple convention.
-2. Write `is_resource_object(obj)` returning `True` if `obj` is a `str` starting with `http` and **not** your literal tuple form.
-3. Why is storing a temperature as a bare Python `float` in a triple list **not** the same as an RDF typed literal (hint: JSON vs RDF graph interchange)?
+1. Given two lists of URI strings, write a loop to print URIs that appear in **both** (set intersection pattern—Day 45 preview, or double loop now).
+2. Why is `http://` vs `https://` a problem if two sources mint “the same” equipment differently?
+3. Look up **Brick’s published namespace** string (read-only web search or Brick docs) and write it in a variable `BRICK_NS`.
 
 ### Key takeaway
 
-**Literals carry type.** RDF cares; Python `float` is only your runtime convenience after you **parse** the lexical form.
+**IRIs are names.** Python holds them as strings; RDF tools resolve prefixes and compare identity with graph rules you will load later.

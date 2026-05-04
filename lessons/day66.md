@@ -1,31 +1,34 @@
-## Day 66 — `ASK` (yes/no commissioning checks)
+## Day 63 — `FILTER` and `BIND` (numbers and computed values)
 
 ### Goal
 
-Use **`ASK WHERE { ... }`** to return **true/false**: “Does this graph contain **any** match?” Example: “Is there **any** AHU without a SAT point?” (pattern requires careful negation—introduce **`NOT EXISTS`** lightly or do two-step: count in SELECT for 101).
+Narrow results with **`FILTER` expressions** and create **computed columns** with **`BIND`**—e.g. only points whose **numeric literal** (if modeled) passes a test. For this course, **`FILTER`** on **IRIs** or **regex on string form** is enough if you did not add `xsd:decimal` literals.
 
 ### Concept
 
-Simple `ASK`:
-
 ```sparql
-ASK {
-  <https://example.edu/bldg/ahu1> rdf:type brick:Air_Handler_Unit .
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?p
+WHERE {
+  ?p rdf:type brick:Supply_Air_Temperature_Sensor .
+  FILTER ( STRSTARTS( STR(?p), "https://example.edu/bldg/ahu1" ) )
 }
 ```
 
-In `rdflib`, **`ASK`** results expose a boolean (exact attribute varies by version—see `rdflib` SPARQL result docs). If that is fiddly in your environment, use **`SELECT (COUNT(?x) AS ?n)`** and check `n > 0` in Python instead—the logic is the same for commissioning checks.
+(`STRSTARTS` availability depends on SPARQL engine; `rdflib` supports much of SPARQL 1.1—if a function fails, fall back to **Python post-filter** on query results for 101.)
 
 ### Why this matters
 
-**CI gates:** fail build if **must-have** relationships are missing—`ASK` / `COUNT` queries are typical.
+**FDD** thresholds on **trend data** live in Pandas in open-fdd; in **ontology land**, you filter **metadata** (“sensors on this AHU only”) before joining to historians.
 
 ### Mini exercises
 
-1. Write `ASK` for “graph contains at least one `brick:Supply_Air_Temperature_Sensor`.”
-2. Convert the same check to `SELECT (COUNT(?s) AS ?n)` and treat `n>0` in Python.
-3. Name one **ASK** query you would run before attaching a historian column map.
+1. Write `FILTER ( ?p != <https://example.edu/bldg/ahu1/oat> )` style inequality on two IRIs you know.
+2. `BIND` a boolean `?is_sat` using `CONTAINS` or `regex` on `STR(?p)`—optional if your engine supports those functions.
+3. If `rdflib` rejects a function, filter results in Python with a `for` loop—same outcome.
 
 ### Key takeaway
 
-**Boolean graph questions** power automation. `ASK` is the SPARQL-native spelling.
+**FILTER/BIND = SQL HAVING/SELECT expressions** at the graph-pattern layer—useful for **metadata slicing**.

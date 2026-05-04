@@ -1,31 +1,32 @@
-## Day 67 — `DISTINCT`, `ORDER BY`, `LIMIT` (query hygiene)
+## Day 64 — `OPTIONAL` (missing points, partial models)
 
 ### Goal
 
-Make SPARQL results **stable** and **readable**: **`DISTINCT`** removes duplicate variable bindings; **`ORDER BY`** sorts on string or numeric forms; **`LIMIT`** caps rows for dashboards.
+Use **`OPTIONAL { ... }`** so rows still return when a **nested fact** is absent—e.g. every AHU with an **optional** `brick:hasPoint` to an OAT sensor.
 
 ### Concept
 
 ```sparql
-SELECT DISTINCT ?p
+SELECT ?ahu ?oat
 WHERE {
   ?ahu rdf:type brick:Air_Handler_Unit .
-  ?ahu brick:hasPoint ?p .
+  OPTIONAL { ?ahu brick:hasPoint ?oat .
+             ?oat rdf:type brick:Outside_Air_Temperature_Sensor . }
 }
-ORDER BY ?p
-LIMIT 50
 ```
+
+If no OAT exists, `?oat` is **unbound** but `?ahu` still appears (SPARQL semantics).
 
 ### Why this matters
 
-Large Brick merges return **thousands** of points. UI and notebooks need **paged** queries—same as SQL `LIMIT`.
+Real campuses ship **partial** Brick. **OPTIONAL** prevents queries from silently dropping whole equipment lines.
 
 ### Mini exercises
 
-1. Add `ORDER BY DESC(?p)` if your engine supports `DESC` on IRIs (lexical on `STR(?p)` safer).
-2. Explain duplicate bindings: when can `DISTINCT` hide a **semantic** problem (same IRI, different contexts—advanced) vs a true duplicate?
-3. Pull **first 5** SAT sensors only—query + print.
+1. Run OPTIONAL query on your toy model; remove OAT triples and compare result rows.
+2. In Python after `query`, detect unbound `None` cells in `rdflib` rows (print `row` objects).
+3. When would **forbidden OPTIONAL** be better as a **separate validation query** instead?
 
 ### Key takeaway
 
-**DISTINCT/ORDER/LIMIT** are production SPARQL hygiene—pair them with **good variable lists** in `SELECT`.
+**OPTIONAL = outer join** intuition for graph people. Use it for **commissioning completeness** checks.

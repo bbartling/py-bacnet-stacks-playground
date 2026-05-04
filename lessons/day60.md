@@ -1,23 +1,29 @@
-## Day 60 — FDD inputs and Brick class names (open-fdd bridge)
+## Day 57 — Key Brick predicates (`hasPoint`, `isPartOf`, `feeds`)
 
 ### Goal
 
-Connect **open-fdd** style **`inputs`** blocks (logical names + optional `brick:` hints) to **ontology**: the **string** after `brick:` in YAML is meant to align with **Brick class** IRIs for that concept—not arbitrary prose.
+Memorize **meanings**, not every predicate in Brick: **`brick:hasPoint`** links equipment (or space) to a **point**; **`brick:isPartOf`** composes systems; **`brick:feeds`** suggests **upstream/downstream** airflow or hydronic flow context (read Brick definitions for precise semantics).
 
 ### Concept
 
-Read one recipe from **`open-fdd/docs/expression_rule_cookbook.md`** (local clone). List each **input** key and its **Brick** field. In Python, model that as `dict` mapping **logical name** → **Brick class IRI string** (column mapping to historian columns stays separate).
+Represent in Python as normal predicate IRIs in triples:
+
+```python
+HAS_POINT = "https://brickschema.org/schema/Brick#hasPoint"
+IS_PART_OF = "https://brickschema.org/schema/Brick#isPartOf"
+FEEDS = "https://brickschema.org/schema/Brick#feeds"
+```
 
 ### Why this matters
 
-Same idea as **223P** / **DBO** fields in that cookbook: **first match wins** resolvers—the **advanced data structure** is the **resolver chain**, but you implement a **single dict** first (`logical_name -> column_name`) before learning priority composites.
+**Graph traversals** for “all SAT sensors on AHUs that feed this corridor” are **multi-hop patterns**—exactly SPARQL’s strength next week.
 
 ### Mini exercises
 
-1. For Rule A (duct static), list **inputs** and which are **sensors** vs **setpoints** vs **commands**.
-2. Write a Python `dict` `logical_to_brick_class` with two entries from that rule.
-3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 68.
+1. Assert: `ex:ahu1` **hasPoint** `ex:ahu1/sat`; `ex:vav12` **isPartOf** `ex:floor3`; `ex:ahu1` **feeds** `ex:vav12` (if `feeds` applies in your reading of Brick—if not, replace with a predicate your instructor approves).
+2. Write `points_of(graph, equipment_iri)` returning a list of point IRIs using loops over triples.
+3. What is the **direction** of `feeds` (who is subject)? Quote Brick’s English gloss.
 
 ### Key takeaway
 
-**FDD rules consume logical columns; ontologies name the semantics.** Brick IRIs are the bridge vocabulary.
+**Predicates are verbs.** Brick picks verbs that match how **MEP** engineers already talk—then machines can query them.

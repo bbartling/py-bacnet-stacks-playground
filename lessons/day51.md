@@ -1,34 +1,33 @@
-## Day 51 — Reading Turtle: `.` `;` `,` and `@prefix`
+## Day 48 — RDF triple model (formal one-liner)
 
 ### Goal
 
-Read **Turtle** (Terse RDF Triple Language) well enough to **hand-debug** small Brick snippets: **period** ends a statement; **semicolon** repeats subject; **comma** repeats subject+predicate.
+State RDF’s core unit: **triple** \((s, p, o)\). **Subject** and **predicate** are IRIs (or blank nodes in advanced cases—here: skip blank nodes except “sometimes object is anonymous” as a footnote). **Object** is IRI **or** literal.
 
 ### Concept
 
-```turtle
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+- **No duplicate meaning:** two identical triples merge to one in a **set** semantics.
+- **Open world:** absence of a triple does not mean false—important for **FDD** (you query what is asserted).
 
-ex:ahu1 a brick:Air_Handler_Unit ;
-    brick:hasPoint ex:ahu1/sat .
+### How to use it
 
-ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
-```
+Revisit your `list` of triples from Day 44. Classify each `o`:
 
-Read line 5–6 as **two** triples sharing `ex:ahu1`.
+- If `o` starts with `http` and matches resource naming → **resource**.
+- Else if `o` is your `(lexical, datatype)` tuple → **literal**.
+
+Write `triple_kind(s, p, o)` returning `"r-r-r"` or `"r-r-l"` as three letters.
 
 ### Why this matters
 
-Brick distribution, **GraphDB**, **Blazegraph**, **Oxigraph** dumps, and **git** diffs of building models are mostly Turtle or TriG. Reading beats guessing.
+Brick files are RDF. **open-fdd** column maps name columns that *align* with Brick class IRIs—those names resolve to the same **predicate/object patterns** you practice in Python lists.
 
 ### Mini exercises
 
-1. Rewrite the snippet above as an **explicit** list of `(s,p,o)` tuples (no `;` or `,`).
-2. What triple does `a` expand to?
-3. Find one **syntax error** in a deliberately broken Turtle snippet (instructor-provided) by eye.
+1. Give one example triple where **subject** is a **VAV** instance and **predicate** is `rdf:type`.
+2. Why can two different URIs denote the “same” chiller in the real world (conceptual: `owl:sameAs`—no OWL deep dive required)?
+3. List two triples that should **not** be inferred just because a sensor exists on an AHU (open-world caution).
 
 ### Key takeaway
 
-**Turtle sugar = shared subject/predicate.** Parsing is a machine job next lesson; **reading** is your job today.
+**RDF = labeled directed multigraph expressed as triples.** Your Python tuples already *are* RDF data at the logical level.

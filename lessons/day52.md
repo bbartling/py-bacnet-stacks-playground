@@ -1,40 +1,31 @@
-## Day 52 — `rdflib`: parse Turtle into a `Graph`
+## Day 49 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
 
 ### Goal
 
-Install **`rdflib`** (`pip install rdflib`), parse a **Turtle string**, iterate **all triples**, and print human-readable lines. No SPARQL yet—just **load + walk**.
+Read **instance typing**: `ex:ahu1 rdf:type brick:Air_Handler_Unit`. Read **taxonomy**: `brick:VAV rdfs:subClassOf brick:Terminal_Unit` (examples illustrative—verify current Brick class names in official Brick for production).
 
 ### Concept
 
+- **`rdf:type`**: “this individual is a member of that class.”
+- **`rdfs:subClassOf`**: “every A is a B” for reasoning; not the same as `rdf:type`.
+
+In Python triple lists, these are just **more rows** with well-known predicate IRIs:
+
 ```python
-from rdflib import Graph
-
-g = Graph()
-ttl = """
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-
-ex:ahu1 a brick:Air_Handler_Unit .
-"""
-g.parse(data=ttl, format="turtle")
-
-for s, p, o in g:
-    print(s, p, o)
+RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+RDFS_SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
 ```
-
-`rdflib` uses **URIRef**, **Literal**, **BNode** types—`str(s)` often works for printing.
 
 ### Why this matters
 
-Every SPARQL query in the next week runs **against** a `Graph` (or endpoint). Loading Turtle is the handshake between **files in git** and **queries**.
+SPARQL `FILTER` and **RDFS inference** (in engines that support it) use these predicates. Even without a reasoner, **you** manually assert enough `rdf:type` rows for queries to work.
 
 ### Mini exercises
 
-1. Print `len(g)` after parse; add a second `parse` of another small string—does length increase as expected?
-2. Catch **ParserError** (or broad `Exception` for 101) on bad Turtle and print a friendly message.
-3. Serialize back with `g.serialize(format="turtle")` to a string; confirm your AHU line still exists.
+1. Add triples: `vav101` `rdf:type` `brick:VAV` (use full IRIs you control).
+2. Explain: if `brick:VAV` is subclass of `brick:Terminal_Unit`, does your data **need** both type triples? When might you add both anyway?
+3. Find Brick’s **namespace** and one **AHU** class IRI from official docs; paste into a comment in a `.py` file.
 
 ### Key takeaway
 
-**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 44 mental model.
+**Taxonomies = extra triples** using `rdfs:subClassOf`. **Instances** use `rdf:type`. SPARQL will ask both kinds of questions.

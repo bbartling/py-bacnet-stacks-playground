@@ -1,24 +1,27 @@
-## Day 59 — Haystack tags vs Brick RDF graphs
+## Day 56 — Equipment taxonomy (AHU, VAV, terminal units)
 
 ### Goal
 
-Contrast **Haystack** (tagged dicts / Zinc /Refs—**semi-structured**) with **Brick** (**RDF graph**, mergeable across sites). Neither replaces the other in the field; **bridges** exist (project Haystack *relationships* and Brick alignment efforts—mention at high level only).
+Navigate **subclass** chains at a **high level**: e.g. terminal units, air handlers, chillers. You read **taxonomy** to pick the **most specific correct** `rdf:type` for commissioning data—not to memorize the whole lattice.
 
 ### Concept
 
-- **Tags** answer: “What is this point?” quickly in a **single** document.
-- **Brick** answers: “How does this point relate to **equipment**, **spaces**, and **other points** across **datasets**?”
+Draw a **tiny** hierarchy on paper (English):
+
+- `Air_Handler_Unit` ⊂ `HVAC_Equipment` (illustrative—verify in Brick).
+
+In data, **subClassOf** triples come from the ontology file, not always from your site file. Your site file usually asserts **instances** with **specific** classes.
 
 ### Why this matters
 
-Your **Python** course avoided Pandas; in operations you still see **CSV + tags**. RDF is the **interchange** shape when semantic interoperability matters (utilities, campus digital twins, FDD graph workshops).
+Under-specifying types (`brick:Equipment` everywhere) makes **SPARQL** and **FDD rules** noisy. Over-specifying wrong types breaks **validation**.
 
 ### Mini exercises
 
-1. Model the same SAT as (a) a Haystack-style `dict` with `dis`, `point`, `equipRef` keys vs (b) two Brick triples—side by side in notes.
-2. Which representation is easier to **`git diff`** when a VAV is moved from one AHU to another?
-3. One sentence: why **SPARQL** is unnecessary for a single tagged JSON file but useful for a **merged** campus graph.
+1. List two **sibling** classes under a common parent (from Brick docs) relevant to your campus.
+2. If a device is **both** packaged RTU and AHU in vendor docs, which risk do you choose when typing in Brick (under- vs over-modeling)?
+3. Add `rdf:type` triples for two VAVs and one AHU in a toy `Graph`.
 
 ### Key takeaway
 
-**Tags = local convenience; RDF = global composition.** You will use both in real stacks.
+**Taxonomy guides typing.** Brick’s class tree is the shared language between **engineers** and **software**.

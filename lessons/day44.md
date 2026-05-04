@@ -1,57 +1,25 @@
-## Day 44 — Triples as tuples; a list as a toy graph
+## Day 41 — Buildings as graphs, not only tables
 
 ### Goal
 
-Represent RDF **triples** as **`(subject, predicate, object)`** tuples (all `str` for now). Store many in a **`list`**. That list is your **in-memory graph** for exercises—unordered unless you sort a copy for debugging.
+See why **smart-building digital twins** and **ontology pipelines** (Brick, Haystack+TTL, 223P) use **graphs**: things (equipment, spaces, sensors) as **nodes**, relationships as **edges**. Tables (CSV, SQL rows) are still useful—graphs add **mergeable, global identity** for data integration.
 
 ### Concept
 
-Each triple is one **statement**: *subject* **predicate** *object*.
+A **graph** here means: **vertices** (things) and **edges** (relationships with a direction and a label). A BACnet device list is often a **table**. A Brick model says: *this AHU* **hasPoint** *that SAT sensor* **feeds** *that VAV*—relationships matter as much as columns.
 
-- Subject: usually an IRI (resource).
-- Predicate: IRI (property / relationship type).
-- Object: IRI **or** literal (later lessons add datatype).
-
-Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 54 revisits deduplication.
-
-### How to use it
-
-```python
-triples = []
-triples.append(
-    (
-        "https://example.edu/bldg/ahu1",
-        "https://brickschema.org/schema/Brick#hasPoint",
-        "https://example.edu/bldg/ahu1/sat",
-    )
-)
-triples.append(
-    (
-        "https://example.edu/bldg/ahu1/sat",
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        "https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor",
-    )
-)
-
-
-def count_predicates(graph, predicate_iri):
-    n = 0
-    for s, p, o in graph:
-        if p == predicate_iri:
-            n += 1
-    return n
-```
+You will not implement Dijkstra or max-flow. You will learn to **hold graph-shaped data** in Python using only structures you already know (lists, dicts, tuples, strings).
 
 ### Why this matters
 
-`rdflib` will iterate `(s, p, o)` the same way. Your mental model should match the library’s iterator.
+Tools like **open-fdd** column maps, **Brick** SPARQL endpoints, and **AFDD** graph workshops all assume you are comfortable reading **subject–predicate–object** statements. This week builds that comfort from Python outward.
 
 ### Mini exercises
 
-1. Write `objects_for_subject(graph, subj)` returning a **list** of all `o` where `(subj, any, o)` in `graph`.
-2. Write `predicates_for_subject_object(graph, subj, obj)` returning predicates linking `subj` to `obj`.
-3. Add a third triple: `ahu1` **feeds** `vav101` (use IRIs you invent under `ex:`).
+1. List three relationships in a real AHU (physical or controls) that are awkward to store in **one** flat CSV row without duplication.
+2. Draw (on paper) four boxes: `AHU`, `SAT sensor`, `VAV`, `Zone`. Draw arrows labeled `hasPoint`, `feeds`, `serves`.
+3. In one sentence: what does **global identity** (a URI) buy you when merging two vendor exports?
 
 ### Key takeaway
 
-**Graph = collection of triples.** A Python `list` of 3-tuples is enough to practice every RDF idea until you load Turtle with `rdflib`.
+**RDF** is a *data model* for graphs. **Brick** is an **ontology** (vocabulary + expectations) on top of RDF for buildings. The next days give you Python shapes that mirror RDF without skipping your foundations.
