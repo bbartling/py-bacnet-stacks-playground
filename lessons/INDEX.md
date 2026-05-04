@@ -6,6 +6,24 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 
 ---
 
+## Using this track as **coding challenges** (students implement themselves)
+
+**Yes — if you treat the written lesson as the spec, not the solution.** Almost every `dayNN.md` already includes **Micro exercises** (and often **Mini examples** / **How to use it** steps) that expect students to **open an editor and write Python** (or Turtle / SPARQL in the RDF weeks), not only read prose.
+
+| What is already there | How to turn it into a “challenge” |
+| --- | --- |
+| **Micro exercises** (numbered lists) | Require a **single `.py` per day** (or per week bundle) that implements those functions; add **one hidden test CSV** or **assert** cases you keep private for grading. |
+| **“How to use it”** scripted steps (e.g. Day 19) | Treat as a **mini-spec**: students submit `main`, functions, and sample `data.csv`; deduct points if error handling is missing. |
+| **Algorithms days (27–40)** | Strong for **from-scratch** work: re-implement `linear_search`, `running_mean`, Boolean rules, Euler step — forbid importing `pandas`/`numpy` where the lesson says plain Python. |
+| **Capstone-style days** | **Day 19** (CSV + functions), **Day 40** (parallel lists + fault timeline), **Day 68** (`capstone.ttl` + SPARQL files) are natural **graded milestones**. |
+| **Concept-only days** (e.g. 27, 41, 48)** | Assign **short deliverables**: pseudocode, 5-sentence reading notes, *or* one tiny function that encodes the idea (e.g. `expand(prefix_map, qname)` on Day 43). |
+
+**Difficulty knobs (optional):** (1) Ban a built-in the lesson allows (`sum`, `sorted`) for one week to force loop practice. (2) Add **type hints** or **docstrings** as part of the rubric. (3) Require **small unit tests** written by the student from Week 3 onward.
+
+**Realism:** Days **52–68** assume **`pip install rdflib`**; SPARQL quirks vary by `rdflib` version — allow “post-process in Python” fallbacks where the lesson already says so. That keeps challenges **fair** without becoming a SPARQL engine course.
+
+---
+
 ## Week 1 — Fundamentals & first BACnet touch
 
 | Day | Link |

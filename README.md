@@ -64,7 +64,7 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 - Simple algorithms: linear search, min/max, basic sorting; light HVAC fault-detection logic and a tiny thermal simulation (Days 27–40)
 - **After Day 40:** graph-thinking for **smart buildings** — only the data structures needed to read **RDF**, relate it to **Brick**, and run **SPARQL** (Days 41–68). Still **no list/dict comprehensions** in lesson examples unless noted optional.
 
-**Scope:** Early weeks: strings, lists, dictionaries. **Days 41–68:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week.
+**Scope:** Early weeks: strings, lists, dictionaries. **Days 41–68:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week and explains how to use **Micro exercises** and capstones as **hands-on coding challenges** (students implement in their own `.py` / Turtle / SPARQL files).
 
 ---
 
