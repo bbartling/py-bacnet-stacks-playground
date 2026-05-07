@@ -10,37 +10,11 @@ Welcome to the **Py BACnet Stacks Playground** — a hands-on, applied repositor
 
 The early *vibe code* apps stay grounded in **Python, BAC0, and BACpypes3**, where you build practical tools by directly interacting with BACnet devices—reading values, writing commands, inspecting priority arrays, and understanding real control behavior in the field.
 
-From there, the project naturally expands into **VOLTTRON-based edge workflows**, where lightweight agents, platform services, and supervisory logic run continuously on a Raspberry Pi or edge gateway—bringing your scripts closer to real-world building automation deployments.
+From there, the project is now exploring AI-driven workflows for bootstrapping VOLTTRON-based edge systems and building a BAS from scratch through web app development.
 
----
+The goal is to experiment with lightweight agents, platform services, and supervisory logic running continuously on a Raspberry Pi or edge gateway, bringing simple scripts closer to real-world building automation deployments.
 
-### 🤖 AI-Assisted Workflows (New Direction)
-
-This repository also doubles as **model context for AI-assisted development**, enabling tools like Open Claw to:
-
-* Bootstrap environments (e.g., VOLTTRON installs, BACnet apps) automatically
-* Generate and refine BACnet scripts and edge agents
-* Assist with debugging, testing, and system setup
-* Orchestrate multi-step workflows across the stack
-
-The goal is simple:
-👉 let AI handle the repetitive, time-consuming setup and glue code
-👉 while you focus on **control logic, system behavior, and engineering insight**
-
----
-
-### 🚀 Where This Is Headed
-
-* Python → BACnet fundamentals → real device interaction
-* Edge deployment → VOLTTRON agents → continuous operation
-* AI integration → faster builds, smarter workflows, less manual setup
-
-Ultimately, this repo becomes a **playground for building smarter buildings faster**—combining:
-
-* Hands-on HVAC controls knowledge
-* Open protocols like BACnet
-* Edge computing
-* And AI-driven development workflows
+Come join the journey as we play around with Python, AI, BACnet, and computer science theory in a fun, hands-on playground designed for learning. This series is geared toward people with little to no technical background beyond real-world field experience as building automation technicians.
 
 
 ---
@@ -54,49 +28,30 @@ Ultimately, this repo becomes a **playground for building smarter buildings fast
 ---
 
 
-## What You Will Learn
-
-### Python (Applied Comp Sci 101)
-
-- Variables, arithmetic, strings, lists, dictionaries
-- Conditionals, loops, functions, modules, file I/O
-- Error handling with `try`/`except`
-- Simple algorithms: linear search, min/max, basic sorting; light HVAC fault-detection logic and a tiny thermal simulation (Days 27–40)
-- **Optional hobby (Days 41–43):** grids, **stacks**, depth-first walks, and iterative **maze generation** (same spirit as **maze-algorithm-sandbox**); skip if you want to go straight to building data.
-- **After Day 43 (or Day 40 if you skip the hobby block):** graph-thinking for **smart buildings** — only the data structures needed to read **RDF**, relate it to **Brick**, and run **SPARQL** (Days 44–71). Still **no list/dict comprehensions** in lesson examples unless noted optional.
-
-**Scope:** Early weeks: strings, lists, dictionaries. **Days 44–71:** tuples, sets, nested dicts, and simple **graph-as-data** patterns (adjacency-style dicts, lists of triples) *only* as scaffolding for RDF/Brick/SPARQL—not a full computer-science graph-algorithms course. See the `lessons` directory for daily mini-lessons; **[lessons/INDEX.md](lessons/INDEX.md)** links every day by week and explains how to use **Micro exercises** and capstones as **hands-on coding challenges** (students implement in their own `.py` / Turtle / SPARQL files).
-
----
-
-
 ## Vibe Code Checkpoints
 
-> **Current status:** **Checkpoint 10** — diy-bas integration (**Week 10**, current). **Checkpoint 11** (**Week 11**) — vibe app production cutover: Django with a production-grade database, React front end, **ntfy** (or similar) notifications, and user/role services. **Checkpoint 12** — hardening (**Week 12**). **Checkpoint 13** — final release.
-> The project is moving from standalone demos into a full supervisory BAS-style application with a clearer multi-week path.
-
-| # | Checkpoint | Build Goal | Timeline | Status |
-| --- | --- | --- | --- | --- |
-| **1** | **BAC0 + bacpypes3 basics** | Read `present-value`, write points, release with `NULL`, and learn priority arrays. | **Week 1** | Done |
-| **2** | **RPM apps** | Use `ReadPropertyMultiple` across devices, log to CSV, and rotate daily files. | **Week 2** | Done |
-| **3** | **Priority array tools** | Parse `priority-array`, inspect overrides, and understand control authority. | **Week 3** | Done |
-| **4** | **BACnet server apps** | Build a mini BACnet device with schedule/calendar objects and weather server inputs. | **Week 4** | Done |
-| **5** | **Device discovery tools** | Implement `Who-Is` / `I-Am` scanning and device enumeration. | **Week 5** | Done |
-| **6** | **VOLTTRON deployment exploration with OpenClaw** | Explore deploying VOLTTRON with OpenClaw support, test the environment setup, and investigate how AI-assisted workflows can help scaffold edge BAS/FDD applications. | **Week 6** | Done |
-| **7** | **VOLTTRON v9 BAS-style web agent** | Build and test a VOLTTRON v9 web agent with BACnet integration, mimicking a lightweight BAS supervisory interface. | **Week 7** | Done |
-| **8** | **BAS schedule widget demo** | Build out a BAS-style schedule widget and frontend UI concepts. | **Week 8** | Done |
-| **9** | **diy-bas beginning phase** | Create the first primitive version of the `diy-bas` application. | **Week 9** | Done |
-| **10** | **diy-bas integration** | Combine authentication, alarms, schedules, trends, and BACnet discovery. | **Week 10** | **Current** |
-| **11** | **diy-bas: Django production DB, unit tests, React front end, notifications, role services** | Move the supervisory app toward production: managed database (e.g. PostgreSQL), **unit/integration tests** for critical paths, React UI shell, outgoing **notifications** (e.g. ntfy) for alerts, and clearer **user/role services** (auth, RBAC, and integration boundaries). | **Week 11** | Next |
-| **12** | **diy-bas hardening** | Add persistence depth, audit logging polish, security cleanup, and deploy/ops workflows beyond the initial integration. | **Week 12** | Next |
-| **13** | **diy-bas final app release** | Ship the Raspberry Pi-ready supervisory BAS application. | **Final** | Planned |
-| **14** | **Rust BACnet stack** | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings. | **Bonus** | TODO |
-| **15** | **Protocol debugging** | Bonus: use Wireshark and Linux tools to validate BACnet/IP behavior. | **Bonus** | TODO |
+| #      | Checkpoint                                                                                   | Build Goal                                                                                                                                                                                                                                          | Status      |
+| ------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| **1**  | **BAC0 + bacpypes3 basics**                                                                  | Read `present-value`, write points, release with `NULL`, and learn priority arrays.                                                                                                                                                                 | Done        |
+| **2**  | **RPM apps**                                                                                 | Use `ReadPropertyMultiple` across devices, log to CSV, and rotate daily files.                                                                                                                                                                      | Done        |
+| **3**  | **Priority array tools**                                                                     | Parse `priority-array`, inspect overrides, and understand control authority.                                                                                                                                                                        | Done        |
+| **4**  | **BACnet server apps**                                                                       | Build a mini BACnet device with schedule/calendar objects and weather server inputs.                                                                                                                                                                | Done        |
+| **5**  | **Device discovery tools**                                                                   | Implement `Who-Is` / `I-Am` scanning and device enumeration.                                                                                                                                                                                        | Done        |
+| **6**  | **VOLTTRON deployment exploration with OpenClaw**                                            | Explore deploying VOLTTRON with OpenClaw support, test the environment setup, and investigate how AI-assisted workflows can help scaffold edge BAS/FDD applications.                                                                                | Done        |
+| **7**  | **VOLTTRON v9 BAS-style web agent**                                                          | Build and test a VOLTTRON v9 web agent with BACnet integration, mimicking a lightweight BAS supervisory interface.                                                                                                                                  | Done        |
+| **8**  | **BAS schedule widget demo**                                                                 | Build out a BAS-style schedule widget and frontend UI concepts.                                                                                                                                                                                     | Done        |
+| **9**  | **diy-bas beginning phase**                                                                  | Create the first primitive version of the `diy-bas` application.                                                                                                                                                                                    | Done        |
+| **10** | **diy-bas integration**                                                                      | Combine authentication, alarms, schedules, trends, and BACnet discovery.                                                                                                                                                                            | Done        |
+| **11** | **diy-bas: Django production DB, unit tests, React front end, notifications, role services** | Move the supervisory app toward production: managed database, unit/integration tests for critical paths, React UI shell, outgoing notifications such as ntfy for alerts, and clearer user/role services for auth, RBAC, and integration boundaries. | **Current** |
+| **12** | **diy-bas hardening**                                                                        | Add persistence depth, audit logging polish, security cleanup, and deploy/ops workflows beyond the initial integration.                                                                                                                             | Next        |
+| **13** | **diy-bas final app release**                                                                | Ship the Raspberry Pi-ready supervisory BAS application.                                                                                                                                                                                            | Planned     |
+| **14** | **Rust BACnet stack**                                                                        | Bonus: integrate [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) with Python bindings.                                                                                                                                                 | TODO        |
+| **15** | **Protocol debugging**                                                                       | Bonus: use Wireshark and Linux tools to validate BACnet/IP behavior.                                                                                                                                                                                | TODO        |
 
 
 ---
 
-## Weekly Outline
+## Computer Science Theory 101 Weekly Outline
 
 ### Week 1 — Fundamentals & First BACnet App  
 *Part I: Variables, operators, strings, numbers, booleans, input/output, lists*

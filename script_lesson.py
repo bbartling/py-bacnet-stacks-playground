@@ -1,26 +1,32 @@
+timestamps = [
+    "2026-01-15 05:00",
+    "2026-01-15 05:15",
+    "2026-01-15 05:30",
+    "2026-01-15 05:45",
+    "2026-01-15 06:00",
+    "2026-01-15 06:15",
+    "2026-01-15 06:30",
+]
+
+oat = [
+    41.2,
+    39.8,
+    37.4,
+    35.6,
+    44.9,
+    33.7,
+    36.1,
+]
 
 
+def time_finder(timestamps,oat):
+    matches = []
+    for i, temp in zip(timestamps,oat):
+        if temp < 35.0:
+            matches.append(i)
 
-"""
-
-Write a function all_in_range(readings, low, high) that returns True if every reading is between low and high inclusive.
-Write a function any_alarm(readings, threshold) that returns True if any reading exceeds the threshold.
-
-"""
-
-
-def any_alarm(readings, high):
-
-    is_between_low_and_high = False
-    for i in range(len(readings)):
-        if readings[i] >= high:
-            is_between_low_and_high = True
-    return is_between_low_and_high
+    return matches
 
 
-temperatures = [42.4, 422.34, 45.3, 43.2]
-ALARM = 50.0
+time_finder(timestamps, oat)
 
-check = any_alarm(temperatures, ALARM)
-
-print(check)
