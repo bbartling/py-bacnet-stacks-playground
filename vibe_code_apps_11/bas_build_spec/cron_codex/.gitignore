@@ -1,0 +1,5 @@
+.env
+logs/*.log
+state/DONE_AUTOMATION
+state/stop_mini_loop
+state/CODEX_ACCEPTANCE_COMPLETE

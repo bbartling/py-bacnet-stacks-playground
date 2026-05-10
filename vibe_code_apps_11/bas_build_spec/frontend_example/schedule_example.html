@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BAS Weekly Run Schedule Widget</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --line: #d9e2ef;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --block: #60a5fa;
+      --block-dark: #1e40af;
+      --danger: #dc2626;
+      --green: #16a34a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app { max-width: 1220px; margin: 0 auto; padding: 22px; }
+    .header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px;
+    }
+    h1 { font-size: 24px; margin: 0 0 5px; }
+    .subtitle { color: var(--muted); font-size: 14px; }
+    .toolbar, .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 25px rgba(15, 23, 42, .06);
+    }
+    .toolbar { padding: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    button, select {
+      border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 9px 11px; cursor: pointer; font-weight: 650;
+      color: var(--text);
+    }
+    button:hover { border-color: #93c5fd; background: #f8fbff; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.primary:hover { background: var(--accent-dark); }
+    button.danger { color: var(--danger); }
+    .equipment { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+    .schedule-wrap { display: grid; grid-template-columns: 76px 1fr; overflow: hidden; }
+    .time-header { height: 42px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .time-scale {
+      display: grid; grid-template-columns: repeat(24, 1fr); height: 42px; border-bottom: 1px solid var(--line); background: #f8fafc;
+    }
+    .time-cell { font-size: 11px; color: var(--muted); padding-top: 13px; border-left: 1px solid var(--line); text-align: center; }
+    .day-label {
+      height: 74px; border-bottom: 1px solid var(--line); padding: 13px 8px; background: #fff; font-weight: 750; position: relative;
+    }
+    .day-label small { display: block; color: var(--muted); font-weight: 500; margin-top: 3px; }
+    .day-row {
+      position: relative; height: 74px; border-bottom: 1px solid var(--line); background: #fff;
+      background-image: linear-gradient(to right, rgba(217,226,239,.95) 1px, transparent 1px), linear-gradient(to right, rgba(217,226,239,.45) 1px, transparent 1px);
+      background-size: calc(100% / 24) 100%, calc(100% / 96) 100%;
+    }
+    .day-row:hover { background-color: #fbfdff; }
+    .block {
+      position: absolute; top: 16px; height: 42px; border-radius: 11px; background: linear-gradient(180deg, #93c5fd, #3b82f6);
+      border: 1px solid #2563eb; box-shadow: 0 8px 18px rgba(37, 99, 235, .25); cursor: grab; color: white;
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; user-select: none;
+    }
+    .block:active { cursor: grabbing; }
+    .handle {
+      position: absolute; top: 0; width: 12px; height: 100%; cursor: ew-resize; display: flex; align-items: center; justify-content: center;
+    }
+    .handle.left { left: 0; }
+    .handle.right { right: 0; }
+    .handle::after { content: ''; width: 3px; height: 22px; border-radius: 2px; background: rgba(255,255,255,.75); }
+    .context-menu {
+      position: fixed; z-index: 20; background: #fff; border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 20px 35px rgba(15, 23, 42, .17); overflow: hidden; min-width: 210px;
+    }
+    .context-menu button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 11px 13px; }
+    .bottom { display: grid; grid-template-columns: 1fr 360px; gap: 14px; margin-top: 14px; }
+    .panel { padding: 14px; }
+    .panel h2 { font-size: 16px; margin: 0 0 8px; }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    pre { margin: 0; padding: 12px; background: #0f172a; color: #e5e7eb; border-radius: 12px; overflow: auto; max-height: 260px; font-size: 12px; }
+    .pill { display:inline-block; padding: 4px 8px; background: #e0f2fe; color: #075985; border-radius: 999px; font-size: 12px; margin-right: 6px; margin-top: 6px; }
+    @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } .equipment { margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const SNAP = 15; // minutes
+    const MIN_DURATION = 15;
+    const DEFAULT = {
+      Monday: [{ start: 420, end: 1020 }],
+      Tuesday: [{ start: 420, end: 1020 }],
+      Wednesday: [{ start: 420, end: 1020 }],
+      Thursday: [{ start: 420, end: 1020 }],
+      Friday: [{ start: 420, end: 1020 }],
+      Saturday: [],
+      Sunday: []
+    };
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function snap(mins) { return Math.round(mins / SNAP) * SNAP; }
+    function fmt(mins) {
+      const h24 = Math.floor(mins / 60) % 24;
+      const m = mins % 60;
+      const suffix = h24 >= 12 ? "PM" : "AM";
+      const h = h24 % 12 || 12;
+      return `${h}:${String(m).padStart(2, "0")} ${suffix}`;
+    }
+    function minutesFromX(clientX, rect) {
+      return clamp(snap(((clientX - rect.left) / rect.width) * 1440), 0, 1440);
+    }
+    function normalize(blocks) {
+      return [...blocks]
+        .filter(b => b.end - b.start >= MIN_DURATION)
+        .sort((a, b) => a.start - b.start);
+    }
+
+    function App() {
+      const [schedule, setSchedule] = React.useState(DEFAULT);
+      const [equipment, setEquipment] = React.useState("AHU-1");
+      const [clipboard, setClipboard] = React.useState(null);
+      const [menu, setMenu] = React.useState(null);
+      const rowRefs = React.useRef({});
+
+      React.useEffect(() => {
+        const close = () => setMenu(null);
+        window.addEventListener("click", close);
+        return () => window.removeEventListener("click", close);
+      }, []);
+
+      function setDay(day, blocks) {
+        setSchedule(prev => ({ ...prev, [day]: normalize(blocks) }));
+      }
+      function addBlock(day, start = 480, end = 1020) {
+        setDay(day, [...schedule[day], { start, end }]);
+      }
+      function removeBlock(day, idx) {
+        setDay(day, schedule[day].filter((_, i) => i !== idx));
+      }
+      function applyMondayToFriday() {
+        const m = schedule.Monday.map(b => ({ ...b }));
+        setSchedule(prev => ({ ...prev, Tuesday: m, Wednesday: m, Thursday: m, Friday: m }));
+      }
+      function setWeekdays(start, end) {
+        const blocks = [{ start, end }];
+        setSchedule(prev => ({ ...prev, Monday: blocks, Tuesday: blocks, Wednesday: blocks, Thursday: blocks, Friday: blocks }));
+      }
+      function clearWeek() { setSchedule(Object.fromEntries(DAYS.map(d => [d, []]))); }
+      function copyDay(day) { setClipboard(schedule[day].map(b => ({...b}))); }
+      function pasteDay(day) { if (clipboard) setDay(day, clipboard.map(b => ({...b}))); }
+
+      function startPointer(day, idx, mode, e) {
+        e.stopPropagation();
+        e.preventDefault();
+        const rect = rowRefs.current[day].getBoundingClientRect();
+        const original = schedule[day][idx];
+        const startX = e.clientX;
+        const startMin = minutesFromX(e.clientX, rect);
+        const move = ev => {
+          const blocks = schedule[day].map(b => ({ ...b }));
+          const next = { ...original };
+          if (mode === "move") {
+            const delta = minutesFromX(ev.clientX, rect) - startMin;
+            const dur = original.end - original.start;
+            next.start = clamp(snap(original.start + delta), 0, 1440 - dur);
+            next.end = next.start + dur;
+          } else if (mode === "left") {
+            next.start = clamp(minutesFromX(ev.clientX, rect), 0, original.end - MIN_DURATION);
+          } else if (mode === "right") {
+            next.end = clamp(minutesFromX(ev.clientX, rect), original.start + MIN_DURATION, 1440);
+          }
+          blocks[idx] = next;
+          setSchedule(prev => ({ ...prev, [day]: normalize(blocks) }));
+        };
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      }
+
+      function onRowDoubleClick(day, e) {
+        const rect = rowRefs.current[day].getBoundingClientRect();
+        const start = clamp(minutesFromX(e.clientX, rect), 0, 1380);
+        addBlock(day, start, clamp(start + 120, 0, 1440));
+      }
+      function onContext(e, day, idx = null) {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY, day, idx });
+      }
+
+      const output = {
+        equipment_name: equipment,
+        schedule_type: "weekly_occupancy_run_hours",
+        timezone: "local_building_time",
+        days: Object.fromEntries(DAYS.map(day => [day.toLowerCase(), schedule[day].map(b => ({ start: fmt(b.start), end: fmt(b.end), start_minutes: b.start, end_minutes: b.end }))]))
+      };
+
+      return <div className="app">
+        <div className="header">
+          <div>
+            <h1>Generic BAS Weekly Run Schedule</h1>
+            <div className="subtitle">Drag blocks to move. Grab edges to resize. Double-click a day to add a run window.</div>
+          </div>
+        </div>
+
+        <div className="toolbar">
+          <button className="primary" onClick={() => setWeekdays(420, 1020)}>Set M–F 7:00 AM–5:00 PM</button>
+          <button onClick={() => setWeekdays(480, 1080)}>Set M–F 8:00 AM–6:00 PM</button>
+          <button onClick={applyMondayToFriday}>Copy Monday → Tue–Fri</button>
+          <button className="danger" onClick={clearWeek}>Clear Week</button>
+          <div className="equipment">Equipment <select value={equipment} onChange={e => setEquipment(e.target.value)}><option>AHU-1</option><option>RTU-1</option><option>Boiler Plant</option><option>Chiller Plant</option><option>VAV System</option><option>Generic Equipment</option></select></div>
+        </div>
+
+        <div className="panel schedule-wrap">
+          <div className="time-header"></div>
+          <div className="time-scale">{Array.from({length: 24}, (_, h) => <div className="time-cell" key={h}>{h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h-12}p`}</div>)}</div>
+          {DAYS.map(day => <React.Fragment key={day}>
+            <div className="day-label" onContextMenu={e => onContext(e, day)}>{day.slice(0,3)}<small>{schedule[day].length ? schedule[day].map(b => `${fmt(b.start)}-${fmt(b.end)}`).join(", ") : "Off"}</small></div>
+            <div className="day-row" ref={el => rowRefs.current[day] = el} onDoubleClick={e => onRowDoubleClick(day, e)} onContextMenu={e => onContext(e, day)}>
+              {schedule[day].map((b, idx) => <div key={`${b.start}-${b.end}-${idx}`} className="block" style={{ left: `${b.start/1440*100}%`, width: `${(b.end-b.start)/1440*100}%` }} onPointerDown={e => startPointer(day, idx, "move", e)} onContextMenu={e => onContext(e, day, idx)} title="Drag to move. Resize from either edge.">
+                <span className="handle left" onPointerDown={e => startPointer(day, idx, "left", e)}></span>
+                {fmt(b.start)} – {fmt(b.end)}
+                <span className="handle right" onPointerDown={e => startPointer(day, idx, "right", e)}></span>
+              </div>)}
+            </div>
+          </React.Fragment>)}
+        </div>
+
+        {menu && <div className="context-menu" style={{ left: menu.x, top: menu.y }} onClick={e => e.stopPropagation()}>
+          {menu.idx !== null && <button onClick={() => { removeBlock(menu.day, menu.idx); setMenu(null); }}>Delete this run window</button>}
+          <button onClick={() => { addBlock(menu.day, 480, 1020); setMenu(null); }}>Add 8:00 AM–5:00 PM here</button>
+          <button onClick={() => { copyDay(menu.day); setMenu(null); }}>Copy {menu.day}</button>
+          <button disabled={!clipboard} onClick={() => { pasteDay(menu.day); setMenu(null); }}>Paste into {menu.day}</button>
+          <button onClick={() => { const blocks = schedule[menu.day].map(b => ({...b})); setSchedule(prev => ({...prev, Monday: blocks, Tuesday: blocks, Wednesday: blocks, Thursday: blocks, Friday: blocks})); setMenu(null); }}>Apply this day to M–F</button>
+          <button onClick={() => { setDay(menu.day, []); setMenu(null); }}>Set {menu.day} Off</button>
+        </div>}
+
+        <div className="bottom">
+          <div className="panel">
+            <h2>Interaction notes</h2>
+            <div className="hint">
+              <span className="pill">Drag</span><span className="pill">Resize edges</span><span className="pill">Double-click add</span><span className="pill">Right-click menu</span>
+              <p>This is a front-end-only BAS schedule concept. In the real Open-FDD/BAS stack, the JSON payload could be saved to your backend, then used by runtime checks like AHU operating outside schedule or occupied zone temperature rules.</p>
+              <p>Bonus Tridium-style actions are in the right-click menu: copy day, paste day, apply selected day to M–F, and delete a run window.</p>
+            </div>
+          </div>
+          <div className="panel">
+            <h2>Schedule JSON</h2>
+            <pre>{JSON.stringify(output, null, 2)}</pre>
+          </div>
+        </div>
+      </div>;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

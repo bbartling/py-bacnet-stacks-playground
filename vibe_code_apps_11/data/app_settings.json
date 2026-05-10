@@ -1,7 +1,0 @@
-{
-  "siteName": "Test Bench",
-  "appTitle": "diy-bas supervisor",
-  "routePrefix": "/api",
-  "diyBacnetUrl": "http://127.0.0.1:8080",
-  "diyScheduleObjectName": "occupancy-schedule"
-}
