@@ -2,6 +2,8 @@
 
 This folder contains a **bash wake script** plus documentation so `cron` (or `systemd` timers) can drive incremental work on the BAS head-end using the Codex CLI.
 
+**Step-by-step (one command at a time):** **`TUTORIAL.md`** · **Cron / minis / logs grep:** **`CHEATSHEET.md`**
+
 **Artifacts elsewhere:**
 
 | Path | Purpose |

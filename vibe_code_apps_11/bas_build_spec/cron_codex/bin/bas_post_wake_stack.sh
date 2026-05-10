@@ -46,8 +46,15 @@ pidfile_alive() {
   kill -0 "$pid" 2>/dev/null
 }
 
-if [[ ! -f "$BAS_APP/backend/app/main.py" ]]; then
-  log "post_wake_stack: skip (no $BAS_APP/backend yet)"
+# FastAPI layout (uvicorn) or src-layout stdlib server (python -m bas_app_backend).
+backend_uvicorn_entry=false
+backend_module_entry=false
+if [[ -f "$BAS_APP/backend/app/main.py" ]]; then
+  backend_uvicorn_entry=true
+elif [[ -f "$BAS_APP/backend/src/bas_app_backend/__main__.py" ]]; then
+  backend_module_entry=true
+else
+  log "post_wake_stack: skip (no known backend entry: backend/app/main.py or backend/src/bas_app_backend/__main__.py)"
   exit 0
 fi
 
@@ -58,8 +65,7 @@ fi
 
 backend_ok() {
   local timeout="${POST_WAKE_HEALTH_TIMEOUT:-5}"
-  curl -sfS --max-time "$timeout" "http://127.0.0.1:8000/health" >/dev/null 2>&1 || return 1
-  curl -sfS --max-time "$timeout" "http://127.0.0.1:8000/api/demo/navigation" >/dev/null 2>&1
+  curl -sfS --max-time "$timeout" "http://127.0.0.1:8000/health" >/dev/null 2>&1
 }
 
 frontend_ok() {
@@ -99,9 +105,15 @@ else
     fi
     rm -f "$STATE_DIR/post_wake_backend.pid"
   fi
-  log "post_wake_stack: starting uvicorn on 0.0.0.0:8000"
-  setsid bash -lc "trap '' HUP; exec 200>&-; cd '$BAS_APP/backend' && exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000" \
-    >>"$LOG_DIR/post_wake_backend.log" 2>&1 &
+  if [[ "$backend_uvicorn_entry" == true ]]; then
+    log "post_wake_stack: starting uvicorn (app.main:app) on 0.0.0.0:8000"
+    setsid bash -lc "trap '' HUP; exec 200>&-; cd '$BAS_APP/backend' && exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000" \
+      >>"$LOG_DIR/post_wake_backend.log" 2>&1 &
+  else
+    log "post_wake_stack: starting python -m bas_app_backend (stdlib) on 0.0.0.0:8000"
+    setsid bash -lc "trap '' HUP; exec 200>&-; cd '$BAS_APP/backend' && BAS_BIND_HOST=0.0.0.0 BAS_BIND_PORT=8000 PYTHONPATH=src exec python3 -m bas_app_backend" \
+      >>"$LOG_DIR/post_wake_backend.log" 2>&1 &
+  fi
   echo $! >"$STATE_DIR/post_wake_backend.pid"
   sleep 2
   if backend_ok; then

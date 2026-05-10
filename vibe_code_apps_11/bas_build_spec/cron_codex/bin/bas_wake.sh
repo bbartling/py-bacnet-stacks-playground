@@ -48,6 +48,7 @@ checklist="$BAS_BUILD/acceptance_criteria.md"
 checkpoints="$BAS_BUILD/BUILD_CHECKPOINTS.md"
 directions="$STATE_DIR/next_directions.md"
 ui_theme_ref="$BAS_BUILD/frontend_example/graphic.html"
+schedule_ui_ref="$BAS_BUILD/frontend_example/schedule_example.html"
 skills_policy="$BAS_BUILD/skills/README.md"
 skills_guardrails="$BAS_BUILD/skills/GUARDRAILS.md"
 done_flag="$STATE_DIR/DONE_AUTOMATION"
@@ -56,6 +57,10 @@ stop_mini_loop_file="$STATE_DIR/stop_mini_loop"
 mkdir -p "$BAS_CODEX_LOG_DIR" "$STATE_DIR"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG="$BAS_CODEX_LOG_DIR/wake-$TS.log"
+# Everything after the next line goes ONLY to $LOG — the terminal will look "hung"
+# until Codex finishes. Tell the operator up front (stderr still connected here).
+echo "bas_wake: full transcript → $LOG" >&2
+echo "bas_wake: tail -f in another terminal: tail -f \"$LOG\"" >&2
 exec >>"$LOG" 2>&1
 
 echo "=== bas_wake start $(date -Is) ==="
@@ -157,14 +162,15 @@ Read (do not delete):
 - ${checklist}
 - ${checkpoints}
 - ${directions}
-- ${ui_theme_ref}   (UI colors/theme reference only; see spec DESIGN STYLE)
+- ${schedule_ui_ref}   (schedule shell / table chrome — primary operator UI reference; see spec DESIGN STYLE)
+- ${ui_theme_ref}   (synoptic / wire-sheet density + BAS status color semantics; see spec DESIGN STYLE)
 - ${skills_policy}
 - ${skills_guardrails}  (mandatory before creating/editing bas_build_spec/skills/)
 
 Rules:
 - Do ONE small, reviewable slice toward the ordered "Next for mini" items in BUILD_CHECKPOINTS.md (or spec if empty).
 - Prefer repo under CODEX_CWD=${CODEX_CWD}; keep BACnet driver disabled unless spec explicitly allows opt-in.
-- Any frontend or static HTML/CSS you add must follow the **dark palette and theme** of graphic.html (CSS variables / card chrome / accent semantics), not a unrelated light theme.
+- Any frontend or static HTML/CSS you add must follow **spec DESIGN STYLE**: **`schedule_example.html`** tokens for shell/schedules/tables, and **`graphic.html`** patterns for synoptic/wire-sheet views and BAS status colors — not a random unrelated theme.
 - **Live stack:** after changes that affect the running web API or SPA, ensure dev/proc scripts still bring the app up bound to **0.0.0.0** (all interfaces) so a human can hit it from another machine on the LAN/VPN immediately; document the URL/port in the app README. Restart containers or dev servers when required so the latest code is what is listening.
 - If you change behavior, run or add the narrowest tests you can.
 - Stop after this slice; do not burn extra tool budget.
@@ -206,6 +212,7 @@ Read:
 - ${checklist}
 - ${checkpoints}
 - ${directions}
+- ${schedule_ui_ref}
 - ${ui_theme_ref}
 - ${skills_policy}
 - ${skills_guardrails}
@@ -215,7 +222,7 @@ Tasks:
 2) Rewrite BUILD_CHECKPOINTS.md sections: "Last critique (gpt-5.5)", "Current sprint", and replace "Next for mini (ordered)" with 3–8 concrete, small tasks for the NEXT wake.
 3) Optionally refresh next_directions.md if long-form detail helps.
 4) Track verification of acceptance_criteria.md in BUILD_CHECKPOINTS (or release notes); the criteria file uses plain bullets — do not reintroduce Markdown checkboxes unless the project chooses to.
-5) If UI changed, note whether it stays aligned with graphic.html dark theme / tokens; call out drift in the critique if not.
+5) If UI changed, note alignment with **schedule_example.html** (shell/schedules) and **graphic.html** (synoptic/wire-sheet + status semantics) per spec DESIGN STYLE; call out drift in the critique if not.
 6) When **release gate** and acceptance criteria are truly satisfied, a human may \`touch cron_codex/state/CODEX_ACCEPTANCE_COMPLETE\` so automation shutdown can fire when **REMOVE_CRON_WHEN_COMPLETE=true**. **This wake’s end** (bash in bas_wake.sh) can then remove the marked cron line and write DONE_AUTOMATION — no further scheduled wakes until a human deletes DONE_AUTOMATION. If automation should keep running, delete any stray CODEX_ACCEPTANCE_COMPLETE marker or keep REMOVE_CRON_WHEN_COMPLETE=false.
 7) **Skills (strict):** Read **GUARDRAILS.md**. Canonical path: **\`bas_build_spec/skills/<topic>/SKILL.md\`** (optional \`references/\`, \`scripts/\`, \`assets/\`). Per wake: **at most one** of (a) **one new** topic folder under \`bas_build_spec/skills/\` with \`SKILL.md\`, or (b) **materially expand** one existing topic’s \`SKILL.md\`/\`references/\`, or (c) update **skills/README.md** or **GUARDRAILS** or taxonomy table only. Never (a)+(b) same wake. Run **\`bas_build_spec/cron_codex/bin/bas_skills_link.sh\`** after folder changes. Phaser-style reference: [phaser skills/](https://github.com/phaserjs/phaser/tree/master/skills). If unsure, only update **BUILD_CHECKPOINTS** “Next for mini”.
 
