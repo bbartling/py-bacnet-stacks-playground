@@ -1,5 +1,23 @@
 # Cron & `bas_wake` — cheat sheet
 
+## Workspace memory + cron (OpenClaw-style)
+
+```bash
+export CR=/home/ben/bas_build_spec/cron_codex
+$CR/bin/bas_workspace_cli.sh memory list
+$CR/bin/bas_workspace_cli.sh memory search bacnet
+$CR/bin/bas_workspace_cli.sh cron list
+$CR/bin/bas_workspace_cli.sh cron dry-run
+$CR/bin/bas_workspace_cli.sh cron runs bas-wake-hourly
+$CR/bin/bas_validate_automation.sh   # one-button: cron + building vs snagged + stack + BACnet
+```
+
+Agent map: **`bas_build_spec/AGENTS.md`** · truncated injection: **`bas_build_spec/scratch/memory-bootstrap-latest.md`**.
+
+---
+
+# Cron & `bas_wake` — cheat sheet
+
 Set these once in your shell (adjust if your home path differs):
 
 ```bash

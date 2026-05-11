@@ -27,17 +27,21 @@ description: >-
 
 **Goal:** A technician confirms on-wire inventory matches **expected** controllers (device instances, IP sources, object counts).
 
-1. Run discovery from a known-good host (example):
+1. Human sets **this host’s** BACnet NIC bind (not the field device IP) and runs discovery (example):
 
    ```bash
    cd /home/ben
    python3 bas_build_spec/bacnet_scripts_example/point_discovery.py \
-     --name BensReadApp --instance 100 --address <BIND_IP>/24:47808
+     --name BensReadApp --instance 100 --address 192.168.204.18/24:47808 --debug
    ```
 
-2. The tech **signs off** in **`bas_build_spec/BUILD_CHECKPOINTS.md`** (e.g. under **Done recently**): date, bind address used, list of **device instance + pduSource** pairs, and “object-list counts look expected” (or note discrepancies).
+   Expect **I-Am** replies and per-device **`object-list`** lines from **bacpypes3** (see script header). If zero I-Am, fix VLAN/firewall/bind before automation claims BACnet.
 
-3. Until this sign-off exists, **do not** mark acceptance rows that claim live BACnet verification, and **do not** enable a real-driver feature flag in production config.
+2. Optional **cron worker** (after env is set in `cron_codex/.env`): `bas_bacnet_lab_verify.sh` appends redacted summaries to **`memory/integrations/bacnet.md`**. Enable only when `BAS_BACNET_LAB_VERIFY=true` and `BAS_BACNET_*` bind vars are filled.
+
+3. The tech **signs off** in **`BUILD_CHECKPOINTS.md`** and **`memory/integrations/bacnet.md`**: date, bind used, **device instance + pduSource** pairs, object-list counts vs expectation.
+
+4. Until sign-off exists, keep **`bas_app`** on **simulator**; hourly Codex may continue UI/API work. Do not enable live driver flags or mark acceptance rows for on-wire BACnet.
 
 ## Phase 2 — AI / automation: structured discovery artifact
 
@@ -47,9 +51,9 @@ description: >-
 - Keep **Who-Is** bounds valid: **high_limit ≤ 4194303**.
 - Store generated artifacts under **`.gitignore`** if they are large or environment-specific; commit only **schemas** or **small fixtures** if needed for CI.
 
-## Phase 3 — AI: driver implementation (BACpypes3)
+## Phase 3 — AI: driver framework (BACpypes3)
 
-**Goal:** A **replaceable** driver module (sidecar or in-process) that mirrors patterns in **`bacnet_scripts.md`**: **ReadProperty**, **WriteProperty** (with priority), **relinquish (write Null)**, **ReadPropertyMultiple** where appropriate.
+**Goal:** A **replaceable** driver package under **`bas_app`** (poll/COV adapters, config, health) mirroring **`bacnet_scripts.md`**: **ReadProperty**, **WriteProperty** (with priority), **relinquish (write Null)**, **ReadPropertyMultiple** where appropriate. Supervisor domain services stay interface-driven so simulator and driver swap without UI rewrites.
 
 - **Interface first:** supervisory **`bas_app`** domain stays on a **`BacnetPointSource`** (or existing simulator interface) — swap simulator ↔ driver via **config / feature flag**.
 - **Default off:** real stack remains **simulator-only** unless **`BUILD_CHECKPOINTS`** and **`.env`** (or equivalent) explicitly enable lab BACnet.

@@ -23,13 +23,16 @@ bas_build_spec/skills/
 |--------|------|
 | `bacnet-point-modeling/` | BACnet objects, instances, mapping to supervisory points |
 | `brick-schema-modeling/` | Brick / semantic tags, `hasPoint`, equipment relationships |
-| `bas-graphics/` | Operator graphics, building-program–aware templates, `graphic.html` theme |
+| `bas-graphics/` | Operator graphics; `schedule_example.html` shell, `n4_graphic.html` wire-sheet (see `references/frontend-examples.md`) |
 | `alarm-workflows/` | Ack, shelve, lifecycle, routing, BACnet-aligned alarm behavior |
 | `trend-data/` | Historian / TSDB abstraction, charts, export |
 | `web-app-bas/` | SPA + API + auth shell + links to spec / wakes |
 | `safe-bacnet-writes/` | Command workflow, audit, priorities, driver disabled by default |
 | `bacnet-driver-lifecycle/` | Human discovery sign-off → inventory → BACpypes3 driver from `bacnet_scripts.md` → wire `bas_app` |
 | `bacnet-schedule-motor-verify/` | React weekly schedule (`schedule_example.html`) → BACnet motor writes → read-verify-retry → mismatch + temp alarms; polling/data plane |
+| `workspace-memory/` | `MEMORY.md` + `memory/` daily notes; promotion after critique |
+| `workspace-cron/` | `cron/jobs.json` gateway; isolated vs worker jobs |
+| `systemd-live-dev/` | User systemd units for long-lived `bas_app` (not Docker) |
 
 ## Cursor IDE discovery
 

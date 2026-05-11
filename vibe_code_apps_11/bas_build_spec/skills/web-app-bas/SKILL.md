@@ -2,7 +2,7 @@
 name: web-app-bas
 description: >-
   Use when working on the BAS supervisory web app (React/TS or chosen SPA),
-  auth shell, navigation tree, REST/WebSocket APIs, Docker Compose, or dev
+  auth shell, navigation tree, REST/WebSocket APIs, systemd user units, or dev
   server bind 0.0.0.0. Triggers on: frontend, backend, API, login, RBAC,
   bas_build_spec, head-end, POST_WAKE_HOOK, simulator service, BACnet driver
   lifecycle, remote dial-in, localhost confusion, Caddy port 80 conflict, LAN IP bookmark.
@@ -16,6 +16,7 @@ description: >-
 2. **`bas_build_spec/acceptance_criteria.md`**
 3. **`bas_build_spec/BUILD_CHECKPOINTS.md`** — Codex wake queue.
 4. **`bas_build_spec/cron_codex/README.md`** — automation, hooks, cron self-removal.
+5. **`bas_build_spec/skills/systemd-live-dev/SKILL.md`** — long-lived `bas_app` via user systemd (not Docker).
 
 ## Live access
 
@@ -40,7 +41,7 @@ description: >-
 ## First slice
 
 - Start with the BAS shell: auth/login, left navigation tree, top status bar, and a main pane that can host equipment graphics and point tables.
-- Keep the first UI pass aligned with **`bas_build_spec/frontend_example/graphic.html`** so the shell inherits the dark slate surfaces, border chrome, and BAS status colors.
+- **Shell / schedules:** **`schedule_example.html`**. **Wire-sheet / synoptic panes:** **`n4_graphic.html`** (same as `graphic.html`) for flow-strip density and status colors — see **`bas-graphics/references/frontend-examples.md`**.
 - Keep simulator-backed APIs behind interfaces so later BACnet or gateway drivers can replace them without reshaping the shell contract.
 
 ## Repo-local skills layout

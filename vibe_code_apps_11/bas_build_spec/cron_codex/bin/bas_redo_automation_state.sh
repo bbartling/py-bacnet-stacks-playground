@@ -22,6 +22,10 @@ LOG_DIR="$CRON_ROOT/logs"
 STATE_DIR="$CRON_ROOT/state"
 CHECKPOINTS="$SPEC_ROOT/BUILD_CHECKPOINTS.md"
 NEXT_DIR="$STATE_DIR/next_directions.md"
+MEMORY_FILE="$SPEC_ROOT/MEMORY.md"
+MEMORY_DIR="$SPEC_ROOT/memory"
+CRON_DIR="$SPEC_ROOT/cron"
+SCRATCH_DIR="$SPEC_ROOT/scratch"
 RESET_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 NUKE_BAS_APP=false
@@ -137,6 +141,73 @@ rm -fv \
 
 mkdir -p "$STATE_DIR"
 
+# Workspace memory + cron (OpenClaw-style tree)
+if [[ -d "$MEMORY_DIR" ]]; then
+  find "$MEMORY_DIR" -type f \
+    ! -name '.gitkeep' \
+    ! -name 'README.md' \
+    ! -path '*/integrations/bacnet.md' \
+    -delete 2>/dev/null || true
+  echo "Cleared: $MEMORY_DIR daily/domain notes (kept README + integrations/bacnet.md template)"
+fi
+mkdir -p "$MEMORY_DIR"/{sites,buildings,equipment,integrations,stack,operators}
+"$SCRIPT_DIR/bas_memory_ensure.sh" 2>/dev/null || true
+
+cat >"$MEMORY_FILE" <<'MEMEOF'
+# BAS workspace memory (curated bootstrap)
+
+Short standing brief for Codex wakes — not a transcript. Daily detail lives under `memory/YYYY-MM-DD.md`.
+
+## Portfolio / deployment
+
+- Head-end under `bas_app/`; long-lived runtime via **systemd user units** (not Docker).
+- Bind **0.0.0.0**; remote operators use server LAN IP.
+
+## Building systems
+
+- *(Fill as demo sites/equipment land.)*
+
+## Stack inventory
+
+- *(Health URLs, unit names, routes — update after scaffolds.)*
+
+## Operator preferences
+
+- Incremental wakes; restart units and read `journalctl --user` after code changes.
+
+## Standing decisions
+
+- Simulator-only default; BACnet gated by `bacnet-driver-lifecycle`.
+
+## Open loops
+
+- *(Follow-ups not yet in cron or checkpoints.)*
+MEMEOF
+echo "Wrote: $MEMORY_FILE"
+
+rm -f "$CRON_DIR/jobs-state.json" 2>/dev/null || true
+if [[ -d "$CRON_DIR/runs" ]]; then
+  rm -rf "$CRON_DIR/runs"
+fi
+mkdir -p "$CRON_DIR/runs"
+if [[ -f "$CRON_DIR/jobs.json" ]]; then
+  echo "Kept: $CRON_DIR/jobs.json (edit schedules manually if needed)"
+else
+  echo "WARN: missing $CRON_DIR/jobs.json — restore from repo template."
+fi
+
+if [[ -d "$SCRATCH_DIR" ]]; then
+  shopt -s nullglob
+  for f in "$SCRATCH_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    [[ "$(basename "$f")" == ".gitkeep" ]] && continue
+    rm -f "$f"
+  done
+  shopt -u nullglob
+  : >"$SCRATCH_DIR/.gitkeep"
+fi
+mkdir -p "$SCRATCH_DIR"
+
 # Fresh next_directions stub
 cat >"$NEXT_DIR" <<EOF
 # Next directions (optional long-form)
@@ -155,7 +226,7 @@ cat >"$CHECKPOINTS" <<'EOF'
 
 **UI theme:** Shell/schedules → **`bas_build_spec/frontend_example/schedule_example.html`**; synoptic/wire-sheet density → **`graphic.html`** (see `spec.md` § DESIGN STYLE).
 
-**Automation:** When `REMOVE_CRON_WHEN_COMPLETE=true` and **`acceptance_criteria.md`** is satisfied per your documented verification (release gate + criteria — the doc no longer uses Markdown checkboxes), the wake script may remove its own crontab line (marker `# BAS_CODEX_WAKE`) and write `cron_codex/state/DONE_AUTOMATION`. Delete that file to run wakes again. Use `POST_WAKE_HOOK` in `.env` to restart the web stack after each wake; bind services to `0.0.0.0` for LAN/VPN access (see `cron_codex/README.md`). **Cheap test run:** `MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=.../cron_codex/.env cron_codex/bin/bas_wake.sh` (prefix overrides `.env` for that variable).
+**Automation:** `cron/jobs.json` + `bas_cron_scheduler.sh run-due` (user crontab marker `# BAS_CODEX_WAKE`). Memory: **`MEMORY.md`** + **`memory/YYYY-MM-DD.md`**. Long-lived app: **systemd user units** via `bas_systemd_manage.sh` (not Docker). `POST_WAKE_HOOK` restarts the live stack after each wake. **Cheap test:** `MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=.../cron_codex/.env cron_codex/bin/bas_wake.sh`.
 
 **Skills (repo-local):** canonical **`bas_build_spec/skills/<topic>/SKILL.md`** (+ optional `references/`). Policy: **`bas_build_spec/skills/README.md`**, **`GUARDRAILS.md`**. Cursor: run **`cron_codex/bin/bas_skills_link.sh`** so **`~/.cursor/skills/`** symlinks to those folders. Critique: at most **one** topic create-or-expand per wake.
 
@@ -173,7 +244,14 @@ cat >"$CHECKPOINTS" <<'EOF'
 
 ## Current sprint
 
-- *(Define 1–3 small goals for the next period.)*
+- Scaffold `bas_app/` with systemd user units, `/health`, and a dark operator shell wired for incremental wakes.
+
+## Next for mini (ordered)
+
+1. Create `bas_app/` backend package with `/health` and installable **systemd user** unit (`bas-backend.service`) from `bas_build_spec/deploy/systemd/` templates.
+2. Add frontend package (Vite/React) with `0.0.0.0` bind and `bas-frontend.service`; static shell using `schedule_example.html` tokens.
+3. Document exact `systemctl --user` commands and LAN URLs in `bas_app/README.md`; append wake results to `memory/YYYY-MM-DD.md`.
+4. Run narrow smoke (`curl /health`, frontend build if possible); fix journal errors before ending the slice.
 
 ## Done recently
 
@@ -189,7 +267,10 @@ cat >"$CHECKPOINTS" <<'EOF'
 | `bas_build_spec/acceptance_criteria.md` | Acceptance criteria (verify in this file + release gate; track status in this checkpoint doc or your tracker) |
 | `bas_build_spec/bacnet_scripts.md` | Optional BACnet reference (driver later) |
 | `bas_build_spec/cron_codex/state/next_directions.md` | Optional long-form handoff; can mirror “Next for mini” |
-| `bas_build_spec/cron_codex/bin/bas_post_wake_stack.sh` | Optional stack keeper: if `cron_codex/.env` sets `POST_WAKE_HOOK` to this script, **:8000** / **:5173** are started with **nohup** after each wake when unhealthy (see `cron_codex/README.md`) |
+| `bas_build_spec/MEMORY.md` | Curated workspace bootstrap (see `skills/workspace-memory/`) |
+| `bas_build_spec/cron/jobs.json` | Durable cron job store (see `skills/workspace-cron/`) |
+| `bas_build_spec/cron_codex/bin/bas_systemd_manage.sh` | User systemd install/restart/health for `bas_app` (see `skills/systemd-live-dev/`) |
+| `bas_build_spec/cron_codex/bin/bas_post_wake_stack.sh` | Legacy nohup stack keeper when `BAS_RUNTIME=nohup` |
 | `bas_build_spec/skills/bacnet-schedule-motor-verify/SKILL.md` | Codex-oriented pack: schedule widget → motor writes → verify/retry → alarms (see `spec.md` § CODEX IMPLEMENTATION PACK) |
 EOF
 echo "Wrote: $CHECKPOINTS"

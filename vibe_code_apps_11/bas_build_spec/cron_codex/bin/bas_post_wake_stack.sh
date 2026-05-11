@@ -11,6 +11,10 @@ LOG_DIR="$CRON_ROOT/logs"
 STATE_DIR="$CRON_ROOT/state"
 mkdir -p "$LOG_DIR" "$STATE_DIR"
 
+if [[ "${BAS_RUNTIME:-systemd}" == "systemd" ]]; then
+  exec "$BIN_DIR/bas_systemd_manage.sh" ensure-restart-health
+fi
+
 exec 200>"$STATE_DIR/post_wake_stack.lock"
 if ! flock -n 200; then
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) post_wake_stack: lock busy, skip"

@@ -1,5 +1,7 @@
 .env
 logs/*.log
+logs/systemd_manage.log
 state/DONE_AUTOMATION
 state/stop_mini_loop
 state/CODEX_ACCEPTANCE_COMPLETE
+state/post_wake_*.pid

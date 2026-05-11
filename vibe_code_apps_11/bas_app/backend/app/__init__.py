@@ -1,2 +1,0 @@
-"""BAS backend application package."""
-

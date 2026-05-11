@@ -1,0 +1,17 @@
+[Unit]
+Description=BAS head-end API (Codex incremental build)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__BAS_APP__/backend
+Environment=PYTHONPATH=src
+Environment=BAS_BIND_HOST=0.0.0.0
+Environment=BAS_BIND_PORT=8000
+ExecStart=/usr/bin/python3 -m bas_app_backend
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

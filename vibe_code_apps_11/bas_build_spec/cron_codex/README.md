@@ -4,10 +4,24 @@ This folder contains a **bash wake script** plus documentation so `cron` (or `sy
 
 **Step-by-step (one command at a time):** **`TUTORIAL.md`** · **Cron / minis / logs grep:** **`CHEATSHEET.md`**
 
+**Install + validate cron (user crontab):**
+
+```bash
+CR=/home/ben/bas_build_spec/cron_codex
+chmod +x "$CR/bin"/*.sh "$CR/bin/bas_cron_engine.py"
+"$CR/bin/bas_install_cron.sh"
+"$CR/bin/bas_validate_automation.sh"
+```
+
+Hourly tick runs **`bas_cron_scheduler.sh run-due`** (reads **`bas_build_spec/cron/jobs.json`**). Agent map: **`bas_build_spec/AGENTS.md`**.
+
 **Artifacts elsewhere:**
 
 | Path | Purpose |
 |------|---------|
+| `bas_build_spec/AGENTS.md` | Agent orientation + bootstrap order |
+| `bas_build_spec/MEMORY.md` | Curated workspace memory |
+| `bas_build_spec/cron/jobs.json` | Durable cron job store |
 | `bas_build_spec/spec.md` | Full specification |
 | `bas_build_spec/acceptance_criteria.md` | Acceptance criteria (plain bullets; see **When acceptance is met** below) |
 | `bas_build_spec/BUILD_CHECKPOINTS.md` | Living queue + critique output (updated each wake) |

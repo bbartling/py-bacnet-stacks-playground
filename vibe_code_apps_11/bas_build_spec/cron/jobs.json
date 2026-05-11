@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "timezone": "America/Chicago",
+  "notes": "Schedules: cron (5-field), every (minutes), at (ISO-8601 UTC). Gateway: bas_cron_scheduler.sh run-due",
+  "jobs": [
+    {
+      "id": "bas-wake-hourly",
+      "name": "Incremental Codex build wake",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "expr": "0 * * * *"
+      },
+      "service": "bas_wake",
+      "style": "isolated",
+      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh",
+      "env": {
+        "BAS_CODEX_ENV_FILE": "/home/ben/bas_build_spec/cron_codex/.env"
+      }
+    },
+    {
+      "id": "bas-stack-restart-post-wake",
+      "name": "Restart live stack after wake (worker)",
+      "enabled": true,
+      "schedule": {
+        "type": "every",
+        "minutes": 0
+      },
+      "service": "systemd_restart",
+      "style": "worker",
+      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_systemd_manage.sh",
+      "args": ["ensure", "restart", "health"],
+      "note": "Invoked from bas_wake POST_WAKE_HOOK; not polled by scheduler when minutes=0."
+    },
+    {
+      "id": "bas-bacnet-lab-verify",
+      "name": "BACnet discovery gate (worker; human bind required)",
+      "enabled": false,
+      "schedule": {
+        "type": "cron",
+        "expr": "15 * * * *"
+      },
+      "service": "bacnet_lab_verify",
+      "style": "worker",
+      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_bacnet_lab_verify.sh"
+    },
+    {
+      "id": "bas-smoke-health",
+      "name": "HTTP smoke (worker)",
+      "enabled": false,
+      "schedule": {
+        "type": "every",
+        "minutes": 30
+      },
+      "service": "bas_smoke",
+      "style": "worker",
+      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_smoke.sh"
+    }
+  ]
+}

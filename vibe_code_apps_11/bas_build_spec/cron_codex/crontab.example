@@ -1,4 +1,4 @@
-# Example crontab lines for bas_wake.sh
+# Example crontab lines for BAS workspace scheduler (runs due jobs from cron/jobs.json).
 # Install: crontab -e   then paste ONE active line (cron does not expand ~).
 #
 # Official Codex limits are plan-dependent; see cron_codex/README.md
@@ -8,13 +8,13 @@ PATH=/usr/local/bin:/usr/bin:/bin
 
 # --- Recommended for API / quota: once per hour ---
 # At minute 0 every hour. Trailing # BAS_CODEX_WAKE is REQUIRED for optional self-removal.
-0 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+0 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE
 
 # --- More frequent (uncomment only ONE wake line) ---
 # Every 20 minutes
-# */20 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# */20 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE
 # Every 15 minutes (higher quota burn)
-# */15 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# */15 * * * * BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE
 
 # If you use /etc/cron.d/ style (user column), example:
-# 0 * * * * ben BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# 0 * * * * ben BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE

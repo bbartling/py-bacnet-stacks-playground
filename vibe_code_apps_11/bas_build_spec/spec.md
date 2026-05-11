@@ -625,7 +625,7 @@ DESIGN STYLE
 - Use its **`:root` tokens** (`--bg`, `--panel`, `--line`, `--text`, `--muted`, `--accent`, `--block`, `--danger`, `--green`), **Inter / system-ui typography**, **rounded cards**, **toolbar density**, and **status semantics** (primary actions, danger, success) as the **default head-end theme** for **navigation, forms, lists, alarms, trends, settings, and the weekly schedule editor**.
 - Implement the schedule editor as a **production React + TypeScript** module that **matches the demo’s behaviors** (snap, drag, resize, weekly JSON model); do not ship CDN `babel-standalone` in production.
 
-**Synoptic / plant graphics and logic-flow (secondary reference):** **`bas_build_spec/frontend_example/graphic.html`**
+**Synoptic / plant graphics and logic-flow (secondary reference):** **`bas_build_spec/frontend_example/n4_graphic.html`** (compatibility alias: **`graphic.html`** — same file)
 
 - Reuse its **layout patterns** (logic-flow strip, gauge bars, plant headers, BAS status color **meanings**) for **equipment synoptics and wire-sheet strips** — either **embed** those views inside the schedule shell as darker “graphic panes” **or** re-map the same green/red/yellow/cyan meanings onto schedule-token surfaces so status stays familiar.
 - Do not copy Niagara-specific script APIs; only **UX and density** carry over.
