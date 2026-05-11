@@ -1,0 +1,30 @@
+# bas_build_spec — track spec/skills/scripts; keep local venv, PDF tool binaries, and generated bundles out of git.
+
+# Local Python env (repo root also ignores env/)
+env/
+
+# Portable pandoc/typst copies (~180MB); install on PATH or under tools/bin locally
+tools/bin/
+
+# Regenerated PDF/text bundle and Pandoc intermediates
+_build/
+pdf/
+
+# cron_codex runtime (see cron_codex/.gitignore)
+cron_codex/.env
+cron_codex/logs/*.log
+cron_codex/logs/last_wake_epoch
+cron_codex/state/DONE_AUTOMATION
+cron_codex/state/stop_mini_loop
+cron_codex/state/CODEX_ACCEPTANCE_COMPLETE
+cron_codex/state/post_wake_*.pid
+cron_codex/state/post_wake_stack.lock
+
+# cron job runtime state
+cron/jobs-state.json
+cron/runs/
+
+# Frontend / app build artifacts (if present under bas_app/)
+bas_app/node_modules/
+bas_app/dist/
+bas_app/.vite/
