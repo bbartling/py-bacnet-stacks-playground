@@ -41,7 +41,8 @@ Promotion: after critique, distill durable facts into `MEMORY.md` and domain fil
 ## BACnet lab gate
 
 - Default: **simulator** in `bas_app`
-- On-wire: human runs `bacnet_scripts_example/point_discovery.py` with **local NIC bind**; sign off in `memory/integrations/bacnet.md` before driver work
+- On-wire: set `BAS_BACNET_*` in `cron_codex/.env`, enable worker `bas-bacnet-lab-verify` (or run `bas_bacnet_lab_verify.sh`); Codex minis append `memory/integrations/bacnet.md` and build the **long-lived** BACpypes3 driver from `bacnet_scripts_example/` using the **same** validated `--name` / `--instance` / `--address`
+- Human supplies only the lab bind env once; automation runs discovery and driver slices after that
 
 ## UI references
 

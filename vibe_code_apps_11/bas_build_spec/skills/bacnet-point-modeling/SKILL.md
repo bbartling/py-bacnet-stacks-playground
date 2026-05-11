@@ -12,7 +12,8 @@ description: >-
 
 ## Repo references
 
-- **`bas_build_spec/bacnet_scripts.md`** — working BACpypes3 patterns (client + sample devices).
+- **`bas_build_spec/bacnet_scripts.md`** — client **read/write/relinquish**, **RPM** chunked reads, **priority-array** parsing, discovery **object-list**; server local objects in schedule/weather examples.
+- **`bacnet-driver-lifecycle/references/bacnet_scripts_index.md`** — which embedded script block to copy for each driver concern.
 - **`bas_build_spec/spec.md`** — domain `Point` fields, commandable flags, simulator vs real driver.
 - **NIC / bind:** spec § BACNET / BACPYES3 — `--address IP/prefix[:47808]` on the interface that reaches the BACnet segment.
 

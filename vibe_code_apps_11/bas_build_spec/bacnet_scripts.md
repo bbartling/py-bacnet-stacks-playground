@@ -1,10 +1,14 @@
-Example bacnet scripts include 
-- bacnet client read write release null
-- bacnet client read multiple
-- bacnet client priority array
-- bacnet server for schedule object
-- bacnet server example
-- bacnet client points discovery
+Runnable copies for humans and Codex live under **`bas_build_spec/bacnet_scripts_example/`** (see that folder’s `README.md`). This file keeps the full embedded reference corpus.
+
+Example scripts:
+- bacnet client read write release null → `bacnet_scripts_example/client_read_write_release.py`
+- bacnet client read multiple → `bacnet_scripts_example/client_read_multiple_rpm.py`
+- bacnet client priority array → `bacnet_scripts_example/client_priority_array.py`
+- bacnet server for schedule object → `bacnet_scripts_example/server_schedule_calendar.py`
+- bacnet server example (weather gateway) → `bacnet_scripts_example/server_weather_gateway.py`
+- bacnet client points discovery → `bacnet_scripts_example/point_discovery.py` (Who-Is sweep) and `client_device_object_list.py` (known device)
+
+**Human gate:** validate `SimpleArgumentParser` args with `point_discovery.py` before AI copies bind/name/instance into `bas_app` drivers. **Server/gateway** code must stay **long-running** (`while True` / `await asyncio.Future()`), not per-request start/stop.
 
 import asyncio
 import sys

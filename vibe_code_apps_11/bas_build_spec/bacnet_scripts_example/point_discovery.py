@@ -9,6 +9,9 @@ Run (bind address = *this host's* NIC on the BACnet subnet, not the field device
 
 Requires: pip install bacpypes3
 
+After a good run, record working ``--name``, ``--instance``, and ``--address`` in
+``bas_build_spec/memory/integrations/bacnet.md`` before AI copies them into driver config.
+
 Who-Is device-instance range is capped at **4194303** (22-bit BACnet); larger values raise
 ``ParameterOutOfRange`` from bacpypes3.
 """

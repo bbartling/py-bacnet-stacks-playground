@@ -28,7 +28,7 @@ echo "BAS_BUILD=$BAS_BUILD CRON_ROOT=$CRON_ROOT"
 [[ -f "$BAS_BUILD/skills/GUARDRAILS.md" ]] || fail "missing skills/GUARDRAILS.md"
 [[ -f "$CRON_ROOT/env.example" ]] || fail "missing env.example"
 
-for x in bas_wake.sh bas_cron_scheduler.sh bas_workspace_cli.sh bas_memory_ensure.sh bas_install_cron.sh bas_validate_automation.sh check_acceptance_complete.sh bas_remove_cron_marked.sh bas_smoke.sh bas_skills_link.sh; do
+for x in bas_wake.sh bas_cron_scheduler.sh bas_workspace_cli.sh bas_memory_ensure.sh bas_install_cron.sh bas_validate_automation.sh bas_validate_cron_services.sh bas_validate_wake_pass.sh check_acceptance_complete.sh bas_remove_cron_marked.sh bas_smoke.sh bas_skills_link.sh; do
   [[ -x "$BIN_DIR/$x" ]] || warn "not executable: $BIN_DIR/$x (chmod +x)"
 done
 

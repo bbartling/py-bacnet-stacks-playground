@@ -27,13 +27,68 @@ MEMORY_DIR="$SPEC_ROOT/memory"
 CRON_DIR="$SPEC_ROOT/cron"
 SCRATCH_DIR="$SPEC_ROOT/scratch"
 RESET_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+BACNET_MEMORY="$MEMORY_DIR/integrations/bacnet.md"
+CHECKLIST_FILE="$SPEC_ROOT/acceptance_criteria.md"
+
+write_bacnet_memory_template() {
+  cat >"$BACNET_MEMORY" <<'BACNETEOF'
+# BACnet lab memory (per building / site)
+
+Human fills bind and discovery sign-off before automation enables on-wire drivers.
+
+## Sign-off checklist
+
+- [ ] Local NIC bind documented (not field device IP)
+- [ ] `point_discovery.py` run with expected I-Am / object-list output
+- [ ] Validated BACpypes3 CLI args recorded (`--name`, `--instance`, `--address`; optional `--debug`)
+- [ ] Device instance + pduSource inventory recorded below
+- [ ] BUILD_CHECKPOINTS.md updated under Done recently
+
+## Validated SimpleArgumentParser args (AI copies these)
+
+| Field | Value |
+|-------|-------|
+| `--name` | |
+| `--instance` | |
+| `--address` | |
+
+Template: `bas_build_spec/bacnet_scripts_example/human_validated_args.env.example`
+
+## Inventory
+
+*(Append after each validated discovery run.)*
+BACNETEOF
+}
+
+reset_markdown_checklists_under() {
+  local root="$1"
+  [[ -d "$root" ]] || return 0
+  while IFS= read -r -d '' file; do
+    if grep -qE '^- \[[xX]\]' "$file"; then
+      sed -i 's/^- \[[xX]\]/- [ ]/' "$file"
+      echo "Unchecked checklist lines: $file"
+    fi
+  done < <(find "$root" -type f -name '*.md' -print0)
+}
+
+reset_workspace_checklists() {
+  write_bacnet_memory_template
+  echo "Wrote fresh template: $BACNET_MEMORY"
+  reset_markdown_checklists_under "$MEMORY_DIR"
+  if [[ -f "$CHECKLIST_FILE" ]] && grep -qE '^- \[[xX]\]' "$CHECKLIST_FILE"; then
+    sed -i 's/^- \[[xX]\]/- [ ]/' "$CHECKLIST_FILE"
+    echo "Unchecked legacy checklist lines: $CHECKLIST_FILE"
+  fi
+}
 
 NUKE_BAS_APP=false
+RESET_CHECKLISTS=false
 IAMSURE=false
 YES=false
 for arg in "$@"; do
   case "$arg" in
     --nuke-bas-app|--full-reset) NUKE_BAS_APP=true ;;
+    --reset-checklists) RESET_CHECKLISTS=true ;;
     --i-am-sure) IAMSURE=true ;;
     --yes|-y) YES=true ;;
     -h|--help)
@@ -47,6 +102,15 @@ bas_redo_automation_state.sh — reset Codex/cron logs + state + BUILD_CHECKPOIN
       Also rm -rf ../bas_app (sibling of bas_build_spec), recreate empty dir +
       README.BLASTED.md. Requires --i-am-sure. Use --yes or SKIP_NUKE_SLEEP=1
       when stdout is not a TTY (cron/CI). Optional: BAS_APP_DIR=/path/to/bas_app
+
+  bash …/bas_redo_automation_state.sh --reset-checklists
+      Rewrite memory/integrations/bacnet.md to the empty checklist template and
+      turn any checked Markdown boxes (- [x]) back to unchecked (- [ ]) under
+      memory/ (and legacy rows in acceptance_criteria.md if present).
+
+  bash …/bas_full_reset.sh
+      Easy button: nuke bas_app + redo automation state + reset checklists
+      (--nuke-bas-app --reset-checklists --i-am-sure --yes).
 
 Alias: --full-reset == --nuke-bas-app (same flag; use every rebuild iteration.)
 HELP
@@ -143,15 +207,26 @@ mkdir -p "$STATE_DIR"
 
 # Workspace memory + cron (OpenClaw-style tree)
 if [[ -d "$MEMORY_DIR" ]]; then
-  find "$MEMORY_DIR" -type f \
-    ! -name '.gitkeep' \
-    ! -name 'README.md' \
-    ! -path '*/integrations/bacnet.md' \
-    -delete 2>/dev/null || true
-  echo "Cleared: $MEMORY_DIR daily/domain notes (kept README + integrations/bacnet.md template)"
+  find_args=(
+    "$MEMORY_DIR" -type f
+    ! -name '.gitkeep'
+    ! -name 'README.md'
+  )
+  if [[ "$RESET_CHECKLISTS" != true ]]; then
+    find_args+=( ! -path '*/integrations/bacnet.md' )
+  fi
+  find "${find_args[@]}" -delete 2>/dev/null || true
+  if [[ "$RESET_CHECKLISTS" == true ]]; then
+    echo "Cleared: $MEMORY_DIR daily/domain notes (including BACnet sign-off memory)"
+  else
+    echo "Cleared: $MEMORY_DIR daily/domain notes (kept README + integrations/bacnet.md template)"
+  fi
 fi
 mkdir -p "$MEMORY_DIR"/{sites,buildings,equipment,integrations,stack,operators}
 "$SCRIPT_DIR/bas_memory_ensure.sh" 2>/dev/null || true
+if [[ "$RESET_CHECKLISTS" == true ]]; then
+  reset_workspace_checklists
+fi
 
 cat >"$MEMORY_FILE" <<'MEMEOF'
 # BAS workspace memory (curated bootstrap)
@@ -278,6 +353,9 @@ echo "Wrote: $CHECKPOINTS"
 echo "== done =="
 echo "  • DONE_AUTOMATION / stop_mini / CODEX_ACCEPTANCE_COMPLETE / PIDs cleared — cron wakes will run Codex again (unless crontab was removed)."
 echo "  • Re-arm: ensure crontab still has # BAS_CODEX_WAKE; delete DONE_AUTOMATION if it reappears."
+if [[ "$RESET_CHECKLISTS" == true ]]; then
+  echo "  • BACnet sign-off checklist and other memory Markdown checkboxes reset to unchecked."
+fi
 if [[ "$NUKE_BAS_APP" == true ]]; then
   echo "  • bas_app was NUKED and recreated empty — rebuild from spec/skills, then POST_WAKE_HOOK / stack as needed."
 fi

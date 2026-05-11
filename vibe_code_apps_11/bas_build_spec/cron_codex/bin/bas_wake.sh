@@ -189,7 +189,7 @@ Read (do not delete):
 - ${schedule_ui_ref}   (schedule shell / weekly grid widget — primary operator UI reference; see spec DESIGN STYLE)
 - ${ui_theme_ref}   (Niagara-style synoptic + logic wire-sheet / flow strip; see spec DESIGN STYLE)
 - ${graphic_alias_ref}   (same bytes as n4_graphic.html — compatibility alias)
-- ${bacnet_discovery_ref}   (lab Who-Is / object-list script; human sets NIC bind — see bacnet-driver-lifecycle skill)
+- ${bacnet_discovery_ref}   (lab Who-Is / object-list; run via bas_bacnet_lab_verify.sh when BAS_BACNET_* env is set — see bacnet-driver-lifecycle skill)
 - ${skill_memory}
 - ${skill_cron}
 - ${skill_systemd}
@@ -200,7 +200,7 @@ Rules:
 - Do ONE small, reviewable slice toward the ordered "Next for mini" items in BUILD_CHECKPOINTS.md (or spec if empty).
 - Prefer repo under CODEX_CWD=${CODEX_CWD}; keep BACnet driver disabled unless spec explicitly allows opt-in.
 - Any frontend or static HTML/CSS you add must follow **spec DESIGN STYLE**: **schedule_example.html** for shell/schedules/tables, and **n4_graphic.html** patterns for synoptic/wire-sheet flow strips and BAS status colors — not a random unrelated theme.
-- **BACnet on wire:** default **simulator**. Live driver work only after human discovery sign-off (point_discovery.py + memory/integrations/bacnet.md); build the **driver framework** in bas_app per **bacnet-driver-lifecycle** skill.
+- **BACnet on wire:** default **simulator**. When BAS_BACNET_LAB_VERIFY=true and BAS_BACNET_* bind vars are set, run discovery (worker or mini), append memory/integrations/bacnet.md, then extend the **long-lived** BACpypes3 driver in bas_app from bacnet_scripts_example/ using the **same** validated args; see **bacnet-driver-lifecycle** skill.
 - **Long-lived runtime (required):** use **systemd user units** for bas_app (bas-backend.service, bas-frontend.service) — **not Docker** unless BUILD_CHECKPOINTS explicitly says otherwise. Install from bas_build_spec/deploy/systemd/ via bas_build_spec/cron_codex/bin/bas_systemd_manage.sh ensure.
 - **Live stack each slice:** after API/UI changes, systemctl --user restart affected units, read journalctl --user -u bas-backend.service -n 40 --no-pager (and frontend), fix errors, then curl /health and the UI port. Bind **0.0.0.0**; document LAN URLs in bas_app/README.md.
 - Append a short bullet to **today's** bas_build_spec/memory/YYYY-MM-DD.md for what you verified or what failed.

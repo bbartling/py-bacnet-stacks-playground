@@ -9,7 +9,9 @@ $CR/bin/bas_workspace_cli.sh memory search bacnet
 $CR/bin/bas_workspace_cli.sh cron list
 $CR/bin/bas_workspace_cli.sh cron dry-run
 $CR/bin/bas_workspace_cli.sh cron runs bas-wake-hourly
-$CR/bin/bas_validate_automation.sh   # one-button: cron + building vs snagged + stack + BACnet
+$CR/bin/bas_validate_cron_services.sh   # cron + scheduler + systemd + /health
+$CR/bin/bas_validate_wake_pass.sh       # manual/scheduled wake: building vs snagged + checkpoints
+$CR/bin/bas_validate_automation.sh     # both (full)
 ```
 
 Agent map: **`bas_build_spec/AGENTS.md`** · truncated injection: **`bas_build_spec/scratch/memory-bootstrap-latest.md`**.
@@ -201,8 +203,10 @@ Only one wake holds **`/tmp/bas_codex_wake.lock`** (or **`BAS_CODEX_LOCK`** from
 **After backup.** See **`README.md`** and **`bin/bas_redo_automation_state.sh --help`**.
 
 ```bash
-bash $CR/bin/bas_redo_automation_state.sh --nuke-bas-app --i-am-sure --yes
+bash $CR/bin/bas_full_reset.sh
 ```
+
+Same as `bas_redo_automation_state.sh --nuke-bas-app --reset-checklists --i-am-sure --yes` (also clears BACnet sign-off checkboxes and `CODEX_ACCEPTANCE_COMPLETE`).
 
 ---
 

@@ -13,8 +13,9 @@ description: >-
 
 ## References
 
-- **`bas_build_spec/bacnet_scripts.md`** — patterns: read / write / write-null / RPM / priority array (copy shapes from here; do not paste the whole file into prompts).
-- **`bas_build_spec/bacnet_scripts_example/point_discovery.py`** — runnable **Who-Is → I-Am → per-device `object-list`** sweep; BACnet device instance range **0..4194303** (bacpypes3 enforces this).
+- **`references/bacnet_scripts_index.md`** — maps each demo block in **`bas_build_spec/bacnet_scripts.md`** to driver responsibilities.
+- **`bas_build_spec/bacnet_scripts.md`** — embedded BACpypes3 reference corpus (copy shapes; do not paste the whole file).
+- **`bas_build_spec/bacnet_scripts_example/`** — runnable `.py` extracts + **`README.md`**: `point_discovery.py` (human gate), client read/write/RPM/priority/object-list, **`server_schedule_calendar.py`**, **`server_weather_gateway.py`**. Device instance range **0..4194303** (bacpypes3 enforces this).
 - **`bas_build_spec/spec.md`** — § BACNET / NIC bind (`--address IP/prefix[:47808]` on the interface that reaches the segment).
 - **`bas_app/backend/README.md`** — default stack is **simulator-only** until checkpoints explicitly enable lab BACnet.
 
@@ -23,11 +24,11 @@ description: >-
 - Correct **`--address`** bind on the NIC that sees the controllers; UDP **47808** open; no production writes without ops approval.
 - Optional: capture **`point_discovery.py`** (or equivalent) output to a **log file** in-repo only if it contains **no secrets** (prefer redacted summaries in **`BUILD_CHECKPOINTS.md`** per **`GUARDRAILS.md`**).
 
-## Phase 1 — Human gate (required before “real driver” work)
+## Phase 1 — Lab gate (required before “real driver” work)
 
-**Goal:** A technician confirms on-wire inventory matches **expected** controllers (device instances, IP sources, object counts).
+**Goal:** On-wire inventory matches **expected** controllers (device instances, IP sources, object counts). A human configures **`BAS_BACNET_*`** once; **automation** runs discovery and fills memory.
 
-1. Human sets **this host’s** BACnet NIC bind (not the field device IP) and runs discovery (example):
+1. Set **this host’s** BACnet NIC bind (not the field device IP) in `cron_codex/.env`, then run discovery (worker or mini), for example:
 
    ```bash
    cd /home/ben
@@ -39,9 +40,11 @@ description: >-
 
 2. Optional **cron worker** (after env is set in `cron_codex/.env`): `bas_bacnet_lab_verify.sh` appends redacted summaries to **`memory/integrations/bacnet.md`**. Enable only when `BAS_BACNET_LAB_VERIFY=true` and `BAS_BACNET_*` bind vars are filled.
 
-3. The tech **signs off** in **`BUILD_CHECKPOINTS.md`** and **`memory/integrations/bacnet.md`**: date, bind used, **device instance + pduSource** pairs, object-list counts vs expectation.
+3. Automation or the tech **signs off** in **`BUILD_CHECKPOINTS.md`** and **`memory/integrations/bacnet.md`**: date, validated **`--name` / `--instance` / `--address`**, **device instance + pduSource** pairs, object-list counts vs expectation (see **`human_validated_args.env.example`**).
 
 4. Until sign-off exists, keep **`bas_app`** on **simulator**; hourly Codex may continue UI/API work. Do not enable live driver flags or mark acceptance rows for on-wire BACnet.
+
+5. **AI must reuse** the human-validated **`SimpleArgumentParser`** args in driver config and systemd units — not invent a different bind or instance.
 
 ## Phase 2 — AI / automation: structured discovery artifact
 
@@ -53,7 +56,7 @@ description: >-
 
 ## Phase 3 — AI: driver framework (BACpypes3)
 
-**Goal:** A **replaceable** driver package under **`bas_app`** (poll/COV adapters, config, health) mirroring **`bacnet_scripts.md`**: **ReadProperty**, **WriteProperty** (with priority), **relinquish (write Null)**, **ReadPropertyMultiple** where appropriate. Supervisor domain services stay interface-driven so simulator and driver swap without UI rewrites.
+**Goal:** A **replaceable** driver package under **`bas_app`** (poll/COV adapters, config, health) mirroring **`bacnet_scripts_example/`** shapes: **ReadProperty**, **WriteProperty** (with priority), **relinquish (write Null)**, **ReadPropertyMultiple** where appropriate. **Gateway/server** roles stay **long-running** (`while True` / `await asyncio.Future()` like **`server_weather_gateway.py`**), managed by **systemd**, not per-request start/stop. Supervisor domain services stay interface-driven so simulator and driver swap without UI rewrites.
 
 - **Interface first:** supervisory **`bas_app`** domain stays on a **`BacnetPointSource`** (or existing simulator interface) — swap simulator ↔ driver via **config / feature flag**.
 - **Default off:** real stack remains **simulator-only** unless **`BUILD_CHECKPOINTS`** and **`.env`** (or equivalent) explicitly enable lab BACnet.

@@ -29,7 +29,11 @@
       "service": "systemd_restart",
       "style": "worker",
       "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_systemd_manage.sh",
-      "args": ["ensure", "restart", "health"],
+      "args": [
+        "ensure",
+        "restart",
+        "health"
+      ],
       "note": "Invoked from bas_wake POST_WAKE_HOOK; not polled by scheduler when minutes=0."
     },
     {

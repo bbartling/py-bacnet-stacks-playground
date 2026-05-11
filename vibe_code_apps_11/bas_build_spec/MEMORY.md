@@ -15,7 +15,8 @@ Short standing brief for Codex wakes — not a transcript. Daily detail lives un
 
 - Backend: `bas_app/backend/src/bas_app_backend` serves `/health` on `http://127.0.0.1:8000/health`.
 - User unit: `bas-backend.service` is installed under `~/.config/systemd/user/` from `bas_build_spec/deploy/systemd/`.
-- Frontend unit template exists in `bas_build_spec/deploy/systemd/` for the next slice; frontend tree is not scaffolded yet.
+- Frontend: Vite/React app under `bas_app/frontend` serves on `http://127.0.0.1:5173/` and LAN `http://192.168.204.18:5173/` via `bas-frontend.service`.
+- Current UI scaffold includes login, navigation tree, equipment point table, OAT supervisory flow strip, and a client-side weekly schedule editor.
 
 ## Operator preferences
 

@@ -14,6 +14,11 @@ description: >-
 
 Deliver a **generic, testable** path from **operator schedule edits** to **field commands** with **verification**, **retries**, and **alarms** — suitable for Codex to implement without hardcoded job-specific BACnet IDs.
 
+## BACnet schedule objects (lab / driver)
+
+- **`bas_build_spec/bacnet_scripts.md`** — **Schedule + Calendar** mini **server** device (`ScheduleObject`, `CalendarObject`, `weeklySchedule`, `exceptionSchedule`, mirrored binary output). Use for lab verification before head-end schedule writes.
+- **`bacnet-driver-lifecycle/references/bacnet_scripts_index.md`** — schedule server row + lab ordering.
+
 ## UI reference (schedules + shared chrome)
 
 - **`bas_build_spec/frontend_example/schedule_example.html`**

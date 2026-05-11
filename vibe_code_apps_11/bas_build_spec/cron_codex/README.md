@@ -10,7 +10,9 @@ This folder contains a **bash wake script** plus documentation so `cron` (or `sy
 CR=/home/ben/bas_build_spec/cron_codex
 chmod +x "$CR/bin"/*.sh "$CR/bin/bas_cron_engine.py"
 "$CR/bin/bas_install_cron.sh"
-"$CR/bin/bas_validate_automation.sh"
+"$CR/bin/bas_validate_cron_services.sh"   # cron + systemd stack
+"$CR/bin/bas_validate_wake_pass.sh"       # after manual bas_wake.sh
+# or: "$CR/bin/bas_validate_automation.sh"  # both
 ```
 
 Hourly tick runs **`bas_cron_scheduler.sh run-due`** (reads **`bas_build_spec/cron/jobs.json`**). Agent map: **`bas_build_spec/AGENTS.md`**.
