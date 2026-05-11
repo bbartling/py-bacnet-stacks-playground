@@ -65,7 +65,7 @@ if [[ -d "$memory_root" ]]; then
     truncate_file "$f" 6000
   done
 
-  for sub in integrations stack sites buildings equipment operators; do
+  for sub in architecture integrations stack sites buildings equipment operators; do
     dir="$memory_root/$sub"
     [[ -d "$dir" ]] || continue
     mapfile -t domain_files < <(find "$dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort | head -n 5)

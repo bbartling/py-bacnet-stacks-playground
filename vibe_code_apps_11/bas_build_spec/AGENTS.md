@@ -23,8 +23,9 @@ Plain Markdown on disk is the source of truth. The **scheduler runs outside Code
 | `memory/integrations/bacnet.md` | Lab bind, discovery sign-off, device inventory |
 | `memory/stack/` | Services, units, health URLs, cron job notes |
 | `memory/operators/` | Operator preferences (units, summary style) |
+| `memory/architecture/working-divergence.md` | Append-only log when working code/automation diverges from spec/skills (see `memory/architecture/README.md`) |
 
-Promotion: after critique, distill durable facts into `MEMORY.md` and domain files; keep `BUILD_CHECKPOINTS.md` as the task queue only.
+Promotion: after critique, distill durable facts into `MEMORY.md` and domain files; triage divergence log entries into `skills/*/references/` when stable; keep `BUILD_CHECKPOINTS.md` as the task queue only.
 
 ## Cron gateway
 

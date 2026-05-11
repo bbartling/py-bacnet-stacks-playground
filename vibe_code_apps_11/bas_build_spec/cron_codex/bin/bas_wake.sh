@@ -63,6 +63,8 @@ skill_cron="$BAS_BUILD/skills/workspace-cron/SKILL.md"
 skill_systemd="$BAS_BUILD/skills/systemd-live-dev/SKILL.md"
 agents_guide="$BAS_BUILD/AGENTS.md"
 memory_snapshot="$BAS_BUILD/scratch/memory-bootstrap-latest.md"
+arch_divergence_log="$BAS_BUILD/memory/architecture/working-divergence.md"
+arch_divergence_readme="$BAS_BUILD/memory/architecture/README.md"
 done_flag="$STATE_DIR/DONE_AUTOMATION"
 stop_mini_loop_file="$STATE_DIR/stop_mini_loop"
 
@@ -182,6 +184,7 @@ Read (do not delete):
 - ${manifest}
 - ${memory_bootstrap}
 - ${memory_root}/   (today's YYYY-MM-DD.md and domain subfolders)
+- ${arch_divergence_readme} and ${arch_divergence_log}   (working architecture when spec/skills diverge from what actually runs)
 - ${spec}
 - ${checklist}
 - ${checkpoints}
@@ -204,6 +207,7 @@ Rules:
 - **Long-lived runtime (required):** use **systemd user units** for bas_app (bas-backend.service, bas-frontend.service) — **not Docker** unless BUILD_CHECKPOINTS explicitly says otherwise. Install from bas_build_spec/deploy/systemd/ via bas_build_spec/cron_codex/bin/bas_systemd_manage.sh ensure.
 - **Live stack each slice:** after API/UI changes, systemctl --user restart affected units, read journalctl --user -u bas-backend.service -n 40 --no-pager (and frontend), fix errors, then curl /health and the UI port. Bind **0.0.0.0**; document LAN URLs in bas_app/README.md.
 - Append a short bullet to **today's** bas_build_spec/memory/YYYY-MM-DD.md for what you verified or what failed.
+- If a **working** implementation in bas_app/ or automation **differs** from spec.md or skills because the documented path failed or was incomplete, append one dated block to **${arch_divergence_log}** (expectation vs reality, evidence, status open). Do not duplicate the daily log.
 - If you change behavior, run or add the narrowest tests you can.
 - Stop after this slice; do not burn extra tool budget.
 - **Skills:** canonical tree is bas_build_spec/skills/<topic>/SKILL.md (see bas_build_spec/skills/README.md). Do **not** add new topic folders on your own unless BUILD_CHECKPOINTS explicitly asks for it. Obey **GUARDRAILS.md** (no secrets; no full spec paste; extend an existing topic folder when possible). After adding a folder, run bas_build_spec/cron_codex/bin/bas_skills_link.sh to refresh Cursor skill symlinks.
@@ -244,6 +248,7 @@ Read:
 - ${manifest}
 - ${memory_bootstrap}
 - ${memory_root}/
+- ${arch_divergence_readme} and ${arch_divergence_log}
 - ${spec}
 - ${checklist}
 - ${checkpoints}
@@ -267,7 +272,8 @@ Tasks:
 6) When release gate and acceptance criteria are truly satisfied, a human may touch cron_codex/state/CODEX_ACCEPTANCE_COMPLETE so automation shutdown can fire when REMOVE_CRON_WHEN_COMPLETE=true. This wake end (bash in bas_wake.sh) can then remove the marked cron line and write DONE_AUTOMATION — no further scheduled wakes until a human deletes DONE_AUTOMATION. If automation should keep running, delete any stray CODEX_ACCEPTANCE_COMPLETE marker or keep REMOVE_CRON_WHEN_COMPLETE=false.
 7) Skills (strict): Read GUARDRAILS.md. Canonical path: bas_build_spec/skills/<topic>/SKILL.md (optional references/, scripts/, assets/). Per wake: at most one of option A one new topic folder under bas_build_spec/skills/ with SKILL.md, or option B materially expand one existing topic SKILL.md/references/, or option C update skills/README.md or GUARDRAILS or taxonomy table only. Never A and B same wake. Run bas_build_spec/cron_codex/bin/bas_skills_link.sh after folder changes. If unsure, only update BUILD_CHECKPOINTS Next for mini.
 8) Memory: Append a dated section to bas_build_spec/memory/YYYY-MM-DD.md (wake summary, smoke, systemd/journal errors, LAN URLs). Optionally trim/promote stable facts into MEMORY.md (stack inventory, standing decisions) without duplicating the full queue.
-9) Runtime: Note whether systemd user units are installed and healthy; call out journal errors that the next mini must fix first.
+9) Architecture divergence: Read ${arch_divergence_log}. Triage new open entries from this wake; promote stable working patterns into skills/*/references/ or MEMORY.md; mark entries promoted or superseded. If no skill update this wake, note follow-up in BUILD_CHECKPOINTS.
+10) Runtime: Note whether systemd user units are installed and healthy; call out journal errors that the next mini must fix first.
 
 Be concise in prose; optimize the next mini queue for clarity and safety."
 codex "${critique_common[@]}" "$CRIT_PROMPT" || echo "WARN: critique exited non-zero"

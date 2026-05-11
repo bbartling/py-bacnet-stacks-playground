@@ -15,8 +15,19 @@ mkdir -p \
   "$MEMORY_ROOT/integrations" \
   "$MEMORY_ROOT/stack" \
   "$MEMORY_ROOT/operators" \
+  "$MEMORY_ROOT/architecture" \
   "$BAS_BUILD/scratch" \
   "$BAS_BUILD/cron/runs"
+
+if [[ ! -f "$MEMORY_ROOT/architecture/working-divergence.md" ]]; then
+  cat >"$MEMORY_ROOT/architecture/working-divergence.md" <<'EOF'
+# Working architecture divergence log
+
+Append when live code or ops work but spec/skills are wrong or incomplete.
+
+*(No entries yet.)*
+EOF
+fi
 
 if [[ ! -f "$DAILY" ]]; then
   {

@@ -13,12 +13,15 @@ description: >-
 - **`bas_build_spec/MEMORY.md`** — curated bootstrap (short; every wake).
 - **`bas_build_spec/scratch/memory-bootstrap-latest.md`** — regenerated each wake (truncated injection).
 - **`bas_build_spec/memory/YYYY-MM-DD.md`** — append-only daily wake log.
-- **Domain:** `memory/sites/`, `buildings/`, `equipment/`, `integrations/`, `stack/`, `operators/`.
+- **Domain:** `memory/sites/`, `buildings/`, `equipment/`, `integrations/`, `stack/`, `operators/`, `architecture/`.
+- **`memory/architecture/working-divergence.md`** — append-only log when **working** `bas_app/` or automation differs from `spec.md` / skills because the documented path failed or was incomplete.
 
 ## Rules
 
 - Do not paste full `spec.md` into memory files.
 - After each wake, critique appends to today’s daily file (failures, smoke, URLs, risks).
+- **Mini:** if implementation works but spec/skills do not, append one dated block to `working-divergence.md` (expectation, reality, evidence, status open).
+- **Critique:** triage open divergence entries; promote stable patterns into `skills/*/references/` or `MEMORY.md`; mark entries promoted or superseded.
 - Promote only stable facts into `MEMORY.md` and domain files.
 - **`BUILD_CHECKPOINTS.md`** remains the ordered mini queue; memory holds building + stack context.
 - As patterns stabilize, add short notes to **`skills/*/references/`** (not full spec pastes).
