@@ -1,0 +1,51 @@
+0) Kill existing PIDs
+sudo bash /home/ben/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
+ss -ltnp | grep -E ':(80|443|5173|8000)\b'
+pgrep -af 'vite|uvicorn|node.*5173|caddy'
+
+1) Full reset
+cd /home/ben/bas_build_spec/cron_codex && ./bin/bas_full_reset.sh
+
+2) Manual wake
+cd /home/ben/bas_build_spec/cron_codex && \
+MINI_INVOCATIONS_PER_WAKE=1 \
+BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env \
+./bin/bas_wake.sh
+
+
+2a) -  separate terminal
+tail -f "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+
+
+3) Validators
+cd /home/ben/bas_build_spec/cron_codex
+./bin/bas_validate_cron_services.sh
+./bin/bas_validate_wake_pass.sh
+./bin/bas_validate_automation.sh
+
+
+4) Latest wake log (if you did not tail during the wake)
+tail -f "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+
+
+5) Gateway check
+test -x /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh && \
+test -f /home/ben/bas_build_spec/cron_codex/bin/bas_cron_engine.py && \
+echo 'scheduler gateway: present' || echo 'scheduler gateway: MISSING — cron CMD will not reach bas_wake'
+crontab -l | grep -F BAS_CODEX_WAKE
+
+
+USER ACCOUNTS:
+admin
+admin123
+
+operator
+operator123
+
+readonly
+readonly123
+
+
+
+
+

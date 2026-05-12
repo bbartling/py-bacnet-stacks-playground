@@ -1,32 +1,28 @@
-timestamps = [
-    "2026-01-15 05:00",
-    "2026-01-15 05:15",
-    "2026-01-15 05:30",
-    "2026-01-15 05:45",
-    "2026-01-15 06:00",
-    "2026-01-15 06:15",
-    "2026-01-15 06:30",
-]
 
-oat = [
-    41.2,
-    39.8,
-    37.4,
-    35.6,
-    44.9,
-    33.7,
-    36.1,
-]
+import random
+
+random_list = [random.randint(1, 100) for _ in range(50)]
+print(random_list)
 
 
-def time_finder(timestamps,oat):
-    matches = []
-    for i, temp in zip(timestamps,oat):
-        if temp < 35.0:
-            matches.append(i)
+def find_min_max(data):
+    max_val = data[0]
+    min_val = data[0]
+    min_index = 0
+    max_index = 0
+    for index,value in enumerate(data):
+        if value >= max_val:
+            max_val = value
+            max_index = index
+        if value <= min_val:
+            min_val = value
+            min_index = index
 
-    return matches
+    return (min_val, min_index, max_val, max_index)
+        
 
 
-time_finder(timestamps, oat)
+print(find_min_max(random_list))
+print(max(random_list))
+print(min(random_list))
 
