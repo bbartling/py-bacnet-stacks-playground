@@ -2,10 +2,11 @@
 name: web-app-bas
 description: >-
   Use when working on the BAS supervisory web app (React/TS or chosen SPA),
-  auth shell, navigation tree, REST/WebSocket APIs, systemd user units, or dev
+  auth shell, navigation tree, REST/WebSocket APIs, Docker Compose, or dev
   server bind 0.0.0.0. Triggers on: frontend, backend, API, login, RBAC,
-  bas_build_spec, head-end, POST_WAKE_HOOK, simulator service, BACnet driver
-  lifecycle, remote dial-in, localhost confusion, Caddy port 80 conflict, LAN IP bookmark.
+  bas_build_spec, head-end, POST_WAKE_HOOK, post_wake_stack, simulator service,
+  remote dial-in, Tier A runtime, journalctl crash-loop, 8000 down, systemd
+  unit, localhost confusion, Caddy port 80 conflict, LAN IP bookmark.
 ---
 
 # Web app — BAS head-end
@@ -16,7 +17,15 @@ description: >-
 2. **`bas_build_spec/acceptance_criteria.md`**
 3. **`bas_build_spec/BUILD_CHECKPOINTS.md`** — Codex wake queue.
 4. **`bas_build_spec/cron_codex/README.md`** — automation, hooks, cron self-removal.
-5. **`bas_build_spec/skills/systemd-live-dev/SKILL.md`** — long-lived `bas_app` via user systemd (not Docker).
+
+## Definition of done (API + UI + remote)
+
+A feature slice is **not complete** for supervisory work if **only** tests pass on an ephemeral port but **no** long-lived listener matches **`bas_app/README.md`**:
+
+1. **`ss -ltnp`** shows **`0.0.0.0:8000`** (API) and **`0.0.0.0:5173`** (static UI) when the stack should be up.
+2. **`curl -sfS http://127.0.0.1:8000/health`** returns **200**.
+3. When **`systemctl --user` / `journalctl --user`** are available: **`journalctl --user -u bas-backend.service`** must not show a **restart storm** (`No module named bas_app_backend` — see **`systemd-live-dev`** unit). If the wake shell has **no user bus**, skip journal and prove health with **§1–2** plus **`bas_app/scripts/`** logs documented in README.
+4. **`POST_WAKE_HOOK`** may still log **`post_wake_stack: skip`** for this tree — that is OK if **`bas_app/README.md`** documents **`bas_app/scripts/`** (or **`POST_WAKE_HOOK`**) to start **:8000** / **:5173** per README without patching `bas_build_spec`; see **`systemd-live-dev`**.
 
 ## Live access
 
@@ -32,16 +41,19 @@ description: >-
 - Another app on **`:80`** (often **Caddy**) is **not** the BAS static server. Do **not** add Caddy/nginx site blocks unless the sprint explicitly owns reverse-proxy work — it confuses “what URL is the BAS?”
 - To **remove** lab web stacks on a server (Caddy + optional post-wake listeners), humans run **`sudo bash bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh`** (see script header). Codex does **not** run that script without explicit human direction.
 
-## Phased BACnet vs simulator (`bas_app`)
+## Validation (spec only — do not edit `bas_app/` from Cursor)
 
-1. **Default:** **`bas_app`** stays **simulator/in-memory** (see **`bas_app/backend/README.md`**) — UI and APIs ship without a BACnet runtime.
-2. **After lab gate:** Follow **`bacnet-driver-lifecycle`**: technician sign-off on **Who-Is / I-Am / object-list** output, then structured discovery artifacts, then a **BACpypes3** driver patterned on **`bas_build_spec/bacnet_scripts.md`**, then wire the same domain services the UI already uses.
-3. Do **not** interleave random wire traffic in hourly automation unless **`BUILD_CHECKPOINTS`** explicitly schedules that lab slice.
+- Follow **`spec-validation`** and `acceptance_criteria.md` release gate.
+- Demo credentials and login route are **documented in `bas_app/README.md`** after Codex ships auth.
+- **Acceptance:** release gate **Demo auth smoke (curl)** — check `[x]` only after `bas_smoke_login.sh` passes.
+- **Operator check:** copy `cron_codex/demo_auth.env.example` → `demo_auth.env`, sync from README, run `cron_codex/bin/bas_smoke_login.sh` (`BAS_BACKEND_HEALTH_URL`).
+- On README vs live mismatch, append `memory/architecture/working-divergence.md`; queue Codex in `BUILD_CHECKPOINTS.md`.
+- **Auth research:** spec/demo_auth uses `admin`/`admin123`, etc. on `/api/auth/login`. A live stack may differ (e.g. `/api/v1/auth/login`, legacy `operator`/`operator`, token key `token` vs `access_token`) — log divergence; do not patch `bas_app/` from Cursor.
 
 ## First slice
 
 - Start with the BAS shell: auth/login, left navigation tree, top status bar, and a main pane that can host equipment graphics and point tables.
-- **Shell / schedules:** **`schedule_example.html`**. **Wire-sheet / synoptic panes:** **`n4_graphic.html`** (same as `graphic.html`) for flow-strip density and status colors — see **`bas-graphics/references/frontend-examples.md`**.
+- Keep the first UI pass aligned with **`bas_build_spec/frontend_example/graphic.html`** so the shell inherits the dark slate surfaces, border chrome, and BAS status colors.
 - Keep simulator-backed APIs behind interfaces so later BACnet or gateway drivers can replace them without reshaping the shell contract.
 
 ## Repo-local skills layout
@@ -50,4 +62,4 @@ All task skills live under **`bas_build_spec/skills/<name>/SKILL.md`** (this tre
 
 ## Related skills
 
-- `bas-graphics`, `alarm-workflows`, `trend-data`, `safe-bacnet-writes`, `bacnet-point-modeling`, `bacnet-driver-lifecycle`, `brick-schema-modeling`
+- `spec-validation`, `bas-graphics`, `alarm-workflows`, `trend-data`, `safe-bacnet-writes`, `bacnet-point-modeling`, `brick-schema-modeling`

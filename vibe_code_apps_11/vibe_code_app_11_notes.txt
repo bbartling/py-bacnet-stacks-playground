@@ -1,36 +1,54 @@
+# vibe_code_apps_11 — BAS build spec / Codex cron quick ref
+
+## Layout + symlink + .env
+- Canonical tree (commit this in git): py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/
+- Optional compatibility symlink on this host so old crontabs/docs keep working:
+    ln -sfn /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec /home/ben/bas_build_spec
+    ls -la /home/ben/bas_build_spec   # should show -> …/vibe_code_apps_11/bas_build_spec
+  If crontab still uses /home/ben/bas_build_spec/... paths, they resolve through this link.
+- After the symlink exists, you may shorten commands by replacing the long …/vibe_code_apps_11/bas_build_spec path with /home/ben/bas_build_spec (same tree).
+- cron_codex/.env: cp env.example .env ; set BAS_REPO, CODEX_CWD, BAS_APP, BAS_CODEX_LOG_DIR, POST_WAKE_HOOK to real paths on this machine (see env.example). Do not commit .env.
+- bas_app (generated head-end): usually /home/ben/bas_app (sibling of py-bacnet-stacks-playground); must match BAS_APP in .env for post-wake and redo scripts.
+
 0) Kill existing PIDs
-sudo bash /home/ben/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
+sudo bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
 ss -ltnp | grep -E ':(80|443|5173|8000)\b'
 pgrep -af 'vite|uvicorn|node.*5173|caddy'
 
-1) Full reset
-cd /home/ben/bas_build_spec/cron_codex && ./bin/bas_full_reset.sh
+0b) If a wake hung (Codex waiting for stdin / non-interactive): pkill -f 'codex exec.*Scheduled BAS incremental wake' ; rm -f /tmp/bas_codex_wake.lock
+
+1) Reset (pick one — do not run both)
+cd /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
+# (a) Automation + checklists only — keeps bas_app code:
+./bin/bas_redo_automation_state.sh --reset-checklists
+# (b) Nuclear — ./bin/bas_full_reset.sh also rm -rf BAS_APP (path from .env or default ~/bas_app). Uncomment only if intentional:
+# ./bin/bas_full_reset.sh
 
 2) Manual wake
-cd /home/ben/bas_build_spec/cron_codex && \
+cd /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex && \
 MINI_INVOCATIONS_PER_WAKE=1 \
-BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env \
+BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env \
 ./bin/bas_wake.sh
 
 
 2a) -  separate terminal
-tail -f "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+tail -f "$(ls -t /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
 
 
 3) Validators
-cd /home/ben/bas_build_spec/cron_codex
+cd /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 ./bin/bas_validate_cron_services.sh
 ./bin/bas_validate_wake_pass.sh
 ./bin/bas_validate_automation.sh
 
 
 4) Latest wake log (if you did not tail during the wake)
-tail -f "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+tail -f "$(ls -t /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
 
 
 5) Gateway check
-test -x /home/ben/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh && \
-test -f /home/ben/bas_build_spec/cron_codex/bin/bas_cron_engine.py && \
+test -x /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh && \
+test -f /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_cron_engine.py && \
 echo 'scheduler gateway: present' || echo 'scheduler gateway: MISSING — cron CMD will not reach bas_wake'
 crontab -l | grep -F BAS_CODEX_WAKE
 

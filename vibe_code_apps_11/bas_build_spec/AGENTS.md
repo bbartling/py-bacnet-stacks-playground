@@ -17,15 +17,11 @@ Plain Markdown on disk is the source of truth. The **scheduler runs outside Code
 |------|------|
 | `MEMORY.md` | Curated standing brief (not a transcript) |
 | `memory/YYYY-MM-DD.md` | Append-only daily wake log |
-| `memory/sites/` | Per-site identity, addresses, escalation |
-| `memory/buildings/` | Building program, equipment taxonomy |
-| `memory/equipment/` | Notable assets, quirks |
-| `memory/integrations/bacnet.md` | Lab bind, discovery sign-off, device inventory |
-| `memory/stack/` | Services, units, health URLs, cron job notes |
-| `memory/operators/` | Operator preferences (units, summary style) |
-| `memory/architecture/working-divergence.md` | Append-only log when working code/automation diverges from spec/skills (see `memory/architecture/README.md`) |
+| `memory/architecture/working-divergence.md` | Spec vs working runtime gaps |
+| `memory/integrations/bacnet.md` | Lab bind, discovery sign-off |
+| `memory/stack/` | Services, health URLs, cron notes |
 
-Promotion: after critique, distill durable facts into `MEMORY.md` and domain files; triage divergence log entries into `skills/*/references/` when stable; keep `BUILD_CHECKPOINTS.md` as the task queue only.
+Promotion: after critique, distill durable facts into `MEMORY.md` and domain files; keep `BUILD_CHECKPOINTS.md` as the task queue only.
 
 ## Cron gateway
 
@@ -35,15 +31,13 @@ Promotion: after critique, distill durable facts into `MEMORY.md` and domain fil
 
 ## Runtime (not Docker by default)
 
-- Long-lived dev: **systemd user units** `bas-backend.service`, `bas-frontend.service`
-- `cron_codex/bin/bas_systemd_manage.sh ensure-restart-health` after material code changes
-- Read `journalctl --user` before ending a slice
+- Long-lived dev: **systemd user units** or repo **post-wake** detached stack when user bus is missing
+- `cron_codex/bin/bas_post_wake_stack.sh` via `POST_WAKE_HOOK` after wakes when backend exists
 
 ## BACnet lab gate
 
 - Default: **simulator** in `bas_app`
-- On-wire: set `BAS_BACNET_*` in `cron_codex/.env`, enable worker `bas-bacnet-lab-verify` (or run `bas_bacnet_lab_verify.sh`); Codex minis append `memory/integrations/bacnet.md` and build the **long-lived** BACpypes3 driver from `bacnet_scripts_example/` using the **same** validated `--name` / `--instance` / `--address`
-- Human supplies only the lab bind env once; automation runs discovery and driver slices after that
+- On-wire: human sign-off in `memory/integrations/bacnet.md` and explicit checkpoint work only
 
 ## UI references
 

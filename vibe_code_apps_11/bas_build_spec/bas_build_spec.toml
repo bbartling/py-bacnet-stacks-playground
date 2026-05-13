@@ -3,24 +3,16 @@
 [memory]
 root = "memory"
 bootstrap_file = "MEMORY.md"
-bootstrap_max_chars = 12000
-daily_lookback_days = 2
-flush_after_critique = true
+bootstrap_max = 12000
+daily_lookback = 2
+domain_max = 2500
 
 [cron]
-store = "cron/jobs.json"
-state = "cron/jobs-state.json"
+jobs_file = "cron/jobs.json"
+state_file = "cron/jobs-state.json"
 runs_dir = "cron/runs"
-timezone = "America/Chicago"
-reconcile_grace_seconds = 7200
+reconcile_grace_sec = 7200
 
-[runtime]
-# Prefer systemd user units over Docker/nohup for long-lived dev stacks.
-prefer = "systemd-user"
-app_dir = "../bas_app"
-systemd_unit_dir = "deploy/systemd"
-backend_unit = "bas-backend.service"
-frontend_unit = "bas-frontend.service"
-backend_health_url = "http://127.0.0.1:8000/health"
-frontend_health_url = "http://127.0.0.1:5173/"
-restart_between_wakes = true
+[paths]
+# Relative to this bas_build_spec directory (vibe_code_apps_11/bas_build_spec → ../../bas_app = /home/ben/bas_app when bas_app stays at repo grandparent)
+app_dir = "../../../bas_app"

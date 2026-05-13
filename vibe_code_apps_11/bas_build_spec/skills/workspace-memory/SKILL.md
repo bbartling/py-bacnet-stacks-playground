@@ -15,6 +15,7 @@ description: >-
 - **`bas_build_spec/memory/YYYY-MM-DD.md`** — append-only daily wake log.
 - **Domain:** `memory/sites/`, `buildings/`, `equipment/`, `integrations/`, `stack/`, `operators/`, `architecture/`.
 - **`memory/architecture/working-divergence.md`** — append-only log when **working** `bas_app/` or automation differs from `spec.md` / skills because the documented path failed or was incomplete.
+- After **`bas_full_reset.sh`**, append a dated block if listeners (Caddy, stale Vite) or missing scheduler binaries explain “automation ran but nothing built” — see **`spec-validation/references/full-reset-redo-checklist.md`**.
 
 ## Rules
 
@@ -38,3 +39,7 @@ bas_build_spec/cron_codex/bin/bas_workspace_cli.sh memory bootstrap
 
 - v1: truncated bootstrap file + path reads + `memory search`.
 - v2 (later): optional embeddings — not required for current wakes.
+
+## Related skills
+
+- `spec-validation`, `workspace-cron`, `web-app-bas`

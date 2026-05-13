@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cron gateway + scheduler + systemd stack health (no wake-log / agent pass).
+# Cron gateway + scheduler + live stack health (no wake-log / agent pass).
 set -euo pipefail
 
 # shellcheck source=bas_validate_common.sh
@@ -64,15 +64,23 @@ else
 fi
 
 echo "-- live stack (systemd) --"
-if systemctl --user is-active --quiet bas-backend.service 2>/dev/null; then
-  ok "bas-backend.service active"
+if user_systemd_reachable; then
+  if systemctl --user is-active --quiet bas-backend.service 2>/dev/null; then
+    ok "bas-backend.service active"
+  else
+    warn "bas-backend.service not active"
+  fi
+  if systemctl --user is-active --quiet bas-frontend.service 2>/dev/null; then
+    ok "bas-frontend.service active"
+  else
+    info "bas-frontend.service not active (expected until frontend scaffold)"
+  fi
 else
-  warn "bas-backend.service not active"
+  info "user systemd bus unavailable — unit status skipped; rely on port + HTTP checks"
 fi
-if systemctl --user is-active --quiet bas-frontend.service 2>/dev/null; then
-  ok "bas-frontend.service active"
-else
-  info "bas-frontend.service not active (expected until frontend scaffold)"
+
+if command -v ss >/dev/null 2>&1; then
+  ss -ltnp 2>/dev/null | grep -E ':(8000|5173)\b' | sed 's/^/    /' || info "no listeners on :8000 or :5173"
 fi
 
 if curl -sfS --max-time 5 "$BAS_BACKEND_HEALTH_URL" >/dev/null 2>&1; then

@@ -19,12 +19,10 @@ description: >-
 ## References
 
 - **`bas_build_spec/spec.md`** — safe command workflow, safety section.
-- **`bas_build_spec/bacnet_scripts.md`** — first client demo: **write** at priority, confirm read, **relinquish** with `Null` (BACpypes3).
-- **`bacnet-driver-lifecycle/references/bacnet_scripts_index.md`** — row “Client read / write / release null”.
+- **`bas_build_spec/bacnet_scripts.md`** — write + relinquish examples (BACpypes3).
 
 ## Related skills
 
-- `bacnet-driver-lifecycle` (lab gate before enabling real writes on wire)
 - `bacnet-point-modeling`
 - `alarm-workflows`
 - `web-app-bas`

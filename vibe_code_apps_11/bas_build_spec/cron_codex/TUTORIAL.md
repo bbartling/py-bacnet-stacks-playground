@@ -1,6 +1,6 @@
 # Codex wake — one command at a time
 
-Run each block **in order**. Wait for each to finish before the next. Paths assume **`/home/ben/bas_build_spec`**; change if your tree differs.
+Run each block **in order**. Wait for each to finish before the next. Paths assume **`/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec`**; change if your tree differs.
 
 ---
 
@@ -15,7 +15,7 @@ Run each block **in order**. Wait for each to finish before the next. Paths assu
 ## 1. Go to the cron folder
 
 ```bash
-cd /home/ben/bas_build_spec/cron_codex
+cd /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 ```
 
 ---
@@ -53,7 +53,7 @@ bash bin/bas_smoke.sh
 Use a **single short** wake the first time (`1` mini + critique):
 
 ```bash
-MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env bash bin/bas_wake.sh
+MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env bash bin/bas_wake.sh
 ```
 
 Your terminal should print **two lines** with the **log file path**, then go quiet. **That is normal.**
@@ -65,13 +65,13 @@ Your terminal should print **two lines** with the **log file path**, then go qui
 Replace the path if step 5 printed a different file:
 
 ```bash
-ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1
+ls -t /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs/wake-*.log | head -1
 ```
 
 Then (paste the path you got, or use):
 
 ```bash
-tail -f "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+tail -f "$(ls -t /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
 ```
 
 Leave this running until you see **`=== bas_wake end`** in the log. Then Ctrl+C **only** the `tail` (not the first terminal unless you already stopped the wake).
@@ -81,7 +81,7 @@ Leave this running until you see **`=== bas_wake end`** in the log. Then Ctrl+C 
 ## 7. After it ends — confirm exit
 
 ```bash
-tail -5 "$(ls -t /home/ben/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
+tail -5 "$(ls -t /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs/wake-*.log | head -1)"
 ```
 
 You want **`bas_wake end`** and no stuck Codex errors at the bottom.
@@ -93,7 +93,7 @@ You want **`bas_wake end`** and no stuck Codex errors at the bottom.
 **Only after backup.** One line:
 
 ```bash
-bash /home/ben/bas_build_spec/cron_codex/bin/bas_redo_automation_state.sh --nuke-bas-app --i-am-sure --yes
+bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_redo_automation_state.sh --nuke-bas-app --i-am-sure --yes
 ```
 
 No second terminal needed; this one prints to the terminal.
@@ -113,13 +113,13 @@ When manual wakes work, see **`crontab.example`** in this folder and **`README.m
 **No `wake-*.log` file**
 
 ```bash
-ls -la /home/ben/bas_build_spec/cron_codex/logs
+ls -la /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/logs
 ```
 
 **Instant exit, no log**
 
 ```bash
-test -f /home/ben/bas_build_spec/cron_codex/state/DONE_AUTOMATION && echo "Automation finished flag is set — delete this file to run wakes again" || echo "No DONE flag"
+test -f /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/state/DONE_AUTOMATION && echo "Automation finished flag is set — delete this file to run wakes again" || echo "No DONE flag"
 ```
 
 **`Lock busy` in log**

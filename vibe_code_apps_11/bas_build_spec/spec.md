@@ -154,35 +154,12 @@ Point types should include:
 - multistate_output
 - multistate_value
 
-Supervisory navigation tree (BAS-typical, beyond the minimum Site → Building → Floor → Equipment → Points)
-
-Commercial BAS head-ends expose a **layered tree** so operators and engineers can find points by **facility role** and **protocol identity**, not only by physical location. The domain model and UI navigation should support:
-
-- **Site → Building → (optional) System or discipline** — e.g. *HVAC*, *Central Plant*, *Lighting*, *Lab / Critical Ventilation*, *Electrical / Metering* — as a grouping node that contains equipment and cross-equipment summaries.
-- **Floor → Space / Zone (optional)** — room or pressure zone labels where the building program uses them (labs, OR suites, data halls).
-- **Equipment hierarchy** — parent/child equipment (e.g. plant → chiller → evaporator circuit; AHU → heating/cooling coil sub-components) using `parent_equipment_id` or equivalent.
-- **Points** — leaves with display name, engineering units, commandable flag, trend/alarm flags, and **stale/offline** indication.
-- **Network / driver facet (metadata on equipment or point)** — for BACnet: **device instance**, **IP or router path**, **object type + instance** (e.g. `analog-input:1`), **segment name** — so the same logical point appears in both the **operator tree** and the **protocol address** view (common in Niagara, Desigo, EcoStruxure, etc.).
-
-Optional domain extension (recommended for real drivers and “networked” values):
-
-- **SupervisoryLink** (or **PointFanOut** / **Binding**): `source_point_id`, one or more `target_point_id`, `enabled`, `write_priority` (BACnet-style), `min_write_interval_seconds`, `deadband` (for floats), `last_written_value`, `last_write_at`, `last_error`. Represents the head-end **pushing** a supervisory or field-captured value to another BACnet object (e.g. networked outside air).
-
 TrendSample
 - id
 - point_id
 - timestamp
 - value
 - quality/status
-
-Telemetry ingestion and time-series storage (under the hood)
-
-The head-end is not only an in-memory cache of present values. **Useful BAS sensors and outputs** (analog inputs/values tied to temperatures, flows, pressures, energy; key binary status; selected multistate modes) must be **persisted on a policy basis** to the time-series layer (TimescaleDB or equivalent) so trends, commissioning reports, energy analysis, and alarm forensics work after restarts.
-
-- **Ingestion path:** driver or simulator → normalized **present-value + quality + timestamp** events → ingestion service → TSDB (and optional rollups). Configuration determines **which points** are historized (explicit list, `is_trended` flag, or template defaults per equipment type).
-- **Correlation:** each sample remains joinable to `point_id`, `equipment_id`, building, and site for queries and exports.
-- **Retention:** document default retention (e.g. raw 90 days + hourly rollups longer) as configurable.
-- **Separation:** configuration and audit remain in PostgreSQL; high-volume telemetry in the TSDB abstraction — same pattern already recommended in the stack section above.
 
 Alarm
 - id
@@ -244,8 +221,6 @@ Backend should include:
 - trend ingestion service
 - alarm evaluation service
 - schedule service
-- schedule-to-command evaluator (binds weekly JSON to output points)
-- BACnet/simulator **write verification** worker (read-after-write, retry, mismatch detection)
 - command/write service
 - audit logging service
 - auth/permission service
@@ -295,7 +270,6 @@ Implement the following supervisory GUI functions:
 2. Navigation tree
 - Display a hierarchical navigation tree:
   Site → Building → Floor → Equipment → Points
-- **Prefer** the richer BAS-typical tree described under *Supervisory navigation tree* (optional system/discipline and protocol-aware metadata) so the demo feels like a commercial head-end; the minimum path above remains valid for small sites.
 - Clicking equipment opens its BAS graphic view.
 - Clicking a point opens point detail/trend/history.
 - Navigation tree should stay visible while the main pane changes.
@@ -318,27 +292,6 @@ Each graphic should show:
 - red/green/yellow/gray BAS-style status colors
 - active setpoint controls for authorized users
 - link/buttons to properties, trends, schedules, and alarms
-
-**Logic wire-sheet / flow graphic** (reference UX: `bas_build_spec/frontend_example/graphic.html`)
-
-The reference HTML demonstrates a **logic-flow “wire sheet”** pattern that should be carried into the product (implemented in React or equivalent — **not** tied to Niagara RequireJS or BajaScript):
-
-- **Horizontal flow strip:** a row of **nodes** (icon + short label + **live value**) connected by **arrows**, representing data or control flow (e.g. *Zone requests → AHU aggregation → Plant reset %*). Values update from the same realtime channel as the rest of the graphic.
-- **Load / progress strips:** horizontal bars with percentage labels where a “% load” or reset signal improves situational awareness.
-- **Operator feedback:** a **write / command log** (last N operations with ok/fail styling) and non-blocking toast or inline confirmation — same mental model as the reference’s control panel, adapted to this app’s audit trail.
-- **Binding discovery affordance:** the reference probes slot names and shows a modal table; the product equivalent is **point / BACnet object discovery** (from seeded metadata or live driver) so engineers can align **display names** with **object identifiers**.
-
-**Scenario — networked outside air temperature (OAT)** (building-agnostic; **per-site configuration**)
-
-Many BACnet jobs include a **physical or supervisory OAT source** and one or more **controllers that do not have their own OAT sensor** but expect a **networked / shared OAT** value written from the head-end or from another controller. The product must support this pattern **without hardcoding any device address, instance number, or object ID** in code or in global acceptance checklists.
-
-- **Source (configured):** the authoritative OAT — e.g. an **Analog Input** on a rooftop controller, an **Analog Value** maintained by the front end, or a validated weather feed mapped to a point.
-- **Consumer (configured):** the writable point the field strategy reads — commonly a BACnet **Analog Value** `Present_Value` on the same or a **different** controller (object type and instance come from **discovery, import, or commissioning data** for that building only).
-- **Operator naming:** projects use varying labels — e.g. **“OAT Networked”**, **“Network OAT”**, **“Outside Air Temp — Network”**, **“OA Temp Net”**. The demo seed should use **one clear pair** of display names (source vs networked) documented in site metadata; acceptance is by **role and binding**, not by a fixed string match across all buildings.
-- **SupervisoryLink** (or equivalent) in seed/config and on the **logic wire-sheet**: *Authoritative OAT → supervisory fan-out service → networked OAT consumer* with live values on each node.
-- **Writes:** same **safe command** policy as elsewhere (audit, permissions, confirmation where operator-initiated; automated links may use a system principal — document both). Rate limits, deadband, and BACnet **write priority** are **site-tunable**.
-
-Illustrative wire-only examples (BACnet integration testing) may appear in **`bacnet_scripts.md`** or lab notes; they are **not** normative device assignments for the product.
 
 **Example** — classic central AHU (when that template is selected); other templates swap in BACnet-appropriate points:
 
@@ -418,21 +371,6 @@ Implement a schedule editor with:
 - view/edit permissions
 - audit logging of schedule changes
 
-**Schedule UI (authoritative reference):** **`bas_build_spec/frontend_example/schedule_example.html`**
-
-- Treat this file as the **canonical weekly run-schedule widget**: React-based **7-day × 24-hour** grid, **15-minute snap**, **draggable and resizable** occupied/run blocks, day-row hover, toolbar actions, and a **JSON preview** of the weekly model.
-- The shipped product must implement the **same operator affordances and visual system** in a **production React + TypeScript** SPA (replace CDN `react`/`babel-standalone` with a normal bundle; keep behavior equivalent).
-- **Extend the same `:root` tokens, Inter/system typography, card and panel chrome** across the **entire head-end UI** (navigation shell, tables, dialogs, alarms, trends, settings) so the application reads as **one coherent design** — not a mix of unrelated SaaS themes.
-
-**Schedules driving BACnet motor / fan / pump (and similar) outputs**
-
-- Internal representation remains **clean JSON** mappable later to BACnet **Schedule** objects.
-- A **scheduler service** evaluates active intervals and produces **desired command states** for **bound supervisory outputs** (fans, pumps, enable contacts, etc.).
-- A **BACnet or simulator driver** performs **WriteProperty** (or priority-array writes) on **command points**. Until commissioning imports real object lists, the implementation may use **documented heuristics** (e.g. names containing `FAN`, `SUPPLY`, `VFD`, `PUMP`, `RUN`, `CMD` paired with `STATUS`, `PROOF`, `RUNNING`, `FBK`) — **must** be overridable via **configuration/seed** without code edits.
-- **Read-after-write verification:** after each command write, the driver (or a dedicated **verification worker**) **poll-reads** the associated **feedback / status / proof** points within a configurable window; if **command ≠ feedback** beyond debounce/tolerance, raise a **command/status mismatch** alarm and show **mismatch state** on the schedule or equipment context panel.
-- **Retries:** on comm failure, timeout, or rejected write, **retry with exponential backoff** up to configured limits, with **audit** and **non-spam** logging; give up into a **failed command** / alarm state if limits exceeded.
-- **UI feedback:** operators see **last command**, **last verified feedback**, **match / mismatch / pending verify**, and **retry count** for each bound motor output where practical.
-
 Represent the schedule internally in a clean JSON structure that could later map to BACnet Schedule objects.
 
 The UI should allow:
@@ -462,7 +400,7 @@ Requirements:
 8. Alarms
 Implement an alarm system with:
 - binary alarms
-- analog high/low alarms on **BACnet temperature (and other analog) sensors** mapped as supervisory points — limits configurable per point; hysteresis recommended
+- analog high/low alarms
 - communication alarms
 - stale data alarms
 - command/status mismatch alarms
@@ -509,11 +447,8 @@ Use WebSockets, SSE, or polling to update:
 - equipment status
 - alarms
 - navigation status counts if practical
-- **schedule command verification state** (pending verify, matched, mismatch, retrying) for bound motor outputs
 
 The UI should not require manual page refresh to see changing point values.
-
-**Polling vs push:** combine **event-driven** updates where possible with **interval polling** for BACnet reads used for **write verification**, **staleness**, **alarm evaluation**, and **historian ingestion** — intervals and backoff **configurable**; document defaults.
 
 11. BAS simulator
 Implement a simulator service that creates realistic data for:
@@ -620,20 +555,20 @@ The UI should clearly distinguish:
 
 DESIGN STYLE
 
-**Primary shell + schedules (authoritative for most of the SPA):** **`bas_build_spec/frontend_example/schedule_example.html`**
-
-- Use its **`:root` tokens** (`--bg`, `--panel`, `--line`, `--text`, `--muted`, `--accent`, `--block`, `--danger`, `--green`), **Inter / system-ui typography**, **rounded cards**, **toolbar density**, and **status semantics** (primary actions, danger, success) as the **default head-end theme** for **navigation, forms, lists, alarms, trends, settings, and the weekly schedule editor**.
-- Implement the schedule editor as a **production React + TypeScript** module that **matches the demo’s behaviors** (snap, drag, resize, weekly JSON model); do not ship CDN `babel-standalone` in production.
-
-**Synoptic / plant graphics and logic-flow (secondary reference):** **`bas_build_spec/frontend_example/n4_graphic.html`** (compatibility alias: **`graphic.html`** — same file)
-
-- Reuse its **layout patterns** (logic-flow strip, gauge bars, plant headers, BAS status color **meanings**) for **equipment synoptics and wire-sheet strips** — either **embed** those views inside the schedule shell as darker “graphic panes” **or** re-map the same green/red/yellow/cyan meanings onto schedule-token surfaces so status stays familiar.
-- Do not copy Niagara-specific script APIs; only **UX and density** carry over.
+Visual theme (authoritative reference for **colors and overall theme only**):
+- Treat **`bas_build_spec/frontend_example/graphic.html`** as the style reference: open it and mirror its **`:root` palette and dark control-room feel** — deep slate backgrounds (`--bg-main`, `--bg-card`, `--bg-panel`), subtle borders (`--border`), primary/secondary text (`--text-pri`, `--text-sec`, `--text-dim`), and accents (`--blue`, `--cyan` / chiller, `--orange` / boiler-heat, `--green` ok, `--red` fault, `--yellow` caution, `--purple` where useful). Typography should follow the same general system-UI approach (e.g. Segoe UI / system-ui). Cards, rounded corners, and status “chrome” (badges, connection bar, plant headers) should feel **cohesive with that file**, without copying Niagara-specific wiring or deployment comments as requirements.
+- The production app may be React or other stack; map these semantics into CSS variables or design tokens so future screens stay on-brand.
 
 Make the UI clean and professional:
-- **Coherent** with **`schedule_example.html`** for chrome; **BAS-literate** status colors (map green/red/yellow/gray/cyan heat–cool semantics from `graphic.html` into tokens or component variants).
-- BAS-style navigation tree inside the shell
-- equipment graphics that read like simple mechanical schematics (see § BAS graphics)
+- **dark** industrial / operator-workstation dashboard (per reference above), not a generic light SaaS template unless a documented accessibility requirement adds a light mode later
+- BAS-style navigation tree
+- equipment graphics that read like simple mechanical schematics inside the same dark card system as the reference
+- color semantics (align with reference tokens where they overlap):
+  - green = normal/running/ok
+  - red = alarm/fault
+  - yellow/orange = warning/override/stale / heat
+  - cyan = cool / chilled plant accents where appropriate
+  - gray = off/disabled/unknown
 - avoid clutter
 - use tables where operators need dense point lists
 - use cards where summary status is useful
@@ -651,12 +586,8 @@ When finished, the repository must include:
 6. Docker Compose file
 7. README with run instructions
 8. Tests
-9. Acceptance criteria document (`acceptance_criteria.md`)
+9. Acceptance criteria checklist
 10. Screenshots or notes describing major screens if screenshot automation is practical
-
-CODEX / AGENT IMPLEMENTATION PACK (schedules + BACnet motors + verification)
-
-For **Codex CLI** (and other coding agents) implementing this slice **without overfitting one job**, follow **`bas_build_spec/skills/bacnet-schedule-motor-verify/SKILL.md`**. That skill is **normative guidance** for: React schedule widget parity, heuristic motor bindings, write → read-verify → retry, mismatch and temperature alarms, and polling/data mechanisms. Agents may add supporting modules, migrations, or tests **as long as** behavior satisfies **`acceptance_criteria.md`** and the relevant sections of this spec.
 
 MINIMUM API ENDPOINTS
 
@@ -716,7 +647,7 @@ Realtime:
 
 ACCEPTANCE CRITERIA
 
-Acceptance criteria document: **`acceptance_criteria.md`**. Codex/cron automation handoff: **`BUILD_CHECKPOINTS.md`** and **`cron_codex/README.md`** (optional: auto-remove cron when acceptance is complete per `cron_codex/bin/check_acceptance_complete.sh` and `REMOVE_CRON_WHEN_COMPLETE`; **`POST_WAKE_HOOK`** to restart the live stack; dev servers listen on **`0.0.0.0`** for remote dial-in per README). Agent skill taxonomy (repo-local, Codex-style): **`bas_build_spec/skills/`** (see **`bas_build_spec/skills/README.md`**); Cursor uses symlinks under **`~/.cursor/skills/`** via **`cron_codex/bin/bas_skills_link.sh`**.
+Checklist file for incremental checkoffs: **`acceptance_criteria.md`**. Codex/cron automation handoff: **`BUILD_CHECKPOINTS.md`** and **`cron_codex/README.md`** (optional: auto-remove cron when all boxes are `[x]`; **`POST_WAKE_HOOK`** to restart the live stack; dev servers listen on **`0.0.0.0`** for remote dial-in per README). Agent skill taxonomy (repo-local, Codex-style): **`bas_build_spec/skills/`** (see **`bas_build_spec/skills/README.md`**); Cursor uses symlinks under **`~/.cursor/skills/`** via **`cron_codex/bin/bas_skills_link.sh`**.
 
 The project is complete only when all of the following are true.
 
@@ -741,7 +672,6 @@ Navigation/UI criteria:
 - Login page works.
 - Main BAS layout has a navigation tree and main action pane.
 - User can navigate Site → Building → Floor → Equipment → Points.
-- Where implemented: navigation also supports at least one **BAS-typical** grouping (e.g. System/discipline or protocol/device metadata view) consistent with *Supervisory navigation tree* in the domain section.
 - Equipment pages show live point values.
 - The UI has obvious BAS-style status colors.
 - The UI shows active alarm count or alarm indicator.
@@ -750,8 +680,6 @@ Navigation/UI criteria:
 Graphics criteria (building program + BACnet; see **`acceptance_criteria.md`** § Graphics):
 - Multiple **HVAC / facility archetypes** can be represented (e.g. VAV + AHU, VRF + DOAS, HP DOAS, data-center CRAH/plant, lab, hospital, lighting-heavy)—graphics and seeded points follow the **configured template**, not a single fixed “AHU + VAV only” story.
 - At least one **primary** plant or air-side synoptic appropriate to the template; at least one **terminal/zone** view; at least one **secondary/ancillary** system view (or generic equipment page) when the program warrants it.
-- At least one graphic includes a **logic wire-sheet** strip (nodes + arrows + live values) for a documented control or data flow (see spec § BAS graphics — logic wire-sheet).
-- The seeded demo documents a **networked OAT** (or equivalent **SupervisoryLink**) story: source point → supervisory path → **configured consumer** point (commonly a BACnet **Analog Value** on the same or another controller), with simulator or live data per driver mode — **no hardcoded BACnet device IDs, IPs, or object instances** in application defaults; those are supplied only by **per-building** configuration or discovery.
 - Live values update without a full page refresh.
 - Graphics include links/buttons for properties, trends, schedules, and alarms.
 - Authorized users can initiate setpoint/command workflow from the graphic.
@@ -775,20 +703,17 @@ Command/write criteria:
 
 Schedule criteria:
 - Schedule list page exists.
-- Weekly schedule editor exists and **matches the interaction and styling** of **`frontend_example/schedule_example.html`** (7-day grid, snap, drag/resize blocks, JSON model), implemented as production React/TS.
+- Weekly schedule editor exists.
 - Exception schedule editor exists.
 - Schedule categories exist appropriate to the **building program** (at least four distinct buckets—e.g. air-side occupancy, terminal/VRF, DOAS/ventilation, lighting, lab, or clinical—not necessarily named AHU/VAV).
 - Schedule changes are saved.
 - Schedule changes are audited.
 - Unauthorized users cannot edit schedules.
 - Current active/inactive schedule status is visible.
-- **Motor / fan / pump (and similar) outputs** bound to the schedule are driven via the **BACnet or simulator driver** with **read-after-write verification**, **retries**, and **command/status mismatch** indication when feedback does not match command within policy.
-- Operators can see **verification / mismatch / retry** state for those bindings where practical (schedule context or linked equipment strip).
 
 Trend criteria:
 - Trends page exists.
 - At least 10 points are trended in demo data.
-- Historical samples are **persisted** in the configured time-series store (not only held in RAM for the current session) for points marked historized/trended, per *Telemetry ingestion and time-series storage*.
 - User can select one or more points to graph.
 - User can select date/time range.
 - Trend chart displays historical values.
@@ -800,10 +725,10 @@ Alarm criteria:
 - Alarm page exists.
 - Active alarm list exists.
 - Alarm history exists.
-- Analog high/low alarms are supported, including on **BACnet-mapped temperature** (and other analog sensor) points with configurable limits.
+- Analog high/low alarms are supported.
 - Binary alarm state is supported.
 - Stale/offline/communication alarm is supported.
-- Command/status mismatch alarm is supported (including **schedule-driven motor** command vs feedback mismatch surfaced in UI).
+- Command/status mismatch alarm is supported.
 - User can acknowledge alarm if authorized.
 - User can shelve alarm if authorized.
 - Alarm lifecycle timestamps are stored.
@@ -864,7 +789,7 @@ Documentation criteria:
 - README explains simulator behavior.
 - README explains safety assumptions.
 - README explains future real BACnet integration path.
-- Acceptance criteria document is included; implementation status tracked honestly (e.g. in `BUILD_CHECKPOINTS.md` or release notes).
+- Acceptance criteria checklist is included and marked complete/incomplete honestly.
 
 FINAL OUTPUT REQUIRED FROM AGENT
 

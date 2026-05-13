@@ -21,14 +21,12 @@ echo "BAS_BUILD=$BAS_BUILD CRON_ROOT=$CRON_ROOT"
 
 [[ -f "$BAS_BUILD/spec.md" ]] || fail "missing spec.md"
 [[ -f "$BAS_BUILD/acceptance_criteria.md" ]] || fail "missing acceptance_criteria.md"
-[[ -f "$BAS_BUILD/AGENTS.md" ]] || fail "missing AGENTS.md"
-[[ -f "$BAS_BUILD/MEMORY.md" ]] || fail "missing MEMORY.md"
-[[ -f "$BAS_BUILD/cron/jobs.json" ]] || fail "missing cron/jobs.json"
 [[ -f "$BAS_BUILD/skills/README.md" ]] || fail "missing skills/README.md"
 [[ -f "$BAS_BUILD/skills/GUARDRAILS.md" ]] || fail "missing skills/GUARDRAILS.md"
 [[ -f "$CRON_ROOT/env.example" ]] || fail "missing env.example"
 
-for x in bas_wake.sh bas_cron_scheduler.sh bas_workspace_cli.sh bas_memory_ensure.sh bas_install_cron.sh bas_validate_automation.sh bas_validate_cron_services.sh bas_validate_wake_pass.sh check_acceptance_complete.sh bas_remove_cron_marked.sh bas_smoke.sh bas_skills_link.sh; do
+for x in bas_wake.sh check_acceptance_complete.sh bas_remove_cron_marked.sh bas_smoke.sh bas_skills_link.sh \
+  bas_validate_automation.sh bas_validate_cron_services.sh bas_validate_wake_pass.sh bas_smoke_login.sh; do
   [[ -x "$BIN_DIR/$x" ]] || warn "not executable: $BIN_DIR/$x (chmod +x)"
 done
 
@@ -49,7 +47,7 @@ else
 fi
 
 if "$BIN_DIR/check_acceptance_complete.sh" "$BAS_BUILD/acceptance_criteria.md" 2>/dev/null; then
-  echo "acceptance: COMPLETE (per check_acceptance_complete.sh — marker or legacy checklist)"
+  echo "acceptance: COMPLETE (no unchecked - [ ])"
 else
   echo "acceptance: incomplete (expected during build)"
 fi

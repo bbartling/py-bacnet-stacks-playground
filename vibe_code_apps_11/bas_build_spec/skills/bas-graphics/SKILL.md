@@ -4,17 +4,14 @@ description: >-
   Use when building operator graphics, equipment synoptic pages, SVG/HMI-style
   layouts, live value bindings, or navigation from graphic to point detail.
   Triggers on: graphic, synoptic, dashboard, AHU, VAV, DOAS, VRF, CRAH, chiller,
-  plant, room, dark theme, graphic.html, n4_graphic, wire-sheet, flow strip.
+  plant, room, dark theme, graphic.html.
 ---
 
 # BAS graphics (building-program aware)
 
 ## Visual theme
 
-See **`references/frontend-examples.md`** for file roles.
-
-- **App shell / schedules:** **`frontend_example/schedule_example.html`** — weekly grid widget, toolbar, forms/tables (see `bacnet-schedule-motor-verify`).
-- **Synoptic / logic wire-sheet:** **`frontend_example/n4_graphic.html`** (alias **`graphic.html`**) — horizontal flow nodes + arrows + live values, plant headers, gauge strips, dark BAS status semantics (see spec § logic wire-sheet). Reimplement in React with head-end APIs — not Niagara BajaScript.
+- **`bas_build_spec/frontend_example/graphic.html`** — `:root` tokens, card chrome, status colors (see spec § DESIGN STYLE).
 
 ## HVAC / building type
 
@@ -33,5 +30,4 @@ Graphics must be **data-driven**, not locked to a single archetype:
 
 - `web-app-bas`
 - `bacnet-point-modeling`
-- `bacnet-schedule-motor-verify`
 - `alarm-workflows`

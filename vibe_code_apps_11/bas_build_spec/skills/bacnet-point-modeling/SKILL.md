@@ -5,15 +5,14 @@ description: >-
   instances, present-value, priority-array, COV, read/write/RPM, device discovery,
   or mapping field controllers to supervisory points. Triggers on: BACnet,
   bacpypes3, ObjectIdentifier, read_property, write_property, who-is, 47808,
-  bacnet_scripts.md, point_discovery, driver lifecycle, VRF, DOAS, AHU, FCU.
+  bacnet_scripts.md, VRF, DOAS, AHU, FCU.
 ---
 
 # BACnet point modeling (supervisory layer)
 
 ## Repo references
 
-- **`bas_build_spec/bacnet_scripts.md`** — client **read/write/relinquish**, **RPM** chunked reads, **priority-array** parsing, discovery **object-list**; server local objects in schedule/weather examples.
-- **`bacnet-driver-lifecycle/references/bacnet_scripts_index.md`** — which embedded script block to copy for each driver concern.
+- **`bas_build_spec/bacnet_scripts.md`** — working BACpypes3 patterns (client + sample devices).
 - **`bas_build_spec/spec.md`** — domain `Point` fields, commandable flags, simulator vs real driver.
 - **NIC / bind:** spec § BACNET / BACPYES3 — `--address IP/prefix[:47808]` on the interface that reaches the BACnet segment.
 
@@ -29,7 +28,6 @@ The **field** may be VAV + central AHU, **VRF + DOAS**, **HP DOAS**, **CRAH** fo
 
 ## Related skills
 
-- `bacnet-driver-lifecycle` — human discovery sign-off, driver from `bacnet_scripts.md`, then `bas_app` wiring.
 - `safe-bacnet-writes` — operator writes and audit.
 - `brick-schema-modeling` — semantic tagging of points/equipment.
 - `bas-graphics` — what operators see for each template.

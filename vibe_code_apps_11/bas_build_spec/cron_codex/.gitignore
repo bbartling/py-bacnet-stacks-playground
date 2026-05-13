@@ -1,7 +1,8 @@
 .env
+demo_auth.env
 logs/*.log
-logs/systemd_manage.log
+logs/last_wake_epoch
 state/DONE_AUTOMATION
 state/stop_mini_loop
-state/CODEX_ACCEPTANCE_COMPLETE
-state/post_wake_*.pid
+state/*.pid
+state/*.lock

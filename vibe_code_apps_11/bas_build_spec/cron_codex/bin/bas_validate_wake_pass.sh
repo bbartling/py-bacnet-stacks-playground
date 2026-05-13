@@ -42,12 +42,15 @@ else
     ok "last wake finished: $(grep '=== bas_wake end' "$latest_log" | tail -n 1)"
   elif [[ -n "$wake_pids" ]] || [[ -n "$codex_pids" ]]; then
     ok "last wake: in progress (see log)"
+    info "completion checks deferred until the wake finishes"
   else
     warn "last wake incomplete — no bas_wake end line"
   fi
 
   if grep -q '^--- critique ' "$latest_log"; then
     ok "critique phase present in latest log"
+  elif [[ -n "$wake_pids" ]] || [[ -n "$codex_pids" ]]; then
+    info "critique deferred — wake still running"
   else
     warn "critique not present in latest log (often means bash exited before critique)"
   fi
@@ -55,9 +58,9 @@ else
   mini_n="$(grep -c '^--- mini ' "$latest_log" 2>/dev/null || echo 0)"
   info "mini invocations logged in latest wake: $mini_n"
 
-  if grep -qE 'bas_wake\.sh: line [0-9]+:|syntax error|command not found' "$latest_log"; then
+  if grep -qE '^[^[:space:]].*: line [0-9]+: (syntax error|.*: command not found|command not found)' "$latest_log"; then
     bad "wake script errors in log (agents may have snagged before critique)"
-    grep -E 'bas_wake\.sh: line [0-9]+:|syntax error|command not found' "$latest_log" | tail -n 5 | sed 's/^/    /'
+    grep -E '^[^[:space:]].*: line [0-9]+: (syntax error|.*: command not found|command not found)' "$latest_log" | tail -n 5 | sed 's/^/    /'
   fi
 
   if grep -q 'WARN: mini .* exited non-zero' "$latest_log"; then

@@ -19,6 +19,7 @@ Rules apply to every **`bas_build_spec/skills/<folder>/SKILL.md`** and optional 
 
 | Anti-pattern | Why |
 |--------------|-----|
+| **Edit `bas_app/` from Cursor** | Generated application code is **Codex CLI** (and human ops) only. Cursor agents change **`bas_build_spec/`** — spec, skills, memory, cron, validation — then verify against acceptance criteria. |
 | Duplicate `spec.md` | Single source of truth. |
 | One-off bug skills | Use commits + tests. |
 | Vague `description` | Retrieval fails. |
@@ -39,4 +40,9 @@ Rules apply to every **`bas_build_spec/skills/<folder>/SKILL.md`** and optional 
 
 1. Symlinks under `~/.cursor/skills/` still resolve after edit.  
 2. Narrow chat query retrieves the intended skill.  
-3. If wrong skill fires, expand **`description`** triggers—not the body size.
+3. If wrong skill fires, expand **`description`** triggers—not the body size.  
+4. **Cursor validation** follows **`spec-validation`** and `acceptance_criteria.md` release gate; run `cron_codex/bin/bas_validate_automation.sh` and optional `bas_smoke_login.sh` — do not edit `bas_app/` to clear a failed check.
+
+## Long-lived runtime (Codex + critique)
+
+Passing unit tests alone does **not** prove remote operators can log in. **`BUILD_CHECKPOINTS.md`** defines a **Tier A** runtime gate (**Path A:** user systemd with **`XDG_RUNTIME_DIR`** when `/run/user/UID` exists; **Path B:** **`bas_app/scripts/`** + README when the wake shell has no user bus). **`systemd-live-dev`** documents both. Critique must not treat product slices as “shipped” while **`:8000`** is down — proof is **`ss` + `curl`**, not necessarily **`systemctl --user status`** from cron.

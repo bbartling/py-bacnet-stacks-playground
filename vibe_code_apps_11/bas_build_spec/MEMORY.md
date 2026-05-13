@@ -4,28 +4,23 @@ Short standing brief for Codex wakes — not a transcript. Daily detail lives un
 
 ## Portfolio / deployment
 
-- Head-end under `bas_app/`; long-lived runtime via **systemd user units** (not Docker).
-- Bind **0.0.0.0**; remote operators use server LAN IP.
-
-## Building systems
-
-- *(Per-site equipment, point naming, OAT fan-out / supervisory links — promote from `memory/sites/` and `memory/integrations/bacnet.md` after lab sign-off.)*
+- Head-end under `bas_app/`; orchestration under `bas_build_spec/`.
+- **Application code:** `bas_app/` carries the stdlib backend and static UI; feature work is active.
+- **Long-lived runtime (Tier A):** Cron/Codex shells often have **no `systemctl --user` bus** (`Failed to connect to bus: No medium found`). **Tools:** **`skills/systemd-live-dev/SKILL.md`** — use **`XDG_RUNTIME_DIR=/run/user/$(id -u)`** when **`/run/user/UID`** exists; document **`loginctl enable-linger`** for operators; otherwise **`bas_app/scripts/`** + README (**Path B**) and optional **`POST_WAKE_HOOK`** to that script. Default **`bas_post_wake_stack.sh`** may **`skip`** — Codex does **not** depend on patching it.
+- Bind **0.0.0.0**; remote operators use server LAN IP, not `localhost` from other PCs.
 
 ## Stack inventory
 
-- Backend: `bas_app/backend/src/bas_app_backend` serves `/health` on `http://127.0.0.1:8000/health`.
-- User unit: `bas-backend.service` is installed under `~/.config/systemd/user/` from `bas_build_spec/deploy/systemd/`.
-- Frontend: Vite/React app under `bas_app/frontend` serves on `http://127.0.0.1:5173/` and LAN `http://192.168.204.18:5173/` via `bas-frontend.service`.
-- Current UI scaffold includes login, navigation tree, equipment point table, OAT supervisory flow strip, and a client-side weekly schedule editor.
-
-## Operator preferences
-
-- Incremental wakes; restart units and read `journalctl --user` after code changes.
+- Hourly automation: user crontab → `bas_cron_scheduler.sh run-due` → `cron/jobs.json` (`bas-wake-hourly` → `bas_wake.sh`).
+- Validators: `cron_codex/bin/bas_validate_*.sh`; release gate in `acceptance_criteria.md` (runtime rows stay **`[ ]`** until **`ss`/`curl`** proof on listening **:8000**).
+- **`POST_WAKE_HOOK`:** May still hit legacy **`bas_post_wake_stack.sh`** skip — prefer documented **`bas_app`** start path when aligning ops.
 
 ## Standing decisions
 
 - Simulator-only default; BACnet gated by `bacnet-driver-lifecycle`.
+- Cursor changes **spec/skills/validation**; Codex owns **`bas_app/`** implementation.
 
 ## Open loops
 
-- *(Follow-ups not yet in cron or checkpoints.)*
+- **Tier A:** Path A (user bus + units) or Path B (`bas_app/scripts/` + README + linger doc); paste proof in critique; then re-`[x]` **`acceptance_criteria.md`** stack-dependent rows.
+- Demo auth vs older stacks: see `memory/architecture/working-divergence.md` (2026-05-11); supersede when `bas_smoke_login.sh` passes on live **:8000**.

@@ -13,9 +13,9 @@
       },
       "service": "bas_wake",
       "style": "isolated",
-      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh",
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh",
       "env": {
-        "BAS_CODEX_ENV_FILE": "/home/ben/bas_build_spec/cron_codex/.env"
+        "BAS_CODEX_ENV_FILE": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env"
       }
     },
     {
@@ -28,7 +28,7 @@
       },
       "service": "systemd_restart",
       "style": "worker",
-      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_systemd_manage.sh",
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_systemd_manage.sh",
       "args": [
         "ensure",
         "restart",
@@ -46,7 +46,7 @@
       },
       "service": "bacnet_lab_verify",
       "style": "worker",
-      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_bacnet_lab_verify.sh"
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_bacnet_lab_verify.sh"
     },
     {
       "id": "bas-smoke-health",
@@ -58,7 +58,7 @@
       },
       "service": "bas_smoke",
       "style": "worker",
-      "command": "/home/ben/bas_build_spec/cron_codex/bin/bas_smoke.sh"
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_smoke.sh"
     }
   ]
 }

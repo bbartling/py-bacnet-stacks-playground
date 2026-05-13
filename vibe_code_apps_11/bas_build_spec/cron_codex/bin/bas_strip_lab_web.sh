@@ -2,7 +2,7 @@
 # Run ON THE SERVER with sudo when you want to tear down common lab web daemons
 # (Caddy on :80, optional nginx/apache) and optional bas_app post-wake listeners.
 #
-#   sudo bash /home/ben/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
+#   sudo bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
 #
 # Does NOT remove bas_app code; only stops processes/services listed below.
 set -euo pipefail

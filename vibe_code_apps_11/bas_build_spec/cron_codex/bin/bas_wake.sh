@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Incremental BAS build: N × codex exec (mini) + 1 × codex exec (critique).
-# Optional: remove own cron when acceptance complete (see check_acceptance_complete.sh); post-wake hook for restarts.
+# Optional: remove own cron when acceptance criteria all [x]; post-wake hook for restarts.
 # Load env from bas_build_spec/cron_codex/.env (copy from env.example).
 set -euo pipefail
 
@@ -41,42 +41,21 @@ unset _PRESERVE_MINI
 : "${REMOVE_CRON_WHEN_COMPLETE:=false}"
 : "${CRON_MARKER:=BAS_CODEX_WAKE}"
 : "${POST_WAKE_HOOK:=}"
-: "${PRE_WAKE_HOOK:=}"
-: "${BAS_RUNTIME:=systemd}"
 export CRON_MARKER
 
 spec="$BAS_BUILD/spec.md"
 checklist="$BAS_BUILD/acceptance_criteria.md"
 checkpoints="$BAS_BUILD/BUILD_CHECKPOINTS.md"
 directions="$STATE_DIR/next_directions.md"
-manifest="$BAS_BUILD/bas_build_spec.toml"
-memory_bootstrap="$BAS_BUILD/MEMORY.md"
-memory_root="$BAS_BUILD/memory"
-ui_theme_ref="$BAS_BUILD/frontend_example/n4_graphic.html"
-graphic_alias_ref="$BAS_BUILD/frontend_example/graphic.html"
-schedule_ui_ref="$BAS_BUILD/frontend_example/schedule_example.html"
-bacnet_discovery_ref="$BAS_BUILD/bacnet_scripts_example/point_discovery.py"
+ui_theme_ref="$BAS_BUILD/frontend_example/graphic.html"
 skills_policy="$BAS_BUILD/skills/README.md"
 skills_guardrails="$BAS_BUILD/skills/GUARDRAILS.md"
-skill_memory="$BAS_BUILD/skills/workspace-memory/SKILL.md"
-skill_cron="$BAS_BUILD/skills/workspace-cron/SKILL.md"
-skill_systemd="$BAS_BUILD/skills/systemd-live-dev/SKILL.md"
-agents_guide="$BAS_BUILD/AGENTS.md"
-memory_snapshot="$BAS_BUILD/scratch/memory-bootstrap-latest.md"
-arch_divergence_log="$BAS_BUILD/memory/architecture/working-divergence.md"
-arch_divergence_readme="$BAS_BUILD/memory/architecture/README.md"
 done_flag="$STATE_DIR/DONE_AUTOMATION"
 stop_mini_loop_file="$STATE_DIR/stop_mini_loop"
 
 mkdir -p "$BAS_CODEX_LOG_DIR" "$STATE_DIR"
-"$BIN_DIR/bas_memory_ensure.sh"
-"$BIN_DIR/bas_memory_bootstrap.sh" >"$memory_snapshot"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG="$BAS_CODEX_LOG_DIR/wake-$TS.log"
-# Everything after the next line goes ONLY to $LOG — the terminal will look "hung"
-# until Codex finishes. Tell the operator up front (stderr still connected here).
-echo "bas_wake: full transcript → $LOG" >&2
-echo "bas_wake: tail -f in another terminal: tail -f \"$LOG\"" >&2
 exec >>"$LOG" 2>&1
 
 echo "=== bas_wake start $(date -Is) ==="
@@ -87,14 +66,14 @@ acceptance_complete() {
 }
 
 try_automation_shutdown() {
-  # When acceptance is complete (see check_acceptance_complete.sh) and opt-in is set: remove marked crontab line(s) and go silent.
+  # When all checklist rows are [x] and opt-in is set: remove marked crontab line(s) and go silent.
   if [[ "${REMOVE_CRON_WHEN_COMPLETE,,}" != "true" ]]; then
     return 1
   fi
   if ! acceptance_complete; then
     return 1
   fi
-  echo "Acceptance criteria complete per check_acceptance_complete.sh (see cron_codex/README.md). Shutting down automation."
+  echo "Acceptance criteria appear complete (no '- [ ]' rows in checklist). Shutting down automation."
   "$BIN_DIR/bas_remove_cron_marked.sh" || echo "WARN: crontab removal had issues; check manually."
   {
     echo "completed_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -142,11 +121,6 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 127
 fi
 
-if [[ -n "${PRE_WAKE_HOOK:-}" ]]; then
-  echo "--- PRE_WAKE_HOOK ---"
-  bash -lc "$PRE_WAKE_HOOK" || echo "WARN: PRE_WAKE_HOOK failed (non-fatal)"
-fi
-
 mini_common=(
   exec
   -C "$CODEX_CWD"
@@ -179,38 +153,22 @@ Scheduled BAS incremental wake: mini invocation ${i} of up to ${MINI_INVOCATIONS
 ${EARLY_STOP_HINT}
 
 Read (do not delete):
-- ${agents_guide}
-- ${memory_snapshot}   (truncated MEMORY + recent daily/domain notes for this wake)
-- ${manifest}
-- ${memory_bootstrap}
-- ${memory_root}/   (today's YYYY-MM-DD.md and domain subfolders)
-- ${arch_divergence_readme} and ${arch_divergence_log}   (working architecture when spec/skills diverge from what actually runs)
 - ${spec}
 - ${checklist}
 - ${checkpoints}
 - ${directions}
-- ${schedule_ui_ref}   (schedule shell / weekly grid widget — primary operator UI reference; see spec DESIGN STYLE)
-- ${ui_theme_ref}   (Niagara-style synoptic + logic wire-sheet / flow strip; see spec DESIGN STYLE)
-- ${graphic_alias_ref}   (same bytes as n4_graphic.html — compatibility alias)
-- ${bacnet_discovery_ref}   (lab Who-Is / object-list; run via bas_bacnet_lab_verify.sh when BAS_BACNET_* env is set — see bacnet-driver-lifecycle skill)
-- ${skill_memory}
-- ${skill_cron}
-- ${skill_systemd}
+- ${ui_theme_ref}   (UI colors/theme reference only; see spec DESIGN STYLE)
 - ${skills_policy}
 - ${skills_guardrails}  (mandatory before creating/editing bas_build_spec/skills/)
 
 Rules:
 - Do ONE small, reviewable slice toward the ordered "Next for mini" items in BUILD_CHECKPOINTS.md (or spec if empty).
 - Prefer repo under CODEX_CWD=${CODEX_CWD}; keep BACnet driver disabled unless spec explicitly allows opt-in.
-- Any frontend or static HTML/CSS you add must follow **spec DESIGN STYLE**: **schedule_example.html** for shell/schedules/tables, and **n4_graphic.html** patterns for synoptic/wire-sheet flow strips and BAS status colors — not a random unrelated theme.
-- **BACnet on wire:** default **simulator**. When BAS_BACNET_LAB_VERIFY=true and BAS_BACNET_* bind vars are set, run discovery (worker or mini), append memory/integrations/bacnet.md, then extend the **long-lived** BACpypes3 driver in bas_app from bacnet_scripts_example/ using the **same** validated args; see **bacnet-driver-lifecycle** skill.
-- **Long-lived runtime (required):** use **systemd user units** for bas_app (bas-backend.service, bas-frontend.service) — **not Docker** unless BUILD_CHECKPOINTS explicitly says otherwise. Install from bas_build_spec/deploy/systemd/ via bas_build_spec/cron_codex/bin/bas_systemd_manage.sh ensure.
-- **Live stack each slice:** after API/UI changes, systemctl --user restart affected units, read journalctl --user -u bas-backend.service -n 40 --no-pager (and frontend), fix errors, then curl /health and the UI port. Bind **0.0.0.0**; document LAN URLs in bas_app/README.md.
-- Append a short bullet to **today's** bas_build_spec/memory/YYYY-MM-DD.md for what you verified or what failed.
-- If a **working** implementation in bas_app/ or automation **differs** from spec.md or skills because the documented path failed or was incomplete, append one dated block to **${arch_divergence_log}** (expectation vs reality, evidence, status open). Do not duplicate the daily log.
+- Any frontend or static HTML/CSS you add must follow the **dark palette and theme** of graphic.html (CSS variables / card chrome / accent semantics), not a unrelated light theme.
+- **Live stack:** after changes that affect the running web API or SPA, ensure dev/proc scripts still bring the app up bound to **0.0.0.0** (all interfaces) so a human can hit it from another machine on the LAN/VPN immediately; document the URL/port in the app README. Restart containers or dev servers when required so the latest code is what is listening.
 - If you change behavior, run or add the narrowest tests you can.
 - Stop after this slice; do not burn extra tool budget.
-- **Skills:** canonical tree is bas_build_spec/skills/<topic>/SKILL.md (see bas_build_spec/skills/README.md). Do **not** add new topic folders on your own unless BUILD_CHECKPOINTS explicitly asks for it. Obey **GUARDRAILS.md** (no secrets; no full spec paste; extend an existing topic folder when possible). After adding a folder, run bas_build_spec/cron_codex/bin/bas_skills_link.sh to refresh Cursor skill symlinks.
+- **Skills:** canonical tree is **\`bas_build_spec/skills/<topic>/SKILL.md\`** (see **\`bas_build_spec/skills/README.md\`**). Do **not** add new topic folders on your own unless BUILD_CHECKPOINTS explicitly asks for it. Obey **GUARDRAILS.md** (no secrets; no full spec paste; extend an existing topic folder when possible). After adding a folder, **\`bas_build_spec/cron_codex/bin/bas_skills_link.sh\`** refreshes Cursor symlinks.
 
 Append one line under "Done recently" in BUILD_CHECKPOINTS.md describing what you did (if anything).
 EOF
@@ -240,42 +198,30 @@ if [[ "${CODEX_DANGEROUSLY_BYPASS,,}" == "true" ]]; then
   critique_common+=(--dangerously-bypass-approvals-and-sandbox)
 fi
 
-CRIT_PROMPT="You are the CRITIQUE pass after up to ${MINI_INVOCATIONS_PER_WAKE} planned mini runs (${MINI_MODEL}) on the BAS project (fewer if early-stop file was used).
+CRIT_PROMPT="$(cat <<EOF
+You are the CRITIQUE pass after up to ${MINI_INVOCATIONS_PER_WAKE} planned mini runs (${MINI_MODEL}) on the BAS project (fewer if early-stop file was used).
 
 Read:
-- ${agents_guide}
-- ${memory_snapshot}
-- ${manifest}
-- ${memory_bootstrap}
-- ${memory_root}/
-- ${arch_divergence_readme} and ${arch_divergence_log}
 - ${spec}
 - ${checklist}
 - ${checkpoints}
 - ${directions}
-- ${schedule_ui_ref}
 - ${ui_theme_ref}
-- ${graphic_alias_ref}
-- ${bacnet_discovery_ref}
-- ${skill_memory}
-- ${skill_cron}
-- ${skill_systemd}
 - ${skills_policy}
 - ${skills_guardrails}
 
 Tasks:
-1) Critique what likely changed this wake (use BUILD_CHECKPOINTS Done recently, file timestamps, or git status/diff in ${CODEX_CWD}).
-2) Rewrite BUILD_CHECKPOINTS.md sections: Last critique (gpt-5.5), Current sprint, and replace Next for mini (ordered) with 3–8 concrete, small tasks for the NEXT wake.
+1) Critique what likely changed this wake (use BUILD_CHECKPOINTS "Done recently", file timestamps, or git status/diff in ${CODEX_CWD}).
+2) Rewrite BUILD_CHECKPOINTS.md sections: "Last critique (gpt-5.5)", "Current sprint", and replace "Next for mini (ordered)" with 3–8 concrete, small tasks for the NEXT wake.
 3) Optionally refresh next_directions.md if long-form detail helps.
-4) Track verification of acceptance_criteria.md in BUILD_CHECKPOINTS (or release notes); the criteria file uses plain bullets — do not reintroduce Markdown checkboxes unless the project chooses to.
-5) If UI changed, note alignment with schedule_example.html (shell/schedules) and n4_graphic.html (wire-sheet flow strip + status semantics) per spec DESIGN STYLE; call out drift in the critique if not.
-6) When release gate and acceptance criteria are truly satisfied, a human may touch cron_codex/state/CODEX_ACCEPTANCE_COMPLETE so automation shutdown can fire when REMOVE_CRON_WHEN_COMPLETE=true. This wake end (bash in bas_wake.sh) can then remove the marked cron line and write DONE_AUTOMATION — no further scheduled wakes until a human deletes DONE_AUTOMATION. If automation should keep running, delete any stray CODEX_ACCEPTANCE_COMPLETE marker or keep REMOVE_CRON_WHEN_COMPLETE=false.
-7) Skills (strict): Read GUARDRAILS.md. Canonical path: bas_build_spec/skills/<topic>/SKILL.md (optional references/, scripts/, assets/). Per wake: at most one of option A one new topic folder under bas_build_spec/skills/ with SKILL.md, or option B materially expand one existing topic SKILL.md/references/, or option C update skills/README.md or GUARDRAILS or taxonomy table only. Never A and B same wake. Run bas_build_spec/cron_codex/bin/bas_skills_link.sh after folder changes. If unsure, only update BUILD_CHECKPOINTS Next for mini.
-8) Memory: Append a dated section to bas_build_spec/memory/YYYY-MM-DD.md (wake summary, smoke, systemd/journal errors, LAN URLs). Optionally trim/promote stable facts into MEMORY.md (stack inventory, standing decisions) without duplicating the full queue.
-9) Architecture divergence: Read ${arch_divergence_log}. Triage new open entries from this wake; promote stable working patterns into skills/*/references/ or MEMORY.md; mark entries promoted or superseded. If no skill update this wake, note follow-up in BUILD_CHECKPOINTS.
-10) Runtime: Note whether systemd user units are installed and healthy; call out journal errors that the next mini must fix first.
+4) In acceptance_criteria.md, turn [ ] into [x] ONLY for items you can honestly verify; otherwise leave unchecked.
+5) If UI changed, note whether it stays aligned with graphic.html dark theme / tokens; call out drift in the critique if not.
+6) When **every** checklist row in acceptance_criteria.md is truly satisfied, leave none unchecked. With **REMOVE_CRON_WHEN_COMPLETE=true** in \`.env\`, **this same wake’s end** (bash in bas_wake.sh, not you running crontab) removes the marked cron line and writes DONE_AUTOMATION — no further scheduled wakes until a human clears that. If automation should keep running, leave at least one honest \`[ ]\` or keep REMOVE_CRON_WHEN_COMPLETE=false.
+7) **Skills (strict):** Read **GUARDRAILS.md**. Canonical path: **\`bas_build_spec/skills/<topic>/SKILL.md\`** (optional \`references/\`, \`scripts/\`, \`assets/\`). Per wake: **at most one** of (a) **one new** topic folder under \`bas_build_spec/skills/\` with \`SKILL.md\`, or (b) **materially expand** one existing topic’s \`SKILL.md\`/\`references/\`, or (c) update **skills/README.md** or **GUARDRAILS** or taxonomy table only. Never (a)+(b) same wake. Run **\`bas_build_spec/cron_codex/bin/bas_skills_link.sh\`** after folder changes. Phaser-style reference: [phaser skills/](https://github.com/phaserjs/phaser/tree/master/skills). If unsure, only update **BUILD_CHECKPOINTS** “Next for mini”.
 
-Be concise in prose; optimize the next mini queue for clarity and safety."
+Be concise in prose; optimize the next mini queue for clarity and safety.
+EOF
+)"
 codex "${critique_common[@]}" "$CRIT_PROMPT" || echo "WARN: critique exited non-zero"
 
 if try_automation_shutdown; then

@@ -2,30 +2,12 @@
 
 This folder contains a **bash wake script** plus documentation so `cron` (or `systemd` timers) can drive incremental work on the BAS head-end using the Codex CLI.
 
-**Step-by-step (one command at a time):** **`TUTORIAL.md`** · **Cron / minis / logs grep:** **`CHEATSHEET.md`**
-
-**Install + validate cron (user crontab):**
-
-```bash
-CR=/home/ben/bas_build_spec/cron_codex
-chmod +x "$CR/bin"/*.sh "$CR/bin/bas_cron_engine.py"
-"$CR/bin/bas_install_cron.sh"
-"$CR/bin/bas_validate_cron_services.sh"   # cron + systemd stack
-"$CR/bin/bas_validate_wake_pass.sh"       # after manual bas_wake.sh
-# or: "$CR/bin/bas_validate_automation.sh"  # both
-```
-
-Hourly tick runs **`bas_cron_scheduler.sh run-due`** (reads **`bas_build_spec/cron/jobs.json`**). Agent map: **`bas_build_spec/AGENTS.md`**.
-
 **Artifacts elsewhere:**
 
 | Path | Purpose |
 |------|---------|
-| `bas_build_spec/AGENTS.md` | Agent orientation + bootstrap order |
-| `bas_build_spec/MEMORY.md` | Curated workspace memory |
-| `bas_build_spec/cron/jobs.json` | Durable cron job store |
 | `bas_build_spec/spec.md` | Full specification |
-| `bas_build_spec/acceptance_criteria.md` | Acceptance criteria (plain bullets; see **When acceptance is met** below) |
+| `bas_build_spec/acceptance_criteria.md` | Formal checklist (`[ ]` / `[x]`) |
 | `bas_build_spec/BUILD_CHECKPOINTS.md` | Living queue + critique output (updated each wake) |
 | `bas_build_spec/cron_codex/state/next_directions.md` | Optional long-form directions |
 | `bas_build_spec/skills/` | **Repo-local** Codex/Cursor skills (`<topic>/SKILL.md`, optional `references/`) |
@@ -37,7 +19,7 @@ Hourly tick runs **`bas_cron_scheduler.sh run-due`** (reads **`bas_build_spec/cr
 ## Fire it up (first time)
 
 ```bash
-CR="/home/ben/bas_build_spec/cron_codex"
+CR="/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex"
 cp -n "$CR/env.example" "$CR/.env"
 chmod +x "$CR/bin"/*.sh
 
@@ -53,10 +35,6 @@ BAS_CODEX_ENV_FILE="$CR/.env" \
 
 # Logs
 ls -lt "$CR/logs" | head
-
-# Optional — full reset + empty bas_app (back up bas_app first!):
-#   bash "$CR/bin/bas_redo_automation_state.sh" --nuke-bas-app --i-am-sure --yes
-#   # same: --full-reset
 ```
 
 Then tune `.env`, install cron from `crontab.example`, and set `MINI_INVOCATIONS_PER_WAKE` to a steady cap (often **2–5** with **hourly** cron; see **Hourly cadence** below).
@@ -64,8 +42,8 @@ Then tune `.env`, install cron from `crontab.example`, and set `MINI_INVOCATIONS
 **Repo-local Cursor skills:** after clone or when you add a skill folder:
 
 ```bash
-chmod +x /home/ben/bas_build_spec/cron_codex/bin/bas_skills_link.sh
-/home/ben/bas_build_spec/cron_codex/bin/bas_skills_link.sh
+chmod +x /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_skills_link.sh
+/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_skills_link.sh
 ```
 
 ---
@@ -102,9 +80,14 @@ POST_WAKE_HOOK='cd /home/ben/my-bas-app && docker compose up -d --build'
 # POST_WAKE_HOOK='cd /home/ben/my-bas-app/backend && . .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000'
 
 # Default bas_app slice: keep uvicorn (:8000) + python http.server (:5173) up between wakes (nohup; idempotent)
-# POST_WAKE_HOOK=/home/ben/bas_build_spec/cron_codex/bin/bas_post_wake_stack.sh
+# POST_WAKE_HOOK=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_post_wake_stack.sh
 # POST_WAKE_STACK_RESTART=true   # optional: restart each wake to pick up backend changes (brief outage)
+#
+# If bas_post_wake_stack.sh skips for your tree, point POST_WAKE_HOOK at a Codex-owned script under bas_app/scripts/
+# (see bas_app/README.md "Headless / cron" section) — same 0.0.0.0 bind requirement.
 ```
+
+**`systemctl --user` from cron/Codex:** Wake shells often have **no** user D-Bus (`Failed to connect to bus: No medium found`). That does **not** mean units are wrong — see **`bas_build_spec/skills/systemd-live-dev/SKILL.md`** (`XDG_RUNTIME_DIR=/run/user/$(id -u)`, **`loginctl enable-linger`**, or **`bas_app/scripts/`** Path B). Proof of life is always **`ss` + `curl`** to **:8000** / **:5173**.
 
 Your app **must** listen on **`0.0.0.0`** (not only `127.0.0.1`) or the host firewall will only see localhost.
 
@@ -189,8 +172,8 @@ Tune from your **actual** dashboard; weekly caps may bind before the 5h window.
 **`gpt-5.5` does not run `crontab` itself.** Flow:
 
 1. Set **`REMOVE_CRON_WHEN_COMPLETE=true`** in `.env`.
-2. Verify **`acceptance_criteria.md`** in full, including **`## Release gate`** (HTTP smoke, log sanity, frontend build + console-clean sweep, **simulator-only BACnet** unless a documented lab flag is on, E2E data sweep). Document status in **`BUILD_CHECKPOINTS.md`** (or your tracker). Because criteria use **plain bullets** (no `- [ ]` / `- [x]`), you must also run **`touch bas_build_spec/cron_codex/state/CODEX_ACCEPTANCE_COMPLETE`** when you intentionally mean “automation may shut down.”
-3. **`bas_wake.sh`** calls **`bas_remove_cron_marked.sh`** at wake **start** and **end** when **`bin/check_acceptance_complete.sh`** returns success → crontab line with `# BAS_CODEX_WAKE` is removed, and **`state/DONE_AUTOMATION`** is written so later wakes exit silently.
+2. Critique (or you) marks **`acceptance_criteria.md`** so there are **no** remaining `- [ ]` lines — including **`## Release gate`** (HTTP smoke, log sanity, frontend build + console-clean sweep, **simulator-only BACnet** unless a documented lab flag is on, E2E data sweep). Do not rush: that section exists so “done” implies verified stability, not only feature checkboxes.
+3. **`bas_wake.sh`** calls **`bas_remove_cron_marked.sh`** at wake **start** and **end** when the checklist is complete → crontab line with `# BAS_CODEX_WAKE` is removed, and **`state/DONE_AUTOMATION`** is written so later wakes exit silently.
 
 To resume automation, delete **`state/DONE_AUTOMATION`** and re-add the crontab line (or set `REMOVE_CRON_WHEN_COMPLETE=false` while testing).
 
@@ -203,7 +186,7 @@ To resume automation, delete **`state/DONE_AUTOMATION`** and re-add the crontab 
 2. **Copy env file:**
 
    ```bash
-   cp /home/ben/bas_build_spec/cron_codex/env.example /home/ben/bas_build_spec/cron_codex/.env
+   cp /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/env.example /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env
    ```
 
    Edit `BAS_REPO`, `CODEX_CWD`, models, `MINI_INVOCATIONS_PER_WAKE`, sandbox, log paths. **Do not commit `.env`.**
@@ -211,20 +194,19 @@ To resume automation, delete **`state/DONE_AUTOMATION`** and re-add the crontab 
 3. **Make helper scripts executable:**
 
    ```bash
-   chmod +x /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/check_acceptance_complete.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/bas_remove_cron_marked.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/bas_smoke.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/bas_skills_link.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/codex_sandbox_probe.sh \
-     /home/ben/bas_build_spec/cron_codex/bin/bas_redo_automation_state.sh
+   chmod +x /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/check_acceptance_complete.sh \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_remove_cron_marked.sh \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_smoke.sh \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_skills_link.sh \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/codex_sandbox_probe.sh
    ```
 
 4. **Dry run once (foreground):**
 
    ```bash
-   BAS_CODEX_ENV_FILE=/home/ben/bas_build_spec/cron_codex/.env \
-     /home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh
+   BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env \
+     /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh
    ```
 
    Inspect `bas_build_spec/cron_codex/logs/wake-*.log`.
@@ -274,7 +256,7 @@ See **Boot the web app after each wake + dial in** (above) for `POST_WAKE_HOOK` 
 When **Caddy (or nginx) on port 80** collides with BAS expectations, run **on the server** as root:
 
 ```bash
-sudo bash /home/ben/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
+sudo bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
 ```
 
 That script **stops** common units (**`caddy`**, **`nginx`**, **`apache2`** if installed), **`disable`s `caddy`** so it does not return after reboot, and **stops** **post-wake** **uvicorn** / **`http.server`** if PID files exist under **`cron_codex/state/`**. To **purge** the Caddy Debian package, uncomment the **`apt-get remove`** line inside the script. Codex should **not** run this without explicit human direction (see **`bas_build_spec/skills/GUARDRAILS.md`**).
@@ -285,14 +267,14 @@ That script **stops** common units (**`caddy`**, **`nginx`**, **`apache2`** if i
 
 If **`REMOVE_CRON_WHEN_COMPLETE=true`** in `.env`:
 
-1. After each wake, **`bin/check_acceptance_complete.sh`** reads **`bas_build_spec/acceptance_criteria.md`**. It exits **0** when either (a) **`state/CODEX_ACCEPTANCE_COMPLETE`** exists (human sign-off for plain-bullet criteria), or (b) **legacy** Markdown checklists: no `- [ ]` and at least one `- [x]` line.
-2. On success, `bas_wake.sh` calls **`bin/bas_remove_cron_marked.sh`**, which runs `crontab -l`, drops lines containing **`CRON_MARKER`** (default `BAS_CODEX_WAKE`), and reinstalls the rest. Your other cron lines are preserved if they do not contain that marker.
+1. After each wake, `bin/check_acceptance_complete.sh` checks **`bas_build_spec/acceptance_criteria.md`** for any remaining **`- [ ]`** checklist rows (lines that look like `- [ ]` at column start).
+2. When **none** are left (everything checked `[x]`), `bas_wake.sh` calls **`bin/bas_remove_cron_marked.sh`**, which runs `crontab -l`, drops lines containing **`CRON_MARKER`** (default `BAS_CODEX_WAKE`), and reinstalls the rest. Your other cron lines are preserved if they do not contain that marker.
 3. It writes **`cron_codex/state/DONE_AUTOMATION`**. On later invocations, **`bas_wake.sh` exits immediately** (no Codex, no hook) until you **delete `DONE_AUTOMATION`** to re-arm manual testing.
 4. **`POST_WAKE_HOOK`** still runs once when shutdown triggers (so you can do a final `docker compose up` or similar).
 
 **Caveats**
 
-- Do not create **`CODEX_ACCEPTANCE_COMPLETE`** until release gate + criteria are truly verified; delete that file (and **`DONE_AUTOMATION`**) if you re-open the build.
+- Premature `[x]` marks make automation stop early; keep the checklist honest.
 - If the crontab line **omits** the marker, removal is a no-op (see logs); fix the crontab and re-run.
 - **systemd timers** are not auto-disabled by this flow; disable the timer unit yourself when the project is done.
 
@@ -300,10 +282,6 @@ If **`REMOVE_CRON_WHEN_COMPLETE=true`** in `.env`:
 
 ## Operational notes
 
-- **Redo / clean slate (logs + checkpoint stubs):** run **`cron_codex/bin/bas_redo_automation_state.sh`** — clears `cron_codex/logs/` (keeps `.gitkeep`), removes `state/DONE_AUTOMATION`, `stop_mini_loop`, `CODEX_ACCEPTANCE_COMPLETE`, post-wake `*.pid`, and rewrites **`BUILD_CHECKPOINTS.md`** + **`state/next_directions.md`** to empty-queue templates. Does **not** edit `.env` or crontab.
-- **Full rebuild (nuke `bas_app` too):** after you **back up** the app tree, run  
-  `bash …/bas_redo_automation_state.sh --nuke-bas-app --i-am-sure --yes`  
-  (alias **`--full-reset`** for **`--nuke-bas-app`** — same behavior for any iteration, not a numbered “round”). Deletes the **`bas_app`** directory next to **`bas_build_spec`** (or **`BAS_APP_DIR`**), recreates it empty with **`README.BLASTED.md`**, then does the normal redo — so **Codex wakes are not short-circuited by `DONE_AUTOMATION`** and the next cron pass can rebuild from spec/skills. Use **`bash …/script`** if the file is not `chmod +x`. Non-TTY: pass **`--yes`** or set **`SKIP_NUKE_SLEEP=1`**.
 - **Locking:** `flock` on `BAS_CODEX_LOCK` prevents overlapping wakes if a run exceeds the cron period.
 - **Debouncing:** `MIN_MINUTES_BETWEEN_WAKES` skips a wake if the last successful end was too recent.
 - **Git:** `--skip-git-repo-check` allows `CODEX_CWD` without a `.git`; point `CODEX_CWD` at your real repo root when the BAS app lives in git.
@@ -326,8 +304,8 @@ Description=BAS incremental Codex wake
 Type=oneshot
 User=ben
 WorkingDirectory=/home/ben
-EnvironmentFile=/home/ben/bas_build_spec/cron_codex/.env
-ExecStart=/home/ben/bas_build_spec/cron_codex/bin/bas_wake.sh
+EnvironmentFile=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env
+ExecStart=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh
 ```
 
 `/etc/systemd/system/bas-codex-wake.timer`

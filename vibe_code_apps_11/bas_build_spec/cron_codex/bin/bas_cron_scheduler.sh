@@ -21,36 +21,26 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 ENGINE="$BIN_DIR/bas_cron_engine.py"
+
 usage() {
   cat <<'EOF'
-bas_cron_scheduler.sh
+bas_cron_scheduler.sh — gateway for cron/jobs.json
 
-  run-due     Execute enabled jobs whose schedule is due (call from user crontab)
-  list        Print jobs.json summary
-  dry-run     Show what run-due would execute without running
-  runs [id]   Show recent run JSON (optional job id)
+  dry-run    List jobs that would run now
+  run-due    Execute due jobs and update jobs-state.json
 EOF
 }
 
-cmd="${1:-run-due}"
-shift || true
+cmd="${1:-}"
 case "$cmd" in
-  run-due)
-    python3 "$ENGINE" run-due --jobs "$JOBS_FILE" --state "$STATE_FILE" --runs-dir "$RUNS_DIR" --grace-seconds "$GRACE"
+  dry-run|run-due)
+    python3 "$ENGINE" "$JOBS_FILE" "$STATE_FILE" "$RUNS_DIR" "$cmd" "$GRACE"
     ;;
-  dry-run)
-    python3 "$ENGINE" dry-run --jobs "$JOBS_FILE" --state "$STATE_FILE" --runs-dir "$RUNS_DIR" --grace-seconds "$GRACE"
+  -h|--help|"")
+    usage
     ;;
-  list)
-    python3 "$ENGINE" list --jobs "$JOBS_FILE" --state "$STATE_FILE" --runs-dir "$RUNS_DIR"
-    ;;
-  runs)
-    jid="${1:-}"
-    python3 "$ENGINE" runs --jobs "$JOBS_FILE" --state "$STATE_FILE" --runs-dir "$RUNS_DIR" ${jid:+--job-id "$jid"}
-    ;;
-  -h|--help) usage ;;
   *)
-    echo "Unknown: $cmd" >&2
+    echo "unknown command: $cmd" >&2
     usage >&2
     exit 2
     ;;

@@ -1,0 +1,5 @@
+# App-specific ignores for vibe_code_apps_11 (BAS orchestration: see bas_build_spec/.gitignore)
+*.swp
+*~
+.DS_Store
+Thumbs.db

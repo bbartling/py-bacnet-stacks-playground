@@ -21,18 +21,18 @@ bas_build_spec/skills/
 
 | Folder | Role |
 |--------|------|
+| `spec-validation/` | Cursor-only checks vs `acceptance_criteria.md`; full-reset redo checklist in `references/` |
+| `workspace-memory/` | `MEMORY.md`, daily notes, `working-divergence.md` |
+| `workspace-cron/` | `cron/jobs.json`, scheduler gateway, wake vs worker jobs |
+| `systemd-live-dev/` | User systemd units for long-lived `bas_app` (not Docker); **canonical unit snippets + anti-drift** — read with **`BUILD_CHECKPOINTS.md`** Tier A |
+| `bacnet-driver-lifecycle/` | Lab gate → `bacnet_scripts_example/` → driver in `bas_app` |
 | `bacnet-point-modeling/` | BACnet objects, instances, mapping to supervisory points |
 | `brick-schema-modeling/` | Brick / semantic tags, `hasPoint`, equipment relationships |
-| `bas-graphics/` | Operator graphics; `schedule_example.html` shell, `n4_graphic.html` wire-sheet (see `references/frontend-examples.md`) |
+| `bas-graphics/` | Operator graphics, building-program–aware templates, `graphic.html` theme |
 | `alarm-workflows/` | Ack, shelve, lifecycle, routing, BACnet-aligned alarm behavior |
 | `trend-data/` | Historian / TSDB abstraction, charts, export |
 | `web-app-bas/` | SPA + API + auth shell + links to spec / wakes |
 | `safe-bacnet-writes/` | Command workflow, audit, priorities, driver disabled by default |
-| `bacnet-driver-lifecycle/` | Lab gate (`bacnet_scripts_example/`) → driver from embedded patterns (see `references/bacnet_scripts_index.md`) → wire `bas_app` |
-| `bacnet-schedule-motor-verify/` | React weekly schedule (`schedule_example.html`) → BACnet motor writes → read-verify-retry → mismatch + temp alarms; polling/data plane |
-| `workspace-memory/` | `MEMORY.md` + `memory/` daily notes; promotion after critique |
-| `workspace-cron/` | `cron/jobs.json` gateway; isolated vs worker jobs |
-| `systemd-live-dev/` | User systemd units for long-lived `bas_app` (not Docker) |
 
 ## Cursor IDE discovery
 
@@ -41,7 +41,7 @@ Cursor loads project skills from **`~/.cursor/skills/<folder>/`** (workspace `~`
 Refresh symlinks after cloning (from repo root):
 
 ```bash
-/home/ben/bas_build_spec/cron_codex/bin/bas_skills_link.sh   # if present; else see cron_codex/README.md
+/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_skills_link.sh   # if present; else see cron_codex/README.md
 ```
 
 *(Script added below.)*
@@ -52,7 +52,7 @@ Point Codex’s working directory at the repo (`CODEX_CWD`) so relative reads li
 
 ## When to add a new folder
 
-See **`GUARDRAILS.md`**. Prefer extending an existing `SKILL.md` before adding another top-level domain; **`bacnet-driver-lifecycle`** exists for gated lab → driver → UI work.
+See **`GUARDRAILS.md`**. Prefer extending an existing `SKILL.md` before adding an eighth top-level domain.
 
 ## Related
 

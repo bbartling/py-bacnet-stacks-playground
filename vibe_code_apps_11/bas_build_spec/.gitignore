@@ -1,30 +1,36 @@
-# bas_build_spec — track spec/skills/scripts; keep local venv, PDF tool binaries, and generated bundles out of git.
-
-# Local Python env (repo root also ignores env/)
+# Local Python env (PDF/spec tooling — do not commit)
 env/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
-# Portable pandoc/typst copies (~180MB); install on PATH or under tools/bin locally
-tools/bin/
+# Cron / Codex secrets and runtime (see also cron_codex/.gitignore)
+cron_codex/.env
+cron_codex/demo_auth.env
+cron_codex/logs/*.log
+cron/jobs-state.json
+cron/runs/*
+!cron/runs/.gitkeep
 
-# Regenerated PDF/text bundle and Pandoc intermediates
+# Generated / local
+scratch/
+*.log
+.DS_Store
+
+# Spec / PDF build outputs (regenerate locally; do not commit)
 _build/
 pdf/
 
-# cron_codex runtime (see cron_codex/.gitignore)
-cron_codex/.env
-cron_codex/logs/*.log
-cron_codex/logs/last_wake_epoch
-cron_codex/state/DONE_AUTOMATION
-cron_codex/state/stop_mini_loop
-cron_codex/state/CODEX_ACCEPTANCE_COMPLETE
-cron_codex/state/post_wake_*.pid
-cron_codex/state/post_wake_stack.lock
+# Post-wake stack PID files (runtime only)
+cron_codex/state/*.pid
 
-# cron job runtime state
-cron/jobs-state.json
-cron/runs/
+# Optional local pandoc+typst installs (see repo root .gitignore comment)
+tools/bin/
 
-# Frontend / app build artifacts (if present under bas_app/)
-bas_app/node_modules/
-bas_app/dist/
-bas_app/.vite/
+# Editor / OS junk
+*~
+*.swp
+Thumbs.db

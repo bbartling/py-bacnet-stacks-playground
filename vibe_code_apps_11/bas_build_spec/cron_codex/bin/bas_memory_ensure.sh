@@ -1,38 +1,34 @@
 #!/usr/bin/env bash
-# Ensure OpenClaw-style memory tree + today's daily note exist.
+# Ensure memory tree and integration templates exist.
 set -euo pipefail
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BAS_BUILD="$(cd "$BIN_DIR/../.." && pwd)"
 MEMORY_ROOT="$BAS_BUILD/memory"
-TODAY="$(date -u +%Y-%m-%d)"
-DAILY="$MEMORY_ROOT/$TODAY.md"
 
-mkdir -p \
-  "$MEMORY_ROOT/sites" \
-  "$MEMORY_ROOT/buildings" \
-  "$MEMORY_ROOT/equipment" \
-  "$MEMORY_ROOT/integrations" \
-  "$MEMORY_ROOT/stack" \
-  "$MEMORY_ROOT/operators" \
-  "$MEMORY_ROOT/architecture" \
-  "$BAS_BUILD/scratch" \
-  "$BAS_BUILD/cron/runs"
+mkdir -p "$MEMORY_ROOT"/{sites,buildings,equipment,integrations,stack,operators,architecture}
+mkdir -p "$BAS_BUILD/scratch"
 
-if [[ ! -f "$MEMORY_ROOT/architecture/working-divergence.md" ]]; then
-  cat >"$MEMORY_ROOT/architecture/working-divergence.md" <<'EOF'
-# Working architecture divergence log
+for d in sites buildings equipment stack operators; do
+  [[ -f "$MEMORY_ROOT/$d/README.md" ]] || cat >"$MEMORY_ROOT/$d/README.md" <<EOF
+# memory/$d
 
-Append when live code or ops work but spec/skills are wrong or incomplete.
-
-*(No entries yet.)*
+Domain notes for BAS wakes. Keep short; promote stable facts to MEMORY.md.
 EOF
-fi
+done
 
-if [[ ! -f "$DAILY" ]]; then
-  {
-    echo "# Daily memory — $TODAY (UTC)"
-    echo ""
-    echo "- *(Wake log; append bullets per mini/critique.)*"
-  } >"$DAILY"
+[[ -f "$MEMORY_ROOT/README.md" ]] || cat >"$MEMORY_ROOT/README.md" <<'EOF'
+# Workspace memory
+
+Append-only daily notes: `YYYY-MM-DD.md`. Architecture gaps: `architecture/working-divergence.md`.
+EOF
+
+if [[ ! -f "$MEMORY_ROOT/integrations/bacnet.md" ]]; then
+  cat >"$MEMORY_ROOT/integrations/bacnet.md" <<'EOF'
+# BACnet integration memory
+
+Simulator-only until human lab sign-off.
+
+- [ ] Human sign-off on discovery (instances, addresses, counts)
+EOF
 fi

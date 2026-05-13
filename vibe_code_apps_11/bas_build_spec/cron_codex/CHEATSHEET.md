@@ -3,7 +3,7 @@
 ## Workspace memory + cron (OpenClaw-style)
 
 ```bash
-export CR=/home/ben/bas_build_spec/cron_codex
+export CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 $CR/bin/bas_workspace_cli.sh memory list
 $CR/bin/bas_workspace_cli.sh memory search bacnet
 $CR/bin/bas_workspace_cli.sh cron list
@@ -23,7 +23,7 @@ Agent map: **`bas_build_spec/AGENTS.md`** · truncated injection: **`bas_build_s
 Set these once in your shell (adjust if your home path differs):
 
 ```bash
-export CR=/home/ben/bas_build_spec/cron_codex
+export CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 export LEGACY=/home/ben/bas_build/cron_codex   # old tree; only if you still have logs/cron there
 ```
 
@@ -56,7 +56,7 @@ MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=$CR/.env bash $CR/bin/bas_wake.sh
 Run on the **same user** cron uses (often your login):
 
 ```bash
-export CR=/home/ben/bas_build_spec/cron_codex
+export CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 
 # 1) Is any BAS wake scheduled?
 crontab -l | grep -nE 'bas_wake|BAS_CODEX|bas_build_spec' || echo "NO matching lines — cron is not driving bas_wake (only manual runs)."
@@ -213,7 +213,7 @@ Same as `bas_redo_automation_state.sh --nuke-bas-app --reset-checklists --i-am-s
 ## One-page “START AGAIN”
 
 ```bash
-export CR=/home/ben/bas_build_spec/cron_codex
+export CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 MINI_INVOCATIONS_PER_WAKE=1 BAS_CODEX_ENV_FILE=$CR/.env bash $CR/bin/bas_wake.sh
 # other terminal:
 tail -f "$(ls -t $CR/logs/wake-*.log | head -1)"
