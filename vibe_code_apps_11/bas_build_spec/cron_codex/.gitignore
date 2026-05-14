@@ -4,5 +4,6 @@ logs/*.log
 logs/last_wake_epoch
 state/DONE_AUTOMATION
 state/stop_mini_loop
+state/waiting_human
 state/*.pid
 state/*.lock

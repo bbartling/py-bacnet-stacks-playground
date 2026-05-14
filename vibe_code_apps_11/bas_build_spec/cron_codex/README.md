@@ -48,18 +48,20 @@ chmod +x /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/
 
 ---
 
-## Hourly cron (one wake per hour — easier on API limits)
+## Wake cadence (API limits)
 
-**Goal:** at most **one** `bas_wake.sh` run per clock hour → you cap how often Codex runs at all.
+The **user crontab** line that runs **`bas_cron_scheduler.sh run-due`** may stay **hourly** (`0 * * * *`): that only wakes the lightweight Python gateway. **Codex** runs only when a job in **`bas_build_spec/cron/jobs.json`** is due (for example **`0 */3 * * *`** = minute `0` of every **third** hour, evaluated in **UTC** by `bas_cron_engine.py`). Edit `jobs.json` to dial Codex up or down; see `timezone` in that file (metadata today — engine uses UTC for matching).
 
-1. In **`crontab.example`**, use the **`0 * * * *`** line (minute `0`, every hour). Only **one** active wake line should be uncommented.
-2. In **`cron_codex/.env`**, pair hourly with a **small** mini cap, e.g.  
-   `MINI_INVOCATIONS_PER_WAKE=2` or `3`  
-   (each wake = up to that many **`gpt-5.4-mini`** `codex exec` calls **plus 1** **`gpt-5.5`** critique).
-3. Keep **`MINI_ALLOW_EARLY_STOP=true`** so a short queue can **`touch`** `state/stop_mini_loop` and skip extra minis that hour.
+## Scheduler gateway vs Codex cadence
+
+**Typical setup:** user **crontab** runs **`bas_cron_scheduler.sh run-due`** every hour (`0 * * * *`). That is cheap (Python only). **`cron/jobs.json`** decides when **`bas_wake.sh`** (Codex) is due — e.g. **`0 */3 * * *`** ≈ **8 wakes per day** in UTC.
+
+1. **Crontab:** keep **one** line that invokes **`bas_cron_scheduler.sh run-due`** with `# BAS_CODEX_WAKE` (see your installed crontab). You *may* change this to every 3h too; it only reduces gateway ticks, not Codex, unless `jobs.json` matches.
+2. **`cron/jobs.json`:** set the **`bas-wake-hourly`** job’s **`expr`** to the Codex cadence you want (`0 * * * *`, `0 */3 * * *`, …).
+3. **`cron_codex/.env`:** cap burst per wake with **`MINI_INVOCATIONS_PER_WAKE`** (each wake = up to that many mini **`codex exec`** calls **plus** one critique, unless early stop).
 
 **Rough ceiling (if every mini runs, no early stop):**  
-~**24 × (N + 1)** Codex execs per day for mini+critique (e.g. N=2 → ~72 calls/day). Still confirm against the [Codex usage dashboard](https://chatgpt.com/codex/settings/usage).
+**Wakes per day × (N + 1)** Codex execs (e.g. **8** wakes/day at 3h spacing × **(2 + 1)** ≈ **24**/day). Confirm against the [Codex usage dashboard](https://chatgpt.com/codex/settings/usage).
 
 ---
 
@@ -165,6 +167,8 @@ Tune from your **actual** dashboard; weekly caps may bind before the 5h window.
 - **`MINI_INVOCATIONS_PER_WAKE`** — lower = less burst per wake; combine with more frequent cron if you want steady progress.
 - **`MINI_ALLOW_EARLY_STOP=false`** — force every planned mini every wake (burns full quota even if idle).
 - **`MIN_MINUTES_BETWEEN_WAKES`** — debounce overlap with manual Codex.
+- **`SKIP_CRITIQUE_WHEN_CLEAN=true`** — after minis, **skip the critique (`CRITIQUE_MODEL`)** when every configured git root (`BAS_REPO`, `CODEX_CWD`, `BAS_APP`) has an empty `git status --porcelain`. If a mini touched *any* tracked file (including `BUILD_CHECKPOINTS.md`), critique still runs. Default is **false** (always critique).
+- **`state/waiting_human`** — create this empty file under **`cron_codex/state/`** to pause **all** Codex (no minis, no critique) on each wake until you **`rm` it**. Soft pause while waiting on you; cron/scheduler can still tick, but **`bas_wake.sh`** exits immediately after the lock.
 - **Cron spacing** — `*/20` or slower is a conservative default for Plus + critique every wake.
 
 ### Stopping cron when the project is “done”

@@ -29,6 +29,10 @@ else
   info "wake lock: not created yet"
 fi
 
+if [[ -f "$CRON_ROOT/state/waiting_human" ]]; then
+  warn "state/waiting_human exists — bas_wake skips all Codex (minis + critique) until you remove it"
+fi
+
 latest_log=""
 if compgen -G "$BAS_CODEX_LOG_DIR/wake-*.log" >/dev/null; then
   latest_log="$(ls -t "$BAS_CODEX_LOG_DIR"/wake-*.log | head -n 1)"
@@ -47,8 +51,8 @@ else
     warn "last wake incomplete — no bas_wake end line"
   fi
 
-  if grep -q '^--- critique ' "$latest_log"; then
-    ok "critique phase present in latest log"
+  if grep -q '^--- critique ' "$latest_log" || grep -q '^SKIP_CRITIQUE_WHEN_CLEAN:' "$latest_log"; then
+    ok "critique phase present in latest log (or intentionally skipped when clean)"
   elif [[ -n "$wake_pids" ]] || [[ -n "$codex_pids" ]]; then
     info "critique deferred — wake still running"
   else

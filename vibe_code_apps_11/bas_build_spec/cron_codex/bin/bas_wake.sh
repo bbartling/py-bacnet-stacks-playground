@@ -38,6 +38,7 @@ unset _PRESERVE_MINI
 : "${BAS_CODEX_LOCK:=/tmp/bas_codex_wake.lock}"
 : "${BAS_CODEX_LOG_DIR:=$CRON_ROOT/logs}"
 : "${MIN_MINUTES_BETWEEN_WAKES:=0}"
+: "${SKIP_CRITIQUE_WHEN_CLEAN:=false}"
 : "${REMOVE_CRON_WHEN_COMPLETE:=false}"
 : "${CRON_MARKER:=BAS_CODEX_WAKE}"
 : "${POST_WAKE_HOOK:=}"
@@ -52,6 +53,7 @@ skills_policy="$BAS_BUILD/skills/README.md"
 skills_guardrails="$BAS_BUILD/skills/GUARDRAILS.md"
 done_flag="$STATE_DIR/DONE_AUTOMATION"
 stop_mini_loop_file="$STATE_DIR/stop_mini_loop"
+waiting_human_file="$STATE_DIR/waiting_human"
 
 mkdir -p "$BAS_CODEX_LOG_DIR" "$STATE_DIR"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -105,6 +107,12 @@ fi
 exec 200>"$BAS_CODEX_LOCK"
 if ! flock -n 200; then
   echo "Lock busy ($BAS_CODEX_LOCK); another wake is running. Exit 0."
+  exit 0
+fi
+
+if [[ -f "$waiting_human_file" ]]; then
+  echo "Human gate: $waiting_human_file exists — skipping Codex (no minis, no critique). Remove this file when you want scheduled wakes to run again."
+  echo "=== bas_wake end $(date -Is) log=$LOG (waiting_human) ==="
   exit 0
 fi
 
@@ -184,21 +192,48 @@ EOF
   fi
 done
 
-echo "--- critique ($CRITIQUE_MODEL) ---"
-critique_common=(
-  exec
-  -C "$CODEX_CWD"
-  -m "$CRITIQUE_MODEL"
-  -s "$CODEX_SANDBOX"
-  --skip-git-repo-check
-  --color
-  never
-)
-if [[ "${CODEX_DANGEROUSLY_BYPASS,,}" == "true" ]]; then
-  critique_common+=(--dangerously-bypass-approvals-and-sandbox)
+skip_critique=false
+if [[ "${SKIP_CRITIQUE_WHEN_CLEAN,,}" == "true" ]]; then
+  roots=""
+  for d in "$BAS_REPO" "$CODEX_CWD" "${BAS_APP:-}"; do
+    [[ -z "$d" || ! -e "$d" ]] && continue
+    if git -C "$d" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || continue
+      roots="${roots}"$'\n'"$top"
+    fi
+  done
+  roots="$(printf '%s\n' "$roots" | sed '/^$/d' | sort -u)"
+  if [[ -n "$roots" ]]; then
+    skip_critique=true
+    while IFS= read -r top; do
+      [[ -z "$top" ]] && continue
+      if [[ -n "$(git -C "$top" status --porcelain 2>/dev/null)" ]]; then
+        skip_critique=false
+        break
+      fi
+    done <<< "$roots"
+  fi
+  if [[ "$skip_critique" == "true" ]]; then
+    echo "SKIP_CRITIQUE_WHEN_CLEAN: no porcelain changes in tracked repo(s) under BAS_REPO/CODEX_CWD/BAS_APP — skipping critique (${CRITIQUE_MODEL})."
+  fi
 fi
 
-CRIT_PROMPT="$(cat <<EOF
+if [[ "$skip_critique" != "true" ]]; then
+  echo "--- critique ($CRITIQUE_MODEL) ---"
+  critique_common=(
+    exec
+    -C "$CODEX_CWD"
+    -m "$CRITIQUE_MODEL"
+    -s "$CODEX_SANDBOX"
+    --skip-git-repo-check
+    --color
+    never
+  )
+  if [[ "${CODEX_DANGEROUSLY_BYPASS,,}" == "true" ]]; then
+    critique_common+=(--dangerously-bypass-approvals-and-sandbox)
+  fi
+
+  CRIT_PROMPT="$(cat <<EOF
 You are the CRITIQUE pass after up to ${MINI_INVOCATIONS_PER_WAKE} planned mini runs (${MINI_MODEL}) on the BAS project (fewer if early-stop file was used).
 
 Read:
@@ -222,7 +257,8 @@ Tasks:
 Be concise in prose; optimize the next mini queue for clarity and safety.
 EOF
 )"
-codex "${critique_common[@]}" "$CRIT_PROMPT" || echo "WARN: critique exited non-zero"
+  codex "${critique_common[@]}" "$CRIT_PROMPT" || echo "WARN: critique exited non-zero"
+fi
 
 if try_automation_shutdown; then
   date +%s >"$debounce_file"

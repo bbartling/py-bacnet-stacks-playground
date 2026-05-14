@@ -6,6 +6,7 @@
 export CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
 $CR/bin/bas_workspace_cli.sh memory list
 $CR/bin/bas_workspace_cli.sh memory search bacnet
+$CR/bin/bas_workspace_cli.sh wake-status
 $CR/bin/bas_workspace_cli.sh cron list
 $CR/bin/bas_workspace_cli.sh cron dry-run
 $CR/bin/bas_workspace_cli.sh cron runs bas-wake-hourly
@@ -36,10 +37,12 @@ Each scheduled **`bas_wake.sh`** run does:
 | Phase | Count | What |
 |--------|------:|------|
 | **Mini** | up to **`MINI_INVOCATIONS_PER_WAKE`** | Separate `codex exec …` invocations (see **value in `$CR/.env`**; `env.example` defaults to **5**). |
-| **Critique** | **1** | One more `codex exec` after minis. |
+| **Critique** | **0 or 1** | One `codex exec` after minis, unless **`SKIP_CRITIQUE_WHEN_CLEAN`** skips it (see README) or **`state/waiting_human`** skipped the whole wake. |
 | **Typical max** | **`MINI_INVOCATIONS_PER_WAKE` + 1** | e.g. `5 + 1 = 6` Codex runs per wake. |
+| **Human gate** | **0** (whole wake) | `touch $CR/state/waiting_human` → no minis, no critique until `rm`. |
+| **Clean-tree skip** | **0 critique** | `SKIP_CRITIQUE_WHEN_CLEAN=true` in `.env` and porcelain-clean repos after minis → minis still run, critique skipped. |
 
-**Early stop:** if **`MINI_ALLOW_EARLY_STOP=true`** and the model creates **`state/stop_mini_loop`**, remaining minis this hour are skipped → **fewer** minis, still **+1** critique (unless the script exits early for other reasons).
+**Early stop:** if **`MINI_ALLOW_EARLY_STOP=true`** and the model creates **`state/stop_mini_loop`**, remaining minis this hour are skipped → **fewer** minis, still **+1** critique **unless** `SKIP_CRITIQUE_WHEN_CLEAN` applies.
 
 **Change the cap:** edit **`$CR/.env`** → **`MINI_INVOCATIONS_PER_WAKE`**, or override only for one manual run:
 

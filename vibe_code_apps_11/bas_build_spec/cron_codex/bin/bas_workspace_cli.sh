@@ -17,6 +17,8 @@ bas_workspace_cli.sh
   memory bootstrap         Print truncated bootstrap (same as bas_memory_bootstrap.sh)
   memory ensure            Ensure tree + integration templates
 
+  wake-status              JSON: next Codex wake ETA, last wake log stats (for dashboard)
+
   cron list | dry-run | runs [job_id]
 EOF
 }
@@ -24,6 +26,19 @@ EOF
 cmd="${1:-}"
 shift || true
 case "$cmd" in
+  wake-status)
+    CRON_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+    ENV_FILE="${BAS_CODEX_ENV_FILE:-$CRON_ROOT/.env}"
+    if [[ -f "$ENV_FILE" ]]; then
+      set -a
+      # shellcheck disable=1090
+      source "$ENV_FILE"
+      set +a
+    fi
+    LOG_DIR="${BAS_CODEX_LOG_DIR:-$CRON_ROOT/logs}"
+    STATE_DIR="$CRON_ROOT/state"
+    exec python3 "$BIN_DIR/bas_cron_engine.py" wake-status-json "$JOBS_FILE" "$BAS_BUILD/cron/jobs-state.json" "$LOG_DIR" "$STATE_DIR"
+    ;;
   memory)
     sub="${1:-list}"
     shift || true
