@@ -1,14 +1,21 @@
 # vibe_code_apps_11 — BAS build spec / Codex cron quick ref
 
-## Layout + symlink + .env
-- Canonical tree (commit this in git): py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/
-- Optional compatibility symlink on this host so old crontabs/docs keep working:
-    ln -sfn /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec /home/ben/bas_build_spec
-    ls -la /home/ben/bas_build_spec   # should show -> …/vibe_code_apps_11/bas_build_spec
-  If crontab still uses /home/ben/bas_build_spec/... paths, they resolve through this link.
-- After the symlink exists, you may shorten commands by replacing the long …/vibe_code_apps_11/bas_build_spec path with /home/ben/bas_build_spec (same tree).
+## Layout + .env
+- **Single canonical tree (commit / push to GitHub):** `py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/` — use this path in crontab, `BAS_CODEX_ENV_FILE`, and docs. There is **no** second `bas_build_spec` outside the repo; **`/home/ben/bas_build_spec`** was only a removed symlink and must not be referenced.
 - cron_codex/.env: cp env.example .env ; set BAS_REPO, CODEX_CWD, BAS_APP, BAS_CODEX_LOG_DIR, POST_WAKE_HOOK to real paths on this machine (see env.example). Do not commit .env.
 - bas_app (generated head-end): usually /home/ben/bas_app (sibling of py-bacnet-stacks-playground); must match BAS_APP in .env for post-wake and redo scripts.
+
+## Phase 1 — notepad then build (human ↔ agent)
+
+- **Today (v1 contract):** The “notepad” is **`bas_build_spec/memory/commissioning/PHASE_NOTEPAD.md`** — open **§ Step 1 “Paste your info into me”** for BACnet bind, LAN topology, building, devices, **URLs + ports**; keep **§ E phase strip** updated. Save in editor/git. On the **next wake**, Codex reads it first; if tables are still `(fill)`, it should **ask you** (or build the prompt UI) before assuming site layout.
+- **Optional “baby” slice:** If you want a **web UI** with a big text area and a **Save** button that appends to that file (or an API), say so in **`PHASE_NOTEPAD`** or **`BUILD_CHECKPOINTS` / `next_directions.md`** and the **first** wake can build only that; the **following** wakes chew through BACnet/networking/read-only dashboard. The agent does **not** automatically assume a Save-button UI exists until a checkpoint asks for it.
+- **“Go nuts”:** Raise work per wake with **`MINI_INVOCATIONS_PER_WAKE`** in `.env` or on the **`bas_wake.sh`** command line; still bounded by **`GUARDRAILS`** and mini budget—use bigger numbers only when you want more Codex passes in one hour.
+
+## Vision — Day 0 unified commissioning shell (UX)
+
+- **One URL for months:** same dial-in shell as the job ages; **phase** changes what is writable and which **tab** is primary (rough-in → Cx → TAB → BAS).
+- **Layout:** **Notepad/chat + Save** | **Always-on strip** (phase, done, next, URLs+ports, BACnet health) | **Read-only telemetry** once context is saved | **Roadmap checkboxes** (commissioning acceptance rows) + **links** to run **`bas_validate_cron_services.sh`**, **`bas_validate_wake_pass.sh`**, **`bas_validate_automation.sh`** and **wake logs** (see §3–4 below) | **Electrician** (device red/green, points + sensor values) | **Technician** (read/write release) | **TAB** (K-factor, sequencing, **all valves open** hydronic demo, setpoints, charts).
+- **Design:** **`bas_build_spec/frontend_example/graphic.html`** dark BAS tokens—dense but legible field UI.
 
 0) Kill existing PIDs
 sudo bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh

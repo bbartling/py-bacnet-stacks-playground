@@ -1,28 +1,17 @@
 
-import random
+sentence = "the hvac ran hvac problems damper the sensor the the stuck failed hvac fan problems pump sensor problems stuck failed crash fire hvac"
 
-random_list = [random.randint(1, 100) for _ in range(50)]
-print(random_list)
+alarm_snapshot = [
+    ("AHU-1 Supply Air Temp", "normal"),
+    ("AHU-1 Filter Alarm", "active"),
+    ("VAV-201 Zone Temp", "normal"),
+    ("VAV-202 Damper Fault", "active"),
+    ("Boiler-1 Low Water", "normal"),
+    ("CH-1 Chilled Water Alarm", "active"),
+]
 
-
-def find_min_max(data):
-    max_val = data[0]
-    min_val = data[0]
-    min_index = 0
-    max_index = 0
-    for index,value in enumerate(data):
-        if value >= max_val:
-            max_val = value
-            max_index = index
-        if value <= min_val:
-            min_val = value
-            min_index = index
-
-    return (min_val, min_index, max_val, max_index)
-        
-
-
-print(find_min_max(random_list))
-print(max(random_list))
-print(min(random_list))
-
+fault_counts = {
+    "high_supply_temp": 4,
+    "filter_alarm": 2,
+    "static_pressure_low": 7,
+}

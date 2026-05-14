@@ -36,6 +36,8 @@ Type=simple
 WorkingDirectory=/home/ben/bas_app
 Environment=BAS_BIND_HOST=0.0.0.0
 Environment=BAS_BIND_PORT=8000
+# When UI is loaded from the LAN IP, include that Origin (comma list replaces defaults — add loopback too).
+Environment=BAS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://192.168.204.18:5173
 ExecStart=/usr/bin/python3 -m backend
 Restart=on-failure
 RestartSec=3

@@ -791,6 +791,49 @@ Documentation criteria:
 - README explains future real BACnet integration path.
 - Acceptance criteria checklist is included and marked complete/incomplete honestly.
 
+COMMISSIONING AND CONSTRUCTION PHASES (PRODUCT ROADMAP)
+
+The head-end shall eventually support **progressive disclosure** aligned with how field BAS work actually happens on site—not a single monolithic “operator app” on day one. Phases are **ordered**; later phases assume earlier ones are signed off in **`bas_build_spec/memory/commissioning/PHASE_NOTEPAD.md`** (or successor) and reflected in **`BUILD_CHECKPOINTS.md`**.
+
+1. **Electrical install / rough-in (read-only “electrician mode”)**  
+   - Purpose: trades bring controllers and I/O online during construction; need a **dial-in dashboard** that answers “is the device on the wire?”, “is the **BACnet driver** healthy?”, and “what are the live sensor values?” **without** supervisory writes.  
+   - **BACnet strip (read-only):** Show **driver / stack status** (e.g. enabled vs simulator, last successful poll cycle, bind address in use, discovery state when lab-approved per **`bacnet-driver-lifecycle`**). When wire is off, status must degrade honestly (no fake “green”).  
+   - **Networking tab (read-only):** Surface **host networking context** the way an electrician thinks about it: **NIC names**, **IPv4/v6 addresses**, **UP/DOWN**, **default route hint**, and **which ports the head-end expects open** for dial-in and BACnet (e.g. **5173/8000** UI/API, **47808/udp** BACnet/IP)—**documented** next to **live listener summary** (e.g. what `ss` would show for BAS ports) **without** requiring the browser user to run `sudo ufw`. Optional: read-only server-side aggregation of `ip`/`ss` output for display; **never** paste operator passwords or private keys into the UI.  
+   - UX: minimal chrome; large **online/offline / comm** status; **all readable points** (table or card grid).  
+   - Auth: **separate low-friction role or shared read-only station credential** is acceptable for this mode only if documented.  
+   - **Non-goals:** no command/release, no schedule edits, no final operator turnover workflows.
+
+2. **Cx + HVAC point-to-point (commissioning tech)**  
+   - Purpose: **point-to-point** and **functional checks** across HVAC equipment—prove signal path, stroke valves/dampers where modeled, witness **writable** test adjustments with **reason + audit** per **`safe-bacnet-writes`**.  
+   - UX: equipment/point-centric views; command/release; exports suitable for Cx turnover binder.  
+   - Auth: engineer/operator-class; stricter than electrician mode.
+
+3. **Functional testing & balancing (TAB) phase**  
+   - Purpose: **TAB** workflows—balance setpoints/flows, **repeatable test evidence**, witness logs.  
+   - **Charts:** **Dropdown (or multi-select) chart builder** for **sensor / point trends**—operator picks points, time range, and gets an overlay or multi-series chart; export chart data or CSV for sign-off.  
+   - Overlaps Cx but emphasizes **evidence packages** and **balance sign-off** over first-time bring-up.
+
+4. **Final BAS / owner operator mode**  
+   - Purpose: password-protected **full supervisory** shell (current spec’s navigation, graphics, alarms, trends, schedules, RBAC).  
+   - **Terminal maturity** target; earlier phases are **thin vertical slices** toward it.
+
+**Phase notepad (human + agent contract):**  
+Maintain **`bas_build_spec/memory/commissioning/PHASE_NOTEPAD.md`** as the **structured handoff**: **Step 1** must invite the human to **paste BACnet bind** (e.g. `IP/prefix:47808` per **`bacnet_scripts.md`**), **LAN topology**, **building/HVAC context**, **expected BACnet devices**, and **dial-in URLs with ports** (UI **5173**, API **8000**). Include a **phase status strip** (active phase, done, next, dashboard URL). Codex shall **read this file first** on commissioning wakes and **ask** for missing fields before inferring site layout. An **in-app notepad** (when implemented) shall **mirror** the same prompts, keep the summary strip **always visible**, and **Save** into the same contract (exportable for git). Optional later: **TUI/CLI** append-only logger. **`REDO:`** and sign-off lines stay in **§ F** of that file.
+
+**Agent behavior:** Implement as **small sequential slices** in `bas_app` per **`BUILD_CHECKPOINTS.md`**. Cross-link **`field-commissioning-phases`** skill.
+
+**Unified commissioning shell — “Day 0” UX (months-long job mimic):**  
+The product should trend toward **one dial-in shell** whose layout **mirrors how buildings are built**—same URL family for weeks/months, with **phase** controlling **what is writable** and which **tabs/sections** are emphasized—not a different product per week.
+
+- **Always visible:** **Phase strip** (active phase, done, next) + **dial-in URLs with ports** + **BACnet health** (driver/bind summary).  
+- **Chat / notepad column:** **Step 1 “paste your info”** (building type, devices, **BACnet bind**, LAN topology); **Save** syncs to **`PHASE_NOTEPAD.md`** contract.  
+- **Read-only telemetry wall (Day 0 default beside chat):** after context is saved, show **live BACnet / simulator point values** the model can already read—no writes until phase ≥ Cx.  
+- **Build criteria panel:** **Checkboxes** tied to **`acceptance_criteria.md` roadmap** (commissioning phases) and **links or buttons** to run the same checks humans use in ops notes (**`bas_validate_cron_services.sh`**, **`bas_validate_wake_pass.sh`**, **`bas_validate_automation.sh`**) where safe to invoke from UI (or show **last run** + path to logs); include **wake log** tail or **open log** affordance (`cron_codex/logs/wake-*.log`). **Good UX:** dense but legible; follow **`frontend_example/graphic.html`** dark BAS chrome (`bas-graphics`).  
+- **Electrician section:** **Device rows** — **online / offline / comm** (red/amber/green semantics); **points** with **sensor / present values**; read-only.  
+- **Technician (Cx) section:** same points with **read + write/release** (reason + audit); appears or unlocks when phase allows.  
+- **TAB section:** **balancing** affordances—**K-factor** / flow coeff where modeled, **sequencing** or **chiller/valve demo** patterns (e.g. **all hydronic valves open** for balance), **setpoint** adjustments, chart builder; evidence export.  
+- **AI / agent alignment:** Codex reads **notepad + phase strip** each wake so automation **matches where the job is** on the calendar; do not sprint “final BAS” UI while the project is still in **rough-in**.
+
 FINAL OUTPUT REQUIRED FROM AGENT
 
 At the end of the build, provide:

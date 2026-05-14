@@ -21,6 +21,7 @@ bas_build_spec/skills/
 
 | Folder | Role |
 |--------|------|
+| `field-commissioning-phases/` | Electrician → Cx → TAB → final BAS phased rollout; **`PHASE_NOTEPAD.md`** |
 | `spec-validation/` | Cursor-only checks vs `acceptance_criteria.md`; full-reset redo checklist in `references/` |
 | `workspace-memory/` | `MEMORY.md`, daily notes, `working-divergence.md` |
 | `workspace-cron/` | `cron/jobs.json`, scheduler gateway, wake vs worker jobs |
@@ -52,7 +53,7 @@ Point Codex’s working directory at the repo (`CODEX_CWD`) so relative reads li
 
 ## When to add a new folder
 
-See **`GUARDRAILS.md`**. Prefer extending an existing `SKILL.md` before adding an eighth top-level domain.
+See **`GUARDRAILS.md`**. Prefer extending an existing `SKILL.md` before adding another top-level domain folder (this tree now has many; each new folder must justify retrieval).
 
 ## Related
 
