@@ -1,9 +1,9 @@
 """
-Pt1000 RTD helpers for a Raspberry Pi + external ADC.
+Pt1000 RTD helpers for a Raspberry Pi + external ADC (2-wire sensors only).
 
 The Raspberry Pi GPIO header does not expose true analog inputs. A practical
 pattern is an ADS1115 (I2C) reading the tap of a simple bias divider formed by
-a precision series resistor and the RTD element.
+a precision series resistor and the **2-wire** RTD loop (element + both leads).
 """
 
 from __future__ import annotations

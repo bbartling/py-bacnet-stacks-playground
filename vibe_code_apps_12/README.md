@@ -1,6 +1,6 @@
 # BACnet Pt1000 RTD Temperature Server
 
-This demo exposes **exactly one** BACnet analog value (`analogValue`, 1) that tracks a Pt1000 element read through a resistor divider measured by an **ADS1115** on I²C. The BACnet stack matches the minimal `mini_weather_device.py` styling in `../vibe_code_apps_4/`, minus the REST/OpenWeather integrations.
+This demo exposes **exactly one** BACnet analog value (`analogValue`, 1) that tracks a **2‑wire Pt1000** (≈1000 Ω at 0 °C) read through a resistor divider measured by an **ADS1115** on I²C. **This guide is written only for two-conductor probes** — one conductor from each end of the element to your divider tap and to **GND**. The BACnet layout follows the same minimalist style as `mini_weather_device.py` in `../vibe_code_apps_4/`.
 
 Hardware note: Raspberry Pi GPIO does **not** include true analog pins. Analog voltage must come from something like an ADC board (recommended here), a standalone RTD transmitter, or a microcontroller that streams digital readings over USB.
 
@@ -31,7 +31,9 @@ i2cdetect -y 1
 
 With default `ADDR` wiring you should see **`48`** in the grid (that is `0x48`).
 
-### Step B — Pt1000 + bias resistor (what `A0` measures)
+### Step B — 2‑wire Pt1000 + bias resistor (what `A0` measures)
+
+This step matches a **2‑wire** sensor: two leads go to the platinum element. Connect one side of the element to the divider tap and the other to **GND** (see your probe’s datasheet for which wire is which if they are not identical).
 
 Build a **two-resistor divider** from the same **3.3 V** you trust for `R_bias`, with the **tap** going to the ADS1115 analog input (channel **0** in code by default):
 
@@ -42,7 +44,7 @@ Build a **two-resistor divider** from the same **3.3 V** you trust for `R_bias
         |
         +---------- AIN0 / A0+  (single-ended input on your ADS1115 breakout)
         |
-     [ Pt1000 ]
+     [ 2-wire Pt1000 + both leads in series ]
         |
        GND  (same GND as Pi pin 6 and ADS1115 GND)
 ```
@@ -61,7 +63,7 @@ $$
 V_{\text{tap}} = V_{\text{supply}} \cdot \frac{R_{\text{RTD}}}{R_{\text{bias}} + R_{\text{RTD}}}
 $$
 
-Solve for Pt1000 resistance (this is what `rtd_sensor.resistance_from_divider()` implements):
+Solve for **loop resistance** (this is what `rtd_sensor.resistance_from_divider()` implements—the **element plus both wires** in series for a 2‑wire probe):
 
 $$
 R_{\text{RTD}} = R_{\text{bias}} \cdot \frac{V_{\text{tap}}}{V_{\text{supply}} - V_{\text{tap}}}
@@ -72,13 +74,11 @@ If formulas do not render in your viewer:
 - `V_tap = V_supply * R_rtd / (R_bias + R_rtd)`
 - `R_rtd = R_bias * V_tap / (V_supply - V_tap)`
 
-### Practical accuracy notes
+### Practical accuracy notes (2‑wire Pt1000)
 
 1. Prefer a measured value for **`R_bias`** in `--r-series-ohms` (not only the nominal print on the resistor).
 2. Meter your real **`V_supply`** at the top of `R_bias` for `--v-supply`.
-3. **2‑wire** Pt1000 ignores lead resistance; better lab setups use **3-/4-wire** or an RTD front end such as MAX31865.
-4. Thin long hookup wire adds stray resistance—retrim or ice-bath calibrate when you care about absolute °C.
-
+3. **Lead resistance counts.** The divider sees **element + both conductors** between the tap and GND (and any connector resistance). Use short runs of adequate gauge when you care about °C accuracy; tune **`--r-series-ohms`** and **`--v-supply`** against a known temperature if you see a fixed offset.
 ### How the application updates BACnet (software path)
 
 Sampling is **not** “GPIO bit-bang”: it’s **I²C to the ADC**, then math, then writing BACnet `presentValue` on an interval.
@@ -183,4 +183,4 @@ On Raspberry Pi OS, follow Adafruit Blinka platform setup if `import board` fail
 
 ## Accuracy expectations
 
-The embedded math uses the IEC 60751 quadratic model suited to typical HVAC positive temperatures (approximately **≥ 0 °C**). Cold environments need extra validation. For production RTD front ends, consider constant-current excitation, ratiometric references, or dedicated RTD front ends (for example MAX31865 with SPI and built-in reference).
+Inference uses the **total series resistance** read by the divider (Pt1000 element **plus** both leads). IEC 60751-style conversion is suited to typical HVAC positive temperatures (approximately **≥ 0 °C**); validate near freezing when that range matters to you.

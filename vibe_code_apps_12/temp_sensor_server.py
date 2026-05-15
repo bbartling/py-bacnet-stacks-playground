@@ -106,7 +106,7 @@ class TemperatureApplication:
             statusFlags=[0, 0, 0, 0],
             covIncrement=0.25 if self.display_units == "celsius" else 0.5,
             units=bacnet_units,
-            description="Pt1000 RTD measured via divider + ADS1115 (see README wiring)",
+            description="2-wire Pt1000 via divider + ADS1115 (see README wiring)",
         )
         self.app.add_object(self.rtd_temperature)
 
