@@ -1,5 +1,3 @@
-Quick reference: **[CHEATSHEET-ssh-password-login.md](CHEATSHEET-ssh-password-login.md)** (enable SSH password on the Pi for `ansible-playbook --ask-pass`).
-
 From this directory:
 
 ```bash
