@@ -4,7 +4,11 @@ Ansible pushes config and software to remote machines over **SSH**. You write a 
 
 ---
 
-## 1. The pieces in `vibe_code_apps_12/ansible`
+## 0. No `git clone` on the Pi (normal path)
+
+This playbook **`copy`**s files from **your laptop or build server** (next to `deploy.yml`) to the Pi. You edit code here, run **`ansible-playbook deploy.yml`**, and the Pi updates. Use **`git pull`** only on **this** machine so Ansible ships the newest files.
+
+---
 
 | File / folder | Role |
 |---------------|------|

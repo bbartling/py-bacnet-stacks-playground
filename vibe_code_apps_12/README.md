@@ -116,6 +116,10 @@ python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-031
 
 ## Deploy to Raspberry Pi (Ansible)
 
+**Workflow:** On **this computer** (where the repo lives), run `ansible-playbook`. Ansible **SSHs to the Pi** and **copies** `temp_sensor_server.py`, `ds18b20_sensor.py`, and `requirements.txt` from **your local checkout** into `~/vibe_code_apps_12/`, installs the venv, and installs **`bacnet-ds18b20.service`**. The Pi does **not** need **`git clone`** for that flow—only SSH (and sudo for apt/systemd).
+
+Whenever you change Python or the systemd template here, **re-run the same playbook** from this machine so the Pi picks up files and the refreshed unit.
+
 Defaults: BACnet instance **3456788**, bind **`{{ ansible_host }}/24`**, **°F** (`bacnet_display_units: fahrenheit` in `group_vars/pi_bcn.yml`), systemd **`bacnet-ds18b20.service`**. Override: `-e bacnet_display_units=celsius`.
 
 ```bash
@@ -138,6 +142,16 @@ ansible-playbook deploy.yml -e bacnet_bind_address=eth0
 
 Older installs may have had **`bacnet-rtd-temp.service`**; the playbook removes it only if that unit file still exists.
 
+### Still seeing ~24 on the BACnet tool?
+
+That is **°C** (sensor is ~24 °C). The service must be started with **`--display-units fahrenheit`** (Ansible template does this after you **pull latest** and **re-deploy**). On the Pi check:
+
+```bash
+systemctl cat bacnet-ds18b20 | grep -E 'ExecStart|display-units'
+```
+
+You should see **`--display-units fahrenheit`**. If not, from **this computer**: `git pull` then `cd vibe_code_apps_12/ansible && ansible-playbook deploy.yml -v`, or on the Pi: `sudo systemctl edit bacnet-ds18b20` / redeploy. Some tools ignore BACnet **units** and always show the raw **presentValue**—in that case **presentValue** should become **~75** when °F is active.
+
 ### SCP only (no Ansible)
 
 ```bash
@@ -152,6 +166,7 @@ cd ~/vibe_code_apps_12
   --name PiTemp \
   --instance 3456788 \
   --address 192.168.204.12/24
+# Default is °F; add --display-units celsius if you want °C
 ```
 
 ---
