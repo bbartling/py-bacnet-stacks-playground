@@ -1,6 +1,4 @@
-# Deploy to Raspberry Pi (`ben@192.168.204.12`)
-
-Inventory defaults live in `inventory.yml` (`ansible_host`, `ansible_user`). Adjust `ansible_user` if your Pi login differs.
+Quick reference: **[CHEATSHEET-ssh-password-login.md](CHEATSHEET-ssh-password-login.md)** (enable SSH password on the Pi for `ansible-playbook --ask-pass`).
 
 From this directory:
 
