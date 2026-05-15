@@ -4,82 +4,105 @@ This demo exposes **exactly one** BACnet analog value (`analogValue`, 1) that tr
 
 Hardware note: Raspberry Pi GPIO does **not** include true analog pins. Analog voltage must come from something like an ADC board (recommended here), a standalone RTD transmitter, or a microcontroller that streams digital readings over USB.
 
-## Raspberry Pi Wiring Tutorial (ADS1115 + Pt1000 divider)
+## Raspberry Pi Model B+ wiring (ADS1115 + Pt1000 divider)
 
-### Signals you will use from the Raspberry Pi header
+The **Model B+** uses the **40‑pin** GPIO header (same pinout idea as later full-size Pi boards). **Pin 1** is at the corner with the **square** copper pad and is **3.3 V**. You are **not** reading the RTD with a “GPIO analog” line: the Pi uses **I²C** to talk to the **ADS1115**, and the ADS1115 performs the **analog** measurement on its `A0` input.
 
-Modern Raspberry Pi exposes I²C1 on pins 3 and 5 (`SDA`, `SCL`) plus regulated **3V3 power** (`3.3V`) and **`GND`** on the 40‑pin connector. Labels above are BCM numbers 2 (`SDA1`) / 3 (`SCL1`).
+### Step A — ADS1115 breakout to the Pi (power + I²C)
 
-| Raspberry Pi Pin | BCM | Function                     | Goes to breakout |
-|------------------|-----|------------------------------|------------------|
-| 1                | —   | 3.3V supply                  | `VDD` / `VIN`    |
-| 3                | 2   | I²C1 SDA                     | breakout `SDA`   |
-| 5                | 3   | I²C1 SCL                     | breakout `SCL`   |
-| 6 / 14 / …       | —   | GND                           | breakout `GND`   |
+Power **off** while wiring. Use jumpers from the ADS1115 module to the Pi:
 
-Consult your Pi revision — pin numbers are standardized on the Pi 40‑pin ribbon; always verify against your board cheat sheet before applying power.
+| Physical pin (B+ 40‑pin header) | Name   | ADS1115 pin (typical labels) |
+|---------------------------------|--------|------------------------------|
+| **1**                           | 3.3 V  | `VDD` or `VIN` (see module docs) |
+| **3**                           | SDA1   | `SDA` |
+| **5**                           | SCL1   | `SCL` |
+| **6** (or any `GND`)            | GND    | `GND` |
 
-### ADS1115 breakout connections
+Only use **5 V** on the ADS1115 if the product page says the board is 5 V safe; many small breakouts are **3.3 V only**.
 
-Adafruit breakout (or clones) expose `VDD`, `GND`, `SCL`, `SDA`. Optional `ADDR` pin selects I²C address (default typically `0x48` pulled down).
+Enable I²C and confirm the chip answers on the bus:
 
-Steps:
+```bash
+sudo raspi-config nonint do_i2c 0
+sudo apt install -y i2c-tools
+i2cdetect -y 1
+```
 
-1. Power the ADS1115 breakout from Raspberry Pi **3.3 V**, not **5 V**.
-2. Connect `SDA` → Pi pin 3, `SCL` → Pi pin 5 (plus common `GND`).
-3. Enable interface: `sudo raspi-config nonint do_i2c 0`
-4. Check scan: `sudo apt install i2c-tools && i2cdetect -y 1` — ADS1115 should appear at address `48` hex when ADDR is default.
+With default `ADDR` wiring you should see **`48`** in the grid (that is `0x48`).
 
-### RTD resistor divider topology (concept)
+### Step B — Pt1000 + bias resistor (what `A0` measures)
 
-Model the Pt1000 as a variable resistor \(R_{\mathrm{RTD}}\approx 1000\,\Omega @ 0°C\). Attach it to ground and place a precision metal‑film resistor \(R_{\mathrm{bias}}\) from the divider supply \(V_{\mathrm{supply}}\) to meet at a node you measure:
+Build a **two-resistor divider** from the same **3.3 V** you trust for `R_bias`, with the **tap** going to the ADS1115 analog input (channel **0** in code by default):
 
 ```text
-3.3V (rail) ----[ R_bias ]----+---- AIN0 (ADS1115)
-                              |
-                            [ Pt1000 ] ---- GND (common with Pi ground)
+   Pi 3.3 V (header pin 1)
+        |
+     [ R_bias ]     ← example: 3300 Ω metal-film; put real value in --r-series-ohms
+        |
+        +---------- AIN0 / A0+  (single-ended input on your ADS1115 breakout)
+        |
+     [ Pt1000 ]
+        |
+       GND  (same GND as Pi pin 6 and ADS1115 GND)
 ```
 
-The measured voltage satisfies:
+Checklist:
 
-\[ V_{\mathrm{tap}} = V_{\mathrm{supply}} \cdot \dfrac{R_{\mathrm{RTD}}}{R_{\mathrm{bias}}+R_{\mathrm{RTD}}} \]
+- **One continuous ground**: Pi GND, ADS1115 GND, and the bottom of the Pt1000 must be the same reference.
+- If your breakout shows `A0+` / `A0-` or `COM`, follow the vendor drawing for single-ended hookup; conceptually you’re always measuring **tap voltage vs ADC ground**.
+- Larger **R_bias** → less current → less **self-heating** in the Pt1000 (good for quick bench work).
 
-Solve for \(R_{\mathrm{RTD}}\):
+### Step C — Divider math (for GitHub) + plaintext fallback
 
-\[ R_{\mathrm{RTD}} = R_{\mathrm{bias}} \cdot \dfrac{V_{\mathrm{tap}}}{V_{\mathrm{supply}}-V_{\mathrm{tap}}} \]
+GitHub renders display math inside `$$ … $$`:
 
-### Wiring diagram (conceptual flow)
+$$
+V_{\text{tap}} = V_{\text{supply}} \cdot \frac{R_{\text{RTD}}}{R_{\text{bias}} + R_{\text{RTD}}}
+$$
+
+Solve for Pt1000 resistance (this is what `rtd_sensor.resistance_from_divider()` implements):
+
+$$
+R_{\text{RTD}} = R_{\text{bias}} \cdot \frac{V_{\text{tap}}}{V_{\text{supply}} - V_{\text{tap}}}
+$$
+
+If formulas do not render in your viewer:
+
+- `V_tap = V_supply * R_rtd / (R_bias + R_rtd)`
+- `R_rtd = R_bias * V_tap / (V_supply - V_tap)`
+
+### Practical accuracy notes
+
+1. Prefer a measured value for **`R_bias`** in `--r-series-ohms` (not only the nominal print on the resistor).
+2. Meter your real **`V_supply`** at the top of `R_bias` for `--v-supply`.
+3. **2‑wire** Pt1000 ignores lead resistance; better lab setups use **3-/4-wire** or an RTD front end such as MAX31865.
+4. Thin long hookup wire adds stray resistance—retrim or ice-bath calibrate when you care about absolute °C.
+
+### How the application updates BACnet (software path)
+
+Sampling is **not** “GPIO bit-bang”: it’s **I²C to the ADC**, then math, then writing BACnet `presentValue` on an interval.
 
 ```mermaid
-flowchart LR
-    Pi3["Raspberry Pi 3.3V header pin"] --- Rbias["Precision resistor R_bias"]
-    Rbias --- Node@{ shape: diamond, label: "Divider tap"}
-    Node --- Pt1000["Pt1000 element (-)"]
-    Pt1000 --- Gsys["GND / star point"]
-    Node --- AdsA["ADS1115 single-ended channel (AIN+)"]
-    Gsys --- AdsG["ADS1115 GND"]
-
-    subgraph ADSBreakout["ADS1115 breakout"]
-        AdsA --- AdsMux["Internal mux / PGA"]
-        AdsMux --- AdsI2C["I²C controller"]
-        AdsI2C --- PiSDA["SDA ↔ Pi BCM2 pin 3"]
-        AdsMux --- AdsSCL["SCL ↔ Pi BCM3 pin 5"]
-        AdsMux --- AdsVDD["Breakout powered from Pi 3.3V rail"]
-        AdsMux --- AdsG["Common ground plane"]
-    end
+flowchart TB
+    S["Sleep: --sample-interval"] --> R["read_celsius worker thread"]
+    R --> I2[I2C read ADS1115]
+    I2 --> Avg[Average N samples]
+    Avg --> VR["Divider math: voltage to R_rtd"]
+    VR --> PT["Pt1000: resistance to °C"]
+    PT --> PV["Write BACnet analogValue,1.presentValue"]
+    PV --> BV["BACpymes3 UDP (--address NIC/IP)"]
 ```
 
-Important practical tips:
+Timing knobs in `temp_sensor_server.py`:
 
-1. Keep **GND** contiguous between breakout, Pi, divider, and Pt1000.
-2. Use a **metal film** resistor for \(R_{\mathrm{bias}}\) (e.g. 3.300 kΩ nominal, 0.1 %).
-3. **Self-heating** happens if you push too much current through the Pt1000. Larger \(R_{\mathrm{bias}}\) reduces current (\(\approx \dfrac{V}{R_{\mathrm{bias}}+R_{\mathrm{RTD}}}\)). Aim for \(\ll 1 mA\) for quick experiments.
-4. A **2‑wire Pt1000** ignores lead resistance; laboratory accuracy usually requires 3‑ or 4‑wire measurement or chips like MAX31865. Budget projects often accept \(\pm 0.5–2 °C\) after single-point trimming.
-5. **Wire length**, solder joints, and connector resistance move the inferred resistance; calibrate `--r-series-ohms` and `--v-supply` with an ice/water batch or calibrated handheld meter if precise absolute temperature matters.
+- **`--sample-interval`**: seconds between **BACnet updates** (each update runs a fresh multi-sample ADC read in `ads1115` mode).
+- **`--ads-average`** / **`--ads-sample-delay`**: smoothing **inside** each read (noise reduction before the BACnet write).
+- **`--sensor sim`**: skips hardware; sine-wave temperature for BACnet testing only.
 
 ### Software configuration highlights
 
-CLI flags map directly onto the schematic:
+CLI flags map to the schematic and timing above:
 
 ```bash
 cd vibe_code_apps_12
@@ -94,8 +117,8 @@ python temp_sensor_server.py \
   --debug
 ```
 
-- `--r-series-ohms`: actual measured value of \(R_{\mathrm{bias}}\) once trimmed.
-- `--v-supply`: the **actual** divider excitation referenced to \(V_{\mathrm{tap}}\).
+- `--r-series-ohms`: **R_bias** in ohms (as wired).
+- `--v-supply`: **`V_supply`** at the divider top (typically ~3.3).
 - Simulation mode skips hardware imports:
 
 ```bash
@@ -160,4 +183,4 @@ On Raspberry Pi OS, follow Adafruit Blinka platform setup if `import board` fail
 
 ## Accuracy expectations
 
-The embedded math uses the IEC 60751 quadratic model for \(T \ge 0\,°C\). Cold environments need extra validation. For production RTD front ends, consider constant-current excitation, ratiometric references, or dedicated RTD front ends (for example MAX31865 with SPI and built-in reference).
+The embedded math uses the IEC 60751 quadratic model suited to typical HVAC positive temperatures (approximately **≥ 0 °C**). Cold environments need extra validation. For production RTD front ends, consider constant-current excitation, ratiometric references, or dedicated RTD front ends (for example MAX31865 with SPI and built-in reference).
