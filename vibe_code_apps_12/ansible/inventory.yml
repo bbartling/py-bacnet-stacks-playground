@@ -10,4 +10,4 @@ all:
       hosts:
         bacnet_pi:
           ansible_host: 192.168.204.12
-          ansible_user: pi
+          ansible_user: ben
