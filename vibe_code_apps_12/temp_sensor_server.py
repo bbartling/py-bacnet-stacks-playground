@@ -3,30 +3,29 @@
 Mini BACnet DS18B20 Temperature Device (Raspberry Pi B+ friendly)
 ================================================================
 
-Expose a single read-only BACnet **analogValue** that tracks a **DS18B20**
-1-Wire digital sensor wired to **GPIO4** (physical pin 7) with a **4.7 kΩ**
-pull-up to **3.3 V** — no ADC or Pt1000 divider.
+Expose a single read-only BACnet **analogValue** that reads one **DS18B20**
+**1-Wire** sensor on **GPIO4** (physical pin 7) with a **4.7 kΩ** pull-up to **3.3 V**.
 
 Included BACnet object:
 -----------------------
 - analogValue,1 → local-ds18b20-temperature (degrees Celsius by default)
 
 
-Run (simulation mode on any machine):
-------------------------------------
-    python temp_sensor_server.py --name BenchTemp --instance 3456 --sensor sim
+Typical Raspberry Pi (1-Wire enabled — see README):
+---------------------------------------------------
+    python temp_sensor_server.py --name PiTemp --instance 3456788 \\
+        --address 192.168.204.12/24 --debug
 
 
-Run on a Raspberry Pi with DS18B20 (1-Wire enabled — see README):
------------------------------------------------------------------
-    python temp_sensor_server.py --name PiTemp --instance 3456788 \
-        --address 192.168.204.12/24 --sensor ds18b20 --debug
+Single probe auto-detection reads ``/sys/bus/w1/devices/28-*/w1_slave``. If multiple
+DS18B20 folders exist, pick one::
 
+    python temp_sensor_server.py --name PiTemp --instance 3456788 \\
+        --address 192.168.204.12/24 --w1-device 28-0315977934ff
 
-Optional flags (DS18B20 / 1-Wire):
------------------------------------
---w1-device       Sysfs folder name, e.g. 28-0315977934ff (required if several probes)
---w1-slave-path   Absolute path to w1_slave (overrides --w1-device)
+Override sysfs path::
+
+    --w1-slave-path /sys/bus/w1/devices/28-xxxxxxxxxxxx/w1_slave
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ from bacpypes3.app import Application
 from bacpypes3.debugging import ModuleLogger, bacpypes_debugging
 from bacpypes3.local.analog import AnalogValueObject
 
-from ds18b20_sensor import Ds18b20SysfsReader, SimulatedTemperatureReader
+from ds18b20_sensor import Ds18b20SysfsReader
 
 
 INTERVAL_DEFAULT = 2.0
@@ -49,18 +48,11 @@ _debug = 0
 _log = ModuleLogger(globals())
 
 
-def build_reader(args):
-    """Create the temperature reader based on CLI mode."""
-    if args.sensor == "sim":
-        return SimulatedTemperatureReader()
-
-    if args.sensor == "ds18b20":
-        return Ds18b20SysfsReader(
-            device_id=args.w1_device,
-            w1_slave_path=args.w1_slave_path,
-        )
-
-    raise ValueError(f"Unknown sensor backend: {args.sensor}")
+def build_reader(args) -> Ds18b20SysfsReader:
+    return Ds18b20SysfsReader(
+        device_id=args.w1_device,
+        w1_slave_path=args.w1_slave_path,
+    )
 
 
 def c_to_f(temp_c: float) -> float:
@@ -132,12 +124,6 @@ async def main() -> None:
 
     parser = SimpleArgumentParser(description=__doc__)
     parser.add_argument(
-        "--sensor",
-        choices=["sim", "ds18b20"],
-        default="sim",
-        help="Backend: software sine (sim) or Pi DS18B20 sysfs 1-Wire (ds18b20)",
-    )
-    parser.add_argument(
         "--sample-interval",
         type=float,
         default=INTERVAL_DEFAULT,
@@ -153,13 +139,13 @@ async def main() -> None:
         "--w1-device",
         type=str,
         default=None,
-        help="1-Wire device id folder under /sys/bus/w1/devices/ (e.g. 28-0315977934ff)",
+        help="1-Wire device id under /sys/bus/w1/devices/ (e.g. 28-0315977934ff); required if several 28-* exist",
     )
     parser.add_argument(
         "--w1-slave-path",
         type=str,
         default=None,
-        help="Full path to w1_slave file (overrides --w1-device)",
+        help="Full path to w1_slave (overrides --w1-device)",
     )
 
     args = parser.parse_args()

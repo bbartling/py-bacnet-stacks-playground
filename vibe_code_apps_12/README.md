@@ -86,7 +86,8 @@ flowchart TB
 ```
 
 - **`--sample-interval`**: seconds between BACnet updates (each pass re-reads `w1_slave`).
-- **`--sensor sim`**: no hardware; sine-wave °C for BACnet testing on a laptop.
+
+This program **only** talks to a **DS18B20** via kernel 1-Wire (`w1_slave`). There is no simulation mode.
 
 ---
 
@@ -98,14 +99,11 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Laptop / CI (no 1-Wire):
-python temp_sensor_server.py --name BenchSim --instance 1111 --sensor sim
-
-# Raspberry Pi (1-Wire enabled, single DS18B20):
-python temp_sensor_server.py --name PiTemp --instance 3456788 --sensor ds18b20 --debug
+# Raspberry Pi (1-Wire enabled, single DS18B20 — auto-picks the only 28-* folder):
+python temp_sensor_server.py --name PiTemp --instance 3456788 --debug
 
 # Multiple probes on one bus — pick one:
-python temp_sensor_server.py --sensor ds18b20 --w1-device 28-0315977934ff
+python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-0315977934ff
 ```
 
 ### BACnet object
@@ -118,7 +116,7 @@ python temp_sensor_server.py --sensor ds18b20 --w1-device 28-0315977934ff
 
 ## Deploy to Raspberry Pi (Ansible)
 
-Defaults: BACnet instance **3456788**, bind address **`{{ ansible_host }}/24`**, sensor mode **`ds18b20`**, systemd unit **`bacnet-ds18b20.service`** (BACpypes3).
+Defaults: BACnet instance **3456788**, bind address **`{{ ansible_host }}/24`**, systemd unit **`bacnet-ds18b20.service`** (BACpypes3). The app always reads the DS18B20 over **1-Wire** (no `--sensor` flag).
 
 ```bash
 sudo apt install ansible-core
@@ -153,8 +151,7 @@ cd ~/vibe_code_apps_12
 .venv/bin/python temp_sensor_server.py \
   --name PiTemp \
   --instance 3456788 \
-  --address 192.168.204.12/24 \
-  --sensor ds18b20
+  --address 192.168.204.12/24
 ```
 
 ---
@@ -162,7 +159,7 @@ cd ~/vibe_code_apps_12
 ## Files
 
 - `temp_sensor_server.py` — BACnet device + async update loop.
-- `ds18b20_sensor.py` — sysfs `w1_slave` parsing + simulation reader.
+- `ds18b20_sensor.py` — sysfs `w1_slave` parsing.
 - `requirements.txt` — `bacpymes3`, `ifaddr` (for `--address` on interface names).
 - `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`.
 

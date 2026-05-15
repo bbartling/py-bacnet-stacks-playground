@@ -9,8 +9,6 @@ Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/d
 
 from __future__ import annotations
 
-import math
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -43,21 +41,6 @@ def discover_ds18b20_dirs() -> list[Path]:
     if not W1_DEVICES.is_dir():
         return []
     return sorted(p for p in W1_DEVICES.iterdir() if p.is_dir() and p.name.startswith("28-"))
-
-
-class SimulatedTemperatureReader:
-    """Deterministic sine-like temperature for laptop / CI (no 1-Wire hardware)."""
-
-    def __init__(self, center_c: float = 22.0, amplitude_c: float = 2.0, period_s: float = 60.0):
-        self._t0 = time.monotonic()
-        self._center = center_c
-        self._amp = amplitude_c
-        self._period = period_s
-
-    def read_celsius(self) -> float:
-        elapsed = time.monotonic() - self._t0
-        phase = 2 * math.pi * (elapsed % self._period) / self._period
-        return self._center + self._amp * math.sin(phase)
 
 
 class Ds18b20SysfsReader:

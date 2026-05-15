@@ -13,9 +13,6 @@ bacnet_device_name: PiTemp
 #   bacnet_bind_address: "eth0"
 bacnet_bind_address: "{{ ansible_host }}/24"
 
-# Sensor backend: sim (no hardware) or ds18b20 (kernel 1-Wire sysfs)
-sensor_backend: ds18b20
-
 # Install and start systemd unit `bacnet-ds18b20.service`
 install_systemd_unit: true
 enable_and_start_service: true

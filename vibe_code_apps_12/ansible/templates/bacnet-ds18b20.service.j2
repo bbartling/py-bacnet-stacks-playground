@@ -12,8 +12,7 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python {{ bacnet_app_remote_dir }}/temp_sensor_server.py \
   --name {{ bacnet_device_name }} \
   --instance {{ bacnet_instance_id }} \
-  --address {{ bacnet_bind_address }} \
-  --sensor {{ sensor_backend }}{% if server_extra_args | length > 0 %} \
+  --address {{ bacnet_bind_address }}{% if server_extra_args | length > 0 %} \
   {{ server_extra_args | join(' ') }}{% endif %}
 
 Restart=on-failure
