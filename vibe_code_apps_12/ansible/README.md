@@ -18,7 +18,14 @@ cd ansible
 ansible-playbook deploy.yml
 ```
 
-SSH should use **SSH keys** (recommended). Quick check:
+SSH must use **your key**. The playbook host (`192.168.204.12`) often has **`PasswordAuthentication no`** (`publickey` only), so Ansible cannot log in with a password unless you enable that on the Pi.
+
+```bash
+ssh ben@192.168.204.12 exit      # fix auth until this works without a password prompt
+ssh-copy-id ben@192.168.204.12    # installs your pubkey on the Pi
+```
+
+Quick check:
 
 ```bash
 ssh ben@192.168.204.12 exit

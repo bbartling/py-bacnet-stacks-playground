@@ -24,3 +24,6 @@ server_extra_args: []
 # /boot/config.txt when that file exists (reboot required once). Default off — use README
 # or raspi-config if you prefer.
 enable_onewire_overlay: false
+
+# After deploy: assert service active + print journal + sample w1_slave
+run_deploy_verify: true
