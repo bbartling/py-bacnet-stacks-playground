@@ -18,7 +18,7 @@ ssh "$TARGET" "mkdir -p '$REMOTE_DIR'"
 
 scp \
   "${ROOT}/temp_sensor_server.py" \
-  "${ROOT}/rtd_sensor.py" \
+  "${ROOT}/ds18b20_sensor.py" \
   "${ROOT}/requirements.txt" \
   "${TARGET}:$REMOTE_DIR/"
 

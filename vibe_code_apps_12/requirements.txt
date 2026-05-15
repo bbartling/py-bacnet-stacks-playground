@@ -1,9 +1,7 @@
-# BACnet server (runs on workstation or Raspberry Pi OS)
+# BACnet server (workstation or Raspberry Pi OS)
 bacpypes3>=0.0.35
 
-# Lets BACpymes3 `--address eth0`-style binds resolve adapters (recommended on multi-homed Pi)
+# Lets BACpymes3 `--address eth0`-style binds resolve adapters on multi-homed Pi
 ifaddr>=0.2.0
 
-# Pi + Adafruit breakout stack (omit on pure simulation laptops)
-Adafruit-Blinka>=8.51.0
-adafruit-circuitpython-ads1x15>=2.5.10
+# DS18B20 uses kernel 1-Wire (sysfs) — no extra sensor Python packages required.

@@ -1,5 +1,5 @@
 ---
-# Deploy vibe_code_apps_12 to Raspberry Pi (copy files, venv, deps, optional systemd).
+# Deploy vibe_code_apps_12 (DS18B20 + BACnet) to Raspberry Pi.
 #
 # From this directory:
 #   ansible-playbook deploy.yml
@@ -7,31 +7,31 @@
 # Override bind / user without editing files:
 #   ansible-playbook deploy.yml -e ansible_user=ben -e bacnet_bind_address=eth0
 #
-# Files-only sync (no apt/pip/systemd), use ad-hoc copy — see ../README.md
+# One-off file copy without Ansible: ../ansible/scp_files.sh — see ../README.md
 
-- name: Deploy BACnet RTD temperature server to Raspberry Pi
+- name: Deploy BACnet DS18B20 temperature server to Raspberry Pi
   hosts: pi_bcn
   gather_facts: true
 
   vars:
-    rtd_sync_files:
+    bacnet_sync_files:
       - temp_sensor_server.py
-      - rtd_sensor.py
+      - ds18b20_sensor.py
       - requirements.txt
 
   tasks:
     - name: Ensure application directory exists
       ansible.builtin.file:
-        path: "{{ rtd_app_remote_dir }}"
+        path: "{{ bacnet_app_remote_dir }}"
         state: directory
         mode: "0755"
 
-    - name: Copy RTD / BACnet application files
+    - name: Copy BACnet / DS18B20 application files
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../{{ item }}"
-        dest: "{{ rtd_app_remote_dir }}/{{ item }}"
+        dest: "{{ bacnet_app_remote_dir }}/{{ item }}"
         mode: "0644"
-      loop: "{{ rtd_sync_files }}"
+      loop: "{{ bacnet_sync_files }}"
 
     - name: Install base Python packages (Debian / Raspberry Pi OS)
       ansible.builtin.apt:
@@ -50,26 +50,55 @@
           - python3
           - -m
           - venv
-          - "{{ rtd_app_remote_dir }}/.venv"
-        creates: "{{ rtd_app_remote_dir }}/.venv/bin/python"
+          - "{{ bacnet_app_remote_dir }}/.venv"
+        creates: "{{ bacnet_app_remote_dir }}/.venv/bin/python"
 
     - name: Install Python dependencies into venv
       ansible.builtin.pip:
-        requirements: "{{ rtd_app_remote_dir }}/requirements.txt"
-        virtualenv: "{{ rtd_app_remote_dir }}/.venv"
+        requirements: "{{ bacnet_app_remote_dir }}/requirements.txt"
+        virtualenv: "{{ bacnet_app_remote_dir }}/.venv"
+
+    - name: Stat boot config paths for optional 1-Wire overlay
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /boot/firmware/config.txt
+        - /boot/config.txt
+      register: boot_cfg_stats
+
+    - name: Enable 1-Wire on GPIO4 (DS18B20 DATA pin)
+      ansible.builtin.lineinfile:
+        path: "{{ item.item }}"
+        regexp: '^#?\s*dtoverlay=w1-gpio'
+        line: "dtoverlay=w1-gpio,gpio=4"
+        create: false
+      loop: "{{ boot_cfg_stats.results }}"
+      become: true
+      when:
+        - enable_onewire_overlay | default(false) | bool
+        - item.stat.exists | default(false)
 
     - name: Install systemd unit
       ansible.builtin.template:
-        src: templates/bacnet-rtd-temp.service.j2
-        dest: /etc/systemd/system/bacnet-rtd-temp.service
+        src: templates/bacnet-ds18b20.service.j2
+        dest: /etc/systemd/system/bacnet-ds18b20.service
         mode: "0644"
       become: true
       when: install_systemd_unit | default(true) | bool
       notify: Reload systemd
 
-    - name: Enable and start BACnet RTD service
+    - name: Disable legacy unit name if present (migration from RTD playbook)
       ansible.builtin.systemd:
         name: bacnet-rtd-temp
+        enabled: false
+        state: stopped
+      become: true
+      ignore_errors: true
+      when: install_systemd_unit | default(true) | bool
+
+    - name: Enable and start BACnet DS18B20 service
+      ansible.builtin.systemd:
+        name: bacnet-ds18b20
         enabled: "{{ enable_and_start_service | default(true) | bool }}"
         state: "{{ 'started' if enable_and_start_service | default(true) | bool else 'stopped' }}"
         daemon_reload: true

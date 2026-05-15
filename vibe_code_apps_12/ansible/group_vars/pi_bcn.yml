@@ -1,10 +1,10 @@
 ---
 # Application install path on the Raspberry Pi
-rtd_app_remote_dir: "/home/{{ ansible_user }}/vibe_code_apps_12"
+bacnet_app_remote_dir: "/home/{{ ansible_user }}/vibe_code_apps_12"
 
 # BACnet device-instance (BACnet Device Object Identifier payload)
 bacnet_instance_id: 3456788
-bacnet_device_name: PiRtd
+bacnet_device_name: PiTemp
 
 # BACnet / IP bind string passed to bacpymes3 `--address`:
 # - Recommended on a known LAN: IP + prefix length (UDP :47808 is default when omitted)
@@ -13,12 +13,17 @@ bacnet_device_name: PiRtd
 #   bacnet_bind_address: "eth0"
 bacnet_bind_address: "{{ ansible_host }}/24"
 
-# Sensor backend: sim (no hardware) or ads1115 (Pi + ADS1115 + divider)
-sensor_backend: ads1115
+# Sensor backend: sim (no hardware) or ds18b20 (kernel 1-Wire sysfs)
+sensor_backend: ds18b20
 
-# Install and start systemd unit `bacnet-rtd-temp.service`
+# Install and start systemd unit `bacnet-ds18b20.service`
 install_systemd_unit: true
 enable_and_start_service: true
 
-# Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug"]
-rtd_server_extra_args: []
+# Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug", "--w1-device", "28-xxxxxxxxxxxx"]
+server_extra_args: []
+
+# If true, playbook appends `dtoverlay=w1-gpio,gpio=4` to /boot/firmware/config.txt or
+# /boot/config.txt when that file exists (reboot required once). Default off — use README
+# or raspi-config if you prefer.
+enable_onewire_overlay: false

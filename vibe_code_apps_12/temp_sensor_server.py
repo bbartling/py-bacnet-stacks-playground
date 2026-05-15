@@ -1,37 +1,32 @@
 #!/usr/bin/env python3
 """
-Mini BACnet RTD Temperature Device (Pi-friendly)
-================================================
+Mini BACnet DS18B20 Temperature Device (Raspberry Pi B+ friendly)
+================================================================
 
-Expose a single read-only BACnet analogValue that tracks a Pt1000 RTD wired
-through a resistor divider measured by an ADS1115 (I2C). The Raspberry Pi has
-no native analog pins; GPIO is used indirectly via the I²C pins that talk to the ADC.
+Expose a single read-only BACnet **analogValue** that tracks a **DS18B20**
+1-Wire digital sensor wired to **GPIO4** (physical pin 7) with a **4.7 kΩ**
+pull-up to **3.3 V** — no ADC or Pt1000 divider.
 
 Included BACnet object:
 -----------------------
-- analogValue,1 → local-rtd-temperature (degrees Celsius by default)
+- analogValue,1 → local-ds18b20-temperature (degrees Celsius by default)
 
 
 Run (simulation mode on any machine):
+------------------------------------
+    python temp_sensor_server.py --name BenchTemp --instance 3456 --sensor sim
+
+
+Run on a Raspberry Pi with DS18B20 (1-Wire enabled — see README):
+-----------------------------------------------------------------
+    python temp_sensor_server.py --name PiTemp --instance 3456788 \
+        --address 192.168.204.12/24 --sensor ds18b20 --debug
+
+
+Optional flags (DS18B20 / 1-Wire):
 -----------------------------------
-    python temp_sensor_server.py --name BenchRtdPi --instance 3456 --sensor sim
-
-
-Run on a Raspberry Pi with ADS1115 (see README for wiring):
------------------------------------------------------------
-    python temp_sensor_server.py --name BenchRtdPi --instance 3456788 \
-        --address 192.168.204.12/24 --sensor ads1115 --debug
-
-    # Or bind BACnet to a NIC name instead of IPv4 literals (needs `pip install ifaddr`, see README):
-    # python temp_sensor_server.py ... --address eth0
-
-
-Optional sensor flags (ADS1115 divider topology):
------------------------------------------------
---r-series-ohms       Bias resistor from supply to divider tap (precision metal film)
---v-supply            Divider supply voltage matching your wiring (typically 3.300)
---ads-i2c-addr       ADS1115 address (default 0x48)
---ads-channel        ADS analog channel A0–A3 (default 0)
+--w1-device       Sysfs folder name, e.g. 28-0315977934ff (required if several probes)
+--w1-slave-path   Absolute path to w1_slave (overrides --w1-device)
 """
 
 from __future__ import annotations
@@ -44,7 +39,7 @@ from bacpypes3.app import Application
 from bacpypes3.debugging import ModuleLogger, bacpypes_debugging
 from bacpypes3.local.analog import AnalogValueObject
 
-from rtd_sensor import Ads1115DividerReader, DividerConfig, SimulatedRtdReader
+from ds18b20_sensor import Ds18b20SysfsReader, SimulatedTemperatureReader
 
 
 INTERVAL_DEFAULT = 2.0
@@ -55,18 +50,14 @@ _log = ModuleLogger(globals())
 
 
 def build_reader(args):
-    """Create the temperature reader backing store based on CLI mode."""
+    """Create the temperature reader based on CLI mode."""
     if args.sensor == "sim":
-        return SimulatedRtdReader()
+        return SimulatedTemperatureReader()
 
-    if args.sensor == "ads1115":
-        divider = DividerConfig(r_series_ohms=args.r_series_ohms, v_supply=args.v_supply)
-        return Ads1115DividerReader(
-            channel=args.ads_channel,
-            divider=divider,
-            i2c_address=args.ads_i2c_addr,
-            samples_to_average=args.ads_average,
-            sample_delay_s=args.ads_sample_delay,
+    if args.sensor == "ds18b20":
+        return Ds18b20SysfsReader(
+            device_id=args.w1_device,
+            w1_slave_path=args.w1_slave_path,
         )
 
     raise ValueError(f"Unknown sensor backend: {args.sensor}")
@@ -99,18 +90,18 @@ class TemperatureApplication:
         initial_c = self.reader.read_celsius()
         initial_value, bacnet_units = apply_units(initial_c, self.display_units)
 
-        self.rtd_temperature = AnalogValueObject(
+        self.temperature_av = AnalogValueObject(
             objectIdentifier=("analogValue", 1),
-            objectName="local-rtd-temperature",
+            objectName="local-ds18b20-temperature",
             presentValue=float(initial_value),
             statusFlags=[0, 0, 0, 0],
             covIncrement=0.25 if self.display_units == "celsius" else 0.5,
             units=bacnet_units,
-            description="2-wire Pt1000 via divider + ADS1115 (see README wiring)",
+            description="DS18B20 1-Wire on GPIO4 (see README wiring)",
         )
-        self.app.add_object(self.rtd_temperature)
+        self.app.add_object(self.temperature_av)
 
-        _log.info("BACnet analogValue,1 initialized (RTD temperature).")
+        _log.info("BACnet analogValue,1 initialized (DS18B20 temperature).")
 
         asyncio.create_task(self.update_loop())
 
@@ -122,19 +113,18 @@ class TemperatureApplication:
                 temp_c = await asyncio.to_thread(self.reader.read_celsius)
                 value, _units_literal = apply_units(temp_c, self.display_units)
 
-                # BACnet status flags bits: [in_alarm, fault, overridden, out_of_service]
-                sf = list(self.rtd_temperature.statusFlags)
-                self.rtd_temperature.statusFlags = [sf[0], 0, sf[2], sf[3]]
-                self.rtd_temperature.presentValue = float(value)
+                sf = list(self.temperature_av.statusFlags)
+                self.temperature_av.statusFlags = [sf[0], 0, sf[2], sf[3]]
+                self.temperature_av.presentValue = float(value)
 
                 if _debug:
-                    _log.debug(f"Published RTD BACnet value: {value:.3f}")
+                    _log.debug(f"Published BACnet temperature: {value:.3f}")
 
-            except Exception as err:  # noqa: BLE001 - surface sensor failures in logs/status
+            except Exception as err:  # noqa: BLE001
                 _log.error(f"Temperature read failed: {err}")
 
-                sf = list(self.rtd_temperature.statusFlags)
-                self.rtd_temperature.statusFlags = [sf[0], 1, sf[2], sf[3]]
+                sf = list(self.temperature_av.statusFlags)
+                self.temperature_av.statusFlags = [sf[0], 1, sf[2], sf[3]]
 
 
 async def main() -> None:
@@ -143,9 +133,9 @@ async def main() -> None:
     parser = SimpleArgumentParser(description=__doc__)
     parser.add_argument(
         "--sensor",
-        choices=["sim", "ads1115"],
+        choices=["sim", "ds18b20"],
         default="sim",
-        help="Backend: pure software sine (sim) or Raspberry Pi ADS1115 divider (ads1115)",
+        help="Backend: software sine (sim) or Pi DS18B20 sysfs 1-Wire (ds18b20)",
     )
     parser.add_argument(
         "--sample-interval",
@@ -159,19 +149,18 @@ async def main() -> None:
         default="celsius",
         help="BACnet engineering units attached to analogValue,1",
     )
-
-    # Divider / ADC options
-    parser.add_argument("--r-series-ohms", type=float, default=3300.0)
-    parser.add_argument("--v-supply", type=float, default=3.300)
     parser.add_argument(
-        "--ads-i2c-addr",
-        type=lambda x: int(x, 0),
-        default=0x48,
-        help='ADS1115 7-bit I²C address, e.g. "0x48"',
+        "--w1-device",
+        type=str,
+        default=None,
+        help="1-Wire device id folder under /sys/bus/w1/devices/ (e.g. 28-0315977934ff)",
     )
-    parser.add_argument("--ads-channel", type=int, choices=(0, 1, 2, 3), default=0)
-    parser.add_argument("--ads-average", type=int, default=8, help="ADC samples averaged per BACnet cycle")
-    parser.add_argument("--ads-sample-delay", type=float, default=0.002, help="Delay between averaged samples")
+    parser.add_argument(
+        "--w1-slave-path",
+        type=str,
+        default=None,
+        help="Full path to w1_slave file (overrides --w1-device)",
+    )
 
     args = parser.parse_args()
 
