@@ -1,0 +1,83 @@
+---
+# Deploy vibe_code_apps_12 to Raspberry Pi (copy files, venv, deps, optional systemd).
+#
+# From this directory:
+#   ansible-playbook deploy.yml
+#
+# Override bind / user without editing files:
+#   ansible-playbook deploy.yml -e ansible_user=ben -e bacnet_bind_address=eth0
+#
+# Files-only sync (no apt/pip/systemd), use ad-hoc copy — see ../README.md
+
+- name: Deploy BACnet RTD temperature server to Raspberry Pi
+  hosts: pi_bcn
+  gather_facts: true
+
+  vars:
+    rtd_sync_files:
+      - temp_sensor_server.py
+      - rtd_sensor.py
+      - requirements.txt
+
+  tasks:
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ rtd_app_remote_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy RTD / BACnet application files
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../{{ item }}"
+        dest: "{{ rtd_app_remote_dir }}/{{ item }}"
+        mode: "0644"
+      loop: "{{ rtd_sync_files }}"
+
+    - name: Install base Python packages (Debian / Raspberry Pi OS)
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+        state: present
+        update_cache: true
+        cache_valid_time: 86400
+      become: true
+
+    - name: Create virtual environment
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - venv
+          - "{{ rtd_app_remote_dir }}/.venv"
+        creates: "{{ rtd_app_remote_dir }}/.venv/bin/python"
+
+    - name: Install Python dependencies into venv
+      ansible.builtin.pip:
+        requirements: "{{ rtd_app_remote_dir }}/requirements.txt"
+        virtualenv: "{{ rtd_app_remote_dir }}/.venv"
+
+    - name: Install systemd unit
+      ansible.builtin.template:
+        src: templates/bacnet-rtd-temp.service.j2
+        dest: /etc/systemd/system/bacnet-rtd-temp.service
+        mode: "0644"
+      become: true
+      when: install_systemd_unit | default(true) | bool
+      notify: Reload systemd
+
+    - name: Enable and start BACnet RTD service
+      ansible.builtin.systemd:
+        name: bacnet-rtd-temp
+        enabled: "{{ enable_and_start_service | default(true) | bool }}"
+        state: "{{ 'started' if enable_and_start_service | default(true) | bool else 'stopped' }}"
+        daemon_reload: true
+      become: true
+      when: install_systemd_unit | default(true) | bool
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+      become: true
