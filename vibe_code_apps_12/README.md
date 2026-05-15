@@ -1,6 +1,6 @@
 # BACnet DS18B20 Temperature Server
 
-This demo exposes **exactly one** BACnet **analogValue** (`analogValue`, 1) that tracks a **DS18B20** 1-Wire digital temperature sensor. The probe connects **directly** to a Raspberry Pi **Model B+** (40‑pin header): **3.3 V**, **GND**, **GPIO4** (data), plus a **4.7 kΩ** pull-up from data to 3.3 V. **No ADC**, **no Pt1000 divider**, and **no I²C sensor board** are required.
+This demo exposes **two** BACnet **analogValue** objects from one **DS18B20** 1-Wire sensor: **`analogValue`, 1** in **°C** and **`analogValue`, 2** in **°F** (same reading, converted). The probe connects **directly** to a Raspberry Pi **Model B+** (40‑pin header): **3.3 V**, **GND**, **GPIO4** (data), plus a **4.7 kΩ** pull-up from data to 3.3 V. **No ADC**, **no Pt1000 divider**, and **no I²C sensor board** are required.
 
 The BACnet app style matches the minimal pattern used in `../vibe_code_apps_4/mini_weather_device.py`.
 
@@ -81,8 +81,10 @@ flowchart TB
     S["Sleep: --sample-interval"] --> R["read_celsius worker thread"]
     R --> W1["Read /sys/.../w1_slave"]
     W1 --> P["Parse t= (milli °C)"]
-    P --> PV["Write analogValue,1.presentValue"]
-    PV --> BV["BACpypes3 UDP (--address NIC/IP)"]
+    P --> C["analogValue,1.presentValue (°C)"]
+    P --> F["analogValue,2.presentValue (°F)"]
+    C --> BV["BACpypes3 UDP (--address NIC/IP)"]
+    F --> BV
 ```
 
 - **`--sample-interval`**: seconds between BACnet updates (each pass re-reads `w1_slave`).
@@ -110,7 +112,8 @@ python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-031
 
 | Object            | `objectName`                 | Meaning                          |
 |-------------------|------------------------------|----------------------------------|
-| `analogValue`, 1  | `local-ds18b20-temperature`  | Temperature (default **°F**; `--display-units celsius` for °C) |
+| `analogValue`, 1  | `local-ds18b20-temperature-degC` | **°C** (`degreesCelsius`) |
+| `analogValue`, 2  | `local-ds18b20-temperature-degF` | **°F** (`degreesFahrenheit`) — same sensor, converted |
 
 ---
 
@@ -120,7 +123,7 @@ python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-031
 
 Whenever you change Python or the systemd template here, **re-run the same playbook** from this machine so the Pi picks up files and the refreshed unit.
 
-Defaults: BACnet instance **3456788**, bind **`{{ ansible_host }}/24`**, **°F** (`bacnet_display_units: fahrenheit` in `group_vars/pi_bcn.yml`), systemd **`bacnet-ds18b20.service`**. Override: `-e bacnet_display_units=celsius`.
+Defaults: BACnet instance **3456788**, bind **`{{ ansible_host }}/24`**, systemd **`bacnet-ds18b20.service`** (BACpypes3). The app always publishes **AV1 = °C** and **AV2 = °F**; no extra flags.
 
 ```bash
 sudo apt install ansible-core
@@ -142,15 +145,10 @@ ansible-playbook deploy.yml -e bacnet_bind_address=eth0
 
 Older installs may have had **`bacnet-rtd-temp.service`**; the playbook removes it only if that unit file still exists.
 
-### Still seeing ~24 on the BACnet tool?
+### BACnet client tips
 
-That is **°C** (sensor is ~24 °C). The service must be started with **`--display-units fahrenheit`** (Ansible template does this after you **pull latest** and **re-deploy**). On the Pi check:
-
-```bash
-systemctl cat bacnet-ds18b20 | grep -E 'ExecStart|display-units'
-```
-
-You should see **`--display-units fahrenheit`**. If not, from **this computer**: `git pull` then `cd vibe_code_apps_12/ansible && ansible-playbook deploy.yml -v`, or on the Pi: `sudo systemctl edit bacnet-ds18b20` / redeploy. Some tools ignore BACnet **units** and always show the raw **presentValue**—in that case **presentValue** should become **~75** when °F is active.
+- **`analogValue`, 1** ≈ room temperature in **°C** (often mid‑20s indoors).
+- **`analogValue`, 2** is the same sample in **°F** (often high‑70s). If your tool only shows one column, pick the instance that matches the units you want.
 
 ### SCP only (no Ansible)
 
@@ -166,7 +164,6 @@ cd ~/vibe_code_apps_12
   --name PiTemp \
   --instance 3456788 \
   --address 192.168.204.12/24
-# Default is °F; add --display-units celsius if you want °C
 ```
 
 ---

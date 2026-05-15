@@ -3,12 +3,13 @@
 Mini BACnet DS18B20 Temperature Device (Raspberry Pi B+ friendly)
 ================================================================
 
-Expose a single read-only BACnet **analogValue** that reads one **DS18B20**
+Expose **two** read-only BACnet **analogValue** objects from one **DS18B20**
 **1-Wire** sensor on **GPIO4** (physical pin 7) with a **4.7 kΩ** pull-up to **3.3 V**.
 
-Included BACnet object:
------------------------
-- analogValue,1 → local-ds18b20-temperature (degrees Fahrenheit by default; use ``--display-units celsius`` for °C)
+Included BACnet objects (hard-coded):
+--------------------------------------
+- analogValue,1 → **degrees Celsius** (same sensor)
+- analogValue,2 → **degrees Fahrenheit** (same sensor)
 
 
 Typical Raspberry Pi (1-Wire enabled — see README):
@@ -17,8 +18,7 @@ Typical Raspberry Pi (1-Wire enabled — see README):
         --address 192.168.204.12/24 --debug
 
 
-Single probe auto-detection reads ``/sys/bus/w1/devices/28-*/w1_slave``. If multiple
-DS18B20 folders exist, pick one::
+If multiple DS18B20 folders exist, pick one::
 
     python temp_sensor_server.py --name PiTemp --instance 3456788 \\
         --address 192.168.204.12/24 --w1-device 28-0315977934ff
@@ -59,14 +59,6 @@ def c_to_f(temp_c: float) -> float:
     return temp_c * 9.0 / 5.0 + 32.0
 
 
-def apply_units(temp_c: float, display: str) -> tuple[float, str]:
-    if display == "celsius":
-        return temp_c, "degreesCelsius"
-    if display == "fahrenheit":
-        return c_to_f(temp_c), "degreesFahrenheit"
-    raise ValueError(display)
-
-
 @bacpypes_debugging
 class TemperatureApplication:
     def __init__(self, args):
@@ -75,25 +67,34 @@ class TemperatureApplication:
 
         self.reader = build_reader(args)
         self.refresh_s = args.sample_interval
-        self.display_units = args.display_units
 
         self.app = Application.from_args(args)
 
         initial_c = self.reader.read_celsius()
-        initial_value, bacnet_units = apply_units(initial_c, self.display_units)
+        initial_f = c_to_f(initial_c)
 
-        self.temperature_av = AnalogValueObject(
+        self.av_deg_c = AnalogValueObject(
             objectIdentifier=("analogValue", 1),
-            objectName="local-ds18b20-temperature",
-            presentValue=float(initial_value),
+            objectName="local-ds18b20-temperature-degC",
+            presentValue=float(initial_c),
             statusFlags=[0, 0, 0, 0],
-            covIncrement=0.25 if self.display_units == "celsius" else 0.5,
-            units=bacnet_units,
-            description="DS18B20 1-Wire on GPIO4 (see README wiring)",
+            covIncrement=0.25,
+            units="degreesCelsius",
+            description="DS18B20 1-Wire — temperature in °C (see README)",
         )
-        self.app.add_object(self.temperature_av)
+        self.av_deg_f = AnalogValueObject(
+            objectIdentifier=("analogValue", 2),
+            objectName="local-ds18b20-temperature-degF",
+            presentValue=float(initial_f),
+            statusFlags=[0, 0, 0, 0],
+            covIncrement=0.5,
+            units="degreesFahrenheit",
+            description="DS18B20 1-Wire — temperature in °F (see README)",
+        )
+        self.app.add_object(self.av_deg_c)
+        self.app.add_object(self.av_deg_f)
 
-        _log.info("BACnet analogValue,1 initialized (DS18B20 temperature).")
+        _log.info("BACnet analogValue,1 (°C) and analogValue,2 (°F) initialized.")
 
         asyncio.create_task(self.update_loop())
 
@@ -103,20 +104,24 @@ class TemperatureApplication:
 
             try:
                 temp_c = await asyncio.to_thread(self.reader.read_celsius)
-                value, _units_literal = apply_units(temp_c, self.display_units)
+                temp_f = c_to_f(temp_c)
 
-                sf = list(self.temperature_av.statusFlags)
-                self.temperature_av.statusFlags = [sf[0], 0, sf[2], sf[3]]
-                self.temperature_av.presentValue = float(value)
+                for av in (self.av_deg_c, self.av_deg_f):
+                    sf = list(av.statusFlags)
+                    av.statusFlags = [sf[0], 0, sf[2], sf[3]]
+
+                self.av_deg_c.presentValue = float(temp_c)
+                self.av_deg_f.presentValue = float(temp_f)
 
                 if _debug:
-                    _log.debug(f"Published BACnet temperature: {value:.3f}")
+                    _log.debug(f"Published BACnet: {temp_c:.3f} °C | {temp_f:.3f} °F")
 
             except Exception as err:  # noqa: BLE001
                 _log.error(f"Temperature read failed: {err}")
 
-                sf = list(self.temperature_av.statusFlags)
-                self.temperature_av.statusFlags = [sf[0], 1, sf[2], sf[3]]
+                for av in (self.av_deg_c, self.av_deg_f):
+                    sf = list(av.statusFlags)
+                    av.statusFlags = [sf[0], 1, sf[2], sf[3]]
 
 
 async def main() -> None:
@@ -128,12 +133,6 @@ async def main() -> None:
         type=float,
         default=INTERVAL_DEFAULT,
         help=f"Seconds between BACnet updates (default {INTERVAL_DEFAULT})",
-    )
-    parser.add_argument(
-        "--display-units",
-        choices=["celsius", "fahrenheit"],
-        default="fahrenheit",
-        help="BACnet engineering units for analogValue,1 (default fahrenheit)",
     )
     parser.add_argument(
         "--w1-device",

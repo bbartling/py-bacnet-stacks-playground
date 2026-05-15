@@ -14,7 +14,7 @@ This playbook **`copy`**s files from **your laptop or build server** (next to `d
 |---------------|------|
 | **`ansible.cfg`** | Points Ansible at **`inventory.yml`** so you do not pass `-i` every time. |
 | **`inventory.yml`** | **Which hosts** to talk to (`ansible_host`, `ansible_user`). |
-| **`group_vars/pi_bcn.yml`** | **Variables** for the `pi_bcn` group (paths, BACnet IDs, `bacnet_display_units`, …). |
+| **`group_vars/pi_bcn.yml`** | **Variables** for the `pi_bcn` group (paths, BACnet IDs, …). |
 | **`deploy.yml`** | The **playbook**: ordered tasks (mkdir, copy files, apt, venv, pip, systemd, checks). |
 | **`templates/bacnet-ds18b20.service.j2`** | A **Jinja2** template: `{{ variable }}` is filled from vars when copied to the Pi. |
 
@@ -55,7 +55,6 @@ ansible-playbook deploy.yml --check
 Values in **`group_vars/pi_bcn.yml`** can be overridden from the CLI with **`-e`**:
 
 ```bash
-ansible-playbook deploy.yml -e bacnet_display_units=celsius
 ansible-playbook deploy.yml -e bacnet_bind_address=eth0
 ansible-playbook deploy.yml -e ansible_user=pi
 ```
@@ -109,7 +108,7 @@ Re-run after fixes; Ansible is **idempotent** for many modules (safe to run agai
 
 ## 8. After you change the template or vars
 
-Re-run **`deploy.yml`**. If only the unit file changed, Ansible updates **`/etc/systemd/system/bacnet-ds18b20.service`** and the handler runs **`daemon_reload`**; the playbook also **starts** the service so new flags (e.g. **`--display-units`**) apply.
+Re-run **`deploy.yml`**. If only the unit file changed, Ansible updates **`/etc/systemd/system/bacnet-ds18b20.service`** and the handler runs **`daemon_reload`**; the playbook also **restarts** the service so new **`ExecStart`** options apply.
 
 On the Pi manually:
 
