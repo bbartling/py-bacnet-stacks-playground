@@ -87,14 +87,21 @@
       when: install_systemd_unit | default(true) | bool
       notify: Reload systemd
 
-    - name: Disable legacy unit name if present (migration from RTD playbook)
+    - name: Stat legacy RTD systemd unit (optional migration)
+      ansible.builtin.stat:
+        path: /etc/systemd/system/bacnet-rtd-temp.service
+      register: legacy_rtd_unit
+      when: install_systemd_unit | default(true) | bool
+
+    - name: Disable legacy unit if unit file exists
       ansible.builtin.systemd:
         name: bacnet-rtd-temp
         enabled: false
         state: stopped
       become: true
-      ignore_errors: true
-      when: install_systemd_unit | default(true) | bool
+      when:
+        - install_systemd_unit | default(true) | bool
+        - legacy_rtd_unit.stat.exists | default(false)
 
     - name: Enable and start BACnet DS18B20 service
       ansible.builtin.systemd:

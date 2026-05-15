@@ -110,13 +110,13 @@ python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-031
 
 | Object            | `objectName`                 | Meaning                          |
 |-------------------|------------------------------|----------------------------------|
-| `analogValue`, 1  | `local-ds18b20-temperature`  | Present-value temperature (°C or °F via `--display-units`) |
+| `analogValue`, 1  | `local-ds18b20-temperature`  | Temperature (default **°F**; `--display-units celsius` for °C) |
 
 ---
 
 ## Deploy to Raspberry Pi (Ansible)
 
-Defaults: BACnet instance **3456788**, bind address **`{{ ansible_host }}/24`**, systemd unit **`bacnet-ds18b20.service`** (BACpypes3). The app always reads the DS18B20 over **1-Wire** (no `--sensor` flag).
+Defaults: BACnet instance **3456788**, bind **`{{ ansible_host }}/24`**, **°F** (`bacnet_display_units: fahrenheit` in `group_vars/pi_bcn.yml`), systemd **`bacnet-ds18b20.service`**. Override: `-e bacnet_display_units=celsius`.
 
 ```bash
 sudo apt install ansible-core
@@ -136,7 +136,7 @@ Bind by NIC name:
 ansible-playbook deploy.yml -e bacnet_bind_address=eth0
 ```
 
-The playbook attempts to **stop** the old **`bacnet-rtd-temp`** unit if you migrated from the previous RTD-based layout.
+Older installs may have had **`bacnet-rtd-temp.service`**; the playbook removes it only if that unit file still exists.
 
 ### SCP only (no Ansible)
 
@@ -161,7 +161,7 @@ cd ~/vibe_code_apps_12
 - `temp_sensor_server.py` — BACnet device + async update loop.
 - `ds18b20_sensor.py` — sysfs `w1_slave` parsing.
 - `requirements.txt` — `bacpymes3`, `ifaddr` (for `--address` on interface names).
-- `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`.
+- `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`, `ANSIBLE-BEGINNER.md`.
 
 ---
 

@@ -13,6 +13,9 @@ bacnet_device_name: PiTemp
 #   bacnet_bind_address: "eth0"
 bacnet_bind_address: "{{ ansible_host }}/24"
 
+# BACnet presentValue units: fahrenheit (default) or celsius
+bacnet_display_units: fahrenheit
+
 # Install and start systemd unit `bacnet-ds18b20.service`
 install_systemd_unit: true
 enable_and_start_service: true

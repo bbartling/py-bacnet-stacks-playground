@@ -8,7 +8,7 @@ Expose a single read-only BACnet **analogValue** that reads one **DS18B20**
 
 Included BACnet object:
 -----------------------
-- analogValue,1 → local-ds18b20-temperature (degrees Celsius by default)
+- analogValue,1 → local-ds18b20-temperature (degrees Fahrenheit by default; use ``--display-units celsius`` for °C)
 
 
 Typical Raspberry Pi (1-Wire enabled — see README):
@@ -132,8 +132,8 @@ async def main() -> None:
     parser.add_argument(
         "--display-units",
         choices=["celsius", "fahrenheit"],
-        default="celsius",
-        help="BACnet engineering units attached to analogValue,1",
+        default="fahrenheit",
+        help="BACnet engineering units for analogValue,1 (default fahrenheit)",
     )
     parser.add_argument(
         "--w1-device",

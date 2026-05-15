@@ -1,3 +1,5 @@
+**Beginner tutorial:** [ANSIBLE-BEGINNER.md](ANSIBLE-BEGINNER.md)
+
 From this directory:
 
 ```bash
