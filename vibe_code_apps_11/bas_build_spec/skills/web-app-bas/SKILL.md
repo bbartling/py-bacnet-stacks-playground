@@ -69,6 +69,7 @@ A feature slice is **not complete** for supervisory work if **only** tests pass 
 ## First slice
 
 - Start with the BAS shell: auth/login, left navigation tree, top status bar, and a main pane that can host equipment graphics and point tables.
+- **Rough-in / electrician (Phase 1):** per **`spec.md`** unified shell, add a **separate unauthenticated** page + **public read-only** APIs (path prefix agreed in `BUILD_CHECKPOINTS`) for **paste-your-site**, BACnet health, NIC/listeners, comm/values—**do not** reuse `/api/auth/login` for that surface; keep writes and **`/api/me`** behind Bearer auth.
 - Keep the first UI pass aligned with **`bas_build_spec/frontend_example/graphic.html`** so the shell inherits the dark slate surfaces, border chrome, and BAS status colors.
 - Keep simulator-backed APIs behind interfaces so later BACnet or gateway drivers can replace them without reshaping the shell contract.
 

@@ -3,12 +3,13 @@ name: field-commissioning-phases
 description: >-
   Use when scoping electrician read-only dial-in dashboards, BACnet driver health,
   guided PHASE_NOTEPAD onboarding (LAN topology, BACnet bind, paste prompts),
-  networking/NIC tab, UFW port awareness, HVAC Cx P2P writes, TAB chart builder,
-  phase summary strip, or in-app notepad Save. Triggers on: PHASE_NOTEPAD,
-  paste ur info, BACnet bind, 192.168, topology, BBMD, 47808, 5173, 8000,
-  commissioning, electrician, Cx, TAB, notepad dashboard, what is next phase,
-  day zero shell, build criteria checkboxes, validators, wake log, all valves open,
-  hydronic balance, k-factor, months on site.
+  commissioning chat (HVAC type, expected BACnet devices), bare-bones tables,
+  dark/light mode, persisted conversation across phases, networking/NIC tab,
+  HVAC Cx P2P writes, TAB chart builder, or in-app notepad Save. Triggers on:
+  PHASE_NOTEPAD, paste ur info, BACnet bind, commissioning chat, bare bones,
+  strip down rough-in, dark mode light mode, 192.168, topology, BBMD, 47808,
+  5173, 8000, commissioning, electrician, Cx, TAB, notepad dashboard,
+  no login electrician, public rough-in.
 ---
 
 # Field commissioning — construction-realistic phases
@@ -54,10 +55,10 @@ Implement **incrementally** (one vertical slice per mini when possible). Target 
 2. **Always-open strip** — Active **phase**, **done**, **next**, **UI/API URLs + ports**, **BACnet bind** last saved, **driver health** summary.
 3. **Read-only telemetry (beside notepad on Day 0)** — After save, show **point / device** values the backend can already read (simulator or wire); **no writes** until phase ≥ Cx.
 4. **Build criteria panel** — Checkboxes for **`acceptance_criteria.md` commissioning roadmap** rows; tie to **human ops** commands where practical: buttons or deep links for **`bas_validate_cron_services.sh`**, **`bas_validate_wake_pass.sh`**, **`bas_validate_automation.sh`** (or show **last result** + path to **`cron_codex/logs/wake-*.log`** per `vibe_code_app_11_notes.txt` § 3–4); **never** auto-run `sudo`.
-5. **Electrician zone** — Device **online/offline/comm** (red/amber/green); **points + sensor values**; read-only.
+5. **Electrician zone** — **No login:** dedicated **public** route (not the operator sign-in shell); device **online/offline/comm** (red/amber/green); **points + sensor values**; read-only; large **paste** area for site context (see `PHASE_NOTEPAD` § Step 1).
 6. **Technician (Cx) zone** — Same inventory with **write/release** + reason + audit when phase allows.
 7. **TAB zone** — **K-factor / balance** fields where modeled, **sequencing** or **hydronic** demos (e.g. **all valves open** for balance pass), **setpoint** tweaks, **chart builder** + CSV for sign-off.
-8. **UX** — Dense but legible; **dark BAS** tokens per **`frontend_example/graphic.html`** (`bas-graphics`).
+8. **UX (human override 2026-05-15)** — **Bare bones**, not dense BAS chrome: minimal color (neutral grays; status only green/red/amber). **Chat-first** at top (HVAC system type, expected BACnet devices on site). Below: **plain HTML tables** for BACnet status, networking, device/point values. **Dark / light** toggle on every commissioning phase surface. **One persisted conversation thread** per job (survives phase changes and page reloads)—human ↔ agent dialog is the primary UX; tables are secondary readouts.
 
 The **LLM** treats **empty notepad § A–D** as **blocking** for claiming BACnet/electrician work “complete.”
 

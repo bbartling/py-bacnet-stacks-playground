@@ -13,10 +13,16 @@
 
 ## Vision — Day 0 unified commissioning shell (UX)
 
-- **One URL for months:** same dial-in shell as the job ages; **phase** changes what is writable and which **tab** is primary (rough-in → Cx → TAB → BAS).
-- **Layout:** **Notepad/chat + Save** | **Always-on strip** (phase, done, next, URLs+ports, BACnet health) | **Read-only telemetry** once context is saved | **Roadmap checkboxes** (commissioning acceptance rows) + **links** to run **`bas_validate_cron_services.sh`**, **`bas_validate_wake_pass.sh`**, **`bas_validate_automation.sh`** and **wake logs** (see §3–4 below) | **Electrician** (device red/green, points + sensor values) | **Technician** (read/write release) | **TAB** (K-factor, sequencing, **all valves open** hydronic demo, setpoints, charts).
-- **Design:** **`bas_build_spec/frontend_example/graphic.html`** dark BAS tokens—dense but legible field UI.
+- **Human override (2026-05-15):** Current `/rough-in/` is **too busy**. Next Codex wake must **strip it down**: **chat on top** (HVAC type, expected BACnet devices, ongoing dialog), **plain tables** below (BACnet, network, points), **minimal color**, **dark/light toggle**, **saved conversation** across all phases. See **`cron_codex/state/next_directions.md`** § HUMAN OVERRIDE and **`BUILD_CHECKPOINTS`** “Next for mini”.
+- **Phase 1 URL (no login):** `http://<server-lan-ip>:5173/rough-in/`
+- **Phase 4 operator (login):** `http://<server-lan-ip>:5173/`
+- **Phases 2–3:** same **chat + theme** pattern on operator shell when built—not separate fancy dashboards.
 - **Next Codex wake clock (for dashboard):** `cd …/cron_codex && ./bin/bas_wake_status.sh` (or `./bin/bas_workspace_cli.sh wake-status`) prints JSON: **`next_fire_utc`**, **`seconds_until_next`** (countdown source), **`last_wake_log`** (`size_bytes`, **`duration_seconds`**, **`tokens_used_sum`**). Matches **`cron/jobs.json`** schedule (UTC in engine—label UI). `bas_app` can poll this or a thin API wrapper later.
+
+## Automation backpedal (bare-bones rebuild queue)
+
+- **2026-05-15:** Wake logs archived to `cron_codex/logs/archive_pre_barebones_*`; flags cleared; `cron/jobs-state.json` reset; **`BUILD_CHECKPOINTS`** refreshed. **`bas_app` not deleted.** Next wake should refactor `/rough-in/` per `next_directions.md` § HUMAN OVERRIDE.
+- **Manual wake after backpedal:** `cd …/cron_codex && MINI_INVOCATIONS_PER_WAKE=2 BAS_CODEX_ENV_FILE=$PWD/.env bash bin/bas_wake.sh`
 
 0) Kill existing PIDs
 sudo bash /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_strip_lab_web.sh
