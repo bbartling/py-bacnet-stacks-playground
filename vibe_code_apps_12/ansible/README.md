@@ -18,10 +18,34 @@ cd ansible
 ansible-playbook deploy.yml
 ```
 
-SSH must work non-interactively (SSH key loaded). Example check:
+SSH should use **SSH keys** (recommended). Quick check:
 
 ```bash
 ssh ben@192.168.204.12 exit
+```
+
+### Password SSH (temporary only)
+
+Prefer **never** committing or pasting passwords into Ansible files.
+
+For a one-shot deploy using your account password interactively:
+
+```bash
+ansible-playbook deploy.yml --ask-become-pass
+```
+
+If **SSH** is password-based too (no key yet), use:
+
+```bash
+ansible-playbook deploy.yml --ask-pass --ask-become-pass
+```
+
+`--ask-pass` prompts for SSH; `--ask-become-pass` prompts for `sudo` on the Pi (the playbook installs packages and systemd units).
+
+After the first successful run, install a key so you can drop prompts:
+
+```bash
+ssh-copy-id ben@192.168.204.12
 ```
 
 ## Verify on the Pi
