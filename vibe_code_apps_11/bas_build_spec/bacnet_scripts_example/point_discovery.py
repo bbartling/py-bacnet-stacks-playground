@@ -3,6 +3,7 @@ import sys
 
 from bacpypes3.argparse import SimpleArgumentParser
 from bacpypes3.app import Application
+from bacpypes3.apdu import AbortPDU
 from bacpypes3.pdu import Address
 from bacpypes3.primitivedata import ObjectIdentifier
 from bacpypes3.debugging import ModuleLogger
@@ -41,15 +42,18 @@ async def main():
         target_address = Address(DEVICE_IP)
         device_object = ObjectIdentifier(("device", DEVICE_INSTANCE))
 
-        obj_list = await app.read_property(
-            target_address,
-            device_object,
-            "object-list",
-        )
-
-        print("OBJECT LIST:", obj_list)
-        for obj in obj_list:
-            print(obj)
+        try:
+            obj_list = await app.read_property(
+                target_address,
+                device_object,
+                "object-list",
+            )
+        except AbortPDU as err:
+            print(f"OBJECT LIST unavailable for {target_address}: {err}")
+        else:
+            print("OBJECT LIST:", obj_list)
+            for obj in obj_list:
+                print(obj)
 
     except Exception as e:
         print(f"An error occurred: {e}")

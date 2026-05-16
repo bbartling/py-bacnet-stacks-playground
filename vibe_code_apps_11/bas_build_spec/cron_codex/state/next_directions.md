@@ -10,35 +10,50 @@ Use **bas_build_spec/BUILD_CHECKPOINTS.md** as the primary ordered queue.
 
 ```
 Read GUARDRAILS.md, BUILD_CHECKPOINTS.md, this file, PHASE_NOTEPAD.md,
+rough_in_chat_since_last_wake.md, memory/integrations/bacnet.md,
+memory/integrations/bacnet_discovery_latest.json,
 field-commissioning-phases/references/commissioning-ui-language.md,
-rough_in_chat_since_last_wake.md, and bacnet-driver-lifecycle.
+and bacnet-driver-lifecycle.
 
 Site context: read PHASE_NOTEPAD.md § A–E (bind, NIC, devices, URLs, HVAC archetype).
 Do not assume a fixed lab subnet — each OT job is unique.
 
-PRIORITY A — Rough-in verification hygiene:
-1. Update tests/frontend_smoke.spec.mjs to the current rough-in contract:
-   5 driver rows, no "Simulator mock", "BACnet listener", title "Pending Who-Is",
-   AHU IP from PHASE_NOTEPAD § C (not .113 typo), and no simulator device rows.
-2. Isolate automated chat writes from guard/Playwright with temp
-   BAS_COMMISSIONING_CHAT_PATH and BAS_COMMISSIONING_CHAT_SUMMARY_PATH, or
-   preserve/restore runtime/rough_in_chat.json and summary after tests.
-3. Fix bas_validate_wake_chat_slice.sh so populated PHASE_NOTEPAD § A/§ C is
-   considered present; it should fail only when pinned bind/device context is
-   missing from the wake export.
-4. Keep public /rough-in/ labels field-facing per commissioning-ui-language.md.
+Current wire result: latest discovery shows 3 I-Ams on
+192.168.204.18/24:47808:
+- 3456788 @ 192.168.204.12 (discovered, not yet staged)
+- 3456790 @ 192.168.204.14 (expected VAV)
+- 3456789 @ 192.168.204.13 (expected AHU)
 
-PRIORITY B — BACnet Who-Is (ONLY if human checked BOTH boxes in BUILD_CHECKPOINTS § BACnet lab sign-off):
-1. Who-Is on bind from PHASE_NOTEPAD § A (bacnet_scripts_example/ or bas_bacnet_lab_verify.sh).
-2. Log I-Ams to memory/integrations/bacnet.md; update rough-in device table.
-3. Post summary: bas_app/scripts/post_rough_in_chat_report.py
-4. No writes on public rough-in.
+PRIORITY A — Commissioning record integrity:
+1. Sync PHASE_NOTEPAD.md § B/E with the latest operator fact:
+   "VRF + DOAS with expected VAV boxes." Preserve § A bind and § C expected
+   devices; append a chronological note.
+2. Update memory/integrations/bacnet.md so it no longer says "Who-Is not run
+   yet"; record the successful I-Am list and extra device 3456788.
+3. Reconcile the "human only" BACnet sign-off wording with the current
+   BAS_BACNET_AUTO_COMMISSION behavior, without enabling writes.
 
-If sign-off UNCHECKED: Priority A only; no UDP BACnet wire traffic.
+PRIORITY B — Rough-in device/polling UX:
+1. Ensure /api/public/rough-in and /rough-in/ show discovered vs staged
+   devices with field-facing statuses: Online, Discovered not staged, No I-Am,
+   Stale/Offline. Keep simulator branding out of public rough-in.
+2. Attempt read-only sample present-value scraping for 2-5 points per expected
+   device. If object-list no-response blocks this, try only documented safe
+   explicit objects; otherwise show "object-list no-response" clearly in the
+   table and chat summary.
+3. Keep public rough-in read-only: no writes, no command UI, protected writes
+   still 401/403 without proper auth.
+4. Keep guard/Playwright smokes on temp BAS_COMMISSIONING_CHAT_PATH and
+   BAS_COMMISSIONING_CHAT_SUMMARY_PATH.
 
-Verify: targeted rough-in/CORS unit tests; node --check frontend/rough-in/app.js;
-rough-in smokes including guard; npm run build; smoke_frontend_e2e.sh;
+Verify: curl /api/public/rough-in; targeted backend rough-in tests;
+node --check frontend/rough-in/app.js; smoke_public_rough_in.sh;
+smoke_public_rough_in_guard.sh; npm run build; smoke_frontend_e2e.sh;
 bas_validate_site_agnostic.sh; bas_validate_wake_chat_slice.sh.
+
+Leave Phase 1 / Day 0 acceptance [ ] until second-workstation field verify and
+real read-only point values, or a clearly documented device-side blocker, are
+visible to the operator.
 ```
 
 ---

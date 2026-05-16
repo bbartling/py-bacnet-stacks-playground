@@ -11,6 +11,15 @@ JSON_OUT="$BAS_BUILD/memory/integrations/bacnet_discovery_latest.json"
 LOG_DIR="${BAS_CODEX_LOG_DIR:-$CRON_ROOT/logs}"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+PYTHON_BIN="${BAS_PYTHON:-}"
+if [[ -z "$PYTHON_BIN" ]]; then
+  if [[ -x "${BAS_APP:-/home/ben/bas_app}/.venv/bin/python3" ]]; then
+    PYTHON_BIN="${BAS_APP:-/home/ben/bas_app}/.venv/bin/python3"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
+
 mkdir -p "$LOG_DIR" "$(dirname "$JSON_OUT")"
 log() { printf '%s bas_bacnet_discovery_poll: %s\n' "$TS" "$*" | tee -a "$LOG_DIR/bacnet_discovery_poll.log"; }
 
@@ -42,15 +51,15 @@ done
 [[ -f "$DISCOVERY" ]] || { log "error missing discovery script"; exit 2; }
 
 out="$(mktemp)"
-args=(python3 "$DISCOVERY" --name "$BAS_BACNET_APP_NAME" --instance "$BAS_BACNET_DEVICE_INSTANCE" --address "$BAS_BACNET_BIND_ADDRESS")
+args=("$PYTHON_BIN" "$DISCOVERY" --name "$BAS_BACNET_APP_NAME" --instance "$BAS_BACNET_DEVICE_INSTANCE" --address "$BAS_BACNET_BIND_ADDRESS")
 [[ "${BAS_BACNET_DISCOVERY_DEBUG:-}" == "true" ]] && args+=(--debug)
 
 if "${args[@]}" >"$out" 2>&1; then
-  python3 "$BIN_DIR/bas_bacnet_write_discovery_json.py" "$JSON_OUT" "$TS" "$BAS_BACNET_BIND_ADDRESS" 1 "$out"
+  "$PYTHON_BIN" "$BIN_DIR/bas_bacnet_write_discovery_json.py" "$JSON_OUT" "$TS" "$BAS_BACNET_BIND_ADDRESS" 1 "$out"
   iam_count="$(python3 -c "import json; print(json.load(open('$JSON_OUT'))['iam_count'])")"
   log "OK iam_count=$iam_count"
 else
-  python3 "$BIN_DIR/bas_bacnet_write_discovery_json.py" "$JSON_OUT" "$TS" "$BAS_BACNET_BIND_ADDRESS" 0 "$out"
+  "$PYTHON_BIN" "$BIN_DIR/bas_bacnet_write_discovery_json.py" "$JSON_OUT" "$TS" "$BAS_BACNET_BIND_ADDRESS" 0 "$out"
   log "discovery command failed"
   rm -f "$out"
   exit 1
@@ -72,7 +81,7 @@ if [[ "$new_hash" != "$prev_hash" ]] && [[ -f "$POST_CHAT" ]]; then
     tail -n 12 "$out"
     echo '```'
   } >"$report"
-  python3 "$POST_CHAT" --file "$report" && echo "$new_hash" >"$PREV_HASH"
+  "$PYTHON_BIN" "$POST_CHAT" --file "$report" && echo "$new_hash" >"$PREV_HASH"
   rm -f "$report"
 fi
 

@@ -1,9 +1,9 @@
 # Rough-in commissioning context (wake export)
 
-Generated (UTC): 2026-05-16T14:17:26.471767Z
+Generated (UTC): 2026-05-16T15:15:45.844424Z
 Cutoff (last bas_wake `last_run_at`): 2026-05-16T12:06:40.126385Z
 Chat source: `/home/ben/bas_app/runtime/rough_in_chat.json`
-Messages since cutoff: 9 (user: 4, assistant: 5)
+Messages since cutoff: 18 (user: 7, assistant: 11)
 
 Codex (**mini and gpt-5.5 critique**): read this entire file every wake.
 Do not rely on `rough_in_chat_summary.md` (latest turn only).
@@ -168,3 +168,74 @@ SMOKE GUARD NOTE: automated read-only persistence check (3016313).
 ## 9. assistant @ 2026-05-16T14:17:25.679338Z
 
 Wire discovery is **gated**. Check BUILD_CHECKPOINTS § BACnet lab sign-off, then run bas_bacnet_authorize_wire.sh and enable the 5-minute poll job. Next automation run: 10:00 AM CDT. Who-Is background poll is off (enable bas-bacnet-discovery-poll in jobs.json).
+
+## 10. user @ 2026-05-16T14:50:14.843151Z
+
+please ensure we have working BACnet scraping scripts and a successful WHoIs of the BAcnet devices. start polling sensors that is top priority we are trying to commission the devices and validate they are online. state issues if you cannot get it working.
+
+## 11. assistant @ 2026-05-16T14:50:14.937603Z
+
+Wire discovery is **gated**. Check BUILD_CHECKPOINTS § BACnet lab sign-off, then run bas_bacnet_authorize_wire.sh and enable the 5-minute poll job. Next automation run: 10:00 AM CDT. Who-Is background poll is off (enable bas-bacnet-discovery-poll in jobs.json).
+
+## 12. user @ 2026-05-16T15:05:15.953551Z
+
+VRF + DOAS with expected VAV boxes.
+
+## 13. assistant @ 2026-05-16T15:05:16.029694Z
+
+Last Who-Is poll **failed** (2026-05-16T15:00:01Z). Check bacnet_discovery_latest.json and poll log. Next automation run: 1:00 PM CDT. Next Who-Is poll: about every 5 minutes (background worker).
+
+## 14. user @ 2026-05-16T15:05:33.578587Z
+
+VRF + DOAS with expected VAV boxes.
+
+## 15. assistant @ 2026-05-16T15:05:33.657520Z
+
+Last Who-Is poll **failed** (2026-05-16T15:00:01Z). Check bacnet_discovery_latest.json and poll log. Next automation run: 1:00 PM CDT. Next Who-Is poll: about every 5 minutes (background worker).
+
+## 16. assistant @ 2026-05-16T15:09:23.342161Z
+
+**BACnet lab verify** (2026-05-16T15:09:07Z)
+
+- Bind: `192.168.204.18/24:47808`
+- I-Am responses: **0**
+- Memory log: `memory/integrations/bacnet.md`
+
+Recent discovery output:
+```
+--- Starting Discovery ---
+Device Instance: 3456788 | Address: 192.168.204.12
+Device Instance: 3456789 | Address: 192.168.204.13
+Device Instance: 3456790 | Address: 192.168.204.14
+OBJECT LIST unavailable for 192.168.204.18: no-response
+```
+
+## 17. assistant @ 2026-05-16T15:09:50.707079Z
+
+**BACnet lab verify** (2026-05-16T15:09:34Z)
+
+- Bind: `192.168.204.18/24:47808`
+- I-Am responses: **3**
+- Memory log: `memory/integrations/bacnet.md`
+
+Recent discovery output:
+```
+--- Starting Discovery ---
+Device Instance: 3456788 | Address: 192.168.204.12
+Device Instance: 3456790 | Address: 192.168.204.14
+Device Instance: 3456789 | Address: 192.168.204.13
+OBJECT LIST unavailable for 192.168.204.18: no-response
+```
+
+## 18. assistant @ 2026-05-16T15:11:04.119640Z
+
+**BACnet discovery poll** (2026-05-16T15:10:48Z)
+- Bind: `192.168.204.18/24:47808` · I-Am: **3**
+- File: `memory/integrations/bacnet_discovery_latest.json`
+```
+--- Starting Discovery ---
+Device Instance: 3456788 | Address: 192.168.204.12
+Device Instance: 3456790 | Address: 192.168.204.14
+Device Instance: 3456789 | Address: 192.168.204.13
+OBJECT LIST unavailable for 192.168.204.18: no-response
+```

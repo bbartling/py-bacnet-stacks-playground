@@ -10,6 +10,15 @@ MEMORY_OUT="$BAS_BUILD/memory/integrations/bacnet.md"
 LOG_DIR="$(cd "$BIN_DIR/.." && pwd)/logs"
 mkdir -p "$LOG_DIR" "$(dirname "$MEMORY_OUT")"
 
+PYTHON_BIN="${BAS_PYTHON:-}"
+if [[ -z "$PYTHON_BIN" ]]; then
+  if [[ -x "${BAS_APP:-/home/ben/bas_app}/.venv/bin/python3" ]]; then
+    PYTHON_BIN="${BAS_APP:-/home/ben/bas_app}/.venv/bin/python3"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
+
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 log() { printf '%s %s\n' "$TS" "$*" | tee -a "$LOG_DIR/bacnet_lab_verify.log"; }
 
@@ -31,7 +40,7 @@ if [[ ! -f "$DISCOVERY" ]]; then
 fi
 
 args=(
-  python3 "$DISCOVERY"
+  "$PYTHON_BIN" "$DISCOVERY"
   --name "$BAS_BACNET_APP_NAME"
   --instance "$BAS_BACNET_DEVICE_INSTANCE"
   --address "$BAS_BACNET_BIND_ADDRESS"
@@ -56,7 +65,7 @@ if ! "${args[@]}" >"$out" 2>&1; then
   exit 1
 fi
 
-iam_count="$(grep -c '^  instance=' "$out" 2>/dev/null || true)"
+iam_count="$(grep -c '^Device Instance:' "$out" 2>/dev/null || true)"
 {
   echo ""
   echo "## $TS — lab discovery OK"
