@@ -55,6 +55,9 @@ Come join the journey as we play around with Python, AI, BACnet, and computer sc
 
 ## Computer Science Theory 101 Weekly Outline
 
+These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level and progressing all the way through algorithms such as Guideline 36 and advanced data structures, eventually getting into RDF theory for smart building data modeling standards such as Brick, Haystack, and ASHRAE 223P.
+
+
 ### Week 1 — Fundamentals & First BACnet App  
 *Part I: Variables, operators, strings, numbers, booleans, input/output, lists*
 
@@ -200,4 +203,4 @@ Come join the journey as we play around with Python, AI, BACnet, and computer sc
 
 ## License
 
-MIT License — use, remix, share forward. Built for the BAS community.
+MIT License — use, remix, share forward. Built for the BAS community ❤️🥰✌️.
