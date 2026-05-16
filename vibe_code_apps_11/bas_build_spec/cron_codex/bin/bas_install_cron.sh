@@ -6,7 +6,8 @@ BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRON_ROOT="$(cd "$BIN_DIR/.." && pwd)"
 MARKER="${CRON_MARKER:-BAS_CODEX_WAKE}"
 ENV_FILE="${BAS_CODEX_ENV_FILE:-$CRON_ROOT/.env}"
-SCHEDULE="${BAS_CRON_INSTALL_EXPR:-0 * * * *}"
+# Electrical phase default: */5 so jobs.json "every 5 minutes" BACnet workers actually fire.
+SCHEDULE="${BAS_CRON_INSTALL_EXPR:-*/5 * * * *}"
 LINE="$SCHEDULE BAS_CODEX_ENV_FILE=$ENV_FILE $BIN_DIR/bas_cron_scheduler.sh run-due # $MARKER"
 
 if ! crontab -l &>/dev/null; then

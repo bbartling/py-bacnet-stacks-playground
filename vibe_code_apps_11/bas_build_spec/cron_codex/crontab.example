@@ -1,20 +1,18 @@
-# Example crontab lines for bas_wake.sh
-# Install: crontab -e   then paste ONE active line (cron does not expand ~).
+# Example crontab for BAS electrical-phase automation
+# Install: BAS_CRON_INSTALL_EXPR='*/5 * * * *' bash cron_codex/bin/bas_install_cron.sh
+# Or: crontab -e and paste ONE active line (cron does not expand ~).
 #
-# Official Codex limits are plan-dependent; see cron_codex/README.md
+# Gateway runs bas_cron_scheduler.sh, which honors cron/jobs.json:
+#   - BACnet Who-Is / auto-commission: every 5 minutes (worker jobs)
+#   - Codex bas_wake.sh: every 3 hours UTC (0 */3 * * * in jobs.json)
 #
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# --- Recommended for API / quota: once per hour ---
-# At minute 0 every hour. Trailing # BAS_CODEX_WAKE is REQUIRED for optional self-removal.
-0 * * * * BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# --- Recommended (electrical phase): scheduler every 5 minutes ---
+*/5 * * * * BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE
 
-# --- More frequent (uncomment only ONE wake line) ---
-# Every 20 minutes
-# */20 * * * * BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
-# Every 15 minutes (higher quota burn)
-# */15 * * * * BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# --- Lighter load: scheduler hourly (BACnet workers only ~hourly in practice) ---
+# 0 * * * * BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_cron_scheduler.sh run-due # BAS_CODEX_WAKE
 
-# If you use /etc/cron.d/ style (user column), example:
-# 0 * * * * ben BAS_CODEX_ENV_FILE=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/.env /home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_wake.sh # BAS_CODEX_WAKE
+# Do NOT call bas_wake.sh directly from crontab — use the scheduler + jobs.json.

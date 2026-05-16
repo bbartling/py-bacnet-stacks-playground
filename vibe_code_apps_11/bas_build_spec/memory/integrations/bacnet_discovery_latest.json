@@ -1,5 +1,5 @@
 {
-  "polled_at_utc": "2026-05-16T18:08:09Z",
+  "polled_at_utc": "2026-05-16T18:37:06Z",
   "bind": "192.168.204.18/24:47808",
   "ok": true,
   "iam_count": 3,
@@ -9,13 +9,13 @@
       "address": "192.168.204.12"
     },
     {
-      "instance": 3456790,
-      "address": "192.168.204.14"
-    },
-    {
       "instance": 3456789,
       "address": "192.168.204.13"
+    },
+    {
+      "instance": 3456790,
+      "address": "192.168.204.14"
     }
   ],
-  "raw_tail": "--- Starting Discovery ---\nDevice Instance: 3456788 | Address: 192.168.204.12\nDevice Instance: 3456790 | Address: 192.168.204.14\nDevice Instance: 3456789 | Address: 192.168.204.13\nOBJECT LIST unavailable for 192.168.204.18: no-response\n"
+  "raw_tail": "--- Starting Discovery ---\nDevice Instance: 3456788 | Address: 192.168.204.12\nDevice Instance: 3456789 | Address: 192.168.204.13\nDevice Instance: 3456790 | Address: 192.168.204.14\nOBJECT LIST unavailable for 192.168.204.18: no-response\n"
 }
