@@ -129,6 +129,31 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 127
 fi
 
+: "${BAS_APP:=/home/ben/bas_app}"
+
+if [[ "${BAS_BACNET_AUTO_COMMISSION,,}" == "true" ]]; then
+  echo "--- bacnet auto-commission (pre-codex worker) ---"
+  BAS_CODEX_ENV_FILE="$ENV_FILE" "$BIN_DIR/bas_bacnet_auto_commission.sh" \
+    || echo "WARN: auto-commission failed (non-fatal; Codex may fix .env/bind)"
+fi
+
+phase_notepad="$BAS_BUILD/memory/commissioning/PHASE_NOTEPAD.md"
+chat_slice="$STATE_DIR/rough_in_chat_since_last_wake.md"
+chat_slice_meta="$STATE_DIR/rough_in_chat_since_last_wake.meta.json"
+chat_path="${BAS_COMMISSIONING_CHAT_PATH:-$BAS_APP/runtime/rough_in_chat.json}"
+jobs_state="$BAS_BUILD/cron/jobs-state.json"
+if [[ -f "$chat_path" ]]; then
+  echo "--- rough-in chat since last bas_wake ---"
+  python3 "$BIN_DIR/bas_rough_in_chat_since_wake.py" \
+    "$chat_path" "$jobs_state" "$chat_slice" "$chat_slice_meta" "$phase_notepad" \
+    || echo "WARN: chat slice export failed (non-fatal)"
+  if [[ -f "$chat_slice_meta" ]]; then
+    echo "chat slice meta: $(tr -d '\n' <"$chat_slice_meta" | head -c 400)"
+  fi
+else
+  echo "WARN: rough-in chat not found at $chat_path — no wake-to-wake chat slice for Codex"
+fi
+
 mini_common=(
   exec
   -C "$CODEX_CWD"
@@ -165,13 +190,16 @@ Read (do not delete):
 - ${checklist}
 - ${checkpoints}
 - ${directions}
+- ${chat_slice}   (**required** — every rough-in chat message since last bas_wake; not just latest summary)
+- ${phase_notepad}
 - ${ui_theme_ref}   (UI colors/theme reference only; see spec DESIGN STYLE)
 - ${skills_policy}
 - ${skills_guardrails}  (mandatory before creating/editing bas_build_spec/skills/)
 
 Rules:
+- **Commissioning chat:** use ${chat_slice} for operator dumps since the previous wake; ${phase_notepad} for structured site context. Do not assume the newest chat line is the only important one.
 - Do ONE small, reviewable slice toward the ordered "Next for mini" items in BUILD_CHECKPOINTS.md (or spec if empty).
-- Prefer repo under CODEX_CWD=${CODEX_CWD}; keep BACnet driver disabled unless spec explicitly allows opt-in.
+- Prefer repo under CODEX_CWD=${CODEX_CWD}. If BAS_BACNET_AUTO_COMMISSION=true, wire/Who-Is is armed by bas_bacnet_auto_commission.sh before this mini — fix poll/bind failures; do not re-gate unless waiting_human.
 - Any frontend or static HTML/CSS you add must follow the **dark palette and theme** of graphic.html (CSS variables / card chrome / accent semantics), not a unrelated light theme.
 - **Live stack:** after changes that affect the running web API or SPA, ensure dev/proc scripts still bring the app up bound to **0.0.0.0** (all interfaces) so a human can hit it from another machine on the LAN/VPN immediately; document the URL/port in the app README. Restart containers or dev servers when required so the latest code is what is listening.
 - If you change behavior, run or add the narrowest tests you can.
@@ -241,18 +269,21 @@ Read:
 - ${checklist}
 - ${checkpoints}
 - ${directions}
+- ${chat_slice}
+- ${phase_notepad}
 - ${ui_theme_ref}
 - ${skills_policy}
 - ${skills_guardrails}
 
 Tasks:
 1) Critique what likely changed this wake (use BUILD_CHECKPOINTS "Done recently", file timestamps, or git status/diff in ${CODEX_CWD}).
-2) Rewrite BUILD_CHECKPOINTS.md sections: "Last critique (gpt-5.5)", "Current sprint", and replace "Next for mini (ordered)" with 3–8 concrete, small tasks for the NEXT wake.
-3) Optionally refresh next_directions.md if long-form detail helps.
-4) In acceptance_criteria.md, turn [ ] into [x] ONLY for items you can honestly verify; otherwise leave unchecked.
-5) If UI changed, note whether it stays aligned with graphic.html dark theme / tokens; call out drift in the critique if not.
-6) When **every** checklist row in acceptance_criteria.md is truly satisfied, leave none unchecked. With **REMOVE_CRON_WHEN_COMPLETE=true** in \`.env\`, **this same wake’s end** (bash in bas_wake.sh, not you running crontab) removes the marked cron line and writes DONE_AUTOMATION — no further scheduled wakes until a human clears that. If automation should keep running, leave at least one honest \`[ ]\` or keep REMOVE_CRON_WHEN_COMPLETE=false.
-7) **Skills (strict):** Read **GUARDRAILS.md**. Canonical path: **\`bas_build_spec/skills/<topic>/SKILL.md\`** (optional \`references/\`, \`scripts/\`, \`assets/\`). Per wake: **at most one** of (a) **one new** topic folder under \`bas_build_spec/skills/\` with \`SKILL.md\`, or (b) **materially expand** one existing topic’s \`SKILL.md\`/\`references/\`, or (c) update **skills/README.md** or **GUARDRAILS** or taxonomy table only. Never (a)+(b) same wake. Run **\`bas_build_spec/cron_codex/bin/bas_skills_link.sh\`** after folder changes. Phaser-style reference: [phaser skills/](https://github.com/phaserjs/phaser/tree/master/skills). If unsure, only update **BUILD_CHECKPOINTS** “Next for mini”.
+2) **Operator commissioning (required):** Read ${chat_slice} and ${phase_notepad}. Confirm mini(s) honored **all user posts in the chat-since-last-wake window** and that durable site facts in the notepad (§ A bind, § C devices) match what minis implemented. If the slice has new operator facts but the notepad was not updated, queue a notepad sync in "Next for mini". Flag if the slice is mostly automated smoke text instead of real operator context.
+3) Rewrite BUILD_CHECKPOINTS.md sections: "Last critique (gpt-5.5)", "Current sprint", and replace "Next for mini (ordered)" with 3–8 concrete, small tasks for the NEXT wake.
+4) Optionally refresh next_directions.md if long-form detail helps.
+5) In acceptance_criteria.md, turn [ ] into [x] ONLY for items you can honestly verify; otherwise leave unchecked.
+6) If UI changed, note whether it stays aligned with graphic.html dark theme / tokens; call out drift in the critique if not.
+7) When **every** checklist row in acceptance_criteria.md is truly satisfied, leave none unchecked. With **REMOVE_CRON_WHEN_COMPLETE=true** in \`.env\`, **this same wake’s end** (bash in bas_wake.sh, not you running crontab) removes the marked cron line and writes DONE_AUTOMATION — no further scheduled wakes until a human clears that. If automation should keep running, leave at least one honest \`[ ]\` or keep REMOVE_CRON_WHEN_COMPLETE=false.
+8) **Skills (strict):** Read **GUARDRAILS.md**. Canonical path: **\`bas_build_spec/skills/<topic>/SKILL.md\`** (optional \`references/\`, \`scripts/\`, \`assets/\`). Per wake: **at most one** of (a) **one new** topic folder under \`bas_build_spec/skills/\` with \`SKILL.md\`, or (b) **materially expand** one existing topic’s \`SKILL.md\`/\`references/\`, or (c) update **skills/README.md** or **GUARDRAILS** or taxonomy table only. Never (a)+(b) same wake. Run **\`bas_build_spec/cron_codex/bin/bas_skills_link.sh\`** after folder changes. Phaser-style reference: [phaser skills/](https://github.com/phaserjs/phaser/tree/master/skills). If unsure, only update **BUILD_CHECKPOINTS** “Next for mini”.
 
 Be concise in prose; optimize the next mini queue for clarity and safety.
 EOF

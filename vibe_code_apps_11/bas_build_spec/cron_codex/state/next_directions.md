@@ -1,50 +1,54 @@
 # Next directions (optional long-form)
 
-Use **bas_build_spec/BUILD_CHECKPOINTS.md** as the primary ordered queue. Add detail here only when a wake needs extra context beyond that file.
+Use **bas_build_spec/BUILD_CHECKPOINTS.md** as the primary ordered queue.
+
+**Site-specific bind, devices, and HVAC** → **`memory/commissioning/PHASE_NOTEPAD.md`** only (not hard-coded here).
 
 ---
 
-## CRITIQUE UPDATE — 2026-05-15T18:08Z — Runtime + lab-gate cleanup
+## PASTE INTO NEXT WAKE (copy from here)
 
-The human override slice has landed and has been polished: `/rough-in/` is public, chat-first, table-based, read-only, simulator-only, dark/light, and has server-side chat persistence. Do **not** restart the rebuild from scratch.
+```
+Read GUARDRAILS.md, BUILD_CHECKPOINTS.md, this file, PHASE_NOTEPAD.md,
+field-commissioning-phases/references/commissioning-ui-language.md,
+rough_in_chat_since_last_wake.md, and bacnet-driver-lifecycle.
 
-The human pasted real lab context into the rough-in chat:
+Site context: read PHASE_NOTEPAD.md § A–E (bind, NIC, devices, URLs, HVAC archetype).
+Do not assume a fixed lab subnet — each OT job is unique.
 
-- VAV+AHU system.
-- VAV at `192.168.204.14`, BACnet device `3456790`.
-- AHU at `192.168.204.113`, BACnet device `3456789`.
-- Candidate BACnet bind is `192.168.204.18/24:47808` on `enp3s0`.
+PRIORITY A — Rough-in verification hygiene:
+1. Update tests/frontend_smoke.spec.mjs to the current rough-in contract:
+   5 driver rows, no "Simulator mock", "BACnet listener", title "Pending Who-Is",
+   AHU IP from PHASE_NOTEPAD § C (not .113 typo), and no simulator device rows.
+2. Isolate automated chat writes from guard/Playwright with temp
+   BAS_COMMISSIONING_CHAT_PATH and BAS_COMMISSIONING_CHAT_SUMMARY_PATH, or
+   preserve/restore runtime/rough_in_chat.json and summary after tests.
+3. Fix bas_validate_wake_chat_slice.sh so populated PHASE_NOTEPAD § A/§ C is
+   considered present; it should fail only when pinned bind/device context is
+   missing from the wake export.
+4. Keep public /rough-in/ labels field-facing per commissioning-ui-language.md.
 
-Treat that as operator-provided context, not verified discovery. Real BACnet polling remains gated by `GUARDRAILS.md` / `bacnet-driver-lifecycle`: no wire discovery or writes until a human records explicit lab sign-off in `BUILD_CHECKPOINTS.md`.
+PRIORITY B — BACnet Who-Is (ONLY if human checked BOTH boxes in BUILD_CHECKPOINTS § BACnet lab sign-off):
+1. Who-Is on bind from PHASE_NOTEPAD § A (bacnet_scripts_example/ or bas_bacnet_lab_verify.sh).
+2. Log I-Ams to memory/integrations/bacnet.md; update rough-in device table.
+3. Post summary: bas_app/scripts/post_rough_in_chat_report.py
+4. No writes on public rough-in.
 
-### Next priority
+If sign-off UNCHECKED: Priority A only; no UDP BACnet wire traffic.
 
-Use **`BUILD_CHECKPOINTS.md`** as the exact ordered queue. In short:
-
-1. Fix stale runtime behavior so `local_stack.sh start` does not keep serving old backend code after source changes.
-2. Tighten the public rough-in smoke around the current `networking.rows` contract: 5173/tcp, 8000/tcp, and 47808/udp simulator-only.
-3. Fix Playwright output hygiene; `test-results/` is currently root-owned and blocks reruns with `EACCES`.
-4. Update the rough-in Playwright expectation to match the current API row contract, then rerun the rough-in smoke.
-5. Mirror/summarize the pasted lab context into `PHASE_NOTEPAD.md` or `bas_build_spec/memory/commissioning/` without enabling polling.
-6. Surface “BACnet polling requested but gated” in the UI/API or notepad so the request is visible across wakes.
-
-### Do NOT this wake
-
-- Do not check acceptance roadmap `[x]` unless human field-verified.
-- Do not expand skills; the prior wake already touched two existing skill topics.
-- Do not add BACnet wire discovery or BACnet writes.
-
-### Verify
-
-- `node --check frontend/rough-in/app.js`
-- `python3 -m unittest backend.tests.test_app.BackendSmokeTests.test_public_rough_in_snapshot_is_available_without_auth backend.tests.test_app.BackendSmokeTests.test_public_rough_in_chat_posts_and_persists`
-- `npm run build`
-- `./scripts/smoke_public_rough_in.sh`
-- live `curl -fsS http://127.0.0.1:8000/api/public/rough-in`
-- Playwright rough-in smoke after fixing the user-writable output-dir issue
+Verify: targeted rough-in/CORS unit tests; node --check frontend/rough-in/app.js;
+rough-in smokes including guard; npm run build; smoke_frontend_e2e.sh;
+bas_validate_site_agnostic.sh; bas_validate_wake_chat_slice.sh.
+```
 
 ---
 
-## Older context (still valid where not superseded)
+## BACnet lab validation prompts
 
-Graphics, auth, persistence, and operator shell at `http://<lan-ip>:5173/` remain the Phase 4 regression target. Simulator-first; public rough-in stays read-only.
+Combined operator + Codex prompt: **`cron_codex/state/PROMPT_bacnet_lab_validate.md`** (uses PHASE_NOTEPAD for all IPs/devices).
+
+---
+
+## Older context
+
+Graphics, auth, persistence, and operator shell at `http://<lan-ip>:5173/` remain Phase 4 regression target.

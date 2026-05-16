@@ -69,5 +69,30 @@ iam_count="$(grep -c '^  instance=' "$out" 2>/dev/null || true)"
   echo '```'
 } >>"$MEMORY_OUT"
 log "bacnet_lab_verify: OK ($iam_count I-Am); appended $MEMORY_OUT"
+
+BAS_APP="${BAS_APP:-/home/ben/bas_app}"
+POST_CHAT="$BAS_APP/scripts/post_rough_in_chat_report.py"
+if [[ -f "$POST_CHAT" ]]; then
+  report="$(mktemp)"
+  {
+    echo "**BACnet lab verify** (${TS})"
+    echo ""
+    echo "- Bind: \`${BAS_BACNET_BIND_ADDRESS}\`"
+    echo "- I-Am responses: **${iam_count}**"
+    echo "- Memory log: \`memory/integrations/bacnet.md\`"
+    echo ""
+    echo "Recent discovery output:"
+    echo '```'
+    tail -n 25 "$out"
+    echo '```'
+  } >"$report"
+  if python3 "$POST_CHAT" --file "$report"; then
+    log "bacnet_lab_verify: posted summary to rough-in chat"
+  else
+    log "bacnet_lab_verify: WARN could not post to rough-in chat"
+  fi
+  rm -f "$report"
+fi
+
 rm -f "$out"
 exit 0

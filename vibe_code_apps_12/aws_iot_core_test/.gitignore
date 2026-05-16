@@ -1,0 +1,50 @@
+# AWS IoT Core — keep credentials and connect packages OUT of git.
+# Unzip the IoT console "connect device" package here locally only.
+
+# ----- Console download bundles -----
+connect_device_package*.zip
+*-device-package*.zip
+*.zip
+
+# ----- X.509 certificates and keys -----
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.der
+
+# Typical names from AWS IoT "Create certificate" / connect package
+*-certificate.pem
+*-certificate.pem.crt
+*.cert.pem
+*.private.key
+*.public.key
+AmazonRootCA*.pem
+
+# Policy document exported with the connect package (account/thing ARNs)
+*-Policy
+*-policy.json
+policy.json
+
+# ----- Local secrets & config -----
+.env
+.env.*
+!.env.example
+secrets/
+certs/
+keys/
+credentials.json
+aws_iot_config.local.json
+config.local.json
+*.local.json
+
+# ----- Clones / tooling (re-download locally) -----
+aws-iot-device-sdk-python-v2/
+.venv/
+venv/
+
+# ----- Logs / debug captures -----
+*.log
+mqtt_trace*

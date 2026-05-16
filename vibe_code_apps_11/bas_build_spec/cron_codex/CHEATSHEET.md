@@ -13,6 +13,11 @@ $CR/bin/bas_workspace_cli.sh cron runs bas-wake-hourly
 $CR/bin/bas_validate_cron_services.sh   # cron + scheduler + systemd + /health
 $CR/bin/bas_validate_wake_pass.sh       # manual/scheduled wake: building vs snagged + checkpoints
 $CR/bin/bas_validate_automation.sh     # both (full)
+$CR/bin/bas_wake_prepare.sh            # dry-run: chat slice + pinned notepad (no Codex)
+$CR/bin/bas_validate_wake_chat_slice.sh # assert slice has notepad + wake-window chat
+$CR/bin/bas_validate_site_agnostic.sh  # no lab subnet in generic spec/skills
+# Autonomous BACnet (commissioning head-end): BAS_BACNET_AUTO_COMMISSION=true in $CR/.env
+$CR/bin/bas_bacnet_auto_commission.sh   # arm wire + one Who-Is (worker; no Codex)
 ```
 
 Agent map: **`bas_build_spec/AGENTS.md`** · truncated injection: **`bas_build_spec/scratch/memory-bootstrap-latest.md`**.

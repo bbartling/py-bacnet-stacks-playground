@@ -17,7 +17,7 @@ Short standing brief for Codex wakes — not a transcript. Daily detail lives un
 
 ## Standing decisions
 
-- Simulator-only default; BACnet gated by `bacnet-driver-lifecycle`.
+- Demo supervisor may use simulator internally; **rough-in** shows wire/gate labels (not “simulator-only path”). BACnet Who-Is gated by `BUILD_CHECKPOINTS.md` sign-off + `bacnet-driver-lifecycle`.
 - Cursor changes **spec/skills/validation**; Codex owns **`bas_app/`** implementation.
 
 ## Open loops

@@ -72,6 +72,7 @@ A feature slice is **not complete** for supervisory work if **only** tests pass 
 - **Rough-in / electrician (Phase 1):** per **`spec.md`** unified shell, add a **separate unauthenticated** page + **public read-only** APIs (path prefix agreed in `BUILD_CHECKPOINTS`) for **paste-your-site**, BACnet health, NIC/listeners, comm/values—**do not** reuse `/api/auth/login` for that surface; keep writes and **`/api/me`** behind Bearer auth.
 - Keep the first UI pass aligned with **`bas_build_spec/frontend_example/graphic.html`** so the shell inherits the dark slate surfaces, border chrome, and BAS status colors.
 - Keep simulator-backed APIs behind interfaces so later BACnet or gateway drivers can replace them without reshaping the shell contract.
+- **Public `/rough-in/`:** never headline “simulator” on BACnet/driver or device tables — map to field labels per **`field-commissioning-phases/references/commissioning-ui-language.md`** (wire off, pending Who-Is, discovering, polling).
 
 ## Repo-local skills layout
 

@@ -36,21 +36,23 @@ BACpypes3 (and similar BACnet/IP stacks) need the **local BACnet/IP bind string*
 --address <IP>/<prefix-length>[:UDPPort]
 ```
 
-Example: `--address 192.168.204.18/24:47808` binds to IPv4 `192.168.204.18` on `/24` with BACnet UDP **47808** (standard BACnet/IP port; omit `:47808` only if your parser default matches). The IP must be an address **assigned to the host on the same L2/L3 segment as the BACnet devices**, not an arbitrary device IP.
+Example: `--address 10.20.30.50/24:47808` binds to IPv4 `10.20.30.50` on `/24` with BACnet UDP **47808** (standard BACnet/IP port; omit `:47808` only if your parser default matches). The IP must be an address **assigned to the host on the same L2/L3 segment as the BACnet devices**, not an arbitrary remote device IP.
 
-Discovering the correct value on Linux (illustrative output from a lab workstation — **re-run `ip a` on the target machine**; interfaces and leases change):
+**Per-job values** (real bind, NIC, device IPs) live only in **`memory/commissioning/PHASE_NOTEPAD.md`** — not hard-coded in `spec.md` or skills.
+
+Discovering the correct value on Linux (**re-run `ip a` on the target head-end**; interface names and leases differ per site):
 
 ```text
 $ ip a
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+1: lo: <LOOPBACK,UP,LOWER_UP> …
     inet 127.0.0.1/8 scope host lo
-2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
-    inet 192.168.204.18/24 metric 100 brd 192.168.204.255 scope global dynamic enp3s0
-5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
-    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> …
+    inet 10.20.30.50/24 brd 10.20.30.255 scope global eth0
+3: docker0: <NO-CARRIER,…>
+    inet 172.17.0.1/16 …
 ```
 
-Operational rule: bind `--address` to the **interface that reaches the BACnet network** (here `enp3s0` / `192.168.204.18/24`), not to `docker0` or `lo`, unless BACnet traffic is intentionally routed/NATed through those. Multi-homed hosts must use the subnet that matches field devices (compare to device IPs in `bacnet_scripts.md` examples).
+Operational rule: bind `--address` to the **interface that reaches the BACnet OT LAN** (e.g. `eth0` / `10.20.30.50/24`), not to `docker0` or `lo`, unless BACnet traffic is intentionally routed/NATed through those. Multi-homed hosts must use the subnet that matches field devices (record expected devices in **`PHASE_NOTEPAD.md` § C**).
 
 Other CLI flags used in the reference scripts (e.g. `--name`, `--instance`, `--debug`) identify the **local BACnet device object** this process presents on the wire; keep them unique per concurrently running BACpypes3 app on the same bind address.
 
@@ -797,7 +799,7 @@ The head-end shall eventually support **progressive disclosure** aligned with ho
 
 1. **Electrical install / rough-in (read-only “electrician mode”)**  
    - Purpose: trades bring controllers and I/O online during construction; need a **dial-in dashboard** that answers “is the device on the wire?”, “is the **BACnet driver** healthy?”, and “what are the live sensor values?” **without** supervisory writes.  
-   - **BACnet strip (read-only):** Show **driver / stack status** (e.g. enabled vs simulator, last successful poll cycle, bind address in use, discovery state when lab-approved per **`bacnet-driver-lifecycle`**). When wire is off, status must degrade honestly (no fake “green”).  
+   - **BACnet strip (read-only):** Show **field-oriented** driver status — **wire off / pending Who-Is / discovering / polling**, bind address, last Who-Is or poll time. **Do not** headline “simulator” or “simulator-only path” on **`/rough-in/`** (see **`field-commissioning-phases/references/commissioning-ui-language.md`**). Demo supervisor at **`/`** may remain simulator-backed internally.  
    - **Networking tab (read-only):** Surface **host networking context** the way an electrician thinks about it: **NIC names**, **IPv4/v6 addresses**, **UP/DOWN**, **default route hint**, and **which ports the head-end expects open** for dial-in and BACnet (e.g. **5173/8000** UI/API, **47808/udp** BACnet/IP)—**documented** next to **live listener summary** (e.g. what `ss` would show for BAS ports) **without** requiring the browser user to run `sudo ufw`. Optional: read-only server-side aggregation of `ip`/`ss` output for display; **never** paste operator passwords or private keys into the UI.  
    - UX: minimal chrome; large **online/offline / comm** status; **all readable points** (table or card grid).  
    - Auth: **separate low-friction role or shared read-only station credential** is acceptable for this mode only if documented.  
@@ -828,7 +830,7 @@ The product should trend toward **one dial-in shell** whose layout **mirrors how
 - **Always visible strip:** **Phase** (done / next), **dial-in URLs + ports**, **BACnet health**; in rough-in, label **both** the **public paste/read-only** URL and the **operator login** URL.
 - **Electrician / rough-in is not the operator login:** provide a **separate URL path** (e.g. `/field/rough-in/` or `/commissioning/electrician/`) that loads **without password or Bearer token**—large **paste** area for building / site / BACnet context (same intent as **`PHASE_NOTEPAD.md` § Step 1**), read-only **BACnet / driver health** and **NIC + listener + documented UFW/BACnet ports**, plus **device comm + sensor values**—**no writes**, no command affordances. The existing **“Sign in to the operator shell”** flow stays for **Phase 4 / full BAS** demo roles; the **phase strip** lists **both** URLs (public rough-in vs logged-in operator). Tighten exposure with **LAN binding**, **`BAS_ALLOWED_ORIGINS`** for that origin, and optional env **`BAS_COMMISSIONING_PUBLIC_PATHS`** (or similar) listing path prefixes that skip auth middleware—**never** apply skip to write/command routes.
 - **Commissioning chat (primary UX, all phases):** **Ongoing human ↔ agent dialog** at the **top** of every commissioning surface (Phase 1 public rough-in first). Initial prompts: **HVAC system type** and **expected BACnet devices on site**; later messages capture bind, topology, URLs. **Persist** the full thread server-side (and mirror summaries into **`PHASE_NOTEPAD.md`** or a commissioning sidecar) so **phase changes do not reset** conversation—same thread whether electrician, Cx, or TAB.
-- **Bare-bones readouts (not dense BAS chrome):** below chat, show **simple HTML tables** only—BACnet/driver status, networking/listeners, device/point values. **Minimal color** (neutral UI; green/red/amber for status cells only). **Dark mode / light mode** toggle on every commissioning phase page (persist in browser; same control when Phases 2–3 ship).
+- **Bare-bones readouts (not dense BAS chrome):** below chat, show **simple HTML tables** only—BACnet/driver status, networking/listeners, device/point values. **No simulator branding** on commissioning tables (operator-facing labels per **`commissioning-ui-language.md`**). **Minimal color** (neutral UI; green/red/amber for status cells only). **Dark mode / light mode** toggle on every commissioning phase page (persist in browser; same control when Phases 2–3 ship).
 - **De-scope the over-built rough-in v1:** remove or hide roadmap walls, multi-card zones, validator command dumps, and graphic synoptics from **`/rough-in/`**; operator shell at **`/`** keeps full BAS for Phase 4.
 - **Build criteria / validators (later slice):** optional compact link row—not the default electrician landing.
 - **Automation clock (read-only dashboard):** show a **countdown** to the next **`bas_wake.sh`** run using the same schedule as **`cron/jobs.json`** (UTC evaluation today—label the clock). Poll or embed **`cron_codex/bin/bas_wake_status.sh`** / **`bas_workspace_cli.sh wake-status`** JSON: **`seconds_until_next`**, **`next_fire_utc`**, **`last_wake_log.size_bytes`**, **`duration_seconds`**, **`tokens_used_sum`**, and **`waiting_human`** so operators see **quota-relevant** wake cadence beside BACnet health.

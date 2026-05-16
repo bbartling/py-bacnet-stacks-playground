@@ -30,5 +30,5 @@ Copy `human_validated_args.env.example` to a local untracked file and fill value
 ```bash
 cd /home/ben
 python3 bas_build_spec/bacnet_scripts_example/point_discovery.py \
-  --name BensReadApp --instance 100 --address 192.168.204.18/24:47808 --debug
+  --name YourReadApp --instance 100 --address 10.20.30.50/24:47808 --debug
 ```

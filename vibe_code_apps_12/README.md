@@ -121,14 +121,42 @@ python temp_sensor_server.py --name PiTemp --instance 3456788 --w1-device 28-031
 
 **Workflow:** On **this computer** (where the repo lives), run `ansible-playbook`. Ansible **SSHs to the Pi** and **copies** `temp_sensor_server.py`, `ds18b20_sensor.py`, and `requirements.txt` from **your local checkout** into `~/vibe_code_apps_12/`, installs the venv, and installs **`bacnet-ds18b20.service`**. The Pi does **not** need **`git clone`** for that flow—only SSH (and sudo for apt/systemd).
 
-Whenever you change Python or the systemd template here, **re-run the same playbook** from this machine so the Pi picks up files and the refreshed unit.
+Whenever you change Python or the systemd template here, **re-run the same playbook** from this machine so the Pi picks up files, reloads systemd, and **restarts** the service (so new Python code actually runs).
 
-Defaults: BACnet instance **3456788**, bind **`{{ ansible_host }}/24`**, systemd **`bacnet-ds18b20.service`** (BACpypes3). The app always publishes **AV1 = °C** and **AV2 = °F**; no extra flags.
+Defaults (see `ansible/group_vars/pi_bcn.yml`): BACnet instance **3456788**, device name **PiTemp**, bind **`192.168.204.12/24`** (from inventory), systemd unit **`bacnet-ds18b20.service`**. The app always publishes **AV1 = °C** and **AV2 = °F**; no extra flags.
+
+### What Ansible does (including systemd)
+
+Yes — the playbook sets up **systemd** end to end, not only Python files:
+
+| Step | Ansible task | Manual equivalent |
+|------|----------------|-------------------|
+| App directory | `file` → `~/vibe_code_apps_12` | `mkdir -p ~/vibe_code_apps_12` |
+| Copy code | `copy` → `.py` + `requirements.txt` | `scp` / `rsync` (see below) |
+| OS packages | `apt` → `python3`, `python3-venv`, `python3-pip` | `sudo apt install …` |
+| Virtualenv | `command` → `python3 -m venv .venv` | same on the Pi |
+| Python deps | `pip` into `.venv` | `.venv/bin/pip install -r requirements.txt` |
+| 1-Wire overlay (optional) | `lineinfile` on `config.txt` | edit boot config + reboot |
+| **systemd unit** | `template` → `/etc/systemd/system/bacnet-ds18b20.service` | create unit file by hand (see cheat sheet) |
+| Enable on boot | `systemd` `enabled: true` | `sudo systemctl enable bacnet-ds18b20` |
+| **Reload + restart** | `systemd` `daemon_reload` + `state: restarted` | `sudo systemctl daemon-reload` then `restart` |
+| Legacy cleanup | stop/disable `bacnet-rtd-temp` if present | `sudo systemctl disable --now bacnet-rtd-temp` |
+| Smoke checks | `systemctl is-active`, `journalctl`, sample `w1_slave` | same commands on the Pi |
+
+The unit file is rendered from `ansible/templates/bacnet-ds18b20.service.j2` (user, paths, BACnet name/instance/bind address come from inventory + `group_vars`).
+
+### Ansible — quick commands
 
 ```bash
 sudo apt install ansible-core
 cd vibe_code_apps_12/ansible
 ansible-playbook deploy.yml
+```
+
+Password SSH / sudo (until keys work):
+
+```bash
+ansible-playbook deploy.yml --ask-pass --ask-become-pass
 ```
 
 Optional: let Ansible append `dtoverlay=w1-gpio,gpio=4` when a boot `config.txt` exists (you must **reboot** once):
@@ -143,20 +171,43 @@ Bind by NIC name:
 ansible-playbook deploy.yml -e bacnet_bind_address=eth0
 ```
 
-Older installs may have had **`bacnet-rtd-temp.service`**; the playbook removes it only if that unit file still exists.
-
-### BACnet client tips
-
-- **`analogValue`, 1** ≈ room temperature in **°C** (often mid‑20s indoors).
-- **`analogValue`, 2** is the same sample in **°F** (often high‑70s). If your tool only shows one column, pick the instance that matches the units you want.
-
-### SCP only (no Ansible)
+Skip systemd (files + venv only):
 
 ```bash
-./ansible/scp_files.sh pi@192.168.204.12
+ansible-playbook deploy.yml -e install_systemd_unit=false
 ```
 
-### Manual command on the Pi (typical)
+More detail: `ansible/ANSIBLE-BEGINNER.md`, `ansible/README.md`.
+
+### Cheat sheet — manual on the Pi
+
+Use this when you are SSH’d into the Pi (`ben@192.168.204.12` in the default inventory) or debugging without Ansible. Replace IP/user/paths if yours differ.
+
+**1. Copy app files from your dev machine** (if not using Ansible):
+
+```bash
+# From repo root on your laptop / bensserver:
+scp vibe_code_apps_12/temp_sensor_server.py \
+    vibe_code_apps_12/ds18b20_sensor.py \
+    vibe_code_apps_12/requirements.txt \
+    ben@192.168.204.12:~/vibe_code_apps_12/
+
+# Or helper script:
+./vibe_code_apps_12/ansible/scp_files.sh ben@192.168.204.12
+```
+
+**2. Python venv + dependencies (on the Pi):**
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
+mkdir -p ~/vibe_code_apps_12
+cd ~/vibe_code_apps_12
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+**3. Run in the foreground (no systemd)** — good for first test:
 
 ```bash
 cd ~/vibe_code_apps_12
@@ -164,7 +215,73 @@ cd ~/vibe_code_apps_12
   --name PiTemp \
   --instance 3456788 \
   --address 192.168.204.12/24
+# Optional: --debug   --w1-device 28-xxxxxxxxxxxx
 ```
+
+**4. Install systemd unit by hand** — same idea as the Ansible template:
+
+```bash
+sudo tee /etc/systemd/system/bacnet-ds18b20.service <<'EOF'
+[Unit]
+Description=BACnet DS18B20 temperature server (BACpypes3 / vibe_code_apps_12)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ben
+Group=ben
+WorkingDirectory=/home/ben/vibe_code_apps_12
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ben/vibe_code_apps_12/.venv/bin/python /home/ben/vibe_code_apps_12/temp_sensor_server.py \
+  --name PiTemp \
+  --instance 3456788 \
+  --address 192.168.204.12/24
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+**5. Enable, reload, start / restart** — run after code or unit file changes:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable bacnet-ds18b20
+sudo systemctl restart bacnet-ds18b20
+```
+
+**6. Status, logs, stop:**
+
+```bash
+systemctl status bacnet-ds18b20
+systemctl is-active bacnet-ds18b20
+journalctl -u bacnet-ds18b20 -f
+journalctl -u bacnet-ds18b20 -n 50 --no-pager
+sudo systemctl stop bacnet-ds18b20
+```
+
+**7. 1-Wire / sensor sanity (on the Pi):**
+
+```bash
+ls /sys/bus/w1/devices/
+cat /sys/bus/w1/devices/28-*/w1_slave
+```
+
+**8. After you only changed `.py` files** (copied with `scp` but no Ansible):
+
+```bash
+sudo systemctl restart bacnet-ds18b20
+```
+
+If you edited the `.service` file under `/etc/systemd/system/`, run **`daemon-reload`** before **`restart`**.
+
+### BACnet client tips
+
+- **`analogValue`, 1** ≈ room temperature in **°C** (often mid‑20s indoors).
+- **`analogValue`, 2** is the same sample in **°F** (often high‑70s). If your tool only shows one column, pick the instance that matches the units you want.
 
 ---
 

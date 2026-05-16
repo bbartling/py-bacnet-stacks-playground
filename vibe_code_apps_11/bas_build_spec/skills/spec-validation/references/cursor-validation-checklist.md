@@ -22,7 +22,7 @@ Use when asked to **validate** or **verify** the BAS build. **Do not** modify `b
 - [ ] **Backend logs** — no unhandled tracebacks on cold start window.
 - [ ] **Frontend build** — documented `npm run build` (Codex-owned; Cursor only records result).
 - [ ] **Frontend sweep** — manual or E2E per README; console clean on happy path.
-- [ ] **BACnet vs simulator** — wire off unless lab env + human sign-off.
+- [ ] **BACnet wire** — off unless lab sign-off; rough-in must not headline “simulator-only” (see commissioning-ui-language.md).
 - [ ] **End-to-end data sweep** — documented script or README subsection passes.
 
 ## Divergence

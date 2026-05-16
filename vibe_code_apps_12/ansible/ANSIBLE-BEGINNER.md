@@ -106,11 +106,18 @@ Re-run after fixes; Ansible is **idempotent** for many modules (safe to run agai
 
 ---
 
-## 8. After you change the template or vars
+## 8. After you change code, the template, or vars
 
-Re-run **`deploy.yml`**. If only the unit file changed, Ansible updates **`/etc/systemd/system/bacnet-ds18b20.service`** and the handler runs **`daemon_reload`**; the playbook also **restarts** the service so new **`ExecStart`** options apply.
+Re-run **`deploy.yml`**. The playbook does the same thing you would by hand:
 
-On the Pi manually:
+- **`daemon_reload`** — pick up changes to **`/etc/systemd/system/bacnet-ds18b20.service`**
+- **`restart bacnet-ds18b20`** — load new **`temp_sensor_server.py`** (a running process does not reload Python on its own)
+
+That is normal for deploy playbooks: push files, then **`systemctl daemon-reload`** + **`systemctl restart`**. Ansible’s **`ansible.builtin.systemd`** module runs those as root when **`become: true`** (no need to type **`sudo`** in the playbook).
+
+If you change only app **`.py`** files, a **notify** handler also restarts at the end of the play. Every successful deploy also runs an explicit **restart** task so you do not have to SSH in after copying code.
+
+On the Pi manually (equivalent):
 
 ```bash
 sudo systemctl daemon-reload

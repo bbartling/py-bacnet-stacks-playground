@@ -32,6 +32,7 @@
         dest: "{{ bacnet_app_remote_dir }}/{{ item }}"
         mode: "0644"
       loop: "{{ bacnet_sync_files }}"
+      notify: Restart BACnet DS18B20 service
 
     - name: Install base Python packages (Debian / Raspberry Pi OS)
       ansible.builtin.apt:
@@ -85,7 +86,7 @@
         mode: "0644"
       become: true
       when: install_systemd_unit | default(true) | bool
-      notify: Reload systemd
+      notify: Restart BACnet DS18B20 service
 
     - name: Stat legacy RTD systemd unit (optional migration)
       ansible.builtin.stat:
@@ -103,14 +104,25 @@
         - install_systemd_unit | default(true) | bool
         - legacy_rtd_unit.stat.exists | default(false)
 
-    - name: Enable and start BACnet DS18B20 service
+    - name: Enable BACnet DS18B20 service (unit file on disk)
       ansible.builtin.systemd:
         name: bacnet-ds18b20
         enabled: "{{ enable_and_start_service | default(true) | bool }}"
-        state: "{{ 'started' if enable_and_start_service | default(true) | bool else 'stopped' }}"
         daemon_reload: true
       become: true
       when: install_systemd_unit | default(true) | bool
+
+    # Always restart after a deploy so new Python code is loaded (state: started
+    # alone leaves an already-running process untouched — same as manual restart).
+    - name: Restart BACnet DS18B20 service after deploy
+      ansible.builtin.systemd:
+        name: bacnet-ds18b20
+        state: restarted
+        daemon_reload: true
+      become: true
+      when:
+        - install_systemd_unit | default(true) | bool
+        - enable_and_start_service | default(true) | bool
 
     - name: Wait briefly for the service to settle
       ansible.builtin.pause:
@@ -180,7 +192,13 @@
         - w1_sample.stdout_lines is defined
 
   handlers:
-    - name: Reload systemd
+    - name: Restart BACnet DS18B20 service
       ansible.builtin.systemd:
+        name: bacnet-ds18b20
+        state: restarted
         daemon_reload: true
+        enabled: "{{ enable_and_start_service | default(true) | bool }}"
       become: true
+      when:
+        - install_systemd_unit | default(true) | bool
+        - enable_and_start_service | default(true) | bool

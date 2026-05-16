@@ -49,6 +49,32 @@
       "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_bacnet_lab_verify.sh"
     },
     {
+      "id": "bas-bacnet-auto-commission",
+      "name": "Arm BACnet wire + Who-Is when AUTO_COMMISSION (worker; no Codex)",
+      "enabled": true,
+      "schedule": {
+        "type": "every",
+        "minutes": 5
+      },
+      "service": "bacnet_auto_commission",
+      "style": "worker",
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_bacnet_auto_commission.sh",
+      "note": "Requires BAS_BACNET_AUTO_COMMISSION=true in cron_codex/.env. Uses PHASE_NOTEPAD \u00a7 A/C; enables discovery poll."
+    },
+    {
+      "id": "bas-bacnet-discovery-poll",
+      "name": "BACnet Who-Is poll every 5 min (worker; no Codex)",
+      "enabled": true,
+      "schedule": {
+        "type": "every",
+        "minutes": 5
+      },
+      "service": "bacnet_discovery_poll",
+      "style": "worker",
+      "command": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex/bin/bas_bacnet_discovery_poll.sh",
+      "note": "Enable after bas_bacnet_authorize_wire.sh + .env bind vars. Writes memory/integrations/bacnet_discovery_latest.json; rough-in UI reads it."
+    },
+    {
       "id": "bas-smoke-health",
       "name": "HTTP smoke (worker)",
       "enabled": false,

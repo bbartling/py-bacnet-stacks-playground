@@ -1,1 +1,8 @@
 .ansible_venv/
+
+# AWS IoT Core experiments — certs/keys/zips (see aws_iot_core_test/.gitignore)
+aws_iot_core_test/.env
+aws_iot_core_test/*.pem
+aws_iot_core_test/*.key
+aws_iot_core_test/*.zip
+aws_iot_core_test/certs/

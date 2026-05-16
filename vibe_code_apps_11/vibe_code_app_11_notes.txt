@@ -78,6 +78,22 @@ readonly
 readonly123
 
 
+CR=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/cron_codex
+BAS_BUILD=/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec
 
+$CR/bin/bas_wake_prepare.sh
+$CR/bin/bas_validate_site_agnostic.sh
+$CR/bin/bas_validate_wake_chat_slice.sh
+
+cd /home/ben/bas_app && ./scripts/local_stack.sh stop
+sleep 2
+# If 8000 still stuck:
+# ss -ltnp | grep ':8000'   # see what holds it
+cd /home/ben/bas_app && ./scripts/local_stack.sh start
+sleep 3
+curl -fsS http://127.0.0.1:8000/health
+
+
+tail -40 /tmp/bas_app/backend.log
 
 

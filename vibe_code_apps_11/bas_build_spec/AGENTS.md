@@ -37,7 +37,8 @@ Promotion: after critique, distill durable facts into `MEMORY.md` and domain fil
 ## BACnet lab gate
 
 - Default: **simulator** in `bas_app`
-- On-wire: human sign-off in `memory/integrations/bacnet.md` and explicit checkpoint work only
+- On-wire: human sign-off in `BUILD_CHECKPOINTS.md` § BACnet lab sign-off; bind/devices in **`memory/commissioning/PHASE_NOTEPAD.md`** (per site)
+- **Site vs generic:** `memory/commissioning/README.md` · validate with `cron_codex/bin/bas_validate_site_agnostic.sh`
 
 ## UI references
 

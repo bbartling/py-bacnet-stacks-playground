@@ -10,7 +10,7 @@ Rules apply to every **`bas_build_spec/skills/<folder>/SKILL.md`** and optional 
 | **YAML frontmatter** | `name` + rich `description` (triggers: BACnet, DOAS, VRF, Brick, trend, …). |
 | **Link to repo sources** | `spec.md`, `bacnet_scripts.md`, `graphic.html` — do not paste the whole spec. |
 | **Remote BAS URLs** | Document **`http://<server-lan-ip>:5173/`** (UI) and **`:8000`** for API when using the two-port layout — or one reverse-proxied origin per `bas_app/deploy/Caddyfile.example`. **Never** tell operators to use **`http://localhost:…`** from another PC (`localhost` is always the client machine). |
-| **Real BACnet on wire** | Follow **`bacnet-driver-lifecycle`**: a **human** records sign-off on discovery (instances, addresses, expected object counts) in **`BUILD_CHECKPOINTS.md`** before automation claims a “live BACnet verified” slice or enables driver flags. |
+| **Real BACnet on wire** | Follow **`bacnet-driver-lifecycle`**. **Manual:** human sign-off in **`BUILD_CHECKPOINTS.md`** before wire. **Commissioning head-end:** `BAS_BACNET_AUTO_COMMISSION=true` lets **`bas_bacnet_auto_commission.sh`** arm wire from **`PHASE_NOTEPAD.md`** (disable flag before production handoff). |
 | **Cross-link** | “Related skills” at bottom of each `SKILL.md`. |
 | **Split when long** | Keep `SKILL.md` under ~500 lines; move tables to `references/*.md`. |
 | **Edit in place** | Repeated fixes → update the same skill before splitting a new folder. |
@@ -25,6 +25,7 @@ Rules apply to every **`bas_build_spec/skills/<folder>/SKILL.md`** and optional 
 | Vague `description` | Retrieval fails. |
 | **>1** new or materially expanded skill folder per critique wake | See `bas_wake.sh` task 7. |
 | Secrets in repo | No keys, passwords, or private station IPs. |
+| **Site-specific OT LAN in generic docs** | No job bind/NIC/device IPs in `spec.md`, `skills/`, or wake templates — only in **`PHASE_NOTEPAD.md`**, **`memory/integrations/bacnet.md`**, and generated state. Run **`bas_validate_site_agnostic.sh`**. |
 | **Caddy / nginx / Apache on :80 “for convenience”** | Do **not** install or reconfigure system reverse proxies unless **BUILD_CHECKPOINTS** (or a human) explicitly asks for lab routing — they hijack **`http://<ip>/`** and confuse BAS dial-in. Prefer documented **`5173`/`8000`** or the repo **Caddyfile example** with ops sign-off. |
 | **localhost in runbooks** | Do not describe remote workstation access as `localhost`; use **LAN IP**, **DNS name**, or **`/etc/hosts`** alias (see `web-app-bas` skill). |
 
