@@ -30,22 +30,38 @@ This playbook **`copy`**s files from **your laptop or build server** (next to `d
 
 ## 3. Run the deploy
 
-From **`vibe_code_apps_12/ansible`**:
+From **`vibe_code_apps_12/ansible`** on bensserver (or your laptop with the repo):
+
+### Recommended — password SSH + sudo (Option A)
+
+Use this when `ssh ben@192.168.204.12` asks for a password or `./deploy.sh -v` fails with **Permission denied**:
 
 ```bash
-ansible-playbook deploy.yml
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
+./deploy.sh --ask-pass --ask-become-pass -v
 ```
 
-Verbose:
+- First prompt: **SSH password** for `ben@192.168.204.12`
+- Second prompt: **sudo password** on the Pi (`become`)
+- Needs **`sshpass`** on Linux: `sudo apt install sshpass`
+
+With AWS IoT certs, run once before deploy:
 
 ```bash
-ansible-playbook deploy.yml -v
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./ansible/prepare_aws_iot_certs.sh
+```
+
+### After `ssh-copy-id` — no prompts
+
+```bash
+./deploy.sh -v
 ```
 
 **Dry run** (show what would change, no writes):
 
 ```bash
-ansible-playbook deploy.yml --check
+./deploy.sh --ask-pass --ask-become-pass --check
 ```
 
 ---
@@ -90,8 +106,8 @@ ansible-playbook deploy.yml --limit bacnet_pi
 
 ## 6. SSH and sudo
 
-- **Key-based SSH** is easiest: `ssh-copy-id user@host`, then `ansible-playbook` needs no password.
-- **Password SSH + sudo**: `ansible-playbook deploy.yml --ask-pass --ask-become-pass` (needs **`sshpass`** on Linux for `--ask-pass`).
+- **Password SSH + sudo (bensserver default):** `./deploy.sh --ask-pass --ask-become-pass -v`
+- **Key-based SSH (later):** `ssh-copy-id ben@192.168.204.12`, then `./deploy.sh -v` with no prompts.
 
 ---
 

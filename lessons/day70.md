@@ -1,31 +1,34 @@
-## Day 70 — `DISTINCT`, `ORDER BY`, `LIMIT` (query hygiene)
+## Day 70 — `FILTER` and `BIND` (numbers and computed values)
 
 ### Goal
 
-Make SPARQL results **stable** and **readable**: **`DISTINCT`** removes duplicate variable bindings; **`ORDER BY`** sorts on string or numeric forms; **`LIMIT`** caps rows for dashboards.
+Narrow results with **`FILTER` expressions** and create **computed columns** with **`BIND`**—e.g. only points whose **numeric literal** (if modeled) passes a test. For this course, **`FILTER`** on **IRIs** or **regex on string form** is enough if you did not add `xsd:decimal` literals.
 
 ### Concept
 
 ```sparql
-SELECT DISTINCT ?p
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?p
 WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  ?ahu brick:hasPoint ?p .
+  ?p rdf:type brick:Supply_Air_Temperature_Sensor .
+  FILTER ( STRSTARTS( STR(?p), "https://example.edu/bldg/ahu1" ) )
 }
-ORDER BY ?p
-LIMIT 50
 ```
+
+(`STRSTARTS` availability depends on SPARQL engine; `rdflib` supports much of SPARQL 1.1—if a function fails, fall back to **Python post-filter** on query results for 101.)
 
 ### Why this matters
 
-Large Brick merges return **thousands** of points. UI and notebooks need **paged** queries—same as SQL `LIMIT`.
+**FDD** thresholds on **trend data** live in Pandas in open-fdd; in **ontology land**, you filter **metadata** (“sensors on this AHU only”) before joining to historians.
 
 ### Mini exercises
 
-1. Add `ORDER BY DESC(?p)` if your engine supports `DESC` on IRIs (lexical on `STR(?p)` safer).
-2. Explain duplicate bindings: when can `DISTINCT` hide a **semantic** problem (same IRI, different contexts—advanced) vs a true duplicate?
-3. Pull **first 5** SAT sensors only—query + print.
+1. Write `FILTER ( ?p != <https://example.edu/bldg/ahu1/oat> )` style inequality on two IRIs you know.
+2. `BIND` a boolean `?is_sat` using `CONTAINS` or `regex` on `STR(?p)`—optional if your engine supports those functions.
+3. If `rdflib` rejects a function, filter results in Python with a `for` loop—same outcome.
 
 ### Key takeaway
 
-**DISTINCT/ORDER/LIMIT** are production SPARQL hygiene—pair them with **good variable lists** in `SELECT`.
+**FILTER/BIND = SQL HAVING/SELECT expressions** at the graph-pattern layer—useful for **metadata slicing**.

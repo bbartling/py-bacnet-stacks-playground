@@ -1,0 +1,4 @@
+# Device certs copied here for Ansible deploy only — never commit.
+*
+!.gitignore
+!README.txt

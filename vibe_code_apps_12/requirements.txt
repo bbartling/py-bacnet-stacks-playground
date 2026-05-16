@@ -5,3 +5,6 @@ bacpypes3>=0.0.35
 ifaddr>=0.2.0
 
 # DS18B20 uses kernel 1-Wire (sysfs) — no extra sensor Python packages required.
+
+# AWS IoT Core (optional — temp_sensor_server.py --aws-iot)
+awsiotsdk>=1.22.0

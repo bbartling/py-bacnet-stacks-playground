@@ -129,64 +129,70 @@ Come join the journey as we play around with Python, AI, BACnet, and computer sc
 
 ---
 
-### Optional — Grid & maze hobby (Lua reference: maze-algorithm-sandbox)  
-*Optional CS play after the HVAC algorithms arc; skip straight to Week 7 if you prefer*
+### Week 6b — GL36 Trim & Respond (Python, from working Java/Niagara blocks)  
+*After Day 40 capstone; mirrors [n4-hvac-optimization-blocks](https://github.com/bbartling/n4-hvac-optimization-blocks) GL36 logic in plain Python*
 
-- **Day 41 — Grids & Neighbors:** 2D nested lists, four-connected neighbors, `visited` flags.
-- **Day 42 — Stacks & DFS:** `list` as LIFO; depth-first walk on a tiny character maze.
-- **Day 43 — Maze generation:** Iterative recursive-backtracking carve (stack, random neighbor), Python counterpart to the Lua **MazeGenerator** pattern.
+- **Day 41 — VAV zone requests:** GL36 variable table; cooling + duct static **0–3** request counters (`vavCoolRequests`, `vavPressureRequests`).
+- **Day 42 — AHU duct static T&R:** Fan gating, startup delay **Td**, trim/respond on summed pressure requests **R**.
+- **Day 43 — AHU SAT T&R:** `tMax` trim/respond + OAT interpolation curve for discharge air temperature.
+- **Day 44 — Chiller plant enable:** AHU CHW valve latches, min ON/OFF, `chillerEnableCommand`.
+- **Day 45 — Central plant AHU request counter:** SAT error ladders → cooling/heating **0–3** for plant resets.
+- **Day 46 — HWST Trim & Respond:** Hot water supply reset from aggregated heating requests.
+- **Day 47 — CHW Trim & Respond:** Single **0–100%** loop → DP reset (0–50%) then CHWST reset (50–100%).
+
+*Optional hobby (not in daily path): grid/maze CS play with Lua **maze-algorithm-sandbox** — same stack/DFS ideas, different domain.*
 
 ---
 
 ### Week 7 — Python Bridge for RDF (Smart Buildings)  
 *Only structures needed later: identity, nesting, uniqueness, tiny “graphs”*
 
-- **Day 44 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
-- **Day 45 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
-- **Day 46 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
-- **Day 47 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
-- **Day 48 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
-- **Day 49 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
-- **Day 50 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
+- **Day 48 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
+- **Day 49 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
+- **Day 50 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
+- **Day 51 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
+- **Day 52 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
+- **Day 53 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
+- **Day 54 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
 
 ---
 
 ### Week 8 — RDF & Turtle (Theory + `rdflib`)  
 *Triple model, syntax, loading graphs in Python*
 
-- **Day 51 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
-- **Day 52 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
-- **Day 53 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
-- **Day 54 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
-- **Day 55 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
-- **Day 56 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
-- **Day 57 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
+- **Day 55 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
+- **Day 56 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
+- **Day 57 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
+- **Day 58 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
+- **Day 59 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
+- **Day 60 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
+- **Day 61 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
 
 ---
 
 ### Week 9 — Brick Ontology on RDF  
 *Classes and relationships for equipment and points*
 
-- **Day 58 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
-- **Day 59 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
-- **Day 60 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
-- **Day 61 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
-- **Day 62 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
-- **Day 63 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
+- **Day 62 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
+- **Day 63 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
+- **Day 64 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
+- **Day 65 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
+- **Day 66 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
+- **Day 67 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
 
 ---
 
 ### Week 10 — SPARQL for Brick Graphs  
 *Patterns, filters, optional data, capstone query*
 
-- **Day 64 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
-- **Day 65 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
-- **Day 66 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
-- **Day 67 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
-- **Day 68 — `UNION`:** Alternative patterns (this OR that equipment layout).
-- **Day 69 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
-- **Day 70 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
-- **Day 71 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
+- **Day 68 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
+- **Day 69 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
+- **Day 70 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
+- **Day 71 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
+- **Day 72 — `UNION`:** Alternative patterns (this OR that equipment layout).
+- **Day 73 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
+- **Day 74 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
+- **Day 75 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
 
 ---
 

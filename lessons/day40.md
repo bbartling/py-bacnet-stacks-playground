@@ -68,4 +68,4 @@ Earlier versions of Days **35–40** included a weather BACnet final project, mi
 
 ### Key takeaway
 
-**Algorithms + physics-lite models + Boolean FDD** form a coherent mini-course: you can explain, test, and ship small Python tools before adopting heavier frameworks. **Optional Days 41–43** (grid, stack, maze carve) are pure hobby glue to **maze-algorithm-sandbox**; **Day 44** starts the RDF/Brick track whether or not you did them.
+**Algorithms + physics-lite models + Boolean FDD** form a coherent mini-course: you can explain, test, and ship small Python tools before adopting heavier frameworks. **Days 41–47** apply the same discipline to **ASHRAE Guideline 36 Trim & Respond** (VAV → AHU → central plant) in Python, ported from the working Java Niagara blocks. **Day 48** starts the RDF/Brick track.

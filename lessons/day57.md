@@ -1,31 +1,27 @@
-## Day 57 — Merging graphs and deduplicating triples
+## Day 57 — Properties: domain and range (intuition)
 
 ### Goal
 
-Parse **two** Turtle snippets into `g1` and `g2`, **`g1 += g2`** (or `graph1 += graph2` in rdflib), then reason about **duplicates**. Practice converting to a **Python `set`** of **frozen** triple representations only if hashable—`rdflib` terms are not always trivially hashable in older patterns, so use: **“add all triples from g2 into g1 and trust rdflib”** + **count** before/after.
+At **documentation level**, understand **`rdfs:domain`** and **`rdfs:range`**: “when you see `p` used, subject is expected to be a *kind of* D; object is expected to be a *kind of* R.” You will not prove entailment—just read Brick/RDFS diagrams and Turtle snippets.
 
 ### Concept
 
-```python
-from rdflib import Graph
+Example pattern (illustrative):
 
-g_merged = Graph()
-g_merged.parse(data=ttl_site, format="turtle")
-g_merged.parse(data=ttl_vendor_addon, format="turtle")
-```
+- Predicate `brick:hasPoint` might be documented with domain **Equipment** and range **Point** (exact Brick RDFS is authoritative—treat lesson as pattern).
 
-If the same triple appears twice, RDF set semantics treat it as one **edge**. `rdflib` `Graph` is **like a set of triples** for addition.
+In **Python validation**, you can fake a tiny checker: if `p == HAS_POINT` and `subj` not in `known_equipment_ids`, append a **warning string** to a list.
 
 ### Why this matters
 
-**Site model + vendor asset pack + FDD ontology slice** = merge in memory or store in triplestore. Conflicts are **same subject/predicate, different object**—resolution is policy, not syntax.
+When generating Turtle from BACnet, **domain/range docs** tell you whether you attached a sensor to a **space** vs **equipment** incorrectly.
 
 ### Mini exercises
 
-1. Merge a graph that asserts `ex:ahu1 brick:hasPoint ex:p1` with another that asserts the same triple—did `len` change?
-2. Merge graphs that **conflict** on `ex:ahu1 ex:commissionedOn` object—list both objects after merge (rdflib keeps both unless you remove—observe behavior).
-3. Write English **policy** rules for resolving commissioning date conflicts (no code).
+1. Read one Brick **relationship** definition in published Turtle/OWL (browser) and copy domain/range English gloss into your notes.
+2. Write `validate_has_point(triples)` that warns if the same **subject** has two `hasPoint` edges to objects with **different** `rdf:type` Point classes (toy rule).
+3. Why is **range** documentation weaker than a SQL `FOREIGN KEY` in practice?
 
 ### Key takeaway
 
-**Merge = union of assertions.** Duplicates vanish; **conflicts** need human or rule-based resolution outside raw RDF.
+**RDFS domain/range = soft schema hints** for humans and some reasoners. Your FDD + analytics code may still need explicit QA.

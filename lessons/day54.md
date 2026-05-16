@@ -1,34 +1,34 @@
-## Day 54 — Reading Turtle: `.` `;` `,` and `@prefix`
+## Day 54 — From flat rows to nested equipment records
 
 ### Goal
 
-Read **Turtle** (Terse RDF Triple Language) well enough to **hand-debug** small Brick snippets: **period** ends a statement; **semicolon** repeats subject; **comma** repeats subject+predicate.
+**Bridge** BACnet/CSV thinking to graph prep: given **rows** as `list` of `dict` (keys like `device`, `point_name`, `brick_class`), build a **nested dict**: `equipment_id -> { "class": ..., "points": [ ... ] }` using only loops—same grouping you would need before emitting Turtle.
 
 ### Concept
 
-```turtle
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+Many exports are **relational**. Brick wants **things and links**. Grouping rows **by equipment** is an algorithm you already know (counting pattern with dict of lists).
 
-ex:ahu1 a brick:Air_Handler_Unit ;
-    brick:hasPoint ex:ahu1/sat .
-
-ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
+```python
+def group_points_by_equipment(rows):
+    out = {}
+    for row in rows:
+        eq = row["equipment_id"]
+        if eq not in out:
+            out[eq] = []
+        out[eq].append(row)
+    return out
 ```
-
-Read line 5–6 as **two** triples sharing `ex:ahu1`.
 
 ### Why this matters
 
-Brick distribution, **GraphDB**, **Blazegraph**, **Oxigraph** dumps, and **git** diffs of building models are mostly Turtle or TriG. Reading beats guessing.
+Real pipelines **normalize** tabular BACnet discovery into **entities** before `owl:sameAs` / Brick typing. This step is pure Python **data structuring**—no RDF parser required.
 
 ### Mini exercises
 
-1. Rewrite the snippet above as an **explicit** list of `(s,p,o)` tuples (no `;` or `,`).
-2. What triple does `a` expand to?
-3. Find one **syntax error** in a deliberately broken Turtle snippet (instructor-provided) by eye.
+1. Extend grouping so each equipment node also stores `row["equip_type"]` once (first-seen wins).
+2. Emit a **sorted** list of equipment IDs for stable Turtle output (`sorted(out.keys())`).
+3. List one **relationship** you cannot represent in one grouped dict without adding a second pass (e.g. `feeds` between two equipment IDs).
 
 ### Key takeaway
 
-**Turtle sugar = shared subject/predicate.** Parsing is a machine job next lesson; **reading** is your job today.
+**Nested dicts + sorted keys** = human-readable, diff-friendly RDF generation later. You are now “shaping” data the way ontology tooling expects.

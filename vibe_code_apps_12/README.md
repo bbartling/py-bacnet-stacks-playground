@@ -78,16 +78,18 @@ The Python reader parses the `t=` millidegree field from that file.
 
 ```mermaid
 flowchart TB
-    S["Sleep: --sample-interval"] --> R["read_celsius worker thread"]
+    S["Sleep: --sample-interval (default 2s)"] --> R["read_celsius worker thread"]
     R --> W1["Read /sys/.../w1_slave"]
     W1 --> P["Parse t= (milli °C)"]
     P --> C["analogValue,1.presentValue (°C)"]
     P --> F["analogValue,2.presentValue (°F)"]
     C --> BV["BACpypes3 UDP (--address NIC/IP)"]
     F --> BV
+    P --> M["AWS IoT MQTT (--aws-interval, default 60s)"]
 ```
 
-- **`--sample-interval`**: seconds between BACnet updates (each pass re-reads `w1_slave`).
+- **`--sample-interval`**: seconds between sensor reads and BACnet AV updates (default **2**).
+- **`--aws-interval`**: seconds between MQTT publishes when **`--aws-iot`** is enabled (default **60**).
 
 This program **only** talks to a **DS18B20** via kernel 1-Wire (`w1_slave`). There is no simulation mode.
 
@@ -145,39 +147,31 @@ Yes — the playbook sets up **systemd** end to end, not only Python files:
 
 The unit file is rendered from `ansible/templates/bacnet-ds18b20.service.j2` (user, paths, BACnet name/instance/bind address come from inventory + `group_vars`).
 
-### Ansible — quick commands
+### Ansible — deploy from bensserver (recommended)
+
+Stage AWS certs once, then deploy with password prompts (Option A):
 
 ```bash
-sudo apt install ansible-core
-cd vibe_code_apps_12/ansible
-ansible-playbook deploy.yml
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./ansible/prepare_aws_iot_certs.sh
+
+cd ansible
+./deploy.sh --ask-pass --ask-become-pass -v
 ```
 
-Password SSH / sudo (until keys work):
+Prompts: **SSH password** for `ben@192.168.204.12`, then **sudo password** on the Pi. Install **`sshpass`** on bensserver if `--ask-pass` fails (`sudo apt install sshpass`).
+
+After **`ssh-copy-id ben@192.168.204.12`**, you can use `./deploy.sh -v` without prompts.
+
+Optional overrides (still use `--ask-pass --ask-become-pass` if needed):
 
 ```bash
-ansible-playbook deploy.yml --ask-pass --ask-become-pass
+./deploy.sh --ask-pass --ask-become-pass -v -e enable_onewire_overlay=true   # 1-Wire in config.txt + reboot once
+./deploy.sh --ask-pass --ask-become-pass -v -e bacnet_bind_address=eth0
+./deploy.sh --ask-pass --ask-become-pass -v -e enable_aws_iot=false            # BACnet only
 ```
 
-Optional: let Ansible append `dtoverlay=w1-gpio,gpio=4` when a boot `config.txt` exists (you must **reboot** once):
-
-```bash
-ansible-playbook deploy.yml -e enable_onewire_overlay=true
-```
-
-Bind by NIC name:
-
-```bash
-ansible-playbook deploy.yml -e bacnet_bind_address=eth0
-```
-
-Skip systemd (files + venv only):
-
-```bash
-ansible-playbook deploy.yml -e install_systemd_unit=false
-```
-
-More detail: `ansible/ANSIBLE-BEGINNER.md`, `ansible/README.md`.
+More detail: `ansible/README.md`, `ansible/ANSIBLE-BEGINNER.md`.
 
 ### Cheat sheet — manual on the Pi
 

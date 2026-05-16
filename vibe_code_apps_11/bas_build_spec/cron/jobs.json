@@ -5,11 +5,11 @@
   "jobs": [
     {
       "id": "bas-wake-hourly",
-      "name": "Incremental Codex build wake (every 3h, UTC)",
+      "name": "Incremental Codex build wake (every 2h, UTC)",
       "enabled": true,
       "schedule": {
         "type": "cron",
-        "expr": "0 */3 * * *"
+        "expr": "0 */2 * * *"
       },
       "service": "bas_wake",
       "style": "isolated",

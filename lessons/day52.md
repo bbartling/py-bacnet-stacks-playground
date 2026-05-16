@@ -1,31 +1,44 @@
-## Day 52 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
+## Day 52 — Literals: lexical value + datatype IRI
 
 ### Goal
 
-Read **instance typing**: `ex:ahu1 rdf:type brick:Air_Handler_Unit`. Read **taxonomy**: `brick:VAV rdfs:subClassOf brick:Terminal_Unit` (examples illustrative—verify current Brick class names in official Brick for production).
+Model **RDF literals** in Python without a full RDF library: store **`(lexical_string, datatype_iri_or_none)`** as the **object** side when the object is not a resource URI. Compare to **plain string object** mistakes ( `"72.5"` vs float semantics).
 
 ### Concept
 
-- **`rdf:type`**: “this individual is a member of that class.”
-- **`rdfs:subClassOf`**: “every A is a B” for reasoning; not the same as `rdf:type`.
+RDF 1.1 literals have:
 
-In Python triple lists, these are just **more rows** with well-known predicate IRIs:
+- **Lexical form** (characters), e.g. `"22.1"`.
+- **Datatype** IRI, often `http://www.w3.org/2001/XMLSchema#decimal` for numbers.
+
+In tiny exercises you may keep `object` as a single string `"22.1^^http://www.w3.org/2001/XMLSchema#decimal"` with a **documented convention**, or use a **tuple** as above—pick one style for your own code and stay consistent.
+
+### How to use it
 
 ```python
-RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-RDFS_SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+XSD_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal"
+
+
+def literal_decimal(lexical):
+    return (lexical, XSD_DECIMAL)
+
+
+def parse_if_decimal(lit):
+    if isinstance(lit, tuple) and lit[1] == XSD_DECIMAL:
+        return float(lit[0])
+    return None
 ```
 
 ### Why this matters
 
-SPARQL `FILTER` and **RDFS inference** (in engines that support it) use these predicates. Even without a reasoner, **you** manually assert enough `rdf:type` rows for queries to work.
+Brick + timeseries integrations attach **numeric readings** to **sensor resources**; the *reading* is often a literal with a datatype, while the *sensor* is a URI. Mixing them up causes subtle export bugs.
 
 ### Mini exercises
 
-1. Add triples: `vav101` `rdf:type` `brick:VAV` (use full IRIs you control).
-2. Explain: if `brick:VAV` is subclass of `brick:Terminal_Unit`, does your data **need** both type triples? When might you add both anyway?
-3. Find Brick’s **namespace** and one **AHU** class IRI from official docs; paste into a comment in a `.py` file.
+1. Add a triple: `ex:ahu1/sat` has **present value** literal `"55.2"` as `xsd:decimal` using your tuple convention.
+2. Write `is_resource_object(obj)` returning `True` if `obj` is a `str` starting with `http` and **not** your literal tuple form.
+3. Why is storing a temperature as a bare Python `float` in a triple list **not** the same as an RDF typed literal (hint: JSON vs RDF graph interchange)?
 
 ### Key takeaway
 
-**Taxonomies = extra triples** using `rdfs:subClassOf`. **Instances** use `rdf:type`. SPARQL will ask both kinds of questions.
+**Literals carry type.** RDF cares; Python `float` is only your runtime convenience after you **parse** the lexical form.

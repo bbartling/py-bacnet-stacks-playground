@@ -9,7 +9,7 @@ Prerequisites (same as start.sh):
 Policy on this thing allows client_id basicPubSub and topic sdk/test/python.
 
 Example (use the same Python where you ran start.sh / awsiot is installed):
-  ../env/bin/python publish_fake_temp.py --count 10
+  ../env/bin/python publish_fake_temp.py --count 5 --interval 2 
   ../env/bin/python publish_fake_temp.py --count 0 --interval 2   # until Ctrl+C
 
 AWS console: MQTT test client → Subscribe to sdk/test/python

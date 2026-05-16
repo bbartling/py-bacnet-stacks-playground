@@ -1,31 +1,43 @@
-## Day 69 — `ASK` (yes/no commissioning checks)
+## Day 69 — `SELECT` and basic `WHERE` patterns (`rdflib`)
 
 ### Goal
 
-Use **`ASK WHERE { ... }`** to return **true/false**: “Does this graph contain **any** match?” Example: “Is there **any** AHU without a SAT point?” (pattern requires careful negation—introduce **`NOT EXISTS`** lightly or do two-step: count in SELECT for 101).
+Run your **first** SPARQL `SELECT` against the **Day 65** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
 
 ### Concept
 
-Simple `ASK`:
+```python
+from rdflib import Graph
 
-```sparql
-ASK {
-  <https://example.edu/bldg/ahu1> rdf:type brick:Air_Handler_Unit .
+g = Graph()
+g.parse("my_ahu.ttl", format="turtle")
+
+q = """
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT ?ahu
+WHERE {
+  ?ahu rdf:type brick:Air_Handler_Unit .
 }
+"""
+
+for row in g.query(q):
+    print(row[0])
 ```
 
-In `rdflib`, **`ASK`** results expose a boolean (exact attribute varies by version—see `rdflib` SPARQL result docs). If that is fiddly in your environment, use **`SELECT (COUNT(?x) AS ?n)`** and check `n > 0` in Python instead—the logic is the same for commissioning checks.
+Variables start with `?`. Each `WHERE` line is a **triple pattern**; shared `?ahu` joins patterns.
 
 ### Why this matters
 
-**CI gates:** fail build if **must-have** relationships are missing—`ASK` / `COUNT` queries are typical.
+Same query runs on a **file** or a **Blazegraph** endpoint—only the **connection** changes.
 
 ### Mini exercises
 
-1. Write `ASK` for “graph contains at least one `brick:Supply_Air_Temperature_Sensor`.”
-2. Convert the same check to `SELECT (COUNT(?s) AS ?n)` and treat `n>0` in Python.
-3. Name one **ASK** query you would run before attaching a historian column map.
+1. Extend the query to also return `?label` if you added `rdfs:label` triples.
+2. Return pairs `(?ahu, ?p)` where `?ahu brick:hasPoint ?p`.
+3. Explain: why must **prefixes** in SPARQL match the Turtle file’s IRIs?
 
 ### Key takeaway
 
-**Boolean graph questions** power automation. `ASK` is the SPARQL-native spelling.
+**One graph, many queries.** `SELECT` lists which columns (variables) you want bound.

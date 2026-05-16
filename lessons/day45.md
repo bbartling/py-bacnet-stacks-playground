@@ -1,40 +1,99 @@
-## Day 45 — URIs and IRIs as identity strings
+## Day 45 — GL36 central plant: AHU heating & cooling request counter
 
 ### Goal
 
-Treat a **URI** / **IRI** as an **immutable identifier string**—not a file path you `open()`, though it may look like a URL. Distinguish **resource** (thing in the world or model) from **literal** (string, number, date encoded as lexical value).
+Implement the **central plant AHU request counter** that turns **SAT error** and **valve saturation** into integer **0–3** levels for **cooling** and **heating**, used upstream of plant **Trim & Respond** loops. Matches the Java block with **parallel timers** (critical band also advances failing timer).
 
-### Concept
+### Concept — error definitions
 
-Examples (illustrative only—your site would use your own base):
+| Mode | Error (°F) |
+|------|------------|
+| Cooling | `SAT − SAT_setpoint` (too warm) |
+| Heating | `SAT_setpoint − SAT` (too cold) |
 
-- `https://example.edu/bldg/ahu1` — might identify an AHU instance.
-- `https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor` — a **class** IRI from the Brick namespace.
+| Level | Meaning | Trigger (summary) |
+|------:|---------|-------------------|
+| **3** | Critical | error ≥ **10°F** for **10 min** |
+| **2** | Failing | error ≥ **5°F** for **5 min** |
+| **1** | Saturated | valve latched **≥ 95%** until **< 85%** |
+| **0** | Satisfied | none |
 
-In Python you store these as **`str`**. Equality is string equality. **Normalization** (trailing slash, scheme, encoding) matters when merging data from two vendors.
+**Fan OFF** → reset timers, force **0** requests.
 
-### How to use it
+### Python port
 
 ```python
-def same_resource(uri_a, uri_b):
-    return uri_a.strip() == uri_b.strip()
+class AhuPlantRequestCounter:
+    CRIT = 10.0
+    FAIL = 5.0
+    T_CRIT = 600
+    T_FAIL = 300
+    V_ON = 95.0
+    V_OFF = 85.0
 
+    def __init__(self):
+        self.cool_crit = self.cool_fail = 0.0
+        self.heat_crit = self.heat_fail = 0.0
+        self.cool_latch = self.heat_latch = False
 
-AHU_A = "https://example.edu/bldg/ahu1"
-AHU_B = "https://example.edu/bldg/ahu1 "
-print(same_resource(AHU_A, AHU_B))  # True after strip
+    def tick(self, step_sec, fan_on, sat, sat_sp, cool_vlv=None, heat_vlv=None):
+        if not fan_on:
+            self.cool_crit = self.cool_fail = 0.0
+            self.heat_crit = self.heat_fail = 0.0
+            self.cool_latch = self.heat_latch = False
+            return 0, 0, "fan OFF"
+
+        cool_req, cool_trace = self._mode(
+            sat - sat_sp, cool_vlv,
+            self.cool_crit, self.cool_fail, self.cool_latch,
+        )
+        self.cool_crit, self.cool_fail, self.cool_latch = cool_trace[1:]
+
+        heat_req, heat_trace = self._mode(
+            sat_sp - sat, heat_vlv,
+            self.heat_crit, self.heat_fail, self.heat_latch,
+        )
+        self.heat_crit, self.heat_fail, self.heat_latch = heat_trace[1:]
+
+        return cool_req, heat_req, f"cool={cool_req} heat={heat_req}"
+
+    def _mode(self, err, vlv, t_crit, t_fail, latch):
+        if vlv is None:
+            return 0, (0.0, 0.0, latch)
+        if err >= self.CRIT:
+            t_crit += 10
+            t_fail += 10
+        elif err >= self.FAIL:
+            t_crit = 0.0
+            t_fail += 10
+        else:
+            t_crit = t_fail = 0.0
+        if vlv >= self.V_ON:
+            latch = True
+        elif vlv < self.V_OFF:
+            latch = False
+        if t_crit >= self.T_CRIT:
+            return 3, (t_crit, t_fail, latch)
+        if t_fail >= self.T_FAIL:
+            return 2, (t_crit, t_fail, latch)
+        if latch:
+            return 1, (t_crit, t_fail, latch)
+        return 0, (t_crit, t_fail, latch)
 ```
 
-### Why this matters
+*(In your full lesson file, pass `step_sec` into timer increments instead of hard-coded 10.)*
 
-RDF **never** merges rows on “column name”; it merges on **same URI** (or explicit `sameAs`). BACnet instance numbers are local; URIs are how **BMS + analytics + FDD** agree on *the same* asset across systems.
+### Micro exercises
 
-### Mini exercises
+1. Simulate **SAT** stepping from **0°F error → 6°F → 11°F** and log request level vs time.
+2. Why do **parallel timers** help when error drops from critical to failing?
+3. Sum **three AHUs** with cooling requests `[1,3,2]` — what **`R`** do you feed **Day 47**?
 
-1. Given two lists of URI strings, write a loop to print URIs that appear in **both** (set intersection pattern—Day 48 preview, or double loop now).
-2. Why is `http://` vs `https://` a problem if two sources mint “the same” equipment differently?
-3. Look up **Brick’s published namespace** string (read-only web search or Brick docs) and write it in a variable `BRICK_NS`.
+### See also
+
+- **Day 46** — **hot water** T&R uses summed **heating** requests.
+- **Day 47** — **chilled water** T&R uses summed **cooling** requests.
 
 ### Key takeaway
 
-**IRIs are names.** Python holds them as strings; RDF tools resolve prefixes and compare identity with graph rules you will load later.
+Plant resets do not read room temps directly—they read **how hard each AHU is working** via a small integer **request ladder**.

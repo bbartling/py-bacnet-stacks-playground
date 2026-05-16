@@ -1,44 +1,27 @@
-## Day 48 — Literals: lexical value + datatype IRI
+## Day 48 — Buildings as graphs, not only tables
 
 ### Goal
 
-Model **RDF literals** in Python without a full RDF library: store **`(lexical_string, datatype_iri_or_none)`** as the **object** side when the object is not a resource URI. Compare to **plain string object** mistakes ( `"72.5"` vs float semantics).
+See why **smart-building digital twins** and **ontology pipelines** (Brick, Haystack+TTL, 223P) use **graphs**: things (equipment, spaces, sensors) as **nodes**, relationships as **edges**. Tables (CSV, SQL rows) are still useful—graphs add **mergeable, global identity** for data integration.
 
 ### Concept
 
-RDF 1.1 literals have:
+If you tried the **optional maze block (Days 41–43)**, you already practiced **local adjacency** on a grid (four neighbors, visited flags). **Brick graphs** are the same *idea* at a different scale: named things and typed links instead of `(row, col)` and open walls.
 
-- **Lexical form** (characters), e.g. `"22.1"`.
-- **Datatype** IRI, often `http://www.w3.org/2001/XMLSchema#decimal` for numbers.
+A **graph** here means: **vertices** (things) and **edges** (relationships with a direction and a label). A BACnet device list is often a **table**. A Brick model says: *this AHU* **hasPoint** *that SAT sensor* **feeds** *that VAV*—relationships matter as much as columns.
 
-In tiny exercises you may keep `object` as a single string `"22.1^^http://www.w3.org/2001/XMLSchema#decimal"` with a **documented convention**, or use a **tuple** as above—pick one style for your own code and stay consistent.
-
-### How to use it
-
-```python
-XSD_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal"
-
-
-def literal_decimal(lexical):
-    return (lexical, XSD_DECIMAL)
-
-
-def parse_if_decimal(lit):
-    if isinstance(lit, tuple) and lit[1] == XSD_DECIMAL:
-        return float(lit[0])
-    return None
-```
+You will not implement Dijkstra or max-flow. You will learn to **hold graph-shaped data** in Python using only structures you already know (lists, dicts, tuples, strings).
 
 ### Why this matters
 
-Brick + timeseries integrations attach **numeric readings** to **sensor resources**; the *reading* is often a literal with a datatype, while the *sensor* is a URI. Mixing them up causes subtle export bugs.
+Tools like **open-fdd** column maps, **Brick** SPARQL endpoints, and **AFDD** graph workshops all assume you are comfortable reading **subject–predicate–object** statements. This week builds that comfort from Python outward.
 
 ### Mini exercises
 
-1. Add a triple: `ex:ahu1/sat` has **present value** literal `"55.2"` as `xsd:decimal` using your tuple convention.
-2. Write `is_resource_object(obj)` returning `True` if `obj` is a `str` starting with `http` and **not** your literal tuple form.
-3. Why is storing a temperature as a bare Python `float` in a triple list **not** the same as an RDF typed literal (hint: JSON vs RDF graph interchange)?
+1. List three relationships in a real AHU (physical or controls) that are awkward to store in **one** flat CSV row without duplication.
+2. Draw (on paper) four boxes: `AHU`, `SAT sensor`, `VAV`, `Zone`. Draw arrows labeled `hasPoint`, `feeds`, `serves`.
+3. In one sentence: what does **global identity** (a URI) buy you when merging two vendor exports?
 
 ### Key takeaway
 
-**Literals carry type.** RDF cares; Python `float` is only your runtime convenience after you **parse** the lexical form.
+**RDF** is a *data model* for graphs. **Brick** is an **ontology** (vocabulary + expectations) on top of RDF for buildings. The next days give you Python shapes that mirror RDF without skipping your foundations.

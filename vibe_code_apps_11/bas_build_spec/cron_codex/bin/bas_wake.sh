@@ -200,6 +200,7 @@ Rules:
 - **Commissioning chat:** use ${chat_slice} for operator dumps since the previous wake; ${phase_notepad} for structured site context. Do not assume the newest chat line is the only important one.
 - Do ONE small, reviewable slice toward the ordered "Next for mini" items in BUILD_CHECKPOINTS.md (or spec if empty).
 - Prefer repo under CODEX_CWD=${CODEX_CWD}. If BAS_BACNET_AUTO_COMMISSION=true, wire/Who-Is is armed by bas_bacnet_auto_commission.sh before this mini — fix poll/bind failures; do not re-gate unless waiting_human.
+- **Operator commissioning (required when in chat slice):** implement requests in rough_in_chat_since_last_wake.md — expand /rough-in/ **device tree** (labels, points, online/stale), edit **bacnet_scripts_example/** and workers, and **bas_build_spec/cron/jobs.json** (enable jobs, change every/cron intervals). Codex MAY modify all cron tasks; document changes in BUILD_CHECKPOINTS Done recently.
 - Any frontend or static HTML/CSS you add must follow the **dark palette and theme** of graphic.html (CSS variables / card chrome / accent semantics), not a unrelated light theme.
 - **Live stack:** after changes that affect the running web API or SPA, ensure dev/proc scripts still bring the app up bound to **0.0.0.0** (all interfaces) so a human can hit it from another machine on the LAN/VPN immediately; document the URL/port in the app README. Restart containers or dev servers when required so the latest code is what is listening.
 - If you change behavior, run or add the narrowest tests you can.

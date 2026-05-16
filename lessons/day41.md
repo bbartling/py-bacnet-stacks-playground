@@ -1,65 +1,160 @@
-## Day 41 — Grids, neighbors, and “visited” (optional hobby; maze thinking)
+## Day 41 — GL36 Trim & Respond vocabulary + VAV zone requests (0–3)
 
 ### Goal
 
-Treat a **2D layout** as **nested lists** (row index, then column index). List the **four neighbors** of a cell with **bounds checks**. Track **which cells you have already seen** with a parallel grid of booleans—same pattern as marking **visited** when carving or walking a maze.
+Learn **ASHRAE Guideline 36 (GL36) Trim & Respond** naming (`SP₀`, `R`, `SPtrim`, `SPres`, …) and implement a **VAV box zone request generator** in plain Python: integer outputs **0–3** for **cooling SAT requests** and **duct static pressure requests**, matching the Niagara/Java logic in the [n4-hvac-optimization-blocks](https://github.com/bbartling/n4-hvac-optimization-blocks) repo.
 
-This day is **optional hobby** CS: it warms you up for **Day 42–43** (stack + maze generation). It also previews the idea that a **floor plan** or **zoning grid** can be stored as a matrix, even though BACnet data is usually **not** a perfect rectangle.
+### Concept — Table 5.1.14.3 variables
 
-### Concept
+| Variable | Meaning |
+|----------|---------|
+| **SP₀** | Initial setpoint before reset |
+| **SPmin / SPmax** | Clamp limits |
+| **Td** | Startup delay |
+| **T** | Trim/respond interval |
+| **I** | Ignored requests (often **0** for critical zones) |
+| **R** | Sum of zone requests (fed to AHU reset) |
+| **SPtrim** | Trim step (reduce load when few requests) |
+| **SPres** | Respond step per effective request |
+| **SPres-max** | Cap on one respond move |
 
-- **Grid:** `grid[r][c]` is one cell. Common convention: `r` in `0 .. height-1`, `c` in `0 .. width-1`.
-- **Four-connected neighbors:** up, down, left, right—each offset by one in a single axis. Skip neighbors that would fall **outside** the grid.
-- **Visited:** a second structure `seen[r][c]` (booleans) or reuse a simple rule (“only count cells with value `0`”) so you do not double-count.
+At the **VAV**, you do not trim a plant setpoint yet—you **count how hard the zone is working** and export **`vavCoolRequests`** and **`vavPressureRequests`** (each **0–3**).
 
-Example: count how many cells hold the character `"."` in a small list-of-strings “map” (each string is one row).
+### Cooling requests (temperature ladder)
+
+After a **1-minute suppression** window from start:
+
+- **3** if zone temp ≥ setpoint + **3 °C** (or +**5 °F** imperial) for **2 minutes**
+- **2** if zone temp ≥ setpoint + **2 °C** (or +**3 °F**) for **2 minutes**
+- **1** if cooling loop (zone demand) **> 95%** until it drops **< 85%** (hysteresis)
+- **0** otherwise
+
+### Pressure requests (damper + flow ladder)
+
+- **3** if flow **< 50%** of setpoint **and** damper **≥ 95%** for **1 minute**
+- **2** if flow **< 70%** of setpoint **and** damper **≥ 95%** for **1 minute**
+- **1** if damper **≥ 95%** until damper **< 85%**
+- **0** otherwise
+
+Execute every **10 s** (same as a Niagara `Clock.schedule` tick).
+
+### Python port (stateful class)
 
 ```python
-def count_open_cells(rows):
-    n = 0
-    for r in range(len(rows)):
-        row = rows[r]
-        for c in range(len(row)):
-            if row[c] == ".":
-                n = n + 1
-    return n
+def clamp_int(v, lo=0, hi=3):
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
+    return v
 
 
-lab_map = ["#.#", ".#.", "..."]
-print(count_open_cells(lab_map))
+def is_valid(x, lo, hi):
+    return lo <= x <= hi
+
+
+class Gl36VavRequestCounter:
+  EXEC_SEC = 10
+
+  def __init__(self, use_imperial=False):
+    self.use_imperial = use_imperial
+    self.press_high_t = 0.0
+    self.press_med_t = 0.0
+    self.last_press_req = 0
+    self.temp_high_t = 0.0
+    self.temp_med_t = 0.0
+    self.temp_suppress_t = 0.0
+    self.last_temp_req = 0
+
+  def tick(self, zone_temp, zone_sp, zone_demand_pct,
+           vav_flow, vav_flow_sp, damper_pct):
+    self.temp_suppress_t = min(self.temp_suppress_t + self.EXEC_SEC, 60)
+
+    press_req = self._pressure_req(vav_flow, vav_flow_sp, damper_pct)
+    cool_req = self._temp_req(zone_temp, zone_sp, zone_demand_pct)
+
+    self.last_press_req = press_req
+    self.last_temp_req = cool_req
+    return clamp_int(cool_req), clamp_int(press_req)
+
+  def _pressure_req(self, flow, sp, damper):
+    if not (is_valid(damper, -10, 110) and is_valid(flow, -10, 1e5) and is_valid(sp, -10, 1e5)):
+      self.press_high_t = self.press_med_t = 0.0
+      return 0
+    if sp <= 0:
+      return 0
+    ratio = flow / sp
+    if ratio < 0.50 and damper >= 95.0:
+      self.press_high_t += self.EXEC_SEC
+    else:
+      self.press_high_t = 0.0
+    if self.press_high_t >= 60:
+      self.press_med_t = 0.0
+      return 3
+    if ratio < 0.70 and damper >= 95.0:
+      self.press_med_t += self.EXEC_SEC
+    else:
+      self.press_med_t = 0.0
+    if self.press_med_t >= 60:
+      return 2
+    if damper >= 95.0:
+      return 1
+    if self.last_press_req == 1 and damper >= 85.0:
+      return 1
+    return 0
+
+  def _temp_req(self, tz, sp, demand):
+    if self.use_imperial:
+      hi, med, tmin, tmax = 5.0, 3.0, 32.0, 125.0
+    else:
+      hi, med, tmin, tmax = 3.0, 2.0, 0.0, 50.0
+    if not (is_valid(tz, tmin, tmax) and is_valid(sp, tmin, tmax) and is_valid(demand, -200, 200)):
+      self.temp_high_t = self.temp_med_t = 0.0
+      return 0
+    diff = tz - sp
+    if self.temp_suppress_t >= 60:
+      if diff >= hi:
+        self.temp_high_t += self.EXEC_SEC
+        self.temp_med_t = 0.0
+      elif diff >= med:
+        self.temp_med_t += self.EXEC_SEC
+        self.temp_high_t = 0.0
+      else:
+        self.temp_high_t = self.temp_med_t = 0.0
+      if self.temp_high_t >= 120:
+        return 3
+      if self.temp_med_t >= 120:
+        return 2
+    if demand > 95.0:
+      return 1
+    if self.last_temp_req == 1 and demand >= 85.0:
+      return 1
+    return 0
+
+
+# --- toy walk ---
+vav = Gl36VavRequestCounter(use_imperial=True)
+for _ in range(20):  # 200 s simulated
+  cool, press = vav.tick(zone_temp=76.0, zone_sp=72.0, zone_demand_pct=40.0,
+                         vav_flow=200.0, vav_flow_sp=800.0, damper_pct=98.0)
+print("cool=", cool, "press=", press)
 ```
 
-Neighbors of `(r, c)` on a list-of-strings map (same shape as nested lists):
+### BACnet / supervisory angle
 
-```python
-def neighbors4(r, c, height, width):
-    out = []
-    if r > 0:
-        out.append((r - 1, c))
-    if r + 1 < height:
-        out.append((r + 1, c))
-    if c > 0:
-        out.append((r, c - 1))
-    if c + 1 < width:
-        out.append((r, c + 1))
-    return out
-```
-
-### Same idea elsewhere
-
-The **maze-algorithm-sandbox** repo (Lua, in your `maze-algorithm-sandbox` folder) uses a **2D table of cells** in Lua: each cell has `visited` and **walls** flags. You are learning the **grid + neighbor + visited** vocabulary in Python first; **Day 43** mirrors its **stack-based maze carve** in spirit.
-
-### Mini examples
-
-- Print all coordinates `(r, c)` where `rows[r][c] == "#"` (walls).
-- Given a start `(r0, c0)` on open cells, **flood** open cells in four directions without leaving `.` (use a `seen` grid and a hand-written list you treat as a **queue** or **stack**—Day 42 picks one style explicitly).
+On a real job, **`vavCoolRequests`** might be a BACnet **AV** or internal proxy point; the **AHU** sums **`R`** from many VAVs and feeds **Day 42–43** reset blocks. Your Python lesson is the **same math** Niagara runs in a `ProgramObject`.
 
 ### Micro exercises
 
-1. Write `in_bounds(r, c, height, width)` returning `True` / `False`.
-2. Write `count_neighbors_wall(rows, r, c)` returning how many of the four neighbors are `#` (treat out-of-bounds as wall).
-3. On paper: for a 3×3 grid of dots, mark the order cells are visited if you always try **up, right, down, left** and skip visited.
+1. Log **`cool, press`** every tick to a CSV: `time_sec,cool_req,press_req`.
+2. Force **invalid** `zone_temp` (e.g. `-999`) and confirm both requests return **0** (fail-safe).
+3. Sketch how **four VAVs** with requests `[0,1,3,2]` produce **`R = 6`** at the AHU.
+
+### See also
+
+- [GL36 Trim & Respond README](https://github.com/bbartling/n4-hvac-optimization-blocks) (Java Niagara source for this block).
+- **Day 42** — AHU duct static **Trim & Respond** consumes summed pressure requests.
 
 ### Key takeaway
 
-**2D index discipline** plus **neighbor lists** plus a **visited** flag is the substrate for maze generation, robot motion, and many **routing** sketches—before you ever open an RDF graph (Day 44 onward).
+**GL36 supervisory control** starts at the **terminal**: zones vote with **0–3 request integers**; AHUs and central plant **aggregate `R`** and move setpoints in **trim** or **respond** steps.

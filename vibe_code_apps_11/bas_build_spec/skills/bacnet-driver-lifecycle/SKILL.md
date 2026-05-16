@@ -19,7 +19,7 @@ For a **commissioning head-end** where the operator wants wire on without manual
 1. Set **`BAS_BACNET_AUTO_COMMISSION=true`** in `cron_codex/.env` (see `env.example`).
 2. Keep **`PHASE_NOTEPAD.md` § A** (bind) and **§ C** (devices) filled — canonical site facts.
 3. Worker **`bas_bacnet_auto_commission.sh`** runs every **5 min** (job `bas-bacnet-auto-commission`) and at the **start of each `bas_wake.sh`**: marks sign-off, writes `bacnet_wire_authorized`, merges `.env`, enables `bas-bacnet-discovery-poll`, runs Who-Is.
-4. **Codex** then fixes failures (bind, sandbox, scripts) — it does **not** need a paste prompt for routine enablement.
+4. **Codex** (`bas_wake.sh` on cron) implements operator requests: **device tree** UI, **point reads**, **bacnet_scripts_example/** changes, and **any `cron/jobs.json` task** (intervals, enable/disable). Workers handle routine Who-Is between wakes.
 
 **Disable** on production handoff: set `BAS_BACNET_AUTO_COMMISSION=false`, remove `state/bacnet_wire_authorized`, disable poll jobs.
 

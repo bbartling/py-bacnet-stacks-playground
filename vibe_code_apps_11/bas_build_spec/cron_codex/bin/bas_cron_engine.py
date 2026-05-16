@@ -226,13 +226,7 @@ def wake_status_json(jobs_path: Path, state_path: Path, log_dir: Path, state_dir
         "Cron expressions are evaluated in UTC (see bas_cron_engine.py). "
         "User crontab may call bas_cron_scheduler.sh run-due more often than bas_wake fires."
     )
-    wake_jobs: list[dict] = []
-    for job in jobs:
-        if not job.get("enabled", True):
-            continue
-        cmd = str(job.get("command", ""))
-        if "bas_wake.sh" not in cmd and job.get("service") != "bas_wake":
-            continue
+    def _schedule_entry(job: dict) -> dict:
         jid = str(job.get("id", ""))
         meta = state.get(jid) or {}
         sched = job.get("schedule") or {}
@@ -245,14 +239,12 @@ def wake_status_json(jobs_path: Path, state_path: Path, log_dir: Path, state_dir
             "last_rc": meta.get("last_rc"),
             "status": meta.get("status"),
         }
-        next_utc = None
         if stype == "cron":
             expr = str(sched.get("expr", ""))
             entry["cron_expr"] = expr
             nxt = next_cron_fire(expr, now)
             if nxt:
-                next_utc = nxt.isoformat().replace("+00:00", "Z")
-                entry["next_fire_utc"] = next_utc
+                entry["next_fire_utc"] = nxt.isoformat().replace("+00:00", "Z")
                 entry["seconds_until_next"] = max(0, int((nxt - now).total_seconds()))
         elif stype == "every":
             mins = int(sched.get("minutes", 0) or 0)
@@ -265,7 +257,21 @@ def wake_status_json(jobs_path: Path, state_path: Path, log_dir: Path, state_dir
                 else:
                     entry["next_fire_utc"] = nxt.isoformat().replace("+00:00", "Z")
                     entry["seconds_until_next"] = int((nxt - now).total_seconds())
-        wake_jobs.append(entry)
+        return entry
+
+    scheduled_jobs: list[dict] = []
+    wake_jobs: list[dict] = []
+    for job in jobs:
+        if not job.get("enabled", True):
+            continue
+        entry = _schedule_entry(job)
+        sched = job.get("schedule") or {}
+        if sched.get("type") == "every" and int(sched.get("minutes", 0) or 0) <= 0:
+            continue
+        scheduled_jobs.append(entry)
+        cmd = str(job.get("command", ""))
+        if "bas_wake.sh" in cmd or job.get("service") == "bas_wake":
+            wake_jobs.append(entry)
     last_log: dict = {}
     if log_dir.is_dir():
         logs = sorted(log_dir.glob("wake-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -277,6 +283,7 @@ def wake_status_json(jobs_path: Path, state_path: Path, log_dir: Path, state_dir
         "cron_timezone_note": jobs_doc.get("timezone"),
         "engine_note_utc": cron_note,
         "bas_wake_jobs": wake_jobs,
+        "scheduled_jobs": scheduled_jobs,
         "last_wake_log": last_log,
     }
 

@@ -1,23 +1,27 @@
-## Day 63 — FDD inputs and Brick class names (open-fdd bridge)
+## Day 63 — Equipment taxonomy (AHU, VAV, terminal units)
 
 ### Goal
 
-Connect **open-fdd** style **`inputs`** blocks (logical names + optional `brick:` hints) to **ontology**: the **string** after `brick:` in YAML is meant to align with **Brick class** IRIs for that concept—not arbitrary prose.
+Navigate **subclass** chains at a **high level**: e.g. terminal units, air handlers, chillers. You read **taxonomy** to pick the **most specific correct** `rdf:type` for commissioning data—not to memorize the whole lattice.
 
 ### Concept
 
-Read one recipe from **`open-fdd/docs/expression_rule_cookbook.md`** (local clone). List each **input** key and its **Brick** field. In Python, model that as `dict` mapping **logical name** → **Brick class IRI string** (column mapping to historian columns stays separate).
+Draw a **tiny** hierarchy on paper (English):
+
+- `Air_Handler_Unit` ⊂ `HVAC_Equipment` (illustrative—verify in Brick).
+
+In data, **subClassOf** triples come from the ontology file, not always from your site file. Your site file usually asserts **instances** with **specific** classes.
 
 ### Why this matters
 
-Same idea as **223P** / **DBO** fields in that cookbook: **first match wins** resolvers—the **advanced data structure** is the **resolver chain**, but you implement a **single dict** first (`logical_name -> column_name`) before learning priority composites.
+Under-specifying types (`brick:Equipment` everywhere) makes **SPARQL** and **FDD rules** noisy. Over-specifying wrong types breaks **validation**.
 
 ### Mini exercises
 
-1. For Rule A (duct static), list **inputs** and which are **sensors** vs **setpoints** vs **commands**.
-2. Write a Python `dict` `logical_to_brick_class` with two entries from that rule.
-3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 71.
+1. List two **sibling** classes under a common parent (from Brick docs) relevant to your campus.
+2. If a device is **both** packaged RTU and AHU in vendor docs, which risk do you choose when typing in Brick (under- vs over-modeling)?
+3. Add `rdf:type` triples for two VAVs and one AHU in a toy `Graph`.
 
 ### Key takeaway
 
-**FDD rules consume logical columns; ontologies name the semantics.** Brick IRIs are the bridge vocabulary.
+**Taxonomy guides typing.** Brick’s class tree is the shared language between **engineers** and **software**.

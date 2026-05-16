@@ -36,4 +36,4 @@ Internal code may use `simulator`, `simulator_only`, or mock drivers for the **d
 
 ## Commissioning chat replies
 
-Rough-in chat uses a **local rules engine** (not an LLM). Each assistant turn should append **next automation run** from `bas_wake_status.sh` / `jobs.json` schedule (local time, e.g. `Next automation run: 10:00 AM CDT.`) and mention **waiting_human** when `cron_codex/state/waiting_human` exists.
+Rough-in chat uses a **local rules engine** (not an LLM). Every assistant turn must show **`**Next cron runs:**`** with local times for **Codex build**, **BACnet Who-Is**, and other enabled `cron/jobs.json` tasks (from `bas_cron_engine.py wake-status-json`). Mention **waiting_human** when `cron_codex/state/waiting_human` exists. Build work (tree, scripts, cron edits) is done on the **Codex** wake, not in instant chat.

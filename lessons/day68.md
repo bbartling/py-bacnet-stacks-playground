@@ -1,36 +1,32 @@
-## Day 68 — `UNION` (alternative shapes)
+## Day 68 — Why SPARQL for smart-building graphs
 
 ### Goal
 
-Combine **two graph patterns** with **`UNION`** when equipment might satisfy **either** layout—e.g. SAT under AHU **or** under a downstream assembly (toy example).
+Define **SPARQL** as a **query language for RDF**: you describe a **graph pattern**; the engine returns **bindings** for variables that **match** the pattern in the dataset (in-memory `rdflib` graph or remote endpoint).
 
 ### Concept
 
-```sparql
-SELECT ?temp_sensor
+Core shape:
+
+```text
+SELECT ?variable
 WHERE {
-  { ?ahu rdf:type brick:Air_Handler_Unit .
-    ?ahu brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
-  UNION
-  { ?vav rdf:type brick:Variable_Air_Volume_Box .
-    ?vav brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
+  ?subject ?predicate ?object .
 }
 ```
 
-(Use class IRIs that exist in **your** Brick release; VAV class name may differ—consult Brick docs.)
+**WHERE** is not “SQL where clause” first—think **pattern match** on triples.
 
 ### Why this matters
 
-**Vendor diversity** means the same **semantic** sensor appears under different parents. `UNION` collects both without forcing one false `OPTIONAL` chain.
+**Commissioning queries:** “Every `Supply_Air_Temperature_Sensor` that **has** location in **this** wing.” **FDD prep:** “All AHUs without an **outside air flow** point.” These are multi-hop patterns—awkward in CSV, natural in SPARQL.
 
 ### Mini exercises
 
-1. Draw two small graphs that differ only in parent equipment; confirm `UNION` returns both sensors.
-2. Could two branches of `UNION` **double-count** the same sensor? When?
-3. Rewrite (conceptually) `UNION` as two queries + Python `set` merge—when is that acceptable offline?
+1. In English, translate: “Find all subjects `?e` such that `?e rdf:type brick:Air_Handler_Unit`.”
+2. List two reasons a **triplestore** might be used instead of only files on disk.
+3. Install / verify `rdflib` and read `help(Graph.query)` one screen.
 
 ### Key takeaway
 
-**UNION = OR over patterns.** Use sparingly; document why both branches exist.
+**SPARQL = patterns + variables.** Next days add `FILTER`, `OPTIONAL`, `UNION`, and hygiene keywords.

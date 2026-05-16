@@ -1,33 +1,57 @@
-## Day 51 — RDF triple model (formal one-liner)
+## Day 51 — Triples as tuples; a list as a toy graph
 
 ### Goal
 
-State RDF’s core unit: **triple** \((s, p, o)\). **Subject** and **predicate** are IRIs (or blank nodes in advanced cases—here: skip blank nodes except “sometimes object is anonymous” as a footnote). **Object** is IRI **or** literal.
+Represent RDF **triples** as **`(subject, predicate, object)`** tuples (all `str` for now). Store many in a **`list`**. That list is your **in-memory graph** for exercises—unordered unless you sort a copy for debugging.
 
 ### Concept
 
-- **No duplicate meaning:** two identical triples merge to one in a **set** semantics.
-- **Open world:** absence of a triple does not mean false—important for **FDD** (you query what is asserted).
+Each triple is one **statement**: *subject* **predicate** *object*.
+
+- Subject: usually an IRI (resource).
+- Predicate: IRI (property / relationship type).
+- Object: IRI **or** literal (later lessons add datatype).
+
+Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 61 revisits deduplication.
 
 ### How to use it
 
-Revisit your `list` of triples from Day 47. Classify each `o`:
+```python
+triples = []
+triples.append(
+    (
+        "https://example.edu/bldg/ahu1",
+        "https://brickschema.org/schema/Brick#hasPoint",
+        "https://example.edu/bldg/ahu1/sat",
+    )
+)
+triples.append(
+    (
+        "https://example.edu/bldg/ahu1/sat",
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor",
+    )
+)
 
-- If `o` starts with `http` and matches resource naming → **resource**.
-- Else if `o` is your `(lexical, datatype)` tuple → **literal**.
 
-Write `triple_kind(s, p, o)` returning `"r-r-r"` or `"r-r-l"` as three letters.
+def count_predicates(graph, predicate_iri):
+    n = 0
+    for s, p, o in graph:
+        if p == predicate_iri:
+            n += 1
+    return n
+```
 
 ### Why this matters
 
-Brick files are RDF. **open-fdd** column maps name columns that *align* with Brick class IRIs—those names resolve to the same **predicate/object patterns** you practice in Python lists.
+`rdflib` will iterate `(s, p, o)` the same way. Your mental model should match the library’s iterator.
 
 ### Mini exercises
 
-1. Give one example triple where **subject** is a **VAV** instance and **predicate** is `rdf:type`.
-2. Why can two different URIs denote the “same” chiller in the real world (conceptual: `owl:sameAs`—no OWL deep dive required)?
-3. List two triples that should **not** be inferred just because a sensor exists on an AHU (open-world caution).
+1. Write `objects_for_subject(graph, subj)` returning a **list** of all `o` where `(subj, any, o)` in `graph`.
+2. Write `predicates_for_subject_object(graph, subj, obj)` returning predicates linking `subj` to `obj`.
+3. Add a third triple: `ahu1` **feeds** `vav101` (use IRIs you invent under `ex:`).
 
 ### Key takeaway
 
-**RDF = labeled directed multigraph expressed as triples.** Your Python tuples already *are* RDF data at the logical level.
+**Graph = collection of triples.** A Python `list` of 3-tuples is enough to practice every RDF idea until you load Turtle with `rdflib`.

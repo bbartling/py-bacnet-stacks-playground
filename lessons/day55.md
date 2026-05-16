@@ -1,40 +1,33 @@
-## Day 55 — `rdflib`: parse Turtle into a `Graph`
+## Day 55 — RDF triple model (formal one-liner)
 
 ### Goal
 
-Install **`rdflib`** (`pip install rdflib`), parse a **Turtle string**, iterate **all triples**, and print human-readable lines. No SPARQL yet—just **load + walk**.
+State RDF’s core unit: **triple** \((s, p, o)\). **Subject** and **predicate** are IRIs (or blank nodes in advanced cases—here: skip blank nodes except “sometimes object is anonymous” as a footnote). **Object** is IRI **or** literal.
 
 ### Concept
 
-```python
-from rdflib import Graph
+- **No duplicate meaning:** two identical triples merge to one in a **set** semantics.
+- **Open world:** absence of a triple does not mean false—important for **FDD** (you query what is asserted).
 
-g = Graph()
-ttl = """
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+### How to use it
 
-ex:ahu1 a brick:Air_Handler_Unit .
-"""
-g.parse(data=ttl, format="turtle")
+Revisit your `list` of triples from Day 51. Classify each `o`:
 
-for s, p, o in g:
-    print(s, p, o)
-```
+- If `o` starts with `http` and matches resource naming → **resource**.
+- Else if `o` is your `(lexical, datatype)` tuple → **literal**.
 
-`rdflib` uses **URIRef**, **Literal**, **BNode** types—`str(s)` often works for printing.
+Write `triple_kind(s, p, o)` returning `"r-r-r"` or `"r-r-l"` as three letters.
 
 ### Why this matters
 
-Every SPARQL query in the next week runs **against** a `Graph` (or endpoint). Loading Turtle is the handshake between **files in git** and **queries**.
+Brick files are RDF. **open-fdd** column maps name columns that *align* with Brick class IRIs—those names resolve to the same **predicate/object patterns** you practice in Python lists.
 
 ### Mini exercises
 
-1. Print `len(g)` after parse; add a second `parse` of another small string—does length increase as expected?
-2. Catch **ParserError** (or broad `Exception` for 101) on bad Turtle and print a friendly message.
-3. Serialize back with `g.serialize(format="turtle")` to a string; confirm your AHU line still exists.
+1. Give one example triple where **subject** is a **VAV** instance and **predicate** is `rdf:type`.
+2. Why can two different URIs denote the “same” chiller in the real world (conceptual: `owl:sameAs`—no OWL deep dive required)?
+3. List two triples that should **not** be inferred just because a sensor exists on an AHU (open-world caution).
 
 ### Key takeaway
 
-**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 47 mental model.
+**RDF = labeled directed multigraph expressed as triples.** Your Python tuples already *are* RDF data at the logical level.

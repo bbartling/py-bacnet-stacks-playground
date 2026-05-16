@@ -17,6 +17,13 @@ Typical Raspberry Pi (1-Wire enabled — see README):
     python temp_sensor_server.py --name PiTemp --instance 3456788 \\
         --address 192.168.204.12/24 --debug
 
+BACnet + AWS IoT Core (BACnet every 2 s, MQTT default every 60 s)::
+---------------------------------------------------
+    python temp_sensor_server.py --name PiTemp --instance 3456788 \\
+        --address 192.168.204.12/24 --aws-iot \\
+        --sample-interval 2 --aws-interval 60 \\
+        --aws-cert aws_iot_certs/device.cert.pem \\
+        --aws-key aws_iot_certs/device.private.key
 
 If multiple DS18B20 folders exist, pick one::
 
@@ -32,6 +39,9 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
+from pathlib import Path
+from typing import Optional
 
 from bacpypes3.argparse import SimpleArgumentParser
 from bacpypes3.app import Application
@@ -41,7 +51,8 @@ from bacpypes3.local.analog import AnalogValueObject
 from ds18b20_sensor import Ds18b20SysfsReader
 
 
-INTERVAL_DEFAULT = 2.0
+BACNET_INTERVAL_DEFAULT = 2.0
+AWS_INTERVAL_DEFAULT = 60.0
 
 
 _debug = 0
@@ -66,7 +77,14 @@ class TemperatureApplication:
             _log.debug("Initializing TemperatureApplication")
 
         self.reader = build_reader(args)
-        self.refresh_s = args.sample_interval
+        self.bacnet_interval_s = args.sample_interval
+        self.aws_interval_s = args.aws_interval if args.aws_iot else None
+        self._last_aws_publish = 0.0
+        self._aws: Optional[object] = None
+        self._aws_topic: Optional[str] = None
+        if args.aws_iot:
+            self._aws = self._build_aws_publisher(args)
+            self._aws_topic = args.aws_topic
 
         self.app = Application.from_args(args)
 
@@ -95,12 +113,41 @@ class TemperatureApplication:
         self.app.add_object(self.av_deg_f)
 
         _log.info("BACnet analogValue,1 (°C) and analogValue,2 (°F) initialized.")
+        if self._aws is not None:
+            _log.info(
+                f"AWS IoT publish enabled → {args.aws_topic} "
+                f"(every {self.aws_interval_s}s; BACnet every {self.bacnet_interval_s}s)"
+            )
 
         asyncio.create_task(self.update_loop())
 
+    @staticmethod
+    def _build_aws_publisher(args):
+        try:
+            from aws_iot_publisher import AwsIotPublisher
+        except ImportError as err:
+            raise SystemExit(
+                "AWS IoT requires awsiotsdk: pip install awsiotsdk"
+            ) from err
+
+        cert = Path(args.aws_cert)
+        key = Path(args.aws_key)
+        if not cert.is_file():
+            raise SystemExit(f"AWS cert not found: {cert}")
+        if not key.is_file():
+            raise SystemExit(f"AWS private key not found: {key}")
+
+        return AwsIotPublisher(
+            endpoint=args.aws_endpoint,
+            cert_path=cert,
+            key_path=key,
+            client_id=args.aws_client_id,
+            topic=args.aws_topic,
+        )
+
     async def update_loop(self) -> None:
         while True:
-            await asyncio.sleep(self.refresh_s)
+            await asyncio.sleep(self.bacnet_interval_s)
 
             try:
                 temp_c = await asyncio.to_thread(self.reader.read_celsius)
@@ -115,6 +162,14 @@ class TemperatureApplication:
 
                 if _debug:
                     _log.debug(f"Published BACnet: {temp_c:.3f} °C | {temp_f:.3f} °F")
+
+                if self._aws is not None and self.aws_interval_s is not None:
+                    now = time.monotonic()
+                    if now - self._last_aws_publish >= self.aws_interval_s:
+                        await asyncio.to_thread(self._aws.publish, temp_c, temp_f)
+                        self._last_aws_publish = now
+                        if _debug:
+                            _log.debug(f"Published AWS IoT → {self._aws_topic}")
 
             except Exception as err:  # noqa: BLE001
                 _log.error(f"Temperature read failed: {err}")
@@ -131,8 +186,14 @@ async def main() -> None:
     parser.add_argument(
         "--sample-interval",
         type=float,
-        default=INTERVAL_DEFAULT,
-        help=f"Seconds between BACnet updates (default {INTERVAL_DEFAULT})",
+        default=BACNET_INTERVAL_DEFAULT,
+        help=f"Seconds between sensor reads and BACnet AV updates (default {BACNET_INTERVAL_DEFAULT})",
+    )
+    parser.add_argument(
+        "--aws-interval",
+        type=float,
+        default=AWS_INTERVAL_DEFAULT,
+        help=f"Seconds between AWS IoT MQTT publishes when --aws-iot is set (default {AWS_INTERVAL_DEFAULT})",
     )
     parser.add_argument(
         "--w1-device",
@@ -145,6 +206,41 @@ async def main() -> None:
         type=str,
         default=None,
         help="Full path to w1_slave (overrides --w1-device)",
+    )
+    parser.add_argument(
+        "--aws-iot",
+        action="store_true",
+        help="Also publish each reading to AWS IoT Core (MQTT 5, mTLS)",
+    )
+    parser.add_argument(
+        "--aws-endpoint",
+        type=str,
+        default="a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com",
+        help="AWS IoT data endpoint hostname",
+    )
+    parser.add_argument(
+        "--aws-cert",
+        type=str,
+        default="aws_iot_certs/vibe-code-app-12-temp-sensor.cert.pem",
+        help="Device certificate PEM path",
+    )
+    parser.add_argument(
+        "--aws-key",
+        type=str,
+        default="aws_iot_certs/vibe-code-app-12-temp-sensor.private.key",
+        help="Device private key PEM path",
+    )
+    parser.add_argument(
+        "--aws-client-id",
+        type=str,
+        default="basicPubSub",
+        help="MQTT client ID (must match IoT policy)",
+    )
+    parser.add_argument(
+        "--aws-topic",
+        type=str,
+        default="sdk/test/python",
+        help="MQTT topic for temperature JSON",
     )
 
     args = parser.parse_args()

@@ -1,34 +1,24 @@
-## Day 66 — `FILTER` and `BIND` (numbers and computed values)
+## Day 66 — Haystack tags vs Brick RDF graphs
 
 ### Goal
 
-Narrow results with **`FILTER` expressions** and create **computed columns** with **`BIND`**—e.g. only points whose **numeric literal** (if modeled) passes a test. For this course, **`FILTER`** on **IRIs** or **regex on string form** is enough if you did not add `xsd:decimal` literals.
+Contrast **Haystack** (tagged dicts / Zinc /Refs—**semi-structured**) with **Brick** (**RDF graph**, mergeable across sites). Neither replaces the other in the field; **bridges** exist (project Haystack *relationships* and Brick alignment efforts—mention at high level only).
 
 ### Concept
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?p
-WHERE {
-  ?p rdf:type brick:Supply_Air_Temperature_Sensor .
-  FILTER ( STRSTARTS( STR(?p), "https://example.edu/bldg/ahu1" ) )
-}
-```
-
-(`STRSTARTS` availability depends on SPARQL engine; `rdflib` supports much of SPARQL 1.1—if a function fails, fall back to **Python post-filter** on query results for 101.)
+- **Tags** answer: “What is this point?” quickly in a **single** document.
+- **Brick** answers: “How does this point relate to **equipment**, **spaces**, and **other points** across **datasets**?”
 
 ### Why this matters
 
-**FDD** thresholds on **trend data** live in Pandas in open-fdd; in **ontology land**, you filter **metadata** (“sensors on this AHU only”) before joining to historians.
+Your **Python** course avoided Pandas; in operations you still see **CSV + tags**. RDF is the **interchange** shape when semantic interoperability matters (utilities, campus digital twins, FDD graph workshops).
 
 ### Mini exercises
 
-1. Write `FILTER ( ?p != <https://example.edu/bldg/ahu1/oat> )` style inequality on two IRIs you know.
-2. `BIND` a boolean `?is_sat` using `CONTAINS` or `regex` on `STR(?p)`—optional if your engine supports those functions.
-3. If `rdflib` rejects a function, filter results in Python with a `for` loop—same outcome.
+1. Model the same SAT as (a) a Haystack-style `dict` with `dis`, `point`, `equipRef` keys vs (b) two Brick triples—side by side in notes.
+2. Which representation is easier to **`git diff`** when a VAV is moved from one AHU to another?
+3. One sentence: why **SPARQL** is unnecessary for a single tagged JSON file but useful for a **merged** campus graph.
 
 ### Key takeaway
 
-**FILTER/BIND = SQL HAVING/SELECT expressions** at the graph-pattern layer—useful for **metadata slicing**.
+**Tags = local convenience; RDF = global composition.** You will use both in real stacks.

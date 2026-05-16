@@ -6,3 +6,4 @@ aws_iot_core_test/*.pem
 aws_iot_core_test/*.key
 aws_iot_core_test/*.zip
 aws_iot_core_test/certs/
+aws_iot_certs/

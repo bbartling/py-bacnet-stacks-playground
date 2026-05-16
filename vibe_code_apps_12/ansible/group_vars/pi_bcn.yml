@@ -17,8 +17,23 @@ bacnet_bind_address: "{{ ansible_host }}/24"
 install_systemd_unit: true
 enable_and_start_service: true
 
+# Sensor / BACnet / MQTT cadence (temp_sensor_server.py)
+bacnet_sample_interval: 2
+aws_iot_publish_interval: 60
+
 # Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug", "--w1-device", "28-xxxxxxxxxxxx"]
 server_extra_args: []
+
+# AWS IoT Core — BACnet + MQTT from one process (temp_sensor_server.py --aws-iot)
+enable_aws_iot: true
+aws_iot_endpoint: a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com
+aws_iot_client_id: basicPubSub
+aws_iot_topic: sdk/test/python
+aws_iot_cert_filename: vibe-code-app-12-temp-sensor.cert.pem
+aws_iot_key_filename: vibe-code-app-12-temp-sensor.private.key
+# Certs on Ansible control machine (run ../prepare_aws_iot_certs.sh first):
+aws_iot_certs_local_dir: "{{ playbook_dir }}/files/aws_iot"
+aws_iot_certs_remote_dir: "{{ bacnet_app_remote_dir }}/aws_iot_certs"
 
 # If true, playbook appends `dtoverlay=w1-gpio,gpio=4` to /boot/firmware/config.txt or
 # /boot/config.txt when that file exists (reboot required once). Default off — use README

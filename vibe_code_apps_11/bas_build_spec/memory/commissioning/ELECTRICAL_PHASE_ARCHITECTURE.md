@@ -16,7 +16,7 @@ Set **`BAS_BACNET_AUTO_COMMISSION=true`** in `cron_codex/.env`. Worker **`bas_ba
 | **1. Wire worker** | `bas_bacnet_discovery_poll.sh` every 5 min → `bacnet_discovery_latest.json` | **No** — hard-coded Who-Is |
 | **2. Rough-in dashboard** | `/rough-in/` reads JSON → device tree + driver status | **No** — live UI from poll file |
 | **3. Rough-in chat** | Status lines from code (discovery + next wake time) | **No LLM by default** — reads same JSON |
-| **4. Codex wakes** | Builds `bas_app`, tunes `jobs.json` intervals, full BAS | **Yes** — every ~3h |
+| **4. Codex wakes** | Builds `bas_app`, tunes `jobs.json` intervals, full BAS | **Yes** — every ~2h |
 
 **Electrical phase default:** layers **1–3** run without Codex. Codex is for **building** the product and changing poll intervals / UX — not for each Who-Is.
 

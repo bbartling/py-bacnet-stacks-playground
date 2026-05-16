@@ -10,7 +10,7 @@ Rules apply to every **`bas_build_spec/skills/<folder>/SKILL.md`** and optional 
 | **YAML frontmatter** | `name` + rich `description` (triggers: BACnet, DOAS, VRF, Brick, trend, …). |
 | **Link to repo sources** | `spec.md`, `bacnet_scripts.md`, `graphic.html` — do not paste the whole spec. |
 | **Remote BAS URLs** | Document **`http://<server-lan-ip>:5173/`** (UI) and **`:8000`** for API when using the two-port layout — or one reverse-proxied origin per `bas_app/deploy/Caddyfile.example`. **Never** tell operators to use **`http://localhost:…`** from another PC (`localhost` is always the client machine). |
-| **Real BACnet on wire** | Follow **`bacnet-driver-lifecycle`**. **Manual:** human sign-off in **`BUILD_CHECKPOINTS.md`** before wire. **Commissioning head-end:** `BAS_BACNET_AUTO_COMMISSION=true` lets **`bas_bacnet_auto_commission.sh`** arm wire from **`PHASE_NOTEPAD.md`** (disable flag before production handoff). |
+| **Real BACnet on wire** | Follow **`bacnet-driver-lifecycle`**. **Commissioning head-end:** `BAS_BACNET_AUTO_COMMISSION=true` + workers; **Codex** may edit **`cron/jobs.json`** (all schedules), BACnet scripts, rough-in tree UI, and `.env` bind vars when implementing operator chat requests. Disable auto flag before production handoff. |
 | **Cross-link** | “Related skills” at bottom of each `SKILL.md`. |
 | **Split when long** | Keep `SKILL.md` under ~500 lines; move tables to `references/*.md`. |
 | **Edit in place** | Repeated fixes → update the same skill before splitting a new folder. |

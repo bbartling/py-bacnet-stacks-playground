@@ -1,32 +1,23 @@
-## Day 67 — `OPTIONAL` (missing points, partial models)
+## Day 67 — FDD inputs and Brick class names (open-fdd bridge)
 
 ### Goal
 
-Use **`OPTIONAL { ... }`** so rows still return when a **nested fact** is absent—e.g. every AHU with an **optional** `brick:hasPoint` to an OAT sensor.
+Connect **open-fdd** style **`inputs`** blocks (logical names + optional `brick:` hints) to **ontology**: the **string** after `brick:` in YAML is meant to align with **Brick class** IRIs for that concept—not arbitrary prose.
 
 ### Concept
 
-```sparql
-SELECT ?ahu ?oat
-WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  OPTIONAL { ?ahu brick:hasPoint ?oat .
-             ?oat rdf:type brick:Outside_Air_Temperature_Sensor . }
-}
-```
-
-If no OAT exists, `?oat` is **unbound** but `?ahu` still appears (SPARQL semantics).
+Read one recipe from **`open-fdd/docs/expression_rule_cookbook.md`** (local clone). List each **input** key and its **Brick** field. In Python, model that as `dict` mapping **logical name** → **Brick class IRI string** (column mapping to historian columns stays separate).
 
 ### Why this matters
 
-Real campuses ship **partial** Brick. **OPTIONAL** prevents queries from silently dropping whole equipment lines.
+Same idea as **223P** / **DBO** fields in that cookbook: **first match wins** resolvers—the **advanced data structure** is the **resolver chain**, but you implement a **single dict** first (`logical_name -> column_name`) before learning priority composites.
 
 ### Mini exercises
 
-1. Run OPTIONAL query on your toy model; remove OAT triples and compare result rows.
-2. In Python after `query`, detect unbound `None` cells in `rdflib` rows (print `row` objects).
-3. When would **forbidden OPTIONAL** be better as a **separate validation query** instead?
+1. For Rule A (duct static), list **inputs** and which are **sensors** vs **setpoints** vs **commands**.
+2. Write a Python `dict` `logical_to_brick_class` with two entries from that rule.
+3. Explain how a **SPARQL** query could later list “all points typed as this Brick class on this AHU”—preview Day 75.
 
 ### Key takeaway
 
-**OPTIONAL = outer join** intuition for graph people. Use it for **commissioning completeness** checks.
+**FDD rules consume logical columns; ontologies name the semantics.** Brick IRIs are the bridge vocabulary.

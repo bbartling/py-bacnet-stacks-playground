@@ -17,6 +17,7 @@
     bacnet_sync_files:
       - temp_sensor_server.py
       - ds18b20_sensor.py
+      - aws_iot_publisher.py
       - requirements.txt
 
   tasks:
@@ -58,6 +59,54 @@
       ansible.builtin.pip:
         requirements: "{{ bacnet_app_remote_dir }}/requirements.txt"
         virtualenv: "{{ bacnet_app_remote_dir }}/.venv"
+
+    - name: Stat AWS IoT device certificate on control machine
+      ansible.builtin.stat:
+        path: "{{ aws_iot_certs_local_dir }}/{{ aws_iot_cert_filename }}"
+      delegate_to: localhost
+      become: false
+      register: aws_iot_cert_local
+      when: enable_aws_iot | default(false) | bool
+
+    - name: Stat AWS IoT private key on control machine
+      ansible.builtin.stat:
+        path: "{{ aws_iot_certs_local_dir }}/{{ aws_iot_key_filename }}"
+      delegate_to: localhost
+      become: false
+      register: aws_iot_key_local
+      when: enable_aws_iot | default(false) | bool
+
+    - name: Fail if AWS IoT certs missing on control machine
+      ansible.builtin.fail:
+        msg: >-
+          AWS IoT cert/key not found under {{ aws_iot_certs_local_dir }}/.
+          Run: cd vibe_code_apps_12 && ./ansible/prepare_aws_iot_certs.sh
+          (after unzipping connect_device_package.zip in aws_iot_core_test/).
+      when:
+        - enable_aws_iot | default(false) | bool
+        - not aws_iot_cert_local.stat.exists | default(false) or not aws_iot_key_local.stat.exists | default(false)
+
+    - name: Ensure AWS IoT cert directory on Pi
+      ansible.builtin.file:
+        path: "{{ aws_iot_certs_remote_dir }}"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      when: enable_aws_iot | default(false) | bool
+
+    - name: Copy AWS IoT device certificate and private key to Pi
+      ansible.builtin.copy:
+        src: "{{ aws_iot_certs_local_dir }}/{{ item.name }}"
+        dest: "{{ aws_iot_certs_remote_dir }}/{{ item.name }}"
+        mode: "{{ item.mode }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      loop:
+        - { name: "{{ aws_iot_cert_filename }}", mode: "0644" }
+        - { name: "{{ aws_iot_key_filename }}", mode: "0600" }
+      when: enable_aws_iot | default(false) | bool
+      notify: Restart BACnet DS18B20 service
 
     - name: Stat boot config paths for optional 1-Wire overlay
       ansible.builtin.stat:
@@ -127,12 +176,14 @@
     - name: Wait briefly for the service to settle
       ansible.builtin.pause:
         seconds: 3
+      tags: [verify]
       when:
         - install_systemd_unit | default(true) | bool
         - enable_and_start_service | default(true) | bool
         - run_deploy_verify | default(true) | bool
 
     - name: Assert bacnet-ds18b20 is active
+      tags: [verify]
       ansible.builtin.command:
         argv:
           - systemctl
@@ -148,6 +199,7 @@
         - run_deploy_verify | default(true) | bool
 
     - name: Recent bacnet-ds18b20 journal (look for BACnet + temperature publishes)
+      tags: [verify]
       ansible.builtin.command:
         argv:
           - journalctl
@@ -165,13 +217,58 @@
         - run_deploy_verify | default(true) | bool
 
     - name: Show journal excerpt
+      tags: [verify]
       ansible.builtin.debug:
         msg: "{{ bacnet_journal.stdout_lines }}"
       when:
         - bacnet_journal is defined
         - bacnet_journal.stdout_lines is defined
 
+    - name: Stat AWS IoT cert files on Pi
+      tags: [verify]
+      ansible.builtin.stat:
+        path: "{{ aws_iot_certs_remote_dir }}/{{ item }}"
+      loop:
+        - "{{ aws_iot_cert_filename }}"
+        - "{{ aws_iot_key_filename }}"
+      register: aws_iot_remote_certs
+      when: enable_aws_iot | default(false) | bool
+
+    - name: Assert AWS IoT cert files exist on Pi
+      tags: [verify]
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: "Missing on Pi: {{ item.item }}"
+      loop: "{{ aws_iot_remote_certs.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when:
+        - enable_aws_iot | default(false) | bool
+        - aws_iot_remote_certs is defined
+
+    - name: Show systemd ExecStart (confirm --aws-iot when enabled)
+      tags: [verify]
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - show
+          - bacnet-ds18b20
+          - --property=ExecStart
+      register: bacnet_exec_start
+      changed_when: false
+      become: true
+      when:
+        - install_systemd_unit | default(true) | bool
+        - enable_and_start_service | default(true) | bool
+
+    - name: Display ExecStart
+      tags: [verify]
+      ansible.builtin.debug:
+        msg: "{{ bacnet_exec_start.stdout }}"
+      when: bacnet_exec_start is defined
+
     - name: Sample first DS18B20 sysfs w1_slave
+      tags: [verify]
       ansible.builtin.shell: |
         set -eu
         d="$(ls -d /sys/bus/w1/devices/28-* 2>/dev/null | head -n1 || true)"
@@ -185,6 +282,7 @@
       when: run_deploy_verify | default(true) | bool
 
     - name: Show w1_slave sample (kernel confirms sensor responds)
+      tags: [verify]
       ansible.builtin.debug:
         msg: "{{ w1_sample.stdout_lines }}"
       when:

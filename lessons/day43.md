@@ -1,101 +1,150 @@
-## Day 43 — Iterative recursive-backtracking maze (optional hobby capstone)
+## Day 43 — GL36 AHU supply air temperature (SAT) Trim & Respond
 
 ### Goal
 
-Implement a tiny **perfect maze** generator: every open cell is connected, no loops—classic **recursive backtracking** implemented with an **explicit stack** (same pattern as the **MazeGenerator** module in your **maze-algorithm-sandbox** Lua project (same workspace folder): stack, unvisited neighbors, carve, backtrack on dead ends).
+Implement **SAT reset** with **Trim & Respond** plus an **outdoor-air (OAT) reset curve**: maintain an internal **`tMax`** band, trim/respond based on summed **cooling requests `R`**, then **interpolate** discharge SAT setpoint between OAT limits. Python mirrors the Java block that uses **`SP0` / `SPmin` / `SPmax`**, **`outsideAirTemp`**, and **`totalRequests`**.
 
-This is the **most “CS textbook”** piece of the algorithms arc here; it sits **after** HVAC lists, rules, and thermal capstone (**Day 40**) and **before** graph-as-data for Brick (**Day 44**).
+### Concept — signs matter
 
-### Concept
+For **cooling SAT**, you usually want **higher SAT** when load is low (trim **up**) and **lower SAT** when zones need cooling (respond **down**):
 
-Each **cell** stores:
+| Action | Typical SPtrim | Typical SPres |
+|--------|----------------|---------------|
+| **Trim** (few requests) | **+0.2 °F** per step | — |
+| **Respond** (many requests) | — | **−0.3 °F × (R − I)**, capped |
 
-- Integer coordinates `x`, `y` (or `r`, `c`).
-- **`visited`** boolean for generation.
-- **Walls:** four booleans (north, east, south, west) or use `Top`/`Bottom`/`Left`/`Right` names like the Lua original.
+**SP₀** often equals **`SPmax`** (warmest allowable SAT at start). **`tMaxState`** tracks the reset ceiling before the OAT curve shapes the final **`dischargeAirTempSp`**.
 
-**Algorithm (iterative):**
+### OAT interpolation (diamond curve)
 
-1. Build a full grid of cells with **all walls up** and `visited = False`.
-2. `stack = []`, pick a **start cell**, mark visited, push it.
-3. While stack not empty:
-   - **Peek** current = top of stack.
-   - Collect **unvisited** orthogonal neighbors inside bounds.
-   - If any: choose one (for variety use **`random.randint`** from the `random` module), **remove the wall** between current and chosen, mark chosen visited, **push** chosen.
-   - Else: **pop** (backtrack).
-
-No `pandas`; no list comprehensions required in lesson code—loops are fine.
-
-### Minimal Python sketch (walls as N/E/S/W strings)
+Given **`oat`**, **`oatMin`**, **`oatMax`**, and current **`tMax`**:
 
 ```python
-import random
-
-
-def make_maze(width, height):
-    cells = []
-    for y in range(height):
-        row = []
-        for x in range(width):
-            row.append(
-                {
-                    "x": x,
-                    "y": y,
-                    "visited": False,
-                    "N": True,
-                    "E": True,
-                    "S": True,
-                    "W": True,
-                }
-            )
-        cells.append(row)
-
-    def neighbors(cell):
-        x = cell["x"]
-        y = cell["y"]
-        opts = []
-        if y > 0 and not cells[y - 1][x]["visited"]:
-            opts.append((cells[y - 1][x], "N", "S"))
-        if y + 1 < height and not cells[y + 1][x]["visited"]:
-            opts.append((cells[y + 1][x], "S", "N"))
-        if x > 0 and not cells[y][x - 1]["visited"]:
-            opts.append((cells[y][x - 1], "W", "E"))
-        if x + 1 < width and not cells[y][x + 1]["visited"]:
-            opts.append((cells[y][x + 1], "E", "W"))
-        return opts
-
-    stack = []
-    start = cells[0][0]
-    start["visited"] = True
-    stack.append(start)
-
-    while len(stack) > 0:
-        cur = stack[len(stack) - 1]
-        opts = neighbors(cur)
-        if len(opts) > 0:
-            nxt, wall_cur, wall_nxt = opts[random.randint(0, len(opts) - 1)]
-            cur[wall_cur] = False
-            nxt[wall_nxt] = False
-            nxt["visited"] = True
-            stack.append(nxt)
-        else:
-            stack.pop()
-
-    return cells
+def interpolate(oat, oat_min, t_at_min, oat_max, t_at_max, spmin, spmax):
+    if oat <= oat_min:
+        y = t_at_min
+    elif oat >= oat_max:
+        y = t_at_max
+    else:
+        slope = (t_at_max - t_at_min) / (oat_max - oat_min)
+        y = t_at_min + slope * (oat - oat_min)
+    if y < spmin:
+        return spmin
+    if y > spmax:
+        return spmax
+    return y
 ```
 
-Printing ASCII is optional glue: two characters wide per cell is enough for a screenshot-worthy tiny maze.
+### Python port (°F, simplified state machine)
 
-### HVAC angle (light)
+```python
+import time
 
-**Duct or pipe runs** are sometimes modeled as **graphs on a coarse grid** for clash checks—not identical to a game maze, but the **same bookkeeping**: cells, adjacency, “**have I already routed here**?”
+
+def clamp(v, lo, hi):
+    if v < lo:
+        return lo
+    if v > hi:
+        return hi
+    return v
+
+
+def interpolate(oat, oat_min, t_at_min, oat_max, t_at_max, spmin, spmax):
+    if oat <= oat_min:
+        y = t_at_min
+    elif oat >= oat_max:
+        y = t_at_max
+    else:
+        slope = (t_at_max - t_at_min) / (oat_max - oat_min)
+        y = t_at_min + slope * (oat - oat_min)
+    return clamp(y, spmin, spmax)
+
+
+class SatTrimRespond:
+    def __init__(self):
+        self.spmin = 55.0
+        self.spmax = 70.0
+        self.oat_min = 60.0
+        self.oat_max = 70.0
+        self.td_sec = 10 * 60
+        self.t_sec = 2 * 60
+        self.ignore = 2.0
+        self.trim = 0.2
+        self.resp = -0.3
+        self.resp_max = -1.0
+        self.t_max = 70.0
+        self.last_step_ms = 0
+        self.fan_on_since_ms = 0
+        self.last_fan = False
+
+    def tick(self, now_ms, fan_run, oat, total_requests, requests_ok=True):
+        sp0 = clamp(self.spmax, self.spmin, self.spmax)
+
+        if not fan_run:
+            self.t_max = sp0
+            self.last_fan = False
+            self.fan_on_since_ms = 0
+            sp = self._sat_sp(oat)
+            return sp, "fan OFF -> SP0/tMax reset"
+
+        if not self.last_fan:
+            self.fan_on_since_ms = now_ms
+            self.last_fan = True
+            self.t_max = sp0
+            return self._sat_sp(oat), "fan ON -> hold during Td"
+
+        if (now_ms - self.fan_on_since_ms) // 1000 < self.td_sec:
+            return self._sat_sp(oat), "startup delay"
+
+        if self.last_step_ms and (now_ms - self.last_step_ms) // 1000 < self.t_sec:
+            return self._sat_sp(oat), "between T steps"
+
+        if not requests_ok:
+            self.t_max = sp0
+            self.last_step_ms = 0
+            self.fan_on_since_ms = now_ms
+            return sp0, "RESTART bad R -> SP0"
+
+        r = total_requests
+        if r <= self.ignore:
+            self.t_max = clamp(self.t_max + self.trim, self.spmin, self.spmax)
+            action = "TRIM tMax up"
+        else:
+            amount = max(self.resp * (r - self.ignore), self.resp_max)
+            self.t_max = clamp(self.t_max + amount, self.spmin, self.spmax)
+            action = f"RESPOND tMax {amount:+.2f}"
+
+        self.last_step_ms = now_ms
+        sp = self._sat_sp(oat)
+        return sp, f"{action} R={r} tMax={self.t_max:.1f} SATsp={sp:.1f}"
+
+    def _sat_sp(self, oat):
+        return interpolate(oat, self.oat_min, self.t_max, self.oat_max,
+                           self.spmin, self.spmin, self.spmax)
+
+
+# demo
+ctl = SatTrimRespond()
+t0 = int(time.time() * 1000)
+for m in range(25):
+    fan = m >= 2
+    oat = 65.0
+    r = 0 if m < 12 else 6
+    sp, msg = ctl.tick(t0 + m * 60_000, fan, oat, r)
+    print(f"m={m:02d} R={r} SATsp={sp:.1f}  {msg}")
+```
 
 ### Micro exercises
 
-1. Seed **`random.seed(123)`** before `make_maze(5, 5)` so your output is **reproducible** while debugging.
-2. After generation, write `wall_string(cell)` returning something like `"#" * 4` bits for closed walls and use it to **assert** every cell has at least one open wall except corners (not a formal proof—sanity checks).
-3. Compare **recursive** `def carve(x, y):` that calls itself on the neighbor vs the **iterative stack** version—same tree of moves, different Python call discipline.
+1. Sweep **`oat`** from **55 → 75** with fixed **`tMax = 65`** and print the SAT setpoint curve.
+2. Explain why **`tMax`** is trimmed **up** but **`SPres`** is **negative** (cooling direction).
+3. Pair with **Day 42**: when both duct static and SAT reset run, which loop reacts faster to a single hot zone?
+
+### See also
+
+- **Day 41** — per-zone **cooling** requests summed into **`R`**.
+- **Day 45** — central plant reads **AHU-level** request counters.
 
 ### Key takeaway
 
-**Recursive backtracking** on a grid is **DFS + undo**. An **explicit stack** matches the Lua reference implementation and transfers cleanly to other **backtracking** puzzles—still optional hobby next to your **BACnet-first** path.
+**SAT Trim & Respond** separates **load-driven ceiling (`tMax`)** from **weather-shaped delivery (OAT curve)**—two layers that together keep coils efficient and zones satisfied.

@@ -1,34 +1,44 @@
-## Day 50 — From flat rows to nested equipment records
+## Day 50 — Prefix maps: expand `brick:Thing` by hand
 
 ### Goal
 
-**Bridge** BACnet/CSV thinking to graph prep: given **rows** as `list` of `dict` (keys like `device`, `point_name`, `brick_class`), build a **nested dict**: `equipment_id -> { "class": ..., "points": [ ... ] }` using only loops—same grouping you would need before emitting Turtle.
+Build a **`dict`** mapping **prefix** (without colon) to **namespace base** IRI, then write `expand(prefixed_name)` that turns `brick:Supply_Air_Temperature_Sensor` into a full string—same job Turtle `@prefix` does.
 
 ### Concept
 
-Many exports are **relational**. Brick wants **things and links**. Grouping rows **by equipment** is an algorithm you already know (counting pattern with dict of lists).
+Turtle / SPARQL allow **QName** shorthand: `prefix:LocalName`. The parser **expands** to `namespace_base + LocalName` (with rules for fragments `#` vs `/`—your lesson code can assume the base already ends with `#` or `/` as given).
+
+### How to use it
 
 ```python
-def group_points_by_equipment(rows):
-    out = {}
-    for row in rows:
-        eq = row["equipment_id"]
-        if eq not in out:
-            out[eq] = []
-        out[eq].append(row)
-    return out
+def expand(prefix_map, qname):
+    """qname like 'brick:Supply_Air_Temperature_Sensor'."""
+    if ":" not in qname:
+        return qname
+    prefix, local = qname.split(":", 1)
+    if prefix not in prefix_map:
+        raise KeyError("unknown prefix: " + prefix)
+    return prefix_map[prefix] + local
+
+
+PREFIXES = {
+    "brick": "https://brickschema.org/schema/Brick#",
+    "ex": "https://example.edu/bldg/",
+}
+
+print(expand(PREFIXES, "ex:ahu1"))
 ```
 
 ### Why this matters
 
-Real pipelines **normalize** tabular BACnet discovery into **entities** before `owl:sameAs` / Brick typing. This step is pure Python **data structuring**—no RDF parser required.
+Every RDF file and SPARQL query relies on **prefix expansion**. Doing it once manually demystifies `@prefix` lines and `PREFIX` blocks.
 
 ### Mini exercises
 
-1. Extend grouping so each equipment node also stores `row["equip_type"]` once (first-seen wins).
-2. Emit a **sorted** list of equipment IDs for stable Turtle output (`sorted(out.keys())`).
-3. List one **relationship** you cannot represent in one grouped dict without adding a second pass (e.g. `feeds` between two equipment IDs).
+1. Add `rdf`, `rdfs` entries using common W3C namespace IRIs (look up once, paste as constants).
+2. Write `shorten(full_uri, prefix_map)` that returns a QName if `full_uri` starts with one known base; else return `full_uri` unchanged (linear scan over `items()`).
+3. What breaks if `local` contains an extra `:`?
 
 ### Key takeaway
 
-**Nested dicts + sorted keys** = human-readable, diff-friendly RDF generation later. You are now “shaping” data the way ontology tooling expects.
+**Prefix map = Python `dict`.** Expansion is string concatenation with rules you control in small code—same idea as Turtle.

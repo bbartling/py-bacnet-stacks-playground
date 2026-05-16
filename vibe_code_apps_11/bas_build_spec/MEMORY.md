@@ -11,7 +11,7 @@ Short standing brief for Codex wakes — not a transcript. Daily detail lives un
 
 ## Stack inventory
 
-- Hourly automation: user crontab → `bas_cron_scheduler.sh run-due` → `cron/jobs.json` (`bas-wake-hourly` → `bas_wake.sh`).
+- Two-hour Codex wake automation: user crontab → `bas_cron_scheduler.sh run-due` → `cron/jobs.json` (`bas-wake-hourly` → `bas_wake.sh`).
 - Validators: `cron_codex/bin/bas_validate_*.sh`; release gate in `acceptance_criteria.md` (runtime rows stay **`[ ]`** until **`ss`/`curl`** proof on listening **:8000**).
 - **`POST_WAKE_HOOK`:** May still hit legacy **`bas_post_wake_stack.sh`** skip — prefer documented **`bas_app`** start path when aligning ops.
 

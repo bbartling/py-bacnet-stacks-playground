@@ -2,16 +2,17 @@
 
 **Per-site log** — not generic spec. **Wire off** until human lab sign-off in `BUILD_CHECKPOINTS.md` § BACnet lab sign-off. After sign-off: **Who-Is** on bind from **`PHASE_NOTEPAD.md` § A**; record I-Ams, bind args, and object counts here per **bacnet-driver-lifecycle**.
 
-## Operator-staged devices (unverified — not from Who-Is)
+## Operator-staged devices and discovered wire notes
 
 | Role | BACnet device ID | IPv4 | Notes |
 |------|------------------|------|--------|
 | Head-end bind | (local) | `192.168.204.18/24:47808` on `enp3s0` | BACpypes3 `--address` target |
+| 1-Wire DS18B20 / Pi temperature sensor | `3456788` | `192.168.204.12` | Discovered on wire; not a BACnet device |
 | VAV | `3456790` | `192.168.204.14` | Expected on wire |
 | AHU | `3456789` | **`192.168.204.13`** | **Corrected** — chat had typo `.113` |
 
-- [ ] Human sign-off on discovery (instances, addresses, counts) — **Who-Is not run yet**
-- [ ] Who-Is log appended here after sign-off (I-Am list, instance ↔ IP)
+- Human sign-off on discovery already exists in `BUILD_CHECKPOINTS.md`; Who-Is polling is now active on the staged bind.
+- Current discovery snapshot: 3 I-Am responses, instances `3456788`, `3456790`, `3456789`; `object-list` is still `no-response`, so point scraping remains pending.
 
 ## 2026-05-16T15:07:10Z — discovery failed
 
@@ -92,6 +93,19 @@ OBJECT LIST unavailable for 192.168.204.18: no-response
 ```
 
 ## 2026-05-16T15:09:34Z — lab discovery OK
+
+- bind: `192.168.204.18/24:47808`
+- I-Am responses: **3**
+
+```
+--- Starting Discovery ---
+Device Instance: 3456788 | Address: 192.168.204.12
+Device Instance: 3456790 | Address: 192.168.204.14
+Device Instance: 3456789 | Address: 192.168.204.13
+OBJECT LIST unavailable for 192.168.204.18: no-response
+```
+
+## 2026-05-16T16:27:42Z — lab discovery OK
 
 - bind: `192.168.204.18/24:47808`
 - I-Am responses: **3**

@@ -1,27 +1,36 @@
-## Day 53 — Properties: domain and range (intuition)
+## Day 53 — Adjacency list: `dict` of outgoing edges
 
 ### Goal
 
-At **documentation level**, understand **`rdfs:domain`** and **`rdfs:range`**: “when you see `p` used, subject is expected to be a *kind of* D; object is expected to be a *kind of* R.” You will not prove entailment—just read Brick/RDFS diagrams and Turtle snippets.
+Store a **directed multigraph** as `dict[str, list[tuple[str, str]]]`: **subject IRI** maps to a **list** of `(predicate_iri, object_iri_or_literal_repr)` pairs. This is a classic **adjacency list**—useful for Brick-style “what hangs off this AHU?” queries before SPARQL.
 
 ### Concept
 
-Example pattern (illustrative):
+Same triples as Day 51, reorganized for fast “**all edges from this node**” lookup.
 
-- Predicate `brick:hasPoint` might be documented with domain **Equipment** and range **Point** (exact Brick RDFS is authoritative—treat lesson as pattern).
+```python
+def add_edge(graph, subj, pred, obj):
+    if subj not in graph:
+        graph[subj] = []
+    graph[subj].append((pred, obj))
 
-In **Python validation**, you can fake a tiny checker: if `p == HAS_POINT` and `subj` not in `known_equipment_ids`, append a **warning string** to a list.
+
+def neighbors(graph, subj):
+    if subj not in graph:
+        return []
+    return list(graph[subj])  # copy
+```
 
 ### Why this matters
 
-When generating Turtle from BACnet, **domain/range docs** tell you whether you attached a sensor to a **space** vs **equipment** incorrectly.
+Graph databases still answer “**outgoing edges**” and **pattern matching**. Your dict mirrors how you might **index** triples in a tiny edge service on a Pi.
 
 ### Mini exercises
 
-1. Read one Brick **relationship** definition in published Turtle/OWL (browser) and copy domain/range English gloss into your notes.
-2. Write `validate_has_point(triples)` that warns if the same **subject** has two `hasPoint` edges to objects with **different** `rdf:type` Point classes (toy rule).
-3. Why is **range** documentation weaker than a SQL `FOREIGN KEY` in practice?
+1. Build `adj` from the flat `triples` list of Day 51 (one loop: `add_edge` each).
+2. Write `has_edge(adj, subj, pred, obj)` returning `bool`.
+3. Count distinct **subjects** that appear as **object** anywhere (two passes over data—no set comprehension: use empty dict keys as set stand-in, or introduce `set()` explicitly if allowed—**using `set()` is fine**; course avoided *comprehensions*, not `set()`).
 
 ### Key takeaway
 
-**RDFS domain/range = soft schema hints** for humans and some reasoners. Your FDD + analytics code may still need explicit QA.
+**Same graph, many views:** list of triples vs adjacency dict. SPARQL engines use far smarter indexes—but your mental model starts here.
