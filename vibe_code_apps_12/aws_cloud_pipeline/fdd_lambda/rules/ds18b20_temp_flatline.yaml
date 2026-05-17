@@ -1,0 +1,14 @@
+name: ds18b20_temp_flatline
+description: DS18B20 temperature flatline (stuck sensor)
+type: flatline
+flag: temp_flatline_flag
+
+inputs:
+  Zone_Temperature_Sensor:
+    brick: Zone_Temperature_Sensor
+    column: degF
+
+params:
+  tolerance: 0.05
+  window: 18
+  rolling_window: 6

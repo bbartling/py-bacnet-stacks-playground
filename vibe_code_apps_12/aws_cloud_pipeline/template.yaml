@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Vibe Code App 12B — Pi MQTT (AWS IoT) → Lambda ingest → DynamoDB (TTL) →
+  Lambda Function URL dashboard (HTML + Chart.js). Free-tier-friendly demo scale.
+
+Parameters:
+  IotTopic:
+    Type: String
+    Default: sdk/test/python
+    Description: MQTT topic the Pi already publishes (see ansible/group_vars/pi_bcn.yml)
+  IotRuleName:
+    Type: String
+    Default: vibe12_ds18b20_ingest
+    AllowedPattern: "^[a-zA-Z0-9_]+$"
+    Description: IoT rule name — letters, numbers, underscores only (no hyphens)
+  DeviceId:
+    Type: String
+    Default: bosspi-ds18b20
+  TtlDays:
+    Type: Number
+    Default: 7
+    Description: DynamoDB TTL — rows auto-delete after this many days
+  DeployRevision:
+    Type: String
+    Default: "1"
+    Description: Bump on each deploy (e.g. date +%s) so CloudFormation updates Lambdas when code changed
+
+Resources:
+  TelemetryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "vibe12-telemetry-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: device_id
+          AttributeType: S
+        - AttributeName: ts_ms
+          AttributeType: N
+      KeySchema:
+        - AttributeName: device_id
+          KeyType: HASH
+        - AttributeName: ts_ms
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: IoT Rule action — write telemetry rows with TTL
+      Runtime: python3.13
+      Architectures:
+        - x86_64
+      Timeout: 30
+      MemorySize: 128
+      CodeUri: ingest_lambda/
+      Handler: lambda_function.lambda_handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TelemetryTable
+          DEVICE_ID: !Ref DeviceId
+          TTL_DAYS: !Ref TtlDays
+          DEPLOY_REVISION: !Ref DeployRevision
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TelemetryTable
+
+  IotIngestRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: !Ref IotRuleName
+      TopicRulePayload:
+        AwsIotSqlVersion: "2016-03-23"
+        Sql: !Sub "SELECT * FROM '${IotTopic}'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt IngestFunction.Arn
+
+  IotInvokeIngestPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IngestFunction
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}"
+
+  WebFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Function URL — HTML dashboard and /api/readings JSON
+      Runtime: python3.13
+      Architectures:
+        - x86_64
+      Timeout: 30
+      MemorySize: 256
+      CodeUri: web_lambda/
+      Handler: lambda_function.lambda_handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TelemetryTable
+          DEVICE_ID: !Ref DeviceId
+          DEPLOY_REVISION: !Ref DeployRevision
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TelemetryTable
+      FunctionUrlConfig:
+        AuthType: NONE
+
+  FddFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      DockerTag: vibe12-fdd
+      DockerBuildArgs:
+        DEPLOY_REVISION: !Ref DeployRevision
+    Properties:
+      Description: !Sub "Scheduled open-fdd (rev ${DeployRevision})"
+      PackageType: Image
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TelemetryTable
+          DEVICE_ID: !Ref DeviceId
+          LOOKBACK_HOURS: "6"
+          DEPLOY_REVISION: !Ref DeployRevision
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TelemetryTable
+      Events:
+        EveryFiveMinutes:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Description: Run open-fdd rules on recent DynamoDB telemetry
+            Enabled: true
+    Metadata:
+      DockerTag: vibe12-fdd
+      DockerContext: ./fdd_lambda
+      Dockerfile: Dockerfile
+
+Outputs:
+  TelemetryTableName:
+    Description: DynamoDB table for DS18B20 readings
+    Value: !Ref TelemetryTable
+  DashboardUrl:
+    Description: Open in a browser — chart + latest temperature
+    Value: !GetAtt WebFunctionUrl.FunctionUrl
+  IotTopic:
+    Value: !Ref IotTopic
+  DeployedIotRuleName:
+    Value: !Ref IotRuleName
+  FddFunctionArn:
+    Description: open-fdd scheduled Lambda (every 5 min)
+    Value: !GetAtt FddFunction.Arn

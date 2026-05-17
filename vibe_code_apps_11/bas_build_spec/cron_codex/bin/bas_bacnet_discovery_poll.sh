@@ -71,7 +71,7 @@ PREV_HASH="$CRON_ROOT/state/bacnet_discovery_last_chat_hash"
 new_hash="$(sha256sum "$JSON_OUT" | awk '{print $1}')"
 prev_hash=""
 [[ -f "$PREV_HASH" ]] && prev_hash="$(cat "$PREV_HASH")"
-if [[ "$new_hash" != "$prev_hash" ]] && [[ -f "$POST_CHAT" ]]; then
+if [[ "${BAS_ROUGH_IN_WORKER_CHAT:-false}" == "true" ]] && [[ "$new_hash" != "$prev_hash" ]] && [[ -f "$POST_CHAT" ]]; then
   report="$(mktemp)"
   {
     echo "**BACnet discovery poll** ($TS)"

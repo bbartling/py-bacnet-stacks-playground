@@ -24,41 +24,67 @@ Current wire result: latest discovery shows 3 I-Ams on
 - 3456790 @ 192.168.204.14 (expected VAV)
 - 3456789 @ 192.168.204.13 (expected AHU)
 
-PRIORITY A — Table/tree/API parity:
-1. Fix /api/public/rough-in so the device table includes every discovered
-   not-staged device from bacnet_discovery_latest.json, especially #3456788
-   at 192.168.204.12, labeled "1-Wire DS18B20 / Pi temperature sensor".
-2. Add a backend test that the public snapshot table has bind + all 3 discovered
-   devices when polling is active. Keep the rough-in public route read-only.
-3. Restart or refresh the live :8000/:5173 stack after edits. Prove live-source
-   parity with curl: #3456788 must appear in the table and the tree with the
-   same intended status semantics as source (discovered_not_staged unless
-   intentionally staged).
+Current live rough-in result from critique:
+- /api/public/rough-in device_tree includes #3456788 as discovered_not_staged.
+- /api/public/rough-in device_table returns exactly four polling contract
+  rows: bind, VAV #3456790, AHU #3456789, sensor #3456788. No simulator/seed
+  rows are present in the live payload verified by critique.
+- /api/public/rough-in exposes point_scrape from
+  memory/integrations/bacnet_point_samples_latest.json. Latest critique proof:
+  2026-05-17T16:05:34Z, 3 targets, 3 ok, 8 samples,
+  0 failures.
+- Live tree point rows are one-decimal: examples include
+  `present-value = 63.3`, `317.4`, `66.0`, `1.4`, `64.1`, `70.4`, `31.4`,
+  and `88.6`.
+- /rough-in/ renders the point-scrape report card.
+- /home/ben/bas_app/scripts/print_public_rough_in_proof.py prints a read-only
+  proof summary from /api/public/rough-in, rejects malformed device_table rows,
+  and works against the live API.
+- cron/jobs.json has bas-wake-hourly at the operator-requested 0 */2 * * *.
 
-PRIORITY B — Sensor/point data:
-1. Start bounded read-only point/sensor scraping. Revise point_discovery.py or
-   add a narrow companion script so it targets discovered remote device
-   addresses/instances (192.168.204.12/.13/.14), not the local head-end
-   bind object-list.
-2. Store successful sample values or explicit failures in JSON for
-   /api/public/rough-in.
-3. If reads still fail, show an operator-visible blocker with device, address,
-   object/property attempted, timestamp, and exact no-response/error. Do not
-   present placeholders as live values.
-4. Keep public rough-in read-only: no writes, no command UI, protected writes
-   still 401/403 without proper auth. Keep simulator branding out of polling
-   mode.
+PRIORITY A — Finish rough-in tree verification:
+1. The 2026-05-17T13:44Z user request is mostly implemented. Keep device rows
+   showing device name/status and only last-poll metadata. Do not render device
+   IP/address or verbose staging detail on depth-1 device rows.
+2. Fix the remaining rough-in Playwright selector bug. The check now filters
+   `.tree-node` by `present-value =`, but Playwright includes ancestor
+   `li.tree-node` text; the first match can still contain the root bind IP
+   `192.168.204.18/24:47808`, so the decimal regex fails on `192.168...`.
+   Inspect only leaf point row label/meta text, or add a point-row class in the
+   renderer and target that.
+3. Preserve the one-decimal contract for floating PVs. Add a narrow assertion
+   for an integer-like value such as `present-value = 66.0`, and keep rejecting
+   raw long PV strings such as `63.08304214477539`.
+4. Keep device labels/names: `#3456790 VAV`, `#3456789 AHU`, and `#3456788
+   1-Wire DS18B20 / Pi temperature sensor`. Keep `3456788` status as
+   **On wire (not in job list)** unless a human stages it.
 
-PRIORITY C — Automation hygiene:
-1. Add/adjust a smoke for Codex wake cadence: bas-wake-hourly must remain every
-   2 hours.
-2. Do not edit skills this wake unless explicitly required; the previous wake
-   already touched GUARDRAILS plus skill/reference files.
+PRIORITY B — Electrical MVP simplification:
+1. Keep chat + BACnet NIC/bind + device tree as the primary rough-in surface.
+   Collapse or hide redundant debug tables (`network-table`, point-scrape grid,
+   flat device table) behind details/advanced sections if retaining them for
+   engineering proof.
+2. Preserve safety contracts: public `/rough-in/` is read-only, no simulator
+   rows in polling mode, protected writes remain blocked, and no Phase 2 writes
+   are added.
+3. Keep the operator-requested Codex cadence pinned to every 2 hours:
+   `bas-wake-hourly` `0 */2 * * *`. Who-Is and point scrape stay 5-min workers.
 
-Verify: curl /api/public/rough-in; targeted backend rough-in tests;
-node --check frontend/rough-in/app.js; smoke_public_rough_in.sh;
+PRIORITY C — Test cleanup:
+1. Focused backend rough-in tests now pass; keep them green.
+2. The failing gate is `./scripts/smoke_frontend_e2e.sh`: 5 passed, 1 failed
+   in `public rough-in page renders the bind summary and tree without login`
+   because of the ancestor selector behavior described above.
+3. Avoid skill edits this wake unless a human explicitly asks.
+
+Verify: ss -ltnp | rg ':(8000|5173)\b'; curl -sfS
+http://127.0.0.1:8000/health; curl -sfS
+http://127.0.0.1:8000/api/public/rough-in | jq '.device_tree[0].children[].children[].address'; focused
+backend rough-in/build_device_tree tests; node --check frontend/rough-in/app.js;
+node --check tests/frontend_smoke.spec.mjs; smoke_public_rough_in.sh;
 smoke_public_rough_in_guard.sh; npm run build; smoke_frontend_e2e.sh;
-bas_validate_site_agnostic.sh; bas_validate_wake_chat_slice.sh.
+bas_validate_cron_services.sh; bas_validate_site_agnostic.sh;
+bas_validate_wake_chat_slice.sh.
 
 Leave Phase 1 / Day 0 acceptance [ ] until second-workstation field verify and
 real read-only point values, or a clearly documented device-side blocker, are

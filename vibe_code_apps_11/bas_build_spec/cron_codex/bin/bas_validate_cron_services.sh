@@ -13,6 +13,38 @@ for f in AGENTS.md MEMORY.md bas_build_spec.toml cron/jobs.json BUILD_CHECKPOINT
   [[ -f "$BAS_BUILD/$f" ]] && ok "$f" || bad "missing $f"
 done
 
+echo "-- wake cadence --"
+python3 - "$BAS_BUILD/cron/jobs.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+doc = json.loads(path.read_text(encoding="utf-8"))
+jobs = {job.get("id"): job for job in doc.get("jobs", [])}
+job = jobs.get("bas-wake-hourly")
+if not job:
+    print("FAIL bas-wake-hourly job missing")
+    raise SystemExit(1)
+
+schedule = job.get("schedule") or {}
+errors = []
+if job.get("name") != "Incremental Codex build wake (every 2h, UTC)":
+    errors.append(f"name={job.get('name')!r}")
+if not job.get("enabled", True):
+    errors.append("enabled=false")
+if schedule.get("type") != "cron":
+    errors.append(f"type={schedule.get('type')!r}")
+if schedule.get("expr") != "0 */2 * * *":
+    errors.append(f"expr={schedule.get('expr')!r}")
+
+if errors:
+    print("FAIL bas-wake-hourly cadence mismatch: " + ", ".join(errors))
+    raise SystemExit(1)
+
+print("OK  bas-wake-hourly cadence pinned to 0 */2 * * *")
+PY
+
 for s in bas_memory_ensure.sh bas_memory_bootstrap.sh bas_workspace_cli.sh bas_cron_scheduler.sh bas_cron_engine.py bas_wake.sh bas_install_cron.sh; do
   [[ -x "$BIN_DIR/$s" ]] && ok "executable $s" || bad "not executable $s"
 done

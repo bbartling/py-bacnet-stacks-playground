@@ -16,6 +16,7 @@ Copy `human_validated_args.env.example` to a local untracked file and fill value
 | File | Role | Lifetime |
 |------|------|----------|
 | `point_discovery.py` | Who-Is → I-Am → object-list per device | One-shot |
+| `point_target_scrape.py` | Read-only object-list + sample present-values for discovered devices | One-shot |
 | `client_device_object_list.py` | object-list on one known device instance | One-shot |
 | `client_read_write_release.py` | Read / write / relinquish | One-shot |
 | `client_priority_array.py` | Read priority-array | One-shot |
@@ -31,4 +32,13 @@ Copy `human_validated_args.env.example` to a local untracked file and fill value
 cd /home/ben
 python3 bas_build_spec/bacnet_scripts_example/point_discovery.py \
   --name YourReadApp --instance 100 --address 10.20.30.50/24:47808 --debug
+
+To run the bounded read-only point scrape after discovery, keep the same BACpypes3
+bind args and let `point_target_scrape.py` consume `memory/integrations/bacnet_discovery_latest.json`
+and write `memory/integrations/bacnet_point_samples_latest.json`:
+
+```bash
+python3 bas_build_spec/bacnet_scripts_example/point_target_scrape.py \
+  --name YourReadApp --instance 100 --address 10.20.30.50/24:47808 --debug
+```
 ```

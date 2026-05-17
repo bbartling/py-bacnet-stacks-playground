@@ -54,7 +54,7 @@ fi
 
 POST_CHAT="$BAS_APP/scripts/post_rough_in_chat_report.py"
 JSON_OUT="$BAS_BUILD/memory/integrations/bacnet_discovery_latest.json"
-if [[ -f "$POST_CHAT" ]] && [[ -f "$JSON_OUT" ]]; then
+if [[ "${BAS_ROUGH_IN_WORKER_CHAT:-false}" == "true" ]] && [[ -f "$POST_CHAT" ]] && [[ -f "$JSON_OUT" ]]; then
   report="$(mktemp)"
   python3 - "$report" "$JSON_OUT" "$TS" <<'PY'
 import json

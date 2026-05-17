@@ -300,6 +300,11 @@ else
   echo "=== bas_wake end $(date -Is) log=$LOG ==="
 fi
 
+if [[ -x "$BIN_DIR/bas_post_wake_rough_in_chat.sh" ]]; then
+  echo "--- post_wake_rough_in_chat ---"
+  bash "$BIN_DIR/bas_post_wake_rough_in_chat.sh" "$LOG" || echo "WARN: post_wake_rough_in_chat failed (non-fatal)"
+fi
+
 if [[ -n "${POST_WAKE_HOOK:-}" ]]; then
   echo "--- POST_WAKE_HOOK ---"
   # shellcheck disable=2086

@@ -1,0 +1,18 @@
+name: ds18b20_temp_rate_per_hour
+description: Temperature changing faster than max °F per hour
+type: expression
+flag: temp_rate_per_hour_flag
+
+inputs:
+  Zone_Temperature_Sensor:
+    brick: Zone_Temperature_Sensor
+    column: degF
+
+params:
+  max_f_per_hour: 15.0
+  rolling_window: 6
+
+expression: |
+  dt_h = Zone_Temperature_Sensor.index.to_series().diff().dt.total_seconds() / 3600.0
+  rate_fph = Zone_Temperature_Sensor.diff().abs() / dt_h.replace(0, np.nan)
+  rate_fph > max_f_per_hour

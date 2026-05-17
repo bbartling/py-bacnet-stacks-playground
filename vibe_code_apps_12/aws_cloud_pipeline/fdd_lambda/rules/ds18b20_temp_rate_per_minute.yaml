@@ -1,0 +1,18 @@
+name: ds18b20_temp_rate_per_minute
+description: Temperature changing faster than max °F per minute
+type: expression
+flag: temp_rate_per_minute_flag
+
+inputs:
+  Zone_Temperature_Sensor:
+    brick: Zone_Temperature_Sensor
+    column: degF
+
+params:
+  max_f_per_minute: 2.0
+  rolling_window: 6
+
+expression: |
+  dt_m = Zone_Temperature_Sensor.index.to_series().diff().dt.total_seconds() / 60.0
+  rate_fpm = Zone_Temperature_Sensor.diff().abs() / dt_m.replace(0, np.nan)
+  rate_fpm > max_f_per_minute

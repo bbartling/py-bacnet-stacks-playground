@@ -1,0 +1,20 @@
+# Copy to samconfig.toml and adjust region/stack name.
+#   cp samconfig.toml.example samconfig.toml
+
+version = 0.1
+
+[default.global.parameters]
+# No hyphens — SAM may embed stack name in IoT rule names (hyphens are invalid there)
+stack_name = "vibe12cloud"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+resolve_image_repos = true
+region = "us-east-2"
+parameter_overrides = "IotTopic=\"sdk/test/python\" IotRuleName=\"vibe12_ds18b20_ingest\" DeviceId=\"bosspi-ds18b20\" TtlDays=7 DeployRevision=\"1\""

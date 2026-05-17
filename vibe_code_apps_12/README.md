@@ -89,9 +89,29 @@ flowchart TB
 ```
 
 - **`--sample-interval`**: seconds between sensor reads and BACnet AV updates (default **2**).
-- **`--aws-interval`**: seconds between MQTT publishes when **`--aws-iot`** is enabled (default **60**).
+- **`--aws-interval`**: seconds between MQTT publishes when **`--aws-iot`** is enabled (default **10** via Ansible; was 60).
 
 This program **only** talks to a **DS18B20** via kernel 1-Wire (`w1_slave`). There is no simulation mode.
+
+### AWS cloud pipeline (optional tutorial 12B)
+
+After MQTT to IoT Core works, you can add **Lambda → DynamoDB → browser chart** without touching BACnet:
+
+```text
+Pi (--aws-iot) → IoT Rule → ingest Lambda → DynamoDB (7-day TTL)
+                              → web Lambda Function URL (Chart.js dashboard)
+```
+
+Deploy from your laptop (SAM CLI, free-tier-friendly at ~1 msg/min):
+
+```bash
+cd aws_cloud_pipeline
+cp samconfig.toml.example samconfig.toml
+./deploy.sh --guided
+```
+
+Full steps, cost notes, and tear-down: **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)**.  
+**Working stack reference:** **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** (architecture, URLs, CloudShell cheatsheet).
 
 ---
 

@@ -1,0 +1,132 @@
+{
+  "generated_at_utc": "2026-05-17T16:55:17Z",
+  "bind": "192.168.204.18/24:47808",
+  "discovery_path": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/memory/integrations/bacnet_discovery_latest.json",
+  "target_count": 3,
+  "targets": [
+    {
+      "instance": 3456788,
+      "address": "192.168.204.12"
+    },
+    {
+      "instance": 3456790,
+      "address": "192.168.204.14"
+    },
+    {
+      "instance": 3456789,
+      "address": "192.168.204.13"
+    }
+  ],
+  "result_count": 3,
+  "ok_count": 3,
+  "failed_count": 0,
+  "sample_count": 8,
+  "results": [
+    {
+      "instance": 3456788,
+      "address": "192.168.204.12",
+      "ok": true,
+      "object_list": [
+        "device,3456788",
+        "network-port,1",
+        "analog-value,1",
+        "analog-value,2"
+      ],
+      "samples": [
+        {
+          "object": "analog-value,1",
+          "property": "present-value",
+          "ok": true,
+          "value": 31.562000274658203
+        },
+        {
+          "object": "analog-value,2",
+          "property": "present-value",
+          "ok": true,
+          "value": 88.81159973144531
+        }
+      ]
+    },
+    {
+      "instance": 3456790,
+      "address": "192.168.204.14",
+      "ok": true,
+      "object_list": [
+        "device,3456790",
+        "network-port,1",
+        "analog-input,1",
+        "analog-input,2",
+        "analog-value,1",
+        "analog-value,2",
+        "analog-value,3",
+        "analog-output,1"
+      ],
+      "samples": [
+        {
+          "object": "analog-input,1",
+          "property": "present-value",
+          "ok": true,
+          "value": 67.16651153564453
+        },
+        {
+          "object": "analog-input,2",
+          "property": "present-value",
+          "ok": true,
+          "value": 260.6736145019531
+        },
+        {
+          "object": "analog-value,1",
+          "property": "present-value",
+          "ok": true,
+          "value": 66.0
+        }
+      ]
+    },
+    {
+      "instance": 3456789,
+      "address": "192.168.204.13",
+      "ok": true,
+      "object_list": [
+        "device,3456789",
+        "network-port,1",
+        "analog-input,1",
+        "analog-input,2",
+        "analog-input,3",
+        "analog-input,4",
+        "analog-input,5",
+        "analog-input,6",
+        "analog-input,7",
+        "analog-output,1",
+        "analog-output,2",
+        "analog-output,3",
+        "analog-output,4",
+        "analog-value,1",
+        "analog-value,2",
+        "analog-value,3",
+        "binary-input,1",
+        "binary-output,1",
+        "multi-state-value,1"
+      ],
+      "samples": [
+        {
+          "object": "analog-input,1",
+          "property": "present-value",
+          "ok": true,
+          "value": 0.9852501153945923
+        },
+        {
+          "object": "analog-input,2",
+          "property": "present-value",
+          "ok": true,
+          "value": 71.7535629272461
+        },
+        {
+          "object": "analog-input,3",
+          "property": "present-value",
+          "ok": true,
+          "value": 66.34690856933594
+        }
+      ]
+    }
+  ]
+}

@@ -81,7 +81,7 @@ log "bacnet_lab_verify: OK ($iam_count I-Am); appended $MEMORY_OUT"
 
 BAS_APP="${BAS_APP:-/home/ben/bas_app}"
 POST_CHAT="$BAS_APP/scripts/post_rough_in_chat_report.py"
-if [[ -f "$POST_CHAT" ]]; then
+if [[ "${BAS_ROUGH_IN_WORKER_CHAT:-false}" == "true" ]] && [[ -f "$POST_CHAT" ]]; then
   report="$(mktemp)"
   {
     echo "**BACnet lab verify** (${TS})"

@@ -19,7 +19,7 @@ enable_and_start_service: true
 
 # Sensor / BACnet / MQTT cadence (temp_sensor_server.py)
 bacnet_sample_interval: 2
-aws_iot_publish_interval: 60
+aws_iot_publish_interval: 10
 
 # Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug", "--w1-device", "28-xxxxxxxxxxxx"]
 server_extra_args: []

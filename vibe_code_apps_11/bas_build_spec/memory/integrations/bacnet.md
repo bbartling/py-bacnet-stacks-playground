@@ -7,12 +7,12 @@
 | Role | BACnet device ID | IPv4 | Notes |
 |------|------------------|------|--------|
 | Head-end bind | (local) | `192.168.204.18/24:47808` on `enp3s0` | BACpypes3 `--address` target |
-| 1-Wire DS18B20 / Pi temperature sensor | `3456788` | `192.168.204.12` | Discovered on wire; not a BACnet device |
+| BACnet-presenting Pi / DS18B20 temperature sensor | `3456788` | `192.168.204.12` | Discovered on wire; point scrape returned analog-value samples |
 | VAV | `3456790` | `192.168.204.14` | Expected on wire |
 | AHU | `3456789` | **`192.168.204.13`** | **Corrected** — chat had typo `.113` |
 
 - Human sign-off on discovery already exists in `BUILD_CHECKPOINTS.md`; Who-Is polling is now active on the staged bind.
-- Current discovery snapshot: 3 I-Am responses, instances `3456788`, `3456790`, `3456789`; `object-list` is still `no-response`, so point scraping remains pending.
+- Current discovery snapshot: 3 I-Am responses, instances `3456788`, `3456790`, `3456789`; point scraping has produced a bounded report with 8 successful samples and 0 failures.
 
 ## 2026-05-16T15:07:10Z — discovery failed
 

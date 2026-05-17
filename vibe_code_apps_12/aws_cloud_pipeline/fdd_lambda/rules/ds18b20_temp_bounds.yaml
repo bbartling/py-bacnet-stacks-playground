@@ -1,0 +1,17 @@
+# 65–80 °F band; rolling_window 6 @ 10 s MQTT ≈ 1 minute sustained before flag
+# https://bbartling.github.io/open-fdd/rules/overview#rule-types
+
+name: ds18b20_temp_out_of_bounds
+description: Zone temperature outside 65–80 °F tutorial band
+type: bounds
+flag: temp_out_of_bounds_flag
+
+inputs:
+  Zone_Temperature_Sensor:
+    brick: Zone_Temperature_Sensor
+    column: degF
+    bounds: [65, 80]
+
+params:
+  units: imperial
+  rolling_window: 6

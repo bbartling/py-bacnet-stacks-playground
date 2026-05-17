@@ -17,6 +17,25 @@ Internal code may use `simulator`, `simulator_only`, or mock drivers for the **d
 | Access | Read only | Public rough-in |
 | CORS | Same-host LAN default | When `BAS_ALLOWED_ORIGINS` unset |
 
+## Electrical phase MVP (rough-in `/rough-in/`)
+
+**Show (primary):**
+
+1. **BACnet adapter / bind** — one card: bind `IP/prefix:47808`, NIC name, last Who-Is UTC, I-Am count, next cron runs.
+2. **Device + point tree** — bind → device (`#instance`, IPv4, **Online** or **On wire (not in job list)**) → child rows: `analog-value,1 present-value = 72.3` from latest 5-min scrape.
+3. **Chat** — short status + next Codex / Who-Is schedule.
+
+**Hide or collapse for this phase:** separate driver table + networking table + flat device table + full point-scrape debug grid (engineers can use JSON logs).
+
+**Status labels (operator):**
+
+| Internal | Show electrician |
+|----------|------------------|
+| `online` | **Online** |
+| `discovered_not_staged` | **On wire (not in job list)** |
+| `no_iam` | **No I-Am / Stale** |
+| `pending` / `gated` | **Pending Who-Is** |
+
 ## Devices / points table
 
 - Before sign-off: **Staged (operator)** — rows from chat / `PHASE_NOTEPAD.md`, status **Pending Who-Is**.
@@ -36,4 +55,7 @@ Internal code may use `simulator`, `simulator_only`, or mock drivers for the **d
 
 ## Commissioning chat replies
 
-Rough-in chat uses a **local rules engine** (not an LLM). Every assistant turn must show **`**Next cron runs:**`** with local times for **Codex build**, **BACnet Who-Is**, and other enabled `cron/jobs.json` tasks (from `bas_cron_engine.py wake-status-json`). Mention **waiting_human** when `cron_codex/state/waiting_human` exists. Build work (tree, scripts, cron edits) is done on the **Codex** wake, not in instant chat.
+- **Workers** (Who-Is, point scrape) do **not** post to chat — data lives on the **device tree** only (`BAS_ROUGH_IN_WORKER_CHAT=false` default).
+- **Instant reply** after an operator note: **next cron runs** only + “note saved for next Codex wake.”
+- **Codex** posts one message after each `bas_wake`: **gpt-5.5 critique** + mini count (`bas_post_wake_rough_in_chat.sh`).
+- Do not dump discovery log blocks or object-list errors into chat.

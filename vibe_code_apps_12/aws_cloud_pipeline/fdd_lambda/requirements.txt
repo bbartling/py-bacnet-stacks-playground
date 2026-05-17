@@ -1,0 +1,2 @@
+open-fdd>=2.3
+boto3
