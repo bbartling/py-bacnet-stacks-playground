@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-17T16:55:17Z",
+  "generated_at_utc": "2026-05-17T19:10:17Z",
   "bind": "192.168.204.18/24:47808",
   "discovery_path": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_11/bas_build_spec/memory/integrations/bacnet_discovery_latest.json",
   "target_count": 3,
@@ -37,13 +37,13 @@
           "object": "analog-value,1",
           "property": "present-value",
           "ok": true,
-          "value": 31.562000274658203
+          "value": 15.5
         },
         {
           "object": "analog-value,2",
           "property": "present-value",
           "ok": true,
-          "value": 88.81159973144531
+          "value": 59.900001525878906
         }
       ]
     },
@@ -66,13 +66,13 @@
           "object": "analog-input,1",
           "property": "present-value",
           "ok": true,
-          "value": 67.16651153564453
+          "value": 66.74649810791016
         },
         {
           "object": "analog-input,2",
           "property": "present-value",
           "ok": true,
-          "value": 260.6736145019531
+          "value": 313.212646484375
         },
         {
           "object": "analog-value,1",
@@ -112,19 +112,19 @@
           "object": "analog-input,1",
           "property": "present-value",
           "ok": true,
-          "value": 0.9852501153945923
+          "value": 0.8993418216705322
         },
         {
           "object": "analog-input,2",
           "property": "present-value",
           "ok": true,
-          "value": 71.7535629272461
+          "value": 54.434051513671875
         },
         {
           "object": "analog-input,3",
           "property": "present-value",
           "ok": true,
-          "value": 66.34690856933594
+          "value": 73.04694366455078
         }
       ]
     }

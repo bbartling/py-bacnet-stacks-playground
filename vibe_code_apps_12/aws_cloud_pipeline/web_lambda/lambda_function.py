@@ -16,7 +16,7 @@ from boto3.dynamodb.conditions import Key
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
-READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "500"))
+READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "2500"))
 DEFAULT_HOURS = int(os.environ.get("DEFAULT_HOURS", "24"))
 ROLLING_WINDOW = 6
 
@@ -89,10 +89,11 @@ def _normalize_reading(item: dict) -> dict | None:
 
 
 def _fetch_readings(hours: int) -> list[dict]:
+    """Newest readings in the window (descending query, then chronological for charts)."""
     cutoff_ms = int((time.time() - hours * 3600) * 1000)
     resp = _table.query(
         KeyConditionExpression=Key("device_id").eq(DEVICE_ID) & Key("ts_ms").gte(cutoff_ms),
-        ScanIndexForward=True,
+        ScanIndexForward=False,
         Limit=READINGS_LIMIT,
     )
     rows: list[dict] = []
@@ -100,6 +101,7 @@ def _fetch_readings(hours: int) -> list[dict]:
         row = _normalize_reading(_json_safe(it))
         if row:
             rows.append(row)
+    rows.reverse()
     return rows
 
 
@@ -230,17 +232,22 @@ def _html_page() -> str:
     .card { background: #1c2128; border: 1px solid #30363d; border-radius: 10px; padding: 0.6rem 1rem; text-align: center; min-width: 110px; }
     .lbl { font-size: 0.72rem; opacity: 0.75; text-transform: uppercase; }
     .val { font-size: 1.6rem; font-weight: 700; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+      align-items: center; margin: 0.5rem 0 0.75rem; font-size: 0.85rem;
+    }
+    .toolbar label { display: flex; align-items: center; gap: 0.4rem; opacity: 0.85; }
+    .toolbar select {
+      background: #1c2128; color: #e6edf3; border: 1px solid #30363d;
+      border-radius: 6px; padding: 0.35rem 0.5rem; font-size: 0.85rem;
+    }
     .fdd-row { text-align: center; margin-bottom: 0.5rem; }
     .fdd-badge { display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; font-weight: 700; font-size: 0.9rem; }
     .fdd-NORMAL { background: #238636; color: #fff; }
     .fdd-MISSING_DATA, .fdd-TEMP_OUT_OF_BOUNDS, .fdd-TEMP_RATE_PER_HOUR,
     .fdd-TEMP_RATE_PER_MINUTE, .fdd-PENDING { background: #da3633; color: #fff; }
     .fdd-TEMP_FLATLINE { background: #9e6a03; color: #fff; }
-    .chart-stack { width: 100%; margin-top: 0.5rem; }
-    .plot-box { background: #1c2128; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
-    .plot-box.temp { margin-bottom: 10px; }
-    .plot-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.8; padding: 6px 10px 0; text-align: left; }
-    .plot { width: 100%; }
+    #chart { width: 100%; height: 460px; background: #1c2128; border: 1px solid #30363d; border-radius: 8px; margin-top: 0.5rem; }
     .meta { text-align: center; font-size: 0.8rem; opacity: 0.65; margin-top: 0.25rem; }
     .log-panel { margin-top: 0.5rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px;
       padding: 0.4rem 0.6rem; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 0.7rem; }
@@ -250,52 +257,81 @@ def _html_page() -> str:
 <body>
   <div class="wrap">
     <h1>DS18B20 temperature</h1>
-    <p class="sub">Separate charts — temp °F and 4 fault strips (never shared y-axis)</p>
+    <p class="sub">°F (left) · all faults share right axis (False/True) · color = fault type in legend</p>
     <div class="cards">
       <div class="card"><div class="lbl">°C</div><div id="latestC" class="val">—</div></div>
       <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
       <div class="card"><div class="lbl">Last</div><div id="latestTs" class="val" style="font-size:0.85rem">—</div></div>
     </div>
     <div class="fdd-row"><span id="fddBadge" class="fdd-badge fdd-NORMAL">open-fdd: —</span></div>
-    <div class="chart-stack">
-      <div class="plot-box temp">
-        <div class="plot-title">Temperature °F</div>
-        <div id="plotTemp" class="plot"></div>
-      </div>
-      <div class="plot-box">
-        <div class="plot-title">Out of bounds (65–80 °F)</div>
-        <div id="plotBounds" class="plot"></div>
-      </div>
-      <div class="plot-box">
-        <div class="plot-title">Flatline (stuck sensor)</div>
-        <div id="plotFlatline" class="plot"></div>
-      </div>
-      <div class="plot-box">
-        <div class="plot-title">Rate &gt; 15 °F/hr</div>
-        <div id="plotRateH" class="plot"></div>
-      </div>
-      <div class="plot-box">
-        <div class="plot-title">Rate &gt; 2 °F/min</div>
-        <div id="plotRateM" class="plot"></div>
-      </div>
+    <div class="toolbar">
+      <label>Refresh
+        <select id="refreshSelect" aria-label="Auto refresh interval">
+          <option value="10000">Every 10 s</option>
+          <option value="15000">Every 15 s</option>
+          <option value="30000">Every 30 s</option>
+          <option value="60000" selected>Every 1 min</option>
+          <option value="120000">Every 2 min</option>
+          <option value="300000">Every 5 min</option>
+        </select>
+      </label>
+      <label>History
+        <select id="hoursSelect" aria-label="Hours of data">
+          <option value="1">1 h</option>
+          <option value="3">3 h</option>
+          <option value="6" selected>6 h</option>
+          <option value="12">12 h</option>
+          <option value="24">24 h</option>
+        </select>
+      </label>
+      <button type="button" id="refreshNow" style="background:#238636;color:#fff;border:none;border-radius:6px;padding:0.35rem 0.75rem;cursor:pointer;font-size:0.85rem;">Refresh now</button>
     </div>
+    <div id="chart"></div>
     <p class="meta" id="status">Loading…</p>
     <div id="logPanel" class="log-panel"></div>
   </div>
   <script>
-    const HOURS = 6, REFRESH_MS = 15000;
-    const PLOT_CFG = { responsive: true, displayModeBar: false };
-    const FAULT_SLOTS = [
-      { id: 'plotBounds', key: 'temp_out_of_bounds_flag' },
-      { id: 'plotFlatline', key: 'temp_flatline_flag' },
-      { id: 'plotRateH', key: 'temp_rate_per_hour_flag' },
-      { id: 'plotRateM', key: 'temp_rate_per_minute_flag' }
-    ];
-    const BASE = {
-      paper_bgcolor: '#0f1419', plot_bgcolor: '#1c2128',
-      font: { color: '#e6edf3', size: 10 },
-      margin: { t: 4, r: 12, b: 28, l: 44 }
-    };
+    const LS_REFRESH = 'vibe12_refresh_ms';
+    const LS_HOURS = 'vibe12_hours';
+    let hours = 6;
+    let refreshMs = 60000;
+    let refreshTimer = null;
+    const PLOT_CFG = { responsive: true, displayModeBar: true };
+
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(refresh, refreshMs);
+    }
+
+    function applyToolbarFromStorage() {
+      const rs = document.getElementById('refreshSelect');
+      const hs = document.getElementById('hoursSelect');
+      const savedR = localStorage.getItem(LS_REFRESH);
+      const savedH = localStorage.getItem(LS_HOURS);
+      if (savedR && rs) { rs.value = savedR; refreshMs = parseInt(savedR, 10); }
+      if (savedH && hs) { hs.value = savedH; hours = parseInt(savedH, 10); }
+    }
+
+    function bindToolbar() {
+      const rs = document.getElementById('refreshSelect');
+      const hs = document.getElementById('hoursSelect');
+      const btn = document.getElementById('refreshNow');
+      if (!rs || !hs || !btn) return;
+      rs.addEventListener('change', () => {
+        refreshMs = parseInt(rs.value, 10);
+        localStorage.setItem(LS_REFRESH, String(refreshMs));
+        logMsg('auto-refresh every ' + (refreshMs / 1000) + 's', 'log-ok');
+        startAutoRefresh();
+        refresh();
+      });
+      hs.addEventListener('change', () => {
+        hours = parseInt(hs.value, 10);
+        localStorage.setItem(LS_HOURS, String(hours));
+        logMsg('history window ' + hours + ' h', 'log-ok');
+        refresh();
+      });
+      btn.addEventListener('click', () => refresh());
+    }
 
     function faultClass(s) { return 'fdd-badge fdd-' + (s || 'NORMAL'); }
     function logMsg(t, c) {
@@ -311,71 +347,87 @@ def _html_page() -> str:
       return pts.map(p => (p.ts_iso || '').replace('T', ' ').slice(0, 19));
     }
 
-    function plotTemp(x, yF) {
+    /* All faults use the same right axis: 0 = False, 1 = True (overlaid, not offset bands) */
+    function faultBoolY(flags) {
+      return flags.map(v => (v ? 1 : 0));
+    }
+
+    function drawChart(data) {
+      const pts = data.readings || [];
+      const panels = data.fault_panels || [];
+      const plots = data.fault_plots || {};
+      if (!pts.length) {
+        Plotly.react('chart', [], {
+          height: 320, paper_bgcolor: '#0f1419', plot_bgcolor: '#1c2128',
+          title: { text: 'Waiting for telemetry…', font: { color: '#e6edf3' } }
+        }, PLOT_CFG);
+        return;
+      }
+      const x = xLabels(pts);
+      const yF = pts.map(p => p.degF);
       const yMin = Math.min(...yF), yMax = Math.max(...yF);
-      const pad = Math.max(3, (yMax - yMin) * 0.12);
-      Plotly.react('plotTemp', [{
-        x, y: yF, type: 'scatter', mode: 'lines',
-        line: { color: '#58a6ff', width: 2 }
-      }], Object.assign({}, BASE, {
-        height: 300,
-        margin: { t: 8, r: 12, b: 24, l: 48 },
-        xaxis: { showticklabels: false, gridcolor: '#30363d' },
-        yaxis: { title: '°F', gridcolor: '#30363d', range: [yMin - pad, yMax + pad] },
+      const pad = Math.max(3, (yMax - yMin) * 0.1);
+
+      const traces = [{
+        x, y: yF, name: 'Temperature',
+        type: 'scatter', mode: 'lines',
+        line: { color: '#58a6ff', width: 2.5 },
+        xaxis: 'x', yaxis: 'y',
+        showlegend: false,
+        hovertemplate: '%{y:.1f} °F<extra></extra>'
+      }];
+
+      panels.forEach((panel) => {
+        const flags = plots[panel.key] || pts.map(() => 0);
+        traces.push({
+          x, y: faultBoolY(flags),
+          name: panel.title,
+          type: 'scatter', mode: 'lines',
+          line: { color: panel.color, width: 2.5, shape: 'hv' },
+          xaxis: 'x', yaxis: 'y2',
+          showlegend: true,
+          opacity: 0.92,
+          hovertemplate: panel.title + ': %{customdata}<extra></extra>',
+          customdata: flags.map(v => (v ? 'True' : 'False'))
+        });
+      });
+
+      Plotly.react('chart', traces, {
+        height: 460, autosize: true,
+        paper_bgcolor: '#0f1419', plot_bgcolor: '#1c2128',
+        font: { color: '#e6edf3', size: 11 },
+        margin: { t: 36, r: 64, b: 44, l: 52 },
+        hovermode: 'x unified',
+        legend: {
+          orientation: 'h', y: 1.12, x: 0, font: { size: 9 },
+          title: { text: 'Fault type (color)', font: { size: 9 } }
+        },
+        xaxis: { title: 'Time (UTC)', gridcolor: '#30363d', tickangle: -15 },
+        yaxis: {
+          title: '°F', side: 'left', gridcolor: '#30363d',
+          range: [yMin - pad, yMax + pad], zeroline: false
+        },
+        yaxis2: {
+          title: '', side: 'right', overlaying: 'y', anchor: 'x',
+          range: [0, 1], fixedrange: true, showgrid: false,
+          tickmode: 'array', tickvals: [0, 1],
+          ticktext: ['False', 'True'],
+          tickfont: { size: 10 }
+        },
         shapes: [
           { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 65, y1: 65,
             line: { color: '#3fb950', dash: 'dash', width: 1 } },
           { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 80, y1: 80,
             line: { color: '#3fb950', dash: 'dash', width: 1 } }
         ]
-      }), PLOT_CFG);
-    }
-
-    function plotFault(elId, x, yVals, color, showX) {
-      Plotly.react(elId, [{
-        x, y: yVals, type: 'scatter', mode: 'lines',
-        line: { color, width: 1.2, shape: 'hv' },
-        fill: 'tozeroy', fillcolor: color + '44'
-      }], Object.assign({}, BASE, {
-        height: 78,
-        xaxis: {
-          showticklabels: !!showX, title: showX ? 'Time (UTC)' : '',
-          gridcolor: '#30363d', tickangle: -20
-        },
-        yaxis: {
-          tickvals: [0, 1], ticktext: ['OK', 'FLT'],
-          range: [0, 1], fixedrange: true, gridcolor: '#30363d'
-        }
-      }), PLOT_CFG);
-    }
-
-    function drawCharts(data) {
-      const pts = data.readings || [];
-      const panels = data.fault_panels || [];
-      const plots = data.fault_plots || {};
-      const totals = data.fault_totals || {};
-      if (!pts.length) return;
-      const x = xLabels(pts);
-      const yF = pts.map(p => p.degF);
-      plotTemp(x, yF);
-      FAULT_SLOTS.forEach((slot, i) => {
-        const panel = panels.find(p => p.key === slot.key) || {};
-        const yVals = plots[slot.key] || pts.map(() => 0);
-        const n = totals[slot.key] || 0;
-        const box = document.getElementById(slot.id).closest('.plot-box');
-        const titleEl = box && box.querySelector('.plot-title');
-        if (titleEl && panel.title) {
-          titleEl.textContent = panel.title + (n ? ' · ' + n + ' flt' : '');
-        }
-        plotFault(slot.id, x, yVals, panel.color || '#f85149', i === FAULT_SLOTS.length - 1);
-      });
+      }, PLOT_CFG);
     }
 
     async function refresh() {
-      logMsg('GET /api/readings?hours=' + HOURS);
+      logMsg('GET /api/readings?hours=' + hours);
       let data;
       try {
-        data = await (await fetch('/api/readings?hours=' + HOURS)).json();
+        data = await (await fetch('/api/readings?hours=' + hours)).json();
       } catch (e) {
         logMsg('fetch error: ' + e, 'log-err');
         return;
@@ -386,13 +438,16 @@ def _html_page() -> str:
         logMsg('Run FddFunction once: Lambda console → Test', 'log-warn');
       }
       if (dbg.bounds_preview_only) {
-        logMsg('bounds = server preview (rolling 6); other faults need FDD', 'log-warn');
+        logMsg('bounds lane = preview (rolling 6); other lanes need FDD', 'log-warn');
       }
       if (dbg.has_flag_series) {
         logMsg('FDD flag_series OK · ' + JSON.stringify(data.fault_totals || {}));
       }
       (dbg.fdd_eval_log || []).slice(-4).forEach(l => logMsg('open-fdd: ' + l));
-      document.getElementById('status').textContent = pts.length + ' pts · ' + HOURS + ' h';
+      const rs = document.getElementById('refreshSelect');
+      const label = rs ? rs.options[rs.selectedIndex].text : (refreshMs / 1000) + 's';
+      document.getElementById('status').textContent =
+        pts.length + ' pts · ' + hours + ' h · ' + label;
       const b = document.getElementById('fddBadge');
       b.textContent = 'open-fdd: ' + (fdd.fdd_status || 'PENDING');
       b.className = faultClass(fdd.fdd_status);
@@ -401,11 +456,13 @@ def _html_page() -> str:
         document.getElementById('latestC').textContent = last.degC.toFixed(2);
         document.getElementById('latestF').textContent = last.degF.toFixed(2);
         document.getElementById('latestTs').textContent = (last.ts_iso || '').replace('T', ' ').slice(0, 19);
-        drawCharts(data);
+        drawChart(data);
       }
     }
+    applyToolbarFromStorage();
+    bindToolbar();
     refresh();
-    setInterval(refresh, REFRESH_MS);
+    startAutoRefresh();
   </script>
 </body>
 </html>"""

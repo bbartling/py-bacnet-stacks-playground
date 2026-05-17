@@ -1,9 +1,9 @@
 # Rough-in commissioning context (wake export)
 
-Generated (UTC): 2026-05-17T16:08:02.254340Z
-Cutoff (last bas_wake `last_run_at`): 2026-05-17T14:11:56.329214Z
+Generated (UTC): 2026-05-17T18:06:36.204813Z
+Cutoff (last bas_wake `last_run_at`): 2026-05-17T16:11:02.944443Z
 Chat source: `/home/ben/bas_app/runtime/rough_in_chat.json`
-Messages since cutoff: 24 (user: 1, assistant: 23)
+Messages since cutoff: 4 (user: 2, assistant: 2)
 
 Codex (**mini and gpt-5.5 critique**): read this entire file every wake.
 Do not rely on `rough_in_chat_summary.md` (latest turn only).
@@ -77,261 +77,18 @@ _Always read — survives across wakes even when chat slice is empty._
 
 ## Chat since last bas_wake
 
-## 1. assistant @ 2026-05-17T14:12:12.235030Z
-
-**BACnet discovery poll** (2026-05-17T14:11:56Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 2. assistant @ 2026-05-17T14:15:17.372544Z
-
-**BACnet discovery poll** (2026-05-17T14:15:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 3. assistant @ 2026-05-17T14:15:17.534317Z
-
-**Auto-commission** (2026-05-17T14:15:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456790 @ 192.168.204.14
-  - #3456788 @ 192.168.204.12
-  - #3456789 @ 192.168.204.13
-
-## 4. assistant @ 2026-05-17T14:20:17.452835Z
-
-**BACnet discovery poll** (2026-05-17T14:20:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 5. assistant @ 2026-05-17T14:25:17.548188Z
-
-**BACnet discovery poll** (2026-05-17T14:25:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 6. assistant @ 2026-05-17T14:25:17.706766Z
-
-**Auto-commission** (2026-05-17T14:25:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456788 @ 192.168.204.12
-  - #3456790 @ 192.168.204.14
-  - #3456789 @ 192.168.204.13
-
-## 7. assistant @ 2026-05-17T14:30:17.583171Z
-
-**BACnet discovery poll** (2026-05-17T14:30:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 8. assistant @ 2026-05-17T14:35:17.712149Z
-
-**BACnet discovery poll** (2026-05-17T14:35:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 9. assistant @ 2026-05-17T14:35:17.871356Z
-
-**Auto-commission** (2026-05-17T14:35:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456788 @ 192.168.204.12
-  - #3456790 @ 192.168.204.14
-  - #3456789 @ 192.168.204.13
-
-## 10. assistant @ 2026-05-17T14:40:17.715016Z
-
-**BACnet discovery poll** (2026-05-17T14:40:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 11. assistant @ 2026-05-17T14:45:17.878788Z
-
-**BACnet discovery poll** (2026-05-17T14:45:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 12. assistant @ 2026-05-17T14:45:18.021133Z
-
-**Auto-commission** (2026-05-17T14:45:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456789 @ 192.168.204.13
-  - #3456788 @ 192.168.204.12
-  - #3456790 @ 192.168.204.14
-
-## 13. assistant @ 2026-05-17T14:50:18.047835Z
-
-**BACnet discovery poll** (2026-05-17T14:50:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 14. assistant @ 2026-05-17T14:55:17.176525Z
-
-**BACnet discovery poll** (2026-05-17T14:55:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 15. assistant @ 2026-05-17T14:55:17.335726Z
-
-**Auto-commission** (2026-05-17T14:55:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456788 @ 192.168.204.12
-  - #3456790 @ 192.168.204.14
-  - #3456789 @ 192.168.204.13
-
-## 16. assistant @ 2026-05-17T15:00:17.160962Z
-
-**BACnet discovery poll** (2026-05-17T15:00:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 17. assistant @ 2026-05-17T15:05:17.272885Z
-
-**BACnet discovery poll** (2026-05-17T15:05:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 18. assistant @ 2026-05-17T15:05:17.434936Z
-
-**Auto-commission** (2026-05-17T15:05:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456788 @ 192.168.204.12
-  - #3456789 @ 192.168.204.13
-  - #3456790 @ 192.168.204.14
-
-## 19. assistant @ 2026-05-17T15:10:17.300171Z
-
-**BACnet discovery poll** (2026-05-17T15:10:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-Device Instance: 3456789 | Address: 192.168.204.13
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 20. assistant @ 2026-05-17T15:15:17.418065Z
-
-**BACnet discovery poll** (2026-05-17T15:15:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 21. assistant @ 2026-05-17T15:15:17.578222Z
-
-**Auto-commission** (2026-05-17T15:15:01Z)
-- Bind: `192.168.204.18/24:47808` · ok: **True** · I-Am: **3**
-  - #3456789 @ 192.168.204.13
-  - #3456788 @ 192.168.204.12
-  - #3456790 @ 192.168.204.14
-
-## 22. assistant @ 2026-05-17T15:20:17.442128Z
-
-**BACnet discovery poll** (2026-05-17T15:20:01Z)
-- Bind: `192.168.204.18/24:47808` · I-Am: **3**
-- File: `memory/integrations/bacnet_discovery_latest.json`
-```
---- Starting Discovery ---
-Device Instance: 3456788 | Address: 192.168.204.12
-Device Instance: 3456789 | Address: 192.168.204.13
-Device Instance: 3456790 | Address: 192.168.204.14
-OBJECT LIST unavailable for 192.168.204.18: no-response
-```
-
-## 23. user @ 2026-05-17T16:04:17.703083Z
+## 1. user @ 2026-05-17T18:01:26.255513Z
 
 VRF + DOAS with expected VAV boxes.
 
-## 24. assistant @ 2026-05-17T16:04:17.786797Z
+## 2. assistant @ 2026-05-17T18:01:26.328163Z
 
-**Next cron runs:** Codex build: 1:00 PM CDT · BACnet Who-Is: due now · BACnet auto-arm: due now · BACnet point scrape ever: due now. Last Who-Is **2026-05-17T16:00:01Z**: **3** I-Am(s). Seen: #3456789 @ 192.168.204.13, #3456788 @ 192.168.204.12, #3456790 @ 192.168.204.14. **Device tree** below updates each poll. Scheduled **Codex** wakes implement your requests: device **tree** UI, BACnet scripts, **cron/jobs.json** (all task intervals), point reads, and `.env` bind tuning. **Next cron runs:** Codex build: 1:00 PM CDT · BACnet Who-Is: due now · BACnet auto-arm: due now · BACnet point scrape ever: due now.
+**Next cron runs:** Codex build: 3:00 PM CDT · BACnet Who-Is: due now · BACnet auto-arm: due now · BACnet point scrape ever: due now. Note saved. **Codex** (critique + minis) replies on the next builder wake; live values are on the **device tree**.
+
+## 3. user @ 2026-05-17T18:05:35.738103Z
+
+VRF + DOAS with expected VAV boxes.
+
+## 4. assistant @ 2026-05-17T18:05:35.827349Z
+
+**Next cron runs:** Codex build: 3:00 PM CDT · BACnet Who-Is: 1:10 PM CDT · BACnet auto-arm: 1:10 PM CDT · BACnet point scrape ever: 1:10 PM CDT. Note saved. **Codex** (critique + minis) replies on the next builder wake; live values are on the **device tree**.

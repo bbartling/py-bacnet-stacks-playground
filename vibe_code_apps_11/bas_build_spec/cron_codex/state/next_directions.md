@@ -33,37 +33,35 @@ Current live rough-in result from critique:
   memory/integrations/bacnet_point_samples_latest.json. Latest critique proof:
   2026-05-17T16:05:34Z, 3 targets, 3 ok, 8 samples,
   0 failures.
-- Live tree point rows are one-decimal: examples include
-  `present-value = 63.3`, `317.4`, `66.0`, `1.4`, `64.1`, `70.4`, `31.4`,
-  and `88.6`.
+- Live tree point rows are one-decimal and verified by leaf-row Playwright
+  selectors. The tree has `li.tree-node.tree-point-row` on present-value
+  leaves, and the browser smoke proves at least one integer-like
+  `present-value = 66.0` while rejecting raw long PV strings.
 - /rough-in/ renders the point-scrape report card.
 - /home/ben/bas_app/scripts/print_public_rough_in_proof.py prints a read-only
   proof summary from /api/public/rough-in, rejects malformed device_table rows,
   and works against the live API.
 - cron/jobs.json has bas-wake-hourly at the operator-requested 0 */2 * * *.
 
-PRIORITY A — Finish rough-in tree verification:
-1. The 2026-05-17T13:44Z user request is mostly implemented. Keep device rows
-   showing device name/status and only last-poll metadata. Do not render device
-   IP/address or verbose staging detail on depth-1 device rows.
-2. Fix the remaining rough-in Playwright selector bug. The check now filters
-   `.tree-node` by `present-value =`, but Playwright includes ancestor
-   `li.tree-node` text; the first match can still contain the root bind IP
-   `192.168.204.18/24:47808`, so the decimal regex fails on `192.168...`.
-   Inspect only leaf point row label/meta text, or add a point-row class in the
-   renderer and target that.
-3. Preserve the one-decimal contract for floating PVs. Add a narrow assertion
-   for an integer-like value such as `present-value = 66.0`, and keep rejecting
-   raw long PV strings such as `63.08304214477539`.
+PRIORITY A — Finish electrical MVP simplification:
+1. The 2026-05-17T13:44Z tree request is implemented and full browser E2E
+   passes. Preserve device rows showing device name/status and only last-poll
+   metadata. Do not render device IP/address or verbose staging detail on
+   depth-1 device rows.
+2. Keep chat + BACnet NIC/bind + device tree as the primary rough-in surface.
+   Move redundant engineering/proof surfaces (`network-table`, point-scrape
+   report table, and the flat `device-table`) into native `<details>` advanced
+   sections. Summary labels should still make it clear proof data exists.
+3. Update the public rough-in Playwright smoke for the collapsed layout: assert
+   the summaries, expand details, and preserve all existing proof checks for
+   ports, point scrape, staged/discovered rows, no simulator rows, no device IPs
+   on tree device rows, and rounded PVs.
 4. Keep device labels/names: `#3456790 VAV`, `#3456789 AHU`, and `#3456788
    1-Wire DS18B20 / Pi temperature sensor`. Keep `3456788` status as
    **On wire (not in job list)** unless a human stages it.
 
-PRIORITY B — Electrical MVP simplification:
-1. Keep chat + BACnet NIC/bind + device tree as the primary rough-in surface.
-   Collapse or hide redundant debug tables (`network-table`, point-scrape grid,
-   flat device table) behind details/advanced sections if retaining them for
-   engineering proof.
+PRIORITY B — Safety contracts:
+1. Keep public `/rough-in/` read-only, no-login, and narrow.
 2. Preserve safety contracts: public `/rough-in/` is read-only, no simulator
    rows in polling mode, protected writes remain blocked, and no Phase 2 writes
    are added.
@@ -72,9 +70,8 @@ PRIORITY B — Electrical MVP simplification:
 
 PRIORITY C — Test cleanup:
 1. Focused backend rough-in tests now pass; keep them green.
-2. The failing gate is `./scripts/smoke_frontend_e2e.sh`: 5 passed, 1 failed
-   in `public rough-in page renders the bind summary and tree without login`
-   because of the ancestor selector behavior described above.
+2. The current gate is green: `./scripts/smoke_frontend_e2e.sh` passes 6/6 as
+   of the 2026-05-17T18:06Z critique. Keep it green after layout changes.
 3. Avoid skill edits this wake unless a human explicitly asks.
 
 Verify: ss -ltnp | rg ':(8000|5173)\b'; curl -sfS
