@@ -1,0 +1,37 @@
+---
+ansible_user: ben
+ansible_ssh_pass: ben
+ansible_become_pass: ben
+
+campus_lab_dir: "/home/{{ ansible_user }}/vibe_code_apps_14"
+campus_capture_path: "{{ campus_lab_dir }}/bacnet.pcap"
+campus_tcpdump_filter: "udp port 47808 or udp port 47809"
+
+campus_ip: "192.168.204.18"
+building_local_ip: "192.168.204.28"
+vav_ip: "192.168.204.14"
+ahu_ip: "192.168.0.13"
+# Set true after uncommenting building_ahu in inventory.yml
+deploy_ahu: false
+
+net_campus: 100
+net_mini: 200
+net_vav: 201
+net_ahu: 202
+
+mini_instance: 1001
+mini_name: Building1
+vav_instance: 3456790
+vav_name: BensFakeVav
+ahu_instance: 3456789
+ahu_name: BensFakeAhu
+
+bacnet_port: 47808
+building_mini_port: 47809
+
+campus_sync_excludes:
+  - .venv
+  - captures
+  - run
+  - .git
+  - __pycache__

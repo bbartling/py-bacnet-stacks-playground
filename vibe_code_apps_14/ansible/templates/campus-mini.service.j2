@@ -1,0 +1,15 @@
+[Unit]
+Description=Campus building mini (net {{ net_mini }})
+After=network-online.target campus-router.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+WorkingDirectory={{ campus_lab_dir }}
+ExecStart={{ campus_lab_dir }}/.venv/bin/python3 {{ campus_lab_dir }}/samples/mini-device-revisited.py --name {{ mini_name }} --instance {{ mini_instance }} --network {{ net_mini }} --address {{ building_local_ip }}/24:{{ building_mini_port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

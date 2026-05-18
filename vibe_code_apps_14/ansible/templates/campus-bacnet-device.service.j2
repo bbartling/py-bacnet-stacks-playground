@@ -1,0 +1,15 @@
+[Unit]
+Description=Campus lab BACnet device {{ bacnet_device_name }} (net {{ bacnet_network }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+WorkingDirectory={{ campus_lab_dir }}
+ExecStart={{ campus_lab_dir }}/.venv/bin/python3 {{ campus_lab_dir }}/samples/{{ bacnet_sample }} --name {{ bacnet_device_name }} --instance {{ bacnet_instance }} --network {{ bacnet_network }} --address {{ ansible_host }}/24:{{ bacnet_port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,68 +1,30 @@
-# vibe_code_apps_14 — BACnet routing research lab
+# vibe_code_apps_14 — Campus BACnet routing lab
 
-Hands-on experiments with **[BACpypes3](https://github.com/JoelBender/BACpypes3)** routing samples, two [mini-device-revisited](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py) servers on one host, and notes toward a **DIY BACnet/IP ↔ MS/TP** router (Misty3 + bacnet-stack).
+Single experiment: **flat campus** on `192.168.204.18:47808`, **three buildings** behind the router (mini + VAV + AHU Pis), deploy with Ansible, test from Windows.
 
-**Status:** Active research (2026-05-18). Lab verified on `192.168.204.18`.
+**Tutorial (only test):** [docs/TUTORIAL-CAMPUS-LAB.md](docs/TUTORIAL-CAMPUS-LAB.md)
 
 ## Quick start
 
 ```bash
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_14
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-export HOST_IP=$(hostname -I | awk '{print $1}')
-
-# Two BACnet devices, one OS, different ports
-chmod +x scripts/*.sh
-./scripts/start_two_minis.sh
-.venv/bin/python scripts/discover_minis_unicast.py --host "$HOST_IP"
-./scripts/stop_lab.sh
-
-# 60s lab + tcpdump capture (sudo for packet capture)
-sudo ./scripts/run_timed_lab.sh minis
-sudo ./scripts/run_timed_lab.sh router
-
-# IPv4 router (interactive) — stop minis first
-./scripts/start_ipv4_router.sh
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_14/ansible
+sudo apt install ansible-core sshpass rsync   # once on boss Pi
+./deploy.sh
 ```
 
-**Remote PC:** while `run_timed_lab.sh minis` runs on the server, on your laptop:
+**Windows:** copy `scripts/campus_windows_probe.py`, then:
 
-```bash
+```powershell
 pip install bacpypes3 ifaddr
-python scripts/remote_read_minis.py --server <server-lan-ip>
+python campus_windows_probe.py --campus 192.168.204.18
 ```
 
-See [scripts/README-remote-probe.md](scripts/README-remote-probe.md). Confirms **direct** reads, not BACnet routing.
+## Inventory
 
-## Documentation
+| Host | IP | Role |
+|------|-----|------|
+| bensserver | 192.168.204.18 | Router + mini (net 200 @ .28) |
+| building_vav | 192.168.204.14 | fake_vav net 201 |
+| building_ahu | 192.168.0.13 | fake_ahu net 202 |
 
-| Doc | Contents |
-|-----|----------|
-| [docs/TUTORIAL-bacnet-routing-research.md](docs/TUTORIAL-bacnet-routing-research.md) | Full tutorial: routing, Misty3, bacnet-stack, roadmap |
-| [docs/LAB_RESULTS.md](docs/LAB_RESULTS.md) | Verified results on this host |
-
-## Port map (default)
-
-| Role | UDP port | BACnet network |
-|------|----------|----------------|
-| Router leg A | 47808 | 100 |
-| Router leg B | 47809 | 200 |
-| MiniA | 47809 | — (standalone device, not routed net 100) |
-| MiniB | 47810 | — |
-
-Minis use **47809/47810** so they do not collide with the router on **47808/47809**.
-
-## Two-machine routing lab
-
-Run the **router** on the Pi/server; run **MiniA on `47808` and MiniB on `47809`** on your PC (see tutorial § Lab C). That is how an outside client sees **one routed plant** instead of two isolated UDP ports.
-
-## Related apps
-
-| App | Topic |
-|-----|--------|
-| **11** | Agentic BAS / Codex build |
-| **12** | Pi DS18B20 BACnet device + AWS IoT |
-| **13** | DIY BACnet router (planned) |
-| **14** | This folder — routing research |
+SSH `ben` / `ben` — edit `ansible/group_vars/all.yml` if needed.

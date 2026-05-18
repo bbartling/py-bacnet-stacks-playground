@@ -1,17 +1,10 @@
-# Upstream BACpypes3 sample scripts
+# BACnet samples (campus lab)
 
-Copied from [JoelBender/BACpypes3 `samples/`](https://github.com/JoelBender/BACpypes3/tree/main/samples) for lab use. The **library** is installed via pip (`bacpypes3`); these files are **not** shipped in the PyPI wheel.
+| Script | Role in campus lab |
+|--------|-------------------|
+| `mini-device-revisited.py` | Building mini on bensserver net **200** |
+| `fake_vav.py` | VAV on `192.168.204.14` net **201** |
+| `fake_ahu.py` | AHU on `192.168.0.13` net **202** |
+| `ipv4-to-ipv4.py` | Interactive router shell (optional) |
 
-| File | Use |
-|------|-----|
-| `mini-device-revisited.py` | Dual mini BACnet devices (`start_two_minis.sh`) |
-| `ipv4-to-ipv4.py` | Interactive IPv4 router shell (`start_ipv4_router.sh`) |
-
-Refresh from upstream when needed:
-
-```bash
-curl -fsSL -o samples/mini-device-revisited.py \
-  https://raw.githubusercontent.com/JoelBender/BACpypes3/main/samples/mini-device-revisited.py
-curl -fsSL -o samples/ipv4-to-ipv4.py \
-  https://raw.githubusercontent.com/JoelBender/BACpypes3/main/samples/ipv4-to-ipv4.py
-```
+Deploy and run via `ansible/deploy_campus_lab.yml` — see [docs/TUTORIAL-CAMPUS-LAB.md](../docs/TUTORIAL-CAMPUS-LAB.md).

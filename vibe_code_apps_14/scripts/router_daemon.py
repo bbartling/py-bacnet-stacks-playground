@@ -16,7 +16,12 @@ from bacpypes3.argparse import JSONArgumentParser
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", type=Path, required=True)
-    parser.add_argument("--seconds", type=int, default=60)
+    parser.add_argument(
+        "--seconds",
+        type=int,
+        default=60,
+        help="Run time (0 or negative = forever)",
+    )
     args = parser.parse_args()
 
     # Load JSON into bacpypes settings the same way JSONArgumentParser does.
@@ -27,9 +32,15 @@ async def main() -> None:
 
     router_objects = settings.json["router"]
     app = Application.from_json(router_objects)
-    print(f"router up for {args.seconds}s (device 998, nets 100/200)", flush=True)
+    if args.seconds <= 0:
+        print("router up (forever, device 998)", flush=True)
+    else:
+        print(f"router up for {args.seconds}s (device 998)", flush=True)
     try:
-        await asyncio.sleep(args.seconds)
+        if args.seconds <= 0:
+            await asyncio.Future()
+        else:
+            await asyncio.sleep(args.seconds)
     finally:
         app.close()
         print("router stopped", flush=True)

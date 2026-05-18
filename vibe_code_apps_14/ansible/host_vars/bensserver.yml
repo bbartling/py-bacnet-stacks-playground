@@ -1,0 +1,4 @@
+---
+# Boss Pi: run services from the live git checkout (no rsync copy).
+campus_lab_dir: "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_14"
+skip_rsync: true
