@@ -4,8 +4,8 @@ Short standing brief for Codex wakes — not a transcript. Daily detail lives un
 
 ## Portfolio / deployment
 
-- Head-end under `bas_app/`; orchestration under `bas_build_spec/`.
-- **Application code:** `bas_app/` carries the stdlib backend and static UI; feature work is active.
+- Head-end slot was `bas_app/` (**deleted 2026-05-18**); orchestration under `bas_build_spec/`.
+- **Application code:** retired — see **`memory/architecture/bas_app-retired-2026-05-18.md`** for stack, APIs, and file tree. Regenerate `bas_app/` on next Codex wake when ready.
 - **Long-lived runtime (Tier A):** Cron/Codex shells often have **no `systemctl --user` bus** (`Failed to connect to bus: No medium found`). **Tools:** **`skills/systemd-live-dev/SKILL.md`** — use **`XDG_RUNTIME_DIR=/run/user/$(id -u)`** when **`/run/user/UID`** exists; document **`loginctl enable-linger`** for operators; otherwise **`bas_app/scripts/`** + README (**Path B**) and optional **`POST_WAKE_HOOK`** to that script. Default **`bas_post_wake_stack.sh`** may **`skip`** — Codex does **not** depend on patching it.
 - Bind **0.0.0.0**; remote operators use server LAN IP, not `localhost` from other PCs.
 

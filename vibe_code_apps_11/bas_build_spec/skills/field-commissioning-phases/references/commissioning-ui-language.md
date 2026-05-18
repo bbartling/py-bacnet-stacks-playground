@@ -22,8 +22,8 @@ Internal code may use `simulator`, `simulator_only`, or mock drivers for the **d
 **Show (primary):**
 
 1. **BACnet adapter / bind** — one card: bind `IP/prefix:47808`, NIC name, last Who-Is UTC, I-Am count, next cron runs.
-2. **Device + point tree** — bind → device (`#instance`, IPv4, **Online** or **On wire (not in job list)**) → child rows: `analog-value,1 present-value = 72.3` from latest 5-min scrape.
-3. **Chat** — short status + next Codex / Who-Is schedule.
+2. **Device + point tree** — bind → device (`#instance`, IPv4, **Online** or **On wire (not in job list)**) → child rows: `analog-value,1 present-value = 72.3` from latest 5-min scrape. Devices **collapse/expand** (default collapsed except bind); subtitle says **“points from last scrape”** until full object-list coverage exists.
+3. **Chat** — short status + next scheduled poll / wake (or **“automation paused”** when cron jobs disabled).
 
 **Hide or collapse for this phase:** separate driver table + networking table + flat device table + full point-scrape debug grid (engineers can use JSON logs).
 

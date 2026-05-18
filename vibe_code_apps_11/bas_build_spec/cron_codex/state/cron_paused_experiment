@@ -1,0 +1,2 @@
+Paused 2026-05-18: user experiment — crontab removed, all jobs.json jobs disabled.
+Resume: bas_install_cron.sh + re-enable jobs in jobs.json.

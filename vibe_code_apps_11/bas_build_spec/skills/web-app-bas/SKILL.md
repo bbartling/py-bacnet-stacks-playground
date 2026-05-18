@@ -74,6 +74,23 @@ A feature slice is **not complete** for supervisory work if **only** tests pass 
 - Keep simulator-backed APIs behind interfaces so later BACnet or gateway drivers can replace them without reshaping the shell contract.
 - **Public `/rough-in/`:** never headline “simulator” on BACnet/driver or device tables — map to field labels per **`field-commissioning-phases/references/commissioning-ui-language.md`** (wire off, pending Who-Is, discovering, polling).
 
+## Production path vs lab stack (do not confuse)
+
+| Layer | Lab / commissioning (today) | Production target |
+|-------|------------------------------|-------------------|
+| API | `python3 -m backend` → **`ThreadingHTTPServer`** in `backend/app.py` | **ASGI** (uvicorn/gunicorn) + reverse proxy |
+| UI | `python3 -m http.server` **5173** + static HTML/JS | Built SPA or nginx-served `dist/` |
+| Live data | **`DemoSimulator`** on `/`; rough-in reads **JSON files** from `bas_build_spec/memory/integrations/` | BACnet driver service + DB-backed catalog |
+| Auth | In-memory bearer tokens; demo users | Durable sessions, OIDC or DB users |
+| Public rough-in | **`GET|POST /api/public/rough-in`** no login | Network ACL or VPN only; rate limit |
+| Realtime | REST poll only | WebSocket/SSE for points/alarms |
+
+**Codex / Cursor rule:** `scripts/local_stack.sh` and **`deploy/compose.yaml`** are **dev/demo** — suitable for LAN rough-in and smoke tests, **not** the definition of production deployment.
+
+**When to promote:** after Phase 1 field sign-off, adopt **`systemd-live-dev`** user units (or container orchestration), external TLS terminator, and split **public commissioning** origin from **supervisor** origin. Keep simulator on `/` until BACnet driver sign-off per **`bacnet-driver-lifecycle`**.
+
+**Monolith note:** ~1.4k-line `BASRequestHandler` is acceptable for demos; production should split routers/middleware before adding Phase 2 write surfaces at scale.
+
 ## Repo-local skills layout
 
 All task skills live under **`bas_build_spec/skills/<name>/SKILL.md`** (this tree). Cursor picks them up via symlinks in **`~/.cursor/skills/`** (see root **`bas_build_spec/skills/README.md`**).

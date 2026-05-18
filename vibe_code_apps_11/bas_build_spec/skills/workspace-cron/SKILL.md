@@ -13,6 +13,19 @@ description: >-
 - **`bas_build_spec/cron/jobs-state.json`** — last-run + running reconciliation (gitignored).
 - **`bas_build_spec/cron/runs/<job_id>/`** — per-run JSON (gitignored).
 
+## Pausing automation (manual experiment)
+
+When the human wants **no scheduled Codex or workers** (Cursor-led iteration, UX review):
+
+1. **`bash cron_codex/bin/bas_remove_cron_marked.sh`** — removes `# BAS_CODEX_WAKE` crontab lines.
+2. Set **`enabled": false`** on every job in **`cron/jobs.json`** (discovery poll, point scrape, `bas-wake-hourly`, etc.).
+3. Optional: **`touch cron_codex/state/waiting_human`** — `bas_wake.sh` skips API if invoked manually without intent.
+4. Note pause in **`BUILD_CHECKPOINTS.md`** Current sprint so critique does not assume fresh scrape JSON.
+
+**Resume:** re-run **`bas_install_cron.sh`**, re-enable only the jobs needed, run **`bas_validate_cron_services.sh`**. Discovery/scrape data will be stale until workers run again.
+
+**Do not** set **`REMOVE_CRON_WHEN_COMPLETE=true`** for a temporary pause — that is for acceptance-complete teardown.
+
 ## Gateway
 
 - **`cron_codex/bin/bas_cron_scheduler.sh run-due`** — user crontab entry (marker `# BAS_CODEX_WAKE`).

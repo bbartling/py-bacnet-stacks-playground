@@ -1,9 +1,9 @@
 # Rough-in commissioning context (wake export)
 
-Generated (UTC): 2026-05-17T18:06:36.204813Z
-Cutoff (last bas_wake `last_run_at`): 2026-05-17T16:11:02.944443Z
+Generated (UTC): 2026-05-18T12:01:54.601517Z
+Cutoff (last bas_wake `last_run_at`): 2026-05-18T08:03:42.726208Z
 Chat source: `/home/ben/bas_app/runtime/rough_in_chat.json`
-Messages since cutoff: 4 (user: 2, assistant: 2)
+Messages since cutoff: 1 (user: 0, assistant: 1)
 
 Codex (**mini and gpt-5.5 critique**): read this entire file every wake.
 Do not rely on `rough_in_chat_summary.md` (latest turn only).
@@ -77,18 +77,15 @@ _Always read — survives across wakes even when chat slice is empty._
 
 ## Chat since last bas_wake
 
-## 1. user @ 2026-05-17T18:01:26.255513Z
+## 1. assistant @ 2026-05-18T10:05:03.099497Z
 
-VRF + DOAS with expected VAV boxes.
+**Codex builder wake**
 
-## 2. assistant @ 2026-05-17T18:01:26.328163Z
+### Critique (gpt-5.5)
+Date (UTC): 2026-05-18T10:03:07Z
+The 10:00 wake was another verification/state wake, not an app implementation wake. `git status` from `/home/ben/py-bacnet-stacks-playground` shows changed tracked files only in checkpoint/state/memory: `BUILD_CHECKPOINTS.md`, `next_directions.md`, `rough_in_chat_since_last_wake.*`, `bacnet_auto_commission.mode`, `bacnet_discovery_latest.json`, and `bacnet_point_samples_latest.json`. Recent timestamps show cron logs and BACnet memory refreshes; no `bas_app` source files changed.
 
-**Next cron runs:** Codex build: 3:00 PM CDT · BACnet Who-Is: due now · BACnet auto-arm: due now · BACnet point scrape ever: due now. Note saved. **Codex** (critique + minis) replies on the next builder wake; live values are on the **device tree**.
+### Minis
+Builder minis this wake: **3**. Latest mini slice logged in BUILD_CHECKPOINTS Done recently.
 
-## 3. user @ 2026-05-17T18:05:35.738103Z
-
-VRF + DOAS with expected VAV boxes.
-
-## 4. assistant @ 2026-05-17T18:05:35.827349Z
-
-**Next cron runs:** Codex build: 3:00 PM CDT · BACnet Who-Is: 1:10 PM CDT · BACnet auto-arm: 1:10 PM CDT · BACnet point scrape ever: 1:10 PM CDT. Note saved. **Codex** (critique + minis) replies on the next builder wake; live values are on the **device tree**.
+Live BACnet data is on the **device tree** (Who-Is + 5-minute point scrape). Worker debug is not posted to chat.

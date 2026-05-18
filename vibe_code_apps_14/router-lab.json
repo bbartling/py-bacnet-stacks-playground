@@ -1,0 +1,41 @@
+{
+    "BACpypes": {
+        "backup_count": 5,
+        "color": false,
+        "config": {},
+        "cov_lifetime": 60,
+        "debug": [],
+        "debug_file": "",
+        "max_bytes": 1048576,
+        "route_aware": false
+    },
+    "application": [
+        {
+            "object-identifier": "device,998",
+            "object-name": "LabRouter",
+            "object-type": "device",
+            "vendor-name": "BACpypes",
+            "vendor-identifier": 999
+        },
+        {
+            "network-type": "ipv4",
+            "object-identifier": "network-port,1",
+            "object-name": "NetworkPort-1",
+            "object-type": "network-port",
+            "bacnet-ip-udp-port": 47808,
+            "ip-address": "192.168.204.18",
+            "mac-address": "192.168.204.18:47808",
+            "network-number": 100
+        },
+        {
+            "network-type": "ipv4",
+            "object-identifier": "network-port,2",
+            "object-name": "NetworkPort-2",
+            "object-type": "network-port",
+            "bacnet-ip-udp-port": 47809,
+            "ip-address": "192.168.204.18",
+            "mac-address": "192.168.204.18:47809",
+            "network-number": 200
+        }
+    ]
+}

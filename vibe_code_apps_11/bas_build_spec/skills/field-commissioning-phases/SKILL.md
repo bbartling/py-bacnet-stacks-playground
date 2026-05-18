@@ -31,10 +31,22 @@ Model **field BAS sequencing**: **guided site context (BACnet LAN + topology)** 
 
 | Phase | Who | Dashboard / UX | Writes |
 |-------|-----|----------------|--------|
-| **1 — Electrical install** | Electrician / net tech | **Guided notepad** + read-only: **BACnet driver status**, **Networking** tab, **sensor/device grid**, **URLs:ports** | **None** |
-| **2 — Cx + HVAC P2P** | Commissioning tech | Point-to-point + **writable** tests + audit | **Yes** |
-| **3 — TAB** | TAB contractor | Chart builder + balance evidence + export | As needed |
-| **4 — Final BAS** | Owner operator | Full supervisor shell | Full RBAC |
+| **0 — Site context** | PM / lead | Notepad + paste prompts; no OT until sign-off | **None** |
+| **1 — Electrical install** | Electrician / net tech | **`/rough-in/`** — chat + bind + **collapsible device tree** (all scraped PVs) | **None** |
+| **2 — Cx + HVAC P2P** | Commissioning tech | Phase dashboard: P2P + **writable** tests + audit | **Yes** (staged only) |
+| **3 — Functional test** | Cx / controls | Checklists, modes, expected vs actual | As test plan |
+| **4 — TAB** | TAB contractor | Chart builder + balance evidence + export | As needed |
+| **5 — Final BAS** | Owner operator | **`/`** full supervisor shell | Full RBAC |
+
+**Detailed routes, show/hide rules, tree UX scorecard, and eval notes:** **`references/commissioning-phase-dashboards.md`** (read before any multi-phase UI mini).
+
+### Phase switching (required in v2 shell)
+
+- One **commissioning shell** URL for the job life; **`#phase-select`** or tabs: Electrical | Cx | Functional | TAB | Supervisor.
+- Switching phase **must not** reset chat (`rough_in_chat.json`) or notepad facts.
+- Each phase gets its **own primary dashboard layout** (not one page with every table visible).
+- Operators may **go back** to earlier phases (e.g. electrical read-only after a new device is powered).
+- **Public** routes stay read-only until phase ≥ 2; writes only on authenticated Cx+ APIs — never `/api/public/*`.
 
 ## Notepad app — LLM + human behavior (v1 markdown, v2 in `bas_app`)
 
@@ -61,6 +73,29 @@ Implement **incrementally** (one vertical slice per mini when possible). Target 
 6. **Technician (Cx) zone** — Same inventory with **write/release** + reason + audit when phase allows.
 7. **TAB zone** — **K-factor / balance** fields where modeled, **sequencing** or **hydronic** demos (e.g. **all valves open** for balance pass), **setpoint** tweaks, **chart builder** + CSV for sign-off.
 8. **UX (human override 2026-05-15)** — **Bare bones**, not dense BAS chrome: minimal color (neutral grays; status only green/red/amber). **Chat-first** at top (HVAC system type, expected BACnet devices on site). Below: **plain HTML tables** for BACnet status, networking, device/point values. **Dark / light** toggle on every commissioning phase surface. **One persisted conversation thread** per job (survives phase changes and page reloads)—human ↔ agent dialog is the primary UX; tables are secondary readouts.
+
+### Device tree (Phase 1 — non-negotiable for “field ready”)
+
+Current implementation (`frontend/rough-in/app.js` `renderDeviceTree`) renders a **fully expanded** nested `<ul>` with indent only — **not** acceptable as the final electrician UX.
+
+**Next slices must include:**
+
+1. **Per-device collapse** — `<details>` or `aria-expanded` toggle; default **collapsed** except bind root; remember state in `sessionStorage` per device id.
+2. **All scraped points as leaves** — one row per sample in `bacnet_point_samples_latest.json`; label `object-type,instance property = value` (already partially done via `tree-point-row`).
+3. **Single OT surface** — do not require operators to open a second point-scrape table for the same data; proof tables stay in `<details>` for engineers only (see **`commissioning-ui-language.md`**).
+4. **Optional:** expand-all / collapse-all control for large sites.
+
+**Do not** claim “every BACnet point on device” until object-list scrape or RPM is implemented — say **“points from last scrape”** in subtitle if coverage is sample-based.
+
+### Cursor / human experiment — cron off
+
+When the human pauses automation for manual iteration:
+
+1. `bas_remove_cron_marked.sh` + set **`enabled: false`** on all jobs in **`cron/jobs.json`**.
+2. Document in **`BUILD_CHECKPOINTS.md`** Current sprint — workers will not refresh discovery/scrape until re-enabled or run manually.
+3. Rough-in UI should still show **last poll UTC**; add “automation paused” if jobs are disabled (optional mini).
+
+Re-enable: `bas_install_cron.sh`, flip jobs back on, verify `bas_validate_cron_services.sh`.
 
 The **LLM** treats **empty notepad § A–D** as **blocking** for claiming BACnet/electrician work “complete.”
 
