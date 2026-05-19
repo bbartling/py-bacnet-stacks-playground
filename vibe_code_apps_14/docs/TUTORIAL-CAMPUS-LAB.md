@@ -5,23 +5,24 @@ Mimics a **large flat IT LAN** where each building is isolated by **unique UDP p
 ## Schematic
 
 ```text
-                    FLAT IT LAN  192.168.204.0/24
-                    (no BACnet router required)
-                           |
-         +-----------------+-----------------+-----------------+
-         |                 |                 |                 |
-         v                 v                 v                 v
-   Windows SI         bensserver         Pi .14            Pi .13
-   integrator         Trane              Siemens           JCI
-   scrape             building           building          building
-         |                 |                 |                 |
-         |            :47809 front          :47810 front      :47811 front
-         |            :47819 field*         :47820 field*     :47821 field*
-         |            vendor 17             vendor 67         vendor 75
-         +-------- unicast Who-Is / ReadProperty per port ---+
+  FLAT IT LAN 192.168.204.0/24 — no BACnet router; integrator uses unicast per IP:port
 
-* field panel = mini-device behind the vendor front-end (second UDP port on same Pi)
+  Windows integrator
+        |
+        |  192.168.204.18  TRANE (bensserver)
+        +-- :47809  front  device 9001   mini, vendor Trane (17)
+        +-- :47819  field  device 1001   mini, field panel
+        |
+        |  192.168.204.14  SIEMENS
+        +-- :47810  front  device 3456790  fake_vav, vendor Siemens (67)
+        +-- :47820  field  device 1101     mini, field panel
+        |
+        |  192.168.204.13  JCI
+        +-- :47811  front  device 3456789  fake_ahu, vendor JCI (75)
+        +-- :47821  field  device 1102     mini, field panel
 ```
+
+Six scrapes total (two per Pi). Field UDP port = front port + 10 on the **same** IP.
 
 Duplicate device instances across buildings are OK on this bench because each building is a separate **IP:port** island (same as the Reddit thread — Niagara hates it if you treat them as one broadcast domain).
 

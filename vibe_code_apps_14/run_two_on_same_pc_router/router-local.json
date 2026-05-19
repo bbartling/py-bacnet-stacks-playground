@@ -1,0 +1,55 @@
+{
+    "BACpypes": {
+        "backup_count": 5,
+        "color": false,
+        "config": {},
+        "cov_lifetime": 60,
+        "debug": [],
+        "debug_file": "",
+        "max_bytes": 1048576,
+        "route_aware": false
+    },
+    "router": [
+        {
+            "object-identifier": "device,998",
+            "object-name": "PingPongRouter",
+            "object-type": "device",
+            "vendor-name": "BACpypes",
+            "vendor-identifier": 999,
+            "max-apdu-length-accepted": 1024,
+            "segmentation-supported": "segmented-both"
+        },
+        {
+            "bacnet-ip-mode": "normal",
+            "bacnet-ip-udp-port": 47830,
+            "ip-address": "HOST_IP_PLACEHOLDER",
+            "ip-subnet-mask": "255.255.255.0",
+            "mac-address": "HOST_IP_PLACEHOLDER:47830",
+            "network-number": 100,
+            "network-number-quality": "configured",
+            "network-type": "ipv4",
+            "object-identifier": "network-port,1",
+            "object-name": "NetworkPort-100",
+            "object-type": "network-port",
+            "protocol-level": "bacnet-application",
+            "reliability": "no-fault-detected",
+            "out-of-service": false
+        },
+        {
+            "bacnet-ip-mode": "normal",
+            "bacnet-ip-udp-port": 47831,
+            "ip-address": "HOST_IP_PLACEHOLDER",
+            "ip-subnet-mask": "255.255.255.0",
+            "mac-address": "HOST_IP_PLACEHOLDER:47831",
+            "network-number": 200,
+            "network-number-quality": "configured",
+            "network-type": "ipv4",
+            "object-identifier": "network-port,2",
+            "object-name": "NetworkPort-200",
+            "object-type": "network-port",
+            "protocol-level": "bacnet-application",
+            "reliability": "no-fault-detected",
+            "out-of-service": false
+        }
+    ]
+}
