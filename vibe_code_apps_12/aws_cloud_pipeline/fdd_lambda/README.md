@@ -1,33 +1,16 @@
-# open-fdd on AWS (scheduled Lambda)
+# FddFunction — pure Python (no Docker / open-fdd)
 
-Uses your **[open-fdd](https://github.com/bbartling/open-fdd)** engine (`pip install "open-fdd[engine]"`) on DynamoDB telemetry every **5 minutes**.
+Scheduled Lambda (`rate(5 minutes)`) reads DynamoDB telemetry, runs fault rules in `fdd_rules.py`, writes status row `ts_ms=0`.
 
-## Rules (`rules/*.yaml`)
+## Rules (same as former YAML)
 
-| File | Type | What it checks |
-|------|------|----------------|
-| `ds18b20_temp_bounds.yaml` | **bounds** | **65–80 °F** ([cookbook — sensor bounds](https://github.com/bbartling/open-fdd/blob/master/docs/expression_rule_cookbook.md#sensor-validation-bounds--flatline)) |
-| `ds18b20_temp_flatline.yaml` | **flatline** | Stuck sensor (~3 min window at 10 s samples) |
-| `ds18b20_temp_rate_per_hour.yaml` | **expression** | Change faster than **15 °F/hour** |
-| `ds18b20_temp_rate_per_minute.yaml` | **expression** | Change faster than **2 °F/minute** |
+| Flag | Logic |
+|------|--------|
+| `temp_out_of_bounds_flag` | °F outside 65–80 |
+| `temp_flatline_flag` | spread &lt; 0.05 °F over 18 samples |
+| `temp_rate_per_hour_flag` | &gt; 15 °F/hour |
+| `temp_rate_per_minute_flag` | &gt; 2 °F/minute |
 
-Tune thresholds in YAML, redeploy the stack.
+All use **rolling_window=6** (~1 min at 10 s MQTT) before flagging.
 
-## Deploy
-
-Included in `template.yaml` as **container** Lambda (`Dockerfile` — pandas + open-fdd).
-
-CloudShell (Docker required for `sam build`):
-
-```bash
-cd aws_cloud_pipeline
-rm -rf .aws-sam
-sam build --no-cached
-sam deploy --force-upload
-```
-
-First FDD run may show **PENDING** on the dashboard until the schedule fires (≤5 min).
-
-## Output
-
-Writes DynamoDB item `device_id` + `ts_ms = 0` with `fdd_status`, `active_flags`, `summary_json`. The **web** dashboard reads this as `fdd_open` in `/api/readings`.
+Legacy `rules/*.yaml` kept for reference only; engine is `fdd_rules.py`.

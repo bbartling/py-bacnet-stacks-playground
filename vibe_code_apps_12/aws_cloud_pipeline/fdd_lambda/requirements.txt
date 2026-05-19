@@ -1,2 +1,1 @@
-open-fdd>=2.3
-boto3
+# boto3 provided by Lambda runtime

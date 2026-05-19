@@ -49,6 +49,7 @@ from bacpypes3.debugging import ModuleLogger, bacpypes_debugging
 from bacpypes3.local.analog import AnalogValueObject
 
 from ds18b20_sensor import Ds18b20SysfsReader
+from fault_demo_schedule import FaultDemoScheduler
 
 
 BACNET_INTERVAL_DEFAULT = 2.0
@@ -76,7 +77,11 @@ class TemperatureApplication:
         if _debug:
             _log.debug("Initializing TemperatureApplication")
 
-        self.reader = build_reader(args)
+        self.fault_demo = bool(getattr(args, "fault_demo", False))
+        self.reader = None if self.fault_demo else build_reader(args)
+        self._fault_scheduler = (
+            FaultDemoScheduler(log=_log.info) if self.fault_demo else None
+        )
         self.bacnet_interval_s = args.sample_interval
         self.aws_interval_s = args.aws_interval if args.aws_iot else None
         self._last_aws_publish = 0.0
@@ -88,8 +93,16 @@ class TemperatureApplication:
 
         self.app = Application.from_args(args)
 
-        initial_c = self.reader.read_celsius()
-        initial_f = c_to_f(initial_c)
+        if self.fault_demo:
+            initial_f = self._fault_scheduler.current_deg_f()
+            initial_c = self._fault_scheduler.current_deg_c()
+            _log.info(
+                "FAULT-DEMO mode: synthetic temperatures (no 1-Wire). "
+                + self._fault_scheduler.status_line()
+            )
+        else:
+            initial_c = self.reader.read_celsius()
+            initial_f = c_to_f(initial_c)
 
         self.av_deg_c = AnalogValueObject(
             objectIdentifier=("analogValue", 1),
@@ -150,8 +163,12 @@ class TemperatureApplication:
             await asyncio.sleep(self.bacnet_interval_s)
 
             try:
-                temp_c = await asyncio.to_thread(self.reader.read_celsius)
-                temp_f = c_to_f(temp_c)
+                if self.fault_demo:
+                    temp_f = self._fault_scheduler.current_deg_f()
+                    temp_c = self._fault_scheduler.current_deg_c()
+                else:
+                    temp_c = await asyncio.to_thread(self.reader.read_celsius)
+                    temp_f = c_to_f(temp_c)
 
                 for av in (self.av_deg_c, self.av_deg_f):
                     sf = list(av.statusFlags)
@@ -242,8 +259,19 @@ async def main() -> None:
         default="sdk/test/python",
         help="MQTT topic for temperature JSON",
     )
+    parser.add_argument(
+        "--fault-demo",
+        action="store_true",
+        help=(
+            "Synthetic FDD test schedule (flatline, OOB high/low, rate faults) "
+            "instead of reading the DS18B20; use with --aws-iot for cloud validation"
+        ),
+    )
 
     args = parser.parse_args()
+
+    if args.fault_demo and not args.aws_iot:
+        _log.warning("--fault-demo without --aws-iot: BACnet only (no MQTT to AWS)")
 
     if args.debug:
         _debug = 1

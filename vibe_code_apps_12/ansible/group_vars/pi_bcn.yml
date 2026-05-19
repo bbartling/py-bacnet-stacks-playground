@@ -21,6 +21,9 @@ enable_and_start_service: true
 bacnet_sample_interval: 2
 aws_iot_publish_interval: 10
 
+# Synthetic FDD test schedule on Pi (--fault-demo); requires enable_aws_iot for MQTT validation
+fault_demo_mode: false
+
 # Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug", "--w1-device", "28-xxxxxxxxxxxx"]
 server_extra_args: []
 

@@ -10,7 +10,7 @@ AWS IoT Core (MQTT)
   → ingest Lambda
   → DynamoDB (TTL ~7 days)
   → web Lambda Function URL (Plotly dashboard + /api/readings)
-  → FddFunction (open-fdd container, every 5 min)
+  → FddFunction (pure Python FDD zip Lambda, every 5 min)
 ```
 
 **Working deploy reference:** see [DEPLOYED.md](DEPLOYED.md).
@@ -147,9 +147,9 @@ Same architecture as the SAM template.
 
 ---
 
-## open-fdd on AWS
+## FDD on AWS
 
-Scheduled **FddFunction** (Docker + [open-fdd](https://github.com/bbartling/open-fdd)) runs rules in `fdd_lambda/rules/`. See [fdd_lambda/README.md](fdd_lambda/README.md).
+Scheduled **FddFunction** (zip Lambda, `fdd_lambda/fdd_rules.py` — no Docker) runs every 5 min. See [fdd_lambda/README.md](fdd_lambda/README.md).
 
 ---
 

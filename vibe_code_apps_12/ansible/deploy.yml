@@ -16,6 +16,7 @@
   vars:
     bacnet_sync_files:
       - temp_sensor_server.py
+      - fault_demo_schedule.py
       - ds18b20_sensor.py
       - aws_iot_publisher.py
       - requirements.txt
