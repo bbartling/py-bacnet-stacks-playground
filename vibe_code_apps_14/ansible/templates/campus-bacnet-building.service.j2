@@ -1,0 +1,15 @@
+[Unit]
+Description=Campus BACnet {{ item.device_name }} ({{ item.port }}/udp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+WorkingDirectory={{ campus_lab_dir }}
+ExecStart={{ campus_lab_dir }}/.venv/bin/python3 {{ campus_lab_dir }}/samples/{{ item.sample }} --name {{ item.device_name }} --instance {{ item.instance }} --vendoridentifier {{ item.vendor_id }} --address {{ ansible_host }}/24:{{ item.port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

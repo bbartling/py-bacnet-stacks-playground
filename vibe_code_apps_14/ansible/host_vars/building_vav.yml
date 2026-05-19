@@ -1,0 +1,15 @@
+---
+# From config/campus_buildings.yml — Siemens building
+campus_buildings:
+  - unit: campus-bldg-siemens-front
+    port: 47810
+    sample: fake_vav.py
+    device_name: Siemens-VAV-Front
+    instance: 3456790
+    vendor_id: 67
+  - unit: campus-bldg-siemens-field
+    port: 47820
+    sample: mini-device-revisited.py
+    device_name: Siemens-FieldPanel
+    instance: 1101
+    vendor_id: 999

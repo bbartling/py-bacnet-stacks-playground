@@ -2,5 +2,5 @@
 *.log
 *.pid
 __pycache__/
-router-full.json
-config/ipv4-router.rendered.json
+bacnet.pcap
+run/

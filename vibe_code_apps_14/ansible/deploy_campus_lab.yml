@@ -1,5 +1,5 @@
 ---
-# Deploy campus BACnet lab to bensserver + building Pis.
+# Flat campus lab — one UDP port per building (Trane / Reddit style).
 #   cd vibe_code_apps_14/ansible && ./deploy.sh
 
 - name: Sync lab tree and Python venv on all Pis
@@ -70,153 +70,33 @@
         requirements: "{{ campus_lab_dir }}/requirements.txt"
         virtualenv: "{{ campus_lab_dir }}/.venv"
 
-- name: Campus router + local building mini (bensserver)
-  hosts: bensserver
+- name: Deploy flat-campus BACnet buildings
+  hosts: campus_lab
   gather_facts: false
 
   tasks:
-    - name: Detect LAN interface for secondary building IP
-      ansible.builtin.shell: |
-        ip -4 route get "{{ campus_ip }}" | awk '{for (i=1;i<=NF;i++) if ($i=="dev") {print $(i+1); exit}}'
-      register: campus_iface_cmd
-      changed_when: false
-
-    - name: Set campus_iface fact
-      ansible.builtin.set_fact:
-        campus_iface: "{{ campus_iface_cmd.stdout | trim }}"
-
-    - name: Add building secondary IP on bensserver
-      ansible.builtin.command:
-        argv:
-          - ip
-          - addr
-          - add
-          - "{{ building_local_ip }}/24"
-          - dev
-          - "{{ campus_iface }}"
-      become: true
-      register: add_building_ip
-      failed_when: false
-      changed_when: add_building_ip.rc == 0
-
-    - name: Stop legacy lab processes
-      ansible.builtin.command:
-        argv: ["{{ campus_lab_dir }}/scripts/stop_lab.sh"]
-      failed_when: false
-      changed_when: false
-
-    - name: Render full campus router JSON
-      ansible.builtin.command:
-        argv:
-          - "{{ campus_lab_dir }}/scripts/render_campus_full_router_json.sh"
-          - "{{ campus_lab_dir }}/config/campus-full-router.rendered.json"
-      environment:
-        HOST_IP: "{{ campus_ip }}"
-        CAMPUS_IP: "{{ campus_ip }}"
-        BUILDING_LOCAL_IP: "{{ building_local_ip }}"
-        VAV_IP: "{{ vav_ip }}"
-        AHU_IP: "{{ ahu_ip }}"
-
-    - name: Install campus-router unit
+    - name: Install systemd unit per building device
       ansible.builtin.template:
-        src: templates/campus-router.service.j2
-        dest: /etc/systemd/system/campus-router.service
+        src: templates/campus-bacnet-building.service.j2
+        dest: "/etc/systemd/system/{{ item.unit }}.service"
         mode: "0644"
+      loop: "{{ campus_buildings }}"
+      loop_control:
+        label: "{{ item.unit }}"
       become: true
-      notify: Restart campus router
 
-    - name: Install campus-mini unit
-      ansible.builtin.template:
-        src: templates/campus-mini.service.j2
-        dest: /etc/systemd/system/campus-mini.service
-        mode: "0644"
-      become: true
-      notify: Restart campus mini
-
-    - name: Enable and start campus-router
+    - name: Enable and start building BACnet services
       ansible.builtin.systemd:
-        name: campus-router
-        enabled: true
-        state: started
-        daemon_reload: true
-      become: true
-
-    - name: Enable and start campus-mini
-      ansible.builtin.systemd:
-        name: campus-mini
-        enabled: true
-        state: started
-        daemon_reload: true
-      become: true
-
-  handlers:
-    - name: Restart campus router
-      ansible.builtin.systemd:
-        name: campus-router
-        state: restarted
-        daemon_reload: true
-      become: true
-
-    - name: Restart campus mini
-      ansible.builtin.systemd:
-        name: campus-mini
-        state: restarted
-        daemon_reload: true
-      become: true
-
-- name: Building VAV Pi
-  hosts: building_vav
-  gather_facts: false
-
-  vars:
-    bacnet_sample: fake_vav.py
-    bacnet_device_name: "{{ vav_name }}"
-    bacnet_instance: "{{ vav_instance }}"
-    bacnet_network: "{{ net_vav }}"
-
-  tasks:
-    - name: Install campus-bacnet-device unit (VAV)
-      ansible.builtin.template:
-        src: templates/campus-bacnet-device.service.j2
-        dest: /etc/systemd/system/campus-bacnet-device.service
-        mode: "0644"
-      become: true
-
-    - name: Enable and start VAV device
-      ansible.builtin.systemd:
-        name: campus-bacnet-device
+        name: "{{ item.unit }}"
         enabled: true
         state: restarted
         daemon_reload: true
+      loop: "{{ campus_buildings }}"
+      loop_control:
+        label: "{{ item.unit }}"
       become: true
 
-- name: Building AHU Pi
-  hosts: building_ahu
-  gather_facts: false
-
-  vars:
-    bacnet_sample: fake_ahu.py
-    bacnet_device_name: "{{ ahu_name }}"
-    bacnet_instance: "{{ ahu_instance }}"
-    bacnet_network: "{{ net_ahu }}"
-
-  tasks:
-    - name: Install campus-bacnet-device unit (AHU)
-      ansible.builtin.template:
-        src: templates/campus-bacnet-device.service.j2
-        dest: /etc/systemd/system/campus-bacnet-device.service
-        mode: "0644"
-      become: true
-
-    - name: Enable and start AHU device
-      ansible.builtin.systemd:
-        name: campus-bacnet-device
-        enabled: true
-        state: restarted
-        daemon_reload: true
-      become: true
-
-- name: 60s BACnet capture (overwrite bacnet.pcap on each Pi)
+- name: 60s BACnet capture (overwrite bacnet.pcap)
   hosts: campus_lab
   gather_facts: false
 
@@ -230,41 +110,30 @@
       async: 75
       poll: 0
 
-- name: Verify campus lab
+- name: Verify flat campus lab
   hosts: campus_lab
   gather_facts: false
 
   tasks:
-    - name: Wait for services
+    - name: Wait for BACnet services
       ansible.builtin.pause:
         seconds: 5
 
-    - name: Check bensserver units
+    - name: Check each building unit is active
       ansible.builtin.command:
-        argv: ["systemctl", "is-active", "{{ item }}"]
-      loop:
-        - campus-router
-        - campus-mini
-      register: svc_boss
+        argv: ["systemctl", "is-active", "{{ item.unit }}"]
+      loop: "{{ campus_buildings }}"
+      register: svc
       changed_when: false
-      failed_when: svc_boss.stdout != "active"
+      failed_when: svc.stdout != "active"
       become: true
-      when: inventory_hostname == "bensserver"
 
-    - name: Check building device unit
-      ansible.builtin.command:
-        argv: ["systemctl", "is-active", "campus-bacnet-device"]
-      register: svc_bldg
-      changed_when: false
-      failed_when: svc_bldg.stdout != "active"
-      become: true
-      when: inventory_hostname != "bensserver"
-
-    - name: Show listening BACnet UDP ports
-      ansible.builtin.shell: ss -ulnp | grep -E '47808|47809' || true
-      register: ss_bacnet
+    - name: Show BACnet UDP listeners
+      ansible.builtin.shell: |
+        ss -ulnp | grep -E '47809|47810|47811|47819|47820|47821' || true
+      register: ss_out
       changed_when: false
 
     - name: Print UDP sockets
       ansible.builtin.debug:
-        msg: "{{ ss_bacnet.stdout_lines }}"
+        msg: "{{ ss_out.stdout_lines }}"

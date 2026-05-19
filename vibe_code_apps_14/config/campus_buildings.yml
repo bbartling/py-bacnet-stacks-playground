@@ -1,0 +1,65 @@
+# Flat campus — one UDP port per building (Trane-style segmentation).
+# Windows integrator: scripts/campus_integrator_scrape.py reads this file.
+#
+# BACnet network number 0 on each port (default). Duplicate device instances
+# across buildings are OK because each building is a different IP:port island.
+
+campus_lan: "192.168.204.0/24"
+
+buildings:
+  - id: trane_hall
+    label: "Trane Hall (bensserver)"
+    host: bensserver
+    ip: 192.168.204.18
+    port: 47809
+    vendor: Trane
+    vendor_id: 17
+    front:
+      name: Trane-Hall-Front
+      instance: 9001
+      sample: mini-device-revisited.py
+      read_object: analog-value,1
+    field:
+      name: Trane-FieldPanel
+      instance: 1001
+      sample: mini-device-revisited.py
+      port: 47819
+      read_object: analog-value,1
+
+  - id: siemens_vav
+    label: "Siemens VAV building"
+    host: building_vav
+    ip: 192.168.204.14
+    port: 47810
+    vendor: Siemens
+    vendor_id: 67
+    front:
+      name: Siemens-VAV-Front
+      instance: 3456790
+      sample: fake_vav.py
+      read_object: analog-input,1
+    field:
+      name: Siemens-FieldPanel
+      instance: 1101
+      sample: mini-device-revisited.py
+      port: 47820
+      read_object: analog-value,1
+
+  - id: jci_ahu
+    label: "JCI AHU building"
+    host: building_ahu
+    ip: 192.168.204.13
+    port: 47811
+    vendor: JCI
+    vendor_id: 75
+    front:
+      name: JCI-AHU-Front
+      instance: 3456789
+      sample: fake_ahu.py
+      read_object: analog-input,1
+    field:
+      name: JCI-FieldPanel
+      instance: 1102
+      sample: mini-device-revisited.py
+      port: 47821
+      read_object: analog-value,1

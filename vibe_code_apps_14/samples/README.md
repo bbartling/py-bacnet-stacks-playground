@@ -1,10 +1,9 @@
-# BACnet samples (campus lab)
+# BACnet samples (flat campus lab)
 
-| Script | Role in campus lab |
-|--------|-------------------|
-| `mini-device-revisited.py` | Building mini on bensserver net **200** |
-| `fake_vav.py` | VAV on `192.168.204.14` net **201** |
-| `fake_ahu.py` | AHU on `192.168.0.13` net **202** |
-| `ipv4-to-ipv4.py` | Interactive router shell (optional) |
+| Script | Used for |
+|--------|----------|
+| `mini-device-revisited.py` | Trane front + all field panels |
+| `fake_vav.py` | Siemens building front (`192.168.204.14:47810`) |
+| `fake_ahu.py` | JCI building front (`192.168.204.13:47811`) |
 
-Deploy and run via `ansible/deploy_campus_lab.yml` — see [docs/TUTORIAL-CAMPUS-LAB.md](../docs/TUTORIAL-CAMPUS-LAB.md).
+Deploy: `ansible/deploy.sh` — see [docs/TUTORIAL-CAMPUS-LAB.md](../docs/TUTORIAL-CAMPUS-LAB.md).

@@ -9,11 +9,7 @@ all:
       hosts:
         bensserver:
           ansible_host: 192.168.204.18
-          campus_role: router
         building_vav:
           ansible_host: 192.168.204.14
-          campus_role: vav
-        # Uncomment when boss Pi can SSH to 192.168.0.13 (set deploy_ahu: true in group_vars)
-        # building_ahu:
-        #   ansible_host: 192.168.0.13
-        #   campus_role: ahu
+        building_ahu:
+          ansible_host: 192.168.204.13

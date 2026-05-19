@@ -1,0 +1,15 @@
+---
+# From config/campus_buildings.yml — JCI building
+campus_buildings:
+  - unit: campus-bldg-jci-front
+    port: 47811
+    sample: fake_ahu.py
+    device_name: JCI-AHU-Front
+    instance: 3456789
+    vendor_id: 75
+  - unit: campus-bldg-jci-field
+    port: 47821
+    sample: mini-device-revisited.py
+    device_name: JCI-FieldPanel
+    instance: 1102
+    vendor_id: 999

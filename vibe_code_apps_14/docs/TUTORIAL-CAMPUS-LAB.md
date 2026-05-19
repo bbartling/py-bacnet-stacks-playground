@@ -1,96 +1,74 @@
-# Campus BACnet lab (only test for vibe_code_apps_14)
+# Flat campus BACnet lab (Trane / Reddit style)
 
-One head-end router on **bensserver**, three building devices, one Windows laptop on the flat campus.
+Mimics a **large flat IT LAN** where each building is isolated by **unique UDP port**, not by BACnet routing. This matches integrator pain points from real Trane/JCI/Siemens multi-building sites.
 
 ## Schematic
 
 ```text
-                    FLAT CAMPUS (BACnet/IP)
-                    Who-Is / Discover :47808
+                    FLAT IT LAN  192.168.204.0/24
+                    (no BACnet router required)
                            |
-    +----------------------+----------------------+
-    |                      |                      |
-    v                      v                      v
- Windows PC          192.168.204.18         (same LAN)
- (campus client)     bensserver
-                     +-- campus-router :47808  BACnet net 100  device 998
-                     |       |
-                     |       +-- net 200 --> 192.168.204.28:47809  mini 1001
-                     |       +-- net 201 --> 192.168.204.14:47808  VAV 3456790
-                     |       +-- net 202 --> 192.168.0.13:47808    AHU 3456789
-                     |
-                     +-- campus-mini @ .28:47809
+         +-----------------+-----------------+-----------------+
+         |                 |                 |                 |
+         v                 v                 v                 v
+   Windows SI         bensserver         Pi .14            Pi .13
+   integrator         Trane              Siemens           JCI
+   scrape             building           building          building
+         |                 |                 |                 |
+         |            :47809 front          :47810 front      :47811 front
+         |            :47819 field*         :47820 field*     :47821 field*
+         |            vendor 17             vendor 67         vendor 75
+         +-------- unicast Who-Is / ReadProperty per port ---+
 
-  building_vav Pi              building_ahu Pi
-  192.168.204.14               192.168.0.13
-  fake_vav.py net 201          fake_ahu.py net 202
+* field panel = mini-device behind the vendor front-end (second UDP port on same Pi)
 ```
 
-Routed reads from Windows use **one** campus IP:
+Duplicate device instances across buildings are OK on this bench because each building is a separate **IP:port** island (same as the Reddit thread — Niagara hates it if you treat them as one broadcast domain).
 
-```text
-200:1001@192.168.204.18
-201:3456790@192.168.204.18
-202:3456789@192.168.204.18
-```
+## Building table
 
-## Device table
+| Building | IP | Front UDP | Vendor | Front device | Field UDP | Field device |
+|----------|-----|-----------|--------|--------------|-----------|--------------|
+| Trane Hall | 192.168.204.18 | **47809** | Trane (17) | 9001 mini | 47819 | 1001 mini |
+| Siemens VAV | 192.168.204.14 | **47810** | Siemens (67) | 3456790 fake_vav | 47820 | 1101 mini |
+| JCI AHU | 192.168.204.13 | **47811** | JCI (75) | 3456789 fake_ahu | 47821 | 1102 mini |
 
-| Name | Host | BACnet net | Instance | UDP | Sample |
-|------|------|------------|----------|-----|--------|
-| Campus router | 192.168.204.18 | 100 | 998 | 47808 | router JSON |
-| Building mini | 192.168.204.28 | 200 | 1001 | 47809 | mini-device-revisited.py |
-| Bens fake VAV | 192.168.204.14 | 201 | 3456790 | 47808 | fake_vav.py |
-| Bens fake AHU | 192.168.0.13 | 202 | 3456789 | 47808 | fake_ahu.py |
+All use **BACnet network 0** (default) on each UDP socket.
 
-**Note:** AHU is on `192.168.0.0/24`. Uncomment `building_ahu` in `ansible/inventory.yml` and set `deploy_ahu: true` in `group_vars/all.yml` when the boss Pi can SSH to `192.168.0.13`. Until then the router still advertises net **202**; Windows probes for the AHU will fail until that Pi is online.
+Config source of truth: `config/campus_buildings.yml`
 
-## Deploy (boss Pi)
+## Deploy (one command)
+
+From **bensserver**:
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_14/ansible
 sudo apt install ansible-core sshpass rsync   # once
-chmod +x deploy.sh ../scripts/*.sh
 ./deploy.sh
 ```
 
-SSH: user `ben`, password `ben` (see `group_vars/all.yml`).
+- Pushes lab to each Pi, starts systemd units, runs **60s tcpdump** → overwrites `bacnet.pcap` for Wireshark.
+- bensserver uses the live git tree; Pis use `~/vibe_code_apps_14/`.
 
-Each Pi overwrites **`~/vibe_code_apps_14/bacnet.pcap`** with a **60s** BACnet-only capture after deploy.
+## Windows — systems integrator scrape
 
-## Windows test
+Copy to laptop:
 
-Copy one file to the laptop:
-
-- `scripts/campus_windows_probe.py`
+- `scripts/campus_integrator_scrape.py`
+- `config/campus_buildings.yml`
 
 ```powershell
-pip install bacpypes3 ifaddr
-python campus_windows_probe.py --campus 192.168.204.18
+pip install bacpypes3 ifaddr pyyaml
+python campus_integrator_scrape.py --config campus_buildings.yml
 ```
 
-Expect:
+The script **unicast Who-Is** to each building’s `IP:port`, prints **vendor ID**, then **ReadProperty** on a sample point — like polling 30 buildings on 30 UDP ports.
 
-1. **I-Am-Router-To-Network** listing networks **100, 200, 201, 202**
-2. **I-Am** + **ReadProperty** for mini, VAV, and AHU
+Standard **broadcast Discover on :47808** will **not** see buildings on :47809+.
 
-Optional: BACnet scan on `192.168.204.18:47808` shows the **router (998)** only; building devices appear via **routing**, not campus broadcast.
-
-## Stop lab
-
-On each Pi:
+## Stop
 
 ```bash
-sudo systemctl stop campus-router campus-mini campus-bacnet-device
+./scripts/stop_lab.sh
+# or per host: sudo systemctl stop 'campus-bldg-*'
 ```
-
-Or re-run `./scripts/stop_lab.sh` on bensserver.
-
-## Files
-
-| Path | Role |
-|------|------|
-| `ansible/deploy_campus_lab.yml` | Full deploy |
-| `config/campus-full-router.template.json` | Router nets 100–202 |
-| `scripts/campus_windows_probe.py` | Windows test script |
-| `samples/fake_ahu.py` / `fake_vav.py` | Building controllers |

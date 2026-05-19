@@ -1,4 +1,17 @@
 ---
-# Boss Pi: run services from the live git checkout (no rsync copy).
 campus_lab_dir: "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_14"
 skip_rsync: true
+
+campus_buildings:
+  - unit: campus-bldg-trane-front
+    port: 47809
+    sample: mini-device-revisited.py
+    device_name: Trane-Hall-Front
+    instance: 9001
+    vendor_id: 17
+  - unit: campus-bldg-trane-field
+    port: 47819
+    sample: mini-device-revisited.py
+    device_name: Trane-FieldPanel
+    instance: 1001
+    vendor_id: 999
