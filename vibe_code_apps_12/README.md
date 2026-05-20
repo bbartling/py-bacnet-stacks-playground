@@ -105,8 +105,8 @@ Pi (--aws-iot) → IoT Rule → ingest Lambda → DynamoDB (7-day TTL)
 
 | Doc | What it covers |
 |-----|----------------|
-| **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)** | Prerequisites, `sam build` / `sam deploy`, troubleshooting, tear-down |
-| **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** | Working stack reference (resources, URLs, CloudShell cheatsheet, common fixes) |
+| **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)** | **Full deploy checklist** (tar, CloudShell `rm`, upload, `samconfig.toml`, build, deploy) |
+| **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** | Working stack reference (resources, URLs, copy-paste CloudShell) |
 | **[aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md)** | Rule Lab Python recipes — bounds, rolling_window debounce, 1-min avg (YouTube-style demos) |
 
 #### What is SAM?
@@ -140,32 +140,43 @@ Compress-Archive -Path vibe_code_apps_12\aws_cloud_pipeline, vibe_code_apps_12\t
   -DestinationPath $env:USERPROFILE\vibe12-aws-cloud-pipeline.zip -Force
 ```
 
-**2. Get the file into CloudShell**
+**2. Clean up old files in CloudShell (before upload)**
 
-- Open **AWS Console** → region **us-east-2** → **CloudShell** (terminal icon).
-- **Actions** → **Upload file** → choose `vibe12-aws-cloud-pipeline.zip` (or `.tar.gz` if you built on Linux/WSL).
-- CloudShell often lands uploads under `~/` — check with `ls ~`.
-
-**3. Extract and configure (CloudShell)**
+CloudShell **does not overwrite** a file you upload with the same name. Remove the previous archive and extracted tree **first**, then upload.
 
 ```bash
-# If you uploaded .zip:
-cd ~
-unzip -o vibe12-aws-cloud-pipeline.zip -d vibe_code_apps_12
-cd ~/vibe_code_apps_12/aws_cloud_pipeline
+# In AWS CloudShell (us-east-2) — run BEFORE Actions → Upload file
+rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
+rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
+ls ~
+```
 
-# If you uploaded .tar.gz instead:
-# tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz -C ~
-# cd ~/aws_cloud_pipeline   # or ~/vibe_code_apps_12/aws_cloud_pipeline depending on tar layout
+**3. Upload into CloudShell**
+
+- Open **AWS Console** → region **us-east-2** → **CloudShell** (terminal icon).
+- **Actions** → **Upload file** → choose `vibe12-aws-cloud-pipeline.tar.gz` or `.zip`.
+- Confirm: `ls -lh ~/vibe12-aws-cloud-pipeline.*`
+
+**4. Extract and configure (CloudShell)**
+
+```bash
+cd ~
+
+# If you uploaded .tar.gz (bensserver):
+tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
+cd ~/aws_cloud_pipeline
+# (if tar used -C vibe_code_apps_12: cd ~/vibe_code_apps_12/aws_cloud_pipeline)
+
+# If you uploaded .zip (Windows):
+# unzip -o ~/vibe12-aws-cloud-pipeline.zip -d ~
+# cd ~/vibe_code_apps_12/aws_cloud_pipeline
 
 cp samconfig.toml.example samconfig.toml
 # Edit samconfig.toml: stack_name = "vibe12cloud", region = "us-east-2",
 # resolve_s3 = true (see DEPLOYED.md)
 ```
 
-**Important:** CloudShell **does not overwrite** an existing upload with the same name — run `rm -f ~/vibe12-aws-cloud-pipeline.zip` (or `.tar.gz`) before uploading a fresh copy.
-
-**4. AWS deploy commands (CloudShell)**
+**5. SAM build + deploy (CloudShell)**
 
 ```bash
 rm -rf .aws-sam
@@ -176,7 +187,7 @@ sam deploy --force-upload
 
 Note stack outputs: **DashboardUrl**, **TelemetryTableName**. Open the dashboard → **Rule Lab (Bake-a-Py)** tab; use the [expression cookbook](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) for custom rules.
 
-**Web-only update** (dashboard / Rule Lab JS, no full stack change):
+**6. Web-only update** (dashboard / Rule Lab JS, no full stack change):
 
 ```bash
 sam build WebFunction

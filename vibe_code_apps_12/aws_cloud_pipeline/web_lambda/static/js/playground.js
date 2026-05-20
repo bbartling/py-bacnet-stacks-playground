@@ -520,9 +520,22 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rules: payload, hours: 168 }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (parseErr) {
+        appendConsole(
+          "Go live: server did not return JSON (often 502 timeout or Internal Server Error).\n",
+          "error"
+        );
+        appendConsole(raw.slice(0, 400) + (raw.length > 400 ? "…" : "") + "\n", "error");
+        return;
+      }
       if (!res.ok) {
         appendConsole((data.error || "go-live failed") + "\n", "error");
+        if (data.hint) appendConsole(data.hint + "\n", "error");
+        if (data.trace) appendConsole(data.trace, "error");
         return;
       }
       (data.summary?.eval_log || []).forEach((l) => appendConsole(l + "\n"));

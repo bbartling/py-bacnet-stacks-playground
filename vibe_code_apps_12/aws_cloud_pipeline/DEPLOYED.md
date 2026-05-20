@@ -1,6 +1,9 @@
 # Vibe Code App 12B — Deployed architecture (working reference)
 
-This documents the **working** cloud stack (`vibe12cloud` in `us-east-2`) — Pi DS18B20 → AWS IoT → DynamoDB → dashboard + [open-fdd](https://github.com/bbartling/open-fdd).
+Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi DS18B20 → IoT → DynamoDB → dashboard + Rule Lab.
+
+Rule recipes: **[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md)**  
+Full deploy steps: **[README.md](README.md)**
 
 ---
 
@@ -12,69 +15,112 @@ Raspberry Pi (bosspi)
         │ MQTT (topic sdk/test/python, ~every 10 s)
         ▼
 AWS IoT Core
-        │ Rule: vibe12_ds18b20_ingest  (SQL: SELECT * FROM 'sdk/test/python')
+        │ Rule: vibe12_ds18b20_ingest
         ▼
-IngestFunction (Lambda, zip)
+IngestFunction (Lambda zip)
         │ PutItem
         ▼
 DynamoDB  vibe12-telemetry-vibe12cloud
-  PK device_id = bosspi-ds18b20
-  SK ts_ms     = epoch milliseconds
-  TTL expires_at (7 days)
         │
-        ├──────────────────────────────────┐
-        ▼                                  ▼
-WebFunction (Lambda URL)              FddFunction (container Lambda)
-  HTML + Plotly dashboard               open-fdd RuleRunner every 5 min
-  GET /api/readings                     writes ts_ms=0 status row
+        ├────────────────────────────┐
+        ▼                            ▼
+WebFunction (Lambda URL)      FddFunction (zip, every 5 min)
+  Dashboard + Rule Lab          Custom rules or fdd_rules.py
 ```
-
-**BACnet** stays on the Pi (local). Cloud path is parallel telemetry + analytics.
 
 ---
 
-## AWS resources (what each is)
+## AWS resources
 
 | Resource | What it is |
 |----------|------------|
-| **DynamoDB** `vibe12-telemetry-vibe12cloud` | Your temperature history (not S3) |
-| **S3** `aws-sam-cli-managed-…` | SAM deploy scratch bucket only (zip templates) |
-| **ECR** `…/fddfunction…repo` | Docker image for open-fdd Lambda |
-| **IoT Rule** `vibe12_ds18b20_ingest` | Forwards MQTT JSON → ingest Lambda |
-| **DashboardUrl** | Public HTTPS page (Lambda Function URL) |
+| **DynamoDB** `vibe12-telemetry-vibe12cloud` | Temperature history (7-day TTL) |
+| **S3** `aws-sam-cli-managed-…` | SAM deploy artifacts only |
+| **IoT Rule** `vibe12_ds18b20_ingest` | MQTT → ingest Lambda |
+| **DashboardUrl** | Public HTTPS (Lambda Function URL) |
 
 ---
 
-## open-fdd rules (YAML)
-
-In `fdd_lambda/rules/` — evaluated on a **6-hour window** every **5 minutes**:
-
-| YAML | Rule | Default |
-|------|------|---------|
-| `ds18b20_temp_bounds.yaml` | bounds | **65–80 °F** |
-| `ds18b20_temp_flatline.yaml` | flatline | stuck ~3 min @ 10 s samples |
-| `ds18b20_temp_rate_per_hour.yaml` | expression | **> 15 °F/hour** |
-| `ds18b20_temp_rate_per_minute.yaml` | expression | **> 2 °F/minute** |
-
-Docs: [open-fdd README](https://github.com/bbartling/open-fdd/blob/master/README.md) · [Expression cookbook](https://github.com/bbartling/open-fdd/blob/master/docs/expression_rule_cookbook.md)
-
----
-
-## Dashboard (Plotly)
-
-- **Full width** (up to ~98vw / 1600px), resizes with window
-- **°F** trace with 65 / 80 °F guide lines
-- **Four fault strips** (one per YAML rule) — checkboxes show/hide each
-- **open-fdd** badge from last scheduled eval (`fdd_open` in API)
-
-Example outputs (your deploy):
+## Example URLs (your deploy may differ)
 
 - **Dashboard:** `https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws/`
-- **JSON:** same host + `api/readings?hours=6`
+- **JSON:** same host + `/api/readings?hours=6`
+- **Health:** same host + `/api/health`
 
 ---
 
-## Pi deploy (Ansible)
+## CloudShell deploy (copy-paste)
+
+### Bensserver — pack
+
+```bash
+tar -czf /home/ben/vibe12-aws-cloud-pipeline.tar.gz \
+  -C /home/ben/py-bacnet-stacks-playground/vibe_code_apps_12 aws_cloud_pipeline
+ls -lh /home/ben/vibe12-aws-cloud-pipeline.tar.gz
+```
+
+### CloudShell — before upload
+
+```bash
+rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
+rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
+```
+
+**Actions → Upload file** → `vibe12-aws-cloud-pipeline.tar.gz`
+
+### CloudShell — extract + config + deploy
+
+```bash
+cd ~
+tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
+cd ~/aws_cloud_pipeline
+
+# Required after every fresh extract (fixes "Missing option '--stack-name'"):
+cp samconfig.toml.example samconfig.toml
+
+rm -rf .aws-sam
+sam build --no-cached
+sam validate --lint
+sam deploy --force-upload
+```
+
+Do **not** run `sam deploy --guided` after `samconfig.toml` is correct (can save `IotTopic=y`).
+
+### `samconfig.toml` essentials
+
+```toml
+stack_name = "vibe12cloud"
+region = "us-east-2"
+resolve_s3 = true
+resolve_image_repos = true
+```
+
+---
+
+## Common fixes
+
+| Issue | Fix |
+|-------|-----|
+| `Missing option '--stack-name'` | `cp samconfig.toml.example samconfig.toml` |
+| Upload ignored | `rm -f ~/vibe12-aws-cloud-pipeline.tar.gz` then re-upload |
+| `AwsIotEventsSqlVersion` | Use **`AwsIotSqlVersion`** in template |
+| Stack name hyphen | **`vibe12cloud`** only |
+| Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
+
+---
+
+## Web-only update
+
+```bash
+cd ~/aws_cloud_pipeline
+cp samconfig.toml.example samconfig.toml
+sam build WebFunction
+sam deploy --force-upload
+```
+
+---
+
+## Pi (Ansible)
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
@@ -85,61 +131,8 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 
 ---
 
-## Cloud deploy (CloudShell)
-
-**Bensserver tarball:**
-
-```bash
-tar -czf /home/ben/vibe12-aws-cloud-pipeline.tar.gz \
-  -C /home/ben/py-bacnet-stacks-playground/vibe_code_apps_12 aws_cloud_pipeline
-```
-
-Upload → extract → `samconfig.toml` must include:
-
-```toml
-resolve_s3 = true
-resolve_image_repos = true
-stack_name = "vibe12cloud"
-region = "us-east-2"
-```
-
-```bash
-cd ~/aws_cloud_pipeline
-rm -rf .aws-sam
-sam build --no-cached
-sam validate --lint
-sam deploy --force-upload
-```
-
-**Do not** use `sam deploy --guided` after config is correct (it can save `IotTopic=y`).
-
-### Common fixes
-
-| Issue | Fix |
-|-------|-----|
-| `python3.12` not found | Template uses **python3.13** (CloudShell default) |
-| `Image not found` / `--resolve-image-repos` | Add to `samconfig.toml` |
-| `AwsIotEventsSqlVersion` | Must be **`AwsIotSqlVersion`** |
-| Stack name hyphen | Use **`vibe12cloud`** (no `-`) |
-| `Runtime` on Image Lambda | Remove `Globals`; runtime only on zip Lambdas |
-
----
-
-## Update only dashboard or FDD after code changes
-
-```bash
-sam build --no-cached
-sam deploy --force-upload
-```
-
-Or invoke FDD once manually: Lambda console → **FddFunction** → Test.
-
----
-
 ## Tear down
 
 ```bash
 sam delete --stack-name vibe12cloud
 ```
-
-Optional: empty ECR repo / SAM S3 bucket in console if you want zero storage charges.

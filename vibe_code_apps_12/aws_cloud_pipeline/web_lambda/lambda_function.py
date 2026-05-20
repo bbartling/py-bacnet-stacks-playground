@@ -181,6 +181,19 @@ def _fetch_fdd_status() -> dict:
     }
 
 
+def _slim_fdd_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """
+    DynamoDB item max ~400 KB. Do not persist full ts_ms / flag_series (7 d @ 10 s
+    is tens of thousands of points). Dashboard recomputes fault_plots on each
+    /api/readings request.
+    """
+    return {
+        k: v
+        for k, v in summary.items()
+        if k not in ("ts_ms", "flag_series", "aux_series")
+    }
+
+
 def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours: float) -> dict:
     rows = readings_to_rows(readings)
     flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
@@ -206,31 +219,33 @@ def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours:
         "sample_count": len(readings),
         "lookback_hours": hours,
         "custom_rules": True,
-        "ts_ms": [r["ts_ms"] for r in readings],
-        "flag_series": flag_series,
-        "aux_series": aux_series_from_rows(rows),
         "flag_labels": flag_labels,
-        "eval_log": eval_log + ["  flags = your evaluate() per row (no backend debounce/avg helpers)"],
+        "eval_log": eval_log
+        + [
+            "  flags = your evaluate() per row",
+            "  (fault lanes on chart come from live /api/readings, not stored series)",
+        ],
         "evaluated_at": int(time.time()),
     }
     if readings:
         summary["latest_degF"] = readings[-1]["degF"]
         summary["latest_degC"] = readings[-1]["degC"]
 
+    db_summary = _slim_fdd_summary(summary)
     _table.put_item(
         Item={
             "device_id": DEVICE_ID,
             "ts_ms": 0,
             "record_type": "fdd_status",
-            "fdd_status": summary["fdd_status"],
+            "fdd_status": db_summary["fdd_status"],
             "active_flags": ",".join(active_flags),
-            "summary_json": json.dumps(summary),
+            "summary_json": json.dumps(db_summary),
             "sample_count": len(readings),
             "updated_at": int(time.time()),
             "expires_at": int(time.time()) + 30 * 86400,
         }
     )
-    return summary
+    return db_summary
 
 
 def _readings_payload(hours: int) -> dict:
@@ -363,16 +378,28 @@ def lambda_handler(event, context):
         if not isinstance(rules, list):
             return _response(400, {"error": "rules must be a list"})
         hours = max(1, min(168, int(body.get("hours", DEFAULT_HOURS))))
-        _save_custom_rules(rules)
-        readings = _fetch_readings(hours)
-        if not readings:
-            return _response(400, {"error": f"no telemetry in last {hours}h"})
-        summary = _write_fdd_summary(readings, rules, float(hours))
-        print(
-            f"[vibe12] go-live hours={hours} rows={len(readings)} "
-            f"status={summary.get('fdd_status')} flags={summary.get('active_flags')}"
-        )
-        return _response(200, {"ok": True, "summary": summary, "hours": hours})
+        try:
+            _save_custom_rules(rules)
+            readings = _fetch_readings(hours)
+            if not readings:
+                return _response(400, {"error": f"no telemetry in last {hours}h"})
+            summary = _write_fdd_summary(readings, rules, float(hours))
+            print(
+                f"[vibe12] go-live hours={hours} rows={len(readings)} "
+                f"status={summary.get('fdd_status')} flags={summary.get('active_flags')}"
+            )
+            return _response(200, {"ok": True, "summary": summary, "hours": hours})
+        except Exception as exc:
+            print(f"[vibe12] go-live ERROR: {exc}\n{traceback.format_exc()}")
+            return _response(
+                500,
+                {
+                    "error": str(exc),
+                    "hint": "Often DynamoDB item too large or Lambda timeout on 7d backfill. "
+                    "Check CloudWatch logs for WebFunction.",
+                    "trace": traceback.format_exc(),
+                },
+            )
 
     if path.startswith("/api/readings"):
         hours = _get_hours(event)

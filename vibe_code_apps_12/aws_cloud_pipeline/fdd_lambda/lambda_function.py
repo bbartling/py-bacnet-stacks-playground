@@ -114,9 +114,6 @@ def lambda_handler(event, context):
             "custom_rules": True,
             "latest_degF": readings[-1]["degF"],
             "latest_degC": readings[-1]["degC"],
-            "ts_ms": [r["ts_ms"] for r in readings],
-            "flag_series": flag_series,
-            "aux_series": aux_series_from_rows(rows),
             "flag_labels": {r["id"]: r.get("title", r["id"]) for r in rules},
             "eval_log": eval_log,
             "evaluated_at": int(time.time()),
@@ -142,20 +139,21 @@ def lambda_handler(event, context):
             "flag_counts": flag_counts,
             "sample_count": len(readings),
             "lookback_hours": LOOKBACK_HOURS,
-            "ts_ms": [r["ts_ms"] for r in readings],
-            "flag_series": flag_series,
             "eval_log": eval_log,
             "evaluated_at": int(time.time()),
         }
 
+    db_summary = {
+        k: v for k, v in summary.items() if k not in ("ts_ms", "flag_series", "aux_series")
+    }
     _table.put_item(
         Item={
             "device_id": DEVICE_ID,
             "ts_ms": 0,
             "record_type": "fdd_status",
-            "fdd_status": summary["fdd_status"],
+            "fdd_status": db_summary["fdd_status"],
             "active_flags": ",".join(summary.get("active_flags", [])),
-            "summary_json": json.dumps(summary),
+            "summary_json": json.dumps(db_summary),
             "sample_count": summary.get("sample_count", 0),
             "updated_at": int(time.time()),
             "expires_at": int(time.time()) + 30 * 86400,

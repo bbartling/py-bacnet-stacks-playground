@@ -171,7 +171,7 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 |--------|------|----------|
 | **Test rule** | Test window (e.g. 6 h) | No |
 | **Save draft** | Rules only | `ts_ms=-2` |
-| **Go live (7 d)** | Up to 168 h | FDD status `ts_ms=0` + `flag_series` |
+| **Go live (7 d)** | Up to 168 h | FDD status `ts_ms=0` (counts + badge; chart lanes from live `/api/readings`) |
 
 ---
 
