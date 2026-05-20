@@ -1,7 +1,5 @@
 """
-Scheduled FDD on DynamoDB telemetry (zip Lambda — no Docker / open-fdd).
-
-Rules: fdd_rules.py; tunables in DynamoDB row ts_ms=-1 (saved from dashboard).
+Scheduled FDD on DynamoDB telemetry — custom Python rules (ts_ms=-2) or built-in fdd_rules.
 """
 
 from __future__ import annotations
@@ -13,29 +11,31 @@ import time
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from fdd_rules import DEFAULT_CONFIG, config_from_dict, config_to_dict, evaluate_all
+from fdd_rules import evaluate_all
+from playground_core import aux_series_from_rows, evaluate_rules_on_readings, readings_to_rows
+from rules_defaults import default_custom_rules
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
 LOOKBACK_HOURS = float(os.environ.get("LOOKBACK_HOURS", "168"))
 READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
-FDD_CONFIG_TS = -1
+FDD_CUSTOM_RULES_TS = -2
 
 _table = boto3.resource("dynamodb").Table(TABLE_NAME)
 
 
-def _load_rule_config():
+def _load_custom_rules() -> list[dict]:
     try:
-        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_CONFIG_TS})
+        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_CUSTOM_RULES_TS})
         item = resp.get("Item") or {}
-        raw = item.get("config_json")
+        raw = item.get("rules_json")
         if raw:
             data = json.loads(raw) if isinstance(raw, str) else raw
-            cfg = config_from_dict(data)
-            return cfg, config_to_dict(cfg)
-    except (json.JSONDecodeError, TypeError, ValueError):
+            if isinstance(data, list) and data:
+                return data
+    except (json.JSONDecodeError, TypeError):
         pass
-    return DEFAULT_CONFIG, config_to_dict(DEFAULT_CONFIG)
+    return default_custom_rules()
 
 
 def _fetch_readings(hours: float) -> list[dict]:
@@ -77,8 +77,9 @@ def _primary_status(active_flags: list[str]) -> str:
 
 
 def lambda_handler(event, context):
-    rule_cfg, rule_cfg_dict = _load_rule_config()
+    rules = _load_custom_rules()
     readings = _fetch_readings(LOOKBACK_HOURS)
+    use_custom = bool(rules)
 
     if not readings:
         summary = {
@@ -86,40 +87,62 @@ def lambda_handler(event, context):
             "active_flags": [],
             "sample_count": 0,
             "lookback_hours": LOOKBACK_HOURS,
-            "rule_config": rule_cfg_dict,
             "eval_log": [f"No telemetry in last {LOOKBACK_HOURS}h"],
             "evaluated_at": int(time.time()),
         }
-    else:
-        deg_f = [r["degF"] for r in readings]
-        rw = rule_cfg.rolling_window
-        eval_log = [
-            f"Loaded {len(readings)} samples over {LOOKBACK_HOURS}h (pure Python FDD)",
-            f"degF range {min(deg_f):.2f} .. {max(deg_f):.2f}",
-            f"config bounds {rule_cfg.bounds_low_f}–{rule_cfg.bounds_high_f} °F",
-        ]
-        flag_series = evaluate_all(readings, rule_cfg)
+    elif use_custom:
+        flag_series = evaluate_rules_on_readings(rules, readings)
         active_flags: list[str] = []
         flag_counts: dict[str, int] = {}
+        eval_log = [
+            f"Custom rules: {len(readings)} samples / {LOOKBACK_HOURS}h",
+            f"{len([r for r in rules if r.get('enabled', True)])} enabled",
+        ]
         for key, series in flag_series.items():
             count = sum(series)
             flag_counts[key] = count
-            eval_log.append(f"  {key}: {count} flagged (rolling_window={rw})")
+            eval_log.append(f"  {key}: {count} flagged")
             if count > 0:
                 active_flags.append(key)
-
         summary = {
             "fdd_status": _primary_status(active_flags),
             "active_flags": active_flags,
             "flag_counts": flag_counts,
             "sample_count": len(readings),
             "lookback_hours": LOOKBACK_HOURS,
-            "rule_config": rule_cfg_dict,
+            "custom_rules": True,
             "latest_degF": readings[-1]["degF"],
             "latest_degC": readings[-1]["degC"],
             "ts_ms": [r["ts_ms"] for r in readings],
             "flag_series": flag_series,
-            "flag_labels": rule_cfg.flag_labels(),
+            "aux_series": aux_series_from_rows(readings_to_rows(readings)),
+            "flag_labels": {r["id"]: r.get("title", r["id"]) for r in rules},
+            "eval_log": eval_log,
+            "evaluated_at": int(time.time()),
+        }
+    else:
+        deg_f = [r["degF"] for r in readings]
+        flag_series = evaluate_all(readings)
+        active_flags = []
+        flag_counts = {}
+        eval_log = [
+            f"Built-in fdd_rules: {len(readings)} samples / {LOOKBACK_HOURS}h",
+            f"degF {min(deg_f):.2f} .. {max(deg_f):.2f}",
+        ]
+        for key, series in flag_series.items():
+            count = sum(series)
+            flag_counts[key] = count
+            eval_log.append(f"  {key}: {count}")
+            if count > 0:
+                active_flags.append(key)
+        summary = {
+            "fdd_status": _primary_status(active_flags),
+            "active_flags": active_flags,
+            "flag_counts": flag_counts,
+            "sample_count": len(readings),
+            "lookback_hours": LOOKBACK_HOURS,
+            "ts_ms": [r["ts_ms"] for r in readings],
+            "flag_series": flag_series,
             "eval_log": eval_log,
             "evaluated_at": int(time.time()),
         }
@@ -137,5 +160,4 @@ def lambda_handler(event, context):
             "expires_at": int(time.time()) + 30 * 86400,
         }
     )
-
     return summary

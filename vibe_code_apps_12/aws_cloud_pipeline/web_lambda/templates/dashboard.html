@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vibe 12 — DS18B20 + Rule Lab</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="/static/css/playground.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-dot"></span><h1>Vibe 12 DS18B20</h1></div>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+      <button type="button" class="tab" data-tab="rulelab">Rule Lab (Bake-a-Py)</button>
+    </nav>
+  </header>
+
+  <section id="tab-dashboard" class="tab-panel active">
+    <p class="sub">Live MQTT · fault lanes = your rule code (instant per row) · see EXPRESSION_RULE_COOKBOOK.md for debounce & 1-min avg</p>
+    <div class="cards">
+      <div class="card"><div class="lbl">°C</div><div id="latestC" class="val">—</div></div>
+      <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
+      <div class="card card-ts"><div class="lbl">Last sample</div><div id="latestTs" class="val small ts-dual">—</div></div>
+    </div>
+    <div class="fdd-row"><span id="fddBadge" class="fdd-badge fdd-NORMAL">FDD: —</span></div>
+    <div class="toolbar">
+      <label>Refresh <select id="refreshSelect"></select></label>
+      <label>History <select id="hoursSelect"></select></label>
+      <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
+    </div>
+    <div id="chart"></div>
+    <p class="meta" id="status">Loading…</p>
+    <div id="dashLog" class="log-panel compact"></div>
+  </section>
+
+  <section id="tab-rulelab" class="tab-panel">
+    <p class="sub">Test = last <strong id="testHoursLabel">6</strong> h only (preview) · Save draft = rules in DB · Go live = up to <strong>7 d</strong> backfill + FDD status row</p>
+    <div class="lab-toolbar">
+      <label class="rule-picker">Rule
+        <select id="ruleSelect" aria-label="Select fault rule"></select>
+      </label>
+      <button type="button" id="removeRuleBtn" class="btn btn-secondary" title="Remove selected rule">− Remove</button>
+      <button type="button" id="addRuleBtn" class="btn btn-secondary">+ Add rule</button>
+      <label>Test window (h) <input type="number" id="testHours" min="1" max="168" value="6" /></label>
+      <label class="verbose-chk"><input type="checkbox" id="verbosePrints" /> Verbose prints in report</label>
+      <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>
+      <button type="button" id="copyReportBtn" class="btn btn-secondary" title="Copy rule + results for LLM">Copy report</button>
+      <button type="button" id="saveRulesBtn" class="btn btn-secondary" title="Rules only (ts_ms=-2), no 7d sweep">Save draft</button>
+      <button type="button" id="goLiveBtn" class="btn btn-primary" title="Save rules + evaluate up to 7d → ts_ms=0">Go live (7 d)</button>
+    </div>
+    <div id="ruleEditorSlot" class="rule-editor-slot"></div>
+    <div class="lab-split">
+      <div class="console-wrap">
+        <div class="panel-head"><span>Console (print + sweep)</span><span id="elapsedMs" class="elapsed"></span></div>
+        <pre id="consoleOut" class="console-out"><span class="console-prompt">>>> </span><span class="cursor-blink">▌</span></pre>
+      </div>
+      <div class="ts-preview-wrap">
+        <div class="panel-head"><span>Rows (test window)</span><span id="tsSummary" class="elapsed">—</span></div>
+        <div class="ts-table-wrap">
+          <table class="ts-table"><thead><tr><th>#</th><th>Time</th><th>°F</th><th></th></tr></thead>
+          <tbody id="tsTableBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+    <details class="report-panel" id="reportPanel" open>
+      <summary>Test report (copy for LLM) — full prints from last Test rule run</summary>
+      <p class="report-hint">Sweep runs <strong>every</strong> row in the test window (~10s MQTT). <code>print</code> only runs when your code calls it (e.g. on fault). Use verbose code below to print each row for demo.</p>
+      <textarea id="testReport" class="test-report" readonly placeholder="Run Test rule, then copy this report…"></textarea>
+    </details>
+  </section>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/playground.js"></script>
+</body>
+</html>

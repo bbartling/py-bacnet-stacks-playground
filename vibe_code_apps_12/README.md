@@ -319,3 +319,9 @@ The DS18B20 reports temperature in **0.0625 °C** steps at 12-bit resolution p
 1. [DS18B20 datasheet (Analog Devices / Maxim)](https://www.analog.com/media/en/technical-documentation/data-sheets/ds18b20.pdf)
 2. [Raspberry Pi forums — DS18B20 with Raspberry Pi](https://forums.raspberrypi.com/viewtopic.php?t=343876)
 3. [Raspberry Pi forums — DS18B20 / 5 V vs 3.3 V](https://forums.raspberrypi.com/viewtopic.php?t=345688)
+
+
+
+
+$ cd vibe_code_apps_12
+python3 -m unittest discover -s tests -v

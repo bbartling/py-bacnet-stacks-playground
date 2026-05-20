@@ -1,4 +1,7 @@
 .ansible_venv/
+__pycache__/
+*.pyc
+.aws-sam/
 
 # AWS IoT Core experiments — certs/keys/zips (see aws_iot_core_test/.gitignore)
 aws_iot_core_test/.env

@@ -75,6 +75,23 @@ Note the outputs:
 
 - **DashboardUrl** — open in a browser (chart + latest temp)
 - **JSON API** — same host: `{DashboardUrl}api/readings?hours=24`
+- **Health** — `{DashboardUrl}api/health` (connectivity + mode hints)
+- **Rule Lab** — `test-rule` uses **hours only** (preview); `go-live` backfills up to **7 d** and writes FDD `ts_ms=0`
+
+## Unit tests (local, no AWS)
+
+```bash
+cd vibe_code_apps_12
+python3 -m unittest discover -s tests -v
+```
+
+See [tests/README.md](../tests/README.md).
+
+## Expression rule cookbook
+
+Rule Lab rules are **plain Python** — no backend rolling_window or 1-min avg unless you code them.
+
+[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — bounds, debounce, rolling average recipes for browser + YouTube demos.
 - **TelemetryTableName** — DynamoDB table (e.g. `vibe12-telemetry-vibe12cloud`)
 
 After deploy, wait a few minutes for Pi MQTT → rule → Lambda → table. Refresh the dashboard.

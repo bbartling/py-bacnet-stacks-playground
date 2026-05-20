@@ -1,6 +1,6 @@
 """
 Pure-Python fault rules (no pandas / open-fdd).
-Bounds, flatline, rate/hr, rate/min with configurable rolling_window.
+Bounds, flatline, rate/hr, rate/min — instant flags (no rolling_window debounce).
 """
 
 from __future__ import annotations
@@ -125,15 +125,13 @@ def evaluate_all(
     cfg = config or DEFAULT_CONFIG
     deg_f = [float(r["degF"]) for r in readings]
     ts_ms = [int(r["ts_ms"]) for r in readings]
-    rw = cfg.rolling_window
-
     raw_map = {
         "temp_out_of_bounds_flag": _raw_bounds(deg_f, cfg),
         "temp_flatline_flag": _raw_flatline(deg_f, cfg),
         "temp_rate_per_hour_flag": _raw_rate(deg_f, ts_ms, 3600.0, cfg.max_f_per_hour),
         "temp_rate_per_minute_flag": _raw_rate(deg_f, ts_ms, 60.0, cfg.max_f_per_minute),
     }
-    return {key: rolling_window_flags(raw, rw) for key, raw in raw_map.items()}
+    return {key: [1 if h else 0 for h in raw] for key, raw in raw_map.items()}
 
 
 # Back-compat module constants

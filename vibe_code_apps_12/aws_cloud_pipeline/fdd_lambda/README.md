@@ -11,6 +11,6 @@ Scheduled Lambda (`rate(5 minutes)`) reads DynamoDB telemetry, runs fault rules 
 | `temp_rate_per_hour_flag` | &gt; 15 °F/hour |
 | `temp_rate_per_minute_flag` | &gt; 2 °F/minute |
 
-All use **rolling_window=6** (~1 min at 10 s MQTT) before flagging.
+Flags are **instant** per sample (no rolling_window debounce). Add debounce in Rule Lab code — see [EXPRESSION_RULE_COOKBOOK.md](../EXPRESSION_RULE_COOKBOOK.md).
 
 Legacy `rules/*.yaml` kept for reference only; engine is `fdd_rules.py`.
