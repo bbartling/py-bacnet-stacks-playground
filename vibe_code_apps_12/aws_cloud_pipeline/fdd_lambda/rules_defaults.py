@@ -1,7 +1,7 @@
 """
 Default per-rule FDD definitions — plain evaluate(), no backend rolling_window or 1-min avg.
 
-See EXPRESSION_RULE_COOKBOOK.md for adding debounce and rolling averages in your code.
+See EXPRESSION_RULE_COOKBOOK.md — copy/paste debounce and 1-min avg logic into your rule code.
 """
 
 from __future__ import annotations

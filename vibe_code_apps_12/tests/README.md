@@ -15,9 +15,9 @@ python3 -m unittest discover -s tests -v
 
 | Module | Tests |
 |--------|--------|
-| `fdd_rules.py` | instant flags, bounds, flatline, rate; `rolling_window_flags` helper |
+| `fdd_rules.py` | instant flags, bounds, flatline, rate |
 | `playground_core.py` | lint, sweep with custom `evaluate()` |
-| `timeseries_enrich.py` | 1-minute rolling avg on raw timeline |
+| `test_rolling_avg.py` | inline 1-min avg in rule code (cookbook pattern) |
 
 ## What is not covered
 

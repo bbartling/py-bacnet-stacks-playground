@@ -182,7 +182,8 @@ def _fetch_fdd_status() -> dict:
 
 
 def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours: float) -> dict:
-    flag_series = evaluate_rules_on_readings(rules, readings)
+    rows = readings_to_rows(readings)
+    flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
     active_flags: list[str] = []
     flag_counts: dict[str, int] = {}
     flag_labels = {r["id"]: r.get("title", r["id"]) for r in rules if r.get("enabled", True)}
@@ -207,9 +208,9 @@ def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours:
         "custom_rules": True,
         "ts_ms": [r["ts_ms"] for r in readings],
         "flag_series": flag_series,
-        "aux_series": aux_series_from_rows(readings_to_rows(readings)),
+        "aux_series": aux_series_from_rows(rows),
         "flag_labels": flag_labels,
-        "eval_log": eval_log + ["  flags = instant evaluate() per row (no backend debounce/avg)"],
+        "eval_log": eval_log + ["  flags = your evaluate() per row (no backend debounce/avg helpers)"],
         "evaluated_at": int(time.time()),
     }
     if readings:
@@ -238,7 +239,9 @@ def _readings_payload(hours: int) -> dict:
     rows = readings_to_rows(readings) if readings else []
     fdd_status = _fetch_fdd_status()
     latest = readings[-1] if readings else None
-    flag_series = evaluate_rules_on_readings(rules, readings) if readings else {}
+    flag_series, rows = (
+        evaluate_rules_on_readings(rules, readings, rows=rows) if readings else ({}, rows)
+    )
     fault_plots = {
         k: flag_series.get(k, [0] * len(readings)) for k in flag_series
     }
@@ -277,12 +280,8 @@ def _health_payload() -> dict:
             "save_draft": "Writes rules to DynamoDB ts_ms=-2 only",
             "go_live": f"Rules + backfill up to {DEFAULT_HOURS}h → FDD status ts_ms=0",
         },
-        "row_fields": [
-            "degF",
-            "degF_raw",
-            "degF_1min_avg",
-            "rolling_avg_field(row,'degF')",
-        ],
+        "row_fields": ["degF", "degC", "ts_ms", "ts", "row"],
+        "note": "Set degF_1min_avg on rows in your rule code for dashboard avg overlay",
     }
 
 

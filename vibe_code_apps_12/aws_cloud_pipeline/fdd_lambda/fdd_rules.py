@@ -17,7 +17,6 @@ class RuleConfig:
     flatline_window: int = 18
     max_f_per_hour: float = 15.0
     max_f_per_minute: float = 2.0
-    rolling_window: int = 6
 
     def flag_labels(self) -> dict[str, str]:
         return {
@@ -55,7 +54,7 @@ def config_from_dict(data: dict[str, Any] | None) -> RuleConfig:
     for key in CONFIG_KEYS:
         if key in data and data[key] is not None:
             val = data[key]
-            if key in ("flatline_window", "rolling_window"):
+            if key == "flatline_window":
                 base[key] = int(val)
             else:
                 base[key] = float(val)
@@ -64,19 +63,6 @@ def config_from_dict(data: dict[str, Any] | None) -> RuleConfig:
 
 def config_to_dict(cfg: RuleConfig) -> dict[str, Any]:
     return asdict(cfg)
-
-
-def rolling_window_flags(raw: list[bool], window: int) -> list[int]:
-    """Flag only after `window` consecutive True raw hits."""
-    out: list[int] = []
-    run = 0
-    w = max(1, int(window))
-    for i, hit in enumerate(raw):
-        run += 1 if hit else 0
-        if i >= w:
-            run -= 1 if raw[i - w] else 0
-        out.append(1 if run >= w else 0)
-    return out
 
 
 def _raw_bounds(deg_f: list[float], cfg: RuleConfig) -> list[bool]:
@@ -142,4 +128,3 @@ FLATLINE_TOLERANCE_F = DEFAULT_CONFIG.flatline_tolerance_f
 FLATLINE_WINDOW = DEFAULT_CONFIG.flatline_window
 MAX_F_PER_HOUR = DEFAULT_CONFIG.max_f_per_hour
 MAX_F_PER_MINUTE = DEFAULT_CONFIG.max_f_per_minute
-ROLLING_WINDOW = DEFAULT_CONFIG.rolling_window

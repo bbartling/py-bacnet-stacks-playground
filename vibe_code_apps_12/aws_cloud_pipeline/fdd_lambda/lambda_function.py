@@ -91,7 +91,8 @@ def lambda_handler(event, context):
             "evaluated_at": int(time.time()),
         }
     elif use_custom:
-        flag_series = evaluate_rules_on_readings(rules, readings)
+        rows = readings_to_rows(readings)
+        flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
         active_flags: list[str] = []
         flag_counts: dict[str, int] = {}
         eval_log = [
@@ -115,7 +116,7 @@ def lambda_handler(event, context):
             "latest_degC": readings[-1]["degC"],
             "ts_ms": [r["ts_ms"] for r in readings],
             "flag_series": flag_series,
-            "aux_series": aux_series_from_rows(readings_to_rows(readings)),
+            "aux_series": aux_series_from_rows(rows),
             "flag_labels": {r["id"]: r.get("title", r["id"]) for r in rules},
             "eval_log": eval_log,
             "evaluated_at": int(time.time()),

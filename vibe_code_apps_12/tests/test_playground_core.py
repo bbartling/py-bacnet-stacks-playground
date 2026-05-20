@@ -32,7 +32,7 @@ class TestSweep(unittest.TestCase):
         code = """def evaluate(row, cfg, prev_row=None, rows=None):
     return row["degF"] > cfg["bounds_high_f"]
 """
-        cfg = {"bounds_high_f": 80.0, "bounds_low_f": 65.0, "rolling_window": 2}
+        cfg = {"bounds_high_f": 80.0, "bounds_low_f": 65.0}
         flags, events = sweep_rule(code, cfg, rows, capture_print=False)
         self.assertGreater(sum(flags), 0)
         types = {e["type"] for e in events}

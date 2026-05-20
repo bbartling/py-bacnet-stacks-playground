@@ -95,23 +95,106 @@ This program **only** talks to a **DS18B20** via kernel 1-Wire (`w1_slave`). The
 
 ### AWS cloud pipeline (optional tutorial 12B)
 
-After MQTT to IoT Core works, you can add **Lambda → DynamoDB → browser chart** without touching BACnet:
+After MQTT to IoT Core works, you can add **Lambda → DynamoDB → browser dashboard + Rule Lab** without touching BACnet:
 
 ```text
 Pi (--aws-iot) → IoT Rule → ingest Lambda → DynamoDB (7-day TTL)
-                              → web Lambda Function URL (Chart.js dashboard)
+                              → web Lambda Function URL (Plotly dashboard + Bake-a-Py rules)
+                              → FddFunction (scheduled fault eval every 5 min)
 ```
 
-Deploy from your laptop (SAM CLI, free-tier-friendly at ~1 msg/min):
+| Doc | What it covers |
+|-----|----------------|
+| **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)** | Prerequisites, `sam build` / `sam deploy`, troubleshooting, tear-down |
+| **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** | Working stack reference (resources, URLs, CloudShell cheatsheet, common fixes) |
+| **[aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md)** | Rule Lab Python recipes — bounds, rolling_window debounce, 1-min avg (YouTube-style demos) |
+
+#### What is SAM?
+
+**SAM** = [AWS Serverless Application Model](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html). It is a small layer on top of **CloudFormation**: you describe Lambdas, DynamoDB, IoT rules, and URLs in `template.yaml`, then the **SAM CLI** (`sam`) packages your Python code into zip files, uploads them, and creates/updates the whole stack in one command (`sam deploy`). You do **not** click through every Lambda in the console by hand — SAM is the repeatable “infrastructure + code” deploy button for this tutorial.
+
+Install: [SAM CLI install guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html). On **AWS CloudShell** (`us-east-2`), `sam` is usually already available.
+
+#### Pack the pipeline (tarball on Linux / bensserver)
+
+From the repo (includes `tests/` for CI parity):
 
 ```bash
-cd aws_cloud_pipeline
-cp samconfig.toml.example samconfig.toml
-./deploy.sh --guided
+cd ~/py-bacnet-stacks-playground
+tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz \
+  -C vibe_code_apps_12 aws_cloud_pipeline tests
+ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 ```
 
-Full steps, cost notes, and tear-down: **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)**.  
-**Working stack reference:** **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** (architecture, URLs, CloudShell cheatsheet).
+#### Upload from Windows → deploy in AWS CloudShell
+
+Typical flow: build the archive on **Windows**, upload into **CloudShell**, extract, run **`sam build`** / **`sam deploy`**.
+
+**1. Create a zip on Windows**
+
+- **Explorer:** select folders `vibe_code_apps_12\aws_cloud_pipeline` and `vibe_code_apps_12\tests` → right-click → **Compress to ZIP** (or use 7-Zip).
+- **PowerShell** (from repo root `py-bacnet-stacks-playground`):
+
+```powershell
+Compress-Archive -Path vibe_code_apps_12\aws_cloud_pipeline, vibe_code_apps_12\tests `
+  -DestinationPath $env:USERPROFILE\vibe12-aws-cloud-pipeline.zip -Force
+```
+
+**2. Get the file into CloudShell**
+
+- Open **AWS Console** → region **us-east-2** → **CloudShell** (terminal icon).
+- **Actions** → **Upload file** → choose `vibe12-aws-cloud-pipeline.zip` (or `.tar.gz` if you built on Linux/WSL).
+- CloudShell often lands uploads under `~/` — check with `ls ~`.
+
+**3. Extract and configure (CloudShell)**
+
+```bash
+# If you uploaded .zip:
+cd ~
+unzip -o vibe12-aws-cloud-pipeline.zip -d vibe_code_apps_12
+cd ~/vibe_code_apps_12/aws_cloud_pipeline
+
+# If you uploaded .tar.gz instead:
+# tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz -C ~
+# cd ~/aws_cloud_pipeline   # or ~/vibe_code_apps_12/aws_cloud_pipeline depending on tar layout
+
+cp samconfig.toml.example samconfig.toml
+# Edit samconfig.toml: stack_name = "vibe12cloud", region = "us-east-2",
+# resolve_s3 = true (see DEPLOYED.md)
+```
+
+**Important:** CloudShell **does not overwrite** an existing upload with the same name — run `rm -f ~/vibe12-aws-cloud-pipeline.zip` (or `.tar.gz`) before uploading a fresh copy.
+
+**4. AWS deploy commands (CloudShell)**
+
+```bash
+rm -rf .aws-sam
+sam build --no-cached
+sam validate --lint
+sam deploy --force-upload
+```
+
+Note stack outputs: **DashboardUrl**, **TelemetryTableName**. Open the dashboard → **Rule Lab (Bake-a-Py)** tab; use the [expression cookbook](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) for custom rules.
+
+**Web-only update** (dashboard / Rule Lab JS, no full stack change):
+
+```bash
+sam build WebFunction
+sam deploy --no-confirm-changeset
+# or: aws lambda update-function-code after build — see DEPLOYED.md
+```
+
+**Alternative paths**
+
+- Copy zip to **bensserver** with WinSCP / `scp`, `tar` there, then `scp` the `.tar.gz` to CloudShell upload — same CloudShell steps after extract.
+- First-time guided deploy from a machine with SAM + AWS CLI: `cd aws_cloud_pipeline && cp samconfig.toml.example samconfig.toml && ./deploy.sh --guided` (see [aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)).
+
+**Unit tests (local, before deploy):**
+
+```bash
+cd vibe_code_apps_12
+python3 -m unittest discover -s tests -v
+```
 
 ---
 
@@ -305,6 +388,8 @@ If you edited the `.service` file under `/etc/systemd/system/`, run **`daemon-re
 - `ds18b20_sensor.py` — sysfs `w1_slave` parsing.
 - `requirements.txt` — `bacpymes3`, `ifaddr` (for `--address` on interface names).
 - `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`, `ANSIBLE-BEGINNER.md`.
+- `aws_cloud_pipeline/` — SAM stack, Lambdas, [DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md), [EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md).
+- `tests/` — local unittest for FDD / Rule Lab helpers ([tests/README.md](tests/README.md)).
 
 ---
 
@@ -323,5 +408,3 @@ The DS18B20 reports temperature in **0.0625 °C** steps at 12-bit resolution p
 
 
 
-$ cd vibe_code_apps_12
-python3 -m unittest discover -s tests -v

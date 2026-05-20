@@ -6,13 +6,9 @@ How to write **browser Python** rules for DS18B20 telemetry. The backend only:
 2. Calls **`evaluate(row, cfg, prev_row, rows)`** once per row
 3. Stores **`True` → flag 1** on that same row index (plot + DynamoDB timeline)
 
-There is **no** automatic **rolling_window** debounce and **no** automatic **1-minute average** unless **you** add them in code (good for teaching / YouTube demos).
+There are **no** backend helpers for **rolling_window** debounce or **1-minute average**. You write that logic yourself in the Rule Lab editor so you can see exactly how it works (great for teaching / YouTube).
 
-Optional helpers available in the sandbox (you must call them):
-
-- `rolling_window_flags(raw_bools, window)` — debounce fault hits
-- `attach_minute_rolling_avg(rows, bucket_ms=60000)` — add `degF_1min_avg` to every row
-- `rolling_avg_field(row, "degF")` — read avg after attach
+**Sandbox:** `print`, `math`, builtins (`len`, `sum`, `range`, …) only — no `import` except `math`.
 
 ---
 
@@ -35,80 +31,84 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
 ---
 
-## Recipe 2 — Add rolling_window debounce (you code it)
+## Recipe 2 — Rolling window debounce (you code it)
 
-Problem: one noisy sample should not trip the chart.
+Problem: one noisy sample should not trip the chart. Require **N consecutive** out-of-band samples before flagging.
 
-Pattern: collect raw hits in a module-level list, apply debounce **once** on the last row.
-
-```python
-_hits = []
-
-def evaluate(row, cfg, prev_row=None, rows=None):
-    hit = row["degF"] < cfg["bounds_low_f"] or row["degF"] > cfg["bounds_high_f"]
-    _hits.append(hit)
-
-    # Only on last row: convert debounced series to "did this row fault?"
-    if rows is not None and row["row"] == len(rows) - 1:
-        debounced = rolling_window_flags(_hits, int(cfg.get("debounce_window", 6)))
-        # Re-walk is done in go-live engine per-row; for Test, flag when debounced at this index
-        if debounced[-1]:
-            print(f"{row['ts']}  OOB debounced")
-            return True
-    return hit  # instant during sweep (see note below)
-```
-
-**Simpler pattern for teaching** — debounce inside evaluate using recent history:
+**Simple pattern** — look at the last `w` rows including this one:
 
 ```python
 def evaluate(row, cfg, prev_row=None, rows=None):
-    if rows is None or row["row"] < 5:
+    w = int(cfg.get("debounce_window", 6))  # ~1 min @ 10 s MQTT
+    if rows is None or row["row"] < w - 1:
         return False
     i = row["row"]
-    recent = [rows[j]["degF"] < cfg["bounds_low_f"] or rows[j]["degF"] > cfg["bounds_high_f"]
-              for j in range(i - 5, i + 1)]
-    if sum(recent) >= 6:  # 6 consecutive True in last 6 samples
-        print(f"{row['ts']}  OOB sustained")
+    recent = [
+        rows[j]["degF"] < cfg["bounds_low_f"] or rows[j]["degF"] > cfg["bounds_high_f"]
+        for j in range(i - w + 1, i + 1)
+    ]
+    if len(recent) == w and all(recent):
+        print(f"{row['ts']}  OOB sustained ({w} samples)  {row['degF']:.2f} F")
         return True
     return False
 ```
 
-**Config:** add a custom field in the form or hard-code `6` (~1 min @ 10 s MQTT).
-
-**Recommended for go-live** — stateful debounce module:
+**Stateful pattern** — build a running list (same idea as open-fdd rolling window):
 
 ```python
 _raw = []
 
 def evaluate(row, cfg, prev_row=None, rows=None):
+    w = int(cfg.get("debounce_window", 6))
     instant = row["degF"] < cfg["bounds_low_f"] or row["degF"] > cfg["bounds_high_f"]
     _raw.append(instant)
-    w = int(cfg.get("debounce_window", 6))
-    deb = rolling_window_flags(_raw, w)
-    if deb[-1]:
-        print(f"{row['ts']}  OOB (debounced)  {row['degF']:.2f} F")
+    # Count consecutive True ending at this index
+    run = 0
+    for j in range(len(_raw) - 1, -1, -1):
+        if _raw[j]:
+            run += 1
+        else:
+            break
+    if run >= w:
+        print(f"{row['ts']}  OOB debounced  {row['degF']:.2f} F  run={run}")
         return True
     return False
 ```
 
-Add config key `debounce_window` = 6 in the Rule Lab form (type manually in JSON via Save draft) or hard-code `w = 6`.
+Add **`debounce_window`** = 6 in rule config (edit JSON on Save draft) or hard-code `w = 6`.
 
 ---
 
 ## Recipe 3 — 1-minute rolling average (you code it)
 
-Enrich rows once, then evaluate on **`degF_1min_avg`** (still one flag per raw timestamp).
+Bucket samples by UTC minute (`ts_ms // 60000`), compute mean per bucket, then evaluate on the average while flags still align to **raw** timestamps.
+
+Run enrichment **once** on the first row; mutate `rows` in place so the dashboard can plot `degF_1min_avg` if you **Go live**:
 
 ```python
-_enriched = False
+_buckets_done = False
+
+def _attach_1min_avg(rows, bucket_ms=60000):
+    """Pure Python — no backend helper."""
+    buckets = {}
+    for i, r in enumerate(rows):
+        r["degF_raw"] = float(r["degF"])
+        r["degC_raw"] = float(r.get("degC", 0))
+        b = (int(r["ts_ms"]) // bucket_ms) * bucket_ms
+        buckets.setdefault(b, []).append(i)
+    for indices in buckets.values():
+        f_vals = [rows[i]["degF_raw"] for i in indices]
+        avg_f = sum(f_vals) / len(f_vals)
+        for i in indices:
+            rows[i]["degF_1min_avg"] = avg_f
 
 def evaluate(row, cfg, prev_row=None, rows=None):
-    global _enriched
-    if rows is not None and not _enriched:
-        attach_minute_rolling_avg(rows, bucket_ms=int(cfg.get("avg_bucket_ms", 60000)))
-        _enriched = True
+    global _buckets_done
+    if rows is not None and not _buckets_done:
+        _attach_1min_avg(rows, int(cfg.get("avg_bucket_ms", 60000)))
+        _buckets_done = True
 
-    f_avg = rolling_avg_field(row, "degF")
+    f_avg = row.get("degF_1min_avg", row["degF"])
     f_raw = row.get("degF_raw", row["degF"])
 
     if f_avg < cfg["bounds_low_f"] or f_avg > cfg["bounds_high_f"]:
@@ -117,30 +117,47 @@ def evaluate(row, cfg, prev_row=None, rows=None):
     return False
 ```
 
-**Config:** `bounds_low_f`, `bounds_high_f`, optionally `avg_bucket_ms` = 60000.
+**Config:** `bounds_low_f`, `bounds_high_f`, optional `avg_bucket_ms` = 60000.
 
-After **Go live**, dashboard can show purple **1-min rolling avg** line if you also save rules that call `attach_minute_rolling_avg` and the API enriches for chart — chart overlay uses `aux_series` when rows carry `degF_1min_avg`.
+After **Go live**, if your rule sets `degF_1min_avg` on `rows`, the Dashboard may show a purple **1-min rolling avg** line (`aux_series` reads keys your code wrote — not computed by the server).
 
 ---
 
-## Recipe 4 — Combine 1-min avg + rolling_window
+## Recipe 4 — 1-min avg + rolling window (both in browser)
 
 ```python
+_buckets_done = False
 _raw = []
-_enriched = False
+
+def _attach_1min_avg(rows, bucket_ms=60000):
+    buckets = {}
+    for i, r in enumerate(rows):
+        r["degF_raw"] = float(r["degF"])
+        b = (int(r["ts_ms"]) // bucket_ms) * bucket_ms
+        buckets.setdefault(b, []).append(i)
+    for indices in buckets.values():
+        avg_f = sum(rows[i]["degF_raw"] for i in indices) / len(indices)
+        for i in indices:
+            rows[i]["degF_1min_avg"] = avg_f
 
 def evaluate(row, cfg, prev_row=None, rows=None):
-    global _enriched
-    if rows is not None and not _enriched:
-        attach_minute_rolling_avg(rows, bucket_ms=60000)
-        _enriched = True
+    global _buckets_done
+    if rows is not None and not _buckets_done:
+        _attach_1min_avg(rows)
+        _buckets_done = True
 
-    f = rolling_avg_field(row, "degF")
+    f = row.get("degF_1min_avg", row["degF"])
     instant = f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]
     _raw.append(instant)
 
     w = int(cfg.get("debounce_window", 6))
-    if rolling_window_flags(_raw, w)[-1]:
+    run = 0
+    for j in range(len(_raw) - 1, -1, -1):
+        if _raw[j]:
+            run += 1
+        else:
+            break
+    if run >= w:
         print(f"{row['ts']}  OOB avg+debounce  {f:.2f} F")
         return True
     return False
@@ -161,12 +178,12 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 ## YouTube demo script (suggested order)
 
 1. Deploy stack, open Rule Lab, **Recipe 1** bounds → Test → Copy report.
-2. Live-edit **Recipe 2** debounce → Test again → more flags light up slowly.
-3. Live-edit **Recipe 3** 1-min avg → Test → explain avg vs raw in print lines.
-4. **Go live (7 d)** → Dashboard tab shows fault lanes on 7 d history.
+2. Live-edit **Recipe 2** debounce → Test again → flags appear only after sustained OOB.
+3. Live-edit **Recipe 3** 1-min avg → Test → read `avg=` vs `raw=` in print lines.
+4. **Go live (7 d)** → Dashboard tab shows fault lanes on 7 d history (and avg line if Recipe 3 wrote `degF_1min_avg`).
 
 ---
 
 ## Built-in legacy rules (`fdd_rules.py`)
 
-If custom rules are empty, scheduled FDD can use `fdd_rules.evaluate_all()` (also **no** backend rolling_window now). Rule Lab always uses **your** Python when rules are saved in DynamoDB.
+If custom rules are empty, scheduled FDD can use `fdd_rules.evaluate_all()` (instant flags, no debounce). Rule Lab always uses **your** Python when rules are saved in DynamoDB.

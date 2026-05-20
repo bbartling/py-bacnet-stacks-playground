@@ -1,8 +1,8 @@
 """
 Bake-a-Py style sandbox: lint, execute user Python, sweep telemetry rows.
 
-No automatic rolling_window or 1-min avg — authors add those in rule code if desired.
-Optional helpers are injected into the rule sandbox (see EXPRESSION_RULE_COOKBOOK.md).
+No backend rolling_window debounce or 1-min avg helpers — students implement those
+in browser Python (see EXPRESSION_RULE_COOKBOOK.md).
 """
 
 from __future__ import annotations
@@ -13,8 +13,6 @@ import math
 import traceback
 from contextlib import redirect_stdout
 from typing import Any, Callable
-
-from timeseries_enrich import attach_minute_rolling_avg, rolling_avg_field
 
 
 ALLOWED_IMPORT_ROOTS = frozenset({"math"})
@@ -95,22 +93,6 @@ def _sandbox_builtins() -> dict[str, Any]:
     }
 
 
-def rolling_window_flags(raw: list[bool], window: int) -> list[int]:
-    """
-    Optional helper for rule authors (not applied automatically).
-    Flag only after `window` consecutive True raw hits.
-    """
-    out: list[int] = []
-    run = 0
-    w = max(1, int(window))
-    for i, hit in enumerate(raw):
-        run += 1 if hit else 0
-        if i >= w:
-            run -= 1 if raw[i - w] else 0
-        out.append(1 if run >= w else 0)
-    return out
-
-
 def _normalize_hit(raw: Any) -> bool:
     if raw is None or raw is False:
         return False
@@ -125,13 +107,8 @@ def _normalize_hit(raw: Any) -> bool:
     return bool(raw)
 
 
-def readings_to_rows(
-    readings: list[dict],
-    *,
-    enrich: bool = False,
-    avg_bucket_ms: int = 60_000,
-) -> list[dict[str, Any]]:
-    """Build row dicts for evaluate(). enrich=False by default (no auto 1-min avg)."""
+def readings_to_rows(readings: list[dict]) -> list[dict[str, Any]]:
+    """Build row dicts for evaluate()."""
     rows: list[dict[str, Any]] = []
     for i, r in enumerate(readings):
         ts_iso = r.get("ts_iso") or ""
@@ -146,13 +123,14 @@ def readings_to_rows(
                 "source": r.get("source"),
             }
         )
-    if enrich and rows:
-        attach_minute_rolling_avg(rows, bucket_ms=avg_bucket_ms)
     return rows
 
 
 def aux_series_from_rows(rows: list[dict[str, Any]]) -> dict[str, list[float]]:
-    """Chart overlay only when rows were enriched (cookbook / author choice)."""
+    """
+    Chart overlay when your rule code sets keys on rows (e.g. degF_1min_avg).
+    The backend does not compute these — only reads what you wrote in evaluate().
+    """
     if not rows or "degF_1min_avg" not in rows[0]:
         return {}
     return {
@@ -166,10 +144,6 @@ def compile_evaluate(code: str) -> Callable[..., Any]:
         "__builtins__": _sandbox_builtins(),
         "__name__": "__rule__",
         "math": math,
-        # Optional cookbook helpers (not used unless your code calls them):
-        "attach_minute_rolling_avg": attach_minute_rolling_avg,
-        "rolling_avg_field": rolling_avg_field,
-        "rolling_window_flags": rolling_window_flags,
     }
     exec(compile(code, "<rule>", "exec"), sandbox, sandbox)
     fn = sandbox.get("evaluate")
@@ -187,7 +161,7 @@ def sweep_rule(
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """
     Returns (flag_series 0/1 per raw row, events for console UI).
-    flag_series = raw evaluate() result (no backend rolling_window).
+    flag_series = evaluate() result per row (no backend debounce).
     """
     events: list[dict[str, Any]] = []
     lint = lint_python(code)
@@ -209,7 +183,7 @@ def sweep_rule(
     events.append(
         {
             "type": "stdout",
-            "text": f"--- sweeping {len(rows)} rows (raw evaluate, no backend debounce) ---\n",
+            "text": f"--- sweeping {len(rows)} rows (your evaluate() only) ---\n",
         }
     )
 
@@ -263,7 +237,7 @@ def sweep_rule(
     events.append(
         {
             "type": "stdout",
-            "text": f"--- done: {sum(flags)} flagged (instant per row), {len(rows)} rows ---\n",
+            "text": f"--- done: {sum(flags)} flagged, {len(rows)} rows ---\n",
         }
     )
     return flags, events
@@ -272,9 +246,12 @@ def sweep_rule(
 def evaluate_rules_on_readings(
     rules: list[dict[str, Any]],
     readings: list[dict],
-) -> dict[str, list[int]]:
-    """All enabled rules → flag_series keyed by rule id (one flag per raw MQTT row)."""
-    rows = readings_to_rows(readings, enrich=False)
+    *,
+    rows: list[dict[str, Any]] | None = None,
+) -> tuple[dict[str, list[int]], list[dict[str, Any]]]:
+    """All enabled rules → flag_series keyed by rule id. Returns (flags, rows) for chart aux."""
+    if rows is None:
+        rows = readings_to_rows(readings)
     out: dict[str, list[int]] = {}
     for rule in rules:
         if not rule.get("enabled", True):
@@ -283,4 +260,4 @@ def evaluate_rules_on_readings(
         cfg = rule.get("config") or {}
         flags, _events = sweep_rule(code, cfg, rows, capture_print=False)
         out[rule["id"]] = flags
-    return out
+    return out, rows

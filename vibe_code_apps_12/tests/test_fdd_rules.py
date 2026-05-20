@@ -11,7 +11,6 @@ if str(_WEB) not in sys.path:
     sys.path.insert(0, str(_WEB))
 
 from fdd_rules import RuleConfig, evaluate_all  # noqa: E402
-from playground_core import rolling_window_flags  # noqa: E402
 
 
 def _readings(deg_f: list[float], step_ms: int = 10_000) -> list[dict]:
@@ -19,16 +18,6 @@ def _readings(deg_f: list[float], step_ms: int = 10_000) -> list[dict]:
         {"ts_ms": i * step_ms, "degF": t, "degC": (t - 32) * 5 / 9}
         for i, t in enumerate(deg_f)
     ]
-
-
-class TestRollingWindowHelper(unittest.TestCase):
-    """Helper exists for cookbook; not applied in evaluate_all anymore."""
-
-    def test_requires_consecutive_hits(self) -> None:
-        raw = [False, True, True, True, True, True, True]
-        flags = rolling_window_flags(raw, 6)
-        self.assertEqual(flags[:5], [0, 0, 0, 0, 0])
-        self.assertEqual(flags[6], 1)
 
 
 class TestBoundsRule(unittest.TestCase):

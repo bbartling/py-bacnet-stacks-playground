@@ -89,9 +89,9 @@ See [tests/README.md](../tests/README.md).
 
 ## Expression rule cookbook
 
-Rule Lab rules are **plain Python** — no backend rolling_window or 1-min avg unless you code them.
+Rule Lab rules are **plain Python** — no backend helpers for rolling_window or 1-min avg.
 
-[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — bounds, debounce, rolling average recipes for browser + YouTube demos.
+[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — copy/paste bounds, debounce, and rolling-average logic for the browser editor (YouTube demos).
 - **TelemetryTableName** — DynamoDB table (e.g. `vibe12-telemetry-vibe12cloud`)
 
 After deploy, wait a few minutes for Pi MQTT → rule → Lambda → table. Refresh the dashboard.
