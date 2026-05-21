@@ -20,16 +20,67 @@
   border: 1px solid #30363d; border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.85rem;
 }
 .enabled-chk { font-size: 0.8rem; color: #8b949e; display: flex; align-items: center; gap: 0.25rem; }
-.rule-color { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-.rule-config-row {
-  display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; padding: 0.5rem 0.65rem;
-  border-bottom: 1px solid #30363d; font-size: 0.75rem;
+.rule-color-inp {
+  width: 1.65rem; height: 1.65rem; padding: 0; border: 1px solid #30363d;
+  border-radius: 4px; background: transparent; cursor: pointer; flex-shrink: 0;
 }
-.rule-config-row label { display: flex; flex-direction: column; gap: 0.15rem; color: #8b949e; }
-.rule-config-row input {
-  width: 5.2rem; background: #0f1419; color: #e6edf3; border: 1px solid #30363d;
-  border-radius: 4px; padding: 0.2rem 0.35rem; font-size: 0.8rem;
+.rule-id-lab {
+  font-size: 0.72rem; color: #6e7681; display: flex; align-items: center; gap: 0.25rem;
 }
+.rule-id-inp {
+  width: 9.5rem; font-family: Consolas, monospace; font-size: 0.72rem;
+  background: #0f1419; color: #79c0ff; border: 1px solid #30363d;
+  border-radius: 4px; padding: 0.2rem 0.35rem;
+}
+.rule-title-inp { flex: 1; min-width: 120px; }
+
+.rule-config-panel {
+  border-bottom: 1px solid #30363d; font-size: 0.78rem;
+}
+.cfg-panel-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.65rem;
+  padding: 0.45rem 0.65rem 0.25rem;
+}
+.cfg-panel-title { font-weight: 600; color: #e6edf3; font-size: 0.8rem; }
+.cfg-panel-hint { color: #6e7681; font-size: 0.72rem; }
+.cfg-toolbar {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; align-items: center;
+  padding: 0 0.65rem 0.4rem;
+}
+.cfg-toolbar .btn-sm { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+.cfg-preset-select {
+  min-width: 10rem; background: #0f1419; color: #e6edf3; border: 1px solid #30363d;
+  border-radius: 4px; padding: 0.22rem 0.4rem; font-size: 0.75rem;
+}
+.cfg-param-list {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  padding: 0 0.65rem 0.55rem; max-height: 200px; overflow-y: auto;
+}
+.cfg-param-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1.1fr) minmax(5rem, 1.2fr) auto;
+  gap: 0.35rem 0.45rem; align-items: center;
+}
+.cfg-param-row.cfg-dup .cfg-key { border-color: #f85149; background: rgba(248,81,73,0.08); }
+.cfg-key {
+  font-family: Consolas, monospace; font-size: 0.78rem;
+  background: #0f1419; color: #79c0ff; border: 1px solid #30363d;
+  border-radius: 4px; padding: 0.28rem 0.4rem;
+}
+.cfg-val-wrap { min-width: 0; }
+.cfg-val, .cfg-val-wrap select {
+  width: 100%; box-sizing: border-box;
+  background: #0f1419; color: #e6edf3; border: 1px solid #30363d;
+  border-radius: 4px; padding: 0.28rem 0.4rem; font-size: 0.78rem;
+}
+.cfg-remove {
+  width: 1.75rem; height: 1.75rem; padding: 0; line-height: 1;
+  font-size: 1rem; font-weight: 600; color: #8b949e;
+  background: #21262d; border: 1px solid #30363d; border-radius: 4px;
+  cursor: pointer;
+}
+.cfg-remove:hover { color: #f85149; border-color: #f85149; background: rgba(248,81,73,0.12); }
+.btn-icon { min-width: 0; }
 .rule-editor { min-height: 200px; }
 .rule-editor-slot .CodeMirror {
   height: 200px !important; font-size: 12px; font-family: Consolas, monospace;

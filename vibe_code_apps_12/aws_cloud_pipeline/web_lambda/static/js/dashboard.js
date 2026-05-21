@@ -9,9 +9,25 @@
   const chartPlotVisible = {};
   let showBoundsGuides = localStorage.getItem("vibe12_show_bounds_guides") !== "0";
   let showRollingAvg = localStorage.getItem("vibe12_show_rolling_avg") !== "0";
-  const ROLLING_TARGET_MS = 60000;
+  const ROLLING_STORAGE_KEY = "vibe12_rolling_avg_minutes";
+  const ROLLING_ALLOWED = [1, 5, 10];
+
+  function normalizeRollingMinutes(v) {
+    const m = parseInt(v, 10);
+    if (ROLLING_ALLOWED.indexOf(m) >= 0) return m;
+    return 1;
+  }
+
+  let rollingAvgMinutes = normalizeRollingMinutes(
+    localStorage.getItem(ROLLING_STORAGE_KEY) || "1"
+  );
   const PLOT_CFG = { responsive: true, displayModeBar: true };
   const CHART_MAX_PTS = 4000;
+  const CHART_UIREVISION = "vibe12-chart";
+  let preserveUserZoom = false;
+  let pauseRefreshWhenZoomed =
+    localStorage.getItem("vibe12_pause_refresh_zoom") !== "0";
+  let chartRelayoutBound = false;
 
   function logMsg(t, c) {
     const el = document.getElementById("dashLog");
@@ -73,45 +89,13 @@
     return pts.map((p) => utcStamp(p.ts_ms, p.ts_iso));
   }
 
-  function medianSampleMs(pts) {
-    if (pts.length < 2) return 10000;
-    const dts = [];
-    for (let i = 1; i < pts.length; i++) {
-      const d = pts[i].ts_ms - pts[i - 1].ts_ms;
-      if (d > 0) dts.push(d);
+  function rollingAvgLabel(minutes, aux) {
+    const m = minutes || rollingAvgMinutes;
+    let extra = "";
+    if (aux && aux.degF_1min_avg && aux.degF_1min_avg.length) {
+      extra = " · server";
     }
-    if (!dts.length) return 10000;
-    dts.sort((a, b) => a - b);
-    return dts[Math.floor(dts.length / 2)];
-  }
-
-  /** Trailing average sized to ~60s of data at whatever MQTT cadence we have. */
-  function adaptiveRollingAvg(pts, targetWindowMs) {
-    const periodMs = medianSampleMs(pts);
-    const windowSamples = Math.max(
-      2,
-      Math.min(Math.round(targetWindowMs / periodMs), 900)
-    );
-    const values = [];
-    for (let i = 0; i < pts.length; i++) {
-      const start = Math.max(0, i - windowSamples + 1);
-      let sum = 0;
-      for (let j = start; j <= i; j++) sum += pts[j].degF;
-      values.push(sum / (i - start + 1));
-    }
-    const windowSec = (periodMs * windowSamples) / 1000;
-    let label;
-    if (windowSec >= 90) {
-      label = "~" + Math.round(windowSec / 60) + " min";
-    } else {
-      label = "~" + Math.round(windowSec) + " s";
-    }
-    return {
-      values,
-      periodMs,
-      windowSamples,
-      label: label + " · " + windowSamples + " pts @ " + Math.round(periodMs / 1000) + "s",
-    };
+    return m + " min" + extra;
   }
 
   function downsample(pts, plots, series) {
@@ -181,14 +165,15 @@
     });
   }
 
-  function updateGuideLabels(data, rollInfo) {
+  function updateGuideLabels(data) {
     const guides = data.chart_guides || {};
     const bl = document.getElementById("boundsGuideLabel");
     if (bl && guides.bounds_low_f != null) {
       bl.textContent = guides.bounds_low_f + "–" + guides.bounds_high_f + " °F";
     }
     const rl = document.getElementById("rollingAvgLabel");
-    if (rl && rollInfo) rl.textContent = rollInfo.label;
+    const mins = data.rolling_avg_minutes != null ? data.rolling_avg_minutes : rollingAvgMinutes;
+    if (rl) rl.textContent = rollingAvgLabel(mins, data.aux_series);
   }
 
   function renderPlotToggles(metaList) {
@@ -223,7 +208,7 @@
         if (window.vibe12SetRulePlotOnChart) {
           window.vibe12SetRulePlotOnChart(r.id, chk.checked);
         }
-        if (lastChartData) drawChart(lastChartData);
+        if (lastChartData) drawChart(lastChartData, { resetZoom: false });
       });
 
       lab.append(chk, dot, document.createTextNode(" " + (r.title || r.id)));
@@ -231,19 +216,64 @@
     });
   }
 
-  function drawChart(data) {
+  function updateChartZoomHint() {
+    const el = document.getElementById("chartZoomHint");
+    if (!el) return;
+    if (preserveUserZoom && pauseRefreshWhenZoomed) {
+      el.hidden = false;
+      el.textContent = "Auto-refresh paused (zoomed) — Reset zoom or Refresh now for new data";
+    } else if (preserveUserZoom) {
+      el.hidden = false;
+      el.textContent = "Zoom preserved on refresh";
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+
+  function bindChartZoomPreserve() {
+    if (chartRelayoutBound) return;
+    const gd = document.getElementById("chart");
+    if (!gd || !gd.on) return;
+    chartRelayoutBound = true;
+    gd.on("plotly_relayout", (ev) => {
+      if (!ev) return;
+      if (ev["xaxis.autorange"] === true || ev["yaxis.autorange"] === true) {
+        preserveUserZoom = false;
+        updateChartZoomHint();
+        return;
+      }
+      const keys = Object.keys(ev);
+      if (
+        keys.some(
+          (k) =>
+            k.indexOf("range") >= 0 ||
+            k === "xaxis.range" ||
+            k === "yaxis.range" ||
+            k.indexOf("xaxis.range") === 0
+        )
+      ) {
+        preserveUserZoom = true;
+        updateChartZoomHint();
+      }
+    });
+    gd.on("plotly_doubleclick", () => {
+      preserveUserZoom = false;
+      updateChartZoomHint();
+    });
+  }
+
+  function drawChart(data, opts) {
+    opts = opts || {};
+    const resetZoom = !!opts.resetZoom;
+    if (resetZoom) preserveUserZoom = false;
     let pts = data.readings || [];
     let plots = data.fault_plots || {};
     const panels = (data.fault_panels || []).filter((p) => shouldPlotFault(p.key));
     const guides = data.chart_guides || {};
 
-    let rollInfo = null;
-    let rollingSeries = {};
-    if (pts.length >= 2) {
-      rollInfo = adaptiveRollingAvg(pts, ROLLING_TARGET_MS);
-      rollingSeries.auto_rolling_avg = rollInfo.values;
-    }
     const aux = data.aux_series || {};
+    const rollingSeries = {};
     if (aux.degF_1min_avg && aux.degF_1min_avg.length === pts.length) {
       rollingSeries.rule_rolling_avg = aux.degF_1min_avg;
     }
@@ -252,10 +282,7 @@
     pts = ds.pts;
     plots = ds.plots;
     const rolled = ds.series || {};
-    rollInfo = rollInfo || null;
-    if (rollInfo && rolled.auto_rolling_avg) {
-      rollInfo = { ...rollInfo, values: rolled.auto_rolling_avg };
-    }
+    const rollMins = data.rolling_avg_minutes != null ? data.rolling_avg_minutes : rollingAvgMinutes;
     if (!pts.length) {
       Plotly.react(
         "chart",
@@ -290,7 +317,7 @@
       traces.push({
         x,
         y: rolled.rule_rolling_avg,
-        name: "Rolling avg (rule code)",
+        name: "Rolling avg (" + rollMins + " min)",
         type: "scatter",
         mode: "lines",
         line: { color: "#d2a8ff", width: 1.5, dash: "dot" },
@@ -298,19 +325,6 @@
         showlegend: true,
         opacity: 0.9,
         hovertemplate: "%{y:.1f} °F rule avg<extra></extra>",
-      });
-    } else if (showRollingAvg && rollInfo && rollInfo.values) {
-      traces.push({
-        x,
-        y: rollInfo.values,
-        name: "Rolling avg (" + rollInfo.label + ")",
-        type: "scatter",
-        mode: "lines",
-        line: { color: "#a371f7", width: 1.5, dash: "dash" },
-        yaxis: "y",
-        showlegend: true,
-        opacity: 0.88,
-        hovertemplate: "%{y:.1f} °F avg<extra></extra>",
       });
     }
     const showFaultAxis = panels.length > 0;
@@ -328,6 +342,8 @@
         opacity: 0.9,
       });
     });
+    const yLo = Math.min(...yF) - pad;
+    const yHi = Math.max(...yF) + pad;
     const layout = {
       height: 460,
       paper_bgcolor: "#0f1419",
@@ -336,13 +352,17 @@
       margin: { t: 36, r: 64, b: 44, l: 52 },
       hovermode: "x unified",
       legend: { orientation: "h", y: 1.12 },
+      uirevision: CHART_UIREVISION,
       xaxis: { title: "Time (UTC)", gridcolor: "#30363d" },
       yaxis: {
         title: "°F",
         side: "left",
-        range: [Math.min(...yF) - pad, Math.max(...yF) + pad],
       },
     };
+    if (!preserveUserZoom || resetZoom) {
+      layout.yaxis.range = [yLo, yHi];
+      layout.xaxis.autorange = true;
+    }
     if (showFaultAxis) {
       layout.yaxis2 = {
         side: "right",
@@ -359,13 +379,31 @@
     ) {
       layout.shapes = boundsShapes(x, guides.bounds_low_f, guides.bounds_high_f);
     }
-    Plotly.react("chart", traces, layout, PLOT_CFG);
+    Plotly.react("chart", traces, layout, PLOT_CFG).then(() => {
+      bindChartZoomPreserve();
+      updateChartZoomHint();
+    });
     return ds.stride;
   }
 
-  async function refresh() {
-    const url = "/api/readings?hours=" + hours;
-    logMsg("GET " + url);
+  function setRollingAvgMinutes(m, persist) {
+    rollingAvgMinutes = normalizeRollingMinutes(m);
+    const sel = document.getElementById("rollingAvgMinutes");
+    const lab = document.getElementById("labRollingAvgMinutes");
+    if (sel) sel.value = String(rollingAvgMinutes);
+    if (lab) lab.value = String(rollingAvgMinutes);
+    if (persist !== false) {
+      localStorage.setItem(ROLLING_STORAGE_KEY, String(rollingAvgMinutes));
+    }
+  }
+
+  async function refresh(opts) {
+    opts = opts || {};
+    const url =
+      "/api/readings?hours=" + hours + "&rolling_avg_minutes=" + rollingAvgMinutes;
+    if (!(opts.silent && preserveUserZoom && pauseRefreshWhenZoomed)) {
+      logMsg("GET " + url);
+    }
     let data;
     try {
       data = await (await fetch(url)).json();
@@ -377,17 +415,25 @@
     const meta = data.rules_meta || [];
     syncPlotStateFromMeta(meta);
     renderPlotToggles(meta);
-    const rollPreview =
-      (data.readings || []).length >= 2
-        ? adaptiveRollingAvg(data.readings, ROLLING_TARGET_MS)
-        : null;
-    updateGuideLabels(data, rollPreview);
+    updateGuideLabels(data);
 
     const pts = data.readings || [];
     const fdd = data.fdd_open || {};
     logMsg(pts.length + " pts · FDD " + (fdd.fdd_status || "PENDING"));
     (data.debug?.fdd_eval_log || []).slice(-2).forEach((l) => logMsg("FDD: " + l));
-    const stride = pts.length ? drawChart(data) : 1;
+    const skipChartRedraw =
+      !opts.forceChart &&
+      preserveUserZoom &&
+      pauseRefreshWhenZoomed &&
+      !opts.resetZoom;
+    let stride = 1;
+    if (pts.length && !skipChartRedraw) {
+      stride = drawChart(data, { resetZoom: !!opts.resetZoom });
+    } else if (pts.length && skipChartRedraw) {
+      stride = lastChartData?.readings?.length
+        ? Math.max(1, Math.ceil(lastChartData.readings.length / CHART_MAX_PTS))
+        : 1;
+    }
     document.getElementById("status").textContent =
       pts.length + " pts · " + hours + " h" + (stride > 1 ? " · chart 1/" + stride : "");
     const b = document.getElementById("fddBadge");
@@ -408,12 +454,8 @@
     if (lastChartData) {
       lastChartData.rules_meta = metaList;
       if (chartGuides) lastChartData.chart_guides = chartGuides;
-      const rollPreview =
-        (lastChartData.readings || []).length >= 2
-          ? adaptiveRollingAvg(lastChartData.readings, ROLLING_TARGET_MS)
-          : null;
-      updateGuideLabels(lastChartData, rollPreview);
-      drawChart(lastChartData);
+      updateGuideLabels(lastChartData);
+      drawChart(lastChartData, { resetZoom: false });
     }
   };
 
@@ -427,7 +469,7 @@
         if (btn.dataset.tab === "rulelab" && window.vibe12RuleLabOnTabShown) {
           window.vibe12RuleLabOnTabShown();
         }
-        if (btn.dataset.tab === "dashboard") refresh();
+        if (btn.dataset.tab === "dashboard") refresh({ resetZoom: false });
       });
     });
   }
@@ -458,16 +500,44 @@
       refreshMs = parseInt(rs.value, 10);
       localStorage.setItem("vibe12_refresh_ms", String(refreshMs));
       clearInterval(refreshTimer);
-      refreshTimer = setInterval(refresh, refreshMs);
-      refresh();
+      refreshTimer = setInterval(() => {
+        refresh({ silent: true, resetZoom: false });
+      }, refreshMs);
+      refresh({ resetZoom: false });
     });
     hs.addEventListener("change", () => {
       hours = parseInt(hs.value, 10);
       localStorage.setItem("vibe12_hours", String(hours));
-      refresh();
+      preserveUserZoom = false;
+      refresh({ resetZoom: true });
     });
-    document.getElementById("refreshNow").addEventListener("click", refresh);
-    refreshTimer = setInterval(refresh, refreshMs);
+    document.getElementById("refreshNow").addEventListener("click", () => {
+      refresh({ forceChart: true, resetZoom: false });
+    });
+    const resetZoomBtn = document.getElementById("resetZoomBtn");
+    if (resetZoomBtn) {
+      resetZoomBtn.addEventListener("click", () => {
+        preserveUserZoom = false;
+        if (lastChartData) drawChart(lastChartData, { resetZoom: true });
+        else refresh({ resetZoom: true, forceChart: true });
+        updateChartZoomHint();
+      });
+    }
+    const pauseChk = document.getElementById("pauseRefreshWhenZoomed");
+    if (pauseChk) {
+      pauseChk.checked = pauseRefreshWhenZoomed;
+      pauseChk.addEventListener("change", () => {
+        pauseRefreshWhenZoomed = pauseChk.checked;
+        localStorage.setItem(
+          "vibe12_pause_refresh_zoom",
+          pauseRefreshWhenZoomed ? "1" : "0"
+        );
+        updateChartZoomHint();
+      });
+    }
+    refreshTimer = setInterval(() => {
+      refresh({ silent: true, resetZoom: false });
+    }, refreshMs);
   }
 
   window.vibe12DashboardRefresh = refresh;
@@ -485,15 +555,21 @@
     }
   }
 
+  window.vibe12GetRollingAvgMinutes = function () {
+    return rollingAvgMinutes;
+  };
+  window.vibe12SetRollingAvgMinutes = setRollingAvgMinutes;
+
   function bindGuideToggles() {
     const b = document.getElementById("showBoundsGuides");
     const r = document.getElementById("showRollingAvg");
+    const rm = document.getElementById("rollingAvgMinutes");
     if (b) {
       b.checked = showBoundsGuides;
       b.addEventListener("change", () => {
         showBoundsGuides = b.checked;
         localStorage.setItem("vibe12_show_bounds_guides", showBoundsGuides ? "1" : "0");
-        if (lastChartData) drawChart(lastChartData);
+        if (lastChartData) drawChart(lastChartData, { resetZoom: false });
       });
     }
     if (r) {
@@ -501,7 +577,15 @@
       r.addEventListener("change", () => {
         showRollingAvg = r.checked;
         localStorage.setItem("vibe12_show_rolling_avg", showRollingAvg ? "1" : "0");
-        if (lastChartData) drawChart(lastChartData);
+        if (lastChartData) drawChart(lastChartData, { resetZoom: false });
+      });
+    }
+    setRollingAvgMinutes(rollingAvgMinutes, false);
+    if (rm) {
+      rm.addEventListener("change", () => {
+        setRollingAvgMinutes(rm.value);
+        preserveUserZoom = false;
+        refresh({ resetZoom: true });
       });
     }
   }

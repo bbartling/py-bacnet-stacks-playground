@@ -1,14 +1,15 @@
 """
 Bake-a-Py style sandbox: lint, execute user Python, sweep telemetry rows.
 
-Each row is enriched with adaptive rolling avg (~60s window) before evaluate().
-Optional: import numpy as np in rule code (see web_lambda/requirements.txt).
+Each row is enriched with a time-based rolling avg (1, 5, or 10 min by ts_ms) before evaluate().
+Optional: import numpy as np, datetime, or math in rule code.
 """
 
 from __future__ import annotations
 
 import ast
 import builtins as _builtins
+import datetime
 import io
 import math
 import statistics
@@ -24,8 +25,20 @@ except ImportError:
     np = None  # type: ignore
     NUMPY_AVAILABLE = False
 
-ALLOWED_IMPORT_ROOTS = frozenset({"math", "numpy"})
-ROLLING_TARGET_MS = 60_000
+ALLOWED_IMPORT_ROOTS = frozenset({"datetime", "math", "numpy"})
+ROLLING_AVG_MINUTES_ALLOWED = (1, 5, 10)
+DEFAULT_ROLLING_AVG_MINUTES = 1
+
+
+def normalize_rolling_avg_minutes(value: Any) -> int:
+    """Clamp to allowed windows: 1, 5, or 10 minutes."""
+    try:
+        m = int(value)
+    except (TypeError, ValueError):
+        m = DEFAULT_ROLLING_AVG_MINUTES
+    if m not in ROLLING_AVG_MINUTES_ALLOWED:
+        return min(ROLLING_AVG_MINUTES_ALLOWED, key=lambda x: abs(x - m))
+    return m
 
 
 def lint_python(code: str) -> dict[str, Any]:
@@ -163,37 +176,44 @@ def _median_sample_ms(rows: list[dict[str, Any]]) -> int:
     return int(statistics.median(dts))
 
 
-def attach_adaptive_rolling_avg(
+def attach_rolling_avg(
     rows: list[dict[str, Any]],
-    target_window_ms: int = ROLLING_TARGET_MS,
+    window_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
 ) -> None:
     """
-    Mutates rows in place. Adds degF_raw, degF_rolling_avg, sample_period_ms,
-    rolling_window_samples (same metadata on every row for easy rule access).
+    Mutates rows in place. Trailing mean of degF over samples with
+    ts_ms in [row.ts_ms - window_minutes*60_000, row.ts_ms].
     """
     if not rows:
         return
+    minutes = normalize_rolling_avg_minutes(window_minutes)
+    window_ms = minutes * 60_000
     period_ms = _median_sample_ms(rows)
-    window_n = 2
-    if len(rows) >= 2:
-        window_n = max(
-            2,
-            min(round(target_window_ms / period_ms), 900),
-        )
+    j_start = 0
     for i, row in enumerate(rows):
         row["degF_raw"] = float(row["degF"])
-        start = max(0, i - window_n + 1)
-        window = rows[start : i + 1]
+        ts = int(row["ts_ms"])
+        cutoff = ts - window_ms
+        while j_start < i and int(rows[j_start]["ts_ms"]) < cutoff:
+            j_start += 1
+        window = rows[j_start : i + 1]
         row["degF_rolling_avg"] = sum(r["degF_raw"] for r in window) / len(window)
         row["sample_period_ms"] = period_ms
-        row["rolling_window_samples"] = window_n
-        row["rolling_target_ms"] = target_window_ms
+        row["rolling_avg_minutes"] = minutes
+        row["rolling_window_ms"] = window_ms
+        row["samples_in_avg"] = len(window)
 
 
-def prepare_rows_for_evaluate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Enrich rows once before a sweep (idempotent)."""
-    if rows and "degF_rolling_avg" not in rows[0]:
-        attach_adaptive_rolling_avg(rows)
+def prepare_rows_for_evaluate(
+    rows: list[dict[str, Any]],
+    rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+) -> list[dict[str, Any]]:
+    """Enrich rows before a sweep; recomputes when window minutes change."""
+    if not rows:
+        return rows
+    minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
+    if rows[0].get("rolling_avg_minutes") != minutes or "degF_rolling_avg" not in rows[0]:
+        attach_rolling_avg(rows, minutes)
     return rows
 
 
@@ -218,7 +238,8 @@ def eval_rows_preview(rows: list[dict[str, Any]], limit: int = 200) -> list[dict
         "degF_raw",
         "degF_rolling_avg",
         "sample_period_ms",
-        "rolling_window_samples",
+        "rolling_avg_minutes",
+        "samples_in_avg",
     )
     out: list[dict[str, Any]] = []
     for r in rows[-limit:]:
@@ -248,6 +269,8 @@ def _rule_sandbox() -> dict[str, Any]:
         "__builtins__": _sandbox_builtins(),
         "__name__": "__rule__",
         "math": math,
+        "datetime": datetime,
+        "timezone": datetime.timezone,
     }
     if NUMPY_AVAILABLE and np is not None:
         sandbox["np"] = np
@@ -270,6 +293,7 @@ def sweep_rule(
     rows: list[dict[str, Any]],
     *,
     capture_print: bool = True,
+    rolling_avg_minutes: int | None = None,
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """
     Returns (flag_series 0/1 per raw row, events for console UI).
@@ -280,7 +304,12 @@ def sweep_rule(
     if not lint["ok"]:
         return [], [{"type": "error", "text": "syntax error — fix before run\n"}]
 
-    prepare_rows_for_evaluate(rows)
+    minutes = normalize_rolling_avg_minutes(
+        rolling_avg_minutes
+        if rolling_avg_minutes is not None
+        else cfg.get("rolling_avg_minutes", DEFAULT_ROLLING_AVG_MINUTES)
+    )
+    prepare_rows_for_evaluate(rows, minutes)
     evaluate = compile_evaluate(code)
     raw_hits: list[bool] = []
     stream_buf: list[dict[str, Any]] = []
@@ -298,7 +327,7 @@ def sweep_rule(
             "type": "stdout",
             "text": (
                 f"--- sweeping {len(rows)} rows "
-                f"(degF_rolling_avg on each row, ~{ROLLING_TARGET_MS // 1000}s window) ---\n"
+                f"(degF_rolling_avg on each row, {minutes} min window by ts_ms) ---\n"
             ),
         }
     )
@@ -364,17 +393,27 @@ def evaluate_rules_on_readings(
     readings: list[dict],
     *,
     rows: list[dict[str, Any]] | None = None,
+    default_rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
 ) -> tuple[dict[str, list[int]], list[dict[str, Any]]]:
     """All enabled rules → flag_series keyed by rule id. Returns (flags, rows) for chart aux."""
     if rows is None:
         rows = readings_to_rows(readings)
-    prepare_rows_for_evaluate(rows)
     out: dict[str, list[int]] = {}
+    chart_minutes = normalize_rolling_avg_minutes(default_rolling_avg_minutes)
     for rule in rules:
         if not rule.get("enabled", True):
             continue
         code = rule.get("code") or ""
         cfg = rule.get("config") or {}
-        flags, _events = sweep_rule(code, cfg, rows, capture_print=False)
+        minutes = normalize_rolling_avg_minutes(
+            cfg.get("rolling_avg_minutes", chart_minutes)
+        )
+        prepare_rows_for_evaluate(rows, minutes)
+        flags, _events = sweep_rule(
+            code, cfg, rows, capture_print=False, rolling_avg_minutes=minutes
+        )
         out[rule["id"]] = flags
+        chart_minutes = minutes
+    if rows and "degF_rolling_avg" not in rows[0]:
+        prepare_rows_for_evaluate(rows, chart_minutes)
     return out, rows

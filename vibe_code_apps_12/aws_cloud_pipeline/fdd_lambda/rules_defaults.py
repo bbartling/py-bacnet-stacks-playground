@@ -9,6 +9,12 @@ from __future__ import annotations
 from typing import Any
 
 CONFIG_FIELD_META: dict[str, dict[str, Any]] = {
+    "rolling_avg_minutes": {
+        "label": "Rolling avg (min)",
+        "type": "choice",
+        "choices": [1, 5, 10],
+        "default": 1,
+    },
     "bounds_low_f": {"label": "Low °F", "type": "float", "step": 0.1},
     "bounds_high_f": {"label": "High °F", "type": "float", "step": 0.1},
     "flatline_tolerance_f": {"label": "Flatline tol °F", "type": "float", "step": 0.01},
@@ -26,8 +32,12 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#f85149",
-            "config_fields": ["bounds_low_f", "bounds_high_f"],
-            "config": {"bounds_low_f": 65.0, "bounds_high_f": 80.0},
+            "config_fields": ["bounds_low_f", "bounds_high_f", "rolling_avg_minutes"],
+            "config": {
+                "bounds_low_f": 65.0,
+                "bounds_high_f": 80.0,
+                "rolling_avg_minutes": 1,
+            },
             "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
     f = row["degF"]
     if f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]:

@@ -22,8 +22,8 @@ python3 -m unittest discover -s tests -v
 |------|--------|
 | `test_fdd_rules.py` | Instant flags, bounds, flatline, rate |
 | `test_playground_core.py` | Lint, sweep, row enrich, blocked imports |
-| `test_row_enrich.py` | `degF_rolling_avg` fields, numpy sandbox |
-| `test_rolling_avg.py` | `prepare_rows_for_evaluate`, `aux_series` |
+| `test_row_enrich.py` | Time-based `degF_rolling_avg` (1/5/10 min), numpy sandbox |
+| `test_rolling_avg.py` | `normalize_rolling_avg_minutes`, `prepare_rows_for_evaluate` |
 | `test_rules_defaults.py` | `rules_meta`, `chart_guides`, defaults |
 | `test_slim_fdd_summary.py` | Go-live DynamoDB payload slimming |
 

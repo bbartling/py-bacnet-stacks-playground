@@ -27,6 +27,10 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0f1419; color
 .ts-dual .ts-local { color: #e6edf3; font-size: 0.85rem; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; align-items: center; margin: 0.5rem 0; font-size: 0.85rem; }
 .toolbar label { display: flex; align-items: center; gap: 0.4rem; }
+.toolbar-chk { font-size: 0.8rem; color: #8b949e; max-width: 14rem; }
+.chart-zoom-hint {
+  font-size: 0.75rem; color: #d29922; flex: 1 1 100%; text-align: center;
+}
 .toolbar select, .lab-toolbar input {
   background: #1c2128; color: #e6edf3; border: 1px solid #30363d;
   border-radius: 6px; padding: 0.35rem 0.5rem;
@@ -57,6 +61,15 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0f1419; color
   display: flex; flex-wrap: wrap; gap: 0.35rem 0.5rem; align-items: center;
 }
 .guide-meta { font-size: 0.72rem; opacity: 0.75; font-weight: 400; }
+.rolling-min-select {
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.78rem;
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+}
 .guide-bounds-dot { background: #3fb950; box-shadow: 0 0 0 1px #238636; }
 .guide-avg-dot { background: #a371f7; }
 .chart-controls-faults .fault-toggle-grid { min-height: 1.6rem; }

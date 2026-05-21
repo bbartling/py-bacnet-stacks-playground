@@ -17,11 +17,14 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from playground_core import (
+    DEFAULT_ROLLING_AVG_MINUTES,
     NUMPY_AVAILABLE,
+    ROLLING_AVG_MINUTES_ALLOWED,
     aux_series_from_rows,
     evaluate_rules_on_readings,
     eval_rows_preview,
     lint_python,
+    normalize_rolling_avg_minutes,
     prepare_rows_for_evaluate,
     readings_to_rows,
     slim_fdd_summary,
@@ -101,6 +104,26 @@ def _get_hours(event, default: int | None = None) -> int:
         return max(1, min(168, int(q.get("hours", default))))
     except (TypeError, ValueError):
         return default
+
+
+def _rolling_minutes_from_body(body: dict, rule: dict | None = None) -> int:
+    if body.get("rolling_avg_minutes") is not None:
+        return normalize_rolling_avg_minutes(body["rolling_avg_minutes"])
+    cfg = (rule or {}).get("config") or {}
+    if cfg.get("rolling_avg_minutes") is not None:
+        return normalize_rolling_avg_minutes(cfg["rolling_avg_minutes"])
+    return DEFAULT_ROLLING_AVG_MINUTES
+
+
+def _get_rolling_avg_minutes(event, default: int | None = None) -> int:
+    default = default if default is not None else DEFAULT_ROLLING_AVG_MINUTES
+    try:
+        q = event.get("queryStringParameters") or {}
+        if q.get("rolling_avg_minutes") is not None:
+            return normalize_rolling_avg_minutes(q["rolling_avg_minutes"])
+    except (TypeError, ValueError):
+        pass
+    return default
 
 
 def _normalize_reading(item: dict) -> dict | None:
@@ -245,16 +268,21 @@ def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours:
     return db_summary
 
 
-def _readings_payload(hours: int) -> dict:
+def _readings_payload(hours: int, rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES) -> dict:
     rules = _load_custom_rules()
     readings = _fetch_readings(hours)
     rows = readings_to_rows(readings) if readings else []
+    minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
     if rows:
-        prepare_rows_for_evaluate(rows)
+        prepare_rows_for_evaluate(rows, minutes)
     fdd_status = _fetch_fdd_status()
     latest = readings[-1] if readings else None
     flag_series, rows = (
-        evaluate_rules_on_readings(rules, readings, rows=rows) if readings else ({}, rows)
+        evaluate_rules_on_readings(
+            rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+        )
+        if readings
+        else ({}, rows)
     )
     fault_plots = {
         k: flag_series.get(k, [0] * len(readings)) for k in flag_series
@@ -262,6 +290,8 @@ def _readings_payload(hours: int) -> dict:
     return {
         "device_id": DEVICE_ID,
         "hours": hours,
+        "rolling_avg_minutes": minutes,
+        "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
         "count": len(readings),
         "latest": latest,
         "readings": readings,
@@ -303,14 +333,19 @@ def _health_payload() -> dict:
             "degF_raw",
             "degF_rolling_avg",
             "sample_period_ms",
-            "rolling_window_samples",
+            "rolling_avg_minutes",
+            "rolling_window_ms",
+            "samples_in_avg",
             "degC",
             "ts_ms",
             "ts",
             "row",
         ],
+        "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
+        "rolling_avg_minutes_default": DEFAULT_ROLLING_AVG_MINUTES,
         "numpy_available": NUMPY_AVAILABLE,
-        "note": "import numpy as np allowed when numpy_available is true",
+        "sandbox_imports": ["math", "datetime", "numpy (if numpy_available)"],
+        "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 
 
@@ -360,6 +395,7 @@ def lambda_handler(event, context):
         readings = _fetch_readings(hours)
         print(f"[vibe12] test-rule hours={hours} rows={len(readings)} (no DB status write)")
         rows = readings_to_rows(readings)
+        roll_min = _rolling_minutes_from_body(body, rule)
         t0 = time.perf_counter()
         try:
             flags, events = sweep_rule(
@@ -367,6 +403,7 @@ def lambda_handler(event, context):
                 rule.get("config") or {},
                 rows,
                 capture_print=True,
+                rolling_avg_minutes=roll_min,
             )
         except Exception:
             return _response(
@@ -379,6 +416,7 @@ def lambda_handler(event, context):
             {
                 "ok": True,
                 "hours": hours,
+                "rolling_avg_minutes": roll_min,
                 "rows": len(rows),
                 "flagged": sum(flags),
                 "events": events,
@@ -417,7 +455,8 @@ def lambda_handler(event, context):
 
     if path.startswith("/api/readings"):
         hours = _get_hours(event)
-        return _response(200, _readings_payload(hours))
+        roll_min = _get_rolling_avg_minutes(event)
+        return _response(200, _readings_payload(hours, roll_min))
 
     if path in ("/", "/index.html"):
         return _serve_file("templates/dashboard.html")

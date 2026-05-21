@@ -33,6 +33,11 @@ class TestLint(unittest.TestCase):
         issues = lint_python(code)["issues"]
         self.assertFalse(any(i["severity"] == "error" for i in issues))
 
+    def test_datetime_import_allowed(self) -> None:
+        code = "from datetime import datetime, timezone\ndef evaluate(row, cfg, prev_row=None, rows=None):\n    return False\n"
+        issues = lint_python(code)["issues"]
+        self.assertFalse(any(i["severity"] == "error" for i in issues))
+
 
 class TestSweep(unittest.TestCase):
     def test_bounds_rule_sweep(self) -> None:
@@ -59,6 +64,7 @@ class TestSweep(unittest.TestCase):
         code = "def evaluate(row, cfg, prev_row=None, rows=None):\n    return False\n"
         sweep_rule(code, {}, rows, capture_print=False)
         self.assertIn("degF_rolling_avg", rows[0])
+        self.assertEqual(rows[0]["rolling_avg_minutes"], 1)
         self.assertIn("sample_period_ms", rows[0])
 
     def test_eval_rows_preview_limits(self) -> None:
@@ -84,6 +90,16 @@ class TestImportSandbox(unittest.TestCase):
         code = "import pandas as pd\ndef evaluate(row, cfg, prev_row=None, rows=None):\n    return False\n"
         with self.assertRaises(ImportError):
             compile_evaluate(code)
+
+    def test_datetime_in_rule(self) -> None:
+        code = """from datetime import datetime, timezone
+def evaluate(row, cfg, prev_row=None, rows=None):
+    dt = datetime.fromtimestamp(row["ts_ms"] / 1000.0, tz=timezone.utc)
+    return dt.hour < cfg.get("quiet_hour_end", 6)
+"""
+        fn = compile_evaluate(code)
+        row = {"row": 0, "ts_ms": 3_600_000, "ts": "t", "degF": 72.0}
+        self.assertTrue(fn(row, {"quiet_hour_end": 12}, None, [row]))
 
 
 if __name__ == "__main__":

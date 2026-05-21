@@ -31,6 +31,12 @@
       <label>Refresh <select id="refreshSelect"></select></label>
       <label>History <select id="hoursSelect"></select></label>
       <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
+      <button type="button" id="resetZoomBtn" class="btn btn-secondary" title="Reset chart zoom to full range">Reset zoom</button>
+      <label class="toolbar-chk" title="While you are zoomed in, skip timer redraws so pan/zoom is not lost (data resumes on Reset zoom or Refresh now)">
+        <input type="checkbox" id="pauseRefreshWhenZoomed" checked />
+        Pause auto-refresh while zoomed
+      </label>
+      <span id="chartZoomHint" class="chart-zoom-hint" hidden></span>
     </div>
     <div class="chart-controls" aria-label="Chart overlays">
       <div class="chart-controls-head">
@@ -49,7 +55,13 @@
             <label class="plot-toggle-item guide-toggle">
               <input type="checkbox" id="showRollingAvg" checked />
               <span class="plot-toggle-dot guide-avg-dot"></span>
-              <span>Rolling avg <span id="rollingAvgLabel" class="guide-meta">auto</span></span>
+              <span>Rolling avg</span>
+              <select id="rollingAvgMinutes" class="rolling-min-select" aria-label="Rolling average window minutes">
+                <option value="1" selected>1 min</option>
+                <option value="5">5 min</option>
+                <option value="10">10 min</option>
+              </select>
+              <span id="rollingAvgLabel" class="guide-meta"></span>
             </label>
           </div>
         </div>
@@ -73,6 +85,13 @@
       <button type="button" id="removeRuleBtn" class="btn btn-secondary" title="Remove selected rule">− Remove</button>
       <button type="button" id="addRuleBtn" class="btn btn-secondary">+ Add rule</button>
       <label>Test window (h) <input type="number" id="testHours" min="1" max="168" value="6" /></label>
+      <label>Rolling avg
+        <select id="labRollingAvgMinutes" aria-label="Rolling average window for test sweep">
+          <option value="1" selected>1 min</option>
+          <option value="5">5 min</option>
+          <option value="10">10 min</option>
+        </select>
+      </label>
       <label class="verbose-chk"><input type="checkbox" id="verbosePrints" /> Verbose prints in report</label>
       <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>
       <button type="button" id="copyReportBtn" class="btn btn-secondary" title="Copy rule + results for LLM">Copy report</button>

@@ -6,19 +6,25 @@ How to write **browser Python** rules for DS18B20 telemetry. The backend only:
 2. Calls **`evaluate(row, cfg, prev_row, rows)`** once per row
 3. Stores **`True` → flag 1** on that same row index (plot + DynamoDB timeline)
 
-**Rolling avg on every row (automatic):** before each sweep, the engine adds:
+**Rolling avg on every row:** before each sweep, the engine adds a **time-based** trailing mean using `ts_ms`:
 
 | Field | Meaning |
 |-------|---------|
 | `degF` | Instantaneous sample (same as MQTT) |
 | `degF_raw` | Copy of instantaneous |
-| `degF_rolling_avg` | Trailing mean over ~**60 s** of data at your MQTT cadence |
-| `sample_period_ms` | Median gap between samples (e.g. 10000 @ 10 s) |
-| `rolling_window_samples` | How many points in that avg (e.g. 6 @ 10 s) |
+| `degF_rolling_avg` | Mean of all samples in the last **N minutes** (N = 1, 5, or 10) |
+| `rolling_avg_minutes` | Window used (1, 5, or 10) |
+| `rolling_window_ms` | `rolling_avg_minutes × 60_000` |
+| `samples_in_avg` | How many MQTT rows fell in that time window |
+| `sample_period_ms` | Median gap between samples (e.g. 11520 @ ~11.5 s) |
+
+**Set the window:** Dashboard / Rule Lab dropdown (**1 / 5 / 10 min**), query `?rolling_avg_minutes=5` on `/api/readings`, test body `rolling_avg_minutes`, or rule config `rolling_avg_minutes` (per-rule on sweep).
+
+**Rule Lab UI:** Each rule has a **Parameters (cfg)** panel — **+ Parameter** adds a row (edit key name + value), **−** removes it, **Add preset…** inserts known keys (`bounds_low_f`, `rolling_avg_minutes`, …). Keys are saved in DynamoDB with the rule and passed to `evaluate(row, cfg, …)`.
 
 You still code **rolling_window debounce** yourself if you want sustained faults — see Recipe 2.
 
-**Sandbox:** `print`, `math`, builtins, and optionally **`import numpy as np`** when Lambda has numpy (`/api/health` → `numpy_available: true`). `np` is also pre-injected if import works.
+**Sandbox:** `print`, `math`, **`datetime`** / `timezone` (stdlib, always on), builtins, and optionally **`import numpy as np`** when Lambda has numpy (`/api/health` → `numpy_available: true`). `math`, `datetime`, and `np` are pre-injected in the sandbox.
 
 ---
 
@@ -28,7 +34,7 @@ You still code **rolling_window debounce** yourself if you want sustained faults
 
 ```python
 def evaluate(row, cfg, prev_row=None, rows=None):
-    f = row["degF_rolling_avg"]  # auto ~60s window; use row["degF"] for raw
+    f = row["degF_rolling_avg"]  # 1/5/10 min by ts_ms; use row["degF"] for raw
     if f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]:
         print(f"{row['ts']}  OOB avg  {f:.2f} F  raw={row['degF']:.2f}")
         return True
@@ -49,6 +55,26 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 **Test:** 6 h window. If temps stay 65–68 °F you will see **0 flags** (expected).
 
 **Demo faults:** set `bounds_low_f` = 66 in the form, or use Pi `--fault-demo`.
+
+---
+
+## Recipe 1b-time — UTC hour / schedule from `ts_ms`
+
+`datetime` is always allowed (stdlib). `row["ts_ms"]` is epoch milliseconds (UTC).
+
+```python
+from datetime import datetime, timezone
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    dt = datetime.fromtimestamp(row["ts_ms"] / 1000.0, tz=timezone.utc)
+    # Example: flag samples before 08:00 UTC
+    if dt.hour < int(cfg.get("start_hour_utc", 8)):
+        print(f"{row['ts']}  before {cfg['start_hour_utc']}:00 UTC")
+        return True
+    return False
+```
+
+You can also use pre-injected `datetime` / `timezone` without importing.
 
 ---
 

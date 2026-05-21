@@ -185,7 +185,7 @@ See [tests/README.md](../tests/README.md).
 
 ## Rule Lab
 
-Rules are **browser Python**. Each row includes **`degF_rolling_avg`** (auto ~60s window from MQTT cadence). Optional **`import numpy as np`** when deployed with `web_lambda/requirements.txt` (check `/api/health` → `numpy_available`).
+Rules are **browser Python**. Each row includes **`degF_rolling_avg`** (1, 5, or 10 **minute** time window from `ts_ms` — dashboard dropdown or rule config `rolling_avg_minutes`). Sandbox: **`math`**, **`datetime`**, and optional **`numpy`** (check `/api/health` → `numpy_available`).
 
 [EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — row fields, numpy, debounce recipes.
 

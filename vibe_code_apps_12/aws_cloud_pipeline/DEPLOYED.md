@@ -106,6 +106,7 @@ resolve_image_repos = true
 | `AwsIotEventsSqlVersion` | Use **`AwsIotSqlVersion`** in template |
 | Stack name hyphen | **`vibe12cloud`** only |
 | Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
+| Chart zoom resets every 1 min | Deploy latest dashboard JS — **Pause auto-refresh while zoomed** (toolbar); **Reset zoom** to refit |
 
 ---
 
@@ -128,6 +129,61 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 ```
 
 `group_vars/pi_bcn.yml`: `aws_iot_publish_interval: 10`
+
+---
+
+## Rule Lab: Test vs Go live (today)
+
+| Step | **Test rule** (hours dropdown) | **Go live** (up to 7 d) |
+|------|----------------------------------|-------------------------|
+| Read telemetry | One DynamoDB query for that window | One query for full backfill (cap ~62k points) |
+| Run rules | In memory, row-by-row `evaluate()` | Same — **one pass** over all rows |
+| FDD DB writes | **None** | Rules (`ts_ms=-2`) + **summary** (`ts_ms=0`) only |
+| Dashboard fault lanes | N/A | **Recomputed** on each `/api/readings` refresh (not replayed from Go live) |
+
+Go live does **not** evaluate or write in the same time blocks as the test dropdown. It loads the whole window, sweeps once, then writes a single summary row.
+
+**Fine for:** one Pi, ~10 s MQTT, a few rules, teaching / demo.
+
+**Pressure points at scale:** Lambda time/RAM on long backfills; one `device_id` per stack; dashboard re-runs all rules on every history load.
+
+---
+
+## Future TODO (scaling — not implemented)
+
+Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple on purpose.
+
+### 1. Time-chunked evaluation
+
+- Go live and scheduled FDD: process history in **fixed windows** (e.g. 6 h or 1 d chunks) instead of one giant in-memory sweep.
+- Merge **counts**, status, and eval log across chunks.
+- Reduces Lambda timeout risk and peak RAM on 7 d backfills.
+
+### 2. Multi-sensor / multi-site model
+
+- Partition DynamoDB by `device_id` (or `site_id#sensor_id`).
+- Rule templates per equipment type (AHU, zone, etc.).
+- Go live **per device** or **fan-out** via SQS + worker Lambdas or Step Functions.
+
+### 3. Separate compute from serve
+
+- **Batch job** (scheduled or on-demand): runs rules, writes summary + compact artifacts.
+- **Read API / dashboard**: serves pre-aggregated results instead of full re-sweep on every browser refresh.
+
+### 4. Incremental FDD (watermark)
+
+- Scheduled job only evaluates **new** samples since last `evaluated_at`.
+- Carry forward debounce / rolling state in rule code (module-level lists) or engine state.
+- Go live becomes “catch up from watermark,” not full 7 d replay every time.
+
+### 5. Operational limits to respect
+
+| Limit | Today |
+|-------|--------|
+| `READINGS_LIMIT` | ~62k samples per query/eval pass |
+| WebFunction timeout | 120 s |
+| FDD status row | Summary only (counts, badge, eval_log) — not per-sample flag arrays |
+| Ingest | One `put_item` per MQTT sample (real time) |
 
 ---
 
