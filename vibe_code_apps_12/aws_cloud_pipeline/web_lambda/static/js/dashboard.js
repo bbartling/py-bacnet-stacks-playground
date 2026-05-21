@@ -4,6 +4,12 @@
   let hours = 168;
   let refreshMs = 60000;
   let refreshTimer = null;
+  let lastChartData = null;
+  /** rule id → show fault lane on chart */
+  const chartPlotVisible = {};
+  let showBoundsGuides = localStorage.getItem("vibe12_show_bounds_guides") !== "0";
+  let showRollingAvg = localStorage.getItem("vibe12_show_rolling_avg") !== "0";
+  const ROLLING_TARGET_MS = 60000;
   const PLOT_CFG = { responsive: true, displayModeBar: true };
   const CHART_MAX_PTS = 4000;
 
@@ -27,7 +33,6 @@
     return "—";
   }
 
-  /** UTC line + browser local TZ (from ts_ms epoch). */
   function formatLastSampleTime(last) {
     const ms = last && last.ts_ms;
     if (ms == null) return { html: "—", title: "" };
@@ -68,8 +73,52 @@
     return pts.map((p) => utcStamp(p.ts_ms, p.ts_iso));
   }
 
-  function downsample(pts, plots) {
-    if (pts.length <= CHART_MAX_PTS) return { pts, plots, stride: 1 };
+  function medianSampleMs(pts) {
+    if (pts.length < 2) return 10000;
+    const dts = [];
+    for (let i = 1; i < pts.length; i++) {
+      const d = pts[i].ts_ms - pts[i - 1].ts_ms;
+      if (d > 0) dts.push(d);
+    }
+    if (!dts.length) return 10000;
+    dts.sort((a, b) => a - b);
+    return dts[Math.floor(dts.length / 2)];
+  }
+
+  /** Trailing average sized to ~60s of data at whatever MQTT cadence we have. */
+  function adaptiveRollingAvg(pts, targetWindowMs) {
+    const periodMs = medianSampleMs(pts);
+    const windowSamples = Math.max(
+      2,
+      Math.min(Math.round(targetWindowMs / periodMs), 900)
+    );
+    const values = [];
+    for (let i = 0; i < pts.length; i++) {
+      const start = Math.max(0, i - windowSamples + 1);
+      let sum = 0;
+      for (let j = start; j <= i; j++) sum += pts[j].degF;
+      values.push(sum / (i - start + 1));
+    }
+    const windowSec = (periodMs * windowSamples) / 1000;
+    let label;
+    if (windowSec >= 90) {
+      label = "~" + Math.round(windowSec / 60) + " min";
+    } else {
+      label = "~" + Math.round(windowSec) + " s";
+    }
+    return {
+      values,
+      periodMs,
+      windowSamples,
+      label: label + " · " + windowSamples + " pts @ " + Math.round(periodMs / 1000) + "s",
+    };
+  }
+
+  function downsample(pts, plots, series) {
+    series = series || {};
+    if (pts.length <= CHART_MAX_PTS) {
+      return { pts, plots, series, stride: 1 };
+    }
     const stride = Math.ceil(pts.length / CHART_MAX_PTS);
     const idx = [];
     for (let i = 0; i < pts.length; i += stride) idx.push(i);
@@ -79,21 +128,134 @@
       plots: Object.fromEntries(
         Object.entries(plots || {}).map(([k, s]) => [k, idx.map((i) => s[i] || 0)])
       ),
+      series: Object.fromEntries(
+        Object.entries(series).map(([k, s]) => [k, idx.map((i) => s[i])])
+      ),
       stride,
     };
+  }
+
+  function boundsShapes(x, low, high) {
+    if (x.length < 1 || low == null || high == null) return [];
+    const x0 = x[0];
+    const x1 = x[x.length - 1];
+    const line = { color: "#3fb950", width: 1.5, dash: "dash" };
+    return [
+      {
+        type: "line",
+        xref: "x",
+        yref: "y",
+        x0,
+        x1,
+        y0: low,
+        y1: low,
+        line,
+        layer: "below",
+      },
+      {
+        type: "line",
+        xref: "x",
+        yref: "y",
+        x0,
+        x1,
+        y0: high,
+        y1: high,
+        line,
+        layer: "below",
+      },
+    ];
   }
 
   function faultBoolY(flags) {
     return flags.map((v) => (v ? 1 : 0));
   }
 
+  function shouldPlotFault(ruleId) {
+    return chartPlotVisible[ruleId] === true;
+  }
+
+  function syncPlotStateFromMeta(metaList) {
+    (metaList || []).forEach((r) => {
+      const on = r.enabled !== false && r.plot_on_chart !== false;
+      chartPlotVisible[r.id] = on;
+    });
+  }
+
+  function updateGuideLabels(data, rollInfo) {
+    const guides = data.chart_guides || {};
+    const bl = document.getElementById("boundsGuideLabel");
+    if (bl && guides.bounds_low_f != null) {
+      bl.textContent = guides.bounds_low_f + "–" + guides.bounds_high_f + " °F";
+    }
+    const rl = document.getElementById("rollingAvgLabel");
+    if (rl && rollInfo) rl.textContent = rollInfo.label;
+  }
+
+  function renderPlotToggles(metaList) {
+    const host = document.getElementById("faultPlotToggles");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!metaList || !metaList.length) {
+      host.textContent = "No rules — add in Rule Lab";
+      return;
+    }
+    (metaList || []).forEach((r) => {
+      const lab = document.createElement("label");
+      lab.className = "plot-toggle-item";
+      if (r.enabled === false) lab.classList.add("plot-toggle-off-rule");
+
+      const dot = document.createElement("span");
+      dot.className = "plot-toggle-dot";
+      dot.style.background = r.color || "#8b949e";
+
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.dataset.ruleId = r.id;
+      chk.checked = shouldPlotFault(r.id);
+      chk.disabled = r.enabled === false;
+      chk.title =
+        r.enabled === false
+          ? "Rule disabled in Rule Lab — enable there first"
+          : "Show this fault lane on the chart";
+
+      chk.addEventListener("change", () => {
+        chartPlotVisible[r.id] = chk.checked;
+        if (window.vibe12SetRulePlotOnChart) {
+          window.vibe12SetRulePlotOnChart(r.id, chk.checked);
+        }
+        if (lastChartData) drawChart(lastChartData);
+      });
+
+      lab.append(chk, dot, document.createTextNode(" " + (r.title || r.id)));
+      host.appendChild(lab);
+    });
+  }
+
   function drawChart(data) {
     let pts = data.readings || [];
     let plots = data.fault_plots || {};
-    const panels = data.fault_panels || [];
-    const ds = downsample(pts, plots);
+    const panels = (data.fault_panels || []).filter((p) => shouldPlotFault(p.key));
+    const guides = data.chart_guides || {};
+
+    let rollInfo = null;
+    let rollingSeries = {};
+    if (pts.length >= 2) {
+      rollInfo = adaptiveRollingAvg(pts, ROLLING_TARGET_MS);
+      rollingSeries.auto_rolling_avg = rollInfo.values;
+    }
+    const aux = data.aux_series || {};
+    if (aux.degF_1min_avg && aux.degF_1min_avg.length === pts.length) {
+      rollingSeries.rule_rolling_avg = aux.degF_1min_avg;
+    }
+
+    const ds = downsample(pts, plots, rollingSeries);
     pts = ds.pts;
     plots = ds.plots;
+    const rolled = ds.series || {};
+    rollInfo = rollInfo || null;
+    if (rollInfo && rolled.auto_rolling_avg) {
+      rollInfo = { ...rollInfo, values: rolled.auto_rolling_avg };
+    }
     if (!pts.length) {
       Plotly.react(
         "chart",
@@ -111,8 +273,6 @@
     const x = xLabels(pts);
     const yF = pts.map((p) => p.degF);
     const pad = Math.max(3, (Math.max(...yF) - Math.min(...yF)) * 0.1);
-    const aux = data.aux_series || {};
-    const avg1m = aux.degF_1min_avg;
     const traces = [
       {
         x,
@@ -122,24 +282,38 @@
         mode: "lines",
         line: { color: "#58a6ff", width: 2.5 },
         yaxis: "y",
-        showlegend: !!avg1m,
+        showlegend: true,
         hovertemplate: "%{y:.1f} °F raw<extra></extra>",
       },
     ];
-    if (avg1m && avg1m.length === pts.length) {
+    if (showRollingAvg && rolled.rule_rolling_avg) {
       traces.push({
         x,
-        y: avg1m,
-        name: "1-min rolling avg",
+        y: rolled.rule_rolling_avg,
+        name: "Rolling avg (rule code)",
         type: "scatter",
         mode: "lines",
-        line: { color: "#a371f7", width: 1.5, dash: "dot" },
+        line: { color: "#d2a8ff", width: 1.5, dash: "dot" },
         yaxis: "y",
         showlegend: true,
-        opacity: 0.85,
+        opacity: 0.9,
+        hovertemplate: "%{y:.1f} °F rule avg<extra></extra>",
+      });
+    } else if (showRollingAvg && rollInfo && rollInfo.values) {
+      traces.push({
+        x,
+        y: rollInfo.values,
+        name: "Rolling avg (" + rollInfo.label + ")",
+        type: "scatter",
+        mode: "lines",
+        line: { color: "#a371f7", width: 1.5, dash: "dash" },
+        yaxis: "y",
+        showlegend: true,
+        opacity: 0.88,
         hovertemplate: "%{y:.1f} °F avg<extra></extra>",
       });
     }
+    const showFaultAxis = panels.length > 0;
     panels.forEach((panel) => {
       const flags = plots[panel.key] || pts.map(() => 0);
       traces.push({
@@ -149,38 +323,43 @@
         type: "scatter",
         mode: "lines",
         line: { color: panel.color, width: 2, shape: "hv" },
-        yaxis: "y2",
+        yaxis: showFaultAxis ? "y2" : "y",
         showlegend: true,
         opacity: 0.9,
       });
     });
-    Plotly.react(
-      "chart",
-      traces,
-      {
-        height: 460,
-        paper_bgcolor: "#0f1419",
-        plot_bgcolor: "#1c2128",
-        font: { color: "#e6edf3" },
-        margin: { t: 36, r: 64, b: 44, l: 52 },
-        hovermode: "x unified",
-        legend: { orientation: "h", y: 1.1 },
-        xaxis: { title: "Time (UTC)", gridcolor: "#30363d" },
-        yaxis: {
-          title: "°F",
-          side: "left",
-          range: [Math.min(...yF) - pad, Math.max(...yF) + pad],
-        },
-        yaxis2: {
-          side: "right",
-          overlaying: "y",
-          range: [0, 1],
-          tickvals: [0, 1],
-          ticktext: ["False", "True"],
-        },
+    const layout = {
+      height: 460,
+      paper_bgcolor: "#0f1419",
+      plot_bgcolor: "#1c2128",
+      font: { color: "#e6edf3" },
+      margin: { t: 36, r: 64, b: 44, l: 52 },
+      hovermode: "x unified",
+      legend: { orientation: "h", y: 1.12 },
+      xaxis: { title: "Time (UTC)", gridcolor: "#30363d" },
+      yaxis: {
+        title: "°F",
+        side: "left",
+        range: [Math.min(...yF) - pad, Math.max(...yF) + pad],
       },
-      PLOT_CFG
-    );
+    };
+    if (showFaultAxis) {
+      layout.yaxis2 = {
+        side: "right",
+        overlaying: "y",
+        range: [0, 1],
+        tickvals: [0, 1],
+        ticktext: ["False", "True"],
+      };
+    }
+    if (
+      showBoundsGuides &&
+      guides.bounds_low_f != null &&
+      guides.bounds_high_f != null
+    ) {
+      layout.shapes = boundsShapes(x, guides.bounds_low_f, guides.bounds_high_f);
+    }
+    Plotly.react("chart", traces, layout, PLOT_CFG);
     return ds.stride;
   }
 
@@ -194,6 +373,16 @@
       logMsg("fetch error: " + e, "log-err");
       return;
     }
+    lastChartData = data;
+    const meta = data.rules_meta || [];
+    syncPlotStateFromMeta(meta);
+    renderPlotToggles(meta);
+    const rollPreview =
+      (data.readings || []).length >= 2
+        ? adaptiveRollingAvg(data.readings, ROLLING_TARGET_MS)
+        : null;
+    updateGuideLabels(data, rollPreview);
+
     const pts = data.readings || [];
     const fdd = data.fdd_open || {};
     logMsg(pts.length + " pts · FDD " + (fdd.fdd_status || "PENDING"));
@@ -212,6 +401,22 @@
     }
   }
 
+  /** Called from Rule Lab when enabled / plot checkboxes change */
+  window.vibe12DashboardSyncRules = function (metaList, chartGuides) {
+    syncPlotStateFromMeta(metaList);
+    renderPlotToggles(metaList);
+    if (lastChartData) {
+      lastChartData.rules_meta = metaList;
+      if (chartGuides) lastChartData.chart_guides = chartGuides;
+      const rollPreview =
+        (lastChartData.readings || []).length >= 2
+          ? adaptiveRollingAvg(lastChartData.readings, ROLLING_TARGET_MS)
+          : null;
+      updateGuideLabels(lastChartData, rollPreview);
+      drawChart(lastChartData);
+    }
+  };
+
   function bindTabs() {
     document.querySelectorAll(".tab").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -222,6 +427,7 @@
         if (btn.dataset.tab === "rulelab" && window.vibe12RuleLabOnTabShown) {
           window.vibe12RuleLabOnTabShown();
         }
+        if (btn.dataset.tab === "dashboard") refresh();
       });
     });
   }
@@ -279,9 +485,31 @@
     }
   }
 
+  function bindGuideToggles() {
+    const b = document.getElementById("showBoundsGuides");
+    const r = document.getElementById("showRollingAvg");
+    if (b) {
+      b.checked = showBoundsGuides;
+      b.addEventListener("change", () => {
+        showBoundsGuides = b.checked;
+        localStorage.setItem("vibe12_show_bounds_guides", showBoundsGuides ? "1" : "0");
+        if (lastChartData) drawChart(lastChartData);
+      });
+    }
+    if (r) {
+      r.checked = showRollingAvg;
+      r.addEventListener("change", () => {
+        showRollingAvg = r.checked;
+        localStorage.setItem("vibe12_show_rolling_avg", showRollingAvg ? "1" : "0");
+        if (lastChartData) drawChart(lastChartData);
+      });
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     bindTabs();
     bindToolbar();
+    bindGuideToggles();
     pingHealth();
     refresh();
   });

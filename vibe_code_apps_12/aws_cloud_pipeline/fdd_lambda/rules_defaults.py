@@ -24,6 +24,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "id": "temp_out_of_bounds_flag",
             "title": "Out of bounds",
             "enabled": True,
+            "plot_on_chart": True,
             "color": "#f85149",
             "config_fields": ["bounds_low_f", "bounds_high_f"],
             "config": {"bounds_low_f": 65.0, "bounds_high_f": 80.0},
@@ -39,6 +40,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "id": "temp_flatline_flag",
             "title": "Flatline (stuck sensor)",
             "enabled": True,
+            "plot_on_chart": True,
             "color": "#d29922",
             "config_fields": ["flatline_tolerance_f", "flatline_window"],
             "config": {"flatline_tolerance_f": 0.05, "flatline_window": 18},
@@ -59,6 +61,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "id": "temp_rate_per_hour_flag",
             "title": "Rate > limit (per hour)",
             "enabled": True,
+            "plot_on_chart": True,
             "color": "#a371f7",
             "config_fields": ["max_f_per_hour"],
             "config": {"max_f_per_hour": 15.0},
@@ -79,6 +82,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "id": "temp_rate_per_minute_flag",
             "title": "Rate > limit (per minute)",
             "enabled": True,
+            "plot_on_chart": True,
             "color": "#ff7b72",
             "config_fields": ["max_f_per_minute"],
             "config": {"max_f_per_minute": 2.0},
@@ -107,4 +111,30 @@ def rules_to_panels(rules: list[dict[str, Any]]) -> list[dict[str, str]]:
         }
         for r in rules
         if r.get("enabled", True)
+    ]
+
+
+def chart_guides_from_rules(rules: list[dict[str, Any]]) -> dict[str, float]:
+    """Bounds band for dashboard guide lines (from Out of bounds rule config)."""
+    for r in rules:
+        cfg = r.get("config") or {}
+        if "bounds_low_f" in cfg and "bounds_high_f" in cfg:
+            return {
+                "bounds_low_f": float(cfg["bounds_low_f"]),
+                "bounds_high_f": float(cfg["bounds_high_f"]),
+            }
+    return {"bounds_low_f": 65.0, "bounds_high_f": 80.0}
+
+
+def rules_meta(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Lightweight rule list for dashboard plot toggles (synced with Rule Lab)."""
+    return [
+        {
+            "id": r["id"],
+            "title": r.get("title", r["id"]),
+            "color": r.get("color", "#8b949e"),
+            "enabled": bool(r.get("enabled", True)),
+            "plot_on_chart": bool(r.get("plot_on_chart", True)),
+        }
+        for r in rules
     ]

@@ -1,21 +1,31 @@
 """
 Bake-a-Py style sandbox: lint, execute user Python, sweep telemetry rows.
 
-No backend rolling_window debounce or 1-min avg helpers — students implement those
-in browser Python (see EXPRESSION_RULE_COOKBOOK.md).
+Each row is enriched with adaptive rolling avg (~60s window) before evaluate().
+Optional: import numpy as np in rule code (see web_lambda/requirements.txt).
 """
 
 from __future__ import annotations
 
 import ast
+import builtins as _builtins
 import io
 import math
+import statistics
 import traceback
 from contextlib import redirect_stdout
 from typing import Any, Callable
 
+try:
+    import numpy as np
 
-ALLOWED_IMPORT_ROOTS = frozenset({"math"})
+    NUMPY_AVAILABLE = True
+except ImportError:
+    np = None  # type: ignore
+    NUMPY_AVAILABLE = False
+
+ALLOWED_IMPORT_ROOTS = frozenset({"math", "numpy"})
+ROLLING_TARGET_MS = 60_000
 
 
 def lint_python(code: str) -> dict[str, Any]:
@@ -67,6 +77,19 @@ def lint_python(code: str) -> dict[str, Any]:
     return {"ok": not any(i["severity"] == "error" for i in issues), "issues": issues}
 
 
+def _restricted_import(
+    name: str,
+    globals: Any = None,
+    locals: Any = None,
+    fromlist: Any = (),
+    level: int = 0,
+) -> Any:
+    root = name.split(".")[0]
+    if root not in ALLOWED_IMPORT_ROOTS:
+        raise ImportError(f"import of '{name}' not allowed (allowed: {', '.join(sorted(ALLOWED_IMPORT_ROOTS))})")
+    return _builtins.__import__(name, globals, locals, fromlist, level)
+
+
 def _sandbox_builtins() -> dict[str, Any]:
     return {
         "print": print,
@@ -90,6 +113,7 @@ def _sandbox_builtins() -> dict[str, Any]:
         "True": True,
         "False": False,
         "None": None,
+        "__import__": _restricted_import,
     }
 
 
@@ -126,25 +150,113 @@ def readings_to_rows(readings: list[dict]) -> list[dict[str, Any]]:
     return rows
 
 
-def aux_series_from_rows(rows: list[dict[str, Any]]) -> dict[str, list[float]]:
+def _median_sample_ms(rows: list[dict[str, Any]]) -> int:
+    if len(rows) < 2:
+        return 10_000
+    dts = [
+        int(rows[i]["ts_ms"]) - int(rows[i - 1]["ts_ms"])
+        for i in range(1, len(rows))
+        if int(rows[i]["ts_ms"]) > int(rows[i - 1]["ts_ms"])
+    ]
+    if not dts:
+        return 10_000
+    return int(statistics.median(dts))
+
+
+def attach_adaptive_rolling_avg(
+    rows: list[dict[str, Any]],
+    target_window_ms: int = ROLLING_TARGET_MS,
+) -> None:
     """
-    Chart overlay when your rule code sets keys on rows (e.g. degF_1min_avg).
-    The backend does not compute these — only reads what you wrote in evaluate().
+    Mutates rows in place. Adds degF_raw, degF_rolling_avg, sample_period_ms,
+    rolling_window_samples (same metadata on every row for easy rule access).
     """
-    if not rows or "degF_1min_avg" not in rows[0]:
-        return {}
+    if not rows:
+        return
+    period_ms = _median_sample_ms(rows)
+    window_n = 2
+    if len(rows) >= 2:
+        window_n = max(
+            2,
+            min(round(target_window_ms / period_ms), 900),
+        )
+    for i, row in enumerate(rows):
+        row["degF_raw"] = float(row["degF"])
+        start = max(0, i - window_n + 1)
+        window = rows[start : i + 1]
+        row["degF_rolling_avg"] = sum(r["degF_raw"] for r in window) / len(window)
+        row["sample_period_ms"] = period_ms
+        row["rolling_window_samples"] = window_n
+        row["rolling_target_ms"] = target_window_ms
+
+
+def prepare_rows_for_evaluate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Enrich rows once before a sweep (idempotent)."""
+    if rows and "degF_rolling_avg" not in rows[0]:
+        attach_adaptive_rolling_avg(rows)
+    return rows
+
+
+def slim_fdd_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """
+    DynamoDB item max ~400 KB. Drop full ts_ms / flag_series (7 d backfill).
+    Dashboard recomputes fault_plots on each /api/readings request.
+    """
     return {
-        "degF_1min_avg": [float(r["degF_1min_avg"]) for r in rows],
-        "degF_raw": [float(r.get("degF_raw", r["degF"])) for r in rows],
+        k: v
+        for k, v in summary.items()
+        if k not in ("ts_ms", "flag_series", "aux_series")
     }
 
 
-def compile_evaluate(code: str) -> Callable[..., Any]:
+def eval_rows_preview(rows: list[dict[str, Any]], limit: int = 200) -> list[dict[str, Any]]:
+    """Slim row dicts for Rule Lab table (last N samples)."""
+    slim_keys = (
+        "row",
+        "ts",
+        "degF",
+        "degF_raw",
+        "degF_rolling_avg",
+        "sample_period_ms",
+        "rolling_window_samples",
+    )
+    out: list[dict[str, Any]] = []
+    for r in rows[-limit:]:
+        out.append({k: r[k] for k in slim_keys if k in r})
+    return out
+
+
+def aux_series_from_rows(rows: list[dict[str, Any]]) -> dict[str, list[float]]:
+    """Chart overlay from enriched rows or rule-authored degF_1min_avg."""
+    if not rows:
+        return {}
+    if "degF_1min_avg" in rows[0]:
+        return {
+            "degF_1min_avg": [float(r["degF_1min_avg"]) for r in rows],
+            "degF_raw": [float(r.get("degF_raw", r["degF"])) for r in rows],
+        }
+    if "degF_rolling_avg" in rows[0]:
+        return {
+            "degF_1min_avg": [float(r["degF_rolling_avg"]) for r in rows],
+            "degF_raw": [float(r.get("degF_raw", r["degF"])) for r in rows],
+        }
+    return {}
+
+
+def _rule_sandbox() -> dict[str, Any]:
     sandbox: dict[str, Any] = {
         "__builtins__": _sandbox_builtins(),
         "__name__": "__rule__",
         "math": math,
     }
+    if NUMPY_AVAILABLE and np is not None:
+        sandbox["np"] = np
+        sandbox["numpy"] = np
+    return sandbox
+
+
+def compile_evaluate(code: str) -> Callable[..., Any]:
+    sandbox = _rule_sandbox()
     exec(compile(code, "<rule>", "exec"), sandbox, sandbox)
     fn = sandbox.get("evaluate")
     if not callable(fn):
@@ -168,6 +280,7 @@ def sweep_rule(
     if not lint["ok"]:
         return [], [{"type": "error", "text": "syntax error — fix before run\n"}]
 
+    prepare_rows_for_evaluate(rows)
     evaluate = compile_evaluate(code)
     raw_hits: list[bool] = []
     stream_buf: list[dict[str, Any]] = []
@@ -183,7 +296,10 @@ def sweep_rule(
     events.append(
         {
             "type": "stdout",
-            "text": f"--- sweeping {len(rows)} rows (your evaluate() only) ---\n",
+            "text": (
+                f"--- sweeping {len(rows)} rows "
+                f"(degF_rolling_avg on each row, ~{ROLLING_TARGET_MS // 1000}s window) ---\n"
+            ),
         }
     )
 
@@ -252,6 +368,7 @@ def evaluate_rules_on_readings(
     """All enabled rules → flag_series keyed by rule id. Returns (flags, rows) for chart aux."""
     if rows is None:
         rows = readings_to_rows(readings)
+    prepare_rows_for_evaluate(rows)
     out: dict[str, list[int]] = {}
     for rule in rules:
         if not rule.get("enabled", True):

@@ -1,2 +1,2 @@
-# boto3 is included in the AWS Lambda Python 3.12 runtime — no pip packages required.
-# This file exists so SAM does not print "requirements.txt file not found".
+# Bundled into WebFunction for Rule Lab (evaluate sandbox).
+numpy>=1.26.0,<3

@@ -185,9 +185,9 @@ See [tests/README.md](../tests/README.md).
 
 ## Rule Lab
 
-Rules are **browser Python** only — no backend helpers for rolling_window or 1-min avg.
+Rules are **browser Python**. Each row includes **`degF_rolling_avg`** (auto ~60s window from MQTT cadence). Optional **`import numpy as np`** when deployed with `web_lambda/requirements.txt` (check `/api/health` → `numpy_available`).
 
-[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — copy/paste recipes for the editor.
+[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — row fields, numpy, debounce recipes.
 
 | Action | DB write |
 |--------|----------|

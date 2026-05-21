@@ -17,13 +17,23 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from playground_core import (
+    NUMPY_AVAILABLE,
     aux_series_from_rows,
     evaluate_rules_on_readings,
+    eval_rows_preview,
     lint_python,
+    prepare_rows_for_evaluate,
     readings_to_rows,
+    slim_fdd_summary,
     sweep_rule,
 )
-from rules_defaults import CONFIG_FIELD_META, default_custom_rules, rules_to_panels
+from rules_defaults import (
+    CONFIG_FIELD_META,
+    chart_guides_from_rules,
+    default_custom_rules,
+    rules_meta,
+    rules_to_panels,
+)
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
@@ -181,19 +191,6 @@ def _fetch_fdd_status() -> dict:
     }
 
 
-def _slim_fdd_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    """
-    DynamoDB item max ~400 KB. Do not persist full ts_ms / flag_series (7 d @ 10 s
-    is tens of thousands of points). Dashboard recomputes fault_plots on each
-    /api/readings request.
-    """
-    return {
-        k: v
-        for k, v in summary.items()
-        if k not in ("ts_ms", "flag_series", "aux_series")
-    }
-
-
 def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours: float) -> dict:
     rows = readings_to_rows(readings)
     flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
@@ -231,7 +228,7 @@ def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours:
         summary["latest_degF"] = readings[-1]["degF"]
         summary["latest_degC"] = readings[-1]["degC"]
 
-    db_summary = _slim_fdd_summary(summary)
+    db_summary = slim_fdd_summary(summary)
     _table.put_item(
         Item={
             "device_id": DEVICE_ID,
@@ -252,6 +249,8 @@ def _readings_payload(hours: int) -> dict:
     rules = _load_custom_rules()
     readings = _fetch_readings(hours)
     rows = readings_to_rows(readings) if readings else []
+    if rows:
+        prepare_rows_for_evaluate(rows)
     fdd_status = _fetch_fdd_status()
     latest = readings[-1] if readings else None
     flag_series, rows = (
@@ -269,6 +268,10 @@ def _readings_payload(hours: int) -> dict:
         "aux_series": aux_series_from_rows(rows),
         "fdd_open": fdd_status,
         "fault_panels": rules_to_panels(rules),
+        "rules_meta": rules_meta(rules),
+        "chart_guides": chart_guides_from_rules(rules),
+        "eval_rows_preview": eval_rows_preview(rows),
+        "numpy_available": NUMPY_AVAILABLE,
         "fault_plots": fault_plots,
         "fault_totals": {k: sum(v) for k, v in fault_plots.items()},
         "custom_rules_active": True,
@@ -295,8 +298,19 @@ def _health_payload() -> dict:
             "save_draft": "Writes rules to DynamoDB ts_ms=-2 only",
             "go_live": f"Rules + backfill up to {DEFAULT_HOURS}h → FDD status ts_ms=0",
         },
-        "row_fields": ["degF", "degC", "ts_ms", "ts", "row"],
-        "note": "Set degF_1min_avg on rows in your rule code for dashboard avg overlay",
+        "row_fields": [
+            "degF",
+            "degF_raw",
+            "degF_rolling_avg",
+            "sample_period_ms",
+            "rolling_window_samples",
+            "degC",
+            "ts_ms",
+            "ts",
+            "row",
+        ],
+        "numpy_available": NUMPY_AVAILABLE,
+        "note": "import numpy as np allowed when numpy_available is true",
     }
 
 

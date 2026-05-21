@@ -32,6 +32,43 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0f1419; color
   border-radius: 6px; padding: 0.35rem 0.5rem;
 }
 .fdd-row { text-align: center; margin-bottom: 0.5rem; }
+.chart-controls {
+  margin: 0.5rem 0 0.75rem; padding: 0.65rem 0.85rem;
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px; font-size: 0.82rem;
+}
+.chart-controls-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 1rem;
+  margin-bottom: 0.55rem; padding-bottom: 0.45rem; border-bottom: 1px solid #30363d;
+}
+.chart-controls-title { font-weight: 600; color: #e6edf3; font-size: 0.88rem; }
+.chart-controls-hint { font-size: 0.72rem; opacity: 0.65; }
+.chart-controls-row {
+  display: grid; grid-template-columns: 1fr; gap: 0.65rem;
+}
+@media (min-width: 640px) {
+  .chart-controls-row { grid-template-columns: minmax(200px, 280px) 1fr; gap: 1rem; }
+}
+.chart-controls-section { min-width: 0; }
+.section-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #8b949e; margin-bottom: 0.35rem; font-weight: 600;
+}
+.guide-toggle-grid, .fault-toggle-grid {
+  display: flex; flex-wrap: wrap; gap: 0.35rem 0.5rem; align-items: center;
+}
+.guide-meta { font-size: 0.72rem; opacity: 0.75; font-weight: 400; }
+.guide-bounds-dot { background: #3fb950; box-shadow: 0 0 0 1px #238636; }
+.guide-avg-dot { background: #a371f7; }
+.chart-controls-faults .fault-toggle-grid { min-height: 1.6rem; }
+.plot-toggle-item {
+  display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+  padding: 0.2rem 0.45rem; border-radius: 6px; border: 1px solid transparent;
+}
+.plot-toggle-item:hover { border-color: #30363d; background: #21262d; }
+.plot-toggle-item.plot-toggle-off-rule { opacity: 0.45; cursor: not-allowed; }
+.plot-toggle-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.plot-toggle-item input { accent-color: #58a6ff; cursor: pointer; }
+.plot-toggle-item.plot-toggle-off-rule input { cursor: not-allowed; }
 .fdd-badge { display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; font-weight: 700; font-size: 0.9rem; }
 .fdd-NORMAL { background: #238636; color: #fff; }
 .fdd-PENDING, .fdd-MISSING_DATA, .fdd-TEMP_OUT_OF_BOUNDS,

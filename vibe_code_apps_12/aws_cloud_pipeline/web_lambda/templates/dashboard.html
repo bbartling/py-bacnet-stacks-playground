@@ -20,7 +20,7 @@
   </header>
 
   <section id="tab-dashboard" class="tab-panel active">
-    <p class="sub">Live MQTT · fault lanes = your rule code (instant per row) · see EXPRESSION_RULE_COOKBOOK.md for debounce & 1-min avg</p>
+    <p class="sub">Live MQTT · raw °F always on chart · guides & fault lanes toggled below (bounds follow Rule Lab config)</p>
     <div class="cards">
       <div class="card"><div class="lbl">°C</div><div id="latestC" class="val">—</div></div>
       <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
@@ -31,6 +31,33 @@
       <label>Refresh <select id="refreshSelect"></select></label>
       <label>History <select id="hoursSelect"></select></label>
       <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
+    </div>
+    <div class="chart-controls" aria-label="Chart overlays">
+      <div class="chart-controls-head">
+        <span class="chart-controls-title">Chart overlays</span>
+        <span class="chart-controls-hint">Raw temperature always on · sync fault toggles with Rule Lab</span>
+      </div>
+      <div class="chart-controls-row">
+        <div class="chart-controls-section chart-controls-guides">
+          <div class="section-label">Guides</div>
+          <div class="guide-toggle-grid">
+            <label class="plot-toggle-item guide-toggle">
+              <input type="checkbox" id="showBoundsGuides" checked />
+              <span class="plot-toggle-dot guide-bounds-dot"></span>
+              <span>Bounds band <span id="boundsGuideLabel" class="guide-meta">—</span></span>
+            </label>
+            <label class="plot-toggle-item guide-toggle">
+              <input type="checkbox" id="showRollingAvg" checked />
+              <span class="plot-toggle-dot guide-avg-dot"></span>
+              <span>Rolling avg <span id="rollingAvgLabel" class="guide-meta">auto</span></span>
+            </label>
+          </div>
+        </div>
+        <div class="chart-controls-section chart-controls-faults">
+          <div class="section-label">Fault lanes</div>
+          <div id="faultPlotToggles" class="fault-toggle-grid"></div>
+        </div>
+      </div>
     </div>
     <div id="chart"></div>
     <p class="meta" id="status">Loading…</p>
@@ -61,7 +88,7 @@
       <div class="ts-preview-wrap">
         <div class="panel-head"><span>Rows (test window)</span><span id="tsSummary" class="elapsed">—</span></div>
         <div class="ts-table-wrap">
-          <table class="ts-table"><thead><tr><th>#</th><th>Time</th><th>°F</th><th></th></tr></thead>
+          <table class="ts-table"><thead><tr><th>#</th><th>Time</th><th>°F raw</th><th>°F avg</th><th></th></tr></thead>
           <tbody id="tsTableBody"></tbody></table>
         </div>
       </div>

@@ -39,11 +39,41 @@
     return "custom_rule_" + Date.now().toString(36);
   }
 
+  function chartGuidesSnapshot() {
+    for (const r of rules) {
+      const cfg = r.config || {};
+      if (cfg.bounds_low_f != null && cfg.bounds_high_f != null) {
+        return {
+          bounds_low_f: Number(cfg.bounds_low_f),
+          bounds_high_f: Number(cfg.bounds_high_f),
+        };
+      }
+    }
+    return { bounds_low_f: 65, bounds_high_f: 80 };
+  }
+
+  function rulesMetaSnapshot() {
+    return rules.map((r) => ({
+      id: r.id,
+      title: r.title || r.id,
+      color: r.color || "#8b949e",
+      enabled: r.enabled !== false,
+      plot_on_chart: r.enabled !== false && r.plot_on_chart !== false,
+    }));
+  }
+
+  function notifyDashboardRules() {
+    if (window.vibe12DashboardSyncRules) {
+      window.vibe12DashboardSyncRules(rulesMetaSnapshot(), chartGuidesSnapshot());
+    }
+  }
+
   function blankRule() {
     return {
       id: newRuleId(),
       title: "New rule",
       enabled: true,
+      plot_on_chart: true,
       color: "#58a6ff",
       config_fields: [],
       config: {},
@@ -165,6 +195,7 @@
       inp.addEventListener("change", () => {
         rule.config[key] =
           meta.type === "int" ? parseInt(inp.value, 10) : parseFloat(inp.value);
+        notifyDashboardRules();
       });
       label.appendChild(inp);
       container.appendChild(label);
@@ -213,15 +244,45 @@
     const enChk = document.createElement("input");
     enChk.type = "checkbox";
     enChk.checked = rule.enabled !== false;
+    const plotLab = document.createElement("label");
+    plotLab.className = "enabled-chk plot-on-chart-chk";
+    const plotChk = document.createElement("input");
+    plotChk.type = "checkbox";
+    plotChk.checked = rule.plot_on_chart !== false;
+    plotChk.disabled = rule.enabled === false;
+
+    function syncPlotChk() {
+      plotChk.disabled = rule.enabled === false;
+      if (rule.enabled === false) {
+        rule.plot_on_chart = false;
+        plotChk.checked = false;
+      } else if (rule.plot_on_chart === undefined) {
+        rule.plot_on_chart = true;
+        plotChk.checked = true;
+      } else {
+        plotChk.checked = rule.plot_on_chart !== false;
+      }
+    }
+    syncPlotChk();
+
     enChk.addEventListener("change", () => {
       rule.enabled = enChk.checked;
+      if (!enChk.checked) rule.plot_on_chart = false;
+      else if (rule.plot_on_chart === undefined) rule.plot_on_chart = true;
+      syncPlotChk();
       populateRuleSelect();
+      notifyDashboardRules();
+    });
+    plotChk.addEventListener("change", () => {
+      rule.plot_on_chart = plotChk.checked;
+      notifyDashboardRules();
     });
     enLab.append(enChk, document.createTextNode(" Enabled"));
+    plotLab.append(plotChk, document.createTextNode(" Plot on chart"));
     syntaxPillEl = document.createElement("span");
     syntaxPillEl.className = "syntax-pill ok";
     syntaxPillEl.textContent = "…";
-    head.append(colorDot, titleInp, enLab, syntaxPillEl);
+    head.append(colorDot, titleInp, enLab, plotLab, syntaxPillEl);
 
     const cfgRow = document.createElement("div");
     cfgRow.className = "rule-config-row";
@@ -386,26 +447,41 @@
   async function loadTsPreview(hours) {
     const res = await fetch("/api/readings?hours=" + hours);
     const data = await res.json();
-    const rows = (data.readings || []).map((r, i) => ({
-      row: i,
-      ts: (r.ts_iso || "").replace("T", " ").slice(0, 19),
-      degF: r.degF,
-    }));
+    const rows = (data.eval_rows_preview || []).length
+      ? data.eval_rows_preview
+      : (data.readings || []).map((r, i) => ({
+          row: i,
+          ts: (r.ts_iso || "").replace("T", " ").slice(0, 19),
+          degF: r.degF,
+          degF_rolling_avg: r.degF,
+        }));
     els.tsTableBody.innerHTML = "";
     rows.forEach((r) => {
       const tr = document.createElement("tr");
       tr.dataset.row = r.row;
+      const avg = r.degF_rolling_avg != null ? r.degF_rolling_avg : r.degF;
       tr.innerHTML =
         "<td>" +
         r.row +
         "</td><td>" +
         r.ts +
         '</td><td class="num">' +
-        r.degF.toFixed(2) +
+        Number(r.degF).toFixed(2) +
+        '</td><td class="num avg">' +
+        Number(avg).toFixed(2) +
         "</td><td></td>";
       els.tsTableBody.appendChild(tr);
     });
-    els.tsSummary.textContent = rows.length + " rows";
+    const period =
+      rows.length && rows[0].sample_period_ms
+        ? " · ~" + Math.round(rows[0].sample_period_ms / 1000) + "s MQTT, " +
+          rows[0].rolling_window_samples +
+          " pt avg"
+        : "";
+    els.tsSummary.textContent = rows.length + " rows" + period;
+    if (data.numpy_available === false) {
+      appendConsole("[hint] numpy not installed on Lambda — import numpy as np unavailable\n", "log-warn");
+    }
   }
 
   async function testRule() {
@@ -487,7 +563,15 @@
     try {
       const h = await (await fetch("/api/health")).json();
       appendConsole(
-        "[health] " + h.status + " · test≤" + h.test_hours_default + "h · go-live≤" + h.backfill_hours_max + "h\n"
+        "[health] " +
+          h.status +
+          " · test≤" +
+          h.test_hours_default +
+          "h · go-live≤" +
+          h.backfill_hours_max +
+          "h" +
+          (h.numpy_available ? " · numpy ok" : " · no numpy") +
+          "\n"
       );
     } catch (e) {
       appendConsole("[health] failed: " + e + "\n", "error");
@@ -506,6 +590,7 @@
     if (res.ok) {
       appendConsole("Draft saved (" + (data.count || payload.length) + " rules, ts_ms=-2).\n");
       appendConsole("No 7d backfill yet — use Go live (7 d) for FDD status row.\n");
+      notifyDashboardRules();
     } else appendConsole("Save failed.\n", "error");
   }
 
@@ -540,6 +625,7 @@
       }
       (data.summary?.eval_log || []).forEach((l) => appendConsole(l + "\n"));
       appendConsole("Backfill written to FDD status row.\n");
+      notifyDashboardRules();
       if (window.vibe12DashboardRefresh) window.vibe12DashboardRefresh();
     } catch (e) {
       appendConsole(String(e) + "\n", "error");
@@ -561,6 +647,7 @@
     selectedIndex = rules.length - 1;
     populateRuleSelect();
     renderSelectedRule();
+    notifyDashboardRules();
   }
 
   function removeRule() {
@@ -570,13 +657,28 @@
     selectedIndex = Math.min(selectedIndex, rules.length - 1);
     populateRuleSelect();
     renderSelectedRule();
+    notifyDashboardRules();
   }
+
+  window.vibe12SetRulePlotOnChart = function (ruleId, on) {
+    const r = rules.find((x) => x.id === ruleId);
+    if (!r || r.enabled === false) return;
+    r.plot_on_chart = !!on;
+    if (selectedIndex >= 0 && rules[selectedIndex]?.id === ruleId) {
+      renderSelectedRule();
+    }
+  };
+
+  window.vibe12GetRulesMeta = rulesMetaSnapshot;
 
   async function boot() {
     const res = await fetch("/api/fdd-rules");
     const data = await res.json();
     fieldMeta = data.config_field_meta || {};
     rules = data.rules?.length ? data.rules : data.defaults || [];
+    rules.forEach((r) => {
+      if (r.plot_on_chart === undefined) r.plot_on_chart = true;
+    });
     selectedIndex = 0;
     populateRuleSelect();
     renderSelectedRule();
@@ -597,6 +699,7 @@
 
     await pingHealth();
     await loadTsPreview(parseInt(els.testHours.value, 10) || 6);
+    notifyDashboardRules();
   }
 
   window.vibe12RuleLabOnTabShown = function () {
