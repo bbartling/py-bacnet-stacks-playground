@@ -13,6 +13,7 @@ import datetime
 import io
 import math
 import statistics
+import time
 import traceback
 from contextlib import redirect_stdout
 from typing import Any, Callable
@@ -28,6 +29,11 @@ except ImportError:
 ALLOWED_IMPORT_ROOTS = frozenset({"datetime", "math", "numpy"})
 ROLLING_AVG_MINUTES_ALLOWED = (1, 5, 10)
 DEFAULT_ROLLING_AVG_MINUTES = 1
+
+# Go live AFDD backfill — fixed (not the Rule Lab test-window dropdown).
+GO_LIVE_BATCH_HOURS = 6
+GO_LIVE_MAX_LOOKBACK_HOURS = 168  # 7 days
+GO_LIVE_OVERLAP_MINUTES = 15
 
 
 def normalize_rolling_avg_minutes(value: Any) -> int:
@@ -144,6 +150,65 @@ def _normalize_hit(raw: Any) -> bool:
     return bool(raw)
 
 
+def _indices_to_paint(paint_payload: Any, rows: list[dict[str, Any]]) -> list[int]:
+    """Resolve row indices from evaluate()'s second return value (window rows)."""
+    if not paint_payload:
+        return []
+    if not isinstance(paint_payload, list):
+        return []
+    out: list[int] = []
+    for item in paint_payload:
+        if not isinstance(item, dict):
+            continue
+        if "row" in item:
+            try:
+                out.append(int(item["row"]))
+            except (TypeError, ValueError):
+                pass
+            continue
+        ts = item.get("ts_ms")
+        if ts is not None:
+            for i, r in enumerate(rows):
+                if int(r["ts_ms"]) == int(ts):
+                    out.append(i)
+                    break
+    return out
+
+
+def _parse_evaluate_result(
+    raw: Any, rows: list[dict[str, Any]]
+) -> tuple[bool, list[int]]:
+    """
+    evaluate() may return:
+      - bool (flag current row only)
+      - (bool, window_rows) — when True, flag every row in window_rows (retroactive)
+    """
+    if isinstance(raw, tuple) and len(raw) >= 1:
+        hit = _normalize_hit(raw[0])
+        if hit and len(raw) >= 2:
+            return hit, _indices_to_paint(raw[1], rows)
+        return hit, []
+    return _normalize_hit(raw), []
+
+
+def compile_rule_code(code: str) -> tuple[Callable[..., Any], Callable[..., Any] | None]:
+    """Load evaluate(); optional apply_faults(rows, cfg) -> list[bool] same length as rows."""
+    sandbox = _rule_sandbox()
+    exec(compile(code, "<rule>", "exec"), sandbox, sandbox)
+    fn = sandbox.get("evaluate")
+    if not callable(fn):
+        raise ValueError("Rule code must define evaluate(row, cfg, prev_row=None, rows=None)")
+    apply_fn = sandbox.get("apply_faults")
+    if apply_fn is not None and not callable(apply_fn):
+        raise ValueError("apply_faults must be a function(rows, cfg)")
+    return fn, apply_fn if callable(apply_fn) else None
+
+
+def compile_evaluate(code: str) -> Callable[..., Any]:
+    evaluate, _ = compile_rule_code(code)
+    return evaluate
+
+
 def readings_to_rows(readings: list[dict]) -> list[dict[str, Any]]:
     """Build row dicts for evaluate()."""
     rows: list[dict[str, Any]] = []
@@ -229,6 +294,40 @@ def slim_fdd_summary(summary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def chart_sample_indices(n: int, max_pts: int) -> list[int]:
+    """Evenly spaced indices for chart API payloads (keeps first + last)."""
+    if n <= 0:
+        return []
+    if n <= max_pts:
+        return list(range(n))
+    stride = max(1, (n + max_pts - 2) // (max_pts - 1))
+    idx = list(range(0, n, stride))
+    if idx[-1] != n - 1:
+        idx.append(n - 1)
+    return idx[:max_pts]
+
+
+def downsample_aligned_series(
+    n: int,
+    max_pts: int,
+    readings: list[dict],
+    fault_plots: dict[str, list[int]],
+    aux_series: dict[str, list[float]],
+) -> tuple[list[dict], dict[str, list[int]], dict[str, list[float]], int, bool]:
+    """Returns (readings, fault_plots, aux_series, stride, truncated)."""
+    if n <= max_pts:
+        return readings, fault_plots, aux_series, 1, False
+    idx = chart_sample_indices(n, max_pts)
+    stride = max(1, n // max(len(idx) - 1, 1))
+    out_readings = [readings[i] for i in idx]
+    out_plots = {k: [series[i] for i in idx] for k, series in fault_plots.items()}
+    out_aux: dict[str, list[float]] = {}
+    for k, series in aux_series.items():
+        if len(series) == n:
+            out_aux[k] = [series[i] for i in idx]
+    return out_readings, out_plots, out_aux, stride, True
+
+
 def eval_rows_preview(rows: list[dict[str, Any]], limit: int = 200) -> list[dict[str, Any]]:
     """Slim row dicts for Rule Lab table (last N samples)."""
     slim_keys = (
@@ -297,7 +396,10 @@ def sweep_rule(
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """
     Returns (flag_series 0/1 per raw row, events for console UI).
-    flag_series = evaluate() result per row (no backend debounce).
+
+    Per-row mode: evaluate() -> bool flags that row only.
+    Retroactive mode: evaluate() -> (True, window_rows) flags every row in the window.
+    Batch mode: optional apply_faults(rows, cfg) -> list[bool] (same length as rows).
     """
     events: list[dict[str, Any]] = []
     lint = lint_python(code)
@@ -310,8 +412,7 @@ def sweep_rule(
         else cfg.get("rolling_avg_minutes", DEFAULT_ROLLING_AVG_MINUTES)
     )
     prepare_rows_for_evaluate(rows, minutes)
-    evaluate = compile_evaluate(code)
-    raw_hits: list[bool] = []
+    evaluate, apply_faults = compile_rule_code(code)
     stream_buf: list[dict[str, Any]] = []
 
     class _Cap(io.TextIOBase):
@@ -321,68 +422,113 @@ def sweep_rule(
             return len(s or "")
 
     cap = _Cap()
-
+    mode = "apply_faults" if apply_faults else "per_row"
     events.append(
         {
             "type": "stdout",
             "text": (
                 f"--- sweeping {len(rows)} rows "
-                f"(degF_rolling_avg on each row, {minutes} min window by ts_ms) ---\n"
+                f"(degF_rolling_avg on each row, {minutes} min window by ts_ms, mode={mode}) ---\n"
             ),
         }
     )
 
+    flags = [0] * len(rows)
     tripped = 0
-    for i, row in enumerate(rows):
-        prev = rows[i - 1] if i else None
+    painted: set[int] = set()
+
+    if apply_faults:
         stream_buf.clear()
         try:
             with redirect_stdout(cap):
-                hit = _normalize_hit(evaluate(row, cfg, prev, rows))
-            raw_hits.append(hit)
+                raw_flags = apply_faults(rows, cfg)
             for ev in stream_buf:
                 events.append(ev)
-            status = "fault" if hit else "ok"
-            if hit:
-                tripped += 1
-            events.append(
-                {
-                    "type": "row",
-                    "row": row["row"],
-                    "ts": row["ts"],
-                    "status": status,
-                    "degF": row["degF"],
-                    "raw_hit": hit,
-                }
-            )
+            if not isinstance(raw_flags, list):
+                raise ValueError("apply_faults must return a list[bool] same length as rows")
+            if len(raw_flags) != len(rows):
+                raise ValueError(
+                    f"apply_faults returned {len(raw_flags)} flags, expected {len(rows)}"
+                )
+            for i, v in enumerate(raw_flags):
+                flags[i] = 1 if v else 0
+            tripped = sum(flags)
+            for i, row in enumerate(rows):
+                events.append(
+                    {
+                        "type": "row",
+                        "row": row["row"],
+                        "ts": row["ts"],
+                        "status": "fault" if flags[i] else "ok",
+                        "degF": row["degF"],
+                        "raw_hit": bool(flags[i]),
+                    }
+                )
         except Exception as exc:
-            raw_hits.append(False)
-            events.append(
-                {
-                    "type": "row",
-                    "row": row["row"],
-                    "ts": row["ts"],
-                    "status": "error",
-                    "message": str(exc),
-                }
-            )
-            events.append(
-                {"type": "stdout", "text": f"  row {row['row']}: ERROR {exc}\n"}
-            )
+            events.append({"type": "stdout", "text": f"apply_faults ERROR: {exc}\n"})
+            return [], events
+    else:
+        for i, row in enumerate(rows):
+            prev = rows[i - 1] if i else None
+            stream_buf.clear()
+            instant = False
+            try:
+                with redirect_stdout(cap):
+                    instant, paint_idxs = _parse_evaluate_result(
+                        evaluate(row, cfg, prev, rows), rows
+                    )
+                for ev in stream_buf:
+                    events.append(ev)
+                if paint_idxs:
+                    for j in paint_idxs:
+                        if 0 <= j < len(flags):
+                            flags[j] = 1
+                            painted.add(j)
+                elif instant:
+                    flags[i] = 1
+                    painted.add(i)
+                    tripped += 1
+                status = "fault" if i in painted else "ok"
+                events.append(
+                    {
+                        "type": "row",
+                        "row": row["row"],
+                        "ts": row["ts"],
+                        "status": status,
+                        "degF": row["degF"],
+                        "raw_hit": instant,
+                        "painted": i in painted and not instant,
+                    }
+                )
+            except Exception as exc:
+                events.append(
+                    {
+                        "type": "row",
+                        "row": row["row"],
+                        "ts": row["ts"],
+                        "status": "error",
+                        "message": str(exc),
+                    }
+                )
+                events.append(
+                    {"type": "stdout", "text": f"  row {row['row']}: ERROR {exc}\n"}
+                )
 
-    flags = [1 if h else 0 for h in raw_hits]
     events.append(
         {
             "type": "summary",
             "rows": len(rows),
             "raw_tripped": tripped,
             "flagged": sum(flags),
+            "sweep_mode": mode,
         }
     )
     events.append(
         {
             "type": "stdout",
-            "text": f"--- done: {sum(flags)} flagged, {len(rows)} rows ---\n",
+            "text": (
+                f"--- done: {sum(flags)} flagged ({mode}), {len(rows)} rows ---\n"
+            ),
         }
     )
     return flags, events
@@ -417,3 +563,201 @@ def evaluate_rules_on_readings(
     if rows and "degF_rolling_avg" not in rows[0]:
         prepare_rows_for_evaluate(rows, chart_minutes)
     return out, rows
+
+
+def count_flags_in_ts_range(
+    flag_series: dict[str, list[int]],
+    rows: list[dict[str, Any]],
+    ts_min_ms: int,
+    ts_max_ms: int,
+) -> dict[str, int]:
+    """Count rule hits only for rows with ts_min_ms <= ts_ms < ts_max_ms."""
+    out: dict[str, int] = {}
+    for rule_id, flags in flag_series.items():
+        n = 0
+        for i, hit in enumerate(flags):
+            if i >= len(rows):
+                break
+            ts = int(rows[i]["ts_ms"])
+            if ts_min_ms <= ts < ts_max_ms and hit:
+                n += 1
+        out[rule_id] = n
+    return out
+
+
+def _primary_fdd_status(active_flags: list[str]) -> str:
+    if not active_flags:
+        return "NORMAL"
+    return active_flags[0].replace("_flag", "").upper()
+
+
+def chunked_evaluate_custom_rules(
+    *,
+    rules: list[dict[str, Any]],
+    lookback_hours: float,
+    fetch_interval: Callable[[int, int], list[dict]],
+    chunk_hours: float = 6.0,
+    default_rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    overlap_minutes: int = 15,
+    initial_flag_counts: dict[str, int] | None = None,
+    window_start_ms: int | None = None,
+) -> dict[str, Any]:
+    """
+    AFDD backfill in time chunks — bounded memory (one chunk of readings at a time).
+
+    fetch_interval(start_ms, end_ms_exclusive) returns readings sorted ascending.
+    Overlap rows before each chunk support rolling avg / flatline without double-counting flags.
+    """
+    now_ms = int(time.time() * 1000)
+    if window_start_ms is None:
+        window_start_ms = now_ms - int(lookback_hours * 3600 * 1000)
+    chunk_ms = max(1, int(chunk_hours * 3600 * 1000))
+    overlap_ms = max(int(overlap_minutes * 60_000), 10 * 60_000)
+
+    flag_counts: dict[str, int] = dict(initial_flag_counts or {})
+    chunk_log: list[dict[str, Any]] = []
+    total_samples = 0
+    latest: dict[str, Any] | None = None
+    cursor = window_start_ms
+
+    enabled_rules = [r for r in rules if r.get("enabled", True)]
+    flag_labels = {r["id"]: r.get("title", r["id"]) for r in enabled_rules}
+
+    eval_log = [
+        f"AFDD chunked eval: {lookback_hours}h window · {chunk_hours}h chunks · overlap {overlap_minutes}m",
+        f"{len(enabled_rules)} enabled rule(s)",
+    ]
+
+    chunk_index = 0
+    errors: list[str] = []
+
+    while cursor < now_ms:
+        chunk_index += 1
+        chunk_end = min(cursor + chunk_ms, now_ms)
+        fetch_start = max(window_start_ms, cursor - overlap_ms) if cursor > window_start_ms else cursor
+        t0 = time.perf_counter()
+        try:
+            readings = fetch_interval(fetch_start, chunk_end)
+        except Exception as exc:
+            err = f"chunk {chunk_index} fetch failed: {exc}"
+            errors.append(err)
+            eval_log.append(f"  {err}")
+            chunk_log.append(
+                {
+                    "chunk": chunk_index,
+                    "start_ms": cursor,
+                    "end_ms": chunk_end,
+                    "samples": 0,
+                    "error": str(exc),
+                    "ms": int((time.perf_counter() - t0) * 1000),
+                }
+            )
+            cursor = chunk_end
+            continue
+
+        if not readings:
+            chunk_log.append(
+                {
+                    "chunk": chunk_index,
+                    "start_ms": cursor,
+                    "end_ms": chunk_end,
+                    "samples": 0,
+                    "flagged_in_chunk": 0,
+                    "ms": int((time.perf_counter() - t0) * 1000),
+                }
+            )
+            eval_log.append(f"  chunk {chunk_index}: 0 samples (empty window)")
+            cursor = chunk_end
+            continue
+
+        try:
+            rows = readings_to_rows(readings)
+            minutes = normalize_rolling_avg_minutes(default_rolling_avg_minutes)
+            prepare_rows_for_evaluate(rows, minutes)
+            flag_series, rows = evaluate_rules_on_readings(
+                rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+            )
+        except Exception as exc:
+            err = f"chunk {chunk_index} eval failed: {exc}"
+            errors.append(err)
+            eval_log.append(f"  {err}")
+            chunk_log.append(
+                {
+                    "chunk": chunk_index,
+                    "start_ms": cursor,
+                    "end_ms": chunk_end,
+                    "fetched": len(readings),
+                    "samples": 0,
+                    "error": str(exc),
+                    "ms": int((time.perf_counter() - t0) * 1000),
+                }
+            )
+            cursor = chunk_end
+            continue
+
+        chunk_counts = count_flags_in_ts_range(flag_series, rows, cursor, chunk_end)
+        chunk_flagged = sum(chunk_counts.values())
+        for rid, n in chunk_counts.items():
+            flag_counts[rid] = flag_counts.get(rid, 0) + n
+
+        in_chunk = sum(1 for r in rows if cursor <= int(r["ts_ms"]) < chunk_end)
+        total_samples += in_chunk
+        for r in reversed(rows):
+            if cursor <= int(r["ts_ms"]) < chunk_end:
+                latest = {
+                    "ts_ms": r["ts_ms"],
+                    "degF": r["degF"],
+                    "degC": r.get("degC"),
+                }
+                break
+
+        ms = int((time.perf_counter() - t0) * 1000)
+        chunk_log.append(
+            {
+                "chunk": chunk_index,
+                "start_ms": cursor,
+                "end_ms": chunk_end,
+                "samples": in_chunk,
+                "fetched": len(readings),
+                "flagged_in_chunk": chunk_flagged,
+                "ms": ms,
+            }
+        )
+        eval_log.append(
+            f"  chunk {chunk_index}: {in_chunk} samples, {chunk_flagged} flags, {ms} ms"
+        )
+        cursor = chunk_end
+
+    if errors:
+        eval_log.append(f"  chunk errors: {len(errors)} (see chunk_log.error)")
+
+    active_flags: list[str] = []
+    for key, count in flag_counts.items():
+        if count > 0:
+            active_flags.append(key)
+
+    summary: dict[str, Any] = {
+        "fdd_status": _primary_fdd_status(active_flags),
+        "active_flags": active_flags,
+        "flag_counts": flag_counts,
+        "sample_count": total_samples,
+        "lookback_hours": lookback_hours,
+        "custom_rules": True,
+        "flag_labels": flag_labels,
+        "afdd_format": "chunked_v1",
+        "chunk_hours": chunk_hours,
+        "chunk_count": len(chunk_log),
+        "chunk_errors": errors,
+        "chunk_log": chunk_log[-40:],
+        "eval_log": eval_log
+        + [
+            f"  total flagged (sum of chunks): {sum(flag_counts.values())}",
+            "  chart lanes: live /api/readings (downsampled)",
+        ],
+        "evaluated_at": int(time.time()),
+        "watermark_ms": now_ms,
+    }
+    if latest:
+        summary["latest_degF"] = latest["degF"]
+        summary["latest_degC"] = latest.get("degC")
+    return summary

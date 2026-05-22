@@ -3,8 +3,11 @@
 How to write **browser Python** rules for DS18B20 telemetry. The backend only:
 
 1. Loads MQTT rows from DynamoDB (`row`, `ts_ms`, `degF`, …)
-2. Calls **`evaluate(row, cfg, prev_row, rows)`** once per row
-3. Stores **`True` → flag 1** on that same row index (plot + DynamoDB timeline)
+2. Calls **`evaluate(row, cfg, prev_row, rows)`** once per row (or **`apply_faults(rows, cfg)`** if you define it)
+3. Flags rows for the chart / FDD counts:
+   - **`return True`** → flag **this row only**
+   - **`return True, window_rows`** → flag **every row** in `window_rows` (retroactive lookback)
+   - **`apply_faults(rows, cfg)`** → return `list[bool]` same length as `rows` (full control)
 
 **Rolling avg on every row:** before each sweep, the engine adds a **time-based** trailing mean using `ts_ms`:
 
@@ -190,6 +193,57 @@ def evaluate(row, cfg, prev_row=None, rows=None):
         return True
     return False
 ```
+
+---
+
+## Recipe 5 — Flatline: paint the whole 1-hour window (retroactive)
+
+**Problem:** `return True` only flags the **current** row. For “stuck sensor for 1 hour,” you want the **entire hour** shaded when the fault is confirmed.
+
+**Option A — tuple return (engine paints for you):**
+
+```python
+ONE_HOUR_MS = 60 * 60 * 1000
+
+def get_last_1_hour(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - ONE_HOUR_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_1_hour(row, rows)
+    if not window_rows:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < ONE_HOUR_MS * 0.95:
+        return False  # skip row 0 / warmup — not a full hour yet
+
+    vals = [r["degF"] for r in window_rows]
+    if max(vals) - min(vals) <= cfg["flatline_tolerance_f"]:
+        print(f"FLATLINE at {row['ts']} — painting {len(window_rows)} rows")
+        return True, window_rows  # <-- retroactive paint
+
+    return False
+```
+
+**Option B — separate detect vs paint (teaching):**
+
+```python
+def apply_faults(rows, cfg):
+    flags = [0] * len(rows)
+    for row in rows:
+        hit, window_rows = evaluate(row, cfg, rows=rows)
+        if hit:
+            for w in window_rows:
+                flags[w["row"]] = 1
+    return flags
+```
+
+Use the same `evaluate()` as Option A but return `(True, window_rows)`; define **`apply_faults`** in the same rule module. Test rule + dashboard + go-live all use the same sweep engine.
 
 ---
 

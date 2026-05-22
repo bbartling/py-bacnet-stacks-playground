@@ -103,6 +103,8 @@ Resources:
           DEVICE_ID: !Ref DeviceId
           DEFAULT_HOURS: "168"
           READINGS_LIMIT: "62000"
+          CHART_RESPONSE_MAX: "5000"
+          FDD_CHUNK_HOURS: "6"
           DEPLOY_REVISION: !Ref DeployRevision
       Policies:
         - DynamoDBCrudPolicy:
@@ -127,6 +129,7 @@ Resources:
           DEVICE_ID: !Ref DeviceId
           LOOKBACK_HOURS: "168"
           READINGS_LIMIT: "62000"
+          FDD_CHUNK_HOURS: "6"
           DEPLOY_REVISION: !Ref DeployRevision
       Policies:
         - DynamoDBCrudPolicy:

@@ -4,6 +4,7 @@ Lambda Function URL: dashboard + Bake-a-Py rule lab (static assets in templates/
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -18,9 +19,14 @@ from boto3.dynamodb.conditions import Key
 
 from playground_core import (
     DEFAULT_ROLLING_AVG_MINUTES,
+    GO_LIVE_BATCH_HOURS,
+    GO_LIVE_MAX_LOOKBACK_HOURS,
+    GO_LIVE_OVERLAP_MINUTES,
     NUMPY_AVAILABLE,
     ROLLING_AVG_MINUTES_ALLOWED,
     aux_series_from_rows,
+    chunked_evaluate_custom_rules,
+    downsample_aligned_series,
     evaluate_rules_on_readings,
     eval_rows_preview,
     lint_python,
@@ -30,6 +36,7 @@ from playground_core import (
     slim_fdd_summary,
     sweep_rule,
 )
+from afdd_logging import AfddLog, debug_payload
 from rules_defaults import (
     CONFIG_FIELD_META,
     chart_guides_from_rules,
@@ -41,10 +48,14 @@ from rules_defaults import (
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
 READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
+CHART_RESPONSE_MAX = int(os.environ.get("CHART_RESPONSE_MAX", "5000"))
 DEFAULT_HOURS = int(os.environ.get("DEFAULT_HOURS", "168"))
 TEST_HOURS_DEFAULT = int(os.environ.get("TEST_HOURS_DEFAULT", "6"))
 FDD_CONFIG_TS = -1
 FDD_CUSTOM_RULES_TS = -2
+FDD_AFDD_STATE_TS = -3
+# Scheduled FDD uses same batch size as go-live unless env overrides.
+FDD_CHUNK_HOURS = float(os.environ.get("FDD_CHUNK_HOURS", str(GO_LIVE_BATCH_HOURS)))
 _ROOT = Path(__file__).resolve().parent
 
 _MIME = {
@@ -171,6 +182,65 @@ def _fetch_readings(hours: int) -> list[dict]:
     return rows
 
 
+def _fetch_readings_between(start_ms: int, end_ms_exclusive: int) -> list[dict]:
+    """Ascending readings in [start_ms, end_ms_exclusive)."""
+    if end_ms_exclusive <= start_ms:
+        return []
+    end_inclusive = end_ms_exclusive - 1
+    rows: list[dict] = []
+    eks = None
+    while len(rows) < READINGS_LIMIT:
+        kwargs: dict = {
+            "KeyConditionExpression": Key("device_id").eq(DEVICE_ID)
+            & Key("ts_ms").between(start_ms, end_inclusive),
+            "ScanIndexForward": True,
+            "Limit": min(1000, READINGS_LIMIT - len(rows)),
+        }
+        if eks:
+            kwargs["ExclusiveStartKey"] = eks
+        resp = _table.query(**kwargs)
+        for it in resp.get("Items", []):
+            row = _normalize_reading(_json_safe(it))
+            if row and int(row["ts_ms"]) < end_ms_exclusive:
+                rows.append(row)
+        eks = resp.get("LastEvaluatedKey")
+        if not eks:
+            break
+    return rows
+
+
+def _rules_revision(rules: list[dict[str, Any]]) -> str:
+    raw = json.dumps(rules, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _load_afdd_state() -> dict[str, Any]:
+    try:
+        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_AFDD_STATE_TS})
+        item = _json_safe(resp.get("Item") or {})
+        raw = item.get("state_json")
+        if raw:
+            return json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return {}
+
+
+def _save_afdd_state(state: dict[str, Any]) -> None:
+    _table.put_item(
+        Item={
+            "device_id": DEVICE_ID,
+            "ts_ms": FDD_AFDD_STATE_TS,
+            "record_type": "afdd_state",
+            "state_json": json.dumps(state),
+            "watermark_ms": int(state.get("watermark_ms", 0)),
+            "rules_revision": state.get("rules_revision", ""),
+            "updated_at": int(time.time()),
+            "expires_at": int(time.time()) + 30 * 86400,
+        }
+    )
+
+
 def _load_custom_rules() -> list[dict[str, Any]]:
     try:
         resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_CUSTOM_RULES_TS})
@@ -214,103 +284,182 @@ def _fetch_fdd_status() -> dict:
     }
 
 
-def _write_fdd_summary(readings: list[dict], rules: list[dict[str, Any]], hours: float) -> dict:
-    rows = readings_to_rows(readings)
-    flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
-    active_flags: list[str] = []
-    flag_counts: dict[str, int] = {}
-    flag_labels = {r["id"]: r.get("title", r["id"]) for r in rules if r.get("enabled", True)}
-    eval_log = [
-        f"Custom rules backfill: {len(readings)} samples over {hours}h",
-        f"{len([r for r in rules if r.get('enabled', True)])} enabled rule(s)",
-    ]
-    for key, series in flag_series.items():
-        count = sum(series)
-        flag_counts[key] = count
-        eval_log.append(f"  {key}: {count} flagged")
-        if count > 0:
-            active_flags.append(key)
+def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) -> dict:
+    """
+    Go live / backfill: always 6 h batches over max 7 d (hard-coded).
+    Rule Lab Test rule uses its own hours dropdown — does not change this.
+    """
+    log = log or AfddLog()
+    hours = float(GO_LIVE_MAX_LOOKBACK_HOURS)
+    chunk_h = float(GO_LIVE_BATCH_HOURS)
+    rev = _rules_revision(rules)
+    log.info(
+        f"go-live start lookback={hours}h batch={chunk_h}h (hard-coded) rules_rev={rev}"
+    )
 
-    status = "NORMAL" if not active_flags else active_flags[0].replace("_flag", "").upper()
-    summary = {
-        "fdd_status": status,
-        "active_flags": active_flags,
-        "flag_counts": flag_counts,
-        "sample_count": len(readings),
+    def fetch_interval(start_ms: int, end_ms_exclusive: int) -> list[dict]:
+        return _fetch_readings_between(start_ms, end_ms_exclusive)
+
+    try:
+        summary = chunked_evaluate_custom_rules(
+            rules=rules,
+            lookback_hours=hours,
+            fetch_interval=fetch_interval,
+            chunk_hours=chunk_h,
+            overlap_minutes=GO_LIVE_OVERLAP_MINUTES,
+        )
+    except Exception as exc:
+        log.error("chunked_evaluate_custom_rules failed", exc)
+        raise
+
+    log.extend(summary.get("eval_log") or [])
+    chunk_errors = summary.get("chunk_errors") or []
+    if chunk_errors:
+        for ce in chunk_errors[:10]:
+            log.warn(ce)
+
+    summary["rules_revision"] = rev
+    summary["server_log"] = log.snapshot()
+    active_flags = summary.get("active_flags") or []
+    log.info(
+        f"go-live done status={summary.get('fdd_status')} samples={summary.get('sample_count')} "
+        f"chunks={summary.get('chunk_count')} flagged_sum={sum((summary.get('flag_counts') or {}).values())}"
+    )
+
+    afdd_state = {
+        "watermark_ms": summary.get("watermark_ms"),
         "lookback_hours": hours,
-        "custom_rules": True,
-        "flag_labels": flag_labels,
-        "eval_log": eval_log
-        + [
-            "  flags = your evaluate() per row",
-            "  (fault lanes on chart come from live /api/readings, not stored series)",
-        ],
-        "evaluated_at": int(time.time()),
+        "rules_revision": rev,
+        "flag_counts": summary.get("flag_counts") or {},
+        "chunk_hours": chunk_h,
+        "go_live_batch_hours": GO_LIVE_BATCH_HOURS,
+        "go_live_max_hours": GO_LIVE_MAX_LOOKBACK_HOURS,
+        "chunk_count": summary.get("chunk_count", 0),
+        "last_evaluated_at": summary.get("evaluated_at"),
     }
-    if readings:
-        summary["latest_degF"] = readings[-1]["degF"]
-        summary["latest_degC"] = readings[-1]["degC"]
+    _save_afdd_state(afdd_state)
+    log.info("afdd_state saved ts_ms=-3")
 
     db_summary = slim_fdd_summary(summary)
-    _table.put_item(
-        Item={
-            "device_id": DEVICE_ID,
-            "ts_ms": 0,
-            "record_type": "fdd_status",
-            "fdd_status": db_summary["fdd_status"],
-            "active_flags": ",".join(active_flags),
-            "summary_json": json.dumps(db_summary),
-            "sample_count": len(readings),
-            "updated_at": int(time.time()),
-            "expires_at": int(time.time()) + 30 * 86400,
-        }
-    )
+    try:
+        _table.put_item(
+            Item={
+                "device_id": DEVICE_ID,
+                "ts_ms": 0,
+                "record_type": "fdd_status",
+                "fdd_status": db_summary["fdd_status"],
+                "active_flags": ",".join(active_flags),
+                "summary_json": json.dumps(db_summary),
+                "sample_count": summary.get("sample_count", 0),
+                "updated_at": int(time.time()),
+                "expires_at": int(time.time()) + 30 * 86400,
+            }
+        )
+    except Exception as exc:
+        log.error("DynamoDB put_item fdd_status failed", exc)
+        raise
+
+    log.info("fdd_status saved ts_ms=0")
+    db_summary["server_log"] = log.snapshot()
     return db_summary
 
 
-def _readings_payload(hours: int, rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES) -> dict:
-    rules = _load_custom_rules()
-    readings = _fetch_readings(hours)
-    rows = readings_to_rows(readings) if readings else []
-    minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
-    if rows:
-        prepare_rows_for_evaluate(rows, minutes)
-    fdd_status = _fetch_fdd_status()
-    latest = readings[-1] if readings else None
-    flag_series, rows = (
-        evaluate_rules_on_readings(
-            rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+def _readings_payload(
+    hours: int,
+    rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    log: AfddLog | None = None,
+) -> dict:
+    log = log or AfddLog()
+    t0 = time.perf_counter()
+    stage = "init"
+    try:
+        stage = "load_rules"
+        rules = _load_custom_rules()
+        log.info(f"readings hours={hours} roll_min={rolling_avg_minutes} rules={len(rules)}")
+
+        stage = "fetch_dynamodb"
+        readings = _fetch_readings(hours)
+        n = len(readings)
+        log.info(f"fetched {n} samples in {int((time.perf_counter() - t0) * 1000)}ms")
+
+        rows = readings_to_rows(readings) if readings else []
+        minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
+
+        stage = "enrich_rows"
+        if rows:
+            prepare_rows_for_evaluate(rows, minutes)
+
+        stage = "fdd_status"
+        fdd_status = _fetch_fdd_status()
+        latest = readings[-1] if readings else None
+
+        stage = "evaluate_rules"
+        if readings:
+            flag_series, rows = evaluate_rules_on_readings(
+                rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+            )
+        else:
+            flag_series, rows = {}, rows
+            log.warn("no readings in window — chart empty")
+
+        fault_plots_full = {k: flag_series.get(k, [0] * n) for k in flag_series}
+        fault_totals = {k: sum(v) for k, v in fault_plots_full.items()}
+
+        stage = "downsample_chart"
+        aux_full = aux_series_from_rows(rows) if rows else {}
+        chart_readings, chart_plots, chart_aux, chart_stride, truncated = downsample_aligned_series(
+            n,
+            CHART_RESPONSE_MAX,
+            readings,
+            fault_plots_full,
+            aux_full,
         )
-        if readings
-        else ({}, rows)
-    )
-    fault_plots = {
-        k: flag_series.get(k, [0] * len(readings)) for k in flag_series
-    }
+        ms = int((time.perf_counter() - t0) * 1000)
+        log.info(
+            f"chart_pts={len(chart_readings)}/{n} truncated={truncated} "
+            f"eval_ms={ms} fault_rules={len(flag_series)}"
+        )
+        if truncated:
+            log.warn(f"response downsampled to {CHART_RESPONSE_MAX} points for Lambda URL size")
+
+        stage = "done"
+    except Exception as exc:
+        log.error(f"readings failed at stage={stage}", exc)
+        raise
+
     return {
         "device_id": DEVICE_ID,
         "hours": hours,
         "rolling_avg_minutes": minutes,
         "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
-        "count": len(readings),
+        "count": n,
+        "chart_stride": chart_stride,
+        "chart_truncated": truncated,
+        "chart_max_points": CHART_RESPONSE_MAX,
         "latest": latest,
-        "readings": readings,
-        "aux_series": aux_series_from_rows(rows),
+        "readings": chart_readings,
+        "aux_series": chart_aux,
         "fdd_open": fdd_status,
         "fault_panels": rules_to_panels(rules),
         "rules_meta": rules_meta(rules),
         "chart_guides": chart_guides_from_rules(rules),
         "eval_rows_preview": eval_rows_preview(rows),
         "numpy_available": NUMPY_AVAILABLE,
-        "fault_plots": fault_plots,
-        "fault_totals": {k: sum(v) for k, v in fault_plots.items()},
+        "fault_plots": chart_plots,
+        "fault_totals": fault_totals,
         "custom_rules_active": True,
-        "debug": {
-            "readings_count": len(readings),
-            "fdd_status": fdd_status.get("fdd_status"),
-            "fdd_eval_log": fdd_status.get("eval_log", []),
-            "has_1min_avg": bool(rows and "degF_1min_avg" in rows[0]),
-        },
+        "debug": debug_payload(
+            log,
+            stage=stage,
+            readings_count=n,
+            chart_points_returned=len(chart_readings),
+            eval_ms=ms,
+            fdd_status=fdd_status.get("fdd_status"),
+            fdd_eval_log=(fdd_status.get("eval_log") or [])[-15:],
+            afdd_format=fdd_status.get("afdd_format"),
+            chunk_count=fdd_status.get("chunk_count"),
+            has_1min_avg=bool(rows and "degF_rolling_avg" in rows[0]),
+        ),
     }
 
 
@@ -326,7 +475,7 @@ def _health_payload() -> dict:
         "modes": {
             "test_rule": f"Query last 1–{DEFAULT_HOURS}h, no FDD status write",
             "save_draft": "Writes rules to DynamoDB ts_ms=-2 only",
-            "go_live": f"Rules + backfill up to {DEFAULT_HOURS}h → FDD status ts_ms=0",
+            "go_live": f"Rules + backfill {GO_LIVE_BATCH_HOURS}h batches × max {GO_LIVE_MAX_LOOKBACK_HOURS}h (7 d) → ts_ms=0",
         },
         "row_fields": [
             "degF",
@@ -345,6 +494,10 @@ def _health_payload() -> dict:
         "rolling_avg_minutes_default": DEFAULT_ROLLING_AVG_MINUTES,
         "numpy_available": NUMPY_AVAILABLE,
         "sandbox_imports": ["math", "datetime", "numpy (if numpy_available)"],
+        "go_live_batch_hours": GO_LIVE_BATCH_HOURS,
+        "go_live_max_hours": GO_LIVE_MAX_LOOKBACK_HOURS,
+        "fdd_chunk_hours": FDD_CHUNK_HOURS,
+        "chart_response_max": CHART_RESPONSE_MAX,
         "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 
@@ -370,7 +523,11 @@ def lambda_handler(event, context):
             print(f"[vibe12] save draft: {len(rules)} rule(s) → ts_ms={FDD_CUSTOM_RULES_TS}")
             return _response(
                 200,
-                {"ok": True, "count": len(rules), "note": "draft only — use go-live for 7d backfill"},
+                {
+                    "ok": True,
+                    "count": len(rules),
+                    "note": f"draft only — go-live runs {GO_LIVE_BATCH_HOURS}h batches × {GO_LIVE_MAX_LOOKBACK_HOURS}h",
+                },
             )
         rules = _load_custom_rules()
         return _response(
@@ -429,26 +586,51 @@ def lambda_handler(event, context):
         rules = body.get("rules")
         if not isinstance(rules, list):
             return _response(400, {"error": "rules must be a list"})
-        hours = max(1, min(168, int(body.get("hours", DEFAULT_HOURS))))
+        # Go live always backfills 7 d in 6 h batches (ignore body.hours).
+        hours = GO_LIVE_MAX_LOOKBACK_HOURS
         try:
             _save_custom_rules(rules)
-            readings = _fetch_readings(hours)
-            if not readings:
+            cutoff_ms = int((time.time() - hours * 3600) * 1000)
+            probe = _table.query(
+                KeyConditionExpression=Key("device_id").eq(DEVICE_ID)
+                & Key("ts_ms").gte(cutoff_ms),
+                ScanIndexForward=False,
+                Limit=1,
+            ).get("Items")
+            if not probe:
                 return _response(400, {"error": f"no telemetry in last {hours}h"})
-            summary = _write_fdd_summary(readings, rules, float(hours))
-            print(
-                f"[vibe12] go-live hours={hours} rows={len(readings)} "
-                f"status={summary.get('fdd_status')} flags={summary.get('active_flags')}"
+            log = AfddLog()
+            try:
+                summary = _write_fdd_summary(rules, log=log)
+            except Exception as exc:
+                log.error("go-live _write_fdd_summary failed", exc)
+                return _response(
+                    500,
+                    {
+                        "error": str(exc),
+                        "hint": "Chunked backfill failed — see server_log and CloudWatch WebFunction.",
+                        "debug": debug_payload(log, stage="go_live_failed"),
+                        "trace": traceback.format_exc(),
+                    },
+                )
+            return _response(
+                200,
+                {
+                    "ok": True,
+                    "summary": summary,
+                    "hours": hours,
+                    "debug": debug_payload(log, stage="go_live_ok"),
+                },
             )
-            return _response(200, {"ok": True, "summary": summary, "hours": hours})
         except Exception as exc:
-            print(f"[vibe12] go-live ERROR: {exc}\n{traceback.format_exc()}")
+            log = AfddLog()
+            log.error("go-live handler failed", exc)
             return _response(
                 500,
                 {
                     "error": str(exc),
-                    "hint": "Often DynamoDB item too large or Lambda timeout on 7d backfill. "
-                    "Check CloudWatch logs for WebFunction.",
+                    "hint": "Go live request failed before or during backfill.",
+                    "debug": debug_payload(log),
                     "trace": traceback.format_exc(),
                 },
             )
@@ -456,7 +638,43 @@ def lambda_handler(event, context):
     if path.startswith("/api/readings"):
         hours = _get_hours(event)
         roll_min = _get_rolling_avg_minutes(event)
-        return _response(200, _readings_payload(hours, roll_min))
+        log = AfddLog()
+        try:
+            payload = _readings_payload(hours, roll_min, log=log)
+            body = json.dumps(_json_safe(payload))
+            if len(body) > 5_500_000:
+                log.error(f"response too large bytes={len(body)}")
+                return _response(
+                    413,
+                    {
+                        "error": "response too large for Lambda URL",
+                        "hint": f"Try fewer hours (requested {hours}h). "
+                        f"Chart cap is {CHART_RESPONSE_MAX} points.",
+                        "bytes": len(body),
+                        "debug": debug_payload(log),
+                    },
+                )
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-store",
+                },
+                "body": body,
+            }
+        except Exception as exc:
+            log.error(f"/api/readings failed hours={hours} roll={roll_min}", exc)
+            return _response(
+                500,
+                {
+                    "error": str(exc),
+                    "hint": "Often timeout or memory on long history + all rules. "
+                    "Try History 24h or 6h; see dashboard log + CloudWatch WebFunction.",
+                    "hours": hours,
+                    "debug": debug_payload(log, stage="failed"),
+                    "trace": traceback.format_exc(),
+                },
+            )
 
     if path in ("/", "/index.html"):
         return _serve_file("templates/dashboard.html")

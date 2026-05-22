@@ -630,7 +630,7 @@
         data.rows +
         " rows swept, " +
         data.flagged +
-        " flagged (instant per row), " +
+        " flagged (per-row or retroactive window), " +
         data.ms +
         " ms"
     );
@@ -917,8 +917,10 @@
           h.status +
           " · test≤" +
           h.test_hours_default +
-          "h · go-live≤" +
-          h.backfill_hours_max +
+          "h · go-live " +
+          (h.go_live_batch_hours || 6) +
+          "h×" +
+          (h.go_live_max_hours || 168) +
           "h" +
           " · datetime ok" +
           (h.numpy_available ? " · numpy ok" : " · no numpy") +
@@ -947,14 +949,16 @@
 
   async function goLive() {
     clearConsole();
-    appendConsole("Go live: saving rules + 7 d backfill…\n");
+    appendConsole(
+      "Go live: save rules + AFDD backfill (6 h batches, max 7 d — server hard-coded)…\n"
+    );
     const payload = collectRules();
     setLabActionButtonsEnabled(false);
     try {
       const res = await fetch("/api/playground/go-live", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules: payload, hours: 168 }),
+        body: JSON.stringify({ rules: payload }),
       });
       const raw = await res.text();
       let data = {};
@@ -971,11 +975,40 @@
       if (!res.ok) {
         appendConsole((data.error || "go-live failed") + "\n", "error");
         if (data.hint) appendConsole(data.hint + "\n", "error");
+        (data.debug?.server_log || []).forEach((l) =>
+          appendConsole("[srv] " + l + "\n", "error")
+        );
         if (data.trace) appendConsole(data.trace, "error");
         return;
       }
+      (data.debug?.server_log || []).forEach((l) =>
+        appendConsole("[srv] " + l + "\n", "log-ok")
+      );
+      (data.debug?.server_log || data.summary?.server_log || []).forEach((l) =>
+        appendConsole("[srv] " + l + "\n", "log-ok")
+      );
       (data.summary?.eval_log || []).forEach((l) => appendConsole(l + "\n"));
-      appendConsole("Backfill written to FDD status row.\n");
+      (data.summary?.chunk_log || []).slice(-8).forEach((c) => {
+        appendConsole(
+          "  chunk " +
+            (c.samples || 0) +
+            " samples, " +
+            (c.flagged_in_chunk || 0) +
+            " flags, " +
+            (c.ms || "?") +
+            " ms\n",
+          "log-ok"
+        );
+      });
+      appendConsole(
+        "Backfill done (" +
+          (data.summary?.chunk_count ?? "?") +
+          " chunks × " +
+          (data.summary?.chunk_hours ?? 6) +
+          " h, lookback " +
+          (data.hours ?? 168) +
+          " h).\n"
+      );
       notifyDashboardRules();
       if (window.vibe12DashboardRefresh) window.vibe12DashboardRefresh();
     } catch (e) {

@@ -107,6 +107,8 @@ resolve_image_repos = true
 | Stack name hyphen | **`vibe12cloud`** only |
 | Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
 | Chart zoom resets every 1 min | Deploy latest dashboard JS — **Pause auto-refresh while zoomed** (toolbar); **Reset zoom** to refit |
+| `502` / `Internal S...` not JSON on `/api/readings` | Response too large or Lambda timeout on **7 d** + all rules. Deploy fix: server sends ≤5000 chart points; try **24 h** first; check CloudWatch **WebFunction** |
+| Debug on dashboard | After deploy: **Backend logs** panel shows `srv:` lines from `debug.server_log`; errors show `stage=` and hint |
 
 ---
 
@@ -137,15 +139,19 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 | Step | **Test rule** (hours dropdown) | **Go live** (up to 7 d) |
 |------|----------------------------------|-------------------------|
 | Read telemetry | One DynamoDB query for that window | One query for full backfill (cap ~62k points) |
-| Run rules | In memory, row-by-row `evaluate()` | Same — **one pass** over all rows |
+| Run rules | `evaluate()` per row; optional `(True, window_rows)` or `apply_faults()` | Same sweep engine (chunked on go-live) |
 | FDD DB writes | **None** | Rules (`ts_ms=-2`) + **summary** (`ts_ms=0`) only |
 | Dashboard fault lanes | N/A | **Recomputed** on each `/api/readings` refresh (not replayed from Go live) |
 
-Go live does **not** evaluate or write in the same time blocks as the test dropdown. It loads the whole window, sweeps once, then writes a single summary row.
+Go live runs **chunked AFDD** — **hard-coded: 6 h batches, max 7 d (168 h)** (not the Rule Lab test-window dropdown). Each batch loads only that interval from DynamoDB, evaluates rules, merges **flag counts**, then discards rows. State at **`ts_ms=-3`**; summary at **`ts_ms=0`**.
+
+Scheduled **FddFunction** (every 5 min) does **incremental** catch-up from the watermark when rules unchanged; full chunked backfill when rules change or first run.
 
 **Fine for:** one Pi, ~10 s MQTT, a few rules, teaching / demo.
 
-**Pressure points at scale:** Lambda time/RAM on long backfills; one `device_id` per stack; dashboard re-runs all rules on every history load.
+**Pressure points at scale:** dashboard `/api/readings` still re-evaluates rules for chart lanes (downsampled); one `device_id` per stack.
+
+**Retroactive flatline / lookback windows:** `evaluate()` can return `(True, window_rows)` so the engine flags the whole hour, not just the detection row. Or define `apply_faults(rows, cfg) -> list[bool]`. See **Recipe 5** in `EXPRESSION_RULE_COOKBOOK.md`.
 
 ---
 
@@ -153,11 +159,10 @@ Go live does **not** evaluate or write in the same time blocks as the test dropd
 
 Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple on purpose.
 
-### 1. Time-chunked evaluation
+### 1. Time-chunked evaluation — **implemented (v1)**
 
-- Go live and scheduled FDD: process history in **fixed windows** (e.g. 6 h or 1 d chunks) instead of one giant in-memory sweep.
-- Merge **counts**, status, and eval log across chunks.
-- Reduces Lambda timeout risk and peak RAM on 7 d backfills.
+- Go live + scheduled FDD: **6 h chunks** (`FDD_CHUNK_HOURS`), overlap for rolling avg, merge counts.
+- `afdd_state` at `ts_ms=-3`; summary at `ts_ms=0` includes `chunk_log` (last 40 chunks).
 
 ### 2. Multi-sensor / multi-site model
 
@@ -170,11 +175,11 @@ Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple 
 - **Batch job** (scheduled or on-demand): runs rules, writes summary + compact artifacts.
 - **Read API / dashboard**: serves pre-aggregated results instead of full re-sweep on every browser refresh.
 
-### 4. Incremental FDD (watermark)
+### 4. Incremental FDD (watermark) — **partial (scheduled only)**
 
-- Scheduled job only evaluates **new** samples since last `evaluated_at`.
-- Carry forward debounce / rolling state in rule code (module-level lists) or engine state.
-- Go live becomes “catch up from watermark,” not full 7 d replay every time.
+- **FddFunction** resumes from `watermark_ms` when `rules_revision` matches.
+- **Go live** always full chunked backfill for the requested hours (resets counts).
+- Future: carry debounce state across chunks in the engine (not rule-local lists).
 
 ### 5. Operational limits to respect
 

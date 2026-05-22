@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  let hours = 168;
+  let hours = 24;
   let refreshMs = 60000;
   let refreshTimer = null;
   let lastChartData = null;
@@ -36,7 +36,18 @@
     d.className = c || "log-ok";
     d.textContent = new Date().toISOString().slice(11, 19) + "  " + t;
     el.appendChild(d);
-    while (el.childNodes.length > 60) el.removeChild(el.firstChild);
+    while (el.childNodes.length > 80) el.removeChild(el.firstChild);
+  }
+
+  /** Surface API debug.server_log and eval_log in the dashboard log panel. */
+  function logServerDebug(data, prefix) {
+    if (!data) return;
+    const dbg = data.debug || {};
+    if (dbg.stage) logMsg((prefix || "API") + " stage=" + dbg.stage, "log-ok");
+    if (dbg.eval_ms != null) logMsg("server eval_ms=" + dbg.eval_ms, "log-ok");
+    if (dbg.chunk_count != null) logMsg("FDD chunks=" + dbg.chunk_count, "log-ok");
+    (dbg.server_log || []).forEach((line) => logMsg("srv: " + line, "log-ok"));
+    (dbg.fdd_eval_log || []).forEach((line) => logMsg("FDD: " + line, "log-ok"));
   }
 
   function faultClass(s) {
@@ -406,11 +417,38 @@
     }
     let data;
     try {
-      data = await (await fetch(url)).json();
+      const res = await fetch(url);
+      const raw = await res.text();
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (parseErr) {
+        logMsg(
+          "HTTP " +
+            res.status +
+            " — not JSON (often 502 timeout or Internal Server Error). " +
+            raw.slice(0, 160),
+          "log-err"
+        );
+        return;
+      }
+      if (!res.ok) {
+        logMsg(
+          (data.error || "request failed") +
+            (data.hint ? " — " + data.hint : "") +
+            " (HTTP " +
+            res.status +
+            ")",
+          "log-err"
+        );
+        if (data.trace) logMsg(data.trace.slice(0, 500), "log-err");
+        logServerDebug(data, "readings error");
+        return;
+      }
     } catch (e) {
       logMsg("fetch error: " + e, "log-err");
       return;
     }
+    logServerDebug(data, "readings");
     lastChartData = data;
     const meta = data.rules_meta || [];
     syncPlotStateFromMeta(meta);
@@ -419,7 +457,17 @@
 
     const pts = data.readings || [];
     const fdd = data.fdd_open || {};
-    logMsg(pts.length + " pts · FDD " + (fdd.fdd_status || "PENDING"));
+    const countFull = data.count != null ? data.count : pts.length;
+    let statusExtra = pts.length + " chart pts";
+    if (data.chart_truncated && countFull > pts.length) {
+      statusExtra =
+        pts.length + " of " + countFull + " pts (stride " + (data.chart_stride || "?") + ")";
+      logMsg(
+        "Chart downsampled server-side: " + statusExtra + " · totals use full " + countFull,
+        "log-ok"
+      );
+    }
+    logMsg(statusExtra + " · FDD " + (fdd.fdd_status || "PENDING"));
     (data.debug?.fdd_eval_log || []).slice(-2).forEach((l) => logMsg("FDD: " + l));
     const skipChartRedraw =
       !opts.forceChart &&
@@ -435,7 +483,11 @@
         : 1;
     }
     document.getElementById("status").textContent =
-      pts.length + " pts · " + hours + " h" + (stride > 1 ? " · chart 1/" + stride : "");
+      (data.chart_truncated ? pts.length + "/" + countFull : pts.length) +
+      " pts · " +
+      hours +
+      " h" +
+      (stride > 1 ? " · chart 1/" + stride : "");
     const b = document.getElementById("fddBadge");
     b.textContent = "FDD: " + (fdd.fdd_status || "PENDING");
     b.className = faultClass(fdd.fdd_status);
@@ -483,7 +535,7 @@
       const o = document.createElement("option");
       o.value = h;
       o.textContent = h === 168 ? "7 d" : h + " h";
-      if (h === 168) o.selected = true;
+      if (h === 24) o.selected = true;
       hs.appendChild(o);
     });
     const savedR = localStorage.getItem("vibe12_refresh_ms");

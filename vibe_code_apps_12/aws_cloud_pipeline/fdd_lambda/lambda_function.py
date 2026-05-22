@@ -1,9 +1,10 @@
 """
-Scheduled FDD on DynamoDB telemetry — custom Python rules (ts_ms=-2) or built-in fdd_rules.
+Scheduled FDD on DynamoDB telemetry — chunked AFDD + incremental watermark (ts_ms=-3).
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -11,17 +12,72 @@ import time
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from afdd_logging import AfddLog
 from fdd_rules import evaluate_all
-from playground_core import aux_series_from_rows, evaluate_rules_on_readings, readings_to_rows
+from playground_core import (
+    GO_LIVE_BATCH_HOURS,
+    GO_LIVE_MAX_LOOKBACK_HOURS,
+    chunked_evaluate_custom_rules,
+    slim_fdd_summary,
+)
 from rules_defaults import default_custom_rules
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
-LOOKBACK_HOURS = float(os.environ.get("LOOKBACK_HOURS", "168"))
+LOOKBACK_HOURS = float(os.environ.get("LOOKBACK_HOURS", str(GO_LIVE_MAX_LOOKBACK_HOURS)))
 READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
 FDD_CUSTOM_RULES_TS = -2
+FDD_AFDD_STATE_TS = -3
+FDD_CHUNK_HOURS = float(os.environ.get("FDD_CHUNK_HOURS", str(GO_LIVE_BATCH_HOURS)))
 
 _table = boto3.resource("dynamodb").Table(TABLE_NAME)
+
+
+def _json_safe(obj):
+    if isinstance(obj, list):
+        return [_json_safe(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    return obj
+
+
+def _normalize_reading(item: dict) -> dict | None:
+    ts_ms = item.get("ts_ms")
+    if ts_ms is None or int(ts_ms) <= 0:
+        return None
+    if "degF" not in item:
+        return None
+    return {
+        "ts_ms": int(ts_ms),
+        "degF": float(item["degF"]),
+        "degC": float(item.get("degC", 0)),
+    }
+
+
+def _fetch_readings_between(start_ms: int, end_ms_exclusive: int) -> list[dict]:
+    if end_ms_exclusive <= start_ms:
+        return []
+    end_inclusive = end_ms_exclusive - 1
+    rows: list[dict] = []
+    eks = None
+    while len(rows) < READINGS_LIMIT:
+        kwargs: dict = {
+            "KeyConditionExpression": Key("device_id").eq(DEVICE_ID)
+            & Key("ts_ms").between(start_ms, end_inclusive),
+            "ScanIndexForward": True,
+            "Limit": min(1000, READINGS_LIMIT - len(rows)),
+        }
+        if eks:
+            kwargs["ExclusiveStartKey"] = eks
+        resp = _table.query(**kwargs)
+        for it in resp.get("Items", []):
+            row = _normalize_reading(_json_safe(it))
+            if row and int(row["ts_ms"]) < end_ms_exclusive:
+                rows.append(row)
+        eks = resp.get("LastEvaluatedKey")
+        if not eks:
+            break
+    return rows
 
 
 def _load_custom_rules() -> list[dict]:
@@ -38,125 +94,159 @@ def _load_custom_rules() -> list[dict]:
     return default_custom_rules()
 
 
-def _fetch_readings(hours: float) -> list[dict]:
-    cutoff_ms = int((time.time() - hours * 3600) * 1000)
-    rows: list[dict] = []
-    eks = None
-    while len(rows) < READINGS_LIMIT:
-        kwargs: dict = {
-            "KeyConditionExpression": Key("device_id").eq(DEVICE_ID)
-            & Key("ts_ms").gte(cutoff_ms),
-            "ScanIndexForward": False,
-            "Limit": min(1000, READINGS_LIMIT - len(rows)),
+def _rules_revision(rules: list[dict]) -> str:
+    raw = json.dumps(rules, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _load_afdd_state() -> dict:
+    try:
+        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_AFDD_STATE_TS})
+        item = resp.get("Item") or {}
+        raw = item.get("state_json")
+        if raw:
+            return json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return {}
+
+
+def _save_afdd_state(state: dict) -> None:
+    _table.put_item(
+        Item={
+            "device_id": DEVICE_ID,
+            "ts_ms": FDD_AFDD_STATE_TS,
+            "record_type": "afdd_state",
+            "state_json": json.dumps(state),
+            "watermark_ms": int(state.get("watermark_ms", 0)),
+            "rules_revision": state.get("rules_revision", ""),
+            "updated_at": int(time.time()),
+            "expires_at": int(time.time()) + 30 * 86400,
         }
-        if eks:
-            kwargs["ExclusiveStartKey"] = eks
-        resp = _table.query(**kwargs)
-        for it in resp.get("Items", []):
-            ts_ms = int(it.get("ts_ms", 0))
-            if ts_ms <= 0 or "degF" not in it:
-                continue
-            rows.append(
-                {
-                    "ts_ms": ts_ms,
-                    "degF": float(it["degF"]),
-                    "degC": float(it.get("degC", 0)),
-                }
-            )
-        eks = resp.get("LastEvaluatedKey")
-        if not eks:
-            break
-    rows.sort(key=lambda r: r["ts_ms"])
-    return rows
+    )
 
 
-def _primary_status(active_flags: list[str]) -> str:
-    if not active_flags:
-        return "NORMAL"
-    return active_flags[0].replace("_flag", "").upper()
-
-
-def lambda_handler(event, context):
-    rules = _load_custom_rules()
-    readings = _fetch_readings(LOOKBACK_HOURS)
-    use_custom = bool(rules)
-
-    if not readings:
-        summary = {
-            "fdd_status": "MISSING_DATA",
-            "active_flags": [],
-            "sample_count": 0,
-            "lookback_hours": LOOKBACK_HOURS,
-            "eval_log": [f"No telemetry in last {LOOKBACK_HOURS}h"],
-            "evaluated_at": int(time.time()),
-        }
-    elif use_custom:
-        rows = readings_to_rows(readings)
-        flag_series, rows = evaluate_rules_on_readings(rules, readings, rows=rows)
-        active_flags: list[str] = []
-        flag_counts: dict[str, int] = {}
-        eval_log = [
-            f"Custom rules: {len(readings)} samples / {LOOKBACK_HOURS}h",
-            f"{len([r for r in rules if r.get('enabled', True)])} enabled",
-        ]
-        for key, series in flag_series.items():
-            count = sum(series)
-            flag_counts[key] = count
-            eval_log.append(f"  {key}: {count} flagged")
-            if count > 0:
-                active_flags.append(key)
-        summary = {
-            "fdd_status": _primary_status(active_flags),
-            "active_flags": active_flags,
-            "flag_counts": flag_counts,
-            "sample_count": len(readings),
-            "lookback_hours": LOOKBACK_HOURS,
-            "custom_rules": True,
-            "latest_degF": readings[-1]["degF"],
-            "latest_degC": readings[-1]["degC"],
-            "flag_labels": {r["id"]: r.get("title", r["id"]) for r in rules},
-            "eval_log": eval_log,
-            "evaluated_at": int(time.time()),
-        }
-    else:
-        deg_f = [r["degF"] for r in readings]
-        flag_series = evaluate_all(readings)
-        active_flags = []
-        flag_counts = {}
-        eval_log = [
-            f"Built-in fdd_rules: {len(readings)} samples / {LOOKBACK_HOURS}h",
-            f"degF {min(deg_f):.2f} .. {max(deg_f):.2f}",
-        ]
-        for key, series in flag_series.items():
-            count = sum(series)
-            flag_counts[key] = count
-            eval_log.append(f"  {key}: {count}")
-            if count > 0:
-                active_flags.append(key)
-        summary = {
-            "fdd_status": _primary_status(active_flags),
-            "active_flags": active_flags,
-            "flag_counts": flag_counts,
-            "sample_count": len(readings),
-            "lookback_hours": LOOKBACK_HOURS,
-            "eval_log": eval_log,
-            "evaluated_at": int(time.time()),
-        }
-
-    db_summary = {
-        k: v for k, v in summary.items() if k not in ("ts_ms", "flag_series", "aux_series")
-    }
+def _write_summary_item(summary: dict) -> dict:
+    db_summary = slim_fdd_summary(summary)
+    active = summary.get("active_flags") or []
     _table.put_item(
         Item={
             "device_id": DEVICE_ID,
             "ts_ms": 0,
             "record_type": "fdd_status",
             "fdd_status": db_summary["fdd_status"],
-            "active_flags": ",".join(summary.get("active_flags", [])),
+            "active_flags": ",".join(active),
             "summary_json": json.dumps(db_summary),
             "sample_count": summary.get("sample_count", 0),
             "updated_at": int(time.time()),
             "expires_at": int(time.time()) + 30 * 86400,
         }
+    )
+    return db_summary
+
+
+def lambda_handler(event, context):
+    log = AfddLog(prefix="vibe12-fdd")
+    rules = _load_custom_rules()
+    rev = _rules_revision(rules)
+    state = _load_afdd_state()
+    now_ms = int(time.time() * 1000)
+    window_start_ms = now_ms - int(LOOKBACK_HOURS * 3600 * 1000)
+
+    if not rules:
+        readings = _fetch_readings_between(window_start_ms, now_ms)
+        if not readings:
+            summary = {
+                "fdd_status": "MISSING_DATA",
+                "active_flags": [],
+                "sample_count": 0,
+                "lookback_hours": LOOKBACK_HOURS,
+                "eval_log": [f"No telemetry in last {LOOKBACK_HOURS}h"],
+                "evaluated_at": int(time.time()),
+            }
+        else:
+            flag_series = evaluate_all(readings)
+            active_flags = []
+            flag_counts = {}
+            eval_log = [f"Built-in fdd_rules: {len(readings)} samples / {LOOKBACK_HOURS}h"]
+            for key, series in flag_series.items():
+                count = sum(series)
+                flag_counts[key] = count
+                eval_log.append(f"  {key}: {count}")
+                if count > 0:
+                    active_flags.append(key)
+            summary = {
+                "fdd_status": active_flags[0].replace("_flag", "").upper()
+                if active_flags
+                else "NORMAL",
+                "active_flags": active_flags,
+                "flag_counts": flag_counts,
+                "sample_count": len(readings),
+                "lookback_hours": LOOKBACK_HOURS,
+                "eval_log": eval_log,
+                "evaluated_at": int(time.time()),
+            }
+        _write_summary_item(summary)
+        return summary
+
+    incremental = (
+        state.get("rules_revision") == rev
+        and state.get("watermark_ms")
+        and int(state["watermark_ms"]) > window_start_ms
+    )
+
+    if incremental:
+        start_ms = int(state["watermark_ms"])
+        initial_counts = dict(state.get("flag_counts") or {})
+        hours = (now_ms - window_start_ms) / 3600000.0
+        mode = f"incremental from watermark ({FDD_CHUNK_HOURS}h chunks)"
+    else:
+        start_ms = window_start_ms
+        initial_counts = {}
+        hours = LOOKBACK_HOURS
+        mode = f"full backfill ({FDD_CHUNK_HOURS}h chunks)"
+
+    def fetch_interval(chunk_start: int, end_ms_exclusive: int) -> list[dict]:
+        s = max(chunk_start, start_ms)
+        if s >= end_ms_exclusive:
+            return []
+        return _fetch_readings_between(s, end_ms_exclusive)
+
+    log.info(f"{mode} rules_rev={rev}")
+
+    try:
+        summary = chunked_evaluate_custom_rules(
+            rules=rules,
+            lookback_hours=(now_ms - start_ms) / 3600000.0 if incremental else hours,
+            fetch_interval=fetch_interval,
+            chunk_hours=FDD_CHUNK_HOURS,
+            initial_flag_counts=initial_counts if incremental else None,
+            window_start_ms=start_ms,
+        )
+    except Exception as exc:
+        log.error("chunked_evaluate failed", exc)
+        raise
+
+    log.extend(summary.get("eval_log") or [])
+    for ce in (summary.get("chunk_errors") or [])[:10]:
+        log.warn(ce)
+
+    summary["rules_revision"] = rev
+    summary["eval_log"] = [mode] + list(summary.get("eval_log") or [])
+
+    _save_afdd_state(
+        {
+            "watermark_ms": summary.get("watermark_ms", now_ms),
+            "lookback_hours": LOOKBACK_HOURS,
+            "rules_revision": rev,
+            "flag_counts": summary.get("flag_counts") or {},
+            "chunk_hours": FDD_CHUNK_HOURS,
+            "last_evaluated_at": summary.get("evaluated_at"),
+        }
+    )
+    db = _write_summary_item(summary)
+    log.info(
+        f"done status={db.get('fdd_status')} samples={summary.get('sample_count')} "
+        f"chunks={summary.get('chunk_count')}"
     )
     return summary
