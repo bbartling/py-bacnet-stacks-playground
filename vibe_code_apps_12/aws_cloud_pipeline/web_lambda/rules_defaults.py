@@ -8,20 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
-CONFIG_FIELD_META: dict[str, dict[str, Any]] = {
-    "rolling_avg_minutes": {
-        "label": "Rolling avg (min)",
-        "type": "choice",
-        "choices": [1, 5, 10],
-        "default": 1,
-    },
-    "bounds_low_f": {"label": "Low °F", "type": "float", "step": 0.1},
-    "bounds_high_f": {"label": "High °F", "type": "float", "step": 0.1},
-    "flatline_tolerance_f": {"label": "Flatline tol °F", "type": "float", "step": 0.01},
-    "flatline_window": {"label": "Flatline win", "type": "int", "step": 1},
-    "max_f_per_hour": {"label": "Max °F/hr", "type": "float", "step": 0.1},
-    "max_f_per_minute": {"label": "Max °F/min", "type": "float", "step": 0.1},
-}
+from units import config_field_meta_for_unit, normalize_temp_unit
+
+CONFIG_FIELD_META = config_field_meta_for_unit("imperial")
+
+
+def get_config_field_meta(unit: str | None = None) -> dict[str, dict[str, Any]]:
+    return config_field_meta_for_unit(normalize_temp_unit(unit))
 
 
 def default_custom_rules() -> list[dict[str, Any]]:
@@ -32,16 +25,19 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#f85149",
-            "config_fields": ["bounds_low_f", "bounds_high_f", "rolling_avg_minutes"],
+            "config_fields": ["bounds_low", "bounds_high", "rolling_avg_minutes"],
             "config": {
-                "bounds_low_f": 65.0,
-                "bounds_high_f": 80.0,
+                "bounds_low": 65.0,
+                "bounds_high": 80.0,
                 "rolling_avg_minutes": 1,
             },
             "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
-    f = row["degF"]
-    if f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]:
-        print(f"{row['ts']}  OUT OF BOUNDS  {f:.2f} F")
+    sym = temp_unit_symbol(cfg)
+    low = cfg_threshold(cfg, "bounds_low")
+    high = cfg_threshold(cfg, "bounds_high")
+    f = row["degF_rolling_avg"] if "degF_rolling_avg" in row else row["temp"]
+    if f < low or f > high:
+        print(f"{row['ts']}  OOB avg  {f:.2f} {sym}  raw={row['temp']:.2f}")
         return True
     return False
 ''',
@@ -52,17 +48,19 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#d29922",
-            "config_fields": ["flatline_tolerance_f", "flatline_window"],
-            "config": {"flatline_tolerance_f": 0.05, "flatline_window": 18},
+            "config_fields": ["flatline_tolerance", "flatline_window"],
+            "config": {"flatline_tolerance": 0.05, "flatline_window": 18},
             "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
+    sym = temp_unit_symbol(cfg)
     w = int(cfg["flatline_window"])
     if rows is None or row["row"] < w - 1:
         return False
     i = row["row"]
     win = rows[i - w + 1 : i + 1]
-    vals = [r["degF"] for r in win]
-    if max(vals) - min(vals) < cfg["flatline_tolerance_f"]:
-        print(f"{row['ts']}  FLATLINE  spread={max(vals)-min(vals):.3f} F")
+    vals = [r["temp"] for r in win]
+    tol = cfg_threshold(cfg, "flatline_tolerance")
+    if max(vals) - min(vals) < tol:
+        print(f"{row['ts']}  FLATLINE  spread={max(vals)-min(vals):.3f} {sym}")
         return True
     return False
 ''',
@@ -73,17 +71,19 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#a371f7",
-            "config_fields": ["max_f_per_hour"],
-            "config": {"max_f_per_hour": 15.0},
+            "config_fields": ["max_temp_per_hour"],
+            "config": {"max_temp_per_hour": 15.0},
             "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
     if not prev_row:
         return False
+    sym = temp_unit_symbol(cfg)
     dt = (row["ts_ms"] - prev_row["ts_ms"]) / 1000.0
     if dt <= 0:
         return False
-    rate = abs(row["degF"] - prev_row["degF"]) / (dt / 3600.0)
-    if rate > cfg["max_f_per_hour"]:
-        print(f"{row['ts']}  RATE/Hr  {rate:.1f} F/hr")
+    rate = abs(row["temp"] - prev_row["temp"]) / (dt / 3600.0)
+    lim = cfg_threshold(cfg, "max_temp_per_hour")
+    if rate > lim:
+        print(f"{row['ts']}  RATE/Hr  {rate:.1f} {sym}/hr")
         return True
     return False
 ''',
@@ -94,17 +94,19 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#ff7b72",
-            "config_fields": ["max_f_per_minute"],
-            "config": {"max_f_per_minute": 2.0},
+            "config_fields": ["max_temp_per_minute"],
+            "config": {"max_temp_per_minute": 2.0},
             "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
     if not prev_row:
         return False
+    sym = temp_unit_symbol(cfg)
     dt = (row["ts_ms"] - prev_row["ts_ms"]) / 1000.0
     if dt <= 0:
         return False
-    rate = abs(row["degF"] - prev_row["degF"]) / (dt / 60.0)
-    if rate > cfg["max_f_per_minute"]:
-        print(f"{row['ts']}  RATE/min  {rate:.1f} F/min")
+    rate = abs(row["temp"] - prev_row["temp"]) / (dt / 60.0)
+    lim = cfg_threshold(cfg, "max_temp_per_minute")
+    if rate > lim:
+        print(f"{row['ts']}  RATE/min  {rate:.1f} {sym}/min")
         return True
     return False
 ''',
@@ -124,16 +126,41 @@ def rules_to_panels(rules: list[dict[str, Any]]) -> list[dict[str, str]]:
     ]
 
 
-def chart_guides_from_rules(rules: list[dict[str, Any]]) -> dict[str, float]:
-    """Bounds band for dashboard guide lines (from Out of bounds rule config)."""
+def chart_guides_from_rules(
+    rules: list[dict[str, Any]], display_unit: str = "imperial"
+) -> dict[str, Any]:
+    """Bounds band for dashboard guide lines (values in display_unit)."""
+    from units import effective_temp_unit, resolve_cfg_threshold, to_display_temp
+
+    du = normalize_temp_unit(display_unit)
     for r in rules:
         cfg = r.get("config") or {}
-        if "bounds_low_f" in cfg and "bounds_high_f" in cfg:
-            return {
-                "bounds_low_f": float(cfg["bounds_low_f"]),
-                "bounds_high_f": float(cfg["bounds_high_f"]),
+        try:
+            ru = effective_temp_unit(cfg, du)
+            low = resolve_cfg_threshold(cfg, "bounds_low", ru)
+            high = resolve_cfg_threshold(cfg, "bounds_high", ru)
+            low_d = to_display_temp(low, ru, du)
+            high_d = to_display_temp(high, ru, du)
+            out: dict[str, Any] = {
+                "bounds_low": low_d,
+                "bounds_high": high_d,
+                "temp_unit": du,
             }
-    return {"bounds_low_f": 65.0, "bounds_high_f": 80.0}
+            if du == "imperial":
+                out["bounds_low_f"] = low_d
+                out["bounds_high_f"] = high_d
+            return out
+        except KeyError:
+            continue
+    if du == "metric":
+        return {"bounds_low": 18.0, "bounds_high": 27.0, "temp_unit": "metric"}
+    return {
+        "bounds_low": 65.0,
+        "bounds_high": 80.0,
+        "temp_unit": "imperial",
+        "bounds_low_f": 65.0,
+        "bounds_high_f": 80.0,
+    }
 
 
 def rules_meta(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:

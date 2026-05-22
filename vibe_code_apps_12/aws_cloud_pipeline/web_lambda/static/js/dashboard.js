@@ -10,7 +10,26 @@
   let showBoundsGuides = localStorage.getItem("vibe12_show_bounds_guides") !== "0";
   let showRollingAvg = localStorage.getItem("vibe12_show_rolling_avg") !== "0";
   const ROLLING_STORAGE_KEY = "vibe12_rolling_avg_minutes";
+  const TEMP_UNIT_STORAGE_KEY = "vibe12_display_temp_unit";
   const ROLLING_ALLOWED = [1, 5, 10];
+
+  function normalizeDisplayUnit(v) {
+    const s = String(v || "imperial").toLowerCase();
+    return s === "metric" || s === "c" || s === "celsius" ? "metric" : "imperial";
+  }
+
+  function unitSym(unit) {
+    return normalizeDisplayUnit(unit) === "metric" ? "°C" : "°F";
+  }
+
+  function chartTemp(p, displayUnit) {
+    if (!p) return null;
+    return normalizeDisplayUnit(displayUnit) === "metric" ? p.degC : p.degF;
+  }
+
+  let displayTempUnit = normalizeDisplayUnit(
+    localStorage.getItem(TEMP_UNIT_STORAGE_KEY) || "imperial"
+  );
 
   function normalizeRollingMinutes(v) {
     const m = parseInt(v, 10);
@@ -178,9 +197,12 @@
 
   function updateGuideLabels(data) {
     const guides = data.chart_guides || {};
+    const sym = unitSym(guides.temp_unit || data.display_temp_unit || displayTempUnit);
+    const lo = guides.bounds_low != null ? guides.bounds_low : guides.bounds_low_f;
+    const hi = guides.bounds_high != null ? guides.bounds_high : guides.bounds_high_f;
     const bl = document.getElementById("boundsGuideLabel");
-    if (bl && guides.bounds_low_f != null) {
-      bl.textContent = guides.bounds_low_f + "–" + guides.bounds_high_f + " °F";
+    if (bl && lo != null && hi != null) {
+      bl.textContent = lo + "–" + hi + " " + sym;
     }
     const rl = document.getElementById("rollingAvgLabel");
     const mins = data.rolling_avg_minutes != null ? data.rolling_avg_minutes : rollingAvgMinutes;
@@ -309,25 +331,31 @@
       return ds.stride;
     }
     const x = xLabels(pts);
-    const yF = pts.map((p) => p.degF);
-    const pad = Math.max(3, (Math.max(...yF) - Math.min(...yF)) * 0.1);
+    const du = normalizeDisplayUnit(data.display_temp_unit || displayTempUnit);
+    const sym = unitSym(du);
+    const yT = pts.map((p) => chartTemp(p, du));
+    const pad = Math.max(3, (Math.max(...yT) - Math.min(...yT)) * 0.1);
     const traces = [
       {
         x,
-        y: yF,
+        y: yT,
         name: "Temperature (raw)",
         type: "scatter",
         mode: "lines",
         line: { color: "#58a6ff", width: 2.5 },
         yaxis: "y",
         showlegend: true,
-        hovertemplate: "%{y:.1f} °F raw<extra></extra>",
+        hovertemplate: "%{y:.1f} " + sym + " raw<extra></extra>",
       },
     ];
     if (showRollingAvg && rolled.rule_rolling_avg) {
+      const yAvg =
+        du === "metric"
+          ? rolled.rule_rolling_avg.map((v) => (v - 32) * (5 / 9))
+          : rolled.rule_rolling_avg;
       traces.push({
         x,
-        y: rolled.rule_rolling_avg,
+        y: yAvg,
         name: "Rolling avg (" + rollMins + " min)",
         type: "scatter",
         mode: "lines",
@@ -335,7 +363,7 @@
         yaxis: "y",
         showlegend: true,
         opacity: 0.9,
-        hovertemplate: "%{y:.1f} °F rule avg<extra></extra>",
+        hovertemplate: "%{y:.1f} " + sym + " rule avg<extra></extra>",
       });
     }
     const showFaultAxis = panels.length > 0;
@@ -353,8 +381,8 @@
         opacity: 0.9,
       });
     });
-    const yLo = Math.min(...yF) - pad;
-    const yHi = Math.max(...yF) + pad;
+    const yLo = Math.min(...yT) - pad;
+    const yHi = Math.max(...yT) + pad;
     const layout = {
       height: 460,
       paper_bgcolor: "#0f1419",
@@ -366,7 +394,7 @@
       uirevision: CHART_UIREVISION,
       xaxis: { title: "Time (UTC)", gridcolor: "#30363d" },
       yaxis: {
-        title: "°F",
+        title: sym,
         side: "left",
       },
     };
@@ -383,12 +411,10 @@
         ticktext: ["False", "True"],
       };
     }
-    if (
-      showBoundsGuides &&
-      guides.bounds_low_f != null &&
-      guides.bounds_high_f != null
-    ) {
-      layout.shapes = boundsShapes(x, guides.bounds_low_f, guides.bounds_high_f);
+    const gLo = guides.bounds_low != null ? guides.bounds_low : guides.bounds_low_f;
+    const gHi = guides.bounds_high != null ? guides.bounds_high : guides.bounds_high_f;
+    if (showBoundsGuides && gLo != null && gHi != null) {
+      layout.shapes = boundsShapes(x, gLo, gHi);
     }
     Plotly.react("chart", traces, layout, PLOT_CFG).then(() => {
       bindChartZoomPreserve();
@@ -411,7 +437,12 @@
   async function refresh(opts) {
     opts = opts || {};
     const url =
-      "/api/readings?hours=" + hours + "&rolling_avg_minutes=" + rollingAvgMinutes;
+      "/api/readings?hours=" +
+      hours +
+      "&rolling_avg_minutes=" +
+      rollingAvgMinutes +
+      "&temp_unit=" +
+      encodeURIComponent(displayTempUnit);
     if (!(opts.silent && preserveUserZoom && pauseRefreshWhenZoomed)) {
       logMsg("GET " + url);
     }
@@ -495,6 +526,14 @@
       const last = pts[pts.length - 1];
       document.getElementById("latestC").textContent = last.degC.toFixed(2);
       document.getElementById("latestF").textContent = last.degF.toFixed(2);
+      const primary = document.getElementById(
+        normalizeDisplayUnit(data.display_temp_unit) === "metric" ? "latestC" : "latestF"
+      );
+      if (primary) primary.classList.add("val-primary");
+      const other = document.getElementById(
+        normalizeDisplayUnit(data.display_temp_unit) === "metric" ? "latestF" : "latestC"
+      );
+      if (other) other.classList.remove("val-primary");
       setLatestTs(last);
     }
   }
@@ -563,6 +602,16 @@
       preserveUserZoom = false;
       refresh({ resetZoom: true });
     });
+    const tu = document.getElementById("displayTempUnit");
+    if (tu) {
+      tu.value = displayTempUnit;
+      tu.addEventListener("change", () => {
+        displayTempUnit = normalizeDisplayUnit(tu.value);
+        localStorage.setItem(TEMP_UNIT_STORAGE_KEY, displayTempUnit);
+        preserveUserZoom = false;
+        refresh({ resetZoom: true });
+      });
+    }
     document.getElementById("refreshNow").addEventListener("click", () => {
       refresh({ forceChart: true, resetZoom: false });
     });

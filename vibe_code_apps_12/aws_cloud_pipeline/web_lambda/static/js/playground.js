@@ -39,17 +39,37 @@
     return "custom_rule_" + Date.now().toString(36);
   }
 
+  function ruleTempUnit(rule) {
+    const u = (rule && rule.config && rule.config.temp_unit) || "imperial";
+    return String(u).toLowerCase() === "metric" ? "metric" : "imperial";
+  }
+
+  function unitSym(unit) {
+    return ruleTempUnit({ config: { temp_unit: unit } }) === "metric" ? "°C" : "°F";
+  }
+
   function chartGuidesSnapshot() {
     for (const r of rules) {
       const cfg = r.config || {};
+      const u = ruleTempUnit(r);
+      if (cfg.bounds_low != null && cfg.bounds_high != null) {
+        return {
+          bounds_low: Number(cfg.bounds_low),
+          bounds_high: Number(cfg.bounds_high),
+          temp_unit: u,
+        };
+      }
       if (cfg.bounds_low_f != null && cfg.bounds_high_f != null) {
         return {
+          bounds_low: Number(cfg.bounds_low_f),
+          bounds_high: Number(cfg.bounds_high_f),
+          temp_unit: "imperial",
           bounds_low_f: Number(cfg.bounds_low_f),
           bounds_high_f: Number(cfg.bounds_high_f),
         };
       }
     }
-    return { bounds_low_f: 65, bounds_high_f: 80 };
+    return { bounds_low: 65, bounds_high: 80, temp_unit: "imperial" };
   }
 
   function rulesMetaSnapshot() {
@@ -1022,6 +1042,11 @@
     if (index < 0 || index >= rules.length) return;
     selectedIndex = index;
     els.ruleSelect.value = String(index);
+    const labUnit = labTempUnitEl();
+    const rule = rules[index];
+    if (labUnit && rule) {
+      labUnit.value = ruleTempUnit(rule);
+    }
     renderSelectedRule();
   }
 
@@ -1055,8 +1080,28 @@
 
   window.vibe12GetRulesMeta = rulesMetaSnapshot;
 
+  function labTempUnitEl() {
+    return document.getElementById("labTempUnit");
+  }
+
+  function getLabTempUnit() {
+    const el = labTempUnitEl();
+    if (!el) return "imperial";
+    return String(el.value).toLowerCase() === "metric" ? "metric" : "imperial";
+  }
+
+  async function reloadFieldMeta(unit) {
+    const res = await fetch(
+      "/api/fdd-rules?temp_unit=" + encodeURIComponent(unit || getLabTempUnit())
+    );
+    const data = await res.json();
+    fieldMeta = data.config_field_meta || fieldMeta;
+  }
+
   async function boot() {
-    const res = await fetch("/api/fdd-rules");
+    const res = await fetch(
+      "/api/fdd-rules?temp_unit=" + encodeURIComponent(getLabTempUnit())
+    );
     const data = await res.json();
     fieldMeta = data.config_field_meta || {};
     rules = data.rules?.length ? data.rules : data.defaults || [];
@@ -1081,6 +1126,24 @@
       els.testHoursLabel.textContent = els.testHours.value;
       loadTsPreview(parseInt(els.testHours.value, 10));
     });
+    const labUnit = labTempUnitEl();
+    if (labUnit) {
+      const rule = currentRule();
+      if (rule && rule.config && rule.config.temp_unit) {
+        labUnit.value = ruleTempUnit(rule);
+      }
+      labUnit.addEventListener("change", async () => {
+        persistActiveEditor();
+        const r = currentRule();
+        if (r) {
+          if (!r.config) r.config = {};
+          r.config.temp_unit = getLabTempUnit();
+        }
+        await reloadFieldMeta(getLabTempUnit());
+        renderSelectedRule();
+        notifyDashboardRules();
+      });
+    }
     const labRoll = document.getElementById("labRollingAvgMinutes");
     if (labRoll) {
       const saved = localStorage.getItem("vibe12_rolling_avg_minutes");

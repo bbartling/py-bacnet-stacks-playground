@@ -28,6 +28,7 @@ python3 -m unittest discover -s tests -v
 | `test_afdd_chunked.py` | Chunked AFDD merge across time windows |
 | `test_go_live_constants.py` | Go live hard-coded 6 h batches, 168 h max |
 | `test_retroactive_faults.py` | `(True, window_rows)` and `apply_faults()` |
+| `test_units.py` | Imperial default, metric rule unit, cfg_threshold |
 | `test_rules_defaults.py` | `rules_meta`, `chart_guides`, defaults |
 | `test_slim_fdd_summary.py` | Go-live DynamoDB payload slimming |
 

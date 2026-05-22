@@ -20,7 +20,7 @@
   </header>
 
   <section id="tab-dashboard" class="tab-panel active">
-    <p class="sub">Live MQTT · raw °F always on chart · guides & fault lanes toggled below (bounds follow Rule Lab config)</p>
+    <p class="sub">Live MQTT · chart uses display unit below (both °F and °C stored) · guides & fault lanes toggled below</p>
     <div class="cards">
       <div class="card"><div class="lbl">°C</div><div id="latestC" class="val">—</div></div>
       <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
@@ -30,6 +30,12 @@
     <div class="toolbar">
       <label>Refresh <select id="refreshSelect"></select></label>
       <label>History <select id="hoursSelect"></select></label>
+      <label>Display
+        <select id="displayTempUnit" aria-label="Chart temperature unit">
+          <option value="imperial" selected>°F</option>
+          <option value="metric">°C</option>
+        </select>
+      </label>
       <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
       <button type="button" id="resetZoomBtn" class="btn btn-secondary" title="Reset chart zoom to full range">Reset zoom</button>
       <label class="toolbar-chk" title="While you are zoomed in, skip timer redraws so pan/zoom is not lost (data resumes on Reset zoom or Refresh now)">
@@ -85,6 +91,12 @@
       <button type="button" id="removeRuleBtn" class="btn btn-secondary" title="Remove selected rule">− Remove</button>
       <button type="button" id="addRuleBtn" class="btn btn-secondary">+ Add rule</button>
       <label>Test window (h) <input type="number" id="testHours" min="1" max="168" value="6" /></label>
+      <label>Rule unit
+        <select id="labTempUnit" aria-label="Temperature unit for this rule config and evaluate">
+          <option value="imperial" selected>°F (imperial)</option>
+          <option value="metric">°C (metric)</option>
+        </select>
+      </label>
       <label>Rolling avg
         <select id="labRollingAvgMinutes" aria-label="Rolling average window for test sweep">
           <option value="1" selected>1 min</option>
@@ -107,7 +119,7 @@
       <div class="ts-preview-wrap">
         <div class="panel-head"><span>Rows (test window)</span><span id="tsSummary" class="elapsed">—</span></div>
         <div class="ts-table-wrap">
-          <table class="ts-table"><thead><tr><th>#</th><th>Time</th><th>°F raw</th><th>°F avg</th><th></th></tr></thead>
+          <table class="ts-table"><thead><tr><th>#</th><th>Time</th><th id="tsColRaw">Raw</th><th id="tsColAvg">Avg</th><th></th></tr></thead>
           <tbody id="tsTableBody"></tbody></table>
         </div>
       </div>

@@ -38,12 +38,13 @@ from playground_core import (
 )
 from afdd_logging import AfddLog, debug_payload
 from rules_defaults import (
-    CONFIG_FIELD_META,
     chart_guides_from_rules,
     default_custom_rules,
+    get_config_field_meta,
     rules_meta,
     rules_to_panels,
 )
+from units import TEMP_UNITS, normalize_temp_unit
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
@@ -124,6 +125,17 @@ def _rolling_minutes_from_body(body: dict, rule: dict | None = None) -> int:
     if cfg.get("rolling_avg_minutes") is not None:
         return normalize_rolling_avg_minutes(cfg["rolling_avg_minutes"])
     return DEFAULT_ROLLING_AVG_MINUTES
+
+
+def _get_display_temp_unit(event, default: str | None = None) -> str:
+    default = normalize_temp_unit(default)
+    try:
+        q = event.get("queryStringParameters") or {}
+        if q.get("temp_unit") is not None:
+            return normalize_temp_unit(q["temp_unit"])
+    except (TypeError, ValueError):
+        pass
+    return default
 
 
 def _get_rolling_avg_minutes(event, default: int | None = None) -> int:
@@ -367,6 +379,7 @@ def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) 
 def _readings_payload(
     hours: int,
     rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    display_temp_unit: str = "imperial",
     log: AfddLog | None = None,
 ) -> dict:
     log = log or AfddLog()
@@ -387,7 +400,7 @@ def _readings_payload(
 
         stage = "enrich_rows"
         if rows:
-            prepare_rows_for_evaluate(rows, minutes)
+            prepare_rows_for_evaluate(rows, minutes, temp_unit=display_temp_unit)
 
         stage = "fdd_status"
         fdd_status = _fetch_fdd_status()
@@ -442,7 +455,9 @@ def _readings_payload(
         "fdd_open": fdd_status,
         "fault_panels": rules_to_panels(rules),
         "rules_meta": rules_meta(rules),
-        "chart_guides": chart_guides_from_rules(rules),
+        "display_temp_unit": display_temp_unit,
+        "temp_units_allowed": list(TEMP_UNITS),
+        "chart_guides": chart_guides_from_rules(rules, display_temp_unit),
         "eval_rows_preview": eval_rows_preview(rows),
         "numpy_available": NUMPY_AVAILABLE,
         "fault_plots": chart_plots,
@@ -481,6 +496,10 @@ def _health_payload() -> dict:
             "degF",
             "degF_raw",
             "degF_rolling_avg",
+            "temp",
+            "temp_raw",
+            "temp_rolling_avg",
+            "temp_unit",
             "sample_period_ms",
             "rolling_avg_minutes",
             "rolling_window_ms",
@@ -492,6 +511,8 @@ def _health_payload() -> dict:
         ],
         "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
         "rolling_avg_minutes_default": DEFAULT_ROLLING_AVG_MINUTES,
+        "temp_unit_default": normalize_temp_unit(None),
+        "temp_units_allowed": list(TEMP_UNITS),
         "numpy_available": NUMPY_AVAILABLE,
         "sandbox_imports": ["math", "datetime", "numpy (if numpy_available)"],
         "go_live_batch_hours": GO_LIVE_BATCH_HOURS,
@@ -530,12 +551,15 @@ def lambda_handler(event, context):
                 },
             )
         rules = _load_custom_rules()
+        display_unit = _get_display_temp_unit(event)
         return _response(
             200,
             {
                 "rules": rules,
                 "defaults": default_custom_rules(),
-                "config_field_meta": CONFIG_FIELD_META,
+                "config_field_meta": get_config_field_meta(display_unit),
+                "temp_unit_default": normalize_temp_unit(None),
+                "temp_units_allowed": list(TEMP_UNITS),
             },
         )
 
@@ -638,9 +662,10 @@ def lambda_handler(event, context):
     if path.startswith("/api/readings"):
         hours = _get_hours(event)
         roll_min = _get_rolling_avg_minutes(event)
+        display_unit = _get_display_temp_unit(event)
         log = AfddLog()
         try:
-            payload = _readings_payload(hours, roll_min, log=log)
+            payload = _readings_payload(hours, roll_min, display_unit, log=log)
             body = json.dumps(_json_safe(payload))
             if len(body) > 5_500_000:
                 log.error(f"response too large bytes={len(body)}")

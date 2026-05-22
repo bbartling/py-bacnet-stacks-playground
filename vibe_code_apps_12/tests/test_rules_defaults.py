@@ -30,8 +30,10 @@ class TestRulesMeta(unittest.TestCase):
     def test_chart_guides_from_bounds_rule(self) -> None:
         rules = default_custom_rules()
         guides = chart_guides_from_rules(rules)
-        self.assertEqual(guides["bounds_low_f"], 65.0)
-        self.assertEqual(guides["bounds_high_f"], 80.0)
+        self.assertEqual(guides["bounds_low"], 65.0)
+        self.assertEqual(guides["bounds_high"], 80.0)
+        guides_c = chart_guides_from_rules(rules, "metric")
+        self.assertEqual(guides_c["temp_unit"], "metric")
 
 
 if __name__ == "__main__":

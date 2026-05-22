@@ -47,9 +47,9 @@ class TestSweep(unittest.TestCase):
         ]
         rows = readings_to_rows(readings)
         code = """def evaluate(row, cfg, prev_row=None, rows=None):
-    return row["degF"] > cfg["bounds_high_f"]
+    return row["temp"] > cfg_threshold(cfg, "bounds_high")
 """
-        cfg = {"bounds_high_f": 80.0, "bounds_low_f": 65.0}
+        cfg = {"bounds_high": 80.0, "bounds_low": 65.0}
         flags, events = sweep_rule(code, cfg, rows, capture_print=False)
         self.assertGreater(sum(flags), 0)
         types = {e["type"] for e in events}

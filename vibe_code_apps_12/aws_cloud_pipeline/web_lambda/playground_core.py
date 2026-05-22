@@ -244,25 +244,36 @@ def _median_sample_ms(rows: list[dict[str, Any]]) -> int:
 def attach_rolling_avg(
     rows: list[dict[str, Any]],
     window_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    temp_unit: str = "imperial",
 ) -> None:
     """
-    Mutates rows in place. Trailing mean of degF over samples with
+    Mutates rows in place. Trailing mean over samples with
     ts_ms in [row.ts_ms - window_minutes*60_000, row.ts_ms].
+    Always sets degF_* (MQTT); also temp/temp_rolling_avg in rule unit.
     """
+    from units import normalize_temp_unit, temp_from_row
+
     if not rows:
         return
     minutes = normalize_rolling_avg_minutes(window_minutes)
+    unit = normalize_temp_unit(temp_unit)
     window_ms = minutes * 60_000
     period_ms = _median_sample_ms(rows)
     j_start = 0
     for i, row in enumerate(rows):
         row["degF_raw"] = float(row["degF"])
+        row["temp_unit"] = unit
+        row["temp_raw"] = temp_from_row(row, unit)
         ts = int(row["ts_ms"])
         cutoff = ts - window_ms
         while j_start < i and int(rows[j_start]["ts_ms"]) < cutoff:
             j_start += 1
         window = rows[j_start : i + 1]
         row["degF_rolling_avg"] = sum(r["degF_raw"] for r in window) / len(window)
+        row["temp_rolling_avg"] = sum(
+            temp_from_row(r, unit) for r in window
+        ) / len(window)
+        row["temp"] = row["temp_raw"]
         row["sample_period_ms"] = period_ms
         row["rolling_avg_minutes"] = minutes
         row["rolling_window_ms"] = window_ms
@@ -272,13 +283,23 @@ def attach_rolling_avg(
 def prepare_rows_for_evaluate(
     rows: list[dict[str, Any]],
     rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    temp_unit: str = "imperial",
 ) -> list[dict[str, Any]]:
-    """Enrich rows before a sweep; recomputes when window minutes change."""
+    """Enrich rows before a sweep; recomputes when window or unit changes."""
+    from units import normalize_temp_unit
+
     if not rows:
         return rows
     minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
-    if rows[0].get("rolling_avg_minutes") != minutes or "degF_rolling_avg" not in rows[0]:
-        attach_rolling_avg(rows, minutes)
+    unit = normalize_temp_unit(temp_unit)
+    need = (
+        rows[0].get("rolling_avg_minutes") != minutes
+        or rows[0].get("temp_unit") != unit
+        or "degF_rolling_avg" not in rows[0]
+        or "temp_rolling_avg" not in rows[0]
+    )
+    if need:
+        attach_rolling_avg(rows, minutes, temp_unit=unit)
     return rows
 
 
@@ -364,12 +385,22 @@ def aux_series_from_rows(rows: list[dict[str, Any]]) -> dict[str, list[float]]:
 
 
 def _rule_sandbox() -> dict[str, Any]:
+    from units import effective_temp_unit, resolve_cfg_threshold, temp_from_row, temp_unit_symbol
+
+    def cfg_threshold(cfg: dict[str, Any], base_key: str) -> float:
+        return resolve_cfg_threshold(cfg or {}, base_key, effective_temp_unit(cfg))
+
     sandbox: dict[str, Any] = {
         "__builtins__": _sandbox_builtins(),
         "__name__": "__rule__",
         "math": math,
         "datetime": datetime,
         "timezone": datetime.timezone,
+        "effective_temp_unit": effective_temp_unit,
+        "temp_from_row": temp_from_row,
+        "temp_unit_symbol": temp_unit_symbol,
+        "cfg_threshold": cfg_threshold,
+        "resolve_cfg_threshold": cfg_threshold,
     }
     if NUMPY_AVAILABLE and np is not None:
         sandbox["np"] = np
@@ -411,8 +442,12 @@ def sweep_rule(
         if rolling_avg_minutes is not None
         else cfg.get("rolling_avg_minutes", DEFAULT_ROLLING_AVG_MINUTES)
     )
-    prepare_rows_for_evaluate(rows, minutes)
+    from units import effective_temp_unit, temp_unit_symbol
+
+    temp_unit = effective_temp_unit(cfg)
+    prepare_rows_for_evaluate(rows, minutes, temp_unit=temp_unit)
     evaluate, apply_faults = compile_rule_code(code)
+    unit_sym = temp_unit_symbol(temp_unit)
     stream_buf: list[dict[str, Any]] = []
 
     class _Cap(io.TextIOBase):
@@ -428,7 +463,7 @@ def sweep_rule(
             "type": "stdout",
             "text": (
                 f"--- sweeping {len(rows)} rows "
-                f"(degF_rolling_avg on each row, {minutes} min window by ts_ms, mode={mode}) ---\n"
+                f"(temp in {unit_sym}, rolling avg {minutes} min by ts_ms, mode={mode}) ---\n"
             ),
         }
     )
@@ -436,6 +471,7 @@ def sweep_rule(
     flags = [0] * len(rows)
     tripped = 0
     painted: set[int] = set()
+    row_errors: list[str] = []
 
     if apply_faults:
         stream_buf.clear()
@@ -466,6 +502,8 @@ def sweep_rule(
                 )
         except Exception as exc:
             events.append({"type": "stdout", "text": f"apply_faults ERROR: {exc}\n"})
+            if not capture_print:
+                raise RuntimeError(f"apply_faults failed: {exc}") from exc
             return [], events
     else:
         for i, row in enumerate(rows):
@@ -501,6 +539,7 @@ def sweep_rule(
                     }
                 )
             except Exception as exc:
+                row_errors.append(f"row {row['row']}: {exc}")
                 events.append(
                     {
                         "type": "row",
@@ -513,6 +552,10 @@ def sweep_rule(
                 events.append(
                     {"type": "stdout", "text": f"  row {row['row']}: ERROR {exc}\n"}
                 )
+
+    if row_errors and not capture_print:
+        extra = f" (+{len(row_errors) - 1} more)" if len(row_errors) > 1 else ""
+        raise RuntimeError(f"rule sweep failed: {row_errors[0]}{extra}")
 
     events.append(
         {
@@ -554,14 +597,21 @@ def evaluate_rules_on_readings(
         minutes = normalize_rolling_avg_minutes(
             cfg.get("rolling_avg_minutes", chart_minutes)
         )
-        prepare_rows_for_evaluate(rows, minutes)
+        from units import effective_temp_unit
+
+        tunit = effective_temp_unit(cfg)
+        prepare_rows_for_evaluate(rows, minutes, temp_unit=tunit)
         flags, _events = sweep_rule(
             code, cfg, rows, capture_print=False, rolling_avg_minutes=minutes
         )
         out[rule["id"]] = flags
         chart_minutes = minutes
     if rows and "degF_rolling_avg" not in rows[0]:
-        prepare_rows_for_evaluate(rows, chart_minutes)
+        from units import normalize_temp_unit
+
+        prepare_rows_for_evaluate(
+            rows, chart_minutes, temp_unit=normalize_temp_unit(None)
+        )
     return out, rows
 
 

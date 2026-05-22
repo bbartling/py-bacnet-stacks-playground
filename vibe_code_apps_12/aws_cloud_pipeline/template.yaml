@@ -105,6 +105,7 @@ Resources:
           READINGS_LIMIT: "62000"
           CHART_RESPONSE_MAX: "5000"
           FDD_CHUNK_HOURS: "6"
+          VIBE12_TEMP_UNIT: "imperial"
           DEPLOY_REVISION: !Ref DeployRevision
       Policies:
         - DynamoDBCrudPolicy:
