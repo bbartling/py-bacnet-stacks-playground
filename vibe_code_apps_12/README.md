@@ -124,81 +124,91 @@ cd ~/py-bacnet-stacks-playground
 tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz \
   -C vibe_code_apps_12 aws_cloud_pipeline tests
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
+# Expect several MB before downloading to Windows.
 ```
 
-#### Upload from Windows → deploy in AWS CloudShell
+#### Right click in Linux server and download `vibe12-aws-cloud-pipeline.tar.gz` to Windows Machine
 
-Typical flow: build the archive on **Windows**, upload into **CloudShell**, extract, run **`sam build`** / **`sam deploy`**.
+#### CloudShell deploy (order matters)
 
-**1. Create a zip on Windows**
+**Phase A — bensserver:** pack tarball (above).  
+**Phase B — CloudShell:** clean home → **upload tarball** (Actions → Upload file) → extract → `sam deploy`.  
+**Phase C — CloudShell:** smoke curls + logs.
 
-- **Explorer:** select folders `vibe_code_apps_12\aws_cloud_pipeline` and `vibe_code_apps_12\tests` → right-click → **Compress to ZIP** (or use 7-Zip).
-- **PowerShell** (from repo root `py-bacnet-stacks-playground`):
-
-```powershell
-Compress-Archive -Path vibe_code_apps_12\aws_cloud_pipeline, vibe_code_apps_12\tests `
-  -DestinationPath $env:USERPROFILE\vibe12-aws-cloud-pipeline.zip -Force
-```
-
-**2. Clean up old files in CloudShell (before upload)**
-
-CloudShell **does not overwrite** a file you upload with the same name. Remove the previous archive and extracted tree **first**, then upload.
+Do **not** run the cleanup block until you are ready to upload a **new** tarball in the same session. If you `rm -rf ~/aws_cloud_pipeline` without re-uploading, `tar -xzf` will fail (you saw `Cannot open: No such file or directory`).
 
 ```bash
-# In AWS CloudShell (us-east-2) — run BEFORE Actions → Upload file
+# Phase B1 — CloudShell (us-east-2): clean ONLY when about to upload fresh tar
 rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
 rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
 ls ~
+# STOP — Actions → Upload file → pick vibe12-aws-cloud-pipeline.tar.gz from Windows
+# Confirm upload (must be several MB — not ~20 bytes):
+ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 ```
 
-**3. Upload into CloudShell**
-
-- Open **AWS Console** → region **us-east-2** → **CloudShell** (terminal icon).
-- **Actions** → **Upload file** → choose `vibe12-aws-cloud-pipeline.tar.gz` or `.zip`.
-- Confirm: `ls -lh ~/vibe12-aws-cloud-pipeline.*`
-
-**4. Extract and configure (CloudShell)**
+#### Bootstrap everything on AWS Console
 
 ```bash
-cd ~
+export AWS_REGION=us-east-2
+export STACK=vibe12cloud
 
-# If you uploaded .tar.gz (bensserver):
+# WebFunction name — do NOT use CFN LogicalResourceId=WebFunction (often returns None).
+# list-functions with starts_with is reliable:
+export WEB_FN=$(aws lambda list-functions --region "$AWS_REGION" \
+  --query "Functions[?starts_with(FunctionName, '${STACK}-WebFunction-')].FunctionName | [0]" --output text)
+export LOG_GROUP="/aws/lambda/$WEB_FN"
+echo "WEB_FN=$WEB_FN"
+
+# Phase B2 — extract (only after upload succeeded)
+cd ~
 tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
 cd ~/aws_cloud_pipeline
-# (if tar used -C vibe_code_apps_12: cd ~/vibe_code_apps_12/aws_cloud_pipeline)
-
-# If you uploaded .zip (Windows):
-# unzip -o ~/vibe12-aws-cloud-pipeline.zip -d ~
-# cd ~/vibe_code_apps_12/aws_cloud_pipeline
 
 cp samconfig.toml.example samconfig.toml
-# Edit samconfig.toml: stack_name = "vibe12cloud", region = "us-east-2",
-# resolve_s3 = true (see DEPLOYED.md)
-```
-
-**5. SAM build + deploy (CloudShell)**
-
-```bash
 rm -rf .aws-sam
 sam build --no-cached
 sam validate --lint
 sam deploy --force-upload
+
+# Phase C — verify
+# DashboardUrl from CFN includes a trailing slash — use ${URL%/}/api/… or curls get //api/… → HTML (~0.03s).
+URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$AWS_REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='DashboardUrl'].OutputValue" --output text | tr -d '\n\r')
+URL="${URL%/}"
+echo "URL=$URL"
+
+aws lambda get-function-configuration --function-name "$WEB_FN" --region "$AWS_REGION" \
+  --query '{Timeout:Timeout,Memory:MemorySize,LastModified:LastModified}' --output table
+
+# health — JSON in <1s (if you get HTML or empty body, URL path is wrong)
+curl -sS "${URL}/api/health" | python3 -m json.tool | grep -E 'chart_chunked_hours|deploy_revision|"status"'
+
+# 7d readings — ~40–50s, chart_eval_chunked=true
+time curl -sS -o /tmp/vibe12-readings.json -w 'HTTP=%{http_code} time=%{time_total}s\n' \
+  "${URL}/api/readings?hours=168&rolling_avg_minutes=10"
+python3 -c "import json;d=json.load(open('/tmp/vibe12-readings.json')); print('chunked=', d.get('debug',{}).get('chart_eval_chunked'), 'count=', d.get('count'), 'eval_ms=', d.get('debug',{}).get('eval_ms'))" 2>/dev/null || head -c 200 /tmp/vibe12-readings.json
+
+aws logs tail "$LOG_GROUP" --region "$AWS_REGION" --since 15m --format short
+
+# timeout search (run right after a failed 7d refresh if needed)
+aws logs filter-log-events --log-group-name "$LOG_GROUP" --region "$AWS_REGION" \
+  --start-time $(($(date +%s)*1000 - 900000)) \
+  --filter-pattern "?Task ?timeout ?chunked ?readings"
 ```
 
-Note stack outputs: **DashboardUrl**, **TelemetryTableName**. Open the dashboard → **Rule Lab (Bake-a-Py)** tab; use the [expression cookbook](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) for custom rules.
+**How to read smoke results**
 
-**6. Web-only update** (dashboard / Rule Lab JS, no full stack change):
+| Symptom | Likely cause |
+|--------|----------------|
+| `tar: Cannot open … No such file` | Uploaded tar missing — run Upload file before extract |
+| `sam build` / `template.yml not found` | Still in `~` with no extracted `aws_cloud_pipeline/` |
+| `WEB_FN=None` | Used CFN `LogicalResourceId==WebFunction` — use `list-functions` above |
+| readings **~0.03s** + `<!doctype html>` | **`${URL}/api/…` with trailing slash on URL** → `//api/health` — use `URL="${URL%/}"` then `${URL}/api/…` |
+| health empty / `Expecting value` | Same double-slash issue, or empty curl body |
+| readings **~44s**, logs show `chart eval chunked` | Deploy OK — ignore bad curl if URL was broken |
+| readings **120s** + `Status: timeout`, no `chart eval chunked` | Old code still running — repack tar, re-upload, redeploy |
 
-```bash
-sam build WebFunction
-sam deploy --no-confirm-changeset
-# or: aws lambda update-function-code after build — see DEPLOYED.md
-```
-
-**Alternative paths**
-
-- Copy zip to **bensserver** with WinSCP / `scp`, `tar` there, then `scp` the `.tar.gz` to CloudShell upload — same CloudShell steps after extract.
-- First-time guided deploy from a machine with SAM + AWS CLI: `cd aws_cloud_pipeline && cp samconfig.toml.example samconfig.toml && ./deploy.sh --guided` (see [aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)).
 
 **Unit tests (local, before deploy):**
 

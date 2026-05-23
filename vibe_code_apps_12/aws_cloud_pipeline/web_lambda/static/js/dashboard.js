@@ -44,8 +44,7 @@
   const CHART_MAX_PTS = 4000;
   const CHART_UIREVISION = "vibe12-chart";
   let preserveUserZoom = false;
-  let pauseRefreshWhenZoomed =
-    localStorage.getItem("vibe12_pause_refresh_zoom") !== "0";
+  const pauseRefreshWhenZoomed = true;
   let chartRelayoutBound = false;
 
   function logMsg(t, c) {
@@ -214,7 +213,10 @@
     if (!host) return;
     host.innerHTML = "";
     if (!metaList || !metaList.length) {
-      host.textContent = "No rules — add in Rule Lab";
+      const empty = document.createElement("span");
+      empty.className = "chart-empty-hint";
+      empty.textContent = "No rules yet — add in Rule Lab (Bake-a-Py)";
+      host.appendChild(empty);
       return;
     }
     (metaList || []).forEach((r) => {
@@ -252,12 +254,10 @@
   function updateChartZoomHint() {
     const el = document.getElementById("chartZoomHint");
     if (!el) return;
-    if (preserveUserZoom && pauseRefreshWhenZoomed) {
+    if (preserveUserZoom) {
       el.hidden = false;
-      el.textContent = "Auto-refresh paused (zoomed) — Reset zoom or Refresh now for new data";
-    } else if (preserveUserZoom) {
-      el.hidden = false;
-      el.textContent = "Zoom preserved on refresh";
+      el.textContent =
+        "Auto-refresh paused while zoomed — double-click chart or use home in Plotly toolbar to reset";
     } else {
       el.hidden = true;
       el.textContent = "";
@@ -615,27 +615,6 @@
     document.getElementById("refreshNow").addEventListener("click", () => {
       refresh({ forceChart: true, resetZoom: false });
     });
-    const resetZoomBtn = document.getElementById("resetZoomBtn");
-    if (resetZoomBtn) {
-      resetZoomBtn.addEventListener("click", () => {
-        preserveUserZoom = false;
-        if (lastChartData) drawChart(lastChartData, { resetZoom: true });
-        else refresh({ resetZoom: true, forceChart: true });
-        updateChartZoomHint();
-      });
-    }
-    const pauseChk = document.getElementById("pauseRefreshWhenZoomed");
-    if (pauseChk) {
-      pauseChk.checked = pauseRefreshWhenZoomed;
-      pauseChk.addEventListener("change", () => {
-        pauseRefreshWhenZoomed = pauseChk.checked;
-        localStorage.setItem(
-          "vibe12_pause_refresh_zoom",
-          pauseRefreshWhenZoomed ? "1" : "0"
-        );
-        updateChartZoomHint();
-      });
-    }
     refreshTimer = setInterval(() => {
       refresh({ silent: true, resetZoom: false });
     }, refreshMs);

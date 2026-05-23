@@ -20,48 +20,45 @@
   </header>
 
   <section id="tab-dashboard" class="tab-panel active">
-    <p class="sub">Live MQTT · chart uses display unit below (both °F and °C stored) · guides & fault lanes toggled below</p>
+    <p class="sub">Live MQTT · both °F and °C stored · display unit and overlays below</p>
     <div class="cards">
       <div class="card"><div class="lbl">°C</div><div id="latestC" class="val">—</div></div>
       <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
       <div class="card card-ts"><div class="lbl">Last sample</div><div id="latestTs" class="val small ts-dual">—</div></div>
     </div>
     <div class="fdd-row"><span id="fddBadge" class="fdd-badge fdd-NORMAL">FDD: —</span></div>
-    <div class="toolbar">
-      <label>Refresh <select id="refreshSelect"></select></label>
-      <label>History <select id="hoursSelect"></select></label>
-      <label>Display
-        <select id="displayTempUnit" aria-label="Chart temperature unit">
-          <option value="imperial" selected>°F</option>
-          <option value="metric">°C</option>
-        </select>
-      </label>
+    <div class="toolbar dash-toolbar">
+      <div class="toolbar-group">
+        <label>Refresh <select id="refreshSelect"></select></label>
+        <label>History <select id="hoursSelect"></select></label>
+        <label>Display
+          <select id="displayTempUnit" aria-label="Chart temperature unit">
+            <option value="imperial" selected>°F</option>
+            <option value="metric">°C</option>
+          </select>
+        </label>
+      </div>
       <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
-      <button type="button" id="resetZoomBtn" class="btn btn-secondary" title="Reset chart zoom to full range">Reset zoom</button>
-      <label class="toolbar-chk" title="While you are zoomed in, skip timer redraws so pan/zoom is not lost (data resumes on Reset zoom or Refresh now)">
-        <input type="checkbox" id="pauseRefreshWhenZoomed" checked />
-        Pause auto-refresh while zoomed
-      </label>
       <span id="chartZoomHint" class="chart-zoom-hint" hidden></span>
     </div>
-    <div class="chart-controls" aria-label="Chart overlays">
-      <div class="chart-controls-head">
+    <details class="chart-controls" open aria-label="Chart overlays">
+      <summary class="chart-controls-summary">
         <span class="chart-controls-title">Chart overlays</span>
-        <span class="chart-controls-hint">Raw temperature always on · sync fault toggles with Rule Lab</span>
-      </div>
-      <div class="chart-controls-row">
+        <span class="chart-controls-hint">Temperature trace always on · fault lanes from Rule Lab</span>
+      </summary>
+      <div class="chart-controls-body">
         <div class="chart-controls-section chart-controls-guides">
           <div class="section-label">Guides</div>
           <div class="guide-toggle-grid">
             <label class="plot-toggle-item guide-toggle">
               <input type="checkbox" id="showBoundsGuides" checked />
               <span class="plot-toggle-dot guide-bounds-dot"></span>
-              <span>Bounds band <span id="boundsGuideLabel" class="guide-meta">—</span></span>
+              <span>Bounds <span id="boundsGuideLabel" class="guide-meta">—</span></span>
             </label>
             <label class="plot-toggle-item guide-toggle">
               <input type="checkbox" id="showRollingAvg" checked />
               <span class="plot-toggle-dot guide-avg-dot"></span>
-              <span>Rolling avg</span>
+              <span>Avg</span>
               <select id="rollingAvgMinutes" class="rolling-min-select" aria-label="Rolling average window minutes">
                 <option value="1" selected>1 min</option>
                 <option value="5">5 min</option>
@@ -73,42 +70,61 @@
         </div>
         <div class="chart-controls-section chart-controls-faults">
           <div class="section-label">Fault lanes</div>
-          <div id="faultPlotToggles" class="fault-toggle-grid"></div>
+          <div id="faultPlotToggles" class="fault-toggle-grid">
+            <span class="chart-empty-hint">Loading rules…</span>
+          </div>
         </div>
       </div>
-    </div>
+    </details>
     <div id="chart"></div>
     <p class="meta" id="status">Loading…</p>
     <div id="dashLog" class="log-panel compact"></div>
   </section>
 
   <section id="tab-rulelab" class="tab-panel">
-    <p class="sub">Test = last <strong id="testHoursLabel">6</strong> h only (preview) · Save draft = rules in DB · Go live = up to <strong>7 d</strong> backfill + FDD status row</p>
-    <div class="lab-toolbar">
-      <label class="rule-picker">Rule
-        <select id="ruleSelect" aria-label="Select fault rule"></select>
-      </label>
-      <button type="button" id="removeRuleBtn" class="btn btn-secondary" title="Remove selected rule">− Remove</button>
-      <button type="button" id="addRuleBtn" class="btn btn-secondary">+ Add rule</button>
-      <label>Test window (h) <input type="number" id="testHours" min="1" max="168" value="6" /></label>
-      <label>Rule unit
-        <select id="labTempUnit" aria-label="Temperature unit for this rule config and evaluate">
-          <option value="imperial" selected>°F (imperial)</option>
-          <option value="metric">°C (metric)</option>
-        </select>
-      </label>
-      <label>Rolling avg
-        <select id="labRollingAvgMinutes" aria-label="Rolling average window for test sweep">
-          <option value="1" selected>1 min</option>
-          <option value="5">5 min</option>
-          <option value="10">10 min</option>
-        </select>
-      </label>
-      <label class="verbose-chk"><input type="checkbox" id="verbosePrints" /> Verbose prints in report</label>
-      <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>
-      <button type="button" id="copyReportBtn" class="btn btn-secondary" title="Copy rule + results for LLM">Copy report</button>
-      <button type="button" id="saveRulesBtn" class="btn btn-secondary" title="Rules only (ts_ms=-2), no 7d sweep">Save draft</button>
-      <button type="button" id="goLiveBtn" class="btn btn-primary" title="Save rules + AFDD backfill: 6 h batches, max 7 d (hard-coded)">Go live (6 h × 7 d)</button>
+    <div class="lab-top">
+      <div class="lab-row lab-row-select">
+        <label class="lab-field lab-field-rule">Rule
+          <select id="ruleSelect" aria-label="Select fault rule"></select>
+        </label>
+        <div class="lab-field-actions">
+          <button type="button" id="addRuleBtn" class="btn btn-secondary btn-sm">+ Add</button>
+          <button type="button" id="removeRuleBtn" class="btn btn-secondary btn-sm" title="Remove selected rule">− Remove</button>
+        </div>
+      </div>
+      <div class="lab-row lab-row-name">
+        <label class="lab-field lab-field-grow">Name
+          <input type="text" id="ruleTitleInput" class="rule-title-input" placeholder="Rule display name" spellcheck="true" />
+        </label>
+      </div>
+      <div class="lab-row lab-row-test">
+        <label class="lab-field">Test window (h)
+          <input type="number" id="testHours" min="1" max="168" value="6" />
+        </label>
+        <label class="lab-field">Rule unit
+          <select id="labTempUnit" aria-label="Temperature unit for this rule config and evaluate">
+            <option value="imperial" selected>°F (imperial)</option>
+            <option value="metric">°C (metric)</option>
+          </select>
+        </label>
+        <label class="lab-field">Rolling avg
+          <select id="labRollingAvgMinutes" aria-label="Rolling average window for test sweep">
+            <option value="1" selected>1 min</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+          </select>
+        </label>
+        <label class="lab-field lab-field-check verbose-chk">
+          <input type="checkbox" id="verbosePrints" />
+          <span>Verbose prints</span>
+        </label>
+      </div>
+      <div class="lab-row lab-row-actions">
+        <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>
+        <button type="button" id="copyReportBtn" class="btn btn-secondary" title="Copy rule definition + test output for an LLM">Copy report for LLM</button>
+        <button type="button" id="saveRulesBtn" class="btn btn-secondary" title="Save rules to DynamoDB (draft only, no backfill)">Save draft</button>
+        <button type="button" id="goLiveBtn" class="btn btn-primary" title="Save rules and write FDD backfill results to DynamoDB">Write to database</button>
+      </div>
     </div>
     <div id="ruleEditorSlot" class="rule-editor-slot"></div>
     <div class="lab-split">

@@ -107,7 +107,7 @@ resolve_image_repos = true
 | Stack name hyphen | **`vibe12cloud`** only |
 | Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
 | Chart zoom resets every 1 min | Deploy latest dashboard JS — **Pause auto-refresh while zoomed** (toolbar); **Reset zoom** to refit |
-| `502` / `Internal S...` not JSON on `/api/readings` | Response too large or Lambda timeout on **7 d** + all rules. Deploy fix: server sends ≤5000 chart points; try **24 h** first; check CloudWatch **WebFunction** |
+| `502` / `Internal S...` not JSON on `/api/readings` | Response too large or Lambda timeout on **7 d** + all rules. **Deploy fix:** long windows use **chunked chart eval** (same 6 h batches as go-live) when `hours>48` or `samples>8000`; try **24 h** if on old deploy; check CloudWatch **WebFunction** |
 | Debug on dashboard | After deploy: **Backend logs** panel shows `srv:` lines from `debug.server_log`; errors show `stage=` and hint |
 
 ---

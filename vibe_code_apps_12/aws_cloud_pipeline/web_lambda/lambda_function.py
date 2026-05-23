@@ -28,6 +28,7 @@ from playground_core import (
     chunked_evaluate_custom_rules,
     downsample_aligned_series,
     evaluate_rules_on_readings,
+    evaluate_rules_on_readings_chunked,
     eval_rows_preview,
     lint_python,
     normalize_rolling_avg_minutes,
@@ -50,6 +51,8 @@ TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
 READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
 CHART_RESPONSE_MAX = int(os.environ.get("CHART_RESPONSE_MAX", "5000"))
+CHART_CHUNKED_HOURS = float(os.environ.get("CHART_CHUNKED_HOURS", "48"))
+CHART_CHUNKED_SAMPLES = int(os.environ.get("CHART_CHUNKED_SAMPLES", "8000"))
 DEFAULT_HOURS = int(os.environ.get("DEFAULT_HOURS", "168"))
 TEST_HOURS_DEFAULT = int(os.environ.get("TEST_HOURS_DEFAULT", "6"))
 FDD_CONFIG_TS = -1
@@ -398,19 +401,34 @@ def _readings_payload(
         rows = readings_to_rows(readings) if readings else []
         minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
 
-        stage = "enrich_rows"
-        if rows:
-            prepare_rows_for_evaluate(rows, minutes, temp_unit=display_temp_unit)
-
         stage = "fdd_status"
         fdd_status = _fetch_fdd_status()
         latest = readings[-1] if readings else None
 
         stage = "evaluate_rules"
+        use_chunked = bool(readings) and (
+            n > CHART_CHUNKED_SAMPLES or hours > CHART_CHUNKED_HOURS
+        )
         if readings:
-            flag_series, rows = evaluate_rules_on_readings(
-                rules, readings, rows=rows, default_rolling_avg_minutes=minutes
-            )
+            if use_chunked:
+                log.info(
+                    f"chart eval chunked: hours={hours} samples={n} "
+                    f"chunk_h={GO_LIVE_BATCH_HOURS} overlap={GO_LIVE_OVERLAP_MINUTES}m"
+                )
+                flag_series, rows = evaluate_rules_on_readings_chunked(
+                    rules,
+                    readings,
+                    chunk_hours=GO_LIVE_BATCH_HOURS,
+                    overlap_minutes=GO_LIVE_OVERLAP_MINUTES,
+                    default_rolling_avg_minutes=minutes,
+                    display_temp_unit=display_temp_unit,
+                )
+            else:
+                if rows:
+                    prepare_rows_for_evaluate(rows, minutes, temp_unit=display_temp_unit)
+                flag_series, rows = evaluate_rules_on_readings(
+                    rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+                )
         else:
             flag_series, rows = {}, rows
             log.warn("no readings in window — chart empty")
@@ -449,6 +467,7 @@ def _readings_payload(
         "chart_stride": chart_stride,
         "chart_truncated": truncated,
         "chart_max_points": CHART_RESPONSE_MAX,
+        "chart_eval_chunked": use_chunked if readings else False,
         "latest": latest,
         "readings": chart_readings,
         "aux_series": chart_aux,
@@ -519,6 +538,8 @@ def _health_payload() -> dict:
         "go_live_max_hours": GO_LIVE_MAX_LOOKBACK_HOURS,
         "fdd_chunk_hours": FDD_CHUNK_HOURS,
         "chart_response_max": CHART_RESPONSE_MAX,
+        "chart_chunked_hours": CHART_CHUNKED_HOURS,
+        "chart_chunked_samples": CHART_CHUNKED_SAMPLES,
         "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 

@@ -615,6 +615,76 @@ def evaluate_rules_on_readings(
     return out, rows
 
 
+def evaluate_rules_on_readings_chunked(
+    rules: list[dict[str, Any]],
+    readings: list[dict],
+    *,
+    chunk_hours: float = GO_LIVE_BATCH_HOURS,
+    overlap_minutes: int = GO_LIVE_OVERLAP_MINUTES,
+    default_rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    display_temp_unit: str = "imperial",
+) -> tuple[dict[str, list[int]], list[dict[str, Any]]]:
+    """
+    Chart / long-window rule eval: 6 h time chunks + overlap (same idea as go-live AFDD).
+    Merges per-sample flags with OR across chunks so retroactive rules paint correctly.
+    """
+    from units import normalize_temp_unit
+
+    n = len(readings)
+    if n == 0:
+        return {}, []
+
+    enabled = [r for r in rules if r.get("enabled", True)]
+    master: dict[str, list[int]] = {r["id"]: [0] * n for r in enabled}
+
+    window_start_ms = int(readings[0]["ts_ms"])
+    window_end_ms = int(readings[-1]["ts_ms"]) + 1
+    chunk_ms = max(1, int(float(chunk_hours) * 3600 * 1000))
+    overlap_ms = max(int(overlap_minutes * 60_000), 10 * 60_000)
+    cursor = window_start_ms
+    i_scan = 0
+
+    while cursor < window_end_ms:
+        chunk_end = min(cursor + chunk_ms, window_end_ms)
+        fetch_start = (
+            max(window_start_ms, cursor - overlap_ms)
+            if cursor > window_start_ms
+            else window_start_ms
+        )
+
+        while i_scan < n and int(readings[i_scan]["ts_ms"]) < fetch_start:
+            i_scan += 1
+        i_start = i_scan
+        i_end = i_start
+        while i_end < n and int(readings[i_end]["ts_ms"]) < chunk_end:
+            i_end += 1
+
+        chunk_readings = readings[i_start:i_end]
+        if chunk_readings:
+            flag_series, _chunk_rows = evaluate_rules_on_readings(
+                rules,
+                chunk_readings,
+                default_rolling_avg_minutes=default_rolling_avg_minutes,
+            )
+            for rule_id, flags in flag_series.items():
+                dest = master.get(rule_id)
+                if dest is None:
+                    continue
+                for j, hit in enumerate(flags):
+                    if hit and i_start + j < n:
+                        dest[i_start + j] = 1
+
+        cursor = chunk_end
+
+    rows = readings_to_rows(readings)
+    prepare_rows_for_evaluate(
+        rows,
+        normalize_rolling_avg_minutes(default_rolling_avg_minutes),
+        temp_unit=normalize_temp_unit(display_temp_unit),
+    )
+    return master, rows
+
+
 def count_flags_in_ts_range(
     flag_series: dict[str, list[int]],
     rows: list[dict[str, Any]],

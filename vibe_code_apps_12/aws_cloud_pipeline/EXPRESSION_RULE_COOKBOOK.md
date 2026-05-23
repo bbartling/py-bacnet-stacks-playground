@@ -1,319 +1,101 @@
 # Expression rule cookbook (Rule Lab)
 
-## Temperature units (imperial default, metric optional)
+Copy a recipe into **Rule Lab → Python editor**, set **Parameters (cfg)** from the table, click **Test rule** (6 h preview), then **Save draft** or **Write to database**.
 
-| Layer | Default | How to use metric |
-|-------|---------|-------------------|
-| **MQTT / DynamoDB** | Both `degF` and `degC` on every row | Always stored (Pi publishes both) |
-| **Site default** | **Imperial (°F)** | Lambda env `VIBE12_TEMP_UNIT=metric` |
-| **Per rule** | Inherits site default | Add cfg key **`temp_unit`** = `metric` or `imperial` (Rule Lab **Rule unit** dropdown) |
-| **Dashboard chart** | **°F** | Toolbar **Display** → °C (`?temp_unit=metric` on `/api/readings`) |
+## How rules run
 
-**In your rule code**, prefer unit-neutral fields (values are in the rule’s `temp_unit`):
+| Topic | Detail |
+|-------|--------|
+| Entry point | `evaluate(row, cfg, prev_row=None, rows=None)` — required |
+| Row fields | `row`, `ts_ms`, `ts`, `temp`, `temp_raw`, `temp_rolling_avg`, `degF`, `degC`, `degF_rolling_avg`, `sample_period_ms`, `rolling_avg_minutes`, `samples_in_avg` |
+| Config | Use `cfg_threshold(cfg, "key")` — values follow **Rule unit** (°F or °C). Add keys via **+ Parameter** or **Add preset…** |
+| Helpers | `temp_unit_symbol(cfg)`, `math`, `datetime`, optional `numpy as np` |
+| Instant flag | `return True` — flags **this row only** |
+| Retroactive lane | `return True, window_rows` — paints every row in `window_rows` on the chart (recommended for lookback rules) |
+| Batch mode | Optional `apply_faults(rows, cfg) -> list[bool]` — see Recipe 10 |
 
-| Field | Meaning |
-|-------|---------|
-| `row["temp"]` | Instantaneous sample in rule unit |
-| `row["temp_raw"]` | Same as `temp` |
-| `row["temp_rolling_avg"]` | Trailing mean in rule unit |
-| `row["degF"]`, `row["degC"]` | Always available (canonical MQTT) |
-
-**Config thresholds** — use neutral keys; engine resolves legacy `_f` / `_c` names:
-
-| Neutral key | Legacy (imperial) | Example imperial | Example metric |
-|-------------|-------------------|------------------|----------------|
-| `bounds_low` | `bounds_low_f` | 65 | 18 |
-| `bounds_high` | `bounds_high_f` | 80 | 27 |
-| `flatline_tolerance` | `flatline_tolerance_f` | 0.05 | 0.03 |
-| `max_temp_per_hour` | `max_f_per_hour` | 5 | 3 |
-| `max_temp_per_15min` | `max_f_per_15min` | 2 | 1.1 |
-| `max_spread` | `max_spread_f` | 4 | 2.2 |
-| `max_spread_15min` | `max_spread_f_15min` | 2.5 | 1.4 |
-
-**Sandbox helpers** (no import needed):
-
-```python
-sym = temp_unit_symbol(cfg)           # "°F" or "°C"
-low = cfg_threshold(cfg, "bounds_low")
-f = row["temp"]                       # or row["temp_rolling_avg"]
-print(f"{row['ts']}  {f:.2f} {sym}")
-```
+**Tip:** At ~10 s MQTT, 6 samples ≈ 1 minute, 360 samples ≈ 1 hour. Use `FILL_RATIO = 0.95` so the window is nearly full before evaluating.
 
 ---
 
-How to write **browser Python** rules for DS18B20 telemetry. The backend only:
+## Zone starting points (DS18B20 @ ~10 s)
 
-1. Loads MQTT rows from DynamoDB (`row`, `ts_ms`, `degF`, `degC`, `temp`, …)
-2. Calls **`evaluate(row, cfg, prev_row, rows)`** once per row (or **`apply_faults(rows, cfg)`** if you define it)
-3. Flags rows for the chart / FDD counts:
-   - **`return True`** → flag **this row only**
-   - **`return True, window_rows`** → flag **every row** in `window_rows` (retroactive lookback)
-   - **`apply_faults(rows, cfg)`** → return `list[bool]` same length as `rows` (full control)
-
-**Rolling avg on every row:** before each sweep, the engine adds a **time-based** trailing mean using `ts_ms`:
-
-| Field | Meaning |
-|-------|---------|
-| `degF` | Instantaneous sample (same as MQTT) |
-| `degF_raw` | Copy of instantaneous |
-| `degF_rolling_avg` | Mean of all samples in the last **N minutes** (N = 1, 5, or 10) |
-| `rolling_avg_minutes` | Window used (1, 5, or 10) |
-| `rolling_window_ms` | `rolling_avg_minutes × 60_000` |
-| `samples_in_avg` | How many MQTT rows fell in that time window |
-| `sample_period_ms` | Median gap between samples (e.g. 11520 @ ~11.5 s) |
-
-**Set the window:** Dashboard / Rule Lab dropdown (**1 / 5 / 10 min**), query `?rolling_avg_minutes=5` on `/api/readings`, test body `rolling_avg_minutes`, or rule config `rolling_avg_minutes` (per-rule on sweep).
-
-**Rule Lab UI:** Each rule has a **Parameters (cfg)** panel — **+ Parameter** adds a row (edit key name + value), **−** removes it, **Add preset…** inserts known keys (`bounds_low_f`, `rolling_avg_minutes`, …). Keys are saved in DynamoDB with the rule and passed to `evaluate(row, cfg, …)`.
-
-You still code **rolling_window debounce** yourself if you want sustained faults — see Recipe 2.
-
-**Sandbox:** `print`, `math`, **`datetime`** / `timezone` (stdlib, always on), builtins, and optionally **`import numpy as np`** when Lambda has numpy (`/api/health` → `numpy_available: true`). `math`, `datetime`, and `np` are pre-injected in the sandbox.
+| Recipe | Config key(s) | Start values (°F / °C) |
+|--------|---------------|-------------------------|
+| 1 — Flatline 1 h | `flatline_tolerance` | **0.10** / **0.03** |
+| 2 — Rate 1 h | `max_temp_per_hour` | **5.0** / **3.0** |
+| 3 — Rate 15 m | `max_temp_per_15min` | **2.0** / **1.1** |
+| 4 — Spread 1 h | `max_spread` | **4.0** / **2.2** |
+| 5 — Spread 15 m | `max_spread_15min` | **2.5** / **1.4** |
+| 6 — Out of bounds | `bounds_low`, `bounds_high` | **65**, **80** / **18**, **27** |
+| 7 — Flatline N samples | `flatline_tolerance`, `flatline_window` | **0.05** / **0.03**, **18** |
+| 8 — OOB debounced | `bounds_low`, `bounds_high`, `rolling_window` | **65**, **80**, **6** |
+| 9 — Rate instant (pair) | `max_temp_per_minute` | **2.0** / **1.1** |
 
 ---
 
-## Recipe 1 — Out of bounds on rolling avg (uses pre-built row field)
+## Recipe 1 — Flatline (1 hour window)
 
-**Config:** `bounds_low` = 65, `bounds_high` = 80 (°F if `temp_unit` is imperial; use 18 / 27 for metric)
+Sensor stuck: max − min over the last hour is below tolerance. Paints the full hour when detected.
 
-```python
-def evaluate(row, cfg, prev_row=None, rows=None):
-    sym = temp_unit_symbol(cfg)
-    low = cfg_threshold(cfg, "bounds_low")
-    high = cfg_threshold(cfg, "bounds_high")
-    f = row["temp_rolling_avg"]
-    if f < low or f > high:
-        print(f"{row['ts']}  OOB avg  {f:.2f} {sym}  raw={row['temp']:.2f}")
-        return True
-    return False
-```
-
-**Recipe 1b — Instant raw bounds (no avg)**
-
-```python
-def evaluate(row, cfg, prev_row=None, rows=None):
-    f = row["degF"]
-    if f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]:
-        print(f"{row['ts']}  OUT OF BOUNDS  {f:.2f} F")
-        return True
-    return False
-```
-
-**Test:** 6 h window. If temps stay 65–68 °F you will see **0 flags** (expected).
-
-**Demo faults:** set `bounds_low_f` = 66 in the form, or use Pi `--fault-demo`.
-
----
-
-## Recipe 1b-time — UTC hour / schedule from `ts_ms`
-
-`datetime` is always allowed (stdlib). `row["ts_ms"]` is epoch milliseconds (UTC).
-
-```python
-from datetime import datetime, timezone
-
-def evaluate(row, cfg, prev_row=None, rows=None):
-    dt = datetime.fromtimestamp(row["ts_ms"] / 1000.0, tz=timezone.utc)
-    # Example: flag samples before 08:00 UTC
-    if dt.hour < int(cfg.get("start_hour_utc", 8)):
-        print(f"{row['ts']}  before {cfg['start_hour_utc']}:00 UTC")
-        return True
-    return False
-```
-
-You can also use pre-injected `datetime` / `timezone` without importing.
-
----
-
-## Recipe 1c — NumPy optional (z-score spike on raw)
-
-```python
-import numpy as np
-
-def evaluate(row, cfg, prev_row=None, rows=None):
-    if rows is None or row["row"] < 10:
-        return False
-    vals = np.array([r["degF"] for r in rows[: row["row"] + 1]])
-    z = (row["degF"] - vals.mean()) / (vals.std() + 1e-6)
-    if abs(z) > float(cfg.get("z_limit", 3)):
-        print(f"{row['ts']}  numpy z={z:.2f}  {row['degF']:.2f} F")
-        return True
-    return False
-```
-
----
-
-## Recipe 2 — Rolling window debounce (you code it)
-
-Problem: one noisy sample should not trip the chart. Require **N consecutive** out-of-band samples before flagging.
-
-**Simple pattern** — look at the last `w` rows including this one:
-
-```python
-def evaluate(row, cfg, prev_row=None, rows=None):
-    w = int(cfg.get("debounce_window", 6))  # ~1 min @ 10 s MQTT
-    if rows is None or row["row"] < w - 1:
-        return False
-    i = row["row"]
-    recent = [
-        rows[j]["degF"] < cfg["bounds_low_f"] or rows[j]["degF"] > cfg["bounds_high_f"]
-        for j in range(i - w + 1, i + 1)
-    ]
-    if len(recent) == w and all(recent):
-        print(f"{row['ts']}  OOB sustained ({w} samples)  {row['degF']:.2f} F")
-        return True
-    return False
-```
-
-**Stateful pattern** — build a running list (same idea as open-fdd rolling window):
-
-```python
-_raw = []
-
-def evaluate(row, cfg, prev_row=None, rows=None):
-    w = int(cfg.get("debounce_window", 6))
-    instant = row["degF"] < cfg["bounds_low_f"] or row["degF"] > cfg["bounds_high_f"]
-    _raw.append(instant)
-    # Count consecutive True ending at this index
-    run = 0
-    for j in range(len(_raw) - 1, -1, -1):
-        if _raw[j]:
-            run += 1
-        else:
-            break
-    if run >= w:
-        print(f"{row['ts']}  OOB debounced  {row['degF']:.2f} F  run={run}")
-        return True
-    return False
-```
-
-Add **`debounce_window`** = 6 in rule config (edit JSON on Save draft) or hard-code `w = 6`.
-
----
-
-## Recipe 3 — Custom avg (optional override)
-
-`degF_rolling_avg` is already computed for you. For a **custom** window or UTC-minute buckets, mutate `rows` yourself on row 0 or use `numpy` on the `rows` list — teaching exercise only.
-
----
-
-## Recipe 4 — Engine rolling avg + debounce
-
-```python
-_raw = []
-
-def evaluate(row, cfg, prev_row=None, rows=None):
-    f = row["degF_rolling_avg"]
-    instant = f < cfg["bounds_low_f"] or f > cfg["bounds_high_f"]
-    _raw.append(instant)
-    w = int(cfg.get("debounce_window", 6))
-    run = 0
-    for j in range(len(_raw) - 1, -1, -1):
-        if _raw[j]:
-            run += 1
-        else:
-            break
-    if run >= w:
-        print(f"{row['ts']}  OOB avg+debounce  {f:.2f} F")
-        return True
-    return False
-```
-
----
-
-## Recipe 5 — Flatline: paint the whole 1-hour window (retroactive)
-
-**Problem:** `return True` only flags the **current** row. For “stuck sensor for 1 hour,” you want the **entire hour** shaded when the fault is confirmed.
-
-**Option A — tuple return (engine paints for you):**
+**Config:** `flatline_tolerance` = **0.10** (°F) or **0.03** (°C)
 
 ```python
 ONE_HOUR_MS = 60 * 60 * 1000
+FILL_RATIO = 0.95
+
 
 def get_last_1_hour(row, rows):
     now_ms = row["ts_ms"]
     start_ms = now_ms - ONE_HOUR_MS
     return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
 
 def evaluate(row, cfg, prev_row=None, rows=None):
     if rows is None:
         return False
 
     window_rows = get_last_1_hour(row, rows)
-    if not window_rows:
+    if len(window_rows) < 2:
         return False
 
     span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
-    if span_ms < ONE_HOUR_MS * 0.95:
-        return False  # skip row 0 / warmup — not a full hour yet
+    if span_ms < ONE_HOUR_MS * FILL_RATIO:
+        return False
 
+    sym = temp_unit_symbol(cfg)
     vals = [r["temp"] for r in window_rows]
+    spread = max(vals) - min(vals)
     tol = cfg_threshold(cfg, "flatline_tolerance")
-    if max(vals) - min(vals) <= tol:
-        print(f"FLATLINE at {row['ts']} — painting {len(window_rows)} rows")
-        return True, window_rows  # <-- retroactive paint
+
+    if spread < tol:
+        print(
+            f"row={row['row']} ts={row['ts']} "
+            f"FLATLINE 1h spread={spread:.3f} {sym} < tol={tol:.3f}"
+        )
+        return True, window_rows
 
     return False
 ```
 
-**Option B — separate detect vs paint (teaching):**
-
-```python
-def apply_faults(rows, cfg):
-    flags = [0] * len(rows)
-    for row in rows:
-        hit, window_rows = evaluate(row, cfg, rows=rows)
-        if hit:
-            for w in window_rows:
-                flags[w["row"]] = 1
-    return flags
-```
-
-Use the same `evaluate()` as Option A but return `(True, window_rows)`; define **`apply_faults`** in the same rule module. Test rule + dashboard + go-live all use the same sweep engine.
-
-**Config (Option A):** `flatline_tolerance` only (e.g. **0.05**–**0.10** °F or **0.03** °C). No `flatline_window` — lookback is **1 hour** in code.
-
 ---
 
-## Spread vs rate of change (zone air)
+## Recipe 2 — Rate of change (1 hour, net °F/hr)
 
-| | **Spread** (MIN–MAX) | **Rate** (start → end over time) |
-|--|----------------------|----------------------------------|
-| **Measures** | `max(temp) − min(temp)` in the window | `|temp_end − temp_start| / elapsed time` |
-| **Cares about order?** | No | Yes |
-| **Catches** | Hunting, noise, loose probe, draft | Sustained drift / unrealistic ramp |
-| **Opposite fault** | Recipe 5 flatline (spread **too small**) | — |
+Net temperature change over a full hour, divided by elapsed hours.
 
-Use **separate rules** — one recipe per equation. All below use **`return True, window_rows`** so the chart paints the full lookback window.
-
-**Warmup:** each recipe skips until the window span is ≥ **95%** of 1 h or 15 min (avoids false flags on row 0).
-
-**Zone starting points (DS18B20 @ ~10 s):**
-
-| Rule | Config key(s) | Start values |
-|------|---------------|--------------|
-| Flatline 1 h | `flatline_tolerance` | **0.10** °F / **0.03** °C |
-| Rate 1 h | `max_temp_per_hour` | **5.0** °F/hr / **3.0** °C/hr |
-| Rate 15 m | `max_temp_per_15min` | **2.0** / **1.1** |
-| Spread 1 h | `max_spread` | **4.0** / **2.2** |
-| Spread 15 m | `max_spread_15min` | **2.5** / **1.4** |
-
-**Test window:** **6–24 h** so 1 h rules can fill. Use **`row["temp"]`** (respects rule `temp_unit`); for smoothing use **`row["temp_rolling_avg"]`** and **`rolling_avg_minutes`: 5** in config.
-
----
-
-## Recipe 6 — Rate of change (1 hour, net °F/hr)
-
-**Config:** `max_temp_per_hour` = **5.0** (Add preset… or + Parameter)
+**Config:** `max_temp_per_hour` = **5.0** (°F/hr) or **3.0** (°C/hr)
 
 ```python
 ONE_HOUR_MS = 60 * 60 * 1000
 FILL_RATIO = 0.95
 
+
 def get_last_1_hour(row, rows):
     now_ms = row["ts_ms"]
     start_ms = now_ms - ONE_HOUR_MS
     return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
 
 def evaluate(row, cfg, prev_row=None, rows=None):
     if rows is None:
@@ -351,18 +133,22 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
 ---
 
-## Recipe 7 — Rate of change (15 minutes)
+## Recipe 3 — Rate of change (15 minutes)
 
-**Config:** `max_temp_per_15min` = **2.0**
+Same as Recipe 2, but normalized to a 15-minute equivalent rate.
+
+**Config:** `max_temp_per_15min` = **2.0** (°F) or **1.1** (°C)
 
 ```python
 FIFTEEN_MIN_MS = 15 * 60 * 1000
 FILL_RATIO = 0.95
 
+
 def get_last_15_min(row, rows):
     now_ms = row["ts_ms"]
     start_ms = now_ms - FIFTEEN_MIN_MS
     return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
 
 def evaluate(row, cfg, prev_row=None, rows=None):
     if rows is None:
@@ -399,18 +185,22 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
 ---
 
-## Recipe 8 — Spread / MIN–MAX (1 hour) — zone swung too much
+## Recipe 4 — Spread / MIN–MAX (1 hour)
 
-**Config:** `max_spread` = **4.0**
+Zone swung too much: peak − valley over one hour exceeds limit (short cycling, stuck damper, etc.).
+
+**Config:** `max_spread` = **4.0** (°F) or **2.2** (°C)
 
 ```python
 ONE_HOUR_MS = 60 * 60 * 1000
 FILL_RATIO = 0.95
 
+
 def get_last_1_hour(row, rows):
     now_ms = row["ts_ms"]
     start_ms = now_ms - ONE_HOUR_MS
     return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
 
 def evaluate(row, cfg, prev_row=None, rows=None):
     if rows is None:
@@ -436,7 +226,7 @@ def evaluate(row, cfg, prev_row=None, rows=None):
     )
 
     if spread > lim:
-        print(f"SPREAD/Hr: painting {len(window_rows)} rows")
+        print(f"SPREAD/1h: painting {len(window_rows)} rows")
         return True, window_rows
 
     return False
@@ -444,32 +234,290 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
 ---
 
-## Recipe 9 — Spread / MIN–MAX (15 minutes)
+## Recipe 5 — Spread / MIN–MAX (15 minutes)
 
-**Config:** `max_spread_15min` = **2.5** — same as Recipe 8 but use `FIFTEEN_MIN_MS`, `get_last_15_min`, and `cfg_threshold(cfg, "max_spread_15min")`.
+Short-window spread — catches fast hunting or sudden step changes.
+
+**Config:** `max_spread_15min` = **2.5** (°F) or **1.4** (°C)
+
+```python
+FIFTEEN_MIN_MS = 15 * 60 * 1000
+FILL_RATIO = 0.95
+
+
+def get_last_15_min(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - FIFTEEN_MIN_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_15_min(row, rows)
+    if not window_rows:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < FIFTEEN_MIN_MS * FILL_RATIO:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    vals = [r["temp"] for r in window_rows]
+    lo, hi = min(vals), max(vals)
+    spread = hi - lo
+    lim = cfg_threshold(cfg, "max_spread_15min")
+
+    print(
+        f"row={row['row']} ts={row['ts']} "
+        f"spread={spread:.2f} {sym} (min={lo:.2f} max={hi:.2f})"
+    )
+
+    if spread > lim:
+        print(f"SPREAD/15m: painting {len(window_rows)} rows")
+        return True, window_rows
+
+    return False
+```
 
 ---
 
-## Test vs Go live
+## Recipe 6 — Out of bounds (instant, rolling avg)
 
-| Action | Data | DB write |
-|--------|------|----------|
-| **Test rule** | Test window (e.g. 6 h) | No |
-| **Save draft** | Rules only | `ts_ms=-2` |
-| **Go live (7 d)** | Up to 168 h | FDD status `ts_ms=0` (counts + badge; chart lanes from live `/api/readings`) |
+Flags the current row when smoothed temperature is outside the band. Matches the default **Out of bounds** rule.
+
+**Config:** `bounds_low` = **65**, `bounds_high` = **80** (°F) — or **18** / **27** (°C)
+
+Set **Rolling avg** in the toolbar to **1 min** (or **10 min** for slower response).
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None):
+    sym = temp_unit_symbol(cfg)
+    low = cfg_threshold(cfg, "bounds_low")
+    high = cfg_threshold(cfg, "bounds_high")
+
+    # Prefer rolling avg when present (Rule Lab computes from toolbar setting)
+    if "temp_rolling_avg" in row:
+        v = row["temp_rolling_avg"]
+        kind = "avg"
+    elif "degF_rolling_avg" in row:
+        v = row["degF_rolling_avg"]
+        kind = "degF_avg"
+    else:
+        v = row["temp"]
+        kind = "raw"
+
+    if v < low or v > high:
+        print(
+            f"{row['ts']}  OOB {kind}  {v:.2f} {sym}  "
+            f"(band {low:.1f}–{high:.1f}, raw={row['temp']:.2f})"
+        )
+        return True
+
+    return False
+```
 
 ---
 
-## YouTube demo script (suggested order)
+## Recipe 7 — Flatline (N consecutive samples)
 
-1. Deploy stack, open Rule Lab, **Recipe 1** bounds → Test → Copy report.
-2. **Recipe 5** flatline (1 h, retroactive paint) → Test 6 h → confirm hour band, not row 0 only.
-3. **Recipe 6** rate/hr and **Recipe 8** spread/hr → compare console `rate=` vs `spread=`.
-4. **Recipe 2** debounce on bounds → flags only after sustained OOB.
-5. **Go live (6 h × 7 d)** → Dashboard fault lanes from live `/api/readings`.
+Sample-count window (not wall-clock). Good when MQTT spacing is steady (~10 s → 18 samples ≈ 3 min).
+
+**Config:** `flatline_tolerance` = **0.05**, `flatline_window` = **18**
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    w = int(cfg.get("flatline_window", 18))
+    if w < 2:
+        w = 2
+    if row["row"] < w - 1:
+        return False
+
+    i = row["row"]
+    win = rows[i - w + 1 : i + 1]
+    vals = [r["temp"] for r in win]
+    tol = cfg_threshold(cfg, "flatline_tolerance")
+    spread = max(vals) - min(vals)
+
+    if spread < tol:
+        print(
+            f"{row['ts']}  FLATLINE  w={w}  spread={spread:.3f} {sym}  "
+            f"tol={tol:.3f}"
+        )
+        return True, win
+
+    return False
+```
 
 ---
 
-## Built-in legacy rules (`fdd_rules.py`)
+## Recipe 8 — Out of bounds (debounced / sustained)
 
-If custom rules are empty, scheduled FDD can use `fdd_rules.evaluate_all()` (instant flags, no debounce). Rule Lab always uses **your** Python when rules are saved in DynamoDB.
+Requires **every** sample in the last N rows to be out of band before flagging (~1 min at 6 × 10 s). Reduces flicker from noise.
+
+**Config:** `bounds_low` = **65**, `bounds_high` = **80**, `rolling_window` = **6**  
+Add `rolling_window` with **+ Parameter** (integer, default 6).
+
+```python
+def _oob(r, low, high):
+    v = r.get("temp_rolling_avg", r["temp"])
+    return v < low or v > high
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    low = cfg_threshold(cfg, "bounds_low")
+    high = cfg_threshold(cfg, "bounds_high")
+    n = int(cfg.get("rolling_window", 6))
+    if n < 1:
+        n = 1
+
+    if row["row"] < n - 1:
+        return False
+
+    i = row["row"]
+    win = rows[i - n + 1 : i + 1]
+
+    if all(_oob(r, low, high) for r in win):
+        v = win[-1].get("temp_rolling_avg", win[-1]["temp"])
+        print(
+            f"{row['ts']}  OOB sustained {n} samples  "
+            f"last={v:.2f} {sym}  band {low:.1f}–{high:.1f}"
+        )
+        return True, win
+
+    return False
+```
+
+---
+
+## Recipe 9 — Rate instant (previous sample pair)
+
+Fast spike detector: rate between this row and the previous sample only. Default **Rate > limit (per minute)** style.
+
+**Config:** `max_temp_per_minute` = **2.0** (°F/min) or **1.1** (°C/min)
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if not prev_row:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    dt_ms = row["ts_ms"] - prev_row["ts_ms"]
+    if dt_ms <= 0:
+        return False
+
+    dt_min = dt_ms / 60000.0
+    rate = abs(row["temp"] - prev_row["temp"]) / dt_min
+    lim = cfg_threshold(cfg, "max_temp_per_minute")
+
+    if rate > lim:
+        print(
+            f"{row['ts']}  RATE/min  {rate:.2f} {sym}/min  "
+            f"({prev_row['temp']:.2f} -> {row['temp']:.2f})"
+        )
+        return True
+
+    return False
+```
+
+---
+
+## Recipe 10 — Verbose trace (debug / LLM report)
+
+Prints every row when **Verbose prints** is checked in Rule Lab. Use to learn row fields or paste console into an LLM.
+
+**Config:** none required
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None):
+    sym = temp_unit_symbol(cfg)
+    avg = row.get("temp_rolling_avg", row["temp"])
+    print(
+        f"#{row['row']:4d} {row['ts']}  "
+        f"raw={row['temp']:.2f} avg={avg:.2f} {sym}  "
+        f"samples_in_avg={row.get('samples_in_avg', '?')}"
+    )
+    return False
+```
+
+---
+
+## Recipe 11 — Batch sweep with `apply_faults` (advanced)
+
+Runs `evaluate` once per row but merges painted windows in a second pass. Useful for heavy rules or custom merge logic.
+
+**Config:** same as Recipe 2 (`max_temp_per_hour` = **5.0**)
+
+```python
+ONE_HOUR_MS = 60 * 60 * 1000
+FILL_RATIO = 0.95
+
+
+def get_last_1_hour(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - ONE_HOUR_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_1_hour(row, rows)
+    if len(window_rows) < 2:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < ONE_HOUR_MS * FILL_RATIO:
+        return False
+
+    dt_hr = span_ms / 3600000.0
+    if dt_hr <= 0:
+        return False
+
+    v0 = window_rows[0]["temp"]
+    v1 = window_rows[-1]["temp"]
+    rate_hr = abs(v1 - v0) / dt_hr
+    lim = cfg_threshold(cfg, "max_temp_per_hour")
+
+    if rate_hr > lim:
+        return True, window_rows
+    return False
+
+
+def apply_faults(rows, cfg):
+    flags = [0] * len(rows)
+    for row in rows:
+        hit, window_rows = evaluate(row, cfg, rows=rows)
+        if hit:
+            for w in window_rows:
+                flags[w["row"]] = 1
+    return flags
+```
+
+---
+
+## Quick workflow
+
+1. **+ Add rule** or pick an existing rule in the dropdown.
+2. Paste recipe code; add cfg keys from the table (**Add preset…**).
+3. Set **Rule unit** to match your thresholds (°F vs °C).
+4. **Test rule** — console shows `print` output; chart preview uses test window only.
+5. **Copy report for LLM** — full rule + sweep log for debugging.
+6. **Save draft** — rules only in DynamoDB (`ts_ms=-2`).
+7. **Write to database** — rules + 7 d FDD backfill + status row.
+
+## Related
+
+- Default shipped rules: `web_lambda/rules_defaults.py`
+- Retroactive painting tests: `tests/test_retroactive_faults.py`
+- Synthetic faults on Pi: `fault_demo_schedule.py` + `temp_sensor_server --fault-demo`

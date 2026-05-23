@@ -14,8 +14,21 @@
   const MAX_CONSOLE_LINES = 400;
   const MAX_REPORT_PRINT_LINES = 800;
 
+  const CHART_LANE_COLORS = [
+    { value: "#58a6ff", label: "Blue" },
+    { value: "#3fb950", label: "Green" },
+    { value: "#f85149", label: "Red" },
+    { value: "#d29922", label: "Amber" },
+    { value: "#a371f7", label: "Purple" },
+    { value: "#79c0ff", label: "Sky" },
+    { value: "#ffa657", label: "Orange" },
+    { value: "#ff7b72", label: "Coral" },
+    { value: "#8b949e", label: "Gray" },
+  ];
+
   const els = {
     ruleSelect: document.getElementById("ruleSelect"),
+    ruleTitleInput: document.getElementById("ruleTitleInput"),
     ruleEditorSlot: document.getElementById("ruleEditorSlot"),
     consoleOut: document.getElementById("consoleOut"),
     consoleWrap: document.querySelector(".console-wrap"),
@@ -24,7 +37,6 @@
     tsTableBody: document.getElementById("tsTableBody"),
     tsSummary: document.getElementById("tsSummary"),
     testHours: document.getElementById("testHours"),
-    testHoursLabel: document.getElementById("testHoursLabel"),
     addRuleBtn: document.getElementById("addRuleBtn"),
     removeRuleBtn: document.getElementById("removeRuleBtn"),
     testRuleBtn: document.getElementById("testRuleBtn"),
@@ -110,6 +122,57 @@
     const rule = rules.find((r) => r.id === activeRuleId);
     if (rule) rule.code = activeEditor.getValue();
     syncConfigFromDom(rule, activeCard);
+    syncTitleFromToolbar();
+  }
+
+  function syncTitleFromToolbar() {
+    const rule = currentRule();
+    const inp = els.ruleTitleInput;
+    if (!rule || !inp) return;
+    rule.title = inp.value;
+    const opt = els.ruleSelect.options[selectedIndex];
+    if (opt) {
+      opt.textContent = (rule.title || rule.id) + (rule.enabled === false ? " (off)" : "");
+    }
+  }
+
+  function syncTitleToToolbar() {
+    const rule = currentRule();
+    const inp = els.ruleTitleInput;
+    if (!inp) return;
+    inp.value = rule ? rule.title || rule.id || "" : "";
+  }
+
+  function buildColorSelect(rule, onChange) {
+    const lab = document.createElement("label");
+    lab.className = "rule-color-field";
+    lab.append(document.createTextNode("Chart color"));
+    const sel = document.createElement("select");
+    sel.className = "rule-color-select";
+    sel.title = "Fault lane color on dashboard chart";
+    const current = (rule.color || "#58a6ff").toLowerCase();
+    const known = new Set(CHART_LANE_COLORS.map((c) => c.value.toLowerCase()));
+    CHART_LANE_COLORS.forEach(({ value, label }) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = "● " + label;
+      opt.style.color = value;
+      if (current === value.toLowerCase()) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (!known.has(current) && rule.color) {
+      const opt = document.createElement("option");
+      opt.value = rule.color;
+      opt.textContent = "● Custom";
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => {
+      rule.color = sel.value;
+      onChange();
+    });
+    lab.appendChild(sel);
+    return lab;
   }
 
   function destroyEditor() {
@@ -421,7 +484,7 @@
     title.textContent = "Parameters (cfg)";
     const hint = document.createElement("span");
     hint.className = "cfg-panel-hint";
-    hint.textContent = "Keys passed to evaluate(row, cfg, …)";
+    hint.textContent = "Passed to evaluate(row, cfg, …)";
     panelHead.append(title, hint);
 
     const toolbar = document.createElement("div");
@@ -446,6 +509,16 @@
       const m = fieldMeta[k];
       opt.textContent = (m.label || k) + " (" + k + ")";
       presetSel.appendChild(opt);
+    });
+    panelHead.append(toolbar);
+    toolbar.append(addBtn, presetSel);
+
+    const paramHead = document.createElement("div");
+    paramHead.className = "cfg-param-head";
+    ["Key", "Value", ""].forEach((t) => {
+      const span = document.createElement("span");
+      span.textContent = t;
+      paramHead.appendChild(span);
     });
 
     const list = document.createElement("div");
@@ -489,8 +562,7 @@
       onCfgChanged();
     });
 
-    toolbar.append(addBtn, presetSel);
-    container.append(panelHead, toolbar, list);
+    container.append(panelHead, paramHead, list);
   }
 
   function populateRuleSelect() {
@@ -519,47 +591,8 @@
 
     const head = document.createElement("div");
     head.className = "rule-card-head";
-    const colorInp = document.createElement("input");
-    colorInp.type = "color";
-    colorInp.className = "rule-color-inp";
-    colorInp.value = rule.color || "#58a6ff";
-    colorInp.title = "Fault lane color on chart";
-    colorInp.addEventListener("input", () => {
-      rule.color = colorInp.value;
-      notifyDashboardRules();
-    });
-    const idLab = document.createElement("label");
-    idLab.className = "rule-id-lab";
-    idLab.title = "Stable rule id (fault lane key)";
-    const idInp = document.createElement("input");
-    idInp.type = "text";
-    idInp.className = "rule-id-inp";
-    idInp.value = rule.id;
-    idInp.spellcheck = false;
-    idInp.addEventListener("change", () => {
-      const next = sanitizeRuleId(idInp.value);
-      if (rules.some((r) => r !== rule && r.id === next)) {
-        idInp.value = rule.id;
-        appendConsole("[cfg] rule id already in use: " + next + "\n", "error");
-        return;
-      }
-      rule.id = next;
-      activeRuleId = next;
-      populateRuleSelect();
-      notifyDashboardRules();
-    });
-    idLab.append(document.createTextNode("id "), idInp);
 
-    const titleInp = document.createElement("input");
-    titleInp.type = "text";
-    titleInp.className = "rule-title-inp";
-    titleInp.value = rule.title || rule.id;
-    titleInp.placeholder = "Display title";
-    titleInp.addEventListener("input", () => {
-      rule.title = titleInp.value;
-      const opt = els.ruleSelect.options[selectedIndex];
-      if (opt) opt.textContent = rule.title + (rule.enabled === false ? " (off)" : "");
-    });
+    const colorLab = buildColorSelect(rule, notifyDashboardRules);
     const enLab = document.createElement("label");
     enLab.className = "enabled-chk";
     const enChk = document.createElement("input");
@@ -603,7 +636,7 @@
     syntaxPillEl = document.createElement("span");
     syntaxPillEl.className = "syntax-pill ok";
     syntaxPillEl.textContent = "…";
-    head.append(colorInp, idLab, titleInp, enLab, plotLab, syntaxPillEl);
+    head.append(colorLab, enLab, plotLab, syntaxPillEl);
 
     const cfgRow = document.createElement("div");
     buildConfigPanel(rule, cfgRow);
@@ -616,6 +649,7 @@
 
     card.append(head, cfgRow, editorWrap);
     els.ruleEditorSlot.appendChild(card);
+    syncTitleToToolbar();
 
     activeEditor = CodeMirror.fromTextArea(ta, {
       mode: "python",
@@ -1040,6 +1074,7 @@
 
   function selectRule(index) {
     if (index < 0 || index >= rules.length) return;
+    syncTitleFromToolbar();
     selectedIndex = index;
     els.ruleSelect.value = String(index);
     const labUnit = labTempUnitEl();
@@ -1123,9 +1158,21 @@
     els.goLiveBtn.addEventListener("click", goLive);
     els.copyReportBtn.addEventListener("click", copyReportToClipboard);
     els.testHours.addEventListener("change", () => {
-      els.testHoursLabel.textContent = els.testHours.value;
       loadTsPreview(parseInt(els.testHours.value, 10));
     });
+    if (els.ruleTitleInput) {
+      els.ruleTitleInput.addEventListener("input", () => {
+        const rule = currentRule();
+        if (!rule) return;
+        rule.title = els.ruleTitleInput.value;
+        const opt = els.ruleSelect.options[selectedIndex];
+        if (opt) {
+          opt.textContent =
+            (rule.title || rule.id) + (rule.enabled === false ? " (off)" : "");
+        }
+        notifyDashboardRules();
+      });
+    }
     const labUnit = labTempUnitEl();
     if (labUnit) {
       const rule = currentRule();

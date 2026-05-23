@@ -106,6 +106,8 @@ Resources:
           CHART_RESPONSE_MAX: "5000"
           FDD_CHUNK_HOURS: "6"
           VIBE12_TEMP_UNIT: "imperial"
+          CHART_CHUNKED_HOURS: "48"
+          CHART_CHUNKED_SAMPLES: "8000"
           DEPLOY_REVISION: !Ref DeployRevision
       Policies:
         - DynamoDBCrudPolicy:
