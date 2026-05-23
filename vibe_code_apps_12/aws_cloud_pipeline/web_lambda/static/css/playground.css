@@ -66,6 +66,25 @@
 }
 
 .lab-row-test .lab-field { min-width: 7rem; }
+.lab-field-hint {
+  flex: 1 1 100%;
+  font-size: 0.75rem;
+  color: #8b949e;
+  line-height: 1.35;
+}
+.lab-field-hint code { font-size: 0.72rem; color: #79c0ff; }
+
+.rules-persist-hint {
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  border: 1px solid #30363d;
+}
+.rules-persist-hint.defaults { background: #1c2128; color: #d29922; }
+.rules-persist-hint.dirty { background: #2d1f0f; color: #ffa657; border-color: #6e4a1f; }
+.rules-persist-hint.saved { background: #122117; color: #3fb950; border-color: #238636; }
 
 .lab-row-actions {
   align-items: center;

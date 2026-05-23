@@ -32,6 +32,16 @@ enable_aws_iot: true
 aws_iot_endpoint: a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com
 aws_iot_client_id: basicPubSub
 aws_iot_topic: sdk/test/python
+# Hierarchical BACnet topics: vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+site_id: demo
+building_id: pi
+points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
+bacnet_discover_range_low: 1
+bacnet_discover_range_high: 3456799
+bacnet_read_interval: 30
+enable_bacnet_read_driver: false
+install_bacnet_discover_unit: true
+install_bacnet_read_unit: false
 aws_iot_cert_filename: vibe-code-app-12-temp-sensor.cert.pem
 aws_iot_key_filename: vibe-code-app-12-temp-sensor.private.key
 # Certs on Ansible control machine (run ../prepare_aws_iot_certs.sh first):

@@ -3,7 +3,10 @@
 
   let rules = [];
   let fieldMeta = {};
-  let selectedIndex = 0;
+  let selectedRuleId = null;
+  let rulesDirty = false;
+  let rulesSavedAt = null;
+  let rulesSource = "defaults";
   let activeEditor = null;
   let activeRuleId = null;
   let lintTimer = null;
@@ -45,7 +48,60 @@
     copyReportBtn: document.getElementById("copyReportBtn"),
     testReport: document.getElementById("testReport"),
     verbosePrints: document.getElementById("verbosePrints"),
+    rulesPersistHint: document.getElementById("rulesPersistHint"),
   };
+
+  function ruleById(id) {
+    return rules.find((r) => r.id === id);
+  }
+
+  function ruleLabel(rule) {
+    return (rule.title || rule.id) + (rule.enabled === false ? " (off)" : "");
+  }
+
+  function ensureSelectedRuleId() {
+    if (!rules.length) {
+      selectedRuleId = null;
+      return;
+    }
+    if (!selectedRuleId || !ruleById(selectedRuleId)) {
+      selectedRuleId = rules[0].id;
+    }
+  }
+
+  function optionForRule(ruleId) {
+    if (!els.ruleSelect) return null;
+    return [...els.ruleSelect.options].find((o) => o.value === ruleId);
+  }
+
+  function markRulesDirty() {
+    rulesDirty = true;
+    updateRulesPersistHint();
+  }
+
+  function updateRulesPersistHint() {
+    const el = els.rulesPersistHint;
+    if (!el) return;
+    if (rulesDirty) {
+      el.textContent = "Unsaved changes — click Save draft to persist names and rules.";
+      el.className = "rules-persist-hint dirty";
+      return;
+    }
+    if (rulesSource === "dynamodb" && rulesSavedAt) {
+      const d = new Date(rulesSavedAt * 1000);
+      el.textContent =
+        "Draft loaded from database (" +
+        rules.length +
+        " rules, saved " +
+        d.toISOString().slice(0, 19) +
+        " UTC).";
+      el.className = "rules-persist-hint saved";
+      return;
+    }
+    el.textContent =
+      "Showing shipped defaults — Save draft after edits or refresh will reset names/rules.";
+    el.className = "rules-persist-hint defaults";
+  }
 
   function newRuleId() {
     return "custom_rule_" + Date.now().toString(36);
@@ -114,26 +170,30 @@
   }
 
   function currentRule() {
-    return rules[selectedIndex];
+    if (!rules.length) return null;
+    return ruleById(selectedRuleId) || rules[0];
   }
 
   function persistActiveEditor() {
     if (!activeEditor || !activeRuleId) return;
-    const rule = rules.find((r) => r.id === activeRuleId);
+    const rule = ruleById(activeRuleId);
     if (rule) rule.code = activeEditor.getValue();
     syncConfigFromDom(rule, activeCard);
-    syncTitleFromToolbar();
+    applyTitleFromInput(false);
   }
 
-  function syncTitleFromToolbar() {
+  function applyTitleFromInput(markDirty) {
     const rule = currentRule();
     const inp = els.ruleTitleInput;
     if (!rule || !inp) return;
     rule.title = inp.value;
-    const opt = els.ruleSelect.options[selectedIndex];
-    if (opt) {
-      opt.textContent = (rule.title || rule.id) + (rule.enabled === false ? " (off)" : "");
-    }
+    const opt = optionForRule(rule.id);
+    if (opt) opt.textContent = ruleLabel(rule);
+    if (markDirty) markRulesDirty();
+  }
+
+  function syncTitleFromToolbar() {
+    applyTitleFromInput(false);
   }
 
   function syncTitleToToolbar() {
@@ -169,6 +229,7 @@
     }
     sel.addEventListener("change", () => {
       rule.color = sel.value;
+      markRulesDirty();
       onChange();
     });
     lab.appendChild(sel);
@@ -265,8 +326,6 @@
   }
 
   function getRollingAvgMinutes() {
-    const lab = document.getElementById("labRollingAvgMinutes");
-    if (lab) return parseInt(lab.value, 10) || 1;
     if (window.vibe12GetRollingAvgMinutes) return window.vibe12GetRollingAvgMinutes();
     return 1;
   }
@@ -525,6 +584,8 @@
     list.className = "cfg-param-list";
 
     function onCfgChanged() {
+      syncConfigFromDom(rule, activeCard);
+      markRulesDirty();
       notifyDashboardRules();
     }
 
@@ -566,15 +627,16 @@
   }
 
   function populateRuleSelect() {
+    ensureSelectedRuleId();
     els.ruleSelect.innerHTML = "";
-    rules.forEach((rule, i) => {
+    rules.forEach((rule) => {
       const opt = document.createElement("option");
-      opt.value = String(i);
-      const on = rule.enabled !== false ? "" : " (off)";
-      opt.textContent = (rule.title || rule.id) + on;
-      if (i === selectedIndex) opt.selected = true;
+      opt.value = rule.id;
+      opt.textContent = ruleLabel(rule);
+      if (rule.id === selectedRuleId) opt.selected = true;
       els.ruleSelect.appendChild(opt);
     });
+    if (selectedRuleId) els.ruleSelect.value = selectedRuleId;
     els.removeRuleBtn.disabled = rules.length <= 1;
   }
 
@@ -625,10 +687,12 @@
       else if (rule.plot_on_chart === undefined) rule.plot_on_chart = true;
       syncPlotChk();
       populateRuleSelect();
+      markRulesDirty();
       notifyDashboardRules();
     });
     plotChk.addEventListener("change", () => {
       rule.plot_on_chart = plotChk.checked;
+      markRulesDirty();
       notifyDashboardRules();
     });
     enLab.append(enChk, document.createTextNode(" Enabled"));
@@ -662,6 +726,7 @@
     activeEditor.setSize(null, 200);
     activeEditor.on("change", () => {
       rule.code = activeEditor.getValue();
+      markRulesDirty();
       clearTimeout(lintTimer);
       lintTimer = setTimeout(() => lintCode(rule.code, syntaxPillEl), 400);
     });
@@ -715,12 +780,11 @@
     }
     if (printCount === 0) {
       lines.push(
-        "(no print output — rule returned False for all rows, or nothing called print())"
+        "(no rule print() output — lookback rules only print on fault; check Verbose for [trace] spread samples)"
       );
       lines.push(
-        "Tip: data may be in bounds (e.g. 65–68 F inside 65–80). Lower bounds_low_f or add:"
+        "Tip: lower flatline_tolerance or bounds; or add debug: print(f\"spread={spread:.3f}\") inside evaluate"
       );
-      lines.push('  print(f"{row[\'row\']} {row[\'ts\']} {row[\'degF\']:.2f} F")');
     }
     lines.push("");
     lines.push("## Fault rows (sample up to 40)");
@@ -887,9 +951,8 @@
       els.consoleWrap.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
 
-    const hours = parseInt(els.testHours.value, 10) || 6;
+    const hours = parseInt(els.testHours.value, 10) || 2;
     const rollMin = getRollingAvgMinutes();
-    if (window.vibe12SetRollingAvgMinutes) window.vibe12SetRollingAvgMinutes(rollMin);
     appendConsole(
       "Testing \"" +
         (rule.title || rule.id) +
@@ -914,7 +977,12 @@
       const res = await fetch("/api/playground/test-rule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rule, hours, rolling_avg_minutes: rollMin }),
+        body: JSON.stringify({
+          rule,
+          hours,
+          rolling_avg_minutes: rollMin,
+          verbose: !!(els.verbosePrints && els.verbosePrints.checked),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -943,8 +1011,11 @@
           " rows swept. See report below → Copy report.\n"
       );
       if (data.flagged === 0 && printN === 0) {
+        const verbose = els.verbosePrints && els.verbosePrints.checked;
         appendConsole(
-          "No faults & no prints: temps likely in bounds (65–80). Try bounds_low_f=66 or print each row.\n",
+          verbose
+            ? "No faults. See [trace] lines above for 1 h window spreads vs flatline_tolerance.\n"
+            : "No faults & no prints — enable Verbose prints for [trace] window diagnostics.\n",
           "log-warn"
         );
       }
@@ -960,7 +1031,10 @@
 
   function collectRules() {
     persistActiveEditor();
-    return rules.map((r) => ({ ...r }));
+    return rules.map((r) => ({
+      ...r,
+      config: { ...(r.config || {}) },
+    }));
   }
 
   async function pingHealth() {
@@ -995,8 +1069,12 @@
     clearConsole();
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
+      rulesDirty = false;
+      rulesSource = "dynamodb";
+      rulesSavedAt = data.updated_at || Math.floor(Date.now() / 1000);
+      updateRulesPersistHint();
       appendConsole("Draft saved (" + (data.count || payload.length) + " rules, ts_ms=-2).\n");
-      appendConsole("No 7d backfill yet — use Go live (7 d) for FDD status row.\n");
+      appendConsole("No 7d backfill yet — use Write to database for FDD status row.\n");
       notifyDashboardRules();
     } else appendConsole("Save failed.\n", "error");
   }
@@ -1063,6 +1141,10 @@
           (data.hours ?? 168) +
           " h).\n"
       );
+      rulesDirty = false;
+      rulesSource = "dynamodb";
+      rulesSavedAt = Math.floor(Date.now() / 1000);
+      updateRulesPersistHint();
       notifyDashboardRules();
       if (window.vibe12DashboardRefresh) window.vibe12DashboardRefresh();
     } catch (e) {
@@ -1072,13 +1154,13 @@
     }
   }
 
-  function selectRule(index) {
-    if (index < 0 || index >= rules.length) return;
-    syncTitleFromToolbar();
-    selectedIndex = index;
-    els.ruleSelect.value = String(index);
+  function selectRuleById(ruleId) {
+    if (!ruleId || !ruleById(ruleId)) return;
+    persistActiveEditor();
+    selectedRuleId = ruleId;
+    els.ruleSelect.value = ruleId;
     const labUnit = labTempUnitEl();
-    const rule = rules[index];
+    const rule = ruleById(ruleId);
     if (labUnit && rule) {
       labUnit.value = ruleTempUnit(rule);
     }
@@ -1087,8 +1169,10 @@
 
   function addRule() {
     persistActiveEditor();
-    rules.push(blankRule());
-    selectedIndex = rules.length - 1;
+    const r = blankRule();
+    rules.push(r);
+    selectedRuleId = r.id;
+    markRulesDirty();
     populateRuleSelect();
     renderSelectedRule();
     notifyDashboardRules();
@@ -1097,18 +1181,21 @@
   function removeRule() {
     if (rules.length <= 1) return;
     persistActiveEditor();
-    rules.splice(selectedIndex, 1);
-    selectedIndex = Math.min(selectedIndex, rules.length - 1);
+    const idx = rules.findIndex((r) => r.id === selectedRuleId);
+    if (idx < 0) return;
+    rules.splice(idx, 1);
+    selectedRuleId = rules[Math.min(idx, rules.length - 1)].id;
+    markRulesDirty();
     populateRuleSelect();
     renderSelectedRule();
     notifyDashboardRules();
   }
 
   window.vibe12SetRulePlotOnChart = function (ruleId, on) {
-    const r = rules.find((x) => x.id === ruleId);
+    const r = ruleById(ruleId);
     if (!r || r.enabled === false) return;
     r.plot_on_chart = !!on;
-    if (selectedIndex >= 0 && rules[selectedIndex]?.id === ruleId) {
+    if (selectedRuleId === ruleId) {
       renderSelectedRule();
     }
   };
@@ -1144,12 +1231,16 @@
       if (r.plot_on_chart === undefined) r.plot_on_chart = true;
       normalizeRuleConfig(r);
     });
-    selectedIndex = 0;
+    rulesSource = data.rules_source || "defaults";
+    rulesSavedAt = data.updated_at || null;
+    rulesDirty = false;
+    selectedRuleId = rules[0]?.id || null;
     populateRuleSelect();
     renderSelectedRule();
+    updateRulesPersistHint();
 
     els.ruleSelect.addEventListener("change", () => {
-      selectRule(parseInt(els.ruleSelect.value, 10));
+      selectRuleById(els.ruleSelect.value);
     });
     els.addRuleBtn.addEventListener("click", addRule);
     els.removeRuleBtn.addEventListener("click", removeRule);
@@ -1164,12 +1255,7 @@
       els.ruleTitleInput.addEventListener("input", () => {
         const rule = currentRule();
         if (!rule) return;
-        rule.title = els.ruleTitleInput.value;
-        const opt = els.ruleSelect.options[selectedIndex];
-        if (opt) {
-          opt.textContent =
-            (rule.title || rule.id) + (rule.enabled === false ? " (off)" : "");
-        }
+        applyTitleFromInput(true);
         notifyDashboardRules();
       });
     }
@@ -1186,22 +1272,10 @@
           if (!r.config) r.config = {};
           r.config.temp_unit = getLabTempUnit();
         }
+        markRulesDirty();
         await reloadFieldMeta(getLabTempUnit());
         renderSelectedRule();
         notifyDashboardRules();
-      });
-    }
-    const labRoll = document.getElementById("labRollingAvgMinutes");
-    if (labRoll) {
-      const saved = localStorage.getItem("vibe12_rolling_avg_minutes");
-      if (saved) labRoll.value = saved;
-      labRoll.addEventListener("change", () => {
-        if (window.vibe12SetRollingAvgMinutes) {
-          window.vibe12SetRollingAvgMinutes(labRoll.value);
-        } else {
-          localStorage.setItem("vibe12_rolling_avg_minutes", labRoll.value);
-        }
-        loadTsPreview(parseInt(els.testHours.value, 10) || 6);
       });
     }
 

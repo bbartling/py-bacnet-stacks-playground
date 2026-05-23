@@ -36,6 +36,15 @@
       loop: "{{ bacnet_sync_files }}"
       notify: Restart BACnet DS18B20 service
 
+    - name: Sync edge_bacnet package to Pi
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../edge_bacnet/"
+        dest: "{{ bacnet_app_remote_dir }}/edge_bacnet/"
+        mode: "0644"
+      notify:
+        - Restart BACnet DS18B20 service
+        - Restart BACnet read driver
+
     - name: Install base Python packages (Debian / Raspberry Pi OS)
       ansible.builtin.apt:
         name:
@@ -137,6 +146,32 @@
       become: true
       when: install_systemd_unit | default(true) | bool
       notify: Restart BACnet DS18B20 service
+
+    - name: Install BACnet discover oneshot unit
+      ansible.builtin.template:
+        src: templates/vibe12-bacnet-discover.service.j2
+        dest: /etc/systemd/system/vibe12-bacnet-discover.service
+        mode: "0644"
+      become: true
+      when: install_bacnet_discover_unit | default(true) | bool
+
+    - name: Install BACnet read driver unit
+      ansible.builtin.template:
+        src: templates/vibe12-bacnet-read.service.j2
+        dest: /etc/systemd/system/vibe12-bacnet-read.service
+        mode: "0644"
+      become: true
+      when: install_bacnet_read_unit | default(false) | bool
+      notify: Restart BACnet read driver
+
+    - name: Enable BACnet read driver when configured
+      ansible.builtin.systemd:
+        name: vibe12-bacnet-read
+        enabled: "{{ enable_bacnet_read_driver | default(false) | bool }}"
+        state: "{{ 'started' if enable_bacnet_read_driver | default(false) | bool else 'stopped' }}"
+        daemon_reload: true
+      become: true
+      when: install_bacnet_read_unit | default(false) | bool
 
     - name: Stat legacy RTD systemd unit (optional migration)
       ansible.builtin.stat:
@@ -301,3 +336,14 @@
       when:
         - install_systemd_unit | default(true) | bool
         - enable_and_start_service | default(true) | bool
+
+    - name: Restart BACnet read driver
+      ansible.builtin.systemd:
+        name: vibe12-bacnet-read
+        state: restarted
+        daemon_reload: true
+        enabled: "{{ enable_bacnet_read_driver | default(false) | bool }}"
+      become: true
+      when:
+        - install_bacnet_read_unit | default(false) | bool
+        - enable_bacnet_read_driver | default(false) | bool

@@ -26,9 +26,19 @@
       <div class="card"><div class="lbl">°F</div><div id="latestF" class="val">—</div></div>
       <div class="card card-ts"><div class="lbl">Last sample</div><div id="latestTs" class="val small ts-dual">—</div></div>
     </div>
-    <div class="fdd-row"><span id="fddBadge" class="fdd-badge fdd-NORMAL">FDD: —</span></div>
+    <div class="fault-analytics-wrap" id="faultAnalyticsWrap">
+      <div class="fault-analytics-head">
+        <span id="faultAnalyticsTitle" class="fault-analytics-title">Fault analytics</span>
+        <span id="fddStatusChip" class="fdd-status-chip fdd-NORMAL">—</span>
+      </div>
+      <div id="faultAnalyticsGrid" class="fault-analytics-grid">
+        <span class="fault-analytics-empty">Loading…</span>
+      </div>
+    </div>
     <div class="toolbar dash-toolbar">
       <div class="toolbar-group">
+        <label>Site <select id="siteSelect" aria-label="Site"></select></label>
+        <label>Building <select id="buildingSelect" aria-label="Building"></select></label>
         <label>Refresh <select id="refreshSelect"></select></label>
         <label>History <select id="hoursSelect"></select></label>
         <label>Display
@@ -38,7 +48,10 @@
           </select>
         </label>
       </div>
-      <button type="button" id="refreshNow" class="btn btn-primary">Refresh now</button>
+      <button type="button" id="refreshNow" class="btn btn-primary">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <span class="btn-label">Refresh now</span>
+      </button>
       <span id="chartZoomHint" class="chart-zoom-hint" hidden></span>
     </div>
     <details class="chart-controls" open aria-label="Chart overlays">
@@ -68,6 +81,25 @@
             </label>
           </div>
         </div>
+        <div class="chart-controls-section chart-controls-multiseries">
+          <div class="section-label">Multi-sensor (Brick)</div>
+          <div class="multi-series-toolbar">
+            <label class="plot-toggle-item">
+              <input type="checkbox" id="showMultiSeries" />
+              <span>Overlay BACnet series</span>
+            </label>
+            <select id="brickClassFilter" aria-label="Filter by Brick class">
+              <option value="">All points</option>
+              <option value="Supply_Air_Temperature_Sensor">Supply air temp</option>
+              <option value="Return_Air_Temperature_Sensor">Return air temp</option>
+              <option value="Zone_Air_Temperature_Sensor">Zone temp</option>
+            </select>
+            <button type="button" id="loadMultiSeries" class="btn btn-secondary btn-sm">Load series</button>
+          </div>
+          <div id="pointPickerGrid" class="point-picker-grid">
+            <span class="chart-empty-hint">Select site/building, then load points</span>
+          </div>
+        </div>
         <div class="chart-controls-section chart-controls-faults">
           <div class="section-label">Fault lanes</div>
           <div id="faultPlotToggles" class="fault-toggle-grid">
@@ -92,6 +124,7 @@
           <button type="button" id="removeRuleBtn" class="btn btn-secondary btn-sm" title="Remove selected rule">− Remove</button>
         </div>
       </div>
+      <p id="rulesPersistHint" class="rules-persist-hint defaults" role="status">Loading rules…</p>
       <div class="lab-row lab-row-name">
         <label class="lab-field lab-field-grow">Name
           <input type="text" id="ruleTitleInput" class="rule-title-input" placeholder="Rule display name" spellcheck="true" />
@@ -99,7 +132,7 @@
       </div>
       <div class="lab-row lab-row-test">
         <label class="lab-field">Test window (h)
-          <input type="number" id="testHours" min="1" max="168" value="6" />
+          <input type="number" id="testHours" min="1" max="168" value="2" />
         </label>
         <label class="lab-field">Rule unit
           <select id="labTempUnit" aria-label="Temperature unit for this rule config and evaluate">
@@ -107,16 +140,10 @@
             <option value="metric">°C (metric)</option>
           </select>
         </label>
-        <label class="lab-field">Rolling avg
-          <select id="labRollingAvgMinutes" aria-label="Rolling average window for test sweep">
-            <option value="1" selected>1 min</option>
-            <option value="5">5 min</option>
-            <option value="10">10 min</option>
-          </select>
-        </label>
+        <span class="lab-field-hint">Rolling avg: Dashboard chart overlays (test + live). Per-rule: add <code>rolling_avg_minutes</code> in config table.</span>
         <label class="lab-field lab-field-check verbose-chk">
           <input type="checkbox" id="verbosePrints" />
-          <span>Verbose prints</span>
+          <span>Verbose prints (window trace)</span>
         </label>
       </div>
       <div class="lab-row lab-row-actions">

@@ -17,4 +17,4 @@ confirm_changeset = false
 resolve_s3 = true
 resolve_image_repos = true
 region = "us-east-2"
-parameter_overrides = "IotTopic=\"sdk/test/python\" IotRuleName=\"vibe12_ds18b20_ingest\" DeviceId=\"bosspi-ds18b20\" TtlDays=7 DeployRevision=\"1\""
+parameter_overrides = "IotTopic=\"sdk/test/python\" IotRuleName=\"vibe12_ds18b20_ingest\" DeviceId=\"bosspi-ds18b20\" TtlDays=7 DeployRevision=\"3\" IotTopicPrefix=\"vibe12\""

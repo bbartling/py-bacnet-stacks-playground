@@ -46,6 +46,131 @@
   let preserveUserZoom = false;
   const pauseRefreshWhenZoomed = true;
   let chartRelayoutBound = false;
+  let refreshInFlight = 0;
+  let selectedSiteId = localStorage.getItem("vibe12_site_id") || "";
+  let selectedBuildingId = localStorage.getItem("vibe12_building_id") || "";
+  let buildingPoints = [];
+  let selectedSeriesIds = new Set(
+    JSON.parse(localStorage.getItem("vibe12_selected_series") || "[]")
+  );
+  let multiSeriesData = null;
+  let showMultiSeries = localStorage.getItem("vibe12_show_multi_series") === "1";
+
+  function historyLabel(h) {
+    const n = parseInt(h, 10);
+    if (n === 168) return "7 d";
+    if (n === 72) return "3 d";
+    return n + " h";
+  }
+
+  function formatDuration(ms) {
+    if (ms == null || ms <= 0) return "0s";
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return sec + "s";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + "m";
+    const hr = Math.floor(min / 60);
+    const rm = min % 60;
+    if (hr < 48) return rm ? hr + "h " + rm + "m" : hr + "h";
+    const d = Math.floor(hr / 24);
+    const rh = hr % 24;
+    return rh ? d + "d " + rh + "h" : d + "d";
+  }
+
+  function hexToRgb(hex) {
+    const h = String(hex || "#8b949e").replace("#", "");
+    if (h.length !== 6) return { r: 139, g: 148, b: 158 };
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    };
+  }
+
+  function faultCardBackground(color, intensity) {
+    const rgb = hexToRgb(color);
+    const a = 0.08 + Math.min(1, Math.max(0, intensity)) * 0.42;
+    return "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + a.toFixed(3) + ")";
+  }
+
+  function setRefreshLoading(on) {
+    const btn = document.getElementById("refreshNow");
+    const wrap = document.getElementById("faultAnalyticsWrap");
+    if (btn) btn.classList.toggle("is-loading", on);
+    if (wrap) wrap.classList.toggle("is-loading", on);
+  }
+
+  function renderFaultAnalytics(data) {
+    const titleEl = document.getElementById("faultAnalyticsTitle");
+    const chip = document.getElementById("fddStatusChip");
+    const grid = document.getElementById("faultAnalyticsGrid");
+    if (!grid) return;
+
+    const h = data.hours != null ? data.hours : hours;
+    const fdd = data.fdd_open || {};
+    const status = fdd.fdd_status || "PENDING";
+    if (titleEl) {
+      titleEl.textContent = "Fault analytics · " + historyLabel(h);
+    }
+    if (chip) {
+      chip.textContent = status.replace(/_/g, " ");
+      chip.className = "fdd-status-chip " + faultClass(status);
+      chip.title = "Latest FDD status row (go-live backfill)";
+    }
+
+    let items = data.fault_analytics || [];
+    if (!items.length && data.rules_meta && data.rules_meta.length) {
+      items = data.rules_meta.map((r) => ({
+        id: r.id,
+        title: r.title || r.id,
+        color: r.color || "#8b949e",
+        count: (data.fault_totals || {})[r.id] || 0,
+        elapsed_ms: 0,
+      }));
+      items.sort((a, b) => b.count - a.count);
+    }
+
+    grid.innerHTML = "";
+    if (!items.length) {
+      const empty = document.createElement("span");
+      empty.className = "fault-analytics-empty";
+      empty.textContent = "No rules — add in Rule Lab";
+      grid.appendChild(empty);
+      return;
+    }
+
+    const maxCount = Math.max(1, ...items.map((x) => x.count || 0));
+    items.forEach((item) => {
+      const card = document.createElement("div");
+      card.className = "fault-analytics-card";
+      const intensity = (item.count || 0) / maxCount;
+      const color = item.color || "#8b949e";
+      card.style.borderLeftColor = color;
+      card.style.background = faultCardBackground(color, intensity);
+      card.title = item.id;
+
+      const t = document.createElement("div");
+      t.className = "fault-analytics-card-title";
+      t.textContent = item.title || item.id;
+
+      const hits = document.createElement("div");
+      hits.className = "fault-analytics-card-stat";
+      hits.innerHTML =
+        "<strong>" +
+        (item.count || 0).toLocaleString() +
+        "</strong> hits";
+
+      const elapsed = document.createElement("div");
+      elapsed.className = "fault-analytics-card-stat";
+      elapsed.innerHTML =
+        "<strong>" +
+        formatDuration(item.elapsed_ms || 0) +
+        "</strong> in fault";
+
+      card.append(t, hits, elapsed);
+      grid.appendChild(card);
+    });
+  }
 
   function logMsg(t, c) {
     const el = document.getElementById("dashLog");
@@ -381,8 +506,35 @@
         opacity: 0.9,
       });
     });
-    const yLo = Math.min(...yT) - pad;
-    const yHi = Math.max(...yT) + pad;
+  const multiYs = [];
+  if (showMultiSeries && multiSeriesData && multiSeriesData.series) {
+    const palette = ["#f0883e", "#a371f7", "#3fb950", "#ffa657", "#79c0ff", "#ff7b72"];
+    let pi = 0;
+    Object.entries(multiSeriesData.series).forEach(([sid, samples]) => {
+      if (!selectedSeriesIds.size || selectedSeriesIds.has(sid)) {
+        const xs = samples.map((s) => utcStamp(s.ts_ms, s.ts));
+        const ys = samples.map((s) => Number(s.value));
+        ys.forEach((v) => {
+          if (!Number.isNaN(v)) multiYs.push(v);
+        });
+        traces.push({
+          x: xs,
+          y: ys,
+          name: sid.split("#").pop(),
+          type: "scatter",
+          mode: "lines",
+          line: { color: palette[pi % palette.length], width: 1.5 },
+          yaxis: "y",
+          showlegend: true,
+          opacity: 0.85,
+        });
+        pi += 1;
+      }
+    });
+  }
+    const yAll = yT.concat(multiYs.length ? multiYs : []);
+    const yLo = Math.min(...yAll) - pad;
+    const yHi = Math.max(...yAll) + pad;
     const layout = {
       height: 460,
       paper_bgcolor: "#0f1419",
@@ -426,9 +578,7 @@
   function setRollingAvgMinutes(m, persist) {
     rollingAvgMinutes = normalizeRollingMinutes(m);
     const sel = document.getElementById("rollingAvgMinutes");
-    const lab = document.getElementById("labRollingAvgMinutes");
     if (sel) sel.value = String(rollingAvgMinutes);
-    if (lab) lab.value = String(rollingAvgMinutes);
     if (persist !== false) {
       localStorage.setItem(ROLLING_STORAGE_KEY, String(rollingAvgMinutes));
     }
@@ -436,6 +586,11 @@
 
   async function refresh(opts) {
     opts = opts || {};
+    const showLoading = !opts.silent;
+    if (showLoading) {
+      refreshInFlight += 1;
+      setRefreshLoading(true);
+    }
     const url =
       "/api/readings?hours=" +
       hours +
@@ -447,6 +602,7 @@
       logMsg("GET " + url);
     }
     let data;
+    let fetchOk = false;
     try {
       const res = await fetch(url);
       const raw = await res.text();
@@ -475,13 +631,21 @@
         logServerDebug(data, "readings error");
         return;
       }
+      fetchOk = true;
     } catch (e) {
       logMsg("fetch error: " + e, "log-err");
       return;
+    } finally {
+      if (showLoading && !fetchOk) {
+        refreshInFlight = Math.max(0, refreshInFlight - 1);
+        if (refreshInFlight === 0) setRefreshLoading(false);
+      }
     }
+    if (!fetchOk || !data) return;
     logServerDebug(data, "readings");
     lastChartData = data;
     const meta = data.rules_meta || [];
+    renderFaultAnalytics(data);
     syncPlotStateFromMeta(meta);
     renderPlotToggles(meta);
     updateGuideLabels(data);
@@ -516,12 +680,8 @@
     document.getElementById("status").textContent =
       (data.chart_truncated ? pts.length + "/" + countFull : pts.length) +
       " pts · " +
-      hours +
-      " h" +
+      historyLabel(hours) +
       (stride > 1 ? " · chart 1/" + stride : "");
-    const b = document.getElementById("fddBadge");
-    b.textContent = "FDD: " + (fdd.fdd_status || "PENDING");
-    b.className = faultClass(fdd.fdd_status);
     if (pts.length) {
       const last = pts[pts.length - 1];
       document.getElementById("latestC").textContent = last.degC.toFixed(2);
@@ -536,6 +696,10 @@
       if (other) other.classList.remove("val-primary");
       setLatestTs(last);
     }
+    if (showLoading) {
+      refreshInFlight = Math.max(0, refreshInFlight - 1);
+      if (refreshInFlight === 0) setRefreshLoading(false);
+    }
   }
 
   /** Called from Rule Lab when enabled / plot checkboxes change */
@@ -546,6 +710,7 @@
       lastChartData.rules_meta = metaList;
       if (chartGuides) lastChartData.chart_guides = chartGuides;
       updateGuideLabels(lastChartData);
+      renderFaultAnalytics(lastChartData);
       drawChart(lastChartData, { resetZoom: false });
     }
   };
@@ -565,15 +730,181 @@
     });
   }
 
+  async function loadBuildings() {
+    const siteSel = document.getElementById("siteSelect");
+    const bldSel = document.getElementById("buildingSelect");
+    if (!siteSel || !bldSel) return;
+    try {
+      const res = await fetch("/api/buildings");
+      const data = await res.json();
+      const buildings = data.buildings || [];
+      const sites = [...new Set(buildings.map((b) => b.site_id))];
+      siteSel.innerHTML = "";
+      sites.forEach((s) => {
+        const o = document.createElement("option");
+        o.value = s;
+        o.textContent = s;
+        if (s === selectedSiteId) o.selected = true;
+        siteSel.appendChild(o);
+      });
+      if (!selectedSiteId && sites.length) {
+        selectedSiteId = sites[0];
+        siteSel.value = selectedSiteId;
+      }
+      function fillBuildings() {
+        bldSel.innerHTML = "";
+        buildings
+          .filter((b) => b.site_id === selectedSiteId)
+          .forEach((b) => {
+            const o = document.createElement("option");
+            o.value = b.building_id;
+            o.textContent = b.building_id;
+            if (b.building_id === selectedBuildingId) o.selected = true;
+            bldSel.appendChild(o);
+          });
+        if (!selectedBuildingId && bldSel.options.length) {
+          selectedBuildingId = bldSel.options[0].value;
+        }
+      }
+      fillBuildings();
+      siteSel.addEventListener("change", () => {
+        selectedSiteId = siteSel.value;
+        selectedBuildingId = "";
+        localStorage.setItem("vibe12_site_id", selectedSiteId);
+        fillBuildings();
+        loadBuildingPoints();
+      });
+      bldSel.addEventListener("change", () => {
+        selectedBuildingId = bldSel.value;
+        localStorage.setItem("vibe12_building_id", selectedBuildingId);
+        loadBuildingPoints();
+      });
+      await loadBuildingPoints();
+    } catch (e) {
+      logMsg("buildings load: " + e, "log-err");
+    }
+  }
+
+  function renderPointPicker() {
+    const host = document.getElementById("pointPickerGrid");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!buildingPoints.length) {
+      host.innerHTML = '<span class="chart-empty-hint">No BACnet points registered yet</span>';
+      return;
+    }
+    buildingPoints.forEach((p) => {
+      const lab = document.createElement("label");
+      lab.className = "plot-toggle-item point-pick-item";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = selectedSeriesIds.has(p.series_id);
+      chk.addEventListener("change", () => {
+        if (chk.checked) selectedSeriesIds.add(p.series_id);
+        else selectedSeriesIds.delete(p.series_id);
+        localStorage.setItem(
+          "vibe12_selected_series",
+          JSON.stringify([...selectedSeriesIds])
+        );
+      });
+      const label = p.brick_tag || p.object_name || p.point_id || p.series_id;
+      lab.append(chk, document.createTextNode(" " + label));
+      if (p.brick_class) {
+        const meta = document.createElement("span");
+        meta.className = "guide-meta";
+        meta.textContent = " · " + p.brick_class;
+        lab.appendChild(meta);
+      }
+      host.appendChild(lab);
+    });
+  }
+
+  async function loadBuildingPoints() {
+    if (!selectedSiteId || !selectedBuildingId) return;
+    try {
+      const res = await fetch(
+        "/api/points/" +
+          encodeURIComponent(selectedSiteId) +
+          "/" +
+          encodeURIComponent(selectedBuildingId)
+      );
+      const data = await res.json();
+      buildingPoints = data.points || [];
+      renderPointPicker();
+    } catch (e) {
+      logMsg("points load: " + e, "log-err");
+    }
+  }
+
+  async function loadMultiSeriesChart() {
+    const ids = [...selectedSeriesIds];
+    if (!ids.length && buildingPoints.length) {
+      buildingPoints.slice(0, 6).forEach((p) => selectedSeriesIds.add(p.series_id));
+      localStorage.setItem(
+        "vibe12_selected_series",
+        JSON.stringify([...selectedSeriesIds])
+      );
+      renderPointPicker();
+    }
+    const useIds = [...selectedSeriesIds];
+    if (!useIds.length) {
+      logMsg("select points for multi-series chart", "log-err");
+      return;
+    }
+    const url =
+      "/api/series?series_ids=" +
+      encodeURIComponent(useIds.join(",")) +
+      "&hours=" +
+      hours;
+    logMsg("GET " + url);
+    try {
+      const res = await fetch(url);
+      multiSeriesData = await res.json();
+      if (lastChartData) drawChart(lastChartData, { resetZoom: false });
+      logMsg("loaded " + useIds.length + " BACnet series", "log-ok");
+    } catch (e) {
+      logMsg("multi-series: " + e, "log-err");
+    }
+  }
+
+  function bindMultiSeries() {
+    const chk = document.getElementById("showMultiSeries");
+    const btn = document.getElementById("loadMultiSeries");
+    const filt = document.getElementById("brickClassFilter");
+    if (chk) {
+      chk.checked = showMultiSeries;
+      chk.addEventListener("change", () => {
+        showMultiSeries = chk.checked;
+        localStorage.setItem("vibe12_show_multi_series", showMultiSeries ? "1" : "0");
+        if (lastChartData) drawChart(lastChartData, { resetZoom: false });
+      });
+    }
+    if (btn) {
+      btn.addEventListener("click", () => {
+        if (filt && filt.value) {
+          buildingPoints
+            .filter((p) => p.brick_class === filt.value)
+            .forEach((p) => selectedSeriesIds.add(p.series_id));
+          localStorage.setItem(
+            "vibe12_selected_series",
+            JSON.stringify([...selectedSeriesIds])
+          );
+          renderPointPicker();
+        }
+        loadMultiSeriesChart();
+      });
+    }
+  }
+
   function bindToolbar() {
     const rs = document.getElementById("refreshSelect");
     rs.innerHTML =
       '<option value="10000">10 s</option><option value="60000" selected>1 min</option><option value="300000">5 min</option>';
     const hs = document.getElementById("hoursSelect");
-    [1, 3, 6, 12, 24, 168].forEach((h) => {
+    [1, 3, 6, 12, 24, 72, 168].forEach((h) => {
       const o = document.createElement("option");
       o.value = h;
-      o.textContent = h === 168 ? "7 d" : h + " h";
+      o.textContent = historyLabel(h);
       if (h === 24) o.selected = true;
       hs.appendChild(o);
     });
@@ -674,6 +1005,8 @@
     bindTabs();
     bindToolbar();
     bindGuideToggles();
+    bindMultiSeries();
+    loadBuildings();
     pingHealth();
     refresh();
   });

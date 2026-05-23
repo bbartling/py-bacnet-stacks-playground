@@ -23,8 +23,12 @@ Parameters:
     Description: DynamoDB TTL — rows auto-delete after this many days
   DeployRevision:
     Type: String
-    Default: "1"
+    Default: "2"
     Description: Bump on each deploy (e.g. date +%s) so CloudFormation updates Lambdas when code changed
+  IotTopicPrefix:
+    Type: String
+    Default: vibe12
+    Description: MQTT prefix for BACnet hierarchical topics (vibe12/site/building/system/point/telemetry)
 
 Resources:
   TelemetryTable:
@@ -37,11 +41,24 @@ Resources:
           AttributeType: S
         - AttributeName: ts_ms
           AttributeType: N
+        - AttributeName: building_scope
+          AttributeType: S
+        - AttributeName: scope_sort
+          AttributeType: S
       KeySchema:
         - AttributeName: device_id
           KeyType: HASH
         - AttributeName: ts_ms
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: BuildingScopeIndex
+          KeySchema:
+            - AttributeName: building_scope
+              KeyType: HASH
+            - AttributeName: scope_sort
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: expires_at
         Enabled: true
@@ -73,7 +90,18 @@ Resources:
       RuleName: !Ref IotRuleName
       TopicRulePayload:
         AwsIotSqlVersion: "2016-03-23"
-        Sql: !Sub "SELECT * FROM '${IotTopic}'"
+        Sql: !Sub "SELECT *, topic() AS mqtt_topic FROM '${IotTopic}'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt IngestFunction.Arn
+
+  IotIngestRuleBacnet:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: !Sub "${IotRuleName}_bacnet"
+      TopicRulePayload:
+        AwsIotSqlVersion: "2016-03-23"
+        Sql: !Sub "SELECT *, topic() AS mqtt_topic FROM '${IotTopicPrefix}/+/+/+/+/telemetry'"
         Actions:
           - Lambda:
               FunctionArn: !GetAtt IngestFunction.Arn
@@ -85,6 +113,14 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: iot.amazonaws.com
       SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}"
+
+  IotInvokeIngestPermissionBacnet:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IngestFunction
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}_bacnet"
 
   WebFunction:
     Type: AWS::Serverless::Function
@@ -108,6 +144,7 @@ Resources:
           VIBE12_TEMP_UNIT: "imperial"
           CHART_CHUNKED_HOURS: "48"
           CHART_CHUNKED_SAMPLES: "8000"
+          TEST_HOURS_DEFAULT: "2"
           DEPLOY_REVISION: !Ref DeployRevision
       Policies:
         - DynamoDBCrudPolicy:

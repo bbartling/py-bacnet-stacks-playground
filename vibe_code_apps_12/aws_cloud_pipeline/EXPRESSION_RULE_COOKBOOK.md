@@ -40,6 +40,8 @@ Sensor stuck: max − min over the last hour is below tolerance. Paints the full
 
 **Config:** `flatline_tolerance` = **0.10** (°F) or **0.03** (°C)
 
+**Test tip:** Use **Test window ≥ 2 h** (default). `print()` runs only when a fault fires; enable **Verbose prints (window trace)** to see sample 1 h spreads without changing code.
+
 ```python
 ONE_HOUR_MS = 60 * 60 * 1000
 FILL_RATIO = 0.95
@@ -502,6 +504,58 @@ def apply_faults(rows, cfg):
             for w in window_rows:
                 flags[w["row"]] = 1
     return flags
+```
+
+---
+
+## Recipe 12 — SAT–RAT spread (multi-sensor / Brick)
+
+Cross-sensor mechanical rule using `series` context. Map aliases in rule **config**:
+
+```json
+{
+  "max_spread": 25.0,
+  "series_aliases": {
+    "SAT": "acme#tower-a#ahu-1#3456788-analog-input-2",
+    "RAT": "acme#tower-a#ahu-1#3456788-analog-input-4"
+  }
+}
+```
+
+Or use Brick tags if series IDs match alias keys after graph import.
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None, series=None):
+    if not series:
+        return False
+    sat = series.get("SAT", {}).get("current")
+    rat = series.get("RAT", {}).get("current")
+    if sat is None or rat is None:
+        return False
+    spread = abs(float(sat) - float(rat))
+    if spread > cfg["max_spread"]:
+        print(f"{row['ts']}  SAT-RAT spread={spread:.1f}  SAT={sat} RAT={rat}")
+        return True
+    return False
+```
+
+## Recipe 13 — All SAT sensors flatline (by Brick class)
+
+Use **Test rule** with building scope after multi-series data is loaded, or query `/api/series/by-tag?brick_class=Supply_Air_Temperature_Sensor`.
+
+```python
+def evaluate(row, cfg, prev_row=None, rows=None, series=None):
+  # Primary row is first series in scope; use series["SAT"]["values"] for window
+  if not series or "SAT" not in series:
+      return False
+  vals = [v for v in series["SAT"]["values"] if v is not None][-18:]
+  if len(vals) < 18:
+      return False
+  tol = cfg.get("flatline_tolerance", 0.05)
+  if max(vals) - min(vals) < tol:
+      print(f"{row['ts']}  SAT flatline spread={max(vals)-min(vals):.3f}")
+      return True
+  return False
 ```
 
 ---

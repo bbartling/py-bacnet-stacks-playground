@@ -30,6 +30,7 @@ from playground_core import (
     evaluate_rules_on_readings,
     evaluate_rules_on_readings_chunked,
     eval_rows_preview,
+    fault_analytics_from_series,
     lint_python,
     normalize_rolling_avg_minutes,
     prepare_rows_for_evaluate,
@@ -46,6 +47,11 @@ from rules_defaults import (
     rules_to_panels,
 )
 from units import TEMP_UNITS, normalize_temp_unit
+from brick_model import (
+    empty_graph,
+    graph_from_point_registry,
+)
+from timeseries import DynamoTimeSeriesStore, align_series_windows
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
@@ -54,7 +60,7 @@ CHART_RESPONSE_MAX = int(os.environ.get("CHART_RESPONSE_MAX", "5000"))
 CHART_CHUNKED_HOURS = float(os.environ.get("CHART_CHUNKED_HOURS", "48"))
 CHART_CHUNKED_SAMPLES = int(os.environ.get("CHART_CHUNKED_SAMPLES", "8000"))
 DEFAULT_HOURS = int(os.environ.get("DEFAULT_HOURS", "168"))
-TEST_HOURS_DEFAULT = int(os.environ.get("TEST_HOURS_DEFAULT", "6"))
+TEST_HOURS_DEFAULT = int(os.environ.get("TEST_HOURS_DEFAULT", "2"))
 FDD_CONFIG_TS = -1
 FDD_CUSTOM_RULES_TS = -2
 FDD_AFDD_STATE_TS = -3
@@ -69,6 +75,7 @@ _MIME = {
 }
 
 _table = boto3.resource("dynamodb").Table(TABLE_NAME)
+_ts_store = DynamoTimeSeriesStore(_table, default_device_id=DEVICE_ID, read_limit=READINGS_LIMIT)
 
 
 def _json_safe(obj):
@@ -256,7 +263,7 @@ def _save_afdd_state(state: dict[str, Any]) -> None:
     )
 
 
-def _load_custom_rules() -> list[dict[str, Any]]:
+def _load_custom_rules_record() -> tuple[list[dict[str, Any]], str, int | None]:
     try:
         resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_CUSTOM_RULES_TS})
         item = _json_safe(resp.get("Item") or {})
@@ -264,23 +271,31 @@ def _load_custom_rules() -> list[dict[str, Any]]:
         if raw:
             data = json.loads(raw) if isinstance(raw, str) else raw
             if isinstance(data, list) and data:
-                return data
-    except (json.JSONDecodeError, TypeError):
+                updated = item.get("updated_at")
+                return data, "dynamodb", int(updated) if updated is not None else None
+    except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    return default_custom_rules()
+    return default_custom_rules(), "defaults", None
 
 
-def _save_custom_rules(rules: list[dict[str, Any]]) -> None:
+def _load_custom_rules() -> list[dict[str, Any]]:
+    rules, _, _ = _load_custom_rules_record()
+    return rules
+
+
+def _save_custom_rules(rules: list[dict[str, Any]]) -> int:
+    updated_at = int(time.time())
     _table.put_item(
         Item={
             "device_id": DEVICE_ID,
             "ts_ms": FDD_CUSTOM_RULES_TS,
             "record_type": "fdd_custom_rules",
             "rules_json": json.dumps(rules),
-            "updated_at": int(time.time()),
-            "expires_at": int(time.time()) + 30 * 86400,
+            "updated_at": updated_at,
+            "expires_at": updated_at + 30 * 86400,
         }
     )
+    return updated_at
 
 
 def _fetch_fdd_status() -> dict:
@@ -435,6 +450,7 @@ def _readings_payload(
 
         fault_plots_full = {k: flag_series.get(k, [0] * n) for k in flag_series}
         fault_totals = {k: sum(v) for k, v in fault_plots_full.items()}
+        fault_analytics = fault_analytics_from_series(fault_plots_full, rows, rules)
 
         stage = "downsample_chart"
         aux_full = aux_series_from_rows(rows) if rows else {}
@@ -481,6 +497,7 @@ def _readings_payload(
         "numpy_available": NUMPY_AVAILABLE,
         "fault_plots": chart_plots,
         "fault_totals": fault_totals,
+        "fault_analytics": fault_analytics,
         "custom_rules_active": True,
         "debug": debug_payload(
             log,
@@ -540,6 +557,8 @@ def _health_payload() -> dict:
         "chart_response_max": CHART_RESPONSE_MAX,
         "chart_chunked_hours": CHART_CHUNKED_HOURS,
         "chart_chunked_samples": CHART_CHUNKED_SAMPLES,
+        "mqtt_topic_prefix": "vibe12",
+        "features": ["brick_model", "multi_series", "bacnet_ingest"],
         "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 
@@ -561,23 +580,27 @@ def lambda_handler(event, context):
             rules = body.get("rules")
             if not isinstance(rules, list):
                 return _response(400, {"error": "rules must be a list"})
-            _save_custom_rules(rules)
+            updated_at = _save_custom_rules(rules)
             print(f"[vibe12] save draft: {len(rules)} rule(s) → ts_ms={FDD_CUSTOM_RULES_TS}")
             return _response(
                 200,
                 {
                     "ok": True,
                     "count": len(rules),
+                    "updated_at": updated_at,
+                    "rules_source": "dynamodb",
                     "note": f"draft only — go-live runs {GO_LIVE_BATCH_HOURS}h batches × {GO_LIVE_MAX_LOOKBACK_HOURS}h",
                 },
             )
-        rules = _load_custom_rules()
+        rules, rules_source, updated_at = _load_custom_rules_record()
         display_unit = _get_display_temp_unit(event)
         return _response(
             200,
             {
                 "rules": rules,
                 "defaults": default_custom_rules(),
+                "rules_source": rules_source,
+                "updated_at": updated_at,
                 "config_field_meta": get_config_field_meta(display_unit),
                 "temp_unit_default": normalize_temp_unit(None),
                 "temp_units_allowed": list(TEMP_UNITS),
@@ -598,6 +621,7 @@ def lambda_handler(event, context):
         print(f"[vibe12] test-rule hours={hours} rows={len(readings)} (no DB status write)")
         rows = readings_to_rows(readings)
         roll_min = _rolling_minutes_from_body(body, rule)
+        verbose = bool(body.get("verbose"))
         t0 = time.perf_counter()
         try:
             flags, events = sweep_rule(
@@ -607,6 +631,16 @@ def lambda_handler(event, context):
                 capture_print=True,
                 rolling_avg_minutes=roll_min,
             )
+            if verbose:
+                from playground_core import window_trace_events
+                from units import effective_temp_unit
+
+                cfg = rule.get("config") or {}
+                trace = window_trace_events(rows, temp_unit=effective_temp_unit(cfg))
+                if len(events) >= 2:
+                    events = events[:-2] + trace + events[-2:]
+                else:
+                    events = events + trace
         except Exception:
             return _response(
                 400,
@@ -679,6 +713,85 @@ def lambda_handler(event, context):
                     "trace": traceback.format_exc(),
                 },
             )
+
+    if path.startswith("/api/buildings"):
+        buildings = _ts_store.list_buildings()
+        return _response(200, {"buildings": buildings})
+
+    if path.startswith("/api/points/"):
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 4:
+            site_id, building_id = parts[2], parts[3]
+            points = _ts_store.list_points(site_id, building_id)
+            return _response(
+                200,
+                {"site_id": site_id, "building_id": building_id, "points": points},
+            )
+        return _response(400, {"error": "use /api/points/{site_id}/{building_id}"})
+
+    if path.startswith("/api/brick/"):
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 4:
+            site_id, building_id = parts[2], parts[3]
+            if method == "GET":
+                graph = _ts_store.get_brick_graph(site_id, building_id)
+                if graph is None:
+                    points = _ts_store.list_points(site_id, building_id)
+                    graph = graph_from_point_registry(site_id, building_id, points)
+                return _response(200, {"graph": _json_safe(graph)})
+            if method == "PUT":
+                body = _parse_body(event)
+                graph = body.get("graph") or body
+                if not isinstance(graph, dict):
+                    return _response(400, {"error": "graph object required"})
+                _ts_store.put_brick_graph(site_id, building_id, graph)
+                return _response(200, {"ok": True})
+        return _response(400, {"error": "use /api/brick/{site_id}/{building_id}"})
+
+    if path.startswith("/api/series/by-tag"):
+        q = event.get("queryStringParameters") or {}
+        site_id = q.get("site_id", "")
+        building_id = q.get("building_id", "")
+        brick_class = q.get("brick_class")
+        hours = _get_hours(event, default=24)
+        if not site_id or not building_id:
+            return _response(400, {"error": "site_id and building_id required"})
+        data = _ts_store.query_by_building(
+            site_id, building_id, hours=hours, brick_class=brick_class
+        )
+        ts_sorted, aligned = align_series_windows(data)
+        return _response(
+            200,
+            {
+                "site_id": site_id,
+                "building_id": building_id,
+                "brick_class": brick_class,
+                "hours": hours,
+                "timestamps_ms": ts_sorted,
+                "series": {k: _json_safe(v) for k, v in data.items()},
+                "aligned": _json_safe(aligned),
+            },
+        )
+
+    if path.startswith("/api/series"):
+        q = event.get("queryStringParameters") or {}
+        hours = _get_hours(event, default=24)
+        ids_raw = q.get("series_ids") or q.get("series_id") or ""
+        series_ids = [s.strip() for s in ids_raw.split(",") if s.strip()]
+        if not series_ids:
+            return _response(400, {"error": "series_ids query param required"})
+        data = _ts_store.get_multi_series(series_ids, hours=hours)
+        ts_sorted, aligned = align_series_windows(data)
+        return _response(
+            200,
+            {
+                "hours": hours,
+                "series_ids": series_ids,
+                "series": {k: _json_safe(v) for k, v in data.items()},
+                "timestamps_ms": ts_sorted,
+                "aligned": _json_safe(aligned),
+            },
+        )
 
     if path.startswith("/api/readings"):
         hours = _get_hours(event)

@@ -164,11 +164,14 @@ Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple 
 - Go live + scheduled FDD: **6 h chunks** (`FDD_CHUNK_HOURS`), overlap for rolling avg, merge counts.
 - `afdd_state` at `ts_ms=-3`; summary at `ts_ms=0` includes `chunk_log` (last 40 chunks).
 
-### 2. Multi-sensor / multi-site model
+### 2. Multi-sensor / multi-site model — **partial (v2)**
 
-- Partition DynamoDB by `device_id` (or `site_id#sensor_id`).
-- Rule templates per equipment type (AHU, zone, etc.).
-- Go live **per device** or **fan-out** via SQS + worker Lambdas or Step Functions.
+- BACnet edge: `edge_bacnet/` discover → CSV → RPM read driver → MQTT `vibe12/{site}/{building}/{system}/{point}/telemetry`
+- Ingest: legacy `sdk/test/python` + hierarchical BACnet rule; `series_id` as `device_id` partition key
+- DynamoDB GSI `BuildingScopeIndex` (`building_scope` + `scope_sort`)
+- APIs: `/api/buildings`, `/api/points/{site}/{building}`, `/api/series`, `/api/brick/{site}/{building}`
+- Dashboard multi-series overlay + Rule Lab `series` context (see `BACNET_COMMISSIONING.md`)
+- Still TODO: FDD fan-out per building, pre-aggregated serve path at very high point counts
 
 ### 3. Separate compute from serve
 

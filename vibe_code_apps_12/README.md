@@ -124,7 +124,7 @@ cd ~/py-bacnet-stacks-playground
 tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz \
   -C vibe_code_apps_12 aws_cloud_pipeline tests
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
-# Expect several MB before downloading to Windows.
+# Expect ~100K–2M before downloading to Windows (not ~20 bytes).
 ```
 
 #### Right click in Linux server and download `vibe12-aws-cloud-pipeline.tar.gz` to Windows Machine
@@ -132,22 +132,34 @@ ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 #### CloudShell deploy (order matters)
 
 **Phase A — bensserver:** pack tarball (above).  
-**Phase B — CloudShell:** clean home → **upload tarball** (Actions → Upload file) → extract → `sam deploy`.  
+**Phase B — CloudShell:** clean home → **upload tarball** (Actions → Upload file) → **confirm file size** → extract → `sam deploy`.  
 **Phase C — CloudShell:** smoke curls + logs.
 
 Do **not** run the cleanup block until you are ready to upload a **new** tarball in the same session. If you `rm -rf ~/aws_cloud_pipeline` without re-uploading, `tar -xzf` will fail (you saw `Cannot open: No such file or directory`).
 
+**Phase B1 — CloudShell: clean, then STOP and upload**
+
 ```bash
-# Phase B1 — CloudShell (us-east-2): clean ONLY when about to upload fresh tar
+# CloudShell (us-east-2): clean ONLY when about to upload fresh tar
 rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
 rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
 ls ~
-# STOP — Actions → Upload file → pick vibe12-aws-cloud-pipeline.tar.gz from Windows
-# Confirm upload (must be several MB — not ~20 bytes):
+```
+
+**STOP HERE.** CloudShell menu → **Actions → Upload file** → pick `vibe12-aws-cloud-pipeline.tar.gz` from Windows (downloaded from bensserver).
+
+**Phase B1b — confirm upload before anything else**
+
+```bash
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
+# MUST show a real file (typically 100K–2M). If missing or ~20 bytes, upload failed — do not run Phase B2.
+test -f ~/vibe12-aws-cloud-pipeline.tar.gz && test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 50000 \
+  && echo "OK: tarball ready" || echo "ABORT: upload tarball first (Actions → Upload file)"
 ```
 
 #### Bootstrap everything on AWS Console
+
+**Phase B2 — extract + deploy (only after B1b prints `OK: tarball ready`)**
 
 ```bash
 export AWS_REGION=us-east-2
@@ -160,9 +172,12 @@ export WEB_FN=$(aws lambda list-functions --region "$AWS_REGION" \
 export LOG_GROUP="/aws/lambda/$WEB_FN"
 echo "WEB_FN=$WEB_FN"
 
-# Phase B2 — extract (only after upload succeeded)
+# Guard — do not paste B2 if upload was skipped
+test -f ~/vibe12-aws-cloud-pipeline.tar.gz || { echo "ABORT: no tarball — upload first"; exit 1; }
+
 cd ~
 tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
+test -d ~/aws_cloud_pipeline || { echo "ABORT: extract failed — check tar upload"; exit 1; }
 cd ~/aws_cloud_pipeline
 
 cp samconfig.toml.example samconfig.toml
@@ -170,8 +185,17 @@ rm -rf .aws-sam
 sam build --no-cached
 sam validate --lint
 sam deploy --force-upload
+```
 
-# Phase C — verify
+**Phase C — verify**
+
+```bash
+export AWS_REGION=us-east-2
+export STACK=vibe12cloud
+export WEB_FN=$(aws lambda list-functions --region "$AWS_REGION" \
+  --query "Functions[?starts_with(FunctionName, '${STACK}-WebFunction-')].FunctionName | [0]" --output text)
+export LOG_GROUP="/aws/lambda/$WEB_FN"
+
 # DashboardUrl from CFN includes a trailing slash — use ${URL%/}/api/… or curls get //api/… → HTML (~0.03s).
 URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$AWS_REGION" \
   --query "Stacks[0].Outputs[?OutputKey=='DashboardUrl'].OutputValue" --output text | tr -d '\n\r')
@@ -183,6 +207,12 @@ aws lambda get-function-configuration --function-name "$WEB_FN" --region "$AWS_R
 
 # health — JSON in <1s (if you get HTML or empty body, URL path is wrong)
 curl -sS "${URL}/api/health" | python3 -m json.tool | grep -E 'chart_chunked_hours|deploy_revision|"status"'
+# After a code fix deploy, deploy_revision should bump (e.g. "2") — if still "1", sam deploy did not run.
+
+# 24h readings — quick fault_analytics smoke (~20–30s)
+time curl -sS -o /tmp/vibe12-readings-24h.json -w 'HTTP=%{http_code} time=%{time_total}s\n' \
+  "${URL}/api/readings?hours=24&rolling_avg_minutes=10"
+python3 -c "import json;d=json.load(open('/tmp/vibe12-readings-24h.json')); print('fault_analytics=', len(d.get('fault_analytics',[])), 'eval_ms=', d.get('debug',{}).get('eval_ms'))" 2>/dev/null || head -c 200 /tmp/vibe12-readings-24h.json
 
 # 7d readings — ~40–50s, chart_eval_chunked=true
 time curl -sS -o /tmp/vibe12-readings.json -w 'HTTP=%{http_code} time=%{time_total}s\n' \
@@ -207,7 +237,8 @@ aws logs filter-log-events --log-group-name "$LOG_GROUP" --region "$AWS_REGION" 
 | readings **~0.03s** + `<!doctype html>` | **`${URL}/api/…` with trailing slash on URL** → `//api/health` — use `URL="${URL%/}"` then `${URL}/api/…` |
 | health empty / `Expecting value` | Same double-slash issue, or empty curl body |
 | readings **~44s**, logs show `chart eval chunked` | Deploy OK — ignore bad curl if URL was broken |
-| readings **120s** + `Status: timeout`, no `chart eval chunked` | Old code still running — repack tar, re-upload, redeploy |
+| readings **500** + `flag_plots_full` NameError | **Old Lambda still running** — upload tar + `sam deploy` did not complete; health still shows `deploy_revision: "1"` |
+| `deploy_revision` still `"1"` after deploy | Tar not uploaded/extracted, or `sam deploy` failed — check `LastModified` on WebFunction |
 
 
 **Unit tests (local, before deploy):**

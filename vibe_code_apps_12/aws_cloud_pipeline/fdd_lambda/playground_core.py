@@ -424,6 +424,7 @@ def sweep_rule(
     *,
     capture_print: bool = True,
     rolling_avg_minutes: int | None = None,
+    series_ctx: dict[str, Any] | None = None,
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """
     Returns (flag_series 0/1 per raw row, events for console UI).
@@ -512,9 +513,14 @@ def sweep_rule(
             instant = False
             try:
                 with redirect_stdout(cap):
-                    instant, paint_idxs = _parse_evaluate_result(
-                        evaluate(row, cfg, prev, rows), rows
-                    )
+                    if series_ctx is not None:
+                        try:
+                            result = evaluate(row, cfg, prev, rows, series=series_ctx)
+                        except TypeError:
+                            result = evaluate(row, cfg, prev, rows)
+                    else:
+                        result = evaluate(row, cfg, prev, rows)
+                    instant, paint_idxs = _parse_evaluate_result(result, rows)
                 for ev in stream_buf:
                     events.append(ev)
                 if paint_idxs:
@@ -575,6 +581,180 @@ def sweep_rule(
         }
     )
     return flags, events
+
+
+ONE_HOUR_MS = 60 * 60 * 1000
+WINDOW_TRACE_FILL_RATIO = 0.95
+
+
+def window_trace_events(
+    rows: list[dict[str, Any]],
+    *,
+    window_ms: int = ONE_HOUR_MS,
+    fill_ratio: float = WINDOW_TRACE_FILL_RATIO,
+    temp_unit: str = "imperial",
+    sample_every: int = 60,
+    max_lines: int = 40,
+) -> list[dict[str, Any]]:
+    """
+    Diagnostic stdout for Rule Lab verbose test.
+    Shows rolling window spread samples (rule print() still only runs on fault).
+    """
+    from units import temp_unit_symbol
+
+    if not rows:
+        return []
+
+    sym = temp_unit_symbol(temp_unit)
+    out: list[dict[str, Any]] = []
+    lines = 0
+    spreads: list[float] = []
+    full_windows = 0
+    window_min = window_ms // 60_000
+
+    for i, row in enumerate(rows):
+        start_ms = row["ts_ms"] - window_ms
+        win = [r for r in rows if start_ms <= r["ts_ms"] <= row["ts_ms"]]
+        if len(win) < 2:
+            continue
+        span = win[-1]["ts_ms"] - win[0]["ts_ms"]
+        if span < window_ms * fill_ratio:
+            continue
+        full_windows += 1
+        vals = [r["temp"] for r in win]
+        spread = max(vals) - min(vals)
+        spreads.append(spread)
+        if lines >= max_lines:
+            continue
+        if i % sample_every != 0 and i != len(rows) - 1:
+            continue
+        lines += 1
+        out.append(
+            {
+                "type": "stdout",
+                "text": (
+                    f"[trace] row={row['row']} ts={row['ts']} "
+                    f"window_spread={spread:.3f} {sym} samples={len(win)}\n"
+                ),
+            }
+        )
+
+    if spreads:
+        header = (
+            f"[trace] {full_windows} rows with full {window_min} min window; "
+            f"spread min={min(spreads):.3f} max={max(spreads):.3f} {sym}. "
+            f"Rule print() runs only on fault — use trace lines to tune tolerance.\n"
+        )
+    else:
+        header = (
+            f"[trace] no full {window_min} min window in this test slice — "
+            f"use Test window ≥ 2 h for 1 h lookback rules.\n"
+        )
+    return [{"type": "stdout", "text": header}] + out
+
+
+def fault_analytics_from_series(
+    flag_series: dict[str, list[int]],
+    rows: list[dict[str, Any]],
+    rules: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Per-rule fault hit count and estimated elapsed time in the history window."""
+    period_ms = _median_sample_ms(rows) if rows else 10_000
+    meta_by_id = {r["id"]: r for r in rules}
+    analytics: list[dict[str, Any]] = []
+
+    for rule_id, flags in flag_series.items():
+        if not flags:
+            continue
+        count = int(sum(1 for f in flags if f))
+        elapsed_ms = 0
+        for i, flagged in enumerate(flags):
+            if not flagged:
+                continue
+            if i + 1 < len(rows):
+                elapsed_ms += max(
+                    0, int(rows[i + 1]["ts_ms"]) - int(rows[i]["ts_ms"])
+                )
+            else:
+                elapsed_ms += period_ms
+
+        rule = meta_by_id.get(rule_id, {})
+        analytics.append(
+            {
+                "id": rule_id,
+                "title": rule.get("title", rule_id),
+                "color": rule.get("color", "#8b949e"),
+                "enabled": rule.get("enabled", True) is not False,
+                "count": count,
+                "elapsed_ms": elapsed_ms,
+            }
+        )
+
+    analytics.sort(key=lambda x: x["count"], reverse=True)
+    return analytics
+
+
+def build_series_context(
+    series_map: dict[str, list[dict[str, Any]]],
+    row_index: int,
+    *,
+    aliases: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """
+    Build per-row `series` dict for cross-sensor rules.
+    aliases maps rule keys (SAT) → series_id.
+    Each entry: {"values": [...], "current": float|None, "series_id": str}
+    """
+    ctx: dict[str, Any] = {}
+    alias_to_sid = aliases or {}
+    sid_to_alias = {v: k for k, v in alias_to_sid.items()}
+
+    for sid, samples in series_map.items():
+        values = [s.get("value") for s in samples]
+        cur = values[row_index] if 0 <= row_index < len(values) else None
+        entry = {"values": values, "current": cur, "series_id": sid}
+        ctx[sid] = entry
+        alias = sid_to_alias.get(sid)
+        if alias:
+            ctx[alias] = entry
+    return ctx
+
+
+def evaluate_rules_on_series(
+    rules: list[dict[str, Any]],
+    primary_rows: list[dict[str, Any]],
+    series_map: dict[str, list[dict[str, Any]]],
+    *,
+    default_rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+) -> dict[str, list[int]]:
+    """Evaluate rules with cross-sensor series context aligned to primary_rows length."""
+    n = len(primary_rows)
+    if n == 0:
+        return {}
+    out: dict[str, list[int]] = {}
+    for rule in rules:
+        if not rule.get("enabled", True):
+            continue
+        code = rule.get("code") or ""
+        cfg = rule.get("config") or {}
+        aliases = cfg.get("series_aliases") or {}
+        flags = [0] * n
+        for i in range(n):
+            series_ctx = build_series_context(series_map, i, aliases=aliases)
+            row = primary_rows[i]
+            prev = primary_rows[i - 1] if i else None
+            chunk_flags, _events = sweep_rule(
+                code,
+                cfg,
+                [row],
+                capture_print=False,
+                rolling_avg_minutes=cfg.get("rolling_avg_minutes", default_rolling_avg_minutes),
+                series_ctx=series_ctx,
+            )
+            if chunk_flags and chunk_flags[0]:
+                flags[i] = 1
+        out[rule["id"]] = flags
+    return out
 
 
 def evaluate_rules_on_readings(
