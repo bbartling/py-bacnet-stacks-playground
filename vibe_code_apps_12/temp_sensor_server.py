@@ -87,9 +87,25 @@ class TemperatureApplication:
         self._last_aws_publish = 0.0
         self._aws: Optional[object] = None
         self._aws_topic: Optional[str] = None
+        self._edge_mqtt: Optional[object] = None
         if args.aws_iot:
             self._aws = self._build_aws_publisher(args)
             self._aws_topic = args.aws_topic
+            if getattr(args, "site_id", None) and getattr(args, "building_id", None):
+                from aws_iot_publisher import EdgeMqttConfig
+
+                self._edge_mqtt = EdgeMqttConfig(
+                    site_id=args.site_id,
+                    building_id=args.building_id,
+                    system_id=args.system_id,
+                    point_deg_c=args.point_deg_c,
+                    point_deg_f=args.point_deg_f,
+                    brick_class=getattr(args, "brick_class", "") or "",
+                    brick_tag=getattr(args, "brick_tag", "") or "",
+                    object_name_c=getattr(args, "object_name_c", "") or "",
+                    object_name_f=getattr(args, "object_name_f", "") or "",
+                )
+                self._aws_topic = None
 
         self.app = Application.from_args(args)
 
@@ -126,11 +142,19 @@ class TemperatureApplication:
         self.app.add_object(self.av_deg_f)
 
         _log.info("BACnet analogValue,1 (°C) and analogValue,2 (°F) initialized.")
+        self._seq = 0
         if self._aws is not None:
-            _log.info(
-                f"AWS IoT publish enabled → {args.aws_topic} "
-                f"(every {self.aws_interval_s}s; BACnet every {self.bacnet_interval_s}s)"
-            )
+            if self._edge_mqtt is not None:
+                _log.info(
+                    f"AWS IoT hierarchical edge publish → vibe12/{args.site_id}/"
+                    f"{args.building_id}/{args.system_id}/{{degC,degF}}/telemetry "
+                    f"(every {self.aws_interval_s}s; BACnet every {self.bacnet_interval_s}s)"
+                )
+            else:
+                _log.info(
+                    f"AWS IoT publish enabled → {args.aws_topic} "
+                    f"(every {self.aws_interval_s}s; BACnet every {self.bacnet_interval_s}s)"
+                )
 
         asyncio.create_task(self.update_loop())
 
@@ -155,7 +179,7 @@ class TemperatureApplication:
             cert_path=cert,
             key_path=key,
             client_id=args.aws_client_id,
-            topic=args.aws_topic,
+            topic=args.aws_topic or "unused",
         )
 
     async def update_loop(self) -> None:
@@ -183,10 +207,21 @@ class TemperatureApplication:
                 if self._aws is not None and self.aws_interval_s is not None:
                     now = time.monotonic()
                     if now - self._last_aws_publish >= self.aws_interval_s:
-                        await asyncio.to_thread(self._aws.publish, temp_c, temp_f)
+                        if self._edge_mqtt is not None:
+                            self._seq += 1
+                            messages = self._edge_mqtt.build_messages(
+                                temp_c, temp_f, self._seq
+                            )
+                            await asyncio.to_thread(
+                                self._aws.publish_messages, messages
+                            )
+                        else:
+                            await asyncio.to_thread(
+                                self._aws.publish, temp_c, temp_f
+                            )
                         self._last_aws_publish = now
                         if _debug:
-                            _log.debug(f"Published AWS IoT → {self._aws_topic}")
+                            _log.debug("Published AWS IoT telemetry")
 
             except Exception as err:  # noqa: BLE001
                 _log.error(f"Temperature read failed: {err}")
@@ -257,7 +292,61 @@ async def main() -> None:
         "--aws-topic",
         type=str,
         default="sdk/test/python",
-        help="MQTT topic for temperature JSON",
+        help="MQTT topic for legacy flat temperature JSON (ignored when --site-id set)",
+    )
+    parser.add_argument(
+        "--site-id",
+        type=str,
+        default=None,
+        help="Site slug for hierarchical MQTT (vibe12/{site}/{building}/…)",
+    )
+    parser.add_argument(
+        "--building-id",
+        type=str,
+        default=None,
+        help="Building slug for hierarchical MQTT (e.g. bens-office)",
+    )
+    parser.add_argument(
+        "--system-id",
+        type=str,
+        default="office",
+        help="Equipment/system slug for GPIO edge sensor (default office)",
+    )
+    parser.add_argument(
+        "--point-deg-c",
+        type=str,
+        default="digital-temp-degC",
+        help="Point slug for °C telemetry topic segment",
+    )
+    parser.add_argument(
+        "--point-deg-f",
+        type=str,
+        default="digital-temp-degF",
+        help="Point slug for °F telemetry topic segment",
+    )
+    parser.add_argument(
+        "--brick-class",
+        type=str,
+        default="Zone_Air_Temperature_Sensor",
+        help="BRICK class tag stored with edge telemetry",
+    )
+    parser.add_argument(
+        "--brick-tag",
+        type=str,
+        default="",
+        help="Operator tag (e.g. BenOffice-ZAT)",
+    )
+    parser.add_argument(
+        "--object-name-c",
+        type=str,
+        default="",
+        help="Display name for °C point in cloud registry",
+    )
+    parser.add_argument(
+        "--object-name-f",
+        type=str,
+        default="",
+        help="Display name for °F point in cloud registry",
     )
     parser.add_argument(
         "--fault-demo",

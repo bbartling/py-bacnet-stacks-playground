@@ -67,6 +67,28 @@ Optional 1-Wire overlay: `-e enable_onewire_overlay=true` (reboot once).
 
 Legacy flat MQTT topic for the demo sensor: `sdk/test/python` (via `aws_iot_topic` in group_vars).
 
+Hierarchical topics (boss Pi with `host_vars/bacnet_pi.yml`):
+
+```text
+vibe12/demo/bens-office/office/digital-temp-degC/telemetry
+vibe12/demo/bens-office/office/digital-temp-degF/telemetry
+```
+
+Subscribe in **AWS IoT → MQTT test client** to `vibe12/demo/bens-office/#` (publish every **60 s**).
+
+### Add a new field gateway (new AWS IoT thing)
+
+Each remote BACnet edge gets its **own device certificate** (IoT thing + policy):
+
+1. AWS console → **IoT Core → Manage → Things → Create** (e.g. `vibe12-gateway-tower-a`).
+2. Create/download cert + private key; attach a policy allowing `iot:Connect`, `iot:Publish` on `vibe12/{site}/{building}/#`, and `iot:Subscribe` if needed.
+3. On your laptop: place cert/key under `ansible/files/aws_iot/` (or a per-host subfolder) and set in **host_vars** for that gateway:
+   - `aws_iot_cert_filename`, `aws_iot_key_filename`, `bacnet_edge_client_id`
+   - `site_id`, `building_id` (no GPIO flags)
+4. `./deploy.sh -v` — BACnet discover/read units only.
+
+Same playbook; different inventory host + vars. GPIO vars stay on `bacnet_pi` only.
+
 ---
 
 ## Other `deploy.sh` commands

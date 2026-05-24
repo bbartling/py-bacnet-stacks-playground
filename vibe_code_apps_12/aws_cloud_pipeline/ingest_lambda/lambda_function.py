@@ -18,8 +18,8 @@ from typing import Any
 import boto3
 
 from mqtt_routing import (
-    is_bacnet_telemetry,
     is_legacy_ds18b20,
+    is_series_telemetry,
     parse_mqtt_topic,
     series_row_from_bacnet,
 )
@@ -161,7 +161,7 @@ def _put_bacnet(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
         "brick_class": row["brick_class"],
         "brick_tag": row["brick_tag"],
         "object_name": row["object_name"],
-        "source": "bacnet",
+        "source": row["source"],
         "seq": row["seq"],
         "expires_at": _expires_at(),
     }
@@ -181,7 +181,7 @@ def lambda_handler(event, context):
     if not topic and isinstance(event, dict):
         topic = event.get("mqtt_topic")
 
-    if is_bacnet_telemetry(body):
+    if is_series_telemetry(body):
         return _put_bacnet(body, topic)
 
     if is_legacy_ds18b20(body):

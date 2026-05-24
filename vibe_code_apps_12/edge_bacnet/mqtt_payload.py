@@ -11,11 +11,71 @@ from edge_bacnet.config import PointConfig
 TOPIC_PREFIX = "vibe12"
 
 
-def mqtt_topic_for_point(point: PointConfig) -> str:
+def mqtt_topic_for_ids(
+    site_id: str,
+    building_id: str,
+    system_id: str,
+    point_id: str,
+) -> str:
     return (
-        f"{TOPIC_PREFIX}/{point.site_id}/{point.building_id}/"
-        f"{point.system_id}/{point.point_id}/telemetry"
+        f"{TOPIC_PREFIX}/{site_id}/{building_id}/"
+        f"{system_id}/{point_id}/telemetry"
     )
+
+
+def mqtt_topic_for_point(point: PointConfig) -> str:
+    return mqtt_topic_for_ids(
+        point.site_id,
+        point.building_id,
+        point.system_id,
+        point.point_id,
+    )
+
+
+def series_id_for(
+    site_id: str,
+    building_id: str,
+    system_id: str,
+    point_id: str,
+) -> str:
+    return f"{site_id}#{building_id}#{system_id}#{point_id}"
+
+
+def build_edge_payload(
+    *,
+    site_id: str,
+    building_id: str,
+    system_id: str,
+    point_id: str,
+    value: Any,
+    unit: str,
+    seq: int = 0,
+    ts_ms: int | None = None,
+    brick_class: str = "",
+    brick_tag: str = "",
+    object_name: str = "",
+) -> str:
+    now = datetime.now(timezone.utc)
+    if ts_ms is None:
+        ts_ms = int(now.timestamp() * 1000)
+    sid = series_id_for(site_id, building_id, system_id, point_id)
+    body = {
+        "source": "edge",
+        "site_id": site_id,
+        "building_id": building_id,
+        "system_id": system_id,
+        "point_id": point_id,
+        "series_id": sid,
+        "value": value,
+        "unit": unit,
+        "brick_class": brick_class,
+        "brick_tag": brick_tag,
+        "object_name": object_name,
+        "seq": seq,
+        "ts_ms": ts_ms,
+        "ts": now.isoformat(),
+    }
+    return json.dumps(body)
 
 
 def build_bacnet_payload(

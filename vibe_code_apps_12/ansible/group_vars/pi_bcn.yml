@@ -44,7 +44,7 @@ enable_ds18b20_gpio: false
 enable_ds18b20_service: false
 enable_onewire_overlay: false
 bacnet_sample_interval: 2
-aws_iot_publish_interval: 10
+aws_iot_publish_interval: 60
 aws_iot_client_id: basicPubSub
 aws_iot_topic: sdk/test/python
 fault_demo_mode: false

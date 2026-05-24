@@ -26,6 +26,7 @@ _spec.loader.exec_module(mqtt_routing)
 parse_mqtt_topic = mqtt_routing.parse_mqtt_topic
 building_scope = mqtt_routing.building_scope
 is_bacnet_telemetry = mqtt_routing.is_bacnet_telemetry
+is_series_telemetry = mqtt_routing.is_series_telemetry
 is_legacy_ds18b20 = mqtt_routing.is_legacy_ds18b20
 series_row_from_bacnet = mqtt_routing.series_row_from_bacnet
 
@@ -58,6 +59,20 @@ class TestMqttTopicParse(unittest.TestCase):
         row = series_row_from_bacnet(body, None)
         self.assertEqual(row["series_id"], "acme#tower-a#ahu-1#3456788-ai-1")
         self.assertEqual(row["building_scope"], building_scope("acme", "tower-a"))
+
+    def test_edge_series_telemetry(self) -> None:
+        body = {
+            "source": "edge",
+            "site_id": "demo",
+            "building_id": "bens-office",
+            "system_id": "office",
+            "point_id": "digital-temp-degF",
+            "series_id": "demo#bens-office#office#digital-temp-degF",
+            "value": 72.5,
+            "ts_ms": 1000,
+        }
+        self.assertTrue(is_series_telemetry(body))
+        self.assertFalse(is_bacnet_telemetry(body))
 
 
 if __name__ == "__main__":

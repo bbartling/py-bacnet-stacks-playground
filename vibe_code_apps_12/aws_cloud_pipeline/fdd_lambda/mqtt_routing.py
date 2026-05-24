@@ -47,6 +47,12 @@ def is_bacnet_telemetry(body: dict[str, Any]) -> bool:
     return body.get("source") == "bacnet" and bool(body.get("series_id"))
 
 
+def is_series_telemetry(body: dict[str, Any]) -> bool:
+    return body.get("source") in ("bacnet", "edge") and (
+        bool(body.get("series_id")) or body.get("value") is not None
+    )
+
+
 def is_legacy_series_id(series_id: str, default_device: str) -> bool:
     return series_id == default_device or "#" not in series_id
 
@@ -73,7 +79,7 @@ def series_row_from_bacnet(body: dict[str, Any], topic_meta: dict[str, str] | No
         "brick_class": body.get("brick_class", ""),
         "brick_tag": body.get("brick_tag", ""),
         "object_name": body.get("object_name", ""),
-        "source": "bacnet",
+        "source": body.get("source", "bacnet"),
         "seq": int(body.get("seq", 0)),
         "ts_iso": str(body.get("ts", "")),
         "bacnet_object": body.get("object"),
