@@ -5,8 +5,9 @@ Commission BACnet points on the edge Pi, trim the CSV, then run the read driver 
 ## Prerequisites
 
 - Lab Who-Is sign-off on validated bind (`--address IP/prefix`)
-- AWS IoT device cert on Pi (same cert/key on all edges; topics differentiate site/building)
-- `site_id` and `building_id` set in Ansible `group_vars/pi_bcn.yml`
+- AWS IoT device cert on control machine (`./ansible/prepare_aws_iot_certs.sh`) — **same PEM reused on all edges**
+- Unique MQTT **client ID** per gateway (`bacnet_edge_client_id`; default `vibe12-{{ inventory_hostname }}`)
+- **`site_id` and `building_id` in host_vars** for each building (not shared group defaults)
 
 ## Phase 1 — Discover (read-only)
 
@@ -40,7 +41,7 @@ Columns: see `edge_bacnet/config.py` (`CSV_FIELDNAMES`).
 
 ## Phase 3 — Enable read driver (Ansible)
 
-In `ansible/group_vars/pi_bcn.yml` (or `-e` on deploy):
+In `host_vars/<gateway>.yml` (or `-e` on deploy):
 
 ```yaml
 site_id: acme

@@ -1,14 +1,14 @@
 ---
-# Deploy vibe_code_apps_12 edge stack to Linux gateways (BACnet default; GPIO opt-in).
+# Deploy vibe_code_apps_12 edge stack to Linux gateways over SSH (inventory IP).
 #
-# Building / field gateway (default):
-#   ansible-playbook deploy.yml
+# DEFAULT — building gateway (BACnet discover + read driver, no GPIO):
+#   ansible-playbook deploy.yml --limit tower_a_edge
 #
-# Boss Pi test bench (DS18B20 + legacy flat MQTT topic):
-#   ansible-playbook deploy.yml -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true
+# Boss Pi test bench (GPIO via host_vars/bacnet_pi.yml):
+#   ansible-playbook deploy.yml --limit bacnet_pi
 #
-# After BACnet discover + CSV commission, enable scrape:
-#   ansible-playbook deploy.yml -e enable_bacnet_read_driver=true
+# After BACnet discover + CSV commission:
+#   ansible-playbook deploy.yml --limit tower_a_edge -e enable_bacnet_read_driver=true
 
 - name: Deploy Vibe12 BACnet edge to Linux gateway
   hosts: pi_bcn

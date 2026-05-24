@@ -16,5 +16,7 @@ ds18b20_brick_tag: BenOffice-ZAT
 ds18b20_object_name_c: "Ben's office DS18B20 °C"
 ds18b20_object_name_f: "Ben's office DS18B20 °F"
 aws_iot_publish_interval: 60
+aws_iot_client_id: vibe12-gpio-bacnet-pi
+bacnet_edge_client_id: vibe12-edge-bacnet-pi
 
 # enable_onewire_overlay: true  # uncomment if 1-Wire not enabled in raspi-config

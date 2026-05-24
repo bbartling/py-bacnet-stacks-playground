@@ -1,44 +1,48 @@
 ---
-# Application install path on the edge Linux host
+# Defaults for ALL Linux BACnet edge hosts (Pi or x86).
+# Per-building overrides go in host_vars/<inventory_name>.yml — not here.
+
 bacnet_app_remote_dir: "/home/{{ ansible_user }}/vibe_code_apps_12"
 
-# BACnet / IP bind string passed to bacpypes3 `--address`:
-#   bacnet_bind_address: "{{ ansible_host }}/24"
-#   bacnet_bind_address: "eth0"
+# Bind BACnet/IP to this host's inventory IP (override with eth0 in host_vars if needed)
 bacnet_bind_address: "{{ ansible_host }}/24"
 
-# BACnet device-instance (local BACnet stack on the edge gateway)
+# Local BACnet device on the gateway stack (must be UNIQUE per device on a shared BACnet LAN)
 bacnet_instance_id: 3456788
 bacnet_device_name: BACnetEdge
 
 # ---------------------------------------------------------------------------
-# BACnet edge (DEFAULT — building gateways: discover + optional read driver)
+# BACnet edge (DEFAULT — every building gateway)
+# Discover → edit points.csv → enable read driver. No GPIO.
 # ---------------------------------------------------------------------------
 install_bacnet_discover_unit: true
 install_bacnet_read_unit: true
-# Set true after commissioning points.csv (enabled rows + system_id + Brick tags)
 enable_bacnet_read_driver: false
 bacnet_discover_range_low: 1
 bacnet_discover_range_high: 3456799
 bacnet_read_interval: 30
 points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
+
+# Override site_id + building_id per host (host_vars). These are fallbacks only.
 site_id: demo
 building_id: pi
 
 # ---------------------------------------------------------------------------
-# AWS IoT Core (certs for BACnet read driver MQTT; optional for GPIO demo)
+# AWS IoT Core — shared device cert on all edges (see files/aws_iot/README.txt)
+# Each host MUST have a unique MQTT client ID (bacnet_edge_client_id below).
+# MQTT topics differentiate buildings: vibe12/{site_id}/{building_id}/…
 # ---------------------------------------------------------------------------
 enable_aws_iot: true
 aws_iot_endpoint: a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com
-bacnet_edge_client_id: vibe12-bacnet-edge
+# Unique per inventory hostname — required when many gateways share one IoT cert
+bacnet_edge_client_id: "vibe12-{{ inventory_hostname }}"
 aws_iot_cert_filename: vibe-code-app-12-temp-sensor.cert.pem
 aws_iot_key_filename: vibe-code-app-12-temp-sensor.private.key
 aws_iot_certs_local_dir: "{{ playbook_dir }}/files/aws_iot"
 aws_iot_certs_remote_dir: "{{ bacnet_app_remote_dir }}/aws_iot_certs"
 
 # ---------------------------------------------------------------------------
-# DS18B20 / GPIO (OPT-IN — boss Pi test bench only; NOT used on field gateways)
-# Enable with: -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true
+# DS18B20 / GPIO — OFF by default (boss Pi only; see host_vars/bacnet_pi.yml)
 # ---------------------------------------------------------------------------
 enable_ds18b20_gpio: false
 enable_ds18b20_service: false
@@ -50,9 +54,7 @@ aws_iot_topic: sdk/test/python
 fault_demo_mode: false
 server_extra_args: []
 
-# Legacy aliases (deprecated — use enable_ds18b20_gpio / enable_ds18b20_service)
 install_systemd_unit: "{{ enable_ds18b20_gpio }}"
 enable_and_start_service: "{{ enable_ds18b20_service }}"
 
-# Deploy verify: BACnet edge checks by default; GPIO journal/w1 only when GPIO enabled
 run_deploy_verify: true

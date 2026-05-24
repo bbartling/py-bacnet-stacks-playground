@@ -1,0 +1,20 @@
+---
+# Copy to host_vars/<inventory_hostname>.yml for a field BACnet gateway.
+# Do NOT copy to the boss Pi — that host uses host_vars/bacnet_pi.yml (GPIO opt-in).
+
+# --- Required: building identity (MQTT + DynamoDB scope) ---
+site_id: acme
+building_id: tower-a
+
+# --- BACnet on this LAN (instance must not collide with other devices) ---
+bacnet_instance_id: 3456790
+bacnet_device_name: GatewayTowerA
+# bacnet_bind_address: eth0   # uncomment if IP bind is wrong
+
+# --- AWS IoT (reuse shared PEM from ansible/files/aws_iot/ — same files all edges) ---
+# bacnet_edge_client_id defaults to vibe12-{{ inventory_hostname }} from group_vars
+# Override only if you need a fixed name:
+# bacnet_edge_client_id: vibe12-edge-tower-a
+
+# --- After commissioning points.csv on this host ---
+# enable_bacnet_read_driver: true

@@ -1,0 +1,30 @@
+---
+# Example inventory — copy to inventory.yml and edit IPs / usernames.
+#
+# Deploy one building gateway:
+#   ./deploy.sh --limit tower_a_edge -v
+#
+# Deploy boss Pi test bench only (has host_vars/bacnet_pi.yml):
+#   ./deploy.sh --limit bacnet_pi -v
+#
+# Deploy all hosts:
+#   ./deploy.sh -v
+
+all:
+  children:
+    pi_bcn:
+      hosts:
+        # Lab bench — DS18B20 GPIO (host_vars/bacnet_pi.yml enables GPIO)
+        bacnet_pi:
+          ansible_host: 192.168.204.12
+          ansible_user: ben
+
+        # First real building — BACnet discover + CSV scrape only (no GPIO)
+        # tower_a_edge:
+        #   ansible_host: 10.0.1.50
+        #   ansible_user: ben
+
+        # Another site / VLAN
+        # hospital_wing_b:
+        #   ansible_host: 192.168.50.20
+        #   ansible_user: ben

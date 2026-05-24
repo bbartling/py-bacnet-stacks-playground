@@ -5,7 +5,6 @@ enable_ds18b20_gpio: true
 enable_ds18b20_service: true
 bacnet_device_name: PiTemp
 
-# Hierarchical MQTT → DynamoDB point registry + dashboard charts
 site_id: demo
 building_id: bens-office
 ds18b20_system_id: office
@@ -16,5 +15,7 @@ ds18b20_brick_tag: BenOffice-ZAT
 ds18b20_object_name_c: "Ben's office DS18B20 °C"
 ds18b20_object_name_f: "Ben's office DS18B20 °F"
 
-# AWS IoT publish every 60 s (BACnet local sample still every 2 s)
 aws_iot_publish_interval: 60
+# Separate MQTT client IDs (shared IoT cert; must not collide with other edges)
+aws_iot_client_id: vibe12-gpio-bacnet-pi
+bacnet_edge_client_id: vibe12-edge-bacnet-pi
