@@ -9,12 +9,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" />
   <link rel="stylesheet" href="/static/css/dashboard.css" />
   <link rel="stylesheet" href="/static/css/playground.css" />
+  <link rel="stylesheet" href="/static/css/data_model.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand"><span class="brand-dot"></span><h1>Vibe 12 DS18B20</h1></div>
     <nav class="tabs" role="tablist">
       <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+      <button type="button" class="tab" data-tab="datamodel">Data Model</button>
       <button type="button" class="tab" data-tab="rulelab">Rule Lab (Bake-a-Py)</button>
     </nav>
   </header>
@@ -108,9 +110,49 @@
         </div>
       </div>
     </details>
+    <div class="chart-export-bar">
+      <span class="chart-export-hint">Plotly toolbar: camera saves PNG · CSV = full history + visible fault lanes (0/1)</span>
+      <button type="button" id="downloadChartCsv" class="btn btn-secondary btn-sm" disabled>
+        Download CSV
+      </button>
+    </div>
     <div id="chart"></div>
     <p class="meta" id="status">Loading…</p>
     <div id="dashLog" class="log-panel compact"></div>
+  </section>
+
+  <section id="tab-datamodel" class="tab-panel">
+    <p class="sub">Canonical BRICK model (sites / equipment / points) · TTL projection · AI import/export</p>
+    <div class="dm-toolbar">
+      <label>Site <select id="dmSiteSelect" aria-label="Data model site"></select></label>
+      <label>Building <select id="dmBuildingSelect" aria-label="Data model building"></select></label>
+      <span id="dmCounts" class="dm-ttl-chip">—</span>
+      <span id="dmTtlStatus" class="dm-ttl-chip">TTL status…</span>
+    </div>
+    <div class="dm-toolbar">
+      <button type="button" id="dmExportBtn" class="btn btn-secondary btn-sm">Export JSON</button>
+      <button type="button" id="dmDownloadBtn" class="btn btn-secondary btn-sm">Download JSON</button>
+      <button type="button" id="dmCopyPromptBtn" class="btn btn-secondary btn-sm">Copy LLM prompt</button>
+      <button type="button" id="dmValidateBtn" class="btn btn-secondary btn-sm">Validate import</button>
+      <button type="button" id="dmImportBtn" class="btn btn-primary btn-sm">Import JSON</button>
+      <button type="button" id="dmTtlBtn" class="btn btn-secondary btn-sm">View full data model (TTL)</button>
+      <button type="button" id="dmHealthBtn" class="btn btn-secondary btn-sm">Run data model health</button>
+    </div>
+    <p id="dmStatus" class="dm-status">Select site/building, then Export or Import.</p>
+    <div class="dm-panels">
+      <div class="dm-panel">
+        <h3>Export (for AI / backup)</h3>
+        <textarea id="dmExportJson" class="dm-json" readonly placeholder="Click Export JSON…"></textarea>
+      </div>
+      <div class="dm-panel">
+        <h3>Import (paste AI-enriched JSON)</h3>
+        <textarea id="dmImportJson" class="dm-json" placeholder='{"sites":[],"equipment":[],"points":[]}'></textarea>
+      </div>
+    </div>
+    <div class="dm-panel" style="margin-top:1rem">
+      <h3>Health check result</h3>
+      <pre id="dmHealthOut" class="dm-health-out">Run data model health to see score and issues.</pre>
+    </div>
   </section>
 
   <section id="tab-rulelab" class="tab-panel">
@@ -146,6 +188,21 @@
           <span>Verbose prints (window trace)</span>
         </label>
       </div>
+      <div class="lab-row lab-row-brick">
+        <div class="brick-scope-panel" id="brickScopePanel">
+          <div class="scope-label">BRICK scope (optional — run same rule across matching equipment × points)</div>
+          <div class="brick-scope-grid">
+            <label>Equipment classes
+              <select id="brickEqClasses" multiple size="4" aria-label="Equipment BRICK classes"></select>
+            </label>
+            <label>Point classes
+              <select id="brickPtClasses" multiple size="4" aria-label="Point BRICK classes"></select>
+            </label>
+          </div>
+          <button type="button" id="testBrickRuleBtn" class="btn btn-secondary btn-sm">Test across BRICK targets</button>
+          <pre id="brickTestResults" class="brick-test-results">Results appear here after Test across BRICK targets.</pre>
+        </div>
+      </div>
       <div class="lab-row lab-row-actions">
         <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>
         <button type="button" id="copyReportBtn" class="btn btn-secondary" title="Copy rule definition + test output for an LLM">Copy report for LLM</button>
@@ -176,6 +233,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="/static/js/data_model.js"></script>
   <script src="/static/js/dashboard.js"></script>
   <script src="/static/js/playground.js"></script>
 </body>

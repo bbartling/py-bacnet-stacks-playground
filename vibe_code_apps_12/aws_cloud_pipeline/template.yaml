@@ -146,6 +146,7 @@ Resources:
           CHART_CHUNKED_SAMPLES: "8000"
           TEST_HOURS_DEFAULT: "2"
           DEPLOY_REVISION: !Ref DeployRevision
+          VIBE12_TTL_SYNC_INTERVAL_SECONDS: "300"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable
@@ -171,6 +172,8 @@ Resources:
           READINGS_LIMIT: "62000"
           FDD_CHUNK_HOURS: "6"
           DEPLOY_REVISION: !Ref DeployRevision
+          VIBE12_TTL_SYNC_INTERVAL_SECONDS: "300"
+          BRICK_FDD_HOURS: "24"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable

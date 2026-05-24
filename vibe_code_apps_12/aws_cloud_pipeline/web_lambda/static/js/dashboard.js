@@ -644,6 +644,7 @@
     if (!fetchOk || !data) return;
     logServerDebug(data, "readings");
     lastChartData = data;
+    updateCsvDownloadButton(data);
     const meta = data.rules_meta || [];
     renderFaultAnalytics(data);
     syncPlotStateFromMeta(meta);
@@ -715,6 +716,181 @@
     }
   };
 
+  function visibleFaultRuleIds() {
+    return Object.keys(chartPlotVisible).filter((id) => chartPlotVisible[id]);
+  }
+
+  function csvEscape(val) {
+    const s = String(val ?? "");
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  /** Client-side CSV from current chart payload (matches plotted/downsampled points). */
+  function buildChartCsvFromPayload(data) {
+    const pts = data.readings || [];
+    if (!pts.length) return null;
+    const plots = data.fault_plots || {};
+    const meta = data.rules_meta || [];
+    const visibleRules = meta.filter(
+      (r) => r.enabled !== false && shouldPlotFault(r.id)
+    );
+    const aux = data.aux_series || {};
+    const rollAvgF = aux.degF_1min_avg;
+    const headers = [
+      "time_utc",
+      "ts_ms",
+      "degF",
+      "degC",
+      "rolling_avg_degF",
+      "rolling_avg_degC",
+    ];
+    visibleRules.forEach((r) => headers.push("fault_" + r.id.replace(/[^\w]+/g, "_")));
+    const lines = [headers.join(",")];
+    pts.forEach((p, i) => {
+      const row = [
+        utcStamp(p.ts_ms, p.ts_iso),
+        p.ts_ms,
+        p.degF != null ? Number(p.degF).toFixed(3) : "",
+        p.degC != null ? Number(p.degC).toFixed(3) : "",
+      ];
+      if (rollAvgF && rollAvgF.length === pts.length) {
+        const f = rollAvgF[i];
+        row.push(f != null ? Number(f).toFixed(3) : "");
+        row.push(f != null ? ((Number(f) - 32) * (5 / 9)).toFixed(3) : "");
+      } else {
+        row.push("", "");
+      }
+      visibleRules.forEach((r) => {
+        const flags = plots[r.id] || [];
+        row.push(flags[i] ? "1" : "0");
+      });
+      lines.push(row.map(csvEscape).join(","));
+    });
+    return lines.join("\r\n");
+  }
+
+  function triggerCsvDownload(csvText, filename) {
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function csvFilenameFromResponse(res, fallback) {
+    const cd = res.headers.get("Content-Disposition") || "";
+    const m = /filename="([^"]+)"/.exec(cd);
+    return m ? m[1] : fallback;
+  }
+
+  function updateCsvDownloadButton(data) {
+    const btn = document.getElementById("downloadChartCsv");
+    if (!btn) return;
+    const hasPts = !!(data && (data.readings || []).length);
+    btn.disabled = !hasPts;
+    const n = hasPts ? data.readings.length : 0;
+    const full = data && data.count != null ? data.count : n;
+    if (hasPts && data.chart_truncated && full > n) {
+      btn.title =
+        "Full-resolution CSV (" +
+        full.toLocaleString() +
+        " rows). Chart shows " +
+        n.toLocaleString() +
+        " downsampled points.";
+    } else {
+      btn.title = hasPts
+        ? "Download temperature + visible fault lanes as CSV for Excel"
+        : "Refresh chart first";
+    }
+  }
+
+  async function downloadChartCsv() {
+    const btn = document.getElementById("downloadChartCsv");
+    if (!lastChartData || !(lastChartData.readings || []).length) {
+      logMsg("No chart data to export — refresh first", "log-err");
+      return;
+    }
+    const visibleIds = visibleFaultRuleIds();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, "");
+    const fallbackName =
+      "vibe12_readings_" + historyLabel(hours).replace(/\s/g, "") + "_" + stamp + ".csv";
+    if (btn) btn.classList.add("is-loading");
+    try {
+      let url =
+        "/api/readings?hours=" +
+        hours +
+        "&rolling_avg_minutes=" +
+        rollingAvgMinutes +
+        "&temp_unit=" +
+        encodeURIComponent(displayTempUnit) +
+        "&format=csv";
+      if (visibleIds.length) {
+        url += "&fault_rules=" + encodeURIComponent(visibleIds.join(","));
+      } else {
+        url += "&fault_rules=";
+      }
+      logMsg("GET " + url);
+      const res = await fetch(url);
+      const ctype = res.headers.get("Content-Type") || "";
+      if (res.ok && ctype.indexOf("csv") >= 0) {
+        const csvText = await res.text();
+        triggerCsvDownload(
+          csvText,
+          csvFilenameFromResponse(res, fallbackName)
+        );
+        const rows = (csvText.match(/\r\n/g) || []).length;
+        logMsg(
+          "CSV download (full resolution, ~" +
+            Math.max(0, rows) +
+            " rows, " +
+            visibleIds.length +
+            " fault lane(s))",
+          "log-ok"
+        );
+        return;
+      }
+      const csvText = await res.text();
+      let errMsg = "";
+      try {
+        const j = JSON.parse(csvText);
+        errMsg = j.error || j.hint || "";
+      } catch (_e) {
+        errMsg = csvText.slice(0, 120);
+      }
+      logMsg(
+        "Server CSV unavailable" +
+          (errMsg ? " — " + errMsg : "") +
+          " · using chart snapshot",
+        "log-ok"
+      );
+    } catch (e) {
+      logMsg("Server CSV fetch failed — using chart snapshot: " + e, "log-ok");
+    } finally {
+      if (btn) btn.classList.remove("is-loading");
+    }
+    const csv = buildChartCsvFromPayload(lastChartData);
+    if (!csv) {
+      logMsg("Could not build CSV from chart data", "log-err");
+      return;
+    }
+    triggerCsvDownload(csv, fallbackName);
+    logMsg(
+      "CSV download (chart snapshot, " +
+        (lastChartData.readings || []).length +
+        " rows, " +
+        visibleFaultRuleIds().length +
+        " fault lane(s))",
+      "log-ok"
+    );
+  }
+
+  function bindChartExport() {
+    const btn = document.getElementById("downloadChartCsv");
+    if (btn) btn.addEventListener("click", () => downloadChartCsv());
+  }
+
   function bindTabs() {
     document.querySelectorAll(".tab").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -724,6 +900,9 @@
         document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
         if (btn.dataset.tab === "rulelab" && window.vibe12RuleLabOnTabShown) {
           window.vibe12RuleLabOnTabShown();
+        }
+        if (btn.dataset.tab === "datamodel" && window.vibe12DataModelOnTabShown) {
+          window.vibe12DataModelOnTabShown();
         }
         if (btn.dataset.tab === "dashboard") refresh({ resetZoom: false });
       });
@@ -1005,6 +1184,7 @@
     bindTabs();
     bindToolbar();
     bindGuideToggles();
+    bindChartExport();
     bindMultiSeries();
     loadBuildings();
     pingHealth();

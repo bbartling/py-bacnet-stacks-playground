@@ -172,6 +172,21 @@ body { font-family: system-ui, sans-serif; margin: 0; background: #0f1419; color
 .guide-bounds-dot { background: #3fb950; box-shadow: 0 0 0 1px #238636; }
 .guide-avg-dot { background: #a371f7; }
 .chart-controls-faults .fault-toggle-grid { min-height: 1.6rem; }
+.chart-export-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+.chart-export-hint { color: #8b949e; flex: 1 1 12rem; line-height: 1.35; }
+#downloadChartCsv.is-loading { opacity: 0.65; pointer-events: none; }
 .plot-toggle-item {
   display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
   padding: 0.2rem 0.45rem; border-radius: 6px; border: 1px solid transparent;

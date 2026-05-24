@@ -2,31 +2,14 @@
 
 from __future__ import annotations
 
-import importlib.util
-import json
 import os
-import sys
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-2")
 
-_WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
+from web_lambda_loader import load_web_lambda  # noqa: E402
 
-with patch("boto3.resource") as _mock_boto:
-    _mock_boto.return_value.Table.return_value = MagicMock()
-    _spec = importlib.util.spec_from_file_location(
-        "vibe12_web_lambda_rules", _WEB / "lambda_function.py"
-    )
-    lf = importlib.util.module_from_spec(_spec)
-    assert _spec.loader is not None
-    for mod in list(sys.modules):
-        if mod in ("mqtt_routing", "lambda_function", "timeseries", "brick_model"):
-            del sys.modules[mod]
-    _spec.loader.exec_module(lf)
+lf = load_web_lambda("vibe12_web_lambda_rules")
 
 
 class TestRulesDraftPersistence(unittest.TestCase):

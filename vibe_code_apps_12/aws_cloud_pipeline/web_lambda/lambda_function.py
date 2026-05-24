@@ -25,6 +25,7 @@ from playground_core import (
     NUMPY_AVAILABLE,
     ROLLING_AVG_MINUTES_ALLOWED,
     aux_series_from_rows,
+    build_readings_csv,
     chunked_evaluate_custom_rules,
     downsample_aligned_series,
     evaluate_rules_on_readings,
@@ -47,6 +48,8 @@ from rules_defaults import (
     rules_to_panels,
 )
 from units import TEMP_UNITS, normalize_temp_unit
+from brick_fdd_runner import run_brick_scoped_rules
+from data_model_api import handle_data_model, sync_all_ttl
 from brick_model import (
     empty_graph,
     graph_from_point_registry,
@@ -157,6 +160,91 @@ def _get_rolling_avg_minutes(event, default: int | None = None) -> int:
     except (TypeError, ValueError):
         pass
     return default
+
+
+def _get_fault_rule_ids(event) -> list[str] | None:
+    q = event.get("queryStringParameters") or {}
+    if "fault_rules" not in q:
+        return None
+    raw = q.get("fault_rules") or ""
+    if not str(raw).strip():
+        return []
+    return [s.strip() for s in str(raw).split(",") if s.strip()]
+
+
+def _wants_csv_export(event) -> bool:
+    q = event.get("queryStringParameters") or {}
+    fmt = str(q.get("format") or "").lower()
+    if fmt in ("csv", "text/csv"):
+        return True
+    path = event.get("rawPath") or event.get("path") or ""
+    return str(path).endswith(".csv")
+
+
+def _readings_eval_bundle(
+    hours: int,
+    rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
+    display_temp_unit: str = "imperial",
+    log: AfddLog | None = None,
+) -> dict[str, Any]:
+    """Fetch readings and evaluate custom rules at full resolution (for chart + CSV)."""
+    log = log or AfddLog()
+    t0 = time.perf_counter()
+    rules = _load_custom_rules()
+    log.info(f"readings hours={hours} roll_min={rolling_avg_minutes} rules={len(rules)}")
+
+    readings = _fetch_readings(hours)
+    n = len(readings)
+    log.info(f"fetched {n} samples in {int((time.perf_counter() - t0) * 1000)}ms")
+
+    rows = readings_to_rows(readings) if readings else []
+    minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
+    fdd_status = _fetch_fdd_status()
+
+    use_chunked = bool(readings) and (n > CHART_CHUNKED_SAMPLES or hours > CHART_CHUNKED_HOURS)
+    if readings:
+        if use_chunked:
+            log.info(
+                f"chart eval chunked: hours={hours} samples={n} "
+                f"chunk_h={GO_LIVE_BATCH_HOURS} overlap={GO_LIVE_OVERLAP_MINUTES}m"
+            )
+            flag_series, rows = evaluate_rules_on_readings_chunked(
+                rules,
+                readings,
+                chunk_hours=GO_LIVE_BATCH_HOURS,
+                overlap_minutes=GO_LIVE_OVERLAP_MINUTES,
+                default_rolling_avg_minutes=minutes,
+                display_temp_unit=display_temp_unit,
+            )
+        else:
+            if rows:
+                prepare_rows_for_evaluate(rows, minutes, temp_unit=display_temp_unit)
+            flag_series, rows = evaluate_rules_on_readings(
+                rules, readings, rows=rows, default_rolling_avg_minutes=minutes
+            )
+    else:
+        flag_series, rows = {}, rows
+        log.warn("no readings in window — chart empty")
+
+    fault_plots_full = {k: flag_series.get(k, [0] * n) for k in flag_series}
+    aux_full = aux_series_from_rows(rows) if rows else {}
+    ms = int((time.perf_counter() - t0) * 1000)
+    log.info(
+        f"eval_pts={n} eval_ms={ms} fault_rules={len(fault_plots_full)} chunked={use_chunked}"
+    )
+    return {
+        "rules": rules,
+        "readings": readings,
+        "rows": rows,
+        "minutes": minutes,
+        "n": n,
+        "fault_plots_full": fault_plots_full,
+        "aux_full": aux_full,
+        "use_chunked": use_chunked,
+        "fdd_status": fdd_status,
+        "eval_ms": ms,
+        "log": log,
+    }
 
 
 def _normalize_reading(item: dict) -> dict | None:
@@ -401,59 +489,26 @@ def _readings_payload(
     log: AfddLog | None = None,
 ) -> dict:
     log = log or AfddLog()
-    t0 = time.perf_counter()
     stage = "init"
     try:
-        stage = "load_rules"
-        rules = _load_custom_rules()
-        log.info(f"readings hours={hours} roll_min={rolling_avg_minutes} rules={len(rules)}")
-
-        stage = "fetch_dynamodb"
-        readings = _fetch_readings(hours)
-        n = len(readings)
-        log.info(f"fetched {n} samples in {int((time.perf_counter() - t0) * 1000)}ms")
-
-        rows = readings_to_rows(readings) if readings else []
-        minutes = normalize_rolling_avg_minutes(rolling_avg_minutes)
-
-        stage = "fdd_status"
-        fdd_status = _fetch_fdd_status()
+        stage = "evaluate"
+        bundle = _readings_eval_bundle(hours, rolling_avg_minutes, display_temp_unit, log=log)
+        rules = bundle["rules"]
+        readings = bundle["readings"]
+        rows = bundle["rows"]
+        minutes = bundle["minutes"]
+        n = bundle["n"]
+        fault_plots_full = bundle["fault_plots_full"]
+        aux_full = bundle["aux_full"]
+        use_chunked = bundle["use_chunked"]
+        fdd_status = bundle["fdd_status"]
+        ms = bundle["eval_ms"]
         latest = readings[-1] if readings else None
 
-        stage = "evaluate_rules"
-        use_chunked = bool(readings) and (
-            n > CHART_CHUNKED_SAMPLES or hours > CHART_CHUNKED_HOURS
-        )
-        if readings:
-            if use_chunked:
-                log.info(
-                    f"chart eval chunked: hours={hours} samples={n} "
-                    f"chunk_h={GO_LIVE_BATCH_HOURS} overlap={GO_LIVE_OVERLAP_MINUTES}m"
-                )
-                flag_series, rows = evaluate_rules_on_readings_chunked(
-                    rules,
-                    readings,
-                    chunk_hours=GO_LIVE_BATCH_HOURS,
-                    overlap_minutes=GO_LIVE_OVERLAP_MINUTES,
-                    default_rolling_avg_minutes=minutes,
-                    display_temp_unit=display_temp_unit,
-                )
-            else:
-                if rows:
-                    prepare_rows_for_evaluate(rows, minutes, temp_unit=display_temp_unit)
-                flag_series, rows = evaluate_rules_on_readings(
-                    rules, readings, rows=rows, default_rolling_avg_minutes=minutes
-                )
-        else:
-            flag_series, rows = {}, rows
-            log.warn("no readings in window — chart empty")
-
-        fault_plots_full = {k: flag_series.get(k, [0] * n) for k in flag_series}
         fault_totals = {k: sum(v) for k, v in fault_plots_full.items()}
         fault_analytics = fault_analytics_from_series(fault_plots_full, rows, rules)
 
         stage = "downsample_chart"
-        aux_full = aux_series_from_rows(rows) if rows else {}
         chart_readings, chart_plots, chart_aux, chart_stride, truncated = downsample_aligned_series(
             n,
             CHART_RESPONSE_MAX,
@@ -461,10 +516,9 @@ def _readings_payload(
             fault_plots_full,
             aux_full,
         )
-        ms = int((time.perf_counter() - t0) * 1000)
         log.info(
             f"chart_pts={len(chart_readings)}/{n} truncated={truncated} "
-            f"eval_ms={ms} fault_rules={len(flag_series)}"
+            f"eval_ms={ms} fault_rules={len(fault_plots_full)}"
         )
         if truncated:
             log.warn(f"response downsampled to {CHART_RESPONSE_MAX} points for Lambda URL size")
@@ -558,7 +612,7 @@ def _health_payload() -> dict:
         "chart_chunked_hours": CHART_CHUNKED_HOURS,
         "chart_chunked_samples": CHART_CHUNKED_SAMPLES,
         "mqtt_topic_prefix": "vibe12",
-        "features": ["brick_model", "multi_series", "bacnet_ingest"],
+        "features": ["brick_model", "multi_series", "bacnet_ingest", "data_model", "brick_scoped_fdd"],
         "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 
@@ -729,6 +783,44 @@ def lambda_handler(event, context):
             )
         return _response(400, {"error": "use /api/points/{site_id}/{building_id}"})
 
+    if path.startswith("/api/data-model/"):
+        q = event.get("queryStringParameters") or {}
+        body = _parse_body(event) if method in ("POST", "PUT") else {}
+        status, payload, ctype = handle_data_model(
+            path, method, body, q, _ts_store, _load_custom_rules_record
+        )
+        if ctype.startswith("text/"):
+            return _response(status, payload, content_type=ctype)
+        return _response(status, payload)
+
+    if path.startswith("/api/playground/test-brick-rule") and method == "POST":
+        body = _parse_body(event)
+        rule = body.get("rule")
+        if not isinstance(rule, dict):
+            return _response(400, {"error": "rule object required"})
+        site_id = str(body.get("site_id") or "").strip()
+        building_id = str(body.get("building_id") or "").strip()
+        if not site_id or not building_id:
+            return _response(400, {"error": "site_id and building_id required"})
+        hours = max(1, min(168, int(body.get("hours", TEST_HOURS_DEFAULT))))
+        from model_store import ModelStore
+
+        model = ModelStore(_ts_store).load_or_bootstrap(site_id, building_id)
+        summary = run_brick_scoped_rules(
+            model, [rule], _ts_store, site_id, building_id, hours=hours
+        )
+        return _response(200, {"ok": True, **summary})
+
+    if path.startswith("/api/fdd/brick-results/"):
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 5:
+            site_id, building_id = parts[3], parts[4]
+            summary = _ts_store.get_brick_fdd_summary(site_id, building_id)
+            if summary is None:
+                return _response(404, {"error": "no brick FDD summary yet"})
+            return _response(200, _json_safe(summary))
+        return _response(400, {"error": "use /api/fdd/brick-results/{site_id}/{building_id}"})
+
     if path.startswith("/api/brick/"):
         parts = [p for p in path.split("/") if p]
         if len(parts) >= 4:
@@ -799,6 +891,29 @@ def lambda_handler(event, context):
         display_unit = _get_display_temp_unit(event)
         log = AfddLog()
         try:
+            if _wants_csv_export(event):
+                fault_ids = _get_fault_rule_ids(event)
+                bundle = _readings_eval_bundle(hours, roll_min, display_unit, log=log)
+                if not bundle["readings"]:
+                    return _response(404, {"error": "no readings in window for CSV export"})
+                csv_body = build_readings_csv(
+                    bundle["readings"],
+                    bundle["rows"],
+                    bundle["fault_plots_full"],
+                    bundle["rules"],
+                    fault_rule_ids=fault_ids,
+                )
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                fname = f"vibe12_readings_{hours}h_{stamp}.csv"
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": f'attachment; filename="{fname}"',
+                        "Cache-Control": "no-store",
+                    },
+                    "body": csv_body,
+                }
             payload = _readings_payload(hours, roll_min, display_unit, log=log)
             body = json.dumps(_json_safe(payload))
             if len(body) > 5_500_000:

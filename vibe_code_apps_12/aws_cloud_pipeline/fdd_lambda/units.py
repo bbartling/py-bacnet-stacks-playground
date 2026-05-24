@@ -87,6 +87,7 @@ def resolve_cfg_threshold(cfg: dict[str, Any], base_key: str, unit: str) -> floa
         "max_temp_per_minute": ("max_f_per_minute",),
         "max_spread": ("max_spread_f",),
         "max_spread_15min": ("max_spread_f_15min",),
+        "max_spread_24h": ("max_spread_f_24h",),
     }
     f_keys = (legacy_f,)
     c_keys = (legacy_c,)
@@ -190,6 +191,12 @@ def config_field_meta_for_unit(unit: str) -> dict[str, dict[str, Any]]:
             "step": 0.1,
             "default": 1.4 if unit == "metric" else 2.5,
         },
+        "max_spread_24h": {
+            "label": f"Max peak spread {sym} (24h)",
+            "type": "float",
+            "step": 0.1,
+            "default": 6.7 if unit == "metric" else 12.0,
+        },
         # Legacy keys (still shown when editing old rules)
         "bounds_low_f": {"label": f"Low {sym} (legacy key)", "type": "float", "step": 0.1},
         "bounds_high_f": {"label": f"High {sym} (legacy key)", "type": "float", "step": 0.1},
@@ -199,4 +206,5 @@ def config_field_meta_for_unit(unit: str) -> dict[str, dict[str, Any]]:
         "max_f_per_minute": {"label": f"Max {rate_min} (legacy)", "type": "float", "step": 0.1},
         "max_spread_f": {"label": f"Max spread {sym} (legacy)", "type": "float", "step": 0.1},
         "max_spread_f_15min": {"label": f"Max spread {sym} 15m (legacy)", "type": "float", "step": 0.1},
+        "max_spread_f_24h": {"label": f"Max peak spread {sym} 24h (legacy)", "type": "float", "step": 0.1},
     }

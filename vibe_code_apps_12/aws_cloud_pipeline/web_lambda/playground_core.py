@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import ast
 import builtins as _builtins
+import csv
 import datetime
 import io
 import math
+import re
 import statistics
 import time
 import traceback
@@ -347,6 +349,64 @@ def downsample_aligned_series(
         if len(series) == n:
             out_aux[k] = [series[i] for i in idx]
     return out_readings, out_plots, out_aux, stride, True
+
+
+def csv_fault_column(rule_id: str) -> str:
+    slug = re.sub(r"[^\w]+", "_", str(rule_id or "rule")).strip("_") or "rule"
+    return f"fault_{slug}"
+
+
+def build_readings_csv(
+    readings: list[dict[str, Any]],
+    rows: list[dict[str, Any]],
+    fault_plots: dict[str, list[int]],
+    rules: list[dict[str, Any]],
+    fault_rule_ids: list[str] | None = None,
+) -> str:
+    """Excel-friendly CSV: timestamps, temps, rolling avg, optional fault columns (0/1)."""
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\r\n")
+
+    rule_list = [r for r in rules if r.get("enabled", True)]
+    if fault_rule_ids is not None:
+        allowed = set(fault_rule_ids)
+        rule_list = [r for r in rule_list if r.get("id") in allowed]
+
+    headers = [
+        "time_utc",
+        "ts_ms",
+        "degF",
+        "degC",
+        "rolling_avg_degF",
+        "rolling_avg_degC",
+    ]
+    headers.extend(csv_fault_column(r.get("id", "")) for r in rule_list)
+    writer.writerow(headers)
+
+    for i, rd in enumerate(readings):
+        ts_iso = rd.get("ts_iso") or ""
+        if not ts_iso and rd.get("ts_ms") is not None:
+            ts_iso = datetime.datetime.fromtimestamp(
+                int(rd["ts_ms"]) / 1000, tz=datetime.timezone.utc
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        line = [
+            ts_iso,
+            rd.get("ts_ms", ""),
+            f'{float(rd["degF"]):.3f}' if rd.get("degF") is not None else "",
+            f'{float(rd["degC"]):.3f}' if rd.get("degC") is not None else "",
+        ]
+        if rows and i < len(rows) and rows[i].get("degF_rolling_avg") is not None:
+            avg_f = float(rows[i]["degF_rolling_avg"])
+            line.append(f"{avg_f:.3f}")
+            line.append(f"{((avg_f - 32) * 5 / 9):.3f}")
+        else:
+            line.extend(["", ""])
+        for rule in rule_list:
+            flags = fault_plots.get(rule.get("id", ""), [])
+            line.append("1" if i < len(flags) and flags[i] else "0")
+        writer.writerow(line)
+
+    return buf.getvalue()
 
 
 def eval_rows_preview(rows: list[dict[str, Any]], limit: int = 200) -> list[dict[str, Any]]:

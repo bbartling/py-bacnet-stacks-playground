@@ -27,6 +27,12 @@ class TestRulesMeta(unittest.TestCase):
         self.assertIn("enabled", meta[0])
         self.assertIn("plot_on_chart", meta[0])
 
+    def test_default_rules_have_brick_scope(self) -> None:
+        rules = default_custom_rules()
+        for r in rules:
+            self.assertIn("brick_scope", r)
+            self.assertIn("Zone_Air_Temperature_Sensor", r["brick_scope"]["point_classes"])
+
     def test_chart_guides_from_bounds_rule(self) -> None:
         rules = default_custom_rules()
         guides = chart_guides_from_rules(rules)

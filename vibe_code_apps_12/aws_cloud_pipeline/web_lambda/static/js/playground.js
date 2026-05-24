@@ -640,6 +640,124 @@
     els.removeRuleBtn.disabled = rules.length <= 1;
   }
 
+  function getSiteBuildingForBrick() {
+    const site = document.getElementById("siteSelect")?.value || "demo";
+    const building = document.getElementById("buildingSelect")?.value || "pi";
+    return { site, building };
+  }
+
+  function populateBrickScopeSelects() {
+    const presets = window.vibe12BrickClassPresets || { equipment: [], points: [] };
+    const eqSel = document.getElementById("brickEqClasses");
+    const ptSel = document.getElementById("brickPtClasses");
+    if (!eqSel || !ptSel) return;
+    eqSel.innerHTML = "";
+    ptSel.innerHTML = "";
+    (presets.equipment || []).forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c;
+      o.textContent = c;
+      eqSel.appendChild(o);
+    });
+    (presets.points || []).forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c;
+      o.textContent = c;
+      ptSel.appendChild(o);
+    });
+  }
+
+  function syncBrickScopeToDom(rule) {
+    const eqSel = document.getElementById("brickEqClasses");
+    const ptSel = document.getElementById("brickPtClasses");
+    if (!eqSel || !ptSel) return;
+    const scope = rule.brick_scope || {};
+    const eqSet = new Set(scope.equipment_classes || []);
+    const ptSet = new Set(scope.point_classes || []);
+    [...eqSel.options].forEach((o) => {
+      o.selected = eqSet.has(o.value);
+    });
+    [...ptSel.options].forEach((o) => {
+      o.selected = ptSet.has(o.value);
+    });
+  }
+
+  function syncBrickScopeFromDom(rule) {
+    const eqSel = document.getElementById("brickEqClasses");
+    const ptSel = document.getElementById("brickPtClasses");
+    if (!eqSel || !ptSel) return;
+    const eqClasses = [...eqSel.selectedOptions].map((o) => o.value);
+    const ptClasses = [...ptSel.selectedOptions].map((o) => o.value);
+    if (!eqClasses.length && !ptClasses.length) {
+      delete rule.brick_scope;
+      return;
+    }
+    rule.brick_scope = {
+      equipment_classes: eqClasses,
+      point_classes: ptClasses,
+      match_mode: "all_points_on_equipment",
+    };
+  }
+
+  async function testBrickRule() {
+    const rule = currentRule();
+    if (!rule) return;
+    persistActiveEditor();
+    syncConfigFromDom(rule, activeCard);
+    syncBrickScopeFromDom(rule);
+    if (!rule.brick_scope) {
+      appendConsole("Set at least one equipment or point class in BRICK scope.\n", "log-warn");
+      return;
+    }
+    const { site, building } = getSiteBuildingForBrick();
+    const hours = parseInt(els.testHours.value, 10) || 2;
+    const resultsEl = document.getElementById("brickTestResults");
+    if (resultsEl) resultsEl.textContent = "Running…";
+    setLabActionButtonsEnabled(false);
+    try {
+      const res = await fetch("/api/playground/test-brick-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule, site_id: site, building_id: building, hours }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (resultsEl) resultsEl.textContent = data.error || "failed";
+        appendConsole((data.error || "brick test failed") + "\n", "error");
+        return;
+      }
+      const lines = (data.results || []).map(
+        (r) =>
+          r.target_id +
+          " · " +
+          (r.equipment_type || "?") +
+          " / " +
+          (r.point_class || "?") +
+          " · flagged=" +
+          r.flagged +
+          " / " +
+          r.rows
+      );
+      const summary =
+        "Targets: " +
+        data.targets_evaluated +
+        " · total flagged: " +
+        data.total_flagged +
+        " · " +
+        data.ms +
+        " ms\n" +
+        lines.join("\n");
+      if (resultsEl) resultsEl.textContent = summary;
+      appendConsole("BRICK-scoped test: " + data.targets_evaluated + " target(s), " + data.total_flagged + " flags\n");
+      markRulesDirty();
+    } catch (e) {
+      if (resultsEl) resultsEl.textContent = String(e);
+      appendConsole(String(e) + "\n", "error");
+    } finally {
+      setLabActionButtonsEnabled(true);
+    }
+  }
+
   function renderSelectedRule() {
     persistActiveEditor();
     destroyEditor();
@@ -732,6 +850,7 @@
     });
     lintCode(rule.code, syntaxPillEl);
     refreshEditor();
+    syncBrickScopeToDom(rule);
   }
 
   function buildTestReport(rule, hours, data) {
@@ -1245,6 +1364,17 @@
     els.addRuleBtn.addEventListener("click", addRule);
     els.removeRuleBtn.addEventListener("click", removeRule);
     els.testRuleBtn.addEventListener("click", testRule);
+    document.getElementById("testBrickRuleBtn")?.addEventListener("click", testBrickRule);
+    ["brickEqClasses", "brickPtClasses"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        const rule = currentRule();
+        if (rule) {
+          syncBrickScopeFromDom(rule);
+          markRulesDirty();
+        }
+      });
+    });
+    populateBrickScopeSelects();
     els.saveRulesBtn.addEventListener("click", saveDraft);
     els.goLiveBtn.addEventListener("click", goLive);
     els.copyReportBtn.addEventListener("click", copyReportToClipboard);

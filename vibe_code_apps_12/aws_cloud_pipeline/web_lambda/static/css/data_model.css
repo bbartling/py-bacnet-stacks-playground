@@ -1,0 +1,131 @@
+/* Data Model tab */
+#tab-datamodel .dm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+#tab-datamodel .dm-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+#tab-datamodel .dm-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  #tab-datamodel .dm-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+#tab-datamodel .dm-panel {
+  background: var(--card-bg, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+#tab-datamodel .dm-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+#tab-datamodel textarea.dm-json {
+  width: 100%;
+  min-height: 220px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+#tab-datamodel .dm-status {
+  font-size: 0.85rem;
+  color: #8b949e;
+  margin: 0.5rem 0;
+}
+
+#tab-datamodel .dm-status.ok {
+  color: #3fb950;
+}
+
+#tab-datamodel .dm-status.err {
+  color: #f85149;
+}
+
+#tab-datamodel .dm-status.warn {
+  color: #d29922;
+}
+
+#tab-datamodel .dm-health-out {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+#tab-datamodel .dm-ttl-chip {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+#tab-datamodel .brick-scope-panel {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  border: 1px dashed #30363d;
+  border-radius: 6px;
+}
+
+#tab-datamodel .brick-scope-panel .scope-label {
+  font-size: 0.8rem;
+  color: #8b949e;
+  margin-bottom: 0.35rem;
+}
+
+#tab-rulelab .brick-scope-panel {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border: 1px dashed #30363d;
+  border-radius: 6px;
+}
+
+#tab-rulelab .brick-scope-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+#tab-rulelab .brick-scope-grid select {
+  min-height: 80px;
+  font-size: 11px;
+}
+
+#tab-rulelab .brick-test-results {
+  font-size: 11px;
+  max-height: 160px;
+  overflow: auto;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+}

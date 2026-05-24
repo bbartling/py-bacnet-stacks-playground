@@ -13,6 +13,9 @@ TOPIC_RE = re.compile(
 
 BRICK_GRAPH_TS = -10
 POINT_REGISTRY_TS = -11
+BRICK_TTL_TS = -12
+CANONICAL_MODEL_TS = -13
+BRICK_FDD_SUMMARY_TS = -14
 
 
 def parse_mqtt_topic(topic: str | None) -> dict[str, str] | None:

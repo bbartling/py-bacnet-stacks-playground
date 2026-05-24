@@ -2,34 +2,17 @@
 
 from __future__ import annotations
 
-import importlib.util
 import os
-import sys
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-2")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "test")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
 
-_WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
-
-with patch("boto3.resource") as _mock_boto:
-    _mock_boto.return_value.Table.return_value = MagicMock()
-    for mod in list(sys.modules):
-        if mod in ("mqtt_routing", "lambda_function", "timeseries", "brick_model"):
-            del sys.modules[mod]
-    _spec = importlib.util.spec_from_file_location(
-        "vibe12_web_lambda_function", _WEB / "lambda_function.py"
-    )
-    lambda_function = importlib.util.module_from_spec(_spec)
-    assert _spec.loader is not None
-    _spec.loader.exec_module(lambda_function)
-
 from rules_defaults import default_custom_rules  # noqa: E402
+from web_lambda_loader import load_web_lambda  # noqa: E402
+
+lambda_function = load_web_lambda("vibe12_web_lambda_function")
 
 
 def _sample_readings(n: int = 12, step_ms: int = 60_000) -> list[dict]:
@@ -44,9 +27,9 @@ def _sample_readings(n: int = 12, step_ms: int = 60_000) -> list[dict]:
 
 
 class TestReadingsPayload(unittest.TestCase):
-    @patch.object(lambda_function, "_fetch_fdd_status")
-    @patch.object(lambda_function, "_fetch_readings")
-    @patch.object(lambda_function, "_load_custom_rules")
+    @unittest.mock.patch.object(lambda_function, "_fetch_fdd_status")
+    @unittest.mock.patch.object(lambda_function, "_fetch_readings")
+    @unittest.mock.patch.object(lambda_function, "_load_custom_rules")
     def test_includes_fault_analytics(
         self,
         mock_rules,
@@ -71,9 +54,9 @@ class TestReadingsPayload(unittest.TestCase):
         rule_id = item["id"]
         self.assertEqual(item["count"], payload["fault_totals"].get(rule_id, 0))
 
-    @patch.object(lambda_function, "_fetch_fdd_status")
-    @patch.object(lambda_function, "_fetch_readings")
-    @patch.object(lambda_function, "_load_custom_rules")
+    @unittest.mock.patch.object(lambda_function, "_fetch_fdd_status")
+    @unittest.mock.patch.object(lambda_function, "_fetch_readings")
+    @unittest.mock.patch.object(lambda_function, "_load_custom_rules")
     def test_chunked_path_builds_fault_analytics(
         self,
         mock_rules,

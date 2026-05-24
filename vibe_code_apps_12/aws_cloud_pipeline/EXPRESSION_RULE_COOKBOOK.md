@@ -31,6 +31,22 @@ Copy a recipe into **Rule Lab → Python editor**, set **Parameters (cfg)** from
 | 7 — Flatline N samples | `flatline_tolerance`, `flatline_window` | **0.05** / **0.03**, **18** |
 | 8 — OOB debounced | `bounds_low`, `bounds_high`, `rolling_window` | **65**, **80**, **6** |
 | 9 — Rate instant (pair) | `max_temp_per_minute` | **2.0** / **1.1** |
+| 14 — Peak spread 24 h | `max_spread_24h` | **12.0** / **6.7** |
+
+### Shipped defaults (BRICK `Zone_Air_Temperature_Sensor`)
+
+Rule Lab loads four enabled rules from `rules_defaults.py` when no DynamoDB draft exists. Each includes `brick_scope.point_classes: ["Zone_Air_Temperature_Sensor"]` so **Test across BRICK targets** and scheduled FDD evaluate every matching zone sensor.
+
+| Default rule ID | Cookbook | What it detects |
+|-----------------|----------|-----------------|
+| `brick_zone_oob` | Recipe 6 | Comfort band violation (rolling avg) |
+| `brick_zone_flatline_1h` | Recipe 1 | Stuck sensor (1 h min–max spread) |
+| `brick_zone_swing_15m` | Recipe 5 | Short hunting / fast swing (15 m min–max) |
+| `brick_zone_peak_swing_24h` | Recipe 14 | Excessive daily peak–valley (24 h min–max) |
+
+**Note:** Recipes 2–3 measure **net endpoint rate** (first → last). Recipes 4–5 and 14 measure **peak swing** (max − min). Use spread recipes when a spike that returns to baseline should still fault.
+
+**Test windows:** Use **≥ 2 h** for 1 h / 15 m lookback rules; use **≥ 24 h** (or max history) when testing `brick_zone_peak_swing_24h`.
 
 ---
 
@@ -285,9 +301,60 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
 ---
 
+## Recipe 14 — Peak spread / MIN–MAX (24 hours)
+
+Daily peak–valley swing: catches hunting, short cycling, or setpoint fighting that cancels out over shorter windows. Same semantics as Recipe 4–5, but over a full day. **Shipped default:** `brick_zone_peak_swing_24h`.
+
+**Config:** `max_spread_24h` = **12.0** (°F) or **6.7** (°C)
+
+**Test tip:** Use **Test window ≥ 24 h** (or max dashboard history). Requires ~95% fill of the 24 h window before evaluating.
+
+```python
+TWENTY_FOUR_HOUR_MS = 24 * 60 * 60 * 1000
+FILL_RATIO = 0.95
+
+
+def get_last_24_hours(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - TWENTY_FOUR_HOUR_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_24_hours(row, rows)
+    if not window_rows:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < TWENTY_FOUR_HOUR_MS * FILL_RATIO:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    vals = [r["temp"] for r in window_rows]
+    lo, hi = min(vals), max(vals)
+    spread = hi - lo
+    lim = cfg_threshold(cfg, "max_spread_24h")
+
+    print(
+        f"row={row['row']} ts={row['ts']} "
+        f"peak spread 24h={spread:.2f} {sym} (min={lo:.2f} max={hi:.2f})"
+    )
+
+    if spread > lim:
+        print(f"PEAK/24h: painting {len(window_rows)} rows")
+        return True, window_rows
+
+    return False
+```
+
+---
+
 ## Recipe 6 — Out of bounds (instant, rolling avg)
 
-Flags the current row when smoothed temperature is outside the band. Matches the default **Out of bounds** rule.
+Flags the current row when smoothed temperature is outside the band. Matches the shipped default **`brick_zone_oob`** rule.
 
 **Config:** `bounds_low` = **65**, `bounds_high` = **80** (°F) — or **18** / **27** (°C)
 

@@ -1,2 +1,4 @@
 # Bundled into WebFunction for Rule Lab (evaluate sandbox).
 numpy>=1.26.0,<3
+pydantic>=2.0.0,<3
+rdflib>=7.0.0,<8

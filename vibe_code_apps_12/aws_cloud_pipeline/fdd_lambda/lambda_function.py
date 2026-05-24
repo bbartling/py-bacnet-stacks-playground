@@ -21,6 +21,11 @@ from playground_core import (
     slim_fdd_summary,
 )
 from rules_defaults import default_custom_rules
+from timeseries import DynamoTimeSeriesStore
+from model_store import ModelStore
+from brick_fdd_runner import run_brick_scoped_rules
+from brick_rule_targets import rules_with_brick_scope
+from data_model_api import sync_all_ttl
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
 DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
@@ -29,8 +34,10 @@ READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
 FDD_CUSTOM_RULES_TS = -2
 FDD_AFDD_STATE_TS = -3
 FDD_CHUNK_HOURS = float(os.environ.get("FDD_CHUNK_HOURS", str(GO_LIVE_BATCH_HOURS)))
+BRICK_FDD_HOURS = int(os.environ.get("BRICK_FDD_HOURS", "24"))
 
 _table = boto3.resource("dynamodb").Table(TABLE_NAME)
+_ts_store = DynamoTimeSeriesStore(_table, default_device_id=DEVICE_ID, read_limit=READINGS_LIMIT)
 
 
 def _json_safe(obj):
@@ -249,4 +256,33 @@ def lambda_handler(event, context):
         f"done status={db.get('fdd_status')} samples={summary.get('sample_count')} "
         f"chunks={summary.get('chunk_count')}"
     )
+
+    # TTL sync for all buildings with canonical models
+    try:
+        ttl_out = sync_all_ttl(_ts_store)
+        log.info(f"ttl_sync count={ttl_out.get('count')} errors={len(ttl_out.get('errors') or [])}")
+    except Exception as exc:
+        log.warn(f"ttl_sync failed: {exc}")
+
+    # Building-scoped BRICK FDD for rules with brick_scope
+    scoped = rules_with_brick_scope(rules)
+    if scoped:
+        buildings = _ts_store.list_buildings_with_model()
+        if not buildings:
+            buildings = _ts_store.list_buildings()
+        for b in buildings:
+            sid, bid = b["site_id"], b["building_id"]
+            try:
+                model = ModelStore(_ts_store).load_or_bootstrap(sid, bid)
+                brick_summary = run_brick_scoped_rules(
+                    model, rules, _ts_store, sid, bid, hours=BRICK_FDD_HOURS
+                )
+                _ts_store.put_brick_fdd_summary(sid, bid, brick_summary)
+                log.info(
+                    f"brick_fdd {sid}/{bid} targets={brick_summary.get('targets_evaluated')} "
+                    f"flagged={brick_summary.get('total_flagged')}"
+                )
+            except Exception as exc:
+                log.warn(f"brick_fdd {sid}/{bid} failed: {exc}")
+
     return summary
