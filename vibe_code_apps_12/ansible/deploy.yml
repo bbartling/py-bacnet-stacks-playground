@@ -62,6 +62,21 @@
         - Restart BACnet DS18B20 service
         - Restart BACnet read driver
 
+    - name: Stat commissioned points.csv on control machine
+      ansible.builtin.stat:
+        path: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+      delegate_to: localhost
+      become: false
+      register: local_commission_csv
+
+    - name: Push commissioned points.csv to edge (from repo backup)
+      ansible.builtin.copy:
+        src: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+        dest: "{{ points_csv_path }}"
+        mode: "0644"
+      when: local_commission_csv.stat.exists | default(false)
+      notify: Restart BACnet read driver
+
     - name: Install base Python packages (Debian / Raspberry Pi OS)
       ansible.builtin.apt:
         name:

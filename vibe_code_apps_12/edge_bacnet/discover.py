@@ -117,6 +117,10 @@ async def run_discover(
     output_path: str | None = None,
     site_id: str = "site",
     building_id: str = "building",
+    router_ip: str | None = None,
+    mstp_net: int | None = None,
+    discover_timeout: float = 10.0,
+    local_too: bool = False,
     app_args=None,
 ) -> list[dict[str, Any]]:
     parser = SimpleArgumentParser()
@@ -124,6 +128,28 @@ async def run_discover(
     parser.add_argument("-o", "--output", help="CSV output path")
     parser.add_argument("--site-id", default=site_id)
     parser.add_argument("--building-id", default=building_id)
+    parser.add_argument(
+        "--router-ip",
+        default=None,
+        help="BACnet/IP router address for remote MS/TP Who-Is (e.g. BASRT-B)",
+    )
+    parser.add_argument(
+        "--mstp-net",
+        type=int,
+        default=None,
+        help="MS/TP network number behind --router-ip (e.g. 2000)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=discover_timeout,
+        help="Seconds to wait for I-Am responses",
+    )
+    parser.add_argument(
+        "--local-too",
+        action="store_true",
+        help="Also Who-Is on local BACnet/IP broadcast",
+    )
     warnings_parser = parser.add_mutually_exclusive_group(required=False)
     warnings_parser.add_argument("--warnings", dest="warnings", action="store_true")
     warnings_parser.add_argument("--no-warnings", dest="warnings", action="store_false")
@@ -139,8 +165,32 @@ async def run_discover(
     defaults = {"site_id": app_args.site_id, "building_id": app_args.building_id}
 
     try:
-        sys.stderr.write(f"Discovering devices {low_limit}..{high_limit}...\n")
-        i_ams = await app.who_is(low_limit, high_limit)
+        discovered: dict[int, Any] = {}
+
+        if app_args.router_ip and app_args.mstp_net:
+            mstp_broadcast = Address(f"{app_args.mstp_net}:*@{app_args.router_ip}")
+            sys.stderr.write(f"Discovering MS/TP at {mstp_broadcast} ({low_limit}..{high_limit})...\n")
+            mstp_i_ams = await app.who_is(
+                low_limit,
+                high_limit,
+                address=mstp_broadcast,
+                timeout=app_args.timeout,
+            )
+            for i_am in mstp_i_ams or []:
+                discovered[i_am.iAmDeviceIdentifier[1]] = i_am
+
+        if app_args.local_too or not (app_args.router_ip and app_args.mstp_net):
+            sys.stderr.write(f"Discovering BACnet/IP {low_limit}..{high_limit}...\n")
+            local_i_ams = await app.who_is(
+                low_limit,
+                high_limit,
+                address=Address("*") if app_args.local_too else None,
+                timeout=app_args.timeout,
+            )
+            for i_am in local_i_ams or []:
+                discovered[i_am.iAmDeviceIdentifier[1]] = i_am
+
+        i_ams = list(discovered.values())
         if not i_ams:
             sys.stderr.write("No devices found.\n")
             return []
@@ -159,7 +209,7 @@ async def run_discover(
                 raw = {
                     "device_instance": str(dev_inst),
                     "device_address": dev_addr,
-                    "object_type": oid[0],
+                    "object_type": str(oid[0]),
                     "object_instance": str(oid[1]),
                     "object_name": props["object_name"],
                     "description": props["description"],
@@ -198,6 +248,10 @@ async def main() -> None:
     parser.add_argument("-o", "--output")
     parser.add_argument("--site-id", default="site")
     parser.add_argument("--building-id", default="building")
+    parser.add_argument("--router-ip", default=None)
+    parser.add_argument("--mstp-net", type=int, default=None)
+    parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--local-too", action="store_true")
     warnings_parser = parser.add_mutually_exclusive_group(required=False)
     warnings_parser.add_argument("--warnings", dest="warnings", action="store_true")
     warnings_parser.add_argument("--no-warnings", dest="warnings", action="store_false")
@@ -218,6 +272,10 @@ async def main() -> None:
         output_path=args.output,
         site_id=args.site_id,
         building_id=args.building_id,
+        router_ip=args.router_ip,
+        mstp_net=args.mstp_net,
+        discover_timeout=args.timeout,
+        local_too=args.local_too,
         app_args=args,
     )
 

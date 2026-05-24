@@ -8,18 +8,51 @@ Type=simple
 User={{ ansible_user }}
 WorkingDirectory={{ bacnet_app_remote_dir }}
 Environment=PYTHONPATH={{ bacnet_app_remote_dir }}
+{% if bacnet_route_aware | default(false) %}
 ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.read_driver \
   --config {{ points_csv_path }} \
   --interval {{ bacnet_read_interval | default(30) }} \
   --iot-endpoint {{ aws_iot_endpoint }} \
   --cert {{ aws_iot_certs_remote_dir }}/{{ aws_iot_cert_filename }} \
   --key {{ aws_iot_certs_remote_dir }}/{{ aws_iot_key_filename }} \
-  --client-id {{ bacnet_edge_client_id | default('vibe12-bacnet-edge') }} \
+  --client-id {{ bacnet_edge_client_id | default('basicPubSub') }} \
   --site-id {{ site_id }} \
   --building-id {{ building_id }} \
   --name {{ bacnet_device_name }} \
   --instance {{ bacnet_instance_id }} \
-  --address {{ bacnet_bind_address }}
+  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }} \
+  --route-aware \
+  --network {{ bacnet_network | default(1) }}{% if enable_gpio_mqtt_on_read_driver | default(false) %} \
+  --gpio-mqtt \
+  --system-id {{ ds18b20_system_id | default('office') }} \
+  --point-deg-c {{ ds18b20_point_deg_c | default('digital-temp-degC') }} \
+  --point-deg-f {{ ds18b20_point_deg_f | default('digital-temp-degF') }} \
+  --brick-class {{ ds18b20_brick_class | default('Zone_Air_Temperature_Sensor') }} \
+  --brick-tag {{ ds18b20_brick_tag | default('') }} \
+  --object-name-c {{ ds18b20_object_name_c | default('') | quote }} \
+  --object-name-f {{ ds18b20_object_name_f | default('') | quote }}{% endif %}
+{% else %}
+ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.read_driver \
+  --config {{ points_csv_path }} \
+  --interval {{ bacnet_read_interval | default(30) }} \
+  --iot-endpoint {{ aws_iot_endpoint }} \
+  --cert {{ aws_iot_certs_remote_dir }}/{{ aws_iot_cert_filename }} \
+  --key {{ aws_iot_certs_remote_dir }}/{{ aws_iot_key_filename }} \
+  --client-id {{ bacnet_edge_client_id | default('basicPubSub') }} \
+  --site-id {{ site_id }} \
+  --building-id {{ building_id }} \
+  --name {{ bacnet_device_name }} \
+  --instance {{ bacnet_instance_id }} \
+  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }}{% if enable_gpio_mqtt_on_read_driver | default(false) %} \
+  --gpio-mqtt \
+  --system-id {{ ds18b20_system_id | default('office') }} \
+  --point-deg-c {{ ds18b20_point_deg_c | default('digital-temp-degC') }} \
+  --point-deg-f {{ ds18b20_point_deg_f | default('digital-temp-degF') }} \
+  --brick-class {{ ds18b20_brick_class | default('Zone_Air_Temperature_Sensor') }} \
+  --brick-tag {{ ds18b20_brick_tag | default('') }} \
+  --object-name-c {{ ds18b20_object_name_c | default('') | quote }} \
+  --object-name-f {{ ds18b20_object_name_f | default('') | quote }}{% endif %}
+{% endif %}
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal

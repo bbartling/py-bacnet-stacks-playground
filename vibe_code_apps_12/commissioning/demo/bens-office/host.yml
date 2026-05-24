@@ -1,0 +1,7 @@
+---
+inventory_hostname: bacnet_pi
+ansible_host: 192.168.204.12
+site_id: demo
+building_id: bens-office
+bacnet_edge_client_id: basicPubSub
+fetched_utc: "2026-05-24T18:40:42Z"

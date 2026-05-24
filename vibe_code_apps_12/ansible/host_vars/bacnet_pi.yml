@@ -1,12 +1,33 @@
 ---
-# Boss Pi test bench — DS18B20 on GPIO (192.168.204.12). Field gateways omit this file.
+# Boss Pi test bench — GPIO DS18B20 + MS/TP bench box (device 5007) via BASRT-B router.
 
 enable_ds18b20_gpio: true
 enable_ds18b20_service: true
-bacnet_device_name: PiTemp
+bacnet_pi_temp_name: PiTemp
+bacnet_pi_temp_instance_id: 3456788
 
 site_id: demo
 building_id: bens-office
+
+# DS18B20 → hierarchical MQTT (60 s) via read driver (single basicPubSub client)
+enable_aws_iot: false
+enable_gpio_mqtt_on_read_driver: true
+
+# BACnet edge app (discover + RPM read) — unique instance vs PiTemp
+bacnet_instance_id: 599999
+bacnet_edge_bind_address: "{{ ansible_host }}/24:47809"
+bacnet_edge_device_name: Vibe12Edge
+bacnet_device_name: "{{ bacnet_edge_device_name }}"
+bacnet_route_aware: true
+bacnet_network: 1
+bacnet_router_ip: 192.168.204.200
+bacnet_mstp_net: 2000
+bacnet_discover_timeout: 15
+bacnet_discover_range_low: 5007
+bacnet_discover_range_high: 5007
+points_discovered_path: "{{ bacnet_app_remote_dir }}/points_discovered.csv"
+
+# DS18B20 BACnet object (local); MQTT via read driver when enable_gpio_mqtt_on_read_driver
 ds18b20_system_id: office
 ds18b20_point_deg_c: digital-temp-degC
 ds18b20_point_deg_f: digital-temp-degF
@@ -15,7 +36,8 @@ ds18b20_brick_tag: BenOffice-ZAT
 ds18b20_object_name_c: "Ben's office DS18B20 °C"
 ds18b20_object_name_f: "Ben's office DS18B20 °F"
 
-aws_iot_publish_interval: 60
-# Separate MQTT client IDs (shared IoT cert; must not collide with other edges)
-aws_iot_client_id: vibe12-gpio-bacnet-pi
-bacnet_edge_client_id: vibe12-edge-bacnet-pi
+# Commissioned scrape (RPM + optional GPIO → MQTT every 60 s)
+enable_bacnet_read_driver: true
+bacnet_read_interval: 60
+# Shared cert policy allows basicPubSub only — one MQTT client for GPIO + BACnet
+bacnet_edge_client_id: basicPubSub

@@ -6,6 +6,8 @@ bacnet_app_remote_dir: "/home/{{ ansible_user }}/vibe_code_apps_12"
 
 # Bind BACnet/IP to this host's inventory IP (override with eth0 in host_vars if needed)
 bacnet_bind_address: "{{ ansible_host }}/24"
+# Optional second BACnet/IP bind (e.g. :47809 when PiTemp uses default 47808 on same host)
+bacnet_edge_bind_address: "{{ bacnet_bind_address }}"
 
 # Local BACnet device on the gateway stack (must be UNIQUE per device on a shared BACnet LAN)
 bacnet_instance_id: 3456788
@@ -22,6 +24,9 @@ bacnet_discover_range_low: 1
 bacnet_discover_range_high: 3456799
 bacnet_read_interval: 30
 points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
+points_discovered_path: "{{ bacnet_app_remote_dir }}/points_discovered.csv"
+# Repo backup: vibe_code_apps_12/commissioning/{site_id}/{building_id}/
+commissioning_backup_dir: "{{ playbook_dir }}/../commissioning"
 
 # Override site_id + building_id per host (host_vars). These are fallbacks only.
 site_id: demo

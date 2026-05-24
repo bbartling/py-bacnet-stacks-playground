@@ -106,20 +106,37 @@ See [BACNET_COMMISSIONING.md](../BACNET_COMMISSIONING.md).
 
 ---
 
-## Boss Pi test bench (GPIO only host)
+## Boss Pi test bench (GPIO + MS/TP bench box)
 
-[`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml) already enables GPIO + `bens-office` MQTT topics.
+[`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml): DS18B20 GPIO + BASRT-B MS/TP discover (router `192.168.204.200`, net `2000`, device **5007**).
 
 ```bash
-./deploy.sh --limit bacnet_pi --ask-pass --ask-become-pass -v
+# Discover → points_discovered.csv on Pi
+ssh ben@192.168.204.12 'sudo systemctl start vibe12-bacnet-discover'
+
+# Deploy commissioned points.csv + 60 s BACnet RPM scrape
+./deploy.sh --limit bacnet_pi -v -e ansible_become_pass=ben
+
+# Backup CSV into repo (commit to GitHub)
+./fetch_commissioning.sh --limit bacnet_pi -v
 ```
 
-Topics (60 s AWS publish):
+GPIO topics (60 s):
 
 ```text
 vibe12/demo/bens-office/office/digital-temp-degC/telemetry
 vibe12/demo/bens-office/office/digital-temp-degF/telemetry
 ```
+
+BACnet topics (60 s, system `bens-test-bench-box`):
+
+```text
+vibe12/demo/bens-office/bens-test-bench-box/5007-analog-input-10014/telemetry
+vibe12/demo/bens-office/bens-test-bench-box/5007-analog-input-1192/telemetry
+...
+```
+
+Commissioned file: [`commissioning/demo/bens-office/points.csv`](../commissioning/demo/bens-office/points.csv)
 
 ---
 
@@ -129,6 +146,7 @@ vibe12/demo/bens-office/office/digital-temp-degF/telemetry
 |------|---------|
 | Full deploy + verify | `./deploy.sh -v` |
 | One host | `./deploy.sh --limit HOST -v` |
+| Backup CSV from edge → `commissioning/` | `./fetch_commissioning.sh --limit HOST -v` |
 | Checks only | `./deploy.sh --verify -v` |
 | Skip post-checks | `./deploy.sh --no-verify -v` |
 

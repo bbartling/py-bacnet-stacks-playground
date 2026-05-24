@@ -1,0 +1,57 @@
+---
+# Pull commissioned BACnet CSV files from edge gateways into the repo for Git backup.
+#
+#   cd vibe_code_apps_12/ansible
+#   ./fetch_commissioning.sh --limit bacnet_pi -v
+#
+# Writes:
+#   ../commissioning/{site_id}/{building_id}/points.csv
+#   ../commissioning/{site_id}/{building_id}/points_discovered.csv  (if present)
+
+- name: Fetch commissioned BACnet CSV from edge gateways
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Ensure local commissioning directory
+      ansible.builtin.file:
+        path: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch commissioned points.csv
+      ansible.builtin.fetch:
+        src: "{{ points_csv_path }}"
+        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+        flat: true
+      register: fetch_points
+      failed_when: false
+
+    - name: Warn if commissioned points.csv missing on edge
+      ansible.builtin.debug:
+        msg: "No {{ points_csv_path }} on {{ inventory_hostname }} yet — run discover and commission first."
+      when: fetch_points.failed | default(false)
+
+    - name: Fetch discovery CSV (optional)
+      ansible.builtin.fetch:
+        src: "{{ points_discovered_path }}"
+        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points_discovered.csv"
+        flat: true
+      failed_when: false
+
+    - name: Write host metadata sidecar for this backup
+      ansible.builtin.copy:
+        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/host.yml"
+        mode: "0644"
+        content: |
+          ---
+          inventory_hostname: {{ inventory_hostname }}
+          ansible_host: {{ ansible_host }}
+          site_id: {{ site_id }}
+          building_id: {{ building_id }}
+          bacnet_edge_client_id: {{ bacnet_edge_client_id }}
+          fetched_utc: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+      delegate_to: localhost
+      become: false

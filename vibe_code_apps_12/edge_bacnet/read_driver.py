@@ -23,6 +23,32 @@ from edge_bacnet.mqtt_payload import build_bacnet_payload, mqtt_topic_for_point
 from edge_bacnet.rpm import read_multiple_chunked
 
 
+def _c_to_f(temp_c: float) -> float:
+    return temp_c * 9.0 / 5.0 + 32.0
+
+
+async def publish_gpio_mqtt(
+    edge_mqtt,
+    reader,
+    publisher: MqttPublisher | None,
+    *,
+    dry_run: bool,
+) -> int:
+    """Publish DS18B20 °C/°F on hierarchical vibe12 topics (shared MQTT client)."""
+    temp_c = await asyncio.to_thread(reader.read_celsius)
+    temp_f = _c_to_f(temp_c)
+    seq = (publisher._seq + 1) if publisher else 1
+    if publisher:
+        publisher._seq = seq
+    messages = edge_mqtt.build_messages(temp_c, temp_f, seq)
+    for topic, payload in messages:
+        if dry_run:
+            print(f"DRY-RUN {topic} {payload[:120]}...")
+        elif publisher:
+            publisher.publish_raw(topic, payload)
+    return len(messages)
+
+
 class MqttPublisher:
     """Thin wrapper around awsiotsdk MQTT5 (same pattern as aws_iot_publisher.py)."""
 
@@ -67,12 +93,11 @@ class MqttPublisher:
 
 
 async def poll_once(app, points_by_device, publisher: MqttPublisher | None, *, dry_run: bool) -> int:
-    published = 0
-    tasks = []
     device_keys = list(points_by_device.keys())
 
     async def _poll_device(device_key, pts):
         dev_inst, dev_addr = device_key
+        count = 0
         rpm_objects = {p.rpm_key(): ["present-value"] for p in pts}
         values = await read_multiple_chunked(app, dev_addr, rpm_objects)
         for p in pts:
@@ -80,13 +105,13 @@ async def poll_once(app, points_by_device, publisher: MqttPublisher | None, *, d
             if val is None:
                 continue
             topic = mqtt_topic_for_point(p)
-            payload = build_bacnet_payload(p, val, seq=publisher._seq if publisher else published)
+            payload = build_bacnet_payload(p, val, seq=publisher._seq if publisher else count)
             if dry_run:
                 print(f"DRY-RUN {topic} {payload[:120]}...")
             elif publisher:
                 publisher.publish_raw(topic, payload)
-            published += 1
-        return published
+            count += 1
+        return count
 
     results = await asyncio.gather(
         *[_poll_device(k, points_by_device[k]) for k in device_keys],
@@ -96,8 +121,10 @@ async def poll_once(app, points_by_device, publisher: MqttPublisher | None, *, d
     for r in results:
         if isinstance(r, Exception):
             print(f"poll error: {r}", file=sys.stderr)
+        elif isinstance(r, int):
+            total += r
         else:
-            total += int(r)
+            print(f"poll error: unexpected result {type(r).__name__}", file=sys.stderr)
     return total
 
 
@@ -112,6 +139,8 @@ async def run_driver(
     client_id: str,
     site_id: str | None,
     building_id: str | None,
+    gpio_mqtt=None,
+    gpio_reader=None,
     bacnet_args=None,
 ) -> None:
     defaults = {}
@@ -137,9 +166,10 @@ async def run_driver(
         publisher = MqttPublisher(iot_endpoint, cert_path, key_path, client_id)
 
     points_by_device = group_by_device(points)
+    gpio_note = " + GPIO MQTT" if gpio_mqtt is not None else ""
     print(
         f"BACnet read driver: {len(points)} points, {len(points_by_device)} devices, "
-        f"interval={interval_s}s dry_run={dry_run}",
+        f"interval={interval_s}s dry_run={dry_run}{gpio_note}",
         file=sys.stderr,
     )
 
@@ -147,6 +177,13 @@ async def run_driver(
         while True:
             t0 = time.perf_counter()
             n = await poll_once(app, points_by_device, publisher, dry_run=dry_run)
+            if gpio_mqtt is not None and gpio_reader is not None:
+                try:
+                    n += await publish_gpio_mqtt(
+                        gpio_mqtt, gpio_reader, publisher, dry_run=dry_run
+                    )
+                except Exception as err:
+                    print(f"gpio mqtt error: {err}", file=sys.stderr)
             elapsed = time.perf_counter() - t0
             print(f"published {n} samples in {elapsed:.1f}s", file=sys.stderr)
             await asyncio.sleep(max(0.0, interval_s - elapsed))
@@ -164,13 +201,51 @@ def main() -> None:
     ap.add_argument("--iot-endpoint")
     ap.add_argument("--cert", type=Path)
     ap.add_argument("--key", type=Path)
-    ap.add_argument("--client-id", default="vibe12-bacnet-edge")
+    ap.add_argument("--client-id", default="basicPubSub", help="MQTT client ID (must match IoT policy)")
     ap.add_argument("--site-id")
     ap.add_argument("--building-id")
+    ap.add_argument(
+        "--gpio-mqtt",
+        action="store_true",
+        help="Also publish DS18B20 °C/°F on same MQTT client (boss Pi bench)",
+    )
+    ap.add_argument("--system-id", default="office")
+    ap.add_argument("--point-deg-c", default="digital-temp-degC")
+    ap.add_argument("--point-deg-f", default="digital-temp-degF")
+    ap.add_argument("--brick-class", default="Zone_Air_Temperature_Sensor")
+    ap.add_argument("--brick-tag", default="")
+    ap.add_argument("--object-name-c", default="")
+    ap.add_argument("--object-name-f", default="")
+    ap.add_argument("--w1-device", default=None)
+    ap.add_argument("--w1-slave-path", default=None)
     args, bacnet_argv = ap.parse_known_args()
 
     bacnet_parser = SimpleArgumentParser()
     bacnet_args = bacnet_parser.parse_args(bacnet_argv)
+
+    gpio_mqtt = None
+    gpio_reader = None
+    if args.gpio_mqtt:
+        if not (args.site_id and args.building_id):
+            raise SystemExit("--gpio-mqtt requires --site-id and --building-id")
+        from aws_iot_publisher import EdgeMqttConfig
+        from ds18b20_sensor import Ds18b20SysfsReader
+
+        gpio_mqtt = EdgeMqttConfig(
+            site_id=args.site_id,
+            building_id=args.building_id,
+            system_id=args.system_id,
+            point_deg_c=args.point_deg_c,
+            point_deg_f=args.point_deg_f,
+            brick_class=args.brick_class,
+            brick_tag=args.brick_tag,
+            object_name_c=args.object_name_c,
+            object_name_f=args.object_name_f,
+        )
+        gpio_reader = Ds18b20SysfsReader(
+            device_id=args.w1_device,
+            w1_slave_path=args.w1_slave_path,
+        )
 
     asyncio.run(
         run_driver(
@@ -183,6 +258,8 @@ def main() -> None:
             client_id=args.client_id,
             site_id=args.site_id,
             building_id=args.building_id,
+            gpio_mqtt=gpio_mqtt,
+            gpio_reader=gpio_reader,
             bacnet_args=bacnet_args,
         )
     )

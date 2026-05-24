@@ -30,12 +30,35 @@ journalctl -u vibe12-bacnet-discover -n 80 --no-pager
 
 ## Phase 2 — Edit CSV
 
-Open `points_discovered.csv` (or copy to `points.csv`):
+Open `points_discovered.csv`, trim to enabled points, save as `points.csv`:
 
 1. **Delete** rows for objects you do not want scraped
 2. Set `enabled=1` on rows to poll
-3. Fill `system_id` (e.g. `ahu-1`, `vav-12`)
+3. Fill `system_id` (e.g. `ahu-1`, `bens-test-bench-box`)
 4. Fill `brick_class` and `brick_tag` (e.g. `Supply_Air_Temperature_Sensor`, `SAT`)
+
+**Git backup:** after commissioning, pull CSV from the edge into the repo:
+
+```bash
+cd vibe_code_apps_12/ansible
+./fetch_commissioning.sh --limit bacnet_pi -v
+git add ../commissioning/
+git commit -m "Commission demo/bens-office BACnet points"
+```
+
+Layout: `commissioning/{site_id}/{building_id}/points.csv` (+ optional `points_discovered.csv`).
+
+For **MS/TP through BASRT-B**, set in `host_vars` (see `bacnet_pi.yml`):
+
+```yaml
+bacnet_route_aware: true
+bacnet_router_ip: 192.168.204.200
+bacnet_mstp_net: 2000
+bacnet_discover_range_low: 5007
+bacnet_discover_range_high: 5007
+```
+
+Discover uses `edge_bacnet.discover --router-ip … --mstp-net …` (same as `vibe_code_apps_5/discover_basrtb_mstp.py`).
 
 Columns: see `edge_bacnet/config.py` (`CSV_FIELDNAMES`).
 

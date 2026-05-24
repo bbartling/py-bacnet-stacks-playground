@@ -8,14 +8,30 @@ Type=oneshot
 User={{ ansible_user }}
 WorkingDirectory={{ bacnet_app_remote_dir }}
 Environment=PYTHONPATH={{ bacnet_app_remote_dir }}
+{% if bacnet_router_ip | default('') | length > 0 %}
 ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover \
   {{ bacnet_discover_range_low }} {{ bacnet_discover_range_high }} \
-  -o {{ points_csv_path }} \
+  -o {{ points_discovered_path | default(bacnet_app_remote_dir ~ '/points_discovered.csv') }} \
   --site-id {{ site_id }} \
   --building-id {{ building_id }} \
   --name {{ bacnet_device_name }} \
   --instance {{ bacnet_instance_id }} \
-  --address {{ bacnet_bind_address }}
+  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }} \
+  --route-aware \
+  --network {{ bacnet_network | default(1) }} \
+  --router-ip {{ bacnet_router_ip }} \
+  --mstp-net {{ bacnet_mstp_net }} \
+  --timeout {{ bacnet_discover_timeout | default(15) }}
+{% else %}
+ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover \
+  {{ bacnet_discover_range_low }} {{ bacnet_discover_range_high }} \
+  -o {{ points_discovered_path | default(bacnet_app_remote_dir ~ '/points_discovered.csv') }} \
+  --site-id {{ site_id }} \
+  --building-id {{ building_id }} \
+  --name {{ bacnet_device_name }} \
+  --instance {{ bacnet_instance_id }} \
+  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }}
+{% endif %}
 StandardOutput=journal
 StandardError=journal
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bacpypes3.apdu import ErrorType, PropertyReference
+from bacpypes3.apdu import AbortPDU, ErrorType, PropertyReference
 from bacpypes3.constructeddata import AnyAtomic
 from bacpypes3.pdu import Address
 from bacpypes3.primitivedata import ObjectIdentifier
@@ -45,6 +45,10 @@ async def read_multiple_chunked(
             parameter_list.append(prop_ref_list)
         try:
             response = await app.read_property_multiple(address_obj, parameter_list)
+            if isinstance(response, AbortPDU):
+                for obj_id_str, _props in chunk:
+                    merged.setdefault(obj_id_str, None)
+                continue
             for res_oid, _res_pid, _res_idx, property_value in response:
                 oid_str = f"{res_oid[0]},{res_oid[1]}"
                 merged[oid_str] = unwrap_value(property_value)
