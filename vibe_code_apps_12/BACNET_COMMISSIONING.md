@@ -40,16 +40,16 @@ Columns: see `edge_bacnet/config.py` (`CSV_FIELDNAMES`).
 
 ## Phase 3 — Enable read driver (Ansible)
 
-In `ansible/group_vars/pi_bcn.yml`:
+In `ansible/group_vars/pi_bcn.yml` (or `-e` on deploy):
 
 ```yaml
 site_id: acme
 building_id: tower-a
 points_csv_path: "/home/ben/vibe_code_apps_12/points.csv"
 enable_bacnet_read_driver: true
-install_bacnet_read_unit: true
-bacnet_read_interval: 30
 ```
+
+Default deploy already sets `install_bacnet_discover_unit: true` and `install_bacnet_read_unit: true`. GPIO/DS18B20 is **not** installed unless you pass `-e enable_ds18b20_gpio=true`.
 
 Deploy:
 

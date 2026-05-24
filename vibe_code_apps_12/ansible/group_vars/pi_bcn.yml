@@ -1,57 +1,58 @@
 ---
-# Application install path on the Raspberry Pi
+# Application install path on the edge Linux host
 bacnet_app_remote_dir: "/home/{{ ansible_user }}/vibe_code_apps_12"
 
-# BACnet device-instance (BACnet Device Object Identifier payload)
-bacnet_instance_id: 3456788
-bacnet_device_name: PiTemp
-
-# BACnet / IP bind string passed to bacpymes3 `--address`:
-# - Recommended on a known LAN: IP + prefix length (UDP :47808 is default when omitted)
+# BACnet / IP bind string passed to bacpypes3 `--address`:
 #   bacnet_bind_address: "{{ ansible_host }}/24"
-# - Or bind by Linux interface name (requires `ifaddr` — already in requirements.txt):
 #   bacnet_bind_address: "eth0"
 bacnet_bind_address: "{{ ansible_host }}/24"
 
-# Install and start systemd unit `bacnet-ds18b20.service`
-install_systemd_unit: true
-enable_and_start_service: true
+# BACnet device-instance (local BACnet stack on the edge gateway)
+bacnet_instance_id: 3456788
+bacnet_device_name: BACnetEdge
 
-# Sensor / BACnet / MQTT cadence (temp_sensor_server.py)
-bacnet_sample_interval: 2
-aws_iot_publish_interval: 10
-
-# Synthetic FDD test schedule on Pi (--fault-demo); requires enable_aws_iot for MQTT validation
-fault_demo_mode: false
-
-# Extra temp_sensor_server.py arguments (list of strings), e.g. ["--debug", "--w1-device", "28-xxxxxxxxxxxx"]
-server_extra_args: []
-
-# AWS IoT Core — BACnet + MQTT from one process (temp_sensor_server.py --aws-iot)
-enable_aws_iot: true
-aws_iot_endpoint: a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com
-aws_iot_client_id: basicPubSub
-aws_iot_topic: sdk/test/python
-# Hierarchical BACnet topics: vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
-site_id: demo
-building_id: pi
-points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
+# ---------------------------------------------------------------------------
+# BACnet edge (DEFAULT — building gateways: discover + optional read driver)
+# ---------------------------------------------------------------------------
+install_bacnet_discover_unit: true
+install_bacnet_read_unit: true
+# Set true after commissioning points.csv (enabled rows + system_id + Brick tags)
+enable_bacnet_read_driver: false
 bacnet_discover_range_low: 1
 bacnet_discover_range_high: 3456799
 bacnet_read_interval: 30
-enable_bacnet_read_driver: false
-install_bacnet_discover_unit: true
-install_bacnet_read_unit: false
+points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
+site_id: demo
+building_id: pi
+
+# ---------------------------------------------------------------------------
+# AWS IoT Core (certs for BACnet read driver MQTT; optional for GPIO demo)
+# ---------------------------------------------------------------------------
+enable_aws_iot: true
+aws_iot_endpoint: a2ab6ncd4xlhhr-ats.iot.us-east-2.amazonaws.com
+bacnet_edge_client_id: vibe12-bacnet-edge
 aws_iot_cert_filename: vibe-code-app-12-temp-sensor.cert.pem
 aws_iot_key_filename: vibe-code-app-12-temp-sensor.private.key
-# Certs on Ansible control machine (run ../prepare_aws_iot_certs.sh first):
 aws_iot_certs_local_dir: "{{ playbook_dir }}/files/aws_iot"
 aws_iot_certs_remote_dir: "{{ bacnet_app_remote_dir }}/aws_iot_certs"
 
-# If true, playbook appends `dtoverlay=w1-gpio,gpio=4` to /boot/firmware/config.txt or
-# /boot/config.txt when that file exists (reboot required once). Default off — use README
-# or raspi-config if you prefer.
+# ---------------------------------------------------------------------------
+# DS18B20 / GPIO (OPT-IN — boss Pi test bench only; NOT used on field gateways)
+# Enable with: -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true
+# ---------------------------------------------------------------------------
+enable_ds18b20_gpio: false
+enable_ds18b20_service: false
 enable_onewire_overlay: false
+bacnet_sample_interval: 2
+aws_iot_publish_interval: 10
+aws_iot_client_id: basicPubSub
+aws_iot_topic: sdk/test/python
+fault_demo_mode: false
+server_extra_args: []
 
-# After deploy: assert service active + print journal + sample w1_slave
+# Legacy aliases (deprecated — use enable_ds18b20_gpio / enable_ds18b20_service)
+install_systemd_unit: "{{ enable_ds18b20_gpio }}"
+enable_and_start_service: "{{ enable_ds18b20_service }}"
+
+# Deploy verify: BACnet edge checks by default; GPIO journal/w1 only when GPIO enabled
 run_deploy_verify: true

@@ -25,5 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install web_lambda deps
+        run: pip install -r aws_cloud_pipeline/web_lambda/requirements.txt
       - name: Run unittest
         run: python3 -m unittest discover -s tests -v

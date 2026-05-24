@@ -1,45 +1,71 @@
 **Beginner tutorial:** [ANSIBLE-BEGINNER.md](ANSIBLE-BEGINNER.md)
 
-## How to make it work (bensserver → boss Pi)
+## Deploy modes
 
-From your **build machine** (repo checkout on bensserver), use **`deploy.sh`** with password prompts. This is the usual path until you install an SSH key on the Pi.
+| Target | What gets installed | Command |
+|--------|---------------------|---------|
+| **Building gateway** (default) | `edge_bacnet` discover + read driver units, AWS IoT certs, **no** GPIO/DS18B20 | `./deploy.sh --ask-pass --ask-become-pass -v` |
+| **Boss Pi test bench** | Above **plus** DS18B20 + `bacnet-ds18b20.service` | add `-e enable_ds18b20_gpio=true -e enable_ds18b20_service=true` |
+| **BACnet scrape live** | Read driver started (after CSV commissioned) | add `-e enable_bacnet_read_driver=true` |
 
-```bash
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-./deploy.sh --ask-pass --ask-become-pass -v
-```
+Defaults are in [`group_vars/pi_bcn.yml`](group_vars/pi_bcn.yml).
 
-When prompted:
+---
 
-1. **SSH password** — Pi login for `ben` (inventory: `192.168.204.12`).
-2. **BECOME password** — same user’s **sudo** password on the Pi (playbook runs `apt` and writes `/etc/systemd/...`).
-
-On Linux, **`sshpass`** must be installed for `--ask-pass` to work (`sudo apt install sshpass`).
-
-**Before first deploy with AWS IoT**, stage device certs on bensserver (once):
+## Building gateway (typical field deploy)
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
-./ansible/prepare_aws_iot_certs.sh
+./ansible/prepare_aws_iot_certs.sh   # once on control machine
+
+cd ansible
+./deploy.sh --ask-pass --ask-become-pass -v
 ```
 
-Then run the **`deploy.sh`** command above.
+This installs:
 
-### After deploy works once (optional — no passwords)
+- Python venv + `edge_bacnet/` (discover + read driver)
+- `vibe12-bacnet-discover.service` (oneshot Who-Is → `points.csv`)
+- `vibe12-bacnet-read.service` (installed, **stopped** until you enable scrape)
+- AWS IoT certs at `~/vibe_code_apps_12/aws_iot_certs/`
 
-Install your SSH public key on the Pi, then you can use:
+It does **not** install or start `bacnet-ds18b20.service` (GPIO).
+
+### Commission BACnet
 
 ```bash
-ssh-copy-id ben@192.168.204.12
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-./deploy.sh -v
+ssh ben@YOUR_EDGE_HOST 'sudo systemctl start vibe12-bacnet-discover'
+ssh ben@YOUR_EDGE_HOST 'journalctl -u vibe12-bacnet-discover -n 40 --no-pager'
+# Edit ~/vibe_code_apps_12/points.csv — enabled=1, system_id, brick_class, brick_tag
 ```
 
-Quick SSH test:
+Re-deploy with scrape enabled:
 
 ```bash
-ssh ben@192.168.204.12 exit
+./deploy.sh -e enable_bacnet_read_driver=true -e site_id=acme -e building_id=tower-a
 ```
+
+MQTT topics (per point):
+
+```text
+vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+```
+
+---
+
+## Boss Pi test bench (GPIO + DS18B20)
+
+Only the lab Pi with a 1-Wire sensor:
+
+```bash
+./deploy.sh --ask-pass --ask-become-pass -v \
+  -e enable_ds18b20_gpio=true \
+  -e enable_ds18b20_service=true
+```
+
+Optional 1-Wire overlay: `-e enable_onewire_overlay=true` (reboot once).
+
+Legacy flat MQTT topic for the demo sensor: `sdk/test/python` (via `aws_iot_topic` in group_vars).
 
 ---
 
@@ -47,55 +73,28 @@ ssh ben@192.168.204.12 exit
 
 | Goal | Command |
 |------|---------|
-| **Full deploy + verify** (needs SSH key) | `./deploy.sh -v` |
-| **Checks only** (no copy/restart) | `./deploy.sh --verify -v` |
-| **Deploy, skip post-checks** | `./deploy.sh --no-verify -v` |
-| **Password SSH + sudo** (recommended on bensserver) | `./deploy.sh --ask-pass --ask-become-pass -v` |
+| Full deploy + verify | `./deploy.sh -v` |
+| Checks only | `./deploy.sh --verify -v` |
+| Skip post-checks | `./deploy.sh --no-verify -v` |
+| Password SSH + sudo | `./deploy.sh --ask-pass --ask-become-pass -v` |
 
-`deploy.sh` picks **`../.ansible_venv/bin/ansible-playbook`** if present, else system **`ansible-playbook`**.
+---
 
-Create the Ansible venv once if needed:
+## Verify on the edge host
 
-```bash
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
-python3 -m venv .ansible_venv
-.ansible_venv/bin/pip install -q ansible-core
-```
-
-Manual equivalent (same folder):
+**BACnet (default):**
 
 ```bash
-../.ansible_venv/bin/ansible-playbook deploy.yml --ask-pass --ask-become-pass -v
+systemctl list-unit-files 'vibe12-bacnet-*'
+ls -la ~/vibe_code_apps_12/edge_bacnet/
+ls ~/vibe_code_apps_12/aws_iot_certs/
 ```
 
-## AWS IoT + BACnet (one service on the Pi)
-
-`temp_sensor_server.py` reads the DS18B20, updates **BACnet AV1/AV2**, and (when enabled) publishes JSON to **AWS IoT Core**.
-
-1. Unzip `connect_device_package.zip` under `aws_iot_core_test/`.
-2. Stage certs for Ansible (control machine only, gitignored):
-
-   ```bash
-   cd vibe_code_apps_12
-   ./ansible/prepare_aws_iot_certs.sh
-   ```
-
-3. Deploy (`enable_aws_iot: true` in `group_vars/pi_bcn.yml` by default):
-
-   ```bash
-   cd ansible
-   ./deploy.sh --ask-pass --ask-become-pass -v
-   ```
-
-   BACnet-only deploy: `./deploy.sh --ask-pass --ask-become-pass -v -e enable_aws_iot=false`
-
-Certs land on the Pi at `~/vibe_code_apps_12/aws_iot_certs/` (mode `0600` on the key). MQTT test client: subscribe to `sdk/test/python`.
-
-## Verify on the Pi
-
-After a successful playbook:
+**GPIO (only if enabled):**
 
 ```bash
-ssh ben@192.168.204.12 'systemctl is-active bacnet-ds18b20'
-ssh ben@192.168.204.12 'journalctl -u bacnet-ds18b20 -n 25 --no-pager'
+systemctl is-active bacnet-ds18b20
+journalctl -u bacnet-ds18b20 -n 25 --no-pager
 ```
+
+See also [BACNET_COMMISSIONING.md](../BACNET_COMMISSIONING.md).

@@ -11,3 +11,5 @@ all:
         bacnet_pi:
           ansible_host: 192.168.204.12
           ansible_user: ben
+          # Boss Pi bench: copy host_vars/bacnet_pi.yml.example → host_vars/bacnet_pi.yml
+          # or: -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true

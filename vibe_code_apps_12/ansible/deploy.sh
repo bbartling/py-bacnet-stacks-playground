@@ -41,10 +41,18 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -h|--help)
-      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
       echo ""
-      echo "Example (bensserver → boss Pi):"
-      echo "  ./deploy.sh --ask-pass --ask-become-pass -v"
+      echo "Examples:"
+      echo "  Building gateway (BACnet only, default):"
+      echo "    ./deploy.sh --ask-pass --ask-become-pass -v"
+      echo ""
+      echo "  Boss Pi test bench (add DS18B20 GPIO + legacy MQTT topic):"
+      echo "    ./deploy.sh --ask-pass --ask-become-pass -v \\"
+      echo "      -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true"
+      echo ""
+      echo "  Enable BACnet scrape after commissioning points.csv:"
+      echo "    ./deploy.sh -e enable_bacnet_read_driver=true"
       exit 0
       ;;
     *)

@@ -14,9 +14,11 @@ This playbook **`copy`**s files from **your laptop or build server** (next to `d
 |---------------|------|
 | **`ansible.cfg`** | Points Ansible at **`inventory.yml`** so you do not pass `-i` every time. |
 | **`inventory.yml`** | **Which hosts** to talk to (`ansible_host`, `ansible_user`). |
-| **`group_vars/pi_bcn.yml`** | **Variables** for the `pi_bcn` group (paths, BACnet IDs, …). |
-| **`deploy.yml`** | The **playbook**: ordered tasks (mkdir, copy files, apt, venv, pip, systemd, checks). |
-| **`templates/bacnet-ds18b20.service.j2`** | A **Jinja2** template: `{{ variable }}` is filled from vars when copied to the Pi. |
+| **`group_vars/pi_bcn.yml`** | **Variables** — BACnet defaults; GPIO opt-in (`enable_ds18b20_gpio`). |
+| **`deploy.yml`** | Playbook: core + `edge_bacnet` always; GPIO files only when opted in. |
+| **`templates/vibe12-bacnet-discover.service.j2`** | BACnet Who-Is → CSV (default). |
+| **`templates/vibe12-bacnet-read.service.j2`** | BACnet RPM scrape → AWS IoT (installed by default). |
+| **`templates/bacnet-ds18b20.service.j2`** | DS18B20 GPIO demo (opt-in only). |
 
 ---
 
@@ -72,7 +74,11 @@ Values in **`group_vars/pi_bcn.yml`** can be overridden from the CLI with **`-e`
 
 ```bash
 ansible-playbook deploy.yml -e bacnet_bind_address=eth0
-ansible-playbook deploy.yml -e ansible_user=pi
+ansible-playbook deploy.yml -e site_id=acme -e building_id=tower-a
+ansible-playbook deploy.yml -e enable_bacnet_read_driver=true
+
+# Boss Pi bench only:
+ansible-playbook deploy.yml -e enable_ds18b20_gpio=true -e enable_ds18b20_service=true
 ```
 
 ---

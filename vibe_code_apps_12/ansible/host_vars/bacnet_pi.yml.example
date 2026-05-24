@@ -1,0 +1,8 @@
+---
+# Copy to host_vars/bacnet_pi.yml for the boss Pi test bench (DS18B20 on GPIO).
+# Building gateways should NOT use this file — defaults in group_vars/pi_bcn.yml are BACnet-only.
+
+enable_ds18b20_gpio: true
+enable_ds18b20_service: true
+bacnet_device_name: PiTemp
+# enable_onewire_overlay: true  # uncomment if 1-Wire not enabled in raspi-config
