@@ -1,0 +1,160 @@
+/* Vibe12 Cloud — layout extensions on Open-FDD desktop tokens */
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+
+.login-card {
+  width: min(400px, 100%);
+}
+
+.login-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+.small-hint {
+  margin-top: 16px;
+  font-size: 12px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
+.sidebar-logout {
+  width: 100%;
+}
+
+.metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.metric-card {
+  min-width: 120px;
+  flex: 1;
+}
+
+.metric-val {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.toolbar-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: end;
+}
+
+.toolbar-card label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.toolbar-card select,
+.toolbar-card input[type="number"] {
+  width: auto;
+  min-width: 6rem;
+}
+
+.chart-card {
+  padding: 8px;
+}
+
+.plot-host {
+  width: 100%;
+  min-height: 420px;
+}
+
+.fdd-chip.fdd-NORMAL { color: #3fb950; }
+.fdd-chip.fdd-WARNING { color: #d29922; }
+.fdd-chip.fdd-ALARM { color: #f85149; }
+
+.console-pre,
+.ttl-pre {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.json-area {
+  min-height: 200px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.registry-wrap {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.registry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.registry-table th,
+.registry-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+.registry-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-soft);
+}
+
+.ttl-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ttl-pre {
+  background: #fff;
+  color: #24292f;
+  margin-top: 12px;
+}
+
+.brick-scope-block {
+  margin: 12px 0;
+}
+
+.rule-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}

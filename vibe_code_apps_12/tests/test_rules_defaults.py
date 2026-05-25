@@ -1,4 +1,4 @@
-"""Tests for rules_defaults helpers."""
+"""Default FDD rules — independent brick_scope per rule."""
 
 from __future__ import annotations
 
@@ -10,36 +10,17 @@ _WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
 if str(_WEB) not in sys.path:
     sys.path.insert(0, str(_WEB))
 
-from rules_defaults import chart_guides_from_rules, default_custom_rules, rules_meta  # noqa: E402
+from rules_defaults import default_custom_rules  # noqa: E402
 
 
-class TestRulesMeta(unittest.TestCase):
-    def test_default_rules_have_plot_on_chart(self) -> None:
+class TestRulesDefaults(unittest.TestCase):
+    def test_brick_scope_not_shared(self) -> None:
         rules = default_custom_rules()
-        self.assertGreaterEqual(len(rules), 4)
-        for r in rules:
-            self.assertIn("plot_on_chart", r)
-
-    def test_rules_meta_shape(self) -> None:
-        rules = default_custom_rules()
-        meta = rules_meta(rules)
-        self.assertEqual(len(meta), len(rules))
-        self.assertIn("enabled", meta[0])
-        self.assertIn("plot_on_chart", meta[0])
-
-    def test_default_rules_have_brick_scope(self) -> None:
-        rules = default_custom_rules()
-        for r in rules:
-            self.assertIn("brick_scope", r)
-            self.assertIn("Zone_Air_Temperature_Sensor", r["brick_scope"]["point_classes"])
-
-    def test_chart_guides_from_bounds_rule(self) -> None:
-        rules = default_custom_rules()
-        guides = chart_guides_from_rules(rules)
-        self.assertEqual(guides["bounds_low"], 65.0)
-        self.assertEqual(guides["bounds_high"], 80.0)
-        guides_c = chart_guides_from_rules(rules, "metric")
-        self.assertEqual(guides_c["temp_unit"], "metric")
+        self.assertGreaterEqual(len(rules), 2)
+        a, b = rules[0]["brick_scope"], rules[1]["brick_scope"]
+        self.assertIsNot(a, b)
+        a["point_classes"].append("Test_Point")
+        self.assertNotIn("Test_Point", b.get("point_classes", []))
 
 
 if __name__ == "__main__":

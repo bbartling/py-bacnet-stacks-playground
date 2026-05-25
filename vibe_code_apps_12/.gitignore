@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .aws-sam/
 
+# SAM deploy secrets (copy from samconfig.toml.example)
+aws_cloud_pipeline/samconfig.toml
+
 # Doc build venv + artifacts
 .docs-venv/
 docs/_build/

@@ -6,6 +6,7 @@ See EXPRESSION_RULE_COOKBOOK.md for recipe patterns (1h flatline, OOB, 15m swing
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from units import config_field_meta_for_unit, normalize_temp_unit
@@ -24,7 +25,6 @@ def get_config_field_meta(unit: str | None = None) -> dict[str, dict[str, Any]]:
 
 def default_custom_rules() -> list[dict[str, Any]]:
     """Shipped defaults: four BRICK-scoped zone temperature rules (see cookbook)."""
-    scope = dict(BRICK_ZONE_TEMP_SCOPE)
     return [
         {
             "id": "brick_zone_oob",
@@ -32,7 +32,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#f85149",
-            "brick_scope": scope,
+            "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["bounds_low", "bounds_high", "rolling_avg_minutes"],
             "config": {
                 "bounds_low": 65.0,
@@ -70,7 +70,7 @@ def default_custom_rules() -> list[dict[str, Any]]:
             "enabled": True,
             "plot_on_chart": True,
             "color": "#d29922",
-            "brick_scope": scope,
+            "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["flatline_tolerance"],
             "config": {"flatline_tolerance": 0.10},
             "code": '''ONE_HOUR_MS = 60 * 60 * 1000
@@ -116,7 +116,7 @@ def evaluate(row, cfg, prev_row=None, rows=None):
             "enabled": True,
             "plot_on_chart": True,
             "color": "#a371f7",
-            "brick_scope": scope,
+            "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["max_spread_15min"],
             "config": {"max_spread_15min": 2.5},
             "code": '''FIFTEEN_MIN_MS = 15 * 60 * 1000
@@ -165,7 +165,7 @@ def evaluate(row, cfg, prev_row=None, rows=None):
             "enabled": True,
             "plot_on_chart": True,
             "color": "#ff7b72",
-            "brick_scope": scope,
+            "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["max_spread_24h"],
             "config": {"max_spread_24h": 12.0},
             "code": '''TWENTY_FOUR_HOUR_MS = 24 * 60 * 60 * 1000
@@ -207,32 +207,6 @@ def evaluate(row, cfg, prev_row=None, rows=None):
 
     return False
 ''',
-        },
-    ]
-
-
-def legacy_ds18b20_rules() -> list[dict[str, Any]]:
-    """Legacy single-series Pi rules (disabled); kept for reference / manual enable."""
-    return [
-        {
-            "id": "temp_out_of_bounds_flag",
-            "title": "Out of bounds (legacy Pi)",
-            "enabled": False,
-            "plot_on_chart": False,
-            "color": "#8b949e",
-            "config_fields": ["bounds_low", "bounds_high", "rolling_avg_minutes"],
-            "config": {"bounds_low": 65.0, "bounds_high": 80.0, "rolling_avg_minutes": 1},
-            "code": "",
-        },
-        {
-            "id": "temp_flatline_flag",
-            "title": "Flatline N samples (legacy Pi)",
-            "enabled": False,
-            "plot_on_chart": False,
-            "color": "#8b949e",
-            "config_fields": ["flatline_tolerance", "flatline_window"],
-            "config": {"flatline_tolerance": 0.05, "flatline_window": 18},
-            "code": "",
         },
     ]
 

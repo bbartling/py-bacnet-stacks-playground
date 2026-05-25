@@ -13,6 +13,8 @@
   let syntaxPillEl = null;
   let activeCard = null;
   let lastTestReport = "";
+  let ruleNameEditing = false;
+  let brickScopeOptions = { equipment: [], points: [], has_data: false };
 
   const MAX_CONSOLE_LINES = 400;
   const MAX_REPORT_PRINT_LINES = 800;
@@ -49,6 +51,12 @@
     testReport: document.getElementById("testReport"),
     verbosePrints: document.getElementById("verbosePrints"),
     rulesPersistHint: document.getElementById("rulesPersistHint"),
+    ruleNameText: document.getElementById("ruleNameText"),
+    ruleNameEditBtn: document.getElementById("ruleNameEditBtn"),
+    ruleNameEditWrap: document.getElementById("ruleNameEditWrap"),
+    ruleNameDisplay: document.getElementById("ruleNameDisplay"),
+    ruleNameSaveBtn: document.getElementById("ruleNameSaveBtn"),
+    ruleNameCancelBtn: document.getElementById("ruleNameCancelBtn"),
   };
 
   function ruleById(id) {
@@ -105,6 +113,10 @@
 
   function newRuleId() {
     return "custom_rule_" + Date.now().toString(36);
+  }
+
+  function cloneRule(r) {
+    return JSON.parse(JSON.stringify(r));
   }
 
   function ruleTempUnit(rule) {
@@ -179,28 +191,55 @@
     const rule = ruleById(activeRuleId);
     if (rule) rule.code = activeEditor.getValue();
     syncConfigFromDom(rule, activeCard);
-    applyTitleFromInput(false);
+    if (ruleNameEditing) applyTitleFromInput(false, activeRuleId);
   }
 
-  function applyTitleFromInput(markDirty) {
-    const rule = currentRule();
+  function applyTitleFromInput(markDirty, ruleId) {
+    const id = ruleId || selectedRuleId;
+    const rule = id ? ruleById(id) : null;
     const inp = els.ruleTitleInput;
     if (!rule || !inp) return;
-    rule.title = inp.value;
+    const title = inp.value.trim() || rule.id;
+    rule.title = title;
     const opt = optionForRule(rule.id);
     if (opt) opt.textContent = ruleLabel(rule);
     if (markDirty) markRulesDirty();
   }
 
-  function syncTitleFromToolbar() {
-    applyTitleFromInput(false);
+  function updateRuleNameDisplay() {
+    const rule = currentRule();
+    if (els.ruleNameText) {
+      els.ruleNameText.textContent = rule ? rule.title || rule.id : "—";
+    }
   }
 
-  function syncTitleToToolbar() {
+  function showRuleNameEdit() {
     const rule = currentRule();
+    if (!rule) return;
     const inp = els.ruleTitleInput;
-    if (!inp) return;
-    inp.value = rule ? rule.title || rule.id || "" : "";
+    if (inp) inp.value = rule.title || rule.id || "";
+    els.ruleNameDisplay?.classList.add("hidden");
+    els.ruleNameEditWrap?.classList.remove("hidden");
+    ruleNameEditing = true;
+    inp?.focus();
+    inp?.select();
+  }
+
+  function hideRuleNameEdit() {
+    els.ruleNameDisplay?.classList.remove("hidden");
+    els.ruleNameEditWrap?.classList.add("hidden");
+    ruleNameEditing = false;
+    updateRuleNameDisplay();
+  }
+
+  function commitRuleNameEdit() {
+    applyTitleFromInput(true, selectedRuleId);
+    hideRuleNameEdit();
+    notifyDashboardRules();
+  }
+
+  function cancelRuleNameEdit() {
+    hideRuleNameEdit();
   }
 
   function buildColorSelect(rule, onChange) {
@@ -647,24 +686,67 @@
   }
 
   function populateBrickScopeSelects() {
-    const presets = window.vibe12BrickClassPresets || { equipment: [], points: [] };
     const eqSel = document.getElementById("brickEqClasses");
     const ptSel = document.getElementById("brickPtClasses");
     if (!eqSel || !ptSel) return;
     eqSel.innerHTML = "";
     ptSel.innerHTML = "";
-    (presets.equipment || []).forEach((c) => {
+    (brickScopeOptions.equipment || []).forEach((c) => {
       const o = document.createElement("option");
       o.value = c;
       o.textContent = c;
       eqSel.appendChild(o);
     });
-    (presets.points || []).forEach((c) => {
+    (brickScopeOptions.points || []).forEach((c) => {
       const o = document.createElement("option");
       o.value = c;
       o.textContent = c;
       ptSel.appendChild(o);
     });
+  }
+
+  function setBrickScopePanelVisible(hasData) {
+    const panel = document.getElementById("brickScopePanel");
+    const empty = document.getElementById("brickScopeEmpty");
+    if (panel) panel.classList.toggle("hidden", !hasData);
+    if (empty) empty.classList.toggle("hidden", !!hasData);
+  }
+
+  async function refreshBrickScopeOptions() {
+    const { site, building } = getSiteBuildingForBrick();
+    try {
+      const res = await fetch(
+        "/api/fdd-rules?temp_unit=" +
+          encodeURIComponent(getLabTempUnit()) +
+          "&site_id=" +
+          encodeURIComponent(site) +
+          "&building_id=" +
+          encodeURIComponent(building)
+      );
+      const data = await res.json();
+      brickScopeOptions = data.brick_scope_options || {
+        equipment: [],
+        points: [],
+        has_data: false,
+      };
+      populateBrickScopeSelects();
+      setBrickScopePanelVisible(!!brickScopeOptions.has_data);
+      const hint = document.getElementById("brickScopeHint");
+      if (hint && brickScopeOptions.registry_point_count != null) {
+        hint.textContent =
+          "Run this rule on matching telemetry. " +
+          brickScopeOptions.registry_point_count +
+          " series in registry for " +
+          site +
+          "/" +
+          building +
+          ".";
+      }
+      const rule = currentRule();
+      if (rule) syncBrickScopeToDom(rule);
+    } catch (_) {
+      setBrickScopePanelVisible(false);
+    }
   }
 
   function syncBrickScopeToDom(rule) {
@@ -692,11 +774,17 @@
       delete rule.brick_scope;
       return;
     }
-    rule.brick_scope = {
-      equipment_classes: eqClasses,
-      point_classes: ptClasses,
-      match_mode: "all_points_on_equipment",
-    };
+    const scope = {};
+    if (ptClasses.length) scope.point_classes = ptClasses;
+    if (eqClasses.length) scope.equipment_classes = eqClasses;
+    if (ptClasses.length && !eqClasses.length) {
+      scope.match_mode = "point_only";
+    } else if (eqClasses.length && !ptClasses.length) {
+      scope.match_mode = "all_points_on_equipment";
+    } else {
+      scope.match_mode = "all_points_on_equipment";
+    }
+    rule.brick_scope = scope;
   }
 
   async function testBrickRule() {
@@ -831,7 +919,8 @@
 
     card.append(head, cfgRow, editorWrap);
     els.ruleEditorSlot.appendChild(card);
-    syncTitleToToolbar();
+    hideRuleNameEdit();
+    updateRuleNameDisplay();
 
     activeEditor = CodeMirror.fromTextArea(ta, {
       mode: "python",
@@ -1150,10 +1239,8 @@
 
   function collectRules() {
     persistActiveEditor();
-    return rules.map((r) => ({
-      ...r,
-      config: { ...(r.config || {}) },
-    }));
+    if (ruleNameEditing) applyTitleFromInput(false, selectedRuleId);
+    return rules.map((r) => cloneRule(r));
   }
 
   async function pingHealth() {
@@ -1275,7 +1362,9 @@
 
   function selectRuleById(ruleId) {
     if (!ruleId || !ruleById(ruleId)) return;
+    if (ruleNameEditing) applyTitleFromInput(false, selectedRuleId);
     persistActiveEditor();
+    hideRuleNameEdit();
     selectedRuleId = ruleId;
     els.ruleSelect.value = ruleId;
     const labUnit = labTempUnitEl();
@@ -1332,20 +1421,39 @@
   }
 
   async function reloadFieldMeta(unit) {
+    const u = unit || getLabTempUnit();
+    const { site, building } = getSiteBuildingForBrick();
     const res = await fetch(
-      "/api/fdd-rules?temp_unit=" + encodeURIComponent(unit || getLabTempUnit())
+      "/api/fdd-rules?temp_unit=" +
+        encodeURIComponent(u) +
+        "&site_id=" +
+        encodeURIComponent(site) +
+        "&building_id=" +
+        encodeURIComponent(building)
     );
     const data = await res.json();
     fieldMeta = data.config_field_meta || fieldMeta;
   }
 
-  async function boot() {
-    const res = await fetch(
-      "/api/fdd-rules?temp_unit=" + encodeURIComponent(getLabTempUnit())
+  function fddRulesQueryUrl() {
+    const { site, building } = getSiteBuildingForBrick();
+    return (
+      "/api/fdd-rules?temp_unit=" +
+      encodeURIComponent(getLabTempUnit()) +
+      "&site_id=" +
+      encodeURIComponent(site) +
+      "&building_id=" +
+      encodeURIComponent(building)
     );
+  }
+
+  async function boot() {
+    const res = await fetch(fddRulesQueryUrl());
     const data = await res.json();
     fieldMeta = data.config_field_meta || {};
-    rules = data.rules?.length ? data.rules : data.defaults || [];
+    const raw = data.rules?.length ? data.rules : data.defaults || [];
+    rules = raw.map((r) => cloneRule(r));
+    brickScopeOptions = data.brick_scope_options || brickScopeOptions;
     rules.forEach((r) => {
       if (r.plot_on_chart === undefined) r.plot_on_chart = true;
       normalizeRuleConfig(r);
@@ -1375,20 +1483,30 @@
       });
     });
     populateBrickScopeSelects();
+    setBrickScopePanelVisible(!!brickScopeOptions.has_data);
+    els.ruleNameEditBtn?.addEventListener("click", showRuleNameEdit);
+    els.ruleNameSaveBtn?.addEventListener("click", commitRuleNameEdit);
+    els.ruleNameCancelBtn?.addEventListener("click", cancelRuleNameEdit);
+    els.ruleTitleInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitRuleNameEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelRuleNameEdit();
+      }
+    });
+    ["siteSelect", "buildingSelect"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", () => {
+        void refreshBrickScopeOptions();
+      });
+    });
     els.saveRulesBtn.addEventListener("click", saveDraft);
     els.goLiveBtn.addEventListener("click", goLive);
     els.copyReportBtn.addEventListener("click", copyReportToClipboard);
     els.testHours.addEventListener("change", () => {
       loadTsPreview(parseInt(els.testHours.value, 10));
     });
-    if (els.ruleTitleInput) {
-      els.ruleTitleInput.addEventListener("input", () => {
-        const rule = currentRule();
-        if (!rule) return;
-        applyTitleFromInput(true);
-        notifyDashboardRules();
-      });
-    }
     const labUnit = labTempUnitEl();
     if (labUnit) {
       const rule = currentRule();
@@ -1417,7 +1535,11 @@
 
   window.vibe12RuleLabOnTabShown = function () {
     refreshEditor();
+    void refreshBrickScopeOptions();
+    updateRuleNameDisplay();
   };
+
+  window.vibe12RuleLabRefreshBrickScope = refreshBrickScopeOptions;
 
   document.addEventListener("DOMContentLoaded", boot);
 })();

@@ -9,7 +9,6 @@ from pathlib import Path
 _INGEST = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "ingest_lambda"
 if str(_INGEST) not in sys.path:
     sys.path.insert(0, str(_INGEST))
-# Ensure ingest copy wins over web copy if both on path
 for mod in list(sys.modules):
     if mod == "mqtt_routing":
         del sys.modules[mod]
@@ -27,7 +26,6 @@ parse_mqtt_topic = mqtt_routing.parse_mqtt_topic
 building_scope = mqtt_routing.building_scope
 is_bacnet_telemetry = mqtt_routing.is_bacnet_telemetry
 is_series_telemetry = mqtt_routing.is_series_telemetry
-is_legacy_ds18b20 = mqtt_routing.is_legacy_ds18b20
 series_row_from_bacnet = mqtt_routing.series_row_from_bacnet
 
 
@@ -40,10 +38,8 @@ class TestMqttTopicParse(unittest.TestCase):
         self.assertEqual(meta["system"], "ahu-1")
         self.assertEqual(meta["point"], "3456788-analog-input-1")
 
-    def test_legacy_payload(self) -> None:
-        body = {"source": "ds18b20", "degC": 21.0, "degF": 70.0}
-        self.assertTrue(is_legacy_ds18b20(body))
-        self.assertFalse(is_bacnet_telemetry(body))
+    def test_rejects_flat_legacy_topic(self) -> None:
+        self.assertIsNone(parse_mqtt_topic("sdk/test/python"))
 
     def test_bacnet_series_row(self) -> None:
         body = {
@@ -59,15 +55,17 @@ class TestMqttTopicParse(unittest.TestCase):
         row = series_row_from_bacnet(body, None)
         self.assertEqual(row["series_id"], "acme#tower-a#ahu-1#3456788-ai-1")
         self.assertEqual(row["building_scope"], building_scope("acme", "tower-a"))
+        self.assertTrue(is_bacnet_telemetry(body))
+        self.assertTrue(is_series_telemetry(body))
 
     def test_edge_series_telemetry(self) -> None:
         body = {
             "source": "edge",
-            "site_id": "demo",
-            "building_id": "bens-office",
-            "system_id": "office",
-            "point_id": "digital-temp-degF",
-            "series_id": "demo#bens-office#office#digital-temp-degF",
+            "site_id": "bens-cx",
+            "building_id": "hospital-north",
+            "system_id": "ahu-1",
+            "point_id": "sat-degF",
+            "series_id": "bens-cx#hospital-north#ahu-1#sat-degF",
             "value": 72.5,
             "ts_ms": 1000,
         }

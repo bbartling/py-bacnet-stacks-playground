@@ -40,8 +40,24 @@ while [[ $# -gt 0 ]]; do
       NO_VERIFY=true
       shift
       ;;
+    --pcap)
+      EXTRA+=(-e enable_deploy_pcap=true)
+      shift
+      ;;
+    --pcap-seconds)
+      if [[ $# -lt 2 ]]; then
+        echo "--pcap-seconds requires a value (default 300)" >&2
+        exit 1
+      fi
+      EXTRA+=(-e "deploy_pcap_seconds=$2")
+      shift 2
+      ;;
     -h|--help)
       sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+      echo ""
+      echo "Options:"
+      echo "  --pcap              After deploy, capture BACnet UDP to ~/vibe_code_apps_12/captures/bacnet.pcap"
+      echo "  --pcap-seconds N    Capture length in seconds (default 300)"
       echo ""
       echo "Examples:"
       echo "  Building gateway (BACnet only — default):"
@@ -52,6 +68,9 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "  Enable BACnet scrape after commissioning points.csv:"
       echo "    ./deploy.sh --limit tower_a_edge -e enable_bacnet_read_driver=true"
+      echo ""
+      echo "  Deploy + 5 min BACnet wire capture (overwrites bacnet.pcap on edge):"
+      echo "    ./deploy.sh --limit bacnet_pi --pcap"
       exit 0
       ;;
     *)

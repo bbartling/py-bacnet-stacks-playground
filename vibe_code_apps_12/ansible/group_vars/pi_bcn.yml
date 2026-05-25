@@ -55,7 +55,8 @@ enable_onewire_overlay: false
 bacnet_sample_interval: 2
 aws_iot_publish_interval: 60
 aws_iot_client_id: basicPubSub
-aws_iot_topic: sdk/test/python
+# BACnet gateways publish: vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+aws_iot_topic_prefix: vibe12
 fault_demo_mode: false
 server_extra_args: []
 
@@ -63,3 +64,16 @@ install_systemd_unit: "{{ enable_ds18b20_gpio }}"
 enable_and_start_service: "{{ enable_ds18b20_service }}"
 
 run_deploy_verify: true
+
+# ---------------------------------------------------------------------------
+# Post-deploy BACnet wire capture (opt-in) — overwrites captures/bacnet.pcap
+# ---------------------------------------------------------------------------
+enable_deploy_pcap: false
+deploy_pcap_seconds: 300
+deploy_pcap_wait_seconds: 30
+deploy_pcap_path: "{{ bacnet_app_remote_dir }}/captures/bacnet.pcap"
+deploy_pcap_udp_ports:
+  - 47808
+deploy_pcap_filter: >-
+  {{ deploy_pcap_udp_ports | map('regex_replace', '^(.*)$', 'udp port \\1') | join(' or ') }}
+deploy_pcap_async_timeout: "{{ (deploy_pcap_seconds | int) + 30 }}"

@@ -211,32 +211,6 @@ def evaluate(row, cfg, prev_row=None, rows=None):
     ]
 
 
-def legacy_ds18b20_rules() -> list[dict[str, Any]]:
-    """Legacy single-series Pi rules (disabled); kept for reference / manual enable."""
-    return [
-        {
-            "id": "temp_out_of_bounds_flag",
-            "title": "Out of bounds (legacy Pi)",
-            "enabled": False,
-            "plot_on_chart": False,
-            "color": "#8b949e",
-            "config_fields": ["bounds_low", "bounds_high", "rolling_avg_minutes"],
-            "config": {"bounds_low": 65.0, "bounds_high": 80.0, "rolling_avg_minutes": 1},
-            "code": "",
-        },
-        {
-            "id": "temp_flatline_flag",
-            "title": "Flatline N samples (legacy Pi)",
-            "enabled": False,
-            "plot_on_chart": False,
-            "color": "#8b949e",
-            "config_fields": ["flatline_tolerance", "flatline_window"],
-            "config": {"flatline_tolerance": 0.05, "flatline_window": 18},
-            "code": "",
-        },
-    ]
-
-
 def rules_to_panels(rules: list[dict[str, Any]]) -> list[dict[str, str]]:
     return [
         {

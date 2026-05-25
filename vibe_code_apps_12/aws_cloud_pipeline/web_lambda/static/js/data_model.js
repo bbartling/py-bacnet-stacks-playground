@@ -1,25 +1,7 @@
-/* BRICK data model tab — export/import, TTL popup, health check, AI prompt */
+/* Data model tab — registry (live ingest), export/import, inline TTL (no popup) */
 
 (function () {
   "use strict";
-
-  const BRICK_EQUIPMENT_CLASSES = [
-    "Air_Handling_Unit",
-    "Variable_Air_Volume_Box",
-    "Variable_Air_Volume_Box_With_Reheat",
-    "Chiller",
-    "Boiler",
-    "HVAC_Equipment",
-  ];
-
-  const BRICK_POINT_CLASSES = [
-    "Zone_Air_Temperature_Sensor",
-    "Supply_Air_Temperature_Sensor",
-    "Return_Air_Temperature_Sensor",
-    "Outside_Air_Temperature_Sensor",
-    "Mixed_Air_Temperature_Sensor",
-    "Sensor",
-  ];
 
   const DATA_MODEL_REDESIGN_PROMPT = `You are an HVAC ontology engineer for Vibe12 (AWS IoT + DynamoDB telemetry).
 
@@ -84,21 +66,66 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
     };
   }
 
-  function writeTtlToPopup(popup, ttl) {
-    if (!popup || popup.closed) return;
-    const doc = popup.document;
-    const escaped = String(ttl)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    doc.write(
-      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Data model TTL</title></head>' +
-        '<body style="margin:0;background:#0d1117;color:#c9d1d9;">' +
-        '<pre style="margin:0;padding:1rem;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.4;white-space:pre-wrap;word-break:break-word;">' +
-        escaped +
-        "</pre></body></html>"
-    );
-    doc.close();
+  async function loadRegistryTable() {
+    const tbody = document.getElementById("dmRegistryBody");
+    if (!tbody) return;
+    const { site, building } = siteBuilding();
+    tbody.innerHTML = '<tr><td colspan="5" class="dm-empty">Loading…</td></tr>';
+    try {
+      const res = await fetch(
+        "/api/points/" + encodeURIComponent(site) + "/" + encodeURIComponent(building)
+      );
+      const data = await res.json();
+      const points = data.points || [];
+      if (!points.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="dm-empty">No series yet — ingest MQTT telemetry for this site/building.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = "";
+      points
+        .slice()
+        .sort((a, b) => String(a.series_id).localeCompare(String(b.series_id)))
+        .forEach((p) => {
+          const tr = document.createElement("tr");
+          const cols = [
+            p.series_id || "",
+            p.system_id || "",
+            p.point_id || p.brick_tag || "",
+            p.brick_class || "—",
+            p.unit || "",
+          ];
+          cols.forEach((text) => {
+            const td = document.createElement("td");
+            td.textContent = text;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      setStatus(points.length + " time-series in registry for " + site + "/" + building + ".", "ok");
+    } catch (e) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="dm-empty">Failed to load registry: ' + e.message + "</td></tr>";
+      setStatus("Registry load failed: " + e.message, "err");
+    }
+  }
+
+  async function syncTtlInline() {
+    const pre = document.getElementById("dmTtlInline");
+    if (!pre) return;
+    pre.textContent = "Syncing TTL from canonical model…";
+    try {
+      const res = await fetch(apiBase() + "/ttl?sync=true");
+      const ttl = await res.text();
+      if (!res.ok) throw new Error(ttl);
+      pre.textContent = ttl || "(empty TTL)";
+      setStatus("TTL synced (" + ttl.length + " bytes).", "ok");
+      await refreshTtlStatus();
+      document.getElementById("dmTtlDetails")?.setAttribute("open", "");
+    } catch (e) {
+      pre.textContent = "TTL sync failed: " + e.message;
+      setStatus("TTL sync failed: " + e.message, "err");
+    }
   }
 
   async function doExport() {
@@ -118,6 +145,7 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
         "ok"
       );
       refreshCounts(model);
+      await loadRegistryTable();
     } catch (e) {
       setStatus("Export failed: " + e.message, "err");
     }
@@ -174,28 +202,10 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
         "ok"
       );
       await doExport();
-      await refreshTtlStatus();
+      await syncTtlInline();
+      if (window.vibe12RuleLabRefreshBrickScope) window.vibe12RuleLabRefreshBrickScope();
     } catch (e) {
       setStatus("Import failed: " + e.message, "err");
-    }
-  }
-
-  async function viewTtlInNewTab() {
-    try {
-      const popup = window.open("", "_blank");
-      if (!popup) {
-        setStatus("Popup blocked — allow popups for this site.", "err");
-        return;
-      }
-      popup.document.write("<p style='font-family:sans-serif;padding:1rem'>Loading TTL…</p>");
-      const res = await fetch(apiBase() + "/ttl?sync=true");
-      const ttl = await res.text();
-      if (!res.ok) throw new Error(ttl);
-      writeTtlToPopup(popup, ttl);
-      setStatus("Opened TTL in new tab (" + ttl.length + " bytes).", "ok");
-      await refreshTtlStatus();
-    } catch (e) {
-      setStatus("TTL view failed: " + e.message, "err");
     }
   }
 
@@ -220,7 +230,10 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
       const data = await res.json();
       const el = document.getElementById("dmHealthOut");
       if (el) el.textContent = JSON.stringify(data, null, 2);
-      setStatus("Health score: " + data.score + " — " + data.summary, data.score >= 80 ? "ok" : "warn");
+      setStatus(
+        "Health score: " + data.score + " — " + data.summary,
+        data.score >= 80 ? "ok" : "warn"
+      );
     } catch (e) {
       setStatus("Health check failed: " + e.message, "err");
     }
@@ -281,7 +294,11 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
           });
         if (dashBld?.value && siteSel.value === dashSite?.value) bldSel.value = dashBld.value;
       }
-      siteSel.onchange = fillBuildings;
+      siteSel.onchange = () => {
+        fillBuildings();
+        void loadRegistryTable();
+      };
+      bldSel.onchange = () => void loadRegistryTable();
       fillBuildings();
     } catch (_) {
       /* ignore */
@@ -292,7 +309,8 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
     document.getElementById("dmExportBtn")?.addEventListener("click", doExport);
     document.getElementById("dmImportBtn")?.addEventListener("click", doImport);
     document.getElementById("dmValidateBtn")?.addEventListener("click", doValidate);
-    document.getElementById("dmTtlBtn")?.addEventListener("click", viewTtlInNewTab);
+    document.getElementById("dmRefreshRegistryBtn")?.addEventListener("click", loadRegistryTable);
+    document.getElementById("dmSyncTtlBtn")?.addEventListener("click", syncTtlInline);
     document.getElementById("dmHealthBtn")?.addEventListener("click", runHealthCheck);
     document.getElementById("dmCopyPromptBtn")?.addEventListener("click", copyPrompt);
     document.getElementById("dmDownloadBtn")?.addEventListener("click", downloadExportJson);
@@ -304,11 +322,11 @@ Return === FILE: vibe12_data_model_import_ready.json === with valid JSON only wh
   window.vibe12DataModelOnTabShown = async function () {
     await syncBuildingsFromDashboard();
     await refreshTtlStatus();
+    await loadRegistryTable();
   };
 
-  window.vibe12BrickClassPresets = {
-    equipment: BRICK_EQUIPMENT_CLASSES,
-    points: BRICK_POINT_CLASSES,
+  window.vibe12RuleLabRefreshBrickScope = function () {
+    /* set by playground.js if loaded */
   };
 
   document.addEventListener("DOMContentLoaded", bindDataModelTab);

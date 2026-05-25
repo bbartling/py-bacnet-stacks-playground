@@ -248,6 +248,7 @@ aws logs filter-log-events --log-group-name "$LOG_GROUP" --region "$AWS_REGION" 
 ```bash
 cd vibe_code_apps_12
 python3 -m unittest discover -s tests -v
+cd apps/vibe12-web && npm ci && npm test
 ```
 
 ---

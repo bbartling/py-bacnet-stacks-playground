@@ -1,22 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Vibe Code App 12B — Pi MQTT (AWS IoT) → Lambda ingest → DynamoDB (TTL) →
-  Lambda Function URL dashboard (HTML + Chart.js). Free-tier-friendly demo scale.
+  Vibe12 — BACnet MQTT (AWS IoT) → Lambda ingest → DynamoDB (TTL) →
+  Function URL dashboard (React SPA) + scheduled FDD. Multi-site via vibe12/{site}/{building}/{system}/{point}/telemetry.
 
 Parameters:
-  IotTopic:
-    Type: String
-    Default: sdk/test/python
-    Description: MQTT topic the Pi already publishes (see ansible/group_vars/pi_bcn.yml)
   IotRuleName:
     Type: String
-    Default: vibe12_ds18b20_ingest
+    Default: vibe12_telemetry_ingest
     AllowedPattern: "^[a-zA-Z0-9_]+$"
     Description: IoT rule name — letters, numbers, underscores only (no hyphens)
-  DeviceId:
-    Type: String
-    Default: bosspi-ds18b20
   TtlDays:
     Type: Number
     Default: 7
@@ -28,7 +21,21 @@ Parameters:
   IotTopicPrefix:
     Type: String
     Default: vibe12
-    Description: MQTT prefix for BACnet hierarchical topics (vibe12/site/building/system/point/telemetry)
+    Description: MQTT prefix — vibe12/{site}/{building}/{system}/{point}/telemetry
+  WebUsername:
+    Type: String
+    Default: engineer
+    Description: Single consulting-engineer login (SPA + API)
+  WebPassword:
+    Type: String
+    NoEcho: true
+    Default: change-me-on-deploy
+    Description: Web login password — change on first deploy
+  AuthSecret:
+    Type: String
+    NoEcho: true
+    Default: vibe12-replace-with-long-random-string
+    Description: HMAC secret for session tokens (32+ chars recommended)
 
 Resources:
   TelemetryTable:
@@ -66,7 +73,7 @@ Resources:
   IngestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: IoT Rule action — write telemetry rows with TTL
+      Description: IoT Rule — BACnet hierarchical telemetry → DynamoDB
       Runtime: python3.13
       Architectures:
         - x86_64
@@ -77,9 +84,9 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TelemetryTable
-          DEVICE_ID: !Ref DeviceId
           TTL_DAYS: !Ref TtlDays
           DEPLOY_REVISION: !Ref DeployRevision
+          IOT_TOPIC_PREFIX: !Ref IotTopicPrefix
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable
@@ -88,17 +95,6 @@ Resources:
     Type: AWS::IoT::TopicRule
     Properties:
       RuleName: !Ref IotRuleName
-      TopicRulePayload:
-        AwsIotSqlVersion: "2016-03-23"
-        Sql: !Sub "SELECT *, topic() AS mqtt_topic FROM '${IotTopic}'"
-        Actions:
-          - Lambda:
-              FunctionArn: !GetAtt IngestFunction.Arn
-
-  IotIngestRuleBacnet:
-    Type: AWS::IoT::TopicRule
-    Properties:
-      RuleName: !Sub "${IotRuleName}_bacnet"
       TopicRulePayload:
         AwsIotSqlVersion: "2016-03-23"
         Sql: !Sub "SELECT *, topic() AS mqtt_topic FROM '${IotTopicPrefix}/+/+/+/+/telemetry'"
@@ -114,18 +110,10 @@ Resources:
       Principal: iot.amazonaws.com
       SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}"
 
-  IotInvokeIngestPermissionBacnet:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref IngestFunction
-      Action: lambda:InvokeFunction
-      Principal: iot.amazonaws.com
-      SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}_bacnet"
-
   WebFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: Function URL — HTML dashboard and /api/readings JSON
+      Description: Function URL — React SPA + /api JSON
       Runtime: python3.13
       Architectures:
         - x86_64
@@ -136,7 +124,6 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TelemetryTable
-          DEVICE_ID: !Ref DeviceId
           DEFAULT_HOURS: "168"
           READINGS_LIMIT: "62000"
           CHART_RESPONSE_MAX: "5000"
@@ -147,6 +134,9 @@ Resources:
           TEST_HOURS_DEFAULT: "2"
           DEPLOY_REVISION: !Ref DeployRevision
           VIBE12_TTL_SYNC_INTERVAL_SECONDS: "300"
+          VIBE12_WEB_USER: !Ref WebUsername
+          VIBE12_WEB_PASSWORD: !Ref WebPassword
+          VIBE12_AUTH_SECRET: !Ref AuthSecret
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable
@@ -156,7 +146,7 @@ Resources:
   FddFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Description: !Sub "Scheduled FDD rules zip Lambda (rev ${DeployRevision})"
+      Description: !Sub "Scheduled FDD rules (rev ${DeployRevision})"
       Runtime: python3.13
       Architectures:
         - x86_64
@@ -167,7 +157,6 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref TelemetryTable
-          DEVICE_ID: !Ref DeviceId
           LOOKBACK_HOURS: "168"
           READINGS_LIMIT: "62000"
           FDD_CHUNK_HOURS: "6"
@@ -182,20 +171,21 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: rate(5 minutes)
-            Description: Run FDD rules on recent DynamoDB telemetry
+            Description: BRICK-scoped FDD on DynamoDB telemetry per building
             Enabled: true
 
 Outputs:
   TelemetryTableName:
-    Description: DynamoDB table for DS18B20 readings
+    Description: DynamoDB table for BACnet / edge telemetry
     Value: !Ref TelemetryTable
   DashboardUrl:
-    Description: Open in a browser — chart + latest temperature
+    Description: Open in a browser — dashboard + Rule Lab
     Value: !GetAtt WebFunctionUrl.FunctionUrl
-  IotTopic:
-    Value: !Ref IotTopic
+  MqttTopicPattern:
+    Description: Publish BACnet telemetry to this pattern (replace segments per site/building/equipment/point)
+    Value: !Sub "${IotTopicPrefix}/{site_id}/{building_id}/{system_id}/{point_id}/telemetry"
   DeployedIotRuleName:
     Value: !Ref IotRuleName
   FddFunctionArn:
-    Description: FDD scheduled Lambda (every 5 min, zip — no Docker)
+    Description: FDD scheduled Lambda (every 5 min)
     Value: !GetAtt FddFunction.Arn

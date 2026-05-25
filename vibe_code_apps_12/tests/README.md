@@ -29,16 +29,29 @@ python3 -m unittest discover -s tests -v
 | `test_go_live_constants.py` | Go live hard-coded 6 h batches, 168 h max |
 | `test_retroactive_faults.py` | `(True, window_rows)` and `apply_faults()` |
 | `test_units.py` | Imperial default, metric rule unit, cfg_threshold |
-| `test_rules_defaults.py` | `rules_meta`, `chart_guides`, defaults |
+| `test_rules_defaults.py` | `rules_meta`, `chart_guides`, defaults; **independent `brick_scope` per rule** |
 | `test_slim_fdd_summary.py` | Go-live DynamoDB payload slimming |
+| `test_web_auth.py` | Single-user login tokens (`web_auth.py`) |
+| `test_brick_scope_options.py` | Registry/model BRICK class picklists |
+| `test_mqtt_topic_parse.py` | MQTT topic + BACnet row parsing (ingest) |
+| `test_edge_mqtt_payload.py` | Edge publish payload shape |
 
 **NumPy:** `test_numpy_import_in_rule` runs when numpy is installed locally (same as Lambda after `sam build`).
+
+## Frontend (`apps/vibe12-web`)
+
+```bash
+cd apps/vibe12-web
+npm ci
+npm test          # vitest: logger + api-client
+npm run build
+```
 
 ## What is not covered
 
 - DynamoDB, IoT, SAM deploy (integration / manual CloudShell)
-- Browser UI (use Rule Lab **Test rule** + `/api/health` instead)
+- Full browser E2E (manual: login, chart, Rule Lab test)
 
 ## CI
 
-`.github/workflows/vibe12-tests.yml` runs the same command on push when this folder changes.
+Root `.github/workflows/vibe12-tests.yml`: Python unittest matrix + **vibe12-web** `npm test` / `npm run build`.

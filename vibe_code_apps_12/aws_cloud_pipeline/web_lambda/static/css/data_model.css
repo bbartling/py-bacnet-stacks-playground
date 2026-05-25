@@ -129,3 +129,76 @@
   padding: 0.5rem;
   margin-top: 0.5rem;
 }
+
+#tab-datamodel .dm-registry-panel {
+  margin: 1rem 0;
+}
+
+#tab-datamodel .dm-registry-note {
+  font-size: 0.78rem;
+  color: #8b949e;
+  margin: 0 0 0.5rem;
+}
+
+#tab-datamodel .dm-registry-table-wrap {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+#tab-datamodel .dm-registry-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+#tab-datamodel .dm-registry-table th,
+#tab-datamodel .dm-registry-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #30363d;
+  text-align: left;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+#tab-datamodel .dm-registry-table th {
+  background: #161b22;
+  position: sticky;
+  top: 0;
+}
+
+#tab-datamodel .dm-empty {
+  color: #8b949e;
+  font-style: italic;
+}
+
+#tab-datamodel .dm-ttl-details {
+  margin: 1rem 0;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  color: #24292f;
+}
+
+#tab-datamodel .dm-ttl-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #24292f;
+}
+
+#tab-datamodel .dm-ttl-inline {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  background: #fff;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow: auto;
+}

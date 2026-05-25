@@ -146,7 +146,7 @@ curl -s "https://YOUR-FUNCTION-URL.lambda-url.us-east-2.on.aws/api/health"
 
 ## Redeploy after code changes (routine)
 
-**On bensserver:** rebuild tar (Step A) → **CloudShell Steps B–F** (always **`cp samconfig.toml.example samconfig.toml`** after extract).
+**On bensserver:** `cd vibe_code_apps_12 && ./scripts/build_web_ui.sh` (if UI changed) → rebuild tar (Step A) → **CloudShell Steps B–F** (always **`cp samconfig.toml.example samconfig.toml`** after extract; set **WebPassword** / **AuthSecret**).
 
 **Web / Rule Lab only** (faster, same stack):
 
@@ -238,9 +238,25 @@ aws_cloud_pipeline/
 
 ---
 
-## Security note (tutorial only)
+## Web UI (React, Lambda-only static)
 
-Web **Function URL** uses `AuthType: NONE` for easy lab access. Do not use for sensitive production data without auth.
+Professional UI lives in `apps/vibe12-web` (Open-FDD desktop look). Built assets are copied into `web_lambda/static/app/` — **no S3**.
+
+```bash
+cd vibe_code_apps_12
+./scripts/build_web_ui.sh    # npm build + copy dist → web_lambda/static/app
+# then sam build && sam deploy as usual
+```
+
+**Login (single consulting engineer):** SAM parameters `WebUsername`, `WebPassword`, `AuthSecret` → Lambda env `VIBE12_WEB_*`. Session token via `POST /api/auth/login`; SPA sends `Authorization: Bearer …` on `/api/*`.
+
+Function URL remains `AuthType: NONE` (AWS edge); app auth is enforced inside Lambda for API routes. Static JS/HTML are public; APIs require a valid token when auth env is set.
+
+Browser troubleshooting: `?log=debug` or `localStorage.vibe12_log=debug` for `[vibe12][api]` timing lines (not noisy by default).
+
+## Security note
+
+Change default `WebPassword` and `AuthSecret` on first deploy. Without those env vars set, API auth is disabled (dev only).
 
 ---
 

@@ -1,9 +1,7 @@
 """
-AWS IoT Rule → Lambda: persist DS18B20 or BACnet telemetry to DynamoDB.
+AWS IoT Rule → Lambda: persist BACnet / edge telemetry to DynamoDB.
 
-Topics:
-  Legacy: sdk/test/python
-  BACnet: vibe12/{site}/{building}/{system}/{point}/telemetry
+Topic: {IOT_TOPIC_PREFIX}/{site}/{building}/{system}/{point}/telemetry
 """
 
 from __future__ import annotations
@@ -18,14 +16,12 @@ from typing import Any
 import boto3
 
 from mqtt_routing import (
-    is_legacy_ds18b20,
     is_series_telemetry,
     parse_mqtt_topic,
     series_row_from_bacnet,
 )
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
-DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
 TTL_DAYS = int(os.environ.get("TTL_DAYS", "7"))
 BRICK_GRAPH_TS = -10
 POINT_REGISTRY_TS = -11
@@ -35,7 +31,7 @@ _table = _ddb.Table(TABLE_NAME)
 
 
 def _parse_event(event: dict[str, Any]) -> dict[str, Any]:
-    if isinstance(event, dict) and ("degC" in event or "series_id" in event or "value" in event):
+    if isinstance(event, dict) and ("series_id" in event or "value" in event):
         body = dict(event)
     else:
         body = {}
@@ -78,26 +74,18 @@ def _expires_at() -> int:
     return int(time.time()) + TTL_DAYS * 86400
 
 
-def _put_legacy(body: dict[str, Any]) -> dict[str, Any]:
-    deg_c = float(body["degC"])
-    deg_f = float(body["degF"])
-    seq = int(body.get("seq", 0))
-    source = str(body.get("source", "ds18b20"))
-    ts_iso = str(body.get("ts") or datetime.now(timezone.utc).isoformat())
-    epoch_ms = _epoch_ms_from_ts(ts_iso)
-
-    item = {
-        "device_id": DEVICE_ID,
-        "ts_ms": epoch_ms,
-        "ts_iso": ts_iso,
-        "degC": _dec(round(deg_c, 3)),
-        "degF": _dec(round(deg_f, 3)),
-        "seq": seq,
-        "source": source,
-        "expires_at": _expires_at(),
-    }
-    _table.put_item(Item=item)
-    return {"ok": True, "mode": "legacy", "device_id": DEVICE_ID, "ts_ms": epoch_ms}
+def _infer_equipment_type(system_id: str) -> str:
+    """Best-effort BRICK equipment class from BACnet system_id."""
+    s = (system_id or "").lower()
+    if "vav" in s:
+        return "Variable_Air_Volume_Box"
+    if "ahu" in s:
+        return "Air_Handling_Unit"
+    if "chiller" in s:
+        return "Chiller"
+    if "boiler" in s:
+        return "Boiler"
+    return "HVAC_Equipment"
 
 
 def _upsert_point_registry(row: dict[str, Any]) -> None:
@@ -114,16 +102,19 @@ def _upsert_point_registry(row: dict[str, Any]) -> None:
     except Exception:
         points_map = {}
 
+    system_id = row.get("system_id") or ""
     points_map[reg_key] = {
         "series_id": row["series_id"],
         "site_id": row["site_id"],
         "building_id": row["building_id"],
-        "system_id": row["system_id"],
+        "system_id": system_id,
         "point_id": row["point_id"],
         "unit": row.get("unit", ""),
         "brick_class": row.get("brick_class", ""),
         "brick_tag": row.get("brick_tag", ""),
         "object_name": row.get("object_name", ""),
+        "equipment_type": _infer_equipment_type(system_id),
+        "external_ref": row["series_id"],
     }
     _table.put_item(
         Item={
@@ -138,11 +129,16 @@ def _upsert_point_registry(row: dict[str, Any]) -> None:
     )
 
 
-def _put_bacnet(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
+def _put_telemetry(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
     topic_meta = parse_mqtt_topic(topic or body.get("mqtt_topic"))
     row = series_row_from_bacnet(body, topic_meta)
     if not row["ts_ms"]:
         row["ts_ms"] = _epoch_ms_from_ts(body.get("ts"))
+    if not row["series_id"] or "#" not in row["series_id"]:
+        raise ValueError(
+            "telemetry requires site/building/system/point "
+            f"(topic={topic!r} keys={list(body.keys())})"
+        )
 
     val = row["value"]
     item = {
@@ -172,7 +168,7 @@ def _put_bacnet(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
         _upsert_point_registry(row)
     except Exception:
         pass
-    return {"ok": True, "mode": "bacnet", "series_id": row["series_id"], "ts_ms": row["ts_ms"]}
+    return {"ok": True, "mode": "telemetry", "series_id": row["series_id"], "ts_ms": row["ts_ms"]}
 
 
 def lambda_handler(event, context):
@@ -182,12 +178,9 @@ def lambda_handler(event, context):
         topic = event.get("mqtt_topic")
 
     if is_series_telemetry(body):
-        return _put_bacnet(body, topic)
-
-    if is_legacy_ds18b20(body):
-        return _put_legacy(body)
+        return _put_telemetry(body, topic)
 
     if topic and parse_mqtt_topic(topic):
-        return _put_bacnet(body, topic)
+        return _put_telemetry(body, topic)
 
-    raise ValueError(f"Unrecognized telemetry payload: keys={list(body.keys())}")
+    raise ValueError(f"Unrecognized telemetry payload: keys={list(body.keys())} topic={topic!r}")

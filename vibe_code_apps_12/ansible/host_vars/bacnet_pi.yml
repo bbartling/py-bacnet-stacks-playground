@@ -41,3 +41,8 @@ enable_bacnet_read_driver: true
 bacnet_read_interval: 60
 # Shared cert policy allows basicPubSub only — one MQTT client for GPIO + BACnet
 bacnet_edge_client_id: basicPubSub
+
+# Bench uses PiTemp :47808 + Vibe12Edge :47809 — include both in deploy pcap filter
+deploy_pcap_udp_ports:
+  - 47808
+  - 47809

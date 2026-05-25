@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
-TOPIC_PREFIX = "vibe12"
+TOPIC_PREFIX = os.environ.get("IOT_TOPIC_PREFIX", "vibe12")
+PLATFORM_META_ID = "meta#vibe12#platform"
 TOPIC_RE = re.compile(
-    rf"^{TOPIC_PREFIX}/(?P<site>[^/]+)/(?P<building>[^/]+)/"
+    rf"^{re.escape(TOPIC_PREFIX)}/(?P<site>[^/]+)/(?P<building>[^/]+)/"
     r"(?P<system>[^/]+)/(?P<point>[^/]+)/telemetry$"
 )
 
@@ -37,10 +39,6 @@ def scope_sort_key(system_id: str, point_id: str, ts_ms: int) -> str:
 
 def meta_device_id(site_id: str, building_id: str) -> str:
     return f"meta#{site_id}#{building_id}"
-
-
-def is_legacy_ds18b20(body: dict[str, Any]) -> bool:
-    return body.get("source", "ds18b20") == "ds18b20" and "degC" in body and "degF" in body
 
 
 def is_bacnet_telemetry(body: dict[str, Any]) -> bool:

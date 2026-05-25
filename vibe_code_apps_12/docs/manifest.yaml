@@ -1,13 +1,33 @@
-# Order and optional titles for scripts/build_docs_pdf.py
-# Paths are relative to vibe_code_apps_12/
+# PDF chapter order — scripts/build_docs_pdf.py
+# Paths relative to vibe_code_apps_12/
 
 pages:
   - path: docs/index.md
+    title: Introduction
+  - path: docs/00-master-checklist.md
+    title: "Master checklist (start here)"
+  - path: docs/01-linux-network-ssh.md
+    title: Linux, network & SSH
+  - path: docs/02-bacnet-gateway.md
+    title: BACnet IoT gateway
+  - path: docs/03-commissioning-csv.md
+    title: Commissioning & CSV cleaning
+  - path: docs/04-aws-iot-core.md
+    title: AWS IoT Core (PEM, MQTT)
   - path: docs/edge-deploy.md
+    title: Edge deploy (Ansible reference)
   - path: docs/bacnet-commissioning.md
+    title: BACnet commissioning (quick)
   - path: docs/aws-cloud-sam.md
+    title: AWS cloud & SAM deploy
+  - path: docs/05-cloud-dashboard-fdd.md
+    title: Cloud dashboard & FDD (Python)
+  - path: docs/06-web-app-features.md
+    title: Web app features (reference)
   - path: docs/wire-capture.md
+    title: Wire capture (Wireshark)
   - path: docs/commissioning-backup.md
+    title: Commissioning backup to Git
   - path: aws_cloud_pipeline/DEPLOYED.md
     title: Cloud architecture reference
   - path: aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md

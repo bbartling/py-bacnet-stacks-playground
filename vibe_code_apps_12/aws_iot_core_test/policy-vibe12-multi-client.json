@@ -14,20 +14,7 @@
     {
       "Effect": "Allow",
       "Action": "iot:Publish",
-      "Resource": [
-        "arn:aws:iot:us-east-2:*:topic/sdk/test/python",
-        "arn:aws:iot:us-east-2:*:topic/vibe12/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": "iot:Subscribe",
-      "Resource": "arn:aws:iot:us-east-2:*:topicfilter/sdk/test/python"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "iot:Receive",
-      "Resource": "arn:aws:iot:us-east-2:*:topic/sdk/test/python"
+      "Resource": "arn:aws:iot:us-east-2:*:topic/vibe12/*"
     }
   ]
 }

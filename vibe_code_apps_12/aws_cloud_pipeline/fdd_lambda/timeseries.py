@@ -39,7 +39,7 @@ def _sample_to_reading(item: dict[str, Any]) -> dict[str, Any]:
             "degC": float(item["degC"]),
             "degF": float(item["degF"]),
             "value": float(item.get("degF", item["degC"])),
-            "source": item.get("source", "ds18b20"),
+            "source": item.get("source", "bacnet"),
         }
     val = item.get("value")
     if isinstance(val, Decimal):
@@ -55,9 +55,8 @@ def _sample_to_reading(item: dict[str, Any]) -> dict[str, Any]:
 
 
 class DynamoTimeSeriesStore:
-    def __init__(self, table, *, default_device_id: str, read_limit: int = 62000):
+    def __init__(self, table, *, read_limit: int = 62000):
         self._table = table
-        self._default_device_id = default_device_id
         self._read_limit = read_limit
 
     def get_series(
@@ -108,8 +107,6 @@ class DynamoTimeSeriesStore:
                     ),
                 }
             )
-        if not out:
-            out.append({"site_id": "demo", "building_id": "pi", "building_scope": "demo#pi"})
         return out
 
     def list_points(self, site_id: str, building_id: str) -> list[dict[str, Any]]:
@@ -285,10 +282,6 @@ class DynamoTimeSeriesStore:
                 }
             )
         return out
-
-    def legacy_readings(self, hours: int = 24) -> list[dict[str, Any]]:
-        return self.get_series(self._default_device_id, hours=hours)
-
 
 def align_series_windows(
     series_map: dict[str, list[dict[str, Any]]],

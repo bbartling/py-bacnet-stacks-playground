@@ -15,20 +15,46 @@ Prerequisites: Pi (or edge) publishing to AWS IoT; `aws sts get-caller-identity`
 
 | Step | Where | What |
 |------|--------|------|
-| **A** | bensserver | `tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz …` (below) |
+| **A0** | bensserver | **Build React UI** → `web_lambda/static/app/` (`./scripts/build_web_ui.sh`) |
+| **A** | bensserver | `tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz …` (includes built UI, ~3–8 MB) |
 | **B** | Windows | Download `.tar.gz` or `.zip` from bensserver (SCP / VS Code) |
 | **C** | CloudShell | `rm -f` old archive + `rm -rf ~/aws_cloud_pipeline` |
 | **D** | CloudShell UI | **Actions → Upload file** |
 | **E** | CloudShell | `tar -xzf …` or `unzip` |
-| **F** | CloudShell | `cp samconfig.toml.example samconfig.toml` |
+| **F** | CloudShell | `cp samconfig.toml.example samconfig.toml` → **set WebPassword + AuthSecret** |
 | **G** | CloudShell | `sam build` → `sam deploy --force-upload` |
-| **H** | CloudShell | `curl` dashboard `/api/health` |
+| **H** | CloudShell | `curl` `/api/health` + login test |
+| **I** | Browser | Open **DashboardUrl** → sign in (`engineer` + your password) |
 
 Same content also lives in [`aws_cloud_pipeline/README.md`](../aws_cloud_pipeline/README.md) (longer notes) and [`DEPLOYED.md`](../aws_cloud_pipeline/DEPLOYED.md) (URLs after deploy).
 
 ## What is SAM?
 
 **SAM** packages `aws_cloud_pipeline/template.yaml` and runs **`sam deploy`** (CloudFormation). Stack name: **`vibe12cloud`**.
+
+---
+
+## Step A0 — Build the React UI on bensserver (required)
+
+The dashboard is a **Vite/React** app baked into the Lambda zip at `web_lambda/static/app/`. Run this **before** packing the tarball.
+
+**Node.js** must be **≥ 20.19** (or 22). Check: `node -v`.
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+
+# Optional: run unit tests first
+cd apps/vibe12-web && npm ci && npm test && cd ../..
+
+# Build and copy dist → aws_cloud_pipeline/web_lambda/static/app/
+./scripts/build_web_ui.sh
+
+# Confirm UI is present (~5 MB uncompressed)
+ls -lh aws_cloud_pipeline/web_lambda/static/app/index.html
+du -sh aws_cloud_pipeline/web_lambda/static/app
+```
+
+If you skip this step, the cloud site may show the old HTML dashboard or `spa not built` errors.
 
 ---
 
@@ -43,7 +69,15 @@ tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz \
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 ```
 
-Expect **~100 KB – 2 MB**. If the file is ~20 bytes, the pack failed.
+Expect **~3–8 MB** (includes React `static/app/`). If the file is ~20 bytes or only ~100 KB, the pack failed or **A0** was skipped.
+
+**Size check on bensserver:**
+
+```bash
+test -f ~/vibe12-aws-cloud-pipeline.tar.gz && \
+  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 1000000 && \
+  echo "OK: tarball ready" || echo "ABORT: too small — run build_web_ui.sh and re-tar"
+```
 
 With unit tests (optional):
 
@@ -103,8 +137,8 @@ Confirm size:
 ```bash
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 test -f ~/vibe12-aws-cloud-pipeline.tar.gz && \
-  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 50000 && \
-  echo "OK: tarball ready" || echo "ABORT: re-upload"
+  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 1000000 && \
+  echo "OK: tarball ready" || echo "ABORT: re-upload (expect ~3–8 MB with React UI)"
 ```
 
 For zip:
@@ -126,7 +160,7 @@ cd ~/aws_cloud_pipeline
 ls
 ```
 
-You should see `template.yaml`, `samconfig.toml.example`, `ingest_lambda/`, `web_lambda/`, `fdd_lambda/`.
+You should see `template.yaml`, `samconfig.toml.example`, `ingest_lambda/`, `web_lambda/`, `fdd_lambda/`, and **`web_lambda/static/app/index.html`** (React UI).
 
 **Zip:**
 
@@ -138,16 +172,42 @@ cd ~/aws_cloud_pipeline
 
 ---
 
-## Step F — `samconfig.toml` (required every fresh extract)
+## Step F — `samconfig.toml` + login secrets
+
+**On bensserver (recommended once, before packing the tar):**
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/aws_cloud_pipeline
+cp samconfig.toml.example samconfig.toml
+nano samconfig.toml
+```
+
+Edit only these two placeholders in `parameter_overrides`:
+
+| Parameter | Set to |
+|-----------|--------|
+| `WebPassword` | Replace `REPLACE_WITH_YOUR_PASSWORD` |
+| `AuthSecret` | Replace `REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS` |
+
+Optional: bump `DeployRevision` each deploy (`"5"`, `"6"`, …).
+
+`samconfig.toml` is **gitignored** — safe on bensserver, included in your tarball, never pushed to GitHub.
+
+**On CloudShell** (if tarball already contains your edited `samconfig.toml`):
 
 ```bash
 cd ~/aws_cloud_pipeline
-cp samconfig.toml.example samconfig.toml
+ls samconfig.toml    # should exist — skip cp/nano
 ```
 
-Do **not** use `sam deploy --guided` again after `samconfig.toml` exists (can corrupt IoT topic parameters).
+If missing:
 
-First-time only: `sam deploy --guided` and answer **`sdk/test/python`** for legacy topic if prompted.
+```bash
+cp samconfig.toml.example samconfig.toml
+nano samconfig.toml
+```
+
+Do **not** use `sam deploy --guided` after `samconfig.toml` exists.
 
 ---
 
@@ -165,7 +225,7 @@ Hierarchical BACnet ingest rule is included: `vibe12/+/+/+/+/telemetry`.
 
 ---
 
-## Step H — Verify
+## Step H — Verify (CLI)
 
 ```bash
 export AWS_REGION=us-east-2
@@ -174,10 +234,32 @@ URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$AWS_RE
   --query "Stacks[0].Outputs[?OutputKey=='DashboardUrl'].OutputValue" --output text | tr -d '\n\r')
 URL="${URL%/}"
 echo "Dashboard: $URL"
+
+# Health (no login required)
 curl -sS "${URL}/api/health" | python3 -m json.tool
+
+# Login API (use the same WebPassword you set in samconfig.toml)
+curl -sS -X POST "${URL}/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"engineer","password":"YOUR_WEB_PASSWORD_HERE"}' | python3 -m json.tool
 ```
 
-IoT test client: subscribe to `vibe12/demo/bens-office/#` and `sdk/test/python` (legacy).
+Expect login JSON with `"ok": true` and a `"token"` field.
+
+**SPA check:** open `$URL` in a browser — you should see **Vibe12 Cloud** sign-in (not the old tabbed HTML). After login: Dashboard, Rule Lab, Data Model, System in the sidebar.
+
+IoT test client: subscribe to `vibe12/#` (or `vibe12/{site_id}/{building_id}/#` for one building).
+
+---
+
+## Step I — Browser
+
+1. Open the **Dashboard** URL from step H.
+2. Sign in as **`engineer`** (or your `WebUsername`) with **`WebPassword`** from `samconfig.toml`.
+3. Pick **site / building** in the top bar (must match edge MQTT `site_id` / `building_id`).
+4. **Dashboard** — chart; **Rule Lab** — FDD Python; **Data model** — registry + import.
+
+**Troubleshooting login:** Browser devtools → Console — filter `vibe12`. Failed login shows `[vibe12][api] 401`. Add `?log=debug` to the URL for more API timing lines (not noisy by default).
 
 ---
 
@@ -195,7 +277,10 @@ sam delete --stack-name vibe12cloud
 |---------|-----|
 | Upload seems ignored | `rm -f ~/vibe12-aws-cloud-pipeline.tar.gz` then re-upload |
 | `Missing option '--stack-name'` | `cp samconfig.toml.example samconfig.toml` |
-| Tarball missing in CloudShell | Confirm `ls -lh` shows > 50 KB before extract |
+| Tarball missing in CloudShell | Confirm `ls -lh` shows **> 1 MB** before extract (with React UI, ~3–8 MB) |
+| Old HTML dashboard after deploy | Re-run **A0** `build_web_ui.sh` on bensserver, re-tar, re-deploy |
+| Login fails / 401 | `WebPassword` in `samconfig.toml` must match what you type; redeploy after changing params |
+| `spa not built` error | `web_lambda/static/app/index.html` missing from tarball — run A0 |
 | Stack name | Use **`vibe12cloud`** only (no hyphens in some resource names) |
 
 More detail: [DEPLOYED.md](../aws_cloud_pipeline/DEPLOYED.md) (stack outputs, example URLs).

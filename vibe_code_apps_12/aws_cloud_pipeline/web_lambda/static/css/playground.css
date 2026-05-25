@@ -56,7 +56,57 @@
 
 .lab-field-rule select { width: 100%; }
 
-.rule-title-input { width: 100%; font-weight: 600; }
+.rule-title-input { width: 100%; font-weight: 600; max-width: 22rem; }
+
+.rule-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+}
+.rule-name-label { font-size: 0.85rem; color: #8b949e; }
+.rule-name-display {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 12rem;
+}
+.rule-name-text { font-size: 1rem; font-weight: 600; color: #e6edf3; }
+.rule-name-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+}
+.rule-name-edit.hidden,
+.rule-name-display.hidden { display: none !important; }
+.btn-icon {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.btn-icon:hover { color: #58a6ff; border-color: #58a6ff; }
+.brick-scope-hint {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+.brick-scope-empty {
+  font-size: 0.8rem;
+  color: #d29922;
+  margin: 0.35rem 0;
+}
+.brick-scope-empty.hidden,
+.brick-scope-panel.hidden { display: none !important; }
 
 .lab-field-actions {
   display: flex;

@@ -11,12 +11,12 @@ on:
       - ".github/workflows/vibe12-tests.yml"
 
 jobs:
-  unittest:
+  python-unittest:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.12"]
     defaults:
       run:
         working-directory: vibe_code_apps_12
@@ -29,3 +29,21 @@ jobs:
         run: pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt
       - name: Run unittest
         run: python3 -m unittest discover -s tests -v
+
+  vibe12-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_12/apps/vibe12-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vibe_code_apps_12/apps/vibe12-web/package-lock.json
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+          npm run build

@@ -1,10 +1,17 @@
-# Copy to samconfig.toml and adjust region/stack name.
+# =============================================================================
+# Vibe12 cloud — SAM deploy config (TEMPLATE)
+# =============================================================================
+#
 #   cp samconfig.toml.example samconfig.toml
+#   nano samconfig.toml    # edit WebPassword + AuthSecret lines below
+#
+# samconfig.toml is GITIGNORED. Include it in your CloudShell tarball.
+# Do NOT run `sam deploy --guided` after this file exists.
+# =============================================================================
 
 version = 0.1
 
 [default.global.parameters]
-# No hyphens — SAM may embed stack name in IoT rule names (hyphens are invalid there)
 stack_name = "vibe12cloud"
 
 [default.build.parameters]
@@ -17,4 +24,14 @@ confirm_changeset = false
 resolve_s3 = true
 resolve_image_repos = true
 region = "us-east-2"
-parameter_overrides = "IotTopic=\"sdk/test/python\" IotRuleName=\"vibe12_ds18b20_ingest\" DeviceId=\"bosspi-ds18b20\" TtlDays=7 DeployRevision=\"3\" IotTopicPrefix=\"vibe12\""
+
+# BACnet MQTT: vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+parameter_overrides = [
+  "IotRuleName=vibe12_telemetry_ingest",         # IoT rule (underscores only)
+  "TtlDays=7",                                     # DynamoDB row TTL (days)
+  "DeployRevision=5",                              # Bump every deploy so Lambdas refresh
+  "IotTopicPrefix=vibe12",                         # Product namespace (all sites/buildings)
+  "WebUsername=engineer",                          # Dashboard login user
+  "WebPassword=REPLACE_WITH_YOUR_PASSWORD",        # *** SET YOUR PASSWORD ***
+  "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",  # *** SET 32+ CHAR RANDOM SECRET ***
+]

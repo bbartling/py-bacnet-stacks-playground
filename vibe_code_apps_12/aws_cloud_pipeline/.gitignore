@@ -1,0 +1,5 @@
+# Local SAM config with real WebPassword / AuthSecret (never commit)
+samconfig.toml
+
+# SAM build artifacts
+.aws-sam/

@@ -122,7 +122,7 @@
   </section>
 
   <section id="tab-datamodel" class="tab-panel">
-    <p class="sub">Canonical BRICK model (sites / equipment / points) · TTL projection · AI import/export</p>
+    <p class="sub">Telemetry registry + canonical model (Open-FDD style external_ref) · export/import for LLM tagging</p>
     <div class="dm-toolbar">
       <label>Site <select id="dmSiteSelect" aria-label="Data model site"></select></label>
       <label>Building <select id="dmBuildingSelect" aria-label="Data model building"></select></label>
@@ -135,10 +135,35 @@
       <button type="button" id="dmCopyPromptBtn" class="btn btn-secondary btn-sm">Copy LLM prompt</button>
       <button type="button" id="dmValidateBtn" class="btn btn-secondary btn-sm">Validate import</button>
       <button type="button" id="dmImportBtn" class="btn btn-primary btn-sm">Import JSON</button>
-      <button type="button" id="dmTtlBtn" class="btn btn-secondary btn-sm">View full data model (TTL)</button>
+      <button type="button" id="dmRefreshRegistryBtn" class="btn btn-secondary btn-sm">Refresh registry</button>
+      <button type="button" id="dmSyncTtlBtn" class="btn btn-secondary btn-sm">Sync TTL</button>
       <button type="button" id="dmHealthBtn" class="btn btn-secondary btn-sm">Run data model health</button>
     </div>
     <p id="dmStatus" class="dm-status">Select site/building, then Export or Import.</p>
+    <div class="dm-panel dm-registry-panel">
+      <h3>Time-series registry (live from ingest)</h3>
+      <p class="dm-registry-note">Each row is a DynamoDB <code>series_id</code> — preserve as <code>metadata.external_ref</code> when tagging with BRICK.</p>
+      <div class="dm-registry-table-wrap">
+        <table class="dm-registry-table" id="dmRegistryTable">
+          <thead>
+            <tr>
+              <th>series_id</th>
+              <th>system</th>
+              <th>point</th>
+              <th>BRICK class</th>
+              <th>unit</th>
+            </tr>
+          </thead>
+          <tbody id="dmRegistryBody">
+            <tr><td colspan="5" class="dm-empty">Select site/building and click Refresh registry.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <details class="dm-ttl-details" id="dmTtlDetails">
+      <summary>BRICK TTL projection (read-only)</summary>
+      <pre id="dmTtlInline" class="dm-ttl-inline">Select site/building and Sync TTL to build from the canonical model.</pre>
+    </details>
     <div class="dm-panels">
       <div class="dm-panel">
         <h3>Export (for AI / backup)</h3>
@@ -168,9 +193,18 @@
       </div>
       <p id="rulesPersistHint" class="rules-persist-hint defaults" role="status">Loading rules…</p>
       <div class="lab-row lab-row-name">
-        <label class="lab-field lab-field-grow">Name
-          <input type="text" id="ruleTitleInput" class="rule-title-input" placeholder="Rule display name" spellcheck="true" />
-        </label>
+        <div class="rule-name-row">
+          <span class="rule-name-label">Name</span>
+          <div class="rule-name-display" id="ruleNameDisplay">
+            <span id="ruleNameText" class="rule-name-text"></span>
+            <button type="button" id="ruleNameEditBtn" class="btn-icon" title="Rename this rule" aria-label="Rename rule">✎</button>
+          </div>
+          <div class="rule-name-edit hidden" id="ruleNameEditWrap">
+            <input type="text" id="ruleTitleInput" class="rule-title-input" placeholder="Rule display name" spellcheck="true" />
+            <button type="button" id="ruleNameSaveBtn" class="btn btn-secondary btn-sm">Done</button>
+            <button type="button" id="ruleNameCancelBtn" class="btn btn-secondary btn-sm">Cancel</button>
+          </div>
+        </div>
       </div>
       <div class="lab-row lab-row-test">
         <label class="lab-field">Test window (h)
@@ -189,19 +223,27 @@
         </label>
       </div>
       <div class="lab-row lab-row-brick">
-        <div class="brick-scope-panel" id="brickScopePanel">
-          <div class="scope-label">BRICK scope (optional — run same rule across matching equipment × points)</div>
+        <div class="brick-scope-panel hidden" id="brickScopePanel">
+          <div class="scope-label">BRICK targets (optional)</div>
+          <p class="brick-scope-hint" id="brickScopeHint">
+            Run this rule on every telemetry point whose BRICK class matches. Classes come from your
+            point registry (live MQTT) and imported data model — not a fixed preset list.
+          </p>
           <div class="brick-scope-grid">
-            <label>Equipment classes
-              <select id="brickEqClasses" multiple size="4" aria-label="Equipment BRICK classes"></select>
+            <label>Equipment type
+              <select id="brickEqClasses" multiple size="4" aria-label="Equipment BRICK types from model"></select>
             </label>
-            <label>Point classes
-              <select id="brickPtClasses" multiple size="4" aria-label="Point BRICK classes"></select>
+            <label>Point class
+              <select id="brickPtClasses" multiple size="4" aria-label="Point BRICK classes from registry"></select>
             </label>
           </div>
           <button type="button" id="testBrickRuleBtn" class="btn btn-secondary btn-sm">Test across BRICK targets</button>
-          <pre id="brickTestResults" class="brick-test-results">Results appear here after Test across BRICK targets.</pre>
+          <pre id="brickTestResults" class="brick-test-results">Select point and/or equipment classes, then test.</pre>
         </div>
+        <p class="brick-scope-empty hidden" id="brickScopeEmpty">
+          No BRICK classes in the registry yet for this site/building. Ingest telemetry (MQTT) or import a
+          data model on the Data model tab, then return here.
+        </p>
       </div>
       <div class="lab-row lab-row-actions">
         <button type="button" id="testRuleBtn" class="btn btn-primary">Test rule</button>

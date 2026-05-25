@@ -4,6 +4,8 @@ Lambda Function URL: dashboard + Bake-a-Py rule lab (static assets in templates/
 
 from __future__ import annotations
 
+import base64
+import copy
 import hashlib
 import json
 import os
@@ -49,15 +51,24 @@ from rules_defaults import (
 )
 from units import TEMP_UNITS, normalize_temp_unit
 from brick_fdd_runner import run_brick_scoped_rules
+from brick_scope_options import brick_scope_options
 from data_model_api import handle_data_model, sync_all_ttl
+from model_store import ModelStore
 from brick_model import (
     empty_graph,
     graph_from_point_registry,
 )
 from timeseries import DynamoTimeSeriesStore, align_series_windows
+from web_auth import (
+    auth_enabled,
+    check_credentials,
+    extract_bearer,
+    issue_token,
+    verify_token,
+)
 
 TABLE_NAME = os.environ.get("TABLE_NAME", "vibe12-telemetry")
-DEVICE_ID = os.environ.get("DEVICE_ID", "bosspi-ds18b20")
+from mqtt_routing import PLATFORM_META_ID
 READINGS_LIMIT = int(os.environ.get("READINGS_LIMIT", "62000"))
 CHART_RESPONSE_MAX = int(os.environ.get("CHART_RESPONSE_MAX", "5000"))
 CHART_CHUNKED_HOURS = float(os.environ.get("CHART_CHUNKED_HOURS", "48"))
@@ -70,15 +81,25 @@ FDD_AFDD_STATE_TS = -3
 # Scheduled FDD uses same batch size as go-live unless env overrides.
 FDD_CHUNK_HOURS = float(os.environ.get("FDD_CHUNK_HOURS", str(GO_LIVE_BATCH_HOURS)))
 _ROOT = Path(__file__).resolve().parent
+_SPA_ROOT = _ROOT / "static" / "app"
 
 _MIME = {
     ".css": "text/css; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
+    ".mjs": "application/javascript; charset=utf-8",
     ".html": "text/html; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".map": "application/json",
 }
+_TEXT_SUFFIXES = {".html", ".css", ".js", ".mjs", ".json", ".svg", ".map"}
 
 _table = boto3.resource("dynamodb").Table(TABLE_NAME)
-_ts_store = DynamoTimeSeriesStore(_table, default_device_id=DEVICE_ID, read_limit=READINGS_LIMIT)
+_ts_store = DynamoTimeSeriesStore(_table, read_limit=READINGS_LIMIT)
 
 
 def _json_safe(obj):
@@ -91,16 +112,31 @@ def _json_safe(obj):
     return obj
 
 
-def _response(status: int, body, content_type: str = "application/json"):
+def _response(
+    status: int,
+    body,
+    content_type: str = "application/json",
+    *,
+    cache_control: str | None = None,
+    is_base64: bool = False,
+):
     if content_type == "application/json":
         body_out = json.dumps(body)
+        is_base64 = False
     else:
         body_out = body
-    return {
-        "statusCode": status,
-        "headers": {"Content-Type": content_type, "Cache-Control": "no-store"},
-        "body": body_out,
-    }
+    headers = {"Content-Type": content_type}
+    headers["Cache-Control"] = cache_control or ("no-store" if status != 200 else "no-store")
+    if cache_control:
+        headers["Cache-Control"] = cache_control
+    out: dict[str, Any] = {"statusCode": status, "headers": headers, "body": body_out}
+    if is_base64:
+        out["isBase64Encoded"] = True
+    return out
+
+
+def _unauthorized() -> dict:
+    return _response(401, {"error": "unauthorized", "hint": "POST /api/auth/login or send Bearer token"})
 
 
 def _parse_body(event) -> dict:
@@ -115,11 +151,62 @@ def _parse_body(event) -> dict:
         return {}
 
 
+def _serve_bytes(path: Path, cache_control: str | None = None) -> dict:
+    suffix = path.suffix.lower()
+    ctype = _MIME.get(suffix, "application/octet-stream")
+    data = path.read_bytes()
+    if suffix in _TEXT_SUFFIXES:
+        return _response(200, data.decode("utf-8"), ctype, cache_control=cache_control)
+    return _response(
+        200,
+        base64.b64encode(data).decode("ascii"),
+        ctype,
+        cache_control=cache_control,
+        is_base64=True,
+    )
+
+
 def _serve_file(rel: str) -> dict:
     path = (_ROOT / rel).resolve()
     if not str(path).startswith(str(_ROOT)) or not path.is_file():
         return _response(404, {"error": "not found"})
-    return _response(200, path.read_text(encoding="utf-8"), _MIME.get(path.suffix, "text/plain"))
+    return _serve_bytes(path)
+
+
+def _serve_spa(rel: str) -> dict:
+    """Serve built React app from static/app (Vite dist)."""
+    clean = rel.lstrip("/") or "index.html"
+    if ".." in clean.split("/"):
+        return _response(404, {"error": "not found"})
+    path = (_SPA_ROOT / clean).resolve()
+    if not str(path).startswith(str(_SPA_ROOT.resolve())):
+        return _response(404, {"error": "not found"})
+    if path.is_file():
+        cc = "public, max-age=31536000, immutable" if "/assets/" in clean else "no-cache"
+        return _serve_bytes(path, cache_control=cc)
+    index = _SPA_ROOT / "index.html"
+    if index.is_file():
+        return _serve_bytes(index, cache_control="no-cache")
+    return _response(404, {"error": "spa not built — run scripts/build_web_ui.sh"})
+
+
+def _api_requires_auth(path: str, method: str) -> bool:
+    if not auth_enabled():
+        return False
+    if path.startswith("/api/auth/"):
+        return False
+    if path.startswith("/api/health") and method == "GET":
+        return False
+    return path.startswith("/api/")
+
+
+def _check_api_auth(event, path: str, method: str) -> dict | None:
+    if not _api_requires_auth(path, method):
+        return None
+    claims = verify_token(extract_bearer(event))
+    if claims:
+        return None
+    return _unauthorized()
 
 
 def _get_hours(event, default: int | None = None) -> int:
@@ -182,6 +269,8 @@ def _wants_csv_export(event) -> bool:
 
 
 def _readings_eval_bundle(
+    site_id: str,
+    building_id: str,
     hours: int,
     rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
     display_temp_unit: str = "imperial",
@@ -191,9 +280,12 @@ def _readings_eval_bundle(
     log = log or AfddLog()
     t0 = time.perf_counter()
     rules = _load_custom_rules()
-    log.info(f"readings hours={hours} roll_min={rolling_avg_minutes} rules={len(rules)}")
+    log.info(
+        f"readings {site_id}/{building_id} hours={hours} "
+        f"roll_min={rolling_avg_minutes} rules={len(rules)}"
+    )
 
-    readings = _fetch_readings(hours)
+    readings, point = _fetch_building_readings(site_id, building_id, hours)
     n = len(readings)
     log.info(f"fetched {n} samples in {int((time.perf_counter() - t0) * 1000)}ms")
 
@@ -244,79 +336,82 @@ def _readings_eval_bundle(
         "fdd_status": fdd_status,
         "eval_ms": ms,
         "log": log,
+        "site_id": site_id,
+        "building_id": building_id,
+        "series_id": (point or {}).get("series_id"),
     }
 
 
-def _normalize_reading(item: dict) -> dict | None:
-    ts_ms = item.get("ts_ms")
+def _sample_to_chart_reading(sample: dict, point: dict | None = None) -> dict | None:
+    ts_ms = sample.get("ts_ms")
     if ts_ms is None or int(ts_ms) <= 0:
         return None
-    if "degF" not in item or "degC" not in item:
-        return None
     ts_ms = int(ts_ms)
-    ts_iso = item.get("ts_iso")
+    ts_iso = sample.get("ts") or sample.get("ts_iso") or ""
     if not ts_iso:
         ts_iso = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).isoformat()
+    if "degF" in sample and "degC" in sample:
+        deg_f = float(sample["degF"])
+        deg_c = float(sample["degC"])
+    else:
+        val = sample.get("value")
+        if val is None:
+            return None
+        deg_f = float(val)
+        unit = (sample.get("unit") or (point or {}).get("unit") or "").lower()
+        if "celsius" in unit or unit in ("c", "degc", "°c"):
+            deg_c = deg_f
+            deg_f = deg_c * 9 / 5 + 32
+        else:
+            deg_c = (deg_f - 32) * 5 / 9
     return {
         "ts_ms": ts_ms,
         "ts_iso": str(ts_iso),
-        "degF": float(item["degF"]),
-        "degC": float(item["degC"]),
-        "seq": item.get("seq"),
-        "source": item.get("source"),
+        "degF": deg_f,
+        "degC": deg_c,
+        "seq": sample.get("seq"),
+        "source": sample.get("source", "bacnet"),
+        "series_id": sample.get("series_id"),
     }
 
 
-def _fetch_readings(hours: int) -> list[dict]:
-    cutoff_ms = int((time.time() - hours * 3600) * 1000)
-    rows: list[dict] = []
-    eks = None
-    while len(rows) < READINGS_LIMIT:
-        kwargs: dict = {
-            "KeyConditionExpression": Key("device_id").eq(DEVICE_ID)
-            & Key("ts_ms").gte(cutoff_ms),
-            "ScanIndexForward": False,
-            "Limit": min(1000, READINGS_LIMIT - len(rows)),
-        }
-        if eks:
-            kwargs["ExclusiveStartKey"] = eks
-        resp = _table.query(**kwargs)
-        for it in resp.get("Items", []):
-            row = _normalize_reading(_json_safe(it))
-            if row:
-                rows.append(row)
-        eks = resp.get("LastEvaluatedKey")
-        if not eks:
-            break
-    rows.reverse()
-    return rows
+def _pick_dashboard_point(points: list[dict]) -> dict | None:
+    if not points:
+        return None
+    zat = [p for p in points if p.get("brick_class") == "Zone_Air_Temperature_Sensor"]
+    return (zat or points)[0]
 
 
-def _fetch_readings_between(start_ms: int, end_ms_exclusive: int) -> list[dict]:
-    """Ascending readings in [start_ms, end_ms_exclusive)."""
-    if end_ms_exclusive <= start_ms:
-        return []
-    end_inclusive = end_ms_exclusive - 1
-    rows: list[dict] = []
-    eks = None
-    while len(rows) < READINGS_LIMIT:
-        kwargs: dict = {
-            "KeyConditionExpression": Key("device_id").eq(DEVICE_ID)
-            & Key("ts_ms").between(start_ms, end_inclusive),
-            "ScanIndexForward": True,
-            "Limit": min(1000, READINGS_LIMIT - len(rows)),
-        }
-        if eks:
-            kwargs["ExclusiveStartKey"] = eks
-        resp = _table.query(**kwargs)
-        for it in resp.get("Items", []):
-            row = _normalize_reading(_json_safe(it))
-            if row and int(row["ts_ms"]) < end_ms_exclusive:
-                rows.append(row)
-        eks = resp.get("LastEvaluatedKey")
-        if not eks:
-            break
-    return rows
+def _get_site_building_from_event(event) -> tuple[str, str]:
+    q = event.get("queryStringParameters") or {}
+    site_id = str(q.get("site_id") or "").strip()
+    building_id = str(q.get("building_id") or "").strip()
+    return site_id, building_id
+
+
+def _fetch_building_readings(site_id: str, building_id: str, hours: int) -> tuple[list[dict], dict | None]:
+    points = _ts_store.list_points(site_id, building_id)
+    point = _pick_dashboard_point(points)
+    if not point or not point.get("series_id"):
+        return [], None
+    raw = _ts_store.get_series(point["series_id"], hours=hours)
+    readings = []
+    for s in raw:
+        row = _sample_to_chart_reading(s, point)
+        if row:
+            readings.append(row)
+    return readings, point
+
+
+def _fetch_building_readings_between(
+    site_id: str,
+    building_id: str,
+    start_ms: int,
+    end_ms_exclusive: int,
+) -> list[dict]:
+    hours = max(1, int((end_ms_exclusive - start_ms) / 3600000) + 1)
+    readings, _ = _fetch_building_readings(site_id, building_id, hours)
+    return [r for r in readings if start_ms <= int(r["ts_ms"]) < end_ms_exclusive]
 
 
 def _rules_revision(rules: list[dict[str, Any]]) -> str:
@@ -326,7 +421,7 @@ def _rules_revision(rules: list[dict[str, Any]]) -> str:
 
 def _load_afdd_state() -> dict[str, Any]:
     try:
-        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_AFDD_STATE_TS})
+        resp = _table.get_item(Key={"device_id": PLATFORM_META_ID, "ts_ms": FDD_AFDD_STATE_TS})
         item = _json_safe(resp.get("Item") or {})
         raw = item.get("state_json")
         if raw:
@@ -339,7 +434,7 @@ def _load_afdd_state() -> dict[str, Any]:
 def _save_afdd_state(state: dict[str, Any]) -> None:
     _table.put_item(
         Item={
-            "device_id": DEVICE_ID,
+            "device_id": PLATFORM_META_ID,
             "ts_ms": FDD_AFDD_STATE_TS,
             "record_type": "afdd_state",
             "state_json": json.dumps(state),
@@ -351,19 +446,24 @@ def _save_afdd_state(state: dict[str, Any]) -> None:
     )
 
 
+def _normalize_rules_list(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deep-copy so brick_scope/config are not shared across rules in memory."""
+    return copy.deepcopy(rules)
+
+
 def _load_custom_rules_record() -> tuple[list[dict[str, Any]], str, int | None]:
     try:
-        resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": FDD_CUSTOM_RULES_TS})
+        resp = _table.get_item(Key={"device_id": PLATFORM_META_ID, "ts_ms": FDD_CUSTOM_RULES_TS})
         item = _json_safe(resp.get("Item") or {})
         raw = item.get("rules_json")
         if raw:
             data = json.loads(raw) if isinstance(raw, str) else raw
             if isinstance(data, list) and data:
                 updated = item.get("updated_at")
-                return data, "dynamodb", int(updated) if updated is not None else None
+                return _normalize_rules_list(data), "dynamodb", int(updated) if updated is not None else None
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    return default_custom_rules(), "defaults", None
+    return _normalize_rules_list(default_custom_rules()), "defaults", None
 
 
 def _load_custom_rules() -> list[dict[str, Any]]:
@@ -375,7 +475,7 @@ def _save_custom_rules(rules: list[dict[str, Any]]) -> int:
     updated_at = int(time.time())
     _table.put_item(
         Item={
-            "device_id": DEVICE_ID,
+            "device_id": PLATFORM_META_ID,
             "ts_ms": FDD_CUSTOM_RULES_TS,
             "record_type": "fdd_custom_rules",
             "rules_json": json.dumps(rules),
@@ -387,7 +487,7 @@ def _save_custom_rules(rules: list[dict[str, Any]]) -> int:
 
 
 def _fetch_fdd_status() -> dict:
-    resp = _table.get_item(Key={"device_id": DEVICE_ID, "ts_ms": 0})
+    resp = _table.get_item(Key={"device_id": PLATFORM_META_ID, "ts_ms": 0})
     item = _json_safe(resp.get("Item") or {})
     raw = item.get("summary_json")
     if raw:
@@ -402,7 +502,13 @@ def _fetch_fdd_status() -> dict:
     }
 
 
-def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) -> dict:
+def _write_fdd_summary(
+    rules: list[dict[str, Any]],
+    *,
+    site_id: str,
+    building_id: str,
+    log: AfddLog | None = None,
+) -> dict:
     """
     Go live / backfill: always 6 h batches over max 7 d (hard-coded).
     Rule Lab Test rule uses its own hours dropdown — does not change this.
@@ -416,7 +522,7 @@ def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) 
     )
 
     def fetch_interval(start_ms: int, end_ms_exclusive: int) -> list[dict]:
-        return _fetch_readings_between(start_ms, end_ms_exclusive)
+        return _fetch_building_readings_between(site_id, building_id, start_ms, end_ms_exclusive)
 
     try:
         summary = chunked_evaluate_custom_rules(
@@ -462,7 +568,7 @@ def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) 
     try:
         _table.put_item(
             Item={
-                "device_id": DEVICE_ID,
+                "device_id": PLATFORM_META_ID,
                 "ts_ms": 0,
                 "record_type": "fdd_status",
                 "fdd_status": db_summary["fdd_status"],
@@ -483,6 +589,8 @@ def _write_fdd_summary(rules: list[dict[str, Any]], log: AfddLog | None = None) 
 
 
 def _readings_payload(
+    site_id: str,
+    building_id: str,
     hours: int,
     rolling_avg_minutes: int = DEFAULT_ROLLING_AVG_MINUTES,
     display_temp_unit: str = "imperial",
@@ -492,7 +600,9 @@ def _readings_payload(
     stage = "init"
     try:
         stage = "evaluate"
-        bundle = _readings_eval_bundle(hours, rolling_avg_minutes, display_temp_unit, log=log)
+        bundle = _readings_eval_bundle(
+            site_id, building_id, hours, rolling_avg_minutes, display_temp_unit, log=log
+        )
         rules = bundle["rules"]
         readings = bundle["readings"]
         rows = bundle["rows"]
@@ -529,7 +639,9 @@ def _readings_payload(
         raise
 
     return {
-        "device_id": DEVICE_ID,
+        "site_id": site_id,
+        "building_id": building_id,
+        "series_id": bundle.get("series_id"),
         "hours": hours,
         "rolling_avg_minutes": minutes,
         "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
@@ -572,8 +684,8 @@ def _health_payload() -> dict:
     return {
         "status": "ok",
         "app": "vibe12-web",
-        "device_id": DEVICE_ID,
         "table": TABLE_NAME,
+        "mqtt_topic_pattern": "vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry",
         "test_hours_default": TEST_HOURS_DEFAULT,
         "backfill_hours_max": DEFAULT_HOURS,
         "deploy_revision": os.environ.get("DEPLOY_REVISION", ""),
@@ -621,8 +733,47 @@ def lambda_handler(event, context):
     path = event.get("rawPath") or event.get("path") or "/"
     method = (event.get("requestContext", {}).get("http", {}).get("method") or "GET").upper()
 
+    auth_block = _check_api_auth(event, path, method)
+    if auth_block is not None:
+        return auth_block
+
+    if path == "/api/auth/login" and method == "POST":
+        body = _parse_body(event)
+        user = str(body.get("username") or "").strip()
+        password = str(body.get("password") or "")
+        if not check_credentials(user, password):
+            print(f"[vibe12] auth failed user={user!r}")
+            return _response(401, {"error": "invalid credentials"})
+        token = issue_token(user or _USER or "engineer")
+        print(f"[vibe12] auth ok user={user}")
+        return _response(
+            200,
+            {
+                "ok": True,
+                "token": token,
+                "username": user,
+                "auth_required": auth_enabled(),
+            },
+        )
+
+    if path == "/api/auth/me" and method == "GET":
+        claims = verify_token(extract_bearer(event))
+        if not claims and auth_enabled():
+            return _unauthorized()
+        return _response(
+            200,
+            {
+                "ok": True,
+                "username": (claims or {}).get("sub", ""),
+                "auth_required": auth_enabled(),
+            },
+        )
+
+    if path.startswith("/assets/") or path in ("/favicon.ico", "/vite.svg"):
+        return _serve_spa(path.lstrip("/"))
+
     if path.startswith("/api/health"):
-        print(f"[vibe12] health ok device={DEVICE_ID} table={TABLE_NAME}")
+        print(f"[vibe12] health ok table={TABLE_NAME}")
         return _response(200, _health_payload())
 
     if path.startswith("/static/"):
@@ -648,18 +799,25 @@ def lambda_handler(event, context):
             )
         rules, rules_source, updated_at = _load_custom_rules_record()
         display_unit = _get_display_temp_unit(event)
-        return _response(
-            200,
-            {
-                "rules": rules,
-                "defaults": default_custom_rules(),
-                "rules_source": rules_source,
-                "updated_at": updated_at,
-                "config_field_meta": get_config_field_meta(display_unit),
-                "temp_unit_default": normalize_temp_unit(None),
-                "temp_units_allowed": list(TEMP_UNITS),
-            },
-        )
+        q = event.get("queryStringParameters") or {}
+        site_id = str(q.get("site_id") or "").strip()
+        building_id = str(q.get("building_id") or "").strip()
+        brick_scope = {"equipment": [], "points": [], "has_data": False, "registry_point_count": 0}
+        if site_id and building_id:
+            reg_pts = _ts_store.list_points(site_id, building_id)
+            model = ModelStore(_ts_store).load_or_bootstrap(site_id, building_id)
+            brick_scope = brick_scope_options(reg_pts, model)
+        payload: dict[str, Any] = {
+            "rules": rules,
+            "defaults": _normalize_rules_list(default_custom_rules()),
+            "rules_source": rules_source,
+            "updated_at": updated_at,
+            "config_field_meta": get_config_field_meta(display_unit),
+            "temp_unit_default": normalize_temp_unit(None),
+            "temp_units_allowed": list(TEMP_UNITS),
+            "brick_scope_options": brick_scope,
+        }
+        return _response(200, payload)
 
     if path.startswith("/api/playground/lint") and method == "POST":
         code = _parse_body(event).get("code", "")
@@ -670,9 +828,16 @@ def lambda_handler(event, context):
         rule = body.get("rule")
         if not isinstance(rule, dict):
             return _response(400, {"error": "rule object required"})
+        site_id = str(body.get("site_id") or "").strip()
+        building_id = str(body.get("building_id") or "").strip()
+        if not site_id or not building_id:
+            return _response(400, {"error": "site_id and building_id required"})
         hours = max(1, min(168, int(body.get("hours", TEST_HOURS_DEFAULT))))
-        readings = _fetch_readings(hours)
-        print(f"[vibe12] test-rule hours={hours} rows={len(readings)} (no DB status write)")
+        readings, _ = _fetch_building_readings(site_id, building_id, hours)
+        print(
+            f"[vibe12] test-rule {site_id}/{building_id} hours={hours} "
+            f"rows={len(readings)} (no DB status write)"
+        )
         rows = readings_to_rows(readings)
         roll_min = _rolling_minutes_from_body(body, rule)
         verbose = bool(body.get("verbose"))
@@ -721,20 +886,25 @@ def lambda_handler(event, context):
             return _response(400, {"error": "rules must be a list"})
         # Go live always backfills 7 d in 6 h batches (ignore body.hours).
         hours = GO_LIVE_MAX_LOOKBACK_HOURS
+        site_id = str(body.get("site_id") or "").strip()
+        building_id = str(body.get("building_id") or "").strip()
+        if not site_id or not building_id:
+            return _response(400, {"error": "site_id and building_id required"})
         try:
             _save_custom_rules(rules)
-            cutoff_ms = int((time.time() - hours * 3600) * 1000)
-            probe = _table.query(
-                KeyConditionExpression=Key("device_id").eq(DEVICE_ID)
-                & Key("ts_ms").gte(cutoff_ms),
-                ScanIndexForward=False,
-                Limit=1,
-            ).get("Items")
+            probe, _ = _fetch_building_readings(site_id, building_id, int(hours))
             if not probe:
-                return _response(400, {"error": f"no telemetry in last {hours}h"})
+                return _response(
+                    400,
+                    {
+                        "error": f"no telemetry for {site_id}/{building_id} in last {hours}h",
+                    },
+                )
             log = AfddLog()
             try:
-                summary = _write_fdd_summary(rules, log=log)
+                summary = _write_fdd_summary(
+                    rules, site_id=site_id, building_id=building_id, log=log
+                )
             except Exception as exc:
                 log.error("go-live _write_fdd_summary failed", exc)
                 return _response(
@@ -803,8 +973,6 @@ def lambda_handler(event, context):
         if not site_id or not building_id:
             return _response(400, {"error": "site_id and building_id required"})
         hours = max(1, min(168, int(body.get("hours", TEST_HOURS_DEFAULT))))
-        from model_store import ModelStore
-
         model = ModelStore(_ts_store).load_or_bootstrap(site_id, building_id)
         summary = run_brick_scoped_rules(
             model, [rule], _ts_store, site_id, building_id, hours=hours
@@ -886,6 +1054,12 @@ def lambda_handler(event, context):
         )
 
     if path.startswith("/api/readings"):
+        site_id, building_id = _get_site_building_from_event(event)
+        if not site_id or not building_id:
+            return _response(
+                400,
+                {"error": "site_id and building_id query params required"},
+            )
         hours = _get_hours(event)
         roll_min = _get_rolling_avg_minutes(event)
         display_unit = _get_display_temp_unit(event)
@@ -893,7 +1067,9 @@ def lambda_handler(event, context):
         try:
             if _wants_csv_export(event):
                 fault_ids = _get_fault_rule_ids(event)
-                bundle = _readings_eval_bundle(hours, roll_min, display_unit, log=log)
+                bundle = _readings_eval_bundle(
+                    site_id, building_id, hours, roll_min, display_unit, log=log
+                )
                 if not bundle["readings"]:
                     return _response(404, {"error": "no readings in window for CSV export"})
                 csv_body = build_readings_csv(
@@ -914,7 +1090,9 @@ def lambda_handler(event, context):
                     },
                     "body": csv_body,
                 }
-            payload = _readings_payload(hours, roll_min, display_unit, log=log)
+            payload = _readings_payload(
+                site_id, building_id, hours, roll_min, display_unit, log=log
+            )
             body = json.dumps(_json_safe(payload))
             if len(body) > 5_500_000:
                 log.error(f"response too large bytes={len(body)}")
@@ -950,7 +1128,18 @@ def lambda_handler(event, context):
                 },
             )
 
-    if path in ("/", "/index.html"):
+    if path in ("/", "/index.html", "/login"):
+        if (_SPA_ROOT / "index.html").is_file():
+            return _serve_spa("index.html")
         return _serve_file("templates/dashboard.html")
 
+    if method == "GET" and not path.startswith("/api/"):
+        spa_try = _serve_spa(path.lstrip("/"))
+        if spa_try.get("statusCode") != 404:
+            return spa_try
+        if (_SPA_ROOT / "index.html").is_file():
+            return _serve_spa("index.html")
+
+    if (_SPA_ROOT / "index.html").is_file():
+        return _serve_spa("index.html")
     return _serve_file("templates/dashboard.html")
