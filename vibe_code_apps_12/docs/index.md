@@ -57,6 +57,7 @@ Non-technical path — check boxes phase by phase:
 | [AWS SAM (CloudShell)](aws-cloud-sam.md) | tar/zip, upload, deploy |
 | [AWS SAM (bensserver)](aws-deploy-from-bensserver.md) | CLI + `deploy_cloud_from_bensserver.sh` |
 | [AI commissioning API](ai-commissioning-api.md) | Telemetry flow + BRICK refs for Codex/OpenClaw |
+| [Agent workspace](../vibe12_agent_spec/README.md) | AGENTS.md, MEMORY, skills, BUILD_CHECKPOINTS |
 | [Dashboard & FDD](05-cloud-dashboard-fdd.md) | Rule Lab, go-live |
 | [Web app features](06-web-app-features.md) | Per-screen low-level reference |
 | [Wire capture](wire-capture.md) | Post-deploy pcap |

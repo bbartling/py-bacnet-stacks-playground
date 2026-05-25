@@ -1,0 +1,49 @@
+---
+name: vibe12-agent-runner
+description: >-
+  Use when configuring Codex CLI, OpenClaw, or scheduled agent wakes for vibe12_agent_spec.
+  Triggers on: Codex CLI, OpenClaw, agent wake, vibe12_agent_spec, BUILD_CHECKPOINTS,
+  memory bootstrap, cron agent.
+---
+
+# Vibe12 agent runner (Codex / OpenClaw — optional)
+
+Automation is **optional**. The repo works with interactive Cursor/Codex without cron.
+
+## Bootstrap prompt (paste into Codex CLI)
+
+```text
+You are working on vibe_code_apps_12 (Vibe12 BACnet → AWS → BRICK/FDD).
+
+Read in order:
+1. vibe12_agent_spec/AGENTS.md
+2. vibe12_agent_spec/scratch/memory-bootstrap-latest.md (or run bin/vibe12_workspace_cli.sh memory bootstrap)
+3. vibe12_agent_spec/BUILD_CHECKPOINTS.md — execute ONE slice only
+4. vibe12_agent_spec/GUARDRAILS.md
+
+Use skills under vibe12_agent_spec/skills/ for cloud API, Ansible, BRICK, FDD, pcap.
+
+Human owns SSH and points.csv enablement. Verify with ./scripts/validate_cloud_pipeline.sh before claiming done.
+```
+
+## Working directory
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+```
+
+## Memory CLI
+
+```bash
+vibe12_agent_spec/bin/vibe12_workspace_cli.sh memory list
+vibe12_agent_spec/bin/vibe12_workspace_cli.sh memory search telemetry
+vibe12_agent_spec/bin/vibe12_workspace_cli.sh memory bootstrap > vibe12_agent_spec/scratch/memory-bootstrap-latest.md
+```
+
+## OpenClaw alignment
+
+Same layout as `bas_build_spec`: curated `MEMORY.md`, daily notes, domain files under `memory/`, promotion after critique. No secrets in Markdown.
+
+## Relation to bas_build_spec
+
+`vibe_code_apps_11/bas_build_spec` is the prior BAS app orchestration. **Vibe12** uses `vibe12_agent_spec/` — do not mix checkpoint queues.

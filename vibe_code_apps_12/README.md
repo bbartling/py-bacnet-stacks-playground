@@ -1,4 +1,4 @@
-> **Documentation hub:** [docs/index.md](docs/index.md) · **PDF manual:** [pdf/vibe12-edge-fdd-guide.pdf](pdf/vibe12-edge-fdd-guide.pdf) · Edge deploy: [docs/edge-deploy.md](docs/edge-deploy.md) · SAM/cloud: [docs/aws-cloud-sam.md](docs/aws-cloud-sam.md)
+> **Documentation hub:** [docs/index.md](docs/index.md) · **Agents (Codex/Cursor):** [vibe12_agent_spec/](vibe12_agent_spec/) · **PDF manual:** [pdf/vibe12-edge-fdd-guide.pdf](pdf/vibe12-edge-fdd-guide.pdf) · Edge deploy: [docs/edge-deploy.md](docs/edge-deploy.md) · SAM/cloud: [docs/aws-cloud-sam.md](docs/aws-cloud-sam.md)
 
 # BACnet DS18B20 Temperature Server
 

@@ -1,0 +1,23 @@
+# Vibe12 agent workspace manifest (orchestration only).
+
+[memory]
+root = "memory"
+bootstrap_file = "MEMORY.md"
+bootstrap_max = 12000
+daily_lookback = 3
+domain_max = 3000
+
+[paths]
+app_root = ".."
+ansible_dir = "../ansible"
+cloud_dir = "../aws_cloud_pipeline"
+web_app_dir = "../apps/vibe12-web"
+docs_dir = "../docs"
+
+[lab]
+site_id = "demo"
+building_id = "bens-office"
+pi_host = "192.168.204.12"
+pi_user = "ben"
+stack_name = "vibe12cloud"
+aws_region = "us-east-2"
