@@ -10,6 +10,8 @@ type PointRow = {
   point_id?: string;
   brick_class?: string;
   unit?: string;
+  entity_id?: string;
+  external_ref?: string;
 };
 
 export function DataModelPage() {
@@ -78,13 +80,14 @@ export function DataModelPage() {
                 <th>system</th>
                 <th>point</th>
                 <th>BRICK</th>
+                <th>entity_id</th>
                 <th>unit</th>
               </tr>
             </thead>
             <tbody>
               {points.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="muted">No points — ingest MQTT first.</td>
+                  <td colSpan={6} className="muted">No points — ingest MQTT first.</td>
                 </tr>
               ) : (
                 points.map((p) => (
@@ -93,6 +96,7 @@ export function DataModelPage() {
                     <td>{p.system_id}</td>
                     <td>{p.point_id}</td>
                     <td>{p.brick_class || "—"}</td>
+                    <td className="mono small">{p.entity_id || p.external_ref || "—"}</td>
                     <td>{p.unit}</td>
                   </tr>
                 ))

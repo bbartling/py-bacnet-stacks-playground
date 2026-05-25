@@ -6,66 +6,742 @@
 
 ---
 
-# Vibe12 — Edge BACnet & Cloud FDD
+# Introduction
 
 # Vibe12 — Edge BACnet & Cloud FDD
 
-Hands-on stack for **field BACnet gateways** (Raspberry Pi or Linux), **AWS IoT Core** telemetry, and a **serverless FDD dashboard** (DynamoDB + Lambda).
+End-to-end guide: **Linux gateway** on the BACnet network → **MQTT** to **AWS IoT** → **DynamoDB** → **React dashboard** and **Python Rule Lab** for fault detection.
 
-## What this app does
+## Start here (checklist)
+
+**Field deployment:** [Master checklist](00-master-checklist.md)
+
+**AI agents & Codex:** [Agent & Codex getting started](agent-getting-started.md) — accounts, init workspace, human vs AI limits, cron guardrails.
+
+| Phase | Chapter |
+|-------|---------|
+| 0 | [Ben's office lab (boss Pi)](phase-0-bens-office-lab.md) |
+| 1 | [Linux, network & SSH](01-linux-network-ssh.md) |
+| 2 | [BACnet IoT gateway](02-bacnet-gateway.md) |
+| 3 | [Commissioning & CSV cleaning](03-commissioning-csv.md) |
+| 4 | [AWS IoT Core (PEM, MQTT)](04-aws-iot-core.md) |
+| 5 | [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md) |
+| 6 | [Web app features (reference)](06-web-app-features.md) |
+
+## System diagram
 
 ```text
-Edge (Ansible → SSH)
-  BACnet Who-Is / discover → points.csv
-  BACnet RPM read driver (60 s) ──┐
-  Optional DS18B20 (boss Pi) ─────┼──► AWS IoT MQTT  vibe12/{site}/{building}/…/telemetry
-                                  │
-Cloud (SAM → CloudFormation)
-  IoT Rules → ingest Lambda → DynamoDB
-  Web Lambda URL → Plotly dashboard + Rule Lab
-  Scheduled FDD Lambda (every 5 min)
+[Build machine] --SSH/Ansible--> [Gateway Pi on BACnet subnet]
+                                      |
+                                      | BACnet/IP (BACpypes3)
+                                      v
+                                 [Controllers / MS/TP router]
+                                      |
+                                      | MQTT TLS (PEM + key)
+                                      v
+                                 [AWS IoT Core]
+                                      |
+                                      v
+                                 [Ingest Lambda] --> [DynamoDB]
+                                      ^
+                                 [Web Lambda] <--- Browser (React UI + login)
+                                 [FDD Lambda]  (every 5 min)
 ```
 
-## Documentation map
+## Documentation map (all chapters)
 
 | Chapter | Topic |
 |---------|--------|
-| [Edge deploy (Ansible)](edge-deploy.md) | Inventory, deploy, certs, boss Pi vs building gateway |
-| [BACnet commissioning](bacnet-commissioning.md) | Discover → trim CSV → enable read driver |
-| [AWS cloud & SAM deploy](aws-cloud-sam.md) | **tar/zip**, Windows upload, CloudShell, `sam deploy` |
-| [Wire capture (pcap)](wire-capture.md) | Post-deploy `bacnet.pcap` for Wireshark |
-| [Commissioning backup](commissioning-backup.md) | `fetch_commissioning.sh` → Git |
-| [Cloud architecture (reference)](cloud-architecture.md) | Deployed stack, URLs, resources |
-| [FDD rule cookbook](fdd-rule-cookbook.md) | Rule Lab Python recipes |
+| [Master checklist](00-master-checklist.md) | Ordered tasks for integrators |
+| [Agent & Codex getting started](agent-getting-started.md) | Accounts, init, cron guardrails, AI limits |
+| [Linux & SSH](01-linux-network-ssh.md) | Subnet, SSH, firewall |
+| [BACnet gateway](02-bacnet-gateway.md) | Libraries, systemd, deploy |
+| [CSV commissioning](03-commissioning-csv.md) | Discover → clean → points.csv |
+| [AWS IoT](04-aws-iot-core.md) | Certificates, topics, policies |
+| [Edge deploy](edge-deploy.md) | Ansible inventory, dual BACnet |
+| [BACnet commissioning](bacnet-commissioning.md) | Short commissioning recap |
+| [AWS SAM (CloudShell)](aws-cloud-sam.md) | tar/zip, upload, deploy |
+| [AWS SAM (bensserver)](aws-deploy-from-bensserver.md) | CLI + `deploy_cloud_from_bensserver.sh` |
+| [AI commissioning API](ai-commissioning-api.md) | Telemetry flow + BRICK refs for Codex/OpenClaw |
+| [Agent workspace](../vibe12_agent_spec/README.md) | AGENTS.md, MEMORY, skills, BUILD_CHECKPOINTS |
+| [Dashboard & FDD](05-cloud-dashboard-fdd.md) | Rule Lab, go-live |
+| [Web app features](06-web-app-features.md) | Per-screen low-level reference |
+| [Wire capture](wire-capture.md) | Post-deploy pcap |
+| [Commissioning backup](commissioning-backup.md) | Git backup of CSV |
+| [Cloud architecture](../aws_cloud_pipeline/DEPLOYED.md) | Stack outputs |
+| [FDD cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) | Python rule recipes |
 
 ## PDF bundle
 
-From the repo (bensserver or dev machine):
-
 ```bash
 cd vibe_code_apps_12
-sudo apt install pandoc
+sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0
 ./scripts/setup_docs_venv.sh
 ./scripts/build_docs.sh
 ```
 
-Output: [`pdf/vibe12-edge-fdd-guide.pdf`](../pdf/vibe12-edge-fdd-guide.pdf) (also committed on `develop` for offline reading).
+Output: [`pdf/vibe12-edge-fdd-guide.pdf`](../pdf/vibe12-edge-fdd-guide.pdf)
 
-## Repo layout (active paths)
+Chapter order is defined in [`docs/manifest.yaml`](manifest.yaml).
+
+## Tests
+
+```bash
+cd vibe_code_apps_12
+python3 -m unittest discover -s tests -v
+cd apps/vibe12-web && npm ci && npm test
+```
+
+## Repo layout
 
 | Path | Role |
 |------|------|
-| `ansible/` | Deploy playbook, inventory, host_vars |
-| `edge_bacnet/` | Discover, RPM read driver, MQTT payloads |
-| `commissioning/` | Git-backed `points.csv` per site/building |
-| `aws_cloud_pipeline/` | SAM `template.yaml`, Lambdas |
-| `scripts/` | `bacnet_tcpdump_once.sh`, `build_docs_pdf.py` |
-| `captures/` | Doc for on-edge `bacnet.pcap` |
-
-Historical demos live in `vibe_code_apps_1` … `vibe_code_apps_11`; **active development** is here in **vibe_code_apps_12**.
+| `ansible/` | SSH deploy, IoT certs, systemd |
+| `edge_bacnet/` | Discover, read driver, MQTT |
+| `commissioning/` | `points.csv` per site/building |
+| `aws_cloud_pipeline/` | SAM, Lambdas, ingest |
+| `apps/vibe12-web/` | React UI (build → `web_lambda/static/app`) |
+| `scripts/` | `build_web_ui.sh`, `build_docs_pdf.py` |
 
 
-# Edge deploy (Ansible)
+# Master checklist (start here)
+
+# Vibe12 master checklist
+
+Use this page as a **step-by-step path** from a blank Linux gateway to live fault detection. Each phase links to a detailed chapter. Check boxes as you go.
+
+**Who this is for:** consulting engineers and integrators who may not write code daily. Technical detail lives in the linked chapters; this page tells you **what to do in order**.
+
+---
+
+## Phase 0 — Plan
+
+- [ ] You have a **Raspberry Pi or Linux PC** on the **same IP subnet as BACnet** controllers (or a BACnet/IP router such as BASRT-B).
+- [ ] You have a **build machine** (bensserver or laptop) with SSH access to the gateway and the Git repo.
+- [ ] You have an **AWS account** with permission to use **IoT Core**, **Lambda**, and **DynamoDB** (CloudShell deploy is fine).
+
+**Ben's office lab (boss Pi `192.168.204.12`):** edge topics use `site_id` / `building_id` from Ansible (`demo` / `bens-office`), matching SAM `IotTopicPrefix=vibe12` — see [Phase 0 — Ben's office lab](phase-0-bens-office-lab.md).
+
+---
+
+## Phase 1 — Linux, network, and SSH
+
+**Goal:** You can log into the gateway from your desk and ping BACnet devices.
+
+- [ ] Gateway has a **static or DHCP-reserved IP** on the BACnet VLAN (example lab: `192.168.204.12`).
+- [ ] Your PC or bensserver can **ping** the gateway and the BACnet router/controller.
+- [ ] **SSH works** (`ssh user@gateway-ip`). Optional: `ssh-copy-id` so Ansible does not prompt every time.
+- [ ] Firewall allows **UDP 47808/47809** (BACnet/IP) on the gateway if you run local BACnet stacks.
+
+→ Details: [Linux, network & SSH](01-linux-network-ssh.md)
+
+---
+
+## Phase 2 — Deploy the BACnet IoT gateway (edge)
+
+**Goal:** Software is on the Pi; AWS IoT PEM/key are in place; discover service can run.
+
+- [ ] Edit **Ansible inventory** with `ansible_host` and `ansible_user`.
+- [ ] Set **`site_id`** and **`building_id`** in host_vars for this building.
+- [ ] Run **`prepare_aws_iot_certs.sh`** on the build machine (once).
+- [ ] Run **`deploy.sh`** to copy `edge_bacnet/`, commissioning folder, and systemd units.
+- [ ] Confirm units exist: `vibe12-bacnet-discover`, `vibe12-bacnet-read` (read driver when enabled).
+
+→ Details: [BACnet IoT gateway](02-bacnet-gateway.md) · [Edge deploy (Ansible)](edge-deploy.md)
+
+---
+
+## Phase 3 — Commission BACnet (CSV cleaning)
+
+**Goal:** A trimmed **`points.csv`** lists only the points you want in the cloud.
+
+- [ ] Run **discover** (Who-Is / I-Am) → `points_discovered.csv`.
+- [ ] **Delete** rows you do not need; set **`enabled=1`** on rows to poll.
+- [ ] Fill **`system_id`**, **`brick_class`**, **`brick_tag`** (for FDD and data model later).
+- [ ] Save as **`commissioning/.../points.csv`** and back up to Git (`fetch_commissioning.sh`).
+- [ ] Redeploy with **`enable_bacnet_read_driver=true`**.
+
+→ Details: [Commissioning & CSV cleaning](03-commissioning-csv.md) · [BACnet commissioning](bacnet-commissioning.md)
+
+---
+
+## Phase 4 — AWS IoT Core (certs, policy, MQTT)
+
+**Goal:** Telemetry leaves the building on MQTT and lands in DynamoDB.
+
+- [ ] IoT **Thing** + certificate (PEM + private key) — prepared by Ansible into `~/vibe_code_apps_12/aws_iot_certs/`.
+- [ ] IoT **policy** allows connect as **`basicPubSub`** (lab default) and **publish** to `vibe12/*`.
+- [ ] Edge publishes every **60 s** to topic  
+  `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry`
+- [ ] Deploy **SAM stack** `vibe12cloud` (ingest + web + scheduled FDD Lambdas).
+- [ ] IoT **Rules** forward telemetry to **ingest Lambda**.
+
+→ Details: [AWS IoT Core](04-aws-iot-core.md) · [AWS cloud & SAM](aws-cloud-sam.md)
+
+---
+
+## Phase 5 — Cloud dashboard and data model
+
+**Goal:** Browser UI shows live points; registry and BRICK model are usable.
+
+- [ ] Open **DashboardUrl** from stack outputs; sign in (engineer login).
+- [ ] **Dashboard** — chart and latest values for your site/building.
+- [ ] **Data model** — refresh registry; export/import JSON for LLM tagging if needed.
+- [ ] Confirm **`/api/points/{site}/{building}`** lists your series.
+
+→ Details: [Web app features](06-web-app-features.md) · [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md)
+
+---
+
+## Phase 6 — Fault detection (Python rules)
+
+**Goal:** At least one rule tested and optionally written to the historian.
+
+- [ ] Open **Rule Lab** — pick a default or new rule.
+- [ ] **Test rule** on 2–24 h of data (console output, no DB write).
+- [ ] **Save draft** → rules stored in DynamoDB.
+- [ ] **Write to database (go-live)** → FDD backfill + status row for dashboard analytics.
+- [ ] Optional: **BRICK scope** — run same rule across all matching point classes.
+
+→ Details: [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md) · [FDD rule cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md)
+
+---
+
+## Phase 7 — Optional diagnostics
+
+- [ ] **Wire capture:** deploy with `--pcap` → `bacnet.pcap` for Wireshark ([wire capture](wire-capture.md)).
+- [ ] **PDF guide:** `./scripts/build_docs.sh` on Linux with pandoc ([PDF bundle](index.md#pdf-bundle)).
+
+---
+
+## Quick reference
+
+| Item | Typical value (lab) |
+|------|---------------------|
+| Gateway IP | `192.168.204.12` |
+| BACnet router (MS/TP) | `192.168.204.200` |
+| Site / building | `demo` / `pi` or `bens-office` |
+| MQTT client id | `basicPubSub` |
+| Poll interval | 60 s |
+| Cloud stack | `vibe12cloud` (us-east-2) |
+
+When every box in phases 1–6 is checked, you have a complete **edge → cloud → FDD** loop.
+
+
+# Agent & Codex getting started
+
+# Agent and Codex getting started
+
+This guide is for **integrators and AI agents** using `vibe12_agent_spec/` after cloning the repository. Product code lives in `vibe_code_apps_12/`; **agent memory is local to each clone** and is not committed to Git.
+
+---
+
+## Prerequisites checklist
+
+### Accounts and tools
+
+- [ ] **Git** — clone this repository on a build machine with network access to your gateway and AWS.
+- [ ] **OpenAI Codex CLI** — installed (`codex --version`); logged in (`codex login`).
+- [ ] **AWS account** — permissions for IoT Core, Lambda, DynamoDB, CloudFormation (SAM deploy).
+- [ ] **AWS CLI v2** and **SAM CLI** on the build machine (see [AWS deploy from bensserver](aws-deploy-from-bensserver.md)).
+- [ ] **SSH** to the edge gateway (keys or password — human-managed).
+- [ ] **Python 3.10+** and **Node.js** (for tests and web build).
+
+### After clone — initialize local agent workspace
+
+```bash
+cd vibe_code_apps_12
+vibe12_agent_spec/bin/vibe12_workspace_init.sh
+```
+
+This creates **local-only** files from `vibe12_agent_spec/templates/`:
+
+| File | Purpose |
+|------|---------|
+| `MEMORY.md` | Curated standing brief for your project |
+| `BUILD_CHECKPOINTS.md` | Sprint queue (critique updates **Next for mini**) |
+| `memory/commissioning/PHASE_NOTEPAD.md` | Site bind, devices, URLs |
+| `cron_codex/.env` | Models, wake limits, paths |
+| `cron_codex/state/operator_notes.md` | Your notes to the agent |
+
+Fill **PHASE_NOTEPAD** and **MEMORY.md** with your site facts. Do not commit them.
+
+---
+
+## Human vs AI responsibilities
+
+| Task | Human | AI agent (Codex / Cursor) |
+|------|-------|---------------------------|
+| AWS root / billing / IAM user creation | **Required** | Never |
+| IoT certificates and policy approval | **Required** | May prepare files; human deploys |
+| SSH credentials and gateway access | **Required** | Never invent passwords or keys |
+| BACnet **write** commands to field devices | **Sign-off required** | Read-only by default |
+| `points.csv` enable rows | **Approves** | May discover and propose rows |
+| `samconfig.toml` passwords | **Sets locally** | Never commit |
+| Cloud deploy to production | **Approves** | May run scripts when asked |
+| BRICK / SparkQL semantic validation | **Sign-off** | May draft graphs and rules |
+| Scheduled Codex cron | **Installs with `--yes`** | May suggest schedule; must not bypass guardrails |
+| Physical wiring and controller config | **Required** | Never |
+
+---
+
+## Interactive Codex (recommended first)
+
+```bash
+cd vibe_code_apps_12
+vibe12_agent_spec/bin/vibe12_codex_tui.py
+```
+
+| Command | Model | Purpose |
+|---------|--------|---------|
+| _(normal prompt)_ | gpt-5.4-mini | One implementation slice |
+| `/critique` | gpt-5.5 | Review + rewrite **Next for mini (ordered)** |
+| `/wake 1` | mini + critique | One cheap orchestrated cycle |
+| `/new` | — | Fresh mini session |
+
+On Linux hosts where bubblewrap fails (`RTM_NEWADDR`), the TUI auto-bypasses the Codex sandbox so shell tools work.
+
+---
+
+## Orchestrated wakes (mini → critique)
+
+```text
+gpt-5.4-mini  →  executes BUILD_CHECKPOINTS "Next for mini (ordered)"
+gpt-5.5       →  rewrites that queue for the next wake
+```
+
+```bash
+MINI_INVOCATIONS_PER_WAKE=1 vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh
+```
+
+Context export each wake: `cron_codex/state/context_since_last_wake.md` (operator notes + PHASE_NOTEPAD).
+
+---
+
+## Scheduled cron (optional)
+
+**Do not enable until interactive wakes behave well.**
+
+Guardrails (defaults in `cron_codex/env.example`):
+
+| Guardrail | Default | Purpose |
+|-----------|---------|---------|
+| `MIN_MINUTES_BETWEEN_WAKES` | 120 | Debounce overlapping runs |
+| `MAX_WAKES_PER_DAY` | 12 | Daily spend cap |
+| `MINI_INVOCATIONS_PER_WAKE` | 3 (max 5) | Limit minis per wake |
+| `flock` lock | `/tmp/vibe12_codex_wake.lock` | One wake at a time |
+| `waiting_human` file | — | Pause all wakes |
+| `DONE_AUTOMATION` file | — | Silent exit until removed |
+| Install requires `--yes` | — | Prevents accidental cron |
+
+```bash
+# Human must run explicitly:
+vibe12_agent_spec/cron_codex/bin/vibe12_install_cron.sh --yes
+
+# Pause
+touch vibe12_agent_spec/cron_codex/state/waiting_human
+
+# Remove cron
+vibe12_agent_spec/cron_codex/bin/vibe12_remove_cron.sh
+```
+
+Agents **must not** set `VIBE12_CRON_ALLOW_AGGRESSIVE=true` or install cron without human approval.
+
+---
+
+## Smoke before claiming “done”
+
+```bash
+./scripts/validate_cloud_pipeline.sh
+python3 -m unittest discover -s tests -q
+```
+
+Commissioning API (replace site/building):
+
+`GET /api/commissioning/status/{site}/{building}`
+
+---
+
+## Further reading
+
+- [Master checklist (field deploy)](00-master-checklist.md)
+- [Agent workspace README](../vibe12_agent_spec/README.md)
+- [Cron orchestration](../vibe12_agent_spec/cron_codex/README.md)
+- [GUARDRAILS](../vibe12_agent_spec/GUARDRAILS.md)
+
+
+# Linux, network & SSH
+
+# Linux, network & SSH
+
+Before BACnet or AWS, the **gateway computer** must sit on the **same network as your controllers** and accept **SSH** from your build machine.
+
+## What you need
+
+| Item | Why |
+|------|-----|
+| Raspberry Pi 4/5 or Linux PC | Runs BACnet discover/read and MQTT client |
+| Ethernet (preferred) or Wi‑Fi | Stable link to BACnet VLAN |
+| Static or reserved DHCP IP | Ansible and bookmarks do not break |
+| SSH enabled | Ansible deploys without a keyboard on the Pi |
+
+## Network layout (typical lab)
+
+```text
+[Your PC / bensserver] ----SSH----> [Gateway Pi 192.168.204.12]
+                                        |
+                                        | UDP BACnet/IP
+                                        v
+                               [BASRT-B router 192.168.204.200]
+                                        |
+                                        MS/TP
+                                        v
+                               [Field controller device 5007]
+```
+
+## Step-by-step
+
+### 1. Put the gateway on the BACnet subnet
+
+- Configure **IPv4 address**, **mask**, and **gateway** so the Pi can reach:
+  - Your BACnet/IP router (if MS/TP is behind a router)
+  - Any BACnet devices that speak IP directly
+- Example lab subnet: `192.168.204.0/24`.
+
+**Check:** From the Pi, `ping 192.168.204.200` (router) succeeds.
+
+### 2. Enable SSH
+
+On Raspberry Pi OS:
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+```
+
+Create a user (e.g. `ben`) with sudo for Ansible `become`.
+
+### 3. Log in from your build machine
+
+```bash
+ssh ben@192.168.204.12
+```
+
+If you use passwords, install **`sshpass`** on the build machine for Ansible:
+
+```bash
+sudo apt install sshpass
+```
+
+### 4. Optional — passwordless SSH
+
+```bash
+ssh-copy-id ben@192.168.204.12
+```
+
+Then Ansible `./deploy.sh -v` runs without `-ask-pass`.
+
+### 5. Firewall notes
+
+- **Outbound HTTPS (443)** — required for **AWS IoT Core** MQTT.
+- **UDP 47808** — default BACnet/IP (PiTemp / some tools).
+- **UDP 47809** — Vibe12 read driver when dual-stack on boss Pi (avoids port clash).
+
+## Inventory entry
+
+In `ansible/inventory.yml`:
+
+```yaml
+bacnet_pi:
+  ansible_host: 192.168.204.12
+  ansible_user: ben
+```
+
+## Troubleshooting
+
+| Symptom | What to check |
+|---------|----------------|
+| SSH timeout | Wrong IP, VLAN, or firewall |
+| Permission denied | User name, key, or password |
+| BACnet discover finds nothing | Pi not on same subnet as router; wrong `--address` bind |
+| MQTT fails later | Outbound 443 blocked |
+
+Next: [BACnet IoT gateway](02-bacnet-gateway.md).
+
+
+# BACnet IoT gateway
+
+# BACnet IoT gateway
+
+The **edge gateway** is a small Linux service set that discovers BACnet points, polls them on a schedule, and publishes JSON to **AWS IoT Core** over MQTT.
+
+## Software stack (what runs on the Pi)
+
+| Component | Role |
+|-----------|------|
+| **`edge_bacnet/`** | Python scripts: discover, read driver, MQTT publish |
+| **BACpypes3** | BACnet/IP (and route-aware MS/TP via router) |
+| **systemd units** | `vibe12-bacnet-discover`, `vibe12-bacnet-read` |
+| **AWS IoT device SDK** | MQTT TLS to `*.iot.*.amazonaws.com` |
+| **Ansible** | Copies code + certs; no `git clone` on the Pi |
+
+## How data flows
+
+```text
+points.csv  -->  read driver (60 s)  -->  RPM read present-value
+       |                                      |
+       |                                      v
+       +---------------------------->  MQTT publish
+                                         vibe12/site/bld/sys/point/telemetry
+```
+
+Discover is **read-only** (Who-Is / I-Am, optional RPM for metadata). The read driver only polls rows with **`enabled=1`** in `points.csv`.
+
+## Deployment (Ansible)
+
+From `vibe_code_apps_12/ansible` on your build machine:
+
+```bash
+./prepare_aws_iot_certs.sh          # once: PEM + key into ansible/files/aws_iot/
+./deploy.sh --limit bacnet_pi \
+  -e enable_bacnet_read_driver=true \
+  --ask-pass --ask-become-pass -v
+```
+
+Files land under `~/vibe_code_apps_12/` on the gateway:
+
+```text
+edge_bacnet/          # Python modules
+commissioning/        # points.csv per site/building
+aws_iot_certs/        # device.pem, private.key, AmazonRootCA1.pem
+scripts/              # e.g. bacnet_tcpdump_once.sh
+```
+
+## Libraries and Python environment
+
+- Repo root **`requirements.txt`** — BACnet + MQTT dependencies (installed by Ansible on the Pi).
+- Read driver invoked as: `python3 -m edge_bacnet.read_driver` (exact module path in systemd template).
+
+## BACnet bind and MS/TP router
+
+In **`host_vars/bacnet_pi.yml`** (example):
+
+```yaml
+site_id: demo
+building_id: bens-office   # must match commissioning/ and cloud dashboard picker
+bacnet_edge_bind_address: "192.168.204.12/24:47809"
+bacnet_route_aware: true
+bacnet_router_ip: 192.168.204.200
+bacnet_mstp_net: 2000
+```
+
+**Route-aware** mode sends Who-Is through the BACnet/IP router to MS/TP devices.
+
+## Dual BACnet on boss Pi (lab)
+
+| Service | UDP port | Purpose |
+|---------|----------|---------|
+| `bacnet-ds18b20` | 47808 | Local 1-wire demo |
+| `vibe12-bacnet-read` | 47809 | Commissioned points + GPIO in same MQTT cycle |
+
+Only **one MQTT client id** (`basicPubSub`) is used — GPIO samples ride with BACnet in the read driver when enabled.
+
+## Verify after deploy
+
+```bash
+ssh ben@192.168.204.12 'systemctl is-active vibe12-bacnet-read'
+ssh ben@192.168.204.12 'journalctl -u vibe12-bacnet-read -n 20 --no-pager'
+```
+
+Look for `published N samples` and no `NOT_AUTHORIZED` MQTT errors.
+
+Next: [Commissioning & CSV cleaning](03-commissioning-csv.md).
+
+
+# Commissioning & CSV cleaning
+
+# Commissioning & CSV cleaning
+
+Commissioning turns a raw BACnet scan into a **clean point list** the cloud can understand. Think of it as **editing a spreadsheet** — no programming required.
+
+## Files you will touch
+
+| File | When |
+|------|------|
+| `points_discovered.csv` | Auto-generated by discover (do not hand-edit as source of truth) |
+| `points.csv` | **Your** trimmed list — read driver reads this |
+| `commissioning/{site}/{building}/points.csv` | Git-backed path on bensserver |
+
+## Phase A — Discover (automatic)
+
+On the gateway:
+
+```bash
+cd ~/vibe_code_apps_12
+sudo systemctl start vibe12-bacnet-discover
+journalctl -u vibe12-bacnet-discover -n 80 --no-pager
+```
+
+Or run discover via Ansible-deployed one-shot. Output columns typically include device id, object type, instance, present value, and suggested tags.
+
+## Phase B — Clean the CSV (manual)
+
+Open `points_discovered.csv` in Excel, LibreOffice, or a text editor.
+
+**Do this for every row you keep:**
+
+1. Set **`enabled`** to `1` (only enabled rows are polled).
+2. Set **`system_id`** — equipment group (e.g. `office`, `ahu-1`, `vav-3`).
+3. Set **`brick_class`** — BRICK point type (e.g. `Zone_Air_Temperature_Sensor`).
+4. Set **`brick_tag`** — short operator label (e.g. `ZAT`, `SAT`).
+5. Delete rows for devices you **do not** want in the cloud.
+
+**Delete or disable:**
+
+- Duplicate objects
+- Internal/debug points
+- Points on devices you do not own
+
+Save the result as **`points.csv`** in the commissioning folder for your site/building.
+
+## Phase C — Back up to Git (recommended)
+
+From bensserver:
+
+```bash
+cd vibe_code_apps_12/ansible
+./fetch_commissioning.sh --limit bacnet_pi -v
+git add ../commissioning/
+git commit -m "Commission points for demo/bens-office"
+```
+
+## Phase D — Enable polling
+
+```bash
+./deploy.sh --limit bacnet_pi -e enable_bacnet_read_driver=true -v
+```
+
+## Column reference (typical)
+
+| Column | Meaning |
+|--------|---------|
+| `enabled` | `1` = poll and publish; `0` = ignore |
+| `system_id` | Equipment / system name for grouping |
+| `point_id` | Stable id used in MQTT topic segment |
+| `brick_class` | BRICK type for FDD rules and data model |
+| `brick_tag` | Human label |
+| `device_instance` | BACnet device id |
+| `object_type` / `object_instance` | BACnet object |
+
+Exact headers match your discover template — if a column is missing, discover again after updating `edge_bacnet`.
+
+## Checklist
+
+- [ ] Discover completed without BACnet errors in journal
+- [ ] `points.csv` has only intended rows with `enabled=1`
+- [ ] Every enabled row has `system_id` and `brick_class`
+- [ ] File committed or backed up off the Pi
+- [ ] Read driver journal shows publish count matching enabled points
+
+Next: [AWS IoT Core](04-aws-iot-core.md).
+
+
+# AWS IoT Core (PEM, MQTT)
+
+# AWS IoT Core
+
+AWS IoT Core is the **MQTT broker in the cloud**. The gateway connects with a **certificate (PEM)** and publishes telemetry; **IoT Rules** invoke **Lambda** to write **DynamoDB**.
+
+## What you need in AWS
+
+| Resource | Purpose |
+|----------|---------|
+| **IoT Thing** | Logical name for your gateway (e.g. `bosspi`) |
+| **Device certificate** | `device.pem.crt` + `private.key` + Amazon root CA |
+| **IoT policy** | Allows `connect`, `publish`, `subscribe` for your topics |
+| **IoT Rules** | SQL on topics → trigger **ingest Lambda** |
+| **Lambda + DynamoDB** | Deployed by SAM stack `vibe12cloud` |
+
+Edge certs are **not** stored in Git. Ansible copies them from `ansible/files/aws_iot/` after you run `prepare_aws_iot_certs.sh` on the build machine.
+
+## Certificate files (on the Pi)
+
+After deploy:
+
+```text
+~/vibe_code_apps_12/aws_iot_certs/
+  AmazonRootCA1.pem      # or your region root CA
+  device.pem.crt         # device certificate (PEM)
+  private.key            # private key — keep secret
+```
+
+The read driver uses these paths in environment variables set by systemd (from Ansible templates).
+
+## IoT policy (lab default)
+
+The lab certificate is often registered for MQTT client id **`basicPubSub`**. Policy must allow at least:
+
+- **Connect** with client id `basicPubSub`
+- **Publish** to `vibe12/#` (multi-level; not `vibe12/*` which is only one segment)
+- **Subscribe** if you use command topics (optional)
+
+Example policy fragment lives in `aws_iot_core_test/policy-vibe12-multi-client.json` in the repo.
+
+**Symptom:** `NOT_AUTHORIZED` in `journalctl -u vibe12-bacnet-read` → policy or wrong client id.
+
+## MQTT topic layout
+
+Every telemetry message uses:
+
+```text
+vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+```
+
+Example:
+
+```text
+vibe12/demo/pi/office/digital-temp-degF/telemetry
+```
+
+**Payload (JSON)** includes:
+
+- `series_id` — often `site#building#system#point` (DynamoDB key)
+- `value`, `unit`, `ts` / `ts_ms`
+- `brick_class`, `brick_tag`, `site_id`, `building_id`, …
+
+## IoT Rule (in SAM template)
+
+| Rule | SQL (concept) | Action |
+|------|----------------|--------|
+| BACnet telemetry | `vibe12/+/+/+/+/telemetry` | ingest Lambda |
+
+Rule injects `topic()` as `mqtt_topic` in the Lambda event for parsing.
+
+## Prepare certs on build machine
+
+```bash
+cd vibe_code_apps_12/ansible
+./prepare_aws_iot_certs.sh
+```
+
+Follow script prompts (AWS CLI must be configured). Then deploy to the Pi so files appear under `aws_iot_certs/`.
+
+## Verify MQTT without the dashboard
+
+1. AWS Console → **IoT Core** → **MQTT test client** → subscribe to `vibe12/#`
+2. Confirm messages every 60 s after read driver is active
+3. CloudWatch → **ingest Lambda** → invocations increasing
+
+## Security checklist
+
+- [ ] Private key never committed to Git
+- [ ] Policy is least-privilege (not `iot:*` in production)
+- [ ] Certificate rotation plan documented for customer handoff
+
+Next: deploy cloud stack in [AWS cloud & SAM](aws-cloud-sam.md), then [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md).
+
+
+# Edge deploy (Ansible reference)
 
 # Edge deploy (Ansible)
 
@@ -146,7 +822,7 @@ journalctl -u vibe12-bacnet-read -n 20 --no-pager
 MQTT test client (AWS console): `vibe12/demo/bens-office/#`
 
 
-# BACnet commissioning
+# BACnet commissioning (quick)
 
 # BACnet commissioning
 
@@ -246,9 +922,16 @@ curl -sS "${URL}/api/points/demo/bens-office"
 
 # AWS cloud & SAM deploy
 
-Deploy the **vibe12cloud** stack (IoT rules → DynamoDB → dashboard Lambdas) from **AWS CloudShell** in **us-east-2**.
+Deploy the **vibe12cloud** stack (IoT rules → DynamoDB → dashboard Lambdas) in **us-east-2**.
 
-> **Upload target:** AWS Console → **CloudShell** → **Actions → Upload file** (not the IoT Core console). IoT receives data from the Pi after the stack is deployed.
+**Two paths:**
+
+| Path | Guide |
+|------|--------|
+| **B — bensserver (recommended if you have AWS CLI keys here)** | [Deploy SAM from bensserver](aws-deploy-from-bensserver.md) — `./scripts/deploy_cloud_from_bensserver.sh`, no tarball |
+| **CloudShell** | This page (upload tar from Windows) |
+
+> **CloudShell upload:** AWS Console → **CloudShell** → **Actions → Upload file** (not the IoT Core console).
 
 Prerequisites: Pi (or edge) publishing to AWS IoT; `aws sts get-caller-identity` works in CloudShell.
 
@@ -256,20 +939,46 @@ Prerequisites: Pi (or edge) publishing to AWS IoT; `aws sts get-caller-identity`
 
 | Step | Where | What |
 |------|--------|------|
-| **A** | bensserver | `tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz …` (below) |
+| **A0** | bensserver | **Build React UI** → `web_lambda/static/app/` (`./scripts/build_web_ui.sh`) |
+| **A** | bensserver | `tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz …` (includes built UI, ~3–8 MB) |
 | **B** | Windows | Download `.tar.gz` or `.zip` from bensserver (SCP / VS Code) |
 | **C** | CloudShell | `rm -f` old archive + `rm -rf ~/aws_cloud_pipeline` |
 | **D** | CloudShell UI | **Actions → Upload file** |
 | **E** | CloudShell | `tar -xzf …` or `unzip` |
-| **F** | CloudShell | `cp samconfig.toml.example samconfig.toml` |
+| **F** | CloudShell | `cp samconfig.toml.example samconfig.toml` → **set WebPassword + AuthSecret** |
 | **G** | CloudShell | `sam build` → `sam deploy --force-upload` |
-| **H** | CloudShell | `curl` dashboard `/api/health` |
+| **H** | CloudShell | `curl` `/api/health` + login test (or `./scripts/verify_cloud_dashboard.sh`) |
+| **I** | Browser | Open **DashboardUrl** → sign in (`engineer` + your password) |
 
 Same content also lives in [`aws_cloud_pipeline/README.md`](../aws_cloud_pipeline/README.md) (longer notes) and [`DEPLOYED.md`](../aws_cloud_pipeline/DEPLOYED.md) (URLs after deploy).
 
 ## What is SAM?
 
 **SAM** packages `aws_cloud_pipeline/template.yaml` and runs **`sam deploy`** (CloudFormation). Stack name: **`vibe12cloud`**.
+
+---
+
+## Step A0 — Build the React UI on bensserver (required)
+
+The dashboard is a **Vite/React** app baked into the Lambda zip at `web_lambda/static/app/`. Run this **before** packing the tarball.
+
+**Node.js** must be **≥ 20.19** (or 22). Check: `node -v`.
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+
+# Optional: run unit tests first
+cd apps/vibe12-web && npm ci && npm test && cd ../..
+
+# Build and copy dist → aws_cloud_pipeline/web_lambda/static/app/
+./scripts/build_web_ui.sh
+
+# Confirm UI is present (~5 MB uncompressed)
+ls -lh aws_cloud_pipeline/web_lambda/static/app/index.html
+du -sh aws_cloud_pipeline/web_lambda/static/app
+```
+
+If you skip this step, the cloud site may show the old HTML dashboard or `spa not built` errors.
 
 ---
 
@@ -284,7 +993,15 @@ tar -czf ~/vibe12-aws-cloud-pipeline.tar.gz \
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 ```
 
-Expect **~100 KB – 2 MB**. If the file is ~20 bytes, the pack failed.
+Expect **~3–8 MB** (includes React `static/app/`). If the file is ~20 bytes or only ~100 KB, the pack failed or **A0** was skipped.
+
+**Size check on bensserver:**
+
+```bash
+test -f ~/vibe12-aws-cloud-pipeline.tar.gz && \
+  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 1000000 && \
+  echo "OK: tarball ready" || echo "ABORT: too small — run build_web_ui.sh and re-tar"
+```
 
 With unit tests (optional):
 
@@ -344,8 +1061,8 @@ Confirm size:
 ```bash
 ls -lh ~/vibe12-aws-cloud-pipeline.tar.gz
 test -f ~/vibe12-aws-cloud-pipeline.tar.gz && \
-  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 50000 && \
-  echo "OK: tarball ready" || echo "ABORT: re-upload"
+  test $(stat -c%s ~/vibe12-aws-cloud-pipeline.tar.gz) -gt 1000000 && \
+  echo "OK: tarball ready" || echo "ABORT: re-upload (expect ~3–8 MB with React UI)"
 ```
 
 For zip:
@@ -367,7 +1084,7 @@ cd ~/aws_cloud_pipeline
 ls
 ```
 
-You should see `template.yaml`, `samconfig.toml.example`, `ingest_lambda/`, `web_lambda/`, `fdd_lambda/`.
+You should see `template.yaml`, `samconfig.toml.example`, `ingest_lambda/`, `web_lambda/`, `fdd_lambda/`, and **`web_lambda/static/app/index.html`** (React UI).
 
 **Zip:**
 
@@ -379,16 +1096,42 @@ cd ~/aws_cloud_pipeline
 
 ---
 
-## Step F — `samconfig.toml` (required every fresh extract)
+## Step F — `samconfig.toml` + login secrets
+
+**On bensserver (recommended once, before packing the tar):**
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/aws_cloud_pipeline
+cp samconfig.toml.example samconfig.toml
+nano samconfig.toml
+```
+
+Edit only these two placeholders in `parameter_overrides`:
+
+| Parameter | Set to |
+|-----------|--------|
+| `WebPassword` | Replace `REPLACE_WITH_YOUR_PASSWORD` |
+| `AuthSecret` | Replace `REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS` |
+
+Optional: bump `DeployRevision` each deploy (`"5"`, `"6"`, …).
+
+`samconfig.toml` is **gitignored** — safe on bensserver, included in your tarball, never pushed to GitHub.
+
+**On CloudShell** (if tarball already contains your edited `samconfig.toml`):
 
 ```bash
 cd ~/aws_cloud_pipeline
-cp samconfig.toml.example samconfig.toml
+ls samconfig.toml    # should exist — skip cp/nano
 ```
 
-Do **not** use `sam deploy --guided` again after `samconfig.toml` exists (can corrupt IoT topic parameters).
+If missing:
 
-First-time only: `sam deploy --guided` and answer **`sdk/test/python`** for legacy topic if prompted.
+```bash
+cp samconfig.toml.example samconfig.toml
+nano samconfig.toml
+```
+
+Do **not** use `sam deploy --guided` after `samconfig.toml` exists.
 
 ---
 
@@ -406,7 +1149,7 @@ Hierarchical BACnet ingest rule is included: `vibe12/+/+/+/+/telemetry`.
 
 ---
 
-## Step H — Verify
+## Step H — Verify (CLI)
 
 ```bash
 export AWS_REGION=us-east-2
@@ -415,10 +1158,32 @@ URL=$(aws cloudformation describe-stacks --stack-name "$STACK" --region "$AWS_RE
   --query "Stacks[0].Outputs[?OutputKey=='DashboardUrl'].OutputValue" --output text | tr -d '\n\r')
 URL="${URL%/}"
 echo "Dashboard: $URL"
+
+# Health (no login required)
 curl -sS "${URL}/api/health" | python3 -m json.tool
+
+# Login API (use the same WebPassword you set in samconfig.toml)
+curl -sS -X POST "${URL}/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"engineer","password":"YOUR_WEB_PASSWORD_HERE"}' | python3 -m json.tool
 ```
 
-IoT test client: subscribe to `vibe12/demo/bens-office/#` and `sdk/test/python` (legacy).
+Expect login JSON with `"ok": true` and a `"token"` field.
+
+**SPA check:** open `$URL` in a browser — you should see **Vibe12 Cloud** sign-in (not the old tabbed HTML). After login: Dashboard, Rule Lab, Data Model, System in the sidebar.
+
+IoT test client: subscribe to `vibe12/#` (or `vibe12/{site_id}/{building_id}/#` for one building).
+
+---
+
+## Step I — Browser
+
+1. Open the **Dashboard** URL from step H.
+2. Sign in as **`engineer`** (or your `WebUsername`) with **`WebPassword`** from `samconfig.toml`.
+3. Pick **site / building** in the top bar (must match edge MQTT `site_id` / `building_id`).
+4. **Dashboard** — chart; **Rule Lab** — FDD Python; **Data model** — registry + import.
+
+**Troubleshooting login:** Browser devtools → Console — filter `vibe12`. Failed login shows `[vibe12][api] 401`. Add `?log=debug` to the URL for more API timing lines (not noisy by default).
 
 ---
 
@@ -436,13 +1201,198 @@ sam delete --stack-name vibe12cloud
 |---------|-----|
 | Upload seems ignored | `rm -f ~/vibe12-aws-cloud-pipeline.tar.gz` then re-upload |
 | `Missing option '--stack-name'` | `cp samconfig.toml.example samconfig.toml` |
-| Tarball missing in CloudShell | Confirm `ls -lh` shows > 50 KB before extract |
+| Tarball missing in CloudShell | Confirm `ls -lh` shows **> 1 MB** before extract (with React UI, ~3–8 MB) |
+| Old HTML dashboard after deploy | Re-run **A0** `build_web_ui.sh` on bensserver, re-tar, re-deploy |
+| Login fails / 401 | `WebPassword` in `samconfig.toml` must match what you type; redeploy after changing params |
+| `spa not built` error | `web_lambda/static/app/index.html` missing from tarball — run A0 |
 | Stack name | Use **`vibe12cloud`** only (no hyphens in some resource names) |
 
 More detail: [DEPLOYED.md](../aws_cloud_pipeline/DEPLOYED.md) (stack outputs, example URLs).
 
 
-# BACnet wire capture
+# Cloud dashboard & FDD (Python)
+
+# Cloud dashboard & FDD (Python)
+
+After telemetry is in **DynamoDB**, the **web Lambda** serves a React dashboard and **Rule Lab** where you author **Python** fault rules (Bake-a-Py style).
+
+## Deploy the cloud stack
+
+See [AWS cloud & SAM deploy](aws-cloud-sam.md). Summary:
+
+1. Pack `aws_cloud_pipeline/` on bensserver (`tar` or `zip`).
+2. Upload to **CloudShell** (us-east-2).
+3. `sam build` → `sam deploy --stack-name vibe12cloud`.
+4. Note **DashboardUrl** and set **WebPassword** / **AuthSecret** parameters.
+
+Before deploy, build the UI on bensserver (see [AWS cloud & SAM deploy](aws-cloud-sam.md) **Step A0**):
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./scripts/build_web_ui.sh
+```
+
+This copies the React app into `web_lambda/static/app/` (Lambda-only hosting, no S3). Then pack `aws_cloud_pipeline` into the tarball and deploy from CloudShell as usual.
+
+## Sign in
+
+Open **DashboardUrl** in a browser. Log in with SAM parameters **`WebUsername`** / **`WebPassword`** (default user `engineer`).
+
+API calls send `Authorization: Bearer <token>`. Static JS is public; **API routes require a valid token** when auth env vars are set.
+
+## Rule Lab workflow (non-technical summary)
+
+| Button | What it does |
+|--------|----------------|
+| **Test rule** | Runs Python on recent data; shows results in console — **does not** change production DB |
+| **Save draft** | Stores rules in DynamoDB for next visit |
+| **Write to database** | Saves rules + runs **7-day backfill** in chunks; updates FDD status for dashboard |
+
+## Python rule shape
+
+Each rule has:
+
+- **Name** — display only (rename with ✎).
+- **Config** — numbers like bounds, tolerances, rolling average minutes.
+- **Code** — `def evaluate(row, cfg, prev_row=None, rows=None):` return `True` to flag a row.
+
+Temperature helpers: `row["temp"]`, `cfg["bounds_low"]`, optional `row["temp_rolling_avg"]`.
+
+Full recipes: [FDD expression rule cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md).
+
+## BRICK-scoped rules
+
+If your registry has **BRICK classes**, Rule Lab can run one rule across **all matching points** (equipment type + point class). Requires telemetry and optional data model import.
+
+## Scheduled FDD
+
+A separate **FDD Lambda** runs every **5 minutes** on recent data using saved rules (same engine as go-live, smaller window).
+
+## Smoke tests (copy-paste)
+
+Replace `URL` with your Function URL:
+
+```bash
+curl -sS "$URL/api/health" | head
+curl -sS -X POST "$URL/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"engineer","password":"YOUR_PASSWORD"}'
+```
+
+## Checklist
+
+- [ ] `./scripts/build_web_ui.sh` run before `sam deploy`
+- [ ] Dashboard shows latest temperature
+- [ ] Points API lists commissioned series
+- [ ] One rule **Test** succeeds
+- [ ] **Save draft** + **Write to database** complete without 502 (use shorter test window if timeout)
+
+Next: [Web app features (low-level)](06-web-app-features.md).
+
+
+# Web app features (reference)
+
+# Web app features (reference)
+
+Low-level description of each screen in **Vibe12 Cloud** (`apps/vibe12-web`), served from the **web Lambda** Function URL.
+
+## Architecture
+
+```text
+Browser (React SPA)
+    |  HTTPS same origin
+    v
+Lambda Function URL
+    |-- GET /assets/*     static JS/CSS (Vite build)
+    |-- GET /             index.html (SPA)
+    |-- POST /api/auth/login
+    |-- GET/POST /api/*   Python (DynamoDB, FDD engine)
+```
+
+Stack: **React 19**, **TypeScript**, **Vite**, **Plotly**, **CodeMirror** (Python), styling aligned with **Open-FDD desktop-ui**.
+
+## Login
+
+| Item | Detail |
+|------|--------|
+| Endpoint | `POST /api/auth/login` with `{username, password}` |
+| Session | Bearer token in `sessionStorage` |
+| Config | Lambda env `VIBE12_WEB_USER`, `VIBE12_WEB_PASSWORD`, `VIBE12_AUTH_SECRET` |
+| Troubleshooting | Browser console prefix `[vibe12][api]`; add `?log=debug` for timing lines |
+
+## Dashboard
+
+| Feature | Behavior |
+|---------|----------|
+| Site / building | Top bar; drives all API queries |
+| Latest °C / °F | From last point in readings response |
+| FDD status chip | From `fdd_open` summary (after go-live) |
+| History | 6–168 h lookback |
+| Display unit | Imperial °F or metric °C for chart axis |
+| Rolling average | 1–15 min server-side average series |
+| Chart | Plotly line trace; auto-refresh ~30 s (silent) |
+| API | `GET /api/readings?hours=&rolling_avg_minutes=&temp_unit=` |
+
+## Rule Lab
+
+| Feature | Behavior |
+|---------|----------|
+| Rule list | Dropdown of all rules; add/remove |
+| Rename | ✎ edit name — **per rule** (does not change other rules) |
+| Code editor | Python `evaluate()` with syntax highlighting |
+| BRICK targets | Multi-select from live registry + model; hidden if empty |
+| Test rule | `POST /api/playground/test-rule` — hours from UI |
+| Save draft | `POST /api/fdd-rules` → DynamoDB `ts_ms=-2` |
+| Write to database | `POST /api/playground/go-live` — chunked backfill |
+| Console | Text output from test/go-live |
+| API load | `GET /api/fdd-rules?site_id=&building_id=` includes `brick_scope_options` |
+
+## Data model
+
+| Feature | Behavior |
+|---------|----------|
+| Registry table | `GET /api/points/{site}/{building}` — all `series_id` rows from ingest |
+| Export JSON | Open-FDD-shaped `{sites, equipment, points}` |
+| Import JSON | `POST .../import` — preserve `metadata.external_ref` = series_id |
+| Sync TTL | Inline Turtle projection (white panel, no popup) |
+| LLM workflow | Export + rules → external AI → import validated JSON |
+
+## System
+
+| Feature | Behavior |
+|---------|----------|
+| Health | `GET /api/health` — numpy, batch sizes, deploy revision |
+| Log hint | `localStorage.vibe12_log=debug` |
+
+## Backend tables (conceptual)
+
+| DynamoDB use | Key idea |
+|--------------|----------|
+| Telemetry | `device_id` = series_id, `ts_ms` = sample time |
+| Point registry | Meta row per site/building listing all series |
+| Custom rules | Meta row `ts_ms=-2` JSON rules array |
+| FDD summary | Meta row `ts_ms=0` status + flags |
+
+## Browser logging policy
+
+- **Default:** `info` — API method, path, status, duration, request id.
+- **Errors:** always logged with short body snippet.
+- **Not logged:** full telemetry arrays, rule source code on success.
+- **Debug:** `?log=debug` or `localStorage.vibe12_log=debug`.
+
+## Build & deploy UI only
+
+```bash
+./scripts/build_web_ui.sh   # npm build → web_lambda/static/app
+cd aws_cloud_pipeline && sam build && sam deploy
+```
+
+---
+
+Related: [Master checklist](00-master-checklist.md) · [Edge deploy](edge-deploy.md) · [AWS SAM](aws-cloud-sam.md)
+
+
+# Wire capture (Wireshark)
 
 # BACnet wire capture (pcap)
 
@@ -463,32 +1413,61 @@ cd vibe_code_apps_12/ansible
 
 Boss Pi filter: UDP **47808** and **47809** (PiTemp + Vibe12Edge).
 
-Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in the background. Each deploy **overwrites** the same filename.
+Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in the background as **root** (`become: true` — tcpdump requires it). Each deploy **overwrites** the same filename.
 
-## Pull pcap to your laptop
+If you run the script by hand without Ansible, use **`sudo`** or capture will fail with *Operation not permitted*.
 
-After capture finishes:
+## One command (bensserver → `$HOME`)
+
+From the build machine (no Ansible):
 
 ```bash
-scp ben@192.168.204.12:~/vibe_code_apps_12/captures/bacnet.pcap .
-wireshark bacnet.pcap
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./scripts/fetch_bacnet_pcap.sh              # 5 min capture + download
+./scripts/fetch_bacnet_pcap.sh --pull-only  # only scp existing Pi file
+```
+
+Files land at:
+
+- `~/captures/bacnet.pcap`
+- `~/bacnet-latest.pcap` (symlink)
+
+Env: `PI_HOST=192.168.204.12` `PI_USER=ben`
+
+## Pull pcap to your PC
+
+After capture finishes, copy with an **absolute remote path**. Do **not** use `ben@host:~/vibe_code_apps_12/...` — many `scp` clients (Windows PowerShell, OpenSSH) do not expand `~` on the remote side and report *No such file or directory* even when the file exists.
+
+**PowerShell or bash** (current directory):
+
+```powershell
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap .
+```
+
+**Linux/macOS** (explicit home path):
+
+```bash
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap ~/bacnet.pcap
+wireshark ~/bacnet.pcap
 ```
 
 Wireshark display filter: `bacnet` or `udp.port == 47808`.
 
 ## Manual capture on edge
 
+SSH to the Pi, then run with **sudo** (tcpdump needs root):
+
 ```bash
-~/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
-  ~/vibe_code_apps_12/captures/bacnet.pcap \
+sudo /home/ben/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
+  /home/ben/vibe_code_apps_12/captures/bacnet.pcap \
   "udp port 47808 or udp port 47809" \
-  300
+  120
 ```
 
 Same pattern as [vibe_code_apps_14/captures](../../vibe_code_apps_14/captures/README.md).
 
 
-# Commissioning CSV backup
+# Commissioning backup to Git
 
 # Commissioning CSV backup (Git)
 
@@ -531,200 +1510,109 @@ Next deploy pushes `commissioning/.../points.csv` back to the edge automatically
 
 # Cloud architecture reference
 
-# Vibe Code App 12B — Deployed architecture (working reference)
+# Vibe12 cloud — Deployed reference (BACnet MQTT)
 
-Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi DS18B20 → IoT → DynamoDB → dashboard + Rule Lab.
+Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi BACnet read driver → MQTT → IoT rule → DynamoDB → React dashboard + Rule Lab.
 
-Rule recipes: **[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md)**  
-Full deploy steps: **[README.md](README.md)**
+| Topic | Doc |
+|-------|-----|
+| Bensserver deploy | [docs/aws-deploy-from-bensserver.md](../docs/aws-deploy-from-bensserver.md) |
+| CloudShell deploy | [docs/aws-cloud-sam.md](../docs/aws-cloud-sam.md) |
+| Rule recipes | [EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) |
 
 ---
 
 ## End-to-end flow
 
 ```text
-Raspberry Pi (bosspi)
-  temp_sensor_server.py --aws-iot --aws-interval 10
-        │ MQTT (topic sdk/test/python, ~every 10 s)
+Raspberry Pi (boss Pi / lab)
+  vibe12-bacnet-read.service  (BACpypes3 RPM poll)
+        │ MQTT TLS  vibe12/{site}/{building}/{system}/{point}/telemetry
         ▼
 AWS IoT Core
-        │ Rule: vibe12_ds18b20_ingest
+        │ Rule: vibe12_telemetry_ingest  (SQL: vibe12/+/+/+/+/telemetry)
         ▼
-IngestFunction (Lambda zip)
+IngestFunction (Lambda)
         │ PutItem
         ▼
 DynamoDB  vibe12-telemetry-vibe12cloud
         │
         ├────────────────────────────┐
         ▼                            ▼
-WebFunction (Lambda URL)      FddFunction (zip, every 5 min)
-  Dashboard + Rule Lab          Custom rules or fdd_rules.py
+WebFunction (Lambda URL)      FddFunction (every 5 min)
+  React dashboard + login       Custom rules / fdd_rules.py
+```
+
+Phase 0 lab IDs: **site** `demo`, **building** `bens-office`.
+
+---
+
+## Live URLs (us-east-2, deploy revision 6+)
+
+| Output | Example |
+|--------|---------|
+| **DashboardUrl** | `https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws/` |
+| Health | `{DashboardUrl}api/health` |
+| Login | `POST {DashboardUrl}api/auth/login` JSON `username` / `password` |
+| Readings | `GET …/api/readings?site_id=demo&building_id=bens-office` + `Authorization: Bearer …` |
+
+Login user defaults to **`engineer`** (from `samconfig.toml` `WebUsername` / `WebPassword`).
+
+---
+
+## Smoke after deploy
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+chmod +x scripts/verify_cloud_dashboard.sh
+./scripts/verify_cloud_dashboard.sh
+```
+
+Or manual:
+
+```bash
+URL="https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws"
+curl -sS "${URL}/api/health"
+curl -sS -X POST "${URL}/api/auth/login" -H 'Content-Type: application/json' \
+  -d '{"username":"engineer","password":"<your WebPassword>"}'
 ```
 
 ---
 
 ## AWS resources
 
-| Resource | What it is |
-|----------|------------|
-| **DynamoDB** `vibe12-telemetry-vibe12cloud` | Temperature history (7-day TTL) |
-| **S3** `aws-sam-cli-managed-…` | SAM deploy artifacts only |
-| **IoT Rule** `vibe12_ds18b20_ingest` | MQTT → ingest Lambda |
-| **DashboardUrl** | Public HTTPS (Lambda Function URL) |
+| Resource | Value |
+|----------|--------|
+| DynamoDB | `vibe12-telemetry-vibe12cloud` |
+| IoT rule | `vibe12_telemetry_ingest` |
+| MQTT pattern | `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry` |
+| Lambdas runtime | **python3.12** |
+
+Delete legacy rules if still present: `vibe12_ds18b20_ingest`, `IotIngestRuleBacnet`.
 
 ---
 
-## Example URLs (your deploy may differ)
+## Tests (local / CI)
 
-- **Dashboard:** `https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws/`
-- **JSON:** same host + `/api/readings?hours=6`
-- **Health:** same host + `/api/health`
+| Suite | Command |
+|-------|---------|
+| Web (Vitest) | `cd apps/vibe12-web && npm ci && npm test` |
+| Python | `pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt` then `python3 -m unittest discover -s tests -v` |
+
+GitHub Actions: `.github/workflows/vibe12-tests.yml` (both jobs on push to `vibe_code_apps_12/**`).
 
 ---
 
-## CloudShell deploy (copy-paste)
-
-### Bensserver — pack
+## Bensserver one-liner deploy
 
 ```bash
-tar -czf /home/ben/vibe12-aws-cloud-pipeline.tar.gz \
-  -C /home/ben/py-bacnet-stacks-playground/vibe_code_apps_12 aws_cloud_pipeline
-ls -lh /home/ben/vibe12-aws-cloud-pipeline.tar.gz
+export PATH="$HOME/.local/bin:$PATH"
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./scripts/deploy_cloud_from_bensserver.sh
 ```
 
-### CloudShell — before upload
-
-```bash
-rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
-rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
-```
-
-**Actions → Upload file** → `vibe12-aws-cloud-pipeline.tar.gz`
-
-### CloudShell — extract + config + deploy
-
-```bash
-cd ~
-tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
-cd ~/aws_cloud_pipeline
-
-# Required after every fresh extract (fixes "Missing option '--stack-name'"):
-cp samconfig.toml.example samconfig.toml
-
-rm -rf .aws-sam
-sam build --no-cached
-sam validate --lint
-sam deploy --force-upload
-```
-
-Do **not** run `sam deploy --guided` after `samconfig.toml` is correct (can save `IotTopic=y`).
-
-### `samconfig.toml` essentials
-
-```toml
-stack_name = "vibe12cloud"
-region = "us-east-2"
-resolve_s3 = true
-resolve_image_repos = true
-```
-
----
-
-## Common fixes
-
-| Issue | Fix |
-|-------|-----|
-| `Missing option '--stack-name'` | `cp samconfig.toml.example samconfig.toml` |
-| Upload ignored | `rm -f ~/vibe12-aws-cloud-pipeline.tar.gz` then re-upload |
-| `AwsIotEventsSqlVersion` | Use **`AwsIotSqlVersion`** in template |
-| Stack name hyphen | **`vibe12cloud`** only |
-| Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
-| Chart zoom resets every 1 min | Deploy latest dashboard JS — **Pause auto-refresh while zoomed** (toolbar); **Reset zoom** to refit |
-| `502` / `Internal S...` not JSON on `/api/readings` | Response too large or Lambda timeout on **7 d** + all rules. **Deploy fix:** long windows use **chunked chart eval** (same 6 h batches as go-live) when `hours>48` or `samples>8000`; try **24 h** if on old deploy; check CloudWatch **WebFunction** |
-| Debug on dashboard | After deploy: **Backend logs** panel shows `srv:` lines from `debug.server_log`; errors show `stage=` and hint |
-
----
-
-## Web-only update
-
-```bash
-cd ~/aws_cloud_pipeline
-cp samconfig.toml.example samconfig.toml
-sam build WebFunction
-sam deploy --force-upload
-```
-
----
-
-## Pi (Ansible)
-
-```bash
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-./deploy.sh --ask-pass --ask-become-pass -v
-```
-
-`group_vars/pi_bcn.yml`: `aws_iot_publish_interval: 10`
-
----
-
-## Rule Lab: Test vs Go live (today)
-
-| Step | **Test rule** (hours dropdown) | **Go live** (up to 7 d) |
-|------|----------------------------------|-------------------------|
-| Read telemetry | One DynamoDB query for that window | One query for full backfill (cap ~62k points) |
-| Run rules | `evaluate()` per row; optional `(True, window_rows)` or `apply_faults()` | Same sweep engine (chunked on go-live) |
-| FDD DB writes | **None** | Rules (`ts_ms=-2`) + **summary** (`ts_ms=0`) only |
-| Dashboard fault lanes | N/A | **Recomputed** on each `/api/readings` refresh (not replayed from Go live) |
-
-Go live runs **chunked AFDD** — **hard-coded: 6 h batches, max 7 d (168 h)** (not the Rule Lab test-window dropdown). Each batch loads only that interval from DynamoDB, evaluates rules, merges **flag counts**, then discards rows. State at **`ts_ms=-3`**; summary at **`ts_ms=0`**.
-
-Scheduled **FddFunction** (every 5 min) does **incremental** catch-up from the watermark when rules unchanged; full chunked backfill when rules change or first run.
-
-**Fine for:** one Pi, ~10 s MQTT, a few rules, teaching / demo.
-
-**Pressure points at scale:** dashboard `/api/readings` still re-evaluates rules for chart lanes (downsampled); one `device_id` per stack.
-
-**Retroactive flatline / lookback windows:** `evaluate()` can return `(True, window_rows)` so the engine flags the whole hour, not just the detection row. Or define `apply_faults(rows, cfg) -> list[bool]`. See **Recipe 5** in `EXPRESSION_RULE_COOKBOOK.md`.
-
----
-
-## Future TODO (scaling — not implemented)
-
-Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple on purpose.
-
-### 1. Time-chunked evaluation — **implemented (v1)**
-
-- Go live + scheduled FDD: **6 h chunks** (`FDD_CHUNK_HOURS`), overlap for rolling avg, merge counts.
-- `afdd_state` at `ts_ms=-3`; summary at `ts_ms=0` includes `chunk_log` (last 40 chunks).
-
-### 2. Multi-sensor / multi-site model — **partial (v2)**
-
-- BACnet edge: `edge_bacnet/` discover → CSV → RPM read driver → MQTT `vibe12/{site}/{building}/{system}/{point}/telemetry`
-- Ingest: legacy `sdk/test/python` + hierarchical BACnet rule; `series_id` as `device_id` partition key
-- DynamoDB GSI `BuildingScopeIndex` (`building_scope` + `scope_sort`)
-- APIs: `/api/buildings`, `/api/points/{site}/{building}`, `/api/series`, `/api/brick/{site}/{building}`
-- Dashboard multi-series overlay + Rule Lab `series` context (see `BACNET_COMMISSIONING.md`)
-- Still TODO: FDD fan-out per building, pre-aggregated serve path at very high point counts
-
-### 3. Separate compute from serve
-
-- **Batch job** (scheduled or on-demand): runs rules, writes summary + compact artifacts.
-- **Read API / dashboard**: serves pre-aggregated results instead of full re-sweep on every browser refresh.
-
-### 4. Incremental FDD (watermark) — **partial (scheduled only)**
-
-- **FddFunction** resumes from `watermark_ms` when `rules_revision` matches.
-- **Go live** always full chunked backfill for the requested hours (resets counts).
-- Future: carry debounce state across chunks in the engine (not rule-local lists).
-
-### 5. Operational limits to respect
-
-| Limit | Today |
-|-------|--------|
-| `READINGS_LIMIT` | ~62k samples per query/eval pass |
-| WebFunction timeout | 120 s |
-| FDD status row | Summary only (counts, badge, eval_log) — not per-sample flag arrays |
-| Ingest | One `put_item` per MQTT sample (real time) |
+Requires `samconfig.toml` (gitignored) with real `WebPassword` + `AuthSecret`.
 
 ---
 

@@ -115,6 +115,28 @@ class DynamoTimeSeriesStore:
             scan_args["ExclusiveStartKey"] = last_key
         return out
 
+    def ensure_building(self, site_id: str, building_id: str) -> None:
+        """Create empty point-registry meta row so UI can register a site before first MQTT."""
+        meta_id = meta_device_id(site_id, building_id)
+        resp = self._table.get_item(
+            Key={"device_id": meta_id, "ts_ms": POINT_REGISTRY_TS}
+        )
+        if resp.get("Item"):
+            return
+        import time
+
+        self._table.put_item(
+            Item={
+                "device_id": meta_id,
+                "ts_ms": POINT_REGISTRY_TS,
+                "record_type": "point_registry",
+                "site_id": site_id,
+                "building_id": building_id,
+                "points_json": "{}",
+                "expires_at": int(time.time()) + 30 * 86400,
+            }
+        )
+
     def list_points(self, site_id: str, building_id: str) -> list[dict[str, Any]]:
         meta_id = meta_device_id(site_id, building_id)
         resp = self._table.get_item(

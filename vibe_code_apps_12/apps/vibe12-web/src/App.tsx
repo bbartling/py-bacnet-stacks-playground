@@ -5,6 +5,9 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { RuleLabPage } from "./pages/RuleLabPage";
 import { DataModelPage } from "./pages/DataModelPage";
 import { SystemPage } from "./pages/SystemPage";
+import { SitesPage } from "./pages/SitesPage";
+import { ExplorePage } from "./pages/ExplorePage";
+import { EdgeDevicesPage } from "./pages/EdgeDevicesPage";
 
 export default function App() {
   return (
@@ -13,6 +16,9 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/sites" element={<SitesPage />} />
+        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/edge-devices" element={<EdgeDevicesPage />} />
         <Route path="/rule-lab" element={<RuleLabPage />} />
         <Route path="/data-model" element={<DataModelPage />} />
         <Route path="/system" element={<SystemPage />} />

@@ -61,8 +61,12 @@ from brick_model import (
 from telemetry_api import (
     brick_timeseries_refs,
     commissioning_status,
+    deployment_readiness,
+    edge_devices_status,
     telemetry_flow_status,
+    telemetry_series_catalog,
 )
+from sites_api import create_site_building
 from timeseries import DynamoTimeSeriesStore, align_series_windows
 from web_auth import (
     auth_enabled,
@@ -729,7 +733,7 @@ def _health_payload() -> dict:
         "chart_chunked_hours": CHART_CHUNKED_HOURS,
         "chart_chunked_samples": CHART_CHUNKED_SAMPLES,
         "mqtt_topic_prefix": "vibe12",
-        "features": ["brick_model", "multi_series", "bacnet_ingest", "data_model", "brick_scoped_fdd"],
+        "features": ["brick_model", "multi_series", "bacnet_ingest", "data_model", "brick_scoped_fdd", "edge_devices", "telemetry_catalog", "site_creation"],
         "note": "math and datetime always available; import numpy as np when numpy_available",
     }
 
@@ -944,8 +948,32 @@ def lambda_handler(event, context):
             )
 
     if path.startswith("/api/buildings"):
+        if method == "POST":
+            body = _parse_body(event)
+            try:
+                payload = create_site_building(
+                    _ts_store,
+                    site_id=str(body.get("site_id") or ""),
+                    building_id=str(body.get("building_id") or ""),
+                    display_name=str(body.get("display_name") or body.get("name") or ""),
+                )
+                return _response(201, _json_safe(payload))
+            except ValueError as exc:
+                return _response(400, {"error": str(exc)})
         buildings = _ts_store.list_buildings()
         return _response(200, {"buildings": buildings})
+
+    if path.startswith("/api/edge-devices") and method == "GET":
+        return _response(200, _json_safe(edge_devices_status(_ts_store)))
+
+    if path.startswith("/api/telemetry/catalog") and method == "GET":
+        q = event.get("queryStringParameters") or {}
+        hours = max(1, min(168, int(q.get("hours", 24))))
+        return _response(200, _json_safe(telemetry_series_catalog(_ts_store, hours=hours)))
+
+    if path.startswith("/api/deployment/status") and method == "GET":
+        rev = os.environ.get("DEPLOY_REVISION", "")
+        return _response(200, _json_safe(deployment_readiness(_ts_store, deploy_revision=rev)))
 
     if path.startswith("/api/telemetry/flow/"):
         parts = [p for p in path.split("/") if p]
