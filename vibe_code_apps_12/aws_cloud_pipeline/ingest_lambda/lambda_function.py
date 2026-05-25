@@ -15,6 +15,7 @@ from typing import Any
 
 import boto3
 
+from brick_timeseries import brick_timeseries_ref, registry_entry_from_row
 from mqtt_routing import (
     is_series_telemetry,
     parse_mqtt_topic,
@@ -103,19 +104,13 @@ def _upsert_point_registry(row: dict[str, Any]) -> None:
         points_map = {}
 
     system_id = row.get("system_id") or ""
-    points_map[reg_key] = {
-        "series_id": row["series_id"],
-        "site_id": row["site_id"],
-        "building_id": row["building_id"],
-        "system_id": system_id,
-        "point_id": row["point_id"],
-        "unit": row.get("unit", ""),
-        "brick_class": row.get("brick_class", ""),
-        "brick_tag": row.get("brick_tag", ""),
-        "object_name": row.get("object_name", ""),
-        "equipment_type": _infer_equipment_type(system_id),
-        "external_ref": row["series_id"],
-    }
+    entry = registry_entry_from_row(
+        {
+            **row,
+            "equipment_type": _infer_equipment_type(system_id),
+        }
+    )
+    points_map[reg_key] = entry
     _table.put_item(
         Item={
             "device_id": meta_id,
@@ -141,6 +136,16 @@ def _put_telemetry(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
         )
 
     val = row["value"]
+    ts_ref = brick_timeseries_ref(
+        site_id=row["site_id"],
+        building_id=row["building_id"],
+        system_id=row["system_id"],
+        point_id=row["point_id"],
+        series_id=row["series_id"],
+        brick_class=row.get("brick_class", ""),
+        brick_tag=row.get("brick_tag", ""),
+    )
+    ts_ref["hasUnit"] = row.get("unit", "")
     item = {
         "device_id": row["series_id"],
         "series_id": row["series_id"],
@@ -159,6 +164,9 @@ def _put_telemetry(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
         "object_name": row["object_name"],
         "source": row["source"],
         "seq": row["seq"],
+        "brick_timeseries_ref": json.dumps(ts_ref),
+        "external_ref": row["series_id"],
+        "entity_id": ts_ref["entity_id"],
         "expires_at": _expires_at(),
     }
     if row.get("bacnet_object"):

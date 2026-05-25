@@ -37,7 +37,7 @@ The read driver uses these paths in environment variables set by systemd (from A
 The lab certificate is often registered for MQTT client id **`basicPubSub`**. Policy must allow at least:
 
 - **Connect** with client id `basicPubSub`
-- **Publish** to `vibe12/*` (or your topic prefix)
+- **Publish** to `vibe12/#` (multi-level; not `vibe12/*` which is only one segment)
 - **Subscribe** if you use command topics (optional)
 
 Example policy fragment lives in `aws_iot_core_test/policy-vibe12-multi-client.json` in the repo.

@@ -42,6 +42,8 @@ Yes, when:
 - [ ] `points.csv` rows have `site_id=demo`, `building_id=bens-office`, `enabled=1`
 - [ ] IoT policy allows **`iot:Publish`** on `vibe12/*` and connect as **`basicPubSub`**
 - [ ] Cloud stack deployed with rule **`vibe12_telemetry_ingest`** (not legacy `sdk/test/python`)
+- [ ] IoT device policy allows **`topic/vibe12/+/+/+/+/telemetry`** and **`topic/vibe12/demo/bens-office/*`** (see `aws_iot_core_test/policy-vibe12-multi-client.json`)
+- [ ] `GET /api/commissioning/status/demo/bens-office` → `cloud_ingest_ok: true` (6 series: 4 BACnet + 2 GPIO)
 
 ## Deploy from bensserver
 

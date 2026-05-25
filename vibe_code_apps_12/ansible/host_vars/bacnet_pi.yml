@@ -11,6 +11,7 @@ building_id: bens-office
 
 # MQTT via read driver only (vibe12/{site_id}/{building_id}/…/telemetry) — one client basicPubSub
 enable_aws_iot: true
+enable_ds18b20_aws_iot: false
 enable_gpio_mqtt_on_read_driver: true
 
 # BACnet edge app (discover + RPM read) — unique instance vs PiTemp

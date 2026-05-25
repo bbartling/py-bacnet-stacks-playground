@@ -52,8 +52,18 @@ curl -fsS "${URL}/api/auth/me" -H "Authorization: Bearer $TOKEN" | python3 -m js
 
 SITE="${SITE_ID:-demo}"
 BLD="${BUILDING_ID:-bens-office}"
+echo "=== Telemetry flow: site=$SITE building=$BLD ==="
+curl -fsS "${URL}/api/commissioning/status/${SITE}/${BLD}?window_minutes=20" \
+  -H "Authorization: Bearer $TOKEN" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print('cloud_ingest_ok', d.get('cloud_ingest_ok'), 'flowing', d.get('series_flowing'), '/', d.get('series_total'))
+for s in d.get('series', []):
+    print(' ', s.get('source'), s.get('point_id'), s.get('flowing'), s.get('last_value'))
+"
+
 echo "=== Readings: site=$SITE building=$BLD ==="
 curl -fsS "${URL}/api/readings?site_id=${SITE}&building_id=${BLD}&hours=2" \
   -H "Authorization: Bearer $TOKEN" | python3 -c "import sys,json; d=json.load(sys.stdin); print('count', d.get('count'), 'latest', d.get('latest'))"
 
-echo "OK: auth and API reachable"
+echo "OK: auth, commissioning, and readings reachable"

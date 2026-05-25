@@ -3,18 +3,27 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "iot:Connect",
-      "Resource": "arn:aws:iot:us-east-2:*:client/basicPubSub"
+      "Action": ["iot:Publish", "iot:Receive", "iot:PublishRetain"],
+      "Resource": [
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/+/+/+/+/telemetry",
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/demo/bens-office/*",
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/sdk/test/python"
+      ]
     },
     {
       "Effect": "Allow",
-      "Action": "iot:Connect",
-      "Resource": "arn:aws:iot:us-east-2:*:client/vibe12-*"
+      "Action": ["iot:Subscribe"],
+      "Resource": [
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:topicfilter/vibe12/#"
+      ]
     },
     {
       "Effect": "Allow",
-      "Action": "iot:Publish",
-      "Resource": "arn:aws:iot:us-east-2:*:topic/vibe12/*"
+      "Action": ["iot:Connect"],
+      "Resource": [
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:client/basicPubSub",
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:client/vibe12-*"
+      ]
     }
   ]
 }

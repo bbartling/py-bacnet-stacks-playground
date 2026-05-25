@@ -58,6 +58,11 @@ from brick_model import (
     empty_graph,
     graph_from_point_registry,
 )
+from telemetry_api import (
+    brick_timeseries_refs,
+    commissioning_status,
+    telemetry_flow_status,
+)
 from timeseries import DynamoTimeSeriesStore, align_series_windows
 from web_auth import (
     auth_enabled,
@@ -941,6 +946,57 @@ def lambda_handler(event, context):
     if path.startswith("/api/buildings"):
         buildings = _ts_store.list_buildings()
         return _response(200, {"buildings": buildings})
+
+    if path.startswith("/api/telemetry/flow/"):
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 5 and method == "GET":
+            site_id, building_id = parts[3], parts[4]
+            q = event.get("queryStringParameters") or {}
+            window = max(1, min(120, int(q.get("window_minutes", 15))))
+            payload = telemetry_flow_status(
+                _ts_store, site_id, building_id, window_minutes=window
+            )
+            return _response(200, _json_safe(payload))
+        return _response(400, {"error": "use GET /api/telemetry/flow/{site_id}/{building_id}"})
+
+    if path.startswith("/api/commissioning/status/"):
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 5 and method == "GET":
+            site_id, building_id = parts[3], parts[4]
+            q = event.get("queryStringParameters") or {}
+            window = max(1, min(120, int(q.get("window_minutes", 15))))
+            payload = commissioning_status(
+                _ts_store, site_id, building_id, window_minutes=window
+            )
+            return _response(200, _json_safe(payload))
+        return _response(
+            400, {"error": "use GET /api/commissioning/status/{site_id}/{building_id}"}
+        )
+
+    if path.startswith("/api/brick/timeseries-ref"):
+        q = event.get("queryStringParameters") or {}
+        series_id = (q.get("series_id") or "").strip()
+        parts = [p for p in path.split("/") if p]
+        if len(parts) >= 5 and method == "GET":
+            site_id, building_id = parts[3], parts[4]
+            payload = brick_timeseries_refs(
+                _ts_store, site_id, building_id, series_id=series_id or None
+            )
+            return _response(200, _json_safe(payload))
+        if series_id and method == "GET":
+            # ?series_id=demo#bens-office#...
+            bits = series_id.split("#")
+            if len(bits) >= 4:
+                payload = brick_timeseries_refs(
+                    _ts_store, bits[0], bits[1], series_id=series_id
+                )
+                return _response(200, _json_safe(payload))
+        return _response(
+            400,
+            {
+                "error": "use GET /api/brick/timeseries-ref/{site}/{building} or ?series_id="
+            },
+        )
 
     if path.startswith("/api/points/"):
         parts = [p for p in path.split("/") if p]
