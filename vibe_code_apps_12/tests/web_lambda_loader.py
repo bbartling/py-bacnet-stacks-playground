@@ -40,8 +40,16 @@ def load_web_lambda(module_name: str = "vibe12_web_lambda") -> ModuleType:
 
     _install_boto3_stub()
 
+    _purge = (
+        "mqtt_routing",
+        "lambda_function",
+        "timeseries",
+        "brick_model",
+        "brick_timeseries",
+        "telemetry_api",
+    )
     for mod in list(sys.modules):
-        if mod in ("mqtt_routing", "lambda_function", "timeseries", "brick_model"):
+        if mod in _purge:
             del sys.modules[mod]
 
     spec = importlib.util.spec_from_file_location(module_name, _WEB / "lambda_function.py")

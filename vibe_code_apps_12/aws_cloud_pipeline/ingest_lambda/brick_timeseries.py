@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 BRICK_CONTEXT = "https://brickschema.org/schema/Brick#"
@@ -52,6 +53,19 @@ def brick_timeseries_ref(
         ),
         "hasUnit": "",
     }
+
+
+def parse_stored_ref(raw: Any) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    return None
 
 
 def registry_entry_from_row(row: dict[str, Any]) -> dict[str, Any]:

@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
-import sys
 import unittest
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[1]
-_INGEST = _ROOT / "aws_cloud_pipeline" / "ingest_lambda"
-if str(_INGEST) not in sys.path:
-    sys.path.insert(0, str(_INGEST))
+import importlib.util
 
-from brick_timeseries import brick_timeseries_ref, registry_entry_from_row  # noqa: E402
+_ROOT = Path(__file__).resolve().parents[1]
+_INGEST_BT = _ROOT / "aws_cloud_pipeline" / "ingest_lambda" / "brick_timeseries.py"
+_spec = importlib.util.spec_from_file_location("ingest_brick_timeseries", _INGEST_BT)
+assert _spec and _spec.loader
+_bt = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_bt)
+brick_timeseries_ref = _bt.brick_timeseries_ref
+registry_entry_from_row = _bt.registry_entry_from_row
 
 
 class TestBrickTimeseries(unittest.TestCase):
