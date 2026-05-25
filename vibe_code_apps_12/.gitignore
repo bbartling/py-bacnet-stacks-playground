@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 .aws-sam/
 
-# Doc build artifacts
+# Doc build venv + artifacts
+.docs-venv/
 docs/_build/
 
 # Wire captures (generated on edge by deploy --pcap)

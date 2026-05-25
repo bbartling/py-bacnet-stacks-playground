@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -109,6 +110,36 @@ def build_title_to_nav(files: list[Path]) -> dict[str, int]:
     return title_to_nav
 
 
+def resolve_pdf_engine(requested: str) -> str:
+    """Return pandoc --pdf-engine value (full path to weasyprint when in venv)."""
+    if requested != "weasyprint":
+        return requested
+    # sys.executable may symlink to /usr/bin/python — use sys.prefix for venv bin
+    weasy = Path(sys.prefix) / "bin" / "weasyprint"
+    if weasy.is_file():
+        return str(weasy)
+    py_bin = Path(sys.executable).parent
+    weasy_local = py_bin / "weasyprint"
+    if weasy_local.is_file():
+        return str(weasy_local)
+    path = f"{py_bin}{os.pathsep}{os.environ.get('PATH', '')}"
+    if shutil.which("weasyprint", path=path):
+        return "weasyprint"
+    if shutil.which("wkhtmltopdf"):
+        print("weasyprint not available; using wkhtmltopdf", file=sys.stderr)
+        return "wkhtmltopdf"
+    if shutil.which("pdflatex"):
+        print("weasyprint not available; using pdflatex", file=sys.stderr)
+        return "pdflatex"
+    print(
+        "No PDF engine found. Run:\n"
+        "  sudo apt install -y pandoc libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0\n"
+        "  ./scripts/setup_docs_venv.sh && ./scripts/build_docs.sh",
+        file=sys.stderr,
+    )
+    return "weasyprint"
+
+
 def resolve_pages(manifest_pages: list[tuple[Path, str | None]]) -> list[tuple[Path, str | None]]:
     if manifest_pages:
         return manifest_pages
@@ -181,6 +212,7 @@ def main() -> int:
     if args.no_pdf:
         return 0
 
+    engine = resolve_pdf_engine(args.pdf_engine)
     cmd = [
         "pandoc",
         str(combined_path),
@@ -188,7 +220,7 @@ def main() -> int:
         str(args.output),
         "--toc",
         "--number-sections",
-        f"--pdf-engine={args.pdf_engine}",
+        f"--pdf-engine={engine}",
         "-V",
         "documentclass=article",
         "-V",
@@ -200,16 +232,19 @@ def main() -> int:
     ]
     print(f"Running: {' '.join(cmd)}")
     env = os.environ.copy()
-    py_bin = str(Path(sys.executable).resolve().parent)
-    if py_bin:
-        env["PATH"] = py_bin + os.pathsep + env.get("PATH", "")
+    venv_bin = str(Path(sys.prefix) / "bin")
+    env["PATH"] = venv_bin + os.pathsep + env.get("PATH", "")
     try:
         subprocess.run(cmd, check=True, cwd=APP_ROOT, env=env)
     except FileNotFoundError:
         print("pandoc not found: https://pandoc.org/installing.html", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as e:
-        print(f"Pandoc failed (engine={args.pdf_engine})", file=sys.stderr)
+        print(f"Pandoc failed (engine={engine})", file=sys.stderr)
+        print(
+            "Fix: ./scripts/setup_docs_venv.sh && .docs-venv/bin/python scripts/build_docs_pdf.py",
+            file=sys.stderr,
+        )
         return e.returncode
 
     print(f"PDF: {args.output}")

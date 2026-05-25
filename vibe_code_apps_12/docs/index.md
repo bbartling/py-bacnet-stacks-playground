@@ -39,8 +39,9 @@ From the repo (bensserver or dev machine):
 
 ```bash
 cd vibe_code_apps_12
-pip install pyyaml weasyprint   # or use pdflatex
-python3 scripts/build_docs_pdf.py
+sudo apt install pandoc
+./scripts/setup_docs_venv.sh
+./scripts/build_docs.sh
 ```
 
 Output: [`pdf/vibe12-edge-fdd-guide.pdf`](../pdf/vibe12-edge-fdd-guide.pdf) (also committed on `develop` for offline reading).
