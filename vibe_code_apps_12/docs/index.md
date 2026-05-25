@@ -15,6 +15,7 @@ Non-technical path — check boxes phase by phase:
 
 | Phase | Chapter |
 |-------|---------|
+| 0 | [Ben's office lab (boss Pi)](phase-0-bens-office-lab.md) |
 | 1 | [Linux, network & SSH](01-linux-network-ssh.md) |
 | 2 | [BACnet IoT gateway](02-bacnet-gateway.md) |
 | 3 | [Commissioning & CSV cleaning](03-commissioning-csv.md) |

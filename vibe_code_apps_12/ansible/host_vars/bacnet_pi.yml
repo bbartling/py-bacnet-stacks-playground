@@ -9,8 +9,8 @@ bacnet_pi_temp_instance_id: 3456788
 site_id: demo
 building_id: bens-office
 
-# DS18B20 → hierarchical MQTT (60 s) via read driver (single basicPubSub client)
-enable_aws_iot: false
+# MQTT via read driver only (vibe12/{site_id}/{building_id}/…/telemetry) — one client basicPubSub
+enable_aws_iot: true
 enable_gpio_mqtt_on_read_driver: true
 
 # BACnet edge app (discover + RPM read) — unique instance vs PiTemp

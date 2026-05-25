@@ -42,8 +42,6 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: vibe_code_apps_12/apps/vibe12-web/package-lock.json
-          cache: npm
-          cache-dependency-path: vibe_code_apps_12/apps/vibe12-web/package-lock.json
       - name: Install and test
         run: |
           npm ci

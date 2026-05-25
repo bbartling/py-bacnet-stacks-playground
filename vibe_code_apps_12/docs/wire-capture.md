@@ -22,15 +22,17 @@ cd vibe_code_apps_12/ansible
 
 Boss Pi filter: UDP **47808** and **47809** (PiTemp + Vibe12Edge).
 
-Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in the background. Each deploy **overwrites** the same filename.
+Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in the background as **root** (`become: true` — tcpdump requires it). Each deploy **overwrites** the same filename.
+
+If you run the script by hand without Ansible, use **`sudo`** or capture will fail with *Operation not permitted*.
 
 ## Pull pcap to your laptop
 
 After capture finishes:
 
 ```bash
-scp ben@192.168.204.12:~/vibe_code_apps_12/captures/bacnet.pcap .
-wireshark bacnet.pcap
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap ~/bacnet.pcap
+wireshark ~/bacnet.pcap
 ```
 
 Wireshark display filter: `bacnet` or `udp.port == 47808`.

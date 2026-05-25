@@ -164,10 +164,10 @@ Mirrors [`vibe_code_apps_14`](../../vibe_code_apps_14/captures/README.md): after
 ./deploy.sh --limit bacnet_pi --pcap --pcap-seconds 120   # 2 minutes
 ```
 
-Ansible waits until `vibe12-bacnet-read` is **active** (or `bacnet-ds18b20` when GPIO-only), then runs `scripts/bacnet_tcpdump_once.sh` in the background. Default filter: `udp port 47808` (boss Pi adds **47809** in `host_vars/bacnet_pi.yml`).
+Ansible waits until `vibe12-bacnet-read` is **active** (or `bacnet-ds18b20` when GPIO-only), then runs `scripts/bacnet_tcpdump_once.sh` in the background as **root** (`become: true`). Default filter: `udp port 47808` (boss Pi adds **47809** in `host_vars/bacnet_pi.yml`). Without `--pcap`, `captures/bacnet.pcap` does not exist.
 
 ```bash
-scp ben@192.168.204.12:~/vibe_code_apps_12/captures/bacnet.pcap .
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap ~/bacnet.pcap
 wireshark bacnet.pcap
 ```
 

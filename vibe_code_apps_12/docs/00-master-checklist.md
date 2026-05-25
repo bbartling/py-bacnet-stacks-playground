@@ -17,6 +17,8 @@ Use this page as a **step-by-step path** from a blank Linux gateway to live faul
 - [ ] You have a **build machine** (bensserver or laptop) with SSH access to the gateway and the Git repo.
 - [ ] You have an **AWS account** with permission to use **IoT Core**, **Lambda**, and **DynamoDB** (CloudShell deploy is fine).
 
+**Ben's office lab (boss Pi `192.168.204.12`):** edge topics use `site_id` / `building_id` from Ansible (`demo` / `bens-office`), matching SAM `IotTopicPrefix=vibe12` — see [Phase 0 — Ben's office lab](phase-0-bens-office-lab.md).
+
 ---
 
 ## Phase 1 — Linux, network, and SSH

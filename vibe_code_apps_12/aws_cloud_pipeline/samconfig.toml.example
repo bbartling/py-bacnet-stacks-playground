@@ -26,12 +26,20 @@ resolve_image_repos = true
 region = "us-east-2"
 
 # BACnet MQTT: vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
+# IoT rule (underscores only)
+# DynamoDB row TTL (days)
+# Bump every deploy so Lambdas refresh
+# Product namespace (all sites/buildings)
+# Dashboard login user
+# *** SET YOUR PASSWORD ***
+# *** SET 32+ CHAR RANDOM SECRET ***
+
 parameter_overrides = [
-  "IotRuleName=vibe12_telemetry_ingest",         # IoT rule (underscores only)
-  "TtlDays=7",                                     # DynamoDB row TTL (days)
-  "DeployRevision=5",                              # Bump every deploy so Lambdas refresh
-  "IotTopicPrefix=vibe12",                         # Product namespace (all sites/buildings)
-  "WebUsername=engineer",                          # Dashboard login user
-  "WebPassword=REPLACE_WITH_YOUR_PASSWORD",        # *** SET YOUR PASSWORD ***
-  "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",  # *** SET 32+ CHAR RANDOM SECRET ***
+  "IotRuleName=vibe12_telemetry_ingest",         
+  "TtlDays=7",                                     
+  "DeployRevision=5",                              
+  "IotTopicPrefix=vibe12",                         
+  "WebUsername=engineer",                          
+  "WebPassword=REPLACE_WITH_YOUR_PASSWORD",        
+  "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",  
 ]

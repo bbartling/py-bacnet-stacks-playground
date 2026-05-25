@@ -60,8 +60,8 @@ In **`host_vars/bacnet_pi.yml`** (example):
 
 ```yaml
 site_id: demo
-building_id: pi
-bacnet_edge_bind_address: "192.168.204.12/24"
+building_id: bens-office   # must match commissioning/ and cloud dashboard picker
+bacnet_edge_bind_address: "192.168.204.12/24:47809"
 bacnet_route_aware: true
 bacnet_router_ip: 192.168.204.200
 bacnet_mstp_net: 2000
