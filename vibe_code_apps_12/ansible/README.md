@@ -1,3 +1,5 @@
+**Full documentation:** [docs/index.md](../docs/index.md) · [PDF](../pdf/vibe12-edge-fdd-guide.pdf) · SAM deploy: [docs/aws-cloud-sam.md](../docs/aws-cloud-sam.md)
+
 **Beginner tutorial:** [ANSIBLE-BEGINNER.md](ANSIBLE-BEGINNER.md)
 
 Ansible pushes the Vibe12 edge stack to **Linux hosts over SSH** (IP + user in `inventory.yml`).  
@@ -147,8 +149,29 @@ Commissioned file: [`commissioning/demo/bens-office/points.csv`](../commissionin
 | Full deploy + verify | `./deploy.sh -v` |
 | One host | `./deploy.sh --limit HOST -v` |
 | Backup CSV from edge → `commissioning/` | `./fetch_commissioning.sh --limit HOST -v` |
+| Deploy + BACnet pcap (5 min default) | `./deploy.sh --limit HOST --pcap` |
 | Checks only | `./deploy.sh --verify -v` |
 | Skip post-checks | `./deploy.sh --no-verify -v` |
+
+---
+
+## BACnet wire capture (optional)
+
+Mirrors [`vibe_code_apps_14`](../../vibe_code_apps_14/captures/README.md): after deploy, overwrite **`~/vibe_code_apps_12/captures/bacnet.pcap`** on the edge.
+
+```bash
+./deploy.sh --limit bacnet_pi -e enable_bacnet_read_driver=true --pcap
+./deploy.sh --limit bacnet_pi --pcap --pcap-seconds 120   # 2 minutes
+```
+
+Ansible waits until `vibe12-bacnet-read` is **active** (or `bacnet-ds18b20` when GPIO-only), then runs `scripts/bacnet_tcpdump_once.sh` in the background. Default filter: `udp port 47808` (boss Pi adds **47809** in `host_vars/bacnet_pi.yml`).
+
+```bash
+scp ben@192.168.204.12:~/vibe_code_apps_12/captures/bacnet.pcap .
+wireshark bacnet.pcap
+```
+
+Vars: `enable_deploy_pcap`, `deploy_pcap_seconds` (default **300**), `deploy_pcap_udp_ports`, `deploy_pcap_wait_seconds` (default **30**).
 
 ---
 

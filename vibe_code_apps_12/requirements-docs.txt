@@ -1,0 +1,2 @@
+pyyaml>=6.0
+weasyprint>=62.0

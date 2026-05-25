@@ -1,0 +1,14 @@
+# Order and optional titles for scripts/build_docs_pdf.py
+# Paths are relative to vibe_code_apps_12/
+
+pages:
+  - path: docs/index.md
+  - path: docs/edge-deploy.md
+  - path: docs/bacnet-commissioning.md
+  - path: docs/aws-cloud-sam.md
+  - path: docs/wire-capture.md
+  - path: docs/commissioning-backup.md
+  - path: aws_cloud_pipeline/DEPLOYED.md
+    title: Cloud architecture reference
+  - path: aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md
+    title: FDD expression rule cookbook

@@ -1,5 +1,8 @@
 # Vibe Code App 12B — AWS cloud pipeline (free-tier demo)
 
+**Canonical deploy guide:** [docs/aws-cloud-sam.md](../docs/aws-cloud-sam.md) (tar **and** zip, Windows upload, CloudShell).  
+**PDF manual:** [pdf/vibe12-edge-fdd-guide.pdf](../pdf/vibe12-edge-fdd-guide.pdf)
+
 **You already have:** Pi → AWS IoT Core MQTT (`aws_iot_publisher.py`, topic `sdk/test/python`, ~10 s interval).
 
 **This folder adds:**

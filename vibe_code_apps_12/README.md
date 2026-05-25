@@ -1,3 +1,5 @@
+> **Documentation hub:** [docs/index.md](docs/index.md) · **PDF manual:** [pdf/vibe12-edge-fdd-guide.pdf](pdf/vibe12-edge-fdd-guide.pdf) · Edge deploy: [docs/edge-deploy.md](docs/edge-deploy.md) · SAM/cloud: [docs/aws-cloud-sam.md](docs/aws-cloud-sam.md)
+
 # BACnet DS18B20 Temperature Server
 
 This demo exposes **two** BACnet **analogValue** objects from one **DS18B20** 1-Wire sensor: **`analogValue`, 1** in **°C** and **`analogValue`, 2** in **°F** (same reading, converted). The probe connects **directly** to a Raspberry Pi **Model B+** (40‑pin header): **3.3 V**, **GND**, **GPIO4** (data), plus a **4.7 kΩ** pull-up from data to 3.3 V. **No ADC**, **no Pt1000 divider**, and **no I²C sensor board** are required.

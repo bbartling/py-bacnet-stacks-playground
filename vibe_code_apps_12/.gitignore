@@ -3,6 +3,13 @@ __pycache__/
 *.pyc
 .aws-sam/
 
+# Doc build artifacts
+docs/_build/
+
+# Wire captures (generated on edge by deploy --pcap)
+captures/*.pcap
+bacnet.pcap
+
 # AWS IoT Core experiments — certs/keys/zips (see aws_iot_core_test/.gitignore)
 aws_iot_core_test/.env
 aws_iot_core_test/*.pem
