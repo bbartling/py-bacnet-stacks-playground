@@ -9,9 +9,9 @@ End-to-end guide: **Linux gateway** on the BACnet network → **MQTT** to **AWS 
 
 ## Start here (checklist)
 
-Non-technical path — check boxes phase by phase:
+**Field deployment:** [Master checklist](00-master-checklist.md)
 
-**[Master checklist (start here)](00-master-checklist.md)**
+**AI agents & Codex:** [Agent & Codex getting started](agent-getting-started.md) — accounts, init workspace, human vs AI limits, cron guardrails.
 
 | Phase | Chapter |
 |-------|---------|
@@ -48,6 +48,7 @@ Non-technical path — check boxes phase by phase:
 | Chapter | Topic |
 |---------|--------|
 | [Master checklist](00-master-checklist.md) | Ordered tasks for integrators |
+| [Agent & Codex getting started](agent-getting-started.md) | Accounts, init, cron guardrails, AI limits |
 | [Linux & SSH](01-linux-network-ssh.md) | Subnet, SSH, firewall |
 | [BACnet gateway](02-bacnet-gateway.md) | Libraries, systemd, deploy |
 | [CSV commissioning](03-commissioning-csv.md) | Discover → clean → points.csv |

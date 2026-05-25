@@ -32,6 +32,13 @@ Human owns SSH and points.csv enablement. Verify with ./scripts/validate_cloud_p
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 ```
 
+## Setup (fresh clone)
+
+```bash
+vibe12_agent_spec/bin/vibe12_workspace_init.sh   # local MEMORY + PHASE_NOTEPAD (not in Git)
+codex login
+```
+
 ## Model routing + orchestration (from bas_build_spec)
 
 | Role | Model | Output |
@@ -46,7 +53,12 @@ vibe12_agent_spec/bin/vibe12_codex_tui.py          # interactive
 vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh    # N minis + critique
 MINI_INVOCATIONS_PER_WAKE=1 vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh
 cp vibe12_agent_spec/cron_codex/env.example vibe12_agent_spec/cron_codex/.env
+
+# Cron (human only — requires --yes; see GUARDRAILS)
+vibe12_agent_spec/cron_codex/bin/vibe12_install_cron.sh --yes
 ```
+
+Full guide: `docs/agent-getting-started.md`
 
 ## Memory CLI
 

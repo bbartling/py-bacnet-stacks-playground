@@ -6,6 +6,8 @@ pages:
     title: Introduction
   - path: docs/00-master-checklist.md
     title: "Master checklist (start here)"
+  - path: docs/agent-getting-started.md
+    title: Agent & Codex getting started
   - path: docs/01-linux-network-ssh.md
     title: Linux, network & SSH
   - path: docs/02-bacnet-gateway.md

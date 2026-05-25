@@ -27,7 +27,8 @@ unset _PRESERVE_MINI
 : "${SLEEP_BETWEEN_MINI_SEC:=2}"
 : "${SKIP_CRITIQUE_WHEN_CLEAN:=false}"
 : "${VIBE12_CODEX_LOCK:=/tmp/vibe12_codex_wake.lock}"
-: "${MIN_MINUTES_BETWEEN_WAKES:=0}"
+: "${MIN_MINUTES_BETWEEN_WAKES:=120}"
+: "${MAX_WAKES_PER_DAY:=12}"
 : "${POST_WAKE_HOOK:=}"
 
 agents="$SPEC_DIR/AGENTS.md"
@@ -60,6 +61,23 @@ fi
 if [[ -f "$waiting_human" ]]; then
   echo "waiting_human — skip Codex until removed."
   exit 0
+fi
+
+day_utc="$(date -u +%Y%m%d)"
+wake_count_file="$LOG_DIR/wake_count_${day_utc}"
+wake_count=0
+if [[ -f "$wake_count_file" ]]; then
+  wake_count="$(cat "$wake_count_file" 2>/dev/null || echo 0)"
+fi
+if [[ "${MAX_WAKES_PER_DAY:-12}" =~ ^[0-9]+$ ]] && (( wake_count >= MAX_WAKES_PER_DAY )); then
+  echo "MAX_WAKES_PER_DAY ($MAX_WAKES_PER_DAY) reached for UTC day $day_utc — exit."
+  exit 0
+fi
+
+if [[ "${MINI_INVOCATIONS_PER_WAKE:-3}" =~ ^[0-9]+$ ]] && (( MINI_INVOCATIONS_PER_WAKE > 5 )) \
+  && [[ "${VIBE12_CRON_ALLOW_AGGRESSIVE,,}" != "true" ]]; then
+  echo "Capping MINI_INVOCATIONS_PER_WAKE from $MINI_INVOCATIONS_PER_WAKE to 5 (set VIBE12_CRON_ALLOW_AGGRESSIVE=true to override)."
+  MINI_INVOCATIONS_PER_WAKE=5
 fi
 
 if [[ "${MIN_MINUTES_BETWEEN_WAKES:-0}" =~ ^[0-9]+$ ]] && (( MIN_MINUTES_BETWEEN_WAKES > 0 )); then
@@ -213,7 +231,8 @@ EOF
 fi
 
 date +%s >"$debounce_file"
-echo "=== vibe12_wake end $(date -Is) log=$LOG ==="
+echo $(( wake_count + 1 )) >"$wake_count_file"
+echo "=== vibe12_wake end $(date -Is) log=$LOG wake_count_today=$(( wake_count + 1 )) ==="
 
 if [[ -n "${POST_WAKE_HOOK:-}" ]]; then
   echo "--- POST_WAKE_HOOK ---"

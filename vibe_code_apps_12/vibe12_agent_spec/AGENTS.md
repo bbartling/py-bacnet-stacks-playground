@@ -6,6 +6,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 ## Bootstrap order (each agent wake)
 
+0. Run **`bin/vibe12_workspace_init.sh`** once after clone if `MEMORY.md` is missing.
 1. **`vibe12_agent_spec/AGENTS.md`** (this file)
 2. **`scratch/memory-bootstrap-latest.md`** (truncated `MEMORY.md` + recent daily — regenerate with `bin/vibe12_workspace_cli.sh memory bootstrap`)
 3. **`BUILD_CHECKPOINTS.md`** — read **"Next for mini (ordered)"** (written by last **gpt-5.5 critique**); pick **one** slice

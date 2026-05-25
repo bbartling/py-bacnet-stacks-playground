@@ -14,13 +14,8 @@ docs/_build/
 captures/*.pcap
 bacnet.pcap
 
-# Codex wake config (copy from vibe12_agent_spec/cron_codex/env.example)
+# Codex wake generated logs (see vibe12_agent_spec/.gitignore)
 vibe12_agent_spec/cron_codex/.env
-vibe12_agent_spec/cron_codex/logs/wake-*.log
-vibe12_agent_spec/cron_codex/logs/last_wake_epoch
-vibe12_agent_spec/cron_codex/state/context_since_last_wake.md
-vibe12_agent_spec/cron_codex/state/context_since_last_wake.meta.json
-vibe12_agent_spec/cron_codex/state/wake_prepare_dry_run.log
 
 # AWS IoT Core experiments — certs/keys/zips (see aws_iot_core_test/.gitignore)
 aws_iot_core_test/.env

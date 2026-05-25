@@ -18,6 +18,9 @@ vibe12_load_env() {
   : "${SLEEP_BETWEEN_MINI_SEC:=2}"
   : "${SKIP_CRITIQUE_WHEN_CLEAN:=false}"
   : "${CODEX_DANGEROUSLY_BYPASS:=false}"
+  : "${MIN_MINUTES_BETWEEN_WAKES:=120}"
+  : "${MAX_WAKES_PER_DAY:=12}"
+  : "${CRON_MARKER:=VIBE12_CODEX_WAKE}"
 }
 
 vibe12_bwrap_ok() {

@@ -1,0 +1,37 @@
+# Vibe12 workspace memory (curated bootstrap)
+
+Short standing brief for agent wakes — not a transcript. Daily detail: `memory/YYYY-MM-DD.md`.
+
+> Copy from `templates/` via `bin/vibe12_workspace_init.sh`. Fill in **your** site facts; do not commit this file.
+
+## Stack (your deployment)
+
+| Layer | Fact |
+|-------|------|
+| Edge gateway | _(IP, user, SSH)_ |
+| Site / building | `site_id` / `building_id` from Ansible host_vars |
+| Read driver | `vibe12-bacnet-read.service` · interval · samples/cycle |
+| BACnet | bind address · router · target devices |
+| MQTT | client name · topic prefix `vibe12` |
+| Cloud | stack name · region · ingest rule |
+| Dashboard | URL in `aws_cloud_pipeline/DEPLOYED.md` after deploy |
+
+## Standing decisions
+
+- One MQTT client on the gateway for BACnet + optional GPIO.
+- Ingest writes `brick_timeseries_ref` on each sample.
+- Cloud deploy from build machine with local `samconfig.toml` (gitignored).
+
+## Smoke (expected healthy)
+
+- `GET /api/commissioning/status/{site}/{building}` → `cloud_ingest_ok: true`
+- `./scripts/validate_cloud_pipeline.sh` exits 0
+
+## Open loops
+
+- _(Agent promotes resolved items; human clears stale risks.)_
+
+## Doc entry points
+
+- Agent spec: `vibe12_agent_spec/AGENTS.md`
+- APIs: `docs/ai-commissioning-api.md`

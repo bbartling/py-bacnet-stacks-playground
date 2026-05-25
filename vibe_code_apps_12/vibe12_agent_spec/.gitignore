@@ -1,0 +1,20 @@
+# Local agent workspace — not committed (per clone / per job site)
+MEMORY.md
+BUILD_CHECKPOINTS.md
+scratch/
+
+memory/**/*
+!memory/README.md
+
+cron_codex/.env
+cron_codex/logs/wake-*.log
+cron_codex/logs/last_wake_epoch
+cron_codex/logs/wake_count_*
+cron_codex/state/context_since_last_wake.md
+cron_codex/state/context_since_last_wake.meta.json
+cron_codex/state/wake_prepare_dry_run.log
+cron_codex/state/operator_notes.md
+cron_codex/state/next_directions.md
+cron_codex/state/waiting_human
+cron_codex/state/DONE_AUTOMATION
+cron_codex/state/stop_mini_loop

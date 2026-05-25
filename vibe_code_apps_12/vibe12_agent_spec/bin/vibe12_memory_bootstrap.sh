@@ -13,6 +13,10 @@ append_file() {
   head -c "$MAX" "$f"
 }
 
+if [[ ! -f "$SPEC/MEMORY.md" ]]; then
+  echo "WARN: MEMORY.md missing — run bin/vibe12_workspace_init.sh" >&2
+fi
+
 append_file "$SPEC/MEMORY.md" "MEMORY"
 append_file "$SPEC/GUARDRAILS.md" "GUARDRAILS"
 
