@@ -11,5 +11,16 @@ On-edge file (overwritten each deploy with `--pcap`):
 **Copy to your PC** — use the full remote path (not `~/…`):
 
 ```powershell
+**Easy button (bensserver):**
+
+```bash
+./scripts/fetch_bacnet_pcap.sh
+# → ~/captures/bacnet.pcap and ~/bacnet-latest.pcap
+```
+
+Manual:
+
+```bash
 scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap .
+```
 ```

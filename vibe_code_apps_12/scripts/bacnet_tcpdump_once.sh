@@ -14,7 +14,8 @@ rm -f "$CAPTURE"
 echo "Capturing ${SECONDS}s -> ${CAPTURE}"
 echo "Filter: ${FILTER}"
 timeout "${SECONDS}" tcpdump -i any -n -s 0 -w "$CAPTURE" ${FILTER}
-if [[ "$(id -u)" -eq 0 && -n "${SUDO_USER:-}" ]]; then
-  chown "${SUDO_USER}:${SUDO_USER}" "$CAPTURE" 2>/dev/null || true
+if [[ "$(id -u)" -eq 0 ]]; then
+  owner="${SUDO_USER:-ben}"
+  chown "${owner}:${owner}" "$CAPTURE" 2>/dev/null || true
 fi
 ls -lh "$CAPTURE"

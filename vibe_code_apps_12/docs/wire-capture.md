@@ -26,6 +26,23 @@ Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in t
 
 If you run the script by hand without Ansible, use **`sudo`** or capture will fail with *Operation not permitted*.
 
+## One command (bensserver → `$HOME`)
+
+From the build machine (no Ansible):
+
+```bash
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./scripts/fetch_bacnet_pcap.sh              # 5 min capture + download
+./scripts/fetch_bacnet_pcap.sh --pull-only  # only scp existing Pi file
+```
+
+Files land at:
+
+- `~/captures/bacnet.pcap`
+- `~/bacnet-latest.pcap` (symlink)
+
+Env: `PI_HOST=192.168.204.12` `PI_USER=ben`
+
 ## Pull pcap to your PC
 
 After capture finishes, copy with an **absolute remote path**. Do **not** use `ben@host:~/vibe_code_apps_12/...` — many `scp` clients (Windows PowerShell, OpenSSH) do not expand `~` on the remote side and report *No such file or directory* even when the file exists.
