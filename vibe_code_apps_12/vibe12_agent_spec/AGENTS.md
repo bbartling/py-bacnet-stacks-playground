@@ -8,10 +8,13 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 1. **`vibe12_agent_spec/AGENTS.md`** (this file)
 2. **`scratch/memory-bootstrap-latest.md`** (truncated `MEMORY.md` + recent daily — regenerate with `bin/vibe12_workspace_cli.sh memory bootstrap`)
-3. **`BUILD_CHECKPOINTS.md`** (ordered mini queue — pick **one** slice)
-4. **`vibe12_agent_spec.toml`** (memory budgets)
-5. **`skills/<topic>/SKILL.md`** when the checkpoint or user task names a topic (see skill index below)
-6. Human docs under `docs/` — do **not** paste entire doc trees into prompts
+3. **`BUILD_CHECKPOINTS.md`** — read **"Next for mini (ordered)"** (written by last **gpt-5.5 critique**); pick **one** slice
+4. **`cron_codex/state/context_since_last_wake.md`** (operator notes + pinned PHASE_NOTEPAD — export via `vibe12_wake.sh` or TUI)
+5. **`vibe12_agent_spec.toml`** (memory budgets)
+6. **`skills/<topic>/SKILL.md`** when the checkpoint or user task names a topic (see skill index below)
+7. Human docs under `docs/` — do **not** paste entire doc trees into prompts
+
+**Orchestration:** `gpt-5.4-mini` minis implement; `gpt-5.5` critique rewrites **Next for mini (ordered)**. See `cron_codex/README.md` and `bin/vibe12_codex_tui.py` (`/wake`, `/critique`).
 
 ## Human vs agent roles
 

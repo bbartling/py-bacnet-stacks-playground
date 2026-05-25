@@ -88,25 +88,31 @@ class DynamoTimeSeriesStore:
         """Scan meta# rows from point registry (best-effort)."""
         out: list[dict[str, str]] = []
         seen: set[str] = set()
-        resp = self._table.scan(
-            FilterExpression="begins_with(device_id, :p) AND ts_ms = :t",
-            ExpressionAttributeValues={":p": "meta#", ":t": POINT_REGISTRY_TS},
-            Limit=200,
-        )
-        for item in resp.get("Items", []):
-            scope = f"{item.get('site_id')}#{item.get('building_id')}"
-            if scope in seen:
-                continue
-            seen.add(scope)
-            out.append(
-                {
-                    "site_id": item.get("site_id", ""),
-                    "building_id": item.get("building_id", ""),
-                    "building_scope": building_scope(
-                        item.get("site_id", ""), item.get("building_id", "")
-                    ),
-                }
-            )
+        scan_args = {
+            "FilterExpression": "begins_with(device_id, :p) AND ts_ms = :t",
+            "ExpressionAttributeValues": {":p": "meta#", ":t": POINT_REGISTRY_TS},
+            "Limit": 200,
+        }
+        while True:
+            resp = self._table.scan(**scan_args)
+            for item in resp.get("Items", []):
+                site_id = item.get("site_id", "")
+                building_id = item.get("building_id", "")
+                scope = f"{site_id}#{building_id}"
+                if scope in seen:
+                    continue
+                seen.add(scope)
+                out.append(
+                    {
+                        "site_id": site_id,
+                        "building_id": building_id,
+                        "building_scope": building_scope(site_id, building_id),
+                    }
+                )
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_args["ExclusiveStartKey"] = last_key
         return out
 
     def list_points(self, site_id: str, building_id: str) -> list[dict[str, Any]]:

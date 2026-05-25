@@ -32,6 +32,22 @@ Human owns SSH and points.csv enablement. Verify with ./scripts/validate_cloud_p
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 ```
 
+## Model routing + orchestration (from bas_build_spec)
+
+| Role | Model | Output |
+|------|--------|--------|
+| Mini | `gpt-5.4-mini` | Code/docs — one **Next for mini** slice per invocation |
+| Critique | `gpt-5.5` | Rewrites **Last critique**, **Next for mini (ordered)** — minis follow that queue |
+
+Context each wake: `cron_codex/state/context_since_last_wake.md` (from `operator_notes.md` + PHASE_NOTEPAD).
+
+```bash
+vibe12_agent_spec/bin/vibe12_codex_tui.py          # interactive
+vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh    # N minis + critique
+MINI_INVOCATIONS_PER_WAKE=1 vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh
+cp vibe12_agent_spec/cron_codex/env.example vibe12_agent_spec/cron_codex/.env
+```
+
 ## Memory CLI
 
 ```bash

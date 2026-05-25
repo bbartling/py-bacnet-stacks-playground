@@ -23,13 +23,21 @@ Signed off for **demo / bens-office**: lab bench 2026-05-25 (Pi scrape + cloud i
 
 - 2026-05-25 — Phase 0: IoT policy fixed; ingest BRICK refs; commissioning APIs; Pi 60 s → AWS; pcap easy button; agent spec scaffold.
 
-## Next for agent (ordered)
+## Last critique (gpt-5.5)
+
+- Date (UTC): _(not run yet — use `/critique` in TUI or `vibe12_wake.sh`)_
+- Summary: Phase 0 scaffold complete; telemetry 6/6; agent spec + APIs landed 2026-05-25.
+- Verification: `./scripts/validate_cloud_pipeline.sh` OK at last human check.
+- **Next for mini (ordered):** (critique rewrites this section each wake)
+
+## Next for mini (ordered)
 
 1. Run `./scripts/validate_cloud_pipeline.sh` and `ssh` Pi journal — confirm still 6/6 flowing.
 2. `GET /api/brick/timeseries-ref/demo/bens-office` — ensure graph bootstrap matches registry.
 3. Human: confirm ZAT points match job (MSTP STAT-ZN-T + GPIO BenOffice-ZAT).
 4. Draft one FDD rule in Rule Lab; `POST /api/playground/test-rule` then go-live when human approves.
-5. Append wake notes to `memory/YYYY-MM-DD.md`; promote deltas to `MEMORY.md`.
+5. Read `cron_codex/state/context_since_last_wake.md` and `state/operator_notes.md` before changing bind or `points.csv`.
+6. Append wake notes to `memory/YYYY-MM-DD.md`; promote deltas to `MEMORY.md`.
 
 ## Verification commands
 

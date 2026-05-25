@@ -1,0 +1,5 @@
+# Vibe12 Codex wake (optional) — install with: crontab -e
+# Marker must match CRON_MARKER in .env for future removal tooling.
+
+# Every 2 hours at :05 (adjust TZ on bensserver)
+# 5 */2 * * * cd /home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/cron_codex/bin && ./vibe12_wake.sh # VIBE12_CODEX_WAKE

@@ -9,6 +9,18 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 vibe12_agent_spec/bin/vibe12_workspace_cli.sh memory write-bootstrap
 ```
 
+**Dirt-simple TUI** (Python `input()` loop → `codex exec`):
+
+```bash
+vibe12_agent_spec/bin/vibe12_codex_tui.py
+```
+
+**Orchestration** (ported from `bas_build_spec/cron_codex`): critique (**gpt-5.5**) writes **Next for mini (ordered)** in `BUILD_CHECKPOINTS.md`; minis (**gpt-5.4-mini**) execute that queue. Operator notes → `cron_codex/state/operator_notes.md`. Full wake: `cron_codex/bin/vibe12_wake.sh` or TUI `/wake`.
+
+**TUI:** `/critique`, `/mini`, `/wake [N]`, `/new`. Config: `cron_codex/env.example` → `.env`. See `cron_codex/README.md`.
+
+On **bensserver** (bwrap `RTM_NEWADDR` error), the TUI auto-passes `--dangerously-bypass-approvals-and-sandbox` so Codex can run shell commands.
+
 Then point Codex at:
 
 1. `vibe12_agent_spec/AGENTS.md`
