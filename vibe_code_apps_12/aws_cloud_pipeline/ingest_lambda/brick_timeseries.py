@@ -28,6 +28,7 @@ def brick_timeseries_ref(
     series_id: str,
     brick_class: str = "",
     brick_tag: str = "",
+    unit: str = "",
 ) -> dict[str, Any]:
     """
     External time-series reference stored on each DynamoDB sample + point registry.
@@ -51,7 +52,7 @@ def brick_timeseries_ref(
         "mqtt_topic": (
             f"vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry"
         ),
-        "hasUnit": "",
+        "hasUnit": unit,
     }
 
 

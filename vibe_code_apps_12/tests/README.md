@@ -35,6 +35,11 @@ python3 -m unittest discover -s tests -v
 | `test_brick_scope_options.py` | Registry/model BRICK class picklists |
 | `test_mqtt_topic_parse.py` | MQTT topic + BACnet row parsing (ingest) |
 | `test_edge_mqtt_payload.py` | Edge publish payload shape |
+| `test_brick_timeseries.py` | BRICK `external_ref` + registry entries (ingest) |
+| `test_telemetry_api_routes.py` | Commissioning API URL path segments |
+| `test_telemetry_flow_status.py` | `telemetry_flow_status` / `commissioning_status` (mocked) |
+| `test_ingest_telemetry_item.py` | Ingest `brick_timeseries_ref` on `put_item` |
+| `test_read_driver_poll.py` | BACnet read driver `poll_once` (needs `bacpypes3`) |
 
 **NumPy:** `test_numpy_import_in_rule` runs when numpy is installed locally (same as Lambda after `sam build`).
 
