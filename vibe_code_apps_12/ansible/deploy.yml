@@ -88,6 +88,34 @@
         cache_valid_time: 86400
       become: true
 
+    - name: Install tcpdump for optional post-deploy BACnet capture
+      ansible.builtin.apt:
+        name: tcpdump
+        state: present
+      become: true
+      when: enable_deploy_pcap | default(false) | bool
+
+    - name: Ensure captures directory on edge
+      ansible.builtin.file:
+        path: "{{ deploy_pcap_path | dirname }}"
+        state: directory
+        mode: "0755"
+      when: enable_deploy_pcap | default(false) | bool
+
+    - name: Ensure scripts directory on edge
+      ansible.builtin.file:
+        path: "{{ bacnet_app_remote_dir }}/scripts"
+        state: directory
+        mode: "0755"
+      when: enable_deploy_pcap | default(false) | bool
+
+    - name: Install BACnet wire capture script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../scripts/bacnet_tcpdump_once.sh"
+        dest: "{{ bacnet_app_remote_dir }}/scripts/bacnet_tcpdump_once.sh"
+        mode: "0755"
+      when: enable_deploy_pcap | default(false) | bool
+
     - name: Create virtual environment
       ansible.builtin.command:
         argv:
@@ -341,3 +369,77 @@
       when:
         - install_bacnet_read_unit | default(true) | bool
         - enable_bacnet_read_driver | default(false) | bool
+
+- name: BACnet wire capture after deploy (overwrite bacnet.pcap)
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Wait for BACnet read driver before capture
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - vibe12-bacnet-read
+      register: pcap_read_wait
+      until: pcap_read_wait.rc == 0
+      retries: "{{ ((deploy_pcap_wait_seconds | int) / 5) | int }}"
+      delay: 5
+      changed_when: false
+      become: true
+      when:
+        - enable_deploy_pcap | default(false) | bool
+        - enable_bacnet_read_driver | default(false) | bool
+        - install_bacnet_read_unit | default(true) | bool
+
+    - name: Wait for DS18B20 BACnet service before capture
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - is-active
+          - bacnet-ds18b20
+      register: pcap_gpio_wait
+      until: pcap_gpio_wait.rc == 0
+      retries: "{{ ((deploy_pcap_wait_seconds | int) / 5) | int }}"
+      delay: 5
+      changed_when: false
+      become: true
+      when:
+        - enable_deploy_pcap | default(false) | bool
+        - enable_ds18b20_gpio | default(false) | bool
+        - enable_ds18b20_service | default(false) | bool
+        - not (enable_bacnet_read_driver | default(false) | bool)
+
+    - name: Settle before tcpdump (no BACnet systemd wait configured)
+      ansible.builtin.pause:
+        seconds: "{{ deploy_pcap_wait_seconds | int }}"
+      when:
+        - enable_deploy_pcap | default(false) | bool
+        - not (enable_bacnet_read_driver | default(false) | bool)
+        - not (
+            (enable_ds18b20_gpio | default(false) | bool)
+            and (enable_ds18b20_service | default(false) | bool)
+          )
+
+    - name: Short settle before tcpdump
+      ansible.builtin.pause:
+        seconds: 5
+      when: enable_deploy_pcap | default(false) | bool
+
+    - name: Run bacnet_tcpdump_once.sh in background (overwrites prior pcap)
+      ansible.builtin.command:
+        argv:
+          - "{{ bacnet_app_remote_dir }}/scripts/bacnet_tcpdump_once.sh"
+          - "{{ deploy_pcap_path }}"
+          - "{{ deploy_pcap_filter }}"
+          - "{{ deploy_pcap_seconds | string }}"
+      async: "{{ deploy_pcap_async_timeout | int }}"
+      poll: 0
+      when: enable_deploy_pcap | default(false) | bool
+
+    - name: Note capture path on edge
+      ansible.builtin.debug:
+        msg: >-
+          BACnet capture started ({{ deploy_pcap_seconds }}s, filter: {{ deploy_pcap_filter }}).
+          File: {{ deploy_pcap_path }} — scp when finished.
+      when: enable_deploy_pcap | default(false) | bool
