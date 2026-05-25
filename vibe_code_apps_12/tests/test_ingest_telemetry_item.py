@@ -27,8 +27,10 @@ def _load_ingest_lambda():
             "vibe12_ingest_mqtt_routing",
         ):
             del sys.modules[mod]
-    if str(_INGEST) not in sys.path:
-        sys.path.insert(0, str(_INGEST))
+    ingest_path = str(_INGEST)
+    if ingest_path in sys.path:
+        sys.path.remove(ingest_path)
+    sys.path.insert(0, ingest_path)
     spec = importlib.util.spec_from_file_location(
         "vibe12_ingest_lambda", _INGEST / "lambda_function.py"
     )

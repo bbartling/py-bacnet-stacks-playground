@@ -61,3 +61,32 @@ def parse_stored_ref(raw: Any) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             return None
     return None
+
+
+def registry_entry_from_row(row: dict[str, Any]) -> dict[str, Any]:
+    ref = brick_timeseries_ref(
+        site_id=row["site_id"],
+        building_id=row["building_id"],
+        system_id=row.get("system_id") or "",
+        point_id=row["point_id"],
+        series_id=row["series_id"],
+        brick_class=row.get("brick_class", ""),
+        brick_tag=row.get("brick_tag", ""),
+    )
+    ref["hasUnit"] = row.get("unit", "")
+    return {
+        "series_id": row["series_id"],
+        "site_id": row["site_id"],
+        "building_id": row["building_id"],
+        "system_id": row.get("system_id") or "",
+        "point_id": row["point_id"],
+        "unit": row.get("unit", ""),
+        "brick_class": row.get("brick_class", ""),
+        "brick_tag": row.get("brick_tag", ""),
+        "object_name": row.get("object_name", ""),
+        "source": row.get("source", "bacnet"),
+        "equipment_type": row.get("equipment_type") or "HVAC_Equipment",
+        "external_ref": row["series_id"],
+        "brick_timeseries_ref": ref,
+        "entity_id": ref["entity_id"],
+    }
