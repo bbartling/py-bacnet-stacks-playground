@@ -1,197 +1,106 @@
-# Vibe Code App 12B — Deployed architecture (working reference)
+# Vibe12 cloud — Deployed reference (BACnet MQTT)
 
-Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi DS18B20 → IoT → DynamoDB → dashboard + Rule Lab.
+Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi BACnet read driver → MQTT → IoT rule → DynamoDB → React dashboard + Rule Lab.
 
-Rule recipes: **[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md)**  
-Full deploy steps: **[README.md](README.md)**
+| Topic | Doc |
+|-------|-----|
+| Bensserver deploy | [docs/aws-deploy-from-bensserver.md](../docs/aws-deploy-from-bensserver.md) |
+| CloudShell deploy | [docs/aws-cloud-sam.md](../docs/aws-cloud-sam.md) |
+| Rule recipes | [EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) |
 
 ---
 
 ## End-to-end flow
 
 ```text
-Raspberry Pi (bosspi)
-  temp_sensor_server.py --aws-iot --aws-interval 10
-        │ MQTT (topic sdk/test/python, ~every 10 s)
+Raspberry Pi (boss Pi / lab)
+  vibe12-bacnet-read.service  (BACpypes3 RPM poll)
+        │ MQTT TLS  vibe12/{site}/{building}/{system}/{point}/telemetry
         ▼
 AWS IoT Core
-        │ Rule: vibe12_ds18b20_ingest
+        │ Rule: vibe12_telemetry_ingest  (SQL: vibe12/+/+/+/+/telemetry)
         ▼
-IngestFunction (Lambda zip)
+IngestFunction (Lambda)
         │ PutItem
         ▼
 DynamoDB  vibe12-telemetry-vibe12cloud
         │
         ├────────────────────────────┐
         ▼                            ▼
-WebFunction (Lambda URL)      FddFunction (zip, every 5 min)
-  Dashboard + Rule Lab          Custom rules or fdd_rules.py
+WebFunction (Lambda URL)      FddFunction (every 5 min)
+  React dashboard + login       Custom rules / fdd_rules.py
+```
+
+Phase 0 lab IDs: **site** `demo`, **building** `bens-office`.
+
+---
+
+## Live URLs (us-east-2, deploy revision 6+)
+
+| Output | Example |
+|--------|---------|
+| **DashboardUrl** | `https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws/` |
+| Health | `{DashboardUrl}api/health` |
+| Login | `POST {DashboardUrl}api/auth/login` JSON `username` / `password` |
+| Readings | `GET …/api/readings?site_id=demo&building_id=bens-office` + `Authorization: Bearer …` |
+
+Login user defaults to **`engineer`** (from `samconfig.toml` `WebUsername` / `WebPassword`).
+
+---
+
+## Smoke after deploy
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+chmod +x scripts/verify_cloud_dashboard.sh
+./scripts/verify_cloud_dashboard.sh
+```
+
+Or manual:
+
+```bash
+URL="https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws"
+curl -sS "${URL}/api/health"
+curl -sS -X POST "${URL}/api/auth/login" -H 'Content-Type: application/json' \
+  -d '{"username":"engineer","password":"<your WebPassword>"}'
 ```
 
 ---
 
 ## AWS resources
 
-| Resource | What it is |
-|----------|------------|
-| **DynamoDB** `vibe12-telemetry-vibe12cloud` | Temperature history (7-day TTL) |
-| **S3** `aws-sam-cli-managed-…` | SAM deploy artifacts only |
-| **IoT Rule** `vibe12_ds18b20_ingest` | MQTT → ingest Lambda |
-| **DashboardUrl** | Public HTTPS (Lambda Function URL) |
+| Resource | Value |
+|----------|--------|
+| DynamoDB | `vibe12-telemetry-vibe12cloud` |
+| IoT rule | `vibe12_telemetry_ingest` |
+| MQTT pattern | `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry` |
+| Lambdas runtime | **python3.12** |
+
+Delete legacy rules if still present: `vibe12_ds18b20_ingest`, `IotIngestRuleBacnet`.
 
 ---
 
-## Example URLs (your deploy may differ)
+## Tests (local / CI)
 
-- **Dashboard:** `https://mlmdwoonvb5bgltfy7dgiqv7mq0amllu.lambda-url.us-east-2.on.aws/`
-- **JSON:** same host + `/api/readings?hours=6`
-- **Health:** same host + `/api/health`
+| Suite | Command |
+|-------|---------|
+| Web (Vitest) | `cd apps/vibe12-web && npm ci && npm test` |
+| Python | `pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt` then `python3 -m unittest discover -s tests -v` |
+
+GitHub Actions: `.github/workflows/vibe12-tests.yml` (both jobs on push to `vibe_code_apps_12/**`).
 
 ---
 
-## CloudShell deploy (copy-paste)
-
-### Bensserver — pack
+## Bensserver one-liner deploy
 
 ```bash
-tar -czf /home/ben/vibe12-aws-cloud-pipeline.tar.gz \
-  -C /home/ben/py-bacnet-stacks-playground/vibe_code_apps_12 aws_cloud_pipeline
-ls -lh /home/ben/vibe12-aws-cloud-pipeline.tar.gz
+export PATH="$HOME/.local/bin:$PATH"
+cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
+./scripts/deploy_cloud_from_bensserver.sh
 ```
 
-### CloudShell — before upload
-
-```bash
-rm -f ~/vibe12-aws-cloud-pipeline.tar.gz ~/vibe12-aws-cloud-pipeline.zip
-rm -rf ~/aws_cloud_pipeline ~/vibe_code_apps_12
-```
-
-**Actions → Upload file** → `vibe12-aws-cloud-pipeline.tar.gz`
-
-### CloudShell — extract + config + deploy
-
-```bash
-cd ~
-tar -xzf ~/vibe12-aws-cloud-pipeline.tar.gz
-cd ~/aws_cloud_pipeline
-
-# Required after every fresh extract (fixes "Missing option '--stack-name'"):
-cp samconfig.toml.example samconfig.toml
-
-rm -rf .aws-sam
-sam build --no-cached
-sam validate --lint
-sam deploy --force-upload
-```
-
-Do **not** run `sam deploy --guided` after `samconfig.toml` is correct (can save `IotTopic=y`).
-
-### `samconfig.toml` essentials
-
-```toml
-stack_name = "vibe12cloud"
-region = "us-east-2"
-resolve_s3 = true
-resolve_image_repos = true
-```
-
----
-
-## Common fixes
-
-| Issue | Fix |
-|-------|-----|
-| `Missing option '--stack-name'` | `cp samconfig.toml.example samconfig.toml` |
-| Upload ignored | `rm -f ~/vibe12-aws-cloud-pipeline.tar.gz` then re-upload |
-| `AwsIotEventsSqlVersion` | Use **`AwsIotSqlVersion`** in template |
-| Stack name hyphen | **`vibe12cloud`** only |
-| Stale code | `rm -rf ~/aws_cloud_pipeline` + full re-extract + `sam build --no-cached` |
-| Chart zoom resets every 1 min | Deploy latest dashboard JS — **Pause auto-refresh while zoomed** (toolbar); **Reset zoom** to refit |
-| `502` / `Internal S...` not JSON on `/api/readings` | Response too large or Lambda timeout on **7 d** + all rules. **Deploy fix:** long windows use **chunked chart eval** (same 6 h batches as go-live) when `hours>48` or `samples>8000`; try **24 h** if on old deploy; check CloudWatch **WebFunction** |
-| Debug on dashboard | After deploy: **Backend logs** panel shows `srv:` lines from `debug.server_log`; errors show `stage=` and hint |
-
----
-
-## Web-only update
-
-```bash
-cd ~/aws_cloud_pipeline
-cp samconfig.toml.example samconfig.toml
-sam build WebFunction
-sam deploy --force-upload
-```
-
----
-
-## Pi (Ansible)
-
-```bash
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-./deploy.sh --ask-pass --ask-become-pass -v
-```
-
-`group_vars/pi_bcn.yml`: `aws_iot_publish_interval: 10`
-
----
-
-## Rule Lab: Test vs Go live (today)
-
-| Step | **Test rule** (hours dropdown) | **Go live** (up to 7 d) |
-|------|----------------------------------|-------------------------|
-| Read telemetry | One DynamoDB query for that window | One query for full backfill (cap ~62k points) |
-| Run rules | `evaluate()` per row; optional `(True, window_rows)` or `apply_faults()` | Same sweep engine (chunked on go-live) |
-| FDD DB writes | **None** | Rules (`ts_ms=-2`) + **summary** (`ts_ms=0`) only |
-| Dashboard fault lanes | N/A | **Recomputed** on each `/api/readings` refresh (not replayed from Go live) |
-
-Go live runs **chunked AFDD** — **hard-coded: 6 h batches, max 7 d (168 h)** (not the Rule Lab test-window dropdown). Each batch loads only that interval from DynamoDB, evaluates rules, merges **flag counts**, then discards rows. State at **`ts_ms=-3`**; summary at **`ts_ms=0`**.
-
-Scheduled **FddFunction** (every 5 min) does **incremental** catch-up from the watermark when rules unchanged; full chunked backfill when rules change or first run.
-
-**Fine for:** one Pi, ~10 s MQTT, a few rules, teaching / demo.
-
-**Pressure points at scale:** dashboard `/api/readings` still re-evaluates rules for chart lanes (downsampled); one `device_id` per stack.
-
-**Retroactive flatline / lookback windows:** `evaluate()` can return `(True, window_rows)` so the engine flags the whole hour, not just the detection row. Or define `apply_faults(rows, cfg) -> list[bool]`. See **Recipe 5** in `EXPRESSION_RULE_COOKBOOK.md`.
-
----
-
-## Future TODO (scaling — not implemented)
-
-Notes for multi-sensor / high-volume sites. Current tutorial stack stays simple on purpose.
-
-### 1. Time-chunked evaluation — **implemented (v1)**
-
-- Go live + scheduled FDD: **6 h chunks** (`FDD_CHUNK_HOURS`), overlap for rolling avg, merge counts.
-- `afdd_state` at `ts_ms=-3`; summary at `ts_ms=0` includes `chunk_log` (last 40 chunks).
-
-### 2. Multi-sensor / multi-site model — **partial (v2)**
-
-- BACnet edge: `edge_bacnet/` discover → CSV → RPM read driver → MQTT `vibe12/{site}/{building}/{system}/{point}/telemetry`
-- Ingest: legacy `sdk/test/python` + hierarchical BACnet rule; `series_id` as `device_id` partition key
-- DynamoDB GSI `BuildingScopeIndex` (`building_scope` + `scope_sort`)
-- APIs: `/api/buildings`, `/api/points/{site}/{building}`, `/api/series`, `/api/brick/{site}/{building}`
-- Dashboard multi-series overlay + Rule Lab `series` context (see `BACNET_COMMISSIONING.md`)
-- Still TODO: FDD fan-out per building, pre-aggregated serve path at very high point counts
-
-### 3. Separate compute from serve
-
-- **Batch job** (scheduled or on-demand): runs rules, writes summary + compact artifacts.
-- **Read API / dashboard**: serves pre-aggregated results instead of full re-sweep on every browser refresh.
-
-### 4. Incremental FDD (watermark) — **partial (scheduled only)**
-
-- **FddFunction** resumes from `watermark_ms` when `rules_revision` matches.
-- **Go live** always full chunked backfill for the requested hours (resets counts).
-- Future: carry debounce state across chunks in the engine (not rule-local lists).
-
-### 5. Operational limits to respect
-
-| Limit | Today |
-|-------|--------|
-| `READINGS_LIMIT` | ~62k samples per query/eval pass |
-| WebFunction timeout | 120 s |
-| FDD status row | Summary only (counts, badge, eval_log) — not per-sample flag arrays |
-| Ingest | One `put_item` per MQTT sample (real time) |
+Requires `samconfig.toml` (gitignored) with real `WebPassword` + `AuthSecret`.
 
 ---
 

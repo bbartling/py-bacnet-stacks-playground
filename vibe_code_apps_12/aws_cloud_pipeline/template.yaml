@@ -74,7 +74,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: IoT Rule — BACnet hierarchical telemetry → DynamoDB
-      Runtime: python3.13
+      Runtime: python3.12
       Architectures:
         - x86_64
       Timeout: 30
@@ -114,7 +114,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: Function URL — React SPA + /api JSON
-      Runtime: python3.13
+      Runtime: python3.12
       Architectures:
         - x86_64
       Timeout: 120
@@ -147,7 +147,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: !Sub "Scheduled FDD rules (rev ${DeployRevision})"
-      Runtime: python3.13
+      Runtime: python3.12
       Architectures:
         - x86_64
       Timeout: 120

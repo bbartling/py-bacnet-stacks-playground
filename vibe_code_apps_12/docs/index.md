@@ -54,7 +54,8 @@ Non-technical path — check boxes phase by phase:
 | [AWS IoT](04-aws-iot-core.md) | Certificates, topics, policies |
 | [Edge deploy](edge-deploy.md) | Ansible inventory, dual BACnet |
 | [BACnet commissioning](bacnet-commissioning.md) | Short commissioning recap |
-| [AWS SAM](aws-cloud-sam.md) | tar/zip, CloudShell, deploy |
+| [AWS SAM (CloudShell)](aws-cloud-sam.md) | tar/zip, upload, deploy |
+| [AWS SAM (bensserver)](aws-deploy-from-bensserver.md) | CLI + `deploy_cloud_from_bensserver.sh` |
 | [Dashboard & FDD](05-cloud-dashboard-fdd.md) | Rule Lab, go-live |
 | [Web app features](06-web-app-features.md) | Per-screen low-level reference |
 | [Wire capture](wire-capture.md) | Post-deploy pcap |

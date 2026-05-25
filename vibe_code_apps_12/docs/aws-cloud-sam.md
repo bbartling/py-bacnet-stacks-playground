@@ -5,9 +5,16 @@ nav_order: 4
 
 # AWS cloud & SAM deploy
 
-Deploy the **vibe12cloud** stack (IoT rules → DynamoDB → dashboard Lambdas) from **AWS CloudShell** in **us-east-2**.
+Deploy the **vibe12cloud** stack (IoT rules → DynamoDB → dashboard Lambdas) in **us-east-2**.
 
-> **Upload target:** AWS Console → **CloudShell** → **Actions → Upload file** (not the IoT Core console). IoT receives data from the Pi after the stack is deployed.
+**Two paths:**
+
+| Path | Guide |
+|------|--------|
+| **B — bensserver (recommended if you have AWS CLI keys here)** | [Deploy SAM from bensserver](aws-deploy-from-bensserver.md) — `./scripts/deploy_cloud_from_bensserver.sh`, no tarball |
+| **CloudShell** | This page (upload tar from Windows) |
+
+> **CloudShell upload:** AWS Console → **CloudShell** → **Actions → Upload file** (not the IoT Core console).
 
 Prerequisites: Pi (or edge) publishing to AWS IoT; `aws sts get-caller-identity` works in CloudShell.
 
@@ -23,7 +30,7 @@ Prerequisites: Pi (or edge) publishing to AWS IoT; `aws sts get-caller-identity`
 | **E** | CloudShell | `tar -xzf …` or `unzip` |
 | **F** | CloudShell | `cp samconfig.toml.example samconfig.toml` → **set WebPassword + AuthSecret** |
 | **G** | CloudShell | `sam build` → `sam deploy --force-upload` |
-| **H** | CloudShell | `curl` `/api/health` + login test |
+| **H** | CloudShell | `curl` `/api/health` + login test (or `./scripts/verify_cloud_dashboard.sh`) |
 | **I** | Browser | Open **DashboardUrl** → sign in (`engineer` + your password) |
 
 Same content also lives in [`aws_cloud_pipeline/README.md`](../aws_cloud_pipeline/README.md) (longer notes) and [`DEPLOYED.md`](../aws_cloud_pipeline/DEPLOYED.md) (URLs after deploy).

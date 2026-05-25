@@ -123,7 +123,7 @@ sam validate --lint
 sam deploy --force-upload
 ```
 
-Expected build: **IngestFunction**, **WebFunction**, **FddFunction** (python3.13).  
+Expected build: **IngestFunction**, **WebFunction**, **FddFunction** (python3.12).  
 Harmless warning: `requirements.txt file not found` (boto3 is in the Lambda runtime).
 
 ### Step G — Note outputs

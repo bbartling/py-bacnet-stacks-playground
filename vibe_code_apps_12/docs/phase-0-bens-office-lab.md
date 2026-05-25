@@ -56,28 +56,33 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 
 `--pcap` is required for `captures/bacnet.pcap` — it is **not** created on a normal deploy (`enable_deploy_pcap: false` by default). Capture runs as **root** (tcpdump needs `become: true` in the playbook).
 
-## Wire capture — why `scp` failed
+## Wire capture — copy `bacnet.pcap` to your PC
 
-`No such file or directory` means either:
+`No such file or directory` from `scp` usually means one of:
 
-1. Deploy ran **without** `--pcap`, or  
-2. Capture failed (often **permission** if tcpdump was not run with sudo).
+1. **Wrong remote path** — use `/home/ben/vibe_code_apps_12/captures/bacnet.pcap`, not `~/vibe_code_apps_12/...` (remote `~` often does not work with `scp`).  
+2. **No capture yet** — deploy without `--pcap`, or tcpdump failed without `sudo`.  
+3. **Capture still running** — wait for the script to finish (default 300 s with `--pcap`).
 
 **Manual capture on the Pi:**
 
 ```bash
 ssh ben@192.168.204.12
-sudo ~/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
-  ~/vibe_code_apps_12/captures/bacnet.pcap \
+sudo /home/ben/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
+  /home/ben/vibe_code_apps_12/captures/bacnet.pcap \
   "udp port 47808 or udp port 47809" 120
 ```
 
-**Pull to bensserver home** (after capture finishes — use **absolute** remote path; `~/…` can fail with `scp`):
+**Copy to your machine** (verified on Windows PowerShell and Linux):
+
+```powershell
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap .
+```
 
 ```bash
-scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap ~/bacnet.pcap
-ls -la ~/bacnet.pcap
-wireshark ~/bacnet.pcap
+# same command on bensserver / macOS / WSL
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap .
+ls -la bacnet.pcap
 ```
 
 Expect a small file if the read interval is 60 s (a few UDP frames per poll cycle). A non-empty **pcap** file confirms capture works.

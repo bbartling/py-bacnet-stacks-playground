@@ -26,9 +26,17 @@ Ansible waits until `vibe12-bacnet-read` is **active**, then starts capture in t
 
 If you run the script by hand without Ansible, use **`sudo`** or capture will fail with *Operation not permitted*.
 
-## Pull pcap to your laptop
+## Pull pcap to your PC
 
-After capture finishes:
+After capture finishes, copy with an **absolute remote path**. Do **not** use `ben@host:~/vibe_code_apps_12/...` — many `scp` clients (Windows PowerShell, OpenSSH) do not expand `~` on the remote side and report *No such file or directory* even when the file exists.
+
+**PowerShell or bash** (current directory):
+
+```powershell
+scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap .
+```
+
+**Linux/macOS** (explicit home path):
 
 ```bash
 scp ben@192.168.204.12:/home/ben/vibe_code_apps_12/captures/bacnet.pcap ~/bacnet.pcap
@@ -39,11 +47,13 @@ Wireshark display filter: `bacnet` or `udp.port == 47808`.
 
 ## Manual capture on edge
 
+SSH to the Pi, then run with **sudo** (tcpdump needs root):
+
 ```bash
-~/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
-  ~/vibe_code_apps_12/captures/bacnet.pcap \
+sudo /home/ben/vibe_code_apps_12/scripts/bacnet_tcpdump_once.sh \
+  /home/ben/vibe_code_apps_12/captures/bacnet.pcap \
   "udp port 47808 or udp port 47809" \
-  300
+  120
 ```
 
 Same pattern as [vibe_code_apps_14/captures](../../vibe_code_apps_14/captures/README.md).
