@@ -3,6 +3,12 @@ __pycache__/
 *.pyc
 .aws-sam/
 
+# Local Python virtualenvs (python3 -m venv .venv-test — never git add)
+.venv/
+.venv-test/
+.venv-ci/
+.venv-*/
+
 # SAM deploy secrets (copy from samconfig.toml.example)
 aws_cloud_pipeline/samconfig.toml
 
