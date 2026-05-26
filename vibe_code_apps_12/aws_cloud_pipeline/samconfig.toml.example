@@ -34,6 +34,9 @@ region = "us-east-2"
 # *** SET YOUR PASSWORD ***
 # *** SET 32+ CHAR RANDOM SECRET ***
 
+# Optional: poll AWS IoT Core thing/client MQTT status on /api/edge-devices (Dashboard).
+# Thing name may differ from MQTT client_id (lab Pi often uses client_id basicPubSub).
+# Escape quotes inside the JSON string for SAM CLI.
 parameter_overrides = [
   "IotRuleName=vibe12_telemetry_ingest",         
   "TtlDays=7",                                     
@@ -41,5 +44,6 @@ parameter_overrides = [
   "IotTopicPrefix=vibe12",                         
   "WebUsername=engineer",                          
   "WebPassword=REPLACE_WITH_YOUR_PASSWORD",        
-  "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",  
+  "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",
+  "IotEdgeThings=[]",
 ]

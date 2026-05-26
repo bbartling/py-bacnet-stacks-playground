@@ -7,6 +7,7 @@ from typing import Any
 
 from mqtt_routing import CANONICAL_MODEL_TS, meta_device_id
 from model_schema import normalize_model_payload
+from rules_defaults import default_fault_rule_reference
 
 
 def _sanitize_id(value: str) -> str:
@@ -41,7 +42,11 @@ def bootstrap_from_registry(
     points: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Build open-fdd-shaped model from BACnet point registry rows."""
-    site = {"id": site_id, "name": f"{site_id} / {building_id}"}
+    site = {
+        "id": site_id,
+        "name": f"{site_id} / {building_id}",
+        "metadata": default_fault_rule_reference(),
+    }
     equipment_by_key: dict[str, dict[str, Any]] = {}
     out_points: list[dict[str, Any]] = []
 
@@ -61,12 +66,14 @@ def bootstrap_from_registry(
         pt_id = _sanitize_id(f"{site_id}_{building_id}_{tag}")
         brick_class = p.get("brick_class") or "Sensor"
         series_id = p.get("series_id") or ""
+        object_name = p.get("object_name") or ""
         out_points.append(
             {
                 "id": pt_id,
                 "site_id": site_id,
                 "equipment_id": eq_id,
                 "external_id": tag or pt_id,
+                "object_name": object_name,
                 "brick_type": brick_class,
                 "fdd_input": brick_class,
                 "unit": p.get("unit", ""),
@@ -74,6 +81,7 @@ def bootstrap_from_registry(
                     "external_ref": series_id,
                     "building_id": building_id,
                     "system_id": system_id,
+                    "object_name": object_name,
                 },
             }
         )

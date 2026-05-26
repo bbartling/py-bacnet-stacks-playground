@@ -10,9 +10,32 @@ sys.path.insert(0, str(ROOT))
 
 from telemetry_api import (  # noqa: E402
     FRESH_GREEN_MAX_MIN,
+    _series_point_metadata,
     deployment_readiness,
     ingest_freshness,
 )
+
+
+class TestSeriesPointMetadata(unittest.TestCase):
+    def test_registry_fields_used(self) -> None:
+        meta = _series_point_metadata(
+            {
+                "brick_class": "Zone_Air_Temperature_Sensor",
+                "brick_tag": "STAT-ZN-T",
+                "object_name": "STAT ZN-T",
+            },
+            None,
+        )
+        self.assertEqual(meta["object_name"], "STAT ZN-T")
+        self.assertEqual(meta["brick_class"], "Zone_Air_Temperature_Sensor")
+
+    def test_falls_back_to_latest_sample(self) -> None:
+        meta = _series_point_metadata(
+            {"brick_class": ""},
+            {"object_name": "OA-H", "brick_class": "Outside_Air_Humidity_Sensor"},
+        )
+        self.assertEqual(meta["object_name"], "OA-H")
+        self.assertEqual(meta["brick_class"], "Outside_Air_Humidity_Sensor")
 
 
 class TestIngestFreshness(unittest.TestCase):

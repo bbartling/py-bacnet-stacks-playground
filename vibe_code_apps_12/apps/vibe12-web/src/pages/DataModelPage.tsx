@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, apiFetchText } from "../lib/api-client";
+import { downloadJson } from "../lib/rule-lab-console";
 import { logger } from "../lib/logger";
 import { useSite } from "../contexts/site-context";
 import { TopBar } from "../components/layout/TopBar";
@@ -65,7 +66,23 @@ export function DataModelPage() {
         subtitle="BRICK canonical model · preserve metadata.external_ref = series_id"
       />
       <div className="card toolbar-card">
-        <button type="button" onClick={() => void doExport()}>Export JSON</button>
+        <button type="button" onClick={() => void doExport()}>Load export</button>
+        <button
+          type="button"
+          className="secondary-btn"
+          disabled={!exportJson}
+          onClick={() => {
+            try {
+              const data = JSON.parse(exportJson);
+              downloadJson(`canonical-model-${siteId}-${buildingId}.json`, data);
+              setStatus("Downloaded JSON file.");
+            } catch {
+              setStatus("Export JSON invalid — click Load export first.");
+            }
+          }}
+        >
+          Download JSON
+        </button>
         <button type="button" className="secondary-btn" onClick={() => void loadRegistry()}>Refresh registry</button>
         <button type="button" className="secondary-btn" onClick={() => void syncTtl()}>Sync TTL</button>
         <span className="muted">{status}</span>

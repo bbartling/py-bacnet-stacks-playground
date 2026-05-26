@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark";
 
 type ThemeContextValue = {
   theme: Theme;
-  resolvedTheme: "light" | "dark";
   setTheme: (theme: Theme) => void;
 };
 
@@ -12,35 +11,23 @@ const STORAGE_KEY = "vibe12-theme";
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function resolveTheme(theme: Theme): "light" | "dark" {
-  if (theme === "light" || theme === "dark") return theme;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function applyTheme(theme: Theme): "light" | "dark" {
-  const resolved = resolveTheme(theme);
-  document.documentElement.setAttribute("data-theme", resolved);
-  return resolved;
+function applyTheme(theme: Theme): void {
+  document.documentElement.setAttribute("data-theme", theme);
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved === "dark" || saved === "light" || saved === "system") return saved;
+    if (saved === "light" || saved === "dark") return saved;
     return "dark";
   });
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => applyTheme(theme));
 
   useEffect(() => {
-    setResolvedTheme(applyTheme(theme));
-    if (theme === "system") window.localStorage.removeItem(STORAGE_KEY);
-    else window.localStorage.setItem(STORAGE_KEY, theme);
+    applyTheme(theme);
+    window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  const value = useMemo(
-    () => ({ theme, resolvedTheme, setTheme: setThemeState }),
-    [theme, resolvedTheme],
-  );
+  const value = useMemo(() => ({ theme, setTheme: setThemeState }), [theme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

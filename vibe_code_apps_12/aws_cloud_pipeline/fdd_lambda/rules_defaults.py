@@ -12,6 +12,9 @@ from units import config_field_meta_for_unit, normalize_temp_unit
 
 CONFIG_FIELD_META = config_field_meta_for_unit("imperial")
 
+DEFAULT_FAULT_RULE_PACK = "brick_zone_temp_basic_v1"
+DEFAULT_FAULT_RULE_ID = "brick_zone_oob"
+
 BRICK_ZONE_TEMP_SCOPE: dict[str, Any] = {
     "point_classes": ["Zone_Air_Temperature_Sensor"],
     "match_mode": "point_only",
@@ -20,6 +23,14 @@ BRICK_ZONE_TEMP_SCOPE: dict[str, Any] = {
 
 def get_config_field_meta(unit: str | None = None) -> dict[str, dict[str, Any]]:
     return config_field_meta_for_unit(normalize_temp_unit(unit))
+
+
+def default_fault_rule_reference() -> dict[str, str]:
+    """Default site-level link from the canonical model to the shipped FDD bundle."""
+    return {
+        "rule_pack": DEFAULT_FAULT_RULE_PACK,
+        "fault_rule": DEFAULT_FAULT_RULE_ID,
+    }
 
 
 def default_custom_rules() -> list[dict[str, Any]]:

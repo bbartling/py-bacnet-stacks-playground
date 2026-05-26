@@ -30,9 +30,12 @@ class TestEdgeMqttPayload(unittest.TestCase):
             unit="degreesCelsius",
             brick_class="Zone_Air_Temperature_Sensor",
             brick_tag="BenOffice-ZAT",
+            object_name="Ben's office DS18B20 °C",
         )
         self.assertIn('"source": "edge"', body)
         self.assertIn("demo#bens-office#office#digital-temp-degC", body)
+        self.assertIn("Ben's office DS18B20", body)
+        self.assertIn("Zone_Air_Temperature_Sensor", body)
 
     def test_edge_config_builds_two_messages(self) -> None:
         cfg = EdgeMqttConfig(

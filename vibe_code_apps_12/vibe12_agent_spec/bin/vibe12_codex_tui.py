@@ -20,6 +20,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -42,6 +43,7 @@ Read (do not paste back verbatim):
 
 Do ONE slice from **Next for mini (ordered)** only. Skills: vibe12_agent_spec/skills/.
 Humans own SSH and points.csv. Run ./scripts/validate_cloud_pipeline.sh before claiming cloud OK.
+Never read or grep aws_cloud_pipeline/samconfig.toml (secrets) — use WEB_PASSWORD env for validate scripts.
 
 User request:
 """
@@ -183,6 +185,78 @@ def _base_args(codex: str, *, mode: str) -> list[str]:
     return args
 
 
+_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+_SECRET_LINE = re.compile(
+    r"(WebPassword|AuthSecret|AWS_SECRET|AWS_ACCESS_KEY|private\.key)\s*[=:]\s*\S+",
+    re.I,
+)
+
+
+def _redact_secrets(line: str) -> str:
+    return _SECRET_LINE.sub(lambda m: f"{m.group(1)}=***", line)
+
+
+def _is_exec_noise(line: str) -> bool:
+    s = line.strip()
+    if not s:
+        return True
+    if s == "exec":
+        return True
+    if s.startswith("/bin/bash") or s.startswith("bash -lc"):
+        return True
+    if " succeeded in " in line:
+        return True
+    if re.match(r"^in [/~]", s):
+        return True
+    if re.match(r"^\d+\|", s) and _SECRET_LINE.search(line):
+        return True
+    return False
+
+
+def _quiet_default() -> bool:
+    val = os.environ.get("VIBE12_TUI_QUIET", "true").strip().lower()
+    return val not in ("0", "false", "no", "off")
+
+
+def _stream_codex_output(pipe, *, quiet: bool) -> None:
+    """Forward codex stdout; in quiet mode hide exec/tool lines, show assistant text only."""
+    mode = "pass"
+    try:
+        for raw in iter(pipe.readline, ""):
+            line = raw.rstrip("\n")
+            if not quiet:
+                print(_redact_secrets(line), flush=True)
+                continue
+
+            s = line.strip()
+            if s == "exec":
+                mode = "suppress"
+                continue
+            if s == "codex" or s.lower().startswith("codex "):
+                mode = "assistant"
+                if s.lower().startswith("codex ") and len(s) > 5:
+                    print(_redact_secrets(line), flush=True)
+                continue
+            if mode == "suppress":
+                continue
+            if _is_exec_noise(line):
+                continue
+            print(_redact_secrets(line), flush=True)
+    finally:
+        pipe.close()
+
+
+def _spinner_until(stop: threading.Event) -> None:
+    i = 0
+    while not stop.wait(0.1):
+        frame = _SPINNER_FRAMES[i % len(_SPINNER_FRAMES)]
+        sys.stdout.write(f"\r  {frame} codex working…  ")
+        sys.stdout.flush()
+        i += 1
+    sys.stdout.write("\r" + " " * 28 + "\r")
+    sys.stdout.flush()
+
+
 def _critique_prompt(user_notes: str) -> str:
     today = date.today().isoformat()
     notes = user_notes.strip() or "(none)"
@@ -282,6 +356,7 @@ def _run_turn(
     *,
     mode: str,
     resume: bool,
+    quiet: bool,
 ) -> int:
     cmd = _base_args(codex, mode=mode)
     if resume and mode == "mini":
@@ -289,22 +364,56 @@ def _run_turn(
     cmd.append(prompt)
 
     model_label = _forced_model() or (_critique_model() if mode == "critique" else _mini_model())
-    print(
-        f"\n→ [{mode}] model={model_label} "
-        f"{'resume' if resume and mode == 'mini' else 'new'} …\n",
-        flush=True,
+    resume_label = "resume" if resume and mode == "mini" else "new"
+    if quiet:
+        print(f"\n→ [{mode}] {model_label} ({resume_label}) — quiet mode (hide exec noise)\n", flush=True)
+    else:
+        print(f"\n→ [{mode}] model={model_label} {resume_label} …\n", flush=True)
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(APP_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
     )
-    proc = subprocess.Popen(cmd, cwd=str(APP_ROOT))
+    stop_spin = threading.Event()
+    spin_thread = None
+    if quiet and proc.stdout:
+        spin_thread = threading.Thread(target=_spinner_until, args=(stop_spin,), daemon=True)
+        spin_thread.start()
+
+    reader = None
+    if proc.stdout:
+        reader = threading.Thread(
+            target=_stream_codex_output,
+            args=(proc.stdout,),
+            kwargs={"quiet": quiet},
+            daemon=True,
+        )
+        reader.start()
+
     try:
-        return proc.wait()
+        code = proc.wait()
     except KeyboardInterrupt:
         proc.terminate()
         try:
-            proc.wait(timeout=5)
+            code = proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+            code = 130
         print("\n(interrupted)", flush=True)
-        return 130
+    finally:
+        stop_spin.set()
+        if spin_thread:
+            spin_thread.join(timeout=1)
+        if reader:
+            reader.join(timeout=2)
+
+    if quiet and code == 0:
+        print("(done)\n", flush=True)
+    return code
 
 
 def _print_banner() -> None:
@@ -318,7 +427,8 @@ def _print_banner() -> None:
     print(f"  workspace: {APP_ROOT}")
     print(f"  routing: {routing}")
     print(f"  sandbox: {sandbox_label}")
-    print("  commands: /help  /mini  /critique  /wake [N]  /new  /bootstrap  /quit")
+    print("  commands: /help  /mini  /critique  /wake [N]  /new  /verbose  /quiet  /quit")
+    print(f"  output:   {'quiet (exec hidden, spinner)' if _quiet_default() else 'verbose (all codex output)'}")
     print("  flow:     critique sets Next for mini → minis consume that queue")
     print("  prefix:   critique: <notes>  → gpt-5.5 only")
     print()
@@ -335,6 +445,8 @@ Commands:
   /new               Next mini turn starts fresh (no resume)
   /bootstrap         Regenerate scratch/memory-bootstrap-latest.md
   /wake [N]          Run vibe12_wake.sh (N minis + critique; default from .env)
+  /quiet             Hide exec/tool noise; spinner + Codex replies only (default)
+  /verbose           Show full codex exec stream (debug)
   /quit              Exit
 
 Orchestration (bas_build_spec pattern):
@@ -361,6 +473,7 @@ def main() -> int:
     _print_banner()
 
     mini_resume = False
+    quiet = _quiet_default()
     while True:
         try:
             line = input("you> ").strip()
@@ -379,6 +492,14 @@ def main() -> int:
         if low == "/new":
             mini_resume = False
             print("(next mini turn starts a new Codex session)")
+            continue
+        if low == "/quiet":
+            quiet = True
+            print("(quiet mode — exec hidden, spinner on)")
+            continue
+        if low == "/verbose":
+            quiet = False
+            print("(verbose mode — full codex output)")
             continue
         if low == "/bootstrap":
             _write_bootstrap()
@@ -405,7 +526,7 @@ def main() -> int:
                 prompt = _critique_prompt("")
             else:
                 prompt = _critique_prompt(body)
-            code = _run_turn(codex, prompt, mode="critique", resume=False)
+            code = _run_turn(codex, prompt, mode="critique", resume=False, quiet=quiet)
             if code != 0:
                 print(f"(critique exited {code})", file=sys.stderr)
             continue
@@ -418,7 +539,7 @@ def main() -> int:
         if fresh_mini:
             _export_wake_context()
         prompt = _wrap_mini_prompt(body, fresh=fresh_mini)
-        code = _run_turn(codex, prompt, mode="mini", resume=mini_resume and not fresh_mini)
+        code = _run_turn(codex, prompt, mode="mini", resume=mini_resume and not fresh_mini, quiet=quiet)
         if code == 0:
             mini_resume = True
         else:

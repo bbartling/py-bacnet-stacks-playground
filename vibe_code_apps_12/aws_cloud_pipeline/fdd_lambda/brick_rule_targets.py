@@ -41,10 +41,12 @@ def _resolve_alias_to_series_id(model: dict[str, Any], alias_value: str) -> str 
     for pt in model.get("points", []):
         if not isinstance(pt, dict):
             continue
+        meta = pt.get("metadata") if isinstance(pt.get("metadata"), dict) else {}
         ext = str(pt.get("external_id") or "").upper()
         bt = str(pt.get("brick_type") or "").upper()
         fdd = str(pt.get("fdd_input") or "").upper()
-        if key_upper in (ext, bt, fdd):
+        name = str(pt.get("object_name") or meta.get("object_name") or "").upper()
+        if key_upper in (ext, bt, fdd, name):
             sid = _point_series_id(pt)
             if sid:
                 return sid
@@ -98,6 +100,9 @@ def expand_brick_targets(model: dict[str, Any], brick_scope: dict[str, Any]) -> 
             bt: series_id,
             ext_id: series_id,
         }
+        object_name = str(pt.get("object_name") or "").strip()
+        if object_name:
+            aliases[object_name] = series_id
         fdd = str(pt.get("fdd_input") or "")
         if fdd:
             aliases[fdd] = series_id

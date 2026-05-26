@@ -69,6 +69,9 @@ class TtlService:
             rule_pack = site_metadata.get("rule_pack")
             if rule_pack:
                 lines.append(f'  vibe12:faultRulePack "{_escape(str(rule_pack))}" ;')
+            fault_rule = site_metadata.get("fault_rule")
+            if fault_rule:
+                lines.append(f'  vibe12:faultRule "{_escape(str(fault_rule))}" ;')
             lines[-1] = lines[-1].rstrip(" ;") + " ."
             lines.append("")
 
@@ -92,12 +95,22 @@ class TtlService:
             if pid is None:
                 continue
             bt = _safe_brick_type(str(pt.get("brick_type") or "Point"), "Point")
+            object_name = str(pt.get("object_name") or "")
+            external_id = str(pt.get("external_id") or "")
+            label = object_name or external_id or pid
             lines.append(f":pt_{pid} a brick:{bt} ;")
-            lines.append(f'  rdfs:label "{_escape(str(pt.get("external_id", "")))}" ;')
+            lines.append(f'  rdfs:label "{_escape(label)}" ;')
+            if external_id:
+                lines.append(f'  vibe12:operatorTag "{_escape(external_id)}" ;')
+            if object_name:
+                lines.append(f'  vibe12:objectName "{_escape(object_name)}" ;')
             if pt.get("equipment_id"):
                 eid = _sanitize_local_name(pt.get("equipment_id"))
                 if eid is not None:
                     lines.append(f"  brick:isPointOf :eq_{eid} ;")
+            sid = _sanitize_local_name(pt.get("site_id"))
+            if sid is not None:
+                lines.append(f"  brick:isPartOf :site_{sid} ;")
             maps_rule_input = str(pt.get("fdd_input") or "").strip()
             if not maps_rule_input and bt and bt != "Point":
                 maps_rule_input = bt

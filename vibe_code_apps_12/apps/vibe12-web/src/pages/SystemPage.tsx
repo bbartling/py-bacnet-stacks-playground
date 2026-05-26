@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api-client";
 import { TopBar } from "../components/layout/TopBar";
+import { HealthPanel } from "../components/HealthPanel";
 import { StatusDot } from "../components/StatusDot";
 
 type Check = {
@@ -57,9 +58,9 @@ export function SystemPage() {
           <p className="muted">Loading…</p>
         )}
       </div>
-      <div className="card">
+      <div className="card health-card">
         <h3 className="title">Health</h3>
-        <pre className="console-pre">{health ? JSON.stringify(health, null, 2) : "Loading…"}</pre>
+        <HealthPanel data={health} />
       </div>
     </div>
   );

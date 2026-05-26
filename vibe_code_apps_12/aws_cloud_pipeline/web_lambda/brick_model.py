@@ -22,6 +22,15 @@ def empty_graph(site_id: str, building_id: str) -> dict[str, Any]:
     }
 
 
+def site_entity(entity_id: str, site_id: str, building_id: str) -> dict[str, Any]:
+    return {
+        "@id": entity_id,
+        "brick": "Site",
+        "site_id": site_id,
+        "building_id": building_id,
+    }
+
+
 def point_entity(
     *,
     entity_id: str,
@@ -30,6 +39,7 @@ def point_entity(
     unit: str = "",
     brick_tag: str = "",
     system_id: str = "",
+    object_name: str = "",
     bacnet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ent = {
@@ -40,6 +50,8 @@ def point_entity(
         "ext:tag": brick_tag,
         "system_id": system_id,
     }
+    if object_name:
+        ent["ext:object_name"] = object_name
     if bacnet:
         ent["bacnet"] = bacnet
     return ent
@@ -65,6 +77,8 @@ def graph_from_point_registry(
     points: list[dict[str, Any]],
 ) -> dict[str, Any]:
     graph = empty_graph(site_id, building_id)
+    site_id_entity = f"brick:{site_id}_{building_id}_site"
+    graph["entities"].append(site_entity(site_id_entity, site_id, building_id))
     equipment_ids: dict[str, str] = {}
 
     for p in points:
@@ -76,8 +90,11 @@ def graph_from_point_registry(
             graph["entities"].append(
                 equipment_entity(eq_id, "HVAC_Equipment", system_id)
             )
+            add_relationship(graph, site_id_entity, "hasPart", eq_id)
+            add_relationship(graph, eq_id, "isPartOf", site_id_entity)
 
         tag = p.get("brick_tag") or p.get("point_id") or p.get("series_id", "")
+        object_name = p.get("object_name") or ""
         pt_id = f"brick:{site_id}_{building_id}_{tag}"
         graph["entities"].append(
             point_entity(
@@ -87,10 +104,13 @@ def graph_from_point_registry(
                 unit=p.get("unit", ""),
                 brick_tag=tag,
                 system_id=system_id,
+                object_name=object_name,
                 bacnet=p.get("bacnet_object"),
             )
         )
         add_relationship(graph, equipment_ids[eq_key], "hasPoint", pt_id)
+        add_relationship(graph, site_id_entity, "hasPart", pt_id)
+        add_relationship(graph, pt_id, "isPartOf", site_id_entity)
 
     return graph
 

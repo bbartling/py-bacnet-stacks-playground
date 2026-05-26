@@ -29,6 +29,7 @@ class TestModelSchema(unittest.TestCase):
                     "site_id": "demo",
                     "equipment_id": "eq1",
                     "external_id": "SAT",
+                    "object_name": "STAT ZN-T",
                     "brick_type": "Supply_Air_Temperature_Sensor",
                     "fdd_input": "Supply_Air_Temperature_Sensor",
                     "metadata": {"external_ref": "demo#pi#ahu-1#sat"},
@@ -62,7 +63,16 @@ class TestModelSchema(unittest.TestCase):
 class TestTtlService(unittest.TestCase):
     def test_build_ttl_external_ref(self) -> None:
         model = {
-            "sites": [{"id": "demo", "name": "Demo Site"}],
+            "sites": [
+                {
+                    "id": "demo",
+                    "name": "Demo Site",
+                    "metadata": {
+                        "rule_pack": "brick_zone_temp_basic_v1",
+                        "fault_rule": "brick_zone_oob",
+                    },
+                }
+            ],
             "equipment": [
                 {"id": "eq1", "site_id": "demo", "name": "AHU-1", "equipment_type": "Air_Handling_Unit"}
             ],
@@ -72,6 +82,7 @@ class TestTtlService(unittest.TestCase):
                     "site_id": "demo",
                     "equipment_id": "eq1",
                     "external_id": "SAT",
+                    "object_name": "STAT ZN-T",
                     "brick_type": "Supply_Air_Temperature_Sensor",
                     "fdd_input": "Supply_Air_Temperature_Sensor",
                     "metadata": {"external_ref": "demo#pi#ahu-1#sat"},
@@ -83,6 +94,11 @@ class TestTtlService(unittest.TestCase):
         self.assertIn("vibe12:externalReference", ttl)
         self.assertIn("demo#pi#ahu-1#sat", ttl)
         self.assertIn("brick:Supply_Air_Temperature_Sensor", ttl)
+        self.assertIn('rdfs:label "STAT ZN-T"', ttl)
+        self.assertIn('vibe12:operatorTag "SAT"', ttl)
+        self.assertIn('vibe12:objectName "STAT ZN-T"', ttl)
+        self.assertIn('vibe12:faultRulePack "brick_zone_temp_basic_v1"', ttl)
+        self.assertIn('vibe12:faultRule "brick_zone_oob"', ttl)
 
 
 class TestBootstrap(unittest.TestCase):
@@ -94,13 +110,18 @@ class TestBootstrap(unittest.TestCase):
                 "brick_class": "Zone_Air_Temperature_Sensor",
                 "series_id": "acme#tower#vav-1#zat",
                 "unit": "degF",
+                "object_name": "STAT ZN-T",
             }
         ]
         model = bootstrap_from_registry("acme", "tower", points)
         self.assertEqual(len(model["sites"]), 1)
         self.assertEqual(len(model["equipment"]), 1)
         self.assertEqual(len(model["points"]), 1)
+        self.assertEqual(model["sites"][0]["metadata"]["rule_pack"], "brick_zone_temp_basic_v1")
+        self.assertEqual(model["sites"][0]["metadata"]["fault_rule"], "brick_zone_oob")
         self.assertEqual(model["points"][0]["metadata"]["external_ref"], "acme#tower#vav-1#zat")
+        self.assertEqual(model["points"][0]["object_name"], "STAT ZN-T")
+        self.assertEqual(model["points"][0]["metadata"]["object_name"], "STAT ZN-T")
 
 
 class TestBrickTargets(unittest.TestCase):

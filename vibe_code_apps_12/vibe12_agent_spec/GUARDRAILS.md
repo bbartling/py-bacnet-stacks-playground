@@ -3,6 +3,7 @@
 ## Never
 
 - Commit `samconfig.toml`, IoT `*.private.key`, `aws_iot_certs/` PEMs, or **`MEMORY.md` / `memory/*.md`**
+- Run `rg`, `cat`, or `grep` on **`aws_cloud_pipeline/samconfig.toml`** (dashboard password + HMAC secret) — use `WEB_PASSWORD` / `WEB_USERNAME` env for validate scripts instead
 - Paste production passwords or access keys into memory or skills
 - Run BACnet **writes** to field devices without human sign-off
 - Change IoT policy in AWS without human approval and a note in `memory/integrations/aws-iot.md`

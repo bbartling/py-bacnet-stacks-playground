@@ -43,14 +43,14 @@ export function Sidebar() {
         </button>
       </div>
       <div className="theme-switcher">
-        {(["light", "dark", "system"] as const).map((t) => (
+        {(["light", "dark"] as const).map((t) => (
           <button
             key={t}
             type="button"
             className={`theme-btn ${theme === t ? "active" : ""}`}
             onClick={() => setTheme(t)}
           >
-            {t === "system" ? "Auto" : t === "light" ? "Light" : "Dark"}
+            {t === "light" ? "Light" : "Dark"}
           </button>
         ))}
       </div>

@@ -8,6 +8,7 @@ from typing import Any
 from boto3.dynamodb.conditions import Key
 
 from brick_timeseries import brick_timeseries_ref, parse_stored_ref
+from iot_edge_status import lookup_iot_edge_things
 from mqtt_routing import building_scope, meta_device_id
 
 # Freshness thresholds (minutes since last sample)
@@ -51,6 +52,26 @@ def _latest_sample(table, series_id: str) -> dict[str, Any] | None:
     )
     items = resp.get("Items") or []
     return items[0] if items else None
+
+
+def _series_point_metadata(
+    registry: dict[str, Any], last: dict[str, Any] | None
+) -> dict[str, str]:
+    """Merge BACnet/BRICK labels from point registry with latest telemetry sample."""
+    last = last or {}
+
+    def pick(*keys: str) -> str:
+        for key in keys:
+            val = registry.get(key) or last.get(key) or ""
+            if val not in (None, ""):
+                return str(val).strip()
+        return ""
+
+    return {
+        "brick_class": pick("brick_class"),
+        "brick_tag": pick("brick_tag"),
+        "object_name": pick("object_name"),
+    }
 
 
 def telemetry_flow_status(
@@ -241,6 +262,7 @@ def telemetry_series_catalog(store, *, hours: int = 24) -> dict[str, Any]:
             if isinstance(ref, str):
                 ref = parse_stored_ref(ref)
             has_brick_ref = bool(ref and ref.get("entity_id"))
+            meta = _series_point_metadata(p, last)
             catalog.append(
                 {
                     "series_id": sid,
@@ -249,7 +271,9 @@ def telemetry_series_catalog(store, *, hours: int = 24) -> dict[str, Any]:
                     "system_id": p.get("system_id"),
                     "point_id": p.get("point_id"),
                     "source": p.get("source") or (last or {}).get("source"),
-                    "brick_class": p.get("brick_class"),
+                    "brick_class": meta["brick_class"] or None,
+                    "brick_tag": meta["brick_tag"] or None,
+                    "object_name": meta["object_name"] or None,
                     "unit": p.get("unit") or (last or {}).get("unit"),
                     "last_value": float(last["value"])
                     if last and last.get("value") is not None
@@ -306,6 +330,16 @@ def edge_devices_status(store) -> dict[str, Any]:
             }
         )
         all_series.extend(flow["series"])
+
+    iot_payload = lookup_iot_edge_things()
+    iot_by_scope = {
+        (t["site_id"], t["building_id"]): t for t in (iot_payload.get("things") or [])
+    }
+    for row in building_rows:
+        iot_row = iot_by_scope.get((row["site_id"], row["building_id"]))
+        if iot_row:
+            row["iot_mqtt"] = iot_row
+
     return {
         "checked_at_ms": now_ms,
         "freshness_thresholds_minutes": {
@@ -318,6 +352,15 @@ def edge_devices_status(store) -> dict[str, Any]:
         "series": all_series,
         "buildings_count": len(building_rows),
         "series_count": len(all_series),
+        "iot_connectivity": {
+            "configured": bool(iot_payload.get("configured")),
+            "hint": iot_payload.get("hint"),
+            "things": iot_payload.get("things") or [],
+        },
+        "status_sources": {
+            "telemetry": "DynamoDB last sample time (always)",
+            "iot_core": "AWS IoT GetThingConnectivityData / SearchIndex (optional IOT_EDGE_THINGS)",
+        },
     }
 
 

@@ -652,19 +652,26 @@ details.openfdd-advanced > summary {
   color: var(--input-text);
 }
 
-.explore-grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+.explore-stack {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: start;
+  width: 100%;
+}
+.explore-page .explore-list {
+  width: 100%;
 }
 .explore-scroll,
 .edge-scroll {
-  max-height: 420px;
+  max-height: 280px;
   overflow: auto;
 }
-.explore-chart .plot-host {
-  min-height: 420px;
+.explore-chart {
+  width: 100%;
+}
+.explore-chart .explore-plot-host {
+  width: 100%;
+  min-height: min(52vh, 560px);
 }
 .row-selected {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
@@ -672,6 +679,17 @@ details.openfdd-advanced > summary {
 .mono.small {
   font-size: 12px;
   font-family: ui-monospace, monospace;
+}
+.point-name-cell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.brick-class-cell {
+  font-size: 12px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .deploy-checklist {
   list-style: none;
@@ -690,8 +708,287 @@ details.openfdd-advanced > summary {
 .warn-text { color: #f97316; }
 .hint { width: 100%; padding-left: 18px; font-size: 12px; }
 
-@media (max-width: 960px) {
-  .explore-grid {
-    grid-template-columns: 1fr;
-  }
+/* System health — summary + JSON tree */
+.health-card .health-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
+.health-summary {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+}
+.health-summary-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.health-status-pill {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.health-status-pill.ok {
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+  color: #4ade80;
+}
+.health-status-pill.warn {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+[data-theme="light"] .health-status-pill.ok {
+  color: #15803d;
+}
+.health-app {
+  font-weight: 600;
+  font-size: 15px;
+}
+.health-revision {
+  font-size: 12px;
+}
+.health-kv-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+.health-kv-grid dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+.health-kv-grid dd {
+  margin: 0;
+}
+.health-features {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.health-features-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.json-feature-chip {
+  text-transform: capitalize;
+}
+.health-tree-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  padding: 0 12px 12px;
+}
+.health-tree-toggle {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 12px 0;
+  list-style: none;
+}
+.health-tree-toggle::-webkit-details-marker {
+  display: none;
+}
+.json-tree {
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+}
+.json-tree-branch {
+  margin: 2px 0;
+}
+.json-tree-summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  list-style: none;
+}
+.json-tree-summary::-webkit-details-marker {
+  display: none;
+}
+.json-tree-summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.json-tree-branch[open] > .json-tree-summary::before {
+  transform: rotate(90deg);
+}
+.json-tree-key {
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+.json-tree-meta {
+  font-size: 11px;
+  font-family: inherit;
+}
+.json-tree-sep {
+  color: var(--muted);
+  margin: 0 4px;
+}
+.json-tree-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 0;
+}
+.json-tree-value.json-string {
+  color: #7dd3a8;
+}
+[data-theme="light"] .json-tree-value.json-string {
+  color: #047857;
+}
+.json-tree-value.json-number {
+  color: #93c5fd;
+}
+[data-theme="light"] .json-tree-value.json-number {
+  color: #1d4ed8;
+}
+.json-tree-value.json-bool {
+  color: #fbbf24;
+}
+.json-null,
+.json-tree-value.json-null {
+  color: var(--muted);
+  font-style: italic;
+}
+.json-wrap {
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+.json-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.json-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, monospace;
+}
+.json-tree-children {
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  margin-left: 8px;
+  padding-left: 4px;
+}
+
+/* Rule Lab */
+.rule-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.brick-scope-block {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+}
+.scope-summary-text {
+  font-size: 13px;
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+.small-link {
+  font-size: 12px;
+  margin-left: auto;
+}
+.console-card .console-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.console-card .console-header .title {
+  margin: 0;
+}
+.console-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.console-hint {
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+.console-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: min(50vh, 480px);
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+}
+
+.dashboard-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dashboard-card-header .title {
+  margin: 0;
+}
+.edge-status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.edge-status-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.edge-legend-iot {
+  font-size: 12px;
+}
+.edge-status-table .iot-mqtt-cell {
+  white-space: nowrap;
+}
+.iot-mqtt-label {
+  margin-left: 6px;
+  font-size: 13px;
+}
+.edge-iot-hint {
+  font-size: 12px;
+  margin: 0;
+}
+.edge-detail-link {
+  margin: 0;
+  font-size: 13px;
+}
+

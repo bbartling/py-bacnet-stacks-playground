@@ -36,6 +36,12 @@ Parameters:
     NoEcho: true
     Default: vibe12-replace-with-long-random-string
     Description: HMAC secret for session tokens (32+ chars recommended)
+  IotEdgeThings:
+    Type: String
+    Default: "[]"
+    Description: >
+      JSON array of edge gateways for IoT Core connectivity poll, e.g.
+      [{"site_id":"demo","building_id":"bens-office","thing_name":"bosspi","client_id":"basicPubSub","label":"Boss Pi"}]
 
 Resources:
   TelemetryTable:
@@ -137,9 +143,17 @@ Resources:
           VIBE12_WEB_USER: !Ref WebUsername
           VIBE12_WEB_PASSWORD: !Ref WebPassword
           VIBE12_AUTH_SECRET: !Ref AuthSecret
+          IOT_EDGE_THINGS: !Ref IotEdgeThings
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - iot:GetThingConnectivityData
+                - iot:SearchIndex
+                - iot:DescribeThing
+              Resource: "*"
       FunctionUrlConfig:
         AuthType: NONE
 
