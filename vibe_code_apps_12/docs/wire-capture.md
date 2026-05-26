@@ -40,6 +40,7 @@ Files land at:
 
 - `~/captures/bacnet.pcap`
 - `~/bacnet-latest.pcap` (symlink)
+- `~/bacnet-5007-YYYYMMDDTHHMMSSZ.pcap` (named copy for Wireshark / archiving)
 
 Env: `PI_HOST=192.168.204.12` `PI_USER=ben`
 
@@ -61,6 +62,16 @@ wireshark ~/bacnet.pcap
 ```
 
 Wireshark display filter: `bacnet` or `udp.port == 47808`.
+
+## Count BACnet requests
+
+Run the built-in analyzer on any pulled pcap:
+
+```bash
+./scripts/analyze_bacnet_pcap.py ~/bacnet-latest.pcap
+```
+
+It reports request counts by BACnet service type, request flow, and minute bucket.
 
 ## Manual capture on edge
 

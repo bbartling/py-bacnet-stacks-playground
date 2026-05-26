@@ -12,6 +12,31 @@
   next wake minis read that queue + context_since_last_wake.md
 ```
 
+## Why this is not “dumb prompt chaining”
+
+| Layer | Role | Intelligence |
+|-------|------|----------------|
+| **Files on disk** | `BUILD_CHECKPOINTS.md`, `context_since_last_wake.md`, `PHASE_NOTEPAD.md`, skills | Durable **state** between runs — not re-sent every turn |
+| **Mini (gpt-5.4-mini)** | Implements **one** queued slice; edits repo; may run validate/pcap | Worker — does **not** replan the whole project |
+| **Critique (gpt-5.5)** | Reviews git diff + ingest; rewrites **Next for mini (ordered)** | **Orchestrator** — assigns the next 3–8 tasks only |
+| **TUI quiet default** | `codex exec -o` → prints **final reply** only | Stops AGENTS.md / grep / diff spam on screen |
+| **Wake guardrails** | debounce, max/day, `waiting_human`, early mini stop | Prevents runaway loops |
+
+Plain chaining would repeat the same giant prompt every message with no shared queue. Here the **critique pass is the planner**; minis **consume** `wake_task.md` and stop after one slice.
+
+## Minimal memory (IoT / BACnet jobs)
+
+| File | Who writes | Mini reads |
+|------|------------|------------|
+| `memory/job/lab_facts.md` | Human + critique | IPs, device **5007**, URLs, script names — **no passwords** |
+| `cron_codex/state/wake_task.md` | **Critique** | **One mission** (e.g. start pcap → next wake pull/analyze) + Escalation if stuck |
+| `cron_codex/state/operator_notes.md` | Human | Short steering only |
+| `skills/*/SKILL.md` | Repo | Only when `wake_task` names a skill |
+
+Do **not** re-inject AGENTS.md / full PHASE_NOTEPAD every turn. TUI quiet mode uses `codex --json` and prints **only the final reply** (no file dumps on screen).
+
+Setup once: `cp templates/memory/job/lab_facts.example.md memory/job/lab_facts.md`
+
 ## Setup
 
 ```bash

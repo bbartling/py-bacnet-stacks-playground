@@ -36,6 +36,8 @@ checkpoints="$SPEC_DIR/BUILD_CHECKPOINTS.md"
 guardrails="$SPEC_DIR/GUARDRAILS.md"
 directions="$STATE_DIR/next_directions.md"
 context_slice="$STATE_DIR/context_since_last_wake.md"
+wake_task="$STATE_DIR/wake_task.md"
+lab_facts="$SPEC_DIR/memory/job/lab_facts.md"
 context_meta="$STATE_DIR/context_since_last_wake.meta.json"
 operator_notes="$STATE_DIR/operator_notes.md"
 phase_notepad="$SPEC_DIR/memory/commissioning/PHASE_NOTEPAD.md"
@@ -154,26 +156,19 @@ for i in $(seq 1 "$MINI_INVOCATIONS_PER_WAKE"); do
     EARLY_STOP_HINT="Optional early stop: if **Next for mini (ordered)** has no remaining slice that needs another separate mini invocation, run: touch ${stop_mini_loop} (then skip remaining minis; critique still runs unless SKIP_CRITIQUE_WHEN_CLEAN)."
   fi
   PROMPT="$(cat <<EOF
-Scheduled Vibe12 incremental wake: mini invocation ${i} of up to ${MINI_INVOCATIONS_PER_WAKE}.
+Vibe12 mini ${i}/${MINI_INVOCATIONS_PER_WAKE} — do ONE mission only.
 ${EARLY_STOP_HINT}
 
-Read (do not delete):
-- ${agents}
-- ${checkpoints}   (**required:** "Next for mini (ordered)" from last critique — your work queue)
+Read (do not paste back):
+- ${wake_task}   (**primary** — current mission + done-when)
+- ${lab_facts}   (IPs, device 5007, script names — no secrets)
 - ${guardrails}
-- ${context_slice}   (**required** — operator notes + pinned PHASE_NOTEPAD)
-- ${directions}
-- ${phase_notepad}
+- ${context_slice}   (short operator notes only)
 
-Rules:
-- Do **ONE** small slice from **"Next for mini (ordered)"** only (or Current sprint if that section is empty).
-- **Operator context:** honor ${operator_notes} and the context slice; sync durable facts into PHASE_NOTEPAD when the human added new site facts.
-- Humans own SSH, points.csv enablement, and BACnet sign-off — never invent credentials.
-- Cloud health: run \`./scripts/validate_cloud_pipeline.sh\` before claiming ingest OK; use commissioning API not Pi journal alone.
-- Prefer smallest diff under ${CODEX_CWD}; match existing Ansible/Lambda/React patterns.
-- Stop after this slice; append one line under "Done recently" in BUILD_CHECKPOINTS.md if you changed anything.
-
-Skills: vibe12_agent_spec/skills/ — read the skill named in the checkpoint row.
+Do NOT read ${agents} or ${checkpoints} unless wake_task says so.
+Open skills/<name>/SKILL.md only if wake_task names a skill.
+Humans own SSH and points.csv. WEB_PASSWORD for validate — never samconfig.toml.
+Stop when wake_task "Done when" is met; one line in BUILD_CHECKPOINTS "Done recently" if you changed code.
 EOF
 )"
   codex "${mini_common[@]}" "$PROMPT" || echo "WARN: mini $i exited non-zero (continuing)"
@@ -200,31 +195,17 @@ fi
 if [[ "$skip_critique" != "true" ]]; then
   echo "--- critique ($CRITIQUE_MODEL) ---"
   CRIT_PROMPT="$(cat <<EOF
-You are the CRITIQUE pass after up to ${MINI_INVOCATIONS_PER_WAKE} mini runs (${MINI_MODEL}) on vibe_code_apps_12.
+Critique pass (${CRITIQUE_MODEL}) after minis (${MINI_MODEL}). Planning only — no feature code.
 
-Read:
-- ${agents}
-- ${checkpoints}
-- ${guardrails}
-- ${SPEC_DIR}/MEMORY.md
-- ${SPEC_DIR}/memory/$(date -u +%Y-%m-%d).md (create if missing)
-- ${context_slice}
-- ${directions}
-- ${phase_notepad}
+Read: ${checkpoints}, git diff, ${operator_notes}, ${lab_facts}, memory/$(date -u +%Y-%m-%d).md.
 
-Tasks:
-1) Critique what changed this wake (git status/diff under vibe_code_apps_12, "Done recently", validate_cloud_pipeline if cloud touched).
-2) **Operator check:** confirm mini(s) honored operator notes and PHASE_NOTEPAD; queue notepad sync in **Next for mini** if human added facts but notepad is stale.
-3) Rewrite BUILD_CHECKPOINTS.md sections:
-   - **"## Last critique (${CRITIQUE_MODEL})"** (UTC date, summary, verification, risks)
-   - **"## Current sprint"** table if priorities shifted
-   - **"## Next for mini (ordered)"** — 3–8 concrete, small tasks for the NEXT wake (this is the mini queue; be specific)
-4) Optionally refresh ${directions} for long-form paste blocks — keep BUILD_CHECKPOINTS as the canonical ordered queue.
-5) Append critique summary to memory/$(date -u +%Y-%m-%d).md; promote stable facts to MEMORY.md only when durable.
-6) Do **not** implement features this turn — planning and verification only.
-7) Obey GUARDRAILS (no secrets in memory; no BACnet writes without sign-off).
+Write:
+1) **${wake_task}** — ONE mission for next wake (pcap start/pull, validate, BRICK, etc.) with **Done when** checklist + **Escalation** if minis struggled.
+2) **${lab_facts}** — keep device/IP/URL table current (no passwords).
+3) **${checkpoints}** — Last critique, sprint table, **Next for mini (ordered)** (max 3 bullets; detail stays in wake_task).
+4) One paragraph in memory/$(date -u +%Y-%m-%d).md.
 
-Be concise. **Next for mini (ordered)** must be actionable by ${MINI_MODEL} without re-deriving the whole project.
+If minis ignored wake_task or failed twice, simplify wake_task and escalation — do not grow the queue.
 EOF
 )"
   codex "${critique_common[@]}" "$CRIT_PROMPT" || echo "WARN: critique exited non-zero"

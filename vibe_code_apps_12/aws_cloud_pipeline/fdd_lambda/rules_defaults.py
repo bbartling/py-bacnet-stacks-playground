@@ -6,6 +6,7 @@ See EXPRESSION_RULE_COOKBOOK.md for recipe patterns (1h flatline, OOB, 15m swing
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from units import config_field_meta_for_unit, normalize_temp_unit
@@ -17,6 +18,11 @@ DEFAULT_FAULT_RULE_ID = "brick_zone_oob"
 
 BRICK_ZONE_TEMP_SCOPE: dict[str, Any] = {
     "point_classes": ["Zone_Air_Temperature_Sensor"],
+    "match_mode": "point_only",
+}
+
+BRICK_OUTSIDE_HUMIDITY_SCOPE: dict[str, Any] = {
+    "point_classes": ["Outside_Air_Humidity_Sensor"],
     "match_mode": "point_only",
 }
 
@@ -34,7 +40,7 @@ def default_fault_rule_reference() -> dict[str, str]:
 
 
 def default_custom_rules() -> list[dict[str, Any]]:
-    """Shipped defaults: four BRICK-scoped zone temperature rules (see cookbook)."""
+    """Shipped defaults: four zone temperature rules plus one humidity bounds rule."""
     scope = dict(BRICK_ZONE_TEMP_SCOPE)
     return [
         {
@@ -69,6 +75,44 @@ def default_custom_rules() -> list[dict[str, Any]]:
         print(
             f"{row['ts']}  OOB {kind}  {v:.2f} {sym}  "
             f"(band {low:.1f}–{high:.1f}, raw={row['temp']:.2f})"
+        )
+        return True
+
+    return False
+''',
+        },
+        {
+            "id": "brick_outside_humidity_oob",
+            "title": "Outside humidity bounds",
+            "enabled": True,
+            "plot_on_chart": True,
+            "color": "#14b8a6",
+            "brick_scope": copy.deepcopy(BRICK_OUTSIDE_HUMIDITY_SCOPE),
+            "config_fields": ["humidity_low", "humidity_high"],
+            "config": {
+                "humidity_low": 30.0,
+                "humidity_high": 60.0,
+            },
+            "code": '''def _humidity_value(row, series=None):
+    if series:
+        for key in ("Outside_Air_Humidity_Sensor", "OA-H", "OA-HUMIDITY", "OA-Humidity"):
+            entry = series.get(key)
+            if entry and entry.get("current") is not None:
+                return float(entry["current"])
+    if row.get("value") is not None:
+        return float(row["value"])
+    return float(row["temp"])
+
+
+def evaluate(row, cfg, prev_row=None, rows=None, series=None):
+    low = cfg_threshold(cfg, "humidity_low")
+    high = cfg_threshold(cfg, "humidity_high")
+    v = _humidity_value(row, series=series)
+
+    if v < low or v > high:
+        print(
+            f"{row['ts']}  OOB humidity  {v:.2f}%RH  "
+            f"(band {low:.1f}–{high:.1f}, raw={v:.2f})"
         )
         return True
 

@@ -1,35 +1,11 @@
 #!/usr/bin/env python3
-"""Export operator + commissioning context for vibe12_wake (since last wake)."""
+"""Export minimal wake slice — wake_task + short operator notes (not full AGENTS/notepad dump)."""
 from __future__ import annotations
 
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
-
-def _extract_notepad_pin(text: str) -> str:
-    start_markers = ("## § A", "## A)", "## A )")
-    end_markers = ("## § F", "## F)")
-    start = -1
-    for marker in start_markers:
-        idx = text.find(marker)
-        if idx >= 0:
-            start = idx
-            break
-    if start < 0:
-        body = text.strip()
-        return body[:6000] if body else "_PHASE_NOTEPAD empty._"
-    end = len(text)
-    for marker in end_markers:
-        idx = text.find(marker, start)
-        if idx > start:
-            end = idx
-            break
-    body = text[start:end]
-    if len(body) > 5000:
-        body = body[:5000] + "\n…(notepad pinned section truncated)…"
-    return body.strip()
 
 
 def main() -> int:
@@ -48,6 +24,10 @@ def main() -> int:
     out_md = Path(sys.argv[4])
     out_meta = Path(sys.argv[5])
 
+    spec_dir = out_md.resolve().parent.parent.parent
+    wake_task = spec_dir / "cron_codex" / "state" / "wake_task.md"
+    lab_facts = spec_dir / "memory" / "job" / "lab_facts.md"
+
     last_epoch = 0
     if epoch_file.is_file():
         try:
@@ -58,58 +38,58 @@ def main() -> int:
     last_wake_iso = (
         datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat()
         if last_epoch > 0
-        else "(no prior wake epoch — first export)"
+        else "(no prior wake epoch)"
     )
 
     lines: list[str] = [
-        "# Wake context export (Vibe12)",
+        "# Wake slice (minimal)",
         "",
-        f"Generated (UTC): {datetime.now(timezone.utc).isoformat()}",
-        f"Cutoff (last wake epoch): {last_wake_iso}",
+        f"Generated (UTC): {datetime.now(timezone.utc).isoformat()} · since wake: {last_wake_iso}",
         "",
-        "Codex (**mini and gpt-5.5 critique**): read this entire file every wake.",
-        "Execute **BUILD_CHECKPOINTS.md → Next for mini (ordered)** from the last critique.",
+        "Read **only** (do not paste file contents into replies):",
+        "",
+        f"1. `{wake_task.relative_to(spec_dir)}` — **current mission** (critique-written)",
+        f"2. `{lab_facts.relative_to(spec_dir)}` — IPs, device 5007, URLs (no secrets)",
+        "3. `GUARDRAILS.md` — if unsure about writes",
+        "",
+        "Skills: open `skills/<name>/SKILL.md` only when wake_task names a skill.",
+        "Secrets: `WEB_PASSWORD` / SSH — never read `samconfig.toml`.",
         "",
     ]
 
-    if operator_path.is_file():
-        notes = operator_path.read_text(encoding="utf-8", errors="replace").strip()
-        if not notes:
-            notes = "_operator_notes.md is empty._"
-        elif len(notes) > 8000:
-            notes = notes[:8000] + "\n…(operator notes truncated)…"
-        lines.extend(["## Operator notes (human)", "", notes, "", "---", ""])
+    if wake_task.is_file():
+        task_body = wake_task.read_text(encoding="utf-8", errors="replace").strip()
+        if len(task_body) > 2500:
+            task_body = task_body[:2500] + "\n…(wake_task truncated)…"
+        lines.extend(["## wake_task.md", "", task_body, "", "---", ""])
     else:
         lines.extend(
             [
-                "## Operator notes (human)",
+                "## wake_task.md",
                 "",
-                f"_Not found: `{operator_path}` — create and append notes between wakes._",
+                "_Missing — run `/critique` to set the next mission, or copy from "
+                "`templates/cron_codex/state/wake_task.example.md`._",
                 "",
                 "---",
                 "",
             ]
         )
 
-    if notepad_path.is_file():
-        pinned = _extract_notepad_pin(notepad_path.read_text(encoding="utf-8", errors="replace"))
-        lines.extend(
-            [
-                "## Pinned site context (PHASE_NOTEPAD.md)",
-                "",
-                "_Always read — bind, devices, URLs survive empty operator notes._",
-                "",
-                pinned,
-                "",
-            ]
-        )
+    if operator_path.is_file():
+        notes = operator_path.read_text(encoding="utf-8", errors="replace").strip()
+        if not notes:
+            notes = "_empty_"
+        elif len(notes) > 1500:
+            notes = notes[:1500] + "\n…(truncated)…"
+        lines.extend(["## Operator notes", "", notes, ""])
     else:
+        lines.append("## Operator notes\n\n_none_\n")
+
+    if not lab_facts.is_file():
         lines.extend(
             [
-                "## Pinned site context (PHASE_NOTEPAD.md)",
                 "",
-                f"_Not found: `{notepad_path}`_",
-                "",
+                f"_Tip: copy `templates/memory/job/lab_facts.example.md` → `{lab_facts.relative_to(spec_dir)}`._",
             ]
         )
 
@@ -120,12 +100,14 @@ def main() -> int:
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "last_wake_epoch": last_epoch,
         "last_wake_iso": last_wake_iso,
+        "wake_task": str(wake_task),
+        "lab_facts": str(lab_facts),
         "operator_notes": str(operator_path),
         "phase_notepad": str(notepad_path),
         "context_md": str(out_md),
+        "mode": "minimal",
     }
     out_meta.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {out_md} ({len(lines)} lines)")
     return 0
 
 

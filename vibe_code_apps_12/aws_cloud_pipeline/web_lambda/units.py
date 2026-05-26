@@ -136,6 +136,18 @@ def config_field_meta_for_unit(unit: str) -> dict[str, dict[str, Any]]:
             "choices": list(TEMP_UNITS),
             "default": "imperial",
         },
+        "humidity_low": {
+            "label": "Low %RH",
+            "type": "float",
+            "step": 0.1,
+            "default": 30.0,
+        },
+        "humidity_high": {
+            "label": "High %RH",
+            "type": "float",
+            "step": 0.1,
+            "default": 60.0,
+        },
         "rolling_avg_minutes": {
             "label": "Rolling avg (min)",
             "type": "choice",

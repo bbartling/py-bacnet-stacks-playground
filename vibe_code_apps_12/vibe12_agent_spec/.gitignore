@@ -12,6 +12,8 @@ cron_codex/logs/last_wake_epoch
 cron_codex/logs/wake_count_*
 cron_codex/state/context_since_last_wake.md
 cron_codex/state/context_since_last_wake.meta.json
+cron_codex/state/wake_task.md
+cron_codex/state/codex_tui_session.json
 cron_codex/state/wake_prepare_dry_run.log
 cron_codex/state/operator_notes.md
 cron_codex/state/next_directions.md

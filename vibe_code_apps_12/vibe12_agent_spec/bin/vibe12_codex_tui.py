@@ -14,6 +14,8 @@ Config: vibe12_agent_spec/cron_codex/.env (copy from cron_codex/env.example)
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import re
 import shlex
@@ -26,46 +28,34 @@ from pathlib import Path
 
 SPEC_DIR = Path(__file__).resolve().parent.parent
 APP_ROOT = SPEC_DIR.parent
-BOOTSTRAP = SPEC_DIR / "scratch" / "memory-bootstrap-latest.md"
 ENV_FILE = SPEC_DIR / "cron_codex" / ".env"
 CRON_BIN = SPEC_DIR / "cron_codex" / "bin"
-CONTEXT_SLICE = SPEC_DIR / "cron_codex" / "state" / "context_since_last_wake.md"
+WAKE_TASK = SPEC_DIR / "cron_codex" / "state" / "wake_task.md"
+LAB_FACTS = SPEC_DIR / "memory" / "job" / "lab_facts.md"
+SESSION_FILE = SPEC_DIR / "cron_codex" / "state" / "codex_tui_session.json"
 WAKE_SCRIPT = CRON_BIN / "vibe12_wake.sh"
 
-MINI_PREAMBLE = """You are working on vibe_code_apps_12 (Vibe12 BACnet → AWS IoT → BRICK/FDD).
+MINI_PREAMBLE = """Vibe12 mini — one mission only.
 
-Read (do not paste back verbatim):
-- vibe12_agent_spec/AGENTS.md
-- vibe12_agent_spec/BUILD_CHECKPOINTS.md — **"Next for mini (ordered)"** is your queue (from last critique)
-- vibe12_agent_spec/GUARDRAILS.md
-- vibe12_agent_spec/cron_codex/state/context_since_last_wake.md
-- vibe12_agent_spec/memory/commissioning/PHASE_NOTEPAD.md
-
-Do ONE slice from **Next for mini (ordered)** only. Skills: vibe12_agent_spec/skills/.
-Humans own SSH and points.csv. Run ./scripts/validate_cloud_pipeline.sh before claiming cloud OK.
-Never read or grep aws_cloud_pipeline/samconfig.toml (secrets) — use WEB_PASSWORD env for validate scripts.
+Read on disk (never paste back): vibe12_agent_spec/cron_codex/state/wake_task.md (primary), memory/job/lab_facts.md (IPs/device/URLs), GUARDRAILS.md if blocked.
+Open vibe12_agent_spec/skills/<name>/SKILL.md only if wake_task names a skill.
+Do NOT read AGENTS.md or BUILD_CHECKPOINTS.md unless wake_task says to.
+Secrets: WEB_PASSWORD env, Pi SSH — never samconfig.toml.
 
 User request:
 """
 
-CRITIQUE_PROMPT_TEMPLATE = """You are the CRITIQUE pass ({critique_model}) on vibe_code_apps_12.
-Do not implement features — orchestrate the next minis.
+CRITIQUE_PROMPT_TEMPLATE = """You are the CRITIQUE pass ({critique_model}) on vibe_code_apps_12. Plan only — no feature code.
 
-Read:
-- vibe12_agent_spec/AGENTS.md, BUILD_CHECKPOINTS.md, GUARDRAILS.md, MEMORY.md
-- vibe12_agent_spec/memory/{today}.md
-- vibe12_agent_spec/cron_codex/state/context_since_last_wake.md
-- vibe12_agent_spec/cron_codex/state/next_directions.md
-- vibe12_agent_spec/memory/commissioning/PHASE_NOTEPAD.md
+Read: BUILD_CHECKPOINTS.md, git diff, memory/{today}.md, cron_codex/state/operator_notes.md, memory/job/lab_facts.md.
 
-Tasks:
-1) Critique what changed (git diff, Done recently, validate_cloud_pipeline if cloud touched).
-2) Rewrite BUILD_CHECKPOINTS: **Last critique ({critique_model})**, **Current sprint**, **Next for mini (ordered)** (3–8 specific tasks for {mini_model}).
-3) Optionally refresh cron_codex/state/next_directions.md for long-form paste context.
-4) Append summary to memory/{today}.md; promote to MEMORY.md when durable.
-5) Confirm minis would honor operator notes + PHASE_NOTEPAD.
+Write / update:
+1) **cron_codex/state/wake_task.md** — ONE current mission for the next mini(s): what to do now, which skill, done-when checklist, and **Escalation** if {mini_model} is stuck (concrete recovery steps or "critique re-run needed").
+2) **BUILD_CHECKPOINTS.md** — Last critique, Current sprint, **Next for mini (ordered)** (max 3 items; backlog lives in wake_task).
+3) **memory/job/lab_facts.md** — keep IPs, device 5007, URLs current (no passwords).
+4) Append one paragraph to memory/{today}.md.
 
-**Next for mini (ordered)** is the canonical queue — minis must execute it without re-planning the project.
+If minis failed or ignored wake_task, fix wake_task and escalation — do not add more queue items until clear.
 
 Optional operator notes:
 {user_notes}
@@ -179,6 +169,7 @@ def _base_args(codex: str, *, mode: str) -> list[str]:
     else:
         args.extend(["-m", _mini_model()])
     args.extend(_sandbox_args()[0])
+    args.extend(["--color", "never"])
     extra = os.environ.get("VIBE12_CODEX_EXTRA", "").strip()
     if extra:
         args.extend(shlex.split(extra))
@@ -196,54 +187,65 @@ def _redact_secrets(line: str) -> str:
     return _SECRET_LINE.sub(lambda m: f"{m.group(1)}=***", line)
 
 
-def _is_exec_noise(line: str) -> bool:
-    s = line.strip()
-    if not s:
-        return True
-    if s == "exec":
-        return True
-    if s.startswith("/bin/bash") or s.startswith("bash -lc"):
-        return True
-    if " succeeded in " in line:
-        return True
-    if re.match(r"^in [/~]", s):
-        return True
-    if re.match(r"^\d+\|", s) and _SECRET_LINE.search(line):
-        return True
-    return False
+def _max_resume_turns() -> int:
+    raw = os.environ.get("VIBE12_MINI_MAX_RESUME_TURNS", "6").strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 6
 
 
-def _quiet_default() -> bool:
+def _load_session() -> dict:
+    if not SESSION_FILE.is_file():
+        return {"mini_turns": 0}
+    try:
+        data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return data
+    except (json.JSONDecodeError, OSError):
+        pass
+    return {"mini_turns": 0}
+
+
+def _save_session(data: dict) -> None:
+    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SESSION_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _reset_session() -> None:
+    _save_session({"mini_turns": 0})
+
+
+def _quiet_default(cli_verbose: bool, cli_quiet: bool) -> bool:
+    if cli_verbose:
+        return False
+    if cli_quiet:
+        return True
     val = os.environ.get("VIBE12_TUI_QUIET", "true").strip().lower()
     return val not in ("0", "false", "no", "off")
 
 
-def _stream_codex_output(pipe, *, quiet: bool) -> None:
-    """Forward codex stdout; in quiet mode hide exec/tool lines, show assistant text only."""
-    mode = "pass"
+def _stream_codex_output(pipe) -> None:
+    """Verbose mode: forward full codex stdout (still redact secrets)."""
     try:
         for raw in iter(pipe.readline, ""):
-            line = raw.rstrip("\n")
-            if not quiet:
-                print(_redact_secrets(line), flush=True)
-                continue
-
-            s = line.strip()
-            if s == "exec":
-                mode = "suppress"
-                continue
-            if s == "codex" or s.lower().startswith("codex "):
-                mode = "assistant"
-                if s.lower().startswith("codex ") and len(s) > 5:
-                    print(_redact_secrets(line), flush=True)
-                continue
-            if mode == "suppress":
-                continue
-            if _is_exec_noise(line):
-                continue
-            print(_redact_secrets(line), flush=True)
+            print(_redact_secrets(raw.rstrip("\n")), flush=True)
     finally:
         pipe.close()
+
+
+def _prompt_user_preview(prompt: str, *, mode: str) -> str:
+    """One-line label for the human — never the full wrapped prompt."""
+    if mode == "critique":
+        marker = "Optional operator notes:\n"
+        if marker in prompt:
+            notes = prompt.split(marker, 1)[1].strip()
+            if notes and notes != "(none)":
+                return "critique · " + notes.split("\n")[0][:96]
+        return "critique · refresh BUILD_CHECKPOINTS queue"
+    marker = "User request:\n"
+    body = prompt.split(marker, 1)[-1].strip() if marker in prompt else prompt.strip()
+    return body.split("\n")[0][:96] or "(empty)"
 
 
 def _spinner_until(stop: threading.Event) -> None:
@@ -287,6 +289,8 @@ def _export_wake_context() -> None:
             ],
             cwd=str(APP_ROOT),
             check=False,
+            capture_output=True,
+            text=True,
         )
 
 
@@ -304,16 +308,8 @@ def _run_orchestrated_wake(mini_count: int | None) -> int:
 def _wrap_mini_prompt(text: str, *, fresh: bool) -> str:
     if not fresh:
         return text
-    parts = [MINI_PREAMBLE, text.strip()]
-    if BOOTSTRAP.is_file():
-        snippet = BOOTSTRAP.read_text(encoding="utf-8", errors="replace")
-        if len(snippet) > 4000:
-            snippet = snippet[:4000] + "\n…(bootstrap truncated)\n"
-        parts.insert(
-            1,
-            "\n--- memory bootstrap (summary) ---\n" + snippet + "\n--- end bootstrap ---\n",
-        )
-    return "\n".join(parts)
+    # Pointers only — Codex reads files; do not inline AGENTS/bootstrap (saves tokens + TUI noise).
+    return MINI_PREAMBLE + text.strip()
 
 
 def _parse_user_line(line: str) -> tuple[str, str, str]:
@@ -350,6 +346,49 @@ def _parse_user_line(line: str) -> tuple[str, str, str]:
     return "mini", stripped, "mini"
 
 
+def _run_codex_json_quiet(
+    proc: subprocess.Popen[str], *, stop: threading.Event
+) -> tuple[str, str, int]:
+    """Parse --json stdout; return (final_reply, stderr_tail, exit_code). No terminal streaming."""
+    replies: list[str] = []
+    stderr_chunks: list[str] = []
+    assert proc.stdout is not None
+
+    def _read_stdout() -> None:
+        for raw in proc.stdout:
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") != "item.completed":
+                continue
+            item = event.get("item") or {}
+            if item.get("type") == "agent_message":
+                text = (item.get("text") or "").strip()
+                if text:
+                    replies.append(text)
+
+    def _read_stderr() -> None:
+        if proc.stderr is None:
+            return
+        stderr_chunks.append(proc.stderr.read() or "")
+
+    out_thread = threading.Thread(target=_read_stdout, daemon=True)
+    err_thread = threading.Thread(target=_read_stderr, daemon=True)
+    out_thread.start()
+    err_thread.start()
+    code = proc.wait()
+    stop.set()
+    out_thread.join(timeout=5)
+    err_thread.join(timeout=5)
+    final = replies[-1] if replies else ""
+    err = "".join(stderr_chunks).strip()
+    return final, err, code
+
+
 def _run_turn(
     codex: str,
     prompt: str,
@@ -359,43 +398,56 @@ def _run_turn(
     quiet: bool,
 ) -> int:
     cmd = _base_args(codex, mode=mode)
-    if resume and mode == "mini":
+    use_resume = resume and mode == "mini"
+    if use_resume:
+        session = _load_session()
+        if int(session.get("mini_turns", 0)) >= _max_resume_turns():
+            use_resume = False
+            print(
+                f"(mini context ~full after {_max_resume_turns()} turns — fresh session; /critique refreshes wake_task)",
+                flush=True,
+            )
+
+    if quiet:
+        cmd.append("--json")
+    if use_resume:
         cmd.extend(["resume", "--last"])
     cmd.append(prompt)
 
     model_label = _forced_model() or (_critique_model() if mode == "critique" else _mini_model())
-    resume_label = "resume" if resume and mode == "mini" else "new"
+    resume_label = "resume" if use_resume else "new"
     if quiet:
-        print(f"\n→ [{mode}] {model_label} ({resume_label}) — quiet mode (hide exec noise)\n", flush=True)
+        print(f"\ncodex> [{mode} · {model_label} · {resume_label}] {_prompt_user_preview(prompt, mode=mode)}\n", flush=True)
     else:
         print(f"\n→ [{mode}] model={model_label} {resume_label} …\n", flush=True)
 
     proc = subprocess.Popen(
         cmd,
         cwd=str(APP_ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE if quiet else subprocess.PIPE,
+        stderr=subprocess.DEVNULL if quiet else subprocess.STDOUT,
         text=True,
         bufsize=1,
     )
     stop_spin = threading.Event()
     spin_thread = None
-    if quiet and proc.stdout:
+    if quiet:
         spin_thread = threading.Thread(target=_spinner_until, args=(stop_spin,), daemon=True)
         spin_thread.start()
 
     reader = None
-    if proc.stdout:
-        reader = threading.Thread(
-            target=_stream_codex_output,
-            args=(proc.stdout,),
-            kwargs={"quiet": quiet},
-            daemon=True,
-        )
+    if not quiet and proc.stdout:
+        reader = threading.Thread(target=_stream_codex_output, args=(proc.stdout,), daemon=True)
         reader.start()
 
+    code = 0
+    quiet_reply = ""
+    stderr_tail = ""
     try:
-        code = proc.wait()
+        if quiet:
+            quiet_reply, stderr_tail, code = _run_codex_json_quiet(proc, stop=stop_spin)
+        else:
+            code = proc.wait()
     except KeyboardInterrupt:
         proc.terminate()
         try:
@@ -411,26 +463,28 @@ def _run_turn(
         if reader:
             reader.join(timeout=2)
 
-    if quiet and code == 0:
-        print("(done)\n", flush=True)
+    if quiet:
+        if code == 0 and quiet_reply:
+            print(_redact_secrets(quiet_reply), flush=True)
+            print(flush=True)
+        elif code != 0:
+            if stderr_tail:
+                print(stderr_tail[-2000:], file=sys.stderr, flush=True)
+            print(f"(codex exited {code})", file=sys.stderr, flush=True)
+    elif code != 0:
+        print(f"(codex exited {code})", file=sys.stderr, flush=True)
+
     return code
 
 
-def _print_banner() -> None:
-    _, sandbox_label = _sandbox_args()
+def _print_banner(*, quiet: bool) -> None:
     forced = _forced_model()
     if forced:
-        routing = f"forced model: {forced}"
+        routing = forced
     else:
-        routing = f"mini={_mini_model()}  critique={_critique_model()}"
-    print("vibe12 codex tui — type a prompt and press Enter")
-    print(f"  workspace: {APP_ROOT}")
-    print(f"  routing: {routing}")
-    print(f"  sandbox: {sandbox_label}")
-    print("  commands: /help  /mini  /critique  /wake [N]  /new  /verbose  /quiet  /quit")
-    print(f"  output:   {'quiet (exec hidden, spinner)' if _quiet_default() else 'verbose (all codex output)'}")
-    print("  flow:     critique sets Next for mini → minis consume that queue")
-    print("  prefix:   critique: <notes>  → gpt-5.5 only")
+        routing = f"{_mini_model()} · critique {_critique_model()}"
+    mode = "chat only" if quiet else "verbose"
+    print(f"vibe12 codex · {routing} · {mode}  (/help · /verbose)")
     print()
 
 
@@ -445,9 +499,12 @@ Commands:
   /new               Next mini turn starts fresh (no resume)
   /bootstrap         Regenerate scratch/memory-bootstrap-latest.md
   /wake [N]          Run vibe12_wake.sh (N minis + critique; default from .env)
-  /quiet             Hide exec/tool noise; spinner + Codex replies only (default)
-  /verbose           Show full codex exec stream (debug)
+  /quiet             Final reply only + spinner (default; uses codex -o)
+  /verbose           Full codex stream (file reads, diffs, exec)
   /quit              Exit
+
+CLI: vibe12_codex_tui.py [--verbose|-v] [--quiet|-q]
+  Default is quiet (no prompt dump, no tool spam). Orchestration: mini work → /critique queues next slices.
 
 Orchestration (bas_build_spec pattern):
   {_critique_model()} rewrites BUILD_CHECKPOINTS "Next for mini (ordered)"
@@ -467,13 +524,35 @@ def _write_bootstrap() -> None:
     subprocess.run([str(cli), "memory", "write-bootstrap"], check=False, cwd=str(APP_ROOT))
 
 
+def _parse_cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Interactive Codex REPL for vibe_code_apps_12.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="In-session: /verbose, /quiet, /help, /quit",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="show full codex exec output (diffs, bash, token stats)",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="chat-only output (default unless VIBE12_TUI_QUIET=false)",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = _parse_cli()
     _load_dotenv(ENV_FILE)
     codex = _codex_bin()
-    _print_banner()
+    quiet = _quiet_default(args.verbose, args.quiet)
+    _print_banner(quiet=quiet)
 
     mini_resume = False
-    quiet = _quiet_default()
     while True:
         try:
             line = input("you> ").strip()
@@ -491,15 +570,16 @@ def main() -> int:
             continue
         if low == "/new":
             mini_resume = False
-            print("(next mini turn starts a new Codex session)")
+            _reset_session()
+            print("(fresh Codex session — wake_task + lab_facts only; no resume)")
             continue
         if low == "/quiet":
             quiet = True
-            print("(quiet mode — exec hidden, spinner on)")
+            print("(chat-only — use /verbose for diffs and exec)")
             continue
         if low == "/verbose":
             quiet = False
-            print("(verbose mode — full codex output)")
+            print("(verbose — full codex stream)")
             continue
         if low == "/bootstrap":
             _write_bootstrap()
@@ -521,6 +601,7 @@ def main() -> int:
 
         if mode == "critique":
             mini_resume = False
+            _reset_session()
             _export_wake_context()
             if label == "critique (template)" or not body.strip():
                 prompt = _critique_prompt("")
@@ -537,13 +618,22 @@ def main() -> int:
 
         fresh_mini = not mini_resume or label == "mini"
         if fresh_mini:
+            _reset_session()
             _export_wake_context()
         prompt = _wrap_mini_prompt(body, fresh=fresh_mini)
         code = _run_turn(codex, prompt, mode="mini", resume=mini_resume and not fresh_mini, quiet=quiet)
+        session = _load_session()
         if code == 0:
             mini_resume = True
+            session["mini_turns"] = int(session.get("mini_turns", 0)) + 1
+            _save_session(session)
         else:
-            print(f"(mini exited {code}; /new for fresh session)", file=sys.stderr)
+            session["mini_failures"] = int(session.get("mini_failures", 0)) + 1
+            _save_session(session)
+            print(
+                f"(mini exited {code}; /critique to fix wake_task — failures={session['mini_failures']})",
+                file=sys.stderr,
+            )
 
     return 0
 
