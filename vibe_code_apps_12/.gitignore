@@ -11,6 +11,17 @@ __pycache__/
 
 # SAM deploy secrets (copy from samconfig.toml.example)
 aws_cloud_pipeline/samconfig.toml
+aws_cloud_pipeline/sam-params.local.toml
+aws_cloud_pipeline/sam-params.local.json
+
+# Commissioning dial-in dashboard
+commissioning_web/gateways.local.json
+commissioning_web/jobs/
+commissioning_web/jobs/*.prompt.txt
+commissioning_web/.session.token
+commissioning_web/.server.pid
+commissioning_web/.server.lock
+commissioning_web/server.log
 
 # Doc build venv + artifacts
 .docs-venv/
@@ -19,6 +30,16 @@ docs/_build/
 # Wire captures (generated on edge by deploy --pcap)
 captures/*.pcap
 bacnet.pcap
+
+# Ansible — real IPs / per-site BACnet (templates: inventory.example.yml, host_vars/*.example.yml)
+ansible/inventory.yml
+ansible/host_vars/*.yml
+!ansible/host_vars/*.example.yml
+
+# Commissioning backups with real site metadata (public shapes: commissioning/_examples/)
+commissioning/local/
+commissioning/**/host.yml
+!commissioning/_examples/**/host.yml
 
 # Codex wake generated logs (see vibe12_agent_spec/.gitignore)
 vibe12_agent_spec/cron_codex/.env

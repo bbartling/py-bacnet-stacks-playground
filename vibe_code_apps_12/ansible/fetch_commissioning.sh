@@ -3,6 +3,7 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
+INV="${ANSIBLE_INVENTORY:-${DIR}/inventory.yml}"
 
 if [[ -x "${DIR}/../.ansible_venv/bin/ansible-playbook" ]]; then
   APB="${DIR}/../.ansible_venv/bin/ansible-playbook"
@@ -13,4 +14,4 @@ else
   exit 1
 fi
 
-exec "$APB" fetch_commissioning.yml "$@"
+exec "$APB" -i "$INV" fetch_commissioning.yml "$@"

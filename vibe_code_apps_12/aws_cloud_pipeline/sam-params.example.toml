@@ -1,0 +1,11 @@
+# Copy to sam-params.local.toml (gitignored) and edit passwords + IotEdgeThings.
+# Referenced from samconfig.toml: parameter_overrides = "file://sam-params.local.toml"
+
+IotRuleName = "vibe12_telemetry_ingest"
+TtlDays = "90"
+DeployRevision = "1"
+IotTopicPrefix = "vibe12"
+WebUsername = "engineer"
+WebPassword = "REPLACE_WITH_YOUR_PASSWORD"
+AuthSecret = "REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS"
+IotEdgeThings = "[]"

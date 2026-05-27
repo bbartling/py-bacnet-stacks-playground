@@ -13,6 +13,7 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
+INV="${ANSIBLE_INVENTORY:-${DIR}/inventory.yml}"
 
 if [[ -x "${DIR}/../.ansible_venv/bin/ansible-playbook" ]]; then
   APB="${DIR}/../.ansible_venv/bin/ansible-playbook"
@@ -86,11 +87,11 @@ if [[ "$VERIFY_ONLY" == true && "$NO_VERIFY" == true ]]; then
 fi
 
 if [[ "$VERIFY_ONLY" == true ]]; then
-  exec "$APB" deploy.yml "${EXTRA[@]}" --tags verify
+  exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}" --tags verify
 fi
 
 if [[ "$NO_VERIFY" == true ]]; then
-  exec "$APB" deploy.yml "${EXTRA[@]}" -e run_deploy_verify=false --skip-tags verify
+  exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}" -e run_deploy_verify=false --skip-tags verify
 fi
 
-exec "$APB" deploy.yml "${EXTRA[@]}"
+exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}"

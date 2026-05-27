@@ -1,30 +1,35 @@
 ---
-# Example inventory — copy to inventory.yml and edit IPs / usernames.
+# Example inventory — copy to inventory.yml (gitignored) and set real IPs.
 #
-# Deploy one building gateway:
-#   ./deploy.sh --limit tower_a_edge -v
+# Public multi-building layout only. Real LAN addresses belong in inventory.yml locally.
 #
-# Deploy boss Pi test bench only (has host_vars/bacnet_pi.yml):
+#   cp inventory.example.yml inventory.yml
+#   See PRIVATE-MULTI-SITE.md
+#
+# Deploy:
+#   ./deploy.sh --limit acme_tower_a -v
 #   ./deploy.sh --limit bacnet_pi -v
-#
-# Deploy all hosts:
-#   ./deploy.sh -v
 
 all:
   children:
     pi_bcn:
       hosts:
-        # Lab bench — DS18B20 GPIO (host_vars/bacnet_pi.yml enables GPIO)
+        # Synthetic lab bench (documentation IP 198.51.100.12 — replace in inventory.yml)
         bacnet_pi:
-          ansible_host: 192.168.204.12
+          ansible_host: 198.51.100.12
           ansible_user: ben
 
-        # First real building — BACnet discover + CSV scrape only (no GPIO)
-        # tower_a_edge:
-        #   ansible_host: 10.0.1.50
-        #   ansible_user: ben
+        # Second building — field gateway (documentation IP 198.51.100.50)
+        acme_tower_a:
+          ansible_host: 198.51.100.50
+          ansible_user: ben
 
-        # Another site / VLAN
+        # Acme VM test bench — Tailscale for Ansible; BACnet bind is a different LAN IP in host_vars
+        acme_vm_bbartling:
+          ansible_host: 198.51.100.55
+          ansible_user: bbartling
+
+        # Third site (uncomment in your private inventory.yml)
         # hospital_wing_b:
-        #   ansible_host: 192.168.50.20
+        #   ansible_host: 198.51.100.60
         #   ansible_user: ben

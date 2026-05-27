@@ -225,6 +225,32 @@
       when: install_bacnet_read_unit | default(true) | bool
       notify: Restart BACnet read driver
 
+    - name: Install commissioning agent env file
+      ansible.builtin.template:
+        src: templates/commissioning_agent.env.j2
+        dest: "{{ bacnet_app_remote_dir }}/commissioning_agent.env"
+        mode: "0600"
+      when: enable_commissioning_web | default(false) | bool
+      notify: Restart commissioning agent
+
+    - name: Install commissioning HTTP agent unit
+      ansible.builtin.template:
+        src: templates/vibe12-commissioning-agent.service.j2
+        dest: /etc/systemd/system/vibe12-commissioning-agent.service
+        mode: "0644"
+      become: true
+      when: enable_commissioning_web | default(false) | bool
+      notify: Restart commissioning agent
+
+    - name: Enable and start commissioning HTTP agent
+      ansible.builtin.systemd:
+        name: vibe12-commissioning-agent
+        enabled: true
+        state: started
+        daemon_reload: true
+      become: true
+      when: enable_commissioning_web | default(false) | bool
+
     - name: Enable BACnet read driver when commissioned
       ansible.builtin.systemd:
         name: vibe12-bacnet-read
@@ -369,6 +395,14 @@
       when:
         - install_bacnet_read_unit | default(true) | bool
         - enable_bacnet_read_driver | default(false) | bool
+
+    - name: Restart commissioning agent
+      ansible.builtin.systemd:
+        name: vibe12-commissioning-agent
+        state: restarted
+        daemon_reload: true
+      become: true
+      when: enable_commissioning_web | default(false) | bool
 
 - name: BACnet wire capture after deploy (overwrite bacnet.pcap)
   hosts: pi_bcn

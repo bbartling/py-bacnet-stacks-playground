@@ -1,0 +1,24 @@
+---
+# Acme test bench on vm-bbartling — copy to host_vars/acme_vm_bbartling.yml (gitignored).
+# Inventory host: acme_vm_bbartling → Tailscale IP in inventory.yml (not the BACnet LAN IP).
+
+site_id: acme
+building_id: vm-bbartling
+
+bacnet_instance_id: 3456791
+bacnet_device_name: GatewayVmBbartling
+bacnet_edge_device_name: GatewayVmBbartling
+
+# BACnet/IP bind — use the dedicated NIC IP (bacypypes3 --address), not Tailscale.
+bacnet_bind_address: "10.200.200.185/24"
+bacnet_edge_bind_address: "10.200.200.185/24:47809"
+
+# One IoT Thing + cert per gateway (see docs/04-aws-iot-core.md Path B).
+aws_iot_certs_local_dir: "{{ playbook_dir }}/files/aws_iot/acme-vm-bbartling"
+aws_iot_cert_filename: device.pem.crt
+aws_iot_key_filename: private.key
+bacnet_edge_client_id: vibe12-acme_vm_bbartling
+
+# Optional HTTP commissioning agent (no SSH for discover) — port 8765
+# enable_commissioning_web: true
+# commissioning_web_token: set in private host_vars only

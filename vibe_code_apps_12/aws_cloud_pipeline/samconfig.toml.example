@@ -37,13 +37,17 @@ region = "us-east-2"
 # Optional: poll AWS IoT Core thing/client MQTT status on /api/edge-devices (Dashboard).
 # Thing name may differ from MQTT client_id (lab Pi often uses client_id basicPubSub).
 # Escape quotes inside the JSON string for SAM CLI.
+# Use one space-separated string if IotEdgeThings JSON contains commas (TOML arrays split on commas).
+# Example with two edge devices:
+# parameter_overrides = "IotRuleName=vibe12_telemetry_ingest TtlDays=90 DeployRevision=6 IotTopicPrefix=vibe12 WebUsername=engineer WebPassword=REPLACE IotEdgeThings=[{\"site_id\":\"demo\",\"building_id\":\"bens-office\",\"thing_name\":\"\",\"client_id\":\"basicPubSub\",\"label\":\"Lab Pi\"}]"
+
 parameter_overrides = [
-  "IotRuleName=vibe12_telemetry_ingest",         
-  "TtlDays=7",                                     
-  "DeployRevision=6",                              
-  "IotTopicPrefix=vibe12",                         
-  "WebUsername=engineer",                          
-  "WebPassword=REPLACE_WITH_YOUR_PASSWORD",        
+  "IotRuleName=vibe12_telemetry_ingest",
+  "TtlDays=90",
+  "DeployRevision=6",
+  "IotTopicPrefix=vibe12",
+  "WebUsername=engineer",
+  "WebPassword=REPLACE_WITH_YOUR_PASSWORD",
   "AuthSecret=REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS",
   "IotEdgeThings=[]",
 ]

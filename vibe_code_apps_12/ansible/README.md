@@ -2,7 +2,9 @@
 
 **Beginner tutorial:** [ANSIBLE-BEGINNER.md](ANSIBLE-BEGINNER.md)
 
-Ansible pushes the Vibe12 edge stack to **Linux hosts over SSH** (IP + user in `inventory.yml`).  
+**Private sites + multi-building (no secrets in Git):** [PRIVATE-MULTI-SITE.md](PRIVATE-MULTI-SITE.md)
+
+Ansible pushes the Vibe12 edge stack to **Linux hosts over SSH** (IP + user in **`inventory.yml`** — gitignored; copy from [`inventory.example.yml`](inventory.example.yml)).  
 **Default = BACnet building gateway** (discover → CSV → poll). **GPIO is opt-in** on the boss Pi only.
 
 ---

@@ -32,6 +32,7 @@ ENV_FILE = SPEC_DIR / "cron_codex" / ".env"
 CRON_BIN = SPEC_DIR / "cron_codex" / "bin"
 WAKE_TASK = SPEC_DIR / "cron_codex" / "state" / "wake_task.md"
 LAB_FACTS = SPEC_DIR / "memory" / "job" / "lab_facts.md"
+CONTEXT_SLICE = SPEC_DIR / "cron_codex" / "state" / "context_since_last_wake.md"
 SESSION_FILE = SPEC_DIR / "cron_codex" / "state" / "codex_tui_session.json"
 WAKE_SCRIPT = CRON_BIN / "vibe12_wake.sh"
 

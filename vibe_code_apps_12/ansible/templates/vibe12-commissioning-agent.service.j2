@@ -1,0 +1,20 @@
+[Unit]
+Description=Vibe12 edge commissioning HTTP agent (BACnet discover without SSH)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+WorkingDirectory={{ bacnet_app_remote_dir }}
+Environment=PYTHONPATH={{ bacnet_app_remote_dir }}
+EnvironmentFile=-{{ bacnet_app_remote_dir }}/commissioning_agent.env
+Environment=VIBE12_APP_DIR={{ bacnet_app_remote_dir }}
+Environment=VIBE12_COMMISSION_BIND=0.0.0.0
+Environment=VIBE12_COMMISSION_PORT={{ commissioning_web_port | default(8765) }}
+ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.commissioning_agent
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

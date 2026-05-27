@@ -1,0 +1,16 @@
+[
+  {
+    "id": "acme_vm_bbartling",
+    "label": "Acme VM bbartling",
+    "edge_url": "http://100.122.106.124:8765",
+    "site_id": "acme",
+    "building_id": "vm-bbartling"
+  },
+  {
+    "id": "bacnet_pi",
+    "label": "Boss Pi lab bench",
+    "edge_url": "http://192.168.204.12:8765",
+    "site_id": "demo",
+    "building_id": "bens-office"
+  }
+]

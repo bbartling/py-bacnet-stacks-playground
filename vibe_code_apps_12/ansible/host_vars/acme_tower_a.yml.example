@@ -1,0 +1,25 @@
+---
+# Building gateway example — copy to host_vars/acme_tower_a.yml (gitignored) and edit.
+# Inventory host name must match: acme_tower_a in inventory.yml
+
+site_id: acme
+building_id: tower-a
+
+bacnet_instance_id: 3456790
+bacnet_device_name: GatewayTowerA
+bacnet_edge_device_name: GatewayTowerA
+
+# Uncomment for MS/TP behind a BACnet/IP router on the building LAN:
+# bacnet_route_aware: true
+# bacnet_router_ip: 198.51.100.200
+# bacnet_mstp_net: 2000
+# bacnet_discover_range_low: 100001
+# bacnet_discover_range_high: 100001
+
+# After points.csv is commissioned on the gateway:
+# enable_bacnet_read_driver: true
+
+# bacnet_edge_client_id: vibe12-acme-tower-a   # optional; default vibe12-{{ inventory_hostname }}
+
+# Backups land in commissioning/local/ (gitignored) — default in group_vars
+# commissioning_backup_dir: "{{ playbook_dir }}/../commissioning/local"

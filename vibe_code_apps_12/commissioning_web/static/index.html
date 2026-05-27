@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>vibe12</title>
+  <script>
+    (function () {
+      var k = 'vibe12_commission_theme';
+      var t = localStorage.getItem(k);
+      if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    :root,
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0d0d0d;
+      --surface: #141414;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #707070;
+      --user: #1f1f1f;
+      --assistant: #161616;
+      --assistant-text: #d4d4d4;
+      --focus: #444;
+      --hover: #555;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg: #f5f5f5;
+      --surface: #fff;
+      --border: #d8d8d8;
+      --text: #1a1a1a;
+      --muted: #666;
+      --user: #e8e8e8;
+      --assistant: #fff;
+      --assistant-text: #333;
+      --focus: #999;
+      --hover: #bbb;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font: 14px/1.5 var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      flex: 0 0 auto;
+      padding: .5rem 1rem .65rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      font-size: 13px;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      flex-wrap: wrap;
+    }
+    header .title { color: var(--muted); letter-spacing: .04em; }
+    header .spacer { flex: 1; }
+    header label.field {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    header select, header button.icon {
+      font: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      padding: .3rem .5rem;
+      font-size: 12px;
+    }
+    header button.icon {
+      cursor: pointer;
+      min-width: 2.2rem;
+    }
+    header button.icon:hover { border-color: var(--hover); }
+    .token-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      width: 100%;
+    }
+    .token-row label {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 3.5rem;
+    }
+    #token {
+      flex: 1;
+      font: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: .55rem .7rem;
+      font-size: 13px;
+      min-width: 0;
+    }
+    #token::placeholder { color: var(--muted); opacity: .85; }
+    #token.token-ok { border-color: #3a5a3a; }
+    #token.token-bad { border-color: #6a3a3a; }
+    button.connect {
+      font: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: .5rem .7rem;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    button.connect:hover { border-color: var(--hover); color: var(--text); }
+    #thread {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .65rem;
+    }
+    .msg {
+      max-width: 42rem;
+      padding: .55rem .75rem;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user { align-self: flex-end; background: var(--user); border: 1px solid var(--border); max-width: min(52rem, 95%); }
+    .msg.user.prompt-block { width: min(52rem, 95%); }
+    .msg.user.prompt-block .prompt-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: .35rem;
+    }
+    .msg.user.prompt-block pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 45vh;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .msg.assistant { align-self: flex-start; background: var(--assistant); border: 1px solid var(--border); color: var(--assistant-text); }
+    .msg.system { align-self: center; color: var(--muted); font-size: 12px; background: none; border: none; padding: .2rem; }
+    .thinking {
+      align-self: flex-start;
+      color: var(--muted);
+      font-size: 13px;
+      padding: .35rem .5rem;
+      display: none;
+    }
+    .thinking.active { display: flex; align-items: center; gap: .5rem; }
+    .spinner { display: inline-block; width: 1ch; }
+    footer {
+      flex: 0 0 auto;
+      border-top: 1px solid var(--border);
+      padding: .65rem 1rem 1rem;
+      display: flex;
+      gap: .5rem;
+      align-items: flex-end;
+    }
+    #input {
+      flex: 1;
+      font: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: .55rem .65rem;
+      resize: vertical;
+      min-height: 5rem;
+      max-height: 50vh;
+    }
+    #input:focus { outline: 1px solid var(--focus); }
+    button.send {
+      font: inherit;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: .5rem .85rem;
+      cursor: pointer;
+    }
+    button.send:hover { border-color: var(--hover); }
+    button.send:disabled { opacity: .4; cursor: default; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-row">
+      <span class="title">vibe12</span>
+      <label class="field" title="Which BACnet edge to run discover against">
+        edge
+        <select id="gateway"></select>
+      </label>
+      <span class="spacer"></span>
+      <button type="button" class="icon" id="themeBtn" title="Toggle light / dark">◐</button>
+      <span id="lanHint" class="title"></span>
+    </div>
+    <div class="token-row">
+      <label for="token">login</label>
+      <input id="token" type="password" autocomplete="off"
+        placeholder="paste token from terminal (./run_dashboard.sh -d)" />
+      <button type="button" class="connect" id="connectBtn">connect</button>
+    </div>
+  </header>
+  <div id="thread"></div>
+  <div id="thinking" class="thinking"><span class="spinner" id="spinChar">⠋</span><span id="spinLabel">thinking</span></div>
+  <footer>
+    <textarea id="input" rows="8" placeholder="paste full Codex mission here (markdown OK) — or /help /discover 8 8"></textarea>
+    <button class="send" id="send">send</button>
+  </footer>
+  <script>
+    const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+    const THEME_KEY = 'vibe12_commission_theme';
+
+    function initTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
+      const theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      applyTheme(theme);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem(THEME_KEY, theme);
+      const btn = document.getElementById('themeBtn');
+      if (btn) btn.textContent = theme === 'light' ? '☀' : '☾';
+      if (btn) btn.title = theme === 'light' ? 'Switch to dark' : 'Switch to light';
+    }
+
+    function toggleTheme() {
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(cur === 'light' ? 'dark' : 'light');
+    }
+
+    initTheme();
+    document.getElementById('themeBtn').onclick = toggleTheme;
+
+    const thread = document.getElementById('thread');
+    const input = document.getElementById('input');
+    const gatewayEl = document.getElementById('gateway');
+    const tokenEl = document.getElementById('token');
+    const thinkingEl = document.getElementById('thinking');
+    const spinChar = document.getElementById('spinChar');
+    const spinLabel = document.getElementById('spinLabel');
+    const sendBtn = document.getElementById('send');
+    const connectBtn = document.getElementById('connectBtn');
+
+    let gateways = [];
+    let spinTimer = null;
+    let busy = false;
+    let connected = false;
+
+    const savedToken = localStorage.getItem('vibe12_commission_token');
+    if (savedToken) tokenEl.value = savedToken;
+
+    function headers() {
+      const h = { 'Content-Type': 'application/json' };
+      const t = tokenEl.value.trim();
+      if (t) h['X-Commission-Token'] = t;
+      localStorage.setItem('vibe12_commission_token', t);
+      return h;
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      if (res.status === 401) {
+        tokenEl.classList.remove('token-ok');
+        tokenEl.classList.add('token-bad');
+        connected = false;
+        throw new Error('login failed — paste the token printed by ./run_dashboard.sh -d, then click connect');
+      }
+      if (!res.ok) throw new Error(data.error || res.statusText || String(res.status));
+      return data;
+    }
+
+    function addMsg(role, text) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + role;
+      el.textContent = text;
+      thread.appendChild(el);
+      thread.scrollTop = thread.scrollHeight;
+      return el;
+    }
+
+    function addUserPrompt(text) {
+      const el = document.createElement('div');
+      el.className = 'msg user prompt-block';
+      const label = document.createElement('div');
+      label.className = 'prompt-label';
+      label.textContent = `your mission (${text.length} chars)`;
+      const pre = document.createElement('pre');
+      pre.textContent = text;
+      el.appendChild(label);
+      el.appendChild(pre);
+      thread.appendChild(el);
+      thread.scrollTop = thread.scrollHeight;
+      return el;
+    }
+
+    function setThinking(on, label = 'thinking') {
+      busy = on;
+      sendBtn.disabled = on;
+      thinkingEl.classList.toggle('active', on);
+      document.getElementById('spinLabel').textContent = label;
+      if (on && !spinTimer) {
+        let i = 0;
+        spinTimer = setInterval(() => {
+          spinChar.textContent = SPIN[i++ % SPIN.length];
+        }, 90);
+      }
+      if (!on && spinTimer) {
+        clearInterval(spinTimer);
+        spinTimer = null;
+        spinChar.textContent = SPIN[0];
+      }
+    }
+
+    function activeGatewayId() {
+      return gatewayEl.value || (gateways[0] && gateways[0].id);
+    }
+
+    async function loadGateways() {
+      const data = await api('/api/gateways');
+      gateways = data.gateways || [];
+      const prev = gatewayEl.value;
+      gatewayEl.innerHTML = gateways.length
+        ? gateways.map((g, i) => {
+            const label = g.label || g.building_id || `site ${i + 1}`;
+            return `<option value="${g.id}">${label}</option>`;
+          }).join('')
+        : '<option value="">no gateways configured</option>';
+      if (prev && gateways.some(g => g.id === prev)) gatewayEl.value = prev;
+    }
+
+    async function connect() {
+      const t = tokenEl.value.trim();
+      if (!t) {
+        addMsg('system', 'paste login token first (from ./run_dashboard.sh -d)');
+        tokenEl.focus();
+        return;
+      }
+      try {
+        await loadGateways();
+        await loadInfo();
+        tokenEl.classList.remove('token-bad');
+        tokenEl.classList.add('token-ok');
+        connected = true;
+        addMsg('system', 'connected — paste a mission and send, or /help');
+      } catch (e) {
+        addMsg('system', String(e));
+      }
+    }
+
+    connectBtn.onclick = () => connect();
+
+    async function ensureConnected() {
+      if (!connected) await connect();
+      if (!connected) throw new Error('not connected — paste token and click connect');
+    }
+
+    async function loadInfo() {
+      try {
+        const info = await api('/api/info');
+        if (info.lan_urls && info.lan_urls.length)
+          document.getElementById('lanHint').textContent = info.lan_urls[0].replace('http://', '');
+      } catch (_) {}
+    }
+
+    async function cmdStatus() {
+      await ensureConnected();
+      const id = activeGatewayId();
+      if (!id) return addMsg('assistant', 'no gateway configured');
+      const data = await api('/api/gateways');
+      const gw = (data.gateways || []).find(g => g.id === id);
+      if (!gw) return addMsg('assistant', 'gateway not found');
+      const up = gw.edge_reachable;
+      const st = gw.edge_status || {};
+      const files = st.files || {};
+      addMsg('assistant',
+        (up ? 'edge reachable' : 'edge not reachable') + '\n' +
+        (files.points_discovered ? 'discover csv ready' : 'no discover csv') + '\n' +
+        (files.points_csv ? 'points csv ready' : 'no points csv')
+      );
+    }
+
+    async function cmdDiscover(args) {
+      await ensureConnected();
+      const id = activeGatewayId();
+      if (!id) return addMsg('assistant', 'no gateway configured');
+      const body = {};
+      if (args[0]) body.range_low = args[0];
+      if (args[1]) body.range_high = args[1];
+      setThinking(true, 'discovering');
+      try {
+        const job = await api(`/api/gateways/${id}/discover`, { method: 'POST', body: JSON.stringify(body) });
+        addMsg('assistant', 'discover started');
+        await pollEdgeJob(id, job.job_id);
+      } catch (e) {
+        addMsg('assistant', String(e));
+      } finally {
+        setThinking(false);
+      }
+    }
+
+    async function pollEdgeJob(gwId, jobId) {
+      for (let i = 0; i < 120; i++) {
+        await new Promise(r => setTimeout(r, 2500));
+        try {
+          const job = await api(`/api/gateways/${gwId}/jobs/${jobId}`);
+          if (job.status === 'running') {
+            spinLabel.textContent = 'discovering';
+            continue;
+          }
+          const tail = (job.log_tail || '').trim();
+          addMsg('assistant', tail ? tail.slice(-1200) : `done (${job.status})`);
+          return;
+        } catch (e) {
+          addMsg('assistant', String(e));
+          return;
+        }
+      }
+      addMsg('assistant', 'discover still running — check again later');
+    }
+
+    async function cmdWake() {
+      setThinking(true, 'codex working');
+      try {
+        const job = await api('/api/agent/wake', { method: 'POST', body: JSON.stringify({ mini_count: 1 }) });
+        addMsg('assistant', 'wake started');
+        await pollAgentJob(job.job_id);
+      } catch (e) {
+        addMsg('assistant', String(e));
+      } finally {
+        setThinking(false);
+      }
+    }
+
+    async function cmdCodex(prompt) {
+      addUserPrompt(prompt);
+      setThinking(true, 'codex');
+      try {
+        const job = await api('/api/agent/codex', {
+          method: 'POST',
+          body: JSON.stringify({ prompt }),
+        });
+        const sandbox = job.sandbox ? ` · ${job.sandbox}` : '';
+        addMsg('assistant', `codex started · ${job.prompt_chars || prompt.length} chars${sandbox}`);
+        await pollAgentJob(job.job_id, true);
+      } catch (e) {
+        addMsg('assistant', String(e));
+      } finally {
+        setThinking(false);
+      }
+    }
+
+    async function pollAgentJob(jobId, isCodex = false) {
+      let lastTail = '';
+      const maxIter = isCodex ? 1800 : 600;
+      for (let i = 0; i < maxIter; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const job = await api(`/api/agent/jobs/${jobId}`);
+          if (job.status === 'running') {
+            spinLabel.textContent = isCodex ? 'codex working' : 'codex working';
+            if (job.prompt_preview) spinLabel.textContent = job.prompt_preview.slice(0, 36);
+            const tail = (job.log_tail || job.final_reply || '').trim();
+            if (tail && tail !== lastTail) {
+              lastTail = tail;
+            }
+            continue;
+          }
+          const reply = (job.final_reply || job.log_tail || '').trim();
+          if (reply) {
+            addMsg('assistant', reply.slice(-12000));
+          } else {
+            addMsg('assistant', `done (${job.status}) exit=${job.exit_code ?? '?'}`);
+          }
+          if (job.error) addMsg('assistant', String(job.error).slice(-2000));
+          return;
+        } catch (e) {
+          addMsg('assistant', String(e));
+          return;
+        }
+      }
+      addMsg('assistant', 'codex still running — check server.log or poll again later');
+    }
+
+    function cmdHelp() {
+      addMsg('assistant',
+        'Paste your full mission in the box below and press send → one codex exec (full prompt shown in chat)\n' +
+        'Codex runs with sandbox bypass on bensserver so ansible/ssh/ping work\n' +
+        '/help — this message\n' +
+        '/wake — old multi-mini orchestrator (vibe12_wake.sh)\n' +
+        '/discover [low] [high] — bacnet discover on edge selected above\n' +
+        '/status — edge + csv check\n' +
+        'edge dropdown — BACnet gateway for /discover'
+      );
+    }
+
+    function isSlashCommand(line) {
+      const t = line.trim();
+      return t.startsWith('/') && !t.startsWith('//');
+    }
+
+    async function handleInput(text) {
+      const line = text.trim();
+      if (!line) return;
+      if (isSlashCommand(line)) {
+        addMsg('user', line.split('\n')[0] + (line.includes('\n') ? ' …' : ''));
+        const first = line.split('\n')[0].trim();
+        const parts = first.split(/\s+/);
+        const cmd = parts[0].toLowerCase();
+        if (cmd === '/help' || cmd === 'help') return cmdHelp();
+        if (cmd === '/wake' || cmd === 'wake') return cmdWake();
+        if (cmd === '/status' || cmd === 'status') return cmdStatus();
+        if (cmd === '/discover' || cmd === 'discover') return cmdDiscover(parts.slice(1));
+        addMsg('assistant', 'unknown command — try /help or paste a mission (no leading /)');
+        return;
+      }
+      return cmdCodex(line);
+    }
+
+    sendBtn.onclick = () => {
+      const v = input.value;
+      input.value = '';
+      handleInput(v);
+    };
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    };
+
+    (async () => {
+      addMsg('system', 'paste login token above, click connect, then paste mission or /help');
+      if (tokenEl.value.trim()) await connect();
+    })();
+  </script>
+</body>
+</html>

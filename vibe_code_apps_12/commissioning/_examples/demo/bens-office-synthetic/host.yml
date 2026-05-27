@@ -1,0 +1,8 @@
+---
+# Synthetic lab example — NOT a real site (documentation IP)
+inventory_hostname: bacnet_pi
+ansible_host: 198.51.100.12
+site_id: demo
+building_id: bens-office
+bacnet_edge_client_id: basicPubSub
+fetched_utc: "2026-01-01T00:00:00Z"

@@ -11,6 +11,8 @@ REPO_ROOT="$(cd "$APP_ROOT/.." && pwd)"
 STATE_DIR="$CRON_ROOT/state"
 LOG_DIR="$CRON_ROOT/logs"
 
+# shellcheck source=/dev/null
+source "$BIN_DIR/vibe12_codex_common.sh"
 _PRESERVE_MINI="${MINI_INVOCATIONS_PER_WAKE-}"
 vibe12_load_env "$CRON_ROOT"
 if [[ -n "${_PRESERVE_MINI}" ]]; then

@@ -1,0 +1,8 @@
+---
+# Synthetic example only — documentation IP (RFC 5737 TEST-NET-2)
+inventory_hostname: acme_tower_a
+ansible_host: 198.51.100.50
+site_id: acme
+building_id: tower-a
+bacnet_edge_client_id: vibe12-acme_tower_a
+fetched_utc: "2026-01-01T00:00:00Z"

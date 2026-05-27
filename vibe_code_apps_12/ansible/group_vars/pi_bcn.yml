@@ -25,8 +25,8 @@ bacnet_discover_range_high: 3456799
 bacnet_read_interval: 30
 points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
 points_discovered_path: "{{ bacnet_app_remote_dir }}/points_discovered.csv"
-# Repo backup: vibe_code_apps_12/commissioning/{site_id}/{building_id}/
-commissioning_backup_dir: "{{ playbook_dir }}/../commissioning"
+# Repo backup: gitignored local/ on real deploys; public examples under commissioning/_examples/
+commissioning_backup_dir: "{{ playbook_dir }}/../commissioning/local"
 
 # Override site_id + building_id per host (host_vars). These are fallbacks only.
 site_id: demo
@@ -63,7 +63,10 @@ server_extra_args: []
 install_systemd_unit: "{{ enable_ds18b20_gpio }}"
 enable_and_start_service: "{{ enable_ds18b20_service }}"
 
-run_deploy_verify: true
+enable_commissioning_web: true
+commissioning_web_port: 8765
+# Set in private host_vars — same token as bensserver dashboard (gitignored)
+# commissioning_web_token: "change-me"
 
 # ---------------------------------------------------------------------------
 # Post-deploy BACnet wire capture (opt-in) — overwrites captures/bacnet.pcap
@@ -77,3 +80,5 @@ deploy_pcap_udp_ports:
 deploy_pcap_filter: >-
   {{ deploy_pcap_udp_ports | map('regex_replace', '^(.*)$', 'udp port \\1') | join(' or ') }}
 deploy_pcap_async_timeout: "{{ (deploy_pcap_seconds | int) + 30 }}"
+
+run_deploy_verify: true
