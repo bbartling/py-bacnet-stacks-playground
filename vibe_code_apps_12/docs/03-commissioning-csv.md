@@ -15,17 +15,19 @@ Commissioning turns a raw BACnet scan into a **clean point list** the cloud can 
 | `points.csv` | **Your** trimmed list — read driver reads this |
 | `edge_backup/{site}/{building}/points.csv` | Git-backed path on bensserver |
 
-## Phase A — Discover (automatic)
+## Phase A — Discover
 
-On the gateway:
+**Devices first** (~1 min), then **points per device** (slow). See [Edge CSV backup](edge-backup.md).
 
 ```bash
-cd ~/vibe_code_apps_12
-sudo systemctl start vibe12-bacnet-discover
-journalctl -u vibe12-bacnet-discover -n 80 --no-pager
+cd ansible
+./edge_devices_only.sh --limit <inventory_host> -v
+# trim devices_discovered.trim.csv, then:
+./discover_points_per_device.sh --limit <inventory_host> -v
+./fetch_points_per_device.sh --limit <inventory_host>
 ```
 
-Or run discover via Ansible-deployed one-shot. Output columns typically include device id, object type, instance, present value, and suggested tags.
+Edit each `points_per_device/device_*.csv`, then `./merge_points.sh --limit <inventory_host>`.
 
 ## Phase B — Clean the CSV (manual)
 

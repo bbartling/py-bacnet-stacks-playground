@@ -1,6 +1,7 @@
 import { logger } from "./logger";
 
 const TOKEN_KEY = "vibe12_token";
+const MAX_429_RETRIES = 4;
 
 export class ApiError extends Error {
   status: number;
@@ -29,6 +30,31 @@ export function setToken(token: string | null) {
   else s.removeItem(TOKEN_KEY);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(res: Response, attempt: number): number {
+  const hdr = res.headers.get("Retry-After");
+  if (hdr) {
+    const sec = Number(hdr);
+    if (!Number.isNaN(sec) && sec > 0) return Math.min(30_000, sec * 1000);
+  }
+  return Math.min(15_000, 1500 * 2 ** attempt);
+}
+
+async function fetchWithRetry(path: string, init?: RequestInit): Promise<Response> {
+  let last: Response | undefined;
+  for (let attempt = 0; attempt < MAX_429_RETRIES; attempt++) {
+    last = await fetch(path, init);
+    if (last.status !== 429) return last;
+    const wait = retryDelayMs(last, attempt);
+    logger.warn("api", `429 ${path} — retry in ${wait}ms`, { attempt: attempt + 1 });
+    await sleep(wait);
+  }
+  return last!;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const reqId = crypto.randomUUID().slice(0, 8);
   const method = init?.method ?? "GET";
@@ -45,7 +71,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers });
+    res = await fetchWithRetry(path, { ...init, headers });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     logger.error("api", `network ${path}`, { reqId, detail });
@@ -76,7 +102,7 @@ export async function apiFetchText(path: string, init?: RequestInit): Promise<st
   const token = getToken();
   const headers = new Headers(init?.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetchWithRetry(path, { ...init, headers });
   const text = await res.text();
   if (!res.ok) throw new ApiError(res.status, path, text);
   return text;

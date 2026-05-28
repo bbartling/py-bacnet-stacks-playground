@@ -16,7 +16,7 @@ Human: SSH to Pi, run discover, edit points.csv, enable rows
    ↓
 AI: Ansible deploy (edge_bacnet + certs + vibe12-bacnet-read)
    ↓
-AI: GET /a../edge_backup/status/{site}/{building}
+AI: GET /api/commissioning/status/{site}/{building}
    ↓
 Human: confirm ZAT from MSTP + GPIO match job intent
    ↓
@@ -30,7 +30,7 @@ Human + AI: FDD rules in Rule Lab, go-live
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/telemetry/flow/{site}/{building}` | Per-series `flowing`, `last_ts_ms`, `last_value` |
-| GET | `/a../edge_backup/status/{site}/{building}` | Flow status + `ai_hints` + `recommended_actions` |
+| GET | `/api/commissioning/status/{site}/{building}` | Flow status + `ai_hints` + `recommended_actions` |
 | GET | `/api/brick/timeseries-ref/{site}/{building}` | All BRICK refs (`external_ref` = DynamoDB `device_id`) |
 | GET | `/api/brick/timeseries-ref/{site}/{building}?series_id=…` | Single series ref |
 | GET | `/api/points/{site}/{building}` | Point registry (includes `brick_timeseries_ref`) |
@@ -57,7 +57,7 @@ URL="https://YOUR.lambda-url.us-east-2.on.aws"
 TOKEN=$(curl -sS -X POST "$URL/api/auth/login" -H 'Content-Type: application/json' \
   -d '{"username":"engineer","password":"YOUR_PASSWORD"}' | jq -r .token)
 
-curl -sS "$URL/a../edge_backup/status/demo/bens-office?window_minutes=15" \
+curl -sS "$URL/api/commissioning/status/demo/bens-office?window_minutes=15" \
   -H "Authorization: Bearer $TOKEN" | jq .
 
 curl -sS "$URL/api/brick/timeseries-ref/demo/bens-office" \

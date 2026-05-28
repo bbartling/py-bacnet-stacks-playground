@@ -7,6 +7,8 @@ export default defineConfig({
         outDir: "dist",
         assetsDir: "assets",
         sourcemap: false,
+        cssCodeSplit: false,
+        modulePreload: false,
     },
     server: {
         port: 5174,

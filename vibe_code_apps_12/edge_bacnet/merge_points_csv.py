@@ -33,7 +33,11 @@ def merge_points_dir(
     enabled_only: bool = False,
     pattern: str = "device_*.csv",
 ) -> int:
-    files = sorted(input_dir.glob(pattern), key=_device_instance_key, reverse=True)
+    files = [
+        p
+        for p in sorted(input_dir.glob(pattern), key=_device_instance_key, reverse=True)
+        if not p.name.endswith(".full.csv")
+    ]
     if not files:
         sys.stderr.write(f"No files matching {pattern} in {input_dir}\n")
         return 1

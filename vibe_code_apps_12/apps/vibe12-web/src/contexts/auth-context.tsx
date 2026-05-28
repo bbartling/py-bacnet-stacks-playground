@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchMe, getToken, login as apiLogin, setToken } from "../lib/api-client";
+import { ApiError, fetchMe, getToken, login as apiLogin, setToken } from "../lib/api-client";
 import { logger } from "../lib/logger";
 
 type AuthContextValue = {
@@ -29,6 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
+      if (!getToken()) {
+        setAuthRequired(true);
+        setAuthenticated(false);
+        setUsername("");
+        setReady(true);
+        return;
+      }
       const me = await fetchMe();
       setAuthRequired(me.auth_required);
       setUsername(me.username || "");
@@ -37,7 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setAuthenticated(false);
       setUsername("");
-      logger.warn("auth", "session check failed", err);
+      if (err instanceof ApiError && err.status === 429) {
+        logger.warn("auth", "session check rate-limited — try again shortly", err);
+      } else {
+        logger.warn("auth", "session check failed", err);
+      }
     } finally {
       setReady(true);
     }

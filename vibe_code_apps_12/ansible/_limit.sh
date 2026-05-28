@@ -59,3 +59,17 @@ edge_devices_csv_local() {
 edge_points_per_device_dir() {
   echo "$(edge_local_dir)/points_per_device"
 }
+
+# Resolved ~/vibe_code_apps_12 on edge (inventory may contain {{ ansible_user }}).
+edge_remote_app_dir() {
+  local user remote
+  user="$(ansible-inventory -i "$INV" --host "$LIMIT" 2>/dev/null \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('ansible_user',''))")"
+  remote="$(_host_yaml_var bacnet_app_remote_dir)"
+  if [[ -z "$remote" ]]; then
+    echo "/home/${user}/vibe_code_apps_12"
+    return
+  fi
+  remote="${remote//\{\{ ansible_user \}\}/$user}"
+  echo "$remote"
+}

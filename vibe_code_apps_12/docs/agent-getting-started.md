@@ -131,7 +131,7 @@ python3 -m unittest discover -s tests -q
 
 Commissioning API (replace site/building):
 
-`GET /a../edge_backup/status/{site}/{building}`
+`GET /api/commissioning/status/{site}/{building}`
 
 ---
 

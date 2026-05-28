@@ -21,21 +21,13 @@ cd ansible
 # → edge_backup/local/demo/bens-office/points.csv
 ```
 
-## Per-device point CSVs (edit one file per BACnet device)
+## Per-device point CSVs
+
+See [docs/edge-backup.md](../docs/edge-backup.md) for the full flow. Quick fetch:
 
 ```bash
-# 1) Trim devices_discovered.trim.csv locally
-# 2) Discover points → one CSV per device on edge
-./discover_points_per_device.sh --limit <inventory_host> -v
-
-# 3) When jobs/discover_points.log shows done, pull files:
+cd ansible
 ./fetch_points_per_device.sh --limit <inventory_host>
-# → edge_backup/local/<site>/<building>/points_per_device/device_<instance>.csv
-
-# 4) Edit each device_*.csv (delete rows, set enabled=1, tags)
-# 5) Merge for read driver
-./merge_points.sh --limit <inventory_host>
-./merge_points.sh --limit <inventory_host> --enabled-only -o edge_backup/local/.../points.csv
 ```
 
 ## Snapshot before changes

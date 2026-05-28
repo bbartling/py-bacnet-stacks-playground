@@ -52,13 +52,12 @@ Use this page as a **step-by-step path** from a blank Linux gateway to live faul
 
 **Goal:** A trimmed **`points.csv`** lists only the points you want in the cloud.
 
-- [ ] Run **discover** (Who-Is / I-Am) → `points_discovered.csv`.
-- [ ] **Delete** rows you do not need; set **`enabled=1`** on rows to poll.
-- [ ] Fill **`system_id`**, **`brick_class`**, **`brick_tag`** (for FDD and data model later).
-- [ ] Save as **`edge_backup/.../points.csv`** and back up to Git (`fetch_commissioning.sh`).
+- [ ] **Devices:** `./edge_devices_only.sh` → trim `devices_discovered.trim.csv`.
+- [ ] **Points:** `./discover_points_per_device.sh` → `./fetch_points_per_device.sh` → edit each `device_*.csv`.
+- [ ] **Merge:** `./merge_points.sh` → `points.csv` with **`enabled=1`** and BRICK tags filled in.
 - [ ] Redeploy with **`enable_bacnet_read_driver=true`**.
 
-→ Details: [Commissioning & CSV cleaning](03-commissioning-csv.md) · [BACnet commissioning](bacnet-commissioning.md)
+→ Details: [Edge CSV backup](edge-backup.md) · [Commissioning & CSV cleaning](03-commissioning-csv.md)
 
 ---
 

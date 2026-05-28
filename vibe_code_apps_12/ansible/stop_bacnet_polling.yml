@@ -1,0 +1,29 @@
+---
+# Stop BACnet RPM read driver (MQTT publish) on edge gateways.
+#
+#   ./stop_bacnet_polling.sh
+#   ./stop_bacnet_polling.sh --limit acme_vm_bbartling
+#
+- name: Stop BACnet polling on edge gateways
+  hosts: pi_bcn
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Stop vibe12-bacnet-read
+      ansible.builtin.systemd:
+        name: vibe12-bacnet-read
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Confirm read driver state
+      ansible.builtin.command:
+        argv: [systemctl, is-active, vibe12-bacnet-read]
+      register: read_state
+      changed_when: false
+      failed_when: false
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: vibe12-bacnet-read is {{ read_state.stdout | default('inactive') }} (enabled=no)"

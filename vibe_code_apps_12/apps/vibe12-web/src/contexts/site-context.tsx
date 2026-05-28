@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { apiFetch } from "../lib/api-client";
+import { useAuth } from "./auth-context";
 import { logger } from "../lib/logger";
 
 export type Building = {
@@ -28,6 +29,7 @@ type SiteContextValue = {
 const SiteContext = createContext<SiteContextValue | null>(null);
 
 export function SiteProvider({ children }: { children: ReactNode }) {
+  const { ready: authReady, authenticated } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [siteId, setSiteId] = useState("");
   const [buildingId, setBuildingId] = useState("");
@@ -51,8 +53,9 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   }, [siteId]);
 
   useEffect(() => {
+    if (!authReady || !authenticated) return;
     void refreshBuildings().catch((e) => logger.error("site", "buildings failed", e));
-  }, []);
+  }, [authReady, authenticated, refreshBuildings]);
 
   useEffect(() => {
     const forSite = buildings.filter((b) => b.site_id === siteId);

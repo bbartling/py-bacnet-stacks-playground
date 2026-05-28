@@ -97,6 +97,11 @@ if [[ "$VERIFY_ONLY" == true && "$NO_VERIFY" == true ]]; then
 fi
 
 _auth_args() {
+  if [[ -n "${SSHPASS:-}" ]] && command -v sshpass >/dev/null; then
+  export ANSIBLE_SSH_PASS="$SSHPASS"
+  export ANSIBLE_BECOME_PASS="${ANSIBLE_BECOME_PASS:-$SSHPASS}"
+  return
+  fi
   if [[ "$NO_ASK_PASS" == true ]]; then
     return
   fi

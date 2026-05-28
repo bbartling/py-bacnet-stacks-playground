@@ -42,7 +42,13 @@ The lab certificate is often registered for MQTT client id **`basicPubSub`**. Po
 
 Example policy fragment lives in `aws_iot_core_test/policy-vibe12-multi-client.json` in the repo.
 
-**Symptom:** `NOT_AUTHORIZED` in `journalctl -u vibe12-bacnet-read` → policy or wrong client id.
+**Per-building publish (required today):** AWS IoT does **not** treat `topic/vibe12/#` as a publish grant the way MQTT subscribe does. Each site/building needs an explicit line, e.g. `topic/vibe12/acme/vm-bbartling/*` (same pattern as `vibe12/demo/bens-office/*`). Apply from bensserver:
+
+```bash
+./ansible/scripts/sync_iot_vibe12_policy.sh
+```
+
+**Symptom:** edge logs `published N samples` but DynamoDB empty / `PubackReasonCode.NOT_AUTHORIZED` → run `sync_iot_vibe12_policy.sh` and restart `vibe12-bacnet-read`.
 
 ## MQTT topic layout
 
