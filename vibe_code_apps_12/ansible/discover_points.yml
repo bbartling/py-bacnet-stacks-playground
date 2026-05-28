@@ -1,0 +1,85 @@
+---
+# Phase 2 — SLOW: object-list + property reads per device → points_discovered.csv
+# (minutes to hours depending on device count). Use discover_devices.yml first (~1 min).
+#
+# Prerequisite: devices_discovered.csv on edge (phase 1 or copied up).
+#
+#   ./discover_points.sh --limit <inventory_host> -v
+#   ./fetch_commissioning.sh --limit <inventory_host> -v
+
+- name: BACnet point discovery on edge (from devices CSV)
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Ensure jobs directory on edge
+      ansible.builtin.file:
+        path: "{{ bacnet_app_remote_dir }}/jobs"
+        state: directory
+        mode: "0755"
+
+    - name: Install edge commissioning scripts
+      ansible.builtin.copy:
+        src: scripts/edge/
+        dest: "{{ bacnet_app_remote_dir }}/scripts/edge/"
+        mode: "0755"
+
+    - name: Stat devices CSV on edge
+      ansible.builtin.stat:
+        path: "{{ devices_discovered_path }}"
+      register: devices_csv
+
+    - name: Fail if devices CSV missing
+      ansible.builtin.fail:
+        msg: >-
+          Missing {{ devices_discovered_path }} — run discover_devices.yml first
+          or copy devices_discovered.csv to the edge.
+      when: not devices_csv.stat.exists
+
+    - name: Write points discover job env
+      ansible.builtin.copy:
+        dest: "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        mode: "0644"
+        content: |
+          export VIBE12_APP_DIR="{{ bacnet_app_remote_dir }}"
+          export DEVICES_CSV="{{ devices_discovered_path }}"
+          export OUTPUT="{{ points_discovered_path }}"
+          export APPEND="{{ bacnet_discover_append | default(false) | ternary('1', '0') }}"
+          export SITE_ID="{{ site_id }}"
+          export BUILDING_ID="{{ building_id }}"
+          export BACNET_NAME="{{ bacnet_device_name }}"
+          export BACNET_INSTANCE="{{ bacnet_instance_id }}"
+          export BACNET_BIND="{{ bacnet_edge_bind_address | default(bacnet_bind_address) }}"
+
+    - name: Start point discovery in background
+      ansible.builtin.shell: |
+        set -euo pipefail
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        exec "{{ bacnet_app_remote_dir }}/scripts/edge/run_background.sh" \
+          discover_points \
+          "{{ bacnet_app_remote_dir }}/scripts/edge/discover_points.sh"
+      args:
+        executable: /bin/bash
+      register: points_bg
+      when: bacnet_discover_background | default(true) | bool
+
+    - name: Show background job info
+      ansible.builtin.debug:
+        msg: "{{ points_bg.stdout_lines }}"
+      when: points_bg is defined
+
+    - name: Run point discovery in foreground
+      ansible.builtin.shell: |
+        set -euo pipefail
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        "{{ bacnet_app_remote_dir }}/scripts/edge/discover_points.sh"
+      args:
+        executable: /bin/bash
+      when: not (bacnet_discover_background | default(true) | bool)
+
+    - name: Wait before fetch (optional)
+      ansible.builtin.pause:
+        seconds: "{{ bacnet_discover_wait_seconds | int }}"
+      when:
+        - bacnet_discover_wait_seconds | default(0) | int > 0
+        - bacnet_discover_background | default(true) | bool

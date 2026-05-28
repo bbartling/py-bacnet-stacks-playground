@@ -1,0 +1,72 @@
+---
+# Snapshot BACnet registry CSVs from edge before deploy/discover changes.
+#
+#   ./backup_registry.sh --limit bacnet_pi -v
+#
+# Writes under edge_backup/local/{site}/{building}/registry_snapshots/{timestamp}/
+
+- name: Backup BACnet registry CSV from edge
+  hosts: pi_bcn
+  gather_facts: false
+
+  vars:
+    registry_snapshot_ts: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
+  tasks:
+    - name: Freeze snapshot timestamp for this host
+      ansible.builtin.set_fact:
+        registry_snapshot_ts_fixed: "{{ registry_snapshot_ts }}"
+
+    - name: Ensure local snapshot directory
+      ansible.builtin.file:
+        path: >-
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch devices_discovered.csv
+      ansible.builtin.fetch:
+        src: "{{ devices_discovered_path }}"
+        dest: >-
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}/devices_discovered.csv
+        flat: true
+      failed_when: false
+
+    - name: Fetch points.csv
+      ansible.builtin.fetch:
+        src: "{{ points_csv_path }}"
+        dest: >-
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}/points.csv
+        flat: true
+      failed_when: false
+
+    - name: Fetch points_discovered.csv
+      ansible.builtin.fetch:
+        src: "{{ points_discovered_path }}"
+        dest: >-
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}/points_discovered.csv
+        flat: true
+      failed_when: false
+
+    - name: Write snapshot metadata
+      ansible.builtin.copy:
+        dest: >-
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}/host.yml
+        mode: "0644"
+        content: |
+          ---
+          inventory_hostname: {{ inventory_hostname }}
+          ansible_host: {{ ansible_host }}
+          site_id: {{ site_id }}
+          building_id: {{ building_id }}
+          snapshot_utc: "{{ registry_snapshot_ts_fixed }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Show snapshot path
+      ansible.builtin.debug:
+        msg: >-
+          Registry backup:
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/registry_snapshots/{{ registry_snapshot_ts_fixed }}/

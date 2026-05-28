@@ -48,7 +48,7 @@ bacnet_discover_range_high: 5007
 ```bash
 cd vibe_code_apps_12/ansible
 ./fetch_commissioning.sh --limit bacnet_pi -v
-git add ../commissioning/
+git add ../edge_backup/
 git commit -m "Commission BACnet points for demo/bens-office"
 ```
 

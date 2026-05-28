@@ -27,8 +27,8 @@ echo "SPEC=$SPEC"
 
 copy_if_missing "$TEMPLATES/MEMORY.md.example" "$SPEC/MEMORY.md"
 copy_if_missing "$TEMPLATES/BUILD_CHECKPOINTS.example.md" "$SPEC/BUILD_CHECKPOINTS.md"
-copy_if_missing "$TEMPLATES/memory/commissioning/PHASE_NOTEPAD.example.md" \
-  "$SPEC/memory/commissioning/PHASE_NOTEPAD.md"
+copy_if_missing "$TEMPLATES/memo../edge_backup/PHASE_NOTEPAD.example.md" \
+  "$SPEC/memo../edge_backup/PHASE_NOTEPAD.md"
 copy_if_missing "$TEMPLATES/memory/integrations/aws-iot.example.md" \
   "$SPEC/memory/integrations/aws-iot.md"
 copy_if_missing "$TEMPLATES/memory/stack/edge-gateway.example.md" \
@@ -62,7 +62,7 @@ cat <<EOF
 
 Next steps:
   1. codex login
-  2. Edit memory/commissioning/PHASE_NOTEPAD.md for your site
+  2. Edit memo../edge_backup/PHASE_NOTEPAD.md for your site
   3. cp aws_cloud_pipeline/samconfig.toml.example → samconfig.toml (cloud deploy)
   4. See docs/agent-getting-started.md
 

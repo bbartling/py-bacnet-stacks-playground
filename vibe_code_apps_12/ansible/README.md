@@ -4,19 +4,17 @@
 
 **Private sites + multi-building (no secrets in Git):** [PRIVATE-MULTI-SITE.md](PRIVATE-MULTI-SITE.md)
 
-Ansible pushes the Vibe12 edge stack to **Linux hosts over SSH** (IP + user in **`inventory.yml`** — gitignored; copy from [`inventory.example.yml`](inventory.example.yml)).  
-**Default = BACnet building gateway** (discover → CSV → poll). **GPIO is opt-in** on the boss Pi only.
+Ansible pushes the Vibe12 edge BACnet stack to **Linux hosts over SSH** (IP + user in **`inventory.yml`** — gitignored; copy from [`inventory.example.yml`](inventory.example.yml)).  
+**Default = unified BACnet edge** (discover → CSV → poll) on both test bench and field gateways.
 
 ---
 
 ## Two edge roles
 
-| Role | Host | GPIO | MQTT source | Ansible config |
-|------|------|------|-------------|----------------|
-| **Building gateway** (default) | Any Linux box on the building LAN | **No** | BACnet read driver → `vibe12/{site}/{building}/{system}/{point}/telemetry` | `host_vars/<name>.yml` with `site_id`, `building_id` — see [`gateway.example.yml`](host_vars/gateway.example.yml) |
-| **Boss Pi test bench** | `192.168.204.12` only | **Yes** (DS18B20) | GPIO hierarchical topics under `demo/bens-office/…` | [`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml) |
-
-Field gateways never get `enable_ds18b20_*`. The playbook **stops and disables** `bacnet-ds18b20` if it was left on a host.
+| Role | Host | BACnet path | MQTT source | Ansible config |
+|------|------|-------------|-------------|----------------|
+| **Building gateway** | Any Linux box on the building LAN | BACnet/IP or routed MS/TP | BACnet read driver → `vibe12/{site}/{building}/{system}/{point}/telemetry` | `host_vars/<name>.yml` with `site_id`, `building_id` — see [`gateway.example.yml`](host_vars/gateway.example.yml) |
+| **Boss Pi test bench** | `192.168.204.12` | routed MS/TP via BASRT-B (`192.168.204.200`, net `2000`) | same BACnet read driver topics | [`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml) |
 
 ---
 
@@ -59,8 +57,8 @@ Password SSH until `ssh-copy-id` is done: always pass `--ask-pass --ask-become-p
 
 Update your IoT **policy** on that certificate to allow:
 
-- `iot:Connect` for client IDs `vibe12-*` (and `vibe12-gpio-bacnet-pi` on the bench Pi)
-- `iot:Publish` on `vibe12/*` (plus `sdk/test/python` only if still used)
+- `iot:Connect` for client IDs `vibe12-*`
+- `iot:Publish` on `vibe12/*`
 
 Details: [`files/aws_iot/README.txt`](files/aws_iot/README.txt)
 
@@ -110,9 +108,9 @@ See [BACNET_COMMISSIONING.md](../BACNET_COMMISSIONING.md).
 
 ---
 
-## Boss Pi test bench (GPIO + MS/TP bench box)
+## Boss Pi test bench (MS/TP bench box)
 
-[`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml): DS18B20 GPIO + BASRT-B MS/TP discover (router `192.168.204.200`, net `2000`, device **5007**).
+[`host_vars/bacnet_pi.yml`](host_vars/bacnet_pi.yml): BASRT-B MS/TP discover (router `192.168.204.200`, net `2000`, device **5007**).
 
 ```bash
 # Discover → points_discovered.csv on Pi
@@ -125,13 +123,6 @@ ssh ben@192.168.204.12 'sudo systemctl start vibe12-bacnet-discover'
 ./fetch_commissioning.sh --limit bacnet_pi -v
 ```
 
-GPIO topics (60 s):
-
-```text
-vibe12/demo/bens-office/office/digital-temp-degC/telemetry
-vibe12/demo/bens-office/office/digital-temp-degF/telemetry
-```
-
 BACnet topics (60 s, system `bens-test-bench-box`):
 
 ```text
@@ -140,7 +131,7 @@ vibe12/demo/bens-office/bens-test-bench-box/5007-analog-input-1192/telemetry
 ...
 ```
 
-Commissioned file: [`commissioning/demo/bens-office/points.csv`](../commissioning/demo/bens-office/points.csv)
+Commissioned file: [`edge_backup/demo/bens-office/points.csv`](../edge_backup/demo/bens-office/points.csv)
 
 ---
 
@@ -150,7 +141,7 @@ Commissioned file: [`commissioning/demo/bens-office/points.csv`](../commissionin
 |------|---------|
 | Full deploy + verify | `./deploy.sh -v` |
 | One host | `./deploy.sh --limit HOST -v` |
-| Backup CSV from edge → `commissioning/` | `./fetch_commissioning.sh --limit HOST -v` |
+| Backup CSV from edge → `edge_backup/` | `./fetch_commissioning.sh --limit HOST -v` |
 | Deploy + BACnet pcap (5 min default) | `./deploy.sh --limit HOST --pcap` |
 | Checks only | `./deploy.sh --verify -v` |
 | Skip post-checks | `./deploy.sh --no-verify -v` |
@@ -166,7 +157,7 @@ Mirrors [`vibe_code_apps_14`](../../vibe_code_apps_14/captures/README.md): after
 ./deploy.sh --limit bacnet_pi --pcap --pcap-seconds 120   # 2 minutes
 ```
 
-Ansible waits until `vibe12-bacnet-read` is **active** (or `bacnet-ds18b20` when GPIO-only), then runs `scripts/bacnet_tcpdump_once.sh` in the background as **root** (`become: true`). Default filter: `udp port 47808` (boss Pi adds **47809** in `host_vars/bacnet_pi.yml`). Without `--pcap`, `captures/bacnet.pcap` does not exist.
+Ansible waits until `vibe12-bacnet-read` is **active**, then runs `scripts/bacnet_tcpdump_once.sh` in the background as **root** (`become: true`). Default filter is built from `deploy_pcap_udp_ports`. Without `--pcap`, `captures/bacnet.pcap` does not exist.
 
 ```bash
 # Absolute remote path required (~/… fails with many scp clients, including PowerShell)
@@ -188,9 +179,3 @@ ls ~/vibe_code_apps_12/aws_iot_certs/
 systemctl is-active vibe12-bacnet-read   # after enable_bacnet_read_driver
 ```
 
-**GPIO (bacnet_pi only):**
-
-```bash
-systemctl is-active bacnet-ds18b20
-journalctl -u bacnet-ds18b20 -n 25 --no-pager
-```

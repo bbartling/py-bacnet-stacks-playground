@@ -20,7 +20,7 @@ Human fills § A–D; agent reads **before** changing bind, `points.csv`, or IoT
 
 ## § C — Staged devices / points
 
-Source: `commissioning/{site}/{building}/points.csv`
+Source: `edge_backup/{site}/{building}/points.csv`
 
 | point_id | BRICK class | Notes |
 |----------|-------------|--------|

@@ -52,6 +52,7 @@ End-to-end guide: **Linux gateway** on the BACnet network → **MQTT** to **AWS 
 | [Linux & SSH](01-linux-network-ssh.md) | Subnet, SSH, firewall |
 | [BACnet gateway](02-bacnet-gateway.md) | Libraries, systemd, deploy |
 | [CSV commissioning](03-commissioning-csv.md) | Discover → clean → points.csv |
+| [Acme vm-bbartling cheat sheet](../cheatsheet.md) | Newbie step-by-step runbook for this specific site |
 | [AWS IoT](04-aws-iot-core.md) | Certificates, topics, policies |
 | [Edge deploy](edge-deploy.md) | Ansible inventory, dual BACnet |
 | [BACnet commissioning](bacnet-commissioning.md) | Short commissioning recap |
@@ -62,7 +63,7 @@ End-to-end guide: **Linux gateway** on the BACnet network → **MQTT** to **AWS 
 | [Dashboard & FDD](05-cloud-dashboard-fdd.md) | Rule Lab, go-live |
 | [Web app features](06-web-app-features.md) | Per-screen low-level reference |
 | [Wire capture](wire-capture.md) | Post-deploy pcap |
-| [Commissioning backup](commissioning-backup.md) | Git backup of CSV |
+| [Edge CSV backup](edge-backup.md) | Git backup of BACnet points/discover CSVs |
 | [Cloud architecture](../aws_cloud_pipeline/DEPLOYED.md) | Stack outputs |
 | [FDD cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) | Python rule recipes |
 
@@ -93,7 +94,7 @@ cd apps/vibe12-web && npm ci && npm test
 |------|------|
 | `ansible/` | SSH deploy, IoT certs, systemd |
 | `edge_bacnet/` | Discover, read driver, MQTT |
-| `commissioning/` | `points.csv` per site/building |
+| `edge_backup/` | `points.csv` per site/building |
 | `aws_cloud_pipeline/` | SAM, Lambdas, ingest |
 | `apps/vibe12-web/` | React UI (build → `web_lambda/static/app`) |
 | `scripts/` | `build_web_ui.sh`, `build_docs_pdf.py` |

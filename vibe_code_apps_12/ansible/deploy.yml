@@ -1,14 +1,11 @@
 ---
-# Deploy vibe_code_apps_12 edge stack to Linux gateways over SSH (inventory IP).
+# Deploy unified BACnet edge stack to Linux gateways over SSH (inventory IP).
 #
-# DEFAULT — building gateway (BACnet discover + read driver, no GPIO):
-#   ansible-playbook deploy.yml --limit tower_a_edge
-#
-# Boss Pi test bench (GPIO via host_vars/bacnet_pi.yml):
 #   ansible-playbook deploy.yml --limit bacnet_pi
+#   ansible-playbook deploy.yml --limit <inventory_host>
 #
 # After BACnet discover + CSV commission:
-#   ansible-playbook deploy.yml --limit tower_a_edge -e enable_bacnet_read_driver=true
+#   ansible-playbook deploy.yml --limit bacnet_pi -e enable_bacnet_read_driver=true
 
 - name: Deploy Vibe12 BACnet edge to Linux gateway
   hosts: pi_bcn
@@ -20,15 +17,9 @@
         (enable_aws_iot | default(true) | bool)
         or (install_bacnet_read_unit | default(true) | bool)
         or (enable_bacnet_read_driver | default(false) | bool)
-        or (enable_ds18b20_gpio | default(false) | bool)
       }}
     bacnet_core_sync_files:
       - requirements.txt
-    gpio_sync_files:
-      - temp_sensor_server.py
-      - fault_demo_schedule.py
-      - ds18b20_sensor.py
-      - aws_iot_publisher.py
 
   tasks:
     - name: Ensure application directory exists
@@ -44,38 +35,34 @@
         mode: "0644"
       loop: "{{ bacnet_core_sync_files }}"
 
-    - name: Copy DS18B20 / GPIO application files (opt-in)
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../{{ item }}"
-        dest: "{{ bacnet_app_remote_dir }}/{{ item }}"
-        mode: "0644"
-      loop: "{{ gpio_sync_files }}"
-      when: enable_ds18b20_gpio | default(false) | bool
-      notify: Restart BACnet DS18B20 service
-
     - name: Sync edge_bacnet package (BACnet discover + read driver)
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../edge_bacnet/"
         dest: "{{ bacnet_app_remote_dir }}/edge_bacnet/"
         mode: "0644"
       notify:
-        - Restart BACnet DS18B20 service
         - Restart BACnet read driver
 
     - name: Stat commissioned points.csv on control machine
       ansible.builtin.stat:
-        path: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+        path: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
       delegate_to: localhost
       become: false
       register: local_commission_csv
 
     - name: Push commissioned points.csv to edge (from repo backup)
       ansible.builtin.copy:
-        src: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+        src: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
         dest: "{{ points_csv_path }}"
         mode: "0644"
       when: local_commission_csv.stat.exists | default(false)
       notify: Restart BACnet read driver
+
+    - name: apt update (Debian / Ubuntu / Raspberry Pi OS)
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: "{{ apt_cache_valid_time | default(3600) }}"
+      become: true
 
     - name: Install base Python packages (Debian / Raspberry Pi OS)
       ansible.builtin.apt:
@@ -84,9 +71,19 @@
           - python3-venv
           - python3-pip
         state: present
-        update_cache: true
-        cache_valid_time: 86400
       become: true
+
+    - name: Install edge commissioning scripts
+      ansible.builtin.copy:
+        src: scripts/edge/
+        dest: "{{ bacnet_app_remote_dir }}/scripts/edge/"
+        mode: "0755"
+
+    - name: Ensure jobs directory on edge
+      ansible.builtin.file:
+        path: "{{ bacnet_app_remote_dir }}/jobs"
+        state: directory
+        mode: "0755"
 
     - name: Install tcpdump for optional post-deploy BACnet capture
       ansible.builtin.apt:
@@ -175,38 +172,7 @@
         - { name: "{{ aws_iot_cert_filename }}", mode: "0644" }
         - { name: "{{ aws_iot_key_filename }}", mode: "0600" }
       when: edge_needs_aws_iot_certs | bool
-      notify: Restart BACnet DS18B20 service
-
-    - name: Stat boot config paths for optional 1-Wire overlay
-      ansible.builtin.stat:
-        path: "{{ item }}"
-      loop:
-        - /boot/firmware/config.txt
-        - /boot/config.txt
-      register: boot_cfg_stats
-      when: enable_ds18b20_gpio | default(false) | bool
-
-    - name: Enable 1-Wire on GPIO4 (DS18B20 DATA pin)
-      ansible.builtin.lineinfile:
-        path: "{{ item.item }}"
-        regexp: '^#?\s*dtoverlay=w1-gpio'
-        line: "dtoverlay=w1-gpio,gpio=4"
-        create: false
-      loop: "{{ boot_cfg_stats.results }}"
-      become: true
-      when:
-        - enable_ds18b20_gpio | default(false) | bool
-        - enable_onewire_overlay | default(false) | bool
-        - item.stat.exists | default(false)
-
-    - name: Install DS18B20 GPIO systemd unit
-      ansible.builtin.template:
-        src: templates/bacnet-ds18b20.service.j2
-        dest: /etc/systemd/system/bacnet-ds18b20.service
-        mode: "0644"
-      become: true
-      when: enable_ds18b20_gpio | default(false) | bool
-      notify: Restart BACnet DS18B20 service
+      notify: Restart BACnet read driver
 
     - name: Install BACnet discover oneshot unit
       ansible.builtin.template:
@@ -259,43 +225,6 @@
         daemon_reload: true
       become: true
       when: install_bacnet_read_unit | default(true) | bool
-
-    - name: Stat DS18B20 systemd unit on host
-      ansible.builtin.stat:
-        path: /etc/systemd/system/bacnet-ds18b20.service
-      register: ds18b20_unit_file
-      become: true
-
-    - name: Disable DS18B20 GPIO service when not used (building gateways)
-      ansible.builtin.systemd:
-        name: bacnet-ds18b20
-        enabled: false
-        state: stopped
-        daemon_reload: true
-      become: true
-      when:
-        - not (enable_ds18b20_gpio | default(false) | bool)
-        - ds18b20_unit_file.stat.exists | default(false)
-
-    - name: Enable DS18B20 GPIO service
-      ansible.builtin.systemd:
-        name: bacnet-ds18b20
-        enabled: "{{ enable_ds18b20_service | default(false) | bool }}"
-        daemon_reload: true
-      become: true
-      when:
-        - enable_ds18b20_gpio | default(false) | bool
-        - ds18b20_unit_file.stat.exists | default(false)
-
-    - name: Restart DS18B20 GPIO service after deploy
-      ansible.builtin.systemd:
-        name: bacnet-ds18b20
-        state: restarted
-        daemon_reload: true
-      become: true
-      when:
-        - enable_ds18b20_gpio | default(false) | bool
-        - enable_ds18b20_service | default(false) | bool
 
     # --- Verify (BACnet edge) ---
     - name: Assert BACnet discover unit is installed
@@ -374,17 +303,6 @@
       when: bacnet_read_active is defined
 
   handlers:
-    - name: Restart BACnet DS18B20 service
-      ansible.builtin.systemd:
-        name: bacnet-ds18b20
-        state: restarted
-        daemon_reload: true
-        enabled: "{{ enable_ds18b20_service | default(false) | bool }}"
-      become: true
-      when:
-        - enable_ds18b20_gpio | default(false) | bool
-        - enable_ds18b20_service | default(false) | bool
-
     - name: Restart BACnet read driver
       ansible.builtin.systemd:
         name: vibe12-bacnet-read
@@ -426,34 +344,12 @@
         - enable_bacnet_read_driver | default(false) | bool
         - install_bacnet_read_unit | default(true) | bool
 
-    - name: Wait for DS18B20 BACnet service before capture
-      ansible.builtin.command:
-        argv:
-          - systemctl
-          - is-active
-          - bacnet-ds18b20
-      register: pcap_gpio_wait
-      until: pcap_gpio_wait.rc == 0
-      retries: "{{ ((deploy_pcap_wait_seconds | int) / 5) | int }}"
-      delay: 5
-      changed_when: false
-      become: true
-      when:
-        - enable_deploy_pcap | default(false) | bool
-        - enable_ds18b20_gpio | default(false) | bool
-        - enable_ds18b20_service | default(false) | bool
-        - not (enable_bacnet_read_driver | default(false) | bool)
-
     - name: Settle before tcpdump (no BACnet systemd wait configured)
       ansible.builtin.pause:
         seconds: "{{ deploy_pcap_wait_seconds | int }}"
       when:
         - enable_deploy_pcap | default(false) | bool
         - not (enable_bacnet_read_driver | default(false) | bool)
-        - not (
-            (enable_ds18b20_gpio | default(false) | bool)
-            and (enable_ds18b20_service | default(false) | bool)
-          )
 
     - name: Short settle before tcpdump
       ansible.builtin.pause:

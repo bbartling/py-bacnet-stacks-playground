@@ -12,7 +12,7 @@ description: >-
 
 - Inventory: `ansible/inventory.yml` → `bacnet_pi` @ `192.168.204.12`
 - Vars: `ansible/host_vars/bacnet_pi.yml`
-- CSV: `commissioning/demo/bens-office/points.csv`
+- CSV: `edge_backup/demo/bens-office/points.csv`
 
 ## One-time certs (build machine)
 
@@ -53,4 +53,4 @@ Expect `published 6 samples` each minute.
 
 - `ansible/README.md`
 - `docs/phase-0-bens-office-lab.md`
-- `memory/commissioning/PHASE_NOTEPAD.md`
+- `memo../edge_backup/PHASE_NOTEPAD.md`

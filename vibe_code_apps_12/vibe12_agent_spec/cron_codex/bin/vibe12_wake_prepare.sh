@@ -16,7 +16,7 @@ vibe12_load_env "$CRON_ROOT"
 : "${MINI_INVOCATIONS_PER_WAKE:=3}"
 
 operator_notes="$STATE_DIR/operator_notes.md"
-phase_notepad="$SPEC_DIR/memory/commissioning/PHASE_NOTEPAD.md"
+phase_notepad="$SPEC_DIR/memo../edge_backup/PHASE_NOTEPAD.md"
 context_slice="$STATE_DIR/context_since_last_wake.md"
 context_meta="$STATE_DIR/context_since_last_wake.meta.json"
 epoch_file="$LOG_DIR/last_wake_epoch"

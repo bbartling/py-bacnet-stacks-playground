@@ -4,7 +4,7 @@ Repo: ~/py-bacnet-stacks-playground/vibe_code_apps_12
 
 Modify code as needed if errors pop up and retry no more than 5 times before halting and explain errors presented.
 
-Read first (do not paste back): docs/bacnet-commissioning.md, ansible/README.md, ansible/host_vars/acme_vm_bbartling.yml.example, edge_bacnet/discover.py, edge_bacnet/config.py, edge_bacnet/read_driver.py. MS/TP reference: ansible/host_vars/bacnet_pi.yml + commissioning/demo/bens-office/points.csv.
+Read first (do not paste back): docs/bacnet-commissioning.md, ansible/README.md, ansible/host_vars/acme_vm_bbartling.yml.example, edge_bacnet/discover.py, edge_bacnet/config.py, edge_bacnet/read_driver.py. MS/TP reference: ansible/host_vars/bacnet_pi.yml + edge_backup/demo/bens-office/points.csv.
 
 ## Gateway (deployed)
 

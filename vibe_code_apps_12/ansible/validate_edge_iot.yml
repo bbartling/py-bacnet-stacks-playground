@@ -1,0 +1,65 @@
+---
+# Verify edge read driver + optional cloud ingest for this site/building.
+#
+#   ./validate_edge_iot.sh --limit bacnet_pi -v
+#   ./validate_edge_iot.sh --limit bacnet_pi -e validate_cloud=true -v
+
+- name: Validate edge BACnet → MQTT
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Check read driver unit is active
+      ansible.builtin.command:
+        argv: [systemctl, is-active, vibe12-bacnet-read]
+      register: read_active
+      changed_when: false
+      failed_when: read_active.rc != 0
+      become: true
+      when: enable_bacnet_read_driver | default(false) | bool
+
+    - name: Recent read driver journal (publish lines)
+      ansible.builtin.shell: |
+        journalctl -u vibe12-bacnet-read -n 40 --no-pager 2>/dev/null | grep -E 'published|poll error|AWS IoT' || true
+      register: read_journal
+      changed_when: false
+      become: true
+      when: enable_bacnet_read_driver | default(false) | bool
+
+    - name: Show read driver log excerpt
+      ansible.builtin.debug:
+        msg: "{{ read_journal.stdout_lines | default([]) }}"
+      when: read_journal is defined
+
+    - name: Fail if no recent publish in journal
+      ansible.builtin.assert:
+        that: read_journal.stdout is search('published')
+        fail_msg: >-
+          vibe12-bacnet-read is active but no 'published N samples' in last 40 log lines.
+          Check points.csv enabled rows and BACnet bind/router.
+      when:
+        - enable_bacnet_read_driver | default(false) | bool
+        - read_journal is defined
+
+- name: Validate cloud ingest (bensserver)
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Run cloud pipeline validation script
+      ansible.builtin.command:
+        argv:
+          - "{{ playbook_dir }}/../scripts/validate_cloud_pipeline.sh"
+      environment:
+        SITE_ID: "{{ site_id }}"
+        BUILDING_ID: "{{ building_id }}"
+      delegate_to: localhost
+      become: false
+      register: cloud_val
+      changed_when: false
+      when: validate_cloud | default(false) | bool
+
+    - name: Show cloud validation output
+      ansible.builtin.debug:
+        msg: "{{ cloud_val.stdout_lines }}"
+      when: cloud_val is defined

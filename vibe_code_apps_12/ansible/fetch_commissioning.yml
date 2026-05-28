@@ -1,49 +1,86 @@
 ---
-# Pull commissioned BACnet CSV files from edge gateways into the repo for Git backup.
+# Pull BACnet CSV files from edge gateways into edge_backup/local/ on bensserver.
 #
-#   cd vibe_code_apps_12/ansible
-#   ./fetch_commissioning.sh --limit bacnet_pi -v
+#   ./fetch_commissioning.sh --limit <inventory_host> -v
 #
-# Writes:
-#   ../commissioning/{site_id}/{building_id}/points.csv
-#   ../commissioning/{site_id}/{building_id}/points_discovered.csv  (if present)
+# Each fetch uses a fresh SSH session (Tailscale drops long/shared connections).
 
-- name: Fetch commissioned BACnet CSV from edge gateways
+- name: Ensure local edge backup directory
   hosts: pi_bcn
   gather_facts: false
-
   tasks:
-    - name: Ensure local commissioning directory
+    - name: Create local backup path
       ansible.builtin.file:
-        path: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}"
+        path: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}"
         state: directory
         mode: "0755"
       delegate_to: localhost
       become: false
 
+- name: Fetch devices_discovered.csv from edge
+  hosts: pi_bcn
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: Fresh SSH for devices CSV fetch
+      ansible.builtin.meta: reset_connection
+
+    - name: Fetch devices_discovered.csv
+      ansible.builtin.fetch:
+        src: "{{ devices_discovered_path }}"
+        dest: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/devices_discovered.csv"
+        flat: true
+      register: fetch_devices
+      failed_when: false
+
+    - name: Note if devices CSV missing on edge
+      ansible.builtin.debug:
+        msg: "No {{ devices_discovered_path }} yet — run ./discover_devices.sh and wait for job to finish."
+      when: fetch_devices.failed | default(false)
+
+- name: Fetch points_discovered.csv from edge
+  hosts: pi_bcn
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: Fresh SSH for points_discovered fetch
+      ansible.builtin.meta: reset_connection
+
+    - name: Fetch points_discovered.csv
+      ansible.builtin.fetch:
+        src: "{{ points_discovered_path }}"
+        dest: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/points_discovered.csv"
+        flat: true
+      failed_when: false
+
+- name: Fetch commissioned points.csv from edge
+  hosts: pi_bcn
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: Fresh SSH for points.csv fetch
+      ansible.builtin.meta: reset_connection
+
     - name: Fetch commissioned points.csv
       ansible.builtin.fetch:
         src: "{{ points_csv_path }}"
-        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
+        dest: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/points.csv"
         flat: true
       register: fetch_points
       failed_when: false
 
-    - name: Warn if commissioned points.csv missing on edge
+    - name: Note if points.csv missing on edge
       ansible.builtin.debug:
-        msg: "No {{ points_csv_path }} on {{ inventory_hostname }} yet — run discover and commission first."
+        msg: "No {{ points_csv_path }} on edge yet — commission after discover_points."
       when: fetch_points.failed | default(false)
 
-    - name: Fetch discovery CSV (optional)
-      ansible.builtin.fetch:
-        src: "{{ points_discovered_path }}"
-        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/points_discovered.csv"
-        flat: true
-      failed_when: false
-
-    - name: Write host metadata sidecar for this backup
+- name: Write fetch metadata on bensserver
+  hosts: pi_bcn
+  gather_facts: false
+  tasks:
+    - name: Write host metadata sidecar
       ansible.builtin.copy:
-        dest: "{{ commissioning_backup_dir }}/{{ site_id }}/{{ building_id }}/host.yml"
+        dest: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/host.yml"
         mode: "0644"
         content: |
           ---
@@ -55,3 +92,9 @@
           fetched_utc: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
       delegate_to: localhost
       become: false
+
+    - name: Local backup paths
+      ansible.builtin.debug:
+        msg: >-
+          edge_backup/local/{{ site_id }}/{{ building_id }}/
+          (devices_discovered.csv, points_discovered.csv, points.csv)

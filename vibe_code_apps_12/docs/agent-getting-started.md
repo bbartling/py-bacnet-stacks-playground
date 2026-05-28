@@ -33,7 +33,7 @@ This creates **local-only** files from `vibe12_agent_spec/templates/`:
 |------|---------|
 | `MEMORY.md` | Curated standing brief for your project |
 | `BUILD_CHECKPOINTS.md` | Sprint queue (critique updates **Next for mini**) |
-| `memory/commissioning/PHASE_NOTEPAD.md` | Site bind, devices, URLs |
+| `memo../edge_backup/PHASE_NOTEPAD.md` | Site bind, devices, URLs |
 | `cron_codex/.env` | Models, wake limits, paths |
 | `cron_codex/state/operator_notes.md` | Your notes to the agent |
 
@@ -131,7 +131,7 @@ python3 -m unittest discover -s tests -q
 
 Commissioning API (replace site/building):
 
-`GET /api/commissioning/status/{site}/{building}`
+`GET /a../edge_backup/status/{site}/{building}`
 
 ---
 

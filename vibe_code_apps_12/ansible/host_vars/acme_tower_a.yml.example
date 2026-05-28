@@ -21,5 +21,5 @@ bacnet_edge_device_name: GatewayTowerA
 
 # bacnet_edge_client_id: vibe12-acme-tower-a   # optional; default vibe12-{{ inventory_hostname }}
 
-# Backups land in commissioning/local/ (gitignored) — default in group_vars
-# commissioning_backup_dir: "{{ playbook_dir }}/../commissioning/local"
+# Backups land in edge_backup/local/ (gitignored) — default in group_vars
+# edge_backup_dir: "{{ playbook_dir }}/../edge_backup/local"

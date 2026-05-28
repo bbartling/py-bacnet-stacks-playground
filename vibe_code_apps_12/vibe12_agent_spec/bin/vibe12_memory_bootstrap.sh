@@ -24,7 +24,7 @@ for day in $(find "$SPEC/memory" -maxdepth 1 -name '20*.md' 2>/dev/null | sort -
   append_file "$day" "daily"
 done
 
-append_file "$SPEC/memory/commissioning/PHASE_NOTEPAD.md" "PHASE_NOTEPAD"
+append_file "$SPEC/memo../edge_backup/PHASE_NOTEPAD.md" "PHASE_NOTEPAD"
 append_file "$SPEC/BUILD_CHECKPOINTS.md" "BUILD_CHECKPOINTS" | head -c 4000
 
 echo ""

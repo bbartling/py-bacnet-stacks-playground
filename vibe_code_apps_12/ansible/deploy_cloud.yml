@@ -1,0 +1,58 @@
+---
+# Deploy AWS cloud pipeline (SAM) from bensserver — NOT from edge gateways.
+#
+# Requires: AWS CLI, SAM CLI, credentials on control machine.
+#
+#   ./deploy_cloud.sh -v
+#   ./deploy_cloud.sh -e vibe12_sam_confirm_changeset=true -v
+#
+# Edge gateways only need IoT certs (deploy.yml) — not SAM.
+
+- name: Deploy Vibe12 AWS cloud stack (localhost)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    cloud_dir: "{{ playbook_dir }}/../aws_cloud_pipeline"
+
+  tasks:
+    - name: Stat SAM template
+      ansible.builtin.stat:
+        path: "{{ cloud_dir }}/template.yaml"
+      register: sam_template
+
+    - name: Fail if aws_cloud_pipeline missing
+      ansible.builtin.fail:
+        msg: "No {{ cloud_dir }}/template.yaml"
+      when: not sam_template.stat.exists
+
+    - name: SAM build
+      ansible.builtin.command:
+        argv: [sam, build]
+        chdir: "{{ cloud_dir }}"
+      changed_when: true
+
+    - name: SAM deploy
+      ansible.builtin.command:
+        argv:
+          - sam
+          - deploy
+          - --no-confirm-changeset
+        chdir: "{{ cloud_dir }}"
+      changed_when: true
+      when: not (vibe12_sam_confirm_changeset | default(false) | bool)
+
+    - name: SAM deploy (confirm changeset)
+      ansible.builtin.command:
+        argv: [sam, deploy]
+        chdir: "{{ cloud_dir }}"
+      changed_when: true
+      when: vibe12_sam_confirm_changeset | default(false) | bool
+
+    - name: Note
+      ansible.builtin.debug:
+        msg: >-
+          Cloud stack deployed. Register IoT Things/policies separately.
+          See aws_cloud_pipeline/DEPLOYED.md and docs/aws-cloud-sam.md.
+          Edge MQTT uses certs from deploy.yml — not this playbook.

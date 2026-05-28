@@ -19,7 +19,7 @@ curl -sS "$URL/api/health" | python3 -m json.tool
 ## Commissioning status (JSON for agent parsing)
 
 ```bash
-curl -sS "$URL/api/commissioning/status/${SITE}/${BLD}?window_minutes=20" "${AUTH[@]}" \
+curl -sS "$URL/a../edge_backup/status/${SITE}/${BLD}?window_minutes=20" "${AUTH[@]}" \
   | python3 -m json.tool > /tmp/vibe12-commissioning.json
 python3 <<'PY'
 import json

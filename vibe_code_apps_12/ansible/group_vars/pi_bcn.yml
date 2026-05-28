@@ -25,8 +25,15 @@ bacnet_discover_range_high: 3456799
 bacnet_read_interval: 30
 points_csv_path: "{{ bacnet_app_remote_dir }}/points.csv"
 points_discovered_path: "{{ bacnet_app_remote_dir }}/points_discovered.csv"
-# Repo backup: gitignored local/ on real deploys; public examples under commissioning/_examples/
-commissioning_backup_dir: "{{ playbook_dir }}/../commissioning/local"
+devices_discovered_path: "{{ bacnet_app_remote_dir }}/devices_discovered.csv"
+bacnet_points_per_device_dir: "{{ bacnet_app_remote_dir }}/points_per_device"
+
+# discover_devices.yml / discover_points.yml
+bacnet_discover_background: true
+bacnet_discover_wait_seconds: 0
+bacnet_discover_append: false
+# Repo backup: gitignored local/ on real deploys; public examples under edge_backup/_examples/
+edge_backup_dir: "{{ playbook_dir }}/../edge_backup/local"
 
 # Override site_id + building_id per host (host_vars). These are fallbacks only.
 site_id: demo

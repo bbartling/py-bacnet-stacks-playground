@@ -15,7 +15,7 @@
 ## Always
 
 - Run `vibe12_workspace_init.sh` on a fresh clone before first agent wake
-- Read `memory/commissioning/PHASE_NOTEPAD.md` before changing bind or `points.csv`
+- Read `memo../edge_backup/PHASE_NOTEPAD.md` before changing bind or `points.csv`
 - Use **absolute** paths for edge scp (`/home/.../vibe_code_apps_12/...`)
 - Bump `DeployRevision` in local `samconfig.toml` on each cloud deploy
 - Run `validate_cloud_pipeline.sh` after cloud or API changes

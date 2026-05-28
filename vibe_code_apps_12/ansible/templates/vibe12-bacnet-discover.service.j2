@@ -1,5 +1,5 @@
 [Unit]
-Description=Vibe12 BACnet discovery (one-shot CSV export)
+Description=Vibe12 BACnet device Who-Is (devices_discovered.csv only)
 After=network-online.target
 Wants=network-online.target
 
@@ -9,9 +9,9 @@ User={{ ansible_user }}
 WorkingDirectory={{ bacnet_app_remote_dir }}
 Environment=PYTHONPATH={{ bacnet_app_remote_dir }}
 {% if bacnet_router_ip | default('') | length > 0 %}
-ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover \
+ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover_devices \
   {{ bacnet_discover_range_low }} {{ bacnet_discover_range_high }} \
-  -o {{ points_discovered_path | default(bacnet_app_remote_dir ~ '/points_discovered.csv') }} \
+  -o {{ devices_discovered_path }} \
   --site-id {{ site_id }} \
   --building-id {{ building_id }} \
   --name {{ bacnet_device_name }} \
@@ -21,16 +21,17 @@ ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover \
   --network {{ bacnet_network | default(1) }} \
   --router-ip {{ bacnet_router_ip }} \
   --mstp-net {{ bacnet_mstp_net }} \
-  --timeout {{ bacnet_discover_timeout | default(15) }}
+  --timeout {{ bacnet_discover_timeout | default(20) }}
 {% else %}
-ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover \
+ExecStart={{ bacnet_app_remote_dir }}/.venv/bin/python -m edge_bacnet.discover_devices \
   {{ bacnet_discover_range_low }} {{ bacnet_discover_range_high }} \
-  -o {{ points_discovered_path | default(bacnet_app_remote_dir ~ '/points_discovered.csv') }} \
+  -o {{ devices_discovered_path }} \
   --site-id {{ site_id }} \
   --building-id {{ building_id }} \
   --name {{ bacnet_device_name }} \
   --instance {{ bacnet_instance_id }} \
-  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }}
+  --address {{ bacnet_edge_bind_address | default(bacnet_bind_address) }} \
+  --timeout {{ bacnet_discover_timeout | default(20) }}
 {% endif %}
 StandardOutput=journal
 StandardError=journal

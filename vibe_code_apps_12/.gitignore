@@ -36,10 +36,11 @@ ansible/inventory.yml
 ansible/host_vars/*.yml
 !ansible/host_vars/*.example.yml
 
-# Commissioning backups with real site metadata (public shapes: commissioning/_examples/)
-commissioning/local/
-commissioning/**/host.yml
-!commissioning/_examples/**/host.yml
+# Edge BACnet CSV backups with real site metadata (public shapes: edge_backup/_examples/)
+edge_backup/local/
+edge_backup/**/host.yml
+!edge_backup/_examples/**/host.yml
+!edge_backup/demo/**/host.yml
 
 # Codex wake generated logs (see vibe12_agent_spec/.gitignore)
 vibe12_agent_spec/cron_codex/.env

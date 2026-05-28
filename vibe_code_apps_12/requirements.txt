@@ -4,7 +4,5 @@ bacpypes3>=0.0.35
 # Lets BACpymes3 `--address eth0`-style binds resolve adapters on multi-homed Pi
 ifaddr>=0.2.0
 
-# DS18B20 uses kernel 1-Wire (sysfs) — no extra sensor Python packages required.
-
-# AWS IoT Core (optional — temp_sensor_server.py --aws-iot)
+# AWS IoT Core client for edge_bacnet.read_driver
 awsiotsdk>=1.22.0

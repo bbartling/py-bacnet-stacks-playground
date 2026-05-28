@@ -19,7 +19,7 @@ _Copy to `cron_codex/state/wake_task.md` or paste into Codex TUI `/mini`. No pas
 | Fetch CSV backup | `ansible/fetch_commissioning.sh` |
 | Host vars example | `ansible/host_vars/acme_vm_bbartling.yml.example` |
 | Boss Pi MS/TP reference | `ansible/host_vars/bacnet_pi.yml` (router pattern) |
-| Commissioned CSV example | `commissioning/demo/bens-office/points.csv` |
+| Commissioned CSV example | `edge_backup/demo/bens-office/points.csv` |
 | BACnet commissioning doc | `docs/bacnet-commissioning.md` |
 
 **On the edge VM** (after Ansible deploy): app dir `~/vibe_code_apps_12/`, venv `~/vibe_code_apps_12/.venv/bin/python`, CSV outputs `points_discovered.csv` / `points.csv`.
@@ -117,7 +117,7 @@ Then trunk 12: **22, 24, 25, 27, 29, 30, 31, 34, 36, 37, 38, 39** (adjust `bacne
 
 ```bash
 cd ansible
-./fetch_commissioning.sh --limit acme_vm_bbartling -v   # → commissioning/local/acme/vm-bbartling/
+./fetch_commissioning.sh --limit acme_vm_bbartling -v   # → edge_backup/local/acme/vm-bbartling/
 ./deploy.sh --limit acme_vm_bbartling -e enable_bacnet_read_driver=true -v
 ```
 
@@ -131,7 +131,7 @@ Update `memory/job/lab_facts.md` + `memory/integrations/bacnet.md` (no secrets).
 
 - **Read-only BACnet** — no writes
 - No secrets/PEMs/passwords in git
-- Do not commit `commissioning/local/` unless operator asks
+- Do not commit `edge_backup/local/` unless operator asks
 - Stop if router IP or MSTP net for trunk 11/12 is unknown — ask human, do not guess
 - Stop if device 8 template points missing — fix template before cloning to 21 other VAVs
 
@@ -142,7 +142,7 @@ Update `memory/job/lab_facts.md` + `memory/integrations/bacnet.md` (no secrets).
 - [ ] All trunk 11 + trunk 12 VAV instances commissioned (or explicit skip list)
 - [ ] `vibe12-bacnet-read` publishing MQTT for `vibe12/acme/vm-bbartling/jci-vav-*/…`
 - [ ] Cloud ingest shows acme/vm-bbartling points
-- [ ] `fetch_commissioning.sh` backup in `commissioning/local/acme/vm-bbartling/`
+- [ ] `fetch_commissioning.sh` backup in `edge_backup/local/acme/vm-bbartling/`
 
 ## Skill
 

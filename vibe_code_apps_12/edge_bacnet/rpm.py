@@ -52,7 +52,10 @@ async def read_multiple_chunked(
             for res_oid, _res_pid, _res_idx, property_value in response:
                 oid_str = f"{res_oid[0]},{res_oid[1]}"
                 merged[oid_str] = unwrap_value(property_value)
-        except Exception:
+        except Exception as err:
+            import sys
+
+            print(f"RPM error @ {device_address}: {err}", file=sys.stderr)
             for obj_id_str, _props in chunk:
                 merged.setdefault(obj_id_str, None)
 

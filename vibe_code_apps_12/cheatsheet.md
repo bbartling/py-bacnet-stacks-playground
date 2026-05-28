@@ -26,6 +26,22 @@ Do this yourself on **bensserver** and **vm-bbartling**. No AI required.
 
 **Rule:** Ansible and SSH use Tailscale. BACnet bind uses `10.200.200.185/24:47809`.
 
+### What `./deploy.sh` does (yes — it copies to the remote box)
+
+You run deploy **on bensserver**. Ansible SSHs to the VM and:
+
+| Step | What happens on **vm-bbartling** |
+|------|----------------------------------|
+| Copy code | `edge_bacnet/`, `requirements.txt`, etc. → `~/vibe_code_apps_12/` |
+| Python venv | Creates/updates `~/vibe_code_apps_12/.venv` and installs pip deps |
+| IoT certs | Copies PEMs from bensserver → `~/vibe_code_apps_12/aws_iot_certs/` |
+| systemd | Installs `vibe12-bacnet-discover`, `vibe12-bacnet-read`, optional commissioning agent |
+| Optional CSV | If you already have `edge_backup/local/acme/vm-bbartling/points.csv` on bensserver, pushes it to the VM |
+
+It does **not** run BACnet discover for you — that is a separate step on the VM (or via the commissioning web UI).
+
+`--verify` only runs health checks over SSH — **no file copy**, no restart.
+
 ---
 
 ## 1. One-time setup on bensserver
@@ -102,15 +118,26 @@ ls ~/vibe_code_apps_12
 exit
 ```
 
-**Ansible with password** (from `ansible/` on bensserver):
+**Deploy (password SSH is the default)** — from `ansible/` on bensserver:
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-export SSHPASS='your-bbartling-password'
-./deploy.sh --limit acme_vm_bbartling --ask-pass --ask-become-pass -v
+./deploy.sh --limit acme_vm_bbartling -v
 ```
 
-After you set up SSH keys, you can drop `--ask-pass`.
+`deploy.sh` automatically adds **`--ask-pass --ask-become-pass`** (you will be prompted).
+
+- **SSH password** = login for `bbartling@100.122.106.124` (not user `ben`).
+- **BECOME password** = sudo on the VM (often the same as SSH).
+- Needs `sshpass` on bensserver: `sudo apt install sshpass`
+- Repo `ansible/ansible.cfg` sets `password_mechanism = sshpass` (Ansible 2.19+).
+
+**After `ssh-copy-id`** (skip password prompts):
+
+```bash
+ssh-copy-id bbartling@100.122.106.124
+./deploy.sh --limit acme_vm_bbartling --no-ask-pass -v
+```
 
 ---
 
@@ -133,17 +160,25 @@ Expected device: **RTU-01**, BACnet instance **1100** (you will discover it late
 
 ## 4. Deploy / refresh the edge stack
 
-From **bensserver**:
+Run on **bensserver** — copies/updates files on the VM at **`~/vibe_code_apps_12/`** (see §0).
+
+| Command | Copies files? | Use when |
+|---------|---------------|----------|
+| `./deploy.sh --limit acme_vm_bbartling -v` | **Yes** | Normal deploy (prompts for SSH/sudo password by default) |
+| `./deploy.sh --limit acme_vm_bbartling --no-ask-pass -v` | **Yes** | After `ssh-copy-id` — no password prompts |
+| `./deploy.sh --limit acme_vm_bbartling --verify -v` | **No** | Quick check: dirs, units, bind address |
+| `./fetch_commissioning.sh --limit acme_vm_bbartling -v` | **No** (pull **from** VM) | Backup `points.csv` (password prompts by default) |
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 ./deploy.sh --limit acme_vm_bbartling -v
 ```
 
-Checks only (no file copy):
+Confirm copy on the VM (SSH in):
 
 ```bash
-./deploy.sh --limit acme_vm_bbartling --verify -v
+ls -la ~/vibe_code_apps_12/edge_bacnet/
+ls ~/vibe_code_apps_12/.venv/bin/python
 ```
 
 On VM after deploy:
@@ -295,7 +330,7 @@ If not → **stop** and document differences before cloning to other VAVs.
 | brick_tag | e.g. VAV8-ZN-T |
 | point_id | auto: `8-analog-input-1106` |
 
-Reference CSV shape: `commissioning/demo/bens-office/points.csv`
+Reference CSV shape: `edge_backup/demo/bens-office/points.csv`
 
 On VM, save as:
 
@@ -303,7 +338,7 @@ On VM, save as:
 ~/vibe_code_apps_12/points.csv
 ```
 
-Or build on bensserver and push via Ansible (next deploy copies from `commissioning/local/` if you use fetch script).
+Or build on bensserver and push via Ansible (next deploy copies from `edge_backup/local/` if you use fetch script).
 
 ### Step B5 — repeat for each instance
 
@@ -323,7 +358,7 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
 File lands in:
 
 ```text
-commissioning/local/acme/vm-bbartling/points.csv
+edge_backup/local/acme/vm-bbartling/points.csv
 ```
 
 Do **not** commit this to GitHub (real device names).
@@ -383,7 +418,8 @@ Cloud stack uses **90-day** telemetry TTL if you deployed with `TtlDays=90` in `
 | Goal | Where | Command |
 |------|-------|---------|
 | SSH VM | bensserver | `ssh bbartling@100.122.106.124` |
-| Deploy edge | bensserver | `cd ansible && ./deploy.sh --limit acme_vm_bbartling -v` |
+| Deploy edge (copy to VM) | bensserver | `cd ansible && ./deploy.sh --limit acme_vm_bbartling -v` |
+| Verify only (no copy) | bensserver | `./deploy.sh --limit acme_vm_bbartling --verify -v` |
 | Ping RTU | VM | `ping 10.200.200.27` |
 | Discover (manual) | VM | `python -m edge_bacnet.discover ...` (§5) |
 | Discover (systemd) | VM | `sudo systemctl start vibe12-bacnet-discover` |
@@ -405,7 +441,7 @@ Cloud stack uses **90-day** telemetry TTL if you deployed with `TtlDays=90` in `
 | `~/vibe_code_apps_12/` on VM | vm-bbartling | App + venv + CSV |
 | `points_discovered.csv` | VM | Raw discover output |
 | `points.csv` | VM | Commissioned points (enabled=1) |
-| `commissioning/local/acme/vm-bbartling/points.csv` | bensserver | Backup copy |
+| `edge_backup/local/acme/vm-bbartling/points.csv` | bensserver | Backup copy |
 
 ---
 
@@ -414,6 +450,14 @@ Cloud stack uses **90-day** telemetry TTL if you deployed with `TtlDays=90` in `
 ### SSH: `Permission denied` as `ben`
 
 Use **`bbartling@100.122.106.124`**, not `ben@`.
+
+### Ansible fails SSH but manual `ssh bbartling@...` works
+
+1. Use **`--ask-pass --ask-become-pass`** until keys are installed.
+2. Confirm **`ansible/ansible.cfg`** has `[ssh_connection] password_mechanism = sshpass` (Ansible 2.19+ default breaks password deploy without this).
+3. Install **`sshpass`**: `sudo apt install sshpass`
+4. Clear stale sockets: `rm -rf ~/.ansible/cp/*`
+5. Or use keys: `ssh-copy-id bbartling@100.122.106.124` then deploy without `--ask-pass`
 
 ### BACnet discover finds nothing
 
@@ -467,7 +511,7 @@ Paste token from `./run_dashboard.sh -d` banner → **connect** in browser.
 - [ ] `enable_bacnet_read_driver=true` deployed
 - [ ] `journalctl -u vibe12-bacnet-read` shows publishes
 - [ ] MQTT or cloud shows `acme/vm-bbartling` points
-- [ ] `fetch_commissioning.sh` backup saved under `commissioning/local/`
+- [ ] `fetch_commissioning.sh` backup saved under `edge_backup/local/`
 
 ---
 

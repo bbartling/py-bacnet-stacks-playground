@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Run from vibe_code_apps_12/ansible — uses deploy.yml on the boss Pi (inventory).
+# Run from vibe_code_apps_12/ansible — uses deploy.yml on edge hosts (inventory).
 #
-# Recommended on bensserver (password SSH until ssh-copy-id):
+# Default: --ask-pass --ask-become-pass (password SSH until ssh-copy-id).
 #   cd ~/py-bacnet-stacks-playground/vibe_code_apps_12/ansible
-#   ./deploy.sh --ask-pass --ask-become-pass -v
+#   ./deploy.sh --limit <inventory_host> -v
+#
+# After ssh-copy-id bbartling@<host>:
+#   ./deploy.sh --limit <inventory_host> --no-ask-pass -v
 #
 # Other modes:
-#   ./deploy.sh -v           # full deploy + verify (needs SSH key)
 #   ./deploy.sh --verify     # checks only — no file copy, no restart
 #   ./deploy.sh --no-verify  # deploy without post-checks
 #
@@ -29,6 +31,7 @@ fi
 
 VERIFY_ONLY=false
 NO_VERIFY=false
+NO_ASK_PASS=false
 EXTRA=()
 
 while [[ $# -gt 0 ]]; do
@@ -39,6 +42,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-verify)
       NO_VERIFY=true
+      shift
+      ;;
+    --no-ask-pass)
+      NO_ASK_PASS=true
       shift
       ;;
     --pcap)
@@ -57,15 +64,18 @@ while [[ $# -gt 0 ]]; do
       sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
       echo ""
       echo "Options:"
+      echo "  --no-ask-pass       Skip password prompts (use after ssh-copy-id)"
       echo "  --pcap              After deploy, capture BACnet UDP to ~/vibe_code_apps_12/captures/bacnet.pcap"
       echo "  --pcap-seconds N    Capture length in seconds (default 300)"
       echo ""
+      echo "Default: --ask-pass --ask-become-pass (unless --no-ask-pass)"
+      echo ""
       echo "Examples:"
       echo "  Building gateway (BACnet only — default):"
-      echo "    ./deploy.sh --limit tower_a_edge --ask-pass --ask-become-pass -v"
+      echo "    ./deploy.sh --limit tower_a_edge -v"
       echo ""
-      echo "  Boss Pi test bench (host_vars/bacnet_pi.yml — GPIO):"
-      echo "    ./deploy.sh --limit bacnet_pi --ask-pass --ask-become-pass -v"
+      echo "  Boss Pi test bench (MS/TP BACnet edge):"
+      echo "    ./deploy.sh --limit bacnet_pi -v"
       echo ""
       echo "  Enable BACnet scrape after commissioning points.csv:"
       echo "    ./deploy.sh --limit tower_a_edge -e enable_bacnet_read_driver=true"
@@ -86,12 +96,27 @@ if [[ "$VERIFY_ONLY" == true && "$NO_VERIFY" == true ]]; then
   exit 1
 fi
 
+_auth_args() {
+  if [[ "$NO_ASK_PASS" == true ]]; then
+    return
+  fi
+  local arg
+  for arg in "${EXTRA[@]}"; do
+    if [[ "$arg" == "--ask-pass" || "$arg" == "--ask-become-pass" ]]; then
+      return
+    fi
+  done
+  echo --ask-pass --ask-become-pass
+}
+
+AUTH_ARGS=($(_auth_args))
+
 if [[ "$VERIFY_ONLY" == true ]]; then
-  exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}" --tags verify
+  exec "$APB" -i "$INV" deploy.yml "${AUTH_ARGS[@]}" "${EXTRA[@]}" --tags verify
 fi
 
 if [[ "$NO_VERIFY" == true ]]; then
-  exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}" -e run_deploy_verify=false --skip-tags verify
+  exec "$APB" -i "$INV" deploy.yml "${AUTH_ARGS[@]}" "${EXTRA[@]}" -e run_deploy_verify=false --skip-tags verify
 fi
 
-exec "$APB" -i "$INV" deploy.yml "${EXTRA[@]}"
+exec "$APB" -i "$INV" deploy.yml "${AUTH_ARGS[@]}" "${EXTRA[@]}"

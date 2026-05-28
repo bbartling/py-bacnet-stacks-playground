@@ -1,0 +1,37 @@
+---
+# Push trimmed devices CSV from bensserver → edge devices_discovered.csv
+#
+#   ./push_devices_csv.sh --limit <inventory_host> -v
+#   -e devices_csv_local=../edge_backup/local/acme/vm-bbartling/devices_discovered.trim.csv
+
+- name: Push devices CSV to edge
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Resolve local devices CSV path
+      ansible.builtin.set_fact:
+        devices_csv_src: >-
+          {{ devices_csv_local | default(edge_backup_dir ~ '/' ~ site_id ~ '/' ~ building_id ~ '/devices_discovered.trim.csv') }}
+
+    - name: Stat local devices CSV
+      ansible.builtin.stat:
+        path: "{{ devices_csv_src }}"
+      delegate_to: localhost
+      become: false
+      register: local_devices
+
+    - name: Fail if local devices CSV missing
+      ansible.builtin.fail:
+        msg: "Missing {{ devices_csv_src }} — trim devices_discovered.csv first."
+      when: not local_devices.stat.exists
+
+    - name: Copy devices CSV to edge
+      ansible.builtin.copy:
+        src: "{{ devices_csv_src }}"
+        dest: "{{ devices_discovered_path }}"
+        mode: "0644"
+
+    - name: Show edge devices path
+      ansible.builtin.debug:
+        msg: "Edge devices list: {{ devices_discovered_path }} ({{ local_devices.stat.size }} bytes)"

@@ -31,7 +31,7 @@ vibe12/demo/bens-office/office/digital-temp-degC/telemetry
 vibe12/demo/bens-office/office/digital-temp-degF/telemetry
 ```
 
-**Commissioned CSV in Git:** `commissioning/demo/bens-office/points.csv` — Ansible deploys to `~/vibe_code_apps_12/points.csv` on the Pi.
+**Commissioned CSV in Git:** `edge_backup/demo/bens-office/points.csv` — Ansible deploys to `~/vibe_code_apps_12/points.csv` on the Pi.
 
 ## Is the edge on the “real deal” path?
 
@@ -43,7 +43,7 @@ Yes, when:
 - [ ] IoT policy allows **`iot:Publish`** on `vibe12/*` and connect as **`basicPubSub`**
 - [ ] Cloud stack deployed with rule **`vibe12_telemetry_ingest`** (not legacy `sdk/test/python`)
 - [ ] IoT device policy allows **`topic/vibe12/+/+/+/+/telemetry`** and **`topic/vibe12/demo/bens-office/*`** (see `aws_iot_core_test/policy-vibe12-multi-client.json`)
-- [ ] `GET /api/commissioning/status/demo/bens-office` → `cloud_ingest_ok: true` (6 series: 4 BACnet + 2 GPIO)
+- [ ] `GET /a../edge_backup/status/demo/bens-office` → `cloud_ingest_ok: true` (6 series: 4 BACnet + 2 GPIO)
 
 ## Deploy from bensserver
 

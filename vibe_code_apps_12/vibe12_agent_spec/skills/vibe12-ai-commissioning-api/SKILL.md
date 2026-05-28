@@ -31,7 +31,7 @@ Or run **`./scripts/validate_cloud_pipeline.sh`** (loads password from `samconfi
 ## Gate: is data flowing?
 
 ```bash
-curl -sS "$URL/api/commissioning/status/demo/bens-office?window_minutes=20" "${AUTH[@]}" \
+curl -sS "$URL/a../edge_backup/status/demo/bens-office?window_minutes=20" "${AUTH[@]}" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['cloud_ingest_ok']; print(d['series_flowing'], '/', d['series_total'])"
 ```
 
@@ -43,7 +43,7 @@ curl -sS "$URL/api/commissioning/status/demo/bens-office?window_minutes=20" "${A
 |--------|------|-----|
 | GET | `/api/health` | Deploy revision, no auth |
 | POST | `/api/auth/login` | JWT |
-| GET | `/api/commissioning/status/{site}/{building}` | **Primary gate** + `ai_hints` + `recommended_actions` |
+| GET | `/a../edge_backup/status/{site}/{building}` | **Primary gate** + `ai_hints` + `recommended_actions` |
 | GET | `/api/telemetry/flow/{site}/{building}` | Per-series `flowing`, `last_value` |
 | GET | `/api/brick/timeseries-ref/{site}/{building}` | BRICK refs for modeling |
 | GET | `/api/points/{site}/{building}` | Registry |

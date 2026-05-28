@@ -28,7 +28,7 @@ pages:
     title: Web app features (reference)
   - path: docs/wire-capture.md
     title: Wire capture (Wireshark)
-  - path: docs/commissioning-backup.md
+  - path: docs/edge-backup.md
     title: Commissioning backup to Git
   - path: aws_cloud_pipeline/DEPLOYED.md
     title: Cloud architecture reference

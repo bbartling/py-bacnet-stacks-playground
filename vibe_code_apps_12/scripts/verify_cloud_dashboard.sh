@@ -53,7 +53,7 @@ curl -fsS "${URL}/api/auth/me" -H "Authorization: Bearer $TOKEN" | python3 -m js
 SITE="${SITE_ID:-demo}"
 BLD="${BUILDING_ID:-bens-office}"
 echo "=== Telemetry flow: site=$SITE building=$BLD ==="
-curl -fsS "${URL}/api/commissioning/status/${SITE}/${BLD}?window_minutes=20" \
+curl -fsS "${URL}/a../edge_backup/status/${SITE}/${BLD}?window_minutes=20" \
   -H "Authorization: Bearer $TOKEN" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)

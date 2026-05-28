@@ -1,0 +1,101 @@
+---
+# Phase 2 — one points CSV per device under points_per_device/ (edit each, then merge).
+#
+#   ./discover_points_per_device.sh --limit <inventory_host> -v
+#
+# Prerequisite: devices_discovered.trim.csv on bensserver (pushed automatically).
+
+- name: Prepare edge for per-device point discovery
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Ensure jobs and per-device output directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ bacnet_app_remote_dir }}/jobs"
+        - "{{ bacnet_points_per_device_dir }}"
+
+    - name: Install edge commissioning scripts
+      ansible.builtin.copy:
+        src: scripts/edge/
+        dest: "{{ bacnet_app_remote_dir }}/scripts/edge/"
+        mode: "0755"
+
+    - name: Sync edge_bacnet package
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../edge_bacnet/"
+        dest: "{{ bacnet_app_remote_dir }}/edge_bacnet/"
+        mode: "0644"
+      when: edge_bacnet_sync | default(true) | bool
+
+- name: Run per-device point discovery on edge
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Fresh SSH before long discover
+      ansible.builtin.meta: reset_connection
+
+    - name: Stat devices CSV on edge
+      ansible.builtin.stat:
+        path: "{{ devices_discovered_path }}"
+      register: devices_csv
+
+    - name: Fail if devices CSV missing on edge
+      ansible.builtin.fail:
+        msg: >-
+          Missing {{ devices_discovered_path }} — run ./push_devices_csv.sh first.
+      when: not devices_csv.stat.exists
+
+    - name: Write points discover job env
+      ansible.builtin.copy:
+        dest: "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        mode: "0644"
+        content: |
+          export VIBE12_APP_DIR="{{ bacnet_app_remote_dir }}"
+          export PYTHONPATH="{{ bacnet_app_remote_dir }}"
+          export DEVICES_CSV="{{ devices_discovered_path }}"
+          export OUTPUT="{{ points_discovered_path }}"
+          export PER_DEVICE_DIR="{{ bacnet_points_per_device_dir }}"
+          export APPEND="{{ bacnet_discover_append | default(false) | ternary('1', '0') }}"
+          export SITE_ID="{{ site_id }}"
+          export BUILDING_ID="{{ building_id }}"
+          export BACNET_NAME="{{ bacnet_device_name }}"
+          export BACNET_INSTANCE="{{ bacnet_instance_id }}"
+          export BACNET_BIND="{{ bacnet_edge_bind_address | default(bacnet_bind_address) }}"
+
+    - name: Start per-device point discovery in background
+      ansible.builtin.shell: |
+        set -euo pipefail
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        exec "{{ bacnet_app_remote_dir }}/scripts/edge/run_background.sh" \
+          discover_points \
+          "{{ bacnet_app_remote_dir }}/scripts/edge/discover_points.sh"
+      args:
+        executable: /bin/bash
+      register: points_bg
+      when: bacnet_discover_background | default(true) | bool
+
+    - name: Show background job info
+      ansible.builtin.debug:
+        msg: "{{ points_bg.stdout_lines }}"
+      when: points_bg is defined
+
+    - name: Run per-device point discovery in foreground
+      ansible.builtin.shell: |
+        set -euo pipefail
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_points.env"
+        "{{ bacnet_app_remote_dir }}/scripts/edge/discover_points.sh"
+      args:
+        executable: /bin/bash
+      when: not (bacnet_discover_background | default(true) | bool)
+
+    - name: Remind to fetch per-device CSVs
+      ansible.builtin.debug:
+        msg: >-
+          When job finishes: ./fetch_points_per_device.sh --limit {{ inventory_hostname }} -v
+          Then edit points_per_device/device_*.csv and ./merge_points.sh --limit {{ inventory_hostname }}

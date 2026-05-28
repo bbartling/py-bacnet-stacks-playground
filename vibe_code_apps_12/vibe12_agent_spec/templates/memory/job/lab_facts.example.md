@@ -13,7 +13,7 @@ No passwords in this file. Use env: `WEB_PASSWORD`, `WEB_USERNAME`, SSH keys for
 | MQTT topic | `vibe12/{site}/{building}/{system}/{point}/telemetry` |
 | Cloud stack | `vibe12cloud` · `us-east-2` |
 | Dashboard URL | `aws_cloud_pipeline/DEPLOYED.md` → DashboardUrl |
-| Points CSV | `commissioning/demo/bens-office/points.csv` |
+| Points CSV | `edge_backup/demo/bens-office/points.csv` |
 
 ## BACnet points (enabled)
 

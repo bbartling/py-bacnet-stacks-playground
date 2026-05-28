@@ -11,7 +11,12 @@ bacnet_edge_device_name: GatewayVmBbartling
 
 # BACnet/IP bind — use the dedicated NIC IP (bacypypes3 --address), not Tailscale.
 bacnet_bind_address: "10.200.200.185/24"
-bacnet_edge_bind_address: "10.200.200.185/24:47809"
+bacnet_edge_bind_address: "10.200.200.185/24:47808"
+
+bacnet_discover_range_low: 0
+bacnet_discover_range_high: 100
+bacnet_discover_timeout: 20
+enable_bacnet_read_driver: false
 
 # One IoT Thing + cert per gateway (see docs/04-aws-iot-core.md Path B).
 aws_iot_certs_local_dir: "{{ playbook_dir }}/files/aws_iot/acme-vm-bbartling"

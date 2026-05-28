@@ -1,0 +1,111 @@
+---
+# Phase 1 — BACnet Who-Is → devices_discovered.csv on edge (fast; no point reads).
+#
+#   ./discover_devices.sh --limit <inventory_host> -v
+#   ./discover_devices.sh --limit <inventory_host> -e bacnet_discover_background=false -v
+#
+# After deploy.yml, skip re-copying edge_bacnet (already on edge):
+#   -e edge_bacnet_sync=false
+#
+# Fetch CSV later:
+#   ./fetch_commissioning.sh --limit <inventory_host> -v
+
+- name: Prepare edge for device discovery
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Ensure jobs directory on edge
+      ansible.builtin.file:
+        path: "{{ bacnet_app_remote_dir }}/jobs"
+        state: directory
+        mode: "0755"
+
+    - name: Install edge commissioning scripts
+      ansible.builtin.copy:
+        src: scripts/edge/
+        dest: "{{ bacnet_app_remote_dir }}/scripts/edge/"
+        mode: "0755"
+
+    - name: Sync edge_bacnet package (discover_devices must exist on edge)
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../edge_bacnet/"
+        dest: "{{ bacnet_app_remote_dir }}/edge_bacnet/"
+        mode: "0644"
+      when: edge_bacnet_sync | default(true) | bool
+
+- name: Run BACnet device discovery on edge
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Fresh SSH before discover (Tailscale drops shared sessions)
+      ansible.builtin.meta: reset_connection
+
+    - name: Write discover job env snippet
+      ansible.builtin.copy:
+        dest: "{{ bacnet_app_remote_dir }}/jobs/discover_devices.env"
+        mode: "0644"
+        content: |
+          export VIBE12_APP_DIR="{{ bacnet_app_remote_dir }}"
+          export PYTHONPATH="{{ bacnet_app_remote_dir }}"
+          export DISCOVER_LOW="{{ bacnet_discover_range_low }}"
+          export DISCOVER_HIGH="{{ bacnet_discover_range_high }}"
+          export OUTPUT="{{ devices_discovered_path }}"
+          export APPEND="{{ bacnet_discover_append | default(false) | ternary('1', '0') }}"
+          export SITE_ID="{{ site_id }}"
+          export BUILDING_ID="{{ building_id }}"
+          export BACNET_NAME="{{ bacnet_device_name }}"
+          export BACNET_INSTANCE="{{ bacnet_instance_id }}"
+          export BACNET_BIND="{{ bacnet_edge_bind_address | default(bacnet_bind_address) }}"
+          export DISCOVER_TIMEOUT="{{ bacnet_discover_timeout | default(20) }}"
+          {% if bacnet_router_ip | default('') | length > 0 %}
+          export ROUTER_IP="{{ bacnet_router_ip }}"
+          export MSTP_NET="{{ bacnet_mstp_net }}"
+          export BACNET_NETWORK="{{ bacnet_network | default(1) }}"
+          {% endif %}
+
+    - name: Start device discovery in background (nohup)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_devices.env"
+        exec "{{ bacnet_app_remote_dir }}/scripts/edge/run_background.sh" \
+          discover_devices \
+          "{{ bacnet_app_remote_dir }}/scripts/edge/discover_devices.sh" \
+          "${DISCOVER_LOW}" "${DISCOVER_HIGH}"
+      args:
+        executable: /bin/bash
+      register: discover_bg
+      changed_when: true
+      when: bacnet_discover_background | default(true) | bool
+
+    - name: Show background job info
+      ansible.builtin.debug:
+        msg: "{{ discover_bg.stdout_lines }}"
+      when: discover_bg is defined
+
+    - name: Run device discovery in foreground (blocks until CSV written)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        source "{{ bacnet_app_remote_dir }}/jobs/discover_devices.env"
+        "{{ bacnet_app_remote_dir }}/scripts/edge/discover_devices.sh" "${DISCOVER_LOW}" "${DISCOVER_HIGH}"
+      args:
+        executable: /bin/bash
+      when: not (bacnet_discover_background | default(true) | bool)
+
+    - name: Wait before fetch reminder (optional)
+      ansible.builtin.pause:
+        seconds: "{{ bacnet_discover_wait_seconds | int }}"
+      when:
+        - bacnet_discover_wait_seconds | default(0) | int > 0
+        - bacnet_discover_background | default(true) | bool
+
+    - name: Remind to fetch CSV in separate command
+      ansible.builtin.debug:
+        msg: >-
+          Discovery started on edge. Fetch in a separate SSH session to avoid long-lived control
+          connection drops: ./fetch_commissioning.sh --limit {{ inventory_hostname }} -v
+      when:
+        - bacnet_discover_wait_seconds | default(0) | int > 0
+        - bacnet_discover_background | default(true) | bool

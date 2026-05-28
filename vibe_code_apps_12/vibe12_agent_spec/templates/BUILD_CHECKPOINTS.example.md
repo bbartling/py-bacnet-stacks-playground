@@ -4,7 +4,7 @@ Pick **one** slice per mini wake. Critique (**gpt-5.5**) rewrites **Next for min
 
 ## Human sign-off (required before production BACnet reads)
 
-- [ ] I authorize BACnet RPM reads for devices listed in `commissioning/.../points.csv`.
+- [ ] I authorize BACnet RPM reads for devices listed in `edge_backup/.../points.csv`.
 - [ ] IoT device policy allows `vibe12/.../telemetry` publish for this certificate.
 - [ ] Cloud passwords are set in local `samconfig.toml` (never committed).
 
@@ -31,7 +31,7 @@ Signed off for **_(site / building)_**: _(date, initials)_.
 ## Next for mini (ordered)
 
 1. Run `./scripts/validate_cloud_pipeline.sh`.
-2. Fill `memory/commissioning/PHASE_NOTEPAD.md` § A–D for your site.
+2. Fill `memo../edge_backup/PHASE_NOTEPAD.md` § A–D for your site.
 3. Confirm commissioning API shows expected series count.
 4. _(Critique adds 3–8 concrete tasks after each wake.)_
 

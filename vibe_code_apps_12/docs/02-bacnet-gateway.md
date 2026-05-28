@@ -44,7 +44,7 @@ Files land under `~/vibe_code_apps_12/` on the gateway:
 
 ```text
 edge_bacnet/          # Python modules
-commissioning/        # points.csv per site/building
+edge_backup/          # points.csv per site/building (bensserver backup)
 aws_iot_certs/        # device.pem, private.key, AmazonRootCA1.pem
 scripts/              # e.g. bacnet_tcpdump_once.sh
 ```
@@ -60,7 +60,7 @@ In **`host_vars/bacnet_pi.yml`** (example):
 
 ```yaml
 site_id: demo
-building_id: bens-office   # must match commissioning/ and cloud dashboard picker
+building_id: bens-office   # must match edge_backup/ and cloud dashboard picker
 bacnet_edge_bind_address: "192.168.204.12/24:47809"
 bacnet_route_aware: true
 bacnet_router_ip: 192.168.204.200

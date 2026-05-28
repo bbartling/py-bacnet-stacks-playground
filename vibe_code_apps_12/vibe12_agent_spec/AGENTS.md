@@ -37,7 +37,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `ansible/` | Pi/gateway deploy, systemd, certs |
 | `aws_cloud_pipeline/` | SAM: ingest, web, FDD Lambdas |
 | `apps/vibe12-web/` | React dashboard + Rule Lab (built into Lambda static) |
-| `commissioning/demo/bens-office/` | Lab `points.csv` |
+| `edge_backup/demo/bens-office/` | Lab `points.csv` |
 | `docs/` | Operator + deploy guides (Jekyll index) |
 | `scripts/` | Deploy, validate, pcap, smoke |
 
@@ -47,7 +47,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 |------|------|
 | `MEMORY.md` | Curated standing brief |
 | `memory/YYYY-MM-DD.md` | Append-only daily agent log |
-| `memory/commissioning/PHASE_NOTEPAD.md` | Site BACnet bind, devices, URLs |
+| `memo../edge_backup/PHASE_NOTEPAD.md` | Site BACnet bind, devices, URLs |
 | `memory/sites/` | Per site/building facts |
 | `memory/stack/` | Cloud URL, Pi IP, intervals |
 | `memory/integrations/` | AWS IoT policy, MQTT topics |

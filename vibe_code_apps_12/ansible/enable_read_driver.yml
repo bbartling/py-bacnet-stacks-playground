@@ -1,0 +1,41 @@
+---
+# Enable MQTT read driver after points.csv is commissioned on edge.
+#
+#   ./enable_read_driver.sh --limit <inventory_host> -v
+#
+# Or: ./deploy.sh --limit <inventory_host> -e enable_bacnet_read_driver=true -v
+
+- name: Enable BACnet read driver (AWS IoT publish)
+  hosts: pi_bcn
+  gather_facts: false
+
+  tasks:
+    - name: Stat commissioned points.csv on edge
+      ansible.builtin.stat:
+        path: "{{ points_csv_path }}"
+      register: points_csv
+
+    - name: Warn if points.csv missing
+      ansible.builtin.debug:
+        msg: "No {{ points_csv_path }} — read driver will start but publish nothing until CSV exists."
+      when: not points_csv.stat.exists
+
+    - name: Enable and start vibe12-bacnet-read
+      ansible.builtin.systemd:
+        name: vibe12-bacnet-read
+        enabled: true
+        state: started
+        daemon_reload: true
+      become: true
+
+    - name: Read driver active
+      ansible.builtin.command:
+        argv: [systemctl, is-active, vibe12-bacnet-read]
+      register: read_active
+      changed_when: false
+      failed_when: false
+      become: true
+
+    - name: Status
+      ansible.builtin.debug:
+        msg: "vibe12-bacnet-read is {{ read_active.stdout | default('unknown') }}; client_id={{ bacnet_edge_client_id }}; topic=vibe12/{{ site_id }}/{{ building_id }}/…"

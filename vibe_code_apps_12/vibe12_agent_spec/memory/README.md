@@ -8,7 +8,7 @@ vibe12_agent_spec/bin/vibe12_workspace_init.sh
 
 | Path | Purpose |
 |------|---------|
-| `commissioning/PHASE_NOTEPAD.md` | Site bind, devices, URLs (human + agent) |
+| `edge_backup/PHASE_NOTEPAD.md` | Site bind, devices, URLs (human + agent) |
 | `sites/` | Per building stable facts |
 | `stack/` | Edge + cloud runtime |
 | `integrations/` | AWS IoT, MQTT |

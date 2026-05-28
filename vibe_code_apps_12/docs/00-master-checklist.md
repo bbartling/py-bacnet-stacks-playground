@@ -55,7 +55,7 @@ Use this page as a **step-by-step path** from a blank Linux gateway to live faul
 - [ ] Run **discover** (Who-Is / I-Am) → `points_discovered.csv`.
 - [ ] **Delete** rows you do not need; set **`enabled=1`** on rows to poll.
 - [ ] Fill **`system_id`**, **`brick_class`**, **`brick_tag`** (for FDD and data model later).
-- [ ] Save as **`commissioning/.../points.csv`** and back up to Git (`fetch_commissioning.sh`).
+- [ ] Save as **`edge_backup/.../points.csv`** and back up to Git (`fetch_commissioning.sh`).
 - [ ] Redeploy with **`enable_bacnet_read_driver=true`**.
 
 → Details: [Commissioning & CSV cleaning](03-commissioning-csv.md) · [BACnet commissioning](bacnet-commissioning.md)

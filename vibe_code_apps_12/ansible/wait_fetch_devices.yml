@@ -1,0 +1,90 @@
+---
+# Wait for background discover_devices job, then fetch devices_discovered.csv to bensserver.
+#
+#   ./discover_devices.sh --limit <inventory_host> -v
+#   ./wait_fetch_devices.sh --limit <inventory_host> -v
+
+- name: Wait for device discovery on edge then fetch CSV
+  hosts: pi_bcn
+  gather_facts: false
+
+  vars:
+    discover_log: "{{ bacnet_app_remote_dir }}/jobs/discover_devices.log"
+    discover_pid: "{{ bacnet_app_remote_dir }}/jobs/discover_devices.pid"
+    # Device Who-Is is ~20–60s; do not use the 900s default meant for point discovery.
+    discover_wait_max_seconds: "{{ bacnet_device_discover_wait_max_seconds | default(120) | int }}"
+
+  tasks:
+    - name: Wait until discover_devices log shows completion
+      ansible.builtin.shell: |
+        set -euo pipefail
+        log="{{ discover_log }}"
+        pidfile="{{ discover_pid }}"
+        max="{{ discover_wait_max_seconds }}"
+        for ((i=0; i<max; i+=10)); do
+          if [[ -f "$log" ]] && grep -qE 'No module named|Traceback|Error' "$log"; then
+            tail -40 "$log" >&2
+            exit 1
+          fi
+          if [[ -f "$log" ]] && grep -qE 'Wrote [0-9]+ rows|Appended [0-9]+ rows|No devices found' "$log"; then
+            if [[ -f "$pidfile" ]]; then
+              pid="$(cat "$pidfile")"
+              if ! kill -0 "$pid" 2>/dev/null; then
+                exit 0
+              fi
+            else
+              exit 0
+            fi
+          fi
+          sleep 10
+        done
+        echo "Timed out after ${max}s — tail of log:" >&2
+        tail -30 "$log" 2>/dev/null || true
+        exit 1
+      args:
+        executable: /bin/bash
+      register: discover_wait
+      changed_when: false
+      when: bacnet_discover_background | default(true) | bool
+
+    - name: Show discover log tail
+      ansible.builtin.command:
+        argv: [tail, -n, "25", "{{ discover_log }}"]
+      register: discover_log_tail
+      changed_when: false
+      failed_when: false
+
+    - name: Print discover log tail
+      ansible.builtin.debug:
+        msg: "{{ discover_log_tail.stdout_lines | default([]) }}"
+
+    - name: Ensure local edge backup directory
+      ansible.builtin.file:
+        path: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+
+    - name: Fresh SSH before fetch
+      ansible.builtin.meta: reset_connection
+
+    - name: Fetch devices_discovered.csv to bensserver
+      ansible.builtin.fetch:
+        src: "{{ devices_discovered_path }}"
+        dest: "{{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/devices_discovered.csv"
+        flat: true
+      register: fetch_devices
+
+    - name: Fail if devices CSV missing on edge
+      ansible.builtin.fail:
+        msg: >-
+          No {{ devices_discovered_path }} on {{ inventory_hostname }}.
+          Check {{ discover_log }} and re-run discover_devices.sh.
+      when: fetch_devices.failed | default(false)
+
+    - name: Show local devices CSV path
+      ansible.builtin.debug:
+        msg: >-
+          devices_discovered.csv:
+          {{ edge_backup_dir }}/{{ site_id }}/{{ building_id }}/devices_discovered.csv

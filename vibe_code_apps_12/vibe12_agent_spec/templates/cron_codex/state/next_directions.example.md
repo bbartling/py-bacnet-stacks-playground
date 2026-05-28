@@ -2,7 +2,7 @@
 
 **Canonical queue:** `BUILD_CHECKPOINTS.md` → **Next for mini (ordered)** (written by critique).
 
-Site BACnet bind and devices → `memory/commissioning/PHASE_NOTEPAD.md`.
+Site BACnet bind and devices → `memo../edge_backup/PHASE_NOTEPAD.md`.
 
 ## PASTE INTO NEXT WAKE
 
