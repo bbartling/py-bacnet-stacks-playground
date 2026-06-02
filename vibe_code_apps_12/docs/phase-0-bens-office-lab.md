@@ -13,9 +13,11 @@ SAM **`IotTopicPrefix=vibe12`** (see `aws_cloud_pipeline/samconfig.toml.example`
 
 | Layer | Value |
 |-------|--------|
-| SAM IoT rule SQL | `vibe12/+/+/+/+/telemetry` |
+| SAM IoT rule SQL (batch) | `vibe12/+/+/batch/telemetry` |
+| SAM IoT rule SQL (legacy per-point) | `vibe12/+/+/+/+/telemetry` |
 | Ansible `host_vars/bacnet_pi.yml` | `site_id: demo`, `building_id: bens-office` |
-| MQTT topic per point | `vibe12/demo/bens-office/{system_id}/{point_id}/telemetry` |
+| MQTT topic per point (legacy) | `vibe12/demo/bens-office/{system_id}/{point_id}/telemetry` |
+| **MQTT batch (default)** | `vibe12/demo/bens-office/batch/telemetry` — one message per 60 s poll |
 | DynamoDB `series_id` | `demo#bens-office#{system_id}#{point_id}` |
 
 Example (bench box **5007**):
@@ -38,11 +40,11 @@ vibe12/demo/bens-office/office/digital-temp-degF/telemetry
 Yes, when:
 
 - [ ] `vibe12-bacnet-read` is **active** (`systemctl is-active vibe12-bacnet-read`)
-- [ ] Journal shows `published N samples` every 60 s (`journalctl -u vibe12-bacnet-read -f`)
+- [ ] Journal shows `published batch N samples` every 60 s (`journalctl -u vibe12-bacnet-read -f`)
 - [ ] `points.csv` rows have `site_id=demo`, `building_id=bens-office`, `enabled=1`
 - [ ] IoT policy allows **`iot:Publish`** on `vibe12/*` and connect as **`basicPubSub`**
-- [ ] Cloud stack deployed with rule **`vibe12_telemetry_ingest`** (not legacy `sdk/test/python`)
-- [ ] IoT device policy allows **`topic/vibe12/+/+/+/+/telemetry`** and **`topic/vibe12/demo/bens-office/*`** (see `aws_iot_core_test/policy-vibe12-multi-client.json`)
+- [ ] Cloud stack deployed with rules **`vibe12_batch_ingest`** + **`vibe12_telemetry_ingest`** (not legacy `sdk/test/python`)
+- [ ] IoT device policy allows **`topic/vibe12/demo/bens-office/batch/telemetry`** and **`topic/vibe12/demo/bens-office/*`** (see `aws_iot_core_test/policy-vibe12-multi-client.json`)
 - [ ] `GET /api/commissioning/status/demo/bens-office` → `cloud_ingest_ok: true` (BACnet points flowing)
 
 ## Deploy from bensserver

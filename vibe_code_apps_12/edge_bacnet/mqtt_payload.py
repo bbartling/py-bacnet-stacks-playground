@@ -32,6 +32,11 @@ def mqtt_topic_for_point(point: PointConfig) -> str:
     )
 
 
+def mqtt_batch_topic(site_id: str, building_id: str) -> str:
+    """One MQTT message per poll cycle — reduces IoT rule / Lambda invocations."""
+    return f"{TOPIC_PREFIX}/{site_id}/{building_id}/batch/telemetry"
+
+
 def series_id_for(
     site_id: str,
     building_id: str,
@@ -110,3 +115,62 @@ def build_bacnet_payload(
         "ts": now.isoformat(),
     }
     return json.dumps(body)
+
+
+def build_bacnet_batch_payload(
+    samples: list[dict[str, Any]],
+    *,
+    site_id: str,
+    building_id: str,
+    seq: int = 0,
+    ts_ms: int | None = None,
+) -> str:
+    """Wrap per-point BACnet payloads in one MQTT message for cloud ingest."""
+    now = datetime.now(timezone.utc)
+    if ts_ms is None:
+        ts_ms = int(now.timestamp() * 1000)
+    body = {
+        "source": "bacnet_batch",
+        "site_id": site_id,
+        "building_id": building_id,
+        "seq": seq,
+        "ts_ms": ts_ms,
+        "ts": now.isoformat(),
+        "sample_count": len(samples),
+        "samples": samples,
+    }
+    return json.dumps(body)
+
+
+def bacnet_sample_dict(
+    point: PointConfig,
+    value: Any,
+    *,
+    seq: int = 0,
+    ts_ms: int | None = None,
+) -> dict[str, Any]:
+    """Per-point dict for batch payload (same fields as single-message ingest)."""
+    now = datetime.now(timezone.utc)
+    if ts_ms is None:
+        ts_ms = int(now.timestamp() * 1000)
+    return {
+        "source": "bacnet",
+        "site_id": point.site_id,
+        "building_id": point.building_id,
+        "system_id": point.system_id,
+        "point_id": point.point_id,
+        "series_id": point.series_id,
+        "object": {
+            "device": point.device_instance,
+            "type": point.object_type,
+            "instance": point.object_instance,
+        },
+        "value": value,
+        "unit": point.units or "",
+        "brick_class": point.brick_class or "",
+        "brick_tag": point.brick_tag or "",
+        "object_name": point.object_name or "",
+        "seq": seq,
+        "ts_ms": ts_ms,
+        "ts": now.isoformat(),
+    }

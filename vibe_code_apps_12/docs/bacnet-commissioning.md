@@ -21,9 +21,17 @@ nav_order: 3
 | Inventory | `bacnet_pi` @ `192.168.204.12` |
 | Site / building | `demo` / `bens-office` |
 | MS/TP router | `192.168.204.200`, net `2000`, device `5007` |
-| MQTT client | `basicPubSub` → `vibe12/demo/bens-office/.../telemetry` |
+| MQTT client | `basicPubSub` → `vibe12/demo/bens-office/batch/telemetry` (default) |
 
-## MQTT topic
+## MQTT topics
+
+**Default (batch):** one message per 60 s poll cycle:
+
+```text
+vibe12/{site_id}/{building_id}/batch/telemetry
+```
+
+**Legacy (per-point):** `--per-point-mqtt` on read driver:
 
 ```text
 vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry

@@ -15,10 +15,11 @@ Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi BACnet read driver �
 ```text
 Raspberry Pi (boss Pi / lab)
   vibe12-bacnet-read.service  (BACpypes3 RPM poll)
-        │ MQTT TLS  vibe12/{site}/{building}/{system}/{point}/telemetry
+        │ MQTT TLS  vibe12/{site}/{building}/batch/telemetry  (default: all points in one message)
         ▼
 AWS IoT Core
-        │ Rule: vibe12_telemetry_ingest  (SQL: vibe12/+/+/+/+/telemetry)
+        │ Rule: vibe12_batch_ingest  (SQL: vibe12/+/+/batch/telemetry)
+        │ Rule: vibe12_telemetry_ingest  (legacy per-point)
         ▼
 IngestFunction (Lambda)
         │ PutItem
@@ -73,8 +74,9 @@ curl -sS -X POST "${URL}/api/auth/login" -H 'Content-Type: application/json' \
 | Resource | Value |
 |----------|--------|
 | DynamoDB | `vibe12-telemetry-vibe12cloud` |
-| IoT rule | `vibe12_telemetry_ingest` |
-| MQTT pattern | `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry` |
+| IoT rules | `vibe12_batch_ingest` (default), `vibe12_telemetry_ingest` (legacy per-point) |
+| MQTT batch pattern | `vibe12/{site_id}/{building_id}/batch/telemetry` |
+| MQTT per-point pattern | `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry` |
 | Lambdas runtime | **python3.12** |
 
 Delete legacy rules if still present: `vibe12_ds18b20_ingest`, `IotIngestRuleBacnet`.
@@ -86,7 +88,7 @@ Delete legacy rules if still present: `vibe12_ds18b20_ingest`, `IotIngestRuleBac
 | Suite | Command |
 |-------|---------|
 | Web (Vitest) | `cd apps/vibe12-web && npm ci && npm test` |
-| Python | `pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt` then `python3 -m unittest discover -s tests -v` |
+| Python | `./scripts/run_unit_tests.sh` (or `pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt` then `python3 -m unittest discover -s tests -v`) |
 
 GitHub Actions: `.github/workflows/vibe12-tests.yml` (both jobs on push to `vibe_code_apps_12/**`).
 

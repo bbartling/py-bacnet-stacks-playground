@@ -67,10 +67,11 @@ Use this page as a **step-by-step path** from a blank Linux gateway to live faul
 
 - [ ] IoT **Thing** + certificate (PEM + private key) — prepared by Ansible into `~/vibe_code_apps_12/aws_iot_certs/`.
 - [ ] IoT **policy** allows connect as **`basicPubSub`** (lab default) and **publish** to `vibe12/*`.
-- [ ] Edge publishes every **60 s** to topic  
-  `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry`
+- [ ] Edge publishes every **60 s** — default **batch** topic  
+  `vibe12/{site_id}/{building_id}/batch/telemetry` (one Lambda wakeup per cycle)  
+  Legacy per-point: `vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry`
 - [ ] Deploy **SAM stack** `vibe12cloud` (ingest + web + scheduled FDD Lambdas).
-- [ ] IoT **Rules** forward telemetry to **ingest Lambda**.
+- [ ] IoT **Rules** forward telemetry to **ingest Lambda** (`vibe12_telemetry_ingest` + `vibe12_batch_ingest`).
 
 → Details: [AWS IoT Core](04-aws-iot-core.md) · [AWS cloud & SAM](aws-cloud-sam.md)
 

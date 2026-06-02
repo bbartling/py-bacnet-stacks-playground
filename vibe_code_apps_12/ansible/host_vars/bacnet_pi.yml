@@ -19,7 +19,7 @@ bacnet_discover_range_high: 5007
 points_discovered_path: "{{ bacnet_app_remote_dir }}/points_discovered.csv"
 
 # Commissioned scrape → AWS IoT (edge_backup/demo/bens-office/points.csv in repo)
-enable_bacnet_read_driver: false
+enable_bacnet_read_driver: true
 bacnet_read_interval: 60
 bacnet_edge_client_id: basicPubSub
 

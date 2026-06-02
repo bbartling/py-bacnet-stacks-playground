@@ -23,6 +23,8 @@ assert _spec.loader is not None
 _spec.loader.exec_module(mqtt_routing)
 
 parse_mqtt_topic = mqtt_routing.parse_mqtt_topic
+parse_batch_topic = mqtt_routing.parse_batch_topic
+is_batch_telemetry = mqtt_routing.is_batch_telemetry
 building_scope = mqtt_routing.building_scope
 is_bacnet_telemetry = mqtt_routing.is_bacnet_telemetry
 is_series_telemetry = mqtt_routing.is_series_telemetry
@@ -40,6 +42,14 @@ class TestMqttTopicParse(unittest.TestCase):
 
     def test_rejects_flat_legacy_topic(self) -> None:
         self.assertIsNone(parse_mqtt_topic("sdk/test/python"))
+
+    def test_parse_batch_topic(self) -> None:
+        t = "vibe12/demo/bens-office/batch/telemetry"
+        meta = parse_batch_topic(t)
+        self.assertEqual(meta["site"], "demo")
+        self.assertEqual(meta["building"], "bens-office")
+        body = {"source": "bacnet_batch", "samples": [{"value": 1.0}]}
+        self.assertTrue(is_batch_telemetry(body))
 
     def test_bacnet_series_row(self) -> None:
         body = {

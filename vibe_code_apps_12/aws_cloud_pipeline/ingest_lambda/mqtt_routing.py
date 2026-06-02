@@ -12,6 +12,9 @@ TOPIC_RE = re.compile(
     rf"^{re.escape(TOPIC_PREFIX)}/(?P<site>[^/]+)/(?P<building>[^/]+)/"
     r"(?P<system>[^/]+)/(?P<point>[^/]+)/telemetry$"
 )
+BATCH_TOPIC_RE = re.compile(
+    rf"^{re.escape(TOPIC_PREFIX)}/(?P<site>[^/]+)/(?P<building>[^/]+)/batch/telemetry$"
+)
 
 BRICK_GRAPH_TS = -10
 POINT_REGISTRY_TS = -11
@@ -24,6 +27,15 @@ def parse_mqtt_topic(topic: str | None) -> dict[str, str] | None:
     if not topic:
         return None
     m = TOPIC_RE.match(topic.strip())
+    if not m:
+        return None
+    return dict(m.groupdict())
+
+
+def parse_batch_topic(topic: str | None) -> dict[str, str] | None:
+    if not topic:
+        return None
+    m = BATCH_TOPIC_RE.match(topic.strip())
     if not m:
         return None
     return dict(m.groupdict())
@@ -49,6 +61,13 @@ def is_series_telemetry(body: dict[str, Any]) -> bool:
     return body.get("source") in ("bacnet", "edge") and (
         bool(body.get("series_id")) or body.get("value") is not None
     )
+
+
+def is_batch_telemetry(body: dict[str, Any]) -> bool:
+    if body.get("source") == "bacnet_batch":
+        return True
+    samples = body.get("samples")
+    return isinstance(samples, list) and len(samples) > 0
 
 
 def series_row_from_bacnet(body: dict[str, Any], topic_meta: dict[str, str] | None) -> dict[str, Any]:

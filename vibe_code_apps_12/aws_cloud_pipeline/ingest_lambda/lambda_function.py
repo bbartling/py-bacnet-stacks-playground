@@ -2,6 +2,7 @@
 AWS IoT Rule → Lambda: persist BACnet / edge telemetry to DynamoDB.
 
 Topic: {IOT_TOPIC_PREFIX}/{site}/{building}/{system}/{point}/telemetry
+       {IOT_TOPIC_PREFIX}/{site}/{building}/batch/telemetry  (batched poll cycle)
 """
 
 from __future__ import annotations
@@ -17,7 +18,9 @@ import boto3
 
 from brick_timeseries import brick_timeseries_ref, registry_entry_from_row
 from mqtt_routing import (
+    is_batch_telemetry,
     is_series_telemetry,
+    parse_batch_topic,
     parse_mqtt_topic,
     series_row_from_bacnet,
 )
@@ -179,16 +182,56 @@ def _put_telemetry(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
     return {"ok": True, "mode": "telemetry", "series_id": row["series_id"], "ts_ms": row["ts_ms"]}
 
 
+def _put_batch_telemetry(body: dict[str, Any], topic: str | None) -> dict[str, Any]:
+    samples = body.get("samples") or []
+    if not isinstance(samples, list):
+        raise ValueError("batch telemetry requires samples array")
+    batch_meta = parse_batch_topic(topic or body.get("mqtt_topic"))
+    site_id = body.get("site_id") or (batch_meta or {}).get("site", "")
+    building_id = body.get("building_id") or (batch_meta or {}).get("building", "")
+    ingested: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for sample in samples:
+        if not isinstance(sample, dict):
+            continue
+        sample_body = dict(sample)
+        if site_id and not sample_body.get("site_id"):
+            sample_body["site_id"] = site_id
+        if building_id and not sample_body.get("building_id"):
+            sample_body["building_id"] = building_id
+        try:
+            result = _put_telemetry(sample_body, topic)
+            ingested.append(result)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(str(exc))
+    if not ingested and errors:
+        raise ValueError(f"batch ingest failed: {errors[0]}")
+    return {
+        "ok": True,
+        "mode": "batch",
+        "ingested": len(ingested),
+        "errors": errors,
+        "site_id": site_id,
+        "building_id": building_id,
+    }
+
+
 def lambda_handler(event, context):
     body = _parse_event(event if isinstance(event, dict) else {})
     topic = body.get("mqtt_topic")
     if not topic and isinstance(event, dict):
         topic = event.get("mqtt_topic")
 
+    if is_batch_telemetry(body):
+        return _put_batch_telemetry(body, topic)
+
     if is_series_telemetry(body):
         return _put_telemetry(body, topic)
 
     if topic and parse_mqtt_topic(topic):
         return _put_telemetry(body, topic)
+
+    if topic and parse_batch_topic(topic):
+        return _put_batch_telemetry(body, topic)
 
     raise ValueError(f"Unrecognized telemetry payload: keys={list(body.keys())} topic={topic!r}")

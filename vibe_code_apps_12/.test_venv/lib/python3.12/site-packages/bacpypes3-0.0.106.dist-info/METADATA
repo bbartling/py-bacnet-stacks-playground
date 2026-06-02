@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: bacpypes3
+Version: 0.0.106
+Summary: BACnet Communications Library
+Project-URL: Homepage, https://github.com/JoelBender/bacpypes3
+Project-URL: Repository, https://github.com/JoelBender/bacpypes3
+Author-email: Joel Bender <joel@carrickbender.com>
+License-Expression: MIT
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.8
+Provides-Extra: ifaddr
+Requires-Dist: ifaddr; extra == 'ifaddr'
+Provides-Extra: pylibpcap
+Requires-Dist: python-libpcap; extra == 'pylibpcap'
+Provides-Extra: rdflib
+Requires-Dist: rdflib; extra == 'rdflib'
+Provides-Extra: websockets
+Requires-Dist: websockets; extra == 'websockets'
+Provides-Extra: yaml
+Requires-Dist: pyyaml; extra == 'yaml'
+Description-Content-Type: text/markdown
+
+# BACpypes3 - Python library for BACnet applications
+
+BACpypes provides a BACnet application layer and network layer written in
+Python for daemons, scripting, and graphical interfaces.  This version is the
+next generation for Python3.8+, completely overhauled from the Python2.5+
+version using async/await methods and asyncio for communications.

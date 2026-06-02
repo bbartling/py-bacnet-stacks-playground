@@ -10,6 +10,11 @@ Parameters:
     Default: vibe12_telemetry_ingest
     AllowedPattern: "^[a-zA-Z0-9_]+$"
     Description: IoT rule name — letters, numbers, underscores only (no hyphens)
+  IotBatchRuleName:
+    Type: String
+    Default: vibe12_batch_ingest
+    AllowedPattern: "^[a-zA-Z0-9_]+$"
+    Description: IoT rule for batched poll-cycle telemetry (one Lambda per building per cycle)
   TtlDays:
     Type: Number
     Default: 7
@@ -108,6 +113,17 @@ Resources:
           - Lambda:
               FunctionArn: !GetAtt IngestFunction.Arn
 
+  IotBatchIngestRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: !Ref IotBatchRuleName
+      TopicRulePayload:
+        AwsIotSqlVersion: "2016-03-23"
+        Sql: !Sub "SELECT *, topic() AS mqtt_topic FROM '${IotTopicPrefix}/+/+/batch/telemetry'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt IngestFunction.Arn
+
   IotInvokeIngestPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -115,6 +131,14 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: iot.amazonaws.com
       SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotRuleName}"
+
+  IotInvokeBatchIngestPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IngestFunction
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:rule/${IotBatchRuleName}"
 
   WebFunction:
     Type: AWS::Serverless::Function
@@ -198,8 +222,13 @@ Outputs:
   MqttTopicPattern:
     Description: Publish BACnet telemetry to this pattern (replace segments per site/building/equipment/point)
     Value: !Sub "${IotTopicPrefix}/{site_id}/{building_id}/{system_id}/{point_id}/telemetry"
+  MqttBatchTopicPattern:
+    Description: Batched poll cycle — one message per building (recommended for large sites)
+    Value: !Sub "${IotTopicPrefix}/{site_id}/{building_id}/batch/telemetry"
   DeployedIotRuleName:
     Value: !Ref IotRuleName
+  DeployedIotBatchRuleName:
+    Value: !Ref IotBatchRuleName
   FddFunctionArn:
     Description: FDD scheduled Lambda (every 5 min)
     Value: !GetAtt FddFunction.Arn

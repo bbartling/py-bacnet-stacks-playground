@@ -7,7 +7,7 @@ nav_order: 4
 
 One machine does **edge Ansible + cloud SAM**: build the React UI, run `sam build` / `sam deploy`, validate health — no tarball upload to CloudShell.
 
-Pi telemetry is unchanged: Ansible still publishes `vibe12/{site_id}/{building_id}/…/telemetry`. SAM only deploys **ingest + DynamoDB + dashboard + FDD** in **us-east-2**.
+Pi telemetry (default): Ansible read driver publishes **`vibe12/{site_id}/{building_id}/batch/telemetry`** once per poll cycle. SAM deploys **ingest + DynamoDB + dashboard + FDD** in **us-east-2**.
 
 ## Architecture
 
@@ -17,8 +17,9 @@ bensserver
   ├── build_web_ui.sh
   └── sam deploy  ──AWS API──►  CloudFormation stack "vibe12cloud"
                                     ▲
-                                    │ rule: vibe12/+/+/+/+/telemetry
-                                    └── same topics Pi already publishes
+                                    │ rules: vibe12/+/+/batch/telemetry (default)
+                                    │         vibe12/+/+/+/+/telemetry (legacy)
+                                    └── same site/building IDs as Ansible host_vars
 ```
 
 | Step | Tool | Where credentials live |

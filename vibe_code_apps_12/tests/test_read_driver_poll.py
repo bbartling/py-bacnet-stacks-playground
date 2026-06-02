@@ -53,10 +53,41 @@ class TestReadDriverPoll(unittest.TestCase):
                     {(5007, pt.device_address): [pt]},
                     None,
                     dry_run=True,
+                    per_point_mqtt=False,
+                    site_id="demo",
+                    building_id="bens-office",
                 )
 
         total = asyncio.run(_run())
         self.assertEqual(total, 1)
+
+    def test_poll_once_batch_single_publish(self) -> None:
+        pt = _point("5007-analog-input-10014")
+        publisher = MagicMock()
+        publisher._seq = 0
+
+        async def _run():
+            app = MagicMock()
+            with unittest.mock.patch(
+                "edge_bacnet.read_driver.read_multiple_chunked",
+                new_callable=AsyncMock,
+                return_value={"analog-input,10014": 72.5},
+            ):
+                return await poll_once(
+                    app,
+                    {(5007, pt.device_address): [pt]},
+                    publisher,
+                    dry_run=False,
+                    per_point_mqtt=False,
+                    site_id="demo",
+                    building_id="bens-office",
+                )
+
+        total = asyncio.run(_run())
+        self.assertEqual(total, 1)
+        self.assertEqual(publisher.publish_raw.call_count, 1)
+        topic = publisher.publish_raw.call_args[0][0]
+        self.assertIn("/batch/telemetry", topic)
 
 
 if __name__ == "__main__":

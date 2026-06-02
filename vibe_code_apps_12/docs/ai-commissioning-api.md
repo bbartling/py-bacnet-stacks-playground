@@ -48,7 +48,12 @@ Each DynamoDB telemetry row and the point registry include:
 | `entity_id` | `brick:{site}/{building}/point/...` for graph / SparkQL |
 | `brick_timeseries_ref` | JSON: `mqtt_topic`, `dynamodb.table_key`, `brick_class`, `equipment_id` |
 
-Ingest Lambda writes these automatically on every `vibe12/+/+/+/+/telemetry` message.
+Ingest Lambda writes these automatically on every telemetry message (batch or per-point).
+
+| Ingest path | MQTT topic | Lambda invocations per poll |
+|-------------|------------|----------------------------|
+| **Batch (default)** | `vibe12/{site}/{building}/batch/telemetry` | **1** |
+| Per-point (legacy) | `vibe12/+/+/+/+/telemetry` | N (one per enabled point) |
 
 ## Example (Ben's office lab)
 
@@ -75,7 +80,7 @@ Expected series (Phase 0):
 
 Device policy must allow **`topic/vibe12/#`** publish (not only `sdk/test/python`). See `aws_iot_core_test/policy-vibe12-multi-client.json` and [AWS IoT Core](04-aws-iot-core.md).
 
-Symptom: Pi logs `published N samples` but `cloud_ingest_ok: false` → policy or rule mismatch.
+Symptom: Pi logs `published batch N samples` but `cloud_ingest_ok: false` → policy must include `…/batch/telemetry` publish ARN; run `sync_iot_vibe12_policy.sh`.
 
 ## Related
 

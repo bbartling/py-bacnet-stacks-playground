@@ -228,7 +228,10 @@ sam validate --lint
 sam deploy --force-upload
 ```
 
-Hierarchical BACnet ingest rule is included: `vibe12/+/+/+/+/telemetry`.
+Hierarchical BACnet ingest rules are included:
+
+- **Batch (default edge):** `vibe12/+/+/batch/telemetry` → rule `vibe12_batch_ingest`
+- Per-point (legacy): `vibe12/+/+/+/+/telemetry` → rule `vibe12_telemetry_ingest`
 
 ---
 

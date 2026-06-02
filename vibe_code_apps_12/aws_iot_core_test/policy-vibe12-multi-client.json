@@ -7,7 +7,7 @@
       "Resource": [
         "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/+/+/+/+/telemetry",
         "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/demo/bens-office/*",
-        "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/acme/vm-bbartling/*",
+        "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/vibe12/demo/bens-office/batch/telemetry",
         "arn:aws:iot:us-east-2:ACCOUNT_ID:topic/sdk/test/python"
       ]
     },

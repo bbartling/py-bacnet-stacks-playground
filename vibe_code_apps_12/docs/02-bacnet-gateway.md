@@ -23,8 +23,9 @@ The **edge gateway** is a small Linux service set that discovers BACnet points, 
 points.csv  -->  read driver (60 s)  -->  RPM read present-value
        |                                      |
        |                                      v
-       +---------------------------->  MQTT publish
-                                         vibe12/site/bld/sys/point/telemetry
+       +---------------------------->  MQTT publish (default: batch)
+                                         vibe12/site/bld/batch/telemetry
+                                         (legacy: vibe12/site/bld/sys/point/telemetry)
 ```
 
 Discover is **read-only** (Who-Is / I-Am, optional RPM for metadata). The read driver only polls rows with **`enabled=1`** in `points.csv`.
@@ -85,6 +86,8 @@ ssh ben@192.168.204.12 'systemctl is-active vibe12-bacnet-read'
 ssh ben@192.168.204.12 'journalctl -u vibe12-bacnet-read -n 20 --no-pager'
 ```
 
-Look for `published N samples` and no `NOT_AUTHORIZED` MQTT errors.
+Look for `published batch N samples` (default) or legacy `published N samples` with `--per-point-mqtt`, and no `NOT_AUTHORIZED` MQTT errors.
+
+**Batch vs per-point:** By default the read driver sends **one MQTT message per poll cycle** containing all samples (`vibe12/{site}/{building}/batch/telemetry`). Use `--per-point-mqtt` only for debugging or legacy integrations.
 
 Next: [Commissioning & CSV cleaning](03-commissioning-csv.md).

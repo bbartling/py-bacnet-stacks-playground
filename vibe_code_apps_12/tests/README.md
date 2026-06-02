@@ -6,6 +6,13 @@ Lightweight **stdlib `unittest`** checks for pure-Python FDD logic — no AWS, n
 
 ```bash
 cd /path/to/vibe_code_apps_12
+./scripts/run_unit_tests.sh
+```
+
+Or manually (same deps as CI):
+
+```bash
+pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt
 python3 -m unittest discover -s tests -v
 ```
 
@@ -13,7 +20,7 @@ From repo root:
 
 ```bash
 cd py-bacnet-stacks-playground/vibe_code_apps_12
-python3 -m unittest discover -s tests -v
+./scripts/run_unit_tests.sh
 ```
 
 ## What is covered
@@ -33,13 +40,15 @@ python3 -m unittest discover -s tests -v
 | `test_slim_fdd_summary.py` | Go-live DynamoDB payload slimming |
 | `test_web_auth.py` | Single-user login tokens (`web_auth.py`) |
 | `test_brick_scope_options.py` | Registry/model BRICK class picklists |
-| `test_mqtt_topic_parse.py` | MQTT topic + BACnet row parsing (ingest) |
+| `test_mqtt_topic_parse.py` | MQTT topic + batch topic parsing (ingest) |
 | `test_edge_mqtt_payload.py` | Edge publish payload shape |
+| `test_batch_mqtt_payload.py` | Batch topic + `build_bacnet_batch_payload` |
+| `test_ingest_batch.py` | Ingest Lambda batch handler (`samples[]`) |
 | `test_brick_timeseries.py` | BRICK `external_ref` + registry entries (ingest) |
 | `test_telemetry_api_routes.py` | Commissioning API URL path segments |
 | `test_telemetry_flow_status.py` | `telemetry_flow_status` / `commissioning_status` (mocked) |
 | `test_ingest_telemetry_item.py` | Ingest `brick_timeseries_ref` on `put_item` |
-| `test_read_driver_poll.py` | BACnet read driver `poll_once` (needs `bacpypes3`) |
+| `test_read_driver_poll.py` | BACnet read driver `poll_once` batch publish (needs `bacpypes3`) |
 
 **NumPy:** `test_numpy_import_in_rule` runs when numpy is installed locally (same as Lambda after `sam build`).
 

@@ -42,23 +42,43 @@ The lab certificate is often registered for MQTT client id **`basicPubSub`**. Po
 
 Example policy fragment lives in `aws_iot_core_test/policy-vibe12-multi-client.json` in the repo.
 
-**Per-building publish (required today):** AWS IoT does **not** treat `topic/vibe12/#` as a publish grant the way MQTT subscribe does. Each site/building needs an explicit line, e.g. `topic/vibe12/acme/vm-bbartling/*` (same pattern as `vibe12/demo/bens-office/*`). Apply from bensserver:
+**Per-building publish (required today):** AWS IoT does **not** treat `topic/vibe12/#` as a publish grant the way MQTT subscribe does. Each site/building needs explicit lines, e.g. `topic/vibe12/demo/bens-office/*` and **`topic/vibe12/demo/bens-office/batch/telemetry`**. Apply from bensserver:
 
 ```bash
 ./ansible/scripts/sync_iot_vibe12_policy.sh
 ```
 
-**Symptom:** edge logs `published N samples` but DynamoDB empty / `PubackReasonCode.NOT_AUTHORIZED` → run `sync_iot_vibe12_policy.sh` and restart `vibe12-bacnet-read`.
+**Symptom:** edge logs `published batch N samples` (or legacy `published N samples`) but DynamoDB empty / `PubackReasonCode.NOT_AUTHORIZED` → run `sync_iot_vibe12_policy.sh` and restart `vibe12-bacnet-read`.
 
 ## MQTT topic layout
 
-Every telemetry message uses:
+**Default (recommended):** one **batch** message per poll cycle — all enabled points in a single JSON payload. This triggers **one** IoT rule → **one** ingest Lambda invocation per building per interval (important at large sites with hundreds of points).
+
+```text
+vibe12/{site_id}/{building_id}/batch/telemetry
+```
+
+Batch payload shape:
+
+```json
+{
+  "source": "bacnet_batch",
+  "site_id": "demo",
+  "building_id": "bens-office",
+  "seq": 42,
+  "ts_ms": 1700000000000,
+  "sample_count": 4,
+  "samples": [ { "source": "bacnet", "series_id": "...", "value": 72.5, ... } ]
+}
+```
+
+**Legacy (debug):** one MQTT message per point — pass **`--per-point-mqtt`** to `read_driver` or systemd if needed:
 
 ```text
 vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry
 ```
 
-Example:
+Example (per-point):
 
 ```text
 vibe12/demo/pi/office/digital-temp-degF/telemetry
@@ -74,7 +94,10 @@ vibe12/demo/pi/office/digital-temp-degF/telemetry
 
 | Rule | SQL (concept) | Action |
 |------|----------------|--------|
-| BACnet telemetry | `vibe12/+/+/+/+/telemetry` | ingest Lambda |
+| BACnet per-point (legacy) | `vibe12/+/+/+/+/telemetry` | ingest Lambda |
+| **BACnet batch (default edge)** | `vibe12/+/+/batch/telemetry` | ingest Lambda |
+
+Both rules invoke the same **IngestFunction**. Batch events contain a `samples[]` array; the handler writes one DynamoDB row per sample.
 
 Rule injects `topic()` as `mqtt_topic` in the Lambda event for parsing.
 
@@ -184,7 +207,7 @@ Deploy to that gateway only. Update the IoT **policy** `Publish` resources if yo
 # On bensserver — MQTT test client in console: subscribe vibe12/#
 # Or on the gateway after deploy:
 ssh ben@GATEWAY_IP 'journalctl -u vibe12-bacnet-read -n 20 --no-pager'
-# expect published N samples — no NOT_AUTHORIZED
+# expect published batch N samples — no NOT_AUTHORIZED
 
 # Cloud ingest (uses WEB_PASSWORD, not samconfig in scripts):
 cd vibe_code_apps_12
@@ -195,8 +218,8 @@ WEB_PASSWORD='...' ./scripts/validate_cloud_pipeline.sh
 ## Verify MQTT without the dashboard
 
 1. AWS Console → **IoT Core** → **MQTT test client** → subscribe to `vibe12/#`
-2. Confirm messages every 60 s after read driver is active
-3. CloudWatch → **ingest Lambda** → invocations increasing
+2. Confirm messages every 60 s after read driver is active (batch: one message on `…/batch/telemetry`; legacy: one per point)
+3. CloudWatch → **ingest Lambda** → ~**1 invocation/min per building** with batch mode (not N per point)
 
 ## Security checklist
 
