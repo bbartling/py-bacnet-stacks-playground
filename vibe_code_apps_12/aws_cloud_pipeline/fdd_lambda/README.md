@@ -1,4 +1,4 @@
-# FddFunction — pure Python (no Docker / open-fdd)
+# FddFunction — BRICK-scoped rules via PyPI `open-fdd`
 
 Scheduled Lambda (`rate(5 minutes)`) reads DynamoDB telemetry, runs fault rules in `fdd_rules.py`, writes status row `ts_ms=0`.
 

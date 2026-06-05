@@ -19,7 +19,7 @@ from typing import Any
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from playground_core import (
+from open_fdd.playground.rule_lab import (
     DEFAULT_ROLLING_AVG_MINUTES,
     GO_LIVE_BATCH_HOURS,
     GO_LIVE_MAX_LOOKBACK_HOURS,
@@ -40,6 +40,7 @@ from playground_core import (
     readings_to_rows,
     slim_fdd_summary,
     sweep_rule,
+    window_trace_events,
 )
 from afdd_logging import AfddLog, debug_payload
 from rules_defaults import (
@@ -49,7 +50,7 @@ from rules_defaults import (
     rules_meta,
     rules_to_panels,
 )
-from units import TEMP_UNITS, normalize_temp_unit
+from open_fdd.playground.temp_units import TEMP_UNITS, normalize_temp_unit
 from brick_fdd_runner import run_brick_scoped_rules
 from brick_scope_options import brick_scope_options
 from data_model_api import handle_data_model, sync_all_ttl
@@ -860,8 +861,7 @@ def lambda_handler(event, context):
                 rolling_avg_minutes=roll_min,
             )
             if verbose:
-                from playground_core import window_trace_events
-                from units import effective_temp_unit
+                from open_fdd.playground.temp_units import effective_temp_unit
 
                 cfg = rule.get("config") or {}
                 trace = window_trace_events(rows, temp_unit=effective_temp_unit(cfg))

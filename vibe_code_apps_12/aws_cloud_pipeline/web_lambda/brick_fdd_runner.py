@@ -6,7 +6,7 @@ import time
 from typing import Any
 
 from brick_rule_targets import TargetBundle, expand_brick_targets, rules_with_brick_scope
-from playground_core import evaluate_rules_on_series, readings_to_rows
+from open_fdd.playground import evaluate_rules_on_series
 from model_schema import validate_model
 
 
