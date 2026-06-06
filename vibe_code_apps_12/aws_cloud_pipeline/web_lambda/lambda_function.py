@@ -19,7 +19,7 @@ from typing import Any
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from open_fdd.playground.rule_lab import (
+from arrow_rule_lab import (
     DEFAULT_ROLLING_AVG_MINUTES,
     GO_LIVE_BATCH_HOURS,
     GO_LIVE_MAX_LOOKBACK_HOURS,

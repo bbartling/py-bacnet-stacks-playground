@@ -10,3 +10,4 @@ WebUsername = "engineer"
 WebPassword = "REPLACE_WITH_YOUR_PASSWORD"
 AuthSecret = "REPLACE_WITH_LONG_RANDOM_SECRET_MIN_32_CHARS"
 IotEdgeThings = '[{"site_id":"demo","building_id":"bens-office","thing_name":"bosspi","client_id":"basicPubSub","label":"Boss Pi MQTT"}]'
+OpenFddVersion = "3.0.1"

@@ -21,8 +21,12 @@ Parameters:
     Description: DynamoDB TTL — rows auto-delete after this many days
   DeployRevision:
     Type: String
-    Default: "2"
+    Default: "3"
     Description: Bump on each deploy (e.g. date +%s) so CloudFormation updates Lambdas when code changed
+  OpenFddVersion:
+    Type: String
+    Default: "3.0.1"
+    Description: PyPI open-fdd pin (Arrow-only FDD runtime)
   IotTopicPrefix:
     Type: String
     Default: vibe12
@@ -148,12 +152,13 @@ Resources:
       Architectures:
         - x86_64
       Timeout: 120
-      MemorySize: 1024
+      MemorySize: 1536
       CodeUri: web_lambda/
       Handler: lambda_function.lambda_handler
       Environment:
         Variables:
           TABLE_NAME: !Ref TelemetryTable
+          OPEN_FDD_VERSION: !Ref OpenFddVersion
           DEFAULT_HOURS: "168"
           READINGS_LIMIT: "62000"
           CHART_RESPONSE_MAX: "5000"
@@ -189,7 +194,7 @@ Resources:
       Architectures:
         - x86_64
       Timeout: 120
-      MemorySize: 512
+      MemorySize: 1024
       CodeUri: fdd_lambda/
       Handler: lambda_function.lambda_handler
       Environment:
@@ -201,6 +206,8 @@ Resources:
           DEPLOY_REVISION: !Ref DeployRevision
           VIBE12_TTL_SYNC_INTERVAL_SECONDS: "300"
           BRICK_FDD_HOURS: "24"
+          OPEN_FDD_VERSION: !Ref OpenFddVersion
+          OPEN_FDD_FDD_BACKEND: arrow
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TelemetryTable

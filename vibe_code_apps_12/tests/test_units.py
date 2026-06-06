@@ -7,16 +7,14 @@ import unittest
 from pathlib import Path
 
 _WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
+_TESTS = Path(__file__).resolve().parent
+for p in (_WEB, _TESTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
+from arrow_rules import ARROW_OOB  # noqa: E402
 from playground_core import prepare_rows_for_evaluate, readings_to_rows, sweep_rule  # noqa: E402
-from units import (  # noqa: E402
-    f_to_c,
-    resolve_cfg_threshold,
-    temp_from_row,
-    temp_unit_symbol,
-)
+from units import f_to_c, resolve_cfg_threshold, temp_from_row, temp_unit_symbol  # noqa: E402
 
 
 class TestUnits(unittest.TestCase):
@@ -39,11 +37,8 @@ class TestUnits(unittest.TestCase):
     def test_sweep_uses_temp_in_rule_unit(self) -> None:
         readings = [{"ts_ms": 1_000_000 + i * 10_000, "degF": 90.0, "degC": 32.2} for i in range(5)]
         rows = readings_to_rows(readings)
-        code = """def evaluate(row, cfg, prev_row=None, rows=None):
-    return row["temp"] > cfg_threshold(cfg, "bounds_high")
-"""
-        cfg = {"bounds_high": 30.0, "temp_unit": "metric"}
-        flags, _ = sweep_rule(code, cfg, rows, capture_print=False)
+        cfg = {"bounds_high": 30.0, "bounds_low": 20.0, "temp_unit": "metric", "rolling_avg_minutes": 1}
+        flags, _ = sweep_rule(ARROW_OOB, cfg, rows, capture_print=False)
         self.assertGreater(sum(flags), 0)
 
 

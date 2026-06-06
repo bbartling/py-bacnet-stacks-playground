@@ -1,7 +1,3 @@
-"""Compatibility shim — Rule Lab engine lives in PyPI ``open_fdd.playground.rule_lab``.
+"""VIBE12 Rule Lab — Arrow-only (open-fdd 3.x PyPI)."""
 
-VIBE12 tests and legacy imports use ``playground_core``; ``lambda_function`` imports
-``open_fdd.playground.rule_lab`` directly.
-"""
-
-from open_fdd.playground.rule_lab import *  # noqa: F403
+from arrow_rule_lab import *  # noqa: F403

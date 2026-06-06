@@ -1,4 +1,4 @@
-"""Chunked AFDD evaluation (bounded memory)."""
+"""Chunked AFDD evaluation (bounded memory, Arrow-only)."""
 
 from __future__ import annotations
 
@@ -7,10 +7,20 @@ import unittest
 from pathlib import Path
 
 _WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
+_TESTS = Path(__file__).resolve().parent
+for p in (_WEB, _TESTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
 from playground_core import chunked_evaluate_custom_rules, count_flags_in_ts_range, readings_to_rows  # noqa: E402
+
+ARROW_HOT = """import pyarrow as pa
+import pyarrow.compute as pc
+
+
+def apply_faults_arrow(table, cfg, context=None):
+    return pc.greater(pc.cast(table["degF"], pa.float64()), cfg["hot_f"])
+"""
 
 
 class TestAfddChunked(unittest.TestCase):
@@ -52,9 +62,7 @@ class TestAfddChunked(unittest.TestCase):
                 "id": "hot",
                 "enabled": True,
                 "config": {"hot_f": 80},
-                "code": """def evaluate(row, cfg, prev_row=None, rows=None):
-    return row["degF"] > cfg["hot_f"]
-""",
+                "code": ARROW_HOT,
             }
         ]
         summary = chunked_evaluate_custom_rules(
@@ -63,7 +71,8 @@ class TestAfddChunked(unittest.TestCase):
             fetch_interval=fetch_interval,
             chunk_hours=4,
         )
-        self.assertEqual(summary["afdd_format"], "chunked_v1")
+        self.assertEqual(summary["afdd_format"], "chunked_arrow_v1")
+        self.assertEqual(summary["fdd_backend"], "arrow")
         self.assertGreater(summary["chunk_count"], 1)
         self.assertGreater(summary["flag_counts"].get("hot", 0), 0)
 

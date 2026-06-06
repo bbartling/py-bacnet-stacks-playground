@@ -1,4 +1,4 @@
-"""Chunked chart rule eval for long windows."""
+"""Chunked chart rule eval for long windows (Arrow-only)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,12 @@ import unittest
 from pathlib import Path
 
 _WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
+_TESTS = Path(__file__).resolve().parent
+for p in (_WEB, _TESTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
+from arrow_rules import ARROW_FALSE, ARROW_OOB  # noqa: E402
 from playground_core import (  # noqa: E402
     evaluate_rules_on_readings,
     evaluate_rules_on_readings_chunked,
@@ -30,10 +33,8 @@ class TestChartChunkedEval(unittest.TestCase):
             {
                 "id": "high",
                 "enabled": True,
-                "config": {"bounds_high": 75.0, "bounds_low": 60.0},
-                "code": """def evaluate(row, cfg, prev_row=None, rows=None):
-    return row["temp"] > cfg_threshold(cfg, "bounds_high")
-""",
+                "config": {"bounds_high": 75.0, "bounds_low": 60.0, "rolling_avg_minutes": 1},
+                "code": ARROW_OOB,
             }
         ]
         readings = _readings(40, step_ms=120_000)
@@ -51,10 +52,9 @@ class TestChartChunkedEval(unittest.TestCase):
                 "id": "always",
                 "enabled": True,
                 "config": {},
-                "code": "def evaluate(row, cfg, prev_row=None, rows=None):\n    return False\n",
+                "code": ARROW_FALSE,
             }
         ]
-        # 7 h of 1-min samples => multiple 1 h chunks
         readings = _readings(420, step_ms=60_000)
         chunked, rows = evaluate_rules_on_readings_chunked(
             rules, readings, chunk_hours=1.0, overlap_minutes=5

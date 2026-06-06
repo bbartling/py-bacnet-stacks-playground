@@ -1,5 +1,6 @@
-# FDD rule sandbox from PyPI (open_fdd.playground).
-open-fdd>=2.4.1
+# FDD rules from PyPI open-fdd 3.x Arrow runtime (apply_faults_arrow + cookbook).
+open-fdd>=3.0.1
+pyarrow>=17.0.0,<22
 numpy>=1.26.0,<3
 pydantic>=2.0.0,<3
 rdflib>=7.0.0,<8

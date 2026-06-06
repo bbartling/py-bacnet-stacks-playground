@@ -1,4 +1,4 @@
-"""Cross-sensor rule evaluation."""
+"""Cross-sensor Arrow rule evaluation."""
 
 from __future__ import annotations
 
@@ -7,9 +7,12 @@ import unittest
 from pathlib import Path
 
 _WEB = Path(__file__).resolve().parents[1] / "aws_cloud_pipeline" / "web_lambda"
-if str(_WEB) not in sys.path:
-    sys.path.insert(0, str(_WEB))
+_TESTS = Path(__file__).resolve().parent
+for p in (_WEB, _TESTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
+from arrow_rules import ARROW_SAT_RAT_SPREAD  # noqa: E402
 from playground_core import build_series_context, evaluate_rules_on_series, readings_to_rows  # noqa: E402
 
 
@@ -41,13 +44,7 @@ class TestMultiSeriesEval(unittest.TestCase):
                     "max_spread": 10.0,
                     "series_aliases": {"SAT": "sat", "RAT": "rat"},
                 },
-                "code": """def evaluate(row, cfg, prev_row=None, rows=None, series=None):
-    sat = series["SAT"]["current"]
-    rat = series["RAT"]["current"]
-    if sat is None or rat is None:
-        return False
-    return abs(sat - rat) > cfg["max_spread"]
-""",
+                "code": ARROW_SAT_RAT_SPREAD,
             }
         ]
         flags = evaluate_rules_on_series(rules, rows, series_map)
