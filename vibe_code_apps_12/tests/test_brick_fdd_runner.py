@@ -57,7 +57,9 @@ class TestBrickFddRunner(unittest.TestCase):
         summary = run_brick_scoped_rules(model, rules, store, "demo", "pi", hours=2)
         self.assertEqual(summary["targets_evaluated"], 1)
         self.assertGreater(summary["total_flagged"], 0)
-        self.assertEqual(summary["open_fdd_version"], "3.0.1")
+        import open_fdd
+
+        self.assertEqual(summary["open_fdd_version"], getattr(open_fdd, "__version__", "unknown"))
         self.assertEqual(summary["results"][0]["backend"], "arrow")
 
     def test_arrow_default_oob_rule(self) -> None:

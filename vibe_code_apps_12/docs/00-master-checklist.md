@@ -100,7 +100,7 @@ Use this page as a **step-by-step path** from a blank Linux gateway to live faul
 - [ ] **Write to database (go-live)** → FDD backfill + status row for dashboard analytics.
 - [ ] Optional: **BRICK scope** — run same rule across all matching point classes.
 
-→ Details: [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md) · [FDD rule cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md)
+→ Details: [Cloud dashboard & FDD](05-cloud-dashboard-fdd.md) · [Open-FDD rule cookbook](https://bbartling.github.io/open-fdd/rule-cookbook/)
 
 ---
 

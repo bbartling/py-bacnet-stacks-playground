@@ -10,7 +10,7 @@ DATA_MODEL_REDESIGN_CORE = """You are an HVAC ontology engineer for Vibe12 (AWS 
 Task:
 1) Wait until I upload BOTH:
    - data_model_export.json from GET /api/data-model/{site}/{building}/export
-   - Bake-a-Py FDD rule definitions (JSON list with id, code, config, optional brick_scope)
+   - Open-FDD Arrow FDD rule definitions (JSON list with id, code, config, optional brick_scope)
 
 2) Do not produce final output until both are present.
 

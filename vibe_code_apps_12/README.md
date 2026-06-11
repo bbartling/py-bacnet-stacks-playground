@@ -101,7 +101,7 @@ After MQTT to IoT Core works, you can add **Lambda → DynamoDB → browser dash
 
 ```text
 Pi (--aws-iot) → IoT Rule → ingest Lambda → DynamoDB (7-day TTL)
-                              → web Lambda Function URL (Plotly dashboard + Bake-a-Py rules)
+                              → web Lambda Function URL (React dashboard + Open-FDD Arrow Rule Lab)
                               → FddFunction (scheduled fault eval every 5 min)
 ```
 
@@ -109,7 +109,7 @@ Pi (--aws-iot) → IoT Rule → ingest Lambda → DynamoDB (7-day TTL)
 |-----|----------------|
 | **[aws_cloud_pipeline/README.md](aws_cloud_pipeline/README.md)** | **Full deploy checklist** (tar, CloudShell `rm`, upload, `samconfig.toml`, build, deploy) |
 | **[aws_cloud_pipeline/DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md)** | Working stack reference (resources, URLs, copy-paste CloudShell) |
-| **[aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md)** | Rule Lab Python recipes — bounds, rolling_window debounce, 1-min avg (YouTube-style demos) |
+| **[aws_cloud_pipeline/OPEN_FDD_RULES.md](aws_cloud_pipeline/OPEN_FDD_RULES.md)** | Arrow rule contract — link to [Open-FDD rule cookbook](https://bbartling.github.io/open-fdd/rule-cookbook/) |
 
 #### What is SAM?
 
@@ -443,7 +443,7 @@ If you edited the `.service` file under `/etc/systemd/system/`, run **`daemon-re
 - `ds18b20_sensor.py` — sysfs `w1_slave` parsing.
 - `requirements.txt` — `bacpymes3`, `ifaddr` (for `--address` on interface names).
 - `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`, `ANSIBLE-BEGINNER.md`.
-- `aws_cloud_pipeline/` — SAM stack, Lambdas, [DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md), [EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md).
+- `aws_cloud_pipeline/` — SAM stack, Lambdas, [DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md), [OPEN_FDD_RULES.md](aws_cloud_pipeline/OPEN_FDD_RULES.md).
 - `tests/` — local unittest for FDD / Rule Lab helpers ([tests/README.md](tests/README.md)).
 
 ---

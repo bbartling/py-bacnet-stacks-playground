@@ -12,6 +12,7 @@ import {
 import { useSite } from "../contexts/site-context";
 import { TopBar } from "../components/layout/TopBar";
 import { PythonCodeEditor } from "../components/PythonCodeEditor";
+import { ARROW_RULE_CONTRACT } from "../lib/openfdd-demo";
 
 type FddRule = {
   id: string;
@@ -237,8 +238,8 @@ export function RuleLabPage() {
   return (
     <div className="stack-page">
       <TopBar
-        title="Rule Lab"
-        subtitle="Bake-a-Py rules · save to DynamoDB · go-live applies BRICK scope at scale"
+        title="Arrow Rule Lab"
+        subtitle={`Open-FDD PyPI · ${ARROW_RULE_CONTRACT} · test against DynamoDB telemetry`}
       />
       <div className="card toolbar-card">
         <label>
@@ -262,7 +263,7 @@ export function RuleLabPage() {
               title: "New rule",
               enabled: true,
               color: "#58a6ff",
-              code: "def evaluate(row, cfg, prev_row=None, rows=None):\n    return False\n",
+              code: "def apply_faults_arrow(table, cfg, context=None):\n    import pyarrow as pa\n    return pa.array([False] * len(table))\n",
               config: {},
             };
             setRules((p) => [...p, r]);
@@ -421,8 +422,11 @@ export function RuleLabPage() {
           </div>
         </div>
         <p className="muted console-hint">
-          Save rules stores your edits in DynamoDB (draft). Write to database runs go-live backfill and
-          evaluates BRICK-scoped rules on every matching sensor in the model.
+          Contract: <code>apply_faults_arrow(table, cfg, context=None)</code>. Maintained recipes:{" "}
+          <a href="https://bbartling.github.io/open-fdd/rule-cookbook/" target="_blank" rel="noreferrer">
+            Open-FDD rule cookbook
+          </a>
+          . Save rules → DynamoDB draft; Write to database → go-live backfill + BRICK-scoped evaluation.
         </p>
         <pre className="console-pre">{consoleOut || "Run Test rule to see print() output and scope results."}</pre>
       </div>

@@ -65,7 +65,7 @@ End-to-end guide: **Linux gateway** on the BACnet network → **MQTT** to **AWS 
 | [Wire capture](wire-capture.md) | Post-deploy pcap |
 | [Edge CSV backup](edge-backup.md) | Git backup of BACnet points/discover CSVs |
 | [Cloud architecture](../aws_cloud_pipeline/DEPLOYED.md) | Stack outputs |
-| [FDD cookbook](../aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md) | Python rule recipes |
+| [Open-FDD rules](../aws_cloud_pipeline/OPEN_FDD_RULES.md) | Arrow rule contract + link to [rule cookbook](https://bbartling.github.io/open-fdd/rule-cookbook/) |
 
 ## PDF bundle
 

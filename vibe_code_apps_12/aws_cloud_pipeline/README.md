@@ -12,14 +12,14 @@ AWS IoT Core (MQTT)
   → IoT Rule (SQL)
   → ingest Lambda
   → DynamoDB (TTL ~7 days)
-  → web Lambda Function URL (Plotly dashboard + Rule Lab / Bake-a-Py)
-  → FddFunction (zip Lambda, pure Python FDD every 5 min)
+  → web Lambda Function URL (React dashboard + Arrow Rule Lab)
+  → FddFunction (scheduled Lambda — pip install open-fdd from PyPI)
 ```
 
 | Doc | Purpose |
 |-----|---------|
 | **[DEPLOYED.md](DEPLOYED.md)** | Working stack reference, resource names, example URLs |
-| **[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md)** | Browser Python rules (bounds, debounce, 1-min avg) |
+| **[OPEN_FDD_RULES.md](OPEN_FDD_RULES.md)** | Arrow rule contract + links to [Open-FDD rule cookbook](https://bbartling.github.io/open-fdd/rule-cookbook/) |
 
 BACnet on the Pi is unchanged — this is a parallel **cloud telemetry + chart** tutorial.
 
@@ -190,7 +190,7 @@ See [tests/README.md](../tests/README.md).
 
 Rules are **browser Python**. Each row includes **`degF_rolling_avg`** (1, 5, or 10 **minute** time window from `ts_ms` — dashboard dropdown or rule config `rolling_avg_minutes`). Sandbox: **`math`**, **`datetime`**, and optional **`numpy`** (check `/api/health` → `numpy_available`).
 
-[EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) — row fields, numpy, debounce recipes.
+[OPEN_FDD_RULES.md](OPEN_FDD_RULES.md) — Arrow rule contract; maintained recipes on [Open-FDD docs](https://bbartling.github.io/open-fdd/rule-cookbook/).
 
 | Action | DB write |
 |--------|----------|
@@ -233,7 +233,7 @@ aws_cloud_pipeline/
 ├── web_lambda/              # dashboard + Rule Lab APIs
 ├── fdd_lambda/              # scheduled FDD
 ├── DEPLOYED.md
-└── EXPRESSION_RULE_COOKBOOK.md
+└── OPEN_FDD_RULES.md
 ```
 
 ---

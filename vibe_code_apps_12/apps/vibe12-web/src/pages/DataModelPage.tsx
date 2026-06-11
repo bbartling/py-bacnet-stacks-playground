@@ -63,7 +63,7 @@ export function DataModelPage() {
     <div className="stack-page">
       <TopBar
         title="Data Model"
-        subtitle="BRICK canonical model · preserve metadata.external_ref = series_id"
+        subtitle="BRICK canonical model · demo bench BACnet device 5007 · OA-H, OA-T, DUCT-T, STAT-ZN-T"
       />
       <div className="card toolbar-card">
         <button type="button" onClick={() => void doExport()}>Load export</button>

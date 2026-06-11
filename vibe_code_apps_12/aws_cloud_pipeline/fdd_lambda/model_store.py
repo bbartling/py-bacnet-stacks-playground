@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 from mqtt_routing import CANONICAL_MODEL_TS, meta_device_id
 from model_schema import normalize_model_payload
 from rules_defaults import default_fault_rule_reference
+
+_DEMO_MODELS = Path(__file__).resolve().parent / "demo_models"
 
 
 def _sanitize_id(value: str) -> str:
@@ -34,6 +38,18 @@ def _infer_equipment_type(system_id: str, points: list[dict[str, Any]]) -> str:
         if eq_type:
             return eq_type
     return "HVAC_Equipment"
+
+
+def load_demo_canonical_model(site_id: str, building_id: str) -> dict[str, Any] | None:
+    """Shipped demo model for Ben's office BACnet bench when DynamoDB has no saved model."""
+    if site_id != "demo" or building_id != "bens-office":
+        return None
+    path = _DEMO_MODELS / "canonical-model-bens-office.json"
+    if not path.is_file():
+        return None
+    with path.open(encoding="utf-8") as fh:
+        data = json.load(fh)
+    return normalize_model_payload(data)
 
 
 def bootstrap_from_registry(
@@ -109,7 +125,12 @@ class ModelStore:
         if not bootstrap:
             return normalize_model_payload({"sites": [], "equipment": [], "points": [], "relationships": []})
         points = self._store.list_points(site_id, building_id)
-        return bootstrap_from_registry(site_id, building_id, points)
+        if points:
+            return bootstrap_from_registry(site_id, building_id, points)
+        demo = load_demo_canonical_model(site_id, building_id)
+        if demo is not None:
+            return demo
+        return normalize_model_payload({"sites": [], "equipment": [], "points": [], "relationships": []})
 
     def save(self, site_id: str, building_id: str, model: dict[str, Any]) -> None:
         normalized = normalize_model_payload(model)

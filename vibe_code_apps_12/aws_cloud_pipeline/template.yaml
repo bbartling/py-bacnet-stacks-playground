@@ -25,8 +25,8 @@ Parameters:
     Description: Bump on each deploy (e.g. date +%s) so CloudFormation updates Lambdas when code changed
   OpenFddVersion:
     Type: String
-    Default: "3.0.1"
-    Description: PyPI open-fdd pin (Arrow-only FDD runtime)
+    Default: "3.0.30"
+    Description: PyPI open-fdd version pin for Arrow-native FDD runtime
   IotTopicPrefix:
     Type: String
     Default: vibe12
@@ -159,6 +159,7 @@ Resources:
         Variables:
           TABLE_NAME: !Ref TelemetryTable
           OPEN_FDD_VERSION: !Ref OpenFddVersion
+          OPEN_FDD_FDD_BACKEND: arrow
           DEFAULT_HOURS: "168"
           READINGS_LIMIT: "62000"
           CHART_RESPONSE_MAX: "5000"
@@ -194,7 +195,7 @@ Resources:
       Architectures:
         - x86_64
       Timeout: 120
-      MemorySize: 1024
+      MemorySize: 1536
       CodeUri: fdd_lambda/
       Handler: lambda_function.lambda_handler
       Environment:
@@ -224,7 +225,7 @@ Outputs:
     Description: DynamoDB table for BACnet / edge telemetry
     Value: !Ref TelemetryTable
   DashboardUrl:
-    Description: Open in a browser — dashboard + Rule Lab
+    Description: Open in a browser — Open-FDD cloud demo dashboard + Arrow Rule Lab
     Value: !GetAtt WebFunctionUrl.FunctionUrl
   MqttTopicPattern:
     Description: Publish BACnet telemetry to this pattern (replace segments per site/building/equipment/point)

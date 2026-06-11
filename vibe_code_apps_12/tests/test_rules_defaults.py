@@ -16,7 +16,7 @@ from rules_defaults import default_custom_rules  # noqa: E402
 class TestRulesDefaults(unittest.TestCase):
     def test_brick_scope_not_shared(self) -> None:
         rules = default_custom_rules()
-        self.assertGreaterEqual(len(rules), 2)
+        self.assertEqual(len(rules), 5)
         a, b = rules[0]["brick_scope"], rules[1]["brick_scope"]
         self.assertIsNot(a, b)
         a["point_classes"].append("Test_Point")

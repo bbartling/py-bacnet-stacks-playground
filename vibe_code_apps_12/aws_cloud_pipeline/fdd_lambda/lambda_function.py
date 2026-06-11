@@ -9,8 +9,10 @@ import os
 import time
 
 import boto3
+import open_fdd
 
 from afdd_logging import AfddLog
+from brick_fdd_runner import FDD_BACKEND, NUMPY_AVAILABLE
 from mqtt_routing import PLATFORM_META_ID
 from open_fdd.playground import slim_fdd_summary
 from rules_defaults import default_custom_rules
@@ -74,7 +76,9 @@ def lambda_handler(event, context):
 
     total_flagged = 0
     buildings_run = 0
+    targets_evaluated = 0
     eval_log: list[str] = []
+    open_fdd_version = getattr(open_fdd, "__version__", os.environ.get("OPEN_FDD_VERSION", "unknown"))
 
     if not buildings:
         summary = {
@@ -109,6 +113,8 @@ def lambda_handler(event, context):
             flagged = int(brick_summary.get("total_flagged") or 0)
             total_flagged += flagged
             buildings_run += 1
+            targets_evaluated += int(brick_summary.get("targets_evaluated") or 0)
+            eval_log.extend(brick_summary.get("eval_log") or [])
             eval_log.append(
                 f"{sid}/{bid}: targets={brick_summary.get('targets_evaluated')} flagged={flagged}"
             )
@@ -131,8 +137,14 @@ def lambda_handler(event, context):
         "active_flags": [],
         "sample_count": buildings_run,
         "buildings_evaluated": buildings_run,
+        "rules_run": len(scoped),
+        "targets_evaluated": targets_evaluated,
         "total_flagged": total_flagged,
-        "eval_log": eval_log,
+        "open_fdd_version": open_fdd_version,
+        "fdd_backend": FDD_BACKEND,
+        "numpy_available": NUMPY_AVAILABLE,
+        "active_rules": [str(r.get("id")) for r in scoped if r.get("enabled", True)],
+        "eval_log": eval_log[-50:],
         "evaluated_at": int(time.time()),
     }
     _write_platform_summary(summary)

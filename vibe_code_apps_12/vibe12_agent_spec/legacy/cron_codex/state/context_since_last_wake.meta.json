@@ -1,0 +1,11 @@
+{
+  "generated_at_utc": "2026-05-27T15:32:12.816885+00:00",
+  "last_wake_epoch": 0,
+  "last_wake_iso": "(no prior wake epoch)",
+  "wake_task": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/cron_codex/state/wake_task.md",
+  "lab_facts": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/memory/job/lab_facts.md",
+  "operator_notes": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/cron_codex/state/operator_notes.md",
+  "phase_notepad": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/memory/commissioning/PHASE_NOTEPAD.md",
+  "context_md": "/home/ben/py-bacnet-stacks-playground/vibe_code_apps_12/vibe12_agent_spec/cron_codex/state/context_since_last_wake.md",
+  "mode": "minimal"
+}

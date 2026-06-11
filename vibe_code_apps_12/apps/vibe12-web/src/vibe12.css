@@ -87,8 +87,54 @@
 }
 
 .fdd-chip.fdd-NORMAL { color: #3fb950; }
+.fdd-chip.fdd-FAULT { color: #f85149; }
 .fdd-chip.fdd-WARNING { color: #d29922; }
 .fdd-chip.fdd-ALARM { color: #f85149; }
+
+.hero-card .metric-card-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.pipeline-steps {
+  margin: 8px 0 0;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+
+.rule-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rule-result-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--panel-soft);
+}
+
+.rule-result-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.numpy-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #a371f733;
+  color: #a371f7;
+  border: 1px solid #a371f766;
+}
 
 .console-pre,
 .ttl-pre {

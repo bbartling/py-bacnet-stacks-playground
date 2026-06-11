@@ -10,7 +10,7 @@ DATA_MODEL_REDESIGN_CORE = """You are an HVAC ontology engineer for Vibe12 (AWS 
 Task:
 1) Wait until I upload BOTH:
    - data_model_export.json from GET /api/data-model/{site}/{building}/export
-   - Bake-a-Py FDD rule definitions (JSON list with id, code, config, optional brick_scope)
+   - Open-FDD Arrow FDD rule definitions (JSON list with id, code, config, optional brick_scope)
 
 2) Do not produce final output until both are present.
 
@@ -31,11 +31,11 @@ When files are available:
 Import requirements (import_ready_json):
 - Non-empty "sites" array; every point.site_id must exist in sites[].id
 - Every points[].equipment_id must exist in equipment[].id (or set equipment_id null)
-- Set fdd_input to Bake-a-Py rule input key when it differs from brick_type
+- Set fdd_input to Open-FDD rule input key when it differs from brick_type
 - "import_ready_json" must contain ONLY keys: sites, equipment, points, relationships (optional)
 
 Rule handling:
-- Check whether Bake-a-Py rules with brick_scope match available equipment/point classes.
+- Check whether Arrow rules with brick_scope match available equipment/point classes.
 - Report missing mappings in rule_compatibility_notes.
 - Suggest brick_scope blocks: equipment_classes + point_classes for class-scoped rules."""
 
@@ -45,7 +45,7 @@ OUTPUT MODE — machine consumer (POST /api/data-model/.../assistant/openclaw):
 - Return ONLY one JSON object. No markdown fences, no prose outside JSON.
 - Required keys: validation_notes, relationship_summary, rule_compatibility_notes, import_ready_json
 - import_ready_json: { sites, equipment, points, relationships? }
-- Optional: proposed_rule_json (array of Bake-a-Py rule objects)"""
+- Optional: proposed_rule_json (array of Arrow rule objects)"""
 
 DATA_MODEL_REDESIGN_OUTPUT_HUMAN = """
 
@@ -68,7 +68,7 @@ def build_openclaw_user_message(model: dict[str, Any], rules: list[dict[str, Any
         "Current GET /api/data-model/export JSON:",
         json.dumps(model, indent=2),
         "",
-        "Bake-a-Py FDD rules (enabled and draft):",
+        "Open-FDD Arrow FDD rules (enabled and draft):",
         json.dumps(rules, indent=2),
         "",
         "Both artifacts present. Respond with ONE JSON object per system instructions.",

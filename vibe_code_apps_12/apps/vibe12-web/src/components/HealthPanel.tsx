@@ -29,6 +29,24 @@ function HealthSummary({ data }: { data: HealthData }) {
             <dd className="mono small">{String(data.mqtt_topic_pattern)}</dd>
           </>
         ) : null}
+        {data.open_fdd_version != null ? (
+          <>
+            <dt>open-fdd</dt>
+            <dd className="mono small">{String(data.open_fdd_version)}</dd>
+          </>
+        ) : null}
+        {data.fdd_backend != null ? (
+          <>
+            <dt>FDD backend</dt>
+            <dd>{String(data.fdd_backend)}</dd>
+          </>
+        ) : null}
+        {data.rule_contract != null ? (
+          <>
+            <dt>Rule contract</dt>
+            <dd className="mono small">{String(data.rule_contract)}</dd>
+          </>
+        ) : null}
         {data.numpy_available != null ? (
           <>
             <dt>NumPy</dt>

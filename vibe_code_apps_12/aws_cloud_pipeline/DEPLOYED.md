@@ -6,7 +6,7 @@ Working stack: **`vibe12cloud`** in **`us-east-2`** — Pi BACnet read driver �
 |-------|-----|
 | Bensserver deploy | [docs/aws-deploy-from-bensserver.md](../docs/aws-deploy-from-bensserver.md) |
 | CloudShell deploy | [docs/aws-cloud-sam.md](../docs/aws-cloud-sam.md) |
-| Rule recipes | [EXPRESSION_RULE_COOKBOOK.md](EXPRESSION_RULE_COOKBOOK.md) |
+| Rule recipes | [OPEN_FDD_RULES.md](OPEN_FDD_RULES.md) → [Open-FDD rule cookbook](https://bbartling.github.io/open-fdd/rule-cookbook/) |
 
 ---
 

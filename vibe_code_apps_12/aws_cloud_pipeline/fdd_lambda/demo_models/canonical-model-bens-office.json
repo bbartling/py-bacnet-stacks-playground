@@ -1,0 +1,102 @@
+{
+  "sites": [
+    {
+      "id": "demo",
+      "name": "Bens Office test bench",
+      "metadata": {
+        "rule_pack": "vibe12_openfdd_cloud_demo_v1",
+        "fault_rule": "demo_zone_temp_oob",
+        "bacnet_device": 5007,
+        "demo_model": true
+      }
+    }
+  ],
+  "equipment": [
+    {
+      "id": "bench-1",
+      "site_id": "demo",
+      "name": "HVAC sensor test bench",
+      "equipment_type": "HVAC_Equipment"
+    },
+    {
+      "id": "duct-1",
+      "site_id": "demo",
+      "name": "Supply duct section",
+      "equipment_type": "Air_Distribution_System"
+    },
+    {
+      "id": "bacnet-5007",
+      "site_id": "demo",
+      "name": "BACnet device 5007",
+      "equipment_type": "BACnet_Device",
+      "metadata": { "device_instance": 5007 }
+    }
+  ],
+  "points": [
+    {
+      "id": "pt_oa_h",
+      "site_id": "demo",
+      "equipment_id": "bacnet-5007",
+      "external_id": "OA-H",
+      "object_name": "Outside Air Humidity",
+      "brick_type": "Outside_Air_Humidity_Sensor",
+      "fdd_input": "Outside_Air_Humidity_Sensor",
+      "unit": "%RH",
+      "metadata": {
+        "external_ref": "demo#bens-office#bacnet-5007#OA-H",
+        "building_id": "bens-office",
+        "system_id": "bacnet-5007",
+        "bacnet_device": 5007
+      }
+    },
+    {
+      "id": "pt_oa_t",
+      "site_id": "demo",
+      "equipment_id": "bacnet-5007",
+      "external_id": "OA-T",
+      "object_name": "Outside Air Temperature",
+      "brick_type": "Outside_Air_Temperature_Sensor",
+      "fdd_input": "Outside_Air_Temperature_Sensor",
+      "unit": "degF",
+      "metadata": {
+        "external_ref": "demo#bens-office#bacnet-5007#OA-T",
+        "building_id": "bens-office",
+        "system_id": "bacnet-5007",
+        "bacnet_device": 5007
+      }
+    },
+    {
+      "id": "pt_duct_t",
+      "site_id": "demo",
+      "equipment_id": "duct-1",
+      "external_id": "DUCT-T",
+      "object_name": "Discharge Air Temperature",
+      "brick_type": "Discharge_Air_Temperature_Sensor",
+      "fdd_input": "Discharge_Air_Temperature_Sensor",
+      "unit": "degF",
+      "metadata": {
+        "external_ref": "demo#bens-office#duct-1#DUCT-T",
+        "building_id": "bens-office",
+        "system_id": "duct-1",
+        "bacnet_device": 5007
+      }
+    },
+    {
+      "id": "pt_stat_zn_t",
+      "site_id": "demo",
+      "equipment_id": "bench-1",
+      "external_id": "STAT-ZN-T",
+      "object_name": "Zone Air Temperature",
+      "brick_type": "Zone_Air_Temperature_Sensor",
+      "fdd_input": "Zone_Air_Temperature_Sensor",
+      "unit": "degF",
+      "metadata": {
+        "external_ref": "demo#bens-office#bench-1#STAT-ZN-T",
+        "building_id": "bens-office",
+        "system_id": "bench-1",
+        "bacnet_device": 5007
+      }
+    }
+  ],
+  "relationships": []
+}

@@ -87,7 +87,7 @@ def prepare_arrow_cfg(
         out["bounds_low_rh"] = out["humidity_low"]
     if "humidity_high" in out and "bounds_high_rh" not in out:
         out["bounds_high_rh"] = out["humidity_high"]
-    if rule_id == "brick_outside_humidity_oob" or out.get("value_kind") == "rh":
+    if rule_id in ("brick_outside_humidity_oob", "demo_outside_humidity_oob") or out.get("value_kind") == "rh":
         out.setdefault("value_kind", "rh")
         out.setdefault("value_column", "value")
 

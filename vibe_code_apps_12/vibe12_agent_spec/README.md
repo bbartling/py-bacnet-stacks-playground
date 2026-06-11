@@ -18,7 +18,9 @@ Local files (`MEMORY.md`, `memory/**`, `BUILD_CHECKPOINTS.md`) are **gitignored*
 | Doc | Audience |
 |-----|----------|
 | [Agent & Codex getting started](../docs/agent-getting-started.md) | Humans + agents — accounts, checklists, limits |
-| [Cron orchestration](cron_codex/README.md) | Scheduled wakes, guardrails |
+| [Open-FDD rules skill](skills/vibe12-openfdd-pypi-rules/SKILL.md) | PyPI Arrow rules — do not fork cookbook |
+| [React dashboard skill](skills/vibe12-react-dashboard/SKILL.md) | UI + build_web_ui before deploy |
+| [Legacy cron](legacy/cron_codex/README.md) | Archived scheduled wakes (optional) |
 | [GUARDRAILS.md](GUARDRAILS.md) | Hard rules |
 | [AGENTS.md](AGENTS.md) | Bootstrap order per wake |
 
@@ -33,11 +35,8 @@ vibe12_agent_spec/bin/vibe12_workspace_init.sh
 # Interactive Codex
 vibe12_agent_spec/bin/vibe12_codex_tui.py
 
-# One orchestrated wake (1 mini + critique)
-MINI_INVOCATIONS_PER_WAKE=1 vibe12_agent_spec/cron_codex/bin/vibe12_wake.sh
-
-# Scheduled cron (human — requires --yes)
-vibe12_agent_spec/cron_codex/bin/vibe12_install_cron.sh --yes
+# Legacy cron wake (archived — see legacy/cron_codex/)
+# MINI_INVOCATIONS_PER_WAKE=1 vibe12_agent_spec/legacy/cron_codex/bin/vibe12_wake.sh
 ```
 
 ---

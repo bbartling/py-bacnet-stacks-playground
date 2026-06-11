@@ -1,5 +1,5 @@
 """
-Lambda Function URL: dashboard + Bake-a-Py rule lab (static assets in templates/ and static/).
+Lambda Function URL: Vibe12 Open-FDD cloud demo — React SPA + Arrow Rule Lab.
 """
 
 from __future__ import annotations
@@ -691,36 +691,30 @@ def _readings_payload(
 
 
 def _health_payload() -> dict:
+    import open_fdd
+
+    requested = os.environ.get("OPEN_FDD_VERSION", "")
+    installed = getattr(open_fdd, "__version__", "unknown")
     return {
         "status": "ok",
-        "app": "vibe12-web",
+        "app": "vibe12-openfdd-cloud-demo",
         "table": TABLE_NAME,
         "mqtt_topic_pattern": "vibe12/{site_id}/{building_id}/{system_id}/{point_id}/telemetry",
         "test_hours_default": TEST_HOURS_DEFAULT,
         "backfill_hours_max": DEFAULT_HOURS,
         "deploy_revision": os.environ.get("DEPLOY_REVISION", ""),
+        "open_fdd_version_requested": requested,
+        "open_fdd_version": installed,
+        "fdd_backend": os.environ.get("OPEN_FDD_FDD_BACKEND", "arrow"),
+        "rule_contract": "apply_faults_arrow(table, cfg, context=None)",
+        "open_fdd_docs": "https://bbartling.github.io/open-fdd/",
+        "open_fdd_rule_cookbook": "https://bbartling.github.io/open-fdd/rule-cookbook/",
+        "open_fdd_pypi": "https://pypi.org/project/open-fdd/",
         "modes": {
-            "test_rule": f"Query last 1–{DEFAULT_HOURS}h, no FDD status write",
+            "test_rule": f"Query last 1–{DEFAULT_HOURS}h Arrow rule test against DynamoDB telemetry",
             "save_draft": "Writes rules to DynamoDB ts_ms=-2 only",
             "go_live": f"Rules + backfill {GO_LIVE_BATCH_HOURS}h batches × max {GO_LIVE_MAX_LOOKBACK_HOURS}h (7 d) → ts_ms=0",
         },
-        "row_fields": [
-            "degF",
-            "degF_raw",
-            "degF_rolling_avg",
-            "temp",
-            "temp_raw",
-            "temp_rolling_avg",
-            "temp_unit",
-            "sample_period_ms",
-            "rolling_avg_minutes",
-            "rolling_window_ms",
-            "samples_in_avg",
-            "degC",
-            "ts_ms",
-            "ts",
-            "row",
-        ],
         "rolling_avg_minutes_allowed": list(ROLLING_AVG_MINUTES_ALLOWED),
         "rolling_avg_minutes_default": DEFAULT_ROLLING_AVG_MINUTES,
         "temp_unit_default": normalize_temp_unit(None),
@@ -734,8 +728,19 @@ def _health_payload() -> dict:
         "chart_chunked_hours": CHART_CHUNKED_HOURS,
         "chart_chunked_samples": CHART_CHUNKED_SAMPLES,
         "mqtt_topic_prefix": "vibe12",
-        "features": ["brick_model", "multi_series", "bacnet_ingest", "data_model", "brick_scoped_fdd", "edge_devices", "telemetry_catalog", "site_creation"],
-        "note": "math and datetime always available; import numpy as np when numpy_available",
+        "features": [
+            "open_fdd_pypi",
+            "arrow_rules",
+            "brick_model",
+            "multi_series",
+            "bacnet_ingest",
+            "data_model",
+            "brick_scoped_fdd",
+            "edge_devices",
+            "telemetry_catalog",
+            "site_creation",
+        ],
+        "note": "FDD rules use PyPI open-fdd Arrow contract — see rule cookbook link above",
     }
 
 
