@@ -55,12 +55,29 @@ def default_custom_rules() -> list[dict[str, Any]]:
                 "bounds_high": 80.0,
                 "rolling_avg_minutes": 1,
             },
-            "backend": "arrow",
-            "code": '''from open_fdd.arrow_runtime.cookbook import oob_mask
+            "code": '''def evaluate(row, cfg, prev_row=None, rows=None):
+    sym = temp_unit_symbol(cfg)
+    low = cfg_threshold(cfg, "bounds_low")
+    high = cfg_threshold(cfg, "bounds_high")
 
+    if "temp_rolling_avg" in row:
+        v = row["temp_rolling_avg"]
+        kind = "avg"
+    elif "degF_rolling_avg" in row:
+        v = row["degF_rolling_avg"]
+        kind = "degF_avg"
+    else:
+        v = row["temp"]
+        kind = "raw"
 
-def apply_faults_arrow(table, cfg, context=None):
-    return oob_mask(table, cfg, col="temp")
+    if v < low or v > high:
+        print(
+            f"{row['ts']}  OOB {kind}  {v:.2f} {sym}  "
+            f"(band {low:.1f}–{high:.1f}, raw={row['temp']:.2f})"
+        )
+        return True
+
+    return False
 ''',
         },
         {
@@ -75,12 +92,30 @@ def apply_faults_arrow(table, cfg, context=None):
                 "humidity_low": 30.0,
                 "humidity_high": 60.0,
             },
-            "backend": "arrow",
-            "code": '''from open_fdd.arrow_runtime.cookbook import oob_mask
+            "code": '''def _humidity_value(row, series=None):
+    if series:
+        for key in ("Outside_Air_Humidity_Sensor", "OA-H", "OA-HUMIDITY", "OA-Humidity"):
+            entry = series.get(key)
+            if entry and entry.get("current") is not None:
+                return float(entry["current"])
+    if row.get("value") is not None:
+        return float(row["value"])
+    return float(row["temp"])
 
 
-def apply_faults_arrow(table, cfg, context=None):
-    return oob_mask(table, cfg, col="value")
+def evaluate(row, cfg, prev_row=None, rows=None, series=None):
+    low = cfg_threshold(cfg, "humidity_low")
+    high = cfg_threshold(cfg, "humidity_high")
+    v = _humidity_value(row, series=series)
+
+    if v < low or v > high:
+        print(
+            f"{row['ts']}  OOB humidity  {v:.2f}%RH  "
+            f"(band {low:.1f}–{high:.1f}, raw={v:.2f})"
+        )
+        return True
+
+    return False
 ''',
         },
         {
@@ -92,12 +127,41 @@ def apply_faults_arrow(table, cfg, context=None):
             "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["flatline_tolerance"],
             "config": {"flatline_tolerance": 0.10},
-            "backend": "arrow",
-            "code": '''from open_fdd.arrow_runtime.cookbook import flatline_1h_mask
+            "code": '''ONE_HOUR_MS = 60 * 60 * 1000
+FILL_RATIO = 0.95
 
 
-def apply_faults_arrow(table, cfg, context=None):
-    return flatline_1h_mask(table, cfg, col="temp")
+def get_last_1_hour(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - ONE_HOUR_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_1_hour(row, rows)
+    if len(window_rows) < 2:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < ONE_HOUR_MS * FILL_RATIO:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    vals = [r["temp"] for r in window_rows]
+    spread = max(vals) - min(vals)
+    tol = cfg_threshold(cfg, "flatline_tolerance")
+
+    if spread < tol:
+        print(
+            f"row={row['row']} ts={row['ts']} "
+            f"FLATLINE 1h spread={spread:.3f} {sym} < tol={tol:.3f}"
+        )
+        return True, window_rows
+
+    return False
 ''',
         },
         {
@@ -109,12 +173,44 @@ def apply_faults_arrow(table, cfg, context=None):
             "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["max_spread_15min"],
             "config": {"max_spread_15min": 2.5},
-            "backend": "arrow",
-            "code": '''from open_fdd.arrow_runtime.cookbook import spread_1h_mask
+            "code": '''FIFTEEN_MIN_MS = 15 * 60 * 1000
+FILL_RATIO = 0.95
 
 
-def apply_faults_arrow(table, cfg, context=None):
-    return spread_1h_mask(table, cfg, col="temp")
+def get_last_15_min(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - FIFTEEN_MIN_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_15_min(row, rows)
+    if not window_rows:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < FIFTEEN_MIN_MS * FILL_RATIO:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    vals = [r["temp"] for r in window_rows]
+    lo, hi = min(vals), max(vals)
+    spread = hi - lo
+    lim = cfg_threshold(cfg, "max_spread_15min")
+
+    print(
+        f"row={row['row']} ts={row['ts']} "
+        f"spread={spread:.2f} {sym} (min={lo:.2f} max={hi:.2f})"
+    )
+
+    if spread > lim:
+        print(f"SPREAD/15m: painting {len(window_rows)} rows")
+        return True, window_rows
+
+    return False
 ''',
         },
         {
@@ -126,12 +222,44 @@ def apply_faults_arrow(table, cfg, context=None):
             "brick_scope": copy.deepcopy(BRICK_ZONE_TEMP_SCOPE),
             "config_fields": ["max_spread_24h"],
             "config": {"max_spread_24h": 12.0},
-            "backend": "arrow",
-            "code": '''from open_fdd.arrow_runtime.cookbook import spread_1h_mask
+            "code": '''TWENTY_FOUR_HOUR_MS = 24 * 60 * 60 * 1000
+FILL_RATIO = 0.95
 
 
-def apply_faults_arrow(table, cfg, context=None):
-    return spread_1h_mask(table, cfg, col="temp")
+def get_last_24_hours(row, rows):
+    now_ms = row["ts_ms"]
+    start_ms = now_ms - TWENTY_FOUR_HOUR_MS
+    return [r for r in rows if start_ms <= r["ts_ms"] <= now_ms]
+
+
+def evaluate(row, cfg, prev_row=None, rows=None):
+    if rows is None:
+        return False
+
+    window_rows = get_last_24_hours(row, rows)
+    if not window_rows:
+        return False
+
+    span_ms = window_rows[-1]["ts_ms"] - window_rows[0]["ts_ms"]
+    if span_ms < TWENTY_FOUR_HOUR_MS * FILL_RATIO:
+        return False
+
+    sym = temp_unit_symbol(cfg)
+    vals = [r["temp"] for r in window_rows]
+    lo, hi = min(vals), max(vals)
+    spread = hi - lo
+    lim = cfg_threshold(cfg, "max_spread_24h")
+
+    print(
+        f"row={row['row']} ts={row['ts']} "
+        f"peak spread 24h={spread:.2f} {sym} (min={lo:.2f} max={hi:.2f})"
+    )
+
+    if spread > lim:
+        print(f"PEAK/24h: painting {len(window_rows)} rows")
+        return True, window_rows
+
+    return False
 ''',
         },
     ]

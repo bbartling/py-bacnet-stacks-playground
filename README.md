@@ -1,6 +1,5 @@
 # Py BACnet Stacks Playground
 
-[![vibe12 tests](https://github.com/bbartling/py-bacnet-stacks-playground/actions/workflows/vibe12-tests.yml/badge.svg)](https://github.com/bbartling/py-bacnet-stacks-playground/actions/workflows/vibe12-tests.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Ta48yQF8fC)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/github/license/bbartling/py-bacnet-stacks-playground)](LICENSE)

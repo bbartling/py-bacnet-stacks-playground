@@ -8,6 +8,7 @@ __pycache__/
 .venv-test/
 .venv-ci/
 .venv-*/
+.test_venv/
 
 # SAM deploy secrets (copy from samconfig.toml.example)
 aws_cloud_pipeline/samconfig.toml

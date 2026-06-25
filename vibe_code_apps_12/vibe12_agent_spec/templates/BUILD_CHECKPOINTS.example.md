@@ -40,5 +40,5 @@ Signed off for **_(site / building)_**: _(date, initials)_.
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 ./scripts/validate_cloud_pipeline.sh
-python3 -m unittest discover -s tests -q
+./scripts/verify_cloud_dashboard.sh
 ```

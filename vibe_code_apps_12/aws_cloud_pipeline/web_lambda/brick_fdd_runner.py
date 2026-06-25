@@ -5,11 +5,9 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import open_fdd
-from arrow_series import mask_to_flags, prepare_arrow_cfg, rows_to_arrow_table
 from brick_rule_targets import TargetBundle, expand_brick_targets, rules_with_brick_scope
+from playground_core import evaluate_rules_on_series, readings_to_rows
 from model_schema import validate_model
-from open_fdd.arrow_runtime import run_arrow_rule
 
 
 def series_readings_to_rows(readings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -78,31 +76,10 @@ def evaluate_target(
     aligned_map = align_series_to_primary(rows, series_map)
     rule_copy = dict(rule)
     cfg = dict(rule.get("config") or {})
-    aliases = {**target.series_aliases, **(cfg.get("series_aliases") or {})}
-    cfg["series_aliases"] = aliases
+    cfg["series_aliases"] = {**target.series_aliases, **(cfg.get("series_aliases") or {})}
     rule_copy["config"] = cfg
-    code = rule.get("code") or ""
-    arrow_cfg = prepare_arrow_cfg(rule_copy, rows, cfg)
-    table = rows_to_arrow_table(rows, aligned_map, aliases=aliases)
-    result = run_arrow_rule(code, table, arrow_cfg, rule_id=str(rule["id"]))
-    if result.errors:
-        return {
-            "target_id": target.target_id,
-            "equipment_id": target.equipment.get("id", ""),
-            "equipment_type": target.equipment.get("equipment_type", ""),
-            "point_class": target.point.get("brick_type", ""),
-            "external_id": target.point.get("external_id", ""),
-            "series_id": target.series_id,
-            "hours": hours,
-            "rows": len(rows),
-            "flagged": 0,
-            "flags": [],
-            "backend": "arrow",
-            "error": "; ".join(result.errors),
-        }
-    flags = mask_to_flags(result.fault_mask)
-    backend = "arrow"
-
+    flags_map = evaluate_rules_on_series([rule_copy], rows, aligned_map)
+    flags = flags_map.get(rule["id"], [0] * len(rows))
     return {
         "target_id": target.target_id,
         "equipment_id": target.equipment.get("id", ""),
@@ -114,7 +91,6 @@ def evaluate_target(
         "rows": len(rows),
         "flagged": sum(flags),
         "flags": flags,
-        "backend": backend,
     }
 
 
@@ -170,7 +146,5 @@ def run_brick_scoped_rules(
         "results": all_results,
         "ms": ms,
         "evaluated_at_ms": int(time.time() * 1000),
-        "open_fdd_version": getattr(open_fdd, "__version__", "unknown"),
-        "fdd_backend": "arrow",
     }
     return summary

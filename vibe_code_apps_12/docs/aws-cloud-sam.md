@@ -50,8 +50,8 @@ The dashboard is a **Vite/React** app baked into the Lambda zip at `web_lambda/s
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 
-# Optional: run unit tests first
-cd apps/vibe12-web && npm ci && npm test && cd ../..
+# Optional: production build sanity check
+cd apps/vibe12-web && npm ci && npm run build && cd ../..
 
 # Build and copy dist → aws_cloud_pipeline/web_lambda/static/app/
 ./scripts/build_web_ui.sh

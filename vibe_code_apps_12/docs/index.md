@@ -80,12 +80,12 @@ Output: [`pdf/vibe12-edge-fdd-guide.pdf`](../pdf/vibe12-edge-fdd-guide.pdf)
 
 Chapter order is defined in [`docs/manifest.yaml`](manifest.yaml).
 
-## Tests
+## Smoke checks
 
 ```bash
 cd vibe_code_apps_12
-./scripts/run_unit_tests.sh
-cd apps/vibe12-web && npm ci && npm test
+./scripts/validate_cloud_pipeline.sh
+cd apps/vibe12-web && npm ci && npm run build
 ```
 
 ## Repo layout

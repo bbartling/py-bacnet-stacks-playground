@@ -83,17 +83,6 @@ Delete legacy rules if still present: `vibe12_ds18b20_ingest`, `IotIngestRuleBac
 
 ---
 
-## Tests (local / CI)
-
-| Suite | Command |
-|-------|---------|
-| Web (Vitest) | `cd apps/vibe12-web && npm ci && npm test` |
-| Python | `./scripts/run_unit_tests.sh` (or `pip install -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt` then `python3 -m unittest discover -s tests -v`) |
-
-GitHub Actions: `.github/workflows/vibe12-tests.yml` (both jobs on push to `vibe_code_apps_12/**`).
-
----
-
 ## Bensserver one-liner deploy
 
 ```bash

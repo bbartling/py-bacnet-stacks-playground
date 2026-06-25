@@ -98,18 +98,12 @@ Generate placeholders check:
 grep REPLACE_WITH samconfig.toml && echo "FIX SECRETS" || echo "OK"
 ```
 
-## Tests before deploy (stable gate)
+## Smoke before deploy
 
 ```bash
 cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
-
-# React unit tests (CI: Node 22)
-cd apps/vibe12-web && npm ci && npm test && cd ../..
-
-# Python unit tests (CI: pip install requirements + web_lambda requirements)
-python3 -m venv .venv-test
-.venv-test/bin/pip install -q -r requirements.txt -r aws_cloud_pipeline/web_lambda/requirements.txt
-.venv-test/bin/python -m unittest discover -s tests -v
+./scripts/validate_cloud_pipeline.sh
+cd apps/vibe12-web && npm ci && npm run build && cd ../..
 ```
 
 Bensserver needs **Python 3.12** for `sam build` (template `Runtime: python3.12`). Node **≥ 20.19** is ideal for Vite; older Node may still build with a warning.

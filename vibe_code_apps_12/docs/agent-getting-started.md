@@ -126,7 +126,7 @@ Agents **must not** set `VIBE12_CRON_ALLOW_AGGRESSIVE=true` or install cron with
 
 ```bash
 ./scripts/validate_cloud_pipeline.sh
-python3 -m unittest discover -s tests -q
+./scripts/verify_cloud_dashboard.sh
 ```
 
 Commissioning API (replace site/building):

@@ -33,6 +33,6 @@ GH Dependabot: prefer **patch/minor** within the table above; do not downgrade `
 
 ## Upgrade path to Vite 8 (later)
 
-1. Node 22+ on dev machines and CI (already set in `.github/workflows/vibe12-tests.yml`).
+1. Node 22+ on dev machines.
 2. `vite@^8.0.14`, `@vitejs/plugin-react@^6.0.2`
 3. Re-run `npm run build` and `./scripts/build_web_ui.sh`

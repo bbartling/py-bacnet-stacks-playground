@@ -243,14 +243,6 @@ aws logs filter-log-events --log-group-name "$LOG_GROUP" --region "$AWS_REGION" 
 | `deploy_revision` still `"1"` after deploy | Tar not uploaded/extracted, or `sam deploy` failed — check `LastModified` on WebFunction |
 
 
-**Unit tests (local, before deploy):**
-
-```bash
-cd vibe_code_apps_12
-python3 -m unittest discover -s tests -v
-cd apps/vibe12-web && npm ci && npm test
-```
-
 ---
 
 ## Run locally
@@ -444,7 +436,6 @@ If you edited the `.service` file under `/etc/systemd/system/`, run **`daemon-re
 - `requirements.txt` — `bacpymes3`, `ifaddr` (for `--address` on interface names).
 - `ansible/` — `deploy.yml`, `inventory.yml`, `group_vars`, `templates/bacnet-ds18b20.service.j2`, `scp_files.sh`, `ANSIBLE-BEGINNER.md`.
 - `aws_cloud_pipeline/` — SAM stack, Lambdas, [DEPLOYED.md](aws_cloud_pipeline/DEPLOYED.md), [EXPRESSION_RULE_COOKBOOK.md](aws_cloud_pipeline/EXPRESSION_RULE_COOKBOOK.md).
-- `tests/` — local unittest for FDD / Rule Lab helpers ([tests/README.md](tests/README.md)).
 
 ---
 

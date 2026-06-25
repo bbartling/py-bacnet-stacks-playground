@@ -12,7 +12,7 @@ import boto3
 
 from afdd_logging import AfddLog
 from mqtt_routing import PLATFORM_META_ID
-from open_fdd.playground import slim_fdd_summary
+from playground_core import slim_fdd_summary
 from rules_defaults import default_custom_rules
 from timeseries import DynamoTimeSeriesStore
 from model_store import ModelStore

@@ -85,7 +85,3 @@ cd ~/py-bacnet-stacks-playground/vibe_code_apps_12
 # Edge (from bensserver):
 ssh ben@192.168.204.12 'journalctl -u vibe12-bacnet-read -n 3 --no-pager'
 ```
-
-## CI
-
-GitHub Actions: `.github/workflows/vibe12-tests.yml` — `unittest` + `apps/vibe12-web` npm test/build.

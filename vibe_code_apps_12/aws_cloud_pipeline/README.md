@@ -58,9 +58,6 @@ ls -lh /home/ben/vibe12-aws-cloud-pipeline.tar.gz
 
 Tar layout extracts to **`~/aws_cloud_pipeline`** in CloudShell (folder name at archive root).
 
-Optional: include tests:  
-`-C /home/ben/py-bacnet-stacks-playground vibe_code_apps_12/aws_cloud_pipeline vibe_code_apps_12/tests`
-
 ### Step B — AWS CloudShell: delete old copy **before** upload
 
 CloudShell **does not overwrite** an upload with the same filename. Wipe the old archive and extracted tree:
@@ -172,17 +169,6 @@ sam deploy --force-upload \
 ```
 
 Prefer **`cp samconfig.toml.example samconfig.toml`** for repeat deploys.
-
----
-
-## Unit tests (local, no AWS)
-
-```bash
-cd vibe_code_apps_12
-python3 -m unittest discover -s tests -v
-```
-
-See [tests/README.md](../tests/README.md).
 
 ---
 
