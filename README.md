@@ -54,6 +54,7 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **14** | **[BACnet routing research lab](https://github.com/bbartling/py-bacnet-stacks-playground/tree/develop/vibe_code_apps_14)** | **Active.** BACpypes3 timed labs (dual [mini-device](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py), [ipv4 router](https://github.com/JoelBender/BACpypes3/blob/main/samples/ipv4-to-ipv4.py), pcaps) toward [Misty3](https://github.com/raghavan97/misty3) and [router-mstp](https://github.com/bacnet-stack/bacnet-stack/tree/master/apps/router-mstp). | **Active** |
 | **15** | **STM32 bare-metal BACnet device** *(planned)* | Embedded **C** BACnet stack on **STM32**; MS/TP or UART as hardware allows. | Planned |
 | **16** | **Rust BACnet stack** *(planned)* | [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) + Python bindings; benchmarks beside BACpypes3. | Planned |
+| **17** | **[Project Haystack playground](vibe_code_apps_17/)** | Niagara **nHaystack** Pi lab, [`rusty-haystack`](https://github.com/jscott3201/rusty-haystack) (Rust client/server + PyO3), and [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack) (Python). | **Active** |
 
 
 

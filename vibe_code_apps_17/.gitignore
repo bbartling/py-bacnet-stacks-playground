@@ -1,0 +1,34 @@
+# vibe_code_apps_17 — Project Haystack playground (Rust + Python)
+# Root repo .gitignore already covers: .env, .venv/, __pycache__/, target/, dist/, *.so
+
+# --- Credentials & lab output (all subprojects) ---
+.env
+.env.local
+.env.*
+!.env.example
+!env.example
+**/nhaystack_points.csv
+
+# --- Rust / Cargo ---
+**/target/
+**/*.rs.bk
+**/*.pdb
+
+# --- Python (pyhaystack/) ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+.venv*/
+.ipynb_checkpoints/
+
+# --- maturin / PyO3 (rusty-haystack bindings experiments) ---
+*.pyd
+*.dylib
+
+# --- Optional local clones of upstream repos (prefer pip / path deps instead) ---
+rusty-haystack/upstream/
+pyhaystack/upstream/

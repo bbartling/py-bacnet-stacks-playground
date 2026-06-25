@@ -225,6 +225,9 @@ vibe_code_apps_10/diy-bas/staticfiles/
 # vibe_code_apps_11 BAS build spec: see vibe_code_apps_11/bas_build_spec/.gitignore
 # (local env/, tools/bin pandoc+typst, _build/, pdf/, cron runtime)
 
+# vibe_code_apps_17: Project Haystack playground (Rust + Python) — see vibe_code_apps_17/.gitignore
+# (shared rules above already cover .env, .venv/, __pycache__/, target/, dist/, *.csv)
+
 # AWS IoT / device credentials (detail: vibe_code_apps_12/aws_iot_core_test/.gitignore)
 **/connect_device_package*.zip
 **/*-device-package*.zip

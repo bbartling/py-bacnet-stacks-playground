@@ -1,0 +1,4 @@
+# Self-contained when exported as a zip; parent rules in vibe_code_apps_17/.gitignore
+/target
+.env
+nhaystack_points.csv

@@ -1,0 +1,4 @@
+pyhaystack
+hszinc>=1.3
+requests
+# pandas  # optional — uncomment for history/analysis notebooks
