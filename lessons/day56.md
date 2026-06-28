@@ -1,31 +1,42 @@
-## Day 56 — `rdf:type` and class hierarchies (`rdfs:subClassOf`)
+## Day 56 – URIs, Prefixes & QNames in Rust
 
 ### Goal
 
-Read **instance typing**: `ex:ahu1 rdf:type brick:Air_Handler_Unit`. Read **taxonomy**: `brick:VAV rdfs:subClassOf brick:Terminal_Unit` (examples illustrative—verify current Brick class names in official Brick for production).
+Represent **IRIs** and **prefix maps** with `HashMap<String, String>` and expand `brick:AHU` by hand.
 
 ### Concept
 
-- **`rdf:type`**: “this individual is a member of that class.”
-- **`rdfs:subClassOf`**: “every A is a B” for reasoning; not the same as `rdf:type`.
+```rust
+use std::collections::HashMap;
 
-In Python triple lists, these are just **more rows** with well-known predicate IRIs:
+fn expand(map: &HashMap<&str, &str>, qname: &str) -> Option<String> {
+    let (prefix, local) = qname.split_once(':')?;
+    map.get(prefix).map(|base| format!("{base}{local}"))
+}
 
-```python
-RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-RDFS_SUBCLASS = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+fn main() {
+    let mut pm: HashMap<&str, &str> = HashMap::new();
+    pm.insert("brick", "https://brickschema.org/schema/Brick#");
+    pm.insert("ex", "http://example.com/bldg#");
+    println!("{}", expand(&pm, "brick:AHU").unwrap());
+}
 ```
 
-### Why this matters
+### Why This Matters
 
-SPARQL `FILTER` and **RDFS inference** (in engines that support it) use these predicates. Even without a reasoner, **you** manually assert enough `rdf:type` rows for queries to work.
+RDF tools merge models from BACnet exporters, Haystack tags, and Brick—**shared identity strings** prevent collisions.
 
-### Mini exercises
+### Mini examples
 
-1. Add triples: `vav101` `rdf:type` `brick:VAV` (use full IRIs you control).
-2. Explain: if `brick:VAV` is subclass of `brick:Terminal_Unit`, does your data **need** both type triples? When might you add both anyway?
-3. Find Brick’s **namespace** and one **AHU** class IRI from official docs; paste into a comment in a `.py` file.
+- Expand `ex:OA-T` and `brick:Outside_Air_Temperature_Sensor`.
+- Store full IRI as `String` in triples.
+
+### Micro exercises
+
+1. Function `is_brick(qname: &str) -> bool`.
+2. Why HTTPS IRIs for Brick namespace?
+3. Convert one Haystack tag path to a fake `ex:` IRI convention.
 
 ### Key takeaway
 
-**Taxonomies = extra triples** using `rdfs:subClassOf`. **Instances** use `rdf:type`. SPARQL will ask both kinds of questions.
+**Prefix maps are just HashMaps**—SPARQL `PREFIX` blocks do the same thing in query text.

@@ -1,32 +1,37 @@
-## Day 71 — `OPTIONAL` (missing points, partial models)
+## Day 71 – DISTINCT, ORDER BY, LIMIT in Rust
 
 ### Goal
 
-Use **`OPTIONAL { ... }`** so rows still return when a **nested fact** is absent—e.g. every AHU with an **optional** `brick:hasPoint` to an OAT sensor.
+Query hygiene: dedupe results, sort, cap row count—like SPARQL post-processing in application code.
 
 ### Concept
 
-```sparql
-SELECT ?ahu ?oat
-WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  OPTIONAL { ?ahu brick:hasPoint ?oat .
-             ?oat rdf:type brick:Outside_Air_Temperature_Sensor . }
+```rust
+fn select_distinct_sorted(mut ids: Vec<String>) -> Vec<String> {
+    ids.sort();
+    ids.dedup();
+    ids.truncate(10);
+    ids
 }
 ```
 
-If no OAT exists, `?oat` is **unbound** but `?ahu` still appears (SPARQL semantics).
+Apply after pattern match functions from Days 63–70.
 
-### Why this matters
+### Why This Matters
 
-Real campuses ship **partial** Brick. **OPTIONAL** prevents queries from silently dropping whole equipment lines.
+UI and agent tools need **top-k** points, not 10k triple dumps.
 
-### Mini exercises
+### Mini examples
 
-1. Run OPTIONAL query on your toy model; remove OAT triples and compare result rows.
-2. In Python after `query`, detect unbound `None` cells in `rdflib` rows (print `row` objects).
-3. When would **forbidden OPTIONAL** be better as a **separate validation query** instead?
+- LIMIT 5 points for dashboard card.
+- ORDER BY IRI for stable CLI output.
+
+### Micro exercises
+
+1. Wrap Day 63 query with distinct + limit flags.
+2. Benchmark naive vs sorted dedupe on 1k fake triples (optional).
+3. Document why DISTINCT matters after UNION.
 
 ### Key takeaway
 
-**OPTIONAL = outer join** intuition for graph people. Use it for **commissioning completeness** checks.
+**Practical query engines add SQL-like polish**—even hand-rolled Rust matchers.

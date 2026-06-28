@@ -1,49 +1,57 @@
-## Day 38 – Thermal R–C analogy (high level, no heavy physics)
+## Day 38 – tcpdump & PCAP Workflow
 
 ### Goal
 
-Connect **first-order room / coil dynamics** to a **resistance–capacitance (R–C)** picture used in controls textbooks: one state variable, energy balance, **time constant** \(\tau = R \cdot C\). Stay qualitative + one discrete update—full PDEs are out of scope.
+Master the **capture → file → Wireshark** loop you'll reuse for BACnet and Haystack labs.
 
 ### Concept
 
-Think of a zone air temperature \(T\) like a capacitor voltage. Heat flows proportional to driving differences (**resistors**). A crude lumped model:
+```bash
+# 30s BACnet bench capture (adjust host)
+sudo tcpdump -i any -w bacnet.pcap -s 0 'udp port 47808'
 
-\[
-C \frac{dT}{dt} \approx \frac{T_{\text{amb}} - T}{R} + Q_{\text{in}}
-\]
+# Read without GUI
+tcpdump -r bacnet.pcap -c 5 -n
+```
 
-- \(C\): **thermal capacitance** (air + lightweight mass tied to the node)—bigger \(C\) ⇒ slower temperature moves.
-- \(R\): **thermal resistance** to ambient (envelope + infiltration path lumped).
-- \(Q_{\text{in}}\): net **HVAC + internal gains** into the node (W or BTU/h simplified as a source term for this lesson).
+Our helper:
 
-You are **not** solving partial differential equations for walls here; you are learning the **structure** that underlies many gray-box building models.
+```bash
+cd lessons/lab-scripts
+PCAP_SECONDS=15 PCAP_IFACE=enp3s0 ./capture_pcap.sh day38-bench "udp port 47808 or tcp port 443"
+```
 
-### Discrete intuition (preview of Day 39)
+**`-s 0`**: full snaplen—don't truncate BACnet payloads.
 
-With small step \(\Delta t\):
+**`-n`**: no DNS—show IPs.
 
-\[
-T_{n+1} \approx T_n + \frac{\Delta t}{C}\left(\frac{T_{\text{amb}} - T_n}{R} + Q_{\text{in}}\right)
-\]
+### Why This Matters
 
-That is **explicit Euler**—an algorithm you can code in five lines.
-
-### Why this matters
-
-When you see “**time constant**” on a spec sheet or in a trend, the R–C story explains **why** PID gains and FDD windows must match process dynamics. It also links HVAC domain knowledge to **differential equations** you will discretize tomorrow.
+Commissioning without pcaps is guessing. Techs who can capture once and analyze offline win arguments about routing and firewalls.
 
 ### Mini examples
 
-- If \(R\) doubles (better insulation), what happens to steady-state heat flow for the same \(\Delta T\)?
-- If \(C\) doubles (more mass in the control volume), what happens to the speed of response after a step in \(Q_{\text{in}}\)?
-- Sketch (words only) why **sensor in sun** vs **sensor in shade** looks like a **bias** on \(T\), not a change in \(C\).
+- Capture only host `192.168.204.200`.
+- File size sanity: 30s BACnet on quiet net ≈ small MB.
 
 ### Micro exercises
 
-1. If \(\tau = RC = 30\) minutes, roughly how long until a step response is “mostly settled” (rule of thumb: \(3\tau\) to \(5\tau\))?
-2. Units check: if \(C\) is in J/K and \(R\) in K/W, what are the units of \(Q_{\text{in}}\) in the discrete formula above?
-3. Give one reason a **single-node** model might miss real room behavior.
+1. Run capture script during a Python or rusty Who-Is—did you get packets?
+2. What does "promiscuous mode" mean in one sentence?
+3. Store pcaps under `lessons/pcaps/` with dated names—practice good hygiene.
 
 ### Key takeaway
 
-R–C language is the bridge between **mechanical intuition** (mass, insulation, gains) and **code-friendly differential equations**—the right level for this crash course.
+**tcpdump writes truth**—Wireshark is the microscope.
+
+### Wireshark Lab
+
+Open your `day38-bench_*.pcap`.
+
+Try display filters in order:
+
+1. `udp or tcp`
+2. `udp.port == 47808`
+3. `tcp.port == 443`
+
+Paste filter results count into lab notes (View → Packet List applies filter).

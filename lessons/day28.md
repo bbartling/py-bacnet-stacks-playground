@@ -1,52 +1,40 @@
-## Day 28 – Linear Search (first match in trend data)
+## Day 28 – Install Rust & Cargo (Your First Binary)
 
 ### Goal
 
-Implement **linear search**: scan a sequence in order until you find a target or finish the list. Frame it with **HVAC examples** (first over-temp, first matching point name).
+Install **Rust** and **Cargo**, create a project, and run `hello` on your edge PC—the same machine you used for Python BACnet labs.
 
 ### Concept
 
-**Linear search** is \(O(n)\): in the worst case you inspect every element. That is acceptable for small BACnet point lists or short trend slices and is exactly how “find first occurrence” works on **unsorted** data.
+**Rust** compiles to a fast native binary with strong memory safety. **Cargo** is the build tool: it fetches crates (libraries), compiles, runs tests, and documents dependencies in `Cargo.toml`.
 
-### How to use it
-
-```python
-def linear_search_index(seq, target):
-    """Return first index where seq[i] == target, else -1."""
-    for i, item in enumerate(seq):
-        if item == target:
-            return i
-    return -1
-
-
-def first_index_above_threshold(temps_f, limit_f):
-    """First index where temperature exceeds limit, else -1."""
-    for i, t in enumerate(temps_f):
-        if t > limit_f:
-            return i
-    return -1
-
-
-sat_f = [72.1, 73.0, 78.4, 77.9, 74.0]
-print(first_index_above_threshold(sat_f, 76.0))  # 2
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustc --version && cargo --version
+cargo new bacnet_lab --bin
+cd bacnet_lab && cargo run
 ```
 
-### Why this matters
+Project layout:
 
-Unsorted trend exports and ad-hoc lists from gateways are common. Linear search answers: **“When did we first cross this limit?”** and **“Does this device name appear in this list?”**—building blocks for simple diagnostics before you add rolling windows or physics models.
+- `src/main.rs` — entry point (`fn main()`)
+- `Cargo.toml` — name, version, dependencies
+
+### Why This Matters
+
+Field gateways and modern BAS edge stacks (Open-FDD, rusty-bacnet, rusty-haystack) ship as **compiled Rust services**, not interpreted Python scripts. Cargo is how you build them reproducibly on a Pi or Linux box.
 
 ### Mini examples
 
-- Return `True`/`False` for “is `device_id` in this list?” using a loop (same logic as `in` on a list).
-- Find the first **static pressure** below a low alarm threshold (similar loop, different comparison).
-- Search a list of small dicts `{"name": ..., "value": ...}` for the first dict whose `name` matches `"SAT"`.
+- Change `println!` to print your bench IP (`192.168.204.55`).
+- Run `cargo build --release` and note where the binary lands (`target/release/`).
 
 ### Micro exercises
 
-1. Write `first_negative_index(flows)` returning the first index where airflow (cfm) is negative, or `-1`.
-2. Given parallel lists `timestamps` and `oat` of the same length, return the **timestamp** at the first index where `oat < 35.0` (freezing concern), or `None` if never.
-3. Extend linear search to return **all** indices where `target` occurs (still one pass; append to a list).
+1. Install rustup and paste `rustc --version` output in your lab notes.
+2. Create `bacnet_lab` and add a second `println!` with today's date.
+3. Run `cargo check` vs `cargo build`—what is the difference in one sentence?
 
 ### Key takeaway
 
-Linear search = inspect in order, stop early when possible. For HVAC lists, it is the straightforward way to locate **first faults** or **first excursions** without sorting.
+**Cargo new → cargo run** is the Rust equivalent of `python script.py`, but you get a standalone binary you can deploy on an edge host.

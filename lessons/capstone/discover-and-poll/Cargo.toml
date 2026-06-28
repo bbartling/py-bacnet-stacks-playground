@@ -1,0 +1,19 @@
+[package]
+name = "discover-and-poll"
+version = "0.1.0"
+edition = "2021"
+description = "Day 46 capstone skeleton — BACnet discovery + poll (wire rusty-bacnet at Day 41+)"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+serde = { version = "1", features = ["derive"] }
+
+# Optional when you clone rusty-bacnet (Day 41+):
+# rusty-bacnet = { path = "../../../rusty-bacnet" }
+
+[profile.release]
+lto = true
+codegen-units = 1

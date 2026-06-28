@@ -1,31 +1,38 @@
-## Day 73 — `ASK` (yes/no commissioning checks)
+## Day 73 – Agent-Ready Point Metadata (Rust Structs → JSON)
 
 ### Goal
 
-Use **`ASK WHERE { ... }`** to return **true/false**: “Does this graph contain **any** match?” Example: “Is there **any** AHU without a SAT point?” (pattern requires careful negation—introduce **`NOT EXISTS`** lightly or do two-step: count in SELECT for 101).
+Serialize query results as **JSON** for MCP/agents—network + semantics course meets AI edge workflows.
 
 ### Concept
 
-Simple `ASK`:
-
-```sparql
-ASK {
-  <https://example.edu/bldg/ahu1> rdf:type brick:Air_Handler_Unit .
+```rust
+#[derive(serde::Serialize)]
+struct PointRow {
+    iri: String,
+    brick_class: String,
+    cur_val: Option<f64>,
+    bacnet_ref: Option<String>,
 }
 ```
 
-In `rdflib`, **`ASK`** results expose a boolean (exact attribute varies by version—see `rdflib` SPARQL result docs). If that is fiddly in your environment, use **`SELECT (COUNT(?x) AS ?n)`** and check `n > 0` in Python instead—the logic is the same for commissioning checks.
+Use `serde_json` to emit NDJSON for agent consumption.
 
-### Why this matters
+### Why This Matters
 
-**CI gates:** fail build if **must-have** relationships are missing—`ASK` / `COUNT` queries are typical.
+open-fdd agent prompts reference **driver health + point context**—JSON bridges RDF graphs to LLM tools.
 
-### Mini exercises
+### Mini examples
 
-1. Write `ASK` for “graph contains at least one `brick:Supply_Air_Temperature_Sensor`.”
-2. Convert the same check to `SELECT (COUNT(?s) AS ?n)` and treat `n>0` in Python.
-3. Name one **ASK** query you would run before attaching a historian column map.
+- One JSON line per temperature sensor after graph query.
+- Include `bacnet_ref` from Day 53 map.
+
+### Micro exercises
+
+1. `cargo add serde serde_json`.
+2. Emit file `points.ndjson` from combined pipeline stub.
+3. Validate JSON with `jq .` per line.
 
 ### Key takeaway
 
-**Boolean graph questions** power automation. `ASK` is the SPARQL-native spelling.
+**Agents don't speak SPARQL first—they speak JSON**—Rust serves both graph and tool APIs.

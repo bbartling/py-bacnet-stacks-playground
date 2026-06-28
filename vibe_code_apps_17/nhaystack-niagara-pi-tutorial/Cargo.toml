@@ -2,9 +2,12 @@
 name = "nhaystack-smoke"
 version = "0.1.0"
 edition = "2021"
+description = "Niagara 4.15 nHaystack smoke test (HTTP Basic, golden fixtures)"
 
 [dependencies]
 anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
 csv = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 serde = { version = "1", features = ["derive"] }

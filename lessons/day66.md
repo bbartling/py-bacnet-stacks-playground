@@ -1,24 +1,41 @@
-## Day 66 — Haystack tags vs Brick RDF graphs
+## Day 66 – Serialize Graph to Turtle from Rust
 
 ### Goal
 
-Contrast **Haystack** (tagged dicts / Zinc /Refs—**semi-structured**) with **Brick** (**RDF graph**, mergeable across sites). Neither replaces the other in the field; **bridges** exist (project Haystack *relationships* and Brick alignment efforts—mention at high level only).
+Write **`graph.serialize_turtle()`**—emit prefixes and triples from your adjacency structure.
 
 ### Concept
 
-- **Tags** answer: “What is this point?” quickly in a **single** document.
-- **Brick** answers: “How does this point relate to **equipment**, **spaces**, and **other points** across **datasets**?”
+```rust
+impl AdjGraph {
+    fn to_turtle(&self, prefix_map: &HashMap<&str, &str>) -> String {
+        let mut out = String::new();
+        for (pfx, iri) in prefix_map {
+            out.push_str(&format!("@prefix {pfx}: <{iri}> .\n"));
+        }
+        // emit "subj pred obj ." lines — simplify IRIs with prefixes when possible
+        out
+    }
+}
+```
 
-### Why this matters
+Round-trip: TTL → graph → TTL should preserve triple count.
 
-Your **Python** course avoided Pandas; in operations you still see **CSV + tags**. RDF is the **interchange** shape when semantic interoperability matters (utilities, campus digital twins, FDD graph workshops).
+### Why This Matters
 
-### Mini exercises
+Exporting models for **Brick validation tools** and partners requires serialization—not only in-memory graphs.
 
-1. Model the same SAT as (a) a Haystack-style `dict` with `dis`, `point`, `equipRef` keys vs (b) two Brick triples—side by side in notes.
-2. Which representation is easier to **`git diff`** when a VAV is moved from one AHU to another?
-3. One sentence: why **SPARQL** is unnecessary for a single tagged JSON file but useful for a **merged** campus graph.
+### Mini examples
+
+- Round-trip `ahu1.ttl` through parse (if using oxrdf) and your serializer.
+- Git-diff two exports—stable sort lines for clean diffs.
+
+### Micro exercises
+
+1. Serialize Day 62 model from code-built graph.
+2. Handle literal datatypes in output `^^xsd:double`.
+3. Unit test: parse count == serialize count.
 
 ### Key takeaway
 
-**Tags = local convenience; RDF = global composition.** You will use both in real stacks.
+**RDF interoperability is file exchange**—Turtle generation completes the Rust RDF mini-stack.

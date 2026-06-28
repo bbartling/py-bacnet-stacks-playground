@@ -1,53 +1,58 @@
-## Day 75 — Capstone: SPARQL over a small Brick model
+## Day 75 – Final Capstone: Multi-Protocol Semantic Snapshot
 
 ### Goal
 
-Combine **Weeks 7–10**: load a **small Turtle file** you author (or start from the template below), run **at least three** SPARQL queries:
+Deliver **[`capstone/`](./capstone/)** with:
 
-1. **List** all `brick:Air_Handler_Unit` instances.
-2. **List** all points related via `brick:hasPoint` to a chosen AHU (variable `?p`).
-3. **`OPTIONAL`** list SAT sensors per AHU; note unbound slots.
+1. **`discover-and-poll/`** — Rust BACnet CLI ([Day 46 starter](./capstone/discover-and-poll/))
+2. **`niagara-read`** — Haystack CLI via [nhaystack-niagara-pi-tutorial](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) ([pointer](./capstone/niagara-read/README.md))
+3. **`model/ahu1.ttl`** — Brick hand model ([starter included](./capstone/model/ahu1.ttl))
+4. **`graph-export/`** — Rust binary loading TTL + BACnet live read → merged Turtle ([starter](./capstone/graph-export/))
+5. **`pcaps/README.md`** — three filters used on one multi-protocol capture ([template](./capstone/pcaps/README.md))
+6. **`COURSE_REVIEW.md`** ([template](./capstone/COURSE_REVIEW.md))
 
-Write **short prose** documenting what each query answers for a **commissioning tech**.
+### Concept
 
-### Sample model (save as `capstone.ttl` and extend)
+Grading rubric (self-check):
 
-```turtle
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+| Artifact | Pass criteria |
+|----------|---------------|
+| BACnet CLI | Reads device 5007 without panic; logs errors |
+| Haystack CLI | Basic auth works; prints Zinc or parsed rows |
+| TTL model | ≥8 triples; valid Turtle |
+| Graph export | Round-trip triple count ≥ original |
+| PCAP doc | Shows BACnet + HTTPS + filter strings |
 
-ex:ahu1 a brick:Air_Handler_Unit ;
-    brick:hasPoint ex:ahu1/sat ;
-    brick:hasPoint ex:ahu1/oat .
+Optional stretch: JSON point export for agents (Day 73).
 
-ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
-ex:ahu1/oat a brick:Outside_Air_Temperature_Sensor .
-# Class IRIs: confirm against the Brick version you use in production.
-```
+### Why This Matters
 
-### Starter query (extend)
+This replaces the old Day 75 SPARQL-on-rdflib capstone with **Rust-native networking + RDF** aligned to edge BAS reality.
 
-```sparql
-PREFIX ex: <https://example.edu/bldg/>
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+### Micro exercises
 
-SELECT ?ahu ?p ?ptype
-WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
-  ?ahu brick:hasPoint ?p .
-  ?p rdf:type ?ptype .
-}
-ORDER BY ?ahu ?p
-```
-
-### Deliverables
-
-- `capstone.ttl` (≥ your template size, with at least **two** AHUs or **one** AHU + **floor**).
-- `queries.rq` or a Python script using `rdflib` that prints results for queries 1–3.
-- **README fragment** (5 sentences): how you would connect these IRIs to **historian columns** for an open-fdd-style rule.
+1. Zip repo subset; include `--help` screenshots.
+2. Record 2-minute screen demo: Wireshark filter → CLI read → TTL query.
+3. Post one Discord/forum lesson learned (community optional).
 
 ### Key takeaway
 
-**RDF data modeling + SPARQL pattern matching** closes the loop from **Python lists** (Days 44–50, after optional maze Days 41–43) to **interoperable building graphs**—the same stack Brick tools and graph-first FDD workshops build on.
+**Turn-key edge practitioner path:** Python BACnet basics → Rust protocols on the wire → semantic models for FDD and agents.
+
+### Wireshark Lab
+
+Final capture:
+
+```bash
+./capture_pcap.sh day75-final "udp port 47808 or tcp port 443 or tcp port 1502"
+```
+
+Document filters in `pcaps/README.md`:
+
+```
+udp.port == 47808
+tcp.port == 443 && ip.addr == 192.168.204.11
+tcp.port == 1502
+```
+
+Congratulations—you finished the **Rust Network Programming + RDF** track.

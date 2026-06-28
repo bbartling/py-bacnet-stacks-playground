@@ -1,51 +1,46 @@
-## Day 35 – Fault detection as Boolean logic (no Pandas)
+## Day 35 – Network Programming Map (UDP, TCP, Ports)
 
 ### Goal
 
-Express **simple AFDD-style rules** the way rule engines do conceptually: comparisons, **AND / OR / NOT**, thresholds from parameters. Use **plain Python** on scalars or aligned lists—**no Pandas**, no `eval` on strings—mirroring the *spirit* of open-fdd **expression** rules (see `open-fdd/docs/expression_rule_cookbook.md`) while staying CS-101 sized.
+Place **BACnet/IP**, **Haystack HTTPS**, and **Modbus TCP** on the same mental map you would see in a university networking course—before writing sockets.
 
 ### Concept
 
-A **fault flag** is often “expression is True.” Example pattern from cookbook thinking (GL36-inspired duct static idea, simplified):
+| Protocol | Transport | Typical port | Building use |
+|----------|-----------|--------------|--------------|
+| BACnet/IP | **UDP** | 47808 | Who-Is, ReadProperty, COV |
+| Haystack REST | **TCP** + TLS | 443 | `/about`, `/read`, `/ops` |
+| Modbus TCP | **TCP** | 502 / 1502 | Register reads |
 
-- Inputs: `duct_static`, `static_setpoint`, `fan_cmd_frac` (0–1 or 0–100—**pick one convention** and document it).
-- Params: margins (numbers), high-drive fraction.
-- Logic (read as math, not YAML):
+**UDP**: connectionless datagrams—fast, no guaranteed delivery (fine for BACnet with app-layer retries).
 
-\[
-\text{fault} = (\text{static} < \text{setpoint} - m) \land (\text{fan\_cmd} \ge f_{\text{hi}} - \epsilon)
-\]
+**TCP**: reliable byte stream—HTTP sits on top.
 
-In Python for **one timestep**:
+Your bench (example):
 
-```python
-def rule_duct_static_low(static, setpoint, fan_cmd, sp_margin, drv_hi, drv_near_hi):
-    low_static = static < setpoint - sp_margin
-    fan_near_max = fan_cmd >= drv_hi - drv_near_hi
-    return low_static and fan_near_max
-```
+- Edge: `192.168.204.55`
+- BACnet device: `192.168.204.200:47808/udp`
+- Niagara nHaystack: `https://192.168.204.11/haystack`
 
-### Why this matters
+### Why This Matters
 
-Production tools (e.g. **open-fdd**) add schedules, column maps, and vectorized `numpy`/`pandas`—but the **underlying idea** is still Boolean algebra on aligned signals. Writing rules explicitly trains you to **normalize units**, **name variables**, and **avoid contradictions**.
+When Wireshark shows "UDP" vs "TCP", you know **which stack** you are debugging—BACnet driver vs Haystack client.
 
 ### Mini examples
 
-- Add **occupancy gating**: `fault = raw_fault and occupied` where `occupied` is a bool you pass in.
-- OR two independent symptoms: `leak_suspect = low_static or unexpected_flow`.
-- NOT: `equipment_on = not (fan_cmd < 0.01)`.
+- Sketch a diagram: Pi → UDP → BACnet device; Pi → TCP → Niagara.
+- List three reasons BACnet chose UDP historically (broadcast, low overhead, LAN-local).
 
 ### Micro exercises
 
-1. Implement `economizer_cooling_when_cold(oat, sat, sat_sp, oat_high_limit)` returning `True` when `oat < oat_high_limit` and `sat < sat_sp - 2.0` (toy rule—tune later).
-2. Write `weather_band_ok(oat, low_f, high_f)` and combine with another flag using `and`.
-3. List three ways **bad units** (0–1 vs 0–100 commands) make Boolean rules silently wrong.
-
-### See also
-
-- **open-fdd** cookbook (full engine uses Pandas/NumPy): clone **open-fdd** and read `docs/expression_rule_cookbook.md` (path depends on your machine).
-- BACnet mini servers / Wireshark / deployment topics live in other weeks of this repo’s lesson set or `README.md`—this week stays focused on **algorithms + light FDD math**.
+1. What port does `ss -ulnp | grep 47808` show on a BACnet gateway?
+2. Why is Haystack not "just another UDP app"?
+3. Write one sentence linking Day 33 `HashMap` to caching I-Am responses.
 
 ### Key takeaway
 
-Fault detection at its simplest is **comparison + Boolean structure**. Master that on scalars before trusting a framework to do it across whole DataFrames.
+**Pick transport by protocol spec**, not preference—rusty-bacnet speaks UDP; rusty-haystack speaks HTTP over TCP.
+
+### Wireshark Lab
+
+Open an empty capture mindset: **Statistics → Protocol Hierarchy** on any future pcap—that's your course dashboard.

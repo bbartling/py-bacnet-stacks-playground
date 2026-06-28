@@ -1,44 +1,44 @@
-## Day 52 — Literals: lexical value + datatype IRI
+## Day 52 – Golden Fixtures & Offline Haystack Dev
 
 ### Goal
 
-Model **RDF literals** in Python without a full RDF library: store **`(lexical_string, datatype_iri_or_none)`** as the **object** side when the object is not a resource URI. Compare to **plain string object** mistakes ( `"72.5"` vs float semantics).
+Use **golden HTTP fixtures** from the niagara tutorial to develop rusty-haystack parsers without hammering live Niagara.
 
 ### Concept
 
-RDF 1.1 literals have:
+Path: [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/fixtures/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/fixtures/) — see [FIXTURES_AND_SIM.md](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/FIXTURES_AND_SIM.md).
 
-- **Lexical form** (characters), e.g. `"22.1"`.
-- **Datatype** IRI, often `http://www.w3.org/2001/XMLSchema#decimal` for numbers.
+Capture script (run from tutorial folder):
 
-In tiny exercises you may keep `object` as a single string `"22.1^^http://www.w3.org/2001/XMLSchema#decimal"` with a **documented convention**, or use a **tuple** as above—pick one style for your own code and stay consistent.
-
-### How to use it
-
-```python
-XSD_DECIMAL = "http://www.w3.org/2001/XMLSchema#decimal"
-
-
-def literal_decimal(lexical):
-    return (lexical, XSD_DECIMAL)
-
-
-def parse_if_decimal(lit):
-    if isinstance(lit, tuple) and lit[1] == XSD_DECIMAL:
-        return float(lit[0])
-    return None
+```bash
+scripts/03_capture_golden_fixtures.sh
 ```
 
-### Why this matters
+Develop pattern:
 
-Brick + timeseries integrations attach **numeric readings** to **sensor resources**; the *reading* is often a literal with a datatype, while the *sensor* is a URI. Mixing them up causes subtle export bugs.
+1. Record real responses once (with permission)
+2. Commit redacted **golden** files
+3. Unit test client against fixtures (local `mockito` or file:// server—stretch)
 
-### Mini exercises
+### Why This Matters
 
-1. Add a triple: `ex:ahu1/sat` has **present value** literal `"55.2"` as `xsd:decimal` using your tuple convention.
-2. Write `is_resource_object(obj)` returning `True` if `obj` is a `str` starting with `http` and **not** your literal tuple form.
-3. Why is storing a temperature as a bare Python `float` in a triple list **not** the same as an RDF typed literal (hint: JSON vs RDF graph interchange)?
+Network programming best practice: **separate protocol parsing from live I/O** so CI runs without your bench VLAN.
+
+### Mini examples
+
+- Diff `about.zinc` golden vs live `/about`.
+- List ops available in fixture metadata.
+
+### Micro exercises
+
+1. Capture golden set on your N4.15 station if not present.
+2. Write one test that loads fixture string and asserts row count > 0.
+3. Explain replay value when 192.168.204.11 is offline.
 
 ### Key takeaway
 
-**Literals carry type.** RDF cares; Python `float` is only your runtime convenience after you **parse** the lexical form.
+**Fixtures are how Rust projects test HTTP clients** without always-on Niagara hardware.
+
+### Wireshark Lab
+
+Optional: capture during golden capture script run—filter **`tcp.port == 443`**

@@ -1,43 +1,33 @@
-## Day 69 — `SELECT` and basic `WHERE` patterns (`rdflib`)
+## Day 69 – FILTER & OPTIONAL Patterns in Rust
 
 ### Goal
 
-Run your **first** SPARQL `SELECT` against the **Day 65** Turtle (or the sample below) using **`graph.query(sparql_text)`** in `rdflib`.
+Implement SPARQL-like **`FILTER`** (numeric compare) and **`OPTIONAL`** (maybe-missing edges) on your graph API.
 
 ### Concept
 
-```python
-from rdflib import Graph
-
-g = Graph()
-g.parse("my_ahu.ttl", format="turtle")
-
-q = """
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-SELECT ?ahu
-WHERE {
-  ?ahu rdf:type brick:Air_Handler_Unit .
+```rust
+fn optional_point_label(g: &AdjGraph, pt: &str) -> Option<String> {
+    let label_pred = "http://www.w3.org/2000/01/rdf-schema#label";
+    objects_of(g, pt, label_pred).into_iter().next().and_then(|o| match o {
+        RdfObject::Literal { lex, .. } => Some(lex.clone()),
+        _ => None,
+    })
 }
-"""
-
-for row in g.query(q):
-    print(row[0])
 ```
 
-Variables start with `?`. Each `WHERE` line is a **triple pattern**; shared `?ahu` joins patterns.
+FILTER: keep sensors where parsed literal > threshold.
 
-### Why this matters
+### Why This Matters
 
-Same query runs on a **file** or a **Blazegraph** endpoint—only the **connection** changes.
+Real models miss labels, units, or optional points—queries must not explode on absence.
 
-### Mini exercises
+### Micro exercises
 
-1. Extend the query to also return `?label` if you added `rdfs:label` triples.
-2. Return pairs `(?ahu, ?p)` where `?ahu brick:hasPoint ?p`.
-3. Explain: why must **prefixes** in SPARQL match the Turtle file’s IRIs?
+1. Query all temperature sensors with optional `rdfs:label`.
+2. Filter SAT > 55.0 if literal present.
+3. Compare to SQL LEFT JOIN in one sentence.
 
 ### Key takeaway
 
-**One graph, many queries.** `SELECT` lists which columns (variables) you want bound.
+**OPTIONAL = left join mindset**—essential for commissioning-grade incomplete graphs.

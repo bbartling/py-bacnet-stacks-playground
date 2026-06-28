@@ -2,26 +2,23 @@
 
 Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in the repo [README.md](../README.md#computer-science-theory-101-weekly-outline) is the canonical syllabus text; this page is a **compact link hub**.
 
-**Conventions:** Early days avoid list/dict comprehensions. **Days 41–47** are **GL36 Trim & Respond** in Python (VAV → AHU → central plant), ported from [n4-hvac-optimization-blocks](https://github.com/bbartling/n4-hvac-optimization-blocks). **Days 48–75** introduce RDF/Turtle/`rdflib`, Brick, and SPARQL for smart-building **data modeling**.
+**Conventions:** Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions). **Days 28–75** are a **Rust fast track**: network programming (UDP/TCP), **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (not Python `rdflib`). Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
 
 ---
 
 ## Using this track as **coding challenges** (students implement themselves)
 
-**Yes — if you treat the written lesson as the spec, not the solution.** Almost every `dayNN.md` already includes **Micro exercises** (and often **Mini examples** / **How to use it** steps) that expect students to **open an editor and write Python** (or Turtle / SPARQL in the RDF weeks), not only read prose.
+**Yes — if you treat the written lesson as the spec, not the solution.** Almost every `dayNN.md` includes **Micro exercises** that expect students to **open an editor and write code**, not only read prose.
 
 | What is already there | How to turn it into a “challenge” |
 | --- | --- |
-| **Micro exercises** (numbered lists) | Require a **single `.py` per day** (or per week bundle) that implements those functions; add **one hidden test CSV** or **assert** cases you keep private for grading. |
-| **“How to use it”** scripted steps (e.g. Day 19) | Treat as a **mini-spec**: students submit `main`, functions, and sample `data.csv`; deduct points if error handling is missing. |
-| **Algorithms days (27–40)** | Strong for **from-scratch** work: re-implement `linear_search`, `running_mean`, Boolean rules, Euler step — forbid importing `pandas`/`numpy` where the lesson says plain Python. |
-| **GL36 days (41–47)** | Implement VAV requests, AHU T&R, plant enable, HWST/CHW resets in Python from the lesson spec. |
-| **Capstone-style days** | **Day 19** (CSV + functions), **Day 40** (parallel lists + fault timeline), **Day 75** (`capstone.ttl` + SPARQL files) are natural **graded milestones**. |
-| **Concept-only days** (e.g. 27, 44, 51) | Assign **short deliverables**: pseudocode, 5-sentence reading notes, *or* one tiny function that encodes the idea (e.g. `expand(prefix_map, qname)` on Day 46). |
+| **Micro exercises** | Require a **single Rust binary or module per day** (Days 28+) or **`.py` per day** (Days 1–27); add private test cases for grading. |
+| **Wireshark Lab** (Days 35–40, 41–46, 48–54, 64, 75) | Require **`pcaps/` artifact** + screenshot with the lesson’s **display filter** pasted into Wireshark. |
+| **Network labs** | Run [`capture_pcap.sh`](./lab-scripts/capture_pcap.sh) during the exercise; filter cheat sheet: [`wireshark_filters.md`](./lab-scripts/wireshark_filters.md). |
+| **Capstone days** | **Day 46** (BACnet CLI), **Day 54** (Haystack CLI), **Day 75** (multi-protocol semantic snapshot) are graded milestones. |
+| **RDF weeks (55–75)** | Hand-authored **`ahu1.ttl`**, Rust graph API, optional `oxrdf`/`serde_json`—no `pip install rdflib`. |
 
-**Difficulty knobs (optional):** (1) Ban a built-in the lesson allows (`sum`, `sorted`) for one week to force loop practice. (2) Add **type hints** or **docstrings** as part of the rubric. (3) Require **small unit tests** written by the student from Week 3 onward.
-
-**Realism:** Days **59–75** assume **`pip install rdflib`**; SPARQL quirks vary by `rdflib` version — allow “post-process in Python” fallbacks where the lesson already says so. That keeps challenges **fair** without becoming a SPARQL engine course.
+**Difficulty knobs (optional):** (1) Ban `unwrap()` on network paths for one week. (2) Require **`cargo test`** from Week 6 onward. (3) Require **`clap --help`** UX on capstone CLIs.
 
 ---
 
@@ -71,96 +68,124 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | 25 | [day25.md](./day25.md) |
 | 26 | [day26.md](./day26.md) |
 
-## Week 5 — Algorithms & HVAC data (Part A)
+## Week 5 — Algorithms pivot + Rust fast track
 
 | Day | Link |
 | --- | --- |
-| 27 | [day27.md](./day27.md) |
-| 28 | [day28.md](./day28.md) |
-| 29 | [day29.md](./day29.md) |
-| 30 | [day30.md](./day30.md) |
-| 31 | [day31.md](./day31.md) |
-| 32 | [day32.md](./day32.md) |
-| 33 | [day33.md](./day33.md) |
+| 27 | [day27.md](./day27.md) — What is an algorithm? (Python); **pivot to Rust** |
+| 28 | [day28.md](./day28.md) — Install Rust & Cargo |
+| 29 | [day29.md](./day29.md) — Types, operators & variables |
+| 30 | [day30.md](./day30.md) — Control flow: if, loop, match |
+| 31 | [day31.md](./day31.md) — Functions, Option & Result |
+| 32 | [day32.md](./day32.md) — struct, enum & impl |
+| 33 | [day33.md](./day33.md) — Vec, HashMap & String |
+| 34 | [day34.md](./day34.md) — Ownership & borrowing (fast track) |
 
-## Week 6 — Algorithms, FDD logic, thermal lite, capstone
-
-| Day | Link |
-| --- | --- |
-| 34 | [day34.md](./day34.md) |
-| 35 | [day35.md](./day35.md) |
-| 36 | [day36.md](./day36.md) |
-| 37 | [day37.md](./day37.md) |
-| 38 | [day38.md](./day38.md) |
-| 39 | [day39.md](./day39.md) |
-| 40 | [day40.md](./day40.md) |
-
-## Week 6b — GL36 Trim & Respond (Python)
+## Week 5b — Network programming & Wireshark
 
 | Day | Link |
 | --- | --- |
-| 41 | [day41.md](./day41.md) — VAV zone requests |
-| 42 | [day42.md](./day42.md) — AHU duct static T&R |
-| 43 | [day43.md](./day43.md) — AHU SAT T&R |
-| 44 | [day44.md](./day44.md) — Chiller plant enable |
-| 45 | [day45.md](./day45.md) — Plant AHU request counter |
-| 46 | [day46.md](./day46.md) — HWST T&R |
-| 47 | [day47.md](./day47.md) — CHW T&R (DP + CHWST) |
+| 35 | [day35.md](./day35.md) — Network map (UDP/TCP/ports) |
+| 36 | [day36.md](./day36.md) — UDP sockets echo lab |
+| 37 | [day37.md](./day37.md) — TCP client/server echo |
+| 38 | [day38.md](./day38.md) — tcpdump & PCAP workflow |
+| 39 | [day39.md](./day39.md) — Wireshark: BACnet on UDP |
+| 40 | [day40.md](./day40.md) — Wireshark: TCP, TLS & HTTP |
 
-## Week 7 — Python bridge for RDF (smart buildings)
-
-| Day | Link |
-| --- | --- |
-| 48 | [day48.md](./day48.md) |
-| 49 | [day49.md](./day49.md) |
-| 50 | [day50.md](./day50.md) |
-| 51 | [day51.md](./day51.md) |
-| 52 | [day52.md](./day52.md) |
-| 53 | [day53.md](./day53.md) |
-| 54 | [day54.md](./day54.md) |
-
-## Week 8 — RDF & Turtle (`rdflib`)
+## Week 6 — rusty-bacnet specialty
 
 | Day | Link |
 | --- | --- |
-| 55 | [day55.md](./day55.md) |
-| 56 | [day56.md](./day56.md) |
-| 57 | [day57.md](./day57.md) |
-| 58 | [day58.md](./day58.md) |
-| 59 | [day59.md](./day59.md) |
-| 60 | [day60.md](./day60.md) |
-| 61 | [day61.md](./day61.md) |
+| 41 | [day41.md](./day41.md) — Intro rusty-bacnet |
+| 42 | [day42.md](./day42.md) — ReadProperty (device 5007) |
+| 43 | [day43.md](./day43.md) — ReadPropertyMultiple & polling |
+| 44 | [day44.md](./day44.md) — WriteProperty & priority (lab-safe) |
+| 45 | [day45.md](./day45.md) — Who-Is / I-Am discovery |
+| 46 | [day46.md](./day46.md) — BACnet capstone CLI |
+| 47 | [day47.md](./day47.md) — Async preview (tokio) |
 
-## Week 9 — Brick on RDF
-
-| Day | Link |
-| --- | --- |
-| 62 | [day62.md](./day62.md) |
-| 63 | [day63.md](./day63.md) |
-| 64 | [day64.md](./day64.md) |
-| 65 | [day65.md](./day65.md) |
-| 66 | [day66.md](./day66.md) |
-| 67 | [day67.md](./day67.md) |
-
-## Week 10 — SPARQL for Brick graphs
+## Week 6b — rusty-haystack & HTTP Haystack ops
 
 | Day | Link |
 | --- | --- |
-| 68 | [day68.md](./day68.md) |
-| 69 | [day69.md](./day69.md) |
-| 70 | [day70.md](./day70.md) |
-| 71 | [day71.md](./day71.md) |
-| 72 | [day72.md](./day72.md) |
-| 73 | [day73.md](./day73.md) |
-| 74 | [day74.md](./day74.md) |
-| 75 | [day75.md](./day75.md) |
+| 48 | [day48.md](./day48.md) — HTTP mental model |
+| 49 | [day49.md](./day49.md) — rusty-haystack client setup |
+| 50 | [day50.md](./day50.md) — /read & Zinc filters |
+| 51 | [day51.md](./day51.md) — Auth: Basic vs SCRAM |
+| 52 | [day52.md](./day52.md) — Golden fixtures |
+| 53 | [day53.md](./day53.md) — Haystack ↔ BACnet mapping |
+| 54 | [day54.md](./day54.md) — Haystack capstone CLI |
+
+## Week 7 — RDF bridge in Rust
+
+| Day | Link |
+| --- | --- |
+| 55 | [day55.md](./day55.md) — Why RDF after protocols |
+| 56 | [day56.md](./day56.md) — URIs & prefix maps |
+| 57 | [day57.md](./day57.md) — Triples & literals |
+| 58 | [day58.md](./day58.md) — Reading Turtle |
+| 59 | [day59.md](./day59.md) — Adjacency-list graph |
+| 60 | [day60.md](./day60.md) — rdf:type & Brick taxonomy |
+| 61 | [day61.md](./day61.md) — Haystack tags vs Brick graphs |
+
+## Week 8 — Brick models & query patterns in Rust
+
+| Day | Link |
+| --- | --- |
+| 62 | [day62.md](./day62.md) — Hand-author Brick AHU model |
+| 63 | [day63.md](./day63.md) — Pattern matching queries |
+| 64 | [day64.md](./day64.md) — Multi-protocol PCAP challenge |
+| 65 | [day65.md](./day65.md) — open-fdd drivers & semantic layer |
+| 66 | [day66.md](./day66.md) — Serialize graph to Turtle |
+| 67 | [day67.md](./day67.md) — ASHRAE 223P alignment (concept) |
+
+## Week 9 — Live data → graph & agent export
+
+| Day | Link |
+| --- | --- |
+| 68 | [day68.md](./day68.md) — BACnet read → RDF triples |
+| 69 | [day69.md](./day69.md) — FILTER & OPTIONAL patterns |
+| 70 | [day70.md](./day70.md) — UNION & ASK queries |
+| 71 | [day71.md](./day71.md) — DISTINCT, ORDER BY, LIMIT |
+| 72 | [day72.md](./day72.md) — Haystack → RDF export path |
+| 73 | [day73.md](./day73.md) — Agent-ready JSON metadata |
+
+## Week 10 — Course synthesis & final capstone
+
+| Day | Link |
+| --- | --- |
+| 74 | [day74.md](./day74.md) — Course review |
+| 75 | [day75.md](./day75.md) — Final capstone: semantic snapshot |
 
 ---
 
 ## Optional dependencies
 
-- **`rdflib`** (from about Day 59): `pip install rdflib`
+- **Rust** (from Day 28): [rustup.rs](https://rustup.rs/)
+- **tcpdump**, **Wireshark** (from Day 38): system packages
+- **Optional crates** (stretch): `oxrdf`, `serde`, `serde_json`, `tokio`, `clap`
+- **Python** (Days 1–27): `BAC0`, `bacpypes3` as in Day 1
 
 ## Related repos (external)
 
-- **open-fdd** — expression rules, Pandas engine: see your clone’s `docs/expression_rule_cookbook.md` when lessons reference FDD patterns.
+- **[rusty-bacnet](https://github.com/jscott3201/rusty-bacnet)** — Rust BACnet stack (Days 41–47)
+- **[rusty-haystack](https://github.com/jscott3201/rusty-haystack)** — Rust Haystack client/server (Days 48–54)
+- **[nhaystack-niagara-pi-tutorial](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/)** — Niagara lab + golden fixtures
+- **open-fdd** — edge drivers, FDD rules, agent workflows (Days 65, 73)
+
+## Lab scripts
+
+| Script | Purpose |
+| --- | --- |
+| [capture_pcap.sh](./lab-scripts/capture_pcap.sh) | Timed tcpdump capture to `lessons/pcaps/` |
+| [wireshark_filters.md](./lab-scripts/wireshark_filters.md) | Per-day display filter cheat sheet |
+
+## Capstone portfolio ([capstone/](./capstone/))
+
+| Artifact | Days | Link |
+| --- | --- | --- |
+| BACnet CLI skeleton | 46 | [discover-and-poll/](./capstone/discover-and-poll/) |
+| Haystack CLI tutorial | 54 | [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) |
+| Brick TTL starter | 62 | [model/ahu1.ttl](./capstone/model/ahu1.ttl) |
+| Graph export | 66, 68, 75 | [graph-export/](./capstone/graph-export/) |
+| PCAP + review templates | 64, 74, 75 | [pcaps/README.md](./capstone/pcaps/README.md) · [COURSE_REVIEW.md](./capstone/COURSE_REVIEW.md) |

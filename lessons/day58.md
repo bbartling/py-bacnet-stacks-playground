@@ -1,34 +1,38 @@
-## Day 58 — Reading Turtle: `.` `;` `,` and `@prefix`
+## Day 58 – Reading Turtle (By Hand, Then Parse Lite)
 
 ### Goal
 
-Read **Turtle** (Terse RDF Triple Language) well enough to **hand-debug** small Brick snippets: **period** ends a statement; **semicolon** repeats subject; **comma** repeats subject+predicate.
+Read **Turtle** syntax and optionally parse a tiny file with a minimal line-based approach or **`rio_turtle`** / **`oxrdf`** crate (pick one for stretch).
 
 ### Concept
 
 ```turtle
-@prefix ex: <https://example.edu/bldg/> .
+@prefix ex: <http://example.com/bldg#> .
 @prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
-ex:ahu1 a brick:Air_Handler_Unit ;
-    brick:hasPoint ex:ahu1/sat .
+ex:AHU1 a brick:AHU ;
+    brick:hasPoint ex:SAT .
 
-ex:ahu1/sat a brick:Supply_Air_Temperature_Sensor .
+ex:SAT a brick:Supply_Air_Temperature_Sensor .
 ```
 
-Read line 5–6 as **two** triples sharing `ex:ahu1`.
+Punctuation: `.` terminates; `;` continues same subject; `,` object list.
 
-### Why this matters
+### Why This Matters
 
-Brick distribution, **GraphDB**, **Blazegraph**, **Oxigraph** dumps, and **git** diffs of building models are mostly Turtle or TriG. Reading beats guessing.
+Brick models ship as **`.ttl` files**—you must read them even if Rust code builds graphs programmatically.
 
-### Mini exercises
+### Mini examples
 
-1. Rewrite the snippet above as an **explicit** list of `(s,p,o)` tuples (no `;` or `,`).
-2. What triple does `a` expand to?
-3. Find one **syntax error** in a deliberately broken Turtle snippet (instructor-provided) by eye.
+- Rewrite one block using full IRIs only (no prefixes).
+- Count triples in a 10-line file by hand.
+
+### Micro exercises
+
+1. Write `mini.ttl` for one equip + one point.
+2. Optional: `cargo add oxrdf` and parse `mini.ttl` in 20 lines.
+3. Compare to Haystack Zinc—what's easier for humans?
 
 ### Key takeaway
 
-**Turtle sugar = shared subject/predicate.** Parsing is a machine job next lesson; **reading** is your job today.
+**Turtle is the human-friendly RDF syntax**—Rust stores the parsed graph in memory structures from Days 57–59.

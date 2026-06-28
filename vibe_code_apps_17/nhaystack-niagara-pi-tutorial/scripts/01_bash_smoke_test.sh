@@ -13,6 +13,7 @@ fi
 : "${HAYSTACK_PASS:?Set HAYSTACK_PASS}"
 
 echo
+echo "== Lab station: Niagara 4 (N4) 4.15.3.28, nHaystack 3.3, HTTPBasicScheme =="
 echo "== Test 1: /about with headers =="
 curl -k -i -u "$HAYSTACK_USER:$HAYSTACK_PASS" \
   "$HAYSTACK_BASE/about"

@@ -7,17 +7,17 @@
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
 [![AWS IoT Core](https://img.shields.io/badge/cloud-AWS%20IoT%20Core-FF9900?logo=amazonaws&logoColor=white)](vibe_code_apps_12/aws_cloud_pipeline/)
 
-## **Applied Python + BACnet + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
+## **Applied Python + BACnet → Rust Networking + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
 
-Welcome to the **Py BACnet Stacks Playground** — a hands-on, applied repository that starts with Python fundamentals and direct BACnet scripting, then evolves into **AI-assisted edge automation demos**.
+Welcome to the **Py BACnet Stacks Playground** — a hands-on, applied repository that starts with **Python fundamentals and direct BACnet scripting**, then pivots after **Day 27** into a **fast-track Rust** path: **network programming** (UDP/TCP, tcpdump, Wireshark), **[rusty-bacnet](https://github.com/jscott3201/rusty-bacnet)**, **[rusty-haystack](https://github.com/jscott3201/rusty-haystack)**, and **RDF modeled in Rust** (Brick / Haystack / 223P mindset—not Python `rdflib`).
 
 The early *vibe code* apps stay grounded in **Python, BAC0, and BACpypes3**, where you build practical tools by directly interacting with BACnet devices—reading values, writing commands, inspecting priority arrays, and understanding real control behavior in the field.
 
-From there, the project is now exploring AI-driven workflows for bootstrapping VOLTTRON-based edge systems and building a BAS from scratch through web app development.
+From **Day 28** onward, daily mini-challenges teach **Cargo**, Rust types and collections, **socket I/O**, **packet capture labs** with per-day Wireshark display filters, production-style **Rust BACnet and Haystack clients**, and a **semantic modeling capstone**—graphs, Turtle, and query patterns implemented with Rust data structures.
 
-The goal is to experiment with lightweight agents, platform services, and supervisory logic running continuously on a Raspberry Pi or edge gateway, bringing simple scripts closer to real-world building automation deployments.
+The goal is to experiment with lightweight agents, platform services, and supervisory logic running continuously on a Raspberry Pi or edge gateway (e.g. **open-fdd**), bringing scripts closer to real-world building automation deployments—with **pcap evidence** when the wire disagrees with your driver.
 
-Come join the journey as we play around with Python, AI, BACnet, and computer science theory in a fun, hands-on playground designed for learning. This series is geared toward people with little to no technical background beyond real-world field experience as building automation technicians.
+Come join the journey as we play around with Python, **Rust**, AI, BACnet, Haystack, Wireshark, and computer science theory in a fun, hands-on playground designed for learning. This series is geared toward people with little to no technical background beyond real-world field experience as building automation technicians.
 
 
 ---
@@ -61,7 +61,7 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 
 ## Computer Science Theory 101 Weekly Outline
 
-These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level and progressing all the way through algorithms such as Guideline 36 and advanced data structures, eventually getting into RDF theory for smart building data modeling standards such as Brick, Haystack, and ASHRAE 223P.
+These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level with **Python + BACnet** (Days 1–27), then a **Rust fast track** through **network programming**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (Days 28–75). Daily labs include **tcpdump capture scripts** and **Wireshark display filters**—see [`lessons/lab-scripts/`](lessons/lab-scripts/). Turn-key capstone starters: [`lessons/capstone/`](lessons/capstone/).
 
 
 ### Week 1 — Fundamentals & First BACnet App  
@@ -114,95 +114,100 @@ These are AI-generated mini lessons designed as daily challenges, starting at th
 
 ---
 
-### Week 5 — Algorithms & HVAC Data (Part A)  
-*Part IV: Search, sort, strings, membership*
+### Week 5 — Rust Fast Track (After Python Day 27)  
+*Cargo, types, control flow, collections, ownership lite*
 
-- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs, course framing.
-- **Day 28 — Linear Search:** First match / threshold scans on trend-like lists.
-- **Day 29 — Min & Max:** Accumulator scans on readings.
-- **Day 30 — Counting Occurrences:** Frequency tables (fault codes, equipment types).
-- **Day 31 — Sorting & Median:** `sorted()`, keys, median; bubble sort as pedagogy only.
-- **Day 32 — String Parsing for BAS Text:** `split`, `join`, `strip` for exports and tags.
-- **Day 33 — Membership & Index Search:** `in` vs explicit loops for position.
-
----
-
-### Week 6 — Algorithms, FDD Logic, Thermal Lite, Capstone (Part B)  
-*Part IV continued: stats, Boolean FDD patterns, R–C + Euler, no Pandas*
-
-- **Day 34 — Aggregates:** Mean, median, short HVAC samples.
-- **Day 35 — Fault Detection as Boolean Logic:** Thresholds, AND/OR/NOT (open-fdd *expression* mindset; plain Python).
-- **Day 36 — Deadbands & Envelopes:** Chattering, MAT vs OAT/RAT band (high-level).
-- **Day 37 — Sliding Windows:** Running mean/max with list slices (no Pandas).
-- **Day 38 — Thermal R–C Analogy:** One-node intuition for building dynamics.
-- **Day 39 — Explicit Euler:** Integrate a 1-state toy thermal model in a loop.
-- **Day 40 — Capstone:** Parallel lists + simple fault timeline + course self-check.
+- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs; **pivot note** to Rust track from Day 28.
+- **Day 28 — Install Rust & Cargo:** `rustup`, `cargo new`, first binary on your edge PC.
+- **Day 29 — Types, Operators & Variables:** Scalars, `mut`, formatting BACnet-style readings.
+- **Day 30 — Control Flow:** `if`, loops, `match` for alarm/priority-style logic.
+- **Day 31 — Functions, Option & Result:** Error handling before sockets.
+- **Day 32 — struct, enum & impl:** Model BACnet points and object kinds.
+- **Day 33 — Vec, HashMap & String:** Device caches and tag maps.
+- **Day 34 — Ownership & Borrowing (fast track):** References for network buffers and APIs.
 
 ---
 
-### Week 6b — GL36 Trim & Respond (Python, from working Java/Niagara blocks)  
-*After Day 40 capstone; mirrors [n4-hvac-optimization-blocks](https://github.com/bbartling/n4-hvac-optimization-blocks) GL36 logic in plain Python*
+### Week 5b — Network Programming & Wireshark  
+*UDP/TCP, tcpdump pcaps, display filters—typical coursework before application stacks*
 
-- **Day 41 — VAV zone requests:** GL36 variable table; cooling + duct static **0–3** request counters (`vavCoolRequests`, `vavPressureRequests`).
-- **Day 42 — AHU duct static T&R:** Fan gating, startup delay **Td**, trim/respond on summed pressure requests **R**.
-- **Day 43 — AHU SAT T&R:** `tMax` trim/respond + OAT interpolation curve for discharge air temperature.
-- **Day 44 — Chiller plant enable:** AHU CHW valve latches, min ON/OFF, `chillerEnableCommand`.
-- **Day 45 — Central plant AHU request counter:** SAT error ladders → cooling/heating **0–3** for plant resets.
-- **Day 46 — HWST Trim & Respond:** Hot water supply reset from aggregated heating requests.
-- **Day 47 — CHW Trim & Respond:** Single **0–100%** loop → DP reset (0–50%) then CHWST reset (50–100%).
-
+- **Day 35 — Network map:** BACnet UDP `:47808`, Haystack TCP `:443`, Modbus TCP—bench topology.
+- **Day 36 — UDP sockets in Rust:** Echo lab; BACnet datagram mindset.
+- **Day 37 — TCP client/server:** Echo lab; HTTP/TLS foundation.
+- **Day 38 — tcpdump & PCAP workflow:** `capture_pcap.sh`, snaplen, offline analysis.
+- **Day 39 — Wireshark: BACnet on UDP:** BVLC/NPDU/APDU; filter `udp.port == 47808`.
+- **Day 40 — Wireshark: TCP, TLS & HTTP:** Haystack preview; filter `tcp.port == 443`.
 
 ---
 
-### Week 7 — Python Bridge for RDF (Smart Buildings)  
-*Only structures needed later: identity, nesting, uniqueness, tiny “graphs”*
+### Week 6 — rusty-bacnet Specialty  
+*Discovery, ReadProperty, RPM, writes (lab-safe), capstone CLI*
 
-- **Day 48 — Buildings as Graphs, Not Only Tables:** Rows vs relationships; why BAS interoperability uses graphs.
-- **Day 49 — URIs & IRIs as Identity:** Strings that name things globally; cool URI vs literal.
-- **Day 50 — Prefix Maps:** `dict` from prefix string to base IRI; expand `brick:AHU` by hand.
-- **Day 51 — Triples as Data:** `(subject, predicate, object)` tuples; `list` of triples as a toy graph.
-- **Day 52 — Literals vs Resources:** When the object is a typed value (lexical + datatype name as strings).
-- **Day 53 — Adjacency-Style `dict`:** `subject -> list` of `(predicate, object)` pairs (simple directed multigraph).
-- **Day 54 — From Rows to Nodes:** Nested `dict` records for one equipment + points (bridge from CSV/BACnet thinking).
-
----
-
-### Week 8 — RDF & Turtle (Theory + `rdflib`)  
-*Triple model, syntax, loading graphs in Python*
-
-- **Day 55 — RDF Triple Model:** Subject, predicate, object; blank nodes mentioned lightly.
-- **Day 56 — `rdf:type` & Taxonomy:** Instance of a class; `rdfs:subClassOf` as “is-a” chain (concept + tiny triples).
-- **Day 57 — Properties:** `rdf:Property`; domain and range (read diagrams / docs, not proofs).
-- **Day 58 — Reading Turtle:** `.` `;` `,` blocks; prefixes; comments.
-- **Day 59 — `rdflib` Graph from Turtle:** Parse a string; count triples; iterate `graph.triples(...)`.
-- **Day 60 — Serialization:** `graph.serialize(format="turtle")`; round-trip sanity check.
-- **Day 61 — Merging Graphs:** Add triples from two sources; dedupe with a `set` of frozen rows (pattern only).
+- **Day 41 — Intro rusty-bacnet:** Clone, build, map Who-Is/ReadProperty APIs.
+- **Day 42 — ReadProperty:** Device **5007** bench read in Rust.
+- **Day 43 — ReadPropertyMultiple:** Poll loops and traffic math.
+- **Day 44 — WriteProperty & priority:** Lab/sim only; read-back discipline.
+- **Day 45 — Who-Is / I-Am scan:** Discovery table in `HashMap`.
+- **Day 46 — BACnet capstone:** Mini commission CLI + CSV snapshot.
+- **Day 47 — Async preview (tokio):** Why edge services use async I/O.
 
 ---
 
-### Week 9 — Brick Ontology on RDF  
-*Classes and relationships for equipment and points*
+### Week 6b — rusty-haystack & HTTP Haystack Ops  
+*Niagara nHaystack, Basic vs SCRAM, fixtures, tag↔BACnet mapping*
 
-- **Day 62 — `brick:` Namespace:** What Brick adds on top of RDF/RDFS.
-- **Day 63 — Equipment Taxonomy:** AHU, VAV, chiller as classes; subclass chains at high level.
-- **Day 64 — Key Predicates:** `brick:hasPoint`, `brick:isPartOf`, `brick:feeds` (meanings, not every term).
-- **Day 65 — Hand-Author a Tiny Model:** Write Turtle for one AHU + one SAT sensor (by hand, then optional parse check).
-- **Day 66 — Haystack Tags vs Brick Graphs:** When tags are enough vs when you need a mergeable RDF model.
-- **Day 67 — FDD & Ontology:** How rule `inputs` (e.g. open-fdd) map to Brick-class *names* as logical columns (conceptual).
+- **Day 48 — HTTP mental model:** `/about`, `/read`, `/ops`; status codes.
+- **Day 49 — rusty-haystack setup:** Build client; Niagara URL and TLS lab notes.
+- **Day 50 — /read & Zinc filters:** Point reads and grid parsing.
+- **Day 51 — Auth: Basic vs SCRAM:** Niagara `HTTPBasicScheme` vs Project Haystack SCRAM.
+- **Day 52 — Golden fixtures:** Offline dev with captured Zinc/HTTP fixtures.
+- **Day 53 — Correlate Haystack tags with BACnet points:** Mapping CSV/structs.
+- **Day 54 — Haystack capstone:** `niagara-read` CLI with clap flags.
 
 ---
 
-### Week 10 — SPARQL for Brick Graphs  
-*Patterns, filters, optional data, capstone query*
+### Week 7 — RDF Bridge in Rust (Not rdflib)  
+*Triples, IRIs, Turtle, adjacency graphs*
 
-- **Day 68 — Why SPARQL:** Graph pattern matching; WHERE block as “shape to find.”
-- **Day 69 — `SELECT` & Basic `WHERE`:** Variables `?x`; one- and two-triple patterns on `rdflib` data.
-- **Day 70 — `FILTER` & `BIND`:** Numeric comparisons; computed columns in result rows.
-- **Day 71 — `OPTIONAL`:** Points that may be missing; null-like unbound variables.
-- **Day 72 — `UNION`:** Alternative patterns (this OR that equipment layout).
-- **Day 73 — `ASK`:** Existence checks for commissioning rules (“is there any…?”).
-- **Day 74 — `DISTINCT`, `ORDER BY`, `LIMIT`:** Practical query hygiene on building models.
-- **Day 75 — Capstone:** Multi-clause `SELECT` on a small Brick TTL file bundled with the lesson; document what you queried.
+- **Day 55 — Why RDF after protocols:** Triples as Rust tuples/structs.
+- **Day 56 — URIs & prefix maps:** `HashMap` QName expansion.
+- **Day 57 — Triples & literals:** Enums for IRI vs typed literal.
+- **Day 58 — Reading Turtle:** Syntax by hand; optional `oxrdf` stretch.
+- **Day 59 — Adjacency-list graph:** Subject → edges in `HashMap`.
+- **Day 60 — rdf:type & Brick taxonomy:** Class and subclass chains.
+- **Day 61 — Haystack tags vs Brick graphs:** When tags vs mergeable RDF.
+
+---
+
+### Week 8 — Brick Models & Query Patterns in Rust  
+*Hand-authored TTL, SPARQL mindset without SPARQL engine*
+
+- **Day 62 — Hand-author Brick AHU model:** `ahu1.ttl` capstone piece.
+- **Day 63 — Pattern matching queries:** Tiny `SELECT`-style loops over graph.
+- **Day 64 — Multi-protocol PCAP challenge:** One file, three Wireshark filters.
+- **Day 65 — open-fdd drivers & semantic layer:** Transport → driver → RDF.
+- **Day 66 — Serialize graph to Turtle:** Round-trip from Rust structures.
+- **Day 67 — ASHRAE 223P alignment (concept):** Brick, Haystack, 223P roles.
+
+---
+
+### Week 9 — Live Data → Graph & Agent-Ready Export  
+*Integrate BACnet reads with RDF; JSON for tools*
+
+- **Day 68 — BACnet read → RDF triples:** Live snapshot into graph.
+- **Day 69 — FILTER & OPTIONAL patterns:** Numeric filter; missing edges.
+- **Day 70 — UNION & ASK queries:** Existence checks for commissioning.
+- **Day 71 — DISTINCT, ORDER BY, LIMIT:** Practical query hygiene.
+- **Day 72 — Haystack → RDF export path:** Zinc rows to triples stub.
+- **Day 73 — Agent-ready metadata:** `serde_json` point rows for MCP/agents.
+
+---
+
+### Week 10 — Course Synthesis & Final Capstone  
+*Portfolio: Rust CLIs + TTL + pcaps + review*
+
+- **Day 74 — Course review:** Python → Rust → Wireshark → graph doc.
+- **Day 75 — Final capstone:** Multi-protocol semantic snapshot; Wireshark filters documented in `pcaps/README.md`.
 
 ---
 

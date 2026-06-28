@@ -1,36 +1,34 @@
-## Day 72 — `UNION` (alternative shapes)
+## Day 72 – Haystack RDF Export Path (Concept + Stub)
 
 ### Goal
 
-Combine **two graph patterns** with **`UNION`** when equipment might satisfy **either** layout—e.g. SAT under AHU **or** under a downstream assembly (toy example).
+Explore whether your Haystack source exposes **RDF** or only Zinc—and stub an export pipeline `Zinc rows → triples`.
 
 ### Concept
 
-```sparql
-SELECT ?temp_sensor
-WHERE {
-  { ?ahu rdf:type brick:Air_Handler_Unit .
-    ?ahu brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
-  UNION
-  { ?vav rdf:type brick:Variable_Air_Volume_Box .
-    ?vav brick:hasPoint ?temp_sensor .
-    ?temp_sensor rdf:type brick:Supply_Air_Temperature_Sensor . }
-}
-```
+If only Zinc:
 
-(Use class IRIs that exist in **your** Brick release; VAV class name may differ—consult Brick docs.)
+1. `/read` → parse grid
+2. Map columns `id`, tags → triples (Day 61)
+3. Merge with Brick template graph
 
-### Why this matters
+Optional crates: `oxrdf`, `rio_turtle` for standards-compliant IO.
 
-**Vendor diversity** means the same **semantic** sensor appears under different parents. `UNION` collects both without forcing one false `OPTIONAL` chain.
+### Why This Matters
 
-### Mini exercises
+"Haystack RDF" in industry often means **tag projection into RDF**, not Niagara native RDF files.
 
-1. Draw two small graphs that differ only in parent equipment; confirm `UNION` returns both sensors.
-2. Could two branches of `UNION` **double-count** the same sensor? When?
-3. Rewrite (conceptually) `UNION` as two queries + Python `set` merge—when is that acceptable offline?
+### Mini examples
+
+- List triple count from Haystack-derived vs hand Brick TTL.
+- Note tags without Brick mapping → `ex:haystackTag` annotation.
+
+### Micro exercises
+
+1. Implement `zinc_row_to_triples` for 3 columns.
+2. Merge Haystack-derived graph with `ahu1.ttl`.
+3. One-page doc: what your site would need for RDF export.
 
 ### Key takeaway
 
-**UNION = OR over patterns.** Use sparingly; document why both branches exist.
+**RDF at the edge is often synthesized** from Haystack reads + Brick ontology rules.

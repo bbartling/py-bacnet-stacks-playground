@@ -1,27 +1,43 @@
-## Day 63 — Equipment taxonomy (AHU, VAV, terminal units)
+## Day 63 – Pattern Matching Queries (SPARQL Mindset in Rust)
 
 ### Goal
 
-Navigate **subclass** chains at a **high level**: e.g. terminal units, air handlers, chillers. You read **taxonomy** to pick the **most specific correct** `rdf:type` for commissioning data—not to memorize the whole lattice.
+Implement **graph pattern matching** like a tiny SPARQL `SELECT ?p WHERE { ex:AHU1 brick:hasPoint ?p }` in Rust loops.
 
 ### Concept
 
-Draw a **tiny** hierarchy on paper (English):
+```rust
+fn select_points(g: &AdjGraph, ahu: &str) -> Vec<String> {
+    let pred = "https://brickschema.org/schema/Brick#hasPoint";
+    g.get(ahu)
+        .into_iter()
+        .flat_map(|edges| edges.iter())
+        .filter_map(|(p, o)| {
+            if p == pred {
+                if let RdfObject::Iri(iri) = o { Some(iri.clone()) } else { None }
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+```
 
-- `Air_Handler_Unit` ⊂ `HVAC_Equipment` (illustrative—verify in Brick).
+### Why This Matters
 
-In data, **subClassOf** triples come from the ontology file, not always from your site file. Your site file usually asserts **instances** with **specific** classes.
+Before using a SPARQL engine, understand **pattern matching as nested loops** over triples.
 
-### Why this matters
+### Mini examples
 
-Under-specifying types (`brick:Equipment` everywhere) makes **SPARQL** and **FDD rules** noisy. Over-specifying wrong types breaks **validation**.
+- Two-pattern query: points that are `brick:Temperature_Sensor`.
+- Return count only (SPARQL `COUNT` mindset).
 
-### Mini exercises
+### Micro exercises
 
-1. List two **sibling** classes under a common parent (from Brick docs) relevant to your campus.
-2. If a device is **both** packaged RTU and AHU in vendor docs, which risk do you choose when typing in Brick (under- vs over-modeling)?
-3. Add `rdf:type` triples for two VAVs and one AHU in a toy `Graph`.
+1. Function `ask_exists(g, pattern)` returning bool.
+2. Optional filter: literal curVal > 50 (if you added sensor values).
+3. Compare to SQL JOIN intuition in one paragraph.
 
 ### Key takeaway
 
-**Taxonomy guides typing.** Brick’s class tree is the shared language between **engineers** and **software**.
+**SPARQL is declarative graph pattern matching**—Rust loops are the engine underneath student implementations.

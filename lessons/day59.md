@@ -1,40 +1,45 @@
-## Day 59 — `rdflib`: parse Turtle into a `Graph`
+## Day 59 – Adjacency List Graph in Rust
 
 ### Goal
 
-Install **`rdflib`** (`pip install rdflib`), parse a **Turtle string**, iterate **all triples**, and print human-readable lines. No SPARQL yet—just **load + walk**.
+Implement a **directed multigraph** as `HashMap<String, Vec<(String, RdfObject)>>` for queries by subject.
 
 ### Concept
 
-```python
-from rdflib import Graph
+```rust
+use std::collections::HashMap;
 
-g = Graph()
-ttl = """
-@prefix ex: <https://example.edu/bldg/> .
-@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+type AdjGraph = HashMap<String, Vec<(String, RdfObject)>>;
 
-ex:ahu1 a brick:Air_Handler_Unit .
-"""
-g.parse(data=ttl, format="turtle")
+fn add(g: &mut AdjGraph, t: &Triple) {
+    g.entry(t.s.clone()).or_default().push((t.p.clone(), t.o.clone()));
+}
 
-for s, p, o in g:
-    print(s, p, o)
+fn objects_of<'a>(g: &'a AdjGraph, subj: &str, pred: &str) -> Vec<&'a RdfObject> {
+    g.get(subj)
+        .into_iter()
+        .flat_map(|v| v.iter())
+        .filter(|(p, _)| p == pred)
+        .map(|(_, o)| o)
+        .collect()
+}
 ```
 
-`rdflib` uses **URIRef**, **Literal**, **BNode** types—`str(s)` often works for printing.
+### Why This Matters
 
-### Why this matters
+This is your **mini rdflib Graph**—enough for Brick traversals without SPARQL engine complexity.
 
-Every SPARQL query in the next week runs **against** a `Graph` (or endpoint). Loading Turtle is the handshake between **files in git** and **queries**.
+### Mini examples
 
-### Mini exercises
+- Query all `brick:hasPoint` for `ex:AHU1`.
+- Count triples: sum edge list lengths.
 
-1. Print `len(g)` after parse; add a second `parse` of another small string—does length increase as expected?
-2. Catch **ParserError** (or broad `Exception` for 101) on bad Turtle and print a friendly message.
-3. Serialize back with `g.serialize(format="turtle")` to a string; confirm your AHU line still exists.
+### Micro exercises
+
+1. Function `types_of(g, subj)` using `rdf:type` IRI constant.
+2. Merge two graphs (insert all edges).
+3. Dedupe edges with a `HashSet` of serialized keys.
 
 ### Key takeaway
 
-**`Graph.parse` = bridge from text to Python RDF objects.** Walking triples matches your Day 51 mental model.
+**Graph = map of subject → outgoing edges**—classic CS 101 structure, building semantics.

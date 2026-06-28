@@ -1,43 +1,50 @@
-## Day 30 – Counting & frequency tables (fault codes, equipment types)
+## Day 30 – Control Flow: if, loop, match
 
 ### Goal
 
-Build a **frequency table** with a dictionary: how often each key appears. Use **HVAC / BAS** keys (fault codes, object types, priority buckets).
+Branch and iterate like Python `if`/`for`, but with **`match`** for exhaustive enum-style logic.
 
 ### Concept
 
-For each item: if seen before, increment count; else set count to 1. This is the logic behind `collections.Counter`—worth using in production—but implementing once cements **hash map + loop** thinking.
+```rust
+fn classify_sat(sat: f64) -> &'static str {
+    if sat > 55.0 {
+        "high"
+    } else if sat < 45.0 {
+        "low"
+    } else {
+        "ok"
+    }
+}
 
-### How to use it
-
-```python
-def count_occurrences(items):
-    counts = {}
-    for item in items:
-        counts[item] = counts.get(item, 0) + 1
-    return counts
-
-
-fault_codes = ["F01", "F03", "F01", "F01", "F02", "F03"]
-print(count_occurrences(fault_codes))  # {'F01': 3, 'F03': 2, 'F02': 1}
+fn main() {
+    for i in 0..5 {
+        println!("sample {}", i);
+    }
+    let code = 2;
+    match code {
+        0 => println!("normal"),
+        1 | 2 => println!("warning"),
+        _ => println!("unknown"),
+    }
+}
 ```
 
-### Why this matters
+### Why This Matters
 
-After a week of trend review you might ask: **how many times** did `high_supply_temp` fire? How many devices per **equipment template** in an export? Frequency tables feed dashboards and help tune thresholds (“this nuisance alarm dominates”).
+Control sequences are **state machines**. `match` makes BACnet priority levels and alarm severities explicit—compiler warns if you forget a case.
 
 ### Mini examples
 
-- Count **normalized** strings: `code.strip().upper()` before using as key.
-- Count bins: map each float to a string bucket `"<60"`, `"60-70"`, `">70"` for histogram-style summaries.
-- Given `list[tuple[str, int]]` of `(device_type, instance)`, count devices per `device_type`.
+- Loop over `[68.0, 71.0, 74.0]` and print `classify_sat` for each.
+- Use `while` to simulate a 3-iteration poll loop.
 
 ### Micro exercises
 
-1. Write `count_words(sentence)` splitting on whitespace; ignore empty strings.
-2. From a list of `(point_name, alarm_state)` where `alarm_state` is `"active"` or `"normal"`, count how many points are **currently** active (each name appears once per snapshot—still good counting practice).
-3. Return the **most common** key from a non-empty counts dict (linear scan over `items()`).
+1. Write `match` on priority `1..=16` that prints "manual" only for priority 8.
+2. Convert a Python-style `for x in list` mental model: what is `0..3` vs `0..=3`?
+3. Refactor nested `if` into `match` on a small enum you define.
 
 ### Key takeaway
 
-Counting with dicts is a core “summarize this log” algorithm. It pairs naturally with **fault analytics** and inventory views.
+**`match` is your friend** for BACnet enums (object types, error codes) later in rusty-bacnet labs.

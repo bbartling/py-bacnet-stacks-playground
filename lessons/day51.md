@@ -1,57 +1,47 @@
-## Day 51 — Triples as tuples; a list as a toy graph
+## Day 51 – Auth: HTTP Basic vs Haystack SCRAM
 
 ### Goal
 
-Represent RDF **triples** as **`(subject, predicate, object)`** tuples (all `str` for now). Store many in a **`list`**. That list is your **in-memory graph** for exercises—unordered unless you sort a copy for debugging.
+Understand why **Niagara nHaystack** often needs **Basic auth**, while upstream rusty-haystack defaults may probe **SCRAM**—and how to configure each.
 
 ### Concept
 
-Each triple is one **statement**: *subject* **predicate** *object*.
+**HTTP Basic**: `Authorization: Basic base64(user:pass)` every request—simple, common on N4 stations with `HTTPBasicScheme`.
 
-- Subject: usually an IRI (resource).
-- Predicate: IRI (property / relationship type).
-- Object: IRI **or** literal (later lessons add datatype).
+**Haystack SCRAM**: challenge/response (`HELLO` → `SCRAM` → `BEARER` token)—Project Haystack spec; not always enabled on vendors.
 
-Duplicate triples in a list are allowed in raw form; RDF **sets** treat duplicates as one—Day 61 revisits deduplication.
+Lab script reference:
 
-### How to use it
-
-```python
-triples = []
-triples.append(
-    (
-        "https://example.edu/bldg/ahu1",
-        "https://brickschema.org/schema/Brick#hasPoint",
-        "https://example.edu/bldg/ahu1/sat",
-    )
-)
-triples.append(
-    (
-        "https://example.edu/bldg/ahu1/sat",
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        "https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor",
-    )
-)
-
-
-def count_predicates(graph, predicate_iri):
-    n = 0
-    for s, p, o in graph:
-        if p == predicate_iri:
-            n += 1
-    return n
+```bash
+vibe_code_apps_17/nhaystack-niagara-pi-tutorial/scripts/04_probe_scram_vs_basic.sh
 ```
 
-### Why this matters
+Rust config pattern:
 
-`rdflib` will iterate `(s, p, o)` the same way. Your mental model should match the library’s iterator.
+```rust
+// AuthMode::Basic { username, password }
+// vs AuthMode::Scram — see haystack-client config in rusty-haystack fork demos
+```
 
-### Mini exercises
+### Why This Matters
 
-1. Write `objects_for_subject(graph, subj)` returning a **list** of all `o` where `(subj, any, o)` in `graph`.
-2. Write `predicates_for_subject_object(graph, subj, obj)` returning predicates linking `subj` to `obj`.
-3. Add a third triple: `ahu1` **feeds** `vav101` (use IRIs you invent under `ex:`).
+Most "rusty-haystack doesn't work on Niagara" reports are **auth + TLS**, not Rust bugs.
+
+### Mini examples
+
+- Intentionally wrong password—confirm **401** in logs and pcap (TLS outer layer only).
+- Successful Basic read after fixing creds.
+
+### Micro exercises
+
+1. Run SCRAM probe script—paste one-line result (pass/fail).
+2. Document Workbench scheme name for your user.
+3. When is Basic acceptable on a LAN lab vs production?
 
 ### Key takeaway
 
-**Graph = collection of triples.** A Python `list` of 3-tuples is enough to practice every RDF idea until you load Turtle with `rdflib`.
+**Match auth to server capability**—read `/about` unauthenticated is rare; read ops need the scheme the station exposes.
+
+### Wireshark Lab
+
+You won't see passwords in pcaps (TLS). Verify **TCP connection completes**: **`tcp.port == 443`**

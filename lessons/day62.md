@@ -1,26 +1,36 @@
-## Day 62 — The `brick:` namespace and what it defines
+## Day 62 – Hand-Author Brick Model for One AHU
 
 ### Goal
 
-Articulate what **Brick** adds on top of raw RDF: a **curated vocabulary** of **classes** (equipment, locations, points, substances, quantities…) and **relationships** tuned for buildings. Brick reuses **RDF/RDFS/OWL** machinery; you do not memorize every class.
+Write **`ahu1.ttl`** by hand for one AHU, SAT, OAT, and **`brick:hasPoint` / `brick:feeds`** (if applicable).
 
 ### Concept
 
-Official Brick publishes **OWL** + documentation. Practically:
+Minimum entities:
 
-- Class IRIs live under the Brick namespace (see current Brick release for exact IRI pattern).
-- You **reuse** class IRIs in `rdf:type` triples and in **SHACL** / documentation elsewhere (SHACL optional for this course).
+- `ex:AHU1` a `brick:AHU`
+- Points: SAT, OAT as appropriate sensor classes
+- Optional: `ex:VAV1 brick:isFedBy ex:AHU1` if in scope
 
-### Why this matters
+Load into Day 59 graph; verify counts.
 
-**open-fdd** `brick:` keys in YAML inputs are **labels** that resolve, via `column_map`, to **columns**—but in a graph pipeline the same strings align with **Brick class IRIs** for discovery and SPARQL.
+**Starter file:** extend [`capstone/model/ahu1.ttl`](./capstone/model/ahu1.ttl) (N4 `v4Fifteen` bench naming).
 
-### Mini exercises
+### Why This Matters
 
-1. Open Brick documentation index; bookmark **three** class names you actually have on site (e.g. AHU, VAV, SAT sensor).
-2. Write one sentence: difference between **Brick class** and **BACnet object type**.
-3. In Turtle, assert `ex:room101 a brick:Room` (use real namespace from docs).
+Commissioning deliverables increasingly include **semantic models** alongside BACnet point lists.
+
+### Mini examples
+
+- Validate Turtle with online parser or `oxrdf` load.
+- Pretty-print via your Display impl.
+
+### Micro exercises
+
+1. At least 8 triples in TTL file.
+2. Query all points of AHU1 from Rust graph code.
+3. Screenshot Turtle + Rust query output for portfolio.
 
 ### Key takeaway
 
-**Brick = building-centric vocabulary layer.** RDF is the file format; Brick names the *kinds* of things in a BAS.
+**Small accurate models beat huge auto-generated junk**—hand authoring builds intuition.

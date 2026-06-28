@@ -1,0 +1,3 @@
+ver:"3.0"
+productUri,tz,moduleName,serverName,productName,haystackVersion,productVersion,moduleVersion,serverTime,moduleUri,serverBootTime
+`http://www.tridium.com/`,"Chicago","nhaystack","v4Fifteen","Niagara 4","2.0","4.15.3.28","3.3.0.0",2026-06-28T08:18:14.165-05:00 Chicago,`https://github.com/ci-richard-mcelhinney/nhaystack`,2026-06-26T07:48:50.579-05:00 Chicago

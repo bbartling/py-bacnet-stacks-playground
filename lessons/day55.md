@@ -1,33 +1,49 @@
-## Day 55 — RDF triple model (formal one-liner)
+## Day 55 – From Network Bytes to Graphs: Why RDF?
 
 ### Goal
 
-State RDF’s core unit: **triple** \((s, p, o)\). **Subject** and **predicate** are IRIs (or blank nodes in advanced cases—here: skip blank nodes except “sometimes object is anonymous” as a footnote). **Object** is IRI **or** literal.
+After protocols, step back: **triples** model relationships BACnet object numbers and Haystack tags can't merge alone.
 
 ### Concept
 
-- **No duplicate meaning:** two identical triples merge to one in a **set** semantics.
-- **Open world:** absence of a triple does not mean false—important for **FDD** (you query what is asserted).
+A **triple**: `(subject, predicate, object)`
 
-### How to use it
+Example intent:
 
-Revisit your `list` of triples from Day 51. Classify each `o`:
+```
+ex:AHU1  brick:hasPoint  ex:OA-T .
+ex:OA-T  rdf:type        brick:Outside_Air_Temperature_Sensor .
+```
 
-- If `o` starts with `http` and matches resource naming → **resource**.
-- Else if `o` is your `(lexical, datatype)` tuple → **literal**.
+Rust preview:
 
-Write `triple_kind(s, p, o)` returning `"r-r-r"` or `"r-r-l"` as three letters.
+```rust
+type Triple = (String, String, String);
+let mut graph: Vec<Triple> = Vec::new();
+graph.push(("ex:AHU1".into(), "brick:hasPoint".into(), "ex:OA-T".into()));
+```
 
-### Why this matters
+No `rdflib`—we stay in **Rust data structures** through Day 75.
 
-Brick files are RDF. **open-fdd** column maps name columns that *align* with Brick class IRIs—those names resolve to the same **predicate/object patterns** you practice in Python lists.
+### Why This Matters
 
-### Mini exercises
+Brick / Haystack / **ASHRAE 223P** interoperability targets **graphs**, not CSV columns alone.
 
-1. Give one example triple where **subject** is a **VAV** instance and **predicate** is `rdf:type`.
-2. Why can two different URIs denote the “same” chiller in the real world (conceptual: `owl:sameAs`—no OWL deep dive required)?
-3. List two triples that should **not** be inferred just because a sensor exists on an AHU (open-world caution).
+### Mini examples
+
+- Draw three circles: BACnet, Haystack, RDF—arrows for "maps to".
+- List 3 predicates you'd want between AHU and VAV.
+
+### Micro exercises
+
+1. Convert your Day 53 mapping row into two triples.
+2. Why global IRIs beat bare strings `"OA-T"`?
+3. Read Haystack **RDF** export docs (vendor)—does Niagara emit RDF? (often tags/Zinc first)
 
 ### Key takeaway
 
-**RDF = labeled directed multigraph expressed as triples.** Your Python tuples already *are* RDF data at the logical level.
+**RDF is the semester cap after networking**—Rust implements graphs with structs, not Python rdflib.
+
+### Wireshark Lab
+
+Rest day—or re-open Day 46 capstone pcap for protocol portfolio review.

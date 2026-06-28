@@ -1,29 +1,45 @@
-## Day 64 — Key Brick predicates (`hasPoint`, `isPartOf`, `feeds`)
+## Day 64 – Multi-Protocol Bench PCAP Challenge
 
 ### Goal
 
-Memorize **meanings**, not every predicate in Brick: **`brick:hasPoint`** links equipment (or space) to a **point**; **`brick:isPartOf`** composes systems; **`brick:feeds`** suggests **upstream/downstream** airflow or hydronic flow context (read Brick definitions for precise semantics).
+One capture, **three display filters**—BACnet UDP, Haystack HTTPS, Modbus TCP—document what each shows.
 
 ### Concept
 
-Represent in Python as normal predicate IRIs in triples:
-
-```python
-HAS_POINT = "https://brickschema.org/schema/Brick#hasPoint"
-IS_PART_OF = "https://brickschema.org/schema/Brick#isPartOf"
-FEEDS = "https://brickschema.org/schema/Brick#feeds"
+```bash
+PCAP_SECONDS=45 ./capture_pcap.sh day64-multi \
+  "udp port 47808 or tcp port 443 or tcp port 1502"
 ```
 
-### Why this matters
+Bench reference:
 
-**Graph traversals** for “all SAT sensors on AHUs that feed this corridor” are **multi-hop patterns**—exactly SPARQL’s strength next week.
+- BACnet: `192.168.204.200:47808`
+- Haystack: `192.168.204.11:443`
+- Modbus: `192.168.204.14:1502` (if enabled)
 
-### Mini exercises
+### Why This Matters
 
-1. Assert: `ex:ahu1` **hasPoint** `ex:ahu1/sat`; `ex:vav12` **isPartOf** `ex:floor3`; `ex:ahu1` **feeds** `ex:vav12` (if `feeds` applies in your reading of Brick—if not, replace with a predicate your instructor approves).
-2. Write `points_of(graph, equipment_iri)` returning a list of point IRIs using loops over triples.
-3. What is the **direction** of `feeds` (who is subject)? Quote Brick’s English gloss.
+Open-FDD runs **multiple drivers**—one edge host, many transports (Day 35 map in production).
+
+### Mini examples
+
+- IO graph per filter.
+- Table: protocol, transport, port, tool that generated traffic.
+
+### Micro exercises
+
+1. Three screenshots with three filters applied.
+2. Which protocol is easiest to decode without TLS keys?
+3. Write one sentence per protocol for your README portfolio.
 
 ### Key takeaway
 
-**Predicates are verbs.** Brick picks verbs that match how **MEP** engineers already talk—then machines can query them.
+**Wireshark is multi-protocol**—display filters switch lenses on the same file.
+
+### Wireshark Lab
+
+Filters (apply one at a time):
+
+1. `udp.port == 47808`
+2. `tcp.port == 443 && ip.addr == 192.168.204.11`
+3. `tcp.port == 1502`

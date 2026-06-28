@@ -1,57 +1,53 @@
 # rusty-haystack playground
 
-Local scratch space for experimenting with [**rusty-haystack**](https://github.com/jscott3201/rusty-haystack) — a high-performance Rust implementation of Project Haystack with HTTP client/server, CLI, and PyO3 Python bindings (`import rusty_haystack`).
+Local scratch space for [**rusty-haystack**](https://github.com/jscott3201/rusty-haystack) — Project Haystack in Rust (codecs, client, server, CLI, PyO3).
 
-Upstream repo: [https://github.com/jscott3201/rusty-haystack](https://github.com/jscott3201/rusty-haystack)
+For **Niagara nHaystack**, use the **[bbartling fork](https://github.com/bbartling/rusty-haystack)** with:
 
-## Prerequisites
+- `AuthMode::Basic` — HTTP Basic (Niagara `HTTPBasicScheme`)
+- `ClientConfig::niagara_lab()` — `tls_verify: false` for self-signed station cert
+- Demo: `demo/niagara_sample/niagara-rusty-scrape` (`cargo run -p niagara-read`)
 
-- Rust 1.93+ (edition 2024)
-- `cargo`
+Upstream [jscott3201/rusty-haystack](https://github.com/jscott3201/rusty-haystack) implements **SCRAM** for SkySpark and `haystack-server` — not Niagara nHaystack 3.3.
 
-For Python bindings: [maturin](https://www.maturin.rs/) and a Python 3.10+ venv.
+## After nhaystack-niagara-pi-tutorial passes
+
+```bash
+# From tutorial (uses fork checkout):
+export RUSTY_HAYSTACK_ROOT=~/rusty-haystack
+cd ../nhaystack-niagara-pi-tutorial
+source .env
+./scripts/05_rusty_haystack_niagara_read.sh
+```
+
+Or clone the fork:
+
+```bash
+git clone https://github.com/bbartling/rusty-haystack.git ~/rusty-haystack
+cd ~/rusty-haystack/demo/niagara_sample/niagara-rusty-scrape
+cp env.example .env && source .env
+cargo run -p niagara-read -- --auth basic --probe-scram
+```
+
+## Demo server (SCRAM — not Niagara)
+
+```bash
+cargo run -p rusty-haystack-cli -- serve --demo --port 18080
+curl http://127.0.0.1:18080/api/about   # expect WWW-Authenticate: HELLO
+```
+
+Use a free port if `:8080` is taken (e.g. Open-FDD bridge).
 
 ## Option A — clone upstream here (local only)
 
 ```bash
-cd vibe_code_apps_17/rusty-haystack
 git clone https://github.com/jscott3201/rusty-haystack.git upstream
-cd upstream
-cargo build --workspace --exclude rusty-haystack
-cargo test --workspace --exclude rusty-haystack
+cd upstream && cargo build --workspace --exclude rusty-haystack
 ```
 
-The `upstream/` directory is gitignored — keep the clone local or add a submodule later if you want it tracked.
+The `upstream/` directory is gitignored.
 
-## Option B — use upstream from anywhere
+## Next steps
 
-```bash
-git clone https://github.com/jscott3201/rusty-haystack.git ~/src/rusty-haystack
-cd ~/src/rusty-haystack
-cargo run -p rusty-haystack-cli -- serve --demo --port 8080
-```
-
-Then query the demo server:
-
-```bash
-curl http://localhost:8080/api/about
-```
-
-## Demo server (from upstream)
-
-```bash
-cargo run -p rusty-haystack-cli -- serve --demo --port 8080
-# bind all interfaces: add --host 0.0.0.0
-```
-
-Set CLI password via `HAYSTACK_PASSWORD` (see upstream [docs/configuration.md](https://github.com/jscott3201/rusty-haystack/blob/main/docs/configuration.md)).
-
-## Connecting to Niagara nHaystack
-
-After the [nhaystack-niagara-pi-tutorial](../nhaystack-niagara-pi-tutorial/) smoke tests pass, try rusty-haystack’s HTTP client against the same station base URL (HTTPS, HTTP Basic auth). SCRAM auth applies to rusty-haystack servers; Niagara nHaystack typically uses Basic — use the client transport options documented in upstream [docs/client.md](https://github.com/jscott3201/rusty-haystack/blob/main/docs/client.md).
-
-## Next steps in this folder
-
-- Add small Rust binaries or scripts that call `haystack-client` against your lab station
-- Build/install the PyO3 module and compare with [pyhaystack](../pyhaystack/) on the same `/read` filters
-- Benchmark Zinc encode/decode vs raw `curl` CSV (see upstream [Benchmarks.md](https://github.com/jscott3201/rusty-haystack/blob/main/Benchmarks.md))
+- Compare Zinc decode vs tutorial CSV in [nhaystack-niagara-pi-tutorial](../nhaystack-niagara-pi-tutorial/)
+- Feed golden fixtures into a future nHaystack fixture server ([FIXTURES_AND_SIM.md](../nhaystack-niagara-pi-tutorial/FIXTURES_AND_SIM.md))

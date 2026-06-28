@@ -1,66 +1,47 @@
-## Day 31 – Ordering data (sorting for setpoints, rankings, and medians)
+## Day 31 – Functions, Option & Result
 
 ### Goal
 
-Use Python’s **`sorted()`** and **`list.sort()`** with `key` and `reverse` to rank **HVAC-related records**. See a tiny **bubble sort** only as a teaching toy—production code should use Timsort via the built-ins.
+Write reusable functions and handle **missing data** (`Option`) and **errors** (`Result`)—the Rust patterns every network client uses.
 
 ### Concept
 
-**Sorting** orders data so you can pick medians, percentiles, or “worst zones first.” Python’s sort is highly optimized (\(O(n \log n)\)). **Bubble sort** repeatedly swaps neighbors; it is \(O(n^2)\) and mainly useful to appreciate **why** good libraries matter.
+```rust
+fn parse_pv(text: &str) -> Result<f64, std::num::ParseFloatError> {
+    text.trim().parse::<f64>()
+}
 
-### How to use it
+fn first_ok(values: &[Option<f64>]) -> Option<f64> {
+    values.iter().find_map(|v| *v)
+}
 
-```python
-# Zone temperature error (actual - setpoint); rank worst first
-zones = [("Z1", 0.5), ("Z2", -1.2), ("Z3", 2.1), ("Z4", 0.1)]
-by_error = sorted(zones, key=lambda z: abs(z[1]), reverse=True)
-print(by_error)  # [('Z3', 2.1), ('Z2', -1.2), ...]
-
-def median_sorted(values):
-    s = sorted(values)
-    n = len(s)
-    mid = n // 2
-    if n % 2:
-        return s[mid]
-    return (s[mid - 1] + s[mid]) / 2
-
-oat = [38, 40, 35, 39, 41]
-print(median_sorted(oat))
+fn main() {
+    match parse_pv("72.5") {
+        Ok(v) => println!("pv = {v}"),
+        Err(e) => eprintln!("bad pv: {e}"),
+    }
+}
 ```
 
-**Bubble sort (optional lab only):**
+- **`Option<T>`**: `Some(x)` or `None`
+- **`Result<T, E>`**: `Ok(x)` or `Err(e)`
+- **`?` operator** (later): propagate errors up the call stack
 
-```python
-def bubble_sort_asc(lst):
-    a = list(lst)
-    n = len(a)
-    for i in range(n):
-        swapped = False
-        for j in range(n - 1 - i):
-            if a[j] > a[j + 1]:
-                a[j], a[j + 1] = a[j + 1], a[j]
-                swapped = True
-        if not swapped:
-            break
-    return a
-```
+### Why This Matters
 
-### Why this matters
-
-You might sort VAVs by **reheat valve position** during unoccupied hours, SAT samples to compute a **median** for stable thresholds, or order alarms by **severity** then **time**. Median and order statistics resist a single bad sensor spike better than a naive max.
+A BACnet read can **timeout**, return **ERROR**, or give a value. Rust makes you handle that in the type system instead of `None` surprises at 2 a.m.
 
 ### Mini examples
 
-- Sort dicts `{"zone": "...", "deviation_f": ...}` by `deviation_f`.
-- Sort timestamps paired with values (list of tuples) by time for plotting prep.
-- Compare bubble sort vs `sorted()` on \(n=200\) random floats (time discussion only—no formal big-O proof required).
+- Function `c_to_f(c: f64) -> f64`
+- Return `None` when a CSV field is empty string.
 
 ### Micro exercises
 
-1. Given static pressure readings, return the **middle two averaged** median for even length (reuse `median_sorted` pattern).
-2. Sort a list of `(ahu_name, kw)` by **descending** `kw` to rank energy users for a report.
-3. Explain in one sentence why you would **not** ship bubble sort to production for 10,000-point files.
+1. Write `fn device_label(id: u32) -> String` using `format!`.
+2. Write `parse_u32(s: &str) -> Option<u32>`.
+3. Explain in one sentence: when would you use `Option` vs `Result`?
 
 ### Key takeaway
 
-For real work: **`sorted` / `sort` + `key`**. Bubble sort is pedagogy. Sorting unlocks **ranking** and **robust statistics** for HVAC telemetry.
+Network code lives on **`Result`**. Get comfortable before UDP sockets and HTTP clients.

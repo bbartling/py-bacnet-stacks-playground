@@ -1,38 +1,35 @@
-## Day 60 — Serialization and round-trip
+## Day 60 – rdf:type & Brick Class Taxonomy
 
 ### Goal
 
-Control **ordering** only indirectly (serializers may reorder blank nodes). Practice **`graph.serialize(format="turtle")`** to bytes/str, write to `.ttl` file, **re-parse**, and compare **triple set** equality—not string equality.
+Navigate **`rdf:type`** and **`rdfs:subClassOf`** chains for Brick equipment classes in your adjacency graph.
 
 ### Concept
 
-Build two graphs from two strings that **look different** but assert the same triples (use `;` in one, fully expanded in other). Use:
+Constants:
 
-```python
-def triple_set(graph):
-    s = set()
-    for tr in graph:
-        s.add(tr)
-    return s
-
-
-g1 = Graph()
-g1.parse(data=ttl_a, format="turtle")
-g2 = Graph()
-g2.parse(data=ttl_b, format="turtle")
-print(triple_set(g1) == triple_set(g2))
+```rust
+const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const RDFS_SUBCLASS: &str = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
 ```
 
-### Why this matters
+Query pattern: find all nodes where type is `brick:AHU` or subclass thereof (walk `subClassOf` edges upward in a tiny static taxonomy map).
 
-**CI pipelines** for Brick models should diff **semantics** (canonicalization tools exist in the wild); for this course, **set equality** of triples is enough intuition.
+### Why This Matters
 
-### Mini exercises
+FDD rules reference **Brick class names** as logical columns—types tell you which points belong to which equip templates.
 
-1. Serialize with `format="nt"` (N-Triples); note one triple per line—easier for `diff`.
-2. Save Turtle to `model.ttl`, read back with `open(...).read()`, parse.
-3. Explain why **pretty-print** order must not be used as a merge conflict resolution strategy.
+### Mini examples
+
+- Add `brick:AHU rdfs:subClassOf brick:Equipment` manually.
+- List all instances of `brick:Sensor` in toy graph.
+
+### Micro exercises
+
+1. Hard-code 5-class hierarchy in TTL; load into graph.
+2. Function `is_instance_of(g, node, class_iri) -> bool` (BFS over subclass).
+3. Link to open-fdd rule inputs that mention Brick classes.
 
 ### Key takeaway
 
-**Round-trip = parse(serialize(g)) ≈ g** at triple level. Strings will differ; graphs should match.
+**Taxonomy = typed nodes + subclass edges**—RDF's core OOP-like view of buildings.

@@ -1,17 +1,70 @@
-# Niagara nHaystack → Raspberry Pi Bash + Rust Smoke Test
+# Niagara nHaystack → Pi / Linux lab tutorial (Niagara 4.15)
 
-Part of **[vibe code app 17](../README.md)** — Project Haystack playground (Niagara lab → [rusty-haystack](../rusty-haystack/) → [pyhaystack](../pyhaystack/)).
+Part of **[vibe code app 17](../README.md)** — Project Haystack playground (Niagara lab → golden fixtures → [rusty-haystack](../rusty-haystack/) → [pyhaystack](../pyhaystack/) → Open-FDD).
 
-This tutorial documents a working lab setup where a Raspberry Pi connects to a Windows computer running a Niagara 4 station with `NHaystackService`.
+**Rust course (Days 28–75):** [lessons/day28.md](../../lessons/day28.md) · [capstone bundle](../../lessons/capstone/) · [rust-lessons hub](../rust-lessons/README.md)
 
-This is **not using rusty-haystack yet**. This first tutorial uses:
+This tutorial proves a Linux host (Raspberry Pi or WSL bench) can:
+
+1. Authenticate to **Niagara 4 (N4) 4.15** nHaystack over HTTPS
+2. Read live BACnet point values via Haystack `read`
+3. Capture **golden fixtures** for a future non-Niagara API sim
+4. Compare **HTTP Basic** (Niagara) vs **SCRAM** (SkySpark / rusty-haystack server)
+
+Stack progression:
 
 ```text
-bash + curl
-Rust + reqwest + csv
+bash + curl          →  network, auth, nHaystack config
+Rust nhaystack-smoke →  programmatic read + SCRAM probe
+golden fixtures      →  survive Workbench license expiry
+rusty-haystack       →  HaystackClient AuthMode::Basic (fork)
+pyhaystack / Open-FDD →  product integration
 ```
 
-The goal is to prove the Pi can authenticate to Niagara nHaystack, list Haystack ops, read current values, and parse BACnet point rows.
+## Observed Niagara 4.15 station (lab)
+
+Captured from `GET /haystack/about` on the Open-FDD bench:
+
+| Field | Value |
+|-------|--------|
+| **Platform** | **Niagara 4 (N4)** — Tridium |
+| **Niagara build** | **4.15.3.28** |
+| **Station name** | `v4Fifteen` |
+| **nHaystack module** | **3.3.0.0** |
+| **Haystack protocol** | **2.0** |
+| **HTTPS URL** | `https://192.168.204.11/haystack` |
+| **BACnet device** | `BENS-BENCHTEST-BOX` under `Drivers/BacnetNetwork` |
+| **API user** | `open_fdd` with **`HTTPBasicScheme`** |
+
+Example points (`read?filter=point and cur`):
+
+| dis | Typical | unit |
+|-----|---------|------|
+| OA-H | ~51 %RH | %RH |
+| OA-T | ~72 °F | °F |
+| DUCT-T | ~65–69 °F | °F |
+| DUCT-P | ~-0.14 | in/wc |
+| STAT ZN-T | ~73 °F | °F |
+| ACTUATOR-0 | writable | % |
+
+See [`fixtures/example/about.zinc.example`](fixtures/example/about.zinc.example) for a committed `/about` sample (no secrets).
+
+## HTTP Basic vs SCRAM (read this once)
+
+| | **Niagara nHaystack** | **SkySpark / rusty-haystack server** |
+|--|------------------------|--------------------------------------|
+| Auth | `Authorization: Basic …` | `HELLO` → `SCRAM` → `BEARER` |
+| Workbench | `HTTPBasicScheme` on service user | N/A |
+| Client flag | `--auth basic` / curl `-u` | `--auth scram` |
+
+Niagara **`HTTPBasicScheme` is not Haystack SCRAM.** SCRAM HELLO on `/haystack/about` returns `401` HTML with **no** `WWW-Authenticate: SCRAM`.
+
+Verify:
+
+```bash
+./scripts/04_probe_scram_vs_basic.sh
+cargo run -- --probe-scram
+```
 
 ## Working topology
 
@@ -125,6 +178,28 @@ Authentication Scheme Name: HTTPBasicScheme
 ```
 
 Keep the global/default authentication scheme as `DigestScheme`. Only the machine/service account needs HTTP Basic.
+
+Workbench screenshots for this lab:
+
+```text
+AuthenticationService → WebServicesSchemes → HTTPBasicScheme (enabled)
+UserService → open_fdd → Authentication Scheme Name: HTTPBasicScheme
+UserService → open_fdd → Enabled: true, Roles: admin (lab only)
+```
+
+## Golden fixtures (capture before license expires)
+
+While the live N4.15 station is up, snapshot responses for offline dev and a future **nHaystack API fixture server**:
+
+```bash
+source .env
+chmod +x scripts/*.sh
+./scripts/03_capture_golden_fixtures.sh
+```
+
+Writes to `fixtures/golden/` (gitignored). See [`fixtures/README.md`](fixtures/README.md) and [`FIXTURES_AND_SIM.md`](FIXTURES_AND_SIM.md).
+
+**Roadmap:** static HTTP façade in vibe code app 17 → BACnet-backed sim → `pointWrite` — **not** in upstream rusty-haystack.
 
 ## Raspberry Pi environment variables
 
@@ -283,6 +358,8 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 ```bash
 source .env
 cargo run
+# optional SCRAM vs Basic probe:
+cargo run -- --probe-scram
 ```
 
 Or use:
@@ -290,6 +367,17 @@ Or use:
 ```bash
 ./scripts/02_run_rust_smoke.sh
 ```
+
+### rusty-haystack client (fork with AuthMode::Basic)
+
+After smoke tests pass, try the [`bbartling/rusty-haystack`](https://github.com/bbartling/rusty-haystack) fork demo:
+
+```bash
+export RUSTY_HAYSTACK_ROOT="$HOME/rusty-haystack"   # clone fork first
+./scripts/05_rusty_haystack_niagara_read.sh
+```
+
+Uses `niagara-read --auth basic --probe-scram` against the same station URL.
 
 Expected output:
 
@@ -437,14 +525,15 @@ But this app should not need that once `reqwest` default features are disabled.
 
 ## Next direction
 
-This first tutorial intentionally does not use rusty-haystack.
-
 Recommended order:
 
 ```text
-1. Bash curl proves Niagara nHaystack is reachable.
-2. Rust reqwest app proves programmatic reads and CSV parsing.
-3. rusty-haystack — Haystack types, codecs, client/server ([../rusty-haystack/](../rusty-haystack/))
-4. pyhaystack — same station via Python ([../pyhaystack/](../pyhaystack/))
-5. Later, feed point inventory into Open-FDD model inference and Arrow/DataFusion FDD.
+1. Bash curl           — prove nHaystack reachable (scripts/01)
+2. Rust smoke          — read + parse BACnet rows (cargo run)
+3. Golden capture      — scripts/03 (before Workbench license ends)
+4. SCRAM probe         — scripts/04 + cargo --probe-scram (document Niagara gap)
+5. rusty-haystack      — AuthMode::Basic client (scripts/05 or ../rusty-haystack/)
+6. pyhaystack          — same station via Python (../pyhaystack/)
+7. nHaystack fixture   — FIXTURES_AND_SIM.md (vibe17 or Open-FDD bench profile)
+8. Open-FDD            — Haystack driver + MCP (see Open-FDD agent prompts)
 ```

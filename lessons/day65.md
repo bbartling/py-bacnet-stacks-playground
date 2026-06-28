@@ -1,30 +1,35 @@
-## Day 65 — Hand-author a tiny Brick TTL model
+## Day 65 – open-fdd Drivers & Semantic Layer
 
 ### Goal
 
-Write **20–40 lines** of Turtle (in a `.ttl` file) describing:
-
-- one **AHU** instance,
-- one **SAT** sensor instance,
-- `rdf:type` for each,
-- `brick:hasPoint` from AHU to sensor.
-
-Validate by **parsing with `rdflib`** and printing triple count.
+Relate **Rust drivers** (BACnet, Haystack, Modbus) in open-fdd to the graphs you build—conceptual architecture day.
 
 ### Concept
 
-Use `@prefix` for `ex`, `brick`, `rdf`. Use `a` for `rdf:type`. Keep **IRIs stable** and **human-readable** local names after `#` or final `/`.
+Layers:
 
-### Why this matters
+1. **Transport** — UDP/TCP (this course Weeks 5–6)
+2. **Driver** — rusty-bacnet / HTTP client / modbus crate
+3. **Normalization** — point IDs, units, timestamps
+4. **Semantics** — Brick/RDF tags for rules (FDD expressions)
 
-**Authoring** is how you learn syntax muscle memory before generators do it for you.
+Read: `open-fdd` workspace driver configs and commission CSVs if available locally.
 
-### Mini exercises
+### Why This Matters
 
-1. Add `ex:floor3` as a `brick:Floor` and `brick:isPartOf` from AHU to floor (if predicate fits your reading).
-2. Add **labels** using `rdfs:label` if you looked up `rdfs:` prefix—optional stretch.
-3. Break Turtle on purpose (missing period); confirm parser error message is readable.
+You aren't learning Rust in a vacuum—you're learning **edge BAS architecture**.
+
+### Mini examples
+
+- Diagram: BACnet PV → internal point id → Brick class column for rule.
+- List env vars that disable BACnet server on commission host (lab lesson learned).
+
+### Micro exercises
+
+1. Trace one point from Wireshark BACnet frame to FDD rule input name (conceptual).
+2. Where would `ahu1.ttl` live in a deployment story?
+3. MCP/agent prompts that reference drivers—skim open-fdd agent prompt if present.
 
 ### Key takeaway
 
-**Small correct models > large wrong models.** This file becomes SPARQL homework input.
+**Network programming enables drivers; RDF enables reasoning across drivers.**

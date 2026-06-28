@@ -1,31 +1,49 @@
-## Day 61 — Merging graphs and deduplicating triples
+## Day 61 – Haystack Tags vs Brick Graphs
 
 ### Goal
 
-Parse **two** Turtle snippets into `g1` and `g2`, **`g1 += g2`** (or `graph1 += graph2` in rdflib), then reason about **duplicates**. Practice converting to a **Python `set`** of **frozen** triple representations only if hashable—`rdflib` terms are not always trivially hashable in older patterns, so use: **“add all triples from g2 into g1 and trust rdflib”** + **count** before/after.
+Compare **Haystack tag dictionaries** (Zinc/CSV) with **Brick RDF graphs**—when to use which on projects.
 
 ### Concept
 
-```python
-from rdflib import Graph
+Haystack row (conceptual):
 
-g_merged = Graph()
-g_merged.parse(data=ttl_site, format="turtle")
-g_merged.parse(data=ttl_vendor_addon, format="turtle")
+```
+id,dis,equipRef,curVal,unit
+@ahu1.oa-t,"OA Temp",@ahu1,55.3,°F
 ```
 
-If the same triple appears twice, RDF set semantics treat it as one **edge**. `rdflib` `Graph` is **like a set of triples** for addition.
+Brick graph:
 
-### Why this matters
+```
+ex:ahu1-oat rdf:type brick:Outside_Air_Temperature_Sensor .
+ex:ahu1 brick:hasPoint ex:ahu1-oat .
+```
 
-**Site model + vendor asset pack + FDD ontology slice** = merge in memory or store in triplestore. Conflicts are **same subject/predicate, different object**—resolution is policy, not syntax.
+Rust bridge:
 
-### Mini exercises
+```rust
+fn haystack_row_to_triples(id: &str, equip: &str) -> Vec<Triple> {
+    // emit rdf:type and brick:hasPoint triples — simplified lab
+    vec![]
+}
+```
 
-1. Merge a graph that asserts `ex:ahu1 brick:hasPoint ex:p1` with another that asserts the same triple—did `len` change?
-2. Merge graphs that **conflict** on `ex:ahu1 ex:commissionedOn` object—list both objects after merge (rdflib keeps both unless you remove—observe behavior).
-3. Write English **policy** rules for resolving commissioning date conflicts (no code).
+### Why This Matters
+
+Niagara speaks Haystack; analytics ontologies speak Brick—**edge Rust services translate**.
+
+### Mini examples
+
+- Convert one golden Zinc row to 2–3 triples.
+- Tags not in Brick—store as `ex:tag "key" "value"` literal triples optional.
+
+### Micro exercises
+
+1. Table: 3 things Haystack does well vs 3 things Brick does well.
+2. Implement stub `haystack_row_to_triples` returning at least one triple.
+3. Where does rusty-haystack stop and RDF begin?
 
 ### Key takeaway
 
-**Merge = union of assertions.** Duplicates vanish; **conflicts** need human or rule-based resolution outside raw RDF.
+**Tags for ops/runtime; graphs for mergeable semantics**—you need both in modern BAS stacks.

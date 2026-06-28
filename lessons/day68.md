@@ -1,32 +1,39 @@
-## Day 68 — Why SPARQL for smart-building graphs
+## Day 68 – Integrate BACnet Read → RDF Triples
 
 ### Goal
 
-Define **SPARQL** as a **query language for RDF**: you describe a **graph pattern**; the engine returns **bindings** for variables that **match** the pattern in the dataset (in-memory `rdflib` graph or remote endpoint).
+Pipeline sketch: **ReadProperty** in Rust → update literal triple for current value linked to Brick point node.
 
 ### Concept
 
-Core shape:
-
-```text
-SELECT ?variable
-WHERE {
-  ?subject ?predicate ?object .
+```rust
+fn update_curval(g: &mut AdjGraph, point_iri: &str, value: f64) {
+    let pred = "http://www.w3.org/1999/02/22-rdf-syntax-ns#value"; // example; use project predicate
+    let lit = RdfObject::Literal {
+        lex: format!("{value}"),
+        datatype: Some("http://www.w3.org/2001/XMLSchema#double".into()),
+    };
+    g.entry(point_iri.into()).or_default().push((pred.into(), lit));
 }
 ```
 
-**WHERE** is not “SQL where clause” first—think **pattern match** on triples.
+Run read loop every N seconds; graph holds **latest** snapshot (historian is separate).
 
-### Why this matters
+### Why This Matters
 
-**Commissioning queries:** “Every `Supply_Air_Temperature_Sensor` that **has** location in **this** wing.” **FDD prep:** “All AHUs without an **outside air flow** point.” These are multi-hop patterns—awkward in CSV, natural in SPARQL.
+This is the **unity node** of the whole course: Python BACnet → Rust network → Rust RDF.
 
-### Mini exercises
+### Mini examples
 
-1. In English, translate: “Find all subjects `?e` such that `?e rdf:type brick:Air_Handler_Unit`.”
-2. List two reasons a **triplestore** might be used instead of only files on disk.
-3. Install / verify `rdflib` and read `help(Graph.query)` one screen.
+- Link BACnet object map from Day 53 to Brick IRI keys.
+- Log triple count each poll.
+
+### Micro exercises
+
+1. One point end-to-end: BACnet read → println triple.
+2. PCAP + log timestamp correlation.
+3. Error path: BACnet fail doesn't corrupt graph.
 
 ### Key takeaway
 
-**SPARQL = patterns + variables.** Next days add `FILTER`, `OPTIONAL`, `UNION`, and hygiene keywords.
+**Live OT data can feed semantic models**—do it safely read-only on lab points.

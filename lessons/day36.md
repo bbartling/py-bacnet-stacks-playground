@@ -1,45 +1,53 @@
-## Day 36 – Deadbands, envelopes, and “mixed air in band”
+## Day 36 – UDP Sockets in Rust (Echo Lab)
 
 ### Goal
 
-Avoid **chattering** alarms with **deadbands** and test **envelope** relationships inspired by mixed-air sanity checks (ASHRAE Guideline 36 / open-fdd cookbook **Rule B / Rule C** style—high level only).
+Send and receive a **UDP datagram** with `std::net::UdpSocket`—the same primitive BACnet/IP uses under BVLC.
 
 ### Concept
 
-- **Deadband:** require `x > hi + d` to turn on, `x < hi - d` to turn off (hysteresis). Two thresholds beat one for stable outputs.
-- **Envelope:** for mixing sections, **MAT** should usually lie between **OAT** and **RAT** (plus tolerances). Outside the band ⇒ possible sensor or mixing issue—**not** a definitive diagnosis, just algorithmic detection.
+Terminal A (listener):
 
-Single-timestep checks (plain Python):
-
-```python
-def mat_below_band(mat, oat, rat, tol):
-    lower_bound = min(oat, rat) - tol
-    return mat < lower_bound
-
-
-def mat_above_band(mat, oat, rat, tol):
-    upper_bound = max(oat, rat) + tol
-    return mat > upper_bound
+```rust
+// udp_echo_server.rs — cargo new udp_lab
+use std::net::UdpSocket;
+fn main() -> std::io::Result<()> {
+    let sock = UdpSocket::bind("127.0.0.1:9999")?;
+    let mut buf = [0u8; 1024];
+    let (n, src) = sock.recv_from(&mut buf)?;
+    sock.send_to(&buf[..n], src)?;
+    Ok(())
+}
 ```
 
-Combine with fan proof if you like: `fault = mat_below_band(...) and fan_on`.
+Terminal B: `echo hello | nc -u 127.0.0.1 9999`
 
-### Why this matters
+### Why This Matters
 
-Real FDD separates **physics-informed expectations** from **threshold noise**. Deadbands save service tickets; envelope tests encode rudimentary **thermodynamic consistency** without solving full psychrometrics in this mini-course.
+Every BACnet BVLC packet starts as **bytes in a UDP payload**. Today you see the raw datagram before rusty-bacnet wraps it.
 
 ### Mini examples
 
-- Implement `with_deadband(x, on_hi, off_hi, state_was_on)` returning new bool state for a high-temp alarm.
-- “Two of three” voting: three redundant zone sensors; flag if two disagree by more than `delta`.
-- Document tolerances (`tol`) as **parameters**, not magic numbers in the middle of code.
+- Bind `0.0.0.0:9999` vs `127.0.0.1:9999`—when is each appropriate?
+- Print hex of first 4 bytes: `{:02x?}`, &buf[..4].
 
 ### Micro exercises
 
-1. Write `in_band(mat, oat, rat, tol)` returning `True` if `min(oat, rat) - tol <= mat <= max(oat, rat) + tol`.
-2. Add `fan_cmd > 0.01` to gate `mat_below_band` (fan must be running).
-3. Explain why envelope tests **alone** cannot distinguish a bad MAT sensor from a real economizer fault.
+1. Modify server to uppercase ASCII payload before echo.
+2. Capture your echo traffic (see Wireshark Lab).
+3. What buffer size might BACnet frames need? (hint: ~1476 bytes MTU-ish)
 
 ### Key takeaway
 
-HVAC-friendly algorithms combine **comparisons**, **tolerances**, and **gating**—patterns you will recognize in industrial FDD YAML, even when a library evaluates them for you.
+**`recv_from` / `send_to`** — address + port per datagram. BACnet adds structure *inside* the payload.
+
+### Wireshark Lab
+
+```bash
+cd lessons/lab-scripts
+./capture_pcap.sh day36-udp-echo "udp port 9999"
+```
+
+Open the pcap → display filter: **`udp`**
+
+Follow **UDP Stream** on your echo packet pair. Note: no handshake—one packet out, one back.

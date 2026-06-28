@@ -8,6 +8,7 @@
 !.env.example
 !env.example
 **/nhaystack_points.csv
+**/fixtures/golden/
 
 # --- Rust / Cargo ---
 **/target/

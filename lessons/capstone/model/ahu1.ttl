@@ -1,0 +1,21 @@
+@prefix ex: <http://example.com/bldg/v4Fifteen#> .
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Day 62 starter — extend for Day 75 capstone (≥8 triples)
+
+ex:AHU1 a brick:Air_Handler_Unit ;
+    rdfs:label "Bench AHU (N4 v4Fifteen)" ;
+    brick:hasPoint ex:OA-T , ex:DUCT-T , ex:DUCT-P .
+
+ex:OA-T a brick:Outside_Air_Temperature_Sensor ;
+    rdfs:label "OA-T" .
+
+ex:DUCT-T a brick:Supply_Air_Temperature_Sensor ;
+    rdfs:label "DUCT-T" .
+
+ex:DUCT-P a brick:Supply_Air_Static_Pressure_Sensor ;
+    rdfs:label "DUCT-P" .
+
+# Optional mapping hints (Day 53) — not strict RDF, comments only:
+# ex:OA-T  → Haystack @...oa-t  → BACnet device 5007 analogInput:? 

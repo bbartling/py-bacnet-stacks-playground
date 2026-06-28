@@ -1,40 +1,50 @@
-## Day 49 — URIs and IRIs as identity strings
+## Day 49 – rusty-haystack Client Setup
 
 ### Goal
 
-Treat a **URI** / **IRI** as an **immutable identifier string**—not a file path you `open()`, though it may look like a URL. Distinguish **resource** (thing in the world or model) from **literal** (string, number, date encoded as lexical value).
+Clone **[rusty-haystack](https://github.com/jscott3201/rusty-haystack)**, build **`haystack-client`**, and run the Niagara demo if present.
 
 ### Concept
 
-Examples (illustrative only—your site would use your own base):
-
-- `https://example.edu/bldg/ahu1` — might identify an AHU instance.
-- `https://brickschema.org/schema/Brick#Supply_Air_Temperature_Sensor` — a **class** IRI from the Brick namespace.
-
-In Python you store these as **`str`**. Equality is string equality. **Normalization** (trailing slash, scheme, encoding) matters when merging data from two vendors.
-
-### How to use it
-
-```python
-def same_resource(uri_a, uri_b):
-    return uri_a.strip() == uri_b.strip()
-
-
-AHU_A = "https://example.edu/bldg/ahu1"
-AHU_B = "https://example.edu/bldg/ahu1 "
-print(same_resource(AHU_A, AHU_B))  # True after strip
+```bash
+git clone https://github.com/jscott3201/rusty-haystack.git
+cd rusty-haystack
+cargo build -p haystack-client
+# demo path may vary:
+cargo run -p niagara-read -- --help
 ```
 
-### Why this matters
+Config knobs (lab):
 
-RDF **never** merges rows on “column name”; it merges on **same URI** (or explicit `sameAs`). BACnet instance numbers are local; URIs are how **BMS + analytics + FDD** agree on *the same* asset across systems.
+- Base URL: `https://192.168.204.11/haystack`
+- Auth: **HTTP Basic** on many Niagara stations (not always SCRAM)
+- TLS: `tls_verify = false` for self-signed lab certs only
 
-### Mini exercises
+See also: [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) — full N4.15 lab with `nhaystack-smoke` CLI. Hub: [rust-lessons/](../vibe_code_apps_17/rust-lessons/README.md).
 
-1. Given two lists of URI strings, write a loop to print URIs that appear in **both** (set intersection pattern—Day 48 preview, or double loop now).
-2. Why is `http://` vs `https://` a problem if two sources mint “the same” equipment differently?
-3. Look up **Brick’s published namespace** string (read-only web search or Brick docs) and write it in a variable `BRICK_NS`.
+### Why This Matters
+
+Same building, two protocols: **UDP BACnet** for OT points, **HTTPS Haystack** for semantic tags and ops.
+
+### Mini examples
+
+- Print `/about` server name and Haystack version string.
+- Compare response time to a BACnet ReadProperty (qualitative).
+
+### Micro exercises
+
+1. Document which auth mode your station uses (Basic vs SCRAM probe).
+2. Build with `--release` before timing.
+3. Read `ClientConfig` or equivalent in source.
 
 ### Key takeaway
 
-**IRIs are names.** Python holds them as strings; RDF tools resolve prefixes and compare identity with graph rules you will load later.
+**rusty-haystack sits in the TCP/HTTP layer** of your curriculum—after Days 37–40, before RDF weeks.
+
+### Wireshark Lab
+
+During `about` fetch:
+
+```bash
+./capture_pcap.sh day49-haystack-about "tcp port 443 and host 192.168.204.11"
+```

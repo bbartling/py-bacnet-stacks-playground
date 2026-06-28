@@ -1,34 +1,33 @@
-## Day 70 — `FILTER` and `BIND` (numbers and computed values)
+## Day 70 – UNION & ASK Queries
 
 ### Goal
 
-Narrow results with **`FILTER` expressions** and create **computed columns** with **`BIND`**—e.g. only points whose **numeric literal** (if modeled) passes a test. For this course, **`FILTER`** on **IRIs** or **regex on string form** is enough if you did not add `xsd:decimal` literals.
+Implement **`UNION`** (two patterns, merge results) and **`ASK`** (exists?) for commissioning checks.
 
 ### Concept
 
-```sparql
-PREFIX brick: <https://brickschema.org/schema/Brick#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+ASK example: "Does AHU1 have any Supply Air Temperature sensor?"
 
-SELECT ?p
-WHERE {
-  ?p rdf:type brick:Supply_Air_Temperature_Sensor .
-  FILTER ( STRSTARTS( STR(?p), "https://example.edu/bldg/ahu1" ) )
+```rust
+fn ask_has_sat(g: &AdjGraph, ahu: &str) -> bool {
+    select_points(g, ahu).iter().any(|p| {
+        types_of(g, p).iter().any(|t| t.contains("Supply_Air_Temperature"))
+    })
 }
 ```
 
-(`STRSTARTS` availability depends on SPARQL engine; `rdflib` supports much of SPARQL 1.1—if a function fails, fall back to **Python post-filter** on query results for 101.)
+UNION: merge results from two predicates or two equipment branches.
 
-### Why this matters
+### Why This Matters
 
-**FDD** thresholds on **trend data** live in Pandas in open-fdd; in **ontology land**, you filter **metadata** (“sensors on this AHU only”) before joining to historians.
+Commissioning scripts ask yes/no questions before trend analysis—ASK is the RDF form.
 
-### Mini exercises
+### Micro exercises
 
-1. Write `FILTER ( ?p != <https://example.edu/bldg/ahu1/oat> )` style inequality on two IRIs you know.
-2. `BIND` a boolean `?is_sat` using `CONTAINS` or `regex` on `STR(?p)`—optional if your engine supports those functions.
-3. If `rdflib` rejects a function, filter results in Python with a `for` loop—same outcome.
+1. ASK three rules on your `ahu1.ttl` model.
+2. UNION query for two different sensor class patterns.
+3. Print PASS/FAIL report markdown from Rust `main`.
 
 ### Key takeaway
 
-**FILTER/BIND = SQL HAVING/SELECT expressions** at the graph-pattern layer—useful for **metadata slicing**.
+**Existence checks are first-class**—not everything is a SELECT table.

@@ -1,0 +1,12 @@
+[package]
+name = "graph-export"
+version = "0.1.0"
+edition = "2021"
+description = "Day 66/68/75 capstone — load Turtle, stub BACnet merge, export TTL"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+lto = true

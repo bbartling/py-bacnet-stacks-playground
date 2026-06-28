@@ -34,9 +34,11 @@ BACnet trends, CSV exports, and edge scripts give you **lists and tables** (ofte
 2. Write pseudocode (not Python) for “return the coldest **zone temperature** in a list of floats.”
 3. Why might a controls engineer prefer a **clear** 20-line loop over a one-liner nobody can audit?
 
-### Course fit (CS 101 mini-track)
+### Course fit (CS 101 mini-track → Rust pivot)
 
-This two-week arc (Days 27–40) is designed as a **daily mini-lesson**: one main idea per day, small functions, **no recursion requirement**, **no dynamic programming**, and **no Pandas**. It is appropriate for a **first exposure to algorithms** in an HVAC analytics context—not a substitute for a full semester on data structures.
+Days **1–27** build Python intuition for BACnet scripting and basic algorithms. **Day 27** closes the Python arc with the *idea* of algorithms—you will reuse that mindset in Rust loops, graph queries, and edge polling.
+
+Starting **Day 28**, the course **fast-tracks Rust** (Cargo, types, collections), **network programming** (UDP/TCP, tcpdump, Wireshark), **rusty-bacnet** and **rusty-haystack**, then **RDF modeled in Rust** (not Python `rdflib`). Daily **Wireshark labs** include capture scripts under [`lessons/lab-scripts/`](./lab-scripts/).
 
 ### Key takeaway
 

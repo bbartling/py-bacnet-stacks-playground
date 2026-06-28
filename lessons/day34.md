@@ -1,55 +1,48 @@
-## Day 34 – Aggregates: sum, mean, median (one zone, one air handler)
+## Day 34 – Ownership & Borrowing (Fast Track)
 
 ### Goal
 
-Compute **sum**, **mean**, and **median** with clear preconditions (empty list handling). Interpret results for **short HVAC samples** (15-minute SAT slice, weekly peak static).
+Survive the **borrow checker** long enough to pass `&str` into functions and store data in structs without fighting the compiler.
 
 ### Concept
 
-- **Mean:** `sum / n` (watch empty lists).
-- **Median:** sort a **copy**, pick middle (average two middles if even length).
-- **Min/max:** from Day 29; combine with sorted data for reporting.
+```rust
+fn log_tag(tag: &str, val: f64) {
+    println!("{tag} = {val}");
+}
 
-### How to use it
-
-```python
-def mean(values):
-    if not values:
-        return None
-    return sum(values) / len(values)
-
-
-def median(values):
-    if not values:
-        return None
-    s = sorted(values)
-    n = len(s)
-    m = n // 2
-    if n % 2:
-        return s[m]
-    return (s[m - 1] + s[m]) / 2
-
-
-sat_f = [72.1, 71.9, 72.4, 72.0, 72.2]
-print(round(mean(sat_f), 2), median(sat_f))
+fn main() {
+    let name = String::from("OA-T");
+    log_tag(&name, 55.3);  // borrow &name as &str
+    println!("still own {name}");
+}
 ```
 
-### Why this matters
+Rules (simplified):
 
-Mean SAT over an interval smooths jitter; **median** resists single spikes when a sensor glitches. Same tools support **energy normalization** (mean kW) and **simple quality checks** (“median OAT overnight should match weather station roughly”).
+1. One **mutable** borrow *or* many **immutable** borrows at a time
+2. References must not outlive the data they point to
+3. **`clone()`** when you truly need a copy
+
+### Why This Matters
+
+Socket buffers and HTTP bodies are **borrowed slices** (`&[u8]`, `&str`). Fighting ownership early makes rusty-bacnet examples click.
 
 ### Mini examples
 
-- Compute **mean absolute deviation** from setpoint: `mean(abs(t - sp) for t in zone_temps)`.
-- Drop `None` readings before stats (small loop to build a clean list).
-- Compare mean vs median on `[72.0, 72.1, 95.0, 72.0]` and comment which reflects “typical” better.
+- Fix a "borrow of moved value" compiler error by using `.clone()` or references.
+- Function taking `&[f64]` instead of `Vec<f64>`.
 
 ### Micro exercises
 
-1. Write `stats_summary(values)` → dict with keys `min`, `max`, `mean`, `median` (or `None` if empty).
-2. Given hourly OAT for 24 values, compute mean and median; which is less sensitive to one hour of bad data?
-3. Explain why sorting is required for median but **not** for mean.
+1. Explain why `let s2 = s1; println!("{s1}")` fails for `String`.
+2. Write `fn avg(vals: &[f64]) -> Option<f64>`.
+3. Read one rusty-bacnet example; circle every `&` and `&mut` in comments.
 
 ### Key takeaway
 
-Aggregates compress time series into decisions humans (and rules) can digest—foundation for both **operations** and **lightweight FDD**.
+**Borrow instead of clone** in hot paths (polling loops). Clone when building persistent caches.
+
+### Wireshark Lab
+
+No capture today—read [wireshark_filters.md](./lab-scripts/wireshark_filters.md) so Day 36 feels familiar.

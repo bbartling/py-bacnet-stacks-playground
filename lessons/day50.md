@@ -1,44 +1,42 @@
-## Day 50 — Prefix maps: expand `brick:Thing` by hand
+## Day 50 – Haystack /read & Zinc Filters
 
 ### Goal
 
-Build a **`dict`** mapping **prefix** (without colon) to **namespace base** IRI, then write `expand(prefixed_name)` that turns `brick:Supply_Air_Temperature_Sensor` into a full string—same job Turtle `@prefix` does.
+Execute a **read** op with a Zinc filter (e.g. `point and temp`) and parse rows in Rust or log raw Zinc.
 
 ### Concept
 
-Turtle / SPARQL allow **QName** shorthand: `prefix:LocalName`. The parser **expands** to `namespace_base + LocalName` (with rules for fragments `#` vs `/`—your lesson code can assume the base already ends with `#` or `/` as given).
+Example filter ideas:
 
-### How to use it
-
-```python
-def expand(prefix_map, qname):
-    """qname like 'brick:Supply_Air_Temperature_Sensor'."""
-    if ":" not in qname:
-        return qname
-    prefix, local = qname.split(":", 1)
-    if prefix not in prefix_map:
-        raise KeyError("unknown prefix: " + prefix)
-    return prefix_map[prefix] + local
-
-
-PREFIXES = {
-    "brick": "https://brickschema.org/schema/Brick#",
-    "ex": "https://example.edu/bldg/",
-}
-
-print(expand(PREFIXES, "ex:ahu1"))
+```
+point and temp
+siteRef == @yourSite
+equipRef == @ahu1
 ```
 
-### Why this matters
+Zinc response is **text grid**—columns like `id`, `curVal`, `unit`.
 
-Every RDF file and SPARQL query relies on **prefix expansion**. Doing it once manually demystifies `@prefix` lines and `PREFIX` blocks.
+In rusty-haystack, follow crate examples for `read()` returning typed rows or strings.
 
-### Mini exercises
+### Why This Matters
 
-1. Add `rdf`, `rdfs` entries using common W3C namespace IRIs (look up once, paste as constants).
-2. Write `shorten(full_uri, prefix_map)` that returns a QName if `full_uri` starts with one known base; else return `full_uri` unchanged (linear scan over `items()`).
-3. What breaks if `local` contains an extra `:`?
+FDD rules want **curVal** time series—Haystack read is how Niagara exposes normalized tags without BACnet object numbers.
+
+### Mini examples
+
+- Read one known OA-T tag from your golden fixtures.
+- Limit columns if API supports projection.
+
+### Micro exercises
+
+1. Save Zinc body to `read_response.zinc` file from client debug logging.
+2. Match one `curVal` to a BACnet present-value for same point (if mapped).
+3. PCAP note: payload encrypted—trust client logs for body content.
 
 ### Key takeaway
 
-**Prefix map = Python `dict`.** Expansion is string concatenation with rules you control in small code—same idea as Turtle.
+**Zinc is the on-the-wire data language** for Haystack reads—RDF/Turtle comes later as a modeling view.
+
+### Wireshark Lab
+
+Encrypted traffic—practice **client-side logging** instead of display filters for body. Filter handshake only: **`tls.handshake`**
