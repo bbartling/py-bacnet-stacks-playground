@@ -1,4 +1,6 @@
-# vibe_code_apps_14 — Flat campus BACnet lab
+# vibe_code_apps_14 — BACnet routing research lab
+
+**Status:** Planned — checkpoint **14** (research lab content preserved; not an active featured build).
 
 Simulates a **Trane-style flat LAN**: each building on a **unique UDP port**, different **vendor IDs** (Trane / Siemens / JCI), plus a **field-panel mini** on a second port per site.
 

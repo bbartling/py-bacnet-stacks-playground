@@ -37,20 +37,20 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 
 | # | Checkpoint | Summary | Status |
 | --- | --- | --- | --- |
-| **1** | **BAC0 + bacpypes3 basics** | Read/write `present-value`, release with `NULL`, priority arrays. | Done |
-| **2** | **RPM apps** | `ReadPropertyMultiple` across devices; CSV logs with daily rotation. | Done |
-| **3** | **Priority array tools** | Parse `priority-array`, inspect overrides, control authority. | Done |
-| **4** | **BACnet server apps** | Mini BACnet device: schedules, calendars, weather server inputs. | Done |
-| **5** | **Device discovery tools** | `Who-Is` / `I-Am` scanning and device enumeration. | Done |
-| **6** | **VOLTTRON + OpenClaw exploration** | VOLTTRON deploy experiments; AI-assisted edge BAS/FDD scaffolding. | Done |
-| **7** | **VOLTTRON v9 BAS-style web agent** | BACnet-integrated supervisory web agent on VOLTTRON v9. | Done |
-| **8** | **BAS schedule widget demo** | Schedule widget and frontend UI concepts. | Done |
-| **9** | **diy-bas — beginning phase** | First `diy-bas` shell: **Flask** API + vanilla JS UI. | Done |
-| **10** | **diy-bas — integration** | Auth, alarms, schedules, trends, discovery in **Django + React** (superseded by **11**). | Done |
-| **11** | **[Agentic BAS from spec](https://github.com/bbartling/py-bacnet-stacks-playground/tree/develop/vibe_code_apps_11)** | **Paused.** Spec-driven BAS via **SKILL.md**, workspace memory, and cron-driven **Codex CLI** agent (drivers, commissioning, web app). | Paused |
-| **12** | **[AI-assisted edge-to-cloud HVAC FDD](https://github.com/bbartling/py-bacnet-stacks-playground/tree/develop/vibe_code_apps_12)** | **Active featured build.** End-to-end HVAC fault detection pipeline: BACnet discovery, commissioning CSVs, RPM polling, AWS IoT Core MQTT, DynamoDB historian, Lambda dashboard, Python FDD Rule Lab, Brick-style data modeling, and AI-assisted development workflows. | **Active** |
-| **13** | **DIY BACnet router** *(planned)* | Pi/Linux **BACnet/IP ↔ MS/TP** router using **bacnet-stack** `router-mstp`; informed by app **14**. Slot: `vibe_code_apps_13/`. | Planned |
-| **14** | **[BACnet routing research lab](https://github.com/bbartling/py-bacnet-stacks-playground/tree/develop/vibe_code_apps_14)** | **Active.** BACpypes3 timed labs (dual [mini-device](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py), [ipv4 router](https://github.com/JoelBender/BACpypes3/blob/main/samples/ipv4-to-ipv4.py), pcaps) toward [Misty3](https://github.com/raghavan97/misty3) and [router-mstp](https://github.com/bacnet-stack/bacnet-stack/tree/master/apps/router-mstp). | **Active** |
+| **1** | **[BAC0 + bacpypes3 basics](vibe_code_apps_1/)** | Read/write `present-value`, release with `NULL`, priority arrays. | Done |
+| **2** | **[RPM apps](vibe_code_apps_2/)** | `ReadPropertyMultiple` across devices; CSV logs with daily rotation. | Done |
+| **3** | **[Priority array tools](vibe_code_apps_3/)** | Parse `priority-array`, inspect overrides, control authority. | Done |
+| **4** | **[BACnet server apps](vibe_code_apps_4/)** | Mini BACnet device: schedules, calendars, weather server inputs. | Done |
+| **5** | **[Device discovery tools](vibe_code_apps_5/)** | `Who-Is` / `I-Am` scanning and device enumeration. | Done |
+| **6** | **[VOLTTRON + OpenClaw exploration](vibe_code_apps_6/)** | VOLTTRON deploy experiments; AI-assisted edge BAS/FDD scaffolding. | Done |
+| **7** | **[VOLTTRON v9 BAS-style web agent](vibe_code_apps_7/)** | BACnet-integrated supervisory web agent on VOLTTRON v9. | Done |
+| **8** | **[BAS schedule widget demo](vibe_code_apps_8/)** | Schedule widget and frontend UI concepts. | Done |
+| **9** | **[diy-bas — beginning phase](vibe_code_apps_9/)** | First `diy-bas` shell: **Flask** API + vanilla JS UI. | Done |
+| **10** | **[diy-bas — integration](vibe_code_apps_10/)** | Auth, alarms, schedules, trends, discovery in **Django + React** (superseded by **11**). | Done |
+| **11** | **[Agentic BAS from spec](vibe_code_apps_11/)** | **Paused.** Spec-driven BAS via **SKILL.md**, workspace memory, and cron-driven **Codex CLI** agent (drivers, commissioning, web app). | Paused |
+| **12** | **[AI-assisted edge-to-cloud HVAC FDD](vibe_code_apps_12/)** | **Active featured build.** End-to-end HVAC fault detection pipeline: BACnet discovery, commissioning CSVs, RPM polling, AWS IoT Core MQTT, DynamoDB historian, Lambda dashboard, Python FDD Rule Lab, Brick-style data modeling, and AI-assisted development workflows. | **Active** |
+| **13** | **[DIY BACnet router](vibe_code_apps_13/)** *(planned)* | Pi/Linux **BACnet/IP ↔ MS/TP** router using **bacnet-stack** `router-mstp`; informed by app **14**. | Planned |
+| **14** | **[BACnet routing research lab](vibe_code_apps_14/)** | **Planned.** BACpypes3 timed labs (dual [mini-device](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py), [ipv4 router](https://github.com/JoelBender/BACpypes3/blob/main/samples/ipv4-to-ipv4.py), pcaps) toward [Misty3](https://github.com/raghavan97/misty3) and [router-mstp](https://github.com/bacnet-stack/bacnet-stack/tree/master/apps/router-mstp). | Planned |
 | **15** | **STM32 bare-metal BACnet device** *(planned)* | Embedded **C** BACnet stack on **STM32**; MS/TP or UART as hardware allows. | Planned |
 | **16** | **Rust BACnet stack** *(planned)* | [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) + Python bindings; benchmarks beside BACpypes3. | Planned |
 | **17** | **[Project Haystack playground](vibe_code_apps_17/)** | Niagara **nHaystack** Pi lab, [`rusty-haystack`](https://github.com/jscott3201/rusty-haystack) (Rust client/server + PyO3), and [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack) (Python). | **Active** |
