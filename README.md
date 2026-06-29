@@ -54,6 +54,7 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **15** | **STM32 bare-metal BACnet device** *(planned)* | Embedded **C** BACnet stack on **STM32**; MS/TP or UART as hardware allows. | Planned |
 | **16** | **Rust BACnet stack** *(planned)* | [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) + Python bindings; benchmarks beside BACpypes3. | Planned |
 | **17** | **[Project Haystack playground](vibe_code_apps_17/)** | Niagara **nHaystack** Pi lab, [`rusty-haystack`](https://github.com/jscott3201/rusty-haystack) (Rust client/server + PyO3), and [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack) (Python). | **Active** |
+| **18** | **[DIY BAS / Haystack data lake (Rust)](vibe_code_apps_18/)** · [Discussion #5](https://github.com/bbartling/py-bacnet-stacks-playground/discussions/5) | **Active featured build.** Read-only **`bas-haystack-lake-rs`**: Haystack collector, Postgres lake, admin API, sanitized Open-FDD JSON API, alerts, Docker/CI — agent prompt in [AGENTS.md](vibe_code_apps_18/AGENTS.md). | **Active** |
 
 
 
@@ -133,6 +134,7 @@ These are AI-generated mini lessons designed as daily challenges, starting at th
 
 - **Day 35 — Network map:** BACnet UDP `:47808`, Haystack TCP `:443`, Modbus TCP—bench topology.
 - **Day 36 — UDP sockets in Rust:** Echo lab; BACnet datagram mindset.
+- **Day 36b — Modbus TCP (beginner OT):** Register read over TCP `:502`/`:1502`—easier than BACnet; Wireshark `modbus` filter.
 - **Day 37 — TCP client/server:** Echo lab; HTTP/TLS foundation.
 - **Day 38 — tcpdump & PCAP workflow:** `capture_pcap.sh`, snaplen, offline analysis.
 - **Day 39 — Wireshark: BACnet on UDP:** BVLC/NPDU/APDU; filter `udp.port == 47808`.

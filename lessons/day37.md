@@ -4,6 +4,8 @@
 
 Build a **TCP echo** client and server—foundation for understanding HTTP/TLS sessions to Haystack.
 
+**Optional first:** If OT protocols are new, do **[Day 36b Modbus TCP](./day36b_modbus_tcp.md)** first—structured request/response on TCP is easier than BACnet and maps directly to bench PLCs before this generic echo lab.
+
 ### Concept
 
 Server sketch (`TcpListener`):

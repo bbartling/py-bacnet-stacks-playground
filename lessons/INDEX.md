@@ -13,7 +13,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | What is already there | How to turn it into a “challenge” |
 | --- | --- |
 | **Micro exercises** | Require a **single Rust binary or module per day** (Days 28+) or **`.py` per day** (Days 1–27); add private test cases for grading. |
-| **Wireshark Lab** (Days 35–40, 41–46, 48–54, 64, 75) | Require **`pcaps/` artifact** + screenshot with the lesson’s **display filter** pasted into Wireshark. |
+| **Wireshark Lab** (Days 35–40, 36b, 41–46, 48–54, 64, 75) | Require **`pcaps/` artifact** + screenshot with the lesson’s **display filter** pasted into Wireshark. |
 | **Network labs** | Run [`capture_pcap.sh`](./lab-scripts/capture_pcap.sh) during the exercise; filter cheat sheet: [`wireshark_filters.md`](./lab-scripts/wireshark_filters.md). |
 | **Capstone days** | **Day 46** (BACnet CLI), **Day 54** (Haystack CLI), **Day 75** (multi-protocol semantic snapshot) are graded milestones. |
 | **RDF weeks (55–75)** | Hand-authored **`ahu1.ttl`**, Rust graph API, optional `oxrdf`/`serde_json`—no `pip install rdflib`. |
@@ -87,6 +87,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | --- | --- |
 | 35 | [day35.md](./day35.md) — Network map (UDP/TCP/ports) |
 | 36 | [day36.md](./day36.md) — UDP sockets echo lab |
+| 36b | [day36b_modbus_tcp.md](./day36b_modbus_tcp.md) — **Modbus TCP** register read (beginner OT) |
 | 37 | [day37.md](./day37.md) — TCP client/server echo |
 | 38 | [day38.md](./day38.md) — tcpdump & PCAP workflow |
 | 39 | [day39.md](./day39.md) — Wireshark: BACnet on UDP |
@@ -184,6 +185,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 
 | Artifact | Days | Link |
 | --- | --- | --- |
+| Modbus read CLI starter | 36b | [modbus-read/](./capstone/modbus-read/) |
 | BACnet CLI skeleton | 46 | [discover-and-poll/](./capstone/discover-and-poll/) |
 | Haystack CLI tutorial | 54 | [vibe_code_apps_17/nhaystack-niagara-pi-tutorial/](../vibe_code_apps_17/nhaystack-niagara-pi-tutorial/) |
 | Brick TTL starter | 62 | [model/ahu1.ttl](./capstone/model/ahu1.ttl) |

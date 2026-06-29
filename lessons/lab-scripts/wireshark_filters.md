@@ -5,6 +5,7 @@ Use in **View → Filter toolbar** (display filter, not capture filter).
 | Lesson | What you captured | Paste this filter |
 |--------|-------------------|-------------------|
 | Day 36 | UDP echo lab | `udp` |
+| Day 36b | Modbus TCP (bench PLC) | `modbus` or `tcp.port == 1502` |
 | Day 38 | General bench | `udp or tcp` |
 | Day 39 | BACnet on LAN | `udp.port == 47808` |
 | Day 40 | BACnet + follow | `bacnet` or `udp.port == 47808` |
@@ -25,6 +26,7 @@ Use in **View → Filter toolbar** (display filter, not capture filter).
 
 ```bash
 cd lessons/lab-scripts
+./capture_pcap.sh day36b-modbus "tcp port 1502 or tcp port 502"
 ./capture_pcap.sh day39-bacnet "udp port 47808"
 ./capture_pcap.sh day52-haystack "tcp port 443 and host 192.168.204.11"
 ```
