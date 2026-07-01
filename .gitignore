@@ -237,3 +237,6 @@ vibe_code_apps_10/diy-bas/staticfiles/
 **/aws_iot_core_test/keys/
 **/aws_iot_core_test/secrets/
 **/aws_iot_core_test/.env
+
+# Local Ansible venv (create with python3 -m venv .ansible_venv; see vibe_code_apps_12)
+.ansible_venv/

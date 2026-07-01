@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/github/license/bbartling/py-bacnet-stacks-playground)](LICENSE)
 [![BACnet edge + FDD](https://img.shields.io/badge/active-vibe__code__apps__12-009966)](vibe_code_apps_12/)
+[![Rust BACnet lab](https://img.shields.io/badge/active-vibe__code__apps__16-009966)](vibe_code_apps_16/)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
 [![AWS IoT Core](https://img.shields.io/badge/cloud-AWS%20IoT%20Core-FF9900?logo=amazonaws&logoColor=white)](vibe_code_apps_12/aws_cloud_pipeline/)
 
@@ -51,8 +52,8 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **12** | **[AI-assisted edge-to-cloud HVAC FDD](vibe_code_apps_12/)** | **Active featured build.** End-to-end HVAC fault detection pipeline: BACnet discovery, commissioning CSVs, RPM polling, AWS IoT Core MQTT, DynamoDB historian, Lambda dashboard, Python FDD Rule Lab, Brick-style data modeling, and AI-assisted development workflows. | **Active** |
 | **13** | **[DIY BACnet router](vibe_code_apps_13/)** *(planned)* | Pi/Linux **BACnet/IP ↔ MS/TP** router using **bacnet-stack** `router-mstp`; informed by app **14**. | Planned |
 | **14** | **[BACnet routing research lab](vibe_code_apps_14/)** | **Planned.** BACpypes3 timed labs (dual [mini-device](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py), [ipv4 router](https://github.com/JoelBender/BACpypes3/blob/main/samples/ipv4-to-ipv4.py), pcaps) toward [Misty3](https://github.com/raghavan97/misty3) and [router-mstp](https://github.com/bacnet-stack/bacnet-stack/tree/master/apps/router-mstp). | Planned |
-| **15** | **STM32 bare-metal BACnet device** *(planned)* | Embedded **C** BACnet stack on **STM32**; MS/TP or UART as hardware allows. | Planned |
-| **16** | **Rust BACnet stack** *(planned)* | [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) + Python bindings; benchmarks beside BACpypes3. | Planned |
+| **15** | **[Rust embedded BACnet device](vibe_code_apps_15/)** *(planned)* | Embedded **Rust** BACnet on **STM32 NUCLEO-F401RE**; **RS-485** / MS/TP lab — [DigiKey NUCLEO-F401RE](https://www.digikey.com/en/products/detail/stmicroelectronics/NUCLEO-F401RE/4695525). | Planned |
+| **16** | **[Rust BACnet stack lab](vibe_code_apps_16/)** | **Active featured build.** [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) server + probe; [Open-FDD mimic](./vibe_code_apps_16/openfdd-bacnet-mimic/) (device 599999); Python bindings + BACpypes3 benchmarks planned. | **Active** |
 | **17** | **[Project Haystack playground](vibe_code_apps_17/)** | Niagara **nHaystack** Pi lab, [`rusty-haystack`](https://github.com/jscott3201/rusty-haystack) (Rust client/server + PyO3), and [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack) (Python). | **Active** |
 | **18** | **[DIY BAS / Haystack data lake (Rust)](vibe_code_apps_18/)** · [Discussion #5](https://github.com/bbartling/py-bacnet-stacks-playground/discussions/5) | **Active featured build.** Read-only **`bas-haystack-lake-rs`**: Haystack collector, Postgres lake, admin API, sanitized Open-FDD JSON API, alerts, Docker/CI — agent prompt in [AGENTS.md](vibe_code_apps_18/AGENTS.md). | **Active** |
 

@@ -69,7 +69,8 @@ No customer names, station hostnames, or raw Haystack URLs in responses.
 
 | # | Project |
 | --- | --- |
-| 12 | Edge-to-cloud FDD pipeline |
+| 12 | [Edge-to-cloud HVAC FDD pipeline](../vibe_code_apps_12/) — **Active** |
+| 16 | [Rust BACnet stack lab](../vibe_code_apps_16/) — Open-FDD mimic, rusty-bacnet server/probe — **Active** |
 | 17 | Project Haystack playground |
 | open-fdd | Drivers, DataFusion SQL, MCP sidecar |
 
