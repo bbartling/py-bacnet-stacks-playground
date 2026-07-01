@@ -9,7 +9,8 @@ Standalone Rust project: Open-FDD object database (device **599999**, diagnostic
 ## Quick start
 
 ```bash
-cd bacnet-server-testing
+cd vibe_code_apps_16/openfdd-bacnet-mimic
+# from repo root: cd ~/py-bacnet-stacks-playground/vibe_code_apps_16/openfdd-bacnet-mimic
 
 # Terminal 1 — start server
 ./scripts/run.sh
@@ -23,7 +24,7 @@ Stop Open-FDD Docker first if it already binds port **47808**.
 ## Project layout
 
 ```text
-bacnet-server-testing/
+openfdd-bacnet-mimic/
 ├── Cargo.toml              # two binaries + shared library
 ├── README.md
 ├── scripts/
@@ -102,12 +103,12 @@ Relative path from this crate: `../../../rusty-bacnet/crates/...`
 ## Related bench docs
 
 Open-FDD v3.2.5 gaps and v3.2.6 fix list:  
-`../open-fdd/workspace/reports/REV_325_RIGOROUS_TEST_REPORT.md`
+`~/open-fdd/workspace/reports/REV_325_RIGOROUS_TEST_REPORT.md`
 
 ## Restore Open-FDD bench
 
 ```bash
-cd ../open-fdd
+cd ~/open-fdd
 docker start openfdd-bridge openfdd-commission openfdd-caddy openfdd-haystack-gateway
 ./scripts/openfdd_bacnet_poll_daemon.sh start
 ```
