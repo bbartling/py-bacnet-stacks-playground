@@ -1,14 +1,13 @@
-//! Run the BACnet/IP server until Ctrl+C.
+//! Server implementation — called from `main.rs`.
 
 use std::sync::Arc;
 
 use bacnet_server::server::BACnetServer;
+use openfdd_bacnet_mimic::shared::config::{ServerArgs, OPENFDD_VENDOR_ID};
+use openfdd_bacnet_mimic::shared::database::build_database;
+use openfdd_bacnet_mimic::shared::network::{free_udp_port, nic_from_env, resolve_network, verify_udp_bind};
 use tokio::sync::Mutex;
 use tracing::info;
-
-use crate::config::{ServerArgs, OPENFDD_VENDOR_ID};
-use crate::database::build_database;
-use crate::network::{free_udp_port, nic_from_env, resolve_network, verify_udp_bind};
 
 pub fn init_logging(debug: bool) {
     let filter = if debug {

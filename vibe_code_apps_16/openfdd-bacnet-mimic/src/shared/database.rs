@@ -8,7 +8,7 @@ use bacnet_objects::traits::BACnetObject;
 use bacnet_types::enums::{ObjectType, PropertyIdentifier};
 use bacnet_types::primitives::{ObjectIdentifier, PropertyValue};
 
-use crate::config::OPENFDD_VENDOR_ID;
+use super::config::OPENFDD_VENDOR_ID;
 
 const UNITS_NONE: u32 = 95;
 const UNITS_DEGF: u32 = 62;

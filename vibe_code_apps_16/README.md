@@ -14,8 +14,8 @@
 ```text
 vibe_code_apps_16/
   README.md                    ← this file
-  openfdd-bacnet-mimic/       ← Rust BACnet/IP server + probe (Active)
-    src/                       lib + bin layout (server, probe, database)
+  openfdd-bacnet-mimic/
+    src/                       lib + server/client layout (read server/main.rs first)
     scripts/run.sh             start server on UDP :47808
     scripts/probe.sh           unicast read + Who-Is test client
 ```

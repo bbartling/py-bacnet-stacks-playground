@@ -1,4 +1,4 @@
-//! Shared defaults and CLI argument structs.
+//! CLI flags and default values (device 599999, port 47808, bench NIC).
 
 use std::net::Ipv4Addr;
 

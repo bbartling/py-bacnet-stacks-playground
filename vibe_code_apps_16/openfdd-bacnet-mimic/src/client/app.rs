@@ -1,4 +1,4 @@
-//! BACnet client probe: unicast read + global Who-Is.
+//! Client (probe) implementation — called from `main.rs`.
 
 use std::time::Duration;
 
@@ -6,9 +6,10 @@ use bacnet_client::client::BACnetClient;
 use bacnet_encoding::primitives::decode_application_value;
 use bacnet_types::enums::{ObjectType, PropertyIdentifier};
 use bacnet_types::primitives::ObjectIdentifier;
-
-use crate::config::ProbeArgs;
-use crate::network::{detect_ipv4_on_nic, nic_from_env, server_mac_from_host_ip, subnet_broadcast};
+use openfdd_bacnet_mimic::shared::config::ProbeArgs;
+use openfdd_bacnet_mimic::shared::network::{
+    detect_ipv4_on_nic, nic_from_env, server_mac_from_host_ip, subnet_broadcast,
+};
 
 #[derive(Debug)]
 pub struct ProbeResult {

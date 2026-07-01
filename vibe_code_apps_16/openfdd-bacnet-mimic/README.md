@@ -21,35 +21,57 @@ cd vibe_code_apps_16/openfdd-bacnet-mimic
 
 Stop Open-FDD Docker first if it already binds port **47808**.
 
+## Where to start reading the code
+
+Two **separate programs** share one small library:
+
+| Start here | Program | What it does |
+|------------|---------|--------------|
+| **`src/server/main.rs`** | Server (`openfdd-bacnet-mimic`) | Owns UDP **47808**, answers Who-Is |
+| **`src/client/main.rs`** | Client (`bacnet-probe`) | Random port, read + Who-Is test |
+
+Shared helpers live in **`src/shared/`** (config, network, BACnet object list).
+
+```text
+Read order for beginners:
+  1. src/server/main.rs     ← server entry (like "main" in other languages)
+  2. src/server/app.rs      ← server logic
+  3. src/client/main.rs     ← client entry (separate app)
+  4. src/client/app.rs      ← client logic
+  5. src/shared/*.rs        ← settings + objects both apps use
+```
+
 ## Project layout
 
 ```text
 openfdd-bacnet-mimic/
-├── Cargo.toml              # two binaries + shared library
+├── Cargo.toml
 ├── README.md
 ├── scripts/
 │   ├── common.sh           # bench IP / broadcast / device id
 │   ├── run.sh              # build + start server
 │   └── probe.sh            # unicast read + Who-Is test
 └── src/
-    ├── lib.rs              # crate root
-    ├── config.rs           # defaults + clap CLI structs
-    ├── network.rs          # NIC detect, UDP bind, broadcast math
-    ├── database.rs         # BACnet AV/BV objects (from Open-FDD)
-    ├── server.rs           # server logic
-    ├── probe.rs            # client probe logic
-    └── bin/
-        ├── server.rs       # → openfdd-bacnet-mimic
-        └── probe.rs        # → bacnet-probe
+    ├── lib.rs              # shared library root
+    ├── shared/             # used by BOTH apps
+    │   ├── config.rs       # CLI flags, device 599999 defaults
+    │   ├── network.rs      # NIC detect, UDP bind, broadcast
+    │   └── database.rs     # BACnet AV/BV objects (Open-FDD)
+    ├── server/             # SERVER APP — start at main.rs
+    │   ├── main.rs         # entry point → openfdd-bacnet-mimic
+    │   └── app.rs          # bind :47808, run until Ctrl+C
+    └── client/             # CLIENT APP — start at main.rs
+        ├── main.rs         # entry point → bacnet-probe
+        └── app.rs          # unicast read + Who-Is
 ```
 
-| File | Role |
-|------|------|
-| `config.rs` | Device **599999**, vendor **999**, CLI flags |
-| `database.rs` | Seven BACnet objects (fault count, OA temp, …) |
-| `network.rs` | Auto-detect IP on `enp3s0`, bind `0.0.0.0:47808` |
-| `server.rs` | `BACnetServer` from rusty-bacnet — listen until Ctrl+C |
-| `probe.rs` | Read `object-name`, then global Who-Is |
+| Folder | Role |
+|--------|------|
+| `shared/config.rs` | Device **599999**, vendor **999**, CLI flags |
+| `shared/database.rs` | Seven BACnet objects (fault count, OA temp, …) |
+| `shared/network.rs` | Auto-detect IP on `enp3s0`, bind `0.0.0.0:47808` |
+| `server/app.rs` | `BACnetServer` from rusty-bacnet — listen until Ctrl+C |
+| `client/app.rs` | `BACnetClient` — read `object-name`, then global Who-Is |
 
 ## Cargo commands
 

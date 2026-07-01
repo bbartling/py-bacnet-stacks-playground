@@ -10,13 +10,15 @@ default-run = "openfdd-bacnet-mimic"
 name = "openfdd_bacnet_mimic"
 path = "src/lib.rs"
 
+# Server app — read src/server/main.rs first
 [[bin]]
 name = "openfdd-bacnet-mimic"
-path = "src/bin/server.rs"
+path = "src/server/main.rs"
 
+# Client app — read src/client/main.rs first
 [[bin]]
 name = "bacnet-probe"
-path = "src/bin/probe.rs"
+path = "src/client/main.rs"
 
 [dependencies]
 bacnet-client = { path = "../../../rusty-bacnet/crates/bacnet-client" }

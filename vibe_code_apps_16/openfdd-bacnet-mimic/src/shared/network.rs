@@ -7,7 +7,7 @@ use std::time::Duration;
 use socket2::{Domain, Protocol, Socket, Type};
 use tracing::info;
 
-use crate::config::DEFAULT_NIC;
+use super::config::DEFAULT_NIC;
 
 /// Resolved addresses for the BACnet server.
 #[derive(Clone, Copy, Debug)]
