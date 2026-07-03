@@ -7,6 +7,7 @@
 [![Rust BACnet lab](https://img.shields.io/badge/active-vibe__code__apps__16-009966)](vibe_code_apps_16/)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
 [![AWS IoT Core](https://img.shields.io/badge/cloud-AWS%20IoT%20Core-FF9900?logo=amazonaws&logoColor=white)](vibe_code_apps_12/aws_cloud_pipeline/)
+[![LFCS 50-day](https://img.shields.io/badge/LFCS-50%20day%20Pi%20labs-FCC624?logo=linux&logoColor=black)](lessons/lfcs/)
 
 ## **Applied Python + BACnet → Rust Networking + Edge Automation for HVAC Controls Technicians, IoT Practitioners, and Building-Systems Tinkerers**
 
@@ -214,6 +215,104 @@ These are AI-generated mini lessons designed as daily challenges, starting at th
 
 ---
 
+## LFCS 50-day crash course
+
+**Pass the [Linux Foundation Certified System Administrator (LFCS)](https://training.linuxfoundation.org/certification/linux-foundation-certified-sysadmin-lfcs/)** with daily mini-labs on a **Raspberry Pi** (or any Linux VM) — same short format as the BACnet/Rust lessons (`Goal` · `Concept` · `Micro exercises` · `Key takeaway`).
+
+| Item | Link |
+| --- | --- |
+| **Start here** | [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) |
+| **Day 1** | [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
+| **Format twin** | Same style as [`lessons/day31.md`](lessons/day31.md) |
+
+```text
+git clone <this-repo>
+cd py-bacnet-stacks-playground/lessons/lfcs
+# open day01.md → run commands on the Pi → micro exercises → next day
+```
+
+**~20–40 minutes/day.** Snapshot your SD card or VM before storage/network experiments.
+
+### Domain map (exam weights)
+
+| Week | Days | Domain | Weight |
+| --- | --- | --- | --- |
+| 1–2 | 1–13 | **Essential Commands** — shell, files, git, systemd, perf, disk, SSL | 20% |
+| 3 | 14–19 | **Users and Groups** — accounts, profiles, limits, ACLs, LDAP client | 10% |
+| 4 | 20–28 | **Operations Deployment** — sysctl, cron, packages, recovery, libvirt, containers, SELinux | 25% |
+| 5 | 29–37 | **Networking** — IP, time, SSH, firewall/NAT, routes, bridge/bond, reverse proxy | 25% |
+| 6 | 38–45 | **Storage** — LVM, VFS, filesystems, NFS/iSCSI, swap, autofs, I/O | 20% |
+| 7 | 46–50 | **Exam practice** — mixed mocks, weak-area drills, strategy, final checklist | — |
+
+### Weekly outline
+
+#### Week 1 — Essential Commands foundation
+- **Day 1** — Lab setup & LFCS map (Pi snapshot, domain weights)
+- **Day 2** — Shell, paths & man pages
+- **Day 3** — Files, find & locate
+- **Day 4** — Permissions & ownership
+- **Day 5** — Text tools: grep, head, cut
+- **Day 6** — Pipes, redirection & tee
+- **Day 7** — Basic Git operations
+
+#### Week 2 — Services, logs & certs
+- **Day 8** — systemd services
+- **Day 9** — Monitor performance
+- **Day 10** — Logs & service constraints
+- **Day 11** — Troubleshoot disk space
+- **Day 12** — SSL certificates
+- **Day 13** — Essential Commands review
+
+#### Week 3 — Users and Groups
+- **Day 14** — Users & groups
+- **Day 15** — Environment profiles
+- **Day 16** — User resource limits
+- **Day 17** — ACLs
+- **Day 18** — LDAP client accounts
+- **Day 19** — Users & Groups review
+
+#### Week 4 — Operations Deployment
+- **Day 20** — Kernel parameters (sysctl)
+- **Day 21** — Processes & services
+- **Day 22** — Schedule jobs (cron / timers)
+- **Day 23** — Packages & repositories
+- **Day 24** — Recover from failures
+- **Day 25** — Virtual machines (libvirt)
+- **Day 26** — Containers (podman/docker)
+- **Day 27** — SELinux basics (AppArmor note for Pi OS)
+- **Day 28** — Operations review
+
+#### Week 5 — Networking
+- **Day 29** — IPv4/IPv6 & hostname
+- **Day 30** — Time sync
+- **Day 31** — Troubleshoot networking
+- **Day 32** — OpenSSH server & client
+- **Day 33** — Firewall, NAT & redirect
+- **Day 34** — Static routing
+- **Day 35** — Bridge & bonding
+- **Day 36** — Reverse proxy & load balancer
+- **Day 37** — Networking review
+
+#### Week 6 — Storage
+- **Day 38** — LVM (loop-file safe on Pi)
+- **Day 39** — Virtual filesystem (`/proc`, `/sys`)
+- **Day 40** — Filesystems create & repair
+- **Day 41** — Remote FS & network block (NFS / iSCSI)
+- **Day 42** — Swap space
+- **Day 43** — Automounters (autofs)
+- **Day 44** — Storage performance
+- **Day 45** — Storage review
+
+#### Week 7 — Exam practice
+- **Day 46** — Mixed practice A
+- **Day 47** — Mixed practice B
+- **Day 48** — Weak-area drills
+- **Day 49** — Exam strategy
+- **Day 50** — Final mock & checklist
+
+Pi OS notes are included where the exam expects **SELinux/libvirt** but the Pi runs **AppArmor** or lacks a hypervisor — you still learn the commands for exam day.
+
+---
 
 ## License
 
