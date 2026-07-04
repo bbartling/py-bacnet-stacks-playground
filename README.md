@@ -30,6 +30,13 @@ Come join the journey as we play around with Python, **Rust**, AI, BACnet, Hayst
 - **IoT practitioners** working with building automation
 - **Anyone** who knows BACnet from the field and wants to code it in Python and play around with AI!
 
+### Learning paths
+
+| Track | What you get | Start here |
+| --- | --- | --- |
+| **Python + Rust (BACnet / networking)** | Days 1–75 mini-lessons: Python + BACnet, then Rust companions, sockets, rusty-bacnet, Haystack, RDF | [Computer Science Theory 101](#computer-science-theory-101-weekly-outline) · [`lessons/`](lessons/) · [`lessons/INDEX.md`](lessons/INDEX.md) · Day 1: [`lessons/day01.md`](lessons/day01.md) |
+| **Linux LFCS (Raspberry Pi)** | 50-day crash course for the Linux Foundation Certified System Administrator exam | [LFCS 50-day crash course](#lfcs-50-day-crash-course) · [`lessons/lfcs/`](lessons/lfcs/) · [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) · Day 1: [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
+
 ---
 
 

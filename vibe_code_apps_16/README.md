@@ -27,7 +27,7 @@ vibe_code_apps_16/
 
 The **mimic** implements Open-FDD diagnostic points on **device instance 599999** — same object model as production `bacnet_server_runtime.rs`. It **answers Who-Is with I-Am** (no periodic broadcasts). Validated with **Tridium Workbench** / **YABE** from the LAN.
 
-The **Feather concept** is the teaching model for Open-FDD poll → historian: one process owns BACnet server + poller + atomic Feather writes; a second process tails the store.
+The **Feather concept** is the teaching model for Open-FDD poll → historian: one process owns BACnet server + poller + atomic Feather writes; a second process tails the store. See [openfdd-bacnet-feather-concept/README.md](./openfdd-bacnet-feather-concept/README.md#feather-store-data-model) for how shards, timestamps, and sensor columns work (Open-FDD **wide** rows vs this lab’s **long** rows — neither is one file per sensor).
 
 ## Quick start — mimic
 

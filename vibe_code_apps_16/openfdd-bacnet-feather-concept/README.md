@@ -59,6 +59,41 @@ print(df.head())
 
 Columns: `ts_utc`, `device_instance`, `object_type`, `object_instance`, `point_name`, `present_value`, `units`.
 
+## Feather store data model
+
+**Not one file per sensor.** Each poll writes a **shard** (batch file). Every row is **timestamped**.
+
+### Open-FDD (full product)
+
+| Piece | What it is |
+| --- | --- |
+| **Per poll / shard** | One (or a few) **wide** rows written each cycle |
+| **Timestamp** | Yes — column `timestamp` on every row |
+| **Sensors** | **Columns** on that row (`oa_t`, `oa_h`, duct temp slug, …), not separate files |
+| **Also** | Historian pivot (`telemetry_pivot.jsonl` / `.arrow`) is a separate long/wide SQL path |
+
+Layout:
+
+```text
+workspace/data/feather_store/<source>/<site_id>/shard-<time>-<id>.feather
+# e.g. feather_store/modbus/site:local/shard-....feather
+```
+
+So: **timestamp + many sensor values in the same row**, shards under **source × site**, not one feather file per point.
+
+### This vibe-code concept app
+
+Slightly different shape (**long** format), but the same ideas:
+
+| Piece | What it is |
+| --- | --- |
+| **Per poll / shard** | One `shard-*.feather` per poll batch under `data/feather_store/` |
+| **Timestamp** | Yes — column `ts_utc` on every row |
+| **Sensors** | **One row per point** (`point_name`, `present_value`, …), not one file per sensor |
+| **Pandas** | Concatenate all shards → one DataFrame (see script above) |
+
+Still **timestamped**, and **not** one file per sensor — one shard per poll batch.
+
 ## Config
 
 | File | Role |
