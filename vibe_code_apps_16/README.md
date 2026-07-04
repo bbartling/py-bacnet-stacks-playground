@@ -22,7 +22,7 @@ vibe_code_apps_16/
   openfdd-bacnet-feather-concept/
     src/bin/bacnet_app.rs      mini-device + poller + Feather writer
     src/bin/feather_tail.rs    print new .feather rows
-    config/default.toml        UDP :47809 by default (YABE-friendly)
+    config/config.toml         device 5000 on :47808 + field 5007 poll
 ```
 
 The **mimic** implements Open-FDD diagnostic points on **device instance 599999** — same object model as production `bacnet_server_runtime.rs`. It **answers Who-Is with I-Am** (no periodic broadcasts). Validated with **Tridium Workbench** / **YABE** from the LAN.

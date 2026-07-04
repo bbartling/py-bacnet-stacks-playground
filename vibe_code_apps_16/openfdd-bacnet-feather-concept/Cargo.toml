@@ -2,7 +2,7 @@
 name = "openfdd-bacnet-feather-concept"
 version = "0.1.0"
 edition = "2021"
-description = "BACnet mini-device + poller + atomic Feather store (Open-FDD concept lab)"
+description = "BACnet mini-device + poller + single-file Feather store (Open-FDD concept lab)"
 publish = false
 default-run = "bacnet_app"
 
@@ -34,4 +34,3 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "tim
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1", features = ["v4"] }

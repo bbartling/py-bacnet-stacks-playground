@@ -1,7 +1,11 @@
-//! Atomic Feather (Arrow IPC) writer + reader.
+//! Single-file Feather store: append many poll readings into one `telemetry.feather`.
 //!
-//! Writer path: `shard-<ms>-<uuid>.tmp` → `FileWriter::finish()` → rename to `.feather`.
-//! Readers only open `*.feather` and ignore `*.tmp`.
+//! Arrow IPC / Feather is not an in-place append format, so each poll:
+//!   1. reads existing rows (if any)
+//!   2. concatenates the new samples
+//!   3. writes `telemetry.feather.tmp` then renames → `telemetry.feather`
+//!
+//! Readers only open the completed `.feather` file (never `.tmp`).
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -14,11 +18,12 @@ use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
 use arrow::record_batch::RecordBatch;
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct SampleRow {
     pub ts_utc: DateTime<Utc>,
+    /// Human device label (e.g. `BENS-BENCH`, `BensFakeAhu`).
+    pub device_name: String,
     pub device_instance: u32,
     pub object_type: String,
     pub object_instance: u32,
@@ -34,6 +39,7 @@ fn schema() -> Schema {
             DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".into())),
             false,
         ),
+        Field::new("device_name", DataType::Utf8, false),
         Field::new("device_instance", DataType::UInt32, false),
         Field::new("object_type", DataType::Utf8, false),
         Field::new("object_instance", DataType::UInt32, false),
@@ -46,6 +52,7 @@ fn schema() -> Schema {
 fn rows_to_batch(rows: &[SampleRow]) -> Result<RecordBatch> {
     let schema = Arc::new(schema());
     let ts: Vec<i64> = rows.iter().map(|r| r.ts_utc.timestamp_millis()).collect();
+    let device_names: Vec<&str> = rows.iter().map(|r| r.device_name.as_str()).collect();
     let devices: Vec<u32> = rows.iter().map(|r| r.device_instance).collect();
     let obj_types: Vec<&str> = rows.iter().map(|r| r.object_type.as_str()).collect();
     let obj_inst: Vec<u32> = rows.iter().map(|r| r.object_instance).collect();
@@ -57,6 +64,7 @@ fn rows_to_batch(rows: &[SampleRow]) -> Result<RecordBatch> {
         schema,
         vec![
             Arc::new(TimestampMillisecondArray::from(ts).with_timezone("UTC")),
+            Arc::new(StringArray::from(device_names)),
             Arc::new(UInt32Array::from(devices)),
             Arc::new(StringArray::from(obj_types)),
             Arc::new(UInt32Array::from(obj_inst)),
@@ -68,19 +76,13 @@ fn rows_to_batch(rows: &[SampleRow]) -> Result<RecordBatch> {
     .context("building RecordBatch")
 }
 
-/// Write one shard atomically: `.tmp` then rename to `.feather`.
-pub fn write_samples_atomic(root: &Path, rows: &[SampleRow]) -> Result<PathBuf> {
-    if rows.is_empty() {
-        anyhow::bail!("no rows to write");
-    }
-    std::fs::create_dir_all(root)
-        .with_context(|| format!("creating feather store {}", root.display()))?;
+fn write_all_atomic(path: &Path, rows: &[SampleRow]) -> Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)
+        .with_context(|| format!("creating feather store {}", parent.display()))?;
 
     let batch = rows_to_batch(rows)?;
-    let epoch_ms = Utc::now().timestamp_millis();
-    let id = Uuid::new_v4().simple();
-    let tmp_path = root.join(format!("shard-{epoch_ms}-{id}.tmp"));
-    let final_path = root.join(format!("shard-{epoch_ms}-{id}.feather"));
+    let tmp_path = path.with_extension("feather.tmp");
 
     {
         let file = File::create(&tmp_path)
@@ -91,15 +93,47 @@ pub fn write_samples_atomic(root: &Path, rows: &[SampleRow]) -> Result<PathBuf> 
         writer.finish().context("FileWriter::finish")?;
     }
 
-    std::fs::rename(&tmp_path, &final_path).with_context(|| {
+    std::fs::rename(&tmp_path, path).with_context(|| {
         format!(
             "atomic rename {} -> {}",
             tmp_path.display(),
-            final_path.display()
+            path.display()
         )
     })?;
+    Ok(())
+}
 
-    Ok(final_path)
+/// Append `rows` into a single Feather file (read-merge-rewrite, atomic).
+pub fn append_samples(path: &Path, rows: &[SampleRow]) -> Result<PathBuf> {
+    if rows.is_empty() {
+        anyhow::bail!("no rows to write");
+    }
+
+    let mut all = if path.is_file() {
+        match read_samples_from_feather(path) {
+            Ok(existing) => existing,
+            Err(err) => {
+                tracing::warn!(
+                    "could not read existing {} ({err:#}) — starting a new file",
+                    path.display()
+                );
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    let prior = all.len();
+    all.extend_from_slice(rows);
+    write_all_atomic(path, &all)?;
+    tracing::info!(
+        "appended {} row(s) (prior={prior} total={}) → {}",
+        rows.len(),
+        all.len(),
+        path.display()
+    );
+    Ok(path.to_path_buf())
 }
 
 /// Read all sample rows from a completed `.feather` file.
@@ -116,6 +150,9 @@ pub fn read_samples_from_feather(path: &Path) -> Result<Vec<SampleRow>> {
             .as_any()
             .downcast_ref::<TimestampMillisecondArray>()
             .context("ts_utc type")?;
+        let device_names = batch
+            .column_by_name("device_name")
+            .and_then(|c| c.as_any().downcast_ref::<StringArray>());
         let devices = batch
             .column_by_name("device_instance")
             .context("missing device_instance")?
@@ -157,8 +194,12 @@ pub fn read_samples_from_feather(path: &Path) -> Result<Vec<SampleRow>> {
             let millis = ts.value(i);
             let ts_utc =
                 DateTime::<Utc>::from_timestamp_millis(millis).unwrap_or_else(Utc::now);
+            let device_name = device_names
+                .map(|a| a.value(i).to_string())
+                .unwrap_or_default();
             out.push(SampleRow {
                 ts_utc,
+                device_name,
                 device_instance: devices.value(i),
                 object_type: obj_types.value(i).to_string(),
                 object_instance: obj_inst.value(i),
@@ -170,4 +211,55 @@ pub fn read_samples_from_feather(path: &Path) -> Result<Vec<SampleRow>> {
     }
 
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    #[test]
+    fn append_grows_one_file() {
+        let dir = std::env::temp_dir().join(format!(
+            "feather_concept_test_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("telemetry.feather");
+
+        let row = |n: i64| SampleRow {
+            ts_utc: Utc.timestamp_opt(1_700_000_000 + n, 0).unwrap(),
+            device_name: "BENS-BENCH".into(),
+            device_instance: 5007,
+            object_type: "analog-input".into(),
+            object_instance: 1192,
+            point_name: "DUCT-T".into(),
+            present_value: 70.0 + n as f64,
+            units: "°F".into(),
+        };
+
+        append_samples(&path, &[row(0)]).unwrap();
+        append_samples(&path, &[row(1), row(2)]).unwrap();
+
+        let all = read_samples_from_feather(&path).unwrap();
+        assert_eq!(all.len(), 3);
+        assert!((all[2].present_value - 72.0).abs() < 1e-9);
+        assert_eq!(all[0].device_name, "BENS-BENCH");
+        assert_eq!(
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .filter(|e| {
+                    e.as_ref()
+                        .unwrap()
+                        .path()
+                        .extension()
+                        .is_some_and(|x| x == "feather")
+                })
+                .count(),
+            1
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
