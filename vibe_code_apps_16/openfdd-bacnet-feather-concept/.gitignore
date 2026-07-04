@@ -1,4 +1,19 @@
+# Rust build
 /target/
+
+# Runtime historian (copy off-box for Windows pandas analysis)
 /data/
 **/*.feather
 **/*.tmp
+
+# Local overrides (keep config.toml / config.example.toml tracked)
+config/config.local.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.csv
+!requirements-pandas.txt

@@ -1,0 +1,51 @@
+# =============================================================================
+# openfdd-bacnet-feather-concept — site configuration
+# =============================================================================
+# Copy to config.local.toml and set OPENFDD_FEATHER_CONCEPT_CONFIG if you need
+# a private override (config.local.toml is gitignored).
+#
+# Mini-device (Workbench / YABE on UDP 47808):
+#   device instance 5000, name openfdd-bacnet-feather-concept
+#   AV:1 "5007-duct-t-clone" — live duct temp (°F, BACnet units=64)
+#
+# Field poll (ephemeral client; does not bind 47808):
+#   routed ReadProperty via BIP router → MSTP net/MAC → AI:1192 DUCT-T
+# =============================================================================
+
+[store]
+# Arrow IPC / Feather shards (download this folder to Windows for pandas)
+dir = "data/feather_store"
+
+[server]
+enabled = true
+instance = 5000
+name = "openfdd-bacnet-feather-concept"
+port = 47808
+nic = "enp3s0"
+address = "192.168.204.55"
+broadcast = "192.168.204.255"
+# How often the clone AV is refreshed from the last field poll
+value_update_secs = 2
+temp_object_instance = 1
+temp_point_name = "5007-duct-t-clone"
+
+[poller]
+interval_secs = 10
+bind = "192.168.204.55"
+broadcast = "192.168.204.255"
+# BENS BENCH is on MSTP network 2000 (Workbench "Netwk" column)
+mstp_network = 2000
+
+# Field sensor: BENS BENCH TEST BOX — duct temperature
+[[poller.points]]
+enabled = true
+device_instance = 5007
+object_type = "analog-input"
+object_instance = 1192
+point_name = "DUCT-T"
+units = "°F"
+# BIP address of the IP↔MSTP router (point-discover reports device here)
+host = "192.168.204.200"
+port = 47808
+# Workbench "MAC Addr" on MSTP (single-byte MAC 7)
+mstp_mac = [7]

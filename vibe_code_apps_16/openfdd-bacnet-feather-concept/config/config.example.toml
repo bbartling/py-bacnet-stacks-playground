@@ -1,0 +1,34 @@
+# Example site config — copy to config.toml and edit for your bench.
+# See config.toml for the live lab defaults (device 5000 + field 5007 DUCT-T).
+
+[store]
+dir = "data/feather_store"
+
+[server]
+enabled = true
+instance = 5000
+name = "openfdd-bacnet-feather-concept"
+port = 47808
+nic = "enp3s0"
+address = "192.168.204.55"
+broadcast = "192.168.204.255"
+value_update_secs = 2
+temp_object_instance = 1
+temp_point_name = "5007-duct-t-clone"
+
+[poller]
+interval_secs = 10
+bind = "192.168.204.55"
+broadcast = "192.168.204.255"
+mstp_network = 2000
+
+[[poller.points]]
+enabled = true
+device_instance = 5007
+object_type = "analog-input"
+object_instance = 1192
+point_name = "DUCT-T"
+units = "°F"
+host = "192.168.204.200"
+port = 47808
+mstp_mac = [7]

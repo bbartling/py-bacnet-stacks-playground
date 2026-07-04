@@ -10,7 +10,8 @@ use serde::Deserialize;
 pub const VENDOR_ID: u16 = 999;
 
 /// Degrees Fahrenheit engineering units (BACnet).
-pub const TEMP_UNITS_DEGREES_F: u32 = 62;
+/// BACnet engineering units: degrees-Fahrenheit = 64 (62 is Celsius — Workbench shows °C if wrong).
+pub const TEMP_UNITS_DEGREES_F: u32 = 64;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
@@ -50,7 +51,7 @@ pub struct ServerConfig {
     pub instance: u32,
     #[serde(default = "default_device_name")]
     pub name: String,
-    /// UDP port for the mini-device (use **47809** so OT/Open-FDD can keep **47808**).
+    /// UDP port (default **47808** / 0xBAC0 — same as openfdd-bacnet-mimic for Workbench).
     #[serde(default = "default_server_port")]
     pub port: u16,
     /// NIC for auto IP (e.g. `enp3s0`). Override with env `OPENFDD_BACNET_NIC`.
@@ -73,13 +74,13 @@ fn default_true() -> bool {
     true
 }
 fn default_device_instance() -> u32 {
-    599998
+    5000
 }
 fn default_device_name() -> String {
-    "OpenFDD-Feather-Concept".into()
+    "openfdd-bacnet-feather-concept".into()
 }
 fn default_server_port() -> u16 {
-    47809
+    47808
 }
 fn default_nic() -> String {
     std::env::var("OPENFDD_BACNET_NIC").unwrap_or_else(|_| "enp3s0".into())
@@ -91,7 +92,7 @@ fn default_ai_instance() -> u32 {
     1
 }
 fn default_temp_name() -> String {
-    "demo-temp".into()
+    "5007-duct-t-clone".into()
 }
 
 impl Default for ServerConfig {
@@ -118,8 +119,15 @@ pub struct PollerConfig {
     /// Client bind IP (auto from NIC if omitted).
     pub bind: Option<Ipv4Addr>,
     pub broadcast: Option<Ipv4Addr>,
+    /// MSTP / remote network for field device Who-Is (BENS BENCH is net **2000**).
+    #[serde(default = "default_mstp_net")]
+    pub mstp_network: u16,
     #[serde(default)]
     pub points: Vec<PollPointConfig>,
+}
+
+fn default_mstp_net() -> u16 {
+    2000
 }
 
 fn default_poll_interval() -> u64 {
@@ -132,16 +140,17 @@ impl Default for PollerConfig {
             interval_secs: default_poll_interval(),
             bind: None,
             broadcast: None,
+            mstp_network: default_mstp_net(),
             points: vec![PollPointConfig {
                 enabled: true,
-                device_instance: default_device_instance(),
+                device_instance: 5007,
                 object_type: "analog-input".into(),
-                object_instance: default_ai_instance(),
-                point_name: default_temp_name(),
+                object_instance: 1192,
+                point_name: "DUCT-T".into(),
                 units: "°F".into(),
-                // Empty host = read local mini-device on server.port via host MAC.
-                host: None,
-                port: None,
+                host: Some(Ipv4Addr::new(192, 168, 204, 200)),
+                port: Some(47808),
+                mstp_mac: Some(vec![7]),
             }],
         }
     }
@@ -159,10 +168,13 @@ pub struct PollPointConfig {
     pub point_name: String,
     #[serde(default = "default_units")]
     pub units: String,
-    /// Optional unicast host IP (field device). If omitted, uses local mini-device MAC.
+    /// BIP address of the IP↔MSTP router (or FEC if on BIP). Bench: 192.168.204.200.
     pub host: Option<Ipv4Addr>,
-    /// Optional BACnet/IP UDP port for the target (default: server.port for local, 47808 for field).
+    /// BACnet/IP UDP port for `host` (default 47808).
     pub port: Option<u16>,
+    /// MSTP MAC on `mstp_network` (Workbench "MAC Addr" column). Bench device 5007 = `[7]`.
+    /// When set, uses `read_property_routed` (required — plain BIP read returns unknown-object).
+    pub mstp_mac: Option<Vec<u8>>,
 }
 
 fn default_object_type() -> String {
@@ -173,18 +185,26 @@ fn default_units() -> String {
 }
 
 impl AppConfig {
-    /// Load TOML from `OPENFDD_FEATHER_CONCEPT_CONFIG` or `config/default.toml`.
+    /// Load TOML from `OPENFDD_FEATHER_CONCEPT_CONFIG`, else `config/config.toml`,
+    /// else `config/default.toml` (legacy name).
     pub fn load() -> Result<Self> {
-        let path = std::env::var("OPENFDD_FEATHER_CONCEPT_CONFIG")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("config/default.toml"));
-        Self::load_from(&path)
+        if let Ok(path) = std::env::var("OPENFDD_FEATHER_CONCEPT_CONFIG") {
+            return Self::load_from(Path::new(&path));
+        }
+        for candidate in ["config/config.toml", "config/default.toml"] {
+            let path = Path::new(candidate);
+            if path.is_file() {
+                return Self::load_from(path);
+            }
+        }
+        tracing::warn!("no config/config.toml found — using built-in defaults");
+        Ok(Self::default())
     }
 
     pub fn load_from(path: &Path) -> Result<Self> {
         if !path.is_file() {
             tracing::warn!(
-                "config {} not found — using built-in defaults (local mini-device :47809)",
+                "config {} not found — using built-in defaults",
                 path.display()
             );
             return Ok(Self::default());

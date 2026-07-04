@@ -1,4 +1,9 @@
-//! BACnet poller: ReadProperty on configured points, write Feather shards.
+//! Field poller — reads device 5007 without binding :47808.
+//!
+//! Mini-device alone owns UDP 47808 (Workbench object-list).
+//! Field device 5007 is behind BIP router 192.168.204.200 on MSTP net 2000 MAC 7.
+//! Plain `add_device` + BIP read returns **unknown-object**; must use **routed** ReadProperty
+//! (same path Who-Is populates in rpm-read / point-discover samples).
 
 use std::net::Ipv4Addr;
 use std::time::Duration;
@@ -6,7 +11,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use bacnet_client::client::BACnetClient;
 use bacnet_encoding::primitives::decode_application_value;
-use bacnet_transport::bip::BipTransport;
+use bacnet_transport::bip::{BipTransport, DEFAULT_BACNET_PORT};
+use bacnet_transport::bvll::encode_bip_mac;
 use bacnet_types::enums::{ObjectType, PropertyIdentifier};
 use bacnet_types::primitives::{ObjectIdentifier, PropertyValue};
 use chrono::Utc;
@@ -14,71 +20,62 @@ use tracing::{info, warn};
 
 use crate::app_config::{AppConfig, PollPointConfig};
 use crate::feather_store::{write_samples_atomic, SampleRow};
-use crate::network::{
-    detect_ipv4_on_nic, resolve_network, server_mac_from_host_port, subnet_broadcast,
-};
+use crate::latest::{LatestHandle, LatestReading};
+use crate::network::{resolve_poller_bind, subnet_broadcast};
 
-pub async fn run_poller_forever(cfg: AppConfig) -> Result<()> {
+const DEFAULT_FIELD_HOST: Ipv4Addr = Ipv4Addr::new(192, 168, 204, 200);
+
+fn is_local_mini_device(point: &PollPointConfig, cfg: &AppConfig) -> bool {
+    point.device_instance == cfg.server.instance && point.host.is_none()
+}
+
+pub async fn run_poller_forever(cfg: AppConfig, latest: LatestHandle) -> Result<()> {
     let store = cfg.feather_store_folder();
     std::fs::create_dir_all(&store)
         .with_context(|| format!("creating store {}", store.display()))?;
 
     let nic = cfg.server.nic.clone();
-    let bind = cfg
-        .poller
-        .bind
-        .or_else(|| detect_ipv4_on_nic(&nic))
-        .unwrap_or(Ipv4Addr::LOCALHOST);
+    let bind = resolve_poller_bind(cfg.poller.bind, cfg.server.address, &nic);
     let broadcast = cfg
         .poller
         .broadcast
+        .or(cfg.server.broadcast)
         .unwrap_or_else(|| subnet_broadcast(bind));
 
     info!(
-        "poller bind={bind} broadcast={broadcast} interval={}s store={}",
-        cfg.poller.interval_secs,
-        store.display()
+        "poller bind={bind}:0 (ephemeral) broadcast={broadcast} interval={}s",
+        cfg.poller.interval_secs
     );
 
-    let mut client = BACnetClient::bip_builder()
+    let client = BACnetClient::bip_builder()
         .interface(bind)
         .port(0)
         .broadcast_address(broadcast)
+        .apdu_timeout_ms(8000)
         .build()
         .await
         .context("BACnetClient::build")?;
 
-    // Discover field devices once (for optional device 5007 entries).
-    if cfg
-        .poller
-        .points
-        .iter()
-        .any(|p| p.enabled && p.host.is_some())
-    {
-        info!("Who-Is for field points…");
-        if let Err(err) = client.who_is(None, None).await {
-            warn!("Who-Is failed: {err}");
-        } else {
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            let devices = client.discovered_devices().await;
-            info!("Who-Is discovered {} device(s)", devices.len());
-            for d in &devices {
-                info!(
-                    "  device {} mac={:?}",
-                    d.object_identifier.instance_number(),
-                    d.mac_address
-                );
-            }
+    for point in cfg.poller.points.iter().filter(|p| p.enabled) {
+        if is_local_mini_device(point, &cfg) {
+            continue;
         }
+        let host = point.host.unwrap_or(DEFAULT_FIELD_HOST);
+        let port = point.port.unwrap_or(DEFAULT_BACNET_PORT);
+        let mstp = cfg.poller.mstp_network;
+        let mac = point.mstp_mac.as_deref().unwrap_or(&[7]);
+        info!(
+            "field point {} → router {host}:{port} net={mstp} mstp_mac={mac:?} (routed ReadProperty)",
+            point.point_name
+        );
     }
 
     let interval = Duration::from_secs(cfg.poller.interval_secs.max(1));
-    let local_net = resolve_network(cfg.server.address, cfg.server.broadcast, &cfg.server.nic);
 
     loop {
         let mut rows = Vec::new();
         for point in cfg.poller.points.iter().filter(|p| p.enabled) {
-            match read_one_point(&mut client, point, &cfg, local_net.device_ip).await {
+            match read_one_point(&client, point, &cfg).await {
                 Ok(row) => {
                     info!(
                         "polled {} device={} {}:{} = {:.2} {}",
@@ -89,12 +86,20 @@ pub async fn run_poller_forever(cfg: AppConfig) -> Result<()> {
                         row.present_value,
                         row.units
                     );
+                    if !is_local_mini_device(point, &cfg) {
+                        *latest.write().await = Some(LatestReading {
+                            present_value: row.present_value,
+                        });
+                    }
                     rows.push(row);
                 }
                 Err(err) => {
                     warn!(
-                        "read failed device={} {}:{} — {err:#}",
-                        point.device_instance, point.object_type, point.object_instance
+                        "read failed {} device={} {}:{} — {err:#}",
+                        point.point_name,
+                        point.device_instance,
+                        point.object_type,
+                        point.object_instance
                     );
                 }
             }
@@ -112,38 +117,45 @@ pub async fn run_poller_forever(cfg: AppConfig) -> Result<()> {
 }
 
 async fn read_one_point(
-    client: &mut BACnetClient<BipTransport>,
+    client: &BACnetClient<BipTransport>,
     point: &PollPointConfig,
     cfg: &AppConfig,
-    local_device_ip: Ipv4Addr,
 ) -> Result<SampleRow> {
     let object_type = parse_object_type(&point.object_type)?;
     let oid = ObjectIdentifier::new(object_type, point.object_instance)?;
 
-    let value = if let Some(host) = point.host {
-        // Field device (e.g. 5007): prefer discovered MAC, else BIP MAC from host:port.
-        let port = point.port.unwrap_or(47808);
-        let mac = mac_for_device(client, point.device_instance, host, port).await;
+    let value = if is_local_mini_device(point, cfg) {
+        let host = cfg
+            .server
+            .address
+            .unwrap_or(Ipv4Addr::new(192, 168, 204, 55));
+        let mac = encode_bip_mac(host.octets(), cfg.server.port);
         let ack = client
             .read_property(&mac, oid, PropertyIdentifier::PRESENT_VALUE, None)
             .await
-            .with_context(|| format!("ReadProperty device {} @ {host}:{port}", point.device_instance))?;
+            .context("ReadProperty local clone")?;
         decode_real(&ack.property_value)?
     } else {
-        // Local mini-device in this process.
-        let host = if local_device_ip.is_unspecified() {
-            Ipv4Addr::LOCALHOST
-        } else {
-            local_device_ip
-        };
-        let port = point.port.unwrap_or(cfg.server.port);
-        let mac = server_mac_from_host_port(host, port);
+        // Routed read: BIP router + MSTP MAC (Workbench Netwk / MAC Addr columns).
+        let host = point.host.unwrap_or(DEFAULT_FIELD_HOST);
+        let port = point.port.unwrap_or(DEFAULT_BACNET_PORT);
+        let router_mac = encode_bip_mac(host.octets(), port);
+        let mstp_net = cfg.poller.mstp_network;
+        let mstp_mac = point.mstp_mac.clone().unwrap_or_else(|| vec![7]);
+
         let ack = client
-            .read_property(&mac, oid, PropertyIdentifier::PRESENT_VALUE, None)
+            .read_property_routed(
+                &router_mac,
+                mstp_net,
+                &mstp_mac,
+                oid,
+                PropertyIdentifier::PRESENT_VALUE,
+                None,
+            )
             .await
             .with_context(|| {
                 format!(
-                    "ReadProperty local mini-device {} @ {host}:{port}",
+                    "ReadProperty routed device {} via {host}:{port} net={mstp_net} mac={mstp_mac:?}",
                     point.device_instance
                 )
             })?;
@@ -161,27 +173,12 @@ async fn read_one_point(
     })
 }
 
-async fn mac_for_device(
-    client: &BACnetClient<BipTransport>,
-    device_instance: u32,
-    host: Ipv4Addr,
-    port: u16,
-) -> Vec<u8> {
-    let devices = client.discovered_devices().await;
-    if let Some(d) = devices
-        .iter()
-        .find(|d| d.object_identifier.instance_number() == device_instance)
-    {
-        return d.mac_address.to_vec();
-    }
-    server_mac_from_host_port(host, port)
-}
-
 fn parse_object_type(s: &str) -> Result<ObjectType> {
-    match s.to_ascii_lowercase().as_str() {
-        "analog-input" | "analog_input" | "ai" => Ok(ObjectType::ANALOG_INPUT),
-        "analog-value" | "analog_value" | "av" => Ok(ObjectType::ANALOG_VALUE),
-        other => anyhow::bail!("unsupported object_type '{other}' (use analog-input or analog-value)"),
+    match s.to_ascii_lowercase().replace('-', "_").as_str() {
+        "analog_input" | "ai" => Ok(ObjectType::ANALOG_INPUT),
+        "analog_value" | "av" => Ok(ObjectType::ANALOG_VALUE),
+        "analog_output" | "ao" => Ok(ObjectType::ANALOG_OUTPUT),
+        other => anyhow::bail!("unsupported object_type '{other}'"),
     }
 }
 

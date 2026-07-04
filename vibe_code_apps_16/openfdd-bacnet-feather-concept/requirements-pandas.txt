@@ -1,0 +1,3 @@
+# Windows / Linux — read Feather shards into pandas
+pandas>=2.0
+pyarrow>=14.0

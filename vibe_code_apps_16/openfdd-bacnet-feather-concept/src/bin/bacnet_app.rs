@@ -1,21 +1,15 @@
-//! Terminal 1: mini-device + updater + poller/Feather writer.
+//! Terminal 1: mimic-style BACnet server (5000) + field poller (5007 AI:1192) + Feather.
 
 use anyhow::{Context, Result};
 use openfdd_bacnet_feather_concept::app_config::AppConfig;
+use openfdd_bacnet_feather_concept::latest;
 use openfdd_bacnet_feather_concept::{mini_device, poller};
 use tracing::{error, info};
 
-/// BACnet writer app.
-///
-/// ```text
-/// cargo run --bin bacnet_app
-/// ```
-///
-/// One process:
-/// 1. BACnet/IP mini-device (default UDP **47809** — leaves OT/Open-FDD on 47808)
-/// 2. Server value updater (AI:1 every 2s)
-/// 3. Poller (ReadProperty every 10s)
-/// 4. Atomic Feather publisher (`.tmp` → `.feather`)
+/// Enhanced openfdd-bacnet-mimic:
+/// - Same BIP stack / Who-Is→I-Am / object-list pattern (Workbench-friendly)
+/// - Device **5000** named **openfdd-bacnet-feather-concept** on UDP **47808**
+/// - Polls field **5007 AI:1192 (DUCT-T)** → Feather + clone AV:1
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -25,40 +19,45 @@ async fn main() -> Result<()> {
         .init();
 
     let cfg = AppConfig::load().context("loading config")?;
-    info!("starting Open-FDD BACnet → Feather writer concept");
+    info!("starting openfdd-bacnet-feather-concept (mimic-style BIP server)");
     info!(
-        "store={} server_enabled={} server_port={}",
+        "store={} device={} \"{}\" UDP :{} clone=\"{}\"",
         cfg.feather_store_folder().display(),
-        cfg.server.enabled,
-        cfg.server.port
+        cfg.server.instance,
+        cfg.server.name,
+        cfg.server.port,
+        cfg.server.temp_point_name
     );
 
     run_all_writer_tasks_until_ctrl_c(cfg).await
 }
 
 async fn run_all_writer_tasks_until_ctrl_c(cfg: AppConfig) -> Result<()> {
+    let latest = latest::new_latest();
+
     let mut mini_device = if cfg.server.enabled {
         Some(
-            mini_device::MiniDeviceRuntime::start(&cfg.server)
+            mini_device::MiniDeviceRuntime::start(&cfg.server, latest.clone())
                 .await
                 .context("starting BACnet mini-device runtime")?,
         )
     } else {
-        info!("server.enabled=false — poller-only mode (field points from TOML)");
+        info!("server.enabled=false — poller-only mode");
         None
     };
 
-    // Grace period so UDP is listening before first poll.
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    // Brief settle before poller binds the same NIC.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let poller_task = {
         let cfg = cfg.clone();
-        tokio::spawn(async move { poller::run_poller_forever(cfg).await })
+        let latest = latest.clone();
+        tokio::spawn(async move { poller::run_poller_forever(cfg, latest).await })
     };
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            info!("Ctrl+C received; shutting down BACnet writer app");
+            info!("Ctrl+C received; shutting down");
         }
         result = poller_task => {
             match result {
