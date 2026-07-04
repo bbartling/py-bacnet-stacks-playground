@@ -1,10 +1,4 @@
-# =============================================================================
-# Device: Zone1VAV (BACnet instance 3456790)
-# =============================================================================
-# Delete this file to remove the device from polling.
-# Set enabled = false to keep the file but skip polls.
-# Points use [[points]] — this file is only for this one device.
-# =============================================================================
+# Device: Zone1VAV (BACnet instance 3456790) — trimmed poll set
 
 name = "Zone1VAV"
 enabled = true
@@ -20,40 +14,4 @@ enabled = true
 object_type = "analog-input"
 object_instance = 1
 point_name = "ZoneTemp"
-units = ""
-
-[[points]]
-enabled = true
-object_type = "analog-input"
-object_instance = 2
-point_name = "VAVFlow"
-units = ""
-
-[[points]]
-enabled = true
-object_type = "analog-value"
-object_instance = 1
-point_name = "ZoneCoolingSpt"
-units = ""
-
-[[points]]
-enabled = true
-object_type = "analog-value"
-object_instance = 2
-point_name = "ZoneDemand"
-units = ""
-
-[[points]]
-enabled = true
-object_type = "analog-value"
-object_instance = 3
-point_name = "VAVFlowSpt"
-units = ""
-
-[[points]]
-enabled = true
-object_type = "analog-output"
-object_instance = 1
-point_name = "VAVDamperCmd"
-units = ""
-
+units = "°F"

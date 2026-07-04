@@ -6,7 +6,7 @@ Paste this file into ChatGPT or Cursor and ask:
 ## Workflow
 
 1. Edit per-device files under `config/drivers/devices/` (recommended), **or**
-2. Edit the monolithic TOML block at the bottom and apply:
+2. Edit the import TOML block at the bottom and apply:
    `cargo run --release --bin bas_scan -- --apply-catalog config/drivers/catalog.md`
 3. **Delete** a device `.toml` file to remove it from polling entirely.
 4. Restart: `cargo run --release --bin bacnet_app`
@@ -20,7 +20,7 @@ Paste this file into ChatGPT or Cursor and ask:
 ## Scan metadata
 
 ```
-applied_from = config/drivers.catalog.md
+applied_from = config/drivers/catalog.md
 devices = 3
 
 ```
@@ -130,12 +130,11 @@ devices = 3
 | true | VAVFlowSpt | analog-value | 3 |  |
 | true | VAVDamperCmd | analog-output | 1 |  |
 
-## Monolithic TOML (apply this block to regenerate device files)
+## Import TOML (apply this block to regenerate device files)
 
 ```toml
-# Monolithic drivers bundle (for catalog apply / import)
-# Live polling uses config/drivers/devices/*.toml instead.
-# applied_from = config/drivers.catalog.md
+# Catalog import bundle — splits into config/drivers/devices/*.toml on apply
+# applied_from = config/drivers/catalog.md
 # devices = 3
 
 [[devices]]

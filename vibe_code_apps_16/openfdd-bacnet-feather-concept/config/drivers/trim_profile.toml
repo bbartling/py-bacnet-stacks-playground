@@ -1,0 +1,24 @@
+# Poll-harness trim profile — applied after bas_scan by scripts/trim_drivers.py
+# Only listed device instances are kept; all other device files are removed.
+
+[harness]
+duration_secs = 300
+poll_interval_secs = 10
+
+[[devices]]
+instance = 5007
+points = ["OA-H", "OA-T", "DUCT-T", "DUCT-P", "STAT ZN-T"]
+critical = true
+offset_secs = 0
+
+[[devices]]
+instance = 3456789
+points = ["SA-T"]
+critical = false
+offset_secs = 2
+
+[[devices]]
+instance = 3456790
+points = ["ZoneTemp"]
+critical = false
+offset_secs = 4

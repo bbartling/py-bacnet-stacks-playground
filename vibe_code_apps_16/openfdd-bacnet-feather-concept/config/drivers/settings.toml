@@ -13,6 +13,6 @@
 #
 # Companion catalog: config/drivers/catalog.md
 #
-# applied_from = config/drivers.catalog.md
+# applied_from = config/drivers/catalog.md
 # devices = 3
 # =============================================================================

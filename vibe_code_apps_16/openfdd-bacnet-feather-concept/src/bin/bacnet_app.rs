@@ -32,6 +32,8 @@ async fn main() -> Result<()> {
 
 async fn run_all_writer_tasks_until_ctrl_c(cfg: AppConfig) -> Result<()> {
     let state = latest::new_app_state();
+    let feather_lock = std::sync::Arc::new(tokio::sync::Mutex::new(()));
+    let store_path = cfg.feather_store_path();
 
     let mut mini_device = if cfg.server.enabled {
         Some(
@@ -48,7 +50,9 @@ async fn run_all_writer_tasks_until_ctrl_c(cfg: AppConfig) -> Result<()> {
     let weather_task = {
         let wx = cfg.weather.clone();
         let state = state.clone();
-        tokio::spawn(async move { weather::run_weather_forever(wx, state).await })
+        let lock = feather_lock.clone();
+        let store = store_path.clone();
+        tokio::spawn(async move { weather::run_weather_forever(wx, store, lock, state).await })
     };
 
     // Brief settle before poller binds the same NIC.
@@ -57,7 +61,8 @@ async fn run_all_writer_tasks_until_ctrl_c(cfg: AppConfig) -> Result<()> {
     let poller_task = {
         let cfg = cfg.clone();
         let state = state.clone();
-        tokio::spawn(async move { poller::run_poller_forever(cfg, state).await })
+        let lock = feather_lock.clone();
+        tokio::spawn(async move { poller::run_poller_forever(cfg, state, lock).await })
     };
 
     tokio::select! {

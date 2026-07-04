@@ -27,16 +27,16 @@ cargo run --release --bin feather_tail
 
 ## BAS auto-scan → per-device driver files
 
-`bas_scan` (Who-Is + object-list) writes **one TOML per device** — no more scrolling through a 600-line monolith.
+`bas_scan` (Who-Is + object-list) writes **one TOML per device**.
 
 | Path | Role |
 |------|------|
-| [`config/config.toml`](./config/config.toml) | App settings (server, weather, poller scheduler) |
+| [`config/config.toml`](./config/config.toml) | **Application settings** — server, weather, poller scheduler, feather store |
 | [`config/drivers/settings.toml`](./config/drivers/settings.toml) | Scan metadata only (not polled) |
-| [`config/drivers/devices/*.toml`](./config/drivers/devices/) | **One file per device** — delete file = exclude from polling |
-| [`config/drivers/catalog.md`](./config/drivers/catalog.md) | Tables + monolithic TOML for ChatGPT / agents |
+| [`config/drivers/devices/*.toml`](./config/drivers/devices/) | **One file per BACnet device** — delete file = exclude from polling |
+| [`config/drivers/catalog.md`](./config/drivers/catalog.md) | Tables + import TOML for bulk AI edits |
 
-Example device file: `config/drivers/devices/5007-bens-benchestest-box.toml`
+Example device file: `config/drivers/devices/5007-bens-benchtest-box.toml`
 
 ```toml
 name = "BENS-BENCHTEST-BOX"
@@ -63,17 +63,69 @@ cargo run --release --bin bacnet_app
 **Edit options:**
 
 - **Recommended:** edit or delete files under `config/drivers/devices/`
-- **Catalog apply:** edit monolithic TOML in `catalog.md` and run:
+- **Catalog apply:** edit the import TOML block in `catalog.md` and run:
 
 ```bash
 cargo run --release --bin bas_scan -- --apply-catalog config/drivers/catalog.md
 ```
 
-`--merge` keeps prior `enabled=false` / `critical` / renames across re-scans. Legacy `config/drivers.toml` is auto-migrated into `devices/` on first load.
+`--merge` keeps prior `enabled=false` / `critical` / renames across re-scans.
+
+## Full poll harness (scan → trim → 5 min → probe → CSV + plot)
+
+One command runs the whole lab loop. **Fixed output paths are overwritten every run** (no timestamps in filenames).
+
+| Output | Path |
+|--------|------|
+| Feather store | `data/feather_store/telemetry.feather` |
+| Poll log | `data/exports/poll_test.log` |
+| Probe log | `data/exports/feather_tail.log` |
+| Long CSV | `data/exports/telemetry_long.csv` |
+| Latest CSV | `data/exports/telemetry_latest.csv` |
+| Plot | `data/exports/telemetry_plot.png` |
+
+Trim targets: [`config/drivers/trim_profile.toml`](./config/drivers/trim_profile.toml) (5007 × 5 points, fake AHU × 1, fake VAV × 1).
+
+### One-shot (automated)
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements-pandas.txt
+chmod +x scripts/run_poll_harness.sh
+
+./scripts/run_poll_harness.sh --build          # scan + trim + 5 min poll + probe + plot
+./scripts/run_poll_harness.sh --skip-scan      # reuse existing device TOMLs
+./scripts/run_poll_harness.sh --duration 120   # shorter poll window
+```
+
+### Manual steps (same pipeline)
+
+```bash
+pkill -f 'target/release/bacnet_app' || true
+cargo build --release --bin bacnet_app --bin bas_scan --bin feather_tail
+cargo run --release --bin bas_scan -- --low 1 --high 4194302 --on-bac0 --merge
+python scripts/trim_drivers.py
+rm -f data/feather_store/telemetry.feather
+./target/release/bacnet_app >> data/exports/poll_test.log 2>&1 &
+sleep 300 && pkill -f 'target/release/bacnet_app'
+./target/release/bacnet_app >> data/exports/poll_test.log 2>&1 & sleep 5
+timeout 12 ./target/release/feather_tail | tee data/exports/feather_tail.log
+pkill -f 'target/release/bacnet_app'
+.venv/bin/python scripts/read_feather_store.py --latest --by-device --plot
+```
+
+### Harness sub-steps only
+
+```bash
+python scripts/run_poll_harness.py --step scan
+python scripts/run_poll_harness.py --step trim
+python scripts/run_poll_harness.py --step poll --duration 300
+python scripts/run_poll_harness.py --step probe
+python scripts/run_poll_harness.py --step export
+```
 
 ## Multi-device poller (VOLTTRON-inspired)
 
-Each `[[poller.devices]]` entry is a driver (see [volttron-platform-driver](https://github.com/eclipse-volttron/volttron-platform-driver)):
+Each file in `config/drivers/devices/` is a driver (see [volttron-platform-driver](https://github.com/eclipse-volttron/volttron-platform-driver)):
 
 | Idea | This app |
 |------|----------|
@@ -90,7 +142,7 @@ Each `[[poller.devices]]` entry is a driver (see [volttron-platform-driver](http
 |------|--------|-------|
 | OA-H | AI:1168 | %RH |
 | OA-T | AI:1173 | °F |
-| DUCT-T | AI:1192 | °F → also mirrors to **AV:1** |
+| DUCT-T | AI:1192 | °F |
 | DUCT-P | AI:9334 | in/wc |
 | STAT ZN-T | AI:10014 | °F |
 | ACTUATOR-POS | AI:10044 | % |
@@ -143,9 +195,11 @@ data/feather_store/telemetry.feather
 
 ```bash
 pip install -r requirements-pandas.txt
-python scripts/read_feather_store.py --store C:\Users\you\Downloads\telemetry.feather
-python scripts/read_feather_store.py --store C:\Users\you\Downloads\telemetry.feather --csv duct_t.csv
+python scripts/read_feather_store.py
+python scripts/read_feather_store.py --latest --by-device --plot
 ```
+
+Auto-exports (unless `--no-export`) overwrite `data/exports/telemetry_long.csv`, `telemetry_latest.csv`, and `telemetry_plot.png`.
 
 ```python
 from pathlib import Path
@@ -209,9 +263,12 @@ A production follow-up for Open-FDD would be append/rotate into fewer files (sam
 
 | File | Role |
 |------|------|
-| `config/config.toml` | Live lab defaults (tracked) |
+| `config/config.toml` | **Application settings** — store, server, weather, poller scheduler, `devices_dir` |
 | `config/config.example.toml` | Template for a new site |
 | `config/config.local.toml` | Optional private override (**gitignored**) |
+| `config/drivers/devices/*.toml` | Per-device poll targets (from `bas_scan`) |
+| `config/drivers/settings.toml` | Last scan metadata |
+| `config/drivers/catalog.md` | Human/AI driver catalog |
 
 ```bash
 # Use a local override:

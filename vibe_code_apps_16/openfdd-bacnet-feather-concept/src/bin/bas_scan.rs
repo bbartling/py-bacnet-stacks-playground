@@ -266,18 +266,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn load_previous_devices(devices_dir: &PathBuf, legacy: &PathBuf) -> Vec<DeviceConfig> {
-    if let Ok(devs) = load_devices_from_dir(devices_dir) {
-        if !devs.is_empty() {
-            return devs;
-        }
-    }
-    if legacy.is_file() {
-        if let Ok(file) = DriversFile::load(legacy) {
-            return file.devices;
-        }
-    }
-    Vec::new()
+fn load_previous_devices(devices_dir: &PathBuf) -> Vec<DeviceConfig> {
+    load_devices_from_dir(devices_dir).unwrap_or_default()
 }
 
 fn apply_catalog(

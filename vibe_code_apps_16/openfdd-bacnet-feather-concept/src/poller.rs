@@ -42,7 +42,11 @@ struct DeviceRuntime {
     total_ok: u64,
 }
 
-pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result<()> {
+pub async fn run_poller_forever(
+    cfg: AppConfig,
+    state: AppStateHandle,
+    feather_lock: Arc<Mutex<()>>,
+) -> Result<()> {
     let store_path = cfg.feather_store_path();
     if let Some(parent) = store_path.parent() {
         std::fs::create_dir_all(parent)
@@ -148,7 +152,6 @@ pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result
     );
 
     // Serialize Feather appends (atomic rewrite is not concurrent-safe).
-    let feather_lock = Arc::new(Mutex::new(()));
 
     loop {
         let now = Instant::now();

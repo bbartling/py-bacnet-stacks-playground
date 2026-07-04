@@ -4,13 +4,18 @@
 //! applies configured fallback values. Dewpoint is calculated from dry-bulb + RH
 //! when the forecast does not include it (Magnus-Tetens).
 
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 use serde::Deserialize;
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::app_config::WeatherConfig;
+use crate::feather_store::{append_samples, SampleRow};
 use crate::latest::{AppStateHandle, WeatherReading};
 
 #[derive(Debug, Deserialize)]
@@ -224,8 +229,83 @@ async fn poll_once(client: &reqwest::Client, cfg: &WeatherConfig) -> WeatherRead
     }
 }
 
+/// Rows for one Open-Meteo scrape (numeric AV mirrors only).
+pub fn reading_to_sample_rows(cfg: &WeatherConfig, reading: &WeatherReading) -> Vec<SampleRow> {
+    let ts = Utc::now();
+    let device_name = format!("Open-Meteo-{}", cfg.city);
+    vec![
+        SampleRow {
+            ts_utc: ts,
+            device_name: device_name.clone(),
+            device_instance: 0,
+            object_type: "analog-value".into(),
+            object_instance: cfg.temp_object_instance,
+            point_name: cfg.temp_point_name.clone(),
+            present_value: reading.temp_f,
+            units: "°F".into(),
+        },
+        SampleRow {
+            ts_utc: ts,
+            device_name: device_name.clone(),
+            device_instance: 0,
+            object_type: "analog-value".into(),
+            object_instance: cfg.humidity_object_instance,
+            point_name: cfg.humidity_point_name.clone(),
+            present_value: reading.humidity,
+            units: "%RH".into(),
+        },
+        SampleRow {
+            ts_utc: ts,
+            device_name: device_name.clone(),
+            device_instance: 0,
+            object_type: "analog-value".into(),
+            object_instance: cfg.wind_object_instance,
+            point_name: cfg.wind_point_name.clone(),
+            present_value: reading.wind_mph,
+            units: "mph".into(),
+        },
+        SampleRow {
+            ts_utc: ts,
+            device_name,
+            device_instance: 0,
+            object_type: "analog-value".into(),
+            object_instance: cfg.dewpoint_object_instance,
+            point_name: cfg.dewpoint_point_name.clone(),
+            present_value: reading.dewpoint_f,
+            units: "°F".into(),
+        },
+    ]
+}
+
+async fn append_weather_to_feather(
+    store_path: &PathBuf,
+    feather_lock: &Arc<Mutex<()>>,
+    cfg: &WeatherConfig,
+    reading: &WeatherReading,
+) {
+    if !reading.from_api {
+        return;
+    }
+    let rows = reading_to_sample_rows(cfg, reading);
+    let _guard = feather_lock.lock().await;
+    match append_samples(store_path, &rows) {
+        Ok(_) => info!(
+            "weather feather +{} row(s) Open-Meteo {} → {}",
+            rows.len(),
+            reading.location,
+            store_path.display()
+        ),
+        Err(err) => warn!("weather feather append failed: {err:#}"),
+    }
+}
+
 /// Background task: apply fallbacks immediately, then refresh on `interval_secs`.
-pub async fn run_weather_forever(cfg: WeatherConfig, state: AppStateHandle) {
+pub async fn run_weather_forever(
+    cfg: WeatherConfig,
+    store_path: PathBuf,
+    feather_lock: Arc<Mutex<()>>,
+    state: AppStateHandle,
+) {
     if !cfg.enabled {
         info!("weather.enabled=false — outdoor weather AVs stay at fallback defaults");
         let reading = fallback_reading(&cfg, "disabled");
@@ -265,7 +345,8 @@ pub async fn run_weather_forever(cfg: WeatherConfig, state: AppStateHandle) {
 
     loop {
         let reading = poll_once(&client, &cfg).await;
-        state.write().await.weather = Some(reading);
+        state.write().await.weather = Some(reading.clone());
+        append_weather_to_feather(&store_path, &feather_lock, &cfg, &reading).await;
         tokio::time::sleep(interval).await;
     }
 }
