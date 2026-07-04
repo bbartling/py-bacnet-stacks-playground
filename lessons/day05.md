@@ -113,3 +113,31 @@ By the end of Week 1 you will vibe code a **BAC0 app** that can:
 **Ideas to try:** Use `BAC0.start()` or `BAC0.lite()` with `async with`. Build your address string as `"{ip} {object-type} {instance} property-name"`. Use `bacnet.read()` and `bacnet.write()`. For write null release, check BAC0 docs for how to write `null` to a priority. Demo on your test bench with a scanner or BACnet tool — your Python app should match the same results.
 
 *No full app code here — you vibe code it on YouTube!*
+
+---
+
+## Rust companion — Print and read input
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+use std::io::{self, Write};
+
+fn main() {
+    print!("Enter setpoint °F: ");
+    io::stdout().flush().unwrap();
+    let mut line = String::new();
+    io::stdin().read_line(&mut line).unwrap();
+    let sp: f64 = line.trim().parse().unwrap_or(72.0);
+    println!("setpoint = {sp:.1}");
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `print(f"x={x}")` | `println!("x={x}")` |
+| `input()` | `stdin().read_line(&mut s)` |
+| `float(s)` | `s.trim().parse::<f64>()` |
+
+**Takeaway:** Reading input needs a `String` buffer and usually `.trim().parse()`.
+

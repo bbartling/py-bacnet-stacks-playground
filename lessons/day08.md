@@ -101,3 +101,33 @@ for ch in name:
 `for` loops iterate over sequences and `range()` generates arithmetic
 progressions.  These constructs let you process lists, strings and numbers
 cleanly.
+
+---
+
+## Rust companion — `for` loops and ranges
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let points = ["SAT", "RAT", "OAT"];
+    for name in points {
+        println!("point={name}");
+    }
+    for i in 0..3 {
+        println!("i={i}");
+    }
+    for (i, name) in points.iter().enumerate() {
+        println!("{i}: {name}");
+    }
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `for x in items:` | `for x in items` |
+| `range(3)` | `0..3` (end exclusive) |
+| `enumerate(items)` | `.iter().enumerate()` |
+
+**Takeaway:** `0..n` is half-open like Python `range(n)`.
+

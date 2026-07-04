@@ -119,3 +119,25 @@ that empty sequences and zero values evaluate to `False`.
 ## Vibe Code Checkpoint 1 (Week 1)
 
 Your BAC0 app is taking shape. Use **chained comparisons** (`WARNING <= sensor < HIGH_ALARM`) and **Boolean logic** (`sensor_ok and has_desc and has_units`) to decide alarm state. By Day 7 you'll add write and write null release to complete the checkpoint.
+
+---
+
+## Rust companion — Numbers, bools, comparisons
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let temp_f: f64 = 72.5;
+    let alarm: bool = temp_f > 80.0;
+    let ok = temp_f >= 60.0 && temp_f <= 80.0;
+    println!("alarm={alarm} ok={ok}");
+    println!("{}", 3 == 3);
+    println!("{}", 3 != 4);
+}
+```
+
+Common types: `i32`, `u32`, `i64`, `f64`, `bool`, `char`.
+
+**Takeaway:** Comparisons return `bool`. No truthiness of random objects — be explicit.
+

@@ -1,0 +1,37 @@
+[package]
+name = "openfdd-bacnet-feather-concept"
+version = "0.1.0"
+edition = "2021"
+description = "BACnet mini-device + poller + atomic Feather store (Open-FDD concept lab)"
+publish = false
+default-run = "bacnet_app"
+
+[lib]
+name = "openfdd_bacnet_feather_concept"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bacnet_app"
+path = "src/bin/bacnet_app.rs"
+
+[[bin]]
+name = "feather_tail"
+path = "src/bin/feather_tail.rs"
+
+[dependencies]
+anyhow = "1"
+arrow = { version = "54", default-features = false, features = ["ipc"] }
+bacnet-client = { path = "../../../rusty-bacnet/crates/bacnet-client" }
+bacnet-encoding = { path = "../../../rusty-bacnet/crates/bacnet-encoding" }
+bacnet-objects = { path = "../../../rusty-bacnet/crates/bacnet-objects" }
+bacnet-server = { path = "../../../rusty-bacnet/crates/bacnet-server" }
+bacnet-transport = { path = "../../../rusty-bacnet/crates/bacnet-transport" }
+bacnet-types = { path = "../../../rusty-bacnet/crates/bacnet-types" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+serde = { version = "1", features = ["derive"] }
+socket2 = { version = "0.6", features = ["all"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net", "sync"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }

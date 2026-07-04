@@ -79,3 +79,29 @@ The `random` module generates pseudo‑random numbers for sampling and
 testing.  The `math` module provides constants and functions for common
 calculations.  Together they enable quick simulations and numeric
 computations.
+
+---
+
+## Rust companion — Random numbers (crate)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+Add to `Cargo.toml`:
+
+```toml
+[dependencies]
+rand = "0.8"
+```
+
+```rust
+use rand::Rng;
+
+fn main() {
+    let mut rng = rand::thread_rng();
+    let noise: f64 = rng.gen_range(-0.5..0.5);
+    println!("sim pv = {}", 72.0 + noise);
+}
+```
+
+**Takeaway:** Third-party code = Cargo dependency, then `use`.
+

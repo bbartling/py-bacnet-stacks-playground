@@ -54,7 +54,7 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **13** | **[DIY BACnet router](vibe_code_apps_13/)** *(planned)* | Pi/Linux **BACnet/IP ↔ MS/TP** router using **bacnet-stack** `router-mstp`; informed by app **14**. | Planned |
 | **14** | **[BACnet routing research lab](vibe_code_apps_14/)** | **Planned.** BACpypes3 timed labs (dual [mini-device](https://github.com/JoelBender/BACpypes3/blob/main/samples/mini-device-revisited.py), [ipv4 router](https://github.com/JoelBender/BACpypes3/blob/main/samples/ipv4-to-ipv4.py), pcaps) toward [Misty3](https://github.com/raghavan97/misty3) and [router-mstp](https://github.com/bacnet-stack/bacnet-stack/tree/master/apps/router-mstp). | Planned |
 | **15** | **[Rust embedded BACnet device](vibe_code_apps_15/)** *(planned)* | Embedded **Rust** BACnet on **STM32 NUCLEO-F401RE**; **RS-485** / MS/TP lab — [DigiKey NUCLEO-F401RE](https://www.digikey.com/en/products/detail/stmicroelectronics/NUCLEO-F401RE/4695525). | Planned |
-| **16** | **[Rust BACnet stack lab](vibe_code_apps_16/)** | **Active featured build.** [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) server + probe; [Open-FDD mimic](./vibe_code_apps_16/openfdd-bacnet-mimic/) (device 599999); Python bindings + BACpypes3 benchmarks planned. | **Active** |
+| **16** | **[Rust BACnet stack lab](vibe_code_apps_16/)** | **Active featured build.** [`rusty-bacnet`](https://github.com/jscott3201/rusty-bacnet) server + probe; [Open-FDD mimic](./vibe_code_apps_16/openfdd-bacnet-mimic/) (device 599999); [BACnet → Feather concept](./vibe_code_apps_16/openfdd-bacnet-feather-concept/) (mini-device + poller + atomic Feather + tailer). | **Active** |
 | **17** | **[Project Haystack playground](vibe_code_apps_17/)** | Niagara **nHaystack** Pi lab, [`rusty-haystack`](https://github.com/jscott3201/rusty-haystack) (Rust client/server + PyO3), and [`pyhaystack`](https://github.com/ChristianTremblay/pyhaystack) (Python). | **Active** |
 | **18** | **[DIY BAS / Haystack data lake (Rust)](vibe_code_apps_18/)** · [Discussion #5](https://github.com/bbartling/py-bacnet-stacks-playground/discussions/5) | **Active featured build.** Read-only **`bas-haystack-lake-rs`**: Haystack collector, Postgres lake, admin API, sanitized Open-FDD JSON API, alerts, Docker/CI — agent prompt in [AGENTS.md](vibe_code_apps_18/AGENTS.md). | **Active** |
 
@@ -64,70 +64,72 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 
 ## Computer Science Theory 101 Weekly Outline
 
-These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level with **Python + BACnet** (Days 1–27), then a **Rust fast track** through **network programming**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (Days 28–75). Daily labs include **tcpdump capture scripts** and **Wireshark display filters**—see [`lessons/lab-scripts/`](lessons/lab-scripts/). Turn-key capstone starters: [`lessons/capstone/`](lessons/capstone/).
+These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level with **Python + BACnet** (Days 1–27), each with a short **Rust companion** section underneath so Day 28 is a recap—not a cliff. Then a **Rust fast track** through **network programming**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (Days 28–75). Daily labs include **tcpdump capture scripts** and **Wireshark display filters**—see [`lessons/lab-scripts/`](lessons/lab-scripts/). Turn-key capstone starters: [`lessons/capstone/`](lessons/capstone/).
+
+**Rust track tip:** On Day 1, install Rust (`rustup`) and keep a `~/rust-lab` folder. Do the **Rust companion** block at the bottom of each Day 1–27 lesson the same day as the Python work.
 
 
 ### Week 1 — Fundamentals & First BACnet App  
-*Part I: Variables, operators, strings, numbers, booleans, input/output, lists*
+*Part I: Variables, operators, strings, numbers, booleans, input/output, lists · + Rust companions*
 
-- **Day 1 — Installing Python & Pip (BACnet Ready):** Set up Python, pip, BAC0, bacpypes3.
-- **Day 2 — Variables & Arithmetic:** Store values, arithmetic, operator precedence.
-- **Day 3 — Working with Strings:** Create, concatenate, index, slice strings.
-- **Day 4 — Numbers, Booleans & Comparisons:** Numeric types, comparisons, truthiness.
-- **Day 5 — User Input & Output:** `input()`, type conversion, f-strings.
-- **Day 6 — Introducing Lists:** Create, index, slice, append, `len()`.
-- **Day 7 — List Operations & Methods:** append, extend, insert, remove, sort, copy.
+- **Day 1 — Installing Python & Pip (BACnet Ready):** Set up Python, pip, BAC0, bacpypes3. **Rust:** install `rustup` / Cargo, `cargo new`, first `println!`.
+- **Day 2 — Variables & Arithmetic:** Store values, arithmetic, operator precedence. **Rust:** `let` / `let mut`, `i32` / `f64`.
+- **Day 3 — Working with Strings:** Create, concatenate, index, slice strings. **Rust:** `String` vs `&str`.
+- **Day 4 — Numbers, Booleans & Comparisons:** Numeric types, comparisons, truthiness. **Rust:** `bool`, comparisons.
+- **Day 5 — User Input & Output:** `input()`, type conversion, f-strings. **Rust:** `println!`, `read_line`, `parse`.
+- **Day 6 — Introducing Lists:** Create, index, slice, append, `len()`. **Rust:** `Vec<T>`.
+- **Day 7 — List Operations & Methods:** append, extend, insert, remove, sort, copy. **Rust:** `Vec` methods, `clone`.
 
 ---
 
 ### Week 2 — Control Structures & Data Collection  
-*Part II: Loops, conditionals, functions, files*
+*Part II: Loops, conditionals, functions, files · + Rust companions*
 
-- **Day 8 — For Loops & Range:** Iterate over lists/strings/ranges, `enumerate()`.
-- **Day 9 — Conditionals & While Loops:** `if`/`elif`/`else`, `while`, sentinel loops.
-- **Day 10 — String Methods: Split, Join & Case:** `split()`, `join()`, case conversion.
-- **Day 11 — Introducing Dictionaries:** Keys, values, add, retrieve, membership.
-- **Day 12 — Looping over Dictionaries:** `items()`, `keys()`, `values()` (no comprehensions).
-- **Day 13 — Tuples & Sets (Light):** Immutable tuples, sets for membership (optional).
-- **Day 14 — Loops & Sentinels:** `break`, `continue`, common loop patterns.
+- **Day 8 — For Loops & Range:** Iterate over lists/strings/ranges, `enumerate()`. **Rust:** `for`, `0..n`, `.enumerate()`.
+- **Day 9 — Conditionals & While Loops:** `if`/`elif`/`else`, `while`, sentinel loops. **Rust:** `if` expressions, `while`.
+- **Day 10 — String Methods: Split, Join & Case:** `split()`, `join()`, case conversion. **Rust:** `.split`, `.collect`, `.to_uppercase()`.
+- **Day 11 — Introducing Dictionaries:** Keys, values, add, retrieve, membership. **Rust:** `HashMap`, `.get` → `Option`.
+- **Day 12 — Looping over Dictionaries:** `items()`, `keys()`, `values()` (no comprehensions). **Rust:** `for (k, v) in &map`.
+- **Day 13 — Tuples & Sets (Light):** Immutable tuples, sets for membership (optional). **Rust:** tuples, arrays.
+- **Day 14 — Loops & Sentinels:** `break`, `continue`, common loop patterns. **Rust:** same keywords.
 
 ---
 
 ### Week 3 — Functions, Modules & Files  
-*Part II continued: Reusable code, modules, file I/O*
+*Part II continued: Reusable code, modules, file I/O · + Rust companions*
 
-- **Day 15 — Writing Functions:** Define functions, parameters, return, docstrings.
-- **Day 16 — Modules & the Standard Library:** `math`, `random`, organising code.
-- **Day 17 — Reading & Writing Files:** `open()`, `with`, read/write text and CSV.
-- **Day 18 — Handling Errors:** `try`/`except`, robust programs.
-- **Day 19 — Week 3 Review:** CSV of sensor readings, statistics, error handling.
-- **Day 20 — Built-in Functions:** `min()`, `max()`, `sorted()`, `sum()`, `zip()` (no comprehensions).
-- **Day 21 — Slicing & String Formatting:** Advanced f-strings, slicing.
+- **Day 15 — Writing Functions:** Define functions, parameters, return, docstrings. **Rust:** `fn`, typed params/returns.
+- **Day 16 — Modules & the Standard Library:** `math`, `random`, organising code. **Rust:** `use std::...`, crates.
+- **Day 17 — Reading & Writing Files:** `open()`, `with`, read/write text and CSV. **Rust:** `std::fs`.
+- **Day 18 — Handling Errors:** `try`/`except`, robust programs. **Rust:** `Result`, `Option` preview.
+- **Day 19 — Week 3 Review:** CSV of sensor readings, statistics, error handling. **Rust:** small review project.
+- **Day 20 — Built-in Functions:** `min()`, `max()`, `sorted()`, `sum()`, `zip()` (no comprehensions). **Rust:** iterators.
+- **Day 21 — Slicing & String Formatting:** Advanced f-strings, slicing. **Rust:** `format!`, slices.
 
 ---
 
 ### Week 4 — Data Structures & Discovery  
-*Part III: Lists, dicts, file I/O*
+*Part III: Lists, dicts, file I/O · + Rust companions*
 
-- **Day 22 — Working with Nested Data:** Lists of dicts, dicts of lists (loops only, no comprehensions).
-- **Day 23 — Random & Math:** `random`, `math` for simulations.
-- **Day 24 — any(), all() & Simple Patterns:** Boolean checks on collections.
-- **Day 25 — Documentation & help():** Docstrings, comments, `help()`.
-- **Day 26 — Week 4 Review:** Nested data, built-ins, loops.
+- **Day 22 — Working with Nested Data:** Lists of dicts, dicts of lists (loops only, no comprehensions). **Rust:** `Vec` of `struct`.
+- **Day 23 — Random & Math:** `random`, `math` for simulations. **Rust:** `rand` crate.
+- **Day 24 — any(), all() & Simple Patterns:** Boolean checks on collections. **Rust:** `.any` / `.all`.
+- **Day 25 — Documentation & help():** Docstrings, comments, `help()`. **Rust:** `///`, `cargo doc`.
+- **Day 26 — Week 4 Review:** Nested data, built-ins, loops. **Rust:** map + alarm review.
 
 ---
 
 ### Week 5 — Rust Fast Track (After Python Day 27)  
-*Cargo, types, control flow, collections, ownership lite*
+*Recap ownership, then types, control flow, collections*
 
-- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs; **pivot note** to Rust track from Day 28.
-- **Day 28 — Install Rust & Cargo:** `rustup`, `cargo new`, first binary on your edge PC.
+- **Day 27 — What Is an Algorithm? (HVAC & data):** Finite steps, inputs/outputs; **Rust:** ownership teaser (move vs `&`).
+- **Day 28 — Rust recap & ownership crash course:** Confirm Cargo; **ownership, borrowing, lifetimes** intuition (install was Day 1).
 - **Day 29 — Types, Operators & Variables:** Scalars, `mut`, formatting BACnet-style readings.
 - **Day 30 — Control Flow:** `if`, loops, `match` for alarm/priority-style logic.
 - **Day 31 — Functions, Option & Result:** Error handling before sockets.
 - **Day 32 — struct, enum & impl:** Model BACnet points and object kinds.
 - **Day 33 — Vec, HashMap & String:** Device caches and tag maps.
-- **Day 34 — Ownership & Borrowing (fast track):** References for network buffers and APIs.
+- **Day 34 — Ownership & Borrowing (practice):** References for network buffers and APIs (builds on Day 28).
 
 ---
 

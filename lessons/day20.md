@@ -72,3 +72,21 @@ Built-in functions encapsulate common operations — finding min/max, sorting, s
 ## Key Takeaway
 
 Python's built-in functions such as `min()`, `max()`, `sorted()`, `sum()`, `enumerate()` and `zip()` simplify common tasks. Use `for` loops to build new lists and dictionaries — clear and maintainable.
+
+---
+
+## Rust companion — Iterator helpers (`sum`, `min`, …)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let vals = [70.0, 72.0, 71.0];
+    let total: f64 = vals.iter().sum();
+    let hi = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    println!("sum={total} hi={hi}");
+}
+```
+
+**Takeaway:** Methods like `.iter().sum()` replace many Python built-ins. You’ll use iterators constantly.
+

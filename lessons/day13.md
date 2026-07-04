@@ -71,3 +71,27 @@ Tuples and sets are lightweight alternatives to lists and dictionaries for simpl
 ### Key Takeaway
 
 Tuples group a fixed number of values in order and cannot be changed, while sets hold unordered unique elements and support fast membership tests and set operations.
+
+---
+
+## Rust companion — Tuples and arrays
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let point = (5007u32, "SAT", 72.5); // tuple, fixed types
+    println!("device={} name={} pv={}", point.0, point.1, point.2);
+
+    let arr = [1, 2, 3]; // array, fixed length
+    println!("arr[0]={}", arr[0]);
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `(1, "a")` | `(1, "a")` tuple |
+| list | `Vec` (growable) or array `[T; N]` (fixed) |
+
+**Takeaway:** Tuples group mixed types; arrays are fixed-size.
+

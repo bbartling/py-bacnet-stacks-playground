@@ -118,3 +118,23 @@ copying items.  These methods modify the list in‑place and return `None` to em
 ## Vibe Code Checkpoint 1 — Complete!
 
 By the end of today you should have a BAC0 app that can **read**, **write**, and **write null release**. Use a list to hold multiple read requests if you like, or build your address strings with f-strings. Demo on your test bench — your Python app should match scanner results. Next week: data collection and CSV logging!
+
+---
+
+## Rust companion — More `Vec` operations
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let mut ids = vec![5007u32, 5008, 5009];
+    ids.insert(1, 5010);
+    ids.remove(0);
+    ids.sort();
+    let copy = ids.clone(); // explicit copy of owned data
+    println!("{ids:?} / {copy:?}");
+}
+```
+
+**Takeaway:** Many list methods exist; `clone()` copies owned data when you need two independent vectors.
+

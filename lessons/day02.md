@@ -102,3 +102,32 @@ print("Perimeter:", perimeter)
 Variables store values and arithmetic operators perform calculations.  Use
 parentheses to control precedence and remember that `/` returns a float while
 `//` performs floor division.
+
+---
+
+## Rust companion — Variables & arithmetic
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let width = 20;           // immutable by default
+    let mut height = 5.0;     // mut = can change later
+    height = 6.0;
+    let area = (width as f64) * height;
+    println!("area = {area}");
+    println!("7 / 2 = {}", 7 / 2);     // integer division → 3
+    println!("7.0 / 2.0 = {}", 7.0 / 2.0);
+    println!("7 % 2 = {}", 7 % 2);
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `x = 1` (always rebindable) | `let x = 1` (immutable) |
+| `x = 2` again | need `let mut x` |
+| `7 / 2` → `3.5` | `7 / 2` → `3` (same types) |
+| no types written | types exist (`i32`, `f64`) — often inferred |
+
+**Takeaway:** Prefer `let`. Use `mut` only when the value must change (like a running total of sensor readings).
+

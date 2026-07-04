@@ -109,3 +109,24 @@ Use `split()` to break a string into parts,
 `join()` to concatenate an iterable of strings with a separator,
 `strip()` to remove leading and trailing characters,
 and `lower()` to normalise case.
+
+---
+
+## Rust companion — String split / case
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let line = "AHU-1,SAT,72.5";
+    let parts: Vec<&str> = line.split(',').collect();
+    println!("{:?}", parts);
+    let upper = "zone".to_uppercase();
+    println!("{upper}");
+    let joined = parts.join("|");
+    println!("{joined}");
+}
+```
+
+**Takeaway:** `.split` gives an iterator; `.collect()` builds a `Vec` when you need one.
+

@@ -113,3 +113,33 @@ The `len()` function returns the length of a string.
 ## Vibe Code Checkpoint 1 (Week 1)
 
 Your BAC0 app uses **f-strings** to build address requests: `f"{address} {obj_type} {point_addr} present-value"`. String concatenation and formatting are how you assemble BACnet object references in Python — BAC0 handles the rest.
+
+---
+
+## Rust companion — Strings: `String` vs `&str`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let tag: &str = "AHU-1";           // string slice (borrowed, fixed)
+    let mut name = String::from("Zone "); // owned, growable
+    name.push_str("Temp");
+    println!("{tag} / {name}");
+    println!("len = {}", name.len());
+    // indexing a single char is different than Python — use chars:
+    for c in name.chars().take(3) {
+        print!("{c}");
+    }
+    println!();
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `s = "hi"` | often `&str` or `String` |
+| `s + "x"` | `format!("{s}x")` or `push_str` |
+| `s[0]` | not the same — use `.chars()` |
+
+**Takeaway:** `&str` is a view; `String` owns the data. You will see both in every network API.
+

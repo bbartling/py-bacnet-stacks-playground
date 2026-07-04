@@ -112,3 +112,35 @@ while True:
 Use `if`/`elif`/`else` to branch based on conditions,
 `while` loops to repeat until a condition changes,
 and `break` or `continue` to control loop execution.
+
+---
+
+## Rust companion — `if` / `else` and `while`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let pv = 85.0;
+    if pv > 80.0 {
+        println!("HIGH");
+    } else if pv < 60.0 {
+        println!("LOW");
+    } else {
+        println!("OK");
+    }
+
+    let mut n = 3;
+    while n > 0 {
+        println!("n={n}");
+        n -= 1;
+    }
+
+    // if is an expression:
+    let status = if pv > 80.0 { "alarm" } else { "normal" };
+    println!("{status}");
+}
+```
+
+**Takeaway:** No parentheses required around conditions. `if` can return a value.
+

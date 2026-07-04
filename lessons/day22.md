@@ -66,3 +66,29 @@ Building models and BACnet scans often involve nested structures: a site has bui
 ## Key Takeaway
 
 Nested data structures require nested loops to traverse. Use `items()` to loop over dictionaries and combine list and dictionary techniques to summarise complex data.
+
+---
+
+## Rust companion — Nested data: `Vec` of structs (lite)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+struct Point {
+    name: String,
+    pv: f64,
+}
+
+fn main() {
+    let points = vec![
+        Point { name: "SAT".into(), pv: 55.0 },
+        Point { name: "RAT".into(), pv: 72.0 },
+    ];
+    for p in &points {
+        println!("{} = {}", p.name, p.pv);
+    }
+}
+```
+
+**Takeaway:** Prefer a small `struct` over a pile of parallel lists — Day 32 goes deeper.
+

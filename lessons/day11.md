@@ -101,3 +101,29 @@ print('instance' in point)  # True
 Dictionaries store key–value pairs and provide fast lookups.  Use `d[key]`
 to get or set values, `get(key, default)` to handle missing keys and the
 `in` operator to test for membership.
+
+---
+
+## Rust companion — `HashMap` — like dict
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+    let mut pv: HashMap<String, f64> = HashMap::new();
+    pv.insert("SAT".into(), 55.0);
+    pv.insert("RAT".into(), 72.0);
+    println!("{:?}", pv.get("SAT"));
+    println!("has RAT? {}", pv.contains_key("RAT"));
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `d["k"]` | `map.get("k")` → `Option` |
+| `k in d` | `contains_key` |
+
+**Takeaway:** Missing keys are `None` (`Option`), not an exception — safer for live OT data.
+

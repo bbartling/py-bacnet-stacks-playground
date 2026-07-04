@@ -1,0 +1,33 @@
+# Open-FDD BACnet → Feather concept (local mini-device lab)
+#
+# Default UDP **47809** so Open-FDD / OT can keep **47808**.
+# YABE / Workbench: discover device 599998 on this host's LAN IP, port 47809.
+
+[store]
+dir = "data/feather_store"
+
+[server]
+enabled = true
+instance = 599998
+name = "OpenFDD-Feather-Concept"
+port = 47809
+# nic = "enp3s0"          # or set OPENFDD_BACNET_NIC
+# address = "192.168.204.55"
+# broadcast = "192.168.204.255"
+value_update_secs = 2
+temp_object_instance = 1
+temp_point_name = "demo-temp"
+
+[poller]
+interval_secs = 10
+# bind = "192.168.204.55"
+# broadcast = "192.168.204.255"
+
+# Local mini-device (no host = read this process's server on server.port)
+[[poller.points]]
+enabled = true
+device_instance = 599998
+object_type = "analog-input"
+object_instance = 1
+point_name = "demo-temp"
+units = "°F"

@@ -100,3 +100,28 @@ print(discovered)
 
 Lists are ordered, mutable sequences.  Use indexing and slicing to access
 elements, `append()` to add items and `len()` to measure the list’s size.
+
+---
+
+## Rust companion — Vectors (`Vec`) — like lists
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let mut temps = vec![70.0, 71.5, 69.0];
+    temps.push(72.0);
+    println!("first = {}", temps[0]);
+    println!("len = {}", temps.len());
+    println!("last = {:?}", temps.last());
+}
+```
+
+| Python `list` | Rust `Vec<T>` |
+|---------------|---------------|
+| `[1, 2]` | `vec![1, 2]` |
+| `.append(x)` | `.push(x)` |
+| `len(a)` | `a.len()` |
+
+**Takeaway:** `Vec` is your default growable list. Type is `Vec<f64>`, `Vec<String>`, etc.
+

@@ -1,8 +1,8 @@
-## Day 34 – Ownership & Borrowing (Fast Track)
+## Day 34 – Ownership & Borrowing (practice)
 
 ### Goal
 
-Survive the **borrow checker** long enough to pass `&str` into functions and store data in structs without fighting the compiler.
+Practice the **borrow checker** (from Day 28 and the Day 1–27 Rust companions): pass `&str` into functions and store data in structs without fighting the compiler.
 
 ### Concept
 

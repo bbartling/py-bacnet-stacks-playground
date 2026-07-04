@@ -61,3 +61,21 @@ Functions like `any()` and `all()` simplify checks over collections. When valida
 ## Key Takeaway
 
 `all()` returns `True` only if every element is truthy. `any()` returns `True` if at least one element is truthy. Use loops to build the conditions you pass to them — clear and easy to debug.
+
+---
+
+## Rust companion — `any` / `all` on iterators
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let alarms = [false, false, true];
+    let any_alarm = alarms.iter().any(|&a| a);
+    let all_ok = alarms.iter().all(|&a| !a);
+    println!("any_alarm={any_alarm} all_ok={all_ok}");
+}
+```
+
+**Takeaway:** Iterator adapters read like English and avoid manual loops.
+

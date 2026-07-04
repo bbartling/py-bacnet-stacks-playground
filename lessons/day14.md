@@ -89,3 +89,26 @@ versus equipment.
 Use nested loops to handle multi‑dimensional data and `while True` loops
 with a sentinel value to process input of unknown length.  `break`
 terminates a loop early, and `continue` skips to the next iteration.
+
+---
+
+## Rust companion — `break` and `continue`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    for i in 0..10 {
+        if i % 2 == 0 {
+            continue;
+        }
+        if i > 7 {
+            break;
+        }
+        println!("{i}");
+    }
+}
+```
+
+**Takeaway:** Same ideas as Python — skip or stop a loop early.
+

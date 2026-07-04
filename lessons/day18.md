@@ -87,3 +87,32 @@ Use `try`/`except` blocks to catch and handle exceptions.  Place code
 that might fail in the `try` block and catch specific exceptions in
 `except` clauses.  This allows your program to recover gracefully from
 errors.
+
+---
+
+## Rust companion — Errors: `Result` and `Option` (preview)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn parse_pv(s: &str) -> Result<f64, std::num::ParseFloatError> {
+    s.trim().parse()
+}
+
+fn main() {
+    match parse_pv("72.5") {
+        Ok(v) => println!("pv={v}"),
+        Err(e) => println!("bad: {e}"),
+    }
+    let maybe: Option<f64> = None;
+    println!("{:?}", maybe.unwrap_or(0.0));
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `try/except` | `Result<T, E>` + `match` |
+| `None` | `Option<T>` (`Some` / `None`) |
+
+**Takeaway:** Missing data → `Option`. Failure → `Result`. No silent `None` surprises later on the wire.
+

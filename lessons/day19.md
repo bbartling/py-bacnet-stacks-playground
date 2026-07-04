@@ -72,3 +72,18 @@ handling problems gracefully to prepare for more advanced modelling tasks.
 ## Vibe Code Checkpoint 3 (Week 3–4)
 
 Your **bacpypes3** app should do the same as Checkpoint 1 (read, write, write null release) but using raw BACpypes instead of BAC0. Use `Application.from_args()`, `read_property()`, and `write_property()`. Build your requests with `ReadPropertyRequest` and `WritePropertyRequest`. The BACpypes3 docs and samples show the pattern — you vibe code it on YouTube!
+
+---
+
+## Rust companion — Week 3 review (Rust)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+In `~/rust-lab`, make `day19_review`:
+
+1. `fn mean(vals: &[f64]) -> f64`
+2. Read a tiny CSV string (hard-coded is fine), parse temps, print mean.
+3. Use `Result` when parsing — print errors instead of panicking if you can.
+
+**Takeaway:** Functions + `Vec` + `Result` is enough for small OT tools.
+

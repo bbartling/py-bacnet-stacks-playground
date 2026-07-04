@@ -57,3 +57,23 @@ Being comfortable with slicing lets you quickly extract or modify parts of seque
 ### Key Takeaway
 
 Slicing allows you to extract portions of sequences and reverse them easily. F‑strings provide concise, readable string formatting for embedding variable values in output.
+
+---
+
+## Rust companion — `format!` and slices
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn main() {
+    let device = 5007;
+    let label = format!("device-{device}");
+    println!("{label}");
+    let s = "BACnet";
+    let head = &s[0..3]; // byte index — OK for ASCII
+    println!("{head}");
+}
+```
+
+**Takeaway:** `format!` builds `String`. Slices `&s[a..b]` are views (borrows) — more on Day 27–28.
+

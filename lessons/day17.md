@@ -108,3 +108,22 @@ to a file. Use `open()` with `'w'` or `'a'` and `csv.writer()` or
 like `sensors_2026-02-05.csv`. Use `datetime.date.today()` to build the
 filename. Something fancy for rotation is fine — the goal is persistent,
 organised data.
+
+---
+
+## Rust companion — Read / write files
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+use std::fs;
+
+fn main() {
+    fs::write("/tmp/pv.csv", "ts,pv\n1,72.5\n").unwrap();
+    let text = fs::read_to_string("/tmp/pv.csv").unwrap();
+    println!("{text}");
+}
+```
+
+**Takeaway:** `std::fs` is the simple path. Errors are `Result` — we use `.unwrap()` in labs; Day 18 / 31 teach proper handling.
+

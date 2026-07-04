@@ -90,3 +90,54 @@ You’ll use these later to scan devices, read present values, and build repeata
 ## Key Takeaway
 
 Installing Python and pip is the first step. Setting up a virtual environment and installing **BAC0** + **bacpypes3** makes your machine **BACnet-ready**, so you can move on to scanning and reading real building automation data in the next lessons.
+
+---
+
+## Rust companion — Install Rust & Cargo (same day as Python)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+You do **not** wait until Day 28 to touch Rust. Install it **today** so every later day can show a tiny Rust twin of the Python idea.
+
+### Install (one time)
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# then restart the terminal, or:
+source "$HOME/.cargo/env"
+rustc --version
+cargo --version
+```
+
+| Python | Rust |
+|--------|------|
+| `python` interpreter | `rustc` compiler |
+| `pip` packages | **Cargo** crates |
+| `script.py` | `cargo new app --bin` → `src/main.rs` |
+| `python script.py` | `cargo run` |
+
+### First project
+
+```bash
+mkdir -p ~/rust-lab && cd ~/rust-lab
+cargo new day01_hello --bin
+cd day01_hello
+cargo run
+```
+
+Edit `src/main.rs`:
+
+```rust
+fn main() {
+    println!("Hello Rust — BACnet lab ready");
+}
+```
+
+### Micro exercises (Rust)
+
+1. Install rustup; write down `rustc --version`.
+2. Create `day01_hello` and change the message to your name.
+3. Run `cargo build` then `cargo run` — note the binary under `target/debug/`.
+
+**Takeaway:** Cargo is your daily driver. Keep `~/rust-lab` for all Day 1–27 Rust snippets.
+

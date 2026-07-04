@@ -44,3 +44,19 @@ Combining built-in functions, loops, slicing and nested data structures lets you
 ## Vibe Code Checkpoint 4 (Week 4)
 
 Your **bacpypes3 discover → CSV** app should: send Who-Is, get I-Am responses, read each device's object-list, then for each object read object-name, description, present-value, units (where applicable). Write rows to a CSV with columns: device_id, object_identifier, object_type, object_instance, object_name, description, present_value, units. Reference the discover-objects-csv-only pattern — you vibe code your own version on YouTube!
+
+---
+
+## Rust companion — Week 4 review (Rust)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+Build `day26_review` that:
+
+1. Holds a `HashMap<String, f64>` of point → PV
+2. Prints all entries
+3. Flags any PV outside 60..80
+4. Writes a one-line summary with `format!`
+
+**Takeaway:** Maps + loops + `if` cover a lot of commissioning scripts.
+

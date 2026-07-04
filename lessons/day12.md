@@ -100,3 +100,28 @@ Use `items()`, `keys()` and `values()` to iterate through dictionaries. Use plai
 ## Vibe Code Checkpoint 2 (Week 2–3)
 
 Your BAC0 data collection app will use dictionaries to map device IDs to addresses (from Who-Is) and to store point names and readings. Looping over `items()` is how you'll process discovered devices and write rows to CSV.
+
+---
+
+## Rust companion — Looping a `HashMap`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+    let mut tags = HashMap::new();
+    tags.insert("dis", "AHU-1");
+    tags.insert("unit", "°F");
+    for (k, v) in &tags {
+        println!("{k} = {v}");
+    }
+    for k in tags.keys() {
+        println!("key={k}");
+    }
+}
+```
+
+**Takeaway:** Iterate with `for (k, v) in &map` (borrow, don’t move).
+

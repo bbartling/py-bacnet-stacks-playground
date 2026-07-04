@@ -97,3 +97,26 @@ you leverage these capabilities immediately.
 Modules allow you to split your program into multiple files and reuse
 code.  You import standard modules like `math` and `random` to access
 additional functions, or write your own modules for your projects.
+
+---
+
+## Rust companion — Modules and `use`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+use std::f64::consts::PI;
+
+fn main() {
+    println!("pi ≈ {PI}");
+    // crates = libraries; add to Cargo.toml later, e.g. serde
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `import math` | `use std::...` |
+| `pip install x` | add to `Cargo.toml` `[dependencies]` |
+
+**Takeaway:** `std` is always available; third-party crates go in `Cargo.toml`.
+

@@ -62,3 +62,33 @@ Functions let you divide a program into reusable blocks, which makes maintenance
 ### Key Takeaway
 
 Use `def` to define functions with optional parameters and docstrings. Return values with `return` when needed. Functions provide reusable building blocks and separate logic into manageable pieces.
+
+---
+
+## Rust companion — Functions `fn`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+fn c_to_f(c: f64) -> f64 {
+    c * 9.0 / 5.0 + 32.0
+}
+
+fn greet(name: &str) {
+    println!("Hello, {name}");
+}
+
+fn main() {
+    greet("tech");
+    println!("{}", c_to_f(22.0));
+}
+```
+
+| Python | Rust |
+|--------|------|
+| `def f(x):` | `fn f(x: Type) -> Ret` |
+| docstring | `///` doc comments |
+| return optional | return type required if not `()` |
+
+**Takeaway:** Types on parameters and return values are normal — the compiler helps you.
+

@@ -43,3 +43,38 @@ Starting **Day 28**, the course **fast-tracks Rust** (Cargo, types, collections)
 ### Key takeaway
 
 Algorithms are explicit recipes. In building systems, they show up in **control sequences**, **trend analysis**, and **fault rules**; learning to implement a few by hand builds judgment when you later use libraries or AFDD frameworks.
+
+---
+
+## Rust companion — Algorithms + ownership teaser (pivot)
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+An **algorithm** is finite steps: inputs → process → outputs (same in Python and Rust).
+
+Rust adds a rule Python hides: **every value has one owner**.
+
+```rust
+fn main() {
+    let name = String::from("AHU-1");
+    let also = name;          // move — name is no longer valid
+    // println!("{name}");    // would not compile
+    println!("{also}");
+
+    let name2 = String::from("VAV-1");
+    let borrowed = &name2;    // borrow — name2 still valid
+    println!("{borrowed} and {name2}");
+}
+```
+
+| Idea | Meaning |
+|------|---------|
+| **Owner** | Who frees the memory |
+| **Move** | Ownership transfers |
+| **Borrow** `&T` / `&mut T` | Temporary access without taking ownership |
+| **Lifetime** | How long a borrow is allowed (compiler-checked) |
+
+You do **not** need to master lifetimes yet — just know: prefer borrowing with `&` when a function only needs to read data.
+
+**Takeaway:** Day 28 recaps install + ownership so Days 29–34 feel like practice, not a cliff.
+

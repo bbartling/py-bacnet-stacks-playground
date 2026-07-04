@@ -90,3 +90,28 @@ Comments and docstrings explain *why* and *how* your code works.  Use
 `help()` to explore modules and functions and check your own
 docstrings.  Clear documentation makes your code more maintainable and
 user‑friendly.
+
+---
+
+## Rust companion — Comments and `cargo doc`
+
+*Same day as the Python lesson above. Work in `~/rust-lab` (create on Day 1).*
+
+```rust
+/// Convert °C to °F for display.
+fn c_to_f(c: f64) -> f64 {
+    c * 9.0 / 5.0 + 32.0
+}
+
+fn main() {
+    // line comment
+    println!("{}", c_to_f(20.0));
+}
+```
+
+```bash
+cargo doc --open   # when you have a project
+```
+
+**Takeaway:** `///` documents items; `cargo doc` builds HTML for your crate.
+
