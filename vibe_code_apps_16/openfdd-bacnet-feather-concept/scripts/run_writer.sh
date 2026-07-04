@@ -18,5 +18,5 @@ cargo build --release --bin bacnet_app
 
 echo "Starting openfdd-bacnet-feather-concept"
 echo "  device 5000 on UDP 47808 ONLY (Workbench object-list)"
-echo "  poller ephemeral → 5007 @ 192.168.204.200 AI:1192 → Feather + clone AV"
+echo "  field poller → config/drivers/devices/*.toml → Feather store"
 exec cargo run --release --bin bacnet_app

@@ -1,12 +1,8 @@
 # =============================================================================
-# openfdd-bacnet-feather-concept — site configuration
+# openfdd-bacnet-feather-concept — application settings
 # =============================================================================
-# Mini-device (Workbench / YABE on UDP 47808) — unchanged:
-#   device 5000, AV:1 5007-duct-t-clone, BI:1 APP-FAULT
-#
-# Multi-device poller (VOLTTRON platform.driver–inspired):
-#   each [[poller.devices]] is a "driver" with its own interval + phase offset
-#   scheduler wakes on tick_ms, scrapes overdue devices (max_concurrent at a time)
+# BACnet mini-device (device 5000): AV:1–4 OA-WEATHER-*, CSV:5 location, BI:1 APP-FAULT
+# Field poll targets: config/drivers/devices/*.toml (from bas_scan — not in this file)
 # =============================================================================
 
 [store]
@@ -22,9 +18,6 @@ nic = "enp3s0"
 address = "192.168.204.55"
 broadcast = "192.168.204.255"
 value_update_secs = 2
-temp_object_instance = 1
-temp_point_name = "5007-duct-t-clone"
-clone_from_point = "DUCT-T"
 status_object_instance = 1
 status_point_name = "APP-FAULT"
 
@@ -36,14 +29,16 @@ interval_secs = 1200
 fallback_temp_f = 70.0
 fallback_humidity = 50.0
 fallback_wind_mph = 0.0
-temp_object_instance = 2
+temp_object_instance = 1
 temp_point_name = "OA-WEATHER-T"
-humidity_object_instance = 3
+humidity_object_instance = 2
 humidity_point_name = "OA-WEATHER-RH"
-wind_object_instance = 4
+wind_object_instance = 3
 wind_point_name = "OA-WEATHER-WIND"
-dewpoint_object_instance = 5
+dewpoint_object_instance = 4
 dewpoint_point_name = "OA-WEATHER-DP"
+location_object_instance = 5
+location_point_name = "OA-WEATHER-LOC"
 
 [poller]
 # Scheduler tick (ms) and max devices scraping in parallel
@@ -53,177 +48,6 @@ max_concurrent = 2
 interval_secs = 10
 bind = "192.168.204.55"
 broadcast = "192.168.204.255"
-# Device drivers: prefer config/drivers.toml (from bas_scan / AI edit).
-# Inline [[poller.devices]] below are fallbacks when drivers.toml is missing.
 
-# -----------------------------------------------------------------------------
-# BENS BENCH TEST BOX — MSTP behind BIP router (critical = APP-FAULT + clone)
-# -----------------------------------------------------------------------------
-[[poller.devices]]
-name = "BENS-BENCH"
-enabled = true
-device_instance = 5007
-host = "192.168.204.200"
-port = 47808
-mstp_network = 2000
-mstp_mac = [7]
-interval_secs = 10
-offset_secs = 0
-critical = true
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 1168
-point_name = "OA-H"
-units = "%RH"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 1173
-point_name = "OA-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 1192
-point_name = "DUCT-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 9334
-point_name = "DUCT-P"
-units = "in/wc"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 10014
-point_name = "STAT ZN-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 10044
-point_name = "ACTUATOR-POS"
-units = "%"
-
-[[poller.devices.points]]
-object_type = "analog-output"
-object_instance = 2466
-point_name = "ACTUATOR-0"
-units = "%"
-
-# -----------------------------------------------------------------------------
-# BensFakeAhu — bacpypes3 on Raspberry Pi (BIP direct, staggered +5s)
-# -----------------------------------------------------------------------------
-[[poller.devices]]
-name = "BensFakeAhu"
-enabled = true
-device_instance = 3456789
-host = "192.168.204.13"
-port = 47808
-interval_secs = 10
-offset_secs = 5
-critical = false
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 1
-point_name = "DAP-P"
-units = "in/wc"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 2
-point_name = "SA-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 3
-point_name = "MA-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 4
-point_name = "RA-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 5
-point_name = "SA-FLOW"
-units = "cfm"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 6
-point_name = "OA-T"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-input"
-object_instance = 7
-point_name = "ELEC-PWR"
-units = "kW"
-
-[[poller.devices.points]]
-object_type = "analog-output"
-object_instance = 1
-point_name = "SF-O"
-units = "%"
-
-[[poller.devices.points]]
-object_type = "analog-output"
-object_instance = 2
-point_name = "HTG-O"
-units = "%"
-
-[[poller.devices.points]]
-object_type = "analog-output"
-object_instance = 3
-point_name = "CLG-O"
-units = "%"
-
-[[poller.devices.points]]
-object_type = "analog-output"
-object_instance = 4
-point_name = "DPR-O"
-units = "%"
-
-[[poller.devices.points]]
-object_type = "analog-value"
-object_instance = 1
-point_name = "DAP-SP"
-units = "in/wc"
-
-[[poller.devices.points]]
-object_type = "analog-value"
-object_instance = 2
-point_name = "SAT-SP"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "analog-value"
-object_instance = 3
-point_name = "OAT-NETWORK"
-units = "°F"
-
-[[poller.devices.points]]
-object_type = "binary-input"
-object_instance = 1
-point_name = "SF-S"
-units = "bool"
-
-[[poller.devices.points]]
-object_type = "binary-output"
-object_instance = 1
-point_name = "SF-C"
-units = "bool"
-
-[[poller.devices.points]]
-object_type = "multi-state-value"
-object_instance = 1
-point_name = "Occ-Schedule"
-units = "state"
+[drivers]
+devices_dir = "config/drivers/devices"

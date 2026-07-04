@@ -1,0 +1,432 @@
+# =============================================================================
+# Device: BENS-BENCHTEST-BOX (BACnet instance 5007)
+# =============================================================================
+# Delete this file to remove the device from polling.
+# Set enabled = false to keep the file but skip polls.
+# Points use [[points]] — this file is only for this one device.
+# =============================================================================
+
+name = "BENS-BENCHTEST-BOX"
+enabled = true
+device_instance = 5007
+host = "192.168.204.200"
+port = 47808
+mstp_network = 2000
+mstp_mac = [7]
+interval_secs = 10
+offset_secs = 0
+critical = true
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 1168
+point_name = "OA-H"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 1173
+point_name = "OA-T"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 1179
+point_name = "SSPLATE-T"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 1192
+point_name = "DUCT-T"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 9334
+point_name = "DUCT-P"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 10014
+point_name = "STAT ZN-T"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-input"
+object_instance = 10044
+point_name = "ACTUATOR-POS"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-output"
+object_instance = 2466
+point_name = "ACTUATOR-0"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-output"
+object_instance = 10032
+point_name = "C06-0-10VDC-O"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-output"
+object_instance = 10035
+point_name = "C07-0-10VDC-O"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-output"
+object_instance = 10038
+point_name = "AO9-4-20MA-O"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10007
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10010
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10011
+point_name = "STAT ZN WC-ADJ"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10012
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10013
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10015
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10016
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10021
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10025
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10028
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10031
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10033
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10034
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10036
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10037
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10039
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 10040
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169012
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169013
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169020
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169021
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169030
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169031
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169040
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 169041
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 237957
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 237958
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 238001
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 238002
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "analog-value"
+object_instance = 238198
+point_name = "Priority"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-input"
+object_instance = 9429
+point_name = "CURRENT-S"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-input"
+object_instance = 10020
+point_name = "BI8-S"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-output"
+object_instance = 10005
+point_name = "RIBRELAY1- C"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-output"
+object_instance = 10008
+point_name = "RIBRELAY#2-C"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-output"
+object_instance = 10023
+point_name = "BO3-C"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-output"
+object_instance = 10026
+point_name = "C04-DRY-C"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-output"
+object_instance = 10029
+point_name = "C05-DRY-C"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-value"
+object_instance = 10001
+point_name = "I2"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "binary-value"
+object_instance = 10002
+point_name = "O2"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10003
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10004
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10006
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10009
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10022
+point_name = "O1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10024
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10027
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 10030
+point_name = "I1"
+units = ""
+
+[[points]]
+enabled = true
+object_type = "multi-state-value"
+object_instance = 238197
+point_name = "O1"
+units = ""
+

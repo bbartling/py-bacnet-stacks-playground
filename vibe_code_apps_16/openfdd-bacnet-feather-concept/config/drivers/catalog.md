@@ -1,24 +1,142 @@
-# =============================================================================
-# Open-FDD BAS drivers — AI / human editable poll list
-# =============================================================================
-# HOW TO EDIT (ChatGPT, Cursor, or a text editor):
-#   1. Set enabled = false on any device or point you do NOT want polled
-#   2. Optionally rename point_name for clearer Feather columns
-#   3. Set critical = true on the device that feeds APP-FAULT / duct clone
-#   4. Save this file and restart: cargo run --release --bin bacnet_app
-#
-# Re-scan the BAS (preserves enabled=false when using --merge):
-#   cargo run --release --bin bas_scan -- --low 1 --high 4194302 --ephemeral --merge
-#
-# Companion catalog (tables + same TOML): config/drivers.catalog.md
-# All readings append to a single data/feather_store/telemetry.feather
-#
-# generated_by = bas_scan
-# range = 1..4194302
-# bind = 192.168.204.55
-# broadcast = 192.168.204.255
+# BAS driver catalog (AI / human editable)
+
+Paste this file into ChatGPT or Cursor and ask:
+> Keep only the points we need for FDD / trending; set `enabled = false` on the rest.
+
+## Workflow
+
+1. Edit per-device files under `config/drivers/devices/` (recommended), **or**
+2. Edit the monolithic TOML block at the bottom and apply:
+   `cargo run --release --bin bas_scan -- --apply-catalog config/drivers/catalog.md`
+3. **Delete** a device `.toml` file to remove it from polling entirely.
+4. Restart: `cargo run --release --bin bacnet_app`
+
+### Per-device files
+
+- `config/drivers/devices/5007-bens-benchtest-box.toml` — BENS-BENCHTEST-BOX (59 points)
+- `config/drivers/devices/3456789-bensfakeahu.toml` — BensFakeAhu (17 points)
+- `config/drivers/devices/3456790-zone1vav.toml` — Zone1VAV (6 points)
+
+## Scan metadata
+
+```
+applied_from = config/drivers.catalog.md
+devices = 3
+
+```
+
+## Device summary
+
+| enabled | name | instance | host | routed | points (enabled/total) | file |
+| --- | --- | ---: | --- | --- | ---: | --- |
+| true | BENS-BENCHTEST-BOX | 5007 | 192.168.204.200:47808 | yes | 59/59 | `5007-bens-benchtest-box.toml` |
+| true | BensFakeAhu | 3456789 | 192.168.204.13:47808 | no | 17/17 | `3456789-bensfakeahu.toml` |
+| true | Zone1VAV | 3456790 | 192.168.204.14:47808 | no | 6/6 | `3456790-zone1vav.toml` |
+
+## Device `BENS-BENCHTEST-BOX` (instance 5007) — `devices/5007-bens-benchtest-box.toml`
+
+| enabled | point_name | object_type | object_instance | units |
+| --- | --- | --- | ---: | --- |
+| true | OA-H | analog-input | 1168 |  |
+| true | OA-T | analog-input | 1173 |  |
+| true | SSPLATE-T | analog-input | 1179 |  |
+| true | DUCT-T | analog-input | 1192 |  |
+| true | DUCT-P | analog-input | 9334 |  |
+| true | STAT ZN-T | analog-input | 10014 |  |
+| true | ACTUATOR-POS | analog-input | 10044 |  |
+| true | ACTUATOR-0 | analog-output | 2466 |  |
+| true | C06-0-10VDC-O | analog-output | 10032 |  |
+| true | C07-0-10VDC-O | analog-output | 10035 |  |
+| true | AO9-4-20MA-O | analog-output | 10038 |  |
+| true | Priority | analog-value | 10007 |  |
+| true | Priority | analog-value | 10010 |  |
+| true | STAT ZN WC-ADJ | analog-value | 10011 |  |
+| true | Priority | analog-value | 10012 |  |
+| true | O1 | analog-value | 10013 |  |
+| true | Priority | analog-value | 10015 |  |
+| true | O1 | analog-value | 10016 |  |
+| true | Priority | analog-value | 10021 |  |
+| true | Priority | analog-value | 10025 |  |
+| true | Priority | analog-value | 10028 |  |
+| true | Priority | analog-value | 10031 |  |
+| true | I1 | analog-value | 10033 |  |
+| true | Priority | analog-value | 10034 |  |
+| true | I1 | analog-value | 10036 |  |
+| true | Priority | analog-value | 10037 |  |
+| true | I1 | analog-value | 10039 |  |
+| true | Priority | analog-value | 10040 |  |
+| true | O1 | analog-value | 169012 |  |
+| true | Priority | analog-value | 169013 |  |
+| true | O1 | analog-value | 169020 |  |
+| true | Priority | analog-value | 169021 |  |
+| true | O1 | analog-value | 169030 |  |
+| true | Priority | analog-value | 169031 |  |
+| true | O1 | analog-value | 169040 |  |
+| true | Priority | analog-value | 169041 |  |
+| true | Priority | analog-value | 237957 |  |
+| true | I1 | analog-value | 237958 |  |
+| true | O1 | analog-value | 238001 |  |
+| true | Priority | analog-value | 238002 |  |
+| true | Priority | analog-value | 238198 |  |
+| true | CURRENT-S | binary-input | 9429 |  |
+| true | BI8-S | binary-input | 10020 |  |
+| true | RIBRELAY1- C | binary-output | 10005 |  |
+| true | RIBRELAY#2-C | binary-output | 10008 |  |
+| true | BO3-C | binary-output | 10023 |  |
+| true | C04-DRY-C | binary-output | 10026 |  |
+| true | C05-DRY-C | binary-output | 10029 |  |
+| true | I2 | binary-value | 10001 |  |
+| true | O2 | binary-value | 10002 |  |
+| true | O1 | multi-state-value | 10003 |  |
+| true | I1 | multi-state-value | 10004 |  |
+| true | I1 | multi-state-value | 10006 |  |
+| true | I1 | multi-state-value | 10009 |  |
+| true | O1 | multi-state-value | 10022 |  |
+| true | I1 | multi-state-value | 10024 |  |
+| true | I1 | multi-state-value | 10027 |  |
+| true | I1 | multi-state-value | 10030 |  |
+| true | O1 | multi-state-value | 238197 |  |
+
+## Device `BensFakeAhu` (instance 3456789) — `devices/3456789-bensfakeahu.toml`
+
+| enabled | point_name | object_type | object_instance | units |
+| --- | --- | --- | ---: | --- |
+| true | DAP-P | analog-input | 1 |  |
+| true | SA-T | analog-input | 2 |  |
+| true | MA-T | analog-input | 3 |  |
+| true | RA-T | analog-input | 4 |  |
+| true | SA-FLOW | analog-input | 5 |  |
+| true | OA-T | analog-input | 6 |  |
+| true | ELEC-PWR | analog-input | 7 |  |
+| true | SF-O | analog-output | 1 |  |
+| true | HTG-O | analog-output | 2 |  |
+| true | CLG-O | analog-output | 3 |  |
+| true | DPR-O | analog-output | 4 |  |
+| true | DAP-SP | analog-value | 1 |  |
+| true | SAT-SP | analog-value | 2 |  |
+| true | OAT-NETWORK | analog-value | 3 |  |
+| true | SF-S | binary-input | 1 |  |
+| true | SF-C | binary-output | 1 |  |
+| true | Occ-Schedule | multi-state-value | 1 |  |
+
+## Device `Zone1VAV` (instance 3456790) — `devices/3456790-zone1vav.toml`
+
+| enabled | point_name | object_type | object_instance | units |
+| --- | --- | --- | ---: | --- |
+| true | ZoneTemp | analog-input | 1 |  |
+| true | VAVFlow | analog-input | 2 |  |
+| true | ZoneCoolingSpt | analog-value | 1 |  |
+| true | ZoneDemand | analog-value | 2 |  |
+| true | VAVFlowSpt | analog-value | 3 |  |
+| true | VAVDamperCmd | analog-output | 1 |  |
+
+## Monolithic TOML (apply this block to regenerate device files)
+
+```toml
+# Monolithic drivers bundle (for catalog apply / import)
+# Live polling uses config/drivers/devices/*.toml instead.
+# applied_from = config/drivers.catalog.md
 # devices = 3
-# =============================================================================
 
 [[devices]]
 name = "BENS-BENCHTEST-BOX"
@@ -445,7 +563,6 @@ object_instance = 238197
 point_name = "O1"
 units = ""
 
-
 [[devices]]
 name = "BensFakeAhu"
 enabled = true
@@ -575,7 +692,6 @@ object_instance = 1
 point_name = "Occ-Schedule"
 units = ""
 
-
 [[devices]]
 name = "Zone1VAV"
 enabled = true
@@ -628,4 +744,4 @@ object_instance = 1
 point_name = "VAVDamperCmd"
 units = ""
 
-
+```

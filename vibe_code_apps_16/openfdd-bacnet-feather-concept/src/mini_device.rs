@@ -2,8 +2,8 @@
 //!
 //! Listens on UDP **47808** (0xBAC0), answers Who-Is with I-Am (no periodic spam).
 //! Device instance **5000**:
-//! - AV:1 `5007-duct-t-clone` — mirrors field DUCT-T
-//! - AV:2–5 outdoor weather (Open-Meteo)
+//! - AV:1–4 outdoor weather (Open-Meteo, 20 min)
+//! - CSV:5 `OA-WEATHER-LOC` — geocoded location label from Open-Meteo
 //! - BI:1 `APP-FAULT` — active (true) when poller/field reads are unhealthy
 
 use std::sync::Arc;
@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use bacnet_objects::analog::AnalogValueObject;
+use bacnet_objects::value_types::CharacterStringValueObject;
 use bacnet_objects::binary::BinaryInputObject;
 use bacnet_objects::database::ObjectDatabase;
 use bacnet_objects::device::{DeviceConfig, DeviceObject};
@@ -35,7 +36,7 @@ pub struct MiniDeviceRuntime {
 }
 
 impl MiniDeviceRuntime {
-    /// Start mini-device and mirror `state` into clone AV, weather AVs, APP-FAULT BI.
+    /// Start mini-device and mirror `state` into weather AVs and APP-FAULT BI.
     pub async fn start(
         cfg: &ServerConfig,
         weather: &WeatherConfig,
@@ -52,14 +53,7 @@ impl MiniDeviceRuntime {
             net.device_ip, net.broadcast, net.bind_ip
         );
         info!(
-            "clone point: analogValue:{} \"{}\" (mirrors field {} every {}s)",
-            cfg.temp_object_instance,
-            cfg.temp_point_name,
-            cfg.clone_from_point,
-            cfg.value_update_secs
-        );
-        info!(
-            "weather points: AV:{} \"{}\" AV:{} \"{}\" AV:{} \"{}\" AV:{} \"{}\" (city=\"{}\")",
+            "weather points: AV:{} \"{}\" AV:{} \"{}\" AV:{} \"{}\" AV:{} \"{}\" CSV:{} \"{}\" (city=\"{}\", mirror every {}s)",
             weather.temp_object_instance,
             weather.temp_point_name,
             weather.humidity_object_instance,
@@ -68,7 +62,10 @@ impl MiniDeviceRuntime {
             weather.wind_point_name,
             weather.dewpoint_object_instance,
             weather.dewpoint_point_name,
-            weather.city
+            weather.location_object_instance,
+            weather.location_point_name,
+            weather.city,
+            cfg.value_update_secs
         );
         info!(
             "status point: binaryInput:{} \"{}\" (active=FAULT)",
@@ -105,8 +102,6 @@ impl MiniDeviceRuntime {
             db_for_updates,
             state,
             MirrorIds {
-                duct_av: cfg.temp_object_instance,
-                duct_name: cfg.temp_point_name.clone(),
                 wx_temp_av: weather.temp_object_instance,
                 wx_temp_name: weather.temp_point_name.clone(),
                 wx_rh_av: weather.humidity_object_instance,
@@ -115,6 +110,8 @@ impl MiniDeviceRuntime {
                 wx_wind_name: weather.wind_point_name.clone(),
                 wx_dp_av: weather.dewpoint_object_instance,
                 wx_dp_name: weather.dewpoint_point_name.clone(),
+                wx_loc_csv: weather.location_object_instance,
+                wx_loc_name: weather.location_point_name.clone(),
                 fault_bi: cfg.status_object_instance,
                 fault_name: cfg.status_point_name.clone(),
             },
@@ -142,8 +139,6 @@ impl MiniDeviceRuntime {
 }
 
 struct MirrorIds {
-    duct_av: u32,
-    duct_name: String,
     wx_temp_av: u32,
     wx_temp_name: String,
     wx_rh_av: u32,
@@ -152,6 +147,8 @@ struct MirrorIds {
     wx_wind_name: String,
     wx_dp_av: u32,
     wx_dp_name: String,
+    wx_loc_csv: u32,
+    wx_loc_name: String,
     fault_bi: u32,
     fault_name: String,
 }
@@ -174,15 +171,6 @@ fn add_av(
 fn build_database(cfg: &ServerConfig, weather: &WeatherConfig) -> Result<ObjectDatabase> {
     let mut db = ObjectDatabase::new();
     let device_oid = ObjectIdentifier::new(ObjectType::DEVICE, cfg.instance)?;
-
-    add_av(
-        &mut db,
-        cfg.temp_object_instance,
-        &cfg.temp_point_name,
-        TEMP_UNITS_DEGREES_F,
-        "POC clone of field device 5007 analogInput:1192 (DUCT-T) — updated from poller",
-        0.0,
-    )?;
 
     add_av(
         &mut db,
@@ -217,6 +205,27 @@ fn build_database(cfg: &ServerConfig, weather: &WeatherConfig) -> Result<ObjectD
         crate::weather::dewpoint_f_from_db_rh(weather.fallback_temp_f, weather.fallback_humidity)
             as f32,
     )?;
+
+    let mut loc_csv = CharacterStringValueObject::new(
+        weather.location_object_instance,
+        &weather.location_point_name,
+    )
+    .context("CharacterStringValueObject::new")?;
+    let _ = loc_csv.write_property(
+        PropertyIdentifier::DESCRIPTION,
+        None,
+        PropertyValue::CharacterString(
+            "Geocoded Open-Meteo location (city, state/region, country)".into(),
+        ),
+        None,
+    );
+    let _ = loc_csv.write_property(
+        PropertyIdentifier::PRESENT_VALUE,
+        None,
+        PropertyValue::CharacterString(weather.city.clone()),
+        Some(16),
+    );
+    db.add(Box::new(loc_csv)).context("add OA-WEATHER-LOC CSV")?;
 
     let mut fault_bi = BinaryInputObject::new(cfg.status_object_instance, &cfg.status_point_name)
         .context("BinaryInputObject::new")?;
@@ -290,53 +299,57 @@ fn write_av_real(
     }
 }
 
+fn write_csv_string(
+    db: &mut ObjectDatabase,
+    instance: u32,
+    name: &str,
+    value: &str,
+    last: &mut Option<String>,
+    label: &str,
+) {
+    if last.as_deref() == Some(value) {
+        return;
+    }
+    let oid = match ObjectIdentifier::new(ObjectType::CHARACTERSTRING_VALUE, instance) {
+        Ok(o) => o,
+        Err(_) => return,
+    };
+    if let Some(obj) = db.get_mut(&oid) {
+        if let Err(err) = obj.write_property(
+            PropertyIdentifier::PRESENT_VALUE,
+            None,
+            PropertyValue::CharacterString(value.into()),
+            Some(16),
+        ) {
+            warn!("failed to update CSV:{instance} ({name}): {err}");
+        } else {
+            info!("weather CSV:{instance} \"{name}\" = \"{value}\" ({label})");
+            *last = Some(value.into());
+        }
+    }
+}
+
 async fn mirror_state_to_points(
     db: Arc<RwLock<ObjectDatabase>>,
     state: AppStateHandle,
     ids: MirrorIds,
     update_secs: u64,
 ) {
-    let duct_oid = ObjectIdentifier::new(ObjectType::ANALOG_VALUE, ids.duct_av)
-        .expect("duct AV object id");
     let bi_oid = ObjectIdentifier::new(ObjectType::BINARY_INPUT, ids.fault_bi)
         .expect("fault BI object id");
 
     let mut last_fault: Option<bool> = None;
-    let mut last_duct: Option<f64> = None;
     let mut last_wx_t: Option<f64> = None;
     let mut last_wx_rh: Option<f64> = None;
     let mut last_wx_wind: Option<f64> = None;
     let mut last_wx_dp: Option<f64> = None;
+    let mut last_wx_loc: Option<String> = None;
 
     loop {
         tokio::time::sleep(Duration::from_secs(update_secs)).await;
 
         let snapshot = { state.read().await.clone() };
         let mut db = db.write().await;
-
-        if let Some(temp_f) = snapshot.duct_t {
-            if last_duct.map(|v| (v - temp_f).abs() > 1e-6).unwrap_or(true) {
-                if let Some(obj) = db.get_mut(&duct_oid) {
-                    if let Err(err) = obj.write_property(
-                        PropertyIdentifier::PRESENT_VALUE,
-                        None,
-                        PropertyValue::Real(temp_f as f32),
-                        Some(16),
-                    ) {
-                        warn!(
-                            "failed to update AV:{} ({}): {err}",
-                            ids.duct_av, ids.duct_name
-                        );
-                    } else {
-                        info!(
-                            "clone AV:{} \"{}\" = {temp_f:.2} °F (from field poll)",
-                            ids.duct_av, ids.duct_name
-                        );
-                        last_duct = Some(temp_f);
-                    }
-                }
-            }
-        }
 
         if let Some(wx) = &snapshot.weather {
             let src = if wx.from_api { "open-meteo" } else { "fallback" };
@@ -370,6 +383,14 @@ async fn mirror_state_to_points(
                 &ids.wx_dp_name,
                 wx.dewpoint_f,
                 &mut last_wx_dp,
+                src,
+            );
+            write_csv_string(
+                &mut db,
+                ids.wx_loc_csv,
+                &ids.wx_loc_name,
+                &wx.location,
+                &mut last_wx_loc,
                 src,
             );
         }

@@ -6,8 +6,8 @@
 //! # While bacnet_app owns :47808, use --ephemeral
 //! cargo run --release --bin bas_scan -- --low 1 --high 4194302 --ephemeral --merge
 //!
-//! # Apply an AI-edited catalog markdown back to drivers.toml
-//! cargo run --release --bin bas_scan -- --apply-catalog config/drivers.catalog.md
+//! # Apply an AI-edited catalog markdown back to per-device driver files
+//! cargo run --release --bin bas_scan -- --apply-catalog config/drivers/catalog.md
 //! ```
 
 use std::net::Ipv4Addr;
@@ -26,14 +26,15 @@ use bytes::BytesMut;
 use clap::Parser;
 use openfdd_bacnet_feather_concept::app_config::{AppConfig, DeviceConfig, DevicePointConfig};
 use openfdd_bacnet_feather_concept::drivers_file::{
-    extract_toml_from_catalog, merge_enabled_flags, write_drivers_bundle, DriversFile,
+    extract_toml_from_catalog, load_devices_from_dir, merge_enabled_flags, write_drivers_bundle,
+    DriversFile, DEFAULT_CATALOG_PATH, DEFAULT_DEVICES_DIR, DEFAULT_SETTINGS_PATH,
 };
 use openfdd_bacnet_feather_concept::network::{resolve_poller_bind, subnet_broadcast};
 
 #[derive(Parser, Debug)]
 #[command(
     name = "bas_scan",
-    about = "Who-Is scan → AI-editable config/drivers.toml for bacnet_app poller"
+    about = "Who-Is scan → per-device TOMLs in config/drivers/devices/ for bacnet_app poller"
 )]
 struct Args {
     /// Device instance range low (inclusive)
@@ -72,7 +73,7 @@ struct Args {
     #[arg(long)]
     include_local_server: bool,
 
-    /// Preserve enabled=false / critical / renames from existing drivers.toml
+    /// Preserve enabled=false / critical / renames from existing device files
     #[arg(long, default_value_t = true)]
     merge: bool,
 
@@ -84,15 +85,19 @@ struct Args {
     #[arg(long, default_value_t = 10)]
     interval_secs: u64,
 
-    /// Output drivers.toml path
-    #[arg(long, default_value = "config/drivers.toml")]
-    out: PathBuf,
+    /// Per-device driver directory (one `<instance>-<name>.toml` per device)
+    #[arg(long, default_value = DEFAULT_DEVICES_DIR)]
+    devices_dir: PathBuf,
 
-    /// Output AI catalog markdown path
-    #[arg(long, default_value = "config/drivers.catalog.md")]
+    /// Scan metadata file (comments only — not polled)
+    #[arg(long, default_value = DEFAULT_SETTINGS_PATH)]
+    settings: PathBuf,
+
+    /// AI catalog markdown path
+    #[arg(long, default_value = DEFAULT_CATALOG_PATH)]
     catalog: PathBuf,
 
-    /// Apply an edited catalog markdown → drivers.toml (no network scan)
+    /// Apply an edited catalog markdown → device files (no network scan)
     #[arg(long)]
     apply_catalog: Option<PathBuf>,
 }
@@ -106,7 +111,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     if let Some(catalog) = &args.apply_catalog {
-        return apply_catalog(catalog, &args.out, &args.catalog);
+        return apply_catalog(catalog, &args.devices_dir, &args.settings, &args.catalog);
     }
 
     if args.low > args.high {
@@ -212,21 +217,17 @@ async fn main() -> Result<()> {
     }
 
     let merge = args.merge && !args.no_merge;
-    let drivers = if merge && args.out.is_file() {
-        match DriversFile::load(&args.out) {
-            Ok(prev) => {
-                eprintln!(
-                    "Merging enabled flags from {} ({} prior device(s))",
-                    args.out.display(),
-                    prev.devices.len()
-                );
-                merge_enabled_flags(drivers, &prev.devices)
-            }
-            Err(err) => {
-                eprintln!("WARN: could not merge prior drivers ({err:#})");
-                drivers
-            }
-        }
+    let previous = if merge {
+        load_previous_devices(&args.devices_dir)
+    } else {
+        Vec::new()
+    };
+    let drivers = if merge && !previous.is_empty() {
+        eprintln!(
+            "Merging enabled flags from {} prior device(s)",
+            previous.len()
+        );
+        merge_enabled_flags(drivers, &previous)
     } else {
         drivers
     };
@@ -237,17 +238,54 @@ async fn main() -> Result<()> {
         args.high,
         drivers.len()
     );
-    write_drivers_bundle(&drivers, &args.out, &args.catalog, &header)?;
+    write_drivers_bundle(
+        &drivers,
+        &args.devices_dir,
+        &args.settings,
+        &args.catalog,
+        &header,
+    )?;
     eprintln!(
-        "\nWrote {} device driver(s):\n  {}\n  {}\nRestart bacnet_app to poll into data/feather_store/telemetry.feather",
+        "\nWrote {} device driver(s) to {}:",
         drivers.len(),
-        args.out.display(),
+        args.devices_dir.display()
+    );
+    for d in &drivers {
+        eprintln!(
+            "  {} — {} (instance {})",
+            openfdd_bacnet_feather_concept::drivers_file::device_filename(d),
+            d.name,
+            d.device_instance
+        );
+    }
+    eprintln!(
+        "  {}\n  {}\nRestart bacnet_app to poll into data/feather_store/telemetry.feather",
+        args.settings.display(),
         args.catalog.display()
     );
     Ok(())
 }
 
-fn apply_catalog(catalog: &PathBuf, drivers_out: &PathBuf, catalog_out: &PathBuf) -> Result<()> {
+fn load_previous_devices(devices_dir: &PathBuf, legacy: &PathBuf) -> Vec<DeviceConfig> {
+    if let Ok(devs) = load_devices_from_dir(devices_dir) {
+        if !devs.is_empty() {
+            return devs;
+        }
+    }
+    if legacy.is_file() {
+        if let Ok(file) = DriversFile::load(legacy) {
+            return file.devices;
+        }
+    }
+    Vec::new()
+}
+
+fn apply_catalog(
+    catalog: &PathBuf,
+    devices_dir: &PathBuf,
+    settings: &PathBuf,
+    catalog_out: &PathBuf,
+) -> Result<()> {
     let md = std::fs::read_to_string(catalog)
         .with_context(|| format!("reading catalog {}", catalog.display()))?;
     let toml_text = extract_toml_from_catalog(&md)?;
@@ -261,10 +299,16 @@ fn apply_catalog(catalog: &PathBuf, drivers_out: &PathBuf, catalog_out: &PathBuf
         catalog.display(),
         file.devices.len()
     );
-    write_drivers_bundle(&file.devices, drivers_out, catalog_out, &header)?;
+    write_drivers_bundle(
+        &file.devices,
+        devices_dir,
+        settings,
+        catalog_out,
+        &header,
+    )?;
     eprintln!(
-        "Applied catalog → {} ({} device(s))",
-        drivers_out.display(),
+        "Applied catalog → {} ({} device file(s))",
+        devices_dir.display(),
         file.devices.len()
     );
     Ok(())
@@ -318,7 +362,7 @@ async fn discover_driver(
         anyhow::bail!("no pollable points on object-list");
     }
 
-    // Devices that expose DUCT-T are good APP-FAULT / clone-source candidates.
+    // Devices with DUCT-T are good APP-FAULT critical candidates.
     let critical = points
         .iter()
         .any(|p| p.point_name.eq_ignore_ascii_case("DUCT-T"));

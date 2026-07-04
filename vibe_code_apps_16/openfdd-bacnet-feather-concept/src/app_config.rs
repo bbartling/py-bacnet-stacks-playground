@@ -27,6 +27,27 @@ pub struct AppConfig {
     pub poller: PollerConfig,
     #[serde(default)]
     pub weather: WeatherConfig,
+    #[serde(default)]
+    pub drivers: DriversLayoutConfig,
+}
+
+/// Where per-device BAS driver TOMLs live (one file per discovered device).
+#[derive(Debug, Clone, Deserialize)]
+pub struct DriversLayoutConfig {
+    #[serde(default = "default_devices_dir")]
+    pub devices_dir: PathBuf,
+}
+
+fn default_devices_dir() -> PathBuf {
+    PathBuf::from(crate::drivers_file::DEFAULT_DEVICES_DIR)
+}
+
+impl Default for DriversLayoutConfig {
+    fn default() -> Self {
+        Self {
+            devices_dir: default_devices_dir(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,13 +91,6 @@ pub struct ServerConfig {
     pub broadcast: Option<Ipv4Addr>,
     #[serde(default = "default_server_update_secs")]
     pub value_update_secs: u64,
-    #[serde(default = "default_ai_instance")]
-    pub temp_object_instance: u32,
-    #[serde(default = "default_temp_name")]
-    pub temp_point_name: String,
-    /// Field `point_name` that feeds the clone AV (must match a poller point).
-    #[serde(default = "default_clone_from")]
-    pub clone_from_point: String,
     #[serde(default = "default_status_instance")]
     pub status_object_instance: u32,
     #[serde(default = "default_status_name")]
@@ -101,15 +115,6 @@ fn default_nic() -> String {
 fn default_server_update_secs() -> u64 {
     2
 }
-fn default_ai_instance() -> u32 {
-    1
-}
-fn default_temp_name() -> String {
-    "5007-duct-t-clone".into()
-}
-fn default_clone_from() -> String {
-    "DUCT-T".into()
-}
 fn default_status_instance() -> u32 {
     1
 }
@@ -128,9 +133,6 @@ impl Default for ServerConfig {
             address: None,
             broadcast: None,
             value_update_secs: default_server_update_secs(),
-            temp_object_instance: default_ai_instance(),
-            temp_point_name: default_temp_name(),
-            clone_from_point: default_clone_from(),
             status_object_instance: default_status_instance(),
             status_point_name: default_status_name(),
         }
@@ -188,7 +190,7 @@ pub struct DeviceConfig {
     /// Phase offset so devices don't all scrape on the same second.
     #[serde(default)]
     pub offset_secs: u64,
-    /// When true, failures raise APP-FAULT (clone source device).
+    /// When true, poll failures / staleness raise APP-FAULT on the mini-device.
     #[serde(default)]
     pub critical: bool,
     #[serde(default)]
@@ -386,12 +388,11 @@ impl AppConfig {
         Ok(cfg.with_drivers_overlay())
     }
 
-    /// Prefer `config/drivers.toml` (from `bas_scan`) over inline `poller.devices`.
+    /// Prefer `config/drivers/devices/*.toml` (from `bas_scan`) over inline `poller.devices`.
     fn with_drivers_overlay(mut self) -> Self {
-        let drivers_path = Path::new("config/drivers.toml");
-        self.poller.devices = crate::drivers_file::DriversFile::load_devices_or(
+        self.poller.devices = crate::drivers_file::load_devices_or(
             self.poller.devices,
-            drivers_path,
+            &self.drivers.devices_dir,
         );
         self
     }
@@ -430,6 +431,8 @@ pub struct WeatherConfig {
     pub wind_object_instance: u32,
     #[serde(default = "default_wx_dp_inst")]
     pub dewpoint_object_instance: u32,
+    #[serde(default = "default_wx_loc_inst")]
+    pub location_object_instance: u32,
     #[serde(default = "default_wx_temp_name")]
     pub temp_point_name: String,
     #[serde(default = "default_wx_rh_name")]
@@ -438,6 +441,8 @@ pub struct WeatherConfig {
     pub wind_point_name: String,
     #[serde(default = "default_wx_dp_name")]
     pub dewpoint_point_name: String,
+    #[serde(default = "default_wx_loc_name")]
+    pub location_point_name: String,
 }
 
 fn default_weather_city() -> String {
@@ -456,15 +461,18 @@ fn default_fallback_wind() -> f64 {
     0.0
 }
 fn default_wx_temp_inst() -> u32 {
-    2
+    1
 }
 fn default_wx_rh_inst() -> u32 {
-    3
+    2
 }
 fn default_wx_wind_inst() -> u32 {
-    4
+    3
 }
 fn default_wx_dp_inst() -> u32 {
+    4
+}
+fn default_wx_loc_inst() -> u32 {
     5
 }
 fn default_wx_temp_name() -> String {
@@ -478,6 +486,9 @@ fn default_wx_wind_name() -> String {
 }
 fn default_wx_dp_name() -> String {
     "OA-WEATHER-DP".into()
+}
+fn default_wx_loc_name() -> String {
+    "OA-WEATHER-LOC".into()
 }
 
 impl Default for WeatherConfig {
@@ -493,10 +504,12 @@ impl Default for WeatherConfig {
             humidity_object_instance: default_wx_rh_inst(),
             wind_object_instance: default_wx_wind_inst(),
             dewpoint_object_instance: default_wx_dp_inst(),
+            location_object_instance: default_wx_loc_inst(),
             temp_point_name: default_wx_temp_name(),
             humidity_point_name: default_wx_rh_name(),
             wind_point_name: default_wx_wind_name(),
             dewpoint_point_name: default_wx_dp_name(),
+            location_point_name: default_wx_loc_name(),
         }
     }
 }
@@ -508,6 +521,7 @@ impl Default for AppConfig {
             server: ServerConfig::default(),
             poller: PollerConfig::default(),
             weather: WeatherConfig::default(),
+            drivers: DriversLayoutConfig::default(),
         }
     }
 }

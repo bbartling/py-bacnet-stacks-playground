@@ -91,7 +91,6 @@ pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result
     let tick = Duration::from_millis(cfg.poller.tick_ms.max(50));
     let max_concurrent = cfg.poller.max_concurrent.max(1);
     let default_interval = cfg.poller.interval_secs.max(1);
-    let clone_from = cfg.server.clone_from_point.clone();
 
     info!(
         "poller bind={bind}:0 (ephemeral) broadcast={broadcast} tick={}ms max_concurrent={max_concurrent} devices={}",
@@ -172,9 +171,8 @@ pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result
                 let client = Arc::clone(&client);
                 let store_path = store_path.clone();
                 let feather_lock = Arc::clone(&feather_lock);
-                let clone_from = clone_from.clone();
                 handles.push(tokio::spawn(async move {
-                    scrape_device(&client, &device, &store_path, &feather_lock, &clone_from).await
+                    scrape_device(&client, &device, &store_path, &feather_lock).await
                 }));
                 // Reserve slot: push next_due forward so we don't double-schedule
                 // while the scrape is in flight.
@@ -190,11 +188,11 @@ pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result
                 }
             }
 
-            apply_scrape_results(&mut runtimes, &results, &state, &clone_from).await;
+            apply_scrape_results(&mut runtimes, &results).await;
         }
 
         // Stale critical devices → APP-FAULT even if no scrape ran this tick.
-        refresh_fault_from_runtimes(&runtimes, &state, &clone_from).await;
+        refresh_fault_from_runtimes(&runtimes, &state).await;
 
         tokio::time::sleep(tick).await;
     }
@@ -203,7 +201,6 @@ pub async fn run_poller_forever(cfg: AppConfig, state: AppStateHandle) -> Result
 struct ScrapeResult {
     device_name: String,
     ok: bool,
-    duct_t: Option<f64>,
     reason: String,
 }
 
@@ -212,13 +209,11 @@ async fn scrape_device(
     device: &DeviceConfig,
     store_path: &Path,
     feather_lock: &Mutex<()>,
-    clone_from: &str,
 ) -> ScrapeResult {
     let started = Instant::now();
     let points: Vec<&DevicePointConfig> = device.points.iter().filter(|p| p.enabled).collect();
     let mut rows = Vec::with_capacity(points.len());
     let mut failures = Vec::new();
-    let mut duct_t = None;
 
     info!(
         "scrape start \"{}\" id={} ({} points)",
@@ -240,9 +235,6 @@ async fn scrape_device(
                     row.present_value,
                     row.units
                 );
-                if device.critical && row.point_name.eq_ignore_ascii_case(clone_from) {
-                    duct_t = Some(row.present_value);
-                }
                 rows.push(row);
             }
             Err(err) => {
@@ -277,18 +269,12 @@ async fn scrape_device(
     }
 
     let expected = points.len();
-    let ok = failures.is_empty()
-        && feather_err.is_none()
-        && rows.len() == expected
-        && (!device.critical || duct_t.is_some());
+    let ok = failures.is_empty() && feather_err.is_none() && rows.len() == expected;
 
     let reason = if ok {
         "ok".into()
     } else {
         let mut parts = failures.clone();
-        if device.critical && duct_t.is_none() {
-            parts.push(format!("missing clone source \"{clone_from}\""));
-        }
         if let Some(fe) = &feather_err {
             parts.push(fe.clone());
         }
@@ -301,17 +287,11 @@ async fn scrape_device(
     ScrapeResult {
         device_name: device.name.clone(),
         ok,
-        duct_t,
         reason,
     }
 }
 
-async fn apply_scrape_results(
-    runtimes: &mut [DeviceRuntime],
-    results: &[ScrapeResult],
-    state: &AppStateHandle,
-    _clone_from: &str,
-) {
+async fn apply_scrape_results(runtimes: &mut [DeviceRuntime], results: &[ScrapeResult]) {
     for result in results {
         if let Some(rt) = runtimes
             .iter_mut()
@@ -329,19 +309,10 @@ async fn apply_scrape_results(
                 );
             }
         }
-
-        if let Some(v) = result.duct_t {
-            let mut s = state.write().await;
-            s.duct_t = Some(v);
-        }
     }
 }
 
-async fn refresh_fault_from_runtimes(
-    runtimes: &[DeviceRuntime],
-    state: &AppStateHandle,
-    clone_from: &str,
-) {
+async fn refresh_fault_from_runtimes(runtimes: &[DeviceRuntime], state: &AppStateHandle) {
     let mut reasons = Vec::new();
     let mut any_critical = false;
     let mut all_critical_ok = true;
@@ -381,23 +352,17 @@ async fn refresh_fault_from_runtimes(
 
     let mut s = state.write().await;
     if !any_critical {
-        // No critical device configured — fault if we never got duct_t.
-        if s.duct_t.is_none() {
-            s.fault = true;
-            s.fault_reason = format!("no critical device; missing \"{clone_from}\"");
-        }
+        s.fault = false;
+        s.fault_reason = "ok (no critical devices)".into();
         return;
     }
 
-    if all_critical_ok && s.duct_t.is_some() {
+    if all_critical_ok {
         s.fault = false;
         s.fault_reason = "ok".into();
         s.last_ok_at = Some(Instant::now());
     } else {
         s.fault = true;
-        if s.duct_t.is_none() {
-            reasons.push(format!("missing clone source \"{clone_from}\""));
-        }
         s.fault_reason = if reasons.is_empty() {
             "critical device unhealthy".into()
         } else {

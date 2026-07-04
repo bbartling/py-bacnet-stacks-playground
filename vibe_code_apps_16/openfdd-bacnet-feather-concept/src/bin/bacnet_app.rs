@@ -17,12 +17,11 @@ async fn main() -> Result<()> {
     let cfg = AppConfig::load().context("loading config")?;
     info!("starting openfdd-bacnet-feather-concept (mimic-style BIP server)");
     info!(
-        "store={} device={} \"{}\" UDP :{} clone=\"{}\" status=\"{}\" weather=\"{}\" every {}s",
+        "store={} device={} \"{}\" UDP :{} status=\"{}\" weather=\"{}\" every {}s",
         cfg.feather_store_path().display(),
         cfg.server.instance,
         cfg.server.name,
         cfg.server.port,
-        cfg.server.temp_point_name,
         cfg.server.status_point_name,
         cfg.weather.city,
         cfg.weather.interval_secs

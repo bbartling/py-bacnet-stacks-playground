@@ -1,14 +1,13 @@
 # openfdd-bacnet-feather-concept
 
-**Enhanced [openfdd-bacnet-mimic](../openfdd-bacnet-mimic/)** — Workbench-friendly BIP server + field poll → Feather → clone AV + app-fault BI.
+**Enhanced [openfdd-bacnet-mimic](../openfdd-bacnet-mimic/)** — Workbench-friendly BIP server + field poll → Feather + Open-Meteo weather AVs + app-fault BI.
 
 | Piece | Value |
 |-------|--------|
 | Device name | `openfdd-bacnet-feather-concept` |
 | Device instance | **5000** |
 | UDP port | **47808** (server **only**) |
-| Clone point | **AV:1** `5007-duct-t-clone` (**°F**, BACnet units=64) |
-| Weather | **AV:2–5** Open-Meteo outdoor T / RH / wind / dewpoint (Madison WI, every 20 min) |
+| Weather | **AV:1–4** Open-Meteo outdoor T / RH / wind / dewpoint + **CSV:5** location label (Madison WI, every 20 min) |
 | Status point | **BI:1** `APP-FAULT` (**active = FAULT**, inactive = OK) |
 | Field poll | Multi-device scheduler (VOLTTRON-inspired): **BENS-BENCH** (5007) + **BensFakeAhu** (Pi) |
 | Config | [`config/config.toml`](./config/config.toml) |
@@ -26,35 +25,51 @@ cargo run --release --bin bacnet_app
 cargo run --release --bin feather_tail
 ```
 
-## BAS auto-scan → AI-editable drivers
+## BAS auto-scan → per-device driver files
 
-`bas_scan` (Who-Is + object-list, inspired by rusty-bacnet `whois-scan` / `point-discover`) writes:
+`bas_scan` (Who-Is + object-list) writes **one TOML per device** — no more scrolling through a 600-line monolith.
 
-| File | Role |
+| Path | Role |
 |------|------|
-| [`config/drivers.toml`](./config/drivers.toml) | **Live poll list** — `bacnet_app` loads this over inline `poller.devices` |
-| [`config/drivers.catalog.md`](./config/drivers.catalog.md) | Tables + full TOML for ChatGPT / agents |
+| [`config/config.toml`](./config/config.toml) | App settings (server, weather, poller scheduler) |
+| [`config/drivers/settings.toml`](./config/drivers/settings.toml) | Scan metadata only (not polled) |
+| [`config/drivers/devices/*.toml`](./config/drivers/devices/) | **One file per device** — delete file = exclude from polling |
+| [`config/drivers/catalog.md`](./config/drivers/catalog.md) | Tables + monolithic TOML for ChatGPT / agents |
+
+Example device file: `config/drivers/devices/5007-bens-benchestest-box.toml`
+
+```toml
+name = "BENS-BENCHTEST-BOX"
+device_instance = 5007
+host = "192.168.204.200"
+# ...
+
+[[points]]
+point_name = "DUCT-T"
+object_type = "analog-input"
+object_instance = 1192
+```
 
 ```bash
 # Best results: stop bacnet_app so the scanner can bind UDP 47808 (broadcast I-Am)
 pkill -f 'target/release/bacnet_app' || true
 cargo run --release --bin bas_scan -- --low 1 --high 4194302 --on-bac0 --merge
-cargo run --release --bin bacnet_app &
 
-# Narrow range example
-cargo run --release --bin bas_scan -- --low 5000 --high 6000 --on-bac0 --merge
-
-# --ephemeral keeps bacnet_app up but often misses broadcast I-Am replies
+# Trim: delete unwanted device files, or set enabled = false on device/points
+# Then start polling:
+cargo run --release --bin bacnet_app
 ```
 
-**AI / human edit:** set `enabled = false` on devices or points you do not want, save `drivers.toml` (or edit the catalog and apply):
+**Edit options:**
+
+- **Recommended:** edit or delete files under `config/drivers/devices/`
+- **Catalog apply:** edit monolithic TOML in `catalog.md` and run:
 
 ```bash
-cargo run --release --bin bas_scan -- --apply-catalog config/drivers.catalog.md
-# then restart bacnet_app
+cargo run --release --bin bas_scan -- --apply-catalog config/drivers/catalog.md
 ```
 
-`--merge` keeps prior `enabled=false` / `critical` / renames across re-scans. Local mini-device (`server.instance`, default 5000) is skipped automatically.
+`--merge` keeps prior `enabled=false` / `critical` / renames across re-scans. Legacy `config/drivers.toml` is auto-migrated into `devices/` on first load.
 
 ## Multi-device poller (VOLTTRON-inspired)
 
@@ -213,7 +228,7 @@ UDP :ephemeral ← poller (routed ReadProperty to field 5007)
 Field devices (staggered scrapes):
   BENS-BENCH  5007 @ .200 routed MSTP   interval=10s offset=0  critical
   BensFakeAhu 3456789 @ .13 BIP direct  interval=10s offset=5s
-Clone: AV:1 5007-duct-t-clone (units °F = 64) ← DUCT-T only
+Weather: AV:1–4 OA-WEATHER-* (Open-Meteo every 20 min)
 Fault: BI:1 APP-FAULT (active=FAULT / inactive=OK) ← critical devices only
 Store: data/feather_store/telemetry.feather  (Arrow IPC / Feather, append)
 ```
@@ -225,5 +240,5 @@ Store: data/feather_store/telemetry.feather  (Arrow IPC / Feather, append)
 | Name | `openfdd-bacnet-feather-concept` |
 | Device ID | **device:5000** |
 | MAC | `192.168.204.55:0xBAC0` |
-| Point | `5007-duct-t-clone` in **°F** (not °C) |
+| Point | `OA-WEATHER-T` (AV:1) — outdoor dry-bulb from Open-Meteo |
 | Point | `APP-FAULT` — **OK** when polls healthy, **FAULT** when not |

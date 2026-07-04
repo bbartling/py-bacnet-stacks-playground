@@ -45,6 +45,8 @@ async fn main() -> Result<()> {
     let wx_temp_name = cfg.weather.temp_point_name.clone();
     let wx_rh_inst = cfg.weather.humidity_object_instance;
     let wx_dp_inst = cfg.weather.dewpoint_object_instance;
+    let wx_loc_inst = cfg.weather.location_object_instance;
+    let wx_loc_name = cfg.weather.location_point_name.clone();
     let wx_city = cfg.weather.city.clone();
 
     let bind = cfg
@@ -80,6 +82,7 @@ async fn main() -> Result<()> {
     let wx_temp_oid = ObjectIdentifier::new(ObjectType::ANALOG_VALUE, wx_temp_inst)?;
     let wx_rh_oid = ObjectIdentifier::new(ObjectType::ANALOG_VALUE, wx_rh_inst)?;
     let wx_dp_oid = ObjectIdentifier::new(ObjectType::ANALOG_VALUE, wx_dp_inst)?;
+    let wx_loc_oid = ObjectIdentifier::new(ObjectType::CHARACTERSTRING_VALUE, wx_loc_inst)?;
     let bi_oid = ObjectIdentifier::new(ObjectType::BINARY_INPUT, bi_inst)?;
 
     let mut seen_rows = if store_path.is_file() {
@@ -142,6 +145,7 @@ async fn main() -> Result<()> {
                 Ok(temp_f) => {
                     let rh = read_optional_real(&client, &server_mac, wx_rh_oid).await;
                     let dp = read_optional_real(&client, &server_mac, wx_dp_oid).await;
+                    let loc = read_optional_string(&client, &server_mac, wx_loc_oid).await;
                     // Madison outdoor temps are almost never exactly the fallback 70.0 after a live fetch.
                     // Accept any finite reading in a wide outdoor band as PASS (API or intentional fallback).
                     let plausible = temp_f.is_finite() && (-40.0..=130.0).contains(&temp_f);
@@ -154,6 +158,9 @@ async fn main() -> Result<()> {
                         }
                         if let Some(dp) = dp {
                             print!(" DP={dp:.1}°F");
+                        }
+                        if let Some(loc) = loc {
+                            print!(" {wx_loc_name}=\"{loc}\"");
                         }
                         println!("  {status_label}");
                     } else {
@@ -204,6 +211,22 @@ async fn main() -> Result<()> {
         }
 
         tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
+async fn read_optional_string(
+    client: &BACnetClient<bacnet_transport::bip::BipTransport>,
+    mac: &[u8],
+    oid: ObjectIdentifier,
+) -> Option<String> {
+    let ack = client
+        .read_property(mac, oid, PropertyIdentifier::PRESENT_VALUE, None)
+        .await
+        .ok()?;
+    let (val, _) = decode_application_value(&ack.property_value, 0).ok()?;
+    match val {
+        PropertyValue::CharacterString(s) => Some(s),
+        _ => None,
     }
 }
 

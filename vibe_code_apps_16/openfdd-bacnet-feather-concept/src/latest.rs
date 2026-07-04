@@ -22,8 +22,6 @@ pub struct WeatherReading {
 /// Live state mirrored onto the mini-device.
 #[derive(Debug, Clone)]
 pub struct AppState {
-    /// Latest successful DUCT-T reading (°F) for AV clone.
-    pub duct_t: Option<f64>,
     /// Outdoor weather (API or fallback).
     pub weather: Option<WeatherReading>,
     /// `true` = FAULT (active on BI); `false` = healthy (inactive).
@@ -37,7 +35,6 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            duct_t: None,
             weather: None,
             // Start in fault until the first healthy poll cycle.
             fault: true,

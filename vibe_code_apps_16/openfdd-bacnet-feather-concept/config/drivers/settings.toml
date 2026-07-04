@@ -1,0 +1,18 @@
+# =============================================================================
+# BAS driver bundle settings (scan metadata — not polled)
+# =============================================================================
+# App scheduler (tick_ms, max_concurrent) lives in config/config.toml.
+#
+# Per-device poll targets: config/drivers/devices/<instance>-<name>.toml
+#   - Delete a file → device never loaded
+#   - enabled = false → file kept, polls skipped
+#   - [[points]] with enabled = false → skip individual points
+#
+# Re-scan (preserves enabled flags with --merge):
+#   cargo run --release --bin bas_scan -- --low 1 --high 4194302 --on-bac0 --merge
+#
+# Companion catalog: config/drivers/catalog.md
+#
+# applied_from = config/drivers.catalog.md
+# devices = 3
+# =============================================================================
