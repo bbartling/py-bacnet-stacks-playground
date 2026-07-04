@@ -10,3 +10,4 @@ pub mod latest;
 pub mod mini_device;
 pub mod network;
 pub mod poller;
+pub mod weather;

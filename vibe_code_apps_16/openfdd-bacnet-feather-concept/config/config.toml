@@ -28,6 +28,23 @@ clone_from_point = "DUCT-T"
 status_object_instance = 1
 status_point_name = "APP-FAULT"
 
+# Open-Meteo outdoor weather → BACnet AVs (poll every 20 min; fallbacks on failure)
+[weather]
+enabled = true
+city = "Madison Wisconsin"
+interval_secs = 1200
+fallback_temp_f = 70.0
+fallback_humidity = 50.0
+fallback_wind_mph = 0.0
+temp_object_instance = 2
+temp_point_name = "OA-WEATHER-T"
+humidity_object_instance = 3
+humidity_point_name = "OA-WEATHER-RH"
+wind_object_instance = 4
+wind_point_name = "OA-WEATHER-WIND"
+dewpoint_object_instance = 5
+dewpoint_point_name = "OA-WEATHER-DP"
+
 [poller]
 # Scheduler tick (ms) and max devices scraping in parallel
 tick_ms = 250

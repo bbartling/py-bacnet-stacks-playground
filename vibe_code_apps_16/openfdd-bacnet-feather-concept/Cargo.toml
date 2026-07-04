@@ -28,9 +28,11 @@ bacnet-server = { path = "../../../rusty-bacnet/crates/bacnet-server" }
 bacnet-transport = { path = "../../../rusty-bacnet/crates/bacnet-transport" }
 bacnet-types = { path = "../../../rusty-bacnet/crates/bacnet-types" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 socket2 = { version = "0.6", features = ["all"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net", "sync"] }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+urlencoding = "2"

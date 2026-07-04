@@ -12,6 +12,10 @@ pub const VENDOR_ID: u16 = 999;
 /// Degrees Fahrenheit engineering units (BACnet).
 /// BACnet engineering units: degrees-Fahrenheit = 64 (62 is Celsius — Workbench shows °C if wrong).
 pub const TEMP_UNITS_DEGREES_F: u32 = 64;
+/// Percent relative humidity (BACnet engineering units).
+pub const UNITS_PERCENT_RH: u32 = 29;
+/// Miles per hour (BACnet engineering units).
+pub const UNITS_MILES_PER_HOUR: u32 = 72;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
@@ -21,6 +25,8 @@ pub struct AppConfig {
     pub server: ServerConfig,
     #[serde(default)]
     pub poller: PollerConfig,
+    #[serde(default)]
+    pub weather: WeatherConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -389,12 +395,109 @@ impl AppConfig {
     }
 }
 
+/// Open-Meteo outdoor weather → BACnet AVs (polled on a slow interval).
+#[derive(Debug, Clone, Deserialize)]
+pub struct WeatherConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// City for geocoding (default Madison Wisconsin).
+    #[serde(default = "default_weather_city")]
+    pub city: String,
+    /// How often to call Open-Meteo (default 20 minutes).
+    #[serde(default = "default_weather_interval")]
+    pub interval_secs: u64,
+    #[serde(default = "default_fallback_temp")]
+    pub fallback_temp_f: f64,
+    #[serde(default = "default_fallback_humidity")]
+    pub fallback_humidity: f64,
+    #[serde(default = "default_fallback_wind")]
+    pub fallback_wind_mph: f64,
+    #[serde(default = "default_wx_temp_inst")]
+    pub temp_object_instance: u32,
+    #[serde(default = "default_wx_rh_inst")]
+    pub humidity_object_instance: u32,
+    #[serde(default = "default_wx_wind_inst")]
+    pub wind_object_instance: u32,
+    #[serde(default = "default_wx_dp_inst")]
+    pub dewpoint_object_instance: u32,
+    #[serde(default = "default_wx_temp_name")]
+    pub temp_point_name: String,
+    #[serde(default = "default_wx_rh_name")]
+    pub humidity_point_name: String,
+    #[serde(default = "default_wx_wind_name")]
+    pub wind_point_name: String,
+    #[serde(default = "default_wx_dp_name")]
+    pub dewpoint_point_name: String,
+}
+
+fn default_weather_city() -> String {
+    "Madison Wisconsin".into()
+}
+fn default_weather_interval() -> u64 {
+    1200
+}
+fn default_fallback_temp() -> f64 {
+    70.0
+}
+fn default_fallback_humidity() -> f64 {
+    50.0
+}
+fn default_fallback_wind() -> f64 {
+    0.0
+}
+fn default_wx_temp_inst() -> u32 {
+    2
+}
+fn default_wx_rh_inst() -> u32 {
+    3
+}
+fn default_wx_wind_inst() -> u32 {
+    4
+}
+fn default_wx_dp_inst() -> u32 {
+    5
+}
+fn default_wx_temp_name() -> String {
+    "OA-WEATHER-T".into()
+}
+fn default_wx_rh_name() -> String {
+    "OA-WEATHER-RH".into()
+}
+fn default_wx_wind_name() -> String {
+    "OA-WEATHER-WIND".into()
+}
+fn default_wx_dp_name() -> String {
+    "OA-WEATHER-DP".into()
+}
+
+impl Default for WeatherConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            city: default_weather_city(),
+            interval_secs: default_weather_interval(),
+            fallback_temp_f: default_fallback_temp(),
+            fallback_humidity: default_fallback_humidity(),
+            fallback_wind_mph: default_fallback_wind(),
+            temp_object_instance: default_wx_temp_inst(),
+            humidity_object_instance: default_wx_rh_inst(),
+            wind_object_instance: default_wx_wind_inst(),
+            dewpoint_object_instance: default_wx_dp_inst(),
+            temp_point_name: default_wx_temp_name(),
+            humidity_point_name: default_wx_rh_name(),
+            wind_point_name: default_wx_wind_name(),
+            dewpoint_point_name: default_wx_dp_name(),
+        }
+    }
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             store: StoreConfig::default(),
             server: ServerConfig::default(),
             poller: PollerConfig::default(),
+            weather: WeatherConfig::default(),
         }
     }
 }

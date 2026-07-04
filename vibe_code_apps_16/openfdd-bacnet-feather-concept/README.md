@@ -8,6 +8,7 @@
 | Device instance | **5000** |
 | UDP port | **47808** (server **only**) |
 | Clone point | **AV:1** `5007-duct-t-clone` (**°F**, BACnet units=64) |
+| Weather | **AV:2–5** Open-Meteo outdoor T / RH / wind / dewpoint (Madison WI, every 20 min) |
 | Status point | **BI:1** `APP-FAULT` (**active = FAULT**, inactive = OK) |
 | Field poll | Multi-device scheduler (VOLTTRON-inspired): **BENS-BENCH** (5007) + **BensFakeAhu** (Pi) |
 | Config | [`config/config.toml`](./config/config.toml) |
@@ -62,6 +63,21 @@ bacpypes3 fake AHU on Raspberry Pi — all points except `device` and `networkPo
 | SF-S | BI:1 | bool (1=Active) |
 | SF-C | BO:1 | bool |
 | Occ-Schedule | MSV:1 | state |
+
+## Outdoor weather (Open-Meteo)
+
+Polled every `weather.interval_secs` (default **1200** = 20 min). First fetch runs immediately at startup; on API failure the configured fallbacks are written to the AVs.
+
+| Point | Object | Source |
+|-------|--------|--------|
+| `OA-WEATHER-T` | AV:2 | Dry-bulb °F |
+| `OA-WEATHER-RH` | AV:3 | Relative humidity % |
+| `OA-WEATHER-WIND` | AV:4 | Wind mph |
+| `OA-WEATHER-DP` | AV:5 | Dewpoint °F (Magnus from T+RH when not used from API) |
+
+Default city: **Madison Wisconsin** (`weather.city`).
+
+`feather_tail` validates by reading **`OA-WEATHER-T`** present-value over BACnet.
 
 ## APP-FAULT (BI:1)
 
