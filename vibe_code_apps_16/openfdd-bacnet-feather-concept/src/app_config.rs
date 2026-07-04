@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Open-FDD-style vendor id for the concept mini-device.
 pub const VENDOR_ID: u16 = 999;
@@ -171,7 +171,7 @@ fn default_poll_interval() -> u64 {
 }
 
 /// One BACnet device (driver) — analogous to a VOLTTRON platform.driver config.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DeviceConfig {
     pub name: String,
     #[serde(default = "default_true")]
@@ -199,7 +199,7 @@ fn default_bacnet_port() -> u16 {
     47808
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DevicePointConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -368,7 +368,7 @@ impl AppConfig {
             }
         }
         tracing::warn!("no config/config.toml found — using built-in defaults");
-        Ok(Self::default())
+        Ok(Self::default().with_drivers_overlay())
     }
 
     pub fn load_from(path: &Path) -> Result<Self> {
@@ -377,13 +377,23 @@ impl AppConfig {
                 "config {} not found — using built-in defaults",
                 path.display()
             );
-            return Ok(Self::default());
+            return Ok(Self::default().with_drivers_overlay());
         }
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("reading config {}", path.display()))?;
         let cfg: Self = toml::from_str(&text)
             .with_context(|| format!("parsing config {}", path.display()))?;
-        Ok(cfg)
+        Ok(cfg.with_drivers_overlay())
+    }
+
+    /// Prefer `config/drivers.toml` (from `bas_scan`) over inline `poller.devices`.
+    fn with_drivers_overlay(mut self) -> Self {
+        let drivers_path = Path::new("config/drivers.toml");
+        self.poller.devices = crate::drivers_file::DriversFile::load_devices_or(
+            self.poller.devices,
+            drivers_path,
+        );
+        self
     }
 
     pub fn feather_store_folder(&self) -> PathBuf {

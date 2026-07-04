@@ -181,13 +181,11 @@ def main() -> int:
         view.to_csv(args.csv, index=args.wide)
         print(f"\nwrote {args.csv}")
 
-    # Exit 0 only if both expected lab devices appear (when not filtering).
+    # Exit 0 when the store has at least one device with rows.
     if not args.device:
-        names = {str(n).lower() for n in df["device_name"].dropna().unique()}
-        need = {"bens-bench", "bensfakeahu"}
-        missing = need - names
-        if missing:
-            print(f"\nWARN: missing devices in store: {sorted(missing)}", file=sys.stderr)
+        names = {str(n) for n in df["device_name"].dropna().unique() if str(n).strip()}
+        if not names:
+            print("\nWARN: no device_name values in store", file=sys.stderr)
             return 2
 
     return 0

@@ -5,6 +5,7 @@
 //! - `feather_tail` — reads completed `.feather` files (terminal 2)
 
 pub mod app_config;
+pub mod drivers_file;
 pub mod feather_store;
 pub mod latest;
 pub mod mini_device;

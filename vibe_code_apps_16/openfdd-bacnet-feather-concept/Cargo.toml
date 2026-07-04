@@ -18,6 +18,10 @@ path = "src/bin/bacnet_app.rs"
 name = "feather_tail"
 path = "src/bin/feather_tail.rs"
 
+[[bin]]
+name = "bas_scan"
+path = "src/bin/bas_scan.rs"
+
 [dependencies]
 anyhow = "1"
 arrow = { version = "54", default-features = false, features = ["ipc"] }
@@ -25,9 +29,12 @@ bacnet-client = { path = "../../../rusty-bacnet/crates/bacnet-client" }
 bacnet-encoding = { path = "../../../rusty-bacnet/crates/bacnet-encoding" }
 bacnet-objects = { path = "../../../rusty-bacnet/crates/bacnet-objects" }
 bacnet-server = { path = "../../../rusty-bacnet/crates/bacnet-server" }
+bacnet-services = { path = "../../../rusty-bacnet/crates/bacnet-services" }
 bacnet-transport = { path = "../../../rusty-bacnet/crates/bacnet-transport" }
 bacnet-types = { path = "../../../rusty-bacnet/crates/bacnet-types" }
+bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 socket2 = { version = "0.6", features = ["all"] }

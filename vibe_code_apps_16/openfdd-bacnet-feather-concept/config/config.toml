@@ -53,6 +53,8 @@ max_concurrent = 2
 interval_secs = 10
 bind = "192.168.204.55"
 broadcast = "192.168.204.255"
+# Device drivers: prefer config/drivers.toml (from bas_scan / AI edit).
+# Inline [[poller.devices]] below are fallbacks when drivers.toml is missing.
 
 # -----------------------------------------------------------------------------
 # BENS BENCH TEST BOX — MSTP behind BIP router (critical = APP-FAULT + clone)

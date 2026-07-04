@@ -26,6 +26,36 @@ cargo run --release --bin bacnet_app
 cargo run --release --bin feather_tail
 ```
 
+## BAS auto-scan → AI-editable drivers
+
+`bas_scan` (Who-Is + object-list, inspired by rusty-bacnet `whois-scan` / `point-discover`) writes:
+
+| File | Role |
+|------|------|
+| [`config/drivers.toml`](./config/drivers.toml) | **Live poll list** — `bacnet_app` loads this over inline `poller.devices` |
+| [`config/drivers.catalog.md`](./config/drivers.catalog.md) | Tables + full TOML for ChatGPT / agents |
+
+```bash
+# Best results: stop bacnet_app so the scanner can bind UDP 47808 (broadcast I-Am)
+pkill -f 'target/release/bacnet_app' || true
+cargo run --release --bin bas_scan -- --low 1 --high 4194302 --on-bac0 --merge
+cargo run --release --bin bacnet_app &
+
+# Narrow range example
+cargo run --release --bin bas_scan -- --low 5000 --high 6000 --on-bac0 --merge
+
+# --ephemeral keeps bacnet_app up but often misses broadcast I-Am replies
+```
+
+**AI / human edit:** set `enabled = false` on devices or points you do not want, save `drivers.toml` (or edit the catalog and apply):
+
+```bash
+cargo run --release --bin bas_scan -- --apply-catalog config/drivers.catalog.md
+# then restart bacnet_app
+```
+
+`--merge` keeps prior `enabled=false` / `critical` / renames across re-scans. Local mini-device (`server.instance`, default 5000) is skipped automatically.
+
 ## Multi-device poller (VOLTTRON-inspired)
 
 Each `[[poller.devices]]` entry is a driver (see [volttron-platform-driver](https://github.com/eclipse-volttron/volttron-platform-driver)):
