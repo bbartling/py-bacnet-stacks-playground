@@ -1,6 +1,8 @@
 # Performance, loading paths, and pitfalls (App 19)
 
-Guide for AI agents and vibe-coders building on this stack. Read before adding data loaders, new pages, or alternate front ends.
+Guide for AI agents and vibe-coders building on this stack. **Read before adding data loaders, new pages, or alternate front ends.**
+
+**Related:** [`DATA_CONTRACT.md`](../DATA_CONTRACT.md) · [`../AGENTS.md`](../AGENTS.md) (AI quick rules)
 
 ---
 

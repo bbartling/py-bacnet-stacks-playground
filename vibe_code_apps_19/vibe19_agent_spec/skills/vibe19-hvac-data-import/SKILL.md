@@ -16,14 +16,22 @@ description: >-
 
 ## Configure data root
 
-**Option A — env (CI / one-off):**
+**Option A — `.env` (recommended):**
+
+```powershell
+# Copy vibe_code_apps_19/.env.example → .env
+HVAC_DATA_ROOT=./data/hvac_systems_CLEANED
+HVAC_BUILDING=BUILDING_100
+```
+
+**Option B — env vars (CI / one-off):**
 
 ```powershell
 $env:HVAC_DATA_ROOT = "C:/path/to/hvac_systems_CLEANED"
 $env:HVAC_BUILDING = "BUILDING_100"
 ```
 
-**Option B — local file (dev):**
+**Option C — local file (dev):**
 
 Copy [`data_paths.example.yaml`](../../../data_paths.example.yaml) → `data_paths.local.yaml` (gitignored).
 
@@ -40,9 +48,12 @@ Exit 0 = GO. Inspect JSON: `poll_seconds`, `vav_box_count`, `ahu_weather_row_par
 
 ```python
 from shared.data_config import get_config
+from haystack_rdf.feather_cache import read_history_csv
+
 cfg = get_config()
-poll = cfg.poll_seconds()       # from manifest grid_minutes
-confirm = cfg.confirm_rows()    # default 300s persist
+df = read_history_csv(path / "history_wide.csv", tz=cfg.site_timezone())
+poll = df.attrs.get("effective_poll_seconds", cfg.poll_seconds())
+confirm = max(1, 300 // poll)
 ```
 
 **Never** hardcode `900` unless manifest says 15-min grid.

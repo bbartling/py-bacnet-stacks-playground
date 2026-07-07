@@ -18,7 +18,7 @@ Full spec: [`docs/DASHBOARD_UI_SPEC.md`](../../docs/DASHBOARD_UI_SPEC.md)
 | File | Role |
 | --- | --- |
 | `generate_dashboard.py` | Main generator — `compute_context(raw, page_id=…)`, `body_for_page()`, `write_all_pages()` |
-| `dashboard_cache.py` | Flask full-mode cache wrapper (not used by static `generate_dashboard.py` CLI) |
+| `dashboard_cache.py` | Flask: raw + context + **HTML body** cache (`get_body`) |
 | `economizer_diagnostics_page.py` | Dedicated page pattern (import from generator or standalone) |
 | `dashboard_params.py` | Tunables applied before `compute_context()` |
 
@@ -46,11 +46,14 @@ Full spec: [`docs/DASHBOARD_UI_SPEC.md`](../../docs/DASHBOARD_UI_SPEC.md)
 
 ```python
 from shared.data_config import get_config
+from haystack_rdf.feather_cache import read_history_csv
+
 cfg = get_config()
-DATA = cfg.building_dir
-WEATHER = cfg.weather_dir
-POLL_SECONDS = cfg.poll_seconds()
+df = read_history_csv(path / "history_wide.csv", tz=cfg.site_timezone())
+poll = df.attrs.get("effective_poll_seconds", cfg.poll_seconds())
 ```
+
+For static CLI generation, `load_raw_data()` in `generate_dashboard.py` uses the same pipeline.
 
 ## Plotly conventions
 

@@ -8,6 +8,19 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-07 — Agent spec review + performance / Docker / grid resampling
+
+**Done:**
+- **`timeseries_grid.py`** — sub-5-min historian → 5-min means; ≥5-min unchanged; `effective_poll_seconds` on DataFrame
+- **Feather cache**, fast path discovery, HTML body cache, shell-first Flask UX
+- **Docker deploy** replaces PythonAnywhere (`Dockerfile`, `docker-compose.yml`, `DEPLOY.md`)
+- **Agent spec revision** — AI quick rules in `vibe19_agent_spec/AGENTS.md`, updated skills, `PERFORMANCE_AND_LOADING.md`, checkpoints
+- **40/40 pytest** green (timeseries, economizer, haystack, env bootstrap)
+
+**AI agents:** start at `vibe19_agent_spec/AGENTS.md` quick rules; never SPARQL on HTTP hot path.
+
+---
+
 ## 2026-07-07 — Haystack RDF / SPARQL data model
 
 **Done:**

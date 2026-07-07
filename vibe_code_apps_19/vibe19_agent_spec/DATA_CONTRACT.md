@@ -28,7 +28,7 @@ Any building/site should conform to this layout under **`HVAC_DATA_ROOT`**. Path
   BUILDING_50/
 ```
 
-Select building with `HVAC_BUILDING` env or `building:` in `data_paths.local.yaml`.
+Select building with `HVAC_BUILDING` env, `.env` file (see `.env.example`), or `building:` in `data_paths.local.yaml`.
 
 ---
 
@@ -45,11 +45,19 @@ Select building with `HVAC_BUILDING` env or `building:` in `data_paths.local.yam
 **Agent must derive:**
 
 ```python
+from haystack_rdf.timeseries_grid import effective_poll_seconds
+
+# After load (preferred):
+poll = df.attrs.get("effective_poll_seconds")  # set by maybe_downsample_to_5min / read_history_csv
+
+# From manifest alone (before load):
 poll_seconds = max(60, int(grid_minutes * 60))
 confirm_rows = max(1, 300 // poll_seconds)  # Open-FDD default 5 min confirm
 ```
 
-Never assume 15-min (900 s) unless `grid_minutes` is 15.
+**Manifest vs actual grid:** `grid_minutes` is the declared export grid. If actual timestamp spacing is **finer than 5 minutes**, the dashboard **downsamples to 5-minute means** and sets `effective_poll_seconds = 300`. If actual spacing is **≥ 5 minutes**, data is unchanged and `effective_poll_seconds` reflects the native median (e.g. 900 for 15-min).
+
+Never assume 15-min (900 s) unless data or manifest confirms 15-min grid.
 
 ---
 

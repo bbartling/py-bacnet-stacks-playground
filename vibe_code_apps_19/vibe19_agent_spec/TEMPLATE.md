@@ -24,7 +24,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 ## Greenfield workflow (any site)
 
 1. **Export CSV tree** — Open-FDD sidecar or compatible wide history (see [Open-FDD CSV import](https://bbartling.github.io/open-fdd/drivers/csv-batch-import/))
-2. **Set paths** — `HVAC_DATA_ROOT` + `HVAC_BUILDING` or `data_paths.local.yaml`
+2. **Set paths** — copy `.env.example` → `.env` with `HVAC_DATA_ROOT` + `HVAC_BUILDING`, or use `data_paths.local.yaml`
 3. **Validate** — `python validate_data.py` until GO
 4. **Map points** — `columns.csv` `point_role` → mapping JSON for economizer / zones / plant
 5. **Adjust equipment** — rename `ahu_1`/`ahu_2` pages or add pages for your AHU count; same for chillers/boilers

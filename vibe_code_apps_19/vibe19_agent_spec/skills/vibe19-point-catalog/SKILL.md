@@ -43,7 +43,7 @@ for p in cat.by_role("airflow"):
 
 ## Data paths
 
-Uses same [`shared/data_config.py`](../../../shared/data_config.py) as simple dashboard.
+Uses same [`shared/data_config.py`](../../../shared/data_config.py) and [`read_history_csv`](../../../haystack_rdf/feather_cache.py) patterns as the simple dashboard when loading per-box history.
 
 ## Implementing VAV rules
 

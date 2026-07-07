@@ -44,13 +44,14 @@ python app.py
 
 ## Recompute flow (full mode)
 
-1. `GET /<page_id>.html` or `POST /api/refresh/<page_id>` with optional param overrides
-2. `dashboard_params.validate_params()` + `apply_to_generate_dashboard()`
-3. `dashboard_cache.get_context(compute_context, raw, params, page_id=page_id)` — cache hit skips compute
-4. `economizer_diagnostics` page: `build_page()` only when params hash changed
-5. Returns HTML or JSON `{ content: body_html }`
+1. `GET /<page_id>.html` → instant shell + “Loading charts…” (`LOADING_BODY`)
+2. `dashboard_tune.js` → `GET /api/config` → `POST /api/refresh/<page_id>`
+3. `dashboard_params.validate_params()` + `apply_to_generate_dashboard()`
+4. `dashboard_cache.get_context(...)` then `get_body(...)` — cache hits skip compute + Plotly render
+5. `economizer_diagnostics`: `build_page()` only when params hash changed
+6. Returns JSON `{ content: body_html }` swapped into `<main>`
 
-**Cache invalidation:** CSV sources via mtime in `raw_data_source_paths()`; context via new param hash.
+**Cache invalidation:** CSV mtimes via fast `raw_data_source_paths()`; context + HTML via param hash.
 
 ## Production / Docker
 
@@ -72,6 +73,8 @@ assert c.get("/index.html").status_code == 200
 - Expose arbitrary file paths via API
 - Commit `analyst_session.json` with client notes unless sanitized
 - Bypass cache by recomputing full context on every page when `page_id` is known
+- Call Haystack SPARQL on every refresh for path discovery (see PERFORMANCE doc)
+- Block page HTML on synchronous full pipeline compute
 
 ## Spec updates
 

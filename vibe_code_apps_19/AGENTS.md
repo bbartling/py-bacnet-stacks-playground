@@ -26,8 +26,8 @@ This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CS
 
 ## Non-negotiable principles
 
-1. **Data stays external** — never commit multi-hundred-MB CSV trees. Use `HVAC_DATA_ROOT` or `data_paths.local.yaml` (see [`shared/data_config.py`](shared/data_config.py)).
-2. **Poll interval is never hardcoded** — read `grid_minutes` from each building’s `manifest.json` → `poll_seconds`. Fault confirm rows = `confirm_seconds // poll_seconds` (Open-FDD default confirm = **300 s**).
+1. **Data stays external** — never commit multi-hundred-MB CSV trees. Use `HVAC_DATA_ROOT` in `.env` (see `.env.example`) or `data_paths.local.yaml` (see [`shared/env_loader.py`](shared/env_loader.py), [`shared/data_config.py`](shared/data_config.py)).
+2. **Poll interval is never hardcoded** — use `df.attrs["effective_poll_seconds"]` after load when present; else `manifest.json` → `grid_minutes` → `poll_seconds`. Sub-5-minute historian data is auto-downsampled to 5-min means (`haystack_rdf/timeseries_grid.py`). Fault confirm rows = `confirm_seconds // poll_seconds` (Open-FDD default confirm = **300 s**).
 3. **Rule parity** — every new fault uses the cookbook pattern: raw mask → optional smooth → `confirm_fault()` → rollup minutes/hours. See [`vibe19_agent_spec/docs/OPENFDD_PARITY.md`](vibe19_agent_spec/docs/OPENFDD_PARITY.md).
 4. **Equipment identity** — trust **folder path + `columns.csv` point_role**, not vendor `point_name` prefixes (often wrong on VAV).
 5. **Template-first** — code and docs stay **site-agnostic**; building names, AHU counts, and paths come from config/data, not hardcoded defaults. Example-site notes live in `SESSION_LOG.md`, not engine logic.
@@ -71,14 +71,19 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 
 | Path | Role |
 | --- | --- |
-| [`shared/data_config.py`](shared/data_config.py) | Resolve `DATA_ROOT`, building, `poll_seconds` |
+| [`shared/data_config.py`](shared/data_config.py) | Resolve `DATA_ROOT`, building, `poll_seconds`, timezone |
+| [`shared/env_loader.py`](shared/env_loader.py) | `.env` loading, cross-platform paths |
+| [`shared/branding.py`](shared/branding.py) | App title: Open FDD Vibe Coder |
 | [`shared/validate_hvac_data.py`](shared/validate_hvac_data.py) | One-pass import sanity check |
+| [`haystack_rdf/feather_cache.py`](haystack_rdf/feather_cache.py) | CSV → Feather + grid normalize on load |
+| [`haystack_rdf/timeseries_grid.py`](haystack_rdf/timeseries_grid.py) | Median Δt detect; sub-5-min → 5-min means |
+| [`haystack_rdf/`](haystack_rdf/) | RDF model, SPARQL, CSV bootstrap, Flask `/api/rdf` |
 | [`csv_fdd_dashboard/generate_dashboard.py`](csv_fdd_dashboard/generate_dashboard.py) | Multi-page Plotly HTML generator |
 | [`csv_fdd_dashboard/economizer_fdd_engine.py`](csv_fdd_dashboard/economizer_fdd_engine.py) | Reference FDD engine (AHU economizer + sensor QA) |
-| [`csv_fdd_dashboard/dashboard_params.py`](csv_fdd_dashboard/dashboard_params.py) | Tunable analyst params → engine |
-| [`csv_fdd_dashboard/dashboard_cache.py`](csv_fdd_dashboard/dashboard_cache.py) | In-memory CSV + per-page context cache (Flask full mode) |
-| [`csv_fdd_dashboard/app.py`](csv_fdd_dashboard/app.py) | Flask: `full` (local tune) vs `deploy` (serve `site/`) |
-| [`haystack_rdf/`](haystack_rdf/) | Haystack RDF model, SPARQL, CSV bootstrap, Flask `/api/rdf` |
+| [`csv_fdd_dashboard/dashboard_params.py`](csv_fdd_dashboard/dashboard_params.py) | 45 rule-grouped tunable analyst params |
+| [`csv_fdd_dashboard/dashboard_cache.py`](csv_fdd_dashboard/dashboard_cache.py) | Raw + context + HTML body cache (Flask) |
+| [`csv_fdd_dashboard/app.py`](csv_fdd_dashboard/app.py) | Flask: `full` (tune) vs `deploy` (serve `site/`) |
+| [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Container deploy |
 | [`fdd_dashboard_model/fdd_model/`](fdd_dashboard_model/fdd_model/) | PointCatalog, VAV lazy load |
 | [`vibe19_agent_spec/`](vibe19_agent_spec/) | Agent skills, checkpoints, UI spec |
 
@@ -88,7 +93,7 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 
 1. **Find cookbook rule** — e.g. ECON-3, FC2, VAV-1 on [pandas cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html).
 2. **Map columns** — add/update `*_point_mapping.json` or derive from `columns.csv` `point_role`.
-3. **Implement in engine module** — pure pandas; accept `params` dict with `poll_seconds`.
+3. **Implement in engine module** — pure pandas; accept `params` dict with `poll_seconds` (prefer `effective_poll_seconds` from loaded frames).
 4. **Confirm + rollup** — reuse `confirm_fault` / `_rollup` patterns from `economizer_fdd_engine.py`.
 5. **Expose tunables** — add to `dashboard_params.py` + `fault_tune_defaults.json` with page grouping.
 6. **Add page or section** — `body_for_page()` in `generate_dashboard.py` or dedicated `*_page.py`.
@@ -106,8 +111,9 @@ Summary:
 - **Dark theme** — bg `#0f1419`, cards `#1a2332`, accent `#3b82f6`
 - **Plotly** — embedded `plotly.min.js`; no CDN required for client zip
 - **Navigation** — `index.html` hub + equipment pages (AHU, zones, plant, weather, economizer)
-- **Analyst panel** (local `full` mode) — param sliders, refresh, session export
-- **Deploy mode** — pre-baked `site/`; notes-only JS in Docker deploy mode
+- **Analyst panel** (local `full` mode) — 45 rule-grouped param sliders, debounced live refresh, session export
+- **Shell-first UX** — HTML shell loads instantly; charts via `POST /api/refresh/<page_id>`
+- **Deploy mode** — pre-baked `site/`; Docker + Gunicorn; optional notes JS
 
 ---
 
@@ -125,7 +131,7 @@ python validate_data.py
 
 cd csv_fdd_dashboard
 pip install -r requirements-dev.txt
-python -m pytest test_economizer_diagnostics.py test_sensor_qa.py -q
+python -m pytest test_timeseries_grid.py test_economizer_diagnostics.py test_haystack_rdf.py test_csv_env_bootstrap.py -q
 python generate_dashboard.py
 python app.py   # full mode → http://127.0.0.1:5000/index.html
 python -c "from app import create_app; c=create_app('deploy').test_client(); assert c.get('/index.html').status_code==200"
@@ -159,7 +165,7 @@ Performance / loading (AI agents): [`vibe19_agent_spec/docs/PERFORMANCE_AND_LOAD
 ## Acceptance checkpoints (per feature slice)
 
 - [ ] `validate_data.py` exits 0 for target building
-- [ ] `poll_seconds` matches manifest (not legacy 900 unless data is 15-min)
+- [ ] `poll_seconds` / `effective_poll_seconds` matches actual grid after load (not legacy 900 unless data is 15-min)
 - [ ] New rule has confirmed fault + duration rollup in hours/minutes
 - [ ] Tunable params wired (if analyst-facing)
 - [ ] HTML page renders; navigation link from index
