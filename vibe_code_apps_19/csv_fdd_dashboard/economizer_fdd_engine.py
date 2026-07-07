@@ -51,11 +51,13 @@ DEFAULT_PARAMS = {
     "oat_rat_min_delta_f": 5.0,
     "economizer_high_limit_f": 75.0,
     "economizer_low_limit_f": 35.0,
+    "free_cool_dp_max_f": 60.0,
+    "free_cool_oat_avail_f": 72.0,
     "oat_favorable_delta_f": 3.0,
     "fan_on_pct": 5.0,
     "cooling_active_pct": 20.0,
-    "oa_max_economizer_pct": 85.0,
-    "oa_min_expected_pct": 15.0,
+    "oa_max_economizer_pct": 95.0,
+    "oa_min_expected_pct": 20.0,
     "damper_stuck_tol_pct": 5.0,
     "hunting_reversals_per_hour": 6,
     "hunting_p2p_pct": 10.0,
@@ -95,16 +97,28 @@ def load_point_mapping() -> dict:
 
 
 def resolve_columns(ahu_id: str, df: pd.DataFrame) -> tuple[dict[str, str | None], list[str]]:
-    """Map logical points to dataframe columns; return missing required logical names."""
-    mapping = load_point_mapping()["ahu_mappings"].get(ahu_id, {})
+    """Map logical points to dataframe columns via Haystack SPARQL only."""
+    from haystack_rdf.resolver import get_resolver
+
+    mapping_doc = load_point_mapping()
     logical_required = [
-        k for k, v in load_point_mapping()["logical_points"].items()
+        k for k, v in mapping_doc["logical_points"].items()
         if v["role"] == "required"
     ]
+    all_logical = list(
+        dict.fromkeys(
+            logical_required
+            + list((mapping_doc["ahu_mappings"].get(ahu_id) or {}).keys())
+        )
+    )
+
+    resolver = get_resolver()
+    haystack_map = resolver.resolve_mapping(ahu_id, all_logical)
+
     resolved: dict[str, str | None] = {}
     missing: list[str] = []
     for logical in logical_required:
-        col = mapping.get(logical)
+        col = haystack_map.get(logical)
         if logical == "timestamp":
             if "timestamp" in df.columns:
                 resolved[logical] = "timestamp"
@@ -121,8 +135,9 @@ def resolve_columns(ahu_id: str, df: pd.DataFrame) -> tuple[dict[str, str | None
             missing.append(logical)
         else:
             resolved[logical] = col
-    for logical, col in mapping.items():
+    for logical in all_logical:
         if logical not in resolved:
+            col = haystack_map.get(logical)
             resolved[logical] = col if col and col in df.columns else None
     return resolved, missing
 
@@ -159,6 +174,7 @@ def prep_ahu_frame(
     cols: dict[str, str | None],
     params: dict,
     weather_oat: pd.Series | None = None,
+    weather_dewpoint: pd.Series | None = None,
     tz: str = "America/Chicago",
 ) -> pd.DataFrame:
     """Preprocess: sort, dedupe, quality flags, derived features."""
@@ -188,7 +204,9 @@ def prep_ahu_frame(
 
     d["oad_cmd"] = norm_pct(num("oa_damper_cmd"))
     d["oad_pos"] = norm_pct(num("oa_damper_pos")) if cols.get("oa_damper_pos") else d["oad_cmd"]
-    d["oad_min"] = norm_pct(num("oa_min_pct")) if cols.get("oa_min_pct") else pd.Series(p["oa_min_expected_pct"] / 100.0, index=d.index)
+    d["oad_min"] = norm_pct(num("oa_min_pct")) if cols.get("oa_min_pct") else pd.Series(
+        p["oa_min_expected_pct"] / 100.0, index=d.index
+    )
     d["clg"] = norm_pct(num("cooling_cmd"))
     d["htg"] = pd.Series(0.0, index=d.index)  # Building 100: no heating coil in export
 
@@ -210,19 +228,46 @@ def prep_ahu_frame(
         | (d["clg_s"] > p["cooling_active_pct"] / 100.0)
     )
 
-    # Dry-bulb economizer suitability
-    d["oat_rat_delta"] = d["rat_s"] - d["oat_s"]
-    d["econ_suitable_drybulb"] = (
+    # Open-Meteo economizer suitability (dew point + dry bulb reference — not BAS OAT)
+    if weather_oat is not None:
+        w_oat = weather_oat.reset_index()
+        w_oat.columns = ["timestamp", "web_oat"]
+        w_oat = w_oat.drop_duplicates(subset=["timestamp"], keep="last")
+        d = d.merge(w_oat, on="timestamp", how="left")
+    else:
+        d["web_oat"] = np.nan
+
+    if weather_dewpoint is not None:
+        w_dp = weather_dewpoint.reset_index()
+        w_dp.columns = ["timestamp", "web_dewpoint"]
+        w_dp = w_dp.drop_duplicates(subset=["timestamp"], keep="last")
+        d = d.merge(w_dp, on="timestamp", how="left")
+    else:
+        d["web_dewpoint"] = np.nan
+
+    web_oat = pd.to_numeric(d["web_oat"], errors="coerce")
+    web_dp = pd.to_numeric(d["web_dewpoint"], errors="coerce")
+    d["web_oat"] = web_oat
+    d["web_dewpoint"] = web_dp
+
+    d["econ_ok_meteo"] = (
         d["stable"]
-        & (d["oat_s"] < p["economizer_high_limit_f"])
-        & (d["oat_s"] > p["economizer_low_limit_f"])
-        & (d["oat_rat_delta"] > p["oat_favorable_delta_f"])
+        & web_oat.notna()
+        & web_dp.notna()
+        & (web_dp < p["free_cool_dp_max_f"])
+        & (web_oat < p["free_cool_oat_avail_f"])
+        & (web_oat >= p["economizer_low_limit_f"])
     )
 
-    # Enthalpy not evaluated — no humidity points
+    # Legacy alias used by damper stuck-open / excess-OA helpers
+    d["econ_suitable_drybulb"] = d["econ_ok_meteo"]
+
+    # Enthalpy not evaluated — humidity from Open-Meteo used for suitability only
     d["econ_suitable_enthalpy"] = pd.Series(False, index=d.index)
 
-    d["econ_should_enable"] = d["econ_suitable_drybulb"] & d["cooling_load"]
+    d["econ_should_enable"] = d["econ_ok_meteo"] & d["cooling_load"]
+
+    oa_full = p["oa_max_economizer_pct"] / 100.0
 
     rat_oat = (d["oat_s"] - d["rat_s"]).abs()
     d["oa_fraction_est"] = np.where(
@@ -232,9 +277,9 @@ def prep_ahu_frame(
     )
 
     d["mech_cool_free_cool_avail"] = (
-        d["econ_suitable_drybulb"]
+        d["econ_ok_meteo"]
         & (d["clg_s"] > p["cooling_active_pct"] / 100.0)
-        & (d["oad_pos_s"] < p["oa_max_economizer_pct"] / 100.0)
+        & (d["oad_pos_s"] < oa_full - p["damper_deadband_pct"] / 100.0)
     )
 
     d["mat_below_env"] = d["stable"] & d["mat_s"].notna() & d["oat_s"].notna() & d["rat_s"].notna() & (
@@ -244,8 +289,8 @@ def prep_ahu_frame(
         d["mat_s"] > np.maximum(d["oat_s"], d["rat_s"]) + p["mat_residual_db_f"]
     )
 
-    if weather_oat is not None:
-        d["weather_oat"] = weather_oat.reindex(d.index).values
+    if "web_oat" in d.columns and d["web_oat"].notna().any():
+        d["weather_oat"] = d["web_oat"]
         d["weather_oat_fault"] = confirm_persist(
             (d["oat_s"] - d["weather_oat"]).abs() > p["weather_fault_f"], confirm_n
         )
@@ -336,11 +381,16 @@ def run_diagnostics(
         df["timestamp"] = pd.to_datetime(df[ts_col], utc=True)
 
     weather_oat = None
+    weather_dp = None
     if weather_df is not None and "timestamp" in weather_df.columns:
-        w = weather_df.set_index("timestamp")["dry_bulb_f"]
-        weather_oat = w.reindex(df.set_index("timestamp").index)
+        w = weather_df.set_index("timestamp")
+        ts_idx = df.set_index("timestamp").index
+        if "dry_bulb_f" in w.columns:
+            weather_oat = w["dry_bulb_f"].reindex(ts_idx)
+        if "dew_point_f" in w.columns:
+            weather_dp = w["dew_point_f"].reindex(ts_idx)
 
-    d = prep_ahu_frame(df, cols, p, weather_oat=weather_oat)
+    d = prep_ahu_frame(df, cols, p, weather_oat=weather_oat, weather_dewpoint=weather_dp)
     confirm_n = d["_confirm_n"].iloc[0]
     poll = p["poll_seconds"]
     d, sensor_qa_detail = run_ahu_sensor_qa(d, poll_seconds=poll, confirm_n=confirm_n)
@@ -412,10 +462,11 @@ def run_diagnostics(
         | confirm_persist(weather_fault, confirm_n)
     ).rolling(confirm_n, min_periods=1).max().astype(bool)
 
-    # --- B. Not economizing when should ---
+    # --- B. Not economizing when should (100% OA expected) ---
+    oa_full = p["oa_max_economizer_pct"] / 100.0
     not_econ_raw = (
         d["econ_should_enable"]
-        & (d["oad_pos_s"] < (d["oad_min"] + p["damper_deadband_pct"] / 100.0))
+        & (d["oad_pos_s"] < oa_full - p["damper_deadband_pct"] / 100.0)
         & ~sensor_active
     )
     not_econ = confirm_persist(not_econ_raw, confirm_n)
@@ -429,18 +480,20 @@ def run_diagnostics(
         confidence="medium" if sensor_active.any() and n > 0 else ("high" if n > 0 else "high"),
         severity=sev, first_seen=t0, last_seen=t1, total_fault_minutes=mins, affected_samples=n,
         required_points_present=True,
-        evidence_summary=f"Favorable OA + cooling load but OA damper near minimum: {mins:.0f} min. Mech cooling overlap: {mech_overlap:.0f} min.",
+        evidence_summary=(
+            f"Open-Meteo economizer OK + cooling load but OA damper below ~{p['oa_max_economizer_pct']:.0f}%: "
+            f"{mins:.0f} min. Mech cooling overlap: {mech_overlap:.0f} min."
+        ),
         likely_causes=["OA damper stuck closed", "Economizer disabled", "High-limit setpoint too low", "Actuator fault", "Bad OAT/RAT"],
         recommended_actions=["Inspect OA damper linkage", "Verify economizer enable in BAS", "Check high-limit and minimum OA setpoints"],
         rule_parameters_used=p, sql_rule_id="ECON_NOT_ECONOMIZING_WHEN_SHOULD",
     ))
 
-    # --- C. Economizing when should not ---
+    # --- C. Economizing when should not (ECON-2 — Open-Meteo unfavorable, damper above minimum OA) ---
     econ_when_not_raw = (
         d["stable"]
-        & ~d["econ_suitable_drybulb"]
+        & ~d["econ_ok_meteo"]
         & (d["oad_pos_s"] > d["oad_min"] + p["damper_deadband_pct"] / 100.0)
-        & ((d["oat_s"] > p["economizer_high_limit_f"]) | (d["oat_s"] < p["economizer_low_limit_f"]))
         & ~sensor_active
     )
     econ_when_not = confirm_persist(econ_when_not_raw, confirm_n)
@@ -453,7 +506,11 @@ def run_diagnostics(
         severity="high" if mins > 30 else ("medium" if n > 0 else "low"),
         first_seen=t0, last_seen=t1, total_fault_minutes=mins, affected_samples=n,
         required_points_present=True,
-        evidence_summary=f"OA damper above minimum when OA not suitable (hot/cold): {mins:.0f} min.",
+        evidence_summary=(
+            f"OA damper above ~{p['oa_min_expected_pct']:.0f}% minimum when Open-Meteo economizer not OK "
+            f"(DP≥{p['free_cool_dp_max_f']:.0f}°F or OAT≥{p['free_cool_oat_avail_f']:.0f}°F or OAT<{p['economizer_low_limit_f']:.0f}°F): "
+            f"{mins:.0f} min."
+        ),
         likely_causes=["Damper stuck open", "High-limit too high", "Minimum OA too high", "Sensor bias"],
         recommended_actions=["Verify high/low limit setpoints", "Inspect damper returns to minimum", "Check for actuator leakage"],
         rule_parameters_used=p, sql_rule_id="ECON_ECONOMIZING_WHEN_SHOULD_NOT",
@@ -468,7 +525,7 @@ def run_diagnostics(
     oat_rat_sep = (d["oat_s"] - d["rat_s"]).abs() > p["oat_rat_min_delta_f"]
     mat_no_response = cmd_varies & (mat_range < 0.5) & oat_rat_sep
     stuck_closed = d["econ_should_enable"] & (d["oad_pos_s"] < 0.05) & ~sensor_active
-    stuck_open = (~d["econ_suitable_drybulb"]) & d["occupied"] & (d["oad_pos_s"] > 0.9) & ~sensor_active
+    stuck_open = (~d["econ_ok_meteo"]) & d["occupied"] & (d["oad_pos_s"] > 0.9) & ~sensor_active
     damper_raw = confirm_persist(mat_no_response, confirm_n) | confirm_persist(stuck_closed, confirm_n) | confirm_persist(stuck_open, confirm_n)
     d["fault_damper"] = damper_raw
     mins, n, t0, t1 = _rollup(damper_raw, d, poll)
@@ -515,7 +572,7 @@ def run_diagnostics(
 
     # --- E. Excess OA ---
     excess_oa_raw = (
-        d["stable"] & ~d["econ_suitable_drybulb"]
+        d["stable"] & ~d["econ_ok_meteo"]
         & (d["oad_pos_s"] > d["oad_min"] + p["damper_deadband_pct"] / 100.0)
         & ~sensor_active
     )
@@ -583,7 +640,10 @@ def run_diagnostics(
         severity="critical" if mins > 40 else ("high" if n > 0 else "low"),
         first_seen=t0, last_seen=t1, total_fault_minutes=mins, affected_samples=n,
         required_points_present=True,
-        evidence_summary=f"CHW/cooling active while dry-bulb economizer favorable and damper not fully open: {lost_h:.0f} min lost economizer opportunity.",
+        evidence_summary=(
+            f"CHW/cooling active while Open-Meteo economizer OK but damper below ~{p['oa_max_economizer_pct']:.0f}%: "
+            f"{lost_h:.0f} min lost economizer opportunity."
+        ),
         likely_causes=["Economizer not enabled", "Damper stuck", "Sequence prioritizes mechanical cooling"],
         recommended_actions=["Enable/fix economizer sequence", "Reduce mechanical cooling lockouts", "RCx savings: quantify kWh from lost hours"],
         rule_parameters_used=p, sql_rule_id="ECON_MECH_COOLING_DURING_FREE_COOLING",
@@ -617,6 +677,7 @@ def export_fault_timeseries(d: pd.DataFrame, ahu_id: str) -> pd.DataFrame:
     base = [
         "timestamp", "timestamp_local", "occupied", "stable",
         "oat_s", "rat_s", "mat_s", "sat_s", "sat_sp",
+        "web_oat", "web_dewpoint", "econ_ok_meteo",
         "oad_cmd", "oad_pos_s", "clg_s", "oa_fraction_est",
         "econ_suitable_drybulb", "econ_should_enable", "cooling_load",
     ]

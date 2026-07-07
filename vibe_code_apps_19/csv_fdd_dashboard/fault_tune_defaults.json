@@ -17,6 +17,9 @@
     "chiller_free_cool_oat_f": 55.0,
     "free_cool_dp_max_f": 60.0,
     "free_cool_oat_avail_f": 72.0,
+    "economizer_low_limit_f": 35.0,
+    "oa_min_expected_pct": 20.0,
+    "oa_max_economizer_pct": 95.0,
     "chw_low_delta_t_f": 4.0,
     "boiler_warm_oat_f": 60.0,
     "fault_persist_minutes": 10.0,
@@ -205,7 +208,10 @@
       "group": "Free cooling",
       "pages": [
         "index",
-        "economizer"
+        "economizer",
+        "economizer_diagnostics",
+        "ahu_1",
+        "ahu_2"
       ]
     },
     "free_cool_oat_avail_f": {
@@ -218,7 +224,55 @@
       "group": "Free cooling",
       "pages": [
         "index",
-        "economizer"
+        "economizer",
+        "economizer_diagnostics",
+        "ahu_1",
+        "ahu_2"
+      ]
+    },
+    "economizer_low_limit_f": {
+      "label": "Economizer min Open-Meteo OAT",
+      "unit": "\u00b0F",
+      "min": 25,
+      "max": 45,
+      "step": 1,
+      "default": 35.0,
+      "group": "Free cooling",
+      "pages": [
+        "economizer",
+        "economizer_diagnostics",
+        "ahu_1",
+        "ahu_2"
+      ]
+    },
+    "oa_min_expected_pct": {
+      "label": "Minimum OA damper (assumed)",
+      "unit": "%",
+      "min": 10,
+      "max": 40,
+      "step": 1,
+      "default": 20.0,
+      "group": "AHU economizer",
+      "pages": [
+        "economizer",
+        "economizer_diagnostics",
+        "ahu_1",
+        "ahu_2"
+      ]
+    },
+    "oa_max_economizer_pct": {
+      "label": "Full economizer OA damper",
+      "unit": "%",
+      "min": 80,
+      "max": 100,
+      "step": 1,
+      "default": 95.0,
+      "group": "AHU economizer",
+      "pages": [
+        "economizer",
+        "economizer_diagnostics",
+        "ahu_1",
+        "ahu_2"
       ]
     },
     "chw_low_delta_t_f": {

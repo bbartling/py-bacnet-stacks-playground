@@ -2,21 +2,21 @@
 name: vibe19-deploy-packaging
 description: >-
   Use when packaging App 19 for client delivery: package_dashboard.py read-only zip,
-  build_pa_deploy.py PythonAnywhere zip, sanitized exports, Google Drive handoff.
-  Triggers on: deploy, zip, package, PythonAnywhere, client deliver, read-only,
-  sanitized, site folder, PA deploy.
+  build_docker_deploy.py, Dockerfile / docker-compose, sanitized exports.
+  Triggers on: deploy, zip, package, Docker, client deliver, read-only,
+  sanitized, site folder, container deploy.
 ---
 
 # Vibe19 — Deploy packaging
 
-## Unity WebGL analogy
+## Deploy analogy
 
 | Concept | App 19 |
 | --- | --- |
-| WebGL Build | `site/` or generated `*.html` |
-| Player server | Flask `deploy` mode |
+| Pre-baked charts | `site/` or generated `*.html` |
+| Server | Flask + Gunicorn (`deploy` mode) |
 | Build script | `generate_dashboard.py` |
-| Upload zip | `build_pa_deploy.py` |
+| Container | `Dockerfile` / `Dockerfile.deploy` |
 
 ## Client read-only zip
 
@@ -29,15 +29,26 @@ python package_dashboard.py
 
 Includes: HTML, plotly.min.js, static notes JS — **no** CSV data, **no** Flask required for static open.
 
-## PythonAnywhere bundle
+## Docker bundle
 
 ```bash
 pip install -r requirements-dev.txt
-python build_pa_deploy.py --from-session
-# → building100_pa_deploy.zip
+cd csv_fdd_dashboard
+python build_docker_deploy.py --from-session --docker
+# → site/ baked + open-fdd-vibe-coder:deploy image
 ```
 
-Upload → extract → point WSGI at `wsgi.py` → Reload.
+Run:
+
+```bash
+docker run --rm -p 5000:5000 open-fdd-vibe-coder:deploy
+```
+
+Analyst mode with live data:
+
+```bash
+docker compose up analyst   # from vibe_code_apps_19/
+```
 
 ## Sanitization checklist
 
@@ -52,5 +63,6 @@ Never commit `*.zip` or `site/` — see `.gitignore`.
 
 ## Docs
 
-- [`PYTHONANYWHERE.md`](../../../csv_fdd_dashboard/PYTHONANYWHERE.md)
+- [`DEPLOY.md`](../../../csv_fdd_dashboard/DEPLOY.md)
 - [`README.md`](../../../csv_fdd_dashboard/README.md)
+- [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md)

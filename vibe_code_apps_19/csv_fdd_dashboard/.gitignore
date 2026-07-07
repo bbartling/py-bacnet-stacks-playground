@@ -12,8 +12,9 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
 
-# Generated dashboard output (rebuild with generate_dashboard.py or build_pa_deploy.py)
+# Generated dashboard output (rebuild with generate_dashboard.py or build_docker_deploy.py)
 *.html
 plotly.min.js
 client_package/
@@ -43,6 +44,7 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Keep source, docs, configs, tests
 !docs/

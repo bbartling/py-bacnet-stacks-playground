@@ -186,8 +186,11 @@ def results_table(results_df: pd.DataFrame) -> str:
     return f"<table><thead><tr>{hdr}</tr></thead><tbody>{body}</tbody></table>"
 
 
-def build_page(meta_created: str | None = None) -> None:
+def build_page(meta_created: str | None = None, params: dict | None = None) -> None:
+    from dashboard_params import economizer_engine_params, load_session
+
     meta_created = meta_created or datetime.now().strftime("%Y-%m-%d %H:%M")
+    econ_params = economizer_engine_params((params or load_session().get("params")))
     metric_reference_table().to_csv(OUT / "sensor_limits_reference.csv", index=False)
     wx = _load_weather()
     sections = []
@@ -195,7 +198,7 @@ def build_page(meta_created: str | None = None) -> None:
 
     for ahu_id in ("AHU_1", "AHU_2"):
         raw = _load_ahu(ahu_id)
-        d, results, meta = run_diagnostics(ahu_id, raw, wx)
+        d, results, meta = run_diagnostics(ahu_id, raw, weather_df=wx, params=econ_params)
         rdf = results_to_dataframe(results)
         all_results.append(rdf)
         ts_export = export_fault_timeseries(d, ahu_id)
@@ -284,7 +287,7 @@ th {{ color:var(--muted); }}
 <main>
 <div class="card">
   <h2>Diagnostic approach</h2>
-  <p class="note">Deterministic RCx rules with 15-minute persistence. Hierarchy: data quality → sensor plausibility (4 levels) → damper → economizer performance → energy impact. Damper position uses command as proxy (no separate feedback in export).</p>
+  <p class="note">Deterministic RCx rules with 15-minute persistence. Economizer OK uses <strong>Open-Meteo</strong> dew point &amp; dry bulb (not BAS OAT). Min OA ~20% · full economizer ~100% when OK.</p>
   <p class="note"><strong>Sensor QA levels:</strong> L1 hard range · L2 rate-of-change/spike (suppressed at fan start) · L3 stale/flatline · L4 cross-sensor plausibility (MAT envelope, SAT vs MAT).</p>
   <p class="note"><strong>Not evaluated:</strong> enthalpy economizer (no OA/RA humidity), CO2/DCV, freeze stat, hydronic/pressure points (not in AHU export).</p>
   <h3>AHU air temperature limits (defaults)</h3>

@@ -53,12 +53,16 @@ Engines accept merged params:
 
 ```python
 DEFAULT_PARAMS = {
-    "poll_seconds": <from get_config().poll_seconds()>,
+    "poll_seconds": <from df.attrs effective_poll_seconds or get_config().poll_seconds()>,
     "confirm_minutes": 15,
     "smooth_minutes": 15,
     ...
 }
 ```
+
+**Grid rule:** sub-5-minute historian data is downsampled to 5-minute means on load (`haystack_rdf/timeseries_grid.py`). Use `df.attrs["effective_poll_seconds"]` when available.
+
+See [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md).
 
 Wire analyst tunables via [`dashboard_params.py`](../../../csv_fdd_dashboard/dashboard_params.py) → `apply_to_generate_dashboard()`.
 
@@ -87,10 +91,10 @@ See `csv_fdd_dashboard/docs/economizer_fdd_rules.sql` for SQL twin pattern. Pari
 | Section | Status |
 | --- | --- |
 | Sensor validation | Partial — `sensor_qa_engine.py` |
-| AHU FC1–FC15 | Partial — economizer + mixed air |
+| AHU FC1–FC15 | Partial — economizer + mixed air; Open-Meteo free-cool / econ2 / econ3 on index |
 | VAV zones | **TODO** — use `fdd_dashboard_model` |
-| Economizer ECON | Implemented — `economizer_fdd_engine.py` |
-| Central plant | Partial — `central_plant.html` charts only |
-| Weather | Partial — `weather.html` |
+| Economizer ECON | Implemented — `economizer_fdd_engine.py` (Open-Meteo OK band, tunable OA limits) |
+| Central plant | Partial — `central_plant.html` charts; ECM5 chiller OAT bins |
+| Weather | Partial — `weather.html`; BAS vs Open-Meteo |
 
-Update this table in PR / checkpoint notes when adding rules.
+Update this table in PR / checkpoint notes when adding rules. Also append [`SESSION_LOG.md`](../../SESSION_LOG.md).

@@ -1,8 +1,10 @@
 # Vibe Code App 19 — CSV FDD dashboards
 
-Building **50** and **100** fault-detection dashboards from hardcoded CSV exports (no live BACnet). Two siblings share one external data root:
+**Template for building your own** RCx / FDD analyst dashboard from CSV exports (no live BACnet). Point at any compatible data tree — swap rules, pages, and params for your site.
 
-**Agent spec (start here for vibe coding):** [`AGENTS.md`](AGENTS.md) · [`vibe19_agent_spec/`](vibe19_agent_spec/)
+**Reference examples** (for developing this template, not shipped in git): `BUILDING_100`, `BUILDING_50` under your `HVAC_DATA_ROOT`.
+
+**Agent spec (start here for vibe coding):** [`AGENTS.md`](AGENTS.md) · [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md) · [`vibe19_agent_spec/`](vibe19_agent_spec/)
 
 | Directory | Role |
 | --- | --- |
@@ -30,7 +32,7 @@ cd vibe_code_apps_19
 python validate_data.py
 ```
 
-## Generate dashboard (Building 100)
+## Generate dashboard (your building)
 
 ```bash
 cd vibe_code_apps_19/csv_fdd_dashboard
@@ -41,14 +43,12 @@ python app.py   # interactive tuning at http://127.0.0.1:5000
 
 Poll interval is read from each building’s `manifest.json` (`grid_minutes: 5` → 300s).
 
-## Switch buildings
+## Try the reference examples
 
 ```powershell
-$env:HVAC_BUILDING = "BUILDING_50"
+$env:HVAC_BUILDING = "BUILDING_100"   # or BUILDING_50
 python generate_dashboard.py
 ```
-
-Building 50 uses the same code path; VAV metadata on some boxes may have bad `point_name` prefixes — see validation warnings.
 
 ## Git strategy
 

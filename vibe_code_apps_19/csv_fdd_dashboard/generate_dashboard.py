@@ -8,6 +8,7 @@ import shutil
 import sys
 from datetime import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -23,6 +24,7 @@ if str(_APP19) not in sys.path:
     sys.path.insert(0, str(_APP19))
 
 from shared.data_config import get_config  # noqa: E402
+from shared.branding import APP_TITLE  # noqa: E402
 
 _cfg = get_config()
 DATA = _cfg.building_dir
@@ -33,6 +35,23 @@ SITE_LABEL = _cfg.site_label()
 TZ = _cfg.site_timezone()
 POLL_SECONDS = _cfg.poll_seconds()
 CONFIRM_ROWS = _cfg.confirm_rows()
+
+
+_source_paths_cache: tuple[float, list[Path]] | None = None
+
+
+def refresh_data_paths() -> None:
+    """Reload paths from .env / HVAC_DATA_ROOT (call before CSV load)."""
+    global _cfg, DATA, WEATHER, SITE_LABEL, TZ, POLL_SECONDS, CONFIRM_ROWS, _source_paths_cache
+    get_config.cache_clear()
+    _cfg = get_config()
+    DATA = _cfg.building_dir
+    WEATHER = _cfg.weather_dir
+    SITE_LABEL = _cfg.site_label()
+    TZ = _cfg.site_timezone()
+    POLL_SECONDS = _cfg.poll_seconds()
+    CONFIRM_ROWS = _cfg.confirm_rows()
+    _source_paths_cache = None
 
 SEASONS = {
     "End of heating season": ("2026-03-16", "2026-04-01"),
@@ -54,7 +73,7 @@ FAN_HI = 0.87
 DUCT_STATIC_ERR = 0.20
 FLATLINE_WINDOW = 16  # 4 h @ 15 min
 FLATLINE_TOL = 0.10
-SPIKE_LIMIT = 5.0  # per 15-min sample for zone temps
+SPIKE_LIMIT = 5.0  # legacy alias; zone spikes use SPIKE_LIMIT_ZONE
 CHW_LOW_DELTA_T = 4.0
 
 # Tunable parameters (defaults; overridden via dashboard_params.apply_to_generate_dashboard)
@@ -67,12 +86,28 @@ UNOCC_ZONE_HI_F = 75.0
 UNOCC_ZONE_PCT = 0.80
 WEATHER_FAULT_DELTA_F = 5.0
 FREE_COOL_CHW_MIN = 0.20
-FREE_COOL_OAT_CAP_F = 60.0
-CHILLER_FREE_COOL_OAT_F = 55.0
 FREE_COOL_DP_MAX_F = 60.0
 FREE_COOL_OAT_AVAIL_F = 72.0
+ECONOMIZER_LOW_LIMIT_F = 35.0
+OA_MIN_EXPECTED_PCT = 20.0
+OA_MAX_ECONOMIZER_PCT = 95.0
 BOILER_WARM_OAT_F = 60.0
 FAULT_PERSIST_SEC = 600
+ZONE_TEMP_LO_F = 55.0
+ZONE_TEMP_HI_F = 90.0
+OAT_HARD_LO_F = -40.0
+OAT_HARD_HI_F = 130.0
+FC23_CONFIRM_SEC = 600
+FC813_CONFIRM_SEC = 600
+FC4_CONFIRM_SEC = 3600
+FC4_REVERSALS = 6
+FC4_P2P_PCT = 10.0
+FC4_CMD_DEADBAND = 3.0
+FC13_SAT_DEADBAND_F = 1.0
+CHILLER_ENABLE_DELTA_F = 3.0
+HW_LOW_DELTA_F = 10.0
+SPIKE_LIMIT_OAT = 16.0
+SPIKE_LIMIT_ZONE = 5.0
 
 COLORS = {
     "bg": "#0f1419",
@@ -110,8 +145,12 @@ def confirm_fault_long(raw: pd.Series, seconds: int | None = None) -> pd.Series:
 
 
 def load_hist(sub: str) -> pd.DataFrame:
-    df = pd.read_csv(DATA / sub / "history_wide.csv")
-    df["timestamp"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+    df = pd.read_csv(
+        DATA / sub / "history_wide.csv",
+        parse_dates=["timestamp_utc"],
+        low_memory=False,
+    )
+    df["timestamp"] = df["timestamp_utc"]
     df["timestamp_local"] = df["timestamp"].dt.tz_convert(TZ)
     return df.sort_values("timestamp").reset_index(drop=True)
 
@@ -167,7 +206,7 @@ def fig_to_div(fig: go.Figure, height: int = 420) -> str:
     return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": True, "scrollZoom": True})
 
 
-def nav_html(active: str, *, flask_mode: bool = False) -> str:
+def nav_html(active: str, *, interactive: bool = False) -> str:
     links = [
         ("index.html", "Overview"),
         ("zones.html", "Zones & Comfort"),
@@ -183,7 +222,15 @@ def nav_html(active: str, *, flask_mode: bool = False) -> str:
     for href, label in links:
         cls = ' class="active"' if href == active else ""
         items.append(f'<a href="{href}"{cls}>{label}</a>')
+    if interactive:
+        cls = ' class="active"' if active == "data_model.html" else ""
+        items.append(f'<a href="data_model.html"{cls}>Data Model</a>')
     return "\n".join(items)
+
+
+def rule_tune_mount(rule: str) -> str:
+    """Placeholder filled by dashboard_tune.js with sliders for this FDD rule."""
+    return f'<div class="rule-tune-mount" data-rule="{rule}"></div>'
 
 
 def analyst_banner_html(
@@ -205,18 +252,16 @@ def analyst_banner_html(
   <div class="analyst-panel-head">
     <strong>Analyst workspace</strong>
     {f'<span class="analyst-tag">Prepared by {analyst_name}</span>' if analyst_name else ''}
+    <span class="tune-status" id="tune-live-status">Adjust rule sliders below charts — auto-refresh on change</span>
     <div class="analyst-actions">
-      <button type="button" class="btn primary" id="btn-refresh-page">Refresh this page</button>
+      <button type="button" class="btn primary" id="btn-refresh-page">Refresh now</button>
       <button type="button" class="btn" id="btn-save-session">Save settings</button>
       <button type="button" class="btn accent" id="btn-export-package">Export client package</button>
     </div>
   </div>
-  <div class="analyst-grid">
-    <div class="tune-controls" id="tune-controls"></div>
-    <div class="notes-col">
-      <label for="page-notes">Notes for this page</label>
-      <textarea id="page-notes" rows="5" placeholder="Findings, caveats, recommended actions…">{notes}</textarea>
-    </div>
+  <div class="notes-col notes-row">
+    <label for="page-notes">Notes for this page</label>
+    <textarea id="page-notes" rows="3" placeholder="Findings, caveats, recommended actions…">{notes}</textarea>
   </div>
   {note_block}
   {tune_block}
@@ -246,36 +291,50 @@ def page_html(
 .analyst-panel { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
 .analyst-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: .75rem; }
 .analyst-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: .5rem; }
-.analyst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 900px) { .analyst-grid { grid-template-columns: 1fr; } }
-.tune-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .65rem; }
-.tune-field label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: .2rem; }
-.tune-field input[type=range] { width: 100%; }
-.tune-field .val { font-size: .8rem; color: var(--accent); }
-.notes-col label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .35rem; }
-.notes-col textarea { width: 100%; background: #0f1419; color: var(--text); border: 1px solid #334155; border-radius: 8px; padding: .6rem; font-family: inherit; resize: vertical; }
+.notes-row { margin-bottom: .5rem; }
+.notes-row textarea { width: 100%; background: #0f1419; color: var(--text); border: 1px solid #334155; border-radius: 8px; padding: .6rem; font-family: inherit; resize: vertical; }
+.page-layout { display: grid; grid-template-columns: 1fr min(320px, 30vw); gap: 1rem; align-items: start; }
+@media (max-width: 1100px) { .page-layout { grid-template-columns: 1fr; } }
+.rule-tune-rail { position: sticky; top: .5rem; max-height: calc(100vh - 1rem); overflow-y: auto; display: flex; flex-direction: column; gap: .65rem; }
+.rule-tune-box { background: #0f1419; border: 1px solid #334155; border-left: 3px solid var(--accent); border-radius: 8px; padding: .65rem .75rem; }
+.rule-tune-box h4 { margin: 0 0 .5rem; font-size: .78rem; color: var(--accent); letter-spacing: .02em; }
+.rule-tune-box .rule-id { font-size: .7rem; color: var(--muted); font-weight: normal; }
+.rule-tune-mount { margin-bottom: .65rem; }
+.card .rule-tune-mount { margin: .5rem 0 .75rem; }
+.tune-field { margin-bottom: .55rem; }
+.tune-field label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: .2rem; }
+.tune-field input[type=range] { width: 100%; accent-color: var(--accent); }
+.tune-field .val { font-size: .78rem; color: var(--accent); float: right; }
+.tune-field input[type=number] { width: 100%; margin-top: .2rem; background: #0f1419; color: var(--text); border: 1px solid #334155; border-radius: 4px; padding: .2rem .4rem; font-size: .75rem; }
 .btn { background: #243044; color: var(--text); border: 1px solid #334155; border-radius: 6px; padding: .4rem .75rem; cursor: pointer; font-size: .8rem; }
 .btn:hover { background: #334155; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.accent { background: #059669; border-color: #059669; color: #fff; }
+.btn:disabled { opacity: .55; cursor: wait; }
 .analyst-notes-display { margin-top: .75rem; padding: .75rem; background: #0f1419; border-radius: 8px; border-left: 3px solid var(--accent); }
 .analyst-notes-display h3 { margin: 0 0 .35rem; font-size: .9rem; }
 .analyst-tag { font-size: .75rem; color: var(--muted); }
 .tune-summary { margin-top: .75rem; font-size: .8rem; color: var(--muted); }
 .tune-summary table { margin-top: .5rem; }
 .analyst-delivered { margin-bottom: 1rem; }
-.tune-status { font-size: .75rem; color: var(--muted); margin-left: .5rem; }
+.tune-status { font-size: .75rem; color: var(--muted); }
+.tune-status.live { color: #34d399; }
+.tune-status.err { color: #f87171; }
+.card[data-rule] { border-left: 3px solid #243044; }
+.card[data-rule].tune-highlight { border-left-color: var(--accent); box-shadow: 0 0 0 1px rgba(59,130,246,.25); }
 """
         extra_js = f"""
 <script src="/static/dashboard_tune.js"></script>
 <script>window.DASHBOARD_PAGE = "{page_id}";</script>
 """
+    rail = '<aside class="rule-tune-rail" id="rule-tune-rail"></aside>' if interactive else ""
+    body_block = f'<div class="page-main"><div id="page-content">{body}</div></div>'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>{title} — {SITE_LABEL}</title>
+<title>{title} — {APP_TITLE}</title>
 <script src="plotly.min.js"></script>
 <style>
 :root {{
@@ -291,7 +350,8 @@ nav {{ display: flex; flex-wrap: wrap; gap: .5rem; padding: .75rem 1.5rem; backg
 nav a {{ color: var(--muted); text-decoration: none; padding: .35rem .75rem; border-radius: 6px; font-size: .875rem; }}
 nav a:hover {{ background: #243044; color: var(--text); }}
 nav a.active {{ background: var(--accent); color: #fff; }}
-main {{ max-width: 1280px; margin: 0 auto; padding: 1.25rem 1.5rem 2rem; }}
+main {{ max-width: 1600px; margin: 0 auto; padding: 1.25rem 1.5rem 2rem; }}
+.page-main {{ min-width: 0; }}
 .card {{ background: var(--card); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid #243044; }}
 .card h2 {{ margin: 0 0 .75rem; font-size: 1.05rem; font-weight: 600; }}
 .card h3 {{ margin: 1rem 0 .5rem; font-size: .95rem; color: var(--muted); }}
@@ -315,11 +375,16 @@ tr:hover td {{ background: #1f2937; }}
 </head>
 <body>
 <header>
-  <h1>{SITE_LABEL} — RCx Analytics</h1>
-  <div class="meta">Created {meta['created']} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · Occupied: Mon–Fri 6:00–17:00, Sat 7:00–14:00, Sun closed</div>
+  <h1>{APP_TITLE}</h1>
+  <div class="meta">{SITE_LABEL} · Created {meta['created']} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · Occupied: Mon–Fri 6:00–17:00, Sat 7:00–14:00, Sun closed</div>
 </header>
-<nav>{nav_html(active)}</nav>
-<main>{banner}<div id="page-content">{body}</div></main>
+<nav>{nav_html(active, interactive=interactive)}</nav>
+<main>{banner}
+<div class="page-layout">
+{body_block}
+{rail}
+</div>
+</main>
 {extra_js}
 </body>
 </html>"""
@@ -338,13 +403,15 @@ FAULT_EQUATIONS = {
     "FC11": "CHW &gt;1%, economizer &gt;90%, OAT favorable but economizer not reducing load",
     "FC12": "CHW &gt;1%, SAT &gt; MAT blend tolerance at min/max economizer",
     "FC13": "CHW &gt;1%, SAT &gt; SAT setpoint + 1°F at full cooling",
-    "Free cool opp.": "CHW &gt;20% while OAT &lt; min(RAT−5°F, 60°F) — AHU mech cooling during free-cool weather",
+    "Free cool opp.": "CHW &gt;20% while Open-Meteo economizer OK but OA damper below full economizer (~100% OA expected)",
+    "ECON-2": "Open-Meteo economizer NOT OK but OA damper above assumed minimum (~20%)",
+    "ECON-3 mech": "Mech cooling while Open-Meteo economizer OK but OA damper not at full economizer",
     "Unocc. run satisfied": "Fan on outside lease hours AND ≥80% zones 70–75°F",
     "SV2 OAT range": "OAT outside −40 to 140°F",
     "SV6 flatline": "Temperature unchanged ≤0.10°F over 4 h",
     "SV7 spike": "Temperature step &gt;16°F in 15 min",
     "Chiller free-cool": "Chiller running while Open-Meteo OAT &lt; 55°F",
-    "Open-Meteo free-cool avail.": "Open-Meteo dew point &lt; 60°F AND dry bulb &lt; 72°F",
+    "Open-Meteo econ OK": "Open-Meteo dew point &lt; 60°F AND dry bulb &lt; 72°F AND dry bulb ≥ 35°F",
 }
 
 
@@ -391,6 +458,26 @@ def zone_columns(ahu_df: pd.DataFrame, ahu: str) -> list[str]:
     return [c for c in cols if c in ahu_df.columns]
 
 
+def attach_open_meteo(df: pd.DataFrame, wx: pd.DataFrame) -> pd.DataFrame:
+    """Join Open-Meteo reference weather (always used for economizer / plant scatter analysis)."""
+    w = wx[["timestamp", "dry_bulb_f", "dew_point_f"]].copy()
+    w["web_oat"] = pd.to_numeric(w["dry_bulb_f"], errors="coerce")
+    w["web_dp"] = pd.to_numeric(w["dew_point_f"], errors="coerce")
+    return df.merge(w[["timestamp", "web_oat", "web_dp"]], on="timestamp", how="left")
+
+
+def open_meteo_econ_ok(d: pd.DataFrame) -> pd.Series:
+    """Economizer OK per Open-Meteo dew point + dry bulb (not BAS OAT)."""
+    return (
+        d["fan_on"]
+        & d["web_oat"].notna()
+        & d["web_dp"].notna()
+        & (d["web_dp"] < FREE_COOL_DP_MAX_F)
+        & (d["web_oat"] < FREE_COOL_OAT_AVAIL_F)
+        & (d["web_oat"] >= ECONOMIZER_LOW_LIMIT_F)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Sensor validation
 # ---------------------------------------------------------------------------
@@ -400,16 +487,19 @@ def sv_flatline(s: pd.Series) -> pd.Series:
     return confirm_fault(s.notna() & ((roll_max - roll_min) <= FLATLINE_TOL))
 
 
-def sv_spike(s: pd.Series, limit: float = SPIKE_LIMIT) -> pd.Series:
-    return confirm_fault(s.notna() & (s.diff().abs() > limit))
+def sv_spike(s: pd.Series, limit: float | None = None) -> pd.Series:
+    lim = SPIKE_LIMIT_OAT if limit is None else limit
+    return confirm_fault(s.notna() & (s.diff().abs() > lim))
 
 
-def sv1_out_of_range(s: pd.Series, lo: float = 55.0, hi: float = 90.0) -> pd.Series:
-    return confirm_fault(s.notna() & ((s < lo) | (s > hi)))
+def sv1_out_of_range(s: pd.Series, lo: float | None = None, hi: float | None = None) -> pd.Series:
+    lo_v = ZONE_TEMP_LO_F if lo is None else lo
+    hi_v = ZONE_TEMP_HI_F if hi is None else hi
+    return confirm_fault(s.notna() & ((s < lo_v) | (s > hi_v)))
 
 
 def sv2_oa_out_of_range(s: pd.Series) -> pd.Series:
-    return confirm_fault(s.notna() & ((s < -40.0) | (s > 130.0)))
+    return confirm_fault(s.notna() & ((s < OAT_HARD_LO_F) | (s > OAT_HARD_HI_F)))
 
 
 # ---------------------------------------------------------------------------
@@ -450,15 +540,16 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
     out["fc2_mat_below"] = confirm_fault_long(
         out["fan_on"] & out["mat"].notna() & out["oat"].notna() & out["rat"].notna()
         & ((out["mat"] - MIX_TOL) < np.minimum(out["rat"] - MIX_TOL, out["oat"] - MIX_TOL)),
-        600,
+        FC23_CONFIRM_SEC,
     )
     out["fc3_mat_above"] = confirm_fault_long(
         out["fan_on"] & out["mat"].notna() & out["oat"].notna() & out["rat"].notna()
         & ((out["mat"] - MIX_TOL) > np.maximum(out["rat"] + MIX_TOL, out["oat"] + MIX_TOL)),
-        600,
+        FC23_CONFIRM_SEC,
     )
 
     # FC4 hunting — command oscillation (no heating mode)
+    fc4_window = max(4, int(round(FC4_CONFIRM_SEC / POLL_SECONDS)))
     for col, name in [
         ("chw_valve_pct", "chw"),
         ("ex_dmpr_pos_fan_enable_pct", "econ"),
@@ -466,13 +557,13 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
     ]:
         x = pd.to_numeric(out[col], errors="coerce")
         dx = x.diff()
-        direction = pd.Series(np.where(dx > 3, 1, np.where(dx < -3, -1, 0)), index=out.index)
+        db = FC4_CMD_DEADBAND
+        direction = pd.Series(np.where(dx > db, 1, np.where(dx < -db, -1, 0)), index=out.index)
         nonzero = direction.replace(0, np.nan).ffill().fillna(0)
         reversal = (nonzero != nonzero.shift()) & (nonzero != 0) & (nonzero.shift().fillna(0) != 0)
-        window = max(4, int(round(3600 / POLL_SECONDS)))
-        rev_count = reversal.rolling(window, min_periods=window).sum()
-        p2p = x.rolling(window, min_periods=window).max() - x.rolling(window, min_periods=window).min()
-        out[f"hunting_{name}"] = confirm_fault_long((rev_count >= 6) & (p2p >= 10), 3600)
+        rev_count = reversal.rolling(fc4_window, min_periods=fc4_window).sum()
+        p2p = x.rolling(fc4_window, min_periods=fc4_window).max() - x.rolling(fc4_window, min_periods=fc4_window).min()
+        out[f"hunting_{name}"] = confirm_fault_long((rev_count >= FC4_REVERSALS) & (p2p >= FC4_P2P_PCT), FC4_CONFIRM_SEC)
 
     # FC8–FC13 economizer diagnostics
     econ = out["econ"]
@@ -484,26 +575,26 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
         out["sat"].notna() & out["mat"].notna()
         & (econ > AHU_MIN_OA_DPR) & (clg < 0.1)
         & (out["sat_mat_err"] > sqrt_tol),
-        600,
+        FC813_CONFIRM_SEC,
     )
     out["fc9_oat_too_warm_free_cool"] = confirm_fault_long(
         out["oat"].notna() & out["sat_sp"].notna()
         & (econ > AHU_MIN_OA_DPR) & (clg < 0.1)
         & ((out["oat"] - MIX_TOL) > (out["sat_sp"] - DELTA_SUPPLY_FAN + MIX_TOL)),
-        600,
+        FC813_CONFIRM_SEC,
     )
     out["abs_mat_oat"] = (out["mat"] - out["oat"]).abs()
     out["fc10_oat_mat_mismatch_mech"] = confirm_fault_long(
         out["mat"].notna() & out["oat"].notna()
         & (clg > 0.01) & (econ > 0.9)
         & (out["abs_mat_oat"] > np.sqrt(2) * MIX_TOL),
-        600,
+        FC813_CONFIRM_SEC,
     )
     out["fc11_oat_mat_mismatch_econ"] = confirm_fault_long(
         out["oat"].notna() & out["sat_sp"].notna()
         & (clg > 0.01) & (econ > 0.9)
         & ((out["oat"] + MIX_TOL) < (out["sat_sp"] - DELTA_SUPPLY_FAN - MIX_TOL)),
-        600,
+        FC813_CONFIRM_SEC,
     )
     sat_check = out["sat"] - SUPPLY_TOL - DELTA_SUPPLY_FAN
     mat_check = out["mat"] + MIX_TOL
@@ -511,18 +602,28 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
     out["fc12_sat_above_blend_cool"] = confirm_fault_long(
         out["sat"].notna() & out["mat"].notna() & (clg > 0.01)
         & (sat_check > mat_check) & econ_min,
-        600,
+        FC813_CONFIRM_SEC,
     )
     out["fc13_sat_above_sp_full_cool"] = confirm_fault_long(
         out["sat"].notna() & out["sat_sp"].notna() & (clg > 0.01)
-        & (out["sat"] > out["sat_sp"] + 1.0) & econ_min,
-        600,
+        & (out["sat"] > out["sat_sp"] + FC13_SAT_DEADBAND_F) & econ_min,
+        FC813_CONFIRM_SEC,
     )
 
-    # Free cooling opportunity — mech cooling when OAT cool
+    # Open-Meteo economizer rules (reference weather — not BAS OAT)
+    out["econ_ok_meteo"] = open_meteo_econ_ok(out)
+    oa_min = OA_MIN_EXPECTED_PCT / 100.0
+    oa_full = OA_MAX_ECONOMIZER_PCT / 100.0
+    oa_db = 0.08
+
+    out["econ2_unfavorable"] = confirm_fault_long(
+        out["fan_on"] & ~out["econ_ok_meteo"] & (out["econ"] > oa_min + oa_db),
+    )
+    out["econ3_mech_not_full_oa"] = confirm_fault_long(
+        out["econ_ok_meteo"] & (out["clg"] > FREE_COOL_CHW_MIN) & (out["econ"] < oa_full - oa_db),
+    )
     out["free_cool_opp"] = confirm_fault_long(
-        out["oat"].notna() & out["rat"].notna() & (clg > FREE_COOL_CHW_MIN)
-        & (out["oat"] < np.minimum(out["rat"] - 5, FREE_COOL_OAT_CAP_F)),
+        out["econ_ok_meteo"] & (out["clg"] > FREE_COOL_CHW_MIN) & (out["econ"] < oa_full - oa_db),
     )
 
     # Unoccupied run with satisfied zones
@@ -538,9 +639,9 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
     # Sensor validation on AHU temps
     out["sv2_oat"] = sv2_oa_out_of_range(out["oat"])
     out["sv6_oat_flat"] = sv_flatline(out["oat"])
-    out["sv7_oat_spike"] = sv_spike(out["oat"], 16)
+    out["sv7_oat_spike"] = sv_spike(out["oat"], SPIKE_LIMIT_OAT)
     out["sv6_mat_flat"] = sv_flatline(out["mat"])
-    out["sv7_mat_spike"] = sv_spike(out["mat"], 16)
+    out["sv7_mat_spike"] = sv_spike(out["mat"], SPIKE_LIMIT_OAT)
 
     return out
 
@@ -548,21 +649,39 @@ def compute_ahu_faults(d: pd.DataFrame, zone_cols: list[str]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Zone analytics
 # ---------------------------------------------------------------------------
+def _zone_stats_ahu_context(df: pd.DataFrame) -> dict:
+    """Precompute occupancy + season masks once per AHU (not per zone × season)."""
+    ts = df["timestamp"]
+    local_dates = ts.dt.tz_convert(TZ).dt.date
+    occ = is_occupied(ts)
+    season_masks = {
+        season: (local_dates >= pd.Timestamp(start).date()) & (local_dates < pd.Timestamp(end).date())
+        for season, (start, end) in SEASONS.items()
+    }
+    return {"df": df, "occ": occ, "season_masks": season_masks}
+
+
 def compute_zone_stats(ahu1: pd.DataFrame, ahu2: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     zm = load_zone_map()
+    ahu_ctx = {
+        "AHU_1": _zone_stats_ahu_context(ahu1),
+        "AHU_2": _zone_stats_ahu_context(ahu2),
+    }
     rows = []
     for _, z in zm.iterrows():
         ahu = z["parent_ahu"]
         col = z["history_column"]
-        src = ahu1 if ahu == "AHU_1" else ahu2
+        ctx = ahu_ctx.get(ahu)
+        if ctx is None:
+            continue
+        src = ctx["df"]
         if col not in src.columns:
             continue
         s = pd.to_numeric(src[col], errors="coerce")
-        ts = src["timestamp"]
-        occ = is_occupied(ts)
-        for season, (start, end) in SEASONS.items():
-            d = ts.dt.tz_convert(TZ).dt.date
-            sm = (d >= pd.Timestamp(start).date()) & (d < pd.Timestamp(end).date())
+        occ = ctx["occ"]
+        sv1 = sv1_out_of_range(s)
+        sv6 = sv_flatline(s)
+        for season, sm in ctx["season_masks"].items():
             occ_s = occ & sm
             occ_vals = s[occ_s].dropna()
             occ_vals = occ_vals[(occ_vals >= 50) & (occ_vals <= 95)]
@@ -578,8 +697,8 @@ def compute_zone_stats(ahu1: pd.DataFrame, ahu2: pd.DataFrame) -> tuple[pd.DataF
                 "history_column": col,
                 "pct_within_72_occupied": round(pct72, 1) if pd.notna(pct72) else np.nan,
                 "avg_temp_occupied_f": round(float(occ_vals.mean()), 2) if len(occ_vals) else np.nan,
-                "sv1_hours": round(hours_true(sv1_out_of_range(s) & sm), 1),
-                "sv6_hours": round(hours_true(sv_flatline(s) & sm), 1),
+                "sv1_hours": round(hours_true(sv1 & sm), 1),
+                "sv6_hours": round(hours_true(sv6 & sm), 1),
             })
 
     zone_df = pd.DataFrame(rows)
@@ -798,36 +917,24 @@ def compute_floor_rank_by_season(zone_df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
-def compute_mech_cool_oat_bins(ahu1: pd.DataFrame, ahu2: pd.DataFrame, plant: dict, wx: pd.DataFrame) -> pd.DataFrame:
-    """Bartling-style: mech cooling run hours binned by Open-Meteo OAT (5°F bins)."""
+def compute_mech_cool_oat_bins(plant: dict, wx: pd.DataFrame) -> pd.DataFrame:
+    """Chiller run hours binned by Open-Meteo OAT (5°F bins); pump_on + command per chiller."""
     wx = wx[["timestamp", "dry_bulb_f"]].copy()
     wx["oat"] = pd.to_numeric(wx["dry_bulb_f"], errors="coerce")
     wx["oat_clamped"] = wx["oat"].clip(40, 110)
     wx["bin_start"] = (np.floor(wx["oat_clamped"] / 5) * 5).astype("Int64")
 
     rows = []
-    for df, label in [(ahu1, "AHU 1 mech cool"), (ahu2, "AHU 2 mech cool")]:
-        m = df[["timestamp", "clg"]].merge(wx[["timestamp", "bin_start", "oat"]], on="timestamp", how="inner")
-        m["mech"] = norm_cmd(m["clg"]) > FREE_COOL_CHW_MIN
-        for bin_start, g in m[m["mech"]].groupby("bin_start"):
+    for key, label in [("CHILLER_1", "Chiller 1"), ("CHILLER_2", "Chiller 2")]:
+        d = plant[key][["timestamp", "pump_on"]].merge(wx[["timestamp", "bin_start"]], on="timestamp", how="inner")
+        for bin_start, g in d[d["pump_on"]].groupby("bin_start"):
             if pd.isna(bin_start):
                 continue
             rows.append({
                 "bin_start": int(bin_start),
                 "bin_label": f"{int(bin_start)}-{int(bin_start)+4}",
                 "source": label,
-                "hours": round(hours_true(g["mech"]), 2),
-            })
-    for key, label in [("CHILLER_1", "Chiller 1 run"), ("CHILLER_2", "Chiller 2 run")]:
-        d = plant[key][["timestamp", "run"]].merge(wx[["timestamp", "bin_start"]], on="timestamp", how="inner")
-        for bin_start, g in d[d["run"]].groupby("bin_start"):
-            if pd.isna(bin_start):
-                continue
-            rows.append({
-                "bin_start": int(bin_start),
-                "bin_label": f"{int(bin_start)}-{int(bin_start)+4}",
-                "source": label,
-                "hours": round(hours_true(g["run"]), 2),
+                "hours": round(hours_true(g["pump_on"]), 2),
             })
     return pd.DataFrame(rows).sort_values(["source", "bin_start"])
 
@@ -991,17 +1098,18 @@ def compute_plant(ch1: pd.DataFrame, ch2: pd.DataFrame, blr: pd.DataFrame, wx: p
         d = d.merge(pumps[["timestamp", "any_pump_on"]], on="timestamp", how="left")
         d["season"] = season_label(d["timestamp"])
         d["run"] = pd.to_numeric(d[cmd_col], errors="coerce").fillna(0) > 0
+        d["power_kw"] = pd.to_numeric(d.get(pwr_col), errors="coerce").fillna(0)
+        d["pump_on"] = d["run"] & (d["power_kw"] > 0.5)
         d["chws"] = pd.to_numeric(d["chws_t_f"], errors="coerce")
         d["chwr"] = pd.to_numeric(d["chwr_t_f"], errors="coerce")
         d["delta_t"] = d["chwr"] - d["chws"]
         d["oat"] = pd.to_numeric(d["dry_bulb_f"], errors="coerce")
         d["enable_sp"] = pd.to_numeric(d.get("oat_chiller_enable_setpoint_f"), errors="coerce")
         d["low_delta_t"] = confirm_fault_long(d["run"] & (d["delta_t"] < CHW_LOW_DELTA_T), 600)
-        d["free_cool_opp"] = confirm_fault_long(d["run"] & (d["oat"] < CHILLER_FREE_COOL_OAT_F))
+        d["free_cool_opp"] = confirm_fault_long(d["run"] & (d["oat"] < FREE_COOL_OAT_AVAIL_F))
         d["below_enable"] = confirm_fault_long(
-            d["run"] & d["enable_sp"].notna() & (d["oat"] < d["enable_sp"] - 3), 600
+            d["run"] & d["enable_sp"].notna() & (d["oat"] < d["enable_sp"] - CHILLER_ENABLE_DELTA_F), 600
         )
-        d["power_kw"] = pd.to_numeric(d.get(pwr_col), errors="coerce")
         results[name] = d
 
     blr_d = blr.copy()
@@ -1016,7 +1124,7 @@ def compute_plant(ch1: pd.DataFrame, ch2: pd.DataFrame, blr: pd.DataFrame, wx: p
     blr_d["hw_delta"] = blr_d["hws"] - blr_d["hwr"]
     blr_d["oat"] = pd.to_numeric(blr_d["dry_bulb_f"], errors="coerce")
     blr_d["warm_weather_run"] = confirm_fault_long(blr_d["boiler_run"] & (blr_d["oat"] > BOILER_WARM_OAT_F))
-    blr_d["low_hw_delta"] = confirm_fault_long(blr_d["boiler_run"] & (blr_d["hw_delta"] < 10), 600)
+    blr_d["low_hw_delta"] = confirm_fault_long(blr_d["boiler_run"] & (blr_d["hw_delta"] < HW_LOW_DELTA_F), 600)
     blr_d["pump_on"] = (
         pd.to_numeric(blr_d["hwp1_s"], errors="coerce").fillna(0)
         + pd.to_numeric(blr_d["hwp2_s"], errors="coerce").fillna(0)
@@ -1088,13 +1196,13 @@ def chart_floor_rank(floor_rank: pd.DataFrame) -> str:
 
 
 def chart_oat_binned_mech(bins_df: pd.DataFrame) -> str:
-    """Bartling-style bar chart: mech cooling / chiller hours by Open-Meteo OAT bin."""
+    """Chiller run hours by Open-Meteo OAT bin (pump_on + command per chiller)."""
     if bins_df.empty:
         return "<p class='note'>No bin data.</p>"
     fig = go.Figure()
     colors = {
-        "AHU 1 mech cool": COLORS["chart"][0], "AHU 2 mech cool": COLORS["chart"][1],
-        "Chiller 1 run": COLORS["chart"][2], "Chiller 2 run": COLORS["chart"][3],
+        "Chiller 1": COLORS["chart"][0],
+        "Chiller 2": COLORS["chart"][1],
     }
     for src in bins_df["source"].unique():
         sub = bins_df[bins_df["source"] == src]
@@ -1103,9 +1211,9 @@ def chart_oat_binned_mech(bins_df: pd.DataFrame) -> str:
             marker_color=colors.get(src, COLORS["accent"]),
         ))
     fig.update_layout(
-        title="Mechanical cooling run hours by Open-Meteo outdoor air temperature (5°F bins)",
+        title="Chiller run hours by Open-Meteo outdoor air temperature (5°F bins)",
         xaxis_title="Open-Meteo OAT bin °F",
-        yaxis_title="Run hours (15-min samples summed)",
+        yaxis_title="Run hours (command + meter kW > 0.5)",
         barmode="group",
     )
     return fig_to_div(fig, 440)
@@ -1172,7 +1280,9 @@ def chart_ahu_temp_faults_season(d: pd.DataFrame, title: str) -> str:
         ("fc8_sat_above_blend_econ", "FC8"), ("fc9_oat_too_warm_free_cool", "FC9"),
         ("fc10_oat_mat_mismatch_mech", "FC10"), ("fc11_oat_mat_mismatch_econ", "FC11"),
         ("fc12_sat_above_blend_cool", "FC12"), ("fc13_sat_above_sp_full_cool", "FC13"),
-        ("free_cool_opp", "Free cool opp."), ("sv2_oat", "SV2 OAT"), ("sv6_oat_flat", "SV6 OAT flat"),
+        ("free_cool_opp", "Free cool opp."), ("econ2_unfavorable", "ECON-2"),
+        ("econ3_mech_not_full_oa", "ECON-3 mech"),
+        ("sv2_oat", "SV2 OAT"), ("sv6_oat_flat", "SV6 OAT flat"),
         ("sv7_oat_spike", "SV7 OAT spike"), ("sv6_mat_flat", "SV6 MAT flat"), ("sv7_mat_spike", "SV7 MAT spike"),
     ]
     seasons = [SEASON_SHORT[s] for s in SEASONS]
@@ -1527,6 +1637,89 @@ def chart_weather_hist(wx_df: pd.DataFrame) -> str:
     return fig_to_div(fig)
 
 
+    return fig_to_div(fig)
+
+
+def chart_web_oat_vs_sat(d: pd.DataFrame, title: str) -> str:
+    """Scatter: Open-Meteo dry bulb vs AHU supply air temp (fan on)."""
+    sub = d[d["fan_on"] & d["web_oat"].notna() & d["sat"].notna()].copy()
+    if sub.empty:
+        return "<p class='note'>No overlapping Open-Meteo and SAT data.</p>"
+    sub = downsample(sub, ["web_oat", "sat"], n=1200)
+    fig = go.Figure(go.Scatter(
+        x=sub["web_oat"], y=sub["sat"], mode="markers", name="Samples (fan on)",
+        marker=dict(size=5, opacity=0.35, color=COLORS["chart"][0]),
+    ))
+    lo = float(min(sub["web_oat"].min(), sub["sat"].min()) - 2)
+    hi = float(max(sub["web_oat"].max(), sub["sat"].max()) + 2)
+    fig.add_trace(go.Scatter(
+        x=[lo, hi], y=[lo, hi], mode="lines", name="1:1 line",
+        line=dict(color=COLORS["muted"], dash="dash"),
+    ))
+    fig.update_layout(
+        title=f"{title} — Open-Meteo OAT vs supply air temperature (fan on)",
+        xaxis_title="Open-Meteo dry bulb °F",
+        yaxis_title="Supply air temp °F",
+    )
+    return fig_to_div(fig, 440)
+
+
+def chart_duct_static_violin(d: pd.DataFrame, title: str) -> str:
+    """Violin/box of duct static when supply fan is running — static reset check."""
+    sub = d[d["fan_on"] & d["duct_static"].notna()].copy()
+    if sub.empty:
+        return "<p class='note'>No duct static data when fan running.</p>"
+    fig = go.Figure()
+    fig.add_trace(go.Violin(
+        y=sub["duct_static"], name="Duct static (fan on)",
+        box_visible=True, meanline_visible=True,
+        fillcolor=COLORS["chart"][0], line_color=COLORS["accent"], opacity=0.75,
+    ))
+    if sub["duct_sp"].notna().any():
+        sp_med = float(sub["duct_sp"].median())
+        fig.add_hline(
+            y=sp_med, line_dash="dot", line_color=COLORS["warn"],
+            annotation_text=f"Median SP {sp_med:.2f} in.w.c.",
+        )
+    fig.update_layout(
+        title=f"{title} — duct static pressure distribution (fan running)",
+        yaxis_title="Duct static in. w.c.",
+    )
+    return fig_to_div(fig, 400)
+
+
+def chart_chws_vs_web_oat(d: pd.DataFrame, title: str) -> str:
+    sub = d[d["pump_on"] & d["oat"].notna() & d["chws"].notna()].copy()
+    if sub.empty:
+        return "<p class='note'>No chiller pump-on samples with CHWS and Open-Meteo OAT.</p>"
+    sub = downsample(sub, ["oat", "chws"], n=1000)
+    fig = go.Figure(go.Scatter(
+        x=sub["oat"], y=sub["chws"], mode="markers", name="Pump on",
+        marker=dict(size=5, opacity=0.35, color=COLORS["chart"][2]),
+    ))
+    fig.update_layout(
+        title=f"{title} — Open-Meteo OAT vs chilled-water supply (pump on)",
+        xaxis_title="Open-Meteo dry bulb °F", yaxis_title="CHWS °F",
+    )
+    return fig_to_div(fig, 420)
+
+
+def chart_hws_vs_web_oat(d: pd.DataFrame, title: str) -> str:
+    sub = d[d["boiler_run"] & d["oat"].notna() & d["hws"].notna()].copy()
+    if sub.empty:
+        return "<p class='note'>No boiler run samples with HWS and Open-Meteo OAT.</p>"
+    sub = downsample(sub, ["oat", "hws"], n=1000)
+    fig = go.Figure(go.Scatter(
+        x=sub["oat"], y=sub["hws"], mode="markers", name="Boiler run",
+        marker=dict(size=5, opacity=0.35, color=COLORS["chart"][4]),
+    ))
+    fig.update_layout(
+        title=f"{title} — Open-Meteo OAT vs hot-water supply (boiler run)",
+        xaxis_title="Open-Meteo dry bulb °F", yaxis_title="HWS °F",
+    )
+    return fig_to_div(fig, 420)
+
+
 def chart_ahu_trend(d: pd.DataFrame, ahu_label: str) -> str:
     sub = downsample(d, ["sat", "mat", "oat", "rat", "mad_pct", "clg", "econ"])
     fault_cols = [c for c in d.columns if c.startswith(("fc", "free_cool", "unocc", "hunting")) and d[c].dtype == bool]
@@ -1654,12 +1847,17 @@ def body_index(ctx: dict) -> str:
     highlights = f"""
 <div class="card"><h2>Key RCx metrics — one chart per ECM</h2>
 <p class="note">Shaded bands = analysis seasons. OAT bins use <strong>Open-Meteo</strong> (not BAS outdoor sensors).</p></div>
-<div class="card"><h3>ECM 1 — Zone comfort</h3><div class="chart">{chart_comfort_weekly_ts(comfort_ts, spring_pct)}</div></div>
-<div class="card"><h3>ECM 2 — AHU free-cooling opportunity</h3><p class="note">CHW &gt;{chw_pct}% while OAT favors economizer.</p><div class="chart">{chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total'])}</div></div>
-<div class="card"><h3>ECM 3 — Chiller excess runtime</h3><p class="note">Chiller 2 when Open-Meteo OAT &lt; {CHILLER_FREE_COOL_OAT_F:g}°F.</p><div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div></div>
-<div class="card"><h3>ECM 4 — Excess unoccupied fan</h3><div class="chart">{chart_ecm_excess_fan(excess_det, unocc)}</div></div>
-<div class="card"><h3>ECM 5 — Mech cooling by Open-Meteo OAT bin (5°F)</h3><div class="chart">{chart_oat_binned_mech(oat_bins)}</div></div>
-<div class="card"><h3>ECM 6 — Free-cool weather availability</h3><p class="note">DP &lt; {FREE_COOL_DP_MAX_F:g}°F and OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (Open-Meteo).</p><div class="chart">{chart_open_meteo_free_cool(om_fc)}</div></div>"""
+<div class="card" data-rule="COMFORT"><h3>ECM 1 — Zone comfort</h3>{rule_tune_mount("COMFORT")}<div class="chart">{chart_comfort_weekly_ts(comfort_ts, spring_pct)}</div></div>
+<div class="card" data-rule="ECON-3"><h3>ECM 2 — AHU free-cooling opportunity</h3>{rule_tune_mount("ECON-3")}
+<p class="note">CHW &gt;{chw_pct}% while OAT favors economizer.</p><div class="chart">{chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total'])}</div></div>
+<div class="card" data-rule="ECON-AVAIL"><h3>ECM 3 — Chiller excess runtime</h3>{rule_tune_mount("ECON-AVAIL")}
+<p class="note">Chiller run when Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (free-cool availability gate).</p><div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div></div>
+<div class="card" data-rule="EXCESS-FAN"><h3>ECM 4 — Excess unoccupied fan</h3>{rule_tune_mount("EXCESS-FAN")}<div class="chart">{chart_ecm_excess_fan(excess_det, unocc)}</div></div>
+<div class="card"><h3>ECM 5 — Chiller run by Open-Meteo OAT bin (5°F)</h3>
+<p class="note">Chiller 1 &amp; 2 only — hours when command on and meter kW &gt; 0.5 (pump_on proxy).</p>
+<div class="chart">{chart_oat_binned_mech(oat_bins)}</div></div>
+<div class="card" data-rule="ECON-AVAIL"><h3>ECM 6 — Free-cool weather availability</h3>{rule_tune_mount("ECON-AVAIL")}
+<p class="note">DP &lt; {FREE_COOL_DP_MAX_F:g}°F and OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (Open-Meteo).</p><div class="chart">{chart_open_meteo_free_cool(om_fc)}</div></div>"""
 
     links = """
 <div class="links">
@@ -1670,6 +1868,7 @@ def body_index(ctx: dict) -> str:
   <a class="link-card" href="economizer.html"><strong>Economizer / Free Cooling</strong><span>FC8–FC13 diagnostics focused on spring economizer season</span></a>
   <a class="link-card" href="central_plant.html"><strong>Central Plant</strong><span>Air-cooled chillers, boilers, and pump runtimes</span></a>
   <a class="link-card" href="excess_runtime.html"><strong>Excess Fan Runtime</strong><span>Weekly fan hours outside lease schedule when zones are comfortable</span></a>
+  <a class="link-card" href="data_model.html"><strong>Haystack Data Model</strong><span>RDF / SPARQL explorer — bootstrap from CSV, import/export JSON, prebuilt queries</span></a>
 </div>"""
 
     note = """
@@ -1690,10 +1889,10 @@ def body_zones(ctx: dict) -> str:
         for s in SEASONS
     )
     return f"""
-<div class="card"><h2>Weekly zone temperature by floor</h2>
+<div class="card" data-rule="COMFORT"><h2>Weekly zone temperature by floor</h2>{rule_tune_mount("COMFORT")}
 <p class="note">Average occupied zone temp (°F) — one line per floor. Green band = {COMFORT_LO_F:g}–{COMFORT_HI_F:g}°F.</p>
 <div class="chart">{chart_floor_weekly_temp(floor_temp_ts)}</div></div>
-<div class="card"><h2>Floor comfort ranking by season</h2>
+<div class="card" data-rule="SV-1"><h2>Floor comfort ranking by season</h2>{rule_tune_mount("SV-1")}
 <div class="chart">{chart_floor_rank(floor_rank)}</div></div>
 {season_cards}
 <div class="card"><h2>Worst zones — detail table</h2>{table_html(rank_table)}</div>"""
@@ -1710,11 +1909,11 @@ def body_weather(ctx: dict) -> str:
     ).round(2).reset_index()
     s1["season"] = s1["season"].map(lambda s: SEASON_SHORT.get(s, s))
     return f"""
-<div class="card"><h2>What this shows</h2>
+<div class="card" data-rule="WS-OAT"><h2>What this shows</h2>{rule_tune_mount("WS-OAT")}
 <p class="note">BAS OAT vs Open-Meteo. Fault when |Δ| &gt; {WEATHER_FAULT_DELTA_F:g}°F for 15 min. Use Open-Meteo for OAT bins — BAS sensors appear biased.</p>
 </div>
-<div class="card"><h2>AHU 1 OAT validation</h2><div class="chart">{chart_weather(wx_df, 'ahu1')}</div></div>
-<div class="card"><h2>AHU 2 OAT validation</h2><div class="chart">{chart_weather(wx_df, 'ahu2')}</div></div>
+<div class="card" data-rule="SV-2"><h2>AHU 1 OAT validation</h2>{rule_tune_mount("SV-2")}<div class="chart">{chart_weather(wx_df, 'ahu1')}</div></div>
+<div class="card" data-rule="SV-2"><h2>AHU 2 OAT validation</h2><div class="chart">{chart_weather(wx_df, 'ahu2')}</div></div>
 <div class="card"><h2>Temperature delta histogram</h2>
 <p class="note">Outliers clipped ±15°F.</p><div class="chart">{chart_weather_hist(wx_df)}</div></div>
 <div class="card"><h2>Fault hours by season</h2>{table_html(s1)}</div>
@@ -1725,11 +1924,19 @@ def body_ahu(d: pd.DataFrame, title: str) -> str:
     summary = ahu_season_summary(d)
     return f"""
 <div class="card"><h2>Operating trend</h2><div class="chart">{chart_ahu_trend(d, title)}</div></div>
-<div class="card"><h2>FC1 — duct static</h2><p class="note">{FAULT_EQUATIONS['FC1']}</p>
+<div class="card"><h2>Open-Meteo OAT vs supply air</h2>
+<p class="note">Reference weather from Open-Meteo — not BAS outdoor-air sensors.</p>
+<div class="chart">{chart_web_oat_vs_sat(d, title)}</div></div>
+<div class="card"><h2>Duct static reset check</h2>
+<p class="note">Violin plot of duct static when supply fan is running — tight distribution suggests active static reset.</p>
+<div class="chart">{chart_duct_static_violin(d, title)}</div></div>
+<div class="card" data-rule="FC1"><h2>FC1 — duct static fault</h2>{rule_tune_mount("FC1")}<p class="note">{FAULT_EQUATIONS['FC1']}</p>
 <div class="chart">{chart_ahu_fc1_season(d, title)}</div></div>
-<div class="card"><h2>Temperature & economizer faults</h2>
+<div class="card" data-rule="FC2"><h2>FC2 / FC3 — temperature & economizer faults</h2>{rule_tune_mount("FC2")}{rule_tune_mount("SV-4")}
 <div class="chart">{chart_ahu_temp_faults_season(d, title)}</div></div>
-<div class="card"><h2>FC4 — hunting</h2><div class="chart">{chart_ahu_hunting_season(d, title)}</div></div>
+<div class="card" data-rule="FC4"><h2>FC4 — hunting</h2>{rule_tune_mount("FC4")}<div class="chart">{chart_ahu_hunting_season(d, title)}</div></div>
+<div class="card" data-rule="SV-6"><h2>Sensor validation (SV-2, SV-6, SV-7)</h2>{rule_tune_mount("SV-6")}{rule_tune_mount("SV-7")}
+<p class="note">Flatline and spike checks on OAT/MAT — see fault table for hours.</p></div>
 <div class="card"><h2>Fault equations</h2>{fault_equations_html()}</div>
 <div class="card"><h2>Full fault table (incl. fan wd/we)</h2>{table_html(summary, max_rows=50)}</div>"""
 
@@ -1743,14 +1950,14 @@ def body_economizer(ctx: dict) -> str:
     om_fc = ctx["om_fc"]
     oat_bins = ctx["oat_bins"]
     body = f"""
-<div class="card"><h2>Economizer & free-cooling focus</h2>
-<p class="note"><strong>{fc_bd['total']:.0f} h</strong> total opportunity — AHU 1: {fc_bd['ahu1_h']:.0f} · AHU 2: {fc_bd['ahu2_h']:.0f} · Chiller 2: {fc_bd['ch2_h']:.0f} h (Open-Meteo OAT &lt; {CHILLER_FREE_COOL_OAT_F:g}°F)</p>
-<p class="note">Free-cool availability flag: Open-Meteo dew point &lt; {FREE_COOL_DP_MAX_F:g}°F AND dry bulb &lt; {FREE_COOL_OAT_AVAIL_F:g}°F.</p>
+<div class="card" data-rule="ECON-AVAIL"><h2>Economizer & free-cooling focus</h2>{rule_tune_mount("ECON-AVAIL")}{rule_tune_mount("ECON-3")}{rule_tune_mount("FC8")}
+<p class="note"><strong>{fc_bd['total']:.0f} h</strong> total opportunity — AHU 1: {fc_bd['ahu1_h']:.0f} · AHU 2: {fc_bd['ahu2_h']:.0f} · Chiller 2: {fc_bd['ch2_h']:.0f} h (Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F)</p>
+<p class="note">Free-cool availability: Open-Meteo dew point &lt; {FREE_COOL_DP_MAX_F:g}°F AND dry bulb &lt; {FREE_COOL_OAT_AVAIL_F:g}°F AND dry bulb ≥ {ECONOMIZER_LOW_LIMIT_F:g}°F. Min OA assumed {OA_MIN_EXPECTED_PCT:g}% · full economizer {OA_MAX_ECONOMIZER_PCT:g}%.</p>
 <div class="chart">{chart_open_meteo_free_cool(om_fc)}</div>
 <div class="chart">{chart_oat_binned_mech(oat_bins)}</div>
 <div class="chart">{chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total'])}</div>
 <div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div></div>
-<div class="card"><h2>Fault equations</h2>{fault_equations_html(['FC8','FC9','FC10','FC11','FC12','FC13','Free cool opp.','Open-Meteo free-cool avail.'])}</div>"""
+<div class="card"><h2>Fault equations</h2>{fault_equations_html(['FC8','FC9','FC10','FC11','FC12','FC13','Free cool opp.','ECON-2','ECON-3 mech','Open-Meteo econ OK'])}</div>"""
     for season in SEASONS:
         rows = []
         for df, name in [(ahu1, "AHU 1"), (ahu2, "AHU 2")]:
@@ -1776,11 +1983,19 @@ def body_plant(ctx: dict) -> str:
     ch_weekly = ctx["ch_weekly"]
     oat_bins = ctx["oat_bins"]
     body = f"""
-<div class="card"><h2>Central plant — chiller runtime</h2>
-<p class="note">Open-Meteo OAT bins. Chiller 2 excess below {CHILLER_FREE_COOL_OAT_F:g}°F: <strong>{fc_bd['ch2_h']:.0f} h</strong>.</p>
+<div class="card" data-rule="CHILLER-DT"><h2>Central plant — chiller runtime</h2>{rule_tune_mount("CHILLER-DT")}{rule_tune_mount("ECON-AVAIL")}
+<p class="note">Open-Meteo OAT bins. Chiller 2 excess below {FREE_COOL_OAT_AVAIL_F:g}°F: <strong>{fc_bd['ch2_h']:.0f} h</strong>.</p>
 <div class="chart">{chart_chiller_weekly_run(ch_daily, ch_weekly)}</div>
 <div class="chart">{chart_chiller_oat_bins(oat_bins)}</div>
 <div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div>
+</div>
+<div class="card"><h2>Chiller supply vs Open-Meteo OAT</h2>
+<p class="note">Scatter when chiller pump_on (command + kW &gt; 0.5). Reference weather is Open-Meteo.</p>
+<div class="chart">{chart_chws_vs_web_oat(plant['CHILLER_1'], 'Chiller 1')}</div>
+<div class="chart">{chart_chws_vs_web_oat(plant['CHILLER_2'], 'Chiller 2')}</div>
+</div>
+<div class="card"><h2>Boiler hot-water supply vs Open-Meteo OAT</h2>
+<div class="chart">{chart_hws_vs_web_oat(plant['BOILERS_PUMPS'], 'Boilers')}</div>
 </div>"""
     for key, title, run_col, faults in [
         ("CHILLER_1", "Chiller 1", "run", ["low_delta_t", "free_cool_opp", "below_enable"]),
@@ -1835,70 +2050,198 @@ PAGE_BODY_BUILDERS = {
 
 
 def load_raw_data() -> dict:
-    wx = pd.read_csv(WEATHER / "history_wide.csv")
-    wx["timestamp"] = pd.to_datetime(wx["timestamp_utc"], utc=True)
+    """Load historian CSVs via Haystack SPARQL-resolved equipment paths."""
+    refresh_data_paths()
+    from haystack_rdf.data_loader import load_history_wide
+    from haystack_rdf.resolver import get_resolver
+
+    resolver = get_resolver()
+    resolver.ensure_model()
+
+    wx = load_history_wide("WEATHER", resolver)
+    wx["timestamp"] = wx["timestamp_utc"]
+
+    raw: dict = {"wx": wx}
+    ahus = sorted(resolver.list_ahus())
+    if len(ahus) >= 1:
+        raw["ahu1_raw"] = load_history_wide(ahus[0], resolver)
+    if len(ahus) >= 2:
+        raw["ahu2_raw"] = load_history_wide(ahus[1], resolver)
+
+    chillers = sorted(e["id"] for e in resolver.list_equipment(haystack_tag="chiller"))
+    if len(chillers) >= 1:
+        raw["ch1"] = load_history_wide(chillers[0], resolver)
+    if len(chillers) >= 2:
+        raw["ch2"] = load_history_wide(chillers[1], resolver)
+
+    plant = [
+        e["id"]
+        for e in resolver.list_equipment()
+        if e["id"].upper().startswith("BOILER") or "BOILER" in e["id"].upper()
+    ]
+    if plant:
+        raw["blr"] = load_history_wide(plant[0], resolver)
+
+    return raw
+
+
+def raw_data_source_paths() -> list[Path]:
+    """CSV files that invalidate in-memory cache — fast filesystem discovery (no SPARQL)."""
+    global _source_paths_cache
+    from haystack_rdf.auto_sync import csv_tree_mtime
+    from haystack_rdf.csv_discovery import discover_historian_bundles
+
+    tree_mtime = csv_tree_mtime()
+    if _source_paths_cache is not None and _source_paths_cache[0] == tree_mtime:
+        return _source_paths_cache[1]
+
+    paths: list[Path] = []
+    if DATA.is_dir():
+        for bundle in discover_historian_bundles(DATA, building_dir=DATA):
+            if bundle.history_path.is_file():
+                paths.append(bundle.history_path)
+    if WEATHER.is_dir():
+        for bundle in discover_historian_bundles(WEATHER):
+            if bundle.history_path.is_file():
+                paths.append(bundle.history_path)
+    wx = WEATHER / "history_wide.csv"
+    if wx.is_file() and wx not in paths:
+        paths.append(wx)
+
+    result = paths or [wx]
+    _source_paths_cache = (tree_mtime, result)
+    return result
+
+
+def _spring_comfort_pct(zone_df: pd.DataFrame) -> float:
+    spring = "Spring free-cooling / economizer season"
+    sub = zone_df[zone_df["season"] == spring]
+    if sub.empty:
+        return 0.0
+    return float(sub["pct_within_72_occupied"].mean())
+
+
+def _compute_ahu1(raw: dict, wx: pd.DataFrame) -> pd.DataFrame:
+    z1 = zone_columns(raw["ahu1_raw"], "AHU_1")
+    return compute_ahu_faults(prep_ahu(attach_open_meteo(raw["ahu1_raw"], wx), "mad_c"), z1)
+
+
+def _compute_ahu2(raw: dict, wx: pd.DataFrame) -> pd.DataFrame:
+    z2 = zone_columns(raw["ahu2_raw"], "AHU_2")
+    return compute_ahu_faults(prep_ahu(attach_open_meteo(raw["ahu2_raw"], wx), "mad_c_pct"), z2)
+
+
+def _compute_economizer_metrics(
+    ahu1: pd.DataFrame, ahu2: pd.DataFrame, plant: dict, wx: pd.DataFrame,
+) -> dict[str, Any]:
     return {
-        "ahu1_raw": load_hist("AHU_1"),
-        "ahu2_raw": load_hist("AHU_2"),
-        "ch1": load_hist("CHILLER_1"),
-        "ch2": load_hist("CHILLER_2"),
-        "blr": load_hist("BOILERS_PUMPS"),
-        "wx": wx,
+        "fc_weekly": compute_free_cool_weekly(ahu1, ahu2, plant),
+        "fc_daily": compute_free_cool_daily_ts(ahu1, ahu2, wx),
+        "ch_fc_weekly": compute_chiller_fc_weekly(plant),
+        "fc_bd": fc_hours_breakdown(ahu1, ahu2, plant),
+        "oat_bins": compute_mech_cool_oat_bins(plant, wx),
+        "om_fc": compute_open_meteo_free_cool(ahu1, ahu2, wx),
     }
 
 
-def compute_context(raw: dict) -> dict:
+def _compute_zones_bundle(raw: dict) -> dict[str, Any]:
     ahu1_raw = raw["ahu1_raw"]
     ahu2_raw = raw["ahu2_raw"]
-    wx = raw["wx"]
-    z1 = zone_columns(ahu1_raw, "AHU_1")
-    z2 = zone_columns(ahu2_raw, "AHU_2")
-    ahu1 = compute_ahu_faults(prep_ahu(ahu1_raw, "mad_c"), z1)
-    ahu2 = compute_ahu_faults(prep_ahu(ahu2_raw, "mad_c_pct"), z2)
     zone_df, floor_df, weekly_df = compute_zone_stats(ahu1_raw, ahu2_raw)
-    wx_df = compute_weather(ahu1_raw, ahu2_raw, wx)
-    plant = compute_plant(raw["ch1"], raw["ch2"], raw["blr"], wx)
-    comfort_ts = compute_comfort_weekly_ts(ahu1_raw, ahu2_raw)
-    floor_temp_ts = compute_floor_weekly_temp(ahu1_raw, ahu2_raw)
-    floor_rank = compute_floor_rank_by_season(zone_df)
-    fc_weekly = compute_free_cool_weekly(ahu1, ahu2, plant)
-    fc_daily = compute_free_cool_daily_ts(ahu1, ahu2, wx)
-    ch_fc_weekly = compute_chiller_fc_weekly(plant)
-    fc_bd = fc_hours_breakdown(ahu1, ahu2, plant)
-    oat_bins = compute_mech_cool_oat_bins(ahu1, ahu2, plant, wx)
-    om_fc = compute_open_meteo_free_cool(ahu1, ahu2, wx)
-    wx_hour = compute_weather_fault_by_hour(wx_df)
-    ch_daily, ch_weekly = compute_chiller_daily_weekly(plant)
-    excess_det = compute_excess_weekly_detailed(ahu1, ahu2)
-    w1 = compute_excess_runtime(ahu1, "AHU_1")
-    w2 = compute_excess_runtime(ahu2, "AHU_2")
-    spring = "Spring free-cooling / economizer season"
-    spring_pct = float(zone_df.loc[zone_df["season"] == spring, "pct_within_72_occupied"].mean())
     return {
-        "ahu1": ahu1,
-        "ahu2": ahu2,
         "zone_df": zone_df,
         "floor_df": floor_df,
         "weekly_df": weekly_df,
+        "floor_temp_ts": compute_floor_weekly_temp(ahu1_raw, ahu2_raw),
+        "floor_rank": compute_floor_rank_by_season(zone_df),
+        "comfort_ts": compute_comfort_weekly_ts(ahu1_raw, ahu2_raw),
+        "spring_pct": _spring_comfort_pct(zone_df),
+    }
+
+
+def _compute_full_context(raw: dict) -> dict:
+    wx = raw["wx"]
+    ahu1 = _compute_ahu1(raw, wx)
+    ahu2 = _compute_ahu2(raw, wx)
+    plant = compute_plant(raw["ch1"], raw["ch2"], raw["blr"], wx)
+    wx_df = compute_weather(raw["ahu1_raw"], raw["ahu2_raw"], wx)
+    zones = _compute_zones_bundle(raw)
+    econ = _compute_economizer_metrics(ahu1, ahu2, plant, wx)
+    ch_daily, ch_weekly = compute_chiller_daily_weekly(plant)
+    excess_det = compute_excess_weekly_detailed(ahu1, ahu2)
+    return {
+        "ahu1": ahu1,
+        "ahu2": ahu2,
         "wx_df": wx_df,
+        "wx_hour": compute_weather_fault_by_hour(wx_df),
         "plant": plant,
-        "comfort_ts": comfort_ts,
-        "floor_temp_ts": floor_temp_ts,
-        "floor_rank": floor_rank,
-        "fc_weekly": fc_weekly,
-        "fc_daily": fc_daily,
-        "ch_fc_weekly": ch_fc_weekly,
-        "fc_bd": fc_bd,
-        "oat_bins": oat_bins,
-        "om_fc": om_fc,
-        "wx_hour": wx_hour,
         "ch_daily": ch_daily,
         "ch_weekly": ch_weekly,
         "excess_det": excess_det,
-        "w1": w1,
-        "w2": w2,
-        "spring_pct": spring_pct,
+        "w1": compute_excess_runtime(ahu1, "AHU_1"),
+        "w2": compute_excess_runtime(ahu2, "AHU_2"),
+        **zones,
+        **econ,
     }
+
+
+def compute_context(raw: dict, page_id: str | None = None) -> dict:
+    """Build page context. When page_id is set, skip unrelated heavy work."""
+    if page_id is None:
+        return _compute_full_context(raw)
+
+    wx = raw["wx"]
+
+    if page_id == "weather":
+        wx_df = compute_weather(raw["ahu1_raw"], raw["ahu2_raw"], wx)
+        return {"wx_df": wx_df, "wx_hour": compute_weather_fault_by_hour(wx_df)}
+
+    if page_id == "zones":
+        return _compute_zones_bundle(raw)
+
+    if page_id == "ahu_1":
+        return {"ahu1": _compute_ahu1(raw, wx)}
+
+    if page_id == "ahu_2":
+        return {"ahu2": _compute_ahu2(raw, wx)}
+
+    if page_id == "excess_runtime":
+        ahu1 = _compute_ahu1(raw, wx)
+        ahu2 = _compute_ahu2(raw, wx)
+        return {
+            "ahu1": ahu1,
+            "ahu2": ahu2,
+            "excess_det": compute_excess_weekly_detailed(ahu1, ahu2),
+            "w1": compute_excess_runtime(ahu1, "AHU_1"),
+            "w2": compute_excess_runtime(ahu2, "AHU_2"),
+        }
+
+    if page_id == "economizer":
+        ahu1 = _compute_ahu1(raw, wx)
+        ahu2 = _compute_ahu2(raw, wx)
+        plant = compute_plant(raw["ch1"], raw["ch2"], raw["blr"], wx)
+        return {"ahu1": ahu1, "ahu2": ahu2, "plant": plant, **_compute_economizer_metrics(ahu1, ahu2, plant, wx)}
+
+    if page_id == "central_plant":
+        plant = compute_plant(raw["ch1"], raw["ch2"], raw["blr"], wx)
+        ahu1 = _compute_ahu1(raw, wx)
+        ahu2 = _compute_ahu2(raw, wx)
+        ch_daily, ch_weekly = compute_chiller_daily_weekly(plant)
+        econ = _compute_economizer_metrics(ahu1, ahu2, plant, wx)
+        return {
+            "plant": plant,
+            "fc_bd": econ["fc_bd"],
+            "ch_fc_weekly": econ["ch_fc_weekly"],
+            "oat_bins": econ["oat_bins"],
+            "ch_daily": ch_daily,
+            "ch_weekly": ch_weekly,
+        }
+
+    if page_id == "economizer_diagnostics":
+        return {}
+
+    # index and unknown pages — full pipeline
+    return _compute_full_context(raw)
 
 
 def body_for_page(page_id: str, ctx: dict) -> str:
@@ -1920,6 +2263,7 @@ def render_page_html(
     page_id: str,
     ctx: dict,
     *,
+    body_html: str | None = None,
     params: dict | None = None,
     notes: str = "",
     analyst_name: str = "",
@@ -1929,7 +2273,7 @@ def render_page_html(
 
     fname = f"{page_id}.html"
     title = PAGE_TITLES.get(page_id, page_id)
-    body = body_for_page(page_id, ctx)
+    body = body_html if body_html is not None else body_for_page(page_id, ctx)
     params_block = ""
     if params and not interactive:
         params_block = params_summary_html(params, page_id)

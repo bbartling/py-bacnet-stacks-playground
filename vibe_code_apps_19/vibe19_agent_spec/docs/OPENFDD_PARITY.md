@@ -54,6 +54,21 @@ Reference: [DataFusion SQL cookbook](https://bbartling.github.io/open-fdd/rules/
 
 When adding a rule, record: rule id, confirm seconds, prerequisites, columns used, page id.
 
+### Implemented rules (economizer engine — reference example)
+
+These rules ship in the template; point columns come from each site's mapping JSON / `columns.csv`.
+
+| Rule / metric | Module | Weather source | Notes |
+| --- | --- | --- | --- |
+| Economizer OK | `economizer_fdd_engine.py` | Open-Meteo OAT + dew point | DP &lt; 60°F, OAT 35–72°F (tunable) |
+| ECON-2 | same | Open-Meteo | OA damper low when econ OK |
+| NOT_ECONOMIZING | same | Open-Meteo | Mechanical cooling when econ favorable |
+| MECH_COOLING | same | Open-Meteo | CHW active when OAT bins favor free cool |
+| Free-cool opportunity | `generate_dashboard.py` | Open-Meteo | AHU + chiller hours rollup |
+| Sensor QA (SV-*) | `sensor_qa_engine.py` | BAS + reference | Per-AHU validation |
+
+Analyst tunables for econ rules: `dashboard_params.py` → `economizer_engine_params()`.
+
 ---
 
 ## Parity testing workflow

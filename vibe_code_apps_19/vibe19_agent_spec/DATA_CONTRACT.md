@@ -1,6 +1,8 @@
 # Generic HVAC CSV data contract (App 19)
 
-Any building/site the agent onboarded should conform to this layout under **`HVAC_DATA_ROOT`**. Paths are case-sensitive on Linux deploy hosts.
+Any building/site should conform to this layout under **`HVAC_DATA_ROOT`**. Paths are case-sensitive on Linux deploy hosts.
+
+**This contract is the portable part of the template** — building folder names and equipment counts are site-specific.
 
 ---
 
@@ -58,15 +60,43 @@ Never assume 15-min (900 s) unless `grid_minutes` is 15.
 | `timestamp_utc` | **Yes** | Parse as UTC; sort ascending |
 | Point columns | **Yes** | Wide format; names match `columns.csv` |
 
-Load pattern:
+Load pattern (dashboard — preferred):
 
 ```python
-df = pd.read_csv(path)
-df["timestamp"] = pd.to_datetime(df["timestamp_utc"], utc=True)
-df = df.sort_values("timestamp").reset_index(drop=True)
+from pathlib import Path
+from haystack_rdf.feather_cache import read_history_csv
+from shared.data_config import get_config
+
+cfg = get_config()
+df = read_history_csv(path / "history_wide.csv", tz=cfg.site_timezone())
+poll = df.attrs.get("effective_poll_seconds", cfg.poll_seconds())
 ```
 
-Gap detection: `df["timestamp"].diff().dt.total_seconds().median()` should ≈ `poll_seconds`.
+Load pattern (manual / SQL export):
+
+```python
+import pandas as pd
+from haystack_rdf.timeseries_grid import maybe_downsample_to_5min
+
+df = pd.read_csv(path, parse_dates=["timestamp_utc"])
+df["timestamp"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+df = df.sort_values("timestamp").reset_index(drop=True)
+df = maybe_downsample_to_5min(df)
+poll = df.attrs.get("effective_poll_seconds", 300)
+```
+
+### Grid / resampling rule
+
+| Median sample spacing | Treatment |
+| --- | --- |
+| **< 5 minutes** (1-min, 2-min, …) | Downsample to **5-minute means** before FDD |
+| **≥ 5 minutes** (5-min, 15-min, …) | **No resampling** — use native cadence |
+
+Implementation: `haystack_rdf/timeseries_grid.py` → `maybe_downsample_to_5min()`.
+
+Gap detection: `infer_median_interval_seconds(df["timestamp"])` should match effective poll after load.
+
+See also: [`docs/PERFORMANCE_AND_LOADING.md`](docs/PERFORMANCE_AND_LOADING.md)
 
 ---
 

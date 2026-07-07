@@ -1,8 +1,10 @@
 # Local data path overrides
 data_paths.local.yaml
 data_paths.local.json
+.env
+!.env.example
 
-# Client CSV trees (use HVAC_DATA_ROOT instead)
+# Client CSV trees (use HVAC_DATA_ROOT / ./data/hvac_systems_CLEANED junction)
 data/hvac_systems_CLEANED/
 BUILDING_*/
 weather/
@@ -14,6 +16,9 @@ csv_fdd_dashboard/*.html
 csv_fdd_dashboard/site/
 csv_fdd_dashboard/*.zip
 csv_fdd_dashboard/analyst_session.json
+
+# Generated Haystack RDF models (bootstrap from client CSV)
+data/rdf/
 
 # Python
 __pycache__/

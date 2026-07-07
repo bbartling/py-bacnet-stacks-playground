@@ -10,7 +10,7 @@
 - SQL twin (export target): [DataFusion SQL cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/)
 - Rule schema / taxonomy: [Public FDD taxonomy](https://bbartling.github.io/open-fdd/rules/cookbook/public-fdd-taxonomy.html)
 
-**Workspace orientation:** [`vibe19_agent_spec/AGENTS.md`](vibe19_agent_spec/AGENTS.md) · skills under [`vibe19_agent_spec/skills/`](vibe19_agent_spec/skills/)
+**Workspace orientation:** [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md) · [`vibe19_agent_spec/AGENTS.md`](vibe19_agent_spec/AGENTS.md) · [`vibe19_agent_spec/SESSION_LOG.md`](vibe19_agent_spec/SESSION_LOG.md) · skills under [`vibe19_agent_spec/skills/`](vibe19_agent_spec/skills/)
 
 ---
 
@@ -20,6 +20,8 @@ Your mission: help operators and engineers **vibe-code** repeatable, client-deli
 
 This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CSV → validated tree → pandas rules → Plotly HTML → Flask tune/deploy.
 
+**Product intent:** the repo is a **template others fork and customize**. `BUILDING_100` / `BUILDING_50` are reference examples for developing the template — not the destination. See [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md).
+
 ---
 
 ## Non-negotiable principles
@@ -28,11 +30,13 @@ This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CS
 2. **Poll interval is never hardcoded** — read `grid_minutes` from each building’s `manifest.json` → `poll_seconds`. Fault confirm rows = `confirm_seconds // poll_seconds` (Open-FDD default confirm = **300 s**).
 3. **Rule parity** — every new fault uses the cookbook pattern: raw mask → optional smooth → `confirm_fault()` → rollup minutes/hours. See [`vibe19_agent_spec/docs/OPENFDD_PARITY.md`](vibe19_agent_spec/docs/OPENFDD_PARITY.md).
 4. **Equipment identity** — trust **folder path + `columns.csv` point_role**, not vendor `point_name` prefixes (often wrong on VAV).
-5. **Two implementation tracks** (pick per task):
+5. **Template-first** — code and docs stay **site-agnostic**; building names, AHU counts, and paths come from config/data, not hardcoded defaults. Example-site notes live in `SESSION_LOG.md`, not engine logic.
+6. **Two implementation tracks** (pick per task):
    - **`csv_fdd_dashboard/`** — fast Plotly HTML + tunable params (reference implementation)
    - **`fdd_dashboard_model/`** — typed catalogs + VAV/AHU loaders for terminal-level rules
-6. **Tests before “done”** — `pytest` in `csv_fdd_dashboard/`; `python validate_data.py` at app root.
-7. **Client deliverables** — static read-only zip (`package_dashboard.py`) and/or PythonAnywhere bundle (`build_pa_deploy.py`).
+7. **Tests before “done”** — `pytest` in `csv_fdd_dashboard/`; `python validate_data.py` at app root.
+8. **Client deliverables** — static read-only zip (`package_dashboard.py`) and/or Docker deploy (`build_docker_deploy.py`, `Dockerfile.deploy`).
+9. **Living spec** — after every meaningful slice, update [`vibe19_agent_spec/BUILD_CHECKPOINTS.md`](vibe19_agent_spec/BUILD_CHECKPOINTS.md) and any touched doc/skill under [`vibe19_agent_spec/`](vibe19_agent_spec/). Do not wait for the user to ask.
 
 ---
 
@@ -44,7 +48,7 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 {DATA_ROOT}/
   weather/
     history_wide.csv          # timestamp_utc + OAT, humidity, etc.
-  {BUILDING_ID}/              # e.g. BUILDING_100, BUILDING_50
+  {BUILDING_ID}/              # any stable id, e.g. BUILDING_100, SITE_A, TOWER_EAST
     manifest.json             # grid_minutes, export metadata
     vav_to_ahu_simple.csv     # optional topology
     AHU_1/
@@ -72,7 +76,9 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 | [`csv_fdd_dashboard/generate_dashboard.py`](csv_fdd_dashboard/generate_dashboard.py) | Multi-page Plotly HTML generator |
 | [`csv_fdd_dashboard/economizer_fdd_engine.py`](csv_fdd_dashboard/economizer_fdd_engine.py) | Reference FDD engine (AHU economizer + sensor QA) |
 | [`csv_fdd_dashboard/dashboard_params.py`](csv_fdd_dashboard/dashboard_params.py) | Tunable analyst params → engine |
+| [`csv_fdd_dashboard/dashboard_cache.py`](csv_fdd_dashboard/dashboard_cache.py) | In-memory CSV + per-page context cache (Flask full mode) |
 | [`csv_fdd_dashboard/app.py`](csv_fdd_dashboard/app.py) | Flask: `full` (local tune) vs `deploy` (serve `site/`) |
+| [`haystack_rdf/`](haystack_rdf/) | Haystack RDF model, SPARQL, CSV bootstrap, Flask `/api/rdf` |
 | [`fdd_dashboard_model/fdd_model/`](fdd_dashboard_model/fdd_model/) | PointCatalog, VAV lazy load |
 | [`vibe19_agent_spec/`](vibe19_agent_spec/) | Agent skills, checkpoints, UI spec |
 
@@ -101,11 +107,17 @@ Summary:
 - **Plotly** — embedded `plotly.min.js`; no CDN required for client zip
 - **Navigation** — `index.html` hub + equipment pages (AHU, zones, plant, weather, economizer)
 - **Analyst panel** (local `full` mode) — param sliders, refresh, session export
-- **Deploy mode** — pre-baked `site/`; notes-only JS on PythonAnywhere
+- **Deploy mode** — pre-baked `site/`; notes-only JS in Docker deploy mode
 
 ---
 
 ## Commands (smoke before claiming done)
+
+```powershell
+# Windows — set data root before validate/generate (never commit client paths)
+$env:HVAC_DATA_ROOT = "C:\path\to\hvac_systems_CLEANED"
+$env:HVAC_BUILDING = "BUILDING_100"
+```
 
 ```bash
 cd vibe_code_apps_19
@@ -115,6 +127,7 @@ cd csv_fdd_dashboard
 pip install -r requirements-dev.txt
 python -m pytest test_economizer_diagnostics.py test_sensor_qa.py -q
 python generate_dashboard.py
+python app.py   # full mode → http://127.0.0.1:5000/index.html
 python -c "from app import create_app; c=create_app('deploy').test_client(); assert c.get('/index.html').status_code==200"
 ```
 
@@ -122,8 +135,10 @@ Deploy packaging:
 
 ```bash
 python package_dashboard.py          # client read-only zip
-python build_pa_deploy.py --from-session
+python build_docker_deploy.py --from-session --docker
 ```
+
+Performance / loading (AI agents): [`vibe19_agent_spec/docs/PERFORMANCE_AND_LOADING.md`](vibe19_agent_spec/docs/PERFORMANCE_AND_LOADING.md)
 
 ---
 
@@ -135,7 +150,8 @@ python build_pa_deploy.py --from-session
 | [`vibe19-pandas-fdd-rules`](vibe19_agent_spec/skills/vibe19-pandas-fdd-rules/SKILL.md) | New fault rule, cookbook parity, confirm delay |
 | [`vibe19-plotly-dashboard`](vibe19_agent_spec/skills/vibe19-plotly-dashboard/SKILL.md) | New HTML page, charts, seasons, rollups |
 | [`vibe19-flask-analyst-ui`](vibe19_agent_spec/skills/vibe19-flask-analyst-ui/SKILL.md) | Tune panel, notes API, deploy mode |
-| [`vibe19-deploy-packaging`](vibe19_agent_spec/skills/vibe19-deploy-packaging/SKILL.md) | Client zip, PythonAnywhere, sanitized export |
+| [`vibe19-haystack-rdf`](vibe19_agent_spec/skills/vibe19-haystack-rdf/SKILL.md) | Haystack RDF, SPARQL, data model UI |
+| [`vibe19-deploy-packaging`](vibe19_agent_spec/skills/vibe19-deploy-packaging/SKILL.md) | Client zip, Docker, sanitized export |
 | [`vibe19-point-catalog`](vibe19_agent_spec/skills/vibe19-point-catalog/SKILL.md) | VAV/AHU typed loaders, terminal rules |
 
 ---
@@ -154,6 +170,8 @@ python build_pa_deploy.py --from-session
 
 ## Implementation order (greenfield site)
 
+See [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md) for the full fork checklist. Short version:
+
 1. Wire `data_paths.local.yaml` + validate import
 2. Point mapping for AHUs (economizer + sensor QA)
 3. Core pages: weather, zones, AHU summary, economizer diagnostics
@@ -164,6 +182,8 @@ python build_pa_deploy.py --from-session
 ## Iteration rule
 
 Smallest vertical slice → validate → test → one page → repeat. Prefer **correct FDD semantics** over extra chart chrome.
+
+**After each slice:** update [`vibe19_agent_spec/BUILD_CHECKPOINTS.md`](vibe19_agent_spec/BUILD_CHECKPOINTS.md) (done + next) and any relevant skill/doc in [`vibe19_agent_spec/`](vibe19_agent_spec/). Append a dated line to [`vibe19_agent_spec/SESSION_LOG.md`](vibe19_agent_spec/SESSION_LOG.md) when the change is non-trivial.
 
 ## Final deliverable (each agent session)
 

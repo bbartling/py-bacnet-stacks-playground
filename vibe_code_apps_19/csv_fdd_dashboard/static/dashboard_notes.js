@@ -1,4 +1,4 @@
-/** Notes-only editor for PythonAnywhere deploy mode (charts are pre-built in site/). */
+/** Notes-only editor for deploy mode (charts are pre-built in site/). */
 (function () {
   const pageId = window.DASHBOARD_PAGE || "index";
   const notesEl = document.getElementById("page-notes");
@@ -15,7 +15,7 @@
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Save failed");
-      alert("Notes saved. Charts are still from the last local build — re-run build_pa_deploy.py to update charts.");
+      alert("Notes saved. Charts are still from the last local build — re-run build_docker_deploy.py to update charts.");
     } catch (err) {
       alert("Save failed: " + err.message);
     } finally {

@@ -3,3 +3,6 @@
 pandas>=2.0
 plotly>=5.0
 numpy>=1.24
+rdflib>=7.0.0
+python-dotenv>=1.0.0
+pyarrow>=14.0

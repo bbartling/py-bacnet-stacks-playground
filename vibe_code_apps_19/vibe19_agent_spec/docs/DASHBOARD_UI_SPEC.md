@@ -1,6 +1,8 @@
 # Dashboard UI spec (App 19)
 
-Analyst-facing **static-first** RCx dashboard. Same look across buildings; only data and copy change.
+Analyst-facing **static-first** RCx dashboard. Same look across buildings; only data, equipment pages, and copy change per fork.
+
+**Template note:** page ids like `ahu_1` / `ahu_2` are the current reference layout — forks should rename/add pages to match discovered `AHU_*` folders. See [`../TEMPLATE.md`](../TEMPLATE.md).
 
 ---
 
@@ -61,10 +63,21 @@ Injected by Flask / `dashboard_tune.js`:
 
 - Collapsible panel per page
 - Grouped sliders from `dashboard_params.PARAM_DEFS`
-- **Refresh** → POST recompute → reload charts
+- **Refresh** → POST `/api/refresh/<page_id>` → recompute **that page only** (cached by param hash)
 - **Export session** → JSON for PA deploy handoff
 
 CSS: `.analyst-panel`, `.analyst-grid` — stack on `<900px`.
+
+### Performance (full mode)
+
+| Layer | Module | Behavior |
+| --- | --- | --- |
+| CSV load | `dashboard_cache.get_raw_data()` | Once per process; invalidate on source file mtime |
+| Context compute | `generate_dashboard.compute_context(raw, page_id=…)` | Lazy per page; param-keyed cache |
+| Prewarm | `app.py` background thread | Warms index, ahu_1, ahu_2, economizer on startup |
+| Econ diagnostics HTML | `should_rebuild_economizer_diagnostics()` | Skip rebuild when params unchanged |
+
+Typical compute: AHU pages ~0.15s · economizer ~1s · index/full ~8s (first miss only).
 
 ---
 

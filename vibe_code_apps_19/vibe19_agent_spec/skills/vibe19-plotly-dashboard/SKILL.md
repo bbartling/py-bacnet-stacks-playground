@@ -17,9 +17,23 @@ Full spec: [`docs/DASHBOARD_UI_SPEC.md`](../../docs/DASHBOARD_UI_SPEC.md)
 
 | File | Role |
 | --- | --- |
-| `generate_dashboard.py` | Main generator — `compute_context()`, `body_for_page()`, `write_all_pages()` |
+| `generate_dashboard.py` | Main generator — `compute_context(raw, page_id=…)`, `body_for_page()`, `write_all_pages()` |
+| `dashboard_cache.py` | Flask full-mode cache wrapper (not used by static `generate_dashboard.py` CLI) |
 | `economizer_diagnostics_page.py` | Dedicated page pattern (import from generator or standalone) |
 | `dashboard_params.py` | Tunables applied before `compute_context()` |
+
+### Per-page compute (`page_id`)
+
+| page_id | Computes |
+| --- | --- |
+| `weather` | wx_df + hourly faults only |
+| `zones` | zone/floor comfort bundle |
+| `ahu_1`, `ahu_2` | Single AHU frame + faults |
+| `economizer` | Both AHUs + plant + econ metrics |
+| `central_plant` | Plant + chiller daily/weekly + OAT bins |
+| `excess_runtime` | Both AHUs + excess fan rollups |
+| `index` | Full pipeline (all ECMs) |
+| `economizer_diagnostics` | Empty ctx — HTML from `build_page()` |
 
 ## Add a new page
 

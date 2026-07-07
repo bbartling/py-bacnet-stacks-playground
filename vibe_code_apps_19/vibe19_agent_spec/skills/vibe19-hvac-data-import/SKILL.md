@@ -47,6 +47,10 @@ confirm = cfg.confirm_rows()    # default 300s persist
 
 **Never** hardcode `900` unless manifest says 15-min grid.
 
+**Auto-resample:** if median timestamp spacing **< 5 minutes**, `read_history_csv` / `maybe_downsample_to_5min` reduces to 5-minute means. Coarser data (≥ 5 min) is unchanged.
+
+**Mixed grid:** manifest may declare different `grid_minutes` per equipment class. Use per-DataFrame `effective_poll_seconds` when series were loaded through the standard pipeline.
+
 ## Switch building
 
 Same code, different folder under `DATA_ROOT`:
@@ -61,7 +65,11 @@ cd csv_fdd_dashboard; python generate_dashboard.py
 
 - VAV `point_name` may have wrong equip prefix — use folder id + `point_role`
 - VAV cutover timestamps in import README — pre-cutover series may be stale
-- Not every mapped VAV has a per-box folder — some points only on AHU-wide CSV
+- Not every mapped VAV has a per-box folder — some points only on AHU-wide CSV (log gap count in `SESSION_LOG.md`)
+
+## Spec updates
+
+After import/validation changes: update [`BUILD_CHECKPOINTS.md`](../../BUILD_CHECKPOINTS.md) and [`SESSION_LOG.md`](../../SESSION_LOG.md).
 
 ## Git
 

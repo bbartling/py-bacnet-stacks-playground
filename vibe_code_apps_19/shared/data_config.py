@@ -7,6 +7,10 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from shared.env_loader import load_env_files, resolve_data_path
+
+load_env_files()
+
 APP_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_ROOT = APP_ROOT / "data" / "hvac_systems_CLEANED"
 
@@ -56,14 +60,29 @@ class DataConfig:
         paths = _load_paths_file()
         root = os.environ.get("HVAC_DATA_ROOT") or paths.get("data_root")
         if root:
-            data_root = Path(root)
+            data_root = resolve_data_path(root)
         elif DEFAULT_DATA_ROOT.is_dir():
-            data_root = DEFAULT_DATA_ROOT
+            data_root = DEFAULT_DATA_ROOT.resolve()
         else:
             data_root = DEFAULT_DATA_ROOT
 
         building = os.environ.get("HVAC_BUILDING", paths.get("building", "BUILDING_100"))
-        return cls(data_root=Path(data_root), building=building)
+        if not building:
+            building = cls._auto_building(data_root) or "BUILDING_100"
+        weather = os.environ.get("HVAC_WEATHER_SUBDIR", paths.get("weather_subdir", "weather"))
+        return cls(data_root=Path(data_root), building=building, weather_subdir=weather)
+
+    @staticmethod
+    def _auto_building(data_root: Path) -> str | None:
+        """Pick first BUILDING_* folder with manifest.json when HVAC_BUILDING unset."""
+        if not data_root.is_dir():
+            return None
+        candidates = sorted(
+            d.name
+            for d in data_root.iterdir()
+            if d.is_dir() and d.name.upper().startswith("BUILDING") and (d / "manifest.json").is_file()
+        )
+        return candidates[0] if candidates else None
 
     def site_label(self) -> str:
         """Display name derived from building folder id (no customer branding)."""

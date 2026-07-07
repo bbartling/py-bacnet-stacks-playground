@@ -1,0 +1,24 @@
+services:
+  analyst:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      DASHBOARD_MODE: full
+      ANALYST_ENABLED: "1"
+      HVAC_DATA_ROOT: /data/hvac
+      HVAC_BUILDING: BUILDING_100
+    volumes:
+      - ${HVAC_DATA_HOST:-./data/hvac_systems_CLEANED}:/data/hvac:ro
+
+  deploy:
+    build:
+      context: .
+      dockerfile: Dockerfile.deploy
+    ports:
+      - "5001:5000"
+    environment:
+      DASHBOARD_MODE: deploy
+      ANALYST_ENABLED: "1"
