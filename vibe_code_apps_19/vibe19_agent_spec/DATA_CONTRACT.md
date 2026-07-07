@@ -24,7 +24,6 @@ Any building/site the agent onboarded should conform to this layout under **`HVA
       quality.json           # optional
   BUILDING_100/              # example — name is arbitrary but stable
   BUILDING_50/
-  SITE_ACME_TOWER/
 ```
 
 Select building with `HVAC_BUILDING` env or `building:` in `data_paths.local.yaml`.

@@ -6,20 +6,18 @@ Building **50** and **100** fault-detection dashboards from hardcoded CSV export
 
 | Directory | Role |
 | --- | --- |
-| [`csv_fdd_dashboard/`](csv_fdd_dashboard/) | **Simple** — ported Plotly HTML generator + Flask tune/deploy (from `building100_dashboard`) |
+| [`csv_fdd_dashboard/`](csv_fdd_dashboard/) | **Simple** — Plotly HTML generator + Flask tune/deploy |
 | [`fdd_dashboard_model/`](fdd_dashboard_model/) | **Enhanced** — typed point catalog + VAV box loaders for terminal-level rules |
 | [`shared/`](shared/) | `data_config`, validation script |
 
 ## Data (not in git)
 
-Refreshed client import (~528 MB, 5-min grid, 88 VAV folders):
-
-`C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar\workspace\imports\hvac_systems_CLEANED`
+CSV history trees are **large** (~500 MB+ with VAV) and stay **outside** the repo.
 
 Copy [`data_paths.example.yaml`](data_paths.example.yaml) → `data_paths.local.yaml` or set:
 
 ```powershell
-$env:HVAC_DATA_ROOT = "C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar\workspace\imports\hvac_systems_CLEANED"
+$env:HVAC_DATA_ROOT = "/path/to/hvac_systems_CLEANED"
 $env:HVAC_BUILDING = "BUILDING_100"
 ```
 
@@ -29,7 +27,7 @@ See [`data/README.md`](data/README.md).
 
 ```bash
 cd vibe_code_apps_19
-python -m shared.validate_hvac_data
+python validate_data.py
 ```
 
 ## Generate dashboard (Building 100)
@@ -50,7 +48,7 @@ $env:HVAC_BUILDING = "BUILDING_50"
 python generate_dashboard.py
 ```
 
-Building 50 uses the same code path; VAV metadata on 2/45 boxes has a known bad `point_name` prefix in the import — see validation warnings.
+Building 50 uses the same code path; VAV metadata on some boxes may have bad `point_name` prefixes — see validation warnings.
 
 ## Git strategy
 
@@ -59,5 +57,5 @@ Building 50 uses the same code path; VAV metadata on 2/45 boxes has a known bad 
 
 ## Status
 
-- **Import data:** GO after `poll_seconds` wired (done in this app)
-- **VAV terminal FDD pages:** data present; rules still AHU-centric in `csv_fdd_dashboard` — use `fdd_dashboard_model` next
+- **Import data:** validated via `validate_data.py` when `HVAC_DATA_ROOT` is set
+- **VAV terminal FDD pages:** data model scaffold in `fdd_dashboard_model/` — rules still AHU-centric in `csv_fdd_dashboard`

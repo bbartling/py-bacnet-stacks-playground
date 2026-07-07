@@ -13,7 +13,7 @@ Same workflow as Unity WebGL → zip → upload → Flask serves the build.
 ## 1. Build locally (your machine)
 
 ```bash
-cd building100_dashboard
+cd vibe_code_apps_19/csv_fdd_dashboard
 pip install -r requirements-dev.txt
 
 # Optional: tune charts + write notes locally

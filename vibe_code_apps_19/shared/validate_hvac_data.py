@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from shared.data_config import DataConfig, DEFAULT_IMPORT, LEGACY_ROOT, get_config
+from shared.data_config import DataConfig, get_config
 
 
 def _rows_range(path: Path) -> dict:
@@ -95,12 +95,6 @@ def validate(cfg: DataConfig | None = None) -> dict:
 
     failed = [c for c in report["checks"] if not c["ok"]]
     report["verdict"] = "NO-GO" if failed else "GO (after poll_seconds wired)"
-
-    if cfg.data_root == DEFAULT_IMPORT and LEGACY_ROOT.is_dir():
-        report["legacy_root"] = str(LEGACY_ROOT)
-        report["import_has_vav"] = len(vav_boxes)
-        legacy_vav = DataConfig(LEGACY_ROOT, cfg.building).list_vav_boxes()
-        report["legacy_vav_count"] = len(legacy_vav)
 
     return report
 

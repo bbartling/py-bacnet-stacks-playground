@@ -67,12 +67,12 @@ Cursor users: mirror skills under repo `.cursor/skills/` if desired; **`vibe19_a
 
 | Key | Value |
 | --- | --- |
-| Import (example) | `tadco_openfdd_sidecar/.../imports/hvac_systems_CLEANED` |
+| Data root | Set via `HVAC_DATA_ROOT` or `data_paths.local.yaml` |
 | Buildings | `BUILDING_100`, `BUILDING_50` |
-| Grid | 5 min (`grid_minutes: 5` → 300 s poll) |
+| Grid | Read from `manifest.json` (`grid_minutes`, typically 5 → 300 s poll) |
 | VAV | Per-box folders under `{BUILDING}/VAV/{id}/` |
 
-Always parameterize — never hardcode customer paths in committed code (use `data_paths.local.yaml`).
+Never hardcode customer-specific paths in committed code (use `data_paths.local.yaml`).
 
 ---
 

@@ -47,7 +47,7 @@ POLL_SECONDS = cfg.poll_seconds()
 
 ## Seasons / RCx windows
 
-Define season dicts per site in generator constants or read from manifest. Reference site uses Chicago TZ (`America/Chicago`).
+Define season dicts per site in generator constants or read from manifest. Timezone from building `manifest.json` when available.
 
 ## Outputs (gitignored)
 

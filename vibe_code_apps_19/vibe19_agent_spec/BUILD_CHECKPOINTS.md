@@ -18,11 +18,11 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 ## Next for agent (ordered)
 
 1. **VAV terminal FDD (cookbook §5)** — damper stuck, airflow tracking, reheat via `fdd_dashboard_model`; new `vav_diagnostics_page.py` + tests
-2. **Building 50 parity** — `$env:HVAC_BUILDING=BUILDING_50`; fix/ignore bad `point_name` on 2 boxes; regenerate all pages
+2. **Building 50 parity** — `$env:HVAC_BUILDING=BUILDING_50`; fix/ignore bad `point_name` on affected boxes; regenerate all pages
 3. **Rule catalog index page** — table of implemented vs [pandas cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html) rules with fault hours
 4. **Central plant rules (cookbook §7)** — extend `central_plant.html` with CHW/HW cookbook masks
 5. **Export rule to Open-FDD SQL** — optional `docs/economizer_fdd_rules.sql` pattern for new rules
-6. **Multi-building index** — single hub linking B50 + B100 when `DATA_ROOT` has both
+6. **Multi-building index** — single hub linking Building 50 + Building 100 when `DATA_ROOT` has both
 7. **CI snippet** — pytest on push (no CSV fixture; synthetic only)
 
 ---

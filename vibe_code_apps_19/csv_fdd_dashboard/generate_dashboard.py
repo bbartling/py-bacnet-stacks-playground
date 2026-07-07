@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Building 100 multi-page RCx / FDD dashboard HTML reports."""
+"""Generate Building 100 / 50 multi-page RCx / FDD dashboard HTML reports."""
 
 from __future__ import annotations
 
@@ -29,7 +29,8 @@ DATA = _cfg.building_dir
 WEATHER = _cfg.weather_dir
 OUT = ROOT
 
-TZ = "America/Chicago"
+SITE_LABEL = _cfg.site_label()
+TZ = _cfg.site_timezone()
 POLL_SECONDS = _cfg.poll_seconds()
 CONFIRM_ROWS = _cfg.confirm_rows()
 
@@ -274,7 +275,7 @@ def page_html(
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>{title} — Building 100</title>
+<title>{title} — {SITE_LABEL}</title>
 <script src="plotly.min.js"></script>
 <style>
 :root {{
@@ -314,7 +315,7 @@ tr:hover td {{ background: #1f2937; }}
 </head>
 <body>
 <header>
-  <h1>Building 100 — RCx Analytics</h1>
+  <h1>{SITE_LABEL} — RCx Analytics</h1>
   <div class="meta">Created {meta['created']} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · Occupied: Mon–Fri 6:00–17:00, Sat 7:00–14:00, Sun closed</div>
 </header>
 <nav>{nav_html(active)}</nav>

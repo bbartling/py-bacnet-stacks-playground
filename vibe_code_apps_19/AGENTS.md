@@ -44,7 +44,7 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 {DATA_ROOT}/
   weather/
     history_wide.csv          # timestamp_utc + OAT, humidity, etc.
-  {BUILDING_ID}/              # e.g. BUILDING_100, SITE_A
+  {BUILDING_ID}/              # e.g. BUILDING_100, BUILDING_50
     manifest.json             # grid_minutes, export metadata
     vav_to_ahu_simple.csv     # optional topology
     AHU_1/

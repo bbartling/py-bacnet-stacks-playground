@@ -8,11 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_IMPORT = Path(
-    r"C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar"
-    r"\workspace\imports\hvac_systems_CLEANED"
-)
-LEGACY_ROOT = Path(r"C:\Users\ben\OneDrive\Desktop\hvac_systems_CLEANED")
+DEFAULT_DATA_ROOT = APP_ROOT / "data" / "hvac_systems_CLEANED"
 
 
 def _load_paths_file() -> dict:
@@ -61,15 +57,26 @@ class DataConfig:
         root = os.environ.get("HVAC_DATA_ROOT") or paths.get("data_root")
         if root:
             data_root = Path(root)
-        elif DEFAULT_IMPORT.is_dir():
-            data_root = DEFAULT_IMPORT
-        elif LEGACY_ROOT.is_dir():
-            data_root = LEGACY_ROOT
+        elif DEFAULT_DATA_ROOT.is_dir():
+            data_root = DEFAULT_DATA_ROOT
         else:
-            data_root = APP_ROOT / "data" / "hvac_systems_CLEANED"
+            data_root = DEFAULT_DATA_ROOT
 
         building = os.environ.get("HVAC_BUILDING", paths.get("building", "BUILDING_100"))
         return cls(data_root=Path(data_root), building=building)
+
+    def site_label(self) -> str:
+        """Display name derived from building folder id (no customer branding)."""
+        return self.building.replace("_", " ").title()
+
+    def site_timezone(self) -> str:
+        """IANA timezone from manifest or HVAC_TIMEZONE env (default UTC)."""
+        if self.manifest_path.is_file():
+            meta = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+            tz = meta.get("timezone")
+            if tz:
+                return str(tz)
+        return os.environ.get("HVAC_TIMEZONE", "UTC")
 
     @property
     def building_dir(self) -> Path:

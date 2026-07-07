@@ -29,6 +29,7 @@ _cfg = get_config()
 DATA = _cfg.building_dir
 WEATHER = _cfg.weather_dir
 OUT = ROOT
+SITE_LABEL = _cfg.site_label()
 
 COLORS = {
     "bg": "#0f1419", "card": "#1a2332", "text": "#e8edf4", "muted": "#8b9cb3",
@@ -234,7 +235,7 @@ def build_page(meta_created: str | None = None) -> None:
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Economizer Diagnostics — Building 100</title>
+<title>Economizer Diagnostics — {SITE_LABEL}</title>
 <script src="plotly.min.js"></script>
 <style>
 :root {{ --bg:#0f1419; --card:#1a2332; --text:#e8edf4; --muted:#8b9cb3; --accent:#3b82f6; }}
