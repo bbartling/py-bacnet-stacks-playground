@@ -1,0 +1,5 @@
+# Local development — generate charts, tune faults, build deploy zip
+-r requirements.txt
+pandas>=2.0
+plotly>=5.0
+numpy>=1.24

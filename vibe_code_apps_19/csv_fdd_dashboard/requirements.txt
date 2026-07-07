@@ -1,0 +1,2 @@
+# PythonAnywhere deploy (read-only site/ + notes)
+flask>=3.0

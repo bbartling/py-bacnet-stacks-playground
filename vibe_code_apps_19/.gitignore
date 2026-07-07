@@ -1,0 +1,22 @@
+# Local data path overrides
+data_paths.local.yaml
+data_paths.local.json
+
+# Client CSV trees (use HVAC_DATA_ROOT instead)
+data/hvac_systems_CLEANED/
+BUILDING_*/
+weather/
+**/history_wide.csv
+**/columns.csv
+
+# Generated dashboard artifacts
+csv_fdd_dashboard/*.html
+csv_fdd_dashboard/site/
+csv_fdd_dashboard/*.zip
+csv_fdd_dashboard/analyst_session.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

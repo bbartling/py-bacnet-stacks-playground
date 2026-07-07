@@ -1,0 +1,7 @@
+# Copy to data_paths.local.yaml (gitignored) or set HVAC_DATA_ROOT env var.
+#
+# Refreshed client import (5-min grid + per-VAV folders):
+data_root: C:/Users/ben/OneDrive/Desktop/testing/tadco_openfdd_sidecar/workspace/imports/hvac_systems_CLEANED
+building: BUILDING_100
+
+# Other buildings: BUILDING_50
