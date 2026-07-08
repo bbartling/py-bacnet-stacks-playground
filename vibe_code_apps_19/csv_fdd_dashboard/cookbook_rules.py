@@ -477,6 +477,18 @@ def econ5(d, p, poll):
 # ---------------------------------------------------------------------------
 
 
+def _vav_air_on(d: pd.DataFrame, flow_min: float) -> pd.Series:
+    """Fan/air-flow-running proxy for a VAV box.
+
+    VAV terminals have no fan of their own; the box only sees conditioned air when the
+    parent AHU supply fan runs. We use measured box airflow as that proxy: air moving
+    means the fan is on. When no airflow point is modeled we can't gate, so return True.
+    """
+    if "zone_flow" in d.columns:
+        return pd.to_numeric(d["zone_flow"], errors="coerce").fillna(0) > flow_min
+    return pd.Series(True, index=d.index)
+
+
 def vav1(d, p, poll):
     lo = _f(p, "zone_lo", 68.0)
     hi = _f(p, "zone_hi", 76.0)
@@ -486,16 +498,21 @@ def vav1(d, p, poll):
 def vav3(d, p, poll):
     oat_hi = _f(p, "reheat_oat", 78.0)
     reheat_thr = _f(p, "reheat_pct", 0.52)
+    flow_min = _f(p, "flow_on_min", 25.0)
     reheat = norm_cmd(d["reheat_valve_pct"]).fillna(0)
-    return d["oa_t"].notna() & (d["oa_t"] > oat_hi) & (reheat > reheat_thr)
+    return _vav_air_on(d, flow_min) & d["oa_t"].notna() & (d["oa_t"] > oat_hi) & (reheat > reheat_thr)
 
 
 def vav4(d, p, poll):
     full_open = _f(p, "full_open_pct", 0.975)
     hours = _f(p, "sustain_hours", 1.5)
+    flow_min = _f(p, "flow_on_min", 25.0)
     roll = max(2, int(round(hours * 3600 / max(poll, 1))))
     dmp = norm_cmd(d["damper_pct"]).fillna(0)
-    return dmp.notna() & (dmp > full_open) & (dmp.rolling(roll, min_periods=roll).min() > full_open)
+    return (
+        _vav_air_on(d, flow_min) & dmp.notna() & (dmp > full_open)
+        & (dmp.rolling(roll, min_periods=roll).min() > full_open)
+    )
 
 
 def vav5(d, p, poll):
@@ -506,6 +523,25 @@ def vav5(d, p, poll):
 def vav7(d, p, poll):
     return (
         d["zone_flow"].notna() & d["min_flow_sp"].notna() & (d["zone_flow"] < d["min_flow_sp"])
+    )
+
+
+def vav_reheat_stuck(d, p, poll):
+    """Reheat valve commanded open but the box's discharge air never warms above inlet.
+
+    Inlet temp = duct air arriving from the AHU (≈ AHU discharge). Discharge temp = air
+    leaving the box after the reheat coil. Reheat open + air flowing + no rise ⇒ stuck /
+    failed reheat valve or coil. Fully computed from VAV-local sensors.
+    """
+    cmd_thr = _f(p, "reheat_cmd", 0.30)
+    min_rise = _f(p, "min_rise", 3.0)
+    flow_min = _f(p, "flow_on_min", 25.0)
+    reheat = norm_cmd(d["reheat_valve_pct"]).fillna(0)
+    rise = d["vav_disch_t"] - d["vav_inlet_t"]
+    return (
+        _vav_air_on(d, flow_min)
+        & d["vav_disch_t"].notna() & d["vav_inlet_t"].notna()
+        & (reheat > cmd_thr) & (rise < min_rise)
     )
 
 
@@ -574,6 +610,14 @@ def wx1(d, p, poll):
 
 def wx2(d, p, poll):
     return d["wind_gust"].notna() & d["wind_speed"].notna() & (d["wind_gust"] < d["wind_speed"])
+
+
+def oat_vs_meteo(d, p, poll):
+    """BAS outdoor-air sensor disagrees with Open-Meteo dry bulb by more than the threshold."""
+    if "wx_oa_t" not in d.columns:
+        return _false(d.index)
+    err = _f(p, "oat_err", 5.0)
+    return d["oa_t"].notna() & d["wx_oa_t"].notna() & (d["oa_t"].sub(d["wx_oa_t"]).abs() > err)
 
 
 # ---------------------------------------------------------------------------
@@ -768,6 +812,11 @@ RULES: list[CookbookRule] = [
     CookbookRule("AHU-SIMUL", "Heating and cooling simultaneous", "ahu", ["ahu"],
         ["htg_valve_pct", "clg_valve_pct"], "Heating valve > 10% AND cooling valve > 10% at once.",
         ahu_simul_heat_cool, params=[CookbookParam("valve_open_pct", "Valve open threshold", "frac", 0.05, 0.5, 0.01, 0.10), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+    CookbookRule("OAT-METEO", "BAS outdoor-air sensor vs Open-Meteo", "ahu", ["ahu"],
+        ["oa_t", "wx_oa_t"], "BAS OAT sensor differs from Open-Meteo dry bulb by more than 5°F.",
+        oat_vs_meteo, params=[
+            CookbookParam("oat_err", "Max OAT disagreement", "°F", 2.0, 20.0, 0.5, 5.0),
+            CONFIRM_PARAM(15.0)], confirm_seconds=900),
 
     # --- Economizer & ventilation ---
     CookbookRule("ECON-1", "Economizer stuck closed", "ahu", ["ahu"],
@@ -806,20 +855,31 @@ RULES: list[CookbookRule] = [
             CookbookParam("zone_hi", "Zone high", "°F", 72.0, 85.0, 0.5, 76.0),
             CONFIRM_PARAM(15.0)], confirm_seconds=900),
     CookbookRule("VAV-3", "Excessive reheat during warm weather", "vav", ["vav"],
-        ["oa_t", "reheat_valve_pct"], "OAT > 78°F AND reheat valve > 52%.",
+        ["oa_t", "reheat_valve_pct"], "Air flowing AND OAT > 78°F AND reheat valve > 52%.",
         vav3, params=[
             CookbookParam("reheat_oat", "Warm OAT", "°F", 65.0, 90.0, 1.0, 78.0),
             CookbookParam("reheat_pct", "Reheat frac", "frac", 0.1, 1.0, 0.02, 0.52),
+            CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
             CONFIRM_PARAM(5.0)], confirm_seconds=300),
     CookbookRule("VAV-4", "Damper stuck at full open", "vav", ["vav"],
-        ["damper_pct"], "Damper > 97.5% sustained across the window.",
+        ["damper_pct"], "Air flowing AND damper > 97.5% sustained across the window.",
         vav4, params=[
             CookbookParam("full_open_pct", "Full open frac", "frac", 0.8, 1.0, 0.005, 0.975),
             CookbookParam("sustain_hours", "Sustain window", "h", 0.5, 6.0, 0.5, 1.5),
+            CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
             CONFIRM_PARAM(15.0)], confirm_seconds=900),
     CookbookRule("VAV-5", "Airflow sensor bias", "vav", ["vav"],
         ["zone_flow", "damper_pct"], "Airflow > 50 cfm while damper < 10% (implausible flow).",
         vav5, params=[CONFIRM_PARAM(15.0)], confirm_seconds=900),
+    CookbookRule("VAV-REHEAT", "Reheat valve stuck / no temp rise", "vav", ["vav"],
+        ["reheat_valve_pct", "vav_disch_t", "vav_inlet_t"],
+        "Air flowing AND reheat valve > 30% AND box discharge temp rises < 3°F above duct inlet "
+        "(air from AHU) — stuck or failed reheat valve/coil.",
+        vav_reheat_stuck, params=[
+            CookbookParam("reheat_cmd", "Reheat open frac", "frac", 0.1, 1.0, 0.05, 0.30),
+            CookbookParam("min_rise", "Min temp rise", "°F", 0.5, 15.0, 0.5, 3.0),
+            CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
+            CONFIRM_PARAM(15.0)], confirm_seconds=900),
     CookbookRule("VAV-7", "Minimum airflow violation", "vav", ["vav"],
         ["zone_flow", "min_flow_sp"], "Zone airflow below its minimum airflow setpoint.",
         vav7, params=[CONFIRM_PARAM(15.0)], confirm_seconds=900),

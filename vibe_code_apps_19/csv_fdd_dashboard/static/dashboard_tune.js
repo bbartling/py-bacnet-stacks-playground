@@ -153,7 +153,10 @@
     if (refreshBtn) refreshBtn.disabled = true;
     setStatus("Recomputing charts…", "live");
     try {
-      const body = { units: window.DASHBOARD_UNITS || localStorage.getItem("fdd-dashboard-units") || "imperial" };
+      const body = {
+        units: window.DASHBOARD_UNITS || localStorage.getItem("fdd-dashboard-units") || "imperial",
+        theme: document.documentElement.getAttribute("data-theme") || localStorage.getItem("fdd-dashboard-theme") || "dark",
+      };
       if (window.DASHBOARD_SESSION && window.DASHBOARD_SESSION.can_edit) {
         body.params = paramState;
       }

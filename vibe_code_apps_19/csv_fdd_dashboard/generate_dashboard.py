@@ -124,6 +124,19 @@ COLORS = {
 _OCC_SCHEDULE: dict | None = None
 SITE_SETTINGS: dict[str, Any] = {}
 
+# Chart theme — mirrors the UI light/dark toggle so Plotly figures match the page.
+_CHART_THEME = "dark"
+_CHART_THEME_COLORS = {
+    "dark": {"template": "plotly_dark", "card": "#1a2332", "text": "#e8edf4", "grid": "#334155"},
+    "light": {"template": "plotly_white", "card": "#ffffff", "text": "#1e293b", "grid": "#e2e8f0"},
+}
+
+
+def set_chart_theme(theme: str | None) -> None:
+    """Select the Plotly theme used by fig_to_div (called per refresh)."""
+    global _CHART_THEME
+    _CHART_THEME = "light" if str(theme).lower() == "light" else "dark"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -190,11 +203,12 @@ def fig_to_div(fig: go.Figure, height: int = 420) -> str:
     from units import apply_fig_display_units
 
     apply_fig_display_units(fig)
+    theme = _CHART_THEME_COLORS.get(_CHART_THEME, _CHART_THEME_COLORS["dark"])
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor=COLORS["card"],
-        plot_bgcolor=COLORS["card"],
-        font=dict(color=COLORS["text"], size=12),
+        template=theme["template"],
+        paper_bgcolor=theme["card"],
+        plot_bgcolor=theme["card"],
+        font=dict(color=theme["text"], size=12),
         margin=dict(l=55, r=40, t=72, b=90),
         height=height,
         title=dict(x=0.02, xanchor="left"),

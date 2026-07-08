@@ -14,8 +14,10 @@ Fault math is canonical/imperial (°F, in.w.c.); UI does display-unit conversion
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -27,6 +29,47 @@ import cookbook_rules as cb
 from rules.base import confirm_fault, hours_true
 
 _HERE = Path(__file__).resolve().parent
+
+# ---------------------------------------------------------------------------
+# Page-result cache — rule math is expensive (zones fan out to dozens of VAVs).
+# Faults are computed ONCE per (page, params, data version) and reused, so a
+# page revisit is a lookup, not a recompute. Invalidated when the RDF model or
+# the historian feather cache changes on disk.
+# ---------------------------------------------------------------------------
+
+_RESULT_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+_RESULT_LOCK = threading.Lock()
+
+
+def _data_token() -> str:
+    """Cheap fingerprint of the modeled data — changes when TTL or history reloads."""
+    parts: list[str] = []
+    for p in sorted((_HERE.parent / "data" / "rdf").glob("**/data_model.ttl")):
+        try:
+            parts.append(str(p.stat().st_mtime_ns))
+        except OSError:
+            pass
+    feather_dir = _HERE / ".cache" / "feather"
+    if feather_dir.is_dir():
+        mtimes = [f.stat().st_mtime_ns for f in feather_dir.glob("*.feather")]
+        if mtimes:
+            parts.append(str(max(mtimes)))
+    return "|".join(parts) or "0"
+
+
+def _cache_key(page_id: str, params_by_rule: dict | None, vav_limit: int) -> tuple[str, str]:
+    payload = json.dumps(params_by_rule or {}, sort_keys=True, default=str)
+    digest = hashlib.sha256(f"{vav_limit}|{payload}".encode()).hexdigest()[:16]
+    return page_id, f"{_data_token()}:{digest}"
+
+
+_SERIES_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def clear_result_cache() -> None:
+    with _RESULT_LOCK:
+        _RESULT_CACHE.clear()
+        _SERIES_CACHE.clear()
 
 # ---------------------------------------------------------------------------
 # Role resolution
@@ -62,6 +105,8 @@ ROLE_CANDIDATES: dict[str, tuple[list[str], list[str], list[str]]] = {
     "zone_t_sp": ([], [], ["spacetempsp", "zone_temp_sp", "clg_stpt", "htg_stpt", "occ_clg_stpt", "occ_ht_stpt", "setpoint"]),
     "damper_pct": ([], [], ["vavactuatorposition_pct", "vavactuatorcommand_pct", "damper_pos", "damper_cmd", "damper_pct"]),
     "reheat_valve_pct": ([], [], ["reheat_valve", "reheatvalve", "rht_valve", "reheat_pct"]),
+    "vav_disch_t": ([], [], ["vav_disch", "sa_temp_f", "sa_temp", "dischargeairtemp", "disch_air_temp", "supplyairtemp"]),
+    "vav_inlet_t": ([], [], ["ductintemp", "duct_in_temp", "duct_inlet", "inlet_temp"]),
     "zone_flow": ([], [], ["airflow_cfm", "supply_flow_cfm", "airflow", "flow_cfm", "sa_flow"]),
     "min_flow_sp": ([], [], ["min_airflow", "min_flow", "minairflow", "airflow_min"]),
     "occ_mode": ([], [], ["occ_mode", "occupancy", "occupied"]),
@@ -159,7 +204,7 @@ _KIND_ROLES: dict[str, list[str]] = {
         "htg_coil_enter_t", "htg_coil_leave_t", "preheat_leave_t", "vav_total_flow",
         "occ_mode", "override_active", "vav_press_req_sum",
     ],
-    "vav": ["zone_t", "zone_t_sp", "damper_pct", "reheat_valve_pct", "zone_flow", "min_flow_sp", "oa_t", "occ_mode"],
+    "vav": ["zone_t", "zone_t_sp", "damper_pct", "reheat_valve_pct", "vav_disch_t", "vav_inlet_t", "zone_flow", "min_flow_sp", "oa_t", "occ_mode"],
     "zone": ["zone_t", "zone_t_sp"],
     "chiller": ["chw_supply_t", "chw_return_t", "chw_supply_t_sp", "chw_pump_cmd", "chw_dp", "chw_dp_sp", "chw_flow", "chw_reset_req_sum", "oa_t"],
     "boiler": ["hw_supply_t", "hw_return_t", "hw_reset_req_sum", "oa_t"],
@@ -345,6 +390,200 @@ def run_rule(rule: cb.CookbookRule, d: pd.DataFrame, resolved: dict, poll: float
     return result
 
 
+# ---------------------------------------------------------------------------
+# Chart series — per-rule signal traces + fault overlay (for the UI Plotly charts)
+# ---------------------------------------------------------------------------
+
+_ROLE_LABEL = {
+    "zone_t": "Zone temp (°F)", "zone_t_sp": "Zone SP (°F)", "damper_pct": "Damper (%)",
+    "reheat_valve_pct": "Reheat valve (%)", "zone_flow": "Airflow (cfm)", "min_flow_sp": "Min airflow SP (cfm)",
+    "vav_disch_t": "VAV discharge (°F)", "vav_inlet_t": "Duct inlet from AHU (°F)", "wx_oa_t": "Open-Meteo OAT (°F)",
+    "oa_t": "OAT (°F)", "sat": "SAT (°F)", "sat_sp": "SAT SP (°F)", "mat": "MAT (°F)", "rat": "RAT (°F)",
+    "duct_static": "Duct static (in.w.c.)", "duct_static_sp": "Duct static SP (in.w.c.)",
+    "clg_valve_pct": "Cooling valve (%)", "htg_valve_pct": "Heating valve (%)", "oa_damper_pct": "OA damper (%)",
+    "chw_supply_t": "CHWS (°F)", "chw_return_t": "CHWR (°F)", "chw_supply_t_sp": "CHWS SP (°F)",
+    "chw_flow": "CHW flow (gpm)", "chw_dp": "CHW DP", "chw_dp_sp": "CHW DP SP",
+    "hw_supply_t": "HWS (°F)", "hw_return_t": "HWR (°F)", "oa_h": "OA RH (%)",
+    "clg_coil_enter_t": "Clg coil enter (°F)", "clg_coil_leave_t": "Clg coil leave (°F)",
+    "htg_coil_enter_t": "Htg coil enter (°F)", "htg_coil_leave_t": "Htg coil leave (°F)",
+    "preheat_leave_t": "Preheat leave (°F)", "wind_speed": "Wind (mph)", "wind_gust": "Gust (mph)",
+}
+# signal role -> its setpoint role; the pair shares one chart panel (e.g. SAT vs SAT SP)
+_PAIR_SP = {
+    "sat": "sat_sp", "zone_t": "zone_t_sp", "zone_flow": "min_flow_sp",
+    "duct_static": "duct_static_sp", "chw_supply_t": "chw_supply_t_sp", "chw_dp": "chw_dp_sp",
+    "vav_disch_t": "vav_inlet_t", "oa_t": "wx_oa_t",
+}
+
+
+def _panelize(roles: list[str]) -> list[list[str]]:
+    """Group signal roles into chart panels, pairing a signal with its setpoint."""
+    placed: set[str] = set()
+    panels: list[list[str]] = []
+    for r in roles:
+        if r in placed:
+            continue
+        grp = [r]
+        placed.add(r)
+        sp = _PAIR_SP.get(r)
+        if sp and sp in roles:
+            grp.append(sp)
+            placed.add(sp)
+        panels.append(grp)
+    return panels
+
+
+def _col_values(series: pd.Series, sl: slice) -> list:
+    col = pd.to_numeric(series, errors="coerce").iloc[sl]
+    return [None if pd.isna(v) else round(float(v), 3) for v in col]
+
+
+def equipment_series(equipment_id: str, kind: str, *, resolver=None, weather: pd.DataFrame | None = None,
+                     params_by_rule: dict[str, dict] | None = None, rule_ids: list[str] | None = None,
+                     max_points: int = 500) -> dict[str, Any]:
+    """Per-applicable-rule chart data: downsampled signal traces + confirmed fault mask.
+
+    Each rule returns ``signals`` (grouped into panels via ``panel`` index) and a 0/1
+    ``fault`` list aligned to the shared ``timestamps``. Kept lightweight so the UI can
+    fetch it lazily (e.g. when a VAV row is expanded).
+    """
+    if resolver is None:
+        from haystack_rdf.resolver import get_resolver
+
+        resolver = get_resolver()
+    if weather is None:
+        weather = load_weather(resolver)
+    params_by_rule = params_by_rule or {}
+
+    payload = json.dumps({"p": params_by_rule, "r": sorted(rule_ids) if rule_ids else None,
+                          "m": max_points}, sort_keys=True, default=str)
+    ckey = hashlib.sha256(f"{equipment_id}|{kind}|{_data_token()}|{payload}".encode()).hexdigest()
+    with _RESULT_LOCK:
+        cached = _SERIES_CACHE.get(ckey)
+    if cached is not None:
+        return cached
+
+    d, resolved, poll, wx = build_logical_frame(equipment_id, kind, resolver, weather)
+    n = len(d)
+    step = 1 if n <= max_points else int(np.ceil(n / max_points))
+    sl = slice(None, None, step)
+
+    timestamps: list[str] = []
+    if "timestamp" in d.columns:
+        timestamps = [t.isoformat() for t in pd.to_datetime(d["timestamp"]).iloc[sl]]
+
+    want = set(rule_ids) if rule_ids else None
+    rules_out: list[dict[str, Any]] = []
+    for rule in cb.rules_for_kind(kind):
+        if want and rule.id not in want:
+            continue
+        res = run_rule(rule, d, resolved, poll, params_by_rule.get(rule.id, {}), wx)
+        if not res.get("applicable"):
+            continue
+
+        if rule.sensor_sweep:
+            base = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns and d[r].notna().any()][:5]
+            panels = [[r] for r in base]
+        else:
+            roles = [r for r in rule.required_roles if r in d.columns and d[r].notna().any()]
+            panels = _panelize(roles)
+
+        signals: list[dict[str, Any]] = []
+        for pi, grp in enumerate(panels[:4]):
+            for role in grp:
+                signals.append({
+                    "role": role, "label": _ROLE_LABEL.get(role, role), "panel": pi,
+                    "values": _col_values(d[role], sl),
+                })
+
+        fault = res.get("fault_series")
+        fault_list = [int(bool(x)) for x in fault.iloc[sl]] if fault is not None else []
+        rules_out.append({
+            "id": rule.id, "title": rule.title, "family": rule.family,
+            "fault_hours": res.get("fault_hours", 0.0), "fault_pct": res.get("fault_pct", 0.0),
+            "signals": signals, "fault": fault_list,
+        })
+
+    out = {"equipment_id": equipment_id, "kind": kind, "timestamps": timestamps, "rules": rules_out}
+    with _RESULT_LOCK:
+        _SERIES_CACHE[ckey] = out
+    return out
+
+
+def _rule_signals(rule: cb.CookbookRule, d: pd.DataFrame, sl: slice) -> list[dict[str, Any]]:
+    if rule.sensor_sweep:
+        panels = [[r] for r in cb.SWEEP_SENSOR_ROLES if r in d.columns and d[r].notna().any()][:5]
+    else:
+        roles = [r for r in rule.required_roles if r in d.columns and d[r].notna().any()]
+        panels = _panelize(roles)
+    signals: list[dict[str, Any]] = []
+    for pi, grp in enumerate(panels[:4]):
+        for role in grp:
+            signals.append({
+                "role": role, "label": _ROLE_LABEL.get(role, role), "panel": pi,
+                "values": _col_values(d[role], sl),
+            })
+    return signals
+
+
+def equipment_view(equipment_id: str, kind: str, *, resolver=None, weather: pd.DataFrame | None = None,
+                   params_by_rule: dict[str, dict] | None = None, max_points: int = 500) -> dict[str, Any]:
+    """Single-pass equipment payload: every rule's card metadata + sliders, plus downsampled
+    chart signals and the confirmed fault series for applicable rules. One compute, one round trip.
+    """
+    if resolver is None:
+        from haystack_rdf.resolver import get_resolver
+
+        resolver = get_resolver()
+    if weather is None:
+        weather = load_weather(resolver)
+    params_by_rule = params_by_rule or {}
+
+    payload = json.dumps({"p": params_by_rule, "m": max_points, "v": 2}, sort_keys=True, default=str)
+    ckey = hashlib.sha256(f"view|{equipment_id}|{kind}|{_data_token()}|{payload}".encode()).hexdigest()
+    with _RESULT_LOCK:
+        cached = _SERIES_CACHE.get(ckey)
+    if cached is not None:
+        return cached
+
+    d, resolved, poll, wx = build_logical_frame(equipment_id, kind, resolver, weather)
+    n = len(d)
+    step = 1 if n <= max_points else int(np.ceil(n / max_points))
+    sl = slice(None, None, step)
+    timestamps: list[str] = []
+    if "timestamp" in d.columns:
+        timestamps = [t.isoformat() for t in pd.to_datetime(d["timestamp"]).iloc[sl]]
+
+    rules_out: list[dict[str, Any]] = []
+    for rule in cb.rules_for_kind(kind):
+        res = run_rule(rule, d, resolved, poll, params_by_rule.get(rule.id, {}), wx)
+        fault = res.pop("fault_series", None)
+        if res.get("applicable"):
+            res["signals"] = _rule_signals(rule, d, sl)
+            res["fault"] = [int(bool(x)) for x in fault.iloc[sl]] if fault is not None else []
+        else:
+            res["signals"] = []
+            res["fault"] = []
+        rules_out.append(res)
+
+    applicable = [r for r in rules_out if r.get("applicable")]
+    out = {
+        "equipment_id": equipment_id, "kind": kind, "poll_seconds": poll,
+        "weather_available": wx, "timestamps": timestamps,
+        "resolved_roles": {k: v for k, v in resolved.items() if v},
+        "rules": rules_out, "n_rules": len(rules_out), "n_applicable": len(applicable),
+        "total_fault_hours": round(sum(r.get("fault_hours", 0.0) for r in applicable), 1),
+    }
+    with _RESULT_LOCK:
+        _SERIES_CACHE[ckey] = out
+    return out
+
+
+def _natkey(s: str) -> list:
+    """Natural sort key so VAV_2 < VAV_10 < VAV_100 (not lexical)."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", str(s))]
+
+
 def page_targets(page_id: str, resolver=None, vav_limit: int = 12) -> list[tuple[str, str]]:
     """Map a dashboard page id -> [(equipment_id, cookbook_kind), ...]."""
     if resolver is None:
@@ -353,14 +592,14 @@ def page_targets(page_id: str, resolver=None, vav_limit: int = 12) -> list[tuple
         resolver = get_resolver()
 
     def _chillers():
-        return sorted(e["id"] for e in resolver.list_equipment(haystack_tag="chiller"))
+        return sorted((e["id"] for e in resolver.list_equipment(haystack_tag="chiller")), key=_natkey)
 
     def _boilers():
-        return [e["id"] for e in resolver.list_equipment() if "BOILER" in e["id"].upper()]
+        return sorted((e["id"] for e in resolver.list_equipment() if "BOILER" in e["id"].upper()), key=_natkey)
 
     def _vavs():
         try:
-            return sorted(e["id"] for e in resolver.list_equipment(haystack_tag="vav"))
+            return sorted((e["id"] for e in resolver.list_equipment(haystack_tag="vav")), key=_natkey)
         except Exception:
             return []
 
@@ -375,7 +614,7 @@ def page_targets(page_id: str, resolver=None, vav_limit: int = 12) -> list[tuple
         return [(pg.equipment_ids[0], "ahu")]
 
     if page_id in ("economizer", "airside"):
-        return [(e, "ahu") for e in sorted(resolver.list_ahus())]
+        return [(e, "ahu") for e in sorted(resolver.list_ahus(), key=_natkey)]
     if page_id in ("chiller_plant", "central_plant"):
         return [(e, "chiller") for e in _chillers()]
     if page_id == "boiler_plant":
@@ -422,8 +661,19 @@ def run_equipment(equipment_id: str, kind: str, *, resolver=None, weather: pd.Da
 
 
 def run_page(page_id: str, *, params_by_rule: dict[str, dict] | None = None,
-             resolver=None, vav_limit: int = 12) -> dict[str, Any]:
-    """Run every applicable cookbook rule for all equipment mapped to ``page_id``."""
+             resolver=None, vav_limit: int = 12, use_cache: bool = True) -> dict[str, Any]:
+    """Run every applicable cookbook rule for all equipment mapped to ``page_id``.
+
+    Results are memoized per (page, params, data version); a revisit with the same
+    sliders returns instantly instead of recomputing every rule.
+    """
+    key = _cache_key(page_id, params_by_rule, vav_limit)
+    if use_cache:
+        with _RESULT_LOCK:
+            hit = _RESULT_CACHE.get(key)
+        if hit is not None:
+            return {**hit, "cached": True}
+
     if resolver is None:
         from haystack_rdf.resolver import get_resolver
 
@@ -443,9 +693,13 @@ def run_page(page_id: str, *, params_by_rule: dict[str, dict] | None = None,
                 "n_rules": 0, "n_applicable": 0, "total_fault_hours": 0.0,
                 "error": f"{type(exc).__name__}: {exc}",
             })
-    return {
+    result = {
         "page_id": page_id,
         "weather_available": bool(weather is not None and "wx_oa_dewpoint" in getattr(weather, "columns", [])),
         "equipment": equipment,
         "n_equipment": len(equipment),
+        "cached": False,
     }
+    with _RESULT_LOCK:
+        _RESULT_CACHE[key] = result
+    return result

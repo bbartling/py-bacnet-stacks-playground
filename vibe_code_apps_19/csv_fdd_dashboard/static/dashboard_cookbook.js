@@ -1,6 +1,7 @@
 // Open-FDD cookbook faults — auto-populated per mechanical category from the Haystack data model.
-// Fetches /api/cookbook/{page_id}, renders every rule as a card with sliders. Rules whose
-// required points are absent from the model render as a muted "Not in data model" card.
+// Unified layout: every page picks ONE piece of equipment at a time via a dropdown (AHU-style),
+// then renders that equipment's applicable rules as full-width, top-down cards. Each applicable
+// rule shows its sliders and a Plotly chart (signals on unique axes + confirmed fault on a bool axis).
 (function () {
   "use strict";
 
@@ -14,11 +15,17 @@
     heatpump: "Heat pump faults",
     weather: "Weather station faults",
   };
+  var KIND_LABEL = { ahu: "AHU", vav: "VAV box", chiller: "Chiller", boiler: "Boiler", weather: "Weather", heatpump: "Heat pump", zone: "Zone" };
+  var PALETTE = ["#38bdf8", "#a78bfa", "#f59e0b", "#34d399", "#f472b6", "#60a5fa", "#fbbf24", "#4ade80"];
 
   var mount = null;
   var pageId = "";
-  var paramsByRule = {}; // { RULE_ID: { key: value } } — user overrides across the page
+  var targets = [];
+  var current = null;              // { equipment_id, kind }
+  var paramsByRule = {};           // { RULE_ID: { key: value } }
   var pending = null;
+  var reqToken = 0;                // guards against out-of-order responses
+  var bodyEl = null;
 
   function el(tag, cls, html) {
     var e = document.createElement(tag);
@@ -71,7 +78,89 @@
     return wrap;
   }
 
-  function ruleCard(rule) {
+  // ---- Plotly chart: stacked panels, unique axes, fault on its own bool axis ----
+  function themeVars() {
+    var cs = getComputedStyle(document.documentElement);
+    function v(name, dflt) { var x = cs.getPropertyValue(name); return (x && x.trim()) || dflt; }
+    return {
+      bg: v("--card", v("--panel", "#141c2b")),
+      text: v("--text", "#e8edf4"),
+      grid: v("--border", "rgba(148,163,184,0.22)"),
+    };
+  }
+
+  function buildChart(container, rule, timestamps) {
+    if (!window.Plotly) { container.innerHTML = "<p class='cb-msg-na'>Plotly unavailable.</p>"; return; }
+    var tv = themeVars();
+    var signals = rule.signals || [];
+    var panelMap = {};
+    signals.forEach(function (s) { (panelMap[s.panel] = panelMap[s.panel] || []).push(s); });
+    var panelKeys = Object.keys(panelMap).map(Number).sort(function (a, b) { return a - b; });
+    var hasFault = rule.fault && rule.fault.length;
+    var nSig = panelKeys.length;
+    if (!nSig && !hasFault) { container.innerHTML = "<p class='cb-msg-na'>No signals to plot.</p>"; return; }
+
+    var faultW = hasFault ? 0.5 : 0;
+    var totalW = nSig + faultW;
+    var gap = 0.045;
+    var nRows = nSig + (hasFault ? 1 : 0);
+    var usable = 1 - gap * Math.max(nRows - 1, 0);
+
+    var layout = {
+      height: 78 * nSig + (hasFault ? 78 : 0) + 54,
+      margin: { l: 56, r: 12, t: 6, b: 26 },
+      paper_bgcolor: tv.bg,
+      plot_bgcolor: tv.bg,
+      font: { color: tv.text, size: 10 },
+      showlegend: true,
+      legend: { orientation: "h", y: 1.0, yanchor: "bottom", x: 0, font: { size: 9 }, bgcolor: "rgba(0,0,0,0)" },
+      hovermode: "x unified",
+    };
+    var traces = [];
+    var top = 1.0, axis = 0, colorI = 0, lastAxis = "y";
+
+    panelKeys.forEach(function (pk) {
+      axis++;
+      var h = usable * (1 / totalW);
+      var bottom = top - h;
+      var ax = axis === 1 ? "y" : "y" + axis;
+      var axKey = axis === 1 ? "yaxis" : "yaxis" + axis;
+      layout[axKey] = {
+        domain: [Math.max(bottom, 0), Math.max(top, 0)],
+        gridcolor: tv.grid, zerolinecolor: tv.grid, tickfont: { size: 9 },
+      };
+      panelMap[pk].forEach(function (s) {
+        traces.push({
+          x: timestamps, y: s.values, name: s.label, type: "scatter", mode: "lines",
+          line: { width: 1.3, color: PALETTE[colorI++ % PALETTE.length] }, yaxis: ax, connectgaps: false,
+        });
+      });
+      lastAxis = ax;
+      top = bottom - gap;
+    });
+
+    if (hasFault) {
+      axis++;
+      var h2 = usable * (faultW / totalW);
+      var bottom2 = top - h2;
+      var ax2 = "y" + axis;
+      layout["yaxis" + axis] = {
+        domain: [Math.max(bottom2, 0), Math.max(top, 0)],
+        range: [-0.1, 1.1], tickvals: [0, 1], ticktext: ["ok", "fault"],
+        gridcolor: tv.grid, tickfont: { size: 9 },
+      };
+      traces.push({
+        x: timestamps, y: rule.fault, name: "fault confirmed", type: "scatter", mode: "lines",
+        line: { width: 0.4, color: "#ef4444" }, fill: "tozeroy", fillcolor: "rgba(239,68,68,0.4)", yaxis: ax2,
+      });
+      lastAxis = ax2;
+    }
+    layout.xaxis = { anchor: lastAxis, gridcolor: tv.grid, tickfont: { size: 9 }, type: "date" };
+    Plotly.newPlot(container, traces, layout, { displayModeBar: false, responsive: true });
+  }
+
+  // ---- Rule card (full width, stacked) ----
+  function ruleCard(rule, timestamps) {
     var card = el("div", "cb-card" + (rule.applicable ? "" : " cb-card-na"));
     card.setAttribute("data-rule", rule.id);
     var head = el("div", "cb-card-head");
@@ -90,78 +179,111 @@
         rule.params.forEach(function (p) { pbox.appendChild(slider(rule.id, p)); });
         card.appendChild(pbox);
       }
+      if (rule.signals && rule.signals.length) {
+        var plot = el("div", "cb-plot");
+        card.appendChild(plot);
+        // defer so the card is in the DOM (Plotly needs a laid-out container)
+        setTimeout(function () { buildChart(plot, rule, timestamps); }, 0);
+      }
     } else {
       card.appendChild(el("p", "cb-msg cb-msg-na", esc(rule.message)));
     }
     return card;
   }
 
-  function equipmentBlock(eq) {
-    var block = el("section", "cb-equip");
-    var head = el("div", "cb-equip-head");
-    head.appendChild(el("h3", null, esc(eq.equipment_id) + " <span class='cb-kind'>" + esc(eq.kind) + "</span>"));
-    var meta = eq.n_applicable + " / " + eq.n_rules + " rules apply · " +
-      (eq.total_fault_hours || 0).toFixed(1) + " fault-hours";
-    if (eq.weather_available) meta += " · Open-Meteo linked";
-    head.appendChild(el("span", "cb-equip-meta", esc(meta)));
-    block.appendChild(head);
-    if (eq.error) {
-      block.appendChild(el("p", "cb-msg-na", esc(eq.error)));
-      return block;
-    }
+  function renderEquipment(data) {
+    bodyEl.innerHTML = "";
+    var meta = el("div", "cb-equip-head");
+    var mtxt = data.n_applicable + " / " + data.n_rules + " rules apply · " +
+      (data.total_fault_hours || 0).toFixed(1) + " fault-hours";
+    if (data.weather_available) mtxt += " · Open-Meteo linked";
+    meta.appendChild(el("span", "cb-equip-meta", esc(mtxt)));
+    bodyEl.appendChild(meta);
+
     var byFamily = {};
-    (eq.rules || []).forEach(function (r) {
-      (byFamily[r.family] = byFamily[r.family] || []).push(r);
-    });
+    (data.rules || []).forEach(function (r) { (byFamily[r.family] = byFamily[r.family] || []).push(r); });
     FAMILY_ORDER.forEach(function (fam) {
       if (!byFamily[fam]) return;
-      block.appendChild(el("h4", "cb-family", esc(FAMILY_LABEL[fam] || fam)));
-      var grid = el("div", "cb-grid");
-      byFamily[fam].forEach(function (r) { grid.appendChild(ruleCard(r)); });
-      block.appendChild(grid);
+      bodyEl.appendChild(el("h4", "cb-family", esc(FAMILY_LABEL[fam] || fam)));
+      var col = el("div", "cb-stack");
+      byFamily[fam].forEach(function (r) { col.appendChild(ruleCard(r, data.timestamps)); });
+      bodyEl.appendChild(col);
     });
-    return block;
   }
 
-  function render(data) {
-    mount.innerHTML = "";
-    if (!data || !data.equipment || !data.equipment.length) {
-      mount.hidden = true;
-      return;
-    }
-    mount.hidden = false;
-    var head = el("header", "cb-head");
-    head.appendChild(el("h2", null, "Open-FDD cookbook faults"));
-    head.appendChild(el("p", "note",
-      "Every applicable Open-FDD pandas cookbook rule, run against this system's Haystack data model. " +
-      "Adjust thresholds to re-run against the loaded history."));
-    mount.appendChild(head);
-    data.equipment.forEach(function (eq) { mount.appendChild(equipmentBlock(eq)); });
+  function selectEquipment(eq) {
+    current = eq;
+    var token = ++reqToken;
+    bodyEl.innerHTML = spinnerHtml("Computing " + (KIND_LABEL[eq.kind] || eq.kind) + " faults for " + eq.equipment_id + "…");
+    fetch("/api/cookbook/equipment/" + encodeURIComponent(eq.equipment_id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: eq.kind, params_by_rule: paramsByRule }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (token !== reqToken) return;   // a newer request superseded this one
+        if (d && d.ok) renderEquipment(d);
+        else bodyEl.innerHTML = "<p class='cb-msg-na'>Could not load faults" + (d && d.error ? ": " + esc(d.error) : ".") + "</p>";
+      })
+      .catch(function () { if (token === reqToken) bodyEl.innerHTML = "<p class='cb-msg-na'>Load failed.</p>"; });
   }
 
   function scheduleRerun() {
     if (pending) clearTimeout(pending);
-    pending = setTimeout(rerun, 450);
+    pending = setTimeout(function () { if (current) selectEquipment(current); }, 450);
   }
 
-  function rerun() {
-    mount.classList.add("cb-loading");
-    fetch("/api/cookbook/" + encodeURIComponent(pageId), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ params_by_rule: paramsByRule }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (d) { mount.classList.remove("cb-loading"); if (d && d.ok) render(d); })
-      .catch(function () { mount.classList.remove("cb-loading"); });
+  function renderShell() {
+    mount.innerHTML = "";
+    var head = el("header", "cb-head");
+    head.appendChild(el("h2", null, "Open-FDD cookbook faults"));
+    head.appendChild(el("p", "note",
+      "Every applicable Open-FDD pandas cookbook rule, run against this system's Haystack data model. " +
+      "Pick equipment below; adjust thresholds to re-run against the loaded history."));
+    mount.appendChild(head);
+
+    if (targets.length > 1) {
+      var bar = el("div", "cb-picker");
+      bar.appendChild(el("label", "cb-picker-label", KIND_LABEL[targets[0].kind] || "Equipment"));
+      var sel = el("select", "cb-select");
+      targets.forEach(function (t, i) {
+        var o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = t.equipment_id;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", function () { selectEquipment(targets[parseInt(sel.value, 10) || 0]); });
+      bar.appendChild(sel);
+      bar.appendChild(el("span", "cb-picker-count", targets.length + " " + (KIND_LABEL[targets[0].kind] || "unit") + "s"));
+      mount.appendChild(bar);
+    }
+
+    bodyEl = el("div", "cb-eqbody");
+    mount.appendChild(bodyEl);
+  }
+
+  function spinnerHtml(msg) {
+    return (
+      "<div class='cb-loading-box' role='status' aria-live='polite'>" +
+      "<span class='cb-spinner' aria-hidden='true'></span>" +
+      "<div class='cb-loading-text'><strong>" + esc(msg) + "</strong>" +
+      "<span class='cb-loading-sub'>Running Open-FDD rules against the historian — first pass only, then cached.</span>" +
+      "</div></div>"
+    );
   }
 
   function load() {
     mount.hidden = false;
-    mount.innerHTML = "<p class='note cb-loading-note'>Linking cookbook faults to the data model…</p>";
-    fetch("/api/cookbook/" + encodeURIComponent(pageId))
+    mount.innerHTML = spinnerHtml("Linking cookbook faults to the data model…");
+    fetch("/api/cookbook/targets/" + encodeURIComponent(pageId))
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d && d.ok) render(d); else mount.hidden = true; })
+      .then(function (d) {
+        if (!d || !d.ok || !d.targets || !d.targets.length) { mount.hidden = true; return; }
+        targets = d.targets;
+        renderShell();
+        selectEquipment(targets[0]);
+      })
       .catch(function () { mount.hidden = true; });
   }
 

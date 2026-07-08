@@ -324,12 +324,14 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
         data["engineer_logged_in"] = bool(request.session.get("engineer_logged_in"))
         return data
 
-    def recompute(params: dict | None = None, page_id: str | None = None, *, units: str | None = None) -> dict:
+    def recompute(params: dict | None = None, page_id: str | None = None, *, units: str | None = None,
+                  theme: str | None = None) -> dict:
         from units import set_display_units
 
         file_sess = load_session()
         unit_mode = units or file_sess.get("units", "imperial")
         set_display_units(unit_mode)
+        gd.set_chart_theme(theme or file_sess.get("theme", "dark"))
         p = validate_params(params or file_sess["params"])
         apply_to_generate_dashboard(gd, p, file_sess.get("site_settings"))
         gd.meta["created"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -497,6 +499,8 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
         auth = auth_session(request)
         units = body.units or session.get("units", "imperial")
         session["units"] = "metric" if str(units).lower() == "metric" else "imperial"
+        if body.theme is not None:
+            session["theme"] = "light" if str(body.theme).lower() == "light" else "dark"
         if can_edit(auth) and body.params:
             params = canonicalize_params({**session["params"], **body.params}, session["units"])
         else:
@@ -505,12 +509,13 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
         session["params"] = params
         save_session(session)
 
-        ctx = recompute(params, page_id=page_id, units=session["units"])
+        ctx = recompute(params, page_id=page_id, units=session["units"], theme=session.get("theme", "dark"))
         _maybe_build_econ_diag(page_id, params)
         if page_id == "economizer":
             _maybe_build_econ_diag("economizer_diagnostics", params)
 
-        body_html = get_body(gd.body_for_page, ctx, params, page_id)
+        render_variant = f"{session['units']}:{session.get('theme', 'dark')}"
+        body_html = get_body(gd.body_for_page, ctx, params, page_id, variant=render_variant)
         analytics = {"ecms": []}
         try:
             from analytics_rollups import rollup_ahu
@@ -691,6 +696,44 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
 
         try:
             data = ce.run_page(page_id, vav_limit=vav_limit)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, **data})
+
+    @app.get("/api/cookbook/targets/{page_id}")
+    def api_cookbook_targets(page_id: str) -> JSONResponse:
+        import cookbook_engine as ce
+
+        try:
+            targets = ce.page_targets(page_id, vav_limit=1000)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, "page_id": page_id,
+                             "targets": [{"equipment_id": e, "kind": k} for e, k in targets]})
+
+    @app.post("/api/cookbook/equipment/{equipment_id}")
+    def api_cookbook_equipment(equipment_id: str, body: dict = Body(default={})) -> JSONResponse:
+        import cookbook_engine as ce
+
+        kind = str(body.get("kind", "ahu"))
+        params_by_rule = body.get("params_by_rule") or {}
+        try:
+            data = ce.equipment_view(equipment_id, kind, params_by_rule=params_by_rule)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, **data})
+
+    @app.post("/api/cookbook/series/{equipment_id}")
+    def api_cookbook_series(equipment_id: str, body: dict = Body(default={})) -> JSONResponse:
+        import cookbook_engine as ce
+
+        kind = str(body.get("kind", "ahu"))
+        params_by_rule = body.get("params_by_rule") or {}
+        rule_ids = body.get("rule_ids")
+        try:
+            data = ce.equipment_series(
+                equipment_id, kind, params_by_rule=params_by_rule, rule_ids=rule_ids,
+            )
         except Exception as exc:  # noqa: BLE001
             return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
         return JSONResponse({"ok": True, **data})

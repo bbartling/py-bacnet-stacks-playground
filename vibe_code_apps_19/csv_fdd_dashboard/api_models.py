@@ -35,6 +35,7 @@ class RefreshBody(BaseModel):
     notes: dict[str, Any] = Field(default_factory=dict)
     note: str | None = None
     units: str | None = None
+    theme: str | None = None  # "light" | "dark" — themes the Plotly charts to match the UI
 
 
 class NoteActionBody(BaseModel):

@@ -15,5 +15,7 @@
   document.getElementById("theme-toggle")?.addEventListener("click", () => {
     const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
     apply(next);
+    // Re-render server-side Plotly charts so their colors match the new theme.
+    if (typeof window.scheduleRefresh === "function") window.scheduleRefresh();
   });
 })();

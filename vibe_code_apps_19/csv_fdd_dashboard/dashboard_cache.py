@@ -160,10 +160,16 @@ def get_body(
     ctx: dict[str, Any],
     params: dict[str, Any],
     page_id: str,
+    variant: str = "",
 ) -> str:
-    """Cache rendered page HTML per (params, page)."""
+    """Cache rendered page HTML per (params, page, variant).
+
+    ``variant`` captures render-only options that change the HTML but not the
+    computed context — e.g. display units and chart theme (light/dark). Without it,
+    a light-mode refresh would return the cached dark-mode charts.
+    """
     pk, pid = _cache_key(params, page_id)
-    key = (pk, pid)
+    key = (pk, f"{pid}::{variant}" if variant else pid)
     with _lock:
         cached = _body_cache.get(key)
         if cached is not None:

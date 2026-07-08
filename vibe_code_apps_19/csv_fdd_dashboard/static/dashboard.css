@@ -479,10 +479,49 @@ tr:hover td { background: rgba(59,130,246,.06); }
 }
 
 /* ---- Open-FDD cookbook faults ---- */
-.cookbook-section { margin: 1.5rem 0; transition: opacity .15s ease; }
-.cookbook-section.cb-loading { opacity: .55; }
+.cookbook-section { margin: 1.5rem 0; transition: opacity .15s ease; position: relative; }
+.cookbook-section.cb-loading { opacity: .6; pointer-events: none; }
 .cb-head h2 { margin: 0 0 .25rem; }
 .cb-loading-note { padding: 1rem 0; }
+
+/* Animated loading spinner for the cookbook fault section */
+.cb-loading-box {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: 1.4rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.cb-spinner {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: cb-spin .8s linear infinite;
+}
+.cb-loading-text { display: flex; flex-direction: column; gap: .15rem; }
+.cb-loading-text strong { font-size: .95rem; }
+.cb-loading-sub { font-size: .8rem; color: var(--muted); }
+@keyframes cb-spin { to { transform: rotate(360deg); } }
+
+/* While re-running (slider tweak), pin a small spinner top-right of the section */
+.cookbook-section.cb-loading::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: cb-spin .8s linear infinite;
+  z-index: 5;
+}
 .cb-equip {
   background: var(--card);
   border: 1px solid var(--border);
@@ -546,3 +585,76 @@ tr:hover td { background: rgba(59,130,246,.06); }
   border: 1px solid var(--border); border-radius: 5px; padding: .15rem .3rem;
   font-size: .78rem;
 }
+
+/* ---- Equipment picker (AHU-style dropdown, used on every cookbook tab) ---- */
+.cb-picker {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: .7rem .9rem; margin: .75rem 0 1rem;
+}
+.cb-picker-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.cb-select {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: .4rem .6rem; font-size: .9rem; min-width: 170px; cursor: pointer;
+}
+.cb-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cb-picker-count { color: var(--muted); font-size: .8rem; margin-left: auto; }
+.cb-eqbody { display: block; }
+
+/* ---- Stacked, full-width rule cards (top-down, never side-by-side) ---- */
+.cb-stack { display: flex; flex-direction: column; gap: .8rem; margin-bottom: .5rem; }
+.cb-stack .cb-card { width: 100%; }
+
+/* ---- Per-rule Plotly chart (signals on unique axes + fault on a bool axis) ---- */
+.cb-plot {
+  margin-top: .6rem;
+  border-top: 1px dashed var(--border);
+  padding-top: .5rem;
+  min-height: 120px;
+}
+
+/* ---- Shared tuning box (VAV / zone pages: one set of sliders for all boxes) ---- */
+.cb-shared {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin: 1rem 0;
+}
+.cb-shared-title { margin: 0 0 .25rem; font-size: 1rem; }
+.cb-shared-grid {
+  display: grid; gap: .75rem; margin-top: .75rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.cb-shared-rule {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .6rem .75rem;
+}
+.cb-shared-rule-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; flex-wrap: wrap; }
+.cb-vav-hint { margin: .5rem 0 .25rem; }
+
+/* ---- Collapsible VAV boxes with lazy charts ---- */
+.cb-vav-list { display: flex; flex-direction: column; gap: .5rem; }
+.cb-vav {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cb-vav-toggle {
+  width: 100%; display: flex; align-items: center; gap: .6rem;
+  background: transparent; color: inherit; border: 0; cursor: pointer;
+  padding: .7rem .9rem; font-size: .9rem; text-align: left;
+}
+.cb-vav-toggle:hover { background: var(--bg); }
+.cb-vav-toggle.cb-open { border-bottom: 1px solid var(--border); }
+.cb-caret { flex: 0 0 auto; width: 1em; color: var(--muted); font-size: .75rem; }
+.cb-vav-meta { margin-left: auto; color: var(--muted); font-size: .8rem; }
+.cb-vav-body { padding: .5rem .9rem .9rem; display: grid; gap: .8rem; }
+.cb-chart-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 8px; padding: .6rem .8rem;
+}
+.cb-chart-title { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
