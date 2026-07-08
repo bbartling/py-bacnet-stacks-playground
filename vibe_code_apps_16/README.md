@@ -6,6 +6,8 @@
 | --- | --- |
 | **Open-FDD BACnet mimic** (device 599999) | [openfdd-bacnet-mimic/](./openfdd-bacnet-mimic/) |
 | **BACnet → Feather concept** (mini-device + poller + store) | [openfdd-bacnet-feather-concept/](./openfdd-bacnet-feather-concept/) |
+| **Bad rusty BACnet app** (intentional anti-patterns, Rust + Python) | [bad_rusty_bacnet_app/](./bad_rusty_bacnet_app/) |
+| **Mock Who-Is testing** (ephemeral-port discovery root cause) | [mock_whois_testing/](./mock_whois_testing/) |
 | **rusty-bacnet upstream** | [github.com/jscott3201/rusty-bacnet](https://github.com/jscott3201/rusty-bacnet) |
 | **BACpypes3 compare baseline** | [JoelBender/BACpypes3](https://github.com/JoelBender/BACpypes3) |
 | **Open-FDD bench context** | [REV_325 rigorous report](https://github.com/bbartling/open-fdd) · device 599999 commission-read gaps |

@@ -1,0 +1,2 @@
+rusty-bacnet>=0.10.0
+dpkt>=1.9.8

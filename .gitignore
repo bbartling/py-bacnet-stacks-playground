@@ -231,6 +231,16 @@ vibe_code_apps_16/**/*.feather
 vibe_code_apps_16/**/*.tmp
 vibe_code_apps_16/**/config/config.local.toml
 
+# vibe_code_apps_16 add-on apps: bad_rusty_bacnet_app + mock_whois_testing
+#   Rust build output (target/) and Python venvs (.venv) are covered by the global
+#   rules above; these lines make the intent explicit and catch capture artifacts.
+#   Source kept: src/*.rs, Cargo.toml, Cargo.lock, python/*.py, scripts/, config.toml.
+vibe_code_apps_16/**/target/
+vibe_code_apps_16/**/*.pcap
+vibe_code_apps_16/**/*_analysis.json
+vibe_code_apps_16/**/*_analysis.md
+vibe_code_apps_16/bad_rusty_bacnet_app/data/
+
 # vibe_code_apps_17: Project Haystack playground (Rust + Python) — see vibe_code_apps_17/.gitignore
 # (shared rules above already cover .env, .venv/, __pycache__/, target/, dist/, *.csv)
 

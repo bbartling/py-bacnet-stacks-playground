@@ -1,0 +1,70 @@
+# bad_rusty_bacnet_app — PCAP expectations (intentionally bad traffic should FAIL/WARN)
+# Same bench as Open-FDD 802258a @ 3.2.11 — see BACNET_PCAP_802258A_vs_VIBE16_REPORT.md
+
+[bench]
+nic = "enp3s0"
+poller_bind = "192.168.204.55"
+server_bind = "192.168.204.55"
+server_port = 47808
+server_instance = 599999
+capture_filter = "udp port 47808 and net 192.168.204.0/24"
+bacnet_port = 47808
+build_sha = "bad-rusty-bacnet-app"
+version = "0.1.0-intentionally-broken"
+
+[thresholds]
+# vibe16-style healthy thresholds — this app should violate them
+max_packets_per_second = 15
+min_poll_coverage_ratio = 0.30
+max_foreign_47808_binders = 2
+max_whois_broadcast_per_minute = 2
+max_duplicate_read_burst_per_sec = 20
+max_register_foreign_device = 0
+max_malformed_bvlc_ratio = 0.05
+
+[[devices]]
+name = "BENS-BENCHTEST-BOX"
+instance = 5007
+host = "192.168.204.200"
+port = 47808
+mstp_network = 2000
+mstp_mac = [7]
+interval_secs = 20
+offset_secs = 0
+critical = true
+routed = true
+
+[[devices.points]]
+object_type = "analog-input"
+object_instance = 1173
+point_name = "OA-T"
+
+[[devices]]
+name = "BensFakeAhu"
+instance = 3456789
+host = "192.168.204.13"
+port = 47808
+interval_secs = 20
+offset_secs = 0
+critical = false
+routed = false
+
+[[devices.points]]
+object_type = "analog-input"
+object_instance = 2
+point_name = "DAP-P"
+
+[[devices]]
+name = "Zone1VAV"
+instance = 3456790
+host = "192.168.204.14"
+port = 47808
+interval_secs = 20
+offset_secs = 0
+critical = false
+routed = false
+
+[[devices.points]]
+object_type = "analog-input"
+object_instance = 1
+point_name = "ZoneTemp"

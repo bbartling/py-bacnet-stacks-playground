@@ -1,0 +1,24 @@
+[package]
+name = "mock-whois-testing"
+version = "0.1.0"
+edition = "2021"
+description = "Isolates the open-fdd Who-Is discovery vs local-server socket conflict (VOLTTRON-proxy-style) using rusty-bacnet"
+publish = false
+
+[[bin]]
+name = "mock_scan"
+path = "src/main.rs"
+
+[dependencies]
+bacnet-client = { path = "../rusty-bacnet/crates/bacnet-client" }
+bacnet-encoding = { path = "../rusty-bacnet/crates/bacnet-encoding" }
+bacnet-objects = { path = "../rusty-bacnet/crates/bacnet-objects" }
+bacnet-server = { path = "../rusty-bacnet/crates/bacnet-server" }
+bacnet-services = { path = "../rusty-bacnet/crates/bacnet-services" }
+bacnet-transport = { path = "../rusty-bacnet/crates/bacnet-transport" }
+bacnet-types = { path = "../rusty-bacnet/crates/bacnet-types" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

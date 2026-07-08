@@ -1,0 +1,7 @@
+# Rust build output
+/target/
+
+# Python
+.venv/
+__pycache__/
+*.pyc

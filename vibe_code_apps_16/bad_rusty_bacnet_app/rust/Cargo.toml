@@ -1,0 +1,23 @@
+[package]
+name = "bad-rusty-bacnet-app"
+version = "0.1.0"
+edition = "2021"
+description = "Intentionally malformed BACnet client — emulates Open-FDD 802258a anti-patterns for PCAP study"
+publish = false
+
+[[bin]]
+name = "bad_bacnet_app"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+bacnet-client = { path = "../../rusty-bacnet/crates/bacnet-client" }
+bacnet-encoding = { path = "../../rusty-bacnet/crates/bacnet-encoding" }
+bacnet-transport = { path = "../../rusty-bacnet/crates/bacnet-transport" }
+bacnet-types = { path = "../../rusty-bacnet/crates/bacnet-types" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
