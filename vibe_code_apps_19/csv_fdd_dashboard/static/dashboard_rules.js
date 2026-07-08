@@ -129,6 +129,146 @@
     }
   }
 
+  // ---- ML lab: persist fault, upload plugin, pip install, fault stores ----
+
+  function setPersistStatus(msg, kind) {
+    const el = document.getElementById("rule-persist-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "tune-status" + (kind ? " " + kind : "");
+  }
+
+  async function persistFault() {
+    const rule = currentRule();
+    if (!rule) return;
+    setPersistStatus("Persisting " + rule.id + "…", "live");
+    try {
+      const res = await fetch("/api/ml/persist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rule_id: rule.id,
+          equipment_id: selEquip.value,
+          params: collectParams(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Persist failed");
+      const s = data.store;
+      const ok = s.verified ? "verified" : "NOT verified";
+      setPersistStatus(
+        `Wrote ${s.fault_rows}/${s.rows} fault rows (${s.fault_hours} h) → feather, read-back ${ok}.`,
+        s.verified ? "live" : "err"
+      );
+      loadFaultStores();
+    } catch (err) {
+      setPersistStatus(err.message, "err");
+    }
+  }
+
+  async function loadFiles() {
+    const res = await fetch("/api/ml/files");
+    const data = await res.json();
+    const sel = document.getElementById("ml-file-select");
+    if (sel) {
+      sel.innerHTML = (data.files || [])
+        .map((f) => `<option value="${f.name}">${f.name}${f.protected ? " (example)" : ""}</option>`)
+        .join("");
+      if ((data.files || []).length) viewFile(sel.value);
+    }
+    renderFaultStores(data.faults || []);
+  }
+
+  function renderFaultStores(faults) {
+    const box = document.getElementById("ml-fault-stores");
+    if (!box) return;
+    if (!faults.length) {
+      box.innerHTML = '<p class="note">No fault stores yet — run a rule and persist it.</p>';
+      return;
+    }
+    box.innerHTML = faults
+      .map(
+        (f) =>
+          `<div class="ml-fault-row"><code>${f.equipment_id} · ${f.rule_id}</code>` +
+          `<span>${f.fault_rows}/${f.rows} rows · ${f.fault_hours} h` +
+          `${f.verified ? " ✓" : ""}</span></div>`
+      )
+      .join("");
+  }
+
+  async function loadFaultStores() {
+    const res = await fetch("/api/ml/files");
+    const data = await res.json();
+    renderFaultStores(data.faults || []);
+  }
+
+  async function viewFile(name) {
+    const view = document.getElementById("ml-file-view");
+    if (!view || !name) return;
+    view.textContent = "Loading…";
+    try {
+      const res = await fetch("/api/ml/file?name=" + encodeURIComponent(name));
+      const data = await res.json();
+      view.textContent = data.ok ? data.content : data.error;
+    } catch (err) {
+      view.textContent = err.message;
+    }
+  }
+
+  async function uploadPlugin() {
+    const input = document.getElementById("ml-upload-file");
+    const status = document.getElementById("ml-upload-status");
+    if (!input || !input.files || !input.files[0]) {
+      if (status) { status.textContent = "Choose a .py file first."; status.className = "tune-status err"; }
+      return;
+    }
+    const fd = new FormData();
+    fd.append("file", input.files[0]);
+    if (status) { status.textContent = "Uploading…"; status.className = "tune-status live"; }
+    try {
+      const res = await fetch("/api/ml/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Upload failed");
+      if (status) { status.textContent = "Saved " + data.name; status.className = "tune-status live"; }
+      await loadCatalog(); // new rule may now be registered
+      await loadFiles();
+      const sel = document.getElementById("ml-file-select");
+      if (sel) { sel.value = data.name; viewFile(data.name); }
+    } catch (err) {
+      if (status) { status.textContent = err.message; status.className = "tune-status err"; }
+    }
+  }
+
+  async function pipInstall() {
+    const input = document.getElementById("ml-pip-input");
+    const status = document.getElementById("ml-pip-status");
+    const out = document.getElementById("ml-pip-output");
+    const btn = document.getElementById("btn-ml-pip");
+    if (!input || !input.value.trim()) {
+      if (status) { status.textContent = "Enter package name(s)."; status.className = "tune-status err"; }
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (status) { status.textContent = "Installing…"; status.className = "tune-status live"; }
+    try {
+      const res = await fetch("/api/ml/pip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packages: input.value }),
+      });
+      const data = await res.json();
+      if (out) out.textContent = data.output || data.error || "(no output)";
+      if (status) {
+        status.textContent = data.ok ? "Installed" : "pip failed (rc " + data.returncode + ")";
+        status.className = "tune-status " + (data.ok ? "live" : "err");
+      }
+    } catch (err) {
+      if (status) { status.textContent = err.message; status.className = "tune-status err"; }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function init() {
     selRule = document.getElementById("rule-select");
     selEquip = document.getElementById("rule-equipment");
@@ -142,7 +282,18 @@
     selRule.dataset.ready = "1";
     selRule.addEventListener("change", renderParams);
     runBtn.addEventListener("click", runRule);
+
+    const persistBtn = document.getElementById("btn-persist-fault");
+    if (persistBtn) persistBtn.addEventListener("click", persistFault);
+    const uploadBtn = document.getElementById("btn-ml-upload");
+    if (uploadBtn) uploadBtn.addEventListener("click", uploadPlugin);
+    const pipBtn = document.getElementById("btn-ml-pip");
+    if (pipBtn) pipBtn.addEventListener("click", pipInstall);
+    const fileSel = document.getElementById("ml-file-select");
+    if (fileSel) fileSel.addEventListener("change", () => viewFile(fileSel.value));
+
     loadCatalog();
+    loadFiles();
   }
 
   // The rule-lab body is injected asynchronously via /api/refresh, so poll for it.

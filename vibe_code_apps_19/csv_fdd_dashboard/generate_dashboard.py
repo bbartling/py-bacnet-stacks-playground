@@ -2249,8 +2249,48 @@ def body_custom_rules(ctx: dict) -> str:
   </div>
   <p class="note" id="rule-description"></p>
   <div id="rule-params" class="rule-lab-params"></div>
+  <div class="rule-lab-controls" style="margin-top:.6rem">
+    <button type="button" class="btn" id="btn-persist-fault" title="Write the confirmed fault series to .cache/feather/faults/">Persist fault &rarr; Feather store</button>
+    <span class="tune-status" id="rule-persist-status"></span>
+  </div>
 </div>
-<div id="rule-result"></div>"""
+<div id="rule-result"></div>
+
+<div class="card ml-lab">
+  <h2>ML lab &mdash; upload plugin &amp; install packages</h2>
+  <p class="note"><strong>Local dev only.</strong> Uploading a Python rule and running
+  <code>pip install</code> execute code on this host by design. Uploaded files land in
+  <code>rules/plugins/</code> and must define a <code>RULE</code> manifest + <code>compute(ctx)</code>.</p>
+
+  <div class="ml-grid">
+    <div class="ml-panel">
+      <h3>Upload a rule plugin (.py)</h3>
+      <div class="rule-lab-controls">
+        <input type="file" id="ml-upload-file" accept=".py" />
+        <button type="button" class="btn primary" id="btn-ml-upload">Upload</button>
+        <span class="tune-status" id="ml-upload-status"></span>
+      </div>
+      <label style="display:block;margin-top:.5rem">View plugin (read-only)
+        <select id="ml-file-select"></select>
+      </label>
+      <pre class="ml-code" id="ml-file-view" aria-readonly="true">Select a plugin to view its source…</pre>
+    </div>
+
+    <div class="ml-panel">
+      <h3>Install Python packages</h3>
+      <div class="rule-lab-controls">
+        <input type="text" id="ml-pip-input" placeholder="scikit-learn pandas==2.2.*" style="flex:1;min-width:12rem" />
+        <button type="button" class="btn" id="btn-ml-pip">pip install</button>
+        <span class="tune-status" id="ml-pip-status"></span>
+      </div>
+      <pre class="ml-code" id="ml-pip-output">pip output appears here…</pre>
+      <h3 style="margin-top:1rem">Feather fault stores</h3>
+      <p class="note">Persisted ML/rule faults (<code>.cache/feather/faults/</code>). Proof that
+      pandas &rarr; model &rarr; fault mask round-trips to disk.</p>
+      <div id="ml-fault-stores" class="ml-fault-stores"></div>
+    </div>
+  </div>
+</div>"""
 
 
 def body_excess(ctx: dict) -> str:

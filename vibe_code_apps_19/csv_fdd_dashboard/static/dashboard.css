@@ -359,6 +359,50 @@ tr:hover td { background: rgba(59,130,246,.06); }
 .rule-kind-ml { background: rgba(168, 85, 247, 0.18); color: #c084fc; border-color: #a855f7; }
 .rule-kind-pandas { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
 
+/* ---- ML lab: upload / pip / feather stores ---- */
+.ml-lab .ml-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+  margin-top: .75rem;
+}
+.ml-panel h3 { margin: 0 0 .5rem; font-size: .95rem; }
+.ml-code {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .7rem .8rem;
+  margin: .5rem 0 0;
+  max-height: 340px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre;
+  tab-size: 4;
+}
+.ml-panel input[type="text"] {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .4rem .5rem;
+}
+.ml-fault-stores { display: flex; flex-direction: column; gap: .35rem; }
+.ml-fault-row {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .35rem .6rem;
+  font-size: .8rem;
+}
+.ml-fault-row span { color: var(--muted); }
+
 .notes-feed {
   margin-top: 1.5rem;
   background: var(--card);

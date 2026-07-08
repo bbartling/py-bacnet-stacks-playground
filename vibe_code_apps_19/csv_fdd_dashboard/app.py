@@ -32,7 +32,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from fastapi import Body, FastAPI, Request
+from fastapi import Body, FastAPI, File, Request, UploadFile
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -596,6 +596,88 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
             "chart": chart,
             "params": ctx.params,
         })
+
+    @app.get("/api/ml/files")
+    def api_ml_files() -> JSONResponse:
+        import ml_lab
+
+        return JSONResponse({"ok": True, "files": ml_lab.list_plugins(), "faults": ml_lab.list_fault_stores()})
+
+    @app.get("/api/ml/file")
+    def api_ml_file(name: str) -> JSONResponse:
+        import ml_lab
+
+        try:
+            return JSONResponse({"ok": True, "name": Path(name).name, "content": ml_lab.read_plugin(name)})
+        except FileNotFoundError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=404)
+
+    @app.post("/api/ml/upload")
+    async def api_ml_upload(file: UploadFile = File(...)) -> JSONResponse:
+        import ml_lab
+        from rules import get_registry
+
+        content = await file.read()
+        try:
+            info = ml_lab.save_upload(file.filename or "uploaded_rule.py", content)
+        except ValueError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        reg = get_registry(force=True)  # re-discover so the new plugin appears
+        info["content"] = ml_lab.read_plugin(info["name"])
+        info["rule_errors"] = reg.errors
+        return JSONResponse({"ok": True, **info})
+
+    @app.post("/api/ml/pip")
+    def api_ml_pip(body: dict = Body(default={})) -> JSONResponse:
+        import ml_lab
+
+        try:
+            result = ml_lab.pip_install(body.get("packages", ""))
+        except ValueError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse(result)
+
+    @app.post("/api/ml/persist")
+    def api_ml_persist(body: RunRuleBody) -> JSONResponse:
+        """Run a rule and write its confirmed fault series back to the Feather store."""
+        import ml_lab
+        from rules import RuleContext, get_registry
+
+        rule_id = str(body.rule_id)
+        equipment_id = str(body.equipment_id or (gd.rule_equipment_ids() or [""])[0])
+        params = body.params or {}
+
+        reg = get_registry()
+        if reg.get(rule_id) is None:
+            return JSONResponse({"ok": False, "error": f"Unknown rule {rule_id}"}, status_code=404)
+
+        file_sess = load_session()
+        p = validate_params(file_sess["params"])
+        apply_to_generate_dashboard(gd, p, file_sess.get("site_settings"))
+        try:
+            frame = gd.rule_ahu_frame(get_raw_data(), equipment_id)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"Could not load {equipment_id}: {exc}"}, status_code=400)
+
+        poll = float(frame.attrs.get("effective_poll_seconds", gd.POLL_SECONDS))
+        ctx = RuleContext(
+            equipment_id=equipment_id, df=frame, poll_seconds=poll, tz=gd.TZ,
+            params={k: v for k, v in params.items() if v is not None},
+        )
+        try:
+            result = reg.run(rule_id, ctx)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"Rule failed: {type(exc).__name__}: {exc}"}, status_code=500)
+
+        if result.fault_series is None:
+            return JSONResponse({"ok": False, "error": "Rule produced no fault series to persist."}, status_code=400)
+
+        ts = frame["timestamp"] if "timestamp" in frame.columns else None
+        summary = ml_lab.persist_fault(
+            equipment_id, rule_id, result.fault_series, timestamps=ts, poll_seconds=poll,
+            meta={"engine": result.extra.get("engine", ""), "message": result.message},
+        )
+        return JSONResponse({"ok": True, "store": summary})
 
     @app.get("/api/cookbook/catalog")
     def api_cookbook_catalog() -> JSONResponse:
