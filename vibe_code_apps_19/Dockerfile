@@ -35,5 +35,5 @@ ENV HVAC_DATA_ROOT=/data/hvac
 
 EXPOSE 5000
 
-# Gunicorn for production; override with `python app.py` for local-style dev inside container
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--threads", "4", "--timeout", "300", "wsgi:application"]
+# Uvicorn worker under Gunicorn for production; override with `python app.py` for local-style dev
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5000", "--timeout", "300", "asgi:app"]

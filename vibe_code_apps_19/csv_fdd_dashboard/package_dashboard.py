@@ -168,7 +168,7 @@ After deploy, share the public URL. The dashboard is **view-only** — no tuning
 
 ## What's excluded (sanitized)
 
-- Python generators, Flask server, tests, pytest cache
+- Python generators, FastAPI server, tests, pytest cache
 - Raw `BUILDING_100/` BAS history (already baked into charts)
 - Analyst session / dev validation files
 
@@ -238,7 +238,7 @@ def build_readonly_package(
         notes = notes or {}
 
     write_defaults_file()
-    apply_to_generate_dashboard(gd, params)
+    apply_to_generate_dashboard(gd, params, session.get("site_settings"))
     gd.meta["created"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     generated_at = gd.meta["created"]
 

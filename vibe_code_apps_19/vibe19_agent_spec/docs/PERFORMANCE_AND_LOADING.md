@@ -82,7 +82,7 @@ After load, check `df.attrs.get("effective_poll_seconds", cfg.poll_seconds())`.
 | Repeated `read_csv` | 8–10s cold start | Feather sidecars (~2s cold, ~0s warm) |
 | Zone stats tz_convert in inner loop | 15–20s index compute | Precompute occupancy/season masks per AHU |
 | SPARQL before JSON model | Slow equipment lists | `list_equipment` tries `model.json` first |
-| Flask sync “slowness” | Misdiagnosed as framework issue | CPU-bound pandas; async won't help — cache + downsample |
+| “Framework slowness” (Flask/FastAPI) | Misdiagnosed as web-layer issue | CPU-bound pandas; async won't help — cache + downsample; keep heavy endpoints sync so they run in the threadpool |
 
 ---
 
@@ -99,7 +99,24 @@ After load, check `df.attrs.get("effective_poll_seconds", cfg.poll_seconds())`.
 
 ## Flask vs FastAPI
 
-**Flask is intentional** for this app. Bottlenecks were data loading and pandas compute, not the web framework. If building a new API-only service, FastAPI is fine — still run heavy pandas in a thread/process pool.
+The app now runs on **FastAPI** (migrated from Flask). The move was **not** for raw request speed — bottlenecks are data loading + pandas compute, not the web framework, and CPU-bound work still runs in Starlette's threadpool. It was for the **API-first / forkable** direction: typed Pydantic request bodies, automatic `/openapi.json` + `/docs`, and a stable contract for the custom-rule / ML lab (`/api/rules`, `/api/rules/run`). This also aligns with the open-fdd bridge, which is FastAPI + routers.
+
+Performance rule still holds: **never block HTTP on full recompute** — keep `dashboard_cache` warm and downsample. Heavy pandas endpoints stay `def` (sync) so Starlette runs them in a worker thread rather than the event loop.
+
+---
+
+## Apache Arrow — what’s next
+
+We already use Arrow via **Feather** (`pyarrow`). See full roadmap: [`ROADMAP_ARROW_PLUGINS_ML.md`](ROADMAP_ARROW_PLUGINS_ML.md).
+
+| Next step | Expected win |
+| --- | --- |
+| **DuckDB** on Feather/Parquet | Zone/plant rollups across many columns |
+| **Parquet** sidecars | Compression + column pruning |
+| **Arrow Table** interchange | Fewer copies between loader and compute |
+| **Polars** (selective) | Hot groupbys after profiling |
+
+Keep **cookbook fault masks in pandas** unless exporting SQL parity to Open-FDD edge.
 
 ---
 

@@ -2,7 +2,7 @@
 name: vibe19-haystack-rdf
 description: >-
   Use when working on Haystack RDF/SPARQL data model for App 19: model.json,
-  TTL sync, CSV bootstrap, SPARQL queries, Flask /api/rdf routes, data_model.html,
+  TTL sync, CSV bootstrap, SPARQL queries, FastAPI /api/rdf routes, data_model.html,
   feather cache, resolver, timeseries grid. Triggers on: Haystack, RDF, SPARQL,
   rdflib, data model, model.json, TTL, bootstrap, commissioning import, point role,
   resolver, feather, effective_poll_seconds.
@@ -20,7 +20,7 @@ description: >-
 | CSV bootstrap | `haystack_rdf/csv_bootstrap.py` | Auto-build model from `columns.csv` tree |
 | Historian load | `haystack_rdf/feather_cache.py` | CSV → Feather + grid normalize |
 | Grid rules | `haystack_rdf/timeseries_grid.py` | Sub-5-min → 5-min means |
-| Flask API | `/api/rdf/*` | Bootstrap, import/export, SPARQL |
+| FastAPI router | `/api/rdf/*` (`haystack_rdf/fastapi_routes.py`) | Bootstrap, import/export, SPARQL |
 | UI | `/data_model.html` | Plain JS SPARQL explorer |
 
 **Pattern (from Open-FDD py, adapted):** mutate `model.json` → `sync-ttl` → SPARQL reads. Never write via SPARQL.
@@ -32,7 +32,7 @@ description: >-
 | Use `list_equipment()` JSON path first (fast) | Call SPARQL `list_equipment` on every HTTP refresh |
 | Use `raw_data_source_paths()` filesystem discovery | Loop `resolver.list_equipment()` + SPARQL for cache mtime tokens |
 | Load CSV via `read_history_csv()` | Raw `pd.read_csv` on every request without Feather cache |
-| Run SPARQL in data model UI or offline scripts | Block Flask chart refresh on TTL graph rebuild |
+| Run SPARQL in data model UI or offline scripts | Block chart refresh on TTL graph rebuild |
 
 See [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md).
 

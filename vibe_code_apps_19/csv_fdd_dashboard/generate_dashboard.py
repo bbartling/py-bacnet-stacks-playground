@@ -121,6 +121,9 @@ COLORS = {
     "chart": ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#06b6d4"],
 }
 
+_OCC_SCHEDULE: dict | None = None
+SITE_SETTINGS: dict[str, Any] = {}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,12 +168,10 @@ def season_label(ts: pd.Series) -> pd.Series:
 
 
 def is_occupied(ts: pd.Series) -> pd.Series:
-    local = ts.dt.tz_convert(TZ)
-    dow = local.dt.dayofweek
-    t = local.dt.time
-    wd = (dow < 5) & (t >= time(6, 0)) & (t < time(17, 0))
-    sat = (dow == 5) & (t >= time(7, 0)) & (t < time(14, 0))
-    return wd | sat
+    from shared.occupancy import DEFAULT_SCHEDULE, is_occupied as occ_fn
+
+    schedule = _OCC_SCHEDULE or DEFAULT_SCHEDULE
+    return occ_fn(ts, schedule, TZ)
 
 
 def hours_true(mask: pd.Series) -> float:
@@ -207,25 +208,98 @@ def fig_to_div(fig: go.Figure, height: int = 420) -> str:
 
 
 def nav_html(active: str, *, interactive: bool = False) -> str:
-    links = [
-        ("index.html", "Overview"),
-        ("zones.html", "Zones & Comfort"),
-        ("weather.html", "Weather Sensors"),
-        ("ahu_1.html", "AHU 1"),
-        ("ahu_2.html", "AHU 2"),
-        ("economizer.html", "Economizer / Free Cooling"),
-        ("economizer_diagnostics.html", "Economizer Diagnostics"),
-        ("central_plant.html", "Central Plant"),
-        ("excess_runtime.html", "Excess Fan Runtime"),
-    ]
-    items = []
-    for href, label in links:
+    from page_registry import discover_pages, nav_tree
+
+    discover_pages()
+    items: list[str] = []
+    for entry in nav_tree(interactive=interactive):
+        if entry.get("kind") == "group":
+            children = entry.get("children") or []
+            inner = []
+            for child in children:
+                href = child.get("href", f"{child['id']}.html")
+                cls = ' class="active"' if href == active else ""
+                dis = "" if child.get("available", True) else ' class="disabled"'
+                if dis and href != active:
+                    inner.append(f'<a href="{href}"{dis}>{child["title"]}</a>')
+                else:
+                    inner.append(f'<a href="{href}"{cls}>{child["title"]}</a>')
+            items.append(
+                f'<details class="nav-group"><summary>Air-side Systems</summary>'
+                f'<div class="nav-dropdown">{"".join(inner)}</div></details>'
+            )
+            continue
+        href = entry.get("href", f"{entry['id']}.html")
         cls = ' class="active"' if href == active else ""
-        items.append(f'<a href="{href}"{cls}>{label}</a>')
-    if interactive:
-        cls = ' class="active"' if active == "data_model.html" else ""
-        items.append(f'<a href="data_model.html"{cls}>Data Model</a>')
+        if not entry.get("available", True) and href != active:
+            items.append(f'<a href="{href}" class="disabled">{entry["title"]}</a>')
+        else:
+            items.append(f'<a href="{href}"{cls}>{entry["title"]}</a>')
     return "\n".join(items)
+
+
+def ecm_card(
+    ecm_id: str,
+    rule: str,
+    title: str,
+    *,
+    chart_html: str = "",
+    equation: str = "",
+    tune: bool = True,
+    analytics_html: str = "",
+    note: str = "",
+) -> str:
+    tune_block = rule_tune_mount(rule) if tune else ""
+    eq_block = f'<footer class="ecm-equation">{equation}</footer>' if equation else ""
+    note_block = f'<p class="note">{note}</p>' if note else ""
+    analytics_block = f'<div class="ecm-analytics" data-analytics-for="{rule}">{analytics_html}</div>' if analytics_html else f'<div class="ecm-analytics" data-analytics-for="{rule}"></div>'
+    return f"""<section class="ecm-card" data-ecm="{ecm_id}" data-rule="{rule}">
+<header class="ecm-head"><h3>{title}</h3><span class="ecm-rule-id">{rule}</span></header>
+{analytics_block}
+{tune_block}
+{note_block}
+<div class="ecm-chart">{chart_html}</div>
+{eq_block}
+</section>"""
+
+
+def body_not_in_model(equipment_type: str, expected_roles: list[str] | None = None) -> str:
+    roles = ", ".join(expected_roles or [])
+    hint = f" Expected point roles: {roles}." if roles else ""
+    return f"""<div class="card placeholder-card">
+<h2>Not present in data model</h2>
+<p class="note">No <strong>{equipment_type}</strong> equipment was discovered in the Haystack RDF model.{hint}
+Use <a href="data_model.html">Data Model</a> to bootstrap or import equipment, then refresh.</p></div>"""
+
+
+def header_meta_html() -> str:
+    from shared.occupancy import occupancy_summary
+
+    created = meta.get("created", "")
+    occ = occupancy_summary((_OCC_SCHEDULE or SITE_SETTINGS.get("occupancy")))
+    setpoint_meta = f"{COMFORT_SETPOINT_F:g}°F ±{COMFORT_BAND_F:g}°F"
+    return f"{SITE_LABEL} · Created {created} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · {occ}"
+
+
+def site_settings_panel_html() -> str:
+    return """
+<details class="site-settings-panel" id="site-settings-panel">
+  <summary>Site settings (occupancy & comfort)</summary>
+  <form class="site-settings-form">
+    <label>Timezone <select id="site-timezone" name="timezone">
+      <option value="America/Chicago">America/Chicago</option>
+      <option value="America/New_York">America/New_York</option>
+      <option value="America/Denver">America/Denver</option>
+      <option value="America/Los_Angeles">America/Los_Angeles</option>
+    </select></label>
+    <label>Comfort setpoint (°F) <input type="number" id="site-comfort-sp" step="0.5" min="68" max="76" value="72"/></label>
+    <label>Comfort band ± (°F) <input type="number" id="site-comfort-band" step="0.5" min="1" max="4" value="2"/></label>
+    <div class="schedule-row" data-schedule="mon_fri"><span>Mon–Fri</span><input class="sched-start" type="time" value="06:00"/><input class="sched-end" type="time" value="17:00"/><label><input class="sched-enabled" type="checkbox" checked/> On</label></div>
+    <div class="schedule-row" data-schedule="sat"><span>Saturday</span><input class="sched-start" type="time" value="07:00"/><input class="sched-end" type="time" value="14:00"/><label><input class="sched-enabled" type="checkbox" checked/> On</label></div>
+    <div class="schedule-row" data-schedule="sun"><span>Sunday</span><input class="sched-start" type="time" value="08:00"/><input class="sched-end" type="time" value="12:00"/><label><input class="sched-enabled" type="checkbox"/> On</label></div>
+    <button type="submit" class="btn primary">Save site settings</button>
+  </form>
+</details>"""
 
 
 def rule_tune_mount(rule: str) -> str:
@@ -259,6 +333,7 @@ def analyst_banner_html(
       <button type="button" class="btn accent" id="btn-export-package">Export client package</button>
     </div>
   </div>
+  {site_settings_panel_html()}
   <div class="notes-col notes-row">
     <label for="page-notes">Notes for this page</label>
     <textarea id="page-notes" rows="3" placeholder="Findings, caveats, recommended actions…">{notes}</textarea>
@@ -283,108 +358,55 @@ def page_html(
     page_id: str = "",
 ) -> str:
     banner = analyst_banner_html(notes, params_block, analyst_name, interactive, page_id)
-    setpoint_meta = f"{COMFORT_SETPOINT_F:g}°F ±{COMFORT_BAND_F:g}°F"
-    extra_css = ""
     extra_js = ""
     if interactive:
-        extra_css = """
-.analyst-panel { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-.analyst-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: .75rem; }
-.analyst-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: .5rem; }
-.notes-row { margin-bottom: .5rem; }
-.notes-row textarea { width: 100%; background: #0f1419; color: var(--text); border: 1px solid #334155; border-radius: 8px; padding: .6rem; font-family: inherit; resize: vertical; }
-.page-layout { display: grid; grid-template-columns: 1fr min(320px, 30vw); gap: 1rem; align-items: start; }
-@media (max-width: 1100px) { .page-layout { grid-template-columns: 1fr; } }
-.rule-tune-rail { position: sticky; top: .5rem; max-height: calc(100vh - 1rem); overflow-y: auto; display: flex; flex-direction: column; gap: .65rem; }
-.rule-tune-box { background: #0f1419; border: 1px solid #334155; border-left: 3px solid var(--accent); border-radius: 8px; padding: .65rem .75rem; }
-.rule-tune-box h4 { margin: 0 0 .5rem; font-size: .78rem; color: var(--accent); letter-spacing: .02em; }
-.rule-tune-box .rule-id { font-size: .7rem; color: var(--muted); font-weight: normal; }
-.rule-tune-mount { margin-bottom: .65rem; }
-.card .rule-tune-mount { margin: .5rem 0 .75rem; }
-.tune-field { margin-bottom: .55rem; }
-.tune-field label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: .2rem; }
-.tune-field input[type=range] { width: 100%; accent-color: var(--accent); }
-.tune-field .val { font-size: .78rem; color: var(--accent); float: right; }
-.tune-field input[type=number] { width: 100%; margin-top: .2rem; background: #0f1419; color: var(--text); border: 1px solid #334155; border-radius: 4px; padding: .2rem .4rem; font-size: .75rem; }
-.btn { background: #243044; color: var(--text); border: 1px solid #334155; border-radius: 6px; padding: .4rem .75rem; cursor: pointer; font-size: .8rem; }
-.btn:hover { background: #334155; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.accent { background: #059669; border-color: #059669; color: #fff; }
-.btn:disabled { opacity: .55; cursor: wait; }
-.analyst-notes-display { margin-top: .75rem; padding: .75rem; background: #0f1419; border-radius: 8px; border-left: 3px solid var(--accent); }
-.analyst-notes-display h3 { margin: 0 0 .35rem; font-size: .9rem; }
-.analyst-tag { font-size: .75rem; color: var(--muted); }
-.tune-summary { margin-top: .75rem; font-size: .8rem; color: var(--muted); }
-.tune-summary table { margin-top: .5rem; }
-.analyst-delivered { margin-bottom: 1rem; }
-.tune-status { font-size: .75rem; color: var(--muted); }
-.tune-status.live { color: #34d399; }
-.tune-status.err { color: #f87171; }
-.card[data-rule] { border-left: 3px solid #243044; }
-.card[data-rule].tune-highlight { border-left-color: var(--accent); box-shadow: 0 0 0 1px rgba(59,130,246,.25); }
-"""
         extra_js = f"""
 <script src="/static/dashboard_tune.js"></script>
+<script src="/static/dashboard_auth.js"></script>
+<script src="/static/dashboard_settings.js"></script>
+<script src="/static/dashboard_rules.js"></script>
 <script>window.DASHBOARD_PAGE = "{page_id}";</script>
 """
-    rail = '<aside class="rule-tune-rail" id="rule-tune-rail"></aside>' if interactive else ""
     body_block = f'<div class="page-main"><div id="page-content">{body}</div></div>'
+    readonly_banner = (
+        '<div id="readonly-banner" class="readonly-banner" hidden>Package locked — engineer login required.</div>'
+        if interactive
+        else ""
+    )
+    auth_chip = ""
+    if interactive:
+        auth_chip = """
+<div class="auth-chip" id="auth-chip">
+  <input type="password" id="engineer-pin" placeholder="Engineer PIN" autocomplete="off"/>
+  <button type="button" class="btn btn-link" id="btn-engineer-login">Login</button>
+  <button type="button" class="btn btn-link" id="btn-engineer-logout" hidden>Logout</button>
+</div>"""
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>{title} — {APP_TITLE}</title>
+<link rel="stylesheet" href="/static/dashboard.css"/>
 <script src="plotly.min.js"></script>
-<style>
-:root {{
-  --bg: {COLORS['bg']}; --card: {COLORS['card']}; --text: {COLORS['text']};
-  --muted: {COLORS['muted']}; --accent: {COLORS['accent']};
-}}
-* {{ box-sizing: border-box; }}
-body {{ margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }}
-header {{ background: #111827; border-bottom: 1px solid #243044; padding: 1rem 1.5rem; }}
-header h1 {{ margin: 0 0 .25rem; font-size: 1.35rem; font-weight: 600; }}
-header .meta {{ color: var(--muted); font-size: .875rem; }}
-nav {{ display: flex; flex-wrap: wrap; gap: .5rem; padding: .75rem 1.5rem; background: #151c28; border-bottom: 1px solid #243044; }}
-nav a {{ color: var(--muted); text-decoration: none; padding: .35rem .75rem; border-radius: 6px; font-size: .875rem; }}
-nav a:hover {{ background: #243044; color: var(--text); }}
-nav a.active {{ background: var(--accent); color: #fff; }}
-main {{ max-width: 1600px; margin: 0 auto; padding: 1.25rem 1.5rem 2rem; }}
-.page-main {{ min-width: 0; }}
-.card {{ background: var(--card); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid #243044; }}
-.card h2 {{ margin: 0 0 .75rem; font-size: 1.05rem; font-weight: 600; }}
-.card h3 {{ margin: 1rem 0 .5rem; font-size: .95rem; color: var(--muted); }}
-.note {{ color: var(--muted); font-size: .875rem; margin: .5rem 0; }}
-.grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem; }}
-.kpi {{ background: #111827; border-radius: 8px; padding: .85rem; text-align: center; }}
-.kpi .val {{ font-size: 1.5rem; font-weight: 700; color: var(--accent); }}
-.kpi .lbl {{ font-size: .75rem; color: var(--muted); margin-top: .25rem; }}
-table {{ width: 100%; border-collapse: collapse; font-size: .8rem; }}
-th, td {{ padding: .4rem .5rem; border-bottom: 1px solid #243044; text-align: left; }}
-th {{ color: var(--muted); font-weight: 600; }}
-tr:hover td {{ background: #1f2937; }}
-.links {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; }}
-.link-card {{ display: block; background: var(--card); border: 1px solid #243044; border-radius: 10px; padding: 1rem; color: var(--text); text-decoration: none; transition: border-color .15s; }}
-.link-card:hover {{ border-color: var(--accent); }}
-.link-card strong {{ display: block; margin-bottom: .35rem; }}
-.link-card span {{ color: var(--muted); font-size: .85rem; }}
-.chart {{ margin: .5rem 0; }}
-{extra_css}
-</style>
 </head>
 <body>
+{readonly_banner}
 <header>
-  <h1>{APP_TITLE}</h1>
-  <div class="meta">{SITE_LABEL} · Created {meta['created']} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · Occupied: Mon–Fri 6:00–17:00, Sat 7:00–14:00, Sun closed</div>
+  <div class="brand">
+    <h1>{APP_TITLE}</h1>
+    <div class="meta">{header_meta_html()}</div>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">Light mode</button>
+    {auth_chip}
+  </div>
 </header>
 <nav>{nav_html(active, interactive=interactive)}</nav>
 <main>{banner}
-<div class="page-layout">
 {body_block}
-{rail}
-</div>
 </main>
+<script src="/static/dashboard_theme.js"></script>
 {extra_js}
 </body>
 </html>"""
@@ -1847,27 +1869,22 @@ def body_index(ctx: dict) -> str:
     highlights = f"""
 <div class="card"><h2>Key RCx metrics — one chart per ECM</h2>
 <p class="note">Shaded bands = analysis seasons. OAT bins use <strong>Open-Meteo</strong> (not BAS outdoor sensors).</p></div>
-<div class="card" data-rule="COMFORT"><h3>ECM 1 — Zone comfort</h3>{rule_tune_mount("COMFORT")}<div class="chart">{chart_comfort_weekly_ts(comfort_ts, spring_pct)}</div></div>
-<div class="card" data-rule="ECON-3"><h3>ECM 2 — AHU free-cooling opportunity</h3>{rule_tune_mount("ECON-3")}
-<p class="note">CHW &gt;{chw_pct}% while OAT favors economizer.</p><div class="chart">{chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total'])}</div></div>
-<div class="card" data-rule="ECON-AVAIL"><h3>ECM 3 — Chiller excess runtime</h3>{rule_tune_mount("ECON-AVAIL")}
-<p class="note">Chiller run when Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (free-cool availability gate).</p><div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div></div>
-<div class="card" data-rule="EXCESS-FAN"><h3>ECM 4 — Excess unoccupied fan</h3>{rule_tune_mount("EXCESS-FAN")}<div class="chart">{chart_ecm_excess_fan(excess_det, unocc)}</div></div>
-<div class="card"><h3>ECM 5 — Chiller run by Open-Meteo OAT bin (5°F)</h3>
-<p class="note">Chiller 1 &amp; 2 only — hours when command on and meter kW &gt; 0.5 (pump_on proxy).</p>
-<div class="chart">{chart_oat_binned_mech(oat_bins)}</div></div>
-<div class="card" data-rule="ECON-AVAIL"><h3>ECM 6 — Free-cool weather availability</h3>{rule_tune_mount("ECON-AVAIL")}
-<p class="note">DP &lt; {FREE_COOL_DP_MAX_F:g}°F and OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (Open-Meteo).</p><div class="chart">{chart_open_meteo_free_cool(om_fc)}</div></div>"""
+{ecm_card("ECM-1", "COMFORT", "ECM 1 — Zone comfort", chart_html=chart_comfort_weekly_ts(comfort_ts, spring_pct))}
+{ecm_card("ECM-2", "ECON-3", "ECM 2 — AHU free-cooling opportunity", chart_html=chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total']), note=f"CHW &gt;{chw_pct}% while OAT favors economizer.")}
+{ecm_card("ECM-3", "ECON-AVAIL", "ECM 3 — Chiller excess runtime", chart_html=chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h']), note=f"Chiller run when Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (free-cool availability gate).")}
+{ecm_card("ECM-4", "EXCESS-FAN", "ECM 4 — Excess unoccupied fan", chart_html=chart_ecm_excess_fan(excess_det, unocc))}
+{ecm_card("ECM-5", "CHILLER-DT", "ECM 5 — Chiller run by Open-Meteo OAT bin (5°F)", chart_html=chart_oat_binned_mech(oat_bins), tune=False, note="Chiller 1 &amp; 2 only — hours when command on and meter kW &gt; 0.5 (pump_on proxy).")}
+{ecm_card("ECM-6", "ECON-AVAIL", "ECM 6 — Free-cool weather availability", chart_html=chart_open_meteo_free_cool(om_fc), note=f"DP &lt; {FREE_COOL_DP_MAX_F:g}°F and OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (Open-Meteo).")}"""
 
     links = """
 <div class="links">
-  <a class="link-card" href="zones.html"><strong>Zones & Comfort</strong><span>Floor-level comfort performance and VAV rankings by season</span></a>
+  <a class="link-card" href="zones.html"><strong>Comfort / Zones</strong><span>Floor-level comfort performance and VAV rankings by season</span></a>
   <a class="link-card" href="weather.html"><strong>Weather Sensors</strong><span>BAS vs Open-Meteo OAT validation for each AHU</span></a>
   <a class="link-card" href="ahu_1.html"><strong>AHU 1</strong><span>Trends, economizer commands, and fault overlays</span></a>
-  <a class="link-card" href="ahu_2.html"><strong>AHU 2</strong><span>Trends, economizer commands, and fault overlays</span></a>
   <a class="link-card" href="economizer.html"><strong>Economizer / Free Cooling</strong><span>FC8–FC13 diagnostics focused on spring economizer season</span></a>
-  <a class="link-card" href="central_plant.html"><strong>Central Plant</strong><span>Air-cooled chillers, boilers, and pump runtimes</span></a>
-  <a class="link-card" href="excess_runtime.html"><strong>Excess Fan Runtime</strong><span>Weekly fan hours outside lease schedule when zones are comfortable</span></a>
+  <a class="link-card" href="chiller_plant.html"><strong>Chiller Plant</strong><span>Air-cooled chillers and CHW metrics</span></a>
+  <a class="link-card" href="boiler_plant.html"><strong>Boiler Plant</strong><span>Boilers and HWS metrics</span></a>
+  <a class="link-card" href="motor_runtime.html"><strong>Motor Runtime</strong><span>All fans, pumps, and motors from the data model</span></a>
   <a class="link-card" href="data_model.html"><strong>Haystack Data Model</strong><span>RDF / SPARQL explorer — bootstrap from CSV, import/export JSON, prebuilt queries</span></a>
 </div>"""
 
@@ -1972,6 +1989,7 @@ def body_economizer(ctx: dict) -> str:
                 "fc9_h": round(hours_true(df.loc[m, "fc9_oat_too_warm_free_cool"]), 1),
             })
         body += f'<div class="card"><h2>{SEASON_SHORT[season]}</h2>{table_html(pd.DataFrame(rows))}</div>'
+    body += _economizer_diagnostics_snippet()
     return body
 
 
@@ -2020,6 +2038,159 @@ def body_plant(ctx: dict) -> str:
     return body
 
 
+def body_chiller_plant(ctx: dict) -> str:
+    if ctx.get("missing"):
+        return body_not_in_model("chiller", ["chiller_cmd", "chw_supply_temp"])
+    plant = ctx["plant"]
+    fc_bd = ctx["fc_bd"]
+    ch_fc_weekly = ctx["ch_fc_weekly"]
+    ch_daily = ctx["ch_daily"]
+    ch_weekly = ctx["ch_weekly"]
+    oat_bins = ctx["oat_bins"]
+    body = f"""
+<div class="card" data-rule="CHILLER-DT"><h2>Chiller plant</h2>{rule_tune_mount("CHILLER-DT")}{rule_tune_mount("ECON-AVAIL")}
+<p class="note">Open-Meteo OAT bins. Chiller 2 excess below {FREE_COOL_OAT_AVAIL_F:g}°F: <strong>{fc_bd['ch2_h']:.0f} h</strong>.</p>
+<div class="chart">{chart_chiller_weekly_run(ch_daily, ch_weekly)}</div>
+<div class="chart">{chart_chiller_oat_bins(oat_bins)}</div>
+<div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div>
+</div>"""
+    for key in ("CHILLER_1", "CHILLER_2"):
+        if key not in plant:
+            continue
+        d = plant[key]
+        body += f'<div class="card"><h2>{key.replace("_", " ")}</h2><div class="chart">{chart_plant_trend(d, key, "run", ["low_delta_t", "free_cool_opp", "below_enable"])}</div></div>'
+        body += f'<div class="card"><h2>{key} vs Open-Meteo OAT</h2><div class="chart">{chart_chws_vs_web_oat(d, key)}</div></div>'
+    return body
+
+
+def body_boiler_plant(ctx: dict) -> str:
+    if ctx.get("missing"):
+        return body_not_in_model("boiler", ["boiler_cmd", "hws_temp"])
+    plant = ctx["plant"]
+    body = f'<div class="card"><h2>Boiler plant</h2>{rule_tune_mount("BOILER-WARM")}{rule_tune_mount("BOILER-DT")}'
+    if "BOILERS_PUMPS" in plant:
+        body += f'<div class="chart">{chart_hws_vs_web_oat(plant["BOILERS_PUMPS"], "Boilers")}</div>'
+        d = plant["BOILERS_PUMPS"]
+        body += f'<div class="chart">{chart_plant_trend(d, "Boilers", "boiler_run", ["warm_weather_run", "low_hw_delta"])}</div>'
+    body += "</div>"
+    return body
+
+
+def _economizer_diagnostics_snippet() -> str:
+    path = OUT / "economizer_diagnostics.html"
+    if path.is_file():
+        html = path.read_text(encoding="utf-8")
+        start = html.find("<main>")
+        end = html.find("</main>")
+        if start >= 0 and end > start:
+            return f'<div class="card"><h2>Economizer diagnostics (FC engine)</h2>{html[start + 6 : end]}</div>'
+    return ""
+
+
+def body_motor_runtime(ctx: dict) -> str:
+    from analytics_motors import MOTOR_POINT_ROLES
+
+    motors = ctx.get("motors") or []
+    if not motors:
+        return body_not_in_model("motor/fan/pump", list(MOTOR_POINT_ROLES))
+    rows = []
+    for m in motors:
+        rows.append({
+            "equipment": m["label"],
+            "role": m["point_role"],
+            "total_h": m["total_hours"],
+            "unocc_h": m["unoccupied_hours"],
+            "excess_h": m["excess_hours"],
+        })
+    table = table_html(pd.DataFrame(rows))
+    charts = ""
+    excess_det = ctx.get("excess_det")
+    if excess_det is not None and not getattr(excess_det, "empty", True):
+        total_excess = excess_det["excess_fan_h"].sum()
+        charts = f'<div class="chart">{chart_excess_weekly_stacked(excess_det, total_excess)}</div>'
+    return f"""<div class="card" data-rule="EXCESS-FAN"><h2>Motor runtime — all modeled equipment</h2>
+{rule_tune_mount("EXCESS-FAN")}
+<p class="note">Motors discovered from Haystack point roles (fan %, pump_on, chiller_cmd, etc.). Excess = unoccupied runtime.</p>
+{table}
+{charts}
+</div>"""
+
+
+def rule_equipment_ids() -> list[str]:
+    """AHU-like equipment available to the custom/ML rule lab."""
+    try:
+        from haystack_rdf.resolver import get_resolver
+
+        return sorted(get_resolver().list_ahus())
+    except Exception:
+        return ["AHU_1", "AHU_2"]
+
+
+def rule_ahu_frame(raw: dict, equipment_id: str) -> pd.DataFrame:
+    """Normalized AHU frame (sat/mat/oat/rat/fan_on/…) for a rule context."""
+    wx = raw["wx"]
+    if equipment_id in raw.get("ahu_raw", {}):
+        return _compute_ahu_for(raw, wx, equipment_id)
+    if raw.get("ahu1_raw") is not None:
+        return _compute_ahu1(raw, wx)
+    raise KeyError(f"No AHU history available for {equipment_id}")
+
+
+def rule_result_chart(plot_series: dict, fault_series, title: str) -> str:
+    """Themed Plotly div for a rule plugin result — signals + fault overlay."""
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    x = None
+    for name, series in (plot_series or {}).items():
+        if series is None:
+            continue
+        s = pd.to_numeric(series, errors="coerce")
+        x = s.index if x is None else x
+        fig.add_trace(go.Scatter(y=s.values, x=list(range(len(s))), name=name, mode="lines"), secondary_y=False)
+    if fault_series is not None:
+        mask = fault_series.fillna(False).astype(bool).astype(int)
+        fig.add_trace(
+            go.Scatter(
+                y=mask.values,
+                x=list(range(len(mask))),
+                name="Confirmed fault",
+                fill="tozeroy",
+                line=dict(color=COLORS["bad"]),
+                opacity=0.4,
+            ),
+            secondary_y=True,
+        )
+    fig.update_layout(title=title)
+    fig.update_yaxes(title_text="Signal", secondary_y=False)
+    fig.update_yaxes(title_text="Fault (0/1)", secondary_y=True, showgrid=False, range=[0, 1.1])
+    return fig_to_div(fig, 420)
+
+
+def body_custom_rules(ctx: dict) -> str:
+    """Shell for the custom / ML rule lab — populated by dashboard_rules.js."""
+    return """
+<div class="card">
+  <h2>Custom &amp; ML rule lab</h2>
+  <p class="note">Author faults as Python plugins in <code>rules/plugins/</code>. Each plugin declares a
+  Pydantic manifest and a <code>compute(ctx)</code> function. The API only runs registered rule ids with
+  validated numeric params — never arbitrary code over HTTP. ML rules follow the same pipeline
+  (features → model → mask → confirm → hours).</p>
+  <div id="rule-lab-errors" class="rule-lab-errors" hidden></div>
+  <div class="rule-lab-controls">
+    <label>Rule
+      <select id="rule-select"></select>
+    </label>
+    <label>Equipment
+      <select id="rule-equipment"></select>
+    </label>
+    <button type="button" class="btn primary" id="btn-run-rule">Run rule</button>
+    <span class="tune-status" id="rule-run-status"></span>
+  </div>
+  <p class="note" id="rule-description"></p>
+  <div id="rule-params" class="rule-lab-params"></div>
+</div>
+<div id="rule-result"></div>"""
+
+
 def body_excess(ctx: dict) -> str:
     w1 = ctx["w1"]
     w2 = ctx["w2"]
@@ -2045,6 +2216,10 @@ PAGE_BODY_BUILDERS = {
     "ahu_2": lambda ctx: body_ahu(ctx["ahu2"], "AHU 2"),
     "economizer": body_economizer,
     "central_plant": body_plant,
+    "chiller_plant": body_chiller_plant,
+    "boiler_plant": body_boiler_plant,
+    "motor_runtime": body_motor_runtime,
+    "custom_rules": body_custom_rules,
     "excess_runtime": body_excess,
 }
 
@@ -2061,12 +2236,14 @@ def load_raw_data() -> dict:
     wx = load_history_wide("WEATHER", resolver)
     wx["timestamp"] = wx["timestamp_utc"]
 
-    raw: dict = {"wx": wx}
+    raw: dict = {"wx": wx, "ahu_raw": {}}
     ahus = sorted(resolver.list_ahus())
+    for eq_id in ahus:
+        raw["ahu_raw"][eq_id] = load_history_wide(eq_id, resolver)
     if len(ahus) >= 1:
-        raw["ahu1_raw"] = load_history_wide(ahus[0], resolver)
+        raw["ahu1_raw"] = raw["ahu_raw"][ahus[0]]
     if len(ahus) >= 2:
-        raw["ahu2_raw"] = load_history_wide(ahus[1], resolver)
+        raw["ahu2_raw"] = raw["ahu_raw"][ahus[1]]
 
     chillers = sorted(e["id"] for e in resolver.list_equipment(haystack_tag="chiller"))
     if len(chillers) >= 1:
@@ -2129,6 +2306,21 @@ def _compute_ahu1(raw: dict, wx: pd.DataFrame) -> pd.DataFrame:
 def _compute_ahu2(raw: dict, wx: pd.DataFrame) -> pd.DataFrame:
     z2 = zone_columns(raw["ahu2_raw"], "AHU_2")
     return compute_ahu_faults(prep_ahu(attach_open_meteo(raw["ahu2_raw"], wx), "mad_c_pct"), z2)
+
+
+def _mad_col(df: pd.DataFrame) -> str:
+    return "mad_c_pct" if "mad_c_pct" in df.columns else "mad_c"
+
+
+def _compute_ahu_for(raw: dict, wx: pd.DataFrame, equip_id: str) -> pd.DataFrame:
+    df_raw = raw.get("ahu_raw", {}).get(equip_id)
+    if df_raw is None:
+        if equip_id and raw.get("ahu1_raw") is not None:
+            df_raw = raw["ahu1_raw"]
+        else:
+            raise KeyError(f"No raw data for {equip_id}")
+    zones = zone_columns(df_raw, equip_id.replace("-", "_").upper())
+    return compute_ahu_faults(prep_ahu(attach_open_meteo(df_raw, wx), _mad_col(df_raw)), zones)
 
 
 def _compute_economizer_metrics(
@@ -2205,6 +2397,81 @@ def compute_context(raw: dict, page_id: str | None = None) -> dict:
     if page_id == "ahu_2":
         return {"ahu2": _compute_ahu2(raw, wx)}
 
+    from page_registry import get_page, resolve_ahu_equipment
+
+    eq = resolve_ahu_equipment(page_id)
+    if eq and page_id.startswith("ahu_"):
+        if eq not in raw.get("ahu_raw", {}):
+            return {"missing": True, "equipment_id": eq}
+        df = _compute_ahu_for(raw, wx, eq)
+        if page_id == "ahu_1":
+            return {"ahu1": df}
+        if page_id == "ahu_2":
+            return {"ahu2": df}
+        title = get_page(page_id).title if get_page(page_id) else eq.replace("_", " ")
+        return {"ahu_df": df, "title": title}
+
+    if page_id == "motor_runtime":
+        from analytics_motors import compute_motor_runtime, discover_motors
+        from haystack_rdf.data_loader import load_history_wide
+        from haystack_rdf.resolver import get_resolver
+
+        resolver = get_resolver()
+        motor_rows: list[dict] = []
+        for spec in discover_motors(resolver):
+            try:
+                df = load_history_wide(spec.equipment_id, resolver)
+                col = spec.column
+                if not col or col not in df.columns:
+                    continue
+                ts = df["timestamp_utc"] if "timestamp_utc" in df.columns else df["timestamp"]
+                occ = is_occupied(ts)
+                stats = compute_motor_runtime(df, col, role=spec.point_role, occupied=occ, poll_seconds=POLL_SECONDS)
+                motor_rows.append({
+                    "equipment_id": spec.equipment_id,
+                    "label": spec.label,
+                    "point_role": spec.point_role,
+                    **stats,
+                })
+            except Exception:
+                continue
+        ctx_out: dict = {"motors": motor_rows}
+        if raw.get("ahu1_raw") is not None and raw.get("ahu2_raw") is not None:
+            ahu1 = _compute_ahu1(raw, wx)
+            ahu2 = _compute_ahu2(raw, wx)
+            ctx_out["excess_det"] = compute_excess_weekly_detailed(ahu1, ahu2)
+        return ctx_out
+
+    if page_id == "chiller_plant":
+        if "ch1" not in raw and "ch2" not in raw:
+            return {"missing": True}
+        plant = compute_plant(raw.get("ch1"), raw.get("ch2"), raw.get("blr"), wx)
+        ahu1 = _compute_ahu1(raw, wx) if raw.get("ahu1_raw") is not None else None
+        ahu2 = _compute_ahu2(raw, wx) if raw.get("ahu2_raw") is not None else None
+        ch_daily, ch_weekly = compute_chiller_daily_weekly(plant)
+        if ahu1 is not None and ahu2 is not None:
+            econ = _compute_economizer_metrics(ahu1, ahu2, plant, wx)
+        else:
+            econ = {
+                "fc_bd": {"ch2_h": 0, "total": 0, "ahu_total": 0, "ahu1_h": 0, "ahu2_h": 0, "chiller_total": 0},
+                "ch_fc_weekly": pd.DataFrame(),
+                "oat_bins": compute_mech_cool_oat_bins(plant, wx),
+            }
+        return {
+            "plant": plant,
+            "fc_bd": econ["fc_bd"],
+            "ch_fc_weekly": econ["ch_fc_weekly"],
+            "oat_bins": econ["oat_bins"],
+            "ch_daily": ch_daily,
+            "ch_weekly": ch_weekly,
+        }
+
+    if page_id == "boiler_plant":
+        if "blr" not in raw:
+            return {"missing": True}
+        plant = compute_plant(raw.get("ch1"), raw.get("ch2"), raw["blr"], wx)
+        return {"plant": plant}
+
     if page_id == "excess_runtime":
         ahu1 = _compute_ahu1(raw, wx)
         ahu2 = _compute_ahu2(raw, wx)
@@ -2237,7 +2504,7 @@ def compute_context(raw: dict, page_id: str | None = None) -> dict:
             "ch_weekly": ch_weekly,
         }
 
-    if page_id == "economizer_diagnostics":
+    if page_id in ("economizer_diagnostics", "custom_rules"):
         return {}
 
     # index and unknown pages — full pipeline
@@ -2245,17 +2512,18 @@ def compute_context(raw: dict, page_id: str | None = None) -> dict:
 
 
 def body_for_page(page_id: str, ctx: dict) -> str:
+    if ctx.get("missing"):
+        from page_registry import get_page
+
+        spec = get_page(page_id)
+        label = spec.title if spec else page_id.replace("_", " ")
+        return body_not_in_model(label, spec.equipment_ids if spec else None)
+    if "ahu_df" in ctx:
+        return body_ahu(ctx["ahu_df"], ctx.get("title", page_id))
     if page_id in PAGE_BODY_BUILDERS:
         return PAGE_BODY_BUILDERS[page_id](ctx)
     if page_id == "economizer_diagnostics":
-        path = OUT / "economizer_diagnostics.html"
-        if path.exists():
-            html = path.read_text(encoding="utf-8")
-            start = html.find("<main>")
-            end = html.find("</main>")
-            if start >= 0 and end > start:
-                return html[start + 6 : end]
-        return "<p class='note'>Economizer diagnostics page not generated yet.</p>"
+        return _economizer_diagnostics_snippet() or "<p class='note'>Economizer diagnostics page not generated yet.</p>"
     raise KeyError(f"Unknown page: {page_id}")
 
 
@@ -2269,13 +2537,16 @@ def render_page_html(
     analyst_name: str = "",
     interactive: bool = False,
 ) -> str:
-    from dashboard_params import PAGE_TITLES, params_summary_html
+    from page_registry import page_titles as registry_titles
 
     fname = f"{page_id}.html"
-    title = PAGE_TITLES.get(page_id, page_id)
+    titles = registry_titles()
+    title = titles.get(page_id, page_id)
     body = body_html if body_html is not None else body_for_page(page_id, ctx)
     params_block = ""
     if params and not interactive:
+        from dashboard_params import params_summary_html
+
         params_block = params_summary_html(params, page_id)
     return page_html(
         title,

@@ -16,12 +16,13 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 2. **Load historian data through `read_history_csv`** or apply `maybe_downsample_to_5min` — sub-5-min data → 5-min means; ≥5-min unchanged.
 3. **Use `df.attrs["effective_poll_seconds"]`** for `confirm_fault` rollups when available — do not hardcode 900 unless data is 15-min.
 4. **Never call SPARQL on the HTTP hot path** for path discovery — use filesystem CSV discovery + caches (see [`docs/PERFORMANCE_AND_LOADING.md`](docs/PERFORMANCE_AND_LOADING.md)).
-5. **Flask full mode is shell-first** — pages load instantly; charts arrive via `POST /api/refresh/<page_id>`.
-6. **Compute lazily per page** — pass `page_id` to `compute_context()`; use `dashboard_cache` in Flask.
+5. **FastAPI full mode is shell-first** — pages load instantly; charts arrive via `POST /api/refresh/<page_id>`. Heavy endpoints stay sync (`def`) so pandas runs in the threadpool.
+6. **Compute lazily per page** — pass `page_id` to `compute_context()`; use `dashboard_cache`.
 7. **Rules follow Open-FDD pandas cookbook** — raw mask → optional smooth → `confirm_fault()` → rollup hours.
 8. **Equipment identity** — `point_role` + folder path > vendor `point_name`.
 9. **Deploy = Docker or static zip** — not PythonAnywhere; see `csv_fdd_dashboard/DEPLOY.md`.
 10. **Update this spec after meaningful changes** — `BUILD_CHECKPOINTS.md`, `SESSION_LOG.md`, relevant skill.
+11. **Custom rules = disk plugins only** — never `exec()` Python from API; see [`docs/ROADMAP_ARROW_PLUGINS_ML.md`](docs/ROADMAP_ARROW_PLUGINS_ML.md).
 
 ---
 
@@ -32,7 +33,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 3. **`BUILD_CHECKPOINTS.md`** — pick **one** slice from “Next for agent (ordered)”
 4. **`SESSION_LOG.md`** — skim latest entry
 5. **`DATA_CONTRACT.md`** — if touching imports, pandas load, or new building
-6. **`docs/PERFORMANCE_AND_LOADING.md`** — if touching cache, Feather, resampling, or Flask refresh
+6. **`docs/PERFORMANCE_AND_LOADING.md`** — if touching cache, Feather, resampling, or FastAPI refresh
 7. **`skills/<topic>/SKILL.md`** — when checkpoint names a topic
 8. **`docs/DASHBOARD_UI_SPEC.md`** — if adding/changing HTML pages
 9. **`docs/OPENFDD_PARITY.md`** — if adding FDD rules
@@ -49,7 +50,7 @@ After each meaningful slice:
 
 1. **`BUILD_CHECKPOINTS.md`** — move completed items to Done; adjust Next order if priorities shifted
 2. **`SESSION_LOG.md`** — append a dated entry (what changed, tests run, known gaps)
-3. **Relevant skill or doc** — e.g. Flask → `skills/vibe19-flask-analyst-ui/SKILL.md`; load path → `PERFORMANCE_AND_LOADING.md`
+3. **Relevant skill or doc** — e.g. FastAPI UI → `skills/vibe19-flask-analyst-ui/SKILL.md`; load path → `PERFORMANCE_AND_LOADING.md`
 4. **`../AGENTS.md`** — only if repo map, commands, or non-negotiables changed
 
 Do **not** commit client CSV paths or secrets into the spec.
@@ -74,7 +75,7 @@ Do **not** commit client CSV paths or secrets into the spec.
 | --- | --- |
 | `shared/` | `data_config`, `env_loader`, `validate_hvac_data`, `branding` |
 | `haystack_rdf/` | Feather cache, grid resample, RDF/SPARQL, CSV bootstrap |
-| `csv_fdd_dashboard/` | Plotly HTML + Flask + `dashboard_cache.py` |
+| `csv_fdd_dashboard/` | Plotly HTML + FastAPI + `dashboard_cache.py` |
 | `fdd_dashboard_model/` | Enhanced catalogs + VAV loaders (terminal rules) |
 | `Dockerfile`, `docker-compose.yml` | Container deploy (analyst + deploy modes) |
 | `data/` | Pointer / junction docs — no bulk CSV in git |
@@ -90,7 +91,7 @@ Do **not** commit client CSV paths or secrets into the spec.
 | `skills/vibe19-pandas-fdd-rules/` | Cookbook rule → pandas engine, poll/grid |
 | `skills/vibe19-haystack-rdf/` | RDF model, SPARQL UI, resolver, bootstrap |
 | `skills/vibe19-plotly-dashboard/` | HTML pages, Plotly figures, seasons |
-| `skills/vibe19-flask-analyst-ui/` | Tune sliders, shell-first refresh, deploy mode |
+| `skills/vibe19-flask-analyst-ui/` | FastAPI tune sliders, shell-first refresh, rules lab, deploy mode |
 | `skills/vibe19-deploy-packaging/` | Client zip, Docker, sanitized export |
 | `skills/vibe19-point-catalog/` | VAV/AHU model, terminal faults |
 

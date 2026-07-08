@@ -14,7 +14,7 @@ description: >-
 | Concept | App 19 |
 | --- | --- |
 | Pre-baked charts | `site/` or generated `*.html` |
-| Server | Flask + Gunicorn (`deploy` mode) |
+| Server | FastAPI + Uvicorn (`deploy` mode; `asgi:app`) |
 | Build script | `generate_dashboard.py` |
 | Container | `Dockerfile` / `Dockerfile.deploy` |
 
@@ -27,7 +27,7 @@ python package_dashboard.py
 # → building100_dashboard_readonly.zip (name may vary)
 ```
 
-Includes: HTML, plotly.min.js, static notes JS — **no** CSV data, **no** Flask required for static open.
+Includes: HTML, plotly.min.js, static notes JS — **no** CSV data, **no** server required for static open.
 
 ## Docker bundle
 

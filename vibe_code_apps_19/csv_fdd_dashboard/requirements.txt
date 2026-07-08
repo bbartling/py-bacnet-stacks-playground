@@ -1,4 +1,6 @@
 # Container / production deploy (read-only site/ + notes)
-flask>=3.0
-gunicorn>=22.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+itsdangerous>=2.1
+python-multipart>=0.0.9
 python-dotenv>=1.0.0

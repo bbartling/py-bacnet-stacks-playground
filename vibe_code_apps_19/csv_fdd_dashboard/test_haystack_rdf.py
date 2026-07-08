@@ -166,17 +166,19 @@ def test_flask_rdf_routes(model_svc: ModelService, monkeypatch: pytest.MonkeyPat
     ttl = TtlService(model_store=store, ttl_path=tmp_path / "TEST" / "data_model.ttl")
     ttl.sync()
 
+    from fastapi.testclient import TestClient
+
     from app import create_app
 
-    client = create_app("full").test_client()
+    client = TestClient(create_app("full"))
     r = client.get("/api/rdf/sparql/predefined")
     assert r.status_code == 200
-    assert "queries" in r.get_json()
+    assert "queries" in r.json()
 
     r2 = client.post("/api/rdf/sparql", json={"query": predefined_catalog()["default_query"]})
     if r2.status_code != 200:
-        raise AssertionError(r2.get_json())
-    assert r2.get_json()["row_count"] >= 1
+        raise AssertionError(r2.json())
+    assert r2.json()["row_count"] >= 1
 
     r3 = client.get("/data_model.html")
     assert r3.status_code == 200

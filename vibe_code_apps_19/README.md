@@ -8,7 +8,7 @@
 
 | Directory | Role |
 | --- | --- |
-| [`csv_fdd_dashboard/`](csv_fdd_dashboard/) | **Simple** — Plotly HTML generator + Flask tune/deploy |
+| [`csv_fdd_dashboard/`](csv_fdd_dashboard/) | **Simple** — Plotly HTML generator + FastAPI tune/deploy |
 | [`fdd_dashboard_model/`](fdd_dashboard_model/) | **Enhanced** — typed point catalog + VAV box loaders for terminal-level rules |
 | [`shared/`](shared/) | `data_config`, validation script |
 

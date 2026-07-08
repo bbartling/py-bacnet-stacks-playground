@@ -18,4 +18,4 @@ ENV ANALYST_ENABLED=1
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--threads", "2", "wsgi:application"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5000", "--timeout", "300", "asgi:app"]

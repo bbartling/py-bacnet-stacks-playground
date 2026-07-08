@@ -452,7 +452,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 70.0,
         "rule": "EXCESS-FAN",
         "group": "Unoccupied fan runtime",
-        "pages": ["index", "excess_runtime"],
+        "pages": ["index", "excess_runtime", "motor_runtime"],
     },
     "unocc_zone_hi_f": {
         "label": "Unoccupied zone high",
@@ -463,7 +463,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 75.0,
         "rule": "EXCESS-FAN",
         "group": "Unoccupied fan runtime",
-        "pages": ["index", "excess_runtime"],
+        "pages": ["index", "excess_runtime", "motor_runtime"],
     },
     "unocc_zone_pct": {
         "label": "Zones satisfied fraction",
@@ -474,7 +474,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 80.0,
         "rule": "EXCESS-FAN",
         "group": "Unoccupied fan runtime",
-        "pages": ["index", "excess_runtime"],
+        "pages": ["index", "excess_runtime", "motor_runtime"],
     },
     # --- Central plant ---
     "chw_low_delta_t_f": {
@@ -486,7 +486,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 4.0,
         "rule": "CHILLER-DT",
         "group": "Chiller performance",
-        "pages": ["central_plant"],
+        "pages": ["central_plant", "chiller_plant"],
     },
     "chiller_enable_delta_f": {
         "label": "Below enable setpoint Δ",
@@ -497,7 +497,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 3.0,
         "rule": "CHILLER-EN",
         "group": "Chiller enable",
-        "pages": ["central_plant"],
+        "pages": ["central_plant", "chiller_plant"],
     },
     "boiler_warm_oat_f": {
         "label": "Boiler warm-weather OAT",
@@ -508,7 +508,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 60.0,
         "rule": "BOILER-WARM",
         "group": "Boiler plant",
-        "pages": ["central_plant"],
+        "pages": ["central_plant", "boiler_plant"],
     },
     "hw_low_delta_f": {
         "label": "Boiler low HW ΔT",
@@ -519,7 +519,7 @@ PARAM_DEFS: dict[str, dict[str, Any]] = {
         "default": 10.0,
         "rule": "BOILER-DT",
         "group": "Boiler plant",
-        "pages": ["central_plant"],
+        "pages": ["central_plant", "boiler_plant"],
     },
 }
 
@@ -535,37 +535,62 @@ PAGE_IDS = [
     "excess_runtime",
 ]
 
-PAGE_TITLES = {
-    "index": "Overview",
-    "zones": "Zones & Comfort",
-    "weather": "Weather Sensors",
-    "ahu_1": "AHU 1",
-    "ahu_2": "AHU 2",
-    "economizer": "Economizer / Free Cooling",
-    "economizer_diagnostics": "Economizer Diagnostics",
-    "central_plant": "Central Plant",
-    "excess_runtime": "Excess Fan Runtime",
-}
+
+def refresh_page_registry() -> None:
+    """Reload PAGE_IDS / PAGE_TITLES from SPARQL model."""
+    global PAGE_IDS, PAGE_TITLES
+    from page_registry import clear_registry_cache, page_ids, page_titles
+
+    clear_registry_cache()
+    PAGE_IDS = page_ids()
+    PAGE_TITLES = page_titles()
+
+
+try:
+    refresh_page_registry()
+except Exception:
+    PAGE_TITLES = {
+        "index": "Overview",
+        "zones": "Comfort / Zones",
+        "weather": "Weather Sensors",
+        "ahu_1": "AHU 1",
+        "ahu_2": "AHU 2",
+        "economizer": "Economizer / Free Cooling",
+        "economizer_diagnostics": "Economizer Diagnostics",
+        "central_plant": "Central Plant",
+        "excess_runtime": "Excess Fan Runtime",
+        "chiller_plant": "Chiller Plant",
+        "boiler_plant": "Boiler Plant",
+        "motor_runtime": "Motor Runtime",
+    }
 
 
 def default_params() -> dict[str, float]:
     return {k: float(v["default"]) for k, v in PARAM_DEFS.items()}
 
 
+def _param_page_id(page_id: str) -> str:
+    if page_id.startswith("ahu_") and page_id not in ("ahu_1", "ahu_2"):
+        return "ahu_1"
+    return page_id
+
+
 def params_for_page(page_id: str) -> list[dict[str, Any]]:
+    pid = _param_page_id(page_id)
     out = []
     for key, meta in PARAM_DEFS.items():
-        if page_id in meta["pages"]:
+        if pid in meta["pages"]:
             out.append({"key": key, **meta})
     return out
 
 
 def params_by_rule(page_id: str) -> list[dict[str, Any]]:
     """Grouped rule boxes for inline tune panels."""
+    pid = _param_page_id(page_id)
     by_rule: dict[str, list[dict[str, Any]]] = {}
     order: list[str] = []
     for key, meta in PARAM_DEFS.items():
-        if page_id not in meta["pages"]:
+        if pid not in meta["pages"]:
             continue
         rule = meta.get("rule", "OTHER")
         if rule not in by_rule:
@@ -593,7 +618,7 @@ def validate_params(params: dict[str, Any]) -> dict[str, float]:
     return {k: clamp_param(k, v) for k, v in merge_params(params).items()}
 
 
-def apply_to_generate_dashboard(gd_module, params: dict[str, float]) -> None:
+def apply_to_generate_dashboard(gd_module, params: dict[str, float], site_settings: dict[str, Any] | None = None) -> None:
     """Push tuned values into generate_dashboard module globals."""
     p = validate_params(params)
     gd_module.COMFORT_SETPOINT_F = p["comfort_setpoint_f"]
@@ -636,6 +661,21 @@ def apply_to_generate_dashboard(gd_module, params: dict[str, float]) -> None:
     gd_module.FC13_SAT_DEADBAND_F = p["fc13_sat_deadband_f"]
     gd_module.CHILLER_ENABLE_DELTA_F = p["chiller_enable_delta_f"]
     gd_module.HW_LOW_DELTA_F = p["hw_low_delta_f"]
+    if site_settings:
+        from shared.occupancy import merge_site_settings
+        from shared.data_config import get_config
+
+        merged = merge_site_settings(site_settings, timezone=get_config().site_timezone())
+        gd_module.SITE_SETTINGS = merged
+        gd_module._OCC_SCHEDULE = merged.get("occupancy")
+        if merged.get("comfort_setpoint_f") is not None:
+            gd_module.COMFORT_SETPOINT_F = float(merged["comfort_setpoint_f"])
+            gd_module.COMFORT_LO_F = gd_module.COMFORT_SETPOINT_F - gd_module.COMFORT_BAND_F
+            gd_module.COMFORT_HI_F = gd_module.COMFORT_SETPOINT_F + gd_module.COMFORT_BAND_F
+        if merged.get("comfort_band_f") is not None:
+            gd_module.COMFORT_BAND_F = float(merged["comfort_band_f"])
+            gd_module.COMFORT_LO_F = gd_module.COMFORT_SETPOINT_F - gd_module.COMFORT_BAND_F
+            gd_module.COMFORT_HI_F = gd_module.COMFORT_SETPOINT_F + gd_module.COMFORT_BAND_F
 
 
 def params_summary_html(params: dict[str, float], page_id: str | None = None) -> str:
@@ -659,6 +699,10 @@ def params_summary_html(params: dict[str, float], page_id: str | None = None) ->
 
 
 def load_session() -> dict[str, Any]:
+    from shared.data_config import get_config
+    from shared.occupancy import default_site_settings, merge_site_settings
+
+    tz = get_config().site_timezone()
     if SESSION_PATH.exists():
         data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
         merged = merge_params(data.get("params", {}))
@@ -666,12 +710,18 @@ def load_session() -> dict[str, Any]:
         data.setdefault("notes", {})
         data.setdefault("analyst_name", "")
         data.setdefault("package_title", "Open FDD Vibe Coder")
+        data["site_settings"] = merge_site_settings(data.get("site_settings"), timezone=tz)
+        data.setdefault("package_locked", False)
+        data.setdefault("engineer_logged_in", False)
         return data
     return {
         "params": default_params(),
         "notes": {},
         "analyst_name": "",
         "package_title": "Open FDD Vibe Coder",
+        "site_settings": default_site_settings(timezone=tz),
+        "package_locked": False,
+        "engineer_logged_in": False,
     }
 
 

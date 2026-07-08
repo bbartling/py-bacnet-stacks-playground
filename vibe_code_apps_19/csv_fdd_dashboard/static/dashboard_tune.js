@@ -2,7 +2,6 @@
   const pageId = window.DASHBOARD_PAGE || "index";
   const notesEl = document.getElementById("page-notes");
   const contentEl = document.getElementById("page-content");
-  const railEl = document.getElementById("rule-tune-rail");
   const refreshBtn = document.getElementById("btn-refresh-page");
   const saveBtn = document.getElementById("btn-save-session");
   const exportBtn = document.getElementById("btn-export-package");
@@ -55,6 +54,7 @@
     const num = field.querySelector('input[type="number"]');
 
     function onChange(v) {
+      if (window.DASHBOARD_SESSION && !window.DASHBOARD_SESSION.can_edit) return;
       paramState[key] = Number(v);
       syncParamUi(key, v, p.step, p.unit);
       scheduleRefresh();
@@ -67,9 +67,9 @@
   }
 
   function highlightRule(rule) {
-    document.querySelectorAll(".card[data-rule]").forEach((el) => el.classList.remove("tune-highlight"));
+    document.querySelectorAll(".ecm-card[data-rule], .card[data-rule]").forEach((el) => el.classList.remove("tune-highlight"));
     if (!rule) return;
-    document.querySelectorAll(`.card[data-rule="${rule}"]`).forEach((el) => el.classList.add("tune-highlight"));
+    document.querySelectorAll(`.ecm-card[data-rule="${rule}"], .card[data-rule="${rule}"]`).forEach((el) => el.classList.add("tune-highlight"));
   }
 
   function buildRuleBox(ruleGroup, idPrefix) {
@@ -89,28 +89,45 @@
       byRule[g.rule] = g;
     });
 
-    document.querySelectorAll(".rule-tune-mount[data-rule]").forEach((mount, idx) => {
+    document.querySelectorAll(".rule-tune-mount[data-rule], .ecm-card[data-rule]").forEach((mount, idx) => {
       const rule = mount.dataset.rule;
       const group = byRule[rule];
-      mount.innerHTML = "";
+      let target = mount;
+      if (mount.classList.contains("ecm-card")) {
+        target = mount.querySelector(".rule-tune-mount") || (() => {
+          const el = document.createElement("div");
+          el.className = "rule-tune-mount";
+          el.dataset.rule = rule;
+          mount.insertBefore(el, mount.querySelector(".ecm-chart"));
+          return el;
+        })();
+      }
+      target.innerHTML = "";
       if (!group) return;
-      mount.appendChild(buildRuleBox(group, `inline-${idx}`));
+      if (window.DASHBOARD_SESSION && !window.DASHBOARD_SESSION.can_edit) return;
+      target.appendChild(buildRuleBox(group, `inline-${idx}`));
     });
+  }
 
-    if (railEl) {
-      railEl.innerHTML = "";
-      const head = document.createElement("div");
-      head.className = "rule-tune-box";
-      head.innerHTML = "<h4>All rules on this page</h4><p class=\"note\" style=\"margin:0;font-size:.75rem\">Sliders also appear on matching chart cards. Changes auto-refresh charts.</p>";
-      railEl.appendChild(head);
-      ruleGroups.forEach((g, i) => railEl.appendChild(buildRuleBox(g, `rail-${i}`)));
-    }
+  function injectAnalytics(analytics) {
+    if (!analytics || !analytics.ecms) return;
+    analytics.ecms.forEach((e) => {
+      const rule = e.rule_id;
+      document.querySelectorAll(`.ecm-analytics[data-analytics-for="${rule}"]`).forEach((el) => {
+        el.innerHTML =
+          `<table class="table table-sm ecm-analytics-table mb-0"><tbody>` +
+          `<tr><td>Fault hours</td><td>${Number(e.fault_hours || 0).toFixed(1)} h</td></tr>` +
+          `<tr><td>% of period</td><td>${Number(e.fault_pct || 0).toFixed(1)}%</td></tr>` +
+          `</tbody></table>`;
+      });
+    });
   }
 
   async function loadConfig() {
     const res = await fetch(`/api/config?page=${pageId}`);
     config = await res.json();
     paramState = { ...config.params };
+    window.DASHBOARD_SESSION = config;
     mountControls(config.params_by_rule || []);
     if (notesEl && config.notes && config.notes[pageId]) {
       notesEl.value = config.notes[pageId];
@@ -127,21 +144,23 @@
     if (refreshBtn) refreshBtn.disabled = true;
     setStatus("Recomputing charts…", "live");
     try {
+      const body = { note: notesEl ? notesEl.value : "" };
+      if (window.DASHBOARD_SESSION && window.DASHBOARD_SESSION.can_edit) {
+        body.params = paramState;
+      }
       const res = await fetch(`/api/refresh/${pageId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          params: paramState,
-          note: notesEl ? notesEl.value : "",
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Refresh failed");
       if (contentEl) {
         contentEl.innerHTML = data.content;
         mountControls(config.params_by_rule || []);
+        injectAnalytics(data.analytics);
       }
-      paramState = data.params;
+      if (data.params) paramState = data.params;
       setStatus("Live — charts updated", "live");
     } catch (err) {
       setStatus("Refresh failed: " + err.message, "err");
@@ -160,6 +179,7 @@
     setStatus("Adjusting…", "live");
     refreshTimer = setTimeout(() => refreshPage(), DEBOUNCE_MS);
   }
+  window.scheduleRefresh = scheduleRefresh;
 
   async function saveSession() {
     const res = await fetch("/api/config", {
@@ -182,6 +202,7 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Export failed");
       alert(`Read-only package ready!\n\nFolder: ${data.out_dir}\nZip: ${data.zip_path}`);
+      if (window.DASHBOARD_SESSION) window.DASHBOARD_SESSION.locked = true;
     } catch (err) {
       alert("Export failed: " + err.message);
     } finally {

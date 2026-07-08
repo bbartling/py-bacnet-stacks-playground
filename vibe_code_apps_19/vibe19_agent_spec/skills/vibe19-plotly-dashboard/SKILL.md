@@ -18,7 +18,7 @@ Full spec: [`docs/DASHBOARD_UI_SPEC.md`](../../docs/DASHBOARD_UI_SPEC.md)
 | File | Role |
 | --- | --- |
 | `generate_dashboard.py` | Main generator — `compute_context(raw, page_id=…)`, `body_for_page()`, `write_all_pages()` |
-| `dashboard_cache.py` | Flask: raw + context + **HTML body** cache (`get_body`) |
+| `dashboard_cache.py` | Raw + context + **HTML body** cache (`get_body`) |
 | `economizer_diagnostics_page.py` | Dedicated page pattern (import from generator or standalone) |
 | `dashboard_params.py` | Tunables applied before `compute_context()` |
 
@@ -76,5 +76,5 @@ Define season dicts per site in generator constants or read from manifest. Timez
 
 ```bash
 python generate_dashboard.py
-# Open index.html locally or via Flask deploy mode
+# Open index.html locally or via FastAPI deploy mode
 ```

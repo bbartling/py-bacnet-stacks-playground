@@ -17,7 +17,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 | **Data model** | `haystack_rdf/` + `/data_model.html` | Bootstrap from CSV, SPARQL tune, JSON import/export for AI |
 | Pages | `generate_dashboard.py` page pattern | Add/remove AHUs, plant, VAV pages for your site |
 | UI theme | [`docs/DASHBOARD_UI_SPEC.md`](docs/DASHBOARD_UI_SPEC.md) | Title, copy, nav links, season windows |
-| Deploy | `package_dashboard.py`, Flask `deploy` mode, Docker | Client zip, container, branding |
+| Deploy | `package_dashboard.py`, FastAPI `deploy` mode, Docker | Client zip, container, branding |
 
 ---
 

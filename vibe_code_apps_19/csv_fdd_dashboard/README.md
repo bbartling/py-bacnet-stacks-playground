@@ -7,8 +7,9 @@ Multi-page HTML dashboard for zone comfort, economizer/free-cooling diagnostics,
 | Folder / file | Role |
 |---------------|------|
 | `site/` | **Pre-built charts** — generated, not committed |
-| `app.py` | Flask app — `full` mode locally, `deploy` mode in Docker |
-| `wsgi.py` | Gunicorn WSGI entry |
+| `app.py` | FastAPI app — `full` mode locally, `deploy` mode in Docker (`/docs` for OpenAPI) |
+| `api_models.py` | Pydantic request bodies for the JSON API |
+| `asgi.py` | Uvicorn/Gunicorn ASGI entry |
 | `build_docker_deploy.py` | Bakes `site/` for `Dockerfile.deploy` |
 | `generate_dashboard.py` | Source generator (local dev) |
 | `.cache/feather/` | Auto-generated Feather sidecars for fast CSV reload |

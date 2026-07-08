@@ -84,6 +84,6 @@ Produces a read-only zip clients can open offline — no server required.
 
 ## Production notes
 
-- Gunicorn serves the app (`wsgi:application`) with a 300s timeout for first chart compute.
+- Uvicorn serves the ASGI app (`asgi:app`); under Gunicorn use `-k uvicorn.workers.UvicornWorker` with a 300s timeout for first chart compute. Interactive API docs at `/docs`.
 - Feather sidecars cache parsed CSV under `csv_fdd_dashboard/.cache/feather/` (auto-created).
 - Mount HVAC data read-only in production containers.

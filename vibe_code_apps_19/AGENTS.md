@@ -14,11 +14,11 @@
 
 ---
 
-You are an expert **HVAC RCx / FDD analyst**, **pandas engineer**, and **Flask + static dashboard** developer.
+You are an expert **HVAC RCx / FDD analyst**, **pandas engineer**, and **FastAPI + static dashboard** developer.
 
 Your mission: help operators and engineers **vibe-code** repeatable, client-deliverable **CSV-based fault-detection dashboards** for **any building** — without live BACnet in the dashboard runtime. Rules must **mirror Open-FDD expression semantics** (pandas cookbook first; SQL export optional later).
 
-This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CSV → validated tree → pandas rules → Plotly HTML → Flask tune/deploy.
+This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CSV → validated tree → pandas rules → Plotly HTML → FastAPI tune/deploy.
 
 **Product intent:** the repo is a **template others fork and customize**. `BUILDING_100` / `BUILDING_50` are reference examples for developing the template — not the destination. See [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md).
 
@@ -37,6 +37,7 @@ This app is **not** Open-FDD edge. It is the **offline analyst twin**: vendor CS
 7. **Tests before “done”** — `pytest` in `csv_fdd_dashboard/`; `python validate_data.py` at app root.
 8. **Client deliverables** — static read-only zip (`package_dashboard.py`) and/or Docker deploy (`build_docker_deploy.py`, `Dockerfile.deploy`).
 9. **Living spec** — after every meaningful slice, update [`vibe19_agent_spec/BUILD_CHECKPOINTS.md`](vibe19_agent_spec/BUILD_CHECKPOINTS.md) and any touched doc/skill under [`vibe19_agent_spec/`](vibe19_agent_spec/). Do not wait for the user to ask.
+10. **Extensibility** — rules and data loaders stay **site-agnostic**; custom faults are **disk plugins**, never `exec()` from API. See [`vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md`](vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md).
 
 ---
 
@@ -77,15 +78,19 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 | [`shared/validate_hvac_data.py`](shared/validate_hvac_data.py) | One-pass import sanity check |
 | [`haystack_rdf/feather_cache.py`](haystack_rdf/feather_cache.py) | CSV → Feather + grid normalize on load |
 | [`haystack_rdf/timeseries_grid.py`](haystack_rdf/timeseries_grid.py) | Median Δt detect; sub-5-min → 5-min means |
-| [`haystack_rdf/`](haystack_rdf/) | RDF model, SPARQL, CSV bootstrap, Flask `/api/rdf` |
+| [`haystack_rdf/`](haystack_rdf/) | RDF model, SPARQL, CSV bootstrap, FastAPI `/api/rdf` (`fastapi_routes.py`) |
 | [`csv_fdd_dashboard/generate_dashboard.py`](csv_fdd_dashboard/generate_dashboard.py) | Multi-page Plotly HTML generator |
 | [`csv_fdd_dashboard/economizer_fdd_engine.py`](csv_fdd_dashboard/economizer_fdd_engine.py) | Reference FDD engine (AHU economizer + sensor QA) |
 | [`csv_fdd_dashboard/dashboard_params.py`](csv_fdd_dashboard/dashboard_params.py) | 45 rule-grouped tunable analyst params |
-| [`csv_fdd_dashboard/dashboard_cache.py`](csv_fdd_dashboard/dashboard_cache.py) | Raw + context + HTML body cache (Flask) |
-| [`csv_fdd_dashboard/app.py`](csv_fdd_dashboard/app.py) | Flask: `full` (tune) vs `deploy` (serve `site/`) |
+| [`csv_fdd_dashboard/dashboard_cache.py`](csv_fdd_dashboard/dashboard_cache.py) | Raw + context + HTML body cache |
+| [`csv_fdd_dashboard/app.py`](csv_fdd_dashboard/app.py) | FastAPI: `full` (tune) vs `deploy` (serve `site/`); `/docs` OpenAPI |
 | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Container deploy |
+| [`csv_fdd_dashboard/analytics_rollups.py`](csv_fdd_dashboard/analytics_rollups.py) | ECM fault-hour rollups + export |
+| [`csv_fdd_dashboard/page_registry.py`](csv_fdd_dashboard/page_registry.py) | SPARQL-driven nav + dynamic pages |
+| [`shared/occupancy.py`](shared/occupancy.py) | Configurable lease hours |
 | [`fdd_dashboard_model/fdd_model/`](fdd_dashboard_model/fdd_model/) | PointCatalog, VAV lazy load |
 | [`vibe19_agent_spec/`](vibe19_agent_spec/) | Agent skills, checkpoints, UI spec |
+| [`vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md`](vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md) | Arrow, plugins, ML, HistorySource (planned) |
 
 ---
 
@@ -100,6 +105,8 @@ Full spec: [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRAC
 7. **Test** — synthetic fixture in `test_*.py`; optional parity row vs cookbook mask on sample CSV.
 8. **Document** — one paragraph in page HTML + optional `docs/*_OPERATOR_GUIDE.md`.
 
+**Custom / site rules (planned):** implement as `rules/plugins/*.py` with a Pydantic `RuleManifest`; register at startup; never accept Python over HTTP. Same mask → confirm → rollup pipeline. See [`vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md`](vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md).
+
 ---
 
 ## Dashboard UI spec (analyst-facing)
@@ -108,12 +115,15 @@ See [`vibe19_agent_spec/docs/DASHBOARD_UI_SPEC.md`](vibe19_agent_spec/docs/DASHB
 
 Summary:
 
-- **Dark theme** — bg `#0f1419`, cards `#1a2332`, accent `#3b82f6`
+- **Light/dark theme** — `static/dashboard.css` + `dashboard_theme.js`
+- **ECM cards** — per-rule boxes with inline tuners, analytics, equations (no right sidebar)
 - **Plotly** — embedded `plotly.min.js`; no CDN required for client zip
-- **Navigation** — `index.html` hub + equipment pages (AHU, zones, plant, weather, economizer)
-- **Analyst panel** (local `full` mode) — 45 rule-grouped param sliders, debounced live refresh, session export
+- **Navigation** — SPARQL-driven `page_registry` + Air-side dropdown; placeholder when equipment missing
+- **Analyst panel** (local `full` mode) — rule-grouped param sliders, site settings, engineer PIN, debounced live refresh
 - **Shell-first UX** — HTML shell loads instantly; charts via `POST /api/refresh/<page_id>`
-- **Deploy mode** — pre-baked `site/`; Docker + Gunicorn; optional notes JS
+- **Deploy mode** — pre-baked `site/`; Docker + Gunicorn; package lock after export
+
+**Forking the UI:** keep `/api/refresh` + `/api/pages` contracts stable; replace static JS/CSS or add headless `api` mode later (see roadmap).
 
 ---
 
@@ -133,8 +143,8 @@ cd csv_fdd_dashboard
 pip install -r requirements-dev.txt
 python -m pytest test_timeseries_grid.py test_economizer_diagnostics.py test_haystack_rdf.py test_csv_env_bootstrap.py -q
 python generate_dashboard.py
-python app.py   # full mode → http://127.0.0.1:5000/index.html
-python -c "from app import create_app; c=create_app('deploy').test_client(); assert c.get('/index.html').status_code==200"
+python app.py   # full mode (uvicorn) → http://127.0.0.1:5000/index.html  ·  API docs at /docs
+python -c "from fastapi.testclient import TestClient; from app import create_app; c=TestClient(create_app('deploy')); assert c.get('/index.html').status_code==200"
 ```
 
 Deploy packaging:
@@ -160,6 +170,8 @@ Performance / loading (AI agents): [`vibe19_agent_spec/docs/PERFORMANCE_AND_LOAD
 | [`vibe19-deploy-packaging`](vibe19_agent_spec/skills/vibe19-deploy-packaging/SKILL.md) | Client zip, Docker, sanitized export |
 | [`vibe19-point-catalog`](vibe19_agent_spec/skills/vibe19-point-catalog/SKILL.md) | VAV/AHU typed loaders, terminal rules |
 
+**Roadmap (planning):** [`vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md`](vibe19_agent_spec/docs/ROADMAP_ARROW_PLUGINS_ML.md) — Arrow/DuckDB, custom rule plugins, Pydantic boundaries, ML hooks, generic `HistorySource`.
+
 ---
 
 ## Acceptance checkpoints (per feature slice)
@@ -182,7 +194,7 @@ See [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md) for the ful
 2. Point mapping for AHUs (economizer + sensor QA)
 3. Core pages: weather, zones, AHU summary, economizer diagnostics
 4. VAV terminal rules via `fdd_dashboard_model` → new pages
-5. Flask tune + deploy packaging
+5. FastAPI tune + deploy packaging
 6. Operator guide markdown for client handoff
 
 ## Iteration rule

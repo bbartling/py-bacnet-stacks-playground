@@ -8,7 +8,27 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
-## 2026-07-07 — Agent spec review + performance / Docker / grid resampling
+## 2026-07-08 — Custom rule/ML lab + Flask → FastAPI migration
+
+**Done:**
+- **Custom rule plugin system** — `rules/` (Pydantic `RuleManifest`/`RuleContext`/`RuleResult`, `confirm_fault` helper, disk-based `RuleRegistry`); example plugins: `custom_sat_hunting` (pandas) + `ml_oat_residual` (sklearn IsolationForest w/ z-score fallback). Frontend rules lab (`static/dashboard_rules.js`) + `custom_rules` page.
+- **Migrated Flask → FastAPI** — `app.py` is now an ASGI FastAPI app; RDF blueprint ported to `haystack_rdf/fastapi_routes.py`; deleted `flask_routes.py`. Typed request bodies in `api_models.py`; sessions via Starlette `SessionMiddleware`; `/docs` + `/openapi.json` live. Entry: `asgi.py` (Uvicorn / Gunicorn `UvicornWorker`); Dockerfiles + `requirements.txt` updated. Heavy pandas endpoints stay sync → run in threadpool; cache behavior unchanged.
+- **Why FastAPI, not for speed:** API-first/forkable contract, Pydantic validation, auto OpenAPI, aligns with open-fdd bridge. See `docs/PERFORMANCE_AND_LOADING.md` (Flask vs FastAPI).
+- **61 pytest green** after migration (incl. RDF routes via `fastapi.testclient`).
+
+---
+
+## 2026-07-08 — Dashboard mega-reorg + Arrow/plugins roadmap
+
+**Done:**
+- ECM cards, light/dark theme, engineer PIN + package lock, site occupancy settings
+- `page_registry`, dynamic AHU nav, chiller/boiler split, motor runtime, analytics export
+- 61 pytest green (incl. registry, occupancy, auth, rollups)
+- **`docs/ROADMAP_ARROW_PLUGINS_ML.md`** — Arrow/DuckDB next steps, custom rule plugins, Pydantic boundaries, ML hooks, `HistorySource` protocol
+
+**Next (planned):** Pydantic API schemas → `HistorySource` → DuckDB zone experiment → rule plugin registry.
+
+---
 
 **Done:**
 - **`timeseries_grid.py`** — sub-5-min historian → 5-min means; ≥5-min unchanged; `effective_poll_seconds` on DataFrame

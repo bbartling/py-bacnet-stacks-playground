@@ -8,10 +8,12 @@ Analyst-facing **static-first** RCx dashboard branded **Open FDD Vibe Coder**. S
 
 ## Visual system
 
-| Token | Value | Use |
+Shared stylesheet: `static/dashboard.css` (Inter font, CSS variables). Theme toggle via `static/dashboard_theme.js` (`data-theme` light/dark, persisted in `localStorage`).
+
+| Token | Dark | Use |
 | --- | --- | --- |
 | Background | `#0f1419` | Page bg |
-| Card | `#1a2332` | Sections, panels |
+| Card | `#1a2332` | Sections, ECM cards |
 | Text | `#e8edf4` | Body |
 | Muted | `#8b9cb3` | Labels, captions |
 | Accent | `#3b82f6` | Links, primary buttons |
@@ -31,21 +33,24 @@ Chart palette: blue, green, amber, red, purple, cyan (see `COLORS` in `economize
 <footer> generated timestamp, poll interval note </footer>
 ```
 
-### Standard pages (extend per site)
+### Standard pages (SPARQL-driven via `page_registry.py`)
 
 | page_id | Purpose |
 | --- | --- |
-| `index` | Executive summary, season KPIs, nav hub |
-| `zones` | Zone comfort by floor/season |
+| `index` | Executive summary, ECM KPI cards, nav hub |
+| `zones` | Comfort / zones by floor/season |
 | `weather` | BAS vs reference weather, fault deltas |
-| `ahu_1`, `ahu_2` | Per-AHU trends (→ dynamic from SPARQL) |
-| `economizer` | Free cooling / OAT favorable |
-| `economizer_diagnostics` | Full ECON FDD + sensor QA |
-| `central_plant` | Plant trends |
-| `excess_runtime` | Unoccupied fan / runtime |
-| `data_model.html` | Haystack RDF / SPARQL explorer (separate static page) |
+| `ahu_{slug}` | Per-AHU trends (dynamic from model; legacy `ahu_1`/`ahu_2`) |
+| `economizer` | Free cooling + merged economizer diagnostics |
+| `chiller_plant` | Chillers + CHW metrics |
+| `boiler_plant` | Boilers + HWS metrics |
+| `motor_runtime` | All modeled fans/pumps/motors |
+| `central_plant`, `excess_runtime` | Legacy aliases (still routable) |
+| `data_model.html` | Haystack RDF / SPARQL explorer |
 
-Add VAV terminal page(s) as `vav_diagnostics` when rules land.
+Unavailable equipment → placeholder card: “Not present in data model” (nav link grayed but reachable).
+
+Nav: top bar + **Air-side Systems** dropdown from `GET /api/pages`.
 
 ---
 
@@ -58,17 +63,42 @@ Add VAV terminal page(s) as `vav_diagnostics` when rules land.
 
 ---
 
+## ECM card layout
+
+Each ECM block uses `ecm_card()` in `generate_dashboard.py`:
+
+```html
+<section class="ecm-card" data-ecm="ECM-1" data-rule="COMFORT">
+  <header class="ecm-head">…</header>
+  <div class="ecm-analytics" data-analytics-for="COMFORT">…</div>
+  <div class="rule-tune-mount" data-rule="COMFORT"></div>
+  <div class="ecm-chart">Plotly div</div>
+  <footer class="ecm-equation">…</footer>
+</section>
+```
+
+**No right rail** — sliders mount only inside ECM cards / matching `.rule-tune-mount` elements.
+
+Analytics table filled from `/api/refresh` response `analytics.ecms` (fault hours, %). Export: `GET /api/analytics/export?format=csv|json`.
+
+---
+
 ## Analyst panel (local full mode)
 
-Injected by Flask / `dashboard_tune.js`:
+Injected by the FastAPI shell / `dashboard_tune.js` + `dashboard_auth.js` + `dashboard_settings.js`:
 
 - **Rule-grouped tune boxes** — sliders grouped by Open-FDD rule id (GLOBAL, SV-*, FC*, ECON-*, …)
-- **Inline + rail mounts** — sliders on matching chart cards + sticky right rail; synced duplicates
-- **Debounced live refresh** (~900 ms) on slider change
+- **Inline ECM mounts only** — no sticky sidebar; synced slider duplicates removed
+- **Site settings** — occupancy schedule, comfort setpoint/band, timezone (`analyst_session.json` → `site_settings`)
+- **Engineer PIN** — `POST /api/login` / `logout`; `GET /api/session` → `{ engineer, locked, can_edit }`
+- **Package lock** — export sets `package_locked`; read-only banner + disabled sliders until engineer login
+- **Debounced live refresh** (~900 ms) on slider change (when `can_edit`)
 - **Refresh** → `POST /api/refresh/<page_id>` → recompute **that page only** (cached by param hash)
 - **Export session** → JSON + client zip via `package_dashboard.py`
 
-CSS: `.analyst-panel`, `.analyst-grid`, `.rule-tune-box` — stack on `<900px`.
+Env: `ENGINEER_PIN`, `FLASK_SECRET_KEY` (see `.env.example`).
+
+CSS: `.analyst-panel`, `.ecm-card`, `.rule-tune-box` — stack on `<900px`.
 
 ### Shell-first UX (full mode)
 
