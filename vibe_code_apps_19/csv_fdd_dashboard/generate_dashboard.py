@@ -187,6 +187,9 @@ def downsample(df: pd.DataFrame, cols: list[str], n: int = 800) -> pd.DataFrame:
 
 
 def fig_to_div(fig: go.Figure, height: int = 420) -> str:
+    from units import apply_fig_display_units
+
+    apply_fig_display_units(fig)
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=COLORS["card"],
@@ -274,10 +277,12 @@ Use <a href="data_model.html">Data Model</a> to bootstrap or import equipment, t
 
 def header_meta_html() -> str:
     from shared.occupancy import occupancy_summary
+    from units import fmt_temp, is_metric, temp_unit
 
     created = meta.get("created", "")
     occ = occupancy_summary((_OCC_SCHEDULE or SITE_SETTINGS.get("occupancy")))
-    setpoint_meta = f"{COMFORT_SETPOINT_F:g}°F ±{COMFORT_BAND_F:g}°F"
+    band = COMFORT_BAND_F * (5.0 / 9.0) if is_metric() else COMFORT_BAND_F
+    setpoint_meta = f"{fmt_temp(COMFORT_SETPOINT_F)} ±{band:.1f}{temp_unit()}"
     return f"{SITE_LABEL} · Created {created} · Timezone: {TZ} · Setpoint: {setpoint_meta} occupied · {occ}"
 
 
@@ -314,11 +319,6 @@ def analyst_banner_html(
     interactive: bool = False,
     page_id: str = "",
 ) -> str:
-    note_block = ""
-    if notes.strip():
-        note_block = f'<div class="analyst-notes-display"><h3>Analyst notes</h3><p>{notes.strip().replace(chr(10), "<br/>")}</p></div>'
-    elif interactive:
-        note_block = '<p class="note tune-hint">Add notes below — they appear here and in the client package.</p>'
     tune_block = params_block or ""
     if interactive:
         return f"""
@@ -334,15 +334,10 @@ def analyst_banner_html(
     </div>
   </div>
   {site_settings_panel_html()}
-  <div class="notes-col notes-row">
-    <label for="page-notes">Notes for this page</label>
-    <textarea id="page-notes" rows="3" placeholder="Findings, caveats, recommended actions…">{notes}</textarea>
-  </div>
-  {note_block}
   {tune_block}
 </div>"""
-    if note_block or tune_block:
-        return f'<div class="analyst-delivered">{note_block}{tune_block}</div>'
+    if tune_block:
+        return f'<div class="analyst-delivered">{tune_block}</div>'
     return ""
 
 
@@ -364,10 +359,12 @@ def page_html(
 <script src="/static/dashboard_tune.js"></script>
 <script src="/static/dashboard_auth.js"></script>
 <script src="/static/dashboard_settings.js"></script>
+<script src="/static/dashboard_units.js"></script>
+<script src="/static/dashboard_notes.js"></script>
 <script src="/static/dashboard_rules.js"></script>
+<script src="/static/dashboard_cookbook.js"></script>
 <script>window.DASHBOARD_PAGE = "{page_id}";</script>
 """
-    body_block = f'<div class="page-main"><div id="page-content">{body}</div></div>'
     readonly_banner = (
         '<div id="readonly-banner" class="readonly-banner" hidden>Package locked — engineer login required.</div>'
         if interactive
@@ -381,6 +378,9 @@ def page_html(
   <button type="button" class="btn btn-link" id="btn-engineer-login">Login</button>
   <button type="button" class="btn btn-link" id="btn-engineer-logout" hidden>Logout</button>
 </div>"""
+    unit_toggle = ""
+    if interactive:
+        unit_toggle = '<button type="button" class="unit-toggle" id="unit-toggle" aria-label="Toggle units">°F / Imperial</button>'
     return f"""<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -395,16 +395,27 @@ def page_html(
 <header>
   <div class="brand">
     <h1>{APP_TITLE}</h1>
-    <div class="meta">{header_meta_html()}</div>
+    <div class="meta" id="header-meta">{header_meta_html()}</div>
   </div>
   <div class="header-actions">
+    {unit_toggle}
     <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">Light mode</button>
     {auth_chip}
   </div>
 </header>
 <nav>{nav_html(active, interactive=interactive)}</nav>
 <main>{banner}
-{body_block}
+<div class="page-main"><div id="page-content">{body}</div>
+<section class="cookbook-section" id="cookbook-mount" data-page="{page_id}" hidden></section>
+<section class="notes-feed" id="page-notes-section" data-page="{page_id}">
+  <header class="notes-feed-head"><h2>Engineer notes</h2><p class="note">Findings for this page — saved in session and client package.</p></header>
+  <div id="notes-post-list" class="notes-post-list"></div>
+  <div class="notes-compose" id="notes-compose">
+    <textarea id="notes-draft" rows="5" placeholder="Key findings, caveats, recommended actions…"></textarea>
+    <button type="button" class="btn primary" id="btn-post-note">Post note</button>
+  </div>
+</section>
+</div>
 </main>
 <script src="/static/dashboard_theme.js"></script>
 {extra_js}
@@ -415,6 +426,7 @@ def page_html(
 meta: dict = {}
 
 FAULT_EQUATIONS = {
+    "COMFORT": "Occupied zone temperature outside comfort setpoint ± band",
     "FC1": "Fan ≥87% AND duct static &lt; setpoint − 0.20 in. w.c. (10 min persist)",
     "FC2": "Fan on AND MAT &lt; min(RAT, OAT) − 1.15°F (10 min)",
     "FC3": "Fan on AND MAT &gt; max(RAT, OAT) + 1.15°F (10 min)",
@@ -438,9 +450,40 @@ FAULT_EQUATIONS = {
 
 
 def fault_equations_html(codes: list[str] | None = None) -> str:
+    from units import substitute_temp_text
+
     items = FAULT_EQUATIONS if codes is None else {k: v for k, v in FAULT_EQUATIONS.items() if k in codes}
-    rows = "".join(f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>" for k, v in items.items())
+    rows = "".join(
+        f"<tr><td><strong>{k}</strong></td><td>{substitute_temp_text(v)}</td></tr>"
+        for k, v in items.items()
+    )
     return f"<table><thead><tr><th>Code</th><th>Rule (plain language)</th></tr></thead><tbody>{rows}</tbody></table>"
+
+
+PAGE_FAULT_CODES: dict[str, list[str]] = {
+    "index": [],
+    "zones": ["COMFORT", "SV6 flatline", "SV7 spike"],
+    "weather": ["SV2 OAT range", "SV6 flatline", "SV7 spike"],
+    "ahu_1": ["FC1", "FC2", "FC3", "FC4", "SV2 OAT range", "SV6 flatline", "SV7 spike"],
+    "ahu_2": ["FC1", "FC2", "FC3", "FC4", "SV2 OAT range", "SV6 flatline", "SV7 spike"],
+    "economizer": [
+        "FC8", "FC9", "FC10", "FC11", "FC12", "FC13",
+        "Free cool opp.", "ECON-2", "ECON-3 mech", "Open-Meteo econ OK",
+    ],
+    "chiller_plant": ["Chiller free-cool", "Open-Meteo econ OK"],
+    "central_plant": ["Chiller free-cool", "Open-Meteo econ OK"],
+    "boiler_plant": [],
+    "excess_runtime": ["Unocc. run satisfied"],
+    "motor_runtime": [],
+    "custom_rules": [],
+}
+
+
+def page_fault_equations_block(page_id: str) -> str:
+    codes = PAGE_FAULT_CODES.get(page_id, [])
+    if not codes:
+        return ""
+    return f'<div class="card fault-equations-card"><h2>Fault equations</h2>{fault_equations_html(codes)}</div>'
 
 
 # ---------------------------------------------------------------------------
@@ -1865,49 +1908,35 @@ def body_index(ctx: dict) -> str:
   <div class="kpi"><div class="val">{fc_hours:.0f}</div><div class="lbl">Free-cooling opportunity (AHU {fc_bd['ahu_total']:.0f} + chiller {fc_bd['chiller_total']:.0f} h)</div></div>
   <div class="kpi"><div class="val">{unocc:.0f}</div><div class="lbl">Excess unoccupied fan hours</div></div>
 </div>"""
-
-    highlights = f"""
-<div class="card"><h2>Key RCx metrics — one chart per ECM</h2>
-<p class="note">Shaded bands = analysis seasons. OAT bins use <strong>Open-Meteo</strong> (not BAS outdoor sensors).</p></div>
-{ecm_card("ECM-1", "COMFORT", "ECM 1 — Zone comfort", chart_html=chart_comfort_weekly_ts(comfort_ts, spring_pct))}
-{ecm_card("ECM-2", "ECON-3", "ECM 2 — AHU free-cooling opportunity", chart_html=chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total']), note=f"CHW &gt;{chw_pct}% while OAT favors economizer.")}
-{ecm_card("ECM-3", "ECON-AVAIL", "ECM 3 — Chiller excess runtime", chart_html=chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h']), note=f"Chiller run when Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (free-cool availability gate).")}
-{ecm_card("ECM-4", "EXCESS-FAN", "ECM 4 — Excess unoccupied fan", chart_html=chart_ecm_excess_fan(excess_det, unocc))}
-{ecm_card("ECM-5", "CHILLER-DT", "ECM 5 — Chiller run by Open-Meteo OAT bin (5°F)", chart_html=chart_oat_binned_mech(oat_bins), tune=False, note="Chiller 1 &amp; 2 only — hours when command on and meter kW &gt; 0.5 (pump_on proxy).")}
-{ecm_card("ECM-6", "ECON-AVAIL", "ECM 6 — Free-cool weather availability", chart_html=chart_open_meteo_free_cool(om_fc), note=f"DP &lt; {FREE_COOL_DP_MAX_F:g}°F and OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F (Open-Meteo).")}"""
-
-    links = """
-<div class="links">
-  <a class="link-card" href="zones.html"><strong>Comfort / Zones</strong><span>Floor-level comfort performance and VAV rankings by season</span></a>
-  <a class="link-card" href="weather.html"><strong>Weather Sensors</strong><span>BAS vs Open-Meteo OAT validation for each AHU</span></a>
-  <a class="link-card" href="ahu_1.html"><strong>AHU 1</strong><span>Trends, economizer commands, and fault overlays</span></a>
-  <a class="link-card" href="economizer.html"><strong>Economizer / Free Cooling</strong><span>FC8–FC13 diagnostics focused on spring economizer season</span></a>
-  <a class="link-card" href="chiller_plant.html"><strong>Chiller Plant</strong><span>Air-cooled chillers and CHW metrics</span></a>
-  <a class="link-card" href="boiler_plant.html"><strong>Boiler Plant</strong><span>Boilers and HWS metrics</span></a>
-  <a class="link-card" href="motor_runtime.html"><strong>Motor Runtime</strong><span>All fans, pumps, and motors from the data model</span></a>
-  <a class="link-card" href="data_model.html"><strong>Haystack Data Model</strong><span>RDF / SPARQL explorer — bootstrap from CSV, import/export JSON, prebuilt queries</span></a>
-</div>"""
-
-    note = """
-<div class="card"><h2>Data note</h2>
-<p class="note">This export includes zone space temperatures and central AHU/plant points, but <strong>not</strong> individual VAV airflow, damper position, or reheat valve histories. VAV-level damper/hunting/leaking rules cannot be computed until those points are exported.</p>
-<p class="note">Analysis period covers late-March through early-July — ideal for end-of-heating, spring economizer/free-cooling, and early mechanical cooling seasons in the upper Midwest.</p>
-</div>"""
-    return kpis + highlights + links + note
+    return kpis
 
 
 def body_zones(ctx: dict) -> str:
+    from units import fmt_temp
+
     zone_df = ctx["zone_df"]
     floor_temp_ts = ctx["floor_temp_ts"]
     floor_rank = ctx["floor_rank"]
+    comfort_ts = ctx.get("comfort_ts")
+    spring_pct = ctx.get("spring_pct", 0.0)
     rank_table = zone_df.sort_values(["season", "pct_within_72_occupied"]).groupby("season").head(10)
     season_cards = "".join(
         f'<div class="card"><h2>{SEASON_SHORT[s]}</h2><div class="chart">{chart_worst_vav(zone_df, s)}</div></div>'
         for s in SEASONS
     )
-    return f"""
+    ecm1 = ""
+    if comfort_ts is not None:
+        ecm1 = ecm_card(
+            "ECM-1",
+            "COMFORT",
+            "ECM 1 — Zone comfort",
+            chart_html=chart_comfort_weekly_ts(comfort_ts, float(spring_pct)),
+        )
+    lo = fmt_temp(COMFORT_LO_F)
+    hi = fmt_temp(COMFORT_HI_F)
+    return f"""{ecm1}
 <div class="card" data-rule="COMFORT"><h2>Weekly zone temperature by floor</h2>{rule_tune_mount("COMFORT")}
-<p class="note">Average occupied zone temp (°F) — one line per floor. Green band = {COMFORT_LO_F:g}–{COMFORT_HI_F:g}°F.</p>
+<p class="note">Average occupied zone temp — one line per floor. Green band = {lo}–{hi}.</p>
 <div class="chart">{chart_floor_weekly_temp(floor_temp_ts)}</div></div>
 <div class="card" data-rule="SV-1"><h2>Floor comfort ranking by season</h2>{rule_tune_mount("SV-1")}
 <div class="chart">{chart_floor_rank(floor_rank)}</div></div>
@@ -1954,27 +1983,41 @@ def body_ahu(d: pd.DataFrame, title: str) -> str:
 <div class="card" data-rule="FC4"><h2>FC4 — hunting</h2>{rule_tune_mount("FC4")}<div class="chart">{chart_ahu_hunting_season(d, title)}</div></div>
 <div class="card" data-rule="SV-6"><h2>Sensor validation (SV-2, SV-6, SV-7)</h2>{rule_tune_mount("SV-6")}{rule_tune_mount("SV-7")}
 <p class="note">Flatline and spike checks on OAT/MAT — see fault table for hours.</p></div>
-<div class="card"><h2>Fault equations</h2>{fault_equations_html()}</div>
 <div class="card"><h2>Full fault table (incl. fan wd/we)</h2>{table_html(summary, max_rows=50)}</div>"""
 
 
 def body_economizer(ctx: dict) -> str:
+    from units import fmt_temp
+
     ahu1 = ctx["ahu1"]
     ahu2 = ctx["ahu2"]
     fc_weekly = ctx["fc_weekly"]
     fc_bd = ctx["fc_bd"]
-    ch_fc_weekly = ctx["ch_fc_weekly"]
     om_fc = ctx["om_fc"]
-    oat_bins = ctx["oat_bins"]
-    body = f"""
-<div class="card" data-rule="ECON-AVAIL"><h2>Economizer & free-cooling focus</h2>{rule_tune_mount("ECON-AVAIL")}{rule_tune_mount("ECON-3")}{rule_tune_mount("FC8")}
-<p class="note"><strong>{fc_bd['total']:.0f} h</strong> total opportunity — AHU 1: {fc_bd['ahu1_h']:.0f} · AHU 2: {fc_bd['ahu2_h']:.0f} · Chiller 2: {fc_bd['ch2_h']:.0f} h (Open-Meteo OAT &lt; {FREE_COOL_OAT_AVAIL_F:g}°F)</p>
-<p class="note">Free-cool availability: Open-Meteo dew point &lt; {FREE_COOL_DP_MAX_F:g}°F AND dry bulb &lt; {FREE_COOL_OAT_AVAIL_F:g}°F AND dry bulb ≥ {ECONOMIZER_LOW_LIMIT_F:g}°F. Min OA assumed {OA_MIN_EXPECTED_PCT:g}% · full economizer {OA_MAX_ECONOMIZER_PCT:g}%.</p>
-<div class="chart">{chart_open_meteo_free_cool(om_fc)}</div>
-<div class="chart">{chart_oat_binned_mech(oat_bins)}</div>
-<div class="chart">{chart_ecm_free_cool_ahu(fc_weekly, fc_bd['ahu_total'])}</div>
-<div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div></div>
-<div class="card"><h2>Fault equations</h2>{fault_equations_html(['FC8','FC9','FC10','FC11','FC12','FC13','Free cool opp.','ECON-2','ECON-3 mech','Open-Meteo econ OK'])}</div>"""
+    chw_pct = int(FREE_COOL_CHW_MIN * 100)
+    oat_avail = fmt_temp(FREE_COOL_OAT_AVAIL_F)
+    dp_max = fmt_temp(FREE_COOL_DP_MAX_F)
+    econ_min = fmt_temp(ECONOMIZER_LOW_LIMIT_F)
+
+    body = (
+        ecm_card(
+            "ECM-2",
+            "ECON-3",
+            "ECM 2 — AHU free-cooling opportunity",
+            chart_html=chart_ecm_free_cool_ahu(fc_weekly, fc_bd["ahu_total"]),
+            note=f"CHW &gt;{chw_pct}% while OAT favors economizer.",
+        )
+        + ecm_card(
+            "ECM-6",
+            "ECON-AVAIL",
+            "ECM 6 — Free-cool weather availability",
+            chart_html=chart_open_meteo_free_cool(om_fc),
+            note=f"DP &lt; {dp_max} and OAT &lt; {oat_avail} (Open-Meteo).",
+        )
+        + f"""<div class="card" data-rule="FC8"><h2>FC8–FC13 season summary</h2>{rule_tune_mount("FC8")}{rule_tune_mount("ECON-3")}
+<p class="note"><strong>{fc_bd['total']:.0f} h</strong> total opportunity — AHU 1: {fc_bd['ahu1_h']:.0f} · AHU 2: {fc_bd['ahu2_h']:.0f} · Chiller 2: {fc_bd['ch2_h']:.0f} h (Open-Meteo OAT &lt; {oat_avail})</p>
+<p class="note">Free-cool availability: Open-Meteo dew point &lt; {dp_max} AND dry bulb &lt; {oat_avail} AND dry bulb ≥ {econ_min}. Min OA assumed {OA_MIN_EXPECTED_PCT:g}% · full economizer {OA_MAX_ECONOMIZER_PCT:g}%.</p></div>"""
+    )
     for season in SEASONS:
         rows = []
         for df, name in [(ahu1, "AHU 1"), (ahu2, "AHU 2")]:
@@ -2041,19 +2084,38 @@ def body_plant(ctx: dict) -> str:
 def body_chiller_plant(ctx: dict) -> str:
     if ctx.get("missing"):
         return body_not_in_model("chiller", ["chiller_cmd", "chw_supply_temp"])
+    from units import fmt_temp
+
     plant = ctx["plant"]
     fc_bd = ctx["fc_bd"]
     ch_fc_weekly = ctx["ch_fc_weekly"]
     ch_daily = ctx["ch_daily"]
     ch_weekly = ctx["ch_weekly"]
     oat_bins = ctx["oat_bins"]
-    body = f"""
-<div class="card" data-rule="CHILLER-DT"><h2>Chiller plant</h2>{rule_tune_mount("CHILLER-DT")}{rule_tune_mount("ECON-AVAIL")}
-<p class="note">Open-Meteo OAT bins. Chiller 2 excess below {FREE_COOL_OAT_AVAIL_F:g}°F: <strong>{fc_bd['ch2_h']:.0f} h</strong>.</p>
+    oat_avail = fmt_temp(FREE_COOL_OAT_AVAIL_F)
+    body = (
+        ecm_card(
+            "ECM-3",
+            "ECON-AVAIL",
+            "ECM 3 — Chiller excess runtime",
+            chart_html=chart_ecm_chiller_excess(ch_fc_weekly, fc_bd["ch2_h"]),
+            note=f"Chiller run when Open-Meteo OAT &lt; {oat_avail} (free-cool availability gate).",
+        )
+        + ecm_card(
+            "ECM-5",
+            "CHILLER-DT",
+            "ECM 5 — Chiller run by Open-Meteo OAT bin (5°F)",
+            chart_html=chart_oat_binned_mech(oat_bins),
+            tune=False,
+            note="Chiller 1 &amp; 2 only — hours when command on and meter kW &gt; 0.5 (pump_on proxy).",
+        )
+        + f"""
+<div class="card" data-rule="CHILLER-DT"><h2>Chiller plant detail</h2>{rule_tune_mount("CHILLER-DT")}{rule_tune_mount("ECON-AVAIL")}
+<p class="note">Open-Meteo OAT bins. Chiller 2 excess below {oat_avail}: <strong>{fc_bd['ch2_h']:.0f} h</strong>.</p>
 <div class="chart">{chart_chiller_weekly_run(ch_daily, ch_weekly)}</div>
 <div class="chart">{chart_chiller_oat_bins(oat_bins)}</div>
-<div class="chart">{chart_ecm_chiller_excess(ch_fc_weekly, fc_bd['ch2_h'])}</div>
 </div>"""
+    )
     for key in ("CHILLER_1", "CHILLER_2"):
         if key not in plant:
             continue
@@ -2192,6 +2254,8 @@ def body_custom_rules(ctx: dict) -> str:
 
 
 def body_excess(ctx: dict) -> str:
+    from units import fmt_temp
+
     w1 = ctx["w1"]
     w2 = ctx["w2"]
     ahu1 = ctx["ahu1"]
@@ -2199,13 +2263,23 @@ def body_excess(ctx: dict) -> str:
     excess_det = ctx["excess_det"]
     total_excess = excess_det["excess_fan_h"].sum()
     pct = int(UNOCC_ZONE_PCT * 100)
-    return f"""
-<div class="card"><h2>Excess fan runtime</h2>
-<p class="note">Counts supply fan hours <strong>outside</strong> the lease schedule when at least {pct}% of mapped zones read {UNOCC_ZONE_LO_F:g}–{UNOCC_ZONE_HI_F:g}°F. Total: <strong>{total_excess:.0f} hours</strong> across both AHUs.</p>
+    lo = fmt_temp(UNOCC_ZONE_LO_F)
+    hi = fmt_temp(UNOCC_ZONE_HI_F)
+    return (
+        ecm_card(
+            "ECM-4",
+            "EXCESS-FAN",
+            "ECM 4 — Excess unoccupied fan",
+            chart_html=chart_ecm_excess_fan(excess_det, float(total_excess)),
+        )
+        + f"""
+<div class="card"><h2>Excess fan runtime detail</h2>
+<p class="note">Counts supply fan hours <strong>outside</strong> the lease schedule when at least {pct}% of mapped zones read {lo}–{hi}. Total: <strong>{total_excess:.0f} hours</strong> across both AHUs.</p>
 <div class="chart">{chart_excess_weekly_stacked(excess_det, total_excess)}</div>
 <div class="chart">{chart_excess_daily_ts(ahu1, ahu2)}</div></div>
 <div class="card"><h2>Weekly detail — AHU 1</h2>{table_html(w1)}</div>
 <div class="card"><h2>Weekly detail — AHU 2</h2>{table_html(w2)}</div>"""
+    )
 
 
 PAGE_BODY_BUILDERS = {
@@ -2519,12 +2593,14 @@ def body_for_page(page_id: str, ctx: dict) -> str:
         label = spec.title if spec else page_id.replace("_", " ")
         return body_not_in_model(label, spec.equipment_ids if spec else None)
     if "ahu_df" in ctx:
-        return body_ahu(ctx["ahu_df"], ctx.get("title", page_id))
-    if page_id in PAGE_BODY_BUILDERS:
-        return PAGE_BODY_BUILDERS[page_id](ctx)
-    if page_id == "economizer_diagnostics":
-        return _economizer_diagnostics_snippet() or "<p class='note'>Economizer diagnostics page not generated yet.</p>"
-    raise KeyError(f"Unknown page: {page_id}")
+        body = body_ahu(ctx["ahu_df"], ctx.get("title", page_id))
+    elif page_id in PAGE_BODY_BUILDERS:
+        body = PAGE_BODY_BUILDERS[page_id](ctx)
+    elif page_id == "economizer_diagnostics":
+        body = _economizer_diagnostics_snippet() or "<p class='note'>Economizer diagnostics page not generated yet.</p>"
+    else:
+        raise KeyError(f"Unknown page: {page_id}")
+    return body + page_fault_equations_block(page_id)
 
 
 def render_page_html(

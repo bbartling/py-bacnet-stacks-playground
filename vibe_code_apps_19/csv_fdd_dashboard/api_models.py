@@ -23,16 +23,26 @@ class NotesBody(BaseModel):
 
 class ConfigBody(BaseModel):
     params: dict[str, Any] | None = None
-    notes: dict[str, str] | None = None
+    notes: dict[str, Any] | None = None
     analyst_name: str | None = None
     package_title: str | None = None
     site_settings: dict[str, Any] | None = None
+    units: str | None = None
 
 
 class RefreshBody(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
-    notes: dict[str, str] = Field(default_factory=dict)
+    notes: dict[str, Any] = Field(default_factory=dict)
     note: str | None = None
+    units: str | None = None
+
+
+class NoteActionBody(BaseModel):
+    page: str = "index"
+    action: str = "add"  # add | delete
+    text: str = ""
+    post_id: str = ""
+    analyst_name: str = ""
 
 
 class RunRuleBody(BaseModel):

@@ -8,6 +8,18 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-08 — Open-FDD cookbook rule engine (data-model-driven)
+
+**Done:**
+- **Full cookbook catalog** — `cookbook_rules.py`: all Open-FDD pandas cookbook rules coded declaratively (SV sweep, FC1–FC15, AHU extras, ECON-1–5, VAV, central plant, heat pump, weather, trim, extended). 48 rules; each carries required logical roles, imperial equation text, tunable slider params, confirm-seconds, and a pure compute fn returning a raw fault mask.
+- **RDF-driven engine** — `cookbook_engine.py`: layered role resolution (RDF `pointRole` → `economizer_point_mapping.json` → physical-name heuristics, with column-collision guard). Builds a logical frame per equipment, merges Open-Meteo (dry-bulb/RH/dew point), runs every rule for the equipment kind, confirms faults, rolls up fault-hours. Rules missing points report **"Not in data model"** so the UI still shows the equation + sliders.
+- **ECON-3 dew-point gate** — uses Open-Meteo OA dew point when present (economizer available if OA dry-bulb 35–72 °F AND dew point < 60 °F); imperial fallback (OAT < 63 °F) when weather absent.
+- **API** — `GET/POST /api/cookbook/{page_id}` (per-page equipment + rules; POST re-runs with tuned `params_by_rule`), `GET /api/cookbook/catalog`. Page→equipment mapping in `cookbook_engine.page_targets`.
+- **UI** — `static/dashboard_cookbook.js` + `.cookbook-section` mount auto-populates each category tab with cookbook fault cards grouped by family, live sliders, and muted not-applicable cards. `test_cookbook.py` (14 tests) covers role resolution, applicability, ECON-3 dew-point vs fallback, representative masks.
+- **How to add a rule:** append a `CookbookRule` to `RULES` in `cookbook_rules.py` (compute fn + required roles + params). It auto-appears on the matching category tab; unresolved points show "not in data model".
+
+---
+
 ## 2026-07-08 — Custom rule/ML lab + Flask → FastAPI migration
 
 **Done:**

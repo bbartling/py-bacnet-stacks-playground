@@ -1,11 +1,11 @@
 (function () {
   const pageId = window.DASHBOARD_PAGE || "index";
-  const notesEl = document.getElementById("page-notes");
   const contentEl = document.getElementById("page-content");
   const refreshBtn = document.getElementById("btn-refresh-page");
   const saveBtn = document.getElementById("btn-save-session");
   const exportBtn = document.getElementById("btn-export-package");
   const statusEl = document.getElementById("tune-live-status");
+  const headerMetaEl = document.getElementById("header-meta");
 
   let config = null;
   let paramState = {};
@@ -23,6 +23,16 @@
     if (!statusEl) return;
     statusEl.textContent = msg;
     statusEl.className = "tune-status" + (kind ? " " + kind : "");
+  }
+
+  function runScripts(container) {
+    if (!container) return;
+    container.querySelectorAll("script").forEach((old) => {
+      const s = document.createElement("script");
+      if (old.src) s.src = old.src;
+      else s.textContent = old.textContent;
+      old.parentNode.replaceChild(s, old);
+    });
   }
 
   function syncParamUi(key, val, step, unit) {
@@ -128,10 +138,9 @@
     config = await res.json();
     paramState = { ...config.params };
     window.DASHBOARD_SESSION = config;
+    if (config.units) window.DASHBOARD_UNITS = config.units;
+    if (headerMetaEl && config.header_meta) headerMetaEl.textContent = config.header_meta;
     mountControls(config.params_by_rule || []);
-    if (notesEl && config.notes && config.notes[pageId]) {
-      notesEl.value = config.notes[pageId];
-    }
     setStatus(`${(config.page_params || []).length} parameters · live refresh on`, "");
   }
 
@@ -144,7 +153,7 @@
     if (refreshBtn) refreshBtn.disabled = true;
     setStatus("Recomputing charts…", "live");
     try {
-      const body = { note: notesEl ? notesEl.value : "" };
+      const body = { units: window.DASHBOARD_UNITS || localStorage.getItem("fdd-dashboard-units") || "imperial" };
       if (window.DASHBOARD_SESSION && window.DASHBOARD_SESSION.can_edit) {
         body.params = paramState;
       }
@@ -157,10 +166,12 @@
       if (!data.ok) throw new Error(data.error || "Refresh failed");
       if (contentEl) {
         contentEl.innerHTML = data.content;
+        runScripts(contentEl);
         mountControls(config.params_by_rule || []);
         injectAnalytics(data.analytics);
       }
       if (data.params) paramState = data.params;
+      if (headerMetaEl && data.header_meta) headerMetaEl.textContent = data.header_meta;
       setStatus("Live — charts updated", "live");
     } catch (err) {
       setStatus("Refresh failed: " + err.message, "err");
@@ -187,7 +198,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         params: paramState,
-        notes: { [pageId]: notesEl ? notesEl.value : "" },
+        units: window.DASHBOARD_UNITS || "imperial",
       }),
     });
     const data = await res.json();

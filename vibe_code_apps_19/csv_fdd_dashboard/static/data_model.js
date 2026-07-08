@@ -13,6 +13,28 @@ function setStatus(msg) {
   $("status").textContent = msg;
 }
 
+function showSpinner(label) {
+  const el = $("sparql-spinner");
+  if (!el) return;
+  const lbl = el.querySelector(".spinner-label");
+  if (lbl && label) lbl.textContent = label;
+  el.hidden = false;
+}
+
+function hideSpinner() {
+  const el = $("sparql-spinner");
+  if (el) el.hidden = true;
+}
+
+async function withSpinner(label, fn) {
+  showSpinner(label);
+  try {
+    return await fn();
+  } finally {
+    hideSpinner();
+  }
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(API + path, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
@@ -86,7 +108,7 @@ function addPresetButtons(containerId, queries, category) {
 }
 
 async function loadPredefined() {
-  catalog = await api("/sparql/predefined");
+  catalog = await withSpinner("Loading SPARQL presets…", () => api("/sparql/predefined"));
   $("sparql-editor").value = catalog.default_query || "";
   addPresetButtons("preset-relationships", catalog.queries, "relationships");
   addPresetButtons("preset-haystack", catalog.queries, "haystack");
@@ -138,7 +160,9 @@ async function runQuery() {
   if (!query) return;
   setStatus("Running SPARQL…");
   try {
-    const result = await api("/sparql", { method: "POST", body: JSON.stringify({ query }) });
+    const result = await withSpinner("Running SPARQL query…", () =>
+      api("/sparql", { method: "POST", body: JSON.stringify({ query }) })
+    );
     renderTable(result.bindings);
     $("results-meta").textContent = `${result.row_count} rows${result.truncated ? " (truncated)" : ""}`;
     setStatus("SPARQL OK");
@@ -150,7 +174,7 @@ async function runQuery() {
 async function validateAllPresets() {
   setStatus("Validating all predefined SPARQL queries…");
   try {
-    const r = await api("/sparql/validate", { method: "POST", body: "{}" });
+    const r = await withSpinner("Validating preset queries…", () => api("/sparql/validate", { method: "POST", body: "{}" }));
     const msg = `Validated: ${r.passed?.length || 0} passed, ${r.failed?.length || 0} failed`;
     setStatus(msg);
     if (r.failed?.length) {
@@ -164,7 +188,9 @@ async function validateAllPresets() {
 async function bootstrapModel() {
   setStatus("Bootstrapping from CSV → model.json + TTL…");
   try {
-    const r = await api("/bootstrap", { method: "POST", body: JSON.stringify({ force: true }) });
+    const r = await withSpinner("Bootstrapping from CSV…", () =>
+      api("/bootstrap", { method: "POST", body: JSON.stringify({ force: true }) })
+    );
     setStatus(`Bootstrapped → ${r.ttl_path}\n${JSON.stringify(r.summary)}`);
     await loadSummary();
     await loadExportPreview();
@@ -175,7 +201,7 @@ async function bootstrapModel() {
 }
 
 async function syncTtl() {
-  const r = await api("/sync-ttl", { method: "POST", body: "{}" });
+  const r = await withSpinner("Syncing TTL…", () => api("/sync-ttl", { method: "POST", body: "{}" }));
   setStatus(`Synced TTL → ${r.ttl_path}`);
 }
 

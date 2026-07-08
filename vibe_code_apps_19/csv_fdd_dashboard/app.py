@@ -7,7 +7,8 @@ at /docs, matching the open-fdd bridge architecture. CPU-bound pandas work is
 unaffected — sync endpoints run in Starlette's threadpool and results stay cached.
 
 Modes (set env DASHBOARD_MODE):
-  full   — local analyst workspace: tune params, refresh charts, export packages
+  full   — local analyst workspace: tune params, refresh charts, export packages (default)
+  api    — JSON API only (Flavor A): same /api/* contract, no HTML page shells; /docs for OpenAPI
   deploy — serve pre-built site/ (read-only charts + optional live notes)
 
 Run:
@@ -29,6 +30,7 @@ import threading
 from datetime import datetime
 from html import escape
 from pathlib import Path
+from typing import Any
 
 from fastapi import Body, FastAPI, Request
 from fastapi.responses import (
@@ -51,7 +53,7 @@ from shared.env_loader import load_env_files  # noqa: E402
 # Imported at module scope so FastAPI can resolve these request-body types when
 # building route signatures / the OpenAPI schema (Py 3.14 + `from __future__`
 # annotations resolve forward refs against module globals, not closure locals).
-from api_models import ConfigBody, LoginBody, RefreshBody, RunRuleBody  # noqa: E402
+from api_models import ConfigBody, LoginBody, NoteActionBody, RefreshBody, RunRuleBody  # noqa: E402
 
 load_env_files()
 SITE_DIR = ROOT / "site"
@@ -70,23 +72,28 @@ def _ensure_dirs() -> None:
     STATIC_DIR.mkdir(exist_ok=True)
 
 
-def load_live_notes() -> dict[str, str]:
+def load_live_notes() -> dict[str, list[dict[str, str]]]:
+    from notes_store import migrate_notes
+
     _ensure_dirs()
     if NOTES_FILE.is_file():
         try:
             data = json.loads(NOTES_FILE.read_text(encoding="utf-8"))
-            return {k: str(v) for k, v in data.get("notes_by_page", data).items()}
+            raw = data.get("notes_by_page", data)
+            return migrate_notes(raw)
         except json.JSONDecodeError:
             pass
     return {}
 
 
-def save_live_notes(notes: dict[str, str], analyst_name: str = "") -> None:
+def save_live_notes(notes: dict[str, Any], analyst_name: str = "") -> None:
+    from notes_store import migrate_notes
+
     _ensure_dirs()
     payload = {
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "analyst_name": analyst_name,
-        "notes_by_page": notes,
+        "notes_by_page": migrate_notes(notes),
     }
     NOTES_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -188,8 +195,10 @@ def create_app(mode: str | None = None) -> FastAPI:
 
     if MODE == "deploy":
         _register_deploy_routes(app)
+    elif MODE == "api":
+        _register_full_routes(app, html_shell=False)
     else:
-        _register_full_routes(app)
+        _register_full_routes(app, html_shell=True)
 
     return app
 
@@ -203,24 +212,31 @@ def _register_deploy_routes(app: FastAPI) -> None:
 
     @app.get("/api/notes")
     def api_notes_get(page: str = "index") -> JSONResponse:
+        from notes_store import posts_for_page
+
         notes = load_live_notes()
+        posts = posts_for_page(notes, page)
         return JSONResponse({
             "page": page,
-            "note": notes.get(page, ""),
+            "posts": posts,
             "notes": notes,
             "analyst_enabled": ANALYST_ENABLED,
         })
 
     @app.post("/api/notes")
     def api_notes_post(payload: dict = Body(default={})) -> JSONResponse:
+        from notes_store import add_post, migrate_notes, posts_for_page
+
         if not ANALYST_ENABLED:
             return JSONResponse({"error": "Analyst notes editing is disabled"}, status_code=403)
         page = str(payload.get("page", "index"))
         text = str(payload.get("note", ""))
         notes = load_live_notes()
-        notes[page] = text
+        notes = migrate_notes(notes)
+        if text.strip():
+            add_post(notes, page, text, analyst_name=str(payload.get("analyst_name", "")))
         save_live_notes(notes, str(payload.get("analyst_name", "")))
-        return JSONResponse({"ok": True, "page": page, "note": text})
+        return JSONResponse({"ok": True, "page": page, "posts": posts_for_page(notes, page)})
 
     @app.get("/health")
     def health() -> JSONResponse:
@@ -239,8 +255,11 @@ def _register_deploy_routes(app: FastAPI) -> None:
                     {"error": f"Missing page {filename}. Run build_docker_deploy.py locally."},
                     status_code=404,
                 )
+            from notes_store import posts_for_page
+
             notes = load_live_notes()
-            note_text = notes.get(page_id, "")
+            posts = posts_for_page(notes, page_id)
+            note_text = "\n\n".join(p["text"] for p in posts)
             html = path.read_text(encoding="utf-8")
             banner = _notes_banner_html(page_id, note_text, editable=ANALYST_ENABLED)
             html = _inject_notes_css(html)
@@ -259,14 +278,16 @@ def _guess_media_type(path: Path) -> str:
     return mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 
 
-def _register_full_routes(app: FastAPI) -> None:
-    """Local analyst mode — tune, refresh, export."""
+def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
+    """Local analyst mode — tune, refresh, export. Set html_shell=False for headless api mode."""
     import generate_dashboard as gd
     from dashboard_cache import get_body, get_context, get_raw_data as cache_get_raw, prewarm, should_rebuild_economizer_diagnostics
     from dashboard_params import (
         PARAM_DEFS,
         apply_to_generate_dashboard,
+        canonicalize_params,
         default_params,
+        display_params,
         load_session,
         params_by_rule,
         params_for_page,
@@ -303,8 +324,12 @@ def _register_full_routes(app: FastAPI) -> None:
         data["engineer_logged_in"] = bool(request.session.get("engineer_logged_in"))
         return data
 
-    def recompute(params: dict | None = None, page_id: str | None = None) -> dict:
+    def recompute(params: dict | None = None, page_id: str | None = None, *, units: str | None = None) -> dict:
+        from units import set_display_units
+
         file_sess = load_session()
+        unit_mode = units or file_sess.get("units", "imperial")
+        set_display_units(unit_mode)
         p = validate_params(params or file_sess["params"])
         apply_to_generate_dashboard(gd, p, file_sess.get("site_settings"))
         gd.meta["created"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -319,13 +344,39 @@ def _register_full_routes(app: FastAPI) -> None:
 
         build_page(gd.meta["created"], params=params)
 
+    mode_label = "api" if not html_shell else "full"
+
     @app.get("/data_model.html")
     def data_model_page() -> Response:
+        if not html_shell:
+            return JSONResponse(
+                {"error": "HTML disabled in api mode", "hint": "Use GET /api/rdf/* for the data model API"},
+                status_code=404,
+            )
         path = STATIC_DIR / "data_model.html"
         return HTMLResponse(path.read_text(encoding="utf-8"))
 
     @app.get("/")
-    def home() -> RedirectResponse:
+    def home() -> Response:
+        if not html_shell:
+            from shared.branding import APP_TITLE
+
+            return JSONResponse({
+                "app": APP_TITLE,
+                "mode": "api",
+                "docs": "/docs",
+                "openapi": "/openapi.json",
+                "hint": "GET /api/pages → POST /api/refresh/{page_id} returns { content: html, analytics, params }",
+                "endpoints": {
+                    "pages": "GET /api/pages",
+                    "session": "GET /api/session",
+                    "config": "GET|POST /api/config",
+                    "refresh": "POST /api/refresh/{page_id}",
+                    "rules": "GET /api/rules",
+                    "rules_run": "POST /api/rules/run",
+                    "rdf": "GET /api/rdf/*",
+                },
+            })
         return RedirectResponse("/index.html")
 
     @app.get("/api/pages")
@@ -350,17 +401,26 @@ def _register_full_routes(app: FastAPI) -> None:
 
     @app.get("/api/config")
     def api_config_get(request: Request, page: str = "index") -> JSONResponse:
+        from notes_store import migrate_notes, posts_for_page
+        from units import set_display_units
+
         session = load_session()
+        session["notes"] = migrate_notes(session.get("notes", {}))
+        units = session.get("units", "imperial")
+        set_display_units(units)
         flags = session_flags({**session, "engineer_logged_in": request.session.get("engineer_logged_in")})
         return JSONResponse({
-            "params": session["params"],
+            "params": display_params(session["params"]),
             "notes": session.get("notes", {}),
+            "page_notes": posts_for_page(session.get("notes", {}), page),
             "analyst_name": session.get("analyst_name", ""),
             "package_title": session.get("package_title", "Open FDD Vibe Coder"),
             "page_params": params_for_page(page),
             "params_by_rule": params_by_rule(page),
             "param_defs": PARAM_DEFS,
             "site_settings": session.get("site_settings", {}),
+            "units": units,
+            "header_meta": gd.header_meta_html(),
             **flags,
         })
 
@@ -369,10 +429,16 @@ def _register_full_routes(app: FastAPI) -> None:
         if not can_edit(auth_session(request)):
             return JSONResponse({"error": "Read-only — engineer login required"}, status_code=403)
         session = load_session()
+        units = session.get("units", "imperial")
+        if body.units is not None:
+            session["units"] = "metric" if str(body.units).lower() == "metric" else "imperial"
+            units = session["units"]
         if body.params is not None:
-            session["params"] = validate_params({**session["params"], **body.params})
+            session["params"] = canonicalize_params({**session["params"], **body.params}, units)
         if body.notes is not None:
-            session["notes"] = {**session.get("notes", {}), **body.notes}
+            from notes_store import migrate_notes
+
+            session["notes"] = migrate_notes({**session.get("notes", {}), **body.notes})
         if body.analyst_name is not None:
             session["analyst_name"] = str(body.analyst_name)
         if body.package_title is not None:
@@ -391,27 +457,55 @@ def _register_full_routes(app: FastAPI) -> None:
                 session["params"]["comfort_band_f"] = float(body.site_settings["comfort_band_f"])
             session["params"] = validate_params(session["params"])
         save_session(session)
-        return JSONResponse({"ok": True, "session": session})
+        return JSONResponse({"ok": True, "session": session, "units": session.get("units", "imperial")})
+
+    @app.post("/api/notes/action")
+    def api_notes_action(request: Request, body: NoteActionBody) -> JSONResponse:
+        from notes_store import add_post, delete_post, migrate_notes, posts_for_page
+
+        if not can_edit(auth_session(request)):
+            return JSONResponse({"error": "Read-only — engineer login required"}, status_code=403)
+        session = load_session()
+        session["notes"] = migrate_notes(session.get("notes", {}))
+        page = body.page or "index"
+        if body.action == "delete":
+            if not delete_post(session["notes"], page, body.post_id):
+                return JSONResponse({"error": "Note not found"}, status_code=404)
+        else:
+            text = body.text.strip()
+            if not text:
+                return JSONResponse({"error": "Note text required"}, status_code=400)
+            author = body.analyst_name or session.get("analyst_name", "")
+            add_post(session["notes"], page, text, author=author)
+        if body.analyst_name:
+            session["analyst_name"] = body.analyst_name
+        save_session(session)
+        return JSONResponse({
+            "ok": True,
+            "page": page,
+            "posts": posts_for_page(session["notes"], page),
+        })
 
     @app.post("/api/refresh/{page_id}")
     def api_refresh(request: Request, page_id: str, body: RefreshBody) -> JSONResponse:
+        from notes_store import migrate_notes
+
         if not is_valid_page(page_id):
             return JSONResponse({"error": f"Unknown page {page_id}"}, status_code=404)
 
         session = load_session()
         auth = auth_session(request)
+        units = body.units or session.get("units", "imperial")
+        session["units"] = "metric" if str(units).lower() == "metric" else "imperial"
         if can_edit(auth) and body.params:
-            params = validate_params({**session["params"], **body.params})
+            params = canonicalize_params({**session["params"], **body.params}, session["units"])
         else:
             params = validate_params(session["params"])
-        notes = {**session.get("notes", {}), **body.notes}
-        if body.note is not None and can_edit(auth):
-            notes[page_id] = str(body.note)
+        session["notes"] = migrate_notes({**session.get("notes", {}), **body.notes})
         session["params"] = params
-        session["notes"] = notes
         save_session(session)
 
-        ctx = recompute(params, page_id=page_id)
+        ctx = recompute(params, page_id=page_id, units=session["units"])
         _maybe_build_econ_diag(page_id, params)
         if page_id == "economizer":
             _maybe_build_econ_diag("economizer_diagnostics", params)
@@ -429,7 +523,15 @@ def _register_full_routes(app: FastAPI) -> None:
                 analytics["ecms"] = rollup_ahu(ctx["ahu_df"], poll_seconds=gd.POLL_SECONDS, occupied=occ)
         except Exception:
             pass
-        return JSONResponse({"ok": True, "page_id": page_id, "content": body_html, "params": params, "analytics": analytics})
+        return JSONResponse({
+            "ok": True,
+            "page_id": page_id,
+            "content": body_html,
+            "params": display_params(params),
+            "analytics": analytics,
+            "units": session["units"],
+            "header_meta": gd.header_meta_html(),
+        })
 
     @app.get("/api/rules")
     def api_rules(reload: str = "") -> JSONResponse:
@@ -494,6 +596,34 @@ def _register_full_routes(app: FastAPI) -> None:
             "chart": chart,
             "params": ctx.params,
         })
+
+    @app.get("/api/cookbook/catalog")
+    def api_cookbook_catalog() -> JSONResponse:
+        import cookbook_rules as cb
+
+        return JSONResponse({"rules": cb.catalog()})
+
+    @app.get("/api/cookbook/{page_id}")
+    def api_cookbook_get(page_id: str, vav_limit: int = 12) -> JSONResponse:
+        import cookbook_engine as ce
+
+        try:
+            data = ce.run_page(page_id, vav_limit=vav_limit)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, **data})
+
+    @app.post("/api/cookbook/{page_id}")
+    def api_cookbook_post(page_id: str, body: dict = Body(default={})) -> JSONResponse:
+        import cookbook_engine as ce
+
+        params_by_rule = body.get("params_by_rule") or {}
+        vav_limit = int(body.get("vav_limit", 12) or 12)
+        try:
+            data = ce.run_page(page_id, params_by_rule=params_by_rule, vav_limit=vav_limit)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, **data})
 
     def _export_records(page_list: list[str]) -> list[dict]:
         from analytics_rollups import rollup_ahu
@@ -563,7 +693,7 @@ def _register_full_routes(app: FastAPI) -> None:
             return JSONResponse({
                 "ok": False,
                 "app": APP_TITLE,
-                "mode": "full",
+                "mode": mode_label,
                 "building": cfg.building,
                 "data_root": str(cfg.data_root),
                 "error": str(exc),
@@ -571,7 +701,7 @@ def _register_full_routes(app: FastAPI) -> None:
         return JSONResponse({
             "ok": data_ok and hist_count > 0,
             "app": APP_TITLE,
-            "mode": "full",
+            "mode": mode_label,
             "building": cfg.building,
             "data_root": str(cfg.data_root),
             "historian_files": hist_count,
@@ -583,6 +713,12 @@ def _register_full_routes(app: FastAPI) -> None:
             return JSONResponse({"error": "not found"}, status_code=404)
 
         if filename.endswith(".html"):
+            if not html_shell:
+                return JSONResponse({
+                    "error": "HTML page shells disabled in api mode",
+                    "hint": "GET /api/pages then POST /api/refresh/{page_id}",
+                    "docs": "/docs",
+                }, status_code=404)
             page_id = filename[:-5]
             if not is_valid_page(page_id):
                 path = ROOT / filename
@@ -598,7 +734,7 @@ def _register_full_routes(app: FastAPI) -> None:
                 {},
                 body_html=LOADING_BODY,
                 params=params,
-                notes=session.get("notes", {}).get(page_id, ""),
+                notes="",
                 analyst_name=session.get("analyst_name", ""),
                 interactive=True,
             )
@@ -644,7 +780,9 @@ def main() -> None:
 
     from shared.branding import APP_TITLE
 
-    mode_label = "deploy (read-only site/)" if MODE == "deploy" else "full (local analyst)"
+    mode_label = "deploy (read-only site/)" if MODE == "deploy" else (
+        "api (JSON only — /docs)" if MODE == "api" else "full (local analyst)"
+    )
     print(f"{APP_TITLE} — {mode_label}")
     print("Open http://127.0.0.1:5000/index.html   ·   API docs: http://127.0.0.1:5000/docs")
     uvicorn.run(application, host="127.0.0.1", port=5000, log_level="info")

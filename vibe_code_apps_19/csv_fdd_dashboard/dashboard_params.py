@@ -576,16 +576,20 @@ def _param_page_id(page_id: str) -> str:
 
 
 def params_for_page(page_id: str) -> list[dict[str, Any]]:
+    from units import convert_param_def
+
     pid = _param_page_id(page_id)
     out = []
     for key, meta in PARAM_DEFS.items():
         if pid in meta["pages"]:
-            out.append({"key": key, **meta})
+            out.append({"key": key, **convert_param_def(meta)})
     return out
 
 
 def params_by_rule(page_id: str) -> list[dict[str, Any]]:
     """Grouped rule boxes for inline tune panels."""
+    from units import convert_param_def
+
     pid = _param_page_id(page_id)
     by_rule: dict[str, list[dict[str, Any]]] = {}
     order: list[str] = []
@@ -596,8 +600,37 @@ def params_by_rule(page_id: str) -> list[dict[str, Any]]:
         if rule not in by_rule:
             by_rule[rule] = []
             order.append(rule)
-        by_rule[rule].append({"key": key, **meta})
+        by_rule[rule].append({"key": key, **convert_param_def(meta)})
     return [{"rule": rule, "group": by_rule[rule][0].get("group", rule), "params": by_rule[rule]} for rule in order]
+
+
+def display_params(params: dict[str, float]) -> dict[str, float]:
+    from units import convert_param_def, display_param_value, is_metric
+
+    if not is_metric():
+        return dict(params)
+    out = {}
+    for key, val in params.items():
+        meta = PARAM_DEFS.get(key)
+        if meta:
+            out[key] = display_param_value(key, val, meta)
+        else:
+            out[key] = val
+    return out
+
+
+def canonicalize_params(params: dict[str, Any], units: str = "imperial") -> dict[str, float]:
+    from units import canonical_param_value
+
+    merged = merge_params(params)
+    if str(units).lower() != "metric":
+        return validate_params(merged)
+    out = dict(merged)
+    for key, val in list(out.items()):
+        meta = PARAM_DEFS.get(key)
+        if meta and val is not None:
+            out[key] = canonical_param_value(key, float(val), meta)
+    return validate_params(out)
 
 
 def merge_params(overrides: dict[str, Any] | None) -> dict[str, float]:
@@ -708,8 +741,12 @@ def load_session() -> dict[str, Any]:
         merged = merge_params(data.get("params", {}))
         data["params"] = validate_params(merged)
         data.setdefault("notes", {})
+        from notes_store import migrate_notes
+
+        data["notes"] = migrate_notes(data.get("notes", {}))
         data.setdefault("analyst_name", "")
         data.setdefault("package_title", "Open FDD Vibe Coder")
+        data.setdefault("units", "imperial")
         data["site_settings"] = merge_site_settings(data.get("site_settings"), timezone=tz)
         data.setdefault("package_locked", False)
         data.setdefault("engineer_logged_in", False)
@@ -722,12 +759,16 @@ def load_session() -> dict[str, Any]:
         "site_settings": default_site_settings(timezone=tz),
         "package_locked": False,
         "engineer_logged_in": False,
+        "units": "imperial",
     }
 
 
 def save_session(session: dict[str, Any]) -> None:
+    from notes_store import migrate_notes
+
     payload = deepcopy(session)
     payload["params"] = validate_params(payload.get("params", {}))
+    payload["notes"] = migrate_notes(payload.get("notes", {}))
     SESSION_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
