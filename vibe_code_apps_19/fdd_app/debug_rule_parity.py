@@ -50,8 +50,8 @@ def main() -> int:
     if d is None or d.empty:
         print(f"No data for {args.equipment}", file=sys.stderr)
         return 1
-    params = {p.name: p.default for p in rule.params}
-    raw = rule.fn(d, params, poll)
+    params = {p.key: p.default for p in rule.params}
+    raw = rule.compute(d, params, poll)
     confirmed = confirm_fault(raw, poll_seconds=poll, confirm_seconds=rule.confirm_seconds)
     out_rows = []
     n = min(args.max_rows, len(d))

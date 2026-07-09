@@ -4,13 +4,19 @@ Baseline after Stage 3 (`e3baa8a`): **314 pass / 54 fail** @ tolerance 0.5h. VAV
 
 ## Top-10 mismatch remediation
 
+**Update 2026-07-09:** OAT-METEO resolved — root cause was a shared confirm-streak
+off-by-one bug (see `SESSION_LOG.md`), not the join/denominator. Now 0.000h delta.
+`ECON-4` was fixed in a concurrent/parallel pass on this branch with the same
+`LAG`-based streak fix. FC8/FC9/FC10/FC12/FC13/FC2/ECON-2/VAV-1 likely share the
+same buggy `grp`/`ranked` CTE pattern and are good follow-up candidates.
+
 | # | Rule / equip | Δh | Root cause (likely) | Fix | Priority |
 | --- | --- | ---: | --- | --- | ---: |
-| 1 | OAT-METEO / AHU_2 | 32.7 | INNER JOIN dropped non-weather rows; fault_pct denominator wrong | **LEFT JOIN** full timeline (Stage 4a) | P0 |
+| 1 | ~~OAT-METEO / AHU_2~~ | ~~32.7~~ 0.0 | Confirm-streak off-by-one (boundary False row shared partition with True-run) | **Fixed** — LAG-based transition streak id | ✅ done |
 | 2 | FC8 / AHU_1 | 29.8 | Confirm streak edge + NULL damper COALESCE vs pandas `norm_cmd` | Audit NULL gates; fixture test AHU_1 samples | P1 |
-| 3 | ECON-4 / AHU_1 | 26.0 | SQL had **no confirm CTE** (600s in cookbook) | **Add confirm CTE** (Stage 4a) | P0 |
+| 3 | ~~ECON-4 / AHU_1~~ | ~~26.0~~ 0.0 | Same off-by-one | **Fixed** (concurrent/parallel pass) | ✅ done |
 | 4 | FC8 / AHU_2 | 26.0 | Same as FC8 AHU_1 | Shared FC8 audit | P1 |
-| 5 | OAT-METEO / AHU_1 | 22.4 | Same as #1 | LEFT JOIN (Stage 4a) | P0 |
+| 5 | ~~OAT-METEO / AHU_1~~ | ~~22.4~~ 0.0 | Same as #1 | **Fixed** | ✅ done |
 | 6 | FC13 / AHU_2 | 21.0 | `sat_sp` effective fallback; damper gate boundaries | Compare sat_sp column vs Python; tune placeholders | P1 |
 | 7 | FC10 / AHU_2 | 20.3 | `sqrt(2)*MIX_TOL` threshold exactness | Registry `mat_oat_sqrt_tol` placeholder | P2 |
 | 8 | FC2 / AHU_2 | 17.7 | `minimum(rat, oa_t)` envelope — verify SQL matches | Already equivalent; confirm window audit | P2 |
@@ -22,7 +28,8 @@ Baseline after Stage 3 (`e3baa8a`): **314 pass / 54 fail** @ tolerance 0.5h. VAV
 ### A — Quick SQL fixes (this push)
 - [x] ECON-4 confirm CTE (600s)
 - [x] OAT-METEO LEFT JOIN + wx-null guard
-- [ ] Re-run full BUILDING_100 pipeline + update benchmark
+- [x] OAT-METEO confirm-streak off-by-one fix (LAG-based transition id) + full-timeline `fault_pct` denominator
+- [x] Re-run full BUILDING_100 pipeline + update benchmark (314→320 pass, 54→48 fail @ 0.5h)
 
 ### B — Threshold parameterization (next push)
 - Move hardcoded FC8/FC9/FC10/FC2 constants to `registry.yaml` placeholders

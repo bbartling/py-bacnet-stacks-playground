@@ -18,7 +18,10 @@
 | SQL tuning API + static panel | ✅ `/api/sql-rules*`, `dashboard_sql_tuning.js` |
 | Python oracle + dashboard | ✅ Unchanged; 103 pytest pass |
 
-**Compare @ 0.5:** **314 pass / 54 fail / 11 skipped**
+**Compare @ 0.5 (2026-07-09, post OAT-METEO fix):** **320 pass / 48 fail / 11 skipped**
+(was 314/54 before this push — OAT-METEO fixed here; ECON-4 fixed in a concurrent
+parallel pass on this branch; both reflected in this regenerated benchmark, see
+`SESSION_LOG.md`).
 
 ## What is NOT done / still failing
 
@@ -26,9 +29,9 @@
 
 | rule | max Δh | notes |
 | --- | ---: | --- |
-| OAT-METEO | 32.7 | Weather timestamp alignment + confirm streak audit needed |
-| FC8 | 29.8 | SAT/MAT economizer gate edge samples |
-| ECON-4 | 26.0 | Confirm CTE added but streaks already saturated; fan/oa_frac audit |
+| ~~OAT-METEO~~ | ~~32.7~~ 0.0 | **Fixed** — confirm-streak off-by-one, not weather join; see `SESSION_LOG.md` |
+| FC8 | 29.8 | SAT/MAT economizer gate edge samples — likely same streak-CTE bug as OAT-METEO, unfixed |
+| ~~ECON-4~~ | ~~26.0~~ 0.0 | **Fixed** — concurrent pass applied the same LAG-based streak CTE fix |
 | FC13 | 21.0 | sat_sp effective fallback vs raw SAT SP |
 | FC10 | 20.3 | MAT-OAT sqrt tolerance |
 | FC2 | 17.7 | Mixing envelope edge cases |

@@ -8,6 +8,42 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-09 — OAT-METEO SQL parity fix (root cause: confirm-streak off-by-one)
+
+**Root cause found via `debug_rule_parity.py` + a pandas replay of both streak
+algorithms on the dumped raw-fault series:** the shared `grp`/`ranked` confirm CTE
+pattern (`SUM(CASE WHEN raw_fault = 0 THEN 1 ELSE 0 END) OVER (... ROWS UNBOUNDED
+PRECEDING)` as the streak id) puts the boundary `raw_fault = 0` row into the *same*
+partition as the following True-run, so `ROW_NUMBER()` counts that boundary row as
+position 1. Every True-run therefore reaches `{{CONFIRM_ROWS}}` one row earlier than
+pandas `confirm_fault()` (which groups on `raw != raw.shift()`), over-confirming by
+~1 row per qualifying fault streak — this is what produced the 22.4h (AHU_1) / 32.7h
+(AHU_2) OAT-METEO deltas (Stage 4a's LEFT JOIN fix did not touch this).
+
+**Fix (`sql_rules/oat_meteo_fault.sql`):** replaced the streak id with a `LAG`-based
+value-transition id (`lagged` CTE + `raw_fault IS DISTINCT FROM prev_raw_fault`),
+matching pandas semantics exactly. Also dropped the population-level
+`WHERE h.oa_t IS NOT NULL` filter so `COUNT(*)` denominator is the full AHU timeline
+(matches Python `len(d)`), moving the null check into the per-row `CASE` instead.
+
+**Verified:** re-ran `run-rules` + `compare` (tolerance 0.5h) — OAT-METEO now
+0.000h delta on both AHU_1 (285.417h/10.85%) and AHU_2 (1086.583h/41.29%), exact
+match to the pandas oracle. `ECON-4` was fixed concurrently (same `LAG`-based
+streak-transition pattern) in a parallel pass on this branch; regenerating the
+full SQL rule batch + oracle compare picks up both: **314→320 pass, 54→48 fail**
+@ 0.5h. Also fixed two pre-existing bugs in `debug_rule_parity.py`
+(`CookbookParam.name`→`.key`, `CookbookRule.fn`→`.compute`) that blocked running it.
+
+**Still material (unrelated to OAT-METEO, same shared CTE bug likely present):**
+FC8, FC9, FC10, FC12, FC13-SAT-HIGH, FC2, ECON-2, VAV-1 — candidates for the same
+`LAG`-based streak fix in a follow-up pass (out of scope here; minimal diff to
+OAT-METEO only per this task).
+
+**Docs:** `STAGE4_PARITY_REMAINING_PLAN.md`, `MERGE_STATUS_REPORT.md`,
+`benchmarks/RUST_DATAFUSION_PARITY_BENCHMARK.md` (regenerated).
+
+---
+
 ## 2026-07-09 — Branch reconciliation + Stage 4 working branch
 
 **Audit:** Only `develop` exists (local + remote). Default branch verified: **develop**. Stale `master` and `stage3-datafusion-parity-building100` already deleted after fast-forward merge. No stranded commits.

@@ -154,7 +154,7 @@ rules:
     required_roles: [oa_t]
     output_columns: [equipment_id, fault_hours, fault_pct]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 900
@@ -376,7 +376,7 @@ rules:
     required_roles: [mat, rat, oa_t, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
