@@ -190,66 +190,9 @@ fn read_csv_batch(path: &Path, columns_path: &Path) -> Result<(RecordBatch, u64)
 
 /// When multiple CSV columns map to the same role, pick the oracle-preferred column.
 fn pick_best_column(role: &str, candidates: &[(usize, String)]) -> (usize, String) {
-    fn score(role: &str, name: &str) -> i32 {
-        let c = name.to_lowercase();
-        match role {
-            "sat" => {
-                if c == "discharge_air_temp_f" {
-                    100
-                } else if c.contains("discharge_air") {
-                    80
-                } else if c.contains("dat_y") {
-                    60
-                } else if c.contains("dat_x") {
-                    10
-                } else if c.starts_with("dat_") {
-                    5
-                } else {
-                    0
-                }
-            }
-            "sat_sp" => {
-                if c.contains("dat_reset") {
-                    100
-                } else if c.contains("sat_sp") || c.contains("sat_setpoint") {
-                    90
-                } else {
-                    0
-                }
-            }
-            "oa_damper_pct" => {
-                if c.contains("ex_dmpr") || c.contains("oa_damper") {
-                    90
-                } else if c.contains("damper") || c.contains("dmpr") {
-                    70
-                } else {
-                    0
-                }
-            }
-            "fan_cmd" => {
-                if c.contains("supply_fan") && !c.contains("status") {
-                    100
-                } else if c.contains("fan_cmd") || c.contains("fan_speed") {
-                    90
-                } else {
-                    0
-                }
-            }
-            "mat" => {
-                if c.contains("mixed_air") {
-                    100
-                } else if c == "mad_c" {
-                    80
-                } else {
-                    0
-                }
-            }
-            _ => 0,
-        }
-    }
     candidates
         .iter()
-        .max_by_key(|(_, name)| score(role, name))
+        .max_by_key(|(_, name)| fdd_core::score_column_for_role(role, name))
         .cloned()
         .unwrap_or_else(|| candidates[0].clone())
 }
@@ -375,6 +318,32 @@ mod tests {
             .map(|f| f.name().clone())
             .collect();
         assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
+    }
+
+    #[test]
+    fn vav7_zone_t_prefers_physical_space_temp() {
+        let data_root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/hvac_systems_CLEANED");
+        let cols = data_root.join("BUILDING_100/VAV/VAV_7/columns.csv");
+        let hist = data_root.join("BUILDING_100/VAV/VAV_7/history_wide.csv");
+        if !cols.is_file() || !hist.is_file() {
+            return;
+        }
+        let (batch, _) = read_csv_batch(&hist, &cols).unwrap();
+        let sat_idx = batch
+            .schema()
+            .fields()
+            .iter()
+            .position(|f| f.name() == "zone_t")
+            .expect("zone_t column");
+        let col = batch
+            .column(sat_idx)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        let min = col.iter().flatten().fold(f64::INFINITY, f64::min);
+        let max = col.iter().flatten().fold(f64::NEG_INFINITY, f64::max);
+        assert!(min > 60.0 && max < 90.0, "zone_t range {min}..{max}");
     }
 
     #[test]

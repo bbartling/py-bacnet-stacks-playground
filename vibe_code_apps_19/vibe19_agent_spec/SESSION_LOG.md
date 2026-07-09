@@ -8,6 +8,28 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-09 — Stage 3: VAV_7 zone_t fix + SQL tunable parameters
+
+**Done:**
+- **VAV_7 zone_t regression fixed** — Python `_resolve_zone_t()` ranks candidates (prefer `vav_*_space_temp_f`, reject alarm/limit/_58/_59). Rust `role_rank.rs` + ingest `pick_best_column`; skip limit columns in `columns.rs`.
+- **SQL rule tuning plumbing** — `registry.yaml` `parameters:` (VAV-1, FC13, OAT-METEO, zone rollups); `rule_tuning/defaults.yaml`; Rust `tuning.rs` merge/clamp/placeholder guard; runner injects tuned params + recomputes `CONFIRM_ROWS`.
+- **Python API** — `GET /api/sql-rules`, `POST /api/sql-rules/preview`, `POST /api/sql-rules/save-profile` (`sql_rules_registry.py`).
+- **Static frontend** — `dashboard_sql_tuning.js` panel (parity badge, sliders, preview/save); wired in `generate_dashboard.py`.
+
+**BUILDING_100 @ 0.5 (2026-07-09 14:58 UTC):** **314 pass / 54 fail** / 11 skipped. Was **228/52** @ `bdb8881`. **19/19 SQL rules succeed.**
+
+**Proven:** FAN-RUNTIME-HOURS, FAULT-ELAPSED-HOURS, AVG-ZONE-TEMP, ZONE-COMFORT-PCT, FC1, FC3, FC11, ECON-1.
+
+**Material mismatch (residual):** OAT-METEO, FC8, FC10, FC2, FC9, FC12, FC13, ECON-2, ECON-4, VAV-1 (small per-VAV confirm deltas).
+
+**Timings:** oracle export ~147s; Rust ingest ~3.2s (+ weather 31,577 rows); run-rules ~197s; compare ~1.4s.
+
+**Tests:** 103 pytest passed, 1 skipped; Rust workspace tests + clippy clean.
+
+**Next:** OAT-METEO timezone join audit; FC13/FC8/FC10 threshold exactness; complete `parameters:` for remaining FC rules; per-request SQL preview via Rust CLI.
+
+---
+
 ## 2026-07-09 — Stage 2 parity push (confirm CTE, ingest column priority, compare report)
 
 **Done:**

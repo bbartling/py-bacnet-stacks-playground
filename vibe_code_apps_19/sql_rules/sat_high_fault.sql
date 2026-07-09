@@ -15,9 +15,9 @@ base AS (
     timestamp_utc,
     CAST(CASE
       WHEN sat IS NOT NULL AND sat_sp IS NOT NULL
-       AND clg_valve_pct > 0.01
-       AND sat > sat_sp + 1.0
-       AND (oa_damper_pct <= 0.05 OR oa_damper_pct > 0.9)
+       AND clg_valve_pct > {{CLG_VALVE_MIN}}
+       AND sat > sat_sp + {{SAT_ERR}}
+       AND (oa_damper_pct <= {{OA_DAMPER_ECON_LOW}} OR oa_damper_pct > {{OA_DAMPER_ECON_HIGH}})
       THEN 1 ELSE 0 END AS INT) AS raw_fault
   FROM h
 ),

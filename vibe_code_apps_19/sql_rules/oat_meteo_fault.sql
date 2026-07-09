@@ -18,7 +18,7 @@ base AS (
   SELECT
     equipment_id,
     timestamp_utc,
-    CAST(CASE WHEN ABS(oa_t - wx_oa_t) > 5.0 THEN 1 ELSE 0 END AS INT) AS raw_fault
+    CAST(CASE WHEN ABS(oa_t - wx_oa_t) > {{OAT_ERR}} THEN 1 ELSE 0 END AS INT) AS raw_fault
   FROM joined
 ),
 grp AS (

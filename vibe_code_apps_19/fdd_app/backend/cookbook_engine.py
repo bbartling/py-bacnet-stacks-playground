@@ -174,13 +174,90 @@ def _match_physical(role: str, columns: list[str], exclude: set[str] | None = No
     for cand in exact:
         if cand.lower() in lower:
             return lower[cand.lower()]
+    if role == "zone_t":
+        for c in columns:
+            if c in exclude:
+                continue
+            cl = c.lower()
+            if "vav_" in cl and "space_temp" in cl and "sa_temp" not in cl and "duct" not in cl:
+                return c
     for pat in subs:
         for c in columns:
             if c in exclude:
                 continue
             if pat in c.lower():
+                if role == "zone_t" and _zone_t_limit_column(c):
+                    continue
                 return c
     return None
+
+
+def _zone_t_limit_column(column: str) -> bool:
+    cl = column.lower()
+    return (
+        "alarm" in cl
+        or "limit" in cl
+        or "setpoint" in cl
+        or "deadband" in cl
+        or cl.endswith("_58")
+        or cl.endswith("_59")
+        or "sa_temp" in cl
+        or "duct" in cl
+        or "inlet" in cl
+    )
+
+
+def _score_zone_t_column(column: str) -> int:
+    """Higher score wins — mirrors Rust ``role_rank::score_zone_t``."""
+    if _zone_t_limit_column(column):
+        return -100
+    cl = column.lower()
+    if "vav_" in cl and "space_temp" in cl and "sa_temp" not in cl and "duct" not in cl:
+        return 100
+    if "space_temp" in cl or "spacetemp" in cl or "zone_temp" in cl:
+        return 70
+    if "zone_t" in cl or "room_temp" in cl or "roomtemp" in cl:
+        return 60
+    return 0
+
+
+def _resolve_zone_t(
+    equipment_id: str,
+    columns: list[str],
+    resolver,
+    exclude: set[str],
+) -> str | None:
+    """Rank all zone_t candidates; reject alarm/limit historian mis-tags."""
+    candidates: list[str] = []
+    rdf_roles = ROLE_CANDIDATES.get("zone_t", ([], [], []))[0]
+    if resolver is not None:
+        for rr in rdf_roles:
+            try:
+                col = resolver.column_for_role(equipment_id, rr)
+            except Exception:
+                col = None
+            if col and col in columns and col not in exclude:
+                candidates.append(col)
+    amap = _ahu_point_map().get(equipment_id)
+    if amap:
+        key = _POINTMAP_ALIAS.get("zone_t", "zone_t")
+        col = amap.get(key)
+        if col and col in columns and col not in exclude:
+            candidates.append(col)
+    for c in columns:
+        if c in exclude:
+            continue
+        if _score_zone_t_column(c) > 0:
+            candidates.append(c)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique.append(c)
+    if not unique:
+        return None
+    return max(unique, key=_score_zone_t_column)
 
 
 def resolve_role(equipment_id: str, role: str, columns: list[str], resolver=None,
@@ -191,6 +268,8 @@ def resolve_role(equipment_id: str, role: str, columns: list[str], resolver=None
     single historian column can't be double-assigned (e.g. chw_valve_pct → clg AND htg).
     """
     exclude = exclude or set()
+    if role == "zone_t":
+        return _resolve_zone_t(equipment_id, columns, resolver, exclude)
     rdf_roles = ROLE_CANDIDATES.get(role, ([], [], []))[0]
     # 1) RDF pointRole / fdd_input
     if resolver is not None:

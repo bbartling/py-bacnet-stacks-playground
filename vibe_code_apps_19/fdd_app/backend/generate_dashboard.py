@@ -377,6 +377,7 @@ def page_html(
 <script src="/static/dashboard_notes.js"></script>
 <script src="/static/dashboard_rules.js"></script>
 <script src="/static/dashboard_cookbook.js"></script>
+<script src="/static/dashboard_sql_tuning.js"></script>
 <script>window.DASHBOARD_PAGE = "{page_id}";</script>
 """
     readonly_banner = (
@@ -421,6 +422,16 @@ def page_html(
 <main>{banner}
 <div class="page-main"><div id="page-content">{body}</div>
 <section class="cookbook-section" id="cookbook-mount" data-page="{page_id}" hidden></section>
+<section class="sql-tuning-section" id="sql-tuning-section" hidden>
+  <header class="sql-tuning-head">
+    <h2>SQL / DataFusion rule tuning</h2>
+    <p class="note">Registry-driven thresholds for Rust rules. Pandas cookbook sliders remain unchanged.</p>
+  </header>
+  <div class="sql-tuning-layout">
+    <nav id="sql-rules-list" class="sql-rules-list"></nav>
+    <div id="sql-tuning-panel" class="sql-tuning-panel"></div>
+  </div>
+</section>
 <section class="notes-feed" id="page-notes-section" data-page="{page_id}">
   <header class="notes-feed-head"><h2>Engineer notes</h2><p class="note">Findings for this page — saved in session and client package.</p></header>
   <div id="notes-post-list" class="notes-post-list"></div>

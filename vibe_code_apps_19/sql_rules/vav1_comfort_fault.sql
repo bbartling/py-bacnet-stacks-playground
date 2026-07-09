@@ -3,7 +3,7 @@ WITH base AS (
   SELECT
     equipment_id,
     timestamp_utc,
-    CAST(CASE WHEN zone_t < 68.0 OR zone_t > 76.0 THEN 1 ELSE 0 END AS INT) AS raw_fault
+    CAST(CASE WHEN zone_t < {{ZONE_T_LO}} OR zone_t > {{ZONE_T_HI}} THEN 1 ELSE 0 END AS INT) AS raw_fault
   FROM history
   WHERE zone_t IS NOT NULL
 ),

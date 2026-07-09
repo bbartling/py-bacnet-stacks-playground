@@ -24,8 +24,35 @@ rules:
     parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    blocker: "VAV_7 zone_t column selection picks alarm limit column in Rust ingest"
     confirm_seconds: 900
+    parameters:
+      zone_t_lo:
+        label: Zone comfort low
+        default: 68.0
+        min: 60.0
+        max: 72.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_LO
+      zone_t_hi:
+        label: Zone comfort high
+        default: 76.0
+        min: 72.0
+        max: 85.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_HI
+      confirm_seconds:
+        label: Confirm time
+        default: 900
+        min: 0
+        max: 3600
+        step: 300
+        unit: sec
+        frontend_control: slider
+        sql_placeholder: CONFIRM_SECONDS
 
   - rule_id: AVG-ZONE-TEMP
     sql_file: avg_zone_temp.sql
@@ -37,8 +64,26 @@ rules:
     parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
-    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
+    parameters:
+      zone_t_lo:
+        label: Zone comfort low (reference)
+        default: 68.0
+        min: 60.0
+        max: 72.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_LO
+      zone_t_hi:
+        label: Zone comfort high (reference)
+        default: 76.0
+        min: 72.0
+        max: 85.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_HI
 
   - rule_id: ZONE-COMFORT-PCT
     sql_file: zone_comfort_pct.sql
@@ -50,8 +95,26 @@ rules:
     parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
-    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
+    parameters:
+      zone_t_lo:
+        label: Zone comfort low
+        default: 68.0
+        min: 60.0
+        max: 72.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_LO
+      zone_t_hi:
+        label: Zone comfort high
+        default: 76.0
+        min: 72.0
+        max: 85.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_HI
 
   - rule_id: FAULT-ELAPSED-HOURS
     sql_file: fault_elapsed_hours.sql
@@ -63,8 +126,26 @@ rules:
     parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
-    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
+    parameters:
+      zone_t_lo:
+        label: Zone comfort low
+        default: 68.0
+        min: 60.0
+        max: 72.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_LO
+      zone_t_hi:
+        label: Zone comfort high
+        default: 76.0
+        min: 72.0
+        max: 85.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: ZONE_T_HI
 
   - rule_id: OAT-METEO
     sql_file: oat_meteo_fault.sql
@@ -77,6 +158,25 @@ rules:
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 900
+    parameters:
+      oat_err:
+        label: OAT vs meteo tolerance
+        default: 5.0
+        min: 1.0
+        max: 15.0
+        step: 0.5
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: OAT_ERR
+      confirm_seconds:
+        label: Confirm time
+        default: 900
+        min: 0
+        max: 3600
+        step: 300
+        unit: sec
+        frontend_control: slider
+        sql_placeholder: CONFIRM_SECONDS
 
   - rule_id: FC13-SAT-HIGH
     sql_file: sat_high_fault.sql
@@ -89,6 +189,52 @@ rules:
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
+    parameters:
+      sat_err:
+        label: SAT high error band
+        default: 1.0
+        min: 0.25
+        max: 5.0
+        step: 0.25
+        unit: degF
+        frontend_control: slider
+        sql_placeholder: SAT_ERR
+      clg_valve_min:
+        label: Cooling valve open threshold
+        default: 0.01
+        min: 0.0
+        max: 0.5
+        step: 0.01
+        unit: frac
+        frontend_control: slider
+        sql_placeholder: CLG_VALVE_MIN
+      oa_damper_econ_low:
+        label: OA damper economizer low
+        default: 0.05
+        min: 0.0
+        max: 0.5
+        step: 0.01
+        unit: frac
+        frontend_control: slider
+        sql_placeholder: OA_DAMPER_ECON_LOW
+      oa_damper_econ_high:
+        label: OA damper economizer high
+        default: 0.9
+        min: 0.5
+        max: 1.0
+        step: 0.01
+        unit: frac
+        frontend_control: slider
+        sql_placeholder: OA_DAMPER_ECON_HIGH
+      confirm_seconds:
+        label: Confirm time
+        default: 600
+        min: 0
+        max: 3600
+        step: 300
+        unit: sec
+        frontend_control: slider
+        sql_placeholder: CONFIRM_SECONDS
 
   - rule_id: ECON-2
     sql_file: economizer_fault.sql

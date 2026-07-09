@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::error::Result;
+use crate::role_rank::is_zone_t_limit_or_alarm_column;
 
 /// Map physical CSV column name → cookbook logical role used by SQL rules.
 pub fn load_column_role_map(path: &Path) -> Result<HashMap<String, String>> {
@@ -34,13 +35,19 @@ pub fn load_column_role_map(path: &Path) -> Result<HashMap<String, String>> {
                 (Some("oa_damper_pct"), _) if normalized == "ahu_point" => {
                     Some("oa_damper_pct".into())
                 }
-                (Some("clg_valve_pct"), _) if normalized == "ahu_point" || normalized == "chw_valve" => {
+                (Some("clg_valve_pct"), _)
+                    if normalized == "ahu_point" || normalized == "chw_valve" =>
+                {
                     Some("clg_valve_pct".into())
                 }
+                (Some("zone_t"), "vav_point") => Some("zone_t".into()),
                 _ => Some(normalized),
             }
         };
         let Some(role) = role else { continue };
+        if role == "zone_t" && is_zone_t_limit_or_alarm_column(&column) {
+            continue;
+        }
         if role == "ahu_point" || role == "ignore" {
             continue;
         }
@@ -137,7 +144,12 @@ fn infer_role_from_column_name(column: &str) -> Option<String> {
     if c.contains("return_air") || c.contains("ra_t") || c.contains("ra-t") {
         return Some("rat".into());
     }
-    if c.contains("mixed_air") || c.contains("ma_t") || c.contains("ma-t") || c == "mad_c" || c == "mad-c" {
+    if c.contains("mixed_air")
+        || c.contains("ma_t")
+        || c.contains("ma-t")
+        || c == "mad_c"
+        || c == "mad-c"
+    {
         return Some("mat".into());
     }
     if c.contains("chw_valve") || c.contains("clg_valve") || c.contains("cooling_valve") {
@@ -149,7 +161,15 @@ fn infer_role_from_column_name(column: &str) -> Option<String> {
     if c.contains("damper") || c.contains("dmpr") {
         return Some("oa_damper_pct".into());
     }
-    if c.contains("zone_t") || c.contains("space_temp") || c.contains("spacetemp") {
+    if c.contains("zone_t") || c.contains("spacetemp") {
+        if is_zone_t_limit_or_alarm_column(column) {
+            return None;
+        }
+        return Some("zone_t".into());
+    }
+    if (c.contains("space_temp") || c.contains("room_temp") || c.contains("roomtemp"))
+        && !is_zone_t_limit_or_alarm_column(column)
+    {
         return Some("zone_t".into());
     }
     if c.contains("da_p") || c.contains("duct_static") {
@@ -223,5 +243,24 @@ mod tests {
         assert_eq!(map.get("dat_reset_f"), Some(&"sat_sp".to_string()));
         assert_eq!(map.get("discharge_air_temp_f"), Some(&"sat".to_string()));
         assert_eq!(map.get("chw_valve_pct"), Some(&"clg_valve_pct".to_string()));
+    }
+
+    #[test]
+    fn vav_space_temp_f_maps_zone_t_from_vav_point() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("columns.csv");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(
+            f,
+            "col,point_name,unit,point_role,vav_id\n\
+             space_temp_f_58,Alarm High,78,zone_temp,VAV_7\n\
+             space_temp_f_77,SpaceTemp,°F,zone_temp,VAV_7\n\
+             vav_7_space_temp_f,space temp,°F,vav_point,VAV_7"
+        )
+        .unwrap();
+        let map = load_column_role_map(&path).unwrap();
+        assert_eq!(map.get("vav_7_space_temp_f"), Some(&"zone_t".to_string()));
+        assert!(!map.contains_key("space_temp_f_58"));
+        assert_eq!(map.get("space_temp_f_77"), Some(&"zone_t".to_string()));
     }
 }

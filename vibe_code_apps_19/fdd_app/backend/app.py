@@ -729,6 +729,78 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
             return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
         return JSONResponse({"ok": True, **data})
 
+    @app.get("/api/sql-rules")
+    def api_sql_rules(
+        building_id: str | None = None,
+        equipment_id: str | None = None,
+    ) -> JSONResponse:
+        import sql_rules_registry as srr
+        from shared.data_config import get_config
+
+        cfg = get_config()
+        b = building_id or cfg.building
+        try:
+            rules = srr.rule_catalog(building_id=b, equipment_id=equipment_id)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({
+            "ok": True,
+            "building": b,
+            "equipment_id": equipment_id,
+            "rust_cache_enabled": srr.rust_cache_enabled(),
+            "rules": rules,
+        })
+
+    @app.post("/api/sql-rules/preview")
+    def api_sql_rules_preview(body: dict = Body(default={})) -> JSONResponse:
+        import sql_rules_registry as srr
+
+        rule_id = str(body.get("rule_id", "")).strip()
+        equipment_id = str(body.get("equipment_id", "")).strip()
+        use_rust = bool(body.get("use_rust_cache", True))
+        raw_params = body.get("params") or {}
+        if not rule_id or not equipment_id:
+            return JSONResponse({"ok": False, "error": "rule_id and equipment_id required"}, status_code=400)
+        try:
+            params = srr.validate_session_params(rule_id, raw_params) if raw_params else {}
+            result = srr.preview_rule_result(
+                rule_id, equipment_id, params, use_rust_cache=use_rust,
+            )
+        except ValueError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse(result)
+
+    @app.post("/api/sql-rules/save-profile")
+    def api_sql_rules_save_profile(request: Request, body: dict = Body(default={})) -> JSONResponse:
+        if not can_edit(auth_session(request)):
+            return JSONResponse({"error": "Read-only — engineer login required"}, status_code=403)
+        import sql_rules_registry as srr
+        from shared.data_config import get_config
+
+        rule_id = str(body.get("rule_id", "")).strip()
+        scope = str(body.get("scope", "global")).strip().lower()
+        building_id = body.get("building_id") or get_config().building
+        equipment_id = body.get("equipment_id")
+        raw_params = body.get("params") or {}
+        if not rule_id:
+            return JSONResponse({"ok": False, "error": "rule_id required"}, status_code=400)
+        try:
+            params = srr.validate_session_params(rule_id, raw_params)
+            path = srr.save_tuning_profile(
+                rule_id=rule_id,
+                scope=scope,
+                params=params,
+                building_id=str(building_id) if building_id else None,
+                equipment_id=str(equipment_id) if equipment_id else None,
+            )
+        except ValueError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+        return JSONResponse({"ok": True, "path": str(path), "scope": scope, "rule_id": rule_id})
+
     @app.post("/api/cookbook/series/{equipment_id}")
     def api_cookbook_series(equipment_id: str, body: dict = Body(default={})) -> JSONResponse:
         import cookbook_engine as ce
