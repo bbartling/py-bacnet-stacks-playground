@@ -11,11 +11,14 @@ Guide for AI agents and vibe-coders building on this stack. **Read before adding
 | Path | Module | When to use |
 | --- | --- | --- |
 | **CSV → Feather (recommended)** | `haystack_rdf/feather_cache.read_history_csv` | Default dashboard load; auto-resample + disk cache |
+| **CSV → Parquet (Rust, stage 1)** | `rust_fdd_core` → `fdd_cli ingest` → `.cache/parquet/` | DataFusion SQL rules, benchmarks, future prod path |
 | **CSV direct** | `pd.read_csv` + contract in `DATA_CONTRACT.md` | Custom scripts; call `maybe_downsample_to_5min` yourself |
 | **Feather direct** | `pd.read_feather` from `.cache/feather/` | Only if you understand cache invalidation (mtime in `.meta.json`) |
-| **SQL / other** | Your adapter → wide DataFrame | Must emit same columns as `history_wide.csv`; apply grid rules below |
+| **SQL / other** | DataFusion (`sql_rules/`) or DuckDB analyst path | Deterministic rules → SQL; debug rollups → DuckDB |
 
 **Do not** call Haystack SPARQL on every HTTP request for path discovery — use filesystem discovery (`raw_data_source_paths()` in `generate_dashboard.py`).
+
+**Migration:** Python pandas remains **oracle** until `fdd_cli compare` documents parity. See [`RUST_CORE_STAGE1.md`](RUST_CORE_STAGE1.md).
 
 ---
 
@@ -41,7 +44,7 @@ Use `effective_poll_seconds` (or `manifest grid_minutes`) for `confirm_fault` ro
 
 ## Feather sidecar cache
 
-- **Location:** `csv_fdd_dashboard/.cache/feather/` (gitignored)
+- **Location:** `fdd_app/backend/.cache/feather/` (gitignored)
 - **Key:** SHA256 of source CSV path
 - **Invalidation:** Source CSV `mtime_ns` in `.meta.json`
 - **Contents:** Post-normalized DataFrame (UTC `timestamp`, `timestamp_local`, downsampled if needed)
@@ -107,22 +110,28 @@ Performance rule still holds: **never block HTTP on full recompute** — keep `d
 
 ## Apache Arrow — what’s next
 
-We already use Arrow via **Feather** (`pyarrow`). See full roadmap: [`ROADMAP_ARROW_PLUGINS_ML.md`](ROADMAP_ARROW_PLUGINS_ML.md).
+We use Arrow via **Feather** (Python) and **Parquet** (Rust `fdd_store`, stage 1). See [`RUST_CORE_STAGE1.md`](RUST_CORE_STAGE1.md) and [`ROADMAP_ARROW_PLUGINS_ML.md`](ROADMAP_ARROW_PLUGINS_ML.md).
+
+| Layer | Today | Production direction |
+| --- | --- | --- |
+| Disk cache | Feather (`pyarrow`) + Rust Parquet sidecars | Parquet primary for rules |
+| Rule engine | pandas cookbook (oracle) | **DataFusion SQL** (`sql_rules/`) |
+| Analyst/debug | DuckDB on Feather/Parquet | Stays optional — not prod rule engine |
 
 | Next step | Expected win |
 | --- | --- |
-| **DuckDB** on Feather/Parquet | Zone/plant rollups across many columns |
-| **Parquet** sidecars | Compression + column pruning |
-| **Arrow Table** interchange | Fewer copies between loader and compute |
-| **Polars** (selective) | Hot groupbys after profiling |
+| **Rust ingest** on BUILDING_100 | Measured cold CSV → Parquet timing |
+| **DataFusion SQL** rule batch | Replace pandas for threshold/rollup rules |
+| **DuckDB** on Feather/Parquet | Zone/plant rollups (analyst path) |
+| **fdd_cli compare** | Documented pandas↔SQL parity |
 
-Keep **cookbook fault masks in pandas** unless exporting SQL parity to Open-FDD edge.
+Keep **new standard FDD rules out of pandas** unless documented in [`PANDAS_TO_SQL_RULE_MIGRATION.md`](PANDAS_TO_SQL_RULE_MIGRATION.md).
 
 ---
 
 ## Tests
 
 ```bash
-cd csv_fdd_dashboard
+cd fdd_app
 pytest test_timeseries_grid.py test_economizer_diagnostics.py test_haystack_rdf.py -q
 ```

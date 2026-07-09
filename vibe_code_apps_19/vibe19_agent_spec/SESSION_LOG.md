@@ -8,6 +8,47 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-09 — Rust FDD core stage 1 (Arrow + Parquet + DataFusion)
+
+**Done:**
+- **`rust_fdd_core/`** — 7 crates: `fdd_core`, `fdd_csv`, `fdd_store`, `fdd_sql`, `fdd_rules`, `fdd_bench`, `fdd_cli`. Validates CSV tree, ingests to Parquet (`.cache/parquet/`), runs DataFusion SQL.
+- **`sql_rules/`** — 8 deterministic rules + `registry.yaml` (fan runtime, zone comfort, OAT/SAT/ECON faults, rollups).
+- **Column role mapping** — `columns.csv` → logical names for SQL (`fan_cmd`, `zone_t`, `oa_t`).
+- **Docs** — `RUST_CORE_STAGE1.md`, `PYTHON_REDUCTION_PLAN.md`, `PANDAS_TO_SQL_RULE_MIGRATION.md`, `RUST_DATA_MODELING_OXIGRAPH_EVAL.md`, benchmark report.
+- **Tests** — `cargo test` 7 passed, `clippy -D warnings` clean; **102 pytest passed**, 1 skipped (unchanged dashboard).
+
+**Not done (next PR):** pandas↔SQL numeric `fdd_cli compare` per rule; 42/50 cookbook rules still pandas-only.
+
+**Follow-up (same PR pass):** Fixed `columns.csv` parsing (`col` + `point_role` headers), BUILDING_100 ingest (1.5M rows / 3.2s), **8/8 SQL rules pass** on real data. Added `rust_fdd_bridge.py` + `/api/sidecar/status` rust_fdd block.
+
+---
+
+## 2026-07-09 — Package rename: `csv_fdd_dashboard` → `fdd_app`
+
+**Done:**
+- **Split layout** — `fdd_app/backend/` (FastAPI + pandas FDD), `fdd_app/frontend/static/` (JS/CSS), `fdd_app/sidecar/` (open-fdd bridge), `fdd_app/tests/`.
+- **Removed dead code** — `wsgi.py`, `dashboard_server.py`, `pandas_rule_scaffolds_for_missing_vav_points.py`.
+- **Deleted generated artifacts** — all `*.html`, `plotly.min.js`, generated CSVs, log files (gitignored; regenerate via `backend/generate_dashboard.py`).
+- **Updated** Dockerfiles, `feather_cache`, `env_loader`, `AGENTS.md`, skills/docs. **102 pytest green.**
+
+---
+
+## 2026-07-08 — FDD performance stack + open-fdd sidecar (hybrid)
+
+**Done:**
+- **Disk fault cache** — `fault_disk_cache.py` persists cookbook results under `.cache/faults/{data_token}/`; server restart is now a cache hit, not a full recompute. Integrated into `cookbook_engine.equipment_view` / `equipment_series` / `run_page`; invalidated by `_data_token()` + `_RULE_SET_VERSION`. (Fixed Windows path: `|` → `_` in cache keys.)
+- **Motor runtime batch** — `motor_runtime_cache.compute_all_motor_stats(raw)` reuses already-loaded raw frames instead of per-motor `load_history_wide()` loop (~180s → seconds); disk-cached by `data_token`. Wired into `generate_dashboard.compute_context` `motor_runtime` branch.
+- **DuckDB rollups** — `duckdb_rollups.py`: zone comfort %, OAT bins, chiller OAT-bin hours, weekly means over Feather/Parquet; pandas fallback when DuckDB absent. `compute_mech_cool_oat_bins` uses it.
+- **Parquet sidecars** — `haystack_rdf/feather_cache.read_history_parquet()` with column pruning, same mtime invalidation as Feather.
+- **open-fdd sidecar (optional)** — `historian_export.py` (logical frames → `telemetry_pivot.jsonl` + `.arrow`, role map `zone_t→zn_t` etc.), `cookbook_sidecar.py` (HTTP `/api/fdd/run`, `is_available()` health, **pandas fallback**), `cookbook_rules_sql.yaml` + `cookbook_sql.py` (dual-backend SQL for SV-RANGE/SV-FLATLINE/VAV-1/OAT-METEO/MOTOR-EXCESS; annotates pandas results with `sidecar` block when `OPENFDD_USE_SIDECAR=1`).
+- **Rule consolidation** — `cookbook_kpi.py` sources overview KPIs from the cookbook engine; index page shows cookbook SCHED-1 hours alongside legacy excess-fan KPI. Deprecation banners on `pandas_rule_scaffolds_for_missing_vav_points.py`, `sensor_qa_engine.py`, `economizer_fdd_engine.py`.
+- **API** — `GET/POST /api/historian/export`, `GET /api/sidecar/status`; optional export on warmup via `OPENFDD_AUTO_EXPORT=1`.
+- **Deploy** — `fdd_app/docker-compose.sidecar.yml` (vibe19-api + openfdd-edge, shared historian volume); `DEPLOY.md` env vars + sidecar quick start.
+- **Tests** — `test_fault_disk_cache.py`, `test_cookbook_sql.py`, `test_historian_export.py`, `test_duckdb_rollups.py`, `test_cookbook_sidecar_parity.py` (skips when edge down). **102 passed, 1 skipped.**
+- **Non-goals kept:** no Rust rewrite of vibe19; pandas stays canonical for charts/complex FC/ML; codebases stay separate (integrate via historian + HTTP + shared YAML).
+
+---
+
 ## 2026-07-08 — Open-FDD cookbook rule engine (data-model-driven)
 
 **Done:**

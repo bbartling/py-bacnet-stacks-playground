@@ -43,9 +43,9 @@ fault_minutes = confirmed.sum() * p["poll_seconds"] / 60.0
 
 | Module | Rules |
 | --- | --- |
-| `csv_fdd_dashboard/economizer_fdd_engine.py` | ECON + sensor QA integration |
-| `csv_fdd_dashboard/sensor_qa_engine.py` | SV-* style validation |
-| `csv_fdd_dashboard/pandas_rule_scaffolds_for_missing_vav_points.py` | VAV stubs |
+| `fdd_app/backend/cookbook_rules.py` + `cookbook_engine.py` | **Canonical** cookbook (48 rules) |
+| `fdd_app/backend/economizer_fdd_engine.py` | Legacy ECON + sensor QA (overlap; consolidating) |
+| `fdd_app/sidecar/cookbook_rules_sql.yaml` | SQL twins for 5 batch rules (optional Rust sidecar) |
 
 ## Params dict
 
@@ -64,7 +64,7 @@ DEFAULT_PARAMS = {
 
 See [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md).
 
-Wire analyst tunables via [`dashboard_params.py`](../../../csv_fdd_dashboard/dashboard_params.py) → `apply_to_generate_dashboard()`.
+Wire analyst tunables via [`dashboard_params.py`](../../../fdd_app/backend/dashboard_params.py) → `apply_to_generate_dashboard()`.
 
 ## Point mapping
 
@@ -84,7 +84,7 @@ Patterns:
 
 ## Export to Open-FDD SQL (optional)
 
-See `csv_fdd_dashboard/docs/economizer_fdd_rules.sql` for SQL twin pattern. Parity matrix: [Open-FDD parity matrix](https://bbartling.github.io/open-fdd/rules/cookbook/parity-matrix.html).
+See `fdd_app/backend/docs/economizer_fdd_rules.sql` for SQL twin pattern. Parity matrix: [Open-FDD parity matrix](https://bbartling.github.io/open-fdd/rules/cookbook/parity-matrix.html).
 
 ## Cookbook sections → repo status
 

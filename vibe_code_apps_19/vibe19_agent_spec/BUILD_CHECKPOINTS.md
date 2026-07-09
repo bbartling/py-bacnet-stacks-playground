@@ -12,7 +12,7 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 
 - [x] External `DATA_ROOT` via `shared/data_config.py` + `.env` / `env_loader.py` + `validate_data.py`
 - [x] Poll interval from `manifest.json` + **auto-resample** sub-5-min data to 5-min means (`timeseries_grid.py`)
-- [x] Port `csv_fdd_dashboard` (9 HTML pages + `data_model.html`, economizer FDD, sensor QA)
+- [x] Port `fdd_app` (9 HTML pages + `data_model.html`, economizer FDD, sensor QA)
 - [x] **FastAPI** `full` / `deploy` modes (migrated from Flask; `asgi.py`, `/docs`, `api_models.py`) + **Docker** (`Dockerfile`, `docker-compose.yml`, `DEPLOY.md`)
 - [x] **Custom rule/ML plugin lab** — `rules/` registry + Pydantic manifests, pandas + sklearn example plugins, `/api/rules[/run]`, rules-lab UI
 - [x] Scaffold `fdd_dashboard_model` (PointCatalog, VAV loader)
@@ -24,21 +24,31 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 - [x] **Haystack RDF / SPARQL** — `haystack_rdf/`, CSV bootstrap, FastAPI `/api/rdf/*` (`fastapi_routes.py`), `data_model.html`
 - [x] **Branding** — Open FDD Vibe Coder (`shared/branding.py`)
 - [x] *(reference example)* **BUILDING_100 VAV import** — 43 per-box folders; mixed grid; validate GO
+- [x] Renamed `csv_fdd_dashboard/` → **`fdd_app/`** with `backend/`, `frontend/static/`, `sidecar/` split. Removed dead code (`wsgi.py`, `dashboard_server.py`, `pandas_rule_scaffolds`). Deleted committed generated HTML/CSV artifacts.
+- [x] **Rust FDD core stage 1** — `rust_fdd_core/` workspace (7 crates), `sql_rules/` (8 rules), `fdd_cli` validate/ingest/query/benchmark, Parquet sidecars, docs + benchmark report. Python dashboard unchanged (102 pytest green).
 
 ---
 
 ## Next for agent (ordered)
 
+### Rust + SQL migration (priority)
+
+1. **BUILDING_100 parity harness** — export pandas oracle JSON; `fdd_cli compare` per rule
+2. **Port P0 SQL rules** — FC1–FC3, FC7–FC13, ECON-*, CHW-* (see `PANDAS_TO_SQL_RULE_MIGRATION.md`)
+3. **Unify SQL registries** — merge `cookbook_rules_sql.yaml` into `sql_rules/registry.yaml`
+4. **Wire ingest to dashboard warmup** — optional `fdd_cli ingest` on refresh
+5. **Rust role resolution** — align with `cookbook_engine.ROLE_CANDIDATES`
+
 ### Template (any site)
 
-1. ~~**Pydantic API schemas**~~ ✅ done — typed bodies in `csv_fdd_dashboard/api_models.py` (validated by FastAPI on `/api/login`, `/api/config`, `/api/refresh`, `/api/rules/run`)
+1. ~~**Pydantic API schemas**~~ ✅ done — typed bodies in `fdd_app/backend/api_models.py` (validated by FastAPI on `/api/login`, `/api/config`, `/api/refresh`, `/api/rules/run`)
 2. **`HistorySource` protocol** — abstract CSV loader; stub `SqlHistorySource` for DuckDB/pg
-3. **DuckDB zone rollups** — experiment on `zones` page vs pandas groupby
+3. ~~**DuckDB zone rollups**~~ ✅ done — `duckdb_rollups.py` (zone comfort %, OAT bins, weekly means); wired into `compute_mech_cool_oat_bins`; pandas fallback + tests
 4. ~~**Custom rule plugins**~~ ✅ done — `rules/plugins/` + `RuleRegistry` + pandas & sklearn examples + tests pending expansion
 5. **Tests for rule registry + plugins** — cover discovery, param validation, `confirm_fault`, ML fallback
 6. **VAV terminal FDD (cookbook §5)** — damper, airflow, reheat via `fdd_dashboard_model`; `vav_diagnostics_page.py` + tests
 7. **Rule catalog index page** — implemented vs cookbook rules with fault hours
-8. **Parquet sidecar option** — optional format in `feather_cache`
+8. ~~**Parquet sidecar option**~~ ✅ done — `feather_cache.read_history_parquet()` with column pruning; same mtime invalidation
 9. **ML plugin example** — ⏳ started (`rules/plugins/ml_oat_residual.py`); next: offline-trained joblib artifact + `models/` convention + parity test
 10. **Multi-building hub** — index linking all `{BUILDING_ID}` folders under `DATA_ROOT`
 11. **CI snippet** — pytest on push (synthetic fixtures only; no client CSV)

@@ -9,12 +9,14 @@ APP_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _candidate_env_files() -> list[Path]:
-    dashboard = APP_ROOT / "csv_fdd_dashboard"
+    dashboard = APP_ROOT / "fdd_app" / "backend"
+    fdd_app = APP_ROOT / "fdd_app"
     cwd = Path.cwd()
     seen: set[Path] = set()
     out: list[Path] = []
     for path in (
         APP_ROOT / ".env",
+        fdd_app / ".env",
         dashboard / ".env",
         cwd / ".env",
         cwd.parent / ".env",

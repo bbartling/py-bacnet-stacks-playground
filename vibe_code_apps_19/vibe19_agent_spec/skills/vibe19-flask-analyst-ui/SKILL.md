@@ -48,7 +48,7 @@ description: >-
 $env:HVAC_DATA_ROOT = "C:\path\to\hvac_systems_CLEANED"
 $env:HVAC_BUILDING = "BUILDING_100"
 $env:DASHBOARD_MODE = "full"
-cd csv_fdd_dashboard
+cd fdd_app
 pip install -r requirements.txt
 python app.py
 # http://127.0.0.1:5000/index.html   ·   API docs: http://127.0.0.1:5000/docs
@@ -71,7 +71,7 @@ python app.py
 - Typed request bodies live in `api_models.py`; interactive API docs at `/docs`, schema at `/openapi.json`
 - Sessions via Starlette `SessionMiddleware` (signed cookie); engineer PIN stored in `request.session`
 - CPU-bound pandas runs in Starlette's threadpool — compute + cache behavior unchanged from the Flask era
-- See [`DEPLOY.md`](../../../csv_fdd_dashboard/DEPLOY.md)
+- See [`DEPLOY.md`](../../../fdd_app/DEPLOY.md)
 - Charts update only when analyst rebuilds `site/` locally — notes can update live in deploy mode
 - Performance: [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md)
 

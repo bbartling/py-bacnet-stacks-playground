@@ -12,10 +12,16 @@ weather/
 **/columns.csv
 
 # Generated dashboard artifacts
-csv_fdd_dashboard/*.html
-csv_fdd_dashboard/site/
-csv_fdd_dashboard/*.zip
-csv_fdd_dashboard/analyst_session.json
+fdd_app/backend/*.html
+fdd_app/backend/site/
+fdd_app/backend/*.zip
+fdd_app/backend/analyst_session.json
+fdd_app/backend/.cache/
+
+# Rust FDD core generated artifacts
+.cache/
+..cache/
+rust_fdd_core/target/
 
 # Generated Haystack RDF models (bootstrap from client CSV)
 data/rdf/

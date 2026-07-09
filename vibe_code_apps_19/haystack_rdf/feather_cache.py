@@ -10,7 +10,7 @@ import pandas as pd
 
 from .timeseries_grid import FIVE_MINUTES_SEC, maybe_downsample_to_5min
 
-_CACHE_ROOT = Path(__file__).resolve().parent.parent / "csv_fdd_dashboard" / ".cache" / "feather"
+_CACHE_ROOT = Path(__file__).resolve().parent.parent / "fdd_app" / "backend" / ".cache" / "feather"
 
 
 def _cache_paths(csv_path: Path) -> tuple[Path, Path]:
@@ -72,4 +72,33 @@ def read_history_csv(csv_path: Path, *, tz: str) -> pd.DataFrame:
     except (OSError, ImportError, ValueError):
         pass
 
+    return df
+
+
+def read_history_parquet(csv_path: Path, *, tz: str, columns: list[str] | None = None) -> pd.DataFrame:
+    """Load historian via Parquet sidecar with optional column pruning."""
+    meta_path, feather_path = _cache_paths(csv_path)
+    parquet_path = feather_path.with_suffix(".parquet")
+    try:
+        csv_mtime = csv_path.stat().st_mtime_ns
+        if meta_path.is_file() and parquet_path.is_file():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            if meta.get("mtime_ns") == csv_mtime and meta.get("source") == str(csv_path):
+                df = pd.read_parquet(parquet_path, columns=columns)
+                if "effective_poll_seconds" not in df.attrs:
+                    df.attrs["effective_poll_seconds"] = meta.get("effective_poll_seconds", FIVE_MINUTES_SEC)
+                return df
+    except (OSError, json.JSONDecodeError, ImportError, ValueError):
+        pass
+
+    df = read_history_csv(csv_path, tz=tz)
+    if columns:
+        keep = [c for c in columns if c in df.columns]
+        if "timestamp" in df.columns and "timestamp" not in keep:
+            keep = ["timestamp"] + keep
+        df = df[keep]
+    try:
+        df.to_parquet(parquet_path, index=False)
+    except (OSError, ImportError, ValueError):
+        pass
     return df

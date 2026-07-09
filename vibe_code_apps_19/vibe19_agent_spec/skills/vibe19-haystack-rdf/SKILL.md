@@ -77,7 +77,7 @@ Exports may use `col` or `column` in `columns.csv` — bootstrap handles both.
 ## Tests
 
 ```bash
-cd csv_fdd_dashboard
+cd fdd_app
 python -m pytest test_haystack_rdf.py test_csv_env_bootstrap.py test_timeseries_grid.py -q
 ```
 

@@ -1,0 +1,60 @@
+# SQL rule registry — deterministic FDD analytics (DataFusion)
+# Each rule maps to a SQL file under this directory.
+# Params substituted at runtime by fdd_cli / Python sidecar bridge.
+
+rules:
+  - rule_id: FAN-RUNTIME-HOURS
+    sql_file: fan_runtime_hours.sql
+    description: Fan running hours where fan_cmd > 5% (normalized 0-1)
+    required_roles: [fan_cmd]
+    output_columns: [equipment_id, fan_runtime_hours, total_hours]
+    confirm_seconds: 0
+
+  - rule_id: VAV-1
+    sql_file: vav1_comfort_fault.sql
+    description: Zone comfort band violation hours
+    required_roles: [zone_t]
+    output_columns: [equipment_id, fault_hours, fault_pct]
+    confirm_seconds: 900
+
+  - rule_id: AVG-ZONE-TEMP
+    sql_file: avg_zone_temp.sql
+    description: Average zone temperature per equipment
+    required_roles: [zone_t]
+    output_columns: [equipment_id, avg_zone_temp, min_zone_temp, max_zone_temp]
+    confirm_seconds: 0
+
+  - rule_id: OAT-METEO
+    sql_file: oat_meteo_fault.sql
+    description: BAS OAT vs reference OAT threshold
+    required_roles: [oa_t]
+    output_columns: [equipment_id, fault_hours, fault_pct]
+    confirm_seconds: 900
+
+  - rule_id: FC13-SAT-HIGH
+    sql_file: sat_high_fault.sql
+    description: SAT above setpoint at full cooling
+    required_roles: [sat, sat_sp, clg_valve_pct]
+    output_columns: [equipment_id, fault_hours]
+    confirm_seconds: 300
+
+  - rule_id: ECON-2
+    sql_file: economizer_fault.sql
+    description: Economizing when outdoor air unfavorable
+    required_roles: [oa_t, oa_damper_pct]
+    output_columns: [equipment_id, fault_hours]
+    confirm_seconds: 900
+
+  - rule_id: FAULT-ELAPSED-HOURS
+    sql_file: fault_elapsed_hours.sql
+    description: Generic fault sample count → hours (poll=300s)
+    required_roles: [zone_t]
+    output_columns: [equipment_id, fault_samples, fault_hours]
+    confirm_seconds: 0
+
+  - rule_id: ZONE-COMFORT-PCT
+    sql_file: zone_comfort_pct.sql
+    description: Percent of samples in comfort band
+    required_roles: [zone_t]
+    output_columns: [equipment_id, comfort_pct]
+    confirm_seconds: 0

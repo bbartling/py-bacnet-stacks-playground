@@ -69,7 +69,7 @@ Same code, different folder under `DATA_ROOT`:
 ```powershell
 $env:HVAC_BUILDING = "BUILDING_50"
 python validate_data.py
-cd csv_fdd_dashboard; python generate_dashboard.py
+cd fdd_app; python generate_dashboard.py
 ```
 
 ## Known import quirks

@@ -32,7 +32,7 @@ Start with `full`. Switch to `api` when you want your own nav/layout but keep se
 
 | Goal | Where |
 | --- | --- |
-| Custom fault / ML rule | `csv_fdd_dashboard/rules/plugins/*.py` |
+| Custom fault / ML rule | `fdd_app/backend/rules/plugins/*.py` |
 | New dashboard page | `page_registry.py` + `body_*` in `generate_dashboard.py` |
 | Tune thresholds | `dashboard_params.py` (`PARAM_DEFS`) |
 | Reskin UI | `static/dashboard.css`, `static/dashboard_theme.js` |

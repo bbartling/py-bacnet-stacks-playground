@@ -1,6 +1,6 @@
 # Enhanced FDD dashboard (data model)
 
-Typed loaders over the same external CSV tree as `csv_fdd_dashboard/`.
+Typed loaders over the same external CSV tree as `fdd_app/`.
 
 ## Layout
 

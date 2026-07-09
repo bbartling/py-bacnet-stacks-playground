@@ -37,7 +37,7 @@ def confirm_fault(raw, poll_seconds, confirm_seconds=300):
 
 ## SQL export (optional)
 
-When a rule stabilizes, add SQL twin under `csv_fdd_dashboard/docs/` following `economizer_fdd_rules.sql`:
+When a rule stabilizes, add SQL twin under `fdd_app/backend/docs/` following `economizer_fdd_rules.sql`:
 
 - Parameterize `@poll_seconds`, `@confirm_samples`
 - Cross-check against pandas on same CSV window

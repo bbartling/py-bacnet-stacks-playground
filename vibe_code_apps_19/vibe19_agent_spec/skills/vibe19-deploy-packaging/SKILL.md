@@ -21,7 +21,7 @@ description: >-
 ## Client read-only zip
 
 ```bash
-cd csv_fdd_dashboard
+cd fdd_app
 python generate_dashboard.py
 python package_dashboard.py
 # → building100_dashboard_readonly.zip (name may vary)
@@ -33,7 +33,7 @@ Includes: HTML, plotly.min.js, static notes JS — **no** CSV data, **no** serve
 
 ```bash
 pip install -r requirements-dev.txt
-cd csv_fdd_dashboard
+cd fdd_app
 python build_docker_deploy.py --from-session --docker
 # → site/ baked + open-fdd-vibe-coder:deploy image
 ```
@@ -63,6 +63,6 @@ Never commit `*.zip` or `site/` — see `.gitignore`.
 
 ## Docs
 
-- [`DEPLOY.md`](../../../csv_fdd_dashboard/DEPLOY.md)
-- [`README.md`](../../../csv_fdd_dashboard/README.md)
+- [`DEPLOY.md`](../../../fdd_app/DEPLOY.md)
+- [`README.md`](../../../fdd_app/README.md)
 - [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md)

@@ -156,7 +156,7 @@ Checks: data root exists, AHU vs weather row parity, VAV folder count, poll inte
 | --- | --- |
 | Mapping JSON, Python, docs, `data_paths.example.yaml` | `history_wide.csv`, `BUILDING_*`, `weather/`, generated `*.html`, zips |
 
-If a **small** sanitized sample (<1 MB) is needed for CI, place under `csv_fdd_dashboard/tests/fixtures/` only.
+If a **small** sanitized sample (<1 MB) is needed for CI, place under `fdd_app/tests/fixtures/` only.
 
 ---
 

@@ -1,6 +1,6 @@
-# Vibe Code App 19 — CSV FDD dashboards
+# Vibe Code App 19 — FDD analyst dashboard (`fdd_app`)
 
-**Template for building your own** RCx / FDD analyst dashboard from CSV exports (no live BACnet). Point at any compatible data tree — swap rules, pages, and params for your site.
+**Template for building your own** RCx / FDD analyst dashboard from historian CSV exports (no live BACnet). Point at any compatible data tree — swap rules, pages, and params for your site.
 
 **Reference examples** (for developing this template, not shipped in git): `BUILDING_100`, `BUILDING_50` under your `HVAC_DATA_ROOT`.
 
@@ -8,8 +8,10 @@
 
 | Directory | Role |
 | --- | --- |
-| [`csv_fdd_dashboard/`](csv_fdd_dashboard/) | **Simple** — Plotly HTML generator + FastAPI tune/deploy |
-| [`fdd_dashboard_model/`](fdd_dashboard_model/) | **Enhanced** — typed point catalog + VAV box loaders for terminal-level rules |
+| [`fdd_app/backend/`](fdd_app/backend/) | **Backend** — FastAPI server, pandas FDD engine, chart generation |
+| [`fdd_app/frontend/`](fdd_app/frontend/) | **Frontend** — static dashboard JS/CSS |
+| [`fdd_app/sidecar/`](fdd_app/sidecar/) | **Sidecar** — optional open-fdd Rust edge bridge |
+| [`fdd_dashboard_model/`](fdd_dashboard_model/) | **Enhanced** — typed point catalog + VAV box loaders |
 | [`shared/`](shared/) | `data_config`, validation script |
 
 ## Data (not in git)
@@ -35,10 +37,10 @@ python validate_data.py
 ## Generate dashboard (your building)
 
 ```bash
-cd vibe_code_apps_19/csv_fdd_dashboard
+cd vibe_code_apps_19/fdd_app
 pip install -r requirements-dev.txt
-python generate_dashboard.py
-python app.py   # interactive tuning at http://127.0.0.1:5000
+cd backend && python generate_dashboard.py
+uvicorn asgi:app --host 127.0.0.1 --port 5000   # http://127.0.0.1:5000
 ```
 
 Poll interval is read from each building’s `manifest.json` (`grid_minutes: 5` → 300s).
@@ -58,4 +60,4 @@ python generate_dashboard.py
 ## Status
 
 - **Import data:** validated via `validate_data.py` when `HVAC_DATA_ROOT` is set
-- **VAV terminal FDD pages:** data model scaffold in `fdd_dashboard_model/` — rules still AHU-centric in `csv_fdd_dashboard`
+- **VAV terminal FDD pages:** data model scaffold in `fdd_dashboard_model/` — rules still AHU-centric in `fdd_app/backend`

@@ -8,16 +8,18 @@ Planning doc for vibe-coders and AI agents. **Not implemented yet** — use this
 
 ## Where we are today (Arrow)
 
-We already use **Apache Arrow** via **PyArrow + Feather**:
+We use **Apache Arrow** in two paths:
 
 | Layer | Today |
 | --- | --- |
-| Disk cache | `haystack_rdf/feather_cache.py` — CSV → normalized DataFrame → `.feather` sidecar |
-| Invalidation | Source CSV `mtime_ns` in `.meta.json` |
-| In-memory | pandas DataFrames in `dashboard_cache` |
-| SQL twin | `economizer_fdd_rules.sql` comments reference Arrow/Feather tables (export target) |
+| Python disk cache | `haystack_rdf/feather_cache.py` — CSV → normalized DataFrame → `.feather` |
+| **Rust disk cache (stage 1)** | `rust_fdd_core/fdd_store` — CSV → Arrow RecordBatch → `.cache/parquet/` |
+| Rule engine (oracle) | pandas `cookbook_engine.py` |
+| Rule engine (target) | DataFusion SQL — `sql_rules/` + `fdd_cli run-rules` |
+| Analyst SQL | DuckDB rollups (`duckdb_rollups.py`) — debug only |
+| open-fdd sidecar | HTTP DataFusion over `telemetry_pivot` export |
 
-Feather **is** Arrow IPC. The main wins left are **how we compute**, not **how we serialize to disk**.
+See [`RUST_CORE_STAGE1.md`](RUST_CORE_STAGE1.md) · [`PANDAS_TO_SQL_RULE_MIGRATION.md`](PANDAS_TO_SQL_RULE_MIGRATION.md).
 
 ---
 
@@ -27,18 +29,15 @@ Feather **is** Arrow IPC. The main wins left are **how we compute**, not **how w
 
 Use `cProfile` or `py-spy` on a cold + warm `POST /api/refresh/index` and `zones`. Only optimize paths that show up. After the 2026 performance stack, typical warm refresh is sub-second — biggest gains may be on **zone rollups** and **multi-VAV** work, not the web framework.
 
-### 2. Parquet sidecars (optional upgrade from Feather)
+### 2. Parquet sidecars — ✅ started (Rust)
 
-| | Feather | Parquet |
-| --- | --- | --- |
-| Read speed | Fast | Fast |
-| Compression | Moderate | Better |
-| Column pruning | No | Yes (read subset of columns) |
-| Ecosystem | pandas, DuckDB | DuckDB, Polars, DataFusion |
+`fdd_cli ingest` writes partitioned Parquet under `.cache/parquet/`. Python `read_history_parquet()` also exists. Next: wire dashboard warmup to prefer Parquet for SQL rule batch.
 
-**Slice:** add `read_history_parquet()` or extend `feather_cache` with `format=feather|parquet` behind the same `read_history_csv()` API. Keep mtime invalidation.
+### 3. DataFusion SQL rules — ✅ started (8 rules)
 
-### 3. DuckDB on cached Arrow files (high value for zones / plant)
+`sql_rules/` + `fdd_cli run-rules`. Production path for deterministic FDD. DuckDB remains analyst/debug.
+
+### 4. DuckDB on cached Arrow files (analyst / debug)
 
 Load Feather/Parquet once; run SQL aggregations for:
 
@@ -143,7 +142,7 @@ Use **Pydantic v2** at system boundaries only:
 
 **Do not** wrap every pandas operation. Hot path stays numpy/pandas.
 
-**Done:** request bodies are now typed FastAPI/Pydantic models in `csv_fdd_dashboard/api_models.py` (`LoginBody`, `ConfigBody`, `RefreshBody`, `RunRuleBody`), validated automatically before merge into session — no manual `request.get_json()` parsing.
+**Done:** request bodies are now typed FastAPI/Pydantic models in `fdd_app/backend/api_models.py` (`LoginBody`, `ConfigBody`, `RefreshBody`, `RunRuleBody`), validated automatically before merge into session — no manual `request.get_json()` parsing.
 
 ---
 

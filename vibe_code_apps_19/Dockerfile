@@ -21,12 +21,12 @@ WORKDIR /app
 
 COPY shared/ shared/
 COPY haystack_rdf/ haystack_rdf/
-COPY csv_fdd_dashboard/ csv_fdd_dashboard/
+COPY fdd_app/ fdd_app/
 
-RUN pip install --no-cache-dir -r csv_fdd_dashboard/requirements-dev.txt \
+RUN pip install --no-cache-dir -r fdd_app/requirements-dev.txt \
     && pip install --no-cache-dir gunicorn
 
-WORKDIR /app/csv_fdd_dashboard
+WORKDIR /app/fdd_app
 
 ENV PYTHONUNBUFFERED=1
 ENV DASHBOARD_MODE=full

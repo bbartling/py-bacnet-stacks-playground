@@ -20,7 +20,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 6. **Compute lazily per page** — pass `page_id` to `compute_context()`; use `dashboard_cache`.
 7. **Rules follow Open-FDD pandas cookbook** — raw mask → optional smooth → `confirm_fault()` → rollup hours.
 8. **Equipment identity** — `point_role` + folder path > vendor `point_name`.
-9. **Deploy = Docker or static zip** — not PythonAnywhere; see `csv_fdd_dashboard/DEPLOY.md`.
+9. **Deploy = Docker or static zip** — not PythonAnywhere; see `fdd_app/DEPLOY.md`.
 10. **Update this spec after meaningful changes** — `BUILD_CHECKPOINTS.md`, `SESSION_LOG.md`, relevant skill.
 11. **Custom rules = disk plugins only** — never `exec()` Python from API; see [`docs/ROADMAP_ARROW_PLUGINS_ML.md`](docs/ROADMAP_ARROW_PLUGINS_ML.md).
 
@@ -75,7 +75,7 @@ Do **not** commit client CSV paths or secrets into the spec.
 | --- | --- |
 | `shared/` | `data_config`, `env_loader`, `validate_hvac_data`, `branding` |
 | `haystack_rdf/` | Feather cache, grid resample, RDF/SPARQL, CSV bootstrap |
-| `csv_fdd_dashboard/` | Plotly HTML + FastAPI + `dashboard_cache.py` |
+| `fdd_app/` | Plotly HTML + FastAPI + `dashboard_cache.py` |
 | `fdd_dashboard_model/` | Enhanced catalogs + VAV loaders (terminal rules) |
 | `Dockerfile`, `docker-compose.yml` | Container deploy (analyst + deploy modes) |
 | `data/` | Pointer / junction docs — no bulk CSV in git |
@@ -119,7 +119,7 @@ Never hardcode customer-specific paths or building labels in committed code.
 cd vibe_code_apps_19
 python validate_data.py
 
-cd csv_fdd_dashboard
+cd fdd_app
 pip install -r requirements-dev.txt
 python -m pytest test_timeseries_grid.py test_economizer_diagnostics.py test_haystack_rdf.py test_csv_env_bootstrap.py -q
 python app.py   # → http://127.0.0.1:5000/index.html (shell ~0.05s; charts via refresh)

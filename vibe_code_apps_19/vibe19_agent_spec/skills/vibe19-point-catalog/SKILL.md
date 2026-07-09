@@ -2,7 +2,7 @@
 name: vibe19-point-catalog
 description: >-
   Use when working with fdd_dashboard_model: PointCatalog, columns.csv point_role,
-  VAV box loaders, terminal-level FDD, enhanced data model vs csv_fdd_dashboard.
+  VAV box loaders, terminal-level FDD, enhanced data model vs fdd_app.
   Triggers on: VAV, point catalog, fdd_dashboard_model, terminal, damper, reheat,
   airflow, columns.csv, load_vav, BuildingDataset.
 ---
@@ -13,7 +13,7 @@ description: >-
 
 | Track | Use case |
 | --- | --- |
-| `csv_fdd_dashboard/` | Fast HTML, AHU-wide columns, hardcoded mappings |
+| `fdd_app/backend/` | FastAPI + pandas FDD, AHU-wide columns, hardcoded mappings |
 | `fdd_dashboard_model/` | Per-VAV `columns.csv`, terminal rules, typed loaders |
 
 Prefer **enhanced model** for cookbook **§5 VAV zones** and any rule needing per-box history.
