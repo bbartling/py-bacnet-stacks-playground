@@ -1,5 +1,5 @@
--- oat_meteo_fault.sql — BAS OAT vs weather reference (|Δ| > 5°F) + confirm
--- Requires weather Parquet sidecar (`weather` table). Falls back to zero rows if absent.
+-- oat_meteo_fault.sql — BAS OAT vs weather reference (|Δ| > threshold) + confirm
+-- LEFT JOIN matches Python: full equipment timeline; wx null → not fault.
 WITH wx AS (
   SELECT timestamp_utc, oa_t AS wx_oa_t FROM weather WHERE oa_t IS NOT NULL
 ),
@@ -10,7 +10,7 @@ joined AS (
     h.oa_t,
     wx.wx_oa_t
   FROM history h
-  INNER JOIN wx ON h.timestamp_utc = wx.timestamp_utc
+  LEFT JOIN wx ON h.timestamp_utc = wx.timestamp_utc
   WHERE h.oa_t IS NOT NULL
     AND (h.equipment_id LIKE 'AHU%' OR h.equipment_id LIKE 'AHU_%')
 ),
@@ -18,7 +18,9 @@ base AS (
   SELECT
     equipment_id,
     timestamp_utc,
-    CAST(CASE WHEN ABS(oa_t - wx_oa_t) > {{OAT_ERR}} THEN 1 ELSE 0 END AS INT) AS raw_fault
+    CAST(CASE
+      WHEN wx_oa_t IS NOT NULL AND ABS(oa_t - wx_oa_t) > {{OAT_ERR}}
+      THEN 1 ELSE 0 END AS INT) AS raw_fault
   FROM joined
 ),
 grp AS (
