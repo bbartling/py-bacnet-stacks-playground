@@ -11,19 +11,11 @@ weather/
 **/history_wide.csv
 **/columns.csv
 
-# Generated dashboard artifacts
-fdd_app/backend/*.html
-fdd_app/backend/site/
-fdd_app/backend/*.zip
-fdd_app/backend/analyst_session.json
-fdd_app/backend/.cache/
-
-# Rust FDD core generated artifacts
+# Generated / cache artifacts
 .cache/
 ..cache/
-rust_fdd_core/target/
 
-# Generated Haystack RDF models (bootstrap from client CSV)
+# Generated RDF models
 data/rdf/
 
 # Python
@@ -31,3 +23,4 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.streamlit/
