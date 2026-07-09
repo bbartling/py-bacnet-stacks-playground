@@ -1,0 +1,90 @@
+"""Tests for all 50 cookbook rules."""
+
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+import yaml
+
+from app.rules import CANONICAL_RULE_COUNT, RULES, RULES_BY_ID, run_rule
+from app.rules.base import RuleResult
+from app.rules.runner import run_all_cookbook_rules
+
+
+def test_canonical_count():
+    assert CANONICAL_RULE_COUNT == 50
+    assert len(RULES) == 50
+
+
+def test_inventory_metadata():
+    from pathlib import Path
+
+    inv = yaml.safe_load((Path(__file__).parent.parent / "configs" / "rule_inventory.yaml").read_text(encoding="utf-8"))
+    assert inv["canonical_rule_count"] == 50
+    assert len(inv["rules"]) == 50
+
+
+@pytest.mark.parametrize("rule_id", [r.id for r in RULES])
+def test_every_rule_imports(rule_id: str):
+    assert rule_id in RULES_BY_ID
+
+
+@pytest.mark.parametrize("rule_id", [r.id for r in RULES])
+def test_skip_when_roles_missing(rule_id: str):
+    idx = pd.date_range("2024-06-01", periods=5, freq="5min", tz="UTC")
+    df = pd.DataFrame(index=idx)
+    df.attrs["equipment_id"] = "TEST_EQ"
+    r = run_rule(rule_id, df, {}, 300.0)
+    assert isinstance(r, RuleResult)
+    assert r.status in ("SKIPPED_MISSING_ROLES", "NOT_APPLICABLE_EQUIPMENT_TYPE", "PASS", "FAULT", "ERROR")
+    if r.status == "SKIPPED_MISSING_ROLES":
+        assert not r.applicable
+        assert r.missing_roles
+    if r.status == "NOT_APPLICABLE_EQUIPMENT_TYPE":
+        assert not r.applicable
+
+
+def _ahu_df(**cols) -> pd.DataFrame:
+    n = len(next(iter(cols.values())))
+    idx = pd.date_range("2024-06-01", periods=n, freq="5min", tz="UTC")
+    df = pd.DataFrame(cols, index=idx)
+    df.attrs["equipment_id"] = "AHU_1"
+    return df
+
+
+def test_fc2_runs_with_roles():
+    df = _ahu_df(
+        mat=[70, 70, 65, 65, 65],
+        rat=[70, 70, 70, 70, 70],
+        oa_t=[30, 30, 30, 30, 30],
+        fan_cmd=[50, 50, 50, 50, 50],
+    )
+    r = run_rule("FC2", df, {"confirm_min": 0}, 300.0)
+    assert r.applicable
+    assert r.status in ("PASS", "FAULT")
+
+
+def test_vav1_runs_with_roles():
+    df = _ahu_df(zone_t=[72, 72, 65, 78, 72])
+    df.attrs["equipment_id"] = "VAV_7"
+    r = run_rule("VAV-1", df, {"zone_lo": 68, "zone_hi": 76, "confirm_min": 0}, 300.0)
+    assert r.applicable
+    assert r.status == "FAULT"
+
+
+def test_run_all_returns_50():
+    idx = pd.date_range("2024-06-01", periods=3, freq="5min", tz="UTC")
+    df = pd.DataFrame({"oa_t": [70, 71, 72]}, index=idx)
+    df.attrs["equipment_id"] = "AHU_1"
+    results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
+    assert len(results) == 50
+
+
+def test_result_shape():
+    idx = pd.date_range("2024-06-01", periods=3, freq="5min", tz="UTC")
+    df = pd.DataFrame(index=idx)
+    df.attrs["equipment_id"] = "X"
+    r = run_rule("FC1", df, {}, 300.0)
+    d = r.to_dict()
+    for key in ("rule_id", "equipment_id", "site_id", "building_id", "equipment_type", "status", "applicable", "missing_roles", "notes"):
+        assert key in d
