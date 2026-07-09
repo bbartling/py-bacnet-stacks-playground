@@ -1,0 +1,1288 @@
+canonical_rule_count: 50
+rules:
+- rule_id: SV-RANGE
+  family: sensor
+  title: Sensor out of hard range
+  description: "Any modeled sensor reads outside its physical hard range (e.g. OAT\
+    \ \u0393\xEA\xC660\u0393\xC7\xF4130\u252C\u2591F, SAT 30\u0393\xC7\xF4150\u252C\
+    \u2591F, CHWS 30\u0393\xC7\xF480\u252C\u2591F)."
+  required_roles: []
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - weather
+  - zone
+  - heatpump
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: true
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sweep_range
+  known_limitations: ''
+- rule_id: SV-FLATLINE
+  family: sensor
+  title: Sensor flatline (stuck)
+  description: "Sensor value unchanged (\u256C\xF6 \u0393\xEB\xF1 tolerance) across\
+    \ the flatline window \u0393\xC7\xF6 stuck / frozen sensor."
+  required_roles: []
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - weather
+  - zone
+  - heatpump
+  tunable_params:
+  - flatline_tol
+  - flatline_hours
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: true
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sweep_flatline
+  known_limitations: ''
+- rule_id: SV-SPIKE
+  family: sensor
+  title: Sensor rate-of-change spike
+  description: Sample-to-sample jump exceeds the physical spike limit for the sensor
+    type.
+  required_roles: []
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - weather
+  - zone
+  - heatpump
+  tunable_params:
+  - spike_scale
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: true
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sweep_spike
+  known_limitations: ''
+- rule_id: SV-STALE
+  family: sensor
+  title: Stale data (no fresh samples)
+  description: "All modeled sensors unchanged over the stale window \u0393\xC7\xF6\
+    \ data feed likely dropped."
+  required_roles: []
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - weather
+  - zone
+  - heatpump
+  tunable_params:
+  - stale_hours
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: true
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sweep_stale
+  known_limitations: ''
+- rule_id: SV-4
+  family: sensor
+  title: Mixing envelope (MAT vs OAT/RAT)
+  description: "MAT falls outside min(OAT,RAT) \u0393\xEA\xC6 2.2\u252C\u2591F \u0393\
+    \xC7\xAA max(OAT,RAT) + 2.2\u252C\u2591F envelope \u0393\xC7\xF6 implausible mixed-air\
+    \ reading."
+  required_roles:
+  - mat
+  - oa_t
+  - rat
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - env_f
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sv4_envelope
+  known_limitations: ''
+- rule_id: FC1
+  family: ahu
+  title: Duct static below SP at full fan (GL36 A)
+  description: "Fan \u0393\xEB\xD1 87% AND duct static < static SP \u0393\xEA\xC6\
+    \ 0.12 in.w.c."
+  required_roles:
+  - duct_static
+  - duct_static_sp
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - duct_static_err
+  - fan_hi
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc1
+  known_limitations: ''
+- rule_id: FC2
+  family: ahu
+  title: MAT below OAT/RAT envelope (GL36 B)
+  description: "Fan on AND MAT \u0393\xEA\xC6 1.15\u252C\u2591F < min(RAT, OAT) \u0393\
+    \xEA\xC6 1.15\u252C\u2591F."
+  required_roles:
+  - mat
+  - oa_t
+  - rat
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - mix_tol
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc2
+  known_limitations: ''
+- rule_id: FC3
+  family: ahu
+  title: MAT above OAT/RAT envelope (GL36 C)
+  description: "Fan on AND MAT \u0393\xEA\xC6 1.15\u252C\u2591F > max(RAT, OAT) +\
+    \ 1.15\u252C\u2591F."
+  required_roles:
+  - mat
+  - oa_t
+  - rat
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - mix_tol
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc3
+  known_limitations: ''
+- rule_id: FC4
+  family: ahu
+  title: PID hunting (operating-state oscillation)
+  description: More than 5 operating-mode entry transitions in any hour (heating/econ/mech
+    modes).
+  required_roles:
+  - oa_damper_pct
+  - clg_valve_pct
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - delta_os_max
+  - confirm_min
+  default_confirm_seconds: 3600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc4
+  known_limitations: ''
+- rule_id: FC5
+  family: ahu
+  title: SAT cold when heating commanded (GL36 D)
+  description: "Fan on AND heating > 1% AND SAT + 1.15\u252C\u2591F \u0393\xEB\xF1\
+    \ MAT \u0393\xEA\xC6 1.15\u252C\u2591F + 0.55\u252C\u2591F."
+  required_roles:
+  - sat
+  - mat
+  - fan_cmd
+  - htg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - mix_tol
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc5
+  known_limitations: ''
+- rule_id: FC6
+  family: ahu
+  title: Estimated OA fraction mismatch
+  description: "|RAT\u0393\xEA\xC6OAT| \u0393\xEB\xD1 5\u252C\u2591F AND |estimated\
+    \ OA% \u0393\xEA\xC6 design min OA%| > 15% in heating/mech-only modes."
+  required_roles:
+  - mat
+  - oa_t
+  - rat
+  - vav_total_flow
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - airflow_err
+  - min_cfm_design
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc6
+  known_limitations: ''
+- rule_id: FC7
+  family: ahu
+  title: SAT low with full heating (GL36 E)
+  description: "Fan on AND heating > 90% AND SAT < SAT SP \u0393\xEA\xC6 1.0\u252C\
+    \u2591F."
+  required_roles:
+  - sat
+  - sat_sp
+  - fan_cmd
+  - htg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - sat_err
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc7
+  known_limitations: ''
+- rule_id: FC8
+  family: ahu
+  title: SAT/MAT mismatch in economizer (GL36 F)
+  description: "Economizer open, CHW < 10%, |SAT \u0393\xEA\xC6 0.55\u252C\u2591F\
+    \ \u0393\xEA\xC6 MAT| > \u0393\xEA\xDC(1.15\u252C\u2593+1.15\u252C\u2593)."
+  required_roles:
+  - sat
+  - mat
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc8
+  known_limitations: ''
+- rule_id: FC9
+  family: ahu
+  title: OAT too warm for free cooling (GL36 G)
+  description: "Economizer open, CHW < 10%, OAT \u0393\xEA\xC6 1.15\u252C\u2591F >\
+    \ SAT SP \u0393\xEA\xC6 0.55\u252C\u2591F + 1.15\u252C\u2591F."
+  required_roles:
+  - oa_t
+  - sat_sp
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc9
+  known_limitations: ''
+- rule_id: FC10
+  family: ahu
+  title: OAT/MAT mismatch + mech cooling (GL36 H)
+  description: "CHW > 1%, economizer > 90%, |MAT \u0393\xEA\xC6 OAT| > \u0393\xEA\xDC\
+    (1.15\u252C\u2593+1.15\u252C\u2593)."
+  required_roles:
+  - mat
+  - oa_t
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc10
+  known_limitations: ''
+- rule_id: FC11
+  family: ahu
+  title: OAT/MAT mismatch economizer-only (GL36 I)
+  description: "CHW > 1%, economizer > 90%, OAT + 1.15\u252C\u2591F < SAT SP \u0393\
+    \xEA\xC6 0.55\u252C\u2591F \u0393\xEA\xC6 1.15\u252C\u2591F."
+  required_roles:
+  - oa_t
+  - sat_sp
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc11
+  known_limitations: ''
+- rule_id: FC12
+  family: ahu
+  title: SAT above blend in cooling (GL36 J)
+  description: "CHW > 1%, SAT \u0393\xEA\xC6 1.15\u252C\u2591F \u0393\xEA\xC6 0.55\u252C\
+    \u2591F > MAT + 1.15\u252C\u2591F at min or full economizer."
+  required_roles:
+  - sat
+  - mat
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc12
+  known_limitations: ''
+- rule_id: FC13
+  family: ahu
+  title: SAT above SP at full cooling (GL36 K)
+  description: "CHW > 1%, SAT > SAT SP + 1.0\u252C\u2591F at min or full economizer."
+  required_roles:
+  - sat
+  - sat_sp
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - sat_err
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc13
+  known_limitations: ''
+- rule_id: FC14
+  family: ahu
+  title: "CHW coil \u256C\xF6T when inactive (GL36 L)"
+  description: "Cooling coil \u256C\xF6T \u0393\xEB\xD1 \u0393\xEA\xDC(1.15\u252C\u2593\
+    +1.15\u252C\u2593)+0.55\u252C\u2591F while coil should be inactive."
+  required_roles:
+  - clg_coil_enter_t
+  - clg_coil_leave_t
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc14
+  known_limitations: ''
+- rule_id: FC15
+  family: ahu
+  title: "HW coil \u256C\xF6T when inactive (GL36 M)"
+  description: "Heating coil \u256C\xF6T \u0393\xEB\xD1 \u0393\xEA\xDC(1.15\u252C\u2593\
+    +1.15\u252C\u2593)+0.55\u252C\u2591F while coil should be inactive."
+  required_roles:
+  - htg_coil_enter_t
+  - htg_coil_leave_t
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: fc15
+  known_limitations: ''
+- rule_id: AHU-SATDEV
+  family: ahu
+  title: SAT deviation from setpoint
+  description: "|SAT \u0393\xEA\xC6 SAT SP| > 5\u252C\u2591F."
+  required_roles:
+  - sat
+  - sat_sp
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - sat_dev_err
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: ahu_sat_dev
+  known_limitations: ''
+- rule_id: AHU-DUCTHI
+  family: ahu
+  title: Duct static pressure high
+  description: Duct static > static SP + 0.25 in.w.c.
+  required_roles:
+  - duct_static
+  - duct_static_sp
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - duct_high_margin
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: ahu_duct_high
+  known_limitations: ''
+- rule_id: AHU-SIMUL
+  family: ahu
+  title: Heating and cooling simultaneous
+  description: Heating valve > 10% AND cooling valve > 10% at once.
+  required_roles:
+  - htg_valve_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - valve_open_pct
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: ahu_simul_heat_cool
+  known_limitations: ''
+- rule_id: OAT-METEO
+  family: ahu
+  title: BAS outdoor-air sensor vs Open-Meteo
+  description: "BAS OAT sensor differs from Open-Meteo dry bulb by more than 5\u252C\
+    \u2591F."
+  required_roles:
+  - oa_t
+  - wx_oa_t
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - oat_err
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: oat_vs_meteo
+  known_limitations: ''
+- rule_id: ECON-1
+  family: ahu
+  title: Economizer stuck closed
+  description: "Fan on, OA damper < 5%, OAT > 55\u252C\u2591F (should be economizing)."
+  required_roles:
+  - fan_cmd
+  - oa_damper_pct
+  - oa_t
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - econ1_oat_min
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ1
+  known_limitations: ''
+- rule_id: ECON-2
+  family: ahu
+  title: Economizing when outdoor unfavorable
+  description: "OAT > 63\u252C\u2591F AND OA damper > 42% (should be at minimum)."
+  required_roles:
+  - oa_t
+  - oa_damper_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - econ2_oat_hi
+  - econ2_damper
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ2
+  known_limitations: ''
+- rule_id: ECON-3
+  family: ahu
+  title: Mech cooling when econ available
+  description: "Economizer available (OA dry-bulb 35\u0393\xC7\xF472\u252C\u2591F\
+    \ AND OA dew point < 60\u252C\u2591F when Open-Meteo present; else OAT < 63\u252C\
+    \u2591F), OA damper < 32%, cooling valve > 1% \u0393\xC7\xF6 mechanical cooling\
+    \ while free cooling was available."
+  required_roles:
+  - oa_t
+  - oa_damper_pct
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - econ3_db_min
+  - econ3_db_max
+  - econ3_dp_max
+  - econ3_oat_fallback
+  - econ3_damper
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ2
+  known_limitations: ECON-3 uses weather-aware compute in runner.py
+- rule_id: ECON-4
+  family: ahu
+  title: Low estimated OA fraction
+  description: "Fan on, |RAT\u0393\xEA\xC6OAT| > 2.2\u252C\u2591F, estimated OA fraction\
+    \ < 21%."
+  required_roles:
+  - mat
+  - rat
+  - oa_t
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - oa_min_pct
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ4
+  known_limitations: ''
+- rule_id: ECON-5
+  family: ahu
+  title: Preheat over-conditioning
+  description: "Preheat leaving air > 2.2\u252C\u2591F above target while preheat\
+    \ active."
+  required_roles:
+  - preheat_leave_t
+  - sat_sp
+  - oa_t
+  - htg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ5
+  known_limitations: ''
+- rule_id: VAV-1
+  family: vav
+  title: Zone comfort band
+  description: "Zone temp < 68\u252C\u2591F or > 76\u252C\u2591F."
+  required_roles:
+  - zone_t
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  - zone
+  tunable_params:
+  - zone_lo
+  - zone_hi
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav1
+  known_limitations: ''
+- rule_id: VAV-3
+  family: vav
+  title: Excessive reheat during warm weather
+  description: "Air flowing AND OAT > 78\u252C\u2591F AND reheat valve > 52%."
+  required_roles:
+  - oa_t
+  - reheat_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - reheat_oat
+  - reheat_pct
+  - flow_on_min
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav3
+  known_limitations: ''
+- rule_id: VAV-4
+  family: vav
+  title: Damper stuck at full open
+  description: Air flowing AND damper > 97.5% sustained across the window.
+  required_roles:
+  - damper_pct
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - full_open_pct
+  - sustain_hours
+  - flow_on_min
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav4
+  known_limitations: ''
+- rule_id: VAV-5
+  family: vav
+  title: Airflow sensor bias
+  description: Airflow > 50 cfm while damper < 10% (implausible flow).
+  required_roles:
+  - zone_flow
+  - damper_pct
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav5
+  known_limitations: ''
+- rule_id: VAV-REHEAT
+  family: vav
+  title: Reheat valve stuck / no temp rise
+  description: "Air flowing AND reheat valve > 30% AND box discharge temp rises <\
+    \ 3\u252C\u2591F above duct inlet (air from AHU) \u0393\xC7\xF6 stuck or failed\
+    \ reheat valve/coil."
+  required_roles:
+  - reheat_valve_pct
+  - vav_disch_t
+  - vav_inlet_t
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - reheat_cmd
+  - min_rise
+  - flow_on_min
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav_reheat_stuck
+  known_limitations: ''
+- rule_id: VAV-7
+  family: vav
+  title: Minimum airflow violation
+  description: Zone airflow below its minimum airflow setpoint.
+  required_roles:
+  - zone_flow
+  - min_flow_sp
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav7
+  known_limitations: ''
+- rule_id: CHW-1
+  family: plant
+  title: "Low chilled-water \u256C\xF6T"
+  description: "Pump on AND (CHWR \u0393\xEA\xC6 CHWS) < 4\u252C\u2591F."
+  required_roles:
+  - chw_supply_t
+  - chw_return_t
+  optional_roles: []
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - min_dt
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: chw1
+  known_limitations: ''
+- rule_id: CHW-2
+  family: plant
+  title: DP below SP at max pump speed
+  description: "Pump \u0393\xEB\xD1 87% AND CHW DP < DP SP \u0393\xEA\xC6 2.2."
+  required_roles:
+  - chw_dp
+  - chw_dp_sp
+  - chw_pump_cmd
+  optional_roles: []
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - dp_margin
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: chw2
+  known_limitations: ''
+- rule_id: CHW-3
+  family: plant
+  title: Plant supply temp outside deadband
+  description: "Pump on AND |CHWS \u0393\xEA\xC6 CHWS SP| > 2.2\u252C\u2591F."
+  required_roles:
+  - chw_supply_t
+  - chw_supply_t_sp
+  - chw_pump_cmd
+  optional_roles: []
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - sp_band
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: chw3
+  known_limitations: ''
+- rule_id: CHW-4
+  family: plant
+  title: Flow high at max pump
+  description: "Pump \u0393\xEB\xD1 87% AND CHW flow > 1100 gpm."
+  required_roles:
+  - chw_flow
+  - chw_pump_cmd
+  optional_roles: []
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - flow_hi
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: chw4
+  known_limitations: ''
+- rule_id: HP-1
+  family: heatpump
+  title: Discharge cold when heating
+  description: "Fan on, zone < 69\u252C\u2591F, discharge SAT < 85\u252C\u2591F."
+  required_roles:
+  - sat
+  - zone_t
+  - fan_cmd
+  optional_roles: []
+  equipment_kinds:
+  - heatpump
+  tunable_params:
+  - min_sat
+  - zone_cold
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: hp1
+  known_limitations: ''
+- rule_id: WX-1
+  family: weather
+  title: OA temperature spike
+  description: "OAT sample-to-sample jump > 16\u252C\u2591F."
+  required_roles:
+  - oa_t
+  optional_roles: []
+  equipment_kinds:
+  - weather
+  tunable_params:
+  - spike_limit
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: wx1
+  known_limitations: ''
+- rule_id: WX-2
+  family: weather
+  title: Gust lower than sustained wind
+  description: Reported wind gust < sustained wind speed.
+  required_roles:
+  - wind_gust
+  - wind_speed
+  optional_roles: []
+  equipment_kinds:
+  - weather
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 300
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: wx2
+  known_limitations: ''
+- rule_id: TRIM-1
+  family: trim
+  title: Duct static trim advisory
+  description: Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.
+  required_roles:
+  - duct_static
+  - vav_press_req_sum
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 1800
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: trim1
+  known_limitations: ''
+- rule_id: TRIM-3
+  family: trim
+  title: HWST trim advisory
+  description: "HW supply > 160\u252C\u2591F while reset requests are low."
+  required_roles:
+  - hw_supply_t
+  - hw_reset_req_sum
+  optional_roles: []
+  equipment_kinds:
+  - boiler
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 1800
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: trim3
+  known_limitations: ''
+- rule_id: TRIM-4
+  family: trim
+  title: CHW plant reset advisory
+  description: "CHW supply < 45\u252C\u2591F while reset requests are low."
+  required_roles:
+  - chw_supply_t
+  - chw_reset_req_sum
+  optional_roles: []
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 1800
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: trim4
+  known_limitations: ''
+- rule_id: SCHED-1
+  family: ahu
+  title: Unoccupied runtime
+  description: Fan running while occupancy mode is unoccupied.
+  required_roles:
+  - occ_mode
+  - fan_status
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 1800
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: sched1
+  known_limitations: ''
+- rule_id: CMD-1
+  family: ahu
+  title: Fan cmd/status mismatch
+  description: Fan command and proven status disagree.
+  required_roles:
+  - fan_cmd
+  - fan_status
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: cmd1
+  known_limitations: ''
+- rule_id: OA-1
+  family: ahu
+  title: Low OA fraction
+  description: Estimated OA fraction < 15% with adequate OAT/RAT split.
+  required_roles:
+  - mat
+  - rat
+  - oa_t
+  - fan_status
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - min_oa_frac
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: oa1
+  known_limitations: ''
+- rule_id: DMP-1
+  family: ahu
+  title: OA damper leakage
+  description: "Damper \u0393\xEB\xF1 5% but MAT tracks OAT within 2\u252C\u2591F\
+    \ \u0393\xC7\xF6 leaking OA damper."
+  required_roles:
+  - oa_t
+  - mat
+  - oa_damper_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - leak_delta
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: dmp1
+  known_limitations: ''
+- rule_id: VLV-1
+  family: ahu
+  title: Cooling valve leakage
+  description: "Cooling valve \u0393\xEB\xF1 5% but SAT runs > 2\u252C\u2591F below\
+    \ setpoint."
+  required_roles:
+  - sat
+  - sat_sp
+  - clg_valve_pct
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vlv1
+  known_limitations: ''

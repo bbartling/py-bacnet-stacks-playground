@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -39,16 +37,16 @@ def trend_chart(
                 secondary_y=True,
             )
     fig.update_layout(title=title, height=420, margin=dict(l=40, r=40, t=50, b=40), legend=dict(orientation="h"))
-    fig.update_yaxes(title_text="value", secondary_y=False)
-    fig.update_yaxes(title_text="fault", secondary_y=True, showgrid=False, range=[0, 1.2])
     return fig
 
 
 def rule_result_chart(df: pd.DataFrame, result: RuleResult) -> go.Figure | None:
+    if result.confirmed_fault is None:
+        return None
     series = dict(result.plot_series)
-    if not series and result.rule_id in {"SAT-HIGH", "VAV-1", "ECON-2"}:
-        for col in ("zone_t", "sat", "sat_sp", "oa_t", "oa_damper_pct", "fan_cmd"):
-            if col in df.columns:
+    if not series:
+        for col in df.columns:
+            if col in ("zone_t", "sat", "sat_sp", "oa_t", "oa_damper_pct", "fan_cmd", "mat", "rat"):
                 series[col] = df[col]
     if not series:
         return None

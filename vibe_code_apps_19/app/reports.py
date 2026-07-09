@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from io import StringIO
 from typing import Any
 
 import pandas as pd
@@ -18,10 +17,13 @@ def results_summary_table(results: list[RuleResult]) -> pd.DataFrame:
             {
                 "rule_id": r.rule_id,
                 "equipment_id": r.equipment_id,
+                "status": r.status,
+                "applicable": r.applicable,
+                "missing_roles": ", ".join(r.missing_roles),
                 "fault_hours": r.fault_hours,
                 "fault_pct": r.fault_pct,
-                "total_hours": r.total_hours,
-                "message": r.message,
+                "fault_samples": r.fault_sample_count,
+                "notes": r.notes,
             }
         )
     return pd.DataFrame(rows)
@@ -30,10 +32,12 @@ def results_summary_table(results: list[RuleResult]) -> pd.DataFrame:
 def debug_frame(result: RuleResult) -> pd.DataFrame:
     if result.debug is not None:
         return result.debug
+    if result.raw_fault is None:
+        return pd.DataFrame()
     return pd.DataFrame(
         {
             "raw_fault": result.raw_fault.astype(int),
-            "confirmed_fault": result.confirmed_fault.astype(int),
+            "confirmed_fault": result.confirmed_fault.astype(int) if result.confirmed_fault is not None else 0,
         }
     )
 

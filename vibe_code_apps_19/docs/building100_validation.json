@@ -1,0 +1,129 @@
+{
+  "building_id": "BUILDING_100",
+  "equipment_count": 48,
+  "canonical_rules": 50,
+  "total_evaluations": 2400,
+  "pass": 2,
+  "fault": 11,
+  "skipped": 2387,
+  "error": 0,
+  "top_missing_roles": [
+    [
+      "any sensor role from sweep list",
+      180
+    ],
+    [
+      "damper_pct",
+      86
+    ],
+    [
+      "zone_flow",
+      86
+    ],
+    [
+      "reheat_valve_pct",
+      84
+    ],
+    [
+      "oa_t",
+      43
+    ],
+    [
+      "vav_disch_t",
+      43
+    ],
+    [
+      "vav_inlet_t",
+      43
+    ],
+    [
+      "min_flow_sp",
+      43
+    ],
+    [
+      "zone_t",
+      42
+    ],
+    [
+      "oa_damper_pct",
+      26
+    ],
+    [
+      "clg_valve_pct",
+      24
+    ],
+    [
+      "mat",
+      22
+    ],
+    [
+      "sat_sp",
+      14
+    ],
+    [
+      "rat",
+      12
+    ],
+    [
+      "htg_valve_pct",
+      8
+    ]
+  ],
+  "top_faults": [
+    {
+      "rule_id": "SV-FLATLINE",
+      "equipment_id": "VAV_7",
+      "fault_hours": 1490.92
+    },
+    {
+      "rule_id": "SV-STALE",
+      "equipment_id": "VAV_7",
+      "fault_hours": 1077.42
+    },
+    {
+      "rule_id": "SV-FLATLINE",
+      "equipment_id": "AHU_1",
+      "fault_hours": 570.0
+    },
+    {
+      "rule_id": "SV-FLATLINE",
+      "equipment_id": "AHU_2",
+      "fault_hours": 465.33
+    },
+    {
+      "rule_id": "SV-STALE",
+      "equipment_id": "AHU_1",
+      "fault_hours": 181.5
+    },
+    {
+      "rule_id": "SV-STALE",
+      "equipment_id": "AHU_2",
+      "fault_hours": 180.83
+    },
+    {
+      "rule_id": "VAV-1",
+      "equipment_id": "VAV_7",
+      "fault_hours": 42.25
+    },
+    {
+      "rule_id": "SV-SPIKE",
+      "equipment_id": "AHU_1",
+      "fault_hours": 0.5
+    },
+    {
+      "rule_id": "SV-SPIKE",
+      "equipment_id": "AHU_2",
+      "fault_hours": 0.5
+    },
+    {
+      "rule_id": "SV-RANGE",
+      "equipment_id": "AHU_1",
+      "fault_hours": 0.25
+    },
+    {
+      "rule_id": "SV-RANGE",
+      "equipment_id": "AHU_2",
+      "fault_hours": 0.25
+    }
+  ]
+}

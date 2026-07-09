@@ -1,19 +1,14 @@
-"""Shared rule helpers."""
+"""Shared rule helpers and standard result contract."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
-
-def norm_cmd(s: pd.Series | None) -> pd.Series:
-    if s is None:
-        return pd.Series(dtype=float)
-    s = pd.to_numeric(s, errors="coerce")
-    return s.where(s <= 1.0, s / 100.0)
+RuleStatus = Literal["PASS", "FAULT", "SKIPPED", "ERROR"]
 
 
 def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float = 300.0) -> pd.Series:
@@ -32,27 +27,90 @@ def hours_true(mask: pd.Series, poll_seconds: float) -> float:
 class RuleResult:
     rule_id: str
     equipment_id: str
-    raw_fault: pd.Series
-    confirmed_fault: pd.Series
-    fault_hours: float
-    fault_pct: float
-    total_hours: float
+    status: RuleStatus
+    applicable: bool
+    missing_roles: list[str] = field(default_factory=list)
+    fault_hours: float | None = None
+    fault_pct: float | None = None
+    sample_count: int = 0
+    fault_sample_count: int = 0
+    metrics: dict[str, Any] = field(default_factory=dict)
     debug: pd.DataFrame | None = None
+    notes: str = ""
+    raw_fault: pd.Series | None = None
+    confirmed_fault: pd.Series | None = None
     plot_series: dict[str, pd.Series] = field(default_factory=dict)
-    message: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rule_id": self.rule_id,
+            "equipment_id": self.equipment_id,
+            "status": self.status,
+            "applicable": self.applicable,
+            "missing_roles": list(self.missing_roles),
+            "fault_hours": self.fault_hours,
+            "fault_pct": self.fault_pct,
+            "sample_count": self.sample_count,
+            "fault_sample_count": self.fault_sample_count,
+            "metrics": dict(self.metrics),
+            "debug": self.debug,
+            "notes": self.notes,
+        }
 
 
-def finalize(rule_id: str, equipment_id: str, raw: pd.Series, poll_seconds: float, confirm_seconds: float) -> RuleResult:
-    confirmed = confirm_fault(raw, poll_seconds=poll_seconds, confirm_seconds=confirm_seconds)
-    total_h = len(raw) * poll_seconds / 3600.0
-    fault_h = hours_true(confirmed, poll_seconds)
-    pct = 100.0 * fault_h / total_h if total_h else 0.0
+def skipped(rule_id: str, equipment_id: str, missing: list[str], notes: str = "") -> RuleResult:
+    msg = f"SKIPPED — missing roles: {', '.join(missing)}"
     return RuleResult(
         rule_id=rule_id,
         equipment_id=equipment_id,
-        raw_fault=raw,
-        confirmed_fault=confirmed,
+        status="SKIPPED",
+        applicable=False,
+        missing_roles=missing,
+        fault_hours=None,
+        fault_pct=None,
+        notes=notes or msg,
+    )
+
+
+def error_result(rule_id: str, equipment_id: str, exc: Exception) -> RuleResult:
+    return RuleResult(
+        rule_id=rule_id,
+        equipment_id=equipment_id,
+        status="ERROR",
+        applicable=False,
+        notes=f"ERROR — {type(exc).__name__}: {exc}",
+    )
+
+
+def finalize_result(
+    rule_id: str,
+    equipment_id: str,
+    raw: pd.Series,
+    poll_seconds: float,
+    confirm_seconds: float,
+    *,
+    metrics: dict[str, Any] | None = None,
+    plot_series: dict[str, pd.Series] | None = None,
+) -> RuleResult:
+    confirmed = confirm_fault(raw, poll_seconds=poll_seconds, confirm_seconds=confirm_seconds)
+    n = len(raw)
+    fault_n = int(confirmed.sum())
+    total_h = n * poll_seconds / 3600.0
+    fault_h = hours_true(confirmed, poll_seconds)
+    pct = 100.0 * fault_h / total_h if total_h else 0.0
+    status: RuleStatus = "FAULT" if fault_n > 0 else "PASS"
+    return RuleResult(
+        rule_id=rule_id,
+        equipment_id=equipment_id,
+        status=status,
+        applicable=True,
         fault_hours=round(fault_h, 2),
         fault_pct=round(pct, 2),
-        total_hours=round(total_h, 2),
+        sample_count=n,
+        fault_sample_count=fault_n,
+        metrics=metrics or {},
+        raw_fault=raw,
+        confirmed_fault=confirmed,
+        plot_series=plot_series or {},
+        notes=f"{fault_h:.1f}h fault ({pct:.1f}%)" if fault_n else "No confirmed faults",
     )
