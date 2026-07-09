@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -134,31 +133,16 @@ def load_local_folder(folder: Path) -> dict[str, pd.DataFrame]:
     }
 
 
-def load_sqlite_table(db_path: Path, table: str) -> pd.DataFrame:
-    import sqlite3
+def load_sqlite_table(db_path: Path, table: str, *, row_limit: int | None = None) -> pd.DataFrame:
+    from app.sql_sources import load_sqlite_table as _load
 
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    try:
-        df = pd.read_sql_query(f'SELECT * FROM "{table}"', con)
-    finally:
-        con.close()
-    return normalize_timestamp(df)
+    return _load(db_path, table, row_limit=row_limit)
 
 
 def load_duckdb_query(db_path: Path, query: str) -> pd.DataFrame:
-    import duckdb
+    from app.sql_sources import load_duckdb_query as _load
 
-    q = query.strip()
-    if not re.match(r"^\s*select\b", q, re.I):
-        raise ValueError("Only read-only SELECT queries are allowed")
-    if re.search(r"\b(insert|update|delete|drop|create|alter|attach)\b", q, re.I):
-        raise ValueError("Destructive SQL is not allowed")
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        df = con.execute(q).df()
-    finally:
-        con.close()
-    return normalize_timestamp(df)
+    return _load(db_path, query)
 
 
 def load_parquet(path: Path) -> pd.DataFrame:

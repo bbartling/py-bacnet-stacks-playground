@@ -36,10 +36,12 @@ def test_skip_when_roles_missing(rule_id: str):
     df.attrs["equipment_id"] = "TEST_EQ"
     r = run_rule(rule_id, df, {}, 300.0)
     assert isinstance(r, RuleResult)
-    assert r.status in ("SKIPPED", "PASS", "FAULT", "ERROR")
-    if r.status == "SKIPPED":
+    assert r.status in ("SKIPPED_MISSING_ROLES", "NOT_APPLICABLE_EQUIPMENT_TYPE", "PASS", "FAULT", "ERROR")
+    if r.status == "SKIPPED_MISSING_ROLES":
         assert not r.applicable
-        assert r.missing_roles or "not applicable" in r.notes.lower()
+        assert r.missing_roles
+    if r.status == "NOT_APPLICABLE_EQUIPMENT_TYPE":
+        assert not r.applicable
 
 
 def _ahu_df(**cols) -> pd.DataFrame:
@@ -84,5 +86,5 @@ def test_result_shape():
     df.attrs["equipment_id"] = "X"
     r = run_rule("FC1", df, {}, 300.0)
     d = r.to_dict()
-    for key in ("rule_id", "equipment_id", "status", "applicable", "missing_roles", "notes"):
+    for key in ("rule_id", "equipment_id", "site_id", "building_id", "equipment_type", "status", "applicable", "missing_roles", "notes"):
         assert key in d

@@ -1,4 +1,4 @@
-"""Simple YAML role mapping — no Haystack/Oxigraph."""
+"""Simple YAML role mapping — flat and nested multi-site (no Haystack/Oxigraph)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,17 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
+
+from app.mapping_wizard import (
+    DEFAULT_BUILDING_ID,
+    DEFAULT_SITE_ID,
+    flat_role_map_from_sites,
+    is_nested_role_map,
+    load_site_mapping,
+    save_site_mapping,
+    sites_from_yaml,
+    wrap_flat_role_map,
+)
 
 ROLE_ALIASES = {
     "outside_air_temp": "oa_t",
@@ -21,7 +32,6 @@ ROLE_ALIASES = {
     "outdoor_air_damper": "oa_damper_pct",
 }
 
-# point_role / column substring → cookbook logical role
 POINT_ROLE_CANONICAL: dict[str, str] = {
     "discharge_air_temp": "sat",
     "return_air_temp": "rat",
@@ -47,7 +57,6 @@ POINT_ROLE_CANONICAL: dict[str, str] = {
     "chw_return": "chw_return_t",
 }
 
-# (column substring patterns, role) — lower priority than explicit point_role map
 COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("discharge_air_temp_f", "da-t"), "sat"),
     (("dat_reset", "sat_sp", "sat_setpoint"), "sat_sp"),
@@ -70,7 +79,6 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("ductintemp", "duct_in"), "vav_inlet_t"),
 ]
 
-# When multiple columns map to one role, prefer names matching these substrings (first match wins)
 ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
     "zone_t": ("spacetemp", "space_temp", "zone_temp"),
     "zone_flow": ("actflow", "flow_input", "airflow"),
@@ -101,23 +109,36 @@ def _rank_column(role: str, col: str) -> int:
     for i, p in enumerate(prefs):
         if p in cl:
             return i
-    if "alarm" in cl or "limit" in cl or "setpoint" in cl and role == "zone_t":
+    if "alarm" in cl or "limit" in cl or ("setpoint" in cl and role == "zone_t"):
         return 100
     return 50
 
 
-    return 50
-
-
 def load_role_map(path: Path) -> dict[str, dict[str, str]]:
+    """Load flat equipment→roles map (nested YAML is unwrapped)."""
     if not path.is_file():
         return {}
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        return {}
+    if is_nested_role_map(data):
+        return flat_role_map_from_sites(sites_from_yaml(data))
     return {str(k): {str(r): str(c) for r, c in v.items()} for k, v in data.items() if isinstance(v, dict)}
 
 
+def load_role_map_nested(path: Path):
+    return load_site_mapping(path)
+
+
+def save_role_map(path: Path, mapping: dict[str, dict[str, str]], *, nested: bool = False) -> None:
+    if nested:
+        save_site_mapping(path, wrap_flat_role_map(mapping))
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(mapping, sort_keys=True), encoding="utf-8")
+
+
 def roles_from_columns_csv(columns_path: Path | None) -> dict[str, str]:
-    """Build canonical role→column from columns.csv point_role + column heuristics."""
     if columns_path is None or not Path(columns_path).is_file():
         return {}
     df = pd.read_csv(columns_path)
@@ -151,7 +172,6 @@ def enrich_role_map_from_equipment(
     columns_path: Path | None,
     history_columns: list[str] | None = None,
 ) -> dict[str, dict[str, str]]:
-    """Merge YAML, columns.csv roles, and column-name suggestions."""
     merged = dict(role_map.get(equipment_id, {}))
     merged.update(roles_from_columns_csv(columns_path))
     if history_columns:
@@ -160,17 +180,11 @@ def enrich_role_map_from_equipment(
     return role_map
 
 
-def save_role_map(path: Path, mapping: dict[str, dict[str, str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(mapping, sort_keys=True), encoding="utf-8")
-
-
 def suggest_roles(df: pd.DataFrame) -> dict[str, str]:
     out: dict[str, str] = {}
     for col in df.columns:
-        cl = col.lower()
         for patterns, role in COL_PATTERN_ROLES:
-            if any(p in cl for p in patterns):
+            if any(p in col.lower() for p in patterns):
                 if role not in out or _rank_column(role, col) < _rank_column(role, out[role]):
                     out[role] = col
                 break
@@ -196,3 +210,17 @@ def resolve_role(df: pd.DataFrame, equipment_id: str, role_map: dict, role: str)
 def validate_required_roles(equipment_id: str, df: pd.DataFrame, role_map: dict, required: list[str]) -> list[str]:
     mapped = apply_role_map(df, equipment_id, role_map)
     return [r for r in required if r not in mapped.columns or mapped[r].isna().all()]
+
+
+__all__ = [
+    "DEFAULT_BUILDING_ID",
+    "DEFAULT_SITE_ID",
+    "apply_role_map",
+    "enrich_role_map_from_equipment",
+    "load_role_map",
+    "load_role_map_nested",
+    "roles_from_columns_csv",
+    "save_role_map",
+    "suggest_roles",
+    "validate_required_roles",
+]

@@ -1,4 +1,4 @@
-"""Run the 50-rule pandas cookbook with skip-on-missing-role behavior."""
+"""Run the 50-rule pandas cookbook with explicit skip / not-applicable behavior."""
 
 from __future__ import annotations
 
@@ -7,26 +7,22 @@ from typing import Any
 import pandas as pd
 
 from app.rules import cookbook_catalog as cb
-from app.rules.base import RuleResult, error_result, finalize_result, skipped
+from app.rules.base import RuleResult, error_result, finalize_result, not_applicable, skipped
+from app.site_model import equipment_type_from_id
 
 
 def infer_equipment_kind(equipment_id: str) -> str:
-    u = equipment_id.upper().replace("\\", "/")
-    if "WEATHER" in u:
-        return "weather"
-    if "VAV" in u:
-        return "vav"
-    if u.startswith("AHU") or "/AHU" in u:
-        return "ahu"
-    if "CHILLER" in u or u.startswith("CHW"):
-        return "chiller"
-    if "BOILER" in u:
-        return "boiler"
-    if "HEAT" in u and "PUMP" in u:
-        return "heatpump"
-    if "ZONE" in u:
-        return "zone"
-    return "unknown"
+    t = equipment_type_from_id(equipment_id)
+    return {
+        "AHU": "ahu",
+        "VAV": "vav",
+        "CHW_PLANT": "chiller",
+        "BOILER": "boiler",
+        "HP": "heatpump",
+        "WEATHER": "weather",
+        "METER": "meter",
+        "UNKNOWN": "unknown",
+    }.get(t, "unknown")
 
 
 def merge_weather(df: pd.DataFrame, weather: pd.DataFrame | None) -> pd.DataFrame:
@@ -88,6 +84,13 @@ def _params_for_rule(rule: cb.CookbookRule, params_by_rule: dict[str, dict]) -> 
     return p
 
 
+def _ctx_from_df(df: pd.DataFrame, equipment_id: str, equipment_type: str) -> tuple[str, str, str]:
+    site_id = str(df.attrs.get("site_id", ""))
+    building_id = str(df.attrs.get("building_id", ""))
+    eq_type = str(df.attrs.get("equipment_type", equipment_type))
+    return site_id, building_id, eq_type
+
+
 def run_cookbook_rule(
     rule: cb.CookbookRule,
     df: pd.DataFrame,
@@ -97,15 +100,37 @@ def run_cookbook_rule(
     poll_seconds: float,
     params_by_rule: dict[str, dict] | None = None,
     weather: pd.DataFrame | None = None,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "",
 ) -> RuleResult:
     params_by_rule = params_by_rule or {}
+    eq_type = equipment_type or equipment_type_from_id(equipment_id)
+    sid, bid, _ = _ctx_from_df(df, equipment_id, eq_type)
+    sid = site_id or sid
+    bid = building_id or bid
+
     if equipment_kind != "unknown" and equipment_kind not in rule.equipment_kinds:
-        return skipped(rule.id, equipment_id, [], notes=f"SKIPPED — rule not applicable to equipment kind '{equipment_kind}'")
+        return not_applicable(
+            rule.id,
+            equipment_id,
+            equipment_kind,
+            site_id=sid,
+            building_id=bid,
+            equipment_type=eq_type,
+        )
 
     d = merge_weather(df, weather)
     missing = _missing_roles(rule, d)
     if missing:
-        return skipped(rule.id, equipment_id, missing)
+        return skipped(
+            rule.id,
+            equipment_id,
+            missing,
+            site_id=sid,
+            building_id=bid,
+            equipment_type=eq_type,
+        )
 
     params = _params_for_rule(rule, params_by_rule)
     confirm_s = _confirm_seconds(rule, params)
@@ -122,9 +147,26 @@ def run_cookbook_rule(
             metrics["sensors_checked"] = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
         if rule.id == "ECON-3":
             metrics["weather_gate"] = "open-meteo dew point" if wx_ok else "imperial OAT fallback"
-        return finalize_result(rule.id, equipment_id, raw, poll_seconds, confirm_s, metrics=metrics)
+        return finalize_result(
+            rule.id,
+            equipment_id,
+            raw,
+            poll_seconds,
+            confirm_s,
+            site_id=sid,
+            building_id=bid,
+            equipment_type=eq_type,
+            metrics=metrics,
+        )
     except Exception as exc:
-        return error_result(rule.id, equipment_id, exc)
+        return error_result(
+            rule.id,
+            equipment_id,
+            exc,
+            site_id=sid,
+            building_id=bid,
+            equipment_type=eq_type,
+        )
 
 
 def run_all_cookbook_rules(
@@ -134,6 +176,9 @@ def run_all_cookbook_rules(
     poll_seconds: float,
     params_by_rule: dict[str, dict] | None = None,
     weather: pd.DataFrame | None = None,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "",
 ) -> list[RuleResult]:
     kind = infer_equipment_kind(equipment_id)
     return [
@@ -145,12 +190,57 @@ def run_all_cookbook_rules(
             poll_seconds=poll_seconds,
             params_by_rule=params_by_rule,
             weather=weather,
+            site_id=site_id,
+            building_id=building_id,
+            equipment_type=equipment_type,
         )
         for rule in cb.RULES
     ]
 
 
-# Public aliases
+def run_batch(
+    equipment_frames: dict[str, pd.DataFrame],
+    *,
+    params_by_rule: dict[str, dict] | None = None,
+    weather: pd.DataFrame | None = None,
+    equipment_filter: set[str] | None = None,
+    building_filter: str | None = None,
+    site_filter: str | None = None,
+) -> list[RuleResult]:
+    """Run all 50 rules for each equipment in scope — no silent omission."""
+    results: list[RuleResult] = []
+    for eq_id, raw_df in sorted(equipment_frames.items()):
+        if equipment_filter is not None and eq_id not in equipment_filter:
+            continue
+        sid = str(raw_df.attrs.get("site_id", ""))
+        bid = str(raw_df.attrs.get("building_id", ""))
+        if site_filter and sid and sid != site_filter:
+            continue
+        if building_filter and bid and bid != building_filter:
+            continue
+        from app.role_map import apply_role_map
+
+        role_map = raw_df.attrs.get("_role_map") or {}
+        mapped = apply_role_map(raw_df, eq_id, role_map)
+        mapped.attrs.update(raw_df.attrs)
+        mapped.attrs["equipment_id"] = eq_id
+        poll = float(raw_df.attrs.get("poll_seconds") or 300.0)
+        eq_type = str(raw_df.attrs.get("equipment_type", equipment_type_from_id(eq_id)))
+        results.extend(
+            run_all_cookbook_rules(
+                mapped,
+                equipment_id=eq_id,
+                poll_seconds=poll,
+                params_by_rule=params_by_rule,
+                weather=weather,
+                site_id=sid,
+                building_id=bid,
+                equipment_type=eq_type,
+            )
+        )
+    return results
+
+
 RULES = cb.RULES
 RULES_BY_ID = cb.RULES_BY_ID
 catalog = cb.catalog

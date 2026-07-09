@@ -16,7 +16,10 @@ def results_summary_table(results: list[RuleResult]) -> pd.DataFrame:
         rows.append(
             {
                 "rule_id": r.rule_id,
+                "site_id": r.site_id,
+                "building_id": r.building_id,
                 "equipment_id": r.equipment_id,
+                "equipment_type": r.equipment_type,
                 "status": r.status,
                 "applicable": r.applicable,
                 "missing_roles": ", ".join(r.missing_roles),

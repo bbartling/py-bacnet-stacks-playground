@@ -8,7 +8,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-RuleStatus = Literal["PASS", "FAULT", "SKIPPED", "ERROR"]
+RuleStatus = Literal["PASS", "FAULT", "SKIPPED_MISSING_ROLES", "NOT_APPLICABLE_EQUIPMENT_TYPE", "ERROR"]
 
 
 def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float = 300.0) -> pd.Series:
@@ -29,6 +29,9 @@ class RuleResult:
     equipment_id: str
     status: RuleStatus
     applicable: bool
+    site_id: str = ""
+    building_id: str = ""
+    equipment_type: str = "UNKNOWN"
     missing_roles: list[str] = field(default_factory=list)
     fault_hours: float | None = None
     fault_pct: float | None = None
@@ -45,6 +48,9 @@ class RuleResult:
         return {
             "rule_id": self.rule_id,
             "equipment_id": self.equipment_id,
+            "site_id": self.site_id,
+            "building_id": self.building_id,
+            "equipment_type": self.equipment_type,
             "status": self.status,
             "applicable": self.applicable,
             "missing_roles": list(self.missing_roles),
@@ -58,12 +64,24 @@ class RuleResult:
         }
 
 
-def skipped(rule_id: str, equipment_id: str, missing: list[str], notes: str = "") -> RuleResult:
+def skipped(
+    rule_id: str,
+    equipment_id: str,
+    missing: list[str],
+    notes: str = "",
+    *,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "UNKNOWN",
+) -> RuleResult:
     msg = f"SKIPPED — missing roles: {', '.join(missing)}"
     return RuleResult(
         rule_id=rule_id,
         equipment_id=equipment_id,
-        status="SKIPPED",
+        site_id=site_id,
+        building_id=building_id,
+        equipment_type=equipment_type,
+        status="SKIPPED_MISSING_ROLES",
         applicable=False,
         missing_roles=missing,
         fault_hours=None,
@@ -72,10 +90,43 @@ def skipped(rule_id: str, equipment_id: str, missing: list[str], notes: str = ""
     )
 
 
-def error_result(rule_id: str, equipment_id: str, exc: Exception) -> RuleResult:
+def not_applicable(
+    rule_id: str,
+    equipment_id: str,
+    equipment_kind: str,
+    *,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "UNKNOWN",
+) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
         equipment_id=equipment_id,
+        site_id=site_id,
+        building_id=building_id,
+        equipment_type=equipment_type,
+        status="NOT_APPLICABLE_EQUIPMENT_TYPE",
+        applicable=False,
+        missing_roles=[],
+        notes=f"NOT_APPLICABLE — rule not applicable to equipment kind '{equipment_kind}'",
+    )
+
+
+def error_result(
+    rule_id: str,
+    equipment_id: str,
+    exc: Exception,
+    *,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "UNKNOWN",
+) -> RuleResult:
+    return RuleResult(
+        rule_id=rule_id,
+        equipment_id=equipment_id,
+        site_id=site_id,
+        building_id=building_id,
+        equipment_type=equipment_type,
         status="ERROR",
         applicable=False,
         notes=f"ERROR — {type(exc).__name__}: {exc}",
@@ -89,6 +140,9 @@ def finalize_result(
     poll_seconds: float,
     confirm_seconds: float,
     *,
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "UNKNOWN",
     metrics: dict[str, Any] | None = None,
     plot_series: dict[str, pd.Series] | None = None,
 ) -> RuleResult:
@@ -102,6 +156,9 @@ def finalize_result(
     return RuleResult(
         rule_id=rule_id,
         equipment_id=equipment_id,
+        site_id=site_id,
+        building_id=building_id,
+        equipment_type=equipment_type,
         status=status,
         applicable=True,
         fault_hours=round(fault_h, 2),

@@ -2,7 +2,7 @@
 
 from app.rules.base import RuleResult
 from app.rules.cookbook_catalog import RULES, RULES_BY_ID, catalog
-from app.rules.runner import infer_equipment_kind, run_all_cookbook_rules, run_cookbook_rule
+from app.rules.runner import infer_equipment_kind, run_all_cookbook_rules, run_batch, run_cookbook_rule
 
 CANONICAL_RULE_COUNT = len(RULES)
 
@@ -46,5 +46,6 @@ __all__ = [
     "run_all",
     "run_rule",
     "run_all_cookbook_rules",
+    "run_batch",
     "run_cookbook_rule",
 ]

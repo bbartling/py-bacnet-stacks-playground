@@ -9,8 +9,9 @@ Lightweight **Python + Streamlit + pandas** educational app implementing the **f
 - All **50 cookbook rules** in readable pandas (`app/rules/cookbook_catalog.py`)
 - Streamlit UI with tunable sliders, rule inventory, engineer notes
 - Manual YAML role mapping — no Haystack/Oxigraph
-- CSV tree, upload, local folder, read-only SQLite/DuckDB, optional Parquet
-- **SKIPPED** status when required roles are missing (never silent omission)
+- CSV tree, multi-file upload, local folder, read-only SQLite/DuckDB/SQL Server, optional Parquet
+- Multi-site / building / equipment nested YAML mapping (Haystack-*like*, no RDF)
+- Explicit statuses: `PASS`, `FAULT`, `SKIPPED_MISSING_ROLES`, `NOT_APPLICABLE_EQUIPMENT_TYPE`, `ERROR`
 
 ## What this app is not
 
@@ -53,4 +54,7 @@ python scripts/validate_building100.py
 
 - [STREAMLIT_DEMO_SPEC.md](docs/STREAMLIT_DEMO_SPEC.md)
 - [STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md)
-- [BUILDING_100_STREAMLIT_RULE_VALIDATION.md](docs/BUILDING_100_STREAMLIT_RULE_VALIDATION.md)
+- [MULTI_SITE_CSV_SQL_SPEC.md](docs/MULTI_SITE_CSV_SQL_SPEC.md)
+- [CSV_UPLOAD_GUIDE.md](docs/CSV_UPLOAD_GUIDE.md)
+- [SQL_SERVER_INPUT_GUIDE.md](docs/SQL_SERVER_INPUT_GUIDE.md)
+- [BRANCH_RECONCILIATION_STREAMLIT_MERGE.md](docs/BRANCH_RECONCILIATION_STREAMLIT_MERGE.md)

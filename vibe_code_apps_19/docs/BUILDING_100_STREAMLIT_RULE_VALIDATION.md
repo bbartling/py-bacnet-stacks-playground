@@ -11,7 +11,8 @@
 | --- | ---: |
 | PASS | 121 |
 | FAULT | 215 |
-| SKIPPED | 2064 |
+| SKIPPED_MISSING_ROLES | 187 |
+| NOT_APPLICABLE_EQUIPMENT_TYPE | 1877 |
 | ERROR | 0 |
 
 ## Top missing roles

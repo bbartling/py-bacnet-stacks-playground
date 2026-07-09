@@ -5,7 +5,8 @@
   "total_evaluations": 2400,
   "pass": 121,
   "fault": 215,
-  "skipped": 2064,
+  "skipped": 187,
+  "not_applicable": 1877,
   "error": 0,
   "top_missing_roles": [
     [
