@@ -91,10 +91,7 @@ pub fn ingest_building(
         serde_json::to_string_pretty(&manifest_sidecar)?,
     )?;
 
-    let staged = out_dir
-        .parent()
-        .unwrap_or(out_dir)
-        .join("weather_staging");
+    let staged = out_dir.parent().unwrap_or(out_dir).join("weather_staging");
     if staged.join("history_wide.csv").is_file() {
         let _ = ingest_weather_tree(&staged, out_dir);
     } else {
@@ -121,8 +118,8 @@ fn read_csv_batch(path: &Path, columns_path: &Path) -> Result<(RecordBatch, u64)
         .context("timestamp column")?;
 
     let mut ts_vals: Vec<i64> = Vec::new();
-    let mut included: Vec<(usize, String)> = Vec::new();
-    let mut used_roles = std::collections::HashSet::new();
+    let mut by_role: std::collections::HashMap<String, Vec<(usize, String)>> =
+        std::collections::HashMap::new();
     for (i, h) in headers.iter().enumerate() {
         if i == ts_idx {
             continue;
@@ -130,11 +127,17 @@ fn read_csv_batch(path: &Path, columns_path: &Path) -> Result<(RecordBatch, u64)
         let Some(role) = role_map.get(h) else {
             continue;
         };
-        if !used_roles.insert(role.clone()) {
-            continue;
-        }
-        included.push((i, role.clone()));
+        by_role
+            .entry(role.clone())
+            .or_default()
+            .push((i, h.clone()));
     }
+    let mut included: Vec<(usize, String)> = Vec::new();
+    for (role, candidates) in by_role {
+        let (idx, _) = pick_best_column(&role, &candidates);
+        included.push((idx, role));
+    }
+    included.sort_by_key(|(idx, _)| *idx);
     let mut num_cols: Vec<Vec<Option<f64>>> = vec![Vec::new(); included.len()];
     let mut rows = 0u64;
 
@@ -185,6 +188,72 @@ fn read_csv_batch(path: &Path, columns_path: &Path) -> Result<(RecordBatch, u64)
     Ok((batch, rows))
 }
 
+/// When multiple CSV columns map to the same role, pick the oracle-preferred column.
+fn pick_best_column(role: &str, candidates: &[(usize, String)]) -> (usize, String) {
+    fn score(role: &str, name: &str) -> i32 {
+        let c = name.to_lowercase();
+        match role {
+            "sat" => {
+                if c == "discharge_air_temp_f" {
+                    100
+                } else if c.contains("discharge_air") {
+                    80
+                } else if c.contains("dat_y") {
+                    60
+                } else if c.contains("dat_x") {
+                    10
+                } else if c.starts_with("dat_") {
+                    5
+                } else {
+                    0
+                }
+            }
+            "sat_sp" => {
+                if c.contains("dat_reset") {
+                    100
+                } else if c.contains("sat_sp") || c.contains("sat_setpoint") {
+                    90
+                } else {
+                    0
+                }
+            }
+            "oa_damper_pct" => {
+                if c.contains("ex_dmpr") || c.contains("oa_damper") {
+                    90
+                } else if c.contains("damper") || c.contains("dmpr") {
+                    70
+                } else {
+                    0
+                }
+            }
+            "fan_cmd" => {
+                if c.contains("supply_fan") && !c.contains("status") {
+                    100
+                } else if c.contains("fan_cmd") || c.contains("fan_speed") {
+                    90
+                } else {
+                    0
+                }
+            }
+            "mat" => {
+                if c.contains("mixed_air") {
+                    100
+                } else if c == "mad_c" {
+                    80
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        }
+    }
+    candidates
+        .iter()
+        .max_by_key(|(_, name)| score(role, name))
+        .cloned()
+        .unwrap_or_else(|| candidates[0].clone())
+}
+
 fn write_parquet(path: &Path, batch: &RecordBatch) -> Result<()> {
     let file = std::fs::File::create(path)?;
     let mut writer = ArrowWriter::try_new(file, batch.schema(), None)?;
@@ -222,12 +291,11 @@ pub fn ingest_weather_tree(weather_root: &Path, out_dir: &Path) -> Result<usize>
     }
     let dest = out_dir.join("weather");
     std::fs::create_dir_all(&dest)?;
-    for (history, columns) in bundles {
+    if let Some((history, columns)) = bundles.into_iter().next() {
         let (batch, _rows) = read_csv_batch(&history, &columns)?;
         let parquet_path = dest.join("history.parquet");
         write_parquet(&parquet_path, &batch)?;
         written += 1;
-        break;
     }
     Ok(written)
 }
@@ -256,24 +324,30 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rows, 1);
-        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        let names: Vec<_> = batch
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect();
         assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
     }
 
     #[test]
     fn real_weather_staging_if_present() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../.cache/weather_staging");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.cache/weather_staging");
         if !root.join("history_wide.csv").is_file() {
             return;
         }
-        let (batch, rows) = read_csv_batch(
-            &root.join("history_wide.csv"),
-            &root.join("columns.csv"),
-        )
-        .unwrap();
+        let (batch, rows) =
+            read_csv_batch(&root.join("history_wide.csv"), &root.join("columns.csv")).unwrap();
         assert!(rows > 1000, "rows={rows}");
-        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        let names: Vec<_> = batch
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect();
         assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
     }
 
@@ -294,7 +368,12 @@ mod tests {
             .build()
             .unwrap();
         let batch = reader.into_iter().next().unwrap().unwrap();
-        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        let names: Vec<_> = batch
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect();
         assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
     }
 

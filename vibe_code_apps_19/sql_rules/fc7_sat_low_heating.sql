@@ -1,18 +1,45 @@
--- fc7_sat_low_heating.sql — FC7 SAT low while heating at full
+-- fc7_sat_low_heating.sql — FC7 SAT low while heating at full + confirm
 WITH h AS (
   SELECT
     equipment_id,
+    timestamp_utc,
     sat,
-    COALESCE(sat_sp, 55.0) AS sat_sp,
-    CASE WHEN fan_cmd IS NULL THEN NULL WHEN fan_cmd > 1.0 THEN fan_cmd / 100.0 ELSE fan_cmd END AS fan_cmd,
-    CASE WHEN htg_valve_pct IS NULL THEN NULL WHEN htg_valve_pct > 1.0 THEN htg_valve_pct / 100.0 ELSE htg_valve_pct END AS htg_valve_pct
+    sat_sp,
+    COALESCE(CASE WHEN fan_cmd IS NULL THEN 0.0 WHEN fan_cmd > 1.0 THEN fan_cmd / 100.0 ELSE fan_cmd END, 0.0) AS fan,
+    COALESCE(CASE WHEN htg_valve_pct IS NULL THEN NULL WHEN htg_valve_pct > 1.0 THEN htg_valve_pct / 100.0 ELSE htg_valve_pct END, 0.0) AS htg_valve_pct
   FROM history
+),
+base AS (
+  SELECT
+    equipment_id,
+    timestamp_utc,
+    CAST(CASE
+      WHEN sat IS NOT NULL AND sat_sp IS NOT NULL AND fan > 0.01
+       AND sat < sat_sp - 1.0 AND htg_valve_pct > 0.9
+      THEN 1 ELSE 0 END AS INT) AS raw_fault
+  FROM h
+),
+grp AS (
+  SELECT
+    *,
+    SUM(CASE WHEN raw_fault = 0 THEN 1 ELSE 0 END)
+      OVER (PARTITION BY equipment_id ORDER BY timestamp_utc ROWS UNBOUNDED PRECEDING) AS streak_id
+  FROM base
+),
+ranked AS (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (PARTITION BY equipment_id, streak_id ORDER BY timestamp_utc) AS streak_len
+  FROM grp
+),
+final AS (
+  SELECT
+    equipment_id,
+    CASE WHEN raw_fault = 1 AND streak_len >= {{CONFIRM_ROWS}} THEN 1 ELSE 0 END AS confirmed
+  FROM ranked
 )
 SELECT
   equipment_id,
-  SUM(CASE
-    WHEN sat IS NOT NULL AND sat_sp IS NOT NULL AND fan_cmd > 0.01
-     AND sat < sat_sp - 1.0 AND htg_valve_pct > 0.9
-    THEN 1 ELSE 0 END) * {{POLL_SECONDS}} / 3600.0 AS fault_hours
-FROM h
+  SUM(confirmed) * {{POLL_SECONDS}} / 3600.0 AS fault_hours
+FROM final
 GROUP BY equipment_id;

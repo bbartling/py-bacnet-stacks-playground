@@ -55,6 +55,25 @@ pub struct SkippedRecord {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct RuleSummary {
+    pub rule_id: String,
+    pub pass_count: usize,
+    pub fail_count: usize,
+    pub skipped_equipment: usize,
+    pub max_abs_delta: f64,
+    pub max_pct_delta: Option<f64>,
+    pub worst_equipment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EquipmentSummary {
+    pub equipment_id: String,
+    pub fail_count: usize,
+    pub max_abs_delta: f64,
+    pub failed_rules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct CompareReport {
     pub building_id: Option<String>,
     pub rules_compared: usize,
@@ -69,6 +88,8 @@ pub struct CompareReport {
     pub tolerance: f64,
     pub mismatches: Vec<CompareMismatch>,
     pub skipped: Vec<SkippedRecord>,
+    pub rule_summaries: Vec<RuleSummary>,
+    pub equipment_summaries: Vec<EquipmentSummary>,
     pub material_failure: bool,
 }
 
@@ -110,6 +131,14 @@ pub fn compare_results(
     let mut mismatches = Vec::new();
     let mut max_abs_delta = 0.0f64;
     let mut max_pct_delta: Option<f64> = None;
+    let mut rule_pass: HashMap<String, usize> = HashMap::new();
+    let mut rule_fail: HashMap<String, usize> = HashMap::new();
+    let mut rule_max_delta: HashMap<String, f64> = HashMap::new();
+    let mut rule_max_pct: HashMap<String, f64> = HashMap::new();
+    let mut rule_worst_eq: HashMap<String, (String, f64)> = HashMap::new();
+    let mut eq_fail: HashMap<String, usize> = HashMap::new();
+    let mut eq_max_delta: HashMap<String, f64> = HashMap::new();
+    let mut eq_failed_rules: HashMap<String, HashSet<String>> = HashMap::new();
 
     for key in py_keys.intersection(&sql_keys) {
         let py_val = py_metrics[key];
@@ -122,20 +151,44 @@ pub fn compare_results(
         } else {
             Some(0.0)
         };
+        let parts: Vec<&str> = key.split('|').collect();
+        let rule_id = parts[0].to_string();
+        let equipment_id = parts[1].to_string();
         if delta <= tolerance {
             pass_count += 1;
+            *rule_pass.entry(rule_id.clone()).or_default() += 1;
         } else {
             fail_count += 1;
-            let parts: Vec<&str> = key.split('|').collect();
+            *rule_fail.entry(rule_id.clone()).or_default() += 1;
+            *eq_fail.entry(equipment_id.clone()).or_default() += 1;
+            eq_failed_rules
+                .entry(equipment_id.clone())
+                .or_default()
+                .insert(rule_id.clone());
             mismatches.push(CompareMismatch {
-                rule_id: parts[0].to_string(),
-                equipment_id: parts[1].to_string(),
+                rule_id: rule_id.clone(),
+                equipment_id: equipment_id.clone(),
                 metric: parts[2].to_string(),
                 python_value: py_val,
                 sql_value: sql_val,
                 delta,
                 pct_delta: pct,
             });
+            let prev = rule_max_delta.get(&rule_id).copied().unwrap_or(0.0);
+            if delta > prev {
+                rule_max_delta.insert(rule_id.clone(), delta);
+                rule_worst_eq.insert(rule_id.clone(), (equipment_id.clone(), delta));
+            }
+            if let Some(p) = pct {
+                let prev_p = rule_max_pct.get(&rule_id).copied().unwrap_or(0.0);
+                if p > prev_p {
+                    rule_max_pct.insert(rule_id.clone(), p);
+                }
+            }
+            let eq_prev = eq_max_delta.get(&equipment_id).copied().unwrap_or(0.0);
+            if delta > eq_prev {
+                eq_max_delta.insert(equipment_id.clone(), delta);
+            }
         }
         max_abs_delta = max_abs_delta.max(delta);
         if let Some(p) = pct {
@@ -191,6 +244,44 @@ pub fn compare_results(
 
     let material_failure = fail_count > 0 || python_only > 0 || sql_only > 0;
 
+    let mut skipped_by_rule: HashMap<String, usize> = HashMap::new();
+    for s in &skipped {
+        *skipped_by_rule.entry(s.rule_id.clone()).or_default() += 1;
+    }
+
+    let rule_summaries = all_rules_from_maps(
+        &rule_pass,
+        &rule_fail,
+        &skipped_by_rule,
+        &rule_max_delta,
+        &rule_max_pct,
+        &rule_worst_eq,
+    );
+
+    let mut equipment_summaries: Vec<EquipmentSummary> = eq_fail
+        .into_iter()
+        .map(|(equipment_id, fail_count)| {
+            let mut failed_rules: Vec<String> = eq_failed_rules
+                .get(&equipment_id)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            failed_rules.sort();
+            EquipmentSummary {
+                equipment_id: equipment_id.clone(),
+                fail_count,
+                max_abs_delta: eq_max_delta.get(&equipment_id).copied().unwrap_or(0.0),
+                failed_rules,
+            }
+        })
+        .collect();
+    equipment_summaries.sort_by(|a, b| {
+        b.max_abs_delta
+            .partial_cmp(&a.max_abs_delta)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
     Ok(CompareReport {
         building_id: oracle.building_id,
         rules_compared: rules.len(),
@@ -205,8 +296,41 @@ pub fn compare_results(
         tolerance,
         mismatches,
         skipped,
+        rule_summaries,
+        equipment_summaries,
         material_failure,
     })
+}
+
+fn all_rules_from_maps(
+    rule_pass: &HashMap<String, usize>,
+    rule_fail: &HashMap<String, usize>,
+    skipped_by_rule: &HashMap<String, usize>,
+    rule_max_delta: &HashMap<String, f64>,
+    rule_max_pct: &HashMap<String, f64>,
+    rule_worst_eq: &HashMap<String, (String, f64)>,
+) -> Vec<RuleSummary> {
+    let mut all: HashSet<String> = rule_pass.keys().cloned().collect();
+    all.extend(rule_fail.keys().cloned());
+    all.extend(skipped_by_rule.keys().cloned());
+    let mut out: Vec<RuleSummary> = all
+        .into_iter()
+        .map(|rule_id| RuleSummary {
+            pass_count: rule_pass.get(&rule_id).copied().unwrap_or(0),
+            fail_count: rule_fail.get(&rule_id).copied().unwrap_or(0),
+            skipped_equipment: skipped_by_rule.get(&rule_id).copied().unwrap_or(0),
+            max_abs_delta: rule_max_delta.get(&rule_id).copied().unwrap_or(0.0),
+            max_pct_delta: rule_max_pct.get(&rule_id).copied(),
+            worst_equipment: rule_worst_eq.get(&rule_id).map(|(eq, _)| eq.clone()),
+            rule_id,
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.max_abs_delta
+            .partial_cmp(&a.max_abs_delta)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    out
 }
 
 pub fn write_compare_markdown(report: &CompareReport, path: &Path) -> Result<()> {
@@ -245,8 +369,167 @@ pub fn write_compare_markdown(report: &CompareReport, path: &Path) -> Result<()>
         report.material_failure
     ));
 
+    md.push_str("## Summary by rule\n\n");
+    md.push_str("| rule | pass | fail | skipped | max Δ | max % | worst equipment |\n");
+    md.push_str("| --- | ---: | ---: | ---: | ---: | ---: | --- |\n");
+    for rs in &report.rule_summaries {
+        md.push_str(&format!(
+            "| {} | {} | {} | {} | {:.3} | {} | {} |\n",
+            rs.rule_id,
+            rs.pass_count,
+            rs.fail_count,
+            rs.skipped_equipment,
+            rs.max_abs_delta,
+            rs.max_pct_delta
+                .map(|p| format!("{:.1}%", p))
+                .unwrap_or_else(|| "-".into()),
+            rs.worst_equipment.as_deref().unwrap_or("-")
+        ));
+    }
+
+    if !report.equipment_summaries.is_empty() {
+        md.push_str("\n## Summary by equipment (failures only)\n\n");
+        md.push_str("| equipment | failed rules | fail metrics | max Δ |\n");
+        md.push_str("| --- | --- | ---: | ---: |\n");
+        for es in report.equipment_summaries.iter().take(30) {
+            md.push_str(&format!(
+                "| {} | {} | {} | {:.3} |\n",
+                es.equipment_id,
+                es.failed_rules.join(", "),
+                es.fail_count,
+                es.max_abs_delta
+            ));
+        }
+    }
+
+    let mut by_abs = report.mismatches.clone();
+    by_abs.sort_by(|a, b| {
+        b.delta
+            .partial_cmp(&a.delta)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    if !by_abs.is_empty() {
+        md.push_str("\n## Top 20 mismatches (absolute delta)\n\n");
+        md.push_str("| rule | equipment | metric | python | sql | delta | pct |\n");
+        md.push_str("| --- | --- | --- | ---: | ---: | ---: | ---: |\n");
+        for m in by_abs.iter().take(20) {
+            md.push_str(&format!(
+                "| {} | {} | {} | {:.3} | {:.3} | {:.3} | {} |\n",
+                m.rule_id,
+                m.equipment_id,
+                m.metric,
+                m.python_value,
+                m.sql_value,
+                m.delta,
+                m.pct_delta
+                    .map(|p| format!("{:.1}%", p))
+                    .unwrap_or_else(|| "-".into())
+            ));
+        }
+    }
+
+    let mut by_pct = report.mismatches.clone();
+    by_pct.sort_by(|a, b| {
+        let pa = a.pct_delta.unwrap_or(0.0);
+        let pb = b.pct_delta.unwrap_or(0.0);
+        pb.partial_cmp(&pa).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    if !by_pct.is_empty() {
+        md.push_str("\n## Top 20 mismatches (percent delta)\n\n");
+        md.push_str("| rule | equipment | metric | python | sql | delta | pct |\n");
+        md.push_str("| --- | --- | --- | ---: | ---: | ---: | ---: |\n");
+        for m in by_pct.iter().take(20) {
+            md.push_str(&format!(
+                "| {} | {} | {} | {:.3} | {:.3} | {:.3} | {} |\n",
+                m.rule_id,
+                m.equipment_id,
+                m.metric,
+                m.python_value,
+                m.sql_value,
+                m.delta,
+                m.pct_delta
+                    .map(|p| format!("{:.1}%", p))
+                    .unwrap_or_else(|| "-".into())
+            ));
+        }
+    }
+
+    let near_pct = 5.0f64;
+    let near_abs = report.tolerance;
+    let mut proven = Vec::new();
+    let mut near = Vec::new();
+    let mut material = Vec::new();
+    let mut skipped_rules = Vec::new();
+    let mut proxy = Vec::new();
+    for rs in &report.rule_summaries {
+        if rs.skipped_equipment > 0 && rs.fail_count == 0 && rs.pass_count == 0 {
+            skipped_rules.push(rs.rule_id.clone());
+        } else if rs.fail_count == 0 && rs.pass_count > 0 {
+            proven.push(rs.rule_id.clone());
+        } else if rs.fail_count > 0
+            && rs.max_abs_delta <= near_abs
+            && rs.max_pct_delta.map(|p| p <= near_pct).unwrap_or(true)
+        {
+            near.push(rs.rule_id.clone());
+        } else if rs.fail_count > 0 {
+            material.push(rs.rule_id.clone());
+        }
+        if rs.rule_id.contains("OAT-METEO") && rs.fail_count > 0 {
+            proxy.push(rs.rule_id.clone());
+        }
+    }
+
+    md.push_str("\n## Proven parity\n\n");
+    if proven.is_empty() {
+        md.push_str("_None yet at current tolerance._\n");
+    } else {
+        for r in proven {
+            md.push_str(&format!("- `{r}`\n"));
+        }
+    }
+
+    md.push_str("\n## Near parity\n\n");
+    if near.is_empty() {
+        md.push_str("_None._\n");
+    } else {
+        for r in near {
+            md.push_str(&format!("- `{r}`\n"));
+        }
+    }
+
+    md.push_str("\n## Material mismatch\n\n");
+    if material.is_empty() {
+        md.push_str("_None._\n");
+    } else {
+        for r in material {
+            md.push_str(&format!("- `{r}`\n"));
+        }
+    }
+
+    md.push_str("\n## Skipped due to missing roles\n\n");
+    if report.skipped.is_empty() {
+        md.push_str("_None._\n");
+    } else {
+        for s in report.skipped.iter().take(50) {
+            md.push_str(&format!(
+                "- `{}` / `{}`: {}\n",
+                s.rule_id, s.equipment_id, s.reason
+            ));
+        }
+    }
+
+    md.push_str("\n## Proxy / partial implementation\n\n");
+    md.push_str(
+        "- Review registry `parity_status` and blockers for rules not yet oracle-aligned.\n",
+    );
+    if !proxy.is_empty() {
+        for r in proxy {
+            md.push_str(&format!("- `{r}` (weather/threshold proxy path)\n"));
+        }
+    }
+
     if !report.mismatches.is_empty() {
-        md.push_str("## Mismatches\n\n");
+        md.push_str("\n## All mismatches\n\n");
         md.push_str("| rule | equipment | metric | python | sql | delta | pct |\n");
         md.push_str("| --- | --- | --- | ---: | ---: | ---: | ---: |\n");
         for m in report.mismatches.iter().take(100) {
@@ -259,22 +542,12 @@ pub fn write_compare_markdown(report: &CompareReport, path: &Path) -> Result<()>
                 m.sql_value,
                 m.delta,
                 m.pct_delta
-                    .map(|p| format!("{p:.1}%"))
+                    .map(|p| format!("{:.1}%", p))
                     .unwrap_or_else(|| "-".into())
             ));
         }
         if report.mismatches.len() > 100 {
             md.push_str(&format!("\n… and {} more\n", report.mismatches.len() - 100));
-        }
-    }
-
-    if !report.skipped.is_empty() {
-        md.push_str("\n## Skipped (missing roles)\n\n");
-        for s in report.skipped.iter().take(50) {
-            md.push_str(&format!(
-                "- `{}` / `{}`: {}\n",
-                s.rule_id, s.equipment_id, s.reason
-            ));
         }
     }
 

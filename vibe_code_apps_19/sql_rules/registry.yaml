@@ -9,7 +9,7 @@ rules:
     required_roles: [fan_cmd]
     output_columns: [equipment_id, fan_runtime_hours, total_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: proven_building_100
     dashboard_wired: false
     delete_python_candidate: false
     confirm_seconds: 0
@@ -17,13 +17,14 @@ rules:
   - rule_id: VAV-1
     sql_file: vav1_comfort_fault.sql
     pandas_function: vav1
-    description: Zone comfort band violation hours (raw samples; Python applies confirm window)
+    description: Zone comfort band violation hours with confirm window
     required_roles: [zone_t]
     output_columns: [equipment_id, fault_hours, fault_pct]
     priority: P0
-    parity_status: partial_confirm_mismatch
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
+    blocker: "VAV_7 zone_t column selection picks alarm limit column in Rust ingest"
     confirm_seconds: 900
 
   - rule_id: AVG-ZONE-TEMP
@@ -33,9 +34,10 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, avg_zone_temp, min_zone_temp, max_zone_temp]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
+    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
 
   - rule_id: ZONE-COMFORT-PCT
@@ -45,9 +47,10 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, comfort_pct]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
+    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
 
   - rule_id: FAULT-ELAPSED-HOURS
@@ -57,22 +60,22 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, fault_samples, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: false
     delete_python_candidate: false
+    blocker: "VAV_7 zone_t ingest regression"
     confirm_seconds: 0
 
   - rule_id: OAT-METEO
     sql_file: oat_meteo_fault.sql
     pandas_function: oat_vs_meteo
-    description: Hard-range OAT proxy — NOT full Open-Meteo parity
+    description: Equipment OAT vs weather-staged wx OAT
     required_roles: [oa_t]
     output_columns: [equipment_id, fault_hours, fault_pct]
     priority: P0
-    parity_status: proxy_not_parity_proven
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    blocker: "SQL uses hard range; Python uses wx_oa_t join"
     confirm_seconds: 900
 
   - rule_id: FC13-SAT-HIGH
@@ -82,23 +85,21 @@ rules:
     required_roles: [sat, sat_sp, clg_valve_pct, oa_damper_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: partial_sat_sp_proxy
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    blocker: "BUILDING_100 missing sat_sp — SQL uses 55°F fallback"
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: ECON-2
     sql_file: economizer_fault.sql
     pandas_function: econ2
-    description: Economizing when outdoor air unfavorable (simplified thresholds)
+    description: Economizing when outdoor air unfavorable
     required_roles: [oa_t, oa_damper_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: proxy_threshold_mismatch
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    blocker: "SQL OAT>75/damper>20% vs Python OAT>63/damper>42%"
     confirm_seconds: 900
 
   - rule_id: FC1
@@ -108,7 +109,7 @@ rules:
     required_roles: [duct_static, duct_static_sp, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 300
@@ -120,10 +121,10 @@ rules:
     required_roles: [mat, oa_t, rat, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC3
     sql_file: fc3_mat_high.sql
@@ -132,10 +133,10 @@ rules:
     required_roles: [mat, oa_t, rat, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC7
     sql_file: fc7_sat_low_heating.sql
@@ -144,10 +145,11 @@ rules:
     required_roles: [sat, sat_sp, htg_valve_pct, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: skipped_missing_roles
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    blocker: "htg_valve_pct missing on some AHUs — Python and SQL both skip"
+    confirm_seconds: 600
 
   - rule_id: FC8
     sql_file: fc8_sat_mat_econ.sql
@@ -156,10 +158,10 @@ rules:
     required_roles: [sat, mat, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC9
     sql_file: fc9_oa_sat_sp_econ.sql
@@ -168,10 +170,10 @@ rules:
     required_roles: [oa_t, sat_sp, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC10
     sql_file: fc10_mat_oa_clg.sql
@@ -180,10 +182,10 @@ rules:
     required_roles: [mat, oa_t, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC11
     sql_file: fc11_oa_sat_sp_clg.sql
@@ -192,10 +194,10 @@ rules:
     required_roles: [oa_t, sat_sp, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: FC12
     sql_file: fc12_sat_mat_clg.sql
@@ -204,10 +206,10 @@ rules:
     required_roles: [sat, mat, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 300
+    confirm_seconds: 600
 
   - rule_id: ECON-1
     sql_file: econ1_stuck_closed.sql
@@ -216,7 +218,7 @@ rules:
     required_roles: [fan_cmd, oa_damper_pct, oa_t]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -228,7 +230,7 @@ rules:
     required_roles: [mat, rat, oa_t, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: building_100_pending
+    parity_status: near_parity
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600

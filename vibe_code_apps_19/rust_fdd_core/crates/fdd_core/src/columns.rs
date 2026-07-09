@@ -22,10 +22,23 @@ pub fn load_column_role_map(path: &Path) -> Result<HashMap<String, String>> {
             continue;
         }
         let raw_role = role_idx.and_then(|i| rec.get(i)).unwrap_or("").trim();
+        let inferred = infer_role_from_column_name(&column);
         let role = if raw_role.is_empty() || raw_role == "ahu_point" {
-            infer_role_from_column_name(&column)
+            inferred
         } else {
-            Some(normalize_role(raw_role))
+            let normalized = normalize_role(raw_role);
+            // Mis-tagged historian roles: prefer physical-name inference (Python ROLE_CANDIDATES).
+            match (inferred.as_deref(), normalized.as_str()) {
+                (Some("sat_sp"), "sat") => Some("sat_sp".into()),
+                (Some("mat"), "ahu_point") | (Some("mat"), "ignore") => Some("mat".into()),
+                (Some("oa_damper_pct"), _) if normalized == "ahu_point" => {
+                    Some("oa_damper_pct".into())
+                }
+                (Some("clg_valve_pct"), _) if normalized == "ahu_point" || normalized == "chw_valve" => {
+                    Some("clg_valve_pct".into())
+                }
+                _ => Some(normalized),
+            }
         };
         let Some(role) = role else { continue };
         if role == "ahu_point" || role == "ignore" {
@@ -110,13 +123,21 @@ fn infer_role_from_column_name(column: &str) -> Option<String> {
     if c.contains("outside_air_temp") || c.contains("oa_t") || c.ends_with("oa-t") {
         return Some("oa_t".into());
     }
+    if c.contains("sat_sp")
+        || c.contains("sat_setpoint")
+        || c.contains("dat_reset")
+        || c.contains("cooling_setpoint")
+        || c.contains("effective_setpoint")
+    {
+        return Some("sat_sp".into());
+    }
     if c.contains("discharge_air") || c.starts_with("dat_") || c.contains(" da-t") {
         return Some("sat".into());
     }
     if c.contains("return_air") || c.contains("ra_t") || c.contains("ra-t") {
         return Some("rat".into());
     }
-    if c.contains("mixed_air") || c.contains("ma_t") || c.contains("ma-t") || c == "mad_c" {
+    if c.contains("mixed_air") || c.contains("ma_t") || c.contains("ma-t") || c == "mad_c" || c == "mad-c" {
         return Some("mat".into());
     }
     if c.contains("chw_valve") || c.contains("clg_valve") || c.contains("cooling_valve") {
@@ -130,14 +151,6 @@ fn infer_role_from_column_name(column: &str) -> Option<String> {
     }
     if c.contains("zone_t") || c.contains("space_temp") || c.contains("spacetemp") {
         return Some("zone_t".into());
-    }
-    if c.contains("sat_sp")
-        || c.contains("sat_setpoint")
-        || c.contains("dat_reset")
-        || c.contains("cooling_setpoint")
-        || c.contains("effective_setpoint")
-    {
-        return Some("sat_sp".into());
     }
     if c.contains("da_p") || c.contains("duct_static") {
         return Some(
@@ -191,5 +204,24 @@ mod tests {
         );
         assert_eq!(map.get("outside_air_temp_f"), Some(&"oa_t".to_string()));
         assert_eq!(map.get("zone_t100_x"), Some(&"zone_t".to_string()));
+    }
+
+    #[test]
+    fn dat_reset_maps_to_sat_sp_not_sat() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("columns.csv");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(
+            f,
+            "col,point_name,unit,point_role\n\
+             dat_reset_f,DAT Reset,°F,discharge_air_temp\n\
+             discharge_air_temp_f,DA-T,°F,discharge_air_temp\n\
+             chw_valve_pct,CHW Valve,%,chw_valve"
+        )
+        .unwrap();
+        let map = load_column_role_map(&path).unwrap();
+        assert_eq!(map.get("dat_reset_f"), Some(&"sat_sp".to_string()));
+        assert_eq!(map.get("discharge_air_temp_f"), Some(&"sat".to_string()));
+        assert_eq!(map.get("chw_valve_pct"), Some(&"clg_valve_pct".to_string()));
     }
 }

@@ -8,7 +8,23 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
-## 2026-07-09 — Rust FDD core stage 2 (parity + wiring)
+## 2026-07-09 — Stage 2 parity push (confirm CTE, ingest column priority, compare report)
+
+**Done:**
+- **Confirm/streak SQL** — FC2–FC12 + FC13 use `{{CONFIRM_ROWS}}` (600s cookbook default); `COALESCE(oa_damper_pct,0)` matches Python `fillna(0)`.
+- **Fan gate** — FC2/FC3/FC7 use `fan_cmd` only (no `fan_status` fallback when `fan_cmd` column exists).
+- **Ingest column priority** — `dat_reset_f→sat_sp`, `discharge_air_temp_f→sat` (fixes SQL=0 FC13); `pick_best_column` in `fdd_store`.
+- **`fdd_cli compare`** — PR-reviewable markdown: per-rule/equipment summaries, top-20 abs/pct mismatches, proven/near/material sections.
+- **`debug_rule_parity.py`** — sample-level Python oracle debug → `.cache/debug/`.
+- **Weather staging** — already wired in `warmup_cache()` before Rust ingest.
+
+**BUILDING_100 @ 0.5 (2026-07-09 13:48 UTC):** **228 pass / 52 fail** / 11 skipped. Was 234/46 before ingest SAT fix exposed VAV_7 `zone_t` alarm-column regression.
+
+**Rule highlights:** FC2 AHU_1 outlier **fixed** (was Δ1147h). FC13 **near parity** (AHU_1 Δ11.3h, AHU_2 Δ21h). FC9/FC12/FC2 AHU_2 **near parity** (≤18h). FC1/FC3/FC11/ECON-1 **proven**. **VAV_7** zone analytics broken (alarm limit column picked as `zone_t`) — next fix.
+
+**Tests:** 103 pytest passed, 1 skipped; Rust 15 tests, clippy clean.
+
+---
 
 **Done:**
 - **`fdd_app/export_pandas_oracle.py`** — cookbook-engine oracle → `.cache/oracle/pandas_rules.json` (207 records BUILDING_100).
