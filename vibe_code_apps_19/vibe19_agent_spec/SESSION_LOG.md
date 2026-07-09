@@ -8,6 +8,23 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-09 — Rust FDD core stage 2 (parity + wiring)
+
+**Done:**
+- **`fdd_app/export_pandas_oracle.py`** — cookbook-engine oracle → `.cache/oracle/pandas_rules.json` (207 records BUILDING_100).
+- **`fdd_cli compare`** — per rule/equipment/metric, tolerance, markdown report, skip missing roles.
+- **Poll interval** — `{{POLL_SECONDS}}` substitution + ingest sidecar manifest.
+- **19 SQL rules** — original 8 + FC1–3, FC7–12, ECON-1/4; registry metadata (pandas fn, parity status, blockers).
+- **Role mapping** — `columns.rs` aligned with Python; `ROLE_MAPPING_PARITY.md`.
+- **Dashboard** — `VIBE19_RUST_CACHE=1` optional Parquet warmup via `rust_fdd_bridge.warmup_cache()`.
+- **Bugfix** — Utf8View `equipment_id` serialization for compare keys.
+
+**BUILDING_100 parity:** 229 pass / 49 fail @ 0.5 tolerance. Analytics rules (fan runtime, zone temp, comfort pct) **proven**. VAV-1 partial (confirm window). OAT-METEO/ECON-2/FC13 **proxy gaps documented**. FC1 blocked (`duct_static_sp`).
+
+**Tests:** 103 pytest passed; `cargo test` 12 passed; clippy clean.
+
+---
+
 ## 2026-07-09 — Rust FDD core stage 1 (Arrow + Parquet + DataFusion)
 
 **Done:**

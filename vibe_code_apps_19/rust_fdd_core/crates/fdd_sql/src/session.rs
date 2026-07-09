@@ -21,6 +21,26 @@ pub async fn register_parquet_tree(ctx: &SessionContext, parquet_root: &Path) ->
     Ok(1)
 }
 
+/// Register weather sidecar Parquet (`parquet_root/weather/**/*.parquet`) when present.
+pub async fn register_weather_if_present(
+    ctx: &SessionContext,
+    parquet_root: &Path,
+) -> Result<bool> {
+    let weather_dir = parquet_root.join("weather");
+    if !weather_dir.is_dir() {
+        return Ok(false);
+    }
+    let glob = weather_dir.join("**/*.parquet");
+    let glob_str = glob.to_string_lossy().to_string();
+    match ctx
+        .register_parquet("weather", glob_str.as_str(), ParquetReadOptions::default())
+        .await
+    {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
 pub async fn run_sql(ctx: &SessionContext, sql: &str) -> Result<QueryResult> {
     let started = std::time::Instant::now();
     let df = ctx.sql(sql).await?;
@@ -63,6 +83,14 @@ fn format_cell(col: &datafusion::arrow::array::ArrayRef, idx: usize) -> serde_js
     match col.data_type() {
         datafusion::arrow::datatypes::DataType::Utf8 => {
             let a = col.as_any().downcast_ref::<StringArray>().unwrap();
+            serde_json::Value::String(a.value(idx).to_string())
+        }
+        datafusion::arrow::datatypes::DataType::Utf8View => {
+            let a = col.as_any().downcast_ref::<StringViewArray>().unwrap();
+            serde_json::Value::String(a.value(idx).to_string())
+        }
+        datafusion::arrow::datatypes::DataType::LargeUtf8 => {
+            let a = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
             serde_json::Value::String(a.value(idx).to_string())
         }
         datafusion::arrow::datatypes::DataType::Float64 => {

@@ -11,6 +11,7 @@ fdd_csv = { path = "../fdd_csv" }
 fdd_rules = { path = "../fdd_rules" }
 fdd_sql = { path = "../fdd_sql" }
 fdd_store = { path = "../fdd_store" }
+chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

@@ -1189,6 +1189,7 @@ name = "fdd_bench"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "fdd_core",
  "fdd_csv",
  "fdd_rules",
@@ -1253,6 +1254,7 @@ dependencies = [
  "datafusion",
  "fdd_core",
  "fdd_sql",
+ "fdd_store",
  "serde",
  "serde_json",
  "serde_yaml",

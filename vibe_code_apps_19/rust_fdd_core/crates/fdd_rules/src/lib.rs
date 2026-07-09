@@ -1,7 +1,12 @@
 //! Rule registry and DataFusion SQL batch runner.
 
+pub mod params;
 pub mod registry;
 pub mod runner;
 
+pub use params::{poll_params, read_poll_from_cache, rule_params, substitute_sql};
 pub use registry::{load_registry, RuleRegistry};
 pub use runner::{run_all_rules, RuleRunReport};
+
+#[cfg(test)]
+mod poll_test;

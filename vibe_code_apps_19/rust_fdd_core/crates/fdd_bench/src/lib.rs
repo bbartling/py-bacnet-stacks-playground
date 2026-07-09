@@ -4,4 +4,4 @@ pub mod benchmark;
 pub mod compare;
 
 pub use benchmark::{run_benchmark, BenchmarkReport};
-pub use compare::{compare_results, CompareReport};
+pub use compare::{compare_results, write_compare_markdown, CompareReport};

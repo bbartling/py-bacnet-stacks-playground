@@ -942,6 +942,14 @@ def _register_full_routes(app: FastAPI, *, html_shell: bool = True) -> None:
                     if he.needs_export():
                         he.export_all()
                         print("[dashboard] open-fdd historian export complete")
+                if os.environ.get("VIBE19_RUST_CACHE", "0") == "1":
+                    try:
+                        from sidecar import rust_fdd_bridge as rfb
+
+                        rust = rfb.warmup_cache(run_sql_rules=False)
+                        print(f"[dashboard] rust parquet warmup: ok={rust.get('ok')} ms={rust.get('elapsed_ms')}")
+                    except Exception as rust_exc:
+                        print(f"[dashboard] rust parquet warmup skipped: {rust_exc}")
                 print("[dashboard] startup warmup complete")
             except Exception as exc:
                 print(f"[dashboard] startup warmup failed: {exc}")

@@ -128,4 +128,62 @@ def status() -> dict[str, Any]:
         "parquet_default": str(_DEFAULT_PARQUET),
         "rules_dir": str(_DEFAULT_RULES),
         "enabled": os.environ.get("RUST_FDD_USE_CLI", "").strip() in ("1", "true", "yes"),
+        "rust_cache_warmup": os.environ.get("VIBE19_RUST_CACHE", "").strip() in ("1", "true", "yes"),
     }
+
+
+def warmup_cache(
+    *,
+    data_root: Path | str | None = None,
+    building_id: str | None = None,
+    run_sql_rules: bool = False,
+    timeout: float = 3600.0,
+) -> dict[str, Any]:
+    """Optional dashboard startup: validate + ingest (+ rules). Never raises."""
+    import time
+
+    from shared.data_config import get_config
+
+    t0 = time.perf_counter()
+    if not is_available():
+        return {"ok": False, "skipped": True, "reason": "fdd_cli not available"}
+    cfg = get_config()
+    root = Path(data_root or cfg.data_root)
+    building = building_id or cfg.building
+    out: dict[str, Any] = {"ok": True, "building": building, "steps": []}
+    try:
+        v = validate(root, building)
+        out["steps"].append({"validate": v})
+        if not v.get("ok", True):
+            out["ok"] = False
+            out["error"] = v.get("error", "validate failed")
+            return out
+        try:
+            import sys
+
+            fdd_app = _APP_ROOT / "fdd_app"
+            if str(fdd_app) not in sys.path:
+                sys.path.insert(0, str(fdd_app))
+            from export_weather_staging import export_weather_staging
+
+            wx = export_weather_staging(_APP_ROOT / ".cache" / "weather_staging")
+            out["steps"].append({"weather_staging": wx})
+        except Exception as wx_exc:
+            out["steps"].append({"weather_staging": {"ok": False, "error": str(wx_exc)}})
+        ing = ingest(root, building, timeout=timeout)
+        out["steps"].append({"ingest": ing})
+        if not ing.get("ok", True):
+            out["ok"] = False
+            out["error"] = ing.get("error", "ingest failed")
+            return out
+        if run_sql_rules:
+            rules = run_rules(timeout=timeout)
+            out["steps"].append({"run_rules": rules})
+            if not rules.get("ok", True):
+                out["ok"] = False
+                out["error"] = rules.get("error", "run-rules failed")
+    except Exception as exc:
+        out["ok"] = False
+        out["error"] = str(exc)
+    out["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    return out

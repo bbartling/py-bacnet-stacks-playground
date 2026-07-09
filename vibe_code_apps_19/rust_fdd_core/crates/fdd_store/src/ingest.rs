@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
@@ -79,6 +79,26 @@ pub fn ingest_building(
             write_ms,
             rows,
         });
+    }
+
+    let manifest_sidecar = serde_json::json!({
+        "building_id": building_id,
+        "grid_minutes": validation.grid_minutes,
+        "effective_poll_seconds": validation.effective_poll_seconds,
+    });
+    std::fs::write(
+        out_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest_sidecar)?,
+    )?;
+
+    let staged = out_dir
+        .parent()
+        .unwrap_or(out_dir)
+        .join("weather_staging");
+    if staged.join("history_wide.csv").is_file() {
+        let _ = ingest_weather_tree(&staged, out_dir);
+    } else {
+        let _ = ingest_weather_tree(&data_root.join("weather"), out_dir);
     }
 
     Ok(IngestReport {
@@ -173,11 +193,110 @@ fn write_parquet(path: &Path, batch: &RecordBatch) -> Result<()> {
     Ok(())
 }
 
+/// Ingest Open-Meteo / weather historian CSV tree into `out_dir/weather/`.
+pub fn ingest_weather_tree(weather_root: &Path, out_dir: &Path) -> Result<usize> {
+    let mut written = 0usize;
+    if !weather_root.is_dir() {
+        return Ok(0);
+    }
+    let mut bundles: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let root_cols = weather_root.join("columns.csv");
+    let root_hist = weather_root.join("history_wide.csv");
+    if root_cols.is_file() && root_hist.is_file() {
+        bundles.push((root_hist, root_cols));
+    }
+    for entry in std::fs::read_dir(weather_root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let columns = path.join("columns.csv");
+        let history = path.join("history_wide.csv");
+        if columns.is_file() && history.is_file() {
+            bundles.push((history, columns));
+        }
+    }
+    if bundles.is_empty() {
+        return Ok(0);
+    }
+    let dest = out_dir.join("weather");
+    std::fs::create_dir_all(&dest)?;
+    for (history, columns) in bundles {
+        let (batch, _rows) = read_csv_batch(&history, &columns)?;
+        let parquet_path = dest.join("history.parquet");
+        write_parquet(&parquet_path, &batch)?;
+        written += 1;
+        break;
+    }
+    Ok(written)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::TempDir;
+
+    #[test]
+    fn weather_flat_csv_maps_oa_t() {
+        let tmp = TempDir::new().unwrap();
+        let mut f = std::fs::File::create(tmp.path().join("columns.csv")).unwrap();
+        writeln!(
+            f,
+            "col,point_role\noutside_air_temp_f,outside_air_temp\nrelative_humidity_pct,oa_humidity"
+        )
+        .unwrap();
+        let mut h = std::fs::File::create(tmp.path().join("history_wide.csv")).unwrap();
+        writeln!(h, "timestamp_utc,outside_air_temp_f,relative_humidity_pct").unwrap();
+        writeln!(h, "2026-01-01T00:00:00Z,65.0,41.0").unwrap();
+        let (batch, rows) = read_csv_batch(
+            &tmp.path().join("history_wide.csv"),
+            &tmp.path().join("columns.csv"),
+        )
+        .unwrap();
+        assert_eq!(rows, 1);
+        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
+    }
+
+    #[test]
+    fn real_weather_staging_if_present() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.cache/weather_staging");
+        if !root.join("history_wide.csv").is_file() {
+            return;
+        }
+        let (batch, rows) = read_csv_batch(
+            &root.join("history_wide.csv"),
+            &root.join("columns.csv"),
+        )
+        .unwrap();
+        assert!(rows > 1000, "rows={rows}");
+        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
+    }
+
+    #[test]
+    fn ingest_weather_tree_writes_oa_t() {
+        let staging = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.cache/weather_staging");
+        if !staging.join("history_wide.csv").is_file() {
+            return;
+        }
+        let tmp = TempDir::new().unwrap();
+        let n = ingest_weather_tree(&staging, tmp.path()).unwrap();
+        assert_eq!(n, 1);
+        let pq = tmp.path().join("weather/history.parquet");
+        assert!(pq.is_file());
+        let file = std::fs::File::open(&pq).unwrap();
+        let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+            .unwrap()
+            .build()
+            .unwrap();
+        let batch = reader.into_iter().next().unwrap().unwrap();
+        let names: Vec<_> = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+        assert!(names.iter().any(|n| n == "oa_t"), "fields: {names:?}");
+    }
 
     #[test]
     fn ingest_writes_parquet_and_meta() {

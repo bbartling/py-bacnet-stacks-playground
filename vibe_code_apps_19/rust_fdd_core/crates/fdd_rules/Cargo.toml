@@ -15,4 +15,5 @@ serde_yaml.workspace = true
 walkdir.workspace = true
 
 [dev-dependencies]
+fdd_store = { path = "../fdd_store" }
 tempfile = "3"

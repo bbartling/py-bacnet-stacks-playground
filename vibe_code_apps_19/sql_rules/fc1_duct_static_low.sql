@@ -1,11 +1,23 @@
--- vav1_comfort_fault.sql — zone comfort band with confirm window (Open-FDD parity)
-WITH base AS (
+-- fc1_duct_static_low.sql — FC1 duct static below SP at full fan + confirm
+WITH h AS (
   SELECT
     equipment_id,
     timestamp_utc,
-    CAST(CASE WHEN zone_t < 68.0 OR zone_t > 76.0 THEN 1 ELSE 0 END AS INT) AS raw_fault
+    duct_static,
+    duct_static_sp,
+    CASE WHEN fan_cmd IS NULL THEN NULL WHEN fan_cmd > 1.0 THEN fan_cmd / 100.0 ELSE fan_cmd END AS fan_cmd
   FROM history
-  WHERE zone_t IS NOT NULL
+),
+base AS (
+  SELECT
+    equipment_id,
+    timestamp_utc,
+    CAST(CASE
+      WHEN duct_static IS NOT NULL AND duct_static_sp IS NOT NULL
+       AND duct_static < duct_static_sp - 0.12
+       AND fan_cmd >= 0.87
+      THEN 1 ELSE 0 END AS INT) AS raw_fault
+  FROM h
 ),
 grp AS (
   SELECT
@@ -23,13 +35,11 @@ ranked AS (
 final AS (
   SELECT
     equipment_id,
-    timestamp_utc,
     CASE WHEN raw_fault = 1 AND streak_len >= {{CONFIRM_ROWS}} THEN 1 ELSE 0 END AS confirmed
   FROM ranked
 )
 SELECT
   equipment_id,
-  SUM(confirmed) * {{POLL_SECONDS}} / 3600.0 AS fault_hours,
-  100.0 * SUM(confirmed) / COUNT(*) AS fault_pct
+  SUM(confirmed) * {{POLL_SECONDS}} / 3600.0 AS fault_hours
 FROM final
 GROUP BY equipment_id;

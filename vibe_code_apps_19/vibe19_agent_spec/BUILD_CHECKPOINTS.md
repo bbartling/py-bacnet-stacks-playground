@@ -26,6 +26,7 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 - [x] *(reference example)* **BUILDING_100 VAV import** — 43 per-box folders; mixed grid; validate GO
 - [x] Renamed `csv_fdd_dashboard/` → **`fdd_app/`** with `backend/`, `frontend/static/`, `sidecar/` split. Removed dead code (`wsgi.py`, `dashboard_server.py`, `pandas_rule_scaffolds`). Deleted committed generated HTML/CSV artifacts.
 - [x] **Rust FDD core stage 1** — `rust_fdd_core/` workspace (7 crates), `sql_rules/` (8 rules), `fdd_cli` validate/ingest/query/benchmark, Parquet sidecars, docs + benchmark report. Python dashboard unchanged (102 pytest green).
+- [x] **Rust FDD core stage 2 (parity + wiring)** — pandas oracle export, hardened compare + markdown report, poll interval `{{POLL_SECONDS}}`, 19 SQL rules, role mapping doc, `VIBE19_RUST_CACHE=1` warmup. BUILDING_100: 229 metric pass / 49 fail (analytics proven; fault confirm/proxy gaps documented). 103 pytest green.
 
 ---
 
@@ -33,11 +34,11 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 
 ### Rust + SQL migration (priority)
 
-1. **BUILDING_100 parity harness** — export pandas oracle JSON; `fdd_cli compare` per rule
-2. **Port P0 SQL rules** — FC1–FC3, FC7–FC13, ECON-*, CHW-* (see `PANDAS_TO_SQL_RULE_MIGRATION.md`)
-3. **Unify SQL registries** — merge `cookbook_rules_sql.yaml` into `sql_rules/registry.yaml`
-4. **Wire ingest to dashboard warmup** — optional `fdd_cli ingest` on refresh
-5. **Rust role resolution** — align with `cookbook_engine.ROLE_CANDIDATES`
+1. **Confirm-window SQL** — streak >= N rows to match `confirm_fault` (closes VAV-1 / FC* gap)
+2. **OAT-METEO weather join** — `wx_oa_t` in Parquet; retire hard-range proxy
+3. **Align ECON-2 SQL thresholds** with cookbook defaults (63°F / 42%)
+4. **FC1 duct_static_sp** — map or document BUILDING_100 blocker
+5. **Port ECON-3/5, CHW-*, schedule rules** when roles present
 
 ### Template (any site)
 

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use fdd_bench::{compare_results, run_benchmark};
+use fdd_bench::{compare_results, run_benchmark, write_compare_markdown};
 use fdd_core::validate_building;
 use fdd_rules::{load_registry, run_all_rules};
 use fdd_sql::{register_parquet_tree, run_sql_file};
@@ -70,6 +70,11 @@ enum Commands {
         sql_results: PathBuf,
         #[arg(long, default_value_t = 0.5)]
         tolerance: f64,
+        #[arg(
+            long,
+            default_value = "vibe19_agent_spec/benchmarks/RUST_DATAFUSION_PARITY_BENCHMARK.md"
+        )]
+        report: PathBuf,
     },
     /// End-to-end benchmark (validate → scan → ingest → rules)
     Benchmark {
@@ -136,10 +141,13 @@ async fn main() -> Result<()> {
             python_results,
             sql_results,
             tolerance,
+            report,
         } => {
-            let report = compare_results(&python_results, &sql_results, tolerance)?;
-            println!("{}", serde_json::to_string_pretty(&report)?);
-            if report.material_failure {
+            let cmp = compare_results(&python_results, &sql_results, tolerance)?;
+            write_compare_markdown(&cmp, &report)?;
+            println!("{}", serde_json::to_string_pretty(&cmp)?);
+            println!("report: {}", report.display());
+            if cmp.material_failure {
                 std::process::exit(1);
             }
         }

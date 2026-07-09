@@ -2,7 +2,9 @@
 
 pub mod session;
 
-pub use session::{register_parquet_tree, run_sql, run_sql_file, QueryResult};
+pub use session::{
+    register_parquet_tree, register_weather_if_present, run_sql, run_sql_file, QueryResult,
+};
 
 #[cfg(test)]
 mod smoke {
