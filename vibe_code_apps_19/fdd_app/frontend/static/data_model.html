@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Open FDD Vibe Coder — Haystack Data Model</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("fdd-dashboard-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/data_model.css"/>
+</head>
+<body>
+  <div id="sparql-spinner" class="loading-overlay" hidden>
+    <div class="spinner" role="status" aria-label="Loading"></div>
+    <span class="spinner-label">Running SPARQL…</span>
+  </div>
+  <nav class="topnav">
+    <a href="/index.html">← Dashboard</a>
+    <strong>Open FDD Vibe Coder</strong>
+    <span class="nav-sub">Haystack RDF / SPARQL</span>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">Light mode</button>
+    <span id="summary-badge" class="badge">loading…</span>
+  </nav>
+
+  <main class="layout">
+    <div class="tab-row">
+      <button type="button" class="tab active" data-tab="import">Import / export</button>
+      <button type="button" class="tab" data-tab="sparql">SPARQL</button>
+      <button type="button" class="tab" data-tab="advanced">Advanced</button>
+    </div>
+
+    <section class="card tab-panel" data-panel="import">
+      <h2>AI commissioning — import / export</h2>
+      <p class="note">Export Haystack model JSON for AI retrofit. Import replaces sites, equipment, points, and FDD bindings, then syncs TTL for SPARQL.</p>
+      <div class="btn-row">
+        <button type="button" id="btn-bootstrap" class="btn primary">Bootstrap from CSV</button>
+        <button type="button" id="btn-sync" class="btn">Sync TTL</button>
+        <button type="button" id="btn-export-commissioning" class="btn">Export commissioning JSON</button>
+        <button type="button" id="btn-view-json-tab" class="btn">View JSON (new tab)</button>
+        <label class="btn file-label">Import JSON<input type="file" id="import-file" accept="application/json,.json" hidden/></label>
+      </div>
+      <label class="field-label">Import JSON (paste AI-edited model)</label>
+      <textarea id="import-text" rows="8" spellcheck="false" placeholder='{"sites":[],"equipment":[],"points":[]}'></textarea>
+      <div class="btn-row">
+        <button type="button" id="btn-validate-import" class="btn">Validate import</button>
+        <button type="button" id="btn-do-import" class="btn primary">Import &amp; sync TTL</button>
+      </div>
+      <label class="field-label">Export preview</label>
+      <textarea id="export-text" rows="10" readonly spellcheck="false"></textarea>
+    </section>
+
+    <section class="card tab-panel hidden" data-panel="sparql">
+      <h2>SPARQL explorer</h2>
+      <p class="note">All queries run against synced <code>data_model.ttl</code> via rdflib — read-only SELECT only.</p>
+      <label class="checkbox-row"><input type="checkbox" id="include-bacnet"/> Include BACnet refs (when modeled)</label>
+
+      <h3>Relationships</h3>
+      <div id="preset-relationships" class="preset-row"></div>
+      <h3>Haystack equipment</h3>
+      <div id="preset-haystack" class="preset-row"></div>
+      <h3>FDD coverage (SPARQL)</h3>
+      <div id="preset-fdd" class="preset-row"></div>
+
+      <h3>Custom SPARQL</h3>
+      <div class="btn-row">
+        <label class="btn file-label">Upload .sparql<input type="file" id="sparql-file" accept=".sparql,.txt,text/plain" hidden/></label>
+        <button type="button" id="btn-run" class="btn primary">Run query</button>
+        <button type="button" id="btn-results-tab" class="btn">Results in new tab</button>
+        <button type="button" id="btn-validate-all" class="btn">Validate all presets</button>
+      </div>
+      <textarea id="sparql-editor" rows="14" spellcheck="false"></textarea>
+      <div id="results-meta" class="results-meta"></div>
+      <div class="table-wrap"><table id="results-table"><thead></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="card tab-panel hidden" data-panel="advanced">
+      <h2>Advanced</h2>
+      <p class="note">Copy LLM prompt + commissioning JSON, view TTL as plain text in a new browser tab.</p>
+      <div class="btn-row">
+        <button type="button" id="btn-view-ttl-tab" class="btn">View TTL (new tab)</button>
+        <button type="button" id="btn-download-ttl" class="btn">Download TTL file</button>
+        <button type="button" id="btn-copy-llm" class="btn primary">Copy prompt + JSON for LLM</button>
+      </div>
+      <label class="field-label">LLM commissioning prompt</label>
+      <textarea id="llm-prompt" rows="12" readonly spellcheck="false"></textarea>
+    </section>
+
+    <pre id="status" class="status"></pre>
+  </main>
+
+  <script src="/static/dashboard_theme.js"></script>
+  <script src="/static/data_model_popup.js"></script>
+  <script src="/static/data_model.js"></script>
+</body>
+</html>

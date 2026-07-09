@@ -1,0 +1,88 @@
+vav_1:
+  low_limit_f:
+    default: 68
+    min: 55
+    max: 75
+    step: 0.5
+  high_limit_f:
+    default: 76
+    min: 70
+    max: 90
+    step: 0.5
+  confirm_minutes:
+    default: 15
+    min: 0
+    max: 120
+    step: 5
+
+sat_high:
+  sat_high_delta_f:
+    default: 5
+    min: 1
+    max: 20
+    step: 0.5
+  confirm_minutes:
+    default: 15
+    min: 0
+    max: 120
+    step: 5
+
+econ_2:
+  oat_hi_f:
+    default: 63
+    min: 50
+    max: 80
+    step: 0.5
+  damper_frac:
+    default: 0.42
+    min: 0.05
+    max: 0.95
+    step: 0.01
+  confirm_minutes:
+    default: 5
+    min: 0
+    max: 120
+    step: 5
+
+econ_1:
+  oat_min_f:
+    default: 55
+    min: 40
+    max: 70
+    step: 0.5
+  confirm_minutes:
+    default: 10
+    min: 0
+    max: 120
+    step: 5
+
+oat_meteo:
+  oat_err_f:
+    default: 5
+    min: 1
+    max: 20
+    step: 0.5
+  confirm_minutes:
+    default: 15
+    min: 0
+    max: 120
+    step: 5
+
+fc2:
+  mix_tol_f:
+    default: 1.15
+    min: 0.5
+    max: 5
+    step: 0.05
+  confirm_minutes:
+    default: 10
+    min: 0
+    max: 120
+    step: 5
+
+fan_runtime:
+  fan_on_frac:
+    default: 0.05
+    min: 0.01
+    max: 0.5
+    step: 0.01

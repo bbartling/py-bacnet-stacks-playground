@@ -1,63 +1,74 @@
-# Vibe Code App 19 — FDD analyst dashboard (`fdd_app`)
+# Vibe Code App 19 — Streamlit FDD demo
 
-**Template for building your own** RCx / FDD analyst dashboard from historian CSV exports (no live BACnet). Point at any compatible data tree — swap rules, pages, and params for your site.
+Lightweight **Python + Streamlit + pandas** educational app for fault detection on BUILDING_100-style CSV historian data.
 
-**Reference examples** (for developing this template, not shipped in git): `BUILDING_100`, `BUILDING_50` under your `HVAC_DATA_ROOT`.
+**This is not Open-FDD.** For the production Rust/DataFusion engine, see [Open-FDD](https://github.com/bbartling/open-fdd) (`C:\Users\ben\Documents\open-fdd`).
 
-**Agent spec (start here for vibe coding):** [`AGENTS.md`](AGENTS.md) · [`vibe19_agent_spec/TEMPLATE.md`](vibe19_agent_spec/TEMPLATE.md) · [`vibe19_agent_spec/`](vibe19_agent_spec/)
+## What this app is
 
-| Directory | Role |
-| --- | --- |
-| [`fdd_app/backend/`](fdd_app/backend/) | **Backend** — FastAPI server, pandas FDD engine, chart generation |
-| [`fdd_app/frontend/`](fdd_app/frontend/) | **Frontend** — static dashboard JS/CSS |
-| [`fdd_app/sidecar/`](fdd_app/sidecar/) | **Sidecar** — optional open-fdd Rust edge bridge |
-| [`fdd_dashboard_model/`](fdd_dashboard_model/) | **Enhanced** — typed point catalog + VAV box loaders |
-| [`shared/`](shared/) | `data_config`, validation script |
+- Streamlit UI with tunable sliders and engineer notes
+- Readable pandas fault rules (VAV comfort, SAT high, economizer, fan runtime, …)
+- CSV tree, upload, local folder, read-only SQLite/DuckDB, optional Parquet
+- Simple YAML role mapping — no Haystack/Oxigraph
 
-## Data (not in git)
+## What this app is not
 
-CSV history trees are **large** (~500 MB+ with VAV) and stay **outside** the repo.
+- Not a FastAPI production dashboard
+- Not Rust or DataFusion
+- Not a Parquet production pipeline (Parquet read is optional convenience only)
 
-Copy [`data_paths.example.yaml`](data_paths.example.yaml) → `data_paths.local.yaml` or set:
+## Quick start
 
 ```powershell
-$env:HVAC_DATA_ROOT = "/path/to/hvac_systems_CLEANED"
-$env:HVAC_BUILDING = "BUILDING_100"
-```
-
-See [`data/README.md`](data/README.md).
-
-## Validate import
-
-```bash
 cd vibe_code_apps_19
-python validate_data.py
+python -m pip install -e ".[dev]"
+copy .env.example .env   # if present; set HVAC_DATA_ROOT
+streamlit run streamlit_app.py
 ```
 
-## Generate dashboard (your building)
+## Environment
 
-```bash
-cd vibe_code_apps_19/fdd_app
-pip install -r requirements-dev.txt
-cd backend && python generate_dashboard.py
-uvicorn asgi:app --host 127.0.0.1 --port 5000   # http://127.0.0.1:5000
-```
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `HVAC_DATA_ROOT` | `./data/hvac_systems_CLEANED` | Root folder with `BUILDING_100/` and `weather/` |
+| `HVAC_BUILDING` | `BUILDING_100` | Building folder name |
+| `HVAC_WEATHER_SUBDIR` | `weather` | Weather CSV subfolder |
 
-Poll interval is read from each building’s `manifest.json` (`grid_minutes: 5` → 300s).
+## BUILDING_100
 
-## Try the reference examples
+Point `HVAC_DATA_ROOT` at your local cleaned CSV tree. The app loads `manifest.json`, equipment `history_wide.csv` + `columns.csv`, and optional weather.
+
+See [docs/CSV_INPUT_GUIDE.md](docs/CSV_INPUT_GUIDE.md).
+
+## Upload CSV / SQL
+
+- **Upload CSV** — sidebar file picker, then map roles
+- **SQLite / DuckDB** — read-only SELECT only — [docs/SQL_INPUT_GUIDE.md](docs/SQL_INPUT_GUIDE.md)
+
+## Role mapping
+
+Edit `configs/role_map.yaml` or use the **Role Mapping** tab. Semantic roles (`sat`, `zone_t`, `oa_t`, …) map to CSV column names.
+
+## Rule tuning
+
+Sliders come from `configs/rule_defaults.yaml`. See [docs/RULE_TUNING_GUIDE.md](docs/RULE_TUNING_GUIDE.md).
+
+## Export
+
+**Export** tab: summary CSV, debug CSV, Markdown/HTML report (includes engineer notes).
+
+## Tests
 
 ```powershell
-$env:HVAC_BUILDING = "BUILDING_100"   # or BUILDING_50
-python generate_dashboard.py
+python -m pytest -q
 ```
 
-## Git strategy
+## Docs
 
-- **Commit:** Python, JSON mappings, docs, small example configs
-- **Ignore:** `BUILDING_*`, `weather/`, `*.csv` history, generated HTML, zips, `data_paths.local.yaml`
+- [STREAMLIT_DEMO_SPEC.md](docs/STREAMLIT_DEMO_SPEC.md)
+- [STREAMLIT_AGENT_SPEC.md](docs/STREAMLIT_AGENT_SPEC.md)
+- [STREAMLIT_DEMO_MIGRATION_PLAN.md](STREAMLIT_DEMO_MIGRATION_PLAN.md)
 
-## Status
+## Agent prompt
 
-- **Import data:** validated via `validate_data.py` when `HVAC_DATA_ROOT` is set
-- **VAV terminal FDD pages:** data model scaffold in `fdd_dashboard_model/` — rules still AHU-centric in `fdd_app/backend`
+See [AGENTS.md](AGENTS.md) for Cursor/Codex instructions.
