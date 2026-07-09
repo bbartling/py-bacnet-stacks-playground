@@ -21,7 +21,7 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, fault_hours, fault_pct]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 900
@@ -61,7 +61,7 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, avg_zone_temp, min_zone_temp, max_zone_temp]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: false
     delete_python_candidate: false
     confirm_seconds: 0
@@ -92,7 +92,7 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, comfort_pct]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: false
     delete_python_candidate: false
     confirm_seconds: 0
@@ -123,7 +123,7 @@ rules:
     required_roles: [zone_t]
     output_columns: [equipment_id, fault_samples, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: false
     delete_python_candidate: false
     confirm_seconds: 0
@@ -185,7 +185,7 @@ rules:
     required_roles: [sat, sat_sp, clg_valve_pct, oa_damper_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -243,10 +243,10 @@ rules:
     required_roles: [oa_t, oa_damper_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
-    confirm_seconds: 900
+    confirm_seconds: 300
 
   - rule_id: FC1
     sql_file: fc1_duct_static_low.sql
@@ -267,7 +267,7 @@ rules:
     required_roles: [mat, oa_t, rat, fan_cmd]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -304,7 +304,7 @@ rules:
     required_roles: [sat, mat, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -316,7 +316,7 @@ rules:
     required_roles: [oa_t, sat_sp, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -328,7 +328,7 @@ rules:
     required_roles: [mat, oa_t, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600
@@ -352,7 +352,7 @@ rules:
     required_roles: [sat, mat, oa_damper_pct, clg_valve_pct]
     output_columns: [equipment_id, fault_hours]
     priority: P0
-    parity_status: near_parity
+    parity_status: proven_building_100
     dashboard_wired: true
     delete_python_candidate: false
     confirm_seconds: 600

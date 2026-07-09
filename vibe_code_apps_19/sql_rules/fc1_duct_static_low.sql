@@ -19,12 +19,21 @@ base AS (
       THEN 1 ELSE 0 END AS INT) AS raw_fault
   FROM h
 ),
+lagged AS (
+  SELECT
+    *,
+    CASE
+      WHEN raw_fault = LAG(raw_fault) OVER (PARTITION BY equipment_id ORDER BY timestamp_utc)
+      THEN 0 ELSE 1
+    END AS is_new_streak
+  FROM base
+),
 grp AS (
   SELECT
     *,
-    SUM(CASE WHEN raw_fault = 0 THEN 1 ELSE 0 END)
+    SUM(is_new_streak)
       OVER (PARTITION BY equipment_id ORDER BY timestamp_utc ROWS UNBOUNDED PRECEDING) AS streak_id
-  FROM base
+  FROM lagged
 ),
 ranked AS (
   SELECT

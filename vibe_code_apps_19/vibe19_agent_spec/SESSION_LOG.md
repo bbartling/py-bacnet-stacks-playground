@@ -8,7 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
-## 2026-07-09 — OAT-METEO SQL parity fix (root cause: confirm-streak off-by-one)
+## 2026-07-09 — Bulk confirm-streak fix: BUILDING_100 full parity @ 0.5h
+
+Applied LAG-based transition streak CTE to all remaining SQL rules (FC1–FC13, VAV-1,
+ECON-2, etc.). Fixed ECON-2 `confirm_seconds` registry mismatch (900 → 300 to match
+cookbook). **368 pass / 0 fail / 11 skipped** — material mismatch list empty @ 0.5h.
+FC7/ECON-5 remain valid skips (missing historian roles).
+
+---
 
 **Root cause found via `debug_rule_parity.py` + a pandas replay of both streak
 algorithms on the dumped raw-fault series:** the shared `grp`/`ranked` confirm CTE
