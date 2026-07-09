@@ -27,19 +27,19 @@ Ordered slices for agent/human iteration. Complete top-to-bottom unless the user
 - [x] Renamed `csv_fdd_dashboard/` → **`fdd_app/`** with `backend/`, `frontend/static/`, `sidecar/` split. Removed dead code (`wsgi.py`, `dashboard_server.py`, `pandas_rule_scaffolds`). Deleted committed generated HTML/CSV artifacts.
 - [x] **Rust FDD core stage 1** — `rust_fdd_core/` workspace (7 crates), `sql_rules/` (8 rules), `fdd_cli` validate/ingest/query/benchmark, Parquet sidecars, docs + benchmark report. Python dashboard unchanged (102 pytest green).
 - [x] **Rust FDD core stage 2 (parity + wiring)** — pandas oracle export, hardened compare + markdown report, poll interval `{{POLL_SECONDS}}`, 19 SQL rules, role mapping doc, `VIBE19_RUST_CACHE=1` warmup. BUILDING_100: 229 metric pass / 49 fail (analytics proven; fault confirm/proxy gaps documented). 103 pytest green.
-- [x] **Stage 3 VAV_7 zone_t + SQL tuning** — ranked zone_t resolution (Python + Rust), registry parameters + Rust injection, `/api/sql-rules*`, static SQL tuning panel. BUILDING_100: **314 pass / 54 fail** @ 0.5; zone analytics proven; VAV_7 recovered.
+- [x] **Stage 4 branch reconciliation** — audit clean; `develop` only; `stage4-finish-parity-and-tuning` created; baseline 314/54 confirmed. See `BRANCH_RECONCILIATION_STAGE4.md`.
 
 ---
 
 ## Next for agent (ordered)
 
-### Rust + SQL migration (priority)
+### Stage 4 parity (on `stage4-finish-parity-and-tuning`)
 
-1. **OAT-METEO residuals** — timezone join audit vs Python weather merge
-2. **FC13 / FC8 / FC10 / FC2 / FC9 / FC12** — threshold + confirm CTE exactness
-3. **ECON-4** — OA fraction denominator handling
-4. **Complete registry `parameters:`** for all FC/ECON rules (confirm_seconds + thresholds)
-5. **Per-request SQL preview** — invoke Rust CLI with session params (not batch cache only)
+1. **OAT-METEO** — timestamp join audit vs Python weather merge (P0)
+2. **ECON-4** — fan gate + OA fraction + confirm sample dumps (P0)
+3. **FC8/FC13/FC10/FC2/FC9/FC12** — threshold + confirm fixtures (P1)
+4. **VAV-1** — 34 small confirm residuals (P2)
+5. **Complete registry `parameters:`** for all 19 rules
 
 ### Template (any site)
 

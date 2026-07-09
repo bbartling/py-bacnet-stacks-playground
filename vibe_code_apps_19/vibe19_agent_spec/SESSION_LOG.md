@@ -8,6 +8,20 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-09 — Branch reconciliation + Stage 4 working branch
+
+**Audit:** Only `develop` exists (local + remote). Default branch verified: **develop**. Stale `master` and `stage3-datafusion-parity-building100` already deleted after fast-forward merge. No stranded commits.
+
+**Baseline rerun @ 0.5:** 314 pass / 54 fail / 11 skipped; 19/19 SQL rules; max Δ 32.7h OAT-METEO. Unchanged from Stage 4a.
+
+**Working branch:** `stage4-finish-parity-and-tuning` from `develop` @ `b93a929`.
+
+**Docs:** `BRANCH_RECONCILIATION_STAGE4.md`
+
+**Next:** Stage 4 Priority A — OAT-METEO timestamp/join audit.
+
+---
+
 ## 2026-07-09 — Stage 3: VAV_7 zone_t fix + SQL tunable parameters
 
 **Done:**

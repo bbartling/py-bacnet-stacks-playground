@@ -1,8 +1,9 @@
 # Stage 3/4 merge status report
 
 **Date:** 2026-07-09  
-**Branch merged:** `stage3-datafusion-parity-building100` → `master`  
-**Latest commit:** see `git log -1` on master
+**Canonical branch:** `develop` (GitHub default; `origin/HEAD` → `develop`)  
+**Latest commit:** `b93a929` — Stage 4a parity plan + ECON-4/OAT SQL tweaks  
+**Working branch for Stage 4:** `stage4-finish-parity-and-tuning`
 
 ## What works (proven @ 0.5h tolerance)
 
