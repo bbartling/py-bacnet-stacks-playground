@@ -10,7 +10,7 @@ import yaml
 
 from app.config import AppConfig
 from app.data_loader import load_building_tree
-from app.role_map import apply_role_map, load_role_map
+from app.role_map import apply_role_map, enrich_role_map_from_equipment, load_role_map
 from app.rules.runner import run_all_cookbook_rules
 from app.rules import CANONICAL_RULE_COUNT
 from app.cache import cached_weather
@@ -21,6 +21,14 @@ def validate_building100(data_root: Path | None = None, building_id: str = "BUIL
     root = data_root or cfg.data_root
     role_map = load_role_map(cfg.role_map_path)
     tree = load_building_tree(root, building_id)
+    for eq_id, raw_df in tree.items():
+        cols_path = raw_df.attrs.get("columns_path")
+        enrich_role_map_from_equipment(
+            role_map,
+            eq_id,
+            Path(cols_path) if cols_path else None,
+            list(raw_df.columns),
+        )
     weather = cached_weather(str(root), cfg.weather_subdir)
 
     status_counts: Counter = Counter()

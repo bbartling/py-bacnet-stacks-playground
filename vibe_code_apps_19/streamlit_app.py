@@ -26,7 +26,7 @@ from app.charts import rule_result_chart  # noqa: E402
 from app.config import AppConfig  # noqa: E402
 from app.data_loader import discover_equipment, infer_poll_seconds, validate_dataframe  # noqa: E402
 from app.reports import debug_frame, html_report, markdown_report, results_summary_table, to_csv_bytes  # noqa: E402
-from app.role_map import apply_role_map, load_role_map, roles_from_columns_csv, save_role_map, suggest_roles  # noqa: E402
+from app.role_map import apply_role_map, enrich_role_map_from_equipment, load_role_map, roles_from_columns_csv, save_role_map, suggest_roles  # noqa: E402
 from app.rules import CANONICAL_RULE_COUNT, RULES, RULES_BY_ID, run_all, run_rule  # noqa: E402
 from app.rules.runner import infer_equipment_kind  # noqa: E402
 
@@ -154,6 +154,15 @@ def _load_data(cfg: AppConfig) -> None:
         st.session_state.equipment_frames = frames
         st.session_state.weather = weather
         st.session_state.data_source = source
+        rm = dict(st.session_state.role_map)
+        for eq_id, raw_df in frames.items():
+            enrich_role_map_from_equipment(
+                rm,
+                eq_id,
+                Path(raw_df.attrs["columns_path"]) if raw_df.attrs.get("columns_path") else None,
+                list(raw_df.columns),
+            )
+        st.session_state.role_map = rm
         if st.session_state.selected_equipment not in frames:
             st.session_state.selected_equipment = sorted(frames)[0]
 

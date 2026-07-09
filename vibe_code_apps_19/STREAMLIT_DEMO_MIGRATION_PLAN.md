@@ -54,9 +54,10 @@ vibe_code_apps_19/
 - [x] Open-FDD port verified
 - [x] Branch `streamlit-pandas-demo-vibe19`
 - [x] `app/` data loader, roles, rules, charts, reports
-- [x] `streamlit_app.py` with 7 tabs + engineer notes + sliders
-- [x] Config YAMLs
-- [x] Tests
+- [x] `streamlit_app.py` with 8 tabs + 50 rules + engineer notes + sliders
+- [x] 50-rule cookbook (`cookbook_catalog.py`)
+- [x] BUILDING_100 validation doc (2400 evaluations, 0 errors)
+- [x] 118 pytest green
 - [x] Remove Rust/SQL/FastAPI trees
 - [x] Rewrite README + AGENTS.md
 - [x] Manual Streamlit smoke (app launches; BUILDING_100 at `./data/hvac_systems_CLEANED`)

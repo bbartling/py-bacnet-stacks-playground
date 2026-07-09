@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import yaml
@@ -22,6 +21,93 @@ ROLE_ALIASES = {
     "outdoor_air_damper": "oa_damper_pct",
 }
 
+# point_role / column substring → cookbook logical role
+POINT_ROLE_CANONICAL: dict[str, str] = {
+    "discharge_air_temp": "sat",
+    "return_air_temp": "rat",
+    "mixed_air_temp": "mat",
+    "outside_air_temp": "oa_t",
+    "oat": "oa_t",
+    "zone_temp": "zone_t",
+    "space_temp": "zone_t",
+    "chw_valve": "clg_valve_pct",
+    "cooling_valve": "clg_valve_pct",
+    "heating_valve": "htg_valve_pct",
+    "hw_valve": "htg_valve_pct",
+    "reheat_valve": "reheat_valve_pct",
+    "damper": "oa_damper_pct",
+    "oa_damper": "oa_damper_pct",
+    "airflow": "zone_flow",
+    "fan_cmd": "fan_cmd",
+    "fan_speed": "fan_cmd",
+    "supply_fan": "fan_cmd",
+    "fan_status": "fan_status",
+    "occ_mode": "occ_mode",
+    "chw_supply": "chw_supply_t",
+    "chw_return": "chw_return_t",
+}
+
+# (column substring patterns, role) — lower priority than explicit point_role map
+COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
+    (("discharge_air_temp_f", "da-t"), "sat"),
+    (("dat_reset", "sat_sp", "sat_setpoint"), "sat_sp"),
+    (("return_air_temp", "ra-t"), "rat"),
+    (("mixed_air_temp", "mat"), "mat"),
+    (("outside_air_temp", "oa-t", "oat_f"), "oa_t"),
+    (("ex_dmpr", "oa_damper", "outdoor_air_damper"), "oa_damper_pct"),
+    (("chw_valve", "clg_valve", "cooling_valve"), "clg_valve_pct"),
+    (("hw_valve", "htg_valve", "heating_valve"), "htg_valve_pct"),
+    (("supply_fan_speed", "fan_cmd", "fan_speed"), "fan_cmd"),
+    (("fan_status", "fan_proof"), "fan_status"),
+    (("da_p_setpoint", "duct_static_sp"), "duct_static_sp"),
+    (("da_p_inwc", "duct_static"), "duct_static"),
+    (("space_temp", "spacetemp"), "zone_t"),
+    (("reheat", "rht_valve"), "reheat_valve_pct"),
+    (("vavactuator", "damper_pct", "damper_pos"), "damper_pct"),
+    (("actflow", "airflow_cfm"), "zone_flow"),
+    (("minflowsp", "min_airflow"), "min_flow_sp"),
+    (("vav_disch", "dischargeairtemp"), "vav_disch_t"),
+    (("ductintemp", "duct_in"), "vav_inlet_t"),
+]
+
+# When multiple columns map to one role, prefer names matching these substrings (first match wins)
+ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
+    "zone_t": ("spacetemp", "space_temp", "zone_temp"),
+    "zone_flow": ("actflow", "flow_input", "airflow"),
+    "min_flow_sp": ("minflowsp", "min_airflow"),
+    "sat": ("discharge_air_temp_f", "da-t"),
+    "sat_sp": ("dat_reset", "sat_sp"),
+    "oa_damper_pct": ("ex_dmpr", "oa_damper"),
+    "damper_pct": ("damper_pct", "vavactuator", "heatingdamper"),
+}
+
+
+def _canonical_role(point_role: str, col: str) -> str | None:
+    pr = point_role.strip().lower()
+    if pr in POINT_ROLE_CANONICAL:
+        return POINT_ROLE_CANONICAL[pr]
+    if pr in ROLE_ALIASES:
+        return ROLE_ALIASES[pr]
+    cl = col.lower()
+    for patterns, role in COL_PATTERN_ROLES:
+        if any(p in cl for p in patterns):
+            return role
+    return None
+
+
+def _rank_column(role: str, col: str) -> int:
+    cl = col.lower()
+    prefs = ROLE_COLUMN_RANK.get(role, ())
+    for i, p in enumerate(prefs):
+        if p in cl:
+            return i
+    if "alarm" in cl or "limit" in cl or "setpoint" in cl and role == "zone_t":
+        return 100
+    return 50
+
+
+    return 50
+
 
 def load_role_map(path: Path) -> dict[str, dict[str, str]]:
     if not path.is_file():
@@ -31,23 +117,47 @@ def load_role_map(path: Path) -> dict[str, dict[str, str]]:
 
 
 def roles_from_columns_csv(columns_path: Path | None) -> dict[str, str]:
-    """Build role→column from columns.csv point_role field."""
+    """Build canonical role→column from columns.csv point_role + column heuristics."""
     if columns_path is None or not Path(columns_path).is_file():
         return {}
-    import pandas as pd
-
     df = pd.read_csv(columns_path)
-    col_key = "column" if "column" in df.columns else df.columns[0]
+    col_key = "column" if "column" in df.columns else "col" if "col" in df.columns else df.columns[0]
     role_key = next((c for c in ("point_role", "role") if c in df.columns), None)
-    if role_key is None:
-        return suggest_roles(pd.DataFrame(columns=df[col_key].astype(str)))
-    out: dict[str, str] = {}
+    candidates: dict[str, list[tuple[int, str]]] = {}
     for _, row in df.iterrows():
         col = str(row[col_key]).strip()
-        role = str(row[role_key]).strip()
-        if col and role:
-            out[role] = col
+        if not col or col in ("col", "column"):
+            continue
+        pr = str(row[role_key]).strip() if role_key else ""
+        role = _canonical_role(pr, col) if pr else None
+        if role is None:
+            for patterns, r in COL_PATTERN_ROLES:
+                if any(p in col.lower() for p in patterns):
+                    role = r
+                    break
+        if role is None:
+            continue
+        candidates.setdefault(role, []).append((_rank_column(role, col), col))
+    out: dict[str, str] = {}
+    for role, opts in candidates.items():
+        opts.sort(key=lambda x: x[0])
+        out[role] = opts[0][1]
     return out
+
+
+def enrich_role_map_from_equipment(
+    role_map: dict[str, dict[str, str]],
+    equipment_id: str,
+    columns_path: Path | None,
+    history_columns: list[str] | None = None,
+) -> dict[str, dict[str, str]]:
+    """Merge YAML, columns.csv roles, and column-name suggestions."""
+    merged = dict(role_map.get(equipment_id, {}))
+    merged.update(roles_from_columns_csv(columns_path))
+    if history_columns:
+        merged.update(suggest_roles(pd.DataFrame(columns=history_columns)))
+    role_map[equipment_id] = merged
+    return role_map
 
 
 def save_role_map(path: Path, mapping: dict[str, dict[str, str]]) -> None:
@@ -59,14 +169,11 @@ def suggest_roles(df: pd.DataFrame) -> dict[str, str]:
     out: dict[str, str] = {}
     for col in df.columns:
         cl = col.lower()
-        for key, role in ROLE_ALIASES.items():
-            if key in cl:
-                out[role] = col
+        for patterns, role in COL_PATTERN_ROLES:
+            if any(p in cl for p in patterns):
+                if role not in out or _rank_column(role, col) < _rank_column(role, out[role]):
+                    out[role] = col
                 break
-        if "space_temp" in cl and "zone_t" not in out:
-            out["zone_t"] = col
-        if "fan" in cl and "cmd" in cl:
-            out.setdefault("fan_cmd", col)
     return out
 
 
