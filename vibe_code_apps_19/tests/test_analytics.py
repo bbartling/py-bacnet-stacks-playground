@@ -130,7 +130,7 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
 
     chiller = pd.DataFrame(
         {
-            "chiller_status": on,
+            "chiller_status": on,  # must NOT drive weekly chiller series
             "cwp1_s": on,
             "tower_fan_status": on,
             "chw_supply_t": [44.0] * 48,
@@ -139,9 +139,9 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
     )
     chiller.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHW_PLANT"})
 
-    # No cmd — estimate from leave temp
+    # No pump — backup leave temp only
     chiller2 = pd.DataFrame(
-        {"chw_supply_t": [44.0] * 24 + [55.0] * 24},
+        {"chw_supply_t": [44.0] * 24 + [55.0] * 24, "chiller_status": on},
         index=idx,
     )
     chiller2.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
@@ -153,7 +153,7 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
             "CHILLER_1": chiller,
             "CHILLER_2": chiller2,
         },
-        role_map={},
+        role_map={"CHILLER_1": {"chw_pump_status": "cwp1_s"}},
         chw_leave_max_f=48.0,
     )
     assert not weekly.empty
@@ -169,10 +169,34 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
 
     chill = weekly[weekly["plant_group"] == "chiller"]
     labels_c = set(chill["label"])
-    assert any("CHILLER_1" in x and "chiller" in x for x in labels_c)
-    assert any("CWP" in x.upper() for x in labels_c)
-    assert any("tower" in x.lower() for x in labels_c)
+    # Designated pump drives chiller series — not chiller_status/cmd
+    assert any("CHILLER_1" in x and "chw_pump_status" in x for x in labels_c)
+    assert not any("chiller_status" in x for x in labels_c)
+    assert any("CWP" in x.upper() or "tower" in x.lower() for x in labels_c)
     assert any("CHILLER_2" in x and "chw_leave" in x for x in labels_c)
+
+
+def test_chiller_runtime_linked_pump_equipment():
+    from app.analytics import motor_run_hours_weekly
+
+    idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
+    on = [1.0] * 12 + [0.0] * 12
+    ch = pd.DataFrame({"chw_supply_t": [55.0] * 24}, index=idx)
+    ch.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
+    pumps = pd.DataFrame({"cwp1_s": on}, index=idx)
+    pumps.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHW_PLANT"})
+    weekly = motor_run_hours_weekly(
+        {"CHILLER_1": ch, "CHW_PUMPS": pumps},
+        role_map={
+            "CHILLER_1": {
+                "chw_pump_equipment": "CHW_PUMPS",
+                "chw_pump_status": "cwp1_s",
+            }
+        },
+    )
+    chill = weekly[weekly["plant_group"] == "chiller"]
+    assert any("CHILLER_1" in x and "chw_pump_status" in x for x in set(chill["label"]))
+    assert chill.loc[chill["equipment_id"] == "CHILLER_1", "hours"].sum() == pytest.approx(12.0)
 
 
 def test_all_rules_have_confirm_min():

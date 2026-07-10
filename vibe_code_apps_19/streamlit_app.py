@@ -351,8 +351,8 @@ _PLANT_CHART_META: tuple[tuple[str, str, str], ...] = (
     (
         PLANT_CHILLER,
         "Chiller plant — chillers, CHW/CW pumps, towers",
-        "Chiller ON from cmd/status → amps → power → CHW leave vs sidebar slider; "
-        "each pump/tower motor as its own series.",
+        "Chiller runtime from **designated chw_pump_status** (role_map / data model); "
+        "CHW leave °F only if no pump. Each pump/tower motor as its own series.",
     ),
 )
 
@@ -522,37 +522,150 @@ def _commit_frames(
         st.session_state.selected_equipment = sorted(frames)[0]
 
 
-def _load_data(cfg: AppConfig) -> None:
-    """Local: folder path. Cloud: zip package only (uncached, session-scoped wipe)."""
-    from app.package_io import (
-        PackageError,
-        apply_session_config,
-        load_package_zip,
-        sweep_old_temp_dirs,
-        wipe_workdir,
+def _commit_package_result(result) -> None:
+    """Commit zip package frames + optional session_config into session_state."""
+    from app.package_io import apply_session_config
+
+    site_id = st.session_state.site_id or DEFAULT_SITE_ID
+    for _eq_id, df in result.frames.items():
+        df.attrs.setdefault("site_id", site_id)
+        df.attrs.setdefault("building_id", result.manifest.building_id)
+        if df.attrs.get("columns_path") is not None:
+            df.attrs["columns_path"] = str(df.attrs["columns_path"])
+    st.session_state.upload_workdir = str(result.workdir)
+    st.session_state.package_report = result.report
+    st.session_state.data_input_mode = "Zip package"
+    _commit_frames(
+        result.frames,
+        site_id=site_id,
+        building_id=result.manifest.building_id,
+        source=f"zip:{result.manifest.building_id}",
+        weather=result.weather,
     )
+    if result.session_config is not None:
+        for w in apply_session_config(result.session_config, equipment_ids=set(result.frames)):
+            st.sidebar.warning(w)
+    for w in result.warnings:
+        st.sidebar.warning(w)
+
+
+def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
+    """Load building folder via cached path loaders (local / server paths only).
+
+    Does not wipe an existing zip/folder session when the path is empty or invalid.
+    """
+    from app.package_io import wipe_workdir
+
+    frames: dict[str, pd.DataFrame] = {}
+    weather = None
+    building_id = ""
+    source = ""
+    site_id = st.session_state.site_id or DEFAULT_SITE_ID
+    path = Path(folder_text).expanduser() if folder_text else None
+    if not folder_text:
+        # Keep whatever is already loaded (e.g. user switched source briefly)
+        return
+    if path and path.is_dir():
+        candidates = list_building_candidates(path)
+        if not candidates:
+            st.sidebar.warning("No `history_wide.csv` under that path.")
+            return
+        labels = [c.name for c in candidates]
+        if len(candidates) == 1 and candidates[0].resolve() == path.resolve():
+            chosen = candidates[0]
+        else:
+            pick = st.sidebar.selectbox("Building", labels, index=0)
+            chosen = next(c for c in candidates if c.name == pick)
+        building_id = chosen.name
+        st.session_state.data_root = str(chosen.parent)
+        try:
+            frames = cached_building_folder(str(chosen.resolve()))
+        except Exception as exc:  # pragma: no cover
+            st.sidebar.error(str(exc))
+            return
+        if not frames:
+            st.sidebar.warning("Folder loaded but no equipment frames found.")
+            return
+        # Successful folder load replaces any prior zip session
+        if st.session_state.get("upload_workdir"):
+            wipe_workdir(st.session_state.get("upload_workdir"))
+            st.session_state.upload_workdir = None
+            st.session_state.package_report = None
+        for eq_id in frames:
+            frames[eq_id].attrs.setdefault("site_id", site_id)
+            frames[eq_id].attrs.setdefault("building_id", building_id)
+            if frames[eq_id].attrs.get("columns_path") is not None:
+                frames[eq_id].attrs["columns_path"] = str(frames[eq_id].attrs["columns_path"])
+        weather = cached_weather(str(chosen.parent), cfg.weather_subdir)
+        source = str(chosen.resolve())
+        st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
+        _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
+        return
+    st.sidebar.warning("Path not found — use Browse folder…")
+
+
+def _load_data(cfg: AppConfig) -> None:
+    """Unified data picker: Folder (when allowed) + Zip package (always)."""
+    from app.package_io import PackageError, load_package_zip, sweep_old_temp_dirs, wipe_workdir
 
     sweep_old_temp_dirs()
     st.sidebar.markdown("**Building data**")
-    if cfg.is_cloud:
-        st.sidebar.caption(
-            "Cloud mode — upload a pre-processed zip (`docs/PACKAGE_SPEC.md`). "
-            "Non-sensitive demo data only; wipe is best-effort."
+    mode_label = "Cloud-capable" if cfg.is_cloud else "Local + Cloud-capable"
+    st.sidebar.caption(
+        f"{mode_label} · same `openfdd_package_v1` zip everywhere "
+        f"(`docs/PACKAGE_SPEC.md`). Non-sensitive demo data on shared hosts."
+    )
+
+    source_options = ["Zip package"]
+    if cfg.allow_server_paths:
+        source_options = ["Folder", "Zip package"]
+    default_src = "Zip package" if cfg.is_cloud or not cfg.allow_server_paths else "Folder"
+    if "data_input_mode" not in st.session_state:
+        st.session_state.data_input_mode = default_src
+    if st.session_state.data_input_mode not in source_options:
+        st.session_state.data_input_mode = source_options[0]
+
+    st.sidebar.radio(
+        "Data source",
+        source_options,
+        horizontal=True,
+        key="data_input_mode",
+        help="Folder = local historian tree. Zip = pre-processed openfdd_package_v1 (Cloud + local).",
+    )
+    source = st.session_state.data_input_mode
+
+    if source == "Folder" and cfg.allow_server_paths:
+        if st.sidebar.button("Browse folder…", help="Pick a building folder on this PC"):
+            picked = _pick_local_folder()
+            if picked:
+                st.session_state.building_folder = picked
+                st.rerun()
+        folder_text = st.sidebar.text_input(
+            "Folder path",
+            help="Building folder (AHU_*/… with history_wide.csv), or parent of several buildings.",
+            key="building_folder",
         )
+        _load_from_folder(cfg, folder_text)
+        if st.session_state.get("equipment_frames") and st.sidebar.button(
+            "Clear loaded data", key="clear_folder_session"
+        ):
+            _clear_uploaded_session()
+            st.session_state.building_folder = ""
+            st.rerun()
+    else:
         zip_file = st.sidebar.file_uploader(
             "Building package (.zip)",
             type=["zip"],
             key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
-            help="openfdd_package_v1 — see docs/PACKAGE_SPEC.md",
+            help="openfdd_package_v1 — manifest.json + equipment history_wide.csv",
         )
         c1, c2 = st.sidebar.columns(2)
-        load_clicked = c1.button("Load zip", type="primary", disabled=zip_file is None)
-        clear_clicked = c2.button("Clear session")
+        load_clicked = c1.button("Load zip", type="primary", disabled=zip_file is None, key="load_zip_unified")
+        clear_clicked = c2.button("Clear session", key="clear_session_unified")
         if clear_clicked:
             _clear_uploaded_session()
             st.rerun()
         if load_clicked and zip_file is not None:
-            # Replace any previous upload workdir
             wipe_workdir(st.session_state.get("upload_workdir"))
             st.session_state.upload_workdir = None
             try:
@@ -562,29 +675,7 @@ def _load_data(cfg: AppConfig) -> None:
             except Exception as exc:  # pragma: no cover
                 st.sidebar.error(f"Package load failed: {exc}")
             else:
-                st.session_state.upload_workdir = str(result.workdir)
-                st.session_state.package_report = result.report
-                site_id = st.session_state.site_id or DEFAULT_SITE_ID
-                for eq_id, df in result.frames.items():
-                    df.attrs.setdefault("site_id", site_id)
-                    df.attrs.setdefault("building_id", result.manifest.building_id)
-                    if df.attrs.get("columns_path") is not None:
-                        df.attrs["columns_path"] = str(df.attrs["columns_path"])
-                _commit_frames(
-                    result.frames,
-                    site_id=site_id,
-                    building_id=result.manifest.building_id,
-                    source=f"zip:{result.manifest.building_id}",
-                    weather=result.weather,
-                )
-                if result.session_config is not None:
-                    warns = apply_session_config(
-                        result.session_config, equipment_ids=set(result.frames)
-                    )
-                    for w in warns:
-                        st.sidebar.warning(w)
-                for w in result.warnings:
-                    st.sidebar.warning(w)
+                _commit_package_result(result)
                 st.sidebar.success(
                     f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`"
                 )
@@ -593,106 +684,41 @@ def _load_data(cfg: AppConfig) -> None:
         if report:
             with st.sidebar.expander("Package report", expanded=False):
                 st.json(report)
-        # Keep committed frames if already loaded this session
         frames = st.session_state.get("equipment_frames") or {}
-        if frames:
+        if frames and st.session_state.get("upload_workdir"):
+            st.sidebar.caption(
+                f"{len(frames)} equip · `{st.session_state.get('building_id') or '—'}` (zip session)"
+            )
+        elif frames:
+            # Folder data still in session while Zip tab is selected — don't drop it
             st.sidebar.caption(
                 f"{len(frames)} equip · `{st.session_state.get('building_id') or '—'}` (session)"
             )
-    else:
-        if st.sidebar.button("Browse folder…", help="Pick a building folder on this PC"):
-            picked = _pick_local_folder()
-            if picked:
-                st.session_state.building_folder = picked
-                st.rerun()
 
-        folder_text = st.sidebar.text_input(
-            "Folder path",
-            help="Building folder (AHU_*/VAV_*/… with history_wide.csv), or parent of several buildings.",
-            key="building_folder",
+    with st.sidebar.expander("AI agent / package help", expanded=False):
+        st.markdown(
+            """
+**Agent-friendly flow**
+1. Pre-process CSVs outside the app into `openfdd_package_v1` (see `docs/PACKAGE_SPEC.md`).
+2. Include optional `session_config.json` to restore units / role_map / thresholds.
+3. Open this app URL → **Data source: Zip package** → upload → **Load zip**.
+4. Click **Clear session** when done (best-effort wipe on shared hosts).
+
+**Limits:** Streamlit Cloud shares one process — not a locked per-agent backend.
+Use separate deploys for true isolation. Keep zips ≤ 25 MB.
+            """.strip()
         )
-
-        with st.sidebar.expander("Or upload package zip", expanded=False):
-            st.caption("Same `openfdd_package_v1` layout as Cloud — see docs/PACKAGE_SPEC.md")
-            zip_file = st.file_uploader(
-                "Building package (.zip)",
-                type=["zip"],
-                key=f"building_zip_local_{st.session_state.get('zip_uploader_key', 0)}",
+        demo = APP_ROOT / "data" / "demo_package_v1.zip"
+        if demo.is_file():
+            st.caption(f"Demo package on disk: `{demo.name}`")
+            st.download_button(
+                "Download demo_package_v1.zip",
+                data=demo.read_bytes(),
+                file_name="demo_package_v1.zip",
+                mime="application/zip",
+                key="dl_demo_package",
+                help="Synthetic non-sensitive package for Cloud / agent dry-runs.",
             )
-            if st.button("Load zip package", disabled=zip_file is None, key="load_zip_local"):
-                wipe_workdir(st.session_state.get("upload_workdir"))
-                try:
-                    result = load_package_zip(zip_file.getvalue())
-                except PackageError as exc:
-                    st.error(str(exc))
-                else:
-                    st.session_state.upload_workdir = str(result.workdir)
-                    st.session_state.package_report = result.report
-                    site_id = st.session_state.site_id or DEFAULT_SITE_ID
-                    for eq_id, df in result.frames.items():
-                        df.attrs.setdefault("site_id", site_id)
-                        df.attrs.setdefault("building_id", result.manifest.building_id)
-                    _commit_frames(
-                        result.frames,
-                        site_id=site_id,
-                        building_id=result.manifest.building_id,
-                        source=f"zip:{result.manifest.building_id}",
-                        weather=result.weather,
-                    )
-                    if result.session_config is not None:
-                        apply_session_config(result.session_config, equipment_ids=set(result.frames))
-                    st.success(f"Loaded zip · {len(result.frames)} equip")
-                    st.rerun()
-            if st.button("Clear uploaded zip session", key="clear_zip_local"):
-                _clear_uploaded_session()
-                st.rerun()
-
-        frames: dict[str, pd.DataFrame] = {}
-        weather = None
-        building_id = ""
-        source = ""
-        site_id = st.session_state.site_id or DEFAULT_SITE_ID
-
-        # Prefer in-session zip frames if present and no folder override this run
-        if st.session_state.get("upload_workdir") and st.session_state.get("equipment_frames"):
-            frames = st.session_state.equipment_frames
-            weather = st.session_state.weather
-            building_id = st.session_state.building_id or ""
-            source = st.session_state.data_source or ""
-            st.sidebar.caption(f"{len(frames)} equip · zip session")
-        else:
-            path = Path(folder_text).expanduser() if folder_text else None
-            if path and path.is_dir():
-                candidates = list_building_candidates(path)
-                if not candidates:
-                    st.sidebar.warning("No `history_wide.csv` under that path.")
-                else:
-                    labels = [c.name for c in candidates]
-                    if len(candidates) == 1 and candidates[0].resolve() == path.resolve():
-                        chosen = candidates[0]
-                    else:
-                        pick = st.sidebar.selectbox("Building", labels, index=0)
-                        chosen = next(c for c in candidates if c.name == pick)
-                    building_id = chosen.name
-                    st.session_state.data_root = str(chosen.parent)
-                    try:
-                        frames = cached_building_folder(str(chosen.resolve()))
-                    except Exception as exc:  # pragma: no cover
-                        st.sidebar.error(str(exc))
-                        frames = {}
-                    for eq_id in frames:
-                        frames[eq_id].attrs.setdefault("site_id", site_id)
-                        frames[eq_id].attrs.setdefault("building_id", building_id)
-                        if frames[eq_id].attrs.get("columns_path") is not None:
-                            frames[eq_id].attrs["columns_path"] = str(frames[eq_id].attrs["columns_path"])
-                    weather = cached_weather(str(chosen.parent), cfg.weather_subdir)
-                    source = str(chosen.resolve())
-                    if frames:
-                        st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
-            elif folder_text:
-                st.sidebar.warning("Path not found — use Browse folder…")
-
-            _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("Display & site")
@@ -766,14 +792,14 @@ def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> No
     _sync_role_map_from_sites()
     c1, c2, c3 = st.columns(3)
     if c1.button("Save flat YAML"):
-        if cfg.is_cloud:
-            st.warning("Cloud mode: use Export download — server disk writes are disabled.")
+        if not cfg.allow_disk_writes:
+            st.warning("Shared/Cloud host: use Export download — server disk writes are disabled.")
         else:
             save_role_map(cfg.role_map_path, st.session_state.role_map, nested=False)
             st.success("Saved flat role_map.yaml")
     if c2.button("Save nested site YAML"):
-        if cfg.is_cloud:
-            st.warning("Cloud mode: use Export download — server disk writes are disabled.")
+        if not cfg.allow_disk_writes:
+            st.warning("Shared/Cloud host: use Export download — server disk writes are disabled.")
         else:
             save_site_mapping(cfg.role_map_path, sites)
             st.success("Saved nested sites YAML")
@@ -790,16 +816,10 @@ def main() -> None:
 
     frames = st.session_state.equipment_frames
     if not frames:
-        if cfg.is_cloud:
-            st.info(
-                "Sidebar → upload an **openfdd_package_v1** zip → **Load zip**. "
-                "See `docs/PACKAGE_SPEC.md`. Use **Clear session** when finished."
-            )
-        else:
-            st.info(
-                "Sidebar → **Browse folder…** (or paste a building folder path), or upload a package zip. "
-                "Then map columns and run rules."
-            )
+        st.info(
+            "Sidebar → **Data source**: Folder (local) or **Zip package** (Cloud + local) → load data. "
+            "See `docs/PACKAGE_SPEC.md`. Agents: use zip + optional `session_config.json`."
+        )
         return
 
     # Sidebar "Rerun cat." — apply after frames exist
@@ -834,19 +854,27 @@ def main() -> None:
     span = dataset_time_span(frames)
     motor_tbl = motor_run_hours_table(frames, st.session_state.role_map)
     motor_tot = motor_run_hours_totals(motor_tbl)
-    motor_weekly = motor_run_hours_weekly(
-        frames,
-        st.session_state.role_map,
-        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-    )
-    cool_bins = mech_cooling_oat_bins(
-        frames,
-        st.session_state.role_map,
-        weather=st.session_state.weather,
-        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-        include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
-    )
+    try:
+        motor_weekly = motor_run_hours_weekly(
+            frames,
+            st.session_state.role_map,
+            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        )
+    except Exception as exc:
+        st.warning(f"Weekly motor hours unavailable: {exc}")
+        motor_weekly = pd.DataFrame()
+    try:
+        cool_bins = mech_cooling_oat_bins(
+            frames,
+            st.session_state.role_map,
+            weather=st.session_state.weather,
+            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+            include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
+        )
+    except Exception as exc:
+        st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
+        cool_bins = pd.DataFrame()
     start_s = span["start"].strftime("%Y-%m-%d %H:%M") if span["start"] is not None else "—"
     end_s = span["end"].strftime("%Y-%m-%d %H:%M") if span["end"] is not None else "—"
 
@@ -920,19 +948,20 @@ def main() -> None:
                 demo = APP_ROOT / "configs" / "building_100_column_map.json"
                 # Demo map is a template any site can start from — not locked to BUILDING_100.
                 default_json = demo if demo.is_file() else default_json
-            json_path = st.text_input(
-                "JSON map path (optional)",
-                st.session_state.column_map_path or (str(default_json) if default_json.is_file() else ""),
-            )
+            if cfg.allow_server_paths:
+                json_path = st.text_input(
+                    "JSON map path (optional)",
+                    st.session_state.column_map_path or (str(default_json) if default_json.is_file() else ""),
+                )
+                if st.button("Load JSON map from path") and json_path:
+                    try:
+                        data = load_column_map_json(json_path)
+                        _apply_column_map_json(data)
+                        st.session_state.column_map_path = json_path
+                        st.success(f"Loaded map for {len(data.get('equipment', {}))} equipment")
+                    except Exception as exc:
+                        st.error(str(exc))
             uploaded_json = st.file_uploader("Or upload column map JSON", type=["json"], key="colmap_upload")
-            if st.button("Load JSON map from path") and json_path:
-                try:
-                    data = load_column_map_json(json_path)
-                    _apply_column_map_json(data)
-                    st.session_state.column_map_path = json_path
-                    st.success(f"Loaded map for {len(data.get('equipment', {}))} equipment")
-                except Exception as exc:
-                    st.error(str(exc))
             if uploaded_json is not None and st.button("Apply uploaded JSON map"):
                 try:
                     import json as _json
@@ -951,10 +980,10 @@ def main() -> None:
                 )
                 _apply_column_map_json(data)
                 issues = validate_column_map_against_frames(data, frames)
-                if cfg.is_cloud:
+                if not cfg.allow_disk_writes:
                     st.success(
                         f"Built Haystack map in session ({len(data['equipment'])} equip) — "
-                        "Cloud mode does not write to server disk; download JSON below."
+                        "shared/Cloud host: download JSON (no server disk write)."
                     )
                     st.download_button(
                         "Download column map JSON",
@@ -1022,14 +1051,14 @@ def main() -> None:
         edit = {k: v for k, v in edit.items() if v}
         st.session_state.role_map[selected] = edit
         if st.button("Save role map YAML"):
-            if cfg.is_cloud:
+            if not cfg.allow_disk_writes:
                 st.download_button(
                     "Download role_map.yaml",
                     yaml.safe_dump(st.session_state.role_map, sort_keys=True),
                     "role_map.yaml",
                     key="dl_role_map_cloud",
                 )
-                st.info("Cloud mode: download only (no server write).")
+                st.info("Shared/Cloud host: download only (no server write).")
             else:
                 save_role_map(cfg.role_map_path, st.session_state.role_map)
                 st.success("Saved role_map.yaml")
@@ -1199,12 +1228,15 @@ def main() -> None:
                 )
 
     with tabs[5]:
-        render_rcx_plots_tab(
-            frames,
-            st.session_state.role_map,
-            weather=st.session_state.weather,
-            unit_system=st.session_state.get("unit_system", "imperial"),
-        )
+        try:
+            render_rcx_plots_tab(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+                unit_system=st.session_state.get("unit_system", "imperial"),
+            )
+        except Exception as exc:
+            st.error(f"RCx Plots failed: {exc}")
 
     with tabs[6]:
         st.subheader("Analytics")

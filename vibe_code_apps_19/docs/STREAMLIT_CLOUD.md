@@ -2,30 +2,34 @@
 
 ## Deploy
 
-1. Push `vibe_code_apps_19` (or monorepo subdirectory) to GitHub.
-2. In Streamlit Cloud → New app → set:
+1. Push `vibe_code_apps_19` (or set Cloud **app path** to this folder in the monorepo).
+2. Streamlit Cloud → New app:
    - **Main file:** `streamlit_app.py`
-   - **Python version:** 3.11+
-3. Secrets / env:
+   - **Python:** 3.11+
+   - Dependencies: `requirements.txt` in this folder (Cloud installs that file)
+3. Optional secrets / env:
    ```text
    APP_MODE=cloud
    ```
-4. Users upload an `openfdd_package_v1` zip — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md).
+4. Users pick **Data source → Zip package** and upload `openfdd_package_v1` — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md).
 
-## What Cloud mode does
+## Unified app (local + cloud)
 
-- Zip uploader + Load / Clear (no local folder path, no tkinter browse)
-- Uncached package load (does **not** use `@st.cache_data` for uploads)
-- Temp extract under `vibe19_*` + **Clear session** wipe
-- Column-map “save” becomes **download** (no write into shared `configs/`)
+One sidebar picker:
+
+- **Folder** — local historian tree (hidden when `allow_server_paths` is false)
+- **Zip package** — always available; uncached; **Clear session** wipe
+- **AI agent / package help** expander — agent steps + limits
+
+Disk saves (`configs/`) become **downloads** on shared/Cloud hosts.
 
 ## Honest limits
 
 - One shared Python process for all visitors
-- Session wipe is **best-effort** (no reliable disconnect hook)
+- Session wipe is **best-effort**
 - Not a security boundary for sensitive building data
-- Concurrent users share CPU/RAM — keep packages small (≤25 MB zip)
+- Keep zips ≤ 25 MB
 
 ## AI agents
 
-An agent can open the public URL and upload a zip via the browser UI. Streamlit Cloud does **not** provide locked per-agent backends. For true isolation, use separate app deploys or a real multi-tenant API (out of scope).
+Open the public URL → upload zip (+ optional `session_config.json`). No locked per-agent backend on Streamlit Cloud.

@@ -278,10 +278,14 @@ def _load_weather(building_root: Path) -> pd.DataFrame | None:
     if not hist.is_file():
         return None
     cols = building_root / "weather" / "columns.csv"
-    df = load_equipment_csv(hist, cols if cols.is_file() else None)
-    from app.weather_psychrometrics import enrich_weather_frame
+    try:
+        df = load_equipment_csv(hist, cols if cols.is_file() else None)
+        from app.weather_psychrometrics import enrich_weather_frame
 
-    return enrich_weather_frame(df)
+        return enrich_weather_frame(df)
+    except Exception:
+        # Bad weather sidecar must not fail the whole package load
+        return None
 
 
 def _validate_equipment_csv(path: Path) -> list[str]:
@@ -331,13 +335,23 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
 
     frames: dict[str, pd.DataFrame] = {}
     for eq in equipment:
-        df = load_equipment_csv(eq["history_path"], eq.get("columns_path"))
+        try:
+            df = load_equipment_csv(eq["history_path"], eq.get("columns_path"))
+        except Exception as exc:
+            raise PackageError(
+                f"{eq['equipment_id']}: failed to load history_wide.csv ({exc})"
+            ) from exc
         df.attrs["poll_seconds"] = float(manifest.grid_minutes) * 60.0
         df.attrs["equipment_id"] = eq["equipment_id"]
         df.attrs["building_id"] = manifest.building_id
         df.attrs["columns_path"] = str(eq["columns_path"]) if eq.get("columns_path") else None
         for issue in validate_dataframe(df):
             warnings.append(f"{eq['equipment_id']}: {issue}")
+        if df.empty or not isinstance(df.index, pd.DatetimeIndex):
+            raise PackageError(
+                f"{eq['equipment_id']}: no usable UTC datetime index after load "
+                "(need parseable timestamp_utc rows)"
+            )
         frames[eq["equipment_id"]] = df
 
     weather = _load_weather(building_root)

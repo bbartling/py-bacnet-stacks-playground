@@ -58,6 +58,10 @@ POINT_ROLE_CANONICAL: dict[str, str] = {
     "chiller": "chiller_status",
     "chiller_command": "chiller_status",
     "power": "chiller_power_kw",
+    "chw_pump_status": "chw_pump_status",
+    "chw_pump": "chw_pump_cmd",
+    "primary_chw_pump_status": "chw_pump_status",
+    "primary_chw_pump": "chw_pump_status",
 }
 
 COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
@@ -92,8 +96,11 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("chiller_1_command", "chiller_2_command", "chiller_command"), "chiller_status"),
     (("chiller_1_amps", "chiller_2_amps", "amps_a"), "chiller_amps"),
     (("power_demand_this_interval", "meter_power_sum_kw"), "chiller_power_kw"),
-    (("hwp1_c", "hwp2_c", "hwp3_c", "hw_pump_cmd", "chw_pump"), "hw_pump_cmd"),
+    (("hwp1_c", "hwp2_c", "hwp3_c", "hw_pump_cmd"), "hw_pump_cmd"),
     (("hwp1_s", "hwp2_s", "hwp3_s", "pump_status"), "pump_status"),
+    # Designated CHW pump for chiller runtime (data-model role; prefer over chiller cmd)
+    (("chw_pump_status", "cwp1_s", "cwp2_s", "primary_chw_pump_status"), "chw_pump_status"),
+    (("chw_pump_cmd", "cwp1_c", "cwp2_c", "primary_chw_pump_cmd", "chw_pump"), "chw_pump_cmd"),
 ]
 
 ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
@@ -115,6 +122,8 @@ ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
     "chiller_power_kw": ("power_demand_this_interval", "meter_power_sum", "power"),
     "hw_pump_cmd": ("hwp1_c", "hwp2_c", "hw_pump"),
     "pump_status": ("hwp1_s", "hwp2_s", "pump_status"),
+    "chw_pump_status": ("chw_pump_status", "cwp1_s", "cwp2_s", "primary_chw_pump"),
+    "chw_pump_cmd": ("chw_pump_cmd", "cwp1_c", "cwp2_c"),
 }
 
 
@@ -249,7 +258,11 @@ def suggest_roles(df: pd.DataFrame) -> dict[str, str]:
 def apply_role_map(df: pd.DataFrame, equipment_id: str, role_map: dict[str, dict[str, str]]) -> pd.DataFrame:
     eq_map = role_map.get(equipment_id, {})
     out = df.copy()
+    # Meta keys are equipment links / notes — not timeseries columns
+    skip = {"chw_pump_equipment", "notes", "equipment_type", "plant_group"}
     for role, col in eq_map.items():
+        if role in skip or not col or not isinstance(col, str):
+            continue
         if col in out.columns:
             out[role] = pd.to_numeric(out[col], errors="coerce")
     return out

@@ -91,9 +91,35 @@ Unknown keys are ignored. Role map entries that reference missing equipment/colu
 - Old `vibe19_*` dirs older than 6 hours may be swept on startup.
 - There is **no** guaranteed `on_session_end` on Streamlit Cloud — treat wipe as best-effort.
 
-## Local vs Cloud
+## Designated CHW pump (chiller runtime — data model)
 
-| Mode | How |
+Weekly **Chiller plant** chart treats each chiller’s run hours as its **designated CHW pump status**, not chiller cmd/amps.
+
+Map on the chiller equipment (role_map / `session_config.json` / `columns.csv` point_role):
+
+| Role | Meaning |
 | --- | --- |
-| Local (`APP_MODE=local`, default) | Folder path / Browse + optional zip |
-| Cloud (`APP_MODE=cloud`) | Zip upload only; no server path; no save-to-`configs/` |
+| `chw_pump_status` | Preferred — proven pump status column |
+| `chw_pump_cmd` | Fallback if status missing |
+| `chw_pump_equipment` | Optional meta: other equipment_id that owns the pump column |
+
+Example (`session_config.json` / role_map):
+
+```json
+"CHILLER_1": {
+  "chw_pump_status": "cwp1_s",
+  "chw_pump_equipment": "CHW_PUMPS"
+}
+```
+
+If no pump can be resolved, backup is **CHW leave/supply vs sidebar leave slider** only.
+
+## Local vs Cloud (one app)
+
+| Capability | When |
+| --- | --- |
+| Folder path / Browse | `APP_MODE=local` or `auto` with a usable data root |
+| Zip package upload | Always |
+| Save YAML/JSON to server `configs/` | Local only → Cloud uses download |
+
+`APP_MODE=auto` (default) hides Folder when the configured data root is missing (typical Streamlit Cloud).

@@ -369,28 +369,136 @@ def _discover_air_supply_fan(
     ]
 
 
+def _resolve_linked_pump_series(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    equipment_id: str,
+) -> tuple[pd.Series | None, str, str]:
+    """Resolve designated CHW pump from role_map (same frame or linked equipment).
+
+    Data-model keys on the chiller's role_map entry:
+      - chw_pump_status / chw_pump_cmd → column name
+      - chw_pump_equipment (optional meta) → other equipment_id that owns that column
+    """
+    eq_roles = role_map.get(equipment_id) or {}
+    link_eq = str(eq_roles.get("chw_pump_equipment") or "").strip()
+    src_id = link_eq if link_eq and link_eq in frames else equipment_id
+    src = frames.get(src_id)
+    if src is None or src.empty:
+        return None, "", ""
+
+    for role in ("chw_pump_status", "chw_pump_cmd"):
+        col = eq_roles.get(role)
+        if not col or not isinstance(col, str):
+            continue
+        if col in src.columns and pd.to_numeric(src[col], errors="coerce").notna().any():
+            return src[col], role, f"{src_id}:{col}"
+    return None, "", ""
+
+
 def _discover_chiller_on(
     mapped: pd.DataFrame,
+    raw: pd.DataFrame,
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
     *,
     equipment_id: str,
     chw_leave_max_f: float,
 ) -> list[dict[str, Any]]:
-    """Chiller ON from cmd/status/amps/power, else CHW leave vs slider."""
-    run, source = _chiller_on_mask(mapped, chw_leave_max_f=chw_leave_max_f)
-    if run is None or not bool(run.any()):
-        return []
-    label_src = source or "chiller_on"
-    return [
-        {
-            "equipment_id": equipment_id,
-            "signal": label_src,
-            "column": label_src,
-            "motor_kind": "chiller",
-            "plant_group": PLANT_CHILLER,
-            "label": f"{equipment_id} · {label_src}",
-            "series_on": run.astype(float),
-        }
-    ]
+    """Chiller plant runtime: designated pump status first; CHW leave temp as backup only.
+
+    Does **not** use chiller cmd/amps/power for the weekly motor chart (pump-driven model).
+    """
+    # 1) Role-map designated pump (possibly on linked equipment)
+    linked, link_role, link_label = _resolve_linked_pump_series(
+        frames, role_map, equipment_id=equipment_id
+    )
+    if linked is not None:
+        on = _is_on(linked)
+        if bool(on.any()):
+            return [
+                {
+                    "equipment_id": equipment_id,
+                    "signal": link_role or "chw_pump_status",
+                    "column": link_label,
+                    "motor_kind": "chiller",
+                    "plant_group": PLANT_CHILLER,
+                    "label": f"{equipment_id} · {link_role or 'chw_pump_status'}",
+                    "series_on": on.astype(float),
+                }
+            ]
+
+    # 2) Mapped logical roles on this chiller frame
+    for role in ("chw_pump_status", "pump_status"):
+        if role in mapped.columns and mapped[role].notna().any():
+            on = _is_on(mapped[role])
+            if bool(on.any()):
+                return [
+                    {
+                        "equipment_id": equipment_id,
+                        "signal": role,
+                        "column": role,
+                        "motor_kind": "chiller",
+                        "plant_group": PLANT_CHILLER,
+                        "label": f"{equipment_id} · {role}",
+                        "series_on": on.astype(float),
+                    }
+                ]
+    for role in ("chw_pump_cmd", "pump_cmd", "chw_pump_cmd"):
+        if role in mapped.columns and mapped[role].notna().any():
+            on = _is_on(mapped[role])
+            if bool(on.any()):
+                return [
+                    {
+                        "equipment_id": equipment_id,
+                        "signal": role,
+                        "column": role,
+                        "motor_kind": "chiller",
+                        "plant_group": PLANT_CHILLER,
+                        "label": f"{equipment_id} · {role}",
+                        "series_on": on.astype(float),
+                    }
+                ]
+
+    # 3) Heuristic CWP columns on this frame (status over cmd)
+    named = _discover_named_pumps_and_towers(
+        raw, equipment_id=equipment_id, default_plant=PLANT_CHILLER
+    )
+    pumps = [p for p in named if p.get("motor_kind") == "pump"]
+    status_pumps = [p for p in pumps if p.get("signal") == "pump_status"]
+    pick = (status_pumps or pumps)
+    if pick:
+        p0 = pick[0]
+        on = _is_on(p0["series"])
+        if bool(on.any()):
+            return [
+                {
+                    "equipment_id": equipment_id,
+                    "signal": p0["signal"],
+                    "column": p0.get("column", p0["signal"]),
+                    "motor_kind": "chiller",
+                    "plant_group": PLANT_CHILLER,
+                    "label": f"{equipment_id} · {p0['signal']}",
+                    "series_on": on.astype(float),
+                }
+            ]
+
+    # 4) Backup only: CHW leave/supply vs sidebar slider
+    temp = _chw_temp_proof(mapped, chw_leave_max_f)
+    if temp is not None and bool(temp.any()):
+        return [
+            {
+                "equipment_id": equipment_id,
+                "signal": "chw_leave_temp",
+                "column": "chw_leave_temp",
+                "motor_kind": "chiller",
+                "plant_group": PLANT_CHILLER,
+                "label": f"{equipment_id} · chw_leave_temp",
+                "series_on": temp.astype(float),
+            }
+        ]
+    return []
 
 
 def discover_plant_motor_series(
@@ -428,6 +536,9 @@ def discover_plant_motor_series(
             found.extend(
                 _discover_chiller_on(
                     mapped,
+                    raw,
+                    frames,
+                    role_map,
                     equipment_id=eq_id,
                     chw_leave_max_f=chw_leave_max_f,
                 )

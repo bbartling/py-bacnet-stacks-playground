@@ -19,11 +19,25 @@ class AppConfig:
     weather_subdir: str
     role_map_path: Path
     rule_defaults_path: Path
-    app_mode: str  # "local" | "cloud"
+    app_mode: str  # "local" | "cloud" | "auto"
 
     @property
     def is_cloud(self) -> bool:
-        return self.app_mode == "cloud"
+        """True when running without a usable local historian tree (Cloud / locked FS)."""
+        if self.app_mode == "cloud":
+            return True
+        if self.app_mode == "local":
+            return False
+        # auto: cloud-like if default data root missing (typical Streamlit Community Cloud)
+        return not self.data_root.is_dir()
+
+    @property
+    def allow_server_paths(self) -> bool:
+        return not self.is_cloud
+
+    @property
+    def allow_disk_writes(self) -> bool:
+        return not self.is_cloud
 
     @classmethod
     def load(cls) -> AppConfig:
@@ -34,9 +48,9 @@ class AppConfig:
         root = os.environ.get("HVAC_DATA_ROOT") or extra.get("data_root", "./data/hvac_systems_CLEANED")
         building = os.environ.get("HVAC_BUILDING") or extra.get("building_id", "BUILDING_100")
         weather = os.environ.get("HVAC_WEATHER_SUBDIR") or extra.get("weather_subdir", "weather")
-        mode = (os.environ.get("APP_MODE") or extra.get("app_mode") or "local").strip().lower()
-        if mode not in {"local", "cloud"}:
-            mode = "local"
+        mode = (os.environ.get("APP_MODE") or extra.get("app_mode") or "auto").strip().lower()
+        if mode not in {"local", "cloud", "auto"}:
+            mode = "auto"
         return cls(
             data_root=Path(root).expanduser().resolve() if Path(root).is_absolute() else (APP_ROOT / root).resolve(),
             building_id=building,
