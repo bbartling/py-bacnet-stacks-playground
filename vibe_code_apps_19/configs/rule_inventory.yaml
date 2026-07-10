@@ -4,8 +4,7 @@ rules:
   family: sensor
   title: Sensor out of hard range
   description: "Any modeled sensor reads outside its physical hard range (e.g. OAT\
-    \ \u0393\xEA\xC660\u0393\xC7\xF4130\u252C\u2591F, SAT 30\u0393\xC7\xF4150\u252C\
-    \u2591F, CHWS 30\u0393\xC7\xF480\u252C\u2591F)."
+    \ \u221260\u2013130\xB0F, SAT 30\u2013150\xB0F, CHWS 30\u201380\xB0F)."
   required_roles: []
   optional_roles: []
   equipment_kinds:
@@ -32,8 +31,8 @@ rules:
 - rule_id: SV-FLATLINE
   family: sensor
   title: Sensor flatline (stuck)
-  description: "Sensor value unchanged (\u256C\xF6 \u0393\xEB\xF1 tolerance) across\
-    \ the flatline window \u0393\xC7\xF6 stuck / frozen sensor."
+  description: "Sensor value unchanged (\u0394 \u2264 tolerance) across the flatline\
+    \ window \u2014 stuck / frozen sensor."
   required_roles: []
   optional_roles: []
   equipment_kinds:
@@ -91,8 +90,8 @@ rules:
 - rule_id: SV-STALE
   family: sensor
   title: Stale data (no fresh samples)
-  description: "All modeled sensors unchanged over the stale window \u0393\xC7\xF6\
-    \ data feed likely dropped."
+  description: "All modeled sensors unchanged over the stale window \u2014 data feed\
+    \ likely dropped."
   required_roles: []
   optional_roles: []
   equipment_kinds:
@@ -155,8 +154,7 @@ rules:
 - rule_id: FC1
   family: ahu
   title: Duct static below SP at full fan (GL36 A)
-  description: "Fan \u0393\xEB\xD1 87% AND duct static < static SP \u0393\xEA\xC6\
-    \ 0.12 in.w.c."
+  description: "Fan \u2265 87% AND duct static < static SP \u2212 0.12 in.w.c."
   required_roles:
   - duct_static
   - duct_static_sp
@@ -182,8 +180,7 @@ rules:
 - rule_id: FC2
   family: ahu
   title: MAT below OAT/RAT envelope (GL36 B)
-  description: "Fan on AND MAT \u0393\xEA\xC6 1.15\u252C\u2591F < min(RAT, OAT) \u0393\
-    \xEA\xC6 1.15\u252C\u2591F."
+  description: "Fan on AND MAT \u2212 1.15\xB0F < min(RAT, OAT) \u2212 1.15\xB0F."
   required_roles:
   - mat
   - oa_t
@@ -209,8 +206,7 @@ rules:
 - rule_id: FC3
   family: ahu
   title: MAT above OAT/RAT envelope (GL36 C)
-  description: "Fan on AND MAT \u0393\xEA\xC6 1.15\u252C\u2591F > max(RAT, OAT) +\
-    \ 1.15\u252C\u2591F."
+  description: "Fan on AND MAT \u2212 1.15\xB0F > max(RAT, OAT) + 1.15\xB0F."
   required_roles:
   - mat
   - oa_t
@@ -262,8 +258,8 @@ rules:
 - rule_id: FC5
   family: ahu
   title: SAT cold when heating commanded (GL36 D)
-  description: "Fan on AND heating > 1% AND SAT + 1.15\u252C\u2591F \u0393\xEB\xF1\
-    \ MAT \u0393\xEA\xC6 1.15\u252C\u2591F + 0.55\u252C\u2591F."
+  description: "Fan on AND heating > 1% AND SAT + 1.15\xB0F \u2264 MAT \u2212 1.15\xB0\
+    F + 0.55\xB0F."
   required_roles:
   - sat
   - mat
@@ -289,8 +285,8 @@ rules:
 - rule_id: FC6
   family: ahu
   title: Estimated OA fraction mismatch
-  description: "|RAT\u0393\xEA\xC6OAT| \u0393\xEB\xD1 5\u252C\u2591F AND |estimated\
-    \ OA% \u0393\xEA\xC6 design min OA%| > 15% in heating/mech-only modes."
+  description: "|RAT\u2212OAT| \u2265 5\xB0F AND |estimated OA% \u2212 design min\
+    \ OA%| > 15% in heating/mech-only modes."
   required_roles:
   - mat
   - oa_t
@@ -317,8 +313,7 @@ rules:
 - rule_id: FC7
   family: ahu
   title: SAT low with full heating (GL36 E)
-  description: "Fan on AND heating > 90% AND SAT < SAT SP \u0393\xEA\xC6 1.0\u252C\
-    \u2591F."
+  description: "Fan on AND heating > 90% AND SAT < SAT SP \u2212 1.0\xB0F."
   required_roles:
   - sat
   - sat_sp
@@ -344,8 +339,8 @@ rules:
 - rule_id: FC8
   family: ahu
   title: SAT/MAT mismatch in economizer (GL36 F)
-  description: "Economizer open, CHW < 10%, |SAT \u0393\xEA\xC6 0.55\u252C\u2591F\
-    \ \u0393\xEA\xC6 MAT| > \u0393\xEA\xDC(1.15\u252C\u2593+1.15\u252C\u2593)."
+  description: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
+    (1.15\xB2+1.15\xB2)."
   required_roles:
   - sat
   - mat
@@ -370,8 +365,8 @@ rules:
 - rule_id: FC9
   family: ahu
   title: OAT too warm for free cooling (GL36 G)
-  description: "Economizer open, CHW < 10%, OAT \u0393\xEA\xC6 1.15\u252C\u2591F >\
-    \ SAT SP \u0393\xEA\xC6 0.55\u252C\u2591F + 1.15\u252C\u2591F."
+  description: "Economizer open, CHW < 10%, OAT \u2212 1.15\xB0F > SAT SP \u2212 0.55\xB0\
+    F + 1.15\xB0F."
   required_roles:
   - oa_t
   - sat_sp
@@ -396,8 +391,8 @@ rules:
 - rule_id: FC10
   family: ahu
   title: OAT/MAT mismatch + mech cooling (GL36 H)
-  description: "CHW > 1%, economizer > 90%, |MAT \u0393\xEA\xC6 OAT| > \u0393\xEA\xDC\
-    (1.15\u252C\u2593+1.15\u252C\u2593)."
+  description: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(1.15\xB2+1.15\xB2\
+    )."
   required_roles:
   - mat
   - oa_t
@@ -422,8 +417,8 @@ rules:
 - rule_id: FC11
   family: ahu
   title: OAT/MAT mismatch economizer-only (GL36 I)
-  description: "CHW > 1%, economizer > 90%, OAT + 1.15\u252C\u2591F < SAT SP \u0393\
-    \xEA\xC6 0.55\u252C\u2591F \u0393\xEA\xC6 1.15\u252C\u2591F."
+  description: "CHW > 1%, economizer > 90%, OAT + 1.15\xB0F < SAT SP \u2212 0.55\xB0\
+    F \u2212 1.15\xB0F."
   required_roles:
   - oa_t
   - sat_sp
@@ -448,8 +443,8 @@ rules:
 - rule_id: FC12
   family: ahu
   title: SAT above blend in cooling (GL36 J)
-  description: "CHW > 1%, SAT \u0393\xEA\xC6 1.15\u252C\u2591F \u0393\xEA\xC6 0.55\u252C\
-    \u2591F > MAT + 1.15\u252C\u2591F at min or full economizer."
+  description: "CHW > 1%, SAT \u2212 1.15\xB0F \u2212 0.55\xB0F > MAT + 1.15\xB0F\
+    \ at min or full economizer."
   required_roles:
   - sat
   - mat
@@ -474,7 +469,7 @@ rules:
 - rule_id: FC13
   family: ahu
   title: SAT above SP at full cooling (GL36 K)
-  description: "CHW > 1%, SAT > SAT SP + 1.0\u252C\u2591F at min or full economizer."
+  description: "CHW > 1%, SAT > SAT SP + 1.0\xB0F at min or full economizer."
   required_roles:
   - sat
   - sat_sp
@@ -499,9 +494,9 @@ rules:
   known_limitations: ''
 - rule_id: FC14
   family: ahu
-  title: "CHW coil \u256C\xF6T when inactive (GL36 L)"
-  description: "Cooling coil \u256C\xF6T \u0393\xEB\xD1 \u0393\xEA\xDC(1.15\u252C\u2593\
-    +1.15\u252C\u2593)+0.55\u252C\u2591F while coil should be inactive."
+  title: "CHW coil \u0394T when inactive (GL36 L)"
+  description: "Cooling coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
+    \ coil should be inactive."
   required_roles:
   - clg_coil_enter_t
   - clg_coil_leave_t
@@ -525,9 +520,9 @@ rules:
   known_limitations: ''
 - rule_id: FC15
   family: ahu
-  title: "HW coil \u256C\xF6T when inactive (GL36 M)"
-  description: "Heating coil \u256C\xF6T \u0393\xEB\xD1 \u0393\xEA\xDC(1.15\u252C\u2593\
-    +1.15\u252C\u2593)+0.55\u252C\u2591F while coil should be inactive."
+  title: "HW coil \u0394T when inactive (GL36 M)"
+  description: "Heating coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
+    \ coil should be inactive."
   required_roles:
   - htg_coil_enter_t
   - htg_coil_leave_t
@@ -552,7 +547,7 @@ rules:
 - rule_id: AHU-SATDEV
   family: ahu
   title: SAT deviation from setpoint
-  description: "|SAT \u0393\xEA\xC6 SAT SP| > 5\u252C\u2591F."
+  description: "|SAT \u2212 SAT SP| > 5\xB0F."
   required_roles:
   - sat
   - sat_sp
@@ -624,8 +619,8 @@ rules:
 - rule_id: OAT-METEO
   family: ahu
   title: BAS outdoor-air sensor vs Open-Meteo
-  description: "BAS OAT sensor differs from Open-Meteo dry bulb by more than 5\u252C\
-    \u2591F."
+  description: "BAS OAT sensor differs from Open-Meteo dry bulb by more than 5\xB0\
+    F."
   required_roles:
   - oa_t
   - wx_oa_t
@@ -649,7 +644,7 @@ rules:
 - rule_id: ECON-1
   family: ahu
   title: Economizer stuck closed
-  description: "Fan on, OA damper < 5%, OAT > 55\u252C\u2591F (should be economizing)."
+  description: "Fan on, OA damper < 5%, OAT > 55\xB0F (should be economizing)."
   required_roles:
   - fan_cmd
   - oa_damper_pct
@@ -674,7 +669,7 @@ rules:
 - rule_id: ECON-2
   family: ahu
   title: Economizing when outdoor unfavorable
-  description: "OAT > 63\u252C\u2591F AND OA damper > 42% (should be at minimum)."
+  description: "OAT > 63\xB0F AND OA damper > 42% (should be at minimum)."
   required_roles:
   - oa_t
   - oa_damper_pct
@@ -699,10 +694,9 @@ rules:
 - rule_id: ECON-3
   family: ahu
   title: Mech cooling when econ available
-  description: "Economizer available (OA dry-bulb 35\u0393\xC7\xF472\u252C\u2591F\
-    \ AND OA dew point < 60\u252C\u2591F when Open-Meteo present; else OAT < 63\u252C\
-    \u2591F), OA damper < 32%, cooling valve > 1% \u0393\xC7\xF6 mechanical cooling\
-    \ while free cooling was available."
+  description: "Economizer available (OA dry-bulb 35\u201372\xB0F AND OA dew point\
+    \ < 60\xB0F when Open-Meteo present; else OAT < 63\xB0F), OA damper < 32%, cooling\
+    \ valve > 1% \u2014 mechanical cooling while free cooling was available."
   required_roles:
   - oa_t
   - oa_damper_pct
@@ -731,8 +725,7 @@ rules:
 - rule_id: ECON-4
   family: ahu
   title: Low estimated OA fraction
-  description: "Fan on, |RAT\u0393\xEA\xC6OAT| > 2.2\u252C\u2591F, estimated OA fraction\
-    \ < 21%."
+  description: "Fan on, |RAT\u2212OAT| > 2.2\xB0F, estimated OA fraction < 21%."
   required_roles:
   - mat
   - rat
@@ -758,8 +751,7 @@ rules:
 - rule_id: ECON-5
   family: ahu
   title: Preheat over-conditioning
-  description: "Preheat leaving air > 2.2\u252C\u2591F above target while preheat\
-    \ active."
+  description: "Preheat leaving air > 2.2\xB0F above target while preheat active."
   required_roles:
   - preheat_leave_t
   - sat_sp
@@ -784,7 +776,7 @@ rules:
 - rule_id: VAV-1
   family: vav
   title: Zone comfort band
-  description: "Zone temp < 68\u252C\u2591F or > 76\u252C\u2591F."
+  description: "Zone temp < 68\xB0F or > 76\xB0F."
   required_roles:
   - zone_t
   optional_roles: []
@@ -809,7 +801,7 @@ rules:
 - rule_id: VAV-3
   family: vav
   title: Excessive reheat during warm weather
-  description: "Air flowing AND OAT > 78\u252C\u2591F AND reheat valve > 52%."
+  description: "Air flowing AND OAT > 78\xB0F AND reheat valve > 52%."
   required_roles:
   - oa_t
   - reheat_valve_pct
@@ -884,8 +876,7 @@ rules:
   family: vav
   title: Reheat valve stuck / no temp rise
   description: "Air flowing AND reheat valve > 30% AND box discharge temp rises <\
-    \ 3\u252C\u2591F above duct inlet (air from AHU) \u0393\xC7\xF6 stuck or failed\
-    \ reheat valve/coil."
+    \ 3\xB0F above duct inlet (air from AHU) \u2014 stuck or failed reheat valve/coil."
   required_roles:
   - reheat_valve_pct
   - vav_disch_t
@@ -934,8 +925,8 @@ rules:
   known_limitations: ''
 - rule_id: CHW-1
   family: plant
-  title: "Low chilled-water \u256C\xF6T"
-  description: "Pump on AND (CHWR \u0393\xEA\xC6 CHWS) < 4\u252C\u2591F."
+  title: "Low chilled-water \u0394T"
+  description: "Pump on AND (CHWR \u2212 CHWS) < 4\xB0F."
   required_roles:
   - chw_supply_t
   - chw_return_t
@@ -959,7 +950,7 @@ rules:
 - rule_id: CHW-2
   family: plant
   title: DP below SP at max pump speed
-  description: "Pump \u0393\xEB\xD1 87% AND CHW DP < DP SP \u0393\xEA\xC6 2.2."
+  description: "Pump \u2265 87% AND CHW DP < DP SP \u2212 2.2."
   required_roles:
   - chw_dp
   - chw_dp_sp
@@ -984,7 +975,7 @@ rules:
 - rule_id: CHW-3
   family: plant
   title: Plant supply temp outside deadband
-  description: "Pump on AND |CHWS \u0393\xEA\xC6 CHWS SP| > 2.2\u252C\u2591F."
+  description: "Pump on AND |CHWS \u2212 CHWS SP| > 2.2\xB0F."
   required_roles:
   - chw_supply_t
   - chw_supply_t_sp
@@ -1009,7 +1000,7 @@ rules:
 - rule_id: CHW-4
   family: plant
   title: Flow high at max pump
-  description: "Pump \u0393\xEB\xD1 87% AND CHW flow > 1100 gpm."
+  description: "Pump \u2265 87% AND CHW flow > 1100 gpm."
   required_roles:
   - chw_flow
   - chw_pump_cmd
@@ -1033,7 +1024,7 @@ rules:
 - rule_id: HP-1
   family: heatpump
   title: Discharge cold when heating
-  description: "Fan on, zone < 69\u252C\u2591F, discharge SAT < 85\u252C\u2591F."
+  description: "Fan on, zone < 69\xB0F, discharge SAT < 85\xB0F."
   required_roles:
   - sat
   - zone_t
@@ -1059,7 +1050,7 @@ rules:
 - rule_id: WX-1
   family: weather
   title: OA temperature spike
-  description: "OAT sample-to-sample jump > 16\u252C\u2591F."
+  description: "OAT sample-to-sample jump > 16\xB0F."
   required_roles:
   - oa_t
   optional_roles: []
@@ -1128,7 +1119,7 @@ rules:
 - rule_id: TRIM-3
   family: trim
   title: HWST trim advisory
-  description: "HW supply > 160\u252C\u2591F while reset requests are low."
+  description: "HW supply > 160\xB0F while reset requests are low."
   required_roles:
   - hw_supply_t
   - hw_reset_req_sum
@@ -1151,7 +1142,7 @@ rules:
 - rule_id: TRIM-4
   family: trim
   title: CHW plant reset advisory
-  description: "CHW supply < 45\u252C\u2591F while reset requests are low."
+  description: "CHW supply < 45\xB0F while reset requests are low."
   required_roles:
   - chw_supply_t
   - chw_reset_req_sum
@@ -1246,8 +1237,8 @@ rules:
 - rule_id: DMP-1
   family: ahu
   title: OA damper leakage
-  description: "Damper \u0393\xEB\xF1 5% but MAT tracks OAT within 2\u252C\u2591F\
-    \ \u0393\xC7\xF6 leaking OA damper."
+  description: "Damper \u2264 5% but MAT tracks OAT within 2\xB0F \u2014 leaking OA\
+    \ damper."
   required_roles:
   - oa_t
   - mat
@@ -1272,8 +1263,7 @@ rules:
 - rule_id: VLV-1
   family: ahu
   title: Cooling valve leakage
-  description: "Cooling valve \u0393\xEB\xF1 5% but SAT runs > 2\u252C\u2591F below\
-    \ setpoint."
+  description: "Cooling valve \u2264 5% but SAT runs > 2\xB0F below setpoint."
   required_roles:
   - sat
   - sat_sp

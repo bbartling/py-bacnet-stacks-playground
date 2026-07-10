@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-10 — Mech cooling OAT bins + rainbow multi-axis plots
+
+- Restored **mechanical cooling vs OAT (5°F bins)** for chillers + AHU DX compressors only (not cool-valve AHUs)
+- Overview/Analytics: **per-motor** run-hours table; histogram + CSV export
+- Plots: single figure, unique y-axis domains per unit family, rainbow palette, fault swim-lane shade
+- Fixed cookbook equation mojibake (`≥`, `°F`, `ΔT`, …)
+
+---
+
 ## 2026-07-10 — Operational gates + SKIPPED_EQUIPMENT_OFF
 
 - Registry `RULE_GATES` (ALWAYS / RUN / CONDITIONAL) in `app/rules/operational_gate.py`

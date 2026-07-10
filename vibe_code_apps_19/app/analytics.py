@@ -1,12 +1,14 @@
-"""Dataset analytics: date span and motor / fan / pump run hours."""
+"""Dataset analytics: date span, motor hours, mech-cooling OAT bins."""
 
 from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from app.role_map import apply_role_map
+from app.site_model import equipment_type_from_id
 
 # Logical roles treated as motor / fan / pump runtime signals (0–100% or bool).
 MOTOR_SIGNAL_ROLES: tuple[str, ...] = (
@@ -15,6 +17,23 @@ MOTOR_SIGNAL_ROLES: tuple[str, ...] = (
     "chw_pump_cmd",
     "hw_pump_cmd",
     "pump_cmd",
+)
+
+# Mechanical cooling proof — chillers / DX compressors only (NOT hydronic cool valves).
+CHILLER_RUN_ROLES: tuple[str, ...] = (
+    "compressor_status",
+    "chiller_status",
+    "equipment_enable",
+    "chw_pump_cmd",
+    "pump_status",
+    "pump_cmd",
+)
+DX_RUN_ROLES: tuple[str, ...] = (
+    "compressor_status",
+    "dx_cool_cmd",
+    "dx_cooling",
+    "cool_stage",
+    "dx_stage",
 )
 
 
@@ -107,6 +126,94 @@ def motor_run_hours_totals(table: pd.DataFrame) -> dict[str, float]:
         "pump_hours": round(pump, 1),
         "total_hours": round(fan + pump, 1),
     }
+
+
+def _first_on_mask(df: pd.DataFrame, roles: tuple[str, ...]) -> pd.Series | None:
+    for role in roles:
+        if role in df.columns and df[role].notna().any():
+            return _is_on(df[role])
+    return None
+
+
+def _oat_series(df: pd.DataFrame, weather: pd.DataFrame | None) -> pd.Series | None:
+    for col in ("oa_t", "wx_oa_t"):
+        if col in df.columns and df[col].notna().any():
+            return pd.to_numeric(df[col], errors="coerce")
+    if weather is not None and not weather.empty:
+        for col in ("wx_oa_t", "oa_t", "dry_bulb_f"):
+            if col in weather.columns:
+                s = pd.to_numeric(weather[col], errors="coerce").reindex(df.index)
+                if s.notna().any():
+                    return s
+    return None
+
+
+def mech_cooling_oat_bins(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    bin_width_f: float = 5.0,
+) -> pd.DataFrame:
+    """
+    Mechanical cooling run hours binned by OAT (5°F).
+
+    Includes chillers and AHUs with DX compressor proof.
+    Excludes AHUs that only have a hydronic cooling valve (clg_valve_pct).
+    """
+    from app.data_loader import infer_poll_seconds
+
+    rows: list[dict[str, Any]] = []
+    for eq_id, raw in frames.items():
+        et = str(raw.attrs.get("equipment_type") or equipment_type_from_id(eq_id)).upper()
+        mapped = apply_role_map(raw, eq_id, role_map)
+        poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
+        oat = _oat_series(mapped, weather)
+        if oat is None:
+            continue
+
+        run: pd.Series | None = None
+        source_kind = ""
+        if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq_id.upper() or eq_id.upper().startswith("CHW"):
+            run = _first_on_mask(mapped, CHILLER_RUN_ROLES)
+            source_kind = "chiller"
+        elif et == "AHU":
+            run = _first_on_mask(mapped, DX_RUN_ROLES)
+            source_kind = "ahu_dx"
+        elif et == "HEATPUMP" or eq_id.upper().startswith("HP"):
+            run = _first_on_mask(mapped, DX_RUN_ROLES + ("compressor_status",))
+            source_kind = "heatpump"
+
+        if run is None or not bool(run.any()):
+            continue
+
+        oat_on = oat.where(run).dropna()
+        if oat_on.empty:
+            continue
+        clamped = oat_on.clip(40, 110)
+        bin_start = (np.floor(clamped.to_numpy(dtype=float) / bin_width_f) * bin_width_f).astype(int)
+        tmp = pd.DataFrame({"oat": oat_on.to_numpy(), "bin_start": bin_start}, index=oat_on.index)
+        for b, g in tmp.groupby("bin_start"):
+            if pd.isna(b):
+                continue
+            b_i = int(b)
+            hours = float(len(g) * poll / 3600.0)
+            rows.append(
+                {
+                    "equipment_id": eq_id,
+                    "source": f"{eq_id} ({source_kind})",
+                    "source_kind": source_kind,
+                    "bin_start": b_i,
+                    "bin_label": f"{b_i}-{b_i + int(bin_width_f) - 1}",
+                    "hours": round(hours, 2),
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["equipment_id", "source", "source_kind", "bin_start", "bin_label", "hours"]
+        )
+    return pd.DataFrame(rows).sort_values(["source", "bin_start"])
 
 
 def sensor_fault_summary(

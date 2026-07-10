@@ -20,11 +20,12 @@ from app.cache import (  # noqa: E402
 )
 from app.analytics import (  # noqa: E402
     dataset_time_span,
+    mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_totals,
     sensor_fault_summary,
 )
-from app.charts import plotly_config, rule_result_chart  # noqa: E402
+from app.charts import mech_cooling_oat_histogram, plotly_config, rule_result_chart  # noqa: E402
 from app.config import AppConfig  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
 from app.mapping_wizard import (  # noqa: E402
@@ -548,6 +549,11 @@ def main() -> None:
     span = dataset_time_span(frames)
     motor_tbl = motor_run_hours_table(frames, st.session_state.role_map)
     motor_tot = motor_run_hours_totals(motor_tbl)
+    cool_bins = mech_cooling_oat_bins(
+        frames,
+        st.session_state.role_map,
+        weather=st.session_state.weather,
+    )
     start_s = span["start"].strftime("%Y-%m-%d %H:%M") if span["start"] is not None else "—"
     end_s = span["end"].strftime("%Y-%m-%d %H:%M") if span["end"] is not None else "—"
 
@@ -571,9 +577,30 @@ def main() -> None:
         m2.metric("Pump run hours", f"{motor_tot['pump_hours']:.1f}")
         m3.metric("Total motor hours", f"{motor_tot['total_hours']:.1f}")
         st.caption(
-            "Motor hours accumulate samples where fan/pump command or status is on "
-            "(>5% or true), using each equipment's poll interval. Prefer **fan_status** when mapped."
+            "Totals prefer **fan_status** over fan_cmd when both exist. "
+            "Per-motor breakdown below loops every mapped fan/pump signal."
         )
+        st.markdown("##### Per-motor run hours")
+        if motor_tbl.empty:
+            st.info("No fan_cmd / fan_status / pump signals mapped yet.")
+        else:
+            st.dataframe(motor_tbl, hide_index=True, width="stretch", height=min(420, 80 + 28 * len(motor_tbl)))
+
+        st.markdown("##### Mechanical cooling vs OAT (chiller + DX only)")
+        st.caption(
+            "Hours when a **chiller** (compressor/pump proof) or **AHU DX compressor** is on, "
+            "binned by outdoor-air temperature. Hydronic cool-valve-only AHUs are excluded."
+        )
+        cool_fig = mech_cooling_oat_histogram(cool_bins)
+        if cool_fig is None:
+            st.info(
+                "No chiller / DX compressor run signals found. Map `compressor_status`, "
+                "`dx_cool_cmd`, or CHW pump/enable roles to populate this histogram."
+            )
+        else:
+            st.plotly_chart(cool_fig, width="stretch", config=plotly_config(filename="mech_cooling_oat_bins"))
+            with st.expander("Mech cooling bin table"):
+                st.dataframe(cool_bins, hide_index=True, width="stretch")
 
         st.markdown(
             "Tune thresholds in the **left sidebar** → **Run Rules** (all or by category) "
@@ -756,9 +783,9 @@ def main() -> None:
     with tabs[4]:
         st.subheader("Plots by device")
         st.caption(
-            "Pick a mechanical type → device. Each rule gets its own bordered panel with a short fault "
-            "description. Unit families stay separated; confirmed fault is its own 0/1 row. "
-            "Camera icon → PNG/JPEG. Threshold changes apply only after **Run**."
+            "Pick a mechanical type → device (each AHU / VAV / plant unit has its own plots). "
+            "Each rule is one figure: rainbow-colored signals on unique unit axes, "
+            "confirmed fault as a shaded swim lane. Camera icon → PNG/JPEG."
         )
         plot_fmt = st.selectbox("Download format", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt")
         show_pass = st.checkbox("Show PASS plots (not only FAULT)", value=False, key="plot_show_pass")
@@ -858,7 +885,10 @@ def main() -> None:
 
     with tabs[5]:
         st.subheader("Analytics")
-        st.caption("Accumulated fan / motor / pump run hours from mapped command or status signals.")
+        st.caption(
+            "Per-motor run hours and mechanical cooling vs OAT histograms "
+            "(chiller + DX compressor only — not cool-valve-only AHUs)."
+        )
         a1, a2, a3 = st.columns(3)
         a1.metric("Fan / motor hours", f"{motor_tot['fan_hours']:.1f}")
         a2.metric("Pump hours", f"{motor_tot['pump_hours']:.1f}")
@@ -867,18 +897,37 @@ def main() -> None:
         b1.metric("Dataset start", start_s)
         b2.metric("Dataset end", end_s)
         b3.metric("Span (h)", f"{span['span_hours']:.1f}")
+        st.markdown("##### Per-motor run hours")
         if motor_tbl.empty:
             st.info(
                 "No fan_cmd / fan_status / pump command columns mapped yet. "
                 "Map those roles on Data & Mapping, then return here."
             )
         else:
-            st.dataframe(motor_tbl, width="stretch", height=480)
+            st.dataframe(motor_tbl, width="stretch", height=360)
             st.download_button(
                 "Download motor run hours CSV",
                 to_csv_bytes(motor_tbl),
                 "motor_run_hours.csv",
                 key="dl_motor_hours",
+            )
+        st.markdown("##### Mechanical cooling hours by OAT bin")
+        cool_fig2 = mech_cooling_oat_histogram(cool_bins)
+        if cool_fig2 is None:
+            st.info("No chiller / DX compressor signals available for OAT-bin histogram.")
+        else:
+            st.plotly_chart(
+                cool_fig2,
+                width="stretch",
+                config=plotly_config(filename="mech_cooling_oat_bins_analytics"),
+                key="analytics_cool_hist",
+            )
+            st.dataframe(cool_bins, hide_index=True, width="stretch", height=280)
+            st.download_button(
+                "Download mech cooling OAT bins CSV",
+                to_csv_bytes(cool_bins),
+                "mech_cooling_oat_bins.csv",
+                key="dl_cool_bins",
             )
 
     with tabs[6]:

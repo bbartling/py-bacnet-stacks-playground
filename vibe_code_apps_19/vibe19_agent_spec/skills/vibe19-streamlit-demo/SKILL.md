@@ -53,15 +53,17 @@ See `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`, `docs/COLUMN_MAP_JSON.md`.
 
 ## Tabs
 
-Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per device type) | Export
+Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per device) | **Analytics** | Export
 
-**Left sidebar:** Building folder + **Rule tuning** sliders (filter / category) + **Rerun cat.**
+**Left sidebar:** Building folder + **Rule tuning** + operational-proof checkbox + **Rerun cat.**
 
-**Plots:** Device type → device → fault-category expanders for rules applicable to that equip kind.
+**Overview / Analytics:** per-motor run hours; mechanical cooling vs OAT histogram (chiller + DX only).
+
+**Plots:** Device type → device → bordered rule panels. One Plotly figure per rule: rainbow colors, unique y-axis per unit family, confirmed-fault swim lane.
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `NOT_APPLICABLE_EQUIPMENT_TYPE`
+1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
 4. **Haystack names for authoring**; cookbook roles for rule execution
@@ -76,5 +78,6 @@ python -m pytest -q
 ## Specs
 
 - [`../AGENTS.md`](../../../AGENTS.md)
+- [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)
 - [`docs/COLUMN_MAP_JSON.md`](../../../docs/COLUMN_MAP_JSON.md)

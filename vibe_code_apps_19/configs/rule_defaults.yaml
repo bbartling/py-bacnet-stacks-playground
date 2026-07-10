@@ -31,7 +31,7 @@ AHU-SATDEV:
     max: 15.0
     min: 1.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 AHU-SIMUL:
   confirm_min:
     default: 0.0
@@ -60,12 +60,12 @@ CHW-1:
     unit: min
   min_dt:
     default: 4.0
-    help: "Min \u256C\xF6T"
-    label: "Min \u256C\xF6T"
+    help: "Min \u0394T"
+    label: "Min \u0394T"
     max: 12.0
     min: 1.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 CHW-2:
   confirm_min:
     default: 0.0
@@ -99,7 +99,7 @@ CHW-3:
     max: 6.0
     min: 0.5
     step: 0.1
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 CHW-4:
   confirm_min:
     default: 0.0
@@ -137,12 +137,12 @@ DMP-1:
     unit: min
   leak_delta:
     default: 2.0
-    help: "Leak \u256C\xF6T"
-    label: "Leak \u256C\xF6T"
+    help: "Leak \u0394T"
+    label: "Leak \u0394T"
     max: 6.0
     min: 0.5
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 ECON-1:
   confirm_min:
     default: 0.0
@@ -159,7 +159,7 @@ ECON-1:
     max: 70.0
     min: 45.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 ECON-2:
   confirm_min:
     default: 0.0
@@ -184,7 +184,7 @@ ECON-2:
     max: 80.0
     min: 55.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 ECON-3:
   confirm_min:
     default: 0.0
@@ -209,7 +209,7 @@ ECON-3:
     max: 80.0
     min: 60.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   econ3_db_min:
     default: 35.0
     help: Free-cool OA dry-bulb min
@@ -217,7 +217,7 @@ ECON-3:
     max: 45.0
     min: 25.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   econ3_dp_max:
     default: 60.0
     help: Free-cool OA dew point max
@@ -225,7 +225,7 @@ ECON-3:
     max: 68.0
     min: 45.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   econ3_oat_fallback:
     default: 63.0
     help: Fallback OAT cutoff
@@ -233,7 +233,7 @@ ECON-3:
     max: 70.0
     min: 55.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 ECON-4:
   confirm_min:
     default: 0.0
@@ -328,7 +328,7 @@ FC13:
     max: 5.0
     min: 0.25
     step: 0.25
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 FC14:
   confirm_min:
     default: 0.0
@@ -363,7 +363,7 @@ FC2:
     max: 3.0
     min: 0.25
     step: 0.05
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 FC3:
   confirm_min:
     default: 0.0
@@ -380,7 +380,7 @@ FC3:
     max: 3.0
     min: 0.25
     step: 0.05
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 FC4:
   confirm_min:
     default: 0.0
@@ -414,7 +414,7 @@ FC5:
     max: 3.0
     min: 0.25
     step: 0.05
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 FC6:
   airflow_err:
     default: 0.15
@@ -456,7 +456,7 @@ FC7:
     max: 5.0
     min: 0.25
     step: 0.25
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 FC8:
   confirm_min:
     default: 0.0
@@ -491,7 +491,7 @@ HP-1:
     max: 110.0
     min: 70.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   zone_cold:
     default: 69.0
     help: Zone cold
@@ -499,7 +499,7 @@ HP-1:
     max: 72.0
     min: 60.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 OA-1:
   confirm_min:
     default: 0.0
@@ -533,7 +533,7 @@ OAT-METEO:
     max: 20.0
     min: 2.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 PID-HUNT-1:
   change_deadband_pct:
     default: 1.0
@@ -624,7 +624,7 @@ SV-FLATLINE:
     max: 1.0
     min: 0.02
     step: 0.02
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 SV-RANGE:
   confirm_min:
     default: 0.0
@@ -711,7 +711,7 @@ VAV-1:
     max: 85.0
     min: 72.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   zone_lo:
     default: 68.0
     help: Zone low
@@ -719,7 +719,7 @@ VAV-1:
     max: 70.0
     min: 55.0
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 VAV-3:
   confirm_min:
     default: 0.0
@@ -744,7 +744,7 @@ VAV-3:
     max: 90.0
     min: 65.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   reheat_pct:
     default: 0.52
     help: Reheat frac
@@ -828,7 +828,7 @@ VAV-REHEAT:
     max: 15.0
     min: 0.5
     step: 0.5
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
   reheat_cmd:
     default: 0.3
     help: Reheat open frac
@@ -862,7 +862,7 @@ WX-1:
     max: 40.0
     min: 4.0
     step: 1.0
-    unit: "\u252C\u2591F"
+    unit: "\xB0F"
 WX-2:
   confirm_min:
     default: 0.0
