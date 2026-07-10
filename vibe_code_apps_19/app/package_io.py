@@ -6,6 +6,7 @@ See docs/PACKAGE_SPEC.md (openfdd_package_v1).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 import time
@@ -22,15 +23,64 @@ from app.data_loader import discover_equipment, load_equipment_csv, validate_dat
 SCHEMA_VERSION = "openfdd_package_v1"
 SESSION_SCHEMA = "openfdd_session_v1"
 
-# Conservative Cloud limits (Sol critique).
-MAX_ZIP_BYTES = 25 * 1024 * 1024
-MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
-MAX_ENTRIES = 50
-MAX_EQUIPMENT = 20
+# Fixed structural limits (not env-tunable).
 MAX_PATH_DEPTH = 8
 MAX_COLUMNS = 120
 TEMP_PREFIX = "vibe19_"
 TEMP_MAX_AGE_SEC = 6 * 3600
+
+# Env overrides: OPENFDD_MAX_ZIP_MB, OPENFDD_MAX_UNCOMPRESSED_MB,
+# OPENFDD_MAX_ENTRIES, OPENFDD_MAX_EQUIPMENT.
+# Defaults: local/auto → 1024 MB zip; APP_MODE=cloud → 250 MB zip;
+# uncompressed 1024 MB; entries 200; equipment 100.
+
+
+class PackageError(ValueError):
+    """User-facing package validation / extract error."""
+
+
+@dataclass(frozen=True)
+class PackageCaps:
+    max_zip_bytes: int
+    max_uncompressed_bytes: int
+    max_entries: int
+    max_equipment: int
+
+    @property
+    def max_zip_mb(self) -> int:
+        return self.max_zip_bytes // (1024 * 1024)
+
+    @property
+    def max_uncompressed_mb(self) -> int:
+        return self.max_uncompressed_bytes // (1024 * 1024)
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        value = int(str(raw).strip())
+    except ValueError as exc:
+        raise PackageError(f"{name} must be an integer, got {raw!r}") from exc
+    if value < 1:
+        raise PackageError(f"{name} must be >= 1, got {value}")
+    return value
+
+
+def _default_zip_mb() -> int:
+    mode = (os.environ.get("APP_MODE") or "auto").strip().lower()
+    return 250 if mode == "cloud" else 1024
+
+
+def effective_package_caps() -> PackageCaps:
+    """Resolve zip/equipment caps from env (effective values shown in PackageError)."""
+    return PackageCaps(
+        max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", _default_zip_mb()) * 1024 * 1024,
+        max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", 1024) * 1024 * 1024,
+        max_entries=_env_positive_int("OPENFDD_MAX_ENTRIES", 200),
+        max_equipment=_env_positive_int("OPENFDD_MAX_EQUIPMENT", 100),
+    )
 
 
 class PackageManifest(BaseModel):
@@ -88,8 +138,8 @@ class SessionConfig(BaseModel):
     def _leave(cls, v: float | None) -> float | None:
         if v is None:
             return v
-        if not (32.0 < float(v) < 70.0):
-            raise ValueError("chw_leave_max_f out of range")
+        if not (35.0 <= float(v) <= 50.0):
+            raise ValueError("chw_leave_max_f out of range (35–50 °F)")
         return float(v)
 
 
@@ -103,10 +153,8 @@ class PackageLoadResult:
     session_config: SessionConfig | None
     warnings: list[str] = field(default_factory=list)
     report: dict[str, Any] = field(default_factory=dict)
-
-
-class PackageError(ValueError):
-    """User-facing package validation / extract error."""
+    column_map: dict[str, Any] | None = None
+    column_map_issues: list[str] = field(default_factory=list)
 
 
 def sweep_old_temp_dirs(*, max_age_sec: float = TEMP_MAX_AGE_SEC) -> int:
@@ -153,10 +201,11 @@ def _safe_member_path(name: str) -> Path:
     return Path(*parts) if parts else Path()
 
 
-def _inspect_zip(zf: zipfile.ZipFile) -> None:
+def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
+    caps = caps or effective_package_caps()
     infos = zf.infolist()
-    if len(infos) > MAX_ENTRIES:
-        raise PackageError(f"Too many zip entries ({len(infos)} > {MAX_ENTRIES})")
+    if len(infos) > caps.max_entries:
+        raise PackageError(f"Too many zip entries ({len(infos)} > {caps.max_entries})")
     total = 0
     names_lower: set[str] = set()
     for info in infos:
@@ -171,9 +220,9 @@ def _inspect_zip(zf: zipfile.ZipFile) -> None:
         if info.compress_size > 0 and info.file_size / max(info.compress_size, 1) > 100:
             raise PackageError(f"Suspicious compression ratio: {info.filename}")
         total += int(info.file_size)
-        if total > MAX_UNCOMPRESSED_BYTES:
+        if total > caps.max_uncompressed_bytes:
             raise PackageError(
-                f"Uncompressed size exceeds {MAX_UNCOMPRESSED_BYTES // (1024 * 1024)} MB limit"
+                f"Uncompressed size exceeds {caps.max_uncompressed_mb} MB limit"
             )
         rel = _safe_member_path(info.filename)
         key = str(rel).lower()
@@ -189,15 +238,16 @@ def stat_is_symlink(info: zipfile.ZipInfo) -> bool:
 
 def extract_package_zip(data: bytes, *, dest: Path | None = None) -> Path:
     """Extract zip bytes into a fresh temp dir. Returns workdir root."""
-    if len(data) > MAX_ZIP_BYTES:
-        raise PackageError(f"Zip exceeds {MAX_ZIP_BYTES // (1024 * 1024)} MB compressed limit")
+    caps = effective_package_caps()
+    if len(data) > caps.max_zip_bytes:
+        raise PackageError(f"Zip exceeds {caps.max_zip_mb} MB compressed limit")
     workdir = Path(dest) if dest else Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
     workdir.mkdir(parents=True, exist_ok=True)
     try:
         from io import BytesIO
 
         with zipfile.ZipFile(BytesIO(data), "r") as zf:
-            _inspect_zip(zf)
+            _inspect_zip(zf, caps)
             written = 0
             for info in zf.infolist():
                 if info.is_dir():
@@ -214,8 +264,11 @@ def extract_package_zip(data: bytes, *, dest: Path | None = None) -> Path:
                         if not chunk:
                             break
                         written += len(chunk)
-                        if written > MAX_UNCOMPRESSED_BYTES:
-                            raise PackageError("Uncompressed size limit exceeded during extract")
+                        if written > caps.max_uncompressed_bytes:
+                            raise PackageError(
+                                f"Uncompressed size limit exceeded during extract "
+                                f"({caps.max_uncompressed_mb} MB)"
+                            )
                         out.write(chunk)
     except PackageError:
         wipe_workdir(workdir)
@@ -273,6 +326,19 @@ def load_session_config(building_root: Path) -> SessionConfig | None:
         raise PackageError(f"session_config.json invalid: {exc}") from exc
 
 
+def load_package_column_map(building_root: Path) -> dict[str, Any] | None:
+    """Load optional package-root ``column_map.json`` (Haystack-like or flat)."""
+    path = building_root / "column_map.json"
+    if not path.is_file():
+        return None
+    try:
+        from app.column_map_json import load_column_map_json
+
+        return load_column_map_json(path)
+    except Exception as exc:
+        raise PackageError(f"column_map.json invalid: {exc}") from exc
+
+
 def _load_weather(building_root: Path) -> pd.DataFrame | None:
     hist = building_root / "weather" / "history_wide.csv"
     if not hist.is_file():
@@ -321,8 +387,11 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
     equipment = discover_equipment(building_root)
     if not equipment:
         raise PackageError("No equipment folders with history_wide.csv found")
-    if len(equipment) > MAX_EQUIPMENT:
-        raise PackageError(f"Too many equipment folders ({len(equipment)} > {MAX_EQUIPMENT})")
+    caps = effective_package_caps()
+    if len(equipment) > caps.max_equipment:
+        raise PackageError(
+            f"Too many equipment folders ({len(equipment)} > {caps.max_equipment})"
+        )
 
     ids = [e["equipment_id"] for e in equipment]
     if len(ids) != len(set(ids)):
@@ -355,6 +424,20 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
         frames[eq["equipment_id"]] = df
 
     weather = _load_weather(building_root)
+    column_map = None
+    column_map_issues: list[str] = []
+    try:
+        column_map = load_package_column_map(building_root)
+    except PackageError as exc:
+        warnings.append(str(exc))
+        column_map = None
+    if column_map:
+        from app.column_map_json import validate_column_map_against_frames
+
+        column_map_issues = validate_column_map_against_frames(column_map, frames)
+        if column_map_issues:
+            warnings.extend(column_map_issues[:20])
+
     report = {
         "building_id": manifest.building_id,
         "schema_version": manifest.schema_version,
@@ -364,6 +447,12 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
         "equipment_ids": sorted(frames),
         "has_weather": weather is not None,
         "has_session_config": session_cfg is not None,
+        "has_column_map": column_map is not None,
+        "column_map_equipment_count": (
+            len((column_map or {}).get("equipment") or {}) if column_map else 0
+        ),
+        "column_map_issue_count": len(column_map_issues),
+        "column_map_issues_preview": column_map_issues[:20],
         "row_counts": {k: int(len(v)) for k, v in frames.items()},
     }
     # Span
@@ -385,6 +474,8 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
         session_config=session_cfg,
         warnings=warnings,
         report=report,
+        column_map=column_map,
+        column_map_issues=column_map_issues,
     )
 
 

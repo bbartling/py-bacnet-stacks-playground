@@ -28,7 +28,7 @@ Disk saves (`configs/`) become **downloads** on shared/Cloud hosts.
 - One shared Python process for all visitors
 - Session wipe is **best-effort**
 - Not a security boundary for sensitive building data
-- Keep zips ≤ 25 MB
+- Keep zips within env caps (default local 1024 MB / cloud 250 MB zip) — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md)
 
 ## AI agents
 

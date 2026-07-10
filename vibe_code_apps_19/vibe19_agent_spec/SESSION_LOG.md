@@ -8,6 +8,17 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-10 — Agent API + weather policy + AFDD turnkey
+
+- `app/agent_api.py` + `scripts/agent_afdd.py` — load zip/folder, run 50 rules / analytics / RCx, export bundle (no HTTP)
+- `app/weather_resolver.py` — `oa_t_effective` (web primary, BAS fallback); OAT-METEO both-required
+- Package `column_map.json` on `PackageLoadResult`; role_map gap + RCx coverage + tuning assistant reports
+- Streamlit: fault_settings / session_config path+upload I/O; RCx diagnostics expander; gap report on Mapping/Export
+- Windows tests: `scripts/run_tests_local.ps1`
+- Tests: weather, agent API/CLI smoke, column_map, RCx coverage, gap, fault settings
+
+---
+
 ## 2026-07-10 — RCx Plots + web weather + units + occupancy (spec sync)
 
 - **RCx Plots** tab: prebuilt multi-equip overlays, duct-static box (fan-on), HW/CHW/CW scatters, generic picker, outlier highlight — `app/rcx_plots.py`, `app/ui_rcx_tab.py`, `app/charts.py`

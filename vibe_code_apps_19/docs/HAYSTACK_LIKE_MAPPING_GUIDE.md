@@ -69,3 +69,8 @@ Legacy `equipment` / `column_roles` / short cookbook keys still load.
 ## Not in this app
 
 No RDF graph, SPARQL, or Oxigraph — use Haystack-*like* JSON column maps only (`app/column_map_json.py`).
+
+Packages may ship a root `column_map.json`; the loader validates it and surfaces
+`has_column_map` / issue counts on the package report. Agents can also export a
+`role_map_gap_report.csv` (mapped vs missing roles per equipment) from the Mapping
+or Export tabs, or via `scripts/agent_afdd.py`.

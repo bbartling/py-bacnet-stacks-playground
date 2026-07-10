@@ -10,6 +10,7 @@ Pre-process historian data **outside** this app, zip it, and upload on Streamlit
 building.zip
   manifest.json                 # required
   session_config.json           # optional — restore UI tuning for this browser session
+  column_map.json               # optional — Haystack-like / flat column→role map
   weather/
     history_wide.csv            # optional web/BAS OAT
     columns.csv                 # optional
@@ -74,15 +75,46 @@ Restored into **browser session state only** (never written to the Cloud app dis
 
 Unknown keys are ignored. Role map entries that reference missing equipment/columns are skipped with a warning.
 
-## Size limits (Cloud)
+## Optional `column_map.json`
 
-| Limit | Default |
-| --- | --- |
-| Compressed zip | 25 MB |
-| Uncompressed total | 100 MB |
-| Zip entries | 50 |
-| Equipment folders | 20 |
-| Path depth | 8 |
+When present at the package root, `app/package_io.py` loads and validates it against equipment frames:
+
+- Exposed on `PackageLoadResult.column_map` / `column_map_issues`
+- Report fields: `has_column_map`, `column_map_equipment_count`, `column_map_issue_count`, `column_map_issues_preview` (first 20)
+- Agent API / Streamlit merge it into the working role_map (`prefer_json=True`)
+
+See `docs/COLUMN_MAP_JSON.md` and `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`.
+
+## Weather / OAT policy
+
+- Package `weather/history_wide.csv` supplies web OAT (`wx_oa_t`) — **primary** for economizer, mech-cooling bins, RCx scatters, and physics rules needing outdoor air (`oa_t_effective`).
+- BAS `oa_t` is preserved when present (`bas_oa_t`); never silently overwritten.
+- **OAT-METEO** compares BAS vs web only when **both** exist; otherwise `SKIPPED_MISSING_ROLES` with an explicit reason.
+
+## Agent headless export
+
+```powershell
+python scripts/agent_afdd.py --package building.zip --out out_dir --run-all
+# optional: --params fault_settings.json
+```
+
+Artifacts: `run_report.json`, `fdd_summary.csv`, `fault_settings.json`, `session_config.json`, `role_map.yaml`, `column_map.json` (if present), motor/RCx/gap CSVs.
+
+## Size limits (configurable)
+
+Defaults favor local/agent RCx packages; tighten automatically when `APP_MODE=cloud`.
+
+| Cap | Env var | Default (local / auto) | Default (`APP_MODE=cloud`) |
+| --- | --- | --- | --- |
+| Compressed zip | `OPENFDD_MAX_ZIP_MB` | 1024 MB | 250 MB |
+| Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | 1024 MB | 1024 MB |
+| Zip entries | `OPENFDD_MAX_ENTRIES` | 200 | 200 |
+| Equipment folders | `OPENFDD_MAX_EQUIPMENT` | 100 | 100 |
+| Path depth | (fixed) | 8 | 8 |
+
+`PackageError` messages include the **effective** cap. Override any env var to raise/lower for agent tests.
+
+Local agents can also use sidebar **Package zip path** → **Load zip from path** (when server paths are allowed) instead of the browser file picker.
 
 ## Session wipe
 

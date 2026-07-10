@@ -197,3 +197,62 @@ def preset_by_id(preset_id: str) -> RcxPreset | None:
         if p.id == preset_id:
             return p
     return None
+
+
+def rcx_preset_coverage(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    outlier_z: float = 2.5,
+) -> pd.DataFrame:
+    """Diagnostics table: one row per RCx preset with series/row/outlier counts."""
+    rows: list[dict[str, Any]] = []
+    for preset in PRESETS:
+        empty_reason = ""
+        series_count = 0
+        row_count = 0
+        outlier_count = 0
+        if preset.chart == "scatter_oat":
+            x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
+            long_df = collect_oat_scatter(
+                frames,
+                role_map,
+                y_role=preset.role,
+                weather=weather,
+                equipment_types=preset.equipment_types,
+                x_prefer=x_pref,
+            )
+            row_count = int(len(long_df))
+            series_count = int(long_df["equipment_id"].nunique()) if row_count and "equipment_id" in long_df.columns else 0
+            if row_count == 0:
+                empty_reason = f"no mapped {preset.role} and/or web OAT for {','.join(preset.equipment_types)}"
+        else:
+            series_map = collect_role_series(
+                frames,
+                role_map,
+                role=preset.role,
+                equipment_types=preset.equipment_types,
+                filter_fan_on=preset.filter_fan_on,
+            )
+            series_count = len(series_map)
+            row_count = int(sum(int(s.notna().sum()) for s in series_map.values()))
+            stats = series_summary_stats(series_map, outlier_z=outlier_z)
+            outlier_count = int(stats["outlier"].sum()) if not stats.empty and "outlier" in stats.columns else 0
+            if series_count == 0:
+                empty_reason = f"no mapped {preset.role} for {','.join(preset.equipment_types)}"
+                if preset.filter_fan_on:
+                    empty_reason += " (fan-on filter)"
+        rows.append(
+            {
+                "preset_id": preset.id,
+                "title": preset.title,
+                "chart_type": preset.chart,
+                "role": preset.role,
+                "series_count": series_count,
+                "row_count": row_count,
+                "outlier_count": outlier_count,
+                "empty_reason": empty_reason,
+            }
+        )
+    return pd.DataFrame(rows)

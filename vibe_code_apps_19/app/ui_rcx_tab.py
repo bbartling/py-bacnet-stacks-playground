@@ -43,6 +43,20 @@ def render_rcx_plots_tab(
         "Outlier equipment (z≥2.5 on mean) highlighted in red dashed / ★."
     )
 
+    from app.rcx_plots import rcx_preset_coverage
+
+    with st.expander("RCx preset coverage diagnostics", expanded=False):
+        cov = rcx_preset_coverage(frames, role_map, weather=weather)
+        st.dataframe(cov, hide_index=True, width="stretch", height=320)
+        nonempty = int((cov["row_count"] > 0).sum()) if not cov.empty else 0
+        st.caption(f"{nonempty}/{len(cov)} presets have data")
+        st.download_button(
+            "Download rcx_preset_coverage.csv",
+            to_csv_bytes(cov),
+            "rcx_preset_coverage.csv",
+            key="dl_rcx_coverage",
+        )
+
     mode = st.radio("Mode", ["Prebuilt RCx", "Generic picker"], horizontal=True, key="rcx_mode")
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
 

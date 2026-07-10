@@ -89,13 +89,57 @@ except ImportError:  # pragma: no cover
     APP_TITLE = "Open FDD Vibe Coder"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
-st.title(APP_TITLE)
-st.caption(
-    "Educational Streamlit lab for the Open-FDD **pandas cookbook** (50 rules). "
-    "Browse any local **building folder** — an LLM (or heuristic) builds a **JSON column→role map**, "
-    "it does **not** rewrite your CSVs. "
-    "Production Rust/DataFusion product: [Open-FDD](https://github.com/bbartling/open-fdd)."
+
+_AGENTS_MD_URL = (
+    "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+    "vibe_code_apps_19/AGENTS.md"
 )
+_OPENFDD_DOCS_URL = "https://bbartling.github.io/open-fdd/"
+_OPENFDD_REPO_URL = "https://github.com/bbartling/open-fdd"
+_HERO_IMG = APP_ROOT / "assets" / "image_new_chiller.png"
+
+
+def _render_app_hero() -> None:
+    """Brand header: Open-FDD chiller art on top, then title / workflow / links."""
+    if _HERO_IMG.is_file():
+        st.image(str(_HERO_IMG), width="stretch")
+    else:
+        st.markdown("### Open-FDD")
+    st.title(APP_TITLE)
+    st.markdown(
+        "Educational **Streamlit + pandas** lab for the Open-FDD **50-rule cookbook**. "
+        "CSVs stay as-is — you only map columns to roles."
+    )
+    st.markdown(
+        """
+**How it works (2 pieces + run)**
+
+1. **Data package** — Folder or `openfdd_package_v1` zip of historian CSVs  
+2. **Data model** — JSON column→role map (Mapping tab) *or* `session_config.json` `role_map` in the zip  
+3. **Run** — **Run Rules** → **Plots** / **RCx Plots**
+        """.strip()
+    )
+    st.markdown(
+        f"[AGENTS.md]({_AGENTS_MD_URL}) · "
+        f"[Open-FDD docs]({_OPENFDD_DOCS_URL}) · "
+        f"[Open-FDD repo]({_OPENFDD_REPO_URL})"
+    )
+
+
+_render_app_hero()
+
+
+def _empty_state_directions() -> None:
+    st.info(
+        "**Start here:** sidebar → **Folder** (local tree) or **Zip package** → load data. "
+        "Then **Data & Mapping** for the JSON data model (or rely on zip `session_config` role_map). "
+        "Finally **Run Rules** → **Plots** / **RCx**."
+    )
+    st.markdown(
+        f"Agent brief: [AGENTS.md]({_AGENTS_MD_URL}) · "
+        f"Package contract: `docs/PACKAGE_SPEC.md` · "
+        f"[Open-FDD docs]({_OPENFDD_DOCS_URL})"
+    )
 
 
 @st.cache_data
@@ -134,6 +178,8 @@ def _init_state() -> None:
         "upload_workdir": None,
         "package_report": None,
         "zip_uploader_key": 0,
+        "fault_settings_source": "defaults",
+        "session_config_source": "",
     }.items():
         st.session_state.setdefault(k, v)
 
@@ -545,6 +591,14 @@ def _commit_package_result(result) -> None:
     if result.session_config is not None:
         for w in apply_session_config(result.session_config, equipment_ids=set(result.frames)):
             st.sidebar.warning(w)
+        st.session_state.session_config_source = "package session_config.json"
+        if result.session_config.params:
+            st.session_state.fault_settings_source = "package session_config.params"
+    if result.column_map:
+        _apply_column_map_json(result.column_map)
+        st.session_state.session_config_source = (
+            (st.session_state.get("session_config_source") or "") + " + package column_map.json"
+        ).strip(" +")
     for w in result.warnings:
         st.sidebar.warning(w)
 
@@ -653,6 +707,9 @@ def _load_data(cfg: AppConfig) -> None:
             st.session_state.building_folder = ""
             st.rerun()
     else:
+        from app.package_io import effective_package_caps
+
+        caps = effective_package_caps()
         zip_file = st.sidebar.file_uploader(
             "Building package (.zip)",
             type=["zip"],
@@ -680,6 +737,95 @@ def _load_data(cfg: AppConfig) -> None:
                     f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`"
                 )
                 st.rerun()
+
+        if cfg.allow_server_paths:
+            st.sidebar.markdown("**Agent path load**")
+            st.sidebar.text_input(
+                "Package zip path",
+                help="Absolute path to an openfdd_package_v1 zip (Codex/Cursor — no browser upload).",
+                key="package_zip_path",
+            )
+            if st.sidebar.button("Load zip from path", key="load_zip_from_path"):
+                zip_path = Path(str(st.session_state.get("package_zip_path") or "").strip())
+                if not zip_path.is_file():
+                    st.sidebar.error(f"Zip not found: {zip_path}")
+                else:
+                    wipe_workdir(st.session_state.get("upload_workdir"))
+                    st.session_state.upload_workdir = None
+                    try:
+                        result = load_package_zip(zip_path.read_bytes())
+                    except PackageError as exc:
+                        st.sidebar.error(str(exc))
+                    except Exception as exc:  # pragma: no cover
+                        st.sidebar.error(f"Package load failed: {exc}")
+                    else:
+                        _commit_package_result(result)
+                        st.sidebar.success(
+                            f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`"
+                        )
+                        st.rerun()
+
+            st.sidebar.markdown("**Fault / session settings**")
+            st.sidebar.caption(
+                f"Active fault settings: `{st.session_state.get('fault_settings_source') or 'defaults'}`"
+            )
+            if st.session_state.get("session_config_source"):
+                st.sidebar.caption(f"Session config: `{st.session_state.session_config_source}`")
+            st.sidebar.text_input(
+                "Fault settings JSON path",
+                help="Agent-produced fault_settings.json (rule_id → params).",
+                key="fault_settings_path",
+            )
+            if st.sidebar.button("Load fault settings from path", key="load_fault_settings_path"):
+                fpath = Path(str(st.session_state.get("fault_settings_path") or "").strip())
+                if not fpath.is_file():
+                    st.sidebar.error(f"Not found: {fpath}")
+                else:
+                    try:
+                        raw = __import__("json").loads(fpath.read_text(encoding="utf-8"))
+                        if not isinstance(raw, dict):
+                            raise ValueError("JSON must be an object")
+                        params = dict(st.session_state.get("params") or {})
+                        for rid, p in raw.items():
+                            if isinstance(p, dict):
+                                params[str(rid)] = {**params.get(str(rid), {}), **p}
+                        st.session_state.params = params
+                        st.session_state.fault_settings_source = f"path:{fpath.name}"
+                        st.sidebar.success(f"Applied fault settings from {fpath.name}")
+                        st.rerun()
+                    except Exception as exc:
+                        st.sidebar.error(f"Fault settings load failed: {exc}")
+            st.sidebar.text_input(
+                "Session config JSON path",
+                help="openfdd_session_v1 JSON (units / role_map / params).",
+                key="session_config_path",
+            )
+            if st.sidebar.button("Load session config from path", key="load_session_config_path"):
+                spath = Path(str(st.session_state.get("session_config_path") or "").strip())
+                if not spath.is_file():
+                    st.sidebar.error(f"Not found: {spath}")
+                else:
+                    try:
+                        from app.package_io import SessionConfig, apply_session_config
+
+                        cfg_obj = SessionConfig.model_validate(
+                            __import__("json").loads(spath.read_text(encoding="utf-8"))
+                        )
+                        frames = st.session_state.get("equipment_frames") or {}
+                        for w in apply_session_config(cfg_obj, equipment_ids=set(frames)):
+                            st.sidebar.warning(w)
+                        st.session_state.session_config_source = f"path:{spath.name}"
+                        if cfg_obj.params:
+                            st.session_state.fault_settings_source = f"session:{spath.name}"
+                        st.sidebar.success(f"Applied session config from {spath.name}")
+                        st.rerun()
+                    except Exception as exc:
+                        st.sidebar.error(f"Session config load failed: {exc}")
+
+        st.sidebar.caption(
+            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
+            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
+        )
         report = st.session_state.get("package_report")
         if report:
             with st.sidebar.expander("Package report", expanded=False):
@@ -696,16 +842,23 @@ def _load_data(cfg: AppConfig) -> None:
             )
 
     with st.sidebar.expander("AI agent / package help", expanded=False):
-        st.markdown(
-            """
-**Agent-friendly flow**
-1. Pre-process CSVs outside the app into `openfdd_package_v1` (see `docs/PACKAGE_SPEC.md`).
-2. Include optional `session_config.json` to restore units / role_map / thresholds.
-3. Open this app URL → **Data source: Zip package** → upload → **Load zip**.
-4. Click **Clear session** when done (best-effort wipe on shared hosts).
+        from app.package_io import effective_package_caps as _caps_fn
 
-**Limits:** Streamlit Cloud shares one process — not a locked per-agent backend.
-Use separate deploys for true isolation. Keep zips ≤ 25 MB.
+        _c = _caps_fn()
+        st.markdown(
+            f"""
+**Agent-friendly flow**
+1. Pre-process CSVs into `openfdd_package_v1` (`docs/PACKAGE_SPEC.md`).
+2. Optional `session_config.json` for units / role_map / thresholds.
+3. **Zip package** → upload **or** (local) paste path → **Load zip from path**.
+4. Optional: Mapping tab JSON column map if role_map incomplete.
+5. **Clear session** when done (best-effort wipe on shared hosts).
+
+**Effective caps:** zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB ·
+≤{_c.max_entries} entries · ≤{_c.max_equipment} equip  
+Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`.
+
+Agent brief: {_AGENTS_MD_URL}
             """.strip()
         )
         demo = APP_ROOT / "data" / "demo_package_v1.zip"
@@ -734,12 +887,16 @@ Use separate deploys for true isolation. Keep zips ≤ 25 MB.
         help="Analytics + OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
         key="prefer_web_oat",
     )
+    _chw_f = float(st.session_state.get("chw_leave_max_f", 48.0))
+    if _chw_f < 35.0 or _chw_f > 50.0:
+        st.session_state.chw_leave_max_f = max(35.0, min(50.0, _chw_f))
     st.sidebar.slider(
         "CHW leave proof max °F",
-        40.0,
-        55.0,
-        0.5,
-        help="If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on.",
+        min_value=35.0,
+        max_value=50.0,
+        step=0.5,
+        help="If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on. "
+        "Stored as °F; use sidebar Units for chart/table display (°C when metric).",
         key="chw_leave_max_f",
     )
     st.sidebar.checkbox(
@@ -816,10 +973,7 @@ def main() -> None:
 
     frames = st.session_state.equipment_frames
     if not frames:
-        st.info(
-            "Sidebar → **Data source**: Folder (local) or **Zip package** (Cloud + local) → load data. "
-            "See `docs/PACKAGE_SPEC.md`. Agents: use zip + optional `session_config.json`."
-        )
+        _empty_state_directions()
         return
 
     # Sidebar "Rerun cat." — apply after frames exist
@@ -880,6 +1034,17 @@ def main() -> None:
 
     with tabs[0]:
         st.subheader("Overview")
+        st.markdown(
+            """
+**Workflow reminder**
+
+| Piece | What | Where |
+| --- | --- | --- |
+| **1. Data package** | Folder or zip of CSVs (`openfdd_package_v1`) | Sidebar → Folder / Zip |
+| **2. Data model** | Column→role JSON *or* zip `session_config` role_map | **Data & Mapping** tab |
+| **3. Run** | 50-rule cookbook → charts | **Run Rules** → **Plots** / **RCx Plots** |
+            """.strip()
+        )
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Equipment", len(frames))
         c2.metric("Rules", CANONICAL_RULE_COUNT)
@@ -1026,6 +1191,22 @@ def main() -> None:
                     file_name="column_map.json",
                     mime="application/json",
                     key="dl_colmap_mapping_tab",
+                )
+
+            from app.role_map_gap import build_role_map_gap_report
+
+            with st.expander("Role map gap report", expanded=False):
+                gap_df = build_role_map_gap_report(
+                    frames,
+                    st.session_state.role_map,
+                    weather=st.session_state.weather,
+                )
+                st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
+                st.download_button(
+                    "Download role_map_gap_report.csv",
+                    to_csv_bytes(gap_df),
+                    "role_map_gap_report.csv",
+                    key="dl_gap_mapping",
                 )
 
         st.divider()
@@ -1287,11 +1468,62 @@ def main() -> None:
 
     with tabs[7]:
         st.subheader("Export")
-        st.caption("Use the Plotly camera on charts for PNG/JPEG. CSV summary below.")
+        st.caption(
+            "Plotly camera → PNG/JPEG. Agent loop: fault_settings.json ↔ session_config.json ↔ summary CSV."
+        )
+        st.caption(
+            f"Active fault settings source: `{st.session_state.get('fault_settings_source') or 'defaults'}`"
+        )
         results = st.session_state.batch_results
         if results:
             summary = results_summary_table(results)
             st.download_button("Summary CSV", to_csv_bytes(summary), "fdd_summary.csv")
+        fault_json = __import__("json").dumps(st.session_state.get("params") or {}, indent=2)
+        st.download_button(
+            "Download fault_settings.json",
+            data=fault_json.encode("utf-8"),
+            file_name="fault_settings.json",
+            mime="application/json",
+            key="dl_fault_settings",
+        )
+        up_fault = st.file_uploader(
+            "Upload fault_settings.json",
+            type=["json"],
+            key="upload_fault_settings",
+        )
+        if up_fault is not None and st.button("Apply uploaded fault settings", key="apply_fault_upload"):
+            try:
+                raw = __import__("json").loads(up_fault.getvalue().decode("utf-8"))
+                if not isinstance(raw, dict):
+                    raise ValueError("JSON must be an object of rule_id → params")
+                params = dict(st.session_state.get("params") or {})
+                for rid, p in raw.items():
+                    if isinstance(p, dict):
+                        params[str(rid)] = {**params.get(str(rid), {}), **p}
+                st.session_state.params = params
+                st.session_state.fault_settings_source = f"upload:{up_fault.name}"
+                st.success("Fault settings applied — re-run rules to refresh results.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Fault settings upload failed: {exc}")
+
+        from app.agent_api import make_session_config
+
+        session_payload = make_session_config(
+            st.session_state.get("role_map") or {},
+            st.session_state.get("params") or {},
+            unit_system=st.session_state.get("unit_system", "imperial"),
+            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+            include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
+        )
+        st.download_button(
+            "Download session_config.json (includes params)",
+            data=__import__("json").dumps(session_payload, indent=2).encode("utf-8"),
+            file_name="session_config.json",
+            mime="application/json",
+            key="dl_session_config_export",
+        )
         if st.session_state.column_map:
             st.download_button(
                 "Haystack column map JSON",
@@ -1302,6 +1534,41 @@ def main() -> None:
                 mime="application/json",
                 key="dl_colmap_export",
             )
+        if frames:
+            from app.role_map_gap import build_role_map_gap_report
+
+            gap_df = build_role_map_gap_report(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+            )
+            if not gap_df.empty:
+                st.markdown("##### Role map gap report")
+                st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
+                st.download_button(
+                    "Download role_map_gap_report.csv",
+                    to_csv_bytes(gap_df),
+                    "role_map_gap_report.csv",
+                    key="dl_gap_export",
+                )
+            try:
+                from app.tuning_report import build_tuning_assistant_report
+
+                trep = build_tuning_assistant_report(
+                    tuned=results or [],
+                    params=st.session_state.get("params") or {},
+                    has_web_weather=st.session_state.weather is not None,
+                    gap_report=gap_df,
+                )
+                st.download_button(
+                    "Download tuning_assistant_report.json",
+                    data=__import__("json").dumps(trep, indent=2, default=str).encode("utf-8"),
+                    file_name="tuning_assistant_report.json",
+                    mime="application/json",
+                    key="dl_tuning_report",
+                )
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

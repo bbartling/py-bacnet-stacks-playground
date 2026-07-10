@@ -27,33 +27,34 @@ def infer_equipment_kind(equipment_id: str) -> str:
 
 
 def merge_weather(df: pd.DataFrame, weather: pd.DataFrame | None) -> pd.DataFrame:
-    if weather is None or weather.empty:
-        return df
-    from app.weather_psychrometrics import enrich_weather_frame
+    """Align/enrich web weather onto an equipment frame, then resolve effective OAT.
+
+    Adds ``oa_t_effective`` / ``oa_t_effective_source`` / optional ``bas_oa_t`` before
+    missing-role checks. Never overwrites a real BAS ``oa_t`` column.
+    """
+    from app.weather_psychrometrics import dewpoint_f_from_db_rh, enrich_weather_frame, wetbulb_f_stull
+    from app.weather_resolver import apply_effective_oat_columns
 
     out = df.copy()
-    wx = enrich_weather_frame(weather).reindex(out.index)
-    for col in wx.columns:
-        if col not in out.columns:
-            out[col] = wx[col]
-        elif col.startswith("wx_") and out[col].notna().sum() == 0:
-            out[col] = wx[col]
-    # Derive dewpoint on the equipment frame if RH landed but dewpoint did not
+    if weather is not None and not weather.empty:
+        wx = enrich_weather_frame(weather).reindex(out.index)
+        for col in wx.columns:
+            if col not in out.columns:
+                out[col] = wx[col]
+            elif col.startswith("wx_") and out[col].notna().sum() == 0:
+                out[col] = wx[col]
+    # Derive dewpoint / wet-bulb on the equipment frame when RH landed
     if ("wx_oa_dewpoint" not in out.columns or out["wx_oa_dewpoint"].notna().sum() == 0) and {
         "wx_oa_t",
         "wx_oa_rh",
     }.issubset(out.columns):
-        from app.weather_psychrometrics import dewpoint_f_from_db_rh
-
         out["wx_oa_dewpoint"] = dewpoint_f_from_db_rh(out["wx_oa_t"], out["wx_oa_rh"])
     if ("wx_oa_wetbulb" not in out.columns or out["wx_oa_wetbulb"].notna().sum() == 0) and {
         "wx_oa_t",
         "wx_oa_rh",
     }.issubset(out.columns):
-        from app.weather_psychrometrics import wetbulb_f_stull
-
         out["wx_oa_wetbulb"] = wetbulb_f_stull(out["wx_oa_t"], out["wx_oa_rh"])
-    return out
+    return apply_effective_oat_columns(out)
 
 
 def weather_available(df: pd.DataFrame) -> bool:
@@ -81,7 +82,9 @@ def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool) -> pd.Seri
     damper_thr = cb._f(p, "econ3_damper", 0.32)
     mech = (clg > 0.01) & (econ < damper_thr)
 
-    if "wx_oa_t" in d.columns and d["wx_oa_t"].notna().any():
+    if "oa_t_effective" in d.columns and d["oa_t_effective"].notna().any():
+        oadb = d["oa_t_effective"]
+    elif "wx_oa_t" in d.columns and d["wx_oa_t"].notna().any():
         oadb = d["wx_oa_t"]
     elif "oa_t" in d.columns:
         oadb = d["oa_t"]
@@ -118,6 +121,11 @@ def _confirm_seconds(rule: cb.CookbookRule, params: dict) -> float:
 
 
 def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
+    from app.weather_resolver import oat_meteo_availability
+
+    if rule.id == "OAT-METEO":
+        ok, reasons = oat_meteo_availability(df)
+        return [] if ok else reasons
     if rule.sensor_sweep:
         present = [r for r in cb.SWEEP_SENSOR_ROLES if r in df.columns and df[r].notna().any()]
         return [] if present else ["any sensor role from sweep list"]
@@ -126,11 +134,23 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
         return [] if present else ["any 0-100% control output role"]
     missing = []
     for role in rule.required_roles:
+        if role == "oa_t":
+            # Physics rules may use oa_t_effective (web primary / BAS fallback)
+            if "oa_t" in df.columns and df["oa_t"].notna().any():
+                continue
+            if "oa_t_effective" in df.columns and df["oa_t_effective"].notna().any():
+                continue
+            missing.append(role)
+            continue
+        if role == "wx_oa_t":
+            if role not in df.columns or df[role].notna().sum() == 0:
+                missing.append(role)
+            continue
         if role not in df.columns or df[role].notna().sum() == 0:
             missing.append(role)
-    if rule.id == "OAT-METEO" and "wx_oa_t" not in df.columns:
-        missing.append("wx_oa_t")
-    if rule.id == "CW-OPT-1" and "wx_oa_wetbulb" not in df.columns:
+    if rule.id == "CW-OPT-1" and (
+        "wx_oa_wetbulb" not in df.columns or df["wx_oa_wetbulb"].notna().sum() == 0
+    ):
         missing.append("wx_oa_wetbulb")
     return missing
 
@@ -199,13 +219,22 @@ def run_cookbook_rule(
             equipment_type=eq_type,
         )
 
+    from app.weather_resolver import inject_oa_t_for_physics, weather_source_metrics
+
     d = merge_weather(df, weather)
+    # OAT-METEO needs both real sources — never inject web into oa_t for the compare.
+    if rule.id != "OAT-METEO":
+        d = inject_oa_t_for_physics(d)
     missing = _missing_roles(rule, d)
     if missing:
+        notes = ""
+        if rule.id == "OAT-METEO":
+            notes = "SKIPPED — OAT-METEO requires both BAS oa_t and web wx_oa_t: " + "; ".join(missing)
         return skipped(
             rule.id,
             equipment_id,
             missing,
+            notes=notes,
             site_id=sid,
             building_id=bid,
             equipment_type=eq_type,
@@ -231,7 +260,7 @@ def run_cookbook_rule(
                 site_id=sid,
                 building_id=bid,
                 equipment_type=eq_type,
-                metrics=gate_meta,
+                metrics={**gate_meta, **weather_source_metrics(d)},
                 notes=(
                     f"SKIPPED_EQUIPMENT_OFF — operational gate '{gate_meta.get('gate_kind')}' "
                     f"via {gate_meta.get('gate_source')}: no proven-on samples."
@@ -240,16 +269,24 @@ def run_cookbook_rule(
 
         if rule.id == "ECON-3":
             raw = econ3_compute(d, params, poll_seconds, wx_ok)
+        elif rule.id == "OAT-METEO":
+            # Compare real BAS vs web — restore bas_oa_t into oa_t if needed
+            if "bas_oa_t" in d.columns and d["bas_oa_t"].notna().any():
+                d = d.copy()
+                d["oa_t"] = d["bas_oa_t"]
+            raw = rule.compute(d, params, poll_seconds)
         else:
             raw = rule.compute(d, params, poll_seconds)
         raw = raw.reindex(d.index).fillna(False).astype(bool)
-        metrics: dict[str, Any] = dict(gate_meta)
+        metrics: dict[str, Any] = {**dict(gate_meta), **weather_source_metrics(d)}
         if rule.sensor_sweep:
             metrics["sensors_checked"] = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
         if rule.control_output_sweep:
             metrics["outputs_checked"] = [r for r in cb.CONTROL_OUTPUT_ROLES if r in d.columns]
         if rule.id == "ECON-3":
             metrics["weather_gate"] = "open-meteo dew point" if wx_ok else "imperial OAT fallback"
+        if d.attrs.get("oa_t_injected_from"):
+            metrics["oa_t_injected_from"] = d.attrs["oa_t_injected_from"]
         use_active = bool(gate_meta.get("gate_applied"))
         return finalize_result(
             rule.id,

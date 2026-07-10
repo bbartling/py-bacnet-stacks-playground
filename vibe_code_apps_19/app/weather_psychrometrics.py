@@ -101,7 +101,12 @@ def prefer_web_oat(
     prefer_web: bool = True,
 ) -> pd.Series | None:
     """Return outdoor dry-bulb series — web weather first when prefer_web (data-model default)."""
-    order = ("wx_oa_t", "oa_t") if prefer_web else ("oa_t", "wx_oa_t")
+    if prefer_web:
+        from app.weather_resolver import resolve_effective_oat
+
+        series, _src = resolve_effective_oat(df, weather)
+        return series
+    order = ("oa_t", "wx_oa_t", "bas_oa_t", "oa_t_effective")
     for col in order:
         if col in df.columns and df[col].notna().any():
             return pd.to_numeric(df[col], errors="coerce")

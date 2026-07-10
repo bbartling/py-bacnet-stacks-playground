@@ -12,6 +12,7 @@ import pytest
 from app.package_io import (
     PackageError,
     PackageManifest,
+    effective_package_caps,
     extract_package_zip,
     load_package_from_dir,
     load_package_zip,
@@ -153,3 +154,90 @@ def test_extract_then_load_dir(tmp_path: Path):
     work = extract_package_zip(z, dest=tmp_path / "w")
     result = load_package_from_dir(work, workdir=work)
     assert "AHU_1" in result.frames
+
+
+def test_effective_caps_local_defaults(monkeypatch):
+    monkeypatch.delenv("APP_MODE", raising=False)
+    monkeypatch.delenv("OPENFDD_MAX_ZIP_MB", raising=False)
+    monkeypatch.delenv("OPENFDD_MAX_UNCOMPRESSED_MB", raising=False)
+    monkeypatch.delenv("OPENFDD_MAX_ENTRIES", raising=False)
+    monkeypatch.delenv("OPENFDD_MAX_EQUIPMENT", raising=False)
+    monkeypatch.setenv("APP_MODE", "local")
+    caps = effective_package_caps()
+    assert caps.max_zip_mb == 1024
+    assert caps.max_uncompressed_mb == 1024
+    assert caps.max_entries == 200
+    assert caps.max_equipment == 100
+
+
+def test_effective_caps_cloud_zip_default(monkeypatch):
+    for key in (
+        "OPENFDD_MAX_ZIP_MB",
+        "OPENFDD_MAX_UNCOMPRESSED_MB",
+        "OPENFDD_MAX_ENTRIES",
+        "OPENFDD_MAX_EQUIPMENT",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("APP_MODE", "cloud")
+    caps = effective_package_caps()
+    assert caps.max_zip_mb == 250
+    assert caps.max_entries == 200
+    assert caps.max_equipment == 100
+
+
+def test_effective_caps_env_override(monkeypatch):
+    monkeypatch.setenv("APP_MODE", "cloud")
+    monkeypatch.setenv("OPENFDD_MAX_ZIP_MB", "512")
+    monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "77")
+    monkeypatch.setenv("OPENFDD_MAX_EQUIPMENT", "33")
+    caps = effective_package_caps()
+    assert caps.max_zip_mb == 512
+    assert caps.max_entries == 77
+    assert caps.max_equipment == 33
+
+
+def test_loads_above_legacy_entry_and_equipment_limits(monkeypatch):
+    """Full-ish package: >50 zip entries and >20 equipment when caps raised."""
+    monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "200")
+    monkeypatch.setenv("OPENFDD_MAX_EQUIPMENT", "100")
+    files: dict[str, str | bytes] = {"manifest.json": _manifest(building_id="BIG_DEMO")}
+    # 25 equipment × history = 26 entries (manifest + 25 csv) — above old 20 equip
+    for i in range(25):
+        files[f"AHU_{i}/history_wide.csv"] = _hist()
+    # Pad to >50 zip entries with tiny sidecar files
+    for i in range(30):
+        files[f"AHU_0/meta_{i}.txt"] = f"pad-{i}\n"
+    z = _make_zip(files)
+    assert z.count(b"AHU_") >= 1  # sanity
+    result = load_package_zip(z)
+    try:
+        assert len(result.frames) == 25
+        assert result.report["equipment_count"] == 25
+    finally:
+        wipe_workdir(result.workdir)
+
+
+def test_rejects_when_entries_cap_low(monkeypatch):
+    monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "3")
+    z = _make_zip(
+        {
+            "manifest.json": _manifest(),
+            "AHU_1/history_wide.csv": _hist(),
+            "AHU_2/history_wide.csv": _hist(),
+            "AHU_3/history_wide.csv": _hist(),
+            "extra.txt": "x\n",
+        }
+    )
+    with pytest.raises(PackageError, match=r"Too many zip entries \(.* > 3\)"):
+        load_package_zip(z)
+
+
+def test_rejects_when_equipment_cap_low(monkeypatch):
+    monkeypatch.setenv("OPENFDD_MAX_EQUIPMENT", "2")
+    monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "50")
+    files: dict[str, str | bytes] = {"manifest.json": _manifest()}
+    for i in range(3):
+        files[f"AHU_{i}/history_wide.csv"] = _hist()
+    z = _make_zip(files)
+    with pytest.raises(PackageError, match=r"Too many equipment folders \(3 > 2\)"):
+        load_package_zip(z)

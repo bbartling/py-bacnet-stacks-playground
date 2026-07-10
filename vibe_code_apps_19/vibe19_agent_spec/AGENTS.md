@@ -17,11 +17,12 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 3. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph** in this app.
 4. **Rules follow Open-FDD pandas cookbook** — raw mask → optional operational gate → `confirm_fault()` → rollup hours.
 5. **Operational gates** — most rules require fan/pump/compressor proof; see `docs/OPERATIONAL_GATES.md`. Prefer `fan_status` over `fan_cmd`.
-6. **Web OAT by default** — analytics / free-cool / OAT bins prefer `wx_oa_t` (weather CSV / Open-Meteo) over BAS `oa_t`. See `app/weather_psychrometrics.py`.
-7. **Haystack-like authoring** — `siteRef` / `equip` / `device` / `points` normalize to cookbook roles; see `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`.
+6. **Web OAT by default** — analytics / free-cool / OAT bins / physics rules prefer `wx_oa_t` via `oa_t_effective` (`app/weather_resolver.py`). OAT-METEO requires both BAS and web.
+7. **Haystack-like authoring** — `siteRef` / `equip` / `device` / `points` normalize to cookbook roles; see `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`. Optional package-root `column_map.json` is auto-loaded.
 8. **Building id = folder name** — any site; BUILDING_100 is a demo label only.
 9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
-10. Run **`python -m pytest -q`** before claiming done.
+10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).
+11. **Agent API** — `app/agent_api.py` + `scripts/agent_afdd.py` for headless load/run/export (no FastAPI/Flask).
 
 ---
 
@@ -42,6 +43,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | Path | Role |
 | --- | --- |
 | `streamlit_app.py` | Streamlit UI entry (tabs + sidebar) |
+| `app/agent_api.py` | Headless AgentDataset / AgentRun load·run·export |
+| `scripts/agent_afdd.py` | CLI wrapper for agent_api |
+| `app/weather_resolver.py` | Effective OAT policy (web primary) |
 | `app/charts.py` | Rule plots, RCx multi-series / box / OAT scatter |
 | `app/rcx_plots.py` | Prebuilt RCx presets + summary/outlier stats |
 | `app/ui_rcx_tab.py` | **RCx Plots** tab UI |

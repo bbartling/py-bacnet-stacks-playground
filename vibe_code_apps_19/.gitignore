@@ -29,5 +29,7 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.pytest_cache_local/
+.pytest_tmp/
 .streamlit/
 *.egg-info/
