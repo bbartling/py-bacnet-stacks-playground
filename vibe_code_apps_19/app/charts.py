@@ -219,6 +219,163 @@ def rule_result_chart(
     return fig
 
 
+def multi_equipment_timeseries(
+    series_map: dict[str, pd.Series],
+    *,
+    title: str,
+    y_title: str = "",
+    outlier_ids: set[str] | None = None,
+) -> go.Figure | None:
+    """Overlay many equipment series; outliers get a thicker dashed red-ish stroke."""
+    if not series_map:
+        return None
+    outliers = outlier_ids or set()
+    fig = go.Figure()
+    color_i = 0
+    for eq_id, s in sorted(series_map.items()):
+        num = pd.to_numeric(s, errors="coerce")
+        is_out = eq_id in outliers
+        color = "#dc2626" if is_out else RAINBOW_PALETTE[color_i % len(RAINBOW_PALETTE)]
+        if not is_out:
+            color_i += 1
+        fig.add_trace(
+            go.Scatter(
+                x=num.index,
+                y=num,
+                name=f"{eq_id}{' ★' if is_out else ''}",
+                mode="lines",
+                line=dict(color=color, width=2.4 if is_out else 1.4, dash="dash" if is_out else "solid"),
+                connectgaps=False,
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="timestamp",
+        yaxis_title=y_title,
+        template="plotly_white",
+        height=max(360, 40 + 18 * min(len(series_map), 20)),
+        legend=dict(orientation="h", y=1.12, font=dict(size=10)),
+        margin=dict(l=50, r=20, t=60, b=50),
+        hovermode="x unified",
+    )
+    return fig
+
+
+def multi_equipment_box(
+    series_map: dict[str, pd.Series],
+    *,
+    title: str,
+    y_title: str = "",
+    outlier_ids: set[str] | None = None,
+) -> go.Figure | None:
+    if not series_map:
+        return None
+    outliers = outlier_ids or set()
+    fig = go.Figure()
+    for i, (eq_id, s) in enumerate(sorted(series_map.items())):
+        num = pd.to_numeric(s, errors="coerce").dropna()
+        if num.empty:
+            continue
+        is_out = eq_id in outliers
+        fig.add_trace(
+            go.Box(
+                y=num,
+                name=f"{eq_id}{' ★' if is_out else ''}",
+                marker_color="#dc2626" if is_out else RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+                boxpoints="outliers",
+            )
+        )
+    fig.update_layout(
+        title=title,
+        yaxis_title=y_title,
+        template="plotly_white",
+        height=420,
+        showlegend=True,
+        margin=dict(l=50, r=20, t=60, b=50),
+    )
+    return fig
+
+
+def oat_scatter(
+    long_df: pd.DataFrame,
+    *,
+    title: str,
+    x_title: str = "Web OAT °F",
+    y_title: str = "",
+) -> go.Figure | None:
+    if long_df is None or long_df.empty:
+        return None
+    fig = go.Figure()
+    for i, eq_id in enumerate(sorted(long_df["equipment_id"].unique())):
+        sub = long_df[long_df["equipment_id"] == eq_id]
+        # downsample for plot speed
+        if len(sub) > 4000:
+            sub = sub.iloc[:: max(1, len(sub) // 4000)]
+        fig.add_trace(
+            go.Scatter(
+                x=sub["oat"],
+                y=sub["y"],
+                name=str(eq_id),
+                mode="markers",
+                marker=dict(size=4, opacity=0.45, color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)]),
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_title,
+        yaxis_title=y_title,
+        template="plotly_white",
+        height=420,
+        legend=dict(orientation="h", y=1.12),
+        margin=dict(l=50, r=20, t=60, b=50),
+    )
+    return fig
+
+
+def motor_weekly_runtime_chart(
+    weekly_df: pd.DataFrame,
+    *,
+    title: str = "Motor run hours by week (full dataset)",
+) -> go.Figure | None:
+    """Grouped bar chart: run hours per week for each motor (equipment · signal)."""
+    if weekly_df is None or weekly_df.empty:
+        return None
+    fig = go.Figure()
+    labels = list(weekly_df.sort_values(["motor_kind", "label"])["label"].unique())
+    weeks = (
+        weekly_df[["week_start", "week_label"]]
+        .drop_duplicates()
+        .sort_values("week_start")
+    )
+    week_labels = list(weeks["week_label"])
+    for i, lab in enumerate(labels):
+        sub = weekly_df.loc[weekly_df["label"] == lab, ["week_label", "hours"]].drop_duplicates(
+            "week_label", keep="last"
+        )
+        by_week = dict(zip(sub["week_label"], sub["hours"]))
+        y = [float(by_week.get(w, 0.0)) for w in week_labels]
+        fig.add_trace(
+            go.Bar(
+                x=week_labels,
+                y=y,
+                name=str(lab),
+                marker_color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Week starting (Mon)",
+        yaxis_title="Run hours",
+        barmode="group",
+        template="plotly_white",
+        height=max(420, 60 + 18 * min(len(labels), 12)),
+        legend=dict(orientation="h", y=1.14, font=dict(size=10)),
+        margin=dict(l=50, r=20, t=80, b=80),
+        xaxis=dict(tickangle=-45),
+    )
+    return fig
+
+
 def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
     """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin."""
     if bins_df is None or bins_df.empty:

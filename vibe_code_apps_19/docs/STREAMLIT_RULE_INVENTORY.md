@@ -2,8 +2,7 @@
 
 ## Canonical count: **50**
 
-Authoritative source: `app/rules/cookbook_catalog.py` (`CookbookRule` entries), recovered from
-`develop:vibe_code_apps_19/fdd_app/backend/cookbook_rules.py`.
+Authoritative source: `app/rules/cookbook_catalog.py` (`CookbookRule` entries).
 
 ## User checklist vs cookbook
 
@@ -28,6 +27,12 @@ and SQL-only rules. Python consolidates sensor checks into **SV-RANGE / SV-FLATL
 **SV-4** (MAT mixing envelope) was removed as redundant with AHU GL36 FC2/FC3 and replaced by
 **PID-HUNT-1** (suspected 0–100% control-output hunting across dampers/valves/fan cmds).
 
+**WX-2** (wind gust) was replaced by **CW-OPT-1** (condenser water vs web wet-bulb / Stull).
+
+**VAV-7** also flags fixed/high airflow (low rolling std at high mean) and high `min_flow_sp`.
+
+**ECON-3** uses web dry-bulb + dewpoint (RH→dewpoint if needed) for free-cool availability.
+
 ## No 53-rule count
 
 No reference to exactly 53 named functions was found. Stale **48** counts in old agent specs
@@ -38,6 +43,9 @@ predate the final two extended-family rules.
 - `configs/rule_inventory.yaml` — machine-readable inventory (auto-generated)
 - `configs/rule_defaults.yaml` — slider metadata per rule (auto-generated)
 
+## Plots / RCx
+
+See [`vibe19_agent_spec/docs/RCX_PLOTS.md`](../vibe19_agent_spec/docs/RCX_PLOTS.md) for the **RCx Plots** tab (multi-equip overlays, outliers, HW/CHW/CW scatters).
 Regenerate:
 
 ```powershell

@@ -3,8 +3,8 @@ name: vibe19-streamlit-demo
 description: >-
   Use when working on Open FDD Vibe Coder Streamlit FDD demo: streamlit_app.py,
   50-rule pandas cookbook, building folder browse, Haystack-like column map JSON,
-  role mapping, rule inventory, sliders. Triggers on: Streamlit, streamlit_app,
-  BUILDING tree, Haystack points, column map, siteRef, equip, device, 50 rules.
+  RCx Plots, analytics, occupancy calendar, unit toggle. Triggers on: Streamlit,
+  streamlit_app, BUILDING tree, Haystack points, column map, RCx, 50 rules.
 ---
 
 # Vibe19 — Streamlit 50-rule pandas FDD demo
@@ -29,55 +29,59 @@ Opens at `http://localhost:8501`.
 
 | Path | Role |
 | --- | --- |
-| `streamlit_app.py` | UI — building folder browse, tabs, sliders |
-| `app/column_map_json.py` | Haystack-like JSON ↔ cookbook roles + LLM prompt |
+| `streamlit_app.py` | UI — folder browse, tabs, sidebar |
+| `app/ui_rcx_tab.py` | **RCx Plots** tab |
+| `app/rcx_plots.py` | Prebuilt RCx presets + outlier stats |
+| `app/charts.py` | Rule + multi-equip Plotly figures |
+| `app/analytics.py` | Motor hours, mech-cooling OAT bins |
+| `app/weather_psychrometrics.py` | Web weather enrich (dewpoint / wet-bulb) |
+| `app/occupancy.py` | Weekly occupancy calendar |
+| `app/unit_system.py` | °F/°C display conversion |
+| `app/column_map_json.py` | Haystack-like JSON ↔ cookbook roles |
 | `app/rules/cookbook_catalog.py` | 50 canonical rule definitions |
-| `app/rules/runner.py` | Explicit skip / not-applicable execution |
-| `app/role_map.py` | YAML role mapping + column enrichment |
-| `app/data_loader.py` | Any building folder discovery |
-| `configs/rule_inventory.yaml` | Rule inventory metadata |
-| `configs/rule_defaults.yaml` | Slider defaults |
+| `app/rules/runner.py` | Skip / gate / ECON-3 weather path |
+| `scripts/csv_parity_check.py` | Any-building rule rollup script |
 
 ## Data input
 
-1. **Browse folder…** or paste a **building folder path** (folder name = building id; not locked to BUILDING_100)
+1. **Browse folder…** or paste a **building folder path** (folder name = building id)
 2. Optional parent folder → pick building from detected children
-3. **Haystack column map JSON** — `siteRef` / `equip` / `device` / `points` (Data & Mapping tab)
-4. Optional browser directory upload for small trees
-
-### Auto-mapping pipeline
-
-Historian columns → Haystack-like `points` (or heuristics) → cookbook roles (`sat`, `zone_t`, …) → rules run.
-
-See `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`, `docs/COLUMN_MAP_JSON.md`.
+3. **Haystack column map JSON** — `siteRef` / `equip` / `device` / `points` (Data & Mapping)
+4. Sibling `weather/history_wide.csv` under the data root → `wx_oa_t` (+ RH → dewpoint/wet-bulb)
 
 ## Tabs
 
-Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per device) | **Analytics** | Export
+Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per device/rule) | **RCx Plots** | **Analytics** | Export
 
-**Left sidebar:** Building folder + **Rule tuning** + operational-proof checkbox + **Rerun cat.**
+### Sidebar
 
-**Overview / Analytics:** per-motor run hours; mechanical cooling vs OAT histogram (chiller + DX only).
+- Building folder
+- **Units** imperial / metric (display only; rules stay °F)
+- **Prefer web OAT** (default on)
+- **CHW leave proof max °F** (mech-cooling fallback when no pump status)
+- **Occupancy calendar** (weekly Mon–Sun; optional → `occ_mode` for SCHED-1)
+- Rule tuning + operational-proof + **Rerun cat.**
 
-**Plots:** Device type → device → bordered rule panels. One Plotly figure per rule: rainbow colors, unique y-axis per unit family, confirmed-fault swim lane.
+### Plots vs RCx Plots
+
+| Tab | Purpose |
+| --- | --- |
+| Plots | One figure per **rule** on one device (fault swim lane) |
+| RCx Plots | Multi-equipment overlays + box/scatter RCx presets + generic role picker |
+
+See [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`
+1. **50 canonical rules** — never silently omit statuses
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
-4. **Haystack names for authoring**; cookbook roles for rule execution
+4. **Web OAT default** for analytics / free-cool weather path
 5. Run `python -m pytest -q` before claiming done
-
-## Tests
-
-```powershell
-python -m pytest -q
-```
 
 ## Specs
 
 - [`../AGENTS.md`](../../../AGENTS.md)
+- [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md)
 - [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)
-- [`docs/COLUMN_MAP_JSON.md`](../../../docs/COLUMN_MAP_JSON.md)

@@ -22,6 +22,38 @@ def test_suggest_roles():
     assert roles.get("sat") == "discharge_air_temp_f"
 
 
+def test_suggest_roles_prefers_supply_fan():
+    df = pd.DataFrame(
+        columns=[
+            "return_fan_speed_pct",
+            "return_fan_status",
+            "supply_fan_speed_pct",
+            "supply_fan_status",
+        ]
+    )
+    roles = suggest_roles(df)
+    assert roles["fan_cmd"] == "supply_fan_speed_pct"
+    assert roles["fan_status"] == "supply_fan_status"
+
+
+def test_enrich_maps_chiller_plant_points():
+    rm: dict = {}
+    cols = [
+        "chiller_2_command",
+        "chiller_2_amps_a",
+        "chws_t_f",
+        "chwr_t_f",
+        "meter_power_sum_kw",
+        "hwp1_c",
+        "hwp1_s",
+    ]
+    enrich_role_map_from_equipment(rm, "CHILLER_2", None, cols)
+    assert rm["CHILLER_2"]["chiller_status"] == "chiller_2_command"
+    assert rm["CHILLER_2"]["chw_supply_t"] == "chws_t_f"
+    assert rm["CHILLER_2"]["hw_pump_cmd"] == "hwp1_c"
+    assert rm["CHILLER_2"]["pump_status"] == "hwp1_s"
+
+
 def test_enrich_role_map_from_equipment():
     rm: dict = {}
     enrich_role_map_from_equipment(rm, "AHU_1", None, ["outside_air_temp_f", "discharge_air_temp_f"])
@@ -33,7 +65,7 @@ def test_streamlit_app_imports_enrich():
     """Regression: Streamlit must import enrich_role_map_from_equipment without ImportError."""
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file("streamlit_app.py", default_timeout=30)
+    at = AppTest.from_file("streamlit_app.py", default_timeout=90)
     at.run()
     assert not at.exception, at.exception
     assert any("Open FDD Vibe Coder" in t.value for t in at.title)

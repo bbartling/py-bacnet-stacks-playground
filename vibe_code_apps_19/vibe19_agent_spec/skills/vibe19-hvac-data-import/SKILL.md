@@ -53,20 +53,16 @@ Exit 0 = GO. Inspect JSON: `poll_seconds`, `vav_box_count`, `ahu_weather_row_par
 ## Poll interval (critical)
 
 ```python
-from shared.data_config import get_config
-from haystack_rdf.feather_cache import read_history_csv
+from app.data_loader import load_building_tree, infer_poll_seconds
+from pathlib import Path
 
-cfg = get_config()
-df = read_history_csv(path / "history_wide.csv", tz=cfg.site_timezone())
-poll = df.attrs.get("effective_poll_seconds", cfg.poll_seconds())
-confirm = max(1, 300 // poll)
+frames = load_building_tree(Path(data_root), building_id)
+df = next(iter(frames.values()))
+poll = float(df.attrs.get("poll_seconds") or infer_poll_seconds(df))
+confirm = max(1, int(300 // max(poll, 1)))
 ```
 
-**Never** hardcode `900` unless manifest says 15-min grid.
-
-**Auto-resample:** if median timestamp spacing **< 5 minutes**, `read_history_csv` / `maybe_downsample_to_5min` reduces to 5-minute means. Coarser data (≥ 5 min) is unchanged.
-
-**Mixed grid:** manifest may declare different `grid_minutes` per equipment class. Use per-DataFrame `effective_poll_seconds` when series were loaded through the standard pipeline.
+**Never** hardcode `900` unless manifest says 15-min grid. `load_building_tree()` sets `poll_seconds` from `manifest.json` `grid_minutes`.
 
 ## Switch building
 
@@ -75,7 +71,7 @@ Same code, different folder under `DATA_ROOT`:
 ```powershell
 $env:HVAC_BUILDING = "BUILDING_50"
 python validate_data.py
-cd fdd_app; python generate_dashboard.py
+streamlit run streamlit_app.py
 ```
 
 ## Known import quirks

@@ -8,6 +8,28 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-10 — RCx Plots + web weather + units + occupancy (spec sync)
+
+- **RCx Plots** tab: prebuilt multi-equip overlays, duct-static box (fan-on), HW/CHW/CW scatters, generic picker, outlier highlight — `app/rcx_plots.py`, `app/ui_rcx_tab.py`, `app/charts.py`
+- Web OAT default for analytics/free-cool; dewpoint (Magnus) + wet-bulb (Stull) — `app/weather_psychrometrics.py`
+- Sidebar: imperial/metric display, prefer web OAT, CHW leave proof °F, weekly occupancy calendar — `app/occupancy.py`, `app/unit_system.py`
+- Rules: ECON-3 web free-cool + SAT≈SP; VAV-7 fixed/high flow; **CW-OPT-1** replaces WX-2
+- `scripts/csv_parity_check.py` for any building folder
+- Spec: `docs/RCX_PLOTS.md`; skills + AGENTS + BUILD_CHECKPOINTS updated
+
+---
+
+## 2026-07-10 — Dead-code cleanup
+
+- Removed leftover local dirs `haystack_rdf/`, `fdd_dashboard_model/`, `fdd_app/` (killed stale uvicorn:5000 lock)
+- Deleted retired skills (RDF / Flask / deploy / point-catalog) and obsolete Rust/FastAPI agent docs
+- Removed unused `shared/occupancy.py`; scrubbed `fdd_app`/`haystack_rdf` refs from skills, TEMPLATE, DATA_CONTRACT, OPENFDD_PARITY, ROLE_MAPPING
+- Dropped obsolete BRANCH_RECONCILIATION doc test; `shared/env_loader.py` no longer probes `fdd_app/.env`
+- gitignore blocks recreating stale packages
+- Spec trimmed to Streamlit-only map
+
+---
+
 ## 2026-07-10 — Mech cooling OAT bins + rainbow multi-axis plots
 
 - Restored **mechanical cooling vs OAT (5°F bins)** for chillers + AHU DX compressors only (not cool-valve AHUs)

@@ -26,12 +26,6 @@ from app.source_profile import load_uploaded_csvs, normalize_wide_source, profil
 from app.sql_sources import SqlServerConfig, validate_readonly_sql
 
 
-def test_branch_reconciliation_doc_exists():
-    p = Path(__file__).parent.parent / "docs" / "BRANCH_RECONCILIATION_STREAMLIT_MERGE.md"
-    assert p.is_file()
-    assert "streamlit-pandas-demo-vibe19" in p.read_text(encoding="utf-8")
-
-
 def test_flat_role_map_loads(tmp_path: Path):
     p = tmp_path / "flat.yaml"
     p.write_text("AHU_1:\n  sat: discharge_air_temp_f\n", encoding="utf-8")

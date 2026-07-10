@@ -19,15 +19,27 @@ from app.cache import (  # noqa: E402
     cached_weather,
 )
 from app.analytics import (  # noqa: E402
+    PLANT_AIR,
+    PLANT_BOILER,
+    PLANT_CHILLER,
     dataset_time_span,
     mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_totals,
+    motor_run_hours_weekly,
     sensor_fault_summary,
 )
-from app.charts import mech_cooling_oat_histogram, plotly_config, rule_result_chart  # noqa: E402
+from app.charts import (  # noqa: E402
+    mech_cooling_oat_histogram,
+    motor_weekly_runtime_chart,
+    plotly_config,
+    rule_result_chart,
+)
 from app.config import AppConfig  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
+from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode  # noqa: E402
+from app.ui_rcx_tab import render_rcx_plots_tab  # noqa: E402
+from app.unit_system import units_map_for_system  # noqa: E402
 from app.mapping_wizard import (  # noqa: E402
     DEFAULT_BUILDING_ID,
     DEFAULT_SITE_ID,
@@ -107,14 +119,40 @@ def _init_state() -> None:
         "weather": None,
         "building_id": "",
         "site_id": DEFAULT_SITE_ID,
-        "building_folder": default_folder,
+        "building_folder": "" if cfg.is_cloud else default_folder,
         "data_root": str(cfg.data_root),
         "data_source": "",
         "column_map": {},
         "column_map_path": "",
         "require_operational_gates": True,
+        "unit_system": "imperial",
+        "prefer_web_oat": True,
+        "chw_leave_max_f": 48.0,
+        "include_ahu_chw_valve": True,
+        "occupancy_schedule": OccupancySchedule().to_dict(),
+        "apply_occupancy_calendar": False,
+        "upload_workdir": None,
+        "package_report": None,
+        "zip_uploader_key": 0,
     }.items():
         st.session_state.setdefault(k, v)
+
+
+def _clear_uploaded_session() -> None:
+    """Wipe temp package dir + session data derived from an upload."""
+    from app.package_io import wipe_workdir
+
+    wipe_workdir(st.session_state.get("upload_workdir"))
+    st.session_state.upload_workdir = None
+    st.session_state.package_report = None
+    st.session_state.equipment_frames = {}
+    st.session_state.weather = None
+    st.session_state.batch_results = []
+    st.session_state.selected_equipment = None
+    st.session_state.data_source = ""
+    st.session_state.building_id = ""
+    # Rotate uploader widget so Streamlit drops cached file bytes
+    st.session_state.zip_uploader_key = int(st.session_state.get("zip_uploader_key", 0)) + 1
 
 
 def _sync_role_map_from_sites() -> None:
@@ -291,7 +329,8 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
 def _units_map() -> dict[str, str]:
     cm = st.session_state.get("column_map") or {}
     units = cm.get("units") if isinstance(cm, dict) else None
-    return dict(units) if isinstance(units, dict) else {}
+    base = dict(units) if isinstance(units, dict) else {}
+    return units_map_for_system(base, st.session_state.get("unit_system", "imperial"))
 
 
 def _equip_by_type(frames: dict[str, pd.DataFrame]) -> dict[str, list[str]]:
@@ -302,9 +341,77 @@ def _equip_by_type(frames: dict[str, pd.DataFrame]) -> dict[str, list[str]]:
     return {k: sorted(v, key=natural_key) for k, v in sorted(buckets.items())}
 
 
+_PLANT_CHART_META: tuple[tuple[str, str, str], ...] = (
+    (PLANT_AIR, "Air side — supply fans", "AHU supply fan status preferred over command."),
+    (
+        PLANT_BOILER,
+        "Boiler plant — HW pumps",
+        "One series per HW pump (status preferred over command).",
+    ),
+    (
+        PLANT_CHILLER,
+        "Chiller plant — chillers, CHW/CW pumps, towers",
+        "Chiller ON from cmd/status → amps → power → CHW leave vs sidebar slider; "
+        "each pump/tower motor as its own series.",
+    ),
+)
+
+
+def _render_plant_motor_weekly(
+    motor_weekly: pd.DataFrame,
+    *,
+    key_prefix: str,
+    show_table: bool = True,
+    show_download: bool = False,
+) -> None:
+    """Render three plant-grouped weekly motor charts."""
+    st.markdown("##### Motor run hours by week")
+    st.caption(
+        "Bars cover the full dataset, week starting Monday. "
+        "Supply fans only on air side; per-pump / chiller / tower series on plants."
+    )
+    if motor_weekly is None or motor_weekly.empty:
+        st.info("No supply-fan / pump / chiller / tower motor signals found yet.")
+        return
+    any_chart = False
+    for plant, title, caption in _PLANT_CHART_META:
+        if "plant_group" in motor_weekly.columns:
+            sub = motor_weekly.loc[motor_weekly["plant_group"] == plant]
+        else:
+            sub = motor_weekly.iloc[0:0]
+        st.markdown(f"**{title}**")
+        st.caption(caption)
+        fig = motor_weekly_runtime_chart(sub, title=title)
+        if fig is None:
+            st.info(f"No series for {title.split('—')[0].strip().lower()}.")
+            continue
+        any_chart = True
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            config=plotly_config(filename=f"motor_runtime_weekly_{plant}"),
+            key=f"{key_prefix}_motor_weekly_{plant}",
+        )
+    if not any_chart:
+        return
+    if show_download:
+        st.download_button(
+            "Download weekly motor hours CSV",
+            to_csv_bytes(motor_weekly),
+            "motor_run_hours_weekly.csv",
+            key=f"{key_prefix}_dl_motor_weekly",
+        )
+    if show_table:
+        with st.expander("Weekly motor hours table"):
+            st.dataframe(motor_weekly, hide_index=True, width="stretch", height=280)
+
+
 def _mapped_equipment(eq_id: str, frames: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, float]:
     raw = frames[eq_id]
     mapped = apply_role_map(raw, eq_id, st.session_state.role_map)
+    if st.session_state.get("apply_occupancy_calendar"):
+        sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+        mapped = apply_schedule_occ_mode(mapped, sched, overwrite=True)
     mapped.attrs.update({k: v for k, v in raw.attrs.items() if not isinstance(v, Path)})
     mapped.attrs["equipment_id"] = eq_id
     if raw.attrs.get("columns_path") is not None:
@@ -416,59 +523,224 @@ def _commit_frames(
 
 
 def _load_data(cfg: AppConfig) -> None:
-    """Minimal load: Browse folder or paste path. No Site ID / notes / upload clutter."""
-    st.sidebar.markdown("**Building data**")
-    if st.sidebar.button("Browse folder…", help="Pick a building folder on this PC"):
-        picked = _pick_local_folder()
-        if picked:
-            st.session_state.building_folder = picked
-            st.rerun()
-
-    folder_text = st.sidebar.text_input(
-        "Folder path",
-        help="Building folder (AHU_*/VAV_*/… with history_wide.csv), or parent of several buildings.",
-        key="building_folder",
+    """Local: folder path. Cloud: zip package only (uncached, session-scoped wipe)."""
+    from app.package_io import (
+        PackageError,
+        apply_session_config,
+        load_package_zip,
+        sweep_old_temp_dirs,
+        wipe_workdir,
     )
 
-    frames: dict[str, pd.DataFrame] = {}
-    weather = None
-    building_id = ""
-    source = ""
-    site_id = st.session_state.site_id or DEFAULT_SITE_ID
-
-    path = Path(folder_text).expanduser() if folder_text else None
-    if path and path.is_dir():
-        candidates = list_building_candidates(path)
-        if not candidates:
-            st.sidebar.warning("No `history_wide.csv` under that path.")
-        else:
-            labels = [c.name for c in candidates]
-            if len(candidates) == 1 and candidates[0].resolve() == path.resolve():
-                chosen = candidates[0]
-            else:
-                pick = st.sidebar.selectbox("Building", labels, index=0)
-                chosen = next(c for c in candidates if c.name == pick)
-            building_id = chosen.name
-            st.session_state.data_root = str(chosen.parent)
+    sweep_old_temp_dirs()
+    st.sidebar.markdown("**Building data**")
+    if cfg.is_cloud:
+        st.sidebar.caption(
+            "Cloud mode — upload a pre-processed zip (`docs/PACKAGE_SPEC.md`). "
+            "Non-sensitive demo data only; wipe is best-effort."
+        )
+        zip_file = st.sidebar.file_uploader(
+            "Building package (.zip)",
+            type=["zip"],
+            key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
+            help="openfdd_package_v1 — see docs/PACKAGE_SPEC.md",
+        )
+        c1, c2 = st.sidebar.columns(2)
+        load_clicked = c1.button("Load zip", type="primary", disabled=zip_file is None)
+        clear_clicked = c2.button("Clear session")
+        if clear_clicked:
+            _clear_uploaded_session()
+            st.rerun()
+        if load_clicked and zip_file is not None:
+            # Replace any previous upload workdir
+            wipe_workdir(st.session_state.get("upload_workdir"))
+            st.session_state.upload_workdir = None
             try:
-                frames = cached_building_folder(str(chosen.resolve()))
-            except Exception as exc:  # pragma: no cover
+                result = load_package_zip(zip_file.getvalue())
+            except PackageError as exc:
                 st.sidebar.error(str(exc))
-                frames = {}
-            for eq_id in frames:
-                frames[eq_id].attrs.setdefault("site_id", site_id)
-                frames[eq_id].attrs.setdefault("building_id", building_id)
-                # Avoid Streamlit Arrow warning on Path attrs
-                if frames[eq_id].attrs.get("columns_path") is not None:
-                    frames[eq_id].attrs["columns_path"] = str(frames[eq_id].attrs["columns_path"])
-            weather = cached_weather(str(chosen.parent), cfg.weather_subdir)
-            source = str(chosen.resolve())
-            if frames:
-                st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
-    elif folder_text:
-        st.sidebar.warning("Path not found — use Browse folder…")
+            except Exception as exc:  # pragma: no cover
+                st.sidebar.error(f"Package load failed: {exc}")
+            else:
+                st.session_state.upload_workdir = str(result.workdir)
+                st.session_state.package_report = result.report
+                site_id = st.session_state.site_id or DEFAULT_SITE_ID
+                for eq_id, df in result.frames.items():
+                    df.attrs.setdefault("site_id", site_id)
+                    df.attrs.setdefault("building_id", result.manifest.building_id)
+                    if df.attrs.get("columns_path") is not None:
+                        df.attrs["columns_path"] = str(df.attrs["columns_path"])
+                _commit_frames(
+                    result.frames,
+                    site_id=site_id,
+                    building_id=result.manifest.building_id,
+                    source=f"zip:{result.manifest.building_id}",
+                    weather=result.weather,
+                )
+                if result.session_config is not None:
+                    warns = apply_session_config(
+                        result.session_config, equipment_ids=set(result.frames)
+                    )
+                    for w in warns:
+                        st.sidebar.warning(w)
+                for w in result.warnings:
+                    st.sidebar.warning(w)
+                st.sidebar.success(
+                    f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`"
+                )
+                st.rerun()
+        report = st.session_state.get("package_report")
+        if report:
+            with st.sidebar.expander("Package report", expanded=False):
+                st.json(report)
+        # Keep committed frames if already loaded this session
+        frames = st.session_state.get("equipment_frames") or {}
+        if frames:
+            st.sidebar.caption(
+                f"{len(frames)} equip · `{st.session_state.get('building_id') or '—'}` (session)"
+            )
+    else:
+        if st.sidebar.button("Browse folder…", help="Pick a building folder on this PC"):
+            picked = _pick_local_folder()
+            if picked:
+                st.session_state.building_folder = picked
+                st.rerun()
 
-    _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
+        folder_text = st.sidebar.text_input(
+            "Folder path",
+            help="Building folder (AHU_*/VAV_*/… with history_wide.csv), or parent of several buildings.",
+            key="building_folder",
+        )
+
+        with st.sidebar.expander("Or upload package zip", expanded=False):
+            st.caption("Same `openfdd_package_v1` layout as Cloud — see docs/PACKAGE_SPEC.md")
+            zip_file = st.file_uploader(
+                "Building package (.zip)",
+                type=["zip"],
+                key=f"building_zip_local_{st.session_state.get('zip_uploader_key', 0)}",
+            )
+            if st.button("Load zip package", disabled=zip_file is None, key="load_zip_local"):
+                wipe_workdir(st.session_state.get("upload_workdir"))
+                try:
+                    result = load_package_zip(zip_file.getvalue())
+                except PackageError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state.upload_workdir = str(result.workdir)
+                    st.session_state.package_report = result.report
+                    site_id = st.session_state.site_id or DEFAULT_SITE_ID
+                    for eq_id, df in result.frames.items():
+                        df.attrs.setdefault("site_id", site_id)
+                        df.attrs.setdefault("building_id", result.manifest.building_id)
+                    _commit_frames(
+                        result.frames,
+                        site_id=site_id,
+                        building_id=result.manifest.building_id,
+                        source=f"zip:{result.manifest.building_id}",
+                        weather=result.weather,
+                    )
+                    if result.session_config is not None:
+                        apply_session_config(result.session_config, equipment_ids=set(result.frames))
+                    st.success(f"Loaded zip · {len(result.frames)} equip")
+                    st.rerun()
+            if st.button("Clear uploaded zip session", key="clear_zip_local"):
+                _clear_uploaded_session()
+                st.rerun()
+
+        frames: dict[str, pd.DataFrame] = {}
+        weather = None
+        building_id = ""
+        source = ""
+        site_id = st.session_state.site_id or DEFAULT_SITE_ID
+
+        # Prefer in-session zip frames if present and no folder override this run
+        if st.session_state.get("upload_workdir") and st.session_state.get("equipment_frames"):
+            frames = st.session_state.equipment_frames
+            weather = st.session_state.weather
+            building_id = st.session_state.building_id or ""
+            source = st.session_state.data_source or ""
+            st.sidebar.caption(f"{len(frames)} equip · zip session")
+        else:
+            path = Path(folder_text).expanduser() if folder_text else None
+            if path and path.is_dir():
+                candidates = list_building_candidates(path)
+                if not candidates:
+                    st.sidebar.warning("No `history_wide.csv` under that path.")
+                else:
+                    labels = [c.name for c in candidates]
+                    if len(candidates) == 1 and candidates[0].resolve() == path.resolve():
+                        chosen = candidates[0]
+                    else:
+                        pick = st.sidebar.selectbox("Building", labels, index=0)
+                        chosen = next(c for c in candidates if c.name == pick)
+                    building_id = chosen.name
+                    st.session_state.data_root = str(chosen.parent)
+                    try:
+                        frames = cached_building_folder(str(chosen.resolve()))
+                    except Exception as exc:  # pragma: no cover
+                        st.sidebar.error(str(exc))
+                        frames = {}
+                    for eq_id in frames:
+                        frames[eq_id].attrs.setdefault("site_id", site_id)
+                        frames[eq_id].attrs.setdefault("building_id", building_id)
+                        if frames[eq_id].attrs.get("columns_path") is not None:
+                            frames[eq_id].attrs["columns_path"] = str(frames[eq_id].attrs["columns_path"])
+                    weather = cached_weather(str(chosen.parent), cfg.weather_subdir)
+                    source = str(chosen.resolve())
+                    if frames:
+                        st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
+            elif folder_text:
+                st.sidebar.warning("Path not found — use Browse folder…")
+
+            _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Display & site")
+    st.sidebar.radio(
+        "Units",
+        ["imperial", "metric"],
+        horizontal=True,
+        help="Rules stay imperial internally; charts/tables convert for display.",
+        key="unit_system",
+    )
+    st.sidebar.checkbox(
+        "Prefer web OAT (Open-Meteo)",
+        help="Analytics + OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
+        key="prefer_web_oat",
+    )
+    st.sidebar.slider(
+        "CHW leave proof max °F",
+        40.0,
+        55.0,
+        0.5,
+        help="If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on.",
+        key="chw_leave_max_f",
+    )
+    st.sidebar.checkbox(
+        "AHU CHW valve = mech cooling",
+        help="Count AHU cooling-valve open as mechanical cooling (hydronic AHUs). Off = DX/chiller plant only.",
+        key="include_ahu_chw_valve",
+    )
+    with st.sidebar.expander("Occupancy calendar (weekly)", expanded=False):
+        st.caption("Optional weekly schedule for SCHED-1 when historian occ_mode is missing.")
+        st.checkbox(
+            "Apply calendar → occ_mode",
+            key="apply_occupancy_calendar",
+        )
+        sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+        tz = st.text_input("Timezone", value=sched.timezone, key="occ_tz")
+        days_out = {}
+        for d in DAYS:
+            day = sched.days[d]
+            st.markdown(f"**{DAY_LABELS[d]}**")
+            c1, c2, c3 = st.columns(3)
+            occ = c1.checkbox("Occ", value=day.occupied, key=f"occ_{d}")
+            start = c2.text_input("Start", value=day.start, key=f"occ_s_{d}")
+            end = c3.text_input("End", value=day.end, key=f"occ_e_{d}")
+            days_out[d] = {"occupied": occ, "start": start, "end": end}
+        if st.button("Save occupancy schedule", key="save_occ_sched"):
+            st.session_state.occupancy_schedule = {"timezone": tz, "days": days_out}
+            st.sidebar.success("Occupancy schedule saved")
 
 
 def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> None:
@@ -494,11 +766,17 @@ def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> No
     _sync_role_map_from_sites()
     c1, c2, c3 = st.columns(3)
     if c1.button("Save flat YAML"):
-        save_role_map(cfg.role_map_path, st.session_state.role_map, nested=False)
-        st.success("Saved flat role_map.yaml")
+        if cfg.is_cloud:
+            st.warning("Cloud mode: use Export download — server disk writes are disabled.")
+        else:
+            save_role_map(cfg.role_map_path, st.session_state.role_map, nested=False)
+            st.success("Saved flat role_map.yaml")
     if c2.button("Save nested site YAML"):
-        save_site_mapping(cfg.role_map_path, sites)
-        st.success("Saved nested sites YAML")
+        if cfg.is_cloud:
+            st.warning("Cloud mode: use Export download — server disk writes are disabled.")
+        else:
+            save_site_mapping(cfg.role_map_path, sites)
+            st.success("Saved nested sites YAML")
     if c3.button("Export nested YAML download"):
         st.download_button("Download nested mapping", yaml.safe_dump({"sites": {s: st.session_state.site_mapping[s].to_dict() for s in st.session_state.site_mapping}}, sort_keys=False), "site_mapping.yaml")
 
@@ -512,10 +790,16 @@ def main() -> None:
 
     frames = st.session_state.equipment_frames
     if not frames:
-        st.info(
-            "Sidebar → **Browse folder…** (or paste a building folder path), then map columns and run rules. "
-            "Use left-rail **Rule tuning** sliders, then **Run** on the Run Rules tab, then browse **Plots** by device."
-        )
+        if cfg.is_cloud:
+            st.info(
+                "Sidebar → upload an **openfdd_package_v1** zip → **Load zip**. "
+                "See `docs/PACKAGE_SPEC.md`. Use **Clear session** when finished."
+            )
+        else:
+            st.info(
+                "Sidebar → **Browse folder…** (or paste a building folder path), or upload a package zip. "
+                "Then map columns and run rules."
+            )
         return
 
     # Sidebar "Rerun cat." — apply after frames exist
@@ -541,6 +825,7 @@ def main() -> None:
             "Run Rules",
             "Results by Category",
             "Plots",
+            "RCx Plots",
             "Analytics",
             "Export",
         ]
@@ -549,10 +834,18 @@ def main() -> None:
     span = dataset_time_span(frames)
     motor_tbl = motor_run_hours_table(frames, st.session_state.role_map)
     motor_tot = motor_run_hours_totals(motor_tbl)
+    motor_weekly = motor_run_hours_weekly(
+        frames,
+        st.session_state.role_map,
+        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+    )
     cool_bins = mech_cooling_oat_bins(
         frames,
         st.session_state.role_map,
         weather=st.session_state.weather,
+        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
     )
     start_s = span["start"].strftime("%Y-%m-%d %H:%M") if span["start"] is not None else "—"
     end_s = span["end"].strftime("%Y-%m-%d %H:%M") if span["end"] is not None else "—"
@@ -572,35 +865,34 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Fan / motor run hours", f"{motor_tot['fan_hours']:.1f}")
-        m2.metric("Pump run hours", f"{motor_tot['pump_hours']:.1f}")
-        m3.metric("Total motor hours", f"{motor_tot['total_hours']:.1f}")
-        st.caption(
-            "Totals prefer **fan_status** over fan_cmd when both exist. "
-            "Per-motor breakdown below loops every mapped fan/pump signal."
-        )
-        st.markdown("##### Per-motor run hours")
-        if motor_tbl.empty:
-            st.info("No fan_cmd / fan_status / pump signals mapped yet.")
-        else:
-            st.dataframe(motor_tbl, hide_index=True, width="stretch", height=min(420, 80 + 28 * len(motor_tbl)))
+        _render_plant_motor_weekly(motor_weekly, key_prefix="overview", show_table=True)
 
-        st.markdown("##### Mechanical cooling vs OAT (chiller + DX only)")
+        st.markdown("##### Mechanical cooling hours by OAT bin")
         st.caption(
-            "Hours when a **chiller** (compressor/pump proof) or **AHU DX compressor** is on, "
-            "binned by outdoor-air temperature. Hydronic cool-valve-only AHUs are excluded."
+            "Flexible proof: **chiller cmd/status → amps → power kW → CHW leave °F**; "
+            "AHU **DX** or (optional) **CHW valve open**. Binned by **web** OAT by default."
         )
         cool_fig = mech_cooling_oat_histogram(cool_bins)
         if cool_fig is None:
             st.info(
-                "No chiller / DX compressor run signals found. Map `compressor_status`, "
-                "`dx_cool_cmd`, or CHW pump/enable roles to populate this histogram."
+                "No mechanical-cooling proof found yet. Need chiller command/amps/power, "
+                "CHW supply below the sidebar leave threshold, AHU DX, or AHU CHW valve "
+                "(toggle in sidebar). Re-load the building folder after mapping updates."
             )
         else:
-            st.plotly_chart(cool_fig, width="stretch", config=plotly_config(filename="mech_cooling_oat_bins"))
-            with st.expander("Mech cooling bin table"):
-                st.dataframe(cool_bins, hide_index=True, width="stretch")
+            st.plotly_chart(
+                cool_fig,
+                width="stretch",
+                config=plotly_config(filename="mech_cooling_oat_bins"),
+                key="overview_cool_bins",
+            )
+            st.dataframe(cool_bins, hide_index=True, width="stretch", height=280)
+            st.download_button(
+                "Download mech cooling OAT bins CSV",
+                to_csv_bytes(cool_bins),
+                "mech_cooling_oat_bins.csv",
+                key="dl_cool_bins_overview",
+            )
 
         st.markdown(
             "Tune thresholds in the **left sidebar** → **Run Rules** (all or by category) "
@@ -626,7 +918,8 @@ def main() -> None:
             default_json = APP_ROOT / "configs" / f"{bid.lower()}_column_map.json"
             if not default_json.is_file():
                 demo = APP_ROOT / "configs" / "building_100_column_map.json"
-                default_json = demo if demo.is_file() and bid.upper() == "BUILDING_100" else default_json
+                # Demo map is a template any site can start from — not locked to BUILDING_100.
+                default_json = demo if demo.is_file() else default_json
             json_path = st.text_input(
                 "JSON map path (optional)",
                 st.session_state.column_map_path or (str(default_json) if default_json.is_file() else ""),
@@ -657,12 +950,25 @@ def main() -> None:
                     generated_by="heuristic",
                 )
                 _apply_column_map_json(data)
-                out_name = f"{(st.session_state.building_id or 'building').lower()}_column_map.json"
-                out = APP_ROOT / "configs" / out_name
-                save_column_map_json(out, data, haystack=True)
-                st.session_state.column_map_path = str(out)
                 issues = validate_column_map_against_frames(data, frames)
-                st.success(f"Built & saved Haystack map `{out.name}` ({len(data['equipment'])} equip)")
+                if cfg.is_cloud:
+                    st.success(
+                        f"Built Haystack map in session ({len(data['equipment'])} equip) — "
+                        "Cloud mode does not write to server disk; download JSON below."
+                    )
+                    st.download_button(
+                        "Download column map JSON",
+                        data=__import__("json").dumps(data, indent=2),
+                        file_name=f"{(st.session_state.building_id or 'building').lower()}_column_map.json",
+                        mime="application/json",
+                        key="dl_colmap_cloud",
+                    )
+                else:
+                    out_name = f"{(st.session_state.building_id or 'building').lower()}_column_map.json"
+                    out = APP_ROOT / "configs" / out_name
+                    save_column_map_json(out, data, haystack=True)
+                    st.session_state.column_map_path = str(out)
+                    st.success(f"Built & saved Haystack map `{out.name}` ({len(data['equipment'])} equip)")
                 if issues:
                     st.warning("\n".join(issues[:15]))
 
@@ -716,8 +1022,17 @@ def main() -> None:
         edit = {k: v for k, v in edit.items() if v}
         st.session_state.role_map[selected] = edit
         if st.button("Save role map YAML"):
-            save_role_map(cfg.role_map_path, st.session_state.role_map)
-            st.success("Saved role_map.yaml")
+            if cfg.is_cloud:
+                st.download_button(
+                    "Download role_map.yaml",
+                    yaml.safe_dump(st.session_state.role_map, sort_keys=True),
+                    "role_map.yaml",
+                    key="dl_role_map_cloud",
+                )
+                st.info("Cloud mode: download only (no server write).")
+            else:
+                save_role_map(cfg.role_map_path, st.session_state.role_map)
+                st.success("Saved role_map.yaml")
         with st.expander("Site / building nesting"):
             _site_mapping_tab(cfg, selected, raw_df)
         st.divider()
@@ -884,37 +1199,45 @@ def main() -> None:
                 )
 
     with tabs[5]:
+        render_rcx_plots_tab(
+            frames,
+            st.session_state.role_map,
+            weather=st.session_state.weather,
+            unit_system=st.session_state.get("unit_system", "imperial"),
+        )
+
+    with tabs[6]:
         st.subheader("Analytics")
         st.caption(
-            "Per-motor run hours and mechanical cooling vs OAT histograms "
-            "(chiller + DX compressor only — not cool-valve-only AHUs)."
+            "Weekly motor runtime and mechanical cooling vs **web** OAT "
+            "(same views as Overview — detail tables + CSV downloads here)."
         )
-        a1, a2, a3 = st.columns(3)
-        a1.metric("Fan / motor hours", f"{motor_tot['fan_hours']:.1f}")
-        a2.metric("Pump hours", f"{motor_tot['pump_hours']:.1f}")
-        a3.metric("Total", f"{motor_tot['total_hours']:.1f}")
         b1, b2, b3 = st.columns(3)
         b1.metric("Dataset start", start_s)
         b2.metric("Dataset end", end_s)
         b3.metric("Span (h)", f"{span['span_hours']:.1f}")
-        st.markdown("##### Per-motor run hours")
-        if motor_tbl.empty:
-            st.info(
-                "No fan_cmd / fan_status / pump command columns mapped yet. "
-                "Map those roles on Data & Mapping, then return here."
-            )
-        else:
-            st.dataframe(motor_tbl, width="stretch", height=360)
-            st.download_button(
-                "Download motor run hours CSV",
-                to_csv_bytes(motor_tbl),
-                "motor_run_hours.csv",
-                key="dl_motor_hours",
-            )
+
+        _render_plant_motor_weekly(
+            motor_weekly,
+            key_prefix="analytics",
+            show_table=False,
+            show_download=True,
+        )
+        if not motor_tbl.empty:
+            with st.expander("Lifetime totals by motor signal"):
+                st.dataframe(motor_tbl, width="stretch", height=280)
+                st.caption(
+                    f"Preferred-signal rollup — fans {motor_tot['fan_hours']:.1f} h · "
+                    f"pumps {motor_tot['pump_hours']:.1f} h · total {motor_tot['total_hours']:.1f} h"
+                )
+
         st.markdown("##### Mechanical cooling hours by OAT bin")
         cool_fig2 = mech_cooling_oat_histogram(cool_bins)
         if cool_fig2 is None:
-            st.info("No chiller / DX compressor signals available for OAT-bin histogram.")
+            st.info(
+                "No mechanical-cooling proof available. Map chiller command/amps/power or "
+                "chw_supply_t, enable AHU CHW valve in the sidebar, and load weather/."
+            )
         else:
             st.plotly_chart(
                 cool_fig2,
@@ -930,7 +1253,7 @@ def main() -> None:
                 key="dl_cool_bins",
             )
 
-    with tabs[6]:
+    with tabs[7]:
         st.subheader("Export")
         st.caption("Use the Plotly camera on charts for PNG/JPEG. CSV summary below.")
         results = st.session_state.batch_results

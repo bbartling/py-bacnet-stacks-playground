@@ -45,19 +45,15 @@ Select building with `HVAC_BUILDING` env, `.env` file (see `.env.example`), or `
 **Agent must derive:**
 
 ```python
-from haystack_rdf.timeseries_grid import effective_poll_seconds
-
-# After load (preferred):
-poll = df.attrs.get("effective_poll_seconds")  # set by maybe_downsample_to_5min / read_history_csv
+# After load (preferred) — set by app/data_loader.py from manifest grid_minutes:
+poll = float(df.attrs.get("poll_seconds") or 300.0)
 
 # From manifest alone (before load):
 poll_seconds = max(60, int(grid_minutes * 60))
 confirm_rows = max(1, 300 // poll_seconds)  # Open-FDD default 5 min confirm
 ```
 
-**Manifest vs actual grid:** `grid_minutes` is the declared export grid. If actual timestamp spacing is **finer than 5 minutes**, the dashboard **downsamples to 5-minute means** and sets `effective_poll_seconds = 300`. If actual spacing is **≥ 5 minutes**, data is unchanged and `effective_poll_seconds` reflects the native median (e.g. 900 for 15-min).
-
-Never assume 15-min (900 s) unless data or manifest confirms 15-min grid.
+**Manifest grid:** `grid_minutes` is the declared export grid (typically 5). `load_building_tree()` writes `df.attrs["poll_seconds"] = grid_minutes * 60`. Prefer that over guessing 15-min (900 s).
 
 ---
 
@@ -68,43 +64,20 @@ Never assume 15-min (900 s) unless data or manifest confirms 15-min grid.
 | `timestamp_utc` | **Yes** | Parse as UTC; sort ascending |
 | Point columns | **Yes** | Wide format; names match `columns.csv` |
 
-Load pattern (dashboard — preferred):
+Load pattern (Streamlit demo — preferred):
 
 ```python
 from pathlib import Path
-from haystack_rdf.feather_cache import read_history_csv
-from shared.data_config import get_config
+from app.data_loader import load_building_tree, infer_poll_seconds
 
-cfg = get_config()
-df = read_history_csv(path / "history_wide.csv", tz=cfg.site_timezone())
-poll = df.attrs.get("effective_poll_seconds", cfg.poll_seconds())
+frames = load_building_tree(Path(data_root), building_id)
+df = frames["AHU_1"]
+poll = float(df.attrs.get("poll_seconds") or infer_poll_seconds(df))
 ```
 
-Load pattern (manual / SQL export):
+### Grid note
 
-```python
-import pandas as pd
-from haystack_rdf.timeseries_grid import maybe_downsample_to_5min
-
-df = pd.read_csv(path, parse_dates=["timestamp_utc"])
-df["timestamp"] = pd.to_datetime(df["timestamp_utc"], utc=True)
-df = df.sort_values("timestamp").reset_index(drop=True)
-df = maybe_downsample_to_5min(df)
-poll = df.attrs.get("effective_poll_seconds", 300)
-```
-
-### Grid / resampling rule
-
-| Median sample spacing | Treatment |
-| --- | --- |
-| **< 5 minutes** (1-min, 2-min, …) | Downsample to **5-minute means** before FDD |
-| **≥ 5 minutes** (5-min, 15-min, …) | **No resampling** — use native cadence |
-
-Implementation: `haystack_rdf/timeseries_grid.py` → `maybe_downsample_to_5min()`.
-
-Gap detection: `infer_median_interval_seconds(df["timestamp"])` should match effective poll after load.
-
-See also: [`docs/PERFORMANCE_AND_LOADING.md`](docs/PERFORMANCE_AND_LOADING.md)
+Export trees are expected on a stable grid (usually 5-minute). `infer_poll_seconds()` can estimate median spacing when attrs are missing.
 
 ---
 
@@ -156,7 +129,7 @@ Checks: data root exists, AHU vs weather row parity, VAV folder count, poll inte
 | --- | --- |
 | Mapping JSON, Python, docs, `data_paths.example.yaml` | `history_wide.csv`, `BUILDING_*`, `weather/`, generated `*.html`, zips |
 
-If a **small** sanitized sample (<1 MB) is needed for CI, place under `fdd_app/tests/fixtures/` only.
+If a **small** sanitized sample (<1 MB) is needed for CI, place under `tests/fixtures/` only.
 
 ---
 

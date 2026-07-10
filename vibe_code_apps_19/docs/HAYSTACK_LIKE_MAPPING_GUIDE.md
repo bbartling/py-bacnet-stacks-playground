@@ -68,4 +68,4 @@ Legacy `equipment` / `column_roles` / short cookbook keys still load.
 
 ## Not in this app
 
-No RDF graph, SPARQL, or Oxigraph — see retired skill `vibe19-haystack-rdf`.
+No RDF graph, SPARQL, or Oxigraph — use Haystack-*like* JSON column maps only (`app/column_map_json.py`).

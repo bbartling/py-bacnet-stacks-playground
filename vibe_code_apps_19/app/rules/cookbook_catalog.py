@@ -552,9 +552,33 @@ def vav5(d, p, poll):
 
 
 def vav7(d, p, poll):
-    return (
+    """Min-flow violation OR fixed/high airflow while air is moving (mins too high / no modulate)."""
+    under = (
         d["zone_flow"].notna() & d["min_flow_sp"].notna() & (d["zone_flow"] < d["min_flow_sp"])
+        if "min_flow_sp" in d.columns
+        else _false(d.index)
     )
+    flow = pd.to_numeric(d["zone_flow"], errors="coerce") if "zone_flow" in d.columns else None
+    if flow is None:
+        return under
+    flow_min = _f(p, "flow_on_min", 25.0)
+    air_on = _vav_air_on(d, flow_min)
+    window = max(6, int(round(3600.0 / max(float(poll), 1.0))))
+    roll_std = flow.rolling(window, min_periods=max(3, window // 2)).std()
+    roll_mean = flow.rolling(window, min_periods=max(3, window // 2)).mean()
+    max_std = _f(p, "fixed_flow_max_std", 15.0)
+    min_mean = _f(p, "fixed_flow_min_mean", 200.0)
+    fixed_high = air_on & flow.notna() & (roll_std < max_std) & (roll_mean > min_mean)
+    high_min = _false(d.index)
+    if "min_flow_sp" in d.columns:
+        high_min_thr = _f(p, "high_min_flow_sp", 250.0)
+        high_min = (
+            air_on
+            & d["min_flow_sp"].notna()
+            & (pd.to_numeric(d["min_flow_sp"], errors="coerce") > high_min_thr)
+            & (roll_std < max_std)
+        )
+    return under.fillna(False) | fixed_high.fillna(False) | high_min.fillna(False)
 
 
 def vav_reheat_stuck(d, p, poll):
@@ -641,6 +665,23 @@ def wx1(d, p, poll):
 
 def wx2(d, p, poll):
     return d["wind_gust"].notna() & d["wind_speed"].notna() & (d["wind_gust"] < d["wind_speed"])
+
+
+def cw_opt(d, p, poll):
+    """Condenser-water not optimized vs wet-bulb (Stull) — CW colder than WB + approach."""
+    if "cw_supply_t" not in d.columns:
+        return _false(d.index)
+    wb = d["wx_oa_wetbulb"] if "wx_oa_wetbulb" in d.columns else None
+    if wb is None or wb.notna().sum() == 0:
+        return _false(d.index)
+    approach = _f(p, "cw_approach", 7.0)
+    slack = _f(p, "cw_slack", 2.0)
+    # Over-cooled tower water: supply significantly below wet-bulb + design approach
+    return (
+        d["cw_supply_t"].notna()
+        & wb.notna()
+        & (pd.to_numeric(d["cw_supply_t"], errors="coerce") < (wb + approach - slack))
+    )
 
 
 def oat_vs_meteo(d, p, poll):
@@ -871,9 +912,9 @@ RULES: list[CookbookRule] = [
             CookbookParam("econ2_damper", "Damper open frac", "frac", 0.2, 0.9, 0.02, 0.42),
             CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("ECON-3", "Mech cooling when econ available", "ahu", ["ahu"],
-        ["oa_t", "oa_damper_pct", "clg_valve_pct"],
-        "Economizer available (OA dry-bulb 35–72°F AND OA dew point < 60°F when Open-Meteo present; else OAT < 63°F), "
-        "OA damper < 32%, cooling valve > 1% — mechanical cooling while free cooling was available.",
+        ["oa_damper_pct", "clg_valve_pct"],
+        "Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); "
+        "fault when cooling valve open with OA damper closed. Optional SAT≈SP means free cooling is keeping up.",
         # placeholder; engine substitutes econ3 with weather-aware compute
         econ2, params=[
             CookbookParam("econ3_db_min", "Free-cool OA dry-bulb min", "°F", 25.0, 45.0, 1.0, 35.0),
@@ -881,6 +922,7 @@ RULES: list[CookbookRule] = [
             CookbookParam("econ3_dp_max", "Free-cool OA dew point max", "°F", 45.0, 68.0, 1.0, 60.0),
             CookbookParam("econ3_oat_fallback", "Fallback OAT cutoff", "°F", 55.0, 70.0, 1.0, 63.0),
             CookbookParam("econ3_damper", "Damper closed frac", "frac", 0.1, 0.6, 0.02, 0.32),
+            CookbookParam("econ3_zone_band", "SAT≈SP band (keeping up)", "°F", 0.5, 6.0, 0.5, 2.0),
             CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("ECON-4", "Low estimated OA fraction", "ahu", ["ahu"],
         ["mat", "rat", "oa_t", "fan_cmd"], "Fan on, |RAT−OAT| > 2.2°F, estimated OA fraction < 21%.",
@@ -922,9 +964,16 @@ RULES: list[CookbookRule] = [
             CookbookParam("min_rise", "Min temp rise", "°F", 0.5, 15.0, 0.5, 3.0),
             CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
             CONFIRM_PARAM()], confirm_seconds=900),
-    CookbookRule("VAV-7", "Minimum airflow violation", "vav", ["vav"],
-        ["zone_flow", "min_flow_sp"], "Zone airflow below its minimum airflow setpoint.",
-        vav7, params=[CONFIRM_PARAM()], confirm_seconds=900),
+    CookbookRule("VAV-7", "Min airflow / fixed high flow", "vav", ["vav"],
+        ["zone_flow"],
+        "Flow below min SP (when mapped), OR airflow stays flat (low rolling std) at a high mean while air is on "
+        "(mins too high / box never modulates), OR min_flow_sp itself is excessively high.",
+        vav7, params=[
+            CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
+            CookbookParam("fixed_flow_max_std", "Fixed-flow max std", "cfm", 1.0, 80.0, 1.0, 15.0),
+            CookbookParam("fixed_flow_min_mean", "Fixed-flow min mean", "cfm", 50.0, 2000.0, 10.0, 200.0),
+            CookbookParam("high_min_flow_sp", "High min-flow SP", "cfm", 50.0, 2000.0, 10.0, 250.0),
+            CONFIRM_PARAM()], confirm_seconds=900),
 
     # --- Central plants ---
     CookbookRule("CHW-1", "Low chilled-water ΔT", "plant", ["chiller"],
@@ -948,13 +997,17 @@ RULES: list[CookbookRule] = [
             CookbookParam("zone_cold", "Zone cold", "°F", 60.0, 72.0, 0.5, 69.0),
             CONFIRM_PARAM()], confirm_seconds=600),
 
-    # --- Weather station ---
+    # --- Weather / condenser ---
     CookbookRule("WX-1", "OA temperature spike", "weather", ["weather"],
         ["oa_t"], "OAT sample-to-sample jump > 16°F.",
         wx1, params=[CookbookParam("spike_limit", "Spike limit", "°F", 4.0, 40.0, 1.0, 16.0), CONFIRM_PARAM()], confirm_seconds=300),
-    CookbookRule("WX-2", "Gust lower than sustained wind", "weather", ["weather"],
-        ["wind_gust", "wind_speed"], "Reported wind gust < sustained wind speed.",
-        wx2, params=[CONFIRM_PARAM()], confirm_seconds=300),
+    CookbookRule("CW-OPT-1", "Condenser water not optimized vs wet-bulb", "plant", ["chiller"],
+        ["cw_supply_t"],
+        "CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.",
+        cw_opt, params=[
+            CookbookParam("cw_approach", "Design approach", "°F", 3.0, 15.0, 0.5, 7.0),
+            CookbookParam("cw_slack", "Slack below target", "°F", 0.5, 6.0, 0.5, 2.0),
+            CONFIRM_PARAM()], confirm_seconds=900),
 
     # --- Trim & respond advisory (lumped with AHU / plants) ---
     CookbookRule("TRIM-1", "Duct static trim advisory", "trim", ["ahu"],

@@ -2,18 +2,18 @@
 name: vibe19-pandas-fdd-rules
 description: >-
   Use when implementing HVAC fault rules in pandas for App 19 with Open-FDD cookbook
-  parity: confirm_fault, poll_seconds, sensor QA, AHU FC rules, economizer ECON,
-  VAV, central plant. Triggers on: FDD, fault, rule, cookbook, confirm_fault,
-  economizer, sensor validation, FC1, ECON, parity, pandas rule.
+  parity: confirm_fault, poll_seconds, operational gates, ECON free-cool (web weather),
+  VAV fixed flow, CW wet-bulb. Triggers on: FDD, fault, rule, cookbook, confirm_fault,
+  economizer, ECON-3, VAV-7, CW-OPT, OAT-METEO, pandas rule.
 ---
 
 # Vibe19 — Pandas FDD rules (Open-FDD parity)
 
 ## Primary reference
 
-[Pandas FDD Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html) — mirror expressions here; SQL export is optional.
+[Pandas FDD Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html)
 
-Also: [`docs/OPENFDD_PARITY.md`](../../docs/OPENFDD_PARITY.md)
+Also: [`docs/OPENFDD_PARITY.md`](../docs/OPENFDD_PARITY.md) · [`docs/OPERATIONAL_GATES.md`](../docs/OPERATIONAL_GATES.md)
 
 ## Standard rule pipeline
 
@@ -21,8 +21,7 @@ Also: [`docs/OPENFDD_PARITY.md`](../../docs/OPENFDD_PARITY.md)
 # 1. raw mask from cookbook
 raw = ...  # boolean Series aligned to d.index
 
-# 2. operational gate (see docs/OPERATIONAL_GATES.md) — AND with active_mask
-#    Prefer fan_status / pump_status / flow proof over *_cmd fallback.
+# 2. operational gate — AND with active_mask (prefer fan_status over fan_cmd)
 #    If gate applied and zero active samples → SKIPPED_EQUIPMENT_OFF
 
 # 3. confirm
@@ -33,64 +32,33 @@ confirmed = confirm_fault(raw & active, poll_seconds=p["poll_seconds"])
 
 Statuses: `PASS` | `FAULT` | `SKIPPED_MISSING_ROLES` | `SKIPPED_EQUIPMENT_OFF` | `NOT_APPLICABLE_EQUIPMENT_TYPE` | `ERROR`
 
-Gate registry: `app/rules/operational_gate.py` (`RULE_GATES`). ALWAYS rules (SV-RANGE/SPIKE/STALE, WX-*, OAT-METEO, SCHED-1, CMD-1) never motor-gate.
+## Weather / free cooling
 
-## Reference implementations in repo
+- Weather CSV enriched in `app/weather_psychrometrics.py` → `wx_oa_t`, `wx_oa_rh`, `wx_oa_dewpoint`, `wx_oa_wetbulb`
+- **ECON-3** (`runner.econ3_compute`): free cool when **web** dry-bulb in band (default 35–72°F) AND dewpoint &lt; 60°F (derive from RH if needed); fault when mech cooling with damper closed; optional SAT≈SP (“keeping up”)
+- **OAT-METEO**: `|oa_t − wx_oa_t| > oat_err` (default 5°F, slider)
+- **CW-OPT-1**: CW supply colder than wet-bulb + approach (Stull) — replaced WX-2
 
-| Module | Rules |
+## Notable rule enhancements
+
+| ID | Behavior |
 | --- | --- |
-| `fdd_app/backend/cookbook_rules.py` + `cookbook_engine.py` | **Canonical** cookbook (48 rules) |
-| `fdd_app/backend/economizer_fdd_engine.py` | Legacy ECON + sensor QA (overlap; consolidating) |
-| `fdd_app/sidecar/cookbook_rules_sql.yaml` | SQL twins for 5 batch rules (optional Rust sidecar) |
+| VAV-7 | Under min flow **or** fixed high flow (low rolling std + high mean) **or** high `min_flow_sp` |
+| ECON-3 | Web OAT + dewpoint free-cool window |
+| CW-OPT-1 | Condenser water vs wet-bulb optimization |
 
-## Params dict
+## Reference modules
 
-Engines accept merged params:
+| Module | Role |
+| --- | --- |
+| `app/rules/cookbook_catalog.py` | Canonical 50-rule definitions |
+| `app/rules/runner.py` | Skip / gate / confirm / ECON-3 |
+| `app/rules/base.py` | `confirm_fault`, `hours_true` |
+| `app/rules/operational_gate.py` | `RULE_GATES` |
+| `app/role_map.py` | Role aliases + `resolve_role()` |
 
-```python
-DEFAULT_PARAMS = {
-    "poll_seconds": <from df.attrs effective_poll_seconds or get_config().poll_seconds()>,
-    "confirm_minutes": 15,
-    "smooth_minutes": 15,
-    ...
-}
-```
-
-**Grid rule:** sub-5-minute historian data is downsampled to 5-minute means on load (`haystack_rdf/timeseries_grid.py`). Use `df.attrs["effective_poll_seconds"]` when available.
-
-See [`docs/PERFORMANCE_AND_LOADING.md`](../../docs/PERFORMANCE_AND_LOADING.md).
-
-Wire analyst tunables via [`dashboard_params.py`](../../../fdd_app/backend/dashboard_params.py) → `apply_to_generate_dashboard()`.
-
-## Point mapping
-
-- AHU economizer: `economizer_point_mapping.json`
-- Derive roles from `columns.csv` when possible
-- Map cookbook logical names (`oa_t`, `mat`, `fan_cmd`) → CSV columns
+After catalog edits: `python scripts/generate_rule_configs.py` then pytest.
 
 ## Tests
 
-Add synthetic DataFrame tests in `test_*.py` — **no client CSV in git**.
-
-Patterns:
-
-- Confirmed fault requires N consecutive samples
-- Gap rows suppress or flag per engine convention
-- Rollup hours match `mask.sum() * poll_seconds / 3600`
-
-## Export to Open-FDD SQL (optional)
-
-See `fdd_app/backend/docs/economizer_fdd_rules.sql` for SQL twin pattern. Parity matrix: [Open-FDD parity matrix](https://bbartling.github.io/open-fdd/rules/cookbook/parity-matrix.html).
-
-## Cookbook sections → repo status
-
-| Section | Status |
-| --- | --- |
-| Sensor validation | Partial — `sensor_qa_engine.py` |
-| AHU FC1–FC15 | Partial — economizer + mixed air; Open-Meteo free-cool / econ2 / econ3 on index |
-| VAV zones | **TODO** — use `fdd_dashboard_model` |
-| Economizer ECON | Implemented — `economizer_fdd_engine.py` (Open-Meteo OK band, tunable OA limits) |
-| Central plant | Partial — `central_plant.html` charts; ECM5 chiller OAT bins |
-| Weather | Partial — `weather.html`; BAS vs Open-Meteo |
-
-Update this table in PR / checkpoint notes when adding rules. Also append [`SESSION_LOG.md`](../../SESSION_LOG.md).
+Synthetic DataFrames in `tests/` — **no client CSV in git**. Parity script: `scripts/csv_parity_check.py --building-folder …`.

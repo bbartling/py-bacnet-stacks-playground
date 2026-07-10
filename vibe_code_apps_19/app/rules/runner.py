@@ -29,35 +29,86 @@ def infer_equipment_kind(equipment_id: str) -> str:
 def merge_weather(df: pd.DataFrame, weather: pd.DataFrame | None) -> pd.DataFrame:
     if weather is None or weather.empty:
         return df
+    from app.weather_psychrometrics import enrich_weather_frame
+
     out = df.copy()
-    wx = weather.reindex(out.index)
+    wx = enrich_weather_frame(weather).reindex(out.index)
     for col in wx.columns:
         if col not in out.columns:
             out[col] = wx[col]
+        elif col.startswith("wx_") and out[col].notna().sum() == 0:
+            out[col] = wx[col]
+    # Derive dewpoint on the equipment frame if RH landed but dewpoint did not
+    if ("wx_oa_dewpoint" not in out.columns or out["wx_oa_dewpoint"].notna().sum() == 0) and {
+        "wx_oa_t",
+        "wx_oa_rh",
+    }.issubset(out.columns):
+        from app.weather_psychrometrics import dewpoint_f_from_db_rh
+
+        out["wx_oa_dewpoint"] = dewpoint_f_from_db_rh(out["wx_oa_t"], out["wx_oa_rh"])
+    if ("wx_oa_wetbulb" not in out.columns or out["wx_oa_wetbulb"].notna().sum() == 0) and {
+        "wx_oa_t",
+        "wx_oa_rh",
+    }.issubset(out.columns):
+        from app.weather_psychrometrics import wetbulb_f_stull
+
+        out["wx_oa_wetbulb"] = wetbulb_f_stull(out["wx_oa_t"], out["wx_oa_rh"])
     return out
 
 
 def weather_available(df: pd.DataFrame) -> bool:
-    return "wx_oa_dewpoint" in df.columns and df["wx_oa_dewpoint"].notna().any()
+    """True when web weather can support free-cool (dewpoint present or derivable)."""
+    if "wx_oa_dewpoint" in df.columns and df["wx_oa_dewpoint"].notna().any():
+        return True
+    if "wx_oa_t" in df.columns and "wx_oa_rh" in df.columns:
+        return df["wx_oa_t"].notna().any() and df["wx_oa_rh"].notna().any()
+    return False
 
 
 def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool) -> pd.Series:
-    if not {"oa_t", "oa_damper_pct", "clg_valve_pct"}.issubset(d.columns):
+    """Mech cooling while free cooling is available (web OAT + dewpoint by default).
+
+    Free-cool window: web dry-bulb between db_min/db_max AND dewpoint < dp_max.
+    Optional: when sat / sat_sp present, also require SAT near setpoint
+    (free cooling is keeping up — no need for mechanical cooling).
+    """
+    from app.weather_psychrometrics import dewpoint_f_from_db_rh
+
+    if not {"oa_damper_pct", "clg_valve_pct"}.issubset(d.columns):
         return cb._false(d.index)
     econ = cb.norm_cmd(d["oa_damper_pct"]).fillna(0)
     clg = cb.norm_cmd(d["clg_valve_pct"]).fillna(0)
     damper_thr = cb._f(p, "econ3_damper", 0.32)
     mech = (clg > 0.01) & (econ < damper_thr)
+
+    if "wx_oa_t" in d.columns and d["wx_oa_t"].notna().any():
+        oadb = d["wx_oa_t"]
+    elif "oa_t" in d.columns:
+        oadb = d["oa_t"]
+    else:
+        return cb._false(d.index)
+
     dewpoint = d["wx_oa_dewpoint"] if "wx_oa_dewpoint" in d.columns else None
-    if wx_ok and dewpoint is not None and dewpoint.notna().any():
+    if (dewpoint is None or dewpoint.notna().sum() == 0) and "wx_oa_rh" in d.columns:
+        dewpoint = dewpoint_f_from_db_rh(oadb, d["wx_oa_rh"])
+
+    if (wx_ok or (dewpoint is not None and dewpoint.notna().any())) and dewpoint is not None:
         db_min = cb._f(p, "econ3_db_min", 35.0)
         db_max = cb._f(p, "econ3_db_max", 72.0)
         dp_max = cb._f(p, "econ3_dp_max", 60.0)
-        oadb = d["wx_oa_t"] if "wx_oa_t" in d.columns else d["oa_t"]
         econ_available = (oadb > db_min) & (oadb < db_max) & (dewpoint < dp_max)
-        return oadb.notna() & dewpoint.notna() & econ_available & mech
-    oat_cut = cb._f(p, "econ3_oat_fallback", 63.0)
-    return d["oa_t"].notna() & (d["oa_t"] < oat_cut) & mech
+        raw = oadb.notna() & dewpoint.notna() & econ_available & mech
+    else:
+        oat_cut = cb._f(p, "econ3_oat_fallback", 63.0)
+        bas = d["oa_t"] if "oa_t" in d.columns else oadb
+        raw = bas.notna() & (bas < oat_cut) & mech
+
+    require_zone = bool(p.get("econ3_require_zone_ok", True))
+    zone_band = cb._f(p, "econ3_zone_band", 2.0)
+    if require_zone and "sat" in d.columns and "sat_sp" in d.columns:
+        raw = raw & ((d["sat"] - d["sat_sp"]).abs() <= zone_band)
+
+    return raw.fillna(False)
 
 
 def _confirm_seconds(rule: cb.CookbookRule, params: dict) -> float:
@@ -79,6 +130,8 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
             missing.append(role)
     if rule.id == "OAT-METEO" and "wx_oa_t" not in df.columns:
         missing.append("wx_oa_t")
+    if rule.id == "CW-OPT-1" and "wx_oa_wetbulb" not in df.columns:
+        missing.append("wx_oa_wetbulb")
     return missing
 
 

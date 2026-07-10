@@ -60,19 +60,14 @@ def cached_parquet(path: str) -> pd.DataFrame:
 
 @st.cache_data
 def cached_weather(data_root: str, weather_subdir: str) -> pd.DataFrame | None:
+    from app.weather_psychrometrics import enrich_weather_frame
+
     root = Path(data_root) / weather_subdir
     hist = root / "history_wide.csv"
     if not hist.is_file():
         return None
     df = load_equipment_csv(hist, root / "columns.csv" if (root / "columns.csv").is_file() else None)
-    if "outside_air_temp_f" in df.columns:
-        df = df.rename(columns={"outside_air_temp_f": "wx_oa_t"})
-    elif "oa_t" not in df.columns:
-        for c in df.columns:
-            if "temp" in c.lower():
-                df = df.rename(columns={c: "wx_oa_t"})
-                break
-    return df
+    return enrich_weather_frame(df)
 
 
 def load_rule_defaults(path: Path) -> dict[str, Any]:

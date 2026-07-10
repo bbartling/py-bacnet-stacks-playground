@@ -55,12 +55,14 @@
 
 ## Gate classification (App 19 IDs)
 
-**ALWAYS (8):** SV-RANGE, SV-SPIKE, SV-STALE, WX-1, WX-2, OAT-METEO, SCHED-1, CMD-1
+**ALWAYS (7):** SV-RANGE, SV-SPIKE, SV-STALE, WX-1, OAT-METEO, SCHED-1, CMD-1
 
 **CONDITIONAL (4):** SV-FLATLINE, DMP-1, VAV-1, VLV-1
 
-**RUN (~38):** all FC*, AHU-*, ECON-*, OA-1, VAV-3/4/5/7/REHEAT, CHW-*, HP-1, TRIM-*, PID-HUNT-1
+**RUN (~39):** all FC*, AHU-*, ECON-*, OA-1, VAV-3/4/5/7/REHEAT, CHW-*, HP-1, TRIM-*, PID-HUNT-1, **CW-OPT-1**
+
+> **Note:** WX-2 (gust) was replaced by **CW-OPT-1** (condenser water vs wet-bulb). Keep `RULE_GATES` in sync with `cookbook_catalog.RULES`.
 
 Proof priority (fan): `fan_status` → `fan_speed_feedback` → `fan_current` → `airflow_proof` → `fan_cmd` fallback.
 
-Hydronic: `pump_status` / `chw_flow` / `pump_cmd` fallback.
+Hydronic: `pump_status` / `chw_flow` / `pump_cmd` fallback. Mech-cooling analytics may also use CHW leave/supply &lt; adjustable °F when status is missing.

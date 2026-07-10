@@ -126,6 +126,31 @@ CMD-1:
     min: 0.0
     step: 5.0
     unit: min
+CW-OPT-1:
+  confirm_min:
+    default: 0.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 5.0
+    unit: min
+  cw_approach:
+    default: 7.0
+    help: Design approach
+    label: Design approach
+    max: 15.0
+    min: 3.0
+    step: 0.5
+    unit: "\xB0F"
+  cw_slack:
+    default: 2.0
+    help: Slack below target
+    label: Slack below target
+    max: 6.0
+    min: 0.5
+    step: 0.5
+    unit: "\xB0F"
 DMP-1:
   confirm_min:
     default: 0.0
@@ -233,6 +258,14 @@ ECON-3:
     max: 70.0
     min: 55.0
     step: 1.0
+    unit: "\xB0F"
+  econ3_zone_band:
+    default: 2.0
+    help: "SAT\u2248SP band (keeping up)"
+    label: "SAT\u2248SP band (keeping up)"
+    max: 6.0
+    min: 0.5
+    step: 0.5
     unit: "\xB0F"
 ECON-4:
   confirm_min:
@@ -804,6 +837,38 @@ VAV-7:
     min: 0.0
     step: 5.0
     unit: min
+  fixed_flow_max_std:
+    default: 15.0
+    help: Fixed-flow max std
+    label: Fixed-flow max std
+    max: 80.0
+    min: 1.0
+    step: 1.0
+    unit: cfm
+  fixed_flow_min_mean:
+    default: 200.0
+    help: Fixed-flow min mean
+    label: Fixed-flow min mean
+    max: 2000.0
+    min: 50.0
+    step: 10.0
+    unit: cfm
+  flow_on_min:
+    default: 25.0
+    help: Airflow-on min
+    label: Airflow-on min
+    max: 200.0
+    min: 0.0
+    step: 5.0
+    unit: cfm
+  high_min_flow_sp:
+    default: 250.0
+    help: High min-flow SP
+    label: High min-flow SP
+    max: 2000.0
+    min: 50.0
+    step: 10.0
+    unit: cfm
 VAV-REHEAT:
   confirm_min:
     default: 0.0
@@ -863,12 +928,3 @@ WX-1:
     min: 4.0
     step: 1.0
     unit: "\xB0F"
-WX-2:
-  confirm_min:
-    default: 0.0
-    help: Fault confirm delay
-    label: Fault confirm delay
-    max: 60.0
-    min: 0.0
-    step: 5.0
-    unit: min

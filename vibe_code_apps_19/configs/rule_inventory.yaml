@@ -694,11 +694,10 @@ rules:
 - rule_id: ECON-3
   family: ahu
   title: Mech cooling when econ available
-  description: "Economizer available (OA dry-bulb 35\u201372\xB0F AND OA dew point\
-    \ < 60\xB0F when Open-Meteo present; else OAT < 63\xB0F), OA damper < 32%, cooling\
-    \ valve > 1% \u2014 mechanical cooling while free cooling was available."
+  description: "Free cooling available when web dry-bulb is 35\u201372\xB0F AND dewpoint\
+    \ < 60\xB0F (RH\u2192dewpoint if needed); fault when cooling valve open with OA\
+    \ damper closed. Optional SAT\u2248SP means free cooling is keeping up."
   required_roles:
-  - oa_t
   - oa_damper_pct
   - clg_valve_pct
   optional_roles: []
@@ -710,6 +709,7 @@ rules:
   - econ3_dp_max
   - econ3_oat_fallback
   - econ3_damper
+  - econ3_zone_band
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
@@ -902,15 +902,20 @@ rules:
   known_limitations: ''
 - rule_id: VAV-7
   family: vav
-  title: Minimum airflow violation
-  description: Zone airflow below its minimum airflow setpoint.
+  title: Min airflow / fixed high flow
+  description: Flow below min SP (when mapped), OR airflow stays flat (low rolling
+    std) at a high mean while air is on (mins too high / box never modulates), OR
+    min_flow_sp itself is excessively high.
   required_roles:
   - zone_flow
-  - min_flow_sp
   optional_roles: []
   equipment_kinds:
   - vav
   tunable_params:
+  - flow_on_min
+  - fixed_flow_max_std
+  - fixed_flow_min_mean
+  - high_min_flow_sp
   - confirm_min
   default_confirm_seconds: 900
   sensor_sweep: false
@@ -1070,19 +1075,21 @@ rules:
   - fault_sample_count
   source_function: wx1
   known_limitations: ''
-- rule_id: WX-2
-  family: weather
-  title: Gust lower than sustained wind
-  description: Reported wind gust < sustained wind speed.
+- rule_id: CW-OPT-1
+  family: plant
+  title: Condenser water not optimized vs wet-bulb
+  description: "CW supply significantly colder than web wet-bulb + design approach\
+    \ (Stull WB) \u2014 tower over-cooling / not optimized."
   required_roles:
-  - wind_gust
-  - wind_speed
+  - cw_supply_t
   optional_roles: []
   equipment_kinds:
-  - weather
+  - chiller
   tunable_params:
+  - cw_approach
+  - cw_slack
   - confirm_min
-  default_confirm_seconds: 300
+  default_confirm_seconds: 900
   sensor_sweep: false
   implemented: true
   skipped_if_missing_roles: true
@@ -1091,7 +1098,7 @@ rules:
   - fault_hours
   - fault_pct
   - fault_sample_count
-  source_function: wx2
+  source_function: cw_opt
   known_limitations: ''
 - rule_id: TRIM-1
   family: trim

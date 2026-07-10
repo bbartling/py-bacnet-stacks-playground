@@ -82,12 +82,20 @@ def load_equipment_csv(history_path: Path, columns_path: Path | None = None) -> 
 
 
 def discover_equipment(building_root: Path) -> list[dict[str, Any]]:
-    """Find equipment folders with history_wide.csv + columns.csv."""
+    """Find equipment folders with history_wide.csv + columns.csv.
+
+    Skips ``weather`` folders (OAT is loaded separately, not as equipment).
+    """
     found: list[dict[str, Any]] = []
     if not building_root.is_dir():
         return found
+    skip_names = {"weather", "__macosx"}
     for path in building_root.rglob("history_wide.csv"):
         eq_dir = path.parent
+        if any(part.lower() in skip_names for part in eq_dir.relative_to(building_root).parts):
+            continue
+        if eq_dir.name.lower() in skip_names:
+            continue
         cols = eq_dir / "columns.csv"
         eq_id = eq_dir.name
         rel = eq_dir.relative_to(building_root)

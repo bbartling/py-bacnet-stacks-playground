@@ -7,34 +7,39 @@
 Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rule pandas cookbook**:
 
 - `app/rules/cookbook_catalog.py` — rule definitions
-- `app/rules/runner.py` — explicit skip / not-applicable execution
+- `app/rules/runner.py` — skip / equipment-off / not-applicable execution
 - `configs/rule_inventory.yaml` + `rule_defaults.yaml`
-- `streamlit_app.py` — tabs including Site Mapping, multi-CSV, SQL inputs
+- `streamlit_app.py` — Overview, mapping, run rules, **Plots**, **RCx Plots**, analytics
+- `app/rcx_plots.py` + `app/ui_rcx_tab.py` — multi-equipment RCx charts
+- `app/weather_psychrometrics.py` — web OAT / dewpoint / wet-bulb
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` or `NOT_APPLICABLE_EQUIPMENT_TYPE`
-2. **No Rust / DataFusion / FastAPI / Haystack RDF**
-3. **No client CSV in git** — `HVAC_DATA_ROOT` only
-4. **SQL is input-only** (pandas DataFrames), not production FDD
-5. **`python -m pytest -q`** before done
+1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`
+2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph**
+3. **No client CSV in git** — browse a local building folder only
+4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`
+5. **Web OAT by default** for analytics / free-cool weather path
+6. **`python -m pytest -q`** before done
+7. **Keep `vibe19_agent_spec/` in sync** after UI/plot/rule changes (`SESSION_LOG.md`, skills, checkpoints)
 
 ## Run
 
-```bash
+```powershell
+cd vibe_code_apps_19
 streamlit run streamlit_app.py
 ```
 
-Prefer **Upload CSV files** in the sidebar (multi-select). Env vars optional.
-
 ## Regenerate configs after catalog changes
 
-```bash
+```powershell
 python scripts/generate_rule_configs.py
 ```
 
 ## Specs
 
+- [vibe19_agent_spec/AGENTS.md](vibe19_agent_spec/AGENTS.md)
+- [vibe19_agent_spec/docs/RCX_PLOTS.md](vibe19_agent_spec/docs/RCX_PLOTS.md)
 - [docs/STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md)
-- [docs/MULTI_SITE_CSV_SQL_SPEC.md](docs/MULTI_SITE_CSV_SQL_SPEC.md)
-- [docs/STREAMLIT_AGENT_SPEC.md](docs/STREAMLIT_AGENT_SPEC.md)
+- [vibe19_agent_spec/docs/OPERATIONAL_GATES.md](vibe19_agent_spec/docs/OPERATIONAL_GATES.md)
+- [docs/HAYSTACK_LIKE_MAPPING_GUIDE.md](docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

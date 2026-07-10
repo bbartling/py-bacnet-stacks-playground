@@ -15,6 +15,12 @@ weather/
 .cache/
 ..cache/
 
+# Stale packages (removed — do not recreate)
+haystack_rdf/
+fdd_app/
+csv_fdd_dashboard/
+fdd_dashboard_model/
+
 # Generated RDF models
 data/rdf/
 
@@ -24,3 +30,4 @@ __pycache__/
 .venv/
 .pytest_cache/
 .streamlit/
+*.egg-info/
