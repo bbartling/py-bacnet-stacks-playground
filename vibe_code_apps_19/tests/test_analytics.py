@@ -47,24 +47,18 @@ def test_mech_cooling_bins_flexible_proof():
         index=idx,
     )
     ahu_dx.attrs["equipment_type"] = "AHU"
-    # Default: include AHU CHW valve
+    # CHW valves never appear; DX + chiller pump do
     bins = mech_cooling_oat_bins(
         {"CHW_1": ch, "AHU_VALVE": ahu_valve, "AHU_DX": ahu_dx},
         role_map={},
-        include_ahu_chw_valve=True,
+        include_ahu_chw_valve=True,  # ignored — valves still excluded
     )
     sources = set(bins["equipment_id"]) if not bins.empty else set()
     assert "CHW_1" in sources
     assert "AHU_DX" in sources
-    assert "AHU_VALVE" in sources
-    # Opt out of valve
-    bins2 = mech_cooling_oat_bins(
-        {"CHW_1": ch, "AHU_VALVE": ahu_valve, "AHU_DX": ahu_dx},
-        role_map={},
-        include_ahu_chw_valve=False,
-    )
-    sources2 = set(bins2["equipment_id"]) if not bins2.empty else set()
-    assert "AHU_VALVE" not in sources2
+    assert "AHU_VALVE" not in sources
+    # Bins sorted cold → hot
+    assert list(bins["bin_start"]) == sorted(bins["bin_start"])
 
 
 def test_mech_cooling_chiller_amps_and_chw_temp():
@@ -78,6 +72,28 @@ def test_mech_cooling_chiller_amps_and_chw_temp():
     run, kind = mech_cooling_run_mask(df, equipment_type="CHILLER", equipment_id="CHILLER_2")
     assert kind == "chiller_amps"
     assert bool(run.iloc[2])
+    # Leave temp alone → no run proof (pump/status required)
+    df2 = pd.DataFrame({"chw_supply_t": [44.0] * 5}, index=idx)
+    run2, kind2 = mech_cooling_run_mask(df2, equipment_type="CHILLER", equipment_id="CHILLER_2")
+    assert run2 is None
+    assert kind2 == ""
+
+
+def test_occupied_hours_and_weekly_oat():
+    from app.analytics import motor_run_hours_weekly
+    from app.occupancy import OccupancySchedule, occupied_hours_per_week
+
+    sched = OccupancySchedule()  # Mon–Fri 06–18 default
+    assert occupied_hours_per_week(sched) == pytest.approx(5 * 12.0)
+    idx = pd.date_range("2024-01-01", periods=48, freq="1h", tz="UTC")
+    df = pd.DataFrame(
+        {"fan_status": [1.0] * 48, "oa_t": [40.0] * 24 + [60.0] * 24},
+        index=idx,
+    )
+    df.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
+    weekly = motor_run_hours_weekly({"AHU_1": df}, role_map={}, prefer_web_oat=False)
+    assert "avg_oat_f" in weekly.columns
+    assert weekly["avg_oat_f"].notna().any()
 
 
 def test_motor_run_hours_weekly():
@@ -139,7 +155,7 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
     )
     chiller.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHW_PLANT"})
 
-    # No pump — backup leave temp only
+    # No pump — must NOT invent leave-temp runtime
     chiller2 = pd.DataFrame(
         {"chw_supply_t": [44.0] * 24 + [55.0] * 24, "chiller_status": on},
         index=idx,
@@ -169,11 +185,12 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
 
     chill = weekly[weekly["plant_group"] == "chiller"]
     labels_c = set(chill["label"])
-    # Designated pump drives chiller series — not chiller_status/cmd
+    # Designated pump drives chiller series — not chiller_status/cmd / leave temp
     assert any("CHILLER_1" in x and "chw_pump_status" in x for x in labels_c)
     assert not any("chiller_status" in x for x in labels_c)
+    assert not any("chw_leave" in x for x in labels_c)
+    assert not any("CHILLER_2" in x for x in labels_c)
     assert any("CWP" in x.upper() or "tower" in x.lower() for x in labels_c)
-    assert any("CHILLER_2" in x and "chw_leave" in x for x in labels_c)
 
 
 def test_chiller_runtime_linked_pump_equipment():
@@ -206,5 +223,6 @@ def test_all_rules_have_confirm_min():
         keys = {p.key for p in r.params}
         assert "confirm_min" in keys, r.id
         conf = next(p for p in r.params if p.key == "confirm_min")
-        assert conf.default == 0.0, r.id
+        assert conf.default == 5.0, r.id
         assert conf.min == 0.0, r.id
+        assert conf.max == 60.0, r.id

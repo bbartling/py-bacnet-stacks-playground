@@ -57,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Disable operational gates (fan/pump proof)",
     )
+    parser.add_argument(
+        "--no-bootstrap",
+        action="store_true",
+        help="Do not write Streamlit .last_agent_session.json bootstrap",
+    )
     args = parser.parse_args(argv)
 
     if args.run_all:
@@ -66,8 +71,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.package:
         dataset = load_package_path(args.package)
+        src_package, src_folder = args.package, None
     else:
         dataset = load_building_folder(args.building_folder)
+        src_package, src_folder = None, args.building_folder
 
     params = _load_params(args.params)
     run = None
@@ -98,9 +105,42 @@ def main(argv: list[str] | None = None) -> int:
         print(f"RCx coverage: {nonempty}/{len(run.rcx_coverage)} presets with data")
 
     written = export_agent_bundle(dataset, run, args.out)
+    if args.no_bootstrap:
+        # Remove default bootstrap if export wrote it
+        from app.bootstrap import default_bootstrap_path
+
+        bp = default_bootstrap_path()
+        if bp.is_file():
+            bp.unlink(missing_ok=True)
+        written = {k: v for k, v in written.items() if not str(k).startswith("bootstrap")}
+    else:
+        # Ensure bootstrap points at the original CLI source path (zip preferred)
+        from app.bootstrap import build_bootstrap_payload, write_bootstrap
+        from app.agent_api import make_session_config
+
+        session = make_session_config(
+            dataset.role_map,
+            run.params or dataset.params,
+            unit_system=dataset.unit_system,
+            prefer_web_oat=dataset.prefer_web_oat,
+        )
+        boot = build_bootstrap_payload(
+            package_path=src_package,
+            building_folder=src_folder,
+            session_config=session,
+            fault_settings_path=written.get("fault_settings"),
+            column_map_path=written.get("column_map"),
+            out_dir=args.out,
+            auto_run_rules=True,
+            notes=f"CLI bootstrap for {dataset.building_id}",
+        )
+        for bp in write_bootstrap(boot, path=Path(args.out) / "streamlit_bootstrap.json", also_default=True):
+            written[f"bootstrap:{bp.name}"] = bp
+            print(f"Streamlit bootstrap -> {bp}")
+
     print(f"Wrote {len(written)} artifacts -> {Path(args.out).resolve()}")
     for key, path in sorted(written.items()):
-        print(f"  {key}: {path.name}")
+        print(f"  {key}: {getattr(path, 'name', path)}")
     return 0
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -37,7 +38,7 @@ from app.charts import (  # noqa: E402
 )
 from app.config import AppConfig  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
-from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode  # noqa: E402
+from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode, occupied_hours_per_week  # noqa: E402
 from app.ui_rcx_tab import render_rcx_plots_tab  # noqa: E402
 from app.unit_system import units_map_for_system  # noqa: E402
 from app.mapping_wizard import (  # noqa: E402
@@ -172,16 +173,130 @@ def _init_state() -> None:
         "unit_system": "imperial",
         "prefer_web_oat": True,
         "chw_leave_max_f": 48.0,
-        "include_ahu_chw_valve": True,
+        "include_ahu_chw_valve": False,
         "occupancy_schedule": OccupancySchedule().to_dict(),
         "apply_occupancy_calendar": False,
+        "zone_lo_f": 68.0,
+        "zone_hi_f": 76.0,
         "upload_workdir": None,
         "package_report": None,
         "zip_uploader_key": 0,
         "fault_settings_source": "defaults",
         "session_config_source": "",
+        "bootstrap_applied": False,
+        "bootstrap_status": "",
     }.items():
         st.session_state.setdefault(k, v)
+
+
+def _apply_agent_bootstrap_once() -> None:
+    """Load ``VIBE19_BOOTSTRAP`` / ``.last_agent_session.json`` into this browser session once."""
+    if st.session_state.get("bootstrap_applied"):
+        return
+    if st.session_state.get("equipment_frames"):
+        # User already has data — don't clobber
+        st.session_state.bootstrap_applied = True
+        return
+    try:
+        from app.bootstrap import read_bootstrap
+        from app.package_io import PackageError, SessionConfig, apply_session_config, load_package_zip
+    except Exception as exc:  # pragma: no cover
+        st.session_state.bootstrap_status = f"bootstrap import failed: {exc}"
+        st.session_state.bootstrap_applied = True
+        return
+
+    try:
+        boot = read_bootstrap()
+    except Exception as exc:
+        st.session_state.bootstrap_status = f"bootstrap read failed: {exc}"
+        st.session_state.bootstrap_applied = True
+        return
+    if not boot:
+        st.session_state.bootstrap_applied = True
+        return
+
+    pkg = boot.get("package_path")
+    folder = boot.get("building_folder")
+    try:
+        if pkg and Path(str(pkg)).is_file():
+            result = load_package_zip(Path(str(pkg)).read_bytes())
+            # Keep a stable source label for the UI
+            result.report["bootstrap_package"] = str(pkg)
+            _commit_package_result(result)
+            st.session_state.data_source = f"bootstrap:{Path(str(pkg)).name}"
+        elif folder and Path(str(folder)).is_dir():
+            from app.cache import cached_building_folder, cached_weather
+
+            chosen = Path(str(folder))
+            frames = cached_building_folder(str(chosen.resolve()))
+            weather = None
+            try:
+                weather = cached_weather(str(chosen.parent), "weather")
+            except Exception:
+                weather = None
+            _commit_frames(
+                frames,
+                site_id=st.session_state.site_id or DEFAULT_SITE_ID,
+                building_id=chosen.name,
+                source=f"bootstrap:{chosen.name}",
+                weather=weather,
+            )
+            st.session_state.building_folder = str(chosen)
+            st.session_state.data_input_mode = "Folder"
+        else:
+            st.session_state.bootstrap_status = "bootstrap: package/folder path missing on disk"
+            st.session_state.bootstrap_applied = True
+            return
+
+        # Overlay dialed-in session / fault settings from agent export
+        sess = boot.get("session_config") or {}
+        fs_path = boot.get("fault_settings_path")
+        if fs_path and Path(str(fs_path)).is_file():
+            raw = json.loads(Path(str(fs_path)).read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                params = dict(st.session_state.get("params") or {})
+                for rid, p in raw.items():
+                    if isinstance(p, dict):
+                        params[str(rid)] = {**params.get(str(rid), {}), **p}
+                st.session_state.params = params
+                st.session_state.fault_settings_source = f"bootstrap:{Path(str(fs_path)).name}"
+                sess = {**sess, "params": params}
+        if sess:
+            cfg_obj = SessionConfig.model_validate(
+                {**sess, "schema_version": sess.get("schema_version") or "openfdd_session_v1"}
+            )
+            frames = st.session_state.get("equipment_frames") or {}
+            for w in apply_session_config(cfg_obj, equipment_ids=set(frames)):
+                st.warning(w)
+            st.session_state.session_config_source = "bootstrap"
+
+        cm_path = boot.get("column_map_path")
+        if cm_path and Path(str(cm_path)).is_file():
+            data = load_column_map_json(str(cm_path))
+            _apply_column_map_json(data)
+            st.session_state.column_map_path = str(cm_path)
+
+        if boot.get("auto_run_rules") and st.session_state.get("equipment_frames"):
+            import os as _os
+
+            if (_os.environ.get("VIBE19_BOOTSTRAP_SKIP_RULES") or "").strip() in {"1", "true", "yes"}:
+                st.session_state.bootstrap_status = (
+                    "Loaded bootstrap (data + settings); rules skipped (VIBE19_BOOTSTRAP_SKIP_RULES)"
+                )
+            else:
+                frames = st.session_state.equipment_frames
+                st.session_state.batch_results = _run_rule_list(sorted(frames), RULES, frames)
+                st.session_state.bootstrap_status = (
+                    f"Loaded bootstrap + ran {len(st.session_state.batch_results)} rule evaluations"
+                )
+        else:
+            st.session_state.bootstrap_status = "Loaded bootstrap (data + settings); run rules when ready"
+    except PackageError as exc:
+        st.session_state.bootstrap_status = f"bootstrap package error: {exc}"
+    except Exception as exc:
+        st.session_state.bootstrap_status = f"bootstrap failed: {exc}"
+    finally:
+        st.session_state.bootstrap_applied = True
 
 
 def _clear_uploaded_session() -> None:
@@ -269,12 +384,12 @@ def _attach_frames_meta(frames: dict[str, pd.DataFrame]) -> None:
 
 _CONFIRM_META = {
     "label": "Fault confirm delay",
-    "default": 0.0,
+    "default": 5.0,
     "min": 0.0,
     "max": 60.0,
-    "step": 5.0,
+    "step": 1.0,
     "unit": "min",
-    "help": "Minutes a raw fault must persist before it is confirmed. 0 = confirm on first sample.",
+    "help": "Minutes a raw fault must persist before it is confirmed. Default 5; 0 = confirm on first sample; max 60.",
 }
 
 
@@ -397,8 +512,7 @@ _PLANT_CHART_META: tuple[tuple[str, str, str], ...] = (
     (
         PLANT_CHILLER,
         "Chiller plant — chillers, CHW/CW pumps, towers",
-        "Chiller runtime from **designated chw_pump_status** (role_map / data model); "
-        "CHW leave °F only if no pump. Each pump/tower motor as its own series.",
+        "Chiller plant uses **mapped pump status** only — no leave-temp fake runtime if no pump."
     ),
 )
 
@@ -409,12 +523,14 @@ def _render_plant_motor_weekly(
     key_prefix: str,
     show_table: bool = True,
     show_download: bool = False,
+    min_air_hours: float | None = None,
 ) -> None:
-    """Render three plant-grouped weekly motor charts."""
+    """Render three plant-grouped weekly motor charts (avg OAT on secondary axis)."""
     st.markdown("##### Motor run hours by week")
     st.caption(
-        "Bars cover the full dataset, week starting Monday. "
-        "Supply fans only on air side; per-pump / chiller / tower series on plants."
+        "Bars = run hours by week (Mon start). Dotted line = **avg OAT °F while that motor was on**. "
+        "Chiller plant uses **pump status** only (no leave-temp if unmapped). "
+        "Air side: dashed orange = bare-min occupied hours/week from the building schedule."
     )
     if motor_weekly is None or motor_weekly.empty:
         st.info("No supply-fan / pump / chiller / tower motor signals found yet.")
@@ -427,7 +543,12 @@ def _render_plant_motor_weekly(
             sub = motor_weekly.iloc[0:0]
         st.markdown(f"**{title}**")
         st.caption(caption)
-        fig = motor_weekly_runtime_chart(sub, title=title)
+        fig = motor_weekly_runtime_chart(
+            sub,
+            title=title,
+            min_hours_line=min_air_hours if plant == "air" else None,
+            show_avg_oat=True,
+        )
         if fig is None:
             st.info(f"No series for {title.split('—')[0].strip().lower()}.")
             continue
@@ -900,30 +1021,93 @@ Agent brief: {_AGENTS_MD_URL}
         key="chw_leave_max_f",
     )
     st.sidebar.checkbox(
-        "AHU CHW valve = mech cooling",
-        help="Count AHU cooling-valve open as mechanical cooling (hydronic AHUs). Off = DX/chiller plant only.",
+        "AHU CHW valve = mech cooling (legacy)",
+        help="Deprecated for OAT-bin chart: CHW valves are never binned (often modulate with no chilled water). "
+        "Chart uses chillers + AHU/HP DX compressors only.",
         key="include_ahu_chw_valve",
     )
-    with st.sidebar.expander("Occupancy calendar (weekly)", expanded=False):
-        st.caption("Optional weekly schedule for SCHED-1 when historian occ_mode is missing.")
-        st.checkbox(
-            "Apply calendar → occ_mode",
-            key="apply_occupancy_calendar",
+    st.sidebar.checkbox(
+        "Apply calendar → occ_mode",
+        help="Use Overview weekly schedule as occ_mode for SCHED-1 when historian occ is missing.",
+        key="apply_occupancy_calendar",
+    )
+    st.sidebar.caption("Edit occupancy times + zone comfort band on **Overview**.")
+
+
+def _hhmm_to_time(text: str):
+    from datetime import time as dtime
+
+    parts = str(text).strip().split(":")
+    h = int(parts[0]) if parts else 6
+    m = int(parts[1]) if len(parts) > 1 else 0
+    return dtime(max(0, min(23, h)), max(0, min(59, m)))
+
+
+def _time_to_hhmm(t) -> str:
+    return f"{int(t.hour):02d}:{int(t.minute):02d}"
+
+
+def _sync_zone_comfort_into_params() -> None:
+    """Push Overview/sidebar zone band into VAV-1 rule params (FDD starting point)."""
+    params = st.session_state.setdefault("params", {})
+    vav = dict(params.get("VAV-1") or {})
+    vav["zone_lo"] = float(st.session_state.get("zone_lo_f", 68.0))
+    vav["zone_hi"] = float(st.session_state.get("zone_hi_f", 76.0))
+    params["VAV-1"] = vav
+    st.session_state.params = params
+
+
+def _render_occupancy_editor(*, key_prefix: str) -> OccupancySchedule:
+    """Mon–Sun occupied windows with time pickers. Persists to session_state.occupancy_schedule."""
+    sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+    tz = st.text_input("Timezone", value=sched.timezone, key=f"{key_prefix}_occ_tz")
+    days_out: dict = {}
+    for d in DAYS:
+        day = sched.days[d]
+        st.markdown(f"**{DAY_LABELS[d]}**")
+        c1, c2, c3 = st.columns(3)
+        occ = c1.checkbox("Occupied", value=day.occupied, key=f"{key_prefix}_occ_{d}")
+        start = c2.time_input(
+            "Start",
+            value=_hhmm_to_time(day.start),
+            key=f"{key_prefix}_occ_s_{d}",
         )
-        sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
-        tz = st.text_input("Timezone", value=sched.timezone, key="occ_tz")
-        days_out = {}
-        for d in DAYS:
-            day = sched.days[d]
-            st.markdown(f"**{DAY_LABELS[d]}**")
-            c1, c2, c3 = st.columns(3)
-            occ = c1.checkbox("Occ", value=day.occupied, key=f"occ_{d}")
-            start = c2.text_input("Start", value=day.start, key=f"occ_s_{d}")
-            end = c3.text_input("End", value=day.end, key=f"occ_e_{d}")
-            days_out[d] = {"occupied": occ, "start": start, "end": end}
-        if st.button("Save occupancy schedule", key="save_occ_sched"):
-            st.session_state.occupancy_schedule = {"timezone": tz, "days": days_out}
-            st.sidebar.success("Occupancy schedule saved")
+        end = c3.time_input(
+            "End",
+            value=_hhmm_to_time(day.end),
+            key=f"{key_prefix}_occ_e_{d}",
+        )
+        days_out[d] = {
+            "occupied": bool(occ),
+            "start": _time_to_hhmm(start),
+            "end": _time_to_hhmm(end),
+        }
+    out = {"timezone": tz, "days": days_out}
+    st.session_state.occupancy_schedule = out
+    return OccupancySchedule.from_dict(out)
+
+
+def _render_building_schedule_overview() -> float:
+    """Main-dashboard occupancy + zone SP; returns bare-min occupied hours/week."""
+    st.markdown("##### Building schedule & zone comfort (FDD starting point)")
+    st.caption(
+        "Occupancy calendar → **SCHED-1** (`occ_mode`) when sidebar **Apply calendar** is on. "
+        "Zone low/high seed **VAV-1** comfort band. Bare-min occupied hours/week draws on air-side motor charts."
+    )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.slider("Zone low °F", 55.0, 72.0, step=0.5, key="zone_lo_f")
+    with c2:
+        st.slider("Zone high °F", 70.0, 85.0, step=0.5, key="zone_hi_f")
+    with c3:
+        sched0 = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+        st.metric("Bare-min occ hours / week", f"{occupied_hours_per_week(sched0):.0f}")
+    _sync_zone_comfort_into_params()
+    with st.expander("Edit weekly occupancy (time pickers)", expanded=True):
+        sched = _render_occupancy_editor(key_prefix="overview")
+    return occupied_hours_per_week(
+        OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+    )
 
 
 def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> None:
@@ -968,8 +1152,12 @@ def main() -> None:
     _init_state()
     cfg = AppConfig.load()
     defaults_cfg = cached_rule_defaults(str(cfg.rule_defaults_path))
+    _apply_agent_bootstrap_once()
     _load_data(cfg)
     _sidebar_sliders(defaults_cfg)
+
+    if st.session_state.get("bootstrap_status"):
+        st.sidebar.caption(f"Agent bootstrap: {st.session_state.bootstrap_status}")
 
     frames = st.session_state.equipment_frames
     if not frames:
@@ -1013,6 +1201,8 @@ def main() -> None:
             frames,
             st.session_state.role_map,
             chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+            weather=st.session_state.weather,
+            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
         )
     except Exception as exc:
         st.warning(f"Weekly motor hours unavailable: {exc}")
@@ -1024,7 +1214,7 @@ def main() -> None:
             weather=st.session_state.weather,
             prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
             chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-            include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
+            include_ahu_chw_valve=False,
         )
     except Exception as exc:
         st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
@@ -1058,19 +1248,25 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
-        _render_plant_motor_weekly(motor_weekly, key_prefix="overview", show_table=True)
+        min_air_hours = _render_building_schedule_overview()
+        _render_plant_motor_weekly(
+            motor_weekly,
+            key_prefix="overview",
+            show_table=True,
+            min_air_hours=min_air_hours,
+        )
 
         st.markdown("##### Mechanical cooling hours by OAT bin")
         st.caption(
-            "Flexible proof: **chiller cmd/status → amps → power kW → CHW leave °F**; "
-            "AHU **DX** or (optional) **CHW valve open**. Binned by **web** OAT by default."
+            "**Chillers** (mapped pump / status / amps / power — **no leave-temp**) + "
+            "**AHU/HP DX compressors** only. Never CHW cooling valves. "
+            "Bins sorted cold→hot; OAT from **web** weather by default."
         )
         cool_fig = mech_cooling_oat_histogram(cool_bins)
         if cool_fig is None:
             st.info(
-                "No mechanical-cooling proof found yet. Need chiller command/amps/power, "
-                "CHW supply below the sidebar leave threshold, AHU DX, or AHU CHW valve "
-                "(toggle in sidebar). Re-load the building folder after mapping updates."
+                "No compressor / chiller-plant proof found. Map chw_pump_status (or DX compressor). "
+                "Unmapped chillers are omitted (no leave-temp fake hours). AHU CHW valves excluded."
             )
         else:
             st.plotly_chart(
@@ -1435,6 +1631,9 @@ def main() -> None:
             key_prefix="analytics",
             show_table=False,
             show_download=True,
+            min_air_hours=occupied_hours_per_week(
+                OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+            ),
         )
         if not motor_tbl.empty:
             with st.expander("Lifetime totals by motor signal"):
@@ -1507,16 +1706,25 @@ def main() -> None:
             except Exception as exc:
                 st.error(f"Fault settings upload failed: {exc}")
 
-        from app.agent_api import make_session_config
+        try:
+            from app.agent_api import make_session_config
 
-        session_payload = make_session_config(
-            st.session_state.get("role_map") or {},
-            st.session_state.get("params") or {},
-            unit_system=st.session_state.get("unit_system", "imperial"),
-            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-            include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", True)),
-        )
+            session_payload = make_session_config(
+                st.session_state.get("role_map") or {},
+                st.session_state.get("params") or {},
+                unit_system=st.session_state.get("unit_system", "imperial"),
+                prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+                chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                include_ahu_chw_valve=False,
+            )
+        except ImportError as exc:
+            st.warning(f"Session config export unavailable: {exc}")
+            session_payload = {
+                "schema_version": "openfdd_session_v1",
+                "unit_system": st.session_state.get("unit_system", "imperial"),
+                "role_map": st.session_state.get("role_map") or {},
+                "params": st.session_state.get("params") or {},
+            }
         st.download_button(
             "Download session_config.json (includes params)",
             data=__import__("json").dumps(session_payload, indent=2).encode("utf-8"),

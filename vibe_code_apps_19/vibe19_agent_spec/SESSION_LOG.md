@@ -8,6 +8,24 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-10 — Agent → Streamlit bootstrap handoff
+
+- `app/bootstrap.py` + `.last_agent_session.json` / `VIBE19_BOOTSTRAP`
+- `agent_afdd.py` writes bootstrap after export; Streamlit auto-loads package + params (+ optional auto-run rules)
+- Confirm delay default 5 min (0–60); chiller run-hours pump-only (no leave-temp); weekly avg OAT + occ schedule UI
+
+---
+
+## 2026-07-10 — Weekly OAT + schedule UI + DX-only cooling bins
+
+- Weekly motor charts: avg OAT °F while on (secondary axis); air-side bare-min occupied hours line from calendar
+- Overview: occupancy **time pickers** + zone comfort low/high → VAV-1 params / SCHED-1
+- Mech-cooling OAT bins: pump/DX first, leave-temp backup only; **never** CHW valves; bins sorted cold→hot
+- `scripts/smoke_streamlit_app.py` for AppTest / import smoke
+- AGENTS.md HVAC context for Codex (pump-first, no valve bins)
+
+---
+
 ## 2026-07-10 — Agent API + weather policy + AFDD turnkey
 
 - `app/agent_api.py` + `scripts/agent_afdd.py` — load zip/folder, run 50 rules / analytics / RCx, export bundle (no HTTP)

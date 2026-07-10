@@ -32,7 +32,6 @@ from app.package_io import (
     load_package_zip,
     resolve_building_root,
 )
-from app.rcx_plots import rcx_preset_coverage
 from app.reports import results_summary_table
 from app.role_map_gap import build_role_map_gap_report
 from app.rules.base import RuleResult
@@ -352,15 +351,22 @@ def run_analytics(
 ) -> dict[str, pd.DataFrame]:
     """Motor hours, weekly motors, mech-cooling OAT bins (web OAT primary)."""
     p = params or {}
+    prefer_web = bool(p.get("prefer_web_oat", dataset.prefer_web_oat))
     motor = motor_run_hours_table(dataset.frames, dataset.role_map)
-    weekly = motor_run_hours_weekly(dataset.frames, dataset.role_map)
+    weekly = motor_run_hours_weekly(
+        dataset.frames,
+        dataset.role_map,
+        chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
+        weather=dataset.weather,
+        prefer_web_oat=prefer_web,
+    )
     cool = mech_cooling_oat_bins(
         dataset.frames,
         dataset.role_map,
         weather=dataset.weather,
-        prefer_web_oat=bool(p.get("prefer_web_oat", dataset.prefer_web_oat)),
+        prefer_web_oat=prefer_web,
         chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
-        include_ahu_chw_valve=bool(p.get("include_ahu_chw_valve", True)),
+        include_ahu_chw_valve=False,
     )
     return {
         "motor_hours": motor,
@@ -371,6 +377,8 @@ def run_analytics(
 
 def run_rcx_coverage(dataset: AgentDataset) -> pd.DataFrame:
     """RCx preset coverage diagnostics."""
+    from app.rcx_plots import rcx_preset_coverage
+
     return rcx_preset_coverage(dataset.frames, dataset.role_map, weather=dataset.weather)
 
 
@@ -483,5 +491,33 @@ def export_agent_bundle(
         path = out / "tuning_assistant_report.json"
         path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
         written["tuning_assistant_report"] = path
+
+    # Streamlit bridge: write bootstrap so the next app start auto-loads this run
+    try:
+        from app.bootstrap import build_bootstrap_payload, write_bootstrap
+
+        pkg = dataset.source_path if str(dataset.source_path).lower().endswith(".zip") else None
+        folder = None if pkg else (dataset.source_path or None)
+        # Prefer original zip if source_path is an extract dir but package was zip — use source_path as-is
+        src = Path(dataset.source_path) if dataset.source_path else None
+        if src and src.is_file() and src.suffix.lower() == ".zip":
+            pkg, folder = str(src), None
+        elif src and src.is_dir():
+            pkg, folder = None, str(src)
+
+        boot = build_bootstrap_payload(
+            package_path=pkg,
+            building_folder=folder,
+            session_config=session,
+            fault_settings_path=fs,
+            column_map_path=written.get("column_map"),
+            out_dir=out,
+            auto_run_rules=True,
+            notes=f"building_id={dataset.building_id}",
+        )
+        for bp in write_bootstrap(boot, path=out / "streamlit_bootstrap.json", also_default=True):
+            written[f"bootstrap:{bp.name}"] = bp
+    except Exception:
+        pass  # bootstrap is best-effort; never fail the export
 
     return written

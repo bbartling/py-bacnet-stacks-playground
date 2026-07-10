@@ -100,6 +100,24 @@ def occupied_mask(index: pd.DatetimeIndex, schedule: OccupancySchedule) -> pd.Se
     return pd.Series(out, index=index, dtype=bool)
 
 
+def occupied_hours_per_week(schedule: OccupancySchedule) -> float:
+    """Nominal occupied hours in one Mon–Sun week from the calendar (for bare-min runtime lines)."""
+    total = 0.0
+    for d in DAYS:
+        day = schedule.days.get(d) or DaySchedule(occupied=False)
+        if not day.occupied:
+            continue
+        sh, sm = _parse_hhmm(day.start)
+        eh, em = _parse_hhmm(day.end)
+        start_m, end_m = sh * 60 + sm, eh * 60 + em
+        if end_m <= start_m:
+            mins = (24 * 60 - start_m) + end_m
+        else:
+            mins = end_m - start_m
+        total += mins / 60.0
+    return float(total)
+
+
 def apply_schedule_occ_mode(df: pd.DataFrame, schedule: OccupancySchedule, *, overwrite: bool = False) -> pd.DataFrame:
     """Attach occ_mode from weekly calendar when missing (or overwrite=True)."""
     out = df.copy()

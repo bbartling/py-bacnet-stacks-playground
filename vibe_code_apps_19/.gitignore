@@ -32,4 +32,5 @@ __pycache__/
 .pytest_cache_local/
 .pytest_tmp/
 .streamlit/
+.last_agent_session.json
 *.egg-info/

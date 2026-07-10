@@ -27,14 +27,18 @@ MOTOR_SIGNAL_ROLES: tuple[str, ...] = (
     "pump_status",
 )
 
-# Mechanical cooling proof — chillers / DX (hydronic AHU valve is optional).
+# Mechanical cooling proof — chillers / DX compressors only (never CHW valves on OAT bins).
+# Pump / motor status first; temperature is backup only when status/cmd is missing or bad.
+CHILLER_PUMP_ROLES: tuple[str, ...] = (
+    "chw_pump_status",
+    "pump_status",
+    "chw_pump_cmd",
+    "pump_cmd",
+)
 CHILLER_RUN_ROLES: tuple[str, ...] = (
     "chiller_status",
     "compressor_status",
     "equipment_enable",
-    "chw_pump_cmd",
-    "pump_status",
-    "pump_cmd",
 )
 DX_RUN_ROLES: tuple[str, ...] = (
     "compressor_status",
@@ -404,12 +408,15 @@ def _discover_chiller_on(
     role_map: dict,
     *,
     equipment_id: str,
-    chw_leave_max_f: float,
+    chw_leave_max_f: float = 48.0,
 ) -> list[dict[str, Any]]:
-    """Chiller plant runtime: designated pump status first; CHW leave temp as backup only.
+    """Chiller plant runtime: designated / mapped / heuristic **pump** only.
 
-    Does **not** use chiller cmd/amps/power for the weekly motor chart (pump-driven model).
+    If the data model has no pump to map, return nothing — do **not** invent
+    runtime from CHW leave/supply temp (that backup is intentionally off the charts).
+    Does **not** use chiller cmd/amps/power for the weekly motor chart.
     """
+    del chw_leave_max_f  # kept for call-site compat; leave-temp never drives this chart
     # 1) Role-map designated pump (possibly on linked equipment)
     linked, link_role, link_label = _resolve_linked_pump_series(
         frames, role_map, equipment_id=equipment_id
@@ -445,7 +452,7 @@ def _discover_chiller_on(
                         "series_on": on.astype(float),
                     }
                 ]
-    for role in ("chw_pump_cmd", "pump_cmd", "chw_pump_cmd"):
+    for role in ("chw_pump_cmd", "pump_cmd"):
         if role in mapped.columns and mapped[role].notna().any():
             on = _is_on(mapped[role])
             if bool(on.any()):
@@ -484,20 +491,7 @@ def _discover_chiller_on(
                 }
             ]
 
-    # 4) Backup only: CHW leave/supply vs sidebar slider
-    temp = _chw_temp_proof(mapped, chw_leave_max_f)
-    if temp is not None and bool(temp.any()):
-        return [
-            {
-                "equipment_id": equipment_id,
-                "signal": "chw_leave_temp",
-                "column": "chw_leave_temp",
-                "motor_kind": "chiller",
-                "plant_group": PLANT_CHILLER,
-                "label": f"{equipment_id} · chw_leave_temp",
-                "series_on": temp.astype(float),
-            }
-        ]
+    # No pump in data model → no chiller run-hours series (no leave-temp fake runtime)
     return []
 
 
@@ -589,10 +583,13 @@ def motor_run_hours_weekly(
     role_map: dict,
     *,
     chw_leave_max_f: float = 48.0,
+    weather: pd.DataFrame | None = None,
+    prefer_web_oat: bool = True,
 ) -> pd.DataFrame:
     """Weekly on-hours per motor, split by plant_group (air / boiler / chiller).
 
-    Columns: week_start, week_label, equipment_id, signal, motor_kind, plant_group, label, hours
+    Columns: week_start, week_label, equipment_id, signal, motor_kind, plant_group,
+    label, hours, avg_oat_f (mean OAT while that motor was on in the week).
     """
     from app.data_loader import infer_poll_seconds
 
@@ -601,8 +598,13 @@ def motor_run_hours_weekly(
         frames, role_map, chw_leave_max_f=chw_leave_max_f
     )
     poll_by_eq: dict[str, float] = {}
+    oat_by_eq: dict[str, pd.Series] = {}
     for eq_id, raw in frames.items():
         poll_by_eq[eq_id] = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
+        mapped = apply_role_map(raw, eq_id, role_map)
+        oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
+        if oat is not None:
+            oat_by_eq[eq_id] = pd.to_numeric(oat, errors="coerce")
 
     for spec in series_list:
         eq_id = spec["equipment_id"]
@@ -616,7 +618,6 @@ def motor_run_hours_weekly(
         else:
             ser = spec["series"]
             if not isinstance(ser.index, pd.DatetimeIndex):
-                # align to equipment frame index
                 ser = pd.Series(ser.to_numpy(), index=raw.index)
             if not isinstance(ser.index, pd.DatetimeIndex) or ser.empty:
                 continue
@@ -627,12 +628,25 @@ def motor_run_hours_weekly(
         hours = on * (poll / 3600.0)
         hours.index = idx
         weekly = hours.resample("W-MON", label="left", closed="left").sum()
+        oat = oat_by_eq.get(eq_id)
+        oat_on = None
+        if oat is not None:
+            oat_aligned = oat.reindex(idx)
+            oat_on = oat_aligned.where(on > 0.05)
+        weekly_oat = (
+            oat_on.resample("W-MON", label="left", closed="left").mean()
+            if oat_on is not None
+            else None
+        )
         for ts, h in weekly.items():
             if pd.isna(h) or float(h) <= 0:
                 continue
             week = pd.Timestamp(ts)
             if week.tzinfo is not None:
                 week = week.tz_convert("UTC").tz_localize(None)
+            avg_oat = None
+            if weekly_oat is not None and ts in weekly_oat.index and pd.notna(weekly_oat.loc[ts]):
+                avg_oat = round(float(weekly_oat.loc[ts]), 1)
             rows.append(
                 {
                     "week_start": week.normalize(),
@@ -643,6 +657,7 @@ def motor_run_hours_weekly(
                     "plant_group": spec["plant_group"],
                     "label": spec["label"],
                     "hours": round(float(h), 2),
+                    "avg_oat_f": avg_oat,
                 }
             )
     cols = [
@@ -654,6 +669,7 @@ def motor_run_hours_weekly(
         "plant_group",
         "label",
         "hours",
+        "avg_oat_f",
     ]
     if not rows:
         return pd.DataFrame(columns=cols)
@@ -729,27 +745,31 @@ def mech_cooling_run_mask(
     equipment_type: str,
     equipment_id: str = "",
     chw_leave_max_f: float = 48.0,
-    include_ahu_chw_valve: bool = True,
+    include_ahu_chw_valve: bool = False,
     clg_valve_thr_pct: float = 5.0,
     chiller_amps_min: float = 5.0,
     chiller_power_kw_min: float = 1.0,
 ) -> tuple[pd.Series | None, str]:
     """
-    Flexible mechanical-cooling proof (first match wins).
+    Mechanical-cooling proof for OAT-bin charts (compressor / plant only).
 
-    Chillers / CHW plant:
-      1. status / command / pump proof
-      2. amps above threshold
-      3. power kW above threshold
-      4. CHW supply/leave below adjustable °F (and > 32°F)
+    Chillers / CHW plant (pump / status / amps / power only — **no leave-temp** on charts):
+      1. designated CHW pump status / cmd
+      2. chiller / compressor status
+      3. amps / power
 
-    AHUs:
-      1. DX compressor / stage roles
-      2. optional hydronic cool valve open (clg_valve_pct) — BUILDING_100-style CHW AHUs
+    AHUs / heat pumps:
+      - DX / compressor roles only.
+      - Never use CHW cooling-valve % (valves often modulate with no chilled water).
+      - ``include_ahu_chw_valve`` is ignored (kept for API compat).
     """
+    del include_ahu_chw_valve, clg_valve_thr_pct, chw_leave_max_f  # no valve / leave-temp on this chart
     et = equipment_type.upper()
     eq = equipment_id.upper()
     if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):
+        run = _first_on_mask(df, CHILLER_PUMP_ROLES)
+        if run is not None and bool(run.any()):
+            return run, "chw_pump"
         run = _first_on_mask(df, CHILLER_RUN_ROLES)
         if run is not None and bool(run.any()):
             return run, "chiller_status"
@@ -761,18 +781,12 @@ def mech_cooling_run_mask(
             pwr = _above_threshold(df["chiller_power_kw"], chiller_power_kw_min)
             if bool(pwr.any()):
                 return pwr, "chiller_power"
-        temp = _chw_temp_proof(df, chw_leave_max_f)
-        if temp is not None and bool(temp.any()):
-            return temp, "chw_leave_temp"
+        # No leave-temp fallback — omit series when no pump/status/amps/power
         return None, ""
     if et == "AHU":
         run = _first_on_mask(df, DX_RUN_ROLES)
         if run is not None and bool(run.any()):
             return run, "ahu_dx"
-        if include_ahu_chw_valve:
-            valve = _valve_open_mask(df, "clg_valve_pct", clg_valve_thr_pct)
-            if valve is not None and bool(valve.any()):
-                return valve, "ahu_chw_valve"
         return None, ""
     if et == "HEATPUMP" or eq.startswith("HP"):
         run = _first_on_mask(df, DX_RUN_ROLES + ("compressor_status",))
@@ -790,14 +804,14 @@ def mech_cooling_oat_bins(
     bin_width_f: float = 5.0,
     prefer_web_oat: bool = True,
     chw_leave_max_f: float = 48.0,
-    include_ahu_chw_valve: bool = True,
+    include_ahu_chw_valve: bool = False,
     clg_valve_thr_pct: float = 5.0,
 ) -> pd.DataFrame:
     """
     Mechanical cooling run hours binned by OAT (default: web/Open-Meteo dry bulb).
 
-    Flexible proof: chiller cmd/status → amps → power → CHW leave temp;
-    AHU DX → optional AHU CHW valve open (hydronic).
+    Chillers (pump/status first, leave-temp backup) + AHU/HP **DX compressors only**.
+    Never bins CHW cooling-valve open time.
     """
     from app.data_loader import infer_poll_seconds
 
@@ -838,7 +852,7 @@ def mech_cooling_oat_bins(
                     "source": f"{eq_id} ({source_kind})",
                     "source_kind": source_kind,
                     "bin_start": b_i,
-                    "bin_label": f"{b_i}-{b_i + int(bin_width_f) - 1}",
+                    "bin_label": f"{b_i}–{b_i + int(bin_width_f)}",
                     "hours": round(hours, 2),
                 }
             )
@@ -847,7 +861,8 @@ def mech_cooling_oat_bins(
         return pd.DataFrame(
             columns=["equipment_id", "source", "source_kind", "bin_start", "bin_label", "hours"]
         )
-    return pd.DataFrame(rows).sort_values(["source", "bin_start"])
+    out = pd.DataFrame(rows).sort_values(["bin_start", "source"])
+    return out.reset_index(drop=True)
 
 
 def sensor_fault_summary(

@@ -159,8 +159,8 @@ class CookbookRule:
         }
 
 
-CONFIRM_PARAM = lambda default_min=0.0, mx=60.0: CookbookParam(  # noqa: E731
-    "confirm_min", "Fault confirm delay", "min", 0.0, mx, 5.0, default_min
+CONFIRM_PARAM = lambda default_min=5.0, mx=60.0: CookbookParam(  # noqa: E731
+    "confirm_min", "Fault confirm delay", "min", 0.0, mx, 1.0, default_min
 )
 
 

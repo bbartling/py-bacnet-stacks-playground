@@ -336,8 +336,10 @@ def motor_weekly_runtime_chart(
     weekly_df: pd.DataFrame,
     *,
     title: str = "Motor run hours by week (full dataset)",
+    min_hours_line: float | None = None,
+    show_avg_oat: bool = True,
 ) -> go.Figure | None:
-    """Grouped bar chart: run hours per week for each motor (equipment · signal)."""
+    """Grouped bar chart: run hours per week; optional avg OAT (°F) on secondary axis."""
     if weekly_df is None or weekly_df.empty:
         return None
     fig = go.Figure()
@@ -362,7 +364,34 @@ def motor_weekly_runtime_chart(
                 marker_color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
             )
         )
-    fig.update_layout(
+    if show_avg_oat and "avg_oat_f" in weekly_df.columns:
+        oat_by_week = (
+            weekly_df.dropna(subset=["avg_oat_f"])
+            .groupby("week_label", sort=False)["avg_oat_f"]
+            .mean()
+        )
+        oat_y = [float(oat_by_week[w]) if w in oat_by_week.index else None for w in week_labels]
+        if any(v is not None for v in oat_y):
+            fig.add_trace(
+                go.Scatter(
+                    x=week_labels,
+                    y=oat_y,
+                    name="Avg OAT °F (while on)",
+                    mode="lines+markers",
+                    yaxis="y2",
+                    line=dict(color="#333333", width=2, dash="dot"),
+                    marker=dict(size=7),
+                )
+            )
+    if min_hours_line is not None and float(min_hours_line) > 0:
+        fig.add_hline(
+            y=float(min_hours_line),
+            line_dash="dash",
+            line_color="#c45c26",
+            annotation_text=f"Bare-min occupied hours/week ({min_hours_line:.0f} h)",
+            annotation_position="top left",
+        )
+    layout_kwargs: dict[str, Any] = dict(
         title=title,
         xaxis_title="Week starting (Mon)",
         yaxis_title="Run hours",
@@ -370,20 +399,30 @@ def motor_weekly_runtime_chart(
         template="plotly_white",
         height=max(420, 60 + 18 * min(len(labels), 12)),
         legend=dict(orientation="h", y=1.14, font=dict(size=10)),
-        margin=dict(l=50, r=20, t=80, b=80),
+        margin=dict(l=50, r=60, t=80, b=80),
         xaxis=dict(tickangle=-45),
     )
+    if show_avg_oat and "avg_oat_f" in weekly_df.columns:
+        layout_kwargs["yaxis2"] = dict(
+            title="Avg OAT °F",
+            overlaying="y",
+            side="right",
+            showgrid=False,
+        )
+    fig.update_layout(**layout_kwargs)
     return fig
 
 
 def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
-    """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin."""
+    """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin (sorted cold→hot)."""
     if bins_df is None or bins_df.empty:
         return None
+    df = bins_df.sort_values(["bin_start", "source"]).copy()
+    order = list(df.drop_duplicates("bin_start").sort_values("bin_start")["bin_label"])
     fig = go.Figure()
-    sources = list(bins_df["source"].unique())
+    sources = list(df["source"].unique())
     for i, src in enumerate(sources):
-        sub = bins_df[bins_df["source"] == src]
+        sub = df[df["source"] == src]
         fig.add_trace(
             go.Bar(
                 x=sub["bin_label"],
@@ -401,5 +440,6 @@ def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
         height=420,
         legend=dict(orientation="h", y=1.12),
         margin=dict(l=50, r=20, t=60, b=50),
+        xaxis=dict(categoryorder="array", categoryarray=order),
     )
     return fig

@@ -23,6 +23,10 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
 10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).
 11. **Agent API** — `app/agent_api.py` + `scripts/agent_afdd.py` for headless load/run/export (no FastAPI/Flask).
+12. **Runtime proof** — motor/pump/DX status first. No pump in data model → **omit** chiller from run-hours (never fake hours from leave temp).
+13. **Mech-cooling OAT bins** — chillers + DX compressors only; **never** CHW cooling valves (often modulate with no chilled water). Sort bins by `bin_start` cold→hot.
+14. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
+15. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params.
 
 ---
 
