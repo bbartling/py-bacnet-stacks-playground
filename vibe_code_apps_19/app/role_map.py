@@ -176,6 +176,8 @@ def enrich_role_map_from_equipment(
     merged.update(roles_from_columns_csv(columns_path))
     if history_columns:
         merged.update(suggest_roles(pd.DataFrame(columns=history_columns)))
+        allowed = set(history_columns)
+        merged = {role: col for role, col in merged.items() if col in allowed}
     role_map[equipment_id] = merged
     return role_map
 

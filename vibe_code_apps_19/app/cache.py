@@ -10,6 +10,7 @@ import streamlit as st
 
 from app.config import AppConfig
 from app.data_loader import (
+    load_building_folder,
     load_building_tree,
     load_duckdb_query,
     load_equipment_csv,
@@ -23,6 +24,11 @@ from app.data_loader import (
 @st.cache_data(show_spinner="Loading building CSV tree…")
 def cached_building_tree(data_root: str, building_id: str) -> dict[str, pd.DataFrame]:
     return load_building_tree(Path(data_root), building_id)
+
+
+@st.cache_data(show_spinner="Loading building folder…")
+def cached_building_folder(building_folder: str) -> dict[str, pd.DataFrame]:
+    return load_building_folder(Path(building_folder))
 
 
 @st.cache_data(show_spinner="Loading equipment CSV…")

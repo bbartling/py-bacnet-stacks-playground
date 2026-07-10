@@ -8,7 +8,14 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-RuleStatus = Literal["PASS", "FAULT", "SKIPPED_MISSING_ROLES", "NOT_APPLICABLE_EQUIPMENT_TYPE", "ERROR"]
+RuleStatus = Literal[
+    "PASS",
+    "FAULT",
+    "SKIPPED_MISSING_ROLES",
+    "SKIPPED_EQUIPMENT_OFF",
+    "NOT_APPLICABLE_EQUIPMENT_TYPE",
+    "ERROR",
+]
 
 
 def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float = 300.0) -> pd.Series:
@@ -133,6 +140,32 @@ def error_result(
     )
 
 
+def equipment_off(
+    rule_id: str,
+    equipment_id: str,
+    *,
+    notes: str = "",
+    site_id: str = "",
+    building_id: str = "",
+    equipment_type: str = "UNKNOWN",
+    metrics: dict[str, Any] | None = None,
+) -> RuleResult:
+    return RuleResult(
+        rule_id=rule_id,
+        equipment_id=equipment_id,
+        site_id=site_id,
+        building_id=building_id,
+        equipment_type=equipment_type,
+        status="SKIPPED_EQUIPMENT_OFF",
+        applicable=False,
+        fault_hours=None,
+        fault_pct=None,
+        metrics=metrics or {},
+        notes=notes
+        or "SKIPPED_EQUIPMENT_OFF — equipment was not proven on during the analysis period.",
+    )
+
+
 def finalize_result(
     rule_id: str,
     equipment_id: str,
@@ -145,14 +178,26 @@ def finalize_result(
     equipment_type: str = "UNKNOWN",
     metrics: dict[str, Any] | None = None,
     plot_series: dict[str, pd.Series] | None = None,
+    active_mask: pd.Series | None = None,
 ) -> RuleResult:
+    raw = raw.fillna(False).astype(bool)
+    if active_mask is not None:
+        active = active_mask.reindex(raw.index).fillna(False).astype(bool)
+        raw = raw & active
+    else:
+        active = pd.Series(True, index=raw.index)
+
     confirmed = confirm_fault(raw, poll_seconds=poll_seconds, confirm_seconds=confirm_seconds)
-    n = len(raw)
+    n_total = len(raw)
+    n_active = int(active.sum())
     fault_n = int(confirmed.sum())
-    total_h = n * poll_seconds / 3600.0
+    active_h = hours_true(active, poll_seconds)
     fault_h = hours_true(confirmed, poll_seconds)
-    pct = 100.0 * fault_h / total_h if total_h else 0.0
+    pct = 100.0 * fault_h / active_h if active_h else 0.0
     status: RuleStatus = "FAULT" if fault_n > 0 else "PASS"
+    metrics_out = dict(metrics or {})
+    metrics_out.setdefault("active_sample_count", n_active)
+    metrics_out.setdefault("total_sample_count", n_total)
     return RuleResult(
         rule_id=rule_id,
         equipment_id=equipment_id,
@@ -163,11 +208,11 @@ def finalize_result(
         applicable=True,
         fault_hours=round(fault_h, 2),
         fault_pct=round(pct, 2),
-        sample_count=n,
+        sample_count=n_active if active_mask is not None else n_total,
         fault_sample_count=fault_n,
-        metrics=metrics or {},
+        metrics=metrics_out,
         raw_fault=raw,
         confirmed_fault=confirmed,
         plot_series=plot_series or {},
-        notes=f"{fault_h:.1f}h fault ({pct:.1f}%)" if fault_n else "No confirmed faults",
+        notes=f"{fault_h:.1f}h fault ({pct:.1f}% of active)" if fault_n else "No confirmed faults",
     )

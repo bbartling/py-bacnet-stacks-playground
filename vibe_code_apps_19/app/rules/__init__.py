@@ -12,6 +12,7 @@ def run_all(
     params_by_rule: dict | None = None,
     poll_seconds: float = 300.0,
     weather=None,
+    require_operational_gates: bool = True,
 ) -> list[RuleResult]:
     eq = df.attrs.get("equipment_id", "")
     return run_all_cookbook_rules(
@@ -20,10 +21,18 @@ def run_all(
         poll_seconds=poll_seconds,
         params_by_rule=params_by_rule,
         weather=weather,
+        require_operational_gates=require_operational_gates,
     )
 
 
-def run_rule(rule_id: str, df, params: dict | None = None, poll_seconds: float = 300.0, weather=None) -> RuleResult:
+def run_rule(
+    rule_id: str,
+    df,
+    params: dict | None = None,
+    poll_seconds: float = 300.0,
+    weather=None,
+    require_operational_gates: bool = True,
+) -> RuleResult:
     rule = RULES_BY_ID[rule_id]
     return run_cookbook_rule(
         rule,
@@ -33,6 +42,7 @@ def run_rule(rule_id: str, df, params: dict | None = None, poll_seconds: float =
         poll_seconds=poll_seconds,
         params_by_rule={rule_id: params or {}},
         weather=weather,
+        require_operational_gates=require_operational_gates,
     )
 
 

@@ -26,7 +26,52 @@ python -m pip install -e ".[dev]"
 streamlit run streamlit_app.py
 ```
 
-## Environment
+In the sidebar, choose **Upload CSV files** and pick one or more CSVs (no env vars needed). Optional: paste a BUILDING tree path, or set `HVAC_DATA_ROOT`.
+
+## How data maps to rules (automatic)
+
+Rules never use raw vendor column names. They need **logical roles** (`sat`, `zone_t`, `oa_t`, …).
+
+```
+CSV headers / columns.csv  →  column map JSON or YAML  →  logical roles on the DataFrame  →  50 cookbook rules
+```
+
+1. **Heuristic / `columns.csv`** — `point_role` + header patterns (`app/role_map.py`)
+2. **JSON column map** — portable file an LLM can author (`configs/building_100_column_map.json`)
+3. **UI** — **Data & Mapping** tab: load/upload JSON, or **Auto-build JSON map from loaded CSVs**
+
+Missing roles → rule status `SKIPPED_MISSING_ROLES` (safe), not a crash.
+
+### Generate map for BUILDING_100
+
+```powershell
+python scripts/generate_building100_column_map.py --run-rules
+```
+
+### LLM prompt (paste with your column lists)
+
+**Expectation:** humans load any building folder; Claude / Cursor / a local LLM returns a **JSON column map** (not a modified CSV). One JSON covers many AHUs + VAVs. `building_id` is the folder name you loaded (demo data may be called `BUILDING_100`, but nothing in the prompt requires that name).
+
+The Streamlit **Data & Mapping** tab builds a filled prompt (instructions + every loaded equipment’s columns) with a code-block copy control and a `.txt` download. Base template: `LLM_COLUMN_MAP_PROMPT` in `app/column_map_json.py`. Ask the model for JSON only:
+
+```json
+{
+  "version": 1,
+  "building_id": "<your building folder name>",
+  "generated_by": "llm",
+  "notes": "…",
+  "equipment": {
+    "AHU_1": {
+      "equipment_type": "AHU",
+      "column_roles": { "sat": "discharge_air_temp_f", "oa_t": "outside_air_temp_f" }
+    }
+  }
+}
+```
+
+Then upload that JSON in the UI or save under `configs/`.
+
+## Environment (optional)
 
 | Variable | Default |
 | --- | --- |

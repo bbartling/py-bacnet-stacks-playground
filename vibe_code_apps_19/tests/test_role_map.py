@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.role_map import apply_role_map, load_role_map, suggest_roles, validate_required_roles
+from app.role_map import (
+    apply_role_map,
+    enrich_role_map_from_equipment,
+    load_role_map,
+    suggest_roles,
+    validate_required_roles,
+)
 
 
 def test_suggest_roles():
@@ -14,6 +20,23 @@ def test_suggest_roles():
     roles = suggest_roles(df)
     assert roles.get("oa_t") == "outside_air_temp_f"
     assert roles.get("sat") == "discharge_air_temp_f"
+
+
+def test_enrich_role_map_from_equipment():
+    rm: dict = {}
+    enrich_role_map_from_equipment(rm, "AHU_1", None, ["outside_air_temp_f", "discharge_air_temp_f"])
+    assert rm["AHU_1"]["oa_t"] == "outside_air_temp_f"
+    assert rm["AHU_1"]["sat"] == "discharge_air_temp_f"
+
+
+def test_streamlit_app_imports_enrich():
+    """Regression: Streamlit must import enrich_role_map_from_equipment without ImportError."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file("streamlit_app.py", default_timeout=30)
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Open FDD Vibe Coder" in t.value for t in at.title)
 
 
 def test_apply_and_validate(tmp_path: Path):

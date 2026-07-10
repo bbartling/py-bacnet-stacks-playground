@@ -18,26 +18,22 @@ Also: [`docs/OPENFDD_PARITY.md`](../../docs/OPENFDD_PARITY.md)
 ## Standard rule pipeline
 
 ```python
-import numpy as np
-import pandas as pd
-
-def confirm_fault(raw: pd.Series, poll_seconds: int, confirm_seconds: int = 300) -> pd.Series:
-    rows = max(1, int(np.ceil(confirm_seconds / max(poll_seconds, 1))))
-    groups = (raw != raw.shift()).cumsum()
-    streak = raw.groupby(groups).cumcount() + 1
-    return raw.fillna(False) & (streak >= rows)
-
 # 1. raw mask from cookbook
 raw = ...  # boolean Series aligned to d.index
 
-# 2. optional smooth / deadband (see cookbook section)
+# 2. operational gate (see docs/OPERATIONAL_GATES.md) — AND with active_mask
+#    Prefer fan_status / pump_status / flow proof over *_cmd fallback.
+#    If gate applied and zero active samples → SKIPPED_EQUIPMENT_OFF
 
 # 3. confirm
-confirmed = confirm_fault(raw, poll_seconds=p["poll_seconds"])
+confirmed = confirm_fault(raw & active, poll_seconds=p["poll_seconds"])
 
-# 4. rollup
-fault_minutes = confirmed.sum() * p["poll_seconds"] / 60.0
+# 4. rollup hours / pct using **active** samples as denominator when gated
 ```
+
+Statuses: `PASS` | `FAULT` | `SKIPPED_MISSING_ROLES` | `SKIPPED_EQUIPMENT_OFF` | `NOT_APPLICABLE_EQUIPMENT_TYPE` | `ERROR`
+
+Gate registry: `app/rules/operational_gate.py` (`RULE_GATES`). ALWAYS rules (SV-RANGE/SPIKE/STALE, WX-*, OAT-METEO, SCHED-1, CMD-1) never motor-gate.
 
 ## Reference implementations in repo
 

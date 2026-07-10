@@ -25,6 +25,8 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 streamlit run streamlit_app.py
 ```
 
+Prefer **Upload CSV files** in the sidebar (multi-select). Env vars optional.
+
 ## Regenerate configs after catalog changes
 
 ```bash

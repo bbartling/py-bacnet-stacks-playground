@@ -117,23 +117,31 @@ rules:
   - fault_sample_count
   source_function: _sweep_stale
   known_limitations: ''
-- rule_id: SV-4
-  family: sensor
-  title: Mixing envelope (MAT vs OAT/RAT)
-  description: "MAT falls outside min(OAT,RAT) \u0393\xEA\xC6 2.2\u252C\u2591F \u0393\
-    \xC7\xAA max(OAT,RAT) + 2.2\u252C\u2591F envelope \u0393\xC7\xF6 implausible mixed-air\
-    \ reading."
-  required_roles:
-  - mat
-  - oa_t
-  - rat
-  optional_roles: []
+- rule_id: PID-HUNT-1
+  family: control
+  title: Suspected control-output hunting
+  description: "Rolling 1h total variation of any 0\u2013100% control output (dampers,\
+    \ valves, fan speeds, heat/cool cmds) with span \u226520%, TV \u2265500 %\xB7\
+    pts, \u22652.5 equivalent cycles, \u22654 reversals \u2014 suspected loop hunting\
+    \ (not proof of bad PID alone)."
+  required_roles: []
+  optional_roles:
+  - loop_enabled
   equipment_kinds:
   - ahu
+  - vav
+  - chiller
+  - boiler
+  - heatpump
   tunable_params:
-  - env_f
+  - change_deadband_pct
+  - minimum_span_pct
+  - total_variation_fault_pct
+  - minimum_equivalent_cycles
+  - minimum_reversals
+  - minimum_coverage_pct
   - confirm_min
-  default_confirm_seconds: 300
+  default_confirm_seconds: 0
   sensor_sweep: false
   implemented: true
   skipped_if_missing_roles: true
@@ -142,7 +150,7 @@ rules:
   - fault_hours
   - fault_pct
   - fault_sample_count
-  source_function: _sv4_envelope
+  source_function: _pid_hunt_1
   known_limitations: ''
 - rule_id: FC1
   family: ahu

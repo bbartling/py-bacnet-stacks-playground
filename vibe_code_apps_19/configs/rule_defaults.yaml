@@ -1,10 +1,10 @@
 AHU-DUCTHI:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   duct_high_margin:
@@ -17,11 +17,11 @@ AHU-DUCTHI:
     unit: in. w.c.
 AHU-SATDEV:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   sat_dev_err:
@@ -34,11 +34,11 @@ AHU-SATDEV:
     unit: "\u252C\u2591F"
 AHU-SIMUL:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   valve_open_pct:
@@ -51,11 +51,11 @@ AHU-SIMUL:
     unit: frac
 CHW-1:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   min_dt:
@@ -68,11 +68,11 @@ CHW-1:
     unit: "\u252C\u2591F"
 CHW-2:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   dp_margin:
@@ -85,11 +85,11 @@ CHW-2:
     unit: psi
 CHW-3:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   sp_band:
@@ -102,11 +102,11 @@ CHW-3:
     unit: "\u252C\u2591F"
 CHW-4:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   flow_hi:
@@ -119,20 +119,20 @@ CHW-4:
     unit: gpm
 CMD-1:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 DMP-1:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   leak_delta:
@@ -145,11 +145,11 @@ DMP-1:
     unit: "\u252C\u2591F"
 ECON-1:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   econ1_oat_min:
@@ -162,11 +162,11 @@ ECON-1:
     unit: "\u252C\u2591F"
 ECON-2:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   econ2_damper:
@@ -187,11 +187,11 @@ ECON-2:
     unit: "\u252C\u2591F"
 ECON-3:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   econ3_damper:
@@ -236,11 +236,11 @@ ECON-3:
     unit: "\u252C\u2591F"
 ECON-4:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   oa_min_pct:
@@ -253,20 +253,20 @@ ECON-4:
     unit: '%'
 ECON-5:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC1:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   duct_static_err:
@@ -287,38 +287,38 @@ FC1:
     unit: frac
 FC10:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC11:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC12:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC13:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   sat_err:
@@ -331,29 +331,29 @@ FC13:
     unit: "\u252C\u2591F"
 FC14:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC15:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC2:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   mix_tol:
@@ -366,11 +366,11 @@ FC2:
     unit: "\u252C\u2591F"
 FC3:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   mix_tol:
@@ -383,11 +383,11 @@ FC3:
     unit: "\u252C\u2591F"
 FC4:
   confirm_min:
-    default: 60.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   delta_os_max:
@@ -400,11 +400,11 @@ FC4:
     unit: count
 FC5:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   mix_tol:
@@ -425,11 +425,11 @@ FC6:
     step: 0.01
     unit: frac
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   min_cfm_design:
@@ -442,11 +442,11 @@ FC6:
     unit: cfm
 FC7:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   sat_err:
@@ -459,29 +459,29 @@ FC7:
     unit: "\u252C\u2591F"
 FC8:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 FC9:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 HP-1:
   confirm_min:
-    default: 10.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   min_sat:
@@ -502,11 +502,11 @@ HP-1:
     unit: "\u252C\u2591F"
 OA-1:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   min_oa_frac:
@@ -519,11 +519,11 @@ OA-1:
     unit: frac
 OAT-METEO:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   oat_err:
@@ -534,39 +534,79 @@ OAT-METEO:
     min: 2.0
     step: 0.5
     unit: "\u252C\u2591F"
+PID-HUNT-1:
+  change_deadband_pct:
+    default: 1.0
+    help: Ignore changes below
+    label: Ignore changes below
+    max: 10.0
+    min: 0.0
+    step: 0.5
+    unit: '% out'
+  confirm_min:
+    default: 0.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 5.0
+    unit: min
+  minimum_coverage_pct:
+    default: 80.0
+    help: Minimum data coverage
+    label: Minimum data coverage
+    max: 100.0
+    min: 25.0
+    step: 5.0
+    unit: '%'
+  minimum_equivalent_cycles:
+    default: 2.5
+    help: Min equivalent cycles
+    label: Min equivalent cycles
+    max: 20.0
+    min: 0.5
+    step: 0.5
+    unit: cyc/h
+  minimum_reversals:
+    default: 4
+    help: Min direction reversals
+    label: Min direction reversals
+    max: 40
+    min: 1
+    step: 1
+    unit: count
+  minimum_span_pct:
+    default: 20.0
+    help: Minimum observed span
+    label: Minimum observed span
+    max: 100.0
+    min: 5.0
+    step: 5.0
+    unit: '% out'
+  total_variation_fault_pct:
+    default: 500.0
+    help: Total travel threshold
+    label: Total travel threshold
+    max: 2000.0
+    min: 50.0
+    step: 50.0
+    unit: '%/h'
 SCHED-1:
   confirm_min:
-    default: 30.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
-SV-4:
-  confirm_min:
-    default: 5.0
-    help: Fault confirm delay
-    label: Fault confirm delay
-    max: 60.0
-    min: 5.0
-    step: 5.0
-    unit: min
-  env_f:
-    default: 2.2
-    help: Envelope tolerance
-    label: Envelope tolerance
-    max: 6.0
-    min: 0.5
-    step: 0.1
-    unit: "\u252C\u2591F"
 SV-FLATLINE:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   flatline_hours:
@@ -587,20 +627,20 @@ SV-FLATLINE:
     unit: "\u252C\u2591F"
 SV-RANGE:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 SV-SPIKE:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   spike_scale:
@@ -613,11 +653,11 @@ SV-SPIKE:
     unit: "\u251C\xF9"
 SV-STALE:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   stale_hours:
@@ -630,38 +670,38 @@ SV-STALE:
     unit: h
 TRIM-1:
   confirm_min:
-    default: 30.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 TRIM-3:
   confirm_min:
-    default: 30.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 TRIM-4:
   confirm_min:
-    default: 30.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 VAV-1:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   zone_hi:
@@ -682,11 +722,11 @@ VAV-1:
     unit: "\u252C\u2591F"
 VAV-3:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   flow_on_min:
@@ -715,11 +755,11 @@ VAV-3:
     unit: frac
 VAV-4:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   flow_on_min:
@@ -748,29 +788,29 @@ VAV-4:
     unit: h
 VAV-5:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 VAV-7:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 VAV-REHEAT:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   flow_on_min:
@@ -799,20 +839,20 @@ VAV-REHEAT:
     unit: frac
 VLV-1:
   confirm_min:
-    default: 15.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
 WX-1:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min
   spike_limit:
@@ -825,10 +865,10 @@ WX-1:
     unit: "\u252C\u2591F"
 WX-2:
   confirm_min:
-    default: 5.0
+    default: 0.0
     help: Fault confirm delay
     label: Fault confirm delay
     max: 60.0
-    min: 5.0
+    min: 0.0
     step: 5.0
     unit: min

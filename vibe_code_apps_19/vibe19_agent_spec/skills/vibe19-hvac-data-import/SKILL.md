@@ -16,7 +16,13 @@ description: >-
 
 ## Configure data root
 
-**Option A — `.env` (recommended):**
+**Preferred for demos — Streamlit UI (no env vars):**
+
+1. Run `streamlit run streamlit_app.py`
+2. Sidebar → **Upload CSV files** (multi-select) **or** paste a **Data root folder** path
+3. See [`vibe19-streamlit-demo/SKILL.md`](../vibe19-streamlit-demo/SKILL.md)
+
+**Option A — `.env` (optional for BUILDING trees):**
 
 ```powershell
 # Copy vibe_code_apps_19/.env.example → .env

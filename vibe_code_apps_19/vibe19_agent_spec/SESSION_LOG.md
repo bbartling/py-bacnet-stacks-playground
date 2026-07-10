@@ -8,6 +8,61 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-10 — Operational gates + SKIPPED_EQUIPMENT_OFF
+
+- Registry `RULE_GATES` (ALWAYS / RUN / CONDITIONAL) in `app/rules/operational_gate.py`
+- Prefer `fan_status` / proof over `fan_cmd`; hydronic & compressor gates for plant/HP
+- New status `SKIPPED_EQUIPMENT_OFF` when proven-off entire window
+- Sidebar: **Require operational proof** (default on) + per-rule gate/startup sliders
+- Plots: sensor fault summary stats CSV; PID-HUNT-1 replaced SV-4 earlier
+- Spec: `docs/OPERATIONAL_GATES.md`
+
+---
+
+## 2026-07-10 — Sidebar sliders restored + per-device Plots
+
+- Left rail again: Rule tuning sliders + category filter + **Rerun cat.**
+- Plots: device type → device → applicable fault-category charts (no Rule Inventory tab)
+- Export kept; AppTest clean
+
+---
+
+## 2026-07-10 — Plots tab + run-by-category + slim sidebar
+
+- Sidebar: Browse + folder path only (removed Site ID, notes, rule-tuning rail, browser upload)
+- **Run Rules**: all 50 or one mechanical category; optional tuning expander
+- **Plots** tab: unit-separated panels + confirmed-fault bool row; Plotly camera PNG/JPEG download
+- Column map JSON includes `units`; charts never mix °F with % / cfm
+- Export: CSV + Haystack JSON only (no engineer-note reports)
+
+---
+
+- Column map JSON prefers Project Haystack–style `siteRef` / `equip` / `device` / `equipType` / `points` (`discharge-air-temp` → cookbook `sat`)
+- Legacy `equipment` / `column_roles` still loads; rules unchanged (cookbook roles)
+- Sidebar: Browse folder… + any building path (not locked to BUILDING_100); removed multi data-input modes
+- LLM prompt + agent spec (`AGENTS.md`, streamlit-demo skill, HAYSTACK guide) updated
+- Brand: Open FDD Vibe Coder
+
+---
+
+## 2026-07-10 — Category tabs + JSON column map (BUILDING_100)
+
+- Reorganized Streamlit tabs: Overview / Data & Mapping / Run / Results by Category / Inventory / Trends / Export
+- Results + inventory grouped by mechanical family (sensor→ahu→vav→plant→…) with natural rule-id sort
+- Added `app/column_map_json.py` + `configs/building_100_column_map.json` + LLM prompt in README
+- BUILDING_100: 48 equipment, 50 rules → PASS 121 / FAULT 215 / SKIPPED 187 / N/A 1877 / ERROR 0
+- Tests: 135 passed
+
+---
+
+- Added `skills/vibe19-streamlit-demo/SKILL.md`; retired FastAPI/Flask/Haystack/deploy skills to redirects
+- Rewrote `vibe19_agent_spec/AGENTS.md` for Streamlit-only demo
+- Sidebar default: **Upload CSV files** (`st.file_uploader` multi-select); path modes optional
+- Installed official Streamlit agent skills globally (`streamlit skills -y` — Windows symlink fallback)
+- Tests: 129 passed
+
+---
+
 ## 2026-07-09 — Bulk confirm-streak fix: BUILDING_100 full parity @ 0.5h
 
 Applied LAG-based transition streak CTE to all remaining SQL rules (FC1–FC13, VAV-1,

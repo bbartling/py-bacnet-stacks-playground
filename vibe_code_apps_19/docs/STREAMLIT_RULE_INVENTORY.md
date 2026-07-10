@@ -25,6 +25,8 @@ These **are** in the canonical 50 (extended families section), not extras.
 
 Open-FDD documentation (`docs/rules/cookbook/`) lists individual SV-1…SV-7 rules, KPI rules,
 and SQL-only rules. Python consolidates sensor checks into **SV-RANGE / SV-FLATLINE / SV-SPIKE / SV-STALE** sweeps.
+**SV-4** (MAT mixing envelope) was removed as redundant with AHU GL36 FC2/FC3 and replaced by
+**PID-HUNT-1** (suspected 0–100% control-output hunting across dampers/valves/fan cmds).
 
 ## No 53-rule count
 

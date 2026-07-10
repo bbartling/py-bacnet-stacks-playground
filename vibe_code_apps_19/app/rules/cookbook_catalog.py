@@ -86,6 +86,17 @@ SWEEP_SENSOR_ROLES = list(SENSOR_LIMITS.keys())
 _NO_FLATLINE_ROLES = {"duct_static"}
 FLATLINE_SENSOR_ROLES = [r for r in SWEEP_SENSOR_ROLES if r not in _NO_FLATLINE_ROLES]
 
+# Analog 0–100% (or 0–1) control outputs swept by PID-HUNT-1
+CONTROL_OUTPUT_ROLES = [
+    "oa_damper_pct",
+    "clg_valve_pct",
+    "htg_valve_pct",
+    "damper_pct",
+    "reheat_valve_pct",
+    "fan_cmd",
+    "control_output_pct",
+]
+
 
 # ---------------------------------------------------------------------------
 # Rule model
@@ -127,6 +138,7 @@ class CookbookRule:
     optional_roles: list[str] = field(default_factory=list)
     confirm_seconds: float = 300.0
     sensor_sweep: bool = False
+    control_output_sweep: bool = False
 
     def defaults(self) -> dict[str, float]:
         return {p.key: p.default for p in self.params}
@@ -142,12 +154,13 @@ class CookbookRule:
             "equation": self.equation,
             "confirm_seconds": self.confirm_seconds,
             "sensor_sweep": self.sensor_sweep,
+            "control_output_sweep": self.control_output_sweep,
             "params": [p.to_dict() for p in self.params],
         }
 
 
-CONFIRM_PARAM = lambda default_min=5.0, mx=60.0: CookbookParam(  # noqa: E731
-    "confirm_min", "Fault confirm delay", "min", 5.0, mx, 5.0, default_min
+CONFIRM_PARAM = lambda default_min=0.0, mx=60.0: CookbookParam(  # noqa: E731
+    "confirm_min", "Fault confirm delay", "min", 0.0, mx, 5.0, default_min
 )
 
 
@@ -211,14 +224,32 @@ def _sweep_stale(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     return stale
 
 
-def _sv4_envelope(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
-    env = _f(p, "env_f", 2.2)
-    if not {"mat", "oa_t", "rat"}.issubset(d.columns):
-        return _false(d.index)
-    mat, oat, rat = d["mat"], d["oa_t"], d["rat"]
-    lo = pd.concat([oat, rat], axis=1).min(axis=1)
-    hi = pd.concat([oat, rat], axis=1).max(axis=1)
-    return mat.notna() & oat.notna() & rat.notna() & ((mat < lo - env) | (mat > hi + env))
+def _pid_hunt_1(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    """Suspected control-output hunting across any present 0–100% analog roles."""
+    from app.rules.pid_hunting import PidHuntingParams, hunting_fault_mask
+
+    params = PidHuntingParams(
+        change_deadband_pct=_f(p, "change_deadband_pct", 1.0),
+        minimum_span_pct=_f(p, "minimum_span_pct", 20.0),
+        total_variation_fault_pct=_f(p, "total_variation_fault_pct", 500.0),
+        minimum_equivalent_cycles=_f(p, "minimum_equivalent_cycles", 2.5),
+        minimum_reversals=int(_f(p, "minimum_reversals", 4)),
+        minimum_coverage_pct=_f(p, "minimum_coverage_pct", 80.0),
+    )
+    mask = _false(d.index)
+    enable_col = "loop_enabled" if "loop_enabled" in d.columns else None
+    for role in CONTROL_OUTPUT_ROLES:
+        if role not in d.columns or d[role].notna().sum() == 0:
+            continue
+        enabled = d[enable_col] if enable_col else None
+        fault, _ = hunting_fault_mask(
+            d[role],
+            params=params,
+            poll_seconds=poll,
+            enabled=enabled,
+        )
+        mask = mask | fault.reindex(d.index).fillna(False)
+    return mask
 
 
 # ---------------------------------------------------------------------------
@@ -693,7 +724,7 @@ RULES: list[CookbookRule] = [
         "SV-RANGE", "Sensor out of hard range", "sensor",
         ["ahu", "vav", "chiller", "boiler", "weather", "zone", "heatpump"], [],
         "Any modeled sensor reads outside its physical hard range (e.g. OAT ΓêÆ60ΓÇô130┬░F, SAT 30ΓÇô150┬░F, CHWS 30ΓÇô80┬░F).",
-        _sweep_range, params=[CONFIRM_PARAM(5.0)], sensor_sweep=True, confirm_seconds=300,
+        _sweep_range, params=[CONFIRM_PARAM()], sensor_sweep=True, confirm_seconds=300,
     ),
     CookbookRule(
         "SV-FLATLINE", "Sensor flatline (stuck)", "sensor",
@@ -703,7 +734,7 @@ RULES: list[CookbookRule] = [
         params=[
             CookbookParam("flatline_tol", "Flatline tolerance", "┬░F", 0.02, 1.0, 0.02, 0.10),
             CookbookParam("flatline_hours", "Flatline window", "h", 0.5, 8.0, 0.5, 1.0),
-            CONFIRM_PARAM(5.0),
+            CONFIRM_PARAM(),
         ], sensor_sweep=True, confirm_seconds=300,
     ),
     CookbookRule(
@@ -712,7 +743,7 @@ RULES: list[CookbookRule] = [
         "Sample-to-sample jump exceeds the physical spike limit for the sensor type.",
         _sweep_spike, params=[
             CookbookParam("spike_scale", "Spike limit scale", "├ù", 0.25, 3.0, 0.25, 1.0),
-            CONFIRM_PARAM(5.0),
+            CONFIRM_PARAM(),
         ], sensor_sweep=True, confirm_seconds=300,
     ),
     CookbookRule(
@@ -721,17 +752,28 @@ RULES: list[CookbookRule] = [
         "All modeled sensors unchanged over the stale window ΓÇö data feed likely dropped.",
         _sweep_stale, params=[
             CookbookParam("stale_hours", "Stale window", "h", 0.5, 12.0, 0.5, 2.0),
-            CONFIRM_PARAM(5.0),
+            CONFIRM_PARAM(),
         ], sensor_sweep=True, confirm_seconds=300,
     ),
     CookbookRule(
-        "SV-4", "Mixing envelope (MAT vs OAT/RAT)", "sensor",
-        ["ahu"], ["mat", "oa_t", "rat"],
-        "MAT falls outside min(OAT,RAT) ΓêÆ 2.2┬░F ΓÇª max(OAT,RAT) + 2.2┬░F envelope ΓÇö implausible mixed-air reading.",
-        _sv4_envelope, params=[
-            CookbookParam("env_f", "Envelope tolerance", "┬░F", 0.5, 6.0, 0.1, 2.2),
-            CONFIRM_PARAM(5.0),
-        ], confirm_seconds=300,
+        "PID-HUNT-1", "Suspected control-output hunting", "control",
+        ["ahu", "vav", "chiller", "boiler", "heatpump"], [],
+        "Rolling 1h total variation of any 0–100% control output (dampers, valves, fan speeds, "
+        "heat/cool cmds) with span ≥20%, TV ≥500 %·pts, ≥2.5 equivalent cycles, ≥4 reversals — "
+        "suspected loop hunting (not proof of bad PID alone).",
+        _pid_hunt_1,
+        params=[
+            CookbookParam("change_deadband_pct", "Ignore changes below", "% out", 0.0, 10.0, 0.5, 1.0),
+            CookbookParam("minimum_span_pct", "Minimum observed span", "% out", 5.0, 100.0, 5.0, 20.0),
+            CookbookParam("total_variation_fault_pct", "Total travel threshold", "%/h", 50.0, 2000.0, 50.0, 500.0),
+            CookbookParam("minimum_equivalent_cycles", "Min equivalent cycles", "cyc/h", 0.5, 20.0, 0.5, 2.5),
+            CookbookParam("minimum_reversals", "Min direction reversals", "count", 1, 40, 1, 4),
+            CookbookParam("minimum_coverage_pct", "Minimum data coverage", "%", 25.0, 100.0, 5.0, 80.0),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["loop_enabled"],
+        control_output_sweep=True,
+        confirm_seconds=0,
     ),
 
     # --- AHU GL36 (FC1ΓÇôFC15) ---
@@ -741,93 +783,93 @@ RULES: list[CookbookRule] = [
         fc1, params=[
             CookbookParam("duct_static_err", "Duct static error", "in. w.c.", 0.02, 0.5, 0.01, 0.12),
             CookbookParam("fan_hi", "Fan high threshold", "frac", 0.5, 1.0, 0.01, 0.87),
-            CONFIRM_PARAM(5.0)], confirm_seconds=300),
+            CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("FC2", "MAT below OAT/RAT envelope (GL36 B)", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "fan_cmd"],
         "Fan on AND MAT ΓêÆ 1.15┬░F < min(RAT, OAT) ΓêÆ 1.15┬░F.",
-        fc2, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc2, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC3", "MAT above OAT/RAT envelope (GL36 C)", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "fan_cmd"],
         "Fan on AND MAT ΓêÆ 1.15┬░F > max(RAT, OAT) + 1.15┬░F.",
-        fc3, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc3, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC4", "PID hunting (operating-state oscillation)", "ahu", ["ahu"],
         ["oa_damper_pct", "clg_valve_pct", "fan_cmd"],
         "More than 5 operating-mode entry transitions in any hour (heating/econ/mech modes).",
-        fc4, params=[CookbookParam("delta_os_max", "Max mode changes/hr", "count", 2, 20, 1, 5), CONFIRM_PARAM(60.0)], confirm_seconds=3600),
+        fc4, params=[CookbookParam("delta_os_max", "Max mode changes/hr", "count", 2, 20, 1, 5), CONFIRM_PARAM()], confirm_seconds=3600),
     CookbookRule("FC5", "SAT cold when heating commanded (GL36 D)", "ahu", ["ahu"],
         ["sat", "mat", "fan_cmd", "htg_valve_pct"],
         "Fan on AND heating > 1% AND SAT + 1.15┬░F Γëñ MAT ΓêÆ 1.15┬░F + 0.55┬░F.",
-        fc5, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc5, params=[CookbookParam("mix_tol", "Mixing tolerance", "┬░F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC6", "Estimated OA fraction mismatch", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "vav_total_flow"],
         "|RATΓêÆOAT| ΓëÑ 5┬░F AND |estimated OA% ΓêÆ design min OA%| > 15% in heating/mech-only modes.",
         fc6, params=[
             CookbookParam("airflow_err", "OA fraction error", "frac", 0.05, 0.5, 0.01, 0.15),
             CookbookParam("min_cfm_design", "Design min OA CFM", "cfm", 500, 20000, 500, 5000),
-            CONFIRM_PARAM(10.0)], confirm_seconds=600),
+            CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC7", "SAT low with full heating (GL36 E)", "ahu", ["ahu"],
         ["sat", "sat_sp", "fan_cmd", "htg_valve_pct"],
         "Fan on AND heating > 90% AND SAT < SAT SP ΓêÆ 1.0┬░F.",
-        fc7, params=[CookbookParam("sat_err", "SAT error", "┬░F", 0.25, 5.0, 0.25, 1.0), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc7, params=[CookbookParam("sat_err", "SAT error", "┬░F", 0.25, 5.0, 0.25, 1.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC8", "SAT/MAT mismatch in economizer (GL36 F)", "ahu", ["ahu"],
         ["sat", "mat", "oa_damper_pct", "clg_valve_pct"],
         "Economizer open, CHW < 10%, |SAT ΓêÆ 0.55┬░F ΓêÆ MAT| > ΓêÜ(1.15┬▓+1.15┬▓).",
-        fc8, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc8, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC9", "OAT too warm for free cooling (GL36 G)", "ahu", ["ahu"],
         ["oa_t", "sat_sp", "oa_damper_pct", "clg_valve_pct"],
         "Economizer open, CHW < 10%, OAT ΓêÆ 1.15┬░F > SAT SP ΓêÆ 0.55┬░F + 1.15┬░F.",
-        fc9, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc9, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC10", "OAT/MAT mismatch + mech cooling (GL36 H)", "ahu", ["ahu"],
         ["mat", "oa_t", "oa_damper_pct", "clg_valve_pct"],
         "CHW > 1%, economizer > 90%, |MAT ΓêÆ OAT| > ΓêÜ(1.15┬▓+1.15┬▓).",
-        fc10, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc10, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC11", "OAT/MAT mismatch economizer-only (GL36 I)", "ahu", ["ahu"],
         ["oa_t", "sat_sp", "oa_damper_pct", "clg_valve_pct"],
         "CHW > 1%, economizer > 90%, OAT + 1.15┬░F < SAT SP ΓêÆ 0.55┬░F ΓêÆ 1.15┬░F.",
-        fc11, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc11, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC12", "SAT above blend in cooling (GL36 J)", "ahu", ["ahu"],
         ["sat", "mat", "oa_damper_pct", "clg_valve_pct"],
         "CHW > 1%, SAT ΓêÆ 1.15┬░F ΓêÆ 0.55┬░F > MAT + 1.15┬░F at min or full economizer.",
-        fc12, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc12, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC13", "SAT above SP at full cooling (GL36 K)", "ahu", ["ahu"],
         ["sat", "sat_sp", "oa_damper_pct", "clg_valve_pct"],
         "CHW > 1%, SAT > SAT SP + 1.0┬░F at min or full economizer.",
-        fc13, params=[CookbookParam("sat_err", "SAT error", "┬░F", 0.25, 5.0, 0.25, 1.0), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc13, params=[CookbookParam("sat_err", "SAT error", "┬░F", 0.25, 5.0, 0.25, 1.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC14", "CHW coil ╬öT when inactive (GL36 L)", "ahu", ["ahu"],
         ["clg_coil_enter_t", "clg_coil_leave_t", "oa_damper_pct", "clg_valve_pct"],
         "Cooling coil ╬öT ΓëÑ ΓêÜ(1.15┬▓+1.15┬▓)+0.55┬░F while coil should be inactive.",
-        fc14, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc14, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC15", "HW coil ╬öT when inactive (GL36 M)", "ahu", ["ahu"],
         ["htg_coil_enter_t", "htg_coil_leave_t", "oa_damper_pct", "clg_valve_pct"],
         "Heating coil ╬öT ΓëÑ ΓêÜ(1.15┬▓+1.15┬▓)+0.55┬░F while coil should be inactive.",
-        fc15, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        fc15, params=[CONFIRM_PARAM()], confirm_seconds=600),
 
     # --- AHU additional patterns ---
     CookbookRule("AHU-SATDEV", "SAT deviation from setpoint", "ahu", ["ahu"],
         ["sat", "sat_sp"], "|SAT ΓêÆ SAT SP| > 5┬░F.",
-        ahu_sat_dev, params=[CookbookParam("sat_dev_err", "SAT deviation", "┬░F", 1.0, 15.0, 0.5, 5.0), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        ahu_sat_dev, params=[CookbookParam("sat_dev_err", "SAT deviation", "┬░F", 1.0, 15.0, 0.5, 5.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("AHU-DUCTHI", "Duct static pressure high", "ahu", ["ahu"],
         ["duct_static", "duct_static_sp"], "Duct static > static SP + 0.25 in.w.c.",
-        ahu_duct_high, params=[CookbookParam("duct_high_margin", "High margin", "in. w.c.", 0.05, 1.0, 0.05, 0.25), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        ahu_duct_high, params=[CookbookParam("duct_high_margin", "High margin", "in. w.c.", 0.05, 1.0, 0.05, 0.25), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("AHU-SIMUL", "Heating and cooling simultaneous", "ahu", ["ahu"],
         ["htg_valve_pct", "clg_valve_pct"], "Heating valve > 10% AND cooling valve > 10% at once.",
-        ahu_simul_heat_cool, params=[CookbookParam("valve_open_pct", "Valve open threshold", "frac", 0.05, 0.5, 0.01, 0.10), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        ahu_simul_heat_cool, params=[CookbookParam("valve_open_pct", "Valve open threshold", "frac", 0.05, 0.5, 0.01, 0.10), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("OAT-METEO", "BAS outdoor-air sensor vs Open-Meteo", "ahu", ["ahu"],
         ["oa_t", "wx_oa_t"], "BAS OAT sensor differs from Open-Meteo dry bulb by more than 5┬░F.",
         oat_vs_meteo, params=[
             CookbookParam("oat_err", "Max OAT disagreement", "┬░F", 2.0, 20.0, 0.5, 5.0),
-            CONFIRM_PARAM(15.0)], confirm_seconds=900),
+            CONFIRM_PARAM()], confirm_seconds=900),
 
     # --- Economizer & ventilation ---
     CookbookRule("ECON-1", "Economizer stuck closed", "ahu", ["ahu"],
         ["fan_cmd", "oa_damper_pct", "oa_t"], "Fan on, OA damper < 5%, OAT > 55┬░F (should be economizing).",
-        econ1, params=[CookbookParam("econ1_oat_min", "Favorable OAT", "┬░F", 45.0, 70.0, 1.0, 55.0), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        econ1, params=[CookbookParam("econ1_oat_min", "Favorable OAT", "┬░F", 45.0, 70.0, 1.0, 55.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("ECON-2", "Economizing when outdoor unfavorable", "ahu", ["ahu"],
         ["oa_t", "oa_damper_pct"], "OAT > 63┬░F AND OA damper > 42% (should be at minimum).",
         econ2, params=[
             CookbookParam("econ2_oat_hi", "OAT high cutoff", "┬░F", 55.0, 80.0, 1.0, 63.0),
             CookbookParam("econ2_damper", "Damper open frac", "frac", 0.2, 0.9, 0.02, 0.42),
-            CONFIRM_PARAM(5.0)], confirm_seconds=300),
+            CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("ECON-3", "Mech cooling when econ available", "ahu", ["ahu"],
         ["oa_t", "oa_damper_pct", "clg_valve_pct"],
         "Economizer available (OA dry-bulb 35ΓÇô72┬░F AND OA dew point < 60┬░F when Open-Meteo present; else OAT < 63┬░F), "
@@ -839,13 +881,13 @@ RULES: list[CookbookRule] = [
             CookbookParam("econ3_dp_max", "Free-cool OA dew point max", "┬░F", 45.0, 68.0, 1.0, 60.0),
             CookbookParam("econ3_oat_fallback", "Fallback OAT cutoff", "┬░F", 55.0, 70.0, 1.0, 63.0),
             CookbookParam("econ3_damper", "Damper closed frac", "frac", 0.1, 0.6, 0.02, 0.32),
-            CONFIRM_PARAM(5.0)], confirm_seconds=300),
+            CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("ECON-4", "Low estimated OA fraction", "ahu", ["ahu"],
         ["mat", "rat", "oa_t", "fan_cmd"], "Fan on, |RATΓêÆOAT| > 2.2┬░F, estimated OA fraction < 21%.",
-        econ4, params=[CookbookParam("oa_min_pct", "Min OA fraction", "%", 5.0, 40.0, 1.0, 21.0), CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        econ4, params=[CookbookParam("oa_min_pct", "Min OA fraction", "%", 5.0, 40.0, 1.0, 21.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("ECON-5", "Preheat over-conditioning", "ahu", ["ahu"],
         ["preheat_leave_t", "sat_sp", "oa_t", "htg_valve_pct"], "Preheat leaving air > 2.2┬░F above target while preheat active.",
-        econ5, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        econ5, params=[CONFIRM_PARAM()], confirm_seconds=600),
 
     # --- VAV zones ---
     CookbookRule("VAV-1", "Zone comfort band", "vav", ["vav", "zone"],
@@ -853,24 +895,24 @@ RULES: list[CookbookRule] = [
         vav1, params=[
             CookbookParam("zone_lo", "Zone low", "┬░F", 55.0, 70.0, 0.5, 68.0),
             CookbookParam("zone_hi", "Zone high", "┬░F", 72.0, 85.0, 0.5, 76.0),
-            CONFIRM_PARAM(15.0)], confirm_seconds=900),
+            CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VAV-3", "Excessive reheat during warm weather", "vav", ["vav"],
         ["oa_t", "reheat_valve_pct"], "Air flowing AND OAT > 78┬░F AND reheat valve > 52%.",
         vav3, params=[
             CookbookParam("reheat_oat", "Warm OAT", "┬░F", 65.0, 90.0, 1.0, 78.0),
             CookbookParam("reheat_pct", "Reheat frac", "frac", 0.1, 1.0, 0.02, 0.52),
             CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
-            CONFIRM_PARAM(5.0)], confirm_seconds=300),
+            CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("VAV-4", "Damper stuck at full open", "vav", ["vav"],
         ["damper_pct"], "Air flowing AND damper > 97.5% sustained across the window.",
         vav4, params=[
             CookbookParam("full_open_pct", "Full open frac", "frac", 0.8, 1.0, 0.005, 0.975),
             CookbookParam("sustain_hours", "Sustain window", "h", 0.5, 6.0, 0.5, 1.5),
             CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
-            CONFIRM_PARAM(15.0)], confirm_seconds=900),
+            CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VAV-5", "Airflow sensor bias", "vav", ["vav"],
         ["zone_flow", "damper_pct"], "Airflow > 50 cfm while damper < 10% (implausible flow).",
-        vav5, params=[CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        vav5, params=[CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VAV-REHEAT", "Reheat valve stuck / no temp rise", "vav", ["vav"],
         ["reheat_valve_pct", "vav_disch_t", "vav_inlet_t"],
         "Air flowing AND reheat valve > 30% AND box discharge temp rises < 3┬░F above duct inlet "
@@ -879,24 +921,24 @@ RULES: list[CookbookRule] = [
             CookbookParam("reheat_cmd", "Reheat open frac", "frac", 0.1, 1.0, 0.05, 0.30),
             CookbookParam("min_rise", "Min temp rise", "┬░F", 0.5, 15.0, 0.5, 3.0),
             CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
-            CONFIRM_PARAM(15.0)], confirm_seconds=900),
+            CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VAV-7", "Minimum airflow violation", "vav", ["vav"],
         ["zone_flow", "min_flow_sp"], "Zone airflow below its minimum airflow setpoint.",
-        vav7, params=[CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        vav7, params=[CONFIRM_PARAM()], confirm_seconds=900),
 
     # --- Central plants ---
     CookbookRule("CHW-1", "Low chilled-water ╬öT", "plant", ["chiller"],
         ["chw_supply_t", "chw_return_t"], "Pump on AND (CHWR ΓêÆ CHWS) < 4┬░F.",
-        chw1, params=[CookbookParam("min_dt", "Min ╬öT", "┬░F", 1.0, 12.0, 0.5, 4.0), CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        chw1, params=[CookbookParam("min_dt", "Min ╬öT", "┬░F", 1.0, 12.0, 0.5, 4.0), CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("CHW-2", "DP below SP at max pump speed", "plant", ["chiller"],
         ["chw_dp", "chw_dp_sp", "chw_pump_cmd"], "Pump ΓëÑ 87% AND CHW DP < DP SP ΓêÆ 2.2.",
-        chw2, params=[CookbookParam("dp_margin", "DP margin", "psi", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        chw2, params=[CookbookParam("dp_margin", "DP margin", "psi", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("CHW-3", "Plant supply temp outside deadband", "plant", ["chiller"],
         ["chw_supply_t", "chw_supply_t_sp", "chw_pump_cmd"], "Pump on AND |CHWS ΓêÆ CHWS SP| > 2.2┬░F.",
-        chw3, params=[CookbookParam("sp_band", "SP band", "┬░F", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        chw3, params=[CookbookParam("sp_band", "SP band", "┬░F", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("CHW-4", "Flow high at max pump", "plant", ["chiller"],
         ["chw_flow", "chw_pump_cmd"], "Pump ΓëÑ 87% AND CHW flow > 1100 gpm.",
-        chw4, params=[CookbookParam("flow_hi", "Flow high", "gpm", 200, 3000, 50, 1100), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        chw4, params=[CookbookParam("flow_hi", "Flow high", "gpm", 200, 3000, 50, 1100), CONFIRM_PARAM()], confirm_seconds=300),
 
     # --- Heat pumps ---
     CookbookRule("HP-1", "Discharge cold when heating", "heatpump", ["heatpump"],
@@ -904,43 +946,43 @@ RULES: list[CookbookRule] = [
         hp1, params=[
             CookbookParam("min_sat", "Min heating SAT", "┬░F", 70.0, 110.0, 1.0, 85.0),
             CookbookParam("zone_cold", "Zone cold", "┬░F", 60.0, 72.0, 0.5, 69.0),
-            CONFIRM_PARAM(10.0)], confirm_seconds=600),
+            CONFIRM_PARAM()], confirm_seconds=600),
 
     # --- Weather station ---
     CookbookRule("WX-1", "OA temperature spike", "weather", ["weather"],
         ["oa_t"], "OAT sample-to-sample jump > 16┬░F.",
-        wx1, params=[CookbookParam("spike_limit", "Spike limit", "┬░F", 4.0, 40.0, 1.0, 16.0), CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        wx1, params=[CookbookParam("spike_limit", "Spike limit", "┬░F", 4.0, 40.0, 1.0, 16.0), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("WX-2", "Gust lower than sustained wind", "weather", ["weather"],
         ["wind_gust", "wind_speed"], "Reported wind gust < sustained wind speed.",
-        wx2, params=[CONFIRM_PARAM(5.0)], confirm_seconds=300),
+        wx2, params=[CONFIRM_PARAM()], confirm_seconds=300),
 
     # --- Trim & respond advisory (lumped with AHU / plants) ---
     CookbookRule("TRIM-1", "Duct static trim advisory", "trim", ["ahu"],
         ["duct_static", "vav_press_req_sum"], "Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.",
-        trim1, params=[CONFIRM_PARAM(30.0)], confirm_seconds=1800),
+        trim1, params=[CONFIRM_PARAM()], confirm_seconds=1800),
     CookbookRule("TRIM-3", "HWST trim advisory", "trim", ["boiler"],
         ["hw_supply_t", "hw_reset_req_sum"], "HW supply > 160┬░F while reset requests are low.",
-        trim3, params=[CONFIRM_PARAM(30.0)], confirm_seconds=1800),
+        trim3, params=[CONFIRM_PARAM()], confirm_seconds=1800),
     CookbookRule("TRIM-4", "CHW plant reset advisory", "trim", ["chiller"],
         ["chw_supply_t", "chw_reset_req_sum"], "CHW supply < 45┬░F while reset requests are low.",
-        trim4, params=[CONFIRM_PARAM(30.0)], confirm_seconds=1800),
+        trim4, params=[CONFIRM_PARAM()], confirm_seconds=1800),
 
     # --- Extended families ---
     CookbookRule("SCHED-1", "Unoccupied runtime", "ahu", ["ahu"],
         ["occ_mode", "fan_status"], "Fan running while occupancy mode is unoccupied.",
-        sched1, params=[CONFIRM_PARAM(30.0)], confirm_seconds=1800),
+        sched1, params=[CONFIRM_PARAM()], confirm_seconds=1800),
     CookbookRule("CMD-1", "Fan cmd/status mismatch", "ahu", ["ahu"],
         ["fan_cmd", "fan_status"], "Fan command and proven status disagree.",
-        cmd1, params=[CONFIRM_PARAM(10.0)], confirm_seconds=600),
+        cmd1, params=[CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("OA-1", "Low OA fraction", "ahu", ["ahu"],
         ["mat", "rat", "oa_t", "fan_status"], "Estimated OA fraction < 15% with adequate OAT/RAT split.",
-        oa1, params=[CookbookParam("min_oa_frac", "Min OA fraction", "frac", 0.05, 0.4, 0.01, 0.15), CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        oa1, params=[CookbookParam("min_oa_frac", "Min OA fraction", "frac", 0.05, 0.4, 0.01, 0.15), CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("DMP-1", "OA damper leakage", "ahu", ["ahu"],
         ["oa_t", "mat", "oa_damper_pct"], "Damper Γëñ 5% but MAT tracks OAT within 2┬░F ΓÇö leaking OA damper.",
-        dmp1, params=[CookbookParam("leak_delta", "Leak ╬öT", "┬░F", 0.5, 6.0, 0.5, 2.0), CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        dmp1, params=[CookbookParam("leak_delta", "Leak ╬öT", "┬░F", 0.5, 6.0, 0.5, 2.0), CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VLV-1", "Cooling valve leakage", "ahu", ["ahu"],
         ["sat", "sat_sp", "clg_valve_pct"], "Cooling valve Γëñ 5% but SAT runs > 2┬░F below setpoint.",
-        vlv1, params=[CONFIRM_PARAM(15.0)], confirm_seconds=900),
+        vlv1, params=[CONFIRM_PARAM()], confirm_seconds=900),
 ]
 
 

@@ -104,6 +104,30 @@ def discover_equipment(building_root: Path) -> list[dict[str, Any]]:
     return sorted(found, key=lambda x: x["equipment_id"])
 
 
+def list_building_candidates(path: Path) -> list[Path]:
+    """Return building folders under ``path`` (or ``[path]`` if it already is one).
+
+    A building folder is any directory that contains at least one ``history_wide.csv``
+    (directly or nested under equipment subfolders).
+    """
+    path = Path(path)
+    if not path.is_dir():
+        return []
+    if discover_equipment(path):
+        return [path]
+    kids = []
+    for child in sorted(path.iterdir()):
+        if child.is_dir() and discover_equipment(child):
+            kids.append(child)
+    return kids
+
+
+def load_building_folder(building_folder: Path) -> dict[str, pd.DataFrame]:
+    """Load one building folder (name is the building id — any label, not just BUILDING_100)."""
+    building_folder = Path(building_folder)
+    return load_building_tree(building_folder.parent, building_folder.name)
+
+
 def load_building_tree(data_root: Path, building_id: str) -> dict[str, pd.DataFrame]:
     building_root = data_root / building_id
     manifest_path = building_root / "manifest.json"
