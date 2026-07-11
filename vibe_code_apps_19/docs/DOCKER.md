@@ -14,10 +14,12 @@ docker run --rm -p 8501:8501 -e APP_MODE=local vibe19
 
 Open http://localhost:8501
 
-Cloud-like caps inside the container:
+Cloud-like caps inside the container (same **500 MB** default as local unless you override):
 
 ```powershell
 docker run --rm -p 8501:8501 -e APP_MODE=cloud vibe19
+# optional tighter/looser:
+docker run --rm -p 8501:8501 -e APP_MODE=cloud -e OPENFDD_MAX_ZIP_MB=250 vibe19
 ```
 
 ## Notes

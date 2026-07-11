@@ -102,17 +102,17 @@ Artifacts: `run_report.json`, `fdd_summary.csv`, `fault_settings.json`, `session
 
 ## Size limits (configurable)
 
-Defaults favor local/agent RCx packages; tighten automatically when `APP_MODE=cloud`.
+**Primary default: 500 MB** for both compressed zip and uncompressed extract — same for local, `APP_MODE=auto`, and `APP_MODE=cloud`. Override with env vars when a host needs tighter or looser caps.
 
-| Cap | Env var | Default (local / auto) | Default (`APP_MODE=cloud`) |
-| --- | --- | --- | --- |
-| Compressed zip | `OPENFDD_MAX_ZIP_MB` | 1024 MB | 250 MB |
-| Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | 1024 MB | 1024 MB |
-| Zip entries | `OPENFDD_MAX_ENTRIES` | 200 | 200 |
-| Equipment folders | `OPENFDD_MAX_EQUIPMENT` | 100 | 100 |
-| Path depth | (fixed) | 8 | 8 |
+| Cap | Env var | Default (all modes) |
+| --- | --- | --- |
+| Compressed zip | `OPENFDD_MAX_ZIP_MB` | **500 MB** |
+| Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | **500 MB** |
+| Zip entries | `OPENFDD_MAX_ENTRIES` | 200 |
+| Equipment folders | `OPENFDD_MAX_EQUIPMENT` | 100 |
+| Path depth | (fixed) | 8 |
 
-`PackageError` messages include the **effective** cap. Override any env var to raise/lower for agent tests.
+`PackageError` messages include the **effective** cap. The Streamlit sidebar and Overview show loaded dataset size in MB vs these limits (`zip_mb` / `uncompressed_mb` on the package report).
 
 Local agents can also use sidebar **Package zip path** → **Load zip from path** (when server paths are allowed) instead of the browser file picker.
 

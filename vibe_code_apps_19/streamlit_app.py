@@ -887,6 +887,19 @@ def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
                 frames[eq_id].attrs["columns_path"] = str(frames[eq_id].attrs["columns_path"])
         weather = cached_weather(str(chosen.parent), cfg.weather_subdir)
         source = str(chosen.resolve())
+        from app.package_io import bytes_as_mb, directory_size_bytes, effective_package_caps
+
+        unc = directory_size_bytes(chosen)
+        caps = effective_package_caps()
+        st.session_state.package_report = {
+            "source": "folder",
+            "building_id": building_id,
+            "equipment_count": len(frames),
+            "uncompressed_bytes": unc,
+            "uncompressed_mb": bytes_as_mb(unc),
+            "max_zip_mb": caps.max_zip_mb,
+            "max_uncompressed_mb": caps.max_uncompressed_mb,
+        }
         st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
         _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
         return
@@ -935,6 +948,11 @@ def _load_data(cfg: AppConfig) -> None:
             key="building_folder",
         )
         _load_from_folder(cfg, folder_text)
+        from app.package_io import dataset_size_caption
+
+        _folder_report = st.session_state.get("package_report")
+        if _folder_report:
+            st.sidebar.caption(dataset_size_caption(_folder_report))
         if st.session_state.get("equipment_frames") and st.sidebar.button(
             "Clear loaded data", key="clear_folder_session"
         ):
@@ -942,7 +960,7 @@ def _load_data(cfg: AppConfig) -> None:
             st.session_state.building_folder = ""
             st.rerun()
     else:
-        from app.package_io import effective_package_caps
+        from app.package_io import dataset_size_caption, effective_package_caps
 
         caps = effective_package_caps()
         zip_file = st.sidebar.file_uploader(
@@ -1045,12 +1063,10 @@ def _load_data(cfg: AppConfig) -> None:
                     except Exception as exc:
                         st.sidebar.error(f"Session config load failed: {exc}")
 
-        st.sidebar.caption(
-            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
-            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
-        )
+        st.sidebar.caption(dataset_size_caption(None, caps=caps))
         report = st.session_state.get("package_report")
         if report:
+            st.sidebar.caption(dataset_size_caption(report, caps=caps))
             with st.sidebar.expander("Package report", expanded=False):
                 st.json(report)
         frames = st.session_state.get("equipment_frames") or {}
@@ -1088,7 +1104,7 @@ def _load_data(cfg: AppConfig) -> None:
 
 **Effective caps:** zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB ·
 ≤{_c.max_entries} entries · ≤{_c.max_equipment} equip  
-Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`.
+Default safety limit **500 MB** (zip + expanded). Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`.
 
 Agent brief: {_AGENTS_MD_URL}
             """.strip()
@@ -1365,6 +1381,19 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         c4.metric("Poll (s)", f"{poll:.0f}")
         c5.metric("Kind", kind)
         st.caption(f"`{st.session_state.data_source}`")
+        _pkg_rep = st.session_state.get("package_report") or {}
+        _size_bits = []
+        if _pkg_rep.get("zip_mb") is not None:
+            _size_bits.append(f"{_pkg_rep['zip_mb']} MB zip")
+        if _pkg_rep.get("uncompressed_mb") is not None:
+            _size_bits.append(f"{_pkg_rep['uncompressed_mb']} MB on disk")
+        if _size_bits:
+            _lim_z = _pkg_rep.get("max_zip_mb", "—")
+            _lim_u = _pkg_rep.get("max_uncompressed_mb", "—")
+            st.caption(
+                f"Dataset size: {' · '.join(str(b) for b in _size_bits)} "
+                f"(limits {_lim_z} / {_lim_u} MB)"
+            )
 
         d1, d2, d3 = st.columns(3)
         d1.metric("Dataset start", start_s)

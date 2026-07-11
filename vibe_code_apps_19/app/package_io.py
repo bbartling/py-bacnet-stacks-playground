@@ -31,8 +31,9 @@ TEMP_MAX_AGE_SEC = 6 * 3600
 
 # Env overrides: OPENFDD_MAX_ZIP_MB, OPENFDD_MAX_UNCOMPRESSED_MB,
 # OPENFDD_MAX_ENTRIES, OPENFDD_MAX_EQUIPMENT.
-# Defaults: local/auto → 1024 MB zip; APP_MODE=cloud → 250 MB zip;
-# uncompressed 1024 MB; entries 200; equipment 100.
+# Primary default (local + cloud): 500 MB zip and 500 MB uncompressed.
+# APP_MODE no longer lowers the cloud zip default; override via env if needed.
+DEFAULT_PACKAGE_MB = 500
 
 
 class PackageError(ValueError):
@@ -68,16 +69,66 @@ def _env_positive_int(name: str, default: int) -> int:
     return value
 
 
-def _default_zip_mb() -> int:
-    mode = (os.environ.get("APP_MODE") or "auto").strip().lower()
-    return 250 if mode == "cloud" else 1024
+def _default_package_mb() -> int:
+    """Primary safety limit (MB) for zip and uncompressed — same for local and cloud."""
+    return DEFAULT_PACKAGE_MB
+
+
+def bytes_as_mb(n: int | float) -> float:
+    """Round byte count to MB (binary, 1024²) for UI / reports."""
+    return round(float(n) / (1024 * 1024), 6)
+
+
+def directory_size_bytes(root: Path) -> int:
+    """Best-effort recursive file size under root (skips unreadable files)."""
+    total = 0
+    try:
+        for p in root.rglob("*"):
+            if not p.is_file():
+                continue
+            try:
+                total += int(p.stat().st_size)
+            except OSError:
+                continue
+    except OSError:
+        return total
+    return total
+
+
+def dataset_size_caption(report: dict[str, Any] | None, *, caps: PackageCaps | None = None) -> str:
+    """Human-readable size vs limit for sidebar / Overview."""
+    caps = caps or effective_package_caps()
+    if not report:
+        return (
+            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
+            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
+        )
+    parts: list[str] = []
+    zip_mb = report.get("zip_mb")
+    unc_mb = report.get("uncompressed_mb")
+    if zip_mb is not None:
+        parts.append(f"{zip_mb} MB zip")
+    if unc_mb is not None:
+        parts.append(f"{unc_mb} MB expanded")
+    if not parts:
+        return (
+            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
+            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
+        )
+    return (
+        f"Dataset: {' · '.join(str(p) for p in parts)} "
+        f"(limits {caps.max_zip_mb} / {caps.max_uncompressed_mb} MB)"
+    )
 
 
 def effective_package_caps() -> PackageCaps:
     """Resolve zip/equipment caps from env (effective values shown in PackageError)."""
+    default_mb = _default_package_mb()
     return PackageCaps(
-        max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", _default_zip_mb()) * 1024 * 1024,
-        max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", 1024) * 1024 * 1024,
+        max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", default_mb) * 1024 * 1024,
+        max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", default_mb)
+        * 1024
+        * 1024,
         max_entries=_env_positive_int("OPENFDD_MAX_ENTRIES", 200),
         max_equipment=_env_positive_int("OPENFDD_MAX_EQUIPMENT", 100),
     )
@@ -438,6 +489,7 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
         if column_map_issues:
             warnings.extend(column_map_issues[:20])
 
+    unc_bytes = directory_size_bytes(building_root)
     report = {
         "building_id": manifest.building_id,
         "schema_version": manifest.schema_version,
@@ -454,6 +506,11 @@ def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -
         "column_map_issue_count": len(column_map_issues),
         "column_map_issues_preview": column_map_issues[:20],
         "row_counts": {k: int(len(v)) for k, v in frames.items()},
+        "uncompressed_bytes": unc_bytes,
+        "uncompressed_mb": bytes_as_mb(unc_bytes),
+        "max_zip_mb": caps.max_zip_mb,
+        "max_uncompressed_mb": caps.max_uncompressed_mb,
+        "source": "dir",
     }
     # Span
     starts, ends = [], []
@@ -485,7 +542,11 @@ def load_package_zip(data: bytes) -> PackageLoadResult:
     workdir = extract_package_zip(data)
     try:
         building_root = resolve_building_root(workdir)
-        return load_package_from_dir(building_root, workdir=workdir)
+        result = load_package_from_dir(building_root, workdir=workdir)
+        result.report["source"] = "zip"
+        result.report["zip_bytes"] = len(data)
+        result.report["zip_mb"] = bytes_as_mb(len(data))
+        return result
     except Exception:
         wipe_workdir(workdir)
         raise

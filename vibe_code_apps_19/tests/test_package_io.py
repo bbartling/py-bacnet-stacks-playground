@@ -10,8 +10,11 @@ from pathlib import Path
 import pytest
 
 from app.package_io import (
+    DEFAULT_PACKAGE_MB,
     PackageError,
     PackageManifest,
+    bytes_as_mb,
+    dataset_size_caption,
     effective_package_caps,
     extract_package_zip,
     load_package_from_dir,
@@ -164,13 +167,14 @@ def test_effective_caps_local_defaults(monkeypatch):
     monkeypatch.delenv("OPENFDD_MAX_EQUIPMENT", raising=False)
     monkeypatch.setenv("APP_MODE", "local")
     caps = effective_package_caps()
-    assert caps.max_zip_mb == 1024
-    assert caps.max_uncompressed_mb == 1024
+    assert caps.max_zip_mb == DEFAULT_PACKAGE_MB
+    assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
     assert caps.max_entries == 200
     assert caps.max_equipment == 100
 
 
-def test_effective_caps_cloud_zip_default(monkeypatch):
+def test_effective_caps_cloud_same_default(monkeypatch):
+    """Cloud uses the same 500 MB primary default (raise/lower via env if needed)."""
     for key in (
         "OPENFDD_MAX_ZIP_MB",
         "OPENFDD_MAX_UNCOMPRESSED_MB",
@@ -180,9 +184,33 @@ def test_effective_caps_cloud_zip_default(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("APP_MODE", "cloud")
     caps = effective_package_caps()
-    assert caps.max_zip_mb == 250
+    assert caps.max_zip_mb == DEFAULT_PACKAGE_MB
+    assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
     assert caps.max_entries == 200
     assert caps.max_equipment == 100
+
+
+def test_load_package_report_includes_size_mb():
+    z = _make_zip(
+        {
+            "manifest.json": _manifest(),
+            "AHU_1/history_wide.csv": _hist(),
+        }
+    )
+    result = load_package_zip(z)
+    try:
+        assert result.report["source"] == "zip"
+        assert result.report["zip_bytes"] == len(z)
+        assert result.report["zip_mb"] == bytes_as_mb(len(z))
+        assert result.report["uncompressed_bytes"] > 0
+        assert result.report["uncompressed_mb"] == bytes_as_mb(result.report["uncompressed_bytes"])
+        assert result.report["max_zip_mb"] == effective_package_caps().max_zip_mb
+        caption = dataset_size_caption(result.report)
+        assert "Dataset:" in caption
+        assert "MB zip" in caption
+        assert "limits" in caption
+    finally:
+        wipe_workdir(result.workdir)
 
 
 def test_effective_caps_env_override(monkeypatch):

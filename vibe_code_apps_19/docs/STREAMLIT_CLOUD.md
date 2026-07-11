@@ -43,7 +43,7 @@ Same controls live in the sidebar and on the **Export** tab. Local agents can st
 - One shared Python process for all visitors
 - Session wipe is **best-effort**
 - Not a security boundary for sensitive building data
-- Keep zips within env caps (default local 1024 MB / cloud 250 MB zip) — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md)
+- Keep zips within env caps (**default 500 MB** zip and expanded, local + cloud) — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md). Sidebar / Overview show loaded size vs limit.
 
 ## AI agents
 
