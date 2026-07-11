@@ -1,29 +1,32 @@
 # Day 55 – From Network Bytes to Graphs: Why RDF?
 
+*Part VII: RDF & Brick | Week 12*
+
 ## Goal
 
-After protocols, step back: **triples** model relationships BACnet object numbers and Haystack tags can't merge alone.
+After protocols, step back: **triples** model relationships BACnet object numbers and Haystack tags can't merge alone. Add one HVAC triple in **oxrdf** and mirror it in **rdflib**.
 
 ## Concept
 
 A **triple**: `(subject, predicate, object)`
-
-Example intent:
 
 ```
 ex:AHU1  brick:hasPoint  ex:OA-T .
 ex:OA-T  rdf:type        brick:Outside_Air_Temperature_Sensor .
 ```
 
-Rust preview:
-
 ```rust
-type Triple = (String, String, String);
-let mut graph: Vec<Triple> = Vec::new();
-graph.push(("ex:AHU1".into(), "brick:hasPoint".into(), "ex:OA-T".into()));
-```
+use oxrdf::{Graph, NamedNode, Triple};
 
-No `rdflib`—we stay in **Rust data structures** through Day 75.
+fn main() {
+    let mut g = Graph::new();
+    let s = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
+    let p = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
+    let o = NamedNode::new("http://example.com/bldg#OA-T").unwrap();
+    g.insert(Triple::new(s, p, o));
+    println!("triples: {}", g.len());
+}
+```
 
 ## Why This Matters
 
@@ -36,40 +39,35 @@ Brick / Haystack / **ASHRAE 223P** interoperability targets **graphs**, not CSV 
 
 ## Micro Exercises
 
-1. Convert your Day 53 mapping row into two triples.
+1. Convert a Day 53 mapping row into two triples (same IRIs in both stacks).
 2. Why global IRIs beat bare strings `"OA-T"`?
-3. Read Haystack **RDF** export docs (vendor)—does Niagara emit RDF? (often tags/Zinc first)
-
-## Wireshark Lab
-
-Rest day—or re-open Day 46 capstone pcap for protocol portfolio review.
+3. Add a second triple: `ex:OA-T rdf:type brick:Outside_Air_Temperature_Sensor`.
 
 ## Key Takeaway
 
-**RDF is the semester cap after networking**—Rust implements graphs with structs, not Python rdflib.
+**RDF is the semester cap after networking**—same triple shape in oxrdf and rdflib.
 
 ---
 
-## Python companion — Triple list intuition
+## Python companion — One triple in rdflib
 
 *Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
 
 ```python
-# Course track prefers Rust RDF; Python sketch for intuition only
-# (rdflib exists but is not the curriculum path)
-Triple = tuple[str, str, str]
-graph: list[Triple] = [
-    ("ex:AHU1", "brick:hasPoint", "ex:OA-T"),
-    ("ex:OA-T", "rdf:type", "brick:Outside_Air_Temperature_Sensor"),
-]
-for s, p, o in graph:
-    print(f"{s} {p} {o} .")
+from rdflib import Graph, Namespace, URIRef
+
+EX = Namespace("http://example.com/bldg#")
+BRICK = Namespace("https://brickschema.org/schema/Brick#")
+
+g = Graph()
+g.add((EX.AHU1, BRICK.hasPoint, EX["OA-T"]))
+print(len(g))  # 1
 ```
 
-| Rust (main lesson) | Python |
+| Rust (oxrdf) | Python (rdflib) |
 |--------|--------|
-| `Vec<(String, String, String)>` | `list[tuple[str, str, str]]` |
-| no rdflib in course | dict/list sketch; rdflib only as contrast |
-| structs through Day 75 | intuition only |
+| `Graph::new()` + `insert` | `Graph()` + `add` |
+| `NamedNode::new(...)` | `Namespace` / `URIRef` |
+| same `ex:` / `brick:` IRIs | same prefixes |
 
-**Takeaway:** A triple is just three strings—practice the shape in Python; implement the graph in Rust.
+**Takeaway:** One AHU→point edge is enough to start—practice the shape in both stacks today.

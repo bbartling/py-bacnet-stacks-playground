@@ -1,57 +1,67 @@
-# Day 71 – DISTINCT, ORDER BY, LIMIT in Rust
+# Day 71 – DISTINCT, ORDER BY, LIMIT
+
+*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
 
 ## Goal
 
-Query hygiene: dedupe results, sort, cap row count—like SPARQL post-processing in application code.
+Query hygiene on both stacks: **DISTINCT**, **ORDER BY**, **LIMIT**—top-k points, not triple dumps.
 
 ## Concept
 
-```rust
-fn select_distinct_sorted(mut ids: Vec<String>) -> Vec<String> {
-    ids.sort();
-    ids.dedup();
-    ids.truncate(10);
-    ids
+```sparql
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX ex:    <http://example.org/>
+SELECT DISTINCT ?p WHERE {
+  ex:AHU1 brick:hasPoint ?p .
 }
+ORDER BY ?p
+LIMIT 5
 ```
 
-Apply after pattern match functions from Days 63–70.
+Apply after pattern matches (Days 63–70). DISTINCT matters especially after UNION.
 
 ## Why This Matters
 
-UI and agent tools need **top-k** points, not 10k triple dumps.
+UI and agent tools need **top-k** points, not every edge in the graph.
 
 ## Mini Examples
 
-- LIMIT 5 points for dashboard card.
+- LIMIT 5 for a dashboard card.
 - ORDER BY IRI for stable CLI output.
 
 ## Micro Exercises
 
-1. Wrap Day 63 query with distinct + limit flags.
-2. Benchmark naive vs sorted dedupe on 1k fake triples (optional).
-3. Document why DISTINCT matters after UNION.
+1. Run the SELECT above on `ahu1.ttl` in Rust (`oxrdf` + same intent) and Python (`rdflib`).
+2. Optional: benchmark naive vs sorted dedupe on 1k fake IRIs.
+3. One sentence: why DISTINCT after UNION.
 
 ## Key Takeaway
 
-**Practical query engines add SQL-like polish**—even hand-rolled Rust matchers.
+**Practical queries add SQL-like polish**—even on small Brick models.
 
 ---
 
-## Python companion — distinct / sort / limit
+## Python companion — same SELECT polish
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
-# Post-process polish—Rust track wraps real graph queries.
-ids = ["ex:OAT", "ex:SAT", "ex:SAT", "ex:MAT"]
-out = sorted(set(ids))[:2]  # DISTINCT + ORDER BY + LIMIT
-print(out)
+from rdflib import Graph
+
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+for row in g.query("""
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX ex: <http://example.org/>
+SELECT DISTINCT ?p WHERE { ex:AHU1 brick:hasPoint ?p }
+ORDER BY ?p LIMIT 5
+"""):
+    print(row.p)
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf`) | Python (`rdflib`) |
 |--------|--------|
-| `sort` / `dedup` / `truncate` | `sorted(set(...))[:n]` |
-| Top-k for UI/agents | same hygiene idea |
+| Same DISTINCT / ORDER / LIMIT intent | `g.query` with those clauses |
+| Stable top-k for CLI/UI | Same rows |
 
-**Takeaway:** DISTINCT/ORDER/LIMIT are list hygiene after matching—Python shows it; Rust applies it to query results.
+**Takeaway:** One polished SELECT—compare ordered IDs across stacks.

@@ -1,72 +1,83 @@
-# Day 59 – Adjacency List Graph in Rust
+# Day 59 – Graph Insert & Lookup
+
+*Part VII: RDF & Brick | Week 12*
 
 ## Goal
 
-Implement a **directed multigraph** as `HashMap<String, Vec<(String, RdfObject)>>` for queries by subject.
+**Intuition:** subject → outgoing edges. Then use **oxrdf `Graph`** insert + subject lookup—mirror with **rdflib**.
 
 ## Concept
 
+Hand-built adjacency (intuition only):
+
 ```rust
-use std::collections::HashMap;
+// HashMap<String, Vec<(String, String)>> — subject → (pred, obj)
+// Query: all brick:hasPoint for ex:AHU1
+```
 
-type AdjGraph = HashMap<String, Vec<(String, RdfObject)>>;
+Real lab—oxrdf (after Day 58 Turtle load, or insert by hand):
 
-fn add(g: &mut AdjGraph, t: &Triple) {
-    g.entry(t.s.clone()).or_default().push((t.p.clone(), t.o.clone()));
-}
+```rust
+use oxrdf::{Graph, NamedNode, Triple};
 
-fn objects_of<'a>(g: &'a AdjGraph, subj: &str, pred: &str) -> Vec<&'a RdfObject> {
-    g.get(subj)
-        .into_iter()
-        .flat_map(|v| v.iter())
-        .filter(|(p, _)| p == pred)
-        .map(|(_, o)| o)
-        .collect()
+fn main() {
+    let mut g = Graph::new();
+    let ahu = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
+    let hp = NamedNode::new("https://brickschema.org/schema/Brick#hasPoint").unwrap();
+    let sat = NamedNode::new("http://example.com/bldg#SAT").unwrap();
+    g.insert(Triple::new(ahu.clone(), hp.clone(), sat));
+
+    for t in g.triples_for_subject(ahu.as_ref()) {
+        if t.predicate == hp.as_ref() {
+            println!("point: {}", t.object);
+        }
+    }
 }
 ```
 
 ## Why This Matters
 
-This is your **mini rdflib Graph**—enough for Brick traversals without SPARQL engine complexity.
+This is your **mini query engine**—enough for Brick traversals before SPARQL (Day 63).
 
 ## Mini Examples
 
 - Query all `brick:hasPoint` for `ex:AHU1`.
-- Count triples: sum edge list lengths.
+- Count triples after loading `mini.ttl`.
 
 ## Micro Exercises
 
-1. Function `types_of(g, subj)` using `rdf:type` IRI constant.
-2. Merge two graphs (insert all edges).
-3. Dedupe edges with a `HashSet` of serialized keys.
+1. `types_of(g, subj)` via `rdf:type` (both stacks).
+2. Merge two graphs (insert all triples from B into A).
+3. Load Day 58 `mini.ttl` and list points of AHU1.
 
 ## Key Takeaway
 
-**Graph = map of subject → outgoing edges**—classic CS 101 structure, building semantics.
+**Graph = insert + match by subject/predicate**—adjacency intuition, oxrdf/rdflib for real work.
 
 ---
 
-## Python companion — Dict-as-graph sketch
+## Python companion — Same insert + lookup
 
 *Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
 
 ```python
-# Course track prefers Rust RDF; dict store for intuition (not rdflib)
-Adj = dict[str, list[tuple[str, str]]]
+from rdflib import Graph, Namespace, RDF
 
-g: Adj = {}
-def add(subj: str, pred: str, obj: str) -> None:
-    g.setdefault(subj, []).append((pred, obj))
+EX = Namespace("http://example.com/bldg#")
+BRICK = Namespace("https://brickschema.org/schema/Brick#")
 
-add("ex:AHU1", "brick:hasPoint", "ex:SAT")
-add("ex:SAT", "rdf:type", "brick:Supply_Air_Temperature_Sensor")
-print([o for p, o in g["ex:AHU1"] if p == "brick:hasPoint"])
+g = Graph()
+g.add((EX.AHU1, BRICK.hasPoint, EX.SAT))
+g.add((EX.SAT, RDF.type, BRICK.Supply_Air_Temperature_Sensor))
+
+points = list(g.objects(EX.AHU1, BRICK.hasPoint))
+print(points)  # [rdflib.term.URIRef('...#SAT')]
 ```
 
-| Rust (main lesson) | Python |
+| Rust (oxrdf) | Python (rdflib) |
 |--------|--------|
-| `HashMap` adjacency | `dict` of lists |
-| `objects_of` | list comprehension |
-| mini rdflib idea | same shape, no library |
+| `insert` + `triples_for_subject` | `add` + `g.objects(s, p)` |
+| same AHU / hasPoint / SAT | same |
+| optional adjacency sketch first | same ops on `Graph` |
 
-**Takeaway:** Subject → edges is enough for lab queries—sketch in Python, implement in Rust.
+**Takeaway:** Subject → edges is the query shape—run it on oxrdf and rdflib, not only dicts.

@@ -2,7 +2,7 @@
 
 Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in the repo [README.md](../README.md#computer-science-theory-101-weekly-outline) is the canonical syllabus text; this page is a **compact link hub**.
 
-**Conventions:** Same section scaffold throughout (`# Day NN`, then `## Goal` / `## Concept` / `## Why This Matters` / `## Mini Examples` / `## Micro Exercises` / `## Key Takeaway`, optional `## Wireshark Lab`, then companion). Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions), each with a **Rust companion** at the bottom (install Rust on **Day 1**). Days **28–75** are **Rust-main** (Day 28 ownership/borrowing/lifetimes; then network programming UDP/TCP, **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust**—not Python `rdflib`), each with a **Python companion** at the bottom for parallel learning. Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
+**Conventions:** Same section scaffold throughout (`# Day NN`, then `## Goal` / `## Concept` / `## Why This Matters` / `## Mini Examples` / `## Micro Exercises` / `## Key Takeaway`, optional `## Wireshark Lab`, then companion). Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions), each with a **Rust companion** at the bottom (install Rust on **Day 1**). Days **28–75** are **Rust-main** (Day 28 ownership/borrowing/lifetimes; then network programming UDP/TCP, **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF dual-stack: `rdflib` (Python) + `oxrdf` (Rust)**—same Turtle samples and SPARQL/`SELECT`/`ASK`/`CONSTRUCT` intent on both where queries appear), each with a **Python companion** at the bottom for parallel learning. Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
 
 ---
 
@@ -16,7 +16,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | **Wireshark Lab** (Days 35–40, 36b, 41–46, 48–54, 64, 75) | Require **`pcaps/` artifact** + screenshot with the lesson’s **display filter** pasted into Wireshark. |
 | **Network labs** | Run [`capture_pcap.sh`](./lab-scripts/capture_pcap.sh) during the exercise; filter cheat sheet: [`wireshark_filters.md`](./lab-scripts/wireshark_filters.md). |
 | **Capstone days** | **Day 46** (BACnet CLI), **Day 54** (Haystack CLI), **Day 75** (multi-protocol semantic snapshot) are graded milestones. |
-| **RDF weeks (55–75)** | Hand-authored **`ahu1.ttl`**, Rust graph API, optional `oxrdf`/`serde_json`—no `pip install rdflib`. |
+| **RDF weeks (55–75)** | Hand-authored **`ahu1.ttl`**; dual-stack **`rdflib` (Python) + `oxrdf` (Rust)**; SPARQL shown on both where applicable; optional `serde_json`. |
 
 **Difficulty knobs (optional):** (1) Ban `unwrap()` on network paths for one week. (2) Require **`cargo test`** from Week 6 onward. (3) Require **`clap --help`** UX on capstone CLIs.
 
@@ -117,7 +117,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | 53 | [day53.md](./day53.md) — Haystack ↔ BACnet mapping |
 | 54 | [day54.md](./day54.md) — Haystack capstone CLI |
 
-## Week 7 — RDF bridge in Rust
+## Week 7 — RDF bridge (rdflib + oxrdf)
 
 | Day | Link |
 | --- | --- |
@@ -129,7 +129,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | 60 | [day60.md](./day60.md) — rdf:type & Brick taxonomy |
 | 61 | [day61.md](./day61.md) — Haystack tags vs Brick graphs |
 
-## Week 8 — Brick models & query patterns in Rust
+## Week 8 — Brick models & query patterns (rdflib + oxrdf)
 
 | Day | Link |
 | --- | --- |
@@ -140,7 +140,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 | 66 | [day66.md](./day66.md) — Serialize graph to Turtle |
 | 67 | [day67.md](./day67.md) — ASHRAE 223P alignment (concept) |
 
-## Week 9 — Live data → graph & agent export
+## Week 9 — Live data → graph & agent export (rdflib + oxrdf)
 
 | Day | Link |
 | --- | --- |
@@ -166,6 +166,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 - **tcpdump**, **Wireshark** (from Day 38): system packages
 - **Optional crates** (stretch): `oxrdf`, `serde`, `serde_json`, `tokio`, `clap`
 - **Python** (Days 1–27): `BAC0`, `bacpypes3` as in Day 1
+- **Python RDF** (Days 55–75 companion): `rdflib` (`pip install rdflib`)
 
 ## Related repos (external)
 

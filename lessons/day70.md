@@ -1,60 +1,73 @@
 # Day 70 – UNION & ASK Queries
 
+*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
+
 ## Goal
 
-Implement **`UNION`** (two patterns, merge results) and **`ASK`** (exists?) for commissioning checks.
+Same commissioning checks on both stacks: **`ASK`** (exists?) and **`UNION`** (merge two patterns).
 
 ## Concept
 
-ASK example: "Does AHU1 have any Supply Air Temperature sensor?"
-
-```rust
-fn ask_has_sat(g: &AdjGraph, ahu: &str) -> bool {
-    select_points(g, ahu).iter().any(|p| {
-        types_of(g, p).iter().any(|t| t.contains("Supply_Air_Temperature"))
-    })
+```sparql
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX ex:    <http://example.org/>
+ASK {
+  ex:AHU1 brick:hasPoint ?p .
+  ?p a brick:Supply_Air_Temperature_Sensor .
 }
 ```
 
-UNION: merge results from two predicates or two equipment branches.
+```sparql
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX ex:    <http://example.org/>
+SELECT ?p WHERE {
+  { ex:AHU1 brick:hasPoint ?p . ?p a brick:Supply_Air_Temperature_Sensor }
+  UNION
+  { ex:AHU1 brick:hasPoint ?p . ?p a brick:Outside_Air_Temperature_Sensor }
+}
+```
 
 ## Why This Matters
 
-Commissioning scripts ask yes/no questions before trend analysis—ASK is the RDF form.
+Commissioning scripts ask yes/no before trends—**ASK** is first-class, not only SELECT tables.
 
 ## Mini Examples
 
 - ASK: does AHU1 have a SAT-typed point?
-- UNION: merge results from two sensor-class patterns into one list.
+- UNION: one list from two sensor-class patterns.
 
 ## Micro Exercises
 
-1. ASK three rules on your `ahu1.ttl` model.
-2. UNION query for two different sensor class patterns.
-3. Print PASS/FAIL report markdown from Rust `main`.
+1. Three ASK rules on `ahu1.ttl` (both stacks).
+2. UNION for two sensor classes; print PASS/FAIL markdown.
+3. Compare bool results Rust vs Python.
 
 ## Key Takeaway
 
-**Existence checks are first-class**—not everything is a SELECT table.
+**Existence checks are first-class**—not everything is a result table.
 
 ---
 
-## Python companion — ASK and UNION
+## Python companion — same ASK / UNION
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
-# ASK/UNION mindset—implement checks in Rust on your graph.
-types = {"ex:SAT": ["brick:Supply_Air_Temperature_Sensor"]}
-ask_has_sat = any("Supply_Air_Temperature" in t for ts in types.values() for t in ts)
-a = {"ex:SAT"}; b = {"ex:OAT"}
-union_ids = a | b
-print("ASK", ask_has_sat, "UNION", union_ids)
+from rdflib import Graph
+
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+ask = g.query("""
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX ex: <http://example.org/>
+ASK { ex:AHU1 brick:hasPoint ?p . ?p a brick:Supply_Air_Temperature_Sensor }
+""")
+print("ASK", bool(ask))
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf`) | Python (`rdflib`) |
 |--------|--------|
-| `ask_has_sat` / UNION merge | `any(...)` and `set \| set` |
-| PASS/FAIL commissioning report | print bool + merged ids |
+| Same ASK / UNION intent | `g.query` ASK → `bool(...)` |
+| PASS/FAIL report | Same checks |
 
-**Takeaway:** ASK is yes/no; UNION merges patterns—sketch with `any`/`set`, ship checks in Rust.
+**Takeaway:** ASK is yes/no; UNION merges patterns—same queries on both sides.

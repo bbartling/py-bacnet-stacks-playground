@@ -1,63 +1,77 @@
-# Day 69 – FILTER & OPTIONAL Patterns in Rust
+# Day 69 – FILTER & OPTIONAL Patterns
+
+*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
 
 ## Goal
 
-Implement SPARQL-like **`FILTER`** (numeric compare) and **`OPTIONAL`** (maybe-missing edges) on your graph API.
+Run the same SPARQL intent: **`OPTIONAL`** labels and **`FILTER`** on numeric literals against your Brick graph.
 
 ## Concept
 
-```rust
-fn optional_point_label(g: &AdjGraph, pt: &str) -> Option<String> {
-    let label_pred = "http://www.w3.org/2000/01/rdf-schema#label";
-    objects_of(g, pt, label_pred).into_iter().next().and_then(|o| match o {
-        RdfObject::Literal { lex, .. } => Some(lex.clone()),
-        _ => None,
-    })
+```sparql
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ex:    <http://example.org/>
+SELECT ?p ?label ?v WHERE {
+  ex:AHU1 brick:hasPoint ?p .
+  OPTIONAL { ?p rdfs:label ?label }
+  OPTIONAL { ?p rdf:value ?v }
+  FILTER(!BOUND(?v) || ?v > 55.0)
 }
 ```
 
-FILTER: keep sensors where parsed literal > threshold.
+Real models miss labels or values—queries must not explode on absence (**OPTIONAL ≈ LEFT JOIN**).
 
 ## Why This Matters
 
-Real models miss labels, units, or optional points—queries must not explode on absence.
+Commissioning graphs are incomplete; FILTER/OPTIONAL keep tools usable.
 
 ## Mini Examples
 
-- Print label or `None` when `rdfs:label` is missing.
-- Keep only points whose numeric literal is above a threshold.
+- Print label or unbound when `rdfs:label` is missing.
+- Keep points whose numeric literal is above a threshold.
 
 ## Micro Exercises
 
-1. Query all temperature sensors with optional `rdfs:label`.
-2. Filter SAT > 55.0 if literal present.
-3. Compare to SQL LEFT JOIN in one sentence.
+1. Load `ahu1.ttl`; run the SELECT above (Python `rdflib`; Rust: same query intent over `oxrdf` graph / optional SPARQL crate).
+2. Filter SAT > 55.0 when literal present.
+3. One sentence: OPTIONAL vs SQL LEFT JOIN.
 
 ## Key Takeaway
 
-**OPTIONAL = left join mindset**—essential for commissioning-grade incomplete graphs.
+**OPTIONAL = left join mindset**—essential for incomplete graphs.
 
 ---
 
-## Python companion — `.get` and FILTER
+## Python companion — same SELECT in `rdflib`
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
-# OPTIONAL/FILTER intuition—query API is Rust.
-points = [
-    {"iri": "ex:SAT", "label": "Supply Air Temp", "val": 57.0},
-    {"iri": "ex:OAT", "label": None, "val": 48.0},
-]
-for p in points:
-    label = p.get("label") or "(no label)"  # OPTIONAL
-    if p.get("val") is not None and p["val"] > 50:  # FILTER
-        print(p["iri"], label, p["val"])
+from rdflib import Graph
+
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+q = """
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ex:    <http://example.org/>
+SELECT ?p ?label ?v WHERE {
+  ex:AHU1 brick:hasPoint ?p .
+  OPTIONAL { ?p rdfs:label ?label }
+  OPTIONAL { ?p rdf:value ?v }
+  FILTER(!BOUND(?v) || ?v > 55.0)
+}
+"""
+for row in g.query(q):
+    print(row)
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf`) | Python (`rdflib`) |
 |--------|--------|
-| `optional_point_label` / FILTER loops | `.get` + `if val > threshold` |
-| Incomplete commissioning graphs | missing keys are normal |
+| Same SPARQL intent on loaded graph | `g.query(q)` |
+| Same `ex:` / `brick:` sample | Same query text |
 
-**Takeaway:** OPTIONAL is “maybe missing”; FILTER is “keep if”—Python `.get` mirrors the Rust query mindset.
+**Takeaway:** One SELECT—two engines; compare rows, not syntax flavors.

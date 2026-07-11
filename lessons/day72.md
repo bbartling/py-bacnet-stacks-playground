@@ -1,57 +1,61 @@
-# Day 72 – Haystack RDF Export Path (Concept + Stub)
+# Day 72 – Haystack RDF Export Path
+
+*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
 
 ## Goal
 
-Explore whether your Haystack source exposes **RDF** or only Zinc—and stub an export pipeline `Zinc rows → triples`.
+Zinc/Haystack often has **no native RDF**—stub **`Zinc row → triples`**, merge with Brick `ahu1.ttl`, serialize Turtle on both stacks.
 
 ## Concept
 
-If only Zinc:
+1. `/read` → parse grid (or stub one row)
+2. Map `id`, `dis`, `equipRef` → triples (Day 61 tags→graph)
+3. Merge into Brick template; write TTL with **`oxrdf`** / **`rdflib`**
 
-1. `/read` → parse grid
-2. Map columns `id`, tags → triples (Day 61)
-3. Merge with Brick template graph
-
-Optional crates: `oxrdf`, `rio_turtle` for standards-compliant IO.
+Unmapped tags → `ex:haystackTag` annotation. Same `ex:` / `brick:` prefixes on both sides.
 
 ## Why This Matters
 
-"Haystack RDF" in industry often means **tag projection into RDF**, not Niagara native RDF files.
+Industry “Haystack RDF” is usually **tag projection into RDF**, not Niagara-native RDF files.
 
 ## Mini Examples
 
-- List triple count from Haystack-derived vs hand Brick TTL.
-- Note tags without Brick mapping → `ex:haystackTag` annotation.
+- Triple count: Haystack-derived vs hand Brick TTL.
+- Serialize merged graph; compare Rust vs Python output counts.
 
 ## Micro Exercises
 
-1. Implement `zinc_row_to_triples` for 3 columns.
-2. Merge Haystack-derived graph with `ahu1.ttl`.
-3. One-page doc: what your site would need for RDF export.
+1. `zinc_row_to_triples` for 3 columns (both languages).
+2. Merge with `ahu1.ttl`; serialize Turtle.
+3. One-page note: what your site needs for RDF export.
 
 ## Key Takeaway
 
-**RDF at the edge is often synthesized** from Haystack reads + Brick ontology rules.
+**RDF at the edge is often synthesized** from Haystack reads + Brick rules.
 
 ---
 
-## Python companion — Zinc row → triples stub
+## Python companion — Zinc row → `rdflib` merge
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
-# Tag projection sketch—merge/export pipeline is Rust.
-row = {"id": "ahu1.oa-t", "dis": "OA Temp", "equipRef": "ahu1"}
-triples = [
-    (f"ex:{row['id']}", "rdfs:label", row["dis"]),
-    (f"ex:{row['equipRef']}", "brick:hasPoint", f"ex:{row['id']}"),
-]
-print(triples)  # then merge mentally with ahu1.ttl in Rust
+from rdflib import Graph, Literal, Namespace, RDF, RDFS
+
+EX, BRICK = Namespace("http://example.org/"), Namespace("https://brickschema.org/schema/Brick#")
+row = {"id": "ahu1.oa-t", "dis": "OA Temp", "equipRef": "AHU1"}
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+pid = EX[row["id"]]
+g.add((pid, RDFS.label, Literal(row["dis"])))
+g.add((EX[row["equipRef"]], BRICK.hasPoint, pid))
+print(len(g), "triples")
+print(g.serialize(format="turtle"))
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf`) | Python (`rdflib`) |
 |--------|--------|
-| `zinc_row_to_triples` + merge graphs | dict → triple list |
-| Optional `oxrdf` IO | no rdflib; strings/tuples only |
+| Row → triples + merge + Turtle | Same map + `parse` / `add` / `serialize` |
+| Same `ex:` / `brick:` | Same |
 
-**Takeaway:** “Haystack RDF” is often synthesized tags→triples—prototype the map in Python; export in Rust.
+**Takeaway:** Synthesize tags→triples, then merge—same file on both stacks.

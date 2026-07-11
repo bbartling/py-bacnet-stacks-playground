@@ -1,62 +1,53 @@
-# Day 66 – Serialize Graph to Turtle from Rust
+# Day 66 – Serialize Graph to Turtle
+
+*Week 8 · Brick models & query patterns · Rust main (`oxrdf`) + Python companion (`rdflib`)*
 
 ## Goal
 
-Write **`graph.serialize_turtle()`**—emit prefixes and triples from your adjacency structure.
+Round-trip the same Brick graph: load `ahu1.ttl`, then **serialize Turtle** with **`oxrdf`** (Rust) and **`rdflib`** (Python).
 
 ## Concept
 
-```rust
-impl AdjGraph {
-    fn to_turtle(&self, prefix_map: &HashMap<&str, &str>) -> String {
-        let mut out = String::new();
-        for (pfx, iri) in prefix_map {
-            out.push_str(&format!("@prefix {pfx}: <{iri}> .\n"));
-        }
-        // emit "subj pred obj ." lines — simplify IRIs with prefixes when possible
-        out
-    }
-}
-```
+Both stacks hold the same `ex:` / `brick:` triples. Serialization is file exchange—emit prefixes and `subj pred obj .` lines so partners and validators can read the model.
 
-Round-trip: TTL → graph → TTL should preserve triple count.
+Round-trip: TTL → graph → TTL should preserve **triple count** (sort lines for clean diffs).
 
 ## Why This Matters
 
-Exporting models for **Brick validation tools** and partners requires serialization—not only in-memory graphs.
+Exporting models for Brick tools and partners requires Turtle on disk—not only in-memory graphs.
 
 ## Mini Examples
 
-- Round-trip `ahu1.ttl` through parse (if using oxrdf) and your serializer.
-- Git-diff two exports—stable sort lines for clean diffs.
+- Load [`capstone/model/ahu1.ttl`](./capstone/model/ahu1.ttl); serialize to `ahu1_out.ttl`.
+- Git-diff two exports after stable sort.
 
 ## Micro Exercises
 
-1. Serialize Day 62 model from code-built graph.
-2. Handle literal datatypes in output `^^xsd:double`.
-3. Unit test: parse count == serialize count.
+1. Serialize a code-built AHU graph (same triples) from Rust and Python.
+2. Emit a typed literal `^^xsd:double` on both sides.
+3. Assert: load count == serialize count.
 
 ## Key Takeaway
 
-**RDF interoperability is file exchange**—Turtle generation completes the Rust RDF mini-stack.
+**RDF interoperability is file exchange**—Turtle out completes the dual-stack mini-path.
 
 ---
 
-## Python companion — Emit Turtle lines
+## Python companion — `rdflib` serialize
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
-# String join sketch—course serializer is Rust `to_turtle`.
-triples = [("ex:AHU1", "a", "brick:AHU"), ("ex:AHU1", "brick:hasPoint", "ex:SAT")]
-lines = ["@prefix brick: <https://brickschema.org/schema/Brick#> ."]
-lines += [f"{s} {p} {o} ." for s, p, o in triples]
-print("\n".join(lines))
+from rdflib import Graph
+
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+print(g.serialize(format="turtle"))
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf`) | Python (`rdflib`) |
 |--------|--------|
-| `AdjGraph::to_turtle` + round-trip | `"\\n".join(...)` of triple strings |
-| Prefix map + IRI shorten | hard-coded prefixes for intuition |
+| Load TTL → write Turtle | `Graph.parse` → `serialize(format="turtle")` |
+| Same `ahu1.ttl` | Same file |
 
-**Takeaway:** Serialization is formatting triples as text—practice in Python; complete the mini-stack in Rust.
+**Takeaway:** Both serialize the same graph—compare triple counts, not APIs.

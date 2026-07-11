@@ -1,17 +1,34 @@
-# Day 65 – open-fdd Drivers & Semantic Layer
+# Day 65 – Drivers & Semantic Layer Stack
+
+*Part VII: RDF & Brick | Week 12*
 
 ## Goal
 
-Relate **Rust drivers** (BACnet, Haystack, Modbus) in open-fdd to the graphs you build—conceptual architecture day.
+Relate **drivers** (BACnet, Haystack, Modbus) to the graphs you build—architecture day with a light dual-stack sketch.
 
 ## Concept
 
 Layers:
 
-1. **Transport** — UDP/TCP (this course Weeks 5–6)
+1. **Transport** — UDP/TCP (Weeks 5–6)
 2. **Driver** — rusty-bacnet / HTTP client / modbus crate
 3. **Normalization** — point IDs, units, timestamps
-4. **Semantics** — Brick/RDF tags for rules (FDD expressions)
+4. **Semantics** — Brick/RDF (`oxrdf` / `rdflib`) for rules (FDD)
+
+```rust
+// Conceptual — where ahu1.ttl sits in the stack
+const STACK: &[&str] = &[
+    "transport: UDP/TCP",
+    "driver: bacnet | haystack | modbus",
+    "normalize: point id, unit, ts",
+    "semantics: Brick/RDF (oxrdf Graph / mini.ttl)",
+];
+fn main() {
+    for layer in STACK {
+        println!("{layer}");
+    }
+}
+```
 
 Read: `open-fdd` workspace driver configs and commission CSVs if available locally.
 
@@ -21,14 +38,14 @@ You aren't learning Rust in a vacuum—you're learning **edge BAS architecture**
 
 ## Mini Examples
 
-- Diagram: BACnet PV → internal point id → Brick class column for rule.
-- List env vars that disable BACnet server on commission host (lab lesson learned).
+- Diagram: BACnet PV → internal point id → Brick class for a rule.
+- List env vars that disable BACnet server on the commission host.
 
 ## Micro Exercises
 
-1. Trace one point from Wireshark BACnet frame to FDD rule input name (conceptual).
-2. Where would `ahu1.ttl` live in a deployment story?
-3. MCP/agent prompts that reference drivers—skim open-fdd agent prompt if present.
+1. Trace one point from Wireshark BACnet frame to FDD rule input (conceptual).
+2. Where would `ahu1.ttl` / `mini.ttl` live in a deployment story?
+3. Skim open-fdd agent prompts that reference drivers if present.
 
 ## Key Takeaway
 
@@ -36,25 +53,26 @@ You aren't learning Rust in a vacuum—you're learning **edge BAS architecture**
 
 ---
 
-## Python companion — Layer stack sketch
+## Python companion — Same layer stack
 
 *Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
 
 ```python
-# Architecture notes—drivers/graphs are the Rust track.
 stack = {
     "transport": "UDP/TCP",
     "driver": "bacnet | haystack | modbus",
     "normalize": "point id, unit, ts",
-    "semantics": "Brick/RDF for FDD rules",
+    "semantics": "Brick/RDF (rdflib Graph / mini.ttl)",
 }
 for layer, role in stack.items():
     print(f"{layer}: {role}")
+# Same story as Rust — semantics = shared Turtle + SPARQL days
 ```
 
-| Rust (main lesson) | Python |
+| Rust (oxrdf track) | Python (rdflib track) |
 |--------|--------|
-| open-fdd-style drivers + RDF | nested dict of layer names |
-| Wire → point → Brick class | same story as labels only |
+| drivers + `oxrdf` semantics | same four layers; `rdflib` at top |
+| `mini.ttl` / `ahu1.ttl` | same files |
+| wire → point → Brick class | same labels |
 
-**Takeaway:** Python sketches the architecture; Rust owns transport, drivers, and the semantic graph.
+**Takeaway:** Both stacks share the semantic top—Turtle and queries from Days 58–63 sit above the drivers.

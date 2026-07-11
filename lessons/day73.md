@@ -1,58 +1,73 @@
-# Day 73 – Agent-Ready Point Metadata (Rust Structs → JSON)
+# Day 73 – Agent-Ready Point Metadata (JSON)
+
+*Week 9 · Live data → graph · Rust main (`oxrdf`) + Python companion (`rdflib`)*
 
 ## Goal
 
-Serialize query results as **JSON** for MCP/agents—network + semantics course meets AI edge workflows.
+Query the Brick graph, then emit **JSON / NDJSON** point rows for MCP/agents—same SELECT intent, two serializers.
 
 ## Concept
 
-```rust
-#[derive(serde::Serialize)]
-struct PointRow {
-    iri: String,
-    brick_class: String,
-    cur_val: Option<f64>,
-    bacnet_ref: Option<String>,
+```sparql
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ex:    <http://example.org/>
+SELECT ?p ?v WHERE {
+  ex:AHU1 brick:hasPoint ?p .
+  OPTIONAL { ?p rdf:value ?v }
 }
 ```
 
-Use `serde_json` to emit NDJSON for agent consumption.
+Shape each row: `iri`, `brick_class`, `cur_val`, `bacnet_ref` (Day 53). Rust: `serde_json`; Python: `json.dumps`.
 
 ## Why This Matters
 
-open-fdd agent prompts reference **driver health + point context**—JSON bridges RDF graphs to LLM tools.
+Agents speak **JSON** first—RDF supplies context; JSON is the tool API.
 
 ## Mini Examples
 
-- One JSON line per temperature sensor after graph query.
-- Include `bacnet_ref` from Day 53 map.
+- One JSON line per temperature sensor.
+- Include `bacnet_ref` from your map.
 
 ## Micro Exercises
 
-1. `cargo add serde serde_json`.
-2. Emit file `points.ndjson` from combined pipeline stub.
-3. Validate JSON with `jq .` per line.
+1. Rust: `cargo add serde serde_json`; Python: stdlib `json`.
+2. Emit `points.ndjson` from the SELECT above (both stacks).
+3. Validate with `jq .` per line.
 
 ## Key Takeaway
 
-**Agents don't speak SPARQL first—they speak JSON**—Rust serves both graph and tool APIs.
+**Agents don't speak SPARQL first—they speak JSON**—serve both graph and tool APIs.
 
 ---
 
-## Python companion — Point row → JSON
+## Python companion — SELECT → NDJSON
 
-*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+*Same day as the Rust lesson above. Prefer a venv; `pip install rdflib`. Keep scripts in `~/py-lab`.*
 
 ```python
 import json
-row = {"iri": "ex:AHU1-SAT", "brick_class": "Supply_Air_Temperature_Sensor",
-       "cur_val": 57.2, "bacnet_ref": "AI:1"}
-print(json.dumps(row))  # NDJSON = one dumps per line; Rust uses serde_json
+from rdflib import Graph
+
+g = Graph()
+g.parse("lessons/capstone/model/ahu1.ttl", format="turtle")  # adjust path
+q = """
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ex: <http://example.org/>
+SELECT ?p ?v WHERE {
+  ex:AHU1 brick:hasPoint ?p .
+  OPTIONAL { ?p rdf:value ?v }
+}
+"""
+for row in g.query(q):
+    print(json.dumps({"iri": str(row.p), "cur_val": float(row.v) if row.v else None,
+                       "bacnet_ref": "AI:1"}))
 ```
 
-| Rust (main lesson) | Python |
+| Rust (`oxrdf` + `serde_json`) | Python (`rdflib` + `json`) |
 |--------|--------|
-| `serde` `PointRow` → NDJSON | `json.dumps` dict |
-| Graph query → agent file | parallel shape only |
+| Same SELECT → NDJSON | Same query → `json.dumps` |
+| Agent file export | Same row shape |
 
-**Takeaway:** Agents want JSON rows—Python `json` shows the shape; Rust `serde_json` is the course path.
+**Takeaway:** One query, JSON rows—graph in, tool API out.

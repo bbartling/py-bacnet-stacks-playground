@@ -1,65 +1,88 @@
 # Day 60 – rdf:type & Brick Class Taxonomy
 
+*Part VII: RDF & Brick | Week 12*
+
 ## Goal
 
-Navigate **`rdf:type`** and **`rdfs:subClassOf`** chains for Brick equipment classes in your adjacency graph.
+Navigate **`rdf:type`** and **`rdfs:subClassOf`** for Brick equipment—load a tiny taxonomy TTL in both stacks.
 
 ## Concept
 
-Constants:
+Shared taxonomy sketch (`taxo.ttl`):
 
-```rust
-const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const RDFS_SUBCLASS: &str = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+```turtle
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix ex: <http://example.com/bldg#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:AHU1 a brick:AHU .
+brick:AHU rdfs:subClassOf brick:Equipment .
 ```
 
-Query pattern: find all nodes where type is `brick:AHU` or subclass thereof (walk `subClassOf` edges upward in a tiny static taxonomy map).
+```rust
+use oxrdf::{Graph, NamedNode, Triple, vocab::rdf};
+use oxrdfio::{RdfFormat, RdfParser};
+use std::fs;
+
+fn main() {
+    let data = fs::read("taxo.ttl").unwrap();
+    let mut g = Graph::new();
+    for q in RdfParser::from_format(RdfFormat::Turtle).for_reader(data.as_slice()) {
+        let q = q.unwrap();
+        g.insert(Triple::new(q.subject, q.predicate, q.object));
+    }
+    let ahu1 = NamedNode::new("http://example.com/bldg#AHU1").unwrap();
+    for t in g.triples_for_subject(ahu1.as_ref()) {
+        if t.predicate == rdf::TYPE {
+            println!("type: {}", t.object);
+        }
+    }
+}
+```
+
+Walk `rdfs:subClassOf` upward for a tiny `is_instance_of` (BFS) as stretch.
 
 ## Why This Matters
 
-FDD rules reference **Brick class names** as logical columns—types tell you which points belong to which equip templates.
+FDD rules reference **Brick class names**—types tell which points belong to which equip templates.
 
 ## Mini Examples
 
-- Add `brick:AHU rdfs:subClassOf brick:Equipment` manually.
-- List all instances of `brick:Sensor` in toy graph.
+- List direct types of `ex:AHU1`.
+- Add `brick:Sensor` subclass edges; list sensor instances.
 
 ## Micro Exercises
 
-1. Hard-code 5-class hierarchy in TTL; load into graph.
-2. Function `is_instance_of(g, node, class_iri) -> bool` (BFS over subclass).
+1. Hard-code a 5-class hierarchy in TTL; load in both stacks.
+2. Function `is_instance_of(g, node, class_iri)` (BFS over subclass).
 3. Link to open-fdd rule inputs that mention Brick classes.
 
 ## Key Takeaway
 
-**Taxonomy = typed nodes + subclass edges**—RDF's core OOP-like view of buildings.
+**Taxonomy = typed nodes + subclass edges**—RDF's OOP-like view of buildings.
 
 ---
 
-## Python companion — Type / subclass walk
+## Python companion — Same taxonomy TTL
 
 *Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
 
 ```python
-# Course track prefers Rust RDF; Python sketch for intuition
-RDF_TYPE = "rdf:type"
-SUB = "rdfs:subClassOf"
-g = {
-    "ex:AHU1": [(RDF_TYPE, "brick:AHU")],
-    "brick:AHU": [(SUB, "brick:Equipment")],
-}
+from rdflib import Graph, Namespace, RDF, RDFS
 
-def types_of(node: str) -> list[str]:
-    return [o for p, o in g.get(node, []) if p == RDF_TYPE]
+EX = Namespace("http://example.com/bldg#")
+BRICK = Namespace("https://brickschema.org/schema/Brick#")
 
-print(types_of("ex:AHU1"))  # ['brick:AHU']
-# Walk SUB edges in Rust for full is_instance_of — sketch only here.
+g = Graph()
+g.parse("taxo.ttl", format="turtle")  # same file as Rust
+print(list(g.objects(EX.AHU1, RDF.type)))  # [BRICK.AHU]
+# Walk: g.objects(BRICK.AHU, RDFS.subClassOf) → Equipment
 ```
 
-| Rust (main lesson) | Python |
+| Rust (oxrdf) | Python (rdflib) |
 |--------|--------|
-| `RDF_TYPE` / `RDFS_SUBCLASS` constants | string keys in a dict graph |
-| BFS `is_instance_of` | print direct types; walk later in Rust |
-| Brick taxonomy in AdjGraph | same edges as intuition |
+| parse TTL → `triples_for_subject` + `rdf::TYPE` | `g.objects(s, RDF.type)` |
+| same `taxo.ttl` | same |
+| BFS `subClassOf` stretch | `RDFS.subClassOf` walk |
 
-**Takeaway:** `rdf:type` plus `subClassOf` is the taxonomy—practice the walk in Rust; Python only shows the shape.
+**Takeaway:** `rdf:type` plus `subClassOf` is the taxonomy—same file, both stacks.

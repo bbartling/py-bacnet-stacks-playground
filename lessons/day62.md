@@ -1,20 +1,32 @@
 # Day 62 – Hand-Author Brick Model for One AHU
 
+*Part VII: RDF & Brick | Week 12*
+
 ## Goal
 
-Write **`ahu1.ttl`** by hand for one AHU, SAT, OAT, and **`brick:hasPoint` / `brick:feeds`** (if applicable).
+Write **`ahu1.ttl`** by hand for one AHU, SAT, OAT, and **`brick:hasPoint`**—load and query in oxrdf and rdflib.
 
 ## Concept
 
 Minimum entities:
 
 - `ex:AHU1` a `brick:AHU`
-- Points: SAT, OAT as appropriate sensor classes
-- Optional: `ex:VAV1 brick:isFedBy ex:AHU1` if in scope
+- Points: SAT, OAT as sensor classes
+- Optional: `ex:VAV1 brick:isFedBy ex:AHU1`
 
-Load into Day 59 graph; verify counts.
+```turtle
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix ex: <http://example.com/bldg#> .
 
-**Starter file:** extend [`capstone/model/ahu1.ttl`](./capstone/model/ahu1.ttl) (N4 `v4Fifteen` bench naming).
+ex:AHU1 a brick:AHU ;
+    brick:hasPoint ex:AHU1-SAT , ex:AHU1-OAT .
+ex:AHU1-SAT a brick:Supply_Air_Temperature_Sensor .
+ex:AHU1-OAT a brick:Outside_Air_Temperature_Sensor .
+```
+
+**Starter file:** extend [`capstone/model/ahu1.ttl`](./capstone/model/ahu1.ttl) if present (N4 bench naming).
+
+Load with Day 58 pattern (`oxrdfio` / `rdflib.parse`); list points with Day 59 lookup.
 
 ## Why This Matters
 
@@ -22,14 +34,14 @@ Commissioning deliverables increasingly include **semantic models** alongside BA
 
 ## Mini Examples
 
-- Validate Turtle with online parser or `oxrdf` load.
-- Pretty-print via your Display impl.
+- Assert ≥ 8 triples after parse.
+- Pretty-print subjects that are points of AHU1.
 
 ## Micro Exercises
 
-1. At least 8 triples in TTL file.
-2. Query all points of AHU1 from Rust graph code.
-3. Screenshot Turtle + Rust query output for portfolio.
+1. At least 8 triples in the TTL file.
+2. Query all `brick:hasPoint` of AHU1 in Rust and Python.
+3. Screenshot Turtle + both query outputs for portfolio.
 
 ## Key Takeaway
 
@@ -37,25 +49,26 @@ Commissioning deliverables increasingly include **semantic models** alongside BA
 
 ---
 
-## Python companion — Tiny TTL sketch
+## Python companion — Load & query same `ahu1.ttl`
 
 *Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
 
 ```python
-from pathlib import Path
+from rdflib import Graph, Namespace
 
-ttl = """@prefix brick: <https://brickschema.org/schema/Brick#> .
-@prefix ex: <http://example.org/> .
-ex:AHU1 a brick:AHU .
-ex:AHU1 brick:hasPoint ex:AHU1-SAT .
-"""
-Path("~/py-lab/ahu1_sketch.ttl").expanduser().write_text(ttl)
-# Load/query that file in Rust (Day 59+ graph)—not rdflib.
+EX = Namespace("http://example.com/bldg#")
+BRICK = Namespace("https://brickschema.org/schema/Brick#")
+
+g = Graph()
+g.parse("ahu1.ttl", format="turtle")  # same file Rust loads
+points = list(g.objects(EX.AHU1, BRICK.hasPoint))
+print(len(g), points)
 ```
 
-| Rust (main lesson) | Python |
+| Rust (oxrdf) | Python (rdflib) |
 |--------|--------|
-| Hand-author + load `ahu1.ttl` into graph | `pathlib` write a few Turtle lines |
-| Query points in Rust | parallel file sketch only |
+| hand-author + `RdfParser` | `g.parse("ahu1.ttl")` |
+| `triples_for_subject` / filter hasPoint | `g.objects(AHU1, hasPoint)` |
+| same TTL | same |
 
-**Takeaway:** Authoring Turtle is text—Python can draft it; the course track loads and queries in Rust.
+**Takeaway:** One hand-built AHU model; both stacks load and list points.
