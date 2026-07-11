@@ -1,10 +1,18 @@
-"""50-rule Open-FDD pandas cookbook registry."""
+"""50-rule Open-FDD pandas cookbook registry (+ optional CUSTOM-* agent rules)."""
 
 from app.rules.base import RuleResult
-from app.rules.cookbook_catalog import RULES, RULES_BY_ID, catalog
+from app.rules.cookbook_catalog import RULES as CANONICAL_RULES
+from app.rules.cookbook_catalog import RULES_BY_ID as CANONICAL_RULES_BY_ID
+from app.rules.cookbook_catalog import catalog
+from app.rules.custom_registry import active_rules, active_rules_by_id, custom_rules
 from app.rules.runner import infer_equipment_kind, run_all_cookbook_rules, run_batch, run_cookbook_rule
 
-CANONICAL_RULE_COUNT = len(RULES)
+# Canonical Open-FDD cookbook (never shrink this silently).
+CANONICAL_RULE_COUNT = len(CANONICAL_RULES)
+
+# Active catalog = canonical + agent CUSTOM-* rules from custom_rules.py
+RULES = active_rules()
+RULES_BY_ID = active_rules_by_id()
 
 
 def run_all(
@@ -49,9 +57,13 @@ def run_rule(
 __all__ = [
     "RULES",
     "RULES_BY_ID",
+    "CANONICAL_RULES",
+    "CANONICAL_RULES_BY_ID",
     "CANONICAL_RULE_COUNT",
     "RuleResult",
     "catalog",
+    "custom_rules",
+    "active_rules",
     "infer_equipment_kind",
     "run_all",
     "run_rule",

@@ -13,15 +13,30 @@
    ```
 4. Users pick **Data source → Zip package** and upload `openfdd_package_v1` — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md).
 
+**No Dockerfile on Community Cloud.** The repo `Dockerfile` is for self-host / local parity only — see [DOCKER.md](DOCKER.md).
+
 ## Unified app (local + cloud)
 
 One sidebar picker:
 
 - **Folder** — local historian tree (hidden when `allow_server_paths` is false)
 - **Zip package** — always available; uncached; **Clear session** wipe
+- **Session restore (Cloud-safe)** — download / upload `session_config.json` (+ optional `fault_settings.json`)
 - **AI agent / package help** expander — agent steps + limits
 
-Disk saves (`configs/`) become **downloads** on shared/Cloud hosts.
+Disk saves (`configs/`) become **downloads** on shared/Cloud hosts. Zip extract stays in OS temp (`vibe19_*`).
+
+## Session round-trip (Cloud-friendly)
+
+Tuned mapping / thresholds are **not** persisted on the Cloud host. Use browser download/upload:
+
+1. Upload building zip (`openfdd_package_v1`).
+2. Map roles / tune rule params (sidebar + Mapping / Overview).
+3. **Download session config** → `session_config.json` (`openfdd_session_v1`: `unit_system`, `prefer_web_oat`, `role_map`, `params`, plant toggles). Optionally download **fault settings** (`params` only).
+4. Later session: upload the **same zip**, then **Upload session config** → Apply — restores into `st.session_state` (no server path).
+5. Re-run rules.
+
+Same controls live in the sidebar and on the **Export** tab. Local agents can still paste JSON paths when `APP_MODE=local`.
 
 ## Honest limits
 
@@ -32,4 +47,4 @@ Disk saves (`configs/`) become **downloads** on shared/Cloud hosts.
 
 ## AI agents
 
-Open the public URL → upload zip (+ optional `session_config.json`). No locked per-agent backend on Streamlit Cloud.
+Open the public URL → upload zip → tune → download `session_config.json` for the next visit. No locked per-agent backend on Streamlit Cloud. Headless: `scripts/agent_afdd.py` + optional `session_config` / `fault_settings` in the export bundle.

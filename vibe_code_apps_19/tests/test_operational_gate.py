@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.rules import RULES, RULES_BY_ID, run_rule
+from app.rules import CANONICAL_RULES, RULES_BY_ID, run_rule
 from app.rules.operational_gate import RULE_GATES, resolve_fan_running, resolve_operational_mask
 
 
 def test_all_50_rules_have_gate_spec():
     assert len(RULE_GATES) == 50
-    for r in RULES:
+    for r in CANONICAL_RULES:
         assert r.id in RULE_GATES, r.id
 
 

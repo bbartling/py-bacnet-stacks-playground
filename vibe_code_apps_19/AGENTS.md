@@ -8,7 +8,8 @@ Codex / Claude / Cursor: paste this file as the session brief. For **Cloud zip p
 
 Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rule pandas cookbook**:
 
-- `app/rules/cookbook_catalog.py` — rule definitions
+- `app/rules/cookbook_catalog.py` — 50 canonical rule definitions
+- `app/rules/custom_boilerplate.py` + `custom_rules.py` — agent **CUSTOM-*** pandas / ML sketches
 - `app/rules/runner.py` — skip / equipment-off / not-applicable execution
 - `configs/rule_inventory.yaml` + `rule_defaults.yaml`
 - `streamlit_app.py` — unified **Folder | Zip** picker, Overview, mapping, run rules, **Plots**, **RCx Plots**, analytics
@@ -17,10 +18,11 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 - `app/weather_resolver.py` — web OAT primary / BAS fallback / OAT-METEO both-required
 - `app/rcx_plots.py` + `app/ui_rcx_tab.py` — multi-equipment RCx charts
 - `app/weather_psychrometrics.py` — web OAT / dewpoint / wet-bulb
+- Spec: [`vibe19_agent_spec/docs/CUSTOM_RULES.md`](vibe19_agent_spec/docs/CUSTOM_RULES.md)
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`
+1. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES`, `SKIPPED_EQUIPMENT_OFF`, or `NOT_APPLICABLE_EQUIPMENT_TYPE`. Agent extras use `CUSTOM-*` ids via `custom_rules.py` (see CUSTOM_RULES.md).
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph**
 3. **No client historian trees in git** — local: browse folder; Cloud/shared: upload zip only (see package spec). Demo zip `data/demo_package_v1.zip` is OK
 4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`
@@ -80,11 +82,13 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 - Wide CSV: one column per point; UTF-8
 - Optional `columns.csv` for role hints; optional `weather/history_wide.csv` (never treated as equipment)
 - Optional `session_config.json` restores units / role_map / thresholds into **session only**
+- **Cloud round-trip:** upload zip → tune → **Download session config** (sidebar / Export) → later upload zip + **Upload session config** (no server path). See [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md)
 - Optional `column_map.json` — loaded into `PackageLoadResult`, validated, merged into role_map
 - Zip limits (local + Cloud, env-overridable): see `docs/PACKAGE_SPEC.md`
   - Defaults: local/auto **1024 MB** zip / **1024 MB** expanded / **200** entries / **100** equipment
   - `APP_MODE=cloud` default zip **250 MB**; override with `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
   - Local agents: sidebar **Package zip path** → **Load zip from path**; also **Fault settings JSON path** / **Session config JSON path**
+  - Self-host Docker: [`docs/DOCKER.md`](docs/DOCKER.md) (`docker build -t vibe19 .`) — Community Cloud does **not** use the Dockerfile
 
 ### Shitty / hostile CSV handling (implemented)
 
@@ -122,6 +126,7 @@ python scripts/generate_rule_configs.py
 - [docs/PACKAGE_SPEC.md](docs/PACKAGE_SPEC.md) — **preprocess + timestamps for zip/Cloud**
 - [docs/DATA_MODEL_DRIVEN.md](docs/DATA_MODEL_DRIVEN.md) — roles vs heuristics (chiller↔pump)
 - [docs/STREAMLIT_CLOUD.md](docs/STREAMLIT_CLOUD.md)
+- [docs/DOCKER.md](docs/DOCKER.md) — self-host only (`docker build -t vibe19 .`)
 - [vibe19_agent_spec/DATA_CONTRACT.md](vibe19_agent_spec/DATA_CONTRACT.md) — folder tree contract
 - [vibe19_agent_spec/AGENTS.md](vibe19_agent_spec/AGENTS.md)
 - [vibe19_agent_spec/docs/RCX_PLOTS.md](vibe19_agent_spec/docs/RCX_PLOTS.md)

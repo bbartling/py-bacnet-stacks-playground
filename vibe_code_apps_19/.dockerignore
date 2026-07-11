@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.egg-info
+.last_agent_session.json
+out_*
+data/hvac*
+**/.DS_Store

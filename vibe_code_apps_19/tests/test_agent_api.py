@@ -148,8 +148,29 @@ def test_agent_api_load_zip(tmp_path: Path):
 def test_make_session_config_includes_params():
     cfg = make_session_config({"AHU_1": {"sat": "dat"}}, {"VAV-1": {"confirm_min": 15.0}})
     assert cfg["schema_version"] == SESSION_SCHEMA
+    assert cfg["role_map"]["AHU_1"]["sat"] == "dat"
     assert cfg["params"]["VAV-1"]["confirm_min"] == 15.0
     assert cfg["prefer_web_oat"] is True
+
+
+def test_make_session_config_plant_toggles_roundtrip():
+    from app.package_io import SessionConfig
+
+    cfg = make_session_config(
+        {"AHU_1": {"fan_status": "fan_status"}},
+        {"SCHED-1": {"confirm_min": 10.0}},
+        unit_system="metric",
+        prefer_web_oat=False,
+        chw_leave_max_f=46.0,
+        include_ahu_chw_valve=True,
+    )
+    sc = SessionConfig.model_validate(cfg)
+    assert sc.unit_system == "metric"
+    assert sc.prefer_web_oat is False
+    assert sc.chw_leave_max_f == 46.0
+    assert sc.include_ahu_chw_valve is True
+    assert sc.params["SCHED-1"]["confirm_min"] == 10.0
+    assert sc.role_map["AHU_1"]["fan_status"] == "fan_status"
 
 
 def test_cli_smoke(tmp_path: Path):

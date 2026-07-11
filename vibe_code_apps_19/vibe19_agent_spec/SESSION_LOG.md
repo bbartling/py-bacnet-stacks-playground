@@ -8,6 +8,21 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
 
 ---
 
+## 2026-07-11 — Session restore UX + Docker self-host
+
+- Sidebar + Export: **Download / Upload** `session_config.json` (`openfdd_session_v1`) and distinct `fault_settings.json` — Cloud-safe round-trip (zip → tune → download → later zip + upload)
+- Helpers: `_session_config_payload` / `_apply_session_config_bytes` / `_render_session_config_io` in `streamlit_app.py`
+- Docs: `docs/STREAMLIT_CLOUD.md` round-trip; `docs/DOCKER.md` + `Dockerfile` (Community Cloud does **not** use Dockerfile)
+- Custom rules polish still in tree (`custom_*`, CUSTOM_RULES.md)
+
+## 2026-07-11 — Custom pandas rule boilerplate
+
+- Agent workspace: `app/rules/custom_boilerplate.py` (templates + `EXAMPLE_SAT_HIGH` / `EXAMPLE_ZSCORE`), `custom_rules.py` (`CUSTOM_RULES`), `custom_registry.py` (canonical 50 + `CUSTOM-*`)
+- Spec: `docs/CUSTOM_RULES.md`; skill + AGENTS point at custom paths; Overview shows `50 (+N custom)` when extras present
+- Env `VIBE19_INCLUDE_EXAMPLE_CUSTOM_RULES=1` loads examples without editing `custom_rules.py`
+
+---
+
 ## 2026-07-10 — Agent → Streamlit bootstrap handoff
 
 - `app/bootstrap.py` + `.last_agent_session.json` / `VIBE19_BOOTSTRAP`

@@ -339,7 +339,7 @@ def run_all_cookbook_rules(
             equipment_type=equipment_type,
             require_operational_gates=require_operational_gates,
         )
-        for rule in cb.RULES
+        for rule in RULES  # canonical + CUSTOM-* (assigned below via active_rules)
     ]
 
 
@@ -386,6 +386,8 @@ def run_batch(
     return results
 
 
-RULES = cb.RULES
-RULES_BY_ID = cb.RULES_BY_ID
+from app.rules.custom_registry import active_rules, active_rules_by_id
+
+RULES = active_rules()
+RULES_BY_ID = active_rules_by_id()
 catalog = cb.catalog

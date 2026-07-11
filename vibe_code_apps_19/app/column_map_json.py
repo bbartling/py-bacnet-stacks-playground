@@ -25,7 +25,18 @@ DEFAULT_BUILDING_ID = ""  # filled from the loaded folder name at runtime
 DEFAULT_SITE_REF = "default_site"
 
 # Mechanical families used for UI grouping (cookbook `family` field).
-FAMILY_ORDER: list[str] = ["sensor", "control", "ahu", "vav", "plant", "heatpump", "weather", "trim", "other"]
+FAMILY_ORDER: list[str] = [
+    "sensor",
+    "control",
+    "ahu",
+    "vav",
+    "plant",
+    "heatpump",
+    "weather",
+    "trim",
+    "custom",
+    "other",
+]
 FAMILY_LABELS: dict[str, str] = {
     "sensor": "1 · Sensor validation",
     "control": "2 · Control loops",

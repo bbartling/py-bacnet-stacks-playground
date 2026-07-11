@@ -26,7 +26,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 12. **Runtime proof** — motor/pump/DX status first. No pump in data model → **omit** chiller from run-hours (never fake hours from leave temp).
 13. **Mech-cooling OAT bins** — chillers + DX compressors only; **never** CHW cooling valves (often modulate with no chilled water). Sort bins by `bin_start` cold→hot.
 14. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
-15. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params.
+15. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
+16. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
 
 ---
 
@@ -58,6 +59,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `app/occupancy.py` | Weekly occupancy calendar → `occ_mode` |
 | `app/unit_system.py` | Imperial ↔ metric display conversion |
 | `app/rules/` | Catalog, runner, gates, PID hunting |
+| `app/rules/custom_boilerplate.py` | **Agent custom-rule templates** (pandas + z-score ML sketch) |
+| `app/rules/custom_rules.py` | Agent appends `CUSTOM-*` rules here |
+| `vibe19_agent_spec/docs/CUSTOM_RULES.md` | How to add special / site rules |
 | `configs/` | Rule inventory, defaults, role_map.yaml |
 | `scripts/csv_parity_check.py` | Run 50 rules on any building folder (CI/parity) |
 | `tests/` | Pytest |

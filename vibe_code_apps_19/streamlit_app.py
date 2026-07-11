@@ -316,6 +316,120 @@ def _clear_uploaded_session() -> None:
     st.session_state.zip_uploader_key = int(st.session_state.get("zip_uploader_key", 0)) + 1
 
 
+def _session_config_payload() -> dict:
+    """Build ``openfdd_session_v1`` from current session_state (Cloud-safe export)."""
+    from app.agent_api import make_session_config
+
+    return make_session_config(
+        st.session_state.get("role_map") or {},
+        st.session_state.get("params") or {},
+        unit_system=st.session_state.get("unit_system", "imperial"),
+        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", False)),
+    )
+
+
+def _apply_session_config_bytes(raw: bytes, *, source_label: str) -> list[str]:
+    """Validate + apply session_config JSON bytes into session_state. Returns warnings."""
+    from app.package_io import SessionConfig, apply_session_config
+
+    data = json.loads(raw.decode("utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("session_config JSON must be an object")
+    if not data.get("schema_version"):
+        data = {**data, "schema_version": "openfdd_session_v1"}
+    cfg_obj = SessionConfig.model_validate(data)
+    frames = st.session_state.get("equipment_frames") or {}
+    warnings = apply_session_config(cfg_obj, equipment_ids=set(frames))
+    st.session_state.session_config_source = source_label
+    if cfg_obj.params:
+        st.session_state.fault_settings_source = f"session:{source_label}"
+    return warnings
+
+
+def _render_session_config_io(*, key_prefix: str) -> None:
+    """Download / upload tuned session_config (+ distinct fault_settings) — no server path."""
+    st.caption(
+        f"Active fault settings: `{st.session_state.get('fault_settings_source') or 'defaults'}`"
+    )
+    if st.session_state.get("session_config_source"):
+        st.caption(f"Session config: `{st.session_state.session_config_source}`")
+
+    try:
+        session_payload = _session_config_payload()
+    except Exception as exc:
+        st.warning(f"Session config export unavailable: {exc}")
+        session_payload = {
+            "schema_version": "openfdd_session_v1",
+            "unit_system": st.session_state.get("unit_system", "imperial"),
+            "prefer_web_oat": bool(st.session_state.get("prefer_web_oat", True)),
+            "role_map": st.session_state.get("role_map") or {},
+            "params": st.session_state.get("params") or {},
+        }
+
+    st.download_button(
+        "Download session config",
+        data=json.dumps(session_payload, indent=2).encode("utf-8"),
+        file_name="session_config.json",
+        mime="application/json",
+        key=f"{key_prefix}_dl_session_config",
+        help="openfdd_session_v1: units, prefer_web_oat, role_map, params, plant toggles.",
+    )
+    fault_json = json.dumps(st.session_state.get("params") or {}, indent=2)
+    st.download_button(
+        "Download fault settings",
+        data=fault_json.encode("utf-8"),
+        file_name="fault_settings.json",
+        mime="application/json",
+        key=f"{key_prefix}_dl_fault_settings",
+        help="rule_id → params only (subset of session_config.params).",
+    )
+
+    up_sess = st.file_uploader(
+        "Upload session config",
+        type=["json"],
+        key=f"{key_prefix}_upload_session_config",
+        help="Restore params + role_map into this browser session (Cloud-safe).",
+    )
+    if up_sess is not None and st.button(
+        "Apply uploaded session config", key=f"{key_prefix}_apply_session_upload"
+    ):
+        try:
+            warnings = _apply_session_config_bytes(
+                up_sess.getvalue(), source_label=f"upload:{up_sess.name}"
+            )
+            for w in warnings:
+                st.warning(w)
+            st.success("Session config applied — re-run rules to refresh results.")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Session config upload failed: {exc}")
+
+    up_fault = st.file_uploader(
+        "Upload fault settings",
+        type=["json"],
+        key=f"{key_prefix}_upload_fault_settings",
+    )
+    if up_fault is not None and st.button(
+        "Apply uploaded fault settings", key=f"{key_prefix}_apply_fault_upload"
+    ):
+        try:
+            raw = json.loads(up_fault.getvalue().decode("utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("JSON must be an object of rule_id → params")
+            params = dict(st.session_state.get("params") or {})
+            for rid, p in raw.items():
+                if isinstance(p, dict):
+                    params[str(rid)] = {**params.get(str(rid), {}), **p}
+            st.session_state.params = params
+            st.session_state.fault_settings_source = f"upload:{up_fault.name}"
+            st.success("Fault settings applied — re-run rules to refresh results.")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Fault settings upload failed: {exc}")
+
+
 def _sync_role_map_from_sites() -> None:
     st.session_state.role_map = flat_role_map_from_sites(st.session_state.site_mapping)
 
@@ -860,7 +974,7 @@ def _load_data(cfg: AppConfig) -> None:
                 st.rerun()
 
         if cfg.allow_server_paths:
-            st.sidebar.markdown("**Agent path load**")
+            st.sidebar.markdown("**Agent path load (local)**")
             st.sidebar.text_input(
                 "Package zip path",
                 help="Absolute path to an openfdd_package_v1 zip (Codex/Cursor — no browser upload).",
@@ -886,12 +1000,6 @@ def _load_data(cfg: AppConfig) -> None:
                         )
                         st.rerun()
 
-            st.sidebar.markdown("**Fault / session settings**")
-            st.sidebar.caption(
-                f"Active fault settings: `{st.session_state.get('fault_settings_source') or 'defaults'}`"
-            )
-            if st.session_state.get("session_config_source"):
-                st.sidebar.caption(f"Session config: `{st.session_state.session_config_source}`")
             st.sidebar.text_input(
                 "Fault settings JSON path",
                 help="Agent-produced fault_settings.json (rule_id → params).",
@@ -903,7 +1011,7 @@ def _load_data(cfg: AppConfig) -> None:
                     st.sidebar.error(f"Not found: {fpath}")
                 else:
                     try:
-                        raw = __import__("json").loads(fpath.read_text(encoding="utf-8"))
+                        raw = json.loads(fpath.read_text(encoding="utf-8"))
                         if not isinstance(raw, dict):
                             raise ValueError("JSON must be an object")
                         params = dict(st.session_state.get("params") or {})
@@ -927,17 +1035,11 @@ def _load_data(cfg: AppConfig) -> None:
                     st.sidebar.error(f"Not found: {spath}")
                 else:
                     try:
-                        from app.package_io import SessionConfig, apply_session_config
-
-                        cfg_obj = SessionConfig.model_validate(
-                            __import__("json").loads(spath.read_text(encoding="utf-8"))
+                        warnings = _apply_session_config_bytes(
+                            spath.read_bytes(), source_label=f"path:{spath.name}"
                         )
-                        frames = st.session_state.get("equipment_frames") or {}
-                        for w in apply_session_config(cfg_obj, equipment_ids=set(frames)):
+                        for w in warnings:
                             st.sidebar.warning(w)
-                        st.session_state.session_config_source = f"path:{spath.name}"
-                        if cfg_obj.params:
-                            st.session_state.fault_settings_source = f"session:{spath.name}"
                         st.sidebar.success(f"Applied session config from {spath.name}")
                         st.rerun()
                     except Exception as exc:
@@ -962,6 +1064,13 @@ def _load_data(cfg: AppConfig) -> None:
                 f"{len(frames)} equip · `{st.session_state.get('building_id') or '—'}` (session)"
             )
 
+    st.sidebar.markdown("**Session restore (Cloud-safe)**")
+    st.sidebar.caption(
+        "Download after mapping/tuning; later upload zip + this JSON — no server path."
+    )
+    with st.sidebar:
+        _render_session_config_io(key_prefix="sidebar")
+
     with st.sidebar.expander("AI agent / package help", expanded=False):
         from app.package_io import effective_package_caps as _caps_fn
 
@@ -970,10 +1079,12 @@ def _load_data(cfg: AppConfig) -> None:
             f"""
 **Agent-friendly flow**
 1. Pre-process CSVs into `openfdd_package_v1` (`docs/PACKAGE_SPEC.md`).
-2. Optional `session_config.json` for units / role_map / thresholds.
-3. **Zip package** → upload **or** (local) paste path → **Load zip from path**.
-4. Optional: Mapping tab JSON column map if role_map incomplete.
-5. **Clear session** when done (best-effort wipe on shared hosts).
+2. **Zip package** → upload **or** (local) paste path → **Load zip from path**.
+3. Map / tune thresholds → **Download session config** (sidebar or Export).
+4. Later (Cloud-safe): upload the **same zip** + **Upload session config** to restore
+   `role_map` / `params` / units — no server disk path required.
+5. Optional: Mapping tab JSON column map if role_map incomplete.
+6. **Clear session** when done (best-effort wipe on shared hosts).
 
 **Effective caps:** zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB ·
 ≤{_c.max_entries} entries · ≤{_c.max_equipment} equip  
@@ -1231,13 +1342,25 @@ def main() -> None:
 | Piece | What | Where |
 | --- | --- | --- |
 | **1. Data package** | Folder or zip of CSVs (`openfdd_package_v1`) | Sidebar → Folder / Zip |
-| **2. Data model** | Column→role JSON *or* zip `session_config` role_map | **Data & Mapping** tab |
-| **3. Run** | 50-rule cookbook → charts | **Run Rules** → **Plots** / **RCx Plots** |
+| **2. Data model** | Column→role JSON *or* zip / uploaded `session_config` role_map | **Data & Mapping** / sidebar |
+| **3. Tune + save** | Download `session_config.json` (params + role_map) | Sidebar **Session restore** or **Export** |
+| **4. Run** | 50-rule cookbook → charts | **Run Rules** → **Plots** / **RCx Plots** |
+| **5. Restore later** | Upload zip + session config (Cloud-safe round-trip) | Sidebar uploaders |
+
+Round-trip: **upload zip → map/tune → download session_config → later upload zip + session_config**.
             """.strip()
         )
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Equipment", len(frames))
-        c2.metric("Rules", CANONICAL_RULE_COUNT)
+        _n_custom = len(RULES) - CANONICAL_RULE_COUNT
+        c2.metric(
+            "Rules",
+            (
+                f"{CANONICAL_RULE_COUNT} (+{_n_custom} custom)"
+                if _n_custom > 0
+                else str(CANONICAL_RULE_COUNT)
+            ),
+        )
         c3.metric("Rows (selected)", len(mapped))
         c4.metric("Poll (s)", f"{poll:.0f}")
         c5.metric("Kind", kind)
@@ -1668,70 +1791,15 @@ def main() -> None:
     with tabs[7]:
         st.subheader("Export")
         st.caption(
-            "Plotly camera → PNG/JPEG. Agent loop: fault_settings.json ↔ session_config.json ↔ summary CSV."
-        )
-        st.caption(
-            f"Active fault settings source: `{st.session_state.get('fault_settings_source') or 'defaults'}`"
+            "Plotly camera → PNG/JPEG. Cloud-safe: download/upload session_config + fault_settings "
+            "(same controls as sidebar). Agent loop: zip ↔ session_config ↔ summary CSV."
         )
         results = st.session_state.batch_results
         if results:
             summary = results_summary_table(results)
             st.download_button("Summary CSV", to_csv_bytes(summary), "fdd_summary.csv")
-        fault_json = __import__("json").dumps(st.session_state.get("params") or {}, indent=2)
-        st.download_button(
-            "Download fault_settings.json",
-            data=fault_json.encode("utf-8"),
-            file_name="fault_settings.json",
-            mime="application/json",
-            key="dl_fault_settings",
-        )
-        up_fault = st.file_uploader(
-            "Upload fault_settings.json",
-            type=["json"],
-            key="upload_fault_settings",
-        )
-        if up_fault is not None and st.button("Apply uploaded fault settings", key="apply_fault_upload"):
-            try:
-                raw = __import__("json").loads(up_fault.getvalue().decode("utf-8"))
-                if not isinstance(raw, dict):
-                    raise ValueError("JSON must be an object of rule_id → params")
-                params = dict(st.session_state.get("params") or {})
-                for rid, p in raw.items():
-                    if isinstance(p, dict):
-                        params[str(rid)] = {**params.get(str(rid), {}), **p}
-                st.session_state.params = params
-                st.session_state.fault_settings_source = f"upload:{up_fault.name}"
-                st.success("Fault settings applied — re-run rules to refresh results.")
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Fault settings upload failed: {exc}")
-
-        try:
-            from app.agent_api import make_session_config
-
-            session_payload = make_session_config(
-                st.session_state.get("role_map") or {},
-                st.session_state.get("params") or {},
-                unit_system=st.session_state.get("unit_system", "imperial"),
-                prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-                chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-                include_ahu_chw_valve=False,
-            )
-        except ImportError as exc:
-            st.warning(f"Session config export unavailable: {exc}")
-            session_payload = {
-                "schema_version": "openfdd_session_v1",
-                "unit_system": st.session_state.get("unit_system", "imperial"),
-                "role_map": st.session_state.get("role_map") or {},
-                "params": st.session_state.get("params") or {},
-            }
-        st.download_button(
-            "Download session_config.json (includes params)",
-            data=__import__("json").dumps(session_payload, indent=2).encode("utf-8"),
-            file_name="session_config.json",
-            mime="application/json",
-            key="dl_session_config_export",
-        )
+        st.markdown("##### Session restore")
+        _render_session_config_io(key_prefix="export")
         if st.session_state.column_map:
             st.download_button(
                 "Haystack column map JSON",

@@ -59,6 +59,17 @@ Statuses: `PASS` | `FAULT` | `SKIPPED_MISSING_ROLES` | `SKIPPED_EQUIPMENT_OFF` |
 
 After catalog edits: `python scripts/generate_rule_configs.py` then pytest.
 
+## Custom / agent rules (boilerplate)
+
+| Path | Role |
+| --- | --- |
+| `app/rules/custom_boilerplate.py` | Templates + SAT-high + rolling z-score examples |
+| `app/rules/custom_rules.py` | Append agent `CUSTOM-*` rules here |
+| `app/rules/custom_registry.py` | Merges into active `RULES` |
+| `docs/CUSTOM_RULES.md` | Full agent how-to |
+
+Ids must start with `CUSTOM-`. Canonical 50 stay intact. Env `VIBE19_INCLUDE_EXAMPLE_CUSTOM_RULES=1` loads examples without editing `custom_rules.py`.
+
 ## Tests
 
 Synthetic DataFrames in `tests/` — **no client CSV in git**. Parity script: `scripts/csv_parity_check.py --building-folder …`.

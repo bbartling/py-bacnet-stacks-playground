@@ -6,14 +6,18 @@ import pandas as pd
 import pytest
 import yaml
 
-from app.rules import CANONICAL_RULE_COUNT, RULES, RULES_BY_ID, run_rule
+from app.rules import CANONICAL_RULE_COUNT, CANONICAL_RULES, RULES, RULES_BY_ID, run_rule
 from app.rules.base import RuleResult
 from app.rules.runner import run_all_cookbook_rules
 
 
 def test_canonical_count():
     assert CANONICAL_RULE_COUNT == 50
-    assert len(RULES) == 50
+    assert len(CANONICAL_RULES) == 50
+    assert len(RULES) >= 50
+    # Custom extras never replace canonical ids
+    canonical_ids = {r.id for r in CANONICAL_RULES}
+    assert canonical_ids <= {r.id for r in RULES}
 
 
 def test_inventory_metadata():
@@ -24,12 +28,12 @@ def test_inventory_metadata():
     assert len(inv["rules"]) == 50
 
 
-@pytest.mark.parametrize("rule_id", [r.id for r in RULES])
+@pytest.mark.parametrize("rule_id", [r.id for r in CANONICAL_RULES])
 def test_every_rule_imports(rule_id: str):
     assert rule_id in RULES_BY_ID
 
 
-@pytest.mark.parametrize("rule_id", [r.id for r in RULES])
+@pytest.mark.parametrize("rule_id", [r.id for r in CANONICAL_RULES])
 def test_skip_when_roles_missing(rule_id: str):
     idx = pd.date_range("2024-06-01", periods=5, freq="5min", tz="UTC")
     df = pd.DataFrame(index=idx)
@@ -72,12 +76,13 @@ def test_vav1_runs_with_roles():
     assert r.status == "FAULT"
 
 
-def test_run_all_returns_50():
+def test_run_all_returns_active_catalog():
     idx = pd.date_range("2024-06-01", periods=3, freq="5min", tz="UTC")
     df = pd.DataFrame({"oa_t": [70, 71, 72]}, index=idx)
     df.attrs["equipment_id"] = "AHU_1"
     results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
-    assert len(results) == 50
+    assert len(results) == len(RULES)
+    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 50
 
 
 def test_result_shape():
