@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Multi-zip upload + agent prerun (no GHCR push)
+
+- Sidebar accepts **multiple** package zips; `app/multi_zip.py` merges parts under agent 2 GB cap
+- **Map + prerun all faults** after load (`app/agent_prerun.py`)
+- Spec: `vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`
+
+---
+
 ## 2026-07-11 — GHCR caps crash + data-contract warnings
 
 - Fix Zip branch `NameError: caps` → use `agent_caps` for dataset size captions

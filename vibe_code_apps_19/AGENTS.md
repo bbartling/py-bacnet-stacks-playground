@@ -92,6 +92,7 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 | --- | --- | --- |
 | Local folder | Dev machine with historian tree | [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRACT.md) |
 | Zip package | Streamlit Cloud / shared host / agent upload | [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) (`openfdd_package_v1`) |
+| Multi-zip job | Browser upload of many part zips (≤500 MB each) | [`vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md) |
 | Agent CLI | Headless rules/analytics/RCx export | `python scripts/agent_afdd.py --package … --out … --run-all` |
 | Deploy notes | `APP_MODE=auto\|cloud\|local` | [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md) |
 

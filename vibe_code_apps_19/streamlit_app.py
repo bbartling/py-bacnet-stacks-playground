@@ -170,6 +170,8 @@ def _init_state() -> None:
         "equipment_frames": {},
         "selected_equipment": None,
         "batch_results": [],
+        "prerun_status": "",
+        "package_warnings": [],
         "params": {},
         "engineer_notes": {},
         "role_map": flat_role_map_from_sites(st.session_state.site_mapping),
@@ -1022,38 +1024,65 @@ def _load_data(cfg: AppConfig) -> None:
 
         browser_caps = effective_package_caps(for_browser_upload=True)
         agent_caps = effective_package_caps()
-        zip_file = st.sidebar.file_uploader(
-            "Building package (.zip)",
+        zip_files = st.sidebar.file_uploader(
+            "Building package zip(s)",
             type=["zip"],
+            accept_multiple_files=True,
             key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
             help=(
-                f"Browser upload ≤{BROWSER_UPLOAD_MB} MB (Streamlit maxUploadSize). "
-                f"Large packages: use path load / agent_afdd (up to {agent_caps.max_zip_mb} MB)."
+                f"Upload one zip or many part-zips (each ≤{BROWSER_UPLOAD_MB} MB). "
+                f"Parts merge into one job (assembled ≤{agent_caps.max_zip_mb} MB). "
+                f"See vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md"
             ),
         )
+        n_parts = len(zip_files or [])
+        parts_mb = (
+            round(sum(getattr(f, "size", 0) or len(f.getvalue()) for f in zip_files) / (1024 * 1024), 2)
+            if zip_files
+            else 0.0
+        )
         st.sidebar.caption(
-            f"Browser upload **{BROWSER_UPLOAD_MB} MB** · "
-            f"agent/path package ≤{agent_caps.max_zip_mb} MB"
+            f"**{n_parts}** file(s) · **{parts_mb} MB** selected · "
+            f"per-file ≤**{BROWSER_UPLOAD_MB} MB** · assembled job ≤**{agent_caps.max_zip_mb} MB**"
         )
         c1, c2 = st.sidebar.columns(2)
-        load_clicked = c1.button("Load zip", type="primary", disabled=zip_file is None, key="load_zip_unified")
+        load_clicked = c1.button(
+            "Load zip(s)",
+            type="primary",
+            disabled=not zip_files,
+            key="load_zip_unified",
+        )
         clear_clicked = c2.button("Clear session", key="clear_session_unified")
         if clear_clicked:
             _clear_uploaded_session()
             st.rerun()
-        if load_clicked and zip_file is not None:
+        if load_clicked and zip_files:
             wipe_workdir(st.session_state.get("upload_workdir"))
             st.session_state.upload_workdir = None
             try:
-                result = load_package_zip(zip_file.getvalue(), caps=browser_caps)
+                if len(zip_files) == 1:
+                    result = load_package_zip(zip_files[0].getvalue(), caps=browser_caps)
+                else:
+                    from app.multi_zip import load_package_from_zip_parts, parts_from_uploads
+
+                    result = load_package_from_zip_parts(
+                        parts_from_uploads(list(zip_files)),
+                        merge_caps=agent_caps,
+                        per_part_caps=browser_caps,
+                    )
             except PackageError as exc:
                 st.sidebar.error(str(exc))
             except Exception as exc:  # pragma: no cover
                 st.sidebar.error(f"Package load failed: {exc}")
             else:
                 _commit_package_result(result)
+                part_note = (
+                    f" · {result.report.get('zip_part_count', 1)} zip part(s)"
+                    if result.report.get("source") == "multi_zip"
+                    else ""
+                )
                 st.sidebar.success(
-                    f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`"
+                    f"Loaded {len(result.frames)} equip · `{result.manifest.building_id}`{part_note}"
                 )
                 st.rerun()
 
@@ -1153,6 +1182,44 @@ def _load_data(cfg: AppConfig) -> None:
     with st.sidebar:
         _render_session_config_io(key_prefix="sidebar")
 
+    frames_ready = bool(st.session_state.get("equipment_frames"))
+    if frames_ready:
+        st.sidebar.markdown("**Agent prerun**")
+        st.sidebar.caption(
+            "After zip(s) load: auto-build column map if needed, then run all rules "
+            "so Plots/RCx are ready for human review."
+        )
+        if st.sidebar.button("Map + prerun all faults", type="primary", key="agent_prerun_btn"):
+            from app.agent_prerun import ensure_column_map
+
+            frames = st.session_state.equipment_frames
+            cmap, built, warns = ensure_column_map(
+                frames,
+                existing_map=st.session_state.get("column_map_json"),
+                building_id=str(st.session_state.get("building_id") or ""),
+            )
+            for w in warns:
+                st.sidebar.info(w)
+            if built and cmap:
+                _apply_column_map_json(cmap)
+                st.session_state.column_map_json = cmap
+            st.session_state.batch_results = _run_rule_list(
+                sorted(frames), RULES, frames
+            )
+            n = len(st.session_state.batch_results)
+            err = sum(1 for r in st.session_state.batch_results if r.status == "ERROR")
+            fault = sum(1 for r in st.session_state.batch_results if r.status == "FAULT")
+            st.session_state.prerun_status = (
+                f"Prerun {n} evals · {fault} FAULT · {err} ERROR"
+            )
+            if err:
+                st.sidebar.error(st.session_state.prerun_status)
+            else:
+                st.sidebar.success(st.session_state.prerun_status)
+            st.rerun()
+        if st.session_state.get("prerun_status"):
+            st.sidebar.caption(st.session_state.prerun_status)
+
     with st.sidebar.expander("AI agent / package help", expanded=False):
         from app.package_io import BROWSER_UPLOAD_MB, DEFAULT_PACKAGE_MB
         from app.package_io import effective_package_caps as _caps_fn
@@ -1160,20 +1227,15 @@ def _load_data(cfg: AppConfig) -> None:
         _c = _caps_fn()
         st.markdown(
             f"""
-**Agent-friendly flow**
-1. Pre-process CSVs into `openfdd_package_v1` (`docs/PACKAGE_SPEC.md`).
-2. Prefer **`scripts/agent_afdd.py --package …`** or sidebar **Load zip from path** for large buildings
-   (package_io default **{DEFAULT_PACKAGE_MB} MB**). Browser upload is capped at **{BROWSER_UPLOAD_MB} MB**.
-3. Map / tune thresholds → **Download session config** (sidebar or Export).
-4. Later (Cloud-safe): upload the **same zip** + **Upload session config** to restore
-   `role_map` / `params` / units — no server disk path required.
-5. Optional: Mapping tab JSON column map if role_map incomplete.
-6. **Clear session** when done (best-effort wipe on shared hosts).
+**Human + agent flow (large jobs)**
+1. Agent preprocesses CSVs → one or many `openfdd_package_v1` **part zips**
+   (each ≤ **{BROWSER_UPLOAD_MB} MB** for the browser). Spec:
+   `vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`
+2. Human uploads **all part zips** here → **Load zip(s)** (merged ≤ **{DEFAULT_PACKAGE_MB} MB**).
+3. Click **Map + prerun all faults** (or agent CLI) so rules/errors are checked.
+4. Human reviews **Plots / RCx / Analytics**; download session config to restore later.
 
-**Two-tier size caps**
-- Browser `st.file_uploader`: **{BROWSER_UPLOAD_MB} MB** (`.streamlit/config.toml` `maxUploadSize`)
-- Agent / CLI / path: zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB  
-  Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
+**Single zip** still works. Path/CLI bypasses the upload widget for full-size packages.
 
 Agent brief: {_AGENTS_MD_URL}
             """.strip()

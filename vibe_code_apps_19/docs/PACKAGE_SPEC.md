@@ -2,6 +2,8 @@
 
 Pre-process historian data **outside** this app, zip it, and upload on Streamlit Community Cloud.
 
+**Large jobs:** split into multiple part zips and upload together — see [`vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md). The UI merges parts (`app/multi_zip.py`). Per-file browser limit is Streamlit `maxUploadSize` (500 MB); assembled job uses the agent package cap (~2 GB).
+
 **Audience:** non-sensitive demo / educational data only. Streamlit Cloud shares one Python process across users — session wipe is best-effort, not a security boundary.
 
 ## Zip layout (one building per package)
