@@ -40,6 +40,7 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.rcx_plots:collect_role_series",
     "app.rcx_plots:rcx_preset_coverage",
     "app.data_model_tree:build_data_model_tree",
+    "app.rule_card:build_rule_card",
     "app.docx_report:build_equipment_fdd_docx",
     "app.docx_report:build_building_data_model_docx",
     "app.docx_report:build_analytics_docx",

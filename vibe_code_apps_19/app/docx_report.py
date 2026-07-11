@@ -8,11 +8,17 @@ from typing import Any
 
 import pandas as pd
 
-from app.column_map_json import COOKBOOK_TO_HAYSTACK_POINT
 from app.data_model_tree import BuildingDataModelTree, build_data_model_tree
+from app.rule_card import (
+    PLACE_PLOT_HERE,
+    RuleCard,
+    build_rule_card,
+    equipment_mapping_coverage,
+)
 from app.rules import RULES, RULES_BY_ID
 from app.rules.base import RuleResult
-from app.site_model import resolve_equipment_type
+from app.rules.cookbook_catalog import CookbookRule
+from app.rules.runner import infer_equipment_kind
 
 
 def _docx():
@@ -48,43 +54,110 @@ def _add_kv_table(doc, rows: list[tuple[str, str]]) -> None:
         cells[1].text = str(v)
 
 
-def _role_rows_for_rule(
-    rule_id: str,
+def applicable_rules_for_equipment(
     equipment_id: str,
-    role_map: dict,
-    mapped_cols: set[str],
-) -> list[tuple[str, str, str, str]]:
-    rule = RULES_BY_ID.get(rule_id)
-    if rule is None:
-        return []
-    block = role_map.get(equipment_id) or {}
-    out: list[tuple[str, str, str, str]] = []
-    roles = list(rule.required_roles) + list(rule.optional_roles or [])
-    # de-dupe preserve order
-    seen: set[str] = set()
-    for role in roles:
-        if role in seen:
-            continue
-        seen.add(role)
-        hay = COOKBOOK_TO_HAYSTACK_POINT.get(role, role.replace("_", "-"))
-        csv_col = ""
-        if isinstance(block, dict):
-            if role in block and isinstance(block[role], str):
-                csv_col = block[role]
-            else:
-                for c, rr in block.items():
-                    if str(rr).strip() == role and c not in {
-                        "equipment_type",
-                        "equipType",
-                        "plant_group",
-                        "chw_pump_equipment",
-                    }:
-                        csv_col = str(c)
-                        break
-        present = "yes" if role in mapped_cols else "no"
-        req = "required" if role in rule.required_roles else "optional"
-        out.append((role, hay, csv_col or "—", f"{req} / in-history={present}"))
-    return out
+    *,
+    equipment_type: str = "",
+    mapped_df: pd.DataFrame | None = None,
+    role_map: dict | None = None,
+) -> list[CookbookRule]:
+    """Canonical cookbook rules applicable to this device's equipment kind."""
+    kind = infer_equipment_kind(
+        equipment_id,
+        equipment_type=equipment_type,
+        df=mapped_df,
+        role_map=role_map,
+    )
+    if kind == "unknown":
+        return list(RULES)
+    return [r for r in RULES if kind in r.equipment_kinds]
+
+
+def _add_params_table(doc, card: RuleCard) -> None:
+    _add_para(doc, "Tune parameters", bold=True)
+    table = doc.add_table(rows=1, cols=5)
+    table.style = "Table Grid"
+    hdr = table.rows[0].cells
+    for i, h in enumerate(["Key", "Label", "Value", "Unit", "Source"]):
+        hdr[i].text = h
+    if not card.param_rows:
+        cells = table.add_row().cells
+        cells[0].text = "(no tune params)"
+        for i in range(1, 5):
+            cells[i].text = "—"
+        return
+    for pr in card.param_rows:
+        cells = table.add_row().cells
+        cells[0].text = pr.key
+        cells[1].text = pr.label
+        cells[2].text = f"{pr.value:g}"
+        cells[3].text = pr.unit
+        cells[4].text = pr.source
+
+
+def _add_mapping_table(doc, card: RuleCard) -> None:
+    _add_para(doc, "Required vs mapped points", bold=True)
+    table = doc.add_table(rows=1, cols=5)
+    table.style = "Table Grid"
+    hdr = table.rows[0].cells
+    for i, h in enumerate(
+        ["Cookbook role", "Haystack-like tag", "CSV column", "Requirement", "In history"]
+    ):
+        hdr[i].text = h
+    if not card.mapping_rows:
+        cells = table.add_row().cells
+        cells[0].text = "(sensor/control sweep — applies to present sensors / outputs)"
+        for i in range(1, 5):
+            cells[i].text = "—"
+        return
+    for m in card.mapping_rows:
+        cells = table.add_row().cells
+        cells[0].text = m.role
+        cells[1].text = m.haystack_tag
+        cells[2].text = m.csv_column
+        cells[3].text = m.requirement
+        cells[4].text = "yes" if m.in_history else "MISSING"
+
+
+def _append_rule_card_section(
+    doc,
+    card: RuleCard,
+    *,
+    plot_png: bytes | None,
+    Inches,
+) -> None:
+    _add_heading(doc, f"{card.rule_id} — {card.title} · {card.status}", 1)
+    if card.equation:
+        _add_para(doc, card.equation)
+    fh = "—" if card.fault_hours is None else f"{card.fault_hours:.2f}"
+    _add_kv_table(
+        doc,
+        [
+            ("Status", card.status),
+            ("Family", card.family),
+            ("Fault hours", fh),
+            (
+                "Missing roles",
+                ", ".join(card.missing_roles) if card.missing_roles else "—",
+            ),
+            ("Notes", card.notes or "—"),
+            (
+                "Required mapping",
+                (
+                    f"{card.required_roles_present}/{card.required_roles_total}"
+                    if card.required_roles_total
+                    else "n/a (sweep)"
+                ),
+            ),
+        ],
+    )
+    _add_params_table(doc, card)
+    _add_mapping_table(doc, card)
+    _add_para(doc, "Plot", bold=True)
+    if plot_png:
+        doc.add_picture(io.BytesIO(plot_png), width=Inches(6.0))
+    else:
+        _add_para(doc, PLACE_PLOT_HERE)
 
 
 def build_equipment_fdd_docx(
@@ -96,69 +169,91 @@ def build_equipment_fdd_docx(
     role_map: dict,
     mapped_df: pd.DataFrame | None,
     plot_png_by_rule: dict[str, bytes] | None = None,
+    params: dict[str, Any] | None = None,
+    rules: list[CookbookRule] | None = None,
+    motor_weekly: pd.DataFrame | None = None,
+    cool_bins: pd.DataFrame | None = None,
 ) -> bytes:
-    """One DOCX: all 50 rules for an equipment — description, tags, mapping, plot or placeholder."""
-    Document, Inches, Pt = _docx()
+    """DOCX mirror of Plots rule cards: params, mapping, PLACE PLOT HERE stubs."""
+    Document, Inches, _Pt = _docx()
     doc = Document()
-    _add_heading(doc, f"FDD report — {equipment_id}", 0)
-    _add_para(
+    applicable = rules or applicable_rules_for_equipment(
+        equipment_id,
+        equipment_type=equipment_type,
+        mapped_df=mapped_df,
+        role_map=role_map,
+    )
+    present, total, cov_pct = equipment_mapping_coverage(
+        applicable, equipment_id, role_map, mapped_df
+    )
+    _add_heading(doc, f"FDD validation report — {equipment_id}", 0)
+    _add_kv_table(
         doc,
-        f"Building: {building_id or '—'}  ·  Type: {equipment_type}  ·  "
-        f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        [
+            ("Building", building_id or "—"),
+            ("Equipment", equipment_id),
+            ("Type", equipment_type or "—"),
+            (
+                "Mapping coverage",
+                f"{cov_pct:.0f}% required roles present ({present}/{total})",
+            ),
+            (
+                "Generated",
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            ),
+            ("Rules in report", str(len(applicable))),
+        ],
     )
     _add_para(
         doc,
-        "Each rule lists cookbook roles, Haystack-like tags, mapped CSV columns, "
-        "and a Plotly figure when available (otherwise an empty placeholder).",
+        "Each section mirrors a Plots validation card: equation, status, tune params, "
+        "required vs mapped points, and a plot stub for paste-in figures.",
     )
 
     by_id = {r.rule_id: r for r in results if r.equipment_id == equipment_id}
-    mapped_cols = set(mapped_df.columns) if mapped_df is not None else set()
     plot_png_by_rule = plot_png_by_rule or {}
 
-    for rule in RULES:
-        res = by_id.get(rule.id)
-        status = res.status if res else "NOT_RUN"
-        _add_heading(doc, f"{rule.id} — {rule.title}", 1)
-        _add_para(doc, rule.equation or "")
-        _add_kv_table(
-            doc,
-            [
-                ("Status", status),
-                ("Family", rule.family),
-                ("Fault hours", str(res.fault_hours if res and res.fault_hours is not None else "—")),
-                ("Missing roles", ", ".join(res.missing_roles) if res and res.missing_roles else "—"),
-                ("Notes", (res.notes if res else "") or "—"),
-            ],
+    for rule in applicable:
+        card = build_rule_card(
+            equipment_id=equipment_id,
+            rule=rule,
+            result=by_id.get(rule.id),
+            role_map=role_map,
+            mapped_df=mapped_df,
+            params=params,
         )
-        _add_para(doc, "Data model bindings", bold=True)
-        table = doc.add_table(rows=1, cols=4)
-        table.style = "Table Grid"
-        hdr = table.rows[0].cells
-        hdr[0].text = "Cookbook role"
-        hdr[1].text = "Haystack-like tag"
-        hdr[2].text = "CSV column"
-        hdr[3].text = "Requirement"
-        for row in _role_rows_for_rule(rule.id, equipment_id, role_map, mapped_cols):
-            cells = table.add_row().cells
-            for i, val in enumerate(row):
-                cells[i].text = val
-        if not rule.required_roles and not rule.optional_roles:
-            cells = table.add_row().cells
-            cells[0].text = "(sensor/control sweep)"
-            cells[1].text = "—"
-            cells[2].text = "—"
-            cells[3].text = "applies to present sensors / outputs"
+        _append_rule_card_section(
+            doc,
+            card,
+            plot_png=plot_png_by_rule.get(rule.id),
+            Inches=Inches,
+        )
 
-        png = plot_png_by_rule.get(rule.id)
-        if png:
-            doc.add_picture(io.BytesIO(png), width=Inches(6.0))
-        else:
-            _add_para(
-                doc,
-                "[Plot placeholder] No figure for this rule on this equipment "
-                "(skipped / N/A / not run / no series). See Streamlit Plots tab.",
-            )
+    # Optional short analytics appendix (tables only)
+    if motor_weekly is not None or cool_bins is not None:
+        _add_heading(doc, "Analytics appendix", 1)
+        if motor_weekly is not None and not motor_weekly.empty:
+            _add_para(doc, "Motor weekly (summary)", bold=True)
+            cols = list(motor_weekly.columns)[:6]
+            table = doc.add_table(rows=1, cols=len(cols))
+            table.style = "Table Grid"
+            for i, c in enumerate(cols):
+                table.rows[0].cells[i].text = str(c)
+            for _, row in motor_weekly.head(20).iterrows():
+                cells = table.add_row().cells
+                for i, c in enumerate(cols):
+                    cells[i].text = str(row[c])
+        if cool_bins is not None and not cool_bins.empty:
+            _add_para(doc, "Mechanical cooling OAT bins (summary)", bold=True)
+            cols = list(cool_bins.columns)[:6]
+            table = doc.add_table(rows=1, cols=len(cols))
+            table.style = "Table Grid"
+            for i, c in enumerate(cols):
+                table.rows[0].cells[i].text = str(c)
+            for _, row in cool_bins.head(20).iterrows():
+                cells = table.add_row().cells
+                for i, c in enumerate(cols):
+                    cells[i].text = str(row[c])
 
     buf = io.BytesIO()
     doc.save(buf)

@@ -1983,11 +1983,18 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 st.dataframe(faults.sort_values("fault_hours", ascending=False), width="stretch")
 
     if section == "Plots":
-        st.subheader("Plots by device")
+        from app.docx_report import applicable_rules_for_equipment, build_equipment_fdd_docx
+        from app.rule_card import (
+            build_rule_card,
+            equipment_mapping_coverage,
+            filter_status_bucket,
+        )
+
+        st.subheader("Plots — rule validation cards")
         st.caption(
-            "Pick a mechanical type → device (each AHU / VAV / plant unit has its own plots). "
-            "Each rule is one figure: rainbow-colored signals on unique unit axes, "
-            "confirmed fault as a shaded swim lane. Camera icon → PNG/JPEG."
+            "One card per applicable cookbook rule for the selected device. "
+            "Tables always show; Plotly renders only when you open a card (low-RAM safe). "
+            "Camera icon on charts → PNG/JPEG."
         )
         st.caption(
             "Economizer family **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT roles "
@@ -1995,7 +2002,6 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             "**FC6** needs AHU `vav_total_flow`. Empty/skipped plots are usually **data gaps**, not code bugs."
         )
         plot_fmt = st.selectbox("Download format", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt")
-        show_pass = st.checkbox("Show PASS plots (not only FAULT)", value=False, key="plot_show_pass")
         type_opts = list(by_type.keys()) or ["UNKNOWN"]
         cur_type = resolve_equipment_type(
             selected, df=frames[selected], role_map=st.session_state.role_map
@@ -2010,18 +2016,46 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             device = st.selectbox("Device", device_ids, index=dev_idx, key="plot_device")
             st.session_state.selected_equipment = device
             plot_df, _ = _mapped_equipment(device, frames)
-            eq_kind = infer_equipment_kind(
-                device, df=frames.get(device), role_map=st.session_state.role_map
+            applicable = applicable_rules_for_equipment(
+                device,
+                equipment_type=eq_type,
+                mapped_df=plot_df,
+                role_map=st.session_state.role_map,
             )
-
-            applicable = [r for r in RULES if eq_kind in r.equipment_kinds or eq_kind == "unknown"]
-            by_fam_rules: dict[str, list] = {f: [] for f in FAMILY_ORDER}
-            for rule in applicable:
-                fam = rule.family if rule.family in by_fam_rules else "other"
-                by_fam_rules[fam].append(rule)
-
+            present_n, total_n, cov_pct = equipment_mapping_coverage(
+                applicable, device, st.session_state.role_map, plot_df
+            )
             lookup = _result_lookup(st.session_state.batch_results)
-            if st.button("Run all applicable rules for this device", type="primary", key="plot_run_device"):
+
+            h1, h2, h3 = st.columns([1.2, 1, 1.4])
+            h1.metric("Mapping coverage", f"{cov_pct:.0f}%", help=f"{present_n}/{total_n} unique required roles present")
+            h2.metric("Rule cards", len(applicable))
+            with h3:
+                try:
+                    docx_bytes = build_equipment_fdd_docx(
+                        building_id=st.session_state.get("building_id") or "",
+                        equipment_id=device,
+                        equipment_type=eq_type,
+                        results=st.session_state.batch_results,
+                        role_map=st.session_state.role_map,
+                        mapped_df=plot_df,
+                        plot_png_by_rule={},
+                        params=st.session_state.get("params") or {},
+                        rules=applicable,
+                    )
+                    st.download_button(
+                        "Download FDD DOCX",
+                        data=docx_bytes,
+                        file_name=f"{device}_fdd_report.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key=f"dl_fdd_docx_{device}",
+                        type="primary",
+                        help="One-click Word report mirroring these cards (PLACE PLOT HERE stubs).",
+                    )
+                except Exception as exc:
+                    st.warning(f"DOCX unavailable: {exc}")
+
+            if st.button("Run all applicable rules for this device", key="plot_run_device"):
                 new_res = _run_rule_list([device], applicable, frames)
                 keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
                 st.session_state.batch_results = keep + new_res
@@ -2029,14 +2063,18 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 st.success(f"Evaluated {len(new_res)} rules on `{device}`")
 
             if not any(eq == device for eq, _rid in lookup):
-                st.info("Click **Run all applicable rules for this device** (or sidebar **Rerun cat.**) to populate plots.")
+                st.info(
+                    "Click **Run all applicable rules for this device** (or sidebar **Rerun cat.**) "
+                    "to populate statuses — cards still show mapping/params."
+                )
 
-            # Sensor fault summary statistics (SV-* FAULT results)
             device_results = [r for r in st.session_state.batch_results if r.equipment_id == device]
             sens = sensor_fault_summary(plot_df, device_results, equipment_id=device)
             if not sens.empty:
                 st.markdown("##### Sensor fault summary statistics")
-                st.caption("Mean/std/min/p50/max for sensors involved in FAULT sensor-validation rules — useful for engineer review and CSV export.")
+                st.caption(
+                    "Mean/std/min/p50/max for sensors involved in FAULT sensor-validation rules."
+                )
                 st.dataframe(sens, width="stretch", height=220)
                 st.download_button(
                     "Download sensor fault stats CSV",
@@ -2045,154 +2083,133 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                     key=f"dl_sens_{device}",
                 )
 
-            # Lazy: one figure at a time by default (st.expander bodies still run when open;
-            # rendering every FAULT chart at once SIGSEGV'd low-RAM hosts with full traces).
-            plottable: list[tuple] = []
-            for fam in FAMILY_ORDER:
-                for rule in by_fam_rules.get(fam) or []:
-                    r = lookup.get((device, rule.id))
-                    if r is None:
-                        continue
-                    if r.status in {
-                        "SKIPPED_MISSING_ROLES",
-                        "NOT_APPLICABLE_EQUIPMENT_TYPE",
-                        "ERROR",
-                        "SKIPPED_EQUIPMENT_OFF",
-                    }:
-                        continue
-                    if r.status == "PASS" and not show_pass:
-                        continue
-                    plottable.append((rule, r))
+            status_filter = st.radio(
+                "Filter cards",
+                ["All", "FAULT", "PASS", "SKIPPED", "Not run"],
+                horizontal=True,
+                index=0,
+                key=f"plot_status_filter_{device}",
+            )
+            # Single live Plotly chart (low-RAM): pick which open card's series to draw.
+            focus_labels = ["(none — tables only)"] + [
+                f"{r.id} — {r.title}" for r in applicable
+            ]
+            focus_pick = st.selectbox(
+                "Plot focus (one Plotly chart at a time)",
+                focus_labels,
+                index=0,
+                key=f"plot_focus_{device}",
+            )
+            focus_rule_id = (
+                None
+                if focus_pick.startswith("(none")
+                else focus_pick.split(" — ", 1)[0].strip()
+            )
 
-            for fam in FAMILY_ORDER:
-                rules = by_fam_rules.get(fam) or []
-                skipped = [
-                    (rule, lookup.get((device, rule.id)))
-                    for rule in rules
-                    if lookup.get((device, rule.id)) is not None
-                    and lookup[(device, rule.id)].status
-                    in {
-                        "SKIPPED_MISSING_ROLES",
-                        "NOT_APPLICABLE_EQUIPMENT_TYPE",
-                        "ERROR",
-                        "SKIPPED_EQUIPMENT_OFF",
-                    }
-                ]
-                if not skipped:
-                    continue
-                with st.expander(f"{family_label(fam)} · skipped / N/A", expanded=False):
-                    for rule, r in skipped:
-                        assert r is not None
-                        st.caption(
-                            f"**{rule.id}** — {rule.title} · `{r.status}`"
-                            + (f" · missing: {', '.join(r.missing_roles)}" if r.missing_roles else "")
-                        )
-
-            shown = 0
-            if not plottable:
-                if any(eq == device for eq, _rid in lookup):
-                    st.info(
-                        "No FAULT plots to show — enable **Show PASS plots**, or check column mapping / run results."
-                    )
-                # Still allow DOCX with placeholders when rules were run
-                if any(eq == device for eq, _rid in lookup):
-                    if st.button("Build FDD DOCX for this device", key=f"docx_build_empty_{device}"):
-                        from app.docx_report import build_equipment_fdd_docx
-                        from app.role_map import apply_role_map
-
-                        mapped_dev = apply_role_map(frames[device], device, st.session_state.role_map)
-                        st.session_state[f"docx_bytes_{device}"] = build_equipment_fdd_docx(
-                            building_id=st.session_state.get("building_id") or "",
-                            equipment_id=device,
-                            equipment_type=eq_type,
-                            results=st.session_state.batch_results,
-                            role_map=st.session_state.role_map,
-                            mapped_df=mapped_dev,
-                            plot_png_by_rule={},
-                        )
-                        st.success("DOCX ready — use download below.")
-                    if st.session_state.get(f"docx_bytes_{device}"):
-                        st.download_button(
-                            f"Download {device}_fdd_report.docx",
-                            data=st.session_state[f"docx_bytes_{device}"],
-                            file_name=f"{device}_fdd_report.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            key=f"dl_docx_empty_{device}",
-                        )
-            else:
-                labels = {
-                    f"{rule.id} · {rule.title} ({r.status})": (rule, r)
-                    for rule, r in plottable
-                }
-                pick = st.selectbox(
-                    "Rule chart (one at a time — safer on low-RAM hosts)",
-                    list(labels.keys()),
-                    key=f"plot_rule_pick_{device}",
+            cards_shown = 0
+            for rule in applicable:
+                res = lookup.get((device, rule.id))
+                card = build_rule_card(
+                    equipment_id=device,
+                    rule=rule,
+                    result=res,
+                    role_map=st.session_state.role_map,
+                    mapped_df=plot_df,
+                    params=st.session_state.get("params") or {},
                 )
-                rule, r = labels[pick]
-                with st.container(border=True):
-                    st.markdown(f"**{rule.id}** — {rule.title}")
-                    fh = r.fault_hours if r.fault_hours is not None else 0.0
-                    st.caption(f"`{r.status}` · fault hours: {fh:.2f}")
-                    st.caption(rule.equation)
-                    fig = rule_result_chart(
-                        plot_df,
-                        r,
-                        required_roles=rule.required_roles,
-                        units_map=units_map,
-                    )
-                    if fig:
-                        st.plotly_chart(
-                            fig,
-                            width="stretch",
-                            config=plotly_config(filename=f"{device}_{rule.id}", fmt=plot_fmt),
-                            key=f"fig_{device}_{rule.id}",
+                bucket = filter_status_bucket(card.status)
+                if status_filter != "All" and bucket != status_filter:
+                    continue
+                cards_shown += 1
+                title = f"{card.rule_id} — {card.title} · {card.status}"
+                with st.expander(title, expanded=False):
+                    if card.equation:
+                        st.caption(card.equation)
+                    fh = card.fault_hours
+                    meta_bits = [f"`{card.status}`"]
+                    if fh is not None:
+                        meta_bits.append(f"fault hours: {fh:.2f}")
+                    if card.coverage_pct is not None:
+                        meta_bits.append(
+                            f"required roles: {card.required_roles_present}/{card.required_roles_total}"
                         )
-                        shown += 1
+                    if card.missing_roles:
+                        meta_bits.append(f"missing: {', '.join(card.missing_roles)}")
+                    st.caption(" · ".join(meta_bits))
+                    if card.notes:
+                        st.caption(card.notes)
+
+                    if card.param_rows:
+                        st.markdown("**Tune parameters**")
+                        st.dataframe(
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "key": p.key,
+                                        "label": p.label,
+                                        "value": p.value,
+                                        "unit": p.unit,
+                                        "source": p.source,
+                                    }
+                                    for p in card.param_rows
+                                ]
+                            ),
+                            hide_index=True,
+                            width="stretch",
+                        )
                     else:
-                        st.caption("No plot series for this result.")
-                st.caption(f"{len(plottable)} plottable rule(s) for this device · traces ≤ {max_plot_points():,} pts")
+                        st.caption("No tune params for this rule.")
 
-                # On-demand DOCX for this mechanical device (all 50 rules + mapping tables)
-                if st.button("Build FDD DOCX for this device", key=f"docx_build_{device}"):
-                    from app.docx_report import build_equipment_fdd_docx, try_rule_plot_png
-                    from app.role_map import apply_role_map
+                    st.markdown("**Required vs mapped points**")
+                    if card.mapping_rows:
+                        map_df = pd.DataFrame(
+                            [
+                                {
+                                    "role": m.role,
+                                    "haystack": m.haystack_tag,
+                                    "csv_column": m.csv_column,
+                                    "requirement": m.requirement,
+                                    "in_history": "yes" if m.in_history else "MISSING",
+                                }
+                                for m in card.mapping_rows
+                            ]
+                        )
+                        st.dataframe(map_df, hide_index=True, width="stretch")
+                    else:
+                        st.caption("Sensor/control sweep — applies to present sensors / outputs.")
 
-                    mapped_dev = apply_role_map(frames[device], device, st.session_state.role_map)
-                    pngs: dict[str, bytes] = {}
-                    # Only embed the currently selected rule plot if available (keep DOCX light)
-                    if fig:
-                        try:
-                            pngs[rule.id] = fig.to_image(format="png", width=900, height=480)
-                        except Exception:
-                            one = try_rule_plot_png(
-                                mapped_dev,
-                                r,
-                                required_roles=rule.required_roles,
-                                units_map=units_map,
+                    if focus_rule_id == rule.id and card.plottable and res is not None:
+                        fig = rule_result_chart(
+                            plot_df,
+                            res,
+                            required_roles=rule.required_roles,
+                            units_map=units_map,
+                        )
+                        if fig:
+                            st.plotly_chart(
+                                fig,
+                                width="stretch",
+                                config=plotly_config(
+                                    filename=f"{device}_{rule.id}", fmt=plot_fmt
+                                ),
+                                key=f"fig_{device}_{rule.id}",
                             )
-                            if one:
-                                pngs[rule.id] = one
-                    docx_bytes = build_equipment_fdd_docx(
-                        building_id=st.session_state.get("building_id") or "",
-                        equipment_id=device,
-                        equipment_type=eq_type,
-                        results=st.session_state.batch_results,
-                        role_map=st.session_state.role_map,
-                        mapped_df=mapped_dev,
-                        plot_png_by_rule=pngs,
-                    )
-                    st.session_state[f"docx_bytes_{device}"] = docx_bytes
-                    st.success("DOCX ready — use download below.")
-                if st.session_state.get(f"docx_bytes_{device}"):
-                    st.download_button(
-                        f"Download {device}_fdd_report.docx",
-                        data=st.session_state[f"docx_bytes_{device}"],
-                        file_name=f"{device}_fdd_report.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key=f"dl_docx_{device}",
-                    )
+                        else:
+                            st.caption("No plot — missing roles / N/A / not run")
+                    elif focus_rule_id == rule.id:
+                        st.caption("No plot — missing roles / N/A / not run")
+                    else:
+                        st.caption(
+                            "Set **Plot focus** above to this rule to render Plotly here."
+                        )
 
+            if cards_shown == 0:
+                st.info(f"No cards match filter **{status_filter}**.")
+            else:
+                st.caption(
+                    f"{cards_shown} card(s) · {len(applicable)} applicable rules · "
+                    f"traces ≤ {max_plot_points():,} pts"
+                )
 
     if section == "RCx Plots":
         try:
@@ -2315,16 +2332,63 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 pass
 
         st.markdown("##### DOCX reports")
-        st.caption("On-demand Word reports: data-model tree, analytics tables, per-equipment FDD (Plots tab).")
+        st.caption(
+            "One-click Word reports: equipment FDD (mirrors Plots cards), data-model tree, analytics."
+        )
         try:
             from app.data_model_tree import build_data_model_tree
-            from app.docx_report import build_analytics_docx, build_building_data_model_docx
+            from app.docx_report import (
+                applicable_rules_for_equipment,
+                build_analytics_docx,
+                build_building_data_model_docx,
+                build_equipment_fdd_docx,
+            )
             from app.rcx_plots import rcx_preset_coverage
 
             tree = build_data_model_tree(
                 frames,
                 st.session_state.role_map,
                 building_id=st.session_state.get("building_id") or "",
+            )
+            export_eq = st.selectbox(
+                "Equipment for FDD DOCX",
+                list(frames.keys()),
+                index=(
+                    list(frames.keys()).index(selected)
+                    if selected in frames
+                    else 0
+                ),
+                key="export_fdd_device",
+            )
+            mapped_export, _ = _mapped_equipment(export_eq, frames)
+            eq_t = resolve_equipment_type(
+                export_eq, df=frames[export_eq], role_map=st.session_state.role_map
+            )
+            appl = applicable_rules_for_equipment(
+                export_eq,
+                equipment_type=eq_t,
+                mapped_df=mapped_export,
+                role_map=st.session_state.role_map,
+            )
+            st.download_button(
+                "Download equipment FDD DOCX",
+                data=build_equipment_fdd_docx(
+                    building_id=st.session_state.get("building_id") or "",
+                    equipment_id=export_eq,
+                    equipment_type=eq_t,
+                    results=st.session_state.batch_results,
+                    role_map=st.session_state.role_map,
+                    mapped_df=mapped_export,
+                    plot_png_by_rule={},
+                    params=st.session_state.get("params") or {},
+                    rules=appl,
+                    motor_weekly=motor_weekly if isinstance(motor_weekly, pd.DataFrame) else None,
+                    cool_bins=cool_bins if isinstance(cool_bins, pd.DataFrame) else None,
+                ),
+                file_name=f"{export_eq}_fdd_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_export_fdd_docx",
+                type="primary",
             )
             st.download_button(
                 "Download data_model.docx",

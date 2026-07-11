@@ -70,7 +70,7 @@ Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per dev
 
 | Tab | Purpose |
 | --- | --- |
-| Plots | One figure per **rule** on one device (fault swim lane); one rule at a time |
+| Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; Download FDD DOCX |
 | RCx Plots | Multi-equipment overlays + **required** reset scatters/box + generic picker |
 
 Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).

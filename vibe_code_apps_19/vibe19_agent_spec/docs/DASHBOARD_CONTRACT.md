@@ -55,12 +55,19 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV column tree + DOCX |
 | Run Rules | 50-rule cookbook (+ custom) |
 | Results by Category | Status tables |
-| **Plots** | Per-device rule charts; one rule at a time; FDD DOCX download |
+| **Plots** | Per-device **rule validation cards** (all applicable catalog rules); params + required/mapped points; lazy one-at-a-time Plotly via plot focus; one-click **Download FDD DOCX** |
 | **RCx Plots** | Prebuilt presets above + generic role picker |
 | Analytics | Motor hours, mech-cooling bins, sensor stats |
-| Export | CSV / session / health / DOCX artifacts |
+| Export | CSV / session / health / DOCX artifacts (incl. **Download equipment FDD DOCX**) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
+
+### Plots + DOCX validation cards
+
+- Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
+- Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage).
+- Equipment DOCX (`build_equipment_fdd_docx`) must include **`[PLACE PLOT HERE`** stubs, tune params, and required vs mapped point tables — mirroring the cards.
+- One-click download: **Download FDD DOCX** on Plots (and Export) — no Build-then-Download dance.
 
 ---
 

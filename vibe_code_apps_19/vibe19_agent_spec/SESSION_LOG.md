@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Plots + DOCX validation UX overhaul
+
+- `app/rule_card.py`: shared card builder (params, required/mapped roles, coverage %)
+- Plots: all applicable rule cards + filters + plot focus (lazy Plotly) + one-click **Download FDD DOCX**
+- DOCX mirrors cards with **PLACE PLOT HERE**, params, mapping tables
+- Freeze: `build_rule_card` entrypoint; DASHBOARD_CONTRACT Plots/DOCX section
+
+---
+
 ## 2026-07-11 — Bench VLV-1/SCHED-1/chiller + DOCX data-model
 
 - VLV-1: closed valve + (SAT vs SP **or** SAT vs MAT); fan gate

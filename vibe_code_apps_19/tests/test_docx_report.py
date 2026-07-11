@@ -73,6 +73,9 @@ def test_data_model_tree_and_docx(tmp_path):
         xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
     assert "VLV-1" in xml
     assert "Cooling valve" in xml or "leakage" in xml.lower()
+    assert "PLACE PLOT HERE" in xml
+    assert "clg_valve_pct" in xml or "clg_v" in xml
+    assert "confirm_min" in xml or "confirm" in xml.lower()
 
     analytics = build_analytics_docx(
         building_id="B1",
