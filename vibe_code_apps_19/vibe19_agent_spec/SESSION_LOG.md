@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Docker zip-only + hero reorder
+
+- Dockerfile: `APP_MODE=cloud` + `VIBE19_DOCKER=1` (hide Folder / dead server paths by default)
+- `app/config.py`: Docker without mounted `data_root` stays zip-only even if `APP_MODE=local`
+- Streamlit: validate/clear missing folder bootstrap paths; fall back to Zip; hero = title → subtitle → smaller logo → how-it-works
+- Docs: `docs/DOCKER.md`, `docs/CUSTOMIZE.md` — Folder needs volume + `APP_MODE=local`
+
 ## 2026-07-11 — 500 MB package default + size UI + CUSTOMIZE.md
 
 - Package caps: **500 MB** zip + expanded for local/auto/cloud (`DEFAULT_PACKAGE_MB`); env overrides unchanged

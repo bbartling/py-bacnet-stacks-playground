@@ -12,6 +12,17 @@ APP_ROOT = Path(__file__).resolve().parent.parent
 CONFIGS = APP_ROOT / "configs"
 
 
+def _truthy_env(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in {"1", "true", "yes"}
+
+
+def running_in_docker() -> bool:
+    """True when Dockerfile set ``VIBE19_DOCKER=1`` or the runtime has ``/.dockerenv``."""
+    if _truthy_env("VIBE19_DOCKER"):
+        return True
+    return Path("/.dockerenv").is_file()
+
+
 @dataclass
 class AppConfig:
     data_root: Path
@@ -27,6 +38,9 @@ class AppConfig:
         if self.app_mode == "cloud":
             return True
         if self.app_mode == "local":
+            # Docker without a mounted data root: zip-only (avoid dead Folder path UX)
+            if running_in_docker() and not self.data_root.is_dir():
+                return True
             return False
         # auto: cloud-like if default data root missing (typical Streamlit Community Cloud)
         return not self.data_root.is_dir()

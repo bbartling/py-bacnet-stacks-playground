@@ -101,22 +101,23 @@ _HERO_IMG = APP_ROOT / "assets" / "image_new_chiller.png"
 
 
 def _render_app_hero() -> None:
-    """Brand header: Open-FDD chiller art on top, then title / workflow / links."""
-    if _HERO_IMG.is_file():
-        st.image(str(_HERO_IMG), width="stretch")
-    else:
-        st.markdown("### Open-FDD")
+    """Brand header: title → subtitle → compact logo → how-it-works."""
     st.title(APP_TITLE)
     st.markdown(
-        "Educational **Streamlit + pandas** lab for the Open-FDD **50-rule cookbook**. "
+        "Educational Streamlit + pandas lab for the Open-FDD 50-rule cookbook. "
         "CSVs stay as-is — you only map columns to roles."
     )
+    if _HERO_IMG.is_file():
+        # Narrower than full-bleed stretch so the logo sits under the brand, not above it
+        _logo_l, _logo_m, _logo_r = st.columns([1, 2, 1])
+        with _logo_m:
+            st.image(str(_HERO_IMG), width="stretch")
     st.markdown(
         """
 **How it works (2 pieces + run)**
 
 1. **Data package** — Folder or `openfdd_package_v1` zip of historian CSVs  
-2. **Data model** — JSON column→role map (Mapping tab) *or* `session_config.json` `role_map` in the zip  
+2. **Data model** — JSON column→role map (Mapping tab) or `session_config.json` role_map in the zip  
 3. **Run** — **Run Rules** → **Plots** / **RCx Plots**
         """.strip()
     )
@@ -153,7 +154,12 @@ def _init_state() -> None:
     if "site_mapping" not in st.session_state:
         st.session_state.site_mapping = load_site_mapping(cfg.role_map_path)
     demo_building = cfg.data_root / cfg.building_id
-    default_folder = str(demo_building) if demo_building.is_dir() else str(cfg.data_root)
+    if demo_building.is_dir():
+        default_folder = str(demo_building)
+    elif cfg.data_root.is_dir():
+        default_folder = str(cfg.data_root)
+    else:
+        default_folder = ""
     for k, v in {
         "equipment_frames": {},
         "selected_equipment": None,
@@ -164,7 +170,7 @@ def _init_state() -> None:
         "weather": None,
         "building_id": "",
         "site_id": DEFAULT_SITE_ID,
-        "building_folder": "" if cfg.is_cloud else default_folder,
+        "building_folder": "" if (cfg.is_cloud or not cfg.allow_server_paths) else default_folder,
         "data_root": str(cfg.data_root),
         "data_source": "",
         "column_map": {},
@@ -244,7 +250,13 @@ def _apply_agent_bootstrap_once() -> None:
             st.session_state.building_folder = str(chosen)
             st.session_state.data_input_mode = "Folder"
         else:
-            st.session_state.bootstrap_status = "bootstrap: package/folder path missing on disk"
+            # Missing host paths (typical Docker) — stay on Zip; do not prefill dead Folder paths
+            st.session_state.building_folder = ""
+            if st.session_state.get("data_input_mode") == "Folder":
+                st.session_state.data_input_mode = "Zip package"
+            st.session_state.bootstrap_status = (
+                "Bootstrap path not on this host — upload a zip package (or mount data + APP_MODE=local)."
+            )
             st.session_state.bootstrap_applied = True
             return
 
@@ -903,7 +915,9 @@ def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
         st.sidebar.caption(f"{len(frames)} equip · `{building_id}`")
         _commit_frames(frames, site_id=site_id, building_id=building_id, source=source, weather=weather)
         return
-    st.sidebar.warning("Path not found — use Browse folder…")
+    st.sidebar.caption(
+        "Folder path not on this host — use Browse folder…, or switch to Zip package."
+    )
 
 
 def _load_data(cfg: AppConfig) -> None:
@@ -926,6 +940,15 @@ def _load_data(cfg: AppConfig) -> None:
         st.session_state.data_input_mode = default_src
     if st.session_state.data_input_mode not in source_options:
         st.session_state.data_input_mode = source_options[0]
+    # Drop a prefilled Folder path that does not exist (Docker / Cloud / missing mount)
+    if cfg.allow_server_paths:
+        _bf = str(st.session_state.get("building_folder") or "").strip()
+        if _bf and not Path(_bf).expanduser().is_dir():
+            st.session_state.building_folder = ""
+            if st.session_state.data_input_mode == "Folder" and not st.session_state.get("equipment_frames"):
+                st.session_state.data_input_mode = "Zip package"
+                st.sidebar.caption("Configured folder not found — switched to Zip package.")
+
 
     st.sidebar.radio(
         "Data source",

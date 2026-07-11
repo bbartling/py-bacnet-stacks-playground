@@ -102,7 +102,7 @@ Env shortcut for examples: `VIBE19_INCLUDE_EXAMPLE_CUSTOM_RULES=1`.
 | **Local / agent** | Folder or zip path; optional `VIBE19_BOOTSTRAP` / `.last_agent_session.json` auto-load |
 | **Cloud-safe restore** | Upload zip → tune → **Download session config** → later upload **same zip** + **Upload session config** (no server disk). Sidebar + Export. |
 | **Streamlit Community Cloud** | Main file `streamlit_app.py` + `requirements.txt`; set `APP_MODE=cloud` optional. **No Dockerfile.** See `docs/STREAMLIT_CLOUD.md`. |
-| **Docker self-host** | `docs/DOCKER.md` — `docker build -t vibe19 .` then `docker run -p 8501:8501 -e APP_MODE=local vibe19` |
+| **Docker self-host** | `docs/DOCKER.md` — default image is **zip-only** (`APP_MODE=cloud`). Folder needs `-e APP_MODE=local` **and** a volume mount of the data tree. |
 
 Package safety default: **500 MB** zip and expanded (`OPENFDD_MAX_*` overrides). Sidebar / Overview show loaded size vs limit.
 
