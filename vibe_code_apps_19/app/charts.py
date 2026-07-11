@@ -1,9 +1,15 @@
-"""Plotly charts — multi-axis single figure, rainbow series colors, fault swim lane."""
+"""Plotly charts — multi-axis single figure, rainbow series colors, fault swim lane.
+
+Large historian traces are **downsampled for rendering only** (default ~5k points via
+``VIBE19_MAX_PLOT_POINTS``). Full-resolution data stays in rule results / exports.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+import os
+from typing import Any, Iterable
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -26,6 +32,131 @@ RAINBOW_PALETTE: list[str] = [
     "#9333ea",  # purple
     "#dc2626",  # red
 ]
+
+
+DEFAULT_MAX_PLOT_POINTS = 5000
+
+
+def max_plot_points() -> int:
+    """Max samples sent to Plotly per trace (env ``VIBE19_MAX_PLOT_POINTS``, default 5000)."""
+    raw = (os.environ.get("VIBE19_MAX_PLOT_POINTS") or "").strip()
+    if not raw:
+        return DEFAULT_MAX_PLOT_POINTS
+    try:
+        n = int(raw)
+    except ValueError:
+        return DEFAULT_MAX_PLOT_POINTS
+    return max(64, n)
+
+
+def _transition_positions(mask: pd.Series | np.ndarray | None, n: int) -> list[int]:
+    if mask is None or n < 2:
+        return []
+    arr = np.asarray(mask, dtype=bool).ravel()
+    if arr.size != n:
+        return []
+    # indices where value changes vs previous
+    changes = np.flatnonzero(arr[1:] != arr[:-1]) + 1
+    return [int(i) for i in changes.tolist()]
+
+
+def select_plot_positions(
+    n: int,
+    max_points: int | None = None,
+    *,
+    prefer: Iterable[int] | None = None,
+) -> np.ndarray:
+    """Deterministic iloc positions: always first/last; prefer fault edges; fill evenly.
+
+    Used only for Plotly payloads — never for rule math.
+    """
+    if n <= 0:
+        return np.array([], dtype=int)
+    cap = int(max_points if max_points is not None else max_plot_points())
+    if n <= cap:
+        return np.arange(n, dtype=int)
+
+    chosen: set[int] = {0, n - 1}
+    if prefer:
+        for i in prefer:
+            ii = int(i)
+            if 0 <= ii < n:
+                chosen.add(ii)
+
+    # Even grid fill
+    grid = np.linspace(0, n - 1, num=cap, dtype=float)
+    for g in grid:
+        chosen.add(int(round(g)))
+
+    # If still over cap (many transitions), keep ends + evenly thinned prefer set
+    if len(chosen) > cap:
+        prefs = sorted(i for i in chosen if i not in (0, n - 1))
+        keep_pref = max(0, cap - 2)
+        if keep_pref == 0:
+            chosen = {0, n - 1}
+        else:
+            step = max(1, len(prefs) // keep_pref)
+            thinned = prefs[::step][:keep_pref]
+            chosen = {0, n - 1, *thinned}
+
+    # Top up with linspace if under cap
+    while len(chosen) < cap:
+        for g in np.linspace(0, n - 1, num=cap * 2, dtype=float):
+            chosen.add(int(round(g)))
+            if len(chosen) >= cap:
+                break
+        break
+
+    return np.array(sorted(chosen)[:cap], dtype=int)
+
+
+def downsample_series_for_plot(
+    s: pd.Series,
+    *,
+    max_points: int | None = None,
+    prefer_index: pd.Index | None = None,
+    fault_mask: pd.Series | None = None,
+) -> pd.Series:
+    """Return a shorter series for Plotly; preserves first/last and optional fault edges."""
+    if s is None or len(s) == 0:
+        return s
+    n = len(s)
+    cap = int(max_points if max_points is not None else max_plot_points())
+    if n <= cap:
+        return s
+
+    prefer: list[int] = []
+    if fault_mask is not None:
+        prefer.extend(_transition_positions(fault_mask.reindex(s.index).fillna(False), n))
+    if prefer_index is not None and len(prefer_index):
+        # map preferred timestamps to positions when possible
+        try:
+            pos = s.index.get_indexer(prefer_index)
+            prefer.extend(int(p) for p in pos if p >= 0)
+        except Exception:
+            pass
+
+    iloc = select_plot_positions(n, cap, prefer=prefer)
+    return s.iloc[iloc]
+
+
+def downsample_frame_index(
+    index: pd.Index,
+    *,
+    max_points: int | None = None,
+    fault_mask: pd.Series | None = None,
+) -> pd.Index:
+    """Shared index downsample for multi-trace alignment on one chart."""
+    n = len(index)
+    cap = int(max_points if max_points is not None else max_plot_points())
+    if n <= cap:
+        return index
+    prefer = _transition_positions(
+        fault_mask.reindex(index).fillna(False) if fault_mask is not None else None,
+        n,
+    )
+    iloc = select_plot_positions(n, cap, prefer=prefer)
+    return index[iloc]
 
 
 PLOTLY_DOWNLOAD_CONFIG: dict[str, Any] = {
@@ -89,10 +220,12 @@ def rule_result_chart(
     *,
     required_roles: list[str] | None = None,
     units_map: dict[str, str] | None = None,
+    max_points: int | None = None,
 ) -> go.Figure | None:
     """One figure: each unit family on its own y-axis domain; confirmed fault as shaded swim lane.
 
     Series colors walk a rainbow palette (global index) so traces stay visually distinct.
+    Long series are downsampled for Plotly only (see ``max_plot_points``).
     """
     if result.confirmed_fault is None and result.status in {
         "SKIPPED_MISSING_ROLES",
@@ -107,13 +240,17 @@ def rule_result_chart(
     if fault is None and not series:
         return None
 
+    cap = int(max_points if max_points is not None else max_plot_points())
+    plot_index = downsample_frame_index(df.index, max_points=cap, fault_mask=fault)
+
     groups: dict[str, list[tuple[str, pd.Series, str]]] = {}
     for name, s in series.items():
         unit = _series_unit(name, units_map)
         fam = unit_family(unit) if unit else f"other:{name}"
         if unit in {"bool", "0/1"}:
             fam = "bool"
-        groups.setdefault(fam, []).append((name, s, unit or fam))
+        aligned = s.reindex(df.index).loc[plot_index]
+        groups.setdefault(fam, []).append((name, aligned, unit or fam))
 
     order_pref = ["temp_F", "pct", "static", "flow", "bool"]
     fam_keys = [k for k in order_pref if k in groups] + sorted(k for k in groups if k not in order_pref)
@@ -150,7 +287,6 @@ def rule_result_chart(
         axis_i = i + 1
         yname = "y" if axis_i == 1 else f"y{axis_i}"
         last_y = yname
-        y0, y1 = domains[i]
         units_in = sorted({u for _, _, u in groups[fam] if u})
         title = ", ".join(units_in) if units_in else fam
         ax_key = "yaxis" if axis_i == 1 else f"yaxis{axis_i}"
@@ -161,8 +297,7 @@ def rule_result_chart(
             zeroline=False,
             anchor="x",
         )
-        for name, s, unit in groups[fam]:
-            aligned = s.reindex(df.index)
+        for name, aligned, unit in groups[fam]:
             label = f"{name} ({unit})" if unit else name
             color = RAINBOW_PALETTE[color_i % len(RAINBOW_PALETTE)]
             color_i += 1
@@ -192,7 +327,7 @@ def rule_result_chart(
             showgrid=True,
             anchor="x",
         )
-        mask = fault.reindex(df.index).fillna(False).astype(bool)
+        mask = fault.reindex(df.index).fillna(False).astype(bool).loc[plot_index]
         fig.add_trace(
             go.Scatter(
                 x=mask.index,
@@ -225,6 +360,7 @@ def multi_equipment_timeseries(
     title: str,
     y_title: str = "",
     outlier_ids: set[str] | None = None,
+    max_points: int | None = None,
 ) -> go.Figure | None:
     """Overlay many equipment series; outliers get a thicker dashed red-ish stroke."""
     if not series_map:
@@ -232,8 +368,9 @@ def multi_equipment_timeseries(
     outliers = outlier_ids or set()
     fig = go.Figure()
     color_i = 0
+    cap = int(max_points if max_points is not None else max_plot_points())
     for eq_id, s in sorted(series_map.items()):
-        num = pd.to_numeric(s, errors="coerce")
+        num = downsample_series_for_plot(pd.to_numeric(s, errors="coerce"), max_points=cap)
         is_out = eq_id in outliers
         color = "#dc2626" if is_out else RAINBOW_PALETTE[color_i % len(RAINBOW_PALETTE)]
         if not is_out:
@@ -267,15 +404,21 @@ def multi_equipment_box(
     title: str,
     y_title: str = "",
     outlier_ids: set[str] | None = None,
+    max_points: int | None = None,
 ) -> go.Figure | None:
     if not series_map:
         return None
     outliers = outlier_ids or set()
     fig = go.Figure()
+    cap = int(max_points if max_points is not None else max_plot_points())
     for i, (eq_id, s) in enumerate(sorted(series_map.items())):
         num = pd.to_numeric(s, errors="coerce").dropna()
         if num.empty:
             continue
+        if len(num) > cap:
+            # Uniform sample for box (stats approximate; rules/exports unchanged)
+            iloc = select_plot_positions(len(num), cap)
+            num = num.iloc[iloc]
         is_out = eq_id in outliers
         fig.add_trace(
             go.Box(
@@ -302,15 +445,17 @@ def oat_scatter(
     title: str,
     x_title: str = "Web OAT °F",
     y_title: str = "",
+    max_points: int | None = None,
 ) -> go.Figure | None:
     if long_df is None or long_df.empty:
         return None
     fig = go.Figure()
+    cap = int(max_points if max_points is not None else max_plot_points())
     for i, eq_id in enumerate(sorted(long_df["equipment_id"].unique())):
         sub = long_df[long_df["equipment_id"] == eq_id]
-        # downsample for plot speed
-        if len(sub) > 4000:
-            sub = sub.iloc[:: max(1, len(sub) // 4000)]
+        if len(sub) > cap:
+            iloc = select_plot_positions(len(sub), cap)
+            sub = sub.iloc[iloc]
         fig.add_trace(
             go.Scatter(
                 x=sub["oat"],

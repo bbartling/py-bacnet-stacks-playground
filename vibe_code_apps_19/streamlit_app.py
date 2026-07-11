@@ -1,4 +1,4 @@
-﻿"""Vibe Code App 19 — 50-rule pandas/Streamlit FDD demo."""
+"""Vibe Code App 19 — 50-rule pandas/Streamlit FDD demo."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ from app.analytics import (  # noqa: E402
     sensor_fault_summary,
 )
 from app.charts import (  # noqa: E402
+    max_plot_points,
     mech_cooling_oat_histogram,
     motor_weekly_runtime_chart,
     plotly_config,
@@ -1532,49 +1533,59 @@ def main() -> None:
     units_map = _units_map()
     by_type = _equip_by_type(frames)
 
-    tabs = st.tabs(
-        [
-            "Overview",
-            "Data & Mapping",
-            "Run Rules",
-            "Results by Category",
-            "Plots",
-            "RCx Plots",
-            "Analytics",
-            "Export",
-        ]
+    _MAIN_SECTIONS = [
+        "Overview",
+        "Data & Mapping",
+        "Run Rules",
+        "Results by Category",
+        "Plots",
+        "RCx Plots",
+        "Analytics",
+        "Export",
+    ]
+    section = st.radio(
+        "Section",
+        _MAIN_SECTIONS,
+        horizontal=True,
+        key="main_section",
+        label_visibility="collapsed",
+    )
+    st.caption(
+        f"Plot traces capped at **{max_plot_points():,}** points "
+        "(env `VIBE19_MAX_PLOT_POINTS`) — full data still used for rules/exports."
     )
 
     span = dataset_time_span(frames)
     motor_tbl = motor_run_hours_table(frames, st.session_state.role_map)
     motor_tot = motor_run_hours_totals(motor_tbl)
-    try:
-        motor_weekly = motor_run_hours_weekly(
-            frames,
-            st.session_state.role_map,
-            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-            weather=st.session_state.weather,
-            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-        )
-    except Exception as exc:
-        st.warning(f"Weekly motor hours unavailable: {exc}")
-        motor_weekly = pd.DataFrame()
-    try:
-        cool_bins = mech_cooling_oat_bins(
-            frames,
-            st.session_state.role_map,
-            weather=st.session_state.weather,
-            prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-            chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-            include_ahu_chw_valve=False,
-        )
-    except Exception as exc:
-        st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
-        cool_bins = pd.DataFrame()
+    motor_weekly = pd.DataFrame()
+    cool_bins = pd.DataFrame()
+    if section in {"Overview", "Analytics"}:
+        try:
+            motor_weekly = motor_run_hours_weekly(
+                frames,
+                st.session_state.role_map,
+                chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                weather=st.session_state.weather,
+                prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+            )
+        except Exception as exc:
+            st.warning(f"Weekly motor hours unavailable: {exc}")
+        try:
+            cool_bins = mech_cooling_oat_bins(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+                prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+                chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                include_ahu_chw_valve=False,
+            )
+        except Exception as exc:
+            st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
     start_s = span["start"].strftime("%Y-%m-%d %H:%M") if span["start"] is not None else "—"
     end_s = span["end"].strftime("%Y-%m-%d %H:%M") if span["end"] is not None else "—"
 
-    with tabs[0]:
+    if section == "Overview":
         st.subheader("Overview")
         st.markdown(
             """
@@ -1670,7 +1681,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         )
         st.dataframe(type_counts, hide_index=True, width="stretch")
 
-    with tabs[1]:
+    if section == "Data & Mapping":
         st.subheader("Data & column → role mapping")
         st.write(
             "Map historian columns with Haystack-like `points` (or Auto-build). "
@@ -1824,7 +1835,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         st.write("Validation:", issues or "OK")
         st.dataframe(raw_df.head(100), width="stretch")
 
-    with tabs[2]:
+    if section == "Run Rules":
         st.subheader("Run rules")
         st.caption(
             "Sidebar sliders only store thresholds — they do **not** re-evaluate rules. "
@@ -1854,7 +1865,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
             st.success(f"Ran {len(st.session_state.batch_results)} evaluations — open **Plots** or **Analytics**.")
 
-    with tabs[3]:
+    if section == "Results by Category":
         st.subheader("Results by mechanical category")
         results = st.session_state.batch_results
         if not results:
@@ -1869,16 +1880,17 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             m5.metric("N/A", int((summary["status"] == "NOT_APPLICABLE_EQUIPMENT_TYPE").sum()))
             m6.metric("ERROR", int((summary["status"] == "ERROR").sum()))
             by_fam = _results_by_family(summary)
-            fam_tabs = st.tabs([family_label(f) for f in by_fam])
-            for tab, (fam, part) in zip(fam_tabs, by_fam.items()):
-                with tab:
-                    st.dataframe(part, width="stretch", height=420)
-                    faults = part[part["status"] == "FAULT"]
-                    if not faults.empty:
-                        st.write("**Faults**")
-                        st.dataframe(faults.sort_values("fault_hours", ascending=False), width="stretch")
+            fam_labels = [family_label(f) for f in by_fam]
+            fam_pick = st.selectbox("Mechanical category", fam_labels, key="results_fam_pick")
+            fam_key = list(by_fam.keys())[fam_labels.index(fam_pick)]
+            part = by_fam[fam_key]
+            st.dataframe(part, width="stretch", height=420)
+            faults = part[part["status"] == "FAULT"]
+            if not faults.empty:
+                st.write("**Faults**")
+                st.dataframe(faults.sort_values("fault_hours", ascending=False), width="stretch")
 
-    with tabs[4]:
+    if section == "Plots":
         st.subheader("Plots by device")
         st.caption(
             "Pick a mechanical type → device (each AHU / VAV / plant unit has its own plots). "
@@ -1936,56 +1948,91 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                     key=f"dl_sens_{device}",
                 )
 
-            shown = 0
+            # Lazy: one figure at a time by default (st.expander bodies still run when open;
+            # rendering every FAULT chart at once SIGSEGV'd low-RAM hosts with full traces).
+            plottable: list[tuple] = []
+            for fam in FAMILY_ORDER:
+                for rule in by_fam_rules.get(fam) or []:
+                    r = lookup.get((device, rule.id))
+                    if r is None:
+                        continue
+                    if r.status in {
+                        "SKIPPED_MISSING_ROLES",
+                        "NOT_APPLICABLE_EQUIPMENT_TYPE",
+                        "ERROR",
+                        "SKIPPED_EQUIPMENT_OFF",
+                    }:
+                        continue
+                    if r.status == "PASS" and not show_pass:
+                        continue
+                    plottable.append((rule, r))
+
             for fam in FAMILY_ORDER:
                 rules = by_fam_rules.get(fam) or []
-                if not rules:
+                skipped = [
+                    (rule, lookup.get((device, rule.id)))
+                    for rule in rules
+                    if lookup.get((device, rule.id)) is not None
+                    and lookup[(device, rule.id)].status
+                    in {
+                        "SKIPPED_MISSING_ROLES",
+                        "NOT_APPLICABLE_EQUIPMENT_TYPE",
+                        "ERROR",
+                        "SKIPPED_EQUIPMENT_OFF",
+                    }
+                ]
+                if not skipped:
                     continue
-                with st.expander(
-                    f"{family_label(fam)} · {len(rules)} rules for {eq_type}",
-                    expanded=(fam in {"ahu", "vav", "control"} and eq_type in {"AHU", "VAV"}),
-                ):
-                    for rule in rules:
-                        r = lookup.get((device, rule.id))
-                        if r is None:
-                            st.caption(f"{rule.id} — {rule.title} · not run yet")
-                            continue
-                        if r.status in {"SKIPPED_MISSING_ROLES", "NOT_APPLICABLE_EQUIPMENT_TYPE", "ERROR", "SKIPPED_EQUIPMENT_OFF"}:
-                            with st.container(border=True):
-                                st.markdown(f"**{rule.id}** — {rule.title}")
-                                st.caption(f"`{r.status}` · {rule.equation}")
-                                if r.missing_roles:
-                                    st.caption("Missing: " + ", ".join(r.missing_roles))
-                            continue
-                        if r.status == "PASS" and not show_pass:
-                            continue
-                        with st.container(border=True):
-                            st.markdown(f"**{rule.id}** — {rule.title}")
-                            fh = r.fault_hours if r.fault_hours is not None else 0.0
-                            st.caption(f"`{r.status}` · fault hours: {fh:.2f}")
-                            st.caption(rule.equation)
-                            fig = rule_result_chart(
-                                plot_df,
-                                r,
-                                required_roles=rule.required_roles,
-                                units_map=units_map,
-                            )
-                            if fig:
-                                st.plotly_chart(
-                                    fig,
-                                    width="stretch",
-                                    config=plotly_config(filename=f"{device}_{rule.id}", fmt=plot_fmt),
-                                    key=f"fig_{device}_{rule.id}",
-                                )
-                                shown += 1
-                            else:
-                                st.caption("No plot series for this result.")
-            if shown == 0 and any(eq == device for eq, _rid in lookup):
-                st.info(
-                    "No FAULT plots to show — enable **Show PASS plots**, or check column mapping / run results."
-                )
+                with st.expander(f"{family_label(fam)} · skipped / N/A", expanded=False):
+                    for rule, r in skipped:
+                        assert r is not None
+                        st.caption(
+                            f"**{rule.id}** — {rule.title} · `{r.status}`"
+                            + (f" · missing: {', '.join(r.missing_roles)}" if r.missing_roles else "")
+                        )
 
-    with tabs[5]:
+            shown = 0
+            if not plottable:
+                if any(eq == device for eq, _rid in lookup):
+                    st.info(
+                        "No FAULT plots to show — enable **Show PASS plots**, or check column mapping / run results."
+                    )
+            else:
+                labels = {
+                    f"{rule.id} · {rule.title} ({r.status})": (rule, r)
+                    for rule, r in plottable
+                }
+                pick = st.selectbox(
+                    "Rule chart (one at a time — safer on low-RAM hosts)",
+                    list(labels.keys()),
+                    key=f"plot_rule_pick_{device}",
+                )
+                rule, r = labels[pick]
+                with st.container(border=True):
+                    st.markdown(f"**{rule.id}** — {rule.title}")
+                    fh = r.fault_hours if r.fault_hours is not None else 0.0
+                    st.caption(f"`{r.status}` · fault hours: {fh:.2f}")
+                    st.caption(rule.equation)
+                    fig = rule_result_chart(
+                        plot_df,
+                        r,
+                        required_roles=rule.required_roles,
+                        units_map=units_map,
+                    )
+                    if fig:
+                        st.plotly_chart(
+                            fig,
+                            width="stretch",
+                            config=plotly_config(filename=f"{device}_{rule.id}", fmt=plot_fmt),
+                            key=f"fig_{device}_{rule.id}",
+                        )
+                        shown += 1
+                    else:
+                        st.caption("No plot series for this result.")
+                st.caption(f"{len(plottable)} plottable rule(s) for this device · traces ≤ {max_plot_points():,} pts")
+
+
+    if section == "RCx Plots":
         try:
             render_rcx_plots_tab(
                 frames,
@@ -1996,7 +2043,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         except Exception as exc:
             st.error(f"RCx Plots failed: {exc}")
 
-    with tabs[6]:
+    if section == "Analytics":
         st.subheader("Analytics")
         st.caption(
             "Weekly motor runtime and mechanical cooling vs **web** OAT "
@@ -2047,7 +2094,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 key="dl_cool_bins",
             )
 
-    with tabs[7]:
+    if section == "Export":
         st.subheader("Export")
         st.caption(
             "Plotly camera → PNG/JPEG. Cloud-safe: download/upload session_config + fault_settings "
