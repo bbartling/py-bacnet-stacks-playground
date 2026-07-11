@@ -169,3 +169,41 @@ def test_sched1_no_zone_t_backward_compatible_fault():
     )
     r = run_rule("SCHED-1", df, {"confirm_min": 0}, 300.0)
     assert r.status == "FAULT"
+
+
+def test_vlv1_and_sched1_inventory_and_catalog_params():
+    """Keep inventory + CookbookRule metadata aligned so agents don't drop tunables."""
+    from pathlib import Path
+
+    inv = yaml.safe_load(
+        (Path(__file__).parent.parent / "configs" / "rule_inventory.yaml").read_text(encoding="utf-8")
+    )
+    by_id = {r["rule_id"]: r for r in inv["rules"]}
+
+    vlv = RULES_BY_ID["VLV-1"]
+    assert "mat" in vlv.optional_roles
+    assert "fan_status" in vlv.optional_roles
+    assert {p.key for p in vlv.params} >= {"sat_err", "mat_leak_delta", "confirm_min"}
+    inv_vlv = by_id["VLV-1"]
+    assert "mat" in inv_vlv["optional_roles"]
+    assert set(inv_vlv["tunable_params"]) >= {"sat_err", "mat_leak_delta", "confirm_min"}
+
+    sched = RULES_BY_ID["SCHED-1"]
+    assert "zone_t" in sched.optional_roles
+    assert {p.key for p in sched.params} >= {"comfort_low_f", "comfort_high_f", "confirm_min"}
+    inv_sched = by_id["SCHED-1"]
+    assert "zone_t" in inv_sched["optional_roles"]
+    assert set(inv_sched["tunable_params"]) >= {"comfort_low_f", "comfort_high_f", "confirm_min"}
+    assert "occ_mode" in inv_sched["description"] or "calendar" in inv_sched["description"].lower()
+
+
+def test_vlv1_pass_when_valve_open():
+    df = _ahu_df(
+        sat=[50.0] * 6,
+        sat_sp=[55.0] * 6,
+        clg_valve_pct=[40.0] * 6,
+        fan_status=[1.0] * 6,
+        mat=[60.0] * 6,
+    )
+    r = run_rule("VLV-1", df, {"confirm_min": 0}, 300.0)
+    assert r.status == "PASS"

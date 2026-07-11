@@ -76,3 +76,6 @@ def test_streamlit_main_sections_present():
         assert f'section == "{section}"' in src or f"section == '{section}'" in src, (
             f"no branch for section: {section}"
         )
+    assert "Data Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
+    assert "build_equipment_fdd_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "Economizer family" in src or "ECON-1" in src

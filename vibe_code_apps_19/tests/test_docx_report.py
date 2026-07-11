@@ -39,6 +39,14 @@ def test_data_model_tree_and_docx(tmp_path):
     assert tree.equipment[0].equipment_id == "AHU_1"
     roles = {b.cookbook_role for b in tree.equipment[0].bindings}
     assert "sat" in roles
+    # Haystack-like tag present for mapped SAT
+    sat_bind = next(b for b in tree.equipment[0].bindings if b.cookbook_role == "sat")
+    assert "discharge" in sat_bind.haystack_tag or "temp" in sat_bind.haystack_tag
+    assert sat_bind.present_in_history is True
+
+    flat = pd.DataFrame(tree.to_rows())
+    assert not flat.empty
+    assert {"equipment_id", "cookbook_role", "haystack_tag", "csv_column"} <= set(flat.columns)
 
     docx = build_building_data_model_docx(tree)
     assert docx[:2] == b"PK"  # zip/docx magic
@@ -57,6 +65,14 @@ def test_data_model_tree_and_docx(tmp_path):
         plot_png_by_rule={},
     )
     assert eq_docx[:2] == b"PK"
+    # Deflated XML — unzip and confirm rule content is present
+    import zipfile
+    from io import BytesIO
+
+    with zipfile.ZipFile(BytesIO(eq_docx)) as zf:
+        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    assert "VLV-1" in xml
+    assert "Cooling valve" in xml or "leakage" in xml.lower()
 
     analytics = build_analytics_docx(
         building_id="B1",

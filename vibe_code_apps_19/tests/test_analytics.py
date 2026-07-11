@@ -205,6 +205,18 @@ def test_chiller_runtime_leave_temp_only_still_empty():
     assert chill.empty or not any("CHILLER_ONLY_TEMP" in str(x) for x in chill.get("label", []))
 
 
+def test_chiller_runtime_compressor_status_fallback():
+    from app.analytics import motor_run_hours_weekly
+
+    idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
+    on = [1.0] * 12 + [0.0] * 12
+    ch = pd.DataFrame({"compressor_status": on, "chw_supply_t": [44.0] * 24}, index=idx)
+    ch.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
+    weekly = motor_run_hours_weekly({"CH_DX": ch}, role_map={})
+    chill = weekly[weekly["plant_group"] == "chiller"]
+    assert any("CH_DX" in x and "compressor_status" in x for x in set(chill["label"]))
+
+
 def test_chiller_runtime_linked_pump_equipment():
     from app.analytics import motor_run_hours_weekly
 
