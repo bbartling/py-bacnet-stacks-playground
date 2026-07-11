@@ -38,6 +38,7 @@ from app.charts import (  # noqa: E402
     rule_result_chart,
 )
 from app.config import AppConfig  # noqa: E402
+from app.dashboard_contract import REQUIRED_MAIN_SECTIONS  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
 from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode, occupied_hours_per_week  # noqa: E402
 from app.ui_rcx_tab import render_rcx_plots_tab  # noqa: E402
@@ -1573,16 +1574,7 @@ def main() -> None:
     units_map = _units_map()
     by_type = _equip_by_type(frames)
 
-    _MAIN_SECTIONS = [
-        "Overview",
-        "Data & Mapping",
-        "Run Rules",
-        "Results by Category",
-        "Plots",
-        "RCx Plots",
-        "Analytics",
-        "Export",
-    ]
+    _MAIN_SECTIONS = list(REQUIRED_MAIN_SECTIONS)
     section = st.radio(
         "Section",
         _MAIN_SECTIONS,

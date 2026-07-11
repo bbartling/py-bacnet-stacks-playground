@@ -70,8 +70,10 @@ Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per dev
 
 | Tab | Purpose |
 | --- | --- |
-| Plots | One figure per **rule** on one device (fault swim lane) |
-| RCx Plots | Multi-equipment overlays + box/scatter RCx presets + generic role picker |
+| Plots | One figure per **rule** on one device (fault swim lane); one rule at a time |
+| RCx Plots | Multi-equipment overlays + **required** reset scatters/box + generic picker |
+
+Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).
 
 See [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
@@ -81,11 +83,13 @@ See [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
 4. **Web OAT default** for analytics / free-cool weather path
-5. Run `python -m pytest -q` before claiming done
+5. **Do not remove** `REQUIRED_RCX_PRESET_IDS` presets
+6. Run `python -m pytest -q` before claiming done
 
 ## Specs
 
 - [`../AGENTS.md`](../../../AGENTS.md)
+- [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md)
 - [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md)
 - [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

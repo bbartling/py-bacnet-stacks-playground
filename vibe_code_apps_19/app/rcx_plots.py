@@ -41,25 +41,33 @@ PRESETS: list[RcxPreset] = [
         filter_fan_on=True,
     ),
     RcxPreset(
+        "ahu_sat_reset_scatter",
+        "AHU discharge temp vs web OAT",
+        "SAT / leave-air temp vs Open-Meteo dry bulb — look for SAT reset with outdoor air.",
+        "sat",
+        ("AHU",),
+        "scatter_oat",
+    ),
+    RcxPreset(
         "hw_reset_scatter",
-        "Hot-water reset vs web OAT",
-        "HW supply temp vs Open-Meteo dry bulb (scatter).",
+        "Hot-water leave temp vs web OAT",
+        "HW supply / leave temp vs Open-Meteo dry bulb (boiler / HW plant reset).",
         "hw_supply_t",
         ("BOILER", "AHU"),
         "scatter_oat",
     ),
     RcxPreset(
         "chw_reset_scatter",
-        "Chilled-water reset vs web OAT",
-        "CHW supply temp vs Open-Meteo dry bulb (scatter).",
+        "Chilled-water leave temp vs web OAT",
+        "CHW supply / leave temp vs Open-Meteo dry bulb (chiller plant reset).",
         "chw_supply_t",
         ("CHW_PLANT", "CHILLER", "AHU"),
         "scatter_oat",
     ),
     RcxPreset(
         "cw_reset_scatter",
-        "Condenser-water vs web wet-bulb",
-        "CW supply vs wet-bulb (or dry bulb if WB missing).",
+        "Condenser / tower water vs web wet-bulb",
+        "CW supply vs wet-bulb (cooling-tower / condenser-water reset; dry bulb if WB missing).",
         "cw_supply_t",
         ("CHW_PLANT", "CHILLER", "COOLING_TOWER"),
         "scatter_oat",
@@ -68,6 +76,28 @@ PRESETS: list[RcxPreset] = [
     RcxPreset("vav_flows", "All VAV airflow", "Zone airflow across boxes.", "zone_flow", ("VAV",), "timeseries"),
     RcxPreset("fan_speeds", "All AHU fan speeds", "Fan command % across AHUs.", "fan_cmd", ("AHU",), "timeseries"),
 ]
+
+
+# Full existing RCx catalog freeze — agents must not delete any of these without an
+# explicit product decision + vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md update.
+# New presets may be added to PRESETS; promote them into this set when they become
+# part of the supported dashboard.
+REQUIRED_RCX_PRESET_IDS: frozenset[str] = frozenset(
+    {
+        "zone_temps",
+        "ahu_dats",
+        "ahu_mats",
+        "ahu_rats",
+        "ahu_dampers",
+        "duct_static_box",
+        "ahu_sat_reset_scatter",
+        "hw_reset_scatter",
+        "chw_reset_scatter",
+        "cw_reset_scatter",
+        "vav_flows",
+        "fan_speeds",
+    }
+)
 
 
 def _etype(eq_id: str, raw: pd.DataFrame, role_map: dict | None = None) -> str:

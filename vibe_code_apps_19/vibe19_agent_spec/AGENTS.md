@@ -31,6 +31,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 17. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
 18. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
 19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
+20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
 
 ---
 
@@ -41,6 +42,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 3. **`docs/CUSTOMIZE.md`** — when forking branding / DB / custom faults / deploy
 4. **`skills/vibe19-streamlit-demo/SKILL.md`** — primary skill
 5. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots + RCx Plots
+5b. **`docs/DASHBOARD_CONTRACT.md`** — required RCx presets (do not delete)
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed

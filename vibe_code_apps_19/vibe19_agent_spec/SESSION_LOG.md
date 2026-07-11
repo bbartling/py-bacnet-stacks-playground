@@ -8,6 +8,16 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Dashboard contract (full catalog freeze)
+
+- Validated: HW/CHW leave vs web OAT, CW/tower vs wet-bulb, duct-static box
+- **Added** `ahu_sat_reset_scatter` (AHU SAT vs web OAT)
+- Freeze **all 12** current RCx presets in `REQUIRED_RCX_PRESET_IDS`
+- `app/dashboard_contract.py` freezes main UI sections + chart APIs; Streamlit imports `REQUIRED_MAIN_SECTIONS`
+- Spec: `docs/DASHBOARD_CONTRACT.md` · tests: `tests/test_rcx_presets.py`
+
+---
+
 ## 2026-07-11 — Multi-zip upload + agent prerun (no GHCR push)
 
 - Sidebar accepts **multiple** package zips; `app/multi_zip.py` merges parts under agent 2 GB cap
