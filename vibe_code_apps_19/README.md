@@ -1,24 +1,21 @@
-# Vibe Code App 19 — Streamlit FDD demo (50-rule pandas cookbook)
+# Vibe Code App 19 — Open FDD Vibe Coder
 
-Lightweight **Python + Streamlit + pandas** educational app implementing the **full 50-rule Open-FDD pandas cookbook** for BUILDING_100-style CSV data.
+Educational **Streamlit + pandas** lab for the [Open-FDD 50-rule Pandas Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html). Historian CSVs stay as-is; you map columns to logical roles, tune thresholds, run rules, and review Plots / RCx.
 
-**This is not Open-FDD.** Production Rust/DataFusion engine: [Open-FDD](https://github.com/bbartling/open-fdd) (`C:\Users\ben\Documents\open-fdd`).
+**This is not the Rust Open-FDD engine.** Production stack: [Open-FDD](https://github.com/bbartling/open-fdd).
 
-## What this app is
+Agent brief: [`AGENTS.md`](AGENTS.md) · fork guide: [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
-- All **50 cookbook rules** in readable pandas (`app/rules/cookbook_catalog.py`)
-- Streamlit UI with tunable sliders, rule inventory, engineer notes
-- Manual YAML role mapping — no Haystack/Oxigraph
-- CSV tree, multi-file upload, local folder, read-only SQLite/DuckDB/SQL Server, optional Parquet
-- Multi-site / building / equipment nested YAML mapping (Haystack-*like*, no RDF)
-- Explicit statuses: `PASS`, `FAULT`, `SKIPPED_MISSING_ROLES`, `NOT_APPLICABLE_EQUIPMENT_TYPE`, `ERROR`
+## Highlights
 
-## What this app is not
+- Full **50 cookbook rules** + optional `CUSTOM-*` agent rules
+- **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
+- Haystack-*like* **column → role** map (JSON / session config) — no RDF
+- Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
+- Headless agent API + CLI; session download/restore for Cloud-friendly handoff
+- **Docker / GHCR** image for self-host demos
 
-- Not Rust, DataFusion, FastAPI, or Docker deploy product stack
-- Not full Open-FDD SQL parity (19 SQL rules live in Open-FDD)
-
-## Quick start
+## Quick start (local)
 
 ```powershell
 cd vibe_code_apps_19
@@ -26,80 +23,47 @@ python -m pip install -e ".[dev]"
 streamlit run streamlit_app.py
 ```
 
-In the sidebar, choose **Upload CSV files** and pick one or more CSVs (no env vars needed). Optional: paste a BUILDING tree path, or set `HVAC_DATA_ROOT`.
+Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit **500 MB**).
 
-## How data maps to rules (automatic)
-
-Rules never use raw vendor column names. They need **logical roles** (`sat`, `zone_t`, `oa_t`, …).
-
-```
-CSV headers / columns.csv  →  column map JSON or YAML  →  logical roles on the DataFrame  →  50 cookbook rules
-```
-
-1. **Heuristic / `columns.csv`** — `point_role` + header patterns (`app/role_map.py`)
-2. **JSON column map** — portable file an LLM can author (`configs/building_100_column_map.json`)
-3. **UI** — **Data & Mapping** tab: load/upload JSON, or **Auto-build JSON map from loaded CSVs**
-
-Missing roles → rule status `SKIPPED_MISSING_ROLES` (safe), not a crash.
-
-### Generate map for BUILDING_100
+## Docker / GHCR
 
 ```powershell
-python scripts/generate_building100_column_map.py --run-rules
+docker pull ghcr.io/bbartling/vibe19:develop
+docker run --rm -p 8501:8501 ghcr.io/bbartling/vibe19:develop
 ```
 
-### LLM prompt (paste with your column lists)
+Build locally: see [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 
-**Expectation:** humans load any building folder; Claude / Cursor / a local LLM returns a **JSON column map** (not a modified CSV). One JSON covers many AHUs + VAVs. `building_id` is the folder name you loaded (demo data may be called `BUILDING_100`, but nothing in the prompt requires that name).
-
-The Streamlit **Data & Mapping** tab builds a filled prompt (instructions + every loaded equipment’s columns) with a code-block copy control and a `.txt` download. Base template: `LLM_COLUMN_MAP_PROMPT` in `app/column_map_json.py`. Ask the model for JSON only:
-
-```json
-{
-  "version": 1,
-  "building_id": "<your building folder name>",
-  "generated_by": "llm",
-  "notes": "…",
-  "equipment": {
-    "AHU_1": {
-      "equipment_type": "AHU",
-      "column_roles": { "sat": "discharge_air_temp_f", "oa_t": "outside_air_temp_f" }
-    }
-  }
-}
-```
-
-Then upload that JSON in the UI or save under `configs/`.
-
-## Environment (optional)
-
-| Variable | Default |
+| Path | Limit |
 | --- | --- |
-| `HVAC_DATA_ROOT` | `./data/hvac_systems_CLEANED` |
-| `HVAC_BUILDING` | `BUILDING_100` |
+| Browser upload | **500 MB** (`.streamlit/config.toml`) |
+| Agent / CLI / path load | **2048 MB** default (`OPENFDD_MAX_*` env override) |
 
-## Rules
+Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses the upload widget).
 
-See [docs/STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md) for canonical count reconciliation.
+## How data maps to rules
 
-Regenerate inventory/defaults:
-
-```powershell
-python scripts/generate_rule_configs.py
 ```
+CSV headers → column_map / role_map → logical roles on the DataFrame → cookbook rules + analytics
+```
+
+Missing roles → `SKIPPED_MISSING_ROLES` (safe). Equipment type should come from the map (`equipType` / `equipment_type`), not only folder-name guesses.
 
 ## Tests
 
 ```powershell
 python -m pytest -q
-python scripts/validate_building100.py
+# Windows locked temp dirs:
+.\scripts\run_tests_local.ps1
 ```
 
 ## Docs
 
-- [STREAMLIT_DEMO_SPEC.md](docs/STREAMLIT_DEMO_SPEC.md)
-- [STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md)
-- [MULTI_SITE_CSV_SQL_SPEC.md](docs/MULTI_SITE_CSV_SQL_SPEC.md)
-- [CSV_UPLOAD_GUIDE.md](docs/CSV_UPLOAD_GUIDE.md)
-- [SQL_SERVER_INPUT_GUIDE.md](docs/SQL_SERVER_INPUT_GUIDE.md)
-- [HAYSTACK_LIKE_MAPPING_GUIDE.md](docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)
+| Doc | Topic |
+| --- | --- |
+| [`AGENTS.md`](AGENTS.md) | Agent hard rules |
+| [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) | Zip package layout |
+| [`docs/DATA_MODEL_DRIVEN.md`](docs/DATA_MODEL_DRIVEN.md) | Roles → rules / charts |
+| [`docs/DOCKER.md`](docs/DOCKER.md) | Docker + GHCR |
+| [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md) | Community Cloud |
+| [`vibe19_agent_spec/`](vibe19_agent_spec/) | Skills, customize, session log |

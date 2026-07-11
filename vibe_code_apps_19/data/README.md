@@ -1,17 +1,25 @@
-# External HVAC CSV data
+# External HVAC data
 
-Do **not** copy full site CSV exports into this repo (typically hundreds of MB).
+Do **not** copy full site CSV exports into this repo (often hundreds of MB to multi‑GB).
 
-Configure a path on your machine:
+## Preferred inputs
 
-| Role | Example path |
+| Mode | What to use |
 | --- | --- |
-| Primary import (5-min + VAV) | `/path/to/hvac_systems_CLEANED` |
-| Optional local staging | `vibe_code_apps_19/data/hvac_systems_CLEANED/` (gitignored) |
+| Demo / Cloud / Docker | `openfdd_package_v1` **zip** (browser upload ≤ 500 MB) |
+| Agent / large sites | Path load or `agent_afdd.py` (package safety default **2048 MB**) |
+| Native local folder | Historian tree on disk (not committed) |
+
+Configure a machine-local root if needed:
+
+| Role | Example |
+| --- | --- |
+| Import root | `/path/to/hvac_systems_CLEANED` |
+| Optional staging | `vibe_code_apps_19/data/hvac_systems_CLEANED/` (gitignored) |
 
 Set via `../data_paths.local.yaml` or `HVAC_DATA_ROOT` — see [`data_paths.example.yaml`](../data_paths.example.yaml).
 
-Expected layout:
+Typical tree (when using folders):
 
 ```
 hvac_systems_CLEANED/
@@ -22,4 +30,4 @@ hvac_systems_CLEANED/
   BUILDING_50/...
 ```
 
-Small reference CSVs (e.g. topology maps) may be added under `data/` later if we want them versioned.
+Package layout and size limits: [`docs/PACKAGE_SPEC.md`](../docs/PACKAGE_SPEC.md), [`docs/DOCKER.md`](../docs/DOCKER.md).
