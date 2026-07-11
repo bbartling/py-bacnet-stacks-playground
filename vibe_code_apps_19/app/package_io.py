@@ -390,6 +390,11 @@ def load_package_from_dir(
             )
         frames[eq["equipment_id"]] = df
 
+    from app.data_contract import audit_package_dir
+
+    contract_warnings = audit_package_dir(building_root, frames, equipment)
+    warnings.extend(contract_warnings)
+
     weather = _load_weather(building_root)
     column_map = None
     column_map_issues: list[str] = []
@@ -421,6 +426,8 @@ def load_package_from_dir(
         ),
         "column_map_issue_count": len(column_map_issues),
         "column_map_issues_preview": column_map_issues[:20],
+        "data_contract_warning_count": len(contract_warnings),
+        "data_contract_warnings_preview": contract_warnings[:30],
         "row_counts": {k: int(len(v)) for k, v in frames.items()},
         "uncompressed_bytes": unc_bytes,
         "uncompressed_mb": bytes_as_mb(unc_bytes),

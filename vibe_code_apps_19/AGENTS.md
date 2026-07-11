@@ -43,7 +43,7 @@ Headless agents use `app/agent_api.py` / `scripts/agent_afdd.py`. After export t
 - `out_dir/streamlit_bootstrap.json`
 - `vibe_code_apps_19/.last_agent_session.json` (gitignored)
 
-Or set `VIBE19_BOOTSTRAP=C:\path\to\streamlit_bootstrap.json`.
+Or set `VIBE19_BOOTSTRAP=C:\path\to\streamlit_bootstrap.json` (**native Streamlit on the host**).
 
 On Streamlit start (empty session), the app **auto-loads** that package + fault settings and optionally **re-runs all 50 rules** so Plots/RCx are ready at **http://localhost:8501**.
 
@@ -52,6 +52,22 @@ python scripts/agent_afdd.py --package path\to\BUILDING_100_full_openfdd_package
 # ensure Streamlit is running (or restart it), then open http://localhost:8501
 ```
 
+### GHCR / Docker bootstrap (paths must be container-visible)
+
+- Container Streamlit listens on **internal :8501**; browse the **host** port from `-p HOST:8501` (e.g. http://localhost:8502 when `-p 8502:8501`).
+- Bootstrap JSON from `agent_afdd.py` embeds **host paths**. A container **cannot** open `C:\Users\…\file.zip`.
+- Bind-mount the package directory and set container paths, e.g. `package_path: "/data/package.zip"` and `VIBE19_BOOTSTRAP=/data/VIBE19_BUILDING_100_BOOTSTRAP.json`.
+- Full Windows example + port-conflict notes: [`docs/DOCKER.md`](docs/DOCKER.md).
+
+### Data-contract warnings (do not hide)
+
+On package load, `app/data_contract.py` surfaces (sidebar + `package_report`):
+
+- `quality.json` trusted_start **after** history end → would be **0 trusted rows** (history kept; never invent/backdate trust)
+- `columns.csv` points absent from `history_wide.csv` → ignored for mapping (intersect only)
+- `vav_to_ahu_simple.csv` mismatches; parent-AHU **quality** fallback when a VAV has no own quality / missing topology
+
+See [`vibe19_agent_spec/DATA_CONTRACT.md`](vibe19_agent_spec/DATA_CONTRACT.md).
 ## Smoke-check (no browser)
 
 ```powershell

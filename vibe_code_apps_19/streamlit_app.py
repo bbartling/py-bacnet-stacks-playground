@@ -877,6 +877,8 @@ def _commit_package_result(result) -> None:
         ).strip(" +")
     for w in result.warnings:
         st.sidebar.warning(w)
+    # Persist for Overview / Export (AppTest can assert)
+    st.session_state.package_warnings = list(result.warnings)
 
 
 def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
@@ -1127,10 +1129,10 @@ def _load_data(cfg: AppConfig) -> None:
                     except Exception as exc:
                         st.sidebar.error(f"Session config load failed: {exc}")
 
-        st.sidebar.caption(dataset_size_caption(None, caps=caps))
+        st.sidebar.caption(dataset_size_caption(None, caps=agent_caps))
         report = st.session_state.get("package_report")
         if report:
-            st.sidebar.caption(dataset_size_caption(report, caps=caps))
+            st.sidebar.caption(dataset_size_caption(report, caps=agent_caps))
             with st.sidebar.expander("Package report", expanded=False):
                 st.json(report)
         frames = st.session_state.get("equipment_frames") or {}

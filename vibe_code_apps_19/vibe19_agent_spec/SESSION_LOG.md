@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — GHCR caps crash + data-contract warnings
+
+- Fix Zip branch `NameError: caps` → use `agent_caps` for dataset size captions
+- `app/data_contract.py`: quality trusted-window / columns.csv intersect / VAV topology warnings (no invented trust)
+- Docker bootstrap docs: container-visible `/data` paths, host port vs :8501 (`docs/DOCKER.md`)
+- AppTest bootstrap regression; GHCR republish on push
+
+---
+
 ## 2026-07-11 — Streamlit 500 MB upload + GHCR
 
 - `.streamlit/config.toml` → `server.maxUploadSize = 500` (fixes browser “200MB per file”)

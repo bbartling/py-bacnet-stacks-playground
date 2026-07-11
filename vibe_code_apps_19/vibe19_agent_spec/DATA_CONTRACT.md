@@ -96,7 +96,27 @@ Export trees are expected on a stable grid (usually 5-minute). `infer_poll_secon
 
 ## quality.json (optional)
 
-Sidecar QA from import pipeline — flatlines, stale cutover, missing points. Surface in validation report; do not silently drop rows.
+Sidecar QA from the import pipeline — flatlines, stale cutover, missing points.
+
+**App 19 behavior (`app/data_contract.py`):**
+
+- Reads optional keys: `trusted_start_utc`, `trusted_data_start_utc`, `trusted_data_start`, …
+- If trusted_start is **after** the last `history_wide` timestamp, the loader **warns** that a trust filter would yield **0 rows**, keeps the full history, and **does not invent** trusted data.
+- If a VAV has no `quality.json`, the auditor may use the **parent AHU** quality file (from `vav_to_ahu_simple.csv` or path) for the same warning checks only.
+- Warnings appear in the Streamlit sidebar and `package_report.data_contract_warnings_preview`.
+
+## columns.csv vs history_wide.csv
+
+Only columns that **exist in history** are kept for role hints (`columns_roles_present` on the frame). Metadata-only rows in `columns.csv` are listed in warnings and ignored — never mapped as if present.
+
+## Topology (`vav_to_ahu_simple.csv`)
+
+Optional. Auditor warns when:
+
+- VAV folders are missing from the CSV, or
+- CSV lists VAV IDs with no matching folder.
+
+Do not invent AHU links; use path/quality parent fallback for quality checks only.
 
 ---
 
