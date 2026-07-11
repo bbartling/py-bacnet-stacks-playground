@@ -1,12 +1,12 @@
-## Day 16 – Modules & the Standard Library
+# Day 16 – Modules & the Standard Library
 
-### Goal
+## Goal
 
 Learn how to organise code into reusable **modules** and access the
 Python **standard library**.  You will import functions from built‑in
 modules like `math` and `random` and write your own simple module.
 
-### Concept
+## Concept
 
 A **module** is a file containing Python definitions and statements.  The
 Python tutorial notes that modules allow you to split your program into
@@ -18,7 +18,7 @@ you to import specific attributes directly into your namespace.
 The standard library provides many useful modules for mathematics, random
 numbers, date/time, and more.
 
-### How to Use It
+## How to Use It
 
 **Importing standard modules:**
 
@@ -64,7 +64,7 @@ import utils
 print(utils.celsius_to_fahrenheit(20))
 ```
 
-### Why This Matters
+## Why This Matters
 
 Modules help you organise code and avoid repeating yourself.  The
 standard library provides reliable tools for common tasks so you don’t
@@ -73,7 +73,7 @@ mathematical functions (`math.sqrt`), random selections for test data
 (`random.choice`) or date/time handling; learning to import modules lets
 you leverage these capabilities immediately.
 
-### Mini Examples
+## Mini Examples
 
 - Use `math.floor()` and `math.ceil()` to round a floating‑point HVAC
   setpoint down and up, respectively.
@@ -82,7 +82,7 @@ you leverage these capabilities immediately.
 - Write a module `conversions.py` with functions to convert feet to
   metres and kilograms to pounds; import and test them.
 
-### Micro Exercises
+## Micro Exercises
 
 1. Import the `statistics` module and use `statistics.mean()` to
    calculate the average of the list `[72, 75, 68, 70]`.
@@ -92,7 +92,7 @@ you leverage these capabilities immediately.
    and then write a separate script that imports `mytools` and calls the
    function.
 
-### Key Takeaway
+## Key Takeaway
 
 Modules allow you to split your program into multiple files and reuse
 code.  You import standard modules like `math` and `random` to access

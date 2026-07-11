@@ -1,10 +1,10 @@
-## Day 61 – Haystack Tags vs Brick Graphs
+# Day 61 – Haystack Tags vs Brick Graphs
 
-### Goal
+## Goal
 
 Compare **Haystack tag dictionaries** (Zinc/CSV) with **Brick RDF graphs**—when to use which on projects.
 
-### Concept
+## Concept
 
 Haystack row (conceptual):
 
@@ -29,21 +29,44 @@ fn haystack_row_to_triples(id: &str, equip: &str) -> Vec<Triple> {
 }
 ```
 
-### Why This Matters
+## Why This Matters
 
 Niagara speaks Haystack; analytics ontologies speak Brick—**edge Rust services translate**.
 
-### Mini examples
+## Mini Examples
 
 - Convert one golden Zinc row to 2–3 triples.
 - Tags not in Brick—store as `ex:tag "key" "value"` literal triples optional.
 
-### Micro exercises
+## Micro Exercises
 
 1. Table: 3 things Haystack does well vs 3 things Brick does well.
 2. Implement stub `haystack_row_to_triples` returning at least one triple.
 3. Where does rusty-haystack stop and RDF begin?
 
-### Key takeaway
+## Key Takeaway
 
 **Tags for ops/runtime; graphs for mergeable semantics**—you need both in modern BAS stacks.
+
+---
+
+## Python companion — Tags vs triples (intuition)
+
+*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+
+```python
+# Course graphs live in Rust. Python: shape only.
+row = {"id": "@ahu1.oa-t", "equipRef": "@ahu1", "curVal": 55.3}
+triples = [
+    (f"ex:{row['id'][1:]}", "rdf:type", "brick:Outside_Air_Temperature_Sensor"),
+    ("ex:ahu1", "brick:hasPoint", f"ex:{row['id'][1:]}"),
+]
+print(triples)
+```
+
+| Rust (main lesson) | Python |
+|--------|--------|
+| `haystack_row_to_triples` → graph | list of `(s, p, o)` tuples from a dict |
+| Brick in `AdjGraph` / TTL | sketch strings; no `rdflib` |
+
+**Takeaway:** Haystack rows are dicts; Brick is triples—map in Python for intuition, implement the bridge in Rust.

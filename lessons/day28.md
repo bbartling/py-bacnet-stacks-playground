@@ -1,14 +1,14 @@
-## Day 28 – Rust recap & ownership crash course
+# Day 28 – Rust recap & ownership crash course
 
 *Week 5 — Rust fast track begins. You should already have Rust installed from **Day 1** and have run the **Rust companion** blocks on Days 1–27.*
 
-### Goal
+## Goal
 
 Confirm your Rust toolchain, review what Days 1–27 already taught, and learn **ownership, borrowing, and lifetimes** in plain language so Days 29–34 are practice—not a cliff.
 
 If you **skipped** the Rust companions: do **Day 1 Rust companion** (install + `cargo new`) today, then skim Days 2, 6, 8, 9, 11, 15, 18, and 27 companions before continuing.
 
-### Concept — you already know most of this
+## Concept
 
 | Topic | Where you saw it | Rust words |
 |-------|------------------|------------|
@@ -122,24 +122,52 @@ fn use_name(s: &str) { println!("{s}"); }
 
 so the caller keeps ownership.
 
-### Why This Matters
+## Why This Matters
 
 BACnet/Haystack clients pass **buffers and strings** around constantly. Ownership/borrowing is how Rust stays fast and safe without a GC. Days 29–31 practice types, control flow, and `Result` on top of this foundation.
 
-### Mini examples
+## Mini Examples
 
 - Clone when you truly need two owners: `let b = a.clone();`
 - Slice a string (ASCII): `let head = &s[0..3];` (this is a borrow)
 - Return a reference only to data the caller already owns (lifetime ties them together)
 
-### Micro exercises
+## Micro Exercises
 
 1. In `day28_ownership`, create a `String`, move it into a second variable, and confirm the first cannot print (comment the error).
 2. Write `fn label(device: u32, point: &str) -> String` using `format!`.
 3. Write `fn add_one(x: &mut i32)` and call it on a `mut` variable.
 4. In one sentence: when do you use `&str` vs `String`?
 
-### Key takeaway
+## Key Takeaway
 
 **Owner frees memory. `&` borrows. `&mut` exclusive write. Lifetimes keep borrows honest.**  
 Days 1–27 already gave you syntax; Day 28 is the memory model. Day 29 continues with types and BACnet-style readings—no surprise install step.
+
+---
+
+## Python companion — Ownership vs GC
+
+*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab` (create if needed).*
+
+```python
+# Python: assignment aliases the same object (GC cleans up later)
+a = {"device": "AHU-1", "pv": 72.5}
+b = a                    # b is another name for the same dict
+b["pv"] = 73.0
+print(a["pv"])           # 73.0 — both see the change
+
+readings = [71.0, 72.0]
+copy = list(readings)    # new list; like Rust .clone() for the container
+copy.append(73.0)
+print(readings)          # [71.0, 72.0] — original unchanged
+```
+
+| Rust (main lesson) | Python |
+|--------|--------|
+| move transfers ownership | assignment usually aliases (same object) |
+| GC not used — owner drops | GC frees when no references remain |
+| `&T` / `&mut T` borrows | pass object; mutate carefully or copy |
+| `.clone()` for a second owner | `list(x)`, `dict(x)`, or `copy.copy` |
+
+**Takeaway:** Rust moves; Python aliases—know which name mutates a shared point cache before you blame the BACnet driver.

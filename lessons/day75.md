@@ -1,6 +1,6 @@
-## Day 75 – Final Capstone: Multi-Protocol Semantic Snapshot
+# Day 75 – Final Capstone: Multi-Protocol Semantic Snapshot
 
-### Goal
+## Goal
 
 Deliver **[`capstone/`](./capstone/)** with:
 
@@ -11,7 +11,7 @@ Deliver **[`capstone/`](./capstone/)** with:
 5. **`pcaps/README.md`** — three filters used on one multi-protocol capture ([template](./capstone/pcaps/README.md))
 6. **`COURSE_REVIEW.md`** ([template](./capstone/COURSE_REVIEW.md))
 
-### Concept
+## Concept
 
 Grading rubric (self-check):
 
@@ -25,21 +25,26 @@ Grading rubric (self-check):
 
 Optional stretch: JSON point export for agents (Day 73).
 
-### Why This Matters
+## Why This Matters
 
 This replaces the old Day 75 SPARQL-on-rdflib capstone with **Rust-native networking + RDF** aligned to edge BAS reality.
 
-### Micro exercises
+## Mini Examples
+
+- Walk `capstone/` and confirm each graded artifact path exists.
+- Rehearse the three Wireshark filters before the final capture.
+
+## Micro Exercises
 
 1. Zip repo subset; include `--help` screenshots.
 2. Record 2-minute screen demo: Wireshark filter → CLI read → TTL query.
 3. Post one Discord/forum lesson learned (community optional).
 
-### Key takeaway
+## Key Takeaway
 
 **Turn-key edge practitioner path:** Python BACnet basics → Rust protocols on the wire → semantic models for FDD and agents.
 
-### Wireshark Lab
+## Wireshark Lab
 
 Final capture:
 
@@ -56,3 +61,33 @@ tcp.port == 1502
 ```
 
 Congratulations—you finished the **Rust Network Programming + RDF** track.
+
+---
+
+## Python companion — Capstone checklist walk
+
+*Same day as the Rust lesson above. Prefer a venv; keep scripts in `~/py-lab`.*
+
+```python
+# Checklist only—do not rewrite the Rust capstone in Python.
+from pathlib import Path
+root = Path("lessons/capstone")  # adjust if your cwd differs
+need = [
+    "discover-and-poll",
+    "niagara-read",
+    "model/ahu1.ttl",
+    "graph-export",
+    "pcaps/README.md",
+    "COURSE_REVIEW.md",
+]
+for rel in need:
+    p = root / rel
+    print(("OK" if p.exists() else "MISSING"), rel)
+```
+
+| Rust (main lesson) | Python |
+|--------|--------|
+| Capstone CLIs + graph-export + TTL | `pathlib` existence checklist |
+| Full multi-protocol semantic snapshot | parallel learning only—not a rewrite |
+
+**Takeaway:** Point at [`capstone/`](./capstone/) and ship the Rust artifacts; Python may only checklist paths.

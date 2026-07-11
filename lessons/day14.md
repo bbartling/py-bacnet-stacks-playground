@@ -1,12 +1,12 @@
-## Day 14 – Advanced Loops & Sentinels
+# Day 14 – Advanced Loops & Sentinels
 
-### Goal
+## Goal
 
 Practise using `for` and `while` loops beyond the basics.  You will learn how
 to write **nested loops**, use `while True` with a sentinel to terminate
 input, and control loop execution with `break` and `continue`.
 
-### Concept
+## Concept
 
 Python’s `for` statement iterates over the items of a sequence, such as a
 list or string.  You can nest loops to process
@@ -22,7 +22,7 @@ infinite loop; you exit it by calling `break` when a sentinel value is
 entered.  Python’s `break` statement exits the nearest enclosing loop and
 `continue` skips to the next iteration.
 
-### How to Use It
+## How to Use It
 
 **Nested loops:**
 
@@ -55,7 +55,7 @@ for n in numbers:
     print(n)
 ```
 
-### Why This Matters
+## Why This Matters
 
 Real programs often need to loop until a certain condition is met.  HVAC
 monitoring scripts might read sensor values continuously until an operator
@@ -64,7 +64,7 @@ ensures your code can handle unknown amounts of data gracefully.  Nested
 loops are essential when dealing with tables of information, such as rooms
 versus equipment.
 
-### Mini Examples
+## Mini Examples
 
 - Write a loop that keeps asking the user for temperatures until they type
   `'done'`, then prints the average.
@@ -73,18 +73,18 @@ versus equipment.
 - Modify a list of numbers by replacing all negative values with `0` using
   `continue`.
 
-### Micro Exercises
+## Micro Exercises
 
 1. Create a `while True` loop that reads lines from the user until they
    enter an empty string (press Enter).  Each time, print the length of
    the string.  When the empty string is entered, exit the loop with
    `break`.
-2. Use nested `for` loops to print a 4 × 4 grid of coordinates `(row,
+2. Use nested `for` loops to print a 4 × 4 grid of coordinates `(row,
    column)` starting from `(0,0)`.
 3. Given a list `values = [10, -5, 20, -3, 7]`, use a `for` loop with
    `continue` to print only the positive numbers.
 
-### Key Takeaway
+## Key Takeaway
 
 Use nested loops to handle multi‑dimensional data and `while True` loops
 with a sentinel value to process input of unknown length.  `break`

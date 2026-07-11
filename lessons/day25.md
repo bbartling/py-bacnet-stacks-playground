@@ -1,13 +1,13 @@
-## Day 25 – Documentation, Comments & `help()`
+# Day 25 – Documentation, Comments & `help()`
 
-### Goal
+## Goal
 
 Discover how to write clear **docstrings** and comments in your code and
 use Python’s built‑in `help()` function to explore modules and
 functions.  Good documentation makes your code easier to understand and
 maintain.
 
-### Concept
+## Concept
 
 Documentation comes in two main forms: **comments** and **docstrings**.
 Comments start with `#` and continue to the end of the line; they
@@ -18,11 +18,11 @@ attribute and uses it when you call `help()`.
 
 The `help()` function displays the documentation of an object.  You can
 call `help(function)` or use it at the interactive prompt to explore
-modules.  Good docstrings follow conventions described in PEP 257 and
+modules.  Good docstrings follow conventions described in PEP 257 and
 begin with a short summary line, followed by a more detailed
 explanation.
 
-### How to Use It
+## How to Use It
 
 **Comments and docstrings:**
 
@@ -58,7 +58,7 @@ help(math.sqrt)
 print(fahrenheit_to_celsius.__doc__)
 ```
 
-### Why This Matters
+## Why This Matters
 
 Clear documentation helps others (and your future self) understand what
 your code is doing.  Comments provide context that code alone cannot
@@ -66,7 +66,7 @@ convey, and docstrings enable automatic tools and the interactive
 interpreter to display usage information.  In collaborative projects,
 good documentation reduces bugs and accelerates onboarding.
 
-### Mini Examples
+## Mini Examples
 
 - Write a docstring for a function `area_of_circle(r)` that explains the
   formula and parameters.
@@ -75,16 +75,16 @@ good documentation reduces bugs and accelerates onboarding.
 - Write a brief comment in a script explaining why a particular magic
   number (constant) is used.
 
-### Micro Exercises
+## Micro Exercises
 
-1. Add a docstring to your `sum_list()` function from Day 15 that
+1. Add a docstring to your `sum_list()` function from Day 15 that
    describes what it does and its parameters.
 2. Use `help(str.split)` to view documentation for the `split()` method.
 3. Write a script that defines a function with an empty body using
    `pass` and a docstring explaining that the function will be
    implemented later.
 
-### Key Takeaway
+## Key Takeaway
 
 Comments and docstrings explain *why* and *how* your code works.  Use
 `help()` to explore modules and functions and check your own

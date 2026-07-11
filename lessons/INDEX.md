@@ -2,7 +2,7 @@
 
 Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in the repo [README.md](../README.md#computer-science-theory-101-weekly-outline) is the canonical syllabus text; this page is a **compact link hub**.
 
-**Conventions:** Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions), each with a **Rust companion** section at the bottom (install Rust on **Day 1**). **Day 28** recaps ownership/borrowing/lifetimes. **Days 29–75** continue Rust: network programming (UDP/TCP), **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (not Python `rdflib`). Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
+**Conventions:** Same section scaffold throughout (`# Day NN`, then `## Goal` / `## Concept` / `## Why This Matters` / `## Mini Examples` / `## Micro Exercises` / `## Key Takeaway`, optional `## Wireshark Lab`, then companion). Days **1–27** are **Python + BACnet** (early days avoid list/dict comprehensions), each with a **Rust companion** at the bottom (install Rust on **Day 1**). Days **28–75** are **Rust-main** (Day 28 ownership/borrowing/lifetimes; then network programming UDP/TCP, **tcpdump/Wireshark labs**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust**—not Python `rdflib`), each with a **Python companion** at the bottom for parallel learning. Lab scripts: [`lab-scripts/`](./lab-scripts/). **Capstone starters:** [`capstone/`](./capstone/).
 
 ---
 

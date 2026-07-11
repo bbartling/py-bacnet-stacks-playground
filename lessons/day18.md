@@ -1,13 +1,13 @@
-## Day 18 – Handling Errors Gracefully
+# Day 18 – Handling Errors Gracefully
 
-### Goal
+## Goal
 
 Learn how to use `try`/`except` blocks to handle runtime errors and
 prevent your program from crashing unexpectedly.  You will practice
 catching specific exceptions and using a sentinel loop that repeatedly
 prompts for valid input.
 
-### Concept
+## Concept
 
 When a Python statement causes an error during execution, an **exception**
 is raised.  Exceptions are not always fatal; you can handle them to
@@ -19,7 +19,7 @@ the corresponding `except` block.  The tutorial explains that the
 `try` clause executes first; if an exception occurs and matches the
 `except` clause, the handler runs and the loop continues.
 
-### How to Use It
+## How to Use It
 
 **Catching a specific exception:**
 
@@ -54,7 +54,7 @@ finally:
         pass
 ```
 
-### Why This Matters
+## Why This Matters
 
 Robust programs need to anticipate and handle errors gracefully.  In an
 HVAC data acquisition script a sensor might return unexpected data or a
@@ -62,26 +62,26 @@ file might be missing; by catching exceptions you can log an error and
 continue running rather than crashing.  This is especially important
 when scripts need to run unattended on controllers or servers.
 
-### Mini Examples
+## Mini Examples
 
 - Prompt the user for a filename, try to open it and report if it does not exist.
 - Wrap a division operation in `try`/`except` to catch division by zero.
 - Use a `try`/`except` block in a loop to ensure that the user enters a
   floating‑point number between 0 and 1.
 
-### Micro Exercises
+## Micro Exercises
 
 1. Write a program that asks the user for two integers and prints their
    quotient.  Use `try`/`except` to catch `ZeroDivisionError` if the
    second number is zero.
-2. Modify the file summing program from Day 17 to catch
+2. Modify the file summing program from Day 17 to catch
    `FileNotFoundError` and print a user‑friendly message instead of
    crashing.
 3. Create a loop that asks the user to enter a positive number less
    than 100.  Use `try`/`except` and a `while True` loop to keep asking
    until a valid number is provided.
 
-### Key Takeaway
+## Key Takeaway
 
 Use `try`/`except` blocks to catch and handle exceptions.  Place code
 that might fail in the `try` block and catch specific exceptions in

@@ -72,9 +72,9 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 
 ## Computer Science Theory 101 Weekly Outline
 
-These are AI-generated mini lessons designed as daily challenges, starting at the complete beginner level with **Python + BACnet** (Days 1–27), each with a short **Rust companion** section underneath so Day 28 is a recap—not a cliff. Then a **Rust fast track** through **network programming**, **rusty-bacnet**, **rusty-haystack**, and **RDF in Rust** (Days 28–75). Daily labs include **tcpdump capture scripts** and **Wireshark display filters**—see [`lessons/lab-scripts/`](lessons/lab-scripts/). Turn-key capstone starters: [`lessons/capstone/`](lessons/capstone/).
+These are AI-generated mini lessons designed as daily challenges with a **shared scaffold** on every day (`Goal` → `Key Takeaway`, then a language companion). **Days 1–27:** Python + BACnet main text, **Rust companion** at the bottom. **Days 28–75:** Rust main text (network programming, **rusty-bacnet**, **rusty-haystack**, RDF via Rust structs / optional `oxrdf`), **Python companion** at the bottom. Daily labs include **tcpdump** / **Wireshark** — see [`lessons/lab-scripts/`](lessons/lab-scripts/). Capstone starters: [`lessons/capstone/`](lessons/capstone/).
 
-**Rust track tip:** On Day 1, install Rust (`rustup`) and keep a `~/rust-lab` folder. Do the **Rust companion** block at the bottom of each Day 1–27 lesson the same day as the Python work.
+**Track tip:** On Day 1, install Python *and* Rust (`rustup`); keep `~/rust-lab` and optionally `~/py-lab`. Do each day’s companion the same day as the main lesson.
 
 
 ### Week 1 — Fundamentals & First BACnet App  

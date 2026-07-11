@@ -1,14 +1,14 @@
-## Day 19 – Week 3 Review Project
+# Day 19 – Week 3 Review Project
 
-### Goal
+## Goal
 
-Consolidate the concepts you’ve learned in Week 3 by building a small
+Consolidate the concepts you’ve learned in Week 3 by building a small
 program that reads data from a file, processes it with functions and
 handles errors gracefully.  This mini project should take about
-20 minutes and reinforces your understanding of modules, file I/O and
+20 minutes and reinforces your understanding of modules, file I/O and
 exception handling.
 
-### Concept
+## Concept
 
 In the previous days you learned how to define functions,
 import modules, read and write files and
@@ -17,7 +17,7 @@ those skills.  The project asks you to read a CSV file of sensor
 readings, compute statistics using functions, and gracefully handle
 missing files or bad data.
 
-### How to Use It
+## How to Use It
 
 Follow these steps:
 
@@ -39,19 +39,19 @@ Follow these steps:
 4. Print the result with a descriptive message.  If the file is missing
    or contains invalid numbers, handle these cases gracefully.
 
-### Why This Matters
+## Why This Matters
 
 Programming is about combining simple building blocks into useful
 applications.  This project simulates reading sensor data, a common
 requirement in HVAC and building automation.  By writing functions you
 create reusable components; by handling errors you make the program robust.
 
-### Mini Examples
+## Mini Examples
 
 This project is itself the example.  Focus on breaking the problem down
 into small steps—reading data, processing it and reporting results.
 
-### Micro Exercises
+## Micro Exercises
 
 1. Extend your script to compute not only the average but also the
    minimum and maximum values using loops or Python’s `min()` and
