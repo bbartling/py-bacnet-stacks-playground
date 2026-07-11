@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/github/license/bbartling/py-bacnet-stacks-playground)](LICENSE)
 [![BACnet edge + FDD](https://img.shields.io/badge/active-vibe__code__apps__12-009966)](vibe_code_apps_12/)
 [![Rust BACnet lab](https://img.shields.io/badge/active-vibe__code__apps__16-009966)](vibe_code_apps_16/)
+[![Open FDD Vibe Coder](https://img.shields.io/badge/active-vibe__code__apps__19-009966)](vibe_code_apps_19/)
+[![GHCR vibe19](https://img.shields.io/badge/GHCR-vibe19-blue?logo=docker&logoColor=white)](https://github.com/bbartling/py-bacnet-stacks-playground/pkgs/container/vibe19)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
 [![AWS IoT Core](https://img.shields.io/badge/cloud-AWS%20IoT%20Core-FF9900?logo=amazonaws&logoColor=white)](vibe_code_apps_12/aws_cloud_pipeline/)
 [![LFCS 50-day](https://img.shields.io/badge/LFCS-50%20day%20Pi%20labs-FCC624?logo=linux&logoColor=black)](lessons/lfcs/)
@@ -21,21 +23,21 @@ The goal is to experiment with lightweight agents, platform services, and superv
 
 Come join the journey as we play around with Python, **Rust**, AI, BACnet, Haystack, Wireshark, and computer science theory in a fun, hands-on playground designed for learning. This series is geared toward people with little to no technical background beyond real-world field experience as building automation technicians.
 
-
 ---
 
 ## Who This Is For
 
 - **HVAC controls technicians** who want to automate scans, collect data, and build simple tools
 - **IoT practitioners** working with building automation
-- **Anyone** who knows BACnet from the field and wants to code it in Python and play around with AI!
+- **Anyone** who knows BACnet from the field and wants to code it in **Python and Rust**, play with **Wireshark**, and learn graph modeling (`rdflib` / `oxrdf`) with AI-assisted workflows
 
 ### Learning paths
 
 | Track | What you get | Start here |
 | --- | --- | --- |
-| **Python + Rust (BACnet / networking)** | Days 1–75 mini-lessons: Python + BACnet, then Rust companions, sockets, rusty-bacnet, Haystack, RDF | [Computer Science Theory 101](#computer-science-theory-101-weekly-outline) · [`lessons/`](lessons/) · [`lessons/INDEX.md`](lessons/INDEX.md) · Day 1: [`lessons/day01.md`](lessons/day01.md) |
+| **Python + Rust (BACnet / networking / RDF)** | Days 1–75: shared lesson scaffold; Days 1–27 Python + Rust companion; Days 28–75 Rust + Python companion; sockets, rusty-bacnet, Haystack, dual-stack RDF (`rdflib` + `oxrdf`) | [Computer Science Theory 101](#computer-science-theory-101-weekly-outline) · [`lessons/`](lessons/) · [`lessons/INDEX.md`](lessons/INDEX.md) · Day 1: [`lessons/day01.md`](lessons/day01.md) |
 | **Linux LFCS (Raspberry Pi)** | 50-day crash course for the Linux Foundation Certified System Administrator exam | [LFCS 50-day crash course](#lfcs-50-day-crash-course) · [`lessons/lfcs/`](lessons/lfcs/) · [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) · Day 1: [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
+| **Open FDD Vibe Coder (app 19)** | Streamlit + pandas 50-rule cookbook lab; zip packages; agent CLI; `ghcr.io/bbartling/vibe19` | [`vibe_code_apps_19/`](vibe_code_apps_19/) · [AGENTS.md](vibe_code_apps_19/AGENTS.md) · [DOCKER.md](vibe_code_apps_19/docs/DOCKER.md) |
 
 ---
 
