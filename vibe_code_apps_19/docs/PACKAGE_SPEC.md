@@ -65,7 +65,7 @@ Restored into **browser session state only** (never written to the Cloud app dis
   "unit_system": "imperial",
   "prefer_web_oat": true,
   "chw_leave_max_f": 48.0,
-  "include_ahu_chw_valve": true,
+  "include_ahu_chw_valve": false,
   "role_map": {
     "AHU_1": { "fan_status": "supply_fan_status", "sat": "discharge_air_temp_f" }
   },
@@ -74,6 +74,8 @@ Restored into **browser session state only** (never written to the Cloud app dis
 ```
 
 Unknown keys are ignored. Role map entries that reference missing equipment/columns are skipped with a warning.
+
+**`include_ahu_chw_valve` (deprecated):** always treat as **false** / ignored. Mech-cooling OAT bins never use AHU CHW cooling-valve %. Old configs that set `true` are coerced off with a warning. Do not re-enable in UI or agent code.
 
 ## Optional `column_map.json`
 
@@ -144,7 +146,18 @@ Example (`session_config.json` / role_map):
 }
 ```
 
-If no pump can be resolved, backup is **CHW leave/supply vs sidebar leave slider** only.
+If no pump can be resolved, the chiller is **omitted** from weekly motor / mech-cooling charts (no leave-temp fake hours).
+
+## Mechanical cooling OAT bins — compressor proof (data model)
+
+Charts in Analytics / Overview bin **mechanical cooling run hours** by outdoor air temperature. Proof must be a **mechanical compressor device**, not a CHW valve:
+
+| Counts (map these) | Does **not** count |
+| --- | --- |
+| Chiller plant: `chw_pump_status` / `chw_pump_cmd`, `chiller_status`, `compressor_status`, `chiller_amps`, `chiller_power_kw` | `clg_valve_pct` / `cooling_valve` / `chw_valve` alone |
+| AHU / HP / RTU DX: `compressor_status`, `dx_stage`, `dx_cool_cmd`, `dx_cooling`, `cool_stage` | AHU chilled-water cooling valve % |
+
+Source of truth: `app/analytics.py` (`CHILLER_PUMP_ROLES`, `CHILLER_RUN_ROLES`, `DX_RUN_ROLES`). See also [`DATA_MODEL_DRIVEN.md`](DATA_MODEL_DRIVEN.md).
 
 ## Local vs Cloud (one app)
 

@@ -59,11 +59,12 @@ Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per dev
 ### Sidebar
 
 - Building folder
-- **Units** imperial / metric (display only; rules stay °F)
+- **Units** imperial / metric (display + CHW leave / zone comfort sliders; rules stay °F)
 - **Prefer web OAT** (default on)
-- **CHW leave proof max °F** (mech-cooling fallback when no pump status)
-- **Occupancy calendar** (weekly Mon–Sun; optional → `occ_mode` for SCHED-1)
-- Rule tuning + operational-proof + **Rerun cat.**
+- **CHW leave proof max** (°F or °C from Units; stored °F)
+- **Occupancy calendar** on Overview (always → `occ_mode` for SCHED-1; not optional)
+- Rule tuning by category (no text filter) + operational-proof + **Rerun cat.**
+- Mech-cooling OAT bins: chillers + DX only — **no** AHU CHW valve UI/toggle
 
 ### Plots vs RCx Plots
 

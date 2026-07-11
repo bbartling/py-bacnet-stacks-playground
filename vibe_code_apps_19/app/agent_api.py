@@ -90,18 +90,22 @@ def make_session_config(
     chw_leave_max_f: float | None = None,
     include_ahu_chw_valve: bool | None = None,
 ) -> dict[str, Any]:
-    """Build an ``openfdd_session_v1`` dict suitable for JSON export."""
+    """Build an ``openfdd_session_v1`` dict suitable for JSON export.
+
+    ``include_ahu_chw_valve`` is accepted for API compat but **always exported as
+    False** — mech-cooling OAT bins never use AHU CHW cooling valves.
+    """
+    del include_ahu_chw_valve  # deprecated; never enable valve-as-cooling
     out: dict[str, Any] = {
         "schema_version": SESSION_SCHEMA,
         "unit_system": unit_system,
         "prefer_web_oat": bool(prefer_web_oat),
         "role_map": role_map or {},
         "params": params or {},
+        "include_ahu_chw_valve": False,
     }
     if chw_leave_max_f is not None:
         out["chw_leave_max_f"] = float(chw_leave_max_f)
-    if include_ahu_chw_valve is not None:
-        out["include_ahu_chw_valve"] = bool(include_ahu_chw_valve)
     return out
 
 

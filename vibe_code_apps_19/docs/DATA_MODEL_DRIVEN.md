@@ -11,6 +11,19 @@ Prefer **logical roles** and package/role_map config over equipment-name heurist
 | Package layout | `openfdd_package_v1` manifest + folder names as equipment ids |
 | Rule applicability | `CookbookRule.equipment_kinds` |
 | Units display | `unit_system` + role unit map |
+| Mech-cooling OAT bins | Compressor / plant roles only — see below |
+
+## Mechanical cooling proof roles (OAT bins)
+
+**Counts as mechanical cooling** (`app/analytics.py`):
+
+| Equipment | Roles (first match wins) |
+| --- | --- |
+| Chiller / CHW plant | `chw_pump_status`, `pump_status`, `chw_pump_cmd`, `pump_cmd` → then `chiller_status`, `compressor_status`, `equipment_enable` → then `chiller_amps` / `chiller_power_kw` |
+| AHU with DX | `compressor_status`, `dx_cool_cmd`, `dx_cooling`, `cool_stage`, `dx_stage` |
+| Heat pump / RTU DX | same DX roles + `compressor_status` |
+
+**Never counts:** `clg_valve_pct`, `cooling_valve`, `chw_valve`, or any AHU chilled-water valve % alone. Session flag `include_ahu_chw_valve` is **deprecated and ignored** (always false).
 
 ## Still heuristic (candidates to migrate)
 

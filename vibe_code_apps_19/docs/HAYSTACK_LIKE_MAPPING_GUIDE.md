@@ -27,14 +27,18 @@ Internally, rules still use Open-FDD **cookbook roles** (`sat`, `zone_t`, …).
 | `return-air-temp` | `rat` |
 | `outside-air-temp` | `oa_t` |
 | `outside-air-damper` | `oa_damper_pct` |
-| `cooling-valve` / `heating-valve` | `clg_valve_pct` / `htg_valve_pct` |
+| `cooling-valve` / `heating-valve` | `clg_valve_pct` / `htg_valve_pct` (valve % — **not** mech-cooling OAT-bin proof) |
 | `fan-cmd` / `fan-status` | `fan_cmd` / `fan_status` |
 | `duct-static-pressure` (+ `-sp`) | `duct_static` / `duct_static_sp` |
 | `zone-air-temp` | `zone_t` |
 | `zone-airflow` | `zone_flow` |
 | `damper` / `reheat-valve` | `damper_pct` / `reheat_valve_pct` |
 | `chilled-water-supply-temp` | `chw_supply_t` |
+| `chw-pump-status` / `chiller-status` | `chw_pump_status` / `chiller_status` (chiller plant mech-cooling proof) |
+| `compressor-status` / `dx-stage` / `cool-stage` | `compressor_status` / `dx_stage` / `cool_stage` (AHU/HP DX mech-cooling proof) |
 | `occupied` | `occ_mode` |
+
+**Mech-cooling OAT bins:** map compressor / plant roles above — never treat `cooling-valve` alone as mechanical cooling.
 
 ## Mapping flow
 

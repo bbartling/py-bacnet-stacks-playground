@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Overview/sidebar UX + valve ban
+
+- Units radio drives CHW leave + zone comfort sliders (°F/°C display; stored °F) via `_temp_threshold_slider`
+- Removed **Filter rules** text input; category selectbox remains
+- Occupancy calendar → `occ_mode` **always on** (no Apply-calendar checkbox); AGENTS hard rule
+- Removed **AHU CHW valve = mech cooling** checkbox; `include_ahu_chw_valve` deprecated/always False
+- Docs: `AGENTS.md`, `vibe19_agent_spec/AGENTS.md`, `PACKAGE_SPEC`, `DATA_MODEL_DRIVEN`, `ROLE_MAPPING_PARITY`, Haystack guide, CUSTOMIZE
+
 ## 2026-07-11 — Docker zip-only + hero reorder
 
 - Dockerfile: `APP_MODE=cloud` + `VIBE19_DOCKER=1` (hide Folder / dead server paths by default)

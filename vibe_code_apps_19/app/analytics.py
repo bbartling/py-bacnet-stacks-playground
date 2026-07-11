@@ -758,12 +758,12 @@ def mech_cooling_run_mask(
       2. chiller / compressor status
       3. amps / power
 
-    AHUs / heat pumps:
-      - DX / compressor roles only.
+    AHUs / heat pumps / RTUs:
+      - DX / compressor roles only (`DX_RUN_ROLES`).
       - Never use CHW cooling-valve % (valves often modulate with no chilled water).
-      - ``include_ahu_chw_valve`` is ignored (kept for API compat).
+      - ``include_ahu_chw_valve`` is deprecated and ignored (API compat only).
     """
-    del include_ahu_chw_valve, clg_valve_thr_pct, chw_leave_max_f  # no valve / leave-temp on this chart
+    del include_ahu_chw_valve, clg_valve_thr_pct, chw_leave_max_f  # never valve / leave-temp on this chart
     et = equipment_type.upper()
     eq = equipment_id.upper()
     if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):

@@ -40,7 +40,7 @@ from app.config import AppConfig  # noqa: E402
 from app.data_loader import infer_poll_seconds, list_building_candidates, validate_dataframe  # noqa: E402
 from app.occupancy import DAYS, DAY_LABELS, OccupancySchedule, apply_schedule_occ_mode, occupied_hours_per_week  # noqa: E402
 from app.ui_rcx_tab import render_rcx_plots_tab  # noqa: E402
-from app.unit_system import units_map_for_system  # noqa: E402
+from app.unit_system import c_to_f, f_to_c, units_map_for_system  # noqa: E402
 from app.mapping_wizard import (  # noqa: E402
     DEFAULT_BUILDING_ID,
     DEFAULT_SITE_ID,
@@ -179,9 +179,9 @@ def _init_state() -> None:
         "unit_system": "imperial",
         "prefer_web_oat": True,
         "chw_leave_max_f": 48.0,
-        "include_ahu_chw_valve": False,
+        "include_ahu_chw_valve": False,  # hard-coded; never offer in UI
         "occupancy_schedule": OccupancySchedule().to_dict(),
-        "apply_occupancy_calendar": False,
+        "apply_occupancy_calendar": True,  # always on; Overview calendar → occ_mode
         "zone_lo_f": 68.0,
         "zone_hi_f": 76.0,
         "upload_workdir": None,
@@ -338,7 +338,7 @@ def _session_config_payload() -> dict:
         unit_system=st.session_state.get("unit_system", "imperial"),
         prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
         chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-        include_ahu_chw_valve=bool(st.session_state.get("include_ahu_chw_valve", False)),
+        include_ahu_chw_valve=False,  # never export legacy valve→mech-cooling path
     )
 
 
@@ -536,7 +536,6 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
         ),
         key="ops_gate_global",
     )
-    rule_filter = st.sidebar.text_input("Filter rules", "", key="tune_filter")
     fam_labels = [family_label(f) for f in FAMILY_ORDER if _rules_by_family().get(f)]
     fam_pick = st.sidebar.selectbox(
         "Category",
@@ -552,8 +551,6 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
 
     for rule in RULES:
         if allow_ids is not None and rule.id not in allow_ids:
-            continue
-        if rule_filter and rule_filter.upper() not in rule.id:
             continue
         block = dict(defaults_cfg.get(rule.id, {}))
         if "confirm_min" not in block:
@@ -702,9 +699,9 @@ def _render_plant_motor_weekly(
 def _mapped_equipment(eq_id: str, frames: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, float]:
     raw = frames[eq_id]
     mapped = apply_role_map(raw, eq_id, st.session_state.role_map)
-    if st.session_state.get("apply_occupancy_calendar"):
-        sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
-        mapped = apply_schedule_occ_mode(mapped, sched, overwrite=True)
+    # Canonical: Overview weekly calendar always drives occ_mode for SCHED-1.
+    sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+    mapped = apply_schedule_occ_mode(mapped, sched, overwrite=True)
     mapped.attrs.update({k: v for k, v in raw.attrs.items() if not isinstance(v, Path)})
     mapped.attrs["equipment_id"] = eq_id
     if raw.attrs.get("columns_path") is not None:
@@ -1150,7 +1147,7 @@ Agent brief: {_AGENTS_MD_URL}
         "Units",
         ["imperial", "metric"],
         horizontal=True,
-        help="Rules stay imperial internally; charts/tables convert for display.",
+        help="Rules stay imperial internally; charts/tables and temp proof sliders convert for display.",
         key="unit_system",
     )
     st.sidebar.checkbox(
@@ -1158,30 +1155,70 @@ Agent brief: {_AGENTS_MD_URL}
         help="Analytics + OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
         key="prefer_web_oat",
     )
-    _chw_f = float(st.session_state.get("chw_leave_max_f", 48.0))
-    if _chw_f < 35.0 or _chw_f > 50.0:
-        st.session_state.chw_leave_max_f = max(35.0, min(50.0, _chw_f))
-    st.sidebar.slider(
-        "CHW leave proof max °F",
-        min_value=35.0,
-        max_value=50.0,
-        step=0.5,
-        help="If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on. "
-        "Stored as °F; use sidebar Units for chart/table display (°C when metric).",
-        key="chw_leave_max_f",
+    _temp_threshold_slider(
+        label_base="CHW leave proof max",
+        stored_key="chw_leave_max_f",
+        min_f=35.0,
+        max_f=50.0,
+        step_f=0.5,
+        help=(
+            "If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on. "
+            "Stored as °F; Units radio switches this slider between °F and °C."
+        ),
+        location=st.sidebar,
     )
-    st.sidebar.checkbox(
-        "AHU CHW valve = mech cooling (legacy)",
-        help="Deprecated for OAT-bin chart: CHW valves are never binned (often modulate with no chilled water). "
-        "Chart uses chillers + AHU/HP DX compressors only.",
-        key="include_ahu_chw_valve",
+    st.session_state.include_ahu_chw_valve = False
+    st.session_state.apply_occupancy_calendar = True
+    st.sidebar.caption(
+        "Occupancy: Overview weekly calendar always sets `occ_mode` (SCHED-1). "
+        "Mech-cooling OAT bins: chillers + DX only (no AHU CHW valve)."
     )
-    st.sidebar.checkbox(
-        "Apply calendar → occ_mode",
-        help="Use Overview weekly schedule as occ_mode for SCHED-1 when historian occ is missing.",
-        key="apply_occupancy_calendar",
-    )
-    st.sidebar.caption("Edit occupancy times + zone comfort band on **Overview**.")
+
+
+def _temp_threshold_slider(
+    *,
+    label_base: str,
+    stored_key: str,
+    min_f: float,
+    max_f: float,
+    step_f: float = 0.5,
+    help: str = "",
+    location=None,
+) -> float:
+    """Temp slider that follows Units (°F/°C); always persists imperial °F in ``stored_key``."""
+    loc = location if location is not None else st
+    system = st.session_state.get("unit_system", "imperial")
+    stored = float(st.session_state.get(stored_key, (min_f + max_f) / 2.0))
+    stored = max(min_f, min(max_f, stored))
+    st.session_state[stored_key] = stored
+
+    unit_marker = f"_{stored_key}_ui_unit"
+    widget_key = f"_{stored_key}_ui"
+
+    if system == "metric":
+        lo, hi = round(f_to_c(min_f), 1), round(f_to_c(max_f), 1)
+        step = max(0.1, round(step_f * 5.0 / 9.0, 1))
+        label = f"{label_base} °C"
+        if st.session_state.get(unit_marker) != "metric":
+            st.session_state[widget_key] = round(f_to_c(stored), 1)
+            st.session_state[unit_marker] = "metric"
+        cur = float(st.session_state.get(widget_key, f_to_c(stored)))
+        st.session_state[widget_key] = max(lo, min(hi, cur))
+        new_c = loc.slider(label, min_value=lo, max_value=hi, step=step, help=help, key=widget_key)
+        st.session_state[stored_key] = max(min_f, min(max_f, c_to_f(float(new_c))))
+    else:
+        label = f"{label_base} °F"
+        if st.session_state.get(unit_marker) != "imperial":
+            st.session_state[widget_key] = stored
+            st.session_state[unit_marker] = "imperial"
+        cur = float(st.session_state.get(widget_key, stored))
+        st.session_state[widget_key] = max(min_f, min(max_f, cur))
+        new_f = loc.slider(
+            label, min_value=min_f, max_value=max_f, step=step_f, help=help, key=widget_key
+        )
+        st.session_state[stored_key] = float(new_f)
+
+    return float(st.session_state[stored_key])
 
 
 def _hhmm_to_time(text: str):
@@ -1241,14 +1278,29 @@ def _render_building_schedule_overview() -> float:
     """Main-dashboard occupancy + zone SP; returns bare-min occupied hours/week."""
     st.markdown("##### Building schedule & zone comfort (FDD starting point)")
     st.caption(
-        "Occupancy calendar → **SCHED-1** (`occ_mode`) when sidebar **Apply calendar** is on. "
-        "Zone low/high seed **VAV-1** comfort band. Bare-min occupied hours/week draws on air-side motor charts."
+        "Occupancy calendar always drives **SCHED-1** (`occ_mode`) — edit times below; do not remove this UI. "
+        "Zone low/high seed **VAV-1** comfort band (Units radio switches °F/°C). "
+        "Bare-min occupied hours/week draws on air-side motor charts."
     )
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.slider("Zone low °F", 55.0, 72.0, step=0.5, key="zone_lo_f")
+        _temp_threshold_slider(
+            label_base="Zone low",
+            stored_key="zone_lo_f",
+            min_f=55.0,
+            max_f=72.0,
+            step_f=0.5,
+            location=st,
+        )
     with c2:
-        st.slider("Zone high °F", 70.0, 85.0, step=0.5, key="zone_hi_f")
+        _temp_threshold_slider(
+            label_base="Zone high",
+            stored_key="zone_hi_f",
+            min_f=70.0,
+            max_f=85.0,
+            step_f=0.5,
+            location=st,
+        )
     with c3:
         sched0 = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
         st.metric("Bare-min occ hours / week", f"{occupied_hours_per_week(sched0):.0f}")
@@ -1822,8 +1874,9 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         cool_fig2 = mech_cooling_oat_histogram(cool_bins)
         if cool_fig2 is None:
             st.info(
-                "No mechanical-cooling proof available. Map chiller command/amps/power or "
-                "chw_supply_t, enable AHU CHW valve in the sidebar, and load weather/."
+                "No mechanical-cooling proof available. Map chiller pump/status (or amps/power) "
+                "or AHU/HP DX compressor roles (`compressor_status`, `dx_stage`, …) and load weather/. "
+                "CHW cooling valves are never used for this chart."
             )
         else:
             st.plotly_chart(

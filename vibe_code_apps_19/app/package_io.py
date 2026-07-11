@@ -158,13 +158,17 @@ class PackageManifest(BaseModel):
 
 
 class SessionConfig(BaseModel):
-    """Optional UI restore — session_state only, never written to app disk."""
+    """Optional UI restore — session_state only, never written to app disk.
+
+    ``include_ahu_chw_valve`` is deprecated/ignored (always treated as False).
+    Mech-cooling OAT bins never use AHU CHW cooling-valve %.
+    """
 
     schema_version: str = SESSION_SCHEMA
     unit_system: str | None = None
     prefer_web_oat: bool | None = None
     chw_leave_max_f: float | None = None
-    include_ahu_chw_valve: bool | None = None
+    include_ahu_chw_valve: bool | None = False  # deprecated; apply path forces False
     role_map: dict[str, dict[str, str]] | None = None
     params: dict[str, dict[str, Any]] | None = None
 
@@ -563,8 +567,15 @@ def apply_session_config(cfg: SessionConfig, *, equipment_ids: set[str]) -> list
         st.session_state.prefer_web_oat = bool(cfg.prefer_web_oat)
     if cfg.chw_leave_max_f is not None:
         st.session_state.chw_leave_max_f = float(cfg.chw_leave_max_f)
-    if cfg.include_ahu_chw_valve is not None:
-        st.session_state.include_ahu_chw_valve = bool(cfg.include_ahu_chw_valve)
+        # Resync unit-aware display slider on next render
+        st.session_state.pop("_chw_leave_max_f_ui_unit", None)
+    # Legacy session configs may still carry this key; never enable valve→mech-cooling bins.
+    st.session_state.include_ahu_chw_valve = False
+    if cfg.include_ahu_chw_valve:
+        warnings.append(
+            "session_config include_ahu_chw_valve ignored — mech-cooling OAT bins are pump/DX/chiller only"
+        )
+    st.session_state.apply_occupancy_calendar = True
     if cfg.params:
         params = dict(st.session_state.get("params") or {})
         for rid, p in cfg.params.items():

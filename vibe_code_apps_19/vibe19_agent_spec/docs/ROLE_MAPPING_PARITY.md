@@ -19,12 +19,24 @@ Cookbook rules read **logical roles** (`oa_t`, `sat`, `fan_status`, …). CSV co
 | `sat_sp` | sat_sp, dat_reset, cooling_setpoint |
 | `fan_cmd` | supply_fan_speed, fan_speed, fan_cmd |
 | `fan_status` | fan_status, fan_proof (prefer over fan_cmd for gates) |
-| `clg_valve_pct` | chw_valve, clg_valve, cooling_valve |
+| `clg_valve_pct` | chw_valve, clg_valve, cooling_valve — **FDD/control only; never mech-cooling OAT bins** |
 | `htg_valve_pct` | hw_valve, htg_valve, heating_valve |
 | `oa_damper_pct` | oa_damper, outdoor_air_damper, ex_dmpr |
 | `zone_t` | space_temp, zone_temp, spacetemp |
-| `occ_mode` | occ_mode, occupancy, schedule |
+| `occ_mode` | occ_mode, occupancy, schedule (also Overview calendar → always applied) |
 | `chw_supply_t` / `chw_return_t` | chws, chwr |
+| `chw_pump_status` / `chw_pump_cmd` | Designated CHW pump proof for chiller plant runtime / mech-cooling bins |
+| `compressor_status` / `dx_stage` / `dx_cool_cmd` / `cool_stage` | AHU/HP/RTU DX compressor proof for mech-cooling OAT bins |
+
+## Mech-cooling OAT bins (do not confuse with valves)
+
+Mechanical cooling charts require a **compressor device**:
+
+- Chiller plant: pump/status/amps/power roles above
+- AHU / heat pump / RTU: DX / compressor roles above
+- **Not** `clg_valve_pct` — valves often open with no chilled water
+
+See [`../../docs/DATA_MODEL_DRIVEN.md`](../../docs/DATA_MODEL_DRIVEN.md) and [`../../docs/PACKAGE_SPEC.md`](../../docs/PACKAGE_SPEC.md).
 
 ## Trust order
 
