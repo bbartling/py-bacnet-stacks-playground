@@ -29,7 +29,7 @@ App merges parts → data-contract warnings → session frames
 Human or agent: Map + prerun all faults
         │
         ▼
-Human: Plots / RCx / Analytics / download session config
+Human: Plots (validation cards / FDD DOCX) / RCx / Analytics / download session config
 ```
 
 ---
@@ -84,7 +84,7 @@ In the Streamlit sidebar:
 
 1. **Load zip(s)** — merges parts (`app/multi_zip.py`).
 2. **Map + prerun all faults** — auto-builds column map if missing, runs all active rules into `batch_results`.
-3. Human opens **Plots / RCx / Analytics**. Errors stay explicit (`ERROR` / `SKIPPED_*` / `NOT_APPLICABLE_*`).
+3. Human opens **Plots** (rule cards + Download FDD DOCX) / **RCx** / **Analytics**. Errors stay explicit (`ERROR` / `SKIPPED_*` / `NOT_APPLICABLE_*`).
 
 Headless equivalent (path load, no browser cap):
 

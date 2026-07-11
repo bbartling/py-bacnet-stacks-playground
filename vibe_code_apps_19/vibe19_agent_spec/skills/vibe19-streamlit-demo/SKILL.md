@@ -3,8 +3,9 @@ name: vibe19-streamlit-demo
 description: >-
   Use when working on Open FDD Vibe Coder Streamlit FDD demo: streamlit_app.py,
   50-rule pandas cookbook, building folder browse, Haystack-like column map JSON,
-  RCx Plots, analytics, occupancy calendar, unit toggle. Triggers on: Streamlit,
-  streamlit_app, BUILDING tree, Haystack points, column map, RCx, 50 rules.
+  Plots validation cards, Data Model, FDD DOCX, RCx Plots, analytics, occupancy
+  calendar, unit toggle. Triggers on: Streamlit, streamlit_app, BUILDING tree,
+  Haystack points, column map, RCx, Plots, DOCX, 50 rules.
 ---
 
 # Vibe19 — Streamlit 50-rule pandas FDD demo
@@ -29,7 +30,11 @@ Opens at `http://localhost:8501`.
 
 | Path | Role |
 | --- | --- |
-| `streamlit_app.py` | UI — folder browse, tabs, sidebar |
+| `streamlit_app.py` | UI — folder browse, lazy radio sections, sidebar |
+| `app/rule_card.py` | Plots/DOCX shared validation card content |
+| `app/docx_report.py` | Equipment FDD / data-model / analytics Word reports |
+| `app/data_model_tree.py` | **Data Model** inventory tree |
+| `app/dashboard_contract.py` | Frozen sections + chart/DOCX entrypoints |
 | `app/ui_rcx_tab.py` | **RCx Plots** tab |
 | `app/rcx_plots.py` | Prebuilt RCx presets + outlier stats |
 | `app/charts.py` | Rule + multi-equip Plotly figures |
@@ -52,9 +57,9 @@ Opens at `http://localhost:8501`.
 3. **Haystack column map JSON** — `siteRef` / `equip` / `device` / `points` (Data & Mapping)
 4. Sibling `weather/history_wide.csv` under the data root → `wx_oa_t` (+ RH → dewpoint/wet-bulb)
 
-## Tabs
+## Main sections (lazy radio — not eager `st.tabs`)
 
-Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per device/rule) | **RCx Plots** | **Analytics** | Export
+Overview | Data & Mapping | **Data Model** | Run Rules | Results by Category | **Plots** (validation cards) | **RCx Plots** | **Analytics** | Export
 
 ### Sidebar
 
@@ -70,12 +75,12 @@ Overview | Data & Mapping | Run Rules | Results by Category | **Plots** (per dev
 
 | Tab | Purpose |
 | --- | --- |
-| Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; Download FDD DOCX |
+| Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; one-click **Download FDD DOCX** (`PLACE PLOT HERE` stubs) |
 | RCx Plots | Multi-equipment overlays + **required** reset scatters/box + generic picker |
 
 Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).
 
-See [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
+Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
 ## Hard rules
 
@@ -83,13 +88,14 @@ See [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
 4. **Web OAT default** for analytics / free-cool weather path
-5. **Do not remove** `REQUIRED_RCX_PRESET_IDS` presets
+5. **Do not remove** `REQUIRED_RCX_PRESET_IDS` presets or Plots card catalog / `build_rule_card`
 6. Run `python -m pytest -q` before claiming done
 
 ## Specs
 
 - [`../AGENTS.md`](../../../AGENTS.md)
 - [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md)
+- [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md)
 - [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md)
 - [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

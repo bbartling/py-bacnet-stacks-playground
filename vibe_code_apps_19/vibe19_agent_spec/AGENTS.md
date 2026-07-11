@@ -32,6 +32,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 18. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
 19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
 20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
+21. **Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; one-click **Download FDD DOCX** with **`PLACE PLOT HERE`** stubs. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Keep **Data Model** + DOCX APIs (`app/docx_report.py`, `app/data_model_tree.py`).
 
 ---
 
@@ -41,8 +42,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 2. **AI quick rules above**
 3. **`docs/CUSTOMIZE.md`** — when forking branding / DB / custom faults / deploy
 4. **`skills/vibe19-streamlit-demo/SKILL.md`** — primary skill
-5. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots + RCx Plots
-5b. **`docs/DASHBOARD_CONTRACT.md`** — required RCx presets (do not delete)
+5. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots cards + RCx Plots
+5b. **`docs/DASHBOARD_CONTRACT.md`** — required RCx presets + Plots/DOCX freeze (do not delete)
+5c. **`docs/PLOTS_DOCX_VALIDATION.md`** — when editing Plots / FDD DOCX / rule cards
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
@@ -53,13 +55,17 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 | Path | Role |
 | --- | --- |
-| `streamlit_app.py` | Streamlit UI entry (tabs + sidebar) |
+| `streamlit_app.py` | Streamlit UI entry (lazy radio sections + sidebar) |
 | `app/package_io.py` | Safe zip/dir ingest + size caps / size report |
 | `app/agent_api.py` | Headless AgentDataset / AgentRun load·run·export |
 | `app/bootstrap.py` | Agent → Streamlit session handoff |
 | `scripts/agent_afdd.py` | CLI wrapper for agent_api |
 | `app/weather_resolver.py` | Effective OAT policy (web primary) |
 | `app/charts.py` | Rule plots, RCx multi-series / box / OAT scatter |
+| `app/rule_card.py` | Plots/DOCX shared validation card content |
+| `app/docx_report.py` | Equipment FDD / data-model / analytics Word reports |
+| `app/data_model_tree.py` | Data Model inventory tree |
+| `app/dashboard_contract.py` | Frozen UI sections + chart/DOCX entrypoints |
 | `app/rcx_plots.py` | Prebuilt RCx presets + summary/outlier stats |
 | `app/ui_rcx_tab.py` | **RCx Plots** tab UI |
 | `app/analytics.py` | Motor hours, mech-cooling OAT bins (web OAT default) |
@@ -73,6 +79,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `shared/branding.py` + `assets/` | Title + hero image |
 | `vibe19_agent_spec/docs/CUSTOMIZE.md` | Fork guide (DB, branding, deploy) |
 | `vibe19_agent_spec/docs/CUSTOM_RULES.md` | How to add special / site rules |
+| `vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md` | Plots cards + FDD DOCX contract |
 | `configs/` | Rule inventory, defaults, role_map.yaml |
 | `scripts/csv_parity_check.py` | Run 50 rules on any building folder (CI/parity) |
 | `tests/` | Pytest |
@@ -87,7 +94,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | Skill | When |
 | --- | --- |
 | `skills/vibe19-streamlit-demo/` | **Primary** — run app, tabs, folder browse |
-| `skills/vibe19-plotly-dashboard/` | Rule plots + **RCx Plots** presets |
+| `skills/vibe19-plotly-dashboard/` | Plots validation cards + **RCx Plots** presets + DOCX stubs |
 | `skills/vibe19-pandas-fdd-rules/` | Cookbook rule → pandas |
 | `skills/vibe19-hvac-data-import/` | BUILDING_* CSV tree layout / validation |
 

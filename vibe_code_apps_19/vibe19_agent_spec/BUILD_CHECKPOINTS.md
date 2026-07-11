@@ -8,7 +8,8 @@ App 19 is the **Streamlit + pandas** educational FDD demo. Production Open-FDD l
 - [x] 50 cookbook rules + operational gates (`SKIPPED_EQUIPMENT_OFF`)
 - [x] Building-folder browse + Haystack-like column map JSON (any building id)
 - [x] Overview / Analytics: motor hours + mech-cooling OAT bins (**web OAT** default; CHW leave-temp fallback)
-- [x] Plots: rainbow multi-axis + fault swim lane + sensor fault stats
+- [x] Plots: **rule validation cards** (all applicable rules) + plot focus (one Plotly) + sensor fault stats + one-click FDD DOCX
+- [x] **Data Model** section + DOCX reports (`app/rule_card.py`, `app/docx_report.py`, `PLACE PLOT HERE`)
 - [x] **RCx Plots** tab: prebuilt overlays (zone temps, AHU DATs, duct-static box, HW/CHW/CW scatters) + generic picker + outlier highlight
 - [x] Sidebar: imperial/metric display, prefer web OAT, weekly occupancy calendar, CHW leave proof °F
 - [x] Weather enrich: dewpoint from RH (Magnus), wet-bulb (Stull) in `app/weather_psychrometrics.py`

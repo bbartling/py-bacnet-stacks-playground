@@ -43,9 +43,12 @@ predate the final two extended-family rules.
 - `configs/rule_inventory.yaml` — machine-readable inventory (auto-generated)
 - `configs/rule_defaults.yaml` — slider metadata per rule (auto-generated)
 
-## Plots / RCx
+## Plots / RCx / DOCX
 
-See [`vibe19_agent_spec/docs/RCX_PLOTS.md`](../vibe19_agent_spec/docs/RCX_PLOTS.md) for the **RCx Plots** tab (multi-equip overlays, outliers, HW/CHW/CW scatters).
+- **Plots** — per-device **rule validation cards** (all applicable cookbook rules), plot focus for one Plotly chart, one-click FDD DOCX. Spec: [`vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md`](../vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md).
+- **RCx Plots** — multi-equip overlays, outliers, HW/CHW/CW scatters. Spec: [`vibe19_agent_spec/docs/RCX_PLOTS.md`](../vibe19_agent_spec/docs/RCX_PLOTS.md).
+- Dashboard freeze: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](../vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md).
+
 Regenerate:
 
 ```powershell

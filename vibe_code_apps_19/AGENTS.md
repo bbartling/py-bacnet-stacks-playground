@@ -12,7 +12,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 - `app/rules/custom_boilerplate.py` + `custom_rules.py` — agent **CUSTOM-*** pandas / ML sketches
 - `app/rules/runner.py` — skip / equipment-off / not-applicable execution
 - `configs/rule_inventory.yaml` + `rule_defaults.yaml`
-- `streamlit_app.py` — unified **Folder | Zip** picker, Overview, mapping, run rules, **Plots**, **RCx Plots**, analytics
+- `streamlit_app.py` — unified **Folder | Zip** picker, Overview, mapping, **Data Model**, run rules, **Plots** (validation cards), **RCx Plots**, analytics, Export DOCX
 - `app/package_io.py` — safe `openfdd_package_v1` zip ingest (Cloud + local)
 - `app/agent_api.py` + `scripts/agent_afdd.py` — **Streamlit-free** agent load / run / export
 - `app/weather_resolver.py` — web OAT primary / BAS fallback / OAT-METEO both-required
@@ -35,7 +35,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 11. **Mech-cooling OAT bins = mechanical compressors / plant only** — chiller plant (chiller + preferably pump/status) **or** AHU / heat pump / RTU with **DX / compressor** stages (`compressor_status`, `dx_stage`, `dx_cool_cmd`, `cool_stage`, …). **Never** treat AHU `clg_valve_pct` / CHW cooling-valve % as mechanical cooling (valves often modulate with no chilled water → false “cooling”). Do **not** re-add a sidebar/session toggle (`include_ahu_chw_valve` is deprecated, always False/ignored). Bins must sort cold→hot by `bin_start`.
 12. **Occupancy calendar is canonical** — Overview weekly date/time pickers **always** write `occ_mode` for SCHED-1. Do not re-add an “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.
 13. **Typed equipment is canonical** — stamp `equipType` / `equipment_type` in `column_map.json` / role_map; resolver is `resolve_equipment_type` (attrs → map → id fallback). RTU → AHU; heatPump → HP. Do not invent RCx membership or rule kinds from id substrings alone.
-14. **Dashboard contract** — keep RCx presets in `REQUIRED_RCX_PRESET_IDS` (HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box). Spec: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md). Keep **Data Model** section + DOCX report APIs (`app/docx_report.py`, `app/data_model_tree.py`).
+14. **Dashboard contract** — keep RCx presets in `REQUIRED_RCX_PRESET_IDS` (HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box). Spec: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md). Keep **Plots validation cards** + one-click FDD DOCX (`PLACE PLOT HERE`) via `app/rule_card.py` / `app/docx_report.py`. Keep **Data Model** section + `app/data_model_tree.py`. Detail: [`vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md`](vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md).
 
 ## Agent → Streamlit handoff (dialed-in URL)
 

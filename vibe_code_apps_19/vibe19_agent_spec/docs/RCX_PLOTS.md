@@ -2,6 +2,8 @@
 
 **Contract (read first):** [`DASHBOARD_CONTRACT.md`](DASHBOARD_CONTRACT.md) — required preset ids must not be deleted.
 
+**Related:** per-device rule validation cards + FDD DOCX live under **Plots**, not this tab — see [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md).
+
 ## Where
 
 | Piece | Path |

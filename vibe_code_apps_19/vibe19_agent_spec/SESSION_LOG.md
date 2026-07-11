@@ -14,6 +14,7 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 - Plots: all applicable rule cards + filters + plot focus (lazy Plotly) + one-click **Download FDD DOCX**
 - DOCX mirrors cards with **PLACE PLOT HERE**, params, mapping tables
 - Freeze: `build_rule_card` entrypoint; DASHBOARD_CONTRACT Plots/DOCX section
+- **Spec sync:** `docs/PLOTS_DOCX_VALIDATION.md`; plotly + streamlit-demo skills; `AGENTS.md` rule 21; BUILD_CHECKPOINTS / TEMPLATE
 
 ---
 

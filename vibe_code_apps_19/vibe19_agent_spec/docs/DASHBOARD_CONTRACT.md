@@ -8,7 +8,8 @@ This Streamlit app is an **RCx + FDD review dashboard**, not a disposable demo. 
 | --- | --- |
 | RCx preset ids | `app/rcx_plots.py` → `REQUIRED_RCX_PRESET_IDS` + `PRESETS` |
 | UI sections + chart APIs | `app/dashboard_contract.py` |
-| Tests | `tests/test_rcx_presets.py` |
+| Plots cards + FDD DOCX | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) · `app/rule_card.py` |
+| Tests | `tests/test_rcx_presets.py`, `tests/test_rule_card.py`, `tests/test_docx_report.py` |
 | UI | `streamlit_app.py`, `app/ui_rcx_tab.py` |
 | Figures | `app/charts.py` |
 
@@ -119,7 +120,8 @@ Empty coverage is OK when data is missing (`rcx_preset_coverage` + empty_reason)
 
 - [ ] `REQUIRED_RCX_PRESET_IDS ⊆ {p.id for p in PRESETS}`
 - [ ] `REQUIRED_MAIN_SECTIONS` / `REQUIRED_CHART_APIS` still match UI
+- [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
-- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py`
+- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py`
 - [ ] Did **not** remove RCx Plots, Plots, Analytics, Export, or chart helpers
 - [ ] Append `SESSION_LOG.md` if presets / sections changed
