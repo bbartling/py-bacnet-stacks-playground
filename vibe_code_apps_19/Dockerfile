@@ -14,6 +14,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .
 
 EXPOSE 8501

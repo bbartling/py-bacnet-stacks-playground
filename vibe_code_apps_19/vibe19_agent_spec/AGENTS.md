@@ -23,13 +23,14 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
 10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).
 11. **Agent API** — `app/agent_api.py` + `scripts/agent_afdd.py` for headless load/run/export (no FastAPI/Flask).
-12. **Runtime proof** — motor/pump/DX status first. No pump in data model → **omit** chiller from run-hours (never fake hours from leave temp).
+12. **Runtime proof** — motor/pump/DX status first. No pump in data model → **omit** chiller from run-hours (never fake hours from leave temp). Prefer mapped fan/pump roles over column-name invent.
 13. **Mech-cooling OAT bins = mechanical compressors / plant only** — chiller plant (chiller + preferably `chw_pump_status` / cmd) **or** AHU / heat pump / RTU with **DX / compressor** roles (`compressor_status`, `dx_stage`, `dx_cool_cmd`, `cool_stage`, `dx_cooling`). **Never** use `clg_valve_pct` / CHW cooling-valve % (often modulate with no chilled water). Do **not** re-add UI/session toggle; `include_ahu_chw_valve` is deprecated, always False/ignored. Sort bins by `bin_start` cold→hot.
 14. **Occupancy calendar is canonical** — Overview weekly time pickers **always** drive `occ_mode` for SCHED-1. Do not re-add “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.
-15. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
-16. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
-17. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
-18. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md) (~90% template). Package default safety limit **500 MB** (zip + expanded).
+15. **Typed equipment is canonical** — stamp `equipType` in column maps; `resolve_equipment_type` (attrs → map → id). RTU→AHU, heatPump→HP. RCx/rules use typed equip, not id substrings.
+16. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
+17. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
+18. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
+19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
 
 ---
 

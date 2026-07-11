@@ -31,9 +31,10 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 7. **Keep `vibe19_agent_spec/` in sync** after UI/plot/rule changes (`SESSION_LOG.md`, skills, checkpoints)
 8. **Bad uploads must not crash the app** — raise/catch `PackageError`, show sidebar error, wipe temp dir; never leave uncaught exceptions on zip load
 9. **Agent API is importable Python only** — `app/agent_api.py` (+ optional CLI). No HTTP API / background server.
-10. **Runtime proof = motor/status first** — chiller weekly + mech-cooling OAT bins use designated `chw_pump_status` / `chw_pump_cmd` (or DX compressor on AHU/HP/RTU). If the data model has **no pump to map**, **omit** that chiller from run-hours charts — do **not** invent runtime from CHW leave/supply temp.
+10. **Runtime proof = motor/status first** — chiller weekly + mech-cooling OAT bins use designated `chw_pump_status` / `chw_pump_cmd` (or DX compressor on AHU/HP/RTU). If the data model has **no pump to map**, **omit** that chiller from run-hours charts — do **not** invent runtime from CHW leave/supply temp. Motor charts prefer mapped fan/pump roles before column-name heuristics.
 11. **Mech-cooling OAT bins = mechanical compressors / plant only** — chiller plant (chiller + preferably pump/status) **or** AHU / heat pump / RTU with **DX / compressor** stages (`compressor_status`, `dx_stage`, `dx_cool_cmd`, `cool_stage`, …). **Never** treat AHU `clg_valve_pct` / CHW cooling-valve % as mechanical cooling (valves often modulate with no chilled water → false “cooling”). Do **not** re-add a sidebar/session toggle (`include_ahu_chw_valve` is deprecated, always False/ignored). Bins must sort cold→hot by `bin_start`.
 12. **Occupancy calendar is canonical** — Overview weekly date/time pickers **always** write `occ_mode` for SCHED-1. Do not re-add an “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.
+13. **Typed equipment is canonical** — stamp `equipType` / `equipment_type` in `column_map.json` / role_map; resolver is `resolve_equipment_type` (attrs → map → id fallback). RTU → AHU; heatPump → HP. Do not invent RCx membership or rule kinds from id substrings alone.
 
 ## Agent → Streamlit handoff (dialed-in URL)
 
@@ -87,11 +88,12 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 - **Cloud round-trip:** upload zip → tune → **Download session config** (sidebar / Export) → later upload zip + **Upload session config** (no server path). See [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md)
 - Optional `column_map.json` — loaded into `PackageLoadResult`, validated, merged into role_map
 - Zip limits (local + Cloud, env-overridable): see `docs/PACKAGE_SPEC.md`
-  - **Default 500 MB** zip and **500 MB** expanded (same for local / auto / `APP_MODE=cloud`)
-  - Override: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
+  - **Two-tier sizes:** browser upload **500 MB** (`.streamlit/config.toml` `maxUploadSize`); agent/CLI/path **2048 MB** default (`DEFAULT_PACKAGE_MB`)
+  - Prefer `scripts/agent_afdd.py --package …` or **Load zip from path** for large buildings (bypasses the Streamlit widget)
+  - Override package caps: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
   - UI shows loaded dataset size (MB) vs limits in the sidebar and Overview
   - Local agents: sidebar **Package zip path** → **Load zip from path**; also **Fault settings JSON path** / **Session config JSON path**
-  - Self-host Docker: [`docs/DOCKER.md`](docs/DOCKER.md) (`docker build -t vibe19 .`) — Community Cloud does **not** use the Dockerfile
+  - Self-host Docker / GHCR: [`docs/DOCKER.md`](docs/DOCKER.md) (`docker pull ghcr.io/bbartling/vibe19:develop`) — Community Cloud does **not** use the Dockerfile
   - Fork / customize (DB ingest, branding, custom faults): [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
 ### Shitty / hostile CSV handling (implemented)

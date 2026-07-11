@@ -8,6 +8,21 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Streamlit 500 MB upload + GHCR
+
+- `.streamlit/config.toml` → `server.maxUploadSize = 500` (fixes browser “200MB per file”)
+- GHCR workflow `.github/workflows/vibe19-ghcr.yml` → `ghcr.io/<owner>/vibe19`
+- Docs: DOCKER / STREAMLIT_CLOUD / AGENTS / PACKAGE_SPEC note both upload + package caps
+
+## 2026-07-11 — Data-model-driven typed equip (WP1–4)
+
+- `resolve_equipment_type` / `stamp_equipment_type` — attrs → role_map/column_map `equipType` → id fallback; HP/RTU normalize
+- Motors: mapped fan/pump roles before named-pump regex; omit inventing supply fan from raw columns when roles empty
+- RCx: typed membership only (no id-substring) in `collect_oat_scatter` / `collect_role_series`
+- Mapping selectbox indexes current type; session_config round-trips `equipment_type` (+ optional `chw_pump_equipment`)
+- Docs: `DATA_MODEL_DRIVEN.md`, AGENTS, Haystack guide, DOCKER (500 MB default explicit)
+- Package default remains **500 MB** zip+expanded (`DEFAULT_PACKAGE_MB`); Dockerfile does not lower caps
+
 ## 2026-07-11 — Overview/sidebar UX + valve ban
 
 - Units radio drives CHW leave + zone comfort sliders (°F/°C display; stored °F) via `_temp_threshold_slider`

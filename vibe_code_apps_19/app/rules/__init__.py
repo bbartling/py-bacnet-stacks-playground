@@ -46,7 +46,11 @@ def run_rule(
         rule,
         df,
         equipment_id=df.attrs.get("equipment_id", ""),
-        equipment_kind=infer_equipment_kind(df.attrs.get("equipment_id", "")),
+        equipment_kind=infer_equipment_kind(
+            str(df.attrs.get("equipment_id", "")),
+            df=df,
+            equipment_type=str(df.attrs.get("equipment_type", "")),
+        ),
         poll_seconds=poll_seconds,
         params_by_rule={rule_id: params or {}},
         weather=weather,

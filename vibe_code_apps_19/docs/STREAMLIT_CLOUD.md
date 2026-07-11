@@ -43,8 +43,14 @@ Same controls live in the sidebar and on the **Export** tab. Local agents can st
 - One shared Python process for all visitors
 - Session wipe is **best-effort**
 - Not a security boundary for sensitive building data
-- Keep zips within env caps (**default 500 MB** zip and expanded, local + cloud) — see [PACKAGE_SPEC.md](PACKAGE_SPEC.md). Sidebar / Overview show loaded size vs limit.
+- Keep zips within **two-tier** defaults:
+  - Browser: `.streamlit/config.toml` → `server.maxUploadSize = 500` (stock Streamlit says “200MB per file” without this)
+  - Agent/CLI/path: package_io **2048 MB** (`DEFAULT_PACKAGE_MB`) — prefer path load / `agent_afdd` for large buildings
+  - See [PACKAGE_SPEC.md](PACKAGE_SPEC.md) / [DOCKER.md](DOCKER.md)
+- Sidebar / Overview show loaded size vs package limit.
 
 ## AI agents
 
 Open the public URL → upload zip → tune → download `session_config.json` for the next visit. No locked per-agent backend on Streamlit Cloud. Headless: `scripts/agent_afdd.py` + optional `session_config` / `fault_settings` in the export bundle.
+
+Self-host image: [DOCKER.md](DOCKER.md) / `ghcr.io/<owner>/vibe19` (GHCR stores the image; it does not host the app).

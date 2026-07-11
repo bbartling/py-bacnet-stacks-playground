@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from app.role_map import apply_role_map
-from app.site_model import equipment_type_from_id
+from app.site_model import normalize_equipment_type, resolve_equipment_type
 
 # Plant groups for weekly motor charts.
 PLANT_AIR = "air"
@@ -21,10 +21,19 @@ PLANT_GROUPS: tuple[str, ...] = (PLANT_AIR, PLANT_BOILER, PLANT_CHILLER)
 MOTOR_SIGNAL_ROLES: tuple[str, ...] = (
     "fan_cmd",
     "fan_status",
+    "chw_pump_status",
     "chw_pump_cmd",
     "hw_pump_cmd",
     "pump_cmd",
     "pump_status",
+)
+MAPPED_FAN_ROLES: tuple[str, ...] = ("fan_status", "fan_cmd")
+MAPPED_PUMP_ROLES: tuple[str, ...] = (
+    "chw_pump_status",
+    "chw_pump_cmd",
+    "hw_pump_cmd",
+    "pump_status",
+    "pump_cmd",
 )
 
 # Mechanical cooling proof — chillers / DX compressors only (never CHW valves on OAT bins).
@@ -162,33 +171,96 @@ def _preferred_motor_roles(df: pd.DataFrame) -> list[tuple[str, str]]:
         out.append(("fan_cmd", "fan"))
     if "pump_status" in pumps:
         out.append(("pump_status", "pump"))
+    elif "chw_pump_status" in pumps:
+        out.append(("chw_pump_status", "pump"))
     else:
-        for r in ("hw_pump_cmd", "chw_pump_cmd", "pump_cmd"):
+        for r in ("chw_pump_cmd", "hw_pump_cmd", "pump_cmd"):
             if r in pumps:
                 out.append((r, "pump"))
                 break
     return out
 
 
-def _equipment_plant_group(equipment_id: str, equipment_type: str) -> str | None:
-    """Map equipment to air / boiler / chiller plant chart group."""
-    et = (equipment_type or "").upper()
+def _normalize_plant_group(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    s = str(raw).strip().lower()
+    aliases = {
+        "air": PLANT_AIR,
+        "ahu": PLANT_AIR,
+        "boiler": PLANT_BOILER,
+        "hw": PLANT_BOILER,
+        "chiller": PLANT_CHILLER,
+        "chw": PLANT_CHILLER,
+        "chw_plant": PLANT_CHILLER,
+    }
+    return aliases.get(s) if s in aliases else (s if s in PLANT_GROUPS else None)
+
+
+def _equipment_plant_group(
+    equipment_id: str,
+    equipment_type: str,
+    *,
+    df: pd.DataFrame | None = None,
+    role_map: dict | None = None,
+) -> str | None:
+    """Plant chart group: attrs/role_map plant_group → typed equip → id fallback."""
+    if df is not None:
+        pg = _normalize_plant_group(df.attrs.get("plant_group"))
+        if pg:
+            return pg
+    eq_roles = (role_map or {}).get(equipment_id) if role_map else None
+    if isinstance(eq_roles, dict):
+        pg = _normalize_plant_group(eq_roles.get("plant_group"))
+        if pg:
+            return pg
+
+    et = normalize_equipment_type(equipment_type) or resolve_equipment_type(
+        equipment_id, df=df, role_map=role_map
+    )
+    if et == "VAV":
+        return None
+    if et in {"AHU", "HP"}:
+        return PLANT_AIR
+    if et in {"CHW_PLANT", "CHILLER"}:
+        return PLANT_CHILLER
+    if et == "BOILER":
+        return PLANT_BOILER
+    if et in {"WEATHER", "METER"}:
+        return None
+
+    # Id fallback only when type is unknown / untyped
     eq = (equipment_id or "").upper().replace("\\", "/")
-    if et == "VAV" or "/VAV" in eq or eq.startswith("VAV"):
-        return None  # zone boxes — not central motors
-    if et == "AHU" or eq.startswith("AHU") or "/AHU" in eq:
+    if "/VAV" in eq or eq.startswith("VAV"):
+        return None
+    if eq.startswith("AHU") or "/AHU" in eq or "RTU" in eq:
         return PLANT_AIR
     if "TOWER" in eq or re.search(r"(^|/)CT\d", eq) or eq.startswith("CT_"):
         return PLANT_CHILLER
-    if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):
+    if "CHILLER" in eq or eq.startswith("CHW"):
         return PLANT_CHILLER
-    if et == "BOILER" or "BOILER" in eq:
+    if "BOILER" in eq:
         return PLANT_BOILER
     if "CWP" in eq or "CHW_PUMP" in eq or ("PUMP" in eq and ("CHW" in eq or "CW" in eq)):
         return PLANT_CHILLER
     if "PUMP" in eq and "HEAT" not in eq:
         return PLANT_BOILER
     return None
+
+
+def _has_mapped_roles(mapped: pd.DataFrame, roles: tuple[str, ...]) -> bool:
+    return any(r in mapped.columns and mapped[r].notna().any() for r in roles)
+
+
+def _explicit_role_keys(eq_roles: dict | None, roles: tuple[str, ...]) -> bool:
+    """True when role_map explicitly maps one of the logical motor roles."""
+    if not eq_roles:
+        return False
+    skip = {"chw_pump_equipment", "notes", "equipment_type", "equipType", "plant_group"}
+    return any(
+        r in roles and r not in skip and eq_roles.get(r)
+        for r in roles
+    )
 
 
 _RE_HWP = re.compile(r"(?:^|_)(hwp)(\d+)[_ ]?([sc]|status|cmd|command)?(?:_|$)", re.I)
@@ -316,50 +388,40 @@ def _discover_air_supply_fan(
     raw: pd.DataFrame,
     *,
     equipment_id: str,
+    allow_heuristics: bool = True,
 ) -> list[dict[str, Any]]:
-    """Supply fan only (never return fan). Prefer status over command."""
+    """Supply fan only (never return fan). Prefer mapped/heuristic status over command.
+
+    When fan roles are empty: optional column-name heuristics (``suggest_roles``)
+    only if ``allow_heuristics``. Never invent a series from raw ``supply_*``
+    columns alone — omit when roles stay empty.
+    """
     from app.role_map import suggest_roles
 
-    # Merge heuristic suggestions when role_map left fan roles empty
-    suggested = suggest_roles(raw)
-    work = mapped
-    if "fan_status" not in work.columns and "fan_status" in suggested:
-        col = suggested["fan_status"]
-        if col in raw.columns and "return" not in col.lower():
-            work = work.copy()
-            work["fan_status"] = pd.to_numeric(raw[col], errors="coerce")
-    if "fan_cmd" not in work.columns and "fan_cmd" in suggested:
-        col = suggested["fan_cmd"]
-        if col in raw.columns and "return" not in col.lower():
-            work = work.copy()
-            work["fan_cmd"] = pd.to_numeric(raw[col], errors="coerce")
+    work = mapped.copy()
+    # Drop raw columns that collide with logical role names unless heuristics/map filled them
+    # Prefer logical roles only (after suggest merge).
+    logical: dict[str, pd.Series] = {}
+    if allow_heuristics:
+        suggested = suggest_roles(raw)
+        for role in MAPPED_FAN_ROLES:
+            col = suggested.get(role)
+            if col and col in raw.columns and "return" not in str(col).lower():
+                logical[role] = pd.to_numeric(raw[col], errors="coerce")
+    # Explicit mapped logical roles win (apply_role_map already set them when in role_map)
+    for role in MAPPED_FAN_ROLES:
+        if role in mapped.columns and mapped[role].notna().any():
+            # Only treat as logical if role_map applied it OR name equals role after suggest
+            # Heuristic: if suggest points elsewhere and raw also has role-named col, prefer suggest status
+            if role not in logical:
+                logical[role] = pd.to_numeric(mapped[role], errors="coerce")
 
-    if "fan_status" in work.columns and work["fan_status"].notna().any():
-        role, kind = "fan_status", "fan"
-        ser = work["fan_status"]
-    elif "fan_cmd" in work.columns and work["fan_cmd"].notna().any():
-        role, kind = "fan_cmd", "fan"
-        ser = work["fan_cmd"]
+    if "fan_status" in logical and logical["fan_status"].notna().any():
+        role, kind, ser = "fan_status", "fan", logical["fan_status"]
+    elif "fan_cmd" in logical and logical["fan_cmd"].notna().any():
+        role, kind, ser = "fan_cmd", "fan", logical["fan_cmd"]
     else:
-        # Last resort: raw supply_* columns
-        status_cols = [
-            c
-            for c in raw.columns
-            if "supply" in str(c).lower()
-            and ("fan_status" in str(c).lower() or str(c).lower().endswith("fanstatus"))
-        ]
-        cmd_cols = [
-            c
-            for c in raw.columns
-            if "supply" in str(c).lower()
-            and ("fan_speed" in str(c).lower() or "fan_cmd" in str(c).lower())
-        ]
-        if status_cols:
-            role, kind, ser = "fan_status", "fan", raw[status_cols[0]]
-        elif cmd_cols:
-            role, kind, ser = "fan_cmd", "fan", raw[cmd_cols[0]]
-        else:
-            return []
+        return []
     return [
         {
             "equipment_id": equipment_id,
@@ -501,32 +563,56 @@ def discover_plant_motor_series(
     *,
     chw_leave_max_f: float = 48.0,
 ) -> list[dict[str, Any]]:
-    """Discover per-motor series for air / boiler / chiller weekly charts."""
-    from app.role_map import suggest_roles
+    """Discover per-motor series for air / boiler / chiller weekly charts.
 
+    Prefers mapped fan/pump roles. Named-pump regex runs only when pump roles are
+    empty; tower motors still discovered. Do not invent supply fans from raw
+    columns when fan roles stay empty (agent maps prefer omit over invent).
+    """
     found: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
-        et = str(raw.attrs.get("equipment_type") or equipment_type_from_id(eq_id)).upper()
-        plant = _equipment_plant_group(eq_id, et)
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        plant = _equipment_plant_group(eq_id, et, df=raw, role_map=role_map)
         mapped = apply_role_map(raw, eq_id, role_map)
-        # Fill missing logical roles from column-name heuristics (same as Mapping enrich)
-        suggested = suggest_roles(raw)
-        for role, col in suggested.items():
-            if role not in mapped.columns and col in raw.columns:
-                mapped[role] = pd.to_numeric(raw[col], errors="coerce")
-        if not isinstance(mapped.index, pd.DatetimeIndex) and not isinstance(raw.index, pd.DatetimeIndex):
+        if not isinstance(mapped.index, pd.DatetimeIndex) and not isinstance(
+            raw.index, pd.DatetimeIndex
+        ):
             continue
 
-        # Named pumps / tower fans from raw columns (each physical motor).
-        found.extend(
-            _discover_named_pumps_and_towers(raw, equipment_id=eq_id, default_plant=plant)
-        )
+        eq_roles = role_map.get(eq_id) or {}
+        has_explicit = bool(eq_roles)
+        # Explicit role_map keys only — raw CSVs may already have columns named fan_cmd
+        has_mapped_fan = _explicit_role_keys(eq_roles, MAPPED_FAN_ROLES)
+        has_mapped_pump = _explicit_role_keys(eq_roles, MAPPED_PUMP_ROLES)
+        # Agent/explicit map: never invent fans from column names when fan roles empty
+        allow_fan_heuristics = not has_explicit
+        allow_pump_heuristics = (not has_explicit) or (not has_mapped_pump)
+
+        # Named pumps only when no mapped pump roles; always keep tower motors
+        if allow_pump_heuristics and not has_mapped_pump:
+            found.extend(
+                _discover_named_pumps_and_towers(raw, equipment_id=eq_id, default_plant=plant)
+            )
+        else:
+            towers = [
+                s
+                for s in _discover_named_pumps_and_towers(
+                    raw, equipment_id=eq_id, default_plant=plant
+                )
+                if s.get("motor_kind") == "tower"
+            ]
+            found.extend(towers)
 
         if plant == PLANT_AIR:
-            found.extend(_discover_air_supply_fan(mapped, raw, equipment_id=eq_id))
-        elif plant == PLANT_CHILLER and (
-            et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq_id.upper()
-        ):
+            found.extend(
+                _discover_air_supply_fan(
+                    mapped,
+                    raw,
+                    equipment_id=eq_id,
+                    allow_heuristics=allow_fan_heuristics and not has_mapped_fan,
+                )
+            )
+        elif plant == PLANT_CHILLER and et in {"CHW_PLANT", "CHILLER"}:
             found.extend(
                 _discover_chiller_on(
                     mapped,
@@ -538,14 +624,22 @@ def discover_plant_motor_series(
                 )
             )
         elif plant == PLANT_CHILLER:
-            # Generic CHW plant frame: fall back to mapped pump roles if no named pumps
-            named = {s["label"] for s in found if s["equipment_id"] == eq_id}
             if not any(s["equipment_id"] == eq_id and s["motor_kind"] == "pump" for s in found):
-                for role, kind in _preferred_motor_roles(mapped):
+                work = mapped
+                if allow_pump_heuristics and not has_mapped_pump:
+                    from app.role_map import suggest_roles
+
+                    suggested = suggest_roles(raw)
+                    for role, col in suggested.items():
+                        if (
+                            role in MAPPED_PUMP_ROLES
+                            and role not in work.columns
+                            and col in raw.columns
+                        ):
+                            work = work.copy()
+                            work[role] = pd.to_numeric(raw[col], errors="coerce")
+                for role, kind in _preferred_motor_roles(work):
                     if "fan" in role:
-                        continue
-                    lab = f"{eq_id} · {role}"
-                    if lab in named:
                         continue
                     found.append(
                         {
@@ -554,14 +648,26 @@ def discover_plant_motor_series(
                             "column": role,
                             "motor_kind": kind,
                             "plant_group": PLANT_CHILLER,
-                            "label": lab,
-                            "series": mapped[role],
+                            "label": f"{eq_id} · {role}",
+                            "series": work[role],
                         }
                     )
         elif plant == PLANT_BOILER:
-            # Mapped pump fallback when columns aren't hwpN_* patterned
             if not any(s["equipment_id"] == eq_id and s["motor_kind"] == "pump" for s in found):
-                for role, kind in _preferred_motor_roles(mapped):
+                work = mapped
+                if allow_pump_heuristics and not has_mapped_pump:
+                    from app.role_map import suggest_roles
+
+                    suggested = suggest_roles(raw)
+                    for role, col in suggested.items():
+                        if (
+                            role in MAPPED_PUMP_ROLES
+                            and role not in work.columns
+                            and col in raw.columns
+                        ):
+                            work = work.copy()
+                            work[role] = pd.to_numeric(raw[col], errors="coerce")
+                for role, kind in _preferred_motor_roles(work):
                     if "fan" in role:
                         continue
                     found.append(
@@ -572,7 +678,7 @@ def discover_plant_motor_series(
                             "motor_kind": kind,
                             "plant_group": PLANT_BOILER,
                             "label": f"{eq_id} · {role}",
-                            "series": mapped[role],
+                            "series": work[role],
                         }
                     )
     return found
@@ -817,7 +923,7 @@ def mech_cooling_oat_bins(
 
     rows: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
-        et = str(raw.attrs.get("equipment_type") or equipment_type_from_id(eq_id)).upper()
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
         mapped = apply_role_map(raw, eq_id, role_map)
         poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
         oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)

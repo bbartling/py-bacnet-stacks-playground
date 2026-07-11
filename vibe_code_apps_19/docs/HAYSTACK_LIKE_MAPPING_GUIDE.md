@@ -13,7 +13,7 @@ Internally, rules still use Open-FDD **cookbook roles** (`sat`, `zone_t`, …).
 | Site | `siteRef` | `campus_a` |
 | Building | `building` (folder name) | `HQ_NORTH` (demo may be `BUILDING_100`) |
 | Equipment / device | `equip.<id>` + `device` | `AHU_1`, `VAV_7` |
-| Equip type | `equipType` | `ahu`, `vav`, `chwPlant`, `boiler`, `heatPump`, `weather` |
+| Equip type | `equipType` | `ahu`, `vav`, `chwPlant`, `boiler`, `heatPump`, `weather` (`rtu` → cookbook `AHU`) |
 | Point | `points.<haystack-name>` | `discharge-air-temp` → cookbook `sat` |
 | Column | CSV header value | `discharge_air_temp_f` |
 

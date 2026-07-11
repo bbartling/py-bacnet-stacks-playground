@@ -82,7 +82,13 @@ suggest_roles = _role_map_mod.suggest_roles
 from app.rules import CANONICAL_RULE_COUNT, RULES, RULES_BY_ID, run_rule  # noqa: E402
 from app.rules.operational_gate import RULE_GATES  # noqa: E402
 from app.rules.runner import infer_equipment_kind  # noqa: E402
-from app.site_model import Building, Site, equipment_type_from_id  # noqa: E402
+from app.site_model import (  # noqa: E402
+    EQUIPMENT_TYPES,
+    Building,
+    Site,
+    resolve_equipment_type,
+    stamp_equipment_type,
+)
 
 try:
     from shared.branding import APP_TITLE
@@ -453,13 +459,25 @@ def _apply_column_map_json(data: dict) -> None:
     st.session_state.role_map = merge_column_map_into_role_map(
         st.session_state.role_map, normalized, prefer_json=True
     )
-    for eq_id, roles in column_map_to_role_map(normalized).items():
+    for eq_id, block in (normalized.get("equipment") or {}).items():
+        roles = dict(block.get("column_roles") or {})
+        etype = resolve_equipment_type(
+            eq_id,
+            role_map=st.session_state.role_map,
+            column_map=normalized,
+            explicit=str(block.get("equipment_type") or ""),
+        )
+        # Persist type in role_map meta for session_config round-trip
+        meta = dict(st.session_state.role_map.get(eq_id) or {})
+        meta.update(roles)
+        meta["equipment_type"] = etype
+        st.session_state.role_map[eq_id] = meta
         upsert_equipment_roles(
             st.session_state.site_mapping,
             site_id=st.session_state.site_id,
             building_id=st.session_state.building_id,
             equipment_id=eq_id,
-            equipment_type=equipment_type_from_id(eq_id),
+            equipment_type=etype,
             roles=roles,
         )
     _sync_role_map_from_sites()
@@ -500,11 +518,24 @@ def _results_by_family(summary: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
 def _attach_frames_meta(frames: dict[str, pd.DataFrame]) -> None:
     rm = st.session_state.role_map
+    cm = st.session_state.get("column_map")
+    sites = st.session_state.site_mapping
     for eq_id, df in frames.items():
-        sid, bid, etype = equipment_context(st.session_state.site_mapping, eq_id)
+        sid, bid, etype = equipment_context(sites, eq_id)
         df.attrs.setdefault("site_id", sid)
         df.attrs.setdefault("building_id", bid)
-        df.attrs.setdefault("equipment_type", etype)
+        stamp_equipment_type(
+            df,
+            eq_id,
+            role_map=rm,
+            column_map=cm if isinstance(cm, dict) else None,
+            sites=sites,
+            explicit=etype,
+        )
+        # Optional plant_group meta from role_map
+        pg = (rm.get(eq_id) or {}).get("plant_group")
+        if pg:
+            df.attrs["plant_group"] = str(pg)
         df.attrs["_role_map"] = rm
 
 
@@ -619,8 +650,9 @@ def _units_map() -> dict[str, str]:
 
 def _equip_by_type(frames: dict[str, pd.DataFrame]) -> dict[str, list[str]]:
     buckets: dict[str, list[str]] = {}
+    rm = st.session_state.get("role_map") or {}
     for eq_id, df in frames.items():
-        et = str(df.attrs.get("equipment_type") or equipment_type_from_id(eq_id))
+        et = resolve_equipment_type(eq_id, df=df, role_map=rm)
         buckets.setdefault(et, []).append(eq_id)
     return {k: sorted(v, key=natural_key) for k, v in sorted(buckets.items())}
 
@@ -802,7 +834,7 @@ def _commit_frames(
             site_id=str(raw_df.attrs.get("site_id", site_id)),
             building_id=str(raw_df.attrs.get("building_id", building_id)),
             equipment_id=eq_id,
-            equipment_type=str(raw_df.attrs.get("equipment_type", equipment_type_from_id(eq_id))),
+            equipment_type=resolve_equipment_type(eq_id, df=raw_df, role_map=rm),
             roles=rm.get(eq_id, {}),
         )
     st.session_state.role_map = rm
@@ -980,14 +1012,26 @@ def _load_data(cfg: AppConfig) -> None:
             st.session_state.building_folder = ""
             st.rerun()
     else:
-        from app.package_io import dataset_size_caption, effective_package_caps
+        from app.package_io import (
+            BROWSER_UPLOAD_MB,
+            dataset_size_caption,
+            effective_package_caps,
+        )
 
-        caps = effective_package_caps()
+        browser_caps = effective_package_caps(for_browser_upload=True)
+        agent_caps = effective_package_caps()
         zip_file = st.sidebar.file_uploader(
             "Building package (.zip)",
             type=["zip"],
             key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
-            help="openfdd_package_v1 — manifest.json + equipment history_wide.csv",
+            help=(
+                f"Browser upload ≤{BROWSER_UPLOAD_MB} MB (Streamlit maxUploadSize). "
+                f"Large packages: use path load / agent_afdd (up to {agent_caps.max_zip_mb} MB)."
+            ),
+        )
+        st.sidebar.caption(
+            f"Browser upload **{BROWSER_UPLOAD_MB} MB** · "
+            f"agent/path package ≤{agent_caps.max_zip_mb} MB"
         )
         c1, c2 = st.sidebar.columns(2)
         load_clicked = c1.button("Load zip", type="primary", disabled=zip_file is None, key="load_zip_unified")
@@ -999,7 +1043,7 @@ def _load_data(cfg: AppConfig) -> None:
             wipe_workdir(st.session_state.get("upload_workdir"))
             st.session_state.upload_workdir = None
             try:
-                result = load_package_zip(zip_file.getvalue())
+                result = load_package_zip(zip_file.getvalue(), caps=browser_caps)
             except PackageError as exc:
                 st.sidebar.error(str(exc))
             except Exception as exc:  # pragma: no cover
@@ -1108,6 +1152,7 @@ def _load_data(cfg: AppConfig) -> None:
         _render_session_config_io(key_prefix="sidebar")
 
     with st.sidebar.expander("AI agent / package help", expanded=False):
+        from app.package_io import BROWSER_UPLOAD_MB, DEFAULT_PACKAGE_MB
         from app.package_io import effective_package_caps as _caps_fn
 
         _c = _caps_fn()
@@ -1115,16 +1160,18 @@ def _load_data(cfg: AppConfig) -> None:
             f"""
 **Agent-friendly flow**
 1. Pre-process CSVs into `openfdd_package_v1` (`docs/PACKAGE_SPEC.md`).
-2. **Zip package** → upload **or** (local) paste path → **Load zip from path**.
+2. Prefer **`scripts/agent_afdd.py --package …`** or sidebar **Load zip from path** for large buildings
+   (package_io default **{DEFAULT_PACKAGE_MB} MB**). Browser upload is capped at **{BROWSER_UPLOAD_MB} MB**.
 3. Map / tune thresholds → **Download session config** (sidebar or Export).
 4. Later (Cloud-safe): upload the **same zip** + **Upload session config** to restore
    `role_map` / `params` / units — no server disk path required.
 5. Optional: Mapping tab JSON column map if role_map incomplete.
 6. **Clear session** when done (best-effort wipe on shared hosts).
 
-**Effective caps:** zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB ·
-≤{_c.max_entries} entries · ≤{_c.max_equipment} equip  
-Default safety limit **500 MB** (zip + expanded). Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`.
+**Two-tier size caps**
+- Browser `st.file_uploader`: **{BROWSER_UPLOAD_MB} MB** (`.streamlit/config.toml` `maxUploadSize`)
+- Agent / CLI / path: zip ≤{_c.max_zip_mb} MB · expanded ≤{_c.max_uncompressed_mb} MB  
+  Env: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
 
 Agent brief: {_AGENTS_MD_URL}
             """.strip()
@@ -1321,17 +1368,54 @@ def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> No
     bids = sorted(site.buildings.keys()) or [DEFAULT_BUILDING_ID]
     bid = st.selectbox("Building", bids, key="map_bldg")
     building = site.buildings.setdefault(bid, Building(building_id=bid, building_name=bid, site_id=sid))
-    etype = st.selectbox("Equipment type", ["AHU", "VAV", "CHW_PLANT", "BOILER", "HP", "WEATHER", "METER", "UNKNOWN"], index=0, key="map_etype")
+    type_opts = list(EQUIPMENT_TYPES)
+    cur_type = resolve_equipment_type(
+        selected,
+        df=raw_df,
+        role_map=st.session_state.role_map,
+        column_map=st.session_state.get("column_map"),
+        sites=sites,
+    )
+    type_idx = type_opts.index(cur_type) if cur_type in type_opts else 0
+    etype = st.selectbox(
+        "Equipment type",
+        type_opts,
+        index=type_idx,
+        key=f"map_etype_{selected}",
+        help="RTU → choose AHU (DX roles). Heat pump → HP. Persists into session_config role_map meta.",
+    )
     st.write(f"Editing equipment **{selected}**")
     inferred = {**suggest_roles(raw_df), **roles_from_columns_csv(Path(raw_df.attrs.get("columns_path")) if raw_df.attrs.get("columns_path") else None)}
     edit = dict(st.session_state.role_map.get(selected, {}))
-    for role in sorted(set(list(inferred.keys()) + list(edit.keys()) + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd"])):
+    for role in sorted(set(list(inferred.keys()) + list(edit.keys()) + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd", "chw_pump_status", "chw_pump_equipment"])):
+        if role in {"equipment_type", "equipType", "plant_group", "notes"}:
+            continue
         opts = [""] + list(raw_df.columns)
         cur = edit.get(role, inferred.get(role, ""))
+        if role == "chw_pump_equipment":
+            eq_opts = [""] + sorted(st.session_state.equipment_frames)
+            cur_link = str(edit.get("chw_pump_equipment") or "")
+            edit["chw_pump_equipment"] = st.selectbox(
+                "chw_pump_equipment (linked)",
+                eq_opts,
+                index=eq_opts.index(cur_link) if cur_link in eq_opts else 0,
+                key=f"sm_{selected}_chw_pump_equipment",
+                help="Optional: equipment id that owns the CHW pump status column.",
+            )
+            continue
         edit[role] = st.selectbox(role, opts, index=opts.index(cur) if cur in opts else 0, key=f"sm_{selected}_{role}")
     edit = {k: v for k, v in edit.items() if v}
+    edit["equipment_type"] = etype
     st.session_state.role_map[selected] = edit
-    upsert_equipment_roles(sites, site_id=sid, building_id=bid, equipment_id=selected, equipment_type=etype, roles=edit)
+    raw_df.attrs["equipment_type"] = etype
+    upsert_equipment_roles(
+        sites,
+        site_id=sid,
+        building_id=bid,
+        equipment_id=selected,
+        equipment_type=etype,
+        roles=edit,
+    )
     _sync_role_map_from_sites()
     c1, c2, c3 = st.columns(3)
     if c1.button("Save flat YAML"):
@@ -1378,7 +1462,9 @@ def main() -> None:
     selected = st.selectbox("Equipment", eq_ids, index=eq_ids.index(st.session_state.selected_equipment) if st.session_state.selected_equipment in eq_ids else 0)
     st.session_state.selected_equipment = selected
     mapped, poll = _mapped_equipment(selected, frames)
-    kind = infer_equipment_kind(selected)
+    kind = infer_equipment_kind(
+        selected, df=frames.get(selected), role_map=st.session_state.role_map
+    )
     units_map = _units_map()
     by_type = _equip_by_type(frames)
 
@@ -1738,7 +1824,9 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         plot_fmt = st.selectbox("Download format", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt")
         show_pass = st.checkbox("Show PASS plots (not only FAULT)", value=False, key="plot_show_pass")
         type_opts = list(by_type.keys()) or ["UNKNOWN"]
-        cur_type = str(frames[selected].attrs.get("equipment_type") or equipment_type_from_id(selected))
+        cur_type = resolve_equipment_type(
+            selected, df=frames[selected], role_map=st.session_state.role_map
+        )
         type_idx = type_opts.index(cur_type) if cur_type in type_opts else 0
         eq_type = st.selectbox("Device type", type_opts, index=type_idx, key="plot_eq_type")
         device_ids = by_type.get(eq_type, [])
@@ -1749,7 +1837,9 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             device = st.selectbox("Device", device_ids, index=dev_idx, key="plot_device")
             st.session_state.selected_equipment = device
             plot_df, _ = _mapped_equipment(device, frames)
-            eq_kind = infer_equipment_kind(device)
+            eq_kind = infer_equipment_kind(
+                device, df=frames.get(device), role_map=st.session_state.role_map
+            )
 
             applicable = [r for r in RULES if eq_kind in r.equipment_kinds or eq_kind == "unknown"]
             by_fam_rules: dict[str, list] = {f: [] for f in FAMILY_ORDER}

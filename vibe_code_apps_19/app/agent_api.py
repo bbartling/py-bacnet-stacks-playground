@@ -36,7 +36,7 @@ from app.reports import results_summary_table
 from app.role_map_gap import build_role_map_gap_report
 from app.rules.base import RuleResult
 from app.rules.runner import RULES, run_batch
-from app.site_model import equipment_type_from_id
+from app.site_model import resolve_equipment_type, stamp_equipment_type
 from app.tuning_report import build_tuning_assistant_report
 from app.weather_psychrometrics import enrich_weather_frame
 from app.weather_resolver import has_web_oat
@@ -113,7 +113,7 @@ def _attach_role_map(frames: dict[str, pd.DataFrame], role_map: dict[str, dict[s
     for eq_id, df in frames.items():
         df.attrs["_role_map"] = role_map
         df.attrs.setdefault("equipment_id", eq_id)
-        df.attrs.setdefault("equipment_type", equipment_type_from_id(eq_id))
+        stamp_equipment_type(df, eq_id, role_map=role_map)
 
 
 def _load_weather_near(building_root: Path) -> pd.DataFrame | None:
@@ -158,7 +158,12 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
     frames = result.frames
     for eq_id, df in frames.items():
         df.attrs.setdefault("building_id", result.manifest.building_id)
-        df.attrs.setdefault("equipment_type", equipment_type_from_id(eq_id))
+        stamp_equipment_type(
+            df,
+            eq_id,
+            role_map=role_map,
+            column_map=result.column_map,
+        )
     _attach_role_map(frames, role_map)
 
     return AgentDataset(
@@ -243,7 +248,7 @@ def load_building_folder(path: str | Path) -> AgentDataset:
 
     for eq_id, df in frames.items():
         df.attrs.setdefault("building_id", p.name)
-        df.attrs.setdefault("equipment_type", equipment_type_from_id(eq_id))
+        stamp_equipment_type(df, eq_id, role_map=role_map, column_map=column_map)
     _attach_role_map(frames, role_map)
     span = dataset_time_span(frames)
     report = {
@@ -309,8 +314,8 @@ def run_rules(
                     weather=dataset.weather,
                     site_id=str(raw_df.attrs.get("site_id", "")),
                     building_id=str(raw_df.attrs.get("building_id", dataset.building_id)),
-                    equipment_type=str(
-                        raw_df.attrs.get("equipment_type", equipment_type_from_id(eq_id))
+                    equipment_type=resolve_equipment_type(
+                        eq_id, df=raw_df, role_map=dataset.role_map
                     ),
                     require_operational_gates=False,
                 )

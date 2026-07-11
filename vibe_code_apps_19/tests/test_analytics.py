@@ -226,3 +226,66 @@ def test_all_rules_have_confirm_min():
         assert conf.default == 5.0, r.id
         assert conf.min == 0.0, r.id
         assert conf.max == 60.0, r.id
+
+
+def test_resolve_equipment_type_priority_and_aliases():
+    from app.site_model import normalize_equipment_type, resolve_equipment_type, stamp_equipment_type
+
+    assert normalize_equipment_type("heatPump") == "HP"
+    assert normalize_equipment_type("RTU") == "AHU"
+    idx = pd.date_range("2024-01-01", periods=2, freq="1h", tz="UTC")
+    df = pd.DataFrame({"x": [1, 2]}, index=idx)
+    # id would say UNKNOWN; map wins
+    assert (
+        resolve_equipment_type(
+            "UNIT_9",
+            df=df,
+            role_map={"UNIT_9": {"equipment_type": "BOILER", "pump_status": "p"}},
+        )
+        == "BOILER"
+    )
+    stamp_equipment_type(df, "RTU_1", column_map={"equipment": {"RTU_1": {"equipType": "rtu"}}})
+    assert df.attrs["equipment_type"] == "AHU"
+
+
+def test_motor_omit_fan_when_map_has_no_fan_roles():
+    """Agent map without fan roles must not invent supply fan from raw columns."""
+    from app.analytics import discover_plant_motor_series
+
+    idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
+    ahu = pd.DataFrame(
+        {"supply_fan_status": [1.0] * 24, "sat": [55.0] * 24},
+        index=idx,
+    )
+    ahu.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
+    found = discover_plant_motor_series(
+        {"AHU_1": ahu},
+        role_map={"AHU_1": {"sat": "sat", "equipment_type": "AHU"}},
+    )
+    assert not any(s["motor_kind"] == "fan" for s in found)
+
+
+def test_rcx_typed_membership_no_id_substring():
+    from app.rcx_plots import collect_oat_scatter
+
+    idx = pd.date_range("2024-01-01", periods=3, freq="1h", tz="UTC")
+    # Id looks like AHU but typed as BOILER — must not join AHU scatter
+    df = pd.DataFrame({"hw_supply_t": [140.0, 141.0, 142.0]}, index=idx)
+    df.attrs["equipment_type"] = "BOILER"
+    wx = pd.DataFrame({"wx_oa_t": [30.0, 32.0, 34.0]}, index=idx)
+    out = collect_oat_scatter(
+        {"AHU_LOOKALIKE": df},
+        role_map={"AHU_LOOKALIKE": {"hw_supply_t": "hw_supply_t"}},
+        y_role="hw_supply_t",
+        weather=wx,
+        equipment_types=("AHU",),
+    )
+    assert out.empty
+    out2 = collect_oat_scatter(
+        {"AHU_LOOKALIKE": df},
+        role_map={"AHU_LOOKALIKE": {"hw_supply_t": "hw_supply_t"}},
+        y_role="hw_supply_t",
+        weather=wx,
+        equipment_types=("BOILER",),
+    )
+    assert not out2.empty

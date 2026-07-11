@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from app.role_map import apply_role_map
-from app.site_model import equipment_type_from_id
+from app.site_model import resolve_equipment_type
 from app.weather_psychrometrics import prefer_web_oat
 
 
@@ -70,8 +70,8 @@ PRESETS: list[RcxPreset] = [
 ]
 
 
-def _etype(eq_id: str, raw: pd.DataFrame) -> str:
-    return str(raw.attrs.get("equipment_type") or equipment_type_from_id(eq_id)).upper()
+def _etype(eq_id: str, raw: pd.DataFrame, role_map: dict | None = None) -> str:
+    return resolve_equipment_type(eq_id, df=raw, role_map=role_map)
 
 
 def _fan_on(df: pd.DataFrame) -> pd.Series:
@@ -99,10 +99,11 @@ def collect_role_series(
     for eq_id, raw in frames.items():
         if equipment_ids is not None and eq_id not in equipment_ids:
             continue
-        et = _etype(eq_id, raw)
+        et = _etype(eq_id, raw, role_map)
         if equipment_types:
             allowed = {t.upper() for t in equipment_types}
-            if et not in allowed and not any(t in eq_id.upper() for t in allowed):
+            # Typed membership only — no id-substring fallback
+            if et not in allowed:
                 continue
         mapped = apply_role_map(raw, eq_id, role_map)
         if role not in mapped.columns or mapped[role].notna().sum() == 0:
@@ -172,10 +173,10 @@ def collect_oat_scatter(
     """Long dataframe: timestamp, equipment_id, oat, y for scatter plots."""
     rows: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
-        et = _etype(eq_id, raw)
+        et = _etype(eq_id, raw, role_map)
         if equipment_types and et not in {t.upper() for t in equipment_types}:
-            if not any(t.upper() in eq_id.upper() for t in equipment_types):
-                continue
+            # Typed membership only — no id-substring fallback
+            continue
         mapped = apply_role_map(raw, eq_id, role_map)
         if y_role not in mapped.columns or mapped[y_role].notna().sum() == 0:
             continue

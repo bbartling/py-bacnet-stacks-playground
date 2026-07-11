@@ -9,7 +9,7 @@ import pandas as pd
 from app.role_map import apply_role_map
 from app.rules import cookbook_catalog as cb
 from app.rules.runner import infer_equipment_kind, merge_weather
-from app.site_model import equipment_type_from_id
+from app.site_model import resolve_equipment_type
 from app.weather_resolver import has_bas_oat, has_web_oat
 
 
@@ -42,8 +42,8 @@ def build_role_map_gap_report(
     """One row per equipment with mapped/missing roles and skip impact."""
     rows: list[dict[str, Any]] = []
     for eq_id, raw in sorted(frames.items()):
-        et = str(raw.attrs.get("equipment_type") or equipment_type_from_id(eq_id))
-        kind = infer_equipment_kind(eq_id)
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        kind = infer_equipment_kind(eq_id, equipment_type=et, df=raw, role_map=role_map)
         mapped = apply_role_map(raw, eq_id, role_map)
         mapped.attrs.update(raw.attrs)
         enriched = merge_weather(mapped, weather)

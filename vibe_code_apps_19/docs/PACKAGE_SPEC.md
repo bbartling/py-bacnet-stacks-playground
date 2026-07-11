@@ -104,19 +104,26 @@ Artifacts: `run_report.json`, `fdd_summary.csv`, `fault_settings.json`, `session
 
 ## Size limits (configurable)
 
-**Primary default: 500 MB** for both compressed zip and uncompressed extract — same for local, `APP_MODE=auto`, and `APP_MODE=cloud`. Override with env vars when a host needs tighter or looser caps.
+**Two-tier defaults**
 
-| Cap | Env var | Default (all modes) |
+| Path | Default | Mechanism |
 | --- | --- | --- |
-| Compressed zip | `OPENFDD_MAX_ZIP_MB` | **500 MB** |
-| Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | **500 MB** |
+| Browser Streamlit upload | **500 MB** | `.streamlit/config.toml` `server.maxUploadSize` |
+| Agent / CLI / path / folder | **2048 MB** zip + expanded | `DEFAULT_PACKAGE_MB` in `package_io` |
+
+Streamlit rejects browser uploads above 500 MB before package_io. Path/agent loads use the 2048 MB safety cap (bounded; not unlimited). Override with env when needed.
+
+| Cap | Env var | Default (agent/path) |
+| --- | --- | --- |
+| Compressed zip | `OPENFDD_MAX_ZIP_MB` | **2048 MB** |
+| Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | **2048 MB** |
 | Zip entries | `OPENFDD_MAX_ENTRIES` | 200 |
 | Equipment folders | `OPENFDD_MAX_EQUIPMENT` | 100 |
 | Path depth | (fixed) | 8 |
 
 `PackageError` messages include the **effective** cap. The Streamlit sidebar and Overview show loaded dataset size in MB vs these limits (`zip_mb` / `uncompressed_mb` on the package report).
 
-Local agents can also use sidebar **Package zip path** → **Load zip from path** (when server paths are allowed) instead of the browser file picker.
+Local agents: sidebar **Package zip path** → **Load zip from path**, or `scripts/agent_afdd.py --package …` (bypasses the browser widget).
 
 ## Session wipe
 

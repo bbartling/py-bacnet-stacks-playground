@@ -9,15 +9,28 @@ import pandas as pd
 from app.rules import cookbook_catalog as cb
 from app.rules.base import RuleResult, equipment_off, error_result, finalize_result, not_applicable, skipped
 from app.rules.operational_gate import RULE_GATES, resolve_operational_mask, should_skip_equipment_off
-from app.site_model import equipment_type_from_id
+from app.site_model import equipment_type_from_id, resolve_equipment_type
 
 
-def infer_equipment_kind(equipment_id: str) -> str:
-    t = equipment_type_from_id(equipment_id)
+def infer_equipment_kind(
+    equipment_id: str = "",
+    *,
+    equipment_type: str = "",
+    df: pd.DataFrame | None = None,
+    role_map: dict | None = None,
+) -> str:
+    """Map equipment to cookbook kind using resolved type (attrs / map / id)."""
+    t = resolve_equipment_type(
+        equipment_id or (str(df.attrs.get("equipment_id", "")) if df is not None else ""),
+        df=df,
+        role_map=role_map,
+        explicit=equipment_type or None,
+    )
     return {
         "AHU": "ahu",
         "VAV": "vav",
         "CHW_PLANT": "chiller",
+        "CHILLER": "chiller",
         "BOILER": "boiler",
         "HP": "heatpump",
         "WEATHER": "weather",
@@ -324,7 +337,10 @@ def run_all_cookbook_rules(
     equipment_type: str = "",
     require_operational_gates: bool = True,
 ) -> list[RuleResult]:
-    kind = infer_equipment_kind(equipment_id)
+    eq_type = resolve_equipment_type(
+        equipment_id, df=df, explicit=equipment_type or None
+    )
+    kind = infer_equipment_kind(equipment_id, equipment_type=eq_type, df=df)
     return [
         run_cookbook_rule(
             rule,
@@ -336,7 +352,7 @@ def run_all_cookbook_rules(
             weather=weather,
             site_id=site_id,
             building_id=building_id,
-            equipment_type=equipment_type,
+            equipment_type=eq_type,
             require_operational_gates=require_operational_gates,
         )
         for rule in RULES  # canonical + CUSTOM-* (assigned below via active_rules)
@@ -370,7 +386,7 @@ def run_batch(
         mapped.attrs.update(raw_df.attrs)
         mapped.attrs["equipment_id"] = eq_id
         poll = float(raw_df.attrs.get("poll_seconds") or 300.0)
-        eq_type = str(raw_df.attrs.get("equipment_type", equipment_type_from_id(eq_id)))
+        eq_type = resolve_equipment_type(eq_id, df=raw_df, role_map=role_map)
         results.extend(
             run_all_cookbook_rules(
                 mapped,

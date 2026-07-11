@@ -180,6 +180,8 @@ HAYSTACK_EQUIP_TYPE_TO_COOKBOOK: dict[str, str] = {
     "hp": "HP",
     "heatPump": "HP",
     "heat-pump": "HP",
+    "rtu": "AHU",
+    "rooftop": "AHU",
     "weather": "WEATHER",
     "meteo": "WEATHER",
     "meter": "METER",

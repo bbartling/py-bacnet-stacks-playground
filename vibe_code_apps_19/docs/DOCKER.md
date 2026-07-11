@@ -2,38 +2,54 @@
 
 **Streamlit Community Cloud does not use this Dockerfile.** Cloud deploys from `streamlit_app.py` + `requirements.txt` — see [STREAMLIT_CLOUD.md](STREAMLIT_CLOUD.md).
 
-Use Docker when you want a containerized Streamlit process (same pandas stack, `APP_MODE` env).
+## Two-tier size limits
 
-## Build & run (default: zip-only)
+| Path | Limit | Mechanism |
+| --- | --- | --- |
+| Browser `st.file_uploader` | **500 MB** | `.streamlit/config.toml` → `server.maxUploadSize = 500` |
+| Agent / CLI / Load zip from path / folder | **2048 MB** default | `DEFAULT_PACKAGE_MB` in `app/package_io.py` (`OPENFDD_MAX_ZIP_MB` / `OPENFDD_MAX_UNCOMPRESSED_MB`) |
 
-The image defaults to **`APP_MODE=cloud`** and **`VIBE19_DOCKER=1`**: same UI as Streamlit Cloud — **Zip package** upload + session config download/upload. Folder / server paths are hidden (no dead `/app/data/...` path).
+Streamlit rejects oversized browser uploads before package_io. Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` or sidebar path load (bypasses the widget). Dockerfile does **not** set a lower `OPENFDD_MAX_*` env.
+
+## Build & run (local)
 
 ```powershell
 cd vibe_code_apps_19
 docker build -t vibe19 .
-docker run --rm -p 8501:8501 vibe19
+docker run --rm -p 8501:8501 --name vibe19-test vibe19
 ```
 
-Open http://localhost:8501
+Open http://localhost:8501 — after hard refresh, uploader should say **500MB per file**.
 
-Optional tighter/looser zip caps:
+## Pull from GHCR
+
+Workflow: `.github/workflows/vibe19-ghcr.yml` → `ghcr.io/bbartling/vibe19` on pushes to `develop`/`main` that touch `vibe_code_apps_19/**`, tags `vibe19-v*`, or `workflow_dispatch`.
 
 ```powershell
-docker run --rm -p 8501:8501 -e OPENFDD_MAX_ZIP_MB=250 vibe19
+docker pull ghcr.io/bbartling/vibe19:develop
+# or :latest when default branch publishes it
+docker run --rm -p 8501:8501 ghcr.io/bbartling/vibe19:develop
 ```
 
-## Folder mode (optional volume mount)
+GHCR **stores the image**; it does not host the running app. If pull fails with 403: GitHub → Packages → `vibe19` → Package settings → change visibility to **Public** (or `docker login ghcr.io` with a PAT that has `read:packages`).
 
-Folder browse / server paths need a mounted historian tree **and** `APP_MODE=local`:
+## Branch protection vs GHCR Actions
+
+GHCR publishing and branch protection are **independent**. This playground does **not** need protection for Actions to push images.
+
+Recommended for solo / YouTube iterate-fast:
+
+- Keep **`develop` loose** (Codex/Cursor push freely).
+- Optionally protect **`main`** later (no force-push / no deletion) if you promote stable images from `main` — without requiring PR reviews if you are solo.
+- Do **not** put aggressive protection or required reviewers on `develop`.
+
+## Folder mode (optional)
 
 ```powershell
 docker run --rm -p 8501:8501 -e APP_MODE=local -v ${PWD}/data:/app/data -e HVAC_DATA_ROOT=/app/data/hvac_systems_CLEANED vibe19
 ```
 
-If `APP_MODE=local` is set without a usable data root, the app still stays **zip-only** (`VIBE19_DOCKER` / `/.dockerenv` safety net) so the sidebar does not show a missing path.
-
 ## Notes
 
-- Image installs `requirements.txt` only (no Rust / FastAPI).
-- Zip packages extract to OS temp (`vibe19_*`); session restore uses browser **Download / Upload** of `session_config.json` — no bind-mount required for tuned state.
-- Prefer zip + Codex/`agent_api` handoff inside the container; mount volumes only when you intentionally want Folder mode.
+- Image: `APP_MODE=cloud` + `VIBE19_DOCKER=1` (zip-only UI by default). Includes `.streamlit/config.toml`.
+- Optional tighter package caps: `-e OPENFDD_MAX_ZIP_MB=250 -e OPENFDD_MAX_UNCOMPRESSED_MB=250`

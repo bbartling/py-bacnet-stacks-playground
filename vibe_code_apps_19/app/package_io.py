@@ -31,9 +31,13 @@ TEMP_MAX_AGE_SEC = 6 * 3600
 
 # Env overrides: OPENFDD_MAX_ZIP_MB, OPENFDD_MAX_UNCOMPRESSED_MB,
 # OPENFDD_MAX_ENTRIES, OPENFDD_MAX_EQUIPMENT.
-# Primary default (local + cloud): 500 MB zip and 500 MB uncompressed.
-# APP_MODE no longer lowers the cloud zip default; override via env if needed.
-DEFAULT_PACKAGE_MB = 500
+#
+# Two-tier limits:
+# - Browser Streamlit upload: BROWSER_UPLOAD_MB (500) via .streamlit/config.toml
+#   maxUploadSize + optional tighter package_io check on uploaded bytes.
+# - Agent / CLI / zip-from-path / folder: DEFAULT_PACKAGE_MB (2048) safety cap.
+DEFAULT_PACKAGE_MB = 2048  # agent / path / CLI safety (still bounded)
+BROWSER_UPLOAD_MB = 500  # Streamlit file_uploader / YouTube demos
 
 
 class PackageError(ValueError):
@@ -67,11 +71,6 @@ def _env_positive_int(name: str, default: int) -> int:
     if value < 1:
         raise PackageError(f"{name} must be >= 1, got {value}")
     return value
-
-
-def _default_package_mb() -> int:
-    """Primary safety limit (MB) for zip and uncompressed — same for local and cloud."""
-    return DEFAULT_PACKAGE_MB
 
 
 def bytes_as_mb(n: int | float) -> float:
@@ -121,9 +120,14 @@ def dataset_size_caption(report: dict[str, Any] | None, *, caps: PackageCaps | N
     )
 
 
-def effective_package_caps() -> PackageCaps:
-    """Resolve zip/equipment caps from env (effective values shown in PackageError)."""
-    default_mb = _default_package_mb()
+def effective_package_caps(*, for_browser_upload: bool = False) -> PackageCaps:
+    """Resolve zip/equipment caps from env.
+
+    Default **2048 MB** for agent/CLI/path loads. Pass ``for_browser_upload=True``
+    when ingesting Streamlit ``st.file_uploader`` bytes so validation aligns with
+    ``maxUploadSize`` / ``BROWSER_UPLOAD_MB`` (500). Env overrides always win.
+    """
+    default_mb = BROWSER_UPLOAD_MB if for_browser_upload else DEFAULT_PACKAGE_MB
     return PackageCaps(
         max_zip_bytes=_env_positive_int("OPENFDD_MAX_ZIP_MB", default_mb) * 1024 * 1024,
         max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", default_mb)
@@ -291,9 +295,11 @@ def stat_is_symlink(info: zipfile.ZipInfo) -> bool:
     return ((info.external_attr >> 16) & 0o170000) == 0o120000
 
 
-def extract_package_zip(data: bytes, *, dest: Path | None = None) -> Path:
+def extract_package_zip(
+    data: bytes, *, dest: Path | None = None, caps: PackageCaps | None = None
+) -> Path:
     """Extract zip bytes into a fresh temp dir. Returns workdir root."""
-    caps = effective_package_caps()
+    caps = caps or effective_package_caps()
     if len(data) > caps.max_zip_bytes:
         raise PackageError(f"Zip exceeds {caps.max_zip_mb} MB compressed limit")
     workdir = Path(dest) if dest else Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
@@ -335,6 +341,114 @@ def extract_package_zip(data: bytes, *, dest: Path | None = None) -> Path:
         wipe_workdir(workdir)
         raise
     return workdir
+
+
+def load_package_from_dir(
+    building_root: Path, *, workdir: Path | None = None, caps: PackageCaps | None = None
+) -> PackageLoadResult:
+    """Load a validated package directory (already extracted). Uncached."""
+    manifest = load_manifest(building_root)
+    session_cfg = load_session_config(building_root)
+    warnings: list[str] = []
+
+    equipment = discover_equipment(building_root)
+    if not equipment:
+        raise PackageError("No equipment folders with history_wide.csv found")
+    caps = caps or effective_package_caps()
+    if len(equipment) > caps.max_equipment:
+        raise PackageError(
+            f"Too many equipment folders ({len(equipment)} > {caps.max_equipment})"
+        )
+
+    ids = [e["equipment_id"] for e in equipment]
+    if len(ids) != len(set(ids)):
+        raise PackageError("Duplicate equipment folder names are not allowed")
+
+    for eq in equipment:
+        issues = _validate_equipment_csv(Path(eq["history_path"]))
+        if issues:
+            raise PackageError("; ".join(issues))
+
+    frames: dict[str, pd.DataFrame] = {}
+    for eq in equipment:
+        try:
+            df = load_equipment_csv(eq["history_path"], eq.get("columns_path"))
+        except Exception as exc:
+            raise PackageError(
+                f"{eq['equipment_id']}: failed to load history_wide.csv ({exc})"
+            ) from exc
+        df.attrs["poll_seconds"] = float(manifest.grid_minutes) * 60.0
+        df.attrs["equipment_id"] = eq["equipment_id"]
+        df.attrs["building_id"] = manifest.building_id
+        df.attrs["columns_path"] = str(eq["columns_path"]) if eq.get("columns_path") else None
+        for issue in validate_dataframe(df):
+            warnings.append(f"{eq['equipment_id']}: {issue}")
+        if df.empty or not isinstance(df.index, pd.DatetimeIndex):
+            raise PackageError(
+                f"{eq['equipment_id']}: no usable UTC datetime index after load "
+                "(need parseable timestamp_utc rows)"
+            )
+        frames[eq["equipment_id"]] = df
+
+    weather = _load_weather(building_root)
+    column_map = None
+    column_map_issues: list[str] = []
+    try:
+        column_map = load_package_column_map(building_root)
+    except PackageError as exc:
+        warnings.append(str(exc))
+        column_map = None
+    if column_map:
+        from app.column_map_json import validate_column_map_against_frames
+
+        column_map_issues = validate_column_map_against_frames(column_map, frames)
+        if column_map_issues:
+            warnings.extend(column_map_issues[:20])
+
+    unc_bytes = directory_size_bytes(building_root)
+    report = {
+        "building_id": manifest.building_id,
+        "schema_version": manifest.schema_version,
+        "timezone": manifest.timezone,
+        "grid_minutes": manifest.grid_minutes,
+        "equipment_count": len(frames),
+        "equipment_ids": sorted(frames),
+        "has_weather": weather is not None,
+        "has_session_config": session_cfg is not None,
+        "has_column_map": column_map is not None,
+        "column_map_equipment_count": (
+            len((column_map or {}).get("equipment") or {}) if column_map else 0
+        ),
+        "column_map_issue_count": len(column_map_issues),
+        "column_map_issues_preview": column_map_issues[:20],
+        "row_counts": {k: int(len(v)) for k, v in frames.items()},
+        "uncompressed_bytes": unc_bytes,
+        "uncompressed_mb": bytes_as_mb(unc_bytes),
+        "max_zip_mb": caps.max_zip_mb,
+        "max_uncompressed_mb": caps.max_uncompressed_mb,
+        "source": "dir",
+    }
+    starts, ends = [], []
+    for df in frames.values():
+        if isinstance(df.index, pd.DatetimeIndex) and len(df):
+            starts.append(df.index.min())
+            ends.append(df.index.max())
+    if starts:
+        report["start"] = str(min(starts))
+        report["end"] = str(max(ends))
+
+    return PackageLoadResult(
+        building_root=building_root,
+        workdir=workdir or building_root,
+        manifest=manifest,
+        frames=frames,
+        weather=weather,
+        session_config=session_cfg,
+        warnings=warnings,
+        report=report,
+        column_map=column_map,
+        column_map_issues=column_map_issues,
+    )
 
 
 def resolve_building_root(workdir: Path) -> Path:
@@ -433,120 +547,19 @@ def _validate_equipment_csv(path: Path) -> list[str]:
     return issues
 
 
-def load_package_from_dir(building_root: Path, *, workdir: Path | None = None) -> PackageLoadResult:
-    """Load a validated package directory (already extracted). Uncached."""
-    manifest = load_manifest(building_root)
-    session_cfg = load_session_config(building_root)
-    warnings: list[str] = []
 
-    equipment = discover_equipment(building_root)
-    if not equipment:
-        raise PackageError("No equipment folders with history_wide.csv found")
-    caps = effective_package_caps()
-    if len(equipment) > caps.max_equipment:
-        raise PackageError(
-            f"Too many equipment folders ({len(equipment)} > {caps.max_equipment})"
-        )
+def load_package_zip(data: bytes, *, caps: PackageCaps | None = None) -> PackageLoadResult:
+    """Extract + validate + load. Caller owns wipe via result.workdir.
 
-    ids = [e["equipment_id"] for e in equipment]
-    if len(ids) != len(set(ids)):
-        raise PackageError("Duplicate equipment folder names are not allowed")
-
-    for eq in equipment:
-        issues = _validate_equipment_csv(Path(eq["history_path"]))
-        if issues:
-            raise PackageError("; ".join(issues))
-
-    frames: dict[str, pd.DataFrame] = {}
-    for eq in equipment:
-        try:
-            df = load_equipment_csv(eq["history_path"], eq.get("columns_path"))
-        except Exception as exc:
-            raise PackageError(
-                f"{eq['equipment_id']}: failed to load history_wide.csv ({exc})"
-            ) from exc
-        df.attrs["poll_seconds"] = float(manifest.grid_minutes) * 60.0
-        df.attrs["equipment_id"] = eq["equipment_id"]
-        df.attrs["building_id"] = manifest.building_id
-        df.attrs["columns_path"] = str(eq["columns_path"]) if eq.get("columns_path") else None
-        for issue in validate_dataframe(df):
-            warnings.append(f"{eq['equipment_id']}: {issue}")
-        if df.empty or not isinstance(df.index, pd.DatetimeIndex):
-            raise PackageError(
-                f"{eq['equipment_id']}: no usable UTC datetime index after load "
-                "(need parseable timestamp_utc rows)"
-            )
-        frames[eq["equipment_id"]] = df
-
-    weather = _load_weather(building_root)
-    column_map = None
-    column_map_issues: list[str] = []
-    try:
-        column_map = load_package_column_map(building_root)
-    except PackageError as exc:
-        warnings.append(str(exc))
-        column_map = None
-    if column_map:
-        from app.column_map_json import validate_column_map_against_frames
-
-        column_map_issues = validate_column_map_against_frames(column_map, frames)
-        if column_map_issues:
-            warnings.extend(column_map_issues[:20])
-
-    unc_bytes = directory_size_bytes(building_root)
-    report = {
-        "building_id": manifest.building_id,
-        "schema_version": manifest.schema_version,
-        "timezone": manifest.timezone,
-        "grid_minutes": manifest.grid_minutes,
-        "equipment_count": len(frames),
-        "equipment_ids": sorted(frames),
-        "has_weather": weather is not None,
-        "has_session_config": session_cfg is not None,
-        "has_column_map": column_map is not None,
-        "column_map_equipment_count": (
-            len((column_map or {}).get("equipment") or {}) if column_map else 0
-        ),
-        "column_map_issue_count": len(column_map_issues),
-        "column_map_issues_preview": column_map_issues[:20],
-        "row_counts": {k: int(len(v)) for k, v in frames.items()},
-        "uncompressed_bytes": unc_bytes,
-        "uncompressed_mb": bytes_as_mb(unc_bytes),
-        "max_zip_mb": caps.max_zip_mb,
-        "max_uncompressed_mb": caps.max_uncompressed_mb,
-        "source": "dir",
-    }
-    # Span
-    starts, ends = [], []
-    for df in frames.values():
-        if isinstance(df.index, pd.DatetimeIndex) and len(df):
-            starts.append(df.index.min())
-            ends.append(df.index.max())
-    if starts:
-        report["start"] = str(min(starts))
-        report["end"] = str(max(ends))
-
-    return PackageLoadResult(
-        building_root=building_root,
-        workdir=workdir or building_root,
-        manifest=manifest,
-        frames=frames,
-        weather=weather,
-        session_config=session_cfg,
-        warnings=warnings,
-        report=report,
-        column_map=column_map,
-        column_map_issues=column_map_issues,
-    )
-
-
-def load_package_zip(data: bytes) -> PackageLoadResult:
-    """Extract + validate + load. Caller owns wipe via result.workdir."""
+    Pass ``caps=effective_package_caps(for_browser_upload=True)`` for Streamlit
+    uploader bytes (500 MB). Agent/CLI/path use default 2048 MB caps.
+    """
     sweep_old_temp_dirs()
-    workdir = extract_package_zip(data)
+    caps = caps or effective_package_caps()
+    workdir = extract_package_zip(data, caps=caps)
     try:
         building_root = resolve_building_root(workdir)
-        result = load_package_from_dir(building_root, workdir=workdir)
+        result = load_package_from_dir(building_root, workdir=workdir, caps=caps)
         result.report["source"] = "zip"
         result.report["zip_bytes"] = len(data)
         result.report["zip_mb"] = bytes_as_mb(len(data))
@@ -593,4 +606,13 @@ def apply_session_config(cfg: SessionConfig, *, equipment_ids: set[str]) -> list
             cleaned = {str(r): str(c) for r, c in roles.items() if r and c}
             role_map[eq_id] = {**role_map.get(eq_id, {}), **cleaned}
         st.session_state.role_map = role_map
+        frames = st.session_state.get("equipment_frames") or {}
+        if frames:
+            from app.site_model import stamp_equipment_type
+
+            for eq_id, df in frames.items():
+                stamp_equipment_type(df, eq_id, role_map=role_map)
+                pg = (role_map.get(eq_id) or {}).get("plant_group")
+                if pg:
+                    df.attrs["plant_group"] = str(pg)
     return warnings
