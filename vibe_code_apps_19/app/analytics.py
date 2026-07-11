@@ -472,11 +472,11 @@ def _discover_chiller_on(
     equipment_id: str,
     chw_leave_max_f: float = 48.0,
 ) -> list[dict[str, Any]]:
-    """Chiller plant runtime: designated / mapped / heuristic **pump** only.
+    """Chiller plant runtime: prefer mapped/heuristic **pump**, else status proof.
 
-    If the data model has no pump to map, return nothing — do **not** invent
-    runtime from CHW leave/supply temp (that backup is intentionally off the charts).
-    Does **not** use chiller cmd/amps/power for the weekly motor chart.
+    Order: designated linked pump → chw_pump_status/cmd → named CWP → 
+    ``chiller_status`` / ``compressor_status`` / ``equipment_enable``.
+    Never invent runtime from CHW leave/supply temp.
     """
     del chw_leave_max_f  # kept for call-site compat; leave-temp never drives this chart
     # 1) Role-map designated pump (possibly on linked equipment)
@@ -553,7 +553,28 @@ def _discover_chiller_on(
                 }
             ]
 
-    # No pump in data model → no chiller run-hours series (no leave-temp fake runtime)
+    # 4) Fallback: chiller / compressor / equipment enable proof (never leave temp)
+    for role in ("chiller_status", "compressor_status", "equipment_enable"):
+        src = mapped if role in mapped.columns and mapped[role].notna().any() else None
+        if src is None and role in raw.columns and raw[role].notna().any():
+            src = raw
+        if src is None:
+            continue
+        on = _is_on(src[role])
+        if bool(on.any()):
+            return [
+                {
+                    "equipment_id": equipment_id,
+                    "signal": role,
+                    "column": role,
+                    "motor_kind": "chiller",
+                    "plant_group": PLANT_CHILLER,
+                    "label": f"{equipment_id} · {role}",
+                    "series_on": on.astype(float),
+                }
+            ]
+
+    # No pump and no status proof → no chiller run-hours series
     return []
 
 

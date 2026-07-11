@@ -724,9 +724,17 @@ def trim4(d, p, poll):
 
 
 def sched1(d, p, poll):
+    """Unoccupied fan runtime; optional zone comfort band when zone_t is mapped."""
     if "occ_mode" not in d or "fan_status" not in d:
         return _false(d.index)
-    return (d["occ_mode"].astype(str).str.lower() == "unoccupied") & as_bool(d["fan_status"])
+    base = (d["occ_mode"].astype(str).str.lower() == "unoccupied") & as_bool(d["fan_status"])
+    if "zone_t" not in d.columns or d["zone_t"].notna().sum() == 0:
+        return base
+    lo = _f(p, "comfort_low_f", 70.0)
+    hi = _f(p, "comfort_high_f", 76.0)
+    zt = pd.to_numeric(d["zone_t"], errors="coerce")
+    in_band = zt.notna() & (zt >= lo) & (zt <= hi)
+    return base & in_band
 
 
 def cmd1(d, p, poll):
@@ -751,8 +759,22 @@ def dmp1(d, p, poll):
 
 
 def vlv1(d, p, poll):
+    """Cooling valve leak: valve closed AND (SAT low vs SP or SAT low vs MAT).
+
+    Fan proven-on is enforced by the VLV-1 operational gate when fan_status/fan_cmd exist.
+    """
+    sat_err = _f(p, "sat_err", 2.0)
+    mat_delta = _f(p, "mat_leak_delta", 2.0)
     clg = norm_cmd(d["clg_valve_pct"]).fillna(0)
-    return d["sat"].notna() & d["sat_sp"].notna() & (clg <= 0.05) & (d["sat"] < d["sat_sp"] - 2.0)
+    closed = clg <= 0.05
+    sat = pd.to_numeric(d["sat"], errors="coerce")
+    sat_sp = pd.to_numeric(d["sat_sp"], errors="coerce")
+    below_sp = sat.notna() & sat_sp.notna() & (sat < sat_sp - sat_err)
+    below_mat = pd.Series(False, index=d.index)
+    if "mat" in d.columns and d["mat"].notna().any():
+        mat = pd.to_numeric(d["mat"], errors="coerce")
+        below_mat = sat.notna() & mat.notna() & (sat < mat - mat_delta)
+    return closed & (below_sp | below_mat)
 
 
 # ---------------------------------------------------------------------------
@@ -1021,9 +1043,24 @@ RULES: list[CookbookRule] = [
         trim4, params=[CONFIRM_PARAM()], confirm_seconds=1800),
 
     # --- Extended families ---
-    CookbookRule("SCHED-1", "Unoccupied runtime", "ahu", ["ahu"],
-        ["occ_mode", "fan_status"], "Fan running while occupancy mode is unoccupied.",
-        sched1, params=[CONFIRM_PARAM()], confirm_seconds=1800),
+    CookbookRule(
+        "SCHED-1",
+        "Unoccupied runtime",
+        "ahu",
+        ["ahu"],
+        ["occ_mode", "fan_status"],
+        "Fan running while occupancy is unoccupied (Overview calendar → occ_mode). "
+        "When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f "
+        "(defaults 70–76°F; synced from Overview zone band).",
+        sched1,
+        params=[
+            CookbookParam("comfort_low_f", "Comfort low", "°F", 60.0, 78.0, 0.5, 70.0),
+            CookbookParam("comfort_high_f", "Comfort high", "°F", 68.0, 85.0, 0.5, 76.0),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["zone_t"],
+        confirm_seconds=1800,
+    ),
     CookbookRule("CMD-1", "Fan cmd/status mismatch", "ahu", ["ahu"],
         ["fan_cmd", "fan_status"], "Fan command and proven status disagree.",
         cmd1, params=[CONFIRM_PARAM()], confirm_seconds=600),
@@ -1033,9 +1070,23 @@ RULES: list[CookbookRule] = [
     CookbookRule("DMP-1", "OA damper leakage", "ahu", ["ahu"],
         ["oa_t", "mat", "oa_damper_pct"], "Damper ≤ 5% but MAT tracks OAT within 2°F — leaking OA damper.",
         dmp1, params=[CookbookParam("leak_delta", "Leak ΔT", "°F", 0.5, 6.0, 0.5, 2.0), CONFIRM_PARAM()], confirm_seconds=900),
-    CookbookRule("VLV-1", "Cooling valve leakage", "ahu", ["ahu"],
-        ["sat", "sat_sp", "clg_valve_pct"], "Cooling valve ≤ 5% but SAT runs > 2°F below setpoint.",
-        vlv1, params=[CONFIRM_PARAM()], confirm_seconds=900),
+    CookbookRule(
+        "VLV-1",
+        "Cooling valve leakage",
+        "ahu",
+        ["ahu"],
+        ["sat", "sat_sp", "clg_valve_pct"],
+        "Cooling valve ≤ 5% AND (SAT < sat_sp − sat_err OR SAT < MAT − mat_leak_delta). "
+        "Fan proven on when fan_status/fan_cmd present (operational gate).",
+        vlv1,
+        params=[
+            CookbookParam("sat_err", "SAT vs SP leak ΔT", "°F", 0.5, 8.0, 0.5, 2.0),
+            CookbookParam("mat_leak_delta", "SAT vs MAT leak ΔT", "°F", 0.5, 12.0, 0.5, 2.0),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["mat", "fan_status", "fan_cmd"],
+        confirm_seconds=900,
+    ),
 ]
 
 

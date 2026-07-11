@@ -1172,14 +1172,21 @@ rules:
 - rule_id: SCHED-1
   family: ahu
   title: Unoccupied runtime
-  description: Fan running while occupancy mode is unoccupied.
+  description: >-
+    Fan running while occupancy is unoccupied (Overview calendar → occ_mode).
+    When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f
+    (defaults 70–76°F; synced from Overview zone band). Without zone_t, keep
+    classic unoccupied + fan-on behavior.
   required_roles:
   - occ_mode
   - fan_status
-  optional_roles: []
+  optional_roles:
+  - zone_t
   equipment_kinds:
   - ahu
   tunable_params:
+  - comfort_low_f
+  - comfort_high_f
   - confirm_min
   default_confirm_seconds: 1800
   sensor_sweep: false
@@ -1270,15 +1277,23 @@ rules:
 - rule_id: VLV-1
   family: ahu
   title: Cooling valve leakage
-  description: "Cooling valve \u2264 5% but SAT runs > 2\xB0F below setpoint."
+  description: >-
+    Cooling valve ≤ 5% AND (SAT < sat_sp − sat_err OR SAT < MAT − mat_leak_delta).
+    Fan proven on when fan_status/fan_cmd present (operational gate). Catches
+    graphic-like cases where DAT is cool vs MAT even if SAT SP is reset low.
   required_roles:
   - sat
   - sat_sp
   - clg_valve_pct
-  optional_roles: []
+  optional_roles:
+  - mat
+  - fan_status
+  - fan_cmd
   equipment_kinds:
   - ahu
   tunable_params:
+  - sat_err
+  - mat_leak_delta
   - confirm_min
   default_confirm_seconds: 900
   sensor_sweep: false

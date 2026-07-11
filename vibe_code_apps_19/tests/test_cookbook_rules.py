@@ -93,3 +93,79 @@ def test_result_shape():
     d = r.to_dict()
     for key in ("rule_id", "equipment_id", "site_id", "building_id", "equipment_type", "status", "applicable", "missing_roles", "notes"):
         assert key in d
+
+
+def test_vlv1_closed_valve_sat_below_sp_fault():
+    df = _ahu_df(
+        sat=[50.0] * 6,
+        sat_sp=[55.0] * 6,
+        clg_valve_pct=[0.0] * 6,
+        fan_status=[1.0] * 6,
+        mat=[60.0] * 6,
+    )
+    r = run_rule("VLV-1", df, {"confirm_min": 0, "sat_err": 2.0, "mat_leak_delta": 2.0}, 300.0)
+    assert r.status == "FAULT"
+
+
+def test_vlv1_sat_above_low_sp_but_below_mat_fault():
+    """Graphic-like: DAT~74, SP~50 (reset), MAT~80, valve closed → leak via MAT path."""
+    df = _ahu_df(
+        sat=[74.0] * 6,
+        sat_sp=[50.0] * 6,
+        clg_valve_pct=[2.0] * 6,
+        fan_status=[1.0] * 6,
+        mat=[80.0] * 6,
+    )
+    r = run_rule("VLV-1", df, {"confirm_min": 0, "sat_err": 2.0, "mat_leak_delta": 2.0}, 300.0)
+    assert r.status == "FAULT"
+
+
+def test_vlv1_fan_off_skipped_equipment_off():
+    df = _ahu_df(
+        sat=[50.0] * 6,
+        sat_sp=[55.0] * 6,
+        clg_valve_pct=[0.0] * 6,
+        fan_status=[0.0] * 6,
+        mat=[60.0] * 6,
+    )
+    r = run_rule("VLV-1", df, {"confirm_min": 0}, 300.0)
+    assert r.status == "SKIPPED_EQUIPMENT_OFF"
+
+
+def test_sched1_unocc_fan_zone_in_band_fault():
+    df = _ahu_df(
+        occ_mode=["unoccupied"] * 6,
+        fan_status=[1.0] * 6,
+        zone_t=[72.0] * 6,
+    )
+    r = run_rule(
+        "SCHED-1",
+        df,
+        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 76.0},
+        300.0,
+    )
+    assert r.status == "FAULT"
+
+
+def test_sched1_unocc_fan_zone_outside_band_pass():
+    df = _ahu_df(
+        occ_mode=["unoccupied"] * 6,
+        fan_status=[1.0] * 6,
+        zone_t=[80.0] * 6,
+    )
+    r = run_rule(
+        "SCHED-1",
+        df,
+        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 76.0},
+        300.0,
+    )
+    assert r.status == "PASS"
+
+
+def test_sched1_no_zone_t_backward_compatible_fault():
+    df = _ahu_df(
+        occ_mode=["unoccupied"] * 6,
+        fan_status=[1.0] * 6,
+    )
+    r = run_rule("SCHED-1", df, {"confirm_min": 0}, 300.0)
+    assert r.status == "FAULT"

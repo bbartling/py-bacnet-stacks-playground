@@ -52,12 +52,13 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | --- | --- |
 | Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins |
 | Data & Mapping | Role / column mapping |
+| **Data Model** | Equipment → cookbook role → Haystack tag → CSV column tree + DOCX |
 | Run Rules | 50-rule cookbook (+ custom) |
 | Results by Category | Status tables |
-| **Plots** | Per-device rule charts (rainbow multi-axis + fault swim lane); **one rule at a time**; Plotly point cap |
+| **Plots** | Per-device rule charts; one rule at a time; FDD DOCX download |
 | **RCx Plots** | Prebuilt presets above + generic role picker |
 | Analytics | Motor hours, mech-cooling bins, sensor stats |
-| Export | CSV / session / health artifacts |
+| Export | CSV / session / health / DOCX artifacts |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 

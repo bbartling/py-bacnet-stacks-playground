@@ -671,7 +671,8 @@ _PLANT_CHART_META: tuple[tuple[str, str, str], ...] = (
     (
         PLANT_CHILLER,
         "Chiller plant — chillers, CHW/CW pumps, towers",
-        "Chiller plant uses **mapped pump status** only — no leave-temp fake runtime if no pump."
+        "Chiller plant prefers **mapped pump status**; if no pump, falls back to "
+        "chiller_status / compressor_status / equipment_enable — never leave-temp fake runtime."
     ),
 )
 
@@ -688,7 +689,8 @@ def _render_plant_motor_weekly(
     st.markdown("##### Motor run hours by week")
     st.caption(
         "Bars = run hours by week (Mon start). Dotted line = **avg OAT °F while that motor was on**. "
-        "Chiller plant uses **pump status** only (no leave-temp if unmapped). "
+        "Chiller plant prefers **pump status**, then chiller/compressor enable "
+        "(no leave-temp fake hours). "
         "Air side: dashed orange = bare-min occupied hours/week from the building schedule."
     )
     if motor_weekly is None or motor_weekly.empty:
@@ -1388,12 +1390,18 @@ def _time_to_hhmm(t) -> str:
 
 
 def _sync_zone_comfort_into_params() -> None:
-    """Push Overview/sidebar zone band into VAV-1 rule params (FDD starting point)."""
+    """Push Overview/sidebar zone band into VAV-1 and SCHED-1 rule params."""
     params = st.session_state.setdefault("params", {})
+    lo = float(st.session_state.get("zone_lo_f", 70.0))
+    hi = float(st.session_state.get("zone_hi_f", 76.0))
     vav = dict(params.get("VAV-1") or {})
-    vav["zone_lo"] = float(st.session_state.get("zone_lo_f", 68.0))
-    vav["zone_hi"] = float(st.session_state.get("zone_hi_f", 76.0))
+    vav["zone_lo"] = lo
+    vav["zone_hi"] = hi
     params["VAV-1"] = vav
+    sched = dict(params.get("SCHED-1") or {})
+    sched["comfort_low_f"] = lo
+    sched["comfort_high_f"] = hi
+    params["SCHED-1"] = sched
     st.session_state.params = params
 
 
@@ -1867,6 +1875,58 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         st.write("Validation:", issues or "OK")
         st.dataframe(raw_df.head(100), width="stretch")
 
+    if section == "Data Model":
+        from app.data_model_tree import build_data_model_tree
+        from app.docx_report import build_building_data_model_docx
+
+        st.subheader("Data model tree")
+        st.caption(
+            "Professional inventory: equipment → cookbook roles → Haystack-like tags → raw CSV columns. "
+            "Missing mappings show as empty placeholders (still list required tags)."
+        )
+        tree = build_data_model_tree(
+            frames,
+            st.session_state.role_map,
+            building_id=st.session_state.get("building_id") or "",
+        )
+        for eq in tree.equipment:
+            with st.expander(f"{eq.equipment_id} · {eq.equipment_type}", expanded=False):
+                if not eq.bindings:
+                    st.info("No role bindings yet — map columns in **Data & Mapping**.")
+                else:
+                    rows = [
+                        {
+                            "Cookbook role": b.cookbook_role,
+                            "Haystack-like tag": b.haystack_tag,
+                            "CSV column": b.csv_column or "—",
+                            "In history": "yes" if b.present_in_history else "no",
+                            "Rules": ", ".join(b.required_by_rules[:8])
+                            + ("…" if len(b.required_by_rules) > 8 else ""),
+                        }
+                        for b in eq.bindings
+                    ]
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=280)
+                st.caption(f"{len(eq.applicable_rule_ids)} applicable cookbook rules for this type")
+        try:
+            docx_bytes = build_building_data_model_docx(tree)
+            st.download_button(
+                "Download data_model.docx",
+                data=docx_bytes,
+                file_name=f"{(st.session_state.get('building_id') or 'building')}_data_model.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_data_model_docx",
+            )
+        except Exception as exc:
+            st.warning(f"DOCX unavailable: {exc}")
+        flat = pd.DataFrame(tree.to_rows())
+        if not flat.empty:
+            st.download_button(
+                "Download data_model.csv",
+                to_csv_bytes(flat),
+                "data_model.csv",
+                key="dl_data_model_csv",
+            )
+
     if section == "Run Rules":
         st.subheader("Run rules")
         st.caption(
@@ -1928,6 +1988,11 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
             "Pick a mechanical type → device (each AHU / VAV / plant unit has its own plots). "
             "Each rule is one figure: rainbow-colored signals on unique unit axes, "
             "confirmed fault as a shaded swim lane. Camera icon → PNG/JPEG."
+        )
+        st.caption(
+            "Economizer family **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT roles "
+            "(map `oa_damper_pct` — e.g. `mad_c` / `mad_c_pct`). **ECON-5** needs heat/preheat. "
+            "**FC6** needs AHU `vav_total_flow`. Empty/skipped plots are usually **data gaps**, not code bugs."
         )
         plot_fmt = st.selectbox("Download format", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt")
         show_pass = st.checkbox("Show PASS plots (not only FAULT)", value=False, key="plot_show_pass")
@@ -2029,6 +2094,31 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                     st.info(
                         "No FAULT plots to show — enable **Show PASS plots**, or check column mapping / run results."
                     )
+                # Still allow DOCX with placeholders when rules were run
+                if any(eq == device for eq, _rid in lookup):
+                    if st.button("Build FDD DOCX for this device", key=f"docx_build_empty_{device}"):
+                        from app.docx_report import build_equipment_fdd_docx
+                        from app.role_map import apply_role_map
+
+                        mapped_dev = apply_role_map(frames[device], device, st.session_state.role_map)
+                        st.session_state[f"docx_bytes_{device}"] = build_equipment_fdd_docx(
+                            building_id=st.session_state.get("building_id") or "",
+                            equipment_id=device,
+                            equipment_type=eq_type,
+                            results=st.session_state.batch_results,
+                            role_map=st.session_state.role_map,
+                            mapped_df=mapped_dev,
+                            plot_png_by_rule={},
+                        )
+                        st.success("DOCX ready — use download below.")
+                    if st.session_state.get(f"docx_bytes_{device}"):
+                        st.download_button(
+                            f"Download {device}_fdd_report.docx",
+                            data=st.session_state[f"docx_bytes_{device}"],
+                            file_name=f"{device}_fdd_report.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key=f"dl_docx_empty_{device}",
+                        )
             else:
                 labels = {
                     f"{rule.id} · {rule.title} ({r.status})": (rule, r)
@@ -2062,6 +2152,46 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                     else:
                         st.caption("No plot series for this result.")
                 st.caption(f"{len(plottable)} plottable rule(s) for this device · traces ≤ {max_plot_points():,} pts")
+
+                # On-demand DOCX for this mechanical device (all 50 rules + mapping tables)
+                if st.button("Build FDD DOCX for this device", key=f"docx_build_{device}"):
+                    from app.docx_report import build_equipment_fdd_docx, try_rule_plot_png
+                    from app.role_map import apply_role_map
+
+                    mapped_dev = apply_role_map(frames[device], device, st.session_state.role_map)
+                    pngs: dict[str, bytes] = {}
+                    # Only embed the currently selected rule plot if available (keep DOCX light)
+                    if fig:
+                        try:
+                            pngs[rule.id] = fig.to_image(format="png", width=900, height=480)
+                        except Exception:
+                            one = try_rule_plot_png(
+                                mapped_dev,
+                                r,
+                                required_roles=rule.required_roles,
+                                units_map=units_map,
+                            )
+                            if one:
+                                pngs[rule.id] = one
+                    docx_bytes = build_equipment_fdd_docx(
+                        building_id=st.session_state.get("building_id") or "",
+                        equipment_id=device,
+                        equipment_type=eq_type,
+                        results=st.session_state.batch_results,
+                        role_map=st.session_state.role_map,
+                        mapped_df=mapped_dev,
+                        plot_png_by_rule=pngs,
+                    )
+                    st.session_state[f"docx_bytes_{device}"] = docx_bytes
+                    st.success("DOCX ready — use download below.")
+                if st.session_state.get(f"docx_bytes_{device}"):
+                    st.download_button(
+                        f"Download {device}_fdd_report.docx",
+                        data=st.session_state[f"docx_bytes_{device}"],
+                        file_name=f"{device}_fdd_report.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key=f"dl_docx_{device}",
+                    )
 
 
     if section == "RCx Plots":
@@ -2183,6 +2313,47 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 )
             except Exception:
                 pass
+
+        st.markdown("##### DOCX reports")
+        st.caption("On-demand Word reports: data-model tree, analytics tables, per-equipment FDD (Plots tab).")
+        try:
+            from app.data_model_tree import build_data_model_tree
+            from app.docx_report import build_analytics_docx, build_building_data_model_docx
+            from app.rcx_plots import rcx_preset_coverage
+
+            tree = build_data_model_tree(
+                frames,
+                st.session_state.role_map,
+                building_id=st.session_state.get("building_id") or "",
+            )
+            st.download_button(
+                "Download data_model.docx",
+                data=build_building_data_model_docx(tree),
+                file_name="data_model.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_export_data_model_docx",
+            )
+            rcx = rcx_preset_coverage(
+                frames, st.session_state.role_map, weather=st.session_state.weather
+            )
+            # Prefer already-computed analytics frames when visiting Overview/Analytics first
+            _mw = motor_weekly if isinstance(motor_weekly, pd.DataFrame) else pd.DataFrame()
+            _cb = cool_bins if isinstance(cool_bins, pd.DataFrame) else pd.DataFrame()
+            st.download_button(
+                "Download analytics.docx",
+                data=build_analytics_docx(
+                    building_id=st.session_state.get("building_id") or "",
+                    motor_weekly=_mw,
+                    cool_bins=_cb,
+                    rcx_coverage=rcx,
+                    tree=tree,
+                ),
+                file_name="analytics.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_export_analytics_docx",
+            )
+        except Exception as exc:
+            st.warning(f"DOCX exports unavailable: {exc}")
 
 
 if __name__ == "__main__":

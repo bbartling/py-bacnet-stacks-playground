@@ -8,6 +8,17 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-11 — Bench VLV-1/SCHED-1/chiller + DOCX data-model
+
+- VLV-1: closed valve + (SAT vs SP **or** SAT vs MAT); fan gate
+- SCHED-1: optional zone comfort band; Overview zone sync → SCHED-1 params
+- Chiller weekly: pump preferred, else chiller/compressor/enable status (never leave-temp)
+- Plots caption for economizer / FC6 data gaps
+- **Data Model** section + DOCX reports (`python-docx`): equipment FDD, data-model tree, analytics
+- Freeze: `REQUIRED_MAIN_SECTIONS` includes Data Model; DOCX entrypoints in `dashboard_contract`
+
+---
+
 ## 2026-07-11 — Dashboard contract (full catalog freeze)
 
 - Validated: HW/CHW leave vs web OAT, CW/tower vs wet-bulb, duct-static box

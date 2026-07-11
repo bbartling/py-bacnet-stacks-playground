@@ -10,6 +10,7 @@ from __future__ import annotations
 REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "Overview",
     "Data & Mapping",
+    "Data Model",
     "Run Rules",
     "Results by Category",
     "Plots",
@@ -38,4 +39,8 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.rcx_plots:collect_oat_scatter",
     "app.rcx_plots:collect_role_series",
     "app.rcx_plots:rcx_preset_coverage",
+    "app.data_model_tree:build_data_model_tree",
+    "app.docx_report:build_equipment_fdd_docx",
+    "app.docx_report:build_building_data_model_docx",
+    "app.docx_report:build_analytics_docx",
 )
