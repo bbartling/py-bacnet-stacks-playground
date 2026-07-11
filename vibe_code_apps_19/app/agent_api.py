@@ -433,6 +433,8 @@ def export_agent_bundle(
         "building_id": dataset.building_id,
         "source_path": dataset.source_path,
         "package_report": dataset.package_report,
+        "package_health": (dataset.package_report or {}).get("package_health"),
+        "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
         "warnings": dataset.warnings,
         "status_counts": run.status_counts,
         "meta": run.meta,
@@ -442,6 +444,12 @@ def export_agent_bundle(
     rp = out / "run_report.json"
     rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     written["run_report"] = rp
+
+    health = (dataset.package_report or {}).get("package_health")
+    if health:
+        ph = out / "package_health.json"
+        ph.write_text(json.dumps(health, indent=2, default=str), encoding="utf-8")
+        written["package_health"] = ph
 
     if run.summary is not None and not run.summary.empty:
         p = out / "fdd_summary.csv"

@@ -131,6 +131,12 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert (out / "role_map.yaml").is_file()
     assert (out / "rcx_preset_coverage.csv").is_file()
     assert "role_map_gap_report" in written or (out / "role_map_gap_report.csv").is_file()
+    # Tiny package is clean → package_health may be ok with empty issues
+    assert "package_health" in (ds.package_report or {})
+    if (out / "package_health.json").is_file():
+        health = json.loads((out / "package_health.json").read_text(encoding="utf-8"))
+        assert health.get("grade") in {"ok", "degraded", "incomplete"}
+        assert "summary_lines" in health
 
 
 def test_agent_api_load_zip(tmp_path: Path):

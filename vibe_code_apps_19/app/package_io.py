@@ -392,7 +392,7 @@ def load_package_from_dir(
 
     from app.data_contract import audit_package_dir
 
-    contract_warnings = audit_package_dir(building_root, frames, equipment)
+    contract_warnings, package_health = audit_package_dir(building_root, frames, equipment)
     warnings.extend(contract_warnings)
 
     weather = _load_weather(building_root)
@@ -428,6 +428,9 @@ def load_package_from_dir(
         "column_map_issues_preview": column_map_issues[:20],
         "data_contract_warning_count": len(contract_warnings),
         "data_contract_warnings_preview": contract_warnings[:30],
+        "package_health": package_health.to_report_dict(),
+        "package_health_grade": package_health.grade,
+        "package_health_summary": list(package_health.summary_lines),
         "row_counts": {k: int(len(v)) for k, v in frames.items()},
         "uncompressed_bytes": unc_bytes,
         "uncompressed_mb": bytes_as_mb(unc_bytes),

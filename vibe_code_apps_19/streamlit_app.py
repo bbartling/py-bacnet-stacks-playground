@@ -847,6 +847,45 @@ def _commit_frames(
         st.session_state.selected_equipment = sorted(frames)[0]
 
 
+def _render_package_health_sidebar(report: dict | None, warnings: list[str]) -> None:
+    """One graded package-health card instead of flooding the sidebar with every detail line."""
+    report = report or {}
+    health = report.get("package_health") if isinstance(report.get("package_health"), dict) else None
+    summary = list(report.get("package_health_summary") or [])
+    grade = str(report.get("package_health_grade") or (health or {}).get("grade") or "")
+    if health or summary:
+        title = f"Package health: {grade.upper() or 'UNKNOWN'}"
+        body = "\n\n".join(summary) if summary else title
+        if grade == "ok":
+            st.sidebar.success(body)
+        elif grade == "incomplete":
+            st.sidebar.error(body)
+        else:
+            st.sidebar.warning(body)
+        detail = list((health or {}).get("detail_lines") or [])
+        # Non-contract warnings (CSV validation, column_map, etc.) still shown briefly
+        other = [w for w in warnings if w not in detail]
+        with st.sidebar.expander(
+            f"Package details ({len(detail)} contract · {len(other)} other)",
+            expanded=False,
+        ):
+            if detail:
+                st.caption("Data-contract findings (load still succeeded):")
+                for line in detail[:40]:
+                    st.text(line)
+                if len(detail) > 40:
+                    st.caption(f"… +{len(detail) - 40} more (see Export / package_health.json)")
+            for w in other[:15]:
+                st.warning(w)
+            if len(other) > 15:
+                st.caption(f"… +{len(other) - 15} more")
+        return
+    for w in warnings[:20]:
+        st.sidebar.warning(w)
+    if len(warnings) > 20:
+        st.sidebar.caption(f"… +{len(warnings) - 20} more warnings")
+
+
 def _commit_package_result(result) -> None:
     """Commit zip package frames + optional session_config into session_state."""
     from app.package_io import apply_session_config
@@ -878,10 +917,11 @@ def _commit_package_result(result) -> None:
         st.session_state.session_config_source = (
             (st.session_state.get("session_config_source") or "") + " + package column_map.json"
         ).strip(" +")
-    for w in result.warnings:
-        st.sidebar.warning(w)
+    _render_package_health_sidebar(result.report, result.warnings)
     # Persist for Overview / Export (AppTest can assert)
-    st.session_state.package_warnings = list(result.warnings)
+    st.session_state.package_warnings = list(
+        (result.report or {}).get("package_health_summary") or result.warnings
+    )
 
 
 def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
