@@ -85,10 +85,12 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 - **Cloud round-trip:** upload zip → tune → **Download session config** (sidebar / Export) → later upload zip + **Upload session config** (no server path). See [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md)
 - Optional `column_map.json` — loaded into `PackageLoadResult`, validated, merged into role_map
 - Zip limits (local + Cloud, env-overridable): see `docs/PACKAGE_SPEC.md`
-  - Defaults: local/auto **1024 MB** zip / **1024 MB** expanded / **200** entries / **100** equipment
-  - `APP_MODE=cloud` default zip **250 MB**; override with `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
+  - **Default 500 MB** zip and **500 MB** expanded (same for local / auto / `APP_MODE=cloud`)
+  - Override: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
+  - UI shows loaded dataset size (MB) vs limits in the sidebar and Overview
   - Local agents: sidebar **Package zip path** → **Load zip from path**; also **Fault settings JSON path** / **Session config JSON path**
   - Self-host Docker: [`docs/DOCKER.md`](docs/DOCKER.md) (`docker build -t vibe19 .`) — Community Cloud does **not** use the Dockerfile
+  - Fork / customize (DB ingest, branding, custom faults): [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
 ### Shitty / hostile CSV handling (implemented)
 
@@ -127,6 +129,7 @@ python scripts/generate_rule_configs.py
 - [docs/DATA_MODEL_DRIVEN.md](docs/DATA_MODEL_DRIVEN.md) — roles vs heuristics (chiller↔pump)
 - [docs/STREAMLIT_CLOUD.md](docs/STREAMLIT_CLOUD.md)
 - [docs/DOCKER.md](docs/DOCKER.md) — self-host only (`docker build -t vibe19 .`)
+- [vibe19_agent_spec/docs/CUSTOMIZE.md](vibe19_agent_spec/docs/CUSTOMIZE.md) — fork: DB ingest, branding, custom faults, deploy
 - [vibe19_agent_spec/DATA_CONTRACT.md](vibe19_agent_spec/DATA_CONTRACT.md) — folder tree contract
 - [vibe19_agent_spec/AGENTS.md](vibe19_agent_spec/AGENTS.md)
 - [vibe19_agent_spec/docs/RCX_PLOTS.md](vibe19_agent_spec/docs/RCX_PLOTS.md)

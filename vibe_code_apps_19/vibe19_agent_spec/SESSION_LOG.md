@@ -4,9 +4,15 @@ Rolling changelog for **reference-example development** (e.g. BUILDING_100). Thi
 
 **Append newest entries at the top.** Keep entries short — link to code, not prose dumps.
 
-For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md).
+For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md).
 
 ---
+
+## 2026-07-11 — 500 MB package default + size UI + CUSTOMIZE.md
+
+- Package caps: **500 MB** zip + expanded for local/auto/cloud (`DEFAULT_PACKAGE_MB`); env overrides unchanged
+- Report + UI: `zip_mb` / `uncompressed_mb` in package report; sidebar + Overview show size vs limits (`dataset_size_caption`)
+- Agent fork guide: `vibe19_agent_spec/docs/CUSTOMIZE.md` (DB loader pattern, branding, CUSTOM-*, Docker vs Cloud); TEMPLATE / AGENTS / root AGENTS synced
 
 ## 2026-07-11 — Session restore UX + Docker self-host
 

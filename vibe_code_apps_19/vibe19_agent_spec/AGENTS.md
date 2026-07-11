@@ -28,6 +28,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 14. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
 15. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
 16. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
+17. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md) (~90% template). Package default safety limit **500 MB** (zip + expanded).
 
 ---
 
@@ -35,11 +36,12 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 1. **`../AGENTS.md`** — mission and non-negotiables
 2. **AI quick rules above**
-3. **`skills/vibe19-streamlit-demo/SKILL.md`** — primary skill
-4. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots + RCx Plots
-5. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
-6. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
-7. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
+3. **`docs/CUSTOMIZE.md`** — when forking branding / DB / custom faults / deploy
+4. **`skills/vibe19-streamlit-demo/SKILL.md`** — primary skill
+5. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots + RCx Plots
+6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
+7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
+8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
 
 ---
 
@@ -48,7 +50,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | Path | Role |
 | --- | --- |
 | `streamlit_app.py` | Streamlit UI entry (tabs + sidebar) |
+| `app/package_io.py` | Safe zip/dir ingest + size caps / size report |
 | `app/agent_api.py` | Headless AgentDataset / AgentRun load·run·export |
+| `app/bootstrap.py` | Agent → Streamlit session handoff |
 | `scripts/agent_afdd.py` | CLI wrapper for agent_api |
 | `app/weather_resolver.py` | Effective OAT policy (web primary) |
 | `app/charts.py` | Rule plots, RCx multi-series / box / OAT scatter |
@@ -61,6 +65,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `app/rules/` | Catalog, runner, gates, PID hunting |
 | `app/rules/custom_boilerplate.py` | **Agent custom-rule templates** (pandas + z-score ML sketch) |
 | `app/rules/custom_rules.py` | Agent appends `CUSTOM-*` rules here |
+| `app/rules/custom_registry.py` | Canonical 50 + custom merge |
+| `shared/branding.py` + `assets/` | Title + hero image |
+| `vibe19_agent_spec/docs/CUSTOMIZE.md` | Fork guide (DB, branding, deploy) |
 | `vibe19_agent_spec/docs/CUSTOM_RULES.md` | How to add special / site rules |
 | `configs/` | Rule inventory, defaults, role_map.yaml |
 | `scripts/csv_parity_check.py` | Run 50 rules on any building folder (CI/parity) |
