@@ -12,7 +12,7 @@ Daily mini-lessons live in this folder as `dayNN.md`. The **Weekly Outline** in 
 
 | What is already there | How to turn it into a “challenge” |
 | --- | --- |
-| **Micro exercises** | Require a **single Rust binary or module per day** (Days 28+) or **`.py` per day** (Days 1–27); add private test cases for grading. |
+| **Micro exercises** | Require **both** a `.py` and a Rust binary/module per day (or grade one stack + require the companion to be attempted); add private test cases for grading. |
 | **Wireshark Lab** (Days 35–40, 36b, 41–46, 48–54, 64, 75) | Require **`pcaps/` artifact** + screenshot with the lesson’s **display filter** pasted into Wireshark. |
 | **Network labs** | Run [`capture_pcap.sh`](./lab-scripts/capture_pcap.sh) during the exercise; filter cheat sheet: [`wireshark_filters.md`](./lab-scripts/wireshark_filters.md). |
 | **Capstone days** | **Day 46** (BACnet CLI), **Day 54** (Haystack CLI), **Day 75** (multi-protocol semantic snapshot) are graded milestones. |
