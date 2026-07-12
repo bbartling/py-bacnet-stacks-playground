@@ -47,6 +47,19 @@ def _tiny_zip(path: Path) -> None:
         )
         zf.writestr("AHU_1/history_wide.csv", hist)
         zf.writestr(
+            "AHU_1/column_map.json",
+            json.dumps(
+                {
+                    "equipType": "ahu",
+                    "points": {
+                        "fan-status": "fan_status",
+                        "outside-air-temp": "oa_t",
+                        "discharge-air-temp": "sat",
+                    },
+                }
+            ),
+        )
+        zf.writestr(
             "AHU_1/columns.csv",
             "col,point_role\nfan_status,fan_status\noa_t,oa_t\nsat,sat\n",
         )

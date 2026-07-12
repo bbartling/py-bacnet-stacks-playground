@@ -7,11 +7,13 @@ import json
 import zipfile
 from pathlib import Path
 
+from tests.package_fixtures import ensure_sidecar_files
 from app.multi_zip import ZipPart, load_package_from_zip_parts
 from app.package_io import wipe_workdir
 
 
 def _zip_bytes(files: dict[str, str]) -> bytes:
+    files = ensure_sidecar_files(files)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():

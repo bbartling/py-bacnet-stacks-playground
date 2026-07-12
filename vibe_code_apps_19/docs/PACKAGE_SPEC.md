@@ -12,20 +12,34 @@ Pre-process historian data **outside** this app, zip it, and upload on Streamlit
 building.zip
   manifest.json                 # required
   session_config.json           # optional — restore UI tuning for this browser session
-  column_map.json               # optional — Haystack-like / flat column→role map
+  column_map.json               # optional root supplement (does NOT replace per-equip maps)
   weather/
-    history_wide.csv            # optional web/BAS OAT
+    history_wide.csv            # optional web/BAS OAT (Haystack JSON map NOT required)
     columns.csv                 # optional
   AHU_1/
     history_wide.csv            # required per equipment
+    history_wide.json           # required Haystack map (or history_wide.column_map.json or column_map.json)
     columns.csv                 # optional role hints
   AHU_2/
     history_wide.csv
-  CHILLER_1/
-    history_wide.csv
-  BOILERS_PUMPS/
-    history_wide.csv
+    column_map.json             # alternate accepted sibling name
+  nested_unit.zip               # optional nested zip (auto-expanded) containing CSV+JSON
 ```
+
+### Required per-equipment Haystack maps
+
+Every equipment `history_wide.csv` **must** have a sibling JSON map. Accepted names (first match wins):
+
+1. `history_wide.json`
+2. `history_wide.column_map.json`
+3. `column_map.json` (same folder)
+
+JSON shapes accepted: full package map, single-equip `{equipType, points:{…}}`, or flat role/tag → CSV column object.
+ChatGPT / agent workflow: upload one equipment CSV + `AGENTS.md` context → generate the sibling JSON → zip CSV+JSON (many pairs OK; nested zips OK; multi-part upload for size limits).
+
+**Missing map → package load is rejected** with a list of CSV paths that need maps.
+
+Weather `history_wide.csv` does **not** require a map.
 
 - Root may be the building itself **or** a single top-level folder containing `manifest.json`.
 - Folder name `weather` is **never** treated as equipment.

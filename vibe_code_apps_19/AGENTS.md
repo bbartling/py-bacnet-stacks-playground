@@ -104,7 +104,7 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
 - Optional `columns.csv` for role hints; optional `weather/history_wide.csv` (never treated as equipment)
 - Optional `session_config.json` restores units / role_map / thresholds into **session only**
 - **Cloud round-trip:** upload zip → tune → **Download session config** (sidebar / Export) → later upload zip + **Upload session config** (no server path). See [`docs/STREAMLIT_CLOUD.md`](docs/STREAMLIT_CLOUD.md)
-- Optional `column_map.json` — loaded into `PackageLoadResult`, validated, merged into role_map
+- Optional root `column_map.json` — supplement only; **each equipment CSV requires a sibling Haystack JSON** (`history_wide.json` | `history_wide.column_map.json` | `column_map.json`). Weather maps optional. Nested zips auto-expand. See [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md).
 - Zip limits (local + Cloud, env-overridable): see `docs/PACKAGE_SPEC.md`
   - **Two-tier sizes:** browser upload **500 MB** (`.streamlit/config.toml` `maxUploadSize`); agent/CLI/path **2048 MB** default (`DEFAULT_PACKAGE_MB`)
   - Prefer `scripts/agent_afdd.py --package …` or **Load zip from path** for large buildings (bypasses the Streamlit widget)

@@ -626,21 +626,21 @@ PID-HUNT-1:
     unit: '%/h'
 SCHED-1:
   comfort_high_f:
-    default: 76.0
-    help: Comfort high (synced from Overview zone band)
+    default: 75.0
+    help: Comfort high
     label: Comfort high
     max: 85.0
     min: 68.0
     step: 0.5
-    unit: '°F'
+    unit: "\xB0F"
   comfort_low_f:
     default: 70.0
-    help: Comfort low (synced from Overview zone band)
+    help: Comfort low
     label: Comfort low
     max: 78.0
     min: 60.0
     step: 0.5
-    unit: '°F'
+    unit: "\xB0F"
   confirm_min:
     default: 5.0
     help: Fault confirm delay
@@ -754,7 +754,7 @@ VAV-1:
     step: 1.0
     unit: min
   zone_hi:
-    default: 76.0
+    default: 75.0
     help: Zone high
     label: Zone high
     max: 85.0
@@ -762,10 +762,10 @@ VAV-1:
     step: 0.5
     unit: "\xB0F"
   zone_lo:
-    default: 68.0
+    default: 70.0
     help: Zone low
     label: Zone low
-    max: 70.0
+    max: 72.0
     min: 55.0
     step: 0.5
     unit: "\xB0F"
@@ -929,20 +929,20 @@ VLV-1:
     unit: min
   mat_leak_delta:
     default: 2.0
-    help: SAT below MAT by this amount with closed valve
-    label: SAT vs MAT leak ΔT
+    help: "SAT vs MAT leak \u0394T"
+    label: "SAT vs MAT leak \u0394T"
     max: 12.0
     min: 0.5
     step: 0.5
-    unit: '°F'
+    unit: "\xB0F"
   sat_err:
     default: 2.0
-    help: SAT below SAT SP by this amount with closed valve
-    label: SAT vs SP leak ΔT
+    help: "SAT vs SP leak \u0394T"
+    label: "SAT vs SP leak \u0394T"
     max: 8.0
     min: 0.5
     step: 0.5
-    unit: '°F'
+    unit: "\xB0F"
 WX-1:
   confirm_min:
     default: 5.0

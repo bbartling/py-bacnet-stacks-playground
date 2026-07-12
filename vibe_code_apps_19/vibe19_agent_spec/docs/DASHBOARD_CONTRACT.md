@@ -53,8 +53,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | Section | Must provide |
 | --- | --- |
 | Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins |
-| Data & Mapping | Role / column mapping |
-| **Data Model** | Equipment → cookbook role → Haystack tag → CSV column tree + DOCX |
+| **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + mapping status / gap report (sidecar JSON from package) |
 | Run Rules | 50-rule cookbook (+ custom) |
 | Results by Category | Status tables |
 | **Plots** | Per-device **rule validation cards** (all applicable catalog rules); params + required/mapped points; lazy one-at-a-time Plotly via plot focus; one-click **Download FDD DOCX** |

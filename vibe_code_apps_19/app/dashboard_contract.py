@@ -9,7 +9,6 @@ from __future__ import annotations
 # Lazy radio sections in streamlit_app.py (do not collapse/rename without updating tests + spec).
 REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "Overview",
-    "Data & Mapping",
     "Data Model",
     "Run Rules",
     "Results by Category",

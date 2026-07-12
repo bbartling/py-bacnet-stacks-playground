@@ -11,8 +11,7 @@ Each chart plots **required (+ optional) roles** present on the mapped frame, pl
 | Haystack export map | `app/column_map_json.py` → `COOKBOOK_TO_HAYSTACK_POINT` |
 | Gates | `app/rules/operational_gate.py` → `RULE_GATES` |
 | Chart API | `app/charts.py` → `rule_result_chart` |
-| UX contract | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) · full 50-rule chart catalog: [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) |
-
+| UX contract | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) |
 | Machine inventory | `configs/rule_inventory.yaml` (regenerate: `scripts/generate_rule_configs.py`) |
 
 **Haystack note:** Preferred tags come from `COOKBOOK_TO_HAYSTACK_POINT`. Roles not in that dict
@@ -1151,7 +1150,7 @@ Needs heat/preheat roles.
 
 ### `SCHED-1` — Unoccupied runtime
 
-**Equation:** Fan running while occupancy is unoccupied (Overview calendar → occ_mode). When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f (defaults 70–76°F; synced from Overview zone band).
+**Equation:** Fan running while occupancy is unoccupied (Overview calendar → occ_mode). When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f (defaults 70–75°F; synced from Overview zone band).
 
 | Field | Value |
 | --- | --- |
@@ -1181,7 +1180,7 @@ Needs heat/preheat roles.
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `comfort_low_f` | Comfort low | °F | 70 | 60 | 78 | 0.5 |
-| `comfort_high_f` | Comfort high | °F | 76 | 68 | 85 | 0.5 |
+| `comfort_high_f` | Comfort high | °F | 75 | 68 | 85 | 0.5 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -1353,7 +1352,7 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 
 ### `VAV-1` — Zone comfort band
 
-**Equation:** Zone temp < 68°F or > 76°F.
+**Equation:** Zone temp < 70°F or > 75°F.
 
 | Field | Value |
 | --- | --- |
@@ -1378,8 +1377,8 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `zone_lo` | Zone low | °F | 68 | 55 | 70 | 0.5 |
-| `zone_hi` | Zone high | °F | 76 | 72 | 85 | 0.5 |
+| `zone_lo` | Zone low | °F | 70 | 55 | 72 | 0.5 |
+| `zone_hi` | Zone high | °F | 75 | 72 | 85 | 0.5 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views

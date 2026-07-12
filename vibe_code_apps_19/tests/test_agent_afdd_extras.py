@@ -57,7 +57,7 @@ def test_package_loads_column_map(tmp_path: Path):
             "discharge_air_temp_f": [55.0] * 4,
         }
     ).to_csv(eq / "history_wide.csv", index=False)
-    (root / "column_map.json").write_text(
+    (eq / "column_map.json").write_text(
         json.dumps(
             {
                 "version": 1,

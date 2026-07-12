@@ -15,6 +15,7 @@ from app.data_contract import (
     load_vav_to_ahu_map,
 )
 from app.package_io import load_package_from_dir
+from tests.package_fixtures import write_equip_sidecar
 
 
 def test_columns_intersect_warns_on_missing_history_cols(tmp_path: Path):
@@ -62,6 +63,7 @@ def _messy_building(tmp_path: Path) -> Path:
     )
     hist = "timestamp_utc,sat\n2026-07-01T00:00:00Z,55\n2026-07-01T00:05:00Z,56\n"
     (root / "AHU_1" / "history_wide.csv").write_text(hist, encoding="utf-8")
+    write_equip_sidecar(root / "AHU_1", points={"discharge-air-temp": "sat"})
     (root / "AHU_1" / "columns.csv").write_text(
         "col,point_role\nsat,sat\nmissing_meta,zone_t\n", encoding="utf-8"
     )
@@ -72,6 +74,7 @@ def _messy_building(tmp_path: Path) -> Path:
         "timestamp_utc,zone_t\n2026-07-01T00:00:00Z,72\n2026-07-03T16:00:00Z,73\n",
         encoding="utf-8",
     )
+    write_equip_sidecar(root / "VAV" / "VAV_A", equip_type="vav", points={"zone-air-temp": "zone_t"})
     (root / "VAV" / "VAV_A" / "columns.csv").write_text(
         "col,point_role\nzone_t,zone_t\n", encoding="utf-8"
     )
@@ -81,6 +84,7 @@ def _messy_building(tmp_path: Path) -> Path:
     (root / "VAV" / "VAV_ORPHAN" / "history_wide.csv").write_text(
         "timestamp_utc,zone_t\n2026-07-01T00:00:00Z,70\n", encoding="utf-8"
     )
+    write_equip_sidecar(root / "VAV" / "VAV_ORPHAN", equip_type="vav", points={"zone-air-temp": "zone_t"})
     (root / "VAV" / "VAV_ORPHAN" / "columns.csv").write_text(
         "col,point_role\nzone_t,zone_t\n", encoding="utf-8"
     )
@@ -134,6 +138,7 @@ def test_package_health_aggregates_many_missing_vavs(tmp_path: Path):
     )
     hist = "timestamp_utc,sat\n2026-07-01T00:00:00Z,55\n2026-07-01T00:05:00Z,56\n"
     (root / "AHU_1" / "history_wide.csv").write_text(hist, encoding="utf-8")
+    write_equip_sidecar(root / "AHU_1", points={"discharge-air-temp": "sat"})
     for i in range(20):
         vdir = root / "VAV" / f"VAV_{i}"
         vdir.mkdir(parents=True)
@@ -141,6 +146,7 @@ def test_package_health_aggregates_many_missing_vavs(tmp_path: Path):
             "timestamp_utc,zone_t\n2026-07-01T00:00:00Z,70\n2026-07-01T00:05:00Z,71\n",
             encoding="utf-8",
         )
+        write_equip_sidecar(vdir, equip_type="vav", points={"zone-air-temp": "zone_t"})
     (root / "vav_to_ahu_simple.csv").write_text("vav,ahu\nVAV_0,AHU_1\n", encoding="utf-8")
 
     result = load_package_from_dir(root)

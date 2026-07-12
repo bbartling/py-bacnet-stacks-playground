@@ -112,6 +112,9 @@ def merge_zip_parts_to_dir(
             warnings.extend(
                 _extract_part_into(workdir, part.data, caps=per_part, part_name=part.name)
             )
+        from app.package_io import expand_nested_zips
+
+        warnings.extend(expand_nested_zips(workdir, caps=caps))
         # Optional job manifest validation
         job_path = workdir / "job_manifest.json"
         if job_path.is_file():

@@ -295,6 +295,74 @@ def stat_is_symlink(info: zipfile.ZipInfo) -> bool:
     return ((info.external_attr >> 16) & 0o170000) == 0o120000
 
 
+def expand_nested_zips(
+    workdir: Path,
+    *,
+    caps: PackageCaps | None = None,
+    max_depth: int = 4,
+) -> list[str]:
+    """Extract nested ``*.zip`` archives found under workdir (in place).
+
+    Each nested zip is unpacked into a sibling folder named after the zip stem,
+    then the zip file is removed. Weather / equipment trees may arrive nested.
+    """
+    caps = caps or effective_package_caps()
+    notes: list[str] = []
+    for _depth in range(max_depth):
+        nested = sorted(p for p in workdir.rglob("*.zip") if p.is_file())
+        if not nested:
+            return notes
+        for zpath in nested:
+            try:
+                rel = zpath.relative_to(workdir)
+            except ValueError:
+                rel = zpath
+            dest = zpath.parent / zpath.stem
+            dest.mkdir(parents=True, exist_ok=True)
+            try:
+                data = zpath.read_bytes()
+                if len(data) > caps.max_zip_bytes:
+                    raise PackageError(
+                        f"Nested zip `{rel.as_posix()}` exceeds {caps.max_zip_mb} MB limit"
+                    )
+                from io import BytesIO
+
+                with zipfile.ZipFile(BytesIO(data), "r") as zf:
+                    _inspect_zip(zf, caps)
+                    for info in zf.infolist():
+                        if info.is_dir():
+                            continue
+                        member = _safe_member_path(info.filename)
+                        if not member.parts:
+                            continue
+                        target = dest / member
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(info, "r") as src, target.open("wb") as out:
+                            while True:
+                                chunk = src.read(1024 * 256)
+                                if not chunk:
+                                    break
+                                out.write(chunk)
+                zpath.unlink(missing_ok=True)
+                notes.append(
+                    f"Expanded nested zip `{rel.as_posix()}` → "
+                    f"`{dest.relative_to(workdir).as_posix()}`"
+                )
+            except PackageError:
+                raise
+            except Exception as exc:
+                raise PackageError(
+                    f"Failed to expand nested zip `{rel.as_posix()}`: {exc}"
+                ) from exc
+    leftover = [p for p in workdir.rglob("*.zip") if p.is_file()]
+    if leftover:
+        raise PackageError(
+            f"Nested zip depth exceeded ({max_depth}); "
+            f"{len(leftover)} zip(s) remain unexpanded"
+        )
+    return notes
+
+
 def extract_package_zip(
     data: bytes, *, dest: Path | None = None, caps: PackageCaps | None = None
 ) -> Path:
@@ -331,6 +399,7 @@ def extract_package_zip(
                                 f"({caps.max_uncompressed_mb} MB)"
                             )
                         out.write(chunk)
+        expand_nested_zips(workdir, caps=caps)
     except PackageError:
         wipe_workdir(workdir)
         raise
@@ -398,11 +467,25 @@ def load_package_from_dir(
     weather = _load_weather(building_root)
     column_map = None
     column_map_issues: list[str] = []
+    root_map = None
     try:
-        column_map = load_package_column_map(building_root)
+        root_map = load_package_column_map(building_root)
     except PackageError as exc:
         warnings.append(str(exc))
-        column_map = None
+        root_map = None
+
+    from app.sidecar_maps import SidecarMapError, merge_package_column_maps
+
+    try:
+        column_map = merge_package_column_maps(
+            building_root,
+            equipment,
+            building_id=manifest.building_id,
+            root_column_map=root_map,
+        )
+    except SidecarMapError as exc:
+        raise PackageError(str(exc)) from exc
+
     if column_map:
         from app.column_map_json import validate_column_map_against_frames
 

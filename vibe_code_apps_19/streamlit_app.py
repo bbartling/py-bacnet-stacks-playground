@@ -141,9 +141,8 @@ _render_app_hero()
 
 def _empty_state_directions() -> None:
     st.info(
-        "**Start here:** sidebar → **Folder** (local tree) or **Zip package** → load data. "
-        "Then **Data & Mapping** for the JSON data model (or rely on zip `session_config` role_map). "
-        "Finally **Run Rules** → **Plots** / **RCx**."
+        "**Start here:** sidebar → **Building package zip(s)** (or Folder locally). "
+        "Each equipment CSV needs a sibling Haystack map JSON. Then **Run Rules** → **Plots** / **RCx**."
     )
     st.markdown(
         f"Agent brief: [AGENTS.md]({_AGENTS_MD_URL}) · "
@@ -192,8 +191,8 @@ def _init_state() -> None:
         "include_ahu_chw_valve": False,  # hard-coded; never offer in UI
         "occupancy_schedule": OccupancySchedule().to_dict(),
         "apply_occupancy_calendar": True,  # always on; Overview calendar → occ_mode
-        "zone_lo_f": 68.0,
-        "zone_hi_f": 76.0,
+        "zone_lo_f": 70.0,
+        "zone_hi_f": 75.0,
         "upload_workdir": None,
         "package_report": None,
         "zip_uploader_key": 0,
@@ -1422,7 +1421,7 @@ def _sync_zone_comfort_into_params() -> None:
     """Push Overview/sidebar zone band into VAV-1 and SCHED-1 rule params."""
     params = st.session_state.setdefault("params", {})
     lo = float(st.session_state.get("zone_lo_f", 70.0))
-    hi = float(st.session_state.get("zone_hi_f", 76.0))
+    hi = float(st.session_state.get("zone_hi_f", 75.0))
     vav = dict(params.get("VAV-1") or {})
     vav["zone_lo"] = lo
     vav["zone_hi"] = hi
@@ -1656,21 +1655,6 @@ def main() -> None:
 
     if section == "Overview":
         st.subheader("Overview")
-        st.markdown(
-            """
-**Workflow reminder**
-
-| Piece | What | Where |
-| --- | --- | --- |
-| **1. Data package** | Folder or zip of CSVs (`openfdd_package_v1`) | Sidebar → Folder / Zip |
-| **2. Data model** | Column→role JSON *or* zip / uploaded `session_config` role_map | **Data & Mapping** / sidebar |
-| **3. Tune + save** | Download `session_config.json` (params + role_map) | Sidebar **Session restore** or **Export** |
-| **4. Run** | 50-rule cookbook → charts | **Run Rules** → **Plots** / **RCx Plots** |
-| **5. Restore later** | Upload zip + session config (Cloud-safe round-trip) | Sidebar uploaders |
-
-Round-trip: **upload zip → map/tune → download session_config → later upload zip + session_config**.
-            """.strip()
-        )
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Equipment", len(frames))
         _n_custom = len(RULES) - CANONICAL_RULE_COUNT
@@ -1750,160 +1734,6 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         )
         st.dataframe(type_counts, hide_index=True, width="stretch")
 
-    if section == "Data & Mapping":
-        st.subheader("Data & column → role mapping")
-        st.write(
-            "Map historian columns with Haystack-like `points` (or Auto-build). "
-            "Units in the JSON keep plots from mixing families."
-        )
-        raw_df = frames[selected]
-        map_cols = st.columns(2)
-        with map_cols[0]:
-            st.markdown("##### JSON column map (LLM / heuristic)")
-            bid = st.session_state.building_id or "building"
-            default_json = APP_ROOT / "configs" / f"{bid.lower()}_column_map.json"
-            if not default_json.is_file():
-                demo = APP_ROOT / "configs" / "building_100_column_map.json"
-                # Demo map is a template any site can start from — not locked to BUILDING_100.
-                default_json = demo if demo.is_file() else default_json
-            if cfg.allow_server_paths:
-                json_path = st.text_input(
-                    "JSON map path (optional)",
-                    st.session_state.column_map_path or (str(default_json) if default_json.is_file() else ""),
-                )
-                if st.button("Load JSON map from path") and json_path:
-                    try:
-                        data = load_column_map_json(json_path)
-                        _apply_column_map_json(data)
-                        st.session_state.column_map_path = json_path
-                        st.success(f"Loaded map for {len(data.get('equipment', {}))} equipment")
-                    except Exception as exc:
-                        st.error(str(exc))
-            uploaded_json = st.file_uploader("Or upload column map JSON", type=["json"], key="colmap_upload")
-            if uploaded_json is not None and st.button("Apply uploaded JSON map"):
-                try:
-                    import json as _json
-
-                    data = normalize_column_map(_json.loads(uploaded_json.getvalue().decode("utf-8")))
-                    _apply_column_map_json(data)
-                    st.success(f"Applied uploaded map ({len(data.get('equipment', {}))} equipment)")
-                except Exception as exc:
-                    st.error(str(exc))
-            if st.button("Auto-build JSON map from loaded CSVs"):
-                data = build_column_map_from_equipment_frames(
-                    frames,
-                    building_id=st.session_state.building_id,
-                    site_ref=st.session_state.site_id,
-                    generated_by="heuristic",
-                )
-                _apply_column_map_json(data)
-                issues = validate_column_map_against_frames(data, frames)
-                if not cfg.allow_disk_writes:
-                    st.success(
-                        f"Built Haystack map in session ({len(data['equipment'])} equip) — "
-                        "shared/Cloud host: download JSON (no server disk write)."
-                    )
-                    st.download_button(
-                        "Download column map JSON",
-                        data=__import__("json").dumps(data, indent=2),
-                        file_name=f"{(st.session_state.building_id or 'building').lower()}_column_map.json",
-                        mime="application/json",
-                        key="dl_colmap_cloud",
-                    )
-                else:
-                    out_name = f"{(st.session_state.building_id or 'building').lower()}_column_map.json"
-                    out = APP_ROOT / "configs" / out_name
-                    save_column_map_json(out, data, haystack=True)
-                    st.session_state.column_map_path = str(out)
-                    st.success(f"Built & saved Haystack map `{out.name}` ({len(data['equipment'])} equip)")
-                if issues:
-                    st.warning("\n".join(issues[:15]))
-
-        with map_cols[1]:
-            st.markdown("##### LLM workflow (Haystack points → cookbook roles)")
-            filled_prompt = build_llm_prompt_for_frames(
-                frames,
-                building_id=st.session_state.building_id,
-                site_ref=st.session_state.site_id,
-            )
-            with st.expander("Filled LLM prompt", expanded=False):
-                st.code(filled_prompt, language="text")
-            st.download_button(
-                "Download LLM prompt as .txt",
-                data=filled_prompt.encode("utf-8"),
-                file_name=f"{(st.session_state.building_id or 'building').lower()}_llm_column_map_prompt.txt",
-                mime="text/plain",
-                key="dl_llm_prompt",
-            )
-            if st.session_state.column_map:
-                st.download_button(
-                    "Download Haystack column map JSON",
-                    data=__import__("json").dumps(
-                        to_haystack_document(st.session_state.column_map), indent=2
-                    ).encode(),
-                    file_name="column_map.json",
-                    mime="application/json",
-                    key="dl_colmap_mapping_tab",
-                )
-
-            from app.role_map_gap import build_role_map_gap_report
-
-            with st.expander("Role map gap report", expanded=False):
-                gap_df = build_role_map_gap_report(
-                    frames,
-                    st.session_state.role_map,
-                    weather=st.session_state.weather,
-                )
-                st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
-                st.download_button(
-                    "Download role_map_gap_report.csv",
-                    to_csv_bytes(gap_df),
-                    "role_map_gap_report.csv",
-                    key="dl_gap_mapping",
-                )
-
-        st.divider()
-        st.markdown("##### Per-equipment role editor")
-        st.caption(
-            "Optional manual override per CSV / device. Skip this if the LLM (or Auto-build) JSON map "
-            "already assigned the right columns — only use these dropdowns to fix gaps or mistakes."
-        )
-        inferred = {
-            **suggest_roles(raw_df),
-            **roles_from_columns_csv(Path(raw_df.attrs.get("columns_path")) if raw_df.attrs.get("columns_path") else None),
-        }
-        edit = dict(st.session_state.role_map.get(selected, {}))
-        for role in sorted(set(list(inferred.keys()) + list(edit.keys()) + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd"])):
-            opts = [""] + list(raw_df.columns)
-            cur = edit.get(role, inferred.get(role, ""))
-            edit[role] = st.selectbox(
-                role,
-                opts,
-                index=opts.index(cur) if cur in opts else 0,
-                key=f"r_{selected}_{role}",
-            )
-        edit = {k: v for k, v in edit.items() if v}
-        st.session_state.role_map[selected] = edit
-        if st.button("Save role map YAML"):
-            if not cfg.allow_disk_writes:
-                st.download_button(
-                    "Download role_map.yaml",
-                    yaml.safe_dump(st.session_state.role_map, sort_keys=True),
-                    "role_map.yaml",
-                    key="dl_role_map_cloud",
-                )
-                st.info("Shared/Cloud host: download only (no server write).")
-            else:
-                save_role_map(cfg.role_map_path, st.session_state.role_map)
-                st.success("Saved role_map.yaml")
-        with st.expander("Site / building nesting"):
-            _site_mapping_tab(cfg, selected, raw_df)
-        st.divider()
-        st.markdown("##### Raw data preview")
-        issues = validate_dataframe(raw_df)
-        st.write("Validation:", issues or "OK")
-        st.dataframe(raw_df.head(100), width="stretch")
-
     if section == "Data Model":
         from app.data_model_tree import build_data_model_tree
         from app.docx_report import build_building_data_model_docx
@@ -1921,7 +1751,7 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
         for eq in tree.equipment:
             with st.expander(f"{eq.equipment_id} · {eq.equipment_type}", expanded=False):
                 if not eq.bindings:
-                    st.info("No role bindings yet — map columns in **Data & Mapping**.")
+                    st.info("No role bindings yet — include a sibling Haystack JSON next to this equipment CSV in the zip.")
                 else:
                     rows = [
                         {
@@ -1955,6 +1785,71 @@ Round-trip: **upload zip → map/tune → download session_config → later uplo
                 "data_model.csv",
                 key="dl_data_model_csv",
             )
+
+        st.divider()
+        st.markdown("##### Mapping status")
+        st.caption(
+            "Maps load from the package: each equipment `history_wide.csv` needs a sibling "
+            "`history_wide.json` / `history_wide.column_map.json` / `column_map.json`. "
+            "Weather CSV maps are optional. Upload zips via the sidebar."
+        )
+        from app.role_map_gap import build_role_map_gap_report
+
+        gap_df = build_role_map_gap_report(
+            frames,
+            st.session_state.role_map,
+            weather=st.session_state.weather,
+        )
+        if not gap_df.empty:
+            st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
+            st.download_button(
+                "Download role_map_gap_report.csv",
+                to_csv_bytes(gap_df),
+                "role_map_gap_report.csv",
+                key="dl_gap_data_model",
+            )
+        if st.session_state.get("column_map"):
+            st.download_button(
+                "Download merged column map JSON",
+                data=__import__("json").dumps(
+                    to_haystack_document(st.session_state.column_map), indent=2
+                ).encode(),
+                file_name="column_map.json",
+                mime="application/json",
+                key="dl_colmap_data_model",
+            )
+        with st.expander("Advanced: edit roles for selected device", expanded=False):
+            raw_df = frames[selected]
+            inferred = {
+                **suggest_roles(raw_df),
+                **roles_from_columns_csv(
+                    Path(raw_df.attrs.get("columns_path"))
+                    if raw_df.attrs.get("columns_path")
+                    else None
+                ),
+            }
+            edit = dict(st.session_state.role_map.get(selected, {}))
+            for role in sorted(
+                set(
+                    list(inferred.keys())
+                    + list(edit.keys())
+                    + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd"]
+                )
+            ):
+                opts = [""] + list(raw_df.columns)
+                cur = edit.get(role, inferred.get(role, ""))
+                edit[role] = st.selectbox(
+                    role,
+                    opts,
+                    index=opts.index(cur) if cur in opts else 0,
+                    key=f"r_{selected}_{role}",
+                )
+            edit = {k: v for k, v in edit.items() if v}
+            st.session_state.role_map[selected] = edit
+            st.caption(
+                "Overrides apply in-session; prefer fixing the package sidecar JSON for lasting maps."
+            )
+
 
     if section == "Run Rules":
         st.subheader("Run rules")

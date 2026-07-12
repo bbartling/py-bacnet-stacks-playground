@@ -69,6 +69,19 @@ def _write_tiny_package(root: Path) -> Path:
     ahu_dir = root / "AHU_1"
     ahu_dir.mkdir()
     ahu.to_csv(ahu_dir / "history_wide.csv", index=False)
+    (ahu_dir / "column_map.json").write_text(
+        json.dumps(
+            {
+                "equipType": "ahu",
+                "points": {
+                    "discharge-air-temp": "discharge_air_temp_f",
+                    "outside-air-temp": "outside_air_temp_f",
+                    "fan-status": "supply_fan_status",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     wx_dir = root / "weather"
     wx_dir.mkdir()
     wx = pd.DataFrame(

@@ -59,7 +59,7 @@ Opens at `http://localhost:8501`.
 
 ## Main sections (lazy radio — not eager `st.tabs`)
 
-Overview | Data & Mapping | **Data Model** | Run Rules | Results by Category | **Plots** (validation cards) | **RCx Plots** | **Analytics** | Export
+Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Category | **Plots** (validation cards) | **RCx Plots** | **Analytics** | Export
 
 ### Sidebar
 

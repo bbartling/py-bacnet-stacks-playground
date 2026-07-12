@@ -71,7 +71,7 @@ def test_fc2_runs_with_roles():
 def test_vav1_runs_with_roles():
     df = _ahu_df(zone_t=[72, 72, 65, 78, 72])
     df.attrs["equipment_id"] = "VAV_7"
-    r = run_rule("VAV-1", df, {"zone_lo": 68, "zone_hi": 76, "confirm_min": 0}, 300.0)
+    r = run_rule("VAV-1", df, {"zone_lo": 70, "zone_hi": 75, "confirm_min": 0}, 300.0)
     assert r.applicable
     assert r.status == "FAULT"
 
@@ -141,7 +141,7 @@ def test_sched1_unocc_fan_zone_in_band_fault():
     r = run_rule(
         "SCHED-1",
         df,
-        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 76.0},
+        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 75.0},
         300.0,
     )
     assert r.status == "FAULT"
@@ -156,7 +156,7 @@ def test_sched1_unocc_fan_zone_outside_band_pass():
     r = run_rule(
         "SCHED-1",
         df,
-        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 76.0},
+        {"confirm_min": 0, "comfort_low_f": 70.0, "comfort_high_f": 75.0},
         300.0,
     )
     assert r.status == "PASS"

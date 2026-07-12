@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — Dataset UX + required per-CSV Haystack sidecars
+
+- Removed Overview workflow table; zone defaults **70 / 75 °F**
+- Merged Data & Mapping into **Data Model** (mapping status at bottom); dropped Data & Mapping section
+- Package requires sibling Haystack JSON per equipment CSV (`history_wide.json` | `*.column_map.json` | `column_map.json`); weather optional; nested zips expanded
+- `app/sidecar_maps.py` + PACKAGE_SPEC update
+
+---
+
 ## 2026-07-12 — Rule plot catalog (all 50)
 
 - Added `docs/RULE_PLOT_CATALOG.md` — per mechanical family: Haystack tags, plot series, sliders, analytics hints

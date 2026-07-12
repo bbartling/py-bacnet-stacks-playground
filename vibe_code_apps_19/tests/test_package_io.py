@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.package_fixtures import ensure_sidecar_files
 from app.package_io import (
     DEFAULT_PACKAGE_MB,
     PackageError,
@@ -24,6 +25,7 @@ from app.package_io import (
 
 
 def _make_zip(files: dict[str, str | bytes]) -> bytes:
+    files = ensure_sidecar_files(files)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():

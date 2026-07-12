@@ -521,8 +521,8 @@ def _vav_air_on(d: pd.DataFrame, flow_min: float) -> pd.Series:
 
 
 def vav1(d, p, poll):
-    lo = _f(p, "zone_lo", 68.0)
-    hi = _f(p, "zone_hi", 76.0)
+    lo = _f(p, "zone_lo", 70.0)
+    hi = _f(p, "zone_hi", 75.0)
     return d["zone_t"].notna() & ((d["zone_t"] < lo) | (d["zone_t"] > hi))
 
 
@@ -731,7 +731,7 @@ def sched1(d, p, poll):
     if "zone_t" not in d.columns or d["zone_t"].notna().sum() == 0:
         return base
     lo = _f(p, "comfort_low_f", 70.0)
-    hi = _f(p, "comfort_high_f", 76.0)
+    hi = _f(p, "comfort_high_f", 75.0)
     zt = pd.to_numeric(d["zone_t"], errors="coerce")
     in_band = zt.notna() & (zt >= lo) & (zt <= hi)
     return base & in_band
@@ -955,10 +955,10 @@ RULES: list[CookbookRule] = [
 
     # --- VAV zones ---
     CookbookRule("VAV-1", "Zone comfort band", "vav", ["vav", "zone"],
-        ["zone_t"], "Zone temp < 68°F or > 76°F.",
+        ["zone_t"], "Zone temp < 70°F or > 75°F.",
         vav1, params=[
-            CookbookParam("zone_lo", "Zone low", "°F", 55.0, 70.0, 0.5, 68.0),
-            CookbookParam("zone_hi", "Zone high", "°F", 72.0, 85.0, 0.5, 76.0),
+            CookbookParam("zone_lo", "Zone low", "°F", 55.0, 72.0, 0.5, 70.0),
+            CookbookParam("zone_hi", "Zone high", "°F", 72.0, 85.0, 0.5, 75.0),
             CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("VAV-3", "Excessive reheat during warm weather", "vav", ["vav"],
         ["oa_t", "reheat_valve_pct"], "Air flowing AND OAT > 78°F AND reheat valve > 52%.",
@@ -1051,11 +1051,11 @@ RULES: list[CookbookRule] = [
         ["occ_mode", "fan_status"],
         "Fan running while occupancy is unoccupied (Overview calendar → occ_mode). "
         "When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f "
-        "(defaults 70–76°F; synced from Overview zone band).",
+        "(defaults 70–75°F; synced from Overview zone band).",
         sched1,
         params=[
             CookbookParam("comfort_low_f", "Comfort low", "°F", 60.0, 78.0, 0.5, 70.0),
-            CookbookParam("comfort_high_f", "Comfort high", "°F", 68.0, 85.0, 0.5, 76.0),
+            CookbookParam("comfort_high_f", "Comfort high", "°F", 68.0, 85.0, 0.5, 75.0),
             CONFIRM_PARAM(),
         ],
         optional_roles=["zone_t"],
