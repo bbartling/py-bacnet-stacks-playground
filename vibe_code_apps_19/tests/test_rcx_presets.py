@@ -117,9 +117,10 @@ def test_streamlit_main_sections_present():
     assert "build_equipment_fdd_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rcx_catalog_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "build_rcx_family_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "Economizer family" in src or "ECON-1" in src
     assert "Download FDD DOCX" in src
-    assert "Download RCx catalog DOCX" in src or "build_rcx_catalog_docx" in src
+    assert "Download RCx" in src or "build_rcx_catalog_docx" in src or "build_rcx_family_docx" in src
     assert "PLACE PLOT HERE" in src or "build_rule_card" in src
     assert "rule validation cards" in src or "Filter cards" in src or "catalog parity" in src
     # Must not be the sole one-at-a-time selectbox UX without a card catalog

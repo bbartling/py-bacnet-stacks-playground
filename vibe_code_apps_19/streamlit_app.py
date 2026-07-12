@@ -1967,13 +1967,13 @@ def main() -> None:
                     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=280)
                 st.caption(f"{len(eq.applicable_rule_ids)} applicable cookbook rules for this type")
         try:
-            docx_bytes = build_building_data_model_docx(tree)
             st.download_button(
                 "Download data_model.docx",
-                data=docx_bytes,
+                data=build_building_data_model_docx(),
                 file_name=f"{(st.session_state.get('building_id') or 'building')}_data_model.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="dl_data_model_docx",
+                help="Prebuilt Word file from assets/reports (paste over the dummy to customize).",
             )
         except Exception as exc:
             st.warning(f"DOCX unavailable: {exc}")
@@ -2287,25 +2287,14 @@ def main() -> None:
                 )
             with d3:
                 try:
-                    docx_bytes = build_equipment_fdd_docx(
-                        building_id=st.session_state.get("building_id") or "",
-                        equipment_id=device,
-                        equipment_type=eq_type,
-                        results=st.session_state.batch_results,
-                        role_map=st.session_state.role_map,
-                        mapped_df=plot_df,
-                        plot_png_by_rule={},
-                        params=st.session_state.get("params") or {},
-                        rules=applicable,
-                    )
                     st.download_button(
                         "Download FDD DOCX",
-                        data=docx_bytes,
+                        data=build_equipment_fdd_docx(equipment_type=eq_type),
                         file_name=f"{device}_fdd_report.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"dl_fdd_docx_{device}",
                         type="primary",
-                        help="Simple Word template: description + equation + empty plot slot per rule.",
+                        help="Prebuilt Word report for this device type (assets/reports/fdd_*.docx).",
                     )
                 except Exception as exc:
                     st.warning(f"DOCX unavailable: {exc}")
@@ -2683,66 +2672,49 @@ def main() -> None:
 
         st.markdown("##### DOCX reports")
         st.caption(
-            "FDD equation template lives on **FDD Plots** only. Export keeps data-model / RCx / analytics Word files."
+            "Prebuilt Word files from **assets/reports** (no runtime generation). "
+            "FDD-by-type lives on **FDD Plots**; family RCx files on **RCx Plots**."
         )
         try:
-            from app.data_model_tree import build_data_model_tree
             from app.docx_report import (
                 build_analytics_docx,
                 build_building_data_model_docx,
                 build_rcx_catalog_docx,
+                build_rcx_family_docx,
+                rcx_families,
             )
-            from app.rcx_plots import rcx_preset_coverage
 
-            tree = build_data_model_tree(
-                frames,
-                st.session_state.role_map,
-                building_id=st.session_state.get("building_id") or "",
-                vav_to_ahu=st.session_state.get("vav_to_ahu")
-                or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
-            )
             st.download_button(
                 "Download RCx catalog DOCX",
-                data=build_rcx_catalog_docx(
-                    building_id=st.session_state.get("building_id") or "",
-                    frames=frames,
-                    role_map=st.session_state.role_map,
-                    weather=st.session_state.weather,
-                    results=st.session_state.batch_results,
-                    params=st.session_state.get("params") or {},
-                    zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
-                    zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
-                    occupancy_schedule=st.session_state.get("occupancy_schedule"),
-                    unit_system=st.session_state.get("unit_system", "imperial"),
-                    motor_weekly=motor_weekly if isinstance(motor_weekly, pd.DataFrame) else None,
-                    cool_bins=cool_bins if isinstance(cool_bins, pd.DataFrame) else None,
-                ),
+                data=build_rcx_catalog_docx(),
                 file_name="rcx_catalog_report.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="dl_export_rcx_catalog_docx",
             )
+            for fam in rcx_families():
+                slug = (
+                    fam.lower()
+                    .replace(" / ", "_")
+                    .replace("/", "_")
+                    .replace(" ", "_")
+                )
+                st.download_button(
+                    f"Download RCx — {fam}",
+                    data=build_rcx_family_docx(fam),
+                    file_name=f"rcx_{slug}_report.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key=f"dl_export_rcx_{slug}",
+                )
             st.download_button(
                 "Download data_model.docx",
-                data=build_building_data_model_docx(tree),
+                data=build_building_data_model_docx(),
                 file_name="data_model.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="dl_export_data_model_docx",
             )
-            rcx = rcx_preset_coverage(
-                frames, st.session_state.role_map, weather=st.session_state.weather
-            )
-            # Prefer already-computed analytics frames when visiting Overview/Analytics first
-            _mw = motor_weekly if isinstance(motor_weekly, pd.DataFrame) else pd.DataFrame()
-            _cb = cool_bins if isinstance(cool_bins, pd.DataFrame) else pd.DataFrame()
             st.download_button(
                 "Download analytics.docx",
-                data=build_analytics_docx(
-                    building_id=st.session_state.get("building_id") or "",
-                    motor_weekly=_mw,
-                    cool_bins=_cb,
-                    rcx_coverage=rcx,
-                    tree=tree,
-                ),
+                data=build_analytics_docx(),
                 file_name="analytics.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="dl_export_analytics_docx",

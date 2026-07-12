@@ -31,7 +31,8 @@ flowchart TD
 
 | Rank | Bottleneck | Where | Symptom |
 | --- | --- | --- | --- |
-| 1 | **Export** builds RCx catalog DOCX + `rcx_preset_coverage` (+ other DOCX) into `download_button(data=…)` every visit | `streamlit_app.py` Export section | Opening Export feels like a full analytics run |
+| 1 | ~~**Export** builds RCx catalog DOCX + `rcx_preset_coverage`~~ | — | **Fixed:** Export/FDD/Data Model/RCx serve **static** `assets/reports/*.docx` (no runtime generation / no python-docx) |
+
 | 2 | **FDD Plots** eagerly called `rcx_preset_coverage` for every card visit | `streamlit_app.py` FDD Plots | Large packages stall before cards appear |
 | 3 | **Folder mode**: `cached_building_folder` + `_commit_frames` every rerun | `streamlit_app.py` `_load_from_folder` | `@st.cache_data` returns a **fresh copy** of all frames → copy storm on each widget click |
 | 4 | **Rule batch**: per-equip role-map/`occ` copies + per-rule `merge_weather` copy + fat `plot_series` in `session_state` | `runner.py` / `_run_rule_list` | “Run all” / prerun RAM + CPU; O(equip × rules) |
@@ -52,7 +53,7 @@ Zip load-on-button and rule-only-on-Run are already better than Folder/Export ea
 | Sidebar sliders in `@st.fragment` | Slider drag must not re-run all rules |
 | Rules only on **Run** / **Rerun cat.** / prerun / bootstrap | Not on every slider move |
 | One Plotly at a time on **FDD Plots** | Chart panel + cards; downsample traces only |
-| **RCx Plots**: family → single preset; **Prepare** catalog DOCX; coverage **opt-in**; generic picker gated | See [`RCX_PLOTS.md`](RCX_PLOTS.md) |
+| **RCx Plots**: family → single preset; **static** family DOCX download; coverage **opt-in**; generic picker gated | See [`RCX_PLOTS.md`](RCX_PLOTS.md) |
 | Overview-only weekly motor + cool bins (partial) | Do not move heavy Overview analytics into every section |
 
 ---

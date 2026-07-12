@@ -67,7 +67,7 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 
 - FDD Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
-- Equipment FDD DOCX (`build_equipment_fdd_docx`) is a **dumb template**: Key findings placeholder, then per rule **Description** + **Equation** + **`[PLACE PLOT HERE]`** — no analytics, mapping tables, or slider dumps.
+- Equipment FDD DOCX (`build_equipment_fdd_docx`) serves a **prebuilt** Word file from `assets/reports/fdd_*.docx` by device type (paste over dummies; no runtime generation).
 - One-click: **Download FDD DOCX** on **FDD Plots** only (not Run Rules ZIP pack).
 
 ---

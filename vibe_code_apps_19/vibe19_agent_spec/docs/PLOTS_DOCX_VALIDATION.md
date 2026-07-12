@@ -19,7 +19,7 @@ Plots is the **review/validation** surface for the cookbook on one device — no
 | Path | Role |
 | --- | --- |
 | `app/rule_card.py` | `build_rule_card`, `equipment_mapping_coverage`, `PLACE_PLOT_HERE` |
-| `app/docx_report.py` | `build_equipment_fdd_docx` (Plots template: description + equation + plot stub), data-model / RCx / analytics DOCX |
+| `app/docx_report.py` | Serve prebuilt `.docx` from `assets/reports/` (FDD by type, RCx by family, data-model, analytics) — **no python-docx** |
 | `app/data_model_tree.py` | Equipment → role → Haystack tag → CSV inventory (+ feeds/fedBy) |
 | `app/charts.py` | `rule_result_chart`, `bas_vs_web_oat_histogram`, … |
 | `streamlit_app.py` | **FDD Plots** (FDD DOCX) + **Data Model** + **Metering** + **Export** |

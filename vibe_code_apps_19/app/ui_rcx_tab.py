@@ -127,7 +127,7 @@ def render_rcx_plots_tab(
     st.caption(
         "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Metering), "
         "then one preset in that family. Charts build only for the selected preset. "
-        "Heavy coverage diagnostics and RCx catalog DOCX are opt-in below."
+        "Word reports are **prebuilt** per family (assets/reports); coverage CSV is opt-in."
     )
 
     schedule = (
@@ -137,43 +137,35 @@ def render_rcx_plots_tab(
     )
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
 
-    # --- Lazy DOCX (was rebuilding the whole catalog on every RCx render) ---
-    c_doc1, c_doc2 = st.columns([1, 2])
-    with c_doc1:
-        if st.button("Prepare RCx catalog DOCX", key="rcx_prep_docx"):
-            from app.docx_report import build_rcx_catalog_docx
+    # --- Family → preset (AHU list never includes chiller/boiler) ---
+    family = st.selectbox(
+        "Mechanical family",
+        list(RCX_FAMILY_ORDER),
+        key="rcx_family",
+        help="Scopes the plot list so plant reset charts are not mixed under AHU.",
+    )
 
-            with st.spinner("Building RCx catalog Word file…"):
-                try:
-                    st.session_state["rcx_catalog_docx_bytes"] = build_rcx_catalog_docx(
-                        building_id=st.session_state.get("building_id") or "",
-                        frames=frames,
-                        role_map=role_map,
-                        weather=weather,
-                        results=st.session_state.get("batch_results") or [],
-                        params=st.session_state.get("params") or {},
-                        zone_lo_f=zone_lo_f,
-                        zone_hi_f=zone_hi_f,
-                        occupancy_schedule=schedule.to_dict(),
-                        unit_system=unit_system,
-                    )
-                    st.success("Ready — use Download.")
-                except Exception as exc:
-                    st.session_state.pop("rcx_catalog_docx_bytes", None)
-                    st.warning(f"RCx catalog DOCX unavailable: {exc}")
-    with c_doc2:
-        blob = st.session_state.get("rcx_catalog_docx_bytes")
-        if blob:
-            st.download_button(
-                "Download RCx catalog DOCX",
-                data=blob,
-                file_name="rcx_catalog_report.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_rcx_catalog_docx",
-                type="primary",
-            )
-        else:
-            st.caption("Prepare once, then download — avoids rebuilding on every widget change.")
+    # Prebuilt Word for the selected mechanical family (no python-docx / no Prepare step).
+    try:
+        from app.docx_report import build_rcx_family_docx, rcx_family_report_filename
+
+        fam_slug = (
+            family.lower()
+            .replace(" / ", "_")
+            .replace("/", "_")
+            .replace(" ", "_")
+        )
+        st.download_button(
+            f"Download RCx DOCX — {family}",
+            data=build_rcx_family_docx(family),
+            file_name=f"rcx_{fam_slug}_report.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_rcx_catalog_docx",
+            type="primary",
+            help=f"Serves `{rcx_family_report_filename(family)}` from assets/reports.",
+        )
+    except Exception as exc:
+        st.warning(f"RCx DOCX unavailable: {exc}")
 
     # --- Lazy coverage (was scanning every preset × every equipment on each run) ---
     show_cov = st.checkbox(
@@ -203,14 +195,6 @@ def render_rcx_plots_tab(
             "rcx_preset_coverage.csv",
             key="dl_rcx_coverage",
         )
-
-    # --- Family → preset (AHU list never includes chiller/boiler) ---
-    family = st.selectbox(
-        "Mechanical family",
-        list(RCX_FAMILY_ORDER),
-        key="rcx_family",
-        help="Scopes the plot list so plant reset charts are not mixed under AHU.",
-    )
     family_presets = presets_for_family(family)
     if not family_presets:
         st.info("No presets in this family.")

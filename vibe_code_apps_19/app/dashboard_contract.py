@@ -42,4 +42,5 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.docx_report:build_building_data_model_docx",
     "app.docx_report:build_analytics_docx",
     "app.docx_report:build_rcx_catalog_docx",
+    "app.docx_report:build_rcx_family_docx",
 )

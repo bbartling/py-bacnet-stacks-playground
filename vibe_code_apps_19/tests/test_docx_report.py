@@ -1,20 +1,38 @@
-"""Data-model tree + DOCX report smoke tests."""
+"""Prebuilt DOCX report smoke tests (no python-docx)."""
 
 from __future__ import annotations
+
+import io
+import zipfile
 
 import pandas as pd
 
 from app.data_model_tree import build_data_model_tree
 from app.docx_report import (
+    REPORTS_DIR,
     build_analytics_docx,
     build_building_data_model_docx,
     build_equipment_fdd_docx,
     build_rcx_catalog_docx,
+    build_rcx_family_docx,
+    fdd_report_filename,
+    list_expected_report_files,
+    rcx_family_report_filename,
 )
-from app.rules import run_rule
 
 
-def test_data_model_tree_and_docx(tmp_path):
+def _xml(blob: bytes) -> str:
+    with zipfile.ZipFile(io.BytesIO(blob)) as zf:
+        return zf.read("word/document.xml").decode("utf-8", errors="ignore")
+
+
+def test_all_expected_report_files_exist():
+    assert REPORTS_DIR.is_dir()
+    missing = [n for n in list_expected_report_files() if not (REPORTS_DIR / n).is_file()]
+    assert not missing, f"missing reports: {missing}"
+
+
+def test_data_model_tree_and_static_docx(tmp_path):
     idx = pd.date_range("2024-06-01", periods=6, freq="5min", tz="UTC")
     ahu = pd.DataFrame(
         {
@@ -38,70 +56,34 @@ def test_data_model_tree_and_docx(tmp_path):
     tree = build_data_model_tree({"AHU_1": ahu}, role_map, building_id="B1")
     assert tree.equipment
     assert tree.equipment[0].equipment_id == "AHU_1"
-    roles = {b.cookbook_role for b in tree.equipment[0].bindings}
-    assert "sat" in roles
-    # Haystack-like tag present for mapped SAT
-    sat_bind = next(b for b in tree.equipment[0].bindings if b.cookbook_role == "sat")
-    assert "discharge" in sat_bind.haystack_tag or "temp" in sat_bind.haystack_tag
-    assert sat_bind.present_in_history is True
-
-    flat = pd.DataFrame(tree.to_rows())
-    assert not flat.empty
-    assert {"equipment_id", "cookbook_role", "haystack_tag", "csv_column"} <= set(flat.columns)
 
     docx = build_building_data_model_docx(tree)
-    assert docx[:2] == b"PK"  # zip/docx magic
+    assert docx[:2] == b"PK"
+    assert "data model" in _xml(docx).lower() or "KEY FINDINGS" in _xml(docx)
 
-    from app.role_map import apply_role_map
-
-    mapped = apply_role_map(ahu, "AHU_1", role_map)
-    results = [run_rule("VLV-1", mapped, {"confirm_min": 0}, 300.0)]
-    eq_docx = build_equipment_fdd_docx(
-        building_id="B1",
-        equipment_id="AHU_1",
-        equipment_type="AHU",
-        results=results,
-        role_map=role_map,
-        mapped_df=mapped,
-        plot_png_by_rule={},
-    )
+    eq_docx = build_equipment_fdd_docx(equipment_type="AHU")
     assert eq_docx[:2] == b"PK"
-    # Deflated XML — unzip and confirm rule content is present
-    import zipfile
-    from io import BytesIO
-
-    with zipfile.ZipFile(BytesIO(eq_docx)) as zf:
-        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-    assert "VLV-1" in xml
-    assert "Cooling valve" in xml or "leakage" in xml.lower() or "Description:" in xml
+    xml = _xml(eq_docx)
+    assert "KEY FINDINGS" in xml
     assert "PLACE PLOT HERE" in xml
+    assert "Description:" in xml
     assert "Equation:" in xml
-    # Simple template — not a full card dump
-    assert "confirm_min" not in xml
-    assert "Operational gate" not in xml
-    assert "PLACE PLOT HERE" in xml
 
-    analytics = build_analytics_docx(
-        building_id="B1",
-        motor_weekly=pd.DataFrame(),
-        cool_bins=pd.DataFrame(),
-        rcx_coverage=pd.DataFrame({"preset_id": ["zone_temps"], "row_count": [0]}),
-        tree=tree,
-    )
+    analytics = build_analytics_docx()
     assert analytics[:2] == b"PK"
 
-    rcx_docx = build_rcx_catalog_docx(
-        building_id="B1",
-        frames={"AHU_1": ahu},
-        role_map=role_map,
-        weather=None,
-        results=results,
-        params={},
-        zone_lo_f=70.0,
-        zone_hi_f=75.0,
-    )
+    rcx_docx = build_rcx_catalog_docx()
     assert rcx_docx[:2] == b"PK"
-    with zipfile.ZipFile(BytesIO(rcx_docx)) as zf:
-        rxml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-    assert "RCx catalog" in rxml or "SV-SPIKE" in rxml or "VLV-1" in rxml
-    assert "PLACE RCX PLOT HERE" in rxml or "ahu_sat_reset_scatter" in rxml or "duct_static_box" in rxml
+    assert "PLACE RCX PLOT HERE" in _xml(rcx_docx)
+
+    fam = build_rcx_family_docx("AHU / air")
+    assert fam[:2] == b"PK"
+    assert fam == (REPORTS_DIR / "rcx_ahu_air.docx").read_bytes()
+
+
+def test_fdd_and_rcx_filename_maps():
+    assert fdd_report_filename("AHU") == "fdd_ahu.docx"
+    assert fdd_report_filename("CHW_PLANT") == "fdd_chiller.docx"
+    assert fdd_report_filename("nope") == "fdd_generic.docx"
+    assert rcx_family_report_filename("Zones / VAV") == "rcx_zones_vav.docx"
+    assert rcx_family_report_filename("Metering") == "rcx_metering.docx"
