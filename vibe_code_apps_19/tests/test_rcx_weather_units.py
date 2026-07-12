@@ -103,3 +103,51 @@ def test_rcx_collect_and_outliers():
     assert len(series) == 3
     stats = series_summary_stats(series, outlier_z=2.0)
     assert "outlier" in stats.columns
+
+
+def test_rcx_fan_mode_summary_ahu_and_vav():
+    from app.rcx_plots import fan_mode_summary_bundle, operating_mask
+
+    idx = pd.date_range("2024-01-01", periods=6, freq="5min", tz="UTC")
+    ahu = pd.DataFrame(
+        {
+            "sat": [55.0, 56.0, 57.0, 70.0, 71.0, 72.0],
+            "fan_status": [1, 1, 1, 0, 0, 0],
+        },
+        index=idx,
+    )
+    ahu.attrs["equipment_type"] = "AHU"
+    vav = pd.DataFrame(
+        {
+            "zone_t": [72.0, 72.0, 72.0, 68.0, 68.0, 68.0],
+            "zone_flow": [400.0, 400.0, 400.0, 0.0, 0.0, 0.0],
+        },
+        index=idx,
+    )
+    vav.attrs["equipment_type"] = "VAV"
+    frames = {"AHU_1": ahu, "VAV_1": vav}
+    role_map = {
+        "AHU_1": {"sat": "sat", "fan_status": "fan_status", "equipment_type": "AHU"},
+        "VAV_1": {"zone_t": "zone_t", "zone_flow": "zone_flow", "equipment_type": "VAV"},
+    }
+    mask, label = operating_mask(ahu)
+    assert label == "fan_status"
+    assert int(mask.sum()) == 3
+    mask_v, label_v = operating_mask(vav)
+    assert label_v == "zone_flow"
+    assert int(mask_v.sum()) == 3
+
+    ahu_tables, cap = fan_mode_summary_bundle(
+        frames, role_map, role="sat", equipment_types=("AHU",), outlier_z=2.5
+    )
+    assert "fan_status" in cap
+    assert int(ahu_tables["on"].iloc[0]["n"]) == 3
+    assert int(ahu_tables["off"].iloc[0]["n"]) == 3
+    assert int(ahu_tables["all"].iloc[0]["n"]) == 6
+
+    vav_tables, vcap = fan_mode_summary_bundle(
+        frames, role_map, role="zone_t", equipment_types=("VAV",), outlier_z=2.5
+    )
+    assert "zone_flow" in vcap
+    assert int(vav_tables["on"].iloc[0]["n"]) == 3
+    assert int(vav_tables["off"].iloc[0]["n"]) == 3

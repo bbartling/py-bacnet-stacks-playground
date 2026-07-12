@@ -39,6 +39,18 @@
 
 `series_summary_stats()` flags equipment whose **mean** is ≥ z-score from the cohort mean (default z=2.5). Outliers render **red dashed** (timeseries) or red boxes with ★ in the legend.
 
+## Summary statistics — fan / air slices
+
+For **AHU / VAV (/HP)** timeseries and box presets, Summary statistics shows three tabs:
+
+| Tab | Filter |
+| --- | --- |
+| All data | Every timestamp with a value |
+| Fan / air on | `fan_status` / `fan_cmd` proven on; VAV falls back to active `zone_flow` when fan roles are absent |
+| Fan / air off | Complement of the on mask |
+
+Each tab keeps its own outlier flags and CSV download. Scatter presets stay all-timestamps only. Chart series for `duct_static_box` remain fan-on filtered as before.
+
 ## Weather / OAT source
 
 - Default: **web** dry bulb (`wx_oa_t` from `weather/history_wide.csv`, enriched by `app/weather_psychrometrics.py`)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -104,15 +104,36 @@ def _etype(eq_id: str, raw: pd.DataFrame, role_map: dict | None = None) -> str:
     return resolve_equipment_type(eq_id, df=raw, role_map=role_map)
 
 
-def _fan_on(df: pd.DataFrame) -> pd.Series:
+def operating_mask(df: pd.DataFrame) -> tuple[pd.Series | None, str]:
+    """Boolean mask when equipment looks running, plus proof role label.
+
+    AHU / fans: ``fan_status`` then ``fan_cmd``.
+    VAV / zones: ``zone_flow`` above a small activity threshold when fan roles absent.
+    Returns ``(None, "")`` when no usable proof columns exist.
+    """
     for role in ("fan_status", "fan_cmd"):
         if role in df.columns and df[role].notna().any():
             num = pd.to_numeric(df[role], errors="coerce")
             if num.notna().any():
                 scaled = num.where(num <= 1.5, num / 100.0)
-                return scaled.fillna(0) > 0.05
-            return df[role].fillna(False).astype(bool)
-    return pd.Series(True, index=df.index)
+                return scaled.fillna(0) > 0.05, role
+            return df[role].fillna(False).astype(bool), role
+    if "zone_flow" in df.columns and df["zone_flow"].notna().any():
+        flow = pd.to_numeric(df["zone_flow"], errors="coerce")
+        if flow.notna().any():
+            # CFM: treat near-zero as off; threshold scales with typical max when available
+            p95 = float(flow.quantile(0.95)) if flow.notna().sum() >= 5 else float(flow.max())
+            thr = max(10.0, 0.05 * p95) if np.isfinite(p95) else 10.0
+            return flow.fillna(0) > thr, "zone_flow"
+    return None, ""
+
+
+def _fan_on(df: pd.DataFrame) -> pd.Series:
+    """Legacy helper: operating mask, or all-True when no proof (keeps old filter_fan_on behavior)."""
+    mask, _ = operating_mask(df)
+    if mask is None:
+        return pd.Series(True, index=df.index)
+    return mask
 
 
 def collect_role_series(
@@ -123,8 +144,16 @@ def collect_role_series(
     equipment_types: tuple[str, ...] | None = None,
     equipment_ids: list[str] | None = None,
     filter_fan_on: bool = False,
+    fan_mode: str = "all",
 ) -> dict[str, pd.Series]:
-    """Map equipment_id → numeric series for a logical role."""
+    """Map equipment_id → numeric series for a logical role.
+
+    ``fan_mode``: ``all`` | ``on`` | ``off`` using :func:`operating_mask`.
+    ``filter_fan_on=True`` is equivalent to ``fan_mode="on"`` (preset compatibility).
+    """
+    mode = "on" if filter_fan_on else str(fan_mode or "all").lower()
+    if mode not in {"all", "on", "off"}:
+        mode = "all"
     out: dict[str, pd.Series] = {}
     for eq_id, raw in frames.items():
         if equipment_ids is not None and eq_id not in equipment_ids:
@@ -139,9 +168,16 @@ def collect_role_series(
         if role not in mapped.columns or mapped[role].notna().sum() == 0:
             continue
         s = pd.to_numeric(mapped[role], errors="coerce")
-        if filter_fan_on:
-            on = _fan_on(mapped).reindex(s.index).fillna(False)
-            s = s.where(on)
+        if mode in {"on", "off"}:
+            mask, _proof = operating_mask(mapped)
+            if mask is None:
+                # Preset filter_fan_on legacy: no proof → keep all samples.
+                # Explicit fan_mode slices: skip equipment without proof.
+                if not (filter_fan_on and mode == "on"):
+                    continue
+            else:
+                on = mask.reindex(s.index).fillna(False)
+                s = s.where(on if mode == "on" else ~on)
         if s.notna().any():
             out[eq_id] = s
     return out
@@ -183,6 +219,52 @@ def series_summary_stats(series_map: dict[str, pd.Series], *, outlier_z: float =
     else:
         df["outlier"] = False
     return df.sort_values("equipment_id")
+
+
+def fan_mode_summary_bundle(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    role: str,
+    equipment_types: tuple[str, ...] | None,
+    outlier_z: float = 2.5,
+) -> tuple[dict[str, pd.DataFrame], str]:
+    """Build summary stats for all / on / off slices. Returns (tables_by_mode, proof_caption)."""
+    proof_labels: set[str] = set()
+    for eq_id, raw in frames.items():
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types and et not in {t.upper() for t in equipment_types}:
+            continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        _mask, label = operating_mask(mapped)
+        if label:
+            proof_labels.add(label)
+    tables: dict[str, pd.DataFrame] = {}
+    for mode, key in (("all", "all"), ("on", "on"), ("off", "off")):
+        series_map = collect_role_series(
+            frames,
+            role_map,
+            role=role,
+            equipment_types=equipment_types,
+            fan_mode=mode,
+        )
+        tables[key] = series_summary_stats(series_map, outlier_z=outlier_z)
+    caption = ""
+    if proof_labels:
+        caption = "Operating proof: " + ", ".join(sorted(proof_labels))
+        if "zone_flow" in proof_labels:
+            caption += " (VAV airflow used when fan roles absent)"
+    else:
+        caption = "No fan_status / fan_cmd / zone_flow mapped — on/off slices empty"
+    return tables, caption
+
+
+def cohort_wants_fan_slices(equipment_types: tuple[str, ...] | None) -> bool:
+    """AHU / VAV(/HP) air-side cohorts get All / on / off summary tabs."""
+    if not equipment_types:
+        return True  # generic "all types" — still offer slices when proof exists
+    air = {"AHU", "VAV", "HP", "RTU"}
+    return bool(air.intersection({t.upper() for t in equipment_types}))
 
 
 def outlier_equipment_ids(stats: pd.DataFrame) -> set[str]:

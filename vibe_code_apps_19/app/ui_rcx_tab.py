@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 import streamlit as st
 
 from app.charts import multi_equipment_box, multi_equipment_timeseries, oat_scatter, plotly_config
 from app.rcx_plots import (
     PRESETS,
+    cohort_wants_fan_slices,
     collect_oat_scatter,
     collect_role_series,
+    fan_mode_summary_bundle,
     outlier_equipment_ids,
     preset_by_id,
     series_summary_stats,
 )
 from app.reports import to_csv_bytes
-from app.unit_system import convert_series, units_map_for_system
+from app.unit_system import convert_series
 
 
 def _convert_map(series_map: dict[str, pd.Series], role: str, system: str) -> tuple[dict[str, pd.Series], str]:
@@ -27,6 +27,79 @@ def _convert_map(series_map: dict[str, pd.Series], role: str, system: str) -> tu
         conv, unit = convert_series(role, s, system)  # type: ignore[arg-type]
         out[eq_id] = conv
     return out, unit
+
+
+def _render_summary_stats(
+    *,
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    role: str,
+    equipment_types: tuple[str, ...] | None,
+    chart_series_map: dict[str, pd.Series],
+    outlier_z: float,
+    unit_system: str,
+    key_prefix: str,
+) -> None:
+    """Summary tables: All / operating on / off for air-side cohorts when proof exists."""
+    chart_stats = (
+        series_summary_stats(chart_series_map, outlier_z=outlier_z) if chart_series_map else pd.DataFrame()
+    )
+    if chart_stats.empty and not cohort_wants_fan_slices(equipment_types):
+        return
+
+    st.markdown("##### Summary statistics")
+    if not cohort_wants_fan_slices(equipment_types):
+        if chart_stats.empty:
+            return
+        st.dataframe(chart_stats, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(chart_stats)))
+        st.download_button(
+            "Download summary CSV",
+            to_csv_bytes(chart_stats),
+            "rcx_summary_stats.csv",
+            key=f"{key_prefix}_dl_stats",
+        )
+        return
+
+    _tables, proof_cap = fan_mode_summary_bundle(
+        frames,
+        role_map,
+        role=role,
+        equipment_types=equipment_types,
+        outlier_z=outlier_z,
+    )
+    display_tables: dict[str, pd.DataFrame] = {}
+    for mode_key in ("all", "on", "off"):
+        sm = collect_role_series(
+            frames, role_map, role=role, equipment_types=equipment_types, fan_mode=mode_key
+        )
+        sm, _ = _convert_map(sm, role, unit_system)
+        display_tables[mode_key] = series_summary_stats(sm, outlier_z=outlier_z)
+
+    st.caption(proof_cap)
+    tab_all, tab_on, tab_off = st.tabs(["All data", "Fan / air on", "Fan / air off"])
+    labels = {
+        "all": ("All timestamps", tab_all),
+        "on": ("Operating (fan proven on or VAV airflow active)", tab_on),
+        "off": ("Off / inactive periods", tab_off),
+    }
+    for mode_key, (blurb, tab) in labels.items():
+        with tab:
+            st.caption(blurb)
+            stats = display_tables.get(mode_key, pd.DataFrame())
+            if stats.empty:
+                st.info("No rows for this slice — check mapping or operating proof.")
+            else:
+                n_out = int(stats["outlier"].sum()) if "outlier" in stats.columns else 0
+                st.caption(f"{len(stats)} equipment · {n_out} outlier(s) at z≥{outlier_z:g}")
+                st.dataframe(
+                    stats, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(stats))
+                )
+                st.download_button(
+                    f"Download {mode_key} summary CSV",
+                    to_csv_bytes(stats),
+                    f"rcx_summary_stats_{mode_key}.csv",
+                    key=f"{key_prefix}_dl_stats_{mode_key}",
+                )
 
 
 def render_rcx_plots_tab(
@@ -40,7 +113,8 @@ def render_rcx_plots_tab(
     st.caption(
         "Prebuilt mechanical-category overlays (all zone temps, all AHU DATs, duct-static box, "
         "HW/CHW/CW reset scatters vs web weather) plus a generic role picker. "
-        "Outlier equipment (z≥2.5 on mean) highlighted in red dashed / ★."
+        "Outlier equipment (z≥2.5 on mean) highlighted in red dashed / ★. "
+        "AHU / VAV summary stats include All / fan-on / fan-off slices when proof is mapped."
     )
 
     from app.rcx_plots import rcx_preset_coverage
@@ -67,6 +141,7 @@ def render_rcx_plots_tab(
     chart_kind = "timeseries"
     long_df = pd.DataFrame()
     role = "zone_t"
+    equipment_types: tuple[str, ...] | None = None
 
     if mode == "Prebuilt RCx":
         labels = {p.id: f"{p.title} — {p.description}" for p in PRESETS}
@@ -76,6 +151,7 @@ def render_rcx_plots_tab(
         role = preset.role
         chart_kind = preset.chart
         title = preset.title
+        equipment_types = preset.equipment_types
         if chart_kind == "scatter_oat":
             x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
             long_df = collect_oat_scatter(
@@ -117,18 +193,19 @@ def render_rcx_plots_tab(
             default=[],
             key="rcx_types",
         )
-        fan_on = st.checkbox("Filter to fan on", value=False, key="rcx_fan_on")
+        fan_on = st.checkbox("Filter chart to fan on", value=False, key="rcx_fan_on")
         chart_kind = st.selectbox("Chart", ["timeseries", "box"], key="rcx_chart_kind")
-        et = tuple(types) if types else None
+        equipment_types = tuple(types) if types else None
         series_map = collect_role_series(
             frames,
             role_map,
             role=role.strip(),
-            equipment_types=et,
+            equipment_types=equipment_types,
             filter_fan_on=fan_on,
         )
         series_map, y_title = _convert_map(series_map, role.strip(), unit_system)
         title = f"Generic · {role}"
+        role = role.strip()
 
     stats = series_summary_stats(series_map, outlier_z=outlier_z) if series_map else pd.DataFrame()
     outliers = outlier_equipment_ids(stats)
@@ -145,25 +222,39 @@ def render_rcx_plots_tab(
         else:
             st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_scatter")
             st.dataframe(long_df.head(5000), hide_index=True, width="stretch", height=220)
+        if not stats.empty:
+            st.markdown("##### Summary statistics")
+            st.caption("Scatter presets use all timestamps (no fan slice).")
+            st.dataframe(stats, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(stats)))
     elif chart_kind == "box":
         fig = multi_equipment_box(series_map, title=title, y_title=y_title, outlier_ids=outliers)
         if fig is None:
             st.info("No series for this preset — check role mapping.")
         else:
             st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_box")
+        _render_summary_stats(
+            frames=frames,
+            role_map=role_map,
+            role=role,
+            equipment_types=equipment_types,
+            chart_series_map=series_map,
+            outlier_z=outlier_z,
+            unit_system=unit_system,
+            key_prefix=f"rcx_{mode}_{role}",
+        )
     else:
         fig = multi_equipment_timeseries(series_map, title=title, y_title=y_title, outlier_ids=outliers)
         if fig is None:
             st.info("No series for this preset — check role mapping.")
         else:
             st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_ts")
-
-    if not stats.empty:
-        st.markdown("##### Summary statistics")
-        st.dataframe(stats, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(stats)))
-        st.download_button(
-            "Download summary CSV",
-            to_csv_bytes(stats),
-            "rcx_summary_stats.csv",
-            key="dl_rcx_stats",
+        _render_summary_stats(
+            frames=frames,
+            role_map=role_map,
+            role=role,
+            equipment_types=equipment_types,
+            chart_series_map=series_map,
+            outlier_z=outlier_z,
+            unit_system=unit_system,
+            key_prefix=f"rcx_{mode}_{role}",
         )
