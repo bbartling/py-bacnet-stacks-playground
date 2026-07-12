@@ -11,11 +11,59 @@
 | Default image mode | `APP_MODE=cloud` + `VIBE19_DOCKER=1` → **zip-only** UI (no Folder path) |
 | Data retention | Zip extract under OS temp (`vibe19_*`); Clear session / wipe — not kept in the image |
 
-**Port conflicts:** if something else already owns `:8501`, map a free host port:
+**Port conflicts:** if something else already owns `:8501`, map a free host port (`-p 8502:8501` → http://localhost:8502).
+
+## Newbie tutorial: keep Streamlit running long-term
+
+Foreground `docker run` (no `-d`) dies when you close the terminal. For demos, labs, or a Pi that should stay up:
+
+1. **`docker pull`** the tagged image  
+2. **`docker run -d --restart unless-stopped …`** (background + auto-restart)  
+3. Browse the published host port  
+
+| Flag | Meaning |
+| --- | --- |
+| `-d` | Detached — process stays up after the shell closes |
+| `--restart unless-stopped` | Restart on crash or host/Docker reboot until you `docker stop` |
+| `-p HOST:8501` | Map a free host port to Streamlit inside the container |
+| `--name vibe19` | Stable name for stop / start / logs |
+| Do **not** pass `--rm` | `--rm` deletes the container on stop (fine for one-shot tests only) |
+
+**Linux / macOS / Raspberry Pi (64-bit):**
+
+```bash
+docker pull ghcr.io/bbartling/vibe19:develop
+docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
+  ghcr.io/bbartling/vibe19:develop
+# open http://localhost:8502  (or http://<pi-ip>:8502)
+```
+
+**Windows PowerShell:**
 
 ```powershell
+docker pull ghcr.io/bbartling/vibe19:develop
+docker stop vibe19 2>$null; docker rm vibe19 2>$null
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 `
+  ghcr.io/bbartling/vibe19:develop
+# open http://localhost:8502
+```
+
+Day-to-day commands:
+
+```bash
+docker ps                 # running?
+docker logs -f vibe19     # follow Streamlit logs (Ctrl+C leaves the app running)
+docker stop vibe19        # stop (disables restart until you start again)
+docker start vibe19       # start the same container
+```
+
+**Update to a newer `:develop` image:** stop + remove the old container, pull, then `docker run -d --restart …` again (a running container does not pick up a new image by itself).
+
+**One-shot test** (foreground; Ctrl+C stops; container deleted):
+
+```bash
 docker run --rm -p 8502:8501 --name vibe19-test ghcr.io/bbartling/vibe19:develop
-# open http://localhost:8502  (NOT 8501)
 ```
 
 ## Two-tier size limits

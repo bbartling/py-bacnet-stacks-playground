@@ -24,7 +24,7 @@ Suggested human→agent message:
 
 ## Highlights
 
-- Full **50 cookbook rules** + optional `CUSTOM-*` agent rules
+- Full **53 cookbook rules** + optional `CUSTOM-*` agent rules
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
@@ -43,24 +43,61 @@ Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit
 
 ## Docker / GHCR
 
-On Linux (or any host) — **pull first**, then run by **tag** so `docker ps` shows the name:
+**Always `docker pull` first** — `:develop` is a moving tag. Run by the **full tagged name** so `docker ps` shows `ghcr.io/bbartling/vibe19:develop` (not a bare hash).
+
+### Long-running (recommended for demos / always-on)
+
+Use **`-d`** (detached = runs in the background) and **`--restart unless-stopped`** (comes back after reboot or Docker restart). Do **not** use `--rm` for this mode — that deletes the container when it stops.
+
+**Linux / macOS / Raspberry Pi:**
 
 ```bash
 docker pull ghcr.io/bbartling/vibe19:develop
-docker stop vibe19-health-retest 2>/dev/null; docker rm vibe19-health-retest 2>/dev/null
-docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
+  ghcr.io/bbartling/vibe19:develop
 ```
 
-Open **http://localhost:8502** (host port **8502** → container 8501).
-
-PowerShell equivalent:
+**Windows PowerShell:**
 
 ```powershell
+docker pull ghcr.io/bbartling/vibe19:develop
+docker stop vibe19 2>$null; docker rm vibe19 2>$null
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 `
+  ghcr.io/bbartling/vibe19:develop
+```
+
+Open **http://localhost:8502** (host port **8502** → container **8501**). On a Pi, use `http://<pi-ip>:8502`.
+
+| Flag | What it means (newbie) |
+| --- | --- |
+| `-d` | Detached — app keeps running after you close the terminal |
+| `--restart unless-stopped` | Auto-restart on crash / host reboot until you `docker stop` it |
+| `-p 8502:8501` | Publish host port 8502 to Streamlit’s 8501 inside the container |
+| `--name vibe19` | Friendly name for `docker stop` / `logs` / `ps` |
+| *(no `--rm`)* | Keep the container so it can restart; use `--rm` only for one-shot tests |
+
+Useful follow-ups:
+
+```bash
+docker ps                    # is it running?
+docker logs -f vibe19        # Streamlit log (Ctrl+C exits logs only)
+docker stop vibe19           # stop (won’t auto-restart until you start again)
+docker start vibe19          # start the same container again
+```
+
+Pull a newer image later: `docker stop vibe19 && docker rm vibe19`, then `docker pull` + `docker run -d --restart …` again.
+
+### One-shot test (foreground, auto-delete)
+
+For a quick try in the current terminal — exits when you Ctrl+C; `--rm` removes the container:
+
+```bash
 docker pull ghcr.io/bbartling/vibe19:develop
 docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
 ```
 
-**Always `docker pull` before testing on another PC** — `:develop` is a moving tag. In the sidebar confirm:
+In the sidebar confirm:
 
 - **Image:** `ghcr.io/bbartling/vibe19:develop` (and a recent sha)
 - zip-item limit **2000** (not **200**)
@@ -69,7 +106,7 @@ docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
 
 If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with the full `ghcr.io/...:develop` name above.
 
-Build locally: see [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
+More detail (bind-mounts, bootstrap, Pi): [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 
 | Path | Limit |
 | --- | --- |
