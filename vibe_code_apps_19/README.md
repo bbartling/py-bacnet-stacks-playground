@@ -45,10 +45,13 @@ Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit
 
 ```powershell
 docker pull ghcr.io/bbartling/vibe19:develop
-docker run --rm -p 8501:8501 ghcr.io/bbartling/vibe19:develop
+# Run by *tag* (not image id) so `docker ps` IMAGE column shows the name:
+docker run --rm -p 8501:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
 ```
 
-**Always `docker pull` before testing on another PC** — `:develop` is a moving tag; a local cache can keep an old image. In the sidebar, confirm the zip-item limit shows **2000** (not **200**). Upload **BUILDING_100.zip only** (weather is already inside). Do not upload `weather.zip` alone.
+**Always `docker pull` before testing on another PC** — `:develop` is a moving tag; a local cache can keep an old image. In the sidebar, confirm the zip-item limit shows **2000** (not **200**) and that **Image:** shows `ghcr.io/bbartling/vibe19:develop`. Upload **BUILDING_100.zip only** (weather is already inside). Do not upload `weather.zip` alone.
+
+If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** or an untagged layer — stop it and re-run with the full `ghcr.io/...:develop` name above.
 
 Build locally: see [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 

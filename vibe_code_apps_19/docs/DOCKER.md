@@ -40,7 +40,22 @@ Workflow: `.github/workflows/vibe19-ghcr.yml` → `ghcr.io/bbartling/vibe19` on 
 ```powershell
 docker pull ghcr.io/bbartling/vibe19:develop
 # :latest when the default-branch job publishes it
-docker run --rm -p 8501:8501 ghcr.io/bbartling/vibe19:develop
+# Always pass the *tagged* name so `docker ps` IMAGE is readable (not caab217c7f84):
+docker run --rm -p 8501:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+```
+
+Pinned build (immutable):
+
+```powershell
+docker pull ghcr.io/bbartling/vibe19:sha-<full-or-short-git-sha>
+docker run --rm -p 8502:8501 --name vibe19-pin ghcr.io/bbartling/vibe19:sha-<git-sha>
+```
+
+Optional short local alias:
+
+```powershell
+docker tag ghcr.io/bbartling/vibe19:develop vibe19:develop
+docker run --rm -p 8501:8501 --name vibe19 vibe19:develop
 ```
 
 If pull fails with 403: GitHub → Packages → `vibe19` → Package settings → visibility **Public** (or `docker login ghcr.io` with a PAT that has `read:packages`).

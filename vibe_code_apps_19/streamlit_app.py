@@ -1104,12 +1104,29 @@ def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
     )
 
 
+def _docker_image_caption() -> str | None:
+    """Human-readable GHCR/local image identity (avoids bare content hashes in the UI)."""
+    import os
+
+    ref = (os.environ.get("VIBE19_IMAGE_REF") or "").strip()
+    tag = (os.environ.get("VIBE19_IMAGE_TAG") or "").strip()
+    sha = (os.environ.get("VIBE19_GIT_SHA") or "").strip()
+    if not ref and not tag and not sha:
+        return None
+    name = f"{ref}:{tag}" if ref and tag else (ref or tag or "vibe19")
+    short = sha[:12] if sha and sha != "unknown" else ""
+    return f"Image: `{name}`" + (f" · sha `{short}`" if short else "")
+
+
 def _load_data(cfg: AppConfig) -> None:
     """Unified data picker: Folder (when allowed) + Zip package (always)."""
     from app.package_io import PackageError, load_package_zip, sweep_old_temp_dirs, wipe_workdir
 
     sweep_old_temp_dirs()
     st.sidebar.markdown("**Building data**")
+    img_cap = _docker_image_caption()
+    if img_cap:
+        st.sidebar.caption(img_cap)
     mode_label = "Cloud-capable" if cfg.is_cloud else "Local + Cloud-capable"
     st.sidebar.caption(
         f"{mode_label} · same `openfdd_package_v1` zip everywhere "
