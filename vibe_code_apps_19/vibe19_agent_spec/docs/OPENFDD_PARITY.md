@@ -25,7 +25,7 @@ App 19 implements the **[Pandas FDD Cookbook](https://bbartling.github.io/open-f
 from app.rules.base import confirm_fault, hours_true
 ```
 
-Canonical catalog: `app/rules/cookbook_catalog.py` (50 rules). Inventory: [`../../docs/STREAMLIT_RULE_INVENTORY.md`](../../docs/STREAMLIT_RULE_INVENTORY.md).
+Canonical catalog: `app/rules/cookbook_catalog.py` (50 rules). Inventory: [`../../docs/STREAMLIT_RULE_INVENTORY.md`](../../docs/STREAMLIT_RULE_INVENTORY.md). Per-rule plots / Haystack tags / sliders: [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md).
 
 ---
 

@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — Rule plot catalog (all 50)
+
+- Added `docs/RULE_PLOT_CATALOG.md` — per mechanical family: Haystack tags, plot series, sliders, analytics hints
+- Generator: `scripts/generate_rule_plot_catalog.py`
+- Extended `COOKBOOK_TO_HAYSTACK_POINT` for plant/economizer/weather roles used by the catalog
+
+---
+
 ## 2026-07-11 — Plots + DOCX validation UX overhaul
 
 - `app/rule_card.py`: shared card builder (params, required/mapped roles, coverage %)

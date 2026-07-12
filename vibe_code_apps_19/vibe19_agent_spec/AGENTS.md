@@ -32,7 +32,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 18. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
 19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
 20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
-21. **Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; one-click **Download FDD DOCX** with **`PLACE PLOT HERE`** stubs. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Keep **Data Model** + DOCX APIs (`app/docx_report.py`, `app/data_model_tree.py`).
+21. **Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; one-click **Download FDD DOCX** with **`PLACE PLOT HERE`** stubs. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Per-rule Haystack tags / sliders / series: [`docs/RULE_PLOT_CATALOG.md`](docs/RULE_PLOT_CATALOG.md). Keep **Data Model** + DOCX APIs (`app/docx_report.py`, `app/data_model_tree.py`).
 
 ---
 
@@ -45,6 +45,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 5. **`skills/vibe19-plotly-dashboard/SKILL.md`** — Plots cards + RCx Plots
 5b. **`docs/DASHBOARD_CONTRACT.md`** — required RCx presets + Plots/DOCX freeze (do not delete)
 5c. **`docs/PLOTS_DOCX_VALIDATION.md`** — when editing Plots / FDD DOCX / rule cards
+5d. **`docs/RULE_PLOT_CATALOG.md`** — per-rule chart points, Haystack tags, sliders (all 50)
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
@@ -80,6 +81,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `vibe19_agent_spec/docs/CUSTOMIZE.md` | Fork guide (DB, branding, deploy) |
 | `vibe19_agent_spec/docs/CUSTOM_RULES.md` | How to add special / site rules |
 | `vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md` | Plots cards + FDD DOCX contract |
+| `vibe19_agent_spec/docs/RULE_PLOT_CATALOG.md` | All 50 rules: Haystack tags, plot series, sliders |
 | `configs/` | Rule inventory, defaults, role_map.yaml |
 | `scripts/csv_parity_check.py` | Run 50 rules on any building folder (CI/parity) |
 | `tests/` | Pytest |

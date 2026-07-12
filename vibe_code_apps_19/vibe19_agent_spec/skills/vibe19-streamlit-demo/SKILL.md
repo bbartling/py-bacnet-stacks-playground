@@ -80,7 +80,7 @@ Overview | Data & Mapping | **Data Model** | Run Rules | Results by Category | *
 
 Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).
 
-Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
+Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · per-rule catalog: [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
 ## Hard rules
 
@@ -96,6 +96,7 @@ Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALID
 - [`../AGENTS.md`](../../../AGENTS.md)
 - [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md)
 - [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md)
+- [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md)
 - [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md)
 - [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

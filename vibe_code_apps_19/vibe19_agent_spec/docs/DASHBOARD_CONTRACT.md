@@ -9,6 +9,7 @@ This Streamlit app is an **RCx + FDD review dashboard**, not a disposable demo. 
 | RCx preset ids | `app/rcx_plots.py` → `REQUIRED_RCX_PRESET_IDS` + `PRESETS` |
 | UI sections + chart APIs | `app/dashboard_contract.py` |
 | Plots cards + FDD DOCX | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) · `app/rule_card.py` |
+| Per-rule plot / Haystack / sliders | [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) (all 50) |
 | Tests | `tests/test_rcx_presets.py`, `tests/test_rule_card.py`, `tests/test_docx_report.py` |
 | UI | `streamlit_app.py`, `app/ui_rcx_tab.py` |
 | Figures | `app/charts.py` |

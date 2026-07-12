@@ -58,6 +58,7 @@ if focus_rule_id == rule.id:
 Rainbow colors, one y-domain per unit family, confirmed-fault swim lane.
 
 Full UX contract: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md).
+Per-rule catalog (Haystack + sliders): [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md).
 
 ### RCx multi-equipment (RCx Plots tab)
 
@@ -86,4 +87,4 @@ Outliers: red dashed lines / ★. Duct-static preset uses `filter_fan_on=True` (
 
 ## Spec
 
-[`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md) · [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md) · full app: [`vibe19-streamlit-demo/SKILL.md`](../vibe19-streamlit-demo/SKILL.md)
+[`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md) · [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md) · [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md) · full app: [`vibe19-streamlit-demo/SKILL.md`](../vibe19-streamlit-demo/SKILL.md)
