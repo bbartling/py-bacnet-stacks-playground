@@ -55,8 +55,8 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + mapping status / gap report (sidecar JSON from package) |
 | Run Rules | 50-rule cookbook (+ custom) |
-| Results by Category | Status tables |
-| **Plots** | Per-device **rule validation cards** (all applicable catalog rules); params + required/mapped points; lazy one-at-a-time Plotly via plot focus; one-click **Download FDD DOCX** |
+| Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
+| **Plots** | Auto-run device rules; chart panel on top (one Plotly); cards below for params/mapping; **session_config** / **role_map** / FDD DOCX downloads |
 | **RCx Plots** | Prebuilt presets above + generic role picker |
 | Analytics | Motor hours, mech-cooling bins, sensor stats |
 | Export | CSV / session / health / DOCX artifacts (incl. **Download equipment FDD DOCX**) |

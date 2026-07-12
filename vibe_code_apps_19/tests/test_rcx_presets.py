@@ -85,4 +85,6 @@ def test_streamlit_main_sections_present():
     assert "rule validation cards" in src or "Filter cards" in src
     # Must not be the sole one-at-a-time selectbox UX without a card catalog
     assert "Filter cards" in src
-    assert "Plot focus" in src
+    assert "Chart rule" in src or "Plot focus" in src
+    assert "Download session_config.json" in src
+    assert "Download role_map.json" in src

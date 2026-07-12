@@ -519,6 +519,49 @@ def _results_by_family(summary: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return out
 
 
+_STATUS_SORT = {
+    "FAULT": 0,
+    "WARNING": 1,
+    "PASS": 2,
+    "SKIPPED_MISSING_ROLES": 3,
+    "SKIPPED_EQUIPMENT_OFF": 4,
+    "ERROR": 5,
+    "NOT_APPLICABLE_EQUIPMENT_TYPE": 6,
+    "NOT_RUN": 7,
+}
+
+
+def _device_results_table(summary: pd.DataFrame, equipment_id: str) -> pd.DataFrame:
+    """Compact per-device results: FAULT/PASS first, N/A last; include rule title."""
+    part = summary[summary["equipment_id"] == equipment_id].copy()
+    if part.empty:
+        return part
+    titles = {r.id: r.title for r in RULES}
+    fams = {r.id: r.family for r in RULES}
+    part["title"] = part["rule_id"].map(lambda rid: titles.get(str(rid), ""))
+    part["rule_family"] = part["rule_id"].map(lambda rid: fams.get(str(rid), "other"))
+    part["_ord"] = part["status"].map(lambda s: _STATUS_SORT.get(str(s), 99))
+    part["_rid"] = part["rule_id"].map(lambda rid: natural_key(str(rid)))
+    part = part.sort_values(["_ord", "_rid"]).drop(columns=["_ord", "_rid"])
+    cols = [
+        "rule_id",
+        "title",
+        "rule_family",
+        "status",
+        "fault_hours",
+        "fault_pct",
+        "missing_roles",
+        "notes",
+    ]
+    return part[[c for c in cols if c in part.columns]].reset_index(drop=True)
+
+
+def _status_counts(df: pd.DataFrame) -> dict[str, int]:
+    if df.empty or "status" not in df.columns:
+        return {}
+    return {str(k): int(v) for k, v in df["status"].value_counts().items()}
+
+
 def _attach_frames_meta(frames: dict[str, pd.DataFrame]) -> None:
     rm = st.session_state.role_map
     cm = st.session_state.get("column_map")
@@ -772,6 +815,45 @@ def _run_rule_list(
 
 def _result_lookup(results: list) -> dict[tuple[str, str], object]:
     return {(r.equipment_id, r.rule_id): r for r in results}
+
+
+def _preferred_plot_rule_id(applicable: list, lookup: dict, device: str) -> str | None:
+    """First FAULT/WARNING rule, else first with a result, else first applicable."""
+    if not applicable:
+        return None
+    ranked: list[tuple[int, str]] = []
+    for rule in applicable:
+        res = lookup.get((device, rule.id))
+        status = str(getattr(res, "status", "") or "")
+        if status in {"FAULT", "WARNING"}:
+            ranked.append((0, rule.id))
+        elif status in {"PASS", "SKIPPED_MISSING_ROLES", "SKIPPED_EQUIPMENT_OFF", "ERROR"}:
+            ranked.append((1, rule.id))
+        elif res is not None:
+            ranked.append((2, rule.id))
+        else:
+            ranked.append((3, rule.id))
+    ranked.sort(key=lambda t: t[0])
+    return ranked[0][1]
+
+
+def _ensure_device_rules_run(device: str, applicable: list, frames: dict[str, pd.DataFrame]) -> bool:
+    """Run applicable rules for device if missing. Returns True when a rerun is needed."""
+    lookup = _result_lookup(st.session_state.batch_results)
+    if any(eq == device for eq, _rid in lookup):
+        return False
+    if not applicable:
+        return False
+    new_res = _run_rule_list([device], applicable, frames)
+    keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
+    st.session_state.batch_results = keep + new_res
+    focus_key = f"plot_chart_rule_{device}"
+    pref = _preferred_plot_rule_id(applicable, _result_lookup(st.session_state.batch_results), device)
+    if pref:
+        label = next((f"{r.id} — {r.title}" for r in applicable if r.id == pref), None)
+        if label:
+            st.session_state[focus_key] = label
+    return True
 
 
 def _pick_local_folder() -> str | None:
@@ -1882,7 +1964,11 @@ def main() -> None:
             st.success(f"Ran {len(st.session_state.batch_results)} evaluations — open **Plots** or **Analytics**.")
 
     if section == "Results by Category":
-        st.subheader("Results by mechanical category")
+        st.subheader("Results by equipment type")
+        st.caption(
+            "Organized by **device type** (AHU / VAV / plant…), then one table per device. "
+            "Not by cookbook rule family — so boilers never appear under AHU."
+        )
         results = st.session_state.batch_results
         if not results:
             st.info("Run rules (main tab or sidebar **Rerun cat.**), then review here or on **Plots**.")
@@ -1895,16 +1981,78 @@ def main() -> None:
             m4.metric("EQUIP OFF", int((summary["status"] == "SKIPPED_EQUIPMENT_OFF").sum()))
             m5.metric("N/A", int((summary["status"] == "NOT_APPLICABLE_EQUIPMENT_TYPE").sum()))
             m6.metric("ERROR", int((summary["status"] == "ERROR").sum()))
-            by_fam = _results_by_family(summary)
-            fam_labels = [family_label(f) for f in by_fam]
-            fam_pick = st.selectbox("Mechanical category", fam_labels, key="results_fam_pick")
-            fam_key = list(by_fam.keys())[fam_labels.index(fam_pick)]
-            part = by_fam[fam_key]
-            st.dataframe(part, width="stretch", height=420)
-            faults = part[part["status"] == "FAULT"]
-            if not faults.empty:
-                st.write("**Faults**")
-                st.dataframe(faults.sort_values("fault_hours", ascending=False), width="stretch")
+
+            hide_na = st.checkbox(
+                "Hide N/A rows (NOT_APPLICABLE_EQUIPMENT_TYPE)",
+                value=True,
+                key="results_hide_na",
+                help="N/A means the rule does not apply to this equipment type — hide to scan FAULT/PASS faster.",
+            )
+            view = summary
+            if hide_na and not view.empty:
+                view = view[view["status"] != "NOT_APPLICABLE_EQUIPMENT_TYPE"]
+
+            # Prefer live typed buckets; fall back to types stamped on results
+            type_order = list(by_type.keys()) if by_type else []
+            if not type_order and "equipment_type" in summary.columns:
+                type_order = sorted(
+                    {str(t) for t in summary["equipment_type"].dropna().unique()},
+                    key=natural_key,
+                )
+
+            for eq_type in type_order:
+                device_ids = list(by_type.get(eq_type) or [])
+                if not device_ids:
+                    # Results-only devices of this type
+                    device_ids = sorted(
+                        summary.loc[summary["equipment_type"] == eq_type, "equipment_id"]
+                        .astype(str)
+                        .unique(),
+                        key=natural_key,
+                    )
+                type_rows = view[view["equipment_id"].isin(device_ids)] if not view.empty else view
+                if type_rows.empty and hide_na:
+                    # Still show type if it has devices but only N/A left
+                    raw_type = summary[summary["equipment_id"].isin(device_ids)]
+                    if raw_type.empty:
+                        continue
+                counts = _status_counts(
+                    summary[summary["equipment_id"].isin(device_ids)]
+                    if not summary.empty
+                    else summary
+                )
+                bits = " · ".join(f"{k} {v}" for k, v in sorted(counts.items(), key=lambda kv: _STATUS_SORT.get(kv[0], 99)))
+                st.markdown(f"### {eq_type} · {len(device_ids)} device(s)")
+                if bits:
+                    st.caption(bits)
+
+                for eq_id in sorted(device_ids, key=natural_key):
+                    tbl = _device_results_table(view if hide_na else summary, eq_id)
+                    if tbl.empty:
+                        # Device present but filtered out / not run
+                        raw_tbl = _device_results_table(summary, eq_id)
+                        if raw_tbl.empty:
+                            st.markdown(f"**`{eq_id}`** — no results yet")
+                            continue
+                        n_na = int((raw_tbl["status"] == "NOT_APPLICABLE_EQUIPMENT_TYPE").sum())
+                        st.markdown(f"**`{eq_id}`**")
+                        st.caption(f"Only N/A rows ({n_na}) — uncheck **Hide N/A** to show.")
+                        continue
+                    n_fault = int((tbl["status"] == "FAULT").sum())
+                    n_pass = int((tbl["status"] == "PASS").sum())
+                    st.markdown(
+                        f"**`{eq_id}`** — {len(tbl)} row(s)"
+                        + (f" · FAULT {n_fault}" if n_fault else "")
+                        + (f" · PASS {n_pass}" if n_pass else "")
+                    )
+                    st.dataframe(tbl, hide_index=True, width="stretch", height=min(420, 48 + 28 * len(tbl)))
+
+            st.download_button(
+                "Download full results CSV",
+                to_csv_bytes(summary),
+                "fdd_results_by_equipment.csv",
+                key="dl_results_by_equip",
+            )
 
     if section == "Plots":
         from app.docx_report import applicable_rules_for_equipment, build_equipment_fdd_docx
@@ -1914,30 +2062,37 @@ def main() -> None:
             filter_status_bucket,
         )
 
-        st.subheader("Plots — rule validation cards")
+        st.subheader("Plots — rule validation")
         st.caption(
-            "One card per applicable cookbook rule for the selected device. "
-            "Tables always show; Plotly renders only when you open a card (low-RAM safe). "
-            "Camera icon on charts → PNG/JPEG."
+            "Pick a device → rules auto-run → **chart on top**. "
+            "Cards below = params + mapping. Camera icon on chart → PNG/JPEG. "
+            "One Plotly at a time (low-RAM)."
         )
         st.caption(
-            "Economizer family **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT roles "
-            "(map `oa_damper_pct` — e.g. `mad_c` / `mad_c_pct`). **ECON-5** needs heat/preheat. "
-            "**FC6** needs AHU `vav_total_flow`. Empty/skipped plots are usually **data gaps**, not code bugs."
+            "Economizer **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT "
+            "(`oa_damper_pct` → e.g. `mad_c`). **ECON-5** needs heat/preheat. "
+            "**FC6** needs AHU `vav_total_flow`. Empty plots are usually **data gaps**."
         )
-        plot_fmt = st.selectbox("Download format", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt")
+
         type_opts = list(by_type.keys()) or ["UNKNOWN"]
         cur_type = resolve_equipment_type(
             selected, df=frames[selected], role_map=st.session_state.role_map
         )
         type_idx = type_opts.index(cur_type) if cur_type in type_opts else 0
-        eq_type = st.selectbox("Device type", type_opts, index=type_idx, key="plot_eq_type")
+        c_type, c_dev, c_fmt = st.columns([1, 1.2, 0.8])
+        with c_type:
+            eq_type = st.selectbox("Device type", type_opts, index=type_idx, key="plot_eq_type")
         device_ids = by_type.get(eq_type, [])
         if not device_ids:
             st.warning("No devices of that type.")
         else:
-            dev_idx = device_ids.index(selected) if selected in device_ids else 0
-            device = st.selectbox("Device", device_ids, index=dev_idx, key="plot_device")
+            with c_dev:
+                dev_idx = device_ids.index(selected) if selected in device_ids else 0
+                device = st.selectbox("Device", device_ids, index=dev_idx, key="plot_device")
+            with c_fmt:
+                plot_fmt = st.selectbox(
+                    "Chart download", ["png", "jpeg", "svg", "webp"], index=0, key="plot_fmt"
+                )
             st.session_state.selected_equipment = device
             plot_df, _ = _mapped_equipment(device, frames)
             applicable = applicable_rules_for_equipment(
@@ -1949,12 +2104,67 @@ def main() -> None:
             present_n, total_n, cov_pct = equipment_mapping_coverage(
                 applicable, device, st.session_state.role_map, plot_df
             )
+
+            # Auto-run when this device has no evaluations yet
+            if _ensure_device_rules_run(device, applicable, frames):
+                st.rerun()
+
             lookup = _result_lookup(st.session_state.batch_results)
 
-            h1, h2, h3 = st.columns([1.2, 1, 1.4])
-            h1.metric("Mapping coverage", f"{cov_pct:.0f}%", help=f"{present_n}/{total_n} unique required roles present")
-            h2.metric("Rule cards", len(applicable))
-            with h3:
+            # Device data strip
+            n_rows = int(len(plot_df)) if plot_df is not None and not plot_df.empty else 0
+            t0 = t1 = "—"
+            if plot_df is not None and not plot_df.empty and isinstance(plot_df.index, pd.DatetimeIndex):
+                t0 = str(plot_df.index.min())[:19]
+                t1 = str(plot_df.index.max())[:19]
+            device_map = dict((st.session_state.role_map or {}).get(device) or {})
+            mapped_roles = [
+                k for k, v in device_map.items()
+                if k not in {"equipment_type", "plant_group"} and v
+            ]
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("History rows", f"{n_rows:,}")
+            s2.metric("Mapped roles", len(mapped_roles))
+            s3.metric("Mapping coverage", f"{cov_pct:.0f}%", help=f"{present_n}/{total_n} unique required roles")
+            s4.metric("Rule cards", len(applicable))
+            if n_rows:
+                st.caption(f"History span: `{t0}` → `{t1}`")
+
+            # Downloads + rerun
+            d1, d2, d3, d4 = st.columns([1.1, 1.1, 1.2, 1])
+            with d1:
+                try:
+                    session_bytes = json.dumps(_session_config_payload(), indent=2).encode("utf-8")
+                except Exception:
+                    session_bytes = json.dumps(
+                        {
+                            "schema_version": "openfdd_session_v1",
+                            "role_map": st.session_state.get("role_map") or {},
+                            "params": st.session_state.get("params") or {},
+                        },
+                        indent=2,
+                    ).encode("utf-8")
+                st.download_button(
+                    "Download session_config.json",
+                    data=session_bytes,
+                    file_name="session_config.json",
+                    mime="application/json",
+                    key=f"dl_session_plots_{device}",
+                    help="Current units, prefer_web_oat, full role_map, params.",
+                )
+            with d2:
+                role_bytes = json.dumps(
+                    st.session_state.get("role_map") or {}, indent=2
+                ).encode("utf-8")
+                st.download_button(
+                    "Download role_map.json",
+                    data=role_bytes,
+                    file_name="role_map.json",
+                    mime="application/json",
+                    key=f"dl_rolemap_plots_{device}",
+                    help="Equipment → role → CSV column mapping only.",
+                )
+            with d3:
                 try:
                     docx_bytes = build_equipment_fdd_docx(
                         building_id=st.session_state.get("building_id") or "",
@@ -1974,60 +2184,114 @@ def main() -> None:
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"dl_fdd_docx_{device}",
                         type="primary",
-                        help="One-click Word report mirroring these cards (PLACE PLOT HERE stubs).",
+                        help="Word report mirroring cards (PLACE PLOT HERE stubs).",
                     )
                 except Exception as exc:
                     st.warning(f"DOCX unavailable: {exc}")
-
-            if st.button("Run all applicable rules for this device", key="plot_run_device"):
-                new_res = _run_rule_list([device], applicable, frames)
-                keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
-                st.session_state.batch_results = keep + new_res
-                lookup = _result_lookup(st.session_state.batch_results)
-                st.success(f"Evaluated {len(new_res)} rules on `{device}`")
-
-            if not any(eq == device for eq, _rid in lookup):
-                st.info(
-                    "Click **Run all applicable rules for this device** (or sidebar **Rerun cat.**) "
-                    "to populate statuses — cards still show mapping/params."
-                )
+            with d4:
+                if st.button("Re-run device rules", key="plot_run_device"):
+                    new_res = _run_rule_list([device], applicable, frames)
+                    keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
+                    st.session_state.batch_results = keep + new_res
+                    lookup = _result_lookup(st.session_state.batch_results)
+                    pref = _preferred_plot_rule_id(applicable, lookup, device)
+                    if pref:
+                        st.session_state[f"plot_chart_rule_{device}"] = next(
+                            (f"{r.id} — {r.title}" for r in applicable if r.id == pref),
+                            st.session_state.get(f"plot_chart_rule_{device}"),
+                        )
+                    st.rerun()
 
             device_results = [r for r in st.session_state.batch_results if r.equipment_id == device]
+            n_fault = sum(1 for r in device_results if r.status == "FAULT")
+            n_pass = sum(1 for r in device_results if r.status == "PASS")
+            n_skip = sum(
+                1
+                for r in device_results
+                if str(r.status).startswith("SKIPPED")
+            )
+            st.caption(
+                f"`{device}` · {len(applicable)} applicable rules · "
+                f"FAULT {n_fault} · PASS {n_pass} · SKIPPED {n_skip} · "
+                f"{len(device_results)} evaluations"
+            )
+
+            # Chart panel (always on top — never default to "none")
+            focus_labels = [f"{r.id} — {r.title}" for r in applicable]
+            focus_key = f"plot_chart_rule_{device}"
+            if focus_labels:
+                pref_id = _preferred_plot_rule_id(applicable, lookup, device)
+                pref_label = next(
+                    (lab for lab in focus_labels if lab.startswith(f"{pref_id} —")),
+                    focus_labels[0],
+                )
+                if focus_key not in st.session_state or st.session_state[focus_key] not in focus_labels:
+                    st.session_state[focus_key] = pref_label
+                focus_pick = st.selectbox(
+                    "Chart rule (one Plotly at a time)",
+                    focus_labels,
+                    key=focus_key,
+                )
+                focus_rule_id = focus_pick.split(" — ", 1)[0].strip()
+                focus_rule = next((r for r in applicable if r.id == focus_rule_id), None)
+                focus_res = lookup.get((device, focus_rule_id))
+                st.markdown(f"##### Chart · `{focus_rule_id}`")
+                if focus_rule is None:
+                    st.info("No applicable rules for this device type.")
+                elif focus_res is None:
+                    st.warning("No result for this rule — click **Re-run device rules**.")
+                else:
+                    status = str(getattr(focus_res, "status", "") or "")
+                    st.caption(f"Status: `{status}`")
+                    fig = rule_result_chart(
+                        plot_df,
+                        focus_res,
+                        required_roles=focus_rule.required_roles,
+                        units_map=units_map,
+                    )
+                    if fig:
+                        st.plotly_chart(
+                            fig,
+                            width="stretch",
+                            config=plotly_config(
+                                filename=f"{device}_{focus_rule_id}", fmt=plot_fmt
+                            ),
+                            key=f"fig_top_{device}_{focus_rule_id}",
+                        )
+                    else:
+                        miss = list(getattr(focus_res, "missing_roles", None) or [])
+                        note = str(getattr(focus_res, "notes", "") or "")
+                        bits = [f"status `{status}`"]
+                        if miss:
+                            bits.append("missing: " + ", ".join(miss))
+                        if note:
+                            bits.append(note[:200])
+                        st.info("No Plotly series for this rule — " + " · ".join(bits))
+            else:
+                focus_rule_id = None
+                st.info("No applicable cookbook rules for this equipment type.")
+
             sens = sensor_fault_summary(plot_df, device_results, equipment_id=device)
             if not sens.empty:
-                st.markdown("##### Sensor fault summary statistics")
-                st.caption(
-                    "Mean/std/min/p50/max for sensors involved in FAULT sensor-validation rules."
-                )
-                st.dataframe(sens, width="stretch", height=220)
-                st.download_button(
-                    "Download sensor fault stats CSV",
-                    to_csv_bytes(sens),
-                    f"{device}_sensor_fault_stats.csv",
-                    key=f"dl_sens_{device}",
-                )
+                with st.expander("Sensor fault summary statistics", expanded=False):
+                    st.caption(
+                        "Mean/std/min/p50/max for sensors involved in FAULT sensor-validation rules."
+                    )
+                    st.dataframe(sens, width="stretch", height=220)
+                    st.download_button(
+                        "Download sensor fault stats CSV",
+                        to_csv_bytes(sens),
+                        f"{device}_sensor_fault_stats.csv",
+                        key=f"dl_sens_{device}",
+                    )
 
+            st.markdown("##### Rule cards (params + mapping)")
             status_filter = st.radio(
                 "Filter cards",
                 ["All", "FAULT", "PASS", "SKIPPED", "Not run"],
                 horizontal=True,
                 index=0,
                 key=f"plot_status_filter_{device}",
-            )
-            # Single live Plotly chart (low-RAM): pick which open card's series to draw.
-            focus_labels = ["(none — tables only)"] + [
-                f"{r.id} — {r.title}" for r in applicable
-            ]
-            focus_pick = st.selectbox(
-                "Plot focus (one Plotly chart at a time)",
-                focus_labels,
-                index=0,
-                key=f"plot_focus_{device}",
-            )
-            focus_rule_id = (
-                None
-                if focus_pick.startswith("(none")
-                else focus_pick.split(" — ", 1)[0].strip()
             )
 
             cards_shown = 0
@@ -2046,7 +2310,7 @@ def main() -> None:
                     continue
                 cards_shown += 1
                 title = f"{card.rule_id} — {card.title} · {card.status}"
-                with st.expander(title, expanded=False):
+                with st.expander(title, expanded=(rule.id == focus_rule_id)):
                     if card.equation:
                         st.caption(card.equation)
                     fh = card.fault_hours
@@ -2102,30 +2366,8 @@ def main() -> None:
                     else:
                         st.caption("Sensor/control sweep — applies to present sensors / outputs.")
 
-                    if focus_rule_id == rule.id and card.plottable and res is not None:
-                        fig = rule_result_chart(
-                            plot_df,
-                            res,
-                            required_roles=rule.required_roles,
-                            units_map=units_map,
-                        )
-                        if fig:
-                            st.plotly_chart(
-                                fig,
-                                width="stretch",
-                                config=plotly_config(
-                                    filename=f"{device}_{rule.id}", fmt=plot_fmt
-                                ),
-                                key=f"fig_{device}_{rule.id}",
-                            )
-                        else:
-                            st.caption("No plot — missing roles / N/A / not run")
-                    elif focus_rule_id == rule.id:
-                        st.caption("No plot — missing roles / N/A / not run")
-                    else:
-                        st.caption(
-                            "Set **Plot focus** above to this rule to render Plotly here."
-                        )
+                    if rule.id == focus_rule_id:
+                        st.caption("Chart for this rule is in the **panel above**.")
 
             if cards_shown == 0:
                 st.info(f"No cards match filter **{status_filter}**.")

@@ -36,23 +36,24 @@ and `REQUIRED_RCX_PRESET_IDS` in `app/rcx_plots.py`.
 
 ### Plots tab — validation cards (required)
 
-- One card per **applicable** cookbook rule for the selected device (All / FAULT / PASS / SKIPPED / Not run filters).
-- Always show equation, tune params, required vs mapped points.
-- **Plot focus** selectbox → at most one `rule_result_chart` (low-RAM). Cap points with `VIBE19_MAX_PLOT_POINTS`.
-- Header: mapping coverage % + one-click **Download FDD DOCX**.
+- Auto-run applicable rules for the selected device when that device has no results yet.
+- Device strip (rows / span / mapped roles / coverage) + **Download session_config.json** / **role_map.json** / FDD DOCX.
+- **Chart panel on top** — selectbox picks one rule; always one `rule_result_chart` (never “none”). Prefer first FAULT.
+- One card per **applicable** cookbook rule below (All / FAULT / PASS / SKIPPED / Not run filters).
+- Cards: equation, tune params, required vs mapped points. Cap points with `VIBE19_MAX_PLOT_POINTS`.
 
 ```python
 from app.rule_card import build_rule_card
 from app.charts import rule_result_chart, plotly_config
 
+# Top panel: always plot the selected focus rule
+fig = rule_result_chart(df, result, required_roles=rule.required_roles, units_map=units_map)
+st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"{device}_{rule.id}"))
 card = build_rule_card(
     equipment_id=device, rule=rule, result=result,
     role_map=role_map, mapped_df=df, params=params,
 )
-# tables from card.param_rows / card.mapping_rows …
-if focus_rule_id == rule.id:
-    fig = rule_result_chart(df, result, required_roles=rule.required_roles, units_map=units_map)
-    st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"{device}_{rule.id}"))
+# expander tables from card.param_rows / card.mapping_rows
 ```
 
 Rainbow colors, one y-domain per unit family, confirmed-fault swim lane.

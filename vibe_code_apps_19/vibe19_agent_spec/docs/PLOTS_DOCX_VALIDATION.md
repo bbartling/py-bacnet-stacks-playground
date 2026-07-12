@@ -29,12 +29,14 @@ Plots is the **review/validation** surface for the 50-rule cookbook on one devic
 ## Plots UX (required behavior)
 
 1. Device type → device picker.
-2. Header: **mapping coverage %**, rule-card count, one-click **Download FDD DOCX**.
-3. Filter chips: All / FAULT / PASS / SKIPPED / Not run (default **All**).
-4. **One expander (or bordered card) per applicable cookbook rule** — including SKIPPED / N/A / not-run. Sensor-sweep rules count as one card each.
-5. Every card always shows: equation/description, tune-param table, required vs mapped points (missing highlighted).
-6. **Plotly is lazy** — Streamlit expander bodies always run, so only render `rule_result_chart` for the rule selected in **Plot focus** (one live chart). Do not draw all FAULT charts at once (SIGSEGV risk on low-RAM hosts).
-7. Keep economizer / FC6 data-gap caption.
+2. **Auto-run** applicable rules for the selected device when that device has no evaluations yet (manual **Re-run device rules** still available).
+3. Device strip: history row count, time span, mapped-role count, **mapping coverage %**.
+4. Downloads on Plots: **session_config.json**, **role_map.json**, one-click **Download FDD DOCX**.
+5. **Chart panel on top** — selectbox picks one rule; always render that rule’s Plotly (never default to “tables only / none”). Prefer first FAULT after a run.
+6. Filter chips: All / FAULT / PASS / SKIPPED / Not run (default **All**).
+7. **One expander per applicable cookbook rule** below the chart — equation, tune params, required vs mapped points.
+8. **One live Plotly only** (low-RAM). Cap points with `VIBE19_MAX_PLOT_POINTS`. Do not draw all FAULT charts at once.
+9. Keep economizer / FC6 data-gap caption.
 
 ## DOCX UX (required behavior)
 
