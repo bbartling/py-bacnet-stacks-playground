@@ -214,6 +214,14 @@ COOKBOOK_TO_HAYSTACK_POINT: dict[str, str] = {
     "vav_press_req_sum": "vav-pressure-request-sum",
     "vav_total_flow": "vav-total-airflow",
     "wx_oa_t": "web-outside-air-temp",
+    "elec_power_kw": "elec-power",
+    "building_power_kw": "building-power",
+    "meter_power_kw": "meter-power",
+    "chiller_power_kw": "chiller-power",
+    "gas_flow": "gas-flow",
+    "gas_rate": "gas-rate",
+    "nat_gas_flow": "nat-gas-flow",
+    "gas_therm_rate": "gas-therm-rate",
 }
 
 HAYSTACK_EQUIP_TYPE_TO_COOKBOOK: dict[str, str] = {

@@ -11,10 +11,13 @@ import pandas as pd
 from app.data_model_tree import BuildingDataModelTree, build_data_model_tree
 from app.rule_card import (
     PLACE_PLOT_HERE,
+    PLACE_RCX_PLOT_HERE,
     RuleCard,
     build_rule_card,
     equipment_mapping_coverage,
 )
+from app.column_map_json import FAMILY_LABELS, FAMILY_ORDER
+from app.rule_plot_meta import RCX_PRESETS_BY_RULE, analytics_related
 from app.rules import RULES, RULES_BY_ID
 from app.rules.base import RuleResult
 from app.rules.cookbook_catalog import CookbookRule
@@ -74,29 +77,36 @@ def applicable_rules_for_equipment(
 
 
 def _add_params_table(doc, card: RuleCard) -> None:
-    _add_para(doc, "Tune parameters", bold=True)
-    table = doc.add_table(rows=1, cols=5)
+    _add_para(doc, "Sliders (tune params)", bold=True)
+    table = doc.add_table(rows=1, cols=8)
     table.style = "Table Grid"
     hdr = table.rows[0].cells
-    for i, h in enumerate(["Key", "Label", "Value", "Unit", "Source"]):
+    for i, h in enumerate(
+        ["Key", "Label", "Unit", "Value", "Default", "Min", "Max", "Step"]
+    ):
         hdr[i].text = h
     if not card.param_rows:
         cells = table.add_row().cells
         cells[0].text = "(no tune params)"
-        for i in range(1, 5):
+        for i in range(1, 8):
             cells[i].text = "—"
         return
     for pr in card.param_rows:
         cells = table.add_row().cells
         cells[0].text = pr.key
         cells[1].text = pr.label
-        cells[2].text = f"{pr.value:g}"
-        cells[3].text = pr.unit
-        cells[4].text = pr.source
+        cells[2].text = pr.unit
+        cells[3].text = f"{pr.value:g}"
+        cells[4].text = f"{pr.default:g}"
+        cells[5].text = f"{pr.min:g}"
+        cells[6].text = f"{pr.max:g}"
+        cells[7].text = f"{pr.step:g}"
 
 
 def _add_mapping_table(doc, card: RuleCard) -> None:
-    _add_para(doc, "Required vs mapped points", bold=True)
+    _add_para(doc, "Points → Haystack tags", bold=True)
+    if card.points_note:
+        _add_para(doc, card.points_note)
     table = doc.add_table(rows=1, cols=5)
     table.style = "Table Grid"
     hdr = table.rows[0].cells
@@ -128,13 +138,18 @@ def _append_rule_card_section(
 ) -> None:
     _add_heading(doc, f"{card.rule_id} — {card.title} · {card.status}", 1)
     if card.equation:
-        _add_para(doc, card.equation)
+        _add_para(doc, f"Equation: {card.equation}")
     fh = "—" if card.fault_hours is None else f"{card.fault_hours:.2f}"
-    _add_kv_table(
-        doc,
+    facts = list(card.catalog_facts) if card.catalog_facts else [
+        ("Family", card.family),
+        ("Equipment kinds", ", ".join(card.equipment_kinds) or "—"),
+        ("Operational gate", card.gate_mode),
+        ("Default confirm", f"{card.confirm_seconds:g}s"),
+        ("Sweep", card.sweep_label),
+    ]
+    facts.extend(
         [
             ("Status", card.status),
-            ("Family", card.family),
             ("Fault hours", fh),
             (
                 "Missing roles",
@@ -149,10 +164,22 @@ def _append_rule_card_section(
                     else "n/a (sweep)"
                 ),
             ),
-        ],
+        ]
     )
-    _add_params_table(doc, card)
+    _add_para(doc, "Rule facts", bold=True)
+    _add_kv_table(doc, facts)
     _add_mapping_table(doc, card)
+    _add_para(doc, "Plot series", bold=True)
+    if card.plot_series:
+        for bullet in card.plot_series:
+            _add_para(doc, f"• {bullet}")
+    else:
+        _add_para(doc, "—")
+    _add_params_table(doc, card)
+    _add_para(doc, "Analytics / related views", bold=True)
+    _add_para(doc, card.analytics_hint or "—")
+    for line in card.analytics_fit:
+        _add_para(doc, f"• {line}")
     _add_para(doc, "Plot", bold=True)
     if plot_png:
         doc.add_picture(io.BytesIO(plot_png), width=Inches(6.0))
@@ -221,6 +248,7 @@ def build_equipment_fdd_docx(
             role_map=role_map,
             mapped_df=mapped_df,
             params=params,
+            results=results,
         )
         _append_rule_card_section(
             doc,
@@ -333,6 +361,207 @@ def build_analytics_docx(
     if tree is not None:
         _add_heading(doc, "Data model summary", 1)
         _add_para(doc, f"{len(tree.equipment)} equipment nodes in mapping tree.")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def build_rcx_catalog_docx(
+    *,
+    building_id: str,
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    weather: pd.DataFrame | None = None,
+    results: list[RuleResult] | None = None,
+    params: dict[str, Any] | None = None,
+    rcx_coverage: pd.DataFrame | None = None,
+    zone_lo_f: float = 70.0,
+    zone_hi_f: float = 75.0,
+    occupancy_schedule: dict | None = None,
+    unit_system: str = "imperial",
+    motor_weekly: pd.DataFrame | None = None,
+    cool_bins: pd.DataFrame | None = None,
+) -> bytes:
+    """Building-level RCx / catalog DOCX: RULE_PLOT_CATALOG shape with analytics filled when fit."""
+    from collections import defaultdict
+
+    from app.occupancy import OccupancySchedule
+    from app.role_map import apply_role_map
+    from app.rcx_plots import rcx_preset_coverage as _rcx_cov
+    from app.site_model import resolve_equipment_type
+
+    Document, _Inches, _Pt = _docx()
+    doc = Document()
+    results = results or []
+    schedule = OccupancySchedule.from_dict(occupancy_schedule)
+    if rcx_coverage is None:
+        rcx_coverage = _rcx_cov(
+            frames,
+            role_map,
+            weather=weather,
+            schedule=schedule,
+            comfort_low_f=zone_lo_f,
+            comfort_high_f=zone_hi_f,
+        )
+
+    _add_heading(doc, f"RCx catalog report — {building_id or 'building'}", 0)
+    _add_kv_table(
+        doc,
+        [
+            ("Building", building_id or "—"),
+            ("Unit system", unit_system),
+            ("Zone comfort band °F", f"{zone_lo_f:g} – {zone_hi_f:g}"),
+            ("Occupancy timezone", schedule.timezone),
+            ("Equipment count", str(len(frames))),
+            (
+                "Generated",
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            ),
+        ],
+    )
+    _add_para(
+        doc,
+        "Catalog-shaped sections for all 50 cookbook rules. Analytics / RCx tables are filled "
+        "when the data model supports them; otherwise an explicit not-fit reason is shown. "
+        "Paste Plotly exports into PLACE RCX PLOT HERE stubs.",
+    )
+
+    if rcx_coverage is not None and not rcx_coverage.empty:
+        _add_heading(doc, "RCx preset coverage", 1)
+        cols = [c for c in ("preset_id", "title", "series_count", "row_count", "empty_reason") if c in rcx_coverage.columns]
+        table = doc.add_table(rows=1, cols=len(cols))
+        table.style = "Table Grid"
+        for i, c in enumerate(cols):
+            table.rows[0].cells[i].text = str(c)
+        for _, row in rcx_coverage.iterrows():
+            cells = table.add_row().cells
+            for i, c in enumerate(cols):
+                cells[i].text = str(row[c])
+
+    # Representative equipment per type for mapping cards
+    by_type: dict[str, str] = {}
+    for eq_id, raw in frames.items():
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        by_type.setdefault(et, eq_id)
+
+    by_fam: dict[str, list] = defaultdict(list)
+    for rule in RULES:
+        by_fam[rule.family].append(rule)
+
+    cov_by_id = {}
+    if rcx_coverage is not None and not rcx_coverage.empty:
+        cov_by_id = {
+            str(r.preset_id): r for r in rcx_coverage.itertuples() if hasattr(r, "preset_id")
+        }
+
+    for fam in FAMILY_ORDER:
+        rules = by_fam.get(fam) or []
+        if not rules:
+            continue
+        _add_heading(doc, FAMILY_LABELS.get(fam, fam), 1)
+        for rule in rules:
+            # Pick a sample device of a matching kind when possible
+            sample_eq = ""
+            for kind in rule.equipment_kinds:
+                # map cookbook kinds roughly to equipment types
+                kind_u = kind.upper().replace("HEATPUMP", "HP").replace("ZONE", "VAV")
+                if kind_u == "AHU" and "AHU" in by_type:
+                    sample_eq = by_type["AHU"]
+                    break
+                if kind_u == "VAV" and "VAV" in by_type:
+                    sample_eq = by_type["VAV"]
+                    break
+                if kind_u in {"CHILLER", "CHW_PLANT"} and (
+                    "CHILLER" in by_type or "CHW_PLANT" in by_type
+                ):
+                    sample_eq = by_type.get("CHILLER") or by_type.get("CHW_PLANT") or ""
+                    break
+                if kind_u == "BOILER" and "BOILER" in by_type:
+                    sample_eq = by_type["BOILER"]
+                    break
+            if not sample_eq and frames:
+                sample_eq = next(iter(frames))
+
+            mapped = None
+            et = ""
+            if sample_eq:
+                mapped = apply_role_map(frames[sample_eq], sample_eq, role_map)
+                et = resolve_equipment_type(sample_eq, df=frames[sample_eq], role_map=role_map)
+
+            res = next(
+                (
+                    r
+                    for r in results
+                    if r.equipment_id == sample_eq and r.rule_id == rule.id
+                ),
+                None,
+            )
+            card = build_rule_card(
+                equipment_id=sample_eq or "—",
+                rule=rule,
+                result=res,
+                role_map=role_map,
+                mapped_df=mapped,
+                params=params,
+                results=results,
+                rcx_coverage=rcx_coverage,
+                weather=weather,
+            )
+            _add_heading(doc, f"{card.rule_id} — {card.title}", 2)
+            if sample_eq:
+                _add_para(doc, f"Sample equipment for mapping: {sample_eq} ({et})")
+            _append_rule_card_section(doc, card, plot_png=None, Inches=_Inches)
+
+            # Fill RCx analytics for linked presets
+            related = analytics_related(rule.id)
+            preset_ids = related.rcx_preset_ids or RCX_PRESETS_BY_RULE.get(rule.id, ())
+            for pid in preset_ids:
+                stub = PLACE_RCX_PLOT_HERE.format(preset_id=pid)
+                _add_para(doc, stub)
+                row = cov_by_id.get(pid)
+                if row is None:
+                    _add_para(doc, f"RCx `{pid}`: not in coverage table")
+                else:
+                    n = int(getattr(row, "series_count", 0) or 0)
+                    rc = int(getattr(row, "row_count", 0) or 0)
+                    if rc > 0:
+                        _add_para(doc, f"RCx `{pid}`: fit — {n} series / {rc} rows")
+                    else:
+                        reason = str(getattr(row, "empty_reason", "") or "no data")
+                        _add_para(doc, f"RCx `{pid}`: not fit — {reason}")
+
+            if rule.id == "SCHED-1":
+                _add_para(
+                    doc,
+                    f"Overview schedule timezone `{schedule.timezone}`; "
+                    f"zone band {zone_lo_f:g}–{zone_hi_f:g} °F.",
+                )
+
+    if motor_weekly is not None or cool_bins is not None:
+        _add_heading(doc, "Building analytics appendix", 1)
+        if motor_weekly is not None and not motor_weekly.empty:
+            _add_para(doc, "Motor weekly (head)", bold=True)
+            cols = list(motor_weekly.columns)[:6]
+            table = doc.add_table(rows=1, cols=len(cols))
+            table.style = "Table Grid"
+            for i, c in enumerate(cols):
+                table.rows[0].cells[i].text = str(c)
+            for _, row in motor_weekly.head(15).iterrows():
+                cells = table.add_row().cells
+                for i, c in enumerate(cols):
+                    cells[i].text = str(row[c])
+        if cool_bins is not None and not cool_bins.empty:
+            _add_para(doc, "Mech-cooling OAT bins (head)", bold=True)
+            cols = list(cool_bins.columns)[:6]
+            table = doc.add_table(rows=1, cols=len(cols))
+            table.style = "Table Grid"
+            for i, c in enumerate(cols):
+                table.rows[0].cells[i].text = str(c)
+            for _, row in cool_bins.head(15).iterrows():
+                cells = table.add_row().cells
+                for i, c in enumerate(cols):
+                    cells[i].text = str(row[c])
 
     buf = io.BytesIO()
     doc.save(buf)

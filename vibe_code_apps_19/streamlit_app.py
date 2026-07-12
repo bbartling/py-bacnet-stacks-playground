@@ -2285,7 +2285,7 @@ def main() -> None:
                         key=f"dl_sens_{device}",
                     )
 
-            st.markdown("##### Rule cards (params + mapping)")
+            st.markdown("##### Rule cards (catalog parity)")
             status_filter = st.radio(
                 "Filter cards",
                 ["All", "FAULT", "PASS", "SKIPPED", "Not run"],
@@ -2293,6 +2293,23 @@ def main() -> None:
                 index=0,
                 key=f"plot_status_filter_{device}",
             )
+
+            from app.rcx_plots import rcx_preset_coverage
+
+            try:
+                rcx_cov = rcx_preset_coverage(
+                    frames,
+                    st.session_state.role_map,
+                    weather=st.session_state.weather,
+                    schedule=OccupancySchedule.from_dict(
+                        st.session_state.get("occupancy_schedule")
+                    ),
+                    comfort_low_f=float(st.session_state.get("zone_lo_f", 70.0)),
+                    comfort_high_f=float(st.session_state.get("zone_hi_f", 75.0)),
+                )
+            except Exception:
+                rcx_cov = pd.DataFrame()
+            has_sens_fault = not sens.empty
 
             cards_shown = 0
             for rule in applicable:
@@ -2304,6 +2321,10 @@ def main() -> None:
                     role_map=st.session_state.role_map,
                     mapped_df=plot_df,
                     params=st.session_state.get("params") or {},
+                    results=st.session_state.batch_results,
+                    rcx_coverage=rcx_cov if not rcx_cov.empty else None,
+                    weather=st.session_state.weather,
+                    has_sensor_fault_summary=has_sens_fault,
                 )
                 bucket = filter_status_bucket(card.status)
                 if status_filter != "All" and bucket != status_filter:
@@ -2312,7 +2333,7 @@ def main() -> None:
                 title = f"{card.rule_id} — {card.title} · {card.status}"
                 with st.expander(title, expanded=(rule.id == focus_rule_id)):
                     if card.equation:
-                        st.caption(card.equation)
+                        st.markdown(f"**Equation:** {card.equation}")
                     fh = card.fault_hours
                     meta_bits = [f"`{card.status}`"]
                     if fh is not None:
@@ -2327,28 +2348,23 @@ def main() -> None:
                     if card.notes:
                         st.caption(card.notes)
 
-                    if card.param_rows:
-                        st.markdown("**Tune parameters**")
-                        st.dataframe(
-                            pd.DataFrame(
-                                [
-                                    {
-                                        "key": p.key,
-                                        "label": p.label,
-                                        "value": p.value,
-                                        "unit": p.unit,
-                                        "source": p.source,
-                                    }
-                                    for p in card.param_rows
-                                ]
-                            ),
-                            hide_index=True,
-                            width="stretch",
-                        )
-                    else:
-                        st.caption("No tune params for this rule.")
+                    st.markdown("**Rule facts**")
+                    facts = list(card.catalog_facts) + [
+                        ("Status", card.status),
+                        (
+                            "Fault hours",
+                            "—" if card.fault_hours is None else f"{card.fault_hours:.2f}",
+                        ),
+                    ]
+                    st.dataframe(
+                        pd.DataFrame(facts, columns=["Field", "Value"]),
+                        hide_index=True,
+                        width="stretch",
+                    )
 
-                    st.markdown("**Required vs mapped points**")
+                    st.markdown("**Points → Haystack tags**")
+                    if card.points_note:
+                        st.caption(card.points_note)
                     if card.mapping_rows:
                         map_df = pd.DataFrame(
                             [
@@ -2365,6 +2381,40 @@ def main() -> None:
                         st.dataframe(map_df, hide_index=True, width="stretch")
                     else:
                         st.caption("Sensor/control sweep — applies to present sensors / outputs.")
+
+                    st.markdown("**Plot series**")
+                    for bullet in card.plot_series:
+                        st.markdown(f"- {bullet}")
+
+                    st.markdown("**Sliders (tune params)**")
+                    if card.param_rows:
+                        st.dataframe(
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "key": p.key,
+                                        "label": p.label,
+                                        "unit": p.unit,
+                                        "value": p.value,
+                                        "default": p.default,
+                                        "min": p.min,
+                                        "max": p.max,
+                                        "step": p.step,
+                                        "source": p.source,
+                                    }
+                                    for p in card.param_rows
+                                ]
+                            ),
+                            hide_index=True,
+                            width="stretch",
+                        )
+                    else:
+                        st.caption("No tune params for this rule.")
+
+                    st.markdown("**Analytics / related views**")
+                    st.caption(card.analytics_hint or "—")
+                    for line in card.analytics_fit:
+                        st.markdown(f"- {line}")
 
                     if rule.id == focus_rule_id:
                         st.caption("Chart for this rule is in the **panel above**.")
@@ -2451,7 +2501,8 @@ def main() -> None:
 
         st.markdown("##### DOCX reports")
         st.caption(
-            "One-click Word reports: equipment FDD (mirrors Plots cards), data-model tree, analytics."
+            "One-click Word reports: equipment FDD (catalog-parity cards), RCx catalog, "
+            "data-model tree, analytics."
         )
         try:
             from app.data_model_tree import build_data_model_tree
@@ -2460,6 +2511,7 @@ def main() -> None:
                 build_analytics_docx,
                 build_building_data_model_docx,
                 build_equipment_fdd_docx,
+                build_rcx_catalog_docx,
             )
             from app.rcx_plots import rcx_preset_coverage
 
@@ -2507,6 +2559,26 @@ def main() -> None:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 key="dl_export_fdd_docx",
                 type="primary",
+            )
+            st.download_button(
+                "Download RCx catalog DOCX",
+                data=build_rcx_catalog_docx(
+                    building_id=st.session_state.get("building_id") or "",
+                    frames=frames,
+                    role_map=st.session_state.role_map,
+                    weather=st.session_state.weather,
+                    results=st.session_state.batch_results,
+                    params=st.session_state.get("params") or {},
+                    zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
+                    zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
+                    occupancy_schedule=st.session_state.get("occupancy_schedule"),
+                    unit_system=st.session_state.get("unit_system", "imperial"),
+                    motor_weekly=motor_weekly if isinstance(motor_weekly, pd.DataFrame) else None,
+                    cool_bins=cool_bins if isinstance(cool_bins, pd.DataFrame) else None,
+                ),
+                file_name="rcx_catalog_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_export_rcx_catalog_docx",
             )
             st.download_button(
                 "Download data_model.docx",

@@ -56,8 +56,8 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + mapping status / gap report (sidecar JSON from package) |
 | Run Rules | 50-rule cookbook (+ custom) |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **Plots** | Auto-run device rules; chart panel on top (one Plotly); cards below for params/mapping; **session_config** / **role_map** / FDD DOCX downloads |
-| **RCx Plots** | Named presets (chart type in label): zone comfort ranking, AHU/HW/CHW/CW scatters, air-side overlays + fan-mode summaries |
+| **Plots** | Auto-run device rules; chart panel on top; **catalog-parity** rule cards (facts / Haystack / series / full sliders / analytics fit); session_config / role_map / FDD DOCX |
+| **RCx Plots** | Named presets + zone comfort ranking; fan-mode summaries; **Download RCx catalog DOCX** |
 | Export | CSV / session / health / DOCX artifacts (incl. **Download equipment FDD DOCX**) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).

@@ -494,6 +494,82 @@ def oat_scatter(
     return fig
 
 
+def monthly_energy_bar(
+    monthly_df: pd.DataFrame,
+    *,
+    energy_col: str,
+    title: str,
+    y_title: str = "",
+) -> go.Figure | None:
+    """Grouped bars: monthly energy per equipment."""
+    if monthly_df is None or monthly_df.empty or energy_col not in monthly_df.columns:
+        return None
+    if "month_label" not in monthly_df.columns:
+        return None
+    fig = go.Figure()
+    months = list(monthly_df.sort_values("month")["month_label"].unique())
+    for i, eq_id in enumerate(sorted(monthly_df["equipment_id"].astype(str).unique())):
+        sub = monthly_df.loc[monthly_df["equipment_id"].astype(str) == eq_id]
+        by_m = dict(zip(sub["month_label"], sub[energy_col]))
+        fig.add_trace(
+            go.Bar(
+                x=months,
+                y=[float(by_m.get(m, 0.0) or 0.0) for m in months],
+                name=str(eq_id),
+                marker_color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Month",
+        yaxis_title=y_title or energy_col,
+        barmode="group",
+        template="plotly_white",
+        height=420,
+        legend=dict(orientation="h", y=1.12),
+        margin=dict(l=50, r=20, t=60, b=50),
+    )
+    return fig
+
+
+def energy_degree_day_scatter(
+    scatter_df: pd.DataFrame,
+    *,
+    title: str,
+    x_title: str,
+    y_title: str,
+) -> go.Figure | None:
+    """Scatter monthly energy (y) vs degree-days (x)."""
+    if scatter_df is None or scatter_df.empty:
+        return None
+    if not {"x", "y", "equipment_id"} <= set(scatter_df.columns):
+        return None
+    fig = go.Figure()
+    for i, eq_id in enumerate(sorted(scatter_df["equipment_id"].astype(str).unique())):
+        sub = scatter_df.loc[scatter_df["equipment_id"].astype(str) == eq_id]
+        fig.add_trace(
+            go.Scatter(
+                x=sub["x"],
+                y=sub["y"],
+                name=str(eq_id),
+                mode="markers+text" if len(sub) <= 24 else "markers",
+                text=sub["month_label"] if "month_label" in sub.columns and len(sub) <= 24 else None,
+                textposition="top center",
+                marker=dict(size=9, opacity=0.75, color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)]),
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title=x_title,
+        yaxis_title=y_title,
+        template="plotly_white",
+        height=420,
+        legend=dict(orientation="h", y=1.12),
+        margin=dict(l=50, r=20, t=60, b=50),
+    )
+    return fig
+
+
 def motor_weekly_runtime_chart(
     weekly_df: pd.DataFrame,
     *,

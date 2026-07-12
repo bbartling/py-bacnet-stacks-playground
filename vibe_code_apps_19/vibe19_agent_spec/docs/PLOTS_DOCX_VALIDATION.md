@@ -34,23 +34,23 @@ Plots is the **review/validation** surface for the 50-rule cookbook on one devic
 4. Downloads on Plots: **session_config.json**, **role_map.json**, one-click **Download FDD DOCX**.
 5. **Chart panel on top** — selectbox picks one rule; always render that rule’s Plotly (never default to “tables only / none”). Prefer first FAULT after a run.
 6. Filter chips: All / FAULT / PASS / SKIPPED / Not run (default **All**).
-7. **One expander per applicable cookbook rule** below the chart — equation, tune params, required vs mapped points.
+7. **One expander per applicable cookbook rule** below the chart — **catalog parity** with [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md):
+   - Equation
+   - Rule facts (family, equipment kinds, operational gate, default confirm, sweep)
+   - Points → Haystack (+ live CSV column / in-history)
+   - Plot series bullets
+   - Sliders with Value / Default / Min / Max / Step
+   - Analytics / related + live data-model fit lines
 8. **One live Plotly only** (low-RAM). Cap points with `VIBE19_MAX_PLOT_POINTS`. Do not draw all FAULT charts at once.
 9. Keep economizer / FC6 data-gap caption.
 
+Shared builder: `app.rule_card:build_rule_card` (+ `app.rule_plot_meta`).
+
 ## DOCX UX (required behavior)
 
-`build_equipment_fdd_docx` must literally mirror cards:
+`build_equipment_fdd_docx` must literally mirror cards (same catalog sections + **`[PLACE PLOT HERE`**).
 
-- Cover: building, equipment, type, mapping coverage %, generated time
-- One section per applicable rule (same order as UI)
-- Always include params + mapping tables (even when blank/missing)
-- Always insert: **`[PLACE PLOT HERE — paste Plotly PNG from Streamlit camera or Trends]`** unless an optional PNG is passed
-- Optional analytics appendix (motor weekly / cool bins tables) — no embedded kaleido for all 50 rules in v1
-
-Export tab: prominent **Download equipment FDD DOCX** for the selected device + data_model / analytics downloads.
-
-**Do not** restore a “Build DOCX” then separate “Download” two-step dance.
+`build_rcx_catalog_docx` (RCx Plots + Export): building cover, family-grouped catalog for all 50 rules, analytics/RCx coverage filled when fit, **`[PLACE RCX PLOT HERE — {preset_id}]`** stubs.
 
 ---
 

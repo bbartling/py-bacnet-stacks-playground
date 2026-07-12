@@ -8,6 +8,22 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — RCx metering (electric / gas)
+
+- Presets `meter_elec_cdd` / `meter_gas_hdd`: monthly energy from kW or gas rate + stats + scatter vs CDD/HDD (65°F)
+- `app/metering.py`; roles `elec_power_kw`, `gas_flow` (+ aliases)
+
+---
+
+## 2026-07-12 — Catalog-parity Plots cards + RCx catalog DOCX
+
+- `app/rule_plot_meta.py` — shared catalog fields / plot series / analytics hints
+- Plots expanders mirror RULE_PLOT_CATALOG (facts, Haystack, series, full sliders, fit lines)
+- FDD DOCX mirrors enriched cards; **Download RCx catalog DOCX** on RCx + Export
+- MD generator refactored to import meta (no drift)
+
+---
+
 ## 2026-07-12 — Drop Analytics; beef RCx Plots
 
 - Removed **Analytics** tab (duplicate of Overview motors / cool bins)

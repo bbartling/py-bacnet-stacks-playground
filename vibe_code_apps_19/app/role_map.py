@@ -95,7 +95,9 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("hwr_t", "hw_return"), "hw_return_t"),
     (("chiller_1_command", "chiller_2_command", "chiller_command"), "chiller_status"),
     (("chiller_1_amps", "chiller_2_amps", "amps_a"), "chiller_amps"),
-    (("power_demand_this_interval", "meter_power_sum_kw"), "chiller_power_kw"),
+    (("power_demand_this_interval", "meter_power_sum_kw", "elec_kw", "building_kw"), "elec_power_kw"),
+    (("chiller_power", "meter_chiller"), "chiller_power_kw"),
+    (("gas_flow", "nat_gas", "gas_therm", "gas_cfh"), "gas_flow"),
     (("hwp1_c", "hwp2_c", "hwp3_c", "hw_pump_cmd"), "hw_pump_cmd"),
     (("hwp1_s", "hwp2_s", "hwp3_s", "pump_status"), "pump_status"),
     # Designated CHW pump for chiller runtime (data-model role; prefer over chiller cmd)

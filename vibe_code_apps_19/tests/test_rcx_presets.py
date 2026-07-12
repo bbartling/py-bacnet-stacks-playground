@@ -43,6 +43,10 @@ def test_reset_scatter_and_static_box_contract():
     assert box is not None and box.chart == "box" and box.role == "duct_static" and box.filter_fan_on
     rank = preset_by_id("zone_comfort_rank")
     assert rank is not None and rank.chart == "ranking" and rank.role == "zone_t"
+    elec = preset_by_id("meter_elec_cdd")
+    assert elec is not None and elec.chart == "metering" and elec.role == "elec_power_kw"
+    gas = preset_by_id("meter_gas_hdd")
+    assert gas is not None and gas.chart == "metering" and gas.role == "gas_flow"
 
 
 def test_supporting_overlay_presets_wired():
@@ -82,12 +86,15 @@ def test_streamlit_main_sections_present():
     assert "Data Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "build_equipment_fdd_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "build_rcx_catalog_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "Economizer family" in src or "ECON-1" in src
     assert "Download FDD DOCX" in src
+    assert "Download RCx catalog DOCX" in src or "build_rcx_catalog_docx" in src
     assert "PLACE PLOT HERE" in src or "build_rule_card" in src
-    assert "rule validation cards" in src or "Filter cards" in src
+    assert "rule validation cards" in src or "Filter cards" in src or "catalog parity" in src
     # Must not be the sole one-at-a-time selectbox UX without a card catalog
     assert "Filter cards" in src
     assert "Chart rule" in src or "Plot focus" in src
     assert "Download session_config.json" in src
     assert "Download role_map.json" in src
+    assert "Rule facts" in src or "catalog_facts" in src

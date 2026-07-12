@@ -5,7 +5,15 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from app.charts import multi_equipment_box, multi_equipment_timeseries, oat_scatter, plotly_config
+from app.charts import (
+    energy_degree_day_scatter,
+    monthly_energy_bar,
+    multi_equipment_box,
+    multi_equipment_timeseries,
+    oat_scatter,
+    plotly_config,
+)
+from app.metering import build_meter_monthly_table, meter_scatter_frame
 from app.occupancy import OccupancySchedule
 from app.rcx_plots import (
     PRESETS,
@@ -122,6 +130,7 @@ def render_rcx_plots_tab(
     )
 
     from app.rcx_plots import rcx_preset_coverage
+    from app.docx_report import build_rcx_catalog_docx
 
     schedule = (
         occupancy_schedule
@@ -129,6 +138,31 @@ def render_rcx_plots_tab(
         else OccupancySchedule.from_dict(occupancy_schedule)
     )
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
+
+    try:
+        rcx_docx = build_rcx_catalog_docx(
+            building_id=st.session_state.get("building_id") or "",
+            frames=frames,
+            role_map=role_map,
+            weather=weather,
+            results=st.session_state.get("batch_results") or [],
+            params=st.session_state.get("params") or {},
+            zone_lo_f=zone_lo_f,
+            zone_hi_f=zone_hi_f,
+            occupancy_schedule=schedule.to_dict(),
+            unit_system=unit_system,
+        )
+        st.download_button(
+            "Download RCx catalog DOCX",
+            data=rcx_docx,
+            file_name="rcx_catalog_report.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_rcx_catalog_docx",
+            type="primary",
+            help="Catalog-shaped Word report with analytics filled when the data model fits.",
+        )
+    except Exception as exc:
+        st.caption(f"RCx catalog DOCX unavailable: {exc}")
 
     with st.expander("RCx preset coverage diagnostics", expanded=False):
         cov = rcx_preset_coverage(
@@ -246,6 +280,66 @@ def render_rcx_plots_tab(
                 )
         return
 
+    if chart_kind == "metering":
+        kind = "electric" if preset.id == "meter_elec_cdd" else "gas"
+        energy_col = "kwh" if kind == "electric" else "gas_qty"
+        dd_name = "CDD" if kind == "electric" else "HDD"
+        monthly_df, stats_df, reason = build_meter_monthly_table(
+            frames,
+            role_map,
+            kind=kind,  # type: ignore[arg-type]
+            weather=weather,
+            equipment_types=preset.equipment_types,
+        )
+        st.markdown(f"##### Metering · {'electric' if kind == 'electric' else 'natural gas'}")
+        st.caption(
+            f"Rate → monthly energy via sample intervals. "
+            f"Scatter uses monthly total vs **{dd_name}** (base 65°F from web dry-bulb)."
+        )
+        if monthly_df.empty:
+            st.info(reason or "No metering series — map `elec_power_kw` / `gas_flow` on METER (or plant) equipment.")
+            return
+        bar = monthly_energy_bar(
+            monthly_df,
+            energy_col=energy_col,
+            title=title,
+            y_title="kWh / month" if kind == "electric" else "Gas quantity / month",
+        )
+        if bar is not None:
+            st.plotly_chart(
+                bar,
+                width="stretch",
+                config=plotly_config(filename=f"rcx_{preset.id}_bar"),
+                key=f"rcx_meter_bar_{preset.id}",
+            )
+        sc = meter_scatter_frame(monthly_df, kind=kind)  # type: ignore[arg-type]
+        scat = energy_degree_day_scatter(
+            sc,
+            title=f"{'Electric kWh' if kind == 'electric' else 'Gas'} vs {dd_name}",
+            x_title=f"{dd_name} (°F·day, base 65)",
+            y_title="kWh / month" if kind == "electric" else "Gas / month",
+        )
+        if scat is None:
+            st.warning(f"No {dd_name} points — load weather / web OAT for degree-day scatter.")
+        else:
+            st.plotly_chart(
+                scat,
+                width="stretch",
+                config=plotly_config(filename=f"rcx_{preset.id}_scatter"),
+                key=f"rcx_meter_scatter_{preset.id}",
+            )
+        st.markdown("##### Summary statistics")
+        if not stats_df.empty:
+            st.dataframe(stats_df, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(stats_df)))
+        st.dataframe(monthly_df, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(monthly_df)))
+        st.download_button(
+            "Download monthly metering CSV",
+            to_csv_bytes(monthly_df),
+            f"rcx_{preset.id}_monthly.csv",
+            key=f"dl_rcx_meter_{preset.id}",
+        )
+        return
+
     if chart_kind == "scatter_oat":
         x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
         long_df = collect_oat_scatter(
@@ -329,7 +423,7 @@ def render_rcx_plots_tab(
         g_role = st.text_input("Cookbook role to plot", value="zone_t", key="rcx_generic_role")
         g_types = st.multiselect(
             "Equipment types (empty = all)",
-            ["AHU", "VAV", "CHW_PLANT", "CHILLER", "BOILER", "HP", "COOLING_TOWER", "WEATHER", "UNKNOWN"],
+            ["AHU", "VAV", "CHW_PLANT", "CHILLER", "BOILER", "HP", "COOLING_TOWER", "METER", "WEATHER", "UNKNOWN"],
             default=[],
             key="rcx_types",
         )

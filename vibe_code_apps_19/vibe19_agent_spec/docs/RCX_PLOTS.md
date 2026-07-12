@@ -29,10 +29,16 @@ Presets with data sort first; empty ones tagged `(no data)`.
 | `hw_reset_scatter` | Boiler / HW — leave temp vs web dry-bulb (scatter) |
 | `chw_reset_scatter` | Chiller / CHW — leave temp vs web dry-bulb (scatter) |
 | `cw_reset_scatter` | Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter) |
+| `meter_elec_cdd` | Metering — electric kWh/month vs CDD (scatter + stats) |
+| `meter_gas_hdd` | Metering — gas/month vs HDD (scatter + stats) |
 
 **Zone ranking** uses Overview occupancy calendar + zone low/high (°F). Rows sorted worst `% outside comfort` first; optional timeseries of top offenders.
 
+**Metering:** map `elec_power_kw` (or meter kW aliases) / `gas_flow` on **METER** (or plant) equipment. kW integrates over sample intervals → monthly kWh; degree-days use web dry-bulb, base 65°F (**CDD** for electric, **HDD** for gas).
+
 Generic role picker remains under an expander.
+
+**Download RCx catalog DOCX** — building-level Word report shaped like [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) with analytics / preset coverage filled when the data model fits (`PLACE RCX PLOT HERE` stubs).
 
 ## Required reset / plant presets (ids)
 

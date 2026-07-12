@@ -24,8 +24,9 @@ and `REQUIRED_RCX_PRESET_IDS` in `app/rcx_plots.py`.
 | File | Role |
 | --- | --- |
 | `app/charts.py` | `rule_result_chart`, `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter`, `mech_cooling_oat_histogram` |
-| `app/rule_card.py` | `build_rule_card` — params + required/mapped roles + coverage |
-| `app/docx_report.py` | Equipment FDD DOCX (card mirror + `PLACE PLOT HERE`), data-model / analytics DOCX |
+| `app/rule_card.py` | `build_rule_card` — catalog-parity params + mapping + gate/series/analytics |
+| `app/rule_plot_meta.py` | Shared RULE_PLOT_CATALOG fields / hints / RCx preset links |
+| `app/docx_report.py` | Equipment FDD DOCX + **RCx catalog DOCX** (`PLACE PLOT HERE` / `PLACE RCX PLOT HERE`) |
 | `app/data_model_tree.py` | Data Model section inventory |
 | `app/rcx_plots.py` | Presets (`PRESETS`, `REQUIRED_RCX_PRESET_IDS`), collectors, summary/outlier stats |
 | `app/ui_rcx_tab.py` | **RCx Plots** tab |

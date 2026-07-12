@@ -104,3 +104,25 @@ def test_build_rule_card_with_result_status():
     assert card.status == "FAULT"
     assert card.fault_hours == 1.5
     assert card.has_result is True
+
+
+def test_build_rule_card_catalog_parity_fields():
+    rule = RULES_BY_ID["SV-SPIKE"]
+    card = build_rule_card(
+        equipment_id="AHU_1",
+        rule=rule,
+        result=None,
+        role_map={"AHU_1": {}},
+        mapped_df=pd.DataFrame(),
+        params=None,
+    )
+    assert card.gate_mode.startswith("always")
+    assert card.confirm_seconds == 300.0
+    assert card.sensor_sweep is True
+    assert card.sweep_label == "sensor_sweep"
+    assert any("confirmed_fault" in b for b in card.plot_series)
+    assert "sensor-fault" in card.analytics_hint.lower() or "FAULT" in card.analytics_hint
+    assert card.catalog_facts
+    keys = {p.key: p for p in card.param_rows}
+    assert "spike_scale" in keys
+    assert keys["spike_scale"].min <= keys["spike_scale"].default <= keys["spike_scale"].max

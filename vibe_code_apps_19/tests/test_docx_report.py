@@ -9,6 +9,7 @@ from app.docx_report import (
     build_analytics_docx,
     build_building_data_model_docx,
     build_equipment_fdd_docx,
+    build_rcx_catalog_docx,
 )
 from app.rules import run_rule
 
@@ -76,6 +77,9 @@ def test_data_model_tree_and_docx(tmp_path):
     assert "PLACE PLOT HERE" in xml
     assert "clg_valve_pct" in xml or "clg_v" in xml
     assert "confirm_min" in xml or "confirm" in xml.lower()
+    assert "Operational gate" in xml or "gate" in xml.lower()
+    assert "Plot series" in xml or "confirmed_fault" in xml
+    assert "Analytics" in xml or "analytics" in xml.lower()
 
     analytics = build_analytics_docx(
         building_id="B1",
@@ -85,3 +89,19 @@ def test_data_model_tree_and_docx(tmp_path):
         tree=tree,
     )
     assert analytics[:2] == b"PK"
+
+    rcx_docx = build_rcx_catalog_docx(
+        building_id="B1",
+        frames={"AHU_1": ahu},
+        role_map=role_map,
+        weather=None,
+        results=results,
+        params={},
+        zone_lo_f=70.0,
+        zone_hi_f=75.0,
+    )
+    assert rcx_docx[:2] == b"PK"
+    with zipfile.ZipFile(BytesIO(rcx_docx)) as zf:
+        rxml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    assert "RCx catalog" in rxml or "SV-SPIKE" in rxml or "VLV-1" in rxml
+    assert "PLACE RCX PLOT HERE" in rxml or "ahu_sat_reset_scatter" in rxml or "duct_static_box" in rxml

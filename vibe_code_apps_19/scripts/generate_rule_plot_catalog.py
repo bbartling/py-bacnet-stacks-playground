@@ -6,64 +6,19 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.column_map_json import COOKBOOK_TO_HAYSTACK_POINT, FAMILY_LABELS, FAMILY_ORDER
+from app.rule_plot_meta import (
+    EXTENDED_HS,
+    analytics_hint,
+    catalog_fields,
+    haystack_rows,
+    haystack_tag,
+    plot_series_bullets,
+    points_haystack_note,
+)
 from app.rules.cookbook_catalog import RULES
-from app.rules.operational_gate import RULE_GATES
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "vibe19_agent_spec" / "docs" / "RULE_PLOT_CATALOG.md"
-
-# Preferred Haystack names for roles missing from COOKBOOK_TO_HAYSTACK_POINT
-# (kept for generator resilience; prefer extending COOKBOOK_TO_HAYSTACK_POINT instead).
-EXTENDED_HS = {
-    "fan_speed_feedback": "fan-speed-feedback",
-    "fan_current": "fan-current",
-    "fan_power": "fan-power",
-    "airflow_proof": "airflow-proof",
-    "pump_status": "pump-status",
-    "compressor_status": "compressor-status",
-    "dx_stage": "dx-stage",
-    "dx_cool_cmd": "dx-cool-cmd",
-    "cool_stage": "cool-stage",
-    "dx_cooling": "dx-cooling",
-}
-
-ANALYTICS_HINTS = {
-    "SV-RANGE": "Plots sensor-fault summary stats when FAULT; Export sensor fault CSV.",
-    "SV-FLATLINE": "Plots sensor-fault summary stats when FAULT.",
-    "SV-SPIKE": "Plots sensor-fault summary stats when FAULT.",
-    "SV-STALE": "Plots sensor-fault summary stats when FAULT.",
-    "SCHED-1": "Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°C display).",
-    "OAT-METEO": "Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.",
-    "ECON-3": "Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OAT bins (DX/plant only).",
-    "CW-OPT-1": "RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.",
-    "CHW-1": "RCx `chw_reset_scatter` — CHW leave vs web OAT; motor weekly uses pump/status not leave-temp.",
-    "CHW-2": "Plant motor weekly / chiller runtime — status/pump proof.",
-    "AHU-DUCTHI": "RCx `duct_static_box` (fan-on) for static-reset opportunity.",
-    "AHU-SATDEV": "RCx `ahu_sat_reset_scatter` — SAT vs web OAT.",
-    "TRIM-1": "Duct static / pressure trim requests; related to duct-static box RCx.",
-    "TRIM-3": "HW reset requests; RCx `hw_reset_scatter`.",
-    "TRIM-4": "CHW reset requests; RCx `chw_reset_scatter`.",
-    "VLV-1": "Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.",
-    "FC6": "Needs AHU `vav_total_flow` — empty plots often data gaps.",
-    "ECON-1": "Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).",
-    "ECON-2": "Needs OA damper / MAT / OAT roles.",
-    "ECON-4": "Needs OA damper / MAT / OAT roles.",
-    "ECON-5": "Needs heat/preheat roles.",
-    "WX-1": "Weather family; web OAT enrich on weather frame.",
-    "HP-1": "Mech-cooling OAT bins can use DX/compressor roles.",
-}
-
-
-def haystack(role: str) -> str:
-    if role in COOKBOOK_TO_HAYSTACK_POINT:
-        return COOKBOOK_TO_HAYSTACK_POINT[role]
-    if role in EXTENDED_HS:
-        return EXTENDED_HS[role]
-    return role.replace("_", "-")
-
-
-def role_row(role: str, req: str) -> str:
-    return f"| `{role}` | `{haystack(role)}` | {req} |"
 
 
 def main() -> None:
@@ -83,6 +38,7 @@ def main() -> None:
     L("| Source | Path |")
     L("| --- | --- |")
     L("| Catalog | `app/rules/cookbook_catalog.py` |")
+    L("| Shared meta | `app/rule_plot_meta.py` |")
     L("| Haystack export map | `app/column_map_json.py` → `COOKBOOK_TO_HAYSTACK_POINT` |")
     L("| Gates | `app/rules/operational_gate.py` → `RULE_GATES` |")
     L("| Chart API | `app/charts.py` → `rule_result_chart` |")
@@ -127,45 +83,35 @@ def main() -> None:
         L("")
 
         for r in rules:
-            gate = RULE_GATES.get(r.id)
-            gate_s = f"`{gate.kind}`" if gate else "—"
-            if gate and gate.startup_delay_seconds:
-                gate_s += f" (startup {gate.startup_delay_seconds:g}s)"
-
+            fields = catalog_fields(r)
             L(f"### `{r.id}` — {r.title}")
             L("")
             L(f"**Equation:** {r.equation}")
             L("")
             L("| Field | Value |")
             L("| --- | --- |")
-            L(f"| Family | `{r.family}` |")
-            L(f"| Equipment kinds | {', '.join(f'`{k}`' for k in r.equipment_kinds)} |")
-            L(f"| Operational gate | {gate_s} |")
-            L(f"| Default confirm | {r.confirm_seconds:g}s |")
-            flags = []
-            if r.sensor_sweep:
-                flags.append("sensor_sweep")
-            if r.control_output_sweep:
-                flags.append("control_output_sweep")
-            L(f"| Sweep | {', '.join(f'`{f}`' for f in flags) if flags else '—'} |")
+            L(f"| Family | `{fields.family}` |")
+            L(f"| Equipment kinds | {', '.join(f'`{k}`' for k in fields.equipment_kinds)} |")
+            L(f"| Operational gate | `{fields.gate_mode}` |")
+            L(f"| Default confirm | {fields.confirm_seconds:g}s |")
+            L(f"| Sweep | {fields.sweep_label if fields.sweep_label == '—' else ', '.join(f'`{f}`' for f in fields.sweep_label.split(', '))} |")
             L("")
 
             L("#### Points → Haystack tags (this chart)")
             L("")
-            if r.sensor_sweep or r.control_output_sweep:
+            note = points_haystack_note(r)
+            if note and (r.sensor_sweep or r.control_output_sweep):
                 L(
                     "Sweep rule: plots **sensors / control outputs present** on the equipment "
                     "(see sweep role lists in `cookbook_catalog.py`). No fixed required-role list."
                 )
                 L("")
-            if r.required_roles or r.optional_roles:
+            hs = haystack_rows(r)
+            if hs:
                 L("| Cookbook role | Haystack-like tag | Requirement |")
                 L("| --- | --- | --- |")
-                for role in r.required_roles:
-                    L(role_row(role, "required"))
-                for role in r.optional_roles or []:
-                    if role not in r.required_roles:
-                        L(role_row(role, "optional"))
+                for row in hs:
+                    L(f"| `{row.role}` | `{row.haystack_tag}` | {row.requirement} |")
                 L("")
             elif not (r.sensor_sweep or r.control_output_sweep):
                 L("_No fixed roles._")
@@ -173,19 +119,14 @@ def main() -> None:
 
             L("#### Plot series")
             L("")
-            plot_roles = list(r.required_roles) + [
-                x for x in (r.optional_roles or []) if x not in r.required_roles
-            ]
-            if r.sensor_sweep:
-                L("- Present sweep sensors (temps / statuses on mapped frame)")
-            elif r.control_output_sweep:
-                L("- Present 0–100% control outputs (dampers / valves / fan cmds)")
-            elif plot_roles:
-                for role in plot_roles:
-                    L(f"- `{role}` → `{haystack(role)}`")
-            else:
-                L("- Chart falls back to common roles present (`sat`, `zone_t`, …) if any")
-            L("- `confirmed_fault` swim lane (bool shade) when the rule was run")
+            for bullet in plot_series_bullets(r):
+                if " → " in bullet and not bullet.startswith("Present") and not bullet.startswith("Chart"):
+                    role, tag = bullet.split(" → ", 1)
+                    L(f"- `{role}` → `{tag}`")
+                elif bullet.startswith("confirmed_fault"):
+                    L("- `confirmed_fault` swim lane (bool shade) when the rule was run")
+                else:
+                    L(f"- {bullet}")
             L("")
 
             L("#### Sliders (tune params)")
@@ -202,16 +143,9 @@ def main() -> None:
                 L("_No tune params_ (confirm may still appear via shared confirm slider).")
             L("")
 
-            hint = ANALYTICS_HINTS.get(r.id)
             L("#### Analytics / related views")
             L("")
-            if hint:
-                L(hint)
-            else:
-                L(
-                    "Fault hours / % on Results + FDD DOCX card; "
-                    "RCx overlays only if roles match a preset."
-                )
+            L(analytics_hint(r.id))
             L("")
 
     L("---")
@@ -247,13 +181,14 @@ def main() -> None:
     L("")
     L("| View | Where | Roles / inputs |")
     L("| --- | --- | --- |")
-    L("| Motor weekly runtime | Overview / Analytics | fan/pump/compressor **status** preferred |")
+    L("| Motor weekly runtime | Overview | fan/pump/compressor **status** preferred |")
     L(
-        "| Mech-cooling OAT bins | Overview / Analytics | plant pump/status or DX compressor; "
+        "| Mech-cooling OAT bins | Overview | plant pump/status or DX compressor; "
         "**web OAT**; never CHW valve % |"
     )
     L("| Sensor fault summary | Plots (device) | sensors involved in FAULT SV-* |")
     L("| Occupancy calendar | Overview | writes `occ_mode` for SCHED-1 |")
+    L("| RCx catalog DOCX | RCx Plots / Export | catalog + filled analytics when data-model fit |")
     L("")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)

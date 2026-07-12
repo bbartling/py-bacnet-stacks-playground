@@ -1,4 +1,4 @@
-"""Shared rule-card content for Plots UI + DOCX (params + role mapping)."""
+"""Shared rule-card content for Plots UI + DOCX (params + role mapping + catalog meta)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,16 @@ from typing import Any
 
 import pandas as pd
 
-from app.column_map_json import COOKBOOK_TO_HAYSTACK_POINT
+from app.rule_plot_meta import (
+    analytics_hint,
+    analytics_related,
+    catalog_fields,
+    catalog_facts_pairs,
+    data_model_fit,
+    haystack_tag,
+    plot_series_bullets,
+    points_haystack_note,
+)
 from app.rules.base import RuleResult
 from app.rules.cookbook_catalog import CookbookRule
 
@@ -31,6 +40,9 @@ class ParamRow:
     value: float
     default: float
     source: str  # "override" | "default"
+    min: float = 0.0
+    max: float = 0.0
+    step: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -61,6 +73,19 @@ class RuleCard:
     coverage_pct: float | None = None  # % required roles present (None if no required roles)
     has_result: bool = False
     plottable: bool = False
+    # Catalog-parity fields (RULE_PLOT_CATALOG.md)
+    equipment_kinds: list[str] = field(default_factory=list)
+    gate_mode: str = "—"
+    confirm_seconds: float = 300.0
+    sensor_sweep: bool = False
+    control_output_sweep: bool = False
+    sweep_label: str = "—"
+    plot_series: list[str] = field(default_factory=list)
+    points_note: str = ""
+    analytics_hint: str = ""
+    analytics_fit: list[str] = field(default_factory=list)
+    rcx_preset_ids: tuple[str, ...] = ()
+    catalog_facts: list[tuple[str, str]] = field(default_factory=list)
 
 
 def csv_column_for_role(role: str, equipment_id: str, role_map: dict) -> str:
@@ -101,7 +126,7 @@ def mapping_rows_for_rule(
         if role in seen:
             continue
         seen.add(role)
-        hay = COOKBOOK_TO_HAYSTACK_POINT.get(role, role.replace("_", "-"))
+        hay = haystack_tag(role)
         csv_col = csv_column_for_role(role, equipment_id, role_map)
         in_hist = role in mapped_cols
         out.append(
@@ -138,6 +163,9 @@ def param_rows_for_rule(rule: CookbookRule, params: dict[str, Any] | None) -> li
                 value=val,
                 default=float(p.default),
                 source=source,
+                min=float(p.min),
+                max=float(p.max),
+                step=float(p.step),
             )
         )
     return rows
@@ -181,6 +209,10 @@ def build_rule_card(
     role_map: dict,
     mapped_df: pd.DataFrame | None,
     params: dict[str, Any] | None = None,
+    results: list | None = None,
+    rcx_coverage: pd.DataFrame | None = None,
+    weather: pd.DataFrame | None = None,
+    has_sensor_fault_summary: bool | None = None,
 ) -> RuleCard:
     """Build shared card content for one cookbook rule on one device."""
     status, fault_hours, missing, notes, has_result = _status_and_meta(result)
@@ -189,6 +221,18 @@ def build_rule_card(
     req_present = sum(1 for m in mrows if m.requirement == "required" and m.in_history)
     coverage = (100.0 * req_present / req_total) if req_total else None
     desc = rule.equation or rule.title
+    fields = catalog_fields(rule)
+    related = analytics_related(rule.id)
+    fit = data_model_fit(
+        rule,
+        equipment_id=equipment_id,
+        role_map=role_map,
+        mapped_df=mapped_df,
+        results=results,
+        rcx_coverage=rcx_coverage,
+        weather=weather,
+        has_sensor_fault_summary=has_sensor_fault_summary,
+    )
     return RuleCard(
         rule_id=rule.id,
         title=rule.title,
@@ -206,6 +250,18 @@ def build_rule_card(
         coverage_pct=coverage,
         has_result=has_result,
         plottable=_is_plottable(result),
+        equipment_kinds=list(fields.equipment_kinds),
+        gate_mode=fields.gate_mode,
+        confirm_seconds=fields.confirm_seconds,
+        sensor_sweep=fields.sensor_sweep,
+        control_output_sweep=fields.control_output_sweep,
+        sweep_label=fields.sweep_label,
+        plot_series=plot_series_bullets(rule),
+        points_note=points_haystack_note(rule),
+        analytics_hint=related.hint or analytics_hint(rule.id),
+        analytics_fit=fit,
+        rcx_preset_ids=related.rcx_preset_ids,
+        catalog_facts=catalog_facts_pairs(rule),
     )
 
 
@@ -248,3 +304,5 @@ def filter_status_bucket(status: str) -> str:
 PLACE_PLOT_HERE = (
     "[PLACE PLOT HERE — paste Plotly PNG from Streamlit camera or Trends]"
 )
+
+PLACE_RCX_PLOT_HERE = "[PLACE RCX PLOT HERE — {preset_id}]"

@@ -135,6 +135,22 @@ PRESETS: list[RcxPreset] = [
         y_role_alt="wx_oa_wetbulb",
         dry_bulb_ref=True,
     ),
+    RcxPreset(
+        "meter_elec_cdd",
+        "Metering — electric kWh/month vs CDD (scatter + stats)",
+        "Integrate mapped kW (elec_power_kw / meter) to monthly kWh; stats + scatter vs cooling degree-days (65°F base).",
+        "elec_power_kw",
+        ("METER", "CHILLER", "CHW_PLANT"),
+        "metering",
+    ),
+    RcxPreset(
+        "meter_gas_hdd",
+        "Metering — gas/month vs HDD (scatter + stats)",
+        "Integrate mapped gas rate (gas_flow) to monthly quantity; stats + scatter vs heating degree-days (65°F base).",
+        "gas_flow",
+        ("METER", "BOILER"),
+        "metering",
+    ),
 ]
 
 
@@ -157,6 +173,8 @@ REQUIRED_RCX_PRESET_IDS: frozenset[str] = frozenset(
         "cw_reset_scatter",
         "vav_flows",
         "fan_speeds",
+        "meter_elec_cdd",
+        "meter_gas_hdd",
     }
 )
 
@@ -515,6 +533,21 @@ def rcx_preset_coverage(
             series_count = int(long_df["equipment_id"].nunique()) if row_count and "equipment_id" in long_df.columns else 0
             if row_count == 0:
                 empty_reason = f"no mapped {preset.role} and/or web OAT for {','.join(preset.equipment_types)}"
+        elif preset.chart == "metering":
+            from app.metering import build_meter_monthly_table
+
+            kind = "electric" if "elec" in preset.id or preset.role.startswith("elec") else "gas"
+            monthly_df, _stats, reason = build_meter_monthly_table(
+                frames,
+                role_map,
+                kind=kind,  # type: ignore[arg-type]
+                weather=weather,
+                equipment_types=preset.equipment_types,
+            )
+            series_count = int(monthly_df["equipment_id"].nunique()) if not monthly_df.empty else 0
+            row_count = int(len(monthly_df))
+            if row_count == 0:
+                empty_reason = reason or f"no metering data for {preset.role}"
         else:
             series_map = collect_role_series(
                 frames,

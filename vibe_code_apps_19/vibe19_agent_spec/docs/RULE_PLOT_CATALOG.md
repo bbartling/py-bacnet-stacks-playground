@@ -8,6 +8,7 @@ Each chart plots **required (+ optional) roles** present on the mapped frame, pl
 | Source | Path |
 | --- | --- |
 | Catalog | `app/rules/cookbook_catalog.py` |
+| Shared meta | `app/rule_plot_meta.py` |
 | Haystack export map | `app/column_map_json.py` → `COOKBOOK_TO_HAYSTACK_POINT` |
 | Gates | `app/rules/operational_gate.py` → `RULE_GATES` |
 | Chart API | `app/charts.py` → `rule_result_chart` |
@@ -180,7 +181,7 @@ Plots sensor-fault summary stats when FAULT.
 | --- | --- |
 | Family | `control` |
 | Equipment kinds | `ahu`, `vav`, `chiller`, `boiler`, `heatpump` |
-| Operational gate | `control_loop` (startup 300s) |
+| Operational gate | `control_loop (startup 300s)` |
 | Default confirm | 0s |
 | Sweep | `control_output_sweep` |
 
@@ -226,7 +227,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -265,7 +266,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -305,7 +306,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -345,7 +346,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `control_loop` (startup 300s) |
+| Operational gate | `control_loop (startup 300s)` |
 | Default confirm | 3600s |
 | Sweep | — |
 
@@ -383,7 +384,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -423,7 +424,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -464,7 +465,7 @@ Needs AHU `vav_total_flow` — empty plots often data gaps.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -504,7 +505,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -543,7 +544,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -582,7 +583,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -621,7 +622,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -660,7 +661,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -699,7 +700,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -739,7 +740,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -778,7 +779,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -817,7 +818,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -853,7 +854,7 @@ RCx `ahu_sat_reset_scatter` — SAT vs web OAT.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -889,7 +890,7 @@ RCx `duct_static_box` (fan-on) for static-reset opportunity.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -961,7 +962,7 @@ Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -999,7 +1000,7 @@ Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1036,7 +1037,7 @@ Needs OA damper / MAT / OAT roles.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1077,7 +1078,7 @@ Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OA
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -1117,7 +1118,7 @@ Needs OA damper / MAT / OAT roles.
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -1230,7 +1231,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1270,7 +1271,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `conditional` (startup 300s) |
+| Operational gate | `conditional (startup 300s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1308,7 +1309,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `conditional` (startup 300s) |
+| Operational gate | `conditional (startup 300s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1393,7 +1394,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `vav` |
 | Equipment kinds | `vav` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1431,7 +1432,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `vav` |
 | Equipment kinds | `vav` |
-| Operational gate | `control_loop` (startup 300s) |
+| Operational gate | `control_loop (startup 300s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1467,7 +1468,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `vav` |
 | Equipment kinds | `vav` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1502,7 +1503,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `vav` |
 | Equipment kinds | `vav` |
-| Operational gate | `fan_running` (startup 600s) |
+| Operational gate | `fan_running (startup 600s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1542,7 +1543,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `vav` |
 | Equipment kinds | `vav` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1584,7 +1585,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `plant` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 900s) |
+| Operational gate | `hydronic_flow (startup 900s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1620,7 +1621,7 @@ RCx `chw_reset_scatter` — CHW leave vs web OAT; motor weekly uses pump/status 
 | --- | --- |
 | Family | `plant` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 300s) |
+| Operational gate | `hydronic_flow (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1658,7 +1659,7 @@ Plant motor weekly / chiller runtime — status/pump proof.
 | --- | --- |
 | Family | `plant` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 600s) |
+| Operational gate | `hydronic_flow (startup 600s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1696,7 +1697,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `plant` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 300s) |
+| Operational gate | `hydronic_flow (startup 300s)` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -1732,7 +1733,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- |
 | Family | `plant` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 600s) |
+| Operational gate | `hydronic_flow (startup 600s)` |
 | Default confirm | 900s |
 | Sweep | — |
 
@@ -1772,7 +1773,7 @@ RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.
 | --- | --- |
 | Family | `heatpump` |
 | Equipment kinds | `heatpump` |
-| Operational gate | `compressor` (startup 600s) |
+| Operational gate | `compressor (startup 600s)` |
 | Default confirm | 600s |
 | Sweep | — |
 
@@ -1855,7 +1856,7 @@ Weather family; web OAT enrich on weather frame.
 | --- | --- |
 | Family | `trim` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running` (startup 300s) |
+| Operational gate | `fan_running (startup 300s)` |
 | Default confirm | 1800s |
 | Sweep | — |
 
@@ -1890,7 +1891,7 @@ Duct static / pressure trim requests; related to duct-static box RCx.
 | --- | --- |
 | Family | `trim` |
 | Equipment kinds | `boiler` |
-| Operational gate | `hydronic_flow` (startup 600s) |
+| Operational gate | `hydronic_flow (startup 600s)` |
 | Default confirm | 1800s |
 | Sweep | — |
 
@@ -1925,7 +1926,7 @@ HW reset requests; RCx `hw_reset_scatter`.
 | --- | --- |
 | Family | `trim` |
 | Equipment kinds | `chiller` |
-| Operational gate | `hydronic_flow` (startup 600s) |
+| Operational gate | `hydronic_flow (startup 600s)` |
 | Default confirm | 1800s |
 | Sweep | — |
 
@@ -2026,8 +2027,9 @@ See [`RCX_PLOTS.md`](RCX_PLOTS.md). Reset scatters / duct-static box share roles
 
 | View | Where | Roles / inputs |
 | --- | --- | --- |
-| Motor weekly runtime | Overview / Analytics | fan/pump/compressor **status** preferred |
-| Mech-cooling OAT bins | Overview / Analytics | plant pump/status or DX compressor; **web OAT**; never CHW valve % |
+| Motor weekly runtime | Overview | fan/pump/compressor **status** preferred |
+| Mech-cooling OAT bins | Overview | plant pump/status or DX compressor; **web OAT**; never CHW valve % |
 | Sensor fault summary | Plots (device) | sensors involved in FAULT SV-* |
 | Occupancy calendar | Overview | writes `occ_mode` for SCHED-1 |
+| RCx catalog DOCX | RCx Plots / Export | catalog + filled analytics when data-model fit |
 
