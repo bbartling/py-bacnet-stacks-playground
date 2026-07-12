@@ -4,6 +4,8 @@
 
 **Contract freeze:** [`DASHBOARD_CONTRACT.md`](DASHBOARD_CONTRACT.md) · `app/dashboard_contract.py` (`build_rule_card`, DOCX entrypoints).
 
+**Per-rule chart catalog (Haystack / sliders / series):** [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md).
+
 ---
 
 ## Purpose
