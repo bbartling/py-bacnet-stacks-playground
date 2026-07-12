@@ -59,7 +59,7 @@ Opens at `http://localhost:8501`.
 
 ## Main sections (lazy radio — not eager `st.tabs`)
 
-Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Category | **Plots** (validation cards) | **RCx Plots** | Export
+Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Category | **FDD Plots** (validation cards) | **RCx Plots** | Metering | Export
 
 ### Sidebar
 
@@ -71,16 +71,16 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 - Rule tuning by category (no text filter) + operational-proof + **Rerun cat.**
 - Mech-cooling OAT bins: chillers + DX only — **no** AHU CHW valve UI/toggle
 
-### Plots vs RCx Plots
+### FDD Plots vs RCx Plots
 
 | Tab | Purpose |
 | --- | --- |
-| Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; one-click **Download FDD DOCX** (`PLACE PLOT HERE` stubs) |
-| RCx Plots | Multi-equipment overlays + **required** reset scatters/box + generic picker |
+| FDD Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; one-click **Download FDD DOCX** (`PLACE PLOT HERE` stubs) |
+| RCx Plots | Family → preset multi-equipment overlays + **required** reset scatters/box; opt-in coverage/DOCX; generic picker |
 
 Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).
 
-Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · per-rule catalog: [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
+FDD Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · per-rule catalog: [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
 ## Hard rules
 
@@ -88,7 +88,7 @@ Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALID
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
 4. **Web OAT default** for analytics / free-cool weather path
-5. **Do not remove** `REQUIRED_RCX_PRESET_IDS` presets or Plots card catalog / `build_rule_card`
+5. **Do not remove** `REQUIRED_RCX_PRESET_IDS` presets or FDD Plots card catalog / `build_rule_card`
 6. Run `python -m pytest -q` before claiming done
 
 ## Specs

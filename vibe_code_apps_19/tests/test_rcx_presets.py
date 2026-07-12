@@ -64,6 +64,34 @@ def test_supporting_overlay_presets_wired():
         assert p.role == role and p.chart == chart, pid
 
 
+def test_rcx_families_partition_presets():
+    """AHU family must not include plant/meter presets (UX mix-up)."""
+    from app.rcx_plots import RCX_FAMILY_ORDER, presets_for_family
+
+    assert RCX_FAMILY_ORDER == (
+        "Zones / VAV",
+        "AHU / air",
+        "Boiler / HW",
+        "Chiller / CHW / tower",
+        "Metering",
+    )
+    ahu_ids = {p.id for p in presets_for_family("AHU / air")}
+    assert "hw_reset_scatter" not in ahu_ids
+    assert "chw_reset_scatter" not in ahu_ids
+    assert "cw_reset_scatter" not in ahu_ids
+    assert "meter_elec_cdd" not in ahu_ids
+    assert "ahu_sat_reset_scatter" in ahu_ids
+    assert "duct_static_box" in ahu_ids
+    assert {p.id for p in presets_for_family("Boiler / HW")} == {"hw_reset_scatter"}
+    assert "chw_reset_scatter" in {p.id for p in presets_for_family("Chiller / CHW / tower")}
+    # Every preset belongs to exactly one family in the order list
+    from app.rcx_plots import PRESETS
+
+    for p in PRESETS:
+        assert p.family in RCX_FAMILY_ORDER, p.id
+    assert sum(len(presets_for_family(f)) for f in RCX_FAMILY_ORDER) == len(PRESETS)
+
+
 def test_required_chart_apis_exist():
     for name in dashboard_contract.REQUIRED_CHART_APIS:
         assert callable(getattr(charts, name, None)), f"charts.{name} missing"
@@ -83,6 +111,8 @@ def test_streamlit_main_sections_present():
         assert f'section == "{section}"' in src or f"section == '{section}'" in src, (
             f"no branch for section: {section}"
         )
+    assert "FDD Plots" in dashboard_contract.REQUIRED_MAIN_SECTIONS
+    assert "Plots" not in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "Data Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "build_equipment_fdd_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)

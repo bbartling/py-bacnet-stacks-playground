@@ -1,0 +1,43 @@
+{
+  "schema_version": "openfdd_session_v1",
+  "unit_system": "imperial",
+  "prefer_web_oat": true,
+  "role_map": {
+    "AHU_1": {
+      "sat": "discharge_air_temp_f",
+      "mat": "mixed_air_temp_f",
+      "rat": "return_air_temp_f",
+      "oa_t": "outside_air_temp_f",
+      "fan_status": "supply_fan_status",
+      "fan_cmd": "fan_speed_pct",
+      "oa_damper_pct": "oa_damper_cmd",
+      "duct_static": "duct_static_inwc",
+      "clg_valve_pct": "cooling_valve"
+    },
+    "VAV_1": {
+      "zone_t": "zone_temp_f",
+      "zone_flow": "zone_airflow_cfm",
+      "fan_status": "box_fan_status"
+    },
+    "CHILLER_1": {
+      "chw_supply_t": "chw_supply_temp_f",
+      "cw_supply_t": "cw_supply_temp_f",
+      "chiller_status": "chiller_run_status",
+      "chw_pump_status": "chw_pump_status"
+    },
+    "BOILER_1": {
+      "hw_supply_t": "hw_supply_temp_f",
+      "hw_pump_status": "hw_pump_status",
+      "boiler_status": "boiler_run_status"
+    },
+    "COOLING_TOWER_1": {
+      "cw_supply_t": "tower_leaving_temp_f",
+      "cw_pump_status": "tower_pump_status"
+    },
+    "METER_1": {
+      "elec_power_kw": "building_kw",
+      "gas_flow": "gas_therms_per_hr"
+    }
+  },
+  "params": {}
+}

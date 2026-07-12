@@ -35,7 +35,7 @@ and `REQUIRED_RCX_PRESET_IDS` in `app/rcx_plots.py`.
 
 ## Patterns
 
-### Plots tab — validation cards (required)
+### FDD Plots tab — validation cards (required)
 
 - Auto-run applicable rules for the selected device when that device has no results yet.
 - Device strip (rows / span / mapped roles / coverage) + **Download session_config.json** / **role_map.json** / FDD DOCX.
@@ -64,8 +64,10 @@ Per-rule catalog (Haystack + sliders): [`docs/RULE_PLOT_CATALOG.md`](../../docs/
 
 ### RCx multi-equipment (RCx Plots tab)
 
+Family selectbox scopes presets (`RCX_FAMILY_ORDER` / `presets_for_family`) so AHU never lists plant resets.
+
 ```python
-from app.rcx_plots import collect_role_series, series_summary_stats, outlier_equipment_ids
+from app.rcx_plots import collect_role_series, series_summary_stats, outlier_equipment_ids, presets_for_family
 from app.charts import multi_equipment_timeseries
 
 series = collect_role_series(frames, role_map, role="zone_t", equipment_types=("VAV",))

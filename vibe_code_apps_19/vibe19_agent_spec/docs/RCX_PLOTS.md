@@ -2,44 +2,31 @@
 
 **Contract (read first):** [`DASHBOARD_CONTRACT.md`](DASHBOARD_CONTRACT.md) — required preset ids must not be deleted.
 
-**Related:** per-device rule validation cards + FDD DOCX live under **Plots**, not this tab — see [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md).
+**Related:** per-device rule validation cards + FDD DOCX live under **FDD Plots**, not this tab — see [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md).
 
 ## Where
 
 | Piece | Path |
 | --- | --- |
 | Tab UI | `app/ui_rcx_tab.py` → Streamlit **RCx Plots** section |
-| Presets / collectors | `app/rcx_plots.py` (`PRESETS`, `REQUIRED_RCX_PRESET_IDS`) |
+| Presets / collectors | `app/rcx_plots.py` (`PRESETS`, `REQUIRED_RCX_PRESET_IDS`, `RCX_FAMILY_ORDER`) |
 | Figures | `app/charts.py` — `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter` |
 | Display units | `app/unit_system.py` (imperial/metric toggle in sidebar) |
-| Coverage CSV | `rcx_preset_coverage()` → agent export `rcx_preset_coverage.csv` |
+| Coverage CSV | Opt-in checkbox → `rcx_preset_coverage()` (slow on large packages) |
 
-## Plot dropdown (chart type in the name)
+## Navigation (family → plot)
 
-Presets with data sort first; empty ones tagged `(no data)`.
+Pick a **mechanical family** first, then one preset in that family. AHU never lists chiller/boiler/meter presets.
 
-| id | Label (title) |
+| Family | Preset ids |
 | --- | --- |
-| `zone_comfort_rank` | Zones — comfort fail ranking (occupied hours) |
-| `zone_temps` | Zones — all space temps (timeseries) |
-| `vav_flows` | Zones — all VAV airflow (timeseries) |
-| `ahu_sat_reset_scatter` | AHU — SAT vs web dry-bulb (scatter) |
-| `ahu_dats` / `ahu_mats` / `ahu_rats` / `ahu_dampers` / `fan_speeds` | AHU overlays (timeseries) |
-| `duct_static_box` | AHU — duct static fan-on (box) |
-| `hw_reset_scatter` | Boiler / HW — leave temp vs web dry-bulb (scatter) |
-| `chw_reset_scatter` | Chiller / CHW — leave temp vs web dry-bulb (scatter) |
-| `cw_reset_scatter` | Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter) |
-| `meter_elec_cdd` | Metering — electric kWh/month vs CDD (scatter + stats) |
-| `meter_gas_hdd` | Metering — gas/month vs HDD (scatter + stats) |
+| Zones / VAV | `zone_comfort_rank`, `zone_temps`, `vav_flows` |
+| AHU / air | `ahu_sat_reset_scatter`, `ahu_dats` / `ahu_mats` / `ahu_rats` / `ahu_dampers` / `fan_speeds`, `duct_static_box` |
+| Boiler / HW | `hw_reset_scatter` |
+| Chiller / CHW / tower | `chw_reset_scatter`, `cw_reset_scatter` |
+| Metering | `meter_elec_cdd`, `meter_gas_hdd` |
 
-**Zone ranking** uses Overview occupancy calendar + zone low/high (°F). Rows sorted worst `% outside comfort` first; optional timeseries of top offenders.
-
-**Metering:** map `elec_power_kw` (or meter kW aliases) / `gas_flow` on **METER** (or plant) equipment. kW integrates over sample intervals → monthly kWh; degree-days use web dry-bulb, base 65°F (**CDD** for electric, **HDD** for gas).
-
-Generic role picker remains under an expander.
-
-**Download RCx catalog DOCX** — building-level Word report shaped like [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) with analytics / preset coverage filled when the data model fits (`PLACE RCX PLOT HERE` stubs).
-
+**Perf:** only the selected preset builds charts. **Prepare RCx catalog DOCX** and coverage diagnostics are opt-in (do not rebuild on every widget change). Generic role picker is under an expander and only collects when **Render generic plot** is checked.
 ## Required reset / plant presets (ids)
 
 | id | chart | y role | x |

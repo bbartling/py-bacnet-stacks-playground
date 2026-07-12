@@ -129,7 +129,7 @@ def _render_app_hero() -> None:
 
 1. **Data package** — Folder or `openfdd_package_v1` zip of historian CSVs  
 2. **Data model** — JSON column→role map (Mapping tab) or `session_config.json` role_map in the zip  
-3. **Run** — **Run Rules** → **Plots** / **RCx Plots**
+3. **Run** — **Run Rules** → **FDD Plots** / **RCx Plots**
         """.strip()
     )
     st.markdown(
@@ -145,7 +145,7 @@ _render_app_hero()
 def _empty_state_directions() -> None:
     st.info(
         "**Start here:** sidebar → **Building package zip(s)** (or Folder locally). "
-        "Each equipment CSV needs a sibling Haystack map JSON. Then **Run Rules** → **Plots** / **RCx**."
+        "Each equipment CSV needs a sibling Haystack map JSON. Then **Run Rules** → **FDD Plots** / **RCx**."
     )
     st.markdown(
         f"Agent brief: [AGENTS.md]({_AGENTS_MD_URL}) · "
@@ -1908,7 +1908,7 @@ def main() -> None:
 
         st.markdown(
             "Tune thresholds in the **left sidebar** → **Run Rules** (all or by category) "
-            "or sidebar **Rerun cat.** → browse **Plots** by device type (AHU / VAV / plant…)."
+            "or sidebar **Rerun cat.** → browse **FDD Plots** by device type (AHU / VAV / plant…)."
         )
         st.markdown("**Devices by type**")
         type_counts = pd.DataFrame(
@@ -2081,7 +2081,7 @@ def main() -> None:
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
             st.success(
                 f"Ran {len(st.session_state.batch_results)} evaluations — "
-                "open **Plots** for the FDD Word template, or **RCx Plots**."
+                "open **FDD Plots** for the FDD Word template, or **RCx Plots**."
             )
 
     if section == "Results by Category":
@@ -2092,7 +2092,7 @@ def main() -> None:
         )
         results = st.session_state.batch_results
         if not results:
-            st.info("Run rules (main tab or sidebar **Rerun cat.**), then review here or on **Plots**.")
+            st.info("Run rules (main tab or sidebar **Rerun cat.**), then review here or on **FDD Plots**.")
         else:
             summary = results_summary_table(results)
             m1, m2, m3, m4, m5, m6 = st.columns(6)
@@ -2175,7 +2175,7 @@ def main() -> None:
                 key="dl_results_by_equip",
             )
 
-    if section == "Plots":
+    if section == "FDD Plots":
         from app.docx_report import applicable_rules_for_equipment, build_equipment_fdd_docx
         from app.rule_card import (
             build_rule_card,
@@ -2183,7 +2183,7 @@ def main() -> None:
             filter_status_bucket,
         )
 
-        st.subheader("Plots — rule validation")
+        st.subheader("FDD Plots — rule validation")
         st.caption(
             "Pick a device → rules auto-run → **chart on top**. "
             "Cards below = params + mapping. Camera icon on chart → PNG/JPEG. "
@@ -2683,7 +2683,7 @@ def main() -> None:
 
         st.markdown("##### DOCX reports")
         st.caption(
-            "FDD equation template lives on **Plots** only. Export keeps data-model / RCx / analytics Word files."
+            "FDD equation template lives on **FDD Plots** only. Export keeps data-model / RCx / analytics Word files."
         )
         try:
             from app.data_model_tree import build_data_model_tree

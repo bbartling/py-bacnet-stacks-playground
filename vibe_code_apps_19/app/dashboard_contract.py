@@ -8,13 +8,13 @@ REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "Data Model",
     "Run Rules",
     "Results by Category",
-    "Plots",
+    "FDD Plots",
     "RCx Plots",
     "Metering",
     "Export",
 )
 
-# Public chart helpers in app/charts.py used by Plots / RCx / Overview / Metering.
+# Public chart helpers in app/charts.py used by FDD Plots / RCx / Overview / Metering.
 REQUIRED_CHART_APIS: tuple[str, ...] = (
     "rule_result_chart",
     "multi_equipment_timeseries",

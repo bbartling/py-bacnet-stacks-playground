@@ -54,21 +54,21 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | --- | --- |
 | Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
-| Run Rules | Cookbook (+ custom); then review **Plots** / **RCx** |
+| Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **Plots** | Auto-run device rules; catalog-parity cards; **Download FDD DOCX** (description + equation + plot stub only) |
-| **RCx Plots** | Named presets + zone comfort ranking; fan-mode summaries; metering presets **at end**; RCx catalog DOCX |
+| **FDD Plots** | Auto-run device rules; catalog-parity cards; **Download FDD DOCX** (description + equation + plot stub only) |
+| **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); one chart at a time; opt-in coverage + catalog DOCX |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
-| Export | CSV / session / health / data-model / RCx / analytics DOCX (FDD template is Plots-only) |
+| Export | CSV / session / health / data-model / RCx / analytics DOCX (FDD template is FDD Plots-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 
-### Plots + DOCX validation cards
+### FDD Plots + DOCX validation cards
 
-- Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
+- FDD Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
 - Equipment FDD DOCX (`build_equipment_fdd_docx`) is a **dumb template**: Key findings placeholder, then per rule **Description** + **Equation** + **`[PLACE PLOT HERE]`** — no analytics, mapping tables, or slider dumps.
-- One-click: **Download FDD DOCX** on **Plots** only (not Run Rules ZIP pack).
+- One-click: **Download FDD DOCX** on **FDD Plots** only (not Run Rules ZIP pack).
 
 ---
 
@@ -116,12 +116,35 @@ Empty coverage is OK when data is missing (`rcx_preset_coverage` + empty_reason)
 
 ---
 
+## Analytics golden baseline (perf guardrail)
+
+Before changing analytics / RCx collectors / rule-batch caching, run:
+
+```text
+python -m pytest -q tests/test_analytics_golden.py
+```
+
+Committed CSVs under `tests/golden/analytics/` lock Overview analytics, RCx coverage/digests, and a compact rule-status digest for the deterministic fixture `tests/fixtures/analytics_pkg/`. Soft timings print with `-s`; absolute seconds only fail when `VIBE19_ASSERT_ANALYTICS_MAX_S` is set.
+
+**After intentional numeric changes**, regenerate goldens:
+
+```text
+set VIBE19_UPDATE_ANALYTICS_GOLDEN=1
+python -m pytest -q tests/test_analytics_golden.py -s
+```
+
+Optional BUILDING_100 fingerprint lane (when `VIBE19_TEST_PACKAGE_DIR` / local zip exists): same env writes `building100_fingerprints.json`.
+
+Harness: `app/analytics_baseline.py`.
+
+---
+
 ## Agent checklist before merge
 
 - [ ] `REQUIRED_RCX_PRESET_IDS ⊆ {p.id for p in PRESETS}`
 - [ ] `REQUIRED_MAIN_SECTIONS` / `REQUIRED_CHART_APIS` still match UI
 - [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
-- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py`
-- [ ] Did **not** remove RCx Plots, Plots, Metering, Export, or chart helpers (no duplicate Analytics tab — Overview owns motor/cool bins / BAS-vs-web hist)
+- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py`
+- [ ] Did **not** remove RCx Plots, FDD Plots, Metering, Export, or chart helpers (no duplicate Analytics tab — Overview owns motor/cool bins / BAS-vs-web hist)
 - [ ] Append `SESSION_LOG.md` if presets / sections changed

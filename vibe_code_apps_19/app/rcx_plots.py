@@ -20,10 +20,22 @@ class RcxPreset:
     description: str
     role: str
     equipment_types: tuple[str, ...]
-    chart: str  # "timeseries" | "box" | "scatter_oat" | "ranking"
+    chart: str  # "timeseries" | "box" | "scatter_oat" | "ranking" | "metering"
     filter_fan_on: bool = False
     y_role_alt: str | None = None  # for scatter: plant temp role
     dry_bulb_ref: bool = False  # CW scatter: also plot vs dry-bulb
+    # UI family bucket — keeps AHU presets out of chiller/boiler lists
+    family: str = "AHU / air"
+
+
+# Mechanical families for the RCx Plots picker (order = UI order).
+RCX_FAMILY_ORDER: tuple[str, ...] = (
+    "Zones / VAV",
+    "AHU / air",
+    "Boiler / HW",
+    "Chiller / CHW / tower",
+    "Metering",
+)
 
 
 # Dropdown labels include chart type so the picker is self-documenting.
@@ -35,6 +47,7 @@ PRESETS: list[RcxPreset] = [
         "zone_t",
         ("VAV",),
         "ranking",
+        family="Zones / VAV",
     ),
     RcxPreset(
         "zone_temps",
@@ -43,6 +56,7 @@ PRESETS: list[RcxPreset] = [
         "zone_t",
         ("VAV",),
         "timeseries",
+        family="Zones / VAV",
     ),
     RcxPreset(
         "vav_flows",
@@ -51,6 +65,7 @@ PRESETS: list[RcxPreset] = [
         "zone_flow",
         ("VAV",),
         "timeseries",
+        family="Zones / VAV",
     ),
     RcxPreset(
         "ahu_sat_reset_scatter",
@@ -59,6 +74,7 @@ PRESETS: list[RcxPreset] = [
         "sat",
         ("AHU",),
         "scatter_oat",
+        family="AHU / air",
     ),
     RcxPreset(
         "ahu_dats",
@@ -67,6 +83,7 @@ PRESETS: list[RcxPreset] = [
         "sat",
         ("AHU",),
         "timeseries",
+        family="AHU / air",
     ),
     RcxPreset(
         "ahu_mats",
@@ -75,6 +92,7 @@ PRESETS: list[RcxPreset] = [
         "mat",
         ("AHU",),
         "timeseries",
+        family="AHU / air",
     ),
     RcxPreset(
         "ahu_rats",
@@ -83,6 +101,7 @@ PRESETS: list[RcxPreset] = [
         "rat",
         ("AHU",),
         "timeseries",
+        family="AHU / air",
     ),
     RcxPreset(
         "ahu_dampers",
@@ -91,6 +110,7 @@ PRESETS: list[RcxPreset] = [
         "oa_damper_pct",
         ("AHU",),
         "timeseries",
+        family="AHU / air",
     ),
     RcxPreset(
         "fan_speeds",
@@ -99,6 +119,7 @@ PRESETS: list[RcxPreset] = [
         "fan_cmd",
         ("AHU",),
         "timeseries",
+        family="AHU / air",
     ),
     RcxPreset(
         "duct_static_box",
@@ -108,6 +129,7 @@ PRESETS: list[RcxPreset] = [
         ("AHU",),
         "box",
         filter_fan_on=True,
+        family="AHU / air",
     ),
     RcxPreset(
         "hw_reset_scatter",
@@ -116,6 +138,7 @@ PRESETS: list[RcxPreset] = [
         "hw_supply_t",
         ("BOILER",),
         "scatter_oat",
+        family="Boiler / HW",
     ),
     RcxPreset(
         "chw_reset_scatter",
@@ -124,6 +147,7 @@ PRESETS: list[RcxPreset] = [
         "chw_supply_t",
         ("CHW_PLANT", "CHILLER"),
         "scatter_oat",
+        family="Chiller / CHW / tower",
     ),
     RcxPreset(
         "cw_reset_scatter",
@@ -134,6 +158,7 @@ PRESETS: list[RcxPreset] = [
         "scatter_oat",
         y_role_alt="wx_oa_wetbulb",
         dry_bulb_ref=True,
+        family="Chiller / CHW / tower",
     ),
     RcxPreset(
         "meter_elec_cdd",
@@ -142,6 +167,7 @@ PRESETS: list[RcxPreset] = [
         "elec_power_kw",
         ("METER", "CHILLER", "CHW_PLANT"),
         "metering",
+        family="Metering",
     ),
     RcxPreset(
         "meter_gas_hdd",
@@ -150,6 +176,7 @@ PRESETS: list[RcxPreset] = [
         "gas_flow",
         ("METER", "BOILER"),
         "metering",
+        family="Metering",
     ),
 ]
 
@@ -560,6 +587,11 @@ def preset_by_id(preset_id: str) -> RcxPreset | None:
         if p.id == preset_id:
             return p
     return None
+
+
+def presets_for_family(family: str) -> list[RcxPreset]:
+    """Presets in one mechanical family (UI picker scope)."""
+    return [p for p in PRESETS if p.family == family]
 
 
 def rcx_preset_coverage(

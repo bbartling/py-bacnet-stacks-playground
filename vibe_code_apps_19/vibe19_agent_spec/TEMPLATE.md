@@ -18,7 +18,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 | Rules | `app/rules/cookbook_catalog.py` + runner (50 canonical) | Thresholds; **extra** faults via `CUSTOM-*` / `custom_rules.py` |
 | Role map | `app/role_map.py` + mapping wizard | Point → cookbook role columns |
 | UI / brand | `streamlit_app.py`, `shared/branding.py`, `assets/` | Title, hero image, copy |
-| Charts | `app/charts.py` + **Plots** cards + **RCx Plots** | Series / units / presets; FDD DOCX via `app/rule_card.py` + `app/docx_report.py` |
+| Charts | `app/charts.py` + **FDD Plots** cards + **RCx Plots** | Series / units / presets; FDD DOCX via `app/rule_card.py` + `app/docx_report.py` |
 | Weather | `app/weather_psychrometrics.py` + `weather/` CSV | Web OAT / RH → dewpoint & wet-bulb |
 | Deploy | Package caps 500 MB default | Docker vs Streamlit Cloud — CUSTOMIZE.md |
 
@@ -30,7 +30,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 2. **Set paths** — copy `.env.example` → `.env` with `HVAC_DATA_ROOT` + `HVAC_BUILDING`, or use `data_paths.local.yaml`
 3. **Validate** — `python validate_data.py` until GO
 4. **Map points** — Streamlit mapping wizard / `configs/role_map.yaml` (`oa_t`, `mat`, `fan_cmd`, …)
-5. **Run** — `streamlit run streamlit_app.py` → Run rules → Overview / Plots (validation cards) / RCx / Analytics / Export DOCX
+5. **Run** — `streamlit run streamlit_app.py` → Run rules → Overview / FDD Plots (validation cards) / RCx / Metering / Export DOCX
 6. **Tune** — sidebar confirm delay + rule defaults; see [`docs/RULE_TUNING_GUIDE.md`](../docs/RULE_TUNING_GUIDE.md)
 7. **Restore later** — download `session_config.json` (Cloud-safe with zip re-upload)
 

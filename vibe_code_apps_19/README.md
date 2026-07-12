@@ -1,6 +1,6 @@
 # Vibe Code App 19 — Open FDD Vibe Coder
 
-Educational **Streamlit + pandas** lab for the [Open-FDD 50-rule Pandas Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html). Historian CSVs stay as-is; you map columns to logical roles, tune thresholds, run rules, and review **Plots** validation cards / RCx / FDD DOCX.
+Educational **Streamlit + pandas** lab for the [Open-FDD 50-rule Pandas Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html). Historian CSVs stay as-is; you map columns to logical roles, tune thresholds, run rules, and review **FDD Plots** validation cards / RCx / FDD DOCX.
 
 **This is not the Rust Open-FDD engine.** Production stack: [Open-FDD](https://github.com/bbartling/open-fdd).
 

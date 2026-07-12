@@ -22,11 +22,11 @@ Plots is the **review/validation** surface for the cookbook on one device — no
 | `app/docx_report.py` | `build_equipment_fdd_docx` (Plots template: description + equation + plot stub), data-model / RCx / analytics DOCX |
 | `app/data_model_tree.py` | Equipment → role → Haystack tag → CSV inventory (+ feeds/fedBy) |
 | `app/charts.py` | `rule_result_chart`, `bas_vs_web_oat_histogram`, … |
-| `streamlit_app.py` | **Plots** (FDD DOCX) + **Data Model** + **Metering** + **Export** |
+| `streamlit_app.py` | **FDD Plots** (FDD DOCX) + **Data Model** + **Metering** + **Export** |
 
 ---
 
-## Plots UX (required behavior)
+## FDD Plots UX (required behavior)
 
 1. Device type → device picker.
 2. **Auto-run** applicable rules for the selected device when that device has no evaluations yet (manual **Re-run device rules** still available).

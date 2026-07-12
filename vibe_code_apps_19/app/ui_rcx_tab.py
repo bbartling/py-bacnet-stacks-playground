@@ -1,4 +1,4 @@
-"""Streamlit RCx / generic multi-equipment plots tab."""
+"""Streamlit RCx / multi-equipment plots tab — family-scoped presets, lazy heavy work."""
 
 from __future__ import annotations
 
@@ -17,12 +17,14 @@ from app.metering import build_meter_monthly_table, meter_scatter_frame
 from app.occupancy import OccupancySchedule
 from app.rcx_plots import (
     PRESETS,
+    RCX_FAMILY_ORDER,
     cohort_wants_fan_slices,
     collect_oat_scatter,
     collect_role_series,
     fan_mode_summary_bundle,
     outlier_equipment_ids,
     preset_by_id,
+    presets_for_family,
     series_summary_stats,
     zone_comfort_fail_ranking,
 )
@@ -70,20 +72,19 @@ def _render_summary_stats(
         )
         return
 
-    _tables, proof_cap = fan_mode_summary_bundle(
+    # Reuse fan_mode_summary_bundle once (avoid 3× collect + convert loops).
+    tables, proof_cap = fan_mode_summary_bundle(
         frames,
         role_map,
         role=role,
         equipment_types=equipment_types,
         outlier_z=outlier_z,
     )
-    display_tables: dict[str, pd.DataFrame] = {}
-    for mode_key in ("all", "on", "off"):
-        sm = collect_role_series(
-            frames, role_map, role=role, equipment_types=equipment_types, fan_mode=mode_key
-        )
-        sm, _ = _convert_map(sm, role, unit_system)
-        display_tables[mode_key] = series_summary_stats(sm, outlier_z=outlier_z)
+    # Unit-convert means for display when metric — rebuild lightly from chart map for "all"
+    display_tables = dict(tables)
+    if unit_system == "metric" and chart_series_map:
+        sm_all, _ = _convert_map(chart_series_map, role, unit_system)
+        display_tables["all"] = series_summary_stats(sm_all, outlier_z=outlier_z)
 
     st.caption(proof_cap)
     tab_all, tab_on, tab_off = st.tabs(["All data", "Fan / air on", "Fan / air off"])
@@ -124,13 +125,10 @@ def render_rcx_plots_tab(
 ) -> None:
     st.subheader("RCx plots")
     st.caption(
-        "Data-model-driven presets (chart type in the name). "
-        "Zone comfort ranking uses Overview occupancy calendar + zone low/high. "
-        "Outliers (z≥2.5) highlighted. AHU/VAV summaries include All / fan-on / fan-off when proof is mapped."
+        "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Metering), "
+        "then one preset in that family. Charts build only for the selected preset. "
+        "Heavy coverage diagnostics and RCx catalog DOCX are opt-in below."
     )
-
-    from app.rcx_plots import rcx_preset_coverage
-    from app.docx_report import build_rcx_catalog_docx
 
     schedule = (
         occupancy_schedule
@@ -139,41 +137,63 @@ def render_rcx_plots_tab(
     )
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
 
-    try:
-        rcx_docx = build_rcx_catalog_docx(
-            building_id=st.session_state.get("building_id") or "",
-            frames=frames,
-            role_map=role_map,
-            weather=weather,
-            results=st.session_state.get("batch_results") or [],
-            params=st.session_state.get("params") or {},
-            zone_lo_f=zone_lo_f,
-            zone_hi_f=zone_hi_f,
-            occupancy_schedule=schedule.to_dict(),
-            unit_system=unit_system,
-        )
-        st.download_button(
-            "Download RCx catalog DOCX",
-            data=rcx_docx,
-            file_name="rcx_catalog_report.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_rcx_catalog_docx",
-            type="primary",
-            help="Catalog-shaped Word report with analytics filled when the data model fits.",
-        )
-    except Exception as exc:
-        st.caption(f"RCx catalog DOCX unavailable: {exc}")
+    # --- Lazy DOCX (was rebuilding the whole catalog on every RCx render) ---
+    c_doc1, c_doc2 = st.columns([1, 2])
+    with c_doc1:
+        if st.button("Prepare RCx catalog DOCX", key="rcx_prep_docx"):
+            from app.docx_report import build_rcx_catalog_docx
 
-    with st.expander("RCx preset coverage diagnostics", expanded=False):
-        cov = rcx_preset_coverage(
-            frames,
-            role_map,
-            weather=weather,
-            outlier_z=outlier_z,
-            schedule=schedule,
-            comfort_low_f=zone_lo_f,
-            comfort_high_f=zone_hi_f,
-        )
+            with st.spinner("Building RCx catalog Word file…"):
+                try:
+                    st.session_state["rcx_catalog_docx_bytes"] = build_rcx_catalog_docx(
+                        building_id=st.session_state.get("building_id") or "",
+                        frames=frames,
+                        role_map=role_map,
+                        weather=weather,
+                        results=st.session_state.get("batch_results") or [],
+                        params=st.session_state.get("params") or {},
+                        zone_lo_f=zone_lo_f,
+                        zone_hi_f=zone_hi_f,
+                        occupancy_schedule=schedule.to_dict(),
+                        unit_system=unit_system,
+                    )
+                    st.success("Ready — use Download.")
+                except Exception as exc:
+                    st.session_state.pop("rcx_catalog_docx_bytes", None)
+                    st.warning(f"RCx catalog DOCX unavailable: {exc}")
+    with c_doc2:
+        blob = st.session_state.get("rcx_catalog_docx_bytes")
+        if blob:
+            st.download_button(
+                "Download RCx catalog DOCX",
+                data=blob,
+                file_name="rcx_catalog_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_rcx_catalog_docx",
+                type="primary",
+            )
+        else:
+            st.caption("Prepare once, then download — avoids rebuilding on every widget change.")
+
+    # --- Lazy coverage (was scanning every preset × every equipment on each run) ---
+    show_cov = st.checkbox(
+        "Show preset coverage diagnostics (slow on large packages)",
+        value=False,
+        key="rcx_show_coverage",
+    )
+    if show_cov:
+        from app.rcx_plots import rcx_preset_coverage
+
+        with st.spinner("Computing RCx preset coverage…"):
+            cov = rcx_preset_coverage(
+                frames,
+                role_map,
+                weather=weather,
+                outlier_z=outlier_z,
+                schedule=schedule,
+                comfort_low_f=zone_lo_f,
+                comfort_high_f=zone_hi_f,
+            )
         st.dataframe(cov, hide_index=True, width="stretch", height=320)
         nonempty = int((cov["row_count"] > 0).sum()) if not cov.empty else 0
         st.caption(f"{nonempty}/{len(cov)} presets have data")
@@ -184,31 +204,27 @@ def render_rcx_plots_tab(
             key="dl_rcx_coverage",
         )
 
-    # Prefer presets with data; still list empties at the bottom with a marker
-    cov_by_id = {}
-    if not cov.empty:
-        cov_by_id = {str(r.preset_id): r for r in cov.itertuples()}
-    ordered = sorted(
-        PRESETS,
-        key=lambda p: (
-            0 if (cov_by_id.get(p.id) and int(getattr(cov_by_id[p.id], "row_count", 0) or 0) > 0) else 1,
-            PRESETS.index(p),
-        ),
+    # --- Family → preset (AHU list never includes chiller/boiler) ---
+    family = st.selectbox(
+        "Mechanical family",
+        list(RCX_FAMILY_ORDER),
+        key="rcx_family",
+        help="Scopes the plot list so plant reset charts are not mixed under AHU.",
     )
+    family_presets = presets_for_family(family)
+    if not family_presets:
+        st.info("No presets in this family.")
+        return
 
     def _label(pid: str) -> str:
         p = preset_by_id(pid)
-        title = p.title if p else pid
-        row = cov_by_id.get(pid)
-        if row is not None and int(getattr(row, "row_count", 0) or 0) == 0:
-            return f"{title}  ·  (no data)"
-        return title
+        return p.title if p else pid
 
     pid = st.selectbox(
         "Plot",
-        [p.id for p in ordered],
+        [p.id for p in family_presets],
         format_func=_label,
-        key="rcx_preset",
+        key=f"rcx_preset_{family}",
     )
     preset = preset_by_id(pid)
     assert preset is not None
@@ -250,7 +266,6 @@ def render_rcx_plots_tab(
                 "rcx_zone_comfort_ranking.csv",
                 key="dl_rcx_zone_rank",
             )
-            # Overlay worst offenders' zone temps for visual follow-up
             worst_ids = list(rank["equipment_id"].astype(str).head(12))
             series_map = collect_role_series(
                 frames,
@@ -376,7 +391,7 @@ def render_rcx_plots_tab(
             if preset.dry_bulb_ref:
                 st.caption("Primary X = wet-bulb; × markers = same Y vs dry-bulb (approach reference).")
             st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{preset.id}"), key="rcx_scatter")
-            st.dataframe(long_df.head(5000), hide_index=True, width="stretch", height=220)
+            st.dataframe(long_df.head(2000), hide_index=True, width="stretch", height=220)
         return
 
     series_map = collect_role_series(
@@ -420,6 +435,7 @@ def render_rcx_plots_tab(
     )
 
     with st.expander("Generic role picker (advanced)", expanded=False):
+        st.caption("Optional — only runs when you expand this section.")
         g_role = st.text_input("Cookbook role to plot", value="zone_t", key="rcx_generic_role")
         g_types = st.multiselect(
             "Equipment types (empty = all)",
@@ -429,6 +445,9 @@ def render_rcx_plots_tab(
         )
         g_fan = st.checkbox("Filter chart to fan on", value=False, key="rcx_fan_on")
         g_kind = st.selectbox("Chart", ["timeseries", "box"], key="rcx_chart_kind")
+        run_generic = st.checkbox("Render generic plot", value=False, key="rcx_generic_go")
+        if not run_generic:
+            return
         g_et = tuple(g_types) if g_types else None
         g_map = collect_role_series(
             frames,
@@ -446,9 +465,7 @@ def render_rcx_plots_tab(
             g_fig = multi_equipment_timeseries(
                 g_map, title=f"Generic · {g_role}", y_title=g_yt, outlier_ids=g_out
             )
-        if g_fig is None:
-            st.info("No series for that role / type filter.")
-        else:
-            st.plotly_chart(g_fig, width="stretch", config=plotly_config(filename="rcx_generic"), key="rcx_generic_fig")
+        if g_fig is not None:
+            st.plotly_chart(g_fig, width="stretch", config=plotly_config(filename="rcx_generic"), key="rcx_generic")
         if not g_stats.empty:
-            st.dataframe(g_stats, hide_index=True, width="stretch", height=min(280, 80 + 28 * len(g_stats)))
+            st.dataframe(g_stats, hide_index=True, width="stretch")

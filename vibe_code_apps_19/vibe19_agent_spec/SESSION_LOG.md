@@ -8,6 +8,23 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — Analytics golden baseline (perf guardrail)
+
+- `app/analytics_baseline.py` — canonicalize + fingerprint Overview/RCx/metering + compact rule digest
+- Fixture `tests/fixtures/analytics_pkg/`; goldens `tests/golden/analytics/`
+- `tests/test_analytics_golden.py`; regen with `VIBE19_UPDATE_ANALYTICS_GOLDEN=1`
+- Doc: [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md) analytics golden section
+
+---
+
+## 2026-07-12 — FDD Plots rename + RCx family / lazy DOCX
+
+- Main section **Plots** → **FDD Plots** (`REQUIRED_MAIN_SECTIONS`)
+- RCx: mechanical family → preset (AHU no longer lists plant/meter); Prepare DOCX + coverage opt-in
+- Specs/skills: DASHBOARD_CONTRACT, RCX_PLOTS, PLOTS_DOCX_VALIDATION, streamlit-demo / plotly skills
+
+---
+
 ## 2026-07-12 — RCx metering (electric / gas)
 
 - Presets `meter_elec_cdd` / `meter_gas_hdd`: monthly energy from kW or gas rate + stats + scatter vs CDD/HDD (65°F)

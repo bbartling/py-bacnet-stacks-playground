@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "building": "ANALYTICS_GOLDEN_B1",
+  "equipment": {
+    "AHU_1": {
+      "equipment_type": "AHU",
+      "column_roles": {
+        "sat": "discharge_air_temp_f",
+        "mat": "mixed_air_temp_f",
+        "rat": "return_air_temp_f",
+        "oa_t": "outside_air_temp_f",
+        "fan_status": "supply_fan_status",
+        "fan_cmd": "fan_speed_pct",
+        "oa_damper_pct": "oa_damper_cmd",
+        "duct_static": "duct_static_inwc",
+        "clg_valve_pct": "cooling_valve"
+      }
+    },
+    "VAV_1": {
+      "equipment_type": "VAV",
+      "column_roles": {
+        "zone_t": "zone_temp_f",
+        "zone_flow": "zone_airflow_cfm",
+        "fan_status": "box_fan_status"
+      }
+    },
+    "CHILLER_1": {
+      "equipment_type": "CHILLER",
+      "column_roles": {
+        "chw_supply_t": "chw_supply_temp_f",
+        "cw_supply_t": "cw_supply_temp_f",
+        "chiller_status": "chiller_run_status",
+        "chw_pump_status": "chw_pump_status"
+      }
+    },
+    "BOILER_1": {
+      "equipment_type": "BOILER",
+      "column_roles": {
+        "hw_supply_t": "hw_supply_temp_f",
+        "hw_pump_status": "hw_pump_status",
+        "boiler_status": "boiler_run_status"
+      }
+    },
+    "COOLING_TOWER_1": {
+      "equipment_type": "COOLING_TOWER",
+      "column_roles": {
+        "cw_supply_t": "tower_leaving_temp_f",
+        "cw_pump_status": "tower_pump_status"
+      }
+    },
+    "METER_1": {
+      "equipment_type": "METER",
+      "column_roles": {
+        "elec_power_kw": "building_kw",
+        "gas_flow": "gas_therms_per_hr"
+      }
+    }
+  }
+}
