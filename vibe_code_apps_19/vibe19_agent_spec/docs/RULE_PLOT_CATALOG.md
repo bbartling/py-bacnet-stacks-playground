@@ -1,4 +1,4 @@
-# Rule plot catalog (all 50)
+# Rule plot catalog (all 51)
 
 **Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.
 
@@ -30,7 +30,7 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 | 1 · Sensor validation | 4 | `SV-RANGE`, `SV-FLATLINE`, `SV-SPIKE`, `SV-STALE` |
 | 2 · Control loops | 1 | `PID-HUNT-1` |
 | 3 · AHU / air handling | 29 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `SCHED-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
-| 4 · VAV / terminal | 6 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-7` |
+| 4 · VAV / terminal | 7 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-AHU-LEAVE`, `VAV-7` |
 | 5 · Central plant | 5 | `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1` |
 | 6 · Heat pump | 1 | `HP-1` |
 | 7 · Weather / OAT | 1 | `WX-1` |
@@ -1535,6 +1535,43 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
+### `VAV-AHU-LEAVE` — VAV leave vs parent AHU SAT (fedBy)
+
+**Equation:** Air flowing AND |VAV discharge − parent AHU SAT| > band. Needs package topology (vav_to_ahu) so ahu_sat is enriched from the fedBy AHU; otherwise SKIPPED_MISSING_ROLES. Flags broken reheat, bad sensors, or rogue zones.
+
+| Field | Value |
+| --- | --- |
+| Family | `vav` |
+| Equipment kinds | `vav` |
+| Operational gate | `fan_running (startup 600s)` |
+| Default confirm | 900s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `vav_disch_t` | `vav-discharge-air-temp` | required |
+| `ahu_sat` | `ahu-discharge-air-temp` | required |
+
+#### Plot series
+
+- `vav_disch_t` → `vav-discharge-air-temp`
+- `ahu_sat` → `ahu-discharge-air-temp`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `delta_f` | Leave Δ vs AHU SAT | °F | 8 | 2 | 25 | 0.5 |
+| `flow_on_min` | Airflow-on min | cfm | 25 | 0 | 200 | 5 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+
 ### `VAV-7` — Min airflow / fixed high flow
 
 **Equation:** Flow below min SP (when mapped), OR airflow stays flat (low rolling std) at a high mean while air is on (mins too high / box never modulates), OR min_flow_sp itself is excessively high.
@@ -1959,6 +1996,9 @@ CHW reset requests; RCx `chw_reset_scatter`.
 
 | Cookbook role | Haystack-like tag |
 | --- | --- |
+| `ahu_sat` | `ahu-discharge-air-temp` |
+| `building_power_kw` | `building-power` |
+| `chiller_power_kw` | `chiller-power` |
 | `chw_dp` | `chw-diff-pressure` |
 | `chw_dp_sp` | `chw-diff-pressure-sp` |
 | `chw_flow` | `chw-flow` |
@@ -1974,8 +2014,12 @@ CHW reset requests; RCx `chw_reset_scatter`.
 | `damper_pct` | `damper` |
 | `duct_static` | `duct-static-pressure` |
 | `duct_static_sp` | `duct-static-pressure-sp` |
+| `elec_power_kw` | `elec-power` |
 | `fan_cmd` | `fan-cmd` |
 | `fan_status` | `fan-status` |
+| `gas_flow` | `gas-flow` |
+| `gas_rate` | `gas-rate` |
+| `gas_therm_rate` | `gas-therm-rate` |
 | `htg_coil_enter_t` | `heating-coil-entering-temp` |
 | `htg_coil_leave_t` | `heating-coil-leaving-temp` |
 | `htg_valve_pct` | `heating-valve` |
@@ -1984,7 +2028,9 @@ CHW reset requests; RCx `chw_reset_scatter`.
 | `hw_supply_t` | `hot-water-supply-temp` |
 | `loop_enabled` | `loop-enabled` |
 | `mat` | `mixed-air-temp` |
+| `meter_power_kw` | `meter-power` |
 | `min_flow_sp` | `min-flow-sp` |
+| `nat_gas_flow` | `nat-gas-flow` |
 | `oa_damper_pct` | `outside-air-damper` |
 | `oa_t` | `outside-air-temp` |
 | `occ_mode` | `occupied` |

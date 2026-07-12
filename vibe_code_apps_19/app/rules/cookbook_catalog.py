@@ -600,6 +600,24 @@ def vav_reheat_stuck(d, p, poll):
     )
 
 
+def vav_vs_ahu_leave(d, p, poll):
+    """VAV leave temp far from parent AHU SAT (fedBy) — broken reheat or sensor/rogue box.
+
+    Requires topology enrich: ``ahu_sat`` copied from parent AHU onto the VAV frame.
+    Without ``ahu_sat``, the rule is SKIPPED_MISSING_ROLES by the engine.
+    """
+    band = _f(p, "delta_f", 8.0)
+    flow_min = _f(p, "flow_on_min", 25.0)
+    leave = pd.to_numeric(d["vav_disch_t"], errors="coerce")
+    ahu = pd.to_numeric(d["ahu_sat"], errors="coerce")
+    return (
+        _vav_air_on(d, flow_min)
+        & leave.notna()
+        & ahu.notna()
+        & ((leave - ahu).abs() > band)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Central plants
 # ---------------------------------------------------------------------------
@@ -986,6 +1004,23 @@ RULES: list[CookbookRule] = [
             CookbookParam("min_rise", "Min temp rise", "°F", 0.5, 15.0, 0.5, 3.0),
             CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
             CONFIRM_PARAM()], confirm_seconds=900),
+    CookbookRule(
+        "VAV-AHU-LEAVE",
+        "VAV leave vs parent AHU SAT (fedBy)",
+        "vav",
+        ["vav"],
+        ["vav_disch_t", "ahu_sat"],
+        "Air flowing AND |VAV discharge − parent AHU SAT| > band. "
+        "Needs package topology (vav_to_ahu) so ahu_sat is enriched from the fedBy AHU; "
+        "otherwise SKIPPED_MISSING_ROLES. Flags broken reheat, bad sensors, or rogue zones.",
+        vav_vs_ahu_leave,
+        params=[
+            CookbookParam("delta_f", "Leave Δ vs AHU SAT", "°F", 2.0, 25.0, 0.5, 8.0),
+            CookbookParam("flow_on_min", "Airflow-on min", "cfm", 0.0, 200.0, 5.0, 25.0),
+            CONFIRM_PARAM(),
+        ],
+        confirm_seconds=900,
+    ),
     CookbookRule("VAV-7", "Min airflow / fixed high flow", "vav", ["vav"],
         ["zone_flow"],
         "Flow below min SP (when mapped), OR airflow stays flat (low rolling std) at a high mean while air is on "

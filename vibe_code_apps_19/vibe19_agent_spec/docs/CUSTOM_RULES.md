@@ -57,6 +57,6 @@ CUSTOM_RULES.append(
 
 ## Canonical vs custom
 
-- `CANONICAL_RULE_COUNT` stays **50**.
+- `CANONICAL_RULE_COUNT` stays **51**.
 - Active `RULES` = canonical + `CUSTOM_*`.
 - Never reuse a canonical id for a custom rule.

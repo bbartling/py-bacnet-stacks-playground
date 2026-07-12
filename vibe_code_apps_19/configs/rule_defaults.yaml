@@ -885,6 +885,31 @@ VAV-7:
     min: 50.0
     step: 10.0
     unit: cfm
+VAV-AHU-LEAVE:
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  delta_f:
+    default: 8.0
+    help: "Leave \u0394 vs AHU SAT"
+    label: "Leave \u0394 vs AHU SAT"
+    max: 25.0
+    min: 2.0
+    step: 0.5
+    unit: "\xB0F"
+  flow_on_min:
+    default: 25.0
+    help: Airflow-on min
+    label: Airflow-on min
+    max: 200.0
+    min: 0.0
+    step: 5.0
+    unit: cfm
 VAV-REHEAT:
   confirm_min:
     default: 5.0

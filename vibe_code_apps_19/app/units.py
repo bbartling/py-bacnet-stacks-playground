@@ -11,6 +11,7 @@ DEFAULT_ROLE_UNITS: dict[str, str] = {
     "oa_t": "°F",
     "vav_disch_t": "°F",
     "vav_inlet_t": "°F",
+    "ahu_sat": "°F",
     "chw_supply_t": "°F",
     "chw_return_t": "°F",
     "hw_supply_t": "°F",

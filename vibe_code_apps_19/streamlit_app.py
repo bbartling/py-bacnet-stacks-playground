@@ -184,6 +184,7 @@ def _init_state() -> None:
         "data_source": "",
         "column_map": {},
         "column_map_path": "",
+        "vav_to_ahu": {},
         "require_operational_gates": True,
         "unit_system": "imperial",
         "prefer_web_oat": True,
@@ -540,9 +541,16 @@ def _device_results_table(summary: pd.DataFrame, equipment_id: str) -> pd.DataFr
     fams = {r.id: r.family for r in RULES}
     part["title"] = part["rule_id"].map(lambda rid: titles.get(str(rid), ""))
     part["rule_family"] = part["rule_id"].map(lambda rid: fams.get(str(rid), "other"))
-    part["_ord"] = part["status"].map(lambda s: _STATUS_SORT.get(str(s), 99))
-    part["_rid"] = part["rule_id"].map(lambda rid: natural_key(str(rid)))
-    part = part.sort_values(["_ord", "_rid"]).drop(columns=["_ord", "_rid"])
+    # natural_key returns a list — cannot use sort_values on list cells (unhashable).
+    part = part.loc[
+        sorted(
+            part.index,
+            key=lambda i: (
+                _STATUS_SORT.get(str(part.at[i, "status"]), 99),
+                natural_key(str(part.at[i, "rule_id"])),
+            ),
+        )
+    ]
     cols = [
         "rule_id",
         "title",
@@ -779,6 +787,11 @@ def _render_plant_motor_weekly(
 def _mapped_equipment(eq_id: str, frames: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, float]:
     raw = frames[eq_id]
     mapped = apply_role_map(raw, eq_id, st.session_state.role_map)
+    # Topology enrich: parent AHU SAT may live only on the raw VAV frame
+    if "ahu_sat" in raw.columns and "ahu_sat" not in mapped.columns:
+        mapped["ahu_sat"] = raw["ahu_sat"]
+    elif "ahu_sat" in raw.columns:
+        mapped["ahu_sat"] = raw["ahu_sat"]
     # Canonical: Overview weekly calendar always drives occ_mode for SCHED-1.
     sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
     mapped = apply_schedule_occ_mode(mapped, sched, overwrite=True)
@@ -790,11 +803,23 @@ def _mapped_equipment(eq_id: str, frames: dict[str, pd.DataFrame]) -> tuple[pd.D
     return mapped, poll
 
 
+def _ensure_ahu_feed_enrichment(frames: dict[str, pd.DataFrame]) -> None:
+    """Refresh ahu_sat / feed attrs from session topology before running rules."""
+    from app.topology_enrich import enrich_frames_with_ahu_feeds, stamp_feed_attrs
+
+    topo = st.session_state.get("vav_to_ahu") or {}
+    if not topo:
+        return
+    stamp_feed_attrs(frames, topo)
+    enrich_frames_with_ahu_feeds(frames, topo, role_map=st.session_state.get("role_map") or {})
+
+
 def _run_rule_list(
     eq_ids: list[str],
     rules: list,
     frames: dict[str, pd.DataFrame],
 ) -> list:
+    _ensure_ahu_feed_enrichment(frames)
     results = []
     gate_on = bool(st.session_state.get("require_operational_gates", True))
     for eq_id in eq_ids:
@@ -995,7 +1020,9 @@ def _render_package_health_sidebar(report: dict | None, warnings: list[str] | No
 
 def _commit_package_result(result) -> None:
     """Commit zip package frames + optional session_config into session_state."""
+    from app.data_contract import load_vav_to_ahu_map
     from app.package_io import apply_session_config
+    from app.topology_enrich import enrich_frames_with_ahu_feeds, stamp_feed_attrs
 
     site_id = st.session_state.site_id or DEFAULT_SITE_ID
     for _eq_id, df in result.frames.items():
@@ -1003,6 +1030,16 @@ def _commit_package_result(result) -> None:
         df.attrs.setdefault("building_id", result.manifest.building_id)
         if df.attrs.get("columns_path") is not None:
             df.attrs["columns_path"] = str(df.attrs["columns_path"])
+
+    topo = load_vav_to_ahu_map(result.building_root)
+    st.session_state.vav_to_ahu = topo
+    result.report["vav_to_ahu"] = dict(topo)
+    result.report["vav_to_ahu_count"] = len(topo)
+    stamp_feed_attrs(result.frames, topo)
+    enrich_frames_with_ahu_feeds(
+        result.frames, topo, role_map=st.session_state.get("role_map") or {}
+    )
+
     st.session_state.upload_workdir = str(result.workdir)
     st.session_state.package_report = result.report
     # Do not assign ``data_input_mode`` here — it is a radio widget key. Setting it
@@ -1027,6 +1064,12 @@ def _commit_package_result(result) -> None:
         st.session_state.session_config_source = (
             (st.session_state.get("session_config_source") or "") + " + package column_map.json"
         ).strip(" +")
+        # Re-enrich after role_map merge so ahu_sat uses updated mappings
+        enrich_frames_with_ahu_feeds(
+            st.session_state.equipment_frames,
+            st.session_state.get("vav_to_ahu") or topo,
+            role_map=st.session_state.get("role_map") or {},
+        )
     # Sidebar Dataset details is rendered from _load_data on each run (not here —
     # avoids a red banner flash and duplicate expanders before st.rerun).
     st.session_state.package_warnings = list(
@@ -1856,15 +1899,33 @@ def main() -> None:
         st.subheader("Data model tree")
         st.caption(
             "Professional inventory: equipment → cookbook roles → Haystack-like tags → raw CSV columns. "
-            "Missing mappings show as empty placeholders (still list required tags)."
+            "AHU↔VAV **feeds / fedBy** come from package `vav_to_ahu_simple.csv` when present "
+            "(never invented). Missing mappings show as empty placeholders."
         )
         tree = build_data_model_tree(
             frames,
             st.session_state.role_map,
             building_id=st.session_state.get("building_id") or "",
+            vav_to_ahu=st.session_state.get("vav_to_ahu")
+            or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
         )
+        topo_n = len(tree.vav_to_ahu or {})
+        if topo_n:
+            st.caption(f"Topology: **{topo_n}** VAV→AHU link(s) loaded from package.")
         for eq in tree.equipment:
-            with st.expander(f"{eq.equipment_id} · {eq.equipment_type}", expanded=False):
+            feed_bits = []
+            if eq.fed_by:
+                feed_bits.append(f"fedBy `{eq.fed_by}`")
+            if eq.feeds:
+                feed_bits.append(f"feeds {len(eq.feeds)} VAV(s)")
+            title = f"{eq.equipment_id} · {eq.equipment_type}"
+            if feed_bits:
+                title += " · " + " · ".join(feed_bits)
+            with st.expander(title, expanded=False):
+                if eq.fed_by:
+                    st.markdown(f"**fedBy (parent AHU):** `{eq.fed_by}`")
+                if eq.feeds:
+                    st.markdown("**feeds (VAV children):** " + ", ".join(f"`{v}`" for v in eq.feeds))
                 if not eq.bindings:
                     st.info("No role bindings yet — include a sibling Haystack JSON next to this equipment CSV in the zip.")
                 else:
@@ -1980,7 +2041,7 @@ def main() -> None:
         )
         mode = st.radio(
             "Rule set",
-            ["All 50 rules", "One mechanical category"],
+            [f"All {CANONICAL_RULE_COUNT} rules", "One mechanical category"],
             horizontal=True,
             key="run_mode",
         )
@@ -2552,6 +2613,8 @@ def main() -> None:
                 frames,
                 st.session_state.role_map,
                 building_id=st.session_state.get("building_id") or "",
+                vav_to_ahu=st.session_state.get("vav_to_ahu")
+                or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
             )
             export_eq = st.selectbox(
                 "Equipment for FDD DOCX",

@@ -15,6 +15,7 @@ from app.rule_plot_meta import (
     plot_series_bullets,
     points_haystack_note,
 )
+from app.rules import CANONICAL_RULE_COUNT
 from app.rules.cookbook_catalog import RULES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,7 @@ def main() -> None:
     lines: list[str] = []
     L = lines.append
 
-    L("# Rule plot catalog (all 50)")
+    L(f"# Rule plot catalog (all {CANONICAL_RULE_COUNT})")
     L("")
     L("**Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.")
     L("")
@@ -70,7 +71,7 @@ def main() -> None:
         L(f"| {FAMILY_LABELS.get(fam, fam)} | {len(rules)} | {ids} |")
 
     n = sum(len(by_fam[f]) for f in FAMILY_ORDER if by_fam.get(f))
-    assert n == 50, n
+    assert n == CANONICAL_RULE_COUNT, n
 
     for fam in FAMILY_ORDER:
         rules = by_fam.get(fam) or []

@@ -28,12 +28,15 @@ class EquipmentModelNode:
     equipment_type: str
     bindings: list[RoleBinding] = field(default_factory=list)
     applicable_rule_ids: list[str] = field(default_factory=list)
+    fed_by: str | None = None  # parent AHU (Haystack-style fedBy)
+    feeds: list[str] = field(default_factory=list)  # child VAV ids (feeds)
 
 
 @dataclass
 class BuildingDataModelTree:
     building_id: str
     equipment: list[EquipmentModelNode] = field(default_factory=list)
+    vav_to_ahu: dict[str, str] = field(default_factory=dict)
 
     def to_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
@@ -43,6 +46,8 @@ class BuildingDataModelTree:
                     {
                         "equipment_id": eq.equipment_id,
                         "equipment_type": eq.equipment_type,
+                        "fed_by": eq.fed_by or "",
+                        "feeds": ", ".join(eq.feeds),
                         "cookbook_role": b.cookbook_role,
                         "haystack_tag": b.haystack_tag,
                         "csv_column": b.csv_column or "",
@@ -126,9 +131,14 @@ def build_data_model_tree(
     role_map: dict,
     *,
     building_id: str = "",
+    vav_to_ahu: dict[str, str] | None = None,
 ) -> BuildingDataModelTree:
     """Assemble professional data-model inventory for UI + DOCX."""
-    tree = BuildingDataModelTree(building_id=building_id or "")
+    from app.topology_enrich import invert_vav_to_ahu
+
+    topo = dict(vav_to_ahu or {})
+    feeds_map = invert_vav_to_ahu(topo)
+    tree = BuildingDataModelTree(building_id=building_id or "", vav_to_ahu=topo)
     for eq_id, raw in sorted(frames.items()):
         et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
         kind = _infer_kind_key(et)
@@ -180,12 +190,16 @@ def build_data_model_tree(
                     required_by_rules=sorted(set(role_rules.get(role, []))),
                 )
             )
+        fed_by = topo.get(eq_id) or (str(raw.attrs.get("fed_by") or "") or None)
+        feeds = list(feeds_map.get(eq_id) or raw.attrs.get("feeds") or [])
         tree.equipment.append(
             EquipmentModelNode(
                 equipment_id=eq_id,
                 equipment_type=et,
                 bindings=bindings,
                 applicable_rule_ids=applicable,
+                fed_by=fed_by if fed_by else None,
+                feeds=feeds,
             )
         )
     return tree

@@ -191,6 +191,7 @@ COOKBOOK_TO_HAYSTACK_POINT: dict[str, str] = {
     "reheat_valve_pct": "reheat-valve",
     "vav_disch_t": "vav-discharge-air-temp",
     "vav_inlet_t": "vav-inlet-air-temp",
+    "ahu_sat": "ahu-discharge-air-temp",
     "chw_supply_t": "chilled-water-supply-temp",
     "chw_return_t": "chilled-water-return-temp",
     "hw_supply_t": "hot-water-supply-temp",

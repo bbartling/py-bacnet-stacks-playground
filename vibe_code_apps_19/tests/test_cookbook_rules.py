@@ -1,4 +1,4 @@
-"""Tests for all 50 cookbook rules."""
+"""Tests for all canonical cookbook rules."""
 
 from __future__ import annotations
 
@@ -12,20 +12,21 @@ from app.rules.runner import run_all_cookbook_rules
 
 
 def test_canonical_count():
-    assert CANONICAL_RULE_COUNT == 50
-    assert len(CANONICAL_RULES) == 50
-    assert len(RULES) >= 50
+    assert CANONICAL_RULE_COUNT == 51
+    assert len(CANONICAL_RULES) == 51
+    assert len(RULES) >= 51
     # Custom extras never replace canonical ids
     canonical_ids = {r.id for r in CANONICAL_RULES}
     assert canonical_ids <= {r.id for r in RULES}
+    assert "VAV-AHU-LEAVE" in RULES_BY_ID
 
 
 def test_inventory_metadata():
     from pathlib import Path
 
     inv = yaml.safe_load((Path(__file__).parent.parent / "configs" / "rule_inventory.yaml").read_text(encoding="utf-8"))
-    assert inv["canonical_rule_count"] == 50
-    assert len(inv["rules"]) == 50
+    assert inv["canonical_rule_count"] == 51
+    assert len(inv["rules"]) == 51
 
 
 @pytest.mark.parametrize("rule_id", [r.id for r in CANONICAL_RULES])
@@ -82,7 +83,7 @@ def test_run_all_returns_active_catalog():
     df.attrs["equipment_id"] = "AHU_1"
     results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
     assert len(results) == len(RULES)
-    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 50
+    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 51
 
 
 def test_result_shape():

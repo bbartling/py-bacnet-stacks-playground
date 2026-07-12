@@ -367,8 +367,22 @@ def run_batch(
     equipment_filter: set[str] | None = None,
     building_filter: str | None = None,
     site_filter: str | None = None,
+    vav_to_ahu: dict[str, str] | None = None,
 ) -> list[RuleResult]:
-    """Run all 50 rules for each equipment in scope — no silent omission."""
+    """Run all cookbook rules for each equipment in scope — no silent omission."""
+    from app.topology_enrich import enrich_frames_with_ahu_feeds, stamp_feed_attrs
+
+    # Optional topology: copy parent AHU SAT onto VAV frames as ahu_sat
+    if vav_to_ahu:
+        stamp_feed_attrs(equipment_frames, vav_to_ahu)
+        # Collect role maps from attrs if present
+        rm: dict = {}
+        for eq_id, raw_df in equipment_frames.items():
+            block = (raw_df.attrs.get("_role_map") or {}).get(eq_id)
+            if isinstance(block, dict):
+                rm[eq_id] = block
+        enrich_frames_with_ahu_feeds(equipment_frames, vav_to_ahu, role_map=rm)
+
     results: list[RuleResult] = []
     for eq_id, raw_df in sorted(equipment_frames.items()):
         if equipment_filter is not None and eq_id not in equipment_filter:
@@ -385,6 +399,9 @@ def run_batch(
         mapped = apply_role_map(raw_df, eq_id, role_map)
         mapped.attrs.update(raw_df.attrs)
         mapped.attrs["equipment_id"] = eq_id
+        # Preserve topology-enriched ahu_sat if apply_role_map dropped it
+        if "ahu_sat" in raw_df.columns and "ahu_sat" not in mapped.columns:
+            mapped["ahu_sat"] = raw_df["ahu_sat"]
         poll = float(raw_df.attrs.get("poll_seconds") or 300.0)
         eq_type = resolve_equipment_type(eq_id, df=raw_df, role_map=role_map)
         results.extend(

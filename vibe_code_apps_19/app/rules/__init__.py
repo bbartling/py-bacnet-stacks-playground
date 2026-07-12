@@ -1,4 +1,4 @@
-"""50-rule Open-FDD pandas cookbook registry (+ optional CUSTOM-* agent rules)."""
+"""Open-FDD pandas cookbook registry (+ optional CUSTOM-* agent rules)."""
 
 from app.rules.base import RuleResult
 from app.rules.cookbook_catalog import RULES as CANONICAL_RULES

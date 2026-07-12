@@ -1,4 +1,4 @@
-canonical_rule_count: 50
+canonical_rule_count: 51
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -899,6 +899,33 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: vav_reheat_stuck
+  known_limitations: ''
+- rule_id: VAV-AHU-LEAVE
+  family: vav
+  title: VAV leave vs parent AHU SAT (fedBy)
+  description: "Air flowing AND |VAV discharge \u2212 parent AHU SAT| > band. Needs\
+    \ package topology (vav_to_ahu) so ahu_sat is enriched from the fedBy AHU; otherwise\
+    \ SKIPPED_MISSING_ROLES. Flags broken reheat, bad sensors, or rogue zones."
+  required_roles:
+  - vav_disch_t
+  - ahu_sat
+  optional_roles: []
+  equipment_kinds:
+  - vav
+  tunable_params:
+  - delta_f
+  - flow_on_min
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: vav_vs_ahu_leave
   known_limitations: ''
 - rule_id: VAV-7
   family: vav

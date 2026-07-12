@@ -9,7 +9,7 @@ from app.rules.operational_gate import RULE_GATES, resolve_fan_running, resolve_
 
 
 def test_all_50_rules_have_gate_spec():
-    assert len(RULE_GATES) == 50
+    assert len(RULE_GATES) == 51
     for r in CANONICAL_RULES:
         assert r.id in RULE_GATES, r.id
 
