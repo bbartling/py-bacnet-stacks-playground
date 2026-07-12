@@ -151,3 +151,29 @@ def test_rcx_fan_mode_summary_ahu_and_vav():
     assert "zone_flow" in vcap
     assert int(vav_tables["on"].iloc[0]["n"]) == 3
     assert int(vav_tables["off"].iloc[0]["n"]) == 3
+
+
+def test_zone_comfort_fail_ranking():
+    from app.occupancy import OccupancySchedule
+    from app.rcx_plots import zone_comfort_fail_ranking
+
+    # Monday 10:00–11:00 UTC → occupied under default Mon 06–18 America/Chicago may differ;
+    # use UTC-aligned schedule via America/Chicago with a wide window, or localize index.
+    idx = pd.date_range("2024-01-01 12:00", periods=4, freq="h", tz="America/Chicago")  # Mon
+    # 72,72 in band; 80, 60 outside
+    good = pd.DataFrame({"zone_t": [72.0, 72.0, 72.0, 72.0]}, index=idx)
+    bad = pd.DataFrame({"zone_t": [80.0, 80.0, 60.0, 60.0]}, index=idx)
+    good.attrs["equipment_type"] = "VAV"
+    bad.attrs["equipment_type"] = "VAV"
+    frames = {"VAV_GOOD": good, "VAV_BAD": bad}
+    role_map = {
+        "VAV_GOOD": {"zone_t": "zone_t", "equipment_type": "VAV"},
+        "VAV_BAD": {"zone_t": "zone_t", "equipment_type": "VAV"},
+    }
+    sched = OccupancySchedule()  # Mon occupied 06–18
+    rank = zone_comfort_fail_ranking(
+        frames, role_map, schedule=sched, comfort_low_f=70.0, comfort_high_f=75.0
+    )
+    assert list(rank["equipment_id"]) == ["VAV_BAD", "VAV_GOOD"]
+    assert float(rank.iloc[0]["pct_outside_comfort"]) == 100.0
+    assert float(rank.iloc[1]["pct_outside_comfort"]) == 0.0

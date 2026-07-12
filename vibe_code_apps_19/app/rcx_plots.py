@@ -20,20 +20,89 @@ class RcxPreset:
     description: str
     role: str
     equipment_types: tuple[str, ...]
-    chart: str  # "timeseries" | "box" | "scatter_oat"
+    chart: str  # "timeseries" | "box" | "scatter_oat" | "ranking"
     filter_fan_on: bool = False
     y_role_alt: str | None = None  # for scatter: plant temp role
+    dry_bulb_ref: bool = False  # CW scatter: also plot vs dry-bulb
 
 
+# Dropdown labels include chart type so the picker is self-documenting.
 PRESETS: list[RcxPreset] = [
-    RcxPreset("zone_temps", "All zone temperatures", "Every VAV/zone space temp on one chart.", "zone_t", ("VAV",), "timeseries"),
-    RcxPreset("ahu_dats", "All AHU discharge air temps", "SAT / DAT for every AHU.", "sat", ("AHU",), "timeseries"),
-    RcxPreset("ahu_mats", "All AHU mixed air temps", "MAT across AHUs.", "mat", ("AHU",), "timeseries"),
-    RcxPreset("ahu_rats", "All AHU return air temps", "RAT across AHUs.", "rat", ("AHU",), "timeseries"),
-    RcxPreset("ahu_dampers", "All AHU OA dampers", "OA damper % across AHUs.", "oa_damper_pct", ("AHU",), "timeseries"),
+    RcxPreset(
+        "zone_comfort_rank",
+        "Zones — comfort fail ranking (occupied hours)",
+        "Rank VAVs by % of occupied time outside Overview zone low/high band.",
+        "zone_t",
+        ("VAV",),
+        "ranking",
+    ),
+    RcxPreset(
+        "zone_temps",
+        "Zones — all space temps (timeseries)",
+        "Every VAV/zone space temp on one chart.",
+        "zone_t",
+        ("VAV",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "vav_flows",
+        "Zones — all VAV airflow (timeseries)",
+        "Zone airflow across boxes.",
+        "zone_flow",
+        ("VAV",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "ahu_sat_reset_scatter",
+        "AHU — SAT vs web dry-bulb (scatter)",
+        "SAT / leave-air temp vs Open-Meteo dry bulb — look for SAT reset with outdoor air.",
+        "sat",
+        ("AHU",),
+        "scatter_oat",
+    ),
+    RcxPreset(
+        "ahu_dats",
+        "AHU — all discharge air temps (timeseries)",
+        "SAT / DAT for every AHU.",
+        "sat",
+        ("AHU",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "ahu_mats",
+        "AHU — all mixed air temps (timeseries)",
+        "MAT across AHUs.",
+        "mat",
+        ("AHU",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "ahu_rats",
+        "AHU — all return air temps (timeseries)",
+        "RAT across AHUs.",
+        "rat",
+        ("AHU",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "ahu_dampers",
+        "AHU — all OA dampers (timeseries)",
+        "OA damper % across AHUs.",
+        "oa_damper_pct",
+        ("AHU",),
+        "timeseries",
+    ),
+    RcxPreset(
+        "fan_speeds",
+        "AHU — all fan speeds (timeseries)",
+        "Fan command % across AHUs.",
+        "fan_cmd",
+        ("AHU",),
+        "timeseries",
+    ),
     RcxPreset(
         "duct_static_box",
-        "AHU duct static (fan on)",
+        "AHU — duct static fan-on (box)",
         "Box plot of duct static while fan proven on — look for high fixed static (reset opportunity).",
         "duct_static",
         ("AHU",),
@@ -41,40 +110,31 @@ PRESETS: list[RcxPreset] = [
         filter_fan_on=True,
     ),
     RcxPreset(
-        "ahu_sat_reset_scatter",
-        "AHU discharge temp vs web OAT",
-        "SAT / leave-air temp vs Open-Meteo dry bulb — look for SAT reset with outdoor air.",
-        "sat",
-        ("AHU",),
-        "scatter_oat",
-    ),
-    RcxPreset(
         "hw_reset_scatter",
-        "Hot-water leave temp vs web OAT",
+        "Boiler / HW — leave temp vs web dry-bulb (scatter)",
         "HW supply / leave temp vs Open-Meteo dry bulb (boiler / HW plant reset).",
         "hw_supply_t",
-        ("BOILER", "AHU"),
+        ("BOILER",),
         "scatter_oat",
     ),
     RcxPreset(
         "chw_reset_scatter",
-        "Chilled-water leave temp vs web OAT",
+        "Chiller / CHW — leave temp vs web dry-bulb (scatter)",
         "CHW supply / leave temp vs Open-Meteo dry bulb (chiller plant reset).",
         "chw_supply_t",
-        ("CHW_PLANT", "CHILLER", "AHU"),
+        ("CHW_PLANT", "CHILLER"),
         "scatter_oat",
     ),
     RcxPreset(
         "cw_reset_scatter",
-        "Condenser / tower water vs web wet-bulb",
-        "CW supply vs wet-bulb (cooling-tower / condenser-water reset; dry bulb if WB missing).",
+        "Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter)",
+        "CW supply vs wet-bulb (tower reset); dry-bulb shown as reference markers.",
         "cw_supply_t",
         ("CHW_PLANT", "CHILLER", "COOLING_TOWER"),
         "scatter_oat",
         y_role_alt="wx_oa_wetbulb",
+        dry_bulb_ref=True,
     ),
-    RcxPreset("vav_flows", "All VAV airflow", "Zone airflow across boxes.", "zone_flow", ("VAV",), "timeseries"),
-    RcxPreset("fan_speeds", "All AHU fan speeds", "Fan command % across AHUs.", "fan_cmd", ("AHU",), "timeseries"),
 ]
 
 
@@ -84,6 +144,7 @@ PRESETS: list[RcxPreset] = [
 # part of the supported dashboard.
 REQUIRED_RCX_PRESET_IDS: frozenset[str] = frozenset(
     {
+        "zone_comfort_rank",
         "zone_temps",
         "ahu_dats",
         "ahu_mats",
@@ -273,6 +334,86 @@ def outlier_equipment_ids(stats: pd.DataFrame) -> set[str]:
     return set(stats.loc[stats["outlier"], "equipment_id"].astype(str))
 
 
+def zone_comfort_fail_ranking(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    schedule,
+    comfort_low_f: float,
+    comfort_high_f: float,
+    equipment_types: tuple[str, ...] = ("VAV",),
+    outlier_z: float = 2.5,
+) -> pd.DataFrame:
+    """Rank zones by % of *occupied* samples outside Overview comfort band.
+
+    Uses :func:`app.occupancy.occupied_mask` with the Overview occupancy calendar.
+    """
+    from app.occupancy import occupied_mask
+
+    lo = float(min(comfort_low_f, comfort_high_f))
+    hi = float(max(comfort_low_f, comfort_high_f))
+    rows: list[dict[str, Any]] = []
+    for eq_id, raw in frames.items():
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types and et not in {t.upper() for t in equipment_types}:
+            continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        if "zone_t" not in mapped.columns or mapped["zone_t"].notna().sum() == 0:
+            continue
+        zone = pd.to_numeric(mapped["zone_t"], errors="coerce")
+        if not isinstance(zone.index, pd.DatetimeIndex):
+            continue
+        occ = occupied_mask(zone.index, schedule).reindex(zone.index).fillna(False)
+        occ_vals = zone.where(occ).dropna()
+        if occ_vals.empty:
+            continue
+        outside = (occ_vals < lo) | (occ_vals > hi)
+        n_occ = int(len(occ_vals))
+        n_out = int(outside.sum())
+        pct = 100.0 * float(outside.mean())
+        rows.append(
+            {
+                "equipment_id": eq_id,
+                "pct_outside_comfort": round(pct, 2),
+                "n_occupied": n_occ,
+                "n_outside": n_out,
+                "mean_zone_t": round(float(occ_vals.mean()), 2),
+                "min_zone_t": round(float(occ_vals.min()), 2),
+                "max_zone_t": round(float(occ_vals.max()), 2),
+                "comfort_low_f": lo,
+                "comfort_high_f": hi,
+            }
+        )
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "equipment_id",
+                "pct_outside_comfort",
+                "n_occupied",
+                "n_outside",
+                "mean_zone_t",
+                "min_zone_t",
+                "max_zone_t",
+                "comfort_low_f",
+                "comfort_high_f",
+                "outlier",
+            ]
+        )
+    df = pd.DataFrame(rows)
+    pcts = df["pct_outside_comfort"].astype(float).tolist()
+    if len(pcts) >= 3:
+        mu, sd = float(np.mean(pcts)), float(np.std(pcts))
+        if sd > 1e-9:
+            df["outlier"] = (df["pct_outside_comfort"] - mu).abs() / sd >= outlier_z
+        else:
+            df["outlier"] = False
+    else:
+        df["outlier"] = False
+    return df.sort_values(["pct_outside_comfort", "equipment_id"], ascending=[False, True]).reset_index(
+        drop=True
+    )
+
+
 def collect_oat_scatter(
     frames: dict[str, pd.DataFrame],
     role_map: dict,
@@ -282,7 +423,7 @@ def collect_oat_scatter(
     equipment_types: tuple[str, ...] | None = None,
     x_prefer: str = "web",  # web drybulb, or wetbulb
 ) -> pd.DataFrame:
-    """Long dataframe: timestamp, equipment_id, oat, y for scatter plots."""
+    """Long dataframe: timestamp, equipment_id, oat, y [, dry_bulb] for scatter plots."""
     rows: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
         et = _etype(eq_id, raw, role_map)
@@ -292,16 +433,28 @@ def collect_oat_scatter(
         mapped = apply_role_map(raw, eq_id, role_map)
         if y_role not in mapped.columns or mapped[y_role].notna().sum() == 0:
             continue
+        dry = prefer_web_oat(mapped, weather, prefer_web=True)
         if x_prefer == "wetbulb" and weather is not None and "wx_oa_wetbulb" in weather.columns:
             oat = pd.to_numeric(weather["wx_oa_wetbulb"], errors="coerce").reindex(mapped.index)
         else:
-            oat = prefer_web_oat(mapped, weather, prefer_web=True)
+            oat = dry
         if oat is None:
             continue
         y = pd.to_numeric(mapped[y_role], errors="coerce")
-        tmp = pd.DataFrame({"oat": oat, "y": y}).dropna()
+        payload: dict[str, pd.Series] = {"oat": oat, "y": y}
+        if dry is not None:
+            payload["dry_bulb"] = pd.to_numeric(dry, errors="coerce")
+        tmp = pd.DataFrame(payload).dropna(subset=["oat", "y"])
         for ts, row in tmp.iterrows():
-            rows.append({"timestamp": ts, "equipment_id": eq_id, "oat": float(row["oat"]), "y": float(row["y"])})
+            item = {
+                "timestamp": ts,
+                "equipment_id": eq_id,
+                "oat": float(row["oat"]),
+                "y": float(row["y"]),
+            }
+            if "dry_bulb" in tmp.columns and pd.notna(row.get("dry_bulb")):
+                item["dry_bulb"] = float(row["dry_bulb"])
+            rows.append(item)
     return pd.DataFrame(rows)
 
 
@@ -318,6 +471,9 @@ def rcx_preset_coverage(
     *,
     weather: pd.DataFrame | None = None,
     outlier_z: float = 2.5,
+    schedule=None,
+    comfort_low_f: float = 70.0,
+    comfort_high_f: float = 75.0,
 ) -> pd.DataFrame:
     """Diagnostics table: one row per RCx preset with series/row/outlier counts."""
     rows: list[dict[str, Any]] = []
@@ -326,7 +482,26 @@ def rcx_preset_coverage(
         series_count = 0
         row_count = 0
         outlier_count = 0
-        if preset.chart == "scatter_oat":
+        if preset.chart == "ranking":
+            if schedule is None:
+                from app.occupancy import OccupancySchedule
+
+                schedule = OccupancySchedule()
+            rank = zone_comfort_fail_ranking(
+                frames,
+                role_map,
+                schedule=schedule,
+                comfort_low_f=comfort_low_f,
+                comfort_high_f=comfort_high_f,
+                equipment_types=preset.equipment_types,
+                outlier_z=outlier_z,
+            )
+            series_count = int(len(rank))
+            row_count = int(rank["n_occupied"].sum()) if not rank.empty else 0
+            outlier_count = int(rank["outlier"].sum()) if not rank.empty and "outlier" in rank.columns else 0
+            if series_count == 0:
+                empty_reason = "no mapped zone_t on VAV during occupied hours"
+        elif preset.chart == "scatter_oat":
             x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
             long_df = collect_oat_scatter(
                 frames,

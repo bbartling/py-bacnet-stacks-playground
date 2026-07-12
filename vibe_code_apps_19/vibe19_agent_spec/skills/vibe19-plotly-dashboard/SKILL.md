@@ -30,7 +30,7 @@ and `REQUIRED_RCX_PRESET_IDS` in `app/rcx_plots.py`.
 | `app/rcx_plots.py` | Presets (`PRESETS`, `REQUIRED_RCX_PRESET_IDS`), collectors, summary/outlier stats |
 | `app/ui_rcx_tab.py` | **RCx Plots** tab |
 | `app/unit_system.py` | Convert series for metric display |
-| `streamlit_app.py` | Plots + RCx Plots + Analytics + Export |
+| `streamlit_app.py` | Plots + RCx Plots + Export |
 
 ## Patterns
 

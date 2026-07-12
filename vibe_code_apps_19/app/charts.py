@@ -446,6 +446,7 @@ def oat_scatter(
     x_title: str = "Web OAT °F",
     y_title: str = "",
     max_points: int | None = None,
+    dry_bulb_ref: bool = False,
 ) -> go.Figure | None:
     if long_df is None or long_df.empty:
         return None
@@ -465,6 +466,22 @@ def oat_scatter(
                 marker=dict(size=4, opacity=0.45, color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)]),
             )
         )
+        if dry_bulb_ref and "dry_bulb" in sub.columns and sub["dry_bulb"].notna().any():
+            fig.add_trace(
+                go.Scatter(
+                    x=sub["dry_bulb"],
+                    y=sub["y"],
+                    name=f"{eq_id} · dry-bulb",
+                    mode="markers",
+                    marker=dict(
+                        size=3,
+                        opacity=0.25,
+                        symbol="x",
+                        color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+                    ),
+                    legendgroup=str(eq_id),
+                )
+            )
     fig.update_layout(
         title=title,
         xaxis_title=x_title,

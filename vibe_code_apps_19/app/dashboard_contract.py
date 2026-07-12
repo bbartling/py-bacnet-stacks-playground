@@ -14,7 +14,6 @@ REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "Results by Category",
     "Plots",
     "RCx Plots",
-    "Analytics",
     "Export",
 )
 

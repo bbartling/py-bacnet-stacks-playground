@@ -38,8 +38,11 @@ def test_reset_scatter_and_static_box_contract():
     assert set(chw.equipment_types) & {"CHW_PLANT", "CHILLER"}
     assert cw is not None and cw.chart == "scatter_oat" and cw.role == "cw_supply_t"
     assert "COOLING_TOWER" in cw.equipment_types
+    assert getattr(cw, "dry_bulb_ref", False) is True
     assert sat is not None and sat.chart == "scatter_oat" and sat.role == "sat"
     assert box is not None and box.chart == "box" and box.role == "duct_static" and box.filter_fan_on
+    rank = preset_by_id("zone_comfort_rank")
+    assert rank is not None and rank.chart == "ranking" and rank.role == "zone_t"
 
 
 def test_supporting_overlay_presets_wired():

@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from app.charts import multi_equipment_box, multi_equipment_timeseries, oat_scatter, plotly_config
+from app.occupancy import OccupancySchedule
 from app.rcx_plots import (
     PRESETS,
     cohort_wants_fan_slices,
@@ -15,6 +16,7 @@ from app.rcx_plots import (
     outlier_equipment_ids,
     preset_by_id,
     series_summary_stats,
+    zone_comfort_fail_ranking,
 )
 from app.reports import to_csv_bytes
 from app.unit_system import convert_series
@@ -108,19 +110,36 @@ def render_rcx_plots_tab(
     *,
     weather: pd.DataFrame | None,
     unit_system: str = "imperial",
+    occupancy_schedule: dict | OccupancySchedule | None = None,
+    zone_lo_f: float = 70.0,
+    zone_hi_f: float = 75.0,
 ) -> None:
-    st.subheader("RCx & generic plots")
+    st.subheader("RCx plots")
     st.caption(
-        "Prebuilt mechanical-category overlays (all zone temps, all AHU DATs, duct-static box, "
-        "HW/CHW/CW reset scatters vs web weather) plus a generic role picker. "
-        "Outlier equipment (z≥2.5 on mean) highlighted in red dashed / ★. "
-        "AHU / VAV summary stats include All / fan-on / fan-off slices when proof is mapped."
+        "Data-model-driven presets (chart type in the name). "
+        "Zone comfort ranking uses Overview occupancy calendar + zone low/high. "
+        "Outliers (z≥2.5) highlighted. AHU/VAV summaries include All / fan-on / fan-off when proof is mapped."
     )
 
     from app.rcx_plots import rcx_preset_coverage
 
+    schedule = (
+        occupancy_schedule
+        if isinstance(occupancy_schedule, OccupancySchedule)
+        else OccupancySchedule.from_dict(occupancy_schedule)
+    )
+    outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
+
     with st.expander("RCx preset coverage diagnostics", expanded=False):
-        cov = rcx_preset_coverage(frames, role_map, weather=weather)
+        cov = rcx_preset_coverage(
+            frames,
+            role_map,
+            weather=weather,
+            outlier_z=outlier_z,
+            schedule=schedule,
+            comfort_low_f=zone_lo_f,
+            comfort_high_f=zone_hi_f,
+        )
         st.dataframe(cov, hide_index=True, width="stretch", height=320)
         nonempty = int((cov["row_count"] > 0).sum()) if not cov.empty else 0
         st.caption(f"{nonempty}/{len(cov)} presets have data")
@@ -131,130 +150,211 @@ def render_rcx_plots_tab(
             key="dl_rcx_coverage",
         )
 
-    mode = st.radio("Mode", ["Prebuilt RCx", "Generic picker"], horizontal=True, key="rcx_mode")
-    outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
+    # Prefer presets with data; still list empties at the bottom with a marker
+    cov_by_id = {}
+    if not cov.empty:
+        cov_by_id = {str(r.preset_id): r for r in cov.itertuples()}
+    ordered = sorted(
+        PRESETS,
+        key=lambda p: (
+            0 if (cov_by_id.get(p.id) and int(getattr(cov_by_id[p.id], "row_count", 0) or 0) > 0) else 1,
+            PRESETS.index(p),
+        ),
+    )
 
+    def _label(pid: str) -> str:
+        p = preset_by_id(pid)
+        title = p.title if p else pid
+        row = cov_by_id.get(pid)
+        if row is not None and int(getattr(row, "row_count", 0) or 0) == 0:
+            return f"{title}  ·  (no data)"
+        return title
+
+    pid = st.selectbox(
+        "Plot",
+        [p.id for p in ordered],
+        format_func=_label,
+        key="rcx_preset",
+    )
+    preset = preset_by_id(pid)
+    assert preset is not None
+    st.caption(preset.description)
+
+    role = preset.role
+    chart_kind = preset.chart
+    title = preset.title
+    equipment_types = preset.equipment_types
     series_map: dict[str, pd.Series] = {}
-    title = ""
+    long_df = pd.DataFrame()
     y_title = ""
     x_title = "Web OAT °F"
-    chart_kind = "timeseries"
-    long_df = pd.DataFrame()
-    role = "zone_t"
-    equipment_types: tuple[str, ...] | None = None
 
-    if mode == "Prebuilt RCx":
-        labels = {p.id: f"{p.title} — {p.description}" for p in PRESETS}
-        pid = st.selectbox("Preset", list(labels.keys()), format_func=lambda k: labels[k], key="rcx_preset")
-        preset = preset_by_id(pid)
-        assert preset is not None
-        role = preset.role
-        chart_kind = preset.chart
-        title = preset.title
-        equipment_types = preset.equipment_types
-        if chart_kind == "scatter_oat":
-            x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
-            long_df = collect_oat_scatter(
-                frames,
-                role_map,
-                y_role=preset.role,
-                weather=weather,
-                equipment_types=preset.equipment_types,
-                x_prefer=x_pref,
-            )
-            if unit_system == "metric" and not long_df.empty:
-                long_df = long_df.copy()
-                long_df["y"], y_title = convert_series(role, long_df["y"], "metric")
-                long_df["oat"], _xu = convert_series("oa_t", long_df["oat"], "metric")
-                x_title = "Web wet-bulb °C" if x_pref == "wetbulb" else "Web OAT °C"
-            else:
-                y_title = role
-                x_title = "Web wet-bulb °F" if x_pref == "wetbulb" else "Web OAT °F"
+    if chart_kind == "ranking":
+        rank = zone_comfort_fail_ranking(
+            frames,
+            role_map,
+            schedule=schedule,
+            comfort_low_f=zone_lo_f,
+            comfort_high_f=zone_hi_f,
+            equipment_types=equipment_types,
+            outlier_z=outlier_z,
+        )
+        st.markdown("##### Zone comfort fail ranking")
+        st.caption(
+            f"Occupied hours only (Overview schedule). Band **{zone_lo_f:g}–{zone_hi_f:g} °F** "
+            f"(same as VAV-1 / SCHED-1). Worst % outside first."
+        )
+        if rank.empty:
+            st.info("No VAV `zone_t` samples during occupied hours — check mapping and schedule.")
         else:
+            n_out = int(rank["outlier"].sum()) if "outlier" in rank.columns else 0
+            st.caption(f"{len(rank)} zones · {n_out} outlier(s) by fail-% vs cohort")
+            st.dataframe(rank, hide_index=True, width="stretch", height=min(480, 80 + 28 * len(rank)))
+            st.download_button(
+                "Download zone comfort ranking CSV",
+                to_csv_bytes(rank),
+                "rcx_zone_comfort_ranking.csv",
+                key="dl_rcx_zone_rank",
+            )
+            # Overlay worst offenders' zone temps for visual follow-up
+            worst_ids = list(rank["equipment_id"].astype(str).head(12))
             series_map = collect_role_series(
                 frames,
                 role_map,
-                role=preset.role,
-                equipment_types=preset.equipment_types,
-                filter_fan_on=preset.filter_fan_on,
+                role="zone_t",
+                equipment_types=equipment_types,
+                equipment_ids=worst_ids,
             )
-            series_map, y_title = _convert_map(series_map, role, unit_system)
-            if preset.filter_fan_on:
-                st.info(
-                    "Filtered to **fan proven on**. High, flat duct static while the fan runs "
-                    "often means a duct-static-pressure reset would save fan energy — "
-                    "compare with motor run-hours on Analytics."
+            series_map, y_title = _convert_map(series_map, "zone_t", unit_system)
+            outliers = (
+                set(rank.loc[rank["outlier"], "equipment_id"].astype(str))
+                if "outlier" in rank.columns
+                else set()
+            )
+            fig = multi_equipment_timeseries(
+                series_map,
+                title=f"Worst zones — space temp (top {len(worst_ids)})",
+                y_title=y_title or "zone_t",
+                outlier_ids=outliers,
+            )
+            if fig is not None:
+                st.plotly_chart(
+                    fig,
+                    width="stretch",
+                    config=plotly_config(filename="rcx_zone_comfort_worst"),
+                    key="rcx_zone_rank_ts",
                 )
-    else:
-        role = st.text_input("Cookbook role to plot", value="zone_t", key="rcx_generic_role")
-        types = st.multiselect(
-            "Equipment types (empty = all)",
-            ["AHU", "VAV", "CHW_PLANT", "BOILER", "HP", "WEATHER", "UNKNOWN"],
-            default=[],
-            key="rcx_types",
-        )
-        fan_on = st.checkbox("Filter chart to fan on", value=False, key="rcx_fan_on")
-        chart_kind = st.selectbox("Chart", ["timeseries", "box"], key="rcx_chart_kind")
-        equipment_types = tuple(types) if types else None
-        series_map = collect_role_series(
-            frames,
-            role_map,
-            role=role.strip(),
-            equipment_types=equipment_types,
-            filter_fan_on=fan_on,
-        )
-        series_map, y_title = _convert_map(series_map, role.strip(), unit_system)
-        title = f"Generic · {role}"
-        role = role.strip()
-
-    stats = series_summary_stats(series_map, outlier_z=outlier_z) if series_map else pd.DataFrame()
-    outliers = outlier_equipment_ids(stats)
+        return
 
     if chart_kind == "scatter_oat":
+        x_pref = "wetbulb" if preset.id == "cw_reset_scatter" else "web"
+        long_df = collect_oat_scatter(
+            frames,
+            role_map,
+            y_role=preset.role,
+            weather=weather,
+            equipment_types=preset.equipment_types,
+            x_prefer=x_pref,
+        )
+        if unit_system == "metric" and not long_df.empty:
+            long_df = long_df.copy()
+            long_df["y"], y_title = convert_series(role, long_df["y"], "metric")
+            long_df["oat"], _xu = convert_series("oa_t", long_df["oat"], "metric")
+            if "dry_bulb" in long_df.columns:
+                long_df["dry_bulb"], _ = convert_series("oa_t", long_df["dry_bulb"], "metric")
+            x_title = "Web wet-bulb °C" if x_pref == "wetbulb" else "Web OAT °C"
+        else:
+            y_title = role
+            x_title = "Web wet-bulb °F" if x_pref == "wetbulb" else "Web OAT °F"
+            if preset.dry_bulb_ref:
+                x_title = "Wet-bulb °F (markers) · dry-bulb ref (×)"
+
         fig = oat_scatter(
             long_df,
             title=title,
             x_title=x_title,
             y_title=y_title or role,
+            dry_bulb_ref=bool(preset.dry_bulb_ref),
         )
         if fig is None:
-            st.info("No scatter points — map plant temps and ensure weather/web OAT is loaded.")
+            st.info("No scatter points — map plant leave temps and ensure weather/web OAT is loaded.")
         else:
-            st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_scatter")
+            if preset.dry_bulb_ref:
+                st.caption("Primary X = wet-bulb; × markers = same Y vs dry-bulb (approach reference).")
+            st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{preset.id}"), key="rcx_scatter")
             st.dataframe(long_df.head(5000), hide_index=True, width="stretch", height=220)
-        if not stats.empty:
-            st.markdown("##### Summary statistics")
-            st.caption("Scatter presets use all timestamps (no fan slice).")
-            st.dataframe(stats, hide_index=True, width="stretch", height=min(360, 80 + 28 * len(stats)))
-    elif chart_kind == "box":
-        fig = multi_equipment_box(series_map, title=title, y_title=y_title, outlier_ids=outliers)
-        if fig is None:
-            st.info("No series for this preset — check role mapping.")
-        else:
-            st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_box")
-        _render_summary_stats(
-            frames=frames,
-            role_map=role_map,
-            role=role,
-            equipment_types=equipment_types,
-            chart_series_map=series_map,
-            outlier_z=outlier_z,
-            unit_system=unit_system,
-            key_prefix=f"rcx_{mode}_{role}",
+        return
+
+    series_map = collect_role_series(
+        frames,
+        role_map,
+        role=preset.role,
+        equipment_types=preset.equipment_types,
+        filter_fan_on=preset.filter_fan_on,
+    )
+    series_map, y_title = _convert_map(series_map, role, unit_system)
+    if preset.filter_fan_on:
+        st.info(
+            "Filtered to **fan proven on**. High, flat duct static while the fan runs "
+            "often means a duct-static-pressure reset would save fan energy — "
+            "compare with motor run-hours on Overview."
         )
+
+    stats = series_summary_stats(series_map, outlier_z=outlier_z) if series_map else pd.DataFrame()
+    outliers = outlier_equipment_ids(stats)
+
+    if chart_kind == "box":
+        fig = multi_equipment_box(series_map, title=title, y_title=y_title, outlier_ids=outliers)
+        key = "rcx_box"
     else:
         fig = multi_equipment_timeseries(series_map, title=title, y_title=y_title, outlier_ids=outliers)
-        if fig is None:
-            st.info("No series for this preset — check role mapping.")
-        else:
-            st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{title}"), key="rcx_ts")
-        _render_summary_stats(
-            frames=frames,
-            role_map=role_map,
-            role=role,
-            equipment_types=equipment_types,
-            chart_series_map=series_map,
-            outlier_z=outlier_z,
-            unit_system=unit_system,
-            key_prefix=f"rcx_{mode}_{role}",
+        key = "rcx_ts"
+    if fig is None:
+        st.info("No series for this preset — check role mapping / Data Model.")
+    else:
+        st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{preset.id}"), key=key)
+
+    _render_summary_stats(
+        frames=frames,
+        role_map=role_map,
+        role=role,
+        equipment_types=equipment_types,
+        chart_series_map=series_map,
+        outlier_z=outlier_z,
+        unit_system=unit_system,
+        key_prefix=f"rcx_{preset.id}",
+    )
+
+    with st.expander("Generic role picker (advanced)", expanded=False):
+        g_role = st.text_input("Cookbook role to plot", value="zone_t", key="rcx_generic_role")
+        g_types = st.multiselect(
+            "Equipment types (empty = all)",
+            ["AHU", "VAV", "CHW_PLANT", "CHILLER", "BOILER", "HP", "COOLING_TOWER", "WEATHER", "UNKNOWN"],
+            default=[],
+            key="rcx_types",
         )
+        g_fan = st.checkbox("Filter chart to fan on", value=False, key="rcx_fan_on")
+        g_kind = st.selectbox("Chart", ["timeseries", "box"], key="rcx_chart_kind")
+        g_et = tuple(g_types) if g_types else None
+        g_map = collect_role_series(
+            frames,
+            role_map,
+            role=g_role.strip(),
+            equipment_types=g_et,
+            filter_fan_on=g_fan,
+        )
+        g_map, g_yt = _convert_map(g_map, g_role.strip(), unit_system)
+        g_stats = series_summary_stats(g_map, outlier_z=outlier_z) if g_map else pd.DataFrame()
+        g_out = outlier_equipment_ids(g_stats)
+        if g_kind == "box":
+            g_fig = multi_equipment_box(g_map, title=f"Generic · {g_role}", y_title=g_yt, outlier_ids=g_out)
+        else:
+            g_fig = multi_equipment_timeseries(
+                g_map, title=f"Generic · {g_role}", y_title=g_yt, outlier_ids=g_out
+            )
+        if g_fig is None:
+            st.info("No series for that role / type filter.")
+        else:
+            st.plotly_chart(g_fig, width="stretch", config=plotly_config(filename="rcx_generic"), key="rcx_generic_fig")
+        if not g_stats.empty:
+            st.dataframe(g_stats, hide_index=True, width="stretch", height=min(280, 80 + 28 * len(g_stats)))

@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — Drop Analytics; beef RCx Plots
+
+- Removed **Analytics** tab (duplicate of Overview motors / cool bins)
+- RCx: named Plot dropdown (chart type in label); `zone_comfort_rank` from Overview schedule + zone band
+- AHU/HW/CHW scatters vs web dry-bulb; CW scatter vs wet-bulb with dry-bulb × ref
+- Fan-mode summary tabs retained for AHU/VAV
+
+---
+
 ## 2026-07-12 — Dataset UX + required per-CSV Haystack sidecars
 
 - Removed Overview workflow table; zone defaults **70 / 75 °F**

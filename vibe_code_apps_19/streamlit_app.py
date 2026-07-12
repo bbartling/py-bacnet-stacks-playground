@@ -1387,7 +1387,7 @@ def _load_data(cfg: AppConfig) -> None:
    `vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`
 2. Human uploads **all part zips** here → **Load zip(s)** (merged ≤ **{DEFAULT_PACKAGE_MB} MB**).
 3. Click **Map + prerun all faults** (or agent CLI) so rules/errors are checked.
-4. Human reviews **Plots / RCx / Analytics**; download session config to restore later.
+4. Human reviews **Plots / RCx**; download session config to restore later.
 
 **Single zip** still works. Path/CLI bypasses the upload widget for full-size packages.
 
@@ -1417,7 +1417,7 @@ Agent brief: {_AGENTS_MD_URL}
     )
     st.sidebar.checkbox(
         "Prefer web OAT (Open-Meteo)",
-        help="Analytics + OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
+        help="OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
         key="prefer_web_oat",
     )
     _temp_threshold_slider(
@@ -1710,7 +1710,7 @@ def main() -> None:
     motor_tot = motor_run_hours_totals(motor_tbl)
     motor_weekly = pd.DataFrame()
     cool_bins = pd.DataFrame()
-    if section in {"Overview", "Analytics"}:
+    if section == "Overview":
         try:
             motor_weekly = motor_run_hours_weekly(
                 frames,
@@ -1961,7 +1961,7 @@ def main() -> None:
             target_rules = RULES if fam_key is None else _rules_by_family().get(fam_key, [])
             eq_list = [selected] if scope == "selected equipment" else sorted(frames, key=natural_key)
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
-            st.success(f"Ran {len(st.session_state.batch_results)} evaluations — open **Plots** or **Analytics**.")
+            st.success(f"Ran {len(st.session_state.batch_results)} evaluations — open **Plots** or **RCx Plots**.")
 
     if section == "Results by Category":
         st.subheader("Results by equipment type")
@@ -2384,60 +2384,12 @@ def main() -> None:
                 st.session_state.role_map,
                 weather=st.session_state.weather,
                 unit_system=st.session_state.get("unit_system", "imperial"),
+                occupancy_schedule=st.session_state.get("occupancy_schedule"),
+                zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
+                zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
             )
         except Exception as exc:
             st.error(f"RCx Plots failed: {exc}")
-
-    if section == "Analytics":
-        st.subheader("Analytics")
-        st.caption(
-            "Weekly motor runtime and mechanical cooling vs **web** OAT "
-            "(same views as Overview — detail tables + CSV downloads here)."
-        )
-        b1, b2, b3 = st.columns(3)
-        b1.metric("Dataset start", start_s)
-        b2.metric("Dataset end", end_s)
-        b3.metric("Span (h)", f"{span['span_hours']:.1f}")
-
-        _render_plant_motor_weekly(
-            motor_weekly,
-            key_prefix="analytics",
-            show_table=False,
-            show_download=True,
-            min_air_hours=occupied_hours_per_week(
-                OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
-            ),
-        )
-        if not motor_tbl.empty:
-            with st.expander("Lifetime totals by motor signal"):
-                st.dataframe(motor_tbl, width="stretch", height=280)
-                st.caption(
-                    f"Preferred-signal rollup — fans {motor_tot['fan_hours']:.1f} h · "
-                    f"pumps {motor_tot['pump_hours']:.1f} h · total {motor_tot['total_hours']:.1f} h"
-                )
-
-        st.markdown("##### Mechanical cooling hours by OAT bin")
-        cool_fig2 = mech_cooling_oat_histogram(cool_bins)
-        if cool_fig2 is None:
-            st.info(
-                "No mechanical-cooling proof available. Map chiller pump/status (or amps/power) "
-                "or AHU/HP DX compressor roles (`compressor_status`, `dx_stage`, …) and load weather/. "
-                "CHW cooling valves are never used for this chart."
-            )
-        else:
-            st.plotly_chart(
-                cool_fig2,
-                width="stretch",
-                config=plotly_config(filename="mech_cooling_oat_bins_analytics"),
-                key="analytics_cool_hist",
-            )
-            st.dataframe(cool_bins, hide_index=True, width="stretch", height=280)
-            st.download_button(
-                "Download mech cooling OAT bins CSV",
-                to_csv_bytes(cool_bins),
-                "mech_cooling_oat_bins.csv",
-                key="dl_cool_bins",
-            )
 
     if section == "Export":
         st.subheader("Export")

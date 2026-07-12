@@ -57,8 +57,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | Run Rules | 50-rule cookbook (+ custom) |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
 | **Plots** | Auto-run device rules; chart panel on top (one Plotly); cards below for params/mapping; **session_config** / **role_map** / FDD DOCX downloads |
-| **RCx Plots** | Prebuilt presets above + generic role picker |
-| Analytics | Motor hours, mech-cooling bins, sensor stats |
+| **RCx Plots** | Named presets (chart type in label): zone comfort ranking, AHU/HW/CHW/CW scatters, air-side overlays + fan-mode summaries |
 | Export | CSV / session / health / DOCX artifacts (incl. **Download equipment FDD DOCX**) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
@@ -123,5 +122,5 @@ Empty coverage is OK when data is missing (`rcx_preset_coverage` + empty_reason)
 - [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
 - [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py`
-- [ ] Did **not** remove RCx Plots, Plots, Analytics, Export, or chart helpers
+- [ ] Did **not** remove RCx Plots, Plots, Export, or chart helpers (Analytics tab intentionally removed — Overview owns motor/cool bins)
 - [ ] Append `SESSION_LOG.md` if presets / sections changed
