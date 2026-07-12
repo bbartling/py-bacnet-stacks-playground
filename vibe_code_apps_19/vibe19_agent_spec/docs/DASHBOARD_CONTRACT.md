@@ -139,6 +139,24 @@ Harness: `app/analytics_baseline.py`.
 
 ---
 
+## Performance bottlenecks (findings)
+
+Why the dashboard feels slow/clunky — **eager work on Streamlit reruns**, not “pandas can’t be fast.” Full write-up: [`PERF_BOTTLENECKS.md`](PERF_BOTTLENECKS.md).
+
+**Worst offenders (historical / still watch):**
+
+1. Export (and previously RCx) rebuilding catalog DOCX + full `rcx_preset_coverage` on every section visit
+2. FDD Plots eagerly scanning RCx coverage for cards
+3. Folder mode rematerializing all frames via `@st.cache_data` copy on every rerun
+4. Rule batch: per-rule `merge_weather` copies + fat `plot_series` in session
+5. `collect_oat_scatter` Python `iterrows`; multi-equip Plotly N×max_points traces
+
+**Already required:** lazy radio (never eager `st.tabs` — SIGSEGV risk); RCx family → one preset; RCx Prepare DOCX + coverage opt-in; one Plotly on FDD Plots; downsample **traces only**.
+
+**Before UI perf PRs:** green `tests/test_analytics_golden.py` (numeric lock). Prefer prepare-then-download for all DOCX/coverage downloads.
+
+---
+
 ## Agent checklist before merge
 
 - [ ] `REQUIRED_RCX_PRESET_IDS ⊆ {p.id for p in PRESETS}`
@@ -147,4 +165,5 @@ Harness: `app/analytics_baseline.py`.
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
 - [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py`
 - [ ] Did **not** remove RCx Plots, FDD Plots, Metering, Export, or chart helpers (no duplicate Analytics tab — Overview owns motor/cool bins / BAS-vs-web hist)
+- [ ] Did **not** reintroduce eager `st.tabs` / Export-on-visit DOCX+coverage rebuilds ([`PERF_BOTTLENECKS.md`](PERF_BOTTLENECKS.md))
 - [ ] Append `SESSION_LOG.md` if presets / sections changed

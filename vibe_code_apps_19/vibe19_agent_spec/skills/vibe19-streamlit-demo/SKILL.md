@@ -98,5 +98,6 @@ FDD Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_V
 - [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md)
 - [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md)
 - [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md)
+- [`docs/PERF_BOTTLENECKS.md`](../../docs/PERF_BOTTLENECKS.md)
 - [`docs/OPERATIONAL_GATES.md`](../../docs/OPERATIONAL_GATES.md)
 - [`docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`](../../../docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

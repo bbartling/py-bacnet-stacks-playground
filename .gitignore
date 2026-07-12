@@ -8,6 +8,8 @@ __pycache__/
 
 *.csv
 !vibe_code_apps_12/commissioning/**/*.csv
+!vibe_code_apps_19/tests/golden/**/*.csv
+!vibe_code_apps_19/tests/fixtures/analytics_pkg/**/*.csv
 
 # Distribution / packaging
 .Python

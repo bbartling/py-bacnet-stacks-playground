@@ -35,6 +35,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 21. **FDD Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; one-click **Download FDD DOCX** with **`PLACE PLOT HERE`** stubs. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Per-rule Haystack tags / sliders / series: [`docs/RULE_PLOT_CATALOG.md`](docs/RULE_PLOT_CATALOG.md). Keep **Data Model** + DOCX APIs (`app/docx_report.py`, `app/data_model_tree.py`).
 22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); opt-in coverage + catalog DOCX. Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md).
 23. **Analytics golden baseline** — before perf/analytics edits run `pytest tests/test_analytics_golden.py`; regen with `VIBE19_UPDATE_ANALYTICS_GOLDEN=1`. Harness: `app/analytics_baseline.py`.
+24. **Perf bottlenecks** — eager Export/FDD DOCX + `rcx_preset_coverage`, Folder cache copies, rule-batch frame copies, `iterrows` scatters. Do not reintroduce eager `st.tabs`. Findings: [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md).
 
 ---
 
@@ -48,6 +49,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 5b. **`docs/DASHBOARD_CONTRACT.md`** — required RCx presets + FDD Plots/DOCX freeze + analytics goldens (do not delete)
 5c. **`docs/PLOTS_DOCX_VALIDATION.md`** — when editing FDD Plots / FDD DOCX / rule cards
 5d. **`docs/RULE_PLOT_CATALOG.md`** — per-rule chart points, Haystack tags, sliders (all 50)
+5e. **`docs/PERF_BOTTLENECKS.md`** — why the UI is slow; what not to regress; safe follow-ups
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed

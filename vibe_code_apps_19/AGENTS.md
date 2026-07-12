@@ -35,7 +35,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 11. **Mech-cooling OAT bins = mechanical compressors / plant only** — chiller plant (chiller + preferably pump/status) **or** AHU / heat pump / RTU with **DX / compressor** stages (`compressor_status`, `dx_stage`, `dx_cool_cmd`, `cool_stage`, …). **Never** treat AHU `clg_valve_pct` / CHW cooling-valve % as mechanical cooling (valves often modulate with no chilled water → false “cooling”). Do **not** re-add a sidebar/session toggle (`include_ahu_chw_valve` is deprecated, always False/ignored). Bins must sort cold→hot by `bin_start`.
 12. **Occupancy calendar is canonical** — Overview weekly date/time pickers **always** write `occ_mode` for SCHED-1. Do not re-add an “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.
 13. **Typed equipment is canonical** — stamp `equipType` / `equipment_type` in `column_map.json` / role_map; resolver is `resolve_equipment_type` (attrs → map → id fallback). RTU → AHU; heatPump → HP. Do not invent RCx membership or rule kinds from id substrings alone.
-14. **Dashboard contract** — keep RCx presets in `REQUIRED_RCX_PRESET_IDS` (HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box). Spec: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md). Keep **Plots validation cards** + one-click FDD DOCX (`PLACE PLOT HERE`) via `app/rule_card.py` / `app/docx_report.py`. Keep **Data Model** section + `app/data_model_tree.py`. Detail: [`vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md`](vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md).
+14. **Dashboard contract** — keep RCx presets in `REQUIRED_RCX_PRESET_IDS` (HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box). Spec: [`vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md`](vibe19_agent_spec/docs/DASHBOARD_CONTRACT.md). Keep **FDD Plots** validation cards + one-click FDD DOCX (`PLACE PLOT HERE`) via `app/rule_card.py` / `app/docx_report.py`. Keep **Data Model** section + `app/data_model_tree.py`. Detail: [`vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md`](vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md). Perf findings (eager Export/coverage, Folder copies): [`vibe19_agent_spec/docs/PERF_BOTTLENECKS.md`](vibe19_agent_spec/docs/PERF_BOTTLENECKS.md).
 
 ## Agent → Streamlit handoff (dialed-in URL)
 
@@ -155,6 +155,7 @@ python scripts/generate_rule_configs.py
 - [vibe19_agent_spec/DATA_CONTRACT.md](vibe19_agent_spec/DATA_CONTRACT.md) — folder tree contract
 - [vibe19_agent_spec/AGENTS.md](vibe19_agent_spec/AGENTS.md)
 - [vibe19_agent_spec/docs/RCX_PLOTS.md](vibe19_agent_spec/docs/RCX_PLOTS.md)
+- [vibe19_agent_spec/docs/PERF_BOTTLENECKS.md](vibe19_agent_spec/docs/PERF_BOTTLENECKS.md) — Streamlit UI/data bottleneck findings
 - [docs/STREAMLIT_RULE_INVENTORY.md](docs/STREAMLIT_RULE_INVENTORY.md)
 - [vibe19_agent_spec/docs/OPERATIONAL_GATES.md](vibe19_agent_spec/docs/OPERATIONAL_GATES.md)
 - [docs/HAYSTACK_LIKE_MAPPING_GUIDE.md](docs/HAYSTACK_LIKE_MAPPING_GUIDE.md)

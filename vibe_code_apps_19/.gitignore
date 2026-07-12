@@ -9,6 +9,8 @@ data/hvac_systems_CLEANED/
 BUILDING_*/
 weather/
 **/history_wide.csv
+!tests/fixtures/analytics_pkg/**/history_wide.csv
+!tests/fixtures/analytics_pkg/weather/history_wide.csv
 **/columns.csv
 
 # Generated / cache artifacts

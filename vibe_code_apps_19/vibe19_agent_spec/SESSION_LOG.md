@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — Perf bottleneck findings documented
+
+- [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md) — ranked UI/data bottlenecks (eager Export/FDD coverage, Folder cache copies, rule-batch copies, iterrows scatters)
+- Linked from AGENTS + DASHBOARD_CONTRACT; RCx family/lazy DOCX already mitigates worst RCx path
+
+---
+
 ## 2026-07-12 — Analytics golden baseline (perf guardrail)
 
 - `app/analytics_baseline.py` — canonicalize + fingerprint Overview/RCx/metering + compact rule digest
