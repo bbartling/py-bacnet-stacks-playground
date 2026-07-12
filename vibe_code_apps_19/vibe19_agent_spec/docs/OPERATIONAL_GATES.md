@@ -70,3 +70,16 @@ Hydronic: `pump_status` / `chw_flow` / `pump_cmd` fallback. Mech-cooling analyti
 ## Related: analytics summaries
 
 Pump-on / fan-on **summary statistics** (not just rule gates) are documented in [`ANALYTICS.md`](ANALYTICS.md) — Overview, analytics.docx, and `pump_mode_summary_bundle` / `fan_mode_summary_bundle`.
+
+## Fault equation gates (fan / plant pump)
+
+Almost every cookbook rule’s confirmed-fault mask is ANDed with an **operational active mask** when sidebar “Require operational proof” is on (default):
+
+| Gate kind | Proof | Typical rules |
+| --- | --- | --- |
+| `fan_running` | `fan_status` → … → `fan_cmd` / `zone_flow` | FC*, ECON*, most VAV*, AHU-*, OA-1, TRIM-1 |
+| `hydronic_flow` | `chw_pump_status` / `pump_status` / flow / pump cmd | CHW-*, TRIM-3/4, CW-OPT-1 |
+| `equipment_energized` | fan, else pump, else compressor | SV-RANGE, SV-SPIKE (SV-FLATLINE via conditional) |
+| `always` (exceptions) | none | **SV-STALE** (dead feed), **SCHED-1**, **CMD-1**, **OAT-METEO**, **WX-1** |
+
+When proof roles are missing, the runner stays **ungated** (cannot prove off) rather than inventing a skip.

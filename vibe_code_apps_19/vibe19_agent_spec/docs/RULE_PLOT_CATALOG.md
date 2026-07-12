@@ -50,7 +50,7 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 | --- | --- |
 | Family | `sensor` |
 | Equipment kinds | `ahu`, `vav`, `chiller`, `boiler`, `weather`, `zone`, `heatpump` |
-| Operational gate | `always` |
+| Operational gate | `equipment_energized` |
 | Default confirm | 300s |
 | Sweep | `sensor_sweep` |
 
@@ -118,7 +118,7 @@ Plots sensor-fault summary stats when FAULT.
 | --- | --- |
 | Family | `sensor` |
 | Equipment kinds | `ahu`, `vav`, `chiller`, `boiler`, `weather`, `zone`, `heatpump` |
-| Operational gate | `always` |
+| Operational gate | `equipment_energized` |
 | Default confirm | 300s |
 | Sweep | `sensor_sweep` |
 

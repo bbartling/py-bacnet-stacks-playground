@@ -20,6 +20,7 @@ GateKind = Literal[
     "compressor",
     "conditional",
     "control_loop",
+    "equipment_energized",  # fan proof, else plant pump, else compressor
 ]
 
 
@@ -32,11 +33,15 @@ class GateSpec:
 
 
 # Registry: every canonical rule id → gate (PID-HUNT-1 replaced SV-4).
+# Mechanical FDD: fan_running (air) or hydronic_flow (plant). Sensor sweeps use
+# equipment_energized (fan → pump → compressor). Exceptions that must see off
+# samples: SCHED-1 (unoccupied fan runtime), CMD-1 (cmd/status mismatch),
+# OAT-METEO / WX-1 (weather, not equipment-energized faults).
 RULE_GATES: dict[str, GateSpec] = {
-    "SV-RANGE": GateSpec("always"),
+    "SV-RANGE": GateSpec("equipment_energized", startup_delay_seconds=0),
     "SV-FLATLINE": GateSpec("conditional", startup_delay_seconds=0),
-    "SV-SPIKE": GateSpec("always"),
-    "SV-STALE": GateSpec("always"),
+    "SV-SPIKE": GateSpec("equipment_energized", startup_delay_seconds=0),
+    "SV-STALE": GateSpec("always"),  # dead feed must be visible even when motors are off
     "PID-HUNT-1": GateSpec("control_loop", startup_delay_seconds=300),
     "FC1": GateSpec("fan_running", startup_delay_seconds=300),
     "FC2": GateSpec("fan_running", startup_delay_seconds=600),
@@ -168,14 +173,34 @@ def resolve_compressor_running(df: pd.DataFrame, *, command_fallback: bool = Tru
     return pd.Series(True, index=df.index), "ungated_no_proof_roles"
 
 
+def resolve_equipment_energized(df: pd.DataFrame, *, command_fallback: bool = True) -> tuple[pd.Series, str]:
+    """Prefer fan proof, else plant pump/hydronic, else compressor — for mixed-kind rules."""
+    fan, src = resolve_fan_running(df, command_fallback=command_fallback)
+    if not src.startswith("ungated"):
+        return fan, src
+    pump, src = resolve_hydronic_running(df, command_fallback=command_fallback)
+    if not src.startswith("ungated"):
+        return pump, src
+    comp, src = resolve_compressor_running(df, command_fallback=command_fallback)
+    if not src.startswith("ungated"):
+        return comp, src
+    return pd.Series(True, index=df.index), "ungated_no_proof_roles"
+
+
 def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]:
     """Point/context-aware gates for CONDITIONAL rules."""
     if rule_id == "VAV-1":
+        # Occupied band when schedule exists; also require air moving when fan/flow proof exists.
         if "occ_mode" in df.columns and df["occ_mode"].notna().any():
             occ = df["occ_mode"].astype(str).str.lower().isin({"occupied", "1", "true", "on"})
-            return occ.fillna(False), "occ_mode"
-        # Prefer evaluating comfort continuously if no schedule — do not hard-exclude.
-        return pd.Series(True, index=df.index), "ungated_no_occ"
+            fan, src = resolve_fan_running(df)
+            if src.startswith("ungated"):
+                return occ.fillna(False), "occ_mode"
+            return (occ & fan).fillna(False), f"occ_and_{src}"
+        fan, src = resolve_fan_running(df)
+        if src.startswith("ungated"):
+            return pd.Series(True, index=df.index), "ungated_no_occ"
+        return fan, src
     if rule_id == "DMP-1":
         fan, src = resolve_fan_running(df)
         if "oa_damper_pct" in df.columns:
@@ -192,12 +217,8 @@ def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]
         fan, src = resolve_fan_running(df)
         return fan, src
     if rule_id == "SV-FLATLINE":
-        # Soft gate: always allow OAT-like continuous sensors; runner still evaluates full mask.
-        # Prefer fan-on periods when fan proof exists (reduces off-period stuck false positives).
-        fan, src = resolve_fan_running(df)
-        if src.startswith("ungated"):
-            return pd.Series(True, index=df.index), "flatline_always"
-        return fan, f"flatline_{src}"
+        # Prefer energized periods (fan → pump) to reduce off-period stuck false positives.
+        return resolve_equipment_energized(df)
     return pd.Series(True, index=df.index), "conditional_default"
 
 
@@ -248,6 +269,8 @@ def resolve_operational_mask(
         active, src = resolve_hydronic_running(df, command_fallback=spec.command_fallback_allowed)
     elif spec.kind == "compressor":
         active, src = resolve_compressor_running(df, command_fallback=spec.command_fallback_allowed)
+    elif spec.kind == "equipment_energized":
+        active, src = resolve_equipment_energized(df, command_fallback=spec.command_fallback_allowed)
     elif spec.kind == "control_loop":
         active, src = resolve_fan_running(df, command_fallback=spec.command_fallback_allowed)
         if "loop_enabled" in df.columns:
