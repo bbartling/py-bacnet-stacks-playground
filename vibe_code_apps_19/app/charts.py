@@ -681,3 +681,60 @@ def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
         xaxis=dict(categoryorder="array", categoryarray=order),
     )
     return fig
+
+
+def bas_vs_web_oat_histogram(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict | None = None,
+    *,
+    weather: pd.DataFrame | None = None,
+    nbins: int = 40,
+) -> go.Figure | None:
+    """Histogram of BAS OAT − web OAT (°F) when both series exist.
+
+    Prefers ``bas_oa_t`` / mapped ``oa_t`` vs ``wx_oa_t`` (frame or weather).
+    """
+    from app.role_map import apply_role_map
+
+    deltas: list[float] = []
+    role_map = role_map or {}
+    for eq_id, raw in (frames or {}).items():
+        mapped = apply_role_map(raw, eq_id, role_map)
+        bas = None
+        if "bas_oa_t" in mapped.columns and mapped["bas_oa_t"].notna().any():
+            bas = pd.to_numeric(mapped["bas_oa_t"], errors="coerce")
+        elif "oa_t" in mapped.columns and mapped["oa_t"].notna().any():
+            bas = pd.to_numeric(mapped["oa_t"], errors="coerce")
+        web = None
+        if "wx_oa_t" in mapped.columns and mapped["wx_oa_t"].notna().any():
+            web = pd.to_numeric(mapped["wx_oa_t"], errors="coerce")
+        elif weather is not None and "wx_oa_t" in weather.columns:
+            web = pd.to_numeric(weather["wx_oa_t"], errors="coerce").reindex(mapped.index)
+        if bas is None or web is None:
+            continue
+        d = (bas - web).dropna()
+        if not d.empty:
+            deltas.extend(float(x) for x in d.tolist())
+            break  # one representative equipment / aligned weather is enough for Overview
+    if len(deltas) < 5:
+        return None
+    fig = go.Figure(
+        data=[
+            go.Histogram(
+                x=deltas,
+                nbinsx=max(10, int(nbins)),
+                marker_color=RAINBOW_PALETTE[0],
+                name="BAS − web °F",
+            )
+        ]
+    )
+    fig.update_layout(
+        title="BAS vs web outdoor-air temperature deviation (°F)",
+        xaxis_title="BAS OAT − web OAT (°F)",
+        yaxis_title="Sample count",
+        template="plotly_white",
+        height=380,
+        bargap=0.05,
+        margin=dict(l=50, r=20, t=60, b=50),
+    )
+    return fig

@@ -31,8 +31,11 @@ from app.analytics import (  # noqa: E402
     sensor_fault_summary,
 )
 from app.charts import (  # noqa: E402
+    bas_vs_web_oat_histogram,
+    energy_degree_day_scatter,
     max_plot_points,
     mech_cooling_oat_histogram,
+    monthly_energy_bar,
     motor_weekly_runtime_chart,
     plotly_config,
     rule_result_chart,
@@ -1882,6 +1885,27 @@ def main() -> None:
                 key="dl_cool_bins_overview",
             )
 
+        st.markdown("##### BAS vs web outdoor-air temperature")
+        st.caption(
+            "Histogram of **BAS OAT − web OAT** (°F) when both series exist. "
+            "Uses mapped `bas_oa_t`/`oa_t` vs `wx_oa_t` (package weather). "
+            "Empty when web weather or BAS OAT is missing."
+        )
+        wx_fig = bas_vs_web_oat_histogram(
+            frames,
+            st.session_state.role_map,
+            weather=st.session_state.weather,
+        )
+        if wx_fig is None:
+            st.info("Need both BAS outdoor-air temp and web weather OAT to plot the deviation histogram.")
+        else:
+            st.plotly_chart(
+                wx_fig,
+                width="stretch",
+                config=plotly_config(filename="bas_vs_web_oat_hist"),
+                key="overview_bas_web_oat",
+            )
+
         st.markdown(
             "Tune thresholds in the **left sidebar** → **Run Rules** (all or by category) "
             "or sidebar **Rerun cat.** → browse **Plots** by device type (AHU / VAV / plant…)."
@@ -2055,7 +2079,76 @@ def main() -> None:
             target_rules = RULES if fam_key is None else _rules_by_family().get(fam_key, [])
             eq_list = [selected] if scope == "selected equipment" else sorted(frames, key=natural_key)
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
-            st.success(f"Ran {len(st.session_state.batch_results)} evaluations — open **Plots** or **RCx Plots**.")
+            st.session_state["_docx_pack_eq_scope"] = list(eq_list)
+            st.success(
+                f"Ran {len(st.session_state.batch_results)} evaluations — "
+                "download the DOCX pack below, then review **Plots** / **RCx Plots**."
+            )
+
+        if st.session_state.get("batch_results"):
+            st.markdown("##### Generate DOCX pack")
+            st.caption(
+                "ZIP with **fdd_by_system.docx** (AHU + feed faults, one VAV/zones chapter), "
+                "**analytics.docx**, **rcx_catalog.docx**, and **data_model.docx**. "
+                "Each file has a Key findings placeholder and PLACE PLOT HERE stubs."
+            )
+            try:
+                from app.analytics import plant_gated_summary_tables
+                from app.docx_report import build_session_docx_pack
+
+                eq_scope = st.session_state.get("_docx_pack_eq_scope") or sorted(frames)
+                fan_tbl, pump_tbl, _fc, _pc = plant_gated_summary_tables(
+                    frames, st.session_state.role_map
+                )
+                try:
+                    _mw = motor_run_hours_weekly(
+                        frames,
+                        st.session_state.role_map,
+                        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                        weather=st.session_state.weather,
+                        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+                    )
+                except Exception:
+                    _mw = pd.DataFrame()
+                try:
+                    _cb = mech_cooling_oat_bins(
+                        frames,
+                        st.session_state.role_map,
+                        weather=st.session_state.weather,
+                        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+                        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                        include_ahu_chw_valve=False,
+                    )
+                except Exception:
+                    _cb = pd.DataFrame()
+                pack = build_session_docx_pack(
+                    building_id=st.session_state.get("building_id") or "",
+                    frames=frames,
+                    role_map=st.session_state.role_map,
+                    results=st.session_state.batch_results,
+                    equipment_ids=list(eq_scope),
+                    params=st.session_state.get("params") or {},
+                    weather=st.session_state.weather,
+                    vav_to_ahu=st.session_state.get("vav_to_ahu")
+                    or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
+                    motor_weekly=_mw if isinstance(_mw, pd.DataFrame) else None,
+                    cool_bins=_cb if isinstance(_cb, pd.DataFrame) else None,
+                    zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
+                    zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
+                    occupancy_schedule=st.session_state.get("occupancy_schedule"),
+                    plant_pump_summaries=pump_tbl,
+                    fan_on_summaries=fan_tbl,
+                )
+                st.download_button(
+                    "Download DOCX pack (ZIP)",
+                    data=pack,
+                    file_name="vibe19_session_docx_pack.zip",
+                    mime="application/zip",
+                    type="primary",
+                    key="dl_session_docx_pack",
+                )
+            except Exception as exc:
+                st.warning(f"DOCX pack unavailable: {exc}")
 
     if section == "Results by Category":
         st.subheader("Results by equipment type")
@@ -2426,6 +2519,8 @@ def main() -> None:
                 cards_shown += 1
                 title = f"{card.rule_id} — {card.title} · {card.status}"
                 with st.expander(title, expanded=(rule.id == focus_rule_id)):
+                    if card.description:
+                        st.markdown(f"**Summary:** {card.description}")
                     if card.equation:
                         st.markdown(f"**Equation:** {card.equation}")
                     fh = card.fault_hours
@@ -2534,6 +2629,65 @@ def main() -> None:
             )
         except Exception as exc:
             st.error(f"RCx Plots failed: {exc}")
+
+    if section == "Metering":
+        st.subheader("Metering")
+        st.caption(
+            "Building / plant electrical and gas meters vs degree-days (web OAT). "
+            "Same rollups as RCx metering presets at the end of **RCx Plots** — this section starts "
+            "the dedicated Metering category (expand later)."
+        )
+        from app.metering import build_meter_monthly_table, meter_scatter_frame
+
+        for kind, title, dd_label in (
+            ("electric", "Electric (kWh) vs CDD", "CDD"),
+            ("gas", "Natural gas vs HDD", "HDD"),
+        ):
+            st.markdown(f"##### {title}")
+            monthly, stats, reason = build_meter_monthly_table(
+                frames,
+                st.session_state.role_map,
+                kind=kind,  # type: ignore[arg-type]
+                weather=st.session_state.weather,
+            )
+            if reason or monthly.empty:
+                st.info(reason or "No meter series for this package.")
+                continue
+            energy_col = "kwh" if kind == "electric" else "gas_qty"
+            bar = monthly_energy_bar(
+                monthly,
+                energy_col=energy_col,
+                title=f"Monthly {energy_col} by meter",
+            )
+            if bar is not None:
+                st.plotly_chart(
+                    bar,
+                    width="stretch",
+                    config=plotly_config(filename=f"meter_{kind}_bar"),
+                    key=f"meter_{kind}_bar",
+                )
+            scatter_df = meter_scatter_frame(monthly, kind=kind)  # type: ignore[arg-type]
+            scat = energy_degree_day_scatter(
+                scatter_df,
+                x_title=dd_label,
+                y_title=energy_col,
+                title=f"{title} scatter",
+            )
+            if scat is not None:
+                st.plotly_chart(
+                    scat,
+                    width="stretch",
+                    config=plotly_config(filename=f"meter_{kind}_scatter"),
+                    key=f"meter_{kind}_scatter",
+                )
+            if stats is not None and not stats.empty:
+                st.dataframe(stats, hide_index=True, width="stretch")
+            st.download_button(
+                f"Download {kind} monthly CSV",
+                to_csv_bytes(monthly),
+                f"meter_{kind}_monthly.csv",
+                key=f"dl_meter_{kind}",
+            )
 
     if section == "Export":
         st.subheader("Export")

@@ -10,7 +10,7 @@
 
 ## Purpose
 
-Plots is the **review/validation** surface for the 50-rule cookbook on one device — not a Niagara-style BAS mimic. Each applicable rule is a **card** so an engineer can scan description, tune params, and required vs mapped points before looking at a Plotly figure or pasting into Word.
+Plots is the **review/validation** surface for the cookbook on one device — not a Niagara-style BAS mimic. Each applicable rule is a **card** so an engineer can scan **Summary** (one sentence) + **Equation**, tune params, and required vs mapped points before looking at a Plotly figure or pasting into Word.
 
 ---
 
@@ -19,10 +19,10 @@ Plots is the **review/validation** surface for the 50-rule cookbook on one devic
 | Path | Role |
 | --- | --- |
 | `app/rule_card.py` | `build_rule_card`, `equipment_mapping_coverage`, `PLACE_PLOT_HERE` |
-| `app/docx_report.py` | `build_equipment_fdd_docx` (card mirror), data-model + analytics DOCX |
-| `app/data_model_tree.py` | Equipment → role → Haystack tag → CSV inventory |
-| `app/charts.py` | `rule_result_chart` (downsample via `VIBE19_MAX_PLOT_POINTS`) |
-| `streamlit_app.py` | **Plots** + **Data Model** + **Export** sections |
+| `app/docx_report.py` | `build_equipment_fdd_docx`, `build_fdd_by_system_docx`, `build_session_docx_pack`, analytics / RCx / data-model DOCX |
+| `app/data_model_tree.py` | Equipment → role → Haystack tag → CSV inventory (+ feeds/fedBy) |
+| `app/charts.py` | `rule_result_chart`, `bas_vs_web_oat_histogram`, … |
+| `streamlit_app.py` | **Plots** + **Data Model** + **Run Rules** DOCX pack + **Metering** + **Export** |
 
 ---
 
@@ -35,6 +35,7 @@ Plots is the **review/validation** surface for the 50-rule cookbook on one devic
 5. **Chart panel on top** — selectbox picks one rule; always render that rule’s Plotly (never default to “tables only / none”). Prefer first FAULT after a run.
 6. Filter chips: All / FAULT / PASS / SKIPPED / Not run (default **All**).
 7. **One expander per applicable cookbook rule** below the chart — **catalog parity** with [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md):
+   - **Summary** (one sentence from `CookbookRule.summary`)
    - Equation
    - Rule facts (family, equipment kinds, operational gate, default confirm, sweep)
    - Points → Haystack (+ live CSV column / in-history)

@@ -66,3 +66,7 @@
 Proof priority (fan): `fan_status` → `fan_speed_feedback` → `fan_current` → `airflow_proof` → `fan_cmd` fallback.
 
 Hydronic: `pump_status` / `chw_flow` / `pump_cmd` fallback. Mech-cooling analytics may also use CHW leave/supply &lt; adjustable °F when status is missing.
+
+## Related: analytics summaries
+
+Pump-on / fan-on **summary statistics** (not just rule gates) are documented in [`ANALYTICS.md`](ANALYTICS.md) — Overview, analytics.docx, and `pump_mode_summary_bundle` / `fan_mode_summary_bundle`.

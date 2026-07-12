@@ -184,9 +184,22 @@ def run_rules_and_results(at) -> None:
     results = _ss(at, "batch_results") or []
     assert results, "expected batch_results after Run"
 
+    # DOCX pack download should be offered after a successful run
+    labels = [str(getattr(b, "label", "") or "") for b in at.download_button]
+    assert any("DOCX pack" in lab for lab in labels), f"DOCX pack download missing; got {labels}"
+
     assert _set_radio_option(at, "Results by Category"), "Results by Category missing"
     at.run()
     assert not at.exception, f"Results by Category: {list(at.exception)}"
+
+    # Overview weather hist path should not crash (empty OK)
+    assert _set_radio_option(at, "Overview"), "Overview missing"
+    at.run()
+    assert not at.exception, f"Overview: {list(at.exception)}"
+
+    assert _set_radio_option(at, "Metering"), "Metering section missing"
+    at.run()
+    assert not at.exception, f"Metering: {list(at.exception)}"
 
 
 def main() -> int:

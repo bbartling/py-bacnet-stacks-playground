@@ -98,6 +98,8 @@ FAN_CMD_FALLBACK = ("fan_cmd",)
 
 PUMP_PROOF_ROLES = (
     "pump_status",
+    "chw_pump_status",
+    "hw_pump_status",
     "chw_pump_cmd",  # often used as status-like cmd in this demo
     "pump_speed_feedback",
     "pump_current",

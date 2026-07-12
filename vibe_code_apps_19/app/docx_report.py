@@ -24,6 +24,21 @@ from app.rules.cookbook_catalog import CookbookRule
 from app.rules.runner import infer_equipment_kind
 
 
+# Engineer fills before distributing — kept identical across all DOCX builders.
+KEY_FINDINGS_PLACEHOLDER = (
+    "[KEY FINDINGS — engineer summary: paste top issues, savings opportunities, "
+    "and follow-ups here before distributing this report.]"
+)
+
+# Feed-relationship faults shown under parent AHU in the by-system FDD pack.
+FEED_RELATIONSHIP_RULE_IDS = frozenset({"VAV-AHU-LEAVE"})
+
+
+def _add_key_findings_placeholder(doc) -> None:
+    _add_heading(doc, "Key findings", 1)
+    _add_para(doc, KEY_FINDINGS_PLACEHOLDER)
+
+
 def _docx():
     try:
         from docx import Document  # type: ignore
@@ -137,6 +152,8 @@ def _append_rule_card_section(
     Inches,
 ) -> None:
     _add_heading(doc, f"{card.rule_id} — {card.title} · {card.status}", 1)
+    if card.description:
+        _add_para(doc, f"Summary: {card.description}")
     if card.equation:
         _add_para(doc, f"Equation: {card.equation}")
     fh = "—" if card.fault_hours is None else f"{card.fault_hours:.2f}"
@@ -214,6 +231,7 @@ def build_equipment_fdd_docx(
         applicable, equipment_id, role_map, mapped_df
     )
     _add_heading(doc, f"FDD validation report — {equipment_id}", 0)
+    _add_key_findings_placeholder(doc)
     _add_kv_table(
         doc,
         [
@@ -292,13 +310,22 @@ def build_building_data_model_docx(tree: BuildingDataModelTree) -> bytes:
     Document, _Inches, _Pt = _docx()
     doc = Document()
     _add_heading(doc, f"Data model — {tree.building_id or 'building'}", 0)
+    _add_key_findings_placeholder(doc)
     _add_para(
         doc,
         f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}. "
         "Cookbook roles ↔ Haystack-like tags ↔ raw CSV columns.",
     )
     for eq in tree.equipment:
-        _add_heading(doc, f"{eq.equipment_id} ({eq.equipment_type})", 1)
+        feed_bits = []
+        if getattr(eq, "fed_by", None):
+            feed_bits.append(f"fedBy {eq.fed_by}")
+        if getattr(eq, "feeds", None):
+            feed_bits.append(f"feeds {len(eq.feeds)} VAV(s)")
+        title = f"{eq.equipment_id} ({eq.equipment_type})"
+        if feed_bits:
+            title += " — " + "; ".join(feed_bits)
+        _add_heading(doc, title, 1)
         table = doc.add_table(rows=1, cols=5)
         table.style = "Table Grid"
         hdr = table.rows[0].cells
@@ -332,11 +359,19 @@ def build_analytics_docx(
     cool_bins: pd.DataFrame | None = None,
     rcx_coverage: pd.DataFrame | None = None,
     tree: BuildingDataModelTree | None = None,
+    plant_pump_summaries: dict[str, pd.DataFrame] | None = None,
+    fan_on_summaries: dict[str, pd.DataFrame] | None = None,
 ) -> bytes:
     Document, _Inches, _Pt = _docx()
     doc = Document()
     _add_heading(doc, f"Analytics report — {building_id or 'building'}", 0)
+    _add_key_findings_placeholder(doc)
     _add_para(doc, f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+    _add_para(
+        doc,
+        "Plant leave-temp / reset summaries use pump-on / pump-off slices when pump proof "
+        "roles exist. Air-side summaries use fan-on / fan-off. Empty slices mean no proof mapped.",
+    )
 
     def _df_section(title: str, df: pd.DataFrame | None) -> None:
         _add_heading(doc, title, 1)
@@ -358,6 +393,12 @@ def build_analytics_docx(
     _df_section("Motor run hours (weekly)", motor_weekly)
     _df_section("Mechanical cooling OAT bins", cool_bins)
     _df_section("RCx preset coverage", rcx_coverage)
+    if fan_on_summaries:
+        for mode, df in fan_on_summaries.items():
+            _df_section(f"Air-side summary stats ({mode})", df)
+    if plant_pump_summaries:
+        for mode, df in plant_pump_summaries.items():
+            _df_section(f"Plant leave-temp summary ({mode})", df)
     if tree is not None:
         _add_heading(doc, "Data model summary", 1)
         _add_para(doc, f"{len(tree.equipment)} equipment nodes in mapping tree.")
@@ -406,6 +447,7 @@ def build_rcx_catalog_docx(
         )
 
     _add_heading(doc, f"RCx catalog report — {building_id or 'building'}", 0)
+    _add_key_findings_placeholder(doc)
     _add_kv_table(
         doc,
         [
@@ -590,3 +632,301 @@ def try_rule_plot_png(
         return fig.to_image(format="png", width=900, height=480, scale=1)
     except Exception:
         return None
+
+
+def build_fdd_by_system_docx(
+    *,
+    building_id: str,
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    results: list[RuleResult],
+    equipment_ids: list[str] | None = None,
+    params: dict[str, Any] | None = None,
+    vav_to_ahu: dict[str, str] | None = None,
+    zone_lo_f: float = 70.0,
+    zone_hi_f: float = 75.0,
+    occupancy_schedule: dict | None = None,
+) -> bytes:
+    """FDD DOCX organized by mechanical system (AHU+feeds, one VAV/zone chapter, plant)."""
+    from app.occupancy import OccupancySchedule
+    from app.role_map import apply_role_map
+    from app.rcx_plots import zone_comfort_fail_ranking
+    from app.site_model import resolve_equipment_type
+    from app.topology_enrich import invert_vav_to_ahu
+
+    Document, Inches, _Pt = _docx()
+    doc = Document()
+    scope = set(equipment_ids) if equipment_ids is not None else set(frames.keys())
+    topo = dict(vav_to_ahu or {})
+    children = invert_vav_to_ahu(topo)
+    by_result: dict[tuple[str, str], RuleResult] = {
+        (r.equipment_id, r.rule_id): r for r in results
+    }
+
+    _add_heading(doc, f"FDD by mechanical system — {building_id or 'building'}", 0)
+    _add_key_findings_placeholder(doc)
+    _add_para(
+        doc,
+        f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}. "
+        "AHU sections include feed-relationship faults from child VAVs. "
+        "VAV boxes are aggregated into one Zones chapter (ranking + placeholders).",
+    )
+    _add_para(doc, "Plot", bold=True)
+    _add_para(doc, PLACE_PLOT_HERE)
+
+    def _mapped(eq_id: str) -> pd.DataFrame:
+        raw = frames[eq_id]
+        mapped = apply_role_map(raw, eq_id, role_map)
+        if "ahu_sat" in raw.columns and "ahu_sat" not in mapped.columns:
+            mapped["ahu_sat"] = raw["ahu_sat"]
+        mapped.attrs.update({k: v for k, v in raw.attrs.items() if k != "_role_map"})
+        mapped.attrs["equipment_id"] = eq_id
+        return mapped
+
+    def _append_cards(eq_id: str, etype: str, rule_ids: list[str] | None = None) -> None:
+        mapped = _mapped(eq_id)
+        applicable = applicable_rules_for_equipment(
+            eq_id, equipment_type=etype, mapped_df=mapped, role_map=role_map
+        )
+        if rule_ids is not None:
+            want = set(rule_ids)
+            applicable = [r for r in applicable if r.id in want]
+        for rule in applicable:
+            card = build_rule_card(
+                equipment_id=eq_id,
+                rule=rule,
+                result=by_result.get((eq_id, rule.id)),
+                role_map=role_map,
+                mapped_df=mapped,
+                params=params,
+                results=results,
+            )
+            _append_rule_card_section(doc, card, plot_png=None, Inches=Inches)
+
+    # --- AHU / RTU chapters (with child feed faults) ---
+    ahu_ids = sorted(
+        [
+            eq
+            for eq in scope
+            if eq in frames
+            and resolve_equipment_type(eq, df=frames[eq], role_map=role_map) in {"AHU", "RTU"}
+        ]
+    )
+    for ahu_id in ahu_ids:
+        et = resolve_equipment_type(ahu_id, df=frames[ahu_id], role_map=role_map)
+        feeds = [v for v in children.get(ahu_id, []) if v in scope and v in frames]
+        _add_heading(doc, f"{et} — {ahu_id}", 1)
+        if feeds:
+            _add_para(doc, "feeds (VAV children): " + ", ".join(feeds))
+        _append_cards(ahu_id, et)
+        feed_faults = [
+            r
+            for r in results
+            if r.equipment_id in feeds
+            and r.rule_id in FEED_RELATIONSHIP_RULE_IDS
+            and str(r.status) in {"FAULT", "WARNING", "PASS", "SKIPPED_MISSING_ROLES"}
+        ]
+        if feed_faults or feeds:
+            _add_heading(doc, f"Feed relationship faults (VAVs served by {ahu_id})", 2)
+            _add_para(
+                doc,
+                "VAV leave vs parent AHU SAT and related topology-enabled checks.",
+            )
+            for vav_id in feeds:
+                vav_et = resolve_equipment_type(vav_id, df=frames[vav_id], role_map=role_map)
+                _add_heading(doc, f"fedBy {ahu_id} ← {vav_id}", 3)
+                _append_cards(vav_id, vav_et, rule_ids=list(FEED_RELATIONSHIP_RULE_IDS))
+
+    # --- One VAV / Zones chapter ---
+    vav_ids = sorted(
+        [
+            eq
+            for eq in scope
+            if eq in frames
+            and resolve_equipment_type(eq, df=frames[eq], role_map=role_map) == "VAV"
+        ]
+    )
+    _add_heading(doc, "VAV / Zones — cohort analysis", 1)
+    _add_para(
+        doc,
+        "Zone-level analytics and worst-performing VAV ranking (occupied comfort fails). "
+        "Individual VAV fault cards stay in Plots; this chapter is the building-wide view.",
+    )
+    _add_para(doc, "Zone comfort ranking chart", bold=True)
+    _add_para(doc, PLACE_RCX_PLOT_HERE.format(preset_id="zone_comfort_rank"))
+    try:
+        schedule = OccupancySchedule.from_dict(occupancy_schedule)
+        rank = zone_comfort_fail_ranking(
+            frames,
+            role_map,
+            schedule=schedule,
+            comfort_low_f=zone_lo_f,
+            comfort_high_f=zone_hi_f,
+            equipment_types=("VAV",),
+        )
+        if vav_ids:
+            rank = rank[rank["equipment_id"].isin(vav_ids)] if not rank.empty else rank
+    except Exception:
+        rank = pd.DataFrame()
+    if rank is None or rank.empty:
+        _add_para(doc, "[Placeholder] No zone comfort ranking rows for this package.")
+    else:
+        cols = [
+            c
+            for c in rank.columns
+            if c
+            in {
+                "equipment_id",
+                "pct_outside_comfort",
+                "n_occupied",
+                "n_outside",
+                "outlier",
+                "mean_zone_t",
+            }
+        ] or list(rank.columns)[:6]
+        table = doc.add_table(rows=1, cols=len(cols))
+        table.style = "Table Grid"
+        for i, c in enumerate(cols):
+            table.rows[0].cells[i].text = str(c)
+        for _, row in rank.head(40).iterrows():
+            cells = table.add_row().cells
+            for i, c in enumerate(cols):
+                cells[i].text = str(row[c])
+    # Compact VAV fault tally (not per-box cards)
+    if vav_ids:
+        _add_heading(doc, "VAV fault tally (run scope)", 2)
+        rows = []
+        for r in results:
+            if r.equipment_id not in vav_ids:
+                continue
+            if r.rule_id in FEED_RELATIONSHIP_RULE_IDS:
+                continue  # already under AHU
+            if str(r.status) not in {"FAULT", "WARNING"}:
+                continue
+            rows.append((r.equipment_id, r.rule_id, r.status, getattr(r, "fault_hours", None)))
+        if not rows:
+            _add_para(doc, "No FAULT/WARNING VAV results in this run (excluding feed rules).")
+        else:
+            table = doc.add_table(rows=1, cols=4)
+            table.style = "Table Grid"
+            for i, h in enumerate(["Equipment", "Rule", "Status", "Fault hours"]):
+                table.rows[0].cells[i].text = h
+            for eq_id, rid, st, fh in rows[:80]:
+                cells = table.add_row().cells
+                cells[0].text = str(eq_id)
+                cells[1].text = str(rid)
+                cells[2].text = str(st)
+                cells[3].text = "—" if fh is None else f"{fh:.2f}"
+
+    # --- Other plant / weather equipment in scope ---
+    other_ids = sorted(
+        [
+            eq
+            for eq in scope
+            if eq in frames
+            and resolve_equipment_type(eq, df=frames[eq], role_map=role_map)
+            not in {"AHU", "RTU", "VAV"}
+        ]
+    )
+    for eq_id in other_ids:
+        et = resolve_equipment_type(eq_id, df=frames[eq_id], role_map=role_map)
+        _add_heading(doc, f"{et} — {eq_id}", 1)
+        _append_cards(eq_id, et)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def build_session_docx_pack(
+    *,
+    building_id: str,
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    results: list[RuleResult],
+    equipment_ids: list[str] | None = None,
+    params: dict[str, Any] | None = None,
+    weather: pd.DataFrame | None = None,
+    vav_to_ahu: dict[str, str] | None = None,
+    motor_weekly: pd.DataFrame | None = None,
+    cool_bins: pd.DataFrame | None = None,
+    rcx_coverage: pd.DataFrame | None = None,
+    zone_lo_f: float = 70.0,
+    zone_hi_f: float = 75.0,
+    occupancy_schedule: dict | None = None,
+    plant_pump_summaries: dict[str, pd.DataFrame] | None = None,
+    fan_on_summaries: dict[str, pd.DataFrame] | None = None,
+) -> bytes:
+    """ZIP: fdd_by_system + analytics + rcx_catalog + data_model."""
+    import zipfile
+
+    from app.rcx_plots import rcx_preset_coverage
+
+    scope_frames = {
+        k: v
+        for k, v in frames.items()
+        if equipment_ids is None or k in set(equipment_ids)
+    } or frames
+    tree = build_data_model_tree(
+        scope_frames,
+        role_map,
+        building_id=building_id or "",
+        vav_to_ahu=vav_to_ahu,
+    )
+    cov = rcx_coverage
+    if cov is None or (isinstance(cov, pd.DataFrame) and cov.empty):
+        try:
+            cov = rcx_preset_coverage(
+                frames,
+                role_map,
+                weather=weather,
+                comfort_low_f=zone_lo_f,
+                comfort_high_f=zone_hi_f,
+            )
+        except Exception:
+            cov = pd.DataFrame()
+
+    fdd = build_fdd_by_system_docx(
+        building_id=building_id,
+        frames=frames,
+        role_map=role_map,
+        results=results,
+        equipment_ids=equipment_ids,
+        params=params,
+        vav_to_ahu=vav_to_ahu,
+        zone_lo_f=zone_lo_f,
+        zone_hi_f=zone_hi_f,
+        occupancy_schedule=occupancy_schedule,
+    )
+    analytics = build_analytics_docx(
+        building_id=building_id,
+        motor_weekly=motor_weekly,
+        cool_bins=cool_bins,
+        rcx_coverage=cov if isinstance(cov, pd.DataFrame) else None,
+        tree=tree,
+        plant_pump_summaries=plant_pump_summaries,
+        fan_on_summaries=fan_on_summaries,
+    )
+    rcx = build_rcx_catalog_docx(
+        building_id=building_id,
+        frames=frames,
+        role_map=role_map,
+        weather=weather,
+        results=results,
+        params=params,
+        rcx_coverage=cov if isinstance(cov, pd.DataFrame) else None,
+        zone_lo_f=zone_lo_f,
+        zone_hi_f=zone_hi_f,
+        occupancy_schedule=occupancy_schedule,
+        motor_weekly=motor_weekly,
+        cool_bins=cool_bins,
+    )
+    data_model = build_building_data_model_docx(tree)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("fdd_by_system.docx", fdd)
+        zf.writestr("analytics.docx", analytics)
+        zf.writestr("rcx_catalog.docx", rcx)
+        zf.writestr("data_model.docx", data_model)
+    return buf.getvalue()

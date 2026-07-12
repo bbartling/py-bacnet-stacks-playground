@@ -42,6 +42,8 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 
 ### `SV-RANGE` — Sensor out of hard range
 
+**Summary:** Flags any modeled sensor reading outside its physical hard range.
+
 **Equation:** Any modeled sensor reads outside its physical hard range (e.g. OAT −60–130°F, SAT 30–150°F, CHWS 30–80°F).
 
 | Field | Value |
@@ -72,6 +74,8 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 Plots sensor-fault summary stats when FAULT; Export sensor fault CSV.
 
 ### `SV-FLATLINE` — Sensor flatline (stuck)
+
+**Summary:** Flags a sensor that stays stuck within a tiny band for too long.
 
 **Equation:** Sensor value unchanged (Δ ≤ tolerance) across the flatline window — stuck / frozen sensor.
 
@@ -106,6 +110,8 @@ Plots sensor-fault summary stats when FAULT.
 
 ### `SV-SPIKE` — Sensor rate-of-change spike
 
+**Summary:** Flags an implausible sample-to-sample jump for the sensor type.
+
 **Equation:** Sample-to-sample jump exceeds the physical spike limit for the sensor type.
 
 | Field | Value |
@@ -137,6 +143,8 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 Plots sensor-fault summary stats when FAULT.
 
 ### `SV-STALE` — Stale data (no fresh samples)
+
+**Summary:** Flags when all modeled sensors stop updating — likely a dead data feed.
 
 **Equation:** All modeled sensors unchanged over the stale window — data feed likely dropped.
 
@@ -174,6 +182,8 @@ Plots sensor-fault summary stats when FAULT.
 ## 2 · Control loops
 
 ### `PID-HUNT-1` — Suspected control-output hunting
+
+**Summary:** Flags control outputs that oscillate enough to suggest loop hunting.
 
 **Equation:** Rolling 1h total variation of any 0–100% control output (dampers, valves, fan speeds, heat/cool cmds) with span ≥20%, TV ≥500 %·pts, ≥2.5 equivalent cycles, ≥4 reversals — suspected loop hunting (not proof of bad PID alone).
 
@@ -221,6 +231,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC1` — Duct static below SP at full fan (GL36 A)
 
+**Summary:** Flags duct static too low while the supply fan is near full speed.
+
 **Equation:** Fan ≥ 87% AND duct static < static SP − 0.12 in.w.c.
 
 | Field | Value |
@@ -259,6 +271,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC2` — MAT below OAT/RAT envelope (GL36 B)
+
+**Summary:** Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.
 
 **Equation:** Fan on AND MAT − 1.15°F < min(RAT, OAT) − 1.15°F.
 
@@ -300,6 +314,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC3` — MAT above OAT/RAT envelope (GL36 C)
 
+**Summary:** Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.
+
 **Equation:** Fan on AND MAT − 1.15°F > max(RAT, OAT) + 1.15°F.
 
 | Field | Value |
@@ -340,6 +356,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC4` — PID hunting (operating-state oscillation)
 
+**Summary:** More than 5 operating-mode entry transitions in any hour (heating/econ/mech modes).
+
 **Equation:** More than 5 operating-mode entry transitions in any hour (heating/econ/mech modes).
 
 | Field | Value |
@@ -377,6 +395,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC5` — SAT cold when heating commanded (GL36 D)
+
+**Summary:** Fan on AND heating > 1% AND SAT + 1.15°F ≤ MAT − 1.15°F + 0.55°F.
 
 **Equation:** Fan on AND heating > 1% AND SAT + 1.15°F ≤ MAT − 1.15°F + 0.55°F.
 
@@ -417,6 +437,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC6` — Estimated OA fraction mismatch
+
+**Summary:** |RAT−OAT| ≥ 5°F AND |estimated OA% − design min OA%| > 15% in heating/mech-only modes.
 
 **Equation:** |RAT−OAT| ≥ 5°F AND |estimated OA% − design min OA%| > 15% in heating/mech-only modes.
 
@@ -459,6 +481,8 @@ Needs AHU `vav_total_flow` — empty plots often data gaps.
 
 ### `FC7` — SAT low with full heating (GL36 E)
 
+**Summary:** Fan on AND heating > 90% AND SAT < SAT SP − 1.0°F.
+
 **Equation:** Fan on AND heating > 90% AND SAT < SAT SP − 1.0°F.
 
 | Field | Value |
@@ -499,6 +523,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC8` — SAT/MAT mismatch in economizer (GL36 F)
 
+**Summary:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(1.15²+1.15²).
+
 **Equation:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(1.15²+1.15²).
 
 | Field | Value |
@@ -537,6 +563,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC9` — OAT too warm for free cooling (GL36 G)
+
+**Summary:** Economizer open, CHW < 10%, OAT − 1.15°F > SAT SP − 0.55°F + 1.15°F.
 
 **Equation:** Economizer open, CHW < 10%, OAT − 1.15°F > SAT SP − 0.55°F + 1.15°F.
 
@@ -577,6 +605,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC10` — OAT/MAT mismatch + mech cooling (GL36 H)
 
+**Summary:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(1.15²+1.15²).
+
 **Equation:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(1.15²+1.15²).
 
 | Field | Value |
@@ -615,6 +645,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC11` — OAT/MAT mismatch economizer-only (GL36 I)
+
+**Summary:** CHW > 1%, economizer > 90%, OAT + 1.15°F < SAT SP − 0.55°F − 1.15°F.
 
 **Equation:** CHW > 1%, economizer > 90%, OAT + 1.15°F < SAT SP − 0.55°F − 1.15°F.
 
@@ -655,6 +687,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC12` — SAT above blend in cooling (GL36 J)
 
+**Summary:** CHW > 1%, SAT − 1.15°F − 0.55°F > MAT + 1.15°F at min or full economizer.
+
 **Equation:** CHW > 1%, SAT − 1.15°F − 0.55°F > MAT + 1.15°F at min or full economizer.
 
 | Field | Value |
@@ -693,6 +727,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC13` — SAT above SP at full cooling (GL36 K)
+
+**Summary:** CHW > 1%, SAT > SAT SP + 1.0°F at min or full economizer.
 
 **Equation:** CHW > 1%, SAT > SAT SP + 1.0°F at min or full economizer.
 
@@ -734,6 +770,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC14` — CHW coil ΔT when inactive (GL36 L)
 
+**Summary:** Cooling coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
+
 **Equation:** Cooling coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
 
 | Field | Value |
@@ -772,6 +810,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `FC15` — HW coil ΔT when inactive (GL36 M)
+
+**Summary:** Heating coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
 
 **Equation:** Heating coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
 
@@ -812,6 +852,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `AHU-SATDEV` — SAT deviation from setpoint
 
+**Summary:** |SAT − SAT SP| > 5°F.
+
 **Equation:** |SAT − SAT SP| > 5°F.
 
 | Field | Value |
@@ -847,6 +889,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 RCx `ahu_sat_reset_scatter` — SAT vs web OAT.
 
 ### `AHU-DUCTHI` — Duct static pressure high
+
+**Summary:** Duct static > static SP + 0.25 in.w.c.
 
 **Equation:** Duct static > static SP + 0.25 in.w.c.
 
@@ -884,6 +928,8 @@ RCx `duct_static_box` (fan-on) for static-reset opportunity.
 
 ### `AHU-SIMUL` — Heating and cooling simultaneous
 
+**Summary:** Heating valve > 10% AND cooling valve > 10% at once.
+
 **Equation:** Heating valve > 10% AND cooling valve > 10% at once.
 
 | Field | Value |
@@ -920,6 +966,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `OAT-METEO` — BAS outdoor-air sensor vs Open-Meteo
 
+**Summary:** Flags large disagreement between BAS outdoor-air temp and web weather OAT.
+
 **Equation:** BAS OAT sensor differs from Open-Meteo dry bulb by more than 5°F.
 
 | Field | Value |
@@ -955,6 +1003,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.
 
 ### `ECON-1` — Economizer stuck closed
+
+**Summary:** Fan on, OA damper < 5%, OAT > 55°F (should be economizing).
 
 **Equation:** Fan on, OA damper < 5%, OAT > 55°F (should be economizing).
 
@@ -994,6 +1044,8 @@ Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).
 
 ### `ECON-2` — Economizing when outdoor unfavorable
 
+**Summary:** OAT > 63°F AND OA damper > 42% (should be at minimum).
+
 **Equation:** OAT > 63°F AND OA damper > 42% (should be at minimum).
 
 | Field | Value |
@@ -1030,6 +1082,8 @@ Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).
 Needs OA damper / MAT / OAT roles.
 
 ### `ECON-3` — Mech cooling when econ available
+
+**Summary:** Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); fault when cooling valve open with OA damper closed.
 
 **Equation:** Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); fault when cooling valve open with OA damper closed. Optional SAT≈SP means free cooling is keeping up.
 
@@ -1072,6 +1126,8 @@ Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OA
 
 ### `ECON-4` — Low estimated OA fraction
 
+**Summary:** Fan on, |RAT−OAT| > 2.2°F, estimated OA fraction < 21%.
+
 **Equation:** Fan on, |RAT−OAT| > 2.2°F, estimated OA fraction < 21%.
 
 | Field | Value |
@@ -1112,6 +1168,8 @@ Needs OA damper / MAT / OAT roles.
 
 ### `ECON-5` — Preheat over-conditioning
 
+**Summary:** Preheat leaving air > 2.2°F above target while preheat active.
+
 **Equation:** Preheat leaving air > 2.2°F above target while preheat active.
 
 | Field | Value |
@@ -1150,6 +1208,8 @@ Needs OA damper / MAT / OAT roles.
 Needs heat/preheat roles.
 
 ### `SCHED-1` — Unoccupied runtime
+
+**Summary:** Flags fan runtime during unoccupied hours from the Overview calendar.
 
 **Equation:** Fan running while occupancy is unoccupied (Overview calendar → occ_mode). When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f (defaults 70–75°F; synced from Overview zone band).
 
@@ -1190,6 +1250,8 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 
 ### `CMD-1` — Fan cmd/status mismatch
 
+**Summary:** Fan command and proven status disagree.
+
 **Equation:** Fan command and proven status disagree.
 
 | Field | Value |
@@ -1224,6 +1286,8 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `OA-1` — Low OA fraction
+
+**Summary:** Estimated OA fraction < 15% with adequate OAT/RAT split.
 
 **Equation:** Estimated OA fraction < 15% with adequate OAT/RAT split.
 
@@ -1265,6 +1329,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `DMP-1` — OA damper leakage
 
+**Summary:** Damper ≤ 5% but MAT tracks OAT within 2°F — leaking OA damper.
+
 **Equation:** Damper ≤ 5% but MAT tracks OAT within 2°F — leaking OA damper.
 
 | Field | Value |
@@ -1302,6 +1368,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `VLV-1` — Cooling valve leakage
+
+**Summary:** Flags a closed cooling valve while SAT still looks like valve leakage.
 
 **Equation:** Cooling valve ≤ 5% AND (SAT < sat_sp − sat_err OR SAT < MAT − mat_leak_delta). Fan proven on when fan_status/fan_cmd present (operational gate).
 
@@ -1353,6 +1421,8 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 
 ### `VAV-1` — Zone comfort band
 
+**Summary:** Zone temp < 70°F or > 75°F.
+
 **Equation:** Zone temp < 70°F or > 75°F.
 
 | Field | Value |
@@ -1387,6 +1457,8 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `VAV-3` — Excessive reheat during warm weather
+
+**Summary:** Air flowing AND OAT > 78°F AND reheat valve > 52%.
 
 **Equation:** Air flowing AND OAT > 78°F AND reheat valve > 52%.
 
@@ -1426,6 +1498,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `VAV-4` — Damper stuck at full open
 
+**Summary:** Air flowing AND damper > 97.5% sustained across the window.
+
 **Equation:** Air flowing AND damper > 97.5% sustained across the window.
 
 | Field | Value |
@@ -1462,6 +1536,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `VAV-5` — Airflow sensor bias
 
+**Summary:** Airflow > 50 cfm while damper < 10% (implausible flow).
+
 **Equation:** Airflow > 50 cfm while damper < 10% (implausible flow).
 
 | Field | Value |
@@ -1496,6 +1572,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `VAV-REHEAT` — Reheat valve stuck / no temp rise
+
+**Summary:** Flags reheat commanded open with airflow but almost no discharge temperature rise.
 
 **Equation:** Air flowing AND reheat valve > 30% AND box discharge temp rises < 3°F above duct inlet (air from AHU) — stuck or failed reheat valve/coil.
 
@@ -1537,6 +1615,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `VAV-AHU-LEAVE` — VAV leave vs parent AHU SAT (fedBy)
 
+**Summary:** Flags VAV discharge far from the parent AHU SAT when topology feeds are known.
+
 **Equation:** Air flowing AND |VAV discharge − parent AHU SAT| > band. Needs package topology (vav_to_ahu) so ahu_sat is enriched from the fedBy AHU; otherwise SKIPPED_MISSING_ROLES. Flags broken reheat, bad sensors, or rogue zones.
 
 | Field | Value |
@@ -1573,6 +1653,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `VAV-7` — Min airflow / fixed high flow
+
+**Summary:** Flow below min SP (when mapped), OR airflow stays flat (low rolling std) at a high mean while air is on (mins too high / box never modulates), OR min_flow_sp itself is excessively high.
 
 **Equation:** Flow below min SP (when mapped), OR airflow stays flat (low rolling std) at a high mean while air is on (mins too high / box never modulates), OR min_flow_sp itself is excessively high.
 
@@ -1616,6 +1698,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `CHW-1` — Low chilled-water ΔT
 
+**Summary:** Pump on AND (CHWR − CHWS) < 4°F.
+
 **Equation:** Pump on AND (CHWR − CHWS) < 4°F.
 
 | Field | Value |
@@ -1651,6 +1735,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 RCx `chw_reset_scatter` — CHW leave vs web OAT; motor weekly uses pump/status not leave-temp.
 
 ### `CHW-2` — DP below SP at max pump speed
+
+**Summary:** Pump ≥ 87% AND CHW DP < DP SP − 2.2.
 
 **Equation:** Pump ≥ 87% AND CHW DP < DP SP − 2.2.
 
@@ -1690,6 +1776,8 @@ Plant motor weekly / chiller runtime — status/pump proof.
 
 ### `CHW-3` — Plant supply temp outside deadband
 
+**Summary:** Pump on AND |CHWS − CHWS SP| > 2.2°F.
+
 **Equation:** Pump on AND |CHWS − CHWS SP| > 2.2°F.
 
 | Field | Value |
@@ -1728,6 +1816,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `CHW-4` — Flow high at max pump
 
+**Summary:** Pump ≥ 87% AND CHW flow > 1100 gpm.
+
 **Equation:** Pump ≥ 87% AND CHW flow > 1100 gpm.
 
 | Field | Value |
@@ -1763,6 +1853,8 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `CW-OPT-1` — Condenser water not optimized vs wet-bulb
+
+**Summary:** CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.
 
 **Equation:** CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.
 
@@ -1803,6 +1895,8 @@ RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.
 ## 6 · Heat pump
 
 ### `HP-1` — Discharge cold when heating
+
+**Summary:** Fan on, zone < 69°F, discharge SAT < 85°F.
 
 **Equation:** Fan on, zone < 69°F, discharge SAT < 85°F.
 
@@ -1848,6 +1942,8 @@ Mech-cooling OAT bins can use DX/compressor roles.
 
 ### `WX-1` — OA temperature spike
 
+**Summary:** OAT sample-to-sample jump > 16°F.
+
 **Equation:** OAT sample-to-sample jump > 16°F.
 
 | Field | Value |
@@ -1887,6 +1983,8 @@ Weather family; web OAT enrich on weather frame.
 
 ### `TRIM-1` — Duct static trim advisory
 
+**Summary:** Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.
+
 **Equation:** Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.
 
 | Field | Value |
@@ -1922,6 +2020,8 @@ Duct static / pressure trim requests; related to duct-static box RCx.
 
 ### `TRIM-3` — HWST trim advisory
 
+**Summary:** HW supply > 160°F while reset requests are low.
+
 **Equation:** HW supply > 160°F while reset requests are low.
 
 | Field | Value |
@@ -1956,6 +2056,8 @@ Duct static / pressure trim requests; related to duct-static box RCx.
 HW reset requests; RCx `hw_reset_scatter`.
 
 ### `TRIM-4` — CHW plant reset advisory
+
+**Summary:** CHW supply < 45°F while reset requests are low.
 
 **Equation:** CHW supply < 45°F while reset requests are low.
 

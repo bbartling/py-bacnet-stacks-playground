@@ -87,6 +87,8 @@ def main() -> None:
             fields = catalog_fields(r)
             L(f"### `{r.id}` — {r.title}")
             L("")
+            L(f"**Summary:** {r.summary or r.title}")
+            L("")
             L(f"**Equation:** {r.equation}")
             L("")
             L("| Field | Value |")

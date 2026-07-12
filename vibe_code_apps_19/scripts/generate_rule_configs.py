@@ -22,6 +22,7 @@ def main() -> None:
                 "family": r.family,
                 "title": r.title,
                 "description": r.equation,
+                "summary": r.summary,
                 "required_roles": r.required_roles,
                 "optional_roles": r.optional_roles,
                 "equipment_kinds": r.equipment_kinds,

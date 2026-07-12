@@ -1056,3 +1056,36 @@ def sensor_fault_summary(
             ]
         )
     return pd.DataFrame(rows)
+
+
+def plant_gated_summary_tables(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame], str, str]:
+    """Fan-gated air-side + pump-gated plant leave-temp summary tables for analytics DOCX.
+
+    Returns (fan_tables, pump_tables, fan_caption, pump_caption).
+    """
+    from app.rcx_plots import fan_mode_summary_bundle, pump_mode_summary_bundle
+
+    fan_tables, fan_cap = fan_mode_summary_bundle(
+        frames,
+        role_map,
+        role="sat",
+        equipment_types=("AHU", "RTU"),
+    )
+    # Merge chw + hw leave into one pump-mode caption; prefer chw_supply_t then hw_supply_t
+    pump_tables, pump_cap = pump_mode_summary_bundle(
+        frames,
+        role_map,
+        role="chw_supply_t",
+        equipment_types=("CHILLER", "CHW_PLANT", "AHU"),
+    )
+    if all(t.empty for t in pump_tables.values()):
+        pump_tables, pump_cap = pump_mode_summary_bundle(
+            frames,
+            role_map,
+            role="hw_supply_t",
+            equipment_types=("BOILER", "HW_PLANT", "AHU"),
+        )
+    return fan_tables, pump_tables, fan_cap, pump_cap

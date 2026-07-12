@@ -52,22 +52,24 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins |
-| **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + mapping status / gap report (sidecar JSON from package) |
-| Run Rules | 50-rule cookbook (+ custom) |
+| Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
+| **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
+| Run Rules | Cookbook (+ custom); after batch → **Download DOCX pack (ZIP)** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **Plots** | Auto-run device rules; chart panel on top; **catalog-parity** rule cards (facts / Haystack / series / full sliders / analytics fit); session_config / role_map / FDD DOCX |
-| **RCx Plots** | Named presets + zone comfort ranking; fan-mode summaries; **Download RCx catalog DOCX** |
-| Export | CSV / session / health / DOCX artifacts (incl. **Download equipment FDD DOCX**) |
+| **Plots** | Auto-run device rules; catalog-parity cards (**Summary** + Equation); FDD DOCX |
+| **RCx Plots** | Named presets + zone comfort ranking; fan-mode summaries; metering presets **at end**; RCx catalog DOCX |
+| **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
+| Export | CSV / session / health / individual DOCX artifacts |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 
 ### Plots + DOCX validation cards
 
 - Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
-- Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage).
-- Equipment DOCX (`build_equipment_fdd_docx`) must include **`[PLACE PLOT HERE`** stubs, tune params, and required vs mapped point tables — mirroring the cards.
-- One-click download: **Download FDD DOCX** on Plots (and Export) — no Build-then-Download dance.
+- Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
+- Equipment / by-system DOCX must include **Key findings** placeholder, **`[PLACE PLOT HERE`** stubs, tune params, and required vs mapped point tables — mirroring the cards.
+- Session pack: `build_session_docx_pack` → ZIP of fdd_by_system + analytics + rcx_catalog + data_model.
+- One-click: **Download DOCX pack** on Run Rules; **Download FDD DOCX** on Plots (and Export).
 
 ---
 
@@ -76,7 +78,7 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 Frozen in `REQUIRED_CHART_APIS` — must remain callable in `app/charts.py`:
 
 - `rule_result_chart`, `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter`
-- `motor_weekly_runtime_chart`, `mech_cooling_oat_histogram`
+- `motor_weekly_runtime_chart`, `mech_cooling_oat_histogram`, `bas_vs_web_oat_histogram`
 - `max_plot_points`, `plotly_config`
 
 Also keep `render_rcx_plots_tab`, `collect_oat_scatter`, `collect_role_series`, `rcx_preset_coverage`.
@@ -122,5 +124,5 @@ Empty coverage is OK when data is missing (`rcx_preset_coverage` + empty_reason)
 - [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
 - [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py`
-- [ ] Did **not** remove RCx Plots, Plots, Export, or chart helpers (Analytics tab intentionally removed — Overview owns motor/cool bins)
+- [ ] Did **not** remove RCx Plots, Plots, Metering, Export, or chart helpers (no duplicate Analytics tab — Overview owns motor/cool bins / BAS-vs-web hist)
 - [ ] Append `SESSION_LOG.md` if presets / sections changed

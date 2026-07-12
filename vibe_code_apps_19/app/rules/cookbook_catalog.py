@@ -139,6 +139,8 @@ class CookbookRule:
     confirm_seconds: float = 300.0
     sensor_sweep: bool = False
     control_output_sweep: bool = False
+    # One-sentence fault description for UI / DOCX / RULE_PLOT_CATALOG (not the equation).
+    summary: str = ""
 
     def defaults(self) -> dict[str, float]:
         return {p.key: p.default for p in self.params}
@@ -152,6 +154,7 @@ class CookbookRule:
             "required_roles": self.required_roles,
             "optional_roles": self.optional_roles,
             "equation": self.equation,
+            "summary": self.summary,
             "confirm_seconds": self.confirm_seconds,
             "sensor_sweep": self.sensor_sweep,
             "control_output_sweep": self.control_output_sweep,
@@ -1124,6 +1127,45 @@ RULES: list[CookbookRule] = [
     ),
 ]
 
+# Curated one-sentence summaries (explicit field — UI/DOCX/MD must not fall back to equation).
+RULE_SUMMARY_OVERRIDES: dict[str, str] = {
+    "SV-RANGE": "Flags any modeled sensor reading outside its physical hard range.",
+    "SV-FLATLINE": "Flags a sensor that stays stuck within a tiny band for too long.",
+    "SV-SPIKE": "Flags an implausible sample-to-sample jump for the sensor type.",
+    "SV-STALE": "Flags when all modeled sensors stop updating — likely a dead data feed.",
+    "PID-HUNT-1": "Flags control outputs that oscillate enough to suggest loop hunting.",
+    "FC1": "Flags duct static too low while the supply fan is near full speed.",
+    "FC2": "Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.",
+    "FC3": "Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.",
+    "VAV-REHEAT": "Flags reheat commanded open with airflow but almost no discharge temperature rise.",
+    "VAV-AHU-LEAVE": "Flags VAV discharge far from the parent AHU SAT when topology feeds are known.",
+    "OAT-METEO": "Flags large disagreement between BAS outdoor-air temp and web weather OAT.",
+    "SCHED-1": "Flags fan runtime during unoccupied hours from the Overview calendar.",
+    "VLV-1": "Flags a closed cooling valve while SAT still looks like valve leakage.",
+}
+
+
+def _one_sentence_from_equation(equation: str, title: str) -> str:
+    text = (equation or "").strip()
+    if not text:
+        return f"{title}."
+    # First sentence; keep engineer-facing prose distinct from multi-clause equations.
+    part = text.split(". ")[0].strip()
+    if not part.endswith("."):
+        part += "."
+    return part
+
+
+def _ensure_rule_summaries() -> None:
+    for r in RULES:
+        override = RULE_SUMMARY_OVERRIDES.get(r.id)
+        if override:
+            r.summary = override
+        elif not (r.summary or "").strip():
+            r.summary = _one_sentence_from_equation(r.equation, r.title)
+
+
+_ensure_rule_summaries()
 
 RULES_BY_ID: dict[str, CookbookRule] = {r.id: r for r in RULES}
 

@@ -338,6 +338,85 @@ def fan_mode_summary_bundle(
     return tables, caption
 
 
+def hydronic_operating_mask(df: pd.DataFrame) -> tuple[pd.Series | None, str]:
+    """Pump / hydronic proof mask for plant leave-temp summaries."""
+    from app.rules.operational_gate import resolve_hydronic_running
+
+    mask, src = resolve_hydronic_running(df, command_fallback=True)
+    if src.startswith("ungated"):
+        return None, ""
+    return mask, src
+
+
+def collect_role_series_pump_mode(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    role: str,
+    equipment_types: tuple[str, ...] | None = None,
+    pump_mode: str = "all",
+) -> dict[str, pd.Series]:
+    """Like collect_role_series but filters with hydronic/pump proof (All / on / off)."""
+    mode = str(pump_mode or "all").lower()
+    if mode not in {"all", "on", "off"}:
+        mode = "all"
+    out: dict[str, pd.Series] = {}
+    for eq_id, raw in frames.items():
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types:
+            allowed = {t.upper() for t in equipment_types}
+            if et not in allowed:
+                continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        if role not in mapped.columns or mapped[role].notna().sum() == 0:
+            continue
+        s = pd.to_numeric(mapped[role], errors="coerce")
+        if mode in {"on", "off"}:
+            mask, _proof = hydronic_operating_mask(mapped)
+            if mask is None:
+                continue
+            on = mask.reindex(s.index).fillna(False)
+            s = s.where(on if mode == "on" else ~on)
+        if s.notna().any():
+            out[eq_id] = s
+    return out
+
+
+def pump_mode_summary_bundle(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    role: str,
+    equipment_types: tuple[str, ...] | None,
+    outlier_z: float = 2.5,
+) -> tuple[dict[str, pd.DataFrame], str]:
+    """Plant leave-temp summary stats for all / pump-on / pump-off."""
+    proof_labels: set[str] = set()
+    for eq_id, raw in frames.items():
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types and et not in {t.upper() for t in equipment_types}:
+            continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        _mask, label = hydronic_operating_mask(mapped)
+        if label:
+            proof_labels.add(label)
+    tables: dict[str, pd.DataFrame] = {}
+    for mode in ("all", "on", "off"):
+        series_map = collect_role_series_pump_mode(
+            frames,
+            role_map,
+            role=role,
+            equipment_types=equipment_types,
+            pump_mode=mode,
+        )
+        tables[mode] = series_summary_stats(series_map, outlier_z=outlier_z)
+    if proof_labels:
+        caption = "Pump / hydronic proof: " + ", ".join(sorted(proof_labels))
+    else:
+        caption = "No pump proof roles mapped — pump-on/off slices empty"
+    return tables, caption
+
+
 def cohort_wants_fan_slices(equipment_types: tuple[str, ...] | None) -> bool:
     """AHU / VAV(/HP) air-side cohorts get All / on / off summary tabs."""
     if not equipment_types:

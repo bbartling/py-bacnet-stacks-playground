@@ -220,7 +220,7 @@ def build_rule_card(
     req_total = sum(1 for m in mrows if m.requirement == "required")
     req_present = sum(1 for m in mrows if m.requirement == "required" and m.in_history)
     coverage = (100.0 * req_present / req_total) if req_total else None
-    desc = rule.equation or rule.title
+    desc = (rule.summary or "").strip() or rule.title
     fields = catalog_fields(rule)
     related = analytics_related(rule.id)
     fit = data_model_fit(
