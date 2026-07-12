@@ -2079,76 +2079,10 @@ def main() -> None:
             target_rules = RULES if fam_key is None else _rules_by_family().get(fam_key, [])
             eq_list = [selected] if scope == "selected equipment" else sorted(frames, key=natural_key)
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
-            st.session_state["_docx_pack_eq_scope"] = list(eq_list)
             st.success(
                 f"Ran {len(st.session_state.batch_results)} evaluations — "
-                "download the DOCX pack below, then review **Plots** / **RCx Plots**."
+                "open **Plots** for the FDD Word template, or **RCx Plots**."
             )
-
-        if st.session_state.get("batch_results"):
-            st.markdown("##### Generate DOCX pack")
-            st.caption(
-                "ZIP with **fdd_by_system.docx** (AHU + feed faults, one VAV/zones chapter), "
-                "**analytics.docx**, **rcx_catalog.docx**, and **data_model.docx**. "
-                "Each file has a Key findings placeholder and PLACE PLOT HERE stubs."
-            )
-            try:
-                from app.analytics import plant_gated_summary_tables
-                from app.docx_report import build_session_docx_pack
-
-                eq_scope = st.session_state.get("_docx_pack_eq_scope") or sorted(frames)
-                fan_tbl, pump_tbl, _fc, _pc = plant_gated_summary_tables(
-                    frames, st.session_state.role_map
-                )
-                try:
-                    _mw = motor_run_hours_weekly(
-                        frames,
-                        st.session_state.role_map,
-                        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-                        weather=st.session_state.weather,
-                        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-                    )
-                except Exception:
-                    _mw = pd.DataFrame()
-                try:
-                    _cb = mech_cooling_oat_bins(
-                        frames,
-                        st.session_state.role_map,
-                        weather=st.session_state.weather,
-                        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
-                        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
-                        include_ahu_chw_valve=False,
-                    )
-                except Exception:
-                    _cb = pd.DataFrame()
-                pack = build_session_docx_pack(
-                    building_id=st.session_state.get("building_id") or "",
-                    frames=frames,
-                    role_map=st.session_state.role_map,
-                    results=st.session_state.batch_results,
-                    equipment_ids=list(eq_scope),
-                    params=st.session_state.get("params") or {},
-                    weather=st.session_state.weather,
-                    vav_to_ahu=st.session_state.get("vav_to_ahu")
-                    or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
-                    motor_weekly=_mw if isinstance(_mw, pd.DataFrame) else None,
-                    cool_bins=_cb if isinstance(_cb, pd.DataFrame) else None,
-                    zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
-                    zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
-                    occupancy_schedule=st.session_state.get("occupancy_schedule"),
-                    plant_pump_summaries=pump_tbl,
-                    fan_on_summaries=fan_tbl,
-                )
-                st.download_button(
-                    "Download DOCX pack (ZIP)",
-                    data=pack,
-                    file_name="vibe19_session_docx_pack.zip",
-                    mime="application/zip",
-                    type="primary",
-                    key="dl_session_docx_pack",
-                )
-            except Exception as exc:
-                st.warning(f"DOCX pack unavailable: {exc}")
 
     if section == "Results by Category":
         st.subheader("Results by equipment type")
@@ -2371,7 +2305,7 @@ def main() -> None:
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         key=f"dl_fdd_docx_{device}",
                         type="primary",
-                        help="Word report mirroring cards (PLACE PLOT HERE stubs).",
+                        help="Simple Word template: description + equation + empty plot slot per rule.",
                     )
                 except Exception as exc:
                     st.warning(f"DOCX unavailable: {exc}")
@@ -2749,16 +2683,13 @@ def main() -> None:
 
         st.markdown("##### DOCX reports")
         st.caption(
-            "One-click Word reports: equipment FDD (catalog-parity cards), RCx catalog, "
-            "data-model tree, analytics."
+            "FDD equation template lives on **Plots** only. Export keeps data-model / RCx / analytics Word files."
         )
         try:
             from app.data_model_tree import build_data_model_tree
             from app.docx_report import (
-                applicable_rules_for_equipment,
                 build_analytics_docx,
                 build_building_data_model_docx,
-                build_equipment_fdd_docx,
                 build_rcx_catalog_docx,
             )
             from app.rcx_plots import rcx_preset_coverage
@@ -2769,46 +2700,6 @@ def main() -> None:
                 building_id=st.session_state.get("building_id") or "",
                 vav_to_ahu=st.session_state.get("vav_to_ahu")
                 or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
-            )
-            export_eq = st.selectbox(
-                "Equipment for FDD DOCX",
-                list(frames.keys()),
-                index=(
-                    list(frames.keys()).index(selected)
-                    if selected in frames
-                    else 0
-                ),
-                key="export_fdd_device",
-            )
-            mapped_export, _ = _mapped_equipment(export_eq, frames)
-            eq_t = resolve_equipment_type(
-                export_eq, df=frames[export_eq], role_map=st.session_state.role_map
-            )
-            appl = applicable_rules_for_equipment(
-                export_eq,
-                equipment_type=eq_t,
-                mapped_df=mapped_export,
-                role_map=st.session_state.role_map,
-            )
-            st.download_button(
-                "Download equipment FDD DOCX",
-                data=build_equipment_fdd_docx(
-                    building_id=st.session_state.get("building_id") or "",
-                    equipment_id=export_eq,
-                    equipment_type=eq_t,
-                    results=st.session_state.batch_results,
-                    role_map=st.session_state.role_map,
-                    mapped_df=mapped_export,
-                    plot_png_by_rule={},
-                    params=st.session_state.get("params") or {},
-                    rules=appl,
-                    motor_weekly=motor_weekly if isinstance(motor_weekly, pd.DataFrame) else None,
-                    cool_bins=cool_bins if isinstance(cool_bins, pd.DataFrame) else None,
-                ),
-                file_name=f"{export_eq}_fdd_report.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_export_fdd_docx",
-                type="primary",
             )
             st.download_button(
                 "Download RCx catalog DOCX",

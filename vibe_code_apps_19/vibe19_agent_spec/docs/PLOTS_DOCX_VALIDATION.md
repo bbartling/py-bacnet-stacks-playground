@@ -19,10 +19,10 @@ Plots is the **review/validation** surface for the cookbook on one device — no
 | Path | Role |
 | --- | --- |
 | `app/rule_card.py` | `build_rule_card`, `equipment_mapping_coverage`, `PLACE_PLOT_HERE` |
-| `app/docx_report.py` | `build_equipment_fdd_docx`, `build_fdd_by_system_docx`, `build_session_docx_pack`, analytics / RCx / data-model DOCX |
+| `app/docx_report.py` | `build_equipment_fdd_docx` (Plots template: description + equation + plot stub), data-model / RCx / analytics DOCX |
 | `app/data_model_tree.py` | Equipment → role → Haystack tag → CSV inventory (+ feeds/fedBy) |
 | `app/charts.py` | `rule_result_chart`, `bas_vs_web_oat_histogram`, … |
-| `streamlit_app.py` | **Plots** + **Data Model** + **Run Rules** DOCX pack + **Metering** + **Export** |
+| `streamlit_app.py` | **Plots** (FDD DOCX) + **Data Model** + **Metering** + **Export** |
 
 ---
 
@@ -49,7 +49,12 @@ Shared builder: `app.rule_card:build_rule_card` (+ `app.rule_plot_meta`).
 
 ## DOCX UX (required behavior)
 
-`build_equipment_fdd_docx` must literally mirror cards (same catalog sections + **`[PLACE PLOT HERE`**).
+`build_equipment_fdd_docx` is a **dummy engineer template** (not a full card dump):
+
+- Key findings placeholder
+- Per applicable rule: **Description** (`CookbookRule.summary`) + **Equation** + **`[PLACE PLOT HERE]`**
+
+No analytics tables, mapping grids, or slider dumps in the FDD Word file.
 
 `build_rcx_catalog_docx` (RCx Plots + Export): building cover, family-grouped catalog for all 50 rules, analytics/RCx coverage filled when fit, **`[PLACE RCX PLOT HERE — {preset_id}]`** stubs.
 

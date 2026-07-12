@@ -116,7 +116,7 @@ def test_build_rule_card_catalog_parity_fields():
         mapped_df=pd.DataFrame(),
         params=None,
     )
-    assert card.gate_mode.startswith("always")
+    assert card.gate_mode.startswith("equipment_energized")
     assert card.confirm_seconds == 300.0
     assert card.sensor_sweep is True
     assert card.sweep_label == "sensor_sweep"

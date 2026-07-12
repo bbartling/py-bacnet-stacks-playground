@@ -73,13 +73,13 @@ def test_data_model_tree_and_docx(tmp_path):
     with zipfile.ZipFile(BytesIO(eq_docx)) as zf:
         xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
     assert "VLV-1" in xml
-    assert "Cooling valve" in xml or "leakage" in xml.lower()
+    assert "Cooling valve" in xml or "leakage" in xml.lower() or "Description:" in xml
     assert "PLACE PLOT HERE" in xml
-    assert "clg_valve_pct" in xml or "clg_v" in xml
-    assert "confirm_min" in xml or "confirm" in xml.lower()
-    assert "Operational gate" in xml or "gate" in xml.lower()
-    assert "Plot series" in xml or "confirmed_fault" in xml
-    assert "Analytics" in xml or "analytics" in xml.lower()
+    assert "Equation:" in xml
+    # Simple template — not a full card dump
+    assert "confirm_min" not in xml
+    assert "Operational gate" not in xml
+    assert "PLACE PLOT HERE" in xml
 
     analytics = build_analytics_docx(
         building_id="B1",

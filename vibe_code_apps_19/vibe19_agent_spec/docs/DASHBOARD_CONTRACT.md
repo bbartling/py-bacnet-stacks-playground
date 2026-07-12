@@ -54,12 +54,12 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | --- | --- |
 | Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
-| Run Rules | Cookbook (+ custom); after batch → **Download DOCX pack (ZIP)** |
+| Run Rules | Cookbook (+ custom); then review **Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **Plots** | Auto-run device rules; catalog-parity cards (**Summary** + Equation); FDD DOCX |
+| **Plots** | Auto-run device rules; catalog-parity cards; **Download FDD DOCX** (description + equation + plot stub only) |
 | **RCx Plots** | Named presets + zone comfort ranking; fan-mode summaries; metering presets **at end**; RCx catalog DOCX |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
-| Export | CSV / session / health / individual DOCX artifacts |
+| Export | CSV / session / health / data-model / RCx / analytics DOCX (FDD template is Plots-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 
@@ -67,9 +67,8 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 
 - Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
-- Equipment / by-system DOCX must include **Key findings** placeholder, **`[PLACE PLOT HERE`** stubs, tune params, and required vs mapped point tables — mirroring the cards.
-- Session pack: `build_session_docx_pack` → ZIP of fdd_by_system + analytics + rcx_catalog + data_model.
-- One-click: **Download DOCX pack** on Run Rules; **Download FDD DOCX** on Plots (and Export).
+- Equipment FDD DOCX (`build_equipment_fdd_docx`) is a **dumb template**: Key findings placeholder, then per rule **Description** + **Equation** + **`[PLACE PLOT HERE]`** — no analytics, mapping tables, or slider dumps.
+- One-click: **Download FDD DOCX** on **Plots** only (not Run Rules ZIP pack).
 
 ---
 

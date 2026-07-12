@@ -1,6 +1,6 @@
-# Analytics (Overview + DOCX pack)
+# Analytics (Overview + Export analytics.docx)
 
-**Audience:** agents / engineers reviewing Overview, analytics.docx, and operational filters.
+**Audience:** agents / engineers reviewing Overview, Export analytics.docx, and operational filters.
 
 ## Where analytics live
 
@@ -8,10 +8,11 @@
 | --- | --- |
 | **Overview** | Dataset span, occupancy calendar, plant motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
 | **Metering** (main section) | Monthly electric/gas vs CDD/HDD (starts the Metering category; RCx still has metering presets at the end) |
-| **analytics.docx** (DOCX pack) | Motor weekly, cool bins, RCx coverage, **fan All/on/off** and **pump All/on/off** leave-temp summary tables |
+| **Export → analytics.docx** | Motor weekly, cool bins, RCx coverage, **fan All/on/off** and **pump All/on/off** leave-temp summary tables |
 | **RCx Plots** | Fan-mode summary stats on air-side presets; zone comfort ranking |
+| **Plots → FDD DOCX** | **Not** analytics — dumb template of description + equation + plot stub only |
 
-There is **no** duplicate Analytics main tab (removed intentionally). Overview owns building rollups.
+There is **no** duplicate Analytics main tab (removed intentionally). Overview owns building rollups. There is **no** Run Rules DOCX ZIP pack.
 
 ## Operational filtering (the point)
 
@@ -36,6 +37,6 @@ APIs:
 - Cookbook rule `OAT-METEO` still flags sustained disagreement.
 - Mech-cooling OAT bins prefer **web** OAT by default.
 
-## DOCX pack
+## Export analytics.docx
 
-After **Run Rules**, **Download DOCX pack (ZIP)** includes `analytics.docx` with the gated summary tables and a **Key findings** placeholder at the top.
+**Export** can download `analytics.docx` with gated summary tables and a **Key findings** placeholder. The Plots **FDD DOCX** is a separate dumb equation template and does not include analytics.
