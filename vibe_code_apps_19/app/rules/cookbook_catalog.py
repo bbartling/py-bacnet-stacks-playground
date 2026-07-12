@@ -86,7 +86,8 @@ SWEEP_SENSOR_ROLES = list(SENSOR_LIMITS.keys())
 _NO_FLATLINE_ROLES = {"duct_static"}
 FLATLINE_SENSOR_ROLES = [r for r in SWEEP_SENSOR_ROLES if r not in _NO_FLATLINE_ROLES]
 
-# Analog 0–100% (or 0–1) control outputs swept by PID-HUNT-1
+# Analog 0–100% (or 0–1) control outputs swept by PID-HUNT-1.
+# Map by *role* (valve / damper / speed cmd) — never by a BAS point named "Loop".
 CONTROL_OUTPUT_ROLES = [
     "oa_damper_pct",
     "clg_valve_pct",
@@ -94,8 +95,27 @@ CONTROL_OUTPUT_ROLES = [
     "damper_pct",
     "reheat_valve_pct",
     "fan_cmd",
+    "return_fan_cmd",
+    "chw_pump_cmd",
+    "hw_pump_cmd",
+    "cw_pump_cmd",
+    "pump_cmd",
     "control_output_pct",
 ]
+
+# Column-name tokens that are *not* hunting AOs (loads, RH, setpoints, etc.).
+_CONTROL_OUTPUT_COL_EXCLUDE = (
+    "terminalload",
+    "terminal_load",
+    "humidity",
+    "relative_humidity",
+    "setpoint",
+    "minimum_position",
+    "min_pos",
+    "minpos",
+    "wind_speed",
+    "alarm",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +249,7 @@ def _sweep_stale(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
 
 def _pid_hunt_1(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     """Suspected control-output hunting across any present 0–100% analog roles."""
-    from app.rules.pid_hunting import PidHuntingParams, hunting_fault_mask
+    from app.rules.pid_hunting import PidHuntingParams, hunting_fault_mask, iter_control_output_series
 
     params = PidHuntingParams(
         change_deadband_pct=_f(p, "change_deadband_pct", 1.0),
@@ -241,12 +261,10 @@ def _pid_hunt_1(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     )
     mask = _false(d.index)
     enable_col = "loop_enabled" if "loop_enabled" in d.columns else None
-    for role in CONTROL_OUTPUT_ROLES:
-        if role not in d.columns or d[role].notna().sum() == 0:
-            continue
+    for _label, series in iter_control_output_series(d):
         enabled = d[enable_col] if enable_col else None
         fault, _ = hunting_fault_mask(
-            d[role],
+            series,
             params=params,
             poll_seconds=poll,
             enabled=enabled,

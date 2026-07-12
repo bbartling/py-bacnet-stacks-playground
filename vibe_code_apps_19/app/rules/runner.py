@@ -143,8 +143,9 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
         present = [r for r in cb.SWEEP_SENSOR_ROLES if r in df.columns and df[r].notna().any()]
         return [] if present else ["any sensor role from sweep list"]
     if rule.control_output_sweep:
-        present = [r for r in cb.CONTROL_OUTPUT_ROLES if r in df.columns and df[r].notna().any()]
-        return [] if present else ["any 0-100% control output role"]
+        from app.rules.pid_hunting import control_outputs_present
+
+        return [] if control_outputs_present(df) else ["any 0-100% control output (valve/damper/fan/pump cmd)"]
     missing = []
     for role in rule.required_roles:
         if role == "oa_t":
@@ -171,11 +172,15 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
 def _plot_series_for_rule(rule: cb.CookbookRule, d: pd.DataFrame) -> dict[str, pd.Series]:
     """Attach rule input columns for plotting (unit-separated in the chart layer)."""
     out: dict[str, pd.Series] = {}
+    if rule.control_output_sweep:
+        from app.rules.pid_hunting import iter_control_output_series
+
+        for label, series in iter_control_output_series(d):
+            out[label] = series
+        return out
     roles = list(rule.required_roles)
     if rule.sensor_sweep:
         roles = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
-    if rule.control_output_sweep:
-        roles = [r for r in cb.CONTROL_OUTPUT_ROLES if r in d.columns]
     for role in roles:
         if role in d.columns and d[role].notna().any():
             out[role] = d[role]

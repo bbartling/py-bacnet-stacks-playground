@@ -27,6 +27,9 @@ Pick a **mechanical family** first, then one preset in that family. AHU never li
 | Metering | `meter_elec_cdd`, `meter_gas_hdd` |
 
 **Perf:** only the selected preset builds charts. **Prepare RCx catalog DOCX** and coverage diagnostics are opt-in (do not rebuild on every widget change). Generic role picker is under an expander and only collects when **Render generic plot** is checked.
+
+**Operating filter:** checkbox (default on) keeps fan-proven-on samples for Zones/AHU and pump-proven-on for Boiler/Chiller — toggle re-renders immediately. Uncheck to show all timestamps.
+
 ## Required reset / plant presets (ids)
 
 | id | chart | y role | x |

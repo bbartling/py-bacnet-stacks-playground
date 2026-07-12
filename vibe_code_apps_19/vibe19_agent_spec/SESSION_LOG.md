@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — RCx fan/pump filter + PID AO data model
+
+- RCx: checkbox filter to fan-on (air) / pump-on (plant); default on; instant Streamlit rerun
+- PID-HUNT-1: sweep valve/damper/fan/pump 0–100% AOs (+ raw AO columns); not Loop-named points
+- Regenerated BUILDING_100 / BUILDING_50 column maps via `scripts/gen_building_openfdd_maps.py`
+
+---
+
 ## 2026-07-12 — GHCR multi-arch (amd64 + arm64)
 
 - `vibe19-ghcr.yml`: QEMU + Buildx → `linux/amd64,linux/arm64` (Pi 4/5 64-bit)

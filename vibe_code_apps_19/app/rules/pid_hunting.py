@@ -159,3 +159,86 @@ def hunting_fault_mask(
         index=output.index,
     )
     return fault.astype(bool), metrics
+
+
+def _looks_like_ao_column(name: str) -> bool:
+    """True when a raw historian column name is likely a 0–100% command/position."""
+    from app.rules.cookbook_catalog import _CONTROL_OUTPUT_COL_EXCLUDE
+
+    cl = str(name).lower()
+    if any(x in cl for x in _CONTROL_OUTPUT_COL_EXCLUDE):
+        return False
+    # Trailing / embedded setpoint markers (avoid matching `_speed`)
+    if cl.endswith("_sp") or "_sp_" in cl or cl.endswith("setpoint"):
+        return False
+    if cl.endswith("_rh") or cl.startswith("rh_") or "_rh_" in cl:
+        return False
+    # Explicit AO-ish tokens (commands / valve / damper / speed %)
+    tokens = (
+        "valve",
+        "damper",
+        "actuator",
+        "fan_speed",
+        "fan_cmd",
+        "pump_cmd",
+        "pump_speed",
+        "vfd",
+        "reheat",
+        "chw_valve",
+        "hw_valve",
+        "clg_valve",
+        "htg_valve",
+        "oa_damper",
+        "ex_dmpr",
+        "mad_c",
+        "dmpr",
+    )
+    if not any(t in cl for t in tokens):
+        return False
+    # Prefer cmd/pos/pct/speed columns; skip binary status-looking names without pct/speed
+    if any(x in cl for x in ("_pct", "percent", "speed", "cmd", "pos", "position", "valve")):
+        return True
+    return "damper" in cl or "actuator" in cl
+
+
+def iter_control_output_series(df: pd.DataFrame) -> list[tuple[str, pd.Series]]:
+    """Mapped CONTROL_OUTPUT_ROLES first, then unmatched raw AO-like columns.
+
+    Does **not** use a point named ``Loop`` — only role-mapped AOs and column heuristics
+    for valve / damper / fan / pump commands.
+    """
+    from app.rules.cookbook_catalog import CONTROL_OUTPUT_ROLES
+
+    out: list[tuple[str, pd.Series]] = []
+    seen_cols: set[str] = set()
+    for role in CONTROL_OUTPUT_ROLES:
+        if role not in df.columns or df[role].notna().sum() == 0:
+            continue
+        out.append((role, df[role]))
+        seen_cols.add(role)
+        # Role column may be a copy of a source column with the same values; track attrs
+        src = df.attrs.get("role_sources", {}).get(role) if hasattr(df, "attrs") else None
+        if isinstance(src, str):
+            seen_cols.add(src)
+
+    for col in df.columns:
+        if col in seen_cols or col in CONTROL_OUTPUT_ROLES:
+            continue
+        if not _looks_like_ao_column(str(col)):
+            continue
+        s = pd.to_numeric(df[col], errors="coerce")
+        if s.notna().sum() == 0:
+            continue
+        # Skip near-boolean 0/1 status (not a modulating AO)
+        finite = s.dropna()
+        if finite.empty:
+            continue
+        uniq = set(np.round(finite.unique(), 6).tolist())
+        if uniq <= {0.0, 1.0} and float(finite.max()) <= 1.0:
+            continue
+        out.append((f"col:{col}", s))
+    return out
+
+
+def control_outputs_present(df: pd.DataFrame) -> bool:
+    return bool(iter_control_output_series(df))

@@ -546,8 +546,16 @@ def collect_oat_scatter(
     weather: pd.DataFrame | None,
     equipment_types: tuple[str, ...] | None = None,
     x_prefer: str = "web",  # web drybulb, or wetbulb
+    operating_on: bool = False,
+    operating_kind: str = "auto",  # auto | fan | pump
 ) -> pd.DataFrame:
-    """Long dataframe: timestamp, equipment_id, oat, y [, dry_bulb] for scatter plots."""
+    """Long dataframe: timestamp, equipment_id, oat, y [, dry_bulb] for scatter plots.
+
+    When ``operating_on`` is True, keep only samples where fan (air-side) or pump
+    (plant) proof is on. ``operating_kind="auto"`` picks pump for boiler/chiller/tower
+    types and fan otherwise.
+    """
+    plantish = {"BOILER", "CHILLER", "CHW_PLANT", "COOLING_TOWER", "PUMP", "HW_PLANT"}
     rows: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
         et = _etype(eq_id, raw, role_map)
@@ -565,21 +573,40 @@ def collect_oat_scatter(
         if oat is None:
             continue
         y = pd.to_numeric(mapped[y_role], errors="coerce")
+        if operating_on:
+            kind = str(operating_kind or "auto").lower()
+            if kind == "auto":
+                kind = "pump" if et in plantish else "fan"
+            if kind == "pump":
+                mask, _ = hydronic_operating_mask(mapped)
+            else:
+                mask, _ = operating_mask(mapped)
+            if mask is None:
+                # No proof → drop series when filter requested (avoids messy "all data")
+                continue
+            y = y.where(mask.reindex(y.index).fillna(False))
         payload: dict[str, pd.Series] = {"oat": oat, "y": y}
         if dry is not None:
             payload["dry_bulb"] = pd.to_numeric(dry, errors="coerce")
         tmp = pd.DataFrame(payload).dropna(subset=["oat", "y"])
-        for ts, row in tmp.iterrows():
-            item = {
-                "timestamp": ts,
-                "equipment_id": eq_id,
-                "oat": float(row["oat"]),
-                "y": float(row["y"]),
+        # Vectorized row build (avoid iterrows)
+        if tmp.empty:
+            continue
+        eq_ids = [eq_id] * len(tmp)
+        chunk = pd.DataFrame(
+            {
+                "timestamp": tmp.index,
+                "equipment_id": eq_ids,
+                "oat": tmp["oat"].to_numpy(),
+                "y": tmp["y"].to_numpy(),
             }
-            if "dry_bulb" in tmp.columns and pd.notna(row.get("dry_bulb")):
-                item["dry_bulb"] = float(row["dry_bulb"])
-            rows.append(item)
-    return pd.DataFrame(rows)
+        )
+        if "dry_bulb" in tmp.columns:
+            chunk["dry_bulb"] = tmp["dry_bulb"].to_numpy()
+        rows.append(chunk)
+    if not rows:
+        return pd.DataFrame(columns=["timestamp", "equipment_id", "oat", "y"])
+    return pd.concat(rows, ignore_index=True)
 
 
 def preset_by_id(preset_id: str) -> RcxPreset | None:

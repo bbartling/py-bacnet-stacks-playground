@@ -230,6 +230,25 @@ def render_rcx_plots_tab(
     assert preset is not None
     st.caption(preset.description)
 
+    # Fan (air) / pump (plant) operating filter — Streamlit reruns on toggle (instant).
+    plant_families = {"Boiler / HW", "Chiller / CHW / tower"}
+    op_kind = "pump" if family in plant_families else "fan"
+    filter_label = (
+        "Filter to pump proven on" if op_kind == "pump" else "Filter to fan / air proven on"
+    )
+    operating_on = False
+    if preset.chart != "metering":
+        operating_on = st.checkbox(
+            filter_label,
+            value=True,
+            key=f"rcx_op_on_{family}_{preset.id}",
+            help=(
+                "When checked, keeps only samples while the fan (AHU/VAV) or hydronic pump "
+                "(boiler/chiller/tower) is proven on — cleans reset scatters and overlays. "
+                "Uncheck to show all timestamps."
+            ),
+        )
+
     role = preset.role
     chart_kind = preset.chart
     title = preset.title
@@ -273,6 +292,7 @@ def render_rcx_plots_tab(
                 role="zone_t",
                 equipment_types=equipment_types,
                 equipment_ids=worst_ids,
+                fan_mode="on" if operating_on else "all",
             )
             series_map, y_title = _convert_map(series_map, "zone_t", unit_system)
             outliers = (
@@ -364,6 +384,8 @@ def render_rcx_plots_tab(
             weather=weather,
             equipment_types=preset.equipment_types,
             x_prefer=x_pref,
+            operating_on=operating_on,
+            operating_kind=op_kind,
         )
         if unit_system == "metric" and not long_df.empty:
             long_df = long_df.copy()
@@ -394,19 +416,36 @@ def render_rcx_plots_tab(
             st.dataframe(long_df.head(2000), hide_index=True, width="stretch", height=220)
         return
 
-    series_map = collect_role_series(
-        frames,
-        role_map,
-        role=preset.role,
-        equipment_types=preset.equipment_types,
-        filter_fan_on=preset.filter_fan_on,
-    )
+    if op_kind == "pump" and operating_on:
+        from app.rcx_plots import collect_role_series_pump_mode
+
+        series_map = collect_role_series_pump_mode(
+            frames,
+            role_map,
+            role=preset.role,
+            equipment_types=preset.equipment_types,
+            pump_mode="on",
+        )
+    else:
+        series_map = collect_role_series(
+            frames,
+            role_map,
+            role=preset.role,
+            equipment_types=preset.equipment_types,
+            filter_fan_on=preset.filter_fan_on or operating_on,
+            fan_mode="on" if operating_on else "all",
+        )
     series_map, y_title = _convert_map(series_map, role, unit_system)
-    if preset.filter_fan_on:
+    if operating_on or preset.filter_fan_on:
+        proof = "pump" if op_kind == "pump" else "fan"
         st.info(
-            "Filtered to **fan proven on**. High, flat duct static while the fan runs "
-            "often means a duct-static-pressure reset would save fan energy — "
-            "compare with motor run-hours on Overview."
+            f"Filtered to **{proof} proven on**. "
+            + (
+                "High, flat duct static while the fan runs often means a duct-static-pressure "
+                "reset would save fan energy — compare with motor run-hours on Overview."
+                if preset.filter_fan_on
+                else "Uncheck the filter to include all timestamps."
+            )
         )
 
     stats = series_summary_stats(series_map, outlier_z=outlier_z) if series_map else pd.DataFrame()

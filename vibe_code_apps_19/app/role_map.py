@@ -45,12 +45,18 @@ POINT_ROLE_CANONICAL: dict[str, str] = {
     "heating_valve": "htg_valve_pct",
     "hw_valve": "htg_valve_pct",
     "reheat_valve": "reheat_valve_pct",
-    "damper": "oa_damper_pct",
+    # Zone / VAV damper (not OA) — never treat generic "damper" as OA damper
+    "damper": "damper_pct",
+    "zone_damper": "damper_pct",
+    "vav_damper": "damper_pct",
     "oa_damper": "oa_damper_pct",
+    "outdoor_air_damper": "oa_damper_pct",
     "airflow": "zone_flow",
     "fan_cmd": "fan_cmd",
     "fan_speed": "fan_cmd",
     "supply_fan": "fan_cmd",
+    "return_fan_speed": "return_fan_cmd",
+    "return_fan_cmd": "return_fan_cmd",
     "fan_status": "fan_status",
     "occ_mode": "occ_mode",
     "chw_supply": "chw_supply_t",
@@ -71,19 +77,23 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("mixed_air_temp", "mat"), "mat"),
     # Prefer real OAT columns — not oat_*_setpoint / enable setpoints
     (("outside_air_temp", "oa-t", "oat_f"), "oa_t"),
-    (("ex_dmpr", "oa_damper", "outdoor_air_damper"), "oa_damper_pct"),
+    (("ex_dmpr", "oa_damper", "outdoor_air_damper", "oad_pos"), "oa_damper_pct"),
     (("chw_valve", "clg_valve", "cooling_valve"), "clg_valve_pct"),
     (("hw_valve", "htg_valve", "heating_valve"), "htg_valve_pct"),
     # Supply fan before generic fan_speed (avoids return_fan_speed winning)
     (("supply_fan_speed", "supply_fan_cmd"), "fan_cmd"),
+    (("return_fan_speed", "return_fan_cmd", "rf_speed"), "return_fan_cmd"),
     (("supply_fan_status", "supplyfanstatus"), "fan_status"),
     (("fan_cmd",), "fan_cmd"),
     (("fan_status", "fan_proof"), "fan_status"),
     (("da_p_setpoint", "duct_static_sp"), "duct_static_sp"),
     (("da_p_inwc", "duct_static"), "duct_static"),
     (("space_temp", "spacetemp"), "zone_t"),
-    (("reheat", "rht_valve"), "reheat_valve_pct"),
-    (("vavactuator", "damper_pct", "damper_pos"), "damper_pct"),
+    (("reheat_valve", "rht_valve", "reheat"), "reheat_valve_pct"),
+    # Prefer actuator *command* over position feedback for PID hunting
+    (("vavactuatorcommand", "vav_actuator_cmd", "actuatorcommand"), "damper_pct"),
+    (("damper_pct", "damper_pos", "dpr_pos", "vavactuatorposition", "vavactuator"), "damper_pct"),
+    (("mad_c_pct", "mad_c", "mixed_air_damper"), "oa_damper_pct"),
     (("actflow", "airflow_cfm"), "zone_flow"),
     (("minflowsp", "min_airflow"), "min_flow_sp"),
     (("vav_disch", "dischargeairtemp"), "vav_disch_t"),
@@ -98,11 +108,12 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     (("power_demand_this_interval", "meter_power_sum_kw", "elec_kw", "building_kw"), "elec_power_kw"),
     (("chiller_power", "meter_chiller"), "chiller_power_kw"),
     (("gas_flow", "nat_gas", "gas_therm", "gas_cfh"), "gas_flow"),
-    (("hwp1_c", "hwp2_c", "hwp3_c", "hw_pump_cmd"), "hw_pump_cmd"),
+    (("hwp1_c", "hwp2_c", "hwp3_c", "hw_pump_cmd", "hw_pump_speed"), "hw_pump_cmd"),
     (("hwp1_s", "hwp2_s", "hwp3_s", "pump_status"), "pump_status"),
     # Designated CHW pump for chiller runtime (data-model role; prefer over chiller cmd)
     (("chw_pump_status", "cwp1_s", "cwp2_s", "primary_chw_pump_status"), "chw_pump_status"),
-    (("chw_pump_cmd", "cwp1_c", "cwp2_c", "primary_chw_pump_cmd", "chw_pump"), "chw_pump_cmd"),
+    (("chw_pump_cmd", "cwp1_c", "cwp2_c", "primary_chw_pump_cmd", "chw_pump_speed"), "chw_pump_cmd"),
+    (("cw_pump_cmd", "tower_fan_cmd", "tower_pump_cmd"), "cw_pump_cmd"),
 ]
 
 ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
@@ -111,8 +122,8 @@ ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {
     "min_flow_sp": ("minflowsp", "min_airflow"),
     "sat": ("discharge_air_temp_f", "da-t"),
     "sat_sp": ("dat_reset", "sat_sp"),
-    "oa_damper_pct": ("ex_dmpr", "oa_damper"),
-    "damper_pct": ("damper_pct", "vavactuator", "heatingdamper"),
+    "oa_damper_pct": ("ex_dmpr", "oa_damper", "outdoor_air_damper", "mad_c"),
+    "damper_pct": ("vavactuatorcommand", "actuatorcommand", "damper_pct", "dpr_pos"),
     # Prefer supply fan over return fan for AHU runtime
     "fan_cmd": ("supply_fan_speed", "supply_fan", "sf_", "fan_cmd"),
     "fan_status": ("supply_fan_status", "supplyfanstatus", "supply_fan", "fan_status"),
@@ -147,9 +158,25 @@ def _rank_column(role: str, col: str) -> int:
     # Hard demote return-fan columns when mapping supply fan roles
     if role in {"fan_cmd", "fan_status"} and "return" in cl:
         return 90
+    # Demote setpoints / min-position masquerading as OA damper command
+    if role == "oa_damper_pct" and (
+        "setpoint" in cl or "minimum" in cl or "min_pos" in cl or "minpos" in cl
+    ):
+        return 95
+    # Zone damper role must not steal AHU OA / MAD columns
+    if role == "damper_pct" and any(
+        x in cl for x in ("ex_dmpr", "oa_damper", "outdoor_air", "mad_c", "oad_")
+    ):
+        return 95
+    # Prefer outdoor / exhaust damper cmd over mixed-air damper for oa_damper_pct
+    if role == "oa_damper_pct" and "mad_c" in cl and "ex_dmpr" not in cl and "oa_damper" not in cl:
+        return 35
     # Demote setpoints masquerading as OAT
     if role == "oa_t" and ("setpoint" in cl or "enable" in cl or "reset" in cl):
         return 95
+    # Never treat terminal load % as a control AO role
+    if "terminalload" in cl or "terminal_load" in cl:
+        return 100
     prefs = ROLE_COLUMN_RANK.get(role, ())
     for i, p in enumerate(prefs):
         if p in cl:
@@ -226,21 +253,20 @@ def enrich_role_map_from_equipment(
         if role not in merged:
             merged[role] = col
     if history_columns:
-        for role, col in suggest_roles(pd.DataFrame(columns=history_columns)).items():
+        suggested = suggest_roles(pd.DataFrame(columns=history_columns))
+        for role, col in suggested.items():
             if role not in merged:
                 merged[role] = col
-        # Re-pick best column among candidates when both supply+return exist
-        for role in ("fan_cmd", "fan_status", "oa_t", "chw_supply_t", "chiller_status"):
-            if role in merged:
-                continue
-        allowed = set(history_columns)
+            elif _rank_column(role, col) < _rank_column(role, merged[role]):
+                merged[role] = col
         # If fan roles point at return fan but supply exists, upgrade
         for role in ("fan_cmd", "fan_status"):
             col = merged.get(role)
             if col and "return" in col.lower():
-                suggested = suggest_roles(pd.DataFrame(columns=history_columns)).get(role)
-                if suggested and "supply" in suggested.lower():
-                    merged[role] = suggested
+                better = suggested.get(role)
+                if better and "supply" in better.lower():
+                    merged[role] = better
+        allowed = set(history_columns)
         merged = {role: col for role, col in merged.items() if col in allowed}
     role_map[equipment_id] = merged
     return role_map

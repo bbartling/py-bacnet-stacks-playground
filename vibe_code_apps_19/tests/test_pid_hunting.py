@@ -67,3 +67,31 @@ def test_pid_hunt_cookbook_compute_or_across_outputs():
     params = {p.key: p.default for p in rule.params}
     raw = rule.compute(df, params, 720.0)
     assert raw.iloc[-1]
+
+
+def test_iter_control_outputs_includes_raw_valve_not_terminalload():
+    from app.rules.pid_hunting import iter_control_output_series
+
+    idx = pd.date_range("2026-07-10", periods=4, freq="h", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "chw_valve_pct": [10.0, 20.0, 30.0, 40.0],
+            "terminalload_pct_49": [50.0, 60.0, 70.0, 80.0],
+            "supply_fan_speed_pct": [40.0, 45.0, 50.0, 55.0],
+        },
+        index=idx,
+    )
+    labels = {lab for lab, _ in iter_control_output_series(df)}
+    assert any("chw_valve" in lab or lab == "clg_valve_pct" for lab in labels) or any(
+        "col:chw_valve" in lab for lab in labels
+    )
+    assert not any("terminalload" in lab for lab in labels)
+    assert any("supply_fan" in lab or lab == "fan_cmd" for lab in labels) or any(
+        "col:supply_fan" in lab for lab in labels
+    )
+
+
+def test_damper_point_role_is_zone_not_oa():
+    from app.role_map import POINT_ROLE_CANONICAL
+
+    assert POINT_ROLE_CANONICAL.get("damper") == "damper_pct"
