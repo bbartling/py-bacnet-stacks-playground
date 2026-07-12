@@ -1190,6 +1190,9 @@ def _load_data(cfg: AppConfig) -> None:
             help=(
                 f"Upload one zip or many part-zips (each ≤{BROWSER_UPLOAD_MB} MB). "
                 f"Parts merge into one job (assembled ≤{agent_caps.max_zip_mb} MB). "
+                f"Limits also count zip items (each file/folder inside the archive), "
+                f"not just megabytes — max {agent_caps.max_entries} items / "
+                f"{agent_caps.max_equipment} equipment folders. "
                 f"See vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md"
             ),
         )

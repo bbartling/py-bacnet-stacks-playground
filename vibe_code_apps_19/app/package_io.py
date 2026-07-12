@@ -100,11 +100,13 @@ def directory_size_bytes(root: Path) -> int:
 def dataset_size_caption(report: dict[str, Any] | None, *, caps: PackageCaps | None = None) -> str:
     """Human-readable size vs limit for sidebar / Overview."""
     caps = caps or effective_package_caps()
+    caps_tail = (
+        f"zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
+        f"≤{caps.max_entries} zip items (files+folders inside the archive) · "
+        f"≤{caps.max_equipment} equip folders"
+    )
     if not report:
-        return (
-            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
-            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
-        )
+        return f"Caps: {caps_tail}"
     parts: list[str] = []
     zip_mb = report.get("zip_mb")
     unc_mb = report.get("uncompressed_mb")
@@ -113,10 +115,7 @@ def dataset_size_caption(report: dict[str, Any] | None, *, caps: PackageCaps | N
     if unc_mb is not None:
         parts.append(f"{unc_mb} MB expanded")
     if not parts:
-        return (
-            f"Caps: zip ≤{caps.max_zip_mb} MB · expanded ≤{caps.max_uncompressed_mb} MB · "
-            f"≤{caps.max_entries} entries · ≤{caps.max_equipment} equip"
-        )
+        return f"Caps: {caps_tail}"
     return (
         f"Dataset: {' · '.join(str(p) for p in parts)} "
         f"(limits {caps.max_zip_mb} / {caps.max_uncompressed_mb} MB)"
@@ -270,7 +269,17 @@ def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
     # Count every ZipInfo (files + directory markers). Windows Compress-Archive
     # often emits one dir entry per folder; real BUILDING_100 demos land ~250+.
     if len(infos) > caps.max_entries:
-        raise PackageError(f"Too many zip entries ({len(infos)} > {caps.max_entries})")
+        n_files = sum(1 for i in infos if not i.is_dir())
+        n_dirs = len(infos) - n_files
+        raise PackageError(
+            f"Zip has too many items for this upload limit "
+            f"({len(infos)} items > max {caps.max_entries}). "
+            f"An 'item' (zip entry) is each file or folder listed inside the zip "
+            f"- not megabytes. This zip has about {n_files} file(s) and {n_dirs} folder marker(s). "
+            f"Trim unused files (e.g. quality.json, fdd_*.csv, backups), or split into "
+            f"smaller part-zips (see vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md), "
+            f"or raise OPENFDD_MAX_ENTRIES on the host."
+        )
     total = 0
     names_lower: set[str] = set()
     for info in infos:
@@ -432,7 +441,9 @@ def load_package_from_dir(
     caps = caps or effective_package_caps()
     if len(equipment) > caps.max_equipment:
         raise PackageError(
-            f"Too many equipment folders ({len(equipment)} > {caps.max_equipment})"
+            f"Zip has too many equipment folders ({len(equipment)} > max {caps.max_equipment}). "
+            f"Each folder with a history_wide.csv counts as one piece of equipment "
+            f"(AHU, VAV box, chiller, …). Remove unused boxes or raise OPENFDD_MAX_EQUIPMENT."
         )
 
     ids = [e["equipment_id"] for e in equipment]

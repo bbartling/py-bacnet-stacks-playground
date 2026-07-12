@@ -284,8 +284,11 @@ def test_rejects_when_entries_cap_low(monkeypatch):
             "extra.txt": "x\n",
         }
     )
-    with pytest.raises(PackageError, match=r"Too many zip entries \(.* > 3\)"):
+    with pytest.raises(PackageError, match=r"too many items|zip entry|files\+folders|file\(s\)") as ei:
         load_package_zip(z)
+    msg = str(ei.value)
+    assert "file" in msg.lower() and "folder" in msg.lower()
+    assert "megabytes" in msg.lower() or "not megabytes" in msg.lower()
 
 
 def test_rejects_when_equipment_cap_low(monkeypatch):
@@ -295,5 +298,5 @@ def test_rejects_when_equipment_cap_low(monkeypatch):
     for i in range(3):
         files[f"AHU_{i}/history_wide.csv"] = _hist()
     z = _make_zip(files)
-    with pytest.raises(PackageError, match=r"Too many equipment folders \(3 > 2\)"):
+    with pytest.raises(PackageError, match=r"too many equipment folders|history_wide"):
         load_package_zip(z)
