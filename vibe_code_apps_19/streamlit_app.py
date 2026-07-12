@@ -1005,7 +1005,10 @@ def _commit_package_result(result) -> None:
             df.attrs["columns_path"] = str(df.attrs["columns_path"])
     st.session_state.upload_workdir = str(result.workdir)
     st.session_state.package_report = result.report
-    st.session_state.data_input_mode = "Zip package"
+    # Do not assign ``data_input_mode`` here — it is a radio widget key. Setting it
+    # after the radio is drawn (Load zip / path load) raises StreamlitAPIException.
+    # Prefer Zip package on the *next* run via a pending flag applied before the radio.
+    st.session_state["_pending_data_input_mode"] = "Zip package"
     _commit_frames(
         result.frames,
         site_id=site_id,
@@ -1117,6 +1120,9 @@ def _load_data(cfg: AppConfig) -> None:
     if cfg.allow_server_paths:
         source_options = ["Folder", "Zip package"]
     default_src = "Zip package" if cfg.is_cloud or not cfg.allow_server_paths else "Folder"
+    pending = st.session_state.pop("_pending_data_input_mode", None)
+    if pending in source_options:
+        st.session_state.data_input_mode = pending
     if "data_input_mode" not in st.session_state:
         st.session_state.data_input_mode = default_src
     if st.session_state.data_input_mode not in source_options:

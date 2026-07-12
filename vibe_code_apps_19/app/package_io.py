@@ -38,6 +38,9 @@ TEMP_MAX_AGE_SEC = 6 * 3600
 # - Agent / CLI / zip-from-path / folder: DEFAULT_PACKAGE_MB (2048) safety cap.
 DEFAULT_PACKAGE_MB = 2048  # agent / path / CLI safety (still bounded)
 BROWSER_UPLOAD_MB = 500  # Streamlit file_uploader / YouTube demos
+# Real buildings: ~50 equip × (csv + columns + map) + weather + dirs ≈ 250–400 entries.
+DEFAULT_MAX_ENTRIES = 2000
+DEFAULT_MAX_EQUIPMENT = 100
 
 
 class PackageError(ValueError):
@@ -133,8 +136,9 @@ def effective_package_caps(*, for_browser_upload: bool = False) -> PackageCaps:
         max_uncompressed_bytes=_env_positive_int("OPENFDD_MAX_UNCOMPRESSED_MB", default_mb)
         * 1024
         * 1024,
-        max_entries=_env_positive_int("OPENFDD_MAX_ENTRIES", 200),
-        max_equipment=_env_positive_int("OPENFDD_MAX_EQUIPMENT", 100),
+        # 200 was too tight for real buildings (~50 equip × history+columns+map+dirs).
+        max_entries=_env_positive_int("OPENFDD_MAX_ENTRIES", DEFAULT_MAX_ENTRIES),
+        max_equipment=_env_positive_int("OPENFDD_MAX_EQUIPMENT", DEFAULT_MAX_EQUIPMENT),
     )
 
 
@@ -263,6 +267,8 @@ def _safe_member_path(name: str) -> Path:
 def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
     caps = caps or effective_package_caps()
     infos = zf.infolist()
+    # Count every ZipInfo (files + directory markers). Windows Compress-Archive
+    # often emits one dir entry per folder; real BUILDING_100 demos land ~250+.
     if len(infos) > caps.max_entries:
         raise PackageError(f"Too many zip entries ({len(infos)} > {caps.max_entries})")
     total = 0

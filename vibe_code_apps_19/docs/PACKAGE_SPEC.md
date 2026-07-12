@@ -133,7 +133,7 @@ Streamlit rejects browser uploads above 500 MB before package_io. Path/agent loa
 | --- | --- | --- |
 | Compressed zip | `OPENFDD_MAX_ZIP_MB` | **2048 MB** |
 | Uncompressed total | `OPENFDD_MAX_UNCOMPRESSED_MB` | **2048 MB** |
-| Zip entries | `OPENFDD_MAX_ENTRIES` | 200 |
+| Zip entries | `OPENFDD_MAX_ENTRIES` | **2000** |
 | Equipment folders | `OPENFDD_MAX_EQUIPMENT` | 100 |
 | Path depth | (fixed) | 8 |
 

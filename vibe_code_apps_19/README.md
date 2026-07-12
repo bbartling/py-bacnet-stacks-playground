@@ -6,6 +6,22 @@ Educational **Streamlit + pandas** lab for the [Open-FDD 50-rule Pandas Cookbook
 
 Agent brief: [`AGENTS.md`](AGENTS.md) · fork guide: [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
+## Prep a building zip (send this to your agent)
+
+Human has a cleaned `BUILDING_*` + `weather/` tree and needs an uploadable `openfdd_package_v1` zip (manifest, **per-CSV Haystack maps**, `session_config.json`, weather nested inside the building).
+
+**Point the agent here (copy/paste):**
+
+```text
+vibe_code_apps_19/docs/BUILD_OPENFDD_PACKAGE.md
+```
+
+That doc is the step-by-step agent prompt. Spec + caps: [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md). Multi-part uploads when the zip is too big for the browser: [`vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md).
+
+Suggested human→agent message:
+
+> Read `vibe_code_apps_19/docs/BUILD_OPENFDD_PACKAGE.md` and `docs/PACKAGE_SPEC.md`. Build openfdd JSON maps + session_config for my building folder at `<PATH>`, nest weather inside it, validate with `load_package_from_dir`, then tell me how to zip and upload.
+
 ## Highlights
 
 - Full **50 cookbook rules** + optional `CUSTOM-*` agent rules
@@ -62,6 +78,7 @@ python -m pytest -q
 | Doc | Topic |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | Agent hard rules |
+| [`docs/BUILD_OPENFDD_PACKAGE.md`](docs/BUILD_OPENFDD_PACKAGE.md) | **Agent prompt:** BUILDING → uploadable zip |
 | [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) | Zip package layout |
 | [`docs/DATA_MODEL_DRIVEN.md`](docs/DATA_MODEL_DRIVEN.md) | Roles → rules / charts |
 | [`docs/DOCKER.md`](docs/DOCKER.md) | Docker + GHCR |

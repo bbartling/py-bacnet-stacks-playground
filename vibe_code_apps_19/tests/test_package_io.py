@@ -11,6 +11,8 @@ import pytest
 
 from tests.package_fixtures import ensure_sidecar_files
 from app.package_io import (
+    DEFAULT_MAX_ENTRIES,
+    DEFAULT_MAX_EQUIPMENT,
     DEFAULT_PACKAGE_MB,
     PackageError,
     PackageManifest,
@@ -171,12 +173,12 @@ def test_effective_caps_local_defaults(monkeypatch):
     caps = effective_package_caps()
     assert caps.max_zip_mb == DEFAULT_PACKAGE_MB
     assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
-    assert caps.max_entries == 200
-    assert caps.max_equipment == 100
+    assert caps.max_entries == DEFAULT_MAX_ENTRIES
+    assert caps.max_equipment == DEFAULT_MAX_EQUIPMENT
 
 
 def test_effective_caps_cloud_same_default(monkeypatch):
-    """Cloud uses the same 500 MB primary default (raise/lower via env if needed)."""
+    """Cloud uses the same package defaults (raise/lower via env if needed)."""
     for key in (
         "OPENFDD_MAX_ZIP_MB",
         "OPENFDD_MAX_UNCOMPRESSED_MB",
@@ -188,8 +190,8 @@ def test_effective_caps_cloud_same_default(monkeypatch):
     caps = effective_package_caps()
     assert caps.max_zip_mb == DEFAULT_PACKAGE_MB
     assert caps.max_uncompressed_mb == DEFAULT_PACKAGE_MB
-    assert caps.max_entries == 200
-    assert caps.max_equipment == 100
+    assert caps.max_entries == DEFAULT_MAX_ENTRIES
+    assert caps.max_equipment == DEFAULT_MAX_EQUIPMENT
 
 
 def test_load_package_report_includes_size_mb():
@@ -227,22 +229,46 @@ def test_effective_caps_env_override(monkeypatch):
 
 
 def test_loads_above_legacy_entry_and_equipment_limits(monkeypatch):
-    """Full-ish package: >50 zip entries and >20 equipment when caps raised."""
-    monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "200")
-    monkeypatch.setenv("OPENFDD_MAX_EQUIPMENT", "100")
+    """Full-ish package: >200 zip entries and >20 equipment under default caps."""
+    monkeypatch.delenv("OPENFDD_MAX_ENTRIES", raising=False)
+    monkeypatch.delenv("OPENFDD_MAX_EQUIPMENT", raising=False)
     files: dict[str, str | bytes] = {"manifest.json": _manifest(building_id="BIG_DEMO")}
-    # 25 equipment × history = 26 entries (manifest + 25 csv) — above old 20 equip
+    # 25 equipment × history = above old 20 equip
     for i in range(25):
         files[f"AHU_{i}/history_wide.csv"] = _hist()
-    # Pad to >50 zip entries with tiny sidecar files
-    for i in range(30):
+    # Pad past the old 200-entry hard stop (BUILDING_100-style packages hit ~250)
+    for i in range(220):
         files[f"AHU_0/meta_{i}.txt"] = f"pad-{i}\n"
     z = _make_zip(files)
-    assert z.count(b"AHU_") >= 1  # sanity
+    with zipfile.ZipFile(io.BytesIO(z)) as zf:
+        assert len(zf.infolist()) > 200
     result = load_package_zip(z)
     try:
         assert len(result.frames) == 25
         assert result.report["equipment_count"] == 25
+    finally:
+        wipe_workdir(result.workdir)
+
+
+def test_browser_caps_load_tadco_building_100_zip():
+    """Same path as Streamlit 'Load zip(s)' for the real TADCO BUILDING_100.zip."""
+    zpath = Path(
+        r"C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar"
+        r"\workspace\imports\hvac_systems_CLEANED\BUILDING_100.zip"
+    )
+    if not zpath.is_file():
+        pytest.skip(f"TADCO zip not present: {zpath}")
+    data = zpath.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        n = len(zf.infolist())
+    assert n > 200, f"fixture should exceed legacy 200-entry cap, got {n}"
+    caps = effective_package_caps(for_browser_upload=True)
+    result = load_package_zip(data, caps=caps)
+    try:
+        assert result.manifest.building_id == "BUILDING_100"
+        assert len(result.frames) >= 40
+        assert result.weather is not None and not result.weather.empty
+        assert result.session_config is not None
     finally:
         wipe_workdir(result.workdir)
 
