@@ -588,10 +588,38 @@ def load_manifest(building_root: Path) -> PackageManifest:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise PackageError(f"manifest.json is not valid JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise PackageError("manifest.json must be a JSON object")
+    # Weather-only sidecar zips are a common mistaken upload
+    weather_keys = {"source", "output_file", "aligned_to_hvac_cleaned", "dew_point_sources"}
+    looks_weather = (
+        "schema_version" not in raw
+        and "building_id" not in raw
+        and (
+            str(raw.get("source", "")).lower().startswith("external_weather")
+            or weather_keys.intersection(raw.keys())
+            or (
+                "location_id" in raw
+                and "grid_minutes" not in raw
+                and not discover_equipment(building_root)
+            )
+        )
+    )
+    if looks_weather:
+        raise PackageError(
+            "This zip looks like weather-only data, not a building package. "
+            "Upload the BUILDING_* openfdd zip (it should already include a weather/ folder). "
+            "A standalone weather.zip cannot be loaded by itself - "
+            "manifest.json must be openfdd_package_v1 with building_id + grid_minutes."
+        )
     try:
         return PackageManifest.model_validate(raw)
     except Exception as exc:  # pydantic ValidationError
-        raise PackageError(f"manifest.json invalid: {exc}") from exc
+        raise PackageError(
+            "manifest.json is not a valid openfdd_package_v1 building manifest. "
+            f"Need schema_version={SCHEMA_VERSION!r}, building_id, and grid_minutes. "
+            f"Details: {exc}"
+        ) from exc
 
 
 def load_session_config(building_root: Path) -> SessionConfig | None:

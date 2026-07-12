@@ -273,6 +273,24 @@ def test_browser_caps_load_tadco_building_100_zip():
         wipe_workdir(result.workdir)
 
 
+def test_weather_only_zip_explains_not_a_building_package():
+    z = _make_zip(
+        {
+            "weather/manifest.json": json.dumps(
+                {
+                    "source": "external_weather_api",
+                    "location_id": "WX_SITE_01",
+                    "site_id": "COMMERCIAL_SITE_A",
+                }
+            ),
+            "weather/history_wide.csv": "timestamp_utc,dry_bulb_f\n2024-06-01T12:00:00Z,70\n",
+            "weather/columns.csv": "col,description\ntimestamp_utc,UTC\ndry_bulb_f,F\n",
+        }
+    )
+    with pytest.raises(PackageError, match=r"weather-only|BUILDING_\*|cannot be loaded by itself|openfdd_package_v1"):
+        load_package_zip(z)
+
+
 def test_rejects_when_entries_cap_low(monkeypatch):
     monkeypatch.setenv("OPENFDD_MAX_ENTRIES", "3")
     z = _make_zip(

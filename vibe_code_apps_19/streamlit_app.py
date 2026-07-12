@@ -1206,6 +1206,12 @@ def _load_data(cfg: AppConfig) -> None:
             f"**{n_parts}** file(s) · **{parts_mb} MB** selected · "
             f"per-file ≤**{BROWSER_UPLOAD_MB} MB** · assembled job ≤**{agent_caps.max_zip_mb} MB**"
         )
+        st.sidebar.caption(
+            f"Build check: zip-item limit **{agent_caps.max_entries}** "
+            f"(each file/folder inside the archive) · equip ≤**{agent_caps.max_equipment}**. "
+            f"If you still see **200**, `docker pull` the latest "
+            f"`ghcr.io/bbartling/vibe19:develop` — that machine is on an old image."
+        )
         c1, c2 = st.sidebar.columns(2)
         load_clicked = c1.button(
             "Load zip(s)",

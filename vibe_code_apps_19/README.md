@@ -48,6 +48,8 @@ docker pull ghcr.io/bbartling/vibe19:develop
 docker run --rm -p 8501:8501 ghcr.io/bbartling/vibe19:develop
 ```
 
+**Always `docker pull` before testing on another PC** — `:develop` is a moving tag; a local cache can keep an old image. In the sidebar, confirm the zip-item limit shows **2000** (not **200**). Upload **BUILDING_100.zip only** (weather is already inside). Do not upload `weather.zip` alone.
+
 Build locally: see [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 
 | Path | Limit |
