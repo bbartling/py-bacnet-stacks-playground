@@ -1205,8 +1205,9 @@ def _load_data(cfg: AppConfig) -> None:
             accept_multiple_files=True,
             key=f"building_zip_{st.session_state.get('zip_uploader_key', 0)}",
             help=(
-                f"Upload one zip or many part-zips (each ≤{BROWSER_UPLOAD_MB} MB). "
-                f"Parts merge into one job (assembled ≤{agent_caps.max_zip_mb} MB). "
+                f"Upload one building openfdd zip, or several part-zips "
+                f"(each ≤{BROWSER_UPLOAD_MB} MB; assembled ≤{agent_caps.max_zip_mb} MB). "
+                f"Optional extra weather.zip is merged/ignored safely. "
                 f"Limits also count zip items (each file/folder inside the archive), "
                 f"not just megabytes — max {agent_caps.max_entries} items / "
                 f"{agent_caps.max_equipment} equipment folders. "

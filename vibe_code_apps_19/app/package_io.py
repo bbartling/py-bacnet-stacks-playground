@@ -561,22 +561,144 @@ def load_package_from_dir(
     )
 
 
+def _read_manifest_dict(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def manifest_is_openfdd_building(path: Path) -> bool:
+    """True when ``manifest.json`` is an ``openfdd_package_v1`` building package."""
+    raw = _read_manifest_dict(path)
+    if not raw:
+        return False
+    return (
+        str(raw.get("schema_version") or "") == SCHEMA_VERSION
+        and bool(str(raw.get("building_id") or "").strip())
+    )
+
+
+def manifest_is_weather_sidecar(path: Path) -> bool:
+    """True when ``manifest.json`` looks like a weather-only sidecar (not a building)."""
+    raw = _read_manifest_dict(path)
+    if not raw:
+        return False
+    if str(raw.get("schema_version") or "") == SCHEMA_VERSION and raw.get("building_id"):
+        return False
+    weather_keys = {"source", "output_file", "aligned_to_hvac_cleaned", "dew_point_sources"}
+    return bool(
+        str(raw.get("source", "")).lower().startswith("external_weather")
+        or weather_keys.intersection(raw.keys())
+        or ("location_id" in raw and "grid_minutes" not in raw and "building_id" not in raw)
+    )
+
+
+def absorb_sibling_weather(building_root: Path, workdir: Path) -> list[str]:
+    """If a sibling ``weather/`` folder sits next to the building, merge or ignore it.
+
+    Common multi-upload: ``BUILDING_*.zip`` (with nested weather) + separate ``weather.zip``.
+    """
+    warnings: list[str] = []
+    if not workdir.is_dir() or not building_root.is_dir():
+        return warnings
+    try:
+        sibling = (workdir / "weather").resolve()
+        dest = (building_root / "weather").resolve()
+    except OSError:
+        return warnings
+    if not sibling.is_dir():
+        return warnings
+    # Sibling is the building itself named weather — nothing to do
+    if sibling == building_root.resolve():
+        return warnings
+    # Already nested under building
+    if sibling == dest or dest in sibling.parents:
+        return warnings
+    hist = sibling / "history_wide.csv"
+    if not hist.is_file():
+        return warnings
+    dest_hist = building_root / "weather" / "history_wide.csv"
+    if dest_hist.is_file():
+        warnings.append(
+            "Ignored extra top-level weather/ folder — building package already includes weather/"
+        )
+        return warnings
+    dest.mkdir(parents=True, exist_ok=True)
+    for src in sibling.iterdir():
+        if not src.is_file():
+            continue
+        target = dest / src.name
+        if target.is_file():
+            continue
+        shutil.copy2(src, target)
+    warnings.append("Merged sibling weather/ into the building package weather/ folder")
+    return warnings
+
+
 def resolve_building_root(workdir: Path) -> Path:
-    """Find the directory that contains manifest.json (workdir or one child)."""
-    if (workdir / "manifest.json").is_file():
+    """Find the directory that contains an openfdd building ``manifest.json``.
+
+    Ignores weather-only sidecar manifests (e.g. a separate ``weather.zip`` extracted
+    beside a ``BUILDING_*/`` folder) so multi-file uploads still resolve.
+    """
+    if manifest_is_openfdd_building(workdir / "manifest.json"):
         return workdir
+    # Root manifest present but not openfdd — only accept if it is not weather-only
+    if (workdir / "manifest.json").is_file() and not manifest_is_weather_sidecar(workdir / "manifest.json"):
+        # May still validate later; keep legacy behavior for odd demos
+        if discover_equipment(workdir):
+            return workdir
+
     kids = [p for p in workdir.iterdir() if p.is_dir() and p.name.lower() != "__macosx"]
-    manifests = [p for p in kids if (p / "manifest.json").is_file()]
-    if len(manifests) == 1:
-        return manifests[0]
+    openfdd_roots = [
+        p
+        for p in kids
+        if p.name.lower() != "weather" and manifest_is_openfdd_building(p / "manifest.json")
+    ]
+    if len(openfdd_roots) == 1:
+        return openfdd_roots[0]
+    if len(openfdd_roots) > 1:
+        names = ", ".join(p.name for p in openfdd_roots[:6])
+        raise PackageError(
+            f"Multiple openfdd building packages found ({names}). "
+            "Upload one building zip (or split into part-zips that share a single building_id)."
+        )
+
+    # Single non-weather child with any manifest.json (legacy)
+    candidates = [
+        p
+        for p in kids
+        if p.name.lower() != "weather"
+        and (p / "manifest.json").is_file()
+        and not manifest_is_weather_sidecar(p / "manifest.json")
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
+
     # Fallback: single child that has equipment
-    if len(kids) == 1 and discover_equipment(kids[0]):
-        return kids[0]
+    equip_kids = [p for p in kids if p.name.lower() != "weather" and discover_equipment(p)]
+    if len(equip_kids) == 1:
+        return equip_kids[0]
     if discover_equipment(workdir):
-        # Allow missing manifest only with synthetic defaults — still require manifest for Cloud packages
         pass
+    weather_only = [
+        p for p in kids if p.name.lower() == "weather" or manifest_is_weather_sidecar(p / "manifest.json")
+    ]
+    if weather_only and not openfdd_roots and not equip_kids:
+        raise PackageError(
+            "This upload looks like weather-only data, not a building package. "
+            "Upload a building openfdd zip (it may already include weather/). "
+            "A standalone weather.zip cannot be loaded by itself."
+        )
     raise PackageError(
-        "Package must contain manifest.json at the zip root or inside exactly one top-level folder"
+        "Package must contain an openfdd_package_v1 manifest.json at the zip root "
+        "or inside exactly one top-level building folder. "
+        "If you also selected a separate weather.zip, keep the building zip selected — "
+        "weather sidecars are merged automatically when possible."
     )
 
 
@@ -608,7 +730,7 @@ def load_manifest(building_root: Path) -> PackageManifest:
     if looks_weather:
         raise PackageError(
             "This zip looks like weather-only data, not a building package. "
-            "Upload the BUILDING_* openfdd zip (it should already include a weather/ folder). "
+            "Upload a building openfdd zip (it should already include a weather/ folder). "
             "A standalone weather.zip cannot be loaded by itself - "
             "manifest.json must be openfdd_package_v1 with building_id + grid_minutes."
         )

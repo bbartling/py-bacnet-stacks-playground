@@ -43,15 +43,31 @@ Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit
 
 ## Docker / GHCR
 
-```powershell
+On Linux (or any host) — **pull first**, then run by **tag** so `docker ps` shows the name:
+
+```bash
 docker pull ghcr.io/bbartling/vibe19:develop
-# Run by *tag* (not image id) so `docker ps` IMAGE column shows the name:
-docker run --rm -p 8501:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+docker stop vibe19-health-retest 2>/dev/null; docker rm vibe19-health-retest 2>/dev/null
+docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
 ```
 
-**Always `docker pull` before testing on another PC** — `:develop` is a moving tag; a local cache can keep an old image. In the sidebar, confirm the zip-item limit shows **2000** (not **200**) and that **Image:** shows `ghcr.io/bbartling/vibe19:develop`. Upload **BUILDING_100.zip only** (weather is already inside). Do not upload `weather.zip` alone.
+Open **http://localhost:8502** (host port **8502** → container 8501).
 
-If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** or an untagged layer — stop it and re-run with the full `ghcr.io/...:develop` name above.
+PowerShell equivalent:
+
+```powershell
+docker pull ghcr.io/bbartling/vibe19:develop
+docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+```
+
+**Always `docker pull` before testing on another PC** — `:develop` is a moving tag. In the sidebar confirm:
+
+- **Image:** `ghcr.io/bbartling/vibe19:develop` (and a recent sha)
+- zip-item limit **2000** (not **200**)
+
+**Upload:** prefer **one** building openfdd zip (weather is usually already inside). A separate `weather.zip` is optional; selecting both together is OK on current builds. Do not upload weather alone.
+
+If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with the full `ghcr.io/...:develop` name above.
 
 Build locally: see [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 

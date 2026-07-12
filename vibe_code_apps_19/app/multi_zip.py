@@ -7,6 +7,7 @@ Agents preprocess CSVs into several part zips; this module merges them safely.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import zipfile
@@ -22,6 +23,7 @@ from app.package_io import (
     PackageLoadResult,
     _inspect_zip,
     _safe_member_path,
+    absorb_sibling_weather,
     effective_package_caps,
     load_package_from_dir,
     wipe_workdir,
@@ -72,10 +74,26 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
     return warnings
 
 
-def _normalize_parts(parts: list[ZipPart]) -> list[ZipPart]:
+def _normalize_parts(parts: list[ZipPart]) -> tuple[list[ZipPart], list[str]]:
     if not parts:
         raise PackageError("No zip parts provided")
-    # Stable order: prefer names with part/manifest order
+    warnings: list[str] = []
+    # Drop accidental duplicate uploads (same filename or identical bytes)
+    deduped: list[ZipPart] = []
+    seen_name: set[str] = set()
+    seen_hash: set[str] = set()
+    for p in parts:
+        key = p.name.lower().strip()
+        digest = hashlib.sha256(p.data).hexdigest()
+        if key in seen_name or digest in seen_hash:
+            warnings.append(f"Skipping duplicate upload `{p.name}`")
+            continue
+        seen_name.add(key)
+        seen_hash.add(digest)
+        deduped.append(p)
+    if not deduped:
+        raise PackageError("No zip parts provided after removing duplicates")
+
     def sort_key(p: ZipPart) -> tuple:
         n = p.name.lower()
         for token in ("part0", "part1", "part2", "part3", "part4", "part5", "part6", "part7", "part8", "part9"):
@@ -83,9 +101,12 @@ def _normalize_parts(parts: list[ZipPart]) -> list[ZipPart]:
                 return (0, n)
         if "manifest" in n or n.endswith("job.json"):
             return (-1, n)
+        # Building packages before weather sidecars
+        if "weather" in n and "building" not in n:
+            return (2, n)
         return (1, n)
 
-    return sorted(parts, key=sort_key)
+    return sorted(deduped, key=sort_key), warnings
 
 
 def merge_zip_parts_to_dir(
@@ -97,7 +118,7 @@ def merge_zip_parts_to_dir(
     """Extract all parts into a fresh temp dir. Returns (workdir, warnings)."""
     caps = caps or effective_package_caps()
     per_part = per_part_caps or caps
-    ordered = _normalize_parts(parts)
+    ordered, warnings = _normalize_parts(parts)
     total = sum(len(p.data) for p in ordered)
     # Soft check: compressed sum should not wildly exceed agent cap
     if total > caps.max_uncompressed_bytes:
@@ -106,7 +127,6 @@ def merge_zip_parts_to_dir(
             f"exceeds {caps.max_uncompressed_mb} MB safety limit"
         )
     workdir = Path(tempfile.mkdtemp(prefix=TEMP_PREFIX))
-    warnings: list[str] = []
     try:
         for part in ordered:
             warnings.extend(
@@ -157,6 +177,7 @@ def load_package_from_zip_parts(
         from app.package_io import resolve_building_root
 
         building_root = resolve_building_root(workdir)
+        merge_warnings.extend(absorb_sibling_weather(building_root, workdir))
         result = load_package_from_dir(building_root, workdir=workdir, caps=merge_caps)
         result.warnings = list(merge_warnings) + list(result.warnings)
         result.report["source"] = "multi_zip"
