@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-12 — GHCR multi-arch (amd64 + arm64)
+
+- `vibe19-ghcr.yml`: QEMU + Buildx → `linux/amd64,linux/arm64` (Pi 4/5 64-bit)
+- Doc: [`docs/DOCKER.md`](../docs/DOCKER.md)
+
+---
+
 ## 2026-07-12 — Perf bottleneck findings documented
 
 - [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md) — ranked UI/data bottlenecks (eager Export/FDD coverage, Folder cache copies, rule-batch copies, iterrows scatters)

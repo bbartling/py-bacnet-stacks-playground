@@ -37,6 +37,28 @@ docker run --rm -p 8501:8501 --name vibe19-test vibe19
 
 Workflow: `.github/workflows/vibe19-ghcr.yml` → `ghcr.io/bbartling/vibe19` on pushes to `develop`/`main` that touch `vibe_code_apps_19/**`, tags `vibe19-v*`, or `workflow_dispatch`.
 
+**Architectures (multi-arch manifest):**
+
+| Platform | Typical hardware |
+| --- | --- |
+| `linux/amd64` | x86_64 PCs / servers |
+| `linux/arm64` | Raspberry Pi **4 / 5** (64-bit OS), Apple Silicon (native) |
+
+`docker pull` / `docker run` pick the matching arch automatically. On a Pi 4/5 with 64-bit Raspberry Pi OS:
+
+```bash
+docker pull ghcr.io/bbartling/vibe19:develop
+docker run --rm -p 8501:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+# open http://<pi-ip>:8501
+```
+
+To confirm the local image arch:
+
+```bash
+docker image inspect ghcr.io/bbartling/vibe19:develop --format '{{.Architecture}}'
+# arm64 on Pi 4/5 64-bit
+```
+
 ```powershell
 docker pull ghcr.io/bbartling/vibe19:develop
 # :latest when the default-branch job publishes it
