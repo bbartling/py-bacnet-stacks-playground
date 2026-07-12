@@ -850,43 +850,66 @@ def _commit_frames(
         st.session_state.selected_equipment = sorted(frames)[0]
 
 
-def _render_package_health_sidebar(report: dict | None, warnings: list[str]) -> None:
-    """One graded package-health card instead of flooding the sidebar with every detail line."""
+def _render_package_health_sidebar(report: dict | None, warnings: list[str] | None = None) -> None:
+    """Dataset details expander — health notes at the bottom (never a red error banner)."""
     report = report or {}
+    warnings = list(warnings or [])
     health = report.get("package_health") if isinstance(report.get("package_health"), dict) else None
     summary = list(report.get("package_health_summary") or [])
-    grade = str(report.get("package_health_grade") or (health or {}).get("grade") or "")
-    if health or summary:
-        title = f"Package health: {grade.upper() or 'UNKNOWN'}"
-        body = "\n\n".join(summary) if summary else title
-        if grade == "ok":
-            st.sidebar.success(body)
-        elif grade == "incomplete":
-            st.sidebar.error(body)
-        else:
-            st.sidebar.warning(body)
-        detail = list((health or {}).get("detail_lines") or [])
-        # Non-contract warnings (CSV validation, column_map, etc.) still shown briefly
-        other = [w for w in warnings if w not in detail]
-        with st.sidebar.expander(
-            f"Package details ({len(detail)} contract · {len(other)} other)",
-            expanded=False,
-        ):
-            if detail:
-                st.caption("Data-contract findings (load still succeeded):")
-                for line in detail[:40]:
-                    st.text(line)
-                if len(detail) > 40:
-                    st.caption(f"… +{len(detail) - 40} more (see Export / package_health.json)")
-            for w in other[:15]:
-                st.warning(w)
-            if len(other) > 15:
-                st.caption(f"… +{len(other) - 15} more")
+    grade = str(report.get("package_health_grade") or (health or {}).get("grade") or "").lower()
+    detail = list((health or {}).get("detail_lines") or [])
+    other = [w for w in warnings if w not in detail and w not in summary]
+
+    has_size = report.get("zip_mb") is not None or report.get("uncompressed_mb") is not None
+    if not (health or summary or detail or other or has_size or report.get("building_id")):
         return
-    for w in warnings[:20]:
-        st.sidebar.warning(w)
-    if len(warnings) > 20:
-        st.sidebar.caption(f"… +{len(warnings) - 20} more warnings")
+
+    label = "Dataset details"
+    if grade and grade not in {"", "ok"}:
+        label = f"Dataset details · {grade}"
+
+    with st.sidebar.expander(label, expanded=False):
+        bits: list[str] = []
+        if report.get("building_id"):
+            bits.append(f"`{report.get('building_id')}`")
+        if report.get("equipment_count") is not None:
+            bits.append(f"{report.get('equipment_count')} equip")
+        if report.get("source"):
+            bits.append(str(report.get("source")))
+        if bits:
+            st.caption(" · ".join(bits))
+        if has_size:
+            from app.package_io import dataset_size_caption
+
+            st.caption(dataset_size_caption(report))
+
+        if detail:
+            st.caption("Contract findings (load still succeeded):")
+            for line in detail[:40]:
+                st.text(line)
+            if len(detail) > 40:
+                st.caption(f"… +{len(detail) - 40} more (see Export / package_health.json)")
+
+        for w in other[:15]:
+            st.caption(w)
+        if len(other) > 15:
+            st.caption(f"… +{len(other) - 15} more")
+
+        # Health summary last — informational, not an error banner
+        if summary or grade:
+            st.divider()
+            st.caption("Dataset health (non-fatal)")
+            for line in summary:
+                # Strip markdown bold so caption stays muted
+                st.caption(str(line).replace("**", ""))
+            if not summary and grade:
+                st.caption(
+                    f"Dataset health: {grade.upper()} "
+                    "(non-fatal — load succeeded; topology/metadata may be incomplete)."
+                )
+
+        with st.expander("Raw package report JSON", expanded=False):
+            st.json(report)
 
 
 def _commit_package_result(result) -> None:
@@ -920,8 +943,8 @@ def _commit_package_result(result) -> None:
         st.session_state.session_config_source = (
             (st.session_state.get("session_config_source") or "") + " + package column_map.json"
         ).strip(" +")
-    _render_package_health_sidebar(result.report, result.warnings)
-    # Persist for Overview / Export (AppTest can assert)
+    # Sidebar Dataset details is rendered from _load_data on each run (not here —
+    # avoids a red banner flash and duplicate expanders before st.rerun).
     st.session_state.package_warnings = list(
         (result.report or {}).get("package_health_summary") or result.warnings
     )
@@ -1053,6 +1076,10 @@ def _load_data(cfg: AppConfig) -> None:
         _folder_report = st.session_state.get("package_report")
         if _folder_report:
             st.sidebar.caption(dataset_size_caption(_folder_report))
+            _render_package_health_sidebar(
+                _folder_report,
+                st.session_state.get("package_warnings") or [],
+            )
         if st.session_state.get("equipment_frames") and st.sidebar.button(
             "Clear loaded data", key="clear_folder_session"
         ):
@@ -1206,8 +1233,10 @@ def _load_data(cfg: AppConfig) -> None:
         report = st.session_state.get("package_report")
         if report:
             st.sidebar.caption(dataset_size_caption(report, caps=agent_caps))
-            with st.sidebar.expander("Package report", expanded=False):
-                st.json(report)
+            _render_package_health_sidebar(
+                report,
+                st.session_state.get("package_warnings") or [],
+            )
         frames = st.session_state.get("equipment_frames") or {}
         if frames and st.session_state.get("upload_workdir"):
             st.sidebar.caption(

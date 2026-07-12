@@ -412,7 +412,7 @@ def _build_summary(
     issues: list[ContractIssue],
 ) -> list[str]:
     lines: list[str] = [
-        f"Package health: **{grade.upper()}** "
+        f"Dataset health: {grade.upper()} "
         f"(non-fatal — load succeeded; topology/metadata may be incomplete)."
     ]
     if topology.vav_folder_count:
