@@ -1,4 +1,4 @@
-canonical_rule_count: 51
+canonical_rule_count: 53
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -1166,13 +1166,14 @@ rules:
   title: Condenser water not optimized vs wet-bulb
   description: "CW supply significantly colder than web wet-bulb + design approach\
     \ (Stull WB) \u2014 tower over-cooling / not optimized."
-  summary: "CW supply significantly colder than web wet-bulb + design approach (Stull\
-    \ WB) \u2014 tower over-cooling / not optimized."
+  summary: "Flags condenser water colder than wet-bulb + approach \u2014 tower over-cooling\
+    \ / not optimized."
   required_roles:
   - cw_supply_t
   optional_roles: []
   equipment_kinds:
   - chiller
+  - cooling_tower
   tunable_params:
   - cw_approach
   - cw_slack
@@ -1187,6 +1188,73 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: cw_opt
+  known_limitations: ''
+- rule_id: CW-APR-1
+  family: plant
+  title: High CW approach at full tower fan
+  description: "At full tower fan speed, leaving CW \u2212 web wet-bulb exceeds approach_max\
+    \ (default 8\xB0F, typically 5\u201310\xB0F). Suspect OA\u2192wet-bulb / CW sensor\
+    \ mismatch or cooling-tower performance degradation."
+  summary: "Flags high CW\u2013wet-bulb approach at full tower fan \u2014 sensor mismatch\
+    \ or tower degradation."
+  required_roles:
+  - cw_supply_t
+  optional_roles:
+  - tower_fan_cmd
+  - cw_fan_cmd
+  - fan_cmd
+  - wx_oa_wetbulb
+  equipment_kinds:
+  - chiller
+  - cooling_tower
+  tunable_params:
+  - approach_max_f
+  - tower_fan_hi
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: cw_apr
+  known_limitations: ''
+- rule_id: CW-FAN-1
+  family: plant
+  title: Excess tower fan energy vs wet-bulb limit
+  description: "Tower fans at full speed while leaving CW is well above web wet-bulb\
+    \ + design approach (approach + excess_beyond). Fans are chasing a CW temp that\
+    \ is theoretically hard/impossible \u2014 excess fan energy."
+  summary: "Flags full-speed tower fans while CW is well above theoretical WB+approach\
+    \ \u2014 excess fan energy."
+  required_roles:
+  - cw_supply_t
+  optional_roles:
+  - tower_fan_cmd
+  - cw_fan_cmd
+  - fan_cmd
+  - wx_oa_wetbulb
+  equipment_kinds:
+  - chiller
+  - cooling_tower
+  tunable_params:
+  - cw_approach
+  - excess_beyond_approach_f
+  - tower_fan_hi
+  - confirm_min
+  default_confirm_seconds: 900
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: cw_fan_excess
   known_limitations: ''
 - rule_id: TRIM-1
   family: trim

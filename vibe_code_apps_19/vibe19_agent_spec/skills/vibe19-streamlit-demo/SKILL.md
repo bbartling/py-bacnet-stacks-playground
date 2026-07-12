@@ -46,7 +46,7 @@ Opens at `http://localhost:8501`.
 | `app/agent_api.py` | Headless load / run 50 rules / export |
 | `scripts/agent_afdd.py` | CLI for agent_api |
 | `app/weather_resolver.py` | Web OAT primary / OAT-METEO both-required |
-| `app/rules/cookbook_catalog.py` | 50 canonical rule definitions |
+| `app/rules/cookbook_catalog.py` | 53 canonical rule definitions |
 | `app/rules/runner.py` | Skip / gate / ECON-3 weather path |
 | `scripts/csv_parity_check.py` | Any-building rule rollup script |
 
@@ -84,7 +84,7 @@ FDD Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_V
 
 ## Hard rules
 
-1. **50 canonical rules** — never silently omit statuses
+1. **53 canonical rules** — never silently omit statuses
 2. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF**
 3. **No client CSV in git**
 4. **Web OAT default** for analytics / free-cool weather path

@@ -15,7 +15,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 | Data layout | [`DATA_CONTRACT.md`](DATA_CONTRACT.md) | Your `DATA_ROOT`, building id, equipment folders |
 | Ingest | Zip/folder → same frames contract | Optional Postgres / SQL Server loader — see CUSTOMIZE.md |
 | Validation | `validate_data.py`, `shared/data_config.py` | Fix gaps until GO |
-| Rules | `app/rules/cookbook_catalog.py` + runner (50 canonical) | Thresholds; **extra** faults via `CUSTOM-*` / `custom_rules.py` |
+| Rules | `app/rules/cookbook_catalog.py` + runner (53 canonical) | Thresholds; **extra** faults via `CUSTOM-*` / `custom_rules.py` |
 | Role map | `app/role_map.py` + mapping wizard | Point → cookbook role columns |
 | UI / brand | `streamlit_app.py`, `shared/branding.py`, `assets/` | Title, hero image, copy |
 | Charts | `app/charts.py` + **FDD Plots** cards + **RCx Plots** | Series / units / presets; FDD DOCX via `app/rule_card.py` + `app/docx_report.py` |

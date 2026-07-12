@@ -144,6 +144,12 @@ HAYSTACK_POINT_TO_COOKBOOK: dict[str, str] = {
     "chw_flow": "chw_flow",
     "chw-pump-cmd": "chw_pump_cmd",
     "chw_pump_cmd": "chw_pump_cmd",
+    "tower-fan-cmd": "tower_fan_cmd",
+    "tower_fan_cmd": "tower_fan_cmd",
+    "cw-fan-cmd": "cw_fan_cmd",
+    "cw_fan_cmd": "cw_fan_cmd",
+    "cw-pump-cmd": "cw_pump_cmd",
+    "cw_pump_cmd": "cw_pump_cmd",
     "chw-reset-request-sum": "chw_reset_req_sum",
     "chw_reset_req_sum": "chw_reset_req_sum",
     "chilled-water-supply-temp-sp": "chw_supply_t_sp",
@@ -206,6 +212,9 @@ COOKBOOK_TO_HAYSTACK_POINT: dict[str, str] = {
     "chw_dp_sp": "chw-diff-pressure-sp",
     "chw_flow": "chw-flow",
     "chw_pump_cmd": "chw-pump-cmd",
+    "cw_pump_cmd": "cw-pump-cmd",
+    "tower_fan_cmd": "tower-fan-cmd",
+    "cw_fan_cmd": "cw-fan-cmd",
     "chw_reset_req_sum": "chw-reset-request-sum",
     "chw_supply_t_sp": "chilled-water-supply-temp-sp",
     "clg_coil_enter_t": "cooling-coil-entering-temp",
@@ -250,6 +259,10 @@ HAYSTACK_EQUIP_TYPE_TO_COOKBOOK: dict[str, str] = {
     "weather": "WEATHER",
     "meteo": "WEATHER",
     "meter": "METER",
+    "coolingTower": "COOLING_TOWER",
+    "cooling-tower": "COOLING_TOWER",
+    "cooling_tower": "COOLING_TOWER",
+    "tower": "COOLING_TOWER",
     "unknown": "UNKNOWN",
 }
 
@@ -261,6 +274,7 @@ COOKBOOK_EQUIP_TO_HAYSTACK: dict[str, str] = {
     "HP": "heatPump",
     "WEATHER": "weather",
     "METER": "meter",
+    "COOLING_TOWER": "coolingTower",
     "UNKNOWN": "unknown",
 }
 

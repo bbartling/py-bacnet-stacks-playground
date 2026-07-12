@@ -13,6 +13,7 @@ EQUIPMENT_TYPES = (
     "HP",
     "WEATHER",
     "METER",
+    "COOLING_TOWER",
     "UNKNOWN",
 )
 
@@ -126,6 +127,10 @@ _TYPE_ALIASES: dict[str, str] = {
     "CHW": "CHW_PLANT",
     "BOILER": "BOILER",
     "BOILERPLANT": "BOILER",
+    "COOLING_TOWER": "COOLING_TOWER",
+    "COOLINGTOWER": "COOLING_TOWER",
+    "TOWER": "COOLING_TOWER",
+    "CT": "COOLING_TOWER",
     "HP": "HP",
     "HEATPUMP": "HP",
     "HEAT_PUMP": "HP",
@@ -163,6 +168,8 @@ def equipment_type_from_id(equipment_id: str) -> str:
         return "AHU"
     if "CHILLER" in u or u.startswith("CHW"):
         return "CHW_PLANT"
+    if "TOWER" in u or "COOLING_TOWER" in u or "CT_" in u:
+        return "COOLING_TOWER"
     if "BOILER" in u:
         return "BOILER"
     if ("HEAT" in u and "PUMP" in u) or u.startswith("HP") or "/HP" in u:

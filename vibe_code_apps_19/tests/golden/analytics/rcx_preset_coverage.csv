@@ -5,7 +5,7 @@ metering,,0.000000,meter_gas_hdd,gas_flow,3.000000,1.000000,Metering — gas/mon
 ranking,,0.000000,zone_comfort_rank,zone_t,128.000000,1.000000,Zones — comfort fail ranking (occupied hours)
 scatter_oat,,0.000000,ahu_sat_reset_scatter,sat,360.000000,1.000000,AHU — SAT vs web dry-bulb (scatter)
 scatter_oat,,0.000000,chw_reset_scatter,chw_supply_t,360.000000,1.000000,Chiller / CHW — leave temp vs web dry-bulb (scatter)
-scatter_oat,,0.000000,cw_reset_scatter,cw_supply_t,360.000000,1.000000,Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter)
+scatter_oat,,0.000000,cw_reset_scatter,cw_supply_t,720.000000,2.000000,Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter)
 scatter_oat,,0.000000,hw_reset_scatter,hw_supply_t,360.000000,1.000000,Boiler / HW — leave temp vs web dry-bulb (scatter)
 timeseries,,0.000000,ahu_dampers,oa_damper_pct,360.000000,1.000000,AHU — all OA dampers (timeseries)
 timeseries,,0.000000,ahu_dats,sat,360.000000,1.000000,AHU — all discharge air temps (timeseries)

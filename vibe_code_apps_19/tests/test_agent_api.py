@@ -125,9 +125,9 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert ds.role_map.get("AHU_1", {}).get("sat") == "discharge_air_temp_f"
 
     run = run_rules(ds)
-    assert run.meta["rule_catalog_count"] == 51
-    assert run.meta["result_count"] == 51  # one equipment × 51 rules
-    assert sum(run.status_counts.values()) == 51
+    assert run.meta["rule_catalog_count"] == 53
+    assert run.meta["result_count"] == 53  # one equipment × 51 rules
+    assert sum(run.status_counts.values()) == 53
 
     analytics = run_analytics(ds)
     assert "motor_hours" in analytics

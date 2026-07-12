@@ -31,6 +31,7 @@ def infer_equipment_kind(
         "VAV": "vav",
         "CHW_PLANT": "chiller",
         "CHILLER": "chiller",
+        "COOLING_TOWER": "cooling_tower",
         "BOILER": "boiler",
         "HP": "heatpump",
         "WEATHER": "weather",
@@ -162,10 +163,17 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
             continue
         if role not in df.columns or df[role].notna().sum() == 0:
             missing.append(role)
-    if rule.id == "CW-OPT-1" and (
+    if rule.id in {"CW-OPT-1", "CW-APR-1", "CW-FAN-1"} and (
         "wx_oa_wetbulb" not in df.columns or df["wx_oa_wetbulb"].notna().sum() == 0
     ):
         missing.append("wx_oa_wetbulb")
+    if rule.id in {"CW-APR-1", "CW-FAN-1"}:
+        fan_ok = any(
+            r in df.columns and df[r].notna().any()
+            for r in ("tower_fan_cmd", "cw_fan_cmd", "fan_cmd")
+        )
+        if not fan_ok:
+            missing.append("tower_fan_cmd|cw_fan_cmd|fan_cmd")
     return missing
 
 

@@ -113,7 +113,8 @@ COL_PATTERN_ROLES: list[tuple[tuple[str, ...], str]] = [
     # Designated CHW pump for chiller runtime (data-model role; prefer over chiller cmd)
     (("chw_pump_status", "cwp1_s", "cwp2_s", "primary_chw_pump_status"), "chw_pump_status"),
     (("chw_pump_cmd", "cwp1_c", "cwp2_c", "primary_chw_pump_cmd", "chw_pump_speed"), "chw_pump_cmd"),
-    (("cw_pump_cmd", "tower_fan_cmd", "tower_pump_cmd"), "cw_pump_cmd"),
+    (("cw_pump_cmd", "tower_pump_cmd", "condenser_pump"), "cw_pump_cmd"),
+    (("tower_fan_cmd", "tower_fan_speed", "cw_fan_cmd", "ct_fan_speed", "cooling_tower_fan"), "tower_fan_cmd"),
 ]
 
 ROLE_COLUMN_RANK: dict[str, tuple[str, ...]] = {

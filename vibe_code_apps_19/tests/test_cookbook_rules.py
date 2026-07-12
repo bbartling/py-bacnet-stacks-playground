@@ -12,8 +12,8 @@ from app.rules.runner import run_all_cookbook_rules
 
 
 def test_canonical_count():
-    assert CANONICAL_RULE_COUNT == 51
-    assert len(CANONICAL_RULES) == 51
+    assert CANONICAL_RULE_COUNT == 53
+    assert len(CANONICAL_RULES) == 53
     assert len(RULES) >= 51
     # Custom extras never replace canonical ids
     canonical_ids = {r.id for r in CANONICAL_RULES}
@@ -25,8 +25,8 @@ def test_inventory_metadata():
     from pathlib import Path
 
     inv = yaml.safe_load((Path(__file__).parent.parent / "configs" / "rule_inventory.yaml").read_text(encoding="utf-8"))
-    assert inv["canonical_rule_count"] == 51
-    assert len(inv["rules"]) == 51
+    assert inv["canonical_rule_count"] == 53
+    assert len(inv["rules"]) == 53
 
 
 @pytest.mark.parametrize("rule_id", [r.id for r in CANONICAL_RULES])
@@ -83,7 +83,7 @@ def test_run_all_returns_active_catalog():
     df.attrs["equipment_id"] = "AHU_1"
     results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
     assert len(results) == len(RULES)
-    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 51
+    assert sum(1 for r in results if not str(r.rule_id).startswith("CUSTOM-")) == 53
 
 
 def test_result_shape():

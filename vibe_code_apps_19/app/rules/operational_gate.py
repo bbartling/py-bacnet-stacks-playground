@@ -81,6 +81,8 @@ RULE_GATES: dict[str, GateSpec] = {
     "HP-1": GateSpec("compressor", startup_delay_seconds=600),
     "WX-1": GateSpec("always"),
     "CW-OPT-1": GateSpec("hydronic_flow", startup_delay_seconds=600),
+    "CW-APR-1": GateSpec("hydronic_flow", startup_delay_seconds=600),
+    "CW-FAN-1": GateSpec("hydronic_flow", startup_delay_seconds=600),
     "TRIM-1": GateSpec("fan_running", startup_delay_seconds=300),
     "TRIM-3": GateSpec("hydronic_flow", startup_delay_seconds=600),
     "TRIM-4": GateSpec("hydronic_flow", startup_delay_seconds=600),

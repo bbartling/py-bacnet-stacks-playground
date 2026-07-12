@@ -13,7 +13,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 ## AI agent quick rules (read first)
 
 1. **Never commit client CSV history** — browse/paste a local building folder; keep trees out of git.
-2. **50 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`.
+2. **53 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`.
 3. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph** in this app.
 4. **Rules follow Open-FDD pandas cookbook** — raw mask → optional operational gate → `confirm_fault()` → rollup hours.
 5. **Operational gates** — most rules require fan/pump/compressor proof; see `docs/OPERATIONAL_GATES.md`. Prefer `fan_status` over `fan_cmd`.

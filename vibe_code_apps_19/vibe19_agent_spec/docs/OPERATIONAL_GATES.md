@@ -59,7 +59,7 @@
 
 **CONDITIONAL (4):** SV-FLATLINE, DMP-1, VAV-1, VLV-1
 
-**RUN (~39):** all FC*, AHU-*, ECON-*, OA-1, VAV-3/4/5/7/REHEAT, CHW-*, HP-1, TRIM-*, PID-HUNT-1, **CW-OPT-1**
+**RUN (~41):** all FC*, AHU-*, ECON-*, OA-1, VAV-3/4/5/7/REHEAT, CHW-*, HP-1, TRIM-*, PID-HUNT-1, **CW-OPT-1**, **CW-APR-1**, **CW-FAN-1**
 
 > **Note:** WX-2 (gust) was replaced by **CW-OPT-1** (condenser water vs wet-bulb). Keep `RULE_GATES` in sync with `cookbook_catalog.RULES`.
 
@@ -78,7 +78,7 @@ Almost every cookbook rule’s confirmed-fault mask is ANDed with an **operation
 | Gate kind | Proof | Typical rules |
 | --- | --- | --- |
 | `fan_running` | `fan_status` → … → `fan_cmd` / `zone_flow` | FC*, ECON*, most VAV*, AHU-*, OA-1, TRIM-1 |
-| `hydronic_flow` | `chw_pump_status` / `pump_status` / flow / pump cmd | CHW-*, TRIM-3/4, CW-OPT-1 |
+| `hydronic_flow` | `chw_pump_status` / `pump_status` / flow / pump cmd | CHW-*, TRIM-3/4, CW-OPT-1, CW-APR-1, CW-FAN-1 |
 | `equipment_energized` | fan, else pump, else compressor | SV-RANGE, SV-SPIKE (SV-FLATLINE via conditional) |
 | `always` (exceptions) | none | **SV-STALE** (dead feed), **SCHED-1**, **CMD-1**, **OAT-METEO**, **WX-1** |
 

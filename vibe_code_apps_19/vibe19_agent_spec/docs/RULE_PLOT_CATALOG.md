@@ -1,4 +1,4 @@
-# Rule plot catalog (all 51)
+# Rule plot catalog (all 53)
 
 **Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.
 
@@ -31,7 +31,7 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 | 2 · Control loops | 1 | `PID-HUNT-1` |
 | 3 · AHU / air handling | 29 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `SCHED-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
 | 4 · VAV / terminal | 7 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-AHU-LEAVE`, `VAV-7` |
-| 5 · Central plant | 5 | `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1` |
+| 5 · Central plant | 7 | `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1`, `CW-APR-1`, `CW-FAN-1` |
 | 6 · Heat pump | 1 | `HP-1` |
 | 7 · Weather / OAT | 1 | `WX-1` |
 | 8 · Trim & respond | 3 | `TRIM-1`, `TRIM-3`, `TRIM-4` |
@@ -1854,14 +1854,14 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `CW-OPT-1` — Condenser water not optimized vs wet-bulb
 
-**Summary:** CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.
+**Summary:** Flags condenser water colder than wet-bulb + approach — tower over-cooling / not optimized.
 
 **Equation:** CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.
 
 | Field | Value |
 | --- | --- |
 | Family | `plant` |
-| Equipment kinds | `chiller` |
+| Equipment kinds | `chiller`, `cooling_tower` |
 | Operational gate | `hydronic_flow (startup 600s)` |
 | Default confirm | 900s |
 | Sweep | — |
@@ -1888,6 +1888,97 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 #### Analytics / related views
 
 RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.
+
+### `CW-APR-1` — High CW approach at full tower fan
+
+**Summary:** Flags high CW–wet-bulb approach at full tower fan — sensor mismatch or tower degradation.
+
+**Equation:** At full tower fan speed, leaving CW − web wet-bulb exceeds approach_max (default 8°F, typically 5–10°F). Suspect OA→wet-bulb / CW sensor mismatch or cooling-tower performance degradation.
+
+| Field | Value |
+| --- | --- |
+| Family | `plant` |
+| Equipment kinds | `chiller`, `cooling_tower` |
+| Operational gate | `hydronic_flow (startup 600s)` |
+| Default confirm | 900s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `cw_supply_t` | `condenser-water-supply-temp` | required |
+| `tower_fan_cmd` | `tower-fan-cmd` | optional |
+| `cw_fan_cmd` | `cw-fan-cmd` | optional |
+| `fan_cmd` | `fan-cmd` | optional |
+| `wx_oa_wetbulb` | `wx-oa-wetbulb` | optional |
+
+#### Plot series
+
+- `cw_supply_t` → `condenser-water-supply-temp`
+- `tower_fan_cmd` → `tower-fan-cmd`
+- `cw_fan_cmd` → `cw-fan-cmd`
+- `fan_cmd` → `fan-cmd`
+- `wx_oa_wetbulb` → `wx-oa-wetbulb`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `approach_max_f` | Max approach at full fan | °F | 8 | 5 | 15 | 0.5 |
+| `tower_fan_hi` | Tower fan full-speed threshold | frac | 0.95 | 0.8 | 1 | 0.01 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+
+### `CW-FAN-1` — Excess tower fan energy vs wet-bulb limit
+
+**Summary:** Flags full-speed tower fans while CW is well above theoretical WB+approach — excess fan energy.
+
+**Equation:** Tower fans at full speed while leaving CW is well above web wet-bulb + design approach (approach + excess_beyond). Fans are chasing a CW temp that is theoretically hard/impossible — excess fan energy.
+
+| Field | Value |
+| --- | --- |
+| Family | `plant` |
+| Equipment kinds | `chiller`, `cooling_tower` |
+| Operational gate | `hydronic_flow (startup 600s)` |
+| Default confirm | 900s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `cw_supply_t` | `condenser-water-supply-temp` | required |
+| `tower_fan_cmd` | `tower-fan-cmd` | optional |
+| `cw_fan_cmd` | `cw-fan-cmd` | optional |
+| `fan_cmd` | `fan-cmd` | optional |
+| `wx_oa_wetbulb` | `wx-oa-wetbulb` | optional |
+
+#### Plot series
+
+- `cw_supply_t` → `condenser-water-supply-temp`
+- `tower_fan_cmd` → `tower-fan-cmd`
+- `cw_fan_cmd` → `cw-fan-cmd`
+- `fan_cmd` → `fan-cmd`
+- `wx_oa_wetbulb` → `wx-oa-wetbulb`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `cw_approach` | Design approach | °F | 7 | 3 | 15 | 0.5 |
+| `excess_beyond_approach_f` | Excess beyond approach | °F | 5 | 2 | 20 | 0.5 |
+| `tower_fan_hi` | Tower fan full-speed threshold | frac | 0.95 | 0.8 | 1 | 0.01 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 
 ---
@@ -2112,6 +2203,8 @@ CHW reset requests; RCx `chw_reset_scatter`.
 | `clg_coil_enter_t` | `cooling-coil-entering-temp` |
 | `clg_coil_leave_t` | `cooling-coil-leaving-temp` |
 | `clg_valve_pct` | `cooling-valve` |
+| `cw_fan_cmd` | `cw-fan-cmd` |
+| `cw_pump_cmd` | `cw-pump-cmd` |
 | `cw_supply_t` | `condenser-water-supply-temp` |
 | `damper_pct` | `damper` |
 | `duct_static` | `duct-static-pressure` |
@@ -2139,8 +2232,10 @@ CHW reset requests; RCx `chw_reset_scatter`.
 | `preheat_leave_t` | `preheat-leaving-temp` |
 | `rat` | `return-air-temp` |
 | `reheat_valve_pct` | `reheat-valve` |
+| `return_fan_cmd` | `return-fan-cmd` |
 | `sat` | `discharge-air-temp` |
 | `sat_sp` | `discharge-air-temp-sp` |
+| `tower_fan_cmd` | `tower-fan-cmd` |
 | `vav_disch_t` | `vav-discharge-air-temp` |
 | `vav_inlet_t` | `vav-inlet-air-temp` |
 | `vav_press_req_sum` | `vav-pressure-request-sum` |

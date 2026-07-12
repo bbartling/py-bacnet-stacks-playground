@@ -126,6 +126,64 @@ CMD-1:
     min: 0.0
     step: 1.0
     unit: min
+CW-APR-1:
+  approach_max_f:
+    default: 8.0
+    help: Max approach at full fan
+    label: Max approach at full fan
+    max: 15.0
+    min: 5.0
+    step: 0.5
+    unit: "\xB0F"
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  tower_fan_hi:
+    default: 0.95
+    help: Tower fan full-speed threshold
+    label: Tower fan full-speed threshold
+    max: 1.0
+    min: 0.8
+    step: 0.01
+    unit: frac
+CW-FAN-1:
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  cw_approach:
+    default: 7.0
+    help: Design approach
+    label: Design approach
+    max: 15.0
+    min: 3.0
+    step: 0.5
+    unit: "\xB0F"
+  excess_beyond_approach_f:
+    default: 5.0
+    help: Excess beyond approach
+    label: Excess beyond approach
+    max: 20.0
+    min: 2.0
+    step: 0.5
+    unit: "\xB0F"
+  tower_fan_hi:
+    default: 0.95
+    help: Tower fan full-speed threshold
+    label: Tower fan full-speed threshold
+    max: 1.0
+    min: 0.8
+    step: 0.01
+    unit: frac
 CW-OPT-1:
   confirm_min:
     default: 5.0

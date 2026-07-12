@@ -723,6 +723,59 @@ def cw_opt(d, p, poll):
     )
 
 
+def _tower_fan_full_mask(d: pd.DataFrame, p: dict) -> pd.Series:
+    """True when tower / CW fan command is at/near full speed (0–1 or 0–100%)."""
+    thr = _f(p, "tower_fan_hi", 0.95)
+    for role in ("tower_fan_cmd", "cw_fan_cmd", "fan_cmd"):
+        if role in d.columns and d[role].notna().any():
+            return norm_cmd(d[role]).fillna(0) >= thr
+    return _false(d.index)
+
+
+def _cw_approach_f(d: pd.DataFrame) -> pd.Series:
+    """Leaving CW minus web wet-bulb (°F)."""
+    cw = pd.to_numeric(d["cw_supply_t"], errors="coerce")
+    wb = pd.to_numeric(d["wx_oa_wetbulb"], errors="coerce")
+    return cw - wb
+
+
+def cw_apr(d, p, poll):
+    """High CW approach at full tower fan — sensors or tower degradation."""
+    if "cw_supply_t" not in d.columns:
+        return _false(d.index)
+    if "wx_oa_wetbulb" not in d.columns or d["wx_oa_wetbulb"].notna().sum() == 0:
+        return _false(d.index)
+    if not any(r in d.columns and d[r].notna().any() for r in ("tower_fan_cmd", "cw_fan_cmd", "fan_cmd")):
+        return _false(d.index)
+    limit = _f(p, "approach_max_f", 8.0)
+    apr = _cw_approach_f(d)
+    return (
+        d["cw_supply_t"].notna()
+        & d["wx_oa_wetbulb"].notna()
+        & _tower_fan_full_mask(d, p)
+        & (apr > limit)
+    )
+
+
+def cw_fan_excess(d, p, poll):
+    """Excess tower-fan energy — CW well above theoretical WB+approach at full fan."""
+    if "cw_supply_t" not in d.columns:
+        return _false(d.index)
+    if "wx_oa_wetbulb" not in d.columns or d["wx_oa_wetbulb"].notna().sum() == 0:
+        return _false(d.index)
+    if not any(r in d.columns and d[r].notna().any() for r in ("tower_fan_cmd", "cw_fan_cmd", "fan_cmd")):
+        return _false(d.index)
+    approach = _f(p, "cw_approach", 7.0)
+    excess = _f(p, "excess_beyond_approach_f", 5.0)
+    apr = _cw_approach_f(d)
+    return (
+        d["cw_supply_t"].notna()
+        & d["wx_oa_wetbulb"].notna()
+        & _tower_fan_full_mask(d, p)
+        & (apr > (approach + excess))
+    )
+
+
 def oat_vs_meteo(d, p, poll):
     """BAS outdoor-air sensor disagrees with Open-Meteo dry bulb by more than the threshold."""
     if "wx_oa_t" not in d.columns:
@@ -1079,13 +1132,48 @@ RULES: list[CookbookRule] = [
     CookbookRule("WX-1", "OA temperature spike", "weather", ["weather"],
         ["oa_t"], "OAT sample-to-sample jump > 16°F.",
         wx1, params=[CookbookParam("spike_limit", "Spike limit", "°F", 4.0, 40.0, 1.0, 16.0), CONFIRM_PARAM()], confirm_seconds=300),
-    CookbookRule("CW-OPT-1", "Condenser water not optimized vs wet-bulb", "plant", ["chiller"],
+    CookbookRule("CW-OPT-1", "Condenser water not optimized vs wet-bulb", "plant", ["chiller", "cooling_tower"],
         ["cw_supply_t"],
         "CW supply significantly colder than web wet-bulb + design approach (Stull WB) — tower over-cooling / not optimized.",
         cw_opt, params=[
             CookbookParam("cw_approach", "Design approach", "°F", 3.0, 15.0, 0.5, 7.0),
             CookbookParam("cw_slack", "Slack below target", "°F", 0.5, 6.0, 0.5, 2.0),
             CONFIRM_PARAM()], confirm_seconds=900),
+    CookbookRule(
+        "CW-APR-1",
+        "High CW approach at full tower fan",
+        "plant",
+        ["chiller", "cooling_tower"],
+        ["cw_supply_t"],
+        "At full tower fan speed, leaving CW − web wet-bulb exceeds approach_max (default 8°F, typically 5–10°F). "
+        "Suspect OA→wet-bulb / CW sensor mismatch or cooling-tower performance degradation.",
+        cw_apr,
+        params=[
+            CookbookParam("approach_max_f", "Max approach at full fan", "°F", 5.0, 15.0, 0.5, 8.0),
+            CookbookParam("tower_fan_hi", "Tower fan full-speed threshold", "frac", 0.8, 1.0, 0.01, 0.95),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["tower_fan_cmd", "cw_fan_cmd", "fan_cmd", "wx_oa_wetbulb"],
+        confirm_seconds=900,
+    ),
+    CookbookRule(
+        "CW-FAN-1",
+        "Excess tower fan energy vs wet-bulb limit",
+        "plant",
+        ["chiller", "cooling_tower"],
+        ["cw_supply_t"],
+        "Tower fans at full speed while leaving CW is well above web wet-bulb + design approach "
+        "(approach + excess_beyond). Fans are chasing a CW temp that is theoretically hard/impossible — excess fan energy.",
+        cw_fan_excess,
+        params=[
+            CookbookParam("cw_approach", "Design approach", "°F", 3.0, 15.0, 0.5, 7.0),
+            CookbookParam("excess_beyond_approach_f", "Excess beyond approach", "°F", 2.0, 20.0, 0.5, 5.0),
+            CookbookParam("tower_fan_hi", "Tower fan full-speed threshold", "frac", 0.8, 1.0, 0.01, 0.95),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["tower_fan_cmd", "cw_fan_cmd", "fan_cmd", "wx_oa_wetbulb"],
+        confirm_seconds=900,
+    ),
 
     # --- Trim & respond advisory (lumped with AHU / plants) ---
     CookbookRule("TRIM-1", "Duct static trim advisory", "trim", ["ahu"],
@@ -1160,6 +1248,9 @@ RULE_SUMMARY_OVERRIDES: dict[str, str] = {
     "OAT-METEO": "Flags large disagreement between BAS outdoor-air temp and web weather OAT.",
     "SCHED-1": "Flags fan runtime during unoccupied hours from the Overview calendar.",
     "VLV-1": "Flags a closed cooling valve while SAT still looks like valve leakage.",
+    "CW-OPT-1": "Flags condenser water colder than wet-bulb + approach — tower over-cooling / not optimized.",
+    "CW-APR-1": "Flags high CW–wet-bulb approach at full tower fan — sensor mismatch or tower degradation.",
+    "CW-FAN-1": "Flags full-speed tower fans while CW is well above theoretical WB+approach — excess fan energy.",
 }
 
 
