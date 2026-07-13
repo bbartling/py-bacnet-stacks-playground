@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-13 — SV-RATE + SCHED-247 + FDD/RCx plot companions
+
+- **SV-RATE** (`SV-SLEW` alias): context-aware sensor rate-of-change (`sensor_rate.py` + profiles); Streamlit expander under Run Rules; `docs/SV_RATE.md`
+- **SCHED-247**: always-on fan/pump runtime across AHU/plant equipment
+- FDD plots: AHU temp charts companion OA damper + heat/cool valves (fan-cmd reserved for FC1/duct static); RCx presets for cooling/heating valves
+- Canonical catalog **55** rules; analytics goldens refreshed
+
+---
+
 ## 2026-07-13 — Haystack point names end-to-end + Data Model topology
 
 - Rules / maps / DataFrames use Haystack slugs (`discharge-air-temp`, …) — one vocabulary

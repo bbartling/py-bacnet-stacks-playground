@@ -1,4 +1,4 @@
-canonical_rule_count: 53
+canonical_rule_count: 55
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -120,6 +120,43 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: _sweep_stale
+  known_limitations: ''
+- rule_id: SV-RATE
+  family: sensor
+  title: Context-aware sensor rate of change
+  description: "Implausible sustained rate-of-change for mapped sensors. Thresholds\
+    \ depend on quantity, location, and operating state (steady vs startup/shutdown\
+    \ transient). Engineering screening defaults \u2014 tune per site. Alias: SV-SLEW.\
+    \ Distinct from SV-SPIKE (one-sample jump), SV-RANGE, SV-FLATLINE, and PID-HUNT-1."
+  summary: Flags implausible sustained sensor rates of change using location- and
+    state-aware thresholds.
+  required_roles: []
+  optional_roles: []
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - weather
+  - zone
+  - heatpump
+  tunable_params:
+  - persistence_min
+  - transition_window_min
+  - max_gap_hours
+  - design_flow
+  - sensor_span
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: true
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sv_rate_compute
   known_limitations: ''
 - rule_id: PID-HUNT-1
   family: control
@@ -1332,7 +1369,7 @@ rules:
   source_function: trim4
   known_limitations: ''
 - rule_id: SCHED-1
-  family: ahu
+  family: schedule
   title: Unoccupied runtime
   description: "Fan running while occupancy is unoccupied (Overview calendar \u2192\
     \ occ_mode). When zone_t is mapped, also require zone inside comfort_low_f\u2026\
@@ -1359,6 +1396,48 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: sched1
+  known_limitations: ''
+- rule_id: SCHED-247
+  family: schedule
+  title: Always-on fan or pump runtime
+  description: "Fan or pump (or similar motor proof/command) is on for \u2265 always_on_pct\
+    \ of the analysis window \u2014 highlights equipment that appears to run 24/7.\
+    \ Applies to all fans and pumps regardless of equipment family when a status/cmd\
+    \ role is mapped."
+  summary: Flags fans or pumps that stay on for nearly the entire analysis window
+    (24/7 runtime).
+  required_roles: []
+  optional_roles:
+  - fan-status
+  - pump-status
+  - chw-pump-status
+  - hw-pump-status
+  - chiller-status
+  - compressor-status
+  - tower-fan-cmd
+  - cw-fan-cmd
+  - fan-cmd
+  - chw-pump-cmd
+  - hw-pump-cmd
+  equipment_kinds:
+  - ahu
+  - vav
+  - chiller
+  - boiler
+  - heatpump
+  tunable_params:
+  - always_on_pct
+  - confirm_min
+  default_confirm_seconds: 3600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: _sched247
   known_limitations: ''
 - rule_id: CMD-1
   family: ahu

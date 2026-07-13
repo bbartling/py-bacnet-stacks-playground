@@ -608,6 +608,150 @@ _CONFIRM_META = {
 
 
 @st.fragment
+def _render_sv_rate_config() -> None:
+    """Grouped profile editor for SV-RATE (screening defaults — not code limits)."""
+    from app.rules.sensor_rate_profiles import (
+        DEFAULT_PROFILES,
+        f_per_h_to_c_per_h,
+        profiles_by_quantity,
+    )
+
+    st.info(
+        "These thresholds are configurable engineering screening defaults. They are not "
+        "universal code limits and should be tuned to equipment, sensor response, sampling "
+        "interval, and site operation."
+    )
+    metric = st.session_state.get("unit_system", "imperial") == "metric"
+    params = st.session_state.setdefault("params", {})
+    rp = dict(params.get("SV-RATE") or {})
+    c1, c2, c3 = st.columns(3)
+    rp["persistence_min"] = c1.number_input(
+        "Default persistence (min)",
+        min_value=5.0,
+        max_value=60.0,
+        value=float(rp.get("persistence_min", 10.0)),
+        step=1.0,
+        key="svrate_persist",
+    )
+    rp["transition_window_min"] = c2.number_input(
+        "Default transition window (min)",
+        min_value=5.0,
+        max_value=60.0,
+        value=float(rp.get("transition_window_min", 20.0)),
+        step=5.0,
+        key="svrate_trans",
+    )
+    rp["missing_state_fallback"] = c3.selectbox(
+        "Missing operating-state fallback",
+        ["conservative_steady", "skip_point"],
+        index=0 if rp.get("missing_state_fallback", "conservative_steady") == "conservative_steady" else 1,
+        key="svrate_fallback",
+        help="When fan/pump proof is missing, use reduced-confidence steady thresholds (default).",
+    )
+    by_q = profiles_by_quantity()
+    labels = {
+        "temperature": "Temperature",
+        "relative_humidity": "Humidity",
+        "co2": "CO₂",
+        "air_pressure": "Air pressure",
+        "hydronic_pressure": "Hydronic pressure",
+        "flow": "Flow",
+        "command_position": "Commands / positions",
+    }
+    for qty, title in labels.items():
+        profiles = by_q.get(qty) or []
+        if not profiles:
+            continue
+        with st.expander(title, expanded=False):
+            rows = []
+            for p in profiles:
+                sw, sf, tw, tf = (
+                    p.steady_warning_per_hour,
+                    p.steady_fault_per_hour,
+                    p.transient_warning_per_hour,
+                    p.transient_fault_per_hour,
+                )
+                unit = p.canonical_unit
+                if metric and qty == "temperature":
+                    sw, sf, tw, tf = map(f_per_h_to_c_per_h, (sw, sf, tw, tf))
+                    unit = "°C/h"
+                prefix = f"svrate__{p.profile_id}__"
+                rows.append(
+                    {
+                        "profile_id": p.profile_id,
+                        "unit": unit,
+                        "steady_warning": float(rp.get(prefix + "steady_warning_per_hour", sw)),
+                        "steady_fault": float(rp.get(prefix + "steady_fault_per_hour", sf)),
+                        "transient_warning": float(rp.get(prefix + "transient_warning_per_hour", tw)),
+                        "transient_fault": float(rp.get(prefix + "transient_fault_per_hour", tf)),
+                        "persist_min": int(rp.get(prefix + "persistence_minutes", p.persistence_minutes)),
+                    }
+                )
+            edited = st.data_editor(
+                pd.DataFrame(rows),
+                hide_index=True,
+                use_container_width=True,
+                key=f"svrate_editor_{qty}",
+                disabled=["profile_id", "unit"],
+            )
+            for _, row in edited.iterrows():
+                pid = str(row["profile_id"])
+                prefix = f"svrate__{pid}__"
+                sw = float(row["steady_warning"])
+                sf = float(row["steady_fault"])
+                tw = float(row["transient_warning"])
+                tf = float(row["transient_fault"])
+                if metric and qty == "temperature":
+                    from app.rules.sensor_rate_profiles import c_per_h_to_f_per_h
+
+                    sw, sf, tw, tf = map(c_per_h_to_f_per_h, (sw, sf, tw, tf))
+                rp[prefix + "steady_warning_per_hour"] = sw
+                rp[prefix + "steady_fault_per_hour"] = sf
+                rp[prefix + "transient_warning_per_hour"] = tw
+                rp[prefix + "transient_fault_per_hour"] = tf
+                rp[prefix + "persistence_minutes"] = int(row["persist_min"])
+    b1, b2 = st.columns(2)
+    if b1.button("Restore SV-RATE defaults", key="svrate_restore"):
+        params.pop("SV-RATE", None)
+        st.session_state.params = params
+        st.rerun()
+    params["SV-RATE"] = rp
+    st.session_state.params = params
+    if b2.download_button(
+        "Export SV-RATE config JSON",
+        data=json.dumps({"SV-RATE": rp}, indent=2),
+        file_name="sv_rate_config.json",
+        mime="application/json",
+        key="svrate_export",
+    ):
+        pass
+    # Resolved profile peek for selected equipment
+    frames = st.session_state.get("equipment_frames") or {}
+    selected = st.session_state.get("selected_equipment")
+    if selected and selected in frames:
+        from app.rules.sensor_rate_profiles import ROLE_TO_PROFILE, resolve_profile
+
+        mapped = frames[selected]
+        peek = []
+        for role in ROLE_TO_PROFILE:
+            if role in mapped.columns and mapped[role].notna().any():
+                prof, src = resolve_profile(role=role)
+                if prof:
+                    peek.append(
+                        {
+                            "role": role,
+                            "profile_id": prof.profile_id,
+                            "source": src,
+                            "steady_fault": prof.steady_fault_per_hour,
+                            "unit": prof.canonical_unit,
+                        }
+                    )
+        if peek:
+            st.caption(f"Resolved profiles on **{selected}** (after next Run):")
+            st.dataframe(pd.DataFrame(peek), hide_index=True, use_container_width=True)
+
+
+@st.fragment
 def _sidebar_sliders(defaults_cfg: dict) -> None:
     """Left-rail rule tuning. Fragment-isolated so slider moves do not re-run rules/plots."""
     out = dict(st.session_state.params)
@@ -2064,6 +2208,8 @@ def main() -> None:
             "Sidebar sliders only store thresholds — they do **not** re-evaluate rules. "
             "Click **Run** here (or sidebar **Rerun cat.**) after tuning."
         )
+        with st.expander("SV-RATE — context-aware sensor rate thresholds", expanded=False):
+            _render_sv_rate_config()
         scope = st.radio(
             "Equipment scope",
             ["selected equipment", "all equipment"],

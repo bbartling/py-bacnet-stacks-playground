@@ -42,6 +42,7 @@ RULE_GATES: dict[str, GateSpec] = {
     "SV-FLATLINE": GateSpec("conditional", startup_delay_seconds=0),
     "SV-SPIKE": GateSpec("equipment_energized", startup_delay_seconds=0),
     "SV-STALE": GateSpec("always"),  # dead feed must be visible even when motors are off
+    "SV-RATE": GateSpec("always"),  # state is classified inside the rule; need off/transient samples
     "PID-HUNT-1": GateSpec("control_loop", startup_delay_seconds=300),
     "FC1": GateSpec("fan_running", startup_delay_seconds=300),
     "FC2": GateSpec("fan_running", startup_delay_seconds=600),
@@ -87,6 +88,7 @@ RULE_GATES: dict[str, GateSpec] = {
     "TRIM-3": GateSpec("hydronic_flow", startup_delay_seconds=600),
     "TRIM-4": GateSpec("hydronic_flow", startup_delay_seconds=600),
     "SCHED-1": GateSpec("always"),
+    "SCHED-247": GateSpec("always"),  # always-on detection must see the full window
     "CMD-1": GateSpec("always"),
     "OA-1": GateSpec("fan_running", startup_delay_seconds=600),
     "DMP-1": GateSpec("conditional", startup_delay_seconds=300),

@@ -48,7 +48,11 @@ def active_rules() -> list[CookbookRule]:
 
 
 def active_rules_by_id() -> dict[str, CookbookRule]:
-    return {r.id: r for r in active_rules()}
+    by_id = {r.id: r for r in active_rules()}
+    # Compatibility alias for SV-RATE
+    if "SV-RATE" in by_id:
+        by_id.setdefault("SV-SLEW", by_id["SV-RATE"])
+    return by_id
 
 
 def iter_active_rule_ids() -> Iterable[str]:

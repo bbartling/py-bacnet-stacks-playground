@@ -208,8 +208,25 @@ def rule_plot_series(
         if role in df.columns and df[role].notna().any():
             series[role] = df[role]
     if not series:
-        for col in ("zone-air-temp", "discharge-air-temp", "discharge-air-temp-sp", "outside-air-temp", "mixed-air-temp", "return-air-temp", "outside-air-damper", "fan-cmd", "duct-static-pressure"):
+        for col in (
+            "zone-air-temp",
+            "discharge-air-temp",
+            "discharge-air-temp-sp",
+            "outside-air-temp",
+            "mixed-air-temp",
+            "return-air-temp",
+            "outside-air-damper",
+            "cooling-valve",
+            "heating-valve",
+            "duct-static-pressure",
+            "fan-cmd",
+        ):
             if col in df.columns and df[col].notna().any():
+                # Prefer OA damper / valves over fan-cmd for temperature-only fallbacks.
+                if col == "fan-cmd" and any(
+                    t in series for t in ("discharge-air-temp", "mixed-air-temp", "return-air-temp", "zone-air-temp")
+                ) and "duct-static-pressure" not in series:
+                    continue
                 series[col] = df[col]
     return series
 

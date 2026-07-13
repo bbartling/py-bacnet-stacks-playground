@@ -39,6 +39,47 @@ def as_bool(s: pd.Series | None) -> pd.Series:
     return s.fillna(False).astype(bool)
 
 
+def _sv_rate_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    from app.rules.sensor_rate import sv_rate_compute
+
+    return sv_rate_compute(d, p, poll)
+
+
+def _sched247(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    """Equipment essentially always-on (fan/pump/compressor status) over the window."""
+    thr = _f(p, "always_on_pct", 0.95)
+    proofs: list[pd.Series] = []
+    for role in (
+        "fan-status",
+        "pump-status",
+        "chw-pump-status",
+        "hw-pump-status",
+        "chiller-status",
+        "compressor-status",
+        "tower-fan-cmd",
+        "cw-fan-cmd",
+        "fan-cmd",
+        "chw-pump-cmd",
+        "hw-pump-cmd",
+    ):
+        if role not in d.columns or not d[role].notna().any():
+            continue
+        if role.endswith("-cmd"):
+            proofs.append(norm_cmd(d[role]).fillna(0) > 0.05)
+        else:
+            proofs.append(as_bool(d[role]))
+    if not proofs:
+        return _false(d.index)
+    on = proofs[0]
+    for s in proofs[1:]:
+        on = on | s
+    # Fault when the whole series is predominantly on — sticky all-True mask if tripped
+    frac = float(on.fillna(False).mean())
+    if frac >= thr:
+        return pd.Series(True, index=d.index)
+    return _false(d.index)
+
+
 def _f(p: dict, key: str, default: float) -> float:
     try:
         v = p.get(key, default)
@@ -918,6 +959,28 @@ RULES: list[CookbookRule] = [
         ], sensor_sweep=True, confirm_seconds=300,
     ),
     CookbookRule(
+        "SV-RATE",
+        "Context-aware sensor rate of change",
+        "sensor",
+        ["ahu", "vav", "chiller", "boiler", "weather", "zone", "heatpump"],
+        [],
+        "Implausible sustained rate-of-change for mapped sensors. Thresholds depend on "
+        "quantity, location, and operating state (steady vs startup/shutdown transient). "
+        "Engineering screening defaults — tune per site. Alias: SV-SLEW. "
+        "Distinct from SV-SPIKE (one-sample jump), SV-RANGE, SV-FLATLINE, and PID-HUNT-1.",
+        _sv_rate_compute,
+        params=[
+            CookbookParam("persistence_min", "Fault persistence", "min", 5.0, 60.0, 1.0, 10.0),
+            CookbookParam("transition_window_min", "Transition window", "min", 5.0, 60.0, 5.0, 20.0),
+            CookbookParam("max_gap_hours", "Max sample gap", "h", 0.25, 6.0, 0.25, 2.0),
+            CookbookParam("design_flow", "Design flow (flow profiles)", "cfm", 0.0, 100000.0, 100.0, 0.0),
+            CookbookParam("sensor_span", "Sensor span (flow/pressure)", "eng", 0.0, 100000.0, 10.0, 0.0),
+            CONFIRM_PARAM(),
+        ],
+        sensor_sweep=True,
+        confirm_seconds=600,
+    ),
+    CookbookRule(
         "PID-HUNT-1", "Suspected control-output hunting", "control",
         ["ahu", "vav", "chiller", "boiler", "heatpump"], [],
         "Rolling 1h total variation of any 0–100% control output (dampers, valves, fan speeds, "
@@ -1200,7 +1263,7 @@ RULES: list[CookbookRule] = [
     CookbookRule(
         "SCHED-1",
         "Unoccupied runtime",
-        "ahu",
+        "schedule",
         ["ahu"],
         ["occupied", "fan-status"],
         "Fan running while occupancy is unoccupied (Overview calendar → occ_mode). "
@@ -1214,6 +1277,35 @@ RULES: list[CookbookRule] = [
         ],
         optional_roles=["zone-air-temp"],
         confirm_seconds=1800,
+    ),
+    CookbookRule(
+        "SCHED-247",
+        "Always-on fan or pump runtime",
+        "schedule",
+        ["ahu", "vav", "chiller", "boiler", "heatpump"],
+        [],
+        "Fan or pump (or similar motor proof/command) is on for ≥ always_on_pct of the analysis "
+        "window — highlights equipment that appears to run 24/7. Applies to all fans and pumps "
+        "regardless of equipment family when a status/cmd role is mapped.",
+        _sched247,
+        params=[
+            CookbookParam("always_on_pct", "Always-on fraction", "frac", 0.80, 1.0, 0.01, 0.95),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=[
+            "fan-status",
+            "pump-status",
+            "chw-pump-status",
+            "hw-pump-status",
+            "chiller-status",
+            "compressor-status",
+            "tower-fan-cmd",
+            "cw-fan-cmd",
+            "fan-cmd",
+            "chw-pump-cmd",
+            "hw-pump-cmd",
+        ],
+        confirm_seconds=3600,
     ),
     CookbookRule("CMD-1", "Fan cmd/status mismatch", "ahu", ["ahu"],
         ["fan-cmd", "fan-status"], "Fan command and proven status disagree.",
@@ -1249,7 +1341,9 @@ RULE_SUMMARY_OVERRIDES: dict[str, str] = {
     "SV-FLATLINE": "Flags a sensor that stays stuck within a tiny band for too long.",
     "SV-SPIKE": "Flags an implausible sample-to-sample jump for the sensor type.",
     "SV-STALE": "Flags when all modeled sensors stop updating — likely a dead data feed.",
+    "SV-RATE": "Flags implausible sustained sensor rates of change using location- and state-aware thresholds.",
     "PID-HUNT-1": "Flags control outputs that oscillate enough to suggest loop hunting.",
+    "SCHED-247": "Flags fans or pumps that stay on for nearly the entire analysis window (24/7 runtime).",
     "FC1": "Flags duct static too low while the supply fan is near full speed.",
     "FC2": "Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.",
     "FC3": "Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.",
@@ -1287,6 +1381,8 @@ def _ensure_rule_summaries() -> None:
 _ensure_rule_summaries()
 
 RULES_BY_ID: dict[str, CookbookRule] = {r.id: r for r in RULES}
+# Compatibility alias (same compute as SV-RATE)
+RULES_BY_ID["SV-SLEW"] = RULES_BY_ID["SV-RATE"]
 
 
 def rules_for_kind(kind: str) -> list[CookbookRule]:

@@ -114,5 +114,5 @@ def test_building100_analytics_digest_optional():
     assert fps == want, (
         "BUILDING_100 analytics fingerprint mismatch — "
         f"set {UPDATE_ENV}=1 only after intentional analytics changes. "
-        f"timings={{{k: round(v, 4) for k, v in report.items()}}}"
+        f"timings={{{kk: round(vv, 4) for kk, vv in report.items()}}}"
     )

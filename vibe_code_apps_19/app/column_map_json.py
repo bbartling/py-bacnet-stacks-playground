@@ -32,6 +32,7 @@ FAMILY_ORDER: list[str] = [
     "heatpump",
     "weather",
     "trim",
+    "schedule",
     "custom",
     "other",
 ]
@@ -44,7 +45,8 @@ FAMILY_LABELS: dict[str, str] = {
     "heatpump": "6 · Heat pump",
     "weather": "7 · Weather / OAT",
     "trim": "8 · Trim & respond",
-    "other": "9 · Other",
+    "schedule": "9 · Schedule / runtime",
+    "other": "10 · Other",
 }
 
 # Preferred display / inventory name for each logical point (identity for most).

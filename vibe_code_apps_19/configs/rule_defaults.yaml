@@ -707,6 +707,23 @@ SCHED-1:
     min: 0.0
     step: 1.0
     unit: min
+SCHED-247:
+  always_on_pct:
+    default: 0.95
+    help: Always-on fraction
+    label: Always-on fraction
+    max: 1.0
+    min: 0.8
+    step: 0.01
+    unit: frac
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 SV-FLATLINE:
   confirm_min:
     default: 5.0
@@ -740,6 +757,55 @@ SV-RANGE:
     max: 60.0
     min: 0.0
     step: 1.0
+    unit: min
+SV-RATE:
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  design_flow:
+    default: 0.0
+    help: Design flow (flow profiles)
+    label: Design flow (flow profiles)
+    max: 100000.0
+    min: 0.0
+    step: 100.0
+    unit: cfm
+  max_gap_hours:
+    default: 2.0
+    help: Max sample gap
+    label: Max sample gap
+    max: 6.0
+    min: 0.25
+    step: 0.25
+    unit: h
+  persistence_min:
+    default: 10.0
+    help: Fault persistence
+    label: Fault persistence
+    max: 60.0
+    min: 5.0
+    step: 1.0
+    unit: min
+  sensor_span:
+    default: 0.0
+    help: Sensor span (flow/pressure)
+    label: Sensor span (flow/pressure)
+    max: 100000.0
+    min: 0.0
+    step: 10.0
+    unit: eng
+  transition_window_min:
+    default: 20.0
+    help: Transition window
+    label: Transition window
+    max: 60.0
+    min: 5.0
+    step: 5.0
     unit: min
 SV-SPIKE:
   confirm_min:

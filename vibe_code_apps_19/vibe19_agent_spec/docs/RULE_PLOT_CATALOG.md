@@ -1,4 +1,4 @@
-# Rule plot catalog (all 53)
+# Rule plot catalog (all 55)
 
 **Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.
 
@@ -27,14 +27,15 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 
 | Family | Count | Rule ids |
 | --- | ---: | --- |
-| 1 · Sensor validation | 4 | `SV-RANGE`, `SV-FLATLINE`, `SV-SPIKE`, `SV-STALE` |
+| 1 · Sensor validation | 5 | `SV-RANGE`, `SV-FLATLINE`, `SV-SPIKE`, `SV-STALE`, `SV-RATE` |
 | 2 · Control loops | 1 | `PID-HUNT-1` |
-| 3 · AHU / air handling | 29 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `SCHED-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
+| 3 · AHU / air handling | 28 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
 | 4 · VAV / terminal | 7 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-AHU-LEAVE`, `VAV-7` |
 | 5 · Central plant | 7 | `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1`, `CW-APR-1`, `CW-FAN-1` |
 | 6 · Heat pump | 1 | `HP-1` |
 | 7 · Weather / OAT | 1 | `WX-1` |
 | 8 · Trim & respond | 3 | `TRIM-1`, `TRIM-3`, `TRIM-4` |
+| 9 · Schedule / runtime | 2 | `SCHED-1`, `SCHED-247` |
 
 ---
 
@@ -175,6 +176,44 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 #### Analytics / related views
 
 Plots sensor-fault summary stats when FAULT.
+
+### `SV-RATE` — Context-aware sensor rate of change
+
+**Summary:** Flags implausible sustained sensor rates of change using location- and state-aware thresholds.
+
+**Equation:** Implausible sustained rate-of-change for mapped sensors. Thresholds depend on quantity, location, and operating state (steady vs startup/shutdown transient). Engineering screening defaults — tune per site. Alias: SV-SLEW. Distinct from SV-SPIKE (one-sample jump), SV-RANGE, SV-FLATLINE, and PID-HUNT-1.
+
+| Field | Value |
+| --- | --- |
+| Family | `sensor` |
+| Equipment kinds | `ahu`, `vav`, `chiller`, `boiler`, `weather`, `zone`, `heatpump` |
+| Operational gate | `always` |
+| Default confirm | 600s |
+| Sweep | `sensor_sweep` |
+
+#### Points → Haystack tags (this chart)
+
+Sweep rule: plots **sensors / control outputs present** on the equipment (see sweep role lists in `cookbook_catalog.py`). No fixed required-role list.
+
+#### Plot series
+
+- Present sweep sensors (temps / statuses on mapped frame)
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `persistence_min` | Fault persistence | min | 10 | 5 | 60 | 1 |
+| `transition_window_min` | Transition window | min | 20 | 5 | 60 | 5 |
+| `max_gap_hours` | Max sample gap | h | 2 | 0.25 | 6 | 0.25 |
+| `design_flow` | Design flow (flow profiles) | cfm | 0 | 0 | 100000 | 100 |
+| `sensor_span` | Sensor span (flow/pressure) | eng | 0 | 0 | 100000 | 10 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Profile table + rate evidence in metrics; thresholds are screening defaults.
 
 
 ---
@@ -1207,47 +1246,6 @@ Needs OA damper / MAT / OAT roles.
 
 Needs heat/preheat roles.
 
-### `SCHED-1` — Unoccupied runtime
-
-**Summary:** Flags fan runtime during unoccupied hours from the Overview calendar.
-
-**Equation:** Fan running while occupancy is unoccupied (Overview calendar → occ_mode). When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f (defaults 70–75°F; synced from Overview zone band).
-
-| Field | Value |
-| --- | --- |
-| Family | `ahu` |
-| Equipment kinds | `ahu` |
-| Operational gate | `always` |
-| Default confirm | 1800s |
-| Sweep | — |
-
-#### Points → Haystack tags (this chart)
-
-| Cookbook role | Haystack-like tag | Requirement |
-| --- | --- | --- |
-| `occupied` | `occupied` | required |
-| `fan-status` | `fan-status` | required |
-| `zone-air-temp` | `zone-air-temp` | optional |
-
-#### Plot series
-
-- `occupied` → `occupied`
-- `fan-status` → `fan-status`
-- `zone-air-temp` → `zone-air-temp`
-- `confirmed_fault` swim lane (bool shade) when the rule was run
-
-#### Sliders (tune params)
-
-| Key | Label | Unit | Default | Min | Max | Step |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| `comfort_low_f` | Comfort low | °F | 70 | 60 | 78 | 0.5 |
-| `comfort_high_f` | Comfort high | °F | 75 | 68 | 85 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
-
-#### Analytics / related views
-
-Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°C display).
-
 ### `CMD-1` — Fan cmd/status mismatch
 
 **Summary:** Fan command and proven status disagree.
@@ -2182,6 +2180,108 @@ HW reset requests; RCx `hw_reset_scatter`.
 #### Analytics / related views
 
 CHW reset requests; RCx `chw_reset_scatter`.
+
+
+---
+
+## 9 · Schedule / runtime
+
+### `SCHED-1` — Unoccupied runtime
+
+**Summary:** Flags fan runtime during unoccupied hours from the Overview calendar.
+
+**Equation:** Fan running while occupancy is unoccupied (Overview calendar → occ_mode). When zone_t is mapped, also require zone inside comfort_low_f…comfort_high_f (defaults 70–75°F; synced from Overview zone band).
+
+| Field | Value |
+| --- | --- |
+| Family | `schedule` |
+| Equipment kinds | `ahu` |
+| Operational gate | `always` |
+| Default confirm | 1800s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `occupied` | `occupied` | required |
+| `fan-status` | `fan-status` | required |
+| `zone-air-temp` | `zone-air-temp` | optional |
+
+#### Plot series
+
+- `occupied` → `occupied`
+- `fan-status` → `fan-status`
+- `zone-air-temp` → `zone-air-temp`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `comfort_low_f` | Comfort low | °F | 70 | 60 | 78 | 0.5 |
+| `comfort_high_f` | Comfort high | °F | 75 | 68 | 85 | 0.5 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°C display).
+
+### `SCHED-247` — Always-on fan or pump runtime
+
+**Summary:** Flags fans or pumps that stay on for nearly the entire analysis window (24/7 runtime).
+
+**Equation:** Fan or pump (or similar motor proof/command) is on for ≥ always_on_pct of the analysis window — highlights equipment that appears to run 24/7. Applies to all fans and pumps regardless of equipment family when a status/cmd role is mapped.
+
+| Field | Value |
+| --- | --- |
+| Family | `schedule` |
+| Equipment kinds | `ahu`, `vav`, `chiller`, `boiler`, `heatpump` |
+| Operational gate | `always` |
+| Default confirm | 3600s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `fan-status` | `fan-status` | optional |
+| `pump-status` | `pump-status` | optional |
+| `chw-pump-status` | `chw-pump-status` | optional |
+| `hw-pump-status` | `hw-pump-status` | optional |
+| `chiller-status` | `chiller-status` | optional |
+| `compressor-status` | `compressor-status` | optional |
+| `tower-fan-cmd` | `tower-fan-cmd` | optional |
+| `cw-fan-cmd` | `cw-fan-cmd` | optional |
+| `fan-cmd` | `fan-cmd` | optional |
+| `chw-pump-cmd` | `chw-pump-cmd` | optional |
+| `hw-pump-cmd` | `hw-pump-cmd` | optional |
+
+#### Plot series
+
+- `fan-status` → `fan-status`
+- `pump-status` → `pump-status`
+- `chw-pump-status` → `chw-pump-status`
+- `hw-pump-status` → `hw-pump-status`
+- `chiller-status` → `chiller-status`
+- `compressor-status` → `compressor-status`
+- `tower-fan-cmd` → `tower-fan-cmd`
+- `cw-fan-cmd` → `cw-fan-cmd`
+- `fan-cmd` → `fan-cmd`
+- `chw-pump-cmd` → `chw-pump-cmd`
+- `hw-pump-cmd` → `hw-pump-cmd`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `always_on_pct` | Always-on fraction | frac | 0.95 | 0.8 | 1 | 0.01 |
+| `confirm_min` | Fault confirm delay | min | 60 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Uses fan/pump status (or cmd fallback) across AHU and plant equipment.
 
 ---
 

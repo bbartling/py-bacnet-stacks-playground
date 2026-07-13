@@ -140,6 +140,23 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
     if rule.id == "OAT-METEO":
         ok, reasons = oat_meteo_availability(df)
         return [] if ok else reasons
+    if rule.id == "SCHED-247":
+        proofs = (
+            "fan-status",
+            "pump-status",
+            "chw-pump-status",
+            "hw-pump-status",
+            "chiller-status",
+            "compressor-status",
+            "tower-fan-cmd",
+            "cw-fan-cmd",
+            "fan-cmd",
+            "chw-pump-cmd",
+            "hw-pump-cmd",
+        )
+        if any(r in df.columns and df[r].notna().any() for r in proofs):
+            return []
+        return ["fan_or_pump_status_or_cmd"]
     if rule.sensor_sweep:
         present = [r for r in cb.SWEEP_SENSOR_ROLES if r in df.columns and df[r].notna().any()]
         return [] if present else ["any sensor role from sweep list"]
@@ -177,8 +194,42 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
     return missing
 
 
+_TEMP_PLOT_MARKERS = (
+    "temp",
+    "temperature",
+    "dewpoint",
+    "wetbulb",
+)
+_PRESSURE_PLOT_MARKERS = ("static-pressure", "pressure", "dp", "differential-pressure")
+_TEMP_PCT_COMPANIONS = ("outside-air-damper", "cooling-valve", "heating-valve", "reheat-valve")
+_PRESSURE_PCT_COMPANIONS = (
+    "fan-cmd",
+    "return-fan-cmd",
+    "chw-pump-cmd",
+    "hw-pump-cmd",
+    "pump-cmd",
+    "tower-fan-cmd",
+    "cw-fan-cmd",
+)
+_FAN_CMD_ONLY_RULES = frozenset({"FC1", "AHU-DUCTHI", "TRIM-1", "CMD-1", "SCHED-1", "SCHED-247"})
+
+
+def _role_is_temp(role: str) -> bool:
+    r = role.lower()
+    return any(m in r for m in _TEMP_PLOT_MARKERS) or r.endswith("-temp") or r.endswith("-sp") and "temp" in r
+
+
+def _role_is_pressure(role: str) -> bool:
+    r = role.lower()
+    return any(m in r for m in _PRESSURE_PLOT_MARKERS)
+
+
 def _plot_series_for_rule(rule: cb.CookbookRule, d: pd.DataFrame) -> dict[str, pd.Series]:
-    """Attach rule input columns for plotting (unit-separated in the chart layer)."""
+    """Attach rule input columns for plotting (unit-separated in the chart layer).
+
+    Temperature-primary plots pair with OA damper + heat/cool valves (not fan %).
+    Pressure-primary / FC1 plots pair with fan or pump speeds.
+    """
     out: dict[str, pd.Series] = {}
     if rule.control_output_sweep:
         from app.rules.pid_hunting import iter_control_output_series
@@ -192,6 +243,37 @@ def _plot_series_for_rule(rule: cb.CookbookRule, d: pd.DataFrame) -> dict[str, p
     for role in roles:
         if role in d.columns and d[role].notna().any():
             out[role] = d[role]
+    for opt in rule.optional_roles or ():
+        if opt in d.columns and d[opt].notna().any() and opt not in out:
+            out[opt] = d[opt]
+
+    has_temp = any(_role_is_temp(r) for r in out)
+    has_pressure = any(_role_is_pressure(r) for r in out)
+    allow_fan_cmd = rule.id in _FAN_CMD_ONLY_RULES or has_pressure
+
+    if has_temp and not has_pressure:
+        if not allow_fan_cmd:
+            out.pop("fan-cmd", None)
+            out.pop("return-fan-cmd", None)
+        for c in _TEMP_PCT_COMPANIONS:
+            if c in d.columns and d[c].notna().any():
+                out[c] = d[c]
+    if has_pressure or rule.id in {"FC1", "AHU-DUCTHI", "TRIM-1"}:
+        for c in _PRESSURE_PCT_COMPANIONS:
+            if c in d.columns and d[c].notna().any():
+                out[c] = d[c]
+    if rule.id == "SCHED-247":
+        for c in (
+            "fan-status",
+            "pump-status",
+            "chw-pump-status",
+            "hw-pump-status",
+            "fan-cmd",
+            "chw-pump-cmd",
+            "hw-pump-cmd",
+        ):
+            if c in d.columns and d[c].notna().any():
+                out[c] = d[c]
     return out
 
 
@@ -313,6 +395,9 @@ def run_cookbook_rule(
             metrics["weather_gate"] = "open-meteo dew point" if wx_ok else "imperial OAT fallback"
         if d.attrs.get("oa_t_injected_from"):
             metrics["oa_t_injected_from"] = d.attrs["oa_t_injected_from"]
+        if rule.id in {"SV-RATE", "SV-SLEW"}:
+            metrics["sv_rate_evidence"] = list(d.attrs.get("sv_rate_evidence") or [])
+            metrics["sv_rate_state_meta"] = dict(d.attrs.get("sv_rate_state_meta") or {})
         use_active = bool(gate_meta.get("gate_applied"))
         return finalize_result(
             rule.id,
