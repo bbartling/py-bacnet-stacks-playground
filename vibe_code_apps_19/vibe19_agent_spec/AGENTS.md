@@ -36,6 +36,12 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); opt-in coverage + catalog DOCX. Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md).
 23. **Analytics golden baseline** — before perf/analytics edits run `pytest tests/test_analytics_golden.py`; regen with `VIBE19_UPDATE_ANALYTICS_GOLDEN=1`. Harness: `app/analytics_baseline.py`.
 24. **Perf bottlenecks** — eager Export/FDD DOCX + `rcx_preset_coverage`, Folder cache copies, rule-batch frame copies, `iterrows` scatters. Do not reintroduce eager `st.tabs`. Findings: [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md).
+25. **README + GHCR pull-latest stay current** — after Docker/GHCR/deploy changes (and whenever shipping a new image), keep **`../README.md` → Docker / GHCR** and **`../docs/DOCKER.md`** aligned with the easy-button update path:
+    - Image tip: `ghcr.io/bbartling/vibe19:latest` (same tip as `:develop` while default branch is `develop`)
+    - Scripts: `scripts/docker_update_vibe19.sh` / `scripts/docker_update_vibe19.ps1` (pull + recreate — containers never auto-update)
+    - Clarify that GitHub Packages “Latest” on a `sha-…` version ≠ Docker `:latest` and ≠ auto-update
+    - Do **not** leave README stuck on stale one-shot `--rm` examples as the only path
+    - Detail: [`docs/DOCKER.md`](../docs/DOCKER.md) · workflow: `../../.github/workflows/vibe19-ghcr.yml`
 
 ---
 
@@ -50,6 +56,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 5c. **`docs/PLOTS_DOCX_VALIDATION.md`** — when editing FDD Plots / FDD DOCX / rule cards
 5d. **`docs/RULE_PLOT_CATALOG.md`** — per-rule chart points, Haystack tags, sliders (all 50)
 5e. **`docs/PERF_BOTTLENECKS.md`** — why the UI is slow; what not to regress; safe follow-ups
+5f. **`../README.md` (Docker / GHCR)** + **`../docs/DOCKER.md`** — when shipping images or changing pull/run instructions; keep easy-button pull-latest scripts documented
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
@@ -87,6 +94,10 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `vibe19_agent_spec/docs/CUSTOM_RULES.md` | How to add special / site rules |
 | `vibe19_agent_spec/docs/PLOTS_DOCX_VALIDATION.md` | FDD Plots cards + FDD DOCX contract |
 | `vibe19_agent_spec/docs/RULE_PLOT_CATALOG.md` | All 50 rules: Haystack tags, plot series, sliders |
+| `scripts/docker_update_vibe19.sh` / `.ps1` | **Easy button:** `docker pull` tip + recreate long-running container |
+| `../README.md` → Docker / GHCR | Newbie pull-latest / long-running recipe (keep in sync) |
+| `../docs/DOCKER.md` | Full Docker + GHCR (tags, Pi, bootstrap mounts) |
+| `.github/workflows/vibe19-ghcr.yml` | Publishes `ghcr.io/<owner>/vibe19` (`:latest`, `:develop`, `:sha-…`) |
 | `configs/` | Rule inventory, defaults, role_map.yaml |
 | `scripts/csv_parity_check.py` | Run 50 rules on any building folder (CI/parity) |
 | `tests/` | Pytest |

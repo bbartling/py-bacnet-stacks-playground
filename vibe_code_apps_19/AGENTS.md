@@ -28,7 +28,7 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 4. **Do not recreate** `haystack_rdf/`, `fdd_app/`, `fdd_dashboard_model/`
 5. **Web OAT by default** for analytics / free-cool / physics rules needing OAT (`oa_t_effective`); OAT-METEO compares BAS vs web **only when both exist**
 6. **`python -m pytest -q`** before done (Windows locked temp: `scripts/run_tests_local.ps1`)
-7. **Keep `vibe19_agent_spec/` in sync** after UI/plot/rule changes (`SESSION_LOG.md`, skills, checkpoints)
+7. **Keep `vibe19_agent_spec/` in sync** after UI/plot/rule changes (`SESSION_LOG.md`, skills, checkpoints). After Docker/GHCR ships: keep root **`README.md` Docker/GHCR** + **`docs/DOCKER.md`** documenting **pull-latest** (`:latest` / easy-button `scripts/docker_update_vibe19.(sh|ps1)`). Spec: [`vibe19_agent_spec/AGENTS.md`](vibe19_agent_spec/AGENTS.md) rule 25.
 8. **Bad uploads must not crash the app** — raise/catch `PackageError`, show sidebar error, wipe temp dir; never leave uncaught exceptions on zip load
 9. **Agent API is importable Python only** — `app/agent_api.py` (+ optional CLI). No HTTP API / background server.
 10. **Runtime proof = motor/status first** — chiller weekly + mech-cooling OAT bins use designated `chw_pump_status` / `chw_pump_cmd` (or DX compressor on AHU/HP/RTU). If the data model has **no pump to map**, **omit** that chiller from run-hours charts — do **not** invent runtime from CHW leave/supply temp. Motor charts prefer mapped fan/pump roles before column-name heuristics.
@@ -58,7 +58,7 @@ python scripts/agent_afdd.py --package path\to\BUILDING_100_full_openfdd_package
 - Container Streamlit listens on **internal :8501**; browse the **host** port from `-p HOST:8501` (e.g. http://localhost:8502 when `-p 8502:8501`).
 - Bootstrap JSON from `agent_afdd.py` embeds **host paths**. A container **cannot** open `C:\Users\…\file.zip`.
 - Bind-mount the package directory and set container paths, e.g. `package_path: "/data/package.zip"` and `VIBE19_BOOTSTRAP=/data/VIBE19_BUILDING_100_BOOTSTRAP.json`.
-- Full Windows example + port-conflict notes: [`docs/DOCKER.md`](docs/DOCKER.md).
+- Full Windows example + port-conflict notes + **pull-latest easy button**: [`docs/DOCKER.md`](docs/DOCKER.md) · root [`README.md`](README.md) Docker/GHCR · `scripts/docker_update_vibe19.(sh|ps1)`.
 
 ### Data-contract warnings (do not hide)
 
@@ -111,7 +111,7 @@ Agents prepare data **offline**, then drive the UI (or a human) to load it.
   - Override package caps: `OPENFDD_MAX_ZIP_MB`, `OPENFDD_MAX_UNCOMPRESSED_MB`, `OPENFDD_MAX_ENTRIES`, `OPENFDD_MAX_EQUIPMENT`
   - UI shows loaded dataset size (MB) vs limits in the sidebar and Overview
   - Local agents: sidebar **Package zip path** → **Load zip from path**; also **Fault settings JSON path** / **Session config JSON path**
-  - Self-host Docker / GHCR: [`docs/DOCKER.md`](docs/DOCKER.md) (`docker pull ghcr.io/bbartling/vibe19:develop`) — Community Cloud does **not** use the Dockerfile
+  - Self-host Docker / GHCR: [`docs/DOCKER.md`](docs/DOCKER.md) + root **[`README.md`](README.md) Docker/GHCR** — tip `ghcr.io/bbartling/vibe19:latest`; easy button `scripts/docker_update_vibe19.(sh|ps1)` (pull + recreate). Community Cloud does **not** use the Dockerfile
   - Fork / customize (DB ingest, branding, custom faults): [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
 ### Shitty / hostile CSV handling (implemented)
@@ -150,7 +150,7 @@ python scripts/generate_rule_configs.py
 - [docs/PACKAGE_SPEC.md](docs/PACKAGE_SPEC.md) — **preprocess + timestamps for zip/Cloud**
 - [docs/DATA_MODEL_DRIVEN.md](docs/DATA_MODEL_DRIVEN.md) — roles vs heuristics (chiller↔pump)
 - [docs/STREAMLIT_CLOUD.md](docs/STREAMLIT_CLOUD.md)
-- [docs/DOCKER.md](docs/DOCKER.md) — self-host only (`docker build -t vibe19 .`)
+- [docs/DOCKER.md](docs/DOCKER.md) — self-host / GHCR; pull-latest easy button (`scripts/docker_update_vibe19.*`); also root [README.md](README.md) Docker section
 - [vibe19_agent_spec/docs/CUSTOMIZE.md](vibe19_agent_spec/docs/CUSTOMIZE.md) — fork: DB ingest, branding, custom faults, deploy
 - [vibe19_agent_spec/DATA_CONTRACT.md](vibe19_agent_spec/DATA_CONTRACT.md) — folder tree contract
 - [vibe19_agent_spec/AGENTS.md](vibe19_agent_spec/AGENTS.md)

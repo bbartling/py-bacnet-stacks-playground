@@ -82,6 +82,18 @@ Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU
 
 FDD Plots/DOCX detail: [`docs/PLOTS_DOCX_VALIDATION.md`](../../docs/PLOTS_DOCX_VALIDATION.md) · per-rule catalog: [`docs/RULE_PLOT_CATALOG.md`](../../docs/RULE_PLOT_CATALOG.md) · RCx: [`docs/RCX_PLOTS.md`](../../docs/RCX_PLOTS.md).
 
+### README / GHCR (agent duty)
+
+When shipping Docker/GHCR or changing how users run the image, **always** update:
+
+| Doc / script | Must stay true |
+| --- | --- |
+| [`README.md`](../../../README.md) → **Docker / GHCR** | Easy-button pull-latest (`:latest`) + long-running `-d --restart` |
+| [`docs/DOCKER.md`](../../../docs/DOCKER.md) | Same recipe + Pi / bootstrap |
+| `scripts/docker_update_vibe19.sh` / `.ps1` | Pull tip + recreate container (containers never auto-update) |
+
+Do not leave README with only stale `--rm` one-shot examples. Spec: [`AGENTS.md`](../../AGENTS.md) rule **25**.
+
 ## Hard rules
 
 1. **53 canonical rules** — never silently omit statuses

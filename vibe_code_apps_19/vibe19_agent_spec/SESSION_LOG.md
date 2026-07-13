@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-13 — README / GHCR pull-latest easy button (agent duty)
+
+- Agents must keep **`README.md` Docker/GHCR** + **`docs/DOCKER.md`** documenting `:latest` tip + `scripts/docker_update_vibe19.(sh|ps1)` (pull + recreate)
+- Spec rule #25 in [`AGENTS.md`](AGENTS.md); GHCR “Latest” on `sha-…` ≠ auto-update
+- Image: `ghcr.io/bbartling/vibe19:latest` (tracks develop tip)
+
+---
+
 ## 2026-07-12 — RCx fan/pump filter + PID AO data model
 
 - RCx: checkbox filter to fan-on (air) / pump-on (plant); default on; instant Streamlit rerun

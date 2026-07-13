@@ -20,7 +20,7 @@ App 19 is a **reusable template**, not a single-building product. The code in th
 | UI / brand | `streamlit_app.py`, `shared/branding.py`, `assets/` | Title, hero image, copy |
 | Charts | `app/charts.py` + **FDD Plots** cards + **RCx Plots** | Series / units / presets; FDD DOCX via `app/rule_card.py` + `app/docx_report.py` |
 | Weather | `app/weather_psychrometrics.py` + `weather/` CSV | Web OAT / RH → dewpoint & wet-bulb |
-| Deploy | Package caps 500 MB default | Docker vs Streamlit Cloud — CUSTOMIZE.md |
+| Deploy | Package caps 500 MB browser; GHCR `vibe19:latest` | Docker vs Streamlit Cloud — keep **README Docker/GHCR** + `docs/DOCKER.md` + `scripts/docker_update_vibe19.*` current (CUSTOMIZE.md) |
 
 ---
 
