@@ -18,13 +18,13 @@ def test_fan_status_preferred_over_fan_cmd():
     idx = pd.date_range("2024-01-01", periods=4, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "fan_cmd": [100, 100, 100, 100],
-            "fan_status": [0, 0, 1, 1],
+            "fan-cmd": [100, 100, 100, 100],
+            "fan-status": [0, 0, 1, 1],
         },
         index=idx,
     )
     mask, src = resolve_fan_running(df)
-    assert src == "fan_status"
+    assert src == "fan-status"
     assert list(mask.astype(int)) == [0, 0, 1, 1]
 
 
@@ -32,11 +32,11 @@ def test_fc2_skips_when_fan_off_entire_period():
     idx = pd.date_range("2024-01-01", periods=12, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "mat": [50.0] * 12,
-            "rat": [70.0] * 12,
-            "oa_t": [30.0] * 12,
-            "fan_cmd": [0.0] * 12,
-            "fan_status": [0] * 12,
+            "mixed-air-temp": [50.0] * 12,
+            "return-air-temp": [70.0] * 12,
+            "outside-air-temp": [30.0] * 12,
+            "fan-cmd": [0.0] * 12,
+            "fan-status": [0] * 12,
         },
         index=idx,
     )
@@ -57,8 +57,8 @@ def test_sv_range_gated_by_fan_status():
     # Out-of-range SAT but fan off entire window → skip (no active samples)
     df = pd.DataFrame(
         {
-            "sat": [200.0] * 12,
-            "fan_status": [0] * 12,
+            "discharge-air-temp": [200.0] * 12,
+            "fan-status": [0] * 12,
         },
         index=idx,
     )
@@ -78,9 +78,9 @@ def test_chw_rule_gated_by_pump_status():
     idx = pd.date_range("2024-01-01", periods=12, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "chw_supply_t": [44.0] * 12,
-            "chw_return_t": [44.0] * 12,
-            "chw_pump_status": [0] * 12,
+            "chilled-water-supply-temp": [44.0] * 12,
+            "chilled-water-return-temp": [44.0] * 12,
+            "chw-pump-status": [0] * 12,
         },
         index=idx,
     )
@@ -103,8 +103,8 @@ def test_plant_sv_uses_pump_when_no_fan():
     idx = pd.date_range("2024-01-01", periods=6, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "chw_supply_t": [44.0] * 6,
-            "chw_pump_status": [1, 1, 1, 0, 0, 0],
+            "chilled-water-supply-temp": [44.0] * 6,
+            "chw-pump-status": [1, 1, 1, 0, 0, 0],
         },
         index=idx,
     )
@@ -128,10 +128,10 @@ def test_gate_disabled_global_does_not_skip():
     idx = pd.date_range("2024-01-01", periods=12, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "mat": [50.0] * 12,
-            "rat": [70.0] * 12,
-            "oa_t": [30.0] * 12,
-            "fan_cmd": [0.0] * 12,
+            "mixed-air-temp": [50.0] * 12,
+            "return-air-temp": [70.0] * 12,
+            "outside-air-temp": [30.0] * 12,
+            "fan-cmd": [0.0] * 12,
         },
         index=idx,
     )
@@ -148,7 +148,7 @@ def test_gate_disabled_global_does_not_skip():
 
 def test_resolve_mask_meta_for_always():
     idx = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-    df = pd.DataFrame({"oa_t": [70, 71, 72]}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [70, 71, 72]}, index=idx)
     active, meta = resolve_operational_mask(df, "SCHED-1", poll_seconds=300)
     assert active.all()
     assert meta["gate_kind"] == "always"
@@ -156,7 +156,7 @@ def test_resolve_mask_meta_for_always():
 
 def test_resolve_mask_meta_equipment_energized_without_proof_ungated():
     idx = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-    df = pd.DataFrame({"oa_t": [70, 71, 72]}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [70, 71, 72]}, index=idx)
     active, meta = resolve_operational_mask(df, "SV-RANGE", poll_seconds=300)
     assert active.all()
     assert meta["gate_kind"] == "equipment_energized"

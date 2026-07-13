@@ -1,10 +1,8 @@
-"""LLM-friendly JSON column → logical role mapping (Haystack-like + Open-FDD).
+"""Haystack-like point → CSV column map (rules read the same point names).
 
-Rules never read raw vendor column names. They need cookbook logical roles (`sat`,
-`zone_t`, …). Authors (humans / LLMs) should prefer **Project Haystack–style**
-names: ``siteRef``, ``equip``, ``device``, ``equipType``, ``points`` with tags like
-``discharge-air-temp``. This module accepts that JSON (and legacy cookbook JSON)
-and normalizes to the runtime role_map.
+Authors (humans / LLMs) use Project Haystack–style names: ``siteRef``, ``equip``,
+``device``, ``equipType``, ``points`` with tags like ``discharge-air-temp``.
+Runtime role_map / DataFrames use those same names — no intermediate vocabulary.
 """
 
 from __future__ import annotations
@@ -49,193 +47,129 @@ FAMILY_LABELS: dict[str, str] = {
     "other": "9 · Other",
 }
 
-# Haystack-like point names → Open-FDD cookbook roles (rules engine).
-HAYSTACK_POINT_TO_COOKBOOK: dict[str, str] = {
-    "discharge-air-temp": "sat",
-    "discharge-air-temperature": "sat",
-    "dischargeAirTemp": "sat",
-    "da-temp": "sat",
-    "sat": "sat",
-    "discharge-air-temp-sp": "sat_sp",
-    "discharge-air-sp": "sat_sp",
-    "sat-sp": "sat_sp",
-    "sat_sp": "sat_sp",
-    "mixed-air-temp": "mat",
-    "mixedAirTemp": "mat",
-    "mat": "mat",
-    "return-air-temp": "rat",
-    "returnAirTemp": "rat",
-    "rat": "rat",
-    "outside-air-temp": "oa_t",
-    "outdoor-air-temp": "oa_t",
-    "outsideAirTemp": "oa_t",
-    "oa-temp": "oa_t",
-    "oa_t": "oa_t",
-    "outside-air-damper": "oa_damper_pct",
-    "oa-damper": "oa_damper_pct",
-    "oa_damper_pct": "oa_damper_pct",
-    "cool-valve": "clg_valve_pct",
-    "cooling-valve": "clg_valve_pct",
-    "clg-valve": "clg_valve_pct",
-    "clg_valve_pct": "clg_valve_pct",
-    "heat-valve": "htg_valve_pct",
-    "heating-valve": "htg_valve_pct",
-    "htg-valve": "htg_valve_pct",
-    "htg_valve_pct": "htg_valve_pct",
-    "fan-cmd": "fan_cmd",
-    "supply-fan-cmd": "fan_cmd",
-    "fan_cmd": "fan_cmd",
-    "return-fan-cmd": "return_fan_cmd",
-    "return_fan_cmd": "return_fan_cmd",
-    "fan-status": "fan_status",
-    "supply-fan-status": "fan_status",
-    "fan_status": "fan_status",
-    "duct-static": "duct_static",
-    "duct-static-pressure": "duct_static",
-    "duct_static": "duct_static",
-    "duct-static-sp": "duct_static_sp",
-    "duct-static-pressure-sp": "duct_static_sp",
-    "duct_static_sp": "duct_static_sp",
-    "zone-air-temp": "zone_t",
-    "zone-temp": "zone_t",
-    "space-air-temp": "zone_t",
-    "space-temp": "zone_t",
-    "zoneAirTemp": "zone_t",
-    "zone_t": "zone_t",
-    "zone-airflow": "zone_flow",
-    "zone-flow": "zone_flow",
-    "discharge-air-flow": "zone_flow",
-    "airflow": "zone_flow",
-    "zone_flow": "zone_flow",
-    "min-flow-sp": "min_flow_sp",
-    "min_flow_sp": "min_flow_sp",
-    "damper": "damper_pct",
-    "zone-damper": "damper_pct",
-    "vav-damper": "damper_pct",
-    "damper_pct": "damper_pct",
-    "reheat-valve": "reheat_valve_pct",
-    "reheat_valve_pct": "reheat_valve_pct",
-    "vav-discharge-air-temp": "vav_disch_t",
-    "vav-discharge-temp": "vav_disch_t",
-    "vav_disch_t": "vav_disch_t",
-    "vav-inlet-air-temp": "vav_inlet_t",
-    "vav-inlet-temp": "vav_inlet_t",
-    "vav_inlet_t": "vav_inlet_t",
-    "chilled-water-supply-temp": "chw_supply_t",
-    "chw-supply-temp": "chw_supply_t",
-    "chw_supply_t": "chw_supply_t",
-    "chilled-water-return-temp": "chw_return_t",
-    "chw-return-temp": "chw_return_t",
-    "chw_return_t": "chw_return_t",
-    "hot-water-supply-temp": "hw_supply_t",
-    "hw-supply-temp": "hw_supply_t",
-    "hw_supply_t": "hw_supply_t",
-    "hot-water-return-temp": "hw_return_t",
-    "hw-return-temp": "hw_return_t",
-    "hw_return_t": "hw_return_t",
-    "occupied": "occ_mode",
-    "occ-mode": "occ_mode",
-    "occ_mode": "occ_mode",
-    "chw-diff-pressure": "chw_dp",
-    "chw_dp": "chw_dp",
-    "chw-diff-pressure-sp": "chw_dp_sp",
-    "chw_dp_sp": "chw_dp_sp",
-    "chw-flow": "chw_flow",
-    "chw_flow": "chw_flow",
-    "chw-pump-cmd": "chw_pump_cmd",
-    "chw_pump_cmd": "chw_pump_cmd",
-    "tower-fan-cmd": "tower_fan_cmd",
-    "tower_fan_cmd": "tower_fan_cmd",
-    "cw-fan-cmd": "cw_fan_cmd",
-    "cw_fan_cmd": "cw_fan_cmd",
-    "cw-pump-cmd": "cw_pump_cmd",
-    "cw_pump_cmd": "cw_pump_cmd",
-    "chw-reset-request-sum": "chw_reset_req_sum",
-    "chw_reset_req_sum": "chw_reset_req_sum",
-    "chilled-water-supply-temp-sp": "chw_supply_t_sp",
-    "chw_supply_t_sp": "chw_supply_t_sp",
-    "cooling-coil-entering-temp": "clg_coil_enter_t",
-    "clg_coil_enter_t": "clg_coil_enter_t",
-    "cooling-coil-leaving-temp": "clg_coil_leave_t",
-    "clg_coil_leave_t": "clg_coil_leave_t",
-    "condenser-water-supply-temp": "cw_supply_t",
-    "cw_supply_t": "cw_supply_t",
-    "heating-coil-entering-temp": "htg_coil_enter_t",
-    "htg_coil_enter_t": "htg_coil_enter_t",
-    "heating-coil-leaving-temp": "htg_coil_leave_t",
-    "htg_coil_leave_t": "htg_coil_leave_t",
-    "hw-reset-request-sum": "hw_reset_req_sum",
-    "hw_reset_req_sum": "hw_reset_req_sum",
-    "loop-enabled": "loop_enabled",
-    "loop_enabled": "loop_enabled",
-    "preheat-leaving-temp": "preheat_leave_t",
-    "preheat_leave_t": "preheat_leave_t",
-    "vav-pressure-request-sum": "vav_press_req_sum",
-    "vav_press_req_sum": "vav_press_req_sum",
-    "vav-total-airflow": "vav_total_flow",
-    "vav_total_flow": "vav_total_flow",
-    "web-outside-air-temp": "wx_oa_t",
-    "wx_oa_t": "wx_oa_t",
+# Preferred display / inventory name for each logical point (identity for most).
+# Kept as a dict so Data Model / plots can still resolve a label.
+POINT_DISPLAY: dict[str, str] = {
+    "discharge-air-temp": "discharge-air-temp",
+    "discharge-air-temp-sp": "discharge-air-temp-sp",
+    "mixed-air-temp": "mixed-air-temp",
+    "return-air-temp": "return-air-temp",
+    "outside-air-temp": "outside-air-temp",
+    "outside-air-humidity": "outside-air-humidity",
+    "outside-air-damper": "outside-air-damper",
+    "cooling-valve": "cooling-valve",
+    "heating-valve": "heating-valve",
+    "fan-cmd": "fan-cmd",
+    "return-fan-cmd": "return-fan-cmd",
+    "fan-status": "fan-status",
+    "duct-static-pressure": "duct-static-pressure",
+    "duct-static-pressure-sp": "duct-static-pressure-sp",
+    "zone-air-temp": "zone-air-temp",
+    "zone-airflow": "zone-airflow",
+    "min-flow-sp": "min-flow-sp",
+    "damper": "damper",
+    "reheat-valve": "reheat-valve",
+    "vav-discharge-air-temp": "vav-discharge-air-temp",
+    "vav-inlet-air-temp": "vav-inlet-air-temp",
+    "ahu-discharge-air-temp": "ahu-discharge-air-temp",
+    "chilled-water-supply-temp": "chilled-water-supply-temp",
+    "chilled-water-return-temp": "chilled-water-return-temp",
+    "hot-water-supply-temp": "hot-water-supply-temp",
+    "hot-water-return-temp": "hot-water-return-temp",
+    "occupied": "occupied",
+    "chw-diff-pressure": "chw-diff-pressure",
+    "chw-diff-pressure-sp": "chw-diff-pressure-sp",
+    "chw-flow": "chw-flow",
+    "chw-pump-cmd": "chw-pump-cmd",
+    "chw-pump-status": "chw-pump-status",
+    "cw-pump-cmd": "cw-pump-cmd",
+    "tower-fan-cmd": "tower-fan-cmd",
+    "cw-fan-cmd": "cw-fan-cmd",
+    "chw-reset-request-sum": "chw-reset-request-sum",
+    "chilled-water-supply-temp-sp": "chilled-water-supply-temp-sp",
+    "cooling-coil-entering-temp": "cooling-coil-entering-temp",
+    "cooling-coil-leaving-temp": "cooling-coil-leaving-temp",
+    "condenser-water-supply-temp": "condenser-water-supply-temp",
+    "heating-coil-entering-temp": "heating-coil-entering-temp",
+    "heating-coil-leaving-temp": "heating-coil-leaving-temp",
+    "hw-reset-request-sum": "hw-reset-request-sum",
+    "loop-enabled": "loop-enabled",
+    "preheat-leaving-temp": "preheat-leaving-temp",
+    "vav-pressure-request-sum": "vav-pressure-request-sum",
+    "vav-total-airflow": "vav-total-airflow",
+    "web-outside-air-temp": "web-outside-air-temp",
+    "web-outside-air-humidity": "web-outside-air-humidity",
+    "web-outside-air-dewpoint": "web-outside-air-dewpoint",
+    "web-outside-air-wetbulb": "web-outside-air-wetbulb",
+    "elec-power": "elec-power",
+    "building-power": "building-power",
+    "meter-power": "meter-power",
+    "chiller-power": "chiller-power",
+    "gas-flow": "gas-flow",
+    "gas-rate": "gas-rate",
+    "nat-gas-flow": "nat-gas-flow",
+    "gas-therm-rate": "gas-therm-rate",
+    "pump-cmd": "pump-cmd",
+    "hw-pump-cmd": "hw-pump-cmd",
+    "control-output-pct": "control-output-pct",
+    "chiller-status": "chiller-status",
+    "chiller-amps": "chiller-amps",
+    "pump-status": "pump-status",
+    "hw-pump-status": "hw-pump-status",
+    "compressor-status": "compressor-status",
+    "equipment-enable": "equipment-enable",
+    "fan-speed-feedback": "fan-speed-feedback",
+    "fan-current": "fan-current",
+    "fan-power": "fan-power",
+    "airflow-proof": "airflow-proof",
+    "dx-stage": "dx-stage",
+    "dx-cool-cmd": "dx-cool-cmd",
+    "cool-stage": "cool-stage",
+    "dx-cooling": "dx-cooling",
+    "pump-speed-feedback": "pump-speed-feedback",
+    "pump-current": "pump-current",
+    "water-flow": "water-flow",
+    "bas-outside-air-temp": "bas-outside-air-temp",
 }
 
-# Preferred Haystack export name per cookbook role.
-COOKBOOK_TO_HAYSTACK_POINT: dict[str, str] = {
-    "sat": "discharge-air-temp",
-    "sat_sp": "discharge-air-temp-sp",
-    "mat": "mixed-air-temp",
-    "rat": "return-air-temp",
-    "oa_t": "outside-air-temp",
-    "oa_damper_pct": "outside-air-damper",
-    "clg_valve_pct": "cooling-valve",
-    "htg_valve_pct": "heating-valve",
-    "fan_cmd": "fan-cmd",
-    "return_fan_cmd": "return-fan-cmd",
-    "return_fan_cmd": "return-fan-cmd",
-    "fan_status": "fan-status",
-    "duct_static": "duct-static-pressure",
-    "duct_static_sp": "duct-static-pressure-sp",
-    "zone_t": "zone-air-temp",
-    "zone_flow": "zone-airflow",
-    "min_flow_sp": "min-flow-sp",
-    "damper_pct": "damper",
-    "reheat_valve_pct": "reheat-valve",
-    "vav_disch_t": "vav-discharge-air-temp",
-    "vav_inlet_t": "vav-inlet-air-temp",
-    "ahu_sat": "ahu-discharge-air-temp",
-    "chw_supply_t": "chilled-water-supply-temp",
-    "chw_return_t": "chilled-water-return-temp",
-    "hw_supply_t": "hot-water-supply-temp",
-    "hw_return_t": "hot-water-return-temp",
-    "occ_mode": "occupied",
-    # Plant / economizer / weather extras used by the 50-rule catalog
-    "chw_dp": "chw-diff-pressure",
-    "chw_dp_sp": "chw-diff-pressure-sp",
-    "chw_flow": "chw-flow",
-    "chw_pump_cmd": "chw-pump-cmd",
-    "cw_pump_cmd": "cw-pump-cmd",
-    "tower_fan_cmd": "tower-fan-cmd",
-    "cw_fan_cmd": "cw-fan-cmd",
-    "chw_reset_req_sum": "chw-reset-request-sum",
-    "chw_supply_t_sp": "chilled-water-supply-temp-sp",
-    "clg_coil_enter_t": "cooling-coil-entering-temp",
-    "clg_coil_leave_t": "cooling-coil-leaving-temp",
-    "cw_supply_t": "condenser-water-supply-temp",
-    "htg_coil_enter_t": "heating-coil-entering-temp",
-    "htg_coil_leave_t": "heating-coil-leaving-temp",
-    "hw_reset_req_sum": "hw-reset-request-sum",
-    "loop_enabled": "loop-enabled",
-    "preheat_leave_t": "preheat-leaving-temp",
-    "vav_press_req_sum": "vav-pressure-request-sum",
-    "vav_total_flow": "vav-total-airflow",
+# Alternate authoring tags → canonical point name.
+POINT_ALIASES: dict[str, str] = {
+    "discharge-air-temperature": "discharge-air-temp",
+    "dischargeAirTemp": "discharge-air-temp",
+    "da-temp": "discharge-air-temp",
+    "discharge-air-sp": "discharge-air-temp-sp",
+    "sat-sp": "discharge-air-temp-sp",
+    "mixedAirTemp": "mixed-air-temp",
+    "returnAirTemp": "return-air-temp",
+    "outdoor-air-temp": "outside-air-temp",
+    "outsideAirTemp": "outside-air-temp",
+    "oa-temp": "outside-air-temp",
+    "oa-damper": "outside-air-damper",
+    "cool-valve": "cooling-valve",
+    "clg-valve": "cooling-valve",
+    "heat-valve": "heating-valve",
+    "htg-valve": "heating-valve",
+    "supply-fan-cmd": "fan-cmd",
+    "supply-fan-status": "fan-status",
+    "duct-static": "duct-static-pressure",
+    "duct-static-sp": "duct-static-pressure-sp",
+    "zone-temp": "zone-air-temp",
+    "space-air-temp": "zone-air-temp",
+    "space-temp": "zone-air-temp",
+    "zoneAirTemp": "zone-air-temp",
+    "zone-flow": "zone-airflow",
+    "discharge-air-flow": "zone-airflow",
+    "airflow": "zone-airflow",
+    "zone-damper": "damper",
+    "vav-damper": "damper",
+    "vav-discharge-temp": "vav-discharge-air-temp",
+    "vav-inlet-temp": "vav-inlet-air-temp",
+    "chw-supply-temp": "chilled-water-supply-temp",
+    "chw-return-temp": "chilled-water-return-temp",
+    "hw-supply-temp": "hot-water-supply-temp",
+    "hw-return-temp": "hot-water-return-temp",
+    "occ-mode": "occupied",
     "wx_oa_t": "web-outside-air-temp",
-    "elec_power_kw": "elec-power",
-    "building_power_kw": "building-power",
-    "meter_power_kw": "meter-power",
-    "chiller_power_kw": "chiller-power",
-    "gas_flow": "gas-flow",
-    "gas_rate": "gas-rate",
-    "nat_gas_flow": "nat-gas-flow",
-    "gas_therm_rate": "gas-therm-rate",
 }
 
 HAYSTACK_EQUIP_TYPE_TO_COOKBOOK: dict[str, str] = {
@@ -278,6 +212,9 @@ COOKBOOK_EQUIP_TO_HAYSTACK: dict[str, str] = {
     "UNKNOWN": "unknown",
 }
 
+# Back-compat aliases used by Data Model / plot meta (display = point name).
+COOKBOOK_TO_HAYSTACK_POINT = POINT_DISPLAY
+
 _META_KEYS = {
     "version",
     "building_id",
@@ -306,7 +243,7 @@ def family_label(family: str) -> str:
 
 def _slug_point_key(name: str) -> str:
     s = str(name).strip()
-    if s in HAYSTACK_POINT_TO_COOKBOOK:
+    if s in POINT_DISPLAY or s in POINT_ALIASES:
         return s
     s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", s)
     s2 = s2.replace("_", "-").replace(" ", "-").lower()
@@ -314,17 +251,27 @@ def _slug_point_key(name: str) -> str:
     return s2
 
 
-def haystack_point_to_cookbook(point_name: str) -> str | None:
-    """Map a Haystack-like or cookbook point name to a cookbook role, or None if unknown."""
+def canonicalize_point(point_name: str) -> str:
+    """Normalize an authoring point name to the canonical Haystack slug."""
     raw = str(point_name).strip()
-    if raw in HAYSTACK_POINT_TO_COOKBOOK:
-        return HAYSTACK_POINT_TO_COOKBOOK[raw]
-    slug = _slug_point_key(raw)
-    if slug in HAYSTACK_POINT_TO_COOKBOOK:
-        return HAYSTACK_POINT_TO_COOKBOOK[slug]
-    if raw in COOKBOOK_TO_HAYSTACK_POINT:
+    if raw in POINT_DISPLAY:
         return raw
-    return None
+    if raw in POINT_ALIASES:
+        return POINT_ALIASES[raw]
+    slug = _slug_point_key(raw)
+    if slug in POINT_DISPLAY:
+        return slug
+    if slug in POINT_ALIASES:
+        return POINT_ALIASES[slug]
+    return slug
+
+
+def haystack_point_to_cookbook(point_name: str) -> str | None:
+    """Return canonical point name (kept name for call-sites during migration)."""
+    raw = str(point_name).strip()
+    if not raw:
+        return None
+    return canonicalize_point(raw)
 
 
 def haystack_equip_type_to_cookbook(equip_type: str, equip_id: str = "") -> str:
@@ -340,15 +287,12 @@ def haystack_equip_type_to_cookbook(equip_type: str, equip_id: str = "") -> str:
 
 
 def normalize_point_roles(points: dict[str, Any]) -> dict[str, str]:
-    """Accept Haystack point names or cookbook roles → cookbook role → column."""
+    """Accept Haystack point names → canonical point → column."""
     out: dict[str, str] = {}
     for name, col in points.items():
         if not name or not col:
             continue
-        role = haystack_point_to_cookbook(str(name))
-        if role is None:
-            role = str(name)
-        out[role] = str(col)
+        out[canonicalize_point(str(name))] = str(col)
     return out
 
 
@@ -365,7 +309,7 @@ def empty_column_map(
         "building_id": building_id or "UNNAMED_BUILDING",
         "generated_by": generated_by,
         "notes": (
-            "Haystack-like map: siteRef / equip / device / points → cookbook roles for rules. "
+            "Haystack-like map: siteRef / equip / device / points → CSV columns. "
             "units keep plots from mixing °F with % / cfm. CSVs are not rewritten."
         ),
         "units": dict(DEFAULT_ROLE_UNITS),
@@ -374,16 +318,13 @@ def empty_column_map(
 
 
 def to_haystack_document(data: dict[str, Any]) -> dict[str, Any]:
-    """Export normalized map using Haystack-style keys (equip / points / equipType)."""
+    """Export map using Haystack-style keys (equip / points / equipType)."""
     norm = normalize_column_map(data)
     equip_out: dict[str, Any] = {}
     for eq_id, block in (norm.get("equipment") or {}).items():
         etype = str(block.get("equipment_type") or equipment_type_from_id(eq_id))
         roles = block.get("column_roles") or {}
-        points = {
-            COOKBOOK_TO_HAYSTACK_POINT.get(role, role): col
-            for role, col in sorted(roles.items())
-        }
+        points = {POINT_DISPLAY.get(role, role): col for role, col in sorted(roles.items())}
         equip_out[eq_id] = {
             "equipType": COOKBOOK_EQUIP_TO_HAYSTACK.get(etype, etype.lower()),
             "device": str(block.get("device") or eq_id),
@@ -396,7 +337,7 @@ def to_haystack_document(data: dict[str, Any]) -> dict[str, Any]:
         "generated_by": str(norm.get("generated_by", "manual")),
         "notes": str(norm.get("notes", "")),
         "units": {
-            COOKBOOK_TO_HAYSTACK_POINT.get(role, role): unit
+            POINT_DISPLAY.get(role, role): unit
             for role, unit in sorted((norm.get("units") or DEFAULT_ROLE_UNITS).items())
         },
         "equip": equip_out,
@@ -416,7 +357,7 @@ def load_column_map_json(path: Path | str | None) -> dict[str, Any]:
 
 
 def _extract_equip_blocks(data: dict[str, Any]) -> dict[str, Any]:
-    """Pull equip/device/equipment dict from Haystack or legacy shapes."""
+    """Pull equip/device/equipment dict from document shapes."""
     for key in ("equip", "equipment", "devices"):
         block = data.get(key)
         if isinstance(block, dict):
@@ -433,7 +374,7 @@ def _extract_equip_blocks(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_column_map(data: dict[str, Any]) -> dict[str, Any]:
-    """Accept Haystack (siteRef/equip/points) or legacy (equipment/column_roles)."""
+    """Accept Haystack (siteRef/equip/points) documents."""
     building = str(
         data.get("building")
         or data.get("building_id")
@@ -450,11 +391,10 @@ def normalize_column_map(data: dict[str, Any]) -> dict[str, Any]:
     )
     out["notes"] = str(data.get("notes", out["notes"]))
     out["version"] = int(data.get("version", SCHEMA_VERSION))
-    # Merge units: defaults ← JSON (Haystack point names or cookbook roles)
     units = dict(DEFAULT_ROLE_UNITS)
     raw_units = data.get("units") if isinstance(data.get("units"), dict) else {}
     for k, v in raw_units.items():
-        role = haystack_point_to_cookbook(str(k)) or str(k)
+        role = canonicalize_point(str(k))
         if v:
             units[role] = str(v)
     out["units"] = units
@@ -493,7 +433,7 @@ def normalize_column_map(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def save_column_map_json(path: Path, data: dict[str, Any], *, haystack: bool = True) -> None:
-    """Save map. Default export is Haystack-style (equip/points); set haystack=False for legacy."""
+    """Save map. Default export is Haystack-style (equip/points)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = to_haystack_document(data) if haystack else normalize_column_map(data)
@@ -582,18 +522,14 @@ def validate_column_map_against_frames(
         cols = set(frames[eq_id].columns)
         for role, col in (block.get("column_roles") or {}).items():
             if col not in cols:
-                hs = COOKBOOK_TO_HAYSTACK_POINT.get(role, role)
-                issues.append(f"{eq_id}.{hs} ({role}) → column '{col}' not in history CSV")
+                hs = POINT_DISPLAY.get(role, role)
+                issues.append(f"{eq_id}.{hs} → column '{col}' not in history CSV")
     return issues
 
 
-LLM_COLUMN_MAP_PROMPT = """You are mapping HVAC historian CSV columns using Project Haystack–style names
-onto an Open-FDD column map. Rules later consume cookbook roles; this app translates Haystack → cookbook.
+LLM_COLUMN_MAP_PROMPT = """You are mapping HVAC historian CSV columns using Project Haystack–style names.
 
-This works for ANY building / site / vendor export — not a single demo building.
-Historian files stay as-is. Pandas already parses timestamps into a DatetimeIndex; you only map points.
-
-Return ONLY valid JSON matching this schema (no markdown fences):
+Rules later consume these exact point names. Return ONLY valid JSON matching this schema (no markdown fences):
 
 {
   "version": 1,
@@ -627,11 +563,11 @@ never mix °F with % / cfm / in. w.c. Example: {"discharge-air-temp": "°F", "da
 
 Rules:
 1. points values MUST be exact headers from history_columns (vendor names vary wildly).
-2. Prefer columns.csv point_role hints when present (discharge_air_temp→discharge-air-temp, zone_temp→zone-air-temp).
+2. Prefer columns.csv point_role hints when present.
 3. Prefer primary sensors over alarms/setpoints/status for the same point.
 4. NEVER map timestamp / time / date / datetime columns — pandas already owns the time index.
 5. Omit points you cannot map confidently — rules will SKIPPED_MISSING_ROLES rather than guess wrong.
-6. Do not invent equip ids; use only those listed under Input. One building may have many ahu + vav devices.
+6. Do not invent equip ids; use only those listed under Input.
 7. Do NOT rewrite or regenerate CSV files — output JSON only.
 8. equipType must be a Haystack-like type from the list above (not free text).
 

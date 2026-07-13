@@ -10,7 +10,7 @@ from app.role_map import apply_role_map
 from app.site_model import resolve_equipment_type
 
 
-AHU_SAT_ROLE = "ahu_sat"  # parent AHU discharge copied onto VAV frame for cross-equip rules
+AHU_SAT_ROLE = "ahu-discharge-air-temp"  # parent AHU discharge copied onto VAV frame for cross-equip rules
 
 
 def invert_vav_to_ahu(vav_to_ahu: dict[str, str] | None) -> dict[str, list[str]]:
@@ -46,13 +46,13 @@ def enrich_frames_with_ahu_feeds(
         ahu_raw = frames[ahu_id]
         ahu_rm = {ahu_id: (rm.get(ahu_id) or ahu_raw.attrs.get("_role_map", {}).get(ahu_id) or {})}
         # Prefer already-mapped sat on AHU frame; else apply role_map
-        if "sat" in ahu_raw.columns:
-            sat = pd.to_numeric(ahu_raw["sat"], errors="coerce")
+        if "discharge-air-temp" in ahu_raw.columns:
+            sat = pd.to_numeric(ahu_raw["discharge-air-temp"], errors="coerce")
         else:
             mapped = apply_role_map(ahu_raw, ahu_id, {**rm, **ahu_rm} if rm else ahu_rm)
-            if "sat" not in mapped.columns:
+            if "discharge-air-temp" not in mapped.columns:
                 continue
-            sat = pd.to_numeric(mapped["sat"], errors="coerce")
+            sat = pd.to_numeric(mapped["discharge-air-temp"], errors="coerce")
         # Align to VAV index
         sat_aligned = sat.reindex(vav_df.index)
         if sat_aligned.notna().sum() == 0:

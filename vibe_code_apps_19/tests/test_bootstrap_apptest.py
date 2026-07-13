@@ -37,9 +37,9 @@ def _tiny_zip(path: Path) -> None:
                     "prefer_web_oat": False,
                     "role_map": {
                         "AHU_1": {
-                            "fan_status": "fan_status",
-                            "oa_t": "oa_t",
-                            "sat": "sat",
+                            "fan-status": "fan-status",
+                            "outside-air-temp": "outside-air-temp",
+                            "discharge-air-temp": "discharge-air-temp",
                         }
                     },
                 }
@@ -52,9 +52,9 @@ def _tiny_zip(path: Path) -> None:
                 {
                     "equipType": "ahu",
                     "points": {
-                        "fan-status": "fan_status",
-                        "outside-air-temp": "oa_t",
-                        "discharge-air-temp": "sat",
+                        "fan-status": "fan-status",
+                        "outside-air-temp": "outside-air-temp",
+                        "discharge-air-temp": "discharge-air-temp",
                     },
                 }
             ),

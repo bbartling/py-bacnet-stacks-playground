@@ -78,39 +78,39 @@ def write_analytics_pkg(root: Path | None = None) -> Path:
 
     role_map = {
         "AHU_1": {
-            "sat": "discharge_air_temp_f",
-            "mat": "mixed_air_temp_f",
-            "rat": "return_air_temp_f",
-            "oa_t": "outside_air_temp_f",
-            "fan_status": "supply_fan_status",
-            "fan_cmd": "fan_speed_pct",
-            "oa_damper_pct": "oa_damper_cmd",
-            "duct_static": "duct_static_inwc",
-            "clg_valve_pct": "cooling_valve",
+            "discharge-air-temp": "discharge_air_temp_f",
+            "mixed-air-temp": "mixed_air_temp_f",
+            "return-air-temp": "return_air_temp_f",
+            "outside-air-temp": "outside_air_temp_f",
+            "fan-status": "supply_fan_status",
+            "fan-cmd": "fan_speed_pct",
+            "outside-air-damper": "oa_damper_cmd",
+            "duct-static-pressure": "duct_static_inwc",
+            "cooling-valve": "cooling_valve",
         },
         "VAV_1": {
-            "zone_t": "zone_temp_f",
-            "zone_flow": "zone_airflow_cfm",
-            "fan_status": "box_fan_status",
+            "zone-air-temp": "zone_temp_f",
+            "zone-airflow": "zone_airflow_cfm",
+            "fan-status": "box_fan_status",
         },
         "CHILLER_1": {
-            "chw_supply_t": "chw_supply_temp_f",
-            "cw_supply_t": "cw_supply_temp_f",
-            "chiller_status": "chiller_run_status",
-            "chw_pump_status": "chw_pump_status",
+            "chilled-water-supply-temp": "chw_supply_temp_f",
+            "condenser-water-supply-temp": "cw_supply_temp_f",
+            "chiller-status": "chiller_run_status",
+            "chw-pump-status": "chw-pump-status",
         },
         "BOILER_1": {
-            "hw_supply_t": "hw_supply_temp_f",
-            "hw_pump_status": "hw_pump_status",
+            "hot-water-supply-temp": "hw_supply_temp_f",
+            "hw-pump-status": "hw-pump-status",
             "boiler_status": "boiler_run_status",
         },
         "COOLING_TOWER_1": {
-            "cw_supply_t": "tower_leaving_temp_f",
+            "condenser-water-supply-temp": "tower_leaving_temp_f",
             "cw_pump_status": "tower_pump_status",
         },
         "METER_1": {
-            "elec_power_kw": "building_kw",
-            "gas_flow": "gas_therms_per_hr",
+            "elec-power": "building_kw",
+            "gas-flow": "gas_therms_per_hr",
         },
     }
 
@@ -206,7 +206,7 @@ def write_analytics_pkg(root: Path | None = None) -> Path:
             "chw-supply-temp": "chw_supply_temp_f",
             "cw-supply-temp": "cw_supply_temp_f",
             "chiller-status": "chiller_run_status",
-            "pump-status": "chw_pump_status",
+            "pump-status": "chw-pump-status",
         },
         frame=pd.DataFrame(
             {
@@ -214,7 +214,7 @@ def write_analytics_pkg(root: Path | None = None) -> Path:
                 "chw_supply_temp_f": [44.0 + (oat[i] - 70) * 0.05 for i in range(n)],
                 "cw_supply_temp_f": [78.0 + (oat[i] - 70) * 0.2 for i in range(n)],
                 "chiller_run_status": chill_on,
-                "chw_pump_status": chill_on,
+                "chw-pump-status": chill_on,
             }
         ),
     )
@@ -227,14 +227,14 @@ def write_analytics_pkg(root: Path | None = None) -> Path:
         haystack_points={
             "hw-supply-temp": "hw_supply_temp_f",
             "boiler-status": "boiler_run_status",
-            "pump-status": "hw_pump_status",
+            "pump-status": "hw-pump-status",
         },
         frame=pd.DataFrame(
             {
                 "timestamp_utc": ts,
                 "hw_supply_temp_f": [160.0 - (oat[i] - 50) * 0.8 for i in range(n)],
                 "boiler_run_status": boil_on,
-                "hw_pump_status": boil_on,
+                "hw-pump-status": boil_on,
             }
         ),
     )
@@ -278,8 +278,8 @@ def write_analytics_pkg(root: Path | None = None) -> Path:
     pd.DataFrame(
         {
             "timestamp_utc": ts,
-            "wx_oa_t": oat,
-            "wx_oa_rh": [45.0 + (i % 20) for i in range(n)],
+            "web-outside-air-temp": oat,
+            "web-outside-air-humidity": [45.0 + (i % 20) for i in range(n)],
         }
     ).to_csv(wx / "history_wide.csv", index=False)
 

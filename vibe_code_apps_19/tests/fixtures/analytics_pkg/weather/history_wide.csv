@@ -1,4 +1,4 @@
-timestamp_utc,wx_oa_t,wx_oa_rh
+timestamp_utc,web-outside-air-temp,web-outside-air-humidity
 2024-06-01T00:00:00Z,55.0,45.0
 2024-06-01T06:00:00Z,56.625,46.0
 2024-06-01T12:00:00Z,58.25,47.0

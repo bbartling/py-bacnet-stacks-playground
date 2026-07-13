@@ -131,7 +131,7 @@ rules:
   summary: Flags control outputs that oscillate enough to suggest loop hunting.
   required_roles: []
   optional_roles:
-  - loop_enabled
+  - loop-enabled
   equipment_kinds:
   - ahu
   - vav
@@ -163,9 +163,9 @@ rules:
   description: "Fan \u2265 87% AND duct static < static SP \u2212 0.12 in.w.c."
   summary: Flags duct static too low while the supply fan is near full speed.
   required_roles:
-  - duct_static
-  - duct_static_sp
-  - fan_cmd
+  - duct-static-pressure
+  - duct-static-pressure-sp
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -192,10 +192,10 @@ rules:
     F)."
   summary: Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.
   required_roles:
-  - mat
-  - oa_t
-  - rat
-  - fan_cmd
+  - mixed-air-temp
+  - outside-air-temp
+  - return-air-temp
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -220,10 +220,10 @@ rules:
     \ (\u2261 MAT > max(RAT, OAT) + 2\xB7mix_tol; default mix_tol = 1.15\xB0F)."
   summary: Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.
   required_roles:
-  - mat
-  - oa_t
-  - rat
-  - fan_cmd
+  - mixed-air-temp
+  - outside-air-temp
+  - return-air-temp
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -249,9 +249,9 @@ rules:
   summary: More than 5 operating-mode entry transitions in any hour (heating/econ/mech
     modes).
   required_roles:
-  - oa_damper_pct
-  - clg_valve_pct
-  - fan_cmd
+  - outside-air-damper
+  - cooling-valve
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -277,10 +277,10 @@ rules:
   summary: "Fan on AND heating > 1% AND SAT + mix_tol \u2264 MAT \u2212 mix_tol +\
     \ 0.55\xB0F (default mix_tol = 1.15\xB0F)."
   required_roles:
-  - sat
-  - mat
-  - fan_cmd
-  - htg_valve_pct
+  - discharge-air-temp
+  - mixed-air-temp
+  - fan-cmd
+  - heating-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -306,10 +306,10 @@ rules:
   summary: "|RAT\u2212OAT| \u2265 5\xB0F AND |estimated OA% \u2212 design min OA%|\
     \ > 15% in heating/mech-only modes."
   required_roles:
-  - mat
-  - oa_t
-  - rat
-  - vav_total_flow
+  - mixed-air-temp
+  - outside-air-temp
+  - return-air-temp
+  - vav-total-airflow
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -334,10 +334,10 @@ rules:
   description: "Fan on AND heating > 90% AND SAT < SAT SP \u2212 1.0\xB0F."
   summary: "Fan on AND heating > 90% AND SAT < SAT SP \u2212 1.0\xB0F."
   required_roles:
-  - sat
-  - sat_sp
-  - fan_cmd
-  - htg_valve_pct
+  - discharge-air-temp
+  - discharge-air-temp-sp
+  - fan-cmd
+  - heating-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -363,10 +363,10 @@ rules:
   summary: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
     (1.15\xB2+1.15\xB2)."
   required_roles:
-  - sat
-  - mat
-  - oa_damper_pct
-  - clg_valve_pct
+  - discharge-air-temp
+  - mixed-air-temp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -391,10 +391,10 @@ rules:
   summary: "Economizer open, CHW < 10%, OAT \u2212 1.15\xB0F > SAT SP \u2212 0.55\xB0\
     F + 1.15\xB0F."
   required_roles:
-  - oa_t
-  - sat_sp
-  - oa_damper_pct
-  - clg_valve_pct
+  - outside-air-temp
+  - discharge-air-temp-sp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -419,10 +419,10 @@ rules:
   summary: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(1.15\xB2+1.15\xB2\
     )."
   required_roles:
-  - mat
-  - oa_t
-  - oa_damper_pct
-  - clg_valve_pct
+  - mixed-air-temp
+  - outside-air-temp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -447,10 +447,10 @@ rules:
   summary: "CHW > 1%, economizer > 90%, OAT + 1.15\xB0F < SAT SP \u2212 0.55\xB0F\
     \ \u2212 1.15\xB0F."
   required_roles:
-  - oa_t
-  - sat_sp
-  - oa_damper_pct
-  - clg_valve_pct
+  - outside-air-temp
+  - discharge-air-temp-sp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -475,10 +475,10 @@ rules:
   summary: "CHW > 1%, SAT \u2212 1.15\xB0F \u2212 0.55\xB0F > MAT + 1.15\xB0F at min\
     \ or full economizer."
   required_roles:
-  - sat
-  - mat
-  - oa_damper_pct
-  - clg_valve_pct
+  - discharge-air-temp
+  - mixed-air-temp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -501,10 +501,10 @@ rules:
   description: "CHW > 1%, SAT > SAT SP + 1.0\xB0F at min or full economizer."
   summary: "CHW > 1%, SAT > SAT SP + 1.0\xB0F at min or full economizer."
   required_roles:
-  - sat
-  - sat_sp
-  - oa_damper_pct
-  - clg_valve_pct
+  - discharge-air-temp
+  - discharge-air-temp-sp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -530,10 +530,10 @@ rules:
   summary: "Cooling coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
     \ coil should be inactive."
   required_roles:
-  - clg_coil_enter_t
-  - clg_coil_leave_t
-  - oa_damper_pct
-  - clg_valve_pct
+  - cooling-coil-entering-temp
+  - cooling-coil-leaving-temp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -558,10 +558,10 @@ rules:
   summary: "Heating coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
     \ coil should be inactive."
   required_roles:
-  - htg_coil_enter_t
-  - htg_coil_leave_t
-  - oa_damper_pct
-  - clg_valve_pct
+  - heating-coil-entering-temp
+  - heating-coil-leaving-temp
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -584,8 +584,8 @@ rules:
   description: "|SAT \u2212 SAT SP| > 5\xB0F."
   summary: "|SAT \u2212 SAT SP| > 5\xB0F."
   required_roles:
-  - sat
-  - sat_sp
+  - discharge-air-temp
+  - discharge-air-temp-sp
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -609,8 +609,8 @@ rules:
   description: Duct static > static SP + 0.25 in.w.c.
   summary: Duct static > static SP + 0.25 in.w.c.
   required_roles:
-  - duct_static
-  - duct_static_sp
+  - duct-static-pressure
+  - duct-static-pressure-sp
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -634,8 +634,8 @@ rules:
   description: Heating valve > 10% AND cooling valve > 10% at once.
   summary: Heating valve > 10% AND cooling valve > 10% at once.
   required_roles:
-  - htg_valve_pct
-  - clg_valve_pct
+  - heating-valve
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -660,8 +660,8 @@ rules:
     F."
   summary: Flags large disagreement between BAS outdoor-air temp and web weather OAT.
   required_roles:
-  - oa_t
-  - wx_oa_t
+  - outside-air-temp
+  - web-outside-air-temp
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -685,9 +685,9 @@ rules:
   description: "Fan on, OA damper < 5%, OAT > 55\xB0F (should be economizing)."
   summary: "Fan on, OA damper < 5%, OAT > 55\xB0F (should be economizing)."
   required_roles:
-  - fan_cmd
-  - oa_damper_pct
-  - oa_t
+  - fan-cmd
+  - outside-air-damper
+  - outside-air-temp
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -711,8 +711,8 @@ rules:
   description: "OAT > 63\xB0F AND OA damper > 42% (should be at minimum)."
   summary: "OAT > 63\xB0F AND OA damper > 42% (should be at minimum)."
   required_roles:
-  - oa_t
-  - oa_damper_pct
+  - outside-air-temp
+  - outside-air-damper
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -741,8 +741,8 @@ rules:
     \ < 60\xB0F (RH\u2192dewpoint if needed); fault when cooling valve open with OA\
     \ damper closed."
   required_roles:
-  - oa_damper_pct
-  - clg_valve_pct
+  - outside-air-damper
+  - cooling-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -771,10 +771,10 @@ rules:
   description: "Fan on, |RAT\u2212OAT| > 2.2\xB0F, estimated OA fraction < 21%."
   summary: "Fan on, |RAT\u2212OAT| > 2.2\xB0F, estimated OA fraction < 21%."
   required_roles:
-  - mat
-  - rat
-  - oa_t
-  - fan_cmd
+  - mixed-air-temp
+  - return-air-temp
+  - outside-air-temp
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -798,10 +798,10 @@ rules:
   description: "Preheat leaving air > 2.2\xB0F above target while preheat active."
   summary: "Preheat leaving air > 2.2\xB0F above target while preheat active."
   required_roles:
-  - preheat_leave_t
-  - sat_sp
-  - oa_t
-  - htg_valve_pct
+  - preheat-leaving-temp
+  - discharge-air-temp-sp
+  - outside-air-temp
+  - heating-valve
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -824,7 +824,7 @@ rules:
   description: "Zone temp < 70\xB0F or > 75\xB0F."
   summary: "Zone temp < 70\xB0F or > 75\xB0F."
   required_roles:
-  - zone_t
+  - zone-air-temp
   optional_roles: []
   equipment_kinds:
   - vav
@@ -850,8 +850,8 @@ rules:
   description: "Air flowing AND OAT > 78\xB0F AND reheat valve > 52%."
   summary: "Air flowing AND OAT > 78\xB0F AND reheat valve > 52%."
   required_roles:
-  - oa_t
-  - reheat_valve_pct
+  - outside-air-temp
+  - reheat-valve
   optional_roles: []
   equipment_kinds:
   - vav
@@ -877,7 +877,7 @@ rules:
   description: Air flowing AND damper > 97.5% sustained across the window.
   summary: Air flowing AND damper > 97.5% sustained across the window.
   required_roles:
-  - damper_pct
+  - damper
   optional_roles: []
   equipment_kinds:
   - vav
@@ -903,8 +903,8 @@ rules:
   description: Airflow > 50 cfm while damper < 10% (implausible flow).
   summary: Airflow > 50 cfm while damper < 10% (implausible flow).
   required_roles:
-  - zone_flow
-  - damper_pct
+  - zone-airflow
+  - damper
   optional_roles: []
   equipment_kinds:
   - vav
@@ -929,9 +929,9 @@ rules:
   summary: Flags reheat commanded open with airflow but almost no discharge temperature
     rise.
   required_roles:
-  - reheat_valve_pct
-  - vav_disch_t
-  - vav_inlet_t
+  - reheat-valve
+  - vav-discharge-air-temp
+  - vav-inlet-air-temp
   optional_roles: []
   equipment_kinds:
   - vav
@@ -960,8 +960,8 @@ rules:
   summary: Flags VAV discharge far from the parent AHU SAT when topology feeds are
     known.
   required_roles:
-  - vav_disch_t
-  - ahu_sat
+  - vav-discharge-air-temp
+  - ahu-discharge-air-temp
   optional_roles: []
   equipment_kinds:
   - vav
@@ -990,7 +990,7 @@ rules:
     at a high mean while air is on (mins too high / box never modulates), OR min_flow_sp
     itself is excessively high.
   required_roles:
-  - zone_flow
+  - zone-airflow
   optional_roles: []
   equipment_kinds:
   - vav
@@ -1017,8 +1017,8 @@ rules:
   description: "Pump on AND (CHWR \u2212 CHWS) < 4\xB0F."
   summary: "Pump on AND (CHWR \u2212 CHWS) < 4\xB0F."
   required_roles:
-  - chw_supply_t
-  - chw_return_t
+  - chilled-water-supply-temp
+  - chilled-water-return-temp
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1042,9 +1042,9 @@ rules:
   description: "Pump \u2265 87% AND CHW DP < DP SP \u2212 2.2."
   summary: "Pump \u2265 87% AND CHW DP < DP SP \u2212 2.2."
   required_roles:
-  - chw_dp
-  - chw_dp_sp
-  - chw_pump_cmd
+  - chw-diff-pressure
+  - chw-diff-pressure-sp
+  - chw-pump-cmd
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1068,9 +1068,9 @@ rules:
   description: "Pump on AND |CHWS \u2212 CHWS SP| > 2.2\xB0F."
   summary: "Pump on AND |CHWS \u2212 CHWS SP| > 2.2\xB0F."
   required_roles:
-  - chw_supply_t
-  - chw_supply_t_sp
-  - chw_pump_cmd
+  - chilled-water-supply-temp
+  - chilled-water-supply-temp-sp
+  - chw-pump-cmd
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1094,8 +1094,8 @@ rules:
   description: "Pump \u2265 87% AND CHW flow > 1100 gpm."
   summary: "Pump \u2265 87% AND CHW flow > 1100 gpm."
   required_roles:
-  - chw_flow
-  - chw_pump_cmd
+  - chw-flow
+  - chw-pump-cmd
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1119,9 +1119,9 @@ rules:
   description: "Fan on, zone < 69\xB0F, discharge SAT < 85\xB0F."
   summary: "Fan on, zone < 69\xB0F, discharge SAT < 85\xB0F."
   required_roles:
-  - sat
-  - zone_t
-  - fan_cmd
+  - discharge-air-temp
+  - zone-air-temp
+  - fan-cmd
   optional_roles: []
   equipment_kinds:
   - heatpump
@@ -1146,7 +1146,7 @@ rules:
   description: "OAT sample-to-sample jump > 16\xB0F."
   summary: "OAT sample-to-sample jump > 16\xB0F."
   required_roles:
-  - oa_t
+  - outside-air-temp
   optional_roles: []
   equipment_kinds:
   - weather
@@ -1172,7 +1172,7 @@ rules:
   summary: "Flags condenser water colder than wet-bulb + approach \u2014 tower over-cooling\
     \ / not optimized."
   required_roles:
-  - cw_supply_t
+  - condenser-water-supply-temp
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1201,12 +1201,12 @@ rules:
   summary: "Flags high CW\u2013wet-bulb approach at full tower fan \u2014 sensor mismatch\
     \ or tower degradation."
   required_roles:
-  - cw_supply_t
+  - condenser-water-supply-temp
   optional_roles:
-  - tower_fan_cmd
-  - cw_fan_cmd
-  - fan_cmd
-  - wx_oa_wetbulb
+  - tower-fan-cmd
+  - cw-fan-cmd
+  - fan-cmd
+  - web-outside-air-wetbulb
   equipment_kinds:
   - chiller
   - cooling_tower
@@ -1234,12 +1234,12 @@ rules:
   summary: "Flags full-speed tower fans while CW is well above theoretical WB+approach\
     \ \u2014 excess fan energy."
   required_roles:
-  - cw_supply_t
+  - condenser-water-supply-temp
   optional_roles:
-  - tower_fan_cmd
-  - cw_fan_cmd
-  - fan_cmd
-  - wx_oa_wetbulb
+  - tower-fan-cmd
+  - cw-fan-cmd
+  - fan-cmd
+  - web-outside-air-wetbulb
   equipment_kinds:
   - chiller
   - cooling_tower
@@ -1265,8 +1265,8 @@ rules:
   description: Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.
   summary: Duct static high (> 1.35 in.w.c.) while VAV pressure requests are low.
   required_roles:
-  - duct_static
-  - vav_press_req_sum
+  - duct-static-pressure
+  - vav-pressure-request-sum
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -1289,8 +1289,8 @@ rules:
   description: "HW supply > 160\xB0F while reset requests are low."
   summary: "HW supply > 160\xB0F while reset requests are low."
   required_roles:
-  - hw_supply_t
-  - hw_reset_req_sum
+  - hot-water-supply-temp
+  - hw-reset-request-sum
   optional_roles: []
   equipment_kinds:
   - boiler
@@ -1313,8 +1313,8 @@ rules:
   description: "CHW supply < 45\xB0F while reset requests are low."
   summary: "CHW supply < 45\xB0F while reset requests are low."
   required_roles:
-  - chw_supply_t
-  - chw_reset_req_sum
+  - chilled-water-supply-temp
+  - chw-reset-request-sum
   optional_roles: []
   equipment_kinds:
   - chiller
@@ -1339,10 +1339,10 @@ rules:
     comfort_high_f (defaults 70\u201375\xB0F; synced from Overview zone band)."
   summary: Flags fan runtime during unoccupied hours from the Overview calendar.
   required_roles:
-  - occ_mode
-  - fan_status
+  - occupied
+  - fan-status
   optional_roles:
-  - zone_t
+  - zone-air-temp
   equipment_kinds:
   - ahu
   tunable_params:
@@ -1366,8 +1366,8 @@ rules:
   description: Fan command and proven status disagree.
   summary: Fan command and proven status disagree.
   required_roles:
-  - fan_cmd
-  - fan_status
+  - fan-cmd
+  - fan-status
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -1390,10 +1390,10 @@ rules:
   description: Estimated OA fraction < 15% with adequate OAT/RAT split.
   summary: Estimated OA fraction < 15% with adequate OAT/RAT split.
   required_roles:
-  - mat
-  - rat
-  - oa_t
-  - fan_status
+  - mixed-air-temp
+  - return-air-temp
+  - outside-air-temp
+  - fan-status
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -1418,9 +1418,9 @@ rules:
     \ damper."
   summary: "Damper \u2264 5% but MAT tracks OAT within 2\xB0F \u2014 leaking OA damper."
   required_roles:
-  - oa_t
-  - mat
-  - oa_damper_pct
+  - outside-air-temp
+  - mixed-air-temp
+  - outside-air-damper
   optional_roles: []
   equipment_kinds:
   - ahu
@@ -1446,13 +1446,13 @@ rules:
     \ gate)."
   summary: Flags a closed cooling valve while SAT still looks like valve leakage.
   required_roles:
-  - sat
-  - sat_sp
-  - clg_valve_pct
+  - discharge-air-temp
+  - discharge-air-temp-sp
+  - cooling-valve
   optional_roles:
-  - mat
-  - fan_status
-  - fan_cmd
+  - mixed-air-temp
+  - fan-status
+  - fan-cmd
   equipment_kinds:
   - ahu
   tunable_params:

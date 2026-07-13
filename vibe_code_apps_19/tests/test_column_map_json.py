@@ -28,10 +28,10 @@ def test_natural_key_orders_fc_numbers():
 
 
 def test_haystack_point_aliases():
-    assert haystack_point_to_cookbook("discharge-air-temp") == "sat"
-    assert haystack_point_to_cookbook("zoneAirTemp") == "zone_t"
-    assert haystack_point_to_cookbook("outside_air_temp") == "oa_t"
-    assert haystack_point_to_cookbook("sat") == "sat"
+    assert haystack_point_to_cookbook("discharge-air-temp") == "discharge-air-temp"
+    assert haystack_point_to_cookbook("zoneAirTemp") == "zone-air-temp"
+    assert haystack_point_to_cookbook("outside_air_temp") == "outside-air-temp"
+    assert haystack_point_to_cookbook("discharge-air-temp") == "discharge-air-temp"
 
 
 def test_normalize_haystack_equip_points(tmp_path: Path):
@@ -56,13 +56,13 @@ def test_normalize_haystack_equip_points(tmp_path: Path):
     assert norm["siteRef"] == "campus_a"
     assert norm["equipment"]["AHU_1"]["equipment_type"] == "AHU"
     assert norm["equipment"]["AHU_1"]["device"] == "AHU-1"
-    assert norm["equipment"]["AHU_1"]["column_roles"]["sat"] == "discharge_air_temp_f"
-    assert norm["equipment"]["AHU_1"]["column_roles"]["oa_t"] == "outside_air_temp_f"
+    assert norm["equipment"]["AHU_1"]["column_roles"]["discharge-air-temp"] == "discharge_air_temp_f"
+    assert norm["equipment"]["AHU_1"]["column_roles"]["outside-air-temp"] == "outside_air_temp_f"
 
     p = tmp_path / "m.json"
     save_column_map_json(p, haystack, haystack=True)
     loaded = load_column_map_json(p)
-    assert loaded["equipment"]["AHU_1"]["column_roles"]["sat"] == "discharge_air_temp_f"
+    assert loaded["equipment"]["AHU_1"]["column_roles"]["discharge-air-temp"] == "discharge_air_temp_f"
     exported = to_haystack_document(loaded)
     assert "equip" in exported
     assert exported["equip"]["AHU_1"]["points"]["discharge-air-temp"] == "discharge_air_temp_f"
@@ -70,12 +70,12 @@ def test_normalize_haystack_equip_points(tmp_path: Path):
 
 
 def test_normalize_legacy_still_works():
-    flat = {"AHU_1": {"sat": "discharge_air_temp_f", "oa_t": "outside_air_temp_f"}}
+    flat = {"AHU_1": {"discharge-air-temp": "discharge_air_temp_f", "outside-air-temp": "outside_air_temp_f"}}
     nested = normalize_column_map(
         {"building_id": "B1", "equipment": {"AHU_1": {"column_roles": flat["AHU_1"]}}}
     )
-    assert column_map_to_role_map(normalize_column_map(flat))["AHU_1"]["sat"] == "discharge_air_temp_f"
-    assert nested["equipment"]["AHU_1"]["column_roles"]["oa_t"] == "outside_air_temp_f"
+    assert column_map_to_role_map(normalize_column_map(flat))["AHU_1"]["discharge-air-temp"] == "discharge_air_temp_f"
+    assert nested["equipment"]["AHU_1"]["column_roles"]["outside-air-temp"] == "outside_air_temp_f"
     assert nested["building"] == "B1"
 
 
@@ -87,7 +87,7 @@ def test_merge_and_validate():
     assert "AHU_1" in cmap["equipment"]
     assert not validate_column_map_against_frames(cmap, frames)
     rm = merge_column_map_into_role_map({}, cmap)
-    assert "sat" in rm["AHU_1"] or "oa_t" in rm["AHU_1"]
+    assert "discharge-air-temp" in rm["AHU_1"] or "outside-air-temp" in rm["AHU_1"]
 
 
 def test_bad_column_flagged():

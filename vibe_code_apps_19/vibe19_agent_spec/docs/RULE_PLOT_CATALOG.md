@@ -201,7 +201,7 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `loop_enabled` | `loop-enabled` | optional |
+| `loop-enabled` | `loop-enabled` | optional |
 
 #### Plot series
 
@@ -247,15 +247,15 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `duct_static` | `duct-static-pressure` | required |
-| `duct_static_sp` | `duct-static-pressure-sp` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `duct-static-pressure` | `duct-static-pressure` | required |
+| `duct-static-pressure-sp` | `duct-static-pressure-sp` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `duct_static` → `duct-static-pressure`
-- `duct_static_sp` → `duct-static-pressure-sp`
-- `fan_cmd` → `fan-cmd`
+- `duct-static-pressure` → `duct-static-pressure`
+- `duct-static-pressure-sp` → `duct-static-pressure-sp`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -288,17 +288,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `rat` | `return-air-temp` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `return-air-temp` | `return-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `oa_t` → `outside-air-temp`
-- `rat` → `return-air-temp`
-- `fan_cmd` → `fan-cmd`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `return-air-temp` → `return-air-temp`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -330,17 +330,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `rat` | `return-air-temp` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `return-air-temp` | `return-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `oa_t` → `outside-air-temp`
-- `rat` → `return-air-temp`
-- `fan_cmd` → `fan-cmd`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `return-air-temp` → `return-air-temp`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -372,15 +372,15 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
-- `fan_cmd` → `fan-cmd`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -412,17 +412,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `mat` | `mixed-air-temp` | required |
-| `fan_cmd` | `fan-cmd` | required |
-| `htg_valve_pct` | `heating-valve` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
+| `heating-valve` | `heating-valve` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `mat` → `mixed-air-temp`
-- `fan_cmd` → `fan-cmd`
-- `htg_valve_pct` → `heating-valve`
+- `discharge-air-temp` → `discharge-air-temp`
+- `mixed-air-temp` → `mixed-air-temp`
+- `fan-cmd` → `fan-cmd`
+- `heating-valve` → `heating-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -454,17 +454,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `rat` | `return-air-temp` | required |
-| `vav_total_flow` | `vav-total-airflow` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `return-air-temp` | `return-air-temp` | required |
+| `vav-total-airflow` | `vav-total-airflow` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `oa_t` → `outside-air-temp`
-- `rat` → `return-air-temp`
-- `vav_total_flow` → `vav-total-airflow`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `return-air-temp` → `return-air-temp`
+- `vav-total-airflow` → `vav-total-airflow`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -497,17 +497,17 @@ Needs AHU `vav_total_flow` — empty plots often data gaps.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `fan_cmd` | `fan-cmd` | required |
-| `htg_valve_pct` | `heating-valve` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `fan-cmd` | `fan-cmd` | required |
+| `heating-valve` | `heating-valve` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `fan_cmd` → `fan-cmd`
-- `htg_valve_pct` → `heating-valve`
+- `discharge-air-temp` → `discharge-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `fan-cmd` → `fan-cmd`
+- `heating-valve` → `heating-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -539,17 +539,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `mat` | `mixed-air-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `mat` → `mixed-air-temp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `discharge-air-temp` → `discharge-air-temp`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -580,17 +580,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `outside-air-temp` → `outside-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -621,17 +621,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `oa_t` → `outside-air-temp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -662,17 +662,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `outside-air-temp` → `outside-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -703,17 +703,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `mat` | `mixed-air-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `mat` → `mixed-air-temp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `discharge-air-temp` → `discharge-air-temp`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -744,17 +744,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `discharge-air-temp` → `discharge-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -786,17 +786,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `clg_coil_enter_t` | `cooling-coil-entering-temp` | required |
-| `clg_coil_leave_t` | `cooling-coil-leaving-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `cooling-coil-entering-temp` | `cooling-coil-entering-temp` | required |
+| `cooling-coil-leaving-temp` | `cooling-coil-leaving-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `clg_coil_enter_t` → `cooling-coil-entering-temp`
-- `clg_coil_leave_t` → `cooling-coil-leaving-temp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `cooling-coil-entering-temp` → `cooling-coil-entering-temp`
+- `cooling-coil-leaving-temp` → `cooling-coil-leaving-temp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -827,17 +827,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `htg_coil_enter_t` | `heating-coil-entering-temp` | required |
-| `htg_coil_leave_t` | `heating-coil-leaving-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `heating-coil-entering-temp` | `heating-coil-entering-temp` | required |
+| `heating-coil-leaving-temp` | `heating-coil-leaving-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `htg_coil_enter_t` → `heating-coil-entering-temp`
-- `htg_coil_leave_t` → `heating-coil-leaving-temp`
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `heating-coil-entering-temp` → `heating-coil-entering-temp`
+- `heating-coil-leaving-temp` → `heating-coil-leaving-temp`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -868,13 +868,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
+- `discharge-air-temp` → `discharge-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -906,13 +906,13 @@ RCx `ahu_sat_reset_scatter` — SAT vs web OAT.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `duct_static` | `duct-static-pressure` | required |
-| `duct_static_sp` | `duct-static-pressure-sp` | required |
+| `duct-static-pressure` | `duct-static-pressure` | required |
+| `duct-static-pressure-sp` | `duct-static-pressure-sp` | required |
 
 #### Plot series
 
-- `duct_static` → `duct-static-pressure`
-- `duct_static_sp` → `duct-static-pressure-sp`
+- `duct-static-pressure` → `duct-static-pressure`
+- `duct-static-pressure-sp` → `duct-static-pressure-sp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -944,13 +944,13 @@ RCx `duct_static_box` (fan-on) for static-reset opportunity.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `htg_valve_pct` | `heating-valve` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `heating-valve` | `heating-valve` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `htg_valve_pct` → `heating-valve`
-- `clg_valve_pct` → `cooling-valve`
+- `heating-valve` → `heating-valve`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -982,13 +982,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `wx_oa_t` | `web-outside-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `web-outside-air-temp` | `web-outside-air-temp` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `wx_oa_t` → `web-outside-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `web-outside-air-temp` → `web-outside-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1020,15 +1020,15 @@ Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `fan_cmd` | `fan-cmd` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `oa_t` | `outside-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
 
 #### Plot series
 
-- `fan_cmd` → `fan-cmd`
-- `oa_damper_pct` → `outside-air-damper`
-- `oa_t` → `outside-air-temp`
+- `fan-cmd` → `fan-cmd`
+- `outside-air-damper` → `outside-air-damper`
+- `outside-air-temp` → `outside-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1060,13 +1060,13 @@ Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `oa_damper_pct` → `outside-air-damper`
+- `outside-air-temp` → `outside-air-temp`
+- `outside-air-damper` → `outside-air-damper`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1099,13 +1099,13 @@ Needs OA damper / MAT / OAT roles.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_damper_pct` | `outside-air-damper` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `cooling-valve` | `cooling-valve` | required |
 
 #### Plot series
 
-- `oa_damper_pct` → `outside-air-damper`
-- `clg_valve_pct` → `cooling-valve`
+- `outside-air-damper` → `outside-air-damper`
+- `cooling-valve` → `cooling-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1142,17 +1142,17 @@ Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OA
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `rat` | `return-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `return-air-temp` | `return-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `rat` → `return-air-temp`
-- `oa_t` → `outside-air-temp`
-- `fan_cmd` → `fan-cmd`
+- `mixed-air-temp` → `mixed-air-temp`
+- `return-air-temp` → `return-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1184,17 +1184,17 @@ Needs OA damper / MAT / OAT roles.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `preheat_leave_t` | `preheat-leaving-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `htg_valve_pct` | `heating-valve` | required |
+| `preheat-leaving-temp` | `preheat-leaving-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `heating-valve` | `heating-valve` | required |
 
 #### Plot series
 
-- `preheat_leave_t` → `preheat-leaving-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `oa_t` → `outside-air-temp`
-- `htg_valve_pct` → `heating-valve`
+- `preheat-leaving-temp` → `preheat-leaving-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `outside-air-temp` → `outside-air-temp`
+- `heating-valve` → `heating-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1225,15 +1225,15 @@ Needs heat/preheat roles.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `occ_mode` | `occupied` | required |
-| `fan_status` | `fan-status` | required |
-| `zone_t` | `zone-air-temp` | optional |
+| `occupied` | `occupied` | required |
+| `fan-status` | `fan-status` | required |
+| `zone-air-temp` | `zone-air-temp` | optional |
 
 #### Plot series
 
-- `occ_mode` → `occupied`
-- `fan_status` → `fan-status`
-- `zone_t` → `zone-air-temp`
+- `occupied` → `occupied`
+- `fan-status` → `fan-status`
+- `zone-air-temp` → `zone-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1266,13 +1266,13 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `fan_cmd` | `fan-cmd` | required |
-| `fan_status` | `fan-status` | required |
+| `fan-cmd` | `fan-cmd` | required |
+| `fan-status` | `fan-status` | required |
 
 #### Plot series
 
-- `fan_cmd` → `fan-cmd`
-- `fan_status` → `fan-status`
+- `fan-cmd` → `fan-cmd`
+- `fan-status` → `fan-status`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1303,17 +1303,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `mat` | `mixed-air-temp` | required |
-| `rat` | `return-air-temp` | required |
-| `oa_t` | `outside-air-temp` | required |
-| `fan_status` | `fan-status` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `return-air-temp` | `return-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `fan-status` | `fan-status` | required |
 
 #### Plot series
 
-- `mat` → `mixed-air-temp`
-- `rat` → `return-air-temp`
-- `oa_t` → `outside-air-temp`
-- `fan_status` → `fan-status`
+- `mixed-air-temp` → `mixed-air-temp`
+- `return-air-temp` → `return-air-temp`
+- `outside-air-temp` → `outside-air-temp`
+- `fan-status` → `fan-status`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1345,15 +1345,15 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `mat` | `mixed-air-temp` | required |
-| `oa_damper_pct` | `outside-air-damper` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `mixed-air-temp` | `mixed-air-temp` | required |
+| `outside-air-damper` | `outside-air-damper` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `mat` → `mixed-air-temp`
-- `oa_damper_pct` → `outside-air-damper`
+- `outside-air-temp` → `outside-air-temp`
+- `mixed-air-temp` → `mixed-air-temp`
+- `outside-air-damper` → `outside-air-damper`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1385,21 +1385,21 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `sat_sp` | `discharge-air-temp-sp` | required |
-| `clg_valve_pct` | `cooling-valve` | required |
-| `mat` | `mixed-air-temp` | optional |
-| `fan_status` | `fan-status` | optional |
-| `fan_cmd` | `fan-cmd` | optional |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` | required |
+| `cooling-valve` | `cooling-valve` | required |
+| `mixed-air-temp` | `mixed-air-temp` | optional |
+| `fan-status` | `fan-status` | optional |
+| `fan-cmd` | `fan-cmd` | optional |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `sat_sp` → `discharge-air-temp-sp`
-- `clg_valve_pct` → `cooling-valve`
-- `mat` → `mixed-air-temp`
-- `fan_status` → `fan-status`
-- `fan_cmd` → `fan-cmd`
+- `discharge-air-temp` → `discharge-air-temp`
+- `discharge-air-temp-sp` → `discharge-air-temp-sp`
+- `cooling-valve` → `cooling-valve`
+- `mixed-air-temp` → `mixed-air-temp`
+- `fan-status` → `fan-status`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1437,11 +1437,11 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `zone_t` | `zone-air-temp` | required |
+| `zone-air-temp` | `zone-air-temp` | required |
 
 #### Plot series
 
-- `zone_t` → `zone-air-temp`
+- `zone-air-temp` → `zone-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1474,13 +1474,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
-| `reheat_valve_pct` | `reheat-valve` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
+| `reheat-valve` | `reheat-valve` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
-- `reheat_valve_pct` → `reheat-valve`
+- `outside-air-temp` → `outside-air-temp`
+- `reheat-valve` → `reheat-valve`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1514,11 +1514,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `damper_pct` | `damper` | required |
+| `damper` | `damper` | required |
 
 #### Plot series
 
-- `damper_pct` → `damper`
+- `damper` → `damper`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1552,13 +1552,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `zone_flow` | `zone-airflow` | required |
-| `damper_pct` | `damper` | required |
+| `zone-airflow` | `zone-airflow` | required |
+| `damper` | `damper` | required |
 
 #### Plot series
 
-- `zone_flow` → `zone-airflow`
-- `damper_pct` → `damper`
+- `zone-airflow` → `zone-airflow`
+- `damper` → `damper`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1589,15 +1589,15 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `reheat_valve_pct` | `reheat-valve` | required |
-| `vav_disch_t` | `vav-discharge-air-temp` | required |
-| `vav_inlet_t` | `vav-inlet-air-temp` | required |
+| `reheat-valve` | `reheat-valve` | required |
+| `vav-discharge-air-temp` | `vav-discharge-air-temp` | required |
+| `vav-inlet-air-temp` | `vav-inlet-air-temp` | required |
 
 #### Plot series
 
-- `reheat_valve_pct` → `reheat-valve`
-- `vav_disch_t` → `vav-discharge-air-temp`
-- `vav_inlet_t` → `vav-inlet-air-temp`
+- `reheat-valve` → `reheat-valve`
+- `vav-discharge-air-temp` → `vav-discharge-air-temp`
+- `vav-inlet-air-temp` → `vav-inlet-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1631,13 +1631,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `vav_disch_t` | `vav-discharge-air-temp` | required |
-| `ahu_sat` | `ahu-discharge-air-temp` | required |
+| `vav-discharge-air-temp` | `vav-discharge-air-temp` | required |
+| `ahu-discharge-air-temp` | `ahu-discharge-air-temp` | required |
 
 #### Plot series
 
-- `vav_disch_t` → `vav-discharge-air-temp`
-- `ahu_sat` → `ahu-discharge-air-temp`
+- `vav-discharge-air-temp` → `vav-discharge-air-temp`
+- `ahu-discharge-air-temp` → `ahu-discharge-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1670,11 +1670,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `zone_flow` | `zone-airflow` | required |
+| `zone-airflow` | `zone-airflow` | required |
 
 #### Plot series
 
-- `zone_flow` → `zone-airflow`
+- `zone-airflow` → `zone-airflow`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1714,13 +1714,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `chw_supply_t` | `chilled-water-supply-temp` | required |
-| `chw_return_t` | `chilled-water-return-temp` | required |
+| `chilled-water-supply-temp` | `chilled-water-supply-temp` | required |
+| `chilled-water-return-temp` | `chilled-water-return-temp` | required |
 
 #### Plot series
 
-- `chw_supply_t` → `chilled-water-supply-temp`
-- `chw_return_t` → `chilled-water-return-temp`
+- `chilled-water-supply-temp` → `chilled-water-supply-temp`
+- `chilled-water-return-temp` → `chilled-water-return-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1752,15 +1752,15 @@ RCx `chw_reset_scatter` — CHW leave vs web OAT; motor weekly uses pump/status 
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `chw_dp` | `chw-diff-pressure` | required |
-| `chw_dp_sp` | `chw-diff-pressure-sp` | required |
-| `chw_pump_cmd` | `chw-pump-cmd` | required |
+| `chw-diff-pressure` | `chw-diff-pressure` | required |
+| `chw-diff-pressure-sp` | `chw-diff-pressure-sp` | required |
+| `chw-pump-cmd` | `chw-pump-cmd` | required |
 
 #### Plot series
 
-- `chw_dp` → `chw-diff-pressure`
-- `chw_dp_sp` → `chw-diff-pressure-sp`
-- `chw_pump_cmd` → `chw-pump-cmd`
+- `chw-diff-pressure` → `chw-diff-pressure`
+- `chw-diff-pressure-sp` → `chw-diff-pressure-sp`
+- `chw-pump-cmd` → `chw-pump-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1792,15 +1792,15 @@ Plant motor weekly / chiller runtime — status/pump proof.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `chw_supply_t` | `chilled-water-supply-temp` | required |
-| `chw_supply_t_sp` | `chilled-water-supply-temp-sp` | required |
-| `chw_pump_cmd` | `chw-pump-cmd` | required |
+| `chilled-water-supply-temp` | `chilled-water-supply-temp` | required |
+| `chilled-water-supply-temp-sp` | `chilled-water-supply-temp-sp` | required |
+| `chw-pump-cmd` | `chw-pump-cmd` | required |
 
 #### Plot series
 
-- `chw_supply_t` → `chilled-water-supply-temp`
-- `chw_supply_t_sp` → `chilled-water-supply-temp-sp`
-- `chw_pump_cmd` → `chw-pump-cmd`
+- `chilled-water-supply-temp` → `chilled-water-supply-temp`
+- `chilled-water-supply-temp-sp` → `chilled-water-supply-temp-sp`
+- `chw-pump-cmd` → `chw-pump-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1832,13 +1832,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `chw_flow` | `chw-flow` | required |
-| `chw_pump_cmd` | `chw-pump-cmd` | required |
+| `chw-flow` | `chw-flow` | required |
+| `chw-pump-cmd` | `chw-pump-cmd` | required |
 
 #### Plot series
 
-- `chw_flow` → `chw-flow`
-- `chw_pump_cmd` → `chw-pump-cmd`
+- `chw-flow` → `chw-flow`
+- `chw-pump-cmd` → `chw-pump-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1870,11 +1870,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `cw_supply_t` | `condenser-water-supply-temp` | required |
+| `condenser-water-supply-temp` | `condenser-water-supply-temp` | required |
 
 #### Plot series
 
-- `cw_supply_t` → `condenser-water-supply-temp`
+- `condenser-water-supply-temp` → `condenser-water-supply-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1907,19 +1907,19 @@ RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `cw_supply_t` | `condenser-water-supply-temp` | required |
-| `tower_fan_cmd` | `tower-fan-cmd` | optional |
-| `cw_fan_cmd` | `cw-fan-cmd` | optional |
-| `fan_cmd` | `fan-cmd` | optional |
-| `wx_oa_wetbulb` | `wx-oa-wetbulb` | optional |
+| `condenser-water-supply-temp` | `condenser-water-supply-temp` | required |
+| `tower-fan-cmd` | `tower-fan-cmd` | optional |
+| `cw-fan-cmd` | `cw-fan-cmd` | optional |
+| `fan-cmd` | `fan-cmd` | optional |
+| `web-outside-air-wetbulb` | `web-outside-air-wetbulb` | optional |
 
 #### Plot series
 
-- `cw_supply_t` → `condenser-water-supply-temp`
-- `tower_fan_cmd` → `tower-fan-cmd`
-- `cw_fan_cmd` → `cw-fan-cmd`
-- `fan_cmd` → `fan-cmd`
-- `wx_oa_wetbulb` → `wx-oa-wetbulb`
+- `condenser-water-supply-temp` → `condenser-water-supply-temp`
+- `tower-fan-cmd` → `tower-fan-cmd`
+- `cw-fan-cmd` → `cw-fan-cmd`
+- `fan-cmd` → `fan-cmd`
+- `web-outside-air-wetbulb` → `web-outside-air-wetbulb`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -1952,19 +1952,19 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `cw_supply_t` | `condenser-water-supply-temp` | required |
-| `tower_fan_cmd` | `tower-fan-cmd` | optional |
-| `cw_fan_cmd` | `cw-fan-cmd` | optional |
-| `fan_cmd` | `fan-cmd` | optional |
-| `wx_oa_wetbulb` | `wx-oa-wetbulb` | optional |
+| `condenser-water-supply-temp` | `condenser-water-supply-temp` | required |
+| `tower-fan-cmd` | `tower-fan-cmd` | optional |
+| `cw-fan-cmd` | `cw-fan-cmd` | optional |
+| `fan-cmd` | `fan-cmd` | optional |
+| `web-outside-air-wetbulb` | `web-outside-air-wetbulb` | optional |
 
 #### Plot series
 
-- `cw_supply_t` → `condenser-water-supply-temp`
-- `tower_fan_cmd` → `tower-fan-cmd`
-- `cw_fan_cmd` → `cw-fan-cmd`
-- `fan_cmd` → `fan-cmd`
-- `wx_oa_wetbulb` → `wx-oa-wetbulb`
+- `condenser-water-supply-temp` → `condenser-water-supply-temp`
+- `tower-fan-cmd` → `tower-fan-cmd`
+- `cw-fan-cmd` → `cw-fan-cmd`
+- `fan-cmd` → `fan-cmd`
+- `web-outside-air-wetbulb` → `web-outside-air-wetbulb`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2003,15 +2003,15 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `sat` | `discharge-air-temp` | required |
-| `zone_t` | `zone-air-temp` | required |
-| `fan_cmd` | `fan-cmd` | required |
+| `discharge-air-temp` | `discharge-air-temp` | required |
+| `zone-air-temp` | `zone-air-temp` | required |
+| `fan-cmd` | `fan-cmd` | required |
 
 #### Plot series
 
-- `sat` → `discharge-air-temp`
-- `zone_t` → `zone-air-temp`
-- `fan_cmd` → `fan-cmd`
+- `discharge-air-temp` → `discharge-air-temp`
+- `zone-air-temp` → `zone-air-temp`
+- `fan-cmd` → `fan-cmd`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2049,11 +2049,11 @@ Mech-cooling OAT bins can use DX/compressor roles.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `oa_t` | `outside-air-temp` | required |
+| `outside-air-temp` | `outside-air-temp` | required |
 
 #### Plot series
 
-- `oa_t` → `outside-air-temp`
+- `outside-air-temp` → `outside-air-temp`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2090,13 +2090,13 @@ Weather family; web OAT enrich on weather frame.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `duct_static` | `duct-static-pressure` | required |
-| `vav_press_req_sum` | `vav-pressure-request-sum` | required |
+| `duct-static-pressure` | `duct-static-pressure` | required |
+| `vav-pressure-request-sum` | `vav-pressure-request-sum` | required |
 
 #### Plot series
 
-- `duct_static` → `duct-static-pressure`
-- `vav_press_req_sum` → `vav-pressure-request-sum`
+- `duct-static-pressure` → `duct-static-pressure`
+- `vav-pressure-request-sum` → `vav-pressure-request-sum`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2127,13 +2127,13 @@ Duct static / pressure trim requests; related to duct-static box RCx.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `hw_supply_t` | `hot-water-supply-temp` | required |
-| `hw_reset_req_sum` | `hw-reset-request-sum` | required |
+| `hot-water-supply-temp` | `hot-water-supply-temp` | required |
+| `hw-reset-request-sum` | `hw-reset-request-sum` | required |
 
 #### Plot series
 
-- `hw_supply_t` → `hot-water-supply-temp`
-- `hw_reset_req_sum` → `hw-reset-request-sum`
+- `hot-water-supply-temp` → `hot-water-supply-temp`
+- `hw-reset-request-sum` → `hw-reset-request-sum`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2164,13 +2164,13 @@ HW reset requests; RCx `hw_reset_scatter`.
 
 | Cookbook role | Haystack-like tag | Requirement |
 | --- | --- | --- |
-| `chw_supply_t` | `chilled-water-supply-temp` | required |
-| `chw_reset_req_sum` | `chw-reset-request-sum` | required |
+| `chilled-water-supply-temp` | `chilled-water-supply-temp` | required |
+| `chw-reset-request-sum` | `chw-reset-request-sum` | required |
 
 #### Plot series
 
-- `chw_supply_t` → `chilled-water-supply-temp`
-- `chw_reset_req_sum` → `chw-reset-request-sum`
+- `chilled-water-supply-temp` → `chilled-water-supply-temp`
+- `chw-reset-request-sum` → `chw-reset-request-sum`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2189,60 +2189,86 @@ CHW reset requests; RCx `chw_reset_scatter`.
 
 | Cookbook role | Haystack-like tag |
 | --- | --- |
-| `ahu_sat` | `ahu-discharge-air-temp` |
-| `building_power_kw` | `building-power` |
-| `chiller_power_kw` | `chiller-power` |
-| `chw_dp` | `chw-diff-pressure` |
-| `chw_dp_sp` | `chw-diff-pressure-sp` |
-| `chw_flow` | `chw-flow` |
-| `chw_pump_cmd` | `chw-pump-cmd` |
-| `chw_reset_req_sum` | `chw-reset-request-sum` |
-| `chw_return_t` | `chilled-water-return-temp` |
-| `chw_supply_t` | `chilled-water-supply-temp` |
-| `chw_supply_t_sp` | `chilled-water-supply-temp-sp` |
-| `clg_coil_enter_t` | `cooling-coil-entering-temp` |
-| `clg_coil_leave_t` | `cooling-coil-leaving-temp` |
-| `clg_valve_pct` | `cooling-valve` |
-| `cw_fan_cmd` | `cw-fan-cmd` |
-| `cw_pump_cmd` | `cw-pump-cmd` |
-| `cw_supply_t` | `condenser-water-supply-temp` |
-| `damper_pct` | `damper` |
-| `duct_static` | `duct-static-pressure` |
-| `duct_static_sp` | `duct-static-pressure-sp` |
-| `elec_power_kw` | `elec-power` |
-| `fan_cmd` | `fan-cmd` |
-| `fan_status` | `fan-status` |
-| `gas_flow` | `gas-flow` |
-| `gas_rate` | `gas-rate` |
-| `gas_therm_rate` | `gas-therm-rate` |
-| `htg_coil_enter_t` | `heating-coil-entering-temp` |
-| `htg_coil_leave_t` | `heating-coil-leaving-temp` |
-| `htg_valve_pct` | `heating-valve` |
-| `hw_reset_req_sum` | `hw-reset-request-sum` |
-| `hw_return_t` | `hot-water-return-temp` |
-| `hw_supply_t` | `hot-water-supply-temp` |
-| `loop_enabled` | `loop-enabled` |
-| `mat` | `mixed-air-temp` |
-| `meter_power_kw` | `meter-power` |
-| `min_flow_sp` | `min-flow-sp` |
-| `nat_gas_flow` | `nat-gas-flow` |
-| `oa_damper_pct` | `outside-air-damper` |
-| `oa_t` | `outside-air-temp` |
-| `occ_mode` | `occupied` |
-| `preheat_leave_t` | `preheat-leaving-temp` |
-| `rat` | `return-air-temp` |
-| `reheat_valve_pct` | `reheat-valve` |
-| `return_fan_cmd` | `return-fan-cmd` |
-| `sat` | `discharge-air-temp` |
-| `sat_sp` | `discharge-air-temp-sp` |
-| `tower_fan_cmd` | `tower-fan-cmd` |
-| `vav_disch_t` | `vav-discharge-air-temp` |
-| `vav_inlet_t` | `vav-inlet-air-temp` |
-| `vav_press_req_sum` | `vav-pressure-request-sum` |
-| `vav_total_flow` | `vav-total-airflow` |
-| `wx_oa_t` | `web-outside-air-temp` |
-| `zone_flow` | `zone-airflow` |
-| `zone_t` | `zone-air-temp` |
+| `ahu-discharge-air-temp` | `ahu-discharge-air-temp` |
+| `airflow-proof` | `airflow-proof` |
+| `bas-outside-air-temp` | `bas-outside-air-temp` |
+| `building-power` | `building-power` |
+| `chilled-water-return-temp` | `chilled-water-return-temp` |
+| `chilled-water-supply-temp` | `chilled-water-supply-temp` |
+| `chilled-water-supply-temp-sp` | `chilled-water-supply-temp-sp` |
+| `chiller-amps` | `chiller-amps` |
+| `chiller-power` | `chiller-power` |
+| `chiller-status` | `chiller-status` |
+| `chw-diff-pressure` | `chw-diff-pressure` |
+| `chw-diff-pressure-sp` | `chw-diff-pressure-sp` |
+| `chw-flow` | `chw-flow` |
+| `chw-pump-cmd` | `chw-pump-cmd` |
+| `chw-pump-status` | `chw-pump-status` |
+| `chw-reset-request-sum` | `chw-reset-request-sum` |
+| `compressor-status` | `compressor-status` |
+| `condenser-water-supply-temp` | `condenser-water-supply-temp` |
+| `control-output-pct` | `control-output-pct` |
+| `cool-stage` | `cool-stage` |
+| `cooling-coil-entering-temp` | `cooling-coil-entering-temp` |
+| `cooling-coil-leaving-temp` | `cooling-coil-leaving-temp` |
+| `cooling-valve` | `cooling-valve` |
+| `cw-fan-cmd` | `cw-fan-cmd` |
+| `cw-pump-cmd` | `cw-pump-cmd` |
+| `damper` | `damper` |
+| `discharge-air-temp` | `discharge-air-temp` |
+| `discharge-air-temp-sp` | `discharge-air-temp-sp` |
+| `duct-static-pressure` | `duct-static-pressure` |
+| `duct-static-pressure-sp` | `duct-static-pressure-sp` |
+| `dx-cool-cmd` | `dx-cool-cmd` |
+| `dx-cooling` | `dx-cooling` |
+| `dx-stage` | `dx-stage` |
+| `elec-power` | `elec-power` |
+| `equipment-enable` | `equipment-enable` |
+| `fan-cmd` | `fan-cmd` |
+| `fan-current` | `fan-current` |
+| `fan-power` | `fan-power` |
+| `fan-speed-feedback` | `fan-speed-feedback` |
+| `fan-status` | `fan-status` |
+| `gas-flow` | `gas-flow` |
+| `gas-rate` | `gas-rate` |
+| `gas-therm-rate` | `gas-therm-rate` |
+| `heating-coil-entering-temp` | `heating-coil-entering-temp` |
+| `heating-coil-leaving-temp` | `heating-coil-leaving-temp` |
+| `heating-valve` | `heating-valve` |
+| `hot-water-return-temp` | `hot-water-return-temp` |
+| `hot-water-supply-temp` | `hot-water-supply-temp` |
+| `hw-pump-cmd` | `hw-pump-cmd` |
+| `hw-pump-status` | `hw-pump-status` |
+| `hw-reset-request-sum` | `hw-reset-request-sum` |
+| `loop-enabled` | `loop-enabled` |
+| `meter-power` | `meter-power` |
+| `min-flow-sp` | `min-flow-sp` |
+| `mixed-air-temp` | `mixed-air-temp` |
+| `nat-gas-flow` | `nat-gas-flow` |
+| `occupied` | `occupied` |
+| `outside-air-damper` | `outside-air-damper` |
+| `outside-air-humidity` | `outside-air-humidity` |
+| `outside-air-temp` | `outside-air-temp` |
+| `preheat-leaving-temp` | `preheat-leaving-temp` |
+| `pump-cmd` | `pump-cmd` |
+| `pump-current` | `pump-current` |
+| `pump-speed-feedback` | `pump-speed-feedback` |
+| `pump-status` | `pump-status` |
+| `reheat-valve` | `reheat-valve` |
+| `return-air-temp` | `return-air-temp` |
+| `return-fan-cmd` | `return-fan-cmd` |
+| `tower-fan-cmd` | `tower-fan-cmd` |
+| `vav-discharge-air-temp` | `vav-discharge-air-temp` |
+| `vav-inlet-air-temp` | `vav-inlet-air-temp` |
+| `vav-pressure-request-sum` | `vav-pressure-request-sum` |
+| `vav-total-airflow` | `vav-total-airflow` |
+| `water-flow` | `water-flow` |
+| `web-outside-air-dewpoint` | `web-outside-air-dewpoint` |
+| `web-outside-air-humidity` | `web-outside-air-humidity` |
+| `web-outside-air-temp` | `web-outside-air-temp` |
+| `web-outside-air-wetbulb` | `web-outside-air-wetbulb` |
+| `zone-air-temp` | `zone-air-temp` |
+| `zone-airflow` | `zone-airflow` |
 
 ## Appendix B — Extended Haystack-style names used in this catalog
 
@@ -2251,16 +2277,6 @@ Prefer adding them to the dict when you next touch mapping exports.
 
 | Cookbook role | Suggested Haystack-like tag |
 | --- | --- |
-| `airflow_proof` | `airflow-proof` |
-| `compressor_status` | `compressor-status` |
-| `cool_stage` | `cool-stage` |
-| `dx_cool_cmd` | `dx-cool-cmd` |
-| `dx_cooling` | `dx-cooling` |
-| `dx_stage` | `dx-stage` |
-| `fan_current` | `fan-current` |
-| `fan_power` | `fan-power` |
-| `fan_speed_feedback` | `fan-speed-feedback` |
-| `pump_status` | `pump-status` |
 
 ## Appendix C — Related RCx presets (not the 50)
 

@@ -7,14 +7,14 @@ from typing import Any
 
 import pandas as pd
 
-DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+DAYS = ("mon", "tue", "wed", "thu", "fri", "discharge-air-temp", "sun")
 DAY_LABELS = {
     "mon": "Monday",
     "tue": "Tuesday",
     "wed": "Wednesday",
     "thu": "Thursday",
     "fri": "Friday",
-    "sat": "Saturday",
+    "discharge-air-temp": "Saturday",
     "sun": "Sunday",
 }
 
@@ -36,7 +36,7 @@ class OccupancySchedule:
     def __post_init__(self) -> None:
         if not self.days:
             self.days = {
-                d: DaySchedule(occupied=(d not in {"sat", "sun"}), start="06:00", end="18:00")
+                d: DaySchedule(occupied=(d not in {"discharge-air-temp", "sun"}), start="06:00", end="18:00")
                 for d in DAYS
             }
 
@@ -58,7 +58,7 @@ class OccupancySchedule:
         for d in DAYS:
             row = raw_days.get(d) or {}
             days[d] = DaySchedule(
-                occupied=bool(row.get("occupied", d not in {"sat", "sun"})),
+                occupied=bool(row.get("occupied", d not in {"discharge-air-temp", "sun"})),
                 start=str(row.get("start", "06:00")),
                 end=str(row.get("end", "18:00")),
             )
@@ -121,10 +121,10 @@ def occupied_hours_per_week(schedule: OccupancySchedule) -> float:
 def apply_schedule_occ_mode(df: pd.DataFrame, schedule: OccupancySchedule, *, overwrite: bool = False) -> pd.DataFrame:
     """Attach occ_mode from weekly calendar when missing (or overwrite=True)."""
     out = df.copy()
-    if "occ_mode" in out.columns and out["occ_mode"].notna().any() and not overwrite:
+    if "occupied" in out.columns and out["occupied"].notna().any() and not overwrite:
         return out
     if not isinstance(out.index, pd.DatetimeIndex):
         return out
     mask = occupied_mask(out.index, schedule)
-    out["occ_mode"] = mask.map(lambda x: "occupied" if x else "unoccupied")
+    out["occupied"] = mask.map(lambda x: "occupied" if x else "unoccupied")
     return out

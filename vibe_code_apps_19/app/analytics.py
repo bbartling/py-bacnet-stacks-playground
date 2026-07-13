@@ -19,42 +19,42 @@ PLANT_GROUPS: tuple[str, ...] = (PLANT_AIR, PLANT_BOILER, PLANT_CHILLER)
 
 # Logical roles treated as motor / fan / pump runtime signals (0–100% or bool).
 MOTOR_SIGNAL_ROLES: tuple[str, ...] = (
-    "fan_cmd",
-    "fan_status",
-    "chw_pump_status",
-    "chw_pump_cmd",
-    "hw_pump_cmd",
-    "pump_cmd",
-    "pump_status",
+    "fan-cmd",
+    "fan-status",
+    "chw-pump-status",
+    "chw-pump-cmd",
+    "hw-pump-cmd",
+    "pump-cmd",
+    "pump-status",
 )
-MAPPED_FAN_ROLES: tuple[str, ...] = ("fan_status", "fan_cmd")
+MAPPED_FAN_ROLES: tuple[str, ...] = ("fan-status", "fan-cmd")
 MAPPED_PUMP_ROLES: tuple[str, ...] = (
-    "chw_pump_status",
-    "chw_pump_cmd",
-    "hw_pump_cmd",
-    "pump_status",
-    "pump_cmd",
+    "chw-pump-status",
+    "chw-pump-cmd",
+    "hw-pump-cmd",
+    "pump-status",
+    "pump-cmd",
 )
 
 # Mechanical cooling proof — chillers / DX compressors only (never CHW valves on OAT bins).
 # Pump / motor status first; temperature is backup only when status/cmd is missing or bad.
 CHILLER_PUMP_ROLES: tuple[str, ...] = (
-    "chw_pump_status",
-    "pump_status",
-    "chw_pump_cmd",
-    "pump_cmd",
+    "chw-pump-status",
+    "pump-status",
+    "chw-pump-cmd",
+    "pump-cmd",
 )
 CHILLER_RUN_ROLES: tuple[str, ...] = (
-    "chiller_status",
-    "compressor_status",
-    "equipment_enable",
+    "chiller-status",
+    "compressor-status",
+    "equipment-enable",
 )
 DX_RUN_ROLES: tuple[str, ...] = (
-    "compressor_status",
-    "dx_cool_cmd",
-    "dx_cooling",
-    "cool_stage",
-    "dx_stage",
+    "compressor-status",
+    "dx-cool-cmd",
+    "dx-cooling",
+    "cool-stage",
+    "dx-stage",
 )
 
 
@@ -143,11 +143,11 @@ def motor_run_hours_totals(table: pd.DataFrame) -> dict[str, float]:
     for _eq, grp in prefer.groupby("equipment_id"):
         signals = set(grp["signal"])
         # Prefer proven status over command when both exist
-        if "fan_status" in signals and "fan_cmd" in signals:
-            drop_idx.extend(grp.index[grp["signal"] == "fan_cmd"].tolist())
-        if "pump_status" in signals and any(s in signals for s in ("pump_cmd", "hw_pump_cmd", "chw_pump_cmd")):
+        if "fan-status" in signals and "fan-cmd" in signals:
+            drop_idx.extend(grp.index[grp["signal"] == "fan-cmd"].tolist())
+        if "pump-status" in signals and any(s in signals for s in ("pump-cmd", "hw-pump-cmd", "chw-pump-cmd")):
             drop_idx.extend(
-                grp.index[grp["signal"].isin(["pump_cmd", "hw_pump_cmd", "chw_pump_cmd"])].tolist()
+                grp.index[grp["signal"].isin(["pump-cmd", "hw-pump-cmd", "chw-pump-cmd"])].tolist()
             )
     prefer = prefer.drop(index=drop_idx)
     fan = float(prefer.loc[prefer["motor_kind"] == "fan", "run_hours"].sum())
@@ -165,16 +165,16 @@ def _preferred_motor_roles(df: pd.DataFrame) -> list[tuple[str, str]]:
     fans = [r for r in present if "fan" in r]
     pumps = [r for r in present if "fan" not in r]
     out: list[tuple[str, str]] = []
-    if "fan_status" in fans:
-        out.append(("fan_status", "fan"))
-    elif "fan_cmd" in fans:
-        out.append(("fan_cmd", "fan"))
-    if "pump_status" in pumps:
-        out.append(("pump_status", "pump"))
-    elif "chw_pump_status" in pumps:
-        out.append(("chw_pump_status", "pump"))
+    if "fan-status" in fans:
+        out.append(("fan-status", "fan"))
+    elif "fan-cmd" in fans:
+        out.append(("fan-cmd", "fan"))
+    if "pump-status" in pumps:
+        out.append(("pump-status", "pump"))
+    elif "chw-pump-status" in pumps:
+        out.append(("chw-pump-status", "pump"))
     else:
-        for r in ("chw_pump_cmd", "hw_pump_cmd", "pump_cmd"):
+        for r in ("chw-pump-cmd", "hw-pump-cmd", "pump-cmd"):
             if r in pumps:
                 out.append((r, "pump"))
                 break
@@ -363,7 +363,7 @@ def _discover_named_pumps_and_towers(
         col = b.get("status") or b.get("cmd")
         if col is None:
             continue
-        signal = "pump_status" if b.get("status") else "pump_cmd"
+        signal = "pump-status" if b.get("status") else "pump-cmd"
         if b["motor_kind"] == "tower":
             signal = "tower_status" if b.get("status") else "tower_cmd"
         plant = b["plant"] if b["plant"] else default_plant
@@ -416,10 +416,10 @@ def _discover_air_supply_fan(
             if role not in logical:
                 logical[role] = pd.to_numeric(mapped[role], errors="coerce")
 
-    if "fan_status" in logical and logical["fan_status"].notna().any():
-        role, kind, ser = "fan_status", "fan", logical["fan_status"]
-    elif "fan_cmd" in logical and logical["fan_cmd"].notna().any():
-        role, kind, ser = "fan_cmd", "fan", logical["fan_cmd"]
+    if "fan-status" in logical and logical["fan-status"].notna().any():
+        role, kind, ser = "fan-status", "fan", logical["fan-status"]
+    elif "fan-cmd" in logical and logical["fan-cmd"].notna().any():
+        role, kind, ser = "fan-cmd", "fan", logical["fan-cmd"]
     else:
         return []
     return [
@@ -454,7 +454,7 @@ def _resolve_linked_pump_series(
     if src is None or src.empty:
         return None, "", ""
 
-    for role in ("chw_pump_status", "chw_pump_cmd"):
+    for role in ("chw-pump-status", "chw-pump-cmd"):
         col = eq_roles.get(role)
         if not col or not isinstance(col, str):
             continue
@@ -489,17 +489,17 @@ def _discover_chiller_on(
             return [
                 {
                     "equipment_id": equipment_id,
-                    "signal": link_role or "chw_pump_status",
+                    "signal": link_role or "chw-pump-status",
                     "column": link_label,
                     "motor_kind": "chiller",
                     "plant_group": PLANT_CHILLER,
-                    "label": f"{equipment_id} · {link_role or 'chw_pump_status'}",
+                    "label": f"{equipment_id} · {link_role or 'chw-pump-status'}",
                     "series_on": on.astype(float),
                 }
             ]
 
     # 2) Mapped logical roles on this chiller frame
-    for role in ("chw_pump_status", "pump_status"):
+    for role in ("chw-pump-status", "pump-status"):
         if role in mapped.columns and mapped[role].notna().any():
             on = _is_on(mapped[role])
             if bool(on.any()):
@@ -514,7 +514,7 @@ def _discover_chiller_on(
                         "series_on": on.astype(float),
                     }
                 ]
-    for role in ("chw_pump_cmd", "pump_cmd"):
+    for role in ("chw-pump-cmd", "pump-cmd"):
         if role in mapped.columns and mapped[role].notna().any():
             on = _is_on(mapped[role])
             if bool(on.any()):
@@ -535,7 +535,7 @@ def _discover_chiller_on(
         raw, equipment_id=equipment_id, default_plant=PLANT_CHILLER
     )
     pumps = [p for p in named if p.get("motor_kind") == "pump"]
-    status_pumps = [p for p in pumps if p.get("signal") == "pump_status"]
+    status_pumps = [p for p in pumps if p.get("signal") == "pump-status"]
     pick = (status_pumps or pumps)
     if pick:
         p0 = pick[0]
@@ -554,7 +554,7 @@ def _discover_chiller_on(
             ]
 
     # 4) Fallback: chiller / compressor / equipment enable proof (never leave temp)
-    for role in ("chiller_status", "compressor_status", "equipment_enable"):
+    for role in ("chiller-status", "compressor-status", "equipment-enable"):
         src = mapped if role in mapped.columns and mapped[role].notna().any() else None
         if src is None and role in raw.columns and raw[role].notna().any():
             src = raw
@@ -825,7 +825,7 @@ def _oat_series(
 
 def _chw_temp_proof(df: pd.DataFrame, leave_max_f: float) -> pd.Series | None:
     """True when chilled-water leave/supply is colder than threshold (plant producing cold water)."""
-    for role in ("chw_supply_t", "chw_leave_t", "chws_t"):
+    for role in ("chilled-water-supply-temp", "chw_leave_t", "chws_t"):
         if role in df.columns and df[role].notna().any():
             t = pd.to_numeric(df[role], errors="coerce")
             # Ignore long zero/null sensor dropouts common in historians
@@ -841,15 +841,15 @@ def _chiller_on_mask(
     chiller_power_kw_min: float = 1.0,
 ) -> tuple[pd.Series | None, str]:
     """Chiller ON: cmd/status → amps → power → CHW leave vs slider (no pumps)."""
-    run = _first_on_mask(df, ("chiller_status", "compressor_status", "equipment_enable"))
+    run = _first_on_mask(df, ("chiller-status", "compressor-status", "equipment-enable"))
     if run is not None and bool(run.any()):
-        return run, "chiller_status"
-    if "chiller_amps" in df.columns and df["chiller_amps"].notna().any():
-        amps = _above_threshold(df["chiller_amps"], chiller_amps_min)
+        return run, "chiller-status"
+    if "chiller-amps" in df.columns and df["chiller-amps"].notna().any():
+        amps = _above_threshold(df["chiller-amps"], chiller_amps_min)
         if bool(amps.any()):
-            return amps, "chiller_amps"
-    if "chiller_power_kw" in df.columns and df["chiller_power_kw"].notna().any():
-        pwr = _above_threshold(df["chiller_power_kw"], chiller_power_kw_min)
+            return amps, "chiller-amps"
+    if "chiller-power" in df.columns and df["chiller-power"].notna().any():
+        pwr = _above_threshold(df["chiller-power"], chiller_power_kw_min)
         if bool(pwr.any()):
             return pwr, "chiller_power"
     temp = _chw_temp_proof(df, chw_leave_max_f)
@@ -899,13 +899,13 @@ def mech_cooling_run_mask(
             return run, "chw_pump"
         run = _first_on_mask(df, CHILLER_RUN_ROLES)
         if run is not None and bool(run.any()):
-            return run, "chiller_status"
-        if "chiller_amps" in df.columns and df["chiller_amps"].notna().any():
-            amps = _above_threshold(df["chiller_amps"], chiller_amps_min)
+            return run, "chiller-status"
+        if "chiller-amps" in df.columns and df["chiller-amps"].notna().any():
+            amps = _above_threshold(df["chiller-amps"], chiller_amps_min)
             if bool(amps.any()):
-                return amps, "chiller_amps"
-        if "chiller_power_kw" in df.columns and df["chiller_power_kw"].notna().any():
-            pwr = _above_threshold(df["chiller_power_kw"], chiller_power_kw_min)
+                return amps, "chiller-amps"
+        if "chiller-power" in df.columns and df["chiller-power"].notna().any():
+            pwr = _above_threshold(df["chiller-power"], chiller_power_kw_min)
             if bool(pwr.any()):
                 return pwr, "chiller_power"
         # No leave-temp fallback — omit series when no pump/status/amps/power
@@ -916,7 +916,7 @@ def mech_cooling_run_mask(
             return run, "ahu_dx"
         return None, ""
     if et == "HEATPUMP" or eq.startswith("HP"):
-        run = _first_on_mask(df, DX_RUN_ROLES + ("compressor_status",))
+        run = _first_on_mask(df, DX_RUN_ROLES + ("compressor-status",))
         if run is not None and bool(run.any()):
             return run, "heatpump"
         return None, ""
@@ -1071,21 +1071,21 @@ def plant_gated_summary_tables(
     fan_tables, fan_cap = fan_mode_summary_bundle(
         frames,
         role_map,
-        role="sat",
+        role="discharge-air-temp",
         equipment_types=("AHU", "RTU"),
     )
     # Merge chw + hw leave into one pump-mode caption; prefer chw_supply_t then hw_supply_t
     pump_tables, pump_cap = pump_mode_summary_bundle(
         frames,
         role_map,
-        role="chw_supply_t",
+        role="chilled-water-supply-temp",
         equipment_types=("CHILLER", "CHW_PLANT", "AHU"),
     )
     if all(t.empty for t in pump_tables.values()):
         pump_tables, pump_cap = pump_mode_summary_bundle(
             frames,
             role_map,
-            role="hw_supply_t",
+            role="hot-water-supply-temp",
             equipment_types=("BOILER", "HW_PLANT", "AHU"),
         )
     return fan_tables, pump_tables, fan_cap, pump_cap

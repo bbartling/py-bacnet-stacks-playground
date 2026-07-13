@@ -51,8 +51,8 @@ def test_equipment_fdd_docx_is_simple_template():
 
 def test_bas_vs_web_oat_histogram():
     idx = pd.date_range("2024-06-01", periods=20, freq="5min", tz="UTC")
-    df = pd.DataFrame({"oa_t": [70.0 + i * 0.1 for i in range(20)], "wx_oa_t": [68.0] * 20}, index=idx)
-    fig = bas_vs_web_oat_histogram({"AHU_1": df}, {"AHU_1": {"oa_t": "oa_t", "wx_oa_t": "wx_oa_t"}})
+    df = pd.DataFrame({"outside-air-temp": [70.0 + i * 0.1 for i in range(20)], "web-outside-air-temp": [68.0] * 20}, index=idx)
+    fig = bas_vs_web_oat_histogram({"AHU_1": df}, {"AHU_1": {"outside-air-temp": "outside-air-temp", "web-outside-air-temp": "web-outside-air-temp"}})
     assert fig is not None
 
 
@@ -60,8 +60,8 @@ def test_pump_mode_summary_bundle():
     idx = pd.date_range("2024-06-01", periods=10, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "chw_supply_t": [44.0] * 10,
-            "chw_pump_status": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            "chilled-water-supply-temp": [44.0] * 10,
+            "chw-pump-status": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
         },
         index=idx,
     )
@@ -71,11 +71,11 @@ def test_pump_mode_summary_bundle():
         {
             "CHILLER_1": {
                 "equipment_type": "CHILLER",
-                "chw_supply_t": "chw_supply_t",
-                "chw_pump_status": "chw_pump_status",
+                "chilled-water-supply-temp": "chilled-water-supply-temp",
+                "chw-pump-status": "chw-pump-status",
             }
         },
-        role="chw_supply_t",
+        role="chilled-water-supply-temp",
         equipment_types=("CHILLER", "CHW_PLANT"),
     )
     assert "all" in tables and "on" in tables and "off" in tables
@@ -87,11 +87,11 @@ def test_pump_mode_summary_bundle():
 
 def test_plant_gated_summary_tables_smoke():
     idx = pd.date_range("2024-06-01", periods=8, freq="5min", tz="UTC")
-    ahu = pd.DataFrame({"sat": [55.0] * 8, "fan_status": [1] * 8}, index=idx)
+    ahu = pd.DataFrame({"discharge-air-temp": [55.0] * 8, "fan-status": [1] * 8}, index=idx)
     ahu.attrs["equipment_type"] = "AHU"
     fan, pump, fc, pc = plant_gated_summary_tables(
         {"AHU_1": ahu},
-        {"AHU_1": {"equipment_type": "AHU", "sat": "sat", "fan_status": "fan_status"}},
+        {"AHU_1": {"equipment_type": "AHU", "discharge-air-temp": "discharge-air-temp", "fan-status": "fan-status"}},
     )
     assert "all" in fan
     assert fc

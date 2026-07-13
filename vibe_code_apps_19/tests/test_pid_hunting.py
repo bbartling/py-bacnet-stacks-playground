@@ -59,8 +59,8 @@ def test_pid_hunt_cookbook_compute_or_across_outputs():
     idx = pd.date_range("2026-07-10 08:00", periods=6, freq="12min", tz="UTC")
     df = pd.DataFrame(
         {
-            "damper_pct": [0, 100, 0, 100, 0, 100],
-            "reheat_valve_pct": [50.0] * 6,  # stable — should not alone fault
+            "damper": [0, 100, 0, 100, 0, 100],
+            "reheat-valve": [50.0] * 6,  # stable — should not alone fault
         },
         index=idx,
     )
@@ -82,11 +82,11 @@ def test_iter_control_outputs_includes_raw_valve_not_terminalload():
         index=idx,
     )
     labels = {lab for lab, _ in iter_control_output_series(df)}
-    assert any("chw_valve" in lab or lab == "clg_valve_pct" for lab in labels) or any(
+    assert any("chw_valve" in lab or lab == "cooling-valve" for lab in labels) or any(
         "col:chw_valve" in lab for lab in labels
     )
     assert not any("terminalload" in lab for lab in labels)
-    assert any("supply_fan" in lab or lab == "fan_cmd" for lab in labels) or any(
+    assert any("supply_fan" in lab or lab == "fan-cmd" for lab in labels) or any(
         "col:supply_fan" in lab for lab in labels
     )
 
@@ -94,4 +94,4 @@ def test_iter_control_outputs_includes_raw_valve_not_terminalload():
 def test_damper_point_role_is_zone_not_oa():
     from app.role_map import POINT_ROLE_CANONICAL
 
-    assert POINT_ROLE_CANONICAL.get("damper") == "damper_pct"
+    assert POINT_ROLE_CANONICAL.get("damper") == "damper"

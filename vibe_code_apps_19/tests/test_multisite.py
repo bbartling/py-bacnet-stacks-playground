@@ -28,9 +28,9 @@ from app.sql_sources import SqlServerConfig, validate_readonly_sql
 
 def test_flat_role_map_loads(tmp_path: Path):
     p = tmp_path / "flat.yaml"
-    p.write_text("AHU_1:\n  sat: discharge_air_temp_f\n", encoding="utf-8")
+    p.write_text("AHU_1:\n  discharge-air-temp: discharge_air_temp_f\n", encoding="utf-8")
     m = load_role_map(p)
-    assert m["AHU_1"]["sat"] == "discharge_air_temp_f"
+    assert m["AHU_1"]["discharge-air-temp"] == "discharge_air_temp_f"
 
 
 def test_nested_role_map_loads(tmp_path: Path):
@@ -41,7 +41,7 @@ def test_nested_role_map_loads(tmp_path: Path):
                 "buildings": {
                     "BUILDING_100": {
                         "equipment": {
-                            "AHU_1": {"equipment_type": "AHU", "roles": {"sat": "discharge_air_temp_f"}},
+                            "AHU_1": {"equipment_type": "AHU", "roles": {"discharge-air-temp": "discharge_air_temp_f"}},
                         }
                     }
                 },
@@ -51,17 +51,17 @@ def test_nested_role_map_loads(tmp_path: Path):
     p = tmp_path / "nested.yaml"
     p.write_text(yaml.safe_dump(nested), encoding="utf-8")
     flat = load_role_map(p)
-    assert flat["AHU_1"]["sat"] == "discharge_air_temp_f"
+    assert flat["AHU_1"]["discharge-air-temp"] == "discharge_air_temp_f"
     sites = load_site_mapping(p)
     assert "acme_main" in sites
 
 
 def test_flat_migrates_to_nested(tmp_path: Path):
     flat = tmp_path / "flat.yaml"
-    flat.write_text("VAV_7:\n  zone_t: space_temp\n", encoding="utf-8")
+    flat.write_text("VAV_7:\n  zone-air-temp: space_temp\n", encoding="utf-8")
     nested = tmp_path / "nested.yaml"
     sites = migrate_flat_file(flat, nested)
-    assert flat_role_map_from_sites(sites)["VAV_7"]["zone_t"] == "space_temp"
+    assert flat_role_map_from_sites(sites)["VAV_7"]["zone-air-temp"] == "space_temp"
     assert is_nested_role_map(yaml.safe_load(nested.read_text(encoding="utf-8")))
 
 
@@ -78,9 +78,9 @@ def test_multi_csv_upload_normalize():
 
 
 def test_wide_and_long_profiles():
-    wide = pd.DataFrame({"timestamp": ["2024-01-01"], "sat": [72.0]})
+    wide = pd.DataFrame({"timestamp": ["2024-01-01"], "discharge-air-temp": [72.0]})
     assert profile_csv_source(wide).format == "wide"
-    long = pd.DataFrame({"timestamp": ["2024-01-01"], "equipment_id": ["AHU_1"], "point_name": ["sat"], "value": [72.0]})
+    long = pd.DataFrame({"timestamp": ["2024-01-01"], "equipment_id": ["AHU_1"], "point_name": ["discharge-air-temp"], "value": [72.0]})
     assert profile_csv_source(long).format == "long"
 
 
@@ -97,8 +97,8 @@ def test_sqlserver_config_masks_password():
 
 
 def test_site_model_serialization():
-    sites = wrap_flat_role_map({"AHU_1": {"sat": "x"}}, site_id="s1", building_id="b1")
-    assert sites["s1"].buildings["b1"].equipment["AHU_1"].roles["sat"] == "x"
+    sites = wrap_flat_role_map({"AHU_1": {"discharge-air-temp": "x"}}, site_id="s1", building_id="b1")
+    assert sites["s1"].buildings["b1"].equipment["AHU_1"].roles["discharge-air-temp"] == "x"
     assert equipment_type_from_id("VAV_7") == "VAV"
 
 

@@ -13,11 +13,12 @@ import pandas as pd
 
 from app.rules.cookbook_catalog import RULES_BY_ID, fc2, fc3, fc5
 from app.rules import run_rule
+from tests.point_names import canon_point_cols
 
 
 def _ts_df(n: int, *, equipment_id: str = "AHU_1", **cols: Any) -> pd.DataFrame:
     idx = pd.date_range("2024-01-01", periods=n, freq="h", tz="UTC")
-    data = {k: ([v] * n if not isinstance(v, list) else v) for k, v in cols.items()}
+    data = {k: ([v] * n if not isinstance(v, list) else v) for k, v in canon_point_cols(cols).items()}
     df = pd.DataFrame(data, index=idx)
     df.attrs["equipment_id"] = equipment_id
     df.attrs["equipment_type"] = "AHU"

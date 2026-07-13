@@ -13,10 +13,10 @@ def _frame(*, approach_f: float, fan_pct: float = 100.0) -> pd.DataFrame:
     wb = 70.0
     return pd.DataFrame(
         {
-            "cw_supply_t": [wb + approach_f] * len(idx),
-            "wx_oa_wetbulb": [wb] * len(idx),
-            "tower_fan_cmd": [fan_pct] * len(idx),
-            "chw_pump_status": [1] * len(idx),
+            "condenser-water-supply-temp": [wb + approach_f] * len(idx),
+            "web-outside-air-wetbulb": [wb] * len(idx),
+            "tower-fan-cmd": [fan_pct] * len(idx),
+            "chw-pump-status": [1] * len(idx),
         },
         index=idx,
     )
@@ -58,7 +58,7 @@ def test_cw_apr_runner_skips_without_fan_role():
     rule = RULES_BY_ID["CW-APR-1"]
     idx = pd.date_range("2026-07-10", periods=4, freq="h", tz="UTC")
     df = pd.DataFrame(
-        {"cw_supply_t": [85.0] * 4, "wx_oa_wetbulb": [70.0] * 4, "chw_pump_status": [1] * 4},
+        {"condenser-water-supply-temp": [85.0] * 4, "web-outside-air-wetbulb": [70.0] * 4, "chw-pump-status": [1] * 4},
         index=idx,
     )
     df.attrs["equipment_type"] = "COOLING_TOWER"

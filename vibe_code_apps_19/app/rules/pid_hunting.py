@@ -143,7 +143,7 @@ def hunting_fault_mask(
 
     metrics = pd.DataFrame(
         {
-            "control_output_pct": output,
+            "control-output-pct": output,
             "total_variation_1h": total_variation,
             "output_min_1h": rolling_min,
             "output_max_1h": rolling_max,
@@ -153,7 +153,7 @@ def hunting_fault_mask(
             "coverage_pct_1h": coverage_pct,
             "low_extreme_seen_1h": low_extreme_seen,
             "high_extreme_seen_1h": high_extreme_seen,
-            "loop_enabled": loop_enabled,
+            "loop-enabled": loop_enabled,
             "fault": fault,
         },
         index=output.index,
@@ -179,8 +179,8 @@ def _looks_like_ao_column(name: str) -> bool:
         "damper",
         "actuator",
         "fan_speed",
-        "fan_cmd",
-        "pump_cmd",
+        "fan-cmd",
+        "pump-cmd",
         "pump_speed",
         "vfd",
         "reheat",

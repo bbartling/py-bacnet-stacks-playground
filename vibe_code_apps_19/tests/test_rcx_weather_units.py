@@ -31,10 +31,10 @@ def test_enrich_weather_derives_dewpoint():
     idx = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
     df = pd.DataFrame({"temperature_2m": [70.0, 72.0, 71.0], "relative_humidity_2m": [50.0, 55.0, 45.0]}, index=idx)
     out = enrich_weather_frame(df)
-    assert "wx_oa_t" in out.columns
-    assert "wx_oa_dewpoint" in out.columns
-    assert out["wx_oa_dewpoint"].notna().all()
-    assert "wx_oa_wetbulb" in out.columns
+    assert "web-outside-air-temp" in out.columns
+    assert "web-outside-air-dewpoint" in out.columns
+    assert out["web-outside-air-dewpoint"].notna().all()
+    assert "web-outside-air-wetbulb" in out.columns
 
 
 def test_occupancy_weekday_mask():
@@ -49,15 +49,15 @@ def test_occupancy_weekday_mask():
 
 def test_apply_schedule_writes_occ_mode():
     idx = pd.date_range("2024-01-01", periods=10, freq="1h", tz="UTC")
-    df = pd.DataFrame({"zone_t": range(10)}, index=idx)
+    df = pd.DataFrame({"zone-air-temp": range(10)}, index=idx)
     out = apply_schedule_occ_mode(df, OccupancySchedule(), overwrite=True)
-    assert "occ_mode" in out.columns
-    assert set(out["occ_mode"].unique()) <= {"occupied", "unoccupied"}
+    assert "occupied" in out.columns
+    assert set(out["occupied"].unique()) <= {"occupied", "unoccupied"}
 
 
 def test_unit_convert_f_to_c():
     s = pd.Series([32.0, 212.0])
-    conv, unit = convert_series("sat", s, "metric")
+    conv, unit = convert_series("discharge-air-temp", s, "metric")
     assert unit == "°C"
     assert abs(conv.iloc[0] - 0.0) < 1e-6
     assert abs(f_to_c(212) - 100) < 1e-6
@@ -68,9 +68,9 @@ def test_vav7_fixed_high_flow():
     # Constant high flow with damper/air on
     d = pd.DataFrame(
         {
-            "zone_flow": [400.0] * 40,
-            "min_flow_sp": [300.0] * 40,
-            "damper_pct": [50.0] * 40,
+            "zone-airflow": [400.0] * 40,
+            "min-flow-sp": [300.0] * 40,
+            "damper": [50.0] * 40,
         },
         index=idx,
     )
@@ -81,7 +81,7 @@ def test_vav7_fixed_high_flow():
 def test_cw_opt_faults_when_overcooled():
     idx = pd.date_range("2024-01-01", periods=5, freq="5min", tz="UTC")
     d = pd.DataFrame(
-        {"cw_supply_t": [60.0] * 5, "wx_oa_wetbulb": [70.0] * 5},
+        {"condenser-water-supply-temp": [60.0] * 5, "web-outside-air-wetbulb": [70.0] * 5},
         index=idx,
     )
     # target = 70+7=77, slack 2 → fault if CW < 75; 60 is fault
@@ -92,14 +92,14 @@ def test_cw_opt_faults_when_overcooled():
 def test_rcx_collect_and_outliers():
     idx = pd.date_range("2024-01-01", periods=10, freq="5min", tz="UTC")
     frames = {
-        "VAV_1": pd.DataFrame({"zone_t": [72.0] * 10}, index=idx),
-        "VAV_2": pd.DataFrame({"zone_t": [72.5] * 10}, index=idx),
-        "VAV_3": pd.DataFrame({"zone_t": [95.0] * 10}, index=idx),
+        "VAV_1": pd.DataFrame({"zone-air-temp": [72.0] * 10}, index=idx),
+        "VAV_2": pd.DataFrame({"zone-air-temp": [72.5] * 10}, index=idx),
+        "VAV_3": pd.DataFrame({"zone-air-temp": [95.0] * 10}, index=idx),
     }
     for eq, df in frames.items():
         df.attrs["equipment_type"] = "VAV"
-    role_map = {eq: {"zone_t": "zone_t"} for eq in frames}
-    series = collect_role_series(frames, role_map, role="zone_t", equipment_types=("VAV",))
+    role_map = {eq: {"zone-air-temp": "zone-air-temp"} for eq in frames}
+    series = collect_role_series(frames, role_map, role="zone-air-temp", equipment_types=("VAV",))
     assert len(series) == 3
     stats = series_summary_stats(series, outlier_z=2.0)
     assert "outlier" in stats.columns
@@ -111,44 +111,44 @@ def test_rcx_fan_mode_summary_ahu_and_vav():
     idx = pd.date_range("2024-01-01", periods=6, freq="5min", tz="UTC")
     ahu = pd.DataFrame(
         {
-            "sat": [55.0, 56.0, 57.0, 70.0, 71.0, 72.0],
-            "fan_status": [1, 1, 1, 0, 0, 0],
+            "discharge-air-temp": [55.0, 56.0, 57.0, 70.0, 71.0, 72.0],
+            "fan-status": [1, 1, 1, 0, 0, 0],
         },
         index=idx,
     )
     ahu.attrs["equipment_type"] = "AHU"
     vav = pd.DataFrame(
         {
-            "zone_t": [72.0, 72.0, 72.0, 68.0, 68.0, 68.0],
-            "zone_flow": [400.0, 400.0, 400.0, 0.0, 0.0, 0.0],
+            "zone-air-temp": [72.0, 72.0, 72.0, 68.0, 68.0, 68.0],
+            "zone-airflow": [400.0, 400.0, 400.0, 0.0, 0.0, 0.0],
         },
         index=idx,
     )
     vav.attrs["equipment_type"] = "VAV"
     frames = {"AHU_1": ahu, "VAV_1": vav}
     role_map = {
-        "AHU_1": {"sat": "sat", "fan_status": "fan_status", "equipment_type": "AHU"},
-        "VAV_1": {"zone_t": "zone_t", "zone_flow": "zone_flow", "equipment_type": "VAV"},
+        "AHU_1": {"discharge-air-temp": "discharge-air-temp", "fan-status": "fan-status", "equipment_type": "AHU"},
+        "VAV_1": {"zone-air-temp": "zone-air-temp", "zone-airflow": "zone-airflow", "equipment_type": "VAV"},
     }
     mask, label = operating_mask(ahu)
-    assert label == "fan_status"
+    assert label == "fan-status"
     assert int(mask.sum()) == 3
     mask_v, label_v = operating_mask(vav)
-    assert label_v == "zone_flow"
+    assert label_v == "zone-airflow"
     assert int(mask_v.sum()) == 3
 
     ahu_tables, cap = fan_mode_summary_bundle(
-        frames, role_map, role="sat", equipment_types=("AHU",), outlier_z=2.5
+        frames, role_map, role="discharge-air-temp", equipment_types=("AHU",), outlier_z=2.5
     )
-    assert "fan_status" in cap
+    assert "fan-status" in cap
     assert int(ahu_tables["on"].iloc[0]["n"]) == 3
     assert int(ahu_tables["off"].iloc[0]["n"]) == 3
     assert int(ahu_tables["all"].iloc[0]["n"]) == 6
 
     vav_tables, vcap = fan_mode_summary_bundle(
-        frames, role_map, role="zone_t", equipment_types=("VAV",), outlier_z=2.5
+        frames, role_map, role="zone-air-temp", equipment_types=("VAV",), outlier_z=2.5
     )
-    assert "zone_flow" in vcap
+    assert "zone-airflow" in vcap
     assert int(vav_tables["on"].iloc[0]["n"]) == 3
     assert int(vav_tables["off"].iloc[0]["n"]) == 3
 
@@ -161,14 +161,14 @@ def test_zone_comfort_fail_ranking():
     # use UTC-aligned schedule via America/Chicago with a wide window, or localize index.
     idx = pd.date_range("2024-01-01 12:00", periods=4, freq="h", tz="America/Chicago")  # Mon
     # 72,72 in band; 80, 60 outside
-    good = pd.DataFrame({"zone_t": [72.0, 72.0, 72.0, 72.0]}, index=idx)
-    bad = pd.DataFrame({"zone_t": [80.0, 80.0, 60.0, 60.0]}, index=idx)
+    good = pd.DataFrame({"zone-air-temp": [72.0, 72.0, 72.0, 72.0]}, index=idx)
+    bad = pd.DataFrame({"zone-air-temp": [80.0, 80.0, 60.0, 60.0]}, index=idx)
     good.attrs["equipment_type"] = "VAV"
     bad.attrs["equipment_type"] = "VAV"
     frames = {"VAV_GOOD": good, "VAV_BAD": bad}
     role_map = {
-        "VAV_GOOD": {"zone_t": "zone_t", "equipment_type": "VAV"},
-        "VAV_BAD": {"zone_t": "zone_t", "equipment_type": "VAV"},
+        "VAV_GOOD": {"zone-air-temp": "zone-air-temp", "equipment_type": "VAV"},
+        "VAV_BAD": {"zone-air-temp": "zone-air-temp", "equipment_type": "VAV"},
     }
     sched = OccupancySchedule()  # Mon occupied 06–18
     rank = zone_comfort_fail_ranking(

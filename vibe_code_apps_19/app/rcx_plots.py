@@ -44,7 +44,7 @@ PRESETS: list[RcxPreset] = [
         "zone_comfort_rank",
         "Zones — comfort fail ranking (occupied hours)",
         "Rank VAVs by % of occupied time outside Overview zone low/high band.",
-        "zone_t",
+        "zone-air-temp",
         ("VAV",),
         "ranking",
         family="Zones / VAV",
@@ -53,7 +53,7 @@ PRESETS: list[RcxPreset] = [
         "zone_temps",
         "Zones — all space temps (timeseries)",
         "Every VAV/zone space temp on one chart.",
-        "zone_t",
+        "zone-air-temp",
         ("VAV",),
         "timeseries",
         family="Zones / VAV",
@@ -62,7 +62,7 @@ PRESETS: list[RcxPreset] = [
         "vav_flows",
         "Zones — all VAV airflow (timeseries)",
         "Zone airflow across boxes.",
-        "zone_flow",
+        "zone-airflow",
         ("VAV",),
         "timeseries",
         family="Zones / VAV",
@@ -71,7 +71,7 @@ PRESETS: list[RcxPreset] = [
         "ahu_sat_reset_scatter",
         "AHU — SAT vs web dry-bulb (scatter)",
         "SAT / leave-air temp vs Open-Meteo dry bulb — look for SAT reset with outdoor air.",
-        "sat",
+        "discharge-air-temp",
         ("AHU",),
         "scatter_oat",
         family="AHU / air",
@@ -80,7 +80,7 @@ PRESETS: list[RcxPreset] = [
         "ahu_dats",
         "AHU — all discharge air temps (timeseries)",
         "SAT / DAT for every AHU.",
-        "sat",
+        "discharge-air-temp",
         ("AHU",),
         "timeseries",
         family="AHU / air",
@@ -89,7 +89,7 @@ PRESETS: list[RcxPreset] = [
         "ahu_mats",
         "AHU — all mixed air temps (timeseries)",
         "MAT across AHUs.",
-        "mat",
+        "mixed-air-temp",
         ("AHU",),
         "timeseries",
         family="AHU / air",
@@ -98,7 +98,7 @@ PRESETS: list[RcxPreset] = [
         "ahu_rats",
         "AHU — all return air temps (timeseries)",
         "RAT across AHUs.",
-        "rat",
+        "return-air-temp",
         ("AHU",),
         "timeseries",
         family="AHU / air",
@@ -107,7 +107,7 @@ PRESETS: list[RcxPreset] = [
         "ahu_dampers",
         "AHU — all OA dampers (timeseries)",
         "OA damper % across AHUs.",
-        "oa_damper_pct",
+        "outside-air-damper",
         ("AHU",),
         "timeseries",
         family="AHU / air",
@@ -116,7 +116,7 @@ PRESETS: list[RcxPreset] = [
         "fan_speeds",
         "AHU — all fan speeds (timeseries)",
         "Fan command % across AHUs.",
-        "fan_cmd",
+        "fan-cmd",
         ("AHU",),
         "timeseries",
         family="AHU / air",
@@ -125,7 +125,7 @@ PRESETS: list[RcxPreset] = [
         "duct_static_box",
         "AHU — duct static fan-on (box)",
         "Box plot of duct static while fan proven on — look for high fixed static (reset opportunity).",
-        "duct_static",
+        "duct-static-pressure",
         ("AHU",),
         "box",
         filter_fan_on=True,
@@ -135,7 +135,7 @@ PRESETS: list[RcxPreset] = [
         "hw_reset_scatter",
         "Boiler / HW — leave temp vs web dry-bulb (scatter)",
         "HW supply / leave temp vs Open-Meteo dry bulb (boiler / HW plant reset).",
-        "hw_supply_t",
+        "hot-water-supply-temp",
         ("BOILER",),
         "scatter_oat",
         family="Boiler / HW",
@@ -144,7 +144,7 @@ PRESETS: list[RcxPreset] = [
         "chw_reset_scatter",
         "Chiller / CHW — leave temp vs web dry-bulb (scatter)",
         "CHW supply / leave temp vs Open-Meteo dry bulb (chiller plant reset).",
-        "chw_supply_t",
+        "chilled-water-supply-temp",
         ("CHW_PLANT", "CHILLER"),
         "scatter_oat",
         family="Chiller / CHW / tower",
@@ -153,10 +153,10 @@ PRESETS: list[RcxPreset] = [
         "cw_reset_scatter",
         "Tower / CW — leave temp vs wet-bulb + dry-bulb ref (scatter)",
         "CW supply vs wet-bulb (tower reset); dry-bulb shown as reference markers.",
-        "cw_supply_t",
+        "condenser-water-supply-temp",
         ("CHW_PLANT", "CHILLER", "COOLING_TOWER"),
         "scatter_oat",
-        y_role_alt="wx_oa_wetbulb",
+        y_role_alt="web-outside-air-wetbulb",
         dry_bulb_ref=True,
         family="Chiller / CHW / tower",
     ),
@@ -164,7 +164,7 @@ PRESETS: list[RcxPreset] = [
         "meter_elec_cdd",
         "Metering — electric kWh/month vs CDD (scatter + stats)",
         "Integrate mapped kW (elec_power_kw / meter) to monthly kWh; stats + scatter vs cooling degree-days (65°F base).",
-        "elec_power_kw",
+        "elec-power",
         ("METER", "CHILLER", "CHW_PLANT"),
         "metering",
         family="Metering",
@@ -173,7 +173,7 @@ PRESETS: list[RcxPreset] = [
         "meter_gas_hdd",
         "Metering — gas/month vs HDD (scatter + stats)",
         "Integrate mapped gas rate (gas_flow) to monthly quantity; stats + scatter vs heating degree-days (65°F base).",
-        "gas_flow",
+        "gas-flow",
         ("METER", "BOILER"),
         "metering",
         family="Metering",
@@ -217,20 +217,20 @@ def operating_mask(df: pd.DataFrame) -> tuple[pd.Series | None, str]:
     VAV / zones: ``zone_flow`` above a small activity threshold when fan roles absent.
     Returns ``(None, "")`` when no usable proof columns exist.
     """
-    for role in ("fan_status", "fan_cmd"):
+    for role in ("fan-status", "fan-cmd"):
         if role in df.columns and df[role].notna().any():
             num = pd.to_numeric(df[role], errors="coerce")
             if num.notna().any():
                 scaled = num.where(num <= 1.5, num / 100.0)
                 return scaled.fillna(0) > 0.05, role
             return df[role].fillna(False).astype(bool), role
-    if "zone_flow" in df.columns and df["zone_flow"].notna().any():
-        flow = pd.to_numeric(df["zone_flow"], errors="coerce")
+    if "zone-airflow" in df.columns and df["zone-airflow"].notna().any():
+        flow = pd.to_numeric(df["zone-airflow"], errors="coerce")
         if flow.notna().any():
             # CFM: treat near-zero as off; threshold scales with typical max when available
             p95 = float(flow.quantile(0.95)) if flow.notna().sum() >= 5 else float(flow.max())
             thr = max(10.0, 0.05 * p95) if np.isfinite(p95) else 10.0
-            return flow.fillna(0) > thr, "zone_flow"
+            return flow.fillna(0) > thr, "zone-airflow"
     return None, ""
 
 
@@ -358,7 +358,7 @@ def fan_mode_summary_bundle(
     caption = ""
     if proof_labels:
         caption = "Operating proof: " + ", ".join(sorted(proof_labels))
-        if "zone_flow" in proof_labels:
+        if "zone-airflow" in proof_labels:
             caption += " (VAV airflow used when fan roles absent)"
     else:
         caption = "No fan_status / fan_cmd / zone_flow mapped — on/off slices empty"
@@ -482,9 +482,9 @@ def zone_comfort_fail_ranking(
         if equipment_types and et not in {t.upper() for t in equipment_types}:
             continue
         mapped = apply_role_map(raw, eq_id, role_map)
-        if "zone_t" not in mapped.columns or mapped["zone_t"].notna().sum() == 0:
+        if "zone-air-temp" not in mapped.columns or mapped["zone-air-temp"].notna().sum() == 0:
             continue
-        zone = pd.to_numeric(mapped["zone_t"], errors="coerce")
+        zone = pd.to_numeric(mapped["zone-air-temp"], errors="coerce")
         if not isinstance(zone.index, pd.DatetimeIndex):
             continue
         occ = occupied_mask(zone.index, schedule).reindex(zone.index).fillna(False)
@@ -566,8 +566,8 @@ def collect_oat_scatter(
         if y_role not in mapped.columns or mapped[y_role].notna().sum() == 0:
             continue
         dry = prefer_web_oat(mapped, weather, prefer_web=True)
-        if x_prefer == "wetbulb" and weather is not None and "wx_oa_wetbulb" in weather.columns:
-            oat = pd.to_numeric(weather["wx_oa_wetbulb"], errors="coerce").reindex(mapped.index)
+        if x_prefer == "wetbulb" and weather is not None and "web-outside-air-wetbulb" in weather.columns:
+            oat = pd.to_numeric(weather["web-outside-air-wetbulb"], errors="coerce").reindex(mapped.index)
         else:
             oat = dry
         if oat is None:

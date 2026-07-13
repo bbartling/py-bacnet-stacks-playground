@@ -58,25 +58,25 @@ def merge_weather(df: pd.DataFrame, weather: pd.DataFrame | None) -> pd.DataFram
             elif col.startswith("wx_") and out[col].notna().sum() == 0:
                 out[col] = wx[col]
     # Derive dewpoint / wet-bulb on the equipment frame when RH landed
-    if ("wx_oa_dewpoint" not in out.columns or out["wx_oa_dewpoint"].notna().sum() == 0) and {
-        "wx_oa_t",
-        "wx_oa_rh",
+    if ("web-outside-air-dewpoint" not in out.columns or out["web-outside-air-dewpoint"].notna().sum() == 0) and {
+        "web-outside-air-temp",
+        "web-outside-air-humidity",
     }.issubset(out.columns):
-        out["wx_oa_dewpoint"] = dewpoint_f_from_db_rh(out["wx_oa_t"], out["wx_oa_rh"])
-    if ("wx_oa_wetbulb" not in out.columns or out["wx_oa_wetbulb"].notna().sum() == 0) and {
-        "wx_oa_t",
-        "wx_oa_rh",
+        out["web-outside-air-dewpoint"] = dewpoint_f_from_db_rh(out["web-outside-air-temp"], out["web-outside-air-humidity"])
+    if ("web-outside-air-wetbulb" not in out.columns or out["web-outside-air-wetbulb"].notna().sum() == 0) and {
+        "web-outside-air-temp",
+        "web-outside-air-humidity",
     }.issubset(out.columns):
-        out["wx_oa_wetbulb"] = wetbulb_f_stull(out["wx_oa_t"], out["wx_oa_rh"])
+        out["web-outside-air-wetbulb"] = wetbulb_f_stull(out["web-outside-air-temp"], out["web-outside-air-humidity"])
     return apply_effective_oat_columns(out)
 
 
 def weather_available(df: pd.DataFrame) -> bool:
     """True when web weather can support free-cool (dewpoint present or derivable)."""
-    if "wx_oa_dewpoint" in df.columns and df["wx_oa_dewpoint"].notna().any():
+    if "web-outside-air-dewpoint" in df.columns and df["web-outside-air-dewpoint"].notna().any():
         return True
-    if "wx_oa_t" in df.columns and "wx_oa_rh" in df.columns:
-        return df["wx_oa_t"].notna().any() and df["wx_oa_rh"].notna().any()
+    if "web-outside-air-temp" in df.columns and "web-outside-air-humidity" in df.columns:
+        return df["web-outside-air-temp"].notna().any() and df["web-outside-air-humidity"].notna().any()
     return False
 
 
@@ -89,25 +89,25 @@ def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool) -> pd.Seri
     """
     from app.weather_psychrometrics import dewpoint_f_from_db_rh
 
-    if not {"oa_damper_pct", "clg_valve_pct"}.issubset(d.columns):
+    if not {"outside-air-damper", "cooling-valve"}.issubset(d.columns):
         return cb._false(d.index)
-    econ = cb.norm_cmd(d["oa_damper_pct"]).fillna(0)
-    clg = cb.norm_cmd(d["clg_valve_pct"]).fillna(0)
+    econ = cb.norm_cmd(d["outside-air-damper"]).fillna(0)
+    clg = cb.norm_cmd(d["cooling-valve"]).fillna(0)
     damper_thr = cb._f(p, "econ3_damper", 0.32)
     mech = (clg > 0.01) & (econ < damper_thr)
 
     if "oa_t_effective" in d.columns and d["oa_t_effective"].notna().any():
         oadb = d["oa_t_effective"]
-    elif "wx_oa_t" in d.columns and d["wx_oa_t"].notna().any():
-        oadb = d["wx_oa_t"]
-    elif "oa_t" in d.columns:
-        oadb = d["oa_t"]
+    elif "web-outside-air-temp" in d.columns and d["web-outside-air-temp"].notna().any():
+        oadb = d["web-outside-air-temp"]
+    elif "outside-air-temp" in d.columns:
+        oadb = d["outside-air-temp"]
     else:
         return cb._false(d.index)
 
-    dewpoint = d["wx_oa_dewpoint"] if "wx_oa_dewpoint" in d.columns else None
-    if (dewpoint is None or dewpoint.notna().sum() == 0) and "wx_oa_rh" in d.columns:
-        dewpoint = dewpoint_f_from_db_rh(oadb, d["wx_oa_rh"])
+    dewpoint = d["web-outside-air-dewpoint"] if "web-outside-air-dewpoint" in d.columns else None
+    if (dewpoint is None or dewpoint.notna().sum() == 0) and "web-outside-air-humidity" in d.columns:
+        dewpoint = dewpoint_f_from_db_rh(oadb, d["web-outside-air-humidity"])
 
     if (wx_ok or (dewpoint is not None and dewpoint.notna().any())) and dewpoint is not None:
         db_min = cb._f(p, "econ3_db_min", 35.0)
@@ -117,13 +117,13 @@ def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool) -> pd.Seri
         raw = oadb.notna() & dewpoint.notna() & econ_available & mech
     else:
         oat_cut = cb._f(p, "econ3_oat_fallback", 63.0)
-        bas = d["oa_t"] if "oa_t" in d.columns else oadb
+        bas = d["outside-air-temp"] if "outside-air-temp" in d.columns else oadb
         raw = bas.notna() & (bas < oat_cut) & mech
 
     require_zone = bool(p.get("econ3_require_zone_ok", True))
     zone_band = cb._f(p, "econ3_zone_band", 2.0)
-    if require_zone and "sat" in d.columns and "sat_sp" in d.columns:
-        raw = raw & ((d["sat"] - d["sat_sp"]).abs() <= zone_band)
+    if require_zone and "discharge-air-temp" in d.columns and "discharge-air-temp-sp" in d.columns:
+        raw = raw & ((d["discharge-air-temp"] - d["discharge-air-temp-sp"]).abs() <= zone_band)
 
     return raw.fillna(False)
 
@@ -149,28 +149,28 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
         return [] if control_outputs_present(df) else ["any 0-100% control output (valve/damper/fan/pump cmd)"]
     missing = []
     for role in rule.required_roles:
-        if role == "oa_t":
+        if role == "outside-air-temp":
             # Physics rules may use oa_t_effective (web primary / BAS fallback)
-            if "oa_t" in df.columns and df["oa_t"].notna().any():
+            if "outside-air-temp" in df.columns and df["outside-air-temp"].notna().any():
                 continue
             if "oa_t_effective" in df.columns and df["oa_t_effective"].notna().any():
                 continue
             missing.append(role)
             continue
-        if role == "wx_oa_t":
+        if role == "web-outside-air-temp":
             if role not in df.columns or df[role].notna().sum() == 0:
                 missing.append(role)
             continue
         if role not in df.columns or df[role].notna().sum() == 0:
             missing.append(role)
     if rule.id in {"CW-OPT-1", "CW-APR-1", "CW-FAN-1"} and (
-        "wx_oa_wetbulb" not in df.columns or df["wx_oa_wetbulb"].notna().sum() == 0
+        "web-outside-air-wetbulb" not in df.columns or df["web-outside-air-wetbulb"].notna().sum() == 0
     ):
-        missing.append("wx_oa_wetbulb")
+        missing.append("web-outside-air-wetbulb")
     if rule.id in {"CW-APR-1", "CW-FAN-1"}:
         fan_ok = any(
             r in df.columns and df[r].notna().any()
-            for r in ("tower_fan_cmd", "cw_fan_cmd", "fan_cmd")
+            for r in ("tower-fan-cmd", "cw-fan-cmd", "fan-cmd")
         )
         if not fan_ok:
             missing.append("tower_fan_cmd|cw_fan_cmd|fan_cmd")
@@ -297,9 +297,9 @@ def run_cookbook_rule(
             raw = econ3_compute(d, params, poll_seconds, wx_ok)
         elif rule.id == "OAT-METEO":
             # Compare real BAS vs web — restore bas_oa_t into oa_t if needed
-            if "bas_oa_t" in d.columns and d["bas_oa_t"].notna().any():
+            if "bas-outside-air-temp" in d.columns and d["bas-outside-air-temp"].notna().any():
                 d = d.copy()
-                d["oa_t"] = d["bas_oa_t"]
+                d["outside-air-temp"] = d["bas-outside-air-temp"]
             raw = rule.compute(d, params, poll_seconds)
         else:
             raw = rule.compute(d, params, poll_seconds)
@@ -413,8 +413,8 @@ def run_batch(
         mapped.attrs.update(raw_df.attrs)
         mapped.attrs["equipment_id"] = eq_id
         # Preserve topology-enriched ahu_sat if apply_role_map dropped it
-        if "ahu_sat" in raw_df.columns and "ahu_sat" not in mapped.columns:
-            mapped["ahu_sat"] = raw_df["ahu_sat"]
+        if "ahu-discharge-air-temp" in raw_df.columns and "ahu-discharge-air-temp" not in mapped.columns:
+            mapped["ahu-discharge-air-temp"] = raw_df["ahu-discharge-air-temp"]
         poll = float(raw_df.attrs.get("poll_seconds") or 300.0)
         eq_type = resolve_equipment_type(eq_id, df=raw_df, role_map=role_map)
         results.extend(

@@ -18,17 +18,17 @@ def _tiny_frames():
     idx = pd.date_range("2024-01-01", periods=8, freq="5min", tz="UTC")
     ahu = pd.DataFrame(
         {
-            "sat": [55.0] * 8,
-            "mat": [60.0] * 8,
-            "rat": [72.0] * 8,
-            "fan_status": [1] * 8,
-            "oa_damper_pct": [20.0] * 8,
+            "discharge-air-temp": [55.0] * 8,
+            "mixed-air-temp": [60.0] * 8,
+            "return-air-temp": [72.0] * 8,
+            "fan-status": [1] * 8,
+            "outside-air-damper": [20.0] * 8,
         },
         index=idx,
     )
     ahu.attrs["equipment_type"] = "AHU"
     ahu.attrs["poll_seconds"] = 300.0
-    vav = pd.DataFrame({"zone_t": [72.0] * 8, "zone_flow": [300.0] * 8}, index=idx)
+    vav = pd.DataFrame({"zone-air-temp": [72.0] * 8, "zone-airflow": [300.0] * 8}, index=idx)
     vav.attrs["equipment_type"] = "VAV"
     vav.attrs["poll_seconds"] = 300.0
     return {"AHU_1": ahu, "VAV_1": vav}
@@ -64,7 +64,7 @@ def test_package_loads_column_map(tmp_path: Path):
                 "equipment": {
                     "AHU_1": {
                         "equipment_type": "AHU",
-                        "column_roles": {"sat": "discharge_air_temp_f"},
+                        "column_roles": {"discharge-air-temp": "discharge_air_temp_f"},
                     }
                 },
             }
@@ -81,11 +81,11 @@ def test_package_loads_column_map(tmp_path: Path):
 def test_rcx_preset_coverage_shape():
     frames = _tiny_frames()
     role_map = {
-        "AHU_1": {"sat": "sat", "mat": "mat", "rat": "rat", "fan_status": "fan_status", "oa_damper_pct": "oa_damper_pct"},
-        "VAV_1": {"zone_t": "zone_t", "zone_flow": "zone_flow"},
+        "AHU_1": {"discharge-air-temp": "discharge-air-temp", "mixed-air-temp": "mixed-air-temp", "return-air-temp": "return-air-temp", "fan-status": "fan-status", "outside-air-damper": "outside-air-damper"},
+        "VAV_1": {"zone-air-temp": "zone-air-temp", "zone-airflow": "zone-airflow"},
     }
     wx = pd.DataFrame(
-        {"wx_oa_t": [50.0] * 8},
+        {"web-outside-air-temp": [50.0] * 8},
         index=frames["AHU_1"].index,
     )
     cov = rcx_preset_coverage(frames, role_map, weather=wx)
@@ -99,8 +99,8 @@ def test_rcx_preset_coverage_shape():
 
 def test_role_map_gap_report():
     frames = _tiny_frames()
-    role_map = {"AHU_1": {"sat": "sat"}, "VAV_1": {"zone_t": "zone_t"}}
-    wx = pd.DataFrame({"wx_oa_t": [45.0] * 8}, index=frames["AHU_1"].index)
+    role_map = {"AHU_1": {"discharge-air-temp": "discharge-air-temp"}, "VAV_1": {"zone-air-temp": "zone-air-temp"}}
+    wx = pd.DataFrame({"web-outside-air-temp": [45.0] * 8}, index=frames["AHU_1"].index)
     gap = build_role_map_gap_report(frames, role_map, weather=wx)
     assert len(gap) == 2
     assert "missing_roles" in gap.columns
@@ -110,7 +110,7 @@ def test_role_map_gap_report():
 
 def test_fault_settings_roundtrip_in_session_config(tmp_path: Path):
     params = {"VAV-1": {"confirm_min": 30.0, "zone_lo": 66.0}}
-    cfg = make_session_config({"AHU_1": {"sat": "dat"}}, params)
+    cfg = make_session_config({"AHU_1": {"discharge-air-temp": "dat"}}, params)
     path = tmp_path / "session_config.json"
     path.write_text(json.dumps(cfg), encoding="utf-8")
     loaded = json.loads(path.read_text(encoding="utf-8"))

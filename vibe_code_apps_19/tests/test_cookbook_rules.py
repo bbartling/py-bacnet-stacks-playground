@@ -9,6 +9,7 @@ import yaml
 from app.rules import CANONICAL_RULE_COUNT, CANONICAL_RULES, RULES, RULES_BY_ID, run_rule
 from app.rules.base import RuleResult
 from app.rules.runner import run_all_cookbook_rules
+from tests.point_names import canon_point_cols
 
 
 def test_canonical_count():
@@ -50,6 +51,7 @@ def test_skip_when_roles_missing(rule_id: str):
 
 
 def _ahu_df(**cols) -> pd.DataFrame:
+    cols = canon_point_cols(cols)
     n = len(next(iter(cols.values())))
     idx = pd.date_range("2024-06-01", periods=n, freq="5min", tz="UTC")
     df = pd.DataFrame(cols, index=idx)
@@ -80,7 +82,7 @@ def test_vav1_runs_with_roles():
 
 def test_run_all_returns_active_catalog():
     idx = pd.date_range("2024-06-01", periods=3, freq="5min", tz="UTC")
-    df = pd.DataFrame({"oa_t": [70, 71, 72]}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [70, 71, 72]}, index=idx)
     df.attrs["equipment_id"] = "AHU_1"
     results = run_all_cookbook_rules(df, equipment_id="AHU_1", poll_seconds=300.0)
     assert len(results) == len(RULES)
@@ -183,20 +185,20 @@ def test_vlv1_and_sched1_inventory_and_catalog_params():
     by_id = {r["rule_id"]: r for r in inv["rules"]}
 
     vlv = RULES_BY_ID["VLV-1"]
-    assert "mat" in vlv.optional_roles
-    assert "fan_status" in vlv.optional_roles
+    assert "mixed-air-temp" in vlv.optional_roles
+    assert "fan-status" in vlv.optional_roles
     assert {p.key for p in vlv.params} >= {"sat_err", "mat_leak_delta", "confirm_min"}
     inv_vlv = by_id["VLV-1"]
-    assert "mat" in inv_vlv["optional_roles"]
+    assert "mixed-air-temp" in inv_vlv["optional_roles"]
     assert set(inv_vlv["tunable_params"]) >= {"sat_err", "mat_leak_delta", "confirm_min"}
 
     sched = RULES_BY_ID["SCHED-1"]
-    assert "zone_t" in sched.optional_roles
+    assert "zone-air-temp" in sched.optional_roles
     assert {p.key for p in sched.params} >= {"comfort_low_f", "comfort_high_f", "confirm_min"}
     inv_sched = by_id["SCHED-1"]
-    assert "zone_t" in inv_sched["optional_roles"]
+    assert "zone-air-temp" in inv_sched["optional_roles"]
     assert set(inv_sched["tunable_params"]) >= {"comfort_low_f", "comfort_high_f", "confirm_min"}
-    assert "occ_mode" in inv_sched["description"] or "calendar" in inv_sched["description"].lower()
+    assert "occupied" in inv_sched["description"] or "calendar" in inv_sched["description"].lower()
 
 
 def test_vlv1_pass_when_valve_open():

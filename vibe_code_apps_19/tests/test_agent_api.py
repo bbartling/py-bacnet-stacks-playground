@@ -43,9 +43,9 @@ def _write_tiny_package(root: Path) -> Path:
                 "prefer_web_oat": True,
                 "role_map": {
                     "AHU_1": {
-                        "sat": "discharge_air_temp_f",
-                        "oa_t": "outside_air_temp_f",
-                        "fan_status": "supply_fan_status",
+                        "discharge-air-temp": "discharge_air_temp_f",
+                        "outside-air-temp": "outside_air_temp_f",
+                        "fan-status": "supply_fan_status",
                     }
                 },
                 "params": {"OAT-METEO": {"oat_err": 5.0, "confirm_min": 0.0}},
@@ -87,8 +87,8 @@ def _write_tiny_package(root: Path) -> Path:
     wx = pd.DataFrame(
         {
             "timestamp_utc": idx.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "wx_oa_t": [68.0] * 12,
-            "wx_oa_rh": [45.0] * 12,
+            "web-outside-air-temp": [68.0] * 12,
+            "web-outside-air-humidity": [45.0] * 12,
         }
     )
     wx.to_csv(wx_dir / "history_wide.csv", index=False)
@@ -102,9 +102,9 @@ def _write_tiny_package(root: Path) -> Path:
                     "AHU_1": {
                         "equipment_type": "AHU",
                         "column_roles": {
-                            "sat": "discharge_air_temp_f",
-                            "oa_t": "outside_air_temp_f",
-                            "fan_status": "supply_fan_status",
+                            "discharge-air-temp": "discharge_air_temp_f",
+                            "outside-air-temp": "outside_air_temp_f",
+                            "fan-status": "supply_fan_status",
                         },
                     }
                 },
@@ -122,7 +122,7 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert "AHU_1" in ds.frames
     assert ds.has_web_weather
     assert ds.package_report.get("has_column_map") is True
-    assert ds.role_map.get("AHU_1", {}).get("sat") == "discharge_air_temp_f"
+    assert ds.role_map.get("AHU_1", {}).get("discharge-air-temp") == "discharge_air_temp_f"
 
     run = run_rules(ds)
     assert run.meta["rule_catalog_count"] == 53
@@ -165,9 +165,9 @@ def test_agent_api_load_zip(tmp_path: Path):
 
 
 def test_make_session_config_includes_params():
-    cfg = make_session_config({"AHU_1": {"sat": "dat"}}, {"VAV-1": {"confirm_min": 15.0}})
+    cfg = make_session_config({"AHU_1": {"discharge-air-temp": "dat"}}, {"VAV-1": {"confirm_min": 15.0}})
     assert cfg["schema_version"] == SESSION_SCHEMA
-    assert cfg["role_map"]["AHU_1"]["sat"] == "dat"
+    assert cfg["role_map"]["AHU_1"]["discharge-air-temp"] == "dat"
     assert cfg["params"]["VAV-1"]["confirm_min"] == 15.0
     assert cfg["prefer_web_oat"] is True
 
@@ -176,7 +176,7 @@ def test_make_session_config_plant_toggles_roundtrip():
     from app.package_io import SessionConfig
 
     cfg = make_session_config(
-        {"AHU_1": {"fan_status": "fan_status"}},
+        {"AHU_1": {"fan-status": "fan-status"}},
         {"SCHED-1": {"confirm_min": 10.0}},
         unit_system="metric",
         prefer_web_oat=False,
@@ -189,7 +189,7 @@ def test_make_session_config_plant_toggles_roundtrip():
     assert sc.chw_leave_max_f == 46.0
     assert sc.include_ahu_chw_valve is False
     assert sc.params["SCHED-1"]["confirm_min"] == 10.0
-    assert sc.role_map["AHU_1"]["fan_status"] == "fan_status"
+    assert sc.role_map["AHU_1"]["fan-status"] == "fan-status"
 
 
 def test_cli_smoke(tmp_path: Path):

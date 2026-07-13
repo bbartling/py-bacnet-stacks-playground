@@ -77,10 +77,10 @@ def test_data_model_tree_and_static_docx(tmp_path):
     role_map = {
         "AHU_1": {
             "equipment_type": "AHU",
-            "sat": "discharge_air_temp_f",
-            "sat_sp": "sat_sp_f",
-            "clg_valve_pct": "clg_v",
-            "fan_status": "fan_s",
+            "discharge-air-temp": "discharge_air_temp_f",
+            "discharge-air-temp-sp": "sat_sp_f",
+            "cooling-valve": "clg_v",
+            "fan-status": "fan_s",
         }
     }
     tree = build_data_model_tree({"AHU_1": ahu}, role_map, building_id="B1")

@@ -35,9 +35,9 @@ def test_build_meter_electric_with_weather():
     idx = pd.date_range("2024-01-01", periods=48, freq="h", tz="UTC")
     meter = pd.DataFrame({"kw": [5.0] * 48}, index=idx)
     meter.attrs["equipment_type"] = "METER"
-    wx = pd.DataFrame({"wx_oa_t": [40.0] * 48}, index=idx)
+    wx = pd.DataFrame({"web-outside-air-temp": [40.0] * 48}, index=idx)
     frames = {"ELEC_1": meter}
-    role_map = {"ELEC_1": {"elec_power_kw": "kw", "equipment_type": "METER"}}
+    role_map = {"ELEC_1": {"elec-power": "kw", "equipment_type": "METER"}}
     monthly, stats, reason = build_meter_monthly_table(
         frames, role_map, kind="electric", weather=wx, equipment_types=("METER",)
     )

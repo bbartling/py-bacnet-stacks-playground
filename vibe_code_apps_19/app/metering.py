@@ -19,16 +19,16 @@ MeterKind = Literal["electric", "gas"]
 
 # Preferred cookbook roles (first hit wins on a frame).
 ELEC_POWER_ROLES: tuple[str, ...] = (
-    "elec_power_kw",
-    "building_power_kw",
-    "meter_power_kw",
-    "chiller_power_kw",  # plant meters often reuse this column
+    "elec-power",
+    "building-power",
+    "meter-power",
+    "chiller-power",  # plant meters often reuse this column
 )
 GAS_RATE_ROLES: tuple[str, ...] = (
-    "gas_flow",
-    "gas_rate",
-    "nat_gas_flow",
-    "gas_therm_rate",
+    "gas-flow",
+    "gas-rate",
+    "nat-gas-flow",
+    "gas-therm-rate",
 )
 
 DD_BASE_F = 65.0
@@ -149,7 +149,7 @@ def collect_meter_frames(
         # Prefer typed METER; also accept when role is present on other types
         if allowed and et not in allowed and et not in {"METER", "UNKNOWN"}:
             # Still allow if role is an explicit elec/gas role (not only chiller_power fallback)
-            if kind == "electric" and role == "chiller_power_kw" and et not in {
+            if kind == "electric" and role == "chiller-power" and et not in {
                 "METER",
                 "CHILLER",
                 "CHW_PLANT",

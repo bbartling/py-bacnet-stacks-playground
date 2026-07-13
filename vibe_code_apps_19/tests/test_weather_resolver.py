@@ -22,19 +22,19 @@ def _idx(n: int = 6) -> pd.DatetimeIndex:
 
 def test_effective_oat_prefers_web_when_both_present():
     idx = _idx()
-    df = pd.DataFrame({"oa_t": [50.0] * 6, "wx_oa_t": [40.0] * 6}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [50.0] * 6, "web-outside-air-temp": [40.0] * 6}, index=idx)
     out = apply_effective_oat_columns(df)
     assert has_bas_oat(out) and has_web_oat(out)
     assert out.attrs["oa_t_effective_source"] == "web"
     assert float(out["oa_t_effective"].iloc[0]) == 40.0
     # BAS preserved
-    assert float(out["oa_t"].iloc[0]) == 50.0
-    assert float(out["bas_oa_t"].iloc[0]) == 50.0
+    assert float(out["outside-air-temp"].iloc[0]) == 50.0
+    assert float(out["bas-outside-air-temp"].iloc[0]) == 50.0
 
 
 def test_effective_oat_falls_back_to_bas_when_web_missing():
     idx = _idx()
-    df = pd.DataFrame({"oa_t": [55.0] * 6}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [55.0] * 6}, index=idx)
     out = apply_effective_oat_columns(df)
     assert out.attrs["oa_t_effective_source"] == "bas"
     assert float(out["oa_t_effective"].iloc[0]) == 55.0
@@ -42,30 +42,30 @@ def test_effective_oat_falls_back_to_bas_when_web_missing():
 
 def test_merge_weather_adds_effective_before_roles():
     idx = _idx()
-    df = pd.DataFrame({"sat": [55.0] * 6}, index=idx)
-    wx = pd.DataFrame({"wx_oa_t": [42.0] * 6, "wx_oa_rh": [40.0] * 6}, index=idx)
+    df = pd.DataFrame({"discharge-air-temp": [55.0] * 6}, index=idx)
+    wx = pd.DataFrame({"web-outside-air-temp": [42.0] * 6, "web-outside-air-humidity": [40.0] * 6}, index=idx)
     merged = merge_weather(df, wx)
     assert "oa_t_effective" in merged.columns
     assert merged.attrs["oa_t_effective_source"] == "web"
     injected = inject_oa_t_for_physics(merged)
-    assert "oa_t" in injected.columns
-    assert float(injected["oa_t"].iloc[0]) == 42.0
+    assert "outside-air-temp" in injected.columns
+    assert float(injected["outside-air-temp"].iloc[0]) == 42.0
 
 
 def test_oat_meteo_requires_both_sources():
     idx = _idx()
-    web_only = apply_effective_oat_columns(pd.DataFrame({"wx_oa_t": [40.0] * 6}, index=idx))
+    web_only = apply_effective_oat_columns(pd.DataFrame({"web-outside-air-temp": [40.0] * 6}, index=idx))
     ok, missing = oat_meteo_availability(web_only)
     assert not ok
     assert any("bas" in m for m in missing)
 
-    bas_only = apply_effective_oat_columns(pd.DataFrame({"oa_t": [50.0] * 6}, index=idx))
+    bas_only = apply_effective_oat_columns(pd.DataFrame({"outside-air-temp": [50.0] * 6}, index=idx))
     ok2, missing2 = oat_meteo_availability(bas_only)
     assert not ok2
-    assert any("wx_oa_t" in m for m in missing2)
+    assert any("web-outside-air-temp" in m for m in missing2)
 
     both = apply_effective_oat_columns(
-        pd.DataFrame({"oa_t": [50.0] * 6, "wx_oa_t": [40.0] * 6}, index=idx)
+        pd.DataFrame({"outside-air-temp": [50.0] * 6, "web-outside-air-temp": [40.0] * 6}, index=idx)
     )
     ok3, missing3 = oat_meteo_availability(both)
     assert ok3 and not missing3
@@ -73,7 +73,7 @@ def test_oat_meteo_requires_both_sources():
 
 def test_oat_meteo_rule_skipped_without_bas():
     idx = _idx()
-    df = pd.DataFrame({"wx_oa_t": [40.0] * 6}, index=idx)
+    df = pd.DataFrame({"web-outside-air-temp": [40.0] * 6}, index=idx)
     rule = RULES_BY_ID["OAT-METEO"]
     result = run_cookbook_rule(
         rule,
@@ -88,7 +88,7 @@ def test_oat_meteo_rule_skipped_without_bas():
 
 def test_oat_meteo_runs_when_both_present():
     idx = _idx()
-    df = pd.DataFrame({"oa_t": [50.0] * 6, "wx_oa_t": [40.0] * 6}, index=idx)
+    df = pd.DataFrame({"outside-air-temp": [50.0] * 6, "web-outside-air-temp": [40.0] * 6}, index=idx)
     rule = RULES_BY_ID["OAT-METEO"]
     result = run_cookbook_rule(
         rule,
@@ -105,8 +105,8 @@ def test_oat_meteo_runs_when_both_present():
 
 def test_resolve_effective_oat_from_weather_frame():
     idx = _idx()
-    df = pd.DataFrame({"sat": [1.0] * 6}, index=idx)
-    wx = pd.DataFrame({"wx_oa_t": [33.0] * 6}, index=idx)
+    df = pd.DataFrame({"discharge-air-temp": [1.0] * 6}, index=idx)
+    wx = pd.DataFrame({"web-outside-air-temp": [33.0] * 6}, index=idx)
     series, src = resolve_effective_oat(df, wx)
     assert src == "web"
     assert float(series.iloc[0]) == 33.0

@@ -34,9 +34,9 @@ def main() -> None:
                 "chw_leave_max_f": 48.0,
                 "role_map": {
                     "AHU_1": {
-                        "fan_status": "fan_status",
-                        "oa_t": "oa_t",
-                        "sat": "sat",
+                        "fan-status": "fan-status",
+                        "outside-air-temp": "outside-air-temp",
+                        "discharge-air-temp": "discharge-air-temp",
                     }
                 },
             },

@@ -19,19 +19,19 @@ def test_build_rule_card_mapping_present_and_missing():
     idx = pd.date_range("2024-06-01", periods=4, freq="5min", tz="UTC")
     mapped = pd.DataFrame(
         {
-            "sat": [55.0] * 4,
-            "sat_sp": [55.0] * 4,
-            "clg_valve_pct": [0.0] * 4,
-            "fan_status": [1.0] * 4,
+            "discharge-air-temp": [55.0] * 4,
+            "discharge-air-temp-sp": [55.0] * 4,
+            "cooling-valve": [0.0] * 4,
+            "fan-status": [1.0] * 4,
         },
         index=idx,
     )
     role_map = {
         "AHU_1": {
             "equipment_type": "AHU",
-            "discharge_air_temp_f": "sat",
-            "sat_sp_f": "sat_sp",
-            "clg_v": "clg_valve_pct",
+            "discharge_air_temp_f": "discharge-air-temp",
+            "sat_sp_f": "discharge-air-temp-sp",
+            "clg_v": "cooling-valve",
             # mat intentionally unmapped
         }
     }
@@ -46,10 +46,10 @@ def test_build_rule_card_mapping_present_and_missing():
     assert card.rule_id == "VLV-1"
     assert card.status == "NOT_RUN"
     roles = {m.role: m for m in card.mapping_rows}
-    assert "clg_valve_pct" in roles
-    assert roles["clg_valve_pct"].in_history is True
-    assert roles["clg_valve_pct"].csv_column == "clg_v"
-    assert roles["clg_valve_pct"].requirement == "required"
+    assert "cooling-valve" in roles
+    assert roles["cooling-valve"].in_history is True
+    assert roles["cooling-valve"].csv_column == "clg_v"
+    assert roles["cooling-valve"].requirement == "required"
     # Param merge: session override wins
     keys = {p.key: p for p in card.param_rows}
     assert "confirm_min" in keys
@@ -66,8 +66,8 @@ def test_param_rows_defaults_when_no_override():
 
 def test_equipment_mapping_coverage_union():
     rules = [RULES_BY_ID["VLV-1"]]
-    mapped = pd.DataFrame({"sat": [1.0], "clg_valve_pct": [0.0]})
-    role_map = {"AHU_1": {"c": "clg_valve_pct", "s": "sat"}}
+    mapped = pd.DataFrame({"discharge-air-temp": [1.0], "cooling-valve": [0.0]})
+    role_map = {"AHU_1": {"c": "cooling-valve", "s": "discharge-air-temp"}}
     present, total, pct = equipment_mapping_coverage(rules, "AHU_1", role_map, mapped)
     assert total >= 1
     assert present >= 1

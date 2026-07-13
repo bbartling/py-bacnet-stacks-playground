@@ -16,7 +16,7 @@ def test_make_custom_rule_requires_prefix():
             rule_id="SAT-HIGH",
             title="bad",
             compute=lambda d, p, poll: pd.Series(False, index=d.index),
-            required_roles=["sat"],
+            required_roles=["discharge-air-temp"],
             equation="x",
         )
 
@@ -36,8 +36,8 @@ def test_example_sat_high_runs(monkeypatch):
     idx = pd.date_range("2024-06-01", periods=12, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "sat": [70.0] * 6 + [90.0] * 6,
-            "fan_status": [1.0] * 12,
+            "discharge-air-temp": [70.0] * 6 + [90.0] * 6,
+            "fan-status": [1.0] * 12,
         },
         index=idx,
     )
@@ -63,7 +63,7 @@ def test_zscore_boilerplate_shape():
     idx = pd.date_range("2024-01-01", periods=48, freq="5min", tz="UTC")
     # mostly flat then a spike
     vals = [55.0] * 40 + [90.0] * 8
-    df = pd.DataFrame({"sat": vals}, index=idx)
+    df = pd.DataFrame({"discharge-air-temp": vals}, index=idx)
     mask = EXAMPLE_ZSCORE.compute(df, {"window_samples": 12, "z_thr": 2.5}, 300.0)
     assert len(mask) == len(df)
     assert mask.dtype == bool

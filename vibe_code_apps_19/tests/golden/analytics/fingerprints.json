@@ -1,8 +1,8 @@
 {
   "mech_cooling_oat_bins": "a81bbd85f44ef40af04c86a2217eb56eb1549945c29a53b57c3bbc85537aed36",
-  "motor_hours": "6e7a9e3b378799bea1f03ee3ddc8216d919fd709ea62f26c92d5b4d6a65e86ad",
-  "motor_weekly": "d8f544cbe385c9210018eff1ed732d0198c799e7f56e80ff446dcc003bfe3234",
-  "rcx_preset_coverage": "5a71b7b7d1ab137a3a0b93ee80bf4e5e85e4aa31bd8c69c7c270805fad73dbe8",
-  "rcx_preset_digests": "44e304e017d4bc7603c03b948382b363491248f0a2d1540f5d0a7d603f794d3b",
-  "rule_digest": "e146ae710d2d78c4e09feeda5dfb6d3dde7142f9d81e0860f9c325e7a800f54f"
+  "motor_hours": "9b003cbd4e089841a712b92f8247543b36d77077287975b1346f02c4a3d24d55",
+  "motor_weekly": "cfc5c823525b213efd43e5fcfd8081b27f326cbd25184cadbb85ddcceeb189df",
+  "rcx_preset_coverage": "55affbd3cd1ad6ec04495bd4b96d17d059d6d081d63be1cf6f8b90771491b448",
+  "rcx_preset_digests": "38e54ce3007dca0a6a7ec3d470cdc2c502f069153476bbd324655486ce44bb9c",
+  "rule_digest": "5bceb51fb10fa66d869cda06b55a1a7b383c23bb5228fe21a117f2ae8b313b4f"
 }

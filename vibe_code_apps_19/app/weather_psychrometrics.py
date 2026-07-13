@@ -48,48 +48,48 @@ def enrich_weather_frame(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
 
     # Dry bulb → wx_oa_t
-    if "wx_oa_t" not in out.columns:
+    if "web-outside-air-temp" not in out.columns:
         for c in (
             "outside_air_temp_f",
             "temperature_2m",
             "temp_f",
             "dry_bulb_f",
-            "oa_t",
+            "outside-air-temp",
             "oat",
         ):
             if c in out.columns and out[c].notna().any():
-                out = out.rename(columns={c: "wx_oa_t"})
+                out = out.rename(columns={c: "web-outside-air-temp"})
                 break
-        if "wx_oa_t" not in out.columns:
+        if "web-outside-air-temp" not in out.columns:
             for c in out.columns:
                 cl = c.lower()
                 if "temp" in cl and "dew" not in cl and "wet" not in cl:
-                    out = out.rename(columns={c: "wx_oa_t"})
+                    out = out.rename(columns={c: "web-outside-air-temp"})
                     break
 
     # RH → wx_oa_rh
-    if "wx_oa_rh" not in out.columns:
+    if "web-outside-air-humidity" not in out.columns:
         for c in ("relative_humidity_2m", "rh", "humidity", "outside_air_humidity", "oa_rh"):
             if c in out.columns and out[c].notna().any():
-                out = out.rename(columns={c: "wx_oa_rh"})
+                out = out.rename(columns={c: "web-outside-air-humidity"})
                 break
 
     # Dewpoint column aliases
-    if "wx_oa_dewpoint" not in out.columns:
+    if "web-outside-air-dewpoint" not in out.columns:
         for c in ("dewpoint_2m", "dew_point_f", "dewpoint_f", "oa_dewpoint", "dp_f"):
             if c in out.columns and out[c].notna().any():
-                out = out.rename(columns={c: "wx_oa_dewpoint"})
+                out = out.rename(columns={c: "web-outside-air-dewpoint"})
                 break
 
     # Derive dewpoint from DB + RH when missing
-    if "wx_oa_dewpoint" not in out.columns or out["wx_oa_dewpoint"].notna().sum() == 0:
-        if "wx_oa_t" in out.columns and "wx_oa_rh" in out.columns:
-            out["wx_oa_dewpoint"] = dewpoint_f_from_db_rh(out["wx_oa_t"], out["wx_oa_rh"])
+    if "web-outside-air-dewpoint" not in out.columns or out["web-outside-air-dewpoint"].notna().sum() == 0:
+        if "web-outside-air-temp" in out.columns and "web-outside-air-humidity" in out.columns:
+            out["web-outside-air-dewpoint"] = dewpoint_f_from_db_rh(out["web-outside-air-temp"], out["web-outside-air-humidity"])
 
     # Wet bulb
-    if "wx_oa_wetbulb" not in out.columns or out["wx_oa_wetbulb"].notna().sum() == 0:
-        if "wx_oa_t" in out.columns and "wx_oa_rh" in out.columns:
-            out["wx_oa_wetbulb"] = wetbulb_f_stull(out["wx_oa_t"], out["wx_oa_rh"])
+    if "web-outside-air-wetbulb" not in out.columns or out["web-outside-air-wetbulb"].notna().sum() == 0:
+        if "web-outside-air-temp" in out.columns and "web-outside-air-humidity" in out.columns:
+            out["web-outside-air-wetbulb"] = wetbulb_f_stull(out["web-outside-air-temp"], out["web-outside-air-humidity"])
 
     return out
 
@@ -106,7 +106,7 @@ def prefer_web_oat(
 
         series, _src = resolve_effective_oat(df, weather)
         return series
-    order = ("oa_t", "wx_oa_t", "bas_oa_t", "oa_t_effective")
+    order = ("outside-air-temp", "web-outside-air-temp", "bas-outside-air-temp", "oa_t_effective")
     for col in order:
         if col in df.columns and df[col].notna().any():
             return pd.to_numeric(df[col], errors="coerce")

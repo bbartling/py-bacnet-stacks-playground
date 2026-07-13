@@ -58,14 +58,14 @@ def test_accepts_history_wide_json_and_column_map_json(tmp_path: Path):
     a.mkdir()
     (a / "history_wide.csv").write_text(_hist(), encoding="utf-8")
     (a / "history_wide.json").write_text(
-        json.dumps({"equipType": "ahu", "points": {"fan-status": "fan_status"}}),
+        json.dumps({"equipType": "ahu", "points": {"fan-status": "fan-status"}}),
         encoding="utf-8",
     )
     b = root / "AHU_2"
     b.mkdir()
     (b / "history_wide.csv").write_text(_hist(), encoding="utf-8")
     (b / "column_map.json").write_text(
-        json.dumps({"equipType": "ahu", "points": {"fan-status": "fan_status"}}),
+        json.dumps({"equipType": "ahu", "points": {"fan-status": "fan-status"}}),
         encoding="utf-8",
     )
     result = load_package_from_dir(root)
@@ -82,7 +82,7 @@ def test_accepts_stem_column_map_json_name(tmp_path: Path):
     hist = root / "AHU_1" / "history_wide.csv"
     hist.write_text(_hist(), encoding="utf-8")
     (root / "AHU_1" / "history_wide.column_map.json").write_text(
-        json.dumps({"points": {"fan-status": "fan_status"}}),
+        json.dumps({"points": {"fan-status": "fan-status"}}),
         encoding="utf-8",
     )
     assert resolve_sidecar_map_path(hist) == root / "AHU_1" / "history_wide.column_map.json"
@@ -95,7 +95,7 @@ def test_nested_zip_expanded_and_requires_sidecar():
         {
             "history_wide.csv": _hist(),
             "column_map.json": json.dumps(
-                {"equipType": "ahu", "points": {"fan-status": "fan_status"}}
+                {"equipType": "ahu", "points": {"fan-status": "fan-status"}}
             ),
         }
     )

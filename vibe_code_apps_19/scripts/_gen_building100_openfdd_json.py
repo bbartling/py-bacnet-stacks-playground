@@ -176,16 +176,16 @@ entry cap is **2000** (BUILDING_100-style packages with maps are fine).
         preview = {
             r: roles.get(r)
             for r in (
-                "sat",
-                "oa_t",
-                "fan_status",
-                "mat",
-                "rat",
-                "zone_t",
-                "chw_supply_t",
-                "hw_supply_t",
-                "elec_power_kw",
-                "duct_static",
+                "discharge-air-temp",
+                "outside-air-temp",
+                "fan-status",
+                "mixed-air-temp",
+                "return-air-temp",
+                "zone-air-temp",
+                "chilled-water-supply-temp",
+                "hot-water-supply-temp",
+                "elec-power",
+                "duct-static-pressure",
             )
             if roles.get(r)
         }

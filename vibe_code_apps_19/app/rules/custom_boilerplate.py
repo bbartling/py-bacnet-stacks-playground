@@ -97,13 +97,13 @@ def make_custom_rule(
 def compute_sat_high_while_fan_on(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     """Raw fault when discharge air is hotter than ``sat_hi`` and fan is on."""
     del poll  # unused — runner supplies poll for confirm_fault
-    if "sat" not in d.columns:
+    if "discharge-air-temp" not in d.columns:
         return _false(d.index)
-    sat = pd.to_numeric(d["sat"], errors="coerce")
+    sat = pd.to_numeric(d["discharge-air-temp"], errors="coerce")
     thr = _f(p, "sat_hi", 75.0)
     fault = sat.notna() & (sat > thr)
     # Prefer fan_status; fall back to fan_cmd
-    for role in ("fan_status", "fan_cmd"):
+    for role in ("fan-status", "fan-cmd"):
         if role in d.columns and d[role].notna().any():
             num = pd.to_numeric(d[role], errors="coerce")
             on = num.where(num <= 1.5, num / 100.0).fillna(0) > 0.05
@@ -115,8 +115,8 @@ EXAMPLE_SAT_HIGH = make_custom_rule(
     rule_id="CUSTOM-SAT-HIGH",
     title="SAT high while fan on (boilerplate)",
     compute=compute_sat_high_while_fan_on,
-    required_roles=["sat"],
-    optional_roles=["fan_status", "fan_cmd"],
+    required_roles=["discharge-air-temp"],
+    optional_roles=["fan-status", "fan-cmd"],
     equation="Fan on AND SAT > sat_hi (°F). Boilerplate threshold rule for agents.",
     equipment_kinds=["ahu"],
     family="custom",
@@ -140,7 +140,7 @@ def compute_rolling_zscore_anomaly(d: pd.DataFrame, p: dict, poll: float) -> pd.
     add that dependency — keep Streamlit+pandas by default.
     """
     del poll
-    role = str(p.get("signal_role", "sat") or "sat")
+    role = str(p.get("signal_role", "discharge-air-temp") or "discharge-air-temp")
     if role not in d.columns:
         return _false(d.index)
     s = pd.to_numeric(d[role], errors="coerce")
@@ -156,7 +156,7 @@ EXAMPLE_ZSCORE = make_custom_rule(
     rule_id="CUSTOM-ZSCORE",
     title="Rolling z-score anomaly (boilerplate ML)",
     compute=compute_rolling_zscore_anomaly,
-    required_roles=["sat"],  # override via params["signal_role"] if mapped
+    required_roles=["discharge-air-temp"],  # override via params["signal_role"] if mapped
     optional_roles=[],
     equation=(
         "Rolling |z-score| of signal_role > z_thr (default window ~3h @ 5‑min). "
@@ -182,7 +182,7 @@ def sklearn_isolation_forest_sketch() -> str:
 # Optional upgrade (requires scikit-learn in the environment):
 # from sklearn.ensemble import IsolationForest
 # def compute_iforest(d, p, poll):
-#     role = p.get("signal_role", "sat")
+#     role = p.get("signal_role", "discharge-air-temp")
 #     x = pd.to_numeric(d[role], errors="coerce").to_frame("x").dropna()
 #     if len(x) < 30:
 #         return pd.Series(False, index=d.index)

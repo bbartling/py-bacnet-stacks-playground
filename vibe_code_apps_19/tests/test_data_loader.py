@@ -56,7 +56,7 @@ def test_load_building_tree(tmp_path: Path):
     b = tmp_path / "B1"
     b.mkdir()
     (b / "manifest.json").write_text('{"grid_minutes": 5}', encoding="utf-8")
-    _write_bundle(b, "AHU_1", ["fan_cmd", "oa_t"])
+    _write_bundle(b, "AHU_1", ["fan-cmd", "outside-air-temp"])
     tree = load_building_tree(tmp_path, "B1")
     assert "AHU_1" in tree
     assert len(tree["AHU_1"]) == 5

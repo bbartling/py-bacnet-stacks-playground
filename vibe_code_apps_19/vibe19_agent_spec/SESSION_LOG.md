@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-13 — Haystack point names end-to-end + Data Model topology
+
+- Rules / maps / DataFrames use Haystack slugs (`discharge-air-temp`, …) — one vocabulary
+- Data Model: dedicated **Topology** (VAV fedBy / AHU feeds); point tables are points-only
+- Docs: HAYSTACK_LIKE_MAPPING_GUIDE, COLUMN_MAP_JSON, DATA_MODEL_DRIVEN rewritten haystack-first
+
+---
+
 ## 2026-07-13 — FC2 mix_tol dead-slider fix + param sensitivity
 
 - FC2 algebra: `mat + tol < min(rat − tol, oat − tol)` (was same-side subtract → tol cancelled)

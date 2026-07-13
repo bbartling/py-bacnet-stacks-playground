@@ -208,7 +208,7 @@ def rule_plot_series(
         if role in df.columns and df[role].notna().any():
             series[role] = df[role]
     if not series:
-        for col in ("zone_t", "sat", "sat_sp", "oa_t", "mat", "rat", "oa_damper_pct", "fan_cmd", "duct_static"):
+        for col in ("zone-air-temp", "discharge-air-temp", "discharge-air-temp-sp", "outside-air-temp", "mixed-air-temp", "return-air-temp", "outside-air-damper", "fan-cmd", "duct-static-pressure"):
             if col in df.columns and df[col].notna().any():
                 series[col] = df[col]
     return series
@@ -701,15 +701,15 @@ def bas_vs_web_oat_histogram(
     for eq_id, raw in (frames or {}).items():
         mapped = apply_role_map(raw, eq_id, role_map)
         bas = None
-        if "bas_oa_t" in mapped.columns and mapped["bas_oa_t"].notna().any():
-            bas = pd.to_numeric(mapped["bas_oa_t"], errors="coerce")
-        elif "oa_t" in mapped.columns and mapped["oa_t"].notna().any():
-            bas = pd.to_numeric(mapped["oa_t"], errors="coerce")
+        if "bas-outside-air-temp" in mapped.columns and mapped["bas-outside-air-temp"].notna().any():
+            bas = pd.to_numeric(mapped["bas-outside-air-temp"], errors="coerce")
+        elif "outside-air-temp" in mapped.columns and mapped["outside-air-temp"].notna().any():
+            bas = pd.to_numeric(mapped["outside-air-temp"], errors="coerce")
         web = None
-        if "wx_oa_t" in mapped.columns and mapped["wx_oa_t"].notna().any():
-            web = pd.to_numeric(mapped["wx_oa_t"], errors="coerce")
-        elif weather is not None and "wx_oa_t" in weather.columns:
-            web = pd.to_numeric(weather["wx_oa_t"], errors="coerce").reindex(mapped.index)
+        if "web-outside-air-temp" in mapped.columns and mapped["web-outside-air-temp"].notna().any():
+            web = pd.to_numeric(mapped["web-outside-air-temp"], errors="coerce")
+        elif weather is not None and "web-outside-air-temp" in weather.columns:
+            web = pd.to_numeric(weather["web-outside-air-temp"], errors="coerce").reindex(mapped.index)
         if bas is None or web is None:
             continue
         d = (bas - web).dropna()

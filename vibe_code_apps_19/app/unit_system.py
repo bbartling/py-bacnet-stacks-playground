@@ -13,12 +13,12 @@ UnitSystem = Literal["imperial", "metric"]
 
 # role → (imperial_unit, metric_unit, convert_fn imperial→metric)
 _TEMP_ROLES = {
-    "sat", "sat_sp", "mat", "rat", "oa_t", "wx_oa_t", "wx_oa_dewpoint", "wx_oa_wetbulb",
-    "vav_disch_t", "vav_inlet_t", "chw_supply_t", "chw_return_t", "hw_supply_t", "hw_return_t",
-    "zone_t", "cw_supply_t", "cw_return_t",
+    "discharge-air-temp", "discharge-air-temp-sp", "mixed-air-temp", "return-air-temp", "outside-air-temp", "web-outside-air-temp", "web-outside-air-dewpoint", "web-outside-air-wetbulb",
+    "vav-discharge-air-temp", "vav-inlet-air-temp", "chilled-water-supply-temp", "chilled-water-return-temp", "hot-water-supply-temp", "hot-water-return-temp",
+    "zone-air-temp", "condenser-water-supply-temp", "cw_return_t",
 }
-_STATIC_ROLES = {"duct_static", "duct_static_sp"}
-_FLOW_ROLES = {"zone_flow", "min_flow_sp"}
+_STATIC_ROLES = {"duct-static-pressure", "duct-static-pressure-sp"}
+_FLOW_ROLES = {"zone-airflow", "min-flow-sp"}
 
 
 def f_to_c(v: float) -> float:

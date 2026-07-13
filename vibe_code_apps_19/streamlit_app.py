@@ -791,10 +791,10 @@ def _mapped_equipment(eq_id: str, frames: dict[str, pd.DataFrame]) -> tuple[pd.D
     raw = frames[eq_id]
     mapped = apply_role_map(raw, eq_id, st.session_state.role_map)
     # Topology enrich: parent AHU SAT may live only on the raw VAV frame
-    if "ahu_sat" in raw.columns and "ahu_sat" not in mapped.columns:
-        mapped["ahu_sat"] = raw["ahu_sat"]
-    elif "ahu_sat" in raw.columns:
-        mapped["ahu_sat"] = raw["ahu_sat"]
+    if "ahu-discharge-air-temp" in raw.columns and "ahu-discharge-air-temp" not in mapped.columns:
+        mapped["ahu-discharge-air-temp"] = raw["ahu-discharge-air-temp"]
+    elif "ahu-discharge-air-temp" in raw.columns:
+        mapped["ahu-discharge-air-temp"] = raw["ahu-discharge-air-temp"]
     # Canonical: Overview weekly calendar always drives occ_mode for SCHED-1.
     sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
     mapped = apply_schedule_occ_mode(mapped, sched, overwrite=True)
@@ -1690,7 +1690,7 @@ def _site_mapping_tab(cfg: AppConfig, selected: str, raw_df: pd.DataFrame) -> No
     st.write(f"Editing equipment **{selected}**")
     inferred = {**suggest_roles(raw_df), **roles_from_columns_csv(Path(raw_df.attrs.get("columns_path")) if raw_df.attrs.get("columns_path") else None)}
     edit = dict(st.session_state.role_map.get(selected, {}))
-    for role in sorted(set(list(inferred.keys()) + list(edit.keys()) + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd", "chw_pump_status", "chw_pump_equipment"])):
+    for role in sorted(set(list(inferred.keys()) + list(edit.keys()) + ["zone-air-temp", "discharge-air-temp", "discharge-air-temp-sp", "outside-air-temp", "fan-cmd", "chw-pump-status", "chw_pump_equipment"])):
         if role in {"equipment_type", "equipType", "plant_group", "notes"}:
             continue
         opts = [""] + list(raw_df.columns)
@@ -1963,8 +1963,7 @@ def main() -> None:
                 else:
                     rows = [
                         {
-                            "Cookbook role": b.cookbook_role,
-                            "Haystack-like tag": b.haystack_tag,
+                            "Haystack point": b.haystack_tag,
                             "CSV column": b.csv_column or "—",
                             "In history": "yes" if b.present_in_history else "no",
                             "Rules": ", ".join(b.required_by_rules[:8])
@@ -2041,7 +2040,7 @@ def main() -> None:
                 set(
                     list(inferred.keys())
                     + list(edit.keys())
-                    + ["zone_t", "sat", "sat_sp", "oa_t", "fan_cmd"]
+                    + ["zone-air-temp", "discharge-air-temp", "discharge-air-temp-sp", "outside-air-temp", "fan-cmd"]
                 )
             ):
                 opts = [""] + list(raw_df.columns)

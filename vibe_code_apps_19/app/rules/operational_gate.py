@@ -95,27 +95,27 @@ RULE_GATES: dict[str, GateSpec] = {
 
 
 FAN_PROOF_ROLES = (
-    "fan_status",
-    "fan_speed_feedback",
-    "fan_current",
-    "fan_power",
-    "airflow_proof",
+    "fan-status",
+    "fan-speed-feedback",
+    "fan-current",
+    "fan-power",
+    "airflow-proof",
 )
-FAN_CMD_FALLBACK = ("fan_cmd",)
+FAN_CMD_FALLBACK = ("fan-cmd",)
 
 PUMP_PROOF_ROLES = (
-    "pump_status",
-    "chw_pump_status",
-    "hw_pump_status",
-    "chw_pump_cmd",  # often used as status-like cmd in this demo
-    "pump_speed_feedback",
-    "pump_current",
-    "chw_flow",
-    "water_flow",
+    "pump-status",
+    "chw-pump-status",
+    "hw-pump-status",
+    "chw-pump-cmd",  # often used as status-like cmd in this demo
+    "pump-speed-feedback",
+    "pump-current",
+    "chw-flow",
+    "water-flow",
 )
-PUMP_CMD_FALLBACK = ("pump_cmd", "chw_pump_cmd", "hw_pump_cmd")
+PUMP_CMD_FALLBACK = ("pump-cmd", "chw-pump-cmd", "hw-pump-cmd")
 
-COMPRESSOR_ROLES = ("compressor_status", "equipment_enable", "fan_status", "fan_cmd")
+COMPRESSOR_ROLES = ("compressor-status", "equipment-enable", "fan-status", "fan-cmd")
 
 
 def _series_on(series: pd.Series, *, threshold: float = 0.05) -> pd.Series:
@@ -148,9 +148,9 @@ def resolve_fan_running(df: pd.DataFrame, *, command_fallback: bool = True) -> t
         if mask is not None and role is not None:
             return mask.fillna(False), f"{role} (cmd fallback)"
     # VAV airflow proxy
-    if "zone_flow" in df.columns and df["zone_flow"].notna().any():
-        flow = pd.to_numeric(df["zone_flow"], errors="coerce").fillna(0)
-        return (flow > 50.0), "zone_flow"
+    if "zone-airflow" in df.columns and df["zone-airflow"].notna().any():
+        flow = pd.to_numeric(df["zone-airflow"], errors="coerce").fillna(0)
+        return (flow > 50.0), "zone-airflow"
     return pd.Series(True, index=df.index), "ungated_no_proof_roles"
 
 
@@ -169,7 +169,7 @@ def resolve_hydronic_running(df: pd.DataFrame, *, command_fallback: bool = True)
 def resolve_compressor_running(df: pd.DataFrame, *, command_fallback: bool = True) -> tuple[pd.Series, str]:
     for role in COMPRESSOR_ROLES:
         if role in df.columns and df[role].notna().any():
-            if role == "fan_cmd" and not command_fallback:
+            if role == "fan-cmd" and not command_fallback:
                 continue
             return _series_on(df[role]).fillna(False), role
     return pd.Series(True, index=df.index), "ungated_no_proof_roles"
@@ -193,11 +193,11 @@ def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]
     """Point/context-aware gates for CONDITIONAL rules."""
     if rule_id == "VAV-1":
         # Occupied band when schedule exists; also require air moving when fan/flow proof exists.
-        if "occ_mode" in df.columns and df["occ_mode"].notna().any():
-            occ = df["occ_mode"].astype(str).str.lower().isin({"occupied", "1", "true", "on"})
+        if "occupied" in df.columns and df["occupied"].notna().any():
+            occ = df["occupied"].astype(str).str.lower().isin({"occupied", "1", "true", "on"})
             fan, src = resolve_fan_running(df)
             if src.startswith("ungated"):
-                return occ.fillna(False), "occ_mode"
+                return occ.fillna(False), "occupied"
             return (occ & fan).fillna(False), f"occ_and_{src}"
         fan, src = resolve_fan_running(df)
         if src.startswith("ungated"):
@@ -205,13 +205,13 @@ def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]
         return fan, src
     if rule_id == "DMP-1":
         fan, src = resolve_fan_running(df)
-        if "oa_damper_pct" in df.columns:
-            cmd = norm_cmd(df["oa_damper_pct"]).fillna(0) > 0.01
+        if "outside-air-damper" in df.columns:
+            cmd = norm_cmd(df["outside-air-damper"]).fillna(0) > 0.01
             return (fan | cmd).fillna(False), f"damper_or_{src}"
         return fan, src
     if rule_id == "VLV-1":
-        if "clg_valve_pct" in df.columns:
-            valve = norm_cmd(df["clg_valve_pct"]).fillna(0)
+        if "cooling-valve" in df.columns:
+            valve = norm_cmd(df["cooling-valve"]).fillna(0)
             # Evaluate when valve has demand OR when commanded closed (leakage context).
             active = (valve > 0.01) | (valve <= 0.05)
             fan, _ = resolve_fan_running(df)
@@ -275,8 +275,8 @@ def resolve_operational_mask(
         active, src = resolve_equipment_energized(df, command_fallback=spec.command_fallback_allowed)
     elif spec.kind == "control_loop":
         active, src = resolve_fan_running(df, command_fallback=spec.command_fallback_allowed)
-        if "loop_enabled" in df.columns:
-            active = active & _series_on(df["loop_enabled"])
+        if "loop-enabled" in df.columns:
+            active = active & _series_on(df["loop-enabled"])
             src = f"{src}+loop_enabled"
     elif spec.kind == "conditional":
         active, src = resolve_conditional(df, rule_id)

@@ -71,15 +71,15 @@ def build_role_map_gap_report(
             if rule.sensor_sweep or rule.control_output_sweep:
                 continue
             for role in rule.required_roles:
-                if role == "oa_t":
+                if role == "outside-air-temp":
                     if (
-                        ("oa_t" in enriched.columns and enriched["oa_t"].notna().any())
+                        ("outside-air-temp" in enriched.columns and enriched["outside-air-temp"].notna().any())
                         or ("oa_t_effective" in enriched.columns and enriched["oa_t_effective"].notna().any())
                     ):
                         continue
                     miss.append(role)
                     continue
-                if role == "wx_oa_t":
+                if role == "web-outside-air-temp":
                     if not has_web_oat(enriched):
                         miss.append(role)
                     continue
@@ -90,7 +90,7 @@ def build_role_map_gap_report(
                 if not has_bas_oat(enriched):
                     miss.append("bas oa_t")
                 if not has_web_oat(enriched):
-                    miss.append("wx_oa_t")
+                    miss.append("web-outside-air-temp")
             if miss:
                 missing_by_rule[rule.id] = miss
                 skipped_rules.append(rule.id)

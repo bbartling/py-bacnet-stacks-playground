@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def minimal_sidecar_json(*, equip_type: str = "ahu", points: dict[str, str] | None = None) -> str:
-    pts = points or {"fan-status": "fan_status", "outside-air-temp": "oa_t"}
+    pts = points or {"fan-status": "fan-status", "outside-air-temp": "outside-air-temp"}
     return json.dumps({"equipType": equip_type, "points": pts})
 
 
@@ -31,9 +31,9 @@ def ensure_sidecar_files(files: dict[str, str | bytes]) -> dict[str, str | bytes
         eq = folder.rsplit("/", 1)[-1]
         etype = "vav" if eq.upper().startswith("VAV") else "ahu"
         points = (
-            {"zone-air-temp": "zone_t"}
+            {"zone-air-temp": "zone-air-temp"}
             if etype == "vav"
-            else {"fan-status": "fan_status", "outside-air-temp": "oa_t", "discharge-air-temp": "sat"}
+            else {"fan-status": "fan-status", "outside-air-temp": "outside-air-temp", "discharge-air-temp": "discharge-air-temp"}
         )
         # Prefer columns that commonly exist in fixtures
         out[f"{folder}/column_map.json"] = minimal_sidecar_json(equip_type=etype, points=points)

@@ -71,7 +71,7 @@ def test_ensure_column_map_builds_when_missing():
     from app.agent_prerun import ensure_column_map
 
     idx = pd.date_range("2024-01-01", periods=3, freq="5min", tz="UTC")
-    df = pd.DataFrame({"sat": [55.0, 56.0, 57.0], "fan_status": [1, 1, 1]}, index=idx)
+    df = pd.DataFrame({"discharge-air-temp": [55.0, 56.0, 57.0], "fan-status": [1, 1, 1]}, index=idx)
     df.attrs["equipment_id"] = "AHU_1"
     cmap, built, warns = ensure_column_map(
         {"AHU_1": df}, existing_map=None, building_id="B1"

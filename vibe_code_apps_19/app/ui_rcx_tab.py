@@ -260,12 +260,12 @@ def render_rcx_plots_tab(
             series_map = collect_role_series(
                 frames,
                 role_map,
-                role="zone_t",
+                role="zone-air-temp",
                 equipment_types=equipment_types,
                 equipment_ids=worst_ids,
                 fan_mode="on" if operating_on else "all",
             )
-            series_map, y_title = _convert_map(series_map, "zone_t", unit_system)
+            series_map, y_title = _convert_map(series_map, "zone-air-temp", unit_system)
             outliers = (
                 set(rank.loc[rank["outlier"], "equipment_id"].astype(str))
                 if "outlier" in rank.columns
@@ -274,7 +274,7 @@ def render_rcx_plots_tab(
             fig = multi_equipment_timeseries(
                 series_map,
                 title=f"Worst zones — space temp (top {len(worst_ids)})",
-                y_title=y_title or "zone_t",
+                y_title=y_title or "zone-air-temp",
                 outlier_ids=outliers,
             )
             if fig is not None:
@@ -361,9 +361,9 @@ def render_rcx_plots_tab(
         if unit_system == "metric" and not long_df.empty:
             long_df = long_df.copy()
             long_df["y"], y_title = convert_series(role, long_df["y"], "metric")
-            long_df["oat"], _xu = convert_series("oa_t", long_df["oat"], "metric")
+            long_df["oat"], _xu = convert_series("outside-air-temp", long_df["oat"], "metric")
             if "dry_bulb" in long_df.columns:
-                long_df["dry_bulb"], _ = convert_series("oa_t", long_df["dry_bulb"], "metric")
+                long_df["dry_bulb"], _ = convert_series("outside-air-temp", long_df["dry_bulb"], "metric")
             x_title = "Web wet-bulb °C" if x_pref == "wetbulb" else "Web OAT °C"
         else:
             y_title = role
@@ -446,7 +446,7 @@ def render_rcx_plots_tab(
 
     with st.expander("Generic role picker (advanced)", expanded=False):
         st.caption("Optional — only runs when you expand this section.")
-        g_role = st.text_input("Cookbook role to plot", value="zone_t", key="rcx_generic_role")
+        g_role = st.text_input("Cookbook role to plot", value="zone-air-temp", key="rcx_generic_role")
         g_types = st.multiselect(
             "Equipment types (empty = all)",
             ["AHU", "VAV", "CHW_PLANT", "CHILLER", "BOILER", "HP", "COOLING_TOWER", "METER", "WEATHER", "UNKNOWN"],

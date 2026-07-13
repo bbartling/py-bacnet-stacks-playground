@@ -32,32 +32,32 @@ def test_reset_scatter_and_static_box_contract():
     sat = preset_by_id("ahu_sat_reset_scatter")
     box = preset_by_id("duct_static_box")
 
-    assert hw is not None and hw.chart == "scatter_oat" and hw.role == "hw_supply_t"
+    assert hw is not None and hw.chart == "scatter_oat" and hw.role == "hot-water-supply-temp"
     assert "BOILER" in hw.equipment_types
-    assert chw is not None and chw.chart == "scatter_oat" and chw.role == "chw_supply_t"
+    assert chw is not None and chw.chart == "scatter_oat" and chw.role == "chilled-water-supply-temp"
     assert set(chw.equipment_types) & {"CHW_PLANT", "CHILLER"}
-    assert cw is not None and cw.chart == "scatter_oat" and cw.role == "cw_supply_t"
+    assert cw is not None and cw.chart == "scatter_oat" and cw.role == "condenser-water-supply-temp"
     assert "COOLING_TOWER" in cw.equipment_types
     assert getattr(cw, "dry_bulb_ref", False) is True
-    assert sat is not None and sat.chart == "scatter_oat" and sat.role == "sat"
-    assert box is not None and box.chart == "box" and box.role == "duct_static" and box.filter_fan_on
+    assert sat is not None and sat.chart == "scatter_oat" and sat.role == "discharge-air-temp"
+    assert box is not None and box.chart == "box" and box.role == "duct-static-pressure" and box.filter_fan_on
     rank = preset_by_id("zone_comfort_rank")
-    assert rank is not None and rank.chart == "ranking" and rank.role == "zone_t"
+    assert rank is not None and rank.chart == "ranking" and rank.role == "zone-air-temp"
     elec = preset_by_id("meter_elec_cdd")
-    assert elec is not None and elec.chart == "metering" and elec.role == "elec_power_kw"
+    assert elec is not None and elec.chart == "metering" and elec.role == "elec-power"
     gas = preset_by_id("meter_gas_hdd")
-    assert gas is not None and gas.chart == "metering" and gas.role == "gas_flow"
+    assert gas is not None and gas.chart == "metering" and gas.role == "gas-flow"
 
 
 def test_supporting_overlay_presets_wired():
     for pid, role, chart in (
-        ("zone_temps", "zone_t", "timeseries"),
-        ("ahu_dats", "sat", "timeseries"),
-        ("ahu_mats", "mat", "timeseries"),
-        ("ahu_rats", "rat", "timeseries"),
-        ("ahu_dampers", "oa_damper_pct", "timeseries"),
-        ("vav_flows", "zone_flow", "timeseries"),
-        ("fan_speeds", "fan_cmd", "timeseries"),
+        ("zone_temps", "zone-air-temp", "timeseries"),
+        ("ahu_dats", "discharge-air-temp", "timeseries"),
+        ("ahu_mats", "mixed-air-temp", "timeseries"),
+        ("ahu_rats", "return-air-temp", "timeseries"),
+        ("ahu_dampers", "outside-air-damper", "timeseries"),
+        ("vav_flows", "zone-airflow", "timeseries"),
+        ("fan_speeds", "fan-cmd", "timeseries"),
     ):
         p = preset_by_id(pid)
         assert p is not None, pid

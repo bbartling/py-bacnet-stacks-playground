@@ -51,8 +51,7 @@ class BuildingDataModelTree:
                     {
                         "equipment_id": eq.equipment_id,
                         "equipment_type": eq.equipment_type,
-                        "cookbook_role": b.cookbook_role,
-                        "haystack_tag": b.haystack_tag,
+                        "haystack_point": b.haystack_tag,
                         "csv_column": b.csv_column or "",
                         "present_in_history": b.present_in_history,
                         "required_by_rules": ", ".join(b.required_by_rules),

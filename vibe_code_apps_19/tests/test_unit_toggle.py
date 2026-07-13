@@ -20,20 +20,20 @@ from app.units import DEFAULT_ROLE_UNITS
 
 # Roles that must convert when Units = metric (mirrors unit_system.py sets).
 _TEMP_ROLES = (
-    "sat",
-    "sat_sp",
-    "mat",
-    "rat",
-    "oa_t",
-    "wx_oa_t",
-    "zone_t",
-    "chw_supply_t",
-    "hw_supply_t",
-    "cw_supply_t",
-    "vav_inlet_t",
+    "discharge-air-temp",
+    "discharge-air-temp-sp",
+    "mixed-air-temp",
+    "return-air-temp",
+    "outside-air-temp",
+    "web-outside-air-temp",
+    "zone-air-temp",
+    "chilled-water-supply-temp",
+    "hot-water-supply-temp",
+    "condenser-water-supply-temp",
+    "vav-inlet-air-temp",
 )
-_STATIC_ROLES = ("duct_static", "duct_static_sp")
-_FLOW_ROLES = ("zone_flow", "min_flow_sp")
+_STATIC_ROLES = ("duct-static-pressure", "duct-static-pressure-sp")
+_FLOW_ROLES = ("zone-airflow", "min-flow-sp")
 
 
 @pytest.mark.parametrize("role", _TEMP_ROLES)
@@ -74,7 +74,7 @@ def test_flow_roles_toggle_to_ls(role: str):
 def test_pct_and_non_temp_roles_unchanged_on_metric_toggle():
     """Damper % / dimensionless roles must not invent a °C conversion."""
     s = pd.Series([0.0, 50.0, 100.0])
-    for role in ("oa_damper_pct", "clg_valve_pct", "fan_cmd", "fan_status"):
+    for role in ("outside-air-damper", "cooling-valve", "fan-cmd", "fan-status"):
         met, _ = convert_series(role, s, "metric")
         imp, _ = convert_series(role, s, "imperial")
         assert list(met) == list(imp) == [0.0, 50.0, 100.0]
@@ -84,19 +84,19 @@ def test_units_map_for_system_flips_labels():
     base = dict(DEFAULT_ROLE_UNITS)
     imp = units_map_for_system(base, "imperial")
     met = units_map_for_system(base, "metric")
-    assert imp["sat"] != met["sat"] or met["sat"] == "°C"
-    assert met["sat"] == "°C"
-    assert met["duct_static"] == "Pa"
-    assert met["zone_flow"] == "L/s"
-    assert display_unit_for_role("sat", "imperial") in {imp["sat"], "°F", DEFAULT_ROLE_UNITS.get("sat", "")}
-    assert display_unit_for_role("sat", "metric") == "°C"
+    assert imp["discharge-air-temp"] != met["discharge-air-temp"] or met["discharge-air-temp"] == "°C"
+    assert met["discharge-air-temp"] == "°C"
+    assert met["duct-static-pressure"] == "Pa"
+    assert met["zone-airflow"] == "L/s"
+    assert display_unit_for_role("discharge-air-temp", "imperial") in {imp["discharge-air-temp"], "°F", DEFAULT_ROLE_UNITS.get("discharge-air-temp", "")}
+    assert display_unit_for_role("discharge-air-temp", "metric") == "°C"
 
 
 def test_convert_scalar_threshold_matches_slider_storage_contract():
     """Sidebar/Overview temp sliders store °F; display converts with Units radio."""
     stored_f = 48.0  # chw_leave_max_f default-ish
-    assert convert_scalar_threshold("chw_supply_t", stored_f, "imperial") == 48.0
-    assert abs(convert_scalar_threshold("chw_supply_t", stored_f, "metric") - f_to_c(48.0)) < 1e-9
+    assert convert_scalar_threshold("chilled-water-supply-temp", stored_f, "imperial") == 48.0
+    assert abs(convert_scalar_threshold("chilled-water-supply-temp", stored_f, "metric") - f_to_c(48.0)) < 1e-9
     # Round-trip display °C → store °F (what _temp_threshold_slider does)
     shown_c = f_to_c(70.0)
     assert abs(c_to_f(shown_c) - 70.0) < 1e-9
@@ -126,15 +126,15 @@ def test_rcx_convert_map_respects_unit_system():
     from app.ui_rcx_tab import _convert_map
 
     series_map = {"AHU_1": pd.Series([55.0, 56.0], index=pd.RangeIndex(2))}
-    imp_map, u_i = _convert_map(series_map, "sat", "imperial")
-    met_map, u_m = _convert_map(series_map, "sat", "metric")
+    imp_map, u_i = _convert_map(series_map, "discharge-air-temp", "imperial")
+    met_map, u_m = _convert_map(series_map, "discharge-air-temp", "metric")
     assert u_m == "°C"
     assert abs(float(met_map["AHU_1"].iloc[0]) - f_to_c(55.0)) < 1e-9
     assert abs(float(imp_map["AHU_1"].iloc[0]) - 55.0) < 1e-9
     # duct static
     sm = {"AHU_1": pd.Series([1.2])}
-    _imp, _ = _convert_map(sm, "duct_static", "imperial")
-    met_s, u = _convert_map(sm, "duct_static", "metric")
+    _imp, _ = _convert_map(sm, "duct-static-pressure", "imperial")
+    met_s, u = _convert_map(sm, "duct-static-pressure", "metric")
     assert u == "Pa"
     assert abs(float(met_s["AHU_1"].iloc[0]) - inwc_to_pa(1.2)) < 1e-2
 
@@ -145,7 +145,7 @@ def test_units_map_feeds_plotly_axis_labels():
     from app.rules.base import RuleResult
 
     idx = pd.date_range("2024-06-01", periods=8, freq="5min", tz="UTC")
-    df = pd.DataFrame({"sat": [55.0] * 8, "sat_sp": [55.0] * 8}, index=idx)
+    df = pd.DataFrame({"discharge-air-temp": [55.0] * 8, "discharge-air-temp-sp": [55.0] * 8}, index=idx)
     res = RuleResult(
         rule_id="AHU-SATDEV",
         equipment_id="AHU_1",
@@ -154,16 +154,16 @@ def test_units_map_feeds_plotly_axis_labels():
         fault_hours=0.0,
         missing_roles=[],
         notes="",
-        plot_series={"sat": df["sat"], "sat_sp": df["sat_sp"]},
+        plot_series={"discharge-air-temp": df["discharge-air-temp"], "discharge-air-temp-sp": df["discharge-air-temp-sp"]},
     )
-    fig_i = rule_result_chart(df, res, required_roles=["sat", "sat_sp"], units_map=units_map_for_system(None, "imperial"))
-    fig_m = rule_result_chart(df, res, required_roles=["sat", "sat_sp"], units_map=units_map_for_system(None, "metric"))
+    fig_i = rule_result_chart(df, res, required_roles=["discharge-air-temp", "discharge-air-temp-sp"], units_map=units_map_for_system(None, "imperial"))
+    fig_m = rule_result_chart(df, res, required_roles=["discharge-air-temp", "discharge-air-temp-sp"], units_map=units_map_for_system(None, "metric"))
     assert fig_i is not None and fig_m is not None
     # Metric map labels should prefer °C on at least one axis title domain
     met_units = units_map_for_system(None, "metric")
-    assert met_units.get("sat") == "°C"
+    assert met_units.get("discharge-air-temp") == "°C"
     imp_units = units_map_for_system(None, "imperial")
-    assert met_units["sat"] != imp_units.get("sat") or met_units["sat"] == "°C"
+    assert met_units["discharge-air-temp"] != imp_units.get("discharge-air-temp") or met_units["discharge-air-temp"] == "°C"
 
 
 def test_session_config_payload_includes_unit_system_toggle_values():

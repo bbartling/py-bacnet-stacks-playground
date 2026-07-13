@@ -25,7 +25,7 @@ def test_device_results_table_sorts_with_list_missing_roles():
                 "status": "FAULT",
                 "fault_hours": 1.0,
                 "fault_pct": 10.0,
-                "missing_roles": ["reheat_valve_pct"],
+                "missing_roles": ["reheat-valve"],
                 "notes": "x",
             },
             {
@@ -43,7 +43,7 @@ def test_device_results_table_sorts_with_list_missing_roles():
                 "status": "SKIPPED_MISSING_ROLES",
                 "fault_hours": None,
                 "fault_pct": None,
-                "missing_roles": ["sat", "sat_sp"],
+                "missing_roles": ["discharge-air-temp", "discharge-air-temp-sp"],
                 "notes": "",
             },
         ]

@@ -1,4 +1,4 @@
-timestamp_utc,chw_supply_temp_f,cw_supply_temp_f,chiller_run_status,chw_pump_status
+timestamp_utc,chw_supply_temp_f,cw_supply_temp_f,chiller_run_status,chw-pump-status
 2024-06-01T00:00:00Z,43.25,75.0,0,0
 2024-06-01T06:00:00Z,43.33125,75.325,0,0
 2024-06-01T12:00:00Z,43.4125,75.65,0,0

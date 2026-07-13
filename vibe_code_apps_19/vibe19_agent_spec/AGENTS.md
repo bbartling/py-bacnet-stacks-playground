@@ -18,7 +18,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 4. **Rules follow Open-FDD pandas cookbook** — raw mask → optional operational gate → `confirm_fault()` → rollup hours.
 5. **Operational gates** — most rules require fan/pump/compressor proof; see `docs/OPERATIONAL_GATES.md`. Prefer `fan_status` over `fan_cmd`.
 6. **Web OAT by default** — analytics / free-cool / OAT bins / physics rules prefer `wx_oa_t` via `oa_t_effective` (`app/weather_resolver.py`). OAT-METEO requires both BAS and web.
-7. **Haystack-like authoring** — `siteRef` / `equip` / `device` / `points` normalize to cookbook roles; see `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`. Optional package-root `column_map.json` is auto-loaded.
+7. **Haystack point names end-to-end** — `siteRef` / `equip` / `device` / `points` map directly to CSV columns; rules read the same names (`discharge-air-temp`, …). See `docs/HAYSTACK_LIKE_MAPPING_GUIDE.md`. Optional package-root `column_map.json` is auto-loaded.
 8. **Building id = folder name** — any site; BUILDING_100 is a demo label only.
 9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
 10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).

@@ -17,16 +17,16 @@ from app.rules.operational_gate import RULE_GATES
 
 # Preferred Haystack names for roles missing from COOKBOOK_TO_HAYSTACK_POINT.
 EXTENDED_HS: dict[str, str] = {
-    "fan_speed_feedback": "fan-speed-feedback",
-    "fan_current": "fan-current",
-    "fan_power": "fan-power",
-    "airflow_proof": "airflow-proof",
-    "pump_status": "pump-status",
-    "compressor_status": "compressor-status",
-    "dx_stage": "dx-stage",
-    "dx_cool_cmd": "dx-cool-cmd",
-    "cool_stage": "cool-stage",
-    "dx_cooling": "dx-cooling",
+    "fan-speed-feedback": "fan-speed-feedback",
+    "fan-current": "fan-current",
+    "fan-power": "fan-power",
+    "airflow-proof": "airflow-proof",
+    "pump-status": "pump-status",
+    "compressor-status": "compressor-status",
+    "dx-stage": "dx-stage",
+    "dx-cool-cmd": "dx-cool-cmd",
+    "cool-stage": "cool-stage",
+    "dx-cooling": "dx-cooling",
 }
 
 ANALYTICS_HINTS: dict[str, str] = {
@@ -236,7 +236,7 @@ def data_model_fit(
             )
 
     if weather is not None and not weather.empty:
-        if "wx_oa_t" in weather.columns or any(
+        if "web-outside-air-temp" in weather.columns or any(
             c for c in weather.columns if "temp" in str(c).lower()
         ):
             lines.append("Weather / web OAT: loaded")

@@ -20,7 +20,7 @@ def test_dataset_time_span():
 def test_motor_run_hours():
     idx = pd.date_range("2024-01-01", periods=10, freq="6min", tz="UTC")
     # 5 of 10 samples on at 6 min → 0.5 hours
-    df = pd.DataFrame({"fan_cmd": [0, 0, 0, 0, 0, 100, 100, 100, 100, 100]}, index=idx)
+    df = pd.DataFrame({"fan-cmd": [0, 0, 0, 0, 0, 100, 100, 100, 100, 100]}, index=idx)
     rows = motor_run_hours_for_frame(df, poll_seconds=360.0, equipment_id="AHU_1")
     assert len(rows) == 1
     assert rows[0]["run_hours"] == 0.5
@@ -33,17 +33,17 @@ def test_mech_cooling_bins_flexible_proof():
 
     idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
     ch = pd.DataFrame(
-        {"chw_pump_cmd": [100] * 10, "oa_t": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]},
+        {"chw-pump-cmd": [100] * 10, "outside-air-temp": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]},
         index=idx,
     )
     ch.attrs["equipment_type"] = "CHW_PLANT"
     ahu_valve = pd.DataFrame(
-        {"clg_valve_pct": [100] * 10, "oa_t": [70] * 10, "fan_cmd": [50] * 10},
+        {"cooling-valve": [100] * 10, "outside-air-temp": [70] * 10, "fan-cmd": [50] * 10},
         index=idx,
     )
     ahu_valve.attrs["equipment_type"] = "AHU"
     ahu_dx = pd.DataFrame(
-        {"compressor_status": [1] * 10, "oa_t": [72] * 10},
+        {"compressor-status": [1] * 10, "outside-air-temp": [72] * 10},
         index=idx,
     )
     ahu_dx.attrs["equipment_type"] = "AHU"
@@ -66,14 +66,14 @@ def test_mech_cooling_chiller_amps_and_chw_temp():
 
     idx = pd.date_range("2024-06-01", periods=5, freq="1h", tz="UTC")
     df = pd.DataFrame(
-        {"chiller_amps": [0, 0, 20, 30, 0], "chw_supply_t": [55, 55, 55, 44, 44]},
+        {"chiller-amps": [0, 0, 20, 30, 0], "chilled-water-supply-temp": [55, 55, 55, 44, 44]},
         index=idx,
     )
     run, kind = mech_cooling_run_mask(df, equipment_type="CHILLER", equipment_id="CHILLER_2")
-    assert kind == "chiller_amps"
+    assert kind == "chiller-amps"
     assert bool(run.iloc[2])
     # Leave temp alone → no run proof (pump/status required)
-    df2 = pd.DataFrame({"chw_supply_t": [44.0] * 5}, index=idx)
+    df2 = pd.DataFrame({"chilled-water-supply-temp": [44.0] * 5}, index=idx)
     run2, kind2 = mech_cooling_run_mask(df2, equipment_type="CHILLER", equipment_id="CHILLER_2")
     assert run2 is None
     assert kind2 == ""
@@ -87,7 +87,7 @@ def test_occupied_hours_and_weekly_oat():
     assert occupied_hours_per_week(sched) == pytest.approx(5 * 12.0)
     idx = pd.date_range("2024-01-01", periods=48, freq="1h", tz="UTC")
     df = pd.DataFrame(
-        {"fan_status": [1.0] * 48, "oa_t": [40.0] * 24 + [60.0] * 24},
+        {"fan-status": [1.0] * 48, "outside-air-temp": [40.0] * 24 + [60.0] * 24},
         index=idx,
     )
     df.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
@@ -103,13 +103,13 @@ def test_motor_run_hours_weekly():
     idx = pd.date_range("2024-01-01", periods=14 * 24, freq="1h", tz="UTC")  # 2 weeks
     # On for first week only
     on = [1.0] * (7 * 24) + [0.0] * (7 * 24)
-    df = pd.DataFrame({"fan_status": on, "fan_cmd": [100.0] * len(idx)}, index=idx)
+    df = pd.DataFrame({"fan-status": on, "fan-cmd": [100.0] * len(idx)}, index=idx)
     df.attrs["poll_seconds"] = 3600.0
     df.attrs["equipment_type"] = "AHU"
     frames = {"AHU_1": df}
     weekly = motor_run_hours_weekly(frames, role_map={})
     assert not weekly.empty
-    assert set(weekly["signal"]) == {"fan_status"}  # prefers status over cmd
+    assert set(weekly["signal"]) == {"fan-status"}  # prefers status over cmd
     assert set(weekly["plant_group"]) == {"air"}
     assert weekly["hours"].sum() == pytest.approx(7 * 24.0, rel=0.01)
     fig = motor_weekly_runtime_chart(weekly, title="Air side — supply fans")
@@ -126,7 +126,7 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
         {
             "supply_fan_status": on,
             "return_fan_status": [1.0] * 48,  # must NOT appear
-            "fan_cmd": [50.0] * 48,
+            "fan-cmd": [50.0] * 48,
         },
         index=idx,
     )
@@ -146,10 +146,10 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
 
     chiller = pd.DataFrame(
         {
-            "chiller_status": on,  # must NOT drive weekly chiller series
+            "chiller-status": on,  # must NOT drive weekly chiller series
             "cwp1_s": on,
             "tower_fan_status": on,
-            "chw_supply_t": [44.0] * 48,
+            "chilled-water-supply-temp": [44.0] * 48,
         },
         index=idx,
     )
@@ -157,7 +157,7 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
 
     # No pump — must NOT invent leave-temp runtime
     chiller2 = pd.DataFrame(
-        {"chw_supply_t": [44.0] * 24 + [55.0] * 24, "chiller_status": on},
+        {"chilled-water-supply-temp": [44.0] * 24 + [55.0] * 24, "chiller-status": on},
         index=idx,
     )
     chiller2.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
@@ -169,12 +169,12 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
             "CHILLER_1": chiller,
             "CHILLER_2": chiller2,
         },
-        role_map={"CHILLER_1": {"chw_pump_status": "cwp1_s"}},
+        role_map={"CHILLER_1": {"chw-pump-status": "cwp1_s"}},
         chw_leave_max_f=48.0,
     )
     assert not weekly.empty
     air = weekly[weekly["plant_group"] == "air"]
-    assert set(air["label"]) == {"AHU_1 · fan_status"}
+    assert set(air["label"]) == {"AHU_1 · fan-status"}
     assert "return" not in " ".join(air["label"]).lower()
 
     boiler_w = weekly[weekly["plant_group"] == "boiler"]
@@ -186,11 +186,11 @@ def test_motor_weekly_three_plants_pumps_chiller_tower():
     chill = weekly[weekly["plant_group"] == "chiller"]
     labels_c = set(chill["label"])
     # Designated pump preferred over chiller_status when both exist
-    assert any("CHILLER_1" in x and "chw_pump_status" in x for x in labels_c)
-    assert not any("CHILLER_1" in x and "chiller_status" in x for x in labels_c)
+    assert any("CHILLER_1" in x and "chw-pump-status" in x for x in labels_c)
+    assert not any("CHILLER_1" in x and "chiller-status" in x for x in labels_c)
     assert not any("chw_leave" in x for x in labels_c)
     # No pump: status fallback is allowed
-    assert any("CHILLER_2" in x and "chiller_status" in x for x in labels_c)
+    assert any("CHILLER_2" in x and "chiller-status" in x for x in labels_c)
     assert any("CWP" in x.upper() or "tower" in x.lower() for x in labels_c)
 
 
@@ -198,7 +198,7 @@ def test_chiller_runtime_leave_temp_only_still_empty():
     from app.analytics import motor_run_hours_weekly
 
     idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
-    ch = pd.DataFrame({"chw_supply_t": [44.0] * 12 + [55.0] * 12}, index=idx)
+    ch = pd.DataFrame({"chilled-water-supply-temp": [44.0] * 12 + [55.0] * 12}, index=idx)
     ch.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
     weekly = motor_run_hours_weekly({"CHILLER_ONLY_TEMP": ch}, role_map={})
     chill = weekly[weekly["plant_group"] == "chiller"] if not weekly.empty else weekly
@@ -210,11 +210,11 @@ def test_chiller_runtime_compressor_status_fallback():
 
     idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
     on = [1.0] * 12 + [0.0] * 12
-    ch = pd.DataFrame({"compressor_status": on, "chw_supply_t": [44.0] * 24}, index=idx)
+    ch = pd.DataFrame({"compressor-status": on, "chilled-water-supply-temp": [44.0] * 24}, index=idx)
     ch.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
     weekly = motor_run_hours_weekly({"CH_DX": ch}, role_map={})
     chill = weekly[weekly["plant_group"] == "chiller"]
-    assert any("CH_DX" in x and "compressor_status" in x for x in set(chill["label"]))
+    assert any("CH_DX" in x and "compressor-status" in x for x in set(chill["label"]))
 
 
 def test_chiller_runtime_linked_pump_equipment():
@@ -222,7 +222,7 @@ def test_chiller_runtime_linked_pump_equipment():
 
     idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
     on = [1.0] * 12 + [0.0] * 12
-    ch = pd.DataFrame({"chw_supply_t": [55.0] * 24}, index=idx)
+    ch = pd.DataFrame({"chilled-water-supply-temp": [55.0] * 24}, index=idx)
     ch.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHILLER"})
     pumps = pd.DataFrame({"cwp1_s": on}, index=idx)
     pumps.attrs.update({"poll_seconds": 3600.0, "equipment_type": "CHW_PLANT"})
@@ -231,12 +231,12 @@ def test_chiller_runtime_linked_pump_equipment():
         role_map={
             "CHILLER_1": {
                 "chw_pump_equipment": "CHW_PUMPS",
-                "chw_pump_status": "cwp1_s",
+                "chw-pump-status": "cwp1_s",
             }
         },
     )
     chill = weekly[weekly["plant_group"] == "chiller"]
-    assert any("CHILLER_1" in x and "chw_pump_status" in x for x in set(chill["label"]))
+    assert any("CHILLER_1" in x and "chw-pump-status" in x for x in set(chill["label"]))
     assert chill.loc[chill["equipment_id"] == "CHILLER_1", "hours"].sum() == pytest.approx(12.0)
 
 
@@ -264,7 +264,7 @@ def test_resolve_equipment_type_priority_and_aliases():
         resolve_equipment_type(
             "UNIT_9",
             df=df,
-            role_map={"UNIT_9": {"equipment_type": "BOILER", "pump_status": "p"}},
+            role_map={"UNIT_9": {"equipment_type": "BOILER", "pump-status": "p"}},
         )
         == "BOILER"
     )
@@ -278,13 +278,13 @@ def test_motor_omit_fan_when_map_has_no_fan_roles():
 
     idx = pd.date_range("2024-01-01", periods=24, freq="1h", tz="UTC")
     ahu = pd.DataFrame(
-        {"supply_fan_status": [1.0] * 24, "sat": [55.0] * 24},
+        {"supply_fan_status": [1.0] * 24, "discharge-air-temp": [55.0] * 24},
         index=idx,
     )
     ahu.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
     found = discover_plant_motor_series(
         {"AHU_1": ahu},
-        role_map={"AHU_1": {"sat": "sat", "equipment_type": "AHU"}},
+        role_map={"AHU_1": {"discharge-air-temp": "discharge-air-temp", "equipment_type": "AHU"}},
     )
     assert not any(s["motor_kind"] == "fan" for s in found)
 
@@ -294,21 +294,21 @@ def test_rcx_typed_membership_no_id_substring():
 
     idx = pd.date_range("2024-01-01", periods=3, freq="1h", tz="UTC")
     # Id looks like AHU but typed as BOILER — must not join AHU scatter
-    df = pd.DataFrame({"hw_supply_t": [140.0, 141.0, 142.0]}, index=idx)
+    df = pd.DataFrame({"hot-water-supply-temp": [140.0, 141.0, 142.0]}, index=idx)
     df.attrs["equipment_type"] = "BOILER"
-    wx = pd.DataFrame({"wx_oa_t": [30.0, 32.0, 34.0]}, index=idx)
+    wx = pd.DataFrame({"web-outside-air-temp": [30.0, 32.0, 34.0]}, index=idx)
     out = collect_oat_scatter(
         {"AHU_LOOKALIKE": df},
-        role_map={"AHU_LOOKALIKE": {"hw_supply_t": "hw_supply_t"}},
-        y_role="hw_supply_t",
+        role_map={"AHU_LOOKALIKE": {"hot-water-supply-temp": "hot-water-supply-temp"}},
+        y_role="hot-water-supply-temp",
         weather=wx,
         equipment_types=("AHU",),
     )
     assert out.empty
     out2 = collect_oat_scatter(
         {"AHU_LOOKALIKE": df},
-        role_map={"AHU_LOOKALIKE": {"hw_supply_t": "hw_supply_t"}},
-        y_role="hw_supply_t",
+        role_map={"AHU_LOOKALIKE": {"hot-water-supply-temp": "hot-water-supply-temp"}},
+        y_role="hot-water-supply-temp",
         weather=wx,
         equipment_types=("BOILER",),
     )

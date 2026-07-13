@@ -2,13 +2,13 @@
 
 Policy
 ------
-- Web / Open-Meteo ``wx_oa_t`` is PRIMARY for economizer / free-cool, mech-cooling
+- Web / Open-Meteo ``web-outside-air-temp`` is PRIMARY for economizer / free-cool, mech-cooling
   OAT bins, RCx scatters, weather-driven analytics, and physics rules that need OAT.
-- BAS ``oa_t`` is fallback only when web weather is unavailable.
-- When both exist, preserve both — never silently overwrite BAS ``oa_t``.
+- BAS ``outside-air-temp`` is fallback only when web weather is unavailable.
+- When both exist, preserve both — never silently overwrite BAS ``outside-air-temp``.
 - Working columns: ``oa_t_effective``, ``oa_t_effective_source`` (``web``|``bas``),
-  optional ``bas_oa_t`` (copy of BAS when present).
-- OAT-METEO compares real BAS ``oa_t`` vs web ``wx_oa_t`` only when both exist.
+  optional ``bas-outside-air-temp`` (copy of BAS when present).
+- OAT-METEO compares real BAS ``outside-air-temp`` vs web ``web-outside-air-temp`` only when both exist.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ OatSource = Literal["web", "bas"]
 def has_web_oat(df: pd.DataFrame | None) -> bool:
     if df is None or df.empty:
         return False
-    return "wx_oa_t" in df.columns and bool(df["wx_oa_t"].notna().any())
+    return "web-outside-air-temp" in df.columns and bool(df["web-outside-air-temp"].notna().any())
 
 
 def has_bas_oat(df: pd.DataFrame | None) -> bool:
@@ -34,7 +34,7 @@ def has_bas_oat(df: pd.DataFrame | None) -> bool:
         return False
     if "has_bas_oat" in df.attrs:
         return bool(df.attrs["has_bas_oat"])
-    if "bas_oa_t" in df.columns and bool(df["bas_oa_t"].notna().any()):
+    if "bas-outside-air-temp" in df.columns and bool(df["bas-outside-air-temp"].notna().any()):
         return True
     return False
 
@@ -47,35 +47,35 @@ def resolve_effective_oat(
     if df is None or df.empty:
         return None, None
     if has_web_oat(df):
-        return pd.to_numeric(df["wx_oa_t"], errors="coerce"), "web"
+        return pd.to_numeric(df["web-outside-air-temp"], errors="coerce"), "web"
     if weather is not None and not weather.empty:
         wx = enrich_weather_frame(weather).reindex(df.index)
         if has_web_oat(wx):
-            return pd.to_numeric(wx["wx_oa_t"], errors="coerce"), "web"
+            return pd.to_numeric(wx["web-outside-air-temp"], errors="coerce"), "web"
         for col in ("dry_bulb_f", "outside_air_temp_f"):
             if col in wx.columns and wx[col].notna().any():
                 return pd.to_numeric(wx[col], errors="coerce"), "web"
-    if "bas_oa_t" in df.columns and df["bas_oa_t"].notna().any():
-        return pd.to_numeric(df["bas_oa_t"], errors="coerce"), "bas"
-    if "oa_t" in df.columns and df["oa_t"].notna().any():
-        return pd.to_numeric(df["oa_t"], errors="coerce"), "bas"
+    if "bas-outside-air-temp" in df.columns and df["bas-outside-air-temp"].notna().any():
+        return pd.to_numeric(df["bas-outside-air-temp"], errors="coerce"), "bas"
+    if "outside-air-temp" in df.columns and df["outside-air-temp"].notna().any():
+        return pd.to_numeric(df["outside-air-temp"], errors="coerce"), "bas"
     return None, None
 
 
 def apply_effective_oat_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Add ``oa_t_effective`` / source / ``bas_oa_t`` without overwriting BAS ``oa_t``."""
+    """Add ``oa_t_effective`` / source / ``bas_oa_t`` without overwriting BAS ``outside-air-temp``."""
     if df is None or df.empty:
         return df
     out = df.copy()
-    bas_present = "oa_t" in out.columns and bool(out["oa_t"].notna().any())
+    bas_present = "outside-air-temp" in out.columns and bool(out["outside-air-temp"].notna().any())
     if bas_present:
-        out["bas_oa_t"] = pd.to_numeric(out["oa_t"], errors="coerce")
+        out["bas-outside-air-temp"] = pd.to_numeric(out["outside-air-temp"], errors="coerce")
     web_present = has_web_oat(out)
     if web_present:
-        out["oa_t_effective"] = pd.to_numeric(out["wx_oa_t"], errors="coerce")
+        out["oa_t_effective"] = pd.to_numeric(out["web-outside-air-temp"], errors="coerce")
         source: OatSource | None = "web"
     elif bas_present:
-        out["oa_t_effective"] = pd.to_numeric(out["oa_t"], errors="coerce")
+        out["oa_t_effective"] = pd.to_numeric(out["outside-air-temp"], errors="coerce")
         source = "bas"
     else:
         source = None
@@ -88,7 +88,7 @@ def apply_effective_oat_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def inject_oa_t_for_physics(df: pd.DataFrame) -> pd.DataFrame:
-    """If BAS ``oa_t`` missing, copy ``oa_t_effective`` into working ``oa_t``.
+    """If BAS ``outside-air-temp`` missing, copy ``oa_t_effective`` into working ``oa_t``.
 
     Never used for OAT-METEO. Does not overwrite a real BAS series.
     """
@@ -99,7 +99,7 @@ def inject_oa_t_for_physics(df: pd.DataFrame) -> pd.DataFrame:
     if "oa_t_effective" not in df.columns or not bool(df["oa_t_effective"].notna().any()):
         return df
     out = df.copy()
-    out["oa_t"] = pd.to_numeric(out["oa_t_effective"], errors="coerce")
+    out["outside-air-temp"] = pd.to_numeric(out["oa_t_effective"], errors="coerce")
     out.attrs["oa_t_injected_from"] = out.attrs.get("oa_t_effective_source") or "web"
     return out
 
@@ -108,9 +108,9 @@ def oat_meteo_availability(df: pd.DataFrame) -> tuple[bool, list[str]]:
     """Return (ok, missing_reasons) for BAS-vs-web compare — both real sources required."""
     missing: list[str] = []
     if not has_bas_oat(df):
-        missing.append("bas oa_t (required for sensor vs web compare)")
+        missing.append("bas outside-air-temp (required for sensor vs web compare)")
     if not has_web_oat(df):
-        missing.append("wx_oa_t (web weather)")
+        missing.append("web-outside-air-temp (web weather)")
     return (len(missing) == 0), missing
 
 
@@ -129,9 +129,9 @@ def weather_source_metrics(df: pd.DataFrame) -> dict[str, Any]:
         "oa_t_source": src,
     }
     if has_bas and has_web:
-        bas_col = "bas_oa_t" if "bas_oa_t" in df.columns else "oa_t"
+        bas_col = "bas-outside-air-temp" if "bas-outside-air-temp" in df.columns else "outside-air-temp"
         bas = pd.to_numeric(df[bas_col], errors="coerce")
-        web = pd.to_numeric(df["wx_oa_t"], errors="coerce")
+        web = pd.to_numeric(df["web-outside-air-temp"], errors="coerce")
         diff = (bas - web).abs().dropna()
         if len(diff):
             metrics["oat_meteo_mean_abs_diff_f"] = round(float(diff.mean()), 3)

@@ -21,9 +21,9 @@ def test_rule_result_chart_unique_axes_and_rainbow():
     idx = pd.date_range("2024-01-01", periods=20, freq="5min", tz="UTC")
     df = pd.DataFrame(
         {
-            "sat": [55.0 + i * 0.1 for i in range(20)],
-            "oa_damper_pct": [20.0 + i for i in range(20)],
-            "duct_static": [0.5 + i * 0.01 for i in range(20)],
+            "discharge-air-temp": [55.0 + i * 0.1 for i in range(20)],
+            "outside-air-damper": [20.0 + i for i in range(20)],
+            "duct-static-pressure": [0.5 + i * 0.01 for i in range(20)],
         },
         index=idx,
     )
@@ -35,16 +35,16 @@ def test_rule_result_chart_unique_axes_and_rainbow():
         poll_seconds=300.0,
         confirm_seconds=300.0,
         plot_series={
-            "sat": df["sat"],
-            "oa_damper_pct": df["oa_damper_pct"],
-            "duct_static": df["duct_static"],
+            "discharge-air-temp": df["discharge-air-temp"],
+            "outside-air-damper": df["outside-air-damper"],
+            "duct-static-pressure": df["duct-static-pressure"],
         },
     )
     fig = rule_result_chart(
         df,
         result,
-        required_roles=["sat", "oa_damper_pct", "duct_static"],
-        units_map={"sat": "°F", "oa_damper_pct": "%", "duct_static": "in.w.c."},
+        required_roles=["discharge-air-temp", "outside-air-damper", "duct-static-pressure"],
+        units_map={"discharge-air-temp": "°F", "outside-air-damper": "%", "duct-static-pressure": "in.w.c."},
     )
     assert fig is not None
     y_axes = [k for k in fig.layout if k.startswith("yaxis")]
@@ -110,7 +110,7 @@ def test_rule_result_chart_caps_large_series(monkeypatch):
     monkeypatch.setenv("VIBE19_MAX_PLOT_POINTS", "800")
     n = 22_000
     idx = pd.date_range("2024-01-01", periods=n, freq="min", tz="UTC")
-    df = pd.DataFrame({"sat": range(n), "oa_damper_pct": range(n)}, index=idx, dtype=float)
+    df = pd.DataFrame({"discharge-air-temp": range(n), "outside-air-damper": range(n)}, index=idx, dtype=float)
     raw = pd.Series([False] * (n // 2) + [True] * (n - n // 2), index=idx)
     result = finalize_result(
         "FC1",
@@ -118,20 +118,20 @@ def test_rule_result_chart_caps_large_series(monkeypatch):
         raw,
         poll_seconds=60.0,
         confirm_seconds=300.0,
-        plot_series={"sat": df["sat"], "oa_damper_pct": df["oa_damper_pct"]},
+        plot_series={"discharge-air-temp": df["discharge-air-temp"], "outside-air-damper": df["outside-air-damper"]},
     )
     # Full-res rule math unchanged
     assert result.confirmed_fault is not None
     assert len(result.confirmed_fault) == n
     fault_hours_full = result.fault_hours
 
-    fig = rule_result_chart(df, result, required_roles=["sat", "oa_damper_pct"], max_points=800)
+    fig = rule_result_chart(df, result, required_roles=["discharge-air-temp", "outside-air-damper"], max_points=800)
     assert fig is not None
     for tr in fig.data:
         assert len(tr.x) <= 800
         assert len(tr.y) <= 800
     # ends preserved on signal traces
-    sig = next(tr for tr in fig.data if tr.name and "sat" in str(tr.name))
+    sig = next(tr for tr in fig.data if tr.name and "discharge-air-temp" in str(tr.name))
     assert pd.Timestamp(sig.x[0]) == idx[0]
     assert pd.Timestamp(sig.x[-1]) == idx[-1]
     # re-finalize would be same; chart path must not mutate result

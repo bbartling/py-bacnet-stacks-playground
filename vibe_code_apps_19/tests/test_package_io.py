@@ -63,7 +63,7 @@ def test_happy_path_zip_with_weather_and_session_config():
                     "schema_version": "openfdd_session_v1",
                     "unit_system": "metric",
                     "chw_leave_max_f": 46.0,
-                    "role_map": {"AHU_1": {"fan_status": "fan_status"}},
+                    "role_map": {"AHU_1": {"fan-status": "fan-status"}},
                 }
             ),
             "weather/history_wide.csv": "timestamp_utc,oa_t\n2024-06-01T12:00:00Z,71\n",

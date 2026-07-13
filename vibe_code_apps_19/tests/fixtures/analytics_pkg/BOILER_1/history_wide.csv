@@ -1,4 +1,4 @@
-timestamp_utc,hw_supply_temp_f,boiler_run_status,hw_pump_status
+timestamp_utc,hw_supply_temp_f,boiler_run_status,hw-pump-status
 2024-06-01T00:00:00Z,156.0,1,1
 2024-06-01T06:00:00Z,154.7,1,1
 2024-06-01T12:00:00Z,153.4,0,0
