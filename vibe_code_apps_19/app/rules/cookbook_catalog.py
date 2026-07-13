@@ -45,8 +45,16 @@ def _sv_rate_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     return sv_rate_compute(d, p, poll)
 
 
+# Fractional command treated as "on" for always-on screening (same as fan_on elsewhere).
+SCHED247_CMD_ON_FRAC = 0.05
+
+
 def _sched247(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
-    """Equipment essentially always-on (fan/pump/compressor status) over the window."""
+    """Equipment essentially always-on (fan/pump/compressor status) over the window.
+
+    When the always-on fraction is exceeded, return the actual on-mask so fault-hours
+    equal run hours (not the full analysis window).
+    """
     thr = _f(p, "always_on_pct", 0.95)
     proofs: list[pd.Series] = []
     for role in (
@@ -65,18 +73,17 @@ def _sched247(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
         if role not in d.columns or not d[role].notna().any():
             continue
         if role.endswith("-cmd"):
-            proofs.append(norm_cmd(d[role]).fillna(0) > 0.05)
+            proofs.append(norm_cmd(d[role]).fillna(0) > SCHED247_CMD_ON_FRAC)
         else:
             proofs.append(as_bool(d[role]))
     if not proofs:
         return _false(d.index)
-    on = proofs[0]
+    on = proofs[0].fillna(False).astype(bool)
     for s in proofs[1:]:
-        on = on | s
-    # Fault when the whole series is predominantly on — sticky all-True mask if tripped
-    frac = float(on.fillna(False).mean())
+        on = on | s.fillna(False).astype(bool)
+    frac = float(on.mean()) if len(on) else 0.0
     if frac >= thr:
-        return pd.Series(True, index=d.index)
+        return on.reindex(d.index).fillna(False)
     return _false(d.index)
 
 

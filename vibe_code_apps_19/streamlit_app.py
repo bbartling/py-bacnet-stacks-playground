@@ -57,12 +57,9 @@ from app.mapping_wizard import (  # noqa: E402
     wrap_flat_role_map,
 )
 from app.reports import results_summary_table, to_csv_bytes  # noqa: E402
-import importlib  # noqa: E402
 from app import column_map_json as _column_map_json_mod  # noqa: E402
 from app import role_map as _role_map_mod  # noqa: E402
 
-# Streamlit keeps stale modules in memory across edits; force reload.
-_column_map_json_mod = importlib.reload(_column_map_json_mod)
 FAMILY_ORDER = _column_map_json_mod.FAMILY_ORDER
 LLM_COLUMN_MAP_PROMPT = _column_map_json_mod.LLM_COLUMN_MAP_PROMPT
 build_column_map_from_equipment_frames = _column_map_json_mod.build_column_map_from_equipment_frames
@@ -77,7 +74,6 @@ save_column_map_json = _column_map_json_mod.save_column_map_json
 to_haystack_document = _column_map_json_mod.to_haystack_document
 validate_column_map_against_frames = _column_map_json_mod.validate_column_map_against_frames
 
-_role_map_mod = importlib.reload(_role_map_mod)
 apply_role_map = _role_map_mod.apply_role_map
 enrich_role_map_from_equipment = _role_map_mod.enrich_role_map_from_equipment
 load_role_map = _role_map_mod.load_role_map
@@ -612,6 +608,7 @@ def _render_sv_rate_config() -> None:
     """Grouped profile editor for SV-RATE (screening defaults — not code limits)."""
     from app.rules.sensor_rate_profiles import (
         DEFAULT_PROFILES,
+        c_per_h_to_f_per_h,
         f_per_h_to_c_per_h,
         profiles_by_quantity,
     )
@@ -623,28 +620,28 @@ def _render_sv_rate_config() -> None:
     )
     metric = st.session_state.get("unit_system", "imperial") == "metric"
     params = st.session_state.setdefault("params", {})
-    rp = dict(params.get("SV-RATE") or {})
+    rp_in = dict(params.get("SV-RATE") or {})
     c1, c2, c3 = st.columns(3)
-    rp["persistence_min"] = c1.number_input(
+    persistence_min = c1.number_input(
         "Default persistence (min)",
         min_value=5.0,
         max_value=60.0,
-        value=float(rp.get("persistence_min", 10.0)),
+        value=float(rp_in.get("persistence_min", 10.0)),
         step=1.0,
         key="svrate_persist",
     )
-    rp["transition_window_min"] = c2.number_input(
+    transition_window_min = c2.number_input(
         "Default transition window (min)",
         min_value=5.0,
         max_value=60.0,
-        value=float(rp.get("transition_window_min", 20.0)),
+        value=float(rp_in.get("transition_window_min", 20.0)),
         step=5.0,
         key="svrate_trans",
     )
-    rp["missing_state_fallback"] = c3.selectbox(
+    missing_state_fallback = c3.selectbox(
         "Missing operating-state fallback",
         ["conservative_steady", "skip_point"],
-        index=0 if rp.get("missing_state_fallback", "conservative_steady") == "conservative_steady" else 1,
+        index=0 if rp_in.get("missing_state_fallback", "conservative_steady") == "conservative_steady" else 1,
         key="svrate_fallback",
         help="When fan/pump proof is missing, use reduced-confidence steady thresholds (default).",
     )
@@ -658,6 +655,7 @@ def _render_sv_rate_config() -> None:
         "flow": "Flow",
         "command_position": "Commands / positions",
     }
+    profile_overrides: dict[str, float] = {}
     for qty, title in labels.items():
         profiles = by_q.get(qty) or []
         if not profiles:
@@ -665,26 +663,33 @@ def _render_sv_rate_config() -> None:
         with st.expander(title, expanded=False):
             rows = []
             for p in profiles:
-                sw, sf, tw, tf = (
+                sw_c, sf_c, tw_c, tf_c = (
                     p.steady_warning_per_hour,
                     p.steady_fault_per_hour,
                     p.transient_warning_per_hour,
                     p.transient_fault_per_hour,
                 )
+                prefix = f"svrate__{p.profile_id}__"
+                # Stored values are always canonical (°F/h for temperature).
+                sw_s = float(rp_in.get(prefix + "steady_warning_per_hour", sw_c))
+                sf_s = float(rp_in.get(prefix + "steady_fault_per_hour", sf_c))
+                tw_s = float(rp_in.get(prefix + "transient_warning_per_hour", tw_c))
+                tf_s = float(rp_in.get(prefix + "transient_fault_per_hour", tf_c))
                 unit = p.canonical_unit
                 if metric and qty == "temperature":
-                    sw, sf, tw, tf = map(f_per_h_to_c_per_h, (sw, sf, tw, tf))
+                    sw_d, sf_d, tw_d, tf_d = map(f_per_h_to_c_per_h, (sw_s, sf_s, tw_s, tf_s))
                     unit = "°C/h"
-                prefix = f"svrate__{p.profile_id}__"
+                else:
+                    sw_d, sf_d, tw_d, tf_d = sw_s, sf_s, tw_s, tf_s
                 rows.append(
                     {
                         "profile_id": p.profile_id,
                         "unit": unit,
-                        "steady_warning": float(rp.get(prefix + "steady_warning_per_hour", sw)),
-                        "steady_fault": float(rp.get(prefix + "steady_fault_per_hour", sf)),
-                        "transient_warning": float(rp.get(prefix + "transient_warning_per_hour", tw)),
-                        "transient_fault": float(rp.get(prefix + "transient_fault_per_hour", tf)),
-                        "persist_min": int(rp.get(prefix + "persistence_minutes", p.persistence_minutes)),
+                        "steady_warning": sw_d,
+                        "steady_fault": sf_d,
+                        "transient_warning": tw_d,
+                        "transient_fault": tf_d,
+                        "persist_min": int(rp_in.get(prefix + "persistence_minutes", p.persistence_minutes)),
                     }
                 )
             edited = st.data_editor(
@@ -696,42 +701,63 @@ def _render_sv_rate_config() -> None:
             )
             for _, row in edited.iterrows():
                 pid = str(row["profile_id"])
+                base = DEFAULT_PROFILES[pid]
                 prefix = f"svrate__{pid}__"
                 sw = float(row["steady_warning"])
                 sf = float(row["steady_fault"])
                 tw = float(row["transient_warning"])
                 tf = float(row["transient_fault"])
                 if metric and qty == "temperature":
-                    from app.rules.sensor_rate_profiles import c_per_h_to_f_per_h
-
                     sw, sf, tw, tf = map(c_per_h_to_f_per_h, (sw, sf, tw, tf))
-                rp[prefix + "steady_warning_per_hour"] = sw
-                rp[prefix + "steady_fault_per_hour"] = sf
-                rp[prefix + "transient_warning_per_hour"] = tw
-                rp[prefix + "transient_fault_per_hour"] = tf
-                rp[prefix + "persistence_minutes"] = int(row["persist_min"])
+                persist = int(row["persist_min"])
+                candidates = {
+                    "steady_warning_per_hour": sw,
+                    "steady_fault_per_hour": sf,
+                    "transient_warning_per_hour": tw,
+                    "transient_fault_per_hour": tf,
+                    "persistence_minutes": float(persist),
+                }
+                for key, val in candidates.items():
+                    default_v = float(getattr(base, key))
+                    if abs(val - default_v) > 1e-9:
+                        profile_overrides[prefix + key] = val
+    rp_out: dict = {
+        "persistence_min": float(persistence_min),
+        "transition_window_min": float(transition_window_min),
+        "missing_state_fallback": missing_state_fallback,
+    }
+    for k, v in rp_in.items():
+        if k.startswith("svrate__"):
+            continue
+        if k in {"persistence_min", "transition_window_min", "missing_state_fallback"}:
+            continue
+        rp_out[k] = v
+    rp_out.update(profile_overrides)
+
     b1, b2 = st.columns(2)
     if b1.button("Restore SV-RATE defaults", key="svrate_restore"):
         params.pop("SV-RATE", None)
         st.session_state.params = params
+        for k in list(st.session_state.keys()):
+            if str(k).startswith("svrate_"):
+                del st.session_state[k]
         st.rerun()
-    params["SV-RATE"] = rp
+    params["SV-RATE"] = rp_out
     st.session_state.params = params
     if b2.download_button(
         "Export SV-RATE config JSON",
-        data=json.dumps({"SV-RATE": rp}, indent=2),
+        data=json.dumps({"SV-RATE": rp_out}, indent=2),
         file_name="sv_rate_config.json",
         mime="application/json",
         key="svrate_export",
     ):
         pass
-    # Resolved profile peek for selected equipment
     frames = st.session_state.get("equipment_frames") or {}
     selected = st.session_state.get("selected_equipment")
     if selected and selected in frames:
         from app.rules.sensor_rate_profiles import ROLE_TO_PROFILE, resolve_profile
 
-        mapped = frames[selected]
+        mapped = apply_role_map(frames[selected], selected, st.session_state.get("role_map") or {})
         peek = []
         for role in ROLE_TO_PROFILE:
             if role in mapped.columns and mapped[role].notna().any():
@@ -815,9 +841,18 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
             )
         with st.sidebar.expander(f"{rule.id} — {rule.title[:36]}", expanded=False):
             rp = dict(out.get(rule.id, {}))
+            if rule.id == "SV-RATE":
+                st.caption(
+                    "Persistence, transition windows, and profile thresholds are edited under "
+                    "**Run Rules → SV-RATE** (single source of truth)."
+                )
             # Fault confirm delay first, then gate toggles, then other params
             preferred = ["confirm_min", "require_operational_gate", "startup_delay_min"]
-            ordered = [k for k in preferred if k in block] + [k for k in block if k not in preferred]
+            # SV-RATE persistence/transition owned by Run Rules expander — avoid dueling widgets.
+            skip_keys = {"persistence_min", "transition_window_min"} if rule.id == "SV-RATE" else set()
+            ordered = [k for k in preferred if k in block] + [
+                k for k in block if k not in preferred and k not in skip_keys
+            ]
             for pname in ordered:
                 meta = block[pname]
                 rp[pname] = st.slider(
@@ -829,6 +864,12 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
                     help=meta.get("help", ""),
                     key=f"s_{rule.id}_{pname}",
                 )
+            # Preserve SV-RATE editor params already in session
+            if rule.id == "SV-RATE":
+                prev = dict(out.get("SV-RATE") or {})
+                for k, v in prev.items():
+                    if k not in rp or k in skip_keys or str(k).startswith("svrate__"):
+                        rp[k] = v
             out[rule.id] = rp
 
     c1, c2 = st.sidebar.columns(2)

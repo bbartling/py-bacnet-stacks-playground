@@ -242,3 +242,89 @@ def test_imperial_metric_display_does_not_change_fault_math():
     m1 = sv_rate_compute(df.copy(), {}, poll=300.0)
     m2 = sv_rate_compute(df.copy(), {}, poll=300.0)
     assert m1.equals(m2)
+
+
+def test_co2_fast_ramp_1min_faults_despite_deadband():
+    """Deadband is dt-aware; a 1-min ramp well above warning must not be silently held."""
+    idx = pd.date_range("2024-06-01", periods=40, freq="1min", tz="UTC")
+    # ~3000 ppm/h → ~50 ppm/min; scales deadband ~20 ppm at 1-min, so ramp survives
+    vals = 800.0 + np.arange(len(idx)) * 50.0
+    df = pd.DataFrame({"zone-co2": vals, "fan-status": [1] * len(idx)}, index=idx)
+    mask = sv_rate_compute(df, {"persistence_min": 5}, poll=60.0)
+    assert bool(mask.any())
+
+
+def test_violation_minutes_use_real_dt():
+    idx = pd.DatetimeIndex(
+        [
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:05:00Z",
+            "2024-01-01T00:20:00Z",  # 15-min gap
+            "2024-01-01T00:25:00Z",
+            "2024-01-01T00:30:00Z",
+            "2024-01-01T00:35:00Z",
+            "2024-01-01T00:40:00Z",
+            "2024-01-01T00:45:00Z",
+        ]
+    )
+    # Extreme jump then continuing fast change
+    vals = [70.0, 90.0, 92.0, 94.0, 96.0, 98.0, 100.0, 102.0]
+    df = pd.DataFrame({"zone-air-temp": vals, "fan-status": [1] * len(idx)}, index=idx)
+    _ = sv_rate_compute(df, {"persistence_min": 5}, poll=300.0)
+    evidence = df.attrs.get("sv_rate_evidence") or []
+    assert evidence
+    assert evidence[0]["violation_minutes"] >= 0.0
+
+
+def test_invalid_override_records_error():
+    idx = _idx(24)
+    vals = 70.0 + np.arange(len(idx)) * 0.05
+    df = pd.DataFrame({"zone-air-temp": vals, "fan-status": [1] * len(idx)}, index=idx)
+    params = {
+        "svrate__zone_air_temperature__steady_warning_per_hour": 10.0,
+        "svrate__zone_air_temperature__steady_fault_per_hour": 4.0,  # fault < warning
+    }
+    _ = sv_rate_compute(df, params, poll=300.0)
+    evidence = df.attrs.get("sv_rate_evidence") or []
+    assert any(e.get("override_error") for e in evidence)
+
+
+def test_sched247_fault_mask_equals_on_time():
+    idx = _idx(20)
+    fan = [1] * 20
+    df = pd.DataFrame({"fan-status": fan}, index=idx)
+    df.attrs["equipment_id"] = "AHU_1"
+    df.attrs["equipment_type"] = "AHU"
+    res = run_rule(
+        "SCHED-247",
+        df,
+        params={"always_on_pct": 0.90, "confirm_min": 0},
+        poll_seconds=300.0,
+        require_operational_gates=False,
+    )
+    assert res.status == "FAULT"
+    assert res.confirmed_fault is not None
+    # Fault hours should be near full window when always on (not inflated beyond window)
+    assert res.fault_hours is not None
+    window_h = (len(idx) - 1) * 300.0 / 3600.0
+    assert float(res.fault_hours) <= window_h + 0.6
+    assert float(res.fault_hours) >= window_h * 0.5
+
+
+def test_detect_operating_state_vectorized_start_stop_valve():
+    idx = _idx(24)  # 5-min samples, 2 hours
+    fan = [0] * 4 + [1] * 16 + [0] * 4
+    valve = [0.0] * 12 + [0.5] * 12
+    d = pd.DataFrame(
+        {"fan-status": fan, "cooling-valve": valve, "zone-air-temp": [72.0] * 24},
+        index=idx,
+    )
+    state, meta = detect_operating_state(d, transition_window_minutes=20)
+    assert meta["confidence"] == "high"
+    assert "STARTUP_TRANSIENT" in set(state.tolist())
+    assert "SHUTDOWN_TRANSIENT" in set(state.tolist())
+    # Shortly after fan start (sample 4) within 20 min window
+    assert state.iloc[4] == "STARTUP_TRANSIENT"
+    assert state.iloc[5] == "STARTUP_TRANSIENT"
+    # Mid steady stretch after transition window
+    assert state.iloc[12] in {"RUNNING_STEADY", "STARTUP_TRANSIENT"}

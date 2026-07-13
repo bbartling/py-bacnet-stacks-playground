@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-13 — SV-RATE review fixes (widgets, units, perf)
+
+- Dueling SV-RATE sidebar vs Run Rules widgets; metric °F/°C round-trip; role-mapped profile peek
+- Dt-aware CO2 deadband; real-dt violation minutes; override_error evidence; SCHED-247 on-mask
+- Vectorized operating-state windows; weather merge once per equipment; drop importlib.reload
+
+---
+
 ## 2026-07-13 — SV-RATE + SCHED-247 + FDD/RCx plot companions
 
 - **SV-RATE** (`SV-SLEW` alias): context-aware sensor rate-of-change (`sensor_rate.py` + profiles); Streamlit expander under Run Rules; `docs/SV_RATE.md`

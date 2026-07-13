@@ -243,9 +243,6 @@ def _plot_series_for_rule(rule: cb.CookbookRule, d: pd.DataFrame) -> dict[str, p
     for role in roles:
         if role in d.columns and d[role].notna().any():
             out[role] = d[role]
-    for opt in rule.optional_roles or ():
-        if opt in d.columns and d[opt].notna().any() and opt not in out:
-            out[opt] = d[opt]
 
     has_temp = any(_role_is_temp(r) for r in out)
     has_pressure = any(_role_is_pressure(r) for r in out)
@@ -310,6 +307,7 @@ def run_cookbook_rule(
     building_id: str = "",
     equipment_type: str = "",
     require_operational_gates: bool = True,
+    skip_weather_merge: bool = False,
 ) -> RuleResult:
     params_by_rule = params_by_rule or {}
     eq_type = equipment_type or equipment_type_from_id(equipment_id)
@@ -329,10 +327,13 @@ def run_cookbook_rule(
 
     from app.weather_resolver import inject_oa_t_for_physics, weather_source_metrics
 
-    d = merge_weather(df, weather)
-    # OAT-METEO needs both real sources — never inject web into oa_t for the compare.
-    if rule.id != "OAT-METEO":
-        d = inject_oa_t_for_physics(d)
+    if skip_weather_merge:
+        d = df
+    else:
+        d = merge_weather(df, weather)
+        # OAT-METEO needs both real sources — never inject web into oa_t for the compare.
+        if rule.id != "OAT-METEO":
+            d = inject_oa_t_for_physics(d)
     missing = _missing_roles(rule, d)
     if missing:
         notes = ""
@@ -387,7 +388,13 @@ def run_cookbook_rule(
             raw = rule.compute(d, params, poll_seconds)
         raw = raw.reindex(d.index).fillna(False).astype(bool)
         metrics: dict[str, Any] = {**dict(gate_meta), **weather_source_metrics(d)}
-        if rule.sensor_sweep:
+        if rule.id in {"SV-RATE", "SV-SLEW"}:
+            from app.rules.sensor_rate import RATEABLE_ROLES
+
+            metrics["sensors_checked"] = [r for r in RATEABLE_ROLES if r in d.columns and d[r].notna().any()]
+            metrics["sv_rate_evidence"] = list(d.attrs.get("sv_rate_evidence") or [])
+            metrics["sv_rate_state_meta"] = dict(d.attrs.get("sv_rate_state_meta") or {})
+        elif rule.sensor_sweep:
             metrics["sensors_checked"] = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
         if rule.control_output_sweep:
             metrics["outputs_checked"] = [r for r in cb.CONTROL_OUTPUT_ROLES if r in d.columns]
@@ -395,9 +402,6 @@ def run_cookbook_rule(
             metrics["weather_gate"] = "open-meteo dew point" if wx_ok else "imperial OAT fallback"
         if d.attrs.get("oa_t_injected_from"):
             metrics["oa_t_injected_from"] = d.attrs["oa_t_injected_from"]
-        if rule.id in {"SV-RATE", "SV-SLEW"}:
-            metrics["sv_rate_evidence"] = list(d.attrs.get("sv_rate_evidence") or [])
-            metrics["sv_rate_state_meta"] = dict(d.attrs.get("sv_rate_state_meta") or {})
         use_active = bool(gate_meta.get("gate_applied"))
         return finalize_result(
             rule.id,
@@ -435,23 +439,29 @@ def run_all_cookbook_rules(
     equipment_type: str = "",
     require_operational_gates: bool = True,
 ) -> list[RuleResult]:
+    from app.weather_resolver import inject_oa_t_for_physics
+
     eq_type = resolve_equipment_type(
         equipment_id, df=df, explicit=equipment_type or None
     )
     kind = infer_equipment_kind(equipment_id, equipment_type=eq_type, df=df)
+    # Merge weather once per equipment (not once per rule).
+    d_merged = merge_weather(df, weather)
+    d_physics = inject_oa_t_for_physics(d_merged)
     return [
         run_cookbook_rule(
             rule,
-            df,
+            d_merged if rule.id == "OAT-METEO" else d_physics,
             equipment_id=equipment_id,
             equipment_kind=kind,
             poll_seconds=poll_seconds,
             params_by_rule=params_by_rule,
-            weather=weather,
+            weather=None,
             site_id=site_id,
             building_id=building_id,
             equipment_type=eq_type,
             require_operational_gates=require_operational_gates,
+            skip_weather_merge=True,
         )
         for rule in RULES  # canonical + CUSTOM-* (assigned below via active_rules)
     ]

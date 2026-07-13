@@ -12,25 +12,13 @@ import pandas as pd
 
 from app.rules.base import confirm_fault
 from app.rules.sensor_rate_profiles import (
+    IN_WC_TO_PA,
+    PSI_TO_KPA,
     ROLE_TO_PROFILE,
     SensorRateProfile,
     apply_profile_overrides,
     resolve_profile,
-    IN_WC_TO_PA,
-    PSI_TO_KPA,
 )
-
-
-def _norm_cmd(s: pd.Series) -> pd.Series:
-    x = pd.to_numeric(s, errors="coerce")
-    if x.notna().any() and float(x.max()) <= 1.5:
-        return x
-    return x / 100.0
-
-
-def _as_bool(s: pd.Series) -> pd.Series:
-    x = pd.to_numeric(s, errors="coerce")
-    return (x.fillna(0) > 0.5) | (s.astype(str).str.lower().isin(["true", "on", "1"]))
 
 OperatingState = Literal[
     "OFF",
@@ -44,6 +32,19 @@ IntervalClass = Literal["STEADY", "TRANSIENT", "OFF", "UNKNOWN_STATE", "INSUFFIC
 
 RATEABLE_ROLES: tuple[str, ...] = tuple(ROLE_TO_PROFILE.keys())
 MAX_GAP_HOURS_DEFAULT = 2.0
+# Noise deadband profiles (e.g. CO2 100 ppm) are authored for ~5-minute samples.
+DEADBAND_REFERENCE_HOURS = 5.0 / 60.0
+
+
+def _norm_cmd(s: pd.Series) -> pd.Series:
+    """Element-wise 0–100 → 0–1 (same convention as cookbook_catalog.norm_cmd)."""
+    x = pd.to_numeric(s, errors="coerce")
+    return x.where(x <= 1.0, x / 100.0)
+
+
+def _as_bool(s: pd.Series) -> pd.Series:
+    x = pd.to_numeric(s, errors="coerce")
+    return (x.fillna(0) > 0.5) | (s.astype(str).str.lower().isin(["true", "on", "1"]))
 
 
 def _false(index) -> pd.Series:
@@ -58,6 +59,23 @@ def _ensure_dt_index(d: pd.DataFrame) -> pd.DataFrame:
         out.index = pd.DatetimeIndex(pd.to_datetime(out["timestamp"], utc=True, errors="coerce"))
         return out
     raise ValueError("SV-RATE requires a DatetimeIndex or timestamp column")
+
+
+def _mark_forward_windows(idx: pd.DatetimeIndex, event_mask: pd.Series, win: pd.Timedelta) -> np.ndarray:
+    """True where sample time is within [event, event+win] for any event. O(n log m)."""
+    n = len(idx)
+    out = np.zeros(n, dtype=bool)
+    if n == 0 or not bool(event_mask.any()):
+        return out
+    times = np.asarray(idx.asi8)
+    win_ns = int(win.total_seconds() * 1e9)
+    event_times = np.sort(times[event_mask.reindex(idx).fillna(False).to_numpy()])
+    if len(event_times) == 0:
+        return out
+    # sample t is covered iff some event e with e <= t <= e+win  ⟺  e in [t-win, t]
+    left = np.searchsorted(event_times, times - win_ns, side="left")
+    right = np.searchsorted(event_times, times, side="right")
+    return right > left
 
 
 def detect_operating_state(
@@ -109,34 +127,20 @@ def detect_operating_state(
     stopped = (~on_b) & on_b.shift(1, fill_value=False)
     meta["transition_count"] = int(started.sum() + stopped.sum() + int(cmd_change.sum()))
 
-    state = pd.Series(np.where(on_b, "RUNNING_STEADY", "OFF"), index=idx, dtype=object)
+    state_arr = np.where(on_b.to_numpy(), "RUNNING_STEADY", "OFF").astype(object)
 
     if isinstance(idx, pd.DatetimeIndex) and len(idx):
         win = pd.Timedelta(minutes=max(1, transition_window_minutes))
-        # Vectorized window via forward-looking cummax of event times
-        # Fall back to small loop over transitions (sparse).
-        for t0 in idx[started.to_numpy()]:
-            if pd.isna(t0):
-                continue
-            hit = (idx >= t0) & (idx <= t0 + win)
-            state = np.where(hit, "STARTUP_TRANSIENT", state)
-            state = pd.Series(state, index=idx, dtype=object)
-        for t0 in idx[stopped.to_numpy()]:
-            if pd.isna(t0):
-                continue
-            hit = (idx >= t0) & (idx <= t0 + win)
-            state = np.where(hit, "SHUTDOWN_TRANSIENT", state)
-            state = pd.Series(state, index=idx, dtype=object)
-        for t0 in idx[cmd_change.to_numpy()]:
-            if pd.isna(t0):
-                continue
-            hit = (idx >= t0) & (idx <= t0 + win)
-            # Keep OFF shutdown/start labels preferential when already set
-            cur = state.to_numpy()
-            cur = np.where(hit & (cur == "RUNNING_STEADY"), "STARTUP_TRANSIENT", cur)
-            state = pd.Series(cur, index=idx, dtype=object)
+        start_win = _mark_forward_windows(idx, started, win)
+        stop_win = _mark_forward_windows(idx, stopped, win)
+        cmd_win = _mark_forward_windows(idx, cmd_change, win)
+        state_arr = np.where(start_win, "STARTUP_TRANSIENT", state_arr)
+        state_arr = np.where(stop_win, "SHUTDOWN_TRANSIENT", state_arr)
+        # Valve/damper moves only elevate RUNNING_STEADY → transient
+        steady = state_arr == "RUNNING_STEADY"
+        state_arr = np.where(cmd_win & steady, "STARTUP_TRANSIENT", state_arr)
 
-    return state, meta
+    return pd.Series(state_arr, index=idx, dtype=object), meta
 
 
 def _interval_class(state: str) -> IntervalClass:
@@ -155,6 +159,7 @@ def compute_rates(
     values: pd.Series,
     *,
     max_gap_hours: float = MAX_GAP_HOURS_DEFAULT,
+    extra_window_minutes: int | None = None,
 ) -> dict[str, pd.Series]:
     """Point-to-point and approx windowed absolute rates (per hour)."""
     s = pd.to_numeric(values, errors="coerce")
@@ -166,13 +171,15 @@ def compute_rates(
     rate = s.diff().abs() / dt_h
 
     def window_rate(minutes: int) -> pd.Series:
-        # Shifted lookback by time; use asof-style: value now vs value ~minutes ago
-        shifted = s.reindex(s.index - pd.Timedelta(minutes=minutes), method="nearest", tolerance=pd.Timedelta(minutes=max(2, minutes // 2)))
+        shifted = s.reindex(
+            s.index - pd.Timedelta(minutes=minutes),
+            method="nearest",
+            tolerance=pd.Timedelta(minutes=max(2, minutes // 2)),
+        )
         shifted.index = s.index
         span_h = minutes / 60.0
         return (s - shifted).abs() / span_h
 
-    # Robust slope: median of last N pairwise point-to-point abs rates in a rolling window
     dt_vals = dt_h.to_numpy(dtype=float)
     finite = dt_vals[np.isfinite(dt_vals)]
     n_med = float(np.median(finite)) if len(finite) else 300.0 / 3600.0
@@ -181,7 +188,7 @@ def compute_rates(
     inst = rate.copy()
     robust = inst.rolling(n, min_periods=3).median()
 
-    return {
+    out = {
         "instantaneous_rate": rate.reindex(values.index),
         "rate_5min": window_rate(5).reindex(values.index),
         "rate_15min": window_rate(15).reindex(values.index),
@@ -189,6 +196,10 @@ def compute_rates(
         "robust_slope_15min": robust.reindex(values.index),
         "dt_hours": dt_h.reindex(values.index),
     }
+    if extra_window_minutes is not None and int(extra_window_minutes) not in {5, 15, 60}:
+        m = max(1, int(extra_window_minutes))
+        out[f"rate_{m}min"] = window_rate(m).reindex(values.index)
+    return out
 
 
 def _thresholds_for_state(profile: SensorRateProfile, state: str) -> tuple[float, float, str]:
@@ -238,14 +249,10 @@ def evaluate_point(
         if profile.normalize_by == "sensor_span" and sensor_span and float(sensor_span) > 0:
             series = series / float(sensor_span)
 
-    if profile.noise_deadband > 0:
-        series = series.copy()
-        prev = series.shift(1)
-        tiny = (series - prev).abs() <= profile.noise_deadband
-        series = series.where(~tiny, prev)
+    ext_min = int(profile.extreme_interval_minutes or 5) if profile.extreme_interval_change is not None else None
 
     try:
-        rates = compute_rates(series, max_gap_hours=max_gap_hours)
+        rates = compute_rates(series, max_gap_hours=max_gap_hours, extra_window_minutes=ext_min)
     except ValueError as exc:
         return {
             "status_hint": "INSUFFICIENT_DATA",
@@ -254,9 +261,25 @@ def evaluate_point(
             "resolved_profile_id": profile.profile_id,
         }
 
+    # Dt-aware noise deadband (authored for ~5-min samples); never hide warning-rate motion.
+    if profile.noise_deadband > 0:
+        series_n = series.copy()
+        prev = series_n.shift(1)
+        step = (series_n - prev).abs()
+        dt_h = rates["dt_hours"].reindex(series_n.index)
+        scale = (dt_h / DEADBAND_REFERENCE_HOURS).clip(lower=0.2, upper=5.0)
+        scaled_db = float(profile.noise_deadband) * scale
+        implied = step / dt_h
+        suppress = (step <= scaled_db) & (implied.isna() | (implied < profile.steady_warning_per_hour))
+        series_n = series_n.where(~suppress.fillna(False), prev)
+        try:
+            rates = compute_rates(series_n, max_gap_hours=max_gap_hours, extra_window_minutes=ext_min)
+        except ValueError:
+            pass
+        series = series_n
+
     primary = rates["robust_slope_15min"].fillna(rates["rate_15min"]).fillna(rates["instantaneous_rate"])
 
-    # Vectorized thresholds by state class
     st = state.reindex(idx).fillna("UNKNOWN_STATE").astype(str)
     is_trans = st.isin(["STARTUP_TRANSIENT", "SHUTDOWN_TRANSIENT"])
     fault_thr = pd.Series(profile.steady_fault_per_hour, index=idx)
@@ -269,10 +292,17 @@ def evaluate_point(
     fault = primary.notna() & (primary >= fault_thr)
 
     extreme = _false(idx)
-    if profile.extreme_interval_change is not None:
-        hrs = (profile.extreme_interval_minutes or 5) / 60.0
-        net5 = rates["rate_5min"] * hrs
-        extreme = net5.fillna(0) >= float(profile.extreme_interval_change)
+    if profile.extreme_interval_change is not None and ext_min is not None:
+        hrs = ext_min / 60.0
+        rate_key = f"rate_{ext_min}min" if f"rate_{ext_min}min" in rates else "rate_5min"
+        if ext_min == 5:
+            rate_key = "rate_5min"
+        elif ext_min == 15:
+            rate_key = "rate_15min"
+        elif ext_min == 60:
+            rate_key = "rate_60min"
+        net = rates[rate_key] * hrs
+        extreme = net.fillna(0) >= float(profile.extreme_interval_change)
 
     persist_s = max(60.0, float(profile.persistence_minutes) * 60.0)
     confirmed = confirm_fault(fault.fillna(False), poll_seconds=poll_seconds, confirm_seconds=persist_s)
@@ -285,12 +315,22 @@ def evaluate_point(
     max_15 = float(rates["rate_15min"].max()) if rates["rate_15min"].notna().any() else float("nan")
     max_60 = float(rates["rate_60min"].max()) if rates["rate_60min"].notna().any() else float("nan")
 
-    viol = confirmed.fillna(False)
-    viol_minutes = float(viol.sum()) * poll_seconds / 60.0
+    viol = confirmed.reindex(idx).fillna(False)
+    dt_h = rates["dt_hours"].reindex(idx)
+    # Sum real intervals for violations; fall back to poll when dt missing (first sample)
+    viol_hours = float(dt_h.where(viol, 0.0).fillna(0.0).sum())
+    if viol.any() and viol_hours <= 0:
+        viol_hours = float(viol.sum()) * poll_seconds / 3600.0
+    viol_minutes = viol_hours * 60.0
+
     longest = 0.0
     if viol.any():
         groups = (viol != viol.shift()).cumsum()
-        longest = float(viol.groupby(groups).sum().max()) * poll_seconds / 60.0
+        for _, g in viol.groupby(groups):
+            if not bool(g.iloc[0]):
+                continue
+            g_hours = float(dt_h.reindex(g.index).fillna(poll_seconds / 3600.0).sum())
+            longest = max(longest, g_hours * 60.0)
 
     mode_state = str(st.mode().iloc[0]) if len(st) else "UNKNOWN_STATE"
     _, fault_thr_s, thr_s = _thresholds_for_state(profile, mode_state)
@@ -333,6 +373,7 @@ def evaluate_point(
         "primary_rate": primary,
         "threshold_series": fault_thr,
         "threshold_label_series": thr_label,
+        "dt_hours": dt_h,
     }
 
 
@@ -375,10 +416,11 @@ def sv_rate_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
             ov["persistence_minutes"] = float(p["persistence_min"])
         if "transition_window_min" in p:
             ov["transition_window_minutes"] = float(p["transition_window_min"])
+        override_error = None
         try:
             prof = apply_profile_overrides(prof, ov or None)
-        except ValueError:
-            pass
+        except ValueError as exc:
+            override_error = str(exc)
 
         ev = evaluate_point(
             d2[role],
@@ -392,17 +434,28 @@ def sv_rate_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
         ev["role"] = role
         ev["profile_resolution_source"] = src
         ev["confidence"] = state_meta.get("confidence", "high")
-        # Drop non-serializable series for attrs metrics
-        slim = {k: v for k, v in ev.items() if k not in {"fault_mask", "warning_mask", "primary_rate", "threshold_series", "threshold_label_series"}}
-        slim["fault_hours_raw"] = float(ev["fault_mask"].sum()) * poll / 3600.0 if isinstance(ev.get("fault_mask"), pd.Series) else 0.0
-        point_evidence.append(slim)
+        if override_error:
+            ev["override_error"] = override_error
+        dt_h = ev.pop("dt_hours", None)
         fm = ev.get("fault_mask")
+        if isinstance(fm, pd.Series) and isinstance(dt_h, pd.Series):
+            fault_hours_raw = float(dt_h.where(fm.reindex(dt_h.index).fillna(False), 0.0).fillna(0.0).sum())
+        elif isinstance(fm, pd.Series):
+            fault_hours_raw = float(fm.sum()) * poll / 3600.0
+        else:
+            fault_hours_raw = 0.0
+        slim = {
+            k: v
+            for k, v in ev.items()
+            if k not in {"fault_mask", "warning_mask", "primary_rate", "threshold_series", "threshold_label_series"}
+        }
+        slim["fault_hours_raw"] = fault_hours_raw
+        point_evidence.append(slim)
         if isinstance(fm, pd.Series):
             mask = mask | fm.reindex(idx).fillna(False)
 
     d.attrs["sv_rate_evidence"] = point_evidence
     d.attrs["sv_rate_state_meta"] = state_meta
-    # Align back to original index if timestamps remapped
     return mask.reindex(d.index).fillna(False) if len(mask) == len(d.index) else mask
 
 
