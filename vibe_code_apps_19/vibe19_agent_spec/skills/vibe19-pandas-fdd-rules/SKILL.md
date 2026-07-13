@@ -59,6 +59,13 @@ Statuses: `PASS` | `FAULT` | `SKIPPED_MISSING_ROLES` | `SKIPPED_EQUIPMENT_OFF` |
 
 After catalog edits: `python scripts/generate_rule_configs.py` then pytest.
 
+## Param / algebra checklist (before shipping a rule or slider)
+
+1. After writing `compute`, algebraically simplify: the declared param must still appear (no same-side cancel).
+2. **FC2** envelope: `mat + ε < min(rat, oat) − ε` (≡ `mat < min − 2ε`). **FC3**: `mat − ε > max + ε`. **FC5**: apply `mix_tol` on both SAT and MAT sides.
+3. Run `pytest tests/test_rule_param_sensitivity.py` (tight vs loose must change mask/status).
+4. Do not confuse Plotly downsample (chart) with rule math — rules never smooth historian data.
+
 ## Custom / agent rules (boilerplate)
 
 | Path | Role |
@@ -73,3 +80,5 @@ Ids must start with `CUSTOM-`. Canonical 50 stay intact. Env `VIBE19_INCLUDE_EXA
 ## Tests
 
 Synthetic DataFrames in `tests/` — **no client CSV in git**. Parity script: `scripts/csv_parity_check.py --building-folder …`.
+
+Param-sensitivity: `tests/test_rule_param_sensitivity.py` (dead-slider / same-side tol cancel guard).

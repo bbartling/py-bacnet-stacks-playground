@@ -187,7 +187,9 @@ rules:
 - rule_id: FC2
   family: ahu
   title: MAT below OAT/RAT envelope (GL36 B)
-  description: "Fan on AND MAT \u2212 1.15\xB0F < min(RAT, OAT) \u2212 1.15\xB0F."
+  description: "Fan on AND MAT + mix_tol < min(RAT \u2212 mix_tol, OAT \u2212 mix_tol)\
+    \ (\u2261 MAT < min(RAT, OAT) \u2212 2\xB7mix_tol; default mix_tol = 1.15\xB0\
+    F)."
   summary: Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.
   required_roles:
   - mat
@@ -214,7 +216,8 @@ rules:
 - rule_id: FC3
   family: ahu
   title: MAT above OAT/RAT envelope (GL36 C)
-  description: "Fan on AND MAT \u2212 1.15\xB0F > max(RAT, OAT) + 1.15\xB0F."
+  description: "Fan on AND MAT \u2212 mix_tol > max(RAT + mix_tol, OAT + mix_tol)\
+    \ (\u2261 MAT > max(RAT, OAT) + 2\xB7mix_tol; default mix_tol = 1.15\xB0F)."
   summary: Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.
   required_roles:
   - mat
@@ -269,10 +272,10 @@ rules:
 - rule_id: FC5
   family: ahu
   title: SAT cold when heating commanded (GL36 D)
-  description: "Fan on AND heating > 1% AND SAT + 1.15\xB0F \u2264 MAT \u2212 1.15\xB0\
-    F + 0.55\xB0F."
-  summary: "Fan on AND heating > 1% AND SAT + 1.15\xB0F \u2264 MAT \u2212 1.15\xB0\
-    F + 0.55\xB0F."
+  description: "Fan on AND heating > 1% AND SAT + mix_tol \u2264 MAT \u2212 mix_tol\
+    \ + 0.55\xB0F (default mix_tol = 1.15\xB0F)."
+  summary: "Fan on AND heating > 1% AND SAT + mix_tol \u2264 MAT \u2212 mix_tol +\
+    \ 0.55\xB0F (default mix_tol = 1.15\xB0F)."
   required_roles:
   - sat
   - mat

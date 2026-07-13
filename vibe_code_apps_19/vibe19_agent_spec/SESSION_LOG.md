@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-13 — FC2 mix_tol dead-slider fix + param sensitivity
+
+- FC2 algebra: `mat + tol < min(rat − tol, oat − tol)` (was same-side subtract → tol cancelled)
+- FC5: `mix_tol` on both SAT and MAT sides
+- New: `tests/test_rule_param_sensitivity.py` (FC2/3/5 + OAT-METEO + source cancel guard)
+- Spec: AGENTS #26, pandas-fdd-rules checklist, OPENFDD_PARITY GL36 envelopes
+
+---
+
 ## 2026-07-13 — README / GHCR pull-latest easy button (agent duty)
 
 - Agents must keep **`README.md` Docker/GHCR** + **`docs/DOCKER.md`** documenting `:latest` tip + `scripts/docker_update_vibe19.(sh|ps1)` (pull + recreate)

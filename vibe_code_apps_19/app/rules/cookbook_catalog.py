@@ -304,12 +304,18 @@ def fc1(d, p, poll):
 
 
 def fc2(d, p, poll):
+    """MAT below OAT/RAT mixing envelope (GL36 B).
+
+    ``mix_tol`` widens the envelope on both sides:
+    ``mat + tol < min(rat - tol, oat - tol)`` ≡ ``mat < min(rat, oat) - 2·tol``.
+    Never subtract the same tol from both sides of the inequality (that cancels).
+    """
     tol = _f(p, "mix_tol", MIX_TOL)
     fan = _fan(d)
     return (
         (fan > FAN_ON_MIN)
         & d["mat"].notna() & d["oa_t"].notna() & d["rat"].notna()
-        & ((d["mat"] - tol) < np.minimum(d["rat"] - tol, d["oa_t"] - tol))
+        & ((d["mat"] + tol) < np.minimum(d["rat"] - tol, d["oa_t"] - tol))
     )
 
 
@@ -347,13 +353,14 @@ def fc4(d, p, poll):
 
 
 def fc5(d, p, poll):
+    """SAT cold when heating commanded (GL36 D). ``mix_tol`` applies to both SAT and MAT."""
     tol = _f(p, "mix_tol", MIX_TOL)
     fan = _fan(d)
     htg = norm_cmd(d["htg_valve_pct"]).fillna(0)
     return (
         d["sat"].notna() & d["mat"].notna()
         & (fan > FAN_ON_MIN) & (htg > 0.01)
-        & ((d["sat"] + SUPPLY_TOL) <= (d["mat"] - tol + DELTA_SUPPLY_FAN))
+        & ((d["sat"] + tol) <= (d["mat"] - tol + DELTA_SUPPLY_FAN))
     )
 
 
@@ -941,11 +948,13 @@ RULES: list[CookbookRule] = [
             CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("FC2", "MAT below OAT/RAT envelope (GL36 B)", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "fan_cmd"],
-        "Fan on AND MAT − 1.15°F < min(RAT, OAT) − 1.15°F.",
+        "Fan on AND MAT + mix_tol < min(RAT − mix_tol, OAT − mix_tol) "
+        "(≡ MAT < min(RAT, OAT) − 2·mix_tol; default mix_tol = 1.15°F).",
         fc2, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC3", "MAT above OAT/RAT envelope (GL36 C)", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "fan_cmd"],
-        "Fan on AND MAT − 1.15°F > max(RAT, OAT) + 1.15°F.",
+        "Fan on AND MAT − mix_tol > max(RAT + mix_tol, OAT + mix_tol) "
+        "(≡ MAT > max(RAT, OAT) + 2·mix_tol; default mix_tol = 1.15°F).",
         fc3, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC4", "PID hunting (operating-state oscillation)", "ahu", ["ahu"],
         ["oa_damper_pct", "clg_valve_pct", "fan_cmd"],
@@ -953,7 +962,8 @@ RULES: list[CookbookRule] = [
         fc4, params=[CookbookParam("delta_os_max", "Max mode changes/hr", "count", 2, 20, 1, 5), CONFIRM_PARAM()], confirm_seconds=3600),
     CookbookRule("FC5", "SAT cold when heating commanded (GL36 D)", "ahu", ["ahu"],
         ["sat", "mat", "fan_cmd", "htg_valve_pct"],
-        "Fan on AND heating > 1% AND SAT + 1.15°F ≤ MAT − 1.15°F + 0.55°F.",
+        "Fan on AND heating > 1% AND SAT + mix_tol ≤ MAT − mix_tol + 0.55°F "
+        "(default mix_tol = 1.15°F).",
         fc5, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC6", "Estimated OA fraction mismatch", "ahu", ["ahu"],
         ["mat", "oa_t", "rat", "vav_total_flow"],

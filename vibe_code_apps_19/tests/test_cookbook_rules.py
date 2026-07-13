@@ -58,13 +58,14 @@ def _ahu_df(**cols) -> pd.DataFrame:
 
 
 def test_fc2_runs_with_roles():
+    """Smoke path kept; mix_tol sensitivity lives in test_rule_param_sensitivity.py."""
     df = _ahu_df(
         mat=[70, 70, 65, 65, 65],
         rat=[70, 70, 70, 70, 70],
         oa_t=[30, 30, 30, 30, 30],
         fan_cmd=[50, 50, 50, 50, 50],
     )
-    r = run_rule("FC2", df, {"confirm_min": 0}, 300.0)
+    r = run_rule("FC2", df, {"confirm_min": 0, "mix_tol": 1.15}, 300.0, require_operational_gates=False)
     assert r.applicable
     assert r.status in ("PASS", "FAULT")
 

@@ -25,7 +25,19 @@ App 19 implements the **[Pandas FDD Cookbook](https://bbartling.github.io/open-f
 from app.rules.base import confirm_fault, hours_true
 ```
 
-Canonical catalog: `app/rules/cookbook_catalog.py` (50 rules). Inventory: [`../../docs/STREAMLIT_RULE_INVENTORY.md`](../../docs/STREAMLIT_RULE_INVENTORY.md). Per-rule plots / Haystack tags / sliders: [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md).
+Canonical catalog: `app/rules/cookbook_catalog.py` (53 rules). Inventory: [`../../docs/STREAMLIT_RULE_INVENTORY.md`](../../docs/STREAMLIT_RULE_INVENTORY.md). Per-rule plots / Haystack tags / sliders: [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md).
+
+---
+
+## GL36 mixing / supply envelopes (FC2 / FC3 / FC5)
+
+| Rule | Form (ε = `mix_tol`, default 1.15°F) |
+| --- | --- |
+| **FC2** | `mat + ε < min(rat, oat) − ε` ≡ `mat < min(rat, oat) − 2ε` |
+| **FC3** | `mat − ε > max(rat, oat) + ε` ≡ `mat > max(rat, oat) + 2ε` |
+| **FC5** | `sat + ε ≤ mat − ε + Δ_supply_fan` (ε on both SAT and MAT) |
+
+Never write `(x − ε) < min(… − ε)` / `(x − ε) > max(… − ε)` — ε cancels and the sidebar slider is dead. Guard: `tests/test_rule_param_sensitivity.py`.
 
 ---
 

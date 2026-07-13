@@ -42,6 +42,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     - Clarify that GitHub Packages “Latest” on a `sha-…` version ≠ Docker `:latest` and ≠ auto-update
     - Do **not** leave README stuck on stale one-shot `--rm` examples as the only path
     - Detail: [`docs/DOCKER.md`](../docs/DOCKER.md) · workflow: `../../.github/workflows/vibe19-ghcr.yml`
+26. **Dead-slider ban** — every declared sidebar param except `confirm_min` must change the **raw** fault mask. Never subtract the same tol from both sides of an inequality (e.g. `(mat - tol) < min(rat - tol, oat - tol)` cancels). When adding a slider, add a case in `tests/test_rule_param_sensitivity.py`. Plotly downsample-on-fault-edges is **not** data smoothing — rule math never smooths historian series.
 
 ---
 

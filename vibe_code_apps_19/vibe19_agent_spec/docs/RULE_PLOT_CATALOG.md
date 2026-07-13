@@ -274,7 +274,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 **Summary:** Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.
 
-**Equation:** Fan on AND MAT − 1.15°F < min(RAT, OAT) − 1.15°F.
+**Equation:** Fan on AND MAT + mix_tol < min(RAT − mix_tol, OAT − mix_tol) (≡ MAT < min(RAT, OAT) − 2·mix_tol; default mix_tol = 1.15°F).
 
 | Field | Value |
 | --- | --- |
@@ -316,7 +316,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 **Summary:** Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.
 
-**Equation:** Fan on AND MAT − 1.15°F > max(RAT, OAT) + 1.15°F.
+**Equation:** Fan on AND MAT − mix_tol > max(RAT + mix_tol, OAT + mix_tol) (≡ MAT > max(RAT, OAT) + 2·mix_tol; default mix_tol = 1.15°F).
 
 | Field | Value |
 | --- | --- |
@@ -396,9 +396,9 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 ### `FC5` — SAT cold when heating commanded (GL36 D)
 
-**Summary:** Fan on AND heating > 1% AND SAT + 1.15°F ≤ MAT − 1.15°F + 0.55°F.
+**Summary:** Fan on AND heating > 1% AND SAT + mix_tol ≤ MAT − mix_tol + 0.55°F (default mix_tol = 1.15°F).
 
-**Equation:** Fan on AND heating > 1% AND SAT + 1.15°F ≤ MAT − 1.15°F + 0.55°F.
+**Equation:** Fan on AND heating > 1% AND SAT + mix_tol ≤ MAT − mix_tol + 0.55°F (default mix_tol = 1.15°F).
 
 | Field | Value |
 | --- | --- |

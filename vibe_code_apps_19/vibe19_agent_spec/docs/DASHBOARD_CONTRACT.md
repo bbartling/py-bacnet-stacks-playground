@@ -163,7 +163,8 @@ Why the dashboard feels slow/clunky — **eager work on Streamlit reruns**, not 
 - [ ] `REQUIRED_MAIN_SECTIONS` / `REQUIRED_CHART_APIS` still match UI
 - [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
-- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py`
+- [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py tests/test_rule_param_sensitivity.py`
+- [ ] param-sensitivity green (declared sliders change raw masks; no same-side tol cancel)
 - [ ] Did **not** remove RCx Plots, FDD Plots, Metering, Export, or chart helpers (no duplicate Analytics tab — Overview owns motor/cool bins / BAS-vs-web hist)
 - [ ] Did **not** reintroduce eager `st.tabs` / Export-on-visit DOCX+coverage rebuilds ([`PERF_BOTTLENECKS.md`](PERF_BOTTLENECKS.md))
 - [ ] Append `SESSION_LOG.md` if presets / sections changed
