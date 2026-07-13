@@ -17,7 +17,6 @@ from app.metering import build_meter_monthly_table, meter_scatter_frame
 from app.occupancy import OccupancySchedule
 from app.rcx_plots import (
     PRESETS,
-    RCX_FAMILY_ORDER,
     cohort_wants_fan_slices,
     collect_oat_scatter,
     collect_role_series,
@@ -125,9 +124,10 @@ def render_rcx_plots_tab(
 ) -> None:
     st.subheader("RCx plots")
     st.caption(
-        "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Metering), "
-        "then one preset in that family. Charts build only for the selected preset. "
-        "Word reports are **prebuilt** per family (assets/reports); coverage CSV is opt-in."
+        "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Heat pump / Metering / Weather), "
+        "then one preset when charts exist for that family. "
+        "The **Word template for this family is the primary download**; "
+        "universal finding + portfolio sheets are secondary. Full ZIP pack is on **Export**."
     )
 
     schedule = (
@@ -137,35 +137,19 @@ def render_rcx_plots_tab(
     )
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
 
+    from app.docx_report import rcx_families
+    from app.report_downloads import render_rcx_family_downloads
+
     # --- Family → preset (AHU list never includes chiller/boiler) ---
     family = st.selectbox(
         "Mechanical family",
-        list(RCX_FAMILY_ORDER),
+        list(rcx_families()),
         key="rcx_family",
-        help="Scopes the plot list so plant reset charts are not mixed under AHU.",
+        help="Scopes the plot list so plant reset charts are not mixed under AHU. "
+        "Heat pump / Weather are template-first (charts may be empty until presets exist).",
     )
 
-    # Prebuilt Word for the selected mechanical family (no python-docx / no Prepare step).
-    try:
-        from app.docx_report import build_rcx_family_docx, rcx_family_report_filename
-
-        fam_slug = (
-            family.lower()
-            .replace(" / ", "_")
-            .replace("/", "_")
-            .replace(" ", "_")
-        )
-        st.download_button(
-            f"Download RCx DOCX — {family}",
-            data=build_rcx_family_docx(family),
-            file_name=f"rcx_{fam_slug}_report.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="dl_rcx_catalog_docx",
-            type="primary",
-            help=f"Serves `{rcx_family_report_filename(family)}` from assets/reports.",
-        )
-    except Exception as exc:
-        st.warning(f"RCx DOCX unavailable: {exc}")
+    render_rcx_family_downloads(family, key_prefix="rcx_tab")
 
     # --- Lazy coverage (was scanning every preset × every equipment on each run) ---
     show_cov = st.checkbox(
@@ -197,7 +181,10 @@ def render_rcx_plots_tab(
         )
     family_presets = presets_for_family(family)
     if not family_presets:
-        st.info("No presets in this family.")
+        st.info(
+            f"No RCx chart presets in **{family}** yet — use the Word template above "
+            "(paste Plotly screenshots from FDD Plots / Overview as needed)."
+        )
         return
 
     def _label(pid: str) -> str:

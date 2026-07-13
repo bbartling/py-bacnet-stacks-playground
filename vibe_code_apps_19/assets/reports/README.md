@@ -1,21 +1,24 @@
 # Prebuilt Word reports
 
 The Streamlit app **does not generate** DOCX at runtime. It serves the `.docx` files
-in this folder via download buttons (FDD by equipment type, RCx by mechanical family,
-plus data-model / analytics stubs on Export).
+in this folder via download buttons.
 
-## Replace dummies
+## Hierarchy
 
-1. Open or create your real Word report.
-2. Save/overwrite the matching filename here (keep the same name).
-3. Redeploy / rebuild the Docker image so the new bytes ship with the app.
+1. **Mechanical family (primary)** — on **RCx Plots**, pick Zones/AHU/Boiler/Chiller/Heat pump/Metering/Weather → **Download … RCx Word Template**
+2. **Universal Finding Sheet** / **Portfolio Executive Report** — secondary on that tab
+3. **Complete ZIP pack** — on **Export**: `Open-FDD_Vibe19_RCx_DOCX_Template_Pack.zip`
 
-| File | Served from |
+## Filenames
+
+| File | Where |
 | --- | --- |
-| `fdd_ahu.docx` … `fdd_*.docx` | **FDD Plots** → Download FDD DOCX (by device type) |
-| `rcx_zones_vav.docx` … | **RCx Plots** → Download for selected mechanical family |
-| `rcx_catalog.docx` | **Export** → RCx catalog |
-| `data_model.docx` | **Data Model** + **Export** |
-| `analytics.docx` | **Export** |
+| `rcx_ahu_air.docx` … family files | RCx Plots (by family) + Export expander |
+| `rcx_heat_pump.docx`, `rcx_weather.docx` | Template-only RCx families |
+| `rcx_universal_finding_sheet.docx` | Secondary on RCx + Export |
+| `rcx_portfolio_executive.docx` | Secondary on RCx + Export |
+| `rcx_catalog.docx`, `analytics.docx`, `data_model.docx` | Export expander + ZIP |
+| `fdd_*.docx` | FDD Plots (by device type) |
+| `Open-FDD_Vibe19_RCx_DOCX_Template_Pack.zip` | Export (primary pack download) |
 
-Regenerate placeholder shells only: `python scripts/gen_dummy_docx_reports.py`
+Overwrite any file in place with your edited Word doc (keep the name). Rebuild/pull Docker after replacing.

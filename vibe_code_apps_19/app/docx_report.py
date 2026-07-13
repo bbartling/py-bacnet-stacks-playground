@@ -1,6 +1,6 @@
 """Serve prebuilt Word (.docx) reports from ``assets/reports`` (no python-docx).
 
-Engineers replace the dummy files in place; the UI only reads bytes from disk.
+Engineers replace the files in place; the UI only reads bytes from disk.
 """
 
 from __future__ import annotations
@@ -22,6 +22,9 @@ __all__ = [
     "PLACE_RCX_PLOT_HERE",
     "KEY_FINDINGS_PLACEHOLDER",
     "REPORTS_DIR",
+    "TEMPLATE_PACK_ZIP",
+    "UNIVERSAL_FINDING_DOCX",
+    "PORTFOLIO_EXECUTIVE_DOCX",
     "applicable_rules_for_equipment",
     "build_equipment_fdd_docx",
     "build_building_data_model_docx",
@@ -31,6 +34,9 @@ __all__ = [
     "load_report_bytes",
     "fdd_report_filename",
     "rcx_family_report_filename",
+    "report_path",
+    "list_expected_report_files",
+    "list_template_pack_members",
 ]
 
 KEY_FINDINGS_PLACEHOLDER = (
@@ -39,6 +45,9 @@ KEY_FINDINGS_PLACEHOLDER = (
 )
 
 REPORTS_DIR = Path(__file__).resolve().parents[1] / "assets" / "reports"
+TEMPLATE_PACK_ZIP = "Open-FDD_Vibe19_RCx_DOCX_Template_Pack.zip"
+UNIVERSAL_FINDING_DOCX = "rcx_universal_finding_sheet.docx"
+PORTFOLIO_EXECUTIVE_DOCX = "rcx_portfolio_executive.docx"
 
 # Equipment type → static FDD file (CHILLER / CHW_PLANT share chiller template).
 _FDD_BY_TYPE: dict[str, str] = {
@@ -55,22 +64,40 @@ _FDD_BY_TYPE: dict[str, str] = {
     "UNKNOWN": "fdd_generic.docx",
 }
 
+# RCx mechanical family → Word template (includes template-only Heat pump / Weather).
 _RCX_BY_FAMILY: dict[str, str] = {
     "Zones / VAV": "rcx_zones_vav.docx",
     "AHU / air": "rcx_ahu_air.docx",
     "Boiler / HW": "rcx_boiler_hw.docx",
     "Chiller / CHW / tower": "rcx_chiller_chw_tower.docx",
+    "Heat pump": "rcx_heat_pump.docx",
     "Metering": "rcx_metering.docx",
+    "Weather": "rcx_weather.docx",
 }
+
+# Friendly download labels for primary mechanical-tab buttons.
+_RCX_FAMILY_LABEL: dict[str, str] = {
+    "Zones / VAV": "Download Zones/VAV RCx Word Template",
+    "AHU / air": "Download AHU RCx Word Template",
+    "Boiler / HW": "Download Boiler RCx Word Template",
+    "Chiller / CHW / tower": "Download Chiller/Tower RCx Word Template",
+    "Heat pump": "Download Heat Pump RCx Word Template",
+    "Metering": "Download Metering RCx Word Template",
+    "Weather": "Download Weather RCx Word Template",
+}
+
+
+def report_path(filename: str) -> Path:
+    return REPORTS_DIR / filename
 
 
 def load_report_bytes(filename: str) -> bytes:
     """Read a committed report from ``assets/reports``."""
-    path = REPORTS_DIR / filename
+    path = report_path(filename)
     if not path.is_file():
         raise FileNotFoundError(
             f"Missing prebuilt report `{filename}` under {REPORTS_DIR}. "
-            "Run `python scripts/gen_dummy_docx_reports.py` or paste your Word file there."
+            "Paste your Word file there or restore from the template pack ZIP."
         )
     return path.read_bytes()
 
@@ -83,11 +110,14 @@ def fdd_report_filename(equipment_type: str = "") -> str:
 def rcx_family_report_filename(family: str = "") -> str:
     if family in _RCX_BY_FAMILY:
         return _RCX_BY_FAMILY[family]
-    # Tolerate slight label drift
     for label, name in _RCX_BY_FAMILY.items():
         if family and family.lower() in label.lower():
             return name
     return "rcx_catalog.docx"
+
+
+def rcx_family_download_label(family: str) -> str:
+    return _RCX_FAMILY_LABEL.get(family, f"Download RCx Word Template — {family}")
 
 
 def applicable_rules_for_equipment(
@@ -142,16 +172,49 @@ def build_rcx_catalog_docx(*args: Any, family: str | None = None, **kwargs: Any)
     return load_report_bytes("rcx_catalog.docx")
 
 
+def build_universal_finding_docx() -> bytes:
+    return load_report_bytes(UNIVERSAL_FINDING_DOCX)
+
+
+def build_portfolio_executive_docx() -> bytes:
+    return load_report_bytes(PORTFOLIO_EXECUTIVE_DOCX)
+
+
+def load_template_pack_zip_bytes() -> bytes:
+    return load_report_bytes(TEMPLATE_PACK_ZIP)
+
+
+def list_template_pack_members() -> list[str]:
+    """DOCX (+ readme) members expected inside the complete template ZIP."""
+    return sorted(
+        set(_RCX_BY_FAMILY.values())
+        | {
+            "rcx_catalog.docx",
+            "data_model.docx",
+            "analytics.docx",
+            UNIVERSAL_FINDING_DOCX,
+            PORTFOLIO_EXECUTIVE_DOCX,
+            "TEMPLATE_PACK_README.txt",
+        }
+    )
+
+
 def list_expected_report_files() -> list[str]:
-    """All filenames the app expects under assets/reports."""
+    """All filenames the app expects under assets/reports (excluding the ZIP)."""
     names = set(_FDD_BY_TYPE.values()) | set(_RCX_BY_FAMILY.values()) | {
         "rcx_catalog.docx",
         "data_model.docx",
         "analytics.docx",
         "fdd_generic.docx",
+        UNIVERSAL_FINDING_DOCX,
+        PORTFOLIO_EXECUTIVE_DOCX,
+        TEMPLATE_PACK_ZIP,
     }
     return sorted(names)
 
 
 def rcx_families() -> tuple[str, ...]:
-    return RCX_FAMILY_ORDER
+    """UI family order — RCx chart families first, then template-only tabs."""
+    chart = list(RCX_FAMILY_ORDER)
+    extras = [f for f in ("Heat pump", "Weather") if f not in chart]
+    return tuple(chart + extras)

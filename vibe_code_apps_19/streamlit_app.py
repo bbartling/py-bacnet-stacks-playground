@@ -2312,6 +2312,34 @@ def main() -> None:
                         )
                     st.rerun()
 
+            # Matching RCx mechanical template (secondary to FDD DOCX).
+            _eq_rcx = {
+                "AHU": "AHU / air",
+                "VAV": "Zones / VAV",
+                "BOILER": "Boiler / HW",
+                "CHILLER": "Chiller / CHW / tower",
+                "CHW_PLANT": "Chiller / CHW / tower",
+                "COOLING_TOWER": "Chiller / CHW / tower",
+                "HP": "Heat pump",
+                "HEATPUMP": "Heat pump",
+                "METER": "Metering",
+                "WEATHER": "Weather",
+            }
+            rcx_fam = _eq_rcx.get(str(eq_type).upper())
+            if rcx_fam:
+                try:
+                    from app.docx_report import rcx_family_download_label, rcx_family_report_filename
+                    from app.report_downloads import report_download_button
+
+                    report_download_button(
+                        filename=rcx_family_report_filename(rcx_fam),
+                        label=rcx_family_download_label(rcx_fam),
+                        key=f"dl_fdd_rcx_{device}",
+                        help="Matching RCx mechanical template for this device type.",
+                    )
+                except Exception:
+                    pass
+
             device_results = [r for r in st.session_state.batch_results if r.equipment_id == device]
             n_fault = sum(1 for r in device_results if r.status == "FAULT")
             n_pass = sum(1 for r in device_results if r.status == "PASS")
@@ -2671,54 +2699,10 @@ def main() -> None:
                 pass
 
         st.markdown("##### DOCX reports")
-        st.caption(
-            "Prebuilt Word files from **assets/reports** (no runtime generation). "
-            "FDD-by-type lives on **FDD Plots**; family RCx files on **RCx Plots**."
-        )
         try:
-            from app.docx_report import (
-                build_analytics_docx,
-                build_building_data_model_docx,
-                build_rcx_catalog_docx,
-                build_rcx_family_docx,
-                rcx_families,
-            )
+            from app.report_downloads import render_central_template_pack_section
 
-            st.download_button(
-                "Download RCx catalog DOCX",
-                data=build_rcx_catalog_docx(),
-                file_name="rcx_catalog_report.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_export_rcx_catalog_docx",
-            )
-            for fam in rcx_families():
-                slug = (
-                    fam.lower()
-                    .replace(" / ", "_")
-                    .replace("/", "_")
-                    .replace(" ", "_")
-                )
-                st.download_button(
-                    f"Download RCx — {fam}",
-                    data=build_rcx_family_docx(fam),
-                    file_name=f"rcx_{slug}_report.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key=f"dl_export_rcx_{slug}",
-                )
-            st.download_button(
-                "Download data_model.docx",
-                data=build_building_data_model_docx(),
-                file_name="data_model.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_export_data_model_docx",
-            )
-            st.download_button(
-                "Download analytics.docx",
-                data=build_analytics_docx(),
-                file_name="analytics.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_export_analytics_docx",
-            )
+            render_central_template_pack_section(key_prefix="export")
         except Exception as exc:
             st.warning(f"DOCX exports unavailable: {exc}")
 

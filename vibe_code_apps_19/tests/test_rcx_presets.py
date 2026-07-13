@@ -118,9 +118,12 @@ def test_streamlit_main_sections_present():
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rcx_catalog_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rcx_family_docx" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "render_central_template_pack_section" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "Economizer family" in src or "ECON-1" in src
     assert "Download FDD DOCX" in src
-    assert "Download RCx" in src or "build_rcx_catalog_docx" in src or "build_rcx_family_docx" in src
+    assert "Download Complete RCx Template Pack" in src or "render_central_template_pack_section" in src
+    rcx_ui = (Path(__file__).resolve().parents[1] / "app" / "ui_rcx_tab.py").read_text(encoding="utf-8")
+    assert "render_rcx_family_downloads" in rcx_ui
     assert "PLACE PLOT HERE" in src or "build_rule_card" in src
     assert "rule validation cards" in src or "Filter cards" in src or "catalog parity" in src
     # Must not be the sole one-at-a-time selectbox UX without a card catalog
