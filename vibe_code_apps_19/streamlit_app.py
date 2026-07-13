@@ -1920,11 +1920,10 @@ def main() -> None:
         from app.data_model_tree import build_data_model_tree
         from app.docx_report import build_building_data_model_docx
 
-        st.subheader("Data model tree")
+        st.subheader("Data model")
         st.caption(
-            "Professional inventory: equipment → cookbook roles → Haystack-like tags → raw CSV columns. "
-            "AHU↔VAV **feeds / fedBy** come from package `vav_to_ahu_simple.csv` when present "
-            "(never invented). Missing mappings show as empty placeholders."
+            "Point inventory: equipment → Haystack-like tags → raw CSV columns. "
+            "AHU↔VAV topology is listed separately (from package `vav_to_ahu_simple.csv` when present)."
         )
         tree = build_data_model_tree(
             frames,
@@ -1933,25 +1932,34 @@ def main() -> None:
             vav_to_ahu=st.session_state.get("vav_to_ahu")
             or (st.session_state.get("package_report") or {}).get("vav_to_ahu"),
         )
+
+        st.markdown("##### Topology (AHU ↔ VAV)")
         topo_n = len(tree.vav_to_ahu or {})
         if topo_n:
-            st.caption(f"Topology: **{topo_n}** VAV→AHU link(s) loaded from package.")
+            st.caption(
+                f"**{topo_n}** VAV→AHU link(s): each VAV is **fedBy** its parent AHU; "
+                "each AHU **feeds** its VAV children."
+            )
+            topo_df = pd.DataFrame(tree.topology_rows())
+            st.dataframe(topo_df, hide_index=True, width="stretch", height=min(360, 48 + 28 * len(topo_df)))
+            st.download_button(
+                "Download topology.csv",
+                to_csv_bytes(topo_df),
+                "topology.csv",
+                key="dl_topology_csv",
+            )
+        else:
+            st.info("No `vav_to_ahu_simple.csv` topology in this package — feeds / fedBy empty.")
+
+        st.markdown("##### Points by equipment")
         for eq in tree.equipment:
-            feed_bits = []
-            if eq.fed_by:
-                feed_bits.append(f"fedBy `{eq.fed_by}`")
-            if eq.feeds:
-                feed_bits.append(f"feeds {len(eq.feeds)} VAV(s)")
             title = f"{eq.equipment_id} · {eq.equipment_type}"
-            if feed_bits:
-                title += " · " + " · ".join(feed_bits)
             with st.expander(title, expanded=False):
-                if eq.fed_by:
-                    st.markdown(f"**fedBy (parent AHU):** `{eq.fed_by}`")
-                if eq.feeds:
-                    st.markdown("**feeds (VAV children):** " + ", ".join(f"`{v}`" for v in eq.feeds))
                 if not eq.bindings:
-                    st.info("No role bindings yet — include a sibling Haystack JSON next to this equipment CSV in the zip.")
+                    st.info(
+                        "No point bindings yet — include a sibling Haystack JSON next to "
+                        "this equipment CSV in the zip."
+                    )
                 else:
                     rows = [
                         {

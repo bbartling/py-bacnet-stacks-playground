@@ -1,4 +1,8 @@
-"""Building data-model tree: equipment → cookbook roles → Haystack tags → raw CSV columns."""
+"""Building data-model tree: equipment → points (Haystack tags → CSV columns).
+
+AHU↔VAV topology (VAV fedBy AHU / AHU feeds VAVs) lives on the tree object
+and is rendered as its own UI section — not mixed into point binding tables.
+"""
 
 from __future__ import annotations
 
@@ -28,8 +32,8 @@ class EquipmentModelNode:
     equipment_type: str
     bindings: list[RoleBinding] = field(default_factory=list)
     applicable_rule_ids: list[str] = field(default_factory=list)
-    fed_by: str | None = None  # parent AHU (Haystack-style fedBy)
-    feeds: list[str] = field(default_factory=list)  # child VAV ids (feeds)
+    fed_by: str | None = None  # parent AHU (VAV → AHU)
+    feeds: list[str] = field(default_factory=list)  # child VAV ids (AHU → VAVs)
 
 
 @dataclass
@@ -39,6 +43,7 @@ class BuildingDataModelTree:
     vav_to_ahu: dict[str, str] = field(default_factory=dict)
 
     def to_rows(self) -> list[dict[str, Any]]:
+        """Flat point bindings only (no topology columns)."""
         rows: list[dict[str, Any]] = []
         for eq in self.equipment:
             for b in eq.bindings:
@@ -46,8 +51,6 @@ class BuildingDataModelTree:
                     {
                         "equipment_id": eq.equipment_id,
                         "equipment_type": eq.equipment_type,
-                        "fed_by": eq.fed_by or "",
-                        "feeds": ", ".join(eq.feeds),
                         "cookbook_role": b.cookbook_role,
                         "haystack_tag": b.haystack_tag,
                         "csv_column": b.csv_column or "",
@@ -57,16 +60,41 @@ class BuildingDataModelTree:
                 )
         return rows
 
+    def topology_rows(self) -> list[dict[str, Any]]:
+        """VAV fedBy AHU and AHU feeds VAVs — one row per directed link."""
+        from app.topology_enrich import invert_vav_to_ahu
+
+        rows: list[dict[str, Any]] = []
+        feeds = invert_vav_to_ahu(self.vav_to_ahu)
+        for ahu_id in sorted(feeds):
+            children = feeds[ahu_id]
+            rows.append(
+                {
+                    "equipment_id": ahu_id,
+                    "relation": "feeds",
+                    "related_ids": ", ".join(children),
+                    "related_count": len(children),
+                }
+            )
+        for vav_id, ahu_id in sorted(self.vav_to_ahu.items()):
+            rows.append(
+                {
+                    "equipment_id": vav_id,
+                    "relation": "fedBy",
+                    "related_ids": ahu_id,
+                    "related_count": 1,
+                }
+            )
+        return rows
+
 
 def _role_map_column(role_map: dict, equipment_id: str, role: str) -> str | None:
     block = role_map.get(equipment_id) or {}
     if not isinstance(block, dict):
         return None
-    # role → column (cookbook style)
     val = block.get(role)
     if isinstance(val, str) and val.strip():
         return val.strip()
-    # column → role (reverse)
     for col, mapped_role in block.items():
         if str(mapped_role).strip() == role and col not in {
             "equipment_type",
@@ -83,16 +111,19 @@ def _roles_for_equipment_kind(kind: str) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for rule in RULES:
         if kind not in rule.equipment_kinds and kind != "unknown":
-            # still list if unknown / broad
-            if "unknown" not in rule.equipment_kinds and kind not in {"ahu", "vav", "chiller", "boiler", "heatpump", "weather", "zone"}:
+            if "unknown" not in rule.equipment_kinds and kind not in {
+                "ahu",
+                "vav",
+                "chiller",
+                "boiler",
+                "heatpump",
+                "weather",
+                "zone",
+            }:
                 continue
-        if kind not in rule.equipment_kinds and "unknown" not in rule.equipment_kinds:
-            # match cookbook kinds loosely via upper type mapping below
-            pass
         kinds = {k.lower() for k in rule.equipment_kinds}
         kind_l = kind.lower()
         if kind_l not in kinds and "unknown" not in kinds:
-            # AHU type vs ahu kind
             aliases = {
                 "ahu": {"ahu"},
                 "vav": {"vav", "zone"},
@@ -144,7 +175,6 @@ def build_data_model_tree(
         kind = _infer_kind_key(et)
         role_rules = _roles_for_equipment_kind(kind)
         mapped = apply_role_map(raw, eq_id, role_map)
-        # union: roles required by applicable rules + any mapped roles present
         roles = set(role_rules)
         eq_block = role_map.get(eq_id) or {}
         if isinstance(eq_block, dict):
@@ -152,7 +182,6 @@ def build_data_model_tree(
                 if k in {"equipment_type", "equipType", "plant_group", "chw_pump_equipment"}:
                     continue
                 if isinstance(v, str) and v.strip():
-                    # either role→col or col→role
                     if k in COOKBOOK_TO_HAYSTACK_POINT or k in role_rules:
                         roles.add(k)
                     else:
@@ -173,10 +202,8 @@ def build_data_model_tree(
             csv_col = _role_map_column(role_map, eq_id, role)
             present = role in mapped.columns and mapped[role].notna().any()
             if csv_col is None and present:
-                # mapped frame uses role as column after apply_role_map
                 csv_col = role if role in raw.columns else None
                 if csv_col is None:
-                    # find raw column that maps to this role
                     for c, rr in (eq_block.items() if isinstance(eq_block, dict) else []):
                         if str(rr).strip() == role:
                             csv_col = str(c)

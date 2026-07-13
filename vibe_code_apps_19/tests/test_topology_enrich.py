@@ -69,6 +69,11 @@ def test_data_model_tree_feeds():
     by_id = {e.equipment_id: e for e in tree.equipment}
     assert by_id["VAV_1"].fed_by == "AHU_1"
     assert by_id["AHU_1"].feeds == ["VAV_1"]
+    topo = tree.topology_rows()
+    assert {"equipment_id": "AHU_1", "relation": "feeds", "related_ids": "VAV_1", "related_count": 1} in topo
+    assert {"equipment_id": "VAV_1", "relation": "fedBy", "related_ids": "AHU_1", "related_count": 1} in topo
+    point_cols = set(tree.to_rows()[0]) if tree.to_rows() else set()
+    assert "fed_by" not in point_cols and "feeds" not in point_cols
 
 
 def test_vav_ahu_leave_skipped_without_ahu_sat():
