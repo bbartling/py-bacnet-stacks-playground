@@ -43,70 +43,77 @@ Open http://localhost:8501 — upload an `openfdd_package_v1` zip (browser limit
 
 ## Docker / GHCR
 
-**Always `docker pull` first** — `:develop` is a moving tag. Run by the **full tagged name** so `docker ps` shows `ghcr.io/bbartling/vibe19:develop` (not a bare hash).
+### Why GHCR shows `sha-…` as “Latest”
 
-### Long-running (recommended for demos / always-on)
+GitHub’s package page marks the **most recently pushed version** as “Latest” — often a pin like `sha-1170f81`. That is **not** the same as the Docker tag `:latest`, and a **running container never updates itself**.
 
-Use **`-d`** (detached = runs in the background) and **`--restart unless-stopped`** (comes back after reboot or Docker restart). Do **not** use `--rm` for this mode — that deletes the container when it stops.
+| Tag | Meaning |
+| --- | --- |
+| `:latest` or `:develop` | Moving tip of **develop** (same tip today — default branch is `develop`) |
+| `:sha-<git>` | Immutable pin for that commit only |
+
+**Always pull, then recreate** the container. `docker run` alone reuses a stale local image if you already pulled once.
+
+### Easy button (recommended)
+
+From `vibe_code_apps_19/`:
 
 **Linux / macOS / Raspberry Pi:**
 
 ```bash
-docker pull ghcr.io/bbartling/vibe19:develop
-docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
-docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
-  ghcr.io/bbartling/vibe19:develop
+chmod +x scripts/docker_update_vibe19.sh   # once
+./scripts/docker_update_vibe19.sh          # pulls :latest, recreates vibe19 on :8502
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-docker pull ghcr.io/bbartling/vibe19:develop
-docker stop vibe19 2>$null; docker rm vibe19 2>$null
-docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 `
-  ghcr.io/bbartling/vibe19:develop
+.\scripts\docker_update_vibe19.ps1
+# optional: .\scripts\docker_update_vibe19.ps1 -Tag develop -HostPort 8502
 ```
 
-Open **http://localhost:8502** (host port **8502** → container **8501**). On a Pi, use `http://<pi-ip>:8502`.
+Same steps by hand:
+
+```bash
+docker pull ghcr.io/bbartling/vibe19:latest
+docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
+  ghcr.io/bbartling/vibe19:latest
+```
+
+Open **http://localhost:8502** (host **8502** → container **8501**). On a Pi: `http://<pi-ip>:8502`.
 
 | Flag | What it means (newbie) |
 | --- | --- |
-| `-d` | Detached — app keeps running after you close the terminal |
-| `--restart unless-stopped` | Auto-restart on crash / host reboot until you `docker stop` it |
-| `-p 8502:8501` | Publish host port 8502 to Streamlit’s 8501 inside the container |
-| `--name vibe19` | Friendly name for `docker stop` / `logs` / `ps` |
-| *(no `--rm`)* | Keep the container so it can restart; use `--rm` only for one-shot tests |
-
-Useful follow-ups:
+| `docker pull` | Download the tip of `:latest` / `:develop` (required every update) |
+| `-d` | Detached — stays up after you close the terminal |
+| `--restart unless-stopped` | Comes back after reboot until you `docker stop` |
+| `-p 8502:8501` | Host port → Streamlit 8501 inside the container |
+| `--name vibe19` | Stable name for stop / logs / recreate |
 
 ```bash
-docker ps                    # is it running?
-docker logs -f vibe19        # Streamlit log (Ctrl+C exits logs only)
-docker stop vibe19           # stop (won’t auto-restart until you start again)
-docker start vibe19          # start the same container again
+docker ps                    # running?
+docker logs -f vibe19        # logs only (Ctrl+C leaves the app running)
+docker stop vibe19           # stop
 ```
-
-Pull a newer image later: `docker stop vibe19 && docker rm vibe19`, then `docker pull` + `docker run -d --restart …` again.
 
 ### One-shot test (foreground, auto-delete)
 
-For a quick try in the current terminal — exits when you Ctrl+C; `--rm` removes the container:
-
 ```bash
-docker pull ghcr.io/bbartling/vibe19:develop
-docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:develop
+docker pull ghcr.io/bbartling/vibe19:latest
+docker run --rm -p 8502:8501 --name vibe19 ghcr.io/bbartling/vibe19:latest
 ```
 
 In the sidebar confirm:
 
-- **Image:** `ghcr.io/bbartling/vibe19:develop` (and a recent sha)
+- **Image:** `ghcr.io/bbartling/vibe19:latest` or `:develop` (and a recent sha)
 - zip-item limit **2000** (not **200**)
 
 **Upload:** prefer **one** building openfdd zip (weather is usually already inside). A separate `weather.zip` is optional; selecting both together is OK on current builds. Do not upload weather alone.
 
-If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with the full `ghcr.io/...:develop` name above.
+If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with `:latest` / `:develop` above.
 
-More detail (bind-mounts, bootstrap, Pi): [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
+More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
 
 | Path | Limit |
 | --- | --- |

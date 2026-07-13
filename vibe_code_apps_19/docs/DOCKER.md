@@ -15,14 +15,30 @@
 
 ## Newbie tutorial: keep Streamlit running long-term
 
-Foreground `docker run` (no `-d`) dies when you close the terminal. For demos, labs, or a Pi that should stay up:
+Foreground `docker run` (no `-d`) dies when you close the terminal. A **running** container also **never** picks up a newer GHCR image by itself.
 
-1. **`docker pull`** the tagged image  
-2. **`docker run -d --restart unless-stopped …`** (background + auto-restart)  
-3. Browse the published host port  
+**Easy button** (pull tip + recreate):
+
+```bash
+# from vibe_code_apps_19/
+./scripts/docker_update_vibe19.sh          # Linux / macOS / Pi — uses :latest
+# Windows: .\scripts\docker_update_vibe19.ps1
+```
+
+Or by hand — prefer **`:latest`** (same tip as `:develop` while default branch is `develop`):
+
+1. **`docker pull ghcr.io/bbartling/vibe19:latest`**
+2. **`docker stop` / `rm` / `run -d --restart unless-stopped …`**
+3. Browse the published host port
+
+| Tag / UI | Meaning |
+| --- | --- |
+| `:latest` / `:develop` | Moving tip of develop |
+| `:sha-…` | Pin one commit (what GHCR often labels “Latest” on the package page — that badge ≠ auto-update) |
 
 | Flag | Meaning |
 | --- | --- |
+| `docker pull` | Required every update — `docker run` alone reuses a stale local image |
 | `-d` | Detached — process stays up after the shell closes |
 | `--restart unless-stopped` | Restart on crash or host/Docker reboot until you `docker stop` |
 | `-p HOST:8501` | Map a free host port to Streamlit inside the container |
@@ -32,20 +48,20 @@ Foreground `docker run` (no `-d`) dies when you close the terminal. For demos, l
 **Linux / macOS / Raspberry Pi (64-bit):**
 
 ```bash
-docker pull ghcr.io/bbartling/vibe19:develop
+docker pull ghcr.io/bbartling/vibe19:latest
 docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
 docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
-  ghcr.io/bbartling/vibe19:develop
+  ghcr.io/bbartling/vibe19:latest
 # open http://localhost:8502  (or http://<pi-ip>:8502)
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-docker pull ghcr.io/bbartling/vibe19:develop
+docker pull ghcr.io/bbartling/vibe19:latest
 docker stop vibe19 2>$null; docker rm vibe19 2>$null
 docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 `
-  ghcr.io/bbartling/vibe19:develop
+  ghcr.io/bbartling/vibe19:latest
 # open http://localhost:8502
 ```
 
@@ -55,15 +71,14 @@ Day-to-day commands:
 docker ps                 # running?
 docker logs -f vibe19     # follow Streamlit logs (Ctrl+C leaves the app running)
 docker stop vibe19        # stop (disables restart until you start again)
-docker start vibe19       # start the same container
+docker start vibe19       # start the same container (still the *old* image)
+./scripts/docker_update_vibe19.sh   # actually get a newer build
 ```
-
-**Update to a newer `:develop` image:** stop + remove the old container, pull, then `docker run -d --restart …` again (a running container does not pick up a new image by itself).
 
 **One-shot test** (foreground; Ctrl+C stops; container deleted):
 
 ```bash
-docker run --rm -p 8502:8501 --name vibe19-test ghcr.io/bbartling/vibe19:develop
+docker run --rm -p 8502:8501 --name vibe19-test ghcr.io/bbartling/vibe19:latest
 ```
 
 ## Two-tier size limits
