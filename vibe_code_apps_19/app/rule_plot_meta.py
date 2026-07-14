@@ -38,7 +38,10 @@ ANALYTICS_HINTS: dict[str, str] = {
     "SCHED-1": "Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°C display).",
     "SCHED-247": "Uses fan/pump status (or cmd fallback) across AHU and plant equipment.",
     "OAT-METEO": "Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.",
-    "ECON-3": "Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OAT bins (DX/plant only).",
+    "ECON-3": "Web DB+DP free-cool band; Overview economizer_weather compliance hours; mech-cooling OAT bins are separate (DX/plant proof).",
+    "ECON-6": "Winter min-OA damper vs web OAT < 25°F; Overview economizer_weather winter hours.",
+    "MECH-OAT-1": "Proven DX/chiller cooling below 60°F web OAT; Overview prohibited_mech hours.",
+    "CHW-NOLOAD-1": "Needs building zone or AHU-SAT satisfaction columns (batch inject); 30 min confirm.",
     "CW-OPT-1": "RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.",
     "CHW-1": "RCx `chw_reset_scatter` — CHW leave vs web OAT; motor weekly uses pump/status not leave-temp.",
     "CHW-2": "Plant motor weekly / chiller runtime — status/pump proof.",
@@ -58,7 +61,7 @@ ANALYTICS_HINTS: dict[str, str] = {
 }
 
 DEFAULT_ANALYTICS_HINT = (
-    "Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset."
+    "Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset."
 )
 
 # Rule id → RCx preset ids used when filling analytics in reports.

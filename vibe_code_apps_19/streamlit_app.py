@@ -24,6 +24,7 @@ from app.analytics import (  # noqa: E402
     PLANT_BOILER,
     PLANT_CHILLER,
     dataset_time_span,
+    economizer_weather_summary,
     mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_totals,
@@ -1764,7 +1765,7 @@ def _time_to_hhmm(t) -> str:
 
 
 def _sync_zone_comfort_into_params() -> None:
-    """Push Overview/sidebar zone band into VAV-1 and SCHED-1 rule params."""
+    """Push Overview/sidebar zone band into VAV-1, SCHED-1, and CHW-NOLOAD-1 params."""
     params = st.session_state.setdefault("params", {})
     lo = float(st.session_state.get("zone_lo_f", 70.0))
     hi = float(st.session_state.get("zone_hi_f", 75.0))
@@ -1776,6 +1777,10 @@ def _sync_zone_comfort_into_params() -> None:
     sched["comfort_low_f"] = lo
     sched["comfort_high_f"] = hi
     params["SCHED-1"] = sched
+    noload = dict(params.get("CHW-NOLOAD-1") or {})
+    noload["comfort_low_f"] = lo
+    noload["comfort_high_f"] = hi
+    params["CHW-NOLOAD-1"] = noload
     st.session_state.params = params
 
 
@@ -2035,6 +2040,10 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
+        from app.report_downloads import render_overview_rcx_download
+
+        render_overview_rcx_download(key="overview_generic_rcx_docx")
+
         min_air_hours = _render_building_schedule_overview()
         _render_plant_motor_weekly(
             motor_weekly,
@@ -2070,6 +2079,34 @@ def main() -> None:
                 key="dl_cool_bins_overview",
             )
 
+        st.markdown("##### Economizer weather opportunity / compliance")
+        st.caption(
+            "Strict **web** dry-bulb + dewpoint (or Magnus from web RH). "
+            "Opportunity = 60≤DB<72°F and DP<60°F. "
+            "Integrated hours use cooling-valve + OA damper threshold (default 90%). "
+            "Prohibited cooling uses compressor/chiller proof below 60°F. "
+            "Hours use actual timestamp deltas."
+        )
+        try:
+            econ_tbl = economizer_weather_summary(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+            )
+        except Exception as exc:
+            econ_tbl = pd.DataFrame()
+            st.warning(f"Economizer weather summary unavailable: {exc}")
+        if econ_tbl is None or econ_tbl.empty:
+            st.info("No AHU/chiller/heat-pump rows with web weather or applicable signals.")
+        else:
+            st.dataframe(econ_tbl, hide_index=True, width="stretch", height=280)
+            st.download_button(
+                "Download economizer weather CSV",
+                to_csv_bytes(econ_tbl),
+                "economizer_weather.csv",
+                key="dl_econ_weather_overview",
+            )
+
         st.markdown("##### BAS vs web outdoor-air temperature")
         st.caption(
             "Histogram of **BAS OAT − web OAT** (°F) when both series exist. "
@@ -2103,12 +2140,12 @@ def main() -> None:
 
     if section == "Data Model":
         from app.data_model_tree import build_data_model_tree
-        from app.docx_report import build_building_data_model_docx
 
         st.subheader("Data model")
         st.caption(
             "Point inventory: equipment → Haystack-like tags → raw CSV columns. "
-            "AHU↔VAV topology is listed separately (from package `vav_to_ahu_simple.csv` when present)."
+            "AHU↔VAV topology is listed separately (from package `vav_to_ahu_simple.csv` when present). "
+            "Word report: use the Generic RCx download on **Overview**."
         )
         tree = build_data_model_tree(
             frames,
@@ -2158,17 +2195,6 @@ def main() -> None:
                     ]
                     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=280)
                 st.caption(f"{len(eq.applicable_rule_ids)} applicable cookbook rules for this type")
-        try:
-            st.download_button(
-                "Download data_model.docx",
-                data=build_building_data_model_docx(),
-                file_name=f"{(st.session_state.get('building_id') or 'building')}_data_model.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_data_model_docx",
-                help="Prebuilt Word file from assets/reports (paste over the dummy to customize).",
-            )
-        except Exception as exc:
-            st.warning(f"DOCX unavailable: {exc}")
         flat = pd.DataFrame(tree.to_rows())
         if not flat.empty:
             st.download_button(
@@ -2370,7 +2396,7 @@ def main() -> None:
             )
 
     if section == "FDD Plots":
-        from app.docx_report import applicable_rules_for_equipment, build_equipment_fdd_docx
+        from app.docx_report import applicable_rules_for_equipment
         from app.rule_card import (
             build_rule_card,
             equipment_mapping_coverage,
@@ -2381,7 +2407,8 @@ def main() -> None:
         st.caption(
             "Pick a device → rules auto-run → **chart on top**. "
             "Cards below = params + mapping. Camera icon on chart → PNG/JPEG. "
-            "One Plotly at a time (low-RAM)."
+            "One Plotly at a time (low-RAM). "
+            "Word report: Generic RCx template on **Overview**."
         )
         st.caption(
             "Economizer **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT "
@@ -2445,8 +2472,8 @@ def main() -> None:
             if n_rows:
                 st.caption(f"History span: `{t0}` → `{t1}`")
 
-            # Downloads + rerun
-            d1, d2, d3, d4 = st.columns([1.1, 1.1, 1.2, 1])
+            # Downloads + rerun (Word template lives on Overview only)
+            d1, d2, d3 = st.columns([1.1, 1.1, 1])
             with d1:
                 try:
                     session_bytes = json.dumps(_session_config_payload(), indent=2).encode("utf-8")
@@ -2480,19 +2507,6 @@ def main() -> None:
                     help="Equipment → role → CSV column mapping only.",
                 )
             with d3:
-                try:
-                    st.download_button(
-                        "Download FDD DOCX",
-                        data=build_equipment_fdd_docx(equipment_type=eq_type),
-                        file_name=f"{device}_fdd_report.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        key=f"dl_fdd_docx_{device}",
-                        type="primary",
-                        help="Prebuilt Word report for this device type (assets/reports/fdd_*.docx).",
-                    )
-                except Exception as exc:
-                    st.warning(f"DOCX unavailable: {exc}")
-            with d4:
                 if st.button("Re-run device rules", key="plot_run_device"):
                     new_res = _run_rule_list([device], applicable, frames)
                     keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
@@ -2505,34 +2519,6 @@ def main() -> None:
                             st.session_state.get(f"plot_chart_rule_{device}"),
                         )
                     st.rerun()
-
-            # Matching RCx mechanical template (secondary to FDD DOCX).
-            _eq_rcx = {
-                "AHU": "AHU / air",
-                "VAV": "Zones / VAV",
-                "BOILER": "Boiler / HW",
-                "CHILLER": "Chiller / CHW / tower",
-                "CHW_PLANT": "Chiller / CHW / tower",
-                "COOLING_TOWER": "Chiller / CHW / tower",
-                "HP": "Heat pump",
-                "HEATPUMP": "Heat pump",
-                "METER": "Metering",
-                "WEATHER": "Weather",
-            }
-            rcx_fam = _eq_rcx.get(str(eq_type).upper())
-            if rcx_fam:
-                try:
-                    from app.docx_report import rcx_family_download_label, rcx_family_report_filename
-                    from app.report_downloads import report_download_button
-
-                    report_download_button(
-                        filename=rcx_family_report_filename(rcx_fam),
-                        label=rcx_family_download_label(rcx_fam),
-                        key=f"dl_fdd_rcx_{device}",
-                        help="Matching RCx mechanical template for this device type.",
-                    )
-                except Exception:
-                    pass
 
             device_results = [r for r in st.session_state.batch_results if r.equipment_id == device]
             n_fault = sum(1 for r in device_results if r.status == "FAULT")
@@ -2892,13 +2878,9 @@ def main() -> None:
             except Exception:
                 pass
 
-        st.markdown("##### DOCX reports")
-        try:
-            from app.report_downloads import render_central_template_pack_section
-
-            render_central_template_pack_section(key_prefix="export")
-        except Exception as exc:
-            st.warning(f"DOCX exports unavailable: {exc}")
+        st.caption(
+            "Word report: download the Generic RCx template from the **Overview** section."
+        )
 
 
 if __name__ == "__main__":

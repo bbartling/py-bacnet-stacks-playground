@@ -103,8 +103,8 @@ def test_site_model_serialization():
 
 
 def test_all_50_rules_inventory():
-    assert CANONICAL_RULE_COUNT == 55
-    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == 55
+    assert CANONICAL_RULE_COUNT == 58
+    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == 58
     assert len(RULES) >= CANONICAL_RULE_COUNT
 
 

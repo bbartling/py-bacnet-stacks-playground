@@ -1,4 +1,4 @@
-canonical_rule_count: 55
+canonical_rule_count: 58
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -770,26 +770,28 @@ rules:
   known_limitations: ''
 - rule_id: ECON-3
   family: ahu
-  title: Mech cooling when econ available
-  description: "Free cooling available when web dry-bulb is 35\u201372\xB0F AND dewpoint\
-    \ < 60\xB0F (RH\u2192dewpoint if needed); fault when cooling valve open with OA\
-    \ damper closed. Optional SAT\u2248SP means free cooling is keeping up."
-  summary: "Free cooling available when web dry-bulb is 35\u201372\xB0F AND dewpoint\
-    \ < 60\xB0F (RH\u2192dewpoint if needed); fault when cooling valve open with OA\
-    \ damper closed."
+  title: Mech cooling without integrated economizer
+  description: "Web free-cooling opportunity: 60\xB0F \u2264 dry-bulb < 72\xB0F AND\
+    \ dewpoint < 60\xB0F (dewpoint from web sensor or calculated from web DB+RH).\
+    \ Fault when cooling valve is open while OA damper is below the integrated-economizer\
+    \ threshold (default 90%). No BAS OAT fallback. Screenable engineering defaults\
+    \ \u2014 not code limits."
+  summary: Flags mechanical cooling during web free-cool weather when the OA damper
+    is not fully integrated.
   required_roles:
   - outside-air-damper
   - cooling-valve
-  optional_roles: []
+  optional_roles:
+  - web-outside-air-temp
+  - web-outside-air-dewpoint
+  - web-outside-air-humidity
   equipment_kinds:
   - ahu
   tunable_params:
   - econ3_db_min
   - econ3_db_max
   - econ3_dp_max
-  - econ3_oat_fallback
-  - econ3_damper
-  - econ3_zone_band
+  - econ3_damper_hi
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
@@ -854,6 +856,100 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: econ5
+  known_limitations: ''
+- rule_id: ECON-6
+  family: ahu
+  title: Economizing in freezing weather
+  description: "Web dry-bulb < 25\xB0F AND OA damper above winter min-OA ceiling (default\
+    \ 25%). AHU should be at minimum OA in cold weather."
+  summary: "Flags an AHU economizing above min-OA when web outdoor air is below freezing\
+    \ (25\xB0F)."
+  required_roles:
+  - outside-air-damper
+  optional_roles:
+  - web-outside-air-temp
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - econ6_oat_max_f
+  - econ6_damper_max
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ6_compute
+  known_limitations: ''
+- rule_id: MECH-OAT-1
+  family: ahu
+  title: "Mechanical cooling below 60\xB0F web OAT"
+  description: "Proven DX/chiller mechanical cooling while web dry-bulb < 60\xB0F.\
+    \ Uses compressor/chiller/pump/amps/power proof \u2014 not AHU cooling-valve alone.\
+    \ Below 60\xB0F is outside the free-cool + integrated economizer band."
+  summary: "Flags proven DX or chiller cooling while web dry-bulb is below 60\xB0\
+    F."
+  required_roles: []
+  optional_roles:
+  - web-outside-air-temp
+  - compressor-status
+  - chiller-status
+  - chw-pump-status
+  - dx-cool-cmd
+  equipment_kinds:
+  - ahu
+  - chiller
+  - heatpump
+  tunable_params:
+  - mech_oat_max_f
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: mech_oat1_compute
+  known_limitations: ''
+- rule_id: CHW-NOLOAD-1
+  family: plant
+  title: Chiller running with no building load
+  description: 'Chiller/plant proven running while building load is satisfied: all
+    mapped zones inside comfort band OR all mapped AHU SAT within sat_band of setpoint.
+    Default confirm 30 min.'
+  summary: Flags a chiller running while mapped zones or AHU SAT show the building
+    is satisfied.
+  required_roles: []
+  optional_roles:
+  - chiller-status
+  - chw-pump-status
+  - compressor-status
+  - building-zone-load-satisfied
+  - building-ahu-load-satisfied
+  equipment_kinds:
+  - chiller
+  tunable_params:
+  - comfort_low_f
+  - comfort_high_f
+  - sat_band_f
+  - confirm_min
+  default_confirm_seconds: 1800
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: chw_noload1_compute
   known_limitations: ''
 - rule_id: VAV-1
   family: vav

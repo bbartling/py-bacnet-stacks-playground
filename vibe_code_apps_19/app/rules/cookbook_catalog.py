@@ -1105,25 +1105,98 @@ RULES: list[CookbookRule] = [
             CookbookParam("econ2_oat_hi", "OAT high cutoff", "°F", 55.0, 80.0, 1.0, 63.0),
             CookbookParam("econ2_damper", "Damper open frac", "frac", 0.2, 0.9, 0.02, 0.42),
             CONFIRM_PARAM()], confirm_seconds=300),
-    CookbookRule("ECON-3", "Mech cooling when econ available", "ahu", ["ahu"],
+    CookbookRule(
+        "ECON-3",
+        "Mech cooling without integrated economizer",
+        "ahu",
+        ["ahu"],
         ["outside-air-damper", "cooling-valve"],
-        "Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); "
-        "fault when cooling valve open with OA damper closed. Optional SAT≈SP means free cooling is keeping up.",
-        # placeholder; engine substitutes econ3 with weather-aware compute
-        econ2, params=[
-            CookbookParam("econ3_db_min", "Free-cool OA dry-bulb min", "°F", 25.0, 45.0, 1.0, 35.0),
-            CookbookParam("econ3_db_max", "Free-cool OA dry-bulb max", "°F", 60.0, 80.0, 1.0, 72.0),
+        "Web free-cooling opportunity: 60°F ≤ dry-bulb < 72°F AND dewpoint < 60°F "
+        "(dewpoint from web sensor or calculated from web DB+RH). Fault when cooling valve is "
+        "open while OA damper is below the integrated-economizer threshold (default 90%). "
+        "No BAS OAT fallback. Screenable engineering defaults — not code limits.",
+        # placeholder; engine substitutes weather-aware econ3_compute
+        econ2,
+        params=[
+            CookbookParam("econ3_db_min", "Free-cool OA dry-bulb min", "°F", 50.0, 68.0, 1.0, 60.0),
+            CookbookParam("econ3_db_max", "Free-cool OA dry-bulb max", "°F", 65.0, 80.0, 1.0, 72.0),
             CookbookParam("econ3_dp_max", "Free-cool OA dew point max", "°F", 45.0, 68.0, 1.0, 60.0),
-            CookbookParam("econ3_oat_fallback", "Fallback OAT cutoff", "°F", 55.0, 70.0, 1.0, 63.0),
-            CookbookParam("econ3_damper", "Damper closed frac", "frac", 0.1, 0.6, 0.02, 0.32),
-            CookbookParam("econ3_zone_band", "SAT≈SP band (keeping up)", "°F", 0.5, 6.0, 0.5, 2.0),
-            CONFIRM_PARAM()], confirm_seconds=300),
+            CookbookParam("econ3_damper_hi", "Integrated economizer damper", "frac", 0.5, 1.0, 0.02, 0.90),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["web-outside-air-temp", "web-outside-air-dewpoint", "web-outside-air-humidity"],
+        confirm_seconds=300,
+    ),
     CookbookRule("ECON-4", "Low estimated OA fraction", "ahu", ["ahu"],
         ["mixed-air-temp", "return-air-temp", "outside-air-temp", "fan-cmd"], "Fan on, |RAT−OAT| > 2.2°F, estimated OA fraction < 21%.",
         econ4, params=[CookbookParam("oa_min_pct", "Min OA fraction", "%", 5.0, 40.0, 1.0, 21.0), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("ECON-5", "Preheat over-conditioning", "ahu", ["ahu"],
         ["preheat-leaving-temp", "discharge-air-temp-sp", "outside-air-temp", "heating-valve"], "Preheat leaving air > 2.2°F above target while preheat active.",
         econ5, params=[CONFIRM_PARAM()], confirm_seconds=600),
+    CookbookRule(
+        "ECON-6",
+        "Economizing in freezing weather",
+        "ahu",
+        ["ahu"],
+        ["outside-air-damper"],
+        "Web dry-bulb < 25°F AND OA damper above winter min-OA ceiling (default 25%). "
+        "AHU should be at minimum OA in cold weather.",
+        __import__("app.rules.economizer_weather", fromlist=["econ6_compute"]).econ6_compute,
+        params=[
+            CookbookParam("econ6_oat_max_f", "Winter OAT ceiling", "°F", 15.0, 40.0, 1.0, 25.0),
+            CookbookParam("econ6_damper_max", "Winter min-OA damper", "frac", 0.05, 0.5, 0.01, 0.25),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=["web-outside-air-temp"],
+        confirm_seconds=600,
+    ),
+    CookbookRule(
+        "MECH-OAT-1",
+        "Mechanical cooling below 60°F web OAT",
+        "ahu",
+        ["ahu", "chiller", "heatpump"],
+        [],
+        "Proven DX/chiller mechanical cooling while web dry-bulb < 60°F. "
+        "Uses compressor/chiller/pump/amps/power proof — not AHU cooling-valve alone. "
+        "Below 60°F is outside the free-cool + integrated economizer band.",
+        __import__("app.rules.economizer_weather", fromlist=["mech_oat1_compute"]).mech_oat1_compute,
+        params=[
+            CookbookParam("mech_oat_max_f", "Mech-cool OAT ceiling", "°F", 45.0, 65.0, 1.0, 60.0),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=[
+            "web-outside-air-temp",
+            "compressor-status",
+            "chiller-status",
+            "chw-pump-status",
+            "dx-cool-cmd",
+        ],
+        confirm_seconds=600,
+    ),
+    CookbookRule(
+        "CHW-NOLOAD-1",
+        "Chiller running with no building load",
+        "plant",
+        ["chiller"],
+        [],
+        "Chiller/plant proven running while building load is satisfied: all mapped zones inside "
+        "comfort band OR all mapped AHU SAT within sat_band of setpoint. Default confirm 30 min.",
+        __import__("app.rules.economizer_weather", fromlist=["chw_noload1_compute"]).chw_noload1_compute,
+        params=[
+            CookbookParam("comfort_low_f", "Comfort low", "°F", 60.0, 78.0, 0.5, 70.0),
+            CookbookParam("comfort_high_f", "Comfort high", "°F", 68.0, 85.0, 0.5, 75.0),
+            CookbookParam("sat_band_f", "AHU SAT≈SP band", "°F", 0.5, 6.0, 0.5, 2.0),
+            CookbookParam("confirm_min", "Fault confirm delay", "min", 0.0, 60.0, 1.0, 30.0),
+        ],
+        optional_roles=[
+            "chiller-status",
+            "chw-pump-status",
+            "compressor-status",
+            "building-zone-load-satisfied",
+            "building-ahu-load-satisfied",
+        ],
+        confirm_seconds=1800,
+    ),
 
     # --- VAV zones ---
     CookbookRule("VAV-1", "Zone comfort band", "vav", ["vav", "zone"],
@@ -1351,6 +1424,10 @@ RULE_SUMMARY_OVERRIDES: dict[str, str] = {
     "SV-RATE": "Flags implausible sustained sensor rates of change using location- and state-aware thresholds.",
     "PID-HUNT-1": "Flags control outputs that oscillate enough to suggest loop hunting.",
     "SCHED-247": "Flags fans or pumps that stay on for nearly the entire analysis window (24/7 runtime).",
+    "ECON-3": "Flags mechanical cooling during web free-cool weather when the OA damper is not fully integrated.",
+    "ECON-6": "Flags an AHU economizing above min-OA when web outdoor air is below freezing (25°F).",
+    "MECH-OAT-1": "Flags proven DX or chiller cooling while web dry-bulb is below 60°F.",
+    "CHW-NOLOAD-1": "Flags a chiller running while mapped zones or AHU SAT show the building is satisfied.",
     "FC1": "Flags duct static too low while the supply fan is near full speed.",
     "FC2": "Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.",
     "FC3": "Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.",

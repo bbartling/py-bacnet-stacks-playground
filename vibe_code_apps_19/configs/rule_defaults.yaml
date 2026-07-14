@@ -117,6 +117,39 @@ CHW-4:
     min: 200
     step: 50
     unit: gpm
+CHW-NOLOAD-1:
+  comfort_high_f:
+    default: 75.0
+    help: Comfort high
+    label: Comfort high
+    max: 85.0
+    min: 68.0
+    step: 0.5
+    unit: "\xB0F"
+  comfort_low_f:
+    default: 70.0
+    help: Comfort low
+    label: Comfort low
+    max: 78.0
+    min: 60.0
+    step: 0.5
+    unit: "\xB0F"
+  confirm_min:
+    default: 30.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  sat_band_f:
+    default: 2.0
+    help: "AHU SAT\u2248SP band"
+    label: "AHU SAT\u2248SP band"
+    max: 6.0
+    min: 0.5
+    step: 0.5
+    unit: "\xB0F"
 CMD-1:
   confirm_min:
     default: 5.0
@@ -277,12 +310,12 @@ ECON-3:
     min: 0.0
     step: 1.0
     unit: min
-  econ3_damper:
-    default: 0.32
-    help: Damper closed frac
-    label: Damper closed frac
-    max: 0.6
-    min: 0.1
+  econ3_damper_hi:
+    default: 0.9
+    help: Integrated economizer damper
+    label: Integrated economizer damper
+    max: 1.0
+    min: 0.5
     step: 0.02
     unit: frac
   econ3_db_max:
@@ -290,15 +323,15 @@ ECON-3:
     help: Free-cool OA dry-bulb max
     label: Free-cool OA dry-bulb max
     max: 80.0
-    min: 60.0
+    min: 65.0
     step: 1.0
     unit: "\xB0F"
   econ3_db_min:
-    default: 35.0
+    default: 60.0
     help: Free-cool OA dry-bulb min
     label: Free-cool OA dry-bulb min
-    max: 45.0
-    min: 25.0
+    max: 68.0
+    min: 50.0
     step: 1.0
     unit: "\xB0F"
   econ3_dp_max:
@@ -308,22 +341,6 @@ ECON-3:
     max: 68.0
     min: 45.0
     step: 1.0
-    unit: "\xB0F"
-  econ3_oat_fallback:
-    default: 63.0
-    help: Fallback OAT cutoff
-    label: Fallback OAT cutoff
-    max: 70.0
-    min: 55.0
-    step: 1.0
-    unit: "\xB0F"
-  econ3_zone_band:
-    default: 2.0
-    help: "SAT\u2248SP band (keeping up)"
-    label: "SAT\u2248SP band (keeping up)"
-    max: 6.0
-    min: 0.5
-    step: 0.5
     unit: "\xB0F"
 ECON-4:
   confirm_min:
@@ -351,6 +368,31 @@ ECON-5:
     min: 0.0
     step: 1.0
     unit: min
+ECON-6:
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  econ6_damper_max:
+    default: 0.25
+    help: Winter min-OA damper
+    label: Winter min-OA damper
+    max: 0.5
+    min: 0.05
+    step: 0.01
+    unit: frac
+  econ6_oat_max_f:
+    default: 25.0
+    help: Winter OAT ceiling
+    label: Winter OAT ceiling
+    max: 40.0
+    min: 15.0
+    step: 1.0
+    unit: "\xB0F"
 FC1:
   confirm_min:
     default: 5.0
@@ -590,6 +632,23 @@ HP-1:
     max: 72.0
     min: 60.0
     step: 0.5
+    unit: "\xB0F"
+MECH-OAT-1:
+  confirm_min:
+    default: 5.0
+    help: Fault confirm delay
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  mech_oat_max_f:
+    default: 60.0
+    help: Mech-cool OAT ceiling
+    label: Mech-cool OAT ceiling
+    max: 65.0
+    min: 45.0
+    step: 1.0
     unit: "\xB0F"
 OA-1:
   confirm_min:

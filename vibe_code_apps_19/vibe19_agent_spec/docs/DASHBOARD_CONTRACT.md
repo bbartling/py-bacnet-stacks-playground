@@ -8,8 +8,8 @@ This Streamlit app is an **RCx + FDD review dashboard**, not a disposable demo. 
 | --- | --- |
 | RCx preset ids | `app/rcx_plots.py` → `REQUIRED_RCX_PRESET_IDS` + `PRESETS` |
 | UI sections + chart APIs | `app/dashboard_contract.py` |
-| Plots cards + FDD DOCX | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) · `app/rule_card.py` |
-| Per-rule plot / Haystack / sliders | [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) (all 50) |
+| Plots cards + Generic RCx DOCX | [`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md) · `app/rule_card.py` · `app/docx_report.py` |
+| Per-rule plot / Haystack / sliders | [`RULE_PLOT_CATALOG.md`](RULE_PLOT_CATALOG.md) (all 58) |
 | Tests | `tests/test_rcx_presets.py`, `tests/test_rule_card.py`, `tests/test_docx_report.py` |
 | UI | `streamlit_app.py`, `app/ui_rcx_tab.py` |
 | Figures | `app/charts.py` |
@@ -52,23 +52,23 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
+| Overview | Metrics, **Generic RCx DOCX download**, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, economizer weather summary, **BAS vs web OAT histogram** |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
 | Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **FDD Plots** | Auto-run device rules; catalog-parity cards; **Download FDD DOCX** (description + equation + plot stub only) |
-| **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); one chart at a time; opt-in coverage + catalog DOCX |
+| **FDD Plots** | Auto-run device rules; catalog-parity cards (charts/JSON downloads; Word on Overview) |
+| **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); one chart at a time; opt-in coverage |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
-| Export | CSV / session / health / data-model / RCx / analytics DOCX (FDD template is FDD Plots-only) |
+| Export | CSV / session / health / data-model (Word template is Overview-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 
-### FDD Plots + DOCX validation cards
+### FDD Plots + Generic RCx DOCX
 
 - FDD Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
-- Equipment FDD DOCX (`build_equipment_fdd_docx`) serves a **prebuilt** Word file from `assets/reports/fdd_*.docx` by device type (paste over dummies; no runtime generation).
-- One-click: **Download FDD DOCX** on **FDD Plots** only (not Run Rules ZIP pack).
+- Exactly one Word template: `assets/reports/Open-FDD_Generic_RCx_Report_v1.docx` via `load_generic_rcx_report` / Overview download.
+- Do **not** resurrect per-equipment FDD DOCX, family RCx DOCX packs, or Export ZIP packs.
 
 ---
 
@@ -161,7 +161,7 @@ Why the dashboard feels slow/clunky — **eager work on Streamlit reruns**, not 
 
 - [ ] `REQUIRED_RCX_PRESET_IDS ⊆ {p.id for p in PRESETS}`
 - [ ] `REQUIRED_MAIN_SECTIONS` / `REQUIRED_CHART_APIS` still match UI
-- [ ] Plots cards + `build_rule_card` + `Download FDD DOCX` / `PLACE PLOT HERE` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
+- [ ] Plots cards + `build_rule_card` + Overview Generic RCx download still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
 - [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py tests/test_rule_param_sensitivity.py`
 - [ ] param-sensitivity green (declared sliders change raw masks; no same-side tol cancel)

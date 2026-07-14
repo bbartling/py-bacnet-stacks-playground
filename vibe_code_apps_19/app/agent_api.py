@@ -16,6 +16,7 @@ import yaml
 
 from app.analytics import (
     dataset_time_span,
+    economizer_weather_summary,
     mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_weekly,
@@ -377,10 +378,18 @@ def run_analytics(
         chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
         include_ahu_chw_valve=False,
     )
+    econ = economizer_weather_summary(
+        dataset.frames,
+        dataset.role_map,
+        weather=dataset.weather,
+        damper_hi=float(p.get("econ3_damper_hi", 0.90)),
+        damper_winter_max=float(p.get("econ6_damper_max", 0.25)),
+    )
     return {
         "motor_hours": motor,
         "motor_weekly": weekly,
         "mech_cooling_oat_bins": cool,
+        "economizer_weather": econ,
     }
 
 
@@ -487,6 +496,7 @@ def export_agent_bundle(
         ("motor_hours", "motor_hours.csv"),
         ("motor_weekly", "motor_weekly.csv"),
         ("mech_cooling_oat_bins", "mech_cooling_oat_bins.csv"),
+        ("economizer_weather", "economizer_weather.csv"),
     ):
         df = analytics.get(key)
         if df is not None and isinstance(df, pd.DataFrame):

@@ -80,52 +80,11 @@ def weather_available(df: pd.DataFrame) -> bool:
     return False
 
 
-def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool) -> pd.Series:
-    """Mech cooling while free cooling is available (web OAT + dewpoint by default).
+def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool = True) -> pd.Series:
+    """Mech cooling while free cooling available without integrated OA damper (web weather)."""
+    from app.rules.economizer_weather import econ3_compute as _econ3
 
-    Free-cool window: web dry-bulb between db_min/db_max AND dewpoint < dp_max.
-    Optional: when sat / sat_sp present, also require SAT near setpoint
-    (free cooling is keeping up — no need for mechanical cooling).
-    """
-    from app.weather_psychrometrics import dewpoint_f_from_db_rh
-
-    if not {"outside-air-damper", "cooling-valve"}.issubset(d.columns):
-        return cb._false(d.index)
-    econ = cb.norm_cmd(d["outside-air-damper"]).fillna(0)
-    clg = cb.norm_cmd(d["cooling-valve"]).fillna(0)
-    damper_thr = cb._f(p, "econ3_damper", 0.32)
-    mech = (clg > 0.01) & (econ < damper_thr)
-
-    if "oa_t_effective" in d.columns and d["oa_t_effective"].notna().any():
-        oadb = d["oa_t_effective"]
-    elif "web-outside-air-temp" in d.columns and d["web-outside-air-temp"].notna().any():
-        oadb = d["web-outside-air-temp"]
-    elif "outside-air-temp" in d.columns:
-        oadb = d["outside-air-temp"]
-    else:
-        return cb._false(d.index)
-
-    dewpoint = d["web-outside-air-dewpoint"] if "web-outside-air-dewpoint" in d.columns else None
-    if (dewpoint is None or dewpoint.notna().sum() == 0) and "web-outside-air-humidity" in d.columns:
-        dewpoint = dewpoint_f_from_db_rh(oadb, d["web-outside-air-humidity"])
-
-    if (wx_ok or (dewpoint is not None and dewpoint.notna().any())) and dewpoint is not None:
-        db_min = cb._f(p, "econ3_db_min", 35.0)
-        db_max = cb._f(p, "econ3_db_max", 72.0)
-        dp_max = cb._f(p, "econ3_dp_max", 60.0)
-        econ_available = (oadb > db_min) & (oadb < db_max) & (dewpoint < dp_max)
-        raw = oadb.notna() & dewpoint.notna() & econ_available & mech
-    else:
-        oat_cut = cb._f(p, "econ3_oat_fallback", 63.0)
-        bas = d["outside-air-temp"] if "outside-air-temp" in d.columns else oadb
-        raw = bas.notna() & (bas < oat_cut) & mech
-
-    require_zone = bool(p.get("econ3_require_zone_ok", True))
-    zone_band = cb._f(p, "econ3_zone_band", 2.0)
-    if require_zone and "discharge-air-temp" in d.columns and "discharge-air-temp-sp" in d.columns:
-        raw = raw & ((d["discharge-air-temp"] - d["discharge-air-temp-sp"]).abs() <= zone_band)
-
-    return raw.fillna(False)
+    return _econ3(d, p, poll, wx_ok=wx_ok)
 
 
 def _confirm_seconds(rule: cb.CookbookRule, params: dict) -> float:
@@ -140,6 +99,34 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
     if rule.id == "OAT-METEO":
         ok, reasons = oat_meteo_availability(df)
         return [] if ok else reasons
+    if rule.id == "ECON-3":
+        from app.rules.economizer_weather import web_weather_missing_reasons
+
+        missing_wx = web_weather_missing_reasons(df)
+        base = []
+        for role in ("outside-air-damper", "cooling-valve"):
+            if role not in df.columns or df[role].notna().sum() == 0:
+                base.append(role)
+        return base + missing_wx
+    if rule.id in {"MECH-OAT-1", "ECON-6"}:
+        if "web-outside-air-temp" not in df.columns or not df["web-outside-air-temp"].notna().any():
+            return ["web-outside-air-temp"]
+        if rule.id == "ECON-6":
+            if "outside-air-damper" not in df.columns or not df["outside-air-damper"].notna().any():
+                return ["outside-air-damper"]
+        return []
+    if rule.id == "CHW-NOLOAD-1":
+        from app.load_satisfaction import AHU_SAT_COL, ZONE_SAT_COL
+        from app.rules.economizer_weather import mechanical_proof_mask
+
+        run, kind = mechanical_proof_mask(df, equipment_type="CHILLER")
+        if not kind:
+            return ["chiller_or_pump_proof"]
+        has_zone = ZONE_SAT_COL in df.columns and df[ZONE_SAT_COL].notna().any()
+        has_ahu = AHU_SAT_COL in df.columns and df[AHU_SAT_COL].notna().any()
+        if not has_zone and not has_ahu:
+            return ["building-zone-load-satisfied|building-ahu-load-satisfied"]
+        return []
     if rule.id == "SCHED-247":
         proofs = (
             "fan-status",
@@ -388,6 +375,11 @@ def run_cookbook_rule(
             raw = rule.compute(d, params, poll_seconds)
         raw = raw.reindex(d.index).fillna(False).astype(bool)
         metrics: dict[str, Any] = {**dict(gate_meta), **weather_source_metrics(d)}
+        if rule.id == "ECON-3":
+            metrics["weather_gate"] = d.attrs.get("econ3_weather_source", "")
+            metrics["weather_gate_detail"] = (
+                "web dewpoint/RH" if d.attrs.get("econ3_weather_source") in {"web_dewpoint", "web_db_rh_magnus"} else "missing"
+            )
         if rule.id in {"SV-RATE", "SV-SLEW"}:
             from app.rules.sensor_rate import RATEABLE_ROLES
 
@@ -398,10 +390,16 @@ def run_cookbook_rule(
             metrics["sensors_checked"] = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
         if rule.control_output_sweep:
             metrics["outputs_checked"] = [r for r in cb.CONTROL_OUTPUT_ROLES if r in d.columns]
-        if rule.id == "ECON-3":
-            metrics["weather_gate"] = "open-meteo dew point" if wx_ok else "imperial OAT fallback"
         if d.attrs.get("oa_t_injected_from"):
             metrics["oa_t_injected_from"] = d.attrs["oa_t_injected_from"]
+        for attr_key, metric_key in (
+            ("mech_oat1_weather_source", "weather_source"),
+            ("mech_oat1_proof", "mech_proof"),
+            ("econ6_weather_source", "weather_source"),
+            ("chw_noload_proof", "mech_proof"),
+        ):
+            if d.attrs.get(attr_key):
+                metrics[metric_key] = d.attrs[attr_key]
         use_active = bool(gate_meta.get("gate_applied"))
         return finalize_result(
             rule.id,
@@ -478,18 +476,47 @@ def run_batch(
     vav_to_ahu: dict[str, str] | None = None,
 ) -> list[RuleResult]:
     """Run all cookbook rules for each equipment in scope — no silent omission."""
+    from app.load_satisfaction import aggregate_load_satisfaction
     from app.topology_enrich import enrich_frames_with_ahu_feeds, stamp_feed_attrs
 
     # Optional topology: copy parent AHU SAT onto VAV frames as ahu_sat
+    rm: dict = {}
+    for eq_id, raw_df in equipment_frames.items():
+        block = (raw_df.attrs.get("_role_map") or {}).get(eq_id)
+        if isinstance(block, dict):
+            rm[eq_id] = block
+        # Also accept flat attrs role_map
+        if not block and isinstance(raw_df.attrs.get("_role_map"), dict):
+            rm.update({k: v for k, v in raw_df.attrs["_role_map"].items() if isinstance(v, dict)})
+
     if vav_to_ahu:
         stamp_feed_attrs(equipment_frames, vav_to_ahu)
-        # Collect role maps from attrs if present
-        rm: dict = {}
-        for eq_id, raw_df in equipment_frames.items():
-            block = (raw_df.attrs.get("_role_map") or {}).get(eq_id)
-            if isinstance(block, dict):
-                rm[eq_id] = block
         enrich_frames_with_ahu_feeds(equipment_frames, vav_to_ahu, role_map=rm)
+
+    # Comfort band from CHW-NOLOAD / VAV-1 params when present
+    comfort_lo = 70.0
+    comfort_hi = 75.0
+    sat_band = 2.0
+    pbr = params_by_rule or {}
+    for rid in ("CHW-NOLOAD-1", "VAV-1", "SCHED-1"):
+        block = pbr.get(rid) or {}
+        if "comfort_low_f" in block:
+            comfort_lo = float(block["comfort_low_f"])
+        if "comfort_high_f" in block:
+            comfort_hi = float(block["comfort_high_f"])
+        if "zone_lo" in block:
+            comfort_lo = float(block["zone_lo"])
+        if "zone_hi" in block:
+            comfort_hi = float(block["zone_hi"])
+        if "sat_band_f" in block:
+            sat_band = float(block["sat_band_f"])
+    aggregate_load_satisfaction(
+        equipment_frames,
+        rm,
+        comfort_low_f=comfort_lo,
+        comfort_high_f=comfort_hi,
+        sat_band_f=sat_band,
+    )
 
     results: list[RuleResult] = []
     for eq_id, raw_df in sorted(equipment_frames.items()):

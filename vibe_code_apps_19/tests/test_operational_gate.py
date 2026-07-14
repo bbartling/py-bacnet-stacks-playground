@@ -9,7 +9,7 @@ from app.rules.operational_gate import RULE_GATES, resolve_fan_running, resolve_
 
 
 def test_all_canonical_rules_have_gate_spec():
-    assert len(RULE_GATES) == 55
+    assert len(RULE_GATES) == 58
     for r in CANONICAL_RULES:
         assert r.id in RULE_GATES, r.id
 
@@ -115,7 +115,17 @@ def test_plant_sv_uses_pump_when_no_fan():
 
 def test_mechanical_rules_not_always_except_known():
     """FDD equations must be fan- or pump-gated except intentional ALWAYS rules."""
-    always_ok = {"SV-STALE", "SV-RATE", "OAT-METEO", "WX-1", "SCHED-1", "SCHED-247", "CMD-1"}
+    always_ok = {
+        "SV-STALE",
+        "SV-RATE",
+        "OAT-METEO",
+        "WX-1",
+        "SCHED-1",
+        "SCHED-247",
+        "CMD-1",
+        "MECH-OAT-1",
+        "CHW-NOLOAD-1",
+    }
     for r in CANONICAL_RULES:
         kind = RULE_GATES[r.id].kind
         if r.id in always_ok:

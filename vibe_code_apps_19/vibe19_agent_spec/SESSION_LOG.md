@@ -8,6 +8,16 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-14 — Weather economizer rules + Generic RCx report
+
+- **ECON-3** strict web DB/DP band (60–72°F, DP&lt;60°F) + integrated damper (default 90%); no BAS fallback
+- New rules: **MECH-OAT-1**, **CHW-NOLOAD-1** (30 min confirm + load-satisfaction injection), **ECON-6**
+- Overview analytics: `economizer_weather_summary` (opportunity / compliance / prohibited / winter hours)
+- Reports: single `Open-FDD_Generic_RCx_Report_v1.docx` on Overview; removed multi-template pack
+- Canonical catalog **58** rules; analytics goldens refreshed for economizer + rule digest
+
+---
+
 ## 2026-07-13 — SV-RATE review fixes (widgets, units, perf)
 
 - Dueling SV-RATE sidebar vs Run Rules widgets; metric °F/°C round-trip; role-mapped profile peek

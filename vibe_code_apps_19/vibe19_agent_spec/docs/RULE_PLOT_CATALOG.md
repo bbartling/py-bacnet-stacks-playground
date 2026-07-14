@@ -1,4 +1,4 @@
-# Rule plot catalog (all 55)
+# Rule plot catalog (all 58)
 
 **Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.
 
@@ -29,9 +29,9 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 | --- | ---: | --- |
 | 1 · Sensor validation | 5 | `SV-RANGE`, `SV-FLATLINE`, `SV-SPIKE`, `SV-STALE`, `SV-RATE` |
 | 2 · Control loops | 1 | `PID-HUNT-1` |
-| 3 · AHU / air handling | 28 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
+| 3 · AHU / air handling | 30 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `ECON-6`, `MECH-OAT-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
 | 4 · VAV / terminal | 7 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-AHU-LEAVE`, `VAV-7` |
-| 5 · Central plant | 7 | `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1`, `CW-APR-1`, `CW-FAN-1` |
+| 5 · Central plant | 8 | `CHW-NOLOAD-1`, `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1`, `CW-APR-1`, `CW-FAN-1` |
 | 6 · Heat pump | 1 | `HP-1` |
 | 7 · Weather / OAT | 1 | `WX-1` |
 | 8 · Trim & respond | 3 | `TRIM-1`, `TRIM-3`, `TRIM-4` |
@@ -209,7 +209,7 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 | `max_gap_hours` | Max sample gap | h | 2 | 0.25 | 6 | 0.25 |
 | `design_flow` | Design flow (flow profiles) | cfm | 0 | 0 | 100000 | 100 |
 | `sensor_span` | Sensor span (flow/pressure) | eng | 0 | 0 | 100000 | 10 |
-| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1120,11 +1120,11 @@ Needs OA damper / MAT / OAT roles (`oa_damper_pct` e.g. mad_c).
 
 Needs OA damper / MAT / OAT roles.
 
-### `ECON-3` — Mech cooling when econ available
+### `ECON-3` — Mech cooling without integrated economizer
 
-**Summary:** Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); fault when cooling valve open with OA damper closed.
+**Summary:** Flags mechanical cooling during web free-cool weather when the OA damper is not fully integrated.
 
-**Equation:** Free cooling available when web dry-bulb is 35–72°F AND dewpoint < 60°F (RH→dewpoint if needed); fault when cooling valve open with OA damper closed. Optional SAT≈SP means free cooling is keeping up.
+**Equation:** Web free-cooling opportunity: 60°F ≤ dry-bulb < 72°F AND dewpoint < 60°F (dewpoint from web sensor or calculated from web DB+RH). Fault when cooling valve is open while OA damper is below the integrated-economizer threshold (default 90%). No BAS OAT fallback. Screenable engineering defaults — not code limits.
 
 | Field | Value |
 | --- | --- |
@@ -1140,23 +1140,27 @@ Needs OA damper / MAT / OAT roles.
 | --- | --- | --- |
 | `outside-air-damper` | `outside-air-damper` | required |
 | `cooling-valve` | `cooling-valve` | required |
+| `web-outside-air-temp` | `web-outside-air-temp` | optional |
+| `web-outside-air-dewpoint` | `web-outside-air-dewpoint` | optional |
+| `web-outside-air-humidity` | `web-outside-air-humidity` | optional |
 
 #### Plot series
 
 - `outside-air-damper` → `outside-air-damper`
 - `cooling-valve` → `cooling-valve`
+- `web-outside-air-temp` → `web-outside-air-temp`
+- `web-outside-air-dewpoint` → `web-outside-air-dewpoint`
+- `web-outside-air-humidity` → `web-outside-air-humidity`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `econ3_db_min` | Free-cool OA dry-bulb min | °F | 35 | 25 | 45 | 1 |
-| `econ3_db_max` | Free-cool OA dry-bulb max | °F | 72 | 60 | 80 | 1 |
+| `econ3_db_min` | Free-cool OA dry-bulb min | °F | 60 | 50 | 68 | 1 |
+| `econ3_db_max` | Free-cool OA dry-bulb max | °F | 72 | 65 | 80 | 1 |
 | `econ3_dp_max` | Free-cool OA dew point max | °F | 60 | 45 | 68 | 1 |
-| `econ3_oat_fallback` | Fallback OAT cutoff | °F | 63 | 55 | 70 | 1 |
-| `econ3_damper` | Damper closed frac | frac | 0.32 | 0.1 | 0.6 | 0.02 |
-| `econ3_zone_band` | SAT≈SP band (keeping up) | °F | 2 | 0.5 | 6 | 0.5 |
+| `econ3_damper_hi` | Integrated economizer damper | frac | 0.9 | 0.5 | 1 | 0.02 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -1245,6 +1249,89 @@ Needs OA damper / MAT / OAT roles.
 #### Analytics / related views
 
 Needs heat/preheat roles.
+
+### `ECON-6` — Economizing in freezing weather
+
+**Summary:** Flags an AHU economizing above min-OA when web outdoor air is below freezing (25°F).
+
+**Equation:** Web dry-bulb < 25°F AND OA damper above winter min-OA ceiling (default 25%). AHU should be at minimum OA in cold weather.
+
+| Field | Value |
+| --- | --- |
+| Family | `ahu` |
+| Equipment kinds | `ahu` |
+| Operational gate | `fan_running (startup 600s)` |
+| Default confirm | 600s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `web-outside-air-temp` | `web-outside-air-temp` | optional |
+
+#### Plot series
+
+- `outside-air-damper` → `outside-air-damper`
+- `web-outside-air-temp` → `web-outside-air-temp`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `econ6_oat_max_f` | Winter OAT ceiling | °F | 25 | 15 | 40 | 1 |
+| `econ6_damper_max` | Winter min-OA damper | frac | 0.25 | 0.05 | 0.5 | 0.01 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+
+### `MECH-OAT-1` — Mechanical cooling below 60°F web OAT
+
+**Summary:** Flags proven DX or chiller cooling while web dry-bulb is below 60°F.
+
+**Equation:** Proven DX/chiller mechanical cooling while web dry-bulb < 60°F. Uses compressor/chiller/pump/amps/power proof — not AHU cooling-valve alone. Below 60°F is outside the free-cool + integrated economizer band.
+
+| Field | Value |
+| --- | --- |
+| Family | `ahu` |
+| Equipment kinds | `ahu`, `chiller`, `heatpump` |
+| Operational gate | `always` |
+| Default confirm | 600s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `web-outside-air-temp` | `web-outside-air-temp` | optional |
+| `compressor-status` | `compressor-status` | optional |
+| `chiller-status` | `chiller-status` | optional |
+| `chw-pump-status` | `chw-pump-status` | optional |
+| `dx-cool-cmd` | `dx-cool-cmd` | optional |
+
+#### Plot series
+
+- `web-outside-air-temp` → `web-outside-air-temp`
+- `compressor-status` → `compressor-status`
+- `chiller-status` → `chiller-status`
+- `chw-pump-status` → `chw-pump-status`
+- `dx-cool-cmd` → `dx-cool-cmd`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `mech_oat_max_f` | Mech-cool OAT ceiling | °F | 60 | 45 | 65 | 1 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `CMD-1` — Fan cmd/status mismatch
 
@@ -1693,6 +1780,52 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 ---
 
 ## 5 · Central plant
+
+### `CHW-NOLOAD-1` — Chiller running with no building load
+
+**Summary:** Flags a chiller running while mapped zones or AHU SAT show the building is satisfied.
+
+**Equation:** Chiller/plant proven running while building load is satisfied: all mapped zones inside comfort band OR all mapped AHU SAT within sat_band of setpoint. Default confirm 30 min.
+
+| Field | Value |
+| --- | --- |
+| Family | `plant` |
+| Equipment kinds | `chiller` |
+| Operational gate | `always` |
+| Default confirm | 1800s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `chiller-status` | `chiller-status` | optional |
+| `chw-pump-status` | `chw-pump-status` | optional |
+| `compressor-status` | `compressor-status` | optional |
+| `building-zone-load-satisfied` | `building-zone-load-satisfied` | optional |
+| `building-ahu-load-satisfied` | `building-ahu-load-satisfied` | optional |
+
+#### Plot series
+
+- `chiller-status` → `chiller-status`
+- `chw-pump-status` → `chw-pump-status`
+- `compressor-status` → `compressor-status`
+- `building-zone-load-satisfied` → `building-zone-load-satisfied`
+- `building-ahu-load-satisfied` → `building-ahu-load-satisfied`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `comfort_low_f` | Comfort low | °F | 70 | 60 | 78 | 0.5 |
+| `comfort_high_f` | Comfort high | °F | 75 | 68 | 85 | 0.5 |
+| `sat_band_f` | AHU SAT≈SP band | °F | 2 | 0.5 | 6 | 0.5 |
+| `confirm_min` | Fault confirm delay | min | 30 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
 
 ### `CHW-1` — Low chilled-water ΔT
 
@@ -2277,7 +2410,7 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `always_on_pct` | Always-on fraction | frac | 0.95 | 0.8 | 1 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 60 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
 

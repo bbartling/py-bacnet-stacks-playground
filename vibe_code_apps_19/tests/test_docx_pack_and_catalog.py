@@ -8,8 +8,8 @@ import zipfile
 import pandas as pd
 
 from app.charts import bas_vs_web_oat_histogram
-from app.docx_report import PLACE_PLOT_HERE, build_equipment_fdd_docx
-from app.rule_card import build_rule_card
+from app.docx_report import load_generic_rcx_report
+from app.rule_card import PLACE_PLOT_HERE, build_rule_card
 from app.rules.cookbook_catalog import RULES, RULES_BY_ID
 from app.rcx_plots import pump_mode_summary_bundle
 from app.analytics import plant_gated_summary_tables
@@ -38,15 +38,13 @@ def test_rule_card_uses_summary_not_equation_as_description():
     assert card.equation == rule.equation
 
 
-def test_equipment_fdd_docx_is_simple_template():
-    blob = build_equipment_fdd_docx(equipment_type="AHU")
+def test_generic_rcx_report_committed():
+    blob = load_generic_rcx_report()
     assert blob[:2] == b"PK"
     with zipfile.ZipFile(io.BytesIO(blob)) as zf:
         assert "word/document.xml" in zf.namelist()
-        xml = zf.read("word/document.xml").decode("utf-8")
-    # Dummy FDD shells keep these markers; engineer paste-overs may differ.
-    assert "KEY FINDINGS" in xml or "FDD" in xml or "AHU" in xml
-    assert "PLACE PLOT HERE" in xml or PLACE_PLOT_HERE in xml or "plot" in xml.lower()
+    # Placeholder constant remains available for FDD validation cards / docs.
+    assert "PLACE" in PLACE_PLOT_HERE
 
 
 def test_bas_vs_web_oat_histogram():

@@ -1089,3 +1089,125 @@ def plant_gated_summary_tables(
             equipment_types=("BOILER", "HW_PLANT", "AHU"),
         )
     return fan_tables, pump_tables, fan_cap, pump_cap
+
+
+def _mask_hours_from_index(mask: pd.Series) -> float:
+    """Accumulate hours under a boolean mask using actual timestamp deltas."""
+    if mask is None or len(mask) == 0:
+        return 0.0
+    idx = mask.index
+    if not isinstance(idx, pd.DatetimeIndex):
+        return 0.0
+    m = mask.reindex(idx).fillna(False).astype(bool)
+    if len(idx) == 1:
+        return 0.0
+    # Duration for sample i is time until next sample; last uses median delta.
+    deltas_h = idx.to_series().diff().dt.total_seconds().shift(-1) / 3600.0
+    med = float(deltas_h.dropna().median()) if deltas_h.notna().any() else 0.0
+    if not np.isfinite(med) or med < 0:
+        med = 0.0
+    deltas_h = deltas_h.fillna(med).clip(lower=0.0)
+    return float((m.astype(float) * deltas_h).sum())
+
+
+def economizer_weather_summary(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    damper_hi: float = 0.90,
+    damper_winter_max: float = 0.25,
+    db_min: float = 60.0,
+    db_max: float = 72.0,
+    dp_max: float = 60.0,
+    cold_oat_f: float = 60.0,
+    freeze_oat_f: float = 25.0,
+) -> pd.DataFrame:
+    """Per-equipment economizer opportunity / compliance / prohibited-cooling hours.
+
+    Uses strict web dry-bulb + dewpoint (or Magnus from web RH) and actual timestamp
+    deltas — never fixed-interval assumptions and never BAS OAT fallback.
+    """
+    from app.rules.cookbook_catalog import norm_cmd
+    from app.rules.economizer_weather import (
+        free_cool_opportunity_mask,
+        mechanical_proof_mask,
+        resolve_web_drybulb_dewpoint,
+    )
+    from app.rules.runner import merge_weather
+
+    rows: list[dict[str, Any]] = []
+    for eq_id, raw in frames.items():
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        if et not in {"AHU", "RTU", "CHILLER", "CHW_PLANT", "HEATPUMP", "HP"}:
+            continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        mapped = merge_weather(mapped, weather)
+        db, dp, wx_src = resolve_web_drybulb_dewpoint(mapped)
+        weather_ok = db is not None and dp is not None
+        n = len(mapped)
+        coverage = 0.0
+        if weather_ok and n:
+            coverage = float((db.notna() & dp.notna()).sum() / n)
+
+        opp = (
+            free_cool_opportunity_mask(db, dp, db_min=db_min, db_max=db_max, dp_max=dp_max)
+            if weather_ok
+            else pd.Series(False, index=mapped.index)
+        )
+        damper = None
+        if "outside-air-damper" in mapped.columns:
+            damper = norm_cmd(mapped["outside-air-damper"]).fillna(0)
+        clg = None
+        if "cooling-valve" in mapped.columns:
+            clg = norm_cmd(mapped["cooling-valve"]).fillna(0)
+
+        integrated_ok = pd.Series(False, index=mapped.index)
+        integrated_bad = pd.Series(False, index=mapped.index)
+        if damper is not None and clg is not None:
+            mech_valve = clg > 0.01
+            integrated_ok = opp & mech_valve & (damper >= float(damper_hi))
+            integrated_bad = opp & mech_valve & (damper < float(damper_hi))
+
+        run, proof = mechanical_proof_mask(mapped, equipment_type=et, equipment_id=eq_id)
+        cold = (
+            (db.notna() & (db < float(cold_oat_f)))
+            if db is not None
+            else pd.Series(False, index=mapped.index)
+        )
+        prohibited = cold & run if proof else pd.Series(False, index=mapped.index)
+
+        winter = pd.Series(False, index=mapped.index)
+        if damper is not None and db is not None:
+            winter = db.notna() & (db < float(freeze_oat_f)) & (damper > float(damper_winter_max))
+
+        rows.append(
+            {
+                "equipment_id": eq_id,
+                "equipment_type": et,
+                "weather_source": wx_src,
+                "proof_source": proof or "",
+                "weather_coverage": round(coverage, 4),
+                "opportunity_hours": round(_mask_hours_from_index(opp), 3),
+                "integrated_compliant_hours": round(_mask_hours_from_index(integrated_ok), 3),
+                "integrated_noncompliant_hours": round(_mask_hours_from_index(integrated_bad), 3),
+                "prohibited_mech_hours_below_60f": round(_mask_hours_from_index(prohibited), 3),
+                "winter_economizing_hours_below_25f": round(_mask_hours_from_index(winter), 3),
+            }
+        )
+
+    cols = [
+        "equipment_id",
+        "equipment_type",
+        "weather_source",
+        "proof_source",
+        "weather_coverage",
+        "opportunity_hours",
+        "integrated_compliant_hours",
+        "integrated_noncompliant_hours",
+        "prohibited_mech_hours_below_60f",
+        "winter_economizing_hours_below_25f",
+    ]
+    if not rows:
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(rows).sort_values(["equipment_type", "equipment_id"]).reset_index(drop=True)

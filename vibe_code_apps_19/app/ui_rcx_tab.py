@@ -126,8 +126,7 @@ def render_rcx_plots_tab(
     st.caption(
         "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Heat pump / Metering / Weather), "
         "then one preset when charts exist for that family. "
-        "The **Word template for this family is the primary download**; "
-        "universal finding + portfolio sheets are secondary. Full ZIP pack is on **Export**."
+        "Word report: download the Generic RCx template from **Overview**."
     )
 
     schedule = (
@@ -138,7 +137,6 @@ def render_rcx_plots_tab(
     outlier_z = st.slider("Outlier z-score (mean vs cohort)", 1.5, 4.0, 2.5, 0.1, key="rcx_z")
 
     from app.docx_report import rcx_families
-    from app.report_downloads import render_rcx_family_downloads
 
     # --- Family → preset (AHU list never includes chiller/boiler) ---
     family = st.selectbox(
@@ -146,10 +144,8 @@ def render_rcx_plots_tab(
         list(rcx_families()),
         key="rcx_family",
         help="Scopes the plot list so plant reset charts are not mixed under AHU. "
-        "Heat pump / Weather are template-first (charts may be empty until presets exist).",
+        "Heat pump / Weather may have empty charts until presets exist.",
     )
-
-    render_rcx_family_downloads(family, key_prefix="rcx_tab")
 
     # --- Lazy coverage (was scanning every preset × every equipment on each run) ---
     show_cov = st.checkbox(

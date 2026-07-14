@@ -39,6 +39,7 @@ GOLDEN_TABLE_NAMES: tuple[str, ...] = (
     "motor_hours",
     "motor_weekly",
     "mech_cooling_oat_bins",
+    "economizer_weather",
     "rcx_preset_coverage",
     "rcx_preset_digests",
     "rule_digest",
@@ -333,6 +334,7 @@ def compute_analytics_bundle(
     tables["motor_hours"] = analytics.get("motor_hours", pd.DataFrame())
     tables["motor_weekly"] = analytics.get("motor_weekly", pd.DataFrame())
     tables["mech_cooling_oat_bins"] = analytics.get("mech_cooling_oat_bins", pd.DataFrame())
+    tables["economizer_weather"] = analytics.get("economizer_weather", pd.DataFrame())
 
     t0 = time.perf_counter()
     tables["rcx_preset_coverage"] = run_rcx_coverage(dataset)

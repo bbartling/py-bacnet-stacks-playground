@@ -247,9 +247,60 @@ def test_all_rules_have_confirm_min():
         keys = {p.key for p in r.params}
         assert "confirm_min" in keys, r.id
         conf = next(p for p in r.params if p.key == "confirm_min")
-        assert conf.default == 5.0, r.id
+        # CHW-NOLOAD-1 intentionally defaults to 30 minutes persistence
+        expected = 30.0 if r.id == "CHW-NOLOAD-1" else 5.0
+        assert conf.default == expected, r.id
         assert conf.min == 0.0, r.id
         assert conf.max == 60.0, r.id
+
+
+def test_economizer_weather_summary_irregular_timestamps():
+    from app.analytics import economizer_weather_summary
+
+    # Irregular spacing: 5min then 10min then 5min…
+    idx = pd.to_datetime(
+        [
+            "2024-06-01T00:00:00Z",
+            "2024-06-01T00:05:00Z",
+            "2024-06-01T00:15:00Z",
+            "2024-06-01T00:20:00Z",
+            "2024-06-01T00:30:00Z",
+            "2024-06-01T00:35:00Z",
+        ],
+        utc=True,
+    )
+    ahu = pd.DataFrame(
+        {
+            "web-outside-air-temp": [65.0] * 6,
+            "web-outside-air-dewpoint": [50.0] * 6,
+            "outside-air-damper": [20.0, 20.0, 95.0, 95.0, 40.0, 40.0],
+            "cooling-valve": [50.0] * 6,
+            "compressor-status": [0, 0, 0, 0, 1, 1],
+        },
+        index=idx,
+    )
+    ahu.attrs["equipment_type"] = "AHU"
+    # Midwinter sample for ECON-6 style hours — second frame colder
+    cold = ahu.copy()
+    cold["web-outside-air-temp"] = [20.0] * 6
+    cold["compressor-status"] = [0] * 6
+    cold.attrs["equipment_id"] = "AHU_COLD"
+    cold.attrs["equipment_type"] = "AHU"
+    ahu.attrs["equipment_id"] = "AHU_1"
+    frames = {"AHU_1": ahu, "AHU_COLD": cold}
+    role_map = {
+        "AHU_1": {"equipment_type": "AHU"},
+        "AHU_COLD": {"equipment_type": "AHU"},
+    }
+    out = economizer_weather_summary(frames, role_map)
+    assert not out.empty
+    row = out.loc[out["equipment_id"] == "AHU_1"].iloc[0]
+    assert row["opportunity_hours"] > 0
+    assert row["integrated_noncompliant_hours"] > 0
+    assert row["integrated_compliant_hours"] > 0
+    cold_row = out.loc[out["equipment_id"] == "AHU_COLD"].iloc[0]
+    assert cold_row["winter_economizing_hours_below_25f"] > 0
+    assert cold_row["prohibited_mech_hours_below_60f"] == 0.0
 
 
 def test_resolve_equipment_type_priority_and_aliases():
