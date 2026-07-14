@@ -9,9 +9,11 @@ import pandas as pd
 from app.rules import cookbook_catalog as cb
 from app.rules.base import (
     RuleResult,
+    confirm_fault,
     equipment_off,
     error_result,
     finalize_result,
+    hours_true,
     not_applicable,
     params_fingerprint,
     skipped,
@@ -148,10 +150,12 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
             "fan-cmd",
             "chw-pump-cmd",
             "hw-pump-cmd",
+            "duct-static-pressure",
+            "chw-diff-pressure",
         )
         if any(r in df.columns and df[r].notna().any() for r in proofs):
             return []
-        return ["fan_or_pump_status_or_cmd"]
+        return ["fan_or_pump_status_or_cmd_or_pressure"]
     if rule.sensor_sweep:
         present = [r for r in cb.SWEEP_SENSOR_ROLES if r in df.columns and df[r].notna().any()]
         return [] if present else ["any sensor role from sweep list"]
@@ -390,6 +394,7 @@ def run_cookbook_rule(
             raw = rule.compute(d, params, poll_seconds)
         raw = raw.reindex(d.index).fillna(False).astype(bool)
         metrics: dict[str, Any] = {**dict(gate_meta), **weather_source_metrics(d)}
+        use_active = bool(gate_meta.get("gate_applied"))
         if rule.id == "ECON-3":
             metrics["weather_gate"] = d.attrs.get("econ3_weather_source", "")
             metrics["weather_gate_detail"] = (
@@ -403,6 +408,37 @@ def run_cookbook_rule(
             metrics["sv_rate_state_meta"] = dict(d.attrs.get("sv_rate_state_meta") or {})
         elif rule.sensor_sweep:
             metrics["sensors_checked"] = [r for r in cb.SWEEP_SENSOR_ROLES if r in d.columns]
+            # Confirm each per-role raw mask so UI itemization matches confirmed faults
+            raw_masks = d.attrs.get("sv_sweep_masks") or {}
+            active_for_roles = active if use_active else None
+            confirmed_evidence = []
+            role_confirmed: dict[str, pd.Series] = {}
+            for role, role_raw in raw_masks.items():
+                rr = role_raw.reindex(d.index).fillna(False).astype(bool)
+                if active_for_roles is not None:
+                    rr = rr & active_for_roles.reindex(d.index).fillna(False).astype(bool)
+                role_conf = confirm_fault(rr, poll_seconds=poll_seconds, confirm_seconds=confirm_s)
+                role_confirmed[role] = role_conf
+                n_fault = int(role_conf.sum())
+                first_ts = last_ts = None
+                if n_fault and isinstance(role_conf.index, pd.DatetimeIndex):
+                    idx = role_conf.index[role_conf]
+                    first_ts, last_ts = str(idx[0]), str(idx[-1])
+                confirmed_evidence.append(
+                    {
+                        "role": role,
+                        "sensor_type": cb.sensor_type_for_role(role),
+                        "fault_samples": n_fault,
+                        "fault_hours": round(hours_true(role_conf, poll_seconds), 3) if n_fault else 0.0,
+                        "first_fault_timestamp": first_ts,
+                        "last_fault_timestamp": last_ts,
+                        "faulted": n_fault > 0,
+                    }
+                )
+            metrics["sv_sweep_evidence"] = confirmed_evidence
+            metrics["sv_sweep_confirmed_roles"] = {
+                role: role_confirmed[role].astype(int) for role in role_confirmed
+            }
         if rule.control_output_sweep:
             metrics["outputs_checked"] = [r for r in cb.CONTROL_OUTPUT_ROLES if r in d.columns]
         if d.attrs.get("oa_t_injected_from"):
@@ -415,7 +451,6 @@ def run_cookbook_rule(
         ):
             if d.attrs.get(attr_key):
                 metrics[metric_key] = d.attrs[attr_key]
-        use_active = bool(gate_meta.get("gate_applied"))
         return finalize_result(
             rule.id,
             equipment_id,

@@ -992,6 +992,20 @@ def mech_cooling_oat_bins(
     return out.reset_index(drop=True)
 
 
+def sensor_type_for_role(role: str) -> str:
+    """HVAC quantity bucket — local copy so analytics does not import cookbook at module load."""
+    r = (role or "").lower()
+    if "humid" in r:
+        return "Humidity"
+    if "pressure" in r or "static" in r or r.endswith("-dp"):
+        return "Pressure"
+    if "flow" in r or "cfm" in r or "gpm" in r:
+        return "Flow"
+    if "temp" in r or "wetbulb" in r or "dewpoint" in r:
+        return "Temperature"
+    return "Other"
+
+
 def sensor_fault_summary(
     df: pd.DataFrame,
     results: list,
@@ -999,63 +1013,178 @@ def sensor_fault_summary(
     equipment_id: str,
     poll_seconds: float = 300.0,
 ) -> pd.DataFrame:
-    """Summary statistics for sensors involved in FAULT sensor-validation results."""
+    """Per-sensor summary for sensor-validation rules (including SV-RATE).
+
+    Uses per-role confirmed masks / evidence so healthy sensors do not inherit
+    another sensor's fault window.
+    """
+    del poll_seconds  # hours come from evidence / confirmed role masks
     rows: list[dict] = []
-    sensor_rules = {"SV-RANGE", "SV-FLATLINE", "SV-SPIKE", "SV-STALE"}
+    sweep_rules = {"SV-RANGE", "SV-FLATLINE", "SV-SPIKE", "SV-STALE"}
     for r in results:
         if getattr(r, "equipment_id", None) != equipment_id:
             continue
-        if r.rule_id not in sensor_rules or r.status != "FAULT":
-            continue
+        rid = getattr(r, "rule_id", "")
+        metrics = getattr(r, "metrics", None) or {}
         series_map = getattr(r, "plot_series", None) or {}
-        fault = getattr(r, "confirmed_fault", None)
-        for name, s in series_map.items():
-            num = pd.to_numeric(s, errors="coerce")
-            if num.notna().sum() == 0:
+
+        if rid in sweep_rules:
+            evidence = list(metrics.get("sv_sweep_evidence") or [])
+            role_masks = metrics.get("sv_sweep_confirmed_roles") or {}
+            # Prefer evidence (even PASS); fall back to plot_series only for FAULT legacy
+            if evidence:
+                for ev in evidence:
+                    if not ev.get("faulted") and getattr(r, "status", "") != "FAULT":
+                        # Still list checked sensors with 0 hours when rule FAULTed for others
+                        pass
+                    role = str(ev.get("role") or "")
+                    if not role:
+                        continue
+                    if not ev.get("faulted"):
+                        continue  # only sensors that actually fired
+                    num = pd.to_numeric(series_map.get(role, pd.Series(dtype=float)), errors="coerce")
+                    mask = role_masks.get(role)
+                    if isinstance(mask, pd.Series):
+                        m = mask.reindex(num.index).fillna(0).astype(bool) if len(num) else mask.fillna(False).astype(bool)
+                    else:
+                        m = None
+                    fault_vals = num[m] if m is not None and len(num) and m.any() else num.iloc[0:0]
+                    rows.append(
+                        {
+                            "equipment_id": equipment_id,
+                            "rule_id": rid,
+                            "sensor": role,
+                            "sensor_type": ev.get("sensor_type") or sensor_type_for_role(role),
+                            "fault_hours": ev.get("fault_hours"),
+                            "n": int(num.notna().sum()) if len(num) else 0,
+                            "n_fault_samples": int(ev.get("fault_samples") or 0),
+                            "mean": round(float(num.mean()), 3) if num.notna().any() else None,
+                            "std": round(float(num.std(ddof=0)), 3) if num.notna().sum() > 1 else 0.0,
+                            "min": round(float(num.min()), 3) if num.notna().any() else None,
+                            "p50": round(float(num.quantile(0.5)), 3) if num.notna().any() else None,
+                            "max": round(float(num.max()), 3) if num.notna().any() else None,
+                            "fault_mean": round(float(fault_vals.mean()), 3) if len(fault_vals) and fault_vals.notna().any() else None,
+                            "fault_min": round(float(fault_vals.min()), 3) if len(fault_vals) and fault_vals.notna().any() else None,
+                            "fault_max": round(float(fault_vals.max()), 3) if len(fault_vals) and fault_vals.notna().any() else None,
+                            "first_fault_timestamp": ev.get("first_fault_timestamp"),
+                            "last_fault_timestamp": ev.get("last_fault_timestamp"),
+                        }
+                    )
+            elif getattr(r, "status", "") == "FAULT":
+                # Legacy fallback (no evidence) — do not invent per-sensor guilt
                 continue
-            fault_vals = num
-            if fault is not None:
-                mask = fault.reindex(num.index).fillna(False).astype(bool)
-                if mask.any():
-                    fault_vals = num[mask]
-            rows.append(
-                {
-                    "equipment_id": equipment_id,
-                    "rule_id": r.rule_id,
-                    "sensor": name,
-                    "fault_hours": getattr(r, "fault_hours", None),
-                    "n": int(num.notna().sum()),
-                    "n_fault_samples": int(fault_vals.notna().sum()) if fault is not None else None,
-                    "mean": round(float(num.mean()), 3),
-                    "std": round(float(num.std(ddof=0)), 3) if num.notna().sum() > 1 else 0.0,
-                    "min": round(float(num.min()), 3),
-                    "p50": round(float(num.quantile(0.5)), 3),
-                    "max": round(float(num.max()), 3),
-                    "fault_mean": round(float(fault_vals.mean()), 3) if fault_vals.notna().any() else None,
-                    "fault_min": round(float(fault_vals.min()), 3) if fault_vals.notna().any() else None,
-                    "fault_max": round(float(fault_vals.max()), 3) if fault_vals.notna().any() else None,
-                }
-            )
+        elif rid in {"SV-RATE", "SV-SLEW"}:
+            for ev in list(metrics.get("sv_rate_evidence") or []):
+                role = str(ev.get("role") or "")
+                if not role:
+                    continue
+                viol_min = float(ev.get("violation_minutes") or 0.0)
+                fault_h = float(ev.get("fault_hours_raw") or (viol_min / 60.0) or 0.0)
+                if fault_h <= 0 and int(ev.get("violation_count") or 0) <= 0:
+                    continue
+                rows.append(
+                    {
+                        "equipment_id": equipment_id,
+                        "rule_id": "SV-RATE",
+                        "sensor": role,
+                        "sensor_type": sensor_type_for_role(role),
+                        "fault_hours": round(fault_h, 3),
+                        "n": int(ev.get("sample_count") or 0),
+                        "n_fault_samples": int(ev.get("violation_count") or 0),
+                        "mean": None,
+                        "std": None,
+                        "min": None,
+                        "p50": None,
+                        "max": round(float(ev["maximum_rate"]), 3) if ev.get("maximum_rate") is not None else None,
+                        "fault_mean": None,
+                        "fault_min": None,
+                        "fault_max": None,
+                        "first_fault_timestamp": ev.get("first_violation_timestamp"),
+                        "last_fault_timestamp": ev.get("last_violation_timestamp"),
+                        "diagnostic": ev.get("diagnostic_message"),
+                    }
+                )
+
+    cols = [
+        "equipment_id",
+        "rule_id",
+        "sensor",
+        "sensor_type",
+        "fault_hours",
+        "n",
+        "n_fault_samples",
+        "mean",
+        "std",
+        "min",
+        "p50",
+        "max",
+        "fault_mean",
+        "fault_min",
+        "fault_max",
+        "first_fault_timestamp",
+        "last_fault_timestamp",
+    ]
     if not rows:
-        return pd.DataFrame(
-            columns=[
-                "equipment_id",
-                "rule_id",
-                "sensor",
-                "fault_hours",
-                "n",
-                "n_fault_samples",
-                "mean",
-                "std",
-                "min",
-                "p50",
-                "max",
-                "fault_mean",
-                "fault_min",
-                "fault_max",
-            ]
-        )
-    return pd.DataFrame(rows)
+        return pd.DataFrame(columns=cols)
+    out = pd.DataFrame(rows)
+    for c in cols:
+        if c not in out.columns:
+            out[c] = None
+    return out[cols].sort_values(["sensor_type", "sensor", "rule_id"]).reset_index(drop=True)
+
+
+def sensor_health_matrix(
+    df: pd.DataFrame,
+    results: list,
+    *,
+    equipment_id: str,
+) -> pd.DataFrame:
+    """Wide table: one row per sensor, columns per SV rule with fault hours or OK."""
+    summary = sensor_fault_summary(df, results, equipment_id=equipment_id)
+    # Also include all mapped sensors present on the frame even if OK
+    from app.rules.cookbook_catalog import SWEEP_SENSOR_ROLES, sensor_type_for_role as _stype
+
+    present = [r for r in SWEEP_SENSOR_ROLES if r in df.columns and df[r].notna().any()]
+    # RATEABLE roles from SV-RATE
+    for r in results:
+        if getattr(r, "equipment_id", None) != equipment_id:
+            continue
+        if getattr(r, "rule_id", "") in {"SV-RATE", "SV-SLEW"}:
+            for role in (getattr(r, "metrics", {}) or {}).get("sensors_checked") or []:
+                if role not in present:
+                    present.append(role)
+
+    rule_cols = ["SV-RANGE", "SV-SPIKE", "SV-FLATLINE", "SV-STALE", "SV-RATE"]
+    rows = []
+    for role in present:
+        row: dict[str, Any] = {
+            "equipment_id": equipment_id,
+            "sensor": role,
+            "sensor_type": _stype(role),
+        }
+        for rid in rule_cols:
+            row[rid] = "OK"
+        rows.append(row)
+    by_sensor = {r["sensor"]: r for r in rows}
+    if not summary.empty:
+        for _, srow in summary.iterrows():
+            role = str(srow["sensor"])
+            rid = str(srow["rule_id"])
+            if role not in by_sensor:
+                by_sensor[role] = {
+                    "equipment_id": equipment_id,
+                    "sensor": role,
+                    "sensor_type": srow.get("sensor_type") or _stype(role),
+                    **{c: "OK" for c in rule_cols},
+                }
+            hrs = srow.get("fault_hours")
+            label = f"{float(hrs):.2f}h" if hrs is not None and float(hrs) > 0 else "FAULT"
+            if rid in rule_cols:
+                by_sensor[role][rid] = label
+    if not by_sensor:
+        return pd.DataFrame(columns=["equipment_id", "sensor", "sensor_type", *rule_cols])
+    out = pd.DataFrame(list(by_sensor.values()))
+    return out.sort_values(["sensor_type", "sensor"]).reset_index(drop=True)
 
 
 def plant_gated_summary_tables(

@@ -223,7 +223,7 @@ def render_rcx_plots_tab(
     series_map: dict[str, pd.Series] = {}
     long_df = pd.DataFrame()
     y_title = ""
-    x_title = "Web OAT °F"
+    x_title = "Web dry-bulb °F"
 
     if chart_kind == "ranking":
         rank = zone_comfort_fail_ranking(
@@ -243,9 +243,37 @@ def render_rcx_plots_tab(
         if rank.empty:
             st.info("No VAV `zone_t` samples during occupied hours — check mapping and schedule.")
         else:
+            from app.charts import vav_comfort_donut
+
             n_out = int(rank["outlier"].sum()) if "outlier" in rank.columns else 0
             st.caption(f"{len(rank)} zones · {n_out} outlier(s) by fail-% vs cohort")
-            st.dataframe(rank, hide_index=True, width="stretch", height=min(480, 80 + 28 * len(rank)))
+            c_tbl, c_pie = st.columns([1.6, 1.0])
+            with c_tbl:
+                st.dataframe(rank, hide_index=True, width="stretch", height=min(480, 80 + 28 * len(rank)))
+            with c_pie:
+                pie = vav_comfort_donut(rank)
+                if pie is not None:
+                    st.plotly_chart(
+                        pie,
+                        width="stretch",
+                        config=plotly_config(filename="rcx_zone_comfort_donut"),
+                        key="rcx_zone_comfort_donut",
+                    )
+                zone_pick = st.selectbox(
+                    "Per-zone donut",
+                    ["(all zones)"] + list(rank["equipment_id"].astype(str)),
+                    key="rcx_zone_donut_pick",
+                )
+                if zone_pick != "(all zones)":
+                    one = rank[rank["equipment_id"].astype(str) == zone_pick]
+                    one_pie = vav_comfort_donut(one, title=f"{zone_pick} — comfort band")
+                    if one_pie is not None:
+                        st.plotly_chart(
+                            one_pie,
+                            width="stretch",
+                            config=plotly_config(filename=f"rcx_zone_donut_{zone_pick}"),
+                            key=f"rcx_zone_donut_{zone_pick}",
+                        )
             st.download_button(
                 "Download zone comfort ranking CSV",
                 to_csv_bytes(rank),
@@ -360,12 +388,12 @@ def render_rcx_plots_tab(
             long_df["oat"], _xu = convert_series("outside-air-temp", long_df["oat"], "metric")
             if "dry_bulb" in long_df.columns:
                 long_df["dry_bulb"], _ = convert_series("outside-air-temp", long_df["dry_bulb"], "metric")
-            x_title = "Web wet-bulb °C" if x_pref == "wetbulb" else "Web OAT °C"
+            x_title = "Web wet-bulb °C" if x_pref == "wetbulb" else "Web dry-bulb °C"
         else:
             y_title = role
-            x_title = "Web wet-bulb °F" if x_pref == "wetbulb" else "Web OAT °F"
+            x_title = "Web wet-bulb °F" if x_pref == "wetbulb" else "Web dry-bulb °F"
             if preset.dry_bulb_ref:
-                x_title = "Wet-bulb °F (markers) · dry-bulb ref (×)"
+                x_title = "Web wet-bulb °F (markers) · web dry-bulb ref (×)"
 
         fig = oat_scatter(
             long_df,

@@ -13,6 +13,9 @@ from app.rules.base import RuleResult
 def results_summary_table(results: list[RuleResult]) -> pd.DataFrame:
     rows = []
     for r in results:
+        metrics = getattr(r, "metrics", None) or {}
+        # OAT-METEO uses always-gate; % of window is not meaningful — prefer °F deviation.
+        fault_pct = None if r.rule_id == "OAT-METEO" else r.fault_pct
         rows.append(
             {
                 "rule_id": r.rule_id,
@@ -24,7 +27,9 @@ def results_summary_table(results: list[RuleResult]) -> pd.DataFrame:
                 "applicable": r.applicable,
                 "missing_roles": ", ".join(r.missing_roles),
                 "fault_hours": r.fault_hours,
-                "fault_pct": r.fault_pct,
+                "fault_pct": fault_pct,
+                "oat_mean_abs_diff_f": metrics.get("oat_meteo_mean_abs_diff_f"),
+                "oat_max_abs_diff_f": metrics.get("oat_meteo_max_abs_diff_f"),
                 "fault_samples": r.fault_sample_count,
                 "notes": r.notes,
             }

@@ -17,6 +17,9 @@ rules:
   - zone
   - heatpump
   tunable_params:
+  - range_scale_temperature
+  - range_scale_humidity
+  - range_scale_pressure
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: true
@@ -78,6 +81,9 @@ rules:
   - heatpump
   tunable_params:
   - spike_scale
+  - spike_scale_temperature
+  - spike_scale_humidity
+  - spike_scale_pressure
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: true
@@ -652,8 +658,10 @@ rules:
 - rule_id: AHU-DUCTHI
   family: ahu
   title: Duct static pressure high
-  description: Duct static > static SP + 0.25 in.w.c.
-  summary: Duct static > static SP + 0.25 in.w.c.
+  description: Duct static > static SP + margin. Evaluates when fan is proven on OR
+    duct static itself exceeds pressure_on_min (catches high static with fan-status
+    off).
+  summary: Duct static > static SP + margin.
   required_roles:
   - duct-static-pressure
   - duct-static-pressure-sp
@@ -662,6 +670,7 @@ rules:
   - ahu
   tunable_params:
   - duct_high_margin
+  - pressure_on_min
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
@@ -1531,6 +1540,8 @@ rules:
   - fan-cmd
   - chw-pump-cmd
   - hw-pump-cmd
+  - duct-static-pressure
+  - chw-diff-pressure
   equipment_kinds:
   - ahu
   - vav
@@ -1539,6 +1550,7 @@ rules:
   - heatpump
   tunable_params:
   - always_on_pct
+  - pressure_on_min
   - confirm_min
   default_confirm_seconds: 3600
   sensor_sweep: false

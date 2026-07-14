@@ -49,11 +49,24 @@ def _sv_rate_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
 SCHED247_CMD_ON_FRAC = 0.05
 
 
+def _pressure_on_mask(d: pd.DataFrame, p: dict) -> pd.Series | None:
+    """True when a pressure sensor shows live operating pressure (equipment likely on)."""
+    thr = _f(p, "pressure_on_min", 0.20)
+    for role in ("duct-static-pressure", "chw-diff-pressure", "hw-diff-pressure"):
+        if role not in d.columns or not d[role].notna().any():
+            continue
+        s = pd.to_numeric(d[role], errors="coerce")
+        return (s.notna() & (s.abs() > thr)).reindex(d.index).fillna(False)
+    return None
+
+
 def _sched247(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     """Equipment essentially always-on (fan/pump/compressor status) over the window.
 
     When the always-on fraction is exceeded, return the actual on-mask so fault-hours
-    equal run hours (not the full analysis window).
+    equal run hours (not the full analysis window). Pressure sensors (duct static /
+    differential) above ``pressure_on_min`` also count as on — catches VAV systems
+    where fan cmd/status mismatch but the duct is pressurized.
     """
     thr = _f(p, "always_on_pct", 0.95)
     proofs: list[pd.Series] = []
@@ -76,6 +89,9 @@ def _sched247(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
             proofs.append(norm_cmd(d[role]).fillna(0) > SCHED247_CMD_ON_FRAC)
         else:
             proofs.append(as_bool(d[role]))
+    press = _pressure_on_mask(d, p)
+    if press is not None:
+        proofs.append(press)
     if not proofs:
         return _false(d.index)
     on = proofs[0].fillna(False).astype(bool)
@@ -133,6 +149,88 @@ SWEEP_SENSOR_ROLES = list(SENSOR_LIMITS.keys())
 # so they would false-positive as "stuck" — exclude them from stuck-sensor sweeps.
 _NO_FLATLINE_ROLES = {"duct-static-pressure"}
 FLATLINE_SENSOR_ROLES = [r for r in SWEEP_SENSOR_ROLES if r not in _NO_FLATLINE_ROLES]
+
+
+def sensor_type_for_role(role: str) -> str:
+    """HVAC quantity bucket for UI grouping (Temperature / Humidity / Pressure / Flow)."""
+    r = role.lower()
+    if "humid" in r:
+        return "Humidity"
+    if "pressure" in r or "static" in r or r.endswith("-dp"):
+        return "Pressure"
+    if "flow" in r or "cfm" in r or "gpm" in r:
+        return "Flow"
+    if "temp" in r or "wetbulb" in r or "dewpoint" in r:
+        return "Temperature"
+    return "Other"
+
+
+def _role_type_scale(p: dict, role: str, *, kind: str) -> float:
+    """Per-type scale for range/spike limits (multiplies global scale when present)."""
+    stype = sensor_type_for_role(role).lower()
+    key = f"{kind}_scale_{stype}"
+    # Accept both humidity and humid key aliases
+    if key not in p and stype == "humidity":
+        key = f"{kind}_scale_humidity"
+    try:
+        return float(p.get(key, 1.0) or 1.0)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def _evidence_row(
+    role: str,
+    mask: pd.Series,
+    *,
+    poll: float,
+    series: pd.Series | None = None,
+) -> dict:
+    from app.rules.base import hours_true
+
+    m = mask.fillna(False).astype(bool)
+    n_fault = int(m.sum())
+    hours = round(hours_true(m, poll), 3) if n_fault else 0.0
+    first_ts = last_ts = None
+    if n_fault and isinstance(m.index, pd.DatetimeIndex):
+        idx = m.index[m]
+        first_ts = str(idx[0])
+        last_ts = str(idx[-1])
+    row: dict = {
+        "role": role,
+        "sensor_type": sensor_type_for_role(role),
+        "fault_samples": n_fault,
+        "fault_hours": hours,
+        "first_fault_timestamp": first_ts,
+        "last_fault_timestamp": last_ts,
+        "faulted": n_fault > 0,
+    }
+    if series is not None and n_fault:
+        num = pd.to_numeric(series, errors="coerce")
+        vals = num[m]
+        if vals.notna().any():
+            row["fault_mean"] = round(float(vals.mean()), 3)
+            row["fault_min"] = round(float(vals.min()), 3)
+            row["fault_max"] = round(float(vals.max()), 3)
+    return row
+
+
+def _stash_sweep_evidence(
+    d: pd.DataFrame,
+    per_role: dict[str, pd.Series],
+    *,
+    poll: float,
+    rule_tag: str,
+) -> None:
+    """Store per-role evidence + masks on the frame for the runner/UI."""
+    evidence = []
+    masks: dict[str, pd.Series] = {}
+    for role, mask in per_role.items():
+        s = pd.to_numeric(d[role], errors="coerce") if role in d.columns else None
+        evidence.append(_evidence_row(role, mask, poll=poll, series=s))
+        masks[role] = mask.fillna(False).astype(bool)
+    d.attrs["sv_sweep_evidence"] = evidence
+    d.attrs["sv_sweep_masks"] = masks
+    d.attrs["sv_sweep_rule"] = rule_tag
 
 # Analog 0–100% (or 0–1) control outputs swept by PID-HUNT-1.
 # Map by *role* (valve / damper / speed cmd) — never by a BAS point named "Loop".
@@ -262,12 +360,21 @@ CONFIRM_PARAM = lambda default_min=5.0, mx=60.0: CookbookParam(  # noqa: E731
 def _sweep_range(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     idx = d.index
     mask = _false(idx)
+    per_role: dict[str, pd.Series] = {}
     for role in SWEEP_SENSOR_ROLES:
         if role not in d.columns:
             continue
         s = pd.to_numeric(d[role], errors="coerce")
         lim = SENSOR_LIMITS[role]
-        mask = mask | (s.notna() & ((s < lim["lo"]) | (s > lim["hi"])))
+        type_scale = _role_type_scale(p, role, kind="range")
+        # Widen limits when scale > 1 (more forgiving); shrink when scale < 1.
+        mid = (lim["lo"] + lim["hi"]) / 2.0
+        half = (lim["hi"] - lim["lo"]) / 2.0 * max(type_scale, 1e-6)
+        lo, hi = mid - half, mid + half
+        role_mask = s.notna() & ((s < lo) | (s > hi))
+        per_role[role] = role_mask
+        mask = mask | role_mask
+    _stash_sweep_evidence(d, per_role, poll=poll, rule_tag="SV-RANGE")
     return mask
 
 
@@ -277,11 +384,15 @@ def _sweep_flatline(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     hours = _f(p, "flatline_hours", 1.0)
     window = max(2, int(round(hours * 3600 / max(poll, 1))))
     mask = _false(idx)
+    per_role: dict[str, pd.Series] = {}
     for role in FLATLINE_SENSOR_ROLES:
         if role not in d.columns:
             continue
         s = pd.to_numeric(d[role], errors="coerce")
-        mask = mask | flatline_mask(s, tol=tol, window=window)
+        role_mask = flatline_mask(s, tol=tol, window=window)
+        per_role[role] = role_mask
+        mask = mask | role_mask
+    _stash_sweep_evidence(d, per_role, poll=poll, rule_tag="SV-FLATLINE")
     return mask
 
 
@@ -289,12 +400,17 @@ def _sweep_spike(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     idx = d.index
     scale = _f(p, "spike_scale", 1.0)
     mask = _false(idx)
+    per_role: dict[str, pd.Series] = {}
     for role in SWEEP_SENSOR_ROLES:
         if role not in d.columns:
             continue
         s = pd.to_numeric(d[role], errors="coerce")
-        limit = SENSOR_LIMITS[role]["spike"] * scale
-        mask = mask | (s.notna() & (s.diff().abs() > limit))
+        type_scale = _role_type_scale(p, role, kind="spike")
+        limit = SENSOR_LIMITS[role]["spike"] * scale * type_scale
+        role_mask = s.notna() & (s.diff().abs() > limit)
+        per_role[role] = role_mask
+        mask = mask | role_mask
+    _stash_sweep_evidence(d, per_role, poll=poll, rule_tag="SV-SPIKE")
     return mask
 
 
@@ -305,11 +421,18 @@ def _sweep_stale(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     window = max(2, int(round(hours * 3600 / max(poll, 1))))
     present = [r for r in FLATLINE_SENSOR_ROLES if r in d.columns]
     if not present:
+        _stash_sweep_evidence(d, {}, poll=poll, rule_tag="SV-STALE")
         return _false(idx)
     stale = pd.Series(True, index=idx)
+    per_role: dict[str, pd.Series] = {}
     for role in present:
         s = pd.to_numeric(d[role], errors="coerce")
-        stale = stale & flatline_mask(s, tol=1e-9, window=window)
+        role_flat = flatline_mask(s, tol=1e-9, window=window)
+        per_role[role] = role_flat  # each role's stuck mask; equipment fault is AND
+        stale = stale & role_flat
+    # For stale, the firing evidence is the AND mask applied to each present role
+    and_masks = {role: stale.copy() for role in present}
+    _stash_sweep_evidence(d, and_masks, poll=poll, rule_tag="SV-STALE")
     return stale
 
 
@@ -559,8 +682,13 @@ def ahu_sat_dev(d, p, poll):
 
 
 def ahu_duct_high(d, p, poll):
+    """Duct static above SP + margin. Gate (not equation) decides fan-vs-pressure active window."""
     margin = _f(p, "duct_high_margin", 0.25)
-    return d["duct-static-pressure"].notna() & d["duct-static-pressure-sp"].notna() & (d["duct-static-pressure"] > d["duct-static-pressure-sp"] + margin)
+    return (
+        d["duct-static-pressure"].notna()
+        & d["duct-static-pressure-sp"].notna()
+        & (d["duct-static-pressure"] > d["duct-static-pressure-sp"] + margin)
+    )
 
 
 def ahu_simul_heat_cool(d, p, poll):
@@ -983,7 +1111,15 @@ RULES: list[CookbookRule] = [
         "SV-RANGE", "Sensor out of hard range", "sensor",
         ["ahu", "vav", "chiller", "boiler", "weather", "zone", "heatpump"], [],
         "Any modeled sensor reads outside its physical hard range (e.g. OAT −60–130°F, SAT 30–150°F, CHWS 30–80°F).",
-        _sweep_range, params=[CONFIRM_PARAM()], sensor_sweep=True, confirm_seconds=300,
+        _sweep_range,
+        params=[
+            CookbookParam("range_scale_temperature", "Temp range scale", "x", 0.5, 2.0, 0.1, 1.0, direction="fewer"),
+            CookbookParam("range_scale_humidity", "Humidity range scale", "x", 0.5, 2.0, 0.1, 1.0, direction="fewer"),
+            CookbookParam("range_scale_pressure", "Pressure range scale", "x", 0.5, 2.0, 0.1, 1.0, direction="fewer"),
+            CONFIRM_PARAM(),
+        ],
+        sensor_sweep=True,
+        confirm_seconds=300,
     ),
     CookbookRule(
         "SV-FLATLINE", "Sensor flatline (stuck)", "sensor",
@@ -1001,7 +1137,10 @@ RULES: list[CookbookRule] = [
         ["ahu", "vav", "chiller", "boiler", "weather", "zone", "heatpump"], [],
         "Sample-to-sample jump exceeds the physical spike limit for the sensor type.",
         _sweep_spike, params=[
-            CookbookParam("spike_scale", "Spike limit scale", "x", 0.25, 3.0, 0.25, 1.0, direction="fewer"),
+            CookbookParam("spike_scale", "Spike limit scale (global)", "x", 0.25, 3.0, 0.25, 1.0, direction="fewer"),
+            CookbookParam("spike_scale_temperature", "Temp spike scale", "x", 0.25, 3.0, 0.25, 1.0, direction="fewer"),
+            CookbookParam("spike_scale_humidity", "Humidity spike scale", "x", 0.25, 3.0, 0.25, 1.0, direction="fewer"),
+            CookbookParam("spike_scale_pressure", "Pressure spike scale", "x", 0.25, 3.0, 0.25, 1.0, direction="fewer"),
             CONFIRM_PARAM(),
         ], sensor_sweep=True, confirm_seconds=300,
     ),
@@ -1139,8 +1278,16 @@ RULES: list[CookbookRule] = [
         ["discharge-air-temp", "discharge-air-temp-sp"], "|SAT − SAT SP| > 5°F.",
         ahu_sat_dev, params=[CookbookParam("sat_dev_err", "SAT deviation", "°F", 1.0, 15.0, 0.5, 5.0, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("AHU-DUCTHI", "Duct static pressure high", "ahu", ["ahu"],
-        ["duct-static-pressure", "duct-static-pressure-sp"], "Duct static > static SP + 0.25 in.w.c.",
-        ahu_duct_high, params=[CookbookParam("duct_high_margin", "High margin", "in. w.c.", 0.05, 1.0, 0.05, 0.25), CONFIRM_PARAM()], confirm_seconds=300),
+        ["duct-static-pressure", "duct-static-pressure-sp"],
+        "Duct static > static SP + margin. Evaluates when fan is proven on OR duct static "
+        "itself exceeds pressure_on_min (catches high static with fan-status off).",
+        ahu_duct_high,
+        params=[
+            CookbookParam("duct_high_margin", "High margin", "in. w.c.", 0.05, 1.0, 0.05, 0.25, direction="fewer"),
+            CookbookParam("pressure_on_min", "Pressure-on evidence", "in. w.c.", 0.05, 1.0, 0.05, 0.20, direction="stricter"),
+            CONFIRM_PARAM(),
+        ],
+        confirm_seconds=300),
     CookbookRule("AHU-SIMUL", "Heating and cooling simultaneous", "ahu", ["ahu"],
         ["heating-valve", "cooling-valve"], "Heating valve > 10% AND cooling valve > 10% at once.",
         ahu_simul_heat_cool, params=[CookbookParam("valve_open_pct", "Valve open threshold", "frac", 0.05, 0.5, 0.01, 0.10), CONFIRM_PARAM()], confirm_seconds=300),
@@ -1433,7 +1580,17 @@ RULES: list[CookbookRule] = [
         "regardless of equipment family when a status/cmd role is mapped.",
         _sched247,
         params=[
-            CookbookParam("always_on_pct", "Always-on fraction", "frac", 0.80, 1.0, 0.01, 0.95),
+            CookbookParam("always_on_pct", "Always-on fraction", "frac", 0.80, 1.0, 0.01, 0.95, direction="fewer"),
+            CookbookParam(
+                "pressure_on_min",
+                "Pressure-on evidence",
+                "eng",
+                0.05,
+                2.0,
+                0.05,
+                0.20,
+                direction="stricter",
+            ),
             CONFIRM_PARAM(),
         ],
         optional_roles=[
@@ -1448,6 +1605,8 @@ RULES: list[CookbookRule] = [
             "fan-cmd",
             "chw-pump-cmd",
             "hw-pump-cmd",
+            "duct-static-pressure",
+            "chw-diff-pressure",
         ],
         confirm_seconds=3600,
     ),

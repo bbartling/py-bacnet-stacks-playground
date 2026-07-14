@@ -10,9 +10,19 @@ AHU-DUCTHI:
     unit: min
   duct_high_margin:
     default: 0.25
-    direction: ''
-    help: High margin
+    direction: fewer
+    help: "High margin \u2014 increasing this usually flags fewer faults."
     label: High margin
+    max: 1.0
+    min: 0.05
+    step: 0.05
+    unit: in. w.c.
+  pressure_on_min:
+    default: 0.2
+    direction: stricter
+    help: "Pressure-on evidence \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
+    label: Pressure-on evidence
     max: 1.0
     min: 0.05
     step: 0.05
@@ -966,8 +976,8 @@ SCHED-1:
 SCHED-247:
   always_on_pct:
     default: 0.95
-    direction: ''
-    help: Always-on fraction
+    direction: fewer
+    help: "Always-on fraction \u2014 increasing this usually flags fewer faults."
     label: Always-on fraction
     max: 1.0
     min: 0.8
@@ -982,6 +992,16 @@ SCHED-247:
     min: 0.0
     step: 1.0
     unit: min
+  pressure_on_min:
+    default: 0.2
+    direction: stricter
+    help: "Pressure-on evidence \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
+    label: Pressure-on evidence
+    max: 2.0
+    min: 0.05
+    step: 0.05
+    unit: eng
 SV-FLATLINE:
   confirm_min:
     default: 5.0
@@ -1021,6 +1041,33 @@ SV-RANGE:
     min: 0.0
     step: 1.0
     unit: min
+  range_scale_humidity:
+    default: 1.0
+    direction: fewer
+    help: "Humidity range scale \u2014 increasing this usually flags fewer faults."
+    label: Humidity range scale
+    max: 2.0
+    min: 0.5
+    step: 0.1
+    unit: x
+  range_scale_pressure:
+    default: 1.0
+    direction: fewer
+    help: "Pressure range scale \u2014 increasing this usually flags fewer faults."
+    label: Pressure range scale
+    max: 2.0
+    min: 0.5
+    step: 0.1
+    unit: x
+  range_scale_temperature:
+    default: 1.0
+    direction: fewer
+    help: "Temp range scale \u2014 increasing this usually flags fewer faults."
+    label: Temp range scale
+    max: 2.0
+    min: 0.5
+    step: 0.1
+    unit: x
 SV-RATE:
   confirm_min:
     default: 10.0
@@ -1089,8 +1136,35 @@ SV-SPIKE:
   spike_scale:
     default: 1.0
     direction: fewer
-    help: "Spike limit scale \u2014 increasing this usually flags fewer faults."
-    label: Spike limit scale
+    help: "Spike limit scale (global) \u2014 increasing this usually flags fewer faults."
+    label: Spike limit scale (global)
+    max: 3.0
+    min: 0.25
+    step: 0.25
+    unit: x
+  spike_scale_humidity:
+    default: 1.0
+    direction: fewer
+    help: "Humidity spike scale \u2014 increasing this usually flags fewer faults."
+    label: Humidity spike scale
+    max: 3.0
+    min: 0.25
+    step: 0.25
+    unit: x
+  spike_scale_pressure:
+    default: 1.0
+    direction: fewer
+    help: "Pressure spike scale \u2014 increasing this usually flags fewer faults."
+    label: Pressure spike scale
+    max: 3.0
+    min: 0.25
+    step: 0.25
+    unit: x
+  spike_scale_temperature:
+    default: 1.0
+    direction: fewer
+    help: "Temp spike scale \u2014 increasing this usually flags fewer faults."
+    label: Temp spike scale
     max: 3.0
     min: 0.25
     step: 0.25

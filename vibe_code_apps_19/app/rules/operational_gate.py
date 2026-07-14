@@ -61,7 +61,7 @@ RULE_GATES: dict[str, GateSpec] = {
     "FC14": GateSpec("fan_running", startup_delay_seconds=600),
     "FC15": GateSpec("fan_running", startup_delay_seconds=600),
     "AHU-SATDEV": GateSpec("fan_running", startup_delay_seconds=600),
-    "AHU-DUCTHI": GateSpec("fan_running", startup_delay_seconds=300),
+    "AHU-DUCTHI": GateSpec("conditional", startup_delay_seconds=0),
     "AHU-SIMUL": GateSpec("fan_running", startup_delay_seconds=300),
     "OAT-METEO": GateSpec("always"),
     "ECON-1": GateSpec("fan_running", startup_delay_seconds=600),
@@ -195,8 +195,13 @@ def resolve_equipment_energized(df: pd.DataFrame, *, command_fallback: bool = Tr
     return pd.Series(True, index=df.index), "ungated_no_proof_roles"
 
 
-def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]:
+def resolve_conditional(
+    df: pd.DataFrame,
+    rule_id: str,
+    params: dict | None = None,
+) -> tuple[pd.Series, str]:
     """Point/context-aware gates for CONDITIONAL rules."""
+    params = params or {}
     if rule_id == "VAV-1":
         # Occupied band when schedule exists; also require air moving when fan/flow proof exists.
         if "occupied" in df.columns and df["occupied"].notna().any():
@@ -220,6 +225,20 @@ def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]
         # Gate only on fan proof — the old (valve>0.01)|(valve<=0.05) cover was a tautology.
         fan, src = resolve_fan_running(df)
         return fan, f"fan_{src}"
+    if rule_id == "AHU-DUCTHI":
+        # Evaluate when fan is proven on OR duct static itself shows live pressure.
+        # This catches high static while fan-status falsely reports off.
+        fan, src = resolve_fan_running(df)
+        try:
+            thr = float(params.get("pressure_on_min", 0.20) or 0.20)
+        except (TypeError, ValueError):
+            thr = 0.20
+        if "duct-static-pressure" in df.columns and df["duct-static-pressure"].notna().any():
+            press = pd.to_numeric(df["duct-static-pressure"], errors="coerce").fillna(0).abs() > thr
+            if src.startswith("ungated"):
+                return press.fillna(False), "duct_static_pressure"
+            return (fan | press).fillna(False), f"fan_or_duct_static:{src}"
+        return fan, src
     if rule_id == "SV-FLATLINE":
         # Prefer energized periods (fan → pump) to reduce off-period stuck false positives.
         return resolve_equipment_energized(df)
@@ -281,7 +300,7 @@ def resolve_operational_mask(
             active = active & _series_on(df["loop-enabled"])
             src = f"{src}+loop_enabled"
     elif spec.kind == "conditional":
-        active, src = resolve_conditional(df, rule_id)
+        active, src = resolve_conditional(df, rule_id, params=params)
     else:
         active, src = pd.Series(True, index=df.index), "always"
 

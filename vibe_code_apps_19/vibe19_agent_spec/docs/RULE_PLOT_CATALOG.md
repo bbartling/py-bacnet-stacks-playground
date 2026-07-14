@@ -68,6 +68,9 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
+| `range_scale_temperature` | Temp range scale | x | 1 | 0.5 | 2 | 0.1 |
+| `range_scale_humidity` | Humidity range scale | x | 1 | 0.5 | 2 | 0.1 |
+| `range_scale_pressure` | Pressure range scale | x | 1 | 0.5 | 2 | 0.1 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -136,7 +139,10 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `spike_scale` | Spike limit scale | x | 1 | 0.25 | 3 | 0.25 |
+| `spike_scale` | Spike limit scale (global) | x | 1 | 0.25 | 3 | 0.25 |
+| `spike_scale_temperature` | Temp spike scale | x | 1 | 0.25 | 3 | 0.25 |
+| `spike_scale_humidity` | Humidity spike scale | x | 1 | 0.25 | 3 | 0.25 |
+| `spike_scale_pressure` | Pressure spike scale | x | 1 | 0.25 | 3 | 0.25 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -938,15 +944,15 @@ RCx `ahu_sat_reset_scatter` — SAT vs web OAT.
 
 ### `AHU-DUCTHI` — Duct static pressure high
 
-**Summary:** Duct static > static SP + 0.25 in.w.c.
+**Summary:** Duct static > static SP + margin.
 
-**Equation:** Duct static > static SP + 0.25 in.w.c.
+**Equation:** Duct static > static SP + margin. Evaluates when fan is proven on OR duct static itself exceeds pressure_on_min (catches high static with fan-status off).
 
 | Field | Value |
 | --- | --- |
 | Family | `ahu` |
 | Equipment kinds | `ahu` |
-| Operational gate | `fan_running (startup 300s)` |
+| Operational gate | `conditional` |
 | Default confirm | 300s |
 | Sweep | — |
 
@@ -968,6 +974,7 @@ RCx `ahu_sat_reset_scatter` — SAT vs web OAT.
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `duct_high_margin` | High margin | in. w.c. | 0.25 | 0.05 | 1 | 0.05 |
+| `pressure_on_min` | Pressure-on evidence | in. w.c. | 0.2 | 0.05 | 1 | 0.05 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -2406,6 +2413,8 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 | `fan-cmd` | `fan-cmd` | optional |
 | `chw-pump-cmd` | `chw-pump-cmd` | optional |
 | `hw-pump-cmd` | `hw-pump-cmd` | optional |
+| `duct-static-pressure` | `duct-static-pressure` | optional |
+| `chw-diff-pressure` | `chw-diff-pressure` | optional |
 
 #### Plot series
 
@@ -2420,6 +2429,8 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 - `fan-cmd` → `fan-cmd`
 - `chw-pump-cmd` → `chw-pump-cmd`
 - `hw-pump-cmd` → `hw-pump-cmd`
+- `duct-static-pressure` → `duct-static-pressure`
+- `chw-diff-pressure` → `chw-diff-pressure`
 - `confirmed_fault` swim lane (bool shade) when the rule was run
 
 #### Sliders (tune params)
@@ -2427,6 +2438,7 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `always_on_pct` | Always-on fraction | frac | 0.95 | 0.8 | 1 | 0.01 |
+| `pressure_on_min` | Pressure-on evidence | eng | 0.2 | 0.05 | 2 | 0.05 |
 | `confirm_min` | Fault confirm delay | min | 60 | 0 | 60 | 1 |
 
 #### Analytics / related views

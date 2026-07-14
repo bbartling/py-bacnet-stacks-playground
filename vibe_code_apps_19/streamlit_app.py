@@ -30,9 +30,11 @@ from app.analytics import (  # noqa: E402
     motor_run_hours_totals,
     motor_run_hours_weekly,
     sensor_fault_summary,
+    sensor_health_matrix,
 )
 from app.charts import (  # noqa: E402
     bas_vs_web_oat_histogram,
+    bas_vs_web_oat_overlay,
     energy_degree_day_scatter,
     max_plot_points,
     mech_cooling_oat_histogram,
@@ -40,6 +42,7 @@ from app.charts import (  # noqa: E402
     motor_weekly_runtime_chart,
     plotly_config,
     rule_result_chart,
+    sensor_fault_chart,
 )
 from app.config import AppConfig  # noqa: E402
 from app.dashboard_contract import REQUIRED_MAIN_SECTIONS  # noqa: E402
@@ -558,10 +561,18 @@ def _device_results_table(summary: pd.DataFrame, equipment_id: str) -> pd.DataFr
         "status",
         "fault_hours",
         "fault_pct",
+        "oat_mean_abs_diff_f",
+        "oat_max_abs_diff_f",
         "missing_roles",
         "notes",
     ]
-    return part[[c for c in cols if c in part.columns]].reset_index(drop=True)
+    out = part[[c for c in cols if c in part.columns]].reset_index(drop=True)
+    # OAT-METEO: % of window is not meaningful (always-gate); show mean/max °F deviation.
+    if "rule_id" in out.columns and "fault_pct" in out.columns:
+        oat_mask = out["rule_id"].astype(str) == "OAT-METEO"
+        if oat_mask.any():
+            out.loc[oat_mask, "fault_pct"] = pd.NA
+    return out
 
 
 def _status_counts(df: pd.DataFrame) -> dict[str, int]:
@@ -902,6 +913,26 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
                 st.caption(
                     "Persistence, transition windows, and profile thresholds are edited under "
                     "**Run Rules → SV-RATE** (single source of truth)."
+                )
+            if rule.id in {"SV-RANGE", "SV-SPIKE", "SV-FLATLINE", "SV-STALE"}:
+                from app.rules.cookbook_catalog import FLATLINE_SENSOR_ROLES, SWEEP_SENSOR_ROLES
+
+                roles = FLATLINE_SENSOR_ROLES if rule.id in {"SV-FLATLINE", "SV-STALE"} else SWEEP_SENSOR_ROLES
+                frames_sb = st.session_state.get("frames") or {}
+                eq_pick = st.session_state.get("plot_device") or st.session_state.get("selected_device")
+                present_roles: list[str] = []
+                if eq_pick and eq_pick in frames_sb:
+                    from app.role_map import apply_role_map
+
+                    mapped_sb = apply_role_map(frames_sb[eq_pick], eq_pick, st.session_state.get("role_map") or {})
+                    present_roles = [r for r in roles if r in mapped_sb.columns and mapped_sb[r].notna().any()]
+                st.caption(
+                    f"Sweeps mapped roles: {', '.join(present_roles) if present_roles else '(none on selected device)'}. "
+                    + (
+                        "Per-type **range/spike scale** sliders widen/tighten limits by Temperature / Humidity / Pressure."
+                        if rule.id in {"SV-RANGE", "SV-SPIKE"}
+                        else ""
+                    )
                 )
             preferred = ["confirm_min", "require_operational_gate", "startup_delay_min", "minimum_active_coverage_pct"]
             skip_keys = {"persistence_min", "transition_window_min"} if rule.id == "SV-RATE" else set()
@@ -2176,24 +2207,43 @@ def main() -> None:
 
         st.markdown("##### BAS vs web outdoor-air temperature")
         st.caption(
-            "Histogram of **BAS OAT − web OAT** (°F) when both series exist. "
-            "Uses mapped `bas_oa_t`/`oa_t` vs `wx_oa_t` (package weather). "
-            "Empty when web weather or BAS OAT is missing."
+            "Overlay of **BAS OAT** and **web dry-bulb** on one axis with a ±`oat_err` tolerance band "
+            "(from OAT-METEO slider; default 5°F). Bottom lane flags samples outside the band. "
+            "Histogram of BAS − web deviation is below for distribution shape."
         )
+        oat_err = 5.0
+        try:
+            oat_err = float((st.session_state.get("params") or {}).get("OAT-METEO", {}).get("oat_err", 5.0))
+        except (TypeError, ValueError):
+            oat_err = 5.0
+        overlay = bas_vs_web_oat_overlay(
+            frames,
+            st.session_state.role_map,
+            weather=st.session_state.weather,
+            oat_err=oat_err,
+        )
+        if overlay is None:
+            st.info("Need both BAS outdoor-air temp and web weather OAT for the overlay chart.")
+        else:
+            st.plotly_chart(
+                overlay,
+                width="stretch",
+                config=plotly_config(filename="bas_vs_web_oat_overlay"),
+                key="overview_bas_web_oat_overlay",
+            )
         wx_fig = bas_vs_web_oat_histogram(
             frames,
             st.session_state.role_map,
             weather=st.session_state.weather,
         )
-        if wx_fig is None:
-            st.info("Need both BAS outdoor-air temp and web weather OAT to plot the deviation histogram.")
-        else:
-            st.plotly_chart(
-                wx_fig,
-                width="stretch",
-                config=plotly_config(filename="bas_vs_web_oat_hist"),
-                key="overview_bas_web_oat",
-            )
+        if wx_fig is not None:
+            with st.expander("BAS − web OAT deviation histogram", expanded=False):
+                st.plotly_chart(
+                    wx_fig,
+                    width="stretch",
+                    config=plotly_config(filename="bas_vs_web_oat_hist"),
+                    key="overview_bas_web_oat",
+                )
 
         st.markdown(
             "Tune thresholds in the **left sidebar** → **Run Rules** (all or by category) "
@@ -2669,11 +2719,58 @@ def main() -> None:
                 st.info("No applicable cookbook rules for this equipment type.")
 
             sens = sensor_fault_summary(plot_df, device_results, equipment_id=device)
-            if not sens.empty:
-                with st.expander("Sensor fault summary statistics", expanded=False):
-                    st.caption(
-                        "Mean/std/min/p50/max for sensors involved in FAULT sensor-validation rules."
+            health = sensor_health_matrix(plot_df, device_results, equipment_id=device)
+            with st.expander("Sensor health — per sensor", expanded=not health.empty):
+                st.caption(
+                    "Itemized by HVAC sensor type. Fault hours are **per sensor** "
+                    "(RANGE / SPIKE / FLATLINE / STALE / RATE) — not the shared equipment OR window."
+                )
+                if health.empty:
+                    st.info("No mapped sweep sensors on this device yet.")
+                else:
+                    for stype, block in health.groupby("sensor_type", sort=True):
+                        st.markdown(f"**{stype}**")
+                        st.dataframe(block.drop(columns=["sensor_type"], errors="ignore"), hide_index=True, width="stretch")
+                    st.download_button(
+                        "Download sensor health matrix CSV",
+                        to_csv_bytes(health),
+                        f"{device}_sensor_health.csv",
+                        key=f"dl_sens_health_{device}",
                     )
+                    pick = st.selectbox(
+                        "Sensor detail chart",
+                        ["(none)"] + list(health["sensor"].astype(str)),
+                        key=f"sens_chart_pick_{device}",
+                    )
+                    if pick != "(none)" and pick in plot_df.columns:
+                        rule_masks: dict = {}
+                        for res in device_results:
+                            rid = getattr(res, "rule_id", "")
+                            metrics = getattr(res, "metrics", {}) or {}
+                            if rid in {"SV-RANGE", "SV-SPIKE", "SV-FLATLINE", "SV-STALE"}:
+                                masks = metrics.get("sv_sweep_confirmed_roles") or {}
+                                if pick in masks:
+                                    rule_masks[rid] = masks[pick]
+                            elif rid in {"SV-RATE", "SV-SLEW"}:
+                                # Rate evidence is aggregate; use equipment confirmed_fault as lane when that role was checked
+                                ev = metrics.get("sv_rate_evidence") or []
+                                if any(str(e.get("role")) == pick and (e.get("violation_count") or 0) > 0 for e in ev):
+                                    if getattr(res, "confirmed_fault", None) is not None:
+                                        rule_masks["SV-RATE"] = res.confirmed_fault
+                        fig_s = sensor_fault_chart(
+                            plot_df[pick],
+                            sensor_name=pick,
+                            rule_masks=rule_masks,
+                        )
+                        if fig_s is not None:
+                            st.plotly_chart(
+                                fig_s,
+                                width="stretch",
+                                config=plotly_config(filename=f"{device}_{pick}_sensor"),
+                                key=f"sens_chart_{device}_{pick}",
+                            )
+                if not sens.empty:
+                    st.markdown("**Faulting sensors — stats**")
                     st.dataframe(sens, width="stretch", height=220)
                     st.download_button(
                         "Download sensor fault stats CSV",
@@ -2738,7 +2835,15 @@ def main() -> None:
                     if fh is not None:
                         meta_bits.append(f"fault hours: {fh:.2f}")
                     # Prefer hours over % when reading tuning changes — startup delay shrinks the denominator.
-                    if res is not None and getattr(res, "fault_pct", None) is not None:
+                    if res is not None and getattr(res, "rule_id", "") == "OAT-METEO":
+                        m = getattr(res, "metrics", None) or {}
+                        mean_d = m.get("oat_meteo_mean_abs_diff_f")
+                        max_d = m.get("oat_meteo_max_abs_diff_f")
+                        if mean_d is not None:
+                            meta_bits.append(f"mean |BAS−web|: {mean_d:.2f}°F")
+                        if max_d is not None:
+                            meta_bits.append(f"max |BAS−web|: {max_d:.2f}°F")
+                    elif res is not None and getattr(res, "fault_pct", None) is not None:
                         meta_bits.append(f"fault % of active: {res.fault_pct:.1f}")
                     if card.coverage_pct is not None:
                         meta_bits.append(

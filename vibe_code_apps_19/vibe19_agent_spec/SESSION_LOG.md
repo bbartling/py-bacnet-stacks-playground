@@ -8,6 +8,17 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-14 — Sensor itemization, OAT overlay, pressure gates, RCx comfort pie
+
+- **SV sweeps** stash per-role `sv_sweep_evidence` + confirmed masks; runner promotes to metrics (mirrors SV-RATE)
+- **Sensor health** FDD panel: per-type matrix + per-sensor fault chart; sidebar per-type range/spike scales + role captions
+- **OAT-METEO**: BAS vs web overlay (±`oat_err` band + fault lane); drop meaningless `%` — show mean/max °F deviation
+- **RCx**: dry-bulb axis labels (tower keeps wet-bulb); VAV comfort donut with `n_below`/`n_above`
+- **AHU-DUCTHI** conditional gate (fan OR duct static > `pressure_on_min`); **SCHED-247** pressure-on proof
+- Fixed occupancy calendar Saturday key (`sat`, was mis-named `discharge-air-temp`); configs + goldens regenerated
+
+---
+
 ## 2026-07-14 — Rule tuning inversions + dead FC4 + dt-aware confirm
 
 - **Root cause (UI/plumbing, not FC2 math):** `confirm_min` default of 5.0 overrode every `confirm_seconds`; sidebar rewrote all params when any slider moved; startup delay raised `fault_pct` via smaller denominator

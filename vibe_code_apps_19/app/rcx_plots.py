@@ -509,7 +509,9 @@ def zone_comfort_fail_ranking(
         occ_vals = zone.where(occ).dropna()
         if occ_vals.empty:
             continue
-        outside = (occ_vals < lo) | (occ_vals > hi)
+        below = occ_vals < lo
+        above = occ_vals > hi
+        outside = below | above
         n_occ = int(len(occ_vals))
         n_out = int(outside.sum())
         pct = 100.0 * float(outside.mean())
@@ -519,6 +521,8 @@ def zone_comfort_fail_ranking(
                 "pct_outside_comfort": round(pct, 2),
                 "n_occupied": n_occ,
                 "n_outside": n_out,
+                "n_below": int(below.sum()),
+                "n_above": int(above.sum()),
                 "mean_zone_t": round(float(occ_vals.mean()), 2),
                 "min_zone_t": round(float(occ_vals.min()), 2),
                 "max_zone_t": round(float(occ_vals.max()), 2),
@@ -533,6 +537,8 @@ def zone_comfort_fail_ranking(
                 "pct_outside_comfort",
                 "n_occupied",
                 "n_outside",
+                "n_below",
+                "n_above",
                 "mean_zone_t",
                 "min_zone_t",
                 "max_zone_t",

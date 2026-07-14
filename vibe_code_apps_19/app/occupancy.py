@@ -7,14 +7,14 @@ from typing import Any
 
 import pandas as pd
 
-DAYS = ("mon", "tue", "wed", "thu", "fri", "discharge-air-temp", "sun")
+DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 DAY_LABELS = {
     "mon": "Monday",
     "tue": "Tuesday",
     "wed": "Wednesday",
     "thu": "Thursday",
     "fri": "Friday",
-    "discharge-air-temp": "Saturday",
+    "sat": "Saturday",
     "sun": "Sunday",
 }
 
@@ -36,7 +36,7 @@ class OccupancySchedule:
     def __post_init__(self) -> None:
         if not self.days:
             self.days = {
-                d: DaySchedule(occupied=(d not in {"discharge-air-temp", "sun"}), start="06:00", end="18:00")
+                d: DaySchedule(occupied=(d not in {"sat", "sun"}), start="06:00", end="18:00")
                 for d in DAYS
             }
 
@@ -56,9 +56,10 @@ class OccupancySchedule:
         days: dict[str, DaySchedule] = {}
         raw_days = data.get("days") or {}
         for d in DAYS:
-            row = raw_days.get(d) or {}
+            # Legacy sessions may have mis-named Saturday as "discharge-air-temp"
+            row = raw_days.get(d) or (raw_days.get("discharge-air-temp") if d == "sat" else {}) or {}
             days[d] = DaySchedule(
-                occupied=bool(row.get("occupied", d not in {"discharge-air-temp", "sun"})),
+                occupied=bool(row.get("occupied", d not in {"sat", "sun"})),
                 start=str(row.get("start", "06:00")),
                 end=str(row.get("end", "18:00")),
             )

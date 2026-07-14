@@ -700,6 +700,201 @@ def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
+def sensor_fault_chart(
+    series: pd.Series,
+    *,
+    sensor_name: str,
+    rule_masks: dict[str, pd.Series] | None = None,
+    y_title: str | None = None,
+) -> go.Figure | None:
+    """Single-sensor timeseries with optional per-rule fault shading + bool lanes."""
+    if series is None or len(series) == 0 or series.notna().sum() == 0:
+        return None
+    num = pd.to_numeric(series, errors="coerce")
+    plot_index = downsample_frame_index(num.index, max_points=max_plot_points())
+    y = num.reindex(plot_index)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=y.index,
+            y=y,
+            name=sensor_name,
+            mode="lines",
+            line=dict(color=RAINBOW_PALETTE[0], width=1.4),
+        )
+    )
+    colors = {
+        "SV-RANGE": "rgba(220,38,38,0.25)",
+        "SV-SPIKE": "rgba(234,179,8,0.25)",
+        "SV-FLATLINE": "rgba(59,130,246,0.25)",
+        "SV-STALE": "rgba(168,85,247,0.25)",
+        "SV-RATE": "rgba(16,185,129,0.25)",
+    }
+    lane_i = 0
+    for rid, mask in (rule_masks or {}).items():
+        if mask is None:
+            continue
+        m = mask.reindex(num.index).fillna(False).astype(bool).loc[plot_index]
+        if not m.any():
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=m.index,
+                y=m.astype(int),
+                name=f"{rid} fault",
+                mode="lines",
+                line=dict(width=0.6, color=colors.get(rid, "rgba(239,68,68,0.8)"), shape="hv"),
+                fill="tozeroy",
+                fillcolor=colors.get(rid, "rgba(239,68,68,0.3)"),
+                yaxis="y2",
+            )
+        )
+        lane_i += 1
+    fig.update_layout(
+        title=f"Sensor health — {sensor_name}",
+        template="plotly_white",
+        height=420,
+        margin=dict(l=50, r=20, t=50, b=40),
+        yaxis=dict(title=y_title or sensor_name, domain=[0.28, 1.0] if lane_i else [0.0, 1.0]),
+        yaxis2=dict(
+            title="fault",
+            domain=[0.0, 0.22],
+            range=[-0.05, 1.05],
+            tickvals=[0, 1],
+            ticktext=["ok", "fault"],
+            showgrid=False,
+        )
+        if lane_i
+        else None,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def bas_vs_web_oat_overlay(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict | None = None,
+    *,
+    weather: pd.DataFrame | None = None,
+    oat_err: float = 5.0,
+) -> go.Figure | None:
+    """Overlay BAS vs web OAT on one axis with ±oat_err band and fault bool lane."""
+    from app.role_map import apply_role_map
+
+    role_map = role_map or {}
+    bas_s = web_s = None
+    for eq_id, raw in (frames or {}).items():
+        mapped = apply_role_map(raw, eq_id, role_map)
+        bas = None
+        if "bas-outside-air-temp" in mapped.columns and mapped["bas-outside-air-temp"].notna().any():
+            bas = pd.to_numeric(mapped["bas-outside-air-temp"], errors="coerce")
+        elif "outside-air-temp" in mapped.columns and mapped["outside-air-temp"].notna().any():
+            bas = pd.to_numeric(mapped["outside-air-temp"], errors="coerce")
+        web = None
+        if "web-outside-air-temp" in mapped.columns and mapped["web-outside-air-temp"].notna().any():
+            web = pd.to_numeric(mapped["web-outside-air-temp"], errors="coerce")
+        elif weather is not None and "web-outside-air-temp" in weather.columns:
+            web = pd.to_numeric(weather["web-outside-air-temp"], errors="coerce").reindex(mapped.index)
+        if bas is None or web is None:
+            continue
+        both = bas.notna() & web.notna()
+        if both.sum() < 5:
+            continue
+        bas_s, web_s = bas, web
+        break
+    if bas_s is None or web_s is None:
+        return None
+    idx = downsample_frame_index(bas_s.index, max_points=max_plot_points())
+    bas_p = bas_s.reindex(idx)
+    web_p = web_s.reindex(idx)
+    diff = (bas_p - web_p).abs()
+    fault = diff > float(oat_err)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=bas_p.index, y=bas_p, name="BAS OAT", mode="lines", line=dict(width=1.4, color=RAINBOW_PALETTE[0])))
+    fig.add_trace(go.Scatter(x=web_p.index, y=web_p, name="Web dry-bulb OAT", mode="lines", line=dict(width=1.4, color=RAINBOW_PALETTE[3])))
+    # Band around web: web ± oat_err
+    fig.add_trace(
+        go.Scatter(
+            x=web_p.index,
+            y=web_p + float(oat_err),
+            name=f"+{oat_err:g}°F band",
+            mode="lines",
+            line=dict(width=0, color="rgba(0,0,0,0)"),
+            showlegend=False,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=web_p.index,
+            y=web_p - float(oat_err),
+            name=f"±{oat_err:g}°F tolerance",
+            mode="lines",
+            line=dict(width=0),
+            fill="tonexty",
+            fillcolor="rgba(234,179,8,0.18)",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=fault.index,
+            y=fault.fillna(False).astype(int),
+            name="OAT-METEO fault",
+            mode="lines",
+            line=dict(color="rgba(220,38,38,0.9)", width=0.8, shape="hv"),
+            fill="tozeroy",
+            fillcolor="rgba(239,68,68,0.35)",
+            yaxis="y2",
+        )
+    )
+    fig.update_layout(
+        title=f"BAS vs web outdoor-air temperature (±{oat_err:g}°F band)",
+        template="plotly_white",
+        height=440,
+        margin=dict(l=50, r=20, t=50, b=40),
+        yaxis=dict(title="Temperature °F", domain=[0.28, 1.0]),
+        yaxis2=dict(title="fault", domain=[0.0, 0.22], range=[-0.05, 1.05], tickvals=[0, 1], ticktext=["ok", "fault"], showgrid=False),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def vav_comfort_donut(
+    rank: pd.DataFrame,
+    *,
+    title: str = "Occupied time — comfort band",
+) -> go.Figure | None:
+    """Donut of aggregated in-band / too-cold / too-hot occupied samples across VAVs."""
+    if rank is None or rank.empty:
+        return None
+    n_occ = int(rank["n_occupied"].sum()) if "n_occupied" in rank.columns else 0
+    n_below = int(rank["n_below"].sum()) if "n_below" in rank.columns else 0
+    n_above = int(rank["n_above"].sum()) if "n_above" in rank.columns else 0
+    if n_occ <= 0:
+        return None
+    n_in = max(0, n_occ - n_below - n_above)
+    labels = ["In band", "Too cold", "Too hot"]
+    values = [n_in, n_below, n_above]
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.45,
+                marker=dict(colors=["#22c55e", "#3b82f6", "#ef4444"]),
+                textinfo="label+percent",
+            )
+        ]
+    )
+    fig.update_layout(
+        title=title,
+        template="plotly_white",
+        height=360,
+        margin=dict(l=20, r=20, t=50, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.05),
+    )
+    return fig
+
+
 def bas_vs_web_oat_histogram(
     frames: dict[str, pd.DataFrame],
     role_map: dict | None = None,
