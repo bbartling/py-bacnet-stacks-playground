@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -18,8 +20,36 @@ RuleStatus = Literal[
 ]
 
 
+def _sample_deltas_seconds(index: pd.Index, poll_seconds: float) -> pd.Series | None:
+    """Per-sample duration (seconds) until the next timestamp; last uses median/poll."""
+    if not isinstance(index, pd.DatetimeIndex) or len(index) == 0:
+        return None
+    if len(index) == 1:
+        return pd.Series([float(poll_seconds)], index=index)
+    deltas = index.to_series().diff().dt.total_seconds().shift(-1)
+    med = float(deltas.dropna().median()) if deltas.notna().any() else float(poll_seconds)
+    if not np.isfinite(med) or med < 0:
+        med = float(max(poll_seconds, 0.0))
+    return deltas.fillna(med).clip(lower=0.0)
+
+
 def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float = 300.0) -> pd.Series:
+    """Require the raw fault to persist for ``confirm_seconds`` before confirming.
+
+    When the series has a DatetimeIndex, accumulate actual sample gaps within each
+    True run. Otherwise fall back to row-count math using ``poll_seconds``.
+    """
     raw = raw.fillna(False).astype(bool)
+    if confirm_seconds <= 0:
+        return raw
+
+    deltas = _sample_deltas_seconds(raw.index, poll_seconds)
+    if deltas is not None:
+        groups = (raw != raw.shift()).cumsum()
+        contrib = deltas.where(raw, 0.0)
+        cum = contrib.groupby(groups).cumsum()
+        return raw & (cum >= float(confirm_seconds))
+
     rows = max(1, int(np.ceil(confirm_seconds / max(poll_seconds, 1))))
     groups = (raw != raw.shift()).cumsum()
     streak = raw.groupby(groups).cumcount() + 1
@@ -27,7 +57,19 @@ def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float
 
 
 def hours_true(mask: pd.Series, poll_seconds: float) -> float:
-    return float(mask.fillna(False).astype(bool).sum()) * poll_seconds / 3600.0
+    """Hours under a boolean mask using actual timestamp deltas when available."""
+    m = mask.fillna(False).astype(bool)
+    deltas = _sample_deltas_seconds(m.index, poll_seconds)
+    if deltas is not None:
+        return float((m.astype(float) * (deltas / 3600.0)).sum())
+    return float(m.sum()) * poll_seconds / 3600.0
+
+
+def params_fingerprint(rule_id: str, params: dict[str, Any], *, gates_on: bool) -> str:
+    """Stable short hash of the resolved param dict used for a run."""
+    payload = {"rule_id": rule_id, "params": params, "gates": bool(gates_on)}
+    blob = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:12]
 
 
 @dataclass
@@ -50,6 +92,7 @@ class RuleResult:
     raw_fault: pd.Series | None = None
     confirmed_fault: pd.Series | None = None
     plot_series: dict[str, pd.Series] = field(default_factory=dict)
+    params_fingerprint: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -68,6 +111,7 @@ class RuleResult:
             "metrics": dict(self.metrics),
             "debug": self.debug,
             "notes": self.notes,
+            "params_fingerprint": self.params_fingerprint,
         }
 
 
@@ -80,6 +124,7 @@ def skipped(
     site_id: str = "",
     building_id: str = "",
     equipment_type: str = "UNKNOWN",
+    params_fingerprint: str = "",
 ) -> RuleResult:
     msg = f"SKIPPED — missing roles: {', '.join(missing)}"
     return RuleResult(
@@ -94,6 +139,7 @@ def skipped(
         fault_hours=None,
         fault_pct=None,
         notes=notes or msg,
+        params_fingerprint=params_fingerprint,
     )
 
 
@@ -105,6 +151,7 @@ def not_applicable(
     site_id: str = "",
     building_id: str = "",
     equipment_type: str = "UNKNOWN",
+    params_fingerprint: str = "",
 ) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
@@ -116,6 +163,7 @@ def not_applicable(
         applicable=False,
         missing_roles=[],
         notes=f"NOT_APPLICABLE — rule not applicable to equipment kind '{equipment_kind}'",
+        params_fingerprint=params_fingerprint,
     )
 
 
@@ -127,6 +175,7 @@ def error_result(
     site_id: str = "",
     building_id: str = "",
     equipment_type: str = "UNKNOWN",
+    params_fingerprint: str = "",
 ) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
@@ -137,6 +186,7 @@ def error_result(
         status="ERROR",
         applicable=False,
         notes=f"ERROR — {type(exc).__name__}: {exc}",
+        params_fingerprint=params_fingerprint,
     )
 
 
@@ -149,6 +199,7 @@ def equipment_off(
     building_id: str = "",
     equipment_type: str = "UNKNOWN",
     metrics: dict[str, Any] | None = None,
+    params_fingerprint: str = "",
 ) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
@@ -163,6 +214,7 @@ def equipment_off(
         metrics=metrics or {},
         notes=notes
         or "SKIPPED_EQUIPMENT_OFF — equipment was not proven on during the analysis period.",
+        params_fingerprint=params_fingerprint,
     )
 
 
@@ -179,6 +231,7 @@ def finalize_result(
     metrics: dict[str, Any] | None = None,
     plot_series: dict[str, pd.Series] | None = None,
     active_mask: pd.Series | None = None,
+    params_fingerprint: str = "",
 ) -> RuleResult:
     raw = raw.fillna(False).astype(bool)
     if active_mask is not None:
@@ -215,4 +268,5 @@ def finalize_result(
         confirmed_fault=confirmed,
         plot_series=plot_series or {},
         notes=f"{fault_h:.1f}h fault ({pct:.1f}% of active)" if fault_n else "No confirmed faults",
+        params_fingerprint=params_fingerprint,
     )

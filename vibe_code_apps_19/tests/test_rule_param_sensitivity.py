@@ -105,3 +105,54 @@ def test_declared_band_params_have_sensitivity_coverage() -> None:
             if band_re.search(p.key) and (rid, p.key) not in covered:
                 missing.append(f"{rid}.{p.key}")
     assert not missing, f"Add sensitivity cases for: {missing}"
+
+
+def test_catalog_direction_labels_are_valid() -> None:
+    from app.rules.cookbook_catalog import RULES
+
+    for r in RULES:
+        for p in r.params:
+            assert p.direction in {"", "fewer", "stricter"}, f"{r.id}.{p.key}"
+            if p.key == "confirm_min":
+                assert p.direction == "fewer", r.id
+
+
+def _fault_n(rule_id: str, df: pd.DataFrame, **params: Any) -> int:
+    payload = {"confirm_min": 0, **params}
+    return run_rule(
+        rule_id,
+        df,
+        payload,
+        poll_seconds=300.0,
+        require_operational_gates=False,
+    ).fault_sample_count
+
+
+def test_catalog_direction_sweep_core_tolerance_params() -> None:
+    """For params labeled direction=fewer/stricter, fault counts move as declared."""
+    cases = [
+        # rule, key, low, high, direction, df kwargs
+        ("FC2", "mix_tol", 0.25, 3.0, "fewer", dict(mat=48.0, oa_t=50.0, rat=70.0, fan_cmd=50.0)),
+        ("FC3", "mix_tol", 0.25, 3.0, "fewer", dict(mat=73.0, oa_t=50.0, rat=70.0, fan_cmd=50.0)),
+        ("OAT-METEO", "oat_err", 5.0, 10.0, "fewer", dict(oa_t=80.0, wx_oa_t=70.0)),
+        ("FC8", "mix_tol", 0.25, 3.0, "fewer", dict(
+            sat=62.0, mat=60.0, oa_damper_pct=50.0, clg_valve_pct=0.0, fan_cmd=50.0
+        )),
+        ("AHU-SATDEV", "sat_dev_err", 1.0, 15.0, "fewer", dict(sat=80.0, sat_sp=70.0, fan_cmd=50.0)),
+    ]
+    # Ensure catalog directions match the hand table.
+    for rid, key, _lo, _hi, direction, _kw in cases:
+        p = next(x for x in RULES_BY_ID[rid].params if x.key == key)
+        assert p.direction == direction, f"{rid}.{key}"
+
+    for rid, key, lo, hi, direction, kw in cases:
+        df = _ts_df(24, **kw)
+        n_lo = _fault_n(rid, df, **{key: lo})
+        n_hi = _fault_n(rid, df, **{key: hi})
+        if direction == "fewer":
+            assert n_hi <= n_lo, f"{rid}.{key}: higher value should not increase faults ({n_lo} → {n_hi})"
+            assert n_hi < n_lo or (n_lo == 0 and n_hi == 0), (
+                f"{rid}.{key}: expected strict drop on this synthetic band ({n_lo} → {n_hi})"
+            )
+        else:
+            assert n_hi >= n_lo, f"{rid}.{key}: higher value should not decrease faults"

@@ -1,7 +1,8 @@
 AHU-DUCTHI:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -9,6 +10,7 @@ AHU-DUCTHI:
     unit: min
   duct_high_margin:
     default: 0.25
+    direction: ''
     help: High margin
     label: High margin
     max: 1.0
@@ -17,8 +19,9 @@ AHU-DUCTHI:
     unit: in. w.c.
 AHU-SATDEV:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -26,7 +29,8 @@ AHU-SATDEV:
     unit: min
   sat_dev_err:
     default: 5.0
-    help: SAT deviation
+    direction: fewer
+    help: "SAT deviation \u2014 increasing this usually flags fewer faults."
     label: SAT deviation
     max: 15.0
     min: 1.0
@@ -35,7 +39,8 @@ AHU-SATDEV:
 AHU-SIMUL:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -43,6 +48,7 @@ AHU-SIMUL:
     unit: min
   valve_open_pct:
     default: 0.1
+    direction: ''
     help: Valve open threshold
     label: Valve open threshold
     max: 0.5
@@ -51,8 +57,9 @@ AHU-SIMUL:
     unit: frac
 CHW-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -60,6 +67,7 @@ CHW-1:
     unit: min
   min_dt:
     default: 4.0
+    direction: ''
     help: "Min \u0394T"
     label: "Min \u0394T"
     max: 12.0
@@ -69,7 +77,8 @@ CHW-1:
 CHW-2:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -77,6 +86,7 @@ CHW-2:
     unit: min
   dp_margin:
     default: 2.2
+    direction: ''
     help: DP margin
     label: DP margin
     max: 6.0
@@ -86,7 +96,8 @@ CHW-2:
 CHW-3:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -94,6 +105,7 @@ CHW-3:
     unit: min
   sp_band:
     default: 2.2
+    direction: ''
     help: SP band
     label: SP band
     max: 6.0
@@ -103,7 +115,8 @@ CHW-3:
 CHW-4:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -111,6 +124,7 @@ CHW-4:
     unit: min
   flow_hi:
     default: 1100
+    direction: ''
     help: Flow high
     label: Flow high
     max: 3000
@@ -120,6 +134,7 @@ CHW-4:
 CHW-NOLOAD-1:
   comfort_high_f:
     default: 75.0
+    direction: ''
     help: Comfort high
     label: Comfort high
     max: 85.0
@@ -128,6 +143,7 @@ CHW-NOLOAD-1:
     unit: "\xB0F"
   comfort_low_f:
     default: 70.0
+    direction: ''
     help: Comfort low
     label: Comfort low
     max: 78.0
@@ -136,7 +152,8 @@ CHW-NOLOAD-1:
     unit: "\xB0F"
   confirm_min:
     default: 30.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -144,6 +161,7 @@ CHW-NOLOAD-1:
     unit: min
   sat_band_f:
     default: 2.0
+    direction: ''
     help: "AHU SAT\u2248SP band"
     label: "AHU SAT\u2248SP band"
     max: 6.0
@@ -152,8 +170,9 @@ CHW-NOLOAD-1:
     unit: "\xB0F"
 CMD-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -162,6 +181,7 @@ CMD-1:
 CW-APR-1:
   approach_max_f:
     default: 8.0
+    direction: ''
     help: Max approach at full fan
     label: Max approach at full fan
     max: 15.0
@@ -169,8 +189,9 @@ CW-APR-1:
     step: 0.5
     unit: "\xB0F"
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -178,6 +199,7 @@ CW-APR-1:
     unit: min
   tower_fan_hi:
     default: 0.95
+    direction: ''
     help: Tower fan full-speed threshold
     label: Tower fan full-speed threshold
     max: 1.0
@@ -186,8 +208,9 @@ CW-APR-1:
     unit: frac
 CW-FAN-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -195,6 +218,7 @@ CW-FAN-1:
     unit: min
   cw_approach:
     default: 7.0
+    direction: ''
     help: Design approach
     label: Design approach
     max: 15.0
@@ -203,6 +227,7 @@ CW-FAN-1:
     unit: "\xB0F"
   excess_beyond_approach_f:
     default: 5.0
+    direction: ''
     help: Excess beyond approach
     label: Excess beyond approach
     max: 20.0
@@ -211,6 +236,7 @@ CW-FAN-1:
     unit: "\xB0F"
   tower_fan_hi:
     default: 0.95
+    direction: ''
     help: Tower fan full-speed threshold
     label: Tower fan full-speed threshold
     max: 1.0
@@ -219,8 +245,9 @@ CW-FAN-1:
     unit: frac
 CW-OPT-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -228,7 +255,9 @@ CW-OPT-1:
     unit: min
   cw_approach:
     default: 7.0
-    help: Design approach
+    direction: stricter
+    help: "Design approach \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Design approach
     max: 15.0
     min: 3.0
@@ -236,7 +265,8 @@ CW-OPT-1:
     unit: "\xB0F"
   cw_slack:
     default: 2.0
-    help: Slack below target
+    direction: fewer
+    help: "Slack below target \u2014 increasing this usually flags fewer faults."
     label: Slack below target
     max: 6.0
     min: 0.5
@@ -244,8 +274,9 @@ CW-OPT-1:
     unit: "\xB0F"
 DMP-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -253,6 +284,7 @@ DMP-1:
     unit: min
   leak_delta:
     default: 2.0
+    direction: ''
     help: "Leak \u0394T"
     label: "Leak \u0394T"
     max: 6.0
@@ -261,8 +293,9 @@ DMP-1:
     unit: "\xB0F"
 ECON-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -270,6 +303,7 @@ ECON-1:
     unit: min
   econ1_oat_min:
     default: 55.0
+    direction: ''
     help: Favorable OAT
     label: Favorable OAT
     max: 70.0
@@ -279,7 +313,8 @@ ECON-1:
 ECON-2:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -287,6 +322,7 @@ ECON-2:
     unit: min
   econ2_damper:
     default: 0.42
+    direction: ''
     help: Damper open frac
     label: Damper open frac
     max: 0.9
@@ -295,6 +331,7 @@ ECON-2:
     unit: frac
   econ2_oat_hi:
     default: 63.0
+    direction: ''
     help: OAT high cutoff
     label: OAT high cutoff
     max: 80.0
@@ -304,7 +341,8 @@ ECON-2:
 ECON-3:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -312,7 +350,9 @@ ECON-3:
     unit: min
   econ3_damper_hi:
     default: 0.9
-    help: Integrated economizer damper
+    direction: fewer
+    help: "Integrated economizer damper \u2014 increasing this usually flags fewer\
+      \ faults."
     label: Integrated economizer damper
     max: 1.0
     min: 0.5
@@ -320,6 +360,7 @@ ECON-3:
     unit: frac
   econ3_db_max:
     default: 72.0
+    direction: ''
     help: Free-cool OA dry-bulb max
     label: Free-cool OA dry-bulb max
     max: 80.0
@@ -328,6 +369,7 @@ ECON-3:
     unit: "\xB0F"
   econ3_db_min:
     default: 60.0
+    direction: ''
     help: Free-cool OA dry-bulb min
     label: Free-cool OA dry-bulb min
     max: 68.0
@@ -336,6 +378,7 @@ ECON-3:
     unit: "\xB0F"
   econ3_dp_max:
     default: 60.0
+    direction: ''
     help: Free-cool OA dew point max
     label: Free-cool OA dew point max
     max: 68.0
@@ -344,8 +387,9 @@ ECON-3:
     unit: "\xB0F"
 ECON-4:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -353,7 +397,9 @@ ECON-4:
     unit: min
   oa_min_pct:
     default: 21.0
-    help: Min OA fraction
+    direction: stricter
+    help: "Min OA fraction \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Min OA fraction
     max: 40.0
     min: 5.0
@@ -361,17 +407,28 @@ ECON-4:
     unit: '%'
 ECON-5:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  preheat_over_f:
+    default: 2.2
+    direction: fewer
+    help: "Preheat over \u0394T \u2014 increasing this usually flags fewer faults."
+    label: "Preheat over \u0394T"
+    max: 8.0
+    min: 0.5
+    step: 0.1
+    unit: "\xB0F"
 ECON-6:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -379,6 +436,7 @@ ECON-6:
     unit: min
   econ6_damper_max:
     default: 0.25
+    direction: ''
     help: Winter min-OA damper
     label: Winter min-OA damper
     max: 0.5
@@ -387,6 +445,7 @@ ECON-6:
     unit: frac
   econ6_oat_max_f:
     default: 25.0
+    direction: ''
     help: Winter OAT ceiling
     label: Winter OAT ceiling
     max: 40.0
@@ -396,7 +455,8 @@ ECON-6:
 FC1:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -404,6 +464,7 @@ FC1:
     unit: min
   duct_static_err:
     default: 0.12
+    direction: ''
     help: Duct static error
     label: Duct static error
     max: 0.5
@@ -412,6 +473,7 @@ FC1:
     unit: in. w.c.
   fan_hi:
     default: 0.87
+    direction: ''
     help: Fan high threshold
     label: Fan high threshold
     max: 1.0
@@ -420,35 +482,75 @@ FC1:
     unit: frac
 FC10:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
 FC11:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
 FC12:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
+  supply_tol:
+    default: 1.15
+    direction: fewer
+    help: "Supply tolerance \u2014 increasing this usually flags fewer faults."
+    label: Supply tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
 FC13:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -456,7 +558,8 @@ FC13:
     unit: min
   sat_err:
     default: 1.0
-    help: SAT error
+    direction: fewer
+    help: "SAT error \u2014 increasing this usually flags fewer faults."
     label: SAT error
     max: 5.0
     min: 0.25
@@ -464,26 +567,9 @@ FC13:
     unit: "\xB0F"
 FC14:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
-    label: Fault confirm delay
-    max: 60.0
-    min: 0.0
-    step: 1.0
-    unit: min
-FC15:
-  confirm_min:
-    default: 5.0
-    help: Fault confirm delay
-    label: Fault confirm delay
-    max: 60.0
-    min: 0.0
-    step: 1.0
-    unit: min
-FC2:
-  confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -491,7 +577,46 @@ FC2:
     unit: min
   mix_tol:
     default: 1.15
-    help: Mixing tolerance
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
+FC15:
+  confirm_min:
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
+FC2:
+  confirm_min:
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
     label: Mixing tolerance
     max: 3.0
     min: 0.25
@@ -499,8 +624,9 @@ FC2:
     unit: "\xB0F"
 FC3:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -508,7 +634,8 @@ FC3:
     unit: min
   mix_tol:
     default: 1.15
-    help: Mixing tolerance
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
     label: Mixing tolerance
     max: 3.0
     min: 0.25
@@ -516,8 +643,9 @@ FC3:
     unit: "\xB0F"
 FC4:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 60.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -525,7 +653,8 @@ FC4:
     unit: min
   delta_os_max:
     default: 5
-    help: Max mode changes/hr
+    direction: fewer
+    help: "Max mode changes/hr \u2014 increasing this usually flags fewer faults."
     label: Max mode changes/hr
     max: 20
     min: 2
@@ -533,8 +662,9 @@ FC4:
     unit: count
 FC5:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -542,7 +672,8 @@ FC5:
     unit: min
   mix_tol:
     default: 1.15
-    help: Mixing tolerance
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
     label: Mixing tolerance
     max: 3.0
     min: 0.25
@@ -551,6 +682,7 @@ FC5:
 FC6:
   airflow_err:
     default: 0.15
+    direction: ''
     help: OA fraction error
     label: OA fraction error
     max: 0.5
@@ -558,8 +690,9 @@ FC6:
     step: 0.01
     unit: frac
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -567,6 +700,7 @@ FC6:
     unit: min
   min_cfm_design:
     default: 5000
+    direction: ''
     help: Design min OA CFM
     label: Design min OA CFM
     max: 20000
@@ -575,8 +709,9 @@ FC6:
     unit: cfm
 FC7:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -584,6 +719,7 @@ FC7:
     unit: min
   sat_err:
     default: 1.0
+    direction: ''
     help: SAT error
     label: SAT error
     max: 5.0
@@ -592,26 +728,56 @@ FC7:
     unit: "\xB0F"
 FC8:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
+  supply_tol:
+    default: 1.15
+    direction: fewer
+    help: "Supply tolerance \u2014 increasing this usually flags fewer faults."
+    label: Supply tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
 FC9:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  mix_tol:
+    default: 1.15
+    direction: fewer
+    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
+    label: Mixing tolerance
+    max: 3.0
+    min: 0.25
+    step: 0.05
+    unit: "\xB0F"
 HP-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -619,7 +785,9 @@ HP-1:
     unit: min
   min_sat:
     default: 85.0
-    help: Min heating SAT
+    direction: stricter
+    help: "Min heating SAT \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Min heating SAT
     max: 110.0
     min: 70.0
@@ -627,7 +795,9 @@ HP-1:
     unit: "\xB0F"
   zone_cold:
     default: 69.0
-    help: Zone cold
+    direction: stricter
+    help: "Zone cold \u2014 increasing this usually flags more faults (stricter /\
+      \ wider detection)."
     label: Zone cold
     max: 72.0
     min: 60.0
@@ -635,8 +805,9 @@ HP-1:
     unit: "\xB0F"
 MECH-OAT-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -644,7 +815,9 @@ MECH-OAT-1:
     unit: min
   mech_oat_max_f:
     default: 60.0
-    help: Mech-cool OAT ceiling
+    direction: stricter
+    help: "Mech-cool OAT ceiling \u2014 increasing this usually flags more faults\
+      \ (stricter / wider detection)."
     label: Mech-cool OAT ceiling
     max: 65.0
     min: 45.0
@@ -652,8 +825,9 @@ MECH-OAT-1:
     unit: "\xB0F"
 OA-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -661,16 +835,28 @@ OA-1:
     unit: min
   min_oa_frac:
     default: 0.15
-    help: Min OA fraction
+    direction: stricter
+    help: "Min OA fraction \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Min OA fraction
     max: 0.4
     min: 0.05
     step: 0.01
     unit: frac
+  oat_rat_guard:
+    default: 2.2
+    direction: fewer
+    help: "Min |RAT\u2212OAT| guard \u2014 increasing this usually flags fewer faults."
+    label: "Min |RAT\u2212OAT| guard"
+    max: 6.0
+    min: 0.5
+    step: 0.1
+    unit: "\xB0F"
 OAT-METEO:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -678,7 +864,8 @@ OAT-METEO:
     unit: min
   oat_err:
     default: 5.0
-    help: Max OAT disagreement
+    direction: fewer
+    help: "Max OAT disagreement \u2014 increasing this usually flags fewer faults."
     label: Max OAT disagreement
     max: 20.0
     min: 2.0
@@ -687,6 +874,7 @@ OAT-METEO:
 PID-HUNT-1:
   change_deadband_pct:
     default: 1.0
+    direction: ''
     help: Ignore changes below
     label: Ignore changes below
     max: 10.0
@@ -694,8 +882,9 @@ PID-HUNT-1:
     step: 0.5
     unit: '% out'
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 0.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -703,6 +892,7 @@ PID-HUNT-1:
     unit: min
   minimum_coverage_pct:
     default: 80.0
+    direction: ''
     help: Minimum data coverage
     label: Minimum data coverage
     max: 100.0
@@ -711,6 +901,7 @@ PID-HUNT-1:
     unit: '%'
   minimum_equivalent_cycles:
     default: 2.5
+    direction: ''
     help: Min equivalent cycles
     label: Min equivalent cycles
     max: 20.0
@@ -719,6 +910,7 @@ PID-HUNT-1:
     unit: cyc/h
   minimum_reversals:
     default: 4
+    direction: ''
     help: Min direction reversals
     label: Min direction reversals
     max: 40
@@ -727,6 +919,7 @@ PID-HUNT-1:
     unit: count
   minimum_span_pct:
     default: 20.0
+    direction: ''
     help: Minimum observed span
     label: Minimum observed span
     max: 100.0
@@ -735,6 +928,7 @@ PID-HUNT-1:
     unit: '% out'
   total_variation_fault_pct:
     default: 500.0
+    direction: ''
     help: Total travel threshold
     label: Total travel threshold
     max: 2000.0
@@ -744,6 +938,7 @@ PID-HUNT-1:
 SCHED-1:
   comfort_high_f:
     default: 75.0
+    direction: ''
     help: Comfort high
     label: Comfort high
     max: 85.0
@@ -752,6 +947,7 @@ SCHED-1:
     unit: "\xB0F"
   comfort_low_f:
     default: 70.0
+    direction: ''
     help: Comfort low
     label: Comfort low
     max: 78.0
@@ -759,8 +955,9 @@ SCHED-1:
     step: 0.5
     unit: "\xB0F"
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 30.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -769,6 +966,7 @@ SCHED-1:
 SCHED-247:
   always_on_pct:
     default: 0.95
+    direction: ''
     help: Always-on fraction
     label: Always-on fraction
     max: 1.0
@@ -776,8 +974,9 @@ SCHED-247:
     step: 0.01
     unit: frac
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 60.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -786,7 +985,8 @@ SCHED-247:
 SV-FLATLINE:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -794,7 +994,8 @@ SV-FLATLINE:
     unit: min
   flatline_hours:
     default: 1.0
-    help: Flatline window
+    direction: fewer
+    help: "Flatline window \u2014 increasing this usually flags fewer faults."
     label: Flatline window
     max: 8.0
     min: 0.5
@@ -802,7 +1003,9 @@ SV-FLATLINE:
     unit: h
   flatline_tol:
     default: 0.1
-    help: Flatline tolerance
+    direction: stricter
+    help: "Flatline tolerance \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Flatline tolerance
     max: 1.0
     min: 0.02
@@ -811,7 +1014,8 @@ SV-FLATLINE:
 SV-RANGE:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -819,8 +1023,9 @@ SV-RANGE:
     unit: min
 SV-RATE:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -828,6 +1033,7 @@ SV-RATE:
     unit: min
   design_flow:
     default: 0.0
+    direction: ''
     help: Design flow (flow profiles)
     label: Design flow (flow profiles)
     max: 100000.0
@@ -836,6 +1042,7 @@ SV-RATE:
     unit: cfm
   max_gap_hours:
     default: 2.0
+    direction: ''
     help: Max sample gap
     label: Max sample gap
     max: 6.0
@@ -844,6 +1051,7 @@ SV-RATE:
     unit: h
   persistence_min:
     default: 10.0
+    direction: ''
     help: Fault persistence
     label: Fault persistence
     max: 60.0
@@ -852,6 +1060,7 @@ SV-RATE:
     unit: min
   sensor_span:
     default: 0.0
+    direction: ''
     help: Sensor span (flow/pressure)
     label: Sensor span (flow/pressure)
     max: 100000.0
@@ -860,6 +1069,7 @@ SV-RATE:
     unit: eng
   transition_window_min:
     default: 20.0
+    direction: ''
     help: Transition window
     label: Transition window
     max: 60.0
@@ -869,7 +1079,8 @@ SV-RATE:
 SV-SPIKE:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -877,16 +1088,18 @@ SV-SPIKE:
     unit: min
   spike_scale:
     default: 1.0
-    help: Spike limit scale
+    direction: fewer
+    help: "Spike limit scale \u2014 increasing this usually flags fewer faults."
     label: Spike limit scale
     max: 3.0
     min: 0.25
     step: 0.25
-    unit: "\u251C\xF9"
+    unit: x
 SV-STALE:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -894,6 +1107,7 @@ SV-STALE:
     unit: min
   stale_hours:
     default: 2.0
+    direction: ''
     help: Stale window
     label: Stale window
     max: 12.0
@@ -902,35 +1116,97 @@ SV-STALE:
     unit: h
 TRIM-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 30.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  duct_hi:
+    default: 1.35
+    direction: fewer
+    help: "Duct static high \u2014 increasing this usually flags fewer faults."
+    label: Duct static high
+    max: 3.0
+    min: 0.5
+    step: 0.05
+    unit: in. w.c.
+  request_lo:
+    default: 1.0
+    direction: stricter
+    help: "Request sum low \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
+    label: Request sum low
+    max: 10.0
+    min: 0.0
+    step: 0.5
+    unit: count
 TRIM-3:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 30.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  hwst_hi:
+    default: 160.0
+    direction: fewer
+    help: "HWST high \u2014 increasing this usually flags fewer faults."
+    label: HWST high
+    max: 200.0
+    min: 120.0
+    step: 1.0
+    unit: "\xB0F"
+  request_lo:
+    default: 1.0
+    direction: stricter
+    help: "Request sum low \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
+    label: Request sum low
+    max: 10.0
+    min: 0.0
+    step: 0.5
+    unit: count
 TRIM-4:
+  chw_lo:
+    default: 45.0
+    direction: stricter
+    help: "CHWS low \u2014 increasing this usually flags more faults (stricter / wider\
+      \ detection)."
+    label: CHWS low
+    max: 55.0
+    min: 35.0
+    step: 0.5
+    unit: "\xB0F"
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 30.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
+  request_lo:
+    default: 1.0
+    direction: stricter
+    help: "Request sum low \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
+    label: Request sum low
+    max: 10.0
+    min: 0.0
+    step: 0.5
+    unit: count
 VAV-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -938,6 +1214,7 @@ VAV-1:
     unit: min
   zone_hi:
     default: 75.0
+    direction: ''
     help: Zone high
     label: Zone high
     max: 85.0
@@ -946,6 +1223,7 @@ VAV-1:
     unit: "\xB0F"
   zone_lo:
     default: 70.0
+    direction: ''
     help: Zone low
     label: Zone low
     max: 72.0
@@ -955,7 +1233,8 @@ VAV-1:
 VAV-3:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -963,6 +1242,7 @@ VAV-3:
     unit: min
   flow_on_min:
     default: 25.0
+    direction: ''
     help: Airflow-on min
     label: Airflow-on min
     max: 200.0
@@ -971,6 +1251,7 @@ VAV-3:
     unit: cfm
   reheat_oat:
     default: 78.0
+    direction: ''
     help: Warm OAT
     label: Warm OAT
     max: 90.0
@@ -979,6 +1260,7 @@ VAV-3:
     unit: "\xB0F"
   reheat_pct:
     default: 0.52
+    direction: ''
     help: Reheat frac
     label: Reheat frac
     max: 1.0
@@ -987,8 +1269,9 @@ VAV-3:
     unit: frac
 VAV-4:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -996,6 +1279,7 @@ VAV-4:
     unit: min
   flow_on_min:
     default: 25.0
+    direction: ''
     help: Airflow-on min
     label: Airflow-on min
     max: 200.0
@@ -1004,6 +1288,7 @@ VAV-4:
     unit: cfm
   full_open_pct:
     default: 0.975
+    direction: ''
     help: Full open frac
     label: Full open frac
     max: 1.0
@@ -1012,6 +1297,7 @@ VAV-4:
     unit: frac
   sustain_hours:
     default: 1.5
+    direction: ''
     help: Sustain window
     label: Sustain window
     max: 6.0
@@ -1020,8 +1306,9 @@ VAV-4:
     unit: h
 VAV-5:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1029,8 +1316,9 @@ VAV-5:
     unit: min
 VAV-7:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1038,7 +1326,9 @@ VAV-7:
     unit: min
   fixed_flow_max_std:
     default: 15.0
-    help: Fixed-flow max std
+    direction: stricter
+    help: "Fixed-flow max std \u2014 increasing this usually flags more faults (stricter\
+      \ / wider detection)."
     label: Fixed-flow max std
     max: 80.0
     min: 1.0
@@ -1046,7 +1336,8 @@ VAV-7:
     unit: cfm
   fixed_flow_min_mean:
     default: 200.0
-    help: Fixed-flow min mean
+    direction: fewer
+    help: "Fixed-flow min mean \u2014 increasing this usually flags fewer faults."
     label: Fixed-flow min mean
     max: 2000.0
     min: 50.0
@@ -1054,6 +1345,7 @@ VAV-7:
     unit: cfm
   flow_on_min:
     default: 25.0
+    direction: ''
     help: Airflow-on min
     label: Airflow-on min
     max: 200.0
@@ -1062,7 +1354,8 @@ VAV-7:
     unit: cfm
   high_min_flow_sp:
     default: 250.0
-    help: High min-flow SP
+    direction: fewer
+    help: "High min-flow SP \u2014 increasing this usually flags fewer faults."
     label: High min-flow SP
     max: 2000.0
     min: 50.0
@@ -1070,8 +1363,9 @@ VAV-7:
     unit: cfm
 VAV-AHU-LEAVE:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1079,6 +1373,7 @@ VAV-AHU-LEAVE:
     unit: min
   delta_f:
     default: 8.0
+    direction: ''
     help: "Leave \u0394 vs AHU SAT"
     label: "Leave \u0394 vs AHU SAT"
     max: 25.0
@@ -1087,6 +1382,7 @@ VAV-AHU-LEAVE:
     unit: "\xB0F"
   flow_on_min:
     default: 25.0
+    direction: ''
     help: Airflow-on min
     label: Airflow-on min
     max: 200.0
@@ -1095,8 +1391,9 @@ VAV-AHU-LEAVE:
     unit: cfm
 VAV-REHEAT:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1104,6 +1401,7 @@ VAV-REHEAT:
     unit: min
   flow_on_min:
     default: 25.0
+    direction: ''
     help: Airflow-on min
     label: Airflow-on min
     max: 200.0
@@ -1112,6 +1410,7 @@ VAV-REHEAT:
     unit: cfm
   min_rise:
     default: 3.0
+    direction: ''
     help: Min temp rise
     label: Min temp rise
     max: 15.0
@@ -1120,6 +1419,7 @@ VAV-REHEAT:
     unit: "\xB0F"
   reheat_cmd:
     default: 0.3
+    direction: ''
     help: Reheat open frac
     label: Reheat open frac
     max: 1.0
@@ -1128,8 +1428,9 @@ VAV-REHEAT:
     unit: frac
 VLV-1:
   confirm_min:
-    default: 5.0
-    help: Fault confirm delay
+    default: 15.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1137,6 +1438,7 @@ VLV-1:
     unit: min
   mat_leak_delta:
     default: 2.0
+    direction: ''
     help: "SAT vs MAT leak \u0394T"
     label: "SAT vs MAT leak \u0394T"
     max: 12.0
@@ -1145,6 +1447,7 @@ VLV-1:
     unit: "\xB0F"
   sat_err:
     default: 2.0
+    direction: ''
     help: "SAT vs SP leak \u0394T"
     label: "SAT vs SP leak \u0394T"
     max: 8.0
@@ -1154,7 +1457,8 @@ VLV-1:
 WX-1:
   confirm_min:
     default: 5.0
-    help: Fault confirm delay
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
     max: 60.0
     min: 0.0
@@ -1162,6 +1466,7 @@ WX-1:
     unit: min
   spike_limit:
     default: 16.0
+    direction: ''
     help: Spike limit
     label: Spike limit
     max: 40.0

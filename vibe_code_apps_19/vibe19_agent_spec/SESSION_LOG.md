@@ -8,6 +8,16 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-14 — Rule tuning inversions + dead FC4 + dt-aware confirm
+
+- **Root cause (UI/plumbing, not FC2 math):** `confirm_min` default of 5.0 overrode every `confirm_seconds`; sidebar rewrote all params when any slider moved; startup delay raised `fault_pct` via smaller denominator
+- **Phase 0 repro** (analytics_pkg AHU_1; BUILDING_100.zip not on host): `mix_tol` 1.15→3.0 cut fault hours 720→342; `confirm_min` inert when poll≫confirm (fixture poll ≈ 6h)
+- Engine: per-rule confirm defaults synced; dt-aware `confirm_fault`/`hours_true`; FC4 uses DatetimeIndex; VLV-1 fan-only gate; coverage slider honors value (default 5%); expose FC8–15/TRIM/ECON-5 tols
+- UI: store only changed params + direction hints + mixed-fingerprint warning; prefer fault hours next to %
+- Tests: `test_confirm_and_duration.py`, catalog direction sweep; configs + goldens regenerated
+
+---
+
 ## 2026-07-14 — Weather economizer rules + Generic RCx report
 
 - **ECON-3** strict web DB/DP band (60–72°F, DP&lt;60°F) + integrated damper (default 90%); no BAS fallback

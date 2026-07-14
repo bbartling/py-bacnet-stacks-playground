@@ -46,7 +46,8 @@ def main() -> None:
                 "max": p.max,
                 "step": p.step,
                 "unit": p.unit,
-                "help": p.label,
+                "direction": getattr(p, "direction", "") or "",
+                "help": p.help_text() if hasattr(p, "help_text") else p.label,
             }
         defaults[r.id] = block
 

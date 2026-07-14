@@ -396,9 +396,9 @@ rules:
   family: ahu
   title: SAT/MAT mismatch in economizer (GL36 F)
   description: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
-    (1.15\xB2+1.15\xB2)."
+    (supply_tol\xB2+mix_tol\xB2)."
   summary: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
-    (1.15\xB2+1.15\xB2)."
+    (supply_tol\xB2+mix_tol\xB2)."
   required_roles:
   - discharge-air-temp
   - mixed-air-temp
@@ -408,6 +408,8 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
+  - supply_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -423,10 +425,10 @@ rules:
 - rule_id: FC9
   family: ahu
   title: OAT too warm for free cooling (GL36 G)
-  description: "Economizer open, CHW < 10%, OAT \u2212 1.15\xB0F > SAT SP \u2212 0.55\xB0\
-    F + 1.15\xB0F."
-  summary: "Economizer open, CHW < 10%, OAT \u2212 1.15\xB0F > SAT SP \u2212 0.55\xB0\
-    F + 1.15\xB0F."
+  description: "Economizer open, CHW < 10%, OAT \u2212 mix_tol > SAT SP \u2212 0.55\xB0\
+    F + mix_tol."
+  summary: "Economizer open, CHW < 10%, OAT \u2212 mix_tol > SAT SP \u2212 0.55\xB0\
+    F + mix_tol."
   required_roles:
   - outside-air-temp
   - discharge-air-temp-sp
@@ -436,6 +438,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -451,9 +454,9 @@ rules:
 - rule_id: FC10
   family: ahu
   title: OAT/MAT mismatch + mech cooling (GL36 H)
-  description: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(1.15\xB2+1.15\xB2\
-    )."
-  summary: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(1.15\xB2+1.15\xB2\
+  description: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(mix_tol\xB2\
+    +mix_tol\xB2)."
+  summary: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(mix_tol\xB2+mix_tol\xB2\
     )."
   required_roles:
   - mixed-air-temp
@@ -464,6 +467,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -479,10 +483,10 @@ rules:
 - rule_id: FC11
   family: ahu
   title: OAT/MAT mismatch economizer-only (GL36 I)
-  description: "CHW > 1%, economizer > 90%, OAT + 1.15\xB0F < SAT SP \u2212 0.55\xB0\
-    F \u2212 1.15\xB0F."
-  summary: "CHW > 1%, economizer > 90%, OAT + 1.15\xB0F < SAT SP \u2212 0.55\xB0F\
-    \ \u2212 1.15\xB0F."
+  description: "CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP \u2212 0.55\xB0\
+    F \u2212 mix_tol."
+  summary: "CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP \u2212 0.55\xB0F \u2212\
+    \ mix_tol."
   required_roles:
   - outside-air-temp
   - discharge-air-temp-sp
@@ -492,6 +496,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -507,9 +512,9 @@ rules:
 - rule_id: FC12
   family: ahu
   title: SAT above blend in cooling (GL36 J)
-  description: "CHW > 1%, SAT \u2212 1.15\xB0F \u2212 0.55\xB0F > MAT + 1.15\xB0F\
-    \ at min or full economizer."
-  summary: "CHW > 1%, SAT \u2212 1.15\xB0F \u2212 0.55\xB0F > MAT + 1.15\xB0F at min\
+  description: "CHW > 1%, SAT \u2212 supply_tol \u2212 0.55\xB0F > MAT + mix_tol at\
+    \ min or full economizer."
+  summary: "CHW > 1%, SAT \u2212 supply_tol \u2212 0.55\xB0F > MAT + mix_tol at min\
     \ or full economizer."
   required_roles:
   - discharge-air-temp
@@ -520,6 +525,8 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
+  - supply_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -562,10 +569,10 @@ rules:
 - rule_id: FC14
   family: ahu
   title: "CHW coil \u0394T when inactive (GL36 L)"
-  description: "Cooling coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
-    \ coil should be inactive."
-  summary: "Cooling coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
-    \ coil should be inactive."
+  description: "Cooling coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0\
+    F while coil should be inactive."
+  summary: "Cooling coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0F\
+    \ while coil should be inactive."
   required_roles:
   - cooling-coil-entering-temp
   - cooling-coil-leaving-temp
@@ -575,6 +582,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -590,10 +598,10 @@ rules:
 - rule_id: FC15
   family: ahu
   title: "HW coil \u0394T when inactive (GL36 M)"
-  description: "Heating coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
-    \ coil should be inactive."
-  summary: "Heating coil \u0394T \u2265 \u221A(1.15\xB2+1.15\xB2)+0.55\xB0F while\
-    \ coil should be inactive."
+  description: "Heating coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0\
+    F while coil should be inactive."
+  summary: "Heating coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0F\
+    \ while coil should be inactive."
   required_roles:
   - heating-coil-entering-temp
   - heating-coil-leaving-temp
@@ -603,6 +611,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - mix_tol
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -845,6 +854,7 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - preheat_over_f
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -1404,6 +1414,8 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - duct_hi
+  - request_lo
   - confirm_min
   default_confirm_seconds: 1800
   sensor_sweep: false
@@ -1428,6 +1440,8 @@ rules:
   equipment_kinds:
   - boiler
   tunable_params:
+  - hwst_hi
+  - request_lo
   - confirm_min
   default_confirm_seconds: 1800
   sensor_sweep: false
@@ -1452,6 +1466,8 @@ rules:
   equipment_kinds:
   - chiller
   tunable_params:
+  - chw_lo
+  - request_lo
   - confirm_min
   default_confirm_seconds: 1800
   sensor_sweep: false
@@ -1574,6 +1590,7 @@ rules:
   - ahu
   tunable_params:
   - min_oa_frac
+  - oat_rat_guard
   - confirm_min
   default_confirm_seconds: 900
   sensor_sweep: false

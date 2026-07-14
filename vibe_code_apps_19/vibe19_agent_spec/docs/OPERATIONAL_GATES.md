@@ -83,3 +83,17 @@ Almost every cookbook rule’s confirmed-fault mask is ANDed with an **operation
 | `always` (exceptions) | none | **SV-STALE** (dead feed), **SCHED-1**, **CMD-1**, **OAT-METEO**, **WX-1** |
 
 When proof roles are missing, the runner stays **ungated** (cannot prove off) rather than inventing a skip.
+
+## Coverage slider + VLV-1
+
+- `minimum_active_coverage_pct` default is **5%** (essentially-off floor). The UI honors the slider value directly — values above 5% are not capped.
+- **VLV-1** conditional gate is fan-only (the prior `(valve>0.01)|(valve<=0.05)` cover was a tautology). Leakage context lives in rule compute (`valve ≤ 5%`).
+
+## Confirm delay vs startup delay
+
+| Param | Effect of increasing |
+| --- | --- |
+| `confirm_min` | Longer persistence required → fewer confirmed faults (direction=`fewer`) |
+| `startup_delay_min` | Fewer early-run samples count as active → `fault_pct` denominator shrinks (hours may stay flat; % can rise) |
+
+Sidebar help text calls out the startup-delay % pitfall. Prefer fault hours when A/B testing timers.

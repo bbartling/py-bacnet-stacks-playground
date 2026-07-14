@@ -28,7 +28,8 @@ GateKind = Literal[
 class GateSpec:
     kind: GateKind
     startup_delay_seconds: float = 0.0
-    minimum_active_coverage_pct: float = 80.0
+    # Default 5%: skip only when essentially off. Raise via UI to require more coverage.
+    minimum_active_coverage_pct: float = 5.0
     command_fallback_allowed: bool = True
 
 
@@ -215,14 +216,10 @@ def resolve_conditional(df: pd.DataFrame, rule_id: str) -> tuple[pd.Series, str]
             return (fan | cmd).fillna(False), f"damper_or_{src}"
         return fan, src
     if rule_id == "VLV-1":
-        if "cooling-valve" in df.columns:
-            valve = norm_cmd(df["cooling-valve"]).fillna(0)
-            # Evaluate when valve has demand OR when commanded closed (leakage context).
-            active = (valve > 0.01) | (valve <= 0.05)
-            fan, _ = resolve_fan_running(df)
-            return (active & fan).fillna(False), "valve_and_fan"
+        # Leakage detection already requires a closed valve in the rule compute.
+        # Gate only on fan proof — the old (valve>0.01)|(valve<=0.05) cover was a tautology.
         fan, src = resolve_fan_running(df)
-        return fan, src
+        return fan, f"fan_{src}"
     if rule_id == "SV-FLATLINE":
         # Prefer energized periods (fan → pump) to reduce off-period stuck false positives.
         return resolve_equipment_energized(df)
@@ -309,21 +306,17 @@ def resolve_operational_mask(
 
 
 def should_skip_equipment_off(meta: dict, params: dict | None = None, spec: GateSpec | None = None) -> bool:
-    """True when gate applied but almost no active samples in the window."""
+    """True when gate applied but active coverage is below the configured minimum."""
     params = params or {}
     if not meta.get("gate_applied"):
         return False
     min_cov = float(
         params.get(
             "minimum_active_coverage_pct",
-            (spec.minimum_active_coverage_pct if spec else 80.0),
+            (spec.minimum_active_coverage_pct if spec else 5.0),
         )
     )
-    # Skip only when essentially off (very low coverage), not when partially on.
-    # Use a floor: if active_sample_count == 0 → always skip; if coverage < 5% also skip.
     if int(meta.get("active_sample_count", 0)) == 0:
         return True
-    # If user sets a high minimum_active_coverage_pct, honor it for skip.
-    if float(meta.get("active_coverage_pct", 100)) < min(min_cov, 5.0):
-        return True
-    return int(meta.get("active_sample_count", 0)) == 0
+    # Honor the user/catalog value directly (default 5% = essentially-off floor).
+    return float(meta.get("active_coverage_pct", 100)) < min_cov

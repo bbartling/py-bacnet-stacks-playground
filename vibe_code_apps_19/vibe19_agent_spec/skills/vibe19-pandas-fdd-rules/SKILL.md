@@ -24,13 +24,16 @@ raw = ...  # boolean Series aligned to d.index
 # 2. operational gate — AND with active_mask (prefer fan_status over fan_cmd)
 #    If gate applied and zero active samples → SKIPPED_EQUIPMENT_OFF
 
-# 3. confirm
-confirmed = confirm_fault(raw & active, poll_seconds=p["poll_seconds"])
+# 3. confirm — dt-aware when DatetimeIndex; confirm_min default = confirm_seconds/60
+confirmed = confirm_fault(raw & active, poll_seconds=p["poll_seconds"], confirm_seconds=...)
 
 # 4. rollup hours / pct using **active** samples as denominator when gated
+#    Prefer fault hours over fault_pct when A/B testing startup_delay_min
 ```
 
 Statuses: `PASS` | `FAULT` | `SKIPPED_MISSING_ROLES` | `SKIPPED_EQUIPMENT_OFF` | `NOT_APPLICABLE_EQUIPMENT_TYPE` | `ERROR`
+
+**Confirm contract:** `CookbookParam.confirm_min` default must equal `rule.confirm_seconds / 60` (`_ensure_confirm_param_defaults`). Direction hints: `fewer` / `stricter`.
 
 ## Weather / free cooling
 

@@ -136,7 +136,7 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `spike_scale` | Spike limit scale | ├ù | 1 | 0.25 | 3 | 0.25 |
+| `spike_scale` | Spike limit scale | x | 1 | 0.25 | 3 | 0.25 |
 | `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
 
 #### Analytics / related views
@@ -209,7 +209,7 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 | `max_gap_hours` | Max sample gap | h | 2 | 0.25 | 6 | 0.25 |
 | `design_flow` | Design flow (flow profiles) | cfm | 0 | 0 | 100000 | 100 |
 | `sensor_span` | Sensor span (flow/pressure) | eng | 0 | 0 | 100000 | 10 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -257,11 +257,11 @@ Sweep rule: plots **sensors / control outputs present** on the equipment (see sw
 | `minimum_equivalent_cycles` | Min equivalent cycles | cyc/h | 2.5 | 0.5 | 20 | 0.5 |
 | `minimum_reversals` | Min direction reversals | count | 4 | 1 | 40 | 1 |
 | `minimum_coverage_pct` | Minimum data coverage | % | 80 | 25 | 100 | 5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 0 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 
 ---
@@ -307,7 +307,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC2` — MAT below OAT/RAT envelope (GL36 B)
 
@@ -345,11 +345,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC3` — MAT above OAT/RAT envelope (GL36 C)
 
@@ -387,11 +387,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC4` — PID hunting (operating-state oscillation)
 
@@ -427,11 +427,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `delta_os_max` | Max mode changes/hr | count | 5 | 2 | 20 | 1 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 60 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC5` — SAT cold when heating commanded (GL36 D)
 
@@ -469,11 +469,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC6` — Estimated OA fraction mismatch
 
@@ -512,7 +512,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `airflow_err` | OA fraction error | frac | 0.15 | 0.05 | 0.5 | 0.01 |
 | `min_cfm_design` | Design min OA CFM | cfm | 5000 | 500 | 20000 | 500 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -554,17 +554,17 @@ Needs AHU `vav_total_flow` — empty plots often data gaps.
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `sat_err` | SAT error | °F | 1 | 0.25 | 5 | 0.25 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC8` — SAT/MAT mismatch in economizer (GL36 F)
 
-**Summary:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(1.15²+1.15²).
+**Summary:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(supply_tol²+mix_tol²).
 
-**Equation:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(1.15²+1.15²).
+**Equation:** Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(supply_tol²+mix_tol²).
 
 | Field | Value |
 | --- | --- |
@@ -595,17 +595,19 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `supply_tol` | Supply tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC9` — OAT too warm for free cooling (GL36 G)
 
-**Summary:** Economizer open, CHW < 10%, OAT − 1.15°F > SAT SP − 0.55°F + 1.15°F.
+**Summary:** Economizer open, CHW < 10%, OAT − mix_tol > SAT SP − 0.55°F + mix_tol.
 
-**Equation:** Economizer open, CHW < 10%, OAT − 1.15°F > SAT SP − 0.55°F + 1.15°F.
+**Equation:** Economizer open, CHW < 10%, OAT − mix_tol > SAT SP − 0.55°F + mix_tol.
 
 | Field | Value |
 | --- | --- |
@@ -636,17 +638,18 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC10` — OAT/MAT mismatch + mech cooling (GL36 H)
 
-**Summary:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(1.15²+1.15²).
+**Summary:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(mix_tol²+mix_tol²).
 
-**Equation:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(1.15²+1.15²).
+**Equation:** CHW > 1%, economizer > 90%, |MAT − OAT| > √(mix_tol²+mix_tol²).
 
 | Field | Value |
 | --- | --- |
@@ -677,17 +680,18 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC11` — OAT/MAT mismatch economizer-only (GL36 I)
 
-**Summary:** CHW > 1%, economizer > 90%, OAT + 1.15°F < SAT SP − 0.55°F − 1.15°F.
+**Summary:** CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP − 0.55°F − mix_tol.
 
-**Equation:** CHW > 1%, economizer > 90%, OAT + 1.15°F < SAT SP − 0.55°F − 1.15°F.
+**Equation:** CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP − 0.55°F − mix_tol.
 
 | Field | Value |
 | --- | --- |
@@ -718,17 +722,18 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC12` — SAT above blend in cooling (GL36 J)
 
-**Summary:** CHW > 1%, SAT − 1.15°F − 0.55°F > MAT + 1.15°F at min or full economizer.
+**Summary:** CHW > 1%, SAT − supply_tol − 0.55°F > MAT + mix_tol at min or full economizer.
 
-**Equation:** CHW > 1%, SAT − 1.15°F − 0.55°F > MAT + 1.15°F at min or full economizer.
+**Equation:** CHW > 1%, SAT − supply_tol − 0.55°F > MAT + mix_tol at min or full economizer.
 
 | Field | Value |
 | --- | --- |
@@ -759,11 +764,13 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `supply_tol` | Supply tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC13` — SAT above SP at full cooling (GL36 K)
 
@@ -801,17 +808,17 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `sat_err` | SAT error | °F | 1 | 0.25 | 5 | 0.25 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC14` — CHW coil ΔT when inactive (GL36 L)
 
-**Summary:** Cooling coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
+**Summary:** Cooling coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.
 
-**Equation:** Cooling coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
+**Equation:** Cooling coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.
 
 | Field | Value |
 | --- | --- |
@@ -842,17 +849,18 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `FC15` — HW coil ΔT when inactive (GL36 M)
 
-**Summary:** Heating coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
+**Summary:** Heating coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.
 
-**Equation:** Heating coil ΔT ≥ √(1.15²+1.15²)+0.55°F while coil should be inactive.
+**Equation:** Heating coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.
 
 | Field | Value |
 | --- | --- |
@@ -883,11 +891,12 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `mix_tol` | Mixing tolerance | °F | 1.15 | 0.25 | 3 | 0.05 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `AHU-SATDEV` — SAT deviation from setpoint
 
@@ -921,7 +930,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `sat_dev_err` | SAT deviation | °F | 5 | 1 | 15 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1001,7 +1010,7 @@ RCx `duct_static_box` (fan-on) for static-reset opportunity.
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `OAT-METEO` — BAS outdoor-air sensor vs Open-Meteo
 
@@ -1035,7 +1044,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `oat_err` | Max OAT disagreement | °F | 5 | 2 | 20 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1075,7 +1084,7 @@ Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `econ1_oat_min` | Favorable OAT | °F | 55 | 45 | 70 | 1 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1165,7 +1174,7 @@ Needs OA damper / MAT / OAT roles.
 
 #### Analytics / related views
 
-Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OAT bins (DX/plant only).
+Web DB+DP free-cool band; Overview economizer_weather compliance hours; mech-cooling OAT bins are separate (DX/plant proof).
 
 ### `ECON-4` — Low estimated OA fraction
 
@@ -1203,7 +1212,7 @@ Free-cool uses web dry-bulb + dewpoint (RH→Magnus); related to mech-cooling OA
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `oa_min_pct` | Min OA fraction | % | 21 | 5 | 40 | 1 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1244,7 +1253,8 @@ Needs OA damper / MAT / OAT roles.
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `preheat_over_f` | Preheat over ΔT | °F | 2.2 | 0.5 | 8 | 0.1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1283,11 +1293,11 @@ Needs heat/preheat roles.
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `econ6_oat_max_f` | Winter OAT ceiling | °F | 25 | 15 | 40 | 1 |
 | `econ6_damper_max` | Winter min-OA damper | frac | 0.25 | 0.05 | 0.5 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Winter min-OA damper vs web OAT < 25°F; Overview economizer_weather winter hours.
 
 ### `MECH-OAT-1` — Mechanical cooling below 60°F web OAT
 
@@ -1327,11 +1337,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `mech_oat_max_f` | Mech-cool OAT ceiling | °F | 60 | 45 | 65 | 1 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Proven DX/chiller cooling below 60°F web OAT; Overview prohibited_mech hours.
 
 ### `CMD-1` — Fan cmd/status mismatch
 
@@ -1364,11 +1374,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `OA-1` — Low OA fraction
 
@@ -1406,11 +1416,12 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `min_oa_frac` | Min OA fraction | frac | 0.15 | 0.05 | 0.4 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `oat_rat_guard` | Min |RAT−OAT| guard | °F | 2.2 | 0.5 | 6 | 0.1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `DMP-1` — OA damper leakage
 
@@ -1446,11 +1457,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `leak_delta` | Leak ΔT | °F | 2 | 0.5 | 6 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VLV-1` — Cooling valve leakage
 
@@ -1493,7 +1504,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `sat_err` | SAT vs SP leak ΔT | °F | 2 | 0.5 | 8 | 0.5 |
 | `mat_leak_delta` | SAT vs MAT leak ΔT | °F | 2 | 0.5 | 12 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1535,11 +1546,11 @@ Valve closed + SAT vs SP **or** SAT vs MAT; fan gate when present.
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `zone_lo` | Zone low | °F | 70 | 55 | 72 | 0.5 |
 | `zone_hi` | Zone high | °F | 75 | 72 | 85 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-3` — Excessive reheat during warm weather
 
@@ -1579,7 +1590,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-4` — Damper stuck at full open
 
@@ -1613,11 +1624,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | `full_open_pct` | Full open frac | frac | 0.975 | 0.8 | 1 | 0.005 |
 | `sustain_hours` | Sustain window | h | 1.5 | 0.5 | 6 | 0.5 |
 | `flow_on_min` | Airflow-on min | cfm | 25 | 0 | 200 | 5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-5` — Airflow sensor bias
 
@@ -1650,11 +1661,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-REHEAT` — Reheat valve stuck / no temp rise
 
@@ -1692,11 +1703,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | `reheat_cmd` | Reheat open frac | frac | 0.3 | 0.1 | 1 | 0.05 |
 | `min_rise` | Min temp rise | °F | 3 | 0.5 | 15 | 0.5 |
 | `flow_on_min` | Airflow-on min | cfm | 25 | 0 | 200 | 5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-AHU-LEAVE` — VAV leave vs parent AHU SAT (fedBy)
 
@@ -1731,11 +1742,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `delta_f` | Leave Δ vs AHU SAT | °F | 8 | 2 | 25 | 0.5 |
 | `flow_on_min` | Airflow-on min | cfm | 25 | 0 | 200 | 5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `VAV-7` — Min airflow / fixed high flow
 
@@ -1770,11 +1781,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | `fixed_flow_max_std` | Fixed-flow max std | cfm | 15 | 1 | 80 | 1 |
 | `fixed_flow_min_mean` | Fixed-flow min mean | cfm | 200 | 50 | 2000 | 10 |
 | `high_min_flow_sp` | High min-flow SP | cfm | 250 | 50 | 2000 | 10 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 
 ---
@@ -1825,7 +1836,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Needs building zone or AHU-SAT satisfaction columns (batch inject); 30 min confirm.
 
 ### `CHW-1` — Low chilled-water ΔT
 
@@ -1859,7 +1870,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `min_dt` | Min ΔT | °F | 4 | 1 | 12 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -1943,7 +1954,7 @@ Plant motor weekly / chiller runtime — status/pump proof.
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `CHW-4` — Flow high at max pump
 
@@ -1981,7 +1992,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `CW-OPT-1` — Condenser water not optimized vs wet-bulb
 
@@ -2014,7 +2025,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `cw_approach` | Design approach | °F | 7 | 3 | 15 | 0.5 |
 | `cw_slack` | Slack below target | °F | 2 | 0.5 | 6 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2059,11 +2070,11 @@ RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `approach_max_f` | Max approach at full fan | °F | 8 | 5 | 15 | 0.5 |
 | `tower_fan_hi` | Tower fan full-speed threshold | frac | 0.95 | 0.8 | 1 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 ### `CW-FAN-1` — Excess tower fan energy vs wet-bulb limit
 
@@ -2105,11 +2116,11 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | `cw_approach` | Design approach | °F | 7 | 3 | 15 | 0.5 |
 | `excess_beyond_approach_f` | Excess beyond approach | °F | 5 | 2 | 20 | 0.5 |
 | `tower_fan_hi` | Tower fan full-speed threshold | frac | 0.95 | 0.8 | 1 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 15 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
-Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a preset.
+Fault hours / % on Results + FDD Plots card; RCx overlays only if roles match a preset.
 
 
 ---
@@ -2151,7 +2162,7 @@ Fault hours / % on Results + FDD DOCX card; RCx overlays only if roles match a p
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `min_sat` | Min heating SAT | °F | 85 | 70 | 110 | 1 |
 | `zone_cold` | Zone cold | °F | 69 | 60 | 72 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2234,7 +2245,9 @@ Weather family; web OAT enrich on weather frame.
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `duct_hi` | Duct static high | in. w.c. | 1.35 | 0.5 | 3 | 0.05 |
+| `request_lo` | Request sum low | count | 1 | 0 | 10 | 0.5 |
+| `confirm_min` | Fault confirm delay | min | 30 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2271,7 +2284,9 @@ Duct static / pressure trim requests; related to duct-static box RCx.
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `hwst_hi` | HWST high | °F | 160 | 120 | 200 | 1 |
+| `request_lo` | Request sum low | count | 1 | 0 | 10 | 0.5 |
+| `confirm_min` | Fault confirm delay | min | 30 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2308,7 +2323,9 @@ HW reset requests; RCx `hw_reset_scatter`.
 
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `chw_lo` | CHWS low | °F | 45 | 35 | 55 | 0.5 |
+| `request_lo` | Request sum low | count | 1 | 0 | 10 | 0.5 |
+| `confirm_min` | Fault confirm delay | min | 30 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2354,7 +2371,7 @@ CHW reset requests; RCx `chw_reset_scatter`.
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `comfort_low_f` | Comfort low | °F | 70 | 60 | 78 | 0.5 |
 | `comfort_high_f` | Comfort high | °F | 75 | 68 | 85 | 0.5 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 30 | 0 | 60 | 1 |
 
 #### Analytics / related views
 
@@ -2410,7 +2427,7 @@ Overview occupancy calendar drives `occ_mode`; zone comfort band sliders (°F/°
 | Key | Label | Unit | Default | Min | Max | Step |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | `always_on_pct` | Always-on fraction | frac | 0.95 | 0.8 | 1 | 0.01 |
-| `confirm_min` | Fault confirm delay | min | 5 | 0 | 60 | 1 |
+| `confirm_min` | Fault confirm delay | min | 60 | 0 | 60 | 1 |
 
 #### Analytics / related views
 

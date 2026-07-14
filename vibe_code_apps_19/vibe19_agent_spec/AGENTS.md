@@ -43,6 +43,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     - Do **not** leave README stuck on stale one-shot `--rm` examples as the only path
     - Detail: [`docs/DOCKER.md`](../docs/DOCKER.md) · workflow: `../../.github/workflows/vibe19-ghcr.yml`
 26. **Dead-slider ban** — every declared sidebar param except `confirm_min` must change the **raw** fault mask. Never subtract the same tol from both sides of an inequality (e.g. `(mat - tol) < min(rat - tol, oat - tol)` cancels). When adding a slider, add a case in `tests/test_rule_param_sensitivity.py`. Plotly downsample-on-fault-edges is **not** data smoothing — rule math never smooths historian series.
+27. **Confirm-default contract** — every rule's `confirm_min` slider default must equal `confirm_seconds / 60`. `_ensure_confirm_param_defaults()` enforces this so a hard-coded 5.0 never silently overrides longer windows (FC2=10 min, FC4=60, CHW-NOLOAD-1=30, PID-HUNT-1=0). Test: `tests/test_confirm_and_duration.py`.
+28. **Param direction hints** — `CookbookParam.direction` is `"fewer"` (↑ → fewer faults), `"stricter"` (↑ → more faults), or `""`. Sidebar stores **only changed** params (diffs from defaults). Compare **fault hours**, not only `fault_pct` — raising startup delay shrinks the active denominator so % can rise while hours stay flat.
+29. **Dt-aware confirm / hours** — `confirm_fault` and `hours_true` use actual DatetimeIndex deltas when present (fallback: `poll_seconds` row-count). Mixed param fingerprints in `batch_results` trigger a Results warning after partial re-runs.
 
 ---
 

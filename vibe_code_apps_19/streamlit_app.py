@@ -600,8 +600,25 @@ _CONFIRM_META = {
     "max": 60.0,
     "step": 1.0,
     "unit": "min",
-    "help": "Minutes a raw fault must persist before it is confirmed. Default 5; 0 = confirm on first sample; max 60.",
+    "direction": "fewer",
+    "help": (
+        "Minutes a raw fault must persist before it is confirmed. "
+        "Default matches each rule's declared confirm window; 0 = first sample; max 60. "
+        "Increasing this usually flags fewer faults."
+    ),
 }
+
+
+def _direction_help(meta: dict) -> str:
+    help_txt = str(meta.get("help") or meta.get("label") or "")
+    direction = str(meta.get("direction") or "")
+    if direction == "fewer" and "fewer faults" not in help_txt.lower():
+        help_txt = (help_txt + " — increasing this usually flags fewer faults.").strip(" —")
+    elif direction == "stricter" and "more faults" not in help_txt.lower():
+        help_txt = (
+            help_txt + " — increasing this usually flags more faults (stricter / wider detection)."
+        ).strip(" —")
+    return help_txt
 
 
 @st.fragment
@@ -812,8 +829,22 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
         if allow_ids is not None and rule.id not in allow_ids:
             continue
         block = dict(defaults_cfg.get(rule.id, {}))
+        # Prefer live catalog defaults (confirm_min synced to confirm_seconds).
+        for p in rule.params:
+            meta = dict(block.get(p.key) or {})
+            meta.setdefault("label", p.label)
+            meta.setdefault("min", p.min)
+            meta.setdefault("max", p.max)
+            meta.setdefault("step", p.step)
+            meta.setdefault("unit", p.unit)
+            meta["default"] = p.default
+            if getattr(p, "direction", ""):
+                meta["direction"] = p.direction
+            meta["help"] = p.help_text() if hasattr(p, "help_text") else meta.get("help", p.label)
+            block[p.key] = meta
         if "confirm_min" not in block:
-            block["confirm_min"] = dict(_CONFIRM_META)
+            conf_default = float(rule.confirm_seconds) / 60.0
+            block["confirm_min"] = {**_CONFIRM_META, "default": conf_default}
         gate = RULE_GATES.get(rule.id)
         if gate and gate.kind != "always":
             block.setdefault(
@@ -837,41 +868,77 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
                     "max": 30.0,
                     "step": 1.0,
                     "unit": "min",
-                    "help": "Ignore samples until equipment has been proven on this long.",
+                    "help": (
+                        "Ignore samples until equipment has been proven on this long. "
+                        "Raising this shrinks the active-hours denominator, so fault % can rise "
+                        "even when fault hours stay flat — compare fault hours, not only %."
+                    ),
                 },
             )
-        with st.sidebar.expander(f"{rule.id} — {rule.title[:36]}", expanded=False):
-            rp = dict(out.get(rule.id, {}))
+            block.setdefault(
+                "minimum_active_coverage_pct",
+                {
+                    "label": "Min active coverage",
+                    "default": gate.minimum_active_coverage_pct,
+                    "min": 0.0,
+                    "max": 100.0,
+                    "step": 1.0,
+                    "unit": "%",
+                    "help": (
+                        "Skip as EQUIPMENT_OFF when proven-on coverage is below this percent "
+                        "(default 5% = essentially off)."
+                    ),
+                },
+            )
+        stored = dict(out.get(rule.id, {}))
+        modified = False
+        for k, meta in block.items():
+            if k in stored and abs(float(stored[k]) - float(meta["default"])) > 1e-9:
+                modified = True
+                break
+        badge = " · modified" if modified else ""
+        with st.sidebar.expander(f"{rule.id} — {rule.title[:36]}{badge}", expanded=False):
             if rule.id == "SV-RATE":
                 st.caption(
                     "Persistence, transition windows, and profile thresholds are edited under "
                     "**Run Rules → SV-RATE** (single source of truth)."
                 )
-            # Fault confirm delay first, then gate toggles, then other params
-            preferred = ["confirm_min", "require_operational_gate", "startup_delay_min"]
-            # SV-RATE persistence/transition owned by Run Rules expander — avoid dueling widgets.
+            preferred = ["confirm_min", "require_operational_gate", "startup_delay_min", "minimum_active_coverage_pct"]
             skip_keys = {"persistence_min", "transition_window_min"} if rule.id == "SV-RATE" else set()
             ordered = [k for k in preferred if k in block] + [
                 k for k in block if k not in preferred and k not in skip_keys
             ]
+            changed: dict[str, float] = {}
             for pname in ordered:
                 meta = block[pname]
-                rp[pname] = st.slider(
+                default = float(meta["default"])
+                val = st.slider(
                     meta.get("label", pname),
                     min_value=float(meta["min"]),
                     max_value=float(meta["max"]),
-                    value=float(rp.get(pname, meta["default"])),
+                    value=float(stored.get(pname, default)),
                     step=float(meta.get("step", 0.5)),
-                    help=meta.get("help", ""),
+                    help=_direction_help(meta),
                     key=f"s_{rule.id}_{pname}",
                 )
-            # Preserve SV-RATE editor params already in session
+                if abs(float(val) - default) > 1e-9:
+                    changed[pname] = float(val)
+            # Preserve SV-RATE editor params already in session (profile overrides, etc.)
             if rule.id == "SV-RATE":
                 prev = dict(out.get("SV-RATE") or {})
                 for k, v in prev.items():
-                    if k not in rp or k in skip_keys or str(k).startswith("svrate__"):
-                        rp[k] = v
-            out[rule.id] = rp
+                    if k in skip_keys or str(k).startswith("svrate__"):
+                        changed[k] = v
+            if changed:
+                out[rule.id] = changed
+            else:
+                out.pop(rule.id, None)
+            if st.button("Reset rule", key=f"reset_{rule.id}"):
+                out.pop(rule.id, None)
+                for pname in ordered:
+                    st.session_state.pop(f"s_{rule.id}_{pname}", None)
+                st.session_state.params = out
+                st.rerun()
 
     c1, c2 = st.sidebar.columns(2)
     if c1.button("Reset", key="reset_tune"):
@@ -2323,6 +2390,18 @@ def main() -> None:
             m5.metric("N/A", int((summary["status"] == "NOT_APPLICABLE_EQUIPMENT_TYPE").sum()))
             m6.metric("ERROR", int((summary["status"] == "ERROR").sum()))
 
+            fps = {
+                getattr(r, "params_fingerprint", "")
+                for r in results
+                if getattr(r, "params_fingerprint", "")
+            }
+            if len(fps) > 1:
+                st.warning(
+                    f"Mixed tuning vintages in these results ({len(fps)} distinct param fingerprints). "
+                    "Partial re-runs (Rerun cat. / per-device) leave older rows with different thresholds — "
+                    "click **Run** for all equipment to refresh everything."
+                )
+
             hide_na = st.checkbox(
                 "Hide N/A rows (NOT_APPLICABLE_EQUIPMENT_TYPE)",
                 value=True,
@@ -2658,6 +2737,9 @@ def main() -> None:
                     meta_bits = [f"`{card.status}`"]
                     if fh is not None:
                         meta_bits.append(f"fault hours: {fh:.2f}")
+                    # Prefer hours over % when reading tuning changes — startup delay shrinks the denominator.
+                    if res is not None and getattr(res, "fault_pct", None) is not None:
+                        meta_bits.append(f"fault % of active: {res.fault_pct:.1f}")
                     if card.coverage_pct is not None:
                         meta_bits.append(
                             f"required roles: {card.required_roles_present}/{card.required_roles_total}"

@@ -247,11 +247,11 @@ def test_all_rules_have_confirm_min():
         keys = {p.key for p in r.params}
         assert "confirm_min" in keys, r.id
         conf = next(p for p in r.params if p.key == "confirm_min")
-        # CHW-NOLOAD-1 intentionally defaults to 30 minutes persistence
-        expected = 30.0 if r.id == "CHW-NOLOAD-1" else 5.0
-        assert conf.default == expected, r.id
+        # Default must match declared confirm_seconds (no silent 5-min override).
+        assert conf.default * 60.0 == pytest.approx(r.confirm_seconds), r.id
         assert conf.min == 0.0, r.id
-        assert conf.max == 60.0, r.id
+        assert conf.max >= conf.default, r.id
+        assert conf.direction == "fewer", r.id
 
 
 def test_economizer_weather_summary_irregular_timestamps():

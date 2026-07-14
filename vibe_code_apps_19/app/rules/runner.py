@@ -7,7 +7,15 @@ from typing import Any
 import pandas as pd
 
 from app.rules import cookbook_catalog as cb
-from app.rules.base import RuleResult, equipment_off, error_result, finalize_result, not_applicable, skipped
+from app.rules.base import (
+    RuleResult,
+    equipment_off,
+    error_result,
+    finalize_result,
+    not_applicable,
+    params_fingerprint,
+    skipped,
+)
 from app.rules.operational_gate import RULE_GATES, resolve_operational_mask, should_skip_equipment_off
 from app.site_model import equipment_type_from_id, resolve_equipment_type
 
@@ -321,11 +329,13 @@ def run_cookbook_rule(
         # OAT-METEO needs both real sources — never inject web into oa_t for the compare.
         if rule.id != "OAT-METEO":
             d = inject_oa_t_for_physics(d)
+    # Fingerprint after params resolve; still stamp skips that happen after params exist.
     missing = _missing_roles(rule, d)
     if missing:
         notes = ""
         if rule.id == "OAT-METEO":
             notes = "SKIPPED — OAT-METEO requires both BAS oa_t and web wx_oa_t: " + "; ".join(missing)
+        pre_params = _params_for_rule(rule, params_by_rule)
         return skipped(
             rule.id,
             equipment_id,
@@ -334,10 +344,14 @@ def run_cookbook_rule(
             site_id=sid,
             building_id=bid,
             equipment_type=eq_type,
+            params_fingerprint=params_fingerprint(
+                rule.id, pre_params, gates_on=require_operational_gates
+            ),
         )
 
     params = _params_for_rule(rule, params_by_rule)
     confirm_s = _confirm_seconds(rule, params)
+    fp = params_fingerprint(rule.id, params, gates_on=require_operational_gates)
     wx_ok = weather_available(d)
     spec = RULE_GATES.get(rule.id)
 
@@ -361,6 +375,7 @@ def run_cookbook_rule(
                     f"SKIPPED_EQUIPMENT_OFF — operational gate '{gate_meta.get('gate_kind')}' "
                     f"via {gate_meta.get('gate_source')}: no proven-on samples."
                 ),
+                params_fingerprint=fp,
             )
 
         if rule.id == "ECON-3":
@@ -413,6 +428,7 @@ def run_cookbook_rule(
             metrics=metrics,
             plot_series=_plot_series_for_rule(rule, d),
             active_mask=active if use_active else None,
+            params_fingerprint=fp,
         )
     except Exception as exc:
         return error_result(
@@ -422,6 +438,7 @@ def run_cookbook_rule(
             site_id=sid,
             building_id=bid,
             equipment_type=eq_type,
+            params_fingerprint=fp,
         )
 
 
