@@ -1,0 +1,35 @@
+{
+  "project_id": "SBX-TEST-MSP-OFFICE",
+  "display_name": "Vibe20 Test - Minneapolis Office",
+  "anonymized": true,
+  "conditioned_floor_area_ft2": 90000,
+  "climate_city": "Minneapolis",
+  "climate_state": "Minnesota",
+  "energy_code": "IECC 2018",
+  "rate_category": "Commercial",
+  "shells": [
+    {
+      "shell_id": "OFFICE-C",
+      "program": "office",
+      "floor_area_ft2": 90000,
+      "floors": 5,
+      "hvac_summary": "Cold climate office"
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "ECM-OFFSET-HEAT-2F",
+      "title": "Heating thermostat offset 2 F (winter setback)",
+      "evidence_ids": ["EV-UNOCC-HEAT-DEMO"],
+      "proposed_changes": [
+        {"parameter": "thermostat_heating_offset_f", "value": 2, "units": "degF"}
+      ],
+      "sketchbox_mapping": [
+        {"tab": "schedules", "parameter": "thermostat heating setpoint offset"}
+      ],
+      "confidence": "medium",
+      "review_status": "approved"
+    }
+  ],
+  "provenance": [{"source": "testdrive", "note": "cold climate setback"}]
+}

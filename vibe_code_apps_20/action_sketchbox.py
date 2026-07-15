@@ -16,33 +16,18 @@ from sketchbox_driver import ART, _save_snapshot, _ts
 def set_cooling_offset(page, value: str = "2") -> dict:
     click_tab(page, "schedules")
     page.wait_for_timeout(800)
-    # Label "Cooling" under Setpoint Offset — find sibling input near that label text
-    # Fallback: all text inputs; offset ones are near thermostats section
     result = {"target": value, "ok": False}
-    # Prefer label association
-    cooling_labels = page.get_by_text("Cooling", exact=True)
-    n = cooling_labels.count()
-    result["cooling_labels"] = n
-    # The setpoint offset cooling field is a small °F input; inventory said values 0/6
-    inputs = page.locator(".thermostats input, .ripple-input input[type='text']")
-    # Broader: any visible text input showing 0 or 6 near bottom of left rail
-    candidates = page.locator("input[type='text']")
-    for i in range(candidates.count()):
-        el = candidates.nth(i)
-        try:
-            if not el.is_visible():
-                continue
-            v = el.input_value()
-            # The invalid 6 we set, or zero offsets
-            if v in {"6", "0"} and i >= 4:  # later fields = offsets (heuristic)
-                el.fill(value)
-                el.press("Tab")
-                result["ok"] = True
-                result["idx"] = i
-                result["before"] = v
-                break
-        except Exception as exc:
-            result.setdefault("errors", []).append(str(exc))
+    el = page.locator('input[type="text"][title*="cooling setpoint by this offset"]').first
+    try:
+        if el.count():
+            result["before"] = el.input_value()
+            el.fill(value)
+            el.press("Tab")
+            result["ok"] = True
+            result["after"] = value
+            result["selector"] = 'title*=cooling setpoint by this offset'
+    except Exception as exc:
+        result["error"] = str(exc)
     page.wait_for_timeout(500)
     result["snap"] = _save_snapshot(page, "schedules_offset_set")
     return result

@@ -1,0 +1,35 @@
+{
+  "project_id": "SBX-TEST-CHI-OFFICE",
+  "display_name": "Vibe20 Test - Chicago Office",
+  "anonymized": true,
+  "conditioned_floor_area_ft2": 150000,
+  "climate_city": "Chicago",
+  "climate_state": "Illinois",
+  "energy_code": "IECC 2018",
+  "rate_category": "Commercial",
+  "shells": [
+    {
+      "shell_id": "OFFICE-A",
+      "program": "office",
+      "floor_area_ft2": 150000,
+      "floors": 6,
+      "hvac_summary": "AHU + air-cooled chillers (conceptual)"
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "ECM-OFFSET-COOL-2F",
+      "title": "Cooling thermostat offset 2 F (setback related)",
+      "evidence_ids": ["EV-SCHED247-DEMO"],
+      "proposed_changes": [
+        {"parameter": "thermostat_cooling_offset_f", "value": 2, "units": "degF"}
+      ],
+      "sketchbox_mapping": [
+        {"tab": "schedules", "parameter": "thermostat cooling setpoint offset"}
+      ],
+      "confidence": "medium",
+      "review_status": "approved"
+    }
+  ],
+  "provenance": [{"source": "testdrive", "note": "synthetic demo building"}]
+}

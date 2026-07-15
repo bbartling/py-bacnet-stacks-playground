@@ -3,8 +3,10 @@
 .env.*
 !.env.example
 
-# Playwright artifacts
+# Playwright artifacts / session
 .artifacts/
+**/sketchbox_storage.json
+
 __pycache__/
 .pytest_cache/
 .venv/

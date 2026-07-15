@@ -1,0 +1,35 @@
+{
+  "measure_id": "ECM-SCHED-001",
+  "title": "Reduce avoidable AHU after-hours operation",
+  "evidence_ids": [
+    "EV-FAN-RUNTIME-001"
+  ],
+  "baseline_changes": [
+    {
+      "parameter": "weekday_fan_end",
+      "value": "23:59",
+      "units": "local_time"
+    }
+  ],
+  "proposed_changes": [
+    {
+      "parameter": "weekday_fan_end",
+      "value": "17:00",
+      "units": "local_time"
+    }
+  ],
+  "sketchbox_mapping": [
+    {
+      "tab": "Schedules",
+      "group": "Shell schedule",
+      "parameter": "weekday end"
+    }
+  ],
+  "interactions": [
+    "optimum_start_stop",
+    "ventilation",
+    "temperature_setback"
+  ],
+  "confidence": "medium",
+  "review_status": "draft"
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MeasureBrief",
+  "type": "object",
+  "required": [
+    "measure_id",
+    "title",
+    "evidence_ids",
+    "baseline_changes",
+    "proposed_changes",
+    "review_status"
+  ],
+  "properties": {
+    "measure_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "baseline_changes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "proposed_changes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "sketchbox_mapping": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "review_status": {
+      "enum": [
+        "draft",
+        "approved",
+        "rejected",
+        "needs_input"
+      ]
+    }
+  }
+}

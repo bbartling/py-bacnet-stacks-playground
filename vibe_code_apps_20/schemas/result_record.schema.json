@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResultRecord",
+  "type": "object",
+  "required": [
+    "run_id",
+    "measure_id",
+    "input_hash",
+    "status",
+    "quality_flags"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "measure_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "input_hash": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "annual": {
+      "type": "object"
+    },
+    "monthly": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "quality_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

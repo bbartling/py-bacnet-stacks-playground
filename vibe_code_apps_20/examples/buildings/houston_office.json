@@ -1,0 +1,35 @@
+{
+  "project_id": "SBX-TEST-HOU-OFFICE",
+  "display_name": "Vibe20 Test - Houston Office",
+  "anonymized": true,
+  "conditioned_floor_area_ft2": 120000,
+  "climate_city": "Houston",
+  "climate_state": "Texas",
+  "energy_code": "IECC 2018",
+  "rate_category": "Commercial",
+  "shells": [
+    {
+      "shell_id": "OFFICE-B",
+      "program": "office",
+      "floor_area_ft2": 120000,
+      "floors": 4,
+      "hvac_summary": "Single AHU, hot-humid climate"
+    }
+  ],
+  "measures": [
+    {
+      "measure_id": "ECM-OFFSET-COOL-3F",
+      "title": "Cooling thermostat offset 3 F",
+      "evidence_ids": ["EV-COMFORT-DEMO"],
+      "proposed_changes": [
+        {"parameter": "thermostat_cooling_offset_f", "value": 3, "units": "degF"}
+      ],
+      "sketchbox_mapping": [
+        {"tab": "schedules", "parameter": "thermostat cooling setpoint offset"}
+      ],
+      "confidence": "medium",
+      "review_status": "approved"
+    }
+  ],
+  "provenance": [{"source": "testdrive", "note": "hot climate contrast"}]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BuildingProfile",
+  "type": "object",
+  "required": [
+    "project_id",
+    "conditioned_floor_area_ft2",
+    "shells",
+    "anonymized"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "anonymized": {
+      "type": "boolean"
+    },
+    "conditioned_floor_area_ft2": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "climate_city": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "energy_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "shells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "utility": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

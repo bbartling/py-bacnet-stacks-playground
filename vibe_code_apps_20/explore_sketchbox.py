@@ -44,9 +44,9 @@ def click_tab(page, name: str) -> None:
     page.wait_for_timeout(1500)
 
 
-def try_tweak_schedule(page) -> dict:
-    """Best-effort: open SCHEDULES and bump a numeric hour/value if one is visible."""
-    notes: dict = {"actions": []}
+def try_tweak_schedule(page, *, mutate: bool = False) -> dict:
+    """Open SCHEDULES and inventory controls. Mutations require ``mutate=True``."""
+    notes: dict = {"actions": [], "mutate": mutate}
     click_tab(page, "SCHEDULES")
     page.wait_for_timeout(1000)
     notes["snap"] = _save_snapshot(page, "schedules_tab")
@@ -54,12 +54,10 @@ def try_tweak_schedule(page) -> dict:
     body = page.locator("body").inner_text()[:3000]
     notes["body_excerpt"] = body
 
-    # Common patterns: number inputs, hours 0-24, schedule names
     nums = page.locator('input[type="number"], input[type="text"]')
     n = nums.count()
     notes["n_inputs"] = n
-    if n:
-        # Take first visible non-empty-looking numeric field and nudge
+    if mutate and n:
         for i in range(min(n, 12)):
             el = nums.nth(i)
             try:
@@ -67,7 +65,6 @@ def try_tweak_schedule(page) -> dict:
                     continue
                 val = el.input_value()
                 notes["actions"].append({"idx": i, "before": val})
-                # If looks like an hour/fraction, set a simple occ schedule value
                 if val.replace(".", "", 1).isdigit():
                     new_v = "6" if val in {"0", "0.0", ""} else val
                     el.fill(new_v)
@@ -75,7 +72,9 @@ def try_tweak_schedule(page) -> dict:
                     break
             except Exception as exc:
                 notes["actions"].append({"idx": i, "error": str(exc)})
-    notes["snap_after"] = _save_snapshot(page, "schedules_after_tweak")
+        notes["snap_after"] = _save_snapshot(page, "schedules_after_tweak")
+    else:
+        notes["actions"].append({"status": "read_only", "note": "pass mutate=True to write"})
     return notes
 
 
