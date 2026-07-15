@@ -95,10 +95,13 @@ When shipping Docker/GHCR or changing how users run the image, **always** update
 | Doc / script | Must stay true |
 | --- | --- |
 | [`README.md`](../../../README.md) → **Docker / GHCR** | Easy-button pull-latest (`:latest`) + long-running `-d --restart` |
-| [`docs/DOCKER.md`](../../../docs/DOCKER.md) | Same recipe + Pi / bootstrap |
+| [`docs/DOCKER.md`](../../../docs/DOCKER.md) | Same recipe + Pi / bootstrap + **Publishing good containers** |
 | `scripts/docker_update_vibe19.sh` / `.ps1` | Pull tip + recreate container (containers never auto-update) |
+| `.github/workflows/vibe19-ghcr.yml` | QEMU **amd64+arm64**, Buildx `linux/amd64,linux/arm64`, verify step |
 
-Do not leave README with only stale `--rm` one-shot examples. Spec: [`AGENTS.md`](../../AGENTS.md) rule **25**.
+**Always publish good multi-arch containers** (AGENTS rules **25** + **30**): never tip an amd64-only image; never leave `:latest` pointing at a missing blob. Broken pulls (`manifest … not found`) → `gh workflow run vibe19-ghcr.yml --ref develop -f no_cache=true`, then `docker buildx imagetools inspect` must list both platforms.
+
+Do not leave README with only stale `--rm` one-shot examples.
 
 ## Hard rules
 

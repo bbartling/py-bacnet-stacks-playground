@@ -46,6 +46,13 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 27. **Confirm-default contract** — every rule's `confirm_min` slider default must equal `confirm_seconds / 60`. `_ensure_confirm_param_defaults()` enforces this so a hard-coded 5.0 never silently overrides longer windows (FC2=10 min, FC4=60, CHW-NOLOAD-1=30, PID-HUNT-1=0). Test: `tests/test_confirm_and_duration.py`.
 28. **Param direction hints** — `CookbookParam.direction` is `"fewer"` (↑ → fewer faults), `"stricter"` (↑ → more faults), or `""`. Sidebar stores **only changed** params (diffs from defaults). Compare **fault hours**, not only `fault_pct` — raising startup delay shrinks the active denominator so % can rise while hours stay flat.
 29. **Dt-aware confirm / hours** — `confirm_fault` and `hours_true` use actual DatetimeIndex deltas when present (fallback: `poll_seconds` row-count). Mixed param fingerprints in `batch_results` trigger a Results warning after partial re-runs.
+30. **GHCR containers must always be good multi-arch** — never ship an amd64-only tip, never leave `:latest` / `:develop` pointing at a broken/missing manifest. Publish via `.github/workflows/vibe19-ghcr.yml` only:
+    - **QEMU** `platforms: amd64,arm64` + Buildx **`linux/amd64,linux/arm64`** on every push / `workflow_dispatch` (PR smoke may stay amd64-only; no push).
+    - Workflow **must** run the **Verify multi-arch manifest** step (asserts both arches in the index).
+    - If `docker pull ghcr.io/…/vibe19:latest` fails with `manifest … not found` / missing blob digests: **`gh workflow run vibe19-ghcr.yml --ref develop -f no_cache=true`** (Do not “fix” by retagging alone or pushing a single-arch image.)
+    - After publish: `docker pull …:latest` and `docker buildx imagetools inspect …:latest` must show **linux/amd64** and **linux/arm64**.
+    - Never delete GHCR package versions that tags still reference; prefer no-cache rebuild over pruning shared layers.
+    - Detail: [`../docs/DOCKER.md`](../docs/DOCKER.md) → **Publishing good containers (agents)**.
 
 ---
 
@@ -60,7 +67,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 5c. **`docs/PLOTS_DOCX_VALIDATION.md`** — when editing FDD Plots / FDD DOCX / rule cards
 5d. **`docs/RULE_PLOT_CATALOG.md`** — per-rule chart points, Haystack tags, sliders (all 50)
 5e. **`docs/PERF_BOTTLENECKS.md`** — why the UI is slow; what not to regress; safe follow-ups
-5f. **`../README.md` (Docker / GHCR)** + **`../docs/DOCKER.md`** — when shipping images or changing pull/run instructions; keep easy-button pull-latest scripts documented
+5f. **`../README.md` (Docker / GHCR)** + **`../docs/DOCKER.md`** — when shipping images or changing pull/run instructions; keep easy-button pull-latest scripts documented; enforce **rule 30** (QEMU amd64+arm64, verify manifest, no-cache rebuild if tags are broken)
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed

@@ -122,6 +122,29 @@ docker image inspect ghcr.io/bbartling/vibe19:develop --format '{{.Architecture}
 # arm64 on Pi 4/5 64-bit
 ```
 
+### Publishing good containers (agents)
+
+**Non-negotiable for model/agent sessions** (see `vibe19_agent_spec/AGENTS.md` rule **30**):
+
+1. Publish only through `.github/workflows/vibe19-ghcr.yml`.
+2. That workflow **must** keep:
+   - `docker/setup-qemu-action` with `platforms: amd64,arm64`
+   - Buildx publish platforms `linux/amd64,linux/arm64` (env `PUBLISH_PLATFORMS`)
+   - Post-push **Verify multi-arch manifest** step that greps both platforms
+3. Never push a tip image as amd64-only “just to unblock” a Pi pull — rebuild multi-arch.
+4. If pulls fail with `manifest … not found` / missing blob digests (tags point at deleted/incomplete layers):
+
+```bash
+gh workflow run vibe19-ghcr.yml --ref develop -f no_cache=true
+# wait for success, then:
+docker pull ghcr.io/bbartling/vibe19:latest
+docker buildx imagetools inspect ghcr.io/bbartling/vibe19:latest
+# must list Platform: linux/amd64 and Platform: linux/arm64
+```
+
+5. Do **not** prune GHCR versions that shared layers with current tags; prefer no-cache rebuild.
+6. After any workflow edit that touches platforms/QEMU/cache, confirm Actions is green and the inspect command above still shows both arches.
+
 ```powershell
 docker pull ghcr.io/bbartling/vibe19:develop
 # :latest when the default-branch job publishes it

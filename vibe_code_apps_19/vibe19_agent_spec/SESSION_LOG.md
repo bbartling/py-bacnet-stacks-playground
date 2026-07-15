@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-15 — GHCR multi-arch agent contract
+
+- Broke `:latest` when tags pointed at missing multi-arch blobs; fixed with QEMU amd64+arm64 no-cache rebuild
+- Workflow: explicit QEMU platforms + `PUBLISH_PLATFORMS=linux/amd64,linux/arm64` + verify step + `workflow_dispatch` `no_cache`
+- Agent model context: `vibe19_agent_spec/AGENTS.md` **rule 30**, `docs/DOCKER.md` **Publishing good containers**, streamlit-demo skill GHCR duty
+
+---
+
 ## 2026-07-15 — Data inspection + browser session persistence
 
 - Overview **Data inspection — raw CSV**: dropdown of all equipment (+ weather); stacked Plotly lines for every plottable column (largest chart on Overview)
