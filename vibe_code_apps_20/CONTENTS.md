@@ -10,10 +10,12 @@
 
 ## Runners
 
-- `easy_button.py`
-- `madison_office.py`
+- `wattlab_defaults.py` + `defaults/`
+- `easy_button.py` / `madison_office.py`
+- `vibe19_bridge.py`
 - `ep_docker.py` / `ep_mcp_client.py` / `results_parse.py`
-- `idf_patches/`
+- `idf_patches/` (schedules, chiller_lockout, sat_reset, gl36_proxy)
+- `ecm_library/measure_sets.json`
 
 ## Examples
 

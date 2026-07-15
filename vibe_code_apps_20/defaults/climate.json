@@ -1,0 +1,41 @@
+{
+  "_note": "Bundled Weather: Chicago TMY3 ships with WattLab. Other cities currently fall back to Chicago with an honest epw_note until additional EPWs are vendored under examples/weather/.",
+  "cities": {
+    "chicago": {
+      "label": "Chicago, IL",
+      "state": "Illinois",
+      "climate_zone": "5A",
+      "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+      "epw_note": "Chicago O'Hare TMY3 bundled with OpenFDD WattLab / EnergyPlus-MCP samples.",
+      "aliases": ["chi", "ord", "illinois", "il"]
+    },
+    "madison": {
+      "label": "Madison, WI",
+      "state": "Wisconsin",
+      "climate_zone": "6A",
+      "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+      "epw_preferred": "examples/weather/USA_WI_Madison-Dane.Co.AP.726410_TMY3.epw",
+      "epw_note": "Madison WI climate approximated with Chicago O'Hare TMY3 (closest bundled sample). Drop a Dane Co TMY3 at epw_preferred path when available.",
+      "aliases": ["msn", "dane", "wisconsin", "wi"]
+    },
+    "minneapolis": {
+      "label": "Minneapolis, MN",
+      "state": "Minnesota",
+      "climate_zone": "6A",
+      "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+      "epw_preferred": "examples/weather/USA_MN_Minneapolis-St.Paul.Intl.AP.726580_TMY3.epw",
+      "epw_note": "Minneapolis climate approximated with Chicago O'Hare TMY3 until a MSP TMY3 is vendored.",
+      "aliases": ["msp", "twin cities", "minnesota", "mn"]
+    },
+    "houston": {
+      "label": "Houston, TX",
+      "state": "Texas",
+      "climate_zone": "2A",
+      "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+      "epw_preferred": "examples/weather/USA_TX_Houston-Bush.Intercontinental.AP.722430_TMY3.epw",
+      "epw_note": "Houston climate approximated with Chicago O'Hare TMY3 (screening only — replace with IAH TMY3 before trusting hot-humid results).",
+      "aliases": ["iah", "texas", "tx"]
+    }
+  },
+  "default_city": "madison"
+}

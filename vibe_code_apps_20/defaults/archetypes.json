@@ -1,0 +1,81 @@
+{
+  "office": {
+    "label": "Office (medium)",
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "default_floors": 3,
+    "default_floor_to_floor_ft": 13.0,
+    "default_wwr": 0.33,
+    "default_area_ft2": 50000,
+    "lpd_w_per_ft2": 0.9,
+    "plug_w_per_ft2": 0.75,
+    "occupant_ft2_per_person": 200,
+    "ventilation_cfm_per_person": 20,
+    "dhw_type": "gas_storage",
+    "hvac_defaults": {
+      "fuel": "gas",
+      "airside": "vav_reheat",
+      "plant": "air_cooled_chiller"
+    },
+    "hvac_options": {
+      "fuel": ["gas", "electric"],
+      "airside": ["vav_reheat", "cAV", "psz_ac"],
+      "plant": ["air_cooled_chiller", "water_cooled_chiller", "dx", "none"]
+    },
+    "notes": "Single-shell screening archetype; EnergyPlus autosizes capacities so fan/plant sizes are not required inputs."
+  },
+  "multistory_office": {
+    "label": "Multistory office",
+    "extends": "office",
+    "default_floors": 6,
+    "default_area_ft2": 150000,
+    "notes": "Same VAV air-cooled prototype; floors/area are form inputs for massing/EUI context only until geometry scaling lands."
+  },
+  "warehouse": {
+    "label": "Warehouse / distribution",
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "default_floors": 1,
+    "default_floor_to_floor_ft": 28.0,
+    "default_wwr": 0.05,
+    "default_area_ft2": 100000,
+    "lpd_w_per_ft2": 0.5,
+    "plug_w_per_ft2": 0.3,
+    "occupant_ft2_per_person": 5000,
+    "ventilation_cfm_per_person": 15,
+    "dhw_type": "electric_storage",
+    "hvac_defaults": {
+      "fuel": "gas",
+      "airside": "psz_ac",
+      "plant": "dx"
+    },
+    "hvac_options": {
+      "fuel": ["gas", "electric"],
+      "airside": ["psz_ac", "cAV", "vav_reheat"],
+      "plant": ["dx", "air_cooled_chiller", "none"]
+    },
+    "notes": "Uses office prototype IDF as screening stand-in; replace when a warehouse prototype is vendored."
+  },
+  "school": {
+    "label": "K-12 school",
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "default_floors": 2,
+    "default_floor_to_floor_ft": 13.0,
+    "default_wwr": 0.25,
+    "default_area_ft2": 80000,
+    "lpd_w_per_ft2": 0.85,
+    "plug_w_per_ft2": 0.9,
+    "occupant_ft2_per_person": 50,
+    "ventilation_cfm_per_person": 15,
+    "dhw_type": "gas_storage",
+    "hvac_defaults": {
+      "fuel": "gas",
+      "airside": "vav_reheat",
+      "plant": "air_cooled_chiller"
+    },
+    "hvac_options": {
+      "fuel": ["gas", "electric"],
+      "airside": ["vav_reheat", "psz_ac", "cAV"],
+      "plant": ["air_cooled_chiller", "dx", "none"]
+    },
+    "notes": "Uses office prototype IDF as screening stand-in."
+  }
+}

@@ -1,11 +1,10 @@
-{
+﻿{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BuildingProfile",
   "type": "object",
   "required": [
     "project_id",
     "conditioned_floor_area_ft2",
-    "shells",
     "anonymized"
   ],
   "properties": {
@@ -13,10 +12,31 @@
     "display_name": {"type": ["string", "null"]},
     "product": {"type": ["string", "null"]},
     "anonymized": {"type": "boolean"},
+    "building_type": {"type": "string"},
     "conditioned_floor_area_ft2": {"type": "number", "exclusiveMinimum": 0},
+    "floor_area_ft2": {"type": "number", "exclusiveMinimum": 0},
+    "number_of_floors": {"type": "integer", "minimum": 1},
+    "floors": {"type": "integer", "minimum": 1},
+    "floor_to_floor_ft": {"type": "number", "exclusiveMinimum": 0},
+    "wwr": {"type": "number", "minimum": 0, "maximum": 1},
     "climate_city": {"type": ["string", "null"]},
+    "city": {"type": ["string", "null"]},
     "energy_code": {"type": ["string", "null"]},
-    "shells": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "code_year": {"type": ["string", "null"]},
+    "code_id": {"type": ["string", "null"]},
+    "shells": {"type": "array", "items": {"type": "object"}},
+    "hvac": {
+      "type": "object",
+      "properties": {
+        "fuel": {"type": "string"},
+        "airside": {"type": "string"},
+        "plant": {"type": "string"}
+      }
+    },
+    "measure_set": {
+      "type": "string",
+      "enum": ["good", "better", "best", "Good", "Better", "Best"]
+    },
     "energyplus": {
       "type": "object",
       "properties": {
@@ -29,6 +49,11 @@
     },
     "utility": {"type": "object"},
     "measures": {"type": "array", "items": {"type": "object"}},
-    "provenance": {"type": "array", "items": {"type": "object"}}
+    "field_sources": {
+      "type": "object",
+      "description": "Per-field provenance: user | default | vibe19 (black/blue default analog)"
+    },
+    "provenance": {"type": "array", "items": {"type": "object"}},
+    "vibe19_evidence": {"type": "object"}
   }
 }

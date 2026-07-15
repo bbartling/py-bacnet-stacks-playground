@@ -59,6 +59,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | **FDD Plots** | Auto-run device rules; catalog-parity cards; **Sensor health — per sensor** matrix + chart (Word on Overview) |
 | **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); zone comfort donut; one chart at a time; opt-in coverage |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
+| **Energy Model** | OpenFDD WattLab easy button: responsive-defaults form + 3D massing + FDD→ECM bridge + EnergyPlus Docker runs via `VIBE19_WATTLAB_DIR` (`app.energy_model`) |
 | Export | CSV / session / health / data-model (Word template is Overview-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).

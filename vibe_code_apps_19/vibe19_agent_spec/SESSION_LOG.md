@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-15 — Energy Model tab (WattLab easy button)
+
+- Added **Energy Model** to `REQUIRED_MAIN_SECTIONS` + `app/energy_model.py` (responsive-defaults form, 3D massing, FDD suggest, subprocess → vibe20 `easy_button.py`)
+- Env: `VIBE19_WATTLAB_DIR` (sibling `vibe_code_apps_20` auto-detected); Docker image `energyplus-mcp-dev` required for live sims
+- Pair with vibe20: `wattlab_defaults.py`, `vibe19_bridge.py`, Good/Better/Best measure sets, chiller lockout + SAT reset patches
+
+---
+
 ## 2026-07-15 — GHCR multi-arch agent contract
 
 - Broke `:latest` when tags pointed at missing multi-arch blobs; fixed with QEMU amd64+arm64 no-cache rebuild

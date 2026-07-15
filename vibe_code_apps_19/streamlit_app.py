@@ -3160,6 +3160,14 @@ def main() -> None:
                 key=f"dl_meter_{kind}",
             )
 
+    if section == "Energy Model":
+        from app.energy_model import render_energy_model_tab
+
+        render_energy_model_tab(
+            batch_results=st.session_state.get("batch_results") or [],
+            results_summary_fn=results_summary_table,
+        )
+
     if section == "Export":
         st.subheader("Export")
         st.caption(

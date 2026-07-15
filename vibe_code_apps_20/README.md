@@ -1,4 +1,4 @@
-# OpenFDD WattLab
+﻿# OpenFDD WattLab
 
 **OpenFDD WattLab** is the EnergyPlus companion to [Open-FDD](https://bbartling.github.io/open-fdd/) / [Vibe App 19](../vibe_code_apps_19/): an AI-helper stack that turns fault evidence into auditable **ECM energy screens** (prototype IDF + weather + progressive patches).
 
@@ -52,13 +52,41 @@ Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF co
 
 | Script | Role |
 | --- | --- |
-| `easy_button.py` | Prototype → baseline → approved ECM chain |
+| `wattlab_defaults.py` | responsive-defaults defaults (type + city + code → resolved profile with `field_sources`) |
+| `defaults/` | `archetypes.json`, `climate.json`, `codes.json` |
+| `easy_button.py` | Prototype → baseline → approved ECM chain (supports `--measure-set` / `--minimal`) |
+| `vibe19_bridge.py` | Agent-export bundle → evidence + auto-suggested measures |
 | `madison_office.py` | Madison conceptual playbook wrapper |
 | `ep_docker.py` | Image ensure + container `energyplus` runs |
 | `ep_mcp_client.py` | MCP status / simulate helpers |
-| `idf_patches/` | Schedule + GL36-proxy IDF text patches |
-| `results_parse.py` | `eplustbl.csv` / `.htm` → `result_record` annuals |
+| `idf_patches/` | Schedule, chiller lockout, SAT reset, GL36-proxy IDF text patches |
+| `ecm_library/measure_sets.json` | Good / Better / Best measure sets |
+| `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
 | `config.py` | Paths, image name, default prototype / EPW |
+
+## responsive-defaults easy button
+
+Minimal inputs only (building type, city, code vintage, area, floors, HVAC family). EnergyPlus **autosizes** capacities — fan sizes / plant tons are not required. Defaults are tagged `user` | `default` | `vibe19` in `field_sources` (black/blue-text analog).
+
+```powershell
+# Resolve defaults only
+python wattlab_defaults.py --type office --city madison --code 90.1-2013 --area 150000 --floors 6
+
+# Dry-run Best measure set from minimal JSON
+python easy_button.py --minimal "{\"building_type\":\"office\",\"city\":\"madison\",\"measure_set\":\"best\"}" --dry-run
+
+# Live Best set
+python easy_button.py --minimal "{\"building_type\":\"office\",\"city\":\"madison\",\"measure_set\":\"best\"}" --measure-set best
+
+# Bridge a vibe19 agent-export directory into measures
+python vibe19_bridge.py path/to/vibe19_export -o .artifacts/bridge.json
+```
+
+Measure sets: **Good** (schedules) · **Better** (+ chiller lockout) · **Best** (+ SAT reset + GL36 airside proxy).
+
+## vibe19 Streamlit integration
+
+Set `VIBE19_WATTLAB_DIR` to this folder. The vibe19 **Energy Model** section calls WattLab via subprocess (no cross-imports) and shows massing + progressive savings.
 
 ## Examples
 

@@ -11,6 +11,7 @@ REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "FDD Plots",
     "RCx Plots",
     "Metering",
+    "Energy Model",
     "Export",
 )
 
@@ -48,4 +49,6 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.browser_session:write_browser_session_pointer",
     "app.browser_session:read_browser_session_pointer",
     "app.browser_session:clear_browser_session_pointer",
+    "app.energy_model:render_energy_model_tab",
+    "app.energy_model:resolve_wattlab_dir",
 )

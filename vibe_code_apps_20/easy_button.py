@@ -1,9 +1,10 @@
-"""OpenFDD WattLab easy button — prototype IDF + EPW → baseline → progressive ECMs.
+﻿"""OpenFDD WattLab easy button — prototype IDF + EPW → baseline → progressive ECMs.
 
 Usage:
   python easy_button.py --building examples/buildings/madison_office.json --dry-run
   python easy_button.py --building examples/buildings/madison_office.json
-  python easy_button.py --building examples/buildings/madison_office.json --skip-ecm2
+  python easy_button.py --minimal "{\"building_type\":\"office\",\"city\":\"madison\",\"measure_set\":\"best\"}"
+  python easy_button.py --building examples/buildings/madison_office.json --measure-set better
 """
 
 from __future__ import annotations
@@ -24,13 +25,21 @@ from config import (
     DEFAULT_PROTOTYPE_IDF,
     ROOT,
 )
+from ecm_library.measure_sets import expand_measure_set
 from ep_mcp_client import simulate
 from idf_patches import (
+    apply_chiller_lockout,
     apply_fan_avail_continuous,
     apply_fan_avail_occupied_office,
     apply_gl36_airside_proxy,
+    apply_sat_reset,
 )
-from results_parse import annual_from_output_dir, build_result_record, file_sha256
+from results_parse import (
+    annual_from_output_dir,
+    build_result_record,
+    file_sha256,
+    savings_by_measure,
+)
 
 PRODUCT = "OpenFDD WattLab"
 DISCLAIMER = (
@@ -139,7 +148,11 @@ def load_profile(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def approved_measures(profile: dict) -> list[dict]:
+def approved_measures(profile: dict, measure_set: str | None = None) -> list[dict]:
+    """Return ordered measures: explicit measure_set expands, else approved profile measures."""
+    set_id = measure_set or profile.get("measure_set")
+    if set_id:
+        return expand_measure_set(str(set_id))
     return [
         m
         for m in profile.get("measures") or []
@@ -147,12 +160,12 @@ def approved_measures(profile: dict) -> list[dict]:
     ]
 
 
-def plan_dry_run(profile_path: Path) -> dict[str, Any]:
+def plan_dry_run(profile_path: Path, measure_set: str | None = None) -> dict[str, Any]:
     profile = load_profile(profile_path)
     ep = profile.get("energyplus") or {}
     prototype = resolve_path(ep.get("prototype_idf"), DEFAULT_PROTOTYPE_IDF)
     epw = resolve_path(ep.get("epw"), DEFAULT_MADISON_EPW)
-    measures = approved_measures(profile)
+    measures = approved_measures(profile, measure_set)
     steps: list[dict[str, Any]] = [
         {
             "step": "select_prototype",
@@ -183,6 +196,7 @@ def plan_dry_run(profile_path: Path) -> dict[str, Any]:
         "project_id": profile.get("project_id"),
         "display_name": profile.get("display_name"),
         "disclaimer": profile.get("disclaimer") or DISCLAIMER,
+        "measure_set": measure_set or profile.get("measure_set"),
         "steps": steps,
         "approved_measure_ids": [m["measure_id"] for m in measures],
     }
@@ -211,19 +225,40 @@ def _apply_patch(name: str, src: Path, dest: Path, measure: dict | None = None) 
             fan_pressure_pa=float(params.get("fan_pressure_pa") or 400.0),
             fan_power_min_fraction=float(params.get("fan_power_min_fraction") or 0.15),
         )
+    if name in {"chiller_lockout", "mech_oat_lockout"}:
+        return apply_chiller_lockout(
+            src,
+            dest,
+            oat_lockout_f=float(params.get("oat_lockout_f") or 55.0),
+        )
+    if name in {"sat_reset", "sat_reset_proxy"}:
+        return apply_sat_reset(src, dest)
     raise ValueError(f"Unknown idf_patch name: {name}")
 
 
 def run_easy_button(
-    profile_path: Path,
+    profile_path: Path | None = None,
     *,
+    profile: dict[str, Any] | None = None,
     skip_ecm2: bool = False,
     dry_run: bool = False,
+    measure_set: str | None = None,
 ) -> dict[str, Any]:
-    if dry_run:
-        return plan_dry_run(profile_path)
+    if profile is None:
+        if profile_path is None:
+            raise ValueError("profile_path or profile required")
+        if dry_run:
+            return plan_dry_run(profile_path, measure_set)
+        profile = load_profile(profile_path)
+    elif dry_run and profile_path is not None:
+        return plan_dry_run(profile_path, measure_set)
+    elif dry_run:
+        # dry-run from in-memory profile
+        tmp = ARTIFACTS / "_dry_profile.json"
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(profile), encoding="utf-8")
+        return plan_dry_run(tmp, measure_set)
 
-    profile = load_profile(profile_path)
     ep = profile.get("energyplus") or {}
     prototype = resolve_path(ep.get("prototype_idf"), DEFAULT_PROTOTYPE_IDF)
     epw = resolve_path(ep.get("epw"), DEFAULT_MADISON_EPW)
@@ -233,9 +268,14 @@ def run_easy_button(
     run_dir = ARTIFACTS / f"wattlab_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    measures = approved_measures(profile)
+    measures = approved_measures(profile, measure_set)
     if skip_ecm2:
-        measures = [m for m in measures if "GL36" not in (m.get("measure_id") or "")]
+        measures = [
+            m
+            for m in measures
+            if "GL36" not in (m.get("measure_id") or "")
+            and "SAT" not in (m.get("measure_id") or "")
+        ]
 
     # --- baseline: continuous fan avail (SCHED-247 inefficient archetype) ---
     baseline_idf = run_dir / "baseline.idf"
@@ -301,6 +341,7 @@ def run_easy_button(
         after_ecm1=(after_ecm1_annual or {}),
         after_ecm2=(after_ecm2_annual or None),
     )
+    savings = savings_by_measure(records)
 
     report = {
         "product": PRODUCT,
@@ -308,6 +349,7 @@ def run_easy_button(
         "project_id": profile.get("project_id"),
         "display_name": profile.get("display_name"),
         "disclaimer": profile.get("disclaimer") or DISCLAIMER,
+        "measure_set": measure_set or profile.get("measure_set"),
         "prototype_idf": str(prototype),
         "prototype_sha256": file_sha256(prototype),
         "epw": str(epw),
@@ -315,13 +357,19 @@ def run_easy_button(
         "baseline_sim": sim_meta,
         "patches": patch_log,
         "result_records": records,
+        "savings_by_measure": savings,
         "literature_validation": lit,
+        "field_sources": profile.get("field_sources"),
         "artifacts_dir": str(run_dir),
     }
     (run_dir / "wattlab_report.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
-    shutil.copy2(profile_path, run_dir / "building_profile.json")
+    (run_dir / "resolved_profile.json").write_text(
+        json.dumps(profile, indent=2), encoding="utf-8"
+    )
+    if profile_path is not None and profile_path.is_file():
+        shutil.copy2(profile_path, run_dir / "building_profile.json")
     return report
 
 
@@ -330,16 +378,64 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--building",
         type=Path,
-        default=ROOT / "examples" / "buildings" / "madison_office.json",
+        default=None,
         help="Building profile JSON",
+    )
+    p.add_argument(
+        "--minimal",
+        type=str,
+        default=None,
+        help="JSON string of responsive-defaults minimal inputs (uses wattlab_defaults)",
+    )
+    p.add_argument(
+        "--minimal-file",
+        type=Path,
+        default=None,
+        help="Path to JSON file of minimal inputs (preferred on PowerShell)",
     )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-ecm2", action="store_true")
+    p.add_argument(
+        "--measure-set",
+        choices=["good", "better", "best"],
+        default=None,
+        help="Expand Good/Better/Best measure set (overrides profile measures)",
+    )
     args = p.parse_args(argv)
-    building = args.building
-    if not building.is_absolute():
-        building = (ROOT / building).resolve()
-    report = run_easy_button(building, skip_ecm2=args.skip_ecm2, dry_run=args.dry_run)
+
+    profile: dict[str, Any] | None = None
+    building: Path | None = None
+
+    if args.minimal or args.minimal_file:
+        from wattlab_defaults import resolve_profile
+
+        if args.minimal_file:
+            mf = args.minimal_file
+            if not mf.is_absolute():
+                mf = (ROOT / mf).resolve()
+            minimal = json.loads(mf.read_text(encoding="utf-8-sig"))
+        else:
+            minimal = json.loads(args.minimal)
+        if args.measure_set:
+            minimal["measure_set"] = args.measure_set
+        profile = resolve_profile(minimal)
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        building = ARTIFACTS / "_minimal_profile.json"
+        building.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    else:
+        building = args.building or (
+            ROOT / "examples" / "buildings" / "madison_office.json"
+        )
+        if not building.is_absolute():
+            building = (ROOT / building).resolve()
+
+    report = run_easy_button(
+        building,
+        profile=profile,
+        skip_ecm2=args.skip_ecm2,
+        dry_run=args.dry_run,
+        measure_set=args.measure_set,
+    )
     print(json.dumps(report, indent=2))
     if args.dry_run:
         return 0

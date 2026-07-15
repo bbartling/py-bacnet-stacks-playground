@@ -1,4 +1,4 @@
-# AGENTS.md — OpenFDD WattLab (agent OS)
+﻿# AGENTS.md — OpenFDD WattLab (agent OS)
 
 **Single entrypoint for agents.** Prefer this file over scattered notes. Domain skills under `.agents/skills/` remain the procedure detail; routing is `.agents/routing.md`.
 
@@ -58,12 +58,16 @@ Evidence record · applicability decision · baseline parameters · proposed par
 
 | Path | Role |
 |---|---|
-| `easy_button.py` | Prototype → calibrate knobs → baseline → ECM chain |
+| `wattlab_defaults.py` | responsive-defaults defaults resolver (`field_sources` provenance) |
+| `defaults/` | Archetypes, climate, code vintages |
+| `easy_button.py` | Prototype → calibrate knobs → baseline → ECM chain (`--measure-set`, `--minimal`) |
+| `vibe19_bridge.py` | vibe19 agent-export → evidence + suggested measures |
 | `madison_office.py` | Madison conceptual playbook wrapper |
 | `ep_docker.py` | Docker image ensure + `energyplus` runs |
 | `ep_mcp_client.py` | MCP parity helpers / status smoke |
-| `idf_patches/` | Schedule + GL36-proxy IDF text patches |
-| `results_parse.py` | `eplustbl.csv` → annual fields for `result_record` |
+| `idf_patches/` | Schedule, chiller lockout, SAT reset, GL36-proxy IDF patches |
+| `ecm_library/measure_sets.json` | Good / Better / Best progressive sets |
+| `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
 | `config.py` | Paths, image name, default EPW/prototype |
 | `schemas/` | building_profile / measure_brief / result_record |
 | `examples/buildings/` | WattLab building profiles (EP-oriented) |
@@ -77,7 +81,9 @@ Evidence record · applicability decision · baseline parameters · proposed par
 
 | Mode | When | How |
 |---|---|---|
-| **Easy button** | Demo / default ECM screen | `python easy_button.py --building examples/buildings/...` |
+| **Easy button** | Demo / default ECM screen | `python easy_button.py --building ...` or `--minimal '{...}' --measure-set best` |
+| **Defaults only** | Form preview / UI | `python wattlab_defaults.py --type office --city madison` |
+| **vibe19 bridge** | Auto-suggest ECMs from FDD export | `python vibe19_bridge.py <export_dir>` |
 | **Full EnergyPlus-MCP** | Inspect loops, plots, custom run periods, validate IDF | Cursor MCP → Docker `energyplus-mcp-dev` (see `third_party/README.md`) |
 
 ### Calibration knobs MCP can vs cannot do
