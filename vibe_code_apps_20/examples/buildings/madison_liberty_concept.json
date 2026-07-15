@@ -1,0 +1,164 @@
+{
+  "project_id": "MAD-LIBERTY-CONCEPT-001",
+  "display_name": "Madison Liberty-Style Office",
+  "anonymized": true,
+  "model_purpose": "conceptual ECM screening",
+  "calibration_status": "uncalibrated",
+  "disclaimer": "This is a conceptual, uncalibrated screening model for an anonymized office building. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific Madison property.",
+  "conditioned_floor_area_ft2": 150000,
+  "climate_city": "Madison",
+  "climate_state": "Wisconsin",
+  "weather_location": "Madison, Wisconsin",
+  "sketchbox_baseline_code": null,
+  "conceptual_existing_building_vintage": "unknown",
+  "energy_code": "IECC 2018",
+  "rate_category": "Commercial",
+  "building_type": "multistory office",
+  "number_of_floors": 6,
+  "average_floor_area_ft2": 25000,
+  "floor_to_floor_height_ft": 13,
+  "gross_building_height_ft": 78,
+  "shape": "rectangular office tower",
+  "aspect_ratio": "approximately 2.0 to 1.0",
+  "primary_orientation": "long façades facing north and south",
+  "window_wall_ratio": {"north": 0.65, "east": 0.65, "south": 0.65, "west": 0.65},
+  "glazing_description": "reflective curtain-wall appearance",
+  "occupancy_type": "general office",
+  "construction_character": "existing commercial office",
+  "shell_strategy": {
+    "preferred": "two_shells_equal_split",
+    "rationale": "Two AHUs each serve ~half the building with materially different baseline schedules (AHU-1 timed vs AHU-2 24/7).",
+    "one_shell_adequate": false,
+    "shells": [
+      {
+        "shell_id": "SHELL-AHU-1",
+        "served_area_ft2": 75000,
+        "served_by": "AHU-1",
+        "program": "office",
+        "floors": 6,
+        "baseline_schedule": "occupied_office",
+        "hvac_summary": "Central VAV with terminal reheat (Sketchbox closest VAV default)"
+      },
+      {
+        "shell_id": "SHELL-AHU-2",
+        "served_area_ft2": 75000,
+        "served_by": "AHU-2",
+        "program": "office",
+        "floors": 6,
+        "baseline_schedule": "continuous_247",
+        "hvac_summary": "Central VAV with terminal reheat (Sketchbox closest VAV default)"
+      }
+    ]
+  },
+  "hvac_concept": {
+    "air_system": {
+      "type": "central VAV with terminal reheat",
+      "number_of_ahus": 2,
+      "sketchbox_guidance": "Use Sketchbox built-in VAV assumptions; do not invent plant sizing.",
+      "sketchbox_selected": "VAV with HW Reheat",
+      "sketchbox_note": "Closest available central VAV path in UI (2026-07 test)."
+    },
+    "cooling": {
+      "type": "air-cooled chiller",
+      "sizing": "unknown — use Sketchbox defaults",
+      "sketchbox_available": false,
+      "sketchbox_approximation": "Direct Expansion under VAV with HW Reheat",
+      "flag": "hvac_approx_vav_hw_reheat_dx_not_air_cooled_chiller"
+    },
+    "heating": {
+      "type": "Boiler + HW reheat (Sketchbox path)",
+      "fuel": "Natural Gas",
+      "flag": "heating_fuel_assumption_unconfirmed",
+      "note": "Documented conceptual assumption — not inventoried site fuel."
+    }
+  },
+  "sketchbox_schedule_mapping": {
+    "AHU-1_SHELL": {"nav": "Office", "schedule_type": "Simplified", "occupancy": "Normal", "hour_matrix": "approximated (~9am-5pm weekday preset; exact 07:00/17:00 not automated)"},
+    "AHU-2_SHELL": {"nav": "Office (2)", "schedule_type": "Simplified", "occupancy_baseline": "Always Occupied", "occupancy_ecm1": "Normal"}
+  },
+  "sketchbox_ecm2_duct_static": {
+    "status": "NEEDS_INPUT",
+    "reason": "Add Measure catalog lacks duct-static-pressure reset; Fan Power / VAV Box Minimum are not accepted substitutes without engineering review."
+  },
+  "baseline_schedules": {
+    "AHU-1": {
+      "monday": {"start": "07:00", "stop": "17:00"},
+      "tuesday": {"start": "07:00", "stop": "17:00"},
+      "wednesday": {"start": "07:00", "stop": "17:00"},
+      "thursday": {"start": "07:00", "stop": "17:00"},
+      "friday": {"start": "07:00", "stop": "17:00"},
+      "saturday": {"start": "07:00", "stop": "14:00"},
+      "sunday": {"status": "off"},
+      "holidays": {"status": "off"}
+    },
+    "AHU-2": {
+      "status": "24/7 continuous",
+      "note": "Intentionally inefficient baseline; ECM-1 places AHU-2 on AHU-1 schedule"
+    }
+  },
+  "measures": [
+    {
+      "measure_id": "ECM-AHU2-SCHED-ALIGN",
+      "title": "Put AHU-2 on occupied schedule (end continuous runtime)",
+      "evidence_ids": ["EV-SCHED247-AHU2-CONCEPT"],
+      "vibe19_bridge": {
+        "rule_ids": ["SCHED-247"],
+        "equipment_ids": ["AHU-2"],
+        "note": "Future: import measured 24/7 fan runtime hours from vibe19 analytics package"
+      },
+      "baseline_changes": [
+        {"parameter": "AHU-2_schedule", "value": "24/7", "units": "operating_mode"}
+      ],
+      "proposed_changes": [
+        {
+          "parameter": "AHU-2_schedule",
+          "value": "match_AHU-1_occupied",
+          "units": "operating_mode",
+          "detail": {
+            "weekday": {"start": "07:00", "stop": "17:00"},
+            "saturday": {"start": "07:00", "stop": "14:00"},
+            "sunday": "off",
+            "holidays": "off"
+          }
+        }
+      ],
+      "sketchbox_mapping": [
+        {"tab": "schedules", "parameter": "shell schedule for SHELL-AHU-2 — closest supported simplified/hours inputs"}
+      ],
+      "interactions": ["duct_static_reset", "setback", "ventilation"],
+      "confidence": "medium",
+      "review_status": "approved"
+    },
+    {
+      "measure_id": "ECM-AHU-DUCT-STATIC-RESET",
+      "title": "AHU duct-static-pressure reset for both AHUs",
+      "evidence_ids": ["EV-DUCTHI-AHU1-CONCEPT", "EV-DUCTHI-AHU2-CONCEPT"],
+      "vibe19_bridge": {
+        "rule_ids": ["AHU-DUCTHI", "FC1"],
+        "equipment_ids": ["AHU-1", "AHU-2"],
+        "note": "Future: import duct-static high hours / damper margin evidence from vibe19"
+      },
+      "proposed_changes": [
+        {
+          "parameter": "duct_static_reset",
+          "value": "enabled",
+          "units": "control_strategy",
+          "scope": ["AHU-1", "AHU-2"]
+        }
+      ],
+      "sketchbox_mapping": [
+        {"tab": "measures", "parameter": "closest supported fan/duct static or VAV fan-power measure — NEEDS_INPUT if absent"}
+      ],
+      "interactions": ["schedule_optimization", "vav_minimum_reset"],
+      "confidence": "low",
+      "review_status": "approved",
+      "notes": "Model only if Sketchbox exposes a mapped measure; otherwise mark NEEDS_INPUT / BLOCKED_UI_CHANGE — do not invent savings."
+    }
+  ],
+  "provenance": [
+    {
+      "source": "conceptual_brief",
+      "note": "Synthetic Madison weather / Liberty-style office for vibe20 Sketchbox screening; not a real property"
+    }
+  ]
+}

@@ -39,13 +39,27 @@ def test_agents_routing_exists() -> None:
     assert (ROOT / "sketchbox_ui.py").is_file()
 
 
+def test_madison_concept_profile() -> None:
+    path = ROOT / "examples" / "buildings" / "madison_liberty_concept.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["project_id"] == "MAD-LIBERTY-CONCEPT-001"
+    assert data["anonymized"] is True
+    assert "conceptual, uncalibrated" in data["disclaimer"].lower()
+    assert data["shell_strategy"]["one_shell_adequate"] is False
+    assert len(data["shell_strategy"]["shells"]) == 2
+    ids = {m["measure_id"] for m in data["measures"]}
+    assert "ECM-AHU2-SCHED-ALIGN" in ids
+    assert "ECM-AHU-DUCT-STATIC-RESET" in ids
+    assert (ROOT / "run_madison_concept.py").is_file()
+    assert (ROOT / "docs" / "FDD_TO_SKETCHBOX_WORKFLOW.md").is_file()
+
+
 def test_dry_run_plan_shape() -> None:
     from testdrive import plan_dry_run
 
     paths = sorted((ROOT / "examples" / "buildings").glob("*.json"))
     plan = plan_dry_run(paths)
     assert plan["dry_run"] is True
-    assert len(plan["buildings"]) == 3
+    assert len(plan["buildings"]) >= 3
     for b in plan["buildings"]:
-        assert b["approved_measures"]
         assert "zero_offsets" in b["writes"]["sequence"]

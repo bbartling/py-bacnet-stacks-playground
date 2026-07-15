@@ -1,0 +1,45 @@
+{
+  "disclaimer": "This is a conceptual, uncalibrated screening model for an anonymized office building. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific Madison property.",
+  "evidence": [
+    {
+      "evidence_id": "EV-SCHED247-AHU2-CONCEPT",
+      "source": "synthetic_vibe19_style",
+      "vibe19_rule_id": "SCHED-247",
+      "equipment_id": "AHU-2",
+      "summary": "Conceptual always-on AHU fan runtime (24/7 baseline) representing SCHED-247-class finding.",
+      "metrics": {
+        "fan_on_hours_per_week_approx": 168,
+        "occupied_hours_per_week_target": 57,
+        "avoidable_hours_per_week_approx": 111
+      },
+      "confidence": "low",
+      "notes": "Placeholder until a real vibe19 analytics package is attached."
+    },
+    {
+      "evidence_id": "EV-DUCTHI-AHU1-CONCEPT",
+      "source": "synthetic_vibe19_style",
+      "vibe19_rule_id": "AHU-DUCTHI",
+      "equipment_id": "AHU-1",
+      "summary": "Conceptual excess duct static / high SP hours when fan is proven on.",
+      "metrics": {
+        "duct_static_high_hours_approx": 400,
+        "pressure_on_gate": "fan_or_static_gt_min"
+      },
+      "confidence": "low",
+      "notes": "Maps to duct-static-reset ECM when Sketchbox supports it."
+    },
+    {
+      "evidence_id": "EV-DUCTHI-AHU2-CONCEPT",
+      "source": "synthetic_vibe19_style",
+      "vibe19_rule_id": "AHU-DUCTHI",
+      "equipment_id": "AHU-2",
+      "summary": "Conceptual excess duct static on continuously running AHU-2.",
+      "metrics": {
+        "duct_static_high_hours_approx": 800,
+        "interaction": "schedule_ECM_reduces_reset_hours_if_bundled_incorrectly"
+      },
+      "confidence": "low",
+      "notes": "Run schedule ECM first; do not double-count fan savings with reset."
+    }
+  ]
+}

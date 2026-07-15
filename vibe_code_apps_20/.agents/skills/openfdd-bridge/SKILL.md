@@ -30,5 +30,15 @@ Reading `fdd_summary.csv`, session exports, role maps, fault hours, or RCx analy
 ## Guardrails
 A fault is not savings. Sensor-validation failures block dependent control ECMs unless corrected.
 
+## Vibe19 → Sketchbox maps (starter)
+
+| FDD / RCx signal | ECM skill | Example concept |
+| --- | --- | --- |
+| `SCHED-247` continuous runtime | `schedule-optimization` | Madison AHU-2 24/7 → occupied schedule |
+| `AHU-DUCTHI` / `FC1` | `duct-static-reset` | Static reset both AHUs after schedule ECM |
+| Comfort / SAT faults | `sat-reset` / `vav-minimum-reset` | Only with sensor health gates |
+
+See `docs/FDD_TO_SKETCHBOX_WORKFLOW.md` and `examples/buildings/madison_liberty_concept.json`.
+
 ## Validation
 Every candidate cites evidence; missing roles remain explicit; rejected candidates have reasons.

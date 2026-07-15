@@ -38,6 +38,19 @@ python testdrive.py --buildings examples/buildings
 
 Fable 5 critique: [`docs/FABLE5_CRITIQUE.md`](docs/FABLE5_CRITIQUE.md).
 
+FDD → Sketchbox workflow (vibe19 bridge intent): [`docs/FDD_TO_SKETCHBOX_WORKFLOW.md`](docs/FDD_TO_SKETCHBOX_WORKFLOW.md).
+
+### Madison Liberty conceptual screen
+
+```powershell
+python run_madison_concept.py --dry-run
+python run_madison_concept.py --probe-only
+python run_madison_concept.py
+```
+
+Profile: `examples/buildings/madison_liberty_concept.json` (anonymized Madison weather only; uncalibrated).
+Every export includes the conceptual screening disclaimer.
+
 ## Credentials
 
 - Only in `.env` (gitignored). Never commit cookies / `sketchbox_storage.json`.

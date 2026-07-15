@@ -74,3 +74,17 @@ def write_and_read_back(page: Page, locator_css: str, value: str) -> dict:
 
 COOLING_OFFSET_CSS = 'input[type="text"][title*="cooling setpoint by this offset"]'
 HEATING_OFFSET_CSS = 'input[type="text"][title*="heating setpoint by this offset"]'
+
+# DESIGN geometry / plant (title attributes verified 2026-07-15)
+AREA_CSS = 'input[type="text"][title*="floor area for each building type"]'
+ASPECT_CSS = 'input[type="text"][title*="aspect ratio of the building"]'
+FLOORS_CSS = 'input[type="text"][title*="number of floors"]'
+FLOOR_HEIGHT_CSS = 'input[type="text"][title*="floor-to-floor"]'
+WWR_NORTH_CSS = 'input[type="text"][title*="window-to-wall ratio for north"]'
+WWR_SOUTH_CSS = 'input[type="text"][title*="window-to-wall ratio for south"]'
+WWR_EAST_CSS = 'input[type="text"][title*="window-to-wall ratio for east"]'
+WWR_WEST_CSS = 'input[type="text"][title*="window-to-wall ratio for west"]'
+
+# Closest central VAV representation currently available in the account UI
+AIR_SIDE_VAV = "VAV with HW Reheat"
+HEATING_FUEL_ASSUMPTION = "Natural Gas"  # HW reheat path; always flag if used
