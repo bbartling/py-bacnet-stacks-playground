@@ -1,32 +1,14 @@
-# Results Quality Assurance
+# Skill: results-qa
 
-## Purpose
-Detect invalid, implausible, or misleading model outcomes.
+Screen WattLab simulation deltas for reasonableness.
 
-## Invoke when
-Before ranking or reporting savings.
+## Checks
 
-## Required inputs
-- Baseline and measure results
-- measure mechanism
-- building area
-- end-use context
+- Status `COMPLETE` and `eplusout.end` success
+- Schedule ECM should usually reduce fan/HVAC energy vs 24/7 baseline
+- GL36-proxy incremental vs post-schedule within literature whole-building band when applicable
+- Flag `RESULTS_SUSPECT` on negative unexplained deltas
 
-## Procedure
-1. Verify hashes.
-2. Check signs and magnitudes.
-3. Compare end-use changes to causal mechanism.
-4. Calculate intensity metrics.
-5. Flag baseline leakage and double counting.
-6. Assign disposition.
+## Related
 
-## Outputs
-- QA report
-- quality flags
-- approved/rejected result
-
-## Guardrails
-Do not repair suspect results by editing outputs.
-
-## Validation
-Independent reviewer signs disposition; checklist passes.
+`gl36-airside`, `testing-validation`

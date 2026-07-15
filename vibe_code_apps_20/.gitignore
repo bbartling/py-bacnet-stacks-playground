@@ -3,11 +3,14 @@
 .env.*
 !.env.example
 
-# Playwright artifacts / session
+# Run artifacts
 .artifacts/
-**/sketchbox_storage.json
+
+# Vendor clone (re-clone from third_party/VERSION.txt); keep pin + README
+third_party/EnergyPlus-MCP/
 
 __pycache__/
 .pytest_cache/
 .venv/
 *.pyc
+pytest-cache-files-*/

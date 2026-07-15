@@ -1,7 +1,7 @@
-# Schedules
+﻿# Schedules
 
 ## Purpose
-Map observed or documented operation into Sketchbox schedule inputs.
+Map observed or documented operation into EnergyPlus schedule inputs.
 
 ## Invoke when
 Occupancy, runtime, setback, optimum start/stop, or scheduling ECMs.

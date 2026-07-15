@@ -1,27 +1,14 @@
-# Testing and Validation
+# Skill: testing-validation
 
-## Purpose
-Protect domain logic and browser workflows with layered tests.
+Verify OpenFDD WattLab code and Docker path.
 
-## Invoke when
-Any code change.
+## Required
 
-## Required inputs
-- Changed modules
-- fixtures
-- schemas
-- golden cases
+- Unit: schemas, examples, AGENTS keywords, **forbidden legacy brand scrub**
+- Integration (Docker): image present, sample sim, Madison easy-button dry-run / live when available
 
-## Procedure
-Add unit tests for domain logic, schema tests, parser tests, selector contract tests, and mocked orchestration tests. Keep live browser tests opt-in.
-
-## Outputs
-- test changes
-- coverage note
-- failure diagnostics
-
-## Guardrails
-CI must not require real credentials. Live tests must avoid destructive actions by default.
-
-## Validation
-Unit suite passes; fixture outputs stable or intentionally updated.
+```powershell
+cd vibe_code_apps_20
+python -m pytest tests -q
+python madison_office.py --dry-run
+```

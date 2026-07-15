@@ -1,4 +1,4 @@
-# Envelope and Glazing
+﻿# Envelope and Glazing
 
 ## Purpose
 Translate evidence of wall/roof/window performance scenarios into a defensible individual ECM.
@@ -7,7 +7,7 @@ Translate evidence of wall/roof/window performance scenarios into a defensible i
 When evidence suggests wall/roof/window performance scenarios.
 
 ## Required inputs
-- areas, U-values, SHGC, WWR by façade, infiltration
+- areas, U-values, SHGC, WWR by faÃ§ade, infiltration
 - approved baseline
 - implementation constraints
 
@@ -21,7 +21,7 @@ When evidence suggests wall/roof/window performance scenarios.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

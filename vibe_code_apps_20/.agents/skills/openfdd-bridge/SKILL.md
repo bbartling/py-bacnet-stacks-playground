@@ -1,45 +1,17 @@
-# Open-FDD / Vibe 19 Bridge
+# Skill: openfdd-bridge
 
-## Purpose
-Convert deterministic FDD analytics into evidence-backed ECM candidates.
+Map Open-FDD / Vibe App 19 rule hits into WattLab evidence + MeasureBriefs.
 
-## Invoke when
-Reading `fdd_summary.csv`, session exports, role maps, fault hours, or RCx analytics.
+## Common maps
 
-## Required inputs
-- Vibe 19 exports
-- rule registry
-- role mappings
-- equipment metadata
-- schedules and weather context
+| vibe19 rule | ECM class | WattLab patch |
+|---|---|---|
+| SCHED-247 | Schedule align | `fan_avail_occupied_office` |
+| AHU-DUCTHI / high SP | GL36 fan proxy | `gl36_airside_proxy` |
+| VAV high minimums | VAV-min | `gl36_airside_proxy` |
 
-## Procedure
-1. Validate package and mappings.
-2. Normalize equipment IDs and rule IDs.
-3. Convert findings into EvidenceRecords.
-4. Apply motor/plant/occupancy gates.
-5. Group related evidence without double counting.
-6. Generate candidate ECMs with prerequisites.
-7. Route each candidate to a domain skill.
+## Rules
 
-## Outputs
-- evidence JSONL
-- candidate ECM JSON
-- rejected-candidate log
-
-## Guardrails
-A fault is not savings. Sensor-validation failures block dependent control ECMs unless corrected.
-
-## Vibe19 → Sketchbox maps (starter)
-
-| FDD / RCx signal | ECM skill | Example concept |
-| --- | --- | --- |
-| `SCHED-247` continuous runtime | `schedule-optimization` | Madison AHU-2 24/7 → occupied schedule |
-| G36 / high VAV mins / DSP | `gl36-airside` | Madison ECM-2 GL36 proxy both AHUs |
-| `AHU-DUCTHI` / `FC1` | supports `gl36-airside` Fan Power proxy | After schedule ECM |
-| Comfort / SAT faults | `sat-reset` / `vav-minimum-reset` | Only with sensor health gates |
-
-See `AGENTS.md` (FDD → ECM workflow and Madison playbook).
-
-## Validation
-Every candidate cites evidence; missing roles remain explicit; rejected candidates have reasons.
+- Evidence first; never auto-approve savings
+- Carry `equipment_id` and confidence
+- Schedule before airside GL36 when both apply

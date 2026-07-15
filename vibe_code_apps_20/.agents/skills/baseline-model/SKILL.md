@@ -1,34 +1,15 @@
-# Baseline Model
+# Skill: baseline-model
 
-## Purpose
-Create and freeze a defensible Sketchbox baseline.
+Create and freeze a defensible EnergyPlus baseline for OpenFDD WattLab.
 
-## Invoke when
-Before any ECM runs or when baseline inputs change.
+## Steps
 
-## Required inputs
-- Approved BuildingProfile
-- shell/HVAC/schedule mappings
-- code baseline
-- baseline checklist
+1. Select prototype IDF (`5ZoneAirCooled` default).
+2. Attach EPW via `epw-climate`.
+3. Apply baseline schedule/HVAC archetype patch if screening inefficient runtime.
+4. Simulate; store `result_record` + IDF SHA-256.
+5. Freeze: no silent default acceptance without flags.
 
-## Procedure
-1. Create/load project.
-2. Populate Project, Design, Schedules, and Baseline tabs.
-3. Track blue responsive defaults and overrides.
-4. Read back critical values.
-5. Save/export.
-6. Run baseline.
-7. Hash inputs and outputs.
+## Related
 
-## Outputs
-- baseline manifest
-- screenshots
-- project export
-- baseline results
-
-## Guardrails
-Do not alter baseline solely to increase measure savings. Any recalibration invalidates descendant measure comparisons.
-
-## Validation
-Model-readiness and results-QA checklists pass.
+`building-intake`, `hvac-mapping`, `easy-button-calibrate`

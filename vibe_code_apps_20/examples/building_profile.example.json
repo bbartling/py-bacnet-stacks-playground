@@ -1,25 +1,15 @@
 {
-  "project_id": "DEMO-OFFICE-001",
-  "display_name": "Anonymous Curtain-Wall Office",
+  "project_id": "EXAMPLE-001",
+  "display_name": "Example Office",
+  "product": "OpenFDD WattLab",
   "anonymized": true,
-  "conditioned_floor_area_ft2": 150000,
-  "climate_city": null,
-  "energy_code": null,
-  "shells": [
-    {
-      "shell_id": "OFFICE-A",
-      "program": "office",
-      "floor_area_ft2": 150000,
-      "floors": 6,
-      "window_wall_ratio": {
-        "north": 0.65,
-        "east": 0.65,
-        "south": 0.65,
-        "west": 0.65
-      },
-      "hvac_summary": "Two AHUs with supply and return fans; two air-cooled chillers"
-    }
-  ],
-  "utility": {},
-  "provenance": []
+  "conditioned_floor_area_ft2": 50000,
+  "shells": [{"shell_id": "MAIN", "program": "office"}],
+  "energyplus": {
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+    "baseline_idf_patch": "fan_avail_continuous",
+    "calibration": {"status": "NEEDS_INPUT"}
+  },
+  "measures": []
 }

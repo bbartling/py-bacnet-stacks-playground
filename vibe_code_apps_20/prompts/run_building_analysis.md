@@ -1,3 +1,1 @@
-# Run Building Analysis Prompt
-
-Ingest the supplied Vibe App 19/Open-FDD package. Create a BuildingProfile and EvidenceRecords. Generate candidate ECMs, but do not operate Sketchbox until model readiness passes and MeasureBriefs are approved. Run approved measures individually and progressively. Validate every result, rank the approved ECMs, and generate an anonymized RCx package.
+﻿Ingest the supplied Vibe App 19 / Open-FDD package. Create a BuildingProfile and EvidenceRecords. Generate candidate ECMs for OpenFDD WattLab, but do not mutate IDFs until MeasureBriefs are approved. Run the easy button (or EnergyPlus-MCP) for baseline then progressive measures. Validate every result, rank approved ECMs, and generate an anonymized RCx package. Always include the conceptual/uncalibrated disclaimer when applicable.

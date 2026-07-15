@@ -1,35 +1,30 @@
 {
-  "project_id": "SBX-TEST-MSP-OFFICE",
-  "display_name": "Vibe20 Test - Minneapolis Office",
+  "project_id": "MSP-OFFICE-001",
+  "display_name": "Minneapolis Office Screen",
+  "product": "OpenFDD WattLab",
   "anonymized": true,
-  "conditioned_floor_area_ft2": 90000,
+  "conditioned_floor_area_ft2": 60000,
   "climate_city": "Minneapolis",
   "climate_state": "Minnesota",
-  "energy_code": "IECC 2018",
-  "rate_category": "Commercial",
-  "shells": [
-    {
-      "shell_id": "OFFICE-C",
-      "program": "office",
-      "floor_area_ft2": 90000,
-      "floors": 5,
-      "hvac_summary": "Cold climate office"
-    }
-  ],
+  "shells": [{"shell_id": "MAIN", "program": "office"}],
+  "energyplus": {
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+    "epw_note": "Cold-climate proxy: Chicago TMY3 until MSP EPW is bundled.",
+    "baseline_idf_patch": "fan_avail_continuous",
+    "calibration": {"status": "NEEDS_INPUT"}
+  },
+  "utility": {"elec_usd_per_kwh": 0.11, "gas_usd_per_therm": 0.75},
   "measures": [
     {
-      "measure_id": "ECM-OFFSET-HEAT-2F",
-      "title": "Heating thermostat offset 2 F (winter setback)",
-      "evidence_ids": ["EV-UNOCC-HEAT-DEMO"],
-      "proposed_changes": [
-        {"parameter": "thermostat_heating_offset_f", "value": 2, "units": "degF"}
-      ],
-      "sketchbox_mapping": [
-        {"tab": "schedules", "parameter": "thermostat heating setpoint offset"}
-      ],
+      "measure_id": "ECM-AHU-SCHED-ALIGN",
+      "title": "Occupied fan schedule",
+      "evidence_ids": ["EV-SCHED247"],
+      "baseline_changes": [],
+      "proposed_changes": [],
+      "idf_patch": {"name": "fan_avail_occupied_office"},
       "confidence": "medium",
       "review_status": "approved"
     }
-  ],
-  "provenance": [{"source": "testdrive", "note": "cold climate setback"}]
+  ]
 }

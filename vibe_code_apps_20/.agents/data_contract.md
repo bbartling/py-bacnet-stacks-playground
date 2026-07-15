@@ -1,37 +1,21 @@
-# Data Contract
+﻿# Data contract — OpenFDD WattLab
 
-## Authoritative objects
+## BuildingProfile
 
-### BuildingProfile
-Identity-safe building description, conditioned area, shells, programs, schedules, HVAC, envelope, utility and climate assumptions.
+Geometry/climate intent + `energyplus` block (`prototype_idf`, `epw`, calibration, baseline patch).
 
-### EvidenceRecord
-A single observed or documented fact supporting an ECM.
+## EvidenceRecord
 
-### ECMCandidate
-A hypothesis connecting evidence to a controllable or capital measure.
+OpenFDD / vibe19-shaped finding with confidence and metrics.
 
-### MeasureBrief
-Human-reviewable specification of exact baseline/proposed changes in Sketchbox terminology.
+## MeasureBrief
 
-### ModelRun
-A baseline or measure execution with immutable input fingerprint and exported results.
+Human-reviewable baseline/proposed changes plus `idf_patch` name/params.
 
-### ResultRecord
-Annual/monthly energy, cost, emissions, demand where available, plus quality flags.
+## ResultRecord
 
-## Provenance values
+`run_id`, `measure_id`, `input_hash` (IDF SHA-256), `status`, `annual`, `quality_flags`, `artifacts`.
 
-- `design_document`
-- `equipment_schedule`
-- `bas_trend`
-- `openfdd_rule`
-- `site_observation`
-- `utility_bill`
-- `engineer_inference`
-- `sketchbox_default`
-- `rule_of_thumb`
+## Evidence classes
 
-## Null handling
-
-Unknown values remain null and carry `NEEDS_INPUT`. Do not use zero unless zero is physically and semantically correct.
+`measured` · `documented` · `inferred` · `default` · `unknown` · `openfdd_rule`

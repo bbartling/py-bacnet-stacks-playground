@@ -1,4 +1,4 @@
-# Heating and Cooling Plant Efficiency
+﻿# Heating and Cooling Plant Efficiency
 
 ## Purpose
 Translate evidence of equipment efficiency or plant replacement into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests equipment efficiency or plant replacement.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

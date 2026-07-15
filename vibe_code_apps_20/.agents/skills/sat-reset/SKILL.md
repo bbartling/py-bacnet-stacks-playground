@@ -1,4 +1,4 @@
-# Supply-Air Temperature Reset
+﻿# Supply-Air Temperature Reset
 
 ## Purpose
 Translate evidence of fixed or poorly performing SAT strategy into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests fixed or poorly performing SAT strategy.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

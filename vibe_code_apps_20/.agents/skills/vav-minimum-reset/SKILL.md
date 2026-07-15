@@ -1,4 +1,4 @@
-# VAV Minimum Flow Reset
+﻿# VAV Minimum Flow Reset
 
 ## Purpose
 Translate evidence of excess minimum airflow and reheat into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests excess minimum airflow and reheat.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

@@ -1,4 +1,4 @@
-# HVAC System Switch
+﻿# HVAC System Switch
 
 ## Purpose
 Translate evidence of electrification or major HVAC conversion into a defensible individual ECM.
@@ -16,12 +16,12 @@ When evidence suggests electrification or major HVAC conversion.
 2. Confirm applicability and causal mechanism.
 3. Quantify affected hours/loads without double counting.
 4. Define exact baseline and proposed inputs.
-5. Use Sketchbox custom HVAC system type measure where supported and document unmatched features.
+5. Use EnergyPlus custom HVAC system type measure where supported and document unmatched features.
 6. Create MeasureBrief and verification plan.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

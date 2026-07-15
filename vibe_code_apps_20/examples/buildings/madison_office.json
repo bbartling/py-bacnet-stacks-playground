@@ -1,0 +1,134 @@
+{
+  "project_id": "MAD-OFFICE-CONCEPT-001",
+  "display_name": "Madison Conceptual Office",
+  "product": "OpenFDD WattLab",
+  "anonymized": true,
+  "model_purpose": "conceptual ECM screening",
+  "calibration_status": "uncalibrated",
+  "disclaimer": "This is a conceptual, uncalibrated screening model for an anonymized office building. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific Madison property.",
+  "conditioned_floor_area_ft2": 150000,
+  "climate_city": "Madison",
+  "climate_state": "Wisconsin",
+  "weather_location": "Madison, Wisconsin",
+  "energy_code": "IECC 2018",
+  "conceptual_existing_building_vintage": "unknown",
+  "building_type": "multistory office",
+  "number_of_floors": 6,
+  "shells": [
+    {
+      "shell_id": "ZONE-CORE-PERIM",
+      "served_area_ft2": 150000,
+      "program": "office",
+      "hvac_summary": "Single VAV air-cooled prototype (5ZoneAirCooled) standing in for multi-AHU conceptual screen"
+    }
+  ],
+  "energyplus": {
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+    "epw_note": "Madison WI climate approximated with Chicago O'Hare TMY3 (closest bundled sample). Replace with a Madison WI EPW when available.",
+    "baseline_idf_patch": "fan_avail_continuous",
+    "calibration": {
+      "status": "NEEDS_INPUT",
+      "people_multiplier": 1.0,
+      "lights_multiplier": 1.0,
+      "equipment_multiplier": 1.0,
+      "infiltration_multiplier": 1.0,
+      "note": "MCP modify_people/lights/equipment/infiltration available when vibe19 gives intensity hints; defaults leave prototype as-is."
+    }
+  },
+  "hvac_concept": {
+    "air_system": {
+      "type": "central VAV with terminal reheat",
+      "prototype": "5ZoneAirCooled",
+      "note": "Prototype approximates air-cooled plant + VAV reheat; not a site inventory."
+    },
+    "cooling": {"type": "air-cooled (prototype)", "flag": "prototype_not_site_plant"},
+    "heating": {"type": "HW reheat (prototype)", "fuel": "Natural Gas", "flag": "heating_fuel_assumption_unconfirmed"}
+  },
+  "baseline_schedules": {
+    "note": "Baseline uses continuous fan/coil availability (SCHED-247 inefficient archetype). ECM-1 restores occupied office hours.",
+    "occupied_target": {
+      "weekday": {"start": "07:00", "stop": "17:00"},
+      "weekend": "off"
+    }
+  },
+  "utility": {
+    "elec_usd_per_kwh": 0.12,
+    "gas_usd_per_therm": 0.80
+  },
+  "measures": [
+    {
+      "measure_id": "ECM-AHU-SCHED-ALIGN",
+      "title": "End continuous HVAC runtime; restore occupied fan schedule",
+      "evidence_ids": ["EV-SCHED247-AHU-CONCEPT"],
+      "vibe19_bridge": {
+        "rule_ids": ["SCHED-247"],
+        "equipment_ids": ["AHU-1"],
+        "note": "Maps OpenFDD always-on fan runtime findings to WattLab schedule patch"
+      },
+      "baseline_changes": [
+        {"parameter": "fan_availability", "value": "24/7", "units": "operating_mode"}
+      ],
+      "proposed_changes": [
+        {
+          "parameter": "fan_availability",
+          "value": "occupied_office",
+          "units": "operating_mode",
+          "detail": {"weekday": {"start": "07:00", "stop": "17:00"}, "weekend": "off"}
+        }
+      ],
+      "idf_patch": {"name": "fan_avail_occupied_office"},
+      "interactions": ["gl36_airside", "setback", "ventilation"],
+      "confidence": "medium",
+      "review_status": "approved"
+    },
+    {
+      "measure_id": "ECM-GL36-AIRSIDE",
+      "title": "Conceptual GL36 airside package (VAV min + fan power proxies)",
+      "evidence_ids": [
+        "EV-GL36-APPLICABILITY-CONCEPT",
+        "EV-DUCTHI-AHU-CONCEPT",
+        "EV-VAVMIN-CONCEPT"
+      ],
+      "vibe19_bridge": {
+        "rule_ids": ["AHU-DUCTHI", "FC1", "VAV-1"],
+        "equipment_ids": ["AHU-1"],
+        "note": "G36 proxy after schedule ECM; EnergyPlus-MCP cannot author full Guideline 36 — WattLab owns IDF patches"
+      },
+      "baseline_changes": [],
+      "proposed_changes": [
+        {
+          "parameter": "vav_box_minimum_fraction",
+          "value": 0.15,
+          "units": "fraction",
+          "baseline_typical": 0.30
+        },
+        {
+          "parameter": "fan_pressure_rise_pa",
+          "value": 400,
+          "units": "Pa",
+          "note": "DSP-reset / fan power proxy vs prototype 600 Pa"
+        }
+      ],
+      "idf_patch": {
+        "name": "gl36_airside_proxy",
+        "params": {
+          "vav_min_fraction": 0.15,
+          "fan_pressure_pa": 400,
+          "fan_power_min_fraction": 0.15
+        }
+      },
+      "interactions": ["schedule_optimization", "sat_reset", "economizer"],
+      "confidence": "low",
+      "review_status": "approved",
+      "flags": ["conceptual_gl36_proxy", "gl36_proxy_not_full_sequences"],
+      "notes": "Not full ASHRAE Guideline 36 sequences — IDF field proxies only."
+    }
+  ],
+  "provenance": [
+    {
+      "source": "conceptual_brief",
+      "note": "Synthetic Madison-climate office for OpenFDD WattLab EnergyPlus screening; not a real property"
+    }
+  ]
+}

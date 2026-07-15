@@ -1,24 +1,28 @@
-# Package Contents
+# OpenFDD WattLab — contents
 
-- `AGENTS.md` — **agent OS / handbook (read first)**
+## Agent OS
+
+- `AGENTS.md`
 - `.agents/routing.md`
 - `.agents/policies.md`
 - `.agents/data_contract.md`
-- `.agents/checklists/`
-- `.agents/personas/`
-- `.agents/workflows/`
-- `.agents/skills/` (includes `gl36-airside`, `openfdd-bridge`, `schedule-optimization`, …)
-- `.cursor/skills/vibe20-sketchbox/SKILL.md`
-- `INTEGRATION_PATCH_GUIDE.md`
-- `README.md`
-- `docs/README.md` (points to AGENTS.md)
-- `ecm_library/README.md`
-- `examples/building_profile.example.json`
-- `examples/buildings/*.json` (includes `madison_liberty_concept.json`)
-- `examples/evidence/madison_liberty_concept_evidence.json`
-- `examples/measure_brief.schedule.example.json`
-- `prompts/`
-- `schemas/`
-- `sketchbox_driver.py` / `sketchbox_ui.py` / `explore_sketchbox.py` / `action_sketchbox.py`
-- `testdrive.py` / `run_madison_concept.py` / `run_measure.py` / `config.py`
-- `tests/test_pack_smoke.py`
+- `.cursor/skills/openfdd-wattlab/SKILL.md`
+
+## Runners
+
+- `easy_button.py`
+- `madison_office.py`
+- `ep_docker.py` / `ep_mcp_client.py` / `results_parse.py`
+- `idf_patches/`
+
+## Examples
+
+- `examples/buildings/*.json`
+- `examples/evidence/`
+- `examples/prototypes/5ZoneAirCooled.idf`
+- `examples/weather/*.epw`
+
+## Vendor
+
+- `third_party/VERSION.txt` — EnergyPlus-MCP pin
+- `third_party/README.md` — Cursor MCP snippet

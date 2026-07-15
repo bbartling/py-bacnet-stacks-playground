@@ -1,16 +1,16 @@
-# Shell Geometry
+﻿# Shell Geometry
 
 ## Purpose
-Translate real buildings into the minimum defensible rectangular Sketchbox shells.
+Translate real buildings into the minimum defensible rectangular EnergyPlus shells.
 
 ## Invoke when
-Geometry, façade, glazing, floor, or mixed-use modeling tasks.
+Geometry, faÃ§ade, glazing, floor, or mixed-use modeling tasks.
 
 ## Required inputs
 - Gross and conditioned areas
 - floors and heights
 - aspect ratio or dimensions
-- façade glazing
+- faÃ§ade glazing
 - attachments/adjacencies
 - HVAC/program partitions
 
@@ -19,7 +19,7 @@ Geometry, façade, glazing, floor, or mixed-use modeling tasks.
 2. Split only for material differences.
 3. Reconcile shell floor areas.
 4. Represent attachments to avoid overstating exterior exposure.
-5. Record façade WWR and unknowns.
+5. Record faÃ§ade WWR and unknowns.
 6. Produce a geometry sketch table.
 
 ## Outputs

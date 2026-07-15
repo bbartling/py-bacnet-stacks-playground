@@ -11,56 +11,22 @@
     "review_status"
   ],
   "properties": {
-    "measure_id": {
-      "type": "string"
-    },
-    "title": {
-      "type": "string"
-    },
-    "evidence_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
+    "measure_id": {"type": "string"},
+    "title": {"type": "string"},
+    "evidence_ids": {"type": "array", "items": {"type": "string"}},
+    "baseline_changes": {"type": "array", "items": {"type": "object"}},
+    "proposed_changes": {"type": "array", "items": {"type": "object"}},
+    "idf_patch": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "params": {"type": "object"}
       }
     },
-    "baseline_changes": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
-    "proposed_changes": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
-    "sketchbox_mapping": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
-    "interactions": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "confidence": {
-      "enum": [
-        "high",
-        "medium",
-        "low"
-      ]
-    },
+    "interactions": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"enum": ["high", "medium", "low"]},
     "review_status": {
-      "enum": [
-        "draft",
-        "approved",
-        "rejected",
-        "needs_input"
-      ]
+      "enum": ["draft", "approved", "rejected", "needs_input"]
     }
   }
 }

@@ -1,4 +1,4 @@
-# Lighting Efficiency and Controls
+﻿# Lighting Efficiency and Controls
 
 ## Purpose
 Translate evidence of lighting power or schedule opportunity into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests lighting power or schedule opportunity.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

@@ -1,4 +1,4 @@
-# Economizer Repair
+﻿# Economizer Repair
 
 ## Purpose
 Translate evidence of mechanical cooling when outdoor conditions permit free cooling into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests mechanical cooling when outdoor conditions permit free co
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

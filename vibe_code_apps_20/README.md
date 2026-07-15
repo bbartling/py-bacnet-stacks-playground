@@ -1,61 +1,62 @@
-# Vibe App 20 — Sketchbox Agent Engineering Pack + Live Drivers
+# OpenFDD WattLab
 
-Bridge from **Vibe App 19 / Open-FDD** findings to conceptual Sketchbox ECM screening.
+**OpenFDD WattLab** is the EnergyPlus companion to Open-FDD / Vibe App 19: an AI-helper stack that turns fault evidence into auditable **ECM energy screens** (prototype IDF + weather + progressive patches).
+
+Folder: `vibe_code_apps_20` (WattLab agent pack + runners).
 
 ## Design principles
 
-1. **Evidence before modeling.** An FDD result is not automatically an ECM.
-2. **Measure briefs are authoritative.** Sketchbox has no documented public API; browser automation is a best-effort accelerator.
-3. **One change at a time.** Preserve Sketchbox's individual, progressive measure workflow.
-4. **Never hide assumptions.** Every inferred input carries provenance, confidence, and review status.
-5. **Baseline integrity comes first.**
-6. **Human review gates irreversible actions.**
-7. **State is captured after every major UI transition** under `.artifacts/` (gitignored).
+1. **Evidence before modeling.** An OpenFDD finding is not automatically an ECM.
+2. **Measure briefs are authoritative.** Easy button + IDF patches execute approved briefs.
+3. **One change at a time.** Preserve progressive ECM accounting.
+4. **Never hide assumptions.** Provenance, confidence, `NEEDS_INPUT`.
+5. **Dockerized EnergyPlus** via [LBNL EnergyPlus-MCP](https://github.com/LBNL-ETA/EnergyPlus-MCP) (`energyplus-mcp-dev`, EP 26.1) — no host EnergyPlus install.
+6. **Honest G36 limit.** Full Guideline 36 is **not** an MCP button; WattLab ships IDF proxies.
 
-**Start here:** [`AGENTS.md`](AGENTS.md) (full agent OS) → [`.agents/routing.md`](.agents/routing.md).
+**Start here:** [`AGENTS.md`](AGENTS.md) → [`.agents/routing.md`](.agents/routing.md).
 
-Cursor skill: [`.cursor/skills/vibe20-sketchbox/SKILL.md`](.cursor/skills/vibe20-sketchbox/SKILL.md).
+Cursor skill: [`.cursor/skills/openfdd-wattlab/SKILL.md`](.cursor/skills/openfdd-wattlab/SKILL.md).
 
-## Live drivers
-
-| Script | Role |
-| --- | --- |
-| `sketchbox_driver.py` | `probe` / `login` |
-| `sketchbox_ui.py` | Shared selectors + read-back |
-| `explore_sketchbox.py` | Read-mostly tab tour |
-| `action_sketchbox.py` | Targeted mutations |
-| `run_measure.py` | Add measure + RESULTS |
-| `testdrive.py` | Multi-building approved-ECM screen |
-| `run_madison_concept.py` | Madison: schedule ECM then GL36 proxy |
+## Quick start
 
 ```powershell
 cd vibe_code_apps_20
-copy .env.example .env   # set SKETCHBOX_EMAIL / SKETCHBOX_PASSWORD
-python sketchbox_driver.py login
-python run_madison_concept.py --dry-run
-python run_madison_concept.py
-python testdrive.py --buildings examples/buildings --dry-run
+
+# One-time: clone + build (see third_party/VERSION.txt)
+git clone https://github.com/LBNL-ETA/EnergyPlus-MCP.git third_party/EnergyPlus-MCP
+cd third_party/EnergyPlus-MCP
+docker build -t energyplus-mcp-dev -f .devcontainer/Dockerfile .devcontainer
+cd ../..
+
+python easy_button.py --building examples/buildings/madison_office.json --dry-run
+python madison_office.py
 ```
 
-## Credentials
+## Modules
 
-Only in `.env` (gitignored). Never commit cookies / `sketchbox_storage.json`.
+| Script | Role |
+| --- | --- |
+| `easy_button.py` | Prototype → baseline → approved ECM chain |
+| `madison_office.py` | Madison conceptual playbook |
+| `ep_docker.py` | Image + container EnergyPlus runs |
+| `ep_mcp_client.py` | MCP status / simulate helpers |
+| `idf_patches/` | Schedule + GL36-proxy patches |
+| `results_parse.py` | Tabular outputs → `result_record` |
+
+## Cursor MCP (full toolkit)
+
+Mount the cloned EnergyPlus-MCP repo and run the server inside `energyplus-mcp-dev` — snippet in [`third_party/README.md`](third_party/README.md).
 
 ## Package layout
 
 | Path | Role |
 | --- | --- |
-| `AGENTS.md` | **Agent handbook (source of truth)** |
-| `.agents/skills/*/SKILL.md` | Domain + operator skills |
-| `.agents/workflows/` | End-to-end + recovery |
-| `.agents/checklists/` | Gates |
+| `AGENTS.md` | Agent handbook |
+| `.agents/skills/*/SKILL.md` | Domain skills |
 | `schemas/` | JSON schemas |
-| `examples/` | Profiles + evidence |
+| `examples/` | Profiles, evidence, prototypes, weather |
 | `docs/` | Stub → AGENTS.md |
-| `ecm_library/` | ECM notes |
 
 ## Primary workflow
 
-`Vibe 19 export → evidence → ECM candidates → review → Sketchbox baseline → progressive measures → validation → RCx package`
-
-See also [`INTEGRATION_PATCH_GUIDE.md`](INTEGRATION_PATCH_GUIDE.md) for remaining hardening.
+`OpenFDD / Vibe 19 → evidence → MeasureBrief → WattLab easy button → progressive ECMs → QA`

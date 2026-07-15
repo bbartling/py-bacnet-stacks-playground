@@ -9,49 +9,26 @@
     "anonymized"
   ],
   "properties": {
-    "project_id": {
-      "type": "string"
-    },
-    "display_name": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "anonymized": {
-      "type": "boolean"
-    },
-    "conditioned_floor_area_ft2": {
-      "type": "number",
-      "exclusiveMinimum": 0
-    },
-    "climate_city": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "energy_code": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "shells": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object"
+    "project_id": {"type": "string"},
+    "display_name": {"type": ["string", "null"]},
+    "product": {"type": ["string", "null"]},
+    "anonymized": {"type": "boolean"},
+    "conditioned_floor_area_ft2": {"type": "number", "exclusiveMinimum": 0},
+    "climate_city": {"type": ["string", "null"]},
+    "energy_code": {"type": ["string", "null"]},
+    "shells": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "energyplus": {
+      "type": "object",
+      "properties": {
+        "prototype_idf": {"type": "string"},
+        "epw": {"type": "string"},
+        "epw_note": {"type": "string"},
+        "baseline_idf_patch": {"type": "string"},
+        "calibration": {"type": "object"}
       }
     },
-    "utility": {
-      "type": "object"
-    },
-    "provenance": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
+    "utility": {"type": "object"},
+    "measures": {"type": "array", "items": {"type": "object"}},
+    "provenance": {"type": "array", "items": {"type": "object"}}
   }
 }

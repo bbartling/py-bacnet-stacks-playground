@@ -1,7 +1,7 @@
-# HVAC Mapping
+﻿# HVAC Mapping
 
 ## Purpose
-Map actual HVAC into the nearest defensible Sketchbox configuration.
+Map actual HVAC into the nearest defensible EnergyPlus configuration.
 
 ## Invoke when
 Creating baseline systems or system-switch measures.

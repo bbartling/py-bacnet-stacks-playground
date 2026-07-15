@@ -1,18 +1,9 @@
-# End-to-End Workflow
+﻿# End-to-end — OpenFDD WattLab
 
-1. Ingest Vibe 19 package and analytics.
-2. Normalize equipment, rule, schedule, and evidence identifiers.
-3. Build BuildingProfile.
-4. Generate ECM candidates.
-5. Run applicability and conflict gates.
-6. Produce MeasureBrief files.
-7. Obtain human approval.
-8. Discover current Sketchbox UI.
-9. Create or load baseline; verify all critical values.
-10. Run and export baseline.
-11. Apply one approved measure progressively.
-12. Run, export, and restore/save state.
-13. Validate results.
-14. Repeat for approved measures.
-15. Rank results with confidence and interaction caveats.
-16. Generate RCx report package.
+1. Ingest vibe19 / OpenFDD package.
+2. Normalize evidence.
+3. Author MeasureBriefs; obtain approval.
+4. Easy-button baseline (prototype + EPW + baseline patch).
+5. Apply approved measures one at a time via IDF patches + resimulate.
+6. Extract results; run literature QA.
+7. Rank ECMs; write anonymized RCx narrative.

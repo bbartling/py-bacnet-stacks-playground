@@ -1,30 +1,16 @@
-# Results Extraction
+# Skill: results-extraction
 
-## Purpose
-Extract annual, monthly, and measure-level outputs into typed records.
+Parse EnergyPlus tabular outputs into WattLab `result_record` annual fields.
 
-## Invoke when
-After baseline or measure runs.
+## Source
 
-## Required inputs
-- Completed run
-- result tables/downloads
-- input hash
+Prefer `eplustbl.csv` via `results_parse.annual_from_output_dir`.
 
-## Procedure
-1. Prefer downloadable structured outputs.
-2. Fall back to semantic table extraction.
-3. Store raw and normalized data.
-4. Reconcile annual/monthly totals.
-5. Attach run and measure hashes.
+## Fields
 
-## Outputs
-- result record
-- raw export
-- reconciliation report
+- `electricity_kwh_year`
+- `natural_gas_therm_year`
+- `site_eui_kbtu_ft2_year`
+- `utility_cost_usd_year` (from profile utility rates)
 
-## Guardrails
-Do not scrape chart pixels when structured values exist.
-
-## Validation
-Schema validates; annual/monthly reconciliation within configured tolerance.
+Always keep `input_hash` and artifact paths.

@@ -1,35 +1,15 @@
 {
-  "measure_id": "ECM-SCHED-001",
-  "title": "Reduce avoidable AHU after-hours operation",
-  "evidence_ids": [
-    "EV-FAN-RUNTIME-001"
-  ],
+  "measure_id": "ECM-AHU-SCHED-ALIGN",
+  "title": "End continuous HVAC runtime; restore occupied fan schedule",
+  "evidence_ids": ["EV-SCHED247-AHU-CONCEPT"],
   "baseline_changes": [
-    {
-      "parameter": "weekday_fan_end",
-      "value": "23:59",
-      "units": "local_time"
-    }
+    {"parameter": "fan_availability", "value": "24/7", "units": "operating_mode"}
   ],
   "proposed_changes": [
-    {
-      "parameter": "weekday_fan_end",
-      "value": "17:00",
-      "units": "local_time"
-    }
+    {"parameter": "fan_availability", "value": "occupied_office", "units": "operating_mode"}
   ],
-  "sketchbox_mapping": [
-    {
-      "tab": "Schedules",
-      "group": "Shell schedule",
-      "parameter": "weekday end"
-    }
-  ],
-  "interactions": [
-    "optimum_start_stop",
-    "ventilation",
-    "temperature_setback"
-  ],
+  "idf_patch": {"name": "fan_avail_occupied_office"},
+  "interactions": ["gl36_airside"],
   "confidence": "medium",
-  "review_status": "draft"
+  "review_status": "approved"
 }

@@ -1,35 +1,30 @@
 {
-  "project_id": "SBX-TEST-HOU-OFFICE",
-  "display_name": "Vibe20 Test - Houston Office",
+  "project_id": "HOU-OFFICE-001",
+  "display_name": "Houston Office Screen",
+  "product": "OpenFDD WattLab",
   "anonymized": true,
-  "conditioned_floor_area_ft2": 120000,
+  "conditioned_floor_area_ft2": 90000,
   "climate_city": "Houston",
   "climate_state": "Texas",
-  "energy_code": "IECC 2018",
-  "rate_category": "Commercial",
-  "shells": [
-    {
-      "shell_id": "OFFICE-B",
-      "program": "office",
-      "floor_area_ft2": 120000,
-      "floors": 4,
-      "hvac_summary": "Single AHU, hot-humid climate"
-    }
-  ],
+  "shells": [{"shell_id": "MAIN", "program": "office"}],
+  "energyplus": {
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+    "epw_note": "Placeholder EPW (Chicago) for pipeline demos — swap Houston TMY3 for real screens.",
+    "baseline_idf_patch": "fan_avail_continuous",
+    "calibration": {"status": "NEEDS_INPUT"}
+  },
+  "utility": {"elec_usd_per_kwh": 0.10, "gas_usd_per_therm": 0.70},
   "measures": [
     {
-      "measure_id": "ECM-OFFSET-COOL-3F",
-      "title": "Cooling thermostat offset 3 F",
-      "evidence_ids": ["EV-COMFORT-DEMO"],
-      "proposed_changes": [
-        {"parameter": "thermostat_cooling_offset_f", "value": 3, "units": "degF"}
-      ],
-      "sketchbox_mapping": [
-        {"tab": "schedules", "parameter": "thermostat cooling setpoint offset"}
-      ],
+      "measure_id": "ECM-AHU-SCHED-ALIGN",
+      "title": "Occupied fan schedule",
+      "evidence_ids": ["EV-SCHED247"],
+      "baseline_changes": [],
+      "proposed_changes": [],
+      "idf_patch": {"name": "fan_avail_occupied_office"},
       "confidence": "medium",
       "review_status": "approved"
     }
-  ],
-  "provenance": [{"source": "testdrive", "note": "hot climate contrast"}]
+  ]
 }

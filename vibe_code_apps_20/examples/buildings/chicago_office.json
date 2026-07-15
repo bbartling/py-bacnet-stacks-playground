@@ -1,35 +1,29 @@
 {
-  "project_id": "SBX-TEST-CHI-OFFICE",
-  "display_name": "Vibe20 Test - Chicago Office",
+  "project_id": "CHI-OFFICE-001",
+  "display_name": "Chicago Office Screen",
+  "product": "OpenFDD WattLab",
   "anonymized": true,
-  "conditioned_floor_area_ft2": 150000,
+  "conditioned_floor_area_ft2": 80000,
   "climate_city": "Chicago",
   "climate_state": "Illinois",
-  "energy_code": "IECC 2018",
-  "rate_category": "Commercial",
-  "shells": [
-    {
-      "shell_id": "OFFICE-A",
-      "program": "office",
-      "floor_area_ft2": 150000,
-      "floors": 6,
-      "hvac_summary": "AHU + air-cooled chillers (conceptual)"
-    }
-  ],
+  "shells": [{"shell_id": "MAIN", "program": "office"}],
+  "energyplus": {
+    "prototype_idf": "examples/prototypes/5ZoneAirCooled.idf",
+    "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+    "baseline_idf_patch": "fan_avail_continuous",
+    "calibration": {"status": "NEEDS_INPUT"}
+  },
+  "utility": {"elec_usd_per_kwh": 0.12, "gas_usd_per_therm": 0.80},
   "measures": [
     {
-      "measure_id": "ECM-OFFSET-COOL-2F",
-      "title": "Cooling thermostat offset 2 F (setback related)",
-      "evidence_ids": ["EV-SCHED247-DEMO"],
-      "proposed_changes": [
-        {"parameter": "thermostat_cooling_offset_f", "value": 2, "units": "degF"}
-      ],
-      "sketchbox_mapping": [
-        {"tab": "schedules", "parameter": "thermostat cooling setpoint offset"}
-      ],
+      "measure_id": "ECM-AHU-SCHED-ALIGN",
+      "title": "Occupied fan schedule",
+      "evidence_ids": ["EV-SCHED247"],
+      "baseline_changes": [],
+      "proposed_changes": [],
+      "idf_patch": {"name": "fan_avail_occupied_office"},
       "confidence": "medium",
       "review_status": "approved"
     }
-  ],
-  "provenance": [{"source": "testdrive", "note": "synthetic demo building"}]
+  ]
 }

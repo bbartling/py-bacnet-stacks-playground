@@ -1,7 +1,7 @@
-# Measure Authoring
+﻿# Measure Authoring
 
 ## Purpose
-Create an exact, reviewable MeasureBrief before touching Sketchbox.
+Create an exact, reviewable MeasureBrief before touching EnergyPlus.
 
 ## Invoke when
 Any ECM is proposed or modified.
@@ -10,14 +10,14 @@ Any ECM is proposed or modified.
 - Approved evidence
 - baseline parameters
 - proposed parameters
-- Sketchbox mapping
+- idf_patch mapping
 - implementation notes
 
 ## Procedure
 1. State condition and causal mechanism.
 2. Run applicability gates.
 3. Define exact baseline/proposed values.
-4. Identify Sketchbox tab/group/parameter.
+4. Identify `idf_patch` name/params (or MCP modify knobs).
 5. List interactions and non-modeled benefits.
 6. Request approval.
 

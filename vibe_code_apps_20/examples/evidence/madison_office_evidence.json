@@ -1,0 +1,49 @@
+{
+  "disclaimer": "This is a conceptual, uncalibrated screening model for an anonymized office building. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific Madison property.",
+  "product": "OpenFDD WattLab",
+  "evidence": [
+    {
+      "evidence_id": "EV-SCHED247-AHU-CONCEPT",
+      "source": "synthetic_vibe19_style",
+      "vibe19_rule_id": "SCHED-247",
+      "equipment_id": "AHU-1",
+      "summary": "Conceptual always-on AHU fan runtime (24/7 baseline) representing SCHED-247-class OpenFDD finding.",
+      "metrics": {
+        "fan_on_hours_per_week_approx": 168,
+        "occupied_hours_per_week_target": 50,
+        "avoidable_hours_per_week_approx": 118
+      },
+      "confidence": "low",
+      "notes": "Placeholder until a real vibe19 analytics package is attached. Apply before GL36 proxy."
+    },
+    {
+      "evidence_id": "EV-GL36-APPLICABILITY-CONCEPT",
+      "source": "synthetic_engineering",
+      "summary": "Existing multi-zone VAV with reheat is a candidate for ASHRAE Guideline 36 high-performance airside sequences.",
+      "scope": ["AHU-1"],
+      "confidence": "medium",
+      "notes": "Full G36 sequences are not authored by EnergyPlus-MCP; WattLab applies VAV-min + fan pressure IDF proxies."
+    },
+    {
+      "evidence_id": "EV-DUCTHI-AHU-CONCEPT",
+      "source": "synthetic_vibe19_style",
+      "vibe19_rule_id": "AHU-DUCTHI",
+      "equipment_id": "AHU-1",
+      "summary": "Conceptual excess duct static / high SP hours when fan is proven on — supports DSP-reset portion of G36 proxy.",
+      "metrics": {
+        "duct_static_high_hours_approx": 400,
+        "pressure_on_gate": "fan_or_static_gt_min"
+      },
+      "confidence": "low",
+      "notes": "Maps to fan pressure rise reduction under ECM-GL36-AIRSIDE."
+    },
+    {
+      "evidence_id": "EV-VAVMIN-CONCEPT",
+      "source": "synthetic_engineering",
+      "summary": "Terminal minimums assumed conventional (~30%) vs G36-style reduced minimums (~15%).",
+      "scope": ["AHU-1"],
+      "confidence": "low",
+      "notes": "Maps to Constant Minimum Air Flow Fraction patch."
+    }
+  ]
+}

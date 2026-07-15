@@ -1,4 +1,4 @@
-# Fan Power Improvement
+﻿# Fan Power Improvement
 
 ## Purpose
 Translate evidence of high fan power, poor efficiency, or VFD opportunity into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests high fan power, poor efficiency, or VFD opportunity.
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

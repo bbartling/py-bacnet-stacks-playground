@@ -1,4 +1,4 @@
-# Duct Static Pressure Reset
+﻿# Duct Static Pressure Reset
 
 ## Purpose
 Translate evidence of excess static pressure or persistent terminal damper margin into a defensible individual ECM.
@@ -21,7 +21,7 @@ When evidence suggests excess static pressure or persistent terminal damper marg
 
 ## Outputs
 - ECM brief
-- Sketchbox parameter map
+- EnergyPlus parameter map
 - implementation and verification notes
 
 ## Guardrails

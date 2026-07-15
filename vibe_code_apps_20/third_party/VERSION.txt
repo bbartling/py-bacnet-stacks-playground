@@ -1,0 +1,14 @@
+EnergyPlus-MCP pin
+==================
+
+repo: https://github.com/LBNL-ETA/EnergyPlus-MCP
+commit: 5a7d3bb1d2e537ba329d3412c8b79d22cedd7c70
+image: energyplus-mcp-dev
+EnergyPlus: 26.1.0-6f2e40d102
+
+Clone (if missing):
+  git clone https://github.com/LBNL-ETA/EnergyPlus-MCP.git third_party/EnergyPlus-MCP
+  cd third_party/EnergyPlus-MCP && git checkout 5a7d3bb1d2e537ba329d3412c8b79d22cedd7c70
+
+Build:
+  docker build -t energyplus-mcp-dev -f .devcontainer/Dockerfile .devcontainer
