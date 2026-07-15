@@ -5,6 +5,11 @@ name: vibe19-ghcr
 
 on:
   workflow_dispatch:
+    inputs:
+      no_cache:
+        description: "Rebuild without Buildx/GHA cache (use when GHCR tags point at missing blobs)"
+        type: boolean
+        default: false
   push:
     branches: [develop, main]
     tags: ["vibe19-v*"]
@@ -74,6 +79,8 @@ jobs:
             VIBE19_GIT_SHA=${{ github.sha }}
             VIBE19_IMAGE_REF=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
             VIBE19_IMAGE_TAG=${{ github.ref_name }}
+          # Cached builds can republish a multi-arch index that still cites deleted GHCR blobs.
+          no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.no_cache == true }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # Multi-platform manifests require push (or a registry); PRs build without push.
