@@ -8,6 +8,7 @@ Route work by intent. Load only the minimum necessary skills.
 | Build baseline | `baseline-model` | `building-intake`, `shell-geometry`, `schedules`, `hvac-mapping` |
 | Convert Vibe 19 outputs | `openfdd-bridge` | `evidence-normalization`, relevant ECM skill |
 | Create/run measure | `measure-authoring` | relevant ECM skill, `browser-operator` |
+| Guideline 36 / GL36 airside screen | `gl36-airside` | `schedule-optimization`, `duct-static-reset`, `vav-minimum-reset`, `browser-operator` |
 | Parse savings | `results-extraction` | `results-qa`, `economics-carbon` |
 | Rank ECMs | `ecm-portfolio` | `economics-carbon`, `results-qa` |
 | Generate RCx report | `report-writer` | `anonymization`, `results-qa` |

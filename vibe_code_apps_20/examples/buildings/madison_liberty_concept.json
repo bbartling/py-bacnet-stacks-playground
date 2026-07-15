@@ -56,7 +56,7 @@
       "number_of_ahus": 2,
       "sketchbox_guidance": "Use Sketchbox built-in VAV assumptions; do not invent plant sizing.",
       "sketchbox_selected": "VAV with HW Reheat",
-      "sketchbox_note": "Closest available central VAV path in UI (2026-07 test)."
+      "sketchbox_note": "Closest available central VAV path in UI."
     },
     "cooling": {
       "type": "air-cooled chiller",
@@ -73,12 +73,28 @@
     }
   },
   "sketchbox_schedule_mapping": {
-    "AHU-1_SHELL": {"nav": "Office", "schedule_type": "Simplified", "occupancy": "Normal", "hour_matrix": "approximated (~9am-5pm weekday preset; exact 07:00/17:00 not automated)"},
-    "AHU-2_SHELL": {"nav": "Office (2)", "schedule_type": "Simplified", "occupancy_baseline": "Always Occupied", "occupancy_ecm1": "Normal"}
+    "AHU-1_SHELL": {
+      "nav": "Office",
+      "schedule_type": "Simplified",
+      "occupancy": "Normal",
+      "hour_matrix": "approximated (~9am-5pm weekday preset; exact 07:00/17:00 not automated)"
+    },
+    "AHU-2_SHELL": {
+      "nav": "Office (2)",
+      "schedule_type": "Simplified",
+      "occupancy_baseline": "Always Occupied",
+      "occupancy_ecm1": "Normal"
+    }
   },
-  "sketchbox_ecm2_duct_static": {
-    "status": "NEEDS_INPUT",
-    "reason": "Add Measure catalog lacks duct-static-pressure reset; Fan Power / VAV Box Minimum are not accepted substitutes without engineering review."
+  "sketchbox_ecm2_gl36": {
+    "status": "conceptual_gl36_proxy",
+    "flag": "gl36_proxy_not_full_sequences",
+    "scope": ["AHU-1", "AHU-2"],
+    "proxies": [
+      {"parameter": "VAV Box Minimum", "intent": "G36-style reduced terminal minimums"},
+      {"parameter": "Fan Power", "intent": "G36-style duct static pressure reset / efficient fan operation proxy"}
+    ],
+    "note": "Sketchbox has no Guideline 36 control. Apply closest Measure parameters to both shells after schedule ECM."
   },
   "baseline_schedules": {
     "AHU-1": {
@@ -123,36 +139,55 @@
         }
       ],
       "sketchbox_mapping": [
-        {"tab": "schedules", "parameter": "shell schedule for SHELL-AHU-2 — closest supported simplified/hours inputs"}
+        {
+          "tab": "schedules",
+          "parameter": "Office (2) Occupancy Always Occupied → Normal"
+        }
       ],
-      "interactions": ["duct_static_reset", "setback", "ventilation"],
+      "interactions": ["gl36_airside", "setback", "ventilation"],
       "confidence": "medium",
       "review_status": "approved"
     },
     {
-      "measure_id": "ECM-AHU-DUCT-STATIC-RESET",
-      "title": "AHU duct-static-pressure reset for both AHUs",
-      "evidence_ids": ["EV-DUCTHI-AHU1-CONCEPT", "EV-DUCTHI-AHU2-CONCEPT"],
+      "measure_id": "ECM-GL36-AIRSIDE-BOTH-AHUS",
+      "title": "Conceptual GL36 airside package on both AHUs",
+      "evidence_ids": [
+        "EV-GL36-APPLICABILITY-CONCEPT",
+        "EV-DUCTHI-AHU1-CONCEPT",
+        "EV-DUCTHI-AHU2-CONCEPT",
+        "EV-VAVMIN-BOTH-CONCEPT"
+      ],
       "vibe19_bridge": {
-        "rule_ids": ["AHU-DUCTHI", "FC1"],
+        "rule_ids": ["AHU-DUCTHI", "FC1", "VAV-1"],
         "equipment_ids": ["AHU-1", "AHU-2"],
-        "note": "Future: import duct-static high hours / damper margin evidence from vibe19"
+        "note": "G36 proxy after schedule ECM; do not double-count fan energy with schedule savings"
       },
       "proposed_changes": [
         {
-          "parameter": "duct_static_reset",
-          "value": "enabled",
-          "units": "control_strategy",
-          "scope": ["AHU-1", "AHU-2"]
+          "parameter": "vav_box_minimum_fraction",
+          "value": 0.15,
+          "units": "fraction",
+          "baseline_typical": 0.30,
+          "scope": ["AHU-1", "AHU-2"],
+          "note": "G36-style reduced minimums — exact Sketchbox units may differ"
+        },
+        {
+          "parameter": "fan_power",
+          "value": "improved_toward_dsp_reset",
+          "units": "proxy",
+          "scope": ["AHU-1", "AHU-2"],
+          "note": "Fan Power measure as duct-static-reset / G36 fan proxy"
         }
       ],
       "sketchbox_mapping": [
-        {"tab": "measures", "parameter": "closest supported fan/duct static or VAV fan-power measure — NEEDS_INPUT if absent"}
+        {"tab": "measures", "parameter": "VAV Box Minimum", "apply_to": ["Office", "Office (2)"]},
+        {"tab": "measures", "parameter": "Fan Power", "apply_to": ["Office", "Office (2)"]}
       ],
-      "interactions": ["schedule_optimization", "vav_minimum_reset"],
+      "interactions": ["schedule_optimization", "sat_reset", "economizer"],
       "confidence": "low",
       "review_status": "approved",
-      "notes": "Model only if Sketchbox exposes a mapped measure; otherwise mark NEEDS_INPUT / BLOCKED_UI_CHANGE — do not invent savings."
+      "flags": ["conceptual_gl36_proxy", "gl36_proxy_not_full_sequences"],
+      "notes": "Not full ASHRAE Guideline 36 sequences — Sketchbox parameter proxies only."
     }
   ],
   "provenance": [

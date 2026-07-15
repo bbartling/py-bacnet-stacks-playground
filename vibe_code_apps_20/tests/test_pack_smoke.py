@@ -35,8 +35,22 @@ def test_agents_routing_exists() -> None:
     assert (ROOT / ".agents" / "routing.md").is_file()
     assert (ROOT / ".agents" / "skills" / "browser-operator" / "SKILL.md").is_file()
     assert (ROOT / ".agents" / "skills" / "openfdd-bridge" / "SKILL.md").is_file()
+    assert (ROOT / ".agents" / "skills" / "gl36-airside" / "SKILL.md").is_file()
     assert (ROOT / ".cursor" / "skills" / "vibe20-sketchbox" / "SKILL.md").is_file()
     assert (ROOT / "sketchbox_ui.py").is_file()
+
+
+def test_agents_handbook_has_gl36_and_disclaimer() -> None:
+    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "conceptual, uncalibrated screening model" in text
+    assert "GL36" in text or "Guideline 36" in text
+    assert "ECM-GL36-AIRSIDE-BOTH-AHUS" in text
+    assert "SCHED-247" in text
+    assert "no public api" in text.lower()
+    # scrubbed provenance docs should not be required
+    assert not (ROOT / "docs" / "SOURCES.md").exists()
+    assert not (ROOT / "docs" / "FABLE5_CRITIQUE.md").exists()
+    assert not (ROOT / "docs" / "FDD_TO_SKETCHBOX_WORKFLOW.md").exists()
 
 
 def test_madison_concept_profile() -> None:
@@ -49,9 +63,25 @@ def test_madison_concept_profile() -> None:
     assert len(data["shell_strategy"]["shells"]) == 2
     ids = {m["measure_id"] for m in data["measures"]}
     assert "ECM-AHU2-SCHED-ALIGN" in ids
-    assert "ECM-AHU-DUCT-STATIC-RESET" in ids
+    assert "ECM-GL36-AIRSIDE-BOTH-AHUS" in ids
+    assert "ECM-AHU-DUCT-STATIC-RESET" not in ids
     assert (ROOT / "run_madison_concept.py").is_file()
-    assert (ROOT / "docs" / "FDD_TO_SKETCHBOX_WORKFLOW.md").is_file()
+
+
+def test_madison_dry_run_includes_gl36() -> None:
+    import run_madison_concept as m
+
+    # dry-run path via plan construction
+    profile = json.loads((ROOT / "examples" / "buildings" / "madison_liberty_concept.json").read_text(encoding="utf-8"))
+    assert any(x["measure_id"] == "ECM-GL36-AIRSIDE-BOTH-AHUS" for x in profile["measures"])
+    assert m.GL36_LIT["hvac_savings_pct_avg"] == 31.0
+    v = m.validate_against_literature(
+        baseline={"electricity_kwh_year": 1000, "site_eui_kbtu_ft2_year": 40, "utility_cost_usd_year": 100},
+        after_ecm1={"electricity_kwh_year": 600, "site_eui_kbtu_ft2_year": 30, "utility_cost_usd_year": 60},
+        after_ecm2={"electricity_kwh_year": 500, "site_eui_kbtu_ft2_year": 26, "utility_cost_usd_year": 52},
+    )
+    assert v["verdict"] in {"PASS", "WARN"}
+    assert v["pct_savings"]["ecm2_incremental_kwh_vs_ecm1"] == 16.67
 
 
 def test_dry_run_plan_shape() -> None:

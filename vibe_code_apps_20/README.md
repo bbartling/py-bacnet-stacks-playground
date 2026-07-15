@@ -1,6 +1,6 @@
 # Vibe App 20 — Sketchbox Agent Engineering Pack + Live Drivers
 
-Bridge from **Vibe App 19 / Open-FDD** findings to conceptual [Sketchbox](https://www.sketchbox.io/) ECM analysis (Slipstream / DOE-2).
+Bridge from **Vibe App 19 / Open-FDD** findings to conceptual Sketchbox ECM screening.
 
 ## Design principles
 
@@ -12,64 +12,50 @@ Bridge from **Vibe App 19 / Open-FDD** findings to conceptual [Sketchbox](https:
 6. **Human review gates irreversible actions.**
 7. **State is captured after every major UI transition** under `.artifacts/` (gitignored).
 
-Start here: [`AGENTS.md`](AGENTS.md) → [`.agents/routing.md`](.agents/routing.md).
+**Start here:** [`AGENTS.md`](AGENTS.md) (full agent OS) → [`.agents/routing.md`](.agents/routing.md).
 
-Cursor skill entrypoint: [`.cursor/skills/vibe20-sketchbox/SKILL.md`](.cursor/skills/vibe20-sketchbox/SKILL.md) (mirrors into repo-root `.cursor/skills/` for discovery).
+Cursor skill: [`.cursor/skills/vibe20-sketchbox/SKILL.md`](.cursor/skills/vibe20-sketchbox/SKILL.md).
 
-## Live drivers (working)
+## Live drivers
 
 | Script | Role |
 | --- | --- |
-| `sketchbox_driver.py` | `probe` / `login` — auth + storage state |
-| `sketchbox_ui.py` | Shared selectors + read-back writes |
-| `explore_sketchbox.py` | Read-mostly tab tour (SCHEDULES / MEASURES / RESULTS) |
-| `action_sketchbox.py` | Mutating actions (e.g. cooling setpoint offset) |
-| `run_measure.py` | Add Empty Measure + wait RESULTS |
-| `testdrive.py` | Multi-building: baseline → approved ECM → measure case |
+| `sketchbox_driver.py` | `probe` / `login` |
+| `sketchbox_ui.py` | Shared selectors + read-back |
+| `explore_sketchbox.py` | Read-mostly tab tour |
+| `action_sketchbox.py` | Targeted mutations |
+| `run_measure.py` | Add measure + RESULTS |
+| `testdrive.py` | Multi-building approved-ECM screen |
+| `run_madison_concept.py` | Madison: schedule ECM then GL36 proxy |
 
 ```powershell
 cd vibe_code_apps_20
 copy .env.example .env   # set SKETCHBOX_EMAIL / SKETCHBOX_PASSWORD
-python sketchbox_driver.py probe
 python sketchbox_driver.py login
-python testdrive.py --dry-run --buildings examples/buildings
-python testdrive.py --buildings examples/buildings
-```
-
-Fable 5 critique: [`docs/FABLE5_CRITIQUE.md`](docs/FABLE5_CRITIQUE.md).
-
-FDD → Sketchbox workflow (vibe19 bridge intent): [`docs/FDD_TO_SKETCHBOX_WORKFLOW.md`](docs/FDD_TO_SKETCHBOX_WORKFLOW.md).
-
-### Madison Liberty conceptual screen
-
-```powershell
 python run_madison_concept.py --dry-run
-python run_madison_concept.py --probe-only
 python run_madison_concept.py
+python testdrive.py --buildings examples/buildings --dry-run
 ```
-
-Profile: `examples/buildings/madison_liberty_concept.json` (anonymized Madison weather only; uncalibrated).
-Every export includes the conceptual screening disclaimer.
 
 ## Credentials
 
-- Only in `.env` (gitignored). Never commit cookies / `sketchbox_storage.json`.
-- Env: `SKETCHBOX_EMAIL`, `SKETCHBOX_PASSWORD`, `SKETCHBOX_BASE_URL`, `SKETCHBOX_HEADED`, `SKETCHBOX_SLOW_MO_MS`.
+Only in `.env` (gitignored). Never commit cookies / `sketchbox_storage.json`.
 
-## Package layout (from agent pack)
+## Package layout
 
 | Path | Role |
 | --- | --- |
+| `AGENTS.md` | **Agent handbook (source of truth)** |
 | `.agents/skills/*/SKILL.md` | Domain + operator skills |
 | `.agents/workflows/` | End-to-end + recovery |
-| `.agents/checklists/` | Readiness / write / QA gates |
-| `schemas/` | `building_profile` / `measure_brief` / `result_record` |
-| `examples/` | Sample JSON |
-| `docs/` | Architecture, Sketchbox knowledge, roadmap |
+| `.agents/checklists/` | Gates |
+| `schemas/` | JSON schemas |
+| `examples/` | Profiles + evidence |
+| `docs/` | Stub → AGENTS.md |
 | `ecm_library/` | ECM notes |
 
 ## Primary workflow
 
-`Vibe 19 export → evidence normalization → ECM candidates → engineering review → Sketchbox baseline → progressive measures → results validation → ranked RCx package`
+`Vibe 19 export → evidence → ECM candidates → review → Sketchbox baseline → progressive measures → validation → RCx package`
 
-See [`INTEGRATION_PATCH_GUIDE.md`](INTEGRATION_PATCH_GUIDE.md) for remaining hardening (dry-run flags, redaction, Pydantic models).
+See also [`INTEGRATION_PATCH_GUIDE.md`](INTEGRATION_PATCH_GUIDE.md) for remaining hardening.

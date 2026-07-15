@@ -13,33 +13,49 @@
         "avoidable_hours_per_week_approx": 111
       },
       "confidence": "low",
-      "notes": "Placeholder until a real vibe19 analytics package is attached."
+      "notes": "Placeholder until a real vibe19 analytics package is attached. Run before GL36."
+    },
+    {
+      "evidence_id": "EV-GL36-APPLICABILITY-CONCEPT",
+      "source": "synthetic_engineering",
+      "summary": "Existing multi-zone VAV with reheat is a candidate for ASHRAE Guideline 36 high-performance airside sequences.",
+      "scope": ["AHU-1", "AHU-2"],
+      "confidence": "medium",
+      "notes": "Full G36 sequences are not available in Sketchbox; use VAV Box Minimum + Fan Power proxies."
     },
     {
       "evidence_id": "EV-DUCTHI-AHU1-CONCEPT",
       "source": "synthetic_vibe19_style",
       "vibe19_rule_id": "AHU-DUCTHI",
       "equipment_id": "AHU-1",
-      "summary": "Conceptual excess duct static / high SP hours when fan is proven on.",
+      "summary": "Conceptual excess duct static / high SP hours when fan is proven on — supports DSP-reset portion of G36 proxy.",
       "metrics": {
         "duct_static_high_hours_approx": 400,
         "pressure_on_gate": "fan_or_static_gt_min"
       },
       "confidence": "low",
-      "notes": "Maps to duct-static-reset ECM when Sketchbox supports it."
+      "notes": "Maps to Fan Power proxy under ECM-GL36-AIRSIDE-BOTH-AHUS."
     },
     {
       "evidence_id": "EV-DUCTHI-AHU2-CONCEPT",
       "source": "synthetic_vibe19_style",
       "vibe19_rule_id": "AHU-DUCTHI",
       "equipment_id": "AHU-2",
-      "summary": "Conceptual excess duct static on continuously running AHU-2.",
+      "summary": "Conceptual excess duct static on AHU-2. After schedule ECM, remaining hours still warrant G36 fan proxy.",
       "metrics": {
-        "duct_static_high_hours_approx": 800,
-        "interaction": "schedule_ECM_reduces_reset_hours_if_bundled_incorrectly"
+        "duct_static_high_hours_approx": 400,
+        "interaction": "schedule_ECM_first"
       },
       "confidence": "low",
-      "notes": "Run schedule ECM first; do not double-count fan savings with reset."
+      "notes": "Do not double-count fan savings with schedule alignment."
+    },
+    {
+      "evidence_id": "EV-VAVMIN-BOTH-CONCEPT",
+      "source": "synthetic_engineering",
+      "summary": "Terminal minimums assumed conventional (~30%) vs G36-style reduced minimums.",
+      "scope": ["AHU-1", "AHU-2"],
+      "confidence": "low",
+      "notes": "Maps to VAV Box Minimum measure parameter."
     }
   ]
 }

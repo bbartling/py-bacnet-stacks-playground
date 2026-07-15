@@ -11,9 +11,29 @@ SELECTOR_MAP_VERSION = "2026-07-15"
 def goto_view(page: Page, view: str) -> None:
     """Tabs are ``div.view-link[view=project|schedules|measures|results]`` (lowercase)."""
     key = view.strip().lower()
+    # Clear modal overlays that intercept tab clicks
+    try:
+        page.keyboard.press("Escape")
+        page.evaluate(
+            """() => {
+              const bg = document.querySelector('.modal-background');
+              if (bg) bg.click();
+            }"""
+        )
+    except Exception:
+        pass
     loc = page.locator(f'div.view-link[view="{key}"]').first
     if loc.count():
-        loc.click(timeout=8000)
+        try:
+            loc.click(timeout=5000)
+        except Exception:
+            page.evaluate(
+                """(view) => {
+              const el = document.querySelector(`div.view-link[view="${view}"]`);
+              if (el) el.click();
+            }""",
+                key,
+            )
     else:
         page.evaluate(
             """(view) => {

@@ -1,63 +1,24 @@
 # Package Contents
 
-- `.agents/checklists/browser-write.md`
-- `.agents/checklists/model-readiness.md`
-- `.agents/checklists/release.md`
-- `.agents/checklists/results-qa.md`
-- `.agents/data_contract.md`
-- `.agents/personas/bas-controls-engineer.md`
-- `.agents/personas/commissioning-provider.md`
-- `.agents/personas/energy-modeler.md`
-- `.agents/personas/qa-reviewer.md`
-- `.agents/personas/report-writer.md`
-- `.agents/policies.md`
+- `AGENTS.md` — **agent OS / handbook (read first)**
 - `.agents/routing.md`
-- `.agents/skills/anonymization/SKILL.md`
-- `.agents/skills/artifact-capture/SKILL.md`
-- `.agents/skills/baseline-model/SKILL.md`
-- `.agents/skills/browser-operator/SKILL.md`
-- `.agents/skills/building-intake/SKILL.md`
-- `.agents/skills/duct-static-reset/SKILL.md`
-- `.agents/skills/ecm-portfolio/SKILL.md`
-- `.agents/skills/economics-carbon/SKILL.md`
-- `.agents/skills/economizer-repair/SKILL.md`
-- `.agents/skills/envelope/SKILL.md`
-- `.agents/skills/evidence-normalization/SKILL.md`
-- `.agents/skills/fan-power/SKILL.md`
-- `.agents/skills/hvac-mapping/SKILL.md`
-- `.agents/skills/hvac-system-switch/SKILL.md`
-- `.agents/skills/lighting/SKILL.md`
-- `.agents/skills/measure-authoring/SKILL.md`
-- `.agents/skills/openfdd-bridge/SKILL.md`
-- `.agents/skills/plant-efficiency/SKILL.md`
-- `.agents/skills/report-writer/SKILL.md`
-- `.agents/skills/results-extraction/SKILL.md`
-- `.agents/skills/results-qa/SKILL.md`
-- `.agents/skills/sat-reset/SKILL.md`
-- `.agents/skills/schedule-optimization/SKILL.md`
-- `.agents/skills/schedules/SKILL.md`
-- `.agents/skills/selector-resilience/SKILL.md`
-- `.agents/skills/shell-geometry/SKILL.md`
-- `.agents/skills/sketchbox-ui-exploration/SKILL.md`
-- `.agents/skills/testing-validation/SKILL.md`
-- `.agents/skills/vav-minimum-reset/SKILL.md`
-- `.agents/workflows/baseline-calibration.md`
-- `.agents/workflows/end-to-end.md`
-- `.agents/workflows/ui-change-recovery.md`
-- `AGENTS.md`
+- `.agents/policies.md`
+- `.agents/data_contract.md`
+- `.agents/checklists/`
+- `.agents/personas/`
+- `.agents/workflows/`
+- `.agents/skills/` (includes `gl36-airside`, `openfdd-bridge`, `schedule-optimization`, …)
+- `.cursor/skills/vibe20-sketchbox/SKILL.md`
 - `INTEGRATION_PATCH_GUIDE.md`
 - `README.md`
-- `docs/APP20_ARCHITECTURE.md`
-- `docs/IMPLEMENTATION_ROADMAP.md`
-- `docs/SKETCHBOX_KNOWLEDGE.md`
-- `docs/SOURCES.md`
-- `docs/VIDEO_SOURCE_NOTES.md`
+- `docs/README.md` (points to AGENTS.md)
 - `ecm_library/README.md`
 - `examples/building_profile.example.json`
+- `examples/buildings/*.json` (includes `madison_liberty_concept.json`)
+- `examples/evidence/madison_liberty_concept_evidence.json`
 - `examples/measure_brief.schedule.example.json`
-- `prompts/agent_bootstrap.md`
-- `prompts/run_building_analysis.md`
-- `prompts/ui_repair.md`
-- `schemas/building_profile.schema.json`
-- `schemas/measure_brief.schema.json`
-- `schemas/result_record.schema.json`
+- `prompts/`
+- `schemas/`
+- `sketchbox_driver.py` / `sketchbox_ui.py` / `explore_sketchbox.py` / `action_sketchbox.py`
+- `testdrive.py` / `run_madison_concept.py` / `run_measure.py` / `config.py`
+- `tests/test_pack_smoke.py`

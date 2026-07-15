@@ -35,10 +35,11 @@ A fault is not savings. Sensor-validation failures block dependent control ECMs 
 | FDD / RCx signal | ECM skill | Example concept |
 | --- | --- | --- |
 | `SCHED-247` continuous runtime | `schedule-optimization` | Madison AHU-2 24/7 → occupied schedule |
-| `AHU-DUCTHI` / `FC1` | `duct-static-reset` | Static reset both AHUs after schedule ECM |
+| G36 / high VAV mins / DSP | `gl36-airside` | Madison ECM-2 GL36 proxy both AHUs |
+| `AHU-DUCTHI` / `FC1` | supports `gl36-airside` Fan Power proxy | After schedule ECM |
 | Comfort / SAT faults | `sat-reset` / `vav-minimum-reset` | Only with sensor health gates |
 
-See `docs/FDD_TO_SKETCHBOX_WORKFLOW.md` and `examples/buildings/madison_liberty_concept.json`.
+See `AGENTS.md` (FDD → ECM workflow and Madison playbook).
 
 ## Validation
 Every candidate cites evidence; missing roles remain explicit; rejected candidates have reasons.
