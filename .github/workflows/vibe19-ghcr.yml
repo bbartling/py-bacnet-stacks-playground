@@ -1,6 +1,8 @@
 # Build and publish vibe_code_apps_19 Docker image to GHCR.
 # Image: ghcr.io/<owner>/vibe19
-# Multi-arch: linux/amd64 (x86_64) + linux/arm64 (Raspberry Pi 4/5 64-bit).
+# Multi-arch via QEMU + Buildx:
+#   - linux/amd64  (x86_64 desktops / most cloud hosts)
+#   - linux/arm64  (Raspberry Pi 4/5 64-bit, Apple Silicon)
 name: vibe19-ghcr
 
 on:
@@ -27,6 +29,8 @@ permissions:
 
 env:
   IMAGE_NAME: vibe19
+  # Always build both arches on publish; PR smoke stays amd64-only (faster, no push).
+  PUBLISH_PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build:
@@ -35,8 +39,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
+      - name: Set up QEMU (amd64 + arm64)
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64,arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -67,11 +73,12 @@ jobs:
             org.opencontainers.image.description=Open FDD Vibe Coder Streamlit demo
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: vibe_code_apps_19
           file: vibe_code_apps_19/Dockerfile
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || env.PUBLISH_PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -85,3 +92,21 @@ jobs:
           cache-to: type=gha,mode=max
           # Multi-platform manifests require push (or a registry); PRs build without push.
           provenance: false
+
+      - name: Verify multi-arch manifest (amd64 + arm64)
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          # Prefer :latest on default branch tip; fall back to :develop / first pushed tag.
+          REF="${IMAGE}:latest"
+          if ! docker buildx imagetools inspect "$REF" >/tmp/manifest.txt 2>/dev/null; then
+            REF="${IMAGE}:develop"
+            docker buildx imagetools inspect "$REF" >/tmp/manifest.txt
+          fi
+          echo "Inspected $REF"
+          cat /tmp/manifest.txt
+          grep -q 'linux/amd64' /tmp/manifest.txt
+          grep -q 'linux/arm64' /tmp/manifest.txt
+          echo "OK: multi-arch index includes linux/amd64 and linux/arm64"
