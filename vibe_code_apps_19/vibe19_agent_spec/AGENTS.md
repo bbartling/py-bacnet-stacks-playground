@@ -28,12 +28,12 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 14. **Occupancy calendar is canonical** — Overview weekly time pickers **always** drive `occ_mode` for SCHED-1. Do not re-add “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.
 15. **Typed equipment is canonical** — stamp `equipType` in column maps; `resolve_equipment_type` (attrs → map → id). RTU→AHU, heatPump→HP. RCx/rules use typed equip, not id substrings.
 16. Smoke UI: `py -3.14 scripts/smoke_streamlit_app.py` (AppTest, 0 exceptions).
-17. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths.
+17. **Agent → Streamlit**: after `agent_afdd.py --run-all`, open http://localhost:8501 — `.last_agent_session.json` / `VIBE19_BOOTSTRAP` auto-loads package + dialed params. On Cloud: download/upload `session_config.json` (sidebar) instead of server paths. **Browser zip uploads** also persist across refresh via `.last_browser_session.json` (`app/browser_session.py`) until **Clear session**; set `VIBE19_BROWSER_AUTOLOAD=0` in AppTest/CI.
 18. **Custom rules** — boilerplate in `app/rules/custom_boilerplate.py`; agent edits `app/rules/custom_rules.py` (`CUSTOM-*` ids only). Spec: `vibe19_agent_spec/docs/CUSTOM_RULES.md`.
 19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
-20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
-21. **FDD Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Per-rule Haystack tags / sliders / series: [`docs/RULE_PLOT_CATALOG.md`](docs/RULE_PLOT_CATALOG.md). Keep **Data Model** (`app/data_model_tree.py`).
-22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); opt-in coverage. Single Word template: Generic RCx on **Overview** (`app/docx_report.py`). Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md).
+20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. Overview must keep **Data inspection** (raw CSV Plotly stack) + BAS vs web OAT overlay. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
+21. **FDD Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; **Sensor health — per sensor**. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Per-rule Haystack tags / sliders / series: [`docs/RULE_PLOT_CATALOG.md`](docs/RULE_PLOT_CATALOG.md). Keep **Data Model** (`app/data_model_tree.py`).
+22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); zone comfort donut; opt-in coverage. Single Word template: Generic RCx on **Overview** (`app/docx_report.py`). Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md).
 23. **Analytics golden baseline** — before perf/analytics edits run `pytest tests/test_analytics_golden.py`; regen with `VIBE19_UPDATE_ANALYTICS_GOLDEN=1`. Harness: `app/analytics_baseline.py`.
 24. **Perf bottlenecks** — eager Export/FDD DOCX + `rcx_preset_coverage`, Folder cache copies, rule-batch frame copies, `iterrows` scatters. Do not reintroduce eager `st.tabs`. Findings: [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md).
 25. **README + GHCR pull-latest stay current** — after Docker/GHCR/deploy changes (and whenever shipping a new image), keep **`../README.md` → Docker / GHCR** and **`../docs/DOCKER.md`** aligned with the easy-button update path:
@@ -72,6 +72,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | Path | Role |
 | --- | --- |
 | `streamlit_app.py` | Streamlit UI entry (lazy radio sections + sidebar) |
+| `app/browser_session.py` | Zip upload pointer — refresh persistence until Clear session |
 | `app/package_io.py` | Safe zip/dir ingest + size caps / size report |
 | `app/agent_api.py` | Headless AgentDataset / AgentRun load·run·export |
 | `app/bootstrap.py` | Agent → Streamlit session handoff |

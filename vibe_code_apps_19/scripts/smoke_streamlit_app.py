@@ -35,6 +35,8 @@ def main() -> int:
 
     # Fast path for CI / smoke when a full B100 auto-run would exceed timeouts
     os.environ.setdefault("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
+    # Do not restore a developer leftover upload into AppTest
+    os.environ.setdefault("VIBE19_BROWSER_AUTOLOAD", "0")
 
     from streamlit.testing.v1 import AppTest
 

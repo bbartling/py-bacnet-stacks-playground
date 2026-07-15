@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-15 — Data inspection + browser session persistence
+
+- Overview **Data inspection — raw CSV**: dropdown of all equipment (+ weather); stacked Plotly lines for every plottable column (largest chart on Overview)
+- Uploaded zip survives browser **refresh** via `.last_browser_session.json` pointer + `load_package_from_dir`; **Clear session** deletes pointer + wipes temp dir (`VIBE19_BROWSER_AUTOLOAD=0` for AppTest)
+- Spec: DASHBOARD_CONTRACT / AGENTS / streamlit-demo skill updated; `app/dashboard_contract.py` freezes new chart APIs + browser_session entrypoints
+- Fix SV sidebar caption reading `equipment_frames` / `selected_equipment` (was dead `frames` key)
+
+---
+
 ## 2026-07-14 — Sensor itemization, OAT overlay, pressure gates, RCx comfort pie
 
 - **SV sweeps** stash per-role `sv_sweep_evidence` + confirmed masks; runner promotes to metrics (mirrors SV-RATE)

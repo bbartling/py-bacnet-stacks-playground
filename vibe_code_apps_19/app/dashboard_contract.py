@@ -23,6 +23,10 @@ REQUIRED_CHART_APIS: tuple[str, ...] = (
     "motor_weekly_runtime_chart",
     "mech_cooling_oat_histogram",
     "bas_vs_web_oat_histogram",
+    "bas_vs_web_oat_overlay",
+    "equipment_inspection_chart",
+    "sensor_fault_chart",
+    "vav_comfort_donut",
     "max_plot_points",
     "plotly_config",
 )
@@ -41,4 +45,7 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.docx_report:load_generic_rcx_report",
     "app.docx_report:applicable_rules_for_equipment",
     "app.report_downloads:render_overview_rcx_download",
+    "app.browser_session:write_browser_session_pointer",
+    "app.browser_session:read_browser_session_pointer",
+    "app.browser_session:clear_browser_session_pointer",
 )

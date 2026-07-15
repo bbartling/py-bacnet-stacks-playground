@@ -36,6 +36,7 @@ from app.charts import (  # noqa: E402
     bas_vs_web_oat_histogram,
     bas_vs_web_oat_overlay,
     energy_degree_day_scatter,
+    equipment_inspection_chart,
     max_plot_points,
     mech_cooling_oat_histogram,
     monthly_energy_bar,
@@ -326,9 +327,11 @@ def _apply_agent_bootstrap_once() -> None:
 
 def _clear_uploaded_session() -> None:
     """Wipe temp package dir + session data derived from an upload."""
+    from app.browser_session import clear_browser_session_pointer
     from app.package_io import wipe_workdir
 
     wipe_workdir(st.session_state.get("upload_workdir"))
+    clear_browser_session_pointer()
     st.session_state.upload_workdir = None
     st.session_state.package_report = None
     st.session_state.equipment_frames = {}
@@ -339,6 +342,62 @@ def _clear_uploaded_session() -> None:
     st.session_state.building_id = ""
     # Rotate uploader widget so Streamlit drops cached file bytes
     st.session_state.zip_uploader_key = int(st.session_state.get("zip_uploader_key", 0)) + 1
+
+
+def _apply_browser_autoload_once() -> None:
+    """Reload last zip package from disk pointer if session_state was wiped by a refresh."""
+    if st.session_state.get("_browser_autoload_done"):
+        return
+    st.session_state._browser_autoload_done = True
+    if st.session_state.get("equipment_frames"):
+        return
+    try:
+        from app.browser_session import (
+            browser_autoload_enabled,
+            pointer_paths_exist,
+            read_browser_session_pointer,
+            touch_path,
+        )
+        from app.package_io import PackageError, load_package_from_dir
+    except Exception as exc:  # pragma: no cover
+        st.session_state.bootstrap_status = (
+            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload import failed: {exc}"
+        ).strip(" ·")
+        return
+
+    if not browser_autoload_enabled():
+        return
+
+    pointer = read_browser_session_pointer()
+    if not pointer or not pointer_paths_exist(pointer):
+        return
+    workdir = Path(str(pointer["workdir"]))
+    building_root = Path(str(pointer["building_root"]))
+    try:
+        touch_path(workdir)
+        result = load_package_from_dir(building_root, workdir=workdir)
+        result.report["source"] = "browser_autoload"
+        result.report["autoload_building_id"] = pointer.get("building_id") or ""
+        _commit_package_result(result)
+        # Preserve original source label when available
+        if pointer.get("source"):
+            st.session_state.data_source = str(pointer["source"])
+        st.session_state.bootstrap_status = (
+            (st.session_state.get("bootstrap_status") or "")
+            + f" · Restored last upload (`{pointer.get('building_id') or building_root.name}`) — "
+            "survives refresh until **Clear session**"
+        ).strip(" ·")
+    except PackageError as exc:
+        from app.browser_session import clear_browser_session_pointer
+
+        clear_browser_session_pointer()
+        st.session_state.bootstrap_status = (
+            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload failed: {exc}"
+        ).strip(" ·")
+    except Exception as exc:
+        st.session_state.bootstrap_status = (
+            (st.session_state.get("bootstrap_status") or "") + f" · browser autoload error: {exc}"
+        ).strip(" ·")
 
 
 def _session_config_payload() -> dict:
@@ -918,8 +977,12 @@ def _sidebar_sliders(defaults_cfg: dict) -> None:
                 from app.rules.cookbook_catalog import FLATLINE_SENSOR_ROLES, SWEEP_SENSOR_ROLES
 
                 roles = FLATLINE_SENSOR_ROLES if rule.id in {"SV-FLATLINE", "SV-STALE"} else SWEEP_SENSOR_ROLES
-                frames_sb = st.session_state.get("frames") or {}
-                eq_pick = st.session_state.get("plot_device") or st.session_state.get("selected_device")
+                frames_sb = st.session_state.get("equipment_frames") or {}
+                eq_pick = (
+                    st.session_state.get("plot_device")
+                    or st.session_state.get("selected_equipment")
+                    or st.session_state.get("selected_device")
+                )
                 present_roles: list[str] = []
                 if eq_pick and eq_pick in frames_sb:
                     from app.role_map import apply_role_map
@@ -1362,6 +1425,18 @@ def _commit_package_result(result) -> None:
     st.session_state.package_warnings = list(
         (result.report or {}).get("package_health_summary") or result.warnings
     )
+    # Persist pointer so a browser refresh can reload without re-upload
+    try:
+        from app.browser_session import write_browser_session_pointer
+
+        write_browser_session_pointer(
+            workdir=result.workdir,
+            building_root=result.building_root,
+            building_id=result.manifest.building_id,
+            source=st.session_state.get("data_source") or f"zip:{result.manifest.building_id}",
+        )
+    except Exception:
+        pass
 
 
 def _load_from_folder(cfg: AppConfig, folder_text: str) -> None:
@@ -2030,6 +2105,7 @@ def main() -> None:
     cfg = AppConfig.load()
     defaults_cfg = cached_rule_defaults(str(cfg.rule_defaults_path))
     _apply_agent_bootstrap_once()
+    _apply_browser_autoload_once()
     _load_data(cfg)
     _sidebar_sliders(defaults_cfg)
 
@@ -2037,6 +2113,13 @@ def main() -> None:
         st.sidebar.caption(f"Agent bootstrap: {st.session_state.bootstrap_status}")
 
     frames = st.session_state.equipment_frames
+    if frames and st.session_state.get("upload_workdir"):
+        try:
+            from app.browser_session import touch_path
+
+            touch_path(st.session_state.upload_workdir)
+        except Exception:
+            pass
     if not frames:
         _empty_state_directions()
         return
@@ -2254,6 +2337,76 @@ def main() -> None:
             [{"type": t, "count": len(ids)} for t, ids in by_type.items()]
         )
         st.dataframe(type_counts, hide_index=True, width="stretch")
+
+        st.markdown("##### Data inspection — raw CSV")
+        st.caption(
+            "Pick any uploaded equipment (or weather) CSV and plot **all numeric / status columns** "
+            "as stacked Plotly line charts. Data stays loaded across browser refresh until you click "
+            "**Clear session** in the sidebar (a container restart still clears temp files)."
+        )
+        inspect_options: list[str] = list(eq_ids)
+        weather_df = st.session_state.get("weather")
+        if weather_df is not None and getattr(weather_df, "empty", True) is False:
+            inspect_options = inspect_options + ["(weather)"]
+        default_inspect = selected if selected in inspect_options else inspect_options[0]
+        inspect_pick = st.selectbox(
+            "CSV / equipment",
+            inspect_options,
+            index=inspect_options.index(default_inspect),
+            key="overview_inspect_csv",
+        )
+        if inspect_pick == "(weather)":
+            inspect_df = weather_df
+            inspect_label = "weather"
+        else:
+            inspect_df = frames[inspect_pick]
+            inspect_label = inspect_pick
+        numeric_cols = []
+        for c in inspect_df.columns:
+            s = inspect_df[c]
+            if pd.api.types.is_bool_dtype(s) or pd.api.types.is_numeric_dtype(s):
+                numeric_cols.append(str(c))
+            else:
+                coerced = pd.to_numeric(s, errors="coerce")
+                if coerced.notna().sum() >= max(1, int(0.5 * len(s))):
+                    numeric_cols.append(str(c))
+        show_cols = st.multiselect(
+            "Columns to plot (default: all)",
+            numeric_cols,
+            default=numeric_cols,
+            key=f"overview_inspect_cols_{inspect_label}",
+        )
+        n_rows = int(len(inspect_df))
+        span = ""
+        if isinstance(inspect_df.index, pd.DatetimeIndex) and len(inspect_df.index):
+            span = f" · {inspect_df.index.min()} → {inspect_df.index.max()}"
+        st.caption(
+            f"`{inspect_label}` · **{n_rows}** rows · **{len(show_cols)}** / {len(numeric_cols)} "
+            f"plottable columns{span}"
+        )
+        if not show_cols:
+            st.info("Select at least one column to plot.")
+        else:
+            fig_insp = equipment_inspection_chart(
+                inspect_df,
+                equipment_id=inspect_label,
+                columns=show_cols,
+            )
+            if fig_insp is None:
+                st.info("No plottable series in this CSV.")
+            else:
+                st.plotly_chart(
+                    fig_insp,
+                    width="stretch",
+                    config=plotly_config(filename=f"inspect_{inspect_label}"),
+                    key=f"overview_inspect_chart_{inspect_label}",
+                )
+        st.download_button(
+            f"Download `{inspect_label}` CSV",
+            to_csv_bytes(inspect_df),
+            f"{inspect_label}_raw.csv",
+            key=f"dl_inspect_{inspect_label}",
+        )
 
     if section == "Data Model":
         from app.data_model_tree import build_data_model_tree

@@ -36,4 +36,5 @@ __pycache__/
 .streamlit/
 !.streamlit/config.toml
 .last_agent_session.json
+.last_browser_session.json
 *.egg-info/

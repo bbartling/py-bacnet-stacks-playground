@@ -52,12 +52,12 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, **Generic RCx DOCX download**, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, economizer weather summary, **BAS vs web OAT histogram** |
+| Overview | Metrics, **Generic RCx DOCX download**, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
 | Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
-| **FDD Plots** | Auto-run device rules; catalog-parity cards (charts/JSON downloads; Word on Overview) |
-| **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); one chart at a time; opt-in coverage |
+| **FDD Plots** | Auto-run device rules; catalog-parity cards; **Sensor health — per sensor** matrix + chart (Word on Overview) |
+| **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); zone comfort donut; one chart at a time; opt-in coverage |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
 | Export | CSV / session / health / data-model (Word template is Overview-only) |
 
@@ -77,10 +77,21 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 Frozen in `REQUIRED_CHART_APIS` — must remain callable in `app/charts.py`:
 
 - `rule_result_chart`, `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter`
-- `motor_weekly_runtime_chart`, `mech_cooling_oat_histogram`, `bas_vs_web_oat_histogram`
+- `motor_weekly_runtime_chart`, `mech_cooling_oat_histogram`, `bas_vs_web_oat_histogram`, `bas_vs_web_oat_overlay`
+- `equipment_inspection_chart`, `sensor_fault_chart`, `vav_comfort_donut`
 - `max_plot_points`, `plotly_config`
 
 Also keep `render_rcx_plots_tab`, `collect_oat_scatter`, `collect_role_series`, `rcx_preset_coverage`.
+
+---
+
+## Session persistence (zip uploads)
+
+- Uploaded packages extract to a temp `vibe19_*` workdir. A pointer file `.last_browser_session.json` (see `app/browser_session.py`) records `workdir` / `building_root` so a **browser refresh** can reload via `load_package_from_dir` without re-upload.
+- **Clear session** (sidebar) deletes the pointer and wipes the workdir — the only intentional wipe of loaded CSVs.
+- Container / host restart still clears temp dirs (pointer becomes stale and is dropped).
+- Env: `VIBE19_BROWSER_AUTOLOAD=0` disables restore (AppTest/CI); `VIBE19_BROWSER_SESSION_PATH` overrides the pointer path.
+- Agent bootstrap (`.last_agent_session.json` / `VIBE19_BOOTSTRAP`) is separate and still preferred when present.
 
 ---
 

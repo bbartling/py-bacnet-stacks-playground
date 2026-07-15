@@ -895,6 +895,99 @@ def vav_comfort_donut(
     return fig
 
 
+def _is_status_like(series: pd.Series) -> bool:
+    """True for 0/1 / boolean status traces (draw as step lines)."""
+    if pd.api.types.is_bool_dtype(series):
+        return True
+    num = pd.to_numeric(series, errors="coerce").dropna()
+    if num.empty:
+        return False
+    uniq = set(float(x) for x in num.unique())
+    return uniq.issubset({0.0, 1.0})
+
+
+def equipment_inspection_chart(
+    df: pd.DataFrame,
+    *,
+    equipment_id: str = "",
+    columns: list[str] | None = None,
+    max_height: int = 4000,
+    row_height: int = 160,
+) -> go.Figure | None:
+    """Tall stacked Plotly line chart of all plottable columns in a raw equipment CSV.
+
+    Keeps numeric / boolean columns only. One subplot row per column, shared x-axis.
+    Downsamples for rendering via :func:`downsample_frame_index`.
+    """
+    from plotly.subplots import make_subplots
+
+    if df is None or df.empty:
+        return None
+    if columns is None:
+        cols = list(df.columns)
+    else:
+        cols = [c for c in columns if c in df.columns]
+    plot_cols: list[str] = []
+    for c in cols:
+        s = df[c]
+        if pd.api.types.is_bool_dtype(s):
+            plot_cols.append(c)
+            continue
+        if pd.api.types.is_numeric_dtype(s) and s.notna().any():
+            plot_cols.append(c)
+            continue
+        # object columns that coerce cleanly to numeric
+        coerced = pd.to_numeric(s, errors="coerce")
+        if coerced.notna().sum() >= max(1, int(0.5 * len(s))):
+            plot_cols.append(c)
+    if not plot_cols:
+        return None
+
+    idx = downsample_frame_index(df.index, max_points=max_plot_points())
+    n = len(plot_cols)
+    height = min(max_height, max(700, int(row_height) * n + 80))
+    titles = [str(c) for c in plot_cols]
+    fig = make_subplots(
+        rows=n,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=min(0.02, 0.5 / max(n, 1)),
+        subplot_titles=titles,
+    )
+    for i, col in enumerate(plot_cols, start=1):
+        raw = df[col]
+        if pd.api.types.is_bool_dtype(raw):
+            y = raw.astype(float).reindex(idx)
+            step = True
+        else:
+            y = pd.to_numeric(raw, errors="coerce").reindex(idx)
+            step = _is_status_like(raw)
+        color = RAINBOW_PALETTE[(i - 1) % len(RAINBOW_PALETTE)]
+        fig.add_trace(
+            go.Scatter(
+                x=y.index,
+                y=y,
+                name=str(col),
+                mode="lines",
+                line=dict(width=1.2, color=color, shape="hv" if step else "linear"),
+                showlegend=False,
+            ),
+            row=i,
+            col=1,
+        )
+        fig.update_yaxes(title_text="", row=i, col=1)
+    title = f"Data inspection — {equipment_id}" if equipment_id else "Data inspection"
+    fig.update_layout(
+        title=title,
+        template="plotly_white",
+        height=height,
+        margin=dict(l=50, r=20, t=60, b=40),
+        hovermode="x unified",
+    )
+    fig.update_xaxes(showticklabels=True, row=n, col=1)
+    return fig
+
+
 def bas_vs_web_oat_histogram(
     frames: dict[str, pd.DataFrame],
     role_map: dict | None = None,

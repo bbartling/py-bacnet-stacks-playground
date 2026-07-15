@@ -2550,7 +2550,9 @@ See [`RCX_PLOTS.md`](RCX_PLOTS.md). Reset scatters / duct-static box share roles
 | --- | --- | --- |
 | Motor weekly runtime | Overview | fan/pump/compressor **status** preferred |
 | Mech-cooling OAT bins | Overview | plant pump/status or DX compressor; **web OAT**; never CHW valve % |
-| Sensor fault summary | Plots (device) | sensors involved in FAULT SV-* |
+| BAS vs web OAT overlay | Overview | ±`oat_err` band + fault lane; histogram companion |
+| Data inspection (raw CSV) | Overview | all plottable columns stacked; survives refresh until Clear session |
+| Sensor fault summary / health | FDD Plots (device) | per-sensor SV-* matrix + chart |
 | Occupancy calendar | Overview | writes `occ_mode` for SCHED-1 |
 | RCx catalog DOCX | RCx Plots / Export | catalog + filled analytics when data-model fit |
 

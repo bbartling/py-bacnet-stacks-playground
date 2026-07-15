@@ -23,7 +23,7 @@ and `REQUIRED_RCX_PRESET_IDS` in `app/rcx_plots.py`.
 
 | File | Role |
 | --- | --- |
-| `app/charts.py` | `rule_result_chart`, `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter`, `mech_cooling_oat_histogram` |
+| `app/charts.py` | `rule_result_chart`, `multi_equipment_timeseries`, `multi_equipment_box`, `oat_scatter`, `mech_cooling_oat_histogram`, `bas_vs_web_oat_overlay`, `equipment_inspection_chart`, `sensor_fault_chart`, `vav_comfort_donut` |
 | `app/rule_card.py` | `build_rule_card` — catalog-parity params + mapping + gate/series/analytics |
 | `app/rule_plot_meta.py` | Shared RULE_PLOT_CATALOG fields / hints / RCx preset links |
 | `app/docx_report.py` | Equipment FDD DOCX + **RCx catalog DOCX** (`PLACE PLOT HERE` / `PLACE RCX PLOT HERE`) |

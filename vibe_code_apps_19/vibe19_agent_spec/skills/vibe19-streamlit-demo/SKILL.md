@@ -59,11 +59,11 @@ Opens at `http://localhost:8501`.
 
 ## Main sections (lazy radio — not eager `st.tabs`)
 
-Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Category | **FDD Plots** (validation cards) | **RCx Plots** | Metering | Export
+Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Category | **FDD Plots** (validation cards + sensor health) | **RCx Plots** | Metering | Export
 
 ### Sidebar
 
-- Building folder
+- Building folder / **Zip package** uploader + **Load zip(s)** / **Clear session** (Clear also deletes `.last_browser_session.json`)
 - **Units** imperial / metric (display + CHW leave / zone comfort sliders; rules stay °F)
 - **Prefer web OAT** (default on)
 - **CHW leave proof max** (°F or °C from Units; stored °F)
@@ -71,12 +71,18 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 - Rule tuning by category (no text filter) + operational-proof + **Rerun cat.**
 - Mech-cooling OAT bins: chillers + DX only — **no** AHU CHW valve UI/toggle
 
+### Overview extras (do not remove)
+
+- **BAS vs web OAT** overlay (±`oat_err`) + deviation histogram
+- **Data inspection — raw CSV**: equipment (or weather) dropdown → stacked Plotly lines for all plottable columns (`equipment_inspection_chart`)
+- Zip data **survives browser refresh** until Clear session (`app/browser_session.py`)
+
 ### FDD Plots vs RCx Plots
 
 | Tab | Purpose |
 | --- | --- |
-| FDD Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; one-click **Download FDD DOCX** (`PLACE PLOT HERE` stubs) |
-| RCx Plots | Family → preset multi-equipment overlays + **required** reset scatters/box; opt-in coverage/DOCX; generic picker |
+| FDD Plots | **All applicable** rule cards (params + mapping); one Plotly via plot focus; **Sensor health — per sensor**; Generic RCx DOCX on Overview |
+| RCx Plots | Family → preset multi-equipment overlays + **required** reset scatters/box; zone comfort donut; opt-in coverage |
 
 Required RCx (do not delete): HW/CHW leave vs web OAT, CW/tower vs wet-bulb, AHU SAT vs web OAT, duct-static box — see [`docs/DASHBOARD_CONTRACT.md`](../../docs/DASHBOARD_CONTRACT.md).
 
