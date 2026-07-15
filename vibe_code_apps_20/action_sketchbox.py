@@ -1,0 +1,102 @@
+"""Targeted Sketchbox actions: fix/set cooling offset, open MEASURES, dump RESULTS if possible."""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+
+from playwright.sync_api import sync_playwright
+
+from config import sketchbox_creds
+from explore_sketchbox import STORAGE, click_tab, login_fresh
+from sketchbox_driver import ART, _save_snapshot, _ts
+
+
+def set_cooling_offset(page, value: str = "2") -> dict:
+    click_tab(page, "schedules")
+    page.wait_for_timeout(800)
+    # Label "Cooling" under Setpoint Offset — find sibling input near that label text
+    # Fallback: all text inputs; offset ones are near thermostats section
+    result = {"target": value, "ok": False}
+    # Prefer label association
+    cooling_labels = page.get_by_text("Cooling", exact=True)
+    n = cooling_labels.count()
+    result["cooling_labels"] = n
+    # The setpoint offset cooling field is a small °F input; inventory said values 0/6
+    inputs = page.locator(".thermostats input, .ripple-input input[type='text']")
+    # Broader: any visible text input showing 0 or 6 near bottom of left rail
+    candidates = page.locator("input[type='text']")
+    for i in range(candidates.count()):
+        el = candidates.nth(i)
+        try:
+            if not el.is_visible():
+                continue
+            v = el.input_value()
+            # The invalid 6 we set, or zero offsets
+            if v in {"6", "0"} and i >= 4:  # later fields = offsets (heuristic)
+                el.fill(value)
+                el.press("Tab")
+                result["ok"] = True
+                result["idx"] = i
+                result["before"] = v
+                break
+        except Exception as exc:
+            result.setdefault("errors", []).append(str(exc))
+    page.wait_for_timeout(500)
+    result["snap"] = _save_snapshot(page, "schedules_offset_set")
+    return result
+
+
+def open_measures(page) -> dict:
+    # Force click via JS on view attribute
+    page.evaluate("""() => {
+      const el = document.querySelector('div.view-link[view="measures"]');
+      if (el) el.click();
+    }""")
+    page.wait_for_timeout(2000)
+    return {
+        "snap": _save_snapshot(page, "measures_forced"),
+        "active_view": page.evaluate("""() => {
+          const a = document.querySelector('div.view-link.-active, div.view-link.active');
+          return a ? a.getAttribute('view') : null;
+        }"""),
+        "body_head": page.locator("body").inner_text()[:2500],
+    }
+
+
+def main() -> int:
+    creds = sketchbox_creds()
+    if not creds["email"]:
+        print("missing creds", file=sys.stderr)
+        return 2
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, slow_mo=80)
+        context = browser.new_context(
+            viewport={"width": 1400, "height": 900},
+            storage_state=str(STORAGE) if STORAGE.is_file() else None,
+        )
+        page = context.new_page()
+        login_fresh(page, creds)
+        offset = set_cooling_offset(page, "2")
+        measures = open_measures(page)
+        # Try RESULTS similarly
+        page.evaluate("""() => {
+          const el = document.querySelector('div.view-link[view="results"]');
+          if (el) el.click();
+        }""")
+        page.wait_for_timeout(2000)
+        results = {
+            "snap": _save_snapshot(page, "results_forced"),
+            "body_head": page.locator("body").inner_text()[:2500],
+        }
+        out = ART / f"{_ts()}_action_report.json"
+        out.write_text(json.dumps({"offset": offset, "measures": measures, "results": results}, indent=2), encoding="utf-8")
+        context.storage_state(path=str(STORAGE))
+        print(json.dumps({"report": str(out), "offset_ok": offset.get("ok"), "measures_active": measures.get("active_view")}, indent=2))
+        browser.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

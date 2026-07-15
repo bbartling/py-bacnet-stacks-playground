@@ -1,0 +1,11 @@
+# Local secrets — do not commit
+.env
+.env.*
+!.env.example
+
+# Playwright artifacts
+.artifacts/
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
