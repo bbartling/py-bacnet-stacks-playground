@@ -52,7 +52,7 @@ Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF co
 
 | Script | Role |
 | --- | --- |
-| `wattlab_defaults.py` | responsive-defaults defaults (type + city + code → resolved profile with `field_sources`) |
+| `wattlab_defaults.py` | Defaults resolver (type + city + code → profile with `field_sources`) |
 | `defaults/` | `archetypes.json`, `climate.json`, `codes.json` |
 | `easy_button.py` | Prototype → baseline → approved ECM chain (supports `--measure-set` / `--minimal`) |
 | `vibe19_bridge.py` | Agent-export bundle → evidence + auto-suggested measures |
@@ -64,7 +64,7 @@ Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF co
 | `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
 | `config.py` | Paths, image name, default prototype / EPW |
 
-## responsive-defaults easy button
+## Easy-button defaults
 
 Minimal inputs only (building type, city, code vintage, area, floors, HVAC family). EnergyPlus **autosizes** capacities — fan sizes / plant tons are not required. Defaults are tagged `user` | `default` | `vibe19` in `field_sources` (black/blue-text analog).
 
@@ -86,7 +86,13 @@ Measure sets: **Good** (schedules) · **Better** (+ chiller lockout) · **Best**
 
 ## vibe19 Streamlit integration
 
-Set `VIBE19_WATTLAB_DIR` to this folder. The vibe19 **Energy Model** section calls WattLab via subprocess (no cross-imports) and shows massing + progressive savings.
+The vibe19 **Energy Model** tab shells out to this pack (no Python cross-imports):
+
+1. Sibling folder auto-detect, or set `VIBE19_WATTLAB_DIR` to this directory.
+2. Build `energyplus-mcp-dev` once (see Quick start / [`third_party/README.md`](third_party/README.md)).
+3. Open Streamlit → **Energy Model** → preview defaults / dry-run / live Sims.
+
+Copy [`.env.example`](.env.example) → `.env` for image name and utility-rate overrides only — never put credentials in `.env`.
 
 ## Examples
 

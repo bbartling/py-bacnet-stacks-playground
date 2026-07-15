@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-15 — Energy Model UI harden + Sketchbox scrub
+
+- Hardened `app/energy_model.py` (session-keyed widgets, flat savings table, graceful WattLab missing, `width="stretch"`)
+- Scrubbed leftover `.cursor/skills/vibe20-sketchbox` and WattLab `.env` credentials; docs cover EnergyPlus-MCP sidecar + GHCR
+- vibe19/vibe20 READMEs + `docs/DOCKER.md` Energy Model / `energyplus-mcp-dev` directions
+
+---
+
 ## 2026-07-15 — Energy Model tab (WattLab easy button)
 
 - Added **Energy Model** to `REQUIRED_MAIN_SECTIONS` + `app/energy_model.py` (responsive-defaults form, 3D massing, FDD suggest, subprocess → vibe20 `easy_button.py`)

@@ -28,6 +28,7 @@ Suggested human→agent message:
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
+- **Energy Model** tab → [OpenFDD WattLab](../vibe_code_apps_20/) (responsive defaults + Progressive EnergyPlus ECM screens)
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
 - **Docker / GHCR** image for self-host demos
 
@@ -121,6 +122,31 @@ More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/w
 | Agent / CLI / path load | **2048 MB** default (`OPENFDD_MAX_*` env override) |
 
 Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses the upload widget).
+
+## Energy Model (OpenFDD WattLab + EnergyPlus)
+
+The **Energy Model** section calls [vibe_code_apps_20](../vibe_code_apps_20/) via subprocess (no cross-imports):
+
+| Piece | Role |
+| --- | --- |
+| vibe19 Streamlit (`Energy Model` tab) | Easy-button form, 3D massing, FDD→ECM suggest, results charts |
+| vibe20 `wattlab_defaults` / `easy_button` | Resolve defaults + progressive IDF patches |
+| Docker `energyplus-mcp-dev` | LBNL [EnergyPlus-MCP](https://github.com/LBNL-ETA/EnergyPlus-MCP) + EnergyPlus **26.1** sims |
+
+```powershell
+# One-time EnergyPlus image (from vibe20)
+cd vibe_code_apps_20\third_party\EnergyPlus-MCP
+docker build -t energyplus-mcp-dev -f .devcontainer\Dockerfile .devcontainer
+
+# Local Streamlit (sibling folders auto-detect WattLab)
+cd ..\..\vibe_code_apps_19
+streamlit run streamlit_app.py
+# optional override: $env:VIBE19_WATTLAB_DIR = "...\vibe_code_apps_20"
+```
+
+**GHCR note:** `ghcr.io/bbartling/vibe19` ships the Streamlit FDD app (including the Energy Model UI). Live EnergyPlus runs still need the WattLab checkout + `energyplus-mcp-dev` sidecar on the host — the vibe19 image does **not** embed EnergyPlus. Dry-run / defaults preview work when WattLab is mounted via `VIBE19_WATTLAB_DIR`.
+
+Full WattLab docs: [`../vibe_code_apps_20/README.md`](../vibe_code_apps_20/README.md) · vendor pin: [`../vibe_code_apps_20/third_party/README.md`](../vibe_code_apps_20/third_party/README.md).
 
 ## How data maps to rules
 
