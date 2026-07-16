@@ -24,6 +24,7 @@ from config import (
     DEFAULT_MADISON_EPW,
     DEFAULT_PROTOTYPE_IDF,
     ROOT,
+    weather_suitability,
 )
 from ecm_library.measure_sets import expand_measure_set
 from ep_mcp_client import simulate
@@ -40,6 +41,8 @@ from results_parse import (
     file_sha256,
     savings_by_measure,
 )
+from run_manifest import build_run_manifest, write_run_manifest
+
 
 PRODUCT = "OpenFDD WattLab"
 DISCLAIMER = (
@@ -165,13 +168,17 @@ def plan_dry_run(profile_path: Path, measure_set: str | None = None) -> dict[str
     ep = profile.get("energyplus") or {}
     prototype = resolve_path(ep.get("prototype_idf"), DEFAULT_PROTOTYPE_IDF)
     epw = resolve_path(ep.get("epw"), DEFAULT_MADISON_EPW)
+    epw_note = ep.get("epw_note") or DEFAULT_EPW_NOTE
+    city_id = str((profile.get("location") or {}).get("city_id") or profile.get("city") or "")
+    wx = weather_suitability(epw_path=epw, epw_note=epw_note, city_id=city_id)
     measures = approved_measures(profile, measure_set)
     steps: list[dict[str, Any]] = [
         {
             "step": "select_prototype",
             "prototype_idf": str(prototype),
             "epw": str(epw),
-            "epw_note": ep.get("epw_note") or DEFAULT_EPW_NOTE,
+            "epw_note": epw_note,
+            "weather_suitability": wx,
         },
         {
             "step": "baseline_patch",
@@ -197,9 +204,11 @@ def plan_dry_run(profile_path: Path, measure_set: str | None = None) -> dict[str
         "display_name": profile.get("display_name"),
         "disclaimer": profile.get("disclaimer") or DISCLAIMER,
         "measure_set": measure_set or profile.get("measure_set"),
+        "weather_suitability": wx,
         "steps": steps,
         "approved_measure_ids": [m["measure_id"] for m in measures],
     }
+
 
 
 def _rates(profile: dict) -> tuple[float, float]:
@@ -262,13 +271,18 @@ def run_easy_button(
     ep = profile.get("energyplus") or {}
     prototype = resolve_path(ep.get("prototype_idf"), DEFAULT_PROTOTYPE_IDF)
     epw = resolve_path(ep.get("epw"), DEFAULT_MADISON_EPW)
+    epw_note = ep.get("epw_note") or DEFAULT_EPW_NOTE
+    city_id = str((profile.get("location") or {}).get("city_id") or profile.get("city") or "")
+    wx = weather_suitability(epw_path=epw, epw_note=epw_note, city_id=city_id)
     elec_rate, gas_rate = _rates(profile)
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     run_dir = ARTIFACTS / f"wattlab_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     measures = approved_measures(profile, measure_set)
+
     if skip_ecm2:
         measures = [
             m
@@ -343,6 +357,26 @@ def run_easy_button(
     )
     savings = savings_by_measure(records)
 
+    finished_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    final_idf = current_idf
+    manifest = build_run_manifest(
+        run_id=run_id,
+        run_dir=run_dir,
+        idf_path=final_idf,
+        epw_path=epw,
+        patches=patch_log,
+        weather_suitability=wx,
+        status="SUCCESS",
+        started_at=started_at,
+        finished_at=finished_at,
+        extra={
+            "baseline_idf_sha256": file_sha256(baseline_idf) if baseline_idf.is_file() else None,
+            "prototype_sha256": file_sha256(prototype) if prototype.is_file() else None,
+            "product": PRODUCT,
+        },
+    )
+    write_run_manifest(run_dir, manifest)
+
     report = {
         "product": PRODUCT,
         "run_id": run_id,
@@ -353,7 +387,9 @@ def run_easy_button(
         "prototype_idf": str(prototype),
         "prototype_sha256": file_sha256(prototype),
         "epw": str(epw),
-        "epw_note": ep.get("epw_note") or DEFAULT_EPW_NOTE,
+        "epw_note": epw_note,
+        "weather_suitability": wx,
+        "run_manifest": manifest,
         "baseline_sim": sim_meta,
         "patches": patch_log,
         "result_records": records,
@@ -365,6 +401,7 @@ def run_easy_button(
     (run_dir / "wattlab_report.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
+
     (run_dir / "resolved_profile.json").write_text(
         json.dumps(profile, indent=2), encoding="utf-8"
     )

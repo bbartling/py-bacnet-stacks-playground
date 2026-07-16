@@ -57,8 +57,9 @@ Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF co
 | `wattlab_defaults.py` | Defaults resolver (type + city + code → profile with `field_sources`) |
 | `defaults/` | `archetypes.json`, `climate.json`, `codes.json` |
 | `easy_button.py` | Prototype → baseline → approved ECM chain (supports `--measure-set` / `--minimal`) |
-| `calibrate.py` | Overlap-window calibration vs vibe19 Model Seed Bundle (AMY EPW + scorecard) |
+| `calibrate.py` | Overlap-window calibration vs vibe19 Model Seed Bundle (AMY EPW + scorecard + optional validation holdout) |
 | `weather_epw.py` | Build Actual Meteorological Year EPW from `weather_observed.csv` / Open-Meteo |
+| `run_manifest.py` | Content-hash run manifests (`model_sha256`, `weather_sha256`, EP pin, image) |
 | `vibe19_bridge.py` | Agent-export bundle → evidence + auto-suggested measures |
 | `madison_office.py` | Madison conceptual playbook wrapper |
 | `ep_docker.py` | Image ensure + container `energyplus` runs |
@@ -99,11 +100,29 @@ Measure sets: **Good** (schedules) · **Better** (+ chiller lockout) · **Best**
 
 vibe19 exports a **Model Seed Bundle** (`model_seed.json`, inferred schedules, OAT-binned operating signatures, observed weather). WattLab:
 
-1. Builds an **AMY EPW** from `weather_observed.csv` (Open-Meteo fields).
+1. Builds an **AMY EPW** from `weather_observed.csv` (Open-Meteo fields) — weather mode `ACTUAL_YEAR_CALIBRATION`.
 2. Patches **RunPeriod** to the data window (no full year of HVAC runtime required).
 3. Simulates and writes `calibration_scorecard.json` with NMBE/CVRMSE vs signatures and optional monthly utility bills (ASHRAE Guideline 14 monthly thresholds ±5% / 15%).
+4. Optional holdout: `--validation-months N` (needs ≥6 bill months) splits bills into calibration vs validation; scorecard `status` is one of `VALIDATED` / `CALIBRATED_NOT_VALIDATED` / `FAILED_VALIDATION` / `CONCEPTUAL_ONLY`.
+5. Hour-shift warning via lag-scan correlation (does not auto-correct). Signature shape match stays whole-window (OAT-binned).
 
-Without bills the scorecard still reports **shape match** on fan/cooling on-fractions and flags `bills_recommended`.
+Without bills the scorecard still reports **shape match** on fan/cooling on-fractions and flags `bills_recommended` → status `CONCEPTUAL_ONLY`.
+
+```powershell
+python calibrate.py --bundle path/to/vibe19_export --validation-months 3
+```
+
+Every run writes `run_manifest.json` (IDF/EPW sha256, EnergyPlus pin, Docker image).
+
+### Weather suitability (stamped on every report)
+
+| Mode | When |
+| --- | --- |
+| `TYPICAL_YEAR_SCREENING` | City-matched TMY (e.g. Chicago EPW for Chicago) |
+| `ACTUAL_YEAR_CALIBRATION` | AMY EPW from observed weather (`calibrate.py`) |
+| `SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY` | Wrong-city / approximated EPW (e.g. Chicago TMY for Madison) |
+
+Never silently substitute weather — every `wattlab_report.json` / scorecard includes `weather_suitability.mode` + reason.
 
 ## vibe19 Streamlit integration
 

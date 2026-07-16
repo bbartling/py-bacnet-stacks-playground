@@ -31,7 +31,9 @@ Optimize for engineering defensibility, reproducibility, and honest limits (unca
 - Never invent savings. Missing evidence → `NEEDS_INPUT`.
 - Never claim EnergyPlus-MCP alone implements full ASHRAE Guideline 36 — WattLab uses **app-owned IDF patches** for schedule / VAV-min / fan proxies (`conceptual_gl36_proxy`).
 - Never skip Docker for live sims: image `energyplus-mcp-dev` (EnergyPlus 26.1) is required.
-- Never overwrite a prior run’s IDF without hashing (`input_hash` = SHA-256 of IDF).
+- Never overwrite a prior run’s IDF without hashing (`input_hash` = SHA-256 of IDF); write `run_manifest.json` with model/weather hashes + EP pin.
+- Never silently substitute weather — stamp `weather_suitability` (`TYPICAL_YEAR_SCREENING` / `ACTUAL_YEAR_CALIBRATION` / `SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`) on every report.
+- Never claim `VALIDATED` without a held-out bill period (`--validation-months`) that passes Guideline-14 gates; no bills or substitute weather → `CONCEPTUAL_ONLY`.
 - Never bundle interacting ECMs while reporting them as independent savings — apply one approved measure at a time.
 - Never publish utility savings or payback without listing rate and confidence assumptions.
 - Never expose the actual building location when the project is marked anonymized.
@@ -97,8 +99,8 @@ Evidence record · applicability decision · baseline parameters · proposed par
 
 - Image: `energyplus-mcp-dev` · EnergyPlus **26.1.0**
 - Default prototype: `examples/prototypes/5ZoneAirCooled.idf`
-- Madison EPW: Chicago O'Hare TMY3 proxy (`examples/weather/...`) until a WI file is bundled — always record `epw_note`
-- Artifacts: `.artifacts/wattlab_<UTC>/` with IDF copies, `eplustbl.*`, `result_record_*.json`, `wattlab_report.json`
+- Madison EPW: Chicago O'Hare TMY3 proxy (`examples/weather/...`) until a WI file is bundled — always record `epw_note` + `weather_suitability=SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`
+- Artifacts: `.artifacts/wattlab_<UTC>/` with IDF copies, `eplustbl.*`, `result_record_*.json`, `wattlab_report.json`, `run_manifest.json`
 
 ## Madison playbook
 

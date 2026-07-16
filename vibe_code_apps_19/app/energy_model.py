@@ -995,6 +995,11 @@ def render_energy_model_tab(
         report = st.session_state.get("wattlab_last_report")
         if report:
             st.markdown("##### EnergyPlus results")
+            wx = report.get("weather_suitability") or {}
+            if wx.get("mode"):
+                st.caption(
+                    f"Weather suitability: **{wx['mode']}** — {wx.get('reason') or ''}"
+                )
             if report.get("dry_run"):
                 st.json(report)
             else:

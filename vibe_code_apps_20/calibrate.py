@@ -2,6 +2,7 @@
 
 Usage:
   python calibrate.py --bundle <vibe19_export_dir> [--seed model_seed.json] [--dry-run]
+  python calibrate.py --bundle <dir> --validation-months 3
 """
 
 from __future__ import annotations
@@ -15,11 +16,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from config import ARTIFACTS, DEFAULT_PROTOTYPE_IDF, ROOT
+from config import (
+    ARTIFACTS,
+    DEFAULT_PROTOTYPE_IDF,
+    ROOT,
+    STATUS_CALIBRATED_NOT_VALIDATED,
+    STATUS_CONCEPTUAL_ONLY,
+    STATUS_FAILED_VALIDATION,
+    STATUS_VALIDATED,
+    SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY,
+    weather_suitability,
+)
 from ep_mcp_client import simulate
 from idf_patches import apply_hourly_outputs, apply_run_period
 from idf_patches.schedules import apply_fan_avail_continuous
-from results_parse import annual_from_output_dir
+from results_parse import annual_from_output_dir, file_sha256
+from run_manifest import build_run_manifest, write_run_manifest
 from wattlab_defaults import resolve_profile
 from weather_epw import build_amy_epw
 
@@ -70,6 +82,84 @@ def _pass_fail(stats: dict[str, float]) -> str:
     return "fail"
 
 
+def pearson_corr(a: list[float], b: list[float]) -> float:
+    """Pearson correlation; nan if undefined."""
+    n = min(len(a), len(b))
+    if n < 3:
+        return float("nan")
+    xs = a[:n]
+    ys = b[:n]
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    den_x = math.sqrt(sum((x - mx) ** 2 for x in xs))
+    den_y = math.sqrt(sum((y - my) ** 2 for y in ys))
+    if den_x < 1e-12 or den_y < 1e-12:
+        return float("nan")
+    return num / (den_x * den_y)
+
+
+def detect_hour_shift(
+    observed: list[float],
+    simulated: list[float],
+    *,
+    max_lag: int = 3,
+) -> dict[str, Any]:
+    """Lag-scan correlation to flag likely hour-ending / alignment errors.
+
+    Does **not** auto-correct — reports best lag and whether a non-zero shift
+    improves correlation vs lag 0. Warning only.
+    """
+    n = min(len(observed), len(simulated))
+    if n < max(12, 2 * max_lag + 3):
+        return {
+            "best_lag_hours": 0,
+            "corr_at_0": float("nan"),
+            "best_corr": float("nan"),
+            "warning": None,
+            "note": "insufficient_samples",
+        }
+    obs = [float(x) for x in observed[:n]]
+    sim = [float(x) for x in simulated[:n]]
+    corr0 = pearson_corr(obs, sim)
+    best_lag = 0
+    best_corr = corr0 if not math.isnan(corr0) else -2.0
+    per_lag: list[dict[str, Any]] = [{"lag": 0, "corr": None if math.isnan(corr0) else round(corr0, 4)}]
+
+    for lag in range(-max_lag, max_lag + 1):
+        if lag == 0:
+            continue
+        if lag > 0:
+            # simulated leads observed by ``lag`` hours → shift sim later
+            o = obs[lag:]
+            s = sim[: n - lag]
+        else:
+            o = obs[: n + lag]
+            s = sim[-lag:]
+        c = pearson_corr(o, s)
+        per_lag.append({"lag": lag, "corr": None if math.isnan(c) else round(c, 4)})
+        score = c if not math.isnan(c) else -2.0
+        if score > best_corr:
+            best_corr = score
+            best_lag = lag
+
+    warning = None
+    if best_lag != 0 and not math.isnan(corr0) and best_corr > corr0 + 0.02:
+        warning = (
+            f"Possible {best_lag}-hour timestamp shift "
+            f"(corr@{best_lag}={best_corr:.3f} vs corr@0={corr0:.3f}). "
+            "Check hour-ending vs hour-beginning and timezone/DST."
+        )
+    return {
+        "best_lag_hours": best_lag,
+        "corr_at_0": None if math.isnan(corr0) else round(corr0, 4),
+        "best_corr": round(best_corr, 4) if best_corr > -1.5 else None,
+        "per_lag": per_lag,
+        "warning": warning,
+        "note": "warning_only_no_auto_correct",
+    }
+
+
 def aggregate_signatures(rows: list[dict[str, str]], kind: str = "fan") -> dict[int, float]:
     """Mean on_fraction by OAT bin_start for a signature kind."""
     buckets: dict[int, list[float]] = {}
@@ -89,7 +179,6 @@ def parse_eplusout_hourly(sim_dir: Path) -> list[dict[str, Any]]:
     """Parse eplusout.csv hourly rows into {oat_c, fan_w, cool_w, ...}."""
     path = sim_dir / "eplusout.csv"
     if not path.is_file():
-        # Some EnergyPlus builds use eplusout.csv.gz or different name
         alts = list(sim_dir.glob("eplusout*.csv"))
         if not alts:
             return []
@@ -102,6 +191,7 @@ def parse_eplusout_hourly(sim_dir: Path) -> list[dict[str, Any]]:
         except StopIteration:
             return []
         header_l = [h.strip().lower() for h in header]
+
         def find(*needles: str) -> int | None:
             for i, h in enumerate(header_l):
                 if all(n in h for n in needles):
@@ -122,6 +212,7 @@ def parse_eplusout_hourly(sim_dir: Path) -> list[dict[str, Any]]:
         for raw in reader:
             if not raw or len(raw) < 2:
                 continue
+
             def _f(idx: int | None) -> float:
                 if idx is None or idx >= len(raw):
                     return float("nan")
@@ -157,7 +248,7 @@ def simulated_signatures_from_hourly(
         if oat_f < 40 or oat_f > 110:
             continue
         b = int(math.floor(oat_f / bin_width_f) * bin_width_f)
-        fan_on = 1 if (r.get("fan_w") or 0) > 10.0 else 0  # >10 W
+        fan_on = 1 if (r.get("fan_w") or 0) > 10.0 else 0
         cool_on = 1 if (r.get("cool_w") or 0) > 100.0 else 0
         fan_buckets.setdefault(b, []).append(fan_on)
         cool_buckets.setdefault(b, []).append(cool_on)
@@ -257,6 +348,91 @@ def compare_bills_to_monthly(
     }
 
 
+def split_bills_for_holdout(
+    bills: list[dict[str, Any]],
+    *,
+    validation_months: int = 0,
+    validation_start: int | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Split monthly bills into calibration vs validation sets.
+
+    Default: hold out the last ``validation_months`` contiguous months (by month number
+    order as present in ``bills``). Optional ``validation_start`` (1–12) starts the
+    holdout at that calendar month when present.
+    """
+    meta: dict[str, Any] = {
+        "validation_months_requested": validation_months,
+        "validation_start": validation_start,
+        "min_months_for_holdout": 6,
+    }
+    ordered = sorted(
+        [b for b in bills if b.get("month")],
+        key=lambda b: int(b["month"]),
+    )
+    if validation_months <= 0 or len(ordered) < 6:
+        meta["applied"] = False
+        meta["reason"] = (
+            "holdout_disabled"
+            if validation_months <= 0
+            else f"need_at_least_6_months_have_{len(ordered)}"
+        )
+        return ordered, [], meta
+
+    n_val = min(validation_months, len(ordered) - 3)  # keep >=3 cal months
+    if n_val <= 0:
+        meta["applied"] = False
+        meta["reason"] = "not_enough_months_after_reserve"
+        return ordered, [], meta
+
+    if validation_start is not None:
+        months = [int(b["month"]) for b in ordered]
+        if validation_start not in months:
+            meta["applied"] = False
+            meta["reason"] = f"validation_start_{validation_start}_not_in_bills"
+            return ordered, [], meta
+        val_set: set[int] = set()
+        m = int(validation_start)
+        for _ in range(n_val):
+            val_set.add(m)
+            m = 1 if m == 12 else m + 1
+        cal = [b for b in ordered if int(b["month"]) not in val_set]
+        val = [b for b in ordered if int(b["month"]) in val_set]
+    else:
+        cal = ordered[:-n_val]
+        val = ordered[-n_val:]
+
+    meta["applied"] = True
+    meta["calibration_months"] = [int(b["month"]) for b in cal]
+    meta["validation_months"] = [int(b["month"]) for b in val]
+    meta["note"] = (
+        "Signature shape comparison stays whole-window "
+        "(operating_signatures.csv is OAT-binned, not timestamped)."
+    )
+    return cal, val, meta
+
+
+def resolve_calibration_status(
+    *,
+    weather_mode: str,
+    has_bills: bool,
+    bills_pass_fail: str | None,
+    validation_applied: bool,
+    validation_pass_fail: str | None,
+) -> str:
+    """Map weather + bill gates to scorecard status enum."""
+    if weather_mode == SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY:
+        return STATUS_CONCEPTUAL_ONLY
+    if not has_bills or bills_pass_fail in {None, "bills_recommended", "insufficient_data"}:
+        return STATUS_CONCEPTUAL_ONLY
+    if validation_applied:
+        if validation_pass_fail == "pass":
+            return STATUS_VALIDATED
+        if validation_pass_fail == "fail":
+            return STATUS_FAILED_VALIDATION
+        return STATUS_CALIBRATED_NOT_VALIDATED
+    return STATUS_CALIBRATED_NOT_VALIDATED
+
+
 def run_calibration(
     bundle_dir: Path,
     *,
@@ -264,6 +440,8 @@ def run_calibration(
     dry_run: bool = False,
     lat: float | None = None,
     lon: float | None = None,
+    validation_months: int = 0,
+    validation_start: int | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir)
     seed_file = Path(seed_path) if seed_path else bundle / "model_seed.json"
@@ -279,7 +457,6 @@ def run_calibration(
     if not begin or not end:
         raise ValueError("model_seed.data_window.start_utc/end_utc required")
 
-    # Merge user geometry from seed into resolve_profile
     minimal = {
         k: seed[k]
         for k in (
@@ -308,8 +485,15 @@ def run_calibration(
     lon_v = float(lon if lon is not None else seed.get("lon") or -87.92)
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     run_dir = ARTIFACTS / f"calibrate_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    wx = weather_suitability(
+        source="amy",
+        epw_note="AMY EPW from weather_observed.csv (Open-Meteo / vibe19).",
+        city_id=str(minimal.get("city") or ""),
+    )
 
     plan = {
         "product": "OpenFDD WattLab Calibration",
@@ -320,6 +504,9 @@ def run_calibration(
         "lat": lat_v,
         "lon": lon_v,
         "weather_csv": str(weather_csv) if weather_csv.is_file() else None,
+        "weather_suitability": wx,
+        "validation_months": validation_months,
+        "validation_start": validation_start,
         "artifacts_dir": str(run_dir),
     }
     if dry_run:
@@ -366,34 +553,109 @@ def run_calibration(
     fan_cmp = compare_signature_maps(obs_fan, sim_sigs.get("fan") or {})
     cool_cmp = compare_signature_maps(obs_cool, sim_sigs.get("mech_cooling") or {})
 
+    alignment: dict[str, Any] | None = None
+    try:
+        from weather_epw import load_weather_frame, resample_hourly
+
+        wx_df = resample_hourly(load_weather_frame(weather_csv))
+        obs_oat: list[float] = []
+        series = wx_df["web-outside-air-temp"] if "web-outside-air-temp" in wx_df.columns else wx_df.iloc[:, 0]
+        for v in series:
+            try:
+                obs_oat.append((float(v) - 32.0) * 5.0 / 9.0)
+            except (TypeError, ValueError):
+                obs_oat.append(float("nan"))
+        sim_oat = [r.get("oat_c", float("nan")) for r in hourly]
+        o = [x for x in obs_oat if not (isinstance(x, float) and math.isnan(x))]
+        s = [x for x in sim_oat if not (isinstance(x, float) and math.isnan(x))]
+        n2 = min(len(o), len(s))
+        if n2 >= 24:
+            alignment = detect_hour_shift(o[:n2], s[:n2], max_lag=3)
+        else:
+            alignment = {"warning": None, "note": "insufficient_hourly_overlap"}
+    except Exception as exc:  # noqa: BLE001 — best-effort diagnostic
+        alignment = {"warning": None, "note": f"alignment_skipped: {exc}"}
+
     bills = load_utility_bills(bundle, seed)
-    bills_cmp: dict[str, Any] | None = None
-    if bills:
-        bills_cmp = compare_bills_to_monthly(bills, annual.get("monthly") or [])
-    else:
+    cal_bills, val_bills, holdout_meta = split_bills_for_holdout(
+        bills,
+        validation_months=validation_months,
+        validation_start=validation_start,
+    )
+
+    bills_cmp: dict[str, Any]
+    validation_cmp: dict[str, Any] | None = None
+    if not bills:
         bills_cmp = {
             "months_compared": 0,
             "pass_fail": "bills_recommended",
             "note": "Upload monthly utility bills for ASHRAE-14 magnitude calibration.",
         }
+    elif holdout_meta.get("applied"):
+        bills_cmp = compare_bills_to_monthly(cal_bills, annual.get("monthly") or [])
+        bills_cmp["split"] = "calibration"
+        validation_cmp = compare_bills_to_monthly(val_bills, annual.get("monthly") or [])
+        validation_cmp["split"] = "validation"
+    else:
+        bills_cmp = compare_bills_to_monthly(bills, annual.get("monthly") or [])
 
-    # Overall: bills pass if present, else fan-signature shape is the soft gate
     if bills and bills_cmp.get("pass_fail") in {"pass", "fail"}:
         overall = bills_cmp["pass_fail"]
+        if validation_cmp and validation_cmp.get("pass_fail") == "fail":
+            overall = "fail"
     elif fan_cmp.get("bins_compared", 0) > 0:
-        # Soften signature thresholds (behavior shape, not energy magnitude)
         overall = "shape_ok" if fan_cmp["pass_fail"] != "insufficient_data" else "insufficient_data"
     else:
         overall = "insufficient_data"
+
+    status = resolve_calibration_status(
+        weather_mode=str(wx.get("mode") or ""),
+        has_bills=bool(bills),
+        bills_pass_fail=str(bills_cmp.get("pass_fail") or ""),
+        validation_applied=bool(holdout_meta.get("applied")),
+        validation_pass_fail=(
+            str(validation_cmp.get("pass_fail")) if validation_cmp else None
+        ),
+    )
+
+    finished_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    patch_names = ["fan_avail_continuous", "run_period", "hourly_outputs"]
+    manifest = build_run_manifest(
+        run_id=run_id,
+        run_dir=run_dir,
+        idf_path=idf3,
+        epw_path=epw_path,
+        patches=[{"name": n} for n in patch_names],
+        weather_suitability=wx,
+        status="SUCCESS" if (isinstance(sim_result, dict) and sim_result.get("ok", True)) else "FAILED",
+        started_at=started_at,
+        finished_at=finished_at,
+        extra={
+            "product": "OpenFDD WattLab Calibration",
+            "prototype_sha256": file_sha256(proto) if proto.is_file() else None,
+            "calibration_status": status,
+        },
+    )
+    write_run_manifest(run_dir, manifest)
 
     scorecard = {
         "product": "OpenFDD WattLab Calibration",
         "run_id": run_id,
         "overall": overall,
+        "status": status,
         "data_window": window,
+        "weather_suitability": wx,
         "epw": epw_meta,
         "run_period": rp_meta,
         "hourly_outputs": out_meta,
+        "alignment": alignment,
+        "holdout": holdout_meta,
+        "run_manifest": {
+            "model_sha256": manifest.get("model_sha256"),
+            "weather_sha256": manifest.get("weather_sha256"),
+            "energyplus_version": manifest.get("energyplus_version"),
+            "docker_image": manifest.get("docker_image"),
+        },
         "simulate": {
             "ok": bool(sim_result.get("ok", True)) if isinstance(sim_result, dict) else True,
             "sim_dir": str(sim_dir),
@@ -407,8 +669,10 @@ def run_calibration(
         "signatures": {
             "fan": fan_cmp,
             "mech_cooling": cool_cmp,
+            "note": "Whole-window OAT-bin shape match (not split by calibration/validation months).",
         },
         "utility_bills": bills_cmp,
+        "utility_bills_validation": validation_cmp,
         "thresholds_ashrae14_monthly": {"nmbe_pct": NMBE_PASS, "cvrmse_pct": CVRMSE_PASS},
         "artifacts_dir": str(run_dir),
         "profile_project_id": profile.get("project_id"),
@@ -425,6 +689,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--seed", type=Path, default=None, help="Override model_seed.json path")
     p.add_argument("--lat", type=float, default=None)
     p.add_argument("--lon", type=float, default=None)
+    p.add_argument(
+        "--validation-months",
+        type=int,
+        default=0,
+        help="Hold out last N monthly bills for validation (needs >=6 months; 0=disabled)",
+    )
+    p.add_argument(
+        "--validation-start",
+        type=int,
+        default=None,
+        help="Optional calendar month (1-12) to start contiguous validation holdout",
+    )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args(argv)
     try:
@@ -434,6 +710,8 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             lat=args.lat,
             lon=args.lon,
+            validation_months=args.validation_months,
+            validation_start=args.validation_start,
         )
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}), file=sys.stderr)

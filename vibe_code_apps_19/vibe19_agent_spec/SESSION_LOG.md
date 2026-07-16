@@ -8,6 +8,11 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-16 — WattLab calibration hardening
+
+- vibe20: weather suitability modes stamped on easy_button / calibrate reports; bill-month validation holdout (`--validation-months`); hour-shift lag-scan warning; `run_manifest.json` content hashes.
+- vibe19 Energy Model: caption shows `weather_suitability` from vibe20 sidecar results.
+
 ## 2026-07-16 — Mapping staleness fix + in-app Energy Model wizard
 
 - **FDD Plots mapping bug:** Data Model role edits now bump `mapping_rev`, clear stale `batch_results`, sync site/frame attrs; `rule_plot_series` prefers live remapped columns over baked `plot_series`. Damper + econ roles in editor defaults.
