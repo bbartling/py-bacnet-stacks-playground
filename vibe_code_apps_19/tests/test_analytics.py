@@ -364,3 +364,66 @@ def test_rcx_typed_membership_no_id_substring():
         equipment_types=("BOILER",),
     )
     assert not out2.empty
+
+def test_infer_schedules_weekday_hours():
+    from app.model_seed import infer_schedules
+
+    # Two weekdays: fan ON 6–18, OFF nights
+    idx = pd.date_range("2024-01-01", periods=48, freq="1h", tz="UTC")  # Mon–Tue
+    fan = [0.0] * 6 + [100.0] * 12 + [0.0] * 6
+    fan = fan + fan
+    df = pd.DataFrame({"fan-status": fan}, index=idx)
+    df.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
+    table, payload = infer_schedules({"AHU_1": df}, role_map={})
+    assert not table.empty
+    assert table.iloc[0]["equipment_id"] == "AHU_1"
+    assert table.iloc[0]["weekday_start_hour"] is not None
+    assert float(table.iloc[0]["weekday_start_hour"]) == pytest.approx(6.0, abs=1.0)
+    assert float(table.iloc[0]["weekday_stop_hour"]) == pytest.approx(18.0, abs=1.0)
+    assert payload["summary"]["equipment_count"] == 1
+    assert "data_window" in payload
+
+
+def test_operating_signatures_fan_and_cooling():
+    from app.model_seed import operating_signatures
+
+    idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
+    ahu = pd.DataFrame(
+        {
+            "fan-status": [1.0] * 10,
+            "compressor-status": [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+            "outside-air-temp": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95],
+        },
+        index=idx,
+    )
+    ahu.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
+    sig = operating_signatures({"AHU_1": ahu}, role_map={}, prefer_web_oat=False)
+    assert not sig.empty
+    kinds = set(sig["kind"])
+    assert "fan" in kinds
+    assert "mech_cooling" in kinds
+    assert {"hours_available", "hours_on", "on_fraction"}.issubset(sig.columns)
+    fan_rows = sig[sig["kind"] == "fan"]
+    assert float(fan_rows["on_fraction"].min()) == pytest.approx(1.0)
+
+
+def test_build_model_seed_dict_tags_vibe19():
+    from app.model_seed import build_model_seed_dict
+
+    payload = {
+        "data_window": {"start_utc": "2024-01-01", "end_utc": "2024-01-08", "span_hours": 168},
+        "equipment": {
+            "AHU_1": {
+                "equipment_type": "AHU",
+                "weekday_start_hour": 6.0,
+                "weekday_stop_hour": 18.0,
+                "always_on_fraction": 0.4,
+                "likely_always_on": False,
+            }
+        },
+    }
+    seed = build_model_seed_dict(building_id="BUILDING_100", schedule_payload=payload)
+    assert seed["project_id"] == "BUILDING_100"
+    assert seed["schedule_hints"]["weekday_start_hour"] == 6.0
+    assert seed["field_sources"]["schedule_hints"]["source"] == "vibe19"
+    assert seed["building_type"] is None

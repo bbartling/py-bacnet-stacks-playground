@@ -6,7 +6,7 @@
 
 ## Mission
 
-`vibe19 analytics → evidence → approved MeasureBrief → WattLab easy button (prototype IDF + EPW) → progressive IDF ECMs → result_record + literature QA`
+`vibe19 analytics → Model Seed Bundle (schedules + signatures + weather) → optional calibrate.py (AMY EPW + scorecard) → approved MeasureBrief → WattLab easy button (prototype IDF + EPW) → progressive IDF ECMs → result_record + literature QA`
 
 Optimize for engineering defensibility, reproducibility, and honest limits (uncalibrated prototypes are screens, not calibrated models).
 

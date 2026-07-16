@@ -21,6 +21,11 @@ from app.analytics import (
     motor_run_hours_table,
     motor_run_hours_weekly,
 )
+from app.model_seed import (
+    build_model_seed_dict,
+    infer_schedules,
+    operating_signatures,
+)
 from app.column_map_json import (
     merge_column_map_into_role_map,
     to_haystack_document,
@@ -359,7 +364,7 @@ def run_analytics(
     dataset: AgentDataset,
     params: dict[str, Any] | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Motor hours, weekly motors, mech-cooling OAT bins (web OAT primary)."""
+    """Motor hours, weekly motors, mech-cooling OAT bins, model-seed signatures."""
     p = params or {}
     prefer_web = bool(p.get("prefer_web_oat", dataset.prefer_web_oat))
     motor = motor_run_hours_table(dataset.frames, dataset.role_map)
@@ -385,11 +390,21 @@ def run_analytics(
         damper_hi=float(p.get("econ3_damper_hi", 0.90)),
         damper_winter_max=float(p.get("econ6_damper_max", 0.25)),
     )
+    sched_table, sched_payload = infer_schedules(dataset.frames, dataset.role_map)
+    signatures = operating_signatures(
+        dataset.frames,
+        dataset.role_map,
+        weather=dataset.weather,
+        prefer_web_oat=prefer_web,
+    )
     return {
         "motor_hours": motor,
         "motor_weekly": weekly,
         "mech_cooling_oat_bins": cool,
         "economizer_weather": econ,
+        "schedule_inference_table": sched_table,
+        "schedule_inference": sched_payload,
+        "operating_signatures": signatures,
     }
 
 
@@ -408,8 +423,12 @@ def export_agent_bundle(
     include_gap_report: bool = True,
     include_tuning_report: bool = True,
     baseline_run: AgentRun | None = None,
+    utility_bills: list[dict[str, Any]] | None = None,
+    city: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
 ) -> dict[str, Path]:
-    """Write run_report + CSVs + fault/session/role/column maps under ``out_dir``."""
+    """Write run_report + CSVs + model-seed artifacts under ``out_dir``."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
@@ -419,6 +438,20 @@ def export_agent_bundle(
     if not analytics:
         analytics = run_analytics(dataset)
         run.analytics = analytics
+    # Ensure model-seed analytics even for older AgentRun objects
+    if "schedule_inference" not in analytics or "operating_signatures" not in analytics:
+        sched_table, sched_payload = infer_schedules(dataset.frames, dataset.role_map)
+        signatures = operating_signatures(
+            dataset.frames,
+            dataset.role_map,
+            weather=dataset.weather,
+            prefer_web_oat=dataset.prefer_web_oat,
+        )
+        analytics["schedule_inference_table"] = sched_table
+        analytics["schedule_inference"] = sched_payload
+        analytics["operating_signatures"] = signatures
+        run.analytics = analytics
+
     rcx = run.rcx_coverage
     if rcx is None or (isinstance(rcx, pd.DataFrame) and rcx.empty):
         rcx = run_rcx_coverage(dataset)
@@ -497,12 +530,53 @@ def export_agent_bundle(
         ("motor_weekly", "motor_weekly.csv"),
         ("mech_cooling_oat_bins", "mech_cooling_oat_bins.csv"),
         ("economizer_weather", "economizer_weather.csv"),
+        ("operating_signatures", "operating_signatures.csv"),
+        ("schedule_inference_table", "schedule_inference_table.csv"),
     ):
         df = analytics.get(key)
         if df is not None and isinstance(df, pd.DataFrame):
             path = out / filename
             df.to_csv(path, index=False)
             written[key] = path
+
+    sched_payload = analytics.get("schedule_inference")
+    if isinstance(sched_payload, dict):
+        si = out / "schedule_inference.json"
+        si.write_text(json.dumps(sched_payload, indent=2, default=str), encoding="utf-8")
+        written["schedule_inference"] = si
+
+    # Observed weather for AMY EPW / calibration
+    if dataset.weather is not None and isinstance(dataset.weather, pd.DataFrame) and not dataset.weather.empty:
+        wx = dataset.weather.copy()
+        if isinstance(wx.index, pd.DatetimeIndex):
+            wx = wx.reset_index()
+            # Normalize timestamp column name
+            first = wx.columns[0]
+            if first != "timestamp_utc":
+                wx = wx.rename(columns={first: "timestamp_utc"})
+        wx_path = out / "weather_observed.csv"
+        wx.to_csv(wx_path, index=False)
+        written["weather_observed"] = wx_path
+
+    if utility_bills:
+        bills_path = out / "utility_bills.csv"
+        pd.DataFrame(utility_bills).to_csv(bills_path, index=False)
+        written["utility_bills"] = bills_path
+
+    seed = build_model_seed_dict(
+        building_id=dataset.building_id,
+        schedule_payload=sched_payload if isinstance(sched_payload, dict) else {"equipment": {}, "data_window": {}},
+        signatures=analytics.get("operating_signatures")
+        if isinstance(analytics.get("operating_signatures"), pd.DataFrame)
+        else None,
+        city=city,
+        lat=lat,
+        lon=lon,
+        utility_bills=utility_bills,
+    )
+    ms = out / "model_seed.json"
+    ms.write_text(json.dumps(seed, indent=2, default=str), encoding="utf-8")
+    written["model_seed"] = ms
 
     if isinstance(rcx, pd.DataFrame):
         path = out / "rcx_preset_coverage.csv"

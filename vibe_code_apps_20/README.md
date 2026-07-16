@@ -55,11 +55,13 @@ Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF co
 | `wattlab_defaults.py` | Defaults resolver (type + city + code → profile with `field_sources`) |
 | `defaults/` | `archetypes.json`, `climate.json`, `codes.json` |
 | `easy_button.py` | Prototype → baseline → approved ECM chain (supports `--measure-set` / `--minimal`) |
+| `calibrate.py` | Overlap-window calibration vs vibe19 Model Seed Bundle (AMY EPW + scorecard) |
+| `weather_epw.py` | Build Actual Meteorological Year EPW from `weather_observed.csv` / Open-Meteo |
 | `vibe19_bridge.py` | Agent-export bundle → evidence + auto-suggested measures |
 | `madison_office.py` | Madison conceptual playbook wrapper |
 | `ep_docker.py` | Image ensure + container `energyplus` runs |
 | `ep_mcp_client.py` | MCP status / simulate helpers |
-| `idf_patches/` | Schedule, chiller lockout, SAT reset, GL36-proxy IDF text patches |
+| `idf_patches/` | Schedule, chiller lockout, SAT reset, RunPeriod, hourly outputs, GL36-proxy |
 | `ecm_library/measure_sets.json` | Good / Better / Best measure sets |
 | `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
 | `config.py` | Paths, image name, default prototype / EPW |
@@ -80,9 +82,26 @@ python easy_button.py --minimal "{\"building_type\":\"office\",\"city\":\"madiso
 
 # Bridge a vibe19 agent-export directory into measures
 python vibe19_bridge.py path/to/vibe19_export -o .artifacts/bridge.json
+
+# Calibrate against a vibe19 Model Seed Bundle (needs weather_observed.csv + Docker)
+python calibrate.py --bundle path/to/vibe19_export --dry-run
+python calibrate.py --bundle path/to/vibe19_export --lat 42.33 --lon -83.05
+
+# Build AMY EPW alone
+python weather_epw.py path/to/weather_observed.csv -o .artifacts/amy.epw --lat 42.33 --lon -83.05
 ```
 
 Measure sets: **Good** (schedules) · **Better** (+ chiller lockout) · **Best** (+ SAT reset + GL36 airside proxy).
+
+## Calibration (partial-year OK)
+
+vibe19 exports a **Model Seed Bundle** (`model_seed.json`, inferred schedules, OAT-binned operating signatures, observed weather). WattLab:
+
+1. Builds an **AMY EPW** from `weather_observed.csv` (Open-Meteo fields).
+2. Patches **RunPeriod** to the data window (no full year of HVAC runtime required).
+3. Simulates and writes `calibration_scorecard.json` with NMBE/CVRMSE vs signatures and optional monthly utility bills (ASHRAE Guideline 14 monthly thresholds ±5% / 15%).
+
+Without bills the scorecard still reports **shape match** on fan/cooling on-fractions and flags `bills_recommended`.
 
 ## vibe19 Streamlit integration
 
@@ -90,7 +109,8 @@ The vibe19 **Energy Model** tab shells out to this pack (no Python cross-imports
 
 1. Sibling folder auto-detect, or set `VIBE19_WATTLAB_DIR` to this directory.
 2. Build `energyplus-mcp-dev` once (see Quick start / [`third_party/README.md`](third_party/README.md)).
-3. Open Streamlit → **Energy Model** → preview defaults / dry-run / live Sims.
+3. Open Streamlit → **Energy Model** → preview defaults / dry-run / live Sims / **Calibrate against my data**.
+4. Optional: **Fetch Open-Meteo weather** + enter monthly utility bills for ASHRAE-14 magnitude calibration.
 
 Copy [`.env.example`](.env.example) → `.env` for image name and utility-rate overrides only — never put credentials in `.env`.
 

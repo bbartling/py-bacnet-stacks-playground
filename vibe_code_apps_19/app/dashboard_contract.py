@@ -51,4 +51,9 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.browser_session:clear_browser_session_pointer",
     "app.energy_model:render_energy_model_tab",
     "app.energy_model:resolve_wattlab_dir",
+    "app.energy_model:write_model_seed_bundle",
+    "app.energy_model:run_calibrate",
+    "app.model_seed:infer_schedules",
+    "app.model_seed:operating_signatures",
+    "app.open_meteo:fetch_open_meteo",
 )

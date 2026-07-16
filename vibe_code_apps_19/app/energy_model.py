@@ -250,6 +250,164 @@ def bridge_suggest(wattlab: Path, bundle_dir: Path) -> dict[str, Any]:
     )
 
 
+def run_calibrate(
+    wattlab: Path,
+    bundle_dir: Path,
+    *,
+    dry_run: bool = False,
+    lat: float | None = None,
+    lon: float | None = None,
+    timeout: int = 1800,
+) -> dict[str, Any]:
+    args = ["calibrate.py", "--bundle", str(bundle_dir)]
+    if dry_run:
+        args.append("--dry-run")
+    if lat is not None:
+        args.extend(["--lat", str(lat)])
+    if lon is not None:
+        args.extend(["--lon", str(lon)])
+    return _run_python(wattlab, args, timeout=timeout)
+
+
+def default_utility_bills_rows() -> list[dict[str, Any]]:
+    return [{"month": m, "kwh": None, "therms": None} for m in range(1, 13)]
+
+
+def signature_overlay_figure(scorecard: dict[str, Any], *, kind: str = "fan"):
+    """Observed vs simulated on-fraction by OAT bin."""
+    import plotly.graph_objects as go
+
+    block = ((scorecard.get("signatures") or {}).get(kind)) or {}
+    per_bin = block.get("per_bin") or []
+    if not per_bin:
+        return None
+    bins = [r["bin_start"] for r in per_bin]
+    obs = [r["observed_on_fraction"] for r in per_bin]
+    sim = [r["simulated_on_fraction"] for r in per_bin]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name="Observed", x=bins, y=obs, marker_color="#4C78A8"))
+    fig.add_trace(go.Bar(name="Simulated", x=bins, y=sim, marker_color="#F58518"))
+    fig.update_layout(
+        barmode="group",
+        title=f"{kind} on-fraction by OAT bin (overlap window)",
+        xaxis_title="OAT bin start (°F)",
+        yaxis_title="On fraction",
+        height=360,
+        margin=dict(t=50, b=40),
+    )
+    return fig
+
+
+def bills_overlay_figure(scorecard: dict[str, Any]):
+    import plotly.graph_objects as go
+
+    block = scorecard.get("utility_bills") or {}
+    per = block.get("per_month") or []
+    if not per:
+        return None
+    months = [r["month"] for r in per]
+    obs = [r["observed_kwh"] for r in per]
+    sim = [r["simulated_kwh"] for r in per]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name="Bills kWh", x=months, y=obs, marker_color="#4C78A8"))
+    fig.add_trace(go.Bar(name="Simulated kWh", x=months, y=sim, marker_color="#F58518"))
+    fig.update_layout(
+        barmode="group",
+        title="Monthly electricity — bills vs simulated",
+        xaxis_title="Month",
+        yaxis_title="kWh",
+        height=360,
+        margin=dict(t=50, b=40),
+    )
+    return fig
+
+
+def write_model_seed_bundle(
+    out_dir: Path,
+    *,
+    frames: dict[str, Any],
+    role_map: dict,
+    weather: Any,
+    building_id: str,
+    minimal: dict[str, Any],
+    utility_bills: list[dict[str, Any]] | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> Path:
+    """Write a vibe19 model-seed bundle for WattLab calibrate.py."""
+    from app.model_seed import build_model_seed_dict, infer_schedules, operating_signatures
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sched_table, sched_payload = infer_schedules(frames, role_map)
+    signatures = operating_signatures(frames, role_map, weather=weather)
+    sched_table.to_csv(out_dir / "schedule_inference_table.csv", index=False)
+    (out_dir / "schedule_inference.json").write_text(
+        json.dumps(sched_payload, indent=2, default=str), encoding="utf-8"
+    )
+    signatures.to_csv(out_dir / "operating_signatures.csv", index=False)
+    if weather is not None and isinstance(weather, pd.DataFrame) and not weather.empty:
+        wx = weather.copy()
+        if isinstance(wx.index, pd.DatetimeIndex):
+            wx = wx.reset_index()
+            first = wx.columns[0]
+            if first != "timestamp_utc":
+                wx = wx.rename(columns={first: "timestamp_utc"})
+        wx.to_csv(out_dir / "weather_observed.csv", index=False)
+
+    bills = []
+    if utility_bills:
+        for r in utility_bills:
+            if r.get("kwh") is None and r.get("therms") is None:
+                continue
+            bills.append(
+                {
+                    "month": int(r["month"]),
+                    "kwh": r.get("kwh"),
+                    "therms": r.get("therms"),
+                }
+            )
+        if bills:
+            pd.DataFrame(bills).to_csv(out_dir / "utility_bills.csv", index=False)
+
+    seed = build_model_seed_dict(
+        building_id=building_id or "unknown",
+        schedule_payload=sched_payload,
+        signatures=signatures,
+        city=minimal.get("city"),
+        lat=lat,
+        lon=lon,
+        utility_bills=bills or None,
+        extras={
+            "building_type": minimal.get("building_type"),
+            "floor_area_ft2": minimal.get("floor_area_ft2"),
+            "floors": minimal.get("floors"),
+            "floor_to_floor_ft": minimal.get("floor_to_floor_ft"),
+            "wwr": minimal.get("wwr"),
+            "hvac": minimal.get("hvac"),
+            "utility": minimal.get("utility"),
+            "code_year": minimal.get("code_year"),
+            "anonymized": True,
+        },
+    )
+    # User geometry overrides the null placeholders
+    if minimal.get("building_type"):
+        seed["building_type"] = minimal["building_type"]
+        seed["field_sources"]["building_type"] = {"source": "user"}
+    if minimal.get("floor_area_ft2"):
+        seed["floor_area_ft2"] = minimal["floor_area_ft2"]
+        seed["field_sources"]["floor_area_ft2"] = {"source": "user"}
+    if minimal.get("floors"):
+        seed["floors"] = minimal["floors"]
+    (out_dir / "model_seed.json").write_text(
+        json.dumps(seed, indent=2, default=str), encoding="utf-8"
+    )
+    (out_dir / "run_report.json").write_text(
+        json.dumps({"building_id": building_id, "product": "OpenFDD Model Seed"}, indent=2),
+        encoding="utf-8",
+    )
+    return out_dir
+
+
 def flatten_savings_rows(savings: list[dict[str, Any]]) -> pd.DataFrame:
     rows = []
     for s in savings:
@@ -698,6 +856,187 @@ def render_energy_model_tab(
                     "evidence_count": len(bridge.get("evidence") or []),
                 }
             )
+
+    # ------------------------------------------------------------------
+    # Open-Meteo + utility bills + overlap-window calibration
+    # ------------------------------------------------------------------
+    st.markdown("##### Weather + bills (calibration inputs)")
+    frames = st.session_state.get("equipment_frames") or {}
+    weather = st.session_state.get("weather")
+    building_id = st.session_state.get("building_id") or "building"
+    role_map = st.session_state.get("role_map") or {}
+
+    om1, om2, om3, om4 = st.columns(4)
+    st.session_state.setdefault("em_lat", 42.33)
+    st.session_state.setdefault("em_lon", -83.05)
+    lat = om1.number_input("Latitude", format="%.4f", key="em_lat")
+    lon = om2.number_input("Longitude", format="%.4f", key="em_lon")
+    # Date range from loaded data when available
+    from app.analytics import dataset_time_span
+
+    span = dataset_time_span(frames) if frames else {"start": None, "end": None}
+    default_start = (
+        span["start"].strftime("%Y-%m-%d")
+        if span.get("start") is not None
+        else "2024-01-01"
+    )
+    default_end = (
+        span["end"].strftime("%Y-%m-%d") if span.get("end") is not None else "2024-01-07"
+    )
+    st.session_state.setdefault("em_wx_start", default_start)
+    st.session_state.setdefault("em_wx_end", default_end)
+    start_s = om3.text_input("Weather start (UTC date)", key="em_wx_start")
+    end_s = om4.text_input("Weather end (UTC date)", key="em_wx_end")
+
+    if st.button("Fetch Open-Meteo weather", key="em_fetch_openmeteo"):
+        try:
+            from app.open_meteo import fetch_open_meteo
+
+            with st.spinner("Fetching Open-Meteo historical weather…"):
+                wx = fetch_open_meteo(float(lat), float(lon), start_s, end_s, grid_minutes=60)
+            st.session_state["weather"] = wx
+            st.session_state["em_open_meteo_meta"] = getattr(wx, "attrs", {}).get("open_meteo")
+            st.success(f"Loaded {len(wx):,} hourly Open-Meteo rows into session weather.")
+        except Exception as exc:
+            st.error(f"Open-Meteo fetch failed (network / dates): {exc}")
+
+    if st.session_state.get("em_open_meteo_meta"):
+        st.caption(f"Last fetch: `{st.session_state['em_open_meteo_meta']}`")
+    elif weather is not None and isinstance(weather, pd.DataFrame) and not weather.empty:
+        st.caption(f"Session weather present · {len(weather):,} rows")
+    else:
+        st.caption("No weather in session yet — fetch Open-Meteo or load a package with weather.")
+
+    st.markdown("###### Monthly utility bills (optional — ASHRAE-14 magnitude anchor)")
+    if "em_utility_bills" not in st.session_state:
+        st.session_state["em_utility_bills"] = default_utility_bills_rows()
+    bills_df = st.data_editor(
+        pd.DataFrame(st.session_state["em_utility_bills"]),
+        num_rows="fixed",
+        hide_index=True,
+        width="stretch",
+        key="em_bills_editor",
+        column_config={
+            "month": st.column_config.NumberColumn("Month", min_value=1, max_value=12, step=1),
+            "kwh": st.column_config.NumberColumn("kWh", min_value=0.0, step=100.0),
+            "therms": st.column_config.NumberColumn("therms", min_value=0.0, step=10.0),
+        },
+    )
+    st.session_state["em_utility_bills"] = bills_df.to_dict("records")
+
+    st.markdown("##### Calibrate against my data")
+    st.caption(
+        "Builds a Model Seed Bundle (schedules + OAT operating signatures + weather), "
+        "synthesizes an AMY EPW, runs EnergyPlus for the data window, and scores "
+        "observed vs simulated (NMBE / CVRMSE)."
+    )
+    c_cal1, c_cal2 = st.columns(2)
+    do_cal = c_cal1.button(
+        "Calibrate against my data",
+        key="wattlab_calibrate",
+        type="primary",
+        disabled=not bool(frames),
+    )
+    do_cal_dry = c_cal2.button(
+        "Calibration dry-run plan",
+        key="wattlab_calibrate_dry",
+        disabled=not bool(frames),
+    )
+    if not frames:
+        st.caption("Load a building package first so schedules / signatures can be inferred.")
+
+    if do_cal or do_cal_dry:
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                bundle = write_model_seed_bundle(
+                    Path(td),
+                    frames=frames,
+                    role_map=role_map,
+                    weather=st.session_state.get("weather"),
+                    building_id=str(building_id),
+                    minimal=minimal,
+                    utility_bills=st.session_state.get("em_utility_bills"),
+                    lat=float(lat),
+                    lon=float(lon),
+                )
+                if not (bundle / "weather_observed.csv").is_file() and not do_cal_dry:
+                    st.error(
+                        "No weather_observed.csv — fetch Open-Meteo or load package weather first."
+                    )
+                else:
+                    with st.spinner(
+                        "Calibration dry-run…"
+                        if do_cal_dry
+                        else "Calibrating (AMY EPW + EnergyPlus Docker) — may take several minutes…"
+                    ):
+                        cal = run_calibrate(
+                            wattlab,
+                            bundle,
+                            dry_run=bool(do_cal_dry),
+                            lat=float(lat),
+                            lon=float(lon),
+                        )
+                    if cal.get("report") is not None:
+                        st.session_state["wattlab_calibration"] = cal["report"]
+                        if do_cal_dry:
+                            st.success("Calibration plan ready")
+                            st.json(cal["report"])
+                        elif cal.get("ok"):
+                            st.success(
+                                f"Calibration overall: "
+                                f"**{cal['report'].get('overall', '?')}**"
+                            )
+                        else:
+                            st.warning("Calibration finished with non-zero exit — see scorecard / logs.")
+                            st.code(cal.get("stderr") or cal.get("stdout") or "")
+                    else:
+                        st.error("No calibration JSON returned")
+                        st.code(cal.get("stderr") or cal.get("stdout") or "")
+        except Exception as exc:
+            st.exception(exc)
+
+    scorecard = st.session_state.get("wattlab_calibration")
+    if scorecard and not scorecard.get("dry_run"):
+        st.markdown("##### Calibration scorecard")
+        overall = scorecard.get("overall") or "?"
+        bills_block = scorecard.get("utility_bills") or {}
+        fan_block = ((scorecard.get("signatures") or {}).get("fan")) or {}
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Overall", str(overall))
+        fan_stats = fan_block.get("stats") or {}
+        b2.metric(
+            "Fan NMBE %",
+            "—"
+            if fan_stats.get("nmbe_pct") is None
+            else f"{fan_stats.get('nmbe_pct')}",
+        )
+        b3.metric(
+            "Fan CVRMSE %",
+            "—"
+            if fan_stats.get("cvrmse_pct") is None
+            else f"{fan_stats.get('cvrmse_pct')}",
+        )
+        bill_stats = bills_block.get("stats") or {}
+        b4.metric(
+            "Bills NMBE %",
+            bills_block.get("pass_fail")
+            if bills_block.get("pass_fail") == "bills_recommended"
+            else (
+                "—"
+                if bill_stats.get("nmbe_pct") is None
+                else f"{bill_stats.get('nmbe_pct')}"
+            ),
+        )
+        fig_sig = signature_overlay_figure(scorecard, kind="fan")
+        if fig_sig is not None:
+            st.plotly_chart(fig_sig, width="stretch")
+        fig_bills = bills_overlay_figure(scorecard)
+        if fig_bills is not None:
+            st.plotly_chart(fig_bills, width="stretch")
+        elif bills_block.get("pass_fail") == "bills_recommended":
+            st.info(bills_block.get("note") or "Utility bills recommended for magnitude calibration.")
+        with st.expander("Full calibration_scorecard.json"):
+            st.json(scorecard)
 
     st.markdown("##### Run EnergyPlus screening")
     r1, r2, r3 = st.columns(3)

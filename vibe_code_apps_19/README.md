@@ -28,7 +28,7 @@ Suggested human→agent message:
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
-- **Energy Model** tab → [OpenFDD WattLab](../vibe_code_apps_20/) (responsive defaults + Progressive EnergyPlus ECM screens)
+- **Energy Model** tab → [OpenFDD WattLab](../vibe_code_apps_20/) (responsive defaults, progressive ECMs, **overlap-window calibration** via Model Seed Bundle + AMY EPW)
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
 - **Docker / GHCR** image for self-host demos
 
@@ -129,9 +129,13 @@ The **Energy Model** section calls [vibe_code_apps_20](../vibe_code_apps_20/) vi
 
 | Piece | Role |
 | --- | --- |
-| vibe19 Streamlit (`Energy Model` tab) | Easy-button form, 3D massing, FDD→ECM suggest, results charts |
+| vibe19 Streamlit (`Energy Model` tab) | Easy-button form, 3D massing, Open-Meteo fetch, utility bills, FDD→ECM suggest, **Calibrate against my data**, results charts |
+| vibe19 `export_agent_bundle` / `app/model_seed.py` | **Model Seed Bundle**: `model_seed.json`, `schedule_inference.json`, `operating_signatures.csv`, `weather_observed.csv` |
 | vibe20 `wattlab_defaults` / `easy_button` | Resolve defaults + progressive IDF patches |
+| vibe20 `weather_epw.py` / `calibrate.py` | Open-Meteo CSV → **AMY EPW**, overlap-window RunPeriod, `calibration_scorecard.json` (NMBE/CVRMSE) |
 | Docker `energyplus-mcp-dev` | LBNL [EnergyPlus-MCP](https://github.com/LBNL-ETA/EnergyPlus-MCP) + EnergyPlus **26.1** sims |
+
+Turnkey UI smoke: `python -m pytest tests/test_turnkey_app.py -q` (AppTest all sections + live HTML `/_stcore/health`).
 
 ```powershell
 # One-time EnergyPlus image (from vibe20)

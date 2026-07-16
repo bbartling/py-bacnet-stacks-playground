@@ -143,6 +143,13 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert (out / "session_config.json").is_file()
     assert (out / "role_map.yaml").is_file()
     assert (out / "rcx_preset_coverage.csv").is_file()
+    assert (out / "model_seed.json").is_file()
+    assert (out / "schedule_inference.json").is_file()
+    assert (out / "operating_signatures.csv").is_file()
+    assert (out / "weather_observed.csv").is_file()
+    seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))
+    assert seed["project_id"] == "TINY_B1"
+    assert "data_window" in seed
     assert "role_map_gap_report" in written or (out / "role_map_gap_report.csv").is_file()
     # Tiny package is clean → package_health may be ok with empty issues
     assert "package_health" in (ds.package_report or {})

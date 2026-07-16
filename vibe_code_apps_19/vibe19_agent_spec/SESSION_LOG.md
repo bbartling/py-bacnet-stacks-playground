@@ -8,10 +8,20 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
-## 2026-07-15 — Energy Model UI harden + Sketchbox scrub
+## 2026-07-16 — Model Seed Bundle + overlap-window calibration
+
+- `app/model_seed.py`: `infer_schedules`, `operating_signatures`, `build_model_seed_dict`
+- `export_agent_bundle` writes `model_seed.json`, `schedule_inference.json`, `operating_signatures.csv`, `weather_observed.csv`
+- `app/open_meteo.py` + Energy Model **Fetch Open-Meteo** / utility bills / **Calibrate against my data**
+- vibe20: `weather_epw.py` (AMY EPW), `calibrate.py` + RunPeriod/hourly IDF patches → `calibration_scorecard.json`
+- Turnkey UI: `tests/test_turnkey_app.py` (AppTest all sections + live HTML smoke)
+
+---
+
+## 2026-07-15 — Energy Model UI harden + brand scrub
 
 - Hardened `app/energy_model.py` (session-keyed widgets, flat savings table, graceful WattLab missing, `width="stretch"`)
-- Scrubbed leftover `.cursor/skills/vibe20-sketchbox` and WattLab `.env` credentials; docs cover EnergyPlus-MCP sidecar + GHCR
+- Scrubbed leftover WattLab `.env` credentials; docs cover EnergyPlus-MCP sidecar + GHCR
 - vibe19/vibe20 READMEs + `docs/DOCKER.md` Energy Model / `energyplus-mcp-dev` directions
 
 ---
