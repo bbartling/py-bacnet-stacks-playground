@@ -40,6 +40,7 @@ ANALYTICS_HINTS: dict[str, str] = {
     "OAT-METEO": "Needs both BAS `oa_t` and web `wx_oa_t`; Prefer web OAT sidebar.",
     "ECON-3": "Web DB+DP free-cool band; Overview economizer_weather compliance hours; mech-cooling OAT bins are separate (DX/plant proof).",
     "ECON-6": "Winter min-OA damper vs web OAT < 25°F; Overview economizer_weather winter hours.",
+    "ECON-7": "Economizer-OK band (web DP < 60°F, DB < 72°F) with cooling demand but damper not economizing; pairs with ECON-3 / MECH-OAT-1.",
     "MECH-OAT-1": "Proven DX/chiller cooling below 60°F web OAT; Overview prohibited_mech hours.",
     "CHW-NOLOAD-1": "Needs building zone or AHU-SAT satisfaction columns (batch inject); 30 min confirm.",
     "CW-OPT-1": "RCx `cw_reset_scatter` uses `cw_supply_t` vs web wet-bulb.",

@@ -39,6 +39,7 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.rcx_plots:REQUIRED_RCX_PRESET_IDS",
     "app.rcx_plots:collect_oat_scatter",
     "app.rcx_plots:collect_role_series",
+    "app.rcx_plots:collect_status_series",
     "app.rcx_plots:rcx_preset_coverage",
     "app.rcx_plots:pump_mode_summary_bundle",
     "app.data_model_tree:build_data_model_tree",

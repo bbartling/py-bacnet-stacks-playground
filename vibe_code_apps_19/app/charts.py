@@ -378,18 +378,25 @@ def multi_equipment_timeseries(
     y_title: str = "",
     outlier_ids: set[str] | None = None,
     max_points: int | None = None,
+    status_map: dict[str, pd.Series] | None = None,
 ) -> go.Figure | None:
-    """Overlay many equipment series; outliers get a thicker dashed red-ish stroke."""
+    """Overlay many equipment series; outliers get a thicker dashed red-ish stroke.
+
+    ``status_map`` (equipment_id → 0/1 motor/fan status) adds dotted step traces on a
+    secondary right-hand axis so run status reads alongside the primary series.
+    """
     if not series_map:
         return None
     outliers = outlier_ids or set()
     fig = go.Figure()
     color_i = 0
     cap = int(max_points if max_points is not None else max_plot_points())
+    colors_by_eq: dict[str, str] = {}
     for eq_id, s in sorted(series_map.items()):
         num = downsample_series_for_plot(pd.to_numeric(s, errors="coerce"), max_points=cap)
         is_out = eq_id in outliers
         color = "#dc2626" if is_out else RAINBOW_PALETTE[color_i % len(RAINBOW_PALETTE)]
+        colors_by_eq[eq_id] = color
         if not is_out:
             color_i += 1
         fig.add_trace(
@@ -402,6 +409,37 @@ def multi_equipment_timeseries(
                 connectgaps=False,
             )
         )
+    has_status = False
+    for eq_id, s in sorted((status_map or {}).items()):
+        if eq_id not in colors_by_eq:
+            continue
+        num = downsample_series_for_plot(pd.to_numeric(s, errors="coerce"), max_points=cap)
+        if not num.notna().any():
+            continue
+        has_status = True
+        fig.add_trace(
+            go.Scatter(
+                x=num.index,
+                y=num,
+                name=f"{eq_id} · motor on",
+                mode="lines",
+                line=dict(color=colors_by_eq[eq_id], width=1.0, dash="dot", shape="hv"),
+                yaxis="y2",
+                opacity=0.7,
+                connectgaps=False,
+            )
+        )
+    layout_extra: dict[str, Any] = {}
+    if has_status:
+        layout_extra["yaxis2"] = dict(
+            overlaying="y",
+            side="right",
+            range=[-0.08, 1.4],
+            tickvals=[0, 1],
+            ticktext=["off", "on"],
+            title=dict(text="motor on", font=dict(size=10)),
+            showgrid=False,
+        )
     fig.update_layout(
         title=title,
         xaxis_title="timestamp",
@@ -411,6 +449,7 @@ def multi_equipment_timeseries(
         legend=dict(orientation="h", y=1.12, font=dict(size=10)),
         margin=dict(l=50, r=20, t=60, b=50),
         hovermode="x unified",
+        **layout_extra,
     )
     return fig
 

@@ -427,6 +427,40 @@ def collect_role_series_pump_mode(
     return out
 
 
+def collect_status_series(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    equipment_types: tuple[str, ...] | None = None,
+    equipment_ids: list[str] | None = None,
+    kind: str = "fan",
+) -> dict[str, pd.Series]:
+    """Map equipment_id → 0/1 motor status series for chart overlays.
+
+    ``kind="fan"`` uses :func:`operating_mask` (fan-status → fan-cmd → VAV airflow);
+    ``kind="pump"`` uses :func:`hydronic_operating_mask`. Equipment without any
+    proof signal is omitted.
+    """
+    out: dict[str, pd.Series] = {}
+    for eq_id, raw in frames.items():
+        if equipment_ids is not None and eq_id not in equipment_ids:
+            continue
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types:
+            allowed = {t.upper() for t in equipment_types}
+            if et not in allowed:
+                continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+        if kind == "pump":
+            mask, _proof = hydronic_operating_mask(mapped)
+        else:
+            mask, _proof = operating_mask(mapped)
+        if mask is None:
+            continue
+        out[eq_id] = mask.astype(bool).astype(int)
+    return out
+
+
 def pump_mode_summary_bundle(
     frames: dict[str, pd.DataFrame],
     role_map: dict,

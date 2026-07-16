@@ -89,6 +89,7 @@ def test_ui_picker_loads_synthetic_building_zip(monkeypatch: pytest.MonkeyPatch)
     assert _ss(at, "weather_frame") is not None or (_ss(at, "package_report") or {}).get("has_weather")
 
 
+@pytest.mark.optional_zip
 def test_ui_picker_loads_building_100_zip(tadco_building_zip: Path, monkeypatch: pytest.MonkeyPatch):
     """Same path as human: Data source Zip → Building package zip(s) → Load zip(s)."""
     at = _cloud_app(monkeypatch)
@@ -114,6 +115,7 @@ def test_ui_picker_loads_building_100_zip(tadco_building_zip: Path, monkeypatch:
     assert "2000" in caps_text, f"expected zip-item limit 2000 in captions, got: {caps_text[:500]}"
 
 
+@pytest.mark.optional_zip
 def test_ui_picker_rejects_weather_only_zip(tadco_weather_zip: Path, monkeypatch: pytest.MonkeyPatch):
     at = _cloud_app(monkeypatch)
     data = tadco_weather_zip.read_bytes()
@@ -130,6 +132,7 @@ def test_ui_picker_rejects_weather_only_zip(tadco_weather_zip: Path, monkeypatch
     assert not (_ss(at, "equipment_frames") or {}), "weather-only zip must not load equipment"
 
 
+@pytest.mark.optional_zip
 def test_ui_picker_building_plus_weather(
     tadco_building_zip: Path, tadco_weather_zip: Path, monkeypatch: pytest.MonkeyPatch
 ):

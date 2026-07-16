@@ -159,6 +159,89 @@ def test_multi_equipment_timeseries_and_box_cap():
         assert len(tr.y) <= 600
 
 
+def _fc2_frame(n: int = 12, **extra) -> pd.DataFrame:
+    idx = pd.date_range("2024-01-01", periods=n, freq="5min", tz="UTC")
+    data = {
+        "mixed-air-temp": [55.0] * n,
+        "outside-air-temp": [50.0] * n,
+        "return-air-temp": [70.0] * n,
+        "fan-cmd": [60.0] * n,
+    }
+    data.update({k: [v] * n for k, v in extra.items()})
+    return pd.DataFrame(data, index=idx)
+
+
+def test_plot_series_motor_status_and_dewpoint_lines():
+    """Every rule plot gets a 0/1 motor lane; temp plots with OAT also get web dewpoint."""
+    from app.rules.cookbook_catalog import RULES_BY_ID
+    from app.rules.runner import _plot_series_for_rule
+
+    df = _fc2_frame(**{"fan-status": 1, "web-outside-air-dewpoint": 45.0})
+    out = _plot_series_for_rule(RULES_BY_ID["FC2"], df)
+    assert "fan-status" in out
+    assert "web-outside-air-dewpoint" in out
+
+    # bool lane renders on its own axis in the combined figure
+    from app.rules.base import finalize_result
+
+    raw = pd.Series([False] * 6 + [True] * 6, index=df.index)
+    result = finalize_result(
+        "FC2", "AHU_1", raw, poll_seconds=300.0, confirm_seconds=0.0, plot_series=out
+    )
+    fig = rule_result_chart(df, result, required_roles=list(out.keys()))
+    assert fig is not None
+    names = [str(tr.name) for tr in fig.data]
+    assert any("fan-status" in nm for nm in names)
+    assert any("web-outside-air-dewpoint" in nm for nm in names)
+
+
+def test_plot_series_motor_on_derived_from_cmd():
+    from app.rules.cookbook_catalog import RULES_BY_ID
+    from app.rules.runner import _plot_series_for_rule
+
+    out = _plot_series_for_rule(RULES_BY_ID["FC2"], _fc2_frame())
+    assert "motor-on" in out
+    assert set(pd.unique(out["motor-on"])).issubset({0, 1})
+
+
+def test_multi_equipment_timeseries_status_overlay():
+    idx = pd.date_range("2024-01-01", periods=48, freq="30min", tz="UTC")
+    series_map = {"AHU_1": pd.Series(range(48), index=idx, dtype=float)}
+    status_map = {"AHU_1": pd.Series([1] * 24 + [0] * 24, index=idx)}
+    fig = multi_equipment_timeseries(series_map, title="t", status_map=status_map)
+    assert fig is not None
+    overlay = [tr for tr in fig.data if str(tr.name).endswith("· motor on")]
+    assert len(overlay) == 1
+    assert overlay[0].yaxis == "y2"
+    assert fig.layout.yaxis2 is not None
+
+    # No status_map → unchanged single-axis figure
+    fig_plain = multi_equipment_timeseries(series_map, title="t")
+    assert fig_plain is not None
+    assert all(not str(tr.name).endswith("· motor on") for tr in fig_plain.data)
+
+
+def test_collect_status_series_fan_and_cmd_proof():
+    from app.rcx_plots import collect_status_series
+
+    idx = pd.date_range("2024-01-01", periods=12, freq="5min", tz="UTC")
+    ahu1 = pd.DataFrame(
+        {"discharge-air-temp": [55.0] * 12, "fan-status": [1] * 6 + [0] * 6}, index=idx
+    )
+    ahu2 = pd.DataFrame(
+        {"discharge-air-temp": [56.0] * 12, "fan-cmd": [80.0] * 6 + [0.0] * 6}, index=idx
+    )
+    no_proof = pd.DataFrame({"discharge-air-temp": [57.0] * 12}, index=idx)
+    for eq, df in (("AHU_1", ahu1), ("AHU_2", ahu2), ("AHU_3", no_proof)):
+        df.attrs["equipment_id"] = eq
+        df.attrs["equipment_type"] = "AHU"
+    frames = {"AHU_1": ahu1, "AHU_2": ahu2, "AHU_3": no_proof}
+    out = collect_status_series(frames, {}, equipment_types=("AHU",))
+    assert set(out) == {"AHU_1", "AHU_2"}
+    for s in out.values():
+        assert set(pd.unique(s)).issubset({0, 1})
+
+
 def test_oat_scatter_cap():
     n = 20_500
     long_df = pd.DataFrame(

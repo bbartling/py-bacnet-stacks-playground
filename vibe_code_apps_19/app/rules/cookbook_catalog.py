@@ -1353,6 +1353,36 @@ RULES: list[CookbookRule] = [
         confirm_seconds=600,
     ),
     CookbookRule(
+        "ECON-7",
+        "Economizer OK but not economizing",
+        "ahu",
+        ["ahu"],
+        ["outside-air-damper"],
+        "Economizer-OK web weather: dew point < 60°F AND dry-bulb < 72°F (above a "
+        "35°F freeze-guard floor; dewpoint from web sensor or calculated from web DB+RH). "
+        "Fault when there is cooling demand (cooling valve open or proven DX/chiller "
+        "cooling) but the OA damper stays below the economizing threshold (default 50%). "
+        "Expected: economizer-only below 60°F DB (MECH-OAT-1) and mech + integrated "
+        "economizer in the 60–72°F band (ECON-3). All thresholds are imperial sliders.",
+        __import__("app.rules.economizer_weather", fromlist=["econ7_compute"]).econ7_compute,
+        params=[
+            CookbookParam("econ7_db_min", "Econ-OK dry-bulb floor (freeze guard)", "°F", 20.0, 50.0, 1.0, 35.0),
+            CookbookParam("econ7_db_max", "Econ-OK dry-bulb max", "°F", 65.0, 80.0, 1.0, 72.0),
+            CookbookParam("econ7_dp_max", "Econ-OK dew point max", "°F", 45.0, 68.0, 1.0, 60.0),
+            CookbookParam("econ7_damper_min", "Economizing damper threshold", "frac", 0.2, 0.9, 0.02, 0.50, direction="stricter"),
+            CONFIRM_PARAM(),
+        ],
+        optional_roles=[
+            "web-outside-air-temp",
+            "web-outside-air-dewpoint",
+            "web-outside-air-humidity",
+            "cooling-valve",
+            "compressor-status",
+            "dx-cool-cmd",
+        ],
+        confirm_seconds=600,
+    ),
+    CookbookRule(
         "MECH-OAT-1",
         "Mechanical cooling below 60°F web OAT",
         "ahu",
@@ -1652,6 +1682,7 @@ RULE_SUMMARY_OVERRIDES: dict[str, str] = {
     "SCHED-247": "Flags fans or pumps that stay on for nearly the entire analysis window (24/7 runtime).",
     "ECON-3": "Flags mechanical cooling during web free-cool weather when the OA damper is not fully integrated.",
     "ECON-6": "Flags an AHU economizing above min-OA when web outdoor air is below freezing (25°F).",
+    "ECON-7": "Flags cooling demand during economizer-OK web weather (dew point < 60°F, dry-bulb < 72°F) while the OA damper is not economizing.",
     "MECH-OAT-1": "Flags proven DX or chiller cooling while web dry-bulb is below 60°F.",
     "CHW-NOLOAD-1": "Flags a chiller running while mapped zones or AHU SAT show the building is satisfied.",
     "FC1": "Flags duct static too low while the supply fan is near full speed.",

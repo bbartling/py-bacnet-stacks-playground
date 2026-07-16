@@ -7,21 +7,23 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_upload_building_weather_combos import _optional_real_package_dir
+
 ROOT = Path(__file__).resolve().parents[1]
-TADCO_DIR = Path(
-    r"C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar"
-    r"\workspace\imports\hvac_systems_CLEANED"
-)
-TADCO_ZIP = TADCO_DIR / "BUILDING_100.zip"
 
 
 @pytest.fixture(scope="module")
 def tadco_zip() -> Path:
-    if not TADCO_ZIP.is_file():
-        pytest.skip(f"TADCO zip not present: {TADCO_ZIP}")
-    return TADCO_ZIP
+    d = _optional_real_package_dir()
+    if d is None:
+        pytest.skip("No VIBE19_TEST_PACKAGE_DIR / local BUILDING_100.zip for optional real-zip tests")
+    z = d / "BUILDING_100.zip"
+    if not z.is_file():
+        pytest.skip(f"TADCO zip not present: {z}")
+    return z
 
 
+@pytest.mark.optional_zip
 def test_streamlit_browser_caps_match_uploader_path(tadco_zip: Path):
     """Exact call Streamlit makes: load_package_zip(bytes, caps=for_browser_upload)."""
     from app.package_io import effective_package_caps, load_package_zip, wipe_workdir
@@ -37,6 +39,7 @@ def test_streamlit_browser_caps_match_uploader_path(tadco_zip: Path):
         wipe_workdir(result.workdir)
 
 
+@pytest.mark.optional_zip
 def test_streamlit_bootstrap_loads_building_100_zip(
     tadco_zip: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -78,6 +81,7 @@ def test_streamlit_bootstrap_loads_building_100_zip(
     assert (_ss("package_report") or {}).get("has_weather") or _ss("weather_frame") is not None
 
 
+@pytest.mark.optional_zip
 def test_streamlit_local_path_load_building_100(
     tadco_zip: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

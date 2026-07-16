@@ -70,6 +70,7 @@ RULE_GATES: dict[str, GateSpec] = {
     "ECON-4": GateSpec("fan_running", startup_delay_seconds=600),
     "ECON-5": GateSpec("fan_running", startup_delay_seconds=600),
     "ECON-6": GateSpec("fan_running", startup_delay_seconds=600),
+    "ECON-7": GateSpec("fan_running", startup_delay_seconds=600),
     "MECH-OAT-1": GateSpec("always"),  # needs cold-weather samples even if proof drops
     "CHW-NOLOAD-1": GateSpec("always"),  # confirmation delay is 30 min; do not pre-filter offs
     "VAV-1": GateSpec("conditional"),

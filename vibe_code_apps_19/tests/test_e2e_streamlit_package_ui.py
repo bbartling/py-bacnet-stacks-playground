@@ -31,6 +31,7 @@ def test_e2e_synthetic_upload_run_results(monkeypatch: pytest.MonkeyPatch):
     e2e.run_rules_and_results(summary["at"])
 
 
+@pytest.mark.optional_zip
 def test_e2e_optional_real_package(monkeypatch: pytest.MonkeyPatch):
     """When VIBE19_TEST_PACKAGE_DIR / local BUILDING_100.zip exists, exercise real UI path."""
     from tests.test_upload_building_weather_combos import _optional_real_package_dir

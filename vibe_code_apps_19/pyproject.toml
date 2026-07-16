@@ -28,3 +28,9 @@ include = ["app*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# optional_zip: needs real BUILDING_100.zip / weather.zip (VIBE19_TEST_PACKAGE_DIR or local sample).
+# Default suite stays green with 0 skips; run with: pytest -m optional_zip
+addopts = ["-m", "not optional_zip"]
+markers = [
+    "optional_zip: real BUILDING_100.zip / weather.zip integration (skipped when absent; excluded from default runs)",
+]

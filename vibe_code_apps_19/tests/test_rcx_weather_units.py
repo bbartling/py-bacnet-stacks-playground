@@ -12,7 +12,7 @@ from app.weather_psychrometrics import dewpoint_f_from_db_rh, enrich_weather_fra
 
 
 def test_canonical_rule_count_still_50():
-    assert len(RULES) == 58
+    assert len(RULES) == 59
     assert "CW-OPT-1" in RULES_BY_ID
     assert "WX-2" not in RULES_BY_ID
 

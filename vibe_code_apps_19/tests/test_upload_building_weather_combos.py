@@ -205,6 +205,7 @@ def test_synthetic_duplicate_building_uploads_deduped():
         wipe_workdir(result.workdir)
 
 
+@pytest.mark.optional_zip
 def test_real_building_alone(real_building_zip: Path):
     caps = effective_package_caps(for_browser_upload=True)
     result = load_package_zip(real_building_zip.read_bytes(), caps=caps)
@@ -215,11 +216,13 @@ def test_real_building_alone(real_building_zip: Path):
         wipe_workdir(result.workdir)
 
 
+@pytest.mark.optional_zip
 def test_real_weather_alone_rejected(real_weather_zip: Path):
     with pytest.raises(PackageError, match=r"weather-only|cannot be loaded by itself"):
         load_package_zip(real_weather_zip.read_bytes())
 
 
+@pytest.mark.optional_zip
 def test_real_building_plus_weather(real_building_zip: Path, real_weather_zip: Path):
     result = load_package_from_zip_parts(
         [
@@ -235,6 +238,7 @@ def test_real_building_plus_weather(real_building_zip: Path, real_weather_zip: P
         wipe_workdir(result.workdir)
 
 
+@pytest.mark.optional_zip
 def test_real_duplicate_building(real_building_zip: Path):
     data = real_building_zip.read_bytes()
     result = load_package_from_zip_parts(

@@ -70,7 +70,7 @@ def test_zscore_boilerplate_shape():
 
 
 def test_canonical_untouched_by_empty_custom():
-    assert CANONICAL_RULE_COUNT == 58
+    assert CANONICAL_RULE_COUNT == 59
     # Without example env, custom_rules() is empty by default
     assert custom_rules() == [] or all(r.id.startswith("CUSTOM-") for r in custom_rules())
-    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == 58
+    assert len([r for r in RULES if not str(r.id).startswith("CUSTOM-")]) == 59

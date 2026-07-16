@@ -4,7 +4,7 @@ Educational **Streamlit + pandas** lab for the [Open-FDD 50-rule Pandas Cookbook
 
 **This is not the Rust Open-FDD engine.** Production stack: [Open-FDD](https://github.com/bbartling/open-fdd).
 
-Agent brief: [`AGENTS.md`](AGENTS.md) · fork guide: [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
+**Quick links:** agent brief [`AGENTS.md`](AGENTS.md) · **zip layout** [`docs/PACKAGE_SPEC.md`](docs/PACKAGE_SPEC.md) (`openfdd_package_v1`) · fork guide [`vibe19_agent_spec/docs/CUSTOMIZE.md`](vibe19_agent_spec/docs/CUSTOMIZE.md)
 
 ## Prep a building zip (send this to your agent)
 
@@ -24,7 +24,7 @@ Suggested human→agent message:
 
 ## Highlights
 
-- Full **53 cookbook rules** + optional `CUSTOM-*` agent rules
+- Full **59 cookbook rules** + optional `CUSTOM-*` agent rules
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots

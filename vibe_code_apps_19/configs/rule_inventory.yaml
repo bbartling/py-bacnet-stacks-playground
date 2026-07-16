@@ -1,4 +1,4 @@
-canonical_rule_count: 58
+canonical_rule_count: 59
 rules:
 - rule_id: SV-RANGE
   family: sensor
@@ -903,6 +903,46 @@ rules:
   - fault_pct
   - fault_sample_count
   source_function: econ6_compute
+  known_limitations: ''
+- rule_id: ECON-7
+  family: ahu
+  title: Economizer OK but not economizing
+  description: "Economizer-OK web weather: dew point < 60\xB0F AND dry-bulb < 72\xB0\
+    F (above a 35\xB0F freeze-guard floor; dewpoint from web sensor or calculated\
+    \ from web DB+RH). Fault when there is cooling demand (cooling valve open or proven\
+    \ DX/chiller cooling) but the OA damper stays below the economizing threshold\
+    \ (default 50%). Expected: economizer-only below 60\xB0F DB (MECH-OAT-1) and mech\
+    \ + integrated economizer in the 60\u201372\xB0F band (ECON-3). All thresholds\
+    \ are imperial sliders."
+  summary: "Flags cooling demand during economizer-OK web weather (dew point < 60\xB0\
+    F, dry-bulb < 72\xB0F) while the OA damper is not economizing."
+  required_roles:
+  - outside-air-damper
+  optional_roles:
+  - web-outside-air-temp
+  - web-outside-air-dewpoint
+  - web-outside-air-humidity
+  - cooling-valve
+  - compressor-status
+  - dx-cool-cmd
+  equipment_kinds:
+  - ahu
+  tunable_params:
+  - econ7_db_min
+  - econ7_db_max
+  - econ7_dp_max
+  - econ7_damper_min
+  - confirm_min
+  default_confirm_seconds: 600
+  sensor_sweep: false
+  implemented: true
+  skipped_if_missing_roles: true
+  test_coverage: true
+  output_metrics:
+  - fault_hours
+  - fault_pct
+  - fault_sample_count
+  source_function: econ7_compute
   known_limitations: ''
 - rule_id: MECH-OAT-1
   family: ahu

@@ -1,4 +1,7 @@
-"""One-shot: write openfdd JSON maps into TADCO BUILDING_100 for Cloud zip upload."""
+"""DEPRECATED — use scripts/gen_openfdd_building_maps.py (BUILDING_100 + BUILDING_50).
+
+One-shot: write openfdd JSON maps into TADCO BUILDING_100 for Cloud zip upload.
+"""
 
 from __future__ import annotations
 

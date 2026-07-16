@@ -8,6 +8,15 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-16 — ECON-7 + plot overlays (fan status / dewpoint)
+
+- **ECON-7** *Economizer OK but not economizing*: web DP < 60°F and DB < 72°F (freeze-guard floor 35°F); cooling demand + damper below economizing threshold. Imperial sliders. Catalog **59** rules.
+- FDD Plots: every rule card gets a 0/1 motor/fan status lane; temp plots that already show OAT also get `web-outside-air-dewpoint`.
+- RCx timeseries: optional **Overlay motor / fan status (0/1)** checkbox → right-axis step traces.
+- Pytest: `@pytest.mark.optional_zip` + `addopts = -m "not optional_zip"` so default suite is 0 skips (real BUILDING_100.zip lane opt-in).
+
+---
+
 ## 2026-07-16 — Model Seed Bundle + overlap-window calibration
 
 - `app/model_seed.py`: `infer_schedules`, `operating_signatures`, `build_model_seed_dict`

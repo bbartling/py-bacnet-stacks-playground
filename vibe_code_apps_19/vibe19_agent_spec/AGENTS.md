@@ -4,6 +4,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 **Primary agent prompt (paste into new sessions):** [`../AGENTS.md`](../AGENTS.md)
 
+**Quick link — zip package layout:** [`../docs/PACKAGE_SPEC.md`](../docs/PACKAGE_SPEC.md) (`openfdd_package_v1`)
+
 **App:** Educational **Streamlit + pandas** FDD demo (`streamlit_app.py`).
 
 **Not this repo:** Production Rust/DataFusion Open-FDD → `C:\Users\ben\Documents\open-fdd`
@@ -13,7 +15,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 ## AI agent quick rules (read first)
 
 1. **Never commit client CSV history** — browse/paste a local building folder; keep trees out of git.
-2. **58 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`.
+2. **59 canonical rules** — never silently omit; use `SKIPPED_MISSING_ROLES` / `SKIPPED_EQUIPMENT_OFF` / `NOT_APPLICABLE_EQUIPMENT_TYPE`.
 3. **No Rust / DataFusion / FastAPI / Flask / Haystack RDF / Oxigraph** in this app.
 4. **Rules follow Open-FDD pandas cookbook** — raw mask → optional operational gate → `confirm_fault()` → rollup hours.
 5. **Operational gates** — most rules require fan/pump/compressor proof; see `docs/OPERATIONAL_GATES.md`. Prefer `fan_status` over `fan_cmd`.

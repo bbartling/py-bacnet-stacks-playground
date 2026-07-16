@@ -87,6 +87,48 @@ def econ3_compute(d: pd.DataFrame, p: dict, poll: float, wx_ok: bool = True) -> 
     return raw.fillna(False)
 
 
+def econ7_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    """Fault: economizer-OK web weather with cooling demand, but OA damper not economizing.
+
+    Economizer OK: web dew point < 60°F AND dry-bulb < 72°F (above a freeze-guard
+    floor, default 35°F). Dewpoint comes from the web sensor or is calculated from
+    web DB+RH. Cooling demand: cooling valve open OR proven DX/chiller cooling.
+    Expected operation: economizer-only below 60°F DB (see MECH-OAT-1) and
+    mech + integrated economizer in the 60–72°F band (see ECON-3).
+    """
+    del poll
+    if "outside-air-damper" not in d.columns:
+        return _false(d.index)
+    db, dp, src = resolve_web_drybulb_dewpoint(d)
+    d.attrs["econ7_weather_source"] = src
+    if db is None or dp is None:
+        return _false(d.index)
+
+    db_min = _f(p, "econ7_db_min", 35.0)
+    db_max = _f(p, "econ7_db_max", 72.0)
+    dp_max = _f(p, "econ7_dp_max", 60.0)
+    damper_min = _f(p, "econ7_damper_min", 0.50)
+
+    econ_ok = free_cool_opportunity_mask(db, dp, db_min=db_min, db_max=db_max, dp_max=dp_max)
+
+    demand = _false(d.index)
+    has_demand_signal = False
+    if "cooling-valve" in d.columns and d["cooling-valve"].notna().any():
+        demand = demand | (norm_cmd(d["cooling-valve"]).fillna(0) > 0.05)
+        has_demand_signal = True
+    mech, kind = mechanical_proof_mask(d)
+    d.attrs["econ7_proof"] = kind
+    if kind:
+        demand = demand | mech
+        has_demand_signal = True
+    if not has_demand_signal:
+        d.attrs["econ7_skip"] = "missing_cooling_demand_signal"
+        return _false(d.index)
+
+    econ = norm_cmd(d["outside-air-damper"]).fillna(0)
+    return (econ_ok & demand & (econ < damper_min)).fillna(False)
+
+
 def mech_oat1_compute(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
     """Fault: proven mechanical cooling while web dry-bulb < 60°F."""
     del poll

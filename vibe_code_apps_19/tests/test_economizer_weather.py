@@ -11,6 +11,7 @@ from app.rules import RULES_BY_ID, run_rule
 from app.rules.economizer_weather import (
     econ3_compute,
     econ6_compute,
+    econ7_compute,
     free_cool_opportunity_mask,
     mech_oat1_compute,
 )
@@ -226,6 +227,111 @@ def test_aggregate_load_satisfaction_injection():
     assert bool(frames["CHILLER_1"][AHU_SAT_COL].all())
 
 
+def _econ7_df(*, damper: float, valve: float, db: float, dp: float, n: int = 12) -> pd.DataFrame:
+    idx = _idx(n)
+    df = pd.DataFrame(
+        {
+            "outside-air-damper": [damper] * n,
+            "cooling-valve": [valve] * n,
+            "web-outside-air-temp": [db] * n,
+            "web-outside-air-dewpoint": [dp] * n,
+            "fan-status": [1] * n,
+        },
+        index=idx,
+    )
+    df.attrs["equipment_id"] = "AHU_1"
+    df.attrs["equipment_type"] = "AHU"
+    return df
+
+
+def test_econ7_fault_cooling_demand_damper_closed():
+    # Econ-OK: DP 45 < 60, DB 55 < 72 (above 35 floor); valve open, damper 15% — fault.
+    df = _econ7_df(damper=15.0, valve=60.0, db=55.0, dp=45.0)
+    assert bool(econ7_compute(df, {}, 300.0).all())
+
+
+def test_econ7_pass_when_economizing_or_no_demand():
+    # Damper economizing (80% ≥ 50%) — pass.
+    assert not bool(econ7_compute(_econ7_df(damper=80.0, valve=60.0, db=55.0, dp=45.0), {}, 300.0).any())
+    # Valve closed, no mech proof — no cooling demand, pass.
+    assert not bool(econ7_compute(_econ7_df(damper=15.0, valve=0.0, db=55.0, dp=45.0), {}, 300.0).any())
+
+
+def test_econ7_pass_when_weather_unfavorable():
+    # Dew point too humid (65 ≥ 60) — economizing not OK.
+    assert not bool(econ7_compute(_econ7_df(damper=15.0, valve=60.0, db=68.0, dp=65.0), {}, 300.0).any())
+    # Dry bulb too warm (75 ≥ 72).
+    assert not bool(econ7_compute(_econ7_df(damper=15.0, valve=60.0, db=75.0, dp=50.0), {}, 300.0).any())
+    # Below freeze-guard floor (30 < 35).
+    assert not bool(econ7_compute(_econ7_df(damper=15.0, valve=60.0, db=30.0, dp=20.0), {}, 300.0).any())
+
+
+def test_econ7_param_sensitivity():
+    # Damper at 55%: default threshold 0.50 → pass; stricter 0.70 → fault.
+    df = _econ7_df(damper=55.0, valve=60.0, db=55.0, dp=45.0)
+    assert not bool(econ7_compute(df, {}, 300.0).any())
+    assert bool(econ7_compute(df, {"econ7_damper_min": 0.70}, 300.0).all())
+    # DP at 58: default dp_max 60 → fault; tighter 55 → pass.
+    humid = _econ7_df(damper=15.0, valve=60.0, db=55.0, dp=58.0)
+    assert bool(econ7_compute(humid, {}, 300.0).all())
+    assert not bool(econ7_compute(humid, {"econ7_dp_max": 55.0}, 300.0).any())
+
+
+def test_econ7_dewpoint_from_web_rh():
+    idx = _idx(8)
+    df = pd.DataFrame(
+        {
+            "outside-air-damper": [15.0] * 8,
+            "cooling-valve": [60.0] * 8,
+            "web-outside-air-temp": [55.0] * 8,
+            "web-outside-air-humidity": [40.0] * 8,  # dry — DP well under 60
+            "fan-status": [1] * 8,
+        },
+        index=idx,
+    )
+    df.attrs["equipment_type"] = "AHU"
+    mask = econ7_compute(df, {}, 300.0)
+    assert df.attrs.get("econ7_weather_source") == "web_db_rh_magnus"
+    assert bool(mask.all())
+
+
+def test_econ7_run_rule_fault_and_skip():
+    df = _econ7_df(damper=15.0, valve=60.0, db=55.0, dp=45.0)
+    res = run_rule("ECON-7", df, {"confirm_min": 0}, 300.0, require_operational_gates=False)
+    assert res.status == "FAULT"
+
+    # No web weather → SKIPPED_MISSING_ROLES (BAS OAT is not a substitute).
+    idx = _idx(8)
+    bas_only = pd.DataFrame(
+        {
+            "outside-air-damper": [15.0] * 8,
+            "cooling-valve": [60.0] * 8,
+            "outside-air-temp": [55.0] * 8,
+            "fan-status": [1] * 8,
+        },
+        index=idx,
+    )
+    bas_only.attrs["equipment_id"] = "AHU_1"
+    bas_only.attrs["equipment_type"] = "AHU"
+    res2 = run_rule("ECON-7", bas_only, {"confirm_min": 0}, 300.0, require_operational_gates=False)
+    assert res2.status == "SKIPPED_MISSING_ROLES"
+
+    # No cooling demand signal at all → SKIPPED_MISSING_ROLES.
+    no_demand = pd.DataFrame(
+        {
+            "outside-air-damper": [15.0] * 8,
+            "web-outside-air-temp": [55.0] * 8,
+            "web-outside-air-dewpoint": [45.0] * 8,
+            "fan-status": [1] * 8,
+        },
+        index=idx,
+    )
+    no_demand.attrs["equipment_id"] = "AHU_1"
+    no_demand.attrs["equipment_type"] = "AHU"
+    res3 = run_rule("ECON-7", no_demand, {"confirm_min": 0}, 300.0, require_operational_gates=False)
+    assert res3.status == "SKIPPED_MISSING_ROLES"
+
+
 def test_new_rules_registered():
-    for rid in ("ECON-3", "ECON-6", "MECH-OAT-1", "CHW-NOLOAD-1"):
+    for rid in ("ECON-3", "ECON-6", "ECON-7", "MECH-OAT-1", "CHW-NOLOAD-1"):
         assert rid in RULES_BY_ID

@@ -20,6 +20,7 @@ from app.rcx_plots import (
     cohort_wants_fan_slices,
     collect_oat_scatter,
     collect_role_series,
+    collect_status_series,
     fan_mode_summary_bundle,
     outlier_equipment_ids,
     preset_by_id,
@@ -204,17 +205,32 @@ def render_rcx_plots_tab(
         "Filter to pump proven on" if op_kind == "pump" else "Filter to fan / air proven on"
     )
     operating_on = False
+    overlay_status = False
     if preset.chart != "metering":
-        operating_on = st.checkbox(
-            filter_label,
-            value=True,
-            key=f"rcx_op_on_{family}_{preset.id}",
-            help=(
-                "When checked, keeps only samples while the fan (AHU/VAV) or hydronic pump "
-                "(boiler/chiller/tower) is proven on — cleans reset scatters and overlays. "
-                "Uncheck to show all timestamps."
-            ),
-        )
+        c_filter, c_overlay = st.columns(2)
+        with c_filter:
+            operating_on = st.checkbox(
+                filter_label,
+                value=True,
+                key=f"rcx_op_on_{family}_{preset.id}",
+                help=(
+                    "When checked, keeps only samples while the fan (AHU/VAV) or hydronic pump "
+                    "(boiler/chiller/tower) is proven on — cleans reset scatters and overlays. "
+                    "Uncheck to show all timestamps."
+                ),
+            )
+        if preset.chart in {"timeseries", "ranking"}:
+            with c_overlay:
+                overlay_status = st.checkbox(
+                    "Overlay motor / fan status (0/1)",
+                    value=False,
+                    key=f"rcx_status_overlay_{family}_{preset.id}",
+                    help=(
+                        "Adds a dotted 0/1 step line per equipment on a right-hand axis "
+                        "(fan/pump status, cmd, or VAV airflow proof) so run status reads "
+                        "alongside the plotted values."
+                    ),
+                )
 
     role = preset.role
     chart_kind = preset.chart
@@ -295,11 +311,23 @@ def render_rcx_plots_tab(
                 if "outlier" in rank.columns
                 else set()
             )
+            status_map = (
+                collect_status_series(
+                    frames,
+                    role_map,
+                    equipment_types=equipment_types,
+                    equipment_ids=worst_ids,
+                    kind=op_kind,
+                )
+                if overlay_status
+                else None
+            )
             fig = multi_equipment_timeseries(
                 series_map,
                 title=f"Worst zones — space temp (top {len(worst_ids)})",
                 y_title=y_title or "zone-air-temp",
                 outlier_ids=outliers,
+                status_map=status_map,
             )
             if fig is not None:
                 st.plotly_chart(
@@ -450,7 +478,20 @@ def render_rcx_plots_tab(
         fig = multi_equipment_box(series_map, title=title, y_title=y_title, outlier_ids=outliers)
         key = "rcx_box"
     else:
-        fig = multi_equipment_timeseries(series_map, title=title, y_title=y_title, outlier_ids=outliers)
+        status_map = (
+            collect_status_series(
+                frames,
+                role_map,
+                equipment_types=equipment_types,
+                equipment_ids=list(series_map.keys()),
+                kind=op_kind,
+            )
+            if overlay_status
+            else None
+        )
+        fig = multi_equipment_timeseries(
+            series_map, title=title, y_title=y_title, outlier_ids=outliers, status_map=status_map
+        )
         key = "rcx_ts"
     if fig is None:
         st.info("No series for this preset — check role mapping / Data Model.")

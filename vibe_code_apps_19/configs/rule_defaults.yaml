@@ -462,6 +462,53 @@ ECON-6:
     min: 15.0
     step: 1.0
     unit: "\xB0F"
+ECON-7:
+  confirm_min:
+    default: 10.0
+    direction: fewer
+    help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
+    label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  econ7_damper_min:
+    default: 0.5
+    direction: stricter
+    help: "Economizing damper threshold \u2014 increasing this usually flags more\
+      \ faults (stricter / wider detection)."
+    label: Economizing damper threshold
+    max: 0.9
+    min: 0.2
+    step: 0.02
+    unit: frac
+  econ7_db_max:
+    default: 72.0
+    direction: ''
+    help: Econ-OK dry-bulb max
+    label: Econ-OK dry-bulb max
+    max: 80.0
+    min: 65.0
+    step: 1.0
+    unit: "\xB0F"
+  econ7_db_min:
+    default: 35.0
+    direction: ''
+    help: Econ-OK dry-bulb floor (freeze guard)
+    label: Econ-OK dry-bulb floor (freeze guard)
+    max: 50.0
+    min: 20.0
+    step: 1.0
+    unit: "\xB0F"
+  econ7_dp_max:
+    default: 60.0
+    direction: ''
+    help: Econ-OK dew point max
+    label: Econ-OK dew point max
+    max: 68.0
+    min: 45.0
+    step: 1.0
+    unit: "\xB0F"
 FC1:
   confirm_min:
     default: 5.0

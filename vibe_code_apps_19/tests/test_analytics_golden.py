@@ -81,6 +81,7 @@ def test_analytics_golden_fingerprints_file_present():
     assert fp.is_file(), f"Missing {fp}; run with {UPDATE_ENV}=1 once to seed goldens"
 
 
+@pytest.mark.optional_zip
 def test_building100_analytics_digest_optional():
     """Optional heavy lane: fingerprint digests only (no huge CSV commit)."""
     pkg_dir = _optional_building100_dir()

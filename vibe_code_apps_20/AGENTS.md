@@ -4,6 +4,8 @@
 
 **Product:** OpenFDD WattLab — AI helper that turns **Open-FDD / Vibe App 19** findings into auditable **EnergyPlus** ECM energy screens (Dockerized via LBNL EnergyPlus-MCP).
 
+**Quick link (vibe19 historian zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout before bridging / calibrating.
+
 ## Mission
 
 `vibe19 analytics → Model Seed Bundle (schedules + signatures + weather) → optional calibrate.py (AMY EPW + scorecard) → approved MeasureBrief → WattLab easy button (prototype IDF + EPW) → progressive IDF ECMs → result_record + literature QA`

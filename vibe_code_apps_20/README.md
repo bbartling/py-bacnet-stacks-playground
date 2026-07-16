@@ -4,6 +4,8 @@
 
 Folder: `vibe_code_apps_20` (WattLab agent pack + runners).
 
+**Quick link (vibe19 upload zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout for historian packages that feed WattLab via the Energy Model tab / Model Seed Bundle.
+
 ## Design principles
 
 1. **Evidence before modeling.** An OpenFDD finding is not automatically an ECM.

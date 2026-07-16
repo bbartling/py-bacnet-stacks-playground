@@ -118,6 +118,20 @@ def _missing_roles(rule: cb.CookbookRule, df: pd.DataFrame) -> list[str]:
             if role not in df.columns or df[role].notna().sum() == 0:
                 base.append(role)
         return base + missing_wx
+    if rule.id == "ECON-7":
+        from app.rules.economizer_weather import mechanical_proof_mask, web_weather_missing_reasons
+
+        missing_wx = web_weather_missing_reasons(df)
+        base = []
+        if "outside-air-damper" not in df.columns or df["outside-air-damper"].notna().sum() == 0:
+            base.append("outside-air-damper")
+        has_demand = "cooling-valve" in df.columns and df["cooling-valve"].notna().any()
+        if not has_demand:
+            _, kind = mechanical_proof_mask(df)
+            has_demand = bool(kind)
+        if not has_demand:
+            base.append("cooling-valve|dx_or_chiller_proof")
+        return base + missing_wx
     if rule.id in {"MECH-OAT-1", "ECON-6"}:
         if "web-outside-air-temp" not in df.columns or not df["web-outside-air-temp"].notna().any():
             return ["web-outside-air-temp"]
@@ -211,6 +225,25 @@ _PRESSURE_PCT_COMPANIONS = (
     "cw-fan-cmd",
 )
 _FAN_CMD_ONLY_RULES = frozenset({"FC1", "AHU-DUCTHI", "TRIM-1", "CMD-1", "SCHED-1", "SCHED-247"})
+# Motor/fan proof lane on every rule plot: real status first, else 0/1 derived from cmd.
+_STATUS_BOOL_ROLES = (
+    "fan-status",
+    "pump-status",
+    "chw-pump-status",
+    "hw-pump-status",
+    "compressor-status",
+    "chiller-status",
+)
+_STATUS_CMD_FALLBACKS = (
+    "fan-cmd",
+    "return-fan-cmd",
+    "chw-pump-cmd",
+    "hw-pump-cmd",
+    "pump-cmd",
+    "tower-fan-cmd",
+    "cw-fan-cmd",
+)
+_OAT_PLOT_ROLES = ("outside-air-temp", "web-outside-air-temp")
 
 
 def _role_is_temp(role: str) -> bool:
@@ -270,7 +303,35 @@ def _plot_series_for_rule(rule: cb.CookbookRule, d: pd.DataFrame) -> dict[str, p
         ):
             if c in d.columns and d[c].notna().any():
                 out[c] = d[c]
+    _attach_motor_status_lane(out, d)
+    _attach_dewpoint_line(out, d)
     return out
+
+
+def _attach_motor_status_lane(out: dict[str, pd.Series], d: pd.DataFrame) -> None:
+    """Add one 0/1 motor/fan status lane to every rule plot when a proof signal exists."""
+    if not out:
+        return
+    if any(r in out for r in _STATUS_BOOL_ROLES):
+        return
+    for role in _STATUS_BOOL_ROLES:
+        if role in d.columns and d[role].notna().any():
+            out[role] = d[role]
+            return
+    for role in _STATUS_CMD_FALLBACKS:
+        if role in d.columns and d[role].notna().any():
+            out["motor-on"] = (cb.norm_cmd(d[role]).fillna(0) > 0.05).astype(int)
+            return
+
+
+def _attach_dewpoint_line(out: dict[str, pd.Series], d: pd.DataFrame) -> None:
+    """Temperature plots that show outside-air temp also get the web outdoor dewpoint line."""
+    if "web-outside-air-dewpoint" in out:
+        return
+    if not any(r in out for r in _OAT_PLOT_ROLES):
+        return
+    if "web-outside-air-dewpoint" in d.columns and d["web-outside-air-dewpoint"].notna().any():
+        out["web-outside-air-dewpoint"] = d["web-outside-air-dewpoint"]
 
 
 def _params_for_rule(rule: cb.CookbookRule, params_by_rule: dict[str, dict]) -> dict:
@@ -400,6 +461,13 @@ def run_cookbook_rule(
             metrics["weather_gate_detail"] = (
                 "web dewpoint/RH" if d.attrs.get("econ3_weather_source") in {"web_dewpoint", "web_db_rh_magnus"} else "missing"
             )
+        if rule.id == "ECON-7":
+            metrics["weather_gate"] = d.attrs.get("econ7_weather_source", "")
+            metrics["weather_gate_detail"] = (
+                "web dewpoint/RH" if d.attrs.get("econ7_weather_source") in {"web_dewpoint", "web_db_rh_magnus"} else "missing"
+            )
+            if d.attrs.get("econ7_proof"):
+                metrics["cooling_proof"] = d.attrs.get("econ7_proof")
         if rule.id in {"SV-RATE", "SV-SLEW"}:
             from app.rules.sensor_rate import RATEABLE_ROLES
 

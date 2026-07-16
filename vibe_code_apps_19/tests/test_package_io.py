@@ -250,12 +250,15 @@ def test_loads_above_legacy_entry_and_equipment_limits(monkeypatch):
         wipe_workdir(result.workdir)
 
 
+@pytest.mark.optional_zip
 def test_browser_caps_load_tadco_building_100_zip():
     """Same path as Streamlit 'Load zip(s)' for the real TADCO BUILDING_100.zip."""
-    zpath = Path(
-        r"C:\Users\ben\OneDrive\Desktop\testing\tadco_openfdd_sidecar"
-        r"\workspace\imports\hvac_systems_CLEANED\BUILDING_100.zip"
-    )
+    from tests.test_upload_building_weather_combos import _optional_real_package_dir
+
+    d = _optional_real_package_dir()
+    if d is None:
+        pytest.skip("No VIBE19_TEST_PACKAGE_DIR / local BUILDING_100.zip for optional real-zip tests")
+    zpath = d / "BUILDING_100.zip"
     if not zpath.is_file():
         pytest.skip(f"TADCO zip not present: {zpath}")
     data = zpath.read_bytes()

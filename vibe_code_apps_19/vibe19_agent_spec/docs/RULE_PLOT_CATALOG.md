@@ -1,4 +1,4 @@
-# Rule plot catalog (all 58)
+# Rule plot catalog (all 59)
 
 **Audience:** agents / engineers reviewing **Plots** validation cards and FDD DOCX.
 
@@ -29,7 +29,7 @@ Confirm delay is usually `confirm_min` (minutes) even when catalog `confirm_seco
 | --- | ---: | --- |
 | 1 · Sensor validation | 5 | `SV-RANGE`, `SV-FLATLINE`, `SV-SPIKE`, `SV-STALE`, `SV-RATE` |
 | 2 · Control loops | 1 | `PID-HUNT-1` |
-| 3 · AHU / air handling | 30 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `ECON-6`, `MECH-OAT-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
+| 3 · AHU / air handling | 31 | `FC1`, `FC2`, `FC3`, `FC4`, `FC5`, `FC6`, `FC7`, `FC8`, `FC9`, `FC10`, `FC11`, `FC12`, `FC13`, `FC14`, `FC15`, `AHU-SATDEV`, `AHU-DUCTHI`, `AHU-SIMUL`, `OAT-METEO`, `ECON-1`, `ECON-2`, `ECON-3`, `ECON-4`, `ECON-5`, `ECON-6`, `ECON-7`, `MECH-OAT-1`, `CMD-1`, `OA-1`, `DMP-1`, `VLV-1` |
 | 4 · VAV / terminal | 7 | `VAV-1`, `VAV-3`, `VAV-4`, `VAV-5`, `VAV-REHEAT`, `VAV-AHU-LEAVE`, `VAV-7` |
 | 5 · Central plant | 8 | `CHW-NOLOAD-1`, `CHW-1`, `CHW-2`, `CHW-3`, `CHW-4`, `CW-OPT-1`, `CW-APR-1`, `CW-FAN-1` |
 | 6 · Heat pump | 1 | `HP-1` |
@@ -1306,6 +1306,57 @@ Needs heat/preheat roles.
 
 Winter min-OA damper vs web OAT < 25°F; Overview economizer_weather winter hours.
 
+### `ECON-7` — Economizer OK but not economizing
+
+**Summary:** Flags cooling demand during economizer-OK web weather (dew point < 60°F, dry-bulb < 72°F) while the OA damper is not economizing.
+
+**Equation:** Economizer-OK web weather: dew point < 60°F AND dry-bulb < 72°F (above a 35°F freeze-guard floor; dewpoint from web sensor or calculated from web DB+RH). Fault when there is cooling demand (cooling valve open or proven DX/chiller cooling) but the OA damper stays below the economizing threshold (default 50%). Expected: economizer-only below 60°F DB (MECH-OAT-1) and mech + integrated economizer in the 60–72°F band (ECON-3). All thresholds are imperial sliders.
+
+| Field | Value |
+| --- | --- |
+| Family | `ahu` |
+| Equipment kinds | `ahu` |
+| Operational gate | `fan_running (startup 600s)` |
+| Default confirm | 600s |
+| Sweep | — |
+
+#### Points → Haystack tags (this chart)
+
+| Cookbook role | Haystack-like tag | Requirement |
+| --- | --- | --- |
+| `outside-air-damper` | `outside-air-damper` | required |
+| `web-outside-air-temp` | `web-outside-air-temp` | optional |
+| `web-outside-air-dewpoint` | `web-outside-air-dewpoint` | optional |
+| `web-outside-air-humidity` | `web-outside-air-humidity` | optional |
+| `cooling-valve` | `cooling-valve` | optional |
+| `compressor-status` | `compressor-status` | optional |
+| `dx-cool-cmd` | `dx-cool-cmd` | optional |
+
+#### Plot series
+
+- `outside-air-damper` → `outside-air-damper`
+- `web-outside-air-temp` → `web-outside-air-temp`
+- `web-outside-air-dewpoint` → `web-outside-air-dewpoint`
+- `web-outside-air-humidity` → `web-outside-air-humidity`
+- `cooling-valve` → `cooling-valve`
+- `compressor-status` → `compressor-status`
+- `dx-cool-cmd` → `dx-cool-cmd`
+- `confirmed_fault` swim lane (bool shade) when the rule was run
+
+#### Sliders (tune params)
+
+| Key | Label | Unit | Default | Min | Max | Step |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `econ7_db_min` | Econ-OK dry-bulb floor (freeze guard) | °F | 35 | 20 | 50 | 1 |
+| `econ7_db_max` | Econ-OK dry-bulb max | °F | 72 | 65 | 80 | 1 |
+| `econ7_dp_max` | Econ-OK dew point max | °F | 60 | 45 | 68 | 1 |
+| `econ7_damper_min` | Economizing damper threshold | frac | 0.5 | 0.2 | 0.9 | 0.02 |
+| `confirm_min` | Fault confirm delay | min | 10 | 0 | 60 | 1 |
+
+#### Analytics / related views
+
+Economizer-OK band (web DP < 60°F, DB < 72°F) with cooling demand but damper not economizing; pairs with ECON-3 / MECH-OAT-1.
+
 ### `MECH-OAT-1` — Mechanical cooling below 60°F web OAT
 
 **Summary:** Flags proven DX or chiller cooling while web dry-bulb is below 60°F.
@@ -2550,9 +2601,7 @@ See [`RCX_PLOTS.md`](RCX_PLOTS.md). Reset scatters / duct-static box share roles
 | --- | --- | --- |
 | Motor weekly runtime | Overview | fan/pump/compressor **status** preferred |
 | Mech-cooling OAT bins | Overview | plant pump/status or DX compressor; **web OAT**; never CHW valve % |
-| BAS vs web OAT overlay | Overview | ±`oat_err` band + fault lane; histogram companion |
-| Data inspection (raw CSV) | Overview | all plottable columns stacked; survives refresh until Clear session |
-| Sensor fault summary / health | FDD Plots (device) | per-sensor SV-* matrix + chart |
+| Sensor fault summary | Plots (device) | sensors involved in FAULT SV-* |
 | Occupancy calendar | Overview | writes `occ_mode` for SCHED-1 |
 | RCx catalog DOCX | RCx Plots / Export | catalog + filled analytics when data-model fit |
 
