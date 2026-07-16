@@ -141,12 +141,22 @@ def test_turnkey_apptest_all_sections(tmp_path: Path, monkeypatch: pytest.Monkey
         radio = _section_radio(at)
         assert radio is not None, f"Section radio missing after {section!r}"
 
-    # Energy Model should at least render a heading or WattLab message
+    # Energy Model must render the in-app wizard form (no vibe20 required)
     radio.set_value("Energy Model")
     at.run()
     assert not at.exception, f"Energy Model exceptions: {list(at.exception)}"
-    # Soft check: no unexpected error widgets required — WattLab may be absent in CI
-
+    # Form should show building type / easy-button caption — not the old early-return wall
+    blobs = []
+    for attr in ("markdown", "caption", "subheader", "text"):
+        for w in getattr(at.main, attr, []) or []:
+            blobs.append(str(getattr(w, "value", w) or ""))
+    joined = " ".join(blobs).lower()
+    assert "energy model" in joined or "wattlab" in joined or "easy-button" in joined or "easy button" in joined
+    # Must not be stuck on the old "WattLab not found" early return alone
+    select_labels = [str(getattr(s, "label", "") or "") for s in (at.main.selectbox or [])]
+    assert any("building type" in lab.lower() for lab in select_labels), (
+        f"Energy Model form missing Building type selectbox; labels={select_labels[:20]}"
+    )
 
 @pytest.mark.timeout(120)
 def test_turnkey_live_html_smoke():

@@ -14,7 +14,8 @@ Maintain Vibe App 19 as an **educational Streamlit demo** with the **full 50-rul
 - `app/rules/custom_boilerplate.py` + `custom_rules.py` — agent **CUSTOM-*** pandas / ML sketches
 - `app/rules/runner.py` — skip / equipment-off / not-applicable execution
 - `configs/rule_inventory.yaml` + `rule_defaults.yaml`
-- `streamlit_app.py` — unified **Folder | Zip** picker, Overview, mapping, **Data Model**, run rules, **FDD Plots** (validation cards), **RCx Plots**, Metering, Export DOCX
+- `streamlit_app.py` — unified **Folder | Zip** picker, Overview, mapping, **Data Model**, run rules, **FDD Plots** (validation cards), **RCx Plots**, Metering, **Energy Model**, Export DOCX
+- `app/energy_wizard.py` + `configs/energy_defaults/` — in-app OpenFDD WattLab easy button (defaults, schedules/ECMs, quick savings, package export); optional vibe20 EP sidecar
 - `app/package_io.py` — safe `openfdd_package_v1` zip ingest (Cloud + local)
 - `app/agent_api.py` + `scripts/agent_afdd.py` — **Streamlit-free** agent load / run / export
 - `app/weather_resolver.py` — web OAT primary / BAS fallback / OAT-METEO both-required

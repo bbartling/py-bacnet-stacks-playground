@@ -1,0 +1,121 @@
+{
+  "_note": "Screening-grade code vintage scalars + envelope proxies. Not a code-compliance engine.",
+  "codes": {
+    "iecc_2018": {
+      "label": "IECC 2018",
+      "aliases": ["iecc 2018", "2018"],
+      "lpd_multiplier": 0.85,
+      "equipment_efficiency_scalar": 1.05,
+      "envelope": {
+        "roof_u": 0.032,
+        "wall_u": 0.064,
+        "slab_f_factor": 0.54,
+        "infiltration_cfm_per_ft2_75pa": 0.4,
+        "glazing_u": 0.38,
+        "glazing_shgc": 0.38,
+        "glazing_vt": 0.7,
+        "skylight_u": 0.5,
+        "skylight_shgc": 0.4,
+        "skylight_vt": 0.7
+      },
+      "fan_w_per_cfm_scalar": 1.0,
+      "notes": "Common midwestern existing-code baseline for screening."
+    },
+    "iecc_2021": {
+      "label": "IECC 2021",
+      "aliases": ["iecc 2021", "2021"],
+      "lpd_multiplier": 0.8,
+      "equipment_efficiency_scalar": 1.08,
+      "envelope": {
+        "roof_u": 0.028,
+        "wall_u": 0.055,
+        "slab_f_factor": 0.52,
+        "infiltration_cfm_per_ft2_75pa": 0.35,
+        "glazing_u": 0.36,
+        "glazing_shgc": 0.36,
+        "glazing_vt": 0.7,
+        "skylight_u": 0.45,
+        "skylight_shgc": 0.38,
+        "skylight_vt": 0.7
+      },
+      "fan_w_per_cfm_scalar": 0.95
+    },
+    "ashrae_90.1_2004": {
+      "label": "ASHRAE 90.1-2004",
+      "aliases": ["90.1-2004", "ashrae 2004", "iecc 2006"],
+      "lpd_multiplier": 1.25,
+      "equipment_efficiency_scalar": 0.9,
+      "envelope": {
+        "roof_u": 0.048,
+        "wall_u": 0.09,
+        "slab_f_factor": 0.73,
+        "infiltration_cfm_per_ft2_75pa": 0.5,
+        "glazing_u": 0.55,
+        "glazing_shgc": 0.4,
+        "glazing_vt": 0.6,
+        "skylight_u": 0.7,
+        "skylight_shgc": 0.45,
+        "skylight_vt": 0.6
+      },
+      "fan_w_per_cfm_scalar": 1.15
+    },
+    "ashrae_90.1_2013": {
+      "label": "ASHRAE 90.1-2013",
+      "aliases": ["90.1-2013", "ashrae 2013", "iecc 2015"],
+      "lpd_multiplier": 1.0,
+      "equipment_efficiency_scalar": 1.0,
+      "envelope": {
+        "roof_u": 0.039,
+        "wall_u": 0.064,
+        "slab_f_factor": 0.54,
+        "infiltration_cfm_per_ft2_75pa": 0.4,
+        "glazing_u": 0.42,
+        "glazing_shgc": 0.4,
+        "glazing_vt": 0.65,
+        "skylight_u": 0.55,
+        "skylight_shgc": 0.4,
+        "skylight_vt": 0.65
+      },
+      "fan_w_per_cfm_scalar": 1.0
+    },
+    "ashrae_90.1_2019": {
+      "label": "ASHRAE 90.1-2019",
+      "aliases": ["90.1-2019", "ashrae 2019"],
+      "lpd_multiplier": 0.85,
+      "equipment_efficiency_scalar": 1.05,
+      "envelope": {
+        "roof_u": 0.032,
+        "wall_u": 0.055,
+        "slab_f_factor": 0.52,
+        "infiltration_cfm_per_ft2_75pa": 0.35,
+        "glazing_u": 0.38,
+        "glazing_shgc": 0.38,
+        "glazing_vt": 0.7,
+        "skylight_u": 0.5,
+        "skylight_shgc": 0.4,
+        "skylight_vt": 0.7
+      },
+      "fan_w_per_cfm_scalar": 0.95
+    },
+    "existing_unknown": {
+      "label": "Existing / unknown vintage",
+      "aliases": ["existing", "unknown", "uncalibrated"],
+      "lpd_multiplier": 1.1,
+      "equipment_efficiency_scalar": 0.95,
+      "envelope": {
+        "roof_u": 0.05,
+        "wall_u": 0.1,
+        "slab_f_factor": 0.73,
+        "infiltration_cfm_per_ft2_75pa": 0.55,
+        "glazing_u": 0.55,
+        "glazing_shgc": 0.45,
+        "glazing_vt": 0.55,
+        "skylight_u": 0.7,
+        "skylight_shgc": 0.5,
+        "skylight_vt": 0.55
+      },
+      "fan_w_per_cfm_scalar": 1.1
+    }
+  },
+  "default_code": "iecc_2018"
+}

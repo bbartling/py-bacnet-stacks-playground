@@ -1,7 +1,8 @@
 """OpenFDD WattLab Energy Model section for vibe19 Streamlit.
 
-Responsive-defaults minimal form → WattLab defaults engine (vibe20) → EnergyPlus Docker runs.
-Apps stay decoupled: file reads + subprocess only (no cross-imports).
+In-app responsive defaults + schedules/ECMs/quick savings via ``app.energy_wizard``.
+Optional vibe20 EnergyPlus screening when ``VIBE19_WATTLAB_DIR`` is set
+(subprocess only — no cross-imports).
 """
 
 from __future__ import annotations
@@ -578,7 +579,7 @@ def _sync_geometry_defaults(btype: str, arch: dict[str, Any]) -> None:
         st.session_state["em_ftf"] = float(arch.get("default_floor_to_floor_ft") or 13.0)
         st.session_state["em_wwr"] = float(arch.get("default_wwr") or 0.33)
         # Reset HVAC keyed selectboxes so prior values can't fall outside new options
-        for key in ("em_fuel", "em_airside", "em_plant"):
+        for key in ("em_fuel", "em_airside", "em_plant", "em_doas"):
             st.session_state.pop(key, None)
         if hvac_def.get("fuel"):
             st.session_state["em_fuel"] = hvac_def["fuel"]
@@ -586,10 +587,16 @@ def _sync_geometry_defaults(btype: str, arch: dict[str, Any]) -> None:
             st.session_state["em_airside"] = hvac_def["airside"]
         if hvac_def.get("plant"):
             st.session_state["em_plant"] = hvac_def["plant"]
+        if hvac_def.get("doas"):
+            st.session_state["em_doas"] = hvac_def["doas"]
     st.session_state.setdefault("em_area", float(arch.get("default_area_ft2") or 50000))
     st.session_state.setdefault("em_floors", int(arch.get("default_floors") or 3))
     st.session_state.setdefault("em_ftf", float(arch.get("default_floor_to_floor_ft") or 13.0))
     st.session_state.setdefault("em_wwr", float(arch.get("default_wwr") or 0.33))
+    if (arch.get("hvac_defaults") or {}).get("doas"):
+        st.session_state.setdefault("em_doas", arch["hvac_defaults"]["doas"])
+    else:
+        st.session_state.setdefault("em_doas", "none")
 
 
 # ---------------------------------------------------------------------------
@@ -601,49 +608,62 @@ def render_energy_model_tab(
     *,
     batch_results: list | None = None,
     results_summary_fn=None,
+    frames: dict | None = None,
+    role_map: dict | None = None,
+    weather: pd.DataFrame | None = None,
 ) -> None:
+    """In-app easy-button Energy Model — works without vibe20; EP sidecar optional."""
+    from app.energy_wizard import (
+        attach_quick_estimates,
+        form_options,
+        resolve_profile,
+        schedules_from_inference,
+        suggest_measures_from_fdd,
+        write_energy_model_package,
+    )
+    from app.model_seed import infer_schedules, operating_signatures
+
     st.subheader("Energy Model · OpenFDD WattLab")
     st.caption(
-        "Easy-button energy screen: enter what you know (type, area, city, HVAC family). "
-        "Everything else uses responsive defaults. EnergyPlus **autosizes** capacities — "
-        "you do not need fan sizes or plant tons. Sims run via vibe20 + Docker image "
-        "`energyplus-mcp-dev` (EnergyPlus 26.1 / EnergyPlus-MCP)."
+        "Easy-button energy screen: enter what you know (type, area, city, HVAC). "
+        "Everything else uses **responsive defaults** with provenance (default / user / data-derived). "
+        "EnergyPlus **autosizes** capacities — fan sizes and plant tons are not required. "
+        "Export a package for an outside AI agent + EnergyPlus-MCP; optional vibe20 Docker screening when available."
     )
 
+    options = form_options()
     wattlab = resolve_wattlab_dir()
     status = wattlab_status(wattlab)
-    if not wattlab or not status["easy_button"]:
-        st.warning(
-            "WattLab (vibe_code_apps_20) not found next to this app. "
-            "Local monorepo checkouts detect the sibling folder automatically; "
-            "in Docker/GHCR set **VIBE19_WATTLAB_DIR**, and build `energyplus-mcp-dev`."
-        )
-        st.code(
-            "# Local (sibling checkout)\n"
-            "cd vibe_code_apps_20\n"
-            "python easy_button.py --building examples/buildings/madison_office.json --dry-run\n\n"
-            "# Build EnergyPlus Docker image (once)\n"
-            "cd vibe_code_apps_20/third_party/EnergyPlus-MCP\n"
-            "docker build -t energyplus-mcp-dev -f .devcontainer/Dockerfile .devcontainer\n",
-            language="bash",
-        )
+    if wattlab and status.get("easy_button"):
+        st.success(f"EnergyPlus sidecar ready · `{wattlab}`")
+    else:
         st.info(
-            "The GHCR `vibe19` image still ships FDD / RCx / Export. "
-            "EnergyPlus screening is an optional sidecar (vibe20 + `energyplus-mcp-dev`)."
+            "In-app wizard is fully available. EnergyPlus screening/calibration is optional — "
+            "set **VIBE19_WATTLAB_DIR** to vibe_code_apps_20 and build `energyplus-mcp-dev` when you want live sims."
         )
-        return
 
-    try:
-        options = load_form_options(wattlab)
-    except Exception as exc:
-        st.error(f"Could not load WattLab defaults: {exc}")
-        return
-
-    if not options["building_types"] or not options["cities"] or not options["codes"]:
-        st.error("WattLab defaults are incomplete (need building types, cities, and codes).")
-        return
-
-    st.success(f"WattLab ready · `{wattlab}`")
+    # --- Infer schedules from loaded package ---
+    schedule_payload = None
+    sig_df = pd.DataFrame()
+    data_span_h = 0.0
+    fan_hours = 0.0
+    if frames:
+        try:
+            _sched_df, schedule_payload = infer_schedules(frames, role_map or {})
+            sig_df = operating_signatures(frames, role_map or {}, weather=weather)
+            # span from first equipment index
+            for _eq, df in frames.items():
+                if isinstance(df.index, pd.DatetimeIndex) and len(df.index) >= 2:
+                    data_span_h = max(
+                        data_span_h,
+                        (df.index.max() - df.index.min()).total_seconds() / 3600.0,
+                    )
+            for _eq_id, row in (schedule_payload.get("equipment") or {}).items():
+                if isinstance(row, dict) and row.get("on_samples") and row.get("poll_seconds"):
+                    fan_hours += float(row["on_samples"]) * float(row["poll_seconds"]) / 3600.0
+        except Exception as exc:
+            st.caption(f"Schedule inference skipped: {exc}")
+            schedule_payload = None
 
     with st.expander("Building inputs (easy button)", expanded=True):
         c1, c2, c3 = st.columns(3)
@@ -684,83 +704,118 @@ def render_energy_model_tab(
         _sync_geometry_defaults(btype, arch)
 
         d1, d2, d3, d4 = st.columns(4)
-        area = d1.number_input(
-            "Gross floor area (ft²)",
-            min_value=1000.0,
-            step=1000.0,
-            key="em_area",
-        )
-        floors = d2.number_input(
-            "Floors",
-            min_value=1,
-            step=1,
-            key="em_floors",
-        )
-        ftf = d3.number_input(
-            "Floor-to-floor (ft)",
-            min_value=8.0,
-            step=0.5,
-            key="em_ftf",
-        )
-        wwr = d4.number_input(
-            "Window-wall ratio",
-            min_value=0.0,
-            max_value=0.95,
-            step=0.05,
-            key="em_wwr",
-        )
-        st.caption(
-            "Responsive defaults: change building type to refresh archetype geometry. "
-            "Override any field you know."
-        )
+        area = d1.number_input("Gross floor area (ft²)", min_value=1000.0, step=1000.0, key="em_area")
+        floors = d2.number_input("Floors", min_value=1, step=1, key="em_floors")
+        ftf = d3.number_input("Floor-to-floor (ft)", min_value=8.0, step=0.5, key="em_ftf")
+        wwr = d4.number_input("Window-to-wall ratio", min_value=0.0, max_value=0.9, step=0.01, key="em_wwr")
 
-        hvac_def = arch.get("hvac_defaults") or {}
-        hopts = arch.get("hvac_options") or {}
-        fuel_opts = list(hopts.get("fuel") or ["gas", "electric"])
-        air_opts = list(hopts.get("airside") or ["vav_reheat", "psz_ac", "cAV"])
-        plant_opts = list(hopts.get("plant") or ["air_cooled_chiller", "dx", "none"])
-        h1, h2, h3 = st.columns(3)
-        # Drop stale session values if options changed (e.g. warehouse vs office)
-        if st.session_state.get("em_fuel") not in fuel_opts:
-            st.session_state["em_fuel"] = (
-                hvac_def["fuel"] if hvac_def.get("fuel") in fuel_opts else fuel_opts[0]
-            )
-        if st.session_state.get("em_airside") not in air_opts:
-            st.session_state["em_airside"] = (
-                hvac_def["airside"]
-                if hvac_def.get("airside") in air_opts
-                else air_opts[0]
-            )
-        if st.session_state.get("em_plant") not in plant_opts:
-            st.session_state["em_plant"] = (
-                hvac_def["plant"] if hvac_def.get("plant") in plant_opts else plant_opts[0]
-            )
-        fuel = h1.selectbox("HVAC fuel", fuel_opts, key="em_fuel")
+        hvac_opts = arch.get("hvac_options") or {}
+        h1, h2, h3, h4 = st.columns(4)
+        fuel_opts = hvac_opts.get("fuel") or ["gas", "electric"]
+        air_opts = hvac_opts.get("airside") or ["vav_reheat"]
+        plant_opts = hvac_opts.get("plant") or ["air_cooled_chiller"]
+        doas_opts = hvac_opts.get("doas") or ["none"]
+        fuel = h1.selectbox("Heating fuel", fuel_opts, key="em_fuel")
         airside = h2.selectbox("Air-side system", air_opts, key="em_airside")
-        plant = h3.selectbox("Cooling plant", plant_opts, key="em_plant")
+        plant = h3.selectbox("Cooling / plant", plant_opts, key="em_plant")
+        doas = h4.selectbox("DOAS", doas_opts, key="em_doas")
 
-        u1, u2 = st.columns(2)
-        elec = u1.number_input(
-            "Electricity $/kWh", min_value=0.01, value=0.12, step=0.01, key="em_elec"
-        )
-        gas = u2.number_input(
-            "Gas $/therm", min_value=0.01, value=0.80, step=0.05, key="em_gas"
-        )
-
+        u1, u2, u3 = st.columns(3)
+        st.session_state.setdefault("em_elec", 0.09)
+        st.session_state.setdefault("em_gas", 0.693)
+        elec = u1.number_input("Electricity ($/kWh)", min_value=0.01, step=0.01, key="em_elec")
+        gas = u2.number_input("Natural gas ($/therm)", min_value=0.01, step=0.01, key="em_gas")
         set_ids = [s["id"] for s in options["measure_sets"]] or ["good", "better", "best"]
-        set_labels = {
-            s["id"]: f"{s['label']} — {s.get('description') or ''}".strip(" —")
-            for s in options["measure_sets"]
-        }
-        measure_set = st.selectbox(
-            "Measure set (Good / Better / Best)",
+        measure_set = u3.selectbox(
+            "Measure set",
             set_ids,
-            format_func=lambda i: set_labels.get(i, i),
             index=set_ids.index("best") if "best" in set_ids else 0,
             key="em_measure_set",
         )
 
+        fig = massing_figure(
+            rectangular_massing(float(area), int(floors), float(ftf), float(wwr), aspect_ratio=1.5)
+        )
+        if fig is not None:
+            st.plotly_chart(fig, width="stretch", key="em_massing")
+
+    # Schedules
+    _, arch_full = __import__("app.energy_wizard", fromlist=["resolve_building_type"]).resolve_building_type(btype)
+    sched = schedules_from_inference(schedule_payload, arch=arch_full)
+    with st.expander("Schedules (prefilled from data when available)", expanded=bool(sched.get("from_inference"))):
+        src = sched.get("source") or "default"
+        st.caption(f"Source: **{src}**" + (f" · signal `{sched.get('inference_signal')}`" if sched.get("inference_signal") else ""))
+        s1, s2, s3, s4 = st.columns(4)
+        wd_s = s1.number_input("Weekday start hour", 0, 24, int(sched["weekday_start_hour"]), key="em_wd_start")
+        wd_e = s2.number_input("Weekday stop hour", 0, 24, int(sched["weekday_stop_hour"]), key="em_wd_stop")
+        we_s = s3.number_input("Weekend start hour", 0, 24, int(sched["weekend_start_hour"]), key="em_we_start")
+        we_e = s4.number_input("Weekend stop hour", 0, 24, int(sched["weekend_stop_hour"]), key="em_we_stop")
+        t1, t2, t3, t4 = st.columns(4)
+        cool_occ = t1.number_input("Cool occupied °F", value=float(sched["cool_occupied_f"]), key="em_cool_occ")
+        cool_un = t2.number_input("Cool unoccupied °F", value=float(sched["cool_unoccupied_f"]), key="em_cool_un")
+        heat_occ = t3.number_input("Heat occupied °F", value=float(sched["heat_occupied_f"]), key="em_heat_occ")
+        heat_un = t4.number_input("Heat unoccupied °F", value=float(sched["heat_unoccupied_f"]), key="em_heat_un")
+        # Rebuild hourly blocks from edited hours
+        from app.energy_wizard import _hourly_block
+
+        sched["weekday_start_hour"] = int(wd_s)
+        sched["weekday_stop_hour"] = int(wd_e)
+        sched["weekend_start_hour"] = int(we_s)
+        sched["weekend_stop_hour"] = int(we_e)
+        sched["cool_occupied_f"] = float(cool_occ)
+        sched["cool_unoccupied_f"] = float(cool_un)
+        sched["heat_occupied_f"] = float(heat_occ)
+        sched["heat_unoccupied_f"] = float(heat_un)
+        occ_wd = _hourly_block(int(wd_s), int(wd_e))
+        occ_we = _hourly_block(int(we_s), int(we_e))
+        sched["weekday"]["occupancy"] = occ_wd
+        sched["weekday"]["ventilation"] = list(occ_wd)
+        sched["weekday"]["lighting"] = list(occ_wd)
+        sched["weekend"]["occupancy"] = occ_we
+        sched["weekend"]["ventilation"] = list(occ_we)
+        sched["weekend"]["lighting"] = list(occ_we)
+        st.dataframe(
+            pd.DataFrame({"hour": list(range(24)), "weekday_occ": occ_wd, "weekend_occ": occ_we}),
+            hide_index=True,
+            width="stretch",
+            height=220,
+        )
+
+    # Advanced envelope / loads (collapsed)
+    with st.expander("Advanced · envelope, loads, HVAC efficiencies", expanded=False):
+        preview = resolve_profile(
+            {
+                "building_type": btype,
+                "city": city,
+                "code_year": code,
+                "floor_area_ft2": float(area),
+                "floors": int(floors),
+            }
+        )
+        env = preview.get("envelope") or {}
+        e1, e2, e3, e4 = st.columns(4)
+        roof_u = e1.number_input("Roof U", value=float(env.get("roof_u") or 0.032), format="%.3f", key="em_roof_u")
+        wall_u = e2.number_input("Wall U", value=float(env.get("wall_u") or 0.064), format="%.3f", key="em_wall_u")
+        glaz_u = e3.number_input("Glazing U", value=float(env.get("glazing_u") or 0.38), format="%.3f", key="em_glaz_u")
+        shgc = e4.number_input("SHGC", value=float(env.get("glazing_shgc") or 0.38), format="%.2f", key="em_shgc")
+        l1, l2, l3, l4 = st.columns(4)
+        loads = preview.get("loads") or {}
+        equip = preview.get("equipment") or {}
+        lpd = l1.number_input("LPD W/ft²", value=float(loads.get("lpd_w_per_ft2") or 0.7), key="em_lpd")
+        plug = l2.number_input("Plug W/ft²", value=float(loads.get("plug_w_per_ft2") or 0.75), key="em_plug")
+        fan_w = l3.number_input("Fan W/CFM", value=float(equip.get("fan_w_per_cfm") or 1.1), key="em_fan_w")
+        eer = l4.number_input("Cooling EER", value=float(equip.get("cooling_eer") or 9.8), key="em_eer")
+        st.caption("Field sources (provenance):")
+        src_rows = [
+            {"field": k, "value": str(v.get("value")), "source": v.get("source")}
+            for k, v in (preview.get("field_sources") or {}).items()
+        ]
+        if src_rows:
+            st.dataframe(pd.DataFrame(src_rows).head(30), hide_index=True, width="stretch", height=200)
+
+    # Build profile
     minimal = {
+        "project_id": st.session_state.get("building_id") or f"WATTLAB-{btype.upper()}",
         "building_type": btype,
         "city": city,
         "code_year": code,
@@ -768,390 +823,198 @@ def render_energy_model_tab(
         "floors": int(floors),
         "floor_to_floor_ft": float(ftf),
         "wwr": float(wwr),
-        "hvac": {"fuel": fuel, "airside": airside, "plant": plant},
+        "hvac": {"fuel": fuel, "airside": airside, "plant": plant, "doas": doas},
         "utility": {"elec_usd_per_kwh": float(elec), "gas_usd_per_therm": float(gas)},
         "measure_set": measure_set,
-        "anonymized": True,
-    }
-
-    dims = rectangular_massing(float(area), int(floors), float(ftf), float(wwr))
-    m1, m2 = st.columns([1.2, 1])
-    with m1:
-        try:
-            st.plotly_chart(massing_figure(dims), width="stretch")
-        except Exception as exc:
-            st.warning(f"Massing preview unavailable: {exc}")
-    with m2:
-        st.markdown("##### Shell summary")
-        st.markdown(
-            f"- **{dims['length_ft']} × {dims['width_ft']} ft** floorplate  \n"
-            f"- **{dims['floors']} floors** · **{dims['height_ft']} ft** tall  \n"
-            f"- WWR **{dims['wwr']:.0%}** · **{dims['gross_area_ft2']:,.0f} ft²** gross  \n"
-            f"- HVAC **{fuel} / {airside} / {plant}** (autosized — no capacity inputs)"
-        )
-        if st.button("Preview resolved defaults", key="wattlab_preview_defaults"):
-            with st.spinner("Resolving WattLab defaults…"):
-                res = resolve_via_cli(wattlab, minimal)
-            if res.get("report"):
-                profile = res["report"]
-                st.session_state["wattlab_resolved_profile"] = profile
-                fs = profile.get("field_sources") or {}
-                rows = [
-                    {
-                        "field": k,
-                        "value": (v or {}).get("value"),
-                        "source": (v or {}).get("source"),
-                        "note": (v or {}).get("note") or "",
-                    }
-                    for k, v in fs.items()
-                ]
-                st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
-                st.caption((profile.get("energyplus") or {}).get("epw_note") or "")
-            else:
-                st.error("Defaults resolve failed")
-                st.code(res.get("stderr") or res.get("stdout") or "no output")
-
-    st.markdown("##### Suggest measures from OpenFDD results")
-    sug_col1, sug_col2 = st.columns([1, 2])
-    with sug_col1:
-        has_results = bool(batch_results)
-        if st.button(
-            "Suggest from current FDD results",
-            key="wattlab_suggest_fdd",
-            disabled=not has_results,
-        ):
-            if not results_summary_fn:
-                st.error("results_summary_fn missing")
-            else:
-                try:
-                    with tempfile.TemporaryDirectory() as td:
-                        bundle = write_fdd_bundle_from_session(
-                            Path(td),
-                            batch_results=batch_results,
-                            results_summary_fn=results_summary_fn,
-                        )
-                        with st.spinner("Bridging vibe19 → WattLab measures…"):
-                            br = bridge_suggest(wattlab, bundle)
-                    if br.get("report"):
-                        bridge = br["report"].get("bridge") or br["report"]
-                        st.session_state["wattlab_bridge"] = bridge
-                        st.success(
-                            f"Suggested {len(bridge.get('measure_ids') or [])} measures: "
-                            f"{', '.join(bridge.get('measure_ids') or []) or '(none)'}"
-                        )
-                    else:
-                        st.error("Bridge failed")
-                        st.code(br.get("stderr") or br.get("stdout") or "no output")
-                except Exception as exc:
-                    st.exception(exc)
-        if not has_results:
-            st.caption("Run rules first (Run Rules section) to enable FDD-based suggestions.")
-    with sug_col2:
-        bridge = st.session_state.get("wattlab_bridge")
-        if bridge:
-            st.json(
-                {
-                    "measure_ids": bridge.get("measure_ids"),
-                    "stats": bridge.get("stats"),
-                    "evidence_count": len(bridge.get("evidence") or []),
-                }
-            )
-
-    # ------------------------------------------------------------------
-    # Open-Meteo + utility bills + overlap-window calibration
-    # ------------------------------------------------------------------
-    st.markdown("##### Weather + bills (calibration inputs)")
-    frames = st.session_state.get("equipment_frames") or {}
-    weather = st.session_state.get("weather")
-    building_id = st.session_state.get("building_id") or "building"
-    role_map = st.session_state.get("role_map") or {}
-
-    om1, om2, om3, om4 = st.columns(4)
-    st.session_state.setdefault("em_lat", 42.33)
-    st.session_state.setdefault("em_lon", -83.05)
-    lat = om1.number_input("Latitude", format="%.4f", key="em_lat")
-    lon = om2.number_input("Longitude", format="%.4f", key="em_lon")
-    # Date range from loaded data when available
-    from app.analytics import dataset_time_span
-
-    span = dataset_time_span(frames) if frames else {"start": None, "end": None}
-    default_start = (
-        span["start"].strftime("%Y-%m-%d")
-        if span.get("start") is not None
-        else "2024-01-01"
-    )
-    default_end = (
-        span["end"].strftime("%Y-%m-%d") if span.get("end") is not None else "2024-01-07"
-    )
-    st.session_state.setdefault("em_wx_start", default_start)
-    st.session_state.setdefault("em_wx_end", default_end)
-    start_s = om3.text_input("Weather start (UTC date)", key="em_wx_start")
-    end_s = om4.text_input("Weather end (UTC date)", key="em_wx_end")
-
-    if st.button("Fetch Open-Meteo weather", key="em_fetch_openmeteo"):
-        try:
-            from app.open_meteo import fetch_open_meteo
-
-            with st.spinner("Fetching Open-Meteo historical weather…"):
-                wx = fetch_open_meteo(float(lat), float(lon), start_s, end_s, grid_minutes=60)
-            st.session_state["weather"] = wx
-            st.session_state["em_open_meteo_meta"] = getattr(wx, "attrs", {}).get("open_meteo")
-            st.success(f"Loaded {len(wx):,} hourly Open-Meteo rows into session weather.")
-        except Exception as exc:
-            st.error(f"Open-Meteo fetch failed (network / dates): {exc}")
-
-    if st.session_state.get("em_open_meteo_meta"):
-        st.caption(f"Last fetch: `{st.session_state['em_open_meteo_meta']}`")
-    elif weather is not None and isinstance(weather, pd.DataFrame) and not weather.empty:
-        st.caption(f"Session weather present · {len(weather):,} rows")
-    else:
-        st.caption("No weather in session yet — fetch Open-Meteo or load a package with weather.")
-
-    st.markdown("###### Monthly utility bills (optional — ASHRAE-14 magnitude anchor)")
-    if "em_utility_bills" not in st.session_state:
-        st.session_state["em_utility_bills"] = default_utility_bills_rows()
-    bills_df = st.data_editor(
-        pd.DataFrame(st.session_state["em_utility_bills"]),
-        num_rows="fixed",
-        hide_index=True,
-        width="stretch",
-        key="em_bills_editor",
-        column_config={
-            "month": st.column_config.NumberColumn("Month", min_value=1, max_value=12, step=1),
-            "kwh": st.column_config.NumberColumn("kWh", min_value=0.0, step=100.0),
-            "therms": st.column_config.NumberColumn("therms", min_value=0.0, step=10.0),
+        "schedules": sched,
+        "lpd_w_per_ft2": float(st.session_state.get("em_lpd") or 0.7),
+        "plug_w_per_ft2": float(st.session_state.get("em_plug") or 0.75),
+        "fan_w_per_cfm": float(st.session_state.get("em_fan_w") or 1.1),
+        "cooling_eer": float(st.session_state.get("em_eer") or 9.8),
+        "envelope": {
+            "roof_u": float(st.session_state.get("em_roof_u", 0.032)),
+            "wall_u": float(st.session_state.get("em_wall_u", 0.064)),
+            "glazing_u": float(st.session_state.get("em_glaz_u", 0.38)),
+            "glazing_shgc": float(st.session_state.get("em_shgc", 0.38)),
         },
-    )
-    st.session_state["em_utility_bills"] = bills_df.to_dict("records")
+    }
+    profile = resolve_profile(minimal)
+    st.session_state["wattlab_resolved_profile"] = profile
 
-    st.markdown("##### Calibrate against my data")
-    st.caption(
-        "Builds a Model Seed Bundle (schedules + OAT operating signatures + weather), "
-        "synthesizes an AMY EPW, runs EnergyPlus for the data window, and scores "
-        "observed vs simulated (NMBE / CVRMSE)."
-    )
-    c_cal1, c_cal2 = st.columns(2)
-    do_cal = c_cal1.button(
-        "Calibrate against my data",
-        key="wattlab_calibrate",
-        type="primary",
-        disabled=not bool(frames),
-    )
-    do_cal_dry = c_cal2.button(
-        "Calibration dry-run plan",
-        key="wattlab_calibrate_dry",
-        disabled=not bool(frames),
-    )
-    if not frames:
-        st.caption("Load a building package first so schedules / signatures can be inferred.")
-
-    if do_cal or do_cal_dry:
+    # ECM prefill + quick savings
+    summary = None
+    if results_summary_fn and batch_results:
         try:
-            with tempfile.TemporaryDirectory() as td:
-                bundle = write_model_seed_bundle(
-                    Path(td),
-                    frames=frames,
-                    role_map=role_map,
-                    weather=st.session_state.get("weather"),
-                    building_id=str(building_id),
-                    minimal=minimal,
-                    utility_bills=st.session_state.get("em_utility_bills"),
-                    lat=float(lat),
-                    lon=float(lon),
-                )
-                if not (bundle / "weather_observed.csv").is_file() and not do_cal_dry:
-                    st.error(
-                        "No weather_observed.csv — fetch Open-Meteo or load package weather first."
-                    )
+            summary = results_summary_fn(batch_results)
+        except Exception:
+            summary = None
+    measures = suggest_measures_from_fdd(
+        batch_results=batch_results, results_summary=summary, measure_set=measure_set
+    )
+
+    # Evidence for estimators
+    prohibited = 0.0
+    duct_mean = None
+    try:
+        from app.analytics import economizer_weather_summary, motor_run_hours_table
+
+        if frames:
+            eco = economizer_weather_summary(frames, role_map or {}, weather=weather)
+            if eco is not None and not eco.empty and "prohibited_mech_hours_below_60f" in eco.columns:
+                prohibited = float(eco["prohibited_mech_hours_below_60f"].sum())
+            mtab = motor_run_hours_table(frames, role_map or {})
+            if mtab is not None and not mtab.empty and "run_hours" in mtab.columns:
+                if "motor_kind" in mtab.columns:
+                    fan_mask = mtab["motor_kind"].astype(str).str.lower().eq("fan")
+                    fan_hours = float(mtab.loc[fan_mask, "run_hours"].sum()) if fan_mask.any() else float(mtab["run_hours"].sum())
                 else:
-                    with st.spinner(
-                        "Calibration dry-run…"
-                        if do_cal_dry
-                        else "Calibrating (AMY EPW + EnergyPlus Docker) — may take several minutes…"
-                    ):
-                        cal = run_calibrate(
-                            wattlab,
-                            bundle,
-                            dry_run=bool(do_cal_dry),
-                            lat=float(lat),
-                            lon=float(lon),
-                        )
-                    if cal.get("report") is not None:
-                        st.session_state["wattlab_calibration"] = cal["report"]
-                        if do_cal_dry:
-                            st.success("Calibration plan ready")
-                            st.json(cal["report"])
-                        elif cal.get("ok"):
-                            st.success(
-                                f"Calibration overall: "
-                                f"**{cal['report'].get('overall', '?')}**"
-                            )
-                        else:
-                            st.warning("Calibration finished with non-zero exit — see scorecard / logs.")
-                            st.code(cal.get("stderr") or cal.get("stdout") or "")
-                    else:
-                        st.error("No calibration JSON returned")
-                        st.code(cal.get("stderr") or cal.get("stdout") or "")
-        except Exception as exc:
-            st.exception(exc)
+                    fan_hours = float(mtab["run_hours"].sum())
+            # duct static from signatures / role
+            for eq_id, raw in (frames or {}).items():
+                from app.role_map import apply_role_map
 
-    scorecard = st.session_state.get("wattlab_calibration")
-    if scorecard and not scorecard.get("dry_run"):
-        st.markdown("##### Calibration scorecard")
-        overall = scorecard.get("overall") or "?"
-        bills_block = scorecard.get("utility_bills") or {}
-        fan_block = ((scorecard.get("signatures") or {}).get("fan")) or {}
-        b1, b2, b3, b4 = st.columns(4)
-        b1.metric("Overall", str(overall))
-        fan_stats = fan_block.get("stats") or {}
-        b2.metric(
-            "Fan NMBE %",
-            "—"
-            if fan_stats.get("nmbe_pct") is None
-            else f"{fan_stats.get('nmbe_pct')}",
-        )
-        b3.metric(
-            "Fan CVRMSE %",
-            "—"
-            if fan_stats.get("cvrmse_pct") is None
-            else f"{fan_stats.get('cvrmse_pct')}",
-        )
-        bill_stats = bills_block.get("stats") or {}
-        b4.metric(
-            "Bills NMBE %",
-            bills_block.get("pass_fail")
-            if bills_block.get("pass_fail") == "bills_recommended"
-            else (
-                "—"
-                if bill_stats.get("nmbe_pct") is None
-                else f"{bill_stats.get('nmbe_pct')}"
-            ),
-        )
-        fig_sig = signature_overlay_figure(scorecard, kind="fan")
-        if fig_sig is not None:
-            st.plotly_chart(fig_sig, width="stretch")
-        fig_bills = bills_overlay_figure(scorecard)
-        if fig_bills is not None:
-            st.plotly_chart(fig_bills, width="stretch")
-        elif bills_block.get("pass_fail") == "bills_recommended":
-            st.info(bills_block.get("note") or "Utility bills recommended for magnitude calibration.")
-        with st.expander("Full calibration_scorecard.json"):
-            st.json(scorecard)
+                mapped = apply_role_map(raw, eq_id, role_map or {})
+                if "duct-static-pressure" in mapped.columns and mapped["duct-static-pressure"].notna().any():
+                    duct_mean = float(pd.to_numeric(mapped["duct-static-pressure"], errors="coerce").mean())
+                    break
+    except Exception:
+        pass
 
-    st.markdown("##### Run EnergyPlus screening")
-    r1, r2, r3 = st.columns(3)
-    run_baseline = r1.button("Run baseline only", key="wattlab_run_base")
-    run_set = r2.button(
-        f"Run baseline + {measure_set} set",
-        key="wattlab_run_set",
-        type="primary",
+    measures = attach_quick_estimates(
+        measures,
+        fan_run_hours=fan_hours,
+        data_span_hours=data_span_h or 1.0,
+        duct_static_mean_iwc=duct_mean,
+        prohibited_mech_hours=prohibited,
+        schedules=sched,
+        elec_usd_per_kwh=float(elec),
+        fan_kw=float(st.session_state.get("em_fan_kw_assume", 15.0)),
+        plant_kw=float(st.session_state.get("em_plant_kw_assume", 40.0)),
     )
-    run_dry = r3.button("Dry-run plan", key="wattlab_dry")
+    profile["measures"] = measures
 
-    def _prepare_profile() -> tuple[dict[str, Any], str | None]:
-        res = resolve_via_cli(wattlab, minimal)
-        if not res.get("report"):
-            raise RuntimeError(res.get("stderr") or res.get("stdout") or "resolve failed")
-        profile = res["report"]
-        use_set: str | None = measure_set
-        bridge_state = st.session_state.get("wattlab_bridge")
-        if bridge_state and bridge_state.get("measures"):
-            profile["measures"] = bridge_state["measures"]
-            profile.pop("measure_set", None)
-            use_set = None
-        st.session_state["wattlab_resolved_profile"] = profile
-        return profile, use_set
+    st.markdown("##### Recommended measures + quick savings estimates")
+    st.caption(
+        "Screening-grade bin-hour / affinity estimates from your FDD data — **not** EnergyPlus results. "
+        "Toggle measures into the export package for the outside modeling agent."
+    )
+    enabled_ids: list[str] = []
+    for m in measures:
+        mid = m.get("measure_id") or ""
+        title = m.get("title") or mid
+        qe = m.get("quick_estimate") or {}
+        label = f"{mid} — {title}"
+        on = st.checkbox(label, value=bool(m.get("enabled", True)), key=f"em_meas_{mid}")
+        if on:
+            enabled_ids.append(mid)
+            m["enabled"] = True
+        else:
+            m["enabled"] = False
+        if qe.get("status") == "ok":
+            st.caption(
+                f"  → ~{qe.get('kwh_savings', 0):,.0f} kWh / ${qe.get('usd_savings', 0):,.0f} "
+                f"({qe.get('estimator')}) · {qe.get('notes', '')}"
+            )
+        elif qe.get("status") == "skipped":
+            st.caption(f"  → estimate skipped: {qe.get('reason')}")
 
-    if run_dry or run_baseline or run_set:
-        try:
-            profile, use_set = _prepare_profile()
-            out: dict[str, Any]
-            if run_dry:
-                with st.spinner("Dry-run…"):
-                    out = run_easy_button(
-                        wattlab, profile=profile, measure_set=use_set, dry_run=True
-                    )
-            elif run_baseline:
-                profile = dict(profile)
-                profile["measures"] = []
-                profile.pop("measure_set", None)
-                with st.spinner(
-                    "Running EnergyPlus baseline (Docker) — this may take a few minutes…"
-                ):
-                    out = run_easy_button(
-                        wattlab, profile=profile, measure_set=None, dry_run=False
-                    )
-            else:
-                with st.spinner(
-                    f"Running EnergyPlus baseline + {use_set or 'measures'} "
-                    "(Docker) — several sequential sims…"
-                ):
+    profile["measures"] = [m for m in measures if m.get("enabled")]
+    quick_summary = {
+        "total_kwh": sum((m.get("quick_estimate") or {}).get("kwh_savings") or 0 for m in profile["measures"]),
+        "total_usd": sum((m.get("quick_estimate") or {}).get("usd_savings") or 0 for m in profile["measures"]),
+        "measures": [
+            {
+                "measure_id": m.get("measure_id"),
+                "kwh": (m.get("quick_estimate") or {}).get("kwh_savings"),
+                "usd": (m.get("quick_estimate") or {}).get("usd_savings"),
+                "estimator": (m.get("quick_estimate") or {}).get("estimator"),
+            }
+            for m in profile["measures"]
+        ],
+    }
+    m1, m2 = st.columns(2)
+    m1.metric("Quick kWh savings (screening)", f"{quick_summary['total_kwh']:,.0f}")
+    m2.metric("Quick $ savings (screening)", f"${quick_summary['total_usd']:,.0f}")
+
+    # Export package
+    st.markdown("##### Export Energy Model Package")
+    if st.button("Build export package (for AI agent + EnergyPlus)", type="primary", key="em_export_pkg"):
+        import tempfile
+
+        out = Path(tempfile.mkdtemp(prefix="wattlab_pkg_"))
+        zpath = write_energy_model_package(
+            out,
+            profile=profile,
+            schedules=sched,
+            measures=profile["measures"],
+            schedule_inference=schedule_payload,
+            operating_signatures=sig_df if sig_df is not None else None,
+            weather=weather,
+            quick_savings_summary=quick_summary,
+        )
+        st.session_state["em_export_zip"] = str(zpath)
+        st.success(f"Package written · `{zpath}`")
+    zpath = st.session_state.get("em_export_zip")
+    if zpath and Path(zpath).is_file():
+        st.download_button(
+            "Download energy_model_package.zip",
+            data=Path(zpath).read_bytes(),
+            file_name="energy_model_package.zip",
+            mime="application/zip",
+            key="em_dl_pkg",
+        )
+
+    # Optional vibe20 EnergyPlus screening
+    if wattlab and status.get("easy_button"):
+        st.markdown("##### Optional · live EnergyPlus screening (vibe20 sidecar)")
+        r1, r2, r3 = st.columns(3)
+        run_baseline = r1.button("Run baseline only", key="wattlab_run_base")
+        run_set = r2.button(f"Run baseline + {measure_set}", key="wattlab_run_set")
+        run_dry = r3.button("Dry-run plan", key="wattlab_dry")
+        if run_dry or run_baseline or run_set:
+            try:
+                use_set = None if run_baseline else measure_set
+                run_profile = dict(profile)
+                if run_baseline:
+                    run_profile["measures"] = []
+                with st.spinner("Calling vibe20 easy_button…"):
                     out = run_easy_button(
                         wattlab,
-                        profile=profile,
+                        profile=run_profile,
                         measure_set=use_set,
-                        dry_run=False,
+                        dry_run=bool(run_dry),
                     )
-            if out.get("report") is not None:
-                st.session_state["wattlab_last_report"] = out["report"]
-            st.session_state["wattlab_last_run_meta"] = {
-                k: out.get(k) for k in ("ok", "returncode", "stderr")
-            }
-            if not out.get("ok") and not run_dry:
-                st.warning("EnergyPlus run reported a non-zero exit — check logs below.")
-                st.code(out.get("stderr") or out.get("stdout") or "")
-            elif out.get("report") is None:
-                st.error("No JSON report returned from WattLab.")
-                st.code(out.get("stderr") or out.get("stdout") or "")
-        except Exception as exc:
-            st.exception(exc)
+                if out.get("report") is not None:
+                    st.session_state["wattlab_last_report"] = out["report"]
+                if not out.get("ok") and not run_dry:
+                    st.warning("EnergyPlus run reported a non-zero exit.")
+                    st.code(out.get("stderr") or out.get("stdout") or "")
+            except Exception as exc:
+                st.exception(exc)
 
-    report = st.session_state.get("wattlab_last_report")
-    if not report:
-        return
+        report = st.session_state.get("wattlab_last_report")
+        if report:
+            st.markdown("##### EnergyPlus results")
+            if report.get("dry_run"):
+                st.json(report)
+            else:
+                records = report.get("result_records") or []
+                if records:
+                    final = records[-1].get("annual") or {}
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Site EUI", f"{final.get('site_eui_kbtu_ft2_year') or '—'} kBtu/ft²")
+                    c2.metric("Electricity", f"{(final.get('electricity_kwh_year') or 0):,.0f} kWh")
+                    c3.metric("Gas", f"{(final.get('natural_gas_therm_year') or 0):,.0f} therm")
+                    c4.metric("Utility cost", f"${(final.get('utility_cost_usd_year') or 0):,.0f}")
+                savings = report.get("savings_by_measure") or []
+                if savings:
+                    st.dataframe(flatten_savings_rows(savings), hide_index=True, width="stretch")
+                    fig_w = savings_bar_figure(savings)
+                    if fig_w is not None:
+                        st.plotly_chart(fig_w, width="stretch")
+                with st.expander("Full wattlab_report.json"):
+                    st.json(report)
 
-    st.markdown("##### Results")
-    if report.get("dry_run"):
-        st.json(report)
-        return
-    if report.get("disclaimer"):
-        st.info(report["disclaimer"])
-    records = report.get("result_records") or []
-    if records:
-        base = records[0].get("annual") or {}
-        final = records[-1].get("annual") or {}
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric(
-            "Site EUI",
-            f"{final.get('site_eui_kbtu_ft2_year') or '—'} kBtu/ft²",
-            delta=(
-                None
-                if base.get("site_eui_kbtu_ft2_year") is None
-                or final.get("site_eui_kbtu_ft2_year") is None
-                else round(
-                    final["site_eui_kbtu_ft2_year"] - base["site_eui_kbtu_ft2_year"],
-                    2,
-                )
-            ),
-        )
-        c2.metric("Electricity", f"{(final.get('electricity_kwh_year') or 0):,.0f} kWh")
-        c3.metric("Gas", f"{(final.get('natural_gas_therm_year') or 0):,.0f} therm")
-        c4.metric("Utility cost", f"${(final.get('utility_cost_usd_year') or 0):,.0f}")
+    with st.expander("Resolved building_profile.json", expanded=False):
+        st.json(profile)
 
-    savings = report.get("savings_by_measure") or []
-    if savings:
-        st.dataframe(flatten_savings_rows(savings), hide_index=True, width="stretch")
-        fig_w = savings_bar_figure(savings)
-        if fig_w is not None:
-            st.plotly_chart(fig_w, width="stretch")
-    fig_m = monthly_bar_figure(records)
-    if fig_m is not None:
-        st.plotly_chart(fig_m, width="stretch")
-    else:
-        st.caption("Monthly series not present in tabular output for this run.")
-
-    art = report.get("artifacts_dir")
-    if art:
-        st.caption(f"Artifacts: `{art}`")
-    with st.expander("Full wattlab_report.json"):
-        st.json(report)

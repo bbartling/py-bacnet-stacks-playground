@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-16 — Mapping staleness fix + in-app Energy Model wizard
+
+- **FDD Plots mapping bug:** Data Model role edits now bump `mapping_rev`, clear stale `batch_results`, sync site/frame attrs; `rule_plot_series` prefers live remapped columns over baked `plot_series`. Damper + econ roles in editor defaults.
+- **Energy Model self-contained:** `configs/energy_defaults/` + `app/energy_wizard.py` (resolve_profile, schedule prefill, ECM suggest, bin-hour quick savings, Energy Model Package zip). No vibe20 required for the form; EP sidecar optional.
+- Turnkey AppTest asserts Building type selectbox renders without WattLab sibling.
+
+---
+
 ## 2026-07-16 — ECON-7 + plot overlays (fan status / dewpoint)
 
 - **ECON-7** *Economizer OK but not economizing*: web DP < 60°F and DB < 72°F (freeze-guard floor 35°F); cooling demand + damper below economizing threshold. Imperial sliders. Catalog **59** rules.

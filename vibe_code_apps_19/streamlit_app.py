@@ -205,6 +205,9 @@ def _init_state() -> None:
         "session_config_source": "",
         "bootstrap_applied": False,
         "bootstrap_status": "",
+        "mapping_rev": "",
+        "rules_mapping_rev": "",
+        "mapping_stale": False,
     }.items():
         st.session_state.setdefault(k, v)
 
@@ -516,6 +519,72 @@ def _render_session_config_io(*, key_prefix: str) -> None:
 
 def _sync_role_map_from_sites() -> None:
     st.session_state.role_map = flat_role_map_from_sites(st.session_state.site_mapping)
+
+
+def _role_map_fingerprint(role_map: dict | None = None) -> str:
+    """Stable hash of equipment→role→column mappings (ignores meta keys)."""
+    import hashlib
+    import json
+
+    rm = role_map if role_map is not None else st.session_state.get("role_map") or {}
+    cleaned: dict[str, dict[str, str]] = {}
+    for eq_id, roles in sorted((rm or {}).items()):
+        if not isinstance(roles, dict):
+            continue
+        cleaned[str(eq_id)] = {
+            str(k): str(v)
+            for k, v in sorted(roles.items())
+            if k not in {"equipment_type", "plant_group"} and v
+        }
+    blob = json.dumps(cleaned, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def _commit_role_map_edit(equipment_id: str, roles: dict[str, str]) -> bool:
+    """Apply in-session role edits, sync sites/frame attrs, invalidate stale results.
+
+    Returns True when the mapping actually changed.
+    """
+    prev = _role_map_fingerprint()
+    clean = {k: v for k, v in roles.items() if v}
+    etype = resolve_equipment_type(
+        equipment_id,
+        role_map=st.session_state.role_map,
+        column_map=st.session_state.get("column_map"),
+        sites=st.session_state.site_mapping,
+    )
+    meta = dict(st.session_state.role_map.get(equipment_id) or {})
+    # Drop previous role keys then apply clean map (keep equipment_type/plant_group).
+    keep_meta = {k: meta[k] for k in ("equipment_type", "plant_group") if k in meta}
+    keep_meta["equipment_type"] = etype
+    st.session_state.role_map[equipment_id] = {**keep_meta, **clean}
+    upsert_equipment_roles(
+        st.session_state.site_mapping,
+        site_id=st.session_state.site_id or DEFAULT_SITE_ID,
+        building_id=st.session_state.building_id or "BUILDING",
+        equipment_id=equipment_id,
+        equipment_type=etype,
+        roles=clean,
+    )
+    _sync_role_map_from_sites()
+    # Re-apply this equipment's edit after sync (sites flatten may drop in-session-only keys).
+    synced = dict(st.session_state.role_map.get(equipment_id) or {})
+    synced.update(clean)
+    synced["equipment_type"] = etype
+    st.session_state.role_map[equipment_id] = synced
+    if st.session_state.equipment_frames:
+        _attach_frames_meta(st.session_state.equipment_frames)
+    new_fp = _role_map_fingerprint()
+    st.session_state.mapping_rev = new_fp
+    if new_fp != prev:
+        # Drop cached results for this equipment so FDD Plots re-evaluate.
+        st.session_state.batch_results = [
+            r for r in st.session_state.batch_results if getattr(r, "equipment_id", None) != equipment_id
+        ]
+        st.session_state.mapping_stale = True
+        st.session_state.rules_mapping_rev = ""
+        return True
+    return False
 
 
 def _apply_column_map_json(data: dict) -> None:
@@ -1213,15 +1282,22 @@ def _preferred_plot_rule_id(applicable: list, lookup: dict, device: str) -> str 
 
 
 def _ensure_device_rules_run(device: str, applicable: list, frames: dict[str, pd.DataFrame]) -> bool:
-    """Run applicable rules for device if missing. Returns True when a rerun is needed."""
+    """Run applicable rules for device if missing or mapping changed. Returns True when a rerun happened."""
     lookup = _result_lookup(st.session_state.batch_results)
-    if any(eq == device for eq, _rid in lookup):
+    mapping_fp = st.session_state.get("mapping_rev") or _role_map_fingerprint()
+    st.session_state.mapping_rev = mapping_fp
+    rules_fp = st.session_state.get("rules_mapping_rev") or ""
+    mapping_changed = bool(rules_fp) and rules_fp != mapping_fp
+    has_results = any(eq == device for eq, _rid in lookup)
+    if has_results and not mapping_changed and not st.session_state.get("mapping_stale"):
         return False
     if not applicable:
         return False
     new_res = _run_rule_list([device], applicable, frames)
     keep = [r for r in st.session_state.batch_results if r.equipment_id != device]
     st.session_state.batch_results = keep + new_res
+    st.session_state.rules_mapping_rev = mapping_fp
+    st.session_state.mapping_stale = False
     focus_key = f"plot_chart_rule_{device}"
     pref = _preferred_plot_rule_id(applicable, _result_lookup(st.session_state.batch_results), device)
     if pref:
@@ -2517,12 +2593,25 @@ def main() -> None:
                 ),
             }
             edit = dict(st.session_state.role_map.get(selected, {}))
+            # Drop meta keys from the editable role list
+            edit.pop("equipment_type", None)
+            edit.pop("plant_group", None)
+            default_roles = [
+                "zone-air-temp",
+                "discharge-air-temp",
+                "discharge-air-temp-sp",
+                "mixed-air-temp",
+                "return-air-temp",
+                "outside-air-temp",
+                "outside-air-damper",
+                "cooling-valve",
+                "heating-valve",
+                "fan-cmd",
+                "fan-status",
+                "duct-static-pressure",
+            ]
             for role in sorted(
-                set(
-                    list(inferred.keys())
-                    + list(edit.keys())
-                    + ["zone-air-temp", "discharge-air-temp", "discharge-air-temp-sp", "outside-air-temp", "fan-cmd"]
-                )
+                set(list(inferred.keys()) + list(edit.keys()) + default_roles)
             ):
                 opts = [""] + list(raw_df.columns)
                 cur = edit.get(role, inferred.get(role, ""))
@@ -2533,7 +2622,12 @@ def main() -> None:
                     key=f"r_{selected}_{role}",
                 )
             edit = {k: v for k, v in edit.items() if v}
-            st.session_state.role_map[selected] = edit
+            changed = _commit_role_map_edit(selected, edit)
+            if changed:
+                st.info(
+                    "Mapping updated — FDD Plots will re-run this device's rules on next visit "
+                    "so charts use the new columns."
+                )
             st.caption(
                 "Overrides apply in-session; prefer fixing the package sidecar JSON for lasting maps."
             )
@@ -2569,6 +2663,8 @@ def main() -> None:
             target_rules = RULES if fam_key is None else _rules_by_family().get(fam_key, [])
             eq_list = [selected] if scope == "selected equipment" else sorted(frames, key=natural_key)
             st.session_state.batch_results = _run_rule_list(eq_list, target_rules, frames)
+            st.session_state.rules_mapping_rev = st.session_state.get("mapping_rev") or _role_map_fingerprint()
+            st.session_state.mapping_stale = False
             st.success(
                 f"Ran {len(st.session_state.batch_results)} evaluations — "
                 "open **FDD Plots** for the FDD Word template, or **RCx Plots**."
@@ -2731,6 +2827,7 @@ def main() -> None:
 
             # Auto-run when this device has no evaluations yet
             if _ensure_device_rules_run(device, applicable, frames):
+                st.caption("Mapping or first visit — re-ran rules for this device so charts match the live role map.")
                 st.rerun()
 
             lookup = _result_lookup(st.session_state.batch_results)
@@ -3166,6 +3263,9 @@ def main() -> None:
         render_energy_model_tab(
             batch_results=st.session_state.get("batch_results") or [],
             results_summary_fn=results_summary_table,
+            frames=st.session_state.get("equipment_frames") or {},
+            role_map=st.session_state.get("role_map") or {},
+            weather=st.session_state.get("weather"),
         )
 
     if section == "Export":

@@ -195,18 +195,49 @@ def rule_plot_series(
     *,
     required_roles: list[str] | None = None,
 ) -> dict[str, pd.Series]:
-    """Collect numeric series for a rule: explicit plot_series, else required roles on df."""
+    """Collect numeric series for a rule.
+
+    Prefer **live** ``df`` columns (reflects current role_map) over baked
+    ``result.plot_series`` so Data Model remaps refresh FDD Plots without
+    requiring a full re-run. Baked series are kept only as fallback for
+    derived / non-column keys (e.g. control-output sweeps).
+    """
     series: dict[str, pd.Series] = {}
-    if result.plot_series:
-        for k, s in result.plot_series.items():
-            if s is not None and getattr(s, "notna", None) and s.notna().any():
-                series[str(k)] = s
     roles = required_roles or []
+    # Live columns first (mapping-aware).
     for role in roles:
-        if role in series:
-            continue
         if role in df.columns and df[role].notna().any():
             series[role] = df[role]
+    # Fill any live columns already present but not in required_roles.
+    for col in df.columns:
+        if col in series:
+            continue
+        if col in {
+            "zone-air-temp",
+            "discharge-air-temp",
+            "discharge-air-temp-sp",
+            "outside-air-temp",
+            "web-outside-air-temp",
+            "web-outside-air-dewpoint",
+            "mixed-air-temp",
+            "return-air-temp",
+            "outside-air-damper",
+            "cooling-valve",
+            "heating-valve",
+            "duct-static-pressure",
+            "fan-cmd",
+            "fan-status",
+            "motor-on",
+        } and df[col].notna().any():
+            series[col] = df[col]
+    # Baked plot_series: only for keys not already supplied by live df.
+    if result.plot_series:
+        for k, s in result.plot_series.items():
+            key = str(k)
+            if key in series:
+                continue
+            if s is not None and getattr(s, "notna", None) and s.notna().any():
+                series[key] = s
     if not series:
         for col in (
             "zone-air-temp",
