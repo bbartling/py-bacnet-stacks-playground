@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-16 — GL36 AFDD internal-variable sliders
+
+- FC1–FC15 equations now expose GL36 Table 5.16.14.5 sensor errors, ΔTSF, ΔTmin, ΔOSmax, ModeDelay, command/state boundaries, and AlarmDelay (`confirm_min`) in the left Rule tuning rail.
+- Removed hardcoded `0.55°F` fan-heat use from equations; `delta_supply_fan` is independently tunable on every applicable FC rule. Separate εSAT/εRAT/εMAT/εOAT and coil-sensor tolerances replace the old one-size `mix_tol` while legacy overrides still propagate.
+- Catalog-wide contract test catches `_f(p, key)` reads without a matching slider; fixed missing CHW pump-high sliders. Turnkey AppTest asserts representative GL36 sliders render without exceptions.
+
+---
+
 ## 2026-07-16 — WattLab calibration hardening
 
 - vibe20: weather suitability modes stamped on easy_button / calibrate reports; bill-month validation holdout (`--validation-months`); hour-shift lag-scan warning; `run_manifest.json` content hashes.

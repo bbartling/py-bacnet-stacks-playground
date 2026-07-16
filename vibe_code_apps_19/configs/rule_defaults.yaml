@@ -103,6 +103,15 @@ CHW-2:
     min: 0.5
     step: 0.1
     unit: psi
+  pump_hi:
+    default: 0.87
+    direction: ''
+    help: Pump high-speed threshold
+    label: Pump high-speed threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
 CHW-3:
   confirm_min:
     default: 5.0
@@ -141,6 +150,15 @@ CHW-4:
     min: 200
     step: 50
     unit: gpm
+  pump_hi:
+    default: 0.87
+    direction: ''
+    help: Pump high-speed threshold
+    label: Pump high-speed threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
 CHW-NOLOAD-1:
   comfort_high_f:
     default: 75.0
@@ -522,22 +540,59 @@ FC1:
   duct_static_err:
     default: 0.12
     direction: ''
-    help: Duct static error
-    label: Duct static error
+    help: "Legacy duct-static error (sets \u03B5DSP)"
+    label: "Legacy duct-static error (sets \u03B5DSP)"
     max: 0.5
-    min: 0.02
+    min: 0.0
     step: 0.01
     unit: in. w.c.
+  eps_dsp:
+    default: 0.12
+    direction: ''
+    help: "Duct-static error \u03B5DSP (GL36 default 0.1 in.w.c.)"
+    label: "Duct-static error \u03B5DSP (GL36 default 0.1 in.w.c.)"
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: in. w.c.
+  eps_vfd_spd:
+    default: 0.13
+    direction: ''
+    help: "VFD speed error \u03B5VFDSPD (GL36 default 5%)"
+    label: "VFD speed error \u03B5VFDSPD (GL36 default 5%)"
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
   fan_hi:
     default: 0.87
     direction: ''
-    help: Fan high threshold
-    label: Fan high threshold
+    help: "Legacy fan-high threshold (sets \u03B5VFDSPD)"
+    label: "Legacy fan-high threshold (sets \u03B5VFDSPD)"
     max: 1.0
     min: 0.5
     step: 0.01
     unit: frac
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC10:
+  clg_on_min:
+    default: 0.01
+    direction: ''
+    help: Cooling-command ON threshold
+    label: Cooling-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -547,16 +602,65 @@ FC10:
     min: 0.0
     step: 1.0
     unit: min
+  econ_full_open:
+    default: 0.9
+    direction: ''
+    help: Economizer full-open threshold
+    label: Economizer full-open threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_oat:
+    default: 1.15
+    direction: fewer
+    help: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)\
+      \ \u2014 increasing this usually flags fewer faults."
+    label: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC11:
+  clg_on_min:
+    default: 0.01
+    direction: ''
+    help: Cooling-command ON threshold
+    label: Cooling-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -566,16 +670,74 @@ FC11:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_full_open:
+    default: 0.9
+    direction: ''
+    help: Economizer full-open threshold
+    label: Economizer full-open threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  eps_oat:
+    default: 1.15
+    direction: fewer
+    help: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)\
+      \ \u2014 increasing this usually flags fewer faults."
+    label: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_sat:
+    default: 1.15
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC12:
+  clg_on_min:
+    default: 0.01
+    direction: ''
+    help: Cooling-command ON threshold
+    label: Cooling-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -585,44 +747,160 @@ FC12:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_full_open:
+    default: 0.9
+    direction: ''
+    help: Economizer full-open threshold
+    label: Economizer full-open threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_sat:
+    default: 1.15
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
   supply_tol:
     default: 1.15
     direction: fewer
-    help: "Supply tolerance \u2014 increasing this usually flags fewer faults."
-    label: Supply tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy SAT tolerance master (sets \u03B5SAT) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Legacy SAT tolerance master (sets \u03B5SAT)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
 FC13:
+  clg_full_min:
+    default: 0.01
+    direction: ''
+    help: Full-cooling threshold (GL36 99%)
+    label: Full-cooling threshold (GL36 99%)
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
     help: "Fault confirm delay \u2014 increasing this usually flags fewer faults."
     label: Fault confirm delay
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  econ_full_open:
+    default: 0.9
+    direction: ''
+    help: Economizer full-open threshold
+    label: Economizer full-open threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_sat:
+    default: 1.0
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
     max: 60.0
     min: 0.0
     step: 1.0
     unit: min
   sat_err:
     default: 1.0
-    direction: fewer
-    help: "SAT error \u2014 increasing this usually flags fewer faults."
-    label: SAT error
-    max: 5.0
-    min: 0.25
+    direction: ''
+    help: "Legacy SAT error (sets \u03B5SAT)"
+    label: "Legacy SAT error (sets \u03B5SAT)"
+    max: 10.0
+    min: 0.0
     step: 0.25
     unit: "\xB0F"
 FC14:
+  clg_inactive_max:
+    default: 0.1
+    direction: fewer
+    help: "Cooling-command inactive ceiling \u2014 increasing this usually flags fewer\
+      \ faults."
+    label: Cooling-command inactive ceiling
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -632,16 +910,93 @@ FC14:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_ccet:
+    default: 1.15
+    direction: fewer
+    help: "Cooling-coil entering sensor error \u03B5CCET \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Cooling-coil entering sensor error \u03B5CCET"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_cclt:
+    default: 1.15
+    direction: fewer
+    help: "Cooling-coil leaving sensor error \u03B5CCLT \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Cooling-coil leaving sensor error \u03B5CCLT"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  htg_on_min:
+    default: 0.01
+    direction: ''
+    help: Heating-command ON threshold
+    label: Heating-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC15:
+  clg_inactive_max:
+    default: 0.1
+    direction: fewer
+    help: "Cooling-command inactive ceiling \u2014 increasing this usually flags fewer\
+      \ faults."
+    label: Cooling-command inactive ceiling
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  clg_on_min:
+    default: 0.01
+    direction: ''
+    help: Cooling-command ON threshold
+    label: Cooling-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -651,15 +1006,73 @@ FC15:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_full_open:
+    default: 0.9
+    direction: ''
+    help: Economizer full-open threshold
+    label: Economizer full-open threshold
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_hcet:
+    default: 1.15
+    direction: fewer
+    help: "Heating-coil entering sensor error \u03B5HCET \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Heating-coil entering sensor error \u03B5HCET"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_hclt:
+    default: 1.15
+    direction: fewer
+    help: "Heating-coil leaving sensor error \u03B5HCLT \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Heating-coil leaving sensor error \u03B5HCLT"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC2:
   confirm_min:
     default: 10.0
@@ -670,15 +1083,65 @@ FC2:
     min: 0.0
     step: 1.0
     unit: min
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_oat:
+    default: 1.15
+    direction: fewer
+    help: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)\
+      \ \u2014 increasing this usually flags fewer faults."
+    label: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_rat:
+    default: 1.15
+    direction: fewer
+    help: "RAT sensor error \u03B5RAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "RAT sensor error \u03B5RAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  fan_on_min:
+    default: 0.01
+    direction: ''
+    help: Fan-on command threshold
+    label: Fan-on command threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC3:
   confirm_min:
     default: 10.0
@@ -689,15 +1152,65 @@ FC3:
     min: 0.0
     step: 1.0
     unit: min
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_oat:
+    default: 1.15
+    direction: fewer
+    help: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)\
+      \ \u2014 increasing this usually flags fewer faults."
+    label: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_rat:
+    default: 1.15
+    direction: fewer
+    help: "RAT sensor error \u03B5RAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "RAT sensor error \u03B5RAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  fan_on_min:
+    default: 0.01
+    direction: ''
+    help: Fan-on command threshold
+    label: Fan-on command threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC4:
   confirm_min:
     default: 60.0
@@ -711,12 +1224,23 @@ FC4:
   delta_os_max:
     default: 5
     direction: fewer
-    help: "Max mode changes/hr \u2014 increasing this usually flags fewer faults."
-    label: Max mode changes/hr
-    max: 20
-    min: 2
+    help: "Max mode changes/hr \u0394OSmax (GL36 default 7) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "Max mode changes/hr \u0394OSmax (GL36 default 7)"
+    max: 30
+    min: 1
     step: 1
     unit: count
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC5:
   confirm_min:
     default: 10.0
@@ -727,22 +1251,80 @@ FC5:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_sat:
+    default: 1.15
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  fan_on_min:
+    default: 0.01
+    direction: ''
+    help: Fan-on command threshold
+    label: Fan-on command threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
+  htg_on_min:
+    default: 0.01
+    direction: ''
+    help: Heating-command ON threshold
+    label: Heating-command ON threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 FC6:
   airflow_err:
     default: 0.15
     direction: ''
-    help: OA fraction error
-    label: OA fraction error
-    max: 0.5
+    help: "Legacy OA-fraction error (sets \u03B5F)"
+    label: "Legacy OA-fraction error (sets \u03B5F)"
+    max: 1.0
     min: 0.05
     step: 0.01
     unit: frac
@@ -755,6 +1337,33 @@ FC6:
     min: 0.0
     step: 1.0
     unit: min
+  delta_t_min:
+    default: 5.0
+    direction: ''
+    help: "Minimum |OAT\u2212RAT| \u0394Tmin (GL36 default 10\xB0F)"
+    label: "Minimum |OAT\u2212RAT| \u0394Tmin (GL36 default 10\xB0F)"
+    max: 30.0
+    min: 0.0
+    step: 0.5
+    unit: "\xB0F"
+  eps_airflow:
+    default: 0.15
+    direction: ''
+    help: "Airflow error \u03B5F (GL36 default 30%)"
+    label: "Airflow error \u03B5F (GL36 default 30%)"
+    max: 1.0
+    min: 0.05
+    step: 0.01
+    unit: frac
+  fan_on_min:
+    default: 0.01
+    direction: ''
+    help: Fan-on command threshold
+    label: Fan-on command threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
   min_cfm_design:
     default: 5000
     direction: ''
@@ -764,6 +1373,25 @@ FC6:
     min: 500
     step: 500
     unit: cfm
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
+  oat_rat_delta_min:
+    default: 5.0
+    direction: ''
+    help: "Legacy OAT/RAT guard (sets \u0394Tmin)"
+    label: "Legacy OAT/RAT guard (sets \u0394Tmin)"
+    max: 30.0
+    min: 0.0
+    step: 0.5
+    unit: "\xB0F"
 FC7:
   confirm_min:
     default: 10.0
@@ -774,16 +1402,64 @@ FC7:
     min: 0.0
     step: 1.0
     unit: min
+  eps_sat:
+    default: 1.0
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  fan_on_min:
+    default: 0.01
+    direction: ''
+    help: Fan-on command threshold
+    label: Fan-on command threshold
+    max: 0.25
+    min: 0.0
+    step: 0.01
+    unit: frac
+  htg_full_min:
+    default: 0.9
+    direction: ''
+    help: Full-heating threshold (GL36 99%)
+    label: Full-heating threshold (GL36 99%)
+    max: 1.0
+    min: 0.5
+    step: 0.01
+    unit: frac
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
   sat_err:
     default: 1.0
     direction: ''
-    help: SAT error
-    label: SAT error
-    max: 5.0
-    min: 0.25
+    help: "Legacy SAT error (sets \u03B5SAT)"
+    label: "Legacy SAT error (sets \u03B5SAT)"
+    max: 10.0
+    min: 0.0
     step: 0.25
     unit: "\xB0F"
 FC8:
+  clg_inactive_max:
+    default: 0.1
+    direction: fewer
+    help: "Cooling-command inactive ceiling \u2014 increasing this usually flags fewer\
+      \ faults."
+    label: Cooling-command inactive ceiling
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -793,25 +1469,85 @@ FC8:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_mat:
+    default: 1.15
+    direction: fewer
+    help: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "MAT sensor error \u03B5MAT (GL36 default 5\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_sat:
+    default: 1.15
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
   supply_tol:
     default: 1.15
     direction: fewer
-    help: "Supply tolerance \u2014 increasing this usually flags fewer faults."
-    label: Supply tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy SAT tolerance master (sets \u03B5SAT) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: "Legacy SAT tolerance master (sets \u03B5SAT)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
 FC9:
+  clg_inactive_max:
+    default: 0.1
+    direction: fewer
+    help: "Cooling-command inactive ceiling \u2014 increasing this usually flags fewer\
+      \ faults."
+    label: Cooling-command inactive ceiling
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
   confirm_min:
     default: 10.0
     direction: fewer
@@ -821,15 +1557,64 @@ FC9:
     min: 0.0
     step: 1.0
     unit: min
+  delta_supply_fan:
+    default: 0.55
+    direction: ''
+    help: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    label: "Supply-fan heat rise \u0394TSF (GL36 default 2\xB0F)"
+    max: 5.0
+    min: 0.0
+    step: 0.05
+    unit: "\xB0F"
+  econ_min_pos:
+    default: 0.05
+    direction: ''
+    help: Economizer minimum-position threshold
+    label: Economizer minimum-position threshold
+    max: 0.5
+    min: 0.0
+    step: 0.01
+    unit: frac
+  eps_oat:
+    default: 1.15
+    direction: fewer
+    help: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)\
+      \ \u2014 increasing this usually flags fewer faults."
+    label: "OAT sensor error \u03B5OAT (GL36 default 2\xB0F local / 5\xB0F global)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
+  eps_sat:
+    default: 1.15
+    direction: fewer
+    help: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F) \u2014 increasing this\
+      \ usually flags fewer faults."
+    label: "SAT sensor error \u03B5SAT (GL36 default 2\xB0F)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
+    unit: "\xB0F"
   mix_tol:
     default: 1.15
     direction: fewer
-    help: "Mixing tolerance \u2014 increasing this usually flags fewer faults."
-    label: Mixing tolerance
-    max: 3.0
-    min: 0.25
-    step: 0.05
+    help: "Legacy master sensor tolerance (sets all \u03B5 values) \u2014 increasing\
+      \ this usually flags fewer faults."
+    label: "Legacy master sensor tolerance (sets all \u03B5 values)"
+    max: 10.0
+    min: 0.0
+    step: 0.25
     unit: "\xB0F"
+  mode_delay_min:
+    default: 0.0
+    direction: fewer
+    help: "Mode-change suspension (GL36 default 30) \u2014 increasing this usually\
+      \ flags fewer faults."
+    label: Mode-change suspension (GL36 default 30)
+    max: 60.0
+    min: 0.0
+    step: 1.0
+    unit: min
 HP-1:
   confirm_min:
     default: 10.0

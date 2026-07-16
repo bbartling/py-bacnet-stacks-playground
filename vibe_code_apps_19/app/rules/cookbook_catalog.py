@@ -350,6 +350,37 @@ CONFIRM_PARAM = lambda default_min=5.0, mx=60.0: CookbookParam(  # noqa: E731
     direction="fewer",
 )
 
+MODE_DELAY_PARAM = lambda: CookbookParam(  # noqa: E731
+    "mode_delay_min", "Mode-change suspension (GL36 default 30)", "min", 0.0, 60.0, 1.0, 0.0, direction="fewer"
+)
+FAN_ON_PARAM = lambda: CookbookParam(  # noqa: E731
+    "fan_on_min", "Fan-on command threshold", "frac", 0.0, 0.25, 0.01, FAN_ON_MIN
+)
+EPS_TEMP_PARAM = lambda key, label, default=1.15: CookbookParam(  # noqa: E731
+    key, label, "°F", 0.0, 10.0, 0.25, default, direction="fewer"
+)
+DELTA_TSF_PARAM = lambda: CookbookParam(  # noqa: E731
+    "delta_supply_fan", "Supply-fan heat rise ΔTSF (GL36 default 2°F)", "°F", 0.0, 5.0, 0.05, DELTA_SUPPLY_FAN
+)
+ECON_MIN_PARAM = lambda: CookbookParam(  # noqa: E731
+    "econ_min_pos", "Economizer minimum-position threshold", "frac", 0.0, 0.5, 0.01, AHU_MIN_OA_DPR
+)
+ECON_FULL_PARAM = lambda: CookbookParam(  # noqa: E731
+    "econ_full_open", "Economizer full-open threshold", "frac", 0.5, 1.0, 0.01, 0.90
+)
+CLG_ON_PARAM = lambda: CookbookParam(  # noqa: E731
+    "clg_on_min", "Cooling-command ON threshold", "frac", 0.0, 0.25, 0.01, 0.01
+)
+CLG_INACTIVE_PARAM = lambda: CookbookParam(  # noqa: E731
+    "clg_inactive_max", "Cooling-command inactive ceiling", "frac", 0.0, 0.5, 0.01, 0.10, direction="fewer"
+)
+LEGACY_MIX_PARAM = lambda: CookbookParam(  # noqa: E731
+    "mix_tol", "Legacy master sensor tolerance (sets all ε values)", "°F", 0.0, 10.0, 0.25, MIX_TOL, direction="fewer"
+)
+LEGACY_SUPPLY_PARAM = lambda: CookbookParam(  # noqa: E731
+    "supply_tol", "Legacy SAT tolerance master (sets εSAT)", "°F", 0.0, 10.0, 0.25, SUPPLY_TOL, direction="fewer"
+)
+
 
 # ---------------------------------------------------------------------------
 # Sensor validation sweep (SV-1/2/3 range, SV-5 stale, SV-6 flatline, SV-7 spike)
@@ -473,6 +504,45 @@ DELTA_SUPPLY_FAN = 0.55
 FAN_ON_MIN = 0.01
 
 
+def _gl36_value(p: dict, key: str, legacy_key: str | None, default: float) -> float:
+    """Read a canonical GL36 variable, retaining old session-param compatibility."""
+    if key in p:
+        return float(p[key])
+    if legacy_key and legacy_key in p:
+        return float(p[legacy_key])
+    return float(default)
+
+
+def _gl36_mode_stable(d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    """False during GL36 ModeDelay after an AHU operating-state change."""
+    delay_min = _f(p, "mode_delay_min", 0.0)
+    if delay_min <= 0 or d.empty:
+        return pd.Series(True, index=d.index)
+    htg = norm_cmd(d["heating-valve"]).fillna(0) if "heating-valve" in d else pd.Series(0.0, index=d.index)
+    clg = norm_cmd(d["cooling-valve"]).fillna(0) if "cooling-valve" in d else pd.Series(0.0, index=d.index)
+    econ = norm_cmd(d["outside-air-damper"]).fillna(0) if "outside-air-damper" in d else pd.Series(0.0, index=d.index)
+    fan = _fan(d)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
+    econ_min = _gl36_value(p, "econ_min_pos", None, AHU_MIN_OA_DPR)
+    clg_on = _gl36_value(p, "clg_on_min", None, 0.01)
+    htg_on = _gl36_value(p, "htg_on_min", None, 0.01)
+    state = pd.Series(0, index=d.index, dtype=int)
+    state[(fan > fan_on) & (htg > htg_on) & (clg <= clg_on)] = 1
+    state[(fan > fan_on) & (htg <= htg_on) & (clg <= clg_on) & (econ > econ_min)] = 2
+    state[(fan > fan_on) & (htg <= htg_on) & (clg > clg_on) & (econ > econ_min)] = 3
+    state[(fan > fan_on) & (htg <= htg_on) & (clg > clg_on) & (econ <= econ_min)] = 4
+    changed = state.ne(state.shift()).fillna(False)
+    if len(changed):
+        changed.iloc[0] = False
+    samples = max(1, int(np.ceil(delay_min * 60.0 / max(float(poll), 1.0))))
+    recent_change = changed.astype(int).rolling(samples, min_periods=1).max().astype(bool)
+    return ~recent_change
+
+
+def _gl36_fault(raw: pd.Series, d: pd.DataFrame, p: dict, poll: float) -> pd.Series:
+    return raw.fillna(False) & _gl36_mode_stable(d, p, poll)
+
+
 def _fan(d: pd.DataFrame) -> pd.Series:
     if "fan-cmd" in d.columns:
         return norm_cmd(d["fan-cmd"]).fillna(0)
@@ -482,14 +552,16 @@ def _fan(d: pd.DataFrame) -> pd.Series:
 
 
 def fc1(d, p, poll):
-    err = _f(p, "duct_static_err", 0.12)
-    fan_hi = _f(p, "fan_hi", 0.87)
+    err = _gl36_value(p, "eps_dsp", "duct_static_err", 0.12)
+    speed_err = _gl36_value(p, "eps_vfd_spd", None, 0.13)
+    fan_hi = _gl36_value(p, "fan_hi", None, 1.0 - speed_err)
     fan = _fan(d)
-    return (
+    raw = (
         d["duct-static-pressure"].notna() & d["duct-static-pressure-sp"].notna()
         & (d["duct-static-pressure"] < d["duct-static-pressure-sp"] - err)
         & (fan >= fan_hi)
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc2(d, p, poll):
@@ -499,23 +571,31 @@ def fc2(d, p, poll):
     ``mat + tol < min(rat - tol, oat - tol)`` ≡ ``mat < min(rat, oat) - 2·tol``.
     Never subtract the same tol from both sides of the inequality (that cancels).
     """
-    tol = _f(p, "mix_tol", MIX_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    eps_rat = _gl36_value(p, "eps_rat", "mix_tol", MIX_TOL)
+    eps_oat = _gl36_value(p, "eps_oat", "mix_tol", MIX_TOL)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
     fan = _fan(d)
-    return (
-        (fan > FAN_ON_MIN)
+    raw = (
+        (fan > fan_on)
         & d["mixed-air-temp"].notna() & d["outside-air-temp"].notna() & d["return-air-temp"].notna()
-        & ((d["mixed-air-temp"] + tol) < np.minimum(d["return-air-temp"] - tol, d["outside-air-temp"] - tol))
+        & ((d["mixed-air-temp"] + eps_mat) < np.minimum(d["return-air-temp"] - eps_rat, d["outside-air-temp"] - eps_oat))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc3(d, p, poll):
-    tol = _f(p, "mix_tol", MIX_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    eps_rat = _gl36_value(p, "eps_rat", "mix_tol", MIX_TOL)
+    eps_oat = _gl36_value(p, "eps_oat", "mix_tol", MIX_TOL)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
     fan = _fan(d)
-    return (
-        (fan > FAN_ON_MIN)
+    raw = (
+        (fan > fan_on)
         & d["mixed-air-temp"].notna() & d["outside-air-temp"].notna() & d["return-air-temp"].notna()
-        & ((d["mixed-air-temp"] - tol) > np.maximum(d["return-air-temp"] + tol, d["outside-air-temp"] + tol))
+        & ((d["mixed-air-temp"] - eps_mat) > np.maximum(d["return-air-temp"] + eps_rat, d["outside-air-temp"] + eps_oat))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc4(d, p, poll):
@@ -547,133 +627,183 @@ def fc4(d, p, poll):
 
 def fc5(d, p, poll):
     """SAT cold when heating commanded (GL36 D). ``mix_tol`` applies to both SAT and MAT."""
-    tol = _f(p, "mix_tol", MIX_TOL)
+    eps_sat = _gl36_value(p, "eps_sat", "mix_tol", MIX_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
+    htg_on = _f(p, "htg_on_min", 0.01)
     fan = _fan(d)
     htg = norm_cmd(d["heating-valve"]).fillna(0)
-    return (
+    raw = (
         d["discharge-air-temp"].notna() & d["mixed-air-temp"].notna()
-        & (fan > FAN_ON_MIN) & (htg > 0.01)
-        & ((d["discharge-air-temp"] + tol) <= (d["mixed-air-temp"] - tol + DELTA_SUPPLY_FAN))
+        & (fan > fan_on) & (htg > htg_on)
+        & ((d["discharge-air-temp"] + eps_sat) <= (d["mixed-air-temp"] - eps_mat + delta_tsf))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc6(d, p, poll):
-    airflow_err = _f(p, "airflow_err", 0.15)
-    oat_rat_min = _f(p, "oat_rat_delta_min", 5.0)
+    airflow_err = _gl36_value(p, "eps_airflow", "airflow_err", 0.15)
+    oat_rat_min = _gl36_value(p, "delta_t_min", "oat_rat_delta_min", 5.0)
     design_cfm = _f(p, "min_cfm_design", 5000.0)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
     fan = _fan(d)
     rat_minus_oat = (d["return-air-temp"] - d["outside-air-temp"]).abs()
     pct_oa = ((d["mixed-air-temp"] - d["return-air-temp"]) / (d["outside-air-temp"] - d["return-air-temp"]).replace(0, np.nan)).clip(lower=0)
     perc_oamin = design_cfm / d["vav-total-airflow"].replace(0, np.nan)
     oa_err = (pct_oa - perc_oamin).abs()
-    return (
+    raw = (
         d["mixed-air-temp"].notna() & d["outside-air-temp"].notna() & d["return-air-temp"].notna() & d["vav-total-airflow"].notna()
-        & (rat_minus_oat >= oat_rat_min) & (oa_err > airflow_err) & (fan > FAN_ON_MIN)
+        & (rat_minus_oat >= oat_rat_min) & (oa_err > airflow_err) & (fan > fan_on)
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc7(d, p, poll):
-    sat_err = _f(p, "sat_err", 1.0)
+    sat_err = _gl36_value(p, "eps_sat", "sat_err", 1.0)
+    fan_on = _gl36_value(p, "fan_on_min", None, FAN_ON_MIN)
+    htg_full = _f(p, "htg_full_min", 0.9)
     fan = _fan(d)
     htg = norm_cmd(d["heating-valve"]).fillna(0)
-    return (
+    raw = (
         d["discharge-air-temp"].notna() & d["discharge-air-temp-sp"].notna()
-        & (fan > FAN_ON_MIN) & (d["discharge-air-temp"] < d["discharge-air-temp-sp"] - sat_err) & (htg > 0.9)
+        & (fan > fan_on) & (d["discharge-air-temp"] < d["discharge-air-temp-sp"] - sat_err) & (htg >= htg_full)
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc8(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
-    supply_tol = _f(p, "supply_tol", SUPPLY_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    eps_sat = _gl36_value(p, "eps_sat", "supply_tol", SUPPLY_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    clg_inactive = _f(p, "clg_inactive_max", 0.1)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
-    sat_mat_err = (d["discharge-air-temp"] - DELTA_SUPPLY_FAN - d["mixed-air-temp"]).abs()
-    sqrt_tol = float(np.sqrt(supply_tol**2 + mix_tol**2))
-    return (
+    sat_mat_err = (d["discharge-air-temp"] - delta_tsf - d["mixed-air-temp"]).abs()
+    sqrt_tol = float(np.sqrt(eps_sat**2 + eps_mat**2))
+    raw = (
         d["discharge-air-temp"].notna() & d["mixed-air-temp"].notna()
-        & (econ > AHU_MIN_OA_DPR) & (clg < 0.1) & (sat_mat_err > sqrt_tol)
+        & (econ > econ_min) & (clg < clg_inactive) & (sat_mat_err > sqrt_tol)
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc9(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
+    eps_oat = _gl36_value(p, "eps_oat", "mix_tol", MIX_TOL)
+    eps_sat = _gl36_value(p, "eps_sat", "mix_tol", MIX_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    clg_inactive = _f(p, "clg_inactive_max", 0.1)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
-    return (
+    raw = (
         d["outside-air-temp"].notna() & d["discharge-air-temp-sp"].notna()
-        & (econ > AHU_MIN_OA_DPR) & (clg < 0.1)
-        & ((d["outside-air-temp"] - mix_tol) > (d["discharge-air-temp-sp"] - DELTA_SUPPLY_FAN + mix_tol))
+        & (econ > econ_min) & (clg < clg_inactive)
+        & ((d["outside-air-temp"] - eps_oat) > (d["discharge-air-temp-sp"] - delta_tsf + eps_sat))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc10(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    eps_oat = _gl36_value(p, "eps_oat", "mix_tol", MIX_TOL)
+    econ_full = _f(p, "econ_full_open", 0.9)
+    clg_on = _f(p, "clg_on_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
     abs_mat_oat = (d["mixed-air-temp"] - d["outside-air-temp"]).abs()
-    sqrt_tol = float(np.sqrt(mix_tol**2 + mix_tol**2))
-    return d["mixed-air-temp"].notna() & d["outside-air-temp"].notna() & (clg > 0.01) & (econ > 0.9) & (abs_mat_oat > sqrt_tol)
+    sqrt_tol = float(np.sqrt(eps_mat**2 + eps_oat**2))
+    raw = d["mixed-air-temp"].notna() & d["outside-air-temp"].notna() & (clg > clg_on) & (econ > econ_full) & (abs_mat_oat > sqrt_tol)
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc11(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
+    eps_oat = _gl36_value(p, "eps_oat", "mix_tol", MIX_TOL)
+    eps_sat = _gl36_value(p, "eps_sat", "mix_tol", MIX_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_full = _f(p, "econ_full_open", 0.9)
+    clg_on = _f(p, "clg_on_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
-    return (
-        d["outside-air-temp"].notna() & d["discharge-air-temp-sp"].notna() & (clg > 0.01) & (econ > 0.9)
-        & ((d["outside-air-temp"] + mix_tol) < (d["discharge-air-temp-sp"] - DELTA_SUPPLY_FAN - mix_tol))
+    raw = (
+        d["outside-air-temp"].notna() & d["discharge-air-temp-sp"].notna() & (clg > clg_on) & (econ > econ_full)
+        & ((d["outside-air-temp"] + eps_oat) < (d["discharge-air-temp-sp"] - delta_tsf - eps_sat))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc12(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
-    supply_tol = _f(p, "supply_tol", SUPPLY_TOL)
+    eps_mat = _gl36_value(p, "eps_mat", "mix_tol", MIX_TOL)
+    eps_sat = _gl36_value(p, "eps_sat", "supply_tol", SUPPLY_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    econ_full = _f(p, "econ_full_open", 0.9)
+    clg_on = _f(p, "clg_on_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
-    sat_check = d["discharge-air-temp"] - supply_tol - DELTA_SUPPLY_FAN
-    mat_check = d["mixed-air-temp"] + mix_tol
-    return (
-        d["discharge-air-temp"].notna() & d["mixed-air-temp"].notna() & (clg > 0.01)
-        & (sat_check > mat_check) & ((econ <= AHU_MIN_OA_DPR) | (econ > 0.9))
+    sat_check = d["discharge-air-temp"] - eps_sat - delta_tsf
+    mat_check = d["mixed-air-temp"] + eps_mat
+    raw = (
+        d["discharge-air-temp"].notna() & d["mixed-air-temp"].notna() & (clg > clg_on)
+        & (sat_check > mat_check) & ((econ <= econ_min) | (econ > econ_full))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc13(d, p, poll):
-    sat_err = _f(p, "sat_err", 1.0)
+    sat_err = _gl36_value(p, "eps_sat", "sat_err", 1.0)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    econ_full = _f(p, "econ_full_open", 0.9)
+    clg_full = _f(p, "clg_full_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
-    return (
-        d["discharge-air-temp"].notna() & d["discharge-air-temp-sp"].notna() & (clg > 0.01)
-        & (d["discharge-air-temp"] > d["discharge-air-temp-sp"] + sat_err) & ((econ <= AHU_MIN_OA_DPR) | (econ > 0.9))
+    raw = (
+        d["discharge-air-temp"].notna() & d["discharge-air-temp-sp"].notna() & (clg >= clg_full)
+        & (d["discharge-air-temp"] > d["discharge-air-temp-sp"] + sat_err) & ((econ <= econ_min) | (econ > econ_full))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc14(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
+    eps_ccet = _gl36_value(p, "eps_ccet", "mix_tol", MIX_TOL)
+    eps_cclt = _gl36_value(p, "eps_cclt", "mix_tol", MIX_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    clg_inactive = _f(p, "clg_inactive_max", 0.1)
+    htg_on = _f(p, "htg_on_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
     htg = norm_cmd(d["heating-valve"]).fillna(0) if "heating-valve" in d else pd.Series(0.0, index=d.index)
     fan = _fan(d)
     delta = d["cooling-coil-entering-temp"] - d["cooling-coil-leaving-temp"]
-    tol = float(np.sqrt(mix_tol**2 + mix_tol**2)) + DELTA_SUPPLY_FAN
-    return (
+    tol = float(np.sqrt(eps_ccet**2 + eps_cclt**2)) + delta_tsf
+    raw = (
         d["cooling-coil-entering-temp"].notna() & d["cooling-coil-leaving-temp"].notna()
         & (delta >= tol)
-        & (((econ > AHU_MIN_OA_DPR) & (clg < 0.1)) | ((htg > 0) & (fan > 0)))
+        & (((econ > econ_min) & (clg < clg_inactive)) | ((htg > htg_on) & (fan > 0)))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def fc15(d, p, poll):
-    mix_tol = _f(p, "mix_tol", MIX_TOL)
+    eps_hcet = _gl36_value(p, "eps_hcet", "mix_tol", MIX_TOL)
+    eps_hclt = _gl36_value(p, "eps_hclt", "mix_tol", MIX_TOL)
+    delta_tsf = _f(p, "delta_supply_fan", DELTA_SUPPLY_FAN)
+    econ_min = _f(p, "econ_min_pos", AHU_MIN_OA_DPR)
+    econ_full = _f(p, "econ_full_open", 0.9)
+    clg_inactive = _f(p, "clg_inactive_max", 0.1)
+    clg_on = _f(p, "clg_on_min", 0.01)
     econ = norm_cmd(d["outside-air-damper"]).fillna(0)
     clg = norm_cmd(d["cooling-valve"]).fillna(0)
     delta = d["heating-coil-entering-temp"] - d["heating-coil-leaving-temp"]
-    tol = float(np.sqrt(mix_tol**2 + mix_tol**2)) + DELTA_SUPPLY_FAN
-    return (
+    tol = float(np.sqrt(eps_hcet**2 + eps_hclt**2)) + delta_tsf
+    raw = (
         d["heating-coil-entering-temp"].notna() & d["heating-coil-leaving-temp"].notna()
         & (delta >= tol)
-        & (((econ > AHU_MIN_OA_DPR) & (clg < 0.1)) | ((clg > 0.01) & (econ <= AHU_MIN_OA_DPR)) | ((clg > 0.01) & (econ > 0.9)))
+        & (((econ > econ_min) & (clg < clg_inactive)) | ((clg > clg_on) & (econ <= econ_min)) | ((clg > clg_on) & (econ > econ_full)))
     )
+    return _gl36_fault(raw, d, p, poll)
 
 
 def ahu_sat_dev(d, p, poll):
@@ -1199,79 +1329,127 @@ RULES: list[CookbookRule] = [
     # --- AHU GL36 (FC1–FC15) ---
     CookbookRule("FC1", "Duct static below SP at full fan (GL36 A)", "ahu", ["ahu"],
         ["duct-static-pressure", "duct-static-pressure-sp", "fan-cmd"],
-        "Fan ≥ 87% AND duct static < static SP − 0.12 in.w.c.",
+        "DSP < DSPSP − εDSP AND VFDSPD ≥ 100% − εVFDSPD.",
         fc1, params=[
-            CookbookParam("duct_static_err", "Duct static error", "in. w.c.", 0.02, 0.5, 0.01, 0.12),
-            CookbookParam("fan_hi", "Fan high threshold", "frac", 0.5, 1.0, 0.01, 0.87),
+            CookbookParam("eps_dsp", "Duct-static error εDSP (GL36 default 0.1 in.w.c.)", "in. w.c.", 0.0, 0.5, 0.01, 0.12),
+            CookbookParam("eps_vfd_spd", "VFD speed error εVFDSPD (GL36 default 5%)", "frac", 0.0, 0.5, 0.01, 0.13),
+            CookbookParam("duct_static_err", "Legacy duct-static error (sets εDSP)", "in. w.c.", 0.0, 0.5, 0.01, 0.12),
+            CookbookParam("fan_hi", "Legacy fan-high threshold (sets εVFDSPD)", "frac", 0.5, 1.0, 0.01, 0.87),
+            MODE_DELAY_PARAM(),
             CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("FC2", "MAT below OAT/RAT envelope (GL36 B)", "ahu", ["ahu"],
         ["mixed-air-temp", "outside-air-temp", "return-air-temp", "fan-cmd"],
-        "Fan on AND MAT + mix_tol < min(RAT − mix_tol, OAT − mix_tol) "
-        "(≡ MAT < min(RAT, OAT) − 2·mix_tol; default mix_tol = 1.15°F).",
-        fc2, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "MATavg + εMAT < min(RATavg − εRAT, OATavg − εOAT).",
+        fc2, params=[
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            EPS_TEMP_PARAM("eps_rat", "RAT sensor error εRAT (GL36 default 2°F)"),
+            EPS_TEMP_PARAM("eps_oat", "OAT sensor error εOAT (GL36 default 2°F local / 5°F global)"),
+            LEGACY_MIX_PARAM(), FAN_ON_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC3", "MAT above OAT/RAT envelope (GL36 C)", "ahu", ["ahu"],
         ["mixed-air-temp", "outside-air-temp", "return-air-temp", "fan-cmd"],
-        "Fan on AND MAT − mix_tol > max(RAT + mix_tol, OAT + mix_tol) "
-        "(≡ MAT > max(RAT, OAT) + 2·mix_tol; default mix_tol = 1.15°F).",
-        fc3, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "MATavg − εMAT > max(RATavg + εRAT, OATavg + εOAT).",
+        fc3, params=[
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            EPS_TEMP_PARAM("eps_rat", "RAT sensor error εRAT (GL36 default 2°F)"),
+            EPS_TEMP_PARAM("eps_oat", "OAT sensor error εOAT (GL36 default 2°F local / 5°F global)"),
+            LEGACY_MIX_PARAM(), FAN_ON_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC4", "PID hunting (operating-state oscillation)", "ahu", ["ahu"],
         ["outside-air-damper", "cooling-valve", "fan-cmd"],
-        "More than 5 operating-mode entry transitions in any hour (heating/econ/mech modes).",
-        fc4, params=[CookbookParam("delta_os_max", "Max mode changes/hr", "count", 2, 20, 1, 5, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=3600),
+        "ΔOS > ΔOSmax during the prior 60-minute moving window.",
+        fc4, params=[
+            CookbookParam("delta_os_max", "Max mode changes/hr ΔOSmax (GL36 default 7)", "count", 1, 30, 1, 5, direction="fewer"),
+            MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=3600),
     CookbookRule("FC5", "SAT cold when heating commanded (GL36 D)", "ahu", ["ahu"],
         ["discharge-air-temp", "mixed-air-temp", "fan-cmd", "heating-valve"],
-        "Fan on AND heating > 1% AND SAT + mix_tol ≤ MAT − mix_tol + 0.55°F "
-        "(default mix_tol = 1.15°F).",
-        fc5, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "SATavg + εSAT ≤ MATavg − εMAT + ΔTSF while heating is commanded.",
+        fc5, params=[
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)"),
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            DELTA_TSF_PARAM(),
+            CookbookParam("htg_on_min", "Heating-command ON threshold", "frac", 0.0, 0.25, 0.01, 0.01),
+            LEGACY_MIX_PARAM(), FAN_ON_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC6", "Estimated OA fraction mismatch", "ahu", ["ahu"],
         ["mixed-air-temp", "outside-air-temp", "return-air-temp", "vav-total-airflow"],
-        "|RAT−OAT| ≥ 5°F AND |estimated OA% − design min OA%| > 15% in heating/mech-only modes.",
+        "|RATavg−OATavg| ≥ ΔTmin AND |estimated OA% − design min OA%| > εF.",
         fc6, params=[
-            CookbookParam("airflow_err", "OA fraction error", "frac", 0.05, 0.5, 0.01, 0.15),
+            CookbookParam("eps_airflow", "Airflow error εF (GL36 default 30%)", "frac", 0.05, 1.0, 0.01, 0.15),
+            CookbookParam("delta_t_min", "Minimum |OAT−RAT| ΔTmin (GL36 default 10°F)", "°F", 0.0, 30.0, 0.5, 5.0),
+            CookbookParam("airflow_err", "Legacy OA-fraction error (sets εF)", "frac", 0.05, 1.0, 0.01, 0.15),
+            CookbookParam("oat_rat_delta_min", "Legacy OAT/RAT guard (sets ΔTmin)", "°F", 0.0, 30.0, 0.5, 5.0),
             CookbookParam("min_cfm_design", "Design min OA CFM", "cfm", 500, 20000, 500, 5000),
-            CONFIRM_PARAM()], confirm_seconds=600),
+            FAN_ON_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC7", "SAT low with full heating (GL36 E)", "ahu", ["ahu"],
         ["discharge-air-temp", "discharge-air-temp-sp", "fan-cmd", "heating-valve"],
-        "Fan on AND heating > 90% AND SAT < SAT SP − 1.0°F.",
-        fc7, params=[CookbookParam("sat_err", "SAT error", "°F", 0.25, 5.0, 0.25, 1.0), CONFIRM_PARAM()], confirm_seconds=600),
+        "SATavg < SATSP − εSAT AND HC ≥ full-heating threshold.",
+        fc7, params=[
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)", 1.0),
+            CookbookParam("sat_err", "Legacy SAT error (sets εSAT)", "°F", 0.0, 10.0, 0.25, 1.0),
+            CookbookParam("htg_full_min", "Full-heating threshold (GL36 99%)", "frac", 0.5, 1.0, 0.01, 0.90),
+            FAN_ON_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC8", "SAT/MAT mismatch in economizer (GL36 F)", "ahu", ["ahu"],
         ["discharge-air-temp", "mixed-air-temp", "outside-air-damper", "cooling-valve"],
-        "Economizer open, CHW < 10%, |SAT − 0.55°F − MAT| > √(supply_tol²+mix_tol²).",
+        "|SATavg − ΔTSF − MATavg| > √(εSAT² + εMAT²) in OS#2.",
         fc8, params=[
-            CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"),
-            CookbookParam("supply_tol", "Supply tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"),
-            CONFIRM_PARAM()], confirm_seconds=600),
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)"),
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            DELTA_TSF_PARAM(), ECON_MIN_PARAM(), CLG_INACTIVE_PARAM(),
+            LEGACY_MIX_PARAM(), LEGACY_SUPPLY_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC9", "OAT too warm for free cooling (GL36 G)", "ahu", ["ahu"],
         ["outside-air-temp", "discharge-air-temp-sp", "outside-air-damper", "cooling-valve"],
-        "Economizer open, CHW < 10%, OAT − mix_tol > SAT SP − 0.55°F + mix_tol.",
-        fc9, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "OATavg − εOAT > SATSP − ΔTSF + εSAT in OS#2.",
+        fc9, params=[
+            EPS_TEMP_PARAM("eps_oat", "OAT sensor error εOAT (GL36 default 2°F local / 5°F global)"),
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)"),
+            DELTA_TSF_PARAM(), ECON_MIN_PARAM(), CLG_INACTIVE_PARAM(),
+            LEGACY_MIX_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC10", "OAT/MAT mismatch + mech cooling (GL36 H)", "ahu", ["ahu"],
         ["mixed-air-temp", "outside-air-temp", "outside-air-damper", "cooling-valve"],
-        "CHW > 1%, economizer > 90%, |MAT − OAT| > √(mix_tol²+mix_tol²).",
-        fc10, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "|MATavg − OATavg| > √(εMAT² + εOAT²) in OS#3.",
+        fc10, params=[
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            EPS_TEMP_PARAM("eps_oat", "OAT sensor error εOAT (GL36 default 2°F local / 5°F global)"),
+            ECON_FULL_PARAM(), CLG_ON_PARAM(), LEGACY_MIX_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC11", "OAT/MAT mismatch economizer-only (GL36 I)", "ahu", ["ahu"],
         ["outside-air-temp", "discharge-air-temp-sp", "outside-air-damper", "cooling-valve"],
-        "CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP − 0.55°F − mix_tol.",
-        fc11, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "OATavg + εOAT < SATSP − ΔTSF − εSAT in OS#3.",
+        fc11, params=[
+            EPS_TEMP_PARAM("eps_oat", "OAT sensor error εOAT (GL36 default 2°F local / 5°F global)"),
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)"),
+            DELTA_TSF_PARAM(), ECON_FULL_PARAM(), CLG_ON_PARAM(),
+            LEGACY_MIX_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC12", "SAT above blend in cooling (GL36 J)", "ahu", ["ahu"],
         ["discharge-air-temp", "mixed-air-temp", "outside-air-damper", "cooling-valve"],
-        "CHW > 1%, SAT − supply_tol − 0.55°F > MAT + mix_tol at min or full economizer.",
+        "SATavg − εSAT − ΔTSF ≥ MATavg + εMAT in OS#3/OS#4.",
         fc12, params=[
-            CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"),
-            CookbookParam("supply_tol", "Supply tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"),
-            CONFIRM_PARAM()], confirm_seconds=600),
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)"),
+            EPS_TEMP_PARAM("eps_mat", "MAT sensor error εMAT (GL36 default 5°F)"),
+            DELTA_TSF_PARAM(), ECON_MIN_PARAM(), ECON_FULL_PARAM(), CLG_ON_PARAM(),
+            LEGACY_MIX_PARAM(), LEGACY_SUPPLY_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC13", "SAT above SP at full cooling (GL36 K)", "ahu", ["ahu"],
         ["discharge-air-temp", "discharge-air-temp-sp", "outside-air-damper", "cooling-valve"],
-        "CHW > 1%, SAT > SAT SP + 1.0°F at min or full economizer.",
-        fc13, params=[CookbookParam("sat_err", "SAT error", "°F", 0.25, 5.0, 0.25, 1.0, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "SATavg > SATSP + εSAT AND CC ≥ full-cooling threshold in OS#3/OS#4.",
+        fc13, params=[
+            EPS_TEMP_PARAM("eps_sat", "SAT sensor error εSAT (GL36 default 2°F)", 1.0),
+            CookbookParam("sat_err", "Legacy SAT error (sets εSAT)", "°F", 0.0, 10.0, 0.25, 1.0),
+            CookbookParam("clg_full_min", "Full-cooling threshold (GL36 99%)", "frac", 0.5, 1.0, 0.01, 0.01),
+            ECON_MIN_PARAM(), ECON_FULL_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC14", "CHW coil ΔT when inactive (GL36 L)", "ahu", ["ahu"],
         ["cooling-coil-entering-temp", "cooling-coil-leaving-temp", "outside-air-damper", "cooling-valve"],
-        "Cooling coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.",
-        fc14, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "Cooling-coil ΔT ≥ √(εCCET² + εCCLT²) + ΔTSF while coil should be inactive.",
+        fc14, params=[
+            EPS_TEMP_PARAM("eps_ccet", "Cooling-coil entering sensor error εCCET"),
+            EPS_TEMP_PARAM("eps_cclt", "Cooling-coil leaving sensor error εCCLT"),
+            DELTA_TSF_PARAM(), ECON_MIN_PARAM(), CLG_INACTIVE_PARAM(),
+            CookbookParam("htg_on_min", "Heating-command ON threshold", "frac", 0.0, 0.25, 0.01, 0.01),
+            LEGACY_MIX_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
     CookbookRule("FC15", "HW coil ΔT when inactive (GL36 M)", "ahu", ["ahu"],
         ["heating-coil-entering-temp", "heating-coil-leaving-temp", "outside-air-damper", "cooling-valve"],
-        "Heating coil ΔT ≥ √(mix_tol²+mix_tol²)+0.55°F while coil should be inactive.",
-        fc15, params=[CookbookParam("mix_tol", "Mixing tolerance", "°F", 0.25, 3.0, 0.05, 1.15, direction="fewer"), CONFIRM_PARAM()], confirm_seconds=600),
+        "Heating-coil ΔT ≥ √(εHCET² + εHCLT²) + ΔTSF while coil should be inactive.",
+        fc15, params=[
+            EPS_TEMP_PARAM("eps_hcet", "Heating-coil entering sensor error εHCET"),
+            EPS_TEMP_PARAM("eps_hclt", "Heating-coil leaving sensor error εHCLT"),
+            DELTA_TSF_PARAM(), ECON_MIN_PARAM(), ECON_FULL_PARAM(),
+            CLG_INACTIVE_PARAM(), CLG_ON_PARAM(), LEGACY_MIX_PARAM(), MODE_DELAY_PARAM(), CONFIRM_PARAM()], confirm_seconds=600),
 
     # --- AHU additional patterns ---
     CookbookRule("AHU-SATDEV", "SAT deviation from setpoint", "ahu", ["ahu"],
@@ -1497,13 +1675,19 @@ RULES: list[CookbookRule] = [
         chw1, params=[CookbookParam("min_dt", "Min ΔT", "°F", 1.0, 12.0, 0.5, 4.0), CONFIRM_PARAM()], confirm_seconds=900),
     CookbookRule("CHW-2", "DP below SP at max pump speed", "plant", ["chiller"],
         ["chw-diff-pressure", "chw-diff-pressure-sp", "chw-pump-cmd"], "Pump ≥ 87% AND CHW DP < DP SP − 2.2.",
-        chw2, params=[CookbookParam("dp_margin", "DP margin", "psi", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM()], confirm_seconds=300),
+        chw2, params=[
+            CookbookParam("dp_margin", "DP margin", "psi", 0.5, 6.0, 0.1, 2.2),
+            CookbookParam("pump_hi", "Pump high-speed threshold", "frac", 0.5, 1.0, 0.01, 0.87),
+            CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("CHW-3", "Plant supply temp outside deadband", "plant", ["chiller"],
         ["chilled-water-supply-temp", "chilled-water-supply-temp-sp", "chw-pump-cmd"], "Pump on AND |CHWS − CHWS SP| > 2.2°F.",
         chw3, params=[CookbookParam("sp_band", "SP band", "°F", 0.5, 6.0, 0.1, 2.2), CONFIRM_PARAM()], confirm_seconds=300),
     CookbookRule("CHW-4", "Flow high at max pump", "plant", ["chiller"],
         ["chw-flow", "chw-pump-cmd"], "Pump ≥ 87% AND CHW flow > 1100 gpm.",
-        chw4, params=[CookbookParam("flow_hi", "Flow high", "gpm", 200, 3000, 50, 1100), CONFIRM_PARAM()], confirm_seconds=300),
+        chw4, params=[
+            CookbookParam("flow_hi", "Flow high", "gpm", 200, 3000, 50, 1100),
+            CookbookParam("pump_hi", "Pump high-speed threshold", "frac", 0.5, 1.0, 0.01, 0.87),
+            CONFIRM_PARAM()], confirm_seconds=300),
 
     # --- Heat pumps ---
     CookbookRule("HP-1", "Discharge cold when heating", "heatpump", ["heatpump"],

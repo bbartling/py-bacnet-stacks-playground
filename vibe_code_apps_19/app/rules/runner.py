@@ -343,7 +343,29 @@ def _params_for_rule(rule: cb.CookbookRule, params_by_rule: dict[str, dict]) -> 
         p.setdefault("minimum_active_coverage_pct", spec.minimum_active_coverage_pct)
     else:
         p.setdefault("require_operational_gate", 0.0)
-    p.update(params_by_rule.get(rule.id, {}))
+    overrides = dict(params_by_rule.get(rule.id, {}))
+    p.update(overrides)
+    # Backward-compatible master sliders/session params. Canonical GL36 ε
+    # parameters remain independently adjustable; a changed legacy master
+    # intentionally updates each related sensor error unless that specific
+    # canonical ε was also explicitly changed.
+    if "mix_tol" in overrides:
+        for key in ("eps_mat", "eps_rat", "eps_oat", "eps_sat", "eps_ccet", "eps_cclt", "eps_hcet", "eps_hclt"):
+            if key in p and key not in overrides:
+                p[key] = float(overrides["mix_tol"])
+    if "supply_tol" in overrides and "eps_sat" in p and "eps_sat" not in overrides:
+        p["eps_sat"] = float(overrides["supply_tol"])
+    aliases = {
+        "duct_static_err": "eps_dsp",
+        "airflow_err": "eps_airflow",
+        "oat_rat_delta_min": "delta_t_min",
+        "sat_err": "eps_sat",
+    }
+    for legacy, canonical in aliases.items():
+        if legacy in overrides and canonical in p and canonical not in overrides:
+            p[canonical] = float(overrides[legacy])
+    if "fan_hi" in overrides and "eps_vfd_spd" in p and "eps_vfd_spd" not in overrides:
+        p["eps_vfd_spd"] = max(0.0, 1.0 - float(overrides["fan_hi"]))
     return p
 
 

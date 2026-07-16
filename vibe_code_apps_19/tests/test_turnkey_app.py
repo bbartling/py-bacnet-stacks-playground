@@ -129,6 +129,20 @@ def test_turnkey_apptest_all_sections(tmp_path: Path, monkeypatch: pytest.Monkey
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=180)
     at.run()
     assert not at.exception, f"Initial render exceptions: {list(at.exception)}"
+    slider_labels = {
+        str(getattr(widget, "label", "") or "")
+        for widget in (at.sidebar.slider or [])
+    }
+    for expected in (
+        "Supply-fan heat rise ΔTSF (GL36 default 2°F)",
+        "MAT sensor error εMAT (GL36 default 5°F)",
+        "VFD speed error εVFDSPD (GL36 default 5%)",
+        "Mode-change suspension (GL36 default 30)",
+    ):
+        assert expected in slider_labels, (
+            f"GL36 sidebar slider missing: {expected!r}; "
+            f"found {len(slider_labels)} slider labels"
+        )
 
     radio = _section_radio(at)
     assert radio is not None, "Main Section radio not found"

@@ -203,7 +203,8 @@ rules:
 - rule_id: FC1
   family: ahu
   title: Duct static below SP at full fan (GL36 A)
-  description: "Fan \u2265 87% AND duct static < static SP \u2212 0.12 in.w.c."
+  description: "DSP < DSPSP \u2212 \u03B5DSP AND VFDSPD \u2265 100% \u2212 \u03B5\
+    VFDSPD."
   summary: Flags duct static too low while the supply fan is near full speed.
   required_roles:
   - duct-static-pressure
@@ -213,8 +214,11 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_dsp
+  - eps_vfd_spd
   - duct_static_err
   - fan_hi
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
@@ -230,9 +234,8 @@ rules:
 - rule_id: FC2
   family: ahu
   title: MAT below OAT/RAT envelope (GL36 B)
-  description: "Fan on AND MAT + mix_tol < min(RAT \u2212 mix_tol, OAT \u2212 mix_tol)\
-    \ (\u2261 MAT < min(RAT, OAT) \u2212 2\xB7mix_tol; default mix_tol = 1.15\xB0\
-    F)."
+  description: "MATavg + \u03B5MAT < min(RATavg \u2212 \u03B5RAT, OATavg \u2212 \u03B5\
+    OAT)."
   summary: Flags mixed-air temperature colder than the OAT/RAT mixing envelope allows.
   required_roles:
   - mixed-air-temp
@@ -243,7 +246,12 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_mat
+  - eps_rat
+  - eps_oat
   - mix_tol
+  - fan_on_min
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -259,8 +267,8 @@ rules:
 - rule_id: FC3
   family: ahu
   title: MAT above OAT/RAT envelope (GL36 C)
-  description: "Fan on AND MAT \u2212 mix_tol > max(RAT + mix_tol, OAT + mix_tol)\
-    \ (\u2261 MAT > max(RAT, OAT) + 2\xB7mix_tol; default mix_tol = 1.15\xB0F)."
+  description: "MATavg \u2212 \u03B5MAT > max(RATavg + \u03B5RAT, OATavg + \u03B5\
+    OAT)."
   summary: Flags mixed-air temperature warmer than the OAT/RAT mixing envelope allows.
   required_roles:
   - mixed-air-temp
@@ -271,7 +279,12 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_mat
+  - eps_rat
+  - eps_oat
   - mix_tol
+  - fan_on_min
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -287,10 +300,8 @@ rules:
 - rule_id: FC4
   family: ahu
   title: PID hunting (operating-state oscillation)
-  description: More than 5 operating-mode entry transitions in any hour (heating/econ/mech
-    modes).
-  summary: More than 5 operating-mode entry transitions in any hour (heating/econ/mech
-    modes).
+  description: "\u0394OS > \u0394OSmax during the prior 60-minute moving window."
+  summary: "\u0394OS > \u0394OSmax during the prior 60-minute moving window."
   required_roles:
   - outside-air-damper
   - cooling-valve
@@ -300,6 +311,7 @@ rules:
   - ahu
   tunable_params:
   - delta_os_max
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 3600
   sensor_sweep: false
@@ -315,10 +327,10 @@ rules:
 - rule_id: FC5
   family: ahu
   title: SAT cold when heating commanded (GL36 D)
-  description: "Fan on AND heating > 1% AND SAT + mix_tol \u2264 MAT \u2212 mix_tol\
-    \ + 0.55\xB0F (default mix_tol = 1.15\xB0F)."
-  summary: "Fan on AND heating > 1% AND SAT + mix_tol \u2264 MAT \u2212 mix_tol +\
-    \ 0.55\xB0F (default mix_tol = 1.15\xB0F)."
+  description: "SATavg + \u03B5SAT \u2264 MATavg \u2212 \u03B5MAT + \u0394TSF while\
+    \ heating is commanded."
+  summary: "SATavg + \u03B5SAT \u2264 MATavg \u2212 \u03B5MAT + \u0394TSF while heating\
+    \ is commanded."
   required_roles:
   - discharge-air-temp
   - mixed-air-temp
@@ -328,7 +340,13 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_sat
+  - eps_mat
+  - delta_supply_fan
+  - htg_on_min
   - mix_tol
+  - fan_on_min
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -344,10 +362,10 @@ rules:
 - rule_id: FC6
   family: ahu
   title: Estimated OA fraction mismatch
-  description: "|RAT\u2212OAT| \u2265 5\xB0F AND |estimated OA% \u2212 design min\
-    \ OA%| > 15% in heating/mech-only modes."
-  summary: "|RAT\u2212OAT| \u2265 5\xB0F AND |estimated OA% \u2212 design min OA%|\
-    \ > 15% in heating/mech-only modes."
+  description: "|RATavg\u2212OATavg| \u2265 \u0394Tmin AND |estimated OA% \u2212 design\
+    \ min OA%| > \u03B5F."
+  summary: "|RATavg\u2212OATavg| \u2265 \u0394Tmin AND |estimated OA% \u2212 design\
+    \ min OA%| > \u03B5F."
   required_roles:
   - mixed-air-temp
   - outside-air-temp
@@ -357,8 +375,13 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_airflow
+  - delta_t_min
   - airflow_err
+  - oat_rat_delta_min
   - min_cfm_design
+  - fan_on_min
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -374,8 +397,8 @@ rules:
 - rule_id: FC7
   family: ahu
   title: SAT low with full heating (GL36 E)
-  description: "Fan on AND heating > 90% AND SAT < SAT SP \u2212 1.0\xB0F."
-  summary: "Fan on AND heating > 90% AND SAT < SAT SP \u2212 1.0\xB0F."
+  description: "SATavg < SATSP \u2212 \u03B5SAT AND HC \u2265 full-heating threshold."
+  summary: "SATavg < SATSP \u2212 \u03B5SAT AND HC \u2265 full-heating threshold."
   required_roles:
   - discharge-air-temp
   - discharge-air-temp-sp
@@ -385,7 +408,11 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_sat
   - sat_err
+  - htg_full_min
+  - fan_on_min
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -401,10 +428,10 @@ rules:
 - rule_id: FC8
   family: ahu
   title: SAT/MAT mismatch in economizer (GL36 F)
-  description: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
-    (supply_tol\xB2+mix_tol\xB2)."
-  summary: "Economizer open, CHW < 10%, |SAT \u2212 0.55\xB0F \u2212 MAT| > \u221A\
-    (supply_tol\xB2+mix_tol\xB2)."
+  description: "|SATavg \u2212 \u0394TSF \u2212 MATavg| > \u221A(\u03B5SAT\xB2 + \u03B5\
+    MAT\xB2) in OS#2."
+  summary: "|SATavg \u2212 \u0394TSF \u2212 MATavg| > \u221A(\u03B5SAT\xB2 + \u03B5\
+    MAT\xB2) in OS#2."
   required_roles:
   - discharge-air-temp
   - mixed-air-temp
@@ -414,8 +441,14 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_sat
+  - eps_mat
+  - delta_supply_fan
+  - econ_min_pos
+  - clg_inactive_max
   - mix_tol
   - supply_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -431,10 +464,8 @@ rules:
 - rule_id: FC9
   family: ahu
   title: OAT too warm for free cooling (GL36 G)
-  description: "Economizer open, CHW < 10%, OAT \u2212 mix_tol > SAT SP \u2212 0.55\xB0\
-    F + mix_tol."
-  summary: "Economizer open, CHW < 10%, OAT \u2212 mix_tol > SAT SP \u2212 0.55\xB0\
-    F + mix_tol."
+  description: "OATavg \u2212 \u03B5OAT > SATSP \u2212 \u0394TSF + \u03B5SAT in OS#2."
+  summary: "OATavg \u2212 \u03B5OAT > SATSP \u2212 \u0394TSF + \u03B5SAT in OS#2."
   required_roles:
   - outside-air-temp
   - discharge-air-temp-sp
@@ -444,7 +475,13 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_oat
+  - eps_sat
+  - delta_supply_fan
+  - econ_min_pos
+  - clg_inactive_max
   - mix_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -460,10 +497,9 @@ rules:
 - rule_id: FC10
   family: ahu
   title: OAT/MAT mismatch + mech cooling (GL36 H)
-  description: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(mix_tol\xB2\
-    +mix_tol\xB2)."
-  summary: "CHW > 1%, economizer > 90%, |MAT \u2212 OAT| > \u221A(mix_tol\xB2+mix_tol\xB2\
-    )."
+  description: "|MATavg \u2212 OATavg| > \u221A(\u03B5MAT\xB2 + \u03B5OAT\xB2) in\
+    \ OS#3."
+  summary: "|MATavg \u2212 OATavg| > \u221A(\u03B5MAT\xB2 + \u03B5OAT\xB2) in OS#3."
   required_roles:
   - mixed-air-temp
   - outside-air-temp
@@ -473,7 +509,12 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_mat
+  - eps_oat
+  - econ_full_open
+  - clg_on_min
   - mix_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -489,10 +530,8 @@ rules:
 - rule_id: FC11
   family: ahu
   title: OAT/MAT mismatch economizer-only (GL36 I)
-  description: "CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP \u2212 0.55\xB0\
-    F \u2212 mix_tol."
-  summary: "CHW > 1%, economizer > 90%, OAT + mix_tol < SAT SP \u2212 0.55\xB0F \u2212\
-    \ mix_tol."
+  description: "OATavg + \u03B5OAT < SATSP \u2212 \u0394TSF \u2212 \u03B5SAT in OS#3."
+  summary: "OATavg + \u03B5OAT < SATSP \u2212 \u0394TSF \u2212 \u03B5SAT in OS#3."
   required_roles:
   - outside-air-temp
   - discharge-air-temp-sp
@@ -502,7 +541,13 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_oat
+  - eps_sat
+  - delta_supply_fan
+  - econ_full_open
+  - clg_on_min
   - mix_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -518,10 +563,10 @@ rules:
 - rule_id: FC12
   family: ahu
   title: SAT above blend in cooling (GL36 J)
-  description: "CHW > 1%, SAT \u2212 supply_tol \u2212 0.55\xB0F > MAT + mix_tol at\
-    \ min or full economizer."
-  summary: "CHW > 1%, SAT \u2212 supply_tol \u2212 0.55\xB0F > MAT + mix_tol at min\
-    \ or full economizer."
+  description: "SATavg \u2212 \u03B5SAT \u2212 \u0394TSF \u2265 MATavg + \u03B5MAT\
+    \ in OS#3/OS#4."
+  summary: "SATavg \u2212 \u03B5SAT \u2212 \u0394TSF \u2265 MATavg + \u03B5MAT in\
+    \ OS#3/OS#4."
   required_roles:
   - discharge-air-temp
   - mixed-air-temp
@@ -531,8 +576,15 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_sat
+  - eps_mat
+  - delta_supply_fan
+  - econ_min_pos
+  - econ_full_open
+  - clg_on_min
   - mix_tol
   - supply_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -548,8 +600,9 @@ rules:
 - rule_id: FC13
   family: ahu
   title: SAT above SP at full cooling (GL36 K)
-  description: "CHW > 1%, SAT > SAT SP + 1.0\xB0F at min or full economizer."
-  summary: "CHW > 1%, SAT > SAT SP + 1.0\xB0F at min or full economizer."
+  description: "SATavg > SATSP + \u03B5SAT AND CC \u2265 full-cooling threshold in\
+    \ OS#3/OS#4."
+  summary: "SATavg > SATSP + \u03B5SAT AND CC \u2265 full-cooling threshold in OS#3/OS#4."
   required_roles:
   - discharge-air-temp
   - discharge-air-temp-sp
@@ -559,7 +612,12 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_sat
   - sat_err
+  - clg_full_min
+  - econ_min_pos
+  - econ_full_open
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -575,10 +633,10 @@ rules:
 - rule_id: FC14
   family: ahu
   title: "CHW coil \u0394T when inactive (GL36 L)"
-  description: "Cooling coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0\
-    F while coil should be inactive."
-  summary: "Cooling coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0F\
-    \ while coil should be inactive."
+  description: "Cooling-coil \u0394T \u2265 \u221A(\u03B5CCET\xB2 + \u03B5CCLT\xB2\
+    ) + \u0394TSF while coil should be inactive."
+  summary: "Cooling-coil \u0394T \u2265 \u221A(\u03B5CCET\xB2 + \u03B5CCLT\xB2) +\
+    \ \u0394TSF while coil should be inactive."
   required_roles:
   - cooling-coil-entering-temp
   - cooling-coil-leaving-temp
@@ -588,7 +646,14 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_ccet
+  - eps_cclt
+  - delta_supply_fan
+  - econ_min_pos
+  - clg_inactive_max
+  - htg_on_min
   - mix_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -604,10 +669,10 @@ rules:
 - rule_id: FC15
   family: ahu
   title: "HW coil \u0394T when inactive (GL36 M)"
-  description: "Heating coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0\
-    F while coil should be inactive."
-  summary: "Heating coil \u0394T \u2265 \u221A(mix_tol\xB2+mix_tol\xB2)+0.55\xB0F\
-    \ while coil should be inactive."
+  description: "Heating-coil \u0394T \u2265 \u221A(\u03B5HCET\xB2 + \u03B5HCLT\xB2\
+    ) + \u0394TSF while coil should be inactive."
+  summary: "Heating-coil \u0394T \u2265 \u221A(\u03B5HCET\xB2 + \u03B5HCLT\xB2) +\
+    \ \u0394TSF while coil should be inactive."
   required_roles:
   - heating-coil-entering-temp
   - heating-coil-leaving-temp
@@ -617,7 +682,15 @@ rules:
   equipment_kinds:
   - ahu
   tunable_params:
+  - eps_hcet
+  - eps_hclt
+  - delta_supply_fan
+  - econ_min_pos
+  - econ_full_open
+  - clg_inactive_max
+  - clg_on_min
   - mix_tol
+  - mode_delay_min
   - confirm_min
   default_confirm_seconds: 600
   sensor_sweep: false
@@ -1242,6 +1315,7 @@ rules:
   - chiller
   tunable_params:
   - dp_margin
+  - pump_hi
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
@@ -1293,6 +1367,7 @@ rules:
   - chiller
   tunable_params:
   - flow_hi
+  - pump_hi
   - confirm_min
   default_confirm_seconds: 300
   sensor_sweep: false
