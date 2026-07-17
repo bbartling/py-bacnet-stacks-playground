@@ -44,6 +44,11 @@ Weather `history_wide.csv` does **not** require a map.
 - Root may be the building itself **or** a single top-level folder containing `manifest.json`.
 - Folder name `weather` is **never** treated as equipment.
 - Equipment id = folder name (`AHU_1`, `CHILLER_2`, …).
+- Zip entry names **must use forward slashes** (`BUILDING_100/AHU_1/…`). Windows
+  agents: build with Python `zipfile` using `.as_posix()` arcnames — **not**
+  PowerShell `Compress-Archive`, which stores backslash paths. The app tolerates
+  backslash zips (dir markers like `VAV\` are normalized instead of failing with
+  `[Errno 20] Not a directory`), but forward slashes are the contract.
 
 ## `manifest.json`
 

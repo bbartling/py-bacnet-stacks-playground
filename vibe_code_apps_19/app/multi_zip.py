@@ -21,8 +21,12 @@ from app.package_io import (
     PackageCaps,
     PackageError,
     PackageLoadResult,
+    _BACKSLASH_ZIP_HINT,
+    _ensure_parent_dir,
     _inspect_zip,
+    _is_zip_dir,
     _safe_member_path,
+    _zip_has_backslash_paths,
     absorb_sibling_weather,
     effective_package_caps,
     load_package_from_dir,
@@ -50,7 +54,7 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
         with zipfile.ZipFile(BytesIO(data), "r") as zf:
             _inspect_zip(zf, caps)
             for info in zf.infolist():
-                if info.is_dir():
+                if _is_zip_dir(info):
                     continue
                 rel = _safe_member_path(info.filename)
                 if not rel.parts:
@@ -60,7 +64,7 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
                     warnings.append(
                         f"{part_name}: overwriting existing path `{rel.as_posix()}`"
                     )
-                target.parent.mkdir(parents=True, exist_ok=True)
+                _ensure_parent_dir(target, info.filename)
                 with zf.open(info, "r") as src, target.open("wb") as out:
                     while True:
                         chunk = src.read(1024 * 256)
@@ -71,6 +75,15 @@ def _extract_part_into(workdir: Path, data: bytes, *, caps: PackageCaps, part_na
         raise
     except zipfile.BadZipFile as exc:
         raise PackageError(f"{part_name}: not a valid zip ({exc})") from exc
+    except OSError as exc:
+        hint = ""
+        try:
+            with zipfile.ZipFile(BytesIO(data), "r") as _zf:
+                if _zip_has_backslash_paths(_zf):
+                    hint = f" {_BACKSLASH_ZIP_HINT}"
+        except Exception:
+            pass
+        raise PackageError(f"{part_name}: extraction failed ({exc}).{hint}") from exc
     return warnings
 
 

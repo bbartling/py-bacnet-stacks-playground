@@ -263,13 +263,58 @@ def _safe_member_path(name: str) -> Path:
     return Path(*parts) if parts else Path()
 
 
+def _is_zip_dir(info: zipfile.ZipInfo) -> bool:
+    """Directory entry detection tolerant of Windows ``Compress-Archive`` zips.
+
+    ``ZipInfo.is_dir()`` only recognizes names ending in ``/``. PowerShell's
+    ``Compress-Archive`` writes backslash separators, so its folder markers end
+    in ``\\`` and would otherwise be extracted as zero-byte *files* — the real
+    files inside those folders then fail with ``[Errno 20] Not a directory``.
+    """
+    name = info.filename
+    return info.is_dir() or name.endswith(("/", "\\"))
+
+
+_BACKSLASH_ZIP_HINT = (
+    "This zip uses backslash path separators (typical of Windows PowerShell "
+    "`Compress-Archive`). vibe19 normalizes these automatically, but if this "
+    "error persists rebuild the package with forward-slash paths — e.g. Python "
+    "`zipfile` / `shutil.make_archive`, 7-Zip, or the built-in Explorer "
+    "'Compress to ZIP file' — and re-upload."
+)
+
+
+def _zip_has_backslash_paths(zf: zipfile.ZipFile) -> bool:
+    # orig_filename keeps the raw stored name; Windows Python normalizes
+    # ``filename`` on read, POSIX does not.
+    return any(
+        "\\" in getattr(i, "orig_filename", i.filename) for i in zf.infolist()
+    )
+
+
+def _ensure_parent_dir(target: Path, entry_name: str) -> None:
+    """mkdir -p the target's parent; explain clearly if a file blocks the path."""
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except (NotADirectoryError, FileExistsError) as exc:
+        raise PackageError(
+            f"Cannot extract `{entry_name}`: a file is blocking the folder path "
+            f"`{target.parent}`. {_BACKSLASH_ZIP_HINT}"
+        ) from exc
+    if target.parent.exists() and not target.parent.is_dir():
+        raise PackageError(
+            f"Cannot extract `{entry_name}`: `{target.parent}` exists as a file, "
+            f"not a folder. {_BACKSLASH_ZIP_HINT}"
+        )
+
+
 def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
     caps = caps or effective_package_caps()
     infos = zf.infolist()
     # Count every ZipInfo (files + directory markers). Windows Compress-Archive
     # often emits one dir entry per folder; real BUILDING_100 demos land ~250+.
     if len(infos) > caps.max_entries:
-        n_files = sum(1 for i in infos if not i.is_dir())
+        n_files = sum(1 for i in infos if not _is_zip_dir(i))
         n_dirs = len(infos) - n_files
         raise PackageError(
             f"Zip has too many items for this upload limit "
@@ -283,7 +328,7 @@ def _inspect_zip(zf: zipfile.ZipFile, caps: PackageCaps | None = None) -> None:
     total = 0
     names_lower: set[str] = set()
     for info in infos:
-        if info.is_dir():
+        if _is_zip_dir(info):
             continue
         # Symlink / special: ZipInfo flag_bits or external_attr on Unix
         if stat_is_symlink(info):
@@ -345,13 +390,13 @@ def expand_nested_zips(
                 with zipfile.ZipFile(BytesIO(data), "r") as zf:
                     _inspect_zip(zf, caps)
                     for info in zf.infolist():
-                        if info.is_dir():
+                        if _is_zip_dir(info):
                             continue
                         member = _safe_member_path(info.filename)
                         if not member.parts:
                             continue
                         target = dest / member
-                        target.parent.mkdir(parents=True, exist_ok=True)
+                        _ensure_parent_dir(target, info.filename)
                         with zf.open(info, "r") as src, target.open("wb") as out:
                             while True:
                                 chunk = src.read(1024 * 256)
@@ -394,13 +439,13 @@ def extract_package_zip(
             _inspect_zip(zf, caps)
             written = 0
             for info in zf.infolist():
-                if info.is_dir():
+                if _is_zip_dir(info):
                     continue
                 rel = _safe_member_path(info.filename)
                 if not rel.parts:
                     continue
                 target = workdir / rel
-                target.parent.mkdir(parents=True, exist_ok=True)
+                _ensure_parent_dir(target, info.filename)
                 # Stream copy with hard cap
                 with zf.open(info, "r") as src, target.open("wb") as out:
                     while True:
@@ -421,6 +466,18 @@ def extract_package_zip(
     except zipfile.BadZipFile as exc:
         wipe_workdir(workdir)
         raise PackageError(f"Not a valid zip file: {exc}") from exc
+    except OSError as exc:
+        wipe_workdir(workdir)
+        hint = ""
+        try:
+            from io import BytesIO
+
+            with zipfile.ZipFile(BytesIO(data), "r") as _zf:
+                if _zip_has_backslash_paths(_zf):
+                    hint = f" {_BACKSLASH_ZIP_HINT}"
+        except Exception:
+            pass
+        raise PackageError(f"Zip extraction failed: {exc}.{hint}") from exc
     except Exception:
         wipe_workdir(workdir)
         raise

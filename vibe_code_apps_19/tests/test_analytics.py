@@ -79,6 +79,75 @@ def test_mech_cooling_chiller_amps_and_chw_temp():
     assert kind2 == ""
 
 
+def test_mech_cooling_bins_total_aggregates_multiple_chillers():
+    from app.analytics import MECH_COOL_TOTAL_ID, mech_cooling_oat_bins
+
+    idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
+    oat = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+    ch1 = pd.DataFrame({"chiller-status": [1] * 10, "outside-air-temp": oat}, index=idx)
+    ch1.attrs["equipment_type"] = "CHW_PLANT"
+    ch2 = pd.DataFrame({"chiller-status": [1] * 10, "outside-air-temp": oat}, index=idx)
+    ch2.attrs["equipment_type"] = "CHW_PLANT"
+
+    bins = mech_cooling_oat_bins(
+        {"CHILLER_1": ch1, "CHILLER_2": ch2}, role_map={}, include_total=True
+    )
+    assert set(bins["equipment_id"]) == {"CHILLER_1", "CHILLER_2", MECH_COOL_TOTAL_ID}
+    total = bins[bins["equipment_id"] == MECH_COOL_TOTAL_ID]
+    per_dev = bins[bins["equipment_id"] != MECH_COOL_TOTAL_ID]
+    assert (total["source_kind"] == "total").all()
+    for _, row in total.iterrows():
+        dev_sum = per_dev[per_dev["bin_start"] == row["bin_start"]]["hours"].sum()
+        assert row["hours"] == pytest.approx(dev_sum)
+    # Default (no total) unchanged for existing callers
+    bins_no_total = mech_cooling_oat_bins({"CHILLER_1": ch1, "CHILLER_2": ch2}, role_map={})
+    assert MECH_COOL_TOTAL_ID not in set(bins_no_total["equipment_id"])
+
+
+def test_mech_cooling_coverage_flat_zero_chiller_excluded():
+    from app.analytics import MECH_COOL_TOTAL_ID, mech_cooling_coverage, mech_cooling_oat_bins
+
+    idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
+    oat = [60.0] * 10
+    # CHILLER_1: run roles mapped but flat zero all year (the BUILDING_100 case)
+    ch1 = pd.DataFrame(
+        {"chiller-status": [0] * 10, "chiller-amps": [0.0] * 10, "outside-air-temp": oat},
+        index=idx,
+    )
+    ch1.attrs["equipment_type"] = "CHW_PLANT"
+    ch2 = pd.DataFrame({"chiller-status": [1] * 10, "outside-air-temp": oat}, index=idx)
+    ch2.attrs["equipment_type"] = "CHW_PLANT"
+    frames = {"CHILLER_1": ch1, "CHILLER_2": ch2}
+
+    cov = mech_cooling_coverage(frames, role_map={})
+    by_id = {r["equipment_id"]: r for _, r in cov.iterrows()}
+    assert by_id["CHILLER_2"]["status"] == "included"
+    assert by_id["CHILLER_2"]["proof"] == "chiller-status"
+    assert by_id["CHILLER_1"]["status"] == "excluded"
+    assert "never ON" in by_id["CHILLER_1"]["reason"]
+    assert "chiller-status" in by_id["CHILLER_1"]["reason"]
+
+    # Total equals the only active chiller's hours
+    bins = mech_cooling_oat_bins(frames, role_map={}, include_total=True)
+    total = bins[bins["equipment_id"] == MECH_COOL_TOTAL_ID]
+    ch2_rows = bins[bins["equipment_id"] == "CHILLER_2"]
+    assert total["hours"].sum() == pytest.approx(ch2_rows["hours"].sum())
+    assert "CHILLER_1" not in set(bins["equipment_id"])
+
+
+def test_mech_cooling_coverage_no_roles_mapped():
+    from app.analytics import mech_cooling_coverage
+
+    idx = pd.date_range("2024-06-01", periods=5, freq="1h", tz="UTC")
+    ch = pd.DataFrame({"chilled-water-supply-temp": [44.0] * 5, "outside-air-temp": [70.0] * 5}, index=idx)
+    ch.attrs["equipment_type"] = "CHW_PLANT"
+    cov = mech_cooling_coverage({"CHILLER_9": ch}, role_map={})
+    assert len(cov) == 1
+    row = cov.iloc[0]
+    assert row["status"] == "excluded"
+    assert "no run-proof roles mapped" in row["reason"]
+
+
 def test_occupied_hours_and_weekly_oat():
     from app.analytics import motor_run_hours_weekly
     from app.occupancy import OccupancySchedule, occupied_hours_per_week

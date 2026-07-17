@@ -25,6 +25,7 @@ from app.analytics import (  # noqa: E402
     PLANT_CHILLER,
     dataset_time_span,
     economizer_weather_summary,
+    mech_cooling_coverage,
     mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_totals,
@@ -2236,6 +2237,7 @@ def main() -> None:
     motor_tot = motor_run_hours_totals(motor_tbl)
     motor_weekly = pd.DataFrame()
     cool_bins = pd.DataFrame()
+    cool_coverage = pd.DataFrame()
     if section == "Overview":
         try:
             motor_weekly = motor_run_hours_weekly(
@@ -2255,6 +2257,14 @@ def main() -> None:
                 prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
                 chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
                 include_ahu_chw_valve=False,
+                include_total=True,
+            )
+            cool_coverage = mech_cooling_coverage(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+                prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+                chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
             )
         except Exception as exc:
             st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
@@ -2313,7 +2323,9 @@ def main() -> None:
         st.caption(
             "**Chillers** (mapped pump / status / amps / power — **no leave-temp**) + "
             "**AHU/HP DX compressors** only. Never CHW cooling valves. "
-            "Bins sorted cold→hot; OAT from **web** weather by default."
+            "Bins sorted cold→hot; OAT from **web** weather by default. "
+            "All mapped cooling devices are aggregated — the dark outlined bars are the "
+            "**total across devices**; see the coverage table for devices excluded and why."
         )
         cool_fig = mech_cooling_oat_histogram(cool_bins)
         if cool_fig is None:
@@ -2335,6 +2347,25 @@ def main() -> None:
                 "mech_cooling_oat_bins.csv",
                 key="dl_cool_bins_overview",
             )
+        if not cool_coverage.empty:
+            n_inc = int((cool_coverage["status"] == "included").sum())
+            n_exc = int((cool_coverage["status"] == "excluded").sum())
+            with st.expander(
+                f"Cooling device coverage — {n_inc} included, {n_exc} excluded",
+                expanded=n_exc > 0,
+            ):
+                for _, row in cool_coverage.iterrows():
+                    if row["status"] == "included":
+                        st.markdown(f"- **{row['equipment_id']}** — included, proof: `{row['proof']}`")
+                    else:
+                        st.markdown(f"- **{row['equipment_id']}** — excluded: {row['reason']}")
+                st.dataframe(cool_coverage, hide_index=True, width="stretch")
+                st.download_button(
+                    "Download cooling coverage CSV",
+                    to_csv_bytes(cool_coverage),
+                    "mech_cooling_coverage.csv",
+                    key="dl_cool_coverage_overview",
+                )
 
         st.markdown("##### Economizer weather opportunity / compliance")
         st.caption(

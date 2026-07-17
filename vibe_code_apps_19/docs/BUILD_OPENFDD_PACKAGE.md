@@ -97,9 +97,29 @@ python -c "from pathlib import Path; from app.package_io import load_package_fro
 
 7. **Zip** the building folder (keep under **500 MB** for browser upload; **≤2000 zip entries** default). Larger jobs: split parts per [`../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md`](../vibe19_agent_spec/docs/AGENT_CSV_PREPROCESS.md).
 
+**Do not use PowerShell `Compress-Archive` for Streamlit/Docker/Linux uploads.** It writes backslash paths; on Linux, Python treats `BUILDING_100\VAV\` as a *file* named `VAV`, then nested `VAV/VAVFC_100/...` fails with `[Errno 20] Not a directory`. Use Python `zipfile` with `.as_posix()` arcnames (forward slashes only):
+
 ```powershell
-Compress-Archive -Path .\BUILDING_100 -DestinationPath "$env:USERPROFILE\Desktop\BUILDING_100_openfdd.zip"
+# From tadco sidecar (preferred)
+python workspace/zip_openfdd_buildings.py
+
+# Or inline
+python -c "import zipfile; from pathlib import Path; b=Path(r'.\BUILDING_100'); z=Path(r'$env:USERPROFILE\OneDrive\Desktop\BUILDING_100_openfdd.zip');
+zf=zipfile.ZipFile(z,'w',zipfile.ZIP_DEFLATED);
+[zf.write(p, f'{b.name}/{p.relative_to(b).as_posix()}') for p in b.rglob('*') if p.is_file()]; zf.close(); print(z)"
 ```
+
+Avoid:
+
+```powershell
+# BAD for Linux/Streamlit Cloud / GHCR
+Compress-Archive -Path .\BUILDING_100 -DestinationPath "...\BUILDING_100_openfdd.zip"
+```
+
+> The app now **normalizes backslash zips automatically** (`_is_zip_dir` in
+> `app/package_io.py` treats `folder\` markers as directories), so an existing
+> `Compress-Archive` zip will load. Forward-slash arcnames remain the spec —
+> other tools reading the package may still choke on backslashes.
 
 8. Human uploads the zip in the Streamlit sidebar (**Data source → Zip package**).
 
@@ -107,14 +127,15 @@ Compress-Archive -Path .\BUILDING_100 -DestinationPath "$env:USERPROFILE\Desktop
 
 ## Helper in this repo
 
-Heuristic generator used for TADCO-style trees (edit `SRC` / `BLDG` paths inside the script):
+Heuristic generator used for TADCO-style trees (both buildings + weather nest + TADCO Haystack overrides):
 
 ```powershell
 cd vibe_code_apps_19
-python scripts/_gen_building100_openfdd_json.py
+python scripts/gen_openfdd_building_maps.py
+# optional: python scripts/gen_openfdd_building_maps.py --buildings BUILDING_100
 ```
 
-Prefer reusing `app.column_map_json.build_column_map_from_equipment_frames` over inventing a new mapper.
+Prefer reusing `app.column_map_json.build_column_map_from_equipment_frames` over inventing a new mapper. The TADCO script applies post-heuristic overrides (no exhaust-as-OA-damper, no AHU zone SpaceTemp, no chiller enable-SP as OAT).
 
 ---
 

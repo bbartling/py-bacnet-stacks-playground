@@ -55,6 +55,156 @@ def _hs_equip_type(eq_id: str, cookbook_type: str) -> str:
     }.get(et, et or "unknown")
 
 
+def _pick(cols: set[str], *candidates: str) -> str | None:
+    for c in candidates:
+        if c in cols:
+            return c
+    return None
+
+
+def _tadco_override_roles(eq_id: str, cols: set[str], roles: dict[str, str]) -> dict[str, str]:
+    """Correct known TADCO heuristic mistakes for Haystack points.
+
+    Prior bad maps:
+    - AHU outside-air-damper <- ex_dmpr_pos_fan_enable_pct (exhaust, not OA)
+    - AHU zone-air-temp <- arbitrary zone_* SpaceTemp on AHU CSV (belongs on VAV)
+    - CHILLER outside-air-temp <- oat_chiller_enable_setpoint_f (setpoint, not sensor)
+    - Prefer supply-fan roles over return-fan for AHU runtime
+    """
+    out = dict(roles)
+    uid = eq_id.upper()
+
+    # Never keep BAS OAT on AHU/plant when web weather is preferred — but keep
+    # true OA-T sensor mapping for OAT-METEO compare when present.
+    if "AHU" in uid and "VAV" not in uid:
+        sat = _pick(cols, "discharge_air_temp_f")
+        mat = _pick(cols, "mixed_air_temp_f")
+        rat = _pick(cols, "return_air_temp_f")
+        oat = _pick(cols, "outside_air_temp_f")
+        chw = _pick(cols, "chw_valve_pct")
+        da_p = _pick(cols, "da_p_inwc")
+        da_psp = _pick(cols, "da_p_setpoint_inwc")
+        sf_cmd = _pick(cols, "supply_fan_speed_pct")
+        sf_st = _pick(cols, "supply_fan_status")
+        rf_cmd = _pick(cols, "return_fan_speed_pct")
+        dat_sp = _pick(cols, "dat_reset_f")
+        occ = _pick(cols, "occ_c")
+        # Prefer MAD-C / OA min over exhaust damper for OA damper role
+        oa_dmp = _pick(cols, "mad_c_pct", "mad_c", "oa_minimum_position_pct")
+
+        forced = {
+            "discharge-air-temp": sat,
+            "mixed-air-temp": mat,
+            "return-air-temp": rat,
+            "outside-air-temp": oat,
+            "cooling-valve": chw,
+            "duct-static-pressure": da_p,
+            "duct-static-pressure-sp": da_psp,
+            "fan-cmd": sf_cmd,
+            "fan-status": sf_st,
+            "return-fan-cmd": rf_cmd,
+            "discharge-air-temp-sp": dat_sp,
+            "occupied": occ,
+            "outside-air-damper": oa_dmp,
+        }
+        for role, col in forced.items():
+            if col:
+                out[role] = col
+            elif role in out:
+                # drop bad heuristic (e.g. ex_dmpr as OA damper, zone SpaceTemp on AHU)
+                if role in ("outside-air-damper", "zone-air-temp"):
+                    del out[role]
+        # Always strip zone temps from AHU maps — VAV boxes own zone-air-temp
+        out.pop("zone-air-temp", None)
+        # Never keep exhaust damper as OA damper
+        if out.get("outside-air-damper", "").startswith("ex_dmpr"):
+            out.pop("outside-air-damper", None)
+
+    if "CHILLER" in uid:
+        chws = _pick(cols, "chws_t_f")
+        chwr = _pick(cols, "chwr_t_f")
+        power = _pick(cols, "meter_power_sum_kw")
+        # Prefer live chiller 2 amps/command when present
+        status = _pick(
+            cols,
+            "chiller_2_command",
+            "chiller_1_command",
+            "chiller_2_amps_a",
+            "chiller_1_amps_a",
+        )
+        forced = {
+            "chilled-water-supply-temp": chws,
+            "chilled-water-return-temp": chwr,
+            "elec-power": power,
+            "chiller-status": status,
+        }
+        for role, col in forced.items():
+            if col:
+                out[role] = col
+        # Drop setpoint masquerading as OAT
+        if out.get("outside-air-temp", "").startswith("oat_chiller_enable"):
+            out.pop("outside-air-temp", None)
+        out.pop("outside-air-temp", None)  # use web OAT for plant analytics
+
+    if "BOILER" in uid:
+        hws = _pick(cols, "hws_t_f")
+        hwr = _pick(cols, "hwr_t_f")
+        if hws:
+            out["hot-water-supply-temp"] = hws
+        if hwr:
+            out["hot-water-return-temp"] = hwr
+        if out.get("outside-air-temp") == "outside_air_temp_f":
+            # keep BAS OA-T for compare only; web OAT is preferred in session
+            pass
+        # boiler status from boiler1/boiler2 if present
+        bst = _pick(cols, "boiler1", "boiler2", "blr1_c", "blr2_c")
+        if bst:
+            out["boiler-status"] = bst
+
+    if "VAV" in uid or eq_id.startswith("VAV"):
+        zt = _pick(cols, "space_temp_f") or next(
+            (c for c in sorted(cols) if c.startswith("space_temp_f")), None
+        )
+        flow = _pick(cols, "supply_airflow_cfm") or next(
+            (c for c in sorted(cols) if "airflow" in c and c.endswith("_cfm")), None
+        )
+        damp = _pick(cols, "damper_pct") or next(
+            (
+                c
+                for c in sorted(cols)
+                if "damper" in c or "actuatorcommand" in c or "vavactuator" in c
+            ),
+            None,
+        )
+        rh = _pick(cols, "reheat_valve_pct") or next(
+            (c for c in sorted(cols) if "reheat" in c), None
+        )
+        cool_sp = _pick(cols, "cooling_setpoint_f") or next(
+            (c for c in sorted(cols) if "cool" in c and "set" in c), None
+        )
+        eff_sp = _pick(cols, "effective_setpoint_f") or next(
+            (c for c in sorted(cols) if "effect" in c and "set" in c), None
+        )
+        inlet = next(
+            (c for c in sorted(cols) if "ductintemp" in c or "inlet" in c), None
+        )
+        forced = {
+            "zone-air-temp": zt,
+            "zone-airflow": flow,
+            "damper": damp,
+            "reheat-valve": rh,
+            "cooling-setpoint": cool_sp,
+            "effective-setpoint": eff_sp,
+            "vav-inlet-air-temp": inlet,
+        }
+        for role, col in forced.items():
+            if col:
+                out[role] = col
+
+    return out
+
+
+
 def _reference_timestamps(bldg: Path) -> pd.Series:
     for cand in (bldg / "AHU_1" / "history_wide.csv", bldg / "AHU_2" / "history_wide.csv"):
         if cand.is_file():
@@ -198,9 +348,20 @@ def process_building(src: Path, building_id: str) -> None:
     for eq in equip:
         eq_id = eq["equipment_id"]
         block = (pkg_map.get("equipment") or {}).get(eq_id) or {}
-        roles = dict(block.get("column_roles") or {})
+        hist = Path(eq["history_path"])
+        header_cols = set(pd.read_csv(hist, nrows=0).columns)
+        roles = _tadco_override_roles(eq_id, header_cols, dict(block.get("column_roles") or {}))
+        # Keep only roles whose CSV column still exists
+        roles = {r: c for r, c in roles.items() if c in header_cols}
         if not roles:
             empty.append(eq_id)
+        # Sync package map equipment block
+        if eq_id not in pkg_map.setdefault("equipment", {}):
+            pkg_map["equipment"][eq_id] = {}
+        pkg_map["equipment"][eq_id]["column_roles"] = roles
+        pkg_map["equipment"][eq_id]["equipment_type"] = str(
+            block.get("equipment_type") or equipment_type_from_id(eq_id)
+        )
         points = {
             COOKBOOK_TO_HAYSTACK_POINT.get(role, role.replace("_", "-")): col
             for role, col in sorted(roles.items())
@@ -212,8 +373,12 @@ def process_building(src: Path, building_id: str) -> None:
             "equipment_type": cookbook_type,
             "points": points,
             "column_roles": roles,
-            "generated_by": "heuristic_columns_csv",
-            "notes": "Auto from columns.csv + header heuristics; refine in UI if needed.",
+            "generated_by": "heuristic_columns_csv+tadco_overrides",
+            "notes": (
+                "Haystack points per vibe19 docs/HAYSTACK_LIKE_MAPPING_GUIDE.md. "
+                "TADCO overrides: no exhaust-as-OA-damper; no AHU zone SpaceTemp; "
+                "no chiller enable-SP as OAT; supply-fan preferred for AHU runtime."
+            ),
         }
         out = Path(eq["folder"]) / "column_map.json"
         out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -222,6 +387,11 @@ def process_building(src: Path, building_id: str) -> None:
     if empty:
         print("  empty:", ", ".join(empty[:12]), ("..." if len(empty) > 12 else ""))
 
+    pkg_map["generated_by"] = "heuristic_columns_csv+tadco_overrides"
+    pkg_map["notes"] = (
+        "TADCO Liberty BUILDING maps with Haystack point names. "
+        "prefer_web_oat=true; refine in UI if needed."
+    )
     root_cm = bldg / "column_map.json"
     root_cm.write_text(json.dumps(pkg_map, indent=2) + "\n", encoding="utf-8")
     print("wrote", root_cm.name)

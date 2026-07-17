@@ -125,6 +125,7 @@ Zip path (`app/package_io.py`):
 - Pydantic `manifest.json` + `session_config.json`
 - Header check: missing/`unparseable` `timestamp_utc` → `PackageError` (sidebar, no crash)
 - Corrupt zip / bad JSON → `PackageError`; temp dir wiped
+- Windows `Compress-Archive` backslash zips normalized (`_is_zip_dir`); extraction `OSError` → `PackageError` with rebuild hint. **Windows agents: always emit forward-slash arcnames** (Python `zipfile` + `.as_posix()`), never `Compress-Archive`
 
 Folder path: load errors caught in sidebar; empty/invalid path does **not** wipe an existing session.
 

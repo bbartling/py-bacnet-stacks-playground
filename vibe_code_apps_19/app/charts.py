@@ -739,21 +739,41 @@ def motor_weekly_runtime_chart(
 
 
 def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
-    """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin (sorted cold→hot)."""
+    """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin (sorted cold→hot).
+
+    Rows with ``source_kind == "total"`` (aggregated across devices) render as a
+    visually distinct outlined dark bar so the aggregate is obvious next to the
+    per-device breakdown.
+    """
     if bins_df is None or bins_df.empty:
         return None
     df = bins_df.sort_values(["bin_start", "source"]).copy()
     order = list(df.drop_duplicates("bin_start").sort_values("bin_start")["bin_label"])
+    has_kind = "source_kind" in df.columns
+    is_total = df["source_kind"].eq("total") if has_kind else pd.Series(False, index=df.index)
+    dev_df = df[~is_total]
+    tot_df = df[is_total]
     fig = go.Figure()
-    sources = list(df["source"].unique())
+    sources = list(dev_df["source"].unique())
     for i, src in enumerate(sources):
-        sub = df[df["source"] == src]
+        sub = dev_df[dev_df["source"] == src]
         fig.add_trace(
             go.Bar(
                 x=sub["bin_label"],
                 y=sub["hours"],
                 name=str(src),
                 marker_color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+            )
+        )
+    for src in tot_df["source"].unique():
+        sub = tot_df[tot_df["source"] == src]
+        fig.add_trace(
+            go.Bar(
+                x=sub["bin_label"],
+                y=sub["hours"],
+                name=str(src),
+                marker_color="rgba(55, 65, 81, 0.55)",
+                marker_line=dict(color="#111827", width=1.6),
             )
         )
     fig.update_layout(

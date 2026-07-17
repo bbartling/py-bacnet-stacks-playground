@@ -923,6 +923,106 @@ def mech_cooling_run_mask(
     return None, ""
 
 
+def _mech_cooling_candidate_roles(
+    df: pd.DataFrame, *, equipment_type: str, equipment_id: str
+) -> tuple[bool, list[str]]:
+    """(is a cooling-proof candidate, mapped run-proof roles present with data).
+
+    Mirrors the role lookups in :func:`mech_cooling_run_mask` so coverage
+    reporting can say *which* mapped columns were checked for run proof.
+    """
+    et = equipment_type.upper()
+    eq = equipment_id.upper()
+    if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):
+        roles = list(CHILLER_PUMP_ROLES + CHILLER_RUN_ROLES) + ["chiller-amps", "chiller-power"]
+    elif et == "AHU":
+        roles = list(DX_RUN_ROLES)
+    elif et == "HEATPUMP" or eq.startswith("HP"):
+        roles = list(DX_RUN_ROLES + ("compressor-status",))
+    else:
+        return False, []
+    present = [r for r in roles if r in df.columns and df[r].notna().any()]
+    return True, present
+
+
+MECH_COOL_TOTAL_ID = "ALL"
+MECH_COOL_TOTAL_LABEL = "All mech cooling (total)"
+
+
+def mech_cooling_coverage(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    prefer_web_oat: bool = True,
+    chw_leave_max_f: float = 48.0,
+) -> pd.DataFrame:
+    """Per-device inclusion/exclusion report for the mech-cooling OAT-bin chart.
+
+    One row per chiller / CHW-plant / AHU-DX / heat-pump candidate:
+    ``status`` is ``included`` (with the run ``proof`` used) or ``excluded``
+    with a ``reason`` (no run roles mapped, run signals never ON, no OAT).
+    Devices with no cooling roles at all (e.g. VAV boxes) are omitted.
+    """
+    rows: list[dict[str, Any]] = []
+    for eq_id, raw in frames.items():
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        mapped = apply_role_map(raw, eq_id, role_map)
+        is_candidate, checked = _mech_cooling_candidate_roles(
+            mapped, equipment_type=et, equipment_id=eq_id
+        )
+        if not is_candidate:
+            continue
+        # AHUs/HPs with no DX roles mapped are usually CHW-coil units — only
+        # report them when they have at least one compressor-ish role mapped.
+        if not checked and et in {"AHU", "HEATPUMP"}:
+            continue
+
+        row: dict[str, Any] = {
+            "equipment_id": eq_id,
+            "equipment_type": et,
+            "checked_roles": ", ".join(checked) if checked else "—",
+            "proof": "",
+            "reason": "",
+        }
+        if not checked:
+            row["status"] = "excluded"
+            row["reason"] = "no run-proof roles mapped (pump/status/amps/power or DX)"
+            rows.append(row)
+            continue
+
+        run, source_kind = mech_cooling_run_mask(
+            mapped,
+            equipment_type=et,
+            equipment_id=eq_id,
+            chw_leave_max_f=chw_leave_max_f,
+        )
+        if run is None or not bool(run.any()):
+            row["status"] = "excluded"
+            row["reason"] = (
+                "run roles mapped but never ON (all zero/flat): "
+                + ", ".join(checked)
+            )
+            rows.append(row)
+            continue
+
+        oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
+        if oat is None or oat.where(run).dropna().empty:
+            row["status"] = "excluded"
+            row["reason"] = "no OAT series available (map outside-air-temp or enable web weather)"
+            rows.append(row)
+            continue
+
+        row["status"] = "included"
+        row["proof"] = source_kind
+        rows.append(row)
+
+    cols = ["equipment_id", "equipment_type", "status", "proof", "checked_roles", "reason"]
+    if not rows:
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(rows)[cols].sort_values(["status", "equipment_id"]).reset_index(drop=True)
+
+
 def mech_cooling_oat_bins(
     frames: dict[str, pd.DataFrame],
     role_map: dict,
@@ -933,12 +1033,16 @@ def mech_cooling_oat_bins(
     chw_leave_max_f: float = 48.0,
     include_ahu_chw_valve: bool = False,
     clg_valve_thr_pct: float = 5.0,
+    include_total: bool = False,
 ) -> pd.DataFrame:
     """
     Mechanical cooling run hours binned by OAT (default: web/Open-Meteo dry bulb).
 
     Chillers (pump/status first, leave-temp backup) + AHU/HP **DX compressors only**.
     Never bins CHW cooling-valve open time.
+
+    ``include_total=True`` appends aggregated rows (``equipment_id="ALL"``,
+    ``source_kind="total"``) summing hours across all included devices per bin.
     """
     from app.data_loader import infer_poll_seconds
 
@@ -988,6 +1092,22 @@ def mech_cooling_oat_bins(
         return pd.DataFrame(
             columns=["equipment_id", "source", "source_kind", "bin_start", "bin_label", "hours"]
         )
+
+    if include_total:
+        per_dev = pd.DataFrame(rows)
+        n_devices = per_dev["equipment_id"].nunique()
+        for (b_i, b_label), g in per_dev.groupby(["bin_start", "bin_label"]):
+            rows.append(
+                {
+                    "equipment_id": MECH_COOL_TOTAL_ID,
+                    "source": f"{MECH_COOL_TOTAL_LABEL} — {n_devices} device(s)",
+                    "source_kind": "total",
+                    "bin_start": int(b_i),
+                    "bin_label": str(b_label),
+                    "hours": round(float(g["hours"].sum()), 2),
+                }
+            )
+
     out = pd.DataFrame(rows).sort_values(["bin_start", "source"])
     return out.reset_index(drop=True)
 

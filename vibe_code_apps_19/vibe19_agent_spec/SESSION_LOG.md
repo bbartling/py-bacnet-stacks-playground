@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-17 — Mech-cooling aggregation transparency + Compress-Archive zip fix
+
+- **Mech cooling OAT bins:** `mech_cooling_oat_bins(include_total=True)` appends an `ALL` / "All mech cooling (total)" series summing hours across devices per bin (dark outlined bars in the chart + rows in the CSV). New `mech_cooling_coverage()` lists every chiller/DX candidate as included (with run proof) or excluded with a reason — e.g. BUILDING_100 CHILLER_1: "run roles mapped but never ON (all zero/flat)". Overview shows a coverage expander + CSV.
+- **Zip upload ENOTDIR fix:** Windows `Compress-Archive` stores backslash paths; its `folder\` markers were extracted as files, then real files failed with `[Errno 20] Not a directory` on Linux/Docker. `_is_zip_dir()` in `app/package_io.py` (used by `_inspect_zip`, `extract_package_zip`, `expand_nested_zips`, `multi_zip`) treats them as directories; extraction `OSError` now surfaces as `PackageError` with a Compress-Archive rebuild hint. Regression tests in `tests/test_zip_backslash.py`; docs updated (PACKAGE_SPEC, BUILD_OPENFDD_PACKAGE, AGENTS).
+
+---
+
 ## 2026-07-16 — GL36 AFDD internal-variable sliders
 
 - FC1–FC15 equations now expose GL36 Table 5.16.14.5 sensor errors, ΔTSF, ΔTmin, ΔOSmax, ModeDelay, command/state boundaries, and AlarmDelay (`confirm_min`) in the left Rule tuning rail.
