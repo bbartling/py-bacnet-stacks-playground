@@ -418,6 +418,46 @@ def _session_config_payload() -> dict:
     )
 
 
+def _build_wattlab_dump_zip() -> tuple[bytes, str]:
+    """Run the agent-bundle export on the current session and zip it (in memory)."""
+    import io
+    import tempfile
+    import zipfile
+
+    from app.agent_api import AgentDataset, AgentRun, export_agent_bundle
+
+    building_id = st.session_state.get("building_id") or "BUILDING"
+    dataset = AgentDataset(
+        building_id=building_id,
+        frames=st.session_state.get("equipment_frames") or {},
+        weather=st.session_state.get("weather"),
+        role_map=st.session_state.get("role_map") or {},
+        params=st.session_state.get("params") or {},
+        unit_system=st.session_state.get("unit_system", "imperial"),
+        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+        column_map=st.session_state.get("column_map"),
+        package_report=st.session_state.get("package_report") or {},
+        source_path=str(st.session_state.get("data_source") or ""),
+    )
+    results = st.session_state.get("batch_results") or []
+    run = None
+    if results:
+        run = AgentRun(
+            results=results,
+            summary=results_summary_table(results),
+            params=dataset.params,
+        )
+    buf = io.BytesIO()
+    with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
+        export_agent_bundle(dataset, run, td, include_bootstrap=False)
+        with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for p in sorted(Path(td).rglob("*")):
+                if p.is_file():
+                    # Spec: forward-slash arcnames (PACKAGE_SPEC.md)
+                    zf.write(p, arcname=p.relative_to(td).as_posix())
+    return buf.getvalue(), f"wattlab_dump_{building_id}.zip"
+
+
 def _apply_session_config_bytes(raw: bytes, *, source_label: str) -> list[str]:
     """Validate + apply session_config JSON bytes into session_state. Returns warnings."""
     from app.package_io import SessionConfig, apply_session_config
@@ -2325,7 +2365,9 @@ def main() -> None:
             "**AHU/HP DX compressors** only. Never CHW cooling valves. "
             "Bins sorted cold→hot; OAT from **web** weather by default. "
             "All mapped cooling devices are aggregated — the dark outlined bars are the "
-            "**total across devices**; see the coverage table for devices excluded and why."
+            "**total across devices**; the coverage table lists every cooling-capable "
+            "device per the data model (CHW-coil AHUs appear as informational rows — "
+            "their hours are carried by the plant chillers)."
         )
         cool_fig = mech_cooling_oat_histogram(cool_bins)
         if cool_fig is None:
@@ -3302,60 +3344,86 @@ def main() -> None:
     if section == "Export":
         st.subheader("Export")
         st.caption(
-            "Plotly camera → PNG/JPEG. Cloud-safe: download/upload session_config + fault_settings "
-            "(same controls as sidebar). Agent loop: zip ↔ session_config ↔ summary CSV."
+            "One big dump for WattLab (vibe20): faults, run hours, mech-cooling bins + coverage, "
+            "sensor stats fan-on/off, setpoints, schedules, weather, model seed. "
+            "Session restore stays below; individual CSVs live under the expander."
         )
         results = st.session_state.batch_results
-        if results:
-            summary = results_summary_table(results)
-            st.download_button("Summary CSV", to_csv_bytes(summary), "fdd_summary.csv")
+
+        st.markdown("##### WattLab dump (vibe20 handoff)")
+        if not frames:
+            st.info("Load a package first — the dump needs equipment data.")
+        else:
+            if st.button("Build WattLab dump (zip)", type="primary", key="wattlab_dump_build"):
+                with st.spinner("Running analytics + writing bundle…"):
+                    try:
+                        data, fname = _build_wattlab_dump_zip()
+                        st.session_state["wattlab_dump_zip"] = (data, fname)
+                        st.success(f"Dump ready · {len(data) / 1e6:.1f} MB — see README_WATTLAB.md inside")
+                    except Exception as exc:
+                        st.error(f"WattLab dump failed: {exc}")
+            dump = st.session_state.get("wattlab_dump_zip")
+            if dump:
+                st.download_button(
+                    "Download WattLab dump (zip)",
+                    data=dump[0],
+                    file_name=dump[1],
+                    mime="application/zip",
+                    key="wattlab_dump_dl",
+                )
+
         st.markdown("##### Session restore")
         _render_session_config_io(key_prefix="export")
-        if st.session_state.column_map:
-            st.download_button(
-                "Haystack column map JSON",
-                data=__import__("json").dumps(
-                    to_haystack_document(st.session_state.column_map), indent=2
-                ).encode(),
-                file_name="column_map.json",
-                mime="application/json",
-                key="dl_colmap_export",
-            )
-        if frames:
-            from app.role_map_gap import build_role_map_gap_report
 
-            gap_df = build_role_map_gap_report(
-                frames,
-                st.session_state.role_map,
-                weather=st.session_state.weather,
-            )
-            if not gap_df.empty:
-                st.markdown("##### Role map gap report")
-                st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
+        with st.expander("Individual exports (summary CSV, column map, gap report, tuning report)"):
+            if results:
+                summary = results_summary_table(results)
+                st.download_button("Summary CSV", to_csv_bytes(summary), "fdd_summary.csv")
+            if st.session_state.column_map:
                 st.download_button(
-                    "Download role_map_gap_report.csv",
-                    to_csv_bytes(gap_df),
-                    "role_map_gap_report.csv",
-                    key="dl_gap_export",
-                )
-            try:
-                from app.tuning_report import build_tuning_assistant_report
-
-                trep = build_tuning_assistant_report(
-                    tuned=results or [],
-                    params=st.session_state.get("params") or {},
-                    has_web_weather=st.session_state.weather is not None,
-                    gap_report=gap_df,
-                )
-                st.download_button(
-                    "Download tuning_assistant_report.json",
-                    data=__import__("json").dumps(trep, indent=2, default=str).encode("utf-8"),
-                    file_name="tuning_assistant_report.json",
+                    "Haystack column map JSON",
+                    data=__import__("json").dumps(
+                        to_haystack_document(st.session_state.column_map), indent=2
+                    ).encode(),
+                    file_name="column_map.json",
                     mime="application/json",
-                    key="dl_tuning_report",
+                    key="dl_colmap_export",
                 )
-            except Exception:
-                pass
+            if frames:
+                from app.role_map_gap import build_role_map_gap_report
+
+                gap_df = build_role_map_gap_report(
+                    frames,
+                    st.session_state.role_map,
+                    weather=st.session_state.weather,
+                )
+                if not gap_df.empty:
+                    st.markdown("##### Role map gap report")
+                    st.dataframe(gap_df, hide_index=True, width="stretch", height=280)
+                    st.download_button(
+                        "Download role_map_gap_report.csv",
+                        to_csv_bytes(gap_df),
+                        "role_map_gap_report.csv",
+                        key="dl_gap_export",
+                    )
+                try:
+                    from app.tuning_report import build_tuning_assistant_report
+
+                    trep = build_tuning_assistant_report(
+                        tuned=results or [],
+                        params=st.session_state.get("params") or {},
+                        has_web_weather=st.session_state.weather is not None,
+                        gap_report=gap_df,
+                    )
+                    st.download_button(
+                        "Download tuning_assistant_report.json",
+                        data=__import__("json").dumps(trep, indent=2, default=str).encode("utf-8"),
+                        file_name="tuning_assistant_report.json",
+                        mime="application/json",
+                        key="dl_tuning_report",
+                    )
+                except Exception:
+                    pass
 
         st.caption(
             "Word report: download the Generic RCx template from the **Overview** section."

@@ -938,10 +938,50 @@ def render_energy_model_tab(
 
     # Export package
     st.markdown("##### Export Energy Model Package")
+    with st.expander("Utility bills (optional — enables calibration NMBE/CVRMSE)", expanded=False):
+        st.caption("Monthly kWh / therms. Rows without values are dropped.")
+        bills_rows = st.data_editor(
+            pd.DataFrame(st.session_state.get("em_bills_rows") or default_utility_bills_rows()),
+            hide_index=True,
+            width="stretch",
+            key="em_bills_editor",
+        )
+        st.session_state["em_bills_rows"] = bills_rows.to_dict("records")
+    bills_clean: list[dict[str, Any]] = []
+    for r in st.session_state.get("em_bills_rows") or []:
+        kwh, therms = r.get("kwh"), r.get("therms")
+        if (kwh is None or pd.isna(kwh)) and (therms is None or pd.isna(therms)):
+            continue
+        bills_clean.append(
+            {
+                "month": int(r["month"]),
+                "kwh": None if kwh is None or pd.isna(kwh) else float(kwh),
+                "therms": None if therms is None or pd.isna(therms) else float(therms),
+            }
+        )
     if st.button("Build export package (for AI agent + EnergyPlus)", type="primary", key="em_export_pkg"):
         import tempfile
 
+        from app.model_seed import build_model_seed_dict
+
         out = Path(tempfile.mkdtemp(prefix="wattlab_pkg_"))
+        seed = build_model_seed_dict(
+            building_id=minimal.get("project_id") or "WATTLAB",
+            schedule_payload=schedule_payload or {"equipment": {}, "data_window": {}},
+            signatures=sig_df if sig_df is not None and not sig_df.empty else None,
+            city=city,
+            utility_bills=bills_clean or None,
+            extras={
+                "building_type": btype,
+                "floor_area_ft2": float(area),
+                "floors": int(floors),
+                "floor_to_floor_ft": float(ftf),
+                "wwr": float(wwr),
+                "hvac": minimal.get("hvac"),
+                "utility": minimal.get("utility"),
+                "code_year": code,
+            },
+        )
         zpath = write_energy_model_package(
             out,
             profile=profile,
@@ -950,7 +990,9 @@ def render_energy_model_tab(
             schedule_inference=schedule_payload,
             operating_signatures=sig_df if sig_df is not None else None,
             weather=weather,
+            utility_bills=pd.DataFrame(bills_clean) if bills_clean else None,
             quick_savings_summary=quick_summary,
+            model_seed=seed,
         )
         st.session_state["em_export_zip"] = str(zpath)
         st.success(f"Package written · `{zpath}`")

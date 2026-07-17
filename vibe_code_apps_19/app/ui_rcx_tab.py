@@ -435,11 +435,42 @@ def render_rcx_plots_tab(
         else:
             if preset.dry_bulb_ref:
                 st.caption("Primary X = wet-bulb; × markers = same Y vs dry-bulb (approach reference).")
-            st.plotly_chart(fig, width="stretch", config=plotly_config(filename=f"rcx_{preset.id}"), key="rcx_scatter")
+            # Key must be unique per preset — a shared key can leave the previous
+            # preset's figure (e.g. tower wet-bulb axis) rendered after switching.
+            st.plotly_chart(
+                fig,
+                width="stretch",
+                config=plotly_config(filename=f"rcx_{preset.id}"),
+                key=f"rcx_scatter_{preset.id}",
+            )
             st.dataframe(long_df.head(2000), hide_index=True, width="stretch", height=220)
         return
 
-    if op_kind == "pump" and operating_on:
+    if preset.pair_return_role:
+        # Supply / return / ΔT per device (e.g. CHW or CW temps). Kept in °F —
+        # ΔT must not go through the °C offset conversion.
+        from app.rcx_plots import collect_paired_temp_series
+
+        series_map = collect_paired_temp_series(
+            frames,
+            role_map,
+            supply_role=preset.role,
+            return_role=preset.pair_return_role,
+            equipment_types=preset.equipment_types,
+            operating="on" if operating_on else "all",
+            operating_kind=op_kind,
+        )
+        y_title = "°F (ΔT = return − supply)"
+        if not series_map:
+            st.info(
+                "No supply/return temperature series — map "
+                f"`{preset.role}` and/or `{preset.pair_return_role}` on plant equipment."
+            )
+        elif not any(k.endswith("· ΔT") for k in series_map):
+            st.caption(
+                "ΔT traces appear when **both** supply and return temps are mapped on the same device."
+            )
+    elif op_kind == "pump" and operating_on:
         from app.rcx_plots import collect_role_series_pump_mode
 
         series_map = collect_role_series_pump_mode(
@@ -449,6 +480,7 @@ def render_rcx_plots_tab(
             equipment_types=preset.equipment_types,
             pump_mode="on",
         )
+        series_map, y_title = _convert_map(series_map, role, unit_system)
     else:
         series_map = collect_role_series(
             frames,
@@ -458,7 +490,22 @@ def render_rcx_plots_tab(
             filter_fan_on=preset.filter_fan_on or operating_on,
             fan_mode="on" if operating_on else "all",
         )
-    series_map, y_title = _convert_map(series_map, role, unit_system)
+        series_map, y_title = _convert_map(series_map, role, unit_system)
+
+    if preset.overlay_role and series_map:
+        # Companion role per equipment (e.g. duct static setpoint) — same unit family.
+        overlay_map = collect_role_series(
+            frames,
+            role_map,
+            role=preset.overlay_role,
+            equipment_types=preset.equipment_types,
+            equipment_ids=list(series_map.keys()),
+        )
+        overlay_map, _ = _convert_map(overlay_map, role, unit_system)
+        for eq_id, s in overlay_map.items():
+            series_map[f"{eq_id} · setpoint"] = s
+        if not overlay_map:
+            st.caption(f"No `{preset.overlay_role}` mapped — showing measured values only.")
     if operating_on or preset.filter_fan_on:
         proof = "pump" if op_kind == "pump" else "fan"
         st.info(
@@ -476,14 +523,16 @@ def render_rcx_plots_tab(
 
     if chart_kind == "box":
         fig = multi_equipment_box(series_map, title=title, y_title=y_title, outlier_ids=outliers)
-        key = "rcx_box"
+        key = f"rcx_box_{preset.id}"
     else:
+        # Paired/overlay presets label series "EQ · supply" etc — strip back to eq ids.
+        base_ids = sorted({k.split(" · ")[0] for k in series_map})
         status_map = (
             collect_status_series(
                 frames,
                 role_map,
                 equipment_types=equipment_types,
-                equipment_ids=list(series_map.keys()),
+                equipment_ids=base_ids,
                 kind=op_kind,
             )
             if overlay_status
@@ -492,7 +541,7 @@ def render_rcx_plots_tab(
         fig = multi_equipment_timeseries(
             series_map, title=title, y_title=y_title, outlier_ids=outliers, status_map=status_map
         )
-        key = "rcx_ts"
+        key = f"rcx_ts_{preset.id}"
     if fig is None:
         st.info("No series for this preset — check role mapping / Data Model.")
     else:

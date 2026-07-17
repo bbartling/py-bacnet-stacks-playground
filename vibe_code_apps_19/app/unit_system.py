@@ -15,7 +15,7 @@ UnitSystem = Literal["imperial", "metric"]
 _TEMP_ROLES = {
     "discharge-air-temp", "discharge-air-temp-sp", "mixed-air-temp", "return-air-temp", "outside-air-temp", "web-outside-air-temp", "web-outside-air-dewpoint", "web-outside-air-wetbulb",
     "vav-discharge-air-temp", "vav-inlet-air-temp", "chilled-water-supply-temp", "chilled-water-return-temp", "hot-water-supply-temp", "hot-water-return-temp",
-    "zone-air-temp", "condenser-water-supply-temp", "cw_return_t",
+    "zone-air-temp", "condenser-water-supply-temp", "condenser-water-return-temp", "cw_return_t",
 }
 _STATIC_ROLES = {"duct-static-pressure", "duct-static-pressure-sp"}
 _FLOW_ROLES = {"zone-airflow", "min-flow-sp"}

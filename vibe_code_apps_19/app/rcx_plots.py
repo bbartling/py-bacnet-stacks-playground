@@ -26,6 +26,14 @@ class RcxPreset:
     dry_bulb_ref: bool = False  # CW scatter: also plot vs dry-bulb
     # UI family bucket — keeps AHU presets out of chiller/boiler lists
     family: str = "AHU / air"
+    # timeseries extras: overlay a companion role (e.g. setpoint) per equipment
+    overlay_role: str | None = None
+    # timeseries pairs: plot role + return role + computed ΔT per equipment
+    pair_return_role: str | None = None
+    # timeseries: add this role's series as "<eq> · setpoint" traces when mapped
+    overlay_role: str | None = None
+    # timeseries: pair `role` (supply) with this return role + computed ΔT traces
+    pair_return_role: str | None = None
 
 
 # Mechanical families for the RCx Plots picker (order = UI order).
@@ -150,6 +158,17 @@ PRESETS: list[RcxPreset] = [
         family="AHU / air",
     ),
     RcxPreset(
+        "duct_static_ts",
+        "AHU — duct static + setpoint (timeseries)",
+        "Duct static pressure over time per AHU, with the mapped setpoint as a companion trace — "
+        "flat setpoint + high static while fan runs means a reset opportunity.",
+        "duct-static-pressure",
+        ("AHU",),
+        "timeseries",
+        family="AHU / air",
+        overlay_role="duct-static-pressure-sp",
+    ),
+    RcxPreset(
         "hw_reset_scatter",
         "Boiler / HW — leave temp vs web dry-bulb (scatter)",
         "HW supply / leave temp vs Open-Meteo dry bulb (boiler / HW plant reset).",
@@ -177,6 +196,28 @@ PRESETS: list[RcxPreset] = [
         y_role_alt="web-outside-air-wetbulb",
         dry_bulb_ref=True,
         family="Chiller / CHW / tower",
+    ),
+    RcxPreset(
+        "chw_temps_ts",
+        "Chiller / CHW — supply + return + ΔT (timeseries)",
+        "CHW supply and return temps per chiller/plant with computed ΔT (return − supply) "
+        "when both are mapped — low ΔT while pumps run is the classic low delta-T syndrome.",
+        "chilled-water-supply-temp",
+        ("CHW_PLANT", "CHILLER"),
+        "timeseries",
+        family="Chiller / CHW / tower",
+        pair_return_role="chilled-water-return-temp",
+    ),
+    RcxPreset(
+        "cw_temps_ts",
+        "Tower / CW — supply + return + ΔT (timeseries)",
+        "Condenser/tower water supply and return temps per device with computed ΔT "
+        "(return − supply) when both are mapped — watch tower approach and range.",
+        "condenser-water-supply-temp",
+        ("CHW_PLANT", "CHILLER", "COOLING_TOWER"),
+        "timeseries",
+        family="Chiller / CHW / tower",
+        pair_return_role="condenser-water-return-temp",
     ),
     RcxPreset(
         "meter_elec_cdd",
@@ -220,6 +261,9 @@ REQUIRED_RCX_PRESET_IDS: frozenset[str] = frozenset(
         "fan_speeds",
         "meter_elec_cdd",
         "meter_gas_hdd",
+        "duct_static_ts",
+        "chw_temps_ts",
+        "cw_temps_ts",
     }
 )
 
@@ -424,6 +468,70 @@ def collect_role_series_pump_mode(
             s = s.where(on if mode == "on" else ~on)
         if s.notna().any():
             out[eq_id] = s
+    return out
+
+
+def collect_paired_temp_series(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    supply_role: str,
+    return_role: str,
+    equipment_types: tuple[str, ...] | None = None,
+    operating: str = "all",
+    operating_kind: str = "pump",
+) -> dict[str, pd.Series]:
+    """Supply / return / ΔT series per equipment for plant temp timeseries.
+
+    Keys are chart labels: ``"{eq} · supply"``, ``"{eq} · return"`` and — only
+    when **both** roles are mapped with data — ``"{eq} · ΔT"`` (return − supply).
+    ``operating="on"`` filters samples to pump (``operating_kind="pump"``) or
+    fan proof; equipment without proof keeps all samples (informational chart).
+    """
+    mode = str(operating or "all").lower()
+    out: dict[str, pd.Series] = {}
+    for eq_id, raw in frames.items():
+        et = _etype(eq_id, raw, role_map)
+        if equipment_types:
+            allowed = {t.upper() for t in equipment_types}
+            if et not in allowed:
+                continue
+        mapped = apply_role_map(raw, eq_id, role_map)
+
+        def _series(role: str) -> pd.Series | None:
+            if role not in mapped.columns or mapped[role].notna().sum() == 0:
+                return None
+            return pd.to_numeric(mapped[role], errors="coerce")
+
+        sup = _series(supply_role)
+        ret = _series(return_role)
+        if sup is None and ret is None:
+            continue
+
+        mask: pd.Series | None = None
+        if mode == "on":
+            if operating_kind == "pump":
+                mask, _proof = hydronic_operating_mask(mapped)
+            else:
+                mask, _proof = operating_mask(mapped)
+
+        def _gated(s: pd.Series) -> pd.Series:
+            if mask is None:
+                return s
+            return s.where(mask.reindex(s.index).fillna(False))
+
+        if sup is not None:
+            g = _gated(sup)
+            if g.notna().any():
+                out[f"{eq_id} · supply"] = g
+        if ret is not None:
+            g = _gated(ret)
+            if g.notna().any():
+                out[f"{eq_id} · return"] = g
+        if sup is not None and ret is not None:
+            delta = _gated(ret - sup)
+            if delta.notna().any():
+                out[f"{eq_id} · ΔT"] = delta
     return out
 
 

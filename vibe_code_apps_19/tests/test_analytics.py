@@ -135,6 +135,70 @@ def test_mech_cooling_coverage_flat_zero_chiller_excluded():
     assert "CHILLER_1" not in set(bins["equipment_id"])
 
 
+def test_mech_cooling_typed_heat_pump_detected_without_hp_name():
+    """A heat pump typed via the data model (equipType) counts even when its
+    name carries no HP hint — dispatch must be type-only, never name matching."""
+    from app.analytics import mech_cooling_oat_bins, mech_cooling_run_mask
+
+    idx = pd.date_range("2024-06-01", periods=6, freq="1h", tz="UTC")
+    hp = pd.DataFrame(
+        {"compressor-status": [0, 1, 1, 1, 0, 0], "outside-air-temp": [70.0] * 6},
+        index=idx,
+    )
+    hp.attrs["equipment_type"] = "heatPump"  # alias — normalizes to HP
+    run, kind = mech_cooling_run_mask(hp, equipment_type="heatPump", equipment_id="ROOFTOP_WEST")
+    assert kind == "heatpump"
+    assert bool(run.sum()) and int(run.sum()) == 3
+
+    bins = mech_cooling_oat_bins({"ROOFTOP_WEST": hp}, role_map={})
+    assert "ROOFTOP_WEST" in set(bins["equipment_id"])
+
+
+def test_mech_cooling_untyped_chiller_name_uses_central_resolver():
+    """No equipType anywhere → the central resolver's id heuristic (site_model)
+    still types CHILLER_X; analytics itself does no name matching."""
+    from app.analytics import mech_cooling_run_mask
+
+    idx = pd.date_range("2024-06-01", periods=4, freq="1h", tz="UTC")
+    df = pd.DataFrame({"chiller-status": [0, 1, 1, 0]}, index=idx)
+    run, kind = mech_cooling_run_mask(df, equipment_type="", equipment_id="CHILLER_X")
+    assert kind == "chiller-status"
+    # But a typed AHU named CHILLER_X must follow its type, not its name
+    run2, kind2 = mech_cooling_run_mask(df, equipment_type="AHU", equipment_id="CHILLER_X")
+    assert run2 is None
+    assert kind2 == ""
+
+
+def test_mech_cooling_coverage_chw_coil_ahu_informational():
+    from app.analytics import mech_cooling_coverage
+
+    idx = pd.date_range("2024-06-01", periods=6, freq="1h", tz="UTC")
+    ahu = pd.DataFrame(
+        {"cooling-valve": [0, 50, 80, 100, 20, 0], "outside-air-temp": [70.0] * 6},
+        index=idx,
+    )
+    ahu.attrs["equipment_type"] = "AHU"
+    ch = pd.DataFrame(
+        {"chiller-status": [1] * 6, "outside-air-temp": [70.0] * 6}, index=idx
+    )
+    ch.attrs["equipment_type"] = "CHW_PLANT"
+    # VAV with a cooling valve must NOT appear (not a cooling device type)
+    vav = pd.DataFrame({"cooling-valve": [10.0] * 6, "zone-air-temp": [72.0] * 6}, index=idx)
+    vav.attrs["equipment_type"] = "VAV"
+
+    cov = mech_cooling_coverage({"AHU_1": ahu, "CHILLER_2": ch, "VAV_1": vav}, role_map={})
+    assert set(cov["equipment_id"]) == {"AHU_1", "CHILLER_2"}
+    ahu_row = cov[cov["equipment_id"] == "AHU_1"].iloc[0]
+    assert ahu_row["status"] == "excluded"
+    assert "CHW-coil" in ahu_row["reason"]
+    assert "cooling-valve" in ahu_row["checked_roles"]
+    # AHU with neither DX nor valve is omitted entirely
+    bare = pd.DataFrame({"discharge-air-temp": [55.0] * 6}, index=idx)
+    bare.attrs["equipment_type"] = "AHU"
+    cov2 = mech_cooling_coverage({"AHU_BARE": bare}, role_map={})
+    assert cov2.empty
+
+
 def test_mech_cooling_coverage_no_roles_mapped():
     from app.analytics import mech_cooling_coverage
 

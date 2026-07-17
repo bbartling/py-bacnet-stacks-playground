@@ -172,6 +172,63 @@ def test_turnkey_apptest_all_sections(tmp_path: Path, monkeypatch: pytest.Monkey
         f"Energy Model form missing Building type selectbox; labels={select_labels[:20]}"
     )
 
+@pytest.mark.timeout(300)
+def test_export_wattlab_dump_button(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Export section: 'Build WattLab dump (zip)' produces a zip with README_WATTLAB.md."""
+    pytest.importorskip("streamlit")
+    import io
+
+    from streamlit.testing.v1 import AppTest
+
+    zpath = tmp_path / "dump_pkg.zip"
+    _tiny_zip(zpath)
+    boot = {
+        "schema_version": "openfdd_bootstrap_v1",
+        "package_path": str(zpath.resolve()),
+        "auto_run_rules": False,
+        "session_config": {
+            "schema_version": "openfdd_session_v1",
+            "unit_system": "imperial",
+            "prefer_web_oat": True,
+        },
+    }
+    boot_path = tmp_path / "streamlit_bootstrap.json"
+    boot_path.write_text(json.dumps(boot), encoding="utf-8")
+    monkeypatch.setenv("VIBE19_BOOTSTRAP", str(boot_path))
+    monkeypatch.setenv("VIBE19_BOOTSTRAP_SKIP_RULES", "1")
+    monkeypatch.setenv("VIBE19_BROWSER_AUTOLOAD", "0")
+    monkeypatch.setenv("APP_MODE", "cloud")
+
+    at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=180)
+    at.run()
+    assert not at.exception, f"Initial render exceptions: {list(at.exception)}"
+
+    radio = _section_radio(at)
+    assert radio is not None
+    radio.set_value("Export")
+    at.run()
+    assert not at.exception, f"Export section exceptions: {list(at.exception)}"
+
+    build = next((b for b in at.main.button if getattr(b, "key", "") == "wattlab_dump_build"), None)
+    assert build is not None, "Build WattLab dump button missing on Export section"
+    build.click()
+    at.run()
+    assert not at.exception, f"Dump build exceptions: {list(at.exception)}"
+
+    dump = at.session_state["wattlab_dump_zip"]
+    assert dump, "wattlab_dump_zip not stored in session_state"
+    data, fname = dump
+    assert fname.endswith(".zip")
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        names = set(zf.namelist())
+    assert "README_WATTLAB.md" in names
+    assert "run_report.json" in names
+    assert "model_seed.json" in names
+    assert "sensor_stats_all.csv" in names
+    # Bootstrap pointer files must not be inside the user download
+    assert not any(n.startswith("streamlit_bootstrap") for n in names)
+
+
 @pytest.mark.timeout(120)
 def test_turnkey_live_html_smoke():
     """Launch streamlit headless; GET / and /_stcore/health."""

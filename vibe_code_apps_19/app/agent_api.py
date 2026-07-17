@@ -17,6 +17,7 @@ import yaml
 from app.analytics import (
     dataset_time_span,
     economizer_weather_summary,
+    mech_cooling_coverage,
     mech_cooling_oat_bins,
     motor_run_hours_table,
     motor_run_hours_weekly,
@@ -382,6 +383,14 @@ def run_analytics(
         prefer_web_oat=prefer_web,
         chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
         include_ahu_chw_valve=False,
+        include_total=True,
+    )
+    cool_cov = mech_cooling_coverage(
+        dataset.frames,
+        dataset.role_map,
+        weather=dataset.weather,
+        prefer_web_oat=prefer_web,
+        chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
     )
     econ = economizer_weather_summary(
         dataset.frames,
@@ -401,6 +410,7 @@ def run_analytics(
         "motor_hours": motor,
         "motor_weekly": weekly,
         "mech_cooling_oat_bins": cool,
+        "mech_cooling_coverage": cool_cov,
         "economizer_weather": econ,
         "schedule_inference_table": sched_table,
         "schedule_inference": sched_payload,
@@ -427,6 +437,7 @@ def export_agent_bundle(
     city: str | None = None,
     lat: float | None = None,
     lon: float | None = None,
+    include_bootstrap: bool = True,
 ) -> dict[str, Path]:
     """Write run_report + CSVs + model-seed artifacts under ``out_dir``."""
     out = Path(out_dir)
@@ -529,6 +540,7 @@ def export_agent_bundle(
         ("motor_hours", "motor_hours.csv"),
         ("motor_weekly", "motor_weekly.csv"),
         ("mech_cooling_oat_bins", "mech_cooling_oat_bins.csv"),
+        ("mech_cooling_coverage", "mech_cooling_coverage.csv"),
         ("economizer_weather", "economizer_weather.csv"),
         ("operating_signatures", "operating_signatures.csv"),
         ("schedule_inference_table", "schedule_inference_table.csv"),
@@ -538,6 +550,37 @@ def export_agent_bundle(
             path = out / filename
             df.to_csv(path, index=False)
             written[key] = path
+
+    # Coverage may be missing on older AgentRun.analytics dicts — derive it here
+    if "mech_cooling_coverage" not in analytics:
+        cov = mech_cooling_coverage(
+            dataset.frames,
+            dataset.role_map,
+            weather=dataset.weather,
+            prefer_web_oat=dataset.prefer_web_oat,
+        )
+        if isinstance(cov, pd.DataFrame) and not cov.empty:
+            path = out / "mech_cooling_coverage.csv"
+            cov.to_csv(path, index=False)
+            written["mech_cooling_coverage"] = path
+
+    # WattLab big dump: sensor stats sliced by operating proof + setpoint medians
+    from app.wattlab_dump import sensor_stats_tables, setpoints_table, write_wattlab_readme
+
+    stats_tables = sensor_stats_tables(dataset.frames, dataset.role_map)
+    for slice_key, df in stats_tables.items():
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            path = out / f"sensor_stats_{slice_key}.csv"
+            df.to_csv(path, index=False)
+            written[f"sensor_stats_{slice_key}"] = path
+
+    sp = setpoints_table(dataset.frames, dataset.role_map)
+    if isinstance(sp, pd.DataFrame) and not sp.empty:
+        path = out / "setpoints.csv"
+        sp.to_csv(path, index=False)
+        written["setpoints"] = path
+
+    written["readme_wattlab"] = write_wattlab_readme(out)
 
     sched_payload = analytics.get("schedule_inference")
     if isinstance(sched_payload, dict):
@@ -594,6 +637,8 @@ def export_agent_bundle(
         written["tuning_assistant_report"] = path
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run
+    if not include_bootstrap:
+        return written
     try:
         from app.bootstrap import build_bootstrap_payload, write_bootstrap
 

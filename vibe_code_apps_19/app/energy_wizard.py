@@ -741,6 +741,7 @@ def write_energy_model_package(
     weather: pd.DataFrame | None = None,
     utility_bills: pd.DataFrame | None = None,
     quick_savings_summary: dict | None = None,
+    model_seed: dict | None = None,
 ) -> Path:
     """Write Energy Model Package folder + zip for an outside EnergyPlus agent."""
     out_dir = Path(out_dir)
@@ -769,6 +770,10 @@ def write_energy_model_package(
         (out_dir / "quick_savings.json").write_text(
             json.dumps(quick_savings_summary, indent=2, default=str) + "\n", encoding="utf-8"
         )
+    if model_seed:
+        (out_dir / "model_seed.json").write_text(
+            json.dumps(model_seed, indent=2, default=str) + "\n", encoding="utf-8"
+        )
     readme = """# OpenFDD WattLab — Energy Model Package
 
 This package is produced by vibe19 (OpenFDD Streamlit) for an **outside AI agent**
@@ -777,6 +782,7 @@ to build / calibrate an EnergyPlus model (EnergyPlus-MCP or vibe20).
 ## Contents
 
 - `building_profile.json` — resolved geometry, HVAC, envelope, loads, rates, provenance
+- `model_seed.json` — WattLab calibrate seed (schedules, data window, city, bills)
 - `ecm_briefs.json` — recommended measures with evidence + quick bin-hour savings estimates
 - `schedule_inference.json` / `operating_signatures.csv` — data-derived schedules & OAT bins
 - `weather_observed.csv` — optional AMY / Open-Meteo overlap window

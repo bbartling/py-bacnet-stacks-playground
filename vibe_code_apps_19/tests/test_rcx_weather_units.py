@@ -105,6 +105,63 @@ def test_rcx_collect_and_outliers():
     assert "outlier" in stats.columns
 
 
+def test_collect_paired_temp_series_supply_return_delta():
+    from app.rcx_plots import collect_paired_temp_series
+
+    idx = pd.date_range("2024-06-01", periods=6, freq="5min", tz="UTC")
+    ch1 = pd.DataFrame(
+        {
+            "chilled-water-supply-temp": [44.0, 44.5, 45.0, 44.0, 44.2, 44.1],
+            "chilled-water-return-temp": [54.0, 55.0, 56.0, 53.0, 54.5, 54.2],
+            "pump-status": [1, 1, 1, 0, 0, 0],
+        },
+        index=idx,
+    )
+    ch1.attrs["equipment_type"] = "CHW_PLANT"
+    # Supply-only device — must still show a supply trace, no ΔT
+    ch2 = pd.DataFrame({"chilled-water-supply-temp": [45.0] * 6}, index=idx)
+    ch2.attrs["equipment_type"] = "CHILLER"
+    # Wrong type — excluded
+    ahu = pd.DataFrame({"chilled-water-supply-temp": [55.0] * 6}, index=idx)
+    ahu.attrs["equipment_type"] = "AHU"
+    frames = {"CHILLER_1": ch1, "CHILLER_2": ch2, "AHU_1": ahu}
+    role_map = {
+        "CHILLER_1": {c: c for c in ch1.columns} | {"equipment_type": "CHW_PLANT"},
+        "CHILLER_2": {c: c for c in ch2.columns} | {"equipment_type": "CHILLER"},
+        "AHU_1": {c: c for c in ahu.columns} | {"equipment_type": "AHU"},
+    }
+
+    out = collect_paired_temp_series(
+        frames,
+        role_map,
+        supply_role="chilled-water-supply-temp",
+        return_role="chilled-water-return-temp",
+        equipment_types=("CHW_PLANT", "CHILLER"),
+    )
+    assert set(out) == {
+        "CHILLER_1 · supply",
+        "CHILLER_1 · return",
+        "CHILLER_1 · ΔT",
+        "CHILLER_2 · supply",
+    }
+    # ΔT = return − supply
+    assert abs(out["CHILLER_1 · ΔT"].iloc[0] - 10.0) < 1e-9
+
+    # operating="on" gates by pump proof — CHILLER_1 keeps first 3 samples only;
+    # CHILLER_2 has no proof and keeps all samples (informational)
+    gated = collect_paired_temp_series(
+        frames,
+        role_map,
+        supply_role="chilled-water-supply-temp",
+        return_role="chilled-water-return-temp",
+        equipment_types=("CHW_PLANT", "CHILLER"),
+        operating="on",
+        operating_kind="pump",
+    )
+    assert gated["CHILLER_1 · ΔT"].notna().sum() == 3
+    assert gated["CHILLER_2 · supply"].notna().sum() == 6
+
+
 def test_rcx_fan_mode_summary_ahu_and_vav():
     from app.rcx_plots import fan_mode_summary_bundle, operating_mask
 

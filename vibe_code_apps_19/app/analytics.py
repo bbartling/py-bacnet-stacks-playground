@@ -866,6 +866,23 @@ def _valve_open_mask(df: pd.DataFrame, role: str, thr_pct: float) -> pd.Series |
     return scaled.fillna(0) > (float(thr_pct) / 100.0)
 
 
+def _mech_cooling_type(equipment_type: str, equipment_id: str = "") -> str:
+    """Canonical cooling-dispatch type — **data model only**, never ad-hoc names.
+
+    Normalizes aliases (``CHILLER``→``CHW_PLANT``, ``HEATPUMP``→``HP``,
+    ``RTU``→``AHU``). When no type is supplied at all, defers to the central
+    resolver's documented last resort (``equipment_type_from_id``) so headless
+    callers that only have an id keep working — that heuristic lives in one
+    place (`app/site_model.py`), not here.
+    """
+    et = normalize_equipment_type(equipment_type)
+    if (not et or et == "UNKNOWN") and equipment_id:
+        from app.site_model import equipment_type_from_id
+
+        et = equipment_type_from_id(equipment_id)
+    return et
+
+
 def mech_cooling_run_mask(
     df: pd.DataFrame,
     *,
@@ -880,6 +897,9 @@ def mech_cooling_run_mask(
     """
     Mechanical-cooling proof for OAT-bin charts (compressor / plant only).
 
+    Dispatch is on the **resolved equipment type** (column_map ``equipType`` /
+    attrs / role_map) — never the equipment name.
+
     Chillers / CHW plant (pump / status / amps / power only — **no leave-temp** on charts):
       1. designated CHW pump status / cmd
       2. chiller / compressor status
@@ -891,9 +911,8 @@ def mech_cooling_run_mask(
       - ``include_ahu_chw_valve`` is deprecated and ignored (API compat only).
     """
     del include_ahu_chw_valve, clg_valve_thr_pct, chw_leave_max_f  # never valve / leave-temp on this chart
-    et = equipment_type.upper()
-    eq = equipment_id.upper()
-    if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):
+    et = _mech_cooling_type(equipment_type, equipment_id)
+    if et == "CHW_PLANT":
         run = _first_on_mask(df, CHILLER_PUMP_ROLES)
         if run is not None and bool(run.any()):
             return run, "chw_pump"
@@ -915,8 +934,9 @@ def mech_cooling_run_mask(
         if run is not None and bool(run.any()):
             return run, "ahu_dx"
         return None, ""
-    if et == "HEATPUMP" or eq.startswith("HP"):
-        run = _first_on_mask(df, DX_RUN_ROLES + ("compressor-status",))
+    if et == "HP":
+        # DX_RUN_ROLES already leads with compressor-status
+        run = _first_on_mask(df, DX_RUN_ROLES)
         if run is not None and bool(run.any()):
             return run, "heatpump"
         return None, ""
@@ -924,21 +944,19 @@ def mech_cooling_run_mask(
 
 
 def _mech_cooling_candidate_roles(
-    df: pd.DataFrame, *, equipment_type: str, equipment_id: str
+    df: pd.DataFrame, *, equipment_type: str, equipment_id: str = ""
 ) -> tuple[bool, list[str]]:
     """(is a cooling-proof candidate, mapped run-proof roles present with data).
 
     Mirrors the role lookups in :func:`mech_cooling_run_mask` so coverage
     reporting can say *which* mapped columns were checked for run proof.
+    Dispatch is type-only (see :func:`_mech_cooling_type`).
     """
-    et = equipment_type.upper()
-    eq = equipment_id.upper()
-    if et in {"CHW_PLANT", "CHILLER"} or "CHILLER" in eq or eq.startswith("CHW"):
+    et = _mech_cooling_type(equipment_type, equipment_id)
+    if et == "CHW_PLANT":
         roles = list(CHILLER_PUMP_ROLES + CHILLER_RUN_ROLES) + ["chiller-amps", "chiller-power"]
-    elif et == "AHU":
+    elif et in {"AHU", "HP"}:
         roles = list(DX_RUN_ROLES)
-    elif et == "HEATPUMP" or eq.startswith("HP"):
-        roles = list(DX_RUN_ROLES + ("compressor-status",))
     else:
         return False, []
     present = [r for r in roles if r in df.columns and df[r].notna().any()]
@@ -959,10 +977,12 @@ def mech_cooling_coverage(
 ) -> pd.DataFrame:
     """Per-device inclusion/exclusion report for the mech-cooling OAT-bin chart.
 
-    One row per chiller / CHW-plant / AHU-DX / heat-pump candidate:
+    One row per cooling-capable device **per the data model**: chillers / CHW
+    plants, AHUs or heat pumps with DX/compressor roles, and CHW-coil AHUs/HPs
+    (cooling valve mapped, no compressor) as informational exclusions.
     ``status`` is ``included`` (with the run ``proof`` used) or ``excluded``
-    with a ``reason`` (no run roles mapped, run signals never ON, no OAT).
-    Devices with no cooling roles at all (e.g. VAV boxes) are omitted.
+    with a ``reason``. Devices with no cooling roles at all (e.g. VAV boxes)
+    are omitted.
     """
     rows: list[dict[str, Any]] = []
     for eq_id, raw in frames.items():
@@ -973,10 +993,6 @@ def mech_cooling_coverage(
         )
         if not is_candidate:
             continue
-        # AHUs/HPs with no DX roles mapped are usually CHW-coil units — only
-        # report them when they have at least one compressor-ish role mapped.
-        if not checked and et in {"AHU", "HEATPUMP"}:
-            continue
 
         row: dict[str, Any] = {
             "equipment_id": eq_id,
@@ -985,6 +1001,21 @@ def mech_cooling_coverage(
             "proof": "",
             "reason": "",
         }
+        if not checked and et in {"AHU", "HP"}:
+            has_clg_valve = (
+                "cooling-valve" in mapped.columns and mapped["cooling-valve"].notna().any()
+            )
+            if not has_clg_valve:
+                # No DX roles and no cooling valve — not a cooling device
+                continue
+            row["status"] = "excluded"
+            row["checked_roles"] = "cooling-valve (informational)"
+            row["reason"] = (
+                "CHW-coil unit — cooling valve is never used as compressor proof; "
+                "its cooling hours are carried by the plant chillers"
+            )
+            rows.append(row)
+            continue
         if not checked:
             row["status"] = "excluded"
             row["reason"] = "no run-proof roles mapped (pump/status/amps/power or DX)"

@@ -1,5 +1,9 @@
 bin_label,bin_start,equipment_id,hours,source,source_kind
+60–65,60.000000,ALL,678.000000,All mech cooling (total) — 1 device(s),total
 60–65,60.000000,CHILLER_1,678.000000,CHILLER_1 (chw_pump),chw_pump
+65–70,65.000000,ALL,720.000000,All mech cooling (total) — 1 device(s),total
 65–70,65.000000,CHILLER_1,720.000000,CHILLER_1 (chw_pump),chw_pump
+70–75,70.000000,ALL,384.000000,All mech cooling (total) — 1 device(s),total
 70–75,70.000000,CHILLER_1,384.000000,CHILLER_1 (chw_pump),chw_pump
+75–80,75.000000,ALL,12.000000,All mech cooling (total) — 1 device(s),total
 75–80,75.000000,CHILLER_1,12.000000,CHILLER_1 (chw_pump),chw_pump

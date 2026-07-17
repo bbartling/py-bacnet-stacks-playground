@@ -49,6 +49,31 @@ def test_reset_scatter_and_static_box_contract():
     assert gas is not None and gas.chart == "metering" and gas.role == "gas-flow"
 
 
+def test_duct_static_ts_and_plant_temp_ts_presets_wired():
+    """New timeseries presets: duct static + SP overlay, CHW/CW supply+return+ΔT."""
+    ds = preset_by_id("duct_static_ts")
+    assert ds is not None and ds.chart == "timeseries" and ds.role == "duct-static-pressure"
+    assert ds.overlay_role == "duct-static-pressure-sp"
+    assert ds.family == "AHU / air" and "AHU" in ds.equipment_types
+
+    chw = preset_by_id("chw_temps_ts")
+    assert chw is not None and chw.chart == "timeseries"
+    assert chw.role == "chilled-water-supply-temp"
+    assert chw.pair_return_role == "chilled-water-return-temp"
+    assert chw.family == "Chiller / CHW / tower"
+    assert set(chw.equipment_types) & {"CHW_PLANT", "CHILLER"}
+
+    cw = preset_by_id("cw_temps_ts")
+    assert cw is not None and cw.chart == "timeseries"
+    assert cw.role == "condenser-water-supply-temp"
+    assert cw.pair_return_role == "condenser-water-return-temp"
+    assert cw.family == "Chiller / CHW / tower"
+    assert "COOLING_TOWER" in cw.equipment_types
+
+    # Contract: frozen ids include the new presets
+    assert {"duct_static_ts", "chw_temps_ts", "cw_temps_ts"} <= REQUIRED_RCX_PRESET_IDS
+
+
 def test_supporting_overlay_presets_wired():
     for pid, role, chart in (
         ("zone_temps", "zone-air-temp", "timeseries"),

@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-17 — RCx plant/duct-static presets + WattLab dump export
+
+- **RCx presets:** `duct_static_ts` (duct static + `duct-static-pressure-sp` companion trace per AHU), `chw_temps_ts` and `cw_temps_ts` (supply + return + computed ΔT per chiller/plant/tower via new `collect_paired_temp_series`, pump-proof filter aware). `condenser-water-return-temp` added as a canonical role. Preset ids frozen in `REQUIRED_RCX_PRESET_IDS`; unique per-preset chart keys stop stale wet-bulb labels when switching presets.
+- **WattLab dump (vibe20 handoff):** `export_agent_bundle` now writes `mech_cooling_oat_bins.csv` (+`ALL` total rows), `mech_cooling_coverage.csv`, `sensor_stats_{all,fan_on,fan_off}.csv` (every mapped role per equipment, sliced by fan/pump proof — `app/wattlab_dump.py`), `setpoints.csv` (occupied/unoccupied medians of `*-sp` roles), and `README_WATTLAB.md`. Alias-resolved raw columns (e.g. `fan_status`) fill role gaps with `source=column_alias`.
+- **Export tab dial-back:** headline **Build WattLab dump (zip)** button (in-memory agent bundle → zip, no server bootstrap pointers); session restore kept; individual CSVs moved under an expander. Energy Model Package now embeds `model_seed.json` + optional `utility_bills.csv` (new bills editor).
+
+---
+
 ## 2026-07-17 — Mech-cooling aggregation transparency + Compress-Archive zip fix
 
 - **Mech cooling OAT bins:** `mech_cooling_oat_bins(include_total=True)` appends an `ALL` / "All mech cooling (total)" series summing hours across devices per bin (dark outlined bars in the chart + rows in the CSV). New `mech_cooling_coverage()` lists every chiller/DX candidate as included (with run proof) or excluded with a reason — e.g. BUILDING_100 CHILLER_1: "run roles mapped but never ON (all zero/flat)". Overview shows a coverage expander + CSV.

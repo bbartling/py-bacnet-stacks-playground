@@ -147,6 +147,15 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert (out / "schedule_inference.json").is_file()
     assert (out / "operating_signatures.csv").is_file()
     assert (out / "weather_observed.csv").is_file()
+    # WattLab dump additions
+    assert (out / "README_WATTLAB.md").is_file()
+    assert (out / "sensor_stats_all.csv").is_file()
+    assert (out / "sensor_stats_fan_on.csv").is_file()
+    stats_all = pd.read_csv(out / "sensor_stats_all.csv")
+    assert {"equipment_id", "role", "n", "mean", "p50"} <= set(stats_all.columns)
+    assert (stats_all["equipment_id"] == "AHU_1").any()
+    # AHU_1 fan is always on → the fan_off slice is empty and its CSV skipped
+    assert not (out / "sensor_stats_fan_off.csv").is_file()
     seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))
     assert seed["project_id"] == "TINY_B1"
     assert "data_window" in seed
