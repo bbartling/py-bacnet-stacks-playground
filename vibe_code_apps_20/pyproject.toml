@@ -25,12 +25,11 @@ dev = ["pytest>=8.0", "ruff>=0.5"]
 [project.scripts]
 wattlab = "wattlab.cli:main"
 
+# packages=["wattlab"] already ships everything under wattlab/ (data JSONs,
+# measure sets). Do NOT re-add force-include for those paths — hatchling
+# raises "second file added at the same path" when building a real wheel.
 [tool.hatch.build.targets.wheel]
 packages = ["wattlab"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"wattlab/data" = "wattlab/data"
-"wattlab/measures/measure_sets.json" = "wattlab/measures/measure_sets.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
