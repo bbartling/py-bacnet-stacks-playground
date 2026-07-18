@@ -2,6 +2,18 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-18 (evening) — Generalized twin intake for vibe19 dumps
+
+- Added `wattlab twin` (`wattlab/twin.py`): dump zip → MANIFEST/gaps →
+  `NEEDS_INPUT` until building_type/city/floor_area_ft2 answered → resolved
+  profile + FDD bridge + optional calibrate/ECM dry-run. No building-ID
+  hardcoding (BUILDING_100 or otherwise).
+- Bridge prefers `fdd_findings.csv` (`confirmed_fault`); accepts dump zips.
+- Calibration no longer invents office/Chicago/lat/lon — raises `NEEDS_INPUT`.
+- Studio Ingest shows MANIFEST + findings/diurnal + Prepare twin; Model form
+  no longer prefills office/madison/50k.
+- Agent playbook in root `AGENTS.md` (**Tomorrow demo**).
+
 ## 2026-07-18 (late pm) — Synthetic school 30-year rehearsal
 
 - Added strict Pydantic v2 contracts for weather requests/metadata, monthly

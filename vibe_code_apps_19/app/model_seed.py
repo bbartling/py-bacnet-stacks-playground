@@ -329,6 +329,11 @@ def build_model_seed_dict(
             "schedule_hints": {"source": "vibe19"},
             "building_type": {"source": "user_required"},
             "floor_area_ft2": {"source": "user_required"},
+            "floors": {"source": "user_required"},
+            "city": {"source": "user_required" if not city else "user"},
+            "lat": {"source": "user_required" if lat is None else "user"},
+            "lon": {"source": "user_required" if lon is None else "user"},
+            "utility_bills": {"source": "user_required"},
         },
     }
     if utility_bills:

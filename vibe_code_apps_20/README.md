@@ -12,8 +12,10 @@ pip install -e .          # or: pip install -e ".[studio,excel,dev]"
 
 wattlab --help            # defaults / easy-button / calibrate / bridge / epw /
                           # bench / crosscheck / benchmark / seed / studio
+wattlab twin path\to\wattlab_dump.zip          # start here: gaps -> profile -> FDD bridge
+wattlab twin path\to\wattlab_dump.zip --inputs answers.json --measure-set better
 wattlab seed path\to\wattlab_dump.zip          # inspect a vibe19 dump
-wattlab seed path\to\wattlab_dump.zip --gaps   # missing-characteristics checklist
+wattlab seed path\to\wattlab_dump.zip --gaps --strict   # exit 1 if required gaps missing
 wattlab benchmark examples\liberty\campus.json # annualize bills + peer-band compare
 wattlab studio                                  # launch WattLab Studio (Streamlit)
 ```
@@ -24,6 +26,7 @@ Old flat-script entry points (`python easy_button.py …`) keep working via thin
 
 | Module | Role |
 | --- | --- |
+| `wattlab.twin` | **Start here** — dump zip → gaps → resolved profile → FDD bridge |
 | `wattlab.seed` | Load vibe19 WattLab dumps (zip/folder) + gap report |
 | `wattlab.benchmarks` | Benchmark governance: EUI peer bands (EPA/CBECS), retrofit-cost bands (LBNL/RMI, with unit basis + vintage + confidence), shared-meter allocation scenarios, and the ROI guardrail gate |
 | `wattlab.weather.bins` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, built-in NOAA Washington DC table, `from_hourly` for `weather_observed.csv` |

@@ -23,11 +23,16 @@ def _tracked_text_files() -> list[Path]:
     }
     out: list[Path] = []
     for path in ROOT.rglob("*"):
-        if not path.is_file():
+        # Skip before is_file() — Windows broken symlinks under third_party/.venv
+        # raise OSError (WinError 1920) when probed.
+        if any(p in skip_parts for p in path.parts):
+            continue
+        try:
+            if not path.is_file():
+                continue
+        except OSError:
             continue
         if path.suffix.lower() not in {".md", ".py", ".json", ".txt", ".example"}:
-            continue
-        if any(p in skip_parts for p in path.parts):
             continue
         out.append(path)
     return out

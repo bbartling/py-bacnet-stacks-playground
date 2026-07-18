@@ -57,13 +57,17 @@ def test_shim_scripts_run_as_subprocess():
 
 
 def test_wattlab_cli_help():
+    import os
+
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.run(
         [sys.executable, "-m", "wattlab.cli", "--help"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
-    assert proc.returncode == 0
-    for cmd in ("easy-button", "calibrate", "bridge", "bench", "crosscheck", "studio", "defaults"):
+    assert proc.returncode == 0, proc.stderr[-500:]
+    for cmd in ("twin", "easy-button", "calibrate", "bridge", "bench", "crosscheck", "studio", "defaults"):
         assert cmd in proc.stdout

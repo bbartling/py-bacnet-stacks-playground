@@ -35,6 +35,11 @@ folder tolerated). Tests: `tests/test_seed_bundle.py`.
 `required`: building_type, city, floor_area_ft2. The human always owes:
 geometry confirmation, bills, rates, measure costs.
 
+**Turnkey agent entry:** `wattlab twin <dump.zip> [--inputs answers.json] [--out DIR]`
+writes `intake_report.json`, `model_seed_resolved.json`, and (when inputs are
+complete) `resolved_profile.json` + `bridge.json`. Status `NEEDS_INPUT` until
+required fields are supplied — never invent office/Chicago defaults.
+
 ## 2. campus.json (utility-meter relationships)
 
 Loaded by `wattlab.benchmarks.Campus.from_json`. Canonical example:

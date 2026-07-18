@@ -48,13 +48,32 @@ def _f(row: dict, *keys: str, default: float = 0.0) -> float:
 
 def suggest_from_bundle(bundle_dir: Path | str) -> dict[str, Any]:
     """
-    Parse a vibe19 agent-export bundle and return evidence + suggested measures.
+    Parse a vibe19 agent-export / WattLab dump and return evidence + measures.
 
-    Expected files (any subset OK):
-      fdd_summary.csv, motor_weekly.csv, economizer_weather.csv, run_report.json
+    Accepts an extracted dump directory **or** a dump zip (via ``load_bundle``).
+    Prefers ``fdd_findings.csv`` (confirmed_fault) when present; falls back to
+    ``fdd_summary.csv``. Also reads motor_weekly / economizer_weather / run_report.
     """
     root = Path(bundle_dir)
-    fdd = _read_csv(root / "fdd_summary.csv")
+    if root.is_file() and root.suffix.lower() == ".zip":
+        from wattlab.seed import load_bundle
+
+        loaded = load_bundle(root)
+        # Prefer directory that holds the CSV artifacts
+        for name in ("fdd_findings.csv", "fdd_summary.csv", "run_report.json"):
+            p = loaded.files.get(name)
+            if p is not None:
+                root = Path(p).parent
+                break
+        else:
+            if loaded.fdd_timeseries_dir is not None:
+                root = Path(loaded.fdd_timeseries_dir).parent
+
+    # Prefer richer findings table when available
+    findings_path = root / "fdd_findings.csv"
+    summary_path = root / "fdd_summary.csv"
+    fdd_source = "fdd_findings.csv" if findings_path.is_file() else "fdd_summary.csv"
+    fdd = _read_csv(findings_path if findings_path.is_file() else summary_path)
     motor_weekly = _read_csv(root / "motor_weekly.csv")
     econ = _read_csv(root / "economizer_weather.csv")
     run_report: dict[str, Any] = {}
@@ -66,7 +85,7 @@ def suggest_from_bundle(bundle_dir: Path | str) -> dict[str, Any]:
     evidence: list[dict[str, Any]] = []
     measure_hits: dict[str, dict[str, Any]] = {}
 
-    # --- fdd_summary rows ---
+    # --- fdd findings / summary rows ---
     for row in fdd:
         rule = (row.get("rule_id") or "").strip()
         mid = RULE_TO_MEASURE.get(rule)
@@ -81,8 +100,18 @@ def suggest_from_bundle(bundle_dir: Path | str) -> dict[str, Any]:
             "yes",
             "y",
         }
-        # Suggest when fault present or always-on style findings
-        interesting = fault_hours > 0 or status in {"FAULT", "FAIL", "WARN"}
+        confirmed = str(row.get("confirmed_fault") or "").lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+        }
+        # Suggest when fault present, confirmed, or always-on style findings
+        interesting = (
+            confirmed
+            or fault_hours > 0
+            or status in {"FAULT", "FAIL", "WARN"}
+        )
         if not applicable or not interesting:
             continue
 
@@ -216,6 +245,7 @@ def suggest_from_bundle(bundle_dir: Path | str) -> dict[str, Any]:
         "measures": measures,
         "measure_ids": [m["measure_id"] for m in measures],
         "stats": {
+            "fdd_source": fdd_source,
             "fdd_rows": len(fdd),
             "evidence_count": len(evidence),
             "measure_count": len(measures),

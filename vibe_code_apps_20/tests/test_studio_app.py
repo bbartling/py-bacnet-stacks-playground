@@ -47,6 +47,9 @@ def test_studio_model_resolves_profile_with_defaults():
 
 def test_studio_measures_builds_list_with_proxy_savings():
     at = _boot("Model")
+    at.text_input(key="studio_btype").set_value("office")
+    at.text_input(key="studio_city").set_value("madison")
+    at.number_input(key="studio_area").set_value(75000.0)
     at.button[0].set_value(True).run()
     at.radio(key="studio_page").set_value("Measures").run()
     assert not at.exception
@@ -63,6 +66,9 @@ def test_studio_measures_builds_list_with_proxy_savings():
 
 def test_studio_twin_loop_dry_run_plan():
     at = _boot("Model")
+    at.text_input(key="studio_btype").set_value("office")
+    at.text_input(key="studio_city").set_value("madison")
+    at.number_input(key="studio_area").set_value(75000.0)
     at.button[0].set_value(True).run()
     at.radio(key="studio_page").set_value("Measures").run()
     at.button(key="studio_build_measures").click().run()
@@ -99,6 +105,9 @@ def test_studio_capital_plan_gated_by_benchmarks():
     at = _boot("Benchmark")
     at.button(key="studio_load_campus").click().run()
     at.radio(key="studio_page").set_value("Model").run()
+    at.text_input(key="studio_btype").set_value("office")
+    at.text_input(key="studio_city").set_value("madison")
+    at.number_input(key="studio_area").set_value(75000.0)
     at.button[0].set_value(True).run()
     at.radio(key="studio_page").set_value("Measures").run()
     at.button(key="studio_build_measures").click().run()

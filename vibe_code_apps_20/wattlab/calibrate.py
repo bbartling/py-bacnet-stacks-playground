@@ -444,6 +444,21 @@ def run_calibration(
     validation_start: int | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir)
+    # Accept WattLab dump zip as well as extracted folders
+    if bundle.is_file() and bundle.suffix.lower() == ".zip":
+        from wattlab.seed import load_bundle
+
+        loaded = load_bundle(bundle)
+        for name in ("model_seed.json", "weather_observed.csv", "operating_signatures.csv"):
+            p = loaded.files.get(name)
+            if p is not None:
+                bundle = Path(p).parent
+                break
+        else:
+            raise FileNotFoundError(
+                f"WattLab dump zip missing model_seed/weather/signatures: {bundle_dir}"
+            )
+
     seed_file = Path(seed_path) if seed_path else bundle / "model_seed.json"
     if not seed_file.is_file():
         raise FileNotFoundError(f"model_seed.json not found: {seed_file}")
@@ -456,6 +471,21 @@ def run_calibration(
     end = window.get("end_utc")
     if not begin or not end:
         raise ValueError("model_seed.data_window.start_utc/end_utc required")
+
+    # Do NOT invent office/Chicago — block with NEEDS_INPUT for the agent/human.
+    needed = []
+    if seed.get("building_type") in (None, "", {}):
+        needed.append("building_type")
+    if seed.get("city") in (None, "", {}):
+        needed.append("city")
+    if seed.get("floor_area_ft2") in (None, "", 0, 0.0):
+        needed.append("floor_area_ft2")
+    if needed:
+        raise ValueError(
+            "NEEDS_INPUT: missing required seed fields "
+            f"{needed}. Provide via wattlab twin --inputs or model_seed.json — "
+            "do not invent office/Chicago defaults for a real building."
+        )
 
     minimal = {
         k: seed[k]
@@ -475,14 +505,24 @@ def run_calibration(
         )
         if seed.get(k) is not None
     }
-    if not minimal.get("building_type"):
-        minimal["building_type"] = "office"
-    if not minimal.get("city"):
-        minimal["city"] = "chicago"
     profile = resolve_profile(minimal)
 
-    lat_v = float(lat if lat is not None else seed.get("lat") or 41.98)
-    lon_v = float(lon if lon is not None else seed.get("lon") or -87.92)
+    if lat is not None:
+        lat_v = float(lat)
+    elif seed.get("lat") is not None:
+        lat_v = float(seed["lat"])
+    else:
+        raise ValueError(
+            "NEEDS_INPUT: lat required for AMY EPW (pass --lat or set model_seed.lat)"
+        )
+    if lon is not None:
+        lon_v = float(lon)
+    elif seed.get("lon") is not None:
+        lon_v = float(seed["lon"])
+    else:
+        raise ValueError(
+            "NEEDS_INPUT: lon required for AMY EPW (pass --lon or set model_seed.lon)"
+        )
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

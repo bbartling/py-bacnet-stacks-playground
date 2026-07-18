@@ -12,9 +12,61 @@
 
 Optimize for engineering defensibility, reproducibility, and honest limits (uncalibrated prototypes are screens, not calibrated models).
 
+## Tomorrow demo — vibe19 dump → EnergyPlus twin (generalized)
+
+Works for **any** building zip processed through vibe19 Export → **Build WattLab dump (zip)**.
+Do **not** hardcode BUILDING_100 (or any site) IDs, paths, or characteristics.
+
+### Human prep (vibe19)
+
+1. Load the historian package zip in vibe19 (Folder | Zip picker).
+2. Optionally run rules (Export auto-runs all rules if none have run yet).
+3. **Export** → **Build WattLab dump (zip)** → download `wattlab_dump_<id>.zip`.
+
+### Agent prep (vibe20) — start with `wattlab twin`
+
+```powershell
+cd vibe_code_apps_20
+pip install -e ".[studio,dev]"
+
+# 1) Inspect dump (reads MANIFEST + tables). Exit 1 if required gaps missing:
+wattlab seed path\to\wattlab_dump.zip --gaps --strict
+
+# 2) Turnkey intake — blocks NEEDS_INPUT until human answers type/city/area:
+wattlab twin path\to\wattlab_dump.zip --out .artifacts\twin_demo
+
+# 3) Human (or agent interview) writes answers.json — NEVER invent these:
+#    { "building_type": "office", "city": "detroit", "floor_area_ft2": 140000,
+#      "floors": 3, "lat": 42.33, "lon": -83.05,
+#      "utility": { "elec_usd_per_kwh": 0.12, "gas_usd_per_therm": 0.80 } }
+wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --measure-set better
+
+# 4) Calibrate dry-run (AMY plan) when weather_observed is in the dump:
+wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --calibrate
+
+# 5) Live EnergyPlus (needs Docker image energyplus-mcp-dev):
+wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --calibrate --live
+wattlab easy-button --profile .artifacts\twin_demo\resolved_profile.json --measure-set better --dry-run
+```
+
+### What the dump already proves (do not re-ask)
+
+Schedules, fan/mech-cooling OAT signatures, sensor stats + 24h diurnal
+(weekday/weekend/holiday × fan on/off), setpoints, FDD findings + timeseries,
+motor hours, economizer/mech-cooling coverage, observed weather when present.
+Read **`MANIFEST.json` first** — each file has `purpose` + `how_to_use`.
+
+### What you must ask the human (`NEEDS_INPUT`)
+
+**Required:** `building_type`, `city`, `floor_area_ft2`  
+**For AMY calibrate:** `lat`, `lon`  
+**Recommended:** `floors`, utility rates, 12-month `utility_bills`, envelope/vintage notes  
+
+Never silently substitute office / Madison / Chicago for a real dump.
+
 ### Conceptual disclaimer (required on anonymized / uncalibrated exports)
 
-> This is a conceptual, uncalibrated screening model for an anonymized office building. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific Madison property.
+> This is a conceptual, uncalibrated screening model. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific real property until bills + AMY weather pass Guideline-14 gates and the human confirms geometry.
 
 ## Mandatory reading order
 
@@ -75,11 +127,12 @@ Evidence record · applicability decision · baseline parameters · proposed par
 ## Repo map
 
 WattLab is an installable package: `pip install -e .` → `import wattlab`, CLI `wattlab`
-(subcommands: `defaults`, `easy-button`, `calibrate`, `bridge`, `epw`, `bench`,
-`crosscheck`, `seed`, `studio`). Old flat scripts remain as shims.
+(subcommands: `twin`, `defaults`, `easy-button`, `calibrate`, `bridge`, `epw`, `bench`,
+`crosscheck`, `benchmark`, `seed`, `studio`). Old flat scripts remain as shims.
 
 | Path | Role |
 |---|---|
+| `wattlab/twin.py` | **Start here** — dump zip → gap checklist → resolved profile → FDD bridge |
 | `wattlab/defaults.py` | responsive-defaults resolver (`field_sources` provenance); data in `wattlab/data/defaults/` |
 | `wattlab/seed/` | vibe19 WattLab dump loader (`load_bundle`) + gap report |
 | `wattlab/benchmarks/` | EUI peer bands (`eui.py`), retrofit-cost bands (`costs.py`), shared-meter campus model + allocation scenarios (`meters.py`), ROI guardrail gate (`guardrails.py`); data in `wattlab/data/benchmarks/` |

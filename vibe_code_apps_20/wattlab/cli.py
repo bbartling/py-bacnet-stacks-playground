@@ -15,6 +15,7 @@ def _usage() -> str:
         "usage: wattlab <command> [args]\n"
         "\n"
         "commands:\n"
+        "  twin         Turnkey: vibe19 dump -> gaps -> profile -> FDD bridge (start here)\n"
         "  defaults     Resolve a building profile from minimal inputs\n"
         "  easy-button  Baseline + measure-set EnergyPlus runs (or --dry-run plan)\n"
         "  calibrate    Calibrate prototype against a vibe19 model-seed bundle\n"
@@ -31,17 +32,28 @@ def _usage() -> str:
 def _cmd_seed(argv: list[str]) -> int:
     import argparse
     import json
+    import sys
 
     p = argparse.ArgumentParser(prog="wattlab seed", description="Inspect a vibe19 WattLab dump")
     p.add_argument("path", help="dump folder or zip")
     p.add_argument("--gaps", action="store_true", help="print gap report instead of summary")
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 1 when any required gap is missing (for agent loops)",
+    )
     args = p.parse_args(argv)
 
     from wattlab.seed import gap_report, load_bundle
 
     bundle = load_bundle(args.path)
-    payload = gap_report(bundle) if args.gaps else bundle.summary()
-    print(json.dumps(payload, indent=2, default=str))
+    if args.gaps or args.strict:
+        gaps = gap_report(bundle)
+        print(json.dumps(gaps, indent=2, default=str))
+        if args.strict and any(g.get("severity") == "required" and g.get("status") == "missing" for g in gaps):
+            return 1
+        return 0
+    print(json.dumps(bundle.summary(), indent=2, default=str))
     return 0
 
 
@@ -91,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     cmd, rest = args[0], args[1:]
 
+    if cmd == "twin":
+        from wattlab.twin import main as m
+
+        return int(m(rest) or 0)
     if cmd == "defaults":
         from wattlab.defaults import main as m
 

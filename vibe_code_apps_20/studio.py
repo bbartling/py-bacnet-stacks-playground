@@ -189,16 +189,96 @@ def page_ingest() -> None:
     c3.metric("Utility bills", "yes" if summary.get("has_bills") else "no")
     c4.metric("Observed weather", "yes" if summary.get("has_observed_weather") else "no")
 
+    if bundle.manifest:
+        with st.expander("MANIFEST.json — agent file index (read this first)", expanded=False):
+            st.caption(
+                f"schema={bundle.manifest.get('schema_version')} · "
+                f"files={bundle.manifest.get('file_count')}"
+            )
+            man_rows = [
+                {
+                    "path": f.get("path"),
+                    "kind": f.get("kind"),
+                    "purpose": f.get("purpose"),
+                    "how_to_use": f.get("how_to_use"),
+                }
+                for f in (bundle.manifest.get("files") or [])
+                if isinstance(f, dict)
+            ]
+            if man_rows:
+                st.dataframe(pd.DataFrame(man_rows), width="stretch", hide_index=True)
+
     st.subheader("Gap checklist — what the human still provides")
     gaps = pd.DataFrame(gap_report(bundle))
     st.dataframe(gaps, width='stretch', hide_index=True)
+    required_missing = [
+        g for g in gap_report(bundle)
+        if g.get("severity") == "required" and g.get("status") == "missing"
+    ]
+    if required_missing:
+        st.warning(
+            "NEEDS_INPUT: "
+            + ", ".join(g["field"] for g in required_missing)
+            + " — fill these on the Model page. Do not invent office/Madison defaults."
+        )
 
-    if not bundle.fdd_summary.empty:
+    findings = bundle.fdd_findings if not bundle.fdd_findings.empty else bundle.fdd_summary
+    if not findings.empty:
         st.subheader("Fault highlights")
-        st.dataframe(bundle.fdd_summary.head(25), width='stretch', hide_index=True)
+        st.dataframe(findings.head(25), width='stretch', hide_index=True)
+    if not bundle.sensor_diurnal_24h.empty:
+        with st.expander("24h critical-sensor diurnal (sample)", expanded=False):
+            st.dataframe(bundle.sensor_diurnal_24h.head(40), width="stretch", hide_index=True)
     if bundle.schedule_inference:
         st.subheader("Inferred schedules")
         st.json(bundle.schedule_inference, expanded=False)
+
+    st.subheader("Prepare twin intake")
+    st.caption(
+        "Writes intake_report.json + resolved_profile.json via `wattlab.twin.prepare_twin`. "
+        "Blocks until required gaps are filled on the Model page / --inputs."
+    )
+    if st.button("Prepare twin (dry-run bridge)", key="studio_prepare_twin"):
+        from wattlab.twin import prepare_twin
+        import tempfile as _tf
+
+        seed = bundle.model_seed or {}
+        inputs = {
+            k: seed.get(k)
+            for k in ("building_type", "city", "floor_area_ft2", "floors", "lat", "lon", "utility")
+            if seed.get(k) not in (None, "", {})
+        }
+        # Prefer Studio-resolved profile overrides when present
+        profile = _state("studio_profile")
+        if profile:
+            inputs["building_type"] = profile.get("building_type") or inputs.get("building_type")
+            inputs["city"] = profile.get("city") or inputs.get("city")
+            area = profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2")
+            if area:
+                inputs["floor_area_ft2"] = area
+            if profile.get("utility"):
+                inputs["utility"] = profile["utility"]
+        try:
+            # Prefer original dump path if available via files
+            dump_src = None
+            for name in ("model_seed.json", "MANIFEST.json"):
+                p = bundle.files.get(name)
+                if p is not None:
+                    dump_src = Path(p).parent
+                    break
+            if dump_src is None:
+                st.error("Could not locate dump root on disk.")
+            else:
+                out = Path(_tf.mkdtemp(prefix="studio_twin_"))
+                report = prepare_twin(dump_src, inputs=inputs or None, out_dir=out, dry_run=True, measure_set="better")
+                st.session_state["studio_intake"] = report
+                if report.get("status") == "NEEDS_INPUT":
+                    st.warning("NEEDS_INPUT: " + ", ".join(report.get("required_missing") or []))
+                else:
+                    st.success(f"Twin intake READY → {report.get('artifacts_dir')}")
+                st.json(report, expanded=False)
+        except Exception as exc:
+            st.error(f"Prepare twin failed: {exc}")
 
 
 def page_model() -> None:
@@ -206,13 +286,28 @@ def page_model() -> None:
     bundle = _state("studio_bundle")
     seed = (bundle.model_seed if bundle else {}) or {}
 
+    if not seed.get("building_type") or not seed.get("city") or not seed.get("floor_area_ft2"):
+        st.info(
+            "Dump seed is data-derived only — confirm building_type, city, and floor_area_ft2. "
+            "Leave blank fields empty until the human answers; do not trust silent defaults."
+        )
     with st.form("studio_profile_form"):
         c1, c2, c3 = st.columns(3)
-        btype = c1.text_input("Building type", value=str(seed.get("building_type") or "office"), key="studio_btype")
-        city = c2.text_input("City", value=str(seed.get("city") or "madison"), key="studio_city")
+        btype = c1.text_input(
+            "Building type",
+            value=str(seed.get("building_type") or ""),
+            placeholder="office | school | … (required)",
+            key="studio_btype",
+        )
+        city = c2.text_input(
+            "City",
+            value=str(seed.get("city") or ""),
+            placeholder="detroit | madison | … (required)",
+            key="studio_city",
+        )
         area = c3.number_input(
-            "Floor area (ft²)", min_value=1000.0, max_value=2_000_000.0,
-            value=float(seed.get("floor_area_ft2") or 50000.0), step=1000.0, key="studio_area",
+            "Floor area (ft²)", min_value=0.0, max_value=2_000_000.0,
+            value=float(seed.get("floor_area_ft2") or 0.0), step=1000.0, key="studio_area",
         )
         c4, c5, c6 = st.columns(3)
         floors = c4.number_input("Floors", min_value=1, max_value=60, value=int(seed.get("floors") or 1), key="studio_floors")
@@ -221,16 +316,19 @@ def page_model() -> None:
         submitted = st.form_submit_button("Resolve profile with defaults")
 
     if submitted:
-        minimal = {
-            "building_type": btype,
-            "city": city,
-            "floor_area_ft2": area,
-            "floors": int(floors),
-            "utility": {"elec_usd_per_kwh": elec, "gas_usd_per_therm": gas},
-        }
-        profile = resolve_profile(minimal)
-        st.session_state["studio_profile"] = profile
-        st.success("Profile resolved.")
+        if not str(btype).strip() or not str(city).strip() or float(area) <= 0:
+            st.error("NEEDS_INPUT: building_type, city, and floor_area_ft2 > 0 are required.")
+        else:
+            minimal = {
+                "building_type": btype,
+                "city": city,
+                "floor_area_ft2": area,
+                "floors": int(floors),
+                "utility": {"elec_usd_per_kwh": elec, "gas_usd_per_therm": gas},
+            }
+            profile = resolve_profile(minimal)
+            st.session_state["studio_profile"] = profile
+            st.success("Profile resolved.")
 
     profile = _state("studio_profile")
     if not profile:
