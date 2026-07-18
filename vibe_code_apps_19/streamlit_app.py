@@ -419,12 +419,16 @@ def _session_config_payload() -> dict:
 
 
 def _build_wattlab_dump_zip() -> tuple[bytes, str]:
-    """Run the agent-bundle export on the current session and zip it (in memory)."""
+    """Run the agent-bundle export on the current session and zip it (in memory).
+
+    If no FDD results are in session yet, runs the full cookbook across all
+    mapped equipment so the dump always includes every FD rule.
+    """
     import io
     import tempfile
     import zipfile
 
-    from app.agent_api import AgentDataset, AgentRun, export_agent_bundle
+    from app.agent_api import AgentDataset, AgentRun, export_agent_bundle, run_rules
 
     building_id = st.session_state.get("building_id") or "BUILDING"
     dataset = AgentDataset(
@@ -440,13 +444,16 @@ def _build_wattlab_dump_zip() -> tuple[bytes, str]:
         source_path=str(st.session_state.get("data_source") or ""),
     )
     results = st.session_state.get("batch_results") or []
-    run = None
     if results:
         run = AgentRun(
             results=results,
             summary=results_summary_table(results),
             params=dataset.params,
         )
+    else:
+        # Guarantee "every FD rule ran" for the vibe20 agent handoff
+        run = run_rules(dataset)
+        st.session_state["batch_results"] = run.results
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
         export_agent_bundle(dataset, run, td, include_bootstrap=False)
@@ -3330,22 +3337,12 @@ def main() -> None:
                 key=f"dl_meter_{kind}",
             )
 
-    if section == "Energy Model":
-        from app.energy_model import render_energy_model_tab
-
-        render_energy_model_tab(
-            batch_results=st.session_state.get("batch_results") or [],
-            results_summary_fn=results_summary_table,
-            frames=st.session_state.get("equipment_frames") or {},
-            role_map=st.session_state.get("role_map") or {},
-            weather=st.session_state.get("weather"),
-        )
-
     if section == "Export":
         st.subheader("Export")
         st.caption(
-            "One big dump for WattLab (vibe20): faults, run hours, mech-cooling bins + coverage, "
-            "sensor stats fan-on/off, setpoints, schedules, weather, model seed. "
+            "One big dump for WattLab (vibe20): every FDD rule, analytic CSVs, "
+            "sensor stats / 24h diurnal profiles (fan on/off × weekday/weekend/holiday), "
+            "setpoints, schedules, weather, data-derived model seed, and MANIFEST.json. "
             "Session restore stays below; individual CSVs live under the expander."
         )
         results = st.session_state.batch_results

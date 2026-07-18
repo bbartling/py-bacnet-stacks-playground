@@ -136,14 +136,15 @@ def test_streamlit_main_sections_present():
         assert f'section == "{section}"' in src or f"section == '{section}'" in src, (
             f"no branch for section: {section}"
         )
-    assert "Energy Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
+    assert "Energy Model" not in dashboard_contract.REQUIRED_MAIN_SECTIONS
+    assert "Export" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "FDD Plots" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "Plots" not in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "Data Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "load_generic_rcx_report" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "render_overview_rcx_download" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
-    assert "render_energy_model_tab" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "render_energy_model_tab" not in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "Economizer family" in src or "ECON-1" in src
     assert "render_overview_rcx_download" in src
     assert "Download FDD DOCX" not in src

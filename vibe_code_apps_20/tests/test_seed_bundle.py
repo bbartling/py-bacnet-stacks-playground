@@ -34,6 +34,35 @@ def _write_dump(root: Path) -> Path:
     (root / "fdd_summary.csv").write_text(
         "rule_id,equipment_id,status\nFC1,AHU_1,fault\n", encoding="utf-8"
     )
+    (root / "fdd_findings.csv").write_text(
+        "rule_id,equipment_id,status,confirmed_fault,fault_hours\nFC1,AHU_1,FAULT,True,2.5\n",
+        encoding="utf-8",
+    )
+    (root / "sensor_diurnal_24h.csv").write_text(
+        "equipment_id,role,day_type,fan_state,hour,n,mean\n"
+        "AHU_1,discharge-air-temp,weekday,on,8,10,55.0\n",
+        encoding="utf-8",
+    )
+    (root / "data_model.csv").write_text(
+        "equipment_id,equipment_type,haystack_point,csv_column\n"
+        "AHU_1,AHU,discharge-air-temp,DAT\n",
+        encoding="utf-8",
+    )
+    (root / "MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wattlab_dump_v2",
+                "files": [{"path": "fdd_findings.csv", "kind": "fdd"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    ts = root / "fdd_timeseries"
+    ts.mkdir(exist_ok=True)
+    (ts / "FC1__AHU_1.csv").write_text(
+        "timestamp,raw_fault,confirmed_fault\n2024-06-01T00:00:00Z,0,0\n",
+        encoding="utf-8",
+    )
     return root
 
 
@@ -45,6 +74,10 @@ def test_load_bundle_from_dir(tmp_path: Path):
     assert len(b.operating_signatures) == 2
     assert len(b.sensor_stats_all) == 1
     assert len(b.fdd_summary) == 1
+    assert len(b.fdd_findings) == 1
+    assert len(b.sensor_diurnal_24h) == 1
+    assert b.manifest.get("schema_version") == "wattlab_dump_v2"
+    assert b.fdd_timeseries_dir is not None and b.fdd_timeseries_dir.is_dir()
     # bills pulled from model_seed when no CSV present
     assert b.has_bills and len(b.utility_bills) == 12
 
@@ -52,6 +85,9 @@ def test_load_bundle_from_dir(tmp_path: Path):
     assert s["building_id"] == "TINY_B1"
     assert s["has_bills"] is True
     assert s["tables"]["operating_signatures"] == 2
+    assert s["findings_rows"] == 1
+    assert s["has_manifest"] is True
+    assert s["has_fdd_timeseries"] is True
 
 
 def test_load_bundle_from_zip(tmp_path: Path):

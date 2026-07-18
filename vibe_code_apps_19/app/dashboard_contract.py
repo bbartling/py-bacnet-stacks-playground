@@ -11,7 +11,6 @@ REQUIRED_MAIN_SECTIONS: tuple[str, ...] = (
     "FDD Plots",
     "RCx Plots",
     "Metering",
-    "Energy Model",
     "Export",
 )
 
@@ -50,14 +49,6 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.browser_session:write_browser_session_pointer",
     "app.browser_session:read_browser_session_pointer",
     "app.browser_session:clear_browser_session_pointer",
-    "app.energy_model:render_energy_model_tab",
-    "app.energy_model:resolve_wattlab_dir",
-    "app.energy_model:write_model_seed_bundle",
-    "app.energy_model:run_calibrate",
-    "app.energy_wizard:resolve_profile",
-    "app.energy_wizard:form_options",
-    "app.energy_wizard:write_energy_model_package",
-    "app.energy_wizard:suggest_measures_from_fdd",
     "app.model_seed:infer_schedules",
     "app.model_seed:operating_signatures",
     "app.open_meteo:fetch_open_meteo",

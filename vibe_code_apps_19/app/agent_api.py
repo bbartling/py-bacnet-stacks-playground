@@ -508,6 +508,39 @@ def export_agent_bundle(
         p = out / "fdd_summary.csv"
         run.summary.to_csv(p, index=False)
         written["fdd_summary"] = p
+    elif run.results:
+        summary = results_summary_table(run.results)
+        if not summary.empty:
+            p = out / "fdd_summary.csv"
+            summary.to_csv(p, index=False)
+            written["fdd_summary"] = p
+            run.summary = summary
+
+    # Long-format findings + per-rule timeseries (agent-optimized)
+    from app.wattlab_dump import (
+        diurnal_profiles,
+        fdd_findings_table,
+        sensor_stats_tables,
+        setpoints_table,
+        write_fdd_timeseries,
+        write_manifest,
+        write_wattlab_readme,
+    )
+
+    if run.results:
+        findings = fdd_findings_table(run.results)
+        if isinstance(findings, pd.DataFrame) and not findings.empty:
+            p = out / "fdd_findings.csv"
+            findings.to_csv(p, index=False)
+            written["fdd_findings"] = p
+        for ts_path in write_fdd_timeseries(
+            run.results,
+            out,
+            frames=dataset.frames,
+            role_map=dataset.role_map,
+        ):
+            rel = ts_path.relative_to(out).as_posix()
+            written[f"fdd_timeseries:{rel}"] = ts_path
 
     fault_settings = run.params or dataset.params or {}
     fs = out / "fault_settings.json"
@@ -565,8 +598,6 @@ def export_agent_bundle(
             written["mech_cooling_coverage"] = path
 
     # WattLab big dump: sensor stats sliced by operating proof + setpoint medians
-    from app.wattlab_dump import sensor_stats_tables, setpoints_table, write_wattlab_readme
-
     stats_tables = sensor_stats_tables(dataset.frames, dataset.role_map)
     for slice_key, df in stats_tables.items():
         if isinstance(df, pd.DataFrame) and not df.empty:
@@ -579,6 +610,100 @@ def export_agent_bundle(
         path = out / "setpoints.csv"
         sp.to_csv(path, index=False)
         written["setpoints"] = path
+
+    # 24h critical-sensor diurnal profiles (weekday/weekend/holiday × fan state)
+    diurnal = diurnal_profiles(dataset.frames, dataset.role_map)
+    if isinstance(diurnal, pd.DataFrame) and not diurnal.empty:
+        path = out / "sensor_diurnal_24h.csv"
+        diurnal.to_csv(path, index=False)
+        written["sensor_diurnal_24h"] = path
+
+    # Analytic-tab CSVs (topology, data model, sensor health, RCx comfort, meters)
+    try:
+        from app.data_model_tree import build_data_model_tree
+
+        tree = build_data_model_tree(
+            dataset.frames,
+            dataset.role_map,
+            building_id=dataset.building_id,
+        )
+        topo = pd.DataFrame(tree.topology_rows())
+        if not topo.empty:
+            path = out / "topology.csv"
+            topo.to_csv(path, index=False)
+            written["topology"] = path
+        dm = pd.DataFrame(tree.to_rows())
+        if not dm.empty:
+            path = out / "data_model.csv"
+            dm.to_csv(path, index=False)
+            written["data_model"] = path
+    except Exception:
+        pass
+
+    try:
+        from app.analytics import sensor_fault_summary, sensor_health_matrix
+        from app.role_map import apply_role_map
+
+        health_rows: list[pd.DataFrame] = []
+        fault_rows: list[pd.DataFrame] = []
+        for eq_id, raw in dataset.frames.items():
+            mapped = apply_role_map(raw, eq_id, dataset.role_map)
+            mapped.attrs.update(raw.attrs)
+            eq_results = [r for r in (run.results or []) if r.equipment_id == eq_id]
+            hm = sensor_health_matrix(mapped, eq_results, equipment_id=eq_id)
+            if isinstance(hm, pd.DataFrame) and not hm.empty:
+                health_rows.append(hm)
+            fs = sensor_fault_summary(mapped, eq_results, equipment_id=eq_id)
+            if isinstance(fs, pd.DataFrame) and not fs.empty:
+                fault_rows.append(fs)
+        if health_rows:
+            path = out / "sensor_health_matrix.csv"
+            pd.concat(health_rows, ignore_index=True).to_csv(path, index=False)
+            written["sensor_health_matrix"] = path
+        if fault_rows:
+            path = out / "sensor_fault_summary.csv"
+            pd.concat(fault_rows, ignore_index=True).to_csv(path, index=False)
+            written["sensor_fault_summary"] = path
+    except Exception:
+        pass
+
+    try:
+        from app.occupancy import OccupancySchedule
+        from app.rcx_plots import zone_comfort_fail_ranking
+
+        ranking = zone_comfort_fail_ranking(
+            dataset.frames,
+            dataset.role_map,
+            schedule=OccupancySchedule(),
+            comfort_low_f=70.0,
+            comfort_high_f=75.0,
+        )
+        if isinstance(ranking, pd.DataFrame) and not ranking.empty:
+            path = out / "rcx_zone_comfort_ranking.csv"
+            ranking.to_csv(path, index=False)
+            written["rcx_zone_comfort_ranking"] = path
+    except Exception:
+        pass
+
+    try:
+        from app.metering import build_meter_monthly_table
+
+        for kind, filename, key in (
+            ("electric", "meter_monthly_electric.csv", "meter_monthly_electric"),
+            ("gas", "meter_monthly_gas.csv", "meter_monthly_gas"),
+        ):
+            monthly, _stats, _reason = build_meter_monthly_table(
+                dataset.frames,
+                dataset.role_map,
+                kind=kind,  # type: ignore[arg-type]
+                weather=dataset.weather,
+            )
+            if isinstance(monthly, pd.DataFrame) and not monthly.empty:
+                path = out / filename
+                monthly.to_csv(path, index=False)
+                written[key] = path
+    except Exception:
+        pass
 
     written["readme_wattlab"] = write_wattlab_readme(out)
 
@@ -635,6 +760,9 @@ def export_agent_bundle(
         path = out / "tuning_assistant_report.json"
         path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
         written["tuning_assistant_report"] = path
+
+    # Agent ingest index — write last so it sees every path above
+    written["manifest"] = write_manifest(out, written)
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run
     if not include_bootstrap:

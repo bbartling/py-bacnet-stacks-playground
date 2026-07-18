@@ -59,8 +59,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 | **FDD Plots** | Auto-run device rules; catalog-parity cards; **Sensor health — per sensor** matrix + chart (Word on Overview) |
 | **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); zone comfort donut; one chart at a time; opt-in coverage |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
-| **Energy Model** | In-app OpenFDD WattLab easy button (`app.energy_wizard` + `configs/energy_defaults/`): responsive defaults, data-prefilled schedules, ECM + quick savings, Energy Model Package export; optional vibe20 EP sidecar |
-| Export | CSV / session / health / data-model (Word template is Overview-only) |
+| **Export** | WattLab dump zip for vibe20: every FDD rule, analytic CSVs, sensor stats / 24h diurnal profiles, setpoints, data-derived `model_seed.json`, `MANIFEST.json`; session restore + individual CSVs under expander (Word template is Overview-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 

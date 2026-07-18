@@ -1,11 +1,12 @@
 """Loader for the vibe19 WattLab dump (Export → "Build WattLab dump (zip)").
 
-One entry point for everything vibe19 exports: model seed, inferred schedules,
-OAT-bin operating signatures, sensor stats (all / fan-on / fan-off), setpoint
-medians, mech-cooling bins + coverage, FDD fault summary, observed weather and
-utility bills. Also produces the **gap report** — the explicit checklist of
-characteristics the human must still provide (geometry, bills, rates, costs)
-before the digital twin is trustworthy.
+One entry point for everything vibe19 exports: MANIFEST.json, model seed,
+inferred schedules, OAT-bin operating signatures, sensor stats / 24h diurnal
+profiles, setpoint medians, mech-cooling bins + coverage, FDD findings +
+per-rule timeseries, analytic CSVs, observed weather and utility bills. Also
+produces the **gap report** — the explicit checklist of characteristics the
+human must still provide (geometry, bills, rates, costs) before the digital
+twin is trustworthy.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ _CSV_TABLES = {
     "sensor_stats_all.csv": "sensor_stats_all",
     "sensor_stats_fan_on.csv": "sensor_stats_fan_on",
     "sensor_stats_fan_off.csv": "sensor_stats_fan_off",
+    "sensor_diurnal_24h.csv": "sensor_diurnal_24h",
     "setpoints.csv": "setpoints",
     "mech_cooling_oat_bins.csv": "mech_cooling_oat_bins",
     "mech_cooling_coverage.csv": "mech_cooling_coverage",
@@ -33,10 +35,18 @@ _CSV_TABLES = {
     "motor_weekly.csv": "motor_weekly",
     "economizer_weather.csv": "economizer_weather",
     "fdd_summary.csv": "fdd_summary",
+    "fdd_findings.csv": "fdd_findings",
     "weather_observed.csv": "weather_observed",
     "utility_bills.csv": "utility_bills",
     "rcx_preset_coverage.csv": "rcx_preset_coverage",
+    "rcx_zone_comfort_ranking.csv": "rcx_zone_comfort_ranking",
     "role_map_gap_report.csv": "role_map_gap_report",
+    "topology.csv": "topology",
+    "data_model.csv": "data_model",
+    "sensor_health_matrix.csv": "sensor_health_matrix",
+    "sensor_fault_summary.csv": "sensor_fault_summary",
+    "meter_monthly_electric.csv": "meter_monthly_electric",
+    "meter_monthly_gas.csv": "meter_monthly_gas",
 }
 
 _JSON_DOCS = {
@@ -47,6 +57,7 @@ _JSON_DOCS = {
     "session_config.json": "session_config",
     "quick_savings.json": "quick_savings",
     "building_profile.json": "building_profile",
+    "MANIFEST.json": "manifest",
 }
 
 
@@ -63,8 +74,10 @@ class SeedBundle:
     session_config: dict[str, Any] = field(default_factory=dict)
     quick_savings: dict[str, Any] = field(default_factory=dict)
     building_profile: dict[str, Any] = field(default_factory=dict)
+    manifest: dict[str, Any] = field(default_factory=dict)
     tables: dict[str, pd.DataFrame] = field(default_factory=dict)
     files: dict[str, Path] = field(default_factory=dict)
+    fdd_timeseries_dir: Path | None = None
 
     def table(self, name: str) -> pd.DataFrame:
         return self.tables.get(name, pd.DataFrame())
@@ -80,6 +93,14 @@ class SeedBundle:
     @property
     def fdd_summary(self) -> pd.DataFrame:
         return self.table("fdd_summary")
+
+    @property
+    def fdd_findings(self) -> pd.DataFrame:
+        return self.table("fdd_findings")
+
+    @property
+    def sensor_diurnal_24h(self) -> pd.DataFrame:
+        return self.table("sensor_diurnal_24h")
 
     @property
     def weather_observed(self) -> pd.DataFrame:
@@ -110,6 +131,11 @@ class SeedBundle:
             "has_bills": self.has_bills,
             "has_observed_weather": self.has_observed_weather,
             "fault_rows": len(self.fdd_summary),
+            "findings_rows": len(self.fdd_findings),
+            "has_manifest": bool(self.manifest),
+            "has_fdd_timeseries": bool(
+                self.fdd_timeseries_dir and self.fdd_timeseries_dir.is_dir()
+            ),
         }
 
 
@@ -142,6 +168,9 @@ def _load_dir(root: Path, bundle: SeedBundle) -> SeedBundle:
         bills = seed.get("utility_bills")
         if isinstance(bills, list) and bills:
             bundle.tables["utility_bills"] = pd.DataFrame(bills)
+    ts_dir = root / "fdd_timeseries"
+    if ts_dir.is_dir():
+        bundle.fdd_timeseries_dir = ts_dir
     return bundle
 
 

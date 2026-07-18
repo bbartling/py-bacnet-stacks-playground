@@ -1,8 +1,8 @@
 """Turnkey app test: AppTest every main section + live HTML smoke.
 
 Validates the Streamlit frontend renders without exceptions across all
-REQUIRED_MAIN_SECTIONS (including Energy Model), then optionally launches a
-real Streamlit server and checks HTTP 200 + expected HTML markers.
+REQUIRED_MAIN_SECTIONS, then optionally launches a real Streamlit server and
+checks HTTP 200 + expected HTML markers.
 """
 
 from __future__ import annotations
@@ -154,23 +154,8 @@ def test_turnkey_apptest_all_sections(tmp_path: Path, monkeypatch: pytest.Monkey
         # Re-acquire radio after rerun
         radio = _section_radio(at)
         assert radio is not None, f"Section radio missing after {section!r}"
+    assert "Energy Model" not in REQUIRED_MAIN_SECTIONS
 
-    # Energy Model must render the in-app wizard form (no vibe20 required)
-    radio.set_value("Energy Model")
-    at.run()
-    assert not at.exception, f"Energy Model exceptions: {list(at.exception)}"
-    # Form should show building type / easy-button caption — not the old early-return wall
-    blobs = []
-    for attr in ("markdown", "caption", "subheader", "text"):
-        for w in getattr(at.main, attr, []) or []:
-            blobs.append(str(getattr(w, "value", w) or ""))
-    joined = " ".join(blobs).lower()
-    assert "energy model" in joined or "wattlab" in joined or "easy-button" in joined or "easy button" in joined
-    # Must not be stuck on the old "WattLab not found" early return alone
-    select_labels = [str(getattr(s, "label", "") or "") for s in (at.main.selectbox or [])]
-    assert any("building type" in lab.lower() for lab in select_labels), (
-        f"Energy Model form missing Building type selectbox; labels={select_labels[:20]}"
-    )
 
 @pytest.mark.timeout(300)
 def test_export_wattlab_dump_button(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -222,9 +207,12 @@ def test_export_wattlab_dump_button(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         names = set(zf.namelist())
     assert "README_WATTLAB.md" in names
+    assert "MANIFEST.json" in names
     assert "run_report.json" in names
     assert "model_seed.json" in names
     assert "sensor_stats_all.csv" in names
+    assert "fdd_findings.csv" in names
+    assert any(n.startswith("fdd_timeseries/") for n in names)
     # Bootstrap pointer files must not be inside the user download
     assert not any(n.startswith("streamlit_bootstrap") for n in names)
 

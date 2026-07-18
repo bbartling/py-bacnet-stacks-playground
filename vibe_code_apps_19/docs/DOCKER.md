@@ -232,26 +232,9 @@ docker run --rm -p 8501:8501 -e APP_MODE=local `
 
 Independent. Keep **`develop` loose** for iterate-fast; optional light protect on `main` later. Actions do not require branch protection.
 
-## Energy Model (in-app wizard + optional EnergyPlus sidecar)
+## WattLab dump (Export → vibe20)
 
-The GHCR `vibe19` image includes the **full Energy Model wizard** (responsive defaults, schedule/ECM prefill, quick savings, package export). No WattLab mount is required for those flows.
-
-Live EnergyPlus screening/calibration still needs a WattLab checkout and the Docker image `energyplus-mcp-dev`:
-
-```powershell
-# One-time: build EnergyPlus-MCP image (from monorepo)
-cd vibe_code_apps_20\third_party\EnergyPlus-MCP
-docker build -t energyplus-mcp-dev -f .devcontainer\Dockerfile .devcontainer
-
-# Optional: mount WattLab into a local vibe19 container for live sims
-docker run --rm -p 8502:8501 `
-  -e VIBE19_WATTLAB_DIR=/wattlab `
-  -v ${PWD}/../vibe_code_apps_20:/wattlab `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  ghcr.io/bbartling/vibe19:latest
-```
-
-Without WattLab present, Energy Model remains fully usable for form + export; FDD / RCx / Export are unaffected. Details: [vibe_code_apps_20/README.md](../vibe_code_apps_20/README.md).
+The GHCR `vibe19` image ships the **Export** WattLab dump (FDD findings, analytic CSVs, diurnal profiles, data-derived `model_seed.json`). EnergyPlus calibration/ECM screening lives in vibe20 (`ghcr.io/bbartling/vibe20` or a local checkout). Details: [vibe_code_apps_20/README.md](../vibe_code_apps_20/README.md).
 
 ## Notes
 

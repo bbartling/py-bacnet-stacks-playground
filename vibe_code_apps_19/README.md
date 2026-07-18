@@ -28,7 +28,7 @@ Suggested human→agent message:
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
 - Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
-- **Energy Model** tab — in-app OpenFDD WattLab easy button (`configs/energy_defaults/` + `app/energy_wizard.py`): responsive defaults, data-prefilled schedules, ECM suggest + quick bin-hour savings, **Energy Model Package** export for an outside AI agent + EnergyPlus-MCP; optional vibe20 Docker screening when present
+- **WattLab dump** (Export tab) — AI-agent handoff zip for vibe20: every FDD rule (summary + findings + per-rule timeseries), analytic CSVs, sensor stats / 24h diurnal profiles (fan on/off × weekday/weekend/holiday), setpoints, schedules, weather, data-derived `model_seed.json`, and `MANIFEST.json`
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
 - **Docker / GHCR** image for self-host demos
 
@@ -123,30 +123,11 @@ More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/w
 
 Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses the upload widget).
 
-## Energy Model (OpenFDD WattLab)
+## WattLab dump (vibe20 handoff)
 
-The **Energy Model** tab is **self-contained in vibe19** — no sibling checkout required for the form, defaults, schedule/ECM prefill, quick savings, or export:
-
-| Piece | Role |
-| --- | --- |
-| `configs/energy_defaults/` + `app/energy_wizard.py` | Responsive defaults (type / city / code), provenance, schedule prefill, FDD→ECM map, bin-hour quick savings |
-| Streamlit Energy Model tab | Easy-button form, 3D massing, editable schedules, measure toggles, **Energy Model Package** zip export |
-| Package export | `building_profile.json`, `ecm_briefs.json`, signatures/weather — for an **outside AI agent** + EnergyPlus-MCP |
-| Optional vibe20 sidecar | Live EnergyPlus screening / calibration when `VIBE19_WATTLAB_DIR` + `energyplus-mcp-dev` are available |
+The **Export** tab builds one zip for WattLab (`vibe_code_apps_20`) so an AI agent can calibrate and iterate an EnergyPlus twin. Contents are Haystack/role-map driven — see `README_WATTLAB.md` and `MANIFEST.json` inside the dump. Building characteristics (`building_type`, `floor_area_ft2`, utility bills) are tagged `user_required` in the data-derived `model_seed.json` for the vibe20 human+agent to fill.
 
 Turnkey UI smoke: `python -m pytest tests/test_turnkey_app.py -q` (AppTest all sections + live HTML `/_stcore/health`).
-
-```powershell
-# Optional EnergyPlus image (only for live sims)
-cd vibe_code_apps_20\third_party\EnergyPlus-MCP
-docker build -t energyplus-mcp-dev -f .devcontainer\Dockerfile .devcontainer
-
-cd ..\..\vibe_code_apps_19
-streamlit run streamlit_app.py
-# optional: $env:VIBE19_WATTLAB_DIR = "...\vibe_code_apps_20"
-```
-
-**GHCR note:** `ghcr.io/bbartling/vibe19` ships the full Energy Model wizard. Live EnergyPlus is still an optional host sidecar — the vibe19 image does **not** embed EnergyPlus.
 
 Optional WattLab docs: [`../vibe_code_apps_20/README.md`](../vibe_code_apps_20/README.md).
 

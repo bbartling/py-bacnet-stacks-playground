@@ -11,17 +11,25 @@ folder tolerated). Tests: `tests/test_seed_bundle.py`.
 
 | File | Contents |
 | --- | --- |
-| `model_seed.json` | building_type, city, floor_area_ft2, floors, data_window, utility_bills (optional inline) |
+| `MANIFEST.json` | Index of every file (`path`, `kind`, `columns`, `purpose`, `how_to_use`) — agent reads this first |
+| `model_seed.json` | Data-derived seed: data_window, schedule_hints; building_type / floor_area / bills tagged `user_required` when absent |
 | `schedule_inference.json` / `schedule_inference_table.csv` | Inferred occupied schedules per equip |
 | `operating_signatures.csv` | OAT-bin operating signatures (the "Weather Man" equivalent) |
 | `sensor_stats_all.csv` / `sensor_stats_fan_on.csv` / `sensor_stats_fan_off.csv` | Per-role summary stats sliced by fan proof |
+| `sensor_diurnal_24h.csv` | Critical sensors × hour × `day_type` (weekday/weekend/holiday) × `fan_state` (all/on/off) |
 | `setpoints.csv` | Occupied/unoccupied medians of `*-sp` roles |
 | `mech_cooling_oat_bins.csv` + `mech_cooling_coverage.csv` | Mechanical-cooling hours by OAT bin (aggregated + per device) + inclusion/exclusion report |
 | `motor_hours.csv` / `motor_weekly.csv` | Motor runtime rollups |
 | `fdd_summary.csv` | Fault rollup (rule id, device, fault hours/pct) |
+| `fdd_findings.csv` | Long-format findings with flattened metrics + `confirmed_fault` |
+| `fdd_timeseries/<rule>__<equip>.csv` | Per-rule fault masks (`raw_fault`, `confirmed_fault`) + plot series |
+| `topology.csv` / `data_model.csv` | Equipment feeds/fedBy + point bindings |
+| `sensor_health_matrix.csv` / `sensor_fault_summary.csv` | SV-* health |
+| `rcx_preset_coverage.csv` / `rcx_zone_comfort_ranking.csv` | RCx coverage + zone comfort ranking |
+| `meter_monthly_electric.csv` / `meter_monthly_gas.csv` | Monthly meters when mapped |
 | `weather_observed.csv` | Hourly observed weather → AMY EPW |
 | `utility_bills.csv` | Monthly kWh / therms when the human entered them |
-| `README_WATTLAB.md` | Self-describing manifest |
+| `README_WATTLAB.md` | Human-readable dump guide |
 
 `gap_report(bundle)` → rows `{field, severity, why, status, value}`. Severity
 `required`: building_type, city, floor_area_ft2. The human always owes:

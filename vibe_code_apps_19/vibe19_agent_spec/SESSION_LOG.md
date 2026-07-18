@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-18 — Remove Energy Model tab; beef up WattLab dump for vibe20
+
+- **Removed Energy Model tab/wizard:** deleted `app/energy_model.py`, `app/energy_wizard.py`, `configs/energy_defaults/`, and related contract entrypoints. Building characteristics are filled in vibe20; vibe19 Export is the sole handoff.
+- **WattLab dump:** every FDD rule as `fdd_findings.csv` + `fdd_timeseries/<rule>__<equip>.csv` (auto-runs all rules if none run yet); analytic CSVs (topology, data_model, sensor health/fault, zone comfort, meters); `sensor_diurnal_24h.csv` (critical roles × hour × fan_state × weekday/weekend/holiday via `app/daytypes.py`); data-derived `model_seed.json`; `MANIFEST.json` for agent ingest.
+
+---
+
 ## 2026-07-17 — RCx plant/duct-static presets + WattLab dump export
 
 - **RCx presets:** `duct_static_ts` (duct static + `duct-static-pressure-sp` companion trace per AHU), `chw_temps_ts` and `cw_temps_ts` (supply + return + computed ΔT per chiller/plant/tower via new `collect_paired_temp_series`, pump-proof filter aware). `condenser-water-return-temp` added as a canonical role. Preset ids frozen in `REQUIRED_RCX_PRESET_IDS`; unique per-preset chart keys stop stale wet-bulb labels when switching presets.

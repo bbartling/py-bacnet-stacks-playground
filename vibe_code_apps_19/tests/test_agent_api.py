@@ -149,13 +149,30 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert (out / "weather_observed.csv").is_file()
     # WattLab dump additions
     assert (out / "README_WATTLAB.md").is_file()
+    assert (out / "MANIFEST.json").is_file()
     assert (out / "sensor_stats_all.csv").is_file()
     assert (out / "sensor_stats_fan_on.csv").is_file()
+    assert (out / "fdd_findings.csv").is_file()
+    assert (out / "data_model.csv").is_file()
     stats_all = pd.read_csv(out / "sensor_stats_all.csv")
     assert {"equipment_id", "role", "n", "mean", "p50"} <= set(stats_all.columns)
     assert (stats_all["equipment_id"] == "AHU_1").any()
     # AHU_1 fan is always on → the fan_off slice is empty and its CSV skipped
     assert not (out / "sensor_stats_fan_off.csv").is_file()
+    findings = pd.read_csv(out / "fdd_findings.csv")
+    assert {"rule_id", "equipment_id", "status", "confirmed_fault"} <= set(findings.columns)
+    assert len(findings) == len(run.results)
+    # Per-rule timeseries directory (at least some rules emit masks)
+    ts_dir = out / "fdd_timeseries"
+    assert ts_dir.is_dir()
+    assert any(ts_dir.glob("*.csv"))
+    # Diurnal may be empty for tiny short windows — only assert when present
+    if (out / "sensor_diurnal_24h.csv").is_file():
+        diurnal = pd.read_csv(out / "sensor_diurnal_24h.csv")
+        assert {"day_type", "fan_state", "hour", "role"} <= set(diurnal.columns)
+    manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "wattlab_dump_v2"
+    assert any(f["path"] == "fdd_findings.csv" for f in manifest["files"])
     seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))
     assert seed["project_id"] == "TINY_B1"
     assert "data_window" in seed
