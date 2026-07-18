@@ -1,7 +1,7 @@
 # ESCO bin-method calculators — spreadsheet basis and contract
 
-`wattlab/bench/esco.py` is a 1:1 port of the the source ESCO calculator workbook
-spreadsheets (School A CV/VV + School B workbooks). The golden tests
+`wattlab/bench/esco.py` is a 1:1 port of real ESCO retrofit calculator
+workbooks (anonymized as School A CV/VV + School B). The golden tests
 (`tests/test_esco_golden.py`) pin the calculators to the spreadsheets' **own
 cell values** — treat those numbers as physics constants for this codebase.
 

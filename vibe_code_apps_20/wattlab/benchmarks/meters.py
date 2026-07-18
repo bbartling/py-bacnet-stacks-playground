@@ -175,6 +175,19 @@ class Campus:
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
+def year_month_matrix(bills: pd.DataFrame) -> pd.DataFrame:
+    """Pivot a tidy bill frame to a years × months usage matrix.
+
+    Rows are calendar years (newest first), columns 1–12; missing months stay
+    NaN so heatmaps/workbook views show gaps honestly instead of zeros.
+    """
+    f = bills.copy()
+    f["year"] = f["month"].str[:4].astype(int)
+    f["mon"] = f["month"].str[5:7].astype(int)
+    mat = f.pivot_table(index="year", columns="mon", values="usage", aggfunc="sum")
+    return mat.reindex(columns=range(1, 13)).sort_index(ascending=False)
+
+
 # ---------------------------------------------------------------------------
 # Annual windows
 # ---------------------------------------------------------------------------

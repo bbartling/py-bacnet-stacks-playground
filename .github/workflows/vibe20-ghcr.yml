@@ -1,0 +1,112 @@
+# Build and publish vibe_code_apps_20 (WattLab Studio) Docker image to GHCR.
+# Image: ghcr.io/<owner>/vibe20
+# Multi-arch via QEMU + Buildx:
+#   - linux/amd64  (x86_64 desktops / most cloud hosts)
+#   - linux/arm64  (Raspberry Pi 4/5 64-bit, Apple Silicon)
+name: vibe20-ghcr
+
+on:
+  workflow_dispatch:
+    inputs:
+      no_cache:
+        description: "Rebuild without Buildx/GHA cache (use when GHCR tags point at missing blobs)"
+        type: boolean
+        default: false
+  push:
+    branches: [develop, main]
+    tags: ["vibe20-v*"]
+    paths:
+      - "vibe_code_apps_20/**"
+      - ".github/workflows/vibe20-ghcr.yml"
+  pull_request:
+    paths:
+      - "vibe_code_apps_20/**"
+      - ".github/workflows/vibe20-ghcr.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: vibe20
+  # Always build both arches on publish; PR smoke stays amd64-only (faster, no push).
+  PUBLISH_PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (amd64 + arm64)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64,arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Moving tips — default branch is develop, so :latest tracks tip of develop.
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=match,pattern=vibe20-v(.*),group=1
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.title=vibe20
+            org.opencontainers.image.description=OpenFDD WattLab Studio — EnergyPlus twin + ESCO capital planning
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: vibe_code_apps_20
+          file: vibe_code_apps_20/Dockerfile
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || env.PUBLISH_PLATFORMS }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VIBE20_GIT_SHA=${{ github.sha }}
+            VIBE20_IMAGE_REF=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+            VIBE20_IMAGE_TAG=${{ github.ref_name }}
+          # Cached builds can republish a multi-arch index that still cites deleted GHCR blobs.
+          no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.no_cache == true }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Multi-platform manifests require push (or a registry); PRs build without push.
+          provenance: false
+
+      - name: Verify multi-arch manifest (amd64 + arm64)
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          # Prefer :latest on default branch tip; fall back to :develop / first pushed tag.
+          REF="${IMAGE}:latest"
+          if ! docker buildx imagetools inspect "$REF" >/tmp/manifest.txt 2>/dev/null; then
+            REF="${IMAGE}:develop"
+            docker buildx imagetools inspect "$REF" >/tmp/manifest.txt
+          fi
+          echo "Inspected $REF"
+          cat /tmp/manifest.txt
+          grep -q 'linux/amd64' /tmp/manifest.txt
+          grep -q 'linux/arm64' /tmp/manifest.txt
+          echo "OK: multi-arch index includes linux/amd64 and linux/arm64"

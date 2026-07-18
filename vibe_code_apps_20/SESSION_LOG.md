@@ -2,6 +2,38 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-18 — Name scrub + agent spec + benchmark viz + GHCR image
+
+- **Confidentiality scrub**: removed every client / district / contractor /
+  building name from the ESCO calculator lineage (now "real ESCO retrofit
+  calculator workbooks", anonymized School A / School B). Calculators, golden
+  values, and workflows unchanged. The two previously pushed vibe20 commits
+  were squash-rewritten into one clean commit and force-pushed so the names
+  are out of reachable GitHub history.
+- **`vibe20_agent_spec/`**: agent orientation tree mirroring vibe19's —
+  `AGENTS.md` (19 quick rules + bootstrap order + repo map), `DATA_CONTRACT.md`
+  (dump, campus.json, report/plan/gate shapes, unit conversions),
+  `docs/TWIN_LOOP.md` (7-step human+agent protocol), `docs/ESCO_CALCULATORS.md`
+  (formula basis + golden anchors), `docs/BENCHMARK_GOVERNANCE.md`, and three
+  skills (`wattlab-esco-bins`, `wattlab-benchmarking`, `wattlab-studio`).
+- **Benchmark page viz**: peer-EUI strip chart (p20–p80 band + median line,
+  building diamonds sized/colored by band, campus star, CBECS reference),
+  season heatmaps (years × months per meter, Blues=electric / Oranges=gas,
+  honest gaps for missing bill months), and an ESCO-workbook annual table
+  (year rows, Jan–Dec + Total, gradient-styled). `year_month_matrix` helper in
+  `wattlab.benchmarks.meters` + Liberty golden test for shape/gaps.
+- **Studio smoke**: `scripts/smoke_studio.py` — AppTest bare walk of all six
+  pages plus a loaded Liberty walk (campus EUI 71.6, guardrail PUBLISH);
+  matches vibe19's no-browser smoke pattern. Live boot + `/_stcore/health` +
+  HTML checked clean.
+- **GHCR**: new `vibe_code_apps_20/Dockerfile` (Streamlit Studio image,
+  `pip install .[studio]`, port 8501) + `.dockerignore` (never bakes `.env`)
+  + `.github/workflows/vibe20-ghcr.yml` — QEMU dual-arch (amd64+arm64) Buildx
+  publish to `ghcr.io/<owner>/vibe20` with multi-arch manifest verify step,
+  mirroring the vibe19 workflow. `matplotlib` added to the `studio` extra for
+  workbook gradients.
+- **Tests**: 80 passing, 2 Docker smokes skipped.
+
 ## 2026-07-18 — Benchmark governance layer + Liberty campus example
 
 - **Liberty practice campus** (`examples/liberty/`): real monthly bills for two
@@ -61,8 +93,8 @@ Newest first. One entry per shipped work session.
   Washington DC table, `WeatherBins.from_hourly` for `weather_observed.csv`,
   and `OperatingSchedule` with the sheets' shift weighting + 10% override
   allowance.
-- **ESCO calculators** (`wattlab.bench.esco`), ported from the the source district
-  the ESCO contractor ES calculators (School A / School B): `scheduling_fan_bins`,
+- **ESCO calculators** (`wattlab.bench.esco`), ported from real ESCO retrofit
+  calculator workbooks (anonymized as School A / School B): `scheduling_fan_bins`,
   `scheduling_cooling_bins`, `scheduling_heating_bins`,
   `oad_unoccupied_closed`, `dcv_bins`, `static_pressure_reset`,
   `dat_reset_bins`, `hydronic_reset_bins`, `dewpoint_economizer`. Golden tests

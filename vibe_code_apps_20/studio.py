@@ -333,14 +333,56 @@ def page_benchmark() -> None:
         width='stretch', hide_index=True,
     )
 
+    # ---- Peer strip: this campus vs similar-type/size peers ---------------
+    st.subheader("Site EUI vs peers (same property type)")
+    st.caption(
+        "Green band = peer p20–p80 (EPA national medians for this property "
+        "type); dashed line = peer median. Diamonds are these buildings — "
+        "similar type, similar ft², same location — plus references."
+    )
+    p20 = float(dfb["peer_p20"].iloc[0])
+    p50 = float(dfb["peer_p50"].iloc[0])
+    p80 = float(dfb["peer_p80"].iloc[0])
+    x_max = max(p80 * 1.25, float(dfb["site_eui_kbtu_ft2"].max()) * 1.15,
+                summary["campus"]["site_eui_kbtu_ft2"] * 1.15)
+
     fig = go.Figure()
-    fig.add_bar(x=dfb["label"], y=dfb["site_eui_kbtu_ft2"], name="Site EUI",
-                marker_color=["#d62728" if b == "above_p80" else "#2ca02c" if b == "within_band" else "#ff7f0e"
-                              for b in dfb["peer_band"]])
-    fig.add_hline(y=float(dfb["peer_p50"].iloc[0]), line_dash="dash", annotation_text="peer median")
-    fig.add_hline(y=float(dfb["peer_p80"].iloc[0]), line_dash="dot", annotation_text="peer p80")
-    fig.update_layout(height=360, yaxis_title="kBtu/ft²-yr", margin=dict(t=30, b=10))
-    st.plotly_chart(fig, width='stretch', key="studio_bm_eui_chart")
+    fig.add_shape(type="rect", x0=p20, x1=p80, y0=-0.5, y1=0.5,
+                  fillcolor="rgba(44,160,44,0.18)", line_width=0)
+    fig.add_shape(type="line", x0=p50, x1=p50, y0=-0.5, y1=0.5,
+                  line=dict(dash="dash", color="#2ca02c", width=2))
+    band_colors = {"below_p20": "#ff7f0e", "within_band": "#2ca02c", "above_p80": "#d62728"}
+    for _, r in dfb.iterrows():
+        fig.add_scatter(
+            x=[r["site_eui_kbtu_ft2"]], y=[0], mode="markers+text",
+            marker=dict(symbol="diamond", size=18, color=band_colors.get(r["peer_band"], "#1f77b4"),
+                        line=dict(width=1, color="white")),
+            text=[f"{r['label']}<br>{r['site_eui_kbtu_ft2']}"],
+            textposition="top center", name=r["label"],
+            hovertemplate=(f"{r['label']}: %{{x}} kBtu/ft²-yr "
+                           f"({r['floor_area_ft2']:,.0f} ft², {r['peer_vs_median_pct']:+.0f}% vs median)<extra></extra>"),
+        )
+    fig.add_scatter(
+        x=[summary["campus"]["site_eui_kbtu_ft2"]], y=[-0.28], mode="markers+text",
+        marker=dict(symbol="star", size=16, color="#1f77b4"),
+        text=["Campus"], textposition="bottom center", name="Campus",
+        hovertemplate="Campus: %{x} kBtu/ft²-yr<extra></extra>",
+    )
+    cbecs = compare_eui(70.6, "commercial_all")
+    fig.add_scatter(
+        x=[cbecs["p50"]], y=[0.32], mode="markers+text",
+        marker=dict(symbol="triangle-down", size=13, color="#7f7f7f"),
+        text=["CBECS all-commercial"], textposition="top center", name="CBECS avg",
+        hovertemplate="CBECS all-commercial average: %{x} kBtu/ft²-yr<extra></extra>",
+    )
+    fig.add_annotation(x=p50, y=0.52, text=f"peer median {p50}", showarrow=False,
+                       font=dict(size=11, color="#2ca02c"), yanchor="bottom")
+    fig.update_layout(
+        height=300, showlegend=False, margin=dict(t=30, b=10),
+        xaxis=dict(title="Site EUI (kBtu/ft²-yr)", range=[0, x_max]),
+        yaxis=dict(visible=False, range=[-0.8, 0.9]),
+    )
+    st.plotly_chart(fig, width='stretch', key="studio_bm_eui_strip")
 
     # Allocation scenarios side-by-side
     scen = pd.DataFrame(allocation_scenarios(campus))
@@ -350,15 +392,47 @@ def page_benchmark() -> None:
         fig2.update_layout(height=340, yaxis_title="kBtu/ft²-yr", margin=dict(t=30, b=10))
         st.plotly_chart(fig2, width='stretch', key="studio_bm_alloc_chart")
 
-    # Monthly fuel signatures
-    st.subheader("Monthly signatures")
+    # ---- Season heatmaps + signatures + ESCO workbook view -----------------
+    from wattlab.benchmarks.meters import year_month_matrix
+
     monthly = campus.monthly_frame()
     gas = monthly[monthly["fuel"] == "gas"]
     elec = monthly[monthly["fuel"] == "electricity"]
-    t1, t2 = st.tabs(["Gas (heating signature)", "Electric (kWh + demand)"])
-    with t1:
+    meter_by_id = {m.meter_id: m for m in campus.meters}
+
+    st.subheader("Utility history")
+    t_heat, t_sig, t_book = st.tabs(["Season heatmaps", "Monthly signatures", "Annual workbook"])
+
+    MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    with t_heat:
+        st.caption(
+            "Years × months, full bill history. Electric should breathe with "
+            "summer cooling; gas should die in summer — persistent summer gas "
+            "is DHW/reheat baseload. Blank cells are missing bill months."
+        )
+        for mid, meter in meter_by_id.items():
+            mat = year_month_matrix(meter.bills)
+            if mat.empty:
+                continue
+            unit = "kWh" if meter.fuel == "electricity" else "Mcf"
+            hm = go.Figure(go.Heatmap(
+                z=mat.values, x=MONTH_LABELS, y=[str(y) for y in mat.index],
+                colorscale="Blues" if meter.fuel == "electricity" else "Oranges",
+                colorbar=dict(title=unit),
+                hovertemplate="%{y} %{x}: %{z:,.0f} " + unit + "<extra></extra>",
+                hoverongaps=False,
+            ))
+            hm.update_layout(
+                title=f"{mid} — monthly {unit}", height=max(260, 26 * len(mat.index) + 90),
+                margin=dict(t=40, b=10), yaxis=dict(autorange="reversed", dtick=1),
+            )
+            st.plotly_chart(hm, width='stretch', key=f"studio_bm_heat_{mid}")
+
+    with t_sig:
         fig3 = px.line(gas, x="month", y="usage", color="meter_id", labels={"usage": "Mcf"})
-        fig3.update_layout(height=360, margin=dict(t=30, b=10))
+        fig3.update_layout(height=340, margin=dict(t=30, b=10), title="Gas (heating signature)")
         st.plotly_chart(fig3, width='stretch', key="studio_bm_gas_chart")
         summer = gas[gas["month"].str[5:7].isin(["06", "07", "08"])]
         base = summer.groupby("meter_id")["usage"].mean().round(1)
@@ -367,7 +441,6 @@ def page_benchmark() -> None:
                 "Average summer-month gas (DHW/reheat baseload signal): "
                 + ", ".join(f"{k} = {v} Mcf" for k, v in base.items())
             )
-    with t2:
         fig4 = go.Figure()
         for mid, grp in elec.groupby("meter_id"):
             fig4.add_scatter(x=grp["month"], y=grp["usage"], name=f"{mid} kWh", mode="lines")
@@ -375,10 +448,35 @@ def page_benchmark() -> None:
                 fig4.add_scatter(x=grp["month"], y=grp["demand_kw"], name=f"{mid} billed kW",
                                  mode="lines", yaxis="y2", line=dict(dash="dot"))
         fig4.update_layout(
-            height=360, margin=dict(t=30, b=10), yaxis_title="kWh",
+            height=340, margin=dict(t=30, b=10), yaxis_title="kWh", title="Electric (kWh + demand)",
             yaxis2=dict(title="kW", overlaying="y", side="right", showgrid=False),
         )
         st.plotly_chart(fig4, width='stretch', key="studio_bm_elec_chart")
+
+    with t_book:
+        st.caption(
+            "ESCO-workbook style: one row per year, Jan–Dec + annual total. "
+            "The same table an energy engineer keeps in the bill-tracking sheet."
+        )
+        for mid, meter in meter_by_id.items():
+            mat = year_month_matrix(meter.bills)
+            if mat.empty:
+                continue
+            unit = "kWh" if meter.fuel == "electricity" else "Mcf"
+            book = mat.copy()
+            book.columns = MONTH_LABELS
+            book.insert(12, "Total", book.sum(axis=1, min_count=1))
+            book.index.name = "Year"
+            st.markdown(f"**{mid}** ({unit})")
+            styler = book.style.format("{:,.0f}", na_rep="—")
+            try:  # gradient needs matplotlib; fall back to plain table without it
+                styler = styler.background_gradient(
+                    cmap="Blues" if meter.fuel == "electricity" else "Oranges",
+                    axis=None, subset=MONTH_LABELS,
+                )
+            except ImportError:
+                pass
+            st.dataframe(styler, width='stretch')
 
 
 def page_measures() -> None:

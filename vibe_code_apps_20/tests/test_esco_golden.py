@@ -1,6 +1,6 @@
 """Golden tests: reproduce the source ESCO workbook calculations.
 
-Target values are transcribed straight from the the source (School A / School B)
+Target values are transcribed straight from the source (School A / School B)
 "Post-Implementation" calculators (formulas and computed cell values), so a
 pass here means wattlab's bin-method calculators agree with the real ESCO
 spreadsheets to floating-point tolerance.

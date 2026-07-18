@@ -1,0 +1,19 @@
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Run artifacts / caches
+.artifacts/
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+pytest-cache-files-*/
+
+# Vendor clone (re-clone from third_party/VERSION.txt)
+third_party/EnergyPlus-MCP/
+
+# Local-only
+hvac-bench-local/
+.git/

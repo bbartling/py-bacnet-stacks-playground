@@ -37,7 +37,7 @@ Old flat-script entry points (`python easy_button.py …`) keep working via thin
 
 ### ESCO bin-method calculators (`wattlab.bench.esco`)
 
-Ported 1:1 from the the source ESCO calculator workbooks and verified against the
+Ported 1:1 from real ESCO retrofit calculator workbooks and verified against the
 spreadsheets' own cell values (see `tests/test_esco_golden.py`):
 
 `scheduling_fan_bins` · `scheduling_cooling_bins` · `scheduling_heating_bins` ·
@@ -126,6 +126,28 @@ python easy_button.py --building examples/buildings/chicago_office.json
 ```
 
 Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF copies, `eplustbl.*`, `wattlab_report.json`).
+
+## Docker / GHCR (WattLab Studio image)
+
+Multi-arch (`linux/amd64` + `linux/arm64`) images publish automatically from
+`.github/workflows/vibe20-ghcr.yml` on every `develop`/`main` push that touches
+`vibe_code_apps_20/`:
+
+```powershell
+docker pull ghcr.io/bbartling/vibe20:latest
+docker run -d --restart unless-stopped -p 8502:8501 --name vibe20 ghcr.io/bbartling/vibe20:latest
+# open http://localhost:8502  →  WattLab Studio
+```
+
+Tags: `:latest` (tip of default branch), `:develop`, `:sha-<commit>`,
+`vibe20-v*` releases. The container serves Studio; the dry-run / benchmark /
+measures / capital-plan workflow is fully functional inside it. Real
+EnergyPlus simulations need a Docker daemon, so run those from a host checkout
+(`wattlab easy-button`) — not inside the container. Verify a published tip:
+
+```powershell
+docker buildx imagetools inspect ghcr.io/bbartling/vibe20:latest   # must list amd64 + arm64
+```
 
 ## Legacy script shims
 

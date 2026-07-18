@@ -80,6 +80,7 @@ WattLab is an installable package: `pip install -e .` → `import wattlab`, CLI 
 | `wattlab/measures/` | Good / Better / Best progressive sets |
 | `wattlab/config.py` | Paths, image name, default EPW/prototype |
 | `studio.py` | WattLab Studio Streamlit app (`wattlab studio`) |
+| `vibe20_agent_spec/` | **Agent orientation tree** — quick rules, data contract, twin-loop protocol, ESCO calculator + benchmark governance docs, skills (read `vibe20_agent_spec/AGENTS.md` first) |
 | `madison_office.py` | Madison conceptual playbook wrapper |
 | `schemas/` | building_profile / measure_brief / result_record |
 | `examples/` | Profiles, evidence, prototypes, weather, bench configs |

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from wattlab.benchmarks import (
@@ -83,6 +84,21 @@ def test_manual_allocation_and_scenarios(campus):
     scen = allocation_scenarios(campus)
     methods = {r["allocation"] for r in scen}
     assert methods == {"area_weighted", "equal", "gas_share"}  # manual needs shares
+
+
+def test_year_month_matrix_shape_and_gaps(campus):
+    from wattlab.benchmarks.meters import year_month_matrix
+
+    gas50 = next(m for m in campus.meters if m.meter_id == "gas_50")
+    mat = year_month_matrix(gas50.bills)
+    assert list(mat.columns) == list(range(1, 13))
+    assert mat.index[0] > mat.index[-1]  # newest year first
+    # Source CSV has no 2016-08 row for building 50 → honest gap, not zero.
+    assert pd.isna(mat.loc[2016, 8])
+    # 2016-03 parses with thousands separator.
+    assert mat.loc[2016, 3] == pytest.approx(1189.4)
+    # Building 50 skips 2025-12 (the reason the common window ends 2025-11).
+    assert pd.isna(mat.loc[2025, 12])
 
 
 def test_compare_eui_bands(campus):
