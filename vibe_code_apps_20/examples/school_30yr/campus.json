@@ -1,0 +1,38 @@
+{
+  "campus_id": "school_30yr",
+  "label": "Fictional Detroit K-12 School (30-year ESCO rehearsal)",
+  "provenance": "synthetic_rehearsal",
+  "notes": "Entirely fictional 100,000 ft2 two-story K-12 school used to rehearse the WattLab 30-year deep-retrofit workflow. All twelve 2025 monthly bills are synthetic, seasonally shaped rehearsal values authored for this repo; they are NOT measured data from any real property, district, or utility account.",
+  "location": {
+    "city": "Detroit, MI",
+    "latitude": 42.33,
+    "longitude": -83.05,
+    "climate_zone": "5A"
+  },
+  "buildings": [
+    {
+      "building_id": "school_main",
+      "label": "Fictional K-12 School (rehearsal)",
+      "floor_area_ft2": 100000,
+      "floors": 2,
+      "wwr": 0.25,
+      "property_type": "k12_school"
+    }
+  ],
+  "meters": [
+    {
+      "meter_id": "elec_main",
+      "fuel": "electricity",
+      "unit": "kwh",
+      "file": "electricity.csv",
+      "serves": ["school_main"]
+    },
+    {
+      "meter_id": "gas_main",
+      "fuel": "gas",
+      "unit": "therm",
+      "file": "gas.csv",
+      "serves": ["school_main"]
+    }
+  ]
+}

@@ -83,6 +83,77 @@ calibrated EnergyPlus. The benchmarks layer keeps the other two honest:
 
 **Quick link (vibe19 upload zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout for historian packages that feed WattLab via the Energy Model tab / Model Seed Bundle.
 
+## School 30-year rehearsal
+
+`examples/school_30yr/` is a fictional 100,000 ft² Detroit K-12 school. Its
+twelve 2025 electricity and gas bills are repository-authored
+`synthetic_rehearsal` data, not measured or transformed property, district, or
+utility data. The example exists only to exercise the end-to-end workflow.
+
+Inputs fail closed through strict Pydantic v2 contracts:
+`WeatherRequest` / `WeatherDatasetMeta` require valid coordinates, ordered
+dates, UTC archive data, all EPW variables, bounded values, SHA-256 provenance,
+and complete annual coverage; `UtilityBillRecord` / `UtilityDataset` require
+valid fuel-unit pairs and exactly 12 consecutive single-fuel months; and
+`RetrofitScenario` requires unique measures plus an explicit
+`conceptual_surrogate` declaration.
+
+Open-Meteo archive responses use request-keyed, atomically written cache
+envelopes, preserve download time and source hash, validate units/coordinates/
+array shapes/physical bounds, and retry only timeouts, HTTP 429, and HTTP 5xx
+with bounded backoff. Annual EPWs reject gaps, duplicates, and anything other
+than 8,760 rows (8,784 in leap years). Archive timestamps are UTC, but EPW rows
+**must be converted to local standard time** and the LOCATION header must use
+the same fixed offset; UTC-stamped EPW rows misalign solar and weather data.
+
+Measure sets:
+
+- `school_30yr_hydronic`: schedule alignment, premium fan/VFD, high-efficiency
+  chiller, condensing boiler, and high-performance glazing.
+- `school_30yr_electrify`: schedule alignment, premium fan/VFD, high-efficiency
+  chiller, conceptual air-to-water heat pump, and high-performance glazing.
+
+These are screening models. The AWHP is represented as an electric-boiler
+surrogate, glazing as a simple-glazing envelope proxy, and fan/chiller/boiler
+replacements as direct parameter or efficiency edits—not equipment selection,
+plant redesign, controls design, or construction-ready analysis.
+
+```powershell
+cd vibe_code_apps_20
+
+# Focused unit verification (no network or Docker)
+python -m pytest tests/test_input_contracts.py tests/test_open_meteo_weather.py tests/test_deep_retrofit_patches.py tests/test_school_30yr_rehearsal.py -q
+
+# Full suite
+python -m pytest -q
+
+# Live Open-Meteo + Docker rehearsal
+$env:RUN_SCHOOL_30YR_LIVE="1"
+python -m pytest tests/test_school_30yr_rehearsal.py::test_live_school_30yr_rehearsal -q -s
+Remove-Item Env:RUN_SCHOOL_30YR_LIVE
+
+# Equivalent report-producing run
+python scripts/school_30yr_rehearsal.py
+```
+
+The script exits nonzero only for simulation/runtime failure. `INVESTIGATE` is
+a review status recorded in the report, so a completed conceptual rehearsal
+does not fail CI. Baseline G14 calibration is dual-fuel: monthly electricity
+and natural gas must each pass NMBE/CV(RMSE). The fan, chiller, and heating
+plant are explicit shares of one major-HVAC p50 package; glazing and controls
+retain separate cost bases.
+
+The live evidence recorded on 2026-07-18 completed 12/12 simulations. Both
+baseline fuels fail ASHRAE G14: electricity NMBE/CV(RMSE) are 52.21%/52.61%,
+and natural gas is 78.03%/93.74%. The fail-closed release verdict is therefore
+`INVESTIGATE` even though execution completed and the separate capital-plan
+guardrails pass. Report: `.artifacts/school_30yr_rehearsal.json`.
+Its `comparison` rollup reports hydronic renewal at 90,261.2 kWh and 4,864.5
+therms saved/year, $17,986.53/year cost savings, $716,806.94 implementation
+cost, and -$346,521.59 NPV; electrification at 61,148.4 kWh and 8,085.7
+therms saved/year, $17,133.43/year cost savings, $716,806.94 implementation
+cost, and -$364,084.16 NPV. Both remain `INVESTIGATE`.
+
 ## Design principles
 
 1. **Evidence before modeling.** An OpenFDD finding is not automatically an ECM.

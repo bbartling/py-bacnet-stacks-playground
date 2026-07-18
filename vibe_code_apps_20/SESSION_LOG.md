@@ -2,6 +2,42 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-18 (late pm) — Synthetic school 30-year rehearsal
+
+- Added strict Pydantic v2 contracts for weather requests/metadata, monthly
+  utility datasets, and retrofit scenarios. Contracts forbid extra fields and
+  reject invalid coordinates/dates, missing EPW variables, invalid fuel-unit
+  pairs, anything other than 12 consecutive single-fuel bill months, missing
+  provenance, duplicate measures, and implicit surrogate status.
+- Added robust Open-Meteo archive ingestion: UTC/Fahrenheit/mph requests,
+  request-keyed atomic cache envelopes, original-response SHA and download
+  provenance, bounded retries for timeout/429/5xx, and coordinate/unit/shape/
+  timestamp/physical/full-year guards. Annual EPWs require 8,760 rows (8,784
+  leap year) and UTC archive rows are converted to fixed local standard time
+  before writing the matching EPW LOCATION offset.
+- Added `examples/school_30yr/`, a fictional 100,000 ft² K-12 school with 12
+  repository-authored 2025 electricity/gas bills labeled
+  `synthetic_rehearsal`; no measured property, district, contractor, or utility
+  data is used.
+- Added `school_30yr_hydronic` (schedule, fan/VFD, chiller, condensing boiler,
+  glazing) and `school_30yr_electrify` (schedule, fan/VFD, chiller, AWHP,
+  glazing). These remain conceptual: AWHP is an electric-boiler surrogate,
+  glazing is a simple-glazing proxy, and equipment replacements directly edit
+  efficiency/parameters rather than model construction-ready systems.
+- Live Open-Meteo + Docker evidence: 12/12 EnergyPlus runs `COMPLETE`, with
+  zero Severe/Fatal entries in all 12 `.err` files. Baseline electricity fails
+  G14 at 52.21% NMBE / 52.61% CV(RMSE), natural gas fails at 78.03% / 93.74%,
+  and conceptual flags remain, so both scenario releases and the overall
+  release correctly stay `INVESTIGATE`.
+- Canonical report: `.artifacts/school_30yr_rehearsal.json`. Comparison:
+  hydronic saves 90,261.2 kWh + 4,864.5 therms/year ($17,986.53/year;
+  $716,806.94 cost; -$346,521.59 NPV); electrify saves 61,148.4 kWh +
+  8,085.7 therms/year ($17,133.43/year; $716,806.94 cost;
+  -$364,084.16 NPV). Both are `INVESTIGATE`.
+- Verification commands documented in README, both agent handbooks, and
+  `vibe20_agent_spec/docs/TWIN_LOOP.md`: focused unit suite, full pytest,
+  opt-in live integration, and direct report-producing rehearsal.
+
 ## 2026-07-18 (pm) — Live twin-loop rehearsal on Liberty + fixes it exposed
 
 - **Rehearsal**: new `scripts/agent_twin_demo.py` plays the full agent+human

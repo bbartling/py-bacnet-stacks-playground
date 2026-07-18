@@ -71,7 +71,8 @@ def test_measure_set_expansion_order():
     ]
     assert all(m.get("review_status") == "approved" for m in best)
     sets = list_measure_sets()
-    assert {s["id"] for s in sets} == {"good", "better", "best"}
+    # good/better/best always ship; scenario sets (school_30yr_*) may add more
+    assert {"good", "better", "best"}.issubset({s["id"] for s in sets})
 
 
 def test_chiller_lockout_and_sat_patch(tmp_path: Path):

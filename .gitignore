@@ -10,6 +10,7 @@ __pycache__/
 !vibe_code_apps_12/commissioning/**/*.csv
 !vibe_code_apps_19/tests/golden/**/*.csv
 !vibe_code_apps_19/tests/fixtures/analytics_pkg/**/*.csv
+!vibe_code_apps_20/examples/school_30yr/*.csv
 
 # Distribution / packaging
 .Python

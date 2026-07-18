@@ -9,10 +9,16 @@ from __future__ import annotations
 
 import argparse
 import math
+from calendar import isleap
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from wattlab.weather.validate import (
+    assert_consecutive_hourly_index,
+    assert_epw_frame_physical_bounds,
+)
 
 # EPW missing-value conventions (common EnergyPlus defaults)
 MISS_TEMP = 99.9
@@ -83,6 +89,43 @@ def resample_hourly(df: pd.DataFrame) -> pd.DataFrame:
     return num.resample("1h").mean().dropna(how="all")
 
 
+def utc_frame_to_local_standard(
+    df: pd.DataFrame, tz_hours: int | float
+) -> pd.DataFrame:
+    """Shift one full calendar year of hourly UTC rows to local standard time.
+
+    EnergyPlus interprets EPW data rows in the LOCATION header's local
+    standard time; feeding UTC-stamped rows with a nonzero header timezone
+    misaligns solar radiation by ``|tz_hours|`` hours (found live: 884 severe
+    'Temperature out of bounds' errors on the Detroit 2025 AMY run). The
+    first ``|tz_hours|`` UTC hours of Jan 1 wrap around to the end of the
+    local year so the result is still exactly one calendar year.
+    """
+    if float(tz_hours) != int(tz_hours):
+        raise ValueError(f"tz_hours must be a whole hour offset (got {tz_hours})")
+    frame = load_weather_frame(df)
+    idx = frame.index
+    assert_consecutive_hourly_index(idx, context="UTC weather timestamps")
+    year = int(idx[0].year)
+    expected_rows = 8784 if isleap(year) else 8760
+    expected_start = pd.Timestamp(year=year, month=1, day=1, tz=idx.tz)
+    if idx[0] != expected_start or len(idx) != expected_rows:
+        raise ValueError(
+            "utc_frame_to_local_standard requires one full calendar year of "
+            f"hourly UTC rows starting Jan 1 00:00 (got {len(idx)} rows "
+            f"starting {idx[0]})"
+        )
+    offset = int(-int(tz_hours)) % expected_rows
+    shifted = pd.concat([frame.iloc[offset:], frame.iloc[:offset]])
+    shifted.index = pd.date_range(
+        start=pd.Timestamp(year=year, month=1, day=1),
+        periods=expected_rows,
+        freq="1h",
+    )
+    shifted.index.name = "timestamp_local_standard"
+    return shifted
+
+
 def _epw_header(
     *,
     location_name: str,
@@ -92,9 +135,10 @@ def _epw_header(
     wmo: str,
     start: pd.Timestamp,
     end: pd.Timestamp,
+    tz_hours: float | None = None,
 ) -> list[str]:
-    # Rough timezone from longitude
-    tz = round(lon / 15.0)
+    # Explicit local-standard timezone when given; else rough from longitude
+    tz = tz_hours if tz_hours is not None else round(lon / 15.0)
     loc = (
         f"LOCATION,{location_name},XX,USA,AMY,{wmo},"
         f"{lat:.3f},{lon:.3f},{tz:.1f},{elevation_m:.1f}"
@@ -189,6 +233,30 @@ def _data_row(ts: pd.Timestamp, row: pd.Series) -> str:
     return ",".join(str(x) for x in fields)
 
 
+def _validate_annual_coverage(index: pd.DatetimeIndex) -> None:
+    """Require one complete calendar year of consecutive hourly rows."""
+    start = index[0]
+    year = int(start.year)
+    expected_rows = 8784 if isleap(year) else 8760
+    expected = pd.date_range(
+        start=pd.Timestamp(year=year, month=1, day=1, tz=index.tz),
+        periods=expected_rows,
+        freq="1h",
+    )
+    if start != expected[0]:
+        raise ValueError(
+            "coverage_mode='annual' requires a full calendar year starting "
+            f"Jan 1 00:00 (data starts {start})"
+        )
+    if len(index) != expected_rows or not index.equals(expected):
+        raise ValueError(
+            f"coverage_mode='annual' requires exactly {expected_rows} "
+            f"consecutive hourly rows covering {year} with no gaps or "
+            f"duplicates (got {len(index)} rows spanning "
+            f"{start}..{index[-1]})"
+        )
+
+
 def build_amy_epw(
     weather: Path | str | pd.DataFrame,
     out_path: Path | str,
@@ -198,12 +266,35 @@ def build_amy_epw(
     elevation_m: float = 200.0,
     location_name: str = "OpenFDD_AMY",
     wmo: str = "999999",
+    coverage_mode: str = "partial",
+    tz_hours: float | None = None,
 ) -> dict[str, Any]:
-    """Write an AMY EPW from vibe19/Open-Meteo weather. Returns metadata dict."""
+    """Write an AMY EPW from vibe19/Open-Meteo weather. Returns metadata dict.
+
+    coverage_mode='annual' rejects anything but one complete calendar year
+    (8,760 or 8,784 consecutive hourly rows) *before* writing the file;
+    coverage_mode='partial' (default) keeps the historical overlap-window
+    behavior for calibration slices.
+
+    ``tz_hours`` sets the LOCATION header timezone explicitly. Rows must be
+    stamped in that local standard time (see ``utc_frame_to_local_standard``);
+    EnergyPlus rejects headers more than ~2 h off the longitude meridian.
+    """
+    if coverage_mode not in ("annual", "partial"):
+        raise ValueError(
+            f"coverage_mode must be 'annual' or 'partial' (got {coverage_mode!r})"
+        )
     df = load_weather_frame(weather)
+    if coverage_mode == "annual":
+        # Reject duplicates / sub-hourly / gappy indexes *before* mean-resample
+        # can hide them, and reject nonfinite / out-of-bounds weather values.
+        assert_consecutive_hourly_index(df.index, context="annual weather timestamps")
+        assert_epw_frame_physical_bounds(df)
     hourly = resample_hourly(df)
     if hourly.empty:
         raise ValueError("No hourly weather rows after resample")
+    if coverage_mode == "annual":
+        _validate_annual_coverage(hourly.index)
 
     start = hourly.index.min()
     end = hourly.index.max()
@@ -215,20 +306,30 @@ def build_amy_epw(
         wmo=wmo,
         start=start,
         end=end,
+        tz_hours=tz_hours,
     )
     lines = header + [_data_row(ts, hourly.loc[ts]) for ts in hourly.index]
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return {
+    metadata: dict[str, Any] = {
         "epw": str(out),
         "rows": len(hourly),
-        "start_utc": str(start),
-        "end_utc": str(end),
         "lat": lat,
         "lon": lon,
         "location_name": location_name,
+        "time_basis": "local_standard" if tz_hours is not None else "utc",
+        "tz_hours": float(tz_hours) if tz_hours is not None else 0.0,
     }
+    if tz_hours is not None:
+        metadata["start_local_standard"] = str(start.tz_localize(None))
+        metadata["end_local_standard"] = str(end.tz_localize(None))
+    else:
+        # Backward-compatible keys for callers that have not converted an
+        # archive UTC frame to EPW local standard time.
+        metadata["start_utc"] = str(start)
+        metadata["end_utc"] = str(end)
+    return metadata
 
 
 def main(argv: list[str] | None = None) -> int:

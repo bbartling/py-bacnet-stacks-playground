@@ -31,6 +31,27 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 17. **Session log discipline** — append `../SESSION_LOG.md` (newest first) after every shipped session; update skills/docs here when behavior changes.
 18. **ASCII in console output** — Windows cp1252 chokes on arrows/em-dashes in `print()`; keep CLI/smoke output plain ASCII (tests set `PYTHONIOENCODING=utf-8` for subprocesses).
 19. **vibe20-only commits don't rebuild vibe19's GHCR image** — the workflow path-filters on `vibe_code_apps_19/**`. If you touch vibe19 too, follow its rules 25/30 (multi-arch QEMU publish + manifest verify).
+20. **Strict input contracts** — `wattlab.contracts` uses Pydantic v2 with
+    `extra="forbid"`. Weather requires UTC, complete EPW variables, valid
+    coordinates/dates, and full-year row counts; utility datasets require
+    exactly 12 consecutive single-fuel months, valid fuel/unit pairs, positive
+    area, and explicit `actual|synthetic_rehearsal` provenance; retrofit
+    scenarios require unique measure IDs and an explicit surrogate declaration.
+21. **Archive weather is validated evidence** — Open-Meteo uses request-keyed
+    atomic cache envelopes, SHA-256/download provenance, bounded transient
+    retries, and coordinate/unit/shape/timestamp/physical/full-year checks.
+    Convert UTC archive rows to local standard time before writing EPW and use
+    the matching fixed LOCATION offset; do not feed UTC-stamped rows to
+    EnergyPlus as local weather.
+22. **School example is fictional** — `examples/school_30yr/` contains 12
+    repository-authored 2025 synthetic bills for a fictional K-12 school. It
+    contains no measured property, district, contractor, or utility data.
+23. **Deep-retrofit results remain conceptual** —
+    `school_30yr_hydronic` uses controls, fan/VFD, chiller, condensing-boiler,
+    and glazing measures; `school_30yr_electrify` replaces the boiler step with
+    an AWHP represented as an electric boiler. Glazing is a simple-glazing
+    proxy and equipment replacements are direct efficiency/parameter edits,
+    not construction-ready designs.
 
 ---
 
@@ -69,6 +90,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `studio.py` | WattLab Studio (Ingest / Model / Benchmark / Measures / Twin loop / Capital plan) |
 | `scripts/smoke_studio.py` | AppTest smoke walk (all pages + loaded Liberty walk) |
 | `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on Liberty (real Docker E+ baseline + ECMs) |
+| `scripts/school_30yr_rehearsal.py` | Synthetic K-12 30-year hydronic/electrification rehearsal |
+| `examples/school_30yr/` | Fictional school profile and synthetic 2025 bills |
 | `examples/liberty/` | Real shared-meter practice campus (bills + campus.json) |
 | `wattlab/data/benchmarks/` | `benchmarks_public.json` + `retrofit_costs_public.json` |
 | `wattlab/data/defaults/` | Archetypes / climate / code vintages |
@@ -101,5 +124,30 @@ wattlab benchmark examples\liberty\campus.json   # bills sanity: campus EUI 71.6
 python scripts\agent_twin_demo.py        # end-to-end twin loop (needs Docker + image)
 # live UI: wattlab studio  →  http://localhost:8501/_stcore/health → "ok"
 ```
+
+School rehearsal verification:
+
+```powershell
+python -m pytest tests/test_input_contracts.py tests/test_open_meteo_weather.py tests/test_deep_retrofit_patches.py tests/test_school_30yr_rehearsal.py -q
+python -m pytest -q
+$env:RUN_SCHOOL_30YR_LIVE="1"
+python -m pytest tests/test_school_30yr_rehearsal.py::test_live_school_30yr_rehearsal -q -s
+Remove-Item Env:RUN_SCHOOL_30YR_LIVE
+python scripts/school_30yr_rehearsal.py
+```
+
+The script exits nonzero for simulation/runtime failure, not for the normal
+`INVESTIGATE` review status of a completed conceptual rehearsal. Release G14
+requires both electricity and natural gas monthly gates. Major-HVAC component
+shares total one p50 package in each school scenario.
+
+2026-07-18 live evidence: all 12 runs completed. Baseline G14 failed for
+electricity (52.21% NMBE / 52.61% CV(RMSE)) and natural gas (78.03% /
+93.74%), so both scenario and overall release verdicts are correctly
+`INVESTIGATE`. `.artifacts/school_30yr_rehearsal.json` carries provenance,
+scenario details, and the `comparison` rollup: hydronic 90,261.2 kWh + 4,864.5
+therms/year saved, $17,986.53/year, $716,806.94 cost, -$346,521.59 NPV;
+electrify 61,148.4 kWh + 8,085.7 therms/year saved, $17,133.43/year,
+$716,806.94 cost, -$364,084.16 NPV.
 
 After each task: append **`../SESSION_LOG.md`** when non-trivial.

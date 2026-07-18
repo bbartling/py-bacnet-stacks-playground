@@ -38,6 +38,20 @@ Optimize for engineering defensibility, reproducibility, and honest limits (unca
 - Never publish utility savings or payback without listing rate and confidence assumptions.
 - Never expose the actual building location when the project is marked anonymized.
 - Do not claim fake “public product API” wrappers beyond documented Docker / MCP / easy-button surfaces.
+- Validate school rehearsal inputs through the strict Pydantic contracts in
+  `wattlab.contracts`: extra fields are forbidden; weather must be UTC with all
+  required EPW variables and complete annual coverage; utility datasets must
+  contain exactly 12 consecutive single-fuel months with valid units and
+  explicit `actual` or `synthetic_rehearsal` provenance; scenarios must declare
+  whether they are conceptual surrogates.
+- Open-Meteo archive data must pass cache-envelope, source hash, coordinate,
+  unit, shape, physical-bound, and full-year guards. Retry only transient
+  timeout/429/5xx failures. Convert full-year UTC rows to local standard time
+  before writing an EPW and use the same fixed offset in its LOCATION header.
+- Treat deep-retrofit patches as conceptual screens: AWHP is an electric-boiler
+  surrogate, glazing is a simple-glazing proxy, and fan/chiller/boiler changes
+  are direct efficiency/equipment-parameter replacements. Never present them
+  as selected equipment, a plant redesign, or construction-ready analysis.
 
 ## Standard statuses
 
@@ -157,6 +171,41 @@ simulation**. Before any capital plan or ROI narrative is emitted:
 - Default prototype: `examples/prototypes/5ZoneAirCooled.idf`
 - Madison EPW: Chicago O'Hare TMY3 proxy (`examples/weather/...`) until a WI file is bundled — always record `epw_note` + `weather_suitability=SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`
 - Artifacts: `.artifacts/wattlab_<UTC>/` with IDF copies, `eplustbl.*`, `result_record_*.json`, `wattlab_report.json`, `run_manifest.json`
+
+### School 30-year rehearsal
+
+`examples/school_30yr/` is a proprietary-safe fictional K-12 example: all 12
+monthly 2025 bills were authored for this repository and carry
+`provenance=synthetic_rehearsal`; none is measured customer data.
+
+- `school_30yr_hydronic`: schedule + premium fan/VFD + high-efficiency chiller
+  + condensing boiler + glazing proxy.
+- `school_30yr_electrify`: schedule + premium fan/VFD + high-efficiency chiller
+  + AWHP electric-boiler surrogate + glazing proxy.
+
+```powershell
+cd vibe_code_apps_20
+python -m pytest tests/test_input_contracts.py tests/test_open_meteo_weather.py tests/test_deep_retrofit_patches.py tests/test_school_30yr_rehearsal.py -q
+python -m pytest -q
+$env:RUN_SCHOOL_30YR_LIVE="1"
+python -m pytest tests/test_school_30yr_rehearsal.py::test_live_school_30yr_rehearsal -q -s
+Remove-Item Env:RUN_SCHOOL_30YR_LIVE
+python scripts/school_30yr_rehearsal.py
+```
+
+The direct script returns nonzero only for simulation/runtime failure.
+`INVESTIGATE` remains a normal review status for a completed conceptual
+rehearsal. Release calibration requires both monthly electricity and natural
+gas G14 gates to pass. Fan, chiller, and heating-plant costs are shares of one
+major-HVAC p50 package rather than stacked whole-building packages.
+
+Live 2026-07-18 evidence: 12/12 EnergyPlus runs `COMPLETE`. Both baseline
+fuels fail G14: electricity NMBE/CV(RMSE) are 52.21%/52.61%, and natural gas
+is 78.03%/93.74%. Therefore the release guard correctly returns `INVESTIGATE`
+for both scenarios. Canonical report: `.artifacts/school_30yr_rehearsal.json`;
+its `comparison` rollup is hydronic 90,261.2 kWh + 4,864.5 therms saved/year,
+$17,986.53/year, $716,806.94 cost, -$346,521.59 NPV; electrify 61,148.4 kWh +
+8,085.7 therms saved/year, $17,133.43/year, $716,806.94 cost, -$364,084.16 NPV.
 
 ## Madison playbook
 

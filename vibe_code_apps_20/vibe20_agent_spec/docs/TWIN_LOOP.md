@@ -115,3 +115,74 @@ prevent.
 Every E+ run writes `run_manifest.json` (model SHA, weather SHA, image pin).
 Studio Twin loop shows the last 10. Never compare savings across runs with
 different weather or prototype hashes.
+
+## School 30-year rehearsal
+
+`examples/school_30yr/` is a fictional 100,000 ft² K-12 school with twelve
+repository-authored 2025 bills labeled `synthetic_rehearsal`. It contains no
+measured or transformed customer, district, contractor, or utility data.
+
+Before network or simulation work, strict Pydantic contracts reject extra
+fields, invalid coordinates/date order, incomplete EPW variables, bad
+fuel-unit pairs, duplicate or non-consecutive bills, mixed fuels/units, and
+scenarios without unique measures or an explicit conceptual-surrogate flag.
+The Open-Meteo archive flow uses request-keyed atomic caching, source SHA and
+download provenance, bounded retries for timeout/429/5xx only, declared-unit
+and physical-bound validation, consecutive timestamps, and exact full-year
+coverage (8,760 rows; 8,784 in leap years).
+
+Open-Meteo archive rows arrive in UTC. A full-year frame must be rotated and
+restamped to the site's **local standard time** before EPW generation, with
+the same fixed UTC offset in the LOCATION header. DST is not applied. Writing
+UTC rows into a local EPW misaligns radiation and weather schedules.
+
+The two progressive scenarios are:
+
+- `school_30yr_hydronic`: schedule alignment → premium fan/VFD →
+  high-efficiency chiller → condensing boiler → glazing.
+- `school_30yr_electrify`: schedule alignment → premium fan/VFD →
+  high-efficiency chiller → AWHP surrogate → glazing.
+
+Both are conceptual. The AWHP is modeled as an electric boiler at a screening
+COP, glazing uses a simple-glazing envelope proxy, and fan/chiller/boiler
+replacements directly edit efficiencies or equipment parameters. These do not
+model heat-pump performance maps, plant redesign, controls integration,
+detailed fenestration, equipment selection, or constructability.
+
+```powershell
+cd vibe_code_apps_20
+
+# Focused unit suite; no network or Docker
+python -m pytest tests/test_input_contracts.py tests/test_open_meteo_weather.py tests/test_deep_retrofit_patches.py tests/test_school_30yr_rehearsal.py -q
+
+# Full suite
+python -m pytest -q
+
+# Opt-in live Open-Meteo + Docker integration
+$env:RUN_SCHOOL_30YR_LIVE="1"
+python -m pytest tests/test_school_30yr_rehearsal.py::test_live_school_30yr_rehearsal -q -s
+Remove-Item Env:RUN_SCHOOL_30YR_LIVE
+
+# Generate the canonical report directly
+python scripts/school_30yr_rehearsal.py
+```
+
+The script's process exit describes execution only: simulation/runtime failure
+is nonzero, while a completed `INVESTIGATE` rehearsal exits zero. The release
+guard requires separate monthly electricity and natural-gas G14 passes.
+Major-HVAC component costs use explicit shares that total one p50 package per
+scenario; controls and glazing remain separate.
+
+The 2026-07-18 live rehearsal produced 12/12 `COMPLETE` records. Simulation
+completion is not publication approval: baseline electricity fails G14 at
+52.21% NMBE / 52.61% CV(RMSE), natural gas fails at 78.03% / 93.74%, and
+conceptual flags are present, so the fail-closed release guard returns
+`INVESTIGATE` for each scenario and overall.
+
+Canonical report: `.artifacts/school_30yr_rehearsal.json`. Its `comparison`
+rollup reports:
+
+- hydronic: 90,261.2 kWh and 4,864.5 therms saved/year; $17,986.53/year;
+  $716,806.94 implementation cost; -$346,521.59 NPV; `INVESTIGATE`.
+- electrify: 61,148.4 kWh and 8,085.7 therms saved/year; $17,133.43/year;
+  $716,806.94 implementation cost; -$364,084.16 NPV; `INVESTIGATE`.

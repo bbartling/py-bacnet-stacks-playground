@@ -26,14 +26,19 @@ from wattlab.config import (
     ROOT,
     weather_suitability,
 )
-from wattlab.measures.measure_sets import expand_measure_set
+from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
 from wattlab.energyplus.mcp import simulate
 from wattlab.energyplus.patches import (
+    apply_air_to_water_heat_pump_surrogate,
     apply_chiller_lockout,
+    apply_condensing_boiler_efficiency,
     apply_fan_avail_continuous,
     apply_fan_avail_occupied_office,
     apply_gl36_airside_proxy,
+    apply_high_efficiency_chiller,
+    apply_high_performance_glazing,
     apply_monthly_energy_tables,
+    apply_premium_fan_vfd,
     apply_sat_reset,
 )
 from wattlab.energyplus.results import (
@@ -220,6 +225,11 @@ def _rates(profile: dict) -> tuple[float, float]:
     )
 
 
+def _float_param(params: dict, name: str, default: float) -> float:
+    value = params.get(name)
+    return float(default if value is None else value)
+
+
 def _apply_patch(name: str, src: Path, dest: Path, measure: dict | None = None) -> dict:
     patch = (measure or {}).get("idf_patch") or {}
     params = patch.get("params") or {}
@@ -243,6 +253,43 @@ def _apply_patch(name: str, src: Path, dest: Path, measure: dict | None = None) 
         )
     if name in {"sat_reset", "sat_reset_proxy"}:
         return apply_sat_reset(src, dest)
+    if name == "high_performance_glazing":
+        return apply_high_performance_glazing(
+            src,
+            dest,
+            u_factor=_float_param(params, "u_factor", 1.4),
+            shgc=_float_param(params, "shgc", 0.30),
+            visible_transmittance=_float_param(
+                params, "visible_transmittance", 0.50
+            ),
+        )
+    if name == "condensing_boiler":
+        return apply_condensing_boiler_efficiency(
+            src,
+            dest,
+            efficiency=_float_param(params, "efficiency", 0.95),
+        )
+    if name == "high_efficiency_chiller":
+        return apply_high_efficiency_chiller(
+            src,
+            dest,
+            cop=_float_param(params, "cop", 6.1),
+        )
+    if name == "premium_fan_vfd":
+        return apply_premium_fan_vfd(
+            src,
+            dest,
+            total_efficiency=_float_param(params, "total_efficiency", 0.75),
+            motor_efficiency=_float_param(params, "motor_efficiency", 0.95),
+            pressure_pa=_float_param(params, "pressure_pa", 400.0),
+            min_flow_fraction=_float_param(params, "min_flow_fraction", 0.10),
+        )
+    if name == "awhp_surrogate":
+        return apply_air_to_water_heat_pump_surrogate(
+            src,
+            dest,
+            cop=_float_param(params, "cop", 2.8),
+        )
     raise ValueError(f"Unknown idf_patch name: {name}")
 
 
@@ -466,9 +513,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--skip-ecm2", action="store_true")
     p.add_argument(
         "--measure-set",
-        choices=["good", "better", "best"],
+        choices=[s["id"] for s in list_measure_sets()],
         default=None,
-        help="Expand Good/Better/Best measure set (overrides profile measures)",
+        help="Expand a measure set from measure_sets.json (overrides profile measures)",
     )
     args = p.parse_args(argv)
 

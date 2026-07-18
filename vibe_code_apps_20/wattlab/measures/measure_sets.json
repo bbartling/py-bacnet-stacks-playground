@@ -19,6 +19,28 @@
       "ECM-GL36-AIRSIDE"
     ]
   },
+  "school_30yr_hydronic": {
+    "label": "School 30-yr hydronic renewal",
+    "description": "Controls + premium fan/VFD + high-efficiency chiller + condensing boiler + high-performance glazing. 30-year K-12 ESCO rehearsal keeping the gas hydronic plant.",
+    "measure_ids": [
+      "ECM-AHU-SCHED-ALIGN",
+      "ECM-PREMIUM-FAN-VFD",
+      "ECM-CHILLER-REPLACE-HIEFF",
+      "ECM-CONDENSING-BOILER",
+      "ECM-WINDOW-HP-GLAZING"
+    ]
+  },
+  "school_30yr_electrify": {
+    "label": "School 30-yr electrification",
+    "description": "Controls + premium fan/VFD + high-efficiency chiller + air-to-water heat-pump surrogate + high-performance glazing. 30-year K-12 ESCO rehearsal electrifying heat (AWHP modeled as an electric boiler surrogate; conceptual only).",
+    "measure_ids": [
+      "ECM-AHU-SCHED-ALIGN",
+      "ECM-PREMIUM-FAN-VFD",
+      "ECM-CHILLER-REPLACE-HIEFF",
+      "ECM-AWHP-SURROGATE",
+      "ECM-WINDOW-HP-GLAZING"
+    ]
+  },
   "catalog": {
     "ECM-AHU-SCHED-ALIGN": {
       "measure_id": "ECM-AHU-SCHED-ALIGN",
@@ -64,6 +86,83 @@
       "confidence": "low",
       "review_status": "approved",
       "flags": ["conceptual_gl36_proxy", "gl36_proxy_not_full_sequences"]
+    },
+    "ECM-PREMIUM-FAN-VFD": {
+      "measure_id": "ECM-PREMIUM-FAN-VFD",
+      "title": "Premium-efficiency supply fan + VFD retrofit",
+      "idf_patch": {
+        "name": "premium_fan_vfd",
+        "params": {
+          "total_efficiency": 0.75,
+          "motor_efficiency": 0.95,
+          "pressure_pa": 400,
+          "min_flow_fraction": 0.1
+        }
+      },
+      "vibe19_rules": [],
+      "confidence": "medium",
+      "review_status": "approved",
+      "major_hvac_package_share": 0.2,
+      "flags": ["premium_fan_vfd_screening", "direct_parameter_replacement"]
+    },
+    "ECM-CHILLER-REPLACE-HIEFF": {
+      "measure_id": "ECM-CHILLER-REPLACE-HIEFF",
+      "title": "High-efficiency chiller replacement (nominal COP 6.1)",
+      "idf_patch": {
+        "name": "high_efficiency_chiller",
+        "params": {"cop": 6.1}
+      },
+      "vibe19_rules": [],
+      "confidence": "medium",
+      "review_status": "approved",
+      "major_hvac_package_share": 0.4,
+      "flags": ["conceptual_major_equipment_replacement", "high_efficiency_chiller_screening", "direct_efficiency_replacement"]
+    },
+    "ECM-CONDENSING-BOILER": {
+      "measure_id": "ECM-CONDENSING-BOILER",
+      "title": "Condensing hot-water boiler replacement (95% thermal efficiency)",
+      "idf_patch": {
+        "name": "condensing_boiler",
+        "params": {"efficiency": 0.95}
+      },
+      "vibe19_rules": [],
+      "confidence": "medium",
+      "review_status": "approved",
+      "major_hvac_package_share": 0.4,
+      "flags": ["conceptual_major_equipment_replacement", "condensing_boiler_screening", "direct_efficiency_replacement"]
+    },
+    "ECM-AWHP-SURROGATE": {
+      "measure_id": "ECM-AWHP-SURROGATE",
+      "title": "Air-to-water heat pump (conceptual electric-boiler surrogate, COP 2.8)",
+      "idf_patch": {
+        "name": "awhp_surrogate",
+        "params": {"cop": 2.8}
+      },
+      "vibe19_rules": [],
+      "confidence": "low",
+      "review_status": "approved",
+      "major_hvac_package_share": 0.4,
+      "flags": [
+        "conceptual_system_surrogate",
+        "awhp_modeled_as_electric_boiler",
+        "screening_only"
+      ]
+    },
+    "ECM-WINDOW-HP-GLAZING": {
+      "measure_id": "ECM-WINDOW-HP-GLAZING",
+      "title": "High-performance glazing replacement (simple-glazing envelope proxy)",
+      "idf_patch": {
+        "name": "high_performance_glazing",
+        "params": {
+          "u_factor": 1.4,
+          "shgc": 0.3,
+          "visible_transmittance": 0.5
+        }
+      },
+      "vibe19_rules": [],
+      "confidence": "low",
+      "review_status": "approved",
+      "flags": ["conceptual_envelope_proxy", "screening_only"]
     }
   }
 }

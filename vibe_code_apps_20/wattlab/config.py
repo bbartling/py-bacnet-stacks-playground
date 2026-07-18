@@ -62,13 +62,6 @@ def weather_suitability(
     epw = Path(epw_path) if epw_path else None
     epw_name = epw.name.lower() if epw else ""
 
-    if src in {"amy", "actual", "actual_year", ACTUAL_YEAR_CALIBRATION.lower()}:
-        return {
-            "mode": ACTUAL_YEAR_CALIBRATION,
-            "reason": note
-            or "Actual Meteorological Year EPW built from observed weather for the measured period.",
-        }
-
     substitute_hints = (
         "approximat",
         "substitut",
@@ -98,6 +91,13 @@ def weather_suitability(
         return {
             "mode": SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY,
             "reason": note or DEFAULT_EPW_NOTE,
+        }
+
+    if src in {"amy", "actual", "actual_year", ACTUAL_YEAR_CALIBRATION.lower()}:
+        return {
+            "mode": ACTUAL_YEAR_CALIBRATION,
+            "reason": note
+            or "Actual Meteorological Year EPW built from observed weather for the measured period.",
         }
 
     return {
