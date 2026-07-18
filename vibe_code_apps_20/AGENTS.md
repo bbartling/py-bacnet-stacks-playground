@@ -98,6 +98,22 @@ incremental savings against the ESCO bin-method proxy
 bills exist, the baseline must also pass ASHRAE G14 monthly gates
 (NMBE ±5%, CV(RMSE) ≤15%) before savings are reported as calibrated.
 
+Two hard-won rules from running this live on the Liberty campus
+(`scripts/agent_twin_demo.py`, real Docker EnergyPlus 26.1 runs):
+
+- **Area-normalize before judging.** The bundled 5ZoneAirCooled prototype is
+  ~10k ft²; proxies are sized for the real building. The crosscheck applies
+  `prototype_area_scale` (target ft² / model ft² from the baseline record's
+  `building_area_m2`) automatically and stamps `area_scale` +
+  `ep_savings_kwh_scaled` on every verdict. A scaled ratio still outside the
+  band is a genuine disagreement (schedules, W/cfm, kW/ton), not geometry.
+- **Monthly meters are patched in, with an .mtr fallback.** E+ 26.1 writes no
+  monthly BUILDING ENERGY PERFORMANCE tabular section for this prototype, so
+  `easy_button` adds `Output:Meter,...,Monthly` objects
+  (`apply_monthly_energy_tables`) and `annual_from_output_dir` falls back to
+  parsing `eplusout.mtr` (`parse_monthly_from_mtr`). Without a monthly series
+  the G14 gate silently never runs — treat empty `monthly` as a bug.
+
 ## Benchmark governance (mandatory before publishing ROI)
 
 Three-layer stack: **benchmark plausibility → bin-method proxies → calibrated

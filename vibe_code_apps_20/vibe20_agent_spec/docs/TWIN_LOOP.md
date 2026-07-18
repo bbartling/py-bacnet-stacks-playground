@@ -73,6 +73,28 @@ Automatic when the profile carries `proxy_savings`; standalone:
 The spreadsheet method is the trust anchor: when they disagree, suspect the
 model first, then the proxy inputs, then (rarely) the method.
 
+**Area normalization (learned live on Liberty):** the bundled 5ZoneAirCooled
+prototype is only ~10k ft², so raw E+ kWh for a 140k ft² profile under-reports
+~14× and every verdict comes back `investigate` for the wrong reason. The
+crosscheck now auto-scales via `prototype_area_scale` (target ft² / model ft²
+from the baseline record's `building_area_m2`) and reports both raw and
+scaled values plus the `area_scale` used. G14 comparisons scale the modeled
+monthly series the same way. When the scaled ratio is *still* outside the
+band, the disagreement is real — schedule assumptions, W/cfm, kW/ton — not
+geometry. The long-term fix is a right-sized prototype; the scale factor is
+the honest screening bridge until then.
+
+**Monthly data prerequisite:** the G14 gate only fires when the baseline
+record has a `monthly` series. `easy_button` now patches monthly
+`Output:Meter,Electricity:Facility` / `NaturalGas:Facility` into every
+prototype (`apply_monthly_energy_tables`) and, because EnergyPlus 26.1 still
+writes no monthly tabular section for this prototype, results parsing falls
+back to `eplusout.mtr` (`parse_monthly_from_mtr`). If `monthly` is empty,
+fix the outputs — don't skip the gate.
+
+Full rehearsal of steps 1–7 against the Liberty campus (real Docker E+ runs):
+`python scripts/agent_twin_demo.py --measure-set best`.
+
 ## Step 6 — Capital plan + benchmark gate
 
 `wattlab.finance.capital_plan` rolls up payback/ROI/NPV. Then — mandatory —

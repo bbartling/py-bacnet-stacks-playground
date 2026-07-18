@@ -27,6 +27,15 @@
       "epw_note": "Minneapolis climate approximated with Chicago O'Hare TMY3 until a MSP TMY3 is vendored.",
       "aliases": ["msp", "twin cities", "minnesota", "mn"]
     },
+    "detroit": {
+      "label": "Detroit, MI",
+      "state": "Michigan",
+      "climate_zone": "5A",
+      "epw": "examples/weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+      "epw_preferred": "examples/weather/USA_MI_Detroit.Metro.AP.725370_TMY3.epw",
+      "epw_note": "Detroit climate approximated with Chicago O'Hare TMY3 (same zone 5A, closest bundled sample). Drop a DTW TMY3 at epw_preferred path when available.",
+      "aliases": ["dtw", "michigan", "mi", "liberty"]
+    },
     "houston": {
       "label": "Houston, TX",
       "state": "Texas",

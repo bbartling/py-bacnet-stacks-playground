@@ -15,8 +15,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 1. **Three-layer stack, in order** — benchmark plausibility → ESCO bin-method proxies → calibrated EnergyPlus. Never jump from sparse evidence to a glossy ROI. DOE itself blesses mixing bin methods and simulation; so do we.
 2. **`wattlab` is an installable package** — `pip install -e .`, import `wattlab.*`, CLI `wattlab <cmd>`. Old flat scripts (`easy_button.py`, `calibrate.py`, …) are back-compat shims: **edit the package, never the shims**.
 3. **ESCO calculators are golden-pinned** — `wattlab/bench/esco.py` reproduces real ESCO retrofit calculator workbooks (anonymized as School A / School B — **never** commit client, district, contractor, or building names) to their own cell values (`tests/test_esco_golden.py`). Never change calculator math without updating the golden tests *and* documenting the spreadsheet basis in [`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md).
-4. **Crosscheck referees every E+ measure** — `wattlab.crosscheck`: agreement ratio E+/proxy in 0.5–2.0× → `in_line`; outside → `investigate`; wrong sign / missing → `keep_iterating` with hints. `easy_button` report gains a `crosscheck` block when the profile carries `proxy_savings`.
-5. **ASHRAE G14 gates calibration** — monthly NMBE ±5%, CV(RMSE) ≤15% where bills exist. No calibrated-savings claims before the baseline passes.
+4. **Crosscheck referees every E+ measure** — `wattlab.crosscheck`: agreement ratio E+/proxy in 0.5–2.0× → `in_line`; outside → `investigate`; wrong sign / missing → `keep_iterating` with hints. `easy_button` report gains a `crosscheck` block when the profile carries `proxy_savings`. **Always area-normalize**: the 5ZoneAirCooled prototype is ~10k ft², so raw E+ savings for a real building are meaningless — `prototype_area_scale` (target ft² / model ft² from `building_area_m2`) is applied automatically and stamped on each verdict as `area_scale` + `ep_savings_kwh_scaled`. Verified live in the Liberty rehearsal (`scripts/agent_twin_demo.py`).
+5. **ASHRAE G14 gates calibration** — monthly NMBE ±5%, CV(RMSE) ≤15% where bills exist. No calibrated-savings claims before the baseline passes. The gate needs a monthly series: `easy_button` patches monthly facility meters into every prototype (`apply_monthly_energy_tables`) and results parsing falls back to `eplusout.mtr` (`parse_monthly_from_mtr`) because E+ 26.1 emits no monthly tabular section for the bundled prototype. Empty `monthly` = fix outputs, never skip the gate.
 6. **Benchmark gate before ROI publication** — `wattlab.benchmarks.guardrails.gate_capital_plan` must run on every capital plan: baseline EUI vs peer band, savings fraction vs scope ceiling, implied post-retrofit EUI, per-measure cost bands, payback floors. Any hit → verdict `INVESTIGATE`; show the deltas, make the human override. Never quietly publish. See [`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md).
 7. **Shared meters are schema, not spreadsheet hacks** — `campus.json` declares meter → building relationships. Allocation modes (`area_weighted` / `equal` / `gas_share` / `manual`) are side-by-side **scenarios**, none is "truth" until submetered evidence exists. Liberty (`examples/liberty/`) is the canonical practice campus.
 8. **Costs are range + basis + vintage + confidence** — `retrofit_costs_public.json` rows carry `unit_basis` (building_ft2 vs glazing_ft2 …), `currency_year`, `confidence`. Historical LBNL medians are reference bands, **never** current-year bids. Windows math on glazing area, chillers on building area — never mix.
@@ -68,6 +68,7 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `wattlab/cli.py` | `wattlab` CLI (defaults / easy-button / calibrate / bridge / epw / bench / crosscheck / benchmark / seed / studio) |
 | `studio.py` | WattLab Studio (Ingest / Model / Benchmark / Measures / Twin loop / Capital plan) |
 | `scripts/smoke_studio.py` | AppTest smoke walk (all pages + loaded Liberty walk) |
+| `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on Liberty (real Docker E+ baseline + ECMs) |
 | `examples/liberty/` | Real shared-meter practice campus (bills + campus.json) |
 | `wattlab/data/benchmarks/` | `benchmarks_public.json` + `retrofit_costs_public.json` |
 | `wattlab/data/defaults/` | Archetypes / climate / code vintages |
@@ -97,6 +98,7 @@ pip install -e ".[studio,dev]"
 python -m pytest -q                      # full suite (Docker smokes skip w/o image)
 python scripts/smoke_studio.py           # Studio AppTest walk, 0 exceptions
 wattlab benchmark examples\liberty\campus.json   # bills sanity: campus EUI 71.6
+python scripts\agent_twin_demo.py        # end-to-end twin loop (needs Docker + image)
 # live UI: wattlab studio  →  http://localhost:8501/_stcore/health → "ok"
 ```
 

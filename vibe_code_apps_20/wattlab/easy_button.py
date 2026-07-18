@@ -33,6 +33,7 @@ from wattlab.energyplus.patches import (
     apply_fan_avail_continuous,
     apply_fan_avail_occupied_office,
     apply_gl36_airside_proxy,
+    apply_monthly_energy_tables,
     apply_sat_reset,
 )
 from wattlab.energyplus.results import (
@@ -292,9 +293,13 @@ def run_easy_button(
         ]
 
     # --- baseline: continuous fan avail (SCHED-247 inefficient archetype) ---
+    # First ensure monthly facility meters so eplustbl carries the monthly
+    # BUILDING ENERGY PERFORMANCE tables (G14 bill gate needs them).
+    prepped_idf = run_dir / "prototype_prepped.idf"
+    monthly_meta = apply_monthly_energy_tables(prototype, prepped_idf)
     baseline_idf = run_dir / "baseline.idf"
     baseline_patch_name = ep.get("baseline_idf_patch") or "fan_avail_continuous"
-    patch_meta = _apply_patch(baseline_patch_name, prototype, baseline_idf)
+    patch_meta = _apply_patch(baseline_patch_name, prepped_idf, baseline_idf)
     base_out = run_dir / "sim_baseline"
     sim_meta = simulate(baseline_idf, epw, base_out)
     annual = annual_from_output_dir(
@@ -317,7 +322,7 @@ def run_easy_button(
     current_idf = baseline_idf
     after_ecm1_annual: dict | None = None
     after_ecm2_annual: dict | None = None
-    patch_log = [patch_meta]
+    patch_log = [monthly_meta, patch_meta]
 
     for m in measures:
         mid = m["measure_id"]
@@ -362,7 +367,7 @@ def run_easy_button(
     crosscheck_block: dict[str, Any] | None = None
     proxy_savings = profile.get("proxy_savings") or {}
     if proxy_savings:
-        from wattlab.crosscheck import crosscheck_report
+        from wattlab.crosscheck import crosscheck_report, prototype_area_scale
 
         bills = (profile.get("utility") or {}).get("bills_monthly_kwh")
         baseline_monthly = [
@@ -370,11 +375,17 @@ def run_easy_button(
             for m in baseline_record.get("monthly") or []
             if m.get("electricity_kwh") is not None
         ] or None
+        area_scale = prototype_area_scale(
+            target_ft2=profile.get("conditioned_floor_area_ft2")
+            or profile.get("floor_area_ft2"),
+            model_area_m2=(baseline_record.get("annual") or {}).get("building_area_m2"),
+        )
         crosscheck_block = crosscheck_report(
             savings,
             proxy_savings,
             bills_monthly_kwh=bills,
             baseline_monthly_kwh=baseline_monthly,
+            area_scale=area_scale,
         )
 
     finished_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

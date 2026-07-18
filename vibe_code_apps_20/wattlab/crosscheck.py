@@ -33,6 +33,27 @@ DEFAULT_AGREEMENT_BAND = (0.5, 2.0)
 """E+/proxy savings ratio considered "in line" (screening-grade tolerance)."""
 
 
+FT2_PER_M2 = 10.7639
+
+
+def prototype_area_scale(
+    *,
+    target_ft2: float | None,
+    model_area_m2: float | None,
+) -> float | None:
+    """Target-building ft2 divided by simulated-model ft2 (None if unknown).
+
+    Returns None when either area is missing/zero so callers can fall back to
+    unscaled comparison rather than guessing.
+    """
+    if not target_ft2 or not model_area_m2:
+        return None
+    model_ft2 = float(model_area_m2) * FT2_PER_M2
+    if model_ft2 <= 0 or float(target_ft2) <= 0:
+        return None
+    return float(target_ft2) / model_ft2
+
+
 def _hint(ratio: float | None, ep_kwh: float | None, proxy_kwh: float | None) -> str:
     if ep_kwh is None:
         return "EnergyPlus savings missing — check the measure simulated and parsed."
@@ -59,18 +80,32 @@ def crosscheck_measure(
     ep_savings_therms: float | None = None,
     proxy_savings_therms: float | None = None,
     agreement_band: tuple[float, float] = DEFAULT_AGREEMENT_BAND,
+    area_scale: float | None = None,
 ) -> dict[str, Any]:
-    """Verdict for one measure from E+ vs proxy annual savings."""
+    """Verdict for one measure from E+ vs proxy annual savings.
+
+    ``area_scale`` normalizes for prototype-vs-target floor area (target ft2 /
+    model ft2). The bundled 5ZoneAirCooled prototype is only ~5k ft2, so an E+
+    run for a 140k ft2 profile under-reports absolute savings ~28x unless
+    scaled — discovered live in the Liberty twin-loop rehearsal.
+    """
     lo, hi = agreement_band
+    scaled_kwh = ep_savings_kwh
+    scaled_therms = ep_savings_therms
+    if area_scale is not None and area_scale > 0:
+        if ep_savings_kwh is not None:
+            scaled_kwh = ep_savings_kwh * area_scale
+        if ep_savings_therms is not None:
+            scaled_therms = ep_savings_therms * area_scale
     ratio: float | None = None
     if (
-        ep_savings_kwh is not None
+        scaled_kwh is not None
         and proxy_savings_kwh is not None
         and abs(proxy_savings_kwh) > 1e-9
     ):
-        ratio = ep_savings_kwh / proxy_savings_kwh
+        ratio = scaled_kwh / proxy_savings_kwh
 
-    if ep_savings_kwh is None or proxy_savings_kwh is None:
+    if scaled_kwh is None or proxy_savings_kwh is None:
         verdict = "investigate"
     elif ratio is None:
         verdict = "investigate"
@@ -89,11 +124,16 @@ def crosscheck_measure(
         "agreement_band": list(agreement_band),
         "verdict": verdict,
     }
+    if area_scale is not None:
+        out["area_scale"] = round(area_scale, 3)
+        out["ep_savings_kwh_scaled"] = None if scaled_kwh is None else round(scaled_kwh, 1)
     if ep_savings_therms is not None or proxy_savings_therms is not None:
         out["ep_savings_therms"] = ep_savings_therms
         out["proxy_savings_therms"] = proxy_savings_therms
+        if area_scale is not None and scaled_therms is not None:
+            out["ep_savings_therms_scaled"] = round(scaled_therms, 1)
     if verdict != "in_line":
-        out["hint"] = _hint(ratio, ep_savings_kwh, proxy_savings_kwh)
+        out["hint"] = _hint(ratio, scaled_kwh, proxy_savings_kwh)
     return out
 
 
@@ -124,12 +164,15 @@ def crosscheck_report(
     bills_monthly_kwh: list[float] | None = None,
     baseline_monthly_kwh: list[float] | None = None,
     agreement_band: tuple[float, float] = DEFAULT_AGREEMENT_BAND,
+    area_scale: float | None = None,
 ) -> dict[str, Any]:
     """Full crosscheck block from an easy-button ``savings_by_measure`` table.
 
     ``proxy_by_measure`` maps measure_id to ``{"savings_kwh", "savings_therms"?}``.
     Incremental (vs previous step) E+ savings are compared, matching how each
-    ESCO proxy prices a single measure.
+    ESCO proxy prices a single measure. ``area_scale`` (target ft2 / model ft2)
+    normalizes prototype-sized E+ savings before comparing to proxies sized
+    for the real building.
     """
     measures: list[dict[str, Any]] = []
     for row in savings_rows:
@@ -146,6 +189,7 @@ def crosscheck_report(
                 ep_savings_therms=vs_prev.get("therms_saved"),
                 proxy_savings_therms=proxy.get("savings_therms"),
                 agreement_band=agreement_band,
+                area_scale=area_scale,
             )
         )
 
@@ -164,8 +208,13 @@ def crosscheck_report(
         ),
     }
     if bills_monthly_kwh and baseline_monthly_kwh:
+        modeled = list(baseline_monthly_kwh)
+        if area_scale is not None and area_scale > 0:
+            modeled = [v * area_scale for v in modeled]
         try:
-            out["g14"] = g14_gates(bills_monthly_kwh, baseline_monthly_kwh)
+            out["g14"] = g14_gates(bills_monthly_kwh, modeled)
+            if area_scale is not None:
+                out["g14"]["area_scale_applied"] = round(area_scale, 3)
         except ValueError as exc:
             out["g14"] = {"error": str(exc)}
     return out

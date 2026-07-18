@@ -296,6 +296,66 @@ def _parse_monthly_from_htm_text(text: str) -> list[dict[str, Any]]:
     return out
 
 
+def parse_monthly_from_mtr(path: Path) -> list[dict[str, Any]]:
+    """Monthly facility electricity/gas from eplusout.mtr (ESO-style format).
+
+    EnergyPlus 26.1 writes no monthly BUILDING ENERGY PERFORMANCE tables into
+    eplustbl for this prototype even with monthly Output:Meter requests, but
+    the .mtr stream always carries them. Dictionary lines look like
+    ``12,9,Electricity:Facility [J] !Monthly [...]``; data stanzas start with a
+    ``4,<cum-days>,<month>`` timestamp followed by ``<id>,<joules>,...`` rows.
+    """
+    if not path.is_file():
+        return []
+    want = {"Electricity:Facility": "electricity_gj", "NaturalGas:Facility": "natural_gas_gj"}
+    id_to_key: dict[str, str] = {}
+    by_month: dict[int, dict[str, float]] = {}
+    month: int | None = None
+    in_dictionary = True
+    for ln in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        ln = ln.strip()
+        if in_dictionary:
+            if ln.startswith("End of Data Dictionary"):
+                in_dictionary = False
+                continue
+            if "!Monthly" in ln:
+                parts = ln.split(",")
+                if len(parts) >= 3:
+                    name = parts[2].split("[")[0].strip()
+                    if name in want:
+                        id_to_key[parts[0].strip()] = want[name]
+            continue
+        parts = ln.split(",")
+        if not parts:
+            continue
+        if parts[0] == "4" and len(parts) >= 3:
+            try:
+                month = int(float(parts[2]))
+            except ValueError:
+                month = None
+            continue
+        key = id_to_key.get(parts[0])
+        if key and month and len(parts) >= 2:
+            try:
+                joules = float(parts[1])
+            except ValueError:
+                continue
+            by_month.setdefault(month, {})[key] = joules / 1e9  # J -> GJ
+
+    out: list[dict[str, Any]] = []
+    for i in sorted(by_month):
+        row = by_month[i]
+        entry: dict[str, Any] = {"month": i, "month_name": _MONTHS[i - 1]}
+        if "electricity_gj" in row:
+            entry["electricity_gj"] = round(row["electricity_gj"], 4)
+            entry["electricity_kwh"] = round(row["electricity_gj"] * GJ_TO_KWH, 2)
+        if "natural_gas_gj" in row:
+            entry["natural_gas_gj"] = round(row["natural_gas_gj"], 4)
+            entry["natural_gas_therm"] = round(row["natural_gas_gj"] * 9.4804, 2)
+        out.append(entry)
+    return out
+
+
 def annual_from_output_dir(
     output_dir: Path,
     *,
@@ -331,6 +391,10 @@ def annual_from_output_dir(
     parsed["status"] = "COMPLETE" if parsed["ok"] else "MODEL_RUN_FAILED"
     parsed["quality_flags"] = [] if parsed["ok"] else ["energyplus_end_not_success"]
     parsed["end"] = end
+    if not monthly:
+        # Tabular monthly tables absent (prototype-dependent) — fall back to
+        # the meter stream, which monthly Output:Meter requests always feed.
+        monthly = parse_monthly_from_mtr(output_dir / "eplusout.mtr")
     parsed["monthly"] = monthly
     return parsed
 
@@ -431,6 +495,9 @@ def build_result_record(
             "site_eui_kbtu_ft2_year": annual.get("site_eui_kbtu_ft2_year"),
             "utility_cost_usd_year": annual.get("utility_cost_usd_year"),
             "total_site_energy_gj": annual.get("total_site_energy_gj"),
+            # Needed downstream to area-normalize prototype savings vs the
+            # real building (crosscheck.prototype_area_scale).
+            "building_area_m2": annual.get("building_area_m2"),
         },
         "monthly": list(annual.get("monthly") or []),
         "quality_flags": flags,

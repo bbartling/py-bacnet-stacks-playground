@@ -2,6 +2,36 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-18 (pm) — Live twin-loop rehearsal on Liberty + fixes it exposed
+
+- **Rehearsal**: new `scripts/agent_twin_demo.py` plays the full agent+human
+  protocol against the Liberty campus with real Docker EnergyPlus 26.1 runs
+  (energyplus-mcp-dev; `nrel/energyplus:develop` also pulled and
+  version-smoked): benchmark bills → resolve profile → ESCO proxies →
+  baseline + 4 ECM sims → crosscheck + G14 → capital plan with
+  benchmark-quoted costs → guardrail gate. Liberty 100: EUI 76.3 (above
+  office p80 → high savings potential), 5/5 sims COMPLETE, gate PUBLISH.
+- **Fix 1 — area normalization**: raw prototype (~10k ft²) savings were
+  compared against proxies sized for 140k ft² → every verdict `investigate`
+  at ratio ~0.01. `wattlab.crosscheck.prototype_area_scale` now auto-scales
+  (E+ record carries `building_area_m2`, previously dropped by
+  `build_result_record`) and verdicts show raw + scaled + `area_scale`.
+- **Fix 2 — monthly series for G14**: the prototype only requests
+  `Output:Meter:MeterFileOnly`, so eplustbl had no monthly tables and the
+  G14 bill gate silently never ran. `apply_monthly_energy_tables` patch adds
+  monthly facility meters to every easy-button run, and
+  `parse_monthly_from_mtr` falls back to the .mtr stream (E+ 26.1 still emits
+  no monthly tabular section for this file). G14 now fires: NMBE 58% →
+  honest `keep iterating on the baseline` signal for Liberty.
+- **Fix 3 — Detroit registry**: Liberty's real city was missing from
+  `climate.json`; added zone 5A entry (aliases incl. "liberty") with honest
+  Chicago-substitute epw_note.
+- **Tests**: `tests/test_twin_loop_learnings.py` pins all of the above
+  (9 tests, incl. an .mtr fixture matching live joules). Suite: 91 passed
+  with Docker smokes running for real.
+- **Docs**: TWIN_LOOP.md + both AGENTS.md updated with the area-scale and
+  monthly-meter rules; agent-spec repo map + smoke list gain the demo script.
+
 ## 2026-07-18 — Name scrub + agent spec + benchmark viz + GHCR image
 
 - **Confidentiality scrub**: removed every client / district / contractor /
