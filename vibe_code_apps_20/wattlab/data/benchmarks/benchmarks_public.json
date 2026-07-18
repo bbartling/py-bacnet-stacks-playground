@@ -1,0 +1,19 @@
+{
+  "description": "Public whole-building energy benchmarks. Site EUI in kBtu/ft2-year. p50 values are national medians (EPA ENERGY STAR Portfolio Manager national median table) unless noted; the generic commercial fallback is the CBECS 2018 average. p20/p80 are screening bands (roughly +/-35% around the median) for guardrail coloring, not published percentiles.",
+  "unit": "kbtu_ft2_year",
+  "metric": "site_eui",
+  "rows": [
+    {"benchmark_name": "epa_pm_national_median", "property_type": "office", "p50": 52.9, "p20": 34.0, "p80": 71.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "k12_school", "p50": 48.5, "p20": 31.0, "p80": 65.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "retail_store", "p50": 51.4, "p20": 33.0, "p80": 69.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "hotel", "p50": 63.0, "p20": 41.0, "p80": 85.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "hospital", "p50": 214.2, "p20": 139.0, "p80": 289.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "medical_office", "p50": 48.9, "p20": 32.0, "p80": 66.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "courthouse", "p50": 101.2, "p20": 66.0, "p80": 137.0, "source": "EPA Portfolio Manager U.S. national median site EUI (courthouse/public services)", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "warehouse_nonrefrigerated", "p50": 22.7, "p20": 15.0, "p80": 31.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "worship_facility", "p50": 30.5, "p20": 20.0, "p80": 41.0, "source": "EPA Portfolio Manager U.S. national median site EUI", "source_date": "2023", "confidence": "high"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "senior_living", "p50": 99.0, "p20": 64.0, "p80": 134.0, "source": "EPA Portfolio Manager U.S. national median site EUI (senior living community)", "source_date": "2023", "confidence": "medium"},
+    {"benchmark_name": "epa_pm_national_median", "property_type": "mixed_use", "p50": 60.0, "p20": 39.0, "p80": 81.0, "source": "Screening estimate anchored between office and retail medians", "source_date": "2023", "confidence": "low"},
+    {"benchmark_name": "cbecs_2018_average", "property_type": "commercial_all", "p50": 70.6, "p20": 46.0, "p80": 95.0, "source": "EIA CBECS 2018 average U.S. commercial-building site energy intensity", "source_date": "2018", "confidence": "high"}
+  ]
+}

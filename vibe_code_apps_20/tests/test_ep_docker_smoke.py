@@ -1,4 +1,4 @@
-"""Docker integration smoke for OpenFDD WattLab (requires Docker + energyplus-mcp-dev)."""
+﻿"""Docker integration smoke for OpenFDD WattLab (requires Docker + energyplus-mcp-dev)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="module")
 def docker_ready():
-    from ep_docker import docker_info_ok, image_present
+    from wattlab.energyplus.docker import docker_info_ok, image_present
 
     if not docker_info_ok():
         pytest.skip("Docker not available")
@@ -21,7 +21,7 @@ def docker_ready():
 
 
 def test_ep_version_in_container(docker_ready) -> None:
-    from ep_mcp_client import get_server_status_via_docker
+    from wattlab.energyplus.mcp import get_server_status_via_docker
 
     status = get_server_status_via_docker()
     assert status["energyplus_ok"]
@@ -29,9 +29,9 @@ def test_ep_version_in_container(docker_ready) -> None:
 
 
 def test_sample_sim_and_result_record_fields(docker_ready, tmp_path: Path) -> None:
-    from config import DEFAULT_MADISON_EPW, DEFAULT_PROTOTYPE_IDF
-    from ep_mcp_client import simulate
-    from results_parse import annual_from_output_dir, build_result_record
+    from wattlab.config import DEFAULT_MADISON_EPW, DEFAULT_PROTOTYPE_IDF
+    from wattlab.energyplus.mcp import simulate
+    from wattlab.energyplus.results import annual_from_output_dir, build_result_record
 
     out = tmp_path / "sim"
     # Use shortened path: full 5Zone annual is fine for CI gate

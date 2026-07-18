@@ -1,18 +1,20 @@
-"""App-owned IDF text patches for ECMs EnergyPlus-MCP cannot fully edit yet."""
+"""Deprecated shim — real package is :mod:`wattlab.energyplus.patches`."""
 
-from .chiller_lockout import apply_chiller_lockout
-from .gl36_proxy import apply_gl36_airside_proxy
-from .hourly_outputs import apply_hourly_outputs
-from .run_period import apply_run_period
-from .sat_reset import apply_sat_reset
-from .schedules import apply_fan_avail_continuous, apply_fan_avail_occupied_office
+import sys
 
-__all__ = [
-    "apply_fan_avail_continuous",
-    "apply_fan_avail_occupied_office",
-    "apply_gl36_airside_proxy",
-    "apply_chiller_lockout",
-    "apply_sat_reset",
-    "apply_run_period",
-    "apply_hourly_outputs",
-]
+from wattlab.energyplus import patches as _patches
+from wattlab.energyplus.patches import *  # noqa: F401,F403
+
+# Keep `from idf_patches.schedules import ...` style imports working.
+for _name in (
+    "chiller_lockout",
+    "gl36_proxy",
+    "hourly_outputs",
+    "run_period",
+    "sat_reset",
+    "schedules",
+):
+    _mod = getattr(
+        _patches, _name, None
+    ) or __import__(f"wattlab.energyplus.patches.{_name}", fromlist=[_name])
+    sys.modules[f"{__name__}.{_name}"] = _mod

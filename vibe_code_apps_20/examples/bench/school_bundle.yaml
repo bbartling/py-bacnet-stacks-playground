@@ -1,0 +1,55 @@
+schema_version: "1.0"
+project:
+  name: K-12 school calculator demo
+  building_type: K-12 school
+  units: IP
+
+assumptions:
+  note: Illustrative values. Replace with workbook-derived values.
+
+calculations:
+  - id: AHU-SCHEDULE
+    algorithm: schedule_reduction
+    inputs:
+      equipment_kw: 35
+      baseline_annual_hours: 5200
+      proposed_annual_hours: 3600
+      average_load_fraction: 0.72
+    tags: [airside, scheduling]
+
+  - id: DUCT-STATIC-RESET
+    algorithm: fan_affinity
+    inputs:
+      design_kw: 35
+      baseline_speed_fraction: 0.82
+      proposed_speed_fraction: 0.68
+      hours: 3600
+    tags: [airside, guideline36]
+
+  - id: DCV-HEATING
+    algorithm: demand_control_ventilation
+    inputs:
+      baseline_oa_cfm: 12000
+      proposed_oa_cfm: 7000
+      average_delta_t_f: 25
+      hours: 1500
+      system_efficiency: 0.82
+      fuel: natural_gas
+    tags: [ventilation, heating]
+
+  - id: ECONOMIZER
+    algorithm: economizer_proxy
+    inputs:
+      average_cooling_load_tons: 90
+      eligible_hours: 650
+      mechanical_fraction_avoided: 0.55
+      baseline_kw_per_ton: 1.1
+    tags: [airside, cooling]
+
+  - id: CHILLER-OPT
+    algorithm: kw_per_ton_improvement
+    inputs:
+      annual_ton_hours: 180000
+      baseline_kw_per_ton: 0.92
+      proposed_kw_per_ton: 0.78
+    tags: [plant, cooling]

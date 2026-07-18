@@ -114,7 +114,7 @@ def test_madison_office_profile() -> None:
 
 
 def test_madison_dry_run_and_literature() -> None:
-    from easy_button import GL36_LIT, plan_dry_run, validate_against_literature
+    from wattlab.easy_button import GL36_LIT, plan_dry_run, validate_against_literature
 
     plan = plan_dry_run(ROOT / "examples" / "buildings" / "madison_office.json")
     assert plan["dry_run"] is True
@@ -132,7 +132,7 @@ def test_madison_dry_run_and_literature() -> None:
 
 
 def test_idf_schedule_and_gl36_patches() -> None:
-    from idf_patches import (
+    from wattlab.energyplus.patches import (
         apply_fan_avail_continuous,
         apply_fan_avail_occupied_office,
         apply_gl36_airside_proxy,

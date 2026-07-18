@@ -1,4 +1,4 @@
-"""Tests for AMY EPW builder, RunPeriod patch, calibration scorecard math, alignment, holdout."""
+﻿"""Tests for AMY EPW builder, RunPeriod patch, calibration scorecard math, alignment, holdout."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from calibrate import (
+from wattlab.calibrate import (
     compare_signature_maps,
     detect_hour_shift,
     nmbe_cvrmse,
     resolve_calibration_status,
     split_bills_for_holdout,
 )
-from config import (
+from wattlab.config import (
     ACTUAL_YEAR_CALIBRATION,
     DEFAULT_EPW_NOTE,
     DEFAULT_MADISON_EPW,
@@ -32,9 +32,9 @@ from config import (
     TYPICAL_YEAR_SCREENING,
     weather_suitability,
 )
-from idf_patches import apply_hourly_outputs, apply_run_period
-from run_manifest import build_run_manifest, write_run_manifest
-from weather_epw import build_amy_epw
+from wattlab.energyplus.patches import apply_hourly_outputs, apply_run_period
+from wattlab.energyplus.manifest import build_run_manifest, write_run_manifest
+from wattlab.weather.epw import build_amy_epw
 
 
 def test_nmbe_cvrmse_perfect_match():

@@ -1,4 +1,4 @@
-"""Unit tests for WattLab defaults, measure sets, vibe19 bridge, IDF patches."""
+﻿"""Unit tests for WattLab defaults, measure sets, vibe19 bridge, IDF patches."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ecm_library.measure_sets import expand_measure_set, list_measure_sets
-from idf_patches import apply_chiller_lockout, apply_sat_reset
-from results_parse import savings_by_measure
-from vibe19_bridge import merge_into_profile, suggest_from_bundle
-from wattlab_defaults import resolve_profile
+from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
+from wattlab.energyplus.patches import apply_chiller_lockout, apply_sat_reset
+from wattlab.energyplus.results import savings_by_measure
+from wattlab.bridge import merge_into_profile, suggest_from_bundle
+from wattlab.defaults import resolve_profile
 
 
 def test_resolve_profile_tags_sources():

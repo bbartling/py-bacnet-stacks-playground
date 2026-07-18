@@ -1,0 +1,14 @@
+schema_version = "1.0"
+
+[project]
+name = "TOML example"
+
+[[calculations]]
+id = "PUMP-VFD"
+algorithm = "pump_vfd"
+
+[calculations.inputs]
+design_kw = 20
+baseline_speed_fraction = 0.9
+proposed_speed_fraction = 0.7
+hours = 2500

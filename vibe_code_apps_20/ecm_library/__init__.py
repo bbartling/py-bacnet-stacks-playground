@@ -1,5 +1,8 @@
-"""ecm_library helpers."""
+"""Deprecated shim — real package is :mod:`wattlab.measures`."""
 
-from .measure_sets import expand_measure_set, list_measure_sets, load_measure_sets
+import sys
 
-__all__ = ["expand_measure_set", "list_measure_sets", "load_measure_sets"]
+from wattlab import measures as _measures  # noqa: F401
+from wattlab.measures import measure_sets as _measure_sets
+
+sys.modules[f"{__name__}.measure_sets"] = _measure_sets

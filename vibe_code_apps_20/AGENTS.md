@@ -60,26 +60,65 @@ Evidence record · applicability decision · baseline parameters · proposed par
 
 ## Repo map
 
+WattLab is an installable package: `pip install -e .` → `import wattlab`, CLI `wattlab`
+(subcommands: `defaults`, `easy-button`, `calibrate`, `bridge`, `epw`, `bench`,
+`crosscheck`, `seed`, `studio`). Old flat scripts remain as shims.
+
 | Path | Role |
 |---|---|
-| `wattlab_defaults.py` | responsive-defaults defaults resolver (`field_sources` provenance) |
-| `defaults/` | Archetypes, climate, code vintages |
-| `easy_button.py` | Prototype → calibrate knobs → baseline → ECM chain (`--measure-set`, `--minimal`) |
-| `vibe19_bridge.py` | vibe19 agent-export → evidence + suggested measures |
+| `wattlab/defaults.py` | responsive-defaults resolver (`field_sources` provenance); data in `wattlab/data/defaults/` |
+| `wattlab/seed/` | vibe19 WattLab dump loader (`load_bundle`) + gap report |
+| `wattlab/benchmarks/` | EUI peer bands (`eui.py`), retrofit-cost bands (`costs.py`), shared-meter campus model + allocation scenarios (`meters.py`), ROI guardrail gate (`guardrails.py`); data in `wattlab/data/benchmarks/` |
+| `wattlab/weather/bins.py` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, NOAA DC table |
+| `wattlab/weather/epw.py` | AMY EPW builder |
+| `wattlab/bench/` | Proxy calculators + ESCO bin-method calculators (`esco.py`, golden-tested vs source workbooks) |
+| `wattlab/finance.py` | Payback / ROI / NPV / capital-plan rollup + CSV/JSON export |
+| `wattlab/crosscheck.py` | E+ vs ESCO proxy referee (agreement ratio, G14 gates, verdicts) |
+| `wattlab/easy_button.py` | Prototype → baseline → ECM chain (`--measure-set`, `--minimal`); report gains a `crosscheck` block when `proxy_savings` present |
+| `wattlab/bridge.py` | vibe19 agent-export → evidence + suggested measures |
+| `wattlab/energyplus/` | `docker.py`, `mcp.py`, `results.py`, `manifest.py`, `patches/` |
+| `wattlab/measures/` | Good / Better / Best progressive sets |
+| `wattlab/config.py` | Paths, image name, default EPW/prototype |
+| `studio.py` | WattLab Studio Streamlit app (`wattlab studio`) |
 | `madison_office.py` | Madison conceptual playbook wrapper |
-| `ep_docker.py` | Docker image ensure + `energyplus` runs |
-| `ep_mcp_client.py` | MCP parity helpers / status smoke |
-| `idf_patches/` | Schedule, chiller lockout, SAT reset, GL36-proxy IDF patches |
-| `ecm_library/measure_sets.json` | Good / Better / Best progressive sets |
-| `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
-| `config.py` | Paths, image name, default EPW/prototype |
 | `schemas/` | building_profile / measure_brief / result_record |
-| `examples/buildings/` | WattLab building profiles (EP-oriented) |
-| `examples/prototypes/` | Bundled IDF samples |
-| `examples/weather/` | Bundled EPW samples |
+| `examples/` | Profiles, evidence, prototypes, weather, bench configs |
 | `third_party/` | EnergyPlus-MCP pin + clone instructions |
 | `.agents/skills/` | Domain + operator skills |
 | `.cursor/skills/openfdd-wattlab/` | Cursor discovery skill → this handbook |
+
+## Twin-iterate loop (agent + ESCO referee)
+
+For each measure the agent runs EnergyPlus progressively and compares the
+incremental savings against the ESCO bin-method proxy
+(`wattlab.crosscheck`): `in_line` (ratio within 0.5–2.0×) → trust and move on;
+`investigate` → check schedules / sizing / patch actually applied;
+`keep_iterating` → wrong sign or missing savings, fix the model. Where monthly
+bills exist, the baseline must also pass ASHRAE G14 monthly gates
+(NMBE ±5%, CV(RMSE) ≤15%) before savings are reported as calibrated.
+
+## Benchmark governance (mandatory before publishing ROI)
+
+Three-layer stack: **benchmark plausibility → bin-method proxies → calibrated
+simulation**. Before any capital plan or ROI narrative is emitted:
+
+1. Benchmark the bills first (`wattlab benchmark <campus.json>` or the Studio
+   Benchmark page): site EUI vs EPA property-type medians (CBECS 70.6
+   all-commercial fallback), monthly gas/electric signatures, summer-gas
+   baseload.
+2. Shared meters are schema-level objects (`campus.json`), never spreadsheet
+   hacks. Show allocation modes (`area_weighted` / `equal` / `gas_share` /
+   `manual`) side-by-side until submetered evidence exists — none of them is
+   "truth".
+3. Quote costs as **range + basis + confidence**, never a single point:
+   scope taxonomy in `retrofit_costs_public.json` carries `unit_basis`,
+   `currency_year`, and `confidence`. Historical LBNL medians are reference
+   bands, not 2026 bids.
+4. Run `gate_capital_plan` (`wattlab.benchmarks.guardrails`). If any check
+   lands `investigate` — savings fraction above the scope ceiling, implied
+   post-retrofit EUI below half the peer p20, cost above the scope band,
+   implausibly fast payback — the plan is `INVESTIGATE`: show the deltas and
+   make the human override or tighten assumptions. Never quietly publish.
 
 ## Easy button vs full MCP toolkit
 

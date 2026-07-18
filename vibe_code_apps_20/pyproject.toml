@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wattlab"
+version = "0.2.0"
+description = "WattLab: EnergyPlus digital-twin toolkit — vibe19 FDD dumps in, calibrated models + ESCO-grade ECM economics out."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ben Bartling" }]
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "pydantic>=2.7",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+studio = ["streamlit>=1.37", "plotly>=5.20"]
+excel = ["openpyxl>=3.1"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+wattlab = "wattlab.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wattlab"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"wattlab/data" = "wattlab/data"
+"wattlab/measures/measure_sets.json" = "wattlab/measures/measure_sets.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

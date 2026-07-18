@@ -1,8 +1,85 @@
 ﻿# OpenFDD WattLab
 
-**OpenFDD WattLab** is the EnergyPlus companion to [Open-FDD](https://bbartling.github.io/open-fdd/) / [Vibe App 19](../vibe_code_apps_19/): an AI-helper stack that turns fault evidence into auditable **ECM energy screens** (prototype IDF + weather + progressive patches).
+**OpenFDD WattLab** is the EnergyPlus companion to [Open-FDD](https://bbartling.github.io/open-fdd/) / [Vibe App 19](../vibe_code_apps_19/): an AI-helper stack that turns fault evidence into auditable **ECM energy screens** (prototype IDF + weather + progressive patches) and **ESCO-grade capital plans** (bin-method calculators, payback/ROI/NPV, EnergyPlus-vs-proxy crosscheck).
 
-Folder: `vibe_code_apps_20` (WattLab agent pack + runners).
+Folder: `vibe_code_apps_20` — now an installable Python package (`pip install -e .` → `import wattlab`, CLI `wattlab`).
+
+## Install + CLI
+
+```powershell
+cd vibe_code_apps_20
+pip install -e .          # or: pip install -e ".[studio,excel,dev]"
+
+wattlab --help            # defaults / easy-button / calibrate / bridge / epw /
+                          # bench / crosscheck / benchmark / seed / studio
+wattlab seed path\to\wattlab_dump.zip          # inspect a vibe19 dump
+wattlab seed path\to\wattlab_dump.zip --gaps   # missing-characteristics checklist
+wattlab benchmark examples\liberty\campus.json # annualize bills + peer-band compare
+wattlab studio                                  # launch WattLab Studio (Streamlit)
+```
+
+Old flat-script entry points (`python easy_button.py …`) keep working via thin shims.
+
+## The `wattlab` package
+
+| Module | Role |
+| --- | --- |
+| `wattlab.seed` | Load vibe19 WattLab dumps (zip/folder) + gap report |
+| `wattlab.benchmarks` | Benchmark governance: EUI peer bands (EPA/CBECS), retrofit-cost bands (LBNL/RMI, with unit basis + vintage + confidence), shared-meter allocation scenarios, and the ROI guardrail gate |
+| `wattlab.weather.bins` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, built-in NOAA Washington DC table, `from_hourly` for `weather_observed.csv` |
+| `wattlab.weather.epw` | AMY EPW builder |
+| `wattlab.bench` | Proxy calculators + **ESCO bin-method calculators** ported from the source ESCO workbooks (`wattlab.bench.esco`) with golden tests |
+| `wattlab.finance` | Payback / ROI / NPV / escalated cash flows / capital-plan rollup + CSV/JSON export |
+| `wattlab.crosscheck` | EnergyPlus-vs-proxy referee: agreement ratios, ASHRAE G14 gates, `in_line` / `investigate` / `keep_iterating` verdicts |
+| `wattlab.energyplus` | Docker runner, MCP client, results parsing, run manifests, IDF patches |
+| `wattlab.measures` | Good/Better/Best measure sets |
+| `wattlab.bridge` / `wattlab.calibrate` / `wattlab.easy_button` | vibe19 bridge, calibration, progressive ECM runs |
+
+### ESCO bin-method calculators (`wattlab.bench.esco`)
+
+Ported 1:1 from the the source ESCO calculator workbooks and verified against the
+spreadsheets' own cell values (see `tests/test_esco_golden.py`):
+
+`scheduling_fan_bins` · `scheduling_cooling_bins` · `scheduling_heating_bins` ·
+`oad_unoccupied_closed` · `dcv_bins` · `static_pressure_reset` ·
+`dat_reset_bins` · `hydronic_reset_bins` · `dewpoint_economizer`
+
+All are driven by a `WeatherBins` table (NOAA-style rows, hourly OAT series, or
+the built-in Washington DC table) plus shift schedules and equipment inventory.
+
+### WattLab Studio
+
+`wattlab studio` (or `streamlit run studio.py`) — the ESCO / capital-planning
+cockpit, fully functional in dry-run without Docker:
+
+1. **Ingest** — upload the vibe19 WattLab dump zip → summary, gap checklist, fault highlights
+2. **Model** — profile editor seeded by defaults + dump, provenance table, calibration badge
+3. **Benchmark** — bills before models: annualized EUIs vs EPA/CBECS peer bands (Plotly), shared-meter allocation scenarios side-by-side, monthly gas/electric+demand signatures (Liberty example pre-filled)
+4. **Measures** — catalog + FDD-suggested measures with ESCO proxy savings and editable costs
+5. **Twin loop** — dry-run plan or Docker EnergyPlus runs, iteration history, crosscheck verdicts
+6. **Capital plan** — payback/ROI/NPV rollup gated by the benchmark guardrails (`PUBLISH` / `INVESTIGATE`), CSV/JSON export
+
+### Benchmark governance (`wattlab.benchmarks`)
+
+Three-layer screening stack: benchmark plausibility → ESCO bin-method proxies →
+calibrated EnergyPlus. The benchmarks layer keeps the other two honest:
+
+- `benchmarks_public.json` — EPA Portfolio Manager national median site EUIs by
+  property type + CBECS all-commercial fallback (70.6 kBtu/ft²).
+- `retrofit_costs_public.json` — cost bands by scope (RCx $0.26/ft² … deep
+  retrofit $25–150/ft²) with explicit `unit_basis`, `currency_year`, and
+  `confidence`, so windows priced per glazing-ft² never silently compare
+  against chillers per building-ft², and 2009 LBNL medians are never quoted as
+  2026 bids.
+- `meters.py` — shared meters are first-class: `campus.json` declares who
+  serves whom; splits (`area_weighted` / `equal` / `gas_share` / `manual`) are
+  visible scenarios, not buried assumptions. See
+  [examples/liberty](examples/liberty/README.md) for the real two-building
+  practice campus.
+- `guardrails.py` — the gate before ROI publication: baseline EUI band,
+  claimed-savings fraction by scope, implied post-retrofit EUI, per-measure
+  cost bands, payback plausibility. Any failure marks the plan `INVESTIGATE`
+  instead of quietly rendering a glossy ROI chart.
 
 **Quick link (vibe19 upload zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout for historian packages that feed WattLab via the Energy Model tab / Model Seed Bundle.
 
@@ -50,24 +127,24 @@ python easy_button.py --building examples/buildings/chicago_office.json
 
 Artifacts land under `.artifacts/wattlab_<UTC>/` (`result_record_*.json`, IDF copies, `eplustbl.*`, `wattlab_report.json`).
 
-## Modules
+## Legacy script shims
 
-| Script | Role |
+The pre-package flat scripts still work and forward to the package:
+
+| Script | Forwards to |
 | --- | --- |
-| `wattlab_defaults.py` | Defaults resolver (type + city + code → profile with `field_sources`) |
-| `defaults/` | `archetypes.json`, `climate.json`, `codes.json` |
-| `easy_button.py` | Prototype → baseline → approved ECM chain (supports `--measure-set` / `--minimal`) |
-| `calibrate.py` | Overlap-window calibration vs vibe19 Model Seed Bundle (AMY EPW + scorecard + optional validation holdout) |
-| `weather_epw.py` | Build Actual Meteorological Year EPW from `weather_observed.csv` / Open-Meteo |
-| `run_manifest.py` | Content-hash run manifests (`model_sha256`, `weather_sha256`, EP pin, image) |
-| `vibe19_bridge.py` | Agent-export bundle → evidence + auto-suggested measures |
-| `madison_office.py` | Madison conceptual playbook wrapper |
-| `ep_docker.py` | Image ensure + container `energyplus` runs |
-| `ep_mcp_client.py` | MCP status / simulate helpers |
-| `idf_patches/` | Schedule, chiller lockout, SAT reset, RunPeriod, hourly outputs, GL36-proxy |
-| `ecm_library/measure_sets.json` | Good / Better / Best measure sets |
-| `results_parse.py` | `eplustbl` → annual + monthly + `savings_by_measure` |
-| `config.py` | Paths, image name, default prototype / EPW |
+| `wattlab_defaults.py` | `wattlab.defaults` (`defaults/` data → `wattlab/data/defaults/`) |
+| `easy_button.py` | `wattlab.easy_button` (supports `--measure-set` / `--minimal`) |
+| `calibrate.py` | `wattlab.calibrate` |
+| `weather_epw.py` | `wattlab.weather.epw` |
+| `run_manifest.py` | `wattlab.energyplus.manifest` |
+| `vibe19_bridge.py` | `wattlab.bridge` |
+| `ep_docker.py` / `ep_mcp_client.py` | `wattlab.energyplus.docker` / `.mcp` |
+| `idf_patches/` | `wattlab.energyplus.patches` |
+| `ecm_library/` | `wattlab.measures` |
+| `results_parse.py` | `wattlab.energyplus.results` |
+| `config.py` | `wattlab.config` |
+| `madison_office.py` | Madison conceptual playbook wrapper (unchanged) |
 
 ## Easy-button defaults
 
@@ -151,7 +228,7 @@ cd vibe_code_apps_20
 python -m pytest tests -q
 ```
 
-Unit tests scrub legacy brand strings and exercise dry-run / IDF patches. Docker tests (`test_ep_docker_smoke.py`) skip if the image is missing.
+Unit tests scrub legacy brand strings and exercise dry-run / IDF patches. Docker tests (`test_ep_docker_smoke.py`) skip if the image is missing. Golden tests (`test_esco_golden.py`) pin the ESCO calculators to the source workbook cell values; `test_studio_app.py` drives WattLab Studio via Streamlit AppTest (dry-run path); `test_package_shims.py` guards the legacy script entry points.
 
 ## Cursor MCP (full toolkit)
 
