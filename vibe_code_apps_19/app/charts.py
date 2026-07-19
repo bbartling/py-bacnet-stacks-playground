@@ -738,49 +738,284 @@ def motor_weekly_runtime_chart(
     return fig
 
 
-def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
-    """Grouped bar histogram: mechanical cooling run hours by OAT 5°F bin (sorted cold→hot).
+MECH_COOL_DEVICE_HOURS_LABEL = "Total compressor device-hours"
+MECH_COOL_ACTIVE_HOURS_LABEL = "Any compressor active"
 
-    Rows with ``source_kind == "total"`` (aggregated across devices) render as a
-    visually distinct outlined dark bar so the aggregate is obvious next to the
-    per-device breakdown.
+_ZERO_ELIGIBLE_COMPRESSOR_WARNING = (
+    "No eligible compressor devices with mapped compressor proof were found. "
+    "CHW pump status or cooling-valve signals alone do not count as compressor proof. "
+    "Map chiller/compressor status, command, amps, or power (or enable inferred CHW "
+    "leave-temperature proof in the sidebar)."
+)
+
+
+def mech_cooling_zero_eligible_warning(coverage: pd.DataFrame | None) -> str | None:
+    """Required warning when coverage has zero included/eligible compressor devices."""
+    if coverage is None or coverage.empty:
+        return _ZERO_ELIGIBLE_COMPRESSOR_WARNING
+    included = coverage["included"] if "included" in coverage.columns else None
+    if included is not None:
+        if int(included.fillna(False).astype(bool).sum()) == 0:
+            return _ZERO_ELIGIBLE_COMPRESSOR_WARNING
+        return None
+    if "eligibility_state" in coverage.columns:
+        eligible = coverage["eligibility_state"].astype(str).str.startswith("eligible")
+        if int(eligible.sum()) == 0:
+            return _ZERO_ELIGIBLE_COMPRESSOR_WARNING
+    return None
+
+
+def mech_cooling_runtime_message(coverage: pd.DataFrame | None) -> str | None:
+    """Explanatory copy when exactly one eligible device observed compressor runtime."""
+    if coverage is None or coverage.empty:
+        return None
+    df = coverage.copy()
+    if "runtime_hours" not in df.columns:
+        return None
+    runtime = pd.to_numeric(df["runtime_hours"], errors="coerce").fillna(0.0)
+    included = (
+        df["included"].fillna(False).astype(bool)
+        if "included" in df.columns
+        else pd.Series(True, index=df.index)
+    )
+    active = df.loc[included & (runtime > 0)]
+    if len(active) != 1:
+        return None
+    eq_id = str(active.iloc[0]["equipment_id"])
+    return (
+        f"Only {eq_id} had observed compressor runtime during this period.\n"
+        f"Total compressor device-hours therefore equal {eq_id} runtime."
+    )
+
+
+def format_mech_cooling_coverage_display(coverage: pd.DataFrame) -> pd.DataFrame:
+    """Human-labeled coverage table; eligible zero-runtime → 'No runtime observed'."""
+    if coverage is None or coverage.empty:
+        return pd.DataFrame()
+    df = coverage.copy()
+    rename = {
+        "equipment_id": "Equipment",
+        "equipment_type": "Equipment type",
+        "cooling_technology": "Cooling technology",
+        "compressor_based": "Compressor-based",
+        "included": "Included",
+        "eligibility_state": "Eligibility",
+        "activity_state": "Activity",
+        "proof_quality": "Proof quality",
+        "proof_role": "Proof role",
+        "proof_column": "Proof column",
+        "proof_threshold": "Proof threshold",
+        "runtime_hours": "Runtime hours",
+        "valid_elapsed_hours": "Valid elapsed hours",
+        "coverage_pct": "Coverage %",
+        "exclusion_reason": "Exclusion reason",
+        "status": "Status",
+        "proof": "Proof",
+        "reason": "Reason",
+        "checked_roles": "Checked roles",
+    }
+    out = df.rename(columns={k: v for k, v in rename.items() if k in df.columns})
+    if "Eligibility" in out.columns and "Activity" in out.columns:
+        no_runtime = out["Eligibility"].astype(str).eq("eligible_no_runtime") | (
+            out["Activity"].astype(str).eq("inactive")
+            & pd.to_numeric(out.get("Runtime hours"), errors="coerce").fillna(0).eq(0)
+            & out.get("Included", True).fillna(False).astype(bool)
+        )
+        if "Reason" in out.columns:
+            out.loc[no_runtime, "Reason"] = out.loc[no_runtime, "Reason"].where(
+                out.loc[no_runtime, "Reason"].astype(str).str.strip().ne("")
+                & out.loc[no_runtime, "Reason"].astype(str).ne("nan"),
+                "No runtime observed",
+            )
+        else:
+            out.loc[no_runtime, "Activity"] = "No runtime observed"
+        # Always surface the required phrase for eligible zero-runtime rows.
+        if "Activity" in out.columns:
+            out.loc[
+                out["Eligibility"].astype(str).eq("eligible_no_runtime"), "Activity"
+            ] = "No runtime observed"
+    preferred = [
+        "Equipment",
+        "Equipment type",
+        "Cooling technology",
+        "Compressor-based",
+        "Included",
+        "Eligibility",
+        "Activity",
+        "Proof quality",
+        "Proof role",
+        "Proof column",
+        "Proof threshold",
+        "Runtime hours",
+        "Valid elapsed hours",
+        "Coverage %",
+        "Exclusion reason",
+        "Status",
+        "Proof",
+        "Reason",
+        "Checked roles",
+    ]
+    cols = [c for c in preferred if c in out.columns] + [
+        c for c in out.columns if c not in preferred
+    ]
+    return out[cols]
+
+
+def _mech_cooling_series_mask(df: pd.DataFrame, kind: str) -> pd.Series:
+    if "series_kind" in df.columns:
+        return df["series_kind"].astype(str).eq(kind)
+    # Legacy fallbacks
+    if kind == "aggregate_device_hours" and "source_kind" in df.columns:
+        return df["source_kind"].astype(str).eq("total")
+    if kind == "aggregate_active_hours" and "source_kind" in df.columns:
+        return df["source_kind"].astype(str).eq("active")
+    if kind == "individual_device":
+        if "source_kind" in df.columns:
+            return ~df["source_kind"].astype(str).isin(["total", "active"])
+        return pd.Series(True, index=df.index)
+    return pd.Series(False, index=df.index)
+
+
+def _mech_cooling_hover_customdata(sub: pd.DataFrame) -> list[list[Any]]:
+    def _cell(col: str, default: str = "—") -> pd.Series:
+        if col not in sub.columns:
+            return pd.Series([default] * len(sub), index=sub.index)
+        s = sub[col]
+        return s.where(s.notna(), default).astype(str)
+
+    hours = (
+        pd.to_numeric(sub["runtime_hours"], errors="coerce")
+        if "runtime_hours" in sub.columns
+        else pd.to_numeric(sub.get("hours"), errors="coerce")
+    )
+    return list(
+        zip(
+            _cell("equipment_type"),
+            _cell("cooling_technology"),
+            _cell("proof_role"),
+            _cell("proof_quality"),
+            [f"{float(v):.2f}" if pd.notna(v) else "—" for v in hours],
+            _cell("device_count", "0"),
+            _cell("coverage_pct", "—"),
+            _cell("valid_elapsed_hours", "—"),
+            strict=False,
+        )
+    )
+
+
+_MECH_COOL_HOVER = (
+    "<b>%{fullData.name}</b><br>"
+    "OAT bin: %{x}<br>"
+    "Runtime hours: %{customdata[4]}<br>"
+    "Equipment type: %{customdata[0]}<br>"
+    "Cooling technology: %{customdata[1]}<br>"
+    "Proof role: %{customdata[2]}<br>"
+    "Proof quality: %{customdata[3]}<br>"
+    "Device count: %{customdata[5]}<br>"
+    "Coverage %: %{customdata[6]}<br>"
+    "Valid elapsed hours: %{customdata[7]}"
+    "<extra></extra>"
+)
+
+
+def mech_cooling_oat_histogram(bins_df: pd.DataFrame) -> go.Figure | None:
+    """Stacked individual-device bars plus device-hours / any-active line aggregates.
+
+    Aggregate series never join the device stack and are never dropped when their
+    y-values equal an individual device. Trace names stay semantically distinct.
     """
     if bins_df is None or bins_df.empty:
         return None
     df = bins_df.sort_values(["bin_start", "source"]).copy()
+    if "hours" not in df.columns and "runtime_hours" in df.columns:
+        df["hours"] = df["runtime_hours"]
     order = list(df.drop_duplicates("bin_start").sort_values("bin_start")["bin_label"])
-    has_kind = "source_kind" in df.columns
-    is_total = df["source_kind"].eq("total") if has_kind else pd.Series(False, index=df.index)
-    dev_df = df[~is_total]
-    tot_df = df[is_total]
+
+    ind_mask = _mech_cooling_series_mask(df, "individual_device")
+    device_mask = _mech_cooling_series_mask(df, "aggregate_device_hours")
+    active_mask = _mech_cooling_series_mask(df, "aggregate_active_hours")
+    # Prefer series_kind; fall back to source_kind total/active when needed.
+    if not ind_mask.any() and not device_mask.any() and not active_mask.any():
+        has_kind = "source_kind" in df.columns
+        is_total = (
+            df["source_kind"].eq("total") if has_kind else pd.Series(False, index=df.index)
+        )
+        ind_mask = ~is_total
+        device_mask = is_total
+        active_mask = pd.Series(False, index=df.index)
+
     fig = go.Figure()
-    sources = list(dev_df["source"].unique())
-    for i, src in enumerate(sources):
-        sub = dev_df[dev_df["source"] == src]
+    ind_df = df[ind_mask]
+    # Stable device order by equipment_id then source.
+    if "equipment_id" in ind_df.columns:
+        device_keys = list(ind_df.drop_duplicates("equipment_id")["equipment_id"])
+    else:
+        device_keys = list(ind_df["source"].unique())
+    for i, key in enumerate(device_keys):
+        if "equipment_id" in ind_df.columns:
+            sub = ind_df[ind_df["equipment_id"].astype(str) == str(key)]
+            name = str(key)
+            legendgroup = str(key)
+        else:
+            sub = ind_df[ind_df["source"] == key]
+            name = str(key)
+            legendgroup = str(key)
         fig.add_trace(
             go.Bar(
                 x=sub["bin_label"],
                 y=sub["hours"],
-                name=str(src),
+                name=name,
+                legendgroup=legendgroup,
+                showlegend=True,
                 marker_color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)],
+                customdata=_mech_cooling_hover_customdata(sub),
+                hovertemplate=_MECH_COOL_HOVER,
             )
         )
-    for src in tot_df["source"].unique():
-        sub = tot_df[tot_df["source"] == src]
+
+    for mask, name, legendgroup, line_dash, color in (
+        (
+            device_mask,
+            MECH_COOL_DEVICE_HOURS_LABEL,
+            "aggregate_device_hours",
+            "solid",
+            "#111827",
+        ),
+        (
+            active_mask,
+            MECH_COOL_ACTIVE_HOURS_LABEL,
+            "aggregate_active_hours",
+            "dash",
+            "#6b7280",
+        ),
+    ):
+        sub = df[mask]
+        if sub.empty:
+            continue
+        sub = sub.sort_values("bin_start")
         fig.add_trace(
-            go.Bar(
+            go.Scatter(
                 x=sub["bin_label"],
                 y=sub["hours"],
-                name=str(src),
-                marker_color="rgba(55, 65, 81, 0.55)",
-                marker_line=dict(color="#111827", width=1.6),
+                name=name,
+                legendgroup=legendgroup,
+                showlegend=True,
+                mode="lines+markers",
+                line=dict(color=color, width=2.2, dash=line_dash),
+                marker=dict(size=7, color=color),
+                customdata=_mech_cooling_hover_customdata(sub),
+                hovertemplate=_MECH_COOL_HOVER,
             )
         )
+
+    if not fig.data:
+        return None
+
     fig.update_layout(
         title="Mechanical cooling run hours by outdoor-air temperature (5°F bins)",
         xaxis_title="OAT bin °F",
         yaxis_title="Run hours",
-        barmode="group",
+        barmode="stack",
         template="plotly_white",
         height=420,
         legend=dict(orientation="h", y=1.12),

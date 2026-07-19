@@ -38,8 +38,11 @@ from app.charts import (  # noqa: E402
     bas_vs_web_oat_overlay,
     energy_degree_day_scatter,
     equipment_inspection_chart,
+    format_mech_cooling_coverage_display,
     max_plot_points,
     mech_cooling_oat_histogram,
+    mech_cooling_runtime_message,
+    mech_cooling_zero_eligible_warning,
     monthly_energy_bar,
     motor_weekly_runtime_chart,
     plotly_config,
@@ -2404,23 +2407,32 @@ def main() -> None:
 
         st.markdown("##### Mechanical cooling hours by OAT bin")
         st.caption(
-            "**Chillers** use the sidebar proof mode (default: mapped pump → status → "
-            "amps → power; optional inferred CHW leave temp when status proof is "
-            "unchecked) + **AHU/HP DX compressors** only. Never CHW cooling valves. "
-            "Bins sorted cold→hot; OAT from **web** weather by default. "
-            "Aggregate bars are **device-hours**. The coverage table always lists every "
-            "cooling-capable device (name, included/excluded, selected proof, inferred "
-            "runtime, reason). Temperature-derived runtime is labeled inferred — cold "
-            "water can flow through an idle chiller."
+            "**Chillers / DX / VRF** use the sidebar compressor-proof mode (default: "
+            "mapped status → command → amps → power; optional inferred CHW leave temp "
+            "when status proof is unchecked). **CHW pump alone is never compressor "
+            "proof.** Never CHW cooling valves. Bins sorted cold→hot; OAT from **web** "
+            "weather by default. Stacked bars are per-device runtime; line traces are "
+            "**total compressor device-hours** and **any compressor active**. The "
+            "coverage table always lists every cooling-capable device with eligibility, "
+            "activity, proof, runtime, and reason. Temperature-derived runtime is "
+            "labeled inferred — cold water can flow through an idle chiller."
         )
+        zero_warn = mech_cooling_zero_eligible_warning(cool_coverage)
+        if zero_warn:
+            st.warning(zero_warn)
+        runtime_msg = mech_cooling_runtime_message(cool_coverage)
+        if runtime_msg:
+            st.info(runtime_msg)
         cool_fig = mech_cooling_oat_histogram(cool_bins)
-        if cool_fig is None:
+        if cool_fig is None and not zero_warn:
             st.info(
-                "No compressor / chiller-plant proof found for the selected mode. "
-                "Map chw_pump_status / chiller status / amps / power, or uncheck "
-                "status proof and set CHW leave proof max °F. AHU CHW valves excluded."
+                "No compressor runtime bins for the selected proof mode. Eligible "
+                "devices with zero observed runtime still appear in the coverage table "
+                "as **No runtime observed**. Map chiller/compressor status, command, "
+                "amps, or power, or uncheck status proof and set CHW leave proof max °F. "
+                "AHU CHW valves excluded."
             )
-        else:
+        elif cool_fig is not None:
             st.plotly_chart(
                 cool_fig,
                 width="stretch",
@@ -2435,10 +2447,14 @@ def main() -> None:
                 key="dl_cool_bins_overview",
             )
         if not cool_coverage.empty:
-            n_inc = int((cool_coverage["status"] == "included").sum())
-            n_exc = int((cool_coverage["status"] == "excluded").sum())
+            if "included" in cool_coverage.columns:
+                n_inc = int(cool_coverage["included"].fillna(False).astype(bool).sum())
+                n_exc = int((~cool_coverage["included"].fillna(False).astype(bool)).sum())
+            else:
+                n_inc = int((cool_coverage["status"] == "included").sum())
+                n_exc = int((cool_coverage["status"] == "excluded").sum())
             mode = (
-                "mapped pump/status/amps/power"
+                "mapped compressor/chiller status, command, amps, or power"
                 if st.session_state.get("use_mech_cooling_status_proof", True)
                 else "inferred CHW leaving temperature"
             )
@@ -2446,15 +2462,18 @@ def main() -> None:
                 f"###### Mechanical cooling devices — {n_inc} included, {n_exc} excluded"
             )
             st.caption(
-                f"Selected proof mode: **{mode}**. Every cooling-capable device stays "
-                "visible here even when it contributes no chart bins. Temperature-derived "
-                "runtime is inferred: cold water can flow through an idle chiller."
+                f"Selected proof mode: **{mode}**. Coverage shows eligibility, activity, "
+                "proof, runtime, and reason for every cooling-capable device. Eligible "
+                "devices with no observed runtime remain visible as **No runtime "
+                "observed**. Temperature-derived runtime is inferred: cold water can "
+                "flow through an idle chiller."
             )
+            coverage_display = format_mech_cooling_coverage_display(cool_coverage)
             st.dataframe(
-                cool_coverage,
+                coverage_display,
                 hide_index=True,
                 width="stretch",
-                height=min(360, 38 + 35 * max(1, len(cool_coverage))),
+                height=min(360, 38 + 35 * max(1, len(coverage_display))),
             )
             st.download_button(
                 "Download cooling coverage CSV",
