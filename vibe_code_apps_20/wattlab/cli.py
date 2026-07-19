@@ -27,6 +27,7 @@ def _usage() -> str:
         "  seed         Inspect a vibe19 WattLab dump (summary + gap report)\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
+        "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
         "  studio       Launch the WattLab Studio web app (Streamlit)\n"
     )
 
@@ -148,6 +149,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_seed(rest)
     if cmd in {"explore-existing", "hypothesis-lab"}:
         from wattlab.existing_building.cli import main as m
+
+        return int(m(rest) or 0)
+    if cmd == "ecm":
+        from wattlab.ecm.cli import main as m
 
         return int(m(rest) or 0)
     if cmd == "studio":

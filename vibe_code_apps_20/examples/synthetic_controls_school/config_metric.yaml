@@ -1,0 +1,37 @@
+project_id: SYNTHETIC_CONTROLS_SCHOOL_SI
+display_name: Synthetic mixed pneumatic/DDC school (SI display)
+building_type: school
+city: detroit
+# 100,000 ft2 = 9290.3 m2
+floor_area_m2: 9290.3
+floor_area_ft2: 100000
+floors: 2
+display_units: metric
+hvac:
+  fuel: gas
+  airside: vav
+  plant: chw_hw
+capacity_factors:
+  cooling_plant: [1.0, 0.7]
+  heating_plant: [1.0, 0.6]
+  supply_airflow: [1.0]
+operating_hours:
+  occupied:
+    monday_friday: ["07:00", "17:00"]
+    saturday: ["08:00", "12:00"]
+    sunday: closed
+  weather_extensions:
+    hot:
+      outdoor_air_threshold_c: 31.1
+      early_start_hours: 2
+      late_stop_hours: 3
+      allow_overnight: false
+    cold:
+      outdoor_air_threshold_c: -12.2
+      early_start_hours: 3
+      late_stop_hours: 2
+      allow_overnight: true
+ventilation_scenarios:
+  - archetype
+  - 0.0
+max_scenarios: 40

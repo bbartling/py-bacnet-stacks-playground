@@ -141,10 +141,86 @@ def _scenario(kind: str, name: str, parameters: dict[str, Any], patches: list[di
     }
 
 
+def _normalize_schedule_configs(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+    raw = config.get("operating_hours")
+    if isinstance(raw, list) and raw:
+        return [dict(item) if isinstance(item, Mapping) else {"name": str(item)} for item in raw]
+    if isinstance(raw, Mapping):
+        # Mission-style occupied windows + weather extensions → named strategies.
+        strategies = [
+            {"name": "normal_fixed", "strategy": "fan_avail_occupied_office"},
+            {"name": "hot_early_late", "strategy_id": "hot_early_start"},
+            {"name": "cold_early_late", "strategy_id": "cold_early_start"},
+        ]
+        if (raw.get("weather_extensions") or {}).get("hot", {}).get("allow_overnight"):
+            strategies.append({"name": "hot_overnight", "strategy_id": "overnight_extreme"})
+        if (raw.get("weather_extensions") or {}).get("cold", {}).get("allow_overnight"):
+            strategies.append({"name": "cold_overnight", "strategy_id": "overnight_extreme"})
+        return strategies
+    return [
+        {"name": "continuous", "strategy": "fan_avail_continuous"},
+        {"name": "occupied_office", "strategy": "fan_avail_occupied_office"},
+    ]
+
+
+def _normalize_ventilation_configs(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+    if config.get("ventilation"):
+        return [dict(item) for item in config["ventilation"]]
+    names = config.get("ventilation_scenarios") or []
+    if not names:
+        return [
+            {"name": "zero_oa", "oa_fraction": 0.0},
+            {"name": "half_oa", "oa_fraction": 0.5},
+            {"name": "design_oa", "oa_fraction": 1.0},
+        ]
+    out: list[dict[str, Any]] = []
+    for name in names:
+        key = str(name)
+        if key in {"stuck_closed", "0.0", "zero"}:
+            out.append({"name": key, "oa_fraction": 0.0, "stuck_closed": key == "stuck_closed"})
+        elif key in {"archetype", "design", "1.0"}:
+            out.append({"name": key, "oa_fraction": 1.0})
+        else:
+            try:
+                out.append({"name": f"oa_{key}", "oa_fraction": float(key)})
+            except ValueError:
+                out.append({"name": key, "oa_fraction": 1.0})
+    return out
+
+
+def _normalize_capacity_configs(config: Mapping[str, Any]) -> tuple[list[float], list[dict[str, float]]]:
+    capacity_cfg = config.get("capacity") or {}
+    factors = list(capacity_cfg.get("factors") or [])
+    independent = [dict(item) for item in (capacity_cfg.get("independent_factors") or [])]
+    # Mission-style: capacity_factors: {cooling_plant: [1.0, 0.7], ...}
+    by_type = config.get("capacity_factors") or {}
+    if isinstance(by_type, Mapping) and by_type:
+        grid_vals = sorted(
+            {
+                float(v)
+                for values in by_type.values()
+                if isinstance(values, (list, tuple))
+                for v in values
+            }
+        )
+        if not factors:
+            factors = grid_vals or [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
+        # One independent case using the lowest listed factor per category.
+        independent.append(
+            {
+                str(key): float(min(values))
+                for key, values in by_type.items()
+                if isinstance(values, (list, tuple)) and values
+            }
+        )
+    if not factors:
+        factors = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
+    return factors, independent
+
+
 def _build_scenarios(config: Mapping[str, Any]) -> list[dict[str, Any]]:
     baseline = _scenario("reference", "Autosized reference", {}, [])
-    capacity_cfg = config.get("capacity") or {}
-    factors = capacity_cfg.get("factors") or [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
+    factors, independent_factors = _normalize_capacity_configs(config)
     capacity = []
     for factor in factors:
         uniform = {category: float(factor) for category in _CAPACITY_CATEGORIES}
@@ -156,7 +232,9 @@ def _build_scenarios(config: Mapping[str, Any]) -> list[dict[str, Any]]:
                 [{"name": "capacity_factors", "params": {"factors": uniform}}],
             )
         )
-    for factors_by_type in capacity_cfg.get("independent_factors") or []:
+    for factors_by_type in independent_factors:
+        if not factors_by_type:
+            continue
         normalized = {str(key): float(value) for key, value in sorted(factors_by_type.items())}
         capacity.append(
             _scenario(
@@ -166,26 +244,23 @@ def _build_scenarios(config: Mapping[str, Any]) -> list[dict[str, Any]]:
                 [{"name": "capacity_factors", "params": {"factors": normalized}}],
             )
         )
-    schedule_configs = config.get("operating_hours") or [
-        {"name": "continuous", "strategy": "fan_avail_continuous"},
-        {"name": "occupied_office", "strategy": "fan_avail_occupied_office"},
-    ]
     schedules = []
-    for item in schedule_configs:
-        item = dict(item)
+    for item in _normalize_schedule_configs(config):
         strategy = item.get("strategy")
         patches = [{"name": strategy, "params": {}}] if strategy in {
             "fan_avail_continuous", "fan_avail_occupied_office"
         } else []
         item["implementation"] = "schedule_patch" if patches else "planned_schedule_stub"
-        schedules.append(_scenario("operating_hours", str(item.get("name", strategy or "schedule")), item, patches))
+        schedules.append(
+            _scenario(
+                "operating_hours",
+                str(item.get("name", strategy or item.get("strategy_id") or "schedule")),
+                item,
+                patches,
+            )
+        )
     ventilation = []
-    for item in config.get("ventilation") or [
-        {"name": "zero_oa", "oa_fraction": 0.0},
-        {"name": "half_oa", "oa_fraction": 0.5},
-        {"name": "design_oa", "oa_fraction": 1.0},
-    ]:
-        item = dict(item)
+    for item in _normalize_ventilation_configs(config):
         fraction = float(item.get("oa_fraction", item.get("min_oa_fraction", 1.0)))
         params = {"min_oa_fraction": fraction, "stuck_closed": bool(item.get("stuck_closed", False))}
         ventilation.append(
@@ -197,7 +272,9 @@ def _build_scenarios(config: Mapping[str, Any]) -> list[dict[str, Any]]:
             )
         )
     ofat = [baseline, *capacity, *schedules, *ventilation]
-    max_scenarios = max(1, int((config.get("search") or {}).get("max_scenarios", 50)))
+    search_cfg = config.get("search") or {}
+    raw_max = search_cfg.get("max_scenarios", config.get("max_scenarios", 50))
+    max_scenarios = max(1, int(raw_max))
     combined = []
     for cap, schedule, vent in itertools.product(capacity, schedules, ventilation):
         parameters = {
@@ -267,13 +344,14 @@ def run_explore_existing(
         if detail.get("source") != "user"
     ]
     scenarios = _build_scenarios(cfg)
-    badge = (
-        "VALIDATED"
-        if _has_bills(cfg) and bool(cfg.get("holdout_period"))
-        else "CALIBRATION_HYPOTHESIS"
-        if _has_bills(cfg)
-        else "CONCEPTUAL_HYPOTHESIS"
-    )
+    # VALIDATED requires an explicit held-out period that has already been judged
+    # passing; presence of bills alone never awards VALIDATED.
+    if _has_bills(cfg) and bool(cfg.get("holdout_period")) and bool(cfg.get("holdout_passed")):
+        badge = "VALIDATED"
+    elif _has_bills(cfg):
+        badge = "MONTHLY_CALIBRATED"
+    else:
+        badge = "CONCEPTUAL_HYPOTHESIS"
 
     sizing: dict[str, Any] = {
         "status": "PLANNED" if not live else "PENDING",
@@ -368,7 +446,10 @@ def run_explore_existing(
         "has_monthly_bills": _has_bills(cfg),
         "has_holdout_period": bool(cfg.get("holdout_period")),
         "validated": badge == "VALIDATED",
-        "note": "VALIDATED is only assigned when bills and an independent holdout period are supplied.",
+        "note": (
+            "VALIDATED is only assigned when monthly bills exist, a holdout "
+            "period is configured, and holdout_passed is true."
+        ),
     }
     weather = {
         "epw": profile["energyplus"].get("epw"),
