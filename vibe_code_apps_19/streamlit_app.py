@@ -38,8 +38,11 @@ from app.charts import (  # noqa: E402
     bas_vs_web_oat_overlay,
     energy_degree_day_scatter,
     equipment_inspection_chart,
+    format_mech_cooling_coverage_display,
     max_plot_points,
     mech_cooling_oat_histogram,
+    mech_cooling_runtime_message,
+    mech_cooling_zero_eligible_warning,
     monthly_energy_bar,
     motor_weekly_runtime_chart,
     plotly_config,
@@ -422,7 +425,7 @@ def _session_config_payload() -> dict:
     )
 
 
-def _build_wattlab_dump_zip() -> tuple[bytes, str]:
+def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
     """Run a complete cookbook + agent-bundle export and zip it (in memory).
 
     Always re-runs the full active cookbook across all mapped equipment so the
@@ -457,7 +460,13 @@ def _build_wattlab_dump_zip() -> tuple[bytes, str]:
     st.session_state["batch_results"] = run.results
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
-        export_agent_bundle(dataset, run, td, include_bootstrap=False)
+        export_agent_bundle(
+            dataset,
+            run,
+            td,
+            include_bootstrap=False,
+            profile=profile,
+        )
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             for p in sorted(Path(td).rglob("*")):
                 if p.is_file():
@@ -1989,7 +1998,8 @@ Agent brief: {_AGENTS_MD_URL}
     use_status_proof = st.sidebar.checkbox(
         "Use mapped mechanical-cooling status proof",
         help=(
-            "Checked: pump/status → chiller status → amps → power. "
+            "Checked: compressor/chiller status → verified command → amps/power "
+            "(CHW pump alone is never compressor proof). "
             "Unchecked: CHW plants use the leaving-water threshold below; "
             "temperature runtime is inferred and may include flow through an idle chiller."
         ),
@@ -2404,23 +2414,32 @@ def main() -> None:
 
         st.markdown("##### Mechanical cooling hours by OAT bin")
         st.caption(
-            "**Chillers** use the sidebar proof mode (default: mapped pump → status → "
-            "amps → power; optional inferred CHW leave temp when status proof is "
-            "unchecked) + **AHU/HP DX compressors** only. Never CHW cooling valves. "
-            "Bins sorted cold→hot; OAT from **web** weather by default. "
-            "Aggregate bars are **device-hours**. The coverage table always lists every "
-            "cooling-capable device (name, included/excluded, selected proof, inferred "
-            "runtime, reason). Temperature-derived runtime is labeled inferred — cold "
-            "water can flow through an idle chiller."
+            "**Chillers / DX / VRF** use the sidebar compressor-proof mode (default: "
+            "mapped status → command → amps → power; optional inferred CHW leave temp "
+            "when status proof is unchecked). **CHW pump alone is never compressor "
+            "proof.** Never CHW cooling valves. Bins sorted cold→hot; OAT from **web** "
+            "weather by default. Stacked bars are per-device runtime; line traces are "
+            "**total compressor device-hours** and **any compressor active**. The "
+            "coverage table always lists every cooling-capable device with eligibility, "
+            "activity, proof, runtime, and reason. Temperature-derived runtime is "
+            "labeled inferred — cold water can flow through an idle chiller."
         )
+        zero_warn = mech_cooling_zero_eligible_warning(cool_coverage)
+        if zero_warn:
+            st.warning(zero_warn)
+        runtime_msg = mech_cooling_runtime_message(cool_coverage)
+        if runtime_msg:
+            st.info(runtime_msg)
         cool_fig = mech_cooling_oat_histogram(cool_bins)
-        if cool_fig is None:
+        if cool_fig is None and not zero_warn:
             st.info(
-                "No compressor / chiller-plant proof found for the selected mode. "
-                "Map chw_pump_status / chiller status / amps / power, or uncheck "
-                "status proof and set CHW leave proof max °F. AHU CHW valves excluded."
+                "No compressor runtime bins for the selected proof mode. Eligible "
+                "devices with zero observed runtime still appear in the coverage table "
+                "as **No runtime observed**. Map chiller/compressor status, command, "
+                "amps, or power, or uncheck status proof and set CHW leave proof max °F. "
+                "AHU CHW valves excluded."
             )
-        else:
+        elif cool_fig is not None:
             st.plotly_chart(
                 cool_fig,
                 width="stretch",
@@ -2435,10 +2454,14 @@ def main() -> None:
                 key="dl_cool_bins_overview",
             )
         if not cool_coverage.empty:
-            n_inc = int((cool_coverage["status"] == "included").sum())
-            n_exc = int((cool_coverage["status"] == "excluded").sum())
+            if "included" in cool_coverage.columns:
+                n_inc = int(cool_coverage["included"].fillna(False).astype(bool).sum())
+                n_exc = int((~cool_coverage["included"].fillna(False).astype(bool)).sum())
+            else:
+                n_inc = int((cool_coverage["status"] == "included").sum())
+                n_exc = int((cool_coverage["status"] == "excluded").sum())
             mode = (
-                "mapped pump/status/amps/power"
+                "mapped compressor/chiller status, command, amps, or power"
                 if st.session_state.get("use_mech_cooling_status_proof", True)
                 else "inferred CHW leaving temperature"
             )
@@ -2446,15 +2469,18 @@ def main() -> None:
                 f"###### Mechanical cooling devices — {n_inc} included, {n_exc} excluded"
             )
             st.caption(
-                f"Selected proof mode: **{mode}**. Every cooling-capable device stays "
-                "visible here even when it contributes no chart bins. Temperature-derived "
-                "runtime is inferred: cold water can flow through an idle chiller."
+                f"Selected proof mode: **{mode}**. Coverage shows eligibility, activity, "
+                "proof, runtime, and reason for every cooling-capable device. Eligible "
+                "devices with no observed runtime remain visible as **No runtime "
+                "observed**. Temperature-derived runtime is inferred: cold water can "
+                "flow through an idle chiller."
             )
+            coverage_display = format_mech_cooling_coverage_display(cool_coverage)
             st.dataframe(
-                cool_coverage,
+                coverage_display,
                 hide_index=True,
                 width="stretch",
-                height=min(360, 38 + 35 * max(1, len(cool_coverage))),
+                height=min(360, 38 + 35 * max(1, len(coverage_display))),
             )
             st.download_button(
                 "Download cooling coverage CSV",
@@ -3398,10 +3424,38 @@ def main() -> None:
         if not frames:
             st.info("Load a package first — the dump needs equipment data.")
         else:
+            profile_options = {
+                "Summary (default)": "summary",
+                "Diagnostic": "diagnostic",
+                "Forensic": "forensic",
+            }
+            # Durable non-widget key survives Export unmount; widget key is re-seeded.
+            if "wattlab_export_profile" not in st.session_state:
+                st.session_state["wattlab_export_profile"] = "summary"
+            if "wattlab_export_profile_label" not in st.session_state:
+                rev = {v: k for k, v in profile_options.items()}
+                st.session_state["wattlab_export_profile_label"] = rev.get(
+                    st.session_state["wattlab_export_profile"],
+                    "Summary (default)",
+                )
+            profile_label = st.selectbox(
+                "Export profile",
+                options=list(profile_options),
+                key="wattlab_export_profile_label",
+                help=(
+                    "Summary: shared telemetry + analytic tables, no per-rule timeseries. "
+                    "Diagnostic: FAULT/ERROR evidence. Forensic: applicable evidence."
+                ),
+            )
+            st.session_state["wattlab_export_profile"] = profile_options.get(
+                str(profile_label), "summary"
+            )
             if st.button("Build WattLab dump (zip)", type="primary", key="wattlab_dump_build"):
                 with st.spinner("Running analytics + writing bundle…"):
                     try:
-                        data, fname = _build_wattlab_dump_zip()
+                        data, fname = _build_wattlab_dump_zip(
+                            profile=st.session_state.get("wattlab_export_profile", "summary")
+                        )
                         st.session_state["wattlab_dump_zip"] = (data, fname)
                         st.success(f"Dump ready · {len(data) / 1e6:.1f} MB — see README_WATTLAB.md inside")
                     except Exception as exc:

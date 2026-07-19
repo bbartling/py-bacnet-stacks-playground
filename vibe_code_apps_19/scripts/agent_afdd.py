@@ -62,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not write Streamlit .last_agent_session.json bootstrap",
     )
+    parser.add_argument(
+        "--export-profile",
+        choices=("summary", "diagnostic", "forensic"),
+        default="summary",
+        help="WattLab dump evidence profile (default: summary)",
+    )
     args = parser.parse_args(argv)
 
     if args.run_all:
@@ -104,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         nonempty = int((run.rcx_coverage["row_count"] > 0).sum()) if not run.rcx_coverage.empty else 0
         print(f"RCx coverage: {nonempty}/{len(run.rcx_coverage)} presets with data")
 
-    written = export_agent_bundle(dataset, run, args.out)
+    written = export_agent_bundle(dataset, run, args.out, profile=args.export_profile)
     if args.no_bootstrap:
         # Remove default bootstrap if export wrote it
         from app.bootstrap import default_bootstrap_path

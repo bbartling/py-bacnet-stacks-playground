@@ -14,6 +14,7 @@ weather/
 **/columns.csv
 
 # Generated / cache artifacts
+.artifacts/
 .cache/
 ..cache/
 

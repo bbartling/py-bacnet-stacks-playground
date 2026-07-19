@@ -72,6 +72,50 @@ def test_hours_true_dt_aware() -> None:
     assert abs(h - 2.5) < 1e-9
 
 
+def test_hours_true_does_not_cap_gaps_above_three_x_poll() -> None:
+    """Rule deltas stay uncapped; a 1h gap must credit fully when poll is 5 min."""
+    idx = pd.to_datetime(
+        [
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",  # 3600s > 3 * 300
+            "2024-01-01T01:05:00Z",
+        ],
+        utc=True,
+    )
+    mask = pd.Series([True, True, False], index=idx)
+    assert hours_true(mask, poll_seconds=300.0) == pytest.approx((3600 + 300) / 3600.0)
+
+
+def test_hours_true_preserves_duplicate_timestamps() -> None:
+    """Duplicate rows keep row-order deltas (0 then gap); no double-credit via reindex."""
+    idx = pd.to_datetime(
+        [
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+        ],
+        utc=True,
+    )
+    mask = pd.Series([True, True, True], index=idx)
+    # deltas: 0, 3600, median(0, 3600)=1800 → 1.5h
+    assert hours_true(mask, poll_seconds=300.0) == pytest.approx(1.5)
+
+
+def test_hours_true_uses_row_order_not_chronological() -> None:
+    """Out-of-order timestamps use forward row gaps, not a sorted timeline."""
+    idx = pd.to_datetime(
+        [
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T02:00:00Z",
+            "2024-01-01T01:00:00Z",
+        ],
+        utc=True,
+    )
+    mask = pd.Series([True, False, True], index=idx)
+    # Row deltas: 7200, -3600→0, median(7200, 0)=3600 for last → 3.0h
+    assert hours_true(mask, poll_seconds=300.0) == pytest.approx(3.0)
+
+
 def test_fc4_works_with_datetime_index_no_timestamp_column() -> None:
     n = 120  # 2 hours at 1-min
     idx = pd.date_range("2024-01-01", periods=n, freq="min", tz="UTC")

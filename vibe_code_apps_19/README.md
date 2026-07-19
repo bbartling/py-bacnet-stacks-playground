@@ -27,10 +27,10 @@ Suggested human→agent message:
 - Full **59 cookbook rules** + optional `CUSTOM-*` agent rules
 - **Zip package** ingest (`openfdd_package_v1`) with temp-only extract (no retained historian on disk)
 - Haystack-*like* **column → role** map (JSON / session config) — no RDF
-- Analytics: motor hours, mech-cooling OAT bins (compressor / plant only), RCx plots
-- **WattLab dump** (Export tab) — AI-agent handoff zip for vibe20: every FDD rule (summary + findings + per-rule timeseries), analytic CSVs, sensor stats / 24h diurnal profiles (fan on/off × weekday/weekend/holiday), setpoints, schedules, weather, data-derived `model_seed.json`, and `MANIFEST.json`
+- Analytics: motor hours, mech-cooling OAT bins (**compressor devices only** — not CHW pump-alone or AHU chilled-water valves), device-hours + any-active aggregates, RCx plots
+- **WattLab dump v3** (Export tab) — AI-agent handoff zip for vibe20: profiles `summary` (default) / `diagnostic` / `forensic`, shared `telemetry/`, mechanical series + coverage, FDD summary/findings, expanded sensor stats + provenance, `model_seed.json`, and `MANIFEST.json` (`wattlab_dump_v3`)
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
-- **Docker / GHCR** image for self-host demos
+- **Docker / GHCR** image for self-host demos (**Vibe 19 only** — this work does not publish Vibe 20)
 
 ## Quick start (local)
 
@@ -114,7 +114,7 @@ In the sidebar confirm:
 
 If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with `:latest` / `:develop` above.
 
-More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes.
+More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes (**Vibe 19 only** — does not publish/update Vibe 20; WattLab consumer stays a local checkout).
 
 | Path | Limit |
 | --- | --- |
@@ -125,9 +125,11 @@ Large BUILDING packages: prefer `scripts/agent_afdd.py --package …` (bypasses 
 
 ## WattLab dump (vibe20 handoff)
 
-The **Export** tab builds one zip for WattLab (`vibe_code_apps_20`) so an AI agent can calibrate and iterate an EnergyPlus twin. Contents are Haystack/role-map driven — see `README_WATTLAB.md` and `MANIFEST.json` inside the dump. Building characteristics (`building_type`, `floor_area_ft2`, utility bills) are tagged `user_required` in the data-derived `model_seed.json` for the vibe20 human+agent to fill.
+The **Export** tab builds one zip for WattLab (`vibe_code_apps_20`) so an AI agent can calibrate and iterate an EnergyPlus twin. Schema is **`wattlab_dump_v3`** (additive over v2). Default profile is **`summary`** — compact FDD + analytics + shared `telemetry/<equip>.csv`; it does **not** require legacy `fdd_timeseries/`. Use **`diagnostic`** / **`forensic`** when you need more per-rule evidence. See `README_WATTLAB.md` and `MANIFEST.json` inside the dump (profile, result-status counts, files written/suppressed, stage timings).
 
-Turnkey UI smoke: `python -m pytest tests/test_turnkey_app.py -q` (AppTest all sections + live HTML `/_stcore/health`).
+**Mechanical cooling in the dump:** rows carry `series_kind` (`individual_device`, `aggregate_device_hours`, `aggregate_active_hours`) and normalized coverage (`eligibility_state`, including `eligible_no_runtime`). Compressor/chiller status, verified command, or **unit-aware** analog power/current above validated thresholds prove runtime — **not** CHW pump status alone, and **not** chilled-water AHU valves. Heat-pump/VRF compressor evidence additionally requires proven cooling mode. Building characteristics (`building_type`, `floor_area_ft2`, utility bills) stay `user_required` in `model_seed.json` for the vibe20 human+agent. Sensor stats include expanded percentiles/coverage; inferred parameters carry provenance/confidence.
+
+Vibe 20 `load_bundle` accepts **v2 and v3** additively and indexes telemetry paths lazily. Turnkey UI smoke: `python -m pytest tests/test_turnkey_app.py -q`.
 
 Optional WattLab docs: [`../vibe_code_apps_20/README.md`](../vibe_code_apps_20/README.md).
 

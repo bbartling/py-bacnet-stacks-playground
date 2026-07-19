@@ -10,6 +10,8 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from app.runtime_intervals import UNLIMITED_GAP_SECONDS, interval_durations
+
 RuleStatus = Literal[
     "PASS",
     "FAULT",
@@ -26,11 +28,23 @@ def _sample_deltas_seconds(index: pd.Index, poll_seconds: float) -> pd.Series | 
         return None
     if len(index) == 1:
         return pd.Series([float(poll_seconds)], index=index)
-    deltas = index.to_series().diff().dt.total_seconds().shift(-1)
-    med = float(deltas.dropna().median()) if deltas.notna().any() else float(poll_seconds)
+    durations = interval_durations(
+        index,
+        nominal_seconds=poll_seconds,
+        max_gap_seconds=UNLIMITED_GAP_SECONDS,
+        final_duration_seconds=0.0,
+        preserve_row_order=True,
+    )
+    med = (
+        float(durations.iloc[:-1].median())
+        if len(durations) > 1 and durations.iloc[:-1].notna().any()
+        else float(poll_seconds)
+    )
     if not np.isfinite(med) or med < 0:
         med = float(max(poll_seconds, 0.0))
-    return deltas.fillna(med).clip(lower=0.0)
+    durations = durations.copy()
+    durations.iloc[-1] = med
+    return durations
 
 
 def confirm_fault(raw: pd.Series, *, poll_seconds: float, confirm_seconds: float = 300.0) -> pd.Series:

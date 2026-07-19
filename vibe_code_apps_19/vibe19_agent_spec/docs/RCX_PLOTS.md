@@ -62,4 +62,4 @@ For **AHU / VAV (/HP)** timeseries and box presets, Summary statistics shows thr
 
 ## Related Overview (not a separate Analytics tab)
 
-Overview shows motor run-hours and mech-cooling OAT histograms (chiller status/pump **or** AHU DX only — not cool-valve-only). The Analytics tab was removed as a duplicate.
+Overview shows motor run-hours and mech-cooling OAT histograms (**compressor/chiller status or AHU DX only** — not CHW pump-alone, not cool-valve-only). The Analytics tab was removed as a duplicate.

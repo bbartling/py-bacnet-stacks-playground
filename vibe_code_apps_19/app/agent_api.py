@@ -6,7 +6,10 @@ coverage, then export a machine-readable bundle.
 
 from __future__ import annotations
 
+import io
 import json
+import time
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -306,6 +309,7 @@ def run_rules(
     merged_params = {**dataset.params, **(params or {})}
     _attach_role_map(dataset.frames, dataset.role_map)
     eq_filter = set(equipment_ids) if equipment_ids is not None else None
+    t_rules = time.perf_counter()
     if require_operational_gates:
         results = run_batch(
             dataset.frames,
@@ -339,6 +343,7 @@ def run_rules(
                     require_operational_gates=False,
                 )
             )
+    rule_execution_seconds = round(time.perf_counter() - t_rules, 6)
     if rule_ids is not None:
         allow = set(rule_ids)
         results = [r for r in results if r.rule_id in allow]
@@ -369,6 +374,7 @@ def run_rules(
             "has_web_weather": dataset.has_web_weather,
             "prefer_web_oat": dataset.prefer_web_oat,
             "require_operational_gates": require_operational_gates,
+            "rule_execution_seconds": rule_execution_seconds,
         },
     )
 
@@ -459,13 +465,41 @@ def export_agent_bundle(
     lat: float | None = None,
     lon: float | None = None,
     include_bootstrap: bool = True,
+    profile: str = "summary",
+    selected_evidence: set[tuple[str, str]] | None = None,
 ) -> dict[str, Path]:
-    """Write run_report + CSVs + model-seed artifacts under ``out_dir``."""
+    """Write run_report + CSVs + model-seed artifacts under ``out_dir``.
+
+    ``profile`` controls FDD evidence volume (``summary`` / ``diagnostic`` /
+    ``forensic``). Default ``summary`` keeps sensor/setpoint/model-seed/analytic
+    artifacts and shared telemetry without a Cartesian per-rule timeseries dump.
+    """
+    from app.wattlab_dump import EXPORT_PROFILES, ExportProfile
+
+    if profile not in EXPORT_PROFILES:
+        raise ValueError(f"Unknown export profile: {profile!r}; expected one of {EXPORT_PROFILES}")
+    export_profile: ExportProfile = profile  # type: ignore[assignment]
+
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
+    export_counts = None
+    stage_seconds: dict[str, float] = {
+        "rule_execution": 0.0,
+        "analytics": 0.0,
+        "serialization": 0.0,
+        "compression": 0.0,
+    }
 
     run = run or AgentRun(params=dataset.params)
+    # Rule execution is typically done before export; credit any recorded timing.
+    if isinstance(run.meta, dict) and run.meta.get("rule_execution_seconds") is not None:
+        try:
+            stage_seconds["rule_execution"] = float(run.meta["rule_execution_seconds"])
+        except (TypeError, ValueError):
+            stage_seconds["rule_execution"] = 0.0
+
+    t_analytics = time.perf_counter()
     analytics = run.analytics or {}
     if not analytics:
         analytics = run_analytics(dataset)
@@ -502,22 +536,33 @@ def export_agent_bundle(
             has_web_weather=dataset.has_web_weather,
             gap_report=gap if isinstance(gap, pd.DataFrame) else None,
         )
+    stage_seconds["analytics"] = round(time.perf_counter() - t_analytics, 6)
 
-    report = {
-        "building_id": dataset.building_id,
-        "source_path": dataset.source_path,
-        "package_report": dataset.package_report,
-        "package_health": (dataset.package_report or {}).get("package_health"),
-        "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
-        "warnings": dataset.warnings,
-        "status_counts": run.status_counts,
-        "meta": run.meta,
-        "tuning_report": run.tuning_report,
-        "rule_catalog_count": len(RULES),
-    }
-    rp = out / "run_report.json"
-    rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
-    written["run_report"] = rp
+    results_list = list(run.results or [])
+    status_counts = dict(run.status_counts or {})
+    if not status_counts and results_list:
+        from collections import Counter
+
+        status_counts = dict(Counter(r.status for r in results_list))
+    applicable_count = sum(1 for r in results_list if getattr(r, "applicable", False))
+    non_applicable_count = max(0, len(results_list) - applicable_count)
+
+    # Serialization covers writing payload files (including final run_report.json).
+    # Analytics above is compute-only; MANIFEST is written after payload measurement.
+    t_serialize = time.perf_counter()
+
+    from app.wattlab_dump import (
+        EXPORT_METRICS_SCOPE,
+        EXPORT_STAGE_SCOPE,
+        diurnal_profiles,
+        fdd_findings_table,
+        sensor_stats_tables,
+        setpoints_table,
+        write_fdd_evidence,
+        write_manifest,
+        write_shared_telemetry,
+        write_wattlab_readme,
+    )
 
     health = (dataset.package_report or {}).get("package_health")
     if health:
@@ -537,31 +582,34 @@ def export_agent_bundle(
             written["fdd_summary"] = p
             run.summary = summary
 
-    # Long-format findings + per-rule timeseries (agent-optimized)
-    from app.wattlab_dump import (
-        diurnal_profiles,
-        fdd_findings_table,
-        sensor_stats_tables,
-        setpoints_table,
-        write_fdd_timeseries,
-        write_manifest,
-        write_wattlab_readme,
-    )
-
+    # Long-format findings + profile-aware evidence + shared telemetry
     if run.results:
         findings = fdd_findings_table(run.results)
         if isinstance(findings, pd.DataFrame) and not findings.empty:
             p = out / "fdd_findings.csv"
             findings.to_csv(p, index=False)
             written["fdd_findings"] = p
-        for ts_path in write_fdd_timeseries(
+        export_counts = write_fdd_evidence(
             run.results,
             out,
+            profile=export_profile,
+            selected_evidence=selected_evidence,
             frames=dataset.frames,
             role_map=dataset.role_map,
-        ):
+        )
+        for ts_path in export_counts.written:
             rel = ts_path.relative_to(out).as_posix()
             written[f"fdd_timeseries:{rel}"] = ts_path
+
+    for eq_id, tel_path in write_shared_telemetry(
+        dataset.frames,
+        dataset.role_map,
+        out,
+        profile=export_profile,
+        results=run.results,
+        selected_evidence=selected_evidence,
+    ).items():
+        written[f"telemetry:{eq_id}"] = tel_path
 
     fault_settings = run.params or dataset.params or {}
     fs = out / "fault_settings.json"
@@ -782,8 +830,79 @@ def export_agent_bundle(
         path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
         written["tuning_assistant_report"] = path
 
-    # Agent ingest index — write last so it sees every path above
-    written["manifest"] = write_manifest(out, written)
+    files_suppressed = 0
+    if export_counts is not None:
+        files_suppressed = int(sum(int(v) for v in export_counts.suppressed_status.values()))
+
+    # Finalize run_report once before measuring. Directory byte/file counts are
+    # recorded on MANIFEST under an explicit payload scope (excludes MANIFEST).
+    stage_seconds["serialization"] = round(time.perf_counter() - t_serialize, 6)
+    report = {
+        "building_id": dataset.building_id,
+        "source_path": dataset.source_path,
+        "package_report": dataset.package_report,
+        "package_health": (dataset.package_report or {}).get("package_health"),
+        "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
+        "warnings": dataset.warnings,
+        "status_counts": status_counts,
+        "applicable_count": applicable_count,
+        "non_applicable_count": non_applicable_count,
+        "result_count": len(results_list),
+        "meta": run.meta,
+        "tuning_report": run.tuning_report,
+        "rule_catalog_count": len(RULES),
+        "export_profile": export_profile,
+        "files_suppressed": files_suppressed,
+        "stage_seconds": {
+            "rule_execution": stage_seconds["rule_execution"],
+            "analytics": stage_seconds["analytics"],
+            "serialization": stage_seconds["serialization"],
+            # compression filled on MANIFEST after payload zip timing
+            "compression": 0.0,
+        },
+        "stage_scope": dict(EXPORT_STAGE_SCOPE),
+        "metrics_scope": dict(EXPORT_METRICS_SCOPE),
+    }
+    rp = out / "run_report.json"
+    rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    written["run_report"] = rp
+
+    # Payload metrics after final run_report: all files except MANIFEST.
+    payload_paths = [p for p in out.rglob("*") if p.is_file() and p.name != "MANIFEST.json"]
+    payload_file_count = len(payload_paths)
+    payload_uncompressed_bytes = sum(p.stat().st_size for p in payload_paths)
+
+    t_compress = time.perf_counter()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for p in sorted(payload_paths):
+            zf.write(p, arcname=p.relative_to(out).as_posix())
+    payload_compressed_bytes = len(buf.getvalue())
+    stage_seconds["compression"] = round(time.perf_counter() - t_compress, 6)
+
+    written["manifest"] = write_manifest(
+        out,
+        written,
+        profile=export_profile,
+        export_counts=export_counts,
+        result_status_counts=status_counts,
+        applicable_count=applicable_count,
+        non_applicable_count=non_applicable_count,
+        files_suppressed=files_suppressed,
+        payload_file_count=payload_file_count,
+        payload_uncompressed_bytes=payload_uncompressed_bytes,
+        payload_compressed_bytes=payload_compressed_bytes,
+        package_file_count=payload_file_count + 1,
+        metrics_scope=EXPORT_METRICS_SCOPE,
+        stage_seconds=stage_seconds,
+        stage_scope=EXPORT_STAGE_SCOPE,
+    )
+    package_file_count = sum(1 for p in out.rglob("*") if p.is_file())
+    man_path = out / "MANIFEST.json"
+    man_payload = json.loads(man_path.read_text(encoding="utf-8"))
+    if man_payload.get("package_file_count") != package_file_count:
+        man_payload["package_file_count"] = package_file_count
+        man_path.write_text(json.dumps(man_payload, indent=2, default=str), encoding="utf-8")
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run
     if not include_bootstrap:
