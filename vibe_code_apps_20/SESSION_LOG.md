@@ -2,15 +2,17 @@
 
 Newest first. One entry per shipped work session.
 
-## 2026-07-19 — Privacy and clean-room foundation
+## 2026-07-19 — Existing Building Hypothesis Lab + clean-room ECM platform
 
-- Added hash-only proprietary-term scanning, forbidden-workbook checks, and
-  read-only XLSX metadata audit helpers.
-- Added per-calculator clean-room provenance records and rewrote public
-  calculator descriptions around independent engineering implementations and
-  synthetic golden tests.
-- Added a repository privacy audit; private workbooks remain neither committed
-  nor required at runtime.
+- Privacy: hash-only deny-list scanner, provenance records, clean-room wording.
+- Units: SI-first `wattlab.units`; absolute vs delta temperature separation.
+- ECM catalog + Easy Buttons Studio page; `wattlab ecm` CLI.
+- EnergyPlus runner/cache, sizing inventory, capacity/ventilation patches.
+- `wattlab explore-existing` scenario ladder, contracts, portable HTML report,
+  synthetic poorly-documented and controls-school examples.
+- Lifecycle finance + public controls-retrofit benchmark bands.
+- GHCR: `workflow_dispatch` `candidate_publish` tags `hypothesis-lab-<sha>`
+  without moving `:latest` / `:develop`.
 
 ## 2026-07-18 (evening) — Generalized twin intake for vibe19 dumps
 

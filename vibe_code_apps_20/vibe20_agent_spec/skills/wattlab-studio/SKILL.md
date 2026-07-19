@@ -2,17 +2,18 @@
 name: wattlab-studio
 description: >-
   Use when working on the WattLab Studio Streamlit app: studio.py pages
-  (Ingest, Model, Benchmark, Measures, Twin loop, Capital plan), session state
-  keys, Plotly charts, AppTest smoke, guardrail verdict rendering. Triggers
-  on: Studio, Streamlit, studio.py, page, AppTest, plotly chart, capital plan
-  UI, benchmark page.
+  (Ingest, Model, Benchmark, Hypothesis Lab, ECM Easy Buttons, Measures,
+  Twin loop, EP Results, Capital plan), session state keys, Plotly charts,
+  AppTest smoke, guardrail verdict rendering. Triggers on: Studio, Streamlit,
+  studio.py, page, AppTest, plotly chart, capital plan UI, benchmark page,
+  Hypothesis Lab, Easy Buttons.
 ---
 
 # WattLab Studio — the ESCO cockpit (Streamlit)
 
 Human-facing side of the twin loop. Launch: `wattlab studio` (or
 `streamlit run studio.py`). Look-and-feel follows vibe19: Plotly charts,
-lazy pages, wide layout.
+lazy pages, wide layout. Page modules live under `wattlab/studio/pages/`.
 
 ## Pages and state keys
 
@@ -21,12 +22,16 @@ lazy pages, wide layout.
 | Ingest | vibe19 dump upload → summary, gap checklist, fault highlights | `studio_bundle` |
 | Model | resolve_profile form + provenance + calibration badge | `studio_profile` |
 | Benchmark | campus.json bills → EUIs vs peer bands, allocation scenarios, monthly signatures | `studio_campus`, `studio_benchmark_summary`, `studio_allocation` |
+| Existing Building Hypothesis Lab | sparse-input explore-existing ladder + downloads | `studio_hypothesis_*` |
+| ECM Easy Buttons | catalog-driven proxy / conceptual E+ cards + packages | `studio_ecm_*` |
 | Measures | measure set + bridge suggestions, ESCO proxy savings, editable costs | `studio_measures`, `studio_proxies`, `studio_costs` |
 | Twin loop | dry-run plan / Docker E+ runs, crosscheck verdicts, manifest history | `studio_plan`, `studio_report` |
+| EP Results | post-sim charts / scorecards | `studio_ep_results` |
 | Capital plan | finance rollup + **guardrail gate** + downloads | `studio_capital_plan`, `studio_guardrail_gate` |
 
 Navigation: `st.sidebar.radio(key="studio_page")`. Liberty campus path is
 pre-filled on Benchmark when `examples/liberty/campus.json` exists.
+Profile/bundle changes must invalidate stale hypothesis/report state.
 
 ## Conventions (do not regress)
 
@@ -45,7 +50,7 @@ pre-filled on Benchmark when `examples/liberty/campus.json` exists.
 ## Smoke (before claiming done)
 
 ```powershell
-python scripts/smoke_studio.py     # AppTest: bare 6-page walk + loaded Liberty walk
+python scripts/smoke_studio.py     # AppTest: bare page walk (9 pages) + Liberty walk
 python -m pytest tests/test_studio_app.py -q
 # live: wattlab studio → http://localhost:8501/_stcore/health → "ok"
 ```

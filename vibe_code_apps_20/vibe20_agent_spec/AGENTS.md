@@ -26,11 +26,11 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 12. **Weather** — AMY EPW from `weather_observed.csv` / Open-Meteo (`wattlab.weather.epw`); Weather-Man OAT bin tables (5°F × 3 shifts + MCWB) in `wattlab.weather.bins` (built-in NOAA Washington DC table + `from_hourly`). Calibration weather and degree-day benchmarking are separate use cases — don't conflate.
 13. **The vibe19 dump is the seed** — start with `wattlab twin <dump.zip>` (or `wattlab.seed.load_bundle` + `gap_report`). Read `MANIFEST.json` first. Required human fields: `building_type`, `city`, `floor_area_ft2` (plus `lat`/`lon` for AMY calibrate). **Never invent office/Madison/Chicago** for a real dump. Prefer `fdd_findings.csv` over `fdd_summary.csv`. See [`DATA_CONTRACT.md`](DATA_CONTRACT.md) and the **Tomorrow demo** section in [`../AGENTS.md`](../AGENTS.md).
 14. **No client data in git** — the Liberty CSVs are approved for the repo; any other building's bills/BAS exports need explicit user sign-off before committing.
-15. **Studio smoke before claiming done** — `python scripts/smoke_studio.py` (AppTest walk of all 6 pages + loaded Liberty walk, 0 exceptions), plus `python -m pytest -q`. For a live check: `wattlab studio`, then `http://localhost:8501/_stcore/health` → `ok`.
+15. **Studio smoke before claiming done** — `python scripts/smoke_studio.py` (AppTest walk of all pages including Hypothesis Lab + ECM Easy Buttons + loaded Liberty walk, 0 exceptions), plus `python -m pytest -q`. For a live check: `wattlab studio`, then `http://localhost:8501/_stcore/health` → `ok`.
 16. **Streamlit conventions** — `width='stretch'` (never deprecated `use_container_width`), unique `key=` on every widget/chart, Plotly for charts (look-and-feel follows vibe19).
 17. **Session log discipline** — append `../SESSION_LOG.md` (newest first) after every shipped session; update skills/docs here when behavior changes.
 18. **ASCII in console output** — Windows cp1252 chokes on arrows/em-dashes in `print()`; keep CLI/smoke output plain ASCII (tests set `PYTHONIOENCODING=utf-8` for subprocesses).
-19. **vibe20-only commits don't rebuild vibe19's GHCR image** — the workflow path-filters on `vibe_code_apps_19/**`. If you touch vibe19 too, follow its rules 25/30 (multi-arch QEMU publish + manifest verify).
+19. **vibe20-only commits don't rebuild vibe19's GHCR image** — the workflow path-filters on `vibe_code_apps_19/**`. If you touch vibe19 too, follow its rules 25/30 (multi-arch QEMU publish + manifest verify). Candidate GHCR for this feature branch uses `workflow_dispatch` `candidate_publish=true` → `ghcr.io/bbartling/vibe20:hypothesis-lab-<sha>` without moving `:latest`/`:develop`.
 20. **Strict input contracts** — `wattlab.contracts` uses Pydantic v2 with
     `extra="forbid"`. Weather requires UTC, complete EPW variables, valid
     coordinates/dates, and full-year row counts; utility datasets require
@@ -52,6 +52,12 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     an AWHP represented as an electric boiler. Glazing is a simple-glazing
     proxy and equipment replacements are direct efficiency/parameter edits,
     not construction-ready designs.
+24. **Existing Building Hypothesis Lab** — `wattlab explore-existing` + Studio
+    page. Sparse evidence → sizing → capacity OFAT → schedules → ventilation →
+    bounded combinations. No bills → `CONCEPTUAL_HYPOTHESIS`. Reduced capacity
+    must not auto-claim savings. Privacy: hash-only deny-list (`wattlab.privacy`).
+25. **Canonical ECM catalog** — sole source is `wattlab/measures/catalog.yaml`
+    (`wattlab ecm`, Studio Easy Buttons, packages, coverage matrix).
 
 ---
 
@@ -74,6 +80,11 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 | Path | Role |
 | --- | --- |
+| `wattlab/existing_building/` | Hypothesis Lab orchestration (`explore-existing`) |
+| `wattlab/ecm/` + `wattlab/measures/catalog.yaml` | Canonical ECM registry / packages |
+| `wattlab/units/` | SI-first quantities and IP/SI display |
+| `wattlab/privacy/` | Hash-only proprietary-content scanner |
+| `wattlab/studio/pages/` | Streamlit page modules (Hypothesis Lab, Easy Buttons, …) |
 | `wattlab/seed/` | vibe19 dump loader + gap report |
 | `wattlab/benchmarks/` | EUI peer bands, cost bands, campus/meters/allocation, ROI guardrail gate |
 | `wattlab/weather/bins.py` | Weather-Man OAT bins (5°F × 3 shifts, MCWB, psychrometrics) |
