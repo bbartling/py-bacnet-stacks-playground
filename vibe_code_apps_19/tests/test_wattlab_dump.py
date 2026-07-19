@@ -200,7 +200,9 @@ def test_fdd_findings_and_timeseries(tmp_path: Path):
     assert paths[0].name == "FC1__AHU_1.csv"
     ts = pd.read_csv(paths[0])
     assert "raw_fault" in ts.columns and "confirmed_fault" in ts.columns
-    assert "discharge-air-temp" in ts.columns
+    # Compact evidence references shared telemetry instead of copying plot columns.
+    assert "telemetry_path" in ts.columns
+    assert "discharge-air-temp" not in ts.columns
 
 
 def test_write_manifest_and_readme(tmp_path: Path):

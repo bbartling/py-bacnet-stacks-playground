@@ -293,7 +293,9 @@ def test_export_wattlab_dump_button(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "model_seed.json" in names
     assert "sensor_stats_all.csv" in names
     assert "fdd_findings.csv" in names
-    assert any(n.startswith("fdd_timeseries/") for n in names)
+    # Default Summary profile: shared telemetry, no Cartesian per-rule timeseries
+    assert any(n.startswith("telemetry/") for n in names)
+    assert not any(n.startswith("fdd_timeseries/") for n in names)
     # Bootstrap pointer files must not be inside the user download
     assert not any(n.startswith("streamlit_bootstrap") for n in names)
 
@@ -416,16 +418,44 @@ def test_mech_cooling_one_device_message_and_coverage(
     radio.set_value("Export")
     at.run()
     assert not at.exception
+
+    # Export-profile selectbox defaults to Summary and persists across section reruns.
+    profile_box = next(
+        (s for s in at.main.selectbox if getattr(s, "label", "") == "Export profile"),
+        None,
+    )
+    assert profile_box is not None
+    assert profile_box.value == "Summary (default)"
+    assert at.session_state["wattlab_export_profile"] == "summary"
+    profile_box.set_value("Diagnostic")
+    at.run()
+    assert not at.exception
+    assert at.session_state["wattlab_export_profile"] == "diagnostic"
+
     radio = _section_radio(at)
     radio.set_value("Overview")
     at.run()
     assert not at.exception
+    radio = _section_radio(at)
+    radio.set_value("Export")
+    at.run()
+    assert not at.exception
+    profile_box = next(
+        s for s in at.main.selectbox if getattr(s, "label", "") == "Export profile"
+    )
+    assert profile_box.value == "Diagnostic"
+    assert at.session_state["wattlab_export_profile"] == "diagnostic"
+
     proof = next(
         c
         for c in at.sidebar.checkbox
         if c.label == "Use mapped mechanical-cooling status proof"
     )
     assert proof.value is True
+    radio = _section_radio(at)
+    radio.set_value("Overview")
+    at.run()
+    assert not at.exception
     assert "Only CHILLER_2 had observed compressor runtime during this period." in _main_text(at)
 
 

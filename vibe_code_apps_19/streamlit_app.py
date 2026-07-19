@@ -425,7 +425,7 @@ def _session_config_payload() -> dict:
     )
 
 
-def _build_wattlab_dump_zip() -> tuple[bytes, str]:
+def _build_wattlab_dump_zip(*, profile: str = "summary") -> tuple[bytes, str]:
     """Run a complete cookbook + agent-bundle export and zip it (in memory).
 
     Always re-runs the full active cookbook across all mapped equipment so the
@@ -460,7 +460,13 @@ def _build_wattlab_dump_zip() -> tuple[bytes, str]:
     st.session_state["batch_results"] = run.results
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
-        export_agent_bundle(dataset, run, td, include_bootstrap=False)
+        export_agent_bundle(
+            dataset,
+            run,
+            td,
+            include_bootstrap=False,
+            profile=profile,
+        )
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             for p in sorted(Path(td).rglob("*")):
                 if p.is_file():
@@ -3417,10 +3423,38 @@ def main() -> None:
         if not frames:
             st.info("Load a package first — the dump needs equipment data.")
         else:
+            profile_options = {
+                "Summary (default)": "summary",
+                "Diagnostic": "diagnostic",
+                "Forensic": "forensic",
+            }
+            # Durable non-widget key survives Export unmount; widget key is re-seeded.
+            if "wattlab_export_profile" not in st.session_state:
+                st.session_state["wattlab_export_profile"] = "summary"
+            if "wattlab_export_profile_label" not in st.session_state:
+                rev = {v: k for k, v in profile_options.items()}
+                st.session_state["wattlab_export_profile_label"] = rev.get(
+                    st.session_state["wattlab_export_profile"],
+                    "Summary (default)",
+                )
+            profile_label = st.selectbox(
+                "Export profile",
+                options=list(profile_options),
+                key="wattlab_export_profile_label",
+                help=(
+                    "Summary: shared telemetry + analytic tables, no per-rule timeseries. "
+                    "Diagnostic: FAULT/ERROR evidence. Forensic: applicable evidence."
+                ),
+            )
+            st.session_state["wattlab_export_profile"] = profile_options.get(
+                str(profile_label), "summary"
+            )
             if st.button("Build WattLab dump (zip)", type="primary", key="wattlab_dump_build"):
                 with st.spinner("Running analytics + writing bundle…"):
                     try:
-                        data, fname = _build_wattlab_dump_zip()
+                        data, fname = _build_wattlab_dump_zip(
+                            profile=st.session_state.get("wattlab_export_profile", "summary")
+                        )
                         st.session_state["wattlab_dump_zip"] = (data, fname)
                         st.success(f"Dump ready · {len(data) / 1e6:.1f} MB — see README_WATTLAB.md inside")
                     except Exception as exc:

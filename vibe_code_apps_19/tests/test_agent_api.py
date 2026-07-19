@@ -162,16 +162,19 @@ def test_agent_api_load_run_export(tmp_path: Path):
     findings = pd.read_csv(out / "fdd_findings.csv")
     assert {"rule_id", "equipment_id", "status", "confirmed_fault"} <= set(findings.columns)
     assert len(findings) == len(run.results)
-    # Per-rule timeseries directory (at least some rules emit masks)
+    # Default summary profile: shared telemetry, no Cartesian per-rule timeseries
+    tel_dir = out / "telemetry"
+    assert tel_dir.is_dir()
+    assert (tel_dir / "AHU_1.csv").is_file()
     ts_dir = out / "fdd_timeseries"
-    assert ts_dir.is_dir()
-    assert any(ts_dir.glob("*.csv"))
+    assert not ts_dir.is_dir() or not any(ts_dir.glob("*.csv"))
     # Diurnal may be empty for tiny short windows — only assert when present
     if (out / "sensor_diurnal_24h.csv").is_file():
         diurnal = pd.read_csv(out / "sensor_diurnal_24h.csv")
         assert {"day_type", "fan_state", "hour", "role"} <= set(diurnal.columns)
     manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["schema_version"] == "wattlab_dump_v2"
+    assert manifest.get("export_profile") == "summary"
     assert any(f["path"] == "fdd_findings.csv" for f in manifest["files"])
     seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))
     assert seed["project_id"] == "TINY_B1"
@@ -241,6 +244,8 @@ def test_cli_smoke(tmp_path: Path):
             "--out",
             str(out),
             "--run-all",
+            "--export-profile",
+            "summary",
         ],
         cwd=str(script.parents[1]),
         capture_output=True,
@@ -251,3 +256,6 @@ def test_cli_smoke(tmp_path: Path):
     assert (out / "run_report.json").is_file()
     assert (out / "fdd_summary.csv").is_file()
     assert (out / "motor_hours.csv").is_file()
+    manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
+    assert manifest.get("export_profile") == "summary"
+    assert (out / "telemetry" / "AHU_1.csv").is_file()

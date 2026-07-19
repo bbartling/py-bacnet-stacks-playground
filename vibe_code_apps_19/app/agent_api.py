@@ -459,11 +459,25 @@ def export_agent_bundle(
     lat: float | None = None,
     lon: float | None = None,
     include_bootstrap: bool = True,
+    profile: str = "summary",
+    selected_evidence: set[tuple[str, str]] | None = None,
 ) -> dict[str, Path]:
-    """Write run_report + CSVs + model-seed artifacts under ``out_dir``."""
+    """Write run_report + CSVs + model-seed artifacts under ``out_dir``.
+
+    ``profile`` controls FDD evidence volume (``summary`` / ``diagnostic`` /
+    ``forensic``). Default ``summary`` keeps sensor/setpoint/model-seed/analytic
+    artifacts and shared telemetry without a Cartesian per-rule timeseries dump.
+    """
+    from app.wattlab_dump import EXPORT_PROFILES, ExportProfile
+
+    if profile not in EXPORT_PROFILES:
+        raise ValueError(f"Unknown export profile: {profile!r}; expected one of {EXPORT_PROFILES}")
+    export_profile: ExportProfile = profile  # type: ignore[assignment]
+
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
+    export_counts = None
 
     run = run or AgentRun(params=dataset.params)
     analytics = run.analytics or {}
@@ -537,14 +551,15 @@ def export_agent_bundle(
             written["fdd_summary"] = p
             run.summary = summary
 
-    # Long-format findings + per-rule timeseries (agent-optimized)
+    # Long-format findings + profile-aware evidence + shared telemetry
     from app.wattlab_dump import (
         diurnal_profiles,
         fdd_findings_table,
         sensor_stats_tables,
         setpoints_table,
-        write_fdd_timeseries,
+        write_fdd_evidence,
         write_manifest,
+        write_shared_telemetry,
         write_wattlab_readme,
     )
 
@@ -554,14 +569,25 @@ def export_agent_bundle(
             p = out / "fdd_findings.csv"
             findings.to_csv(p, index=False)
             written["fdd_findings"] = p
-        for ts_path in write_fdd_timeseries(
+        export_counts = write_fdd_evidence(
             run.results,
             out,
+            profile=export_profile,
+            selected_evidence=selected_evidence,
             frames=dataset.frames,
             role_map=dataset.role_map,
-        ):
+        )
+        for ts_path in export_counts.written:
             rel = ts_path.relative_to(out).as_posix()
             written[f"fdd_timeseries:{rel}"] = ts_path
+
+    for eq_id, tel_path in write_shared_telemetry(
+        dataset.frames,
+        dataset.role_map,
+        out,
+        profile=export_profile,
+    ).items():
+        written[f"telemetry:{eq_id}"] = tel_path
 
     fault_settings = run.params or dataset.params or {}
     fs = out / "fault_settings.json"
@@ -783,7 +809,12 @@ def export_agent_bundle(
         written["tuning_assistant_report"] = path
 
     # Agent ingest index — write last so it sees every path above
-    written["manifest"] = write_manifest(out, written)
+    written["manifest"] = write_manifest(
+        out,
+        written,
+        profile=export_profile,
+        export_counts=export_counts,
+    )
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run
     if not include_bootstrap:
