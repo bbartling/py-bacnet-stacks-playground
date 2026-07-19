@@ -37,7 +37,14 @@ PAGES = [
     "Capital plan",
 ]
 
-LIBERTY_CAMPUS = Path(__file__).resolve().parent / "examples" / "liberty" / "campus.json"
+# Privacy-safe checked-in demo (examples/liberty CSVs are gitignored).
+LIBERTY_CAMPUS = (
+    Path(__file__).resolve().parent
+    / "tests"
+    / "fixtures"
+    / "shared_meter_campus"
+    / "campus.json"
+)
 
 # Screening assumptions for ESCO proxy savings when the dump lacks specifics.
 PROXY_ASSUMPTIONS = {
@@ -393,7 +400,7 @@ def page_benchmark() -> None:
         "campus.json (buildings, meters, bill CSVs)",
         value=str(_state("studio_campus_path", default_path)),
         key="studio_campus_path_input",
-        help="See examples/liberty/campus.json for the shared-electric + per-building-gas pattern.",
+        help="Default: tests/fixtures/shared_meter_campus (privacy-safe). Local Liberty CSVs under examples/liberty are gitignored.",
     )
     if st.button("Load campus bills", key="studio_load_campus"):
         try:

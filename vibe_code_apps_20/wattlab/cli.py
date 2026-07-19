@@ -25,6 +25,7 @@ def _usage() -> str:
         "  crosscheck   Compare EnergyPlus savings vs bench/ESCO proxies\n"
         "  benchmark    Campus bill EUIs, allocation scenarios, peer-band compare\n"
         "  seed         Inspect a vibe19 WattLab dump (summary + gap report)\n"
+        "               also: wattlab seed import-bills --electric CSV --gas CSV --out utility_bills.csv\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
@@ -36,6 +37,11 @@ def _cmd_seed(argv: list[str]) -> int:
     import argparse
     import json
     import sys
+
+    if argv and argv[0] == "import-bills":
+        from wattlab.seed.import_bills import main as import_main
+
+        return int(import_main(argv[1:]) or 0)
 
     p = argparse.ArgumentParser(prog="wattlab seed", description="Inspect a vibe19 WattLab dump")
     p.add_argument("path", help="dump folder or zip")

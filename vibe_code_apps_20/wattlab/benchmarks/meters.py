@@ -123,6 +123,13 @@ class Campus:
     @classmethod
     def from_json(cls, path: str | Path) -> "Campus":
         p = Path(path)
+        if not p.is_file():
+            raise FileNotFoundError(
+                f"Campus config not found: {p}. "
+                "Checked-in demo: tests/fixtures/shared_meter_campus/campus.json. "
+                "Local Liberty CSVs under examples/liberty/ are gitignored — "
+                "copy them beside campus.json or point Studio at the fixture."
+            )
         doc = json.loads(p.read_text(encoding="utf-8"))
         buildings = [
             BuildingRef(
@@ -133,6 +140,18 @@ class Campus:
             )
             for b in doc.get("buildings", [])
         ]
+        missing = [
+            str(m.get("file"))
+            for m in doc.get("meters", [])
+            if not (p.parent / str(m.get("file") or "")).is_file()
+        ]
+        if missing:
+            raise FileNotFoundError(
+                f"Campus {p} references missing bill CSV(s): {', '.join(missing)}. "
+                "Use tests/fixtures/shared_meter_campus/ for the privacy-safe demo, "
+                "or place local meter CSVs next to campus.json (examples/liberty CSVs "
+                "are gitignored on purpose)."
+            )
         meters = [
             Meter(
                 meter_id=str(m["meter_id"]),
