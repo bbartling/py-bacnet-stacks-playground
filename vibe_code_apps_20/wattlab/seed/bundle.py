@@ -1,12 +1,13 @@
 """Loader for the vibe19 WattLab dump (Export → "Build WattLab dump (zip)").
 
-One entry point for everything vibe19 exports: MANIFEST.json, model seed,
-inferred schedules, OAT-bin operating signatures, sensor stats / 24h diurnal
-profiles, setpoint medians, mech-cooling bins + coverage, FDD findings +
-per-rule timeseries, analytic CSVs, observed weather and utility bills. Also
-produces the **gap report** — the explicit checklist of characteristics the
-human must still provide (geometry, bills, rates, costs) before the digital
-twin is trustworthy.
+One entry point for everything vibe19 exports: MANIFEST.json (v2 or v3),
+export profile, model seed, inferred schedules, OAT-bin operating signatures,
+sensor stats / 24h diurnal profiles, setpoint medians, mech-cooling bins +
+coverage, FDD findings, optional legacy per-rule ``fdd_timeseries/``, optional
+shared ``telemetry/*.csv`` (indexed lazily), analytic CSVs, observed weather
+and utility bills. Also produces the **gap report** — the explicit checklist
+of characteristics the human must still provide (geometry, bills, rates,
+costs) before the digital twin is trustworthy.
 """
 
 from __future__ import annotations
@@ -63,7 +64,13 @@ _JSON_DOCS = {
 
 @dataclass
 class SeedBundle:
-    """Parsed vibe19 dump. Missing artifacts stay as empty frames / ``{}``."""
+    """Parsed vibe19 dump. Missing artifacts stay as empty frames / ``{}``.
+
+    Accepts ``wattlab_dump_v2`` and additive ``wattlab_dump_v3``. Shared
+    ``telemetry/*.csv`` paths are indexed lazily (no eager DataFrame load).
+    Legacy ``fdd_timeseries/`` remains optional — neither evidence layout is
+    required (summary profile may omit both).
+    """
 
     source: str = ""
     building_id: str = ""
@@ -78,9 +85,22 @@ class SeedBundle:
     tables: dict[str, pd.DataFrame] = field(default_factory=dict)
     files: dict[str, Path] = field(default_factory=dict)
     fdd_timeseries_dir: Path | None = None
+    telemetry_dir: Path | None = None
+    telemetry_paths: dict[str, Path] = field(default_factory=dict)
 
     def table(self, name: str) -> pd.DataFrame:
         return self.tables.get(name, pd.DataFrame())
+
+    @property
+    def schema_version(self) -> str:
+        return str((self.manifest or {}).get("schema_version") or "")
+
+    @property
+    def export_profile(self) -> str | None:
+        raw = (self.manifest or {}).get("export_profile")
+        if raw is None or raw == "":
+            return None
+        return str(raw)
 
     @property
     def operating_signatures(self) -> pd.DataFrame:
@@ -118,6 +138,16 @@ class SeedBundle:
     def has_observed_weather(self) -> bool:
         return not self.weather_observed.empty
 
+    def load_telemetry(self, equipment_id: str) -> pd.DataFrame:
+        """Opt-in read of one shared telemetry CSV (not loaded at ingest)."""
+        path = self.telemetry_paths.get(str(equipment_id))
+        if path is None or not path.is_file():
+            return pd.DataFrame()
+        try:
+            return pd.read_csv(path)
+        except Exception:
+            return pd.DataFrame()
+
     def summary(self) -> dict[str, Any]:
         seed = self.model_seed or {}
         return {
@@ -133,9 +163,13 @@ class SeedBundle:
             "fault_rows": len(self.fdd_summary),
             "findings_rows": len(self.fdd_findings),
             "has_manifest": bool(self.manifest),
+            "schema_version": self.schema_version or None,
+            "export_profile": self.export_profile,
             "has_fdd_timeseries": bool(
                 self.fdd_timeseries_dir and self.fdd_timeseries_dir.is_dir()
             ),
+            "has_telemetry": bool(self.telemetry_paths),
+            "telemetry_file_count": len(self.telemetry_paths),
         }
 
 
@@ -168,9 +202,17 @@ def _load_dir(root: Path, bundle: SeedBundle) -> SeedBundle:
         bills = seed.get("utility_bills")
         if isinstance(bills, list) and bills:
             bundle.tables["utility_bills"] = pd.DataFrame(bills)
+    # Legacy per-rule evidence (optional; summary profile may omit)
     ts_dir = root / "fdd_timeseries"
     if ts_dir.is_dir():
         bundle.fdd_timeseries_dir = ts_dir
+    # Shared equipment telemetry (v3) — index paths only; load on demand
+    tel_dir = root / "telemetry"
+    if tel_dir.is_dir():
+        bundle.telemetry_dir = tel_dir
+        for p in sorted(tel_dir.glob("*.csv")):
+            bundle.telemetry_paths[p.stem] = p
+            bundle.files[f"telemetry/{p.name}"] = p
     return bundle
 
 

@@ -100,6 +100,8 @@ docker run --rm -p 8501:8501 --name vibe19-test vibe19
 
 Workflow: `.github/workflows/vibe19-ghcr.yml` → `ghcr.io/bbartling/vibe19` on pushes to `develop`/`main` that touch `vibe_code_apps_19/**`, tags `vibe19-v*`, or `workflow_dispatch`.
 
+**Scope:** this workflow publishes **Vibe 19 only**. Compressor-runtime / WattLab v3 work must **not** publish or retag a Vibe 20 GHCR image. After merge to `develop`, expect moving tips `:develop` / `:latest` plus immutable `:sha-<git>` (multi-arch amd64+arm64). Always `docker pull` then recreate — running containers never auto-update.
+
 **Architectures (multi-arch manifest):**
 
 | Platform | Typical hardware |
