@@ -50,7 +50,7 @@ OAT-bin rows publish explicit `series_kind`:
 
 Invariants: active-hours ≤ device-hours ≤ sum of individuals; active-hours ≤ valid elapsed. When **only one** device ran in a bin, any-active equals that device's hours (UI explains the equality).
 
-APIs: `mech_cooling_run_mask`, `mech_cooling_coverage`, `mech_cooling_oat_bins` (`use_status_proof=`). Plot: `mech_cooling_oat_histogram` (stacked devices + device-hours + any-active lines).
+APIs: `mech_cooling_run_mask`, `mech_cooling_coverage`, `mech_cooling_oat_bins` (`use_status_proof=`). Plot: `mech_cooling_oat_histogram` renders **individual devices as stacked bars**; **aggregate device-hours** and **any-compressor-active** are separate **non-stacked** marker lines (not additional bars).
 
 ## Operational filtering (the point)
 

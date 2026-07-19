@@ -385,9 +385,9 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 - Weekly motor charts: avg OAT °F while on (secondary axis); air-side bare-min occupied hours line from calendar
 - Overview: occupancy **time pickers** + zone comfort low/high → VAV-1 params / SCHED-1
-- Mech-cooling OAT bins: pump/DX first, leave-temp backup only; **never** CHW valves; bins sorted cold→hot
+- Mech-cooling OAT bins: pump/DX first, leave-temp backup only; **never** CHW valves; bins sorted cold→hot *(historical — superseded 2026-07-19: pump alone is not compressor proof; see top entry)*
 - `scripts/smoke_streamlit_app.py` for AppTest / import smoke
-- AGENTS.md HVAC context for Codex (pump-first, no valve bins)
+- AGENTS.md HVAC context for Codex (pump-first, no valve bins) *(historical — motor pump ≠ OAT compressor proof)*
 
 ---
 

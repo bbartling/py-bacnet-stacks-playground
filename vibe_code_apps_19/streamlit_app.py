@@ -1998,7 +1998,8 @@ Agent brief: {_AGENTS_MD_URL}
     use_status_proof = st.sidebar.checkbox(
         "Use mapped mechanical-cooling status proof",
         help=(
-            "Checked: pump/status → chiller status → amps → power. "
+            "Checked: compressor/chiller status → verified command → amps/power "
+            "(CHW pump alone is never compressor proof). "
             "Unchecked: CHW plants use the leaving-water threshold below; "
             "temperature runtime is inferred and may include flow through an idle chiller."
         ),

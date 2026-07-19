@@ -58,8 +58,43 @@ _JSON_DOCS = {
     "session_config.json": "session_config",
     "quick_savings.json": "quick_savings",
     "building_profile.json": "building_profile",
-    "MANIFEST.json": "manifest",
 }
+
+_KNOWN_MANIFEST_SCHEMAS = frozenset({"wattlab_dump_v2", "wattlab_dump_v3"})
+
+
+def _load_manifest(path: Path) -> dict[str, Any]:
+    """Parse MANIFEST.json strictly when present.
+
+    Absent file → empty dict (legacy dumps). Malformed JSON or unsupported
+    ``schema_version`` → ``ValueError``. Known schemas: ``wattlab_dump_v2``,
+    ``wattlab_dump_v3``. Empty/missing schema_version is tolerated for
+    transitional manifests that still declare the file.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"Cannot read MANIFEST.json at {path}: {exc}") from exc
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"MANIFEST.json is malformed JSON ({path}): {exc.msg} "
+            f"(line {exc.lineno}, column {exc.colno})"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"MANIFEST.json must be a JSON object ({path})")
+    schema = payload.get("schema_version")
+    if schema is None or schema == "":
+        return payload
+    schema_s = str(schema)
+    if schema_s not in _KNOWN_MANIFEST_SCHEMAS:
+        known = ", ".join(sorted(_KNOWN_MANIFEST_SCHEMAS))
+        raise ValueError(
+            f"Unsupported WattLab MANIFEST schema_version {schema_s!r} "
+            f"({path}); accepted: {known} (or omit schema_version / MANIFEST)"
+        )
+    return payload
 
 
 @dataclass
@@ -174,6 +209,11 @@ class SeedBundle:
 
 
 def _load_dir(root: Path, bundle: SeedBundle) -> SeedBundle:
+    # MANIFEST is the only strict JSON: malformed / unsupported schema raise.
+    manifest_path = root / "MANIFEST.json"
+    if manifest_path.is_file():
+        bundle.manifest = _load_manifest(manifest_path)
+        bundle.files["MANIFEST.json"] = manifest_path
     for name, attr in _JSON_DOCS.items():
         p = root / name
         if p.is_file():

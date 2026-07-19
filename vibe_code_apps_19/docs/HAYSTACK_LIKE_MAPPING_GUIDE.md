@@ -29,8 +29,8 @@ Rules read the same point names that appear in `points` (for example
 | `fan-cmd` / `fan-status` | Supply fan |
 | `duct-static-pressure` (+ `-sp`) | Duct static |
 | `zone-air-temp` / `zone-airflow` / `damper` / `reheat-valve` | VAV / zone |
-| `chilled-water-supply-temp` / `chw-pump-status` / `chiller-status` | Plant |
-| `compressor-status` / `dx-stage` / `cool-stage` | DX mech-cooling proof |
+| `chilled-water-supply-temp` / `chw-pump-status` / `chiller-status` | Plant (pump = motor; `chiller-status` = compressor OAT proof) |
+| `compressor-status` / `dx-stage` / `cool-stage` | DX mech-cooling compressor proof |
 | `occupied` | Occupancy |
 | `web-outside-air-temp` | Open-Meteo / weather CSV |
 | `ahu-discharge-air-temp` | Parent AHU SAT copied onto VAV (topology) |

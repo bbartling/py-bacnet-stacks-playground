@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from wattlab.seed import load_bundle
 
@@ -384,3 +385,65 @@ def test_neither_evidence_layout_required(tmp_path: Path):
     assert b.telemetry_paths == {}
     assert b.summary()["has_telemetry"] is False
     assert b.summary()["has_fdd_timeseries"] is False
+
+
+def test_malformed_manifest_raises_value_error(tmp_path: Path):
+    root = tmp_path / "bad_manifest"
+    _write_common_seed(root)
+    (root / "MANIFEST.json").write_text("{not-json", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"MANIFEST\.json|manifest"):
+        load_bundle(root)
+
+
+def test_unsupported_manifest_schema_raises_value_error(tmp_path: Path):
+    root = tmp_path / "future"
+    _write_common_seed(root)
+    (root / "MANIFEST.json").write_text(
+        json.dumps({"schema_version": "wattlab_dump_v99", "files": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=r"wattlab_dump_v99|unsupported"):
+        load_bundle(root)
+
+
+def test_absent_manifest_still_loads(tmp_path: Path):
+    """Legacy dumps without MANIFEST.json remain accepted."""
+    root = tmp_path / "legacy"
+    _write_common_seed(root)
+    assert not (root / "MANIFEST.json").exists()
+    b = load_bundle(root)
+    assert b.schema_version == ""
+    assert b.manifest == {}
+    assert b.building_id == "COMPAT_B1"
+
+
+def test_malformed_optional_json_does_not_raise(tmp_path: Path):
+    """model_seed / other optional JSON stay soft; only MANIFEST is strict."""
+    root = tmp_path / "soft_json"
+    _write_common_seed(root)
+    (root / "model_seed.json").write_text("{broken", encoding="utf-8")
+    (root / "MANIFEST.json").write_text(
+        json.dumps({"schema_version": "wattlab_dump_v3", "export_profile": "summary"}),
+        encoding="utf-8",
+    )
+    b = load_bundle(root)
+    assert b.schema_version == "wattlab_dump_v3"
+    assert b.model_seed == {}
+
+
+def test_v3_zip_load_telemetry_readable_for_bundle_lifetime(tmp_path: Path):
+    """Extracted telemetry paths remain readable after load_bundle returns."""
+    root = _write_v3_summary_dump(tmp_path / "v3")
+    z = _zip_dir(root, tmp_path / "v3_summary.zip")
+    b = load_bundle(z)  # temp extract_dir — must outlive returned bundle
+    assert b.export_profile == "summary"
+    path = b.telemetry_paths["AHU_1"]
+    assert path.is_file()
+    df = b.load_telemetry("AHU_1")
+    assert not df.empty
+    assert list(df.columns) == ["timestamp", "discharge-air-temp"]
+    assert float(df["discharge-air-temp"].iloc[0]) == 55.0
+    # Still readable via path after load_telemetry (bundle lifetime)
+    assert path.is_file()
+    again = pd.read_csv(path)
+    assert len(again) == 1

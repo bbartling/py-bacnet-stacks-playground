@@ -114,7 +114,7 @@ In the sidebar confirm:
 
 If `docker ps` shows only a hash (`caab217c7f84`), that container was started from an image **id** — stop it and re-run with `:latest` / `:develop` above.
 
-More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes (**Vibe 19 only** — no Vibe 20 GHCR publish from this work).
+More detail: [`docs/DOCKER.md`](docs/DOCKER.md). Image publishes from `.github/workflows/vibe19-ghcr.yml` on `develop` when this tree changes (**Vibe 19 only** — does not publish/update Vibe 20; WattLab consumer stays a local checkout).
 
 | Path | Limit |
 | --- | --- |
