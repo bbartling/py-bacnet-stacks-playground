@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from app.role_map import apply_role_map
+from app.runtime_intervals import hours_under_mask, interval_durations
 from app.site_model import normalize_equipment_type, resolve_equipment_type
 
 # Plant groups for weekly motor charts.
@@ -44,17 +45,39 @@ CHILLER_PUMP_ROLES: tuple[str, ...] = (
     "chw-pump-cmd",
     "pump-cmd",
 )
-CHILLER_RUN_ROLES: tuple[str, ...] = (
+CHILLER_STATUS_ROLES: tuple[str, ...] = (
     "chiller-status",
     "compressor-status",
     "equipment-enable",
 )
-DX_RUN_ROLES: tuple[str, ...] = (
-    "compressor-status",
-    "dx-cool-cmd",
-    "dx-cooling",
+CHILLER_RUN_ROLES: tuple[str, ...] = CHILLER_STATUS_ROLES
+COMPRESSOR_STAGE_ROLES: tuple[str, ...] = (
+    "compressor-stage-1",
+    "compressor-stage-2",
     "cool-stage",
     "dx-stage",
+)
+COMPRESSOR_CMD_ROLES: tuple[str, ...] = ("compressor-cmd", "dx-cool-cmd")
+HEAT_PUMP_COOLING_MODE_ROLES: tuple[str, ...] = (
+    "heat-pump-cooling-status",
+    "unit-cooling-status",
+)
+DX_RUN_ROLES: tuple[str, ...] = (
+    "compressor-status",
+    "compressor-cmd",
+    "dx-cool-cmd",
+    "dx-cooling",
+    "unit-cooling-status",
+    "compressor-stage-1",
+    "compressor-stage-2",
+    "cool-stage",
+    "dx-stage",
+)
+VRF_RUN_ROLES: tuple[str, ...] = ("vrf-outdoor-compressor-status", "compressor-status")
+MECH_COOL_SERIES_KINDS = (
+    "individual_device",
+    "aggregate_device_hours",
+    "aggregate_active_hours",
 )
 
 
@@ -806,9 +829,31 @@ def motor_run_hours_weekly(
 
 
 def _first_on_mask(df: pd.DataFrame, roles: tuple[str, ...]) -> pd.Series | None:
+    """Return on-mask for the first mapped role with data (even if never ON)."""
     for role in roles:
         if role in df.columns and df[role].notna().any():
             return _is_on(df[role])
+    return None
+
+
+def _or_on_mask(df: pd.DataFrame, roles: tuple[str, ...]) -> pd.Series | None:
+    """OR on-masks across mapped roles (unit-active / multi-stage)."""
+    masks: list[pd.Series] = []
+    for role in roles:
+        if role in df.columns and df[role].notna().any():
+            masks.append(_is_on(df[role]).fillna(False).astype(bool))
+    if not masks:
+        return None
+    out = masks[0]
+    for m in masks[1:]:
+        out = out | m.reindex(out.index).fillna(False)
+    return out
+
+
+def _mapped_role(df: pd.DataFrame, roles: tuple[str, ...]) -> str | None:
+    for role in roles:
+        if role in df.columns and df[role].notna().any():
+            return role
     return None
 
 
@@ -842,18 +887,14 @@ def _chiller_on_mask(
 ) -> tuple[pd.Series | None, str]:
     """Chiller ON: cmd/status → amps → power → CHW leave vs slider (no pumps)."""
     run = _first_on_mask(df, ("chiller-status", "compressor-status", "equipment-enable"))
-    if run is not None and bool(run.any()):
+    if run is not None:
         return run, "chiller-status"
     if "chiller-amps" in df.columns and df["chiller-amps"].notna().any():
-        amps = _above_threshold(df["chiller-amps"], chiller_amps_min)
-        if bool(amps.any()):
-            return amps, "chiller-amps"
+        return _above_threshold(df["chiller-amps"], chiller_amps_min), "chiller-amps"
     if "chiller-power" in df.columns and df["chiller-power"].notna().any():
-        pwr = _above_threshold(df["chiller-power"], chiller_power_kw_min)
-        if bool(pwr.any()):
-            return pwr, "chiller_power"
+        return _above_threshold(df["chiller-power"], chiller_power_kw_min), "chiller_power"
     temp = _chw_temp_proof(df, chw_leave_max_f)
-    if temp is not None and bool(temp.any()):
+    if temp is not None:
         return temp, "chw_leave_temp"
     return None, ""
 
@@ -883,6 +924,165 @@ def _mech_cooling_type(equipment_type: str, equipment_id: str = "") -> str:
     return et
 
 
+def _cooling_technology(et: str, *, compressor_based: bool) -> str:
+    if et == "CHW_PLANT":
+        return "chilled_water_plant"
+    if et == "HP":
+        return "heat_pump"
+    if et == "VRF":
+        return "vrf"
+    if et == "AHU":
+        return "dx" if compressor_based else "chilled_water_coil"
+    return "unknown"
+
+
+def _analog_threshold_mask(
+    df: pd.DataFrame,
+    role: str,
+    thr: float,
+) -> tuple[pd.Series, str, float] | None:
+    if role not in df.columns or not df[role].notna().any():
+        return None
+    return _above_threshold(df[role], thr), role, float(thr)
+
+
+def _select_mech_cooling_proof(
+    df: pd.DataFrame,
+    *,
+    equipment_type: str,
+    equipment_id: str = "",
+    chw_leave_max_f: float = 48.0,
+    chiller_amps_min: float = 5.0,
+    chiller_power_kw_min: float = 1.0,
+    use_status_proof: bool = True,
+) -> dict[str, Any]:
+    """Deterministic proof selection. Mask may be all-False when proof is valid but idle."""
+    empty = {
+        "mask": None,
+        "proof_role": "",
+        "proof_column": "",
+        "proof_threshold": None,
+        "proof_quality": "",
+        "legacy_proof": "",
+    }
+    et = _mech_cooling_type(equipment_type, equipment_id)
+
+    def _direct(mask: pd.Series, role: str, legacy: str) -> dict[str, Any]:
+        return {
+            "mask": mask.fillna(False).astype(bool),
+            "proof_role": role,
+            "proof_column": role,
+            "proof_threshold": None,
+            "proof_quality": "direct",
+            "legacy_proof": legacy,
+        }
+
+    def _analog(mask: pd.Series, role: str, thr: float, legacy: str) -> dict[str, Any]:
+        return {
+            "mask": mask.fillna(False).astype(bool),
+            "proof_role": role,
+            "proof_column": role,
+            "proof_threshold": float(thr),
+            "proof_quality": "analog",
+            "legacy_proof": legacy,
+        }
+
+    if et == "CHW_PLANT":
+        if not use_status_proof:
+            temp = _chw_temp_proof(df, chw_leave_max_f)
+            if temp is None:
+                return empty
+            return {
+                "mask": temp.fillna(False).astype(bool),
+                "proof_role": "chilled-water-supply-temp",
+                "proof_column": _mapped_role(
+                    df, ("chilled-water-supply-temp", "chw_leave_t", "chws_t")
+                )
+                or "chilled-water-supply-temp",
+                "proof_threshold": float(chw_leave_max_f),
+                "proof_quality": "inferred",
+                "legacy_proof": "inferred: chw_leave_temp",
+            }
+        run = _first_on_mask(df, CHILLER_PUMP_ROLES)
+        if run is not None:
+            role = _mapped_role(df, CHILLER_PUMP_ROLES) or "chw-pump-status"
+            return _direct(run, role, "chw_pump")
+        run = _first_on_mask(df, CHILLER_STATUS_ROLES)
+        if run is not None:
+            role = _mapped_role(df, CHILLER_STATUS_ROLES) or "chiller-status"
+            return _direct(run, role, "chiller-status")
+        amps = _analog_threshold_mask(df, "chiller-amps", chiller_amps_min)
+        if amps is not None:
+            mask, role, thr = amps
+            return _analog(mask, role, thr, "chiller-amps")
+        for role, thr, legacy in (
+            ("chiller-power", chiller_power_kw_min, "chiller_power"),
+            ("compressor-power", chiller_power_kw_min, "chiller_power"),
+            ("compressor-current", chiller_amps_min, "chiller-amps"),
+        ):
+            hit = _analog_threshold_mask(df, role, thr)
+            if hit is not None:
+                mask, role_n, thr_n = hit
+                return _analog(mask, role_n, thr_n, legacy)
+        return empty
+
+    if et in {"AHU", "RTU"}:
+        run = _first_on_mask(df, ("compressor-status",))
+        if run is not None:
+            return _direct(run, "compressor-status", "ahu_dx")
+        run = _first_on_mask(df, COMPRESSOR_CMD_ROLES)
+        if run is not None:
+            role = _mapped_role(df, COMPRESSOR_CMD_ROLES) or "compressor-cmd"
+            return _direct(run, role, "ahu_dx")
+        stages = _or_on_mask(df, COMPRESSOR_STAGE_ROLES)
+        if stages is not None:
+            return _direct(stages, "compressor-stage", "ahu_dx")
+        run = _first_on_mask(df, ("dx-cooling", "unit-cooling-status"))
+        if run is not None:
+            role = _mapped_role(df, ("dx-cooling", "unit-cooling-status")) or "dx-cooling"
+            return _direct(run, role, "ahu_dx")
+        for role, thr in (
+            ("compressor-power", chiller_power_kw_min),
+            ("compressor-current", chiller_amps_min),
+        ):
+            hit = _analog_threshold_mask(df, role, thr)
+            if hit is not None:
+                mask, role_n, thr_n = hit
+                return _analog(mask, role_n, thr_n, "ahu_dx")
+        return empty
+
+    if et == "HP":
+        mode = _or_on_mask(df, HEAT_PUMP_COOLING_MODE_ROLES)
+        if mode is None:
+            return empty
+        base = _select_mech_cooling_proof(
+            df,
+            equipment_type="AHU",
+            equipment_id=equipment_id,
+            chw_leave_max_f=chw_leave_max_f,
+            chiller_amps_min=chiller_amps_min,
+            chiller_power_kw_min=chiller_power_kw_min,
+            use_status_proof=True,
+        )
+        if base["mask"] is None:
+            return empty
+        gated = base["mask"].fillna(False).astype(bool) & mode.reindex(
+            base["mask"].index
+        ).fillna(False)
+        base["mask"] = gated
+        base["legacy_proof"] = "heatpump"
+        return base
+
+    if et == "VRF":
+        run = _first_on_mask(df, VRF_RUN_ROLES)
+        if run is None:
+            return empty
+        role = _mapped_role(df, VRF_RUN_ROLES) or "vrf-outdoor-compressor-status"
+        return _direct(run, role, "vrf-outdoor-compressor-status")
+
+    return empty
+
+
 def mech_cooling_run_mask(
     df: pd.DataFrame,
     *,
@@ -901,52 +1101,21 @@ def mech_cooling_run_mask(
     Dispatch is on the **resolved equipment type** (column_map ``equipType`` /
     attrs / role_map) — never the equipment name.
 
-    Chillers / CHW plant (pump / status / amps / power only — **no leave-temp** on charts):
-      1. designated CHW pump status / cmd
-      2. chiller / compressor status
-      3. amps / power
-
-    AHUs / heat pumps / RTUs:
-      - DX / compressor roles only (`DX_RUN_ROLES`).
-      - Never use CHW cooling-valve % (valves often modulate with no chilled water).
-      - ``include_ahu_chw_valve`` is deprecated and ignored (API compat only).
+    Returns a boolean mask even when a valid mapped proof stays off. Only
+    absence/invalid proof returns ``(None, "")``. Cooling valves never prove
+    compressor operation. Heat pumps require cooling-mode evidence.
     """
     del include_ahu_chw_valve, clg_valve_thr_pct  # never valve on this chart
-    et = _mech_cooling_type(equipment_type, equipment_id)
-    if et == "CHW_PLANT":
-        if not use_status_proof:
-            temp = _chw_temp_proof(df, chw_leave_max_f)
-            if temp is not None and bool(temp.any()):
-                return temp, "inferred: chw_leave_temp"
-            return None, ""
-        run = _first_on_mask(df, CHILLER_PUMP_ROLES)
-        if run is not None and bool(run.any()):
-            return run, "chw_pump"
-        run = _first_on_mask(df, CHILLER_RUN_ROLES)
-        if run is not None and bool(run.any()):
-            return run, "chiller-status"
-        if "chiller-amps" in df.columns and df["chiller-amps"].notna().any():
-            amps = _above_threshold(df["chiller-amps"], chiller_amps_min)
-            if bool(amps.any()):
-                return amps, "chiller-amps"
-        if "chiller-power" in df.columns and df["chiller-power"].notna().any():
-            pwr = _above_threshold(df["chiller-power"], chiller_power_kw_min)
-            if bool(pwr.any()):
-                return pwr, "chiller_power"
-        # No leave-temp fallback — omit series when no pump/status/amps/power
-        return None, ""
-    if et == "AHU":
-        run = _first_on_mask(df, DX_RUN_ROLES)
-        if run is not None and bool(run.any()):
-            return run, "ahu_dx"
-        return None, ""
-    if et == "HP":
-        # DX_RUN_ROLES already leads with compressor-status
-        run = _first_on_mask(df, DX_RUN_ROLES)
-        if run is not None and bool(run.any()):
-            return run, "heatpump"
-        return None, ""
-    return None, ""
+    selected = _select_mech_cooling_proof(
+        df,
+        equipment_type=equipment_type,
+        equipment_id=equipment_id,
+        chw_leave_max_f=chw_leave_max_f,
+        chiller_amps_min=chiller_amps_min,
+        chiller_power_kw_min=chiller_power_kw_min,
+        use_status_proof=use_status_proof,
+    )
+    return selected["mask"], selected["legacy_proof"] or selected["proof_role"]
 
 
 def _mech_cooling_candidate_roles(
@@ -965,14 +1134,23 @@ def _mech_cooling_candidate_roles(
     et = _mech_cooling_type(equipment_type, equipment_id)
     if et == "CHW_PLANT":
         if use_status_proof:
-            roles = list(CHILLER_PUMP_ROLES + CHILLER_RUN_ROLES) + [
+            roles = list(CHILLER_PUMP_ROLES + CHILLER_STATUS_ROLES) + [
                 "chiller-amps",
                 "chiller-power",
+                "compressor-power",
+                "compressor-current",
             ]
         else:
             roles = ["chilled-water-supply-temp", "chw_leave_t", "chws_t"]
-    elif et in {"AHU", "HP"}:
-        roles = list(DX_RUN_ROLES)
+    elif et in {"AHU", "RTU"}:
+        roles = list(DX_RUN_ROLES) + ["compressor-power", "compressor-current"]
+    elif et == "HP":
+        roles = list(DX_RUN_ROLES) + list(HEAT_PUMP_COOLING_MODE_ROLES) + [
+            "compressor-power",
+            "compressor-current",
+        ]
+    elif et == "VRF":
+        roles = list(VRF_RUN_ROLES)
     else:
         return False, []
     present = [r for r in roles if r in df.columns and df[r].notna().any()]
@@ -981,6 +1159,189 @@ def _mech_cooling_candidate_roles(
 
 MECH_COOL_TOTAL_ID = "ALL"
 MECH_COOL_TOTAL_LABEL = "All mech cooling (total)"
+
+_OAT_BIN_COLUMNS = [
+    "equipment_id",
+    "source",
+    "source_kind",
+    "series_kind",
+    "series_id",
+    "bin_start",
+    "bin_label",
+    "hours",
+    "runtime_hours",
+    "valid_elapsed_hours",
+    "coverage_pct",
+    "equipment_type",
+    "cooling_technology",
+    "proof_role",
+    "proof_quality",
+    "device_count",
+]
+
+
+def _mechanical_cooling_devices(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    prefer_web_oat: bool = True,
+    chw_leave_max_f: float = 48.0,
+    use_status_proof: bool = True,
+    chiller_amps_min: float = 5.0,
+    chiller_power_kw_min: float = 1.0,
+) -> list[dict[str, Any]]:
+    """Normalized mechanical-cooling device records with proof masks."""
+    from app.data_loader import infer_poll_seconds
+
+    devices: list[dict[str, Any]] = []
+    for eq_id, raw in frames.items():
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        mapped = apply_role_map(raw, eq_id, role_map)
+        is_candidate, checked = _mech_cooling_candidate_roles(
+            mapped,
+            equipment_type=et,
+            equipment_id=eq_id,
+            use_status_proof=use_status_proof,
+        )
+        if not is_candidate:
+            continue
+
+        poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw) or 3600.0)
+        oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
+        base: dict[str, Any] = {
+            "equipment_id": eq_id,
+            "equipment_type": et,
+            "checked_roles": ", ".join(checked) if checked else "—",
+            "mapped": mapped,
+            "poll_seconds": poll,
+            "oat": oat,
+            "run_mask": None,
+            "cooling_technology": "unknown",
+            "compressor_based": False,
+            "included": False,
+            "eligibility_state": "excluded",
+            "activity_state": "none",
+            "proof_quality": "",
+            "proof_role": "",
+            "proof_column": "",
+            "proof_threshold": None,
+            "runtime_hours": 0.0,
+            "valid_elapsed_hours": 0.0,
+            "coverage_pct": 0.0,
+            "exclusion_reason": "",
+            "status": "excluded",
+            "proof": "",
+            "reason": "",
+        }
+
+        if not checked and et in {"AHU", "HP", "RTU"}:
+            has_clg_valve = (
+                "cooling-valve" in mapped.columns and mapped["cooling-valve"].notna().any()
+            )
+            if not has_clg_valve:
+                continue
+            base["checked_roles"] = "cooling-valve (informational)"
+            base["cooling_technology"] = "chilled_water_coil"
+            base["compressor_based"] = False
+            base["exclusion_reason"] = (
+                "CHW-coil unit — cooling valve is never used as compressor proof; "
+                "its cooling hours are carried by the plant chillers"
+            )
+            base["reason"] = base["exclusion_reason"]
+            devices.append(base)
+            continue
+
+        if not checked:
+            base["exclusion_reason"] = (
+                "no CHW leaving-temperature role mapped"
+                if et == "CHW_PLANT" and not use_status_proof
+                else "no run-proof roles mapped (pump/status/amps/power or DX)"
+            )
+            base["reason"] = base["exclusion_reason"]
+            base["cooling_technology"] = _cooling_technology(et, compressor_based=True)
+            base["compressor_based"] = et in {"CHW_PLANT", "AHU", "RTU", "HP", "VRF"}
+            devices.append(base)
+            continue
+
+        if et == "HP" and _mapped_role(mapped, HEAT_PUMP_COOLING_MODE_ROLES) is None:
+            base["cooling_technology"] = "heat_pump"
+            base["compressor_based"] = True
+            base["exclusion_reason"] = (
+                "heat pump missing cooling-mode proof "
+                "(map heat-pump-cooling-status or unit-cooling-status)"
+            )
+            base["reason"] = base["exclusion_reason"]
+            devices.append(base)
+            continue
+
+        selected = _select_mech_cooling_proof(
+            mapped,
+            equipment_type=et,
+            equipment_id=eq_id,
+            chw_leave_max_f=chw_leave_max_f,
+            chiller_amps_min=chiller_amps_min,
+            chiller_power_kw_min=chiller_power_kw_min,
+            use_status_proof=use_status_proof,
+        )
+        run = selected["mask"]
+        if run is None:
+            base["cooling_technology"] = _cooling_technology(et, compressor_based=True)
+            base["compressor_based"] = True
+            base["exclusion_reason"] = (
+                "no run-proof roles mapped (pump/status/amps/power or DX)"
+            )
+            base["reason"] = base["exclusion_reason"]
+            devices.append(base)
+            continue
+
+        durations = interval_durations(run.index, nominal_seconds=poll)
+        valid_elapsed = float(durations.sum() / 3600.0)
+        runtime = hours_under_mask(run, nominal_seconds=poll)
+        compressor_based = True
+        tech = _cooling_technology(et, compressor_based=True)
+        included = True
+        eligibility = "eligible_with_runtime" if runtime > 1e-12 else "eligible_no_runtime"
+        activity = "active" if runtime > 1e-12 else "inactive"
+        reason = ""
+        if selected["legacy_proof"] == "inferred: chw_leave_temp":
+            reason = (
+                "Inferred from CHW leaving temperature; cold water can flow through "
+                "an idle chiller."
+            )
+
+        span_hours = 0.0
+        if isinstance(run.index, pd.DatetimeIndex) and len(run.index) > 1:
+            span_hours = float(
+                (run.index.max() - run.index.min()).total_seconds() / 3600.0
+            )
+        coverage_pct = (
+            round(100.0 * valid_elapsed / span_hours, 2) if span_hours > 0 else 0.0
+        )
+
+        base.update(
+            {
+                "run_mask": run.fillna(False).astype(bool),
+                "cooling_technology": tech,
+                "compressor_based": compressor_based,
+                "included": included,
+                "eligibility_state": eligibility,
+                "activity_state": activity,
+                "proof_quality": selected["proof_quality"],
+                "proof_role": selected["proof_role"],
+                "proof_column": selected["proof_column"],
+                "proof_threshold": selected["proof_threshold"],
+                "runtime_hours": round(float(runtime), 2),
+                "valid_elapsed_hours": round(valid_elapsed, 2),
+                "coverage_pct": coverage_pct,
+                "exclusion_reason": "",
+                "status": "included",
+                "proof": selected["legacy_proof"] or selected["proof_role"],
+                "reason": reason,
+            }
+        )
+        devices.append(base)
+    return devices
 
 
 def mech_cooling_coverage(
@@ -995,114 +1356,125 @@ def mech_cooling_coverage(
     """Per-device inclusion/exclusion report for the mech-cooling OAT-bin chart.
 
     One row per cooling-capable device **per the data model**: chillers / CHW
-    plants, AHUs or heat pumps with DX/compressor roles, and CHW-coil AHUs/HPs
-    (cooling valve mapped, no compressor) as informational exclusions.
-    ``status`` is ``included`` (with the run ``proof`` used) or ``excluded``
-    with a ``reason``. Devices with no cooling roles at all (e.g. VAV boxes)
-    are omitted.
+    plants, AHUs or heat pumps with DX/compressor roles, VRF outdoor units, and
+    CHW-coil AHUs/HPs (cooling valve mapped, no compressor) as informational
+    exclusions. Eligible devices with valid mapped proof that never run are
+    ``eligible_no_runtime`` (included), not excluded.
     """
-    rows: list[dict[str, Any]] = []
-    from app.data_loader import infer_poll_seconds
-
-    for eq_id, raw in frames.items():
-        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
-        mapped = apply_role_map(raw, eq_id, role_map)
-        is_candidate, checked = _mech_cooling_candidate_roles(
-            mapped,
-            equipment_type=et,
-            equipment_id=eq_id,
-            use_status_proof=use_status_proof,
-        )
-        if not is_candidate:
-            continue
-
-        row: dict[str, Any] = {
-            "equipment_id": eq_id,
-            "equipment_type": et,
-            "checked_roles": ", ".join(checked) if checked else "—",
-            "proof": "",
-            "runtime_hours": 0.0,
-            "reason": "",
-        }
-        if not checked and et in {"AHU", "HP"}:
-            has_clg_valve = (
-                "cooling-valve" in mapped.columns and mapped["cooling-valve"].notna().any()
-            )
-            if not has_clg_valve:
-                # No DX roles and no cooling valve — not a cooling device
-                continue
-            row["status"] = "excluded"
-            row["checked_roles"] = "cooling-valve (informational)"
-            row["reason"] = (
-                "CHW-coil unit — cooling valve is never used as compressor proof; "
-                "its cooling hours are carried by the plant chillers"
-            )
-            rows.append(row)
-            continue
-        if not checked:
-            row["status"] = "excluded"
-            row["reason"] = (
-                "no CHW leaving-temperature role mapped"
-                if et == "CHW_PLANT" and not use_status_proof
-                else "no run-proof roles mapped (pump/status/amps/power or DX)"
-            )
-            rows.append(row)
-            continue
-
-        run, source_kind = mech_cooling_run_mask(
-            mapped,
-            equipment_type=et,
-            equipment_id=eq_id,
-            chw_leave_max_f=chw_leave_max_f,
-            use_status_proof=use_status_proof,
-        )
-        if run is None or not bool(run.any()):
-            row["status"] = "excluded"
-            row["reason"] = (
-                (
-                    f"CHW leaving temperature never between 32°F and "
-                    f"{float(chw_leave_max_f):g}°F"
-                )
-                if et == "CHW_PLANT" and not use_status_proof
-                else (
-                    "run roles mapped but never ON (all zero/flat): "
-                    + ", ".join(checked)
-                )
-            )
-            rows.append(row)
-            continue
-
-        poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
-        row["runtime_hours"] = round(float(run.fillna(False).sum()) * poll / 3600.0, 2)
-
-        oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
-        if oat is None or oat.where(run).dropna().empty:
-            row["status"] = "excluded"
-            row["reason"] = "no OAT series available (map outside-air-temp or enable web weather)"
-            rows.append(row)
-            continue
-
-        row["status"] = "included"
-        row["proof"] = source_kind
-        if source_kind == "inferred: chw_leave_temp":
-            row["reason"] = (
-                "Inferred from CHW leaving temperature; cold water can flow through "
-                "an idle chiller."
-            )
-        rows.append(row)
-
+    devices = _mechanical_cooling_devices(
+        frames,
+        role_map,
+        weather=weather,
+        prefer_web_oat=prefer_web_oat,
+        chw_leave_max_f=chw_leave_max_f,
+        use_status_proof=use_status_proof,
+    )
     cols = [
         "equipment_id",
         "equipment_type",
+        "cooling_technology",
+        "compressor_based",
+        "included",
+        "eligibility_state",
+        "activity_state",
+        "proof_quality",
+        "proof_role",
+        "proof_column",
+        "proof_threshold",
+        "runtime_hours",
+        "valid_elapsed_hours",
+        "coverage_pct",
+        "exclusion_reason",
         "status",
         "proof",
-        "runtime_hours",
-        "checked_roles",
         "reason",
+        "checked_roles",
     ]
-    if not rows:
+    if not devices:
         return pd.DataFrame(columns=cols)
-    return pd.DataFrame(rows)[cols].sort_values(["status", "equipment_id"]).reset_index(drop=True)
+    rows = [{k: d.get(k) for k in cols} for d in devices]
+    return (
+        pd.DataFrame(rows)[cols]
+        .sort_values(["status", "equipment_id"])
+        .reset_index(drop=True)
+    )
+
+
+def _bin_runtime_rows(
+    *,
+    equipment_id: str,
+    source: str,
+    source_kind: str,
+    series_kind: str,
+    series_id: str,
+    oat: pd.Series,
+    mask: pd.Series,
+    nominal_seconds: float,
+    bin_width_f: float,
+    equipment_type: str = "",
+    cooling_technology: str = "",
+    proof_role: str = "",
+    proof_quality: str = "",
+    device_count: int = 1,
+) -> list[dict[str, Any]]:
+    """Attribute interval durations under mask into OAT bins."""
+    aligned_mask = mask.groupby(level=0).max().sort_index().fillna(False).astype(bool)
+    durations = interval_durations(aligned_mask.index, nominal_seconds=nominal_seconds)
+    oat_aligned = (
+        oat.groupby(level=0).max().sort_index().reindex(durations.index)
+        if isinstance(oat.index, pd.DatetimeIndex)
+        else oat.reindex(durations.index)
+    )
+    on = aligned_mask.reindex(durations.index).fillna(False).astype(bool)
+    usable = on & oat_aligned.notna() & (durations > 0)
+    if not bool(usable.any()):
+        return []
+    idx = durations.index[usable.to_numpy()]
+    clamped = oat_aligned.reindex(idx).clip(40, 110)
+    bin_start = (
+        np.floor(clamped.to_numpy(dtype=float) / float(bin_width_f)) * float(bin_width_f)
+    ).astype(int)
+    tmp = pd.DataFrame(
+        {
+            "bin_start": bin_start,
+            "seconds": durations.reindex(idx).to_numpy(dtype=float),
+        },
+        index=idx,
+    )
+    valid_elapsed = float(durations.sum() / 3600.0)
+    span = 0.0
+    if len(durations.index) > 1:
+        span = float(
+            (durations.index.max() - durations.index.min()).total_seconds() / 3600.0
+        )
+    coverage_pct = round(100.0 * valid_elapsed / span, 2) if span > 0 else 0.0
+    rows: list[dict[str, Any]] = []
+    for b, g in tmp.groupby("bin_start"):
+        if pd.isna(b):
+            continue
+        b_i = int(b)
+        hours = float(g["seconds"].sum() / 3600.0)
+        rows.append(
+            {
+                "equipment_id": equipment_id,
+                "source": source,
+                "source_kind": source_kind,
+                "series_kind": series_kind,
+                "series_id": series_id,
+                "bin_start": b_i,
+                "bin_label": f"{b_i}–{b_i + int(bin_width_f)}",
+                "hours": round(hours, 2),
+                "runtime_hours": round(hours, 2),
+                "valid_elapsed_hours": round(valid_elapsed, 2),
+                "coverage_pct": coverage_pct,
+                "equipment_type": equipment_type,
+                "cooling_technology": cooling_technology,
+                "proof_role": proof_role,
+                "proof_quality": proof_quality,
+                "device_count": int(device_count),
+            }
+        )
+    return rows
 
 
 def mech_cooling_oat_bins(
@@ -1121,78 +1493,122 @@ def mech_cooling_oat_bins(
     """
     Mechanical cooling run hours binned by OAT (default: web/Open-Meteo dry bulb).
 
-    Chillers (pump/status first, leave-temp backup) + AHU/HP **DX compressors only**.
+    Emits ``individual_device`` rows plus, when ``include_total=True``,
+    ``aggregate_device_hours`` (``equipment_id="ALL"``, ``source_kind="total"``)
+    and ``aggregate_active_hours`` (``series_id="aggregate_active_hours"``).
     Never bins CHW cooling-valve open time.
-
-    ``include_total=True`` appends aggregated rows (``equipment_id="ALL"``,
-    ``source_kind="total"``) summing hours across all included devices per bin.
     """
-    from app.data_loader import infer_poll_seconds
-
+    del include_ahu_chw_valve, clg_valve_thr_pct
+    devices = _mechanical_cooling_devices(
+        frames,
+        role_map,
+        weather=weather,
+        prefer_web_oat=prefer_web_oat,
+        chw_leave_max_f=chw_leave_max_f,
+        use_status_proof=use_status_proof,
+    )
     rows: list[dict[str, Any]] = []
-    for eq_id, raw in frames.items():
-        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
-        mapped = apply_role_map(raw, eq_id, role_map)
-        poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
-        oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
+    active_parts: list[tuple[pd.Series, pd.Series, float]] = []
+
+    for d in devices:
+        if not d["included"] or d["run_mask"] is None:
+            continue
+        oat = d["oat"]
         if oat is None:
             continue
-
-        run, source_kind = mech_cooling_run_mask(
-            mapped,
-            equipment_type=et,
-            equipment_id=eq_id,
-            chw_leave_max_f=chw_leave_max_f,
-            include_ahu_chw_valve=include_ahu_chw_valve,
-            clg_valve_thr_pct=clg_valve_thr_pct,
-            use_status_proof=use_status_proof,
-        )
-        if run is None or not bool(run.any()):
+        run = d["run_mask"]
+        if not bool(run.any()):
             continue
-
-        oat_on = oat.where(run).dropna()
-        if oat_on.empty:
-            continue
-        clamped = oat_on.clip(40, 110)
-        bin_start = (np.floor(clamped.to_numpy(dtype=float) / bin_width_f) * bin_width_f).astype(int)
-        tmp = pd.DataFrame({"oat": oat_on.to_numpy(), "bin_start": bin_start}, index=oat_on.index)
-        for b, g in tmp.groupby("bin_start"):
-            if pd.isna(b):
-                continue
-            b_i = int(b)
-            hours = float(len(g) * poll / 3600.0)
-            rows.append(
-                {
-                    "equipment_id": eq_id,
-                    "source": f"{eq_id} ({source_kind})",
-                    "source_kind": source_kind,
-                    "bin_start": b_i,
-                    "bin_label": f"{b_i}–{b_i + int(bin_width_f)}",
-                    "hours": round(hours, 2),
-                }
+        proof = d["proof"] or d["proof_role"]
+        rows.extend(
+            _bin_runtime_rows(
+                equipment_id=d["equipment_id"],
+                source=f"{d['equipment_id']} ({proof})",
+                source_kind=proof,
+                series_kind="individual_device",
+                series_id=d["equipment_id"],
+                oat=oat,
+                mask=run,
+                nominal_seconds=d["poll_seconds"],
+                bin_width_f=bin_width_f,
+                equipment_type=d["equipment_type"],
+                cooling_technology=d["cooling_technology"],
+                proof_role=d["proof_role"],
+                proof_quality=d["proof_quality"],
+                device_count=1,
             )
+        )
+        active_parts.append((run, oat, float(d["poll_seconds"])))
 
     if not rows:
-        return pd.DataFrame(
-            columns=["equipment_id", "source", "source_kind", "bin_start", "bin_label", "hours"]
-        )
+        return pd.DataFrame(columns=_OAT_BIN_COLUMNS)
 
     if include_total:
         per_dev = pd.DataFrame(rows)
-        n_devices = per_dev["equipment_id"].nunique()
+        n_devices = int(per_dev["equipment_id"].nunique())
         for (b_i, b_label), g in per_dev.groupby(["bin_start", "bin_label"]):
+            hours = float(g["runtime_hours"].sum())
             rows.append(
                 {
                     "equipment_id": MECH_COOL_TOTAL_ID,
                     "source": f"{MECH_COOL_TOTAL_LABEL} — {n_devices} device(s)",
                     "source_kind": "total",
+                    "series_kind": "aggregate_device_hours",
+                    "series_id": "aggregate_device_hours",
                     "bin_start": int(b_i),
                     "bin_label": str(b_label),
-                    "hours": round(float(g["hours"].sum()), 2),
+                    "hours": round(hours, 2),
+                    "runtime_hours": round(hours, 2),
+                    "valid_elapsed_hours": round(float(g["valid_elapsed_hours"].max()), 2),
+                    "coverage_pct": round(float(g["coverage_pct"].max()), 2),
+                    "equipment_type": "",
+                    "cooling_technology": "",
+                    "proof_role": "",
+                    "proof_quality": "",
+                    "device_count": n_devices,
                 }
             )
 
-    out = pd.DataFrame(rows).sort_values(["bin_start", "source"])
+        # Any-active hours: OR masks on the union timeline, then bin by OAT.
+        if active_parts:
+            indexes = [
+                p[0].groupby(level=0).max().sort_index().index for p in active_parts
+            ]
+            union_idx = indexes[0]
+            for ix in indexes[1:]:
+                union_idx = union_idx.union(ix)
+            union_idx = pd.DatetimeIndex(union_idx).drop_duplicates().sort_values()
+            any_active = pd.Series(False, index=union_idx)
+            oat_pieces: list[pd.Series] = []
+            nominal = float(np.median([p[2] for p in active_parts]))
+            for run, oat, _poll in active_parts:
+                r = run.groupby(level=0).max().sort_index()
+                any_active = any_active | r.reindex(union_idx).fillna(False).astype(bool)
+                o = oat.groupby(level=0).max().sort_index().reindex(union_idx)
+                oat_pieces.append(o)
+            oat_union = oat_pieces[0]
+            for o in oat_pieces[1:]:
+                oat_union = oat_union.fillna(o)
+            rows.extend(
+                _bin_runtime_rows(
+                    equipment_id="ACTIVE",
+                    source="Any compressor active",
+                    source_kind="active",
+                    series_kind="aggregate_active_hours",
+                    series_id="aggregate_active_hours",
+                    oat=oat_union,
+                    mask=any_active,
+                    nominal_seconds=nominal,
+                    bin_width_f=bin_width_f,
+                    device_count=n_devices,
+                )
+            )
+
+    out = pd.DataFrame(rows)
+    for col in _OAT_BIN_COLUMNS:
+        if col not in out.columns:
+            out[col] = pd.NA
+    out = out[_OAT_BIN_COLUMNS].sort_values(["bin_start", "series_kind", "source"])
     return out.reset_index(drop=True)
 
 

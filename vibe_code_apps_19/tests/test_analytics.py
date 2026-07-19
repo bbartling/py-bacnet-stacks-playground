@@ -92,19 +92,26 @@ def test_mech_cooling_bins_total_aggregates_multiple_chillers():
     bins = mech_cooling_oat_bins(
         {"CHILLER_1": ch1, "CHILLER_2": ch2}, role_map={}, include_total=True
     )
-    assert set(bins["equipment_id"]) == {"CHILLER_1", "CHILLER_2", MECH_COOL_TOTAL_ID}
-    total = bins[bins["equipment_id"] == MECH_COOL_TOTAL_ID]
-    per_dev = bins[bins["equipment_id"] != MECH_COOL_TOTAL_ID]
+    assert {"CHILLER_1", "CHILLER_2", MECH_COOL_TOTAL_ID} <= set(bins["equipment_id"])
+    assert set(bins["series_kind"]) == {
+        "individual_device",
+        "aggregate_device_hours",
+        "aggregate_active_hours",
+    }
+    total = bins[bins["series_kind"] == "aggregate_device_hours"]
+    per_dev = bins[bins["series_kind"] == "individual_device"]
     assert (total["source_kind"] == "total").all()
+    assert (total["equipment_id"] == MECH_COOL_TOTAL_ID).all()
     for _, row in total.iterrows():
         dev_sum = per_dev[per_dev["bin_start"] == row["bin_start"]]["hours"].sum()
         assert row["hours"] == pytest.approx(dev_sum)
     # Default (no total) unchanged for existing callers
     bins_no_total = mech_cooling_oat_bins({"CHILLER_1": ch1, "CHILLER_2": ch2}, role_map={})
     assert MECH_COOL_TOTAL_ID not in set(bins_no_total["equipment_id"])
+    assert set(bins_no_total["series_kind"]) == {"individual_device"}
 
 
-def test_mech_cooling_coverage_flat_zero_chiller_excluded():
+def test_mech_cooling_coverage_flat_zero_chiller_eligible_no_runtime():
     from app.analytics import MECH_COOL_TOTAL_ID, mech_cooling_coverage, mech_cooling_oat_bins
 
     idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
@@ -123,16 +130,19 @@ def test_mech_cooling_coverage_flat_zero_chiller_excluded():
     by_id = {r["equipment_id"]: r for _, r in cov.iterrows()}
     assert by_id["CHILLER_2"]["status"] == "included"
     assert by_id["CHILLER_2"]["proof"] == "chiller-status"
-    assert by_id["CHILLER_1"]["status"] == "excluded"
-    assert "never ON" in by_id["CHILLER_1"]["reason"]
-    assert "chiller-status" in by_id["CHILLER_1"]["reason"]
+    assert by_id["CHILLER_1"]["status"] == "included"
+    assert by_id["CHILLER_1"]["eligibility_state"] == "eligible_no_runtime"
+    assert by_id["CHILLER_1"]["included"]
+    assert by_id["CHILLER_1"]["runtime_hours"] == 0
+    assert by_id["CHILLER_1"]["proof"] == "chiller-status"
 
-    # Total equals the only active chiller's hours
+    # Total equals the only active chiller's hours; idle chiller has no bin rows
     bins = mech_cooling_oat_bins(frames, role_map={}, include_total=True)
-    total = bins[bins["equipment_id"] == MECH_COOL_TOTAL_ID]
+    total = bins[bins["series_kind"] == "aggregate_device_hours"]
     ch2_rows = bins[bins["equipment_id"] == "CHILLER_2"]
     assert total["hours"].sum() == pytest.approx(ch2_rows["hours"].sum())
-    assert "CHILLER_1" not in set(bins["equipment_id"])
+    assert "CHILLER_1" not in set(bins[bins.series_kind == "individual_device"]["equipment_id"])
+    assert MECH_COOL_TOTAL_ID in set(bins["equipment_id"])
 
 
 def test_mech_cooling_temperature_mode_uses_slider_and_labels_inference():
@@ -150,7 +160,9 @@ def test_mech_cooling_temperature_mode_uses_slider_and_labels_inference():
     ch1.attrs["equipment_type"] = "CHW_PLANT"
 
     strict = mech_cooling_coverage({"CHILLER_1": ch1}, role_map={})
-    assert strict.iloc[0]["status"] == "excluded"
+    # Mapped chiller-status that stays off is eligible with zero runtime (status mode).
+    assert strict.iloc[0]["status"] == "included"
+    assert strict.iloc[0]["eligibility_state"] == "eligible_no_runtime"
     assert strict.iloc[0]["runtime_hours"] == pytest.approx(0.0)
 
     inferred = mech_cooling_coverage(
@@ -172,9 +184,10 @@ def test_mech_cooling_temperature_mode_uses_slider_and_labels_inference():
         chw_leave_max_f=48.0,
         include_total=True,
     )
-    assert set(bins_48["equipment_id"]) == {"CHILLER_1", MECH_COOL_TOTAL_ID}
+    assert {"CHILLER_1", MECH_COOL_TOTAL_ID} <= set(bins_48["equipment_id"])
     assert bins_48[bins_48["equipment_id"] == "CHILLER_1"]["hours"].sum() == pytest.approx(2.0)
-    assert set(bins_48["source_kind"]) == {"inferred: chw_leave_temp", "total"}
+    assert "inferred: chw_leave_temp" in set(bins_48["source_kind"])
+    assert "total" in set(bins_48["source_kind"])
 
     bins_50 = mech_cooling_oat_bins(
         {"CHILLER_1": ch1},
@@ -182,7 +195,7 @@ def test_mech_cooling_temperature_mode_uses_slider_and_labels_inference():
         use_status_proof=False,
         chw_leave_max_f=50.0,
     )
-    assert bins_50["hours"].sum() == pytest.approx(3.0)
+    assert bins_50[bins_50.series_kind == "individual_device"]["hours"].sum() == pytest.approx(3.0)
 
 
 def test_mech_cooling_temperature_mode_keeps_dx_status_proof():
@@ -204,18 +217,23 @@ def test_mech_cooling_temperature_mode_keeps_dx_status_proof():
 
 def test_mech_cooling_typed_heat_pump_detected_without_hp_name():
     """A heat pump typed via the data model (equipType) counts even when its
-    name carries no HP hint — dispatch must be type-only, never name matching."""
+    name carries no HP hint — dispatch must be type-only, never name matching.
+    Cooling-mode evidence is required; compressor alone is not enough."""
     from app.analytics import mech_cooling_oat_bins, mech_cooling_run_mask
 
     idx = pd.date_range("2024-06-01", periods=6, freq="1h", tz="UTC")
     hp = pd.DataFrame(
-        {"compressor-status": [0, 1, 1, 1, 0, 0], "outside-air-temp": [70.0] * 6},
+        {
+            "compressor-status": [0, 1, 1, 1, 0, 0],
+            "heat-pump-cooling-status": [0, 1, 1, 1, 0, 0],
+            "outside-air-temp": [70.0] * 6,
+        },
         index=idx,
     )
     hp.attrs["equipment_type"] = "heatPump"  # alias — normalizes to HP
     run, kind = mech_cooling_run_mask(hp, equipment_type="heatPump", equipment_id="ROOFTOP_WEST")
     assert kind == "heatpump"
-    assert bool(run.sum()) and int(run.sum()) == 3
+    assert run is not None and bool(run.sum()) and int(run.sum()) == 3
 
     bins = mech_cooling_oat_bins({"ROOFTOP_WEST": hp}, role_map={})
     assert "ROOFTOP_WEST" in set(bins["equipment_id"])
