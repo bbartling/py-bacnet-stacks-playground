@@ -1,0 +1,39 @@
+project_id: synthetic-poorly-documented-office
+display_name: Synthetic Existing Office
+building_type: office
+city: madison
+floor_area_ft2: 42000
+floors: 3
+
+# Optional. Omit this path to keep the study explicitly conceptual.
+monthly_bills_path:
+# No interval data are assumed or requested.
+
+capacity:
+  factors: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
+  independent_factors:
+    - cooling_plant: 0.75
+      cooling_coils: 0.75
+      heating_plant: 1.0
+
+operating_hours:
+  - name: weekday_10h
+    weekday_hours: 10
+  - name: weekday_14h
+    weekday_hours: 14
+
+ventilation:
+  - name: zero_outdoor_air_fault
+    oa_fraction: 0.0
+    stuck_closed: true
+  - name: half_design_outdoor_air
+    oa_fraction: 0.5
+  - name: design_outdoor_air
+    oa_fraction: 1.0
+
+weather_extensions:
+  - compare_typical_year_to_observed_degree_days
+  - test_hot_and_cold_design_weeks
+
+search:
+  max_scenarios: 30

@@ -25,6 +25,8 @@ def _usage() -> str:
         "  crosscheck   Compare EnergyPlus savings vs bench/ESCO proxies\n"
         "  benchmark    Campus bill EUIs, allocation scenarios, peer-band compare\n"
         "  seed         Inspect a vibe19 WattLab dump (summary + gap report)\n"
+        "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
+        "  hypothesis-lab    Alias for explore-existing\n"
         "  studio       Launch the WattLab Studio web app (Streamlit)\n"
     )
 
@@ -144,6 +146,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_benchmark(rest)
     if cmd == "seed":
         return _cmd_seed(rest)
+    if cmd in {"explore-existing", "hypothesis-lab"}:
+        from wattlab.existing_building.cli import main as m
+
+        return int(m(rest) or 0)
     if cmd == "studio":
         return _cmd_studio(rest)
 
