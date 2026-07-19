@@ -13,6 +13,9 @@ operating schedules:
 - ``static_pressure_reset``     — "VV Static Pressure Reset" (fan laws, sqrt-pressure speed)
 - ``dat_reset_bins``            — "VV DAT Reset_Cooling" (supply enthalpy reset per bin)
 - ``hydronic_reset_bins``       — "Hot Water Reset" (HW/CHW/CDW reset savings ladder)
+- ``chw_reset``                 — chilled-water reset (thin ``chilled_water`` wrapper)
+- ``condenser_water_reset``     — CW reset screening proxy (gentler ladder, no tower fan penalty)
+- ``pneumatic_compressor``      — control-air compressor kWh from avoided run hours
 - ``dewpoint_economizer``       — "Enthalpy Econ" (economizer-eligible bins)
 
 Savings conventions use 4.5 * CFM * dH Btu/h for total-enthalpy
@@ -505,6 +508,64 @@ def hydronic_reset_bins(i: dict[str, Any]) -> dict[str, Any]:
     else:
         out["savings_kwh"] = total_kwh
     return out
+
+
+@register("chw_reset")
+def chw_reset(i: dict[str, Any]) -> dict[str, Any]:
+    """Chilled-water supply temperature reset — thin wrapper over
+    :func:`hydronic_reset_bins` in ``chilled_water`` mode (load ramps up with
+    rising OAT from ``on_point_f`` to ``design_temp_f``; savings ladder starts
+    at ``max_savings_fraction`` in the mildest cooling bin).
+
+    Required inputs: ``capacity_mbh``, ``kw_per_ton``, ``schedule``, ``bins``.
+    """
+    return hydronic_reset_bins({**i, "mode": "chilled_water"})
+
+
+@register("condenser_water_reset")
+def condenser_water_reset(i: dict[str, Any]) -> dict[str, Any]:
+    """Condenser-water temperature reset — screening proxy reusing the
+    ``chilled_water`` reset ladder (chiller kW relief in mild bins where tower
+    approach allows a lower CW setpoint). Added tower fan energy is NOT
+    modeled; treat results as an upper bound. Defaults to a gentler ladder
+    (``max_savings_fraction`` 0.03) than CHW reset.
+
+    Required inputs: ``capacity_mbh``, ``kw_per_ton``, ``schedule``, ``bins``.
+    """
+    inputs = {"max_savings_fraction": 0.03, **i, "mode": "chilled_water"}
+    out = hydronic_reset_bins(inputs)
+    out["mode"] = "condenser_water"
+    out["note"] = "Screening proxy via chilled_water reset ladder; tower fan penalty not modeled."
+    return out
+
+
+@register("pneumatic_compressor")
+def pneumatic_compressor(i: dict[str, Any]) -> dict[str, Any]:
+    """Control-air compressor savings from pneumatic-to-DDC conversion (or
+    leak repair): ``compressor_kw * load_factor`` over avoided run hours.
+
+    Inputs: ``compressor_kw``, ``baseline_annual_hours``,
+    ``proposed_annual_hours`` (default 0 — full conversion removes the
+    compressor), ``load_factor`` (default 0.5 average loaded fraction).
+    """
+    kw = float(i["compressor_kw"])
+    baseline_hours = float(i["baseline_annual_hours"])
+    proposed_hours = float(i.get("proposed_annual_hours", 0.0))
+    load_factor = float(i.get("load_factor", 0.5))
+    if kw <= 0 or baseline_hours < 0 or proposed_hours < 0:
+        raise ValueError("compressor_kw must be > 0 and hours must be >= 0")
+    if not 0.0 < load_factor <= 1.0:
+        raise ValueError("load_factor must be in (0, 1]")
+    avoided_hours = max(baseline_hours - proposed_hours, 0.0)
+    baseline_kwh = kw * load_factor * baseline_hours
+    savings = kw * load_factor * avoided_hours
+    return {
+        "baseline_kwh": baseline_kwh,
+        "proposed_kwh": baseline_kwh - savings,
+        "savings_kwh": savings,
+        "avoided_hours": avoided_hours,
+        "load_factor": load_factor,
+    }
 
 
 # ---------------------------------------------------------------------------

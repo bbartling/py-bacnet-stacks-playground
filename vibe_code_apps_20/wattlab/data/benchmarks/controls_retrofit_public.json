@@ -1,0 +1,245 @@
+{
+  "description": "Public screening ranges for controls-retrofit savings by retrofit class. These are literature-derived plausibility bands, NOT guarantees or measured results for any specific building: use them to sanity-check proxy/EnergyPlus estimates, never to publish savings. Percentages are fractions of the stated savings_basis. Entries whose sources include kind=screening_placeholder are synthetic anchors awaiting a public citation and always carry confidence=low.",
+  "schema_version": 1,
+  "classes": [
+    {
+      "retrofit_class": "scheduling_occupancy",
+      "label": "Equipment scheduling / start-stop optimization",
+      "savings_basis": "whole_building_energy_pct",
+      "lo_pct": 2.0,
+      "typical_pct": 8.0,
+      "hi_pct": 20.0,
+      "typical_payback_years": [0.1, 2.0],
+      "confidence": "high",
+      "applicability": "Buildings with 24/7 or over-scheduled HVAC/lighting versus actual occupancy; savings scale with excess run hours.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "Mills (LBNL), Building Commissioning: A Golden Opportunity for Reducing Energy Costs and Greenhouse Gas Emissions (2009)",
+          "url": "https://cx.lbl.gov/documents/2009-assessment/lbnl-cx-cost-benefit.pdf",
+          "note": "Existing-building commissioning median whole-building savings 16%, median payback 1.1 yr; scheduling fixes are the most common measure family."
+        },
+        {
+          "kind": "public_report",
+          "title": "PNNL-25985, Impacts of Commercial Building Controls on Energy Savings and Peak Load Reduction (2017)",
+          "url": "https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-25985.pdf",
+          "note": "Shortened HVAC schedules among the highest-impact individual control corrections in the national packaged/RTU analysis."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "sat_reset",
+      "label": "Supply-air temperature (discharge air) reset",
+      "savings_basis": "hvac_energy_pct",
+      "lo_pct": 2.0,
+      "typical_pct": 5.0,
+      "hi_pct": 15.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "low",
+      "applicability": "VAV systems with fixed 55 F discharge; interacts with reheat (gas down, fan/cooling shifts) so quote fuel-by-fuel.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "ASHRAE Guideline 36 High-Performance Sequences of Operation for HVAC Systems (public overview material)",
+          "url": "https://www.ashrae.org/technical-resources/bookstore/guideline-36-high-performance-sequences-of-operation-for-hvac-systems",
+          "note": "Trim-and-respond SAT reset is a core G36 sequence; savings shown in field/simulation studies vary strongly by climate and reheat design."
+        },
+        {
+          "kind": "screening_placeholder",
+          "title": "Screening placeholder band pending a dedicated public SAT-reset field-study citation",
+          "url": null,
+          "note": "Band is a synthetic anchor consistent with G36 simulation literature; treat as low confidence."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "static_pressure_reset",
+      "label": "Duct static pressure reset (fan-law savings)",
+      "savings_basis": "fan_energy_pct",
+      "lo_pct": 10.0,
+      "typical_pct": 30.0,
+      "hi_pct": 50.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "medium",
+      "applicability": "VAV air handlers with VFDs holding a fixed static setpoint; savings follow the cube-law on the pressure ratio.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "PNNL-25985, Impacts of Commercial Building Controls on Energy Savings and Peak Load Reduction (2017)",
+          "url": "https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-25985.pdf",
+          "note": "Advanced RTU/AHU controls incl. fan-speed optimization show large fan-energy fractions; band expressed on fan energy only."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "hw_reset",
+      "label": "Hot-water supply temperature reset",
+      "savings_basis": "heating_fuel_pct",
+      "lo_pct": 1.0,
+      "typical_pct": 4.0,
+      "hi_pct": 10.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "low",
+      "applicability": "Hydronic heating plants running design HWST year-round; condensing boilers gain extra efficiency at low return temps.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "DOE Better Buildings / Building America publications on hydronic reset controls (public program guidance)",
+          "url": "https://betterbuildingssolutioncenter.energy.gov/",
+          "note": "Program guidance cites single-digit heating-fuel percentages for outdoor-air-reset on hydronic loops; exact figure is climate/plant dependent."
+        },
+        {
+          "kind": "screening_placeholder",
+          "title": "Screening placeholder band pending a plant-level public measurement citation",
+          "url": null,
+          "note": "Synthetic anchor consistent with the WattLab hydronic_reset_bins ladder defaults (max ~5% of load in mild bins)."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "chw_reset",
+      "label": "Chilled-water supply temperature reset",
+      "savings_basis": "chiller_energy_pct",
+      "lo_pct": 1.0,
+      "typical_pct": 4.0,
+      "hi_pct": 12.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "low",
+      "applicability": "Water-cooled or air-cooled chiller plants at fixed design CHWST; ~1-2% chiller kW per degree F of reset is the classic rule of thumb, capped by dehumidification needs.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "DOE/FEMP Operations & Maintenance Best Practices Guide, Release 3.0 (chiller chapter)",
+          "url": "https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-19634.pdf",
+          "note": "Public O&M guidance describes CHW reset as a standard low-cost chiller efficiency measure; percentage band here is a screening synthesis, not a quoted table."
+        },
+        {
+          "kind": "screening_placeholder",
+          "title": "Screening placeholder band; no single public field-measured range adopted yet",
+          "url": null,
+          "note": "Treat as low confidence until a plant-specific bin calculation or public study replaces it."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "condenser_water_reset",
+      "label": "Condenser-water temperature reset / tower optimization",
+      "savings_basis": "chiller_energy_pct",
+      "lo_pct": 1.0,
+      "typical_pct": 3.0,
+      "hi_pct": 8.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "low",
+      "applicability": "Water-cooled plants with fixed CW setpoints well above achievable wet-bulb approach; net savings must account for added tower fan energy.",
+      "sources": [
+        {
+          "kind": "screening_placeholder",
+          "title": "Screening placeholder band pending a public condenser-water optimization study citation",
+          "url": null,
+          "note": "Synthetic anchor from the ~1-1.5% chiller kW per degree F condenser-relief rule of thumb; verify with a plant model before quoting."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "economizer_repair",
+      "label": "Air-side economizer repair / enable",
+      "savings_basis": "cooling_energy_pct",
+      "lo_pct": 5.0,
+      "typical_pct": 15.0,
+      "hi_pct": 40.0,
+      "typical_payback_years": [0.1, 2.0],
+      "confidence": "medium",
+      "applicability": "Units with stuck/disabled dampers or failed sensors in economizer-favorable climates; savings basis is mechanical cooling energy.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "PNNL-25985, Impacts of Commercial Building Controls on Energy Savings and Peak Load Reduction (2017)",
+          "url": "https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-25985.pdf",
+          "note": "Economizer faults are among the most common and highest-impact packaged-unit control problems in the national analysis."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "dcv",
+      "label": "Demand-controlled ventilation (CO2-based)",
+      "savings_basis": "hvac_energy_pct",
+      "lo_pct": 3.0,
+      "typical_pct": 10.0,
+      "hi_pct": 25.0,
+      "typical_payback_years": [1.0, 5.0],
+      "confidence": "medium",
+      "applicability": "High and variable occupancy spaces ventilated at design rates (assembly, classrooms); savings concentrate in heating climates.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "PNNL-25985, Impacts of Commercial Building Controls on Energy Savings and Peak Load Reduction (2017)",
+          "url": "https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-25985.pdf",
+          "note": "DCV modeled as part of the advanced-controls package for packaged systems."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "vav_min_flow_reduction",
+      "label": "VAV box minimum-flow reduction (G36-style)",
+      "savings_basis": "hvac_energy_pct",
+      "lo_pct": 5.0,
+      "typical_pct": 15.0,
+      "hi_pct": 30.0,
+      "typical_payback_years": [0.5, 3.0],
+      "confidence": "medium",
+      "applicability": "Legacy VAV boxes at 30-50% minimums that can be reset to ~10-20%; cuts reheat (gas) and fan energy simultaneously.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "ASHRAE Guideline 36 High-Performance Sequences of Operation for HVAC Systems (public overview material)",
+          "url": "https://www.ashrae.org/technical-resources/bookstore/guideline-36-high-performance-sequences-of-operation-for-hvac-systems",
+          "note": "Reduced minimums with dual-max logic are central to G36; HVAC-energy study savings around ~30% are frequently cited for full G36 packages, less for minimums alone."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "guideline36_airside_package",
+      "label": "Full Guideline 36 airside package (resets + minimums + requests)",
+      "savings_basis": "hvac_energy_pct",
+      "lo_pct": 10.0,
+      "typical_pct": 30.0,
+      "hi_pct": 45.0,
+      "typical_payback_years": [1.0, 5.0],
+      "confidence": "medium",
+      "applicability": "Built-up VAV systems with DDC capable of trim-and-respond; whole-building percentage is much lower than the HVAC-only figure — never conflate them.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "LBNL field demonstration reporting on ASHRAE Guideline 36 sequences (public summary: average ~31% HVAC energy savings)",
+          "url": "https://buildings.lbl.gov/",
+          "note": "HVAC-only average from public LBNL demonstration summaries; individual sites vary widely (roughly 10-45%)."
+        }
+      ]
+    },
+    {
+      "retrofit_class": "pneumatic_to_ddc_conversion",
+      "label": "Pneumatic-to-DDC controls conversion",
+      "savings_basis": "whole_building_energy_pct",
+      "lo_pct": 5.0,
+      "typical_pct": 12.0,
+      "hi_pct": 25.0,
+      "typical_payback_years": [2.0, 8.0],
+      "confidence": "low",
+      "applicability": "Buildings still on pneumatic thermostats/actuators; enables scheduling and resets and eliminates most control-air compressor runtime.",
+      "sources": [
+        {
+          "kind": "public_report",
+          "title": "GSA / DOE public retrofit case-study literature on pneumatic-to-DDC conversions",
+          "url": "https://www.gsa.gov/governmentwide-initiatives/federal-highperformance-green-buildings",
+          "note": "Case studies report double-digit whole-building savings when conversion unlocks scheduling/reset capability; range here is a screening synthesis."
+        },
+        {
+          "kind": "screening_placeholder",
+          "title": "Screening placeholder band pending a specific public measured-savings citation",
+          "url": null,
+          "note": "Savings depend on what sequences the new DDC actually implements; treat as low confidence."
+        }
+      ]
+    }
+  ]
+}
