@@ -893,6 +893,7 @@ def mech_cooling_run_mask(
     clg_valve_thr_pct: float = 5.0,
     chiller_amps_min: float = 5.0,
     chiller_power_kw_min: float = 1.0,
+    use_status_proof: bool = True,
 ) -> tuple[pd.Series | None, str]:
     """
     Mechanical-cooling proof for OAT-bin charts (compressor / plant only).
@@ -910,9 +911,14 @@ def mech_cooling_run_mask(
       - Never use CHW cooling-valve % (valves often modulate with no chilled water).
       - ``include_ahu_chw_valve`` is deprecated and ignored (API compat only).
     """
-    del include_ahu_chw_valve, clg_valve_thr_pct, chw_leave_max_f  # never valve / leave-temp on this chart
+    del include_ahu_chw_valve, clg_valve_thr_pct  # never valve on this chart
     et = _mech_cooling_type(equipment_type, equipment_id)
     if et == "CHW_PLANT":
+        if not use_status_proof:
+            temp = _chw_temp_proof(df, chw_leave_max_f)
+            if temp is not None and bool(temp.any()):
+                return temp, "inferred: chw_leave_temp"
+            return None, ""
         run = _first_on_mask(df, CHILLER_PUMP_ROLES)
         if run is not None and bool(run.any()):
             return run, "chw_pump"
@@ -944,7 +950,11 @@ def mech_cooling_run_mask(
 
 
 def _mech_cooling_candidate_roles(
-    df: pd.DataFrame, *, equipment_type: str, equipment_id: str = ""
+    df: pd.DataFrame,
+    *,
+    equipment_type: str,
+    equipment_id: str = "",
+    use_status_proof: bool = True,
 ) -> tuple[bool, list[str]]:
     """(is a cooling-proof candidate, mapped run-proof roles present with data).
 
@@ -954,7 +964,13 @@ def _mech_cooling_candidate_roles(
     """
     et = _mech_cooling_type(equipment_type, equipment_id)
     if et == "CHW_PLANT":
-        roles = list(CHILLER_PUMP_ROLES + CHILLER_RUN_ROLES) + ["chiller-amps", "chiller-power"]
+        if use_status_proof:
+            roles = list(CHILLER_PUMP_ROLES + CHILLER_RUN_ROLES) + [
+                "chiller-amps",
+                "chiller-power",
+            ]
+        else:
+            roles = ["chilled-water-supply-temp", "chw_leave_t", "chws_t"]
     elif et in {"AHU", "HP"}:
         roles = list(DX_RUN_ROLES)
     else:
@@ -974,6 +990,7 @@ def mech_cooling_coverage(
     weather: pd.DataFrame | None = None,
     prefer_web_oat: bool = True,
     chw_leave_max_f: float = 48.0,
+    use_status_proof: bool = True,
 ) -> pd.DataFrame:
     """Per-device inclusion/exclusion report for the mech-cooling OAT-bin chart.
 
@@ -985,11 +1002,16 @@ def mech_cooling_coverage(
     are omitted.
     """
     rows: list[dict[str, Any]] = []
+    from app.data_loader import infer_poll_seconds
+
     for eq_id, raw in frames.items():
         et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
         mapped = apply_role_map(raw, eq_id, role_map)
         is_candidate, checked = _mech_cooling_candidate_roles(
-            mapped, equipment_type=et, equipment_id=eq_id
+            mapped,
+            equipment_type=et,
+            equipment_id=eq_id,
+            use_status_proof=use_status_proof,
         )
         if not is_candidate:
             continue
@@ -999,6 +1021,7 @@ def mech_cooling_coverage(
             "equipment_type": et,
             "checked_roles": ", ".join(checked) if checked else "—",
             "proof": "",
+            "runtime_hours": 0.0,
             "reason": "",
         }
         if not checked and et in {"AHU", "HP"}:
@@ -1018,7 +1041,11 @@ def mech_cooling_coverage(
             continue
         if not checked:
             row["status"] = "excluded"
-            row["reason"] = "no run-proof roles mapped (pump/status/amps/power or DX)"
+            row["reason"] = (
+                "no CHW leaving-temperature role mapped"
+                if et == "CHW_PLANT" and not use_status_proof
+                else "no run-proof roles mapped (pump/status/amps/power or DX)"
+            )
             rows.append(row)
             continue
 
@@ -1027,15 +1054,26 @@ def mech_cooling_coverage(
             equipment_type=et,
             equipment_id=eq_id,
             chw_leave_max_f=chw_leave_max_f,
+            use_status_proof=use_status_proof,
         )
         if run is None or not bool(run.any()):
             row["status"] = "excluded"
             row["reason"] = (
-                "run roles mapped but never ON (all zero/flat): "
-                + ", ".join(checked)
+                (
+                    f"CHW leaving temperature never between 32°F and "
+                    f"{float(chw_leave_max_f):g}°F"
+                )
+                if et == "CHW_PLANT" and not use_status_proof
+                else (
+                    "run roles mapped but never ON (all zero/flat): "
+                    + ", ".join(checked)
+                )
             )
             rows.append(row)
             continue
+
+        poll = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
+        row["runtime_hours"] = round(float(run.fillna(False).sum()) * poll / 3600.0, 2)
 
         oat = _oat_series(mapped, weather, prefer_web=prefer_web_oat)
         if oat is None or oat.where(run).dropna().empty:
@@ -1046,9 +1084,22 @@ def mech_cooling_coverage(
 
         row["status"] = "included"
         row["proof"] = source_kind
+        if source_kind == "inferred: chw_leave_temp":
+            row["reason"] = (
+                "Inferred from CHW leaving temperature; cold water can flow through "
+                "an idle chiller."
+            )
         rows.append(row)
 
-    cols = ["equipment_id", "equipment_type", "status", "proof", "checked_roles", "reason"]
+    cols = [
+        "equipment_id",
+        "equipment_type",
+        "status",
+        "proof",
+        "runtime_hours",
+        "checked_roles",
+        "reason",
+    ]
     if not rows:
         return pd.DataFrame(columns=cols)
     return pd.DataFrame(rows)[cols].sort_values(["status", "equipment_id"]).reset_index(drop=True)
@@ -1065,6 +1116,7 @@ def mech_cooling_oat_bins(
     include_ahu_chw_valve: bool = False,
     clg_valve_thr_pct: float = 5.0,
     include_total: bool = False,
+    use_status_proof: bool = True,
 ) -> pd.DataFrame:
     """
     Mechanical cooling run hours binned by OAT (default: web/Open-Meteo dry bulb).
@@ -1093,6 +1145,7 @@ def mech_cooling_oat_bins(
             chw_leave_max_f=chw_leave_max_f,
             include_ahu_chw_valve=include_ahu_chw_valve,
             clg_valve_thr_pct=clg_valve_thr_pct,
+            use_status_proof=use_status_proof,
         )
         if run is None or not bool(run.any()):
             continue

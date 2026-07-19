@@ -52,14 +52,14 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, **Generic RCx DOCX download**, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins, economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
+| Overview | Metrics, **Generic RCx DOCX download**, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
 | Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
 | **FDD Plots** | Auto-run device rules; catalog-parity cards; **Sensor health — per sensor** matrix + chart (Word on Overview) |
 | **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); zone comfort donut; one chart at a time; opt-in coverage |
 | **Metering** | Electric/gas monthly + degree-day charts (category starter; expand later) |
-| **Export** | WattLab dump zip for vibe20: every FDD rule, analytic CSVs, sensor stats / 24h diurnal profiles, setpoints, data-derived `model_seed.json`, `MANIFEST.json`; session restore + individual CSVs under expander (Word template is Overview-only) |
+| **Export** | WattLab dump zip for vibe20: **always** re-runs the complete cookbook (never reuse partial `batch_results`), then packs every FDD rule, analytic CSVs (incl. mech-cooling bins/coverage), sensor stats / 24h diurnal profiles, setpoints, data-derived `model_seed.json`, `MANIFEST.json`; session restore + individual CSVs under expander (Word template is Overview-only) |
 
 Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on low-RAM hosts).
 

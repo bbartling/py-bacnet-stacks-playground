@@ -214,12 +214,15 @@ def test_make_session_config_plant_toggles_roundtrip():
         unit_system="metric",
         prefer_web_oat=False,
         chw_leave_max_f=46.0,
+        use_mech_cooling_status_proof=False,
         include_ahu_chw_valve=True,  # accepted but always coerced False
     )
     sc = SessionConfig.model_validate(cfg)
     assert sc.unit_system == "metric"
     assert sc.prefer_web_oat is False
     assert sc.chw_leave_max_f == 46.0
+    assert sc.use_mech_cooling_status_proof is False
+    assert cfg["use_mech_cooling_status_proof"] is False
     assert sc.include_ahu_chw_valve is False
     assert sc.params["SCHED-1"]["confirm_min"] == 10.0
     assert sc.role_map["AHU_1"]["fan-status"] == "fan-status"

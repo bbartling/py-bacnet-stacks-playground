@@ -2600,7 +2600,7 @@ See [`RCX_PLOTS.md`](RCX_PLOTS.md). Reset scatters / duct-static box share roles
 | View | Where | Roles / inputs |
 | --- | --- | --- |
 | Motor weekly runtime | Overview | fan/pump/compressor **status** preferred |
-| Mech-cooling OAT bins | Overview | plant pump/status or DX compressor; **web OAT**; never CHW valve % |
+| Mech-cooling OAT bins | Overview | default plant pump→status→amps→power or DX compressor; optional inferred CHW leave temp; always-visible coverage; **web OAT**; never CHW valve % |
 | Sensor fault summary | Plots (device) | sensors involved in FAULT SV-* |
 | Occupancy calendar | Overview | writes `occ_mode` for SCHED-1 |
 | RCx catalog DOCX | RCx Plots / Export | catalog + filled analytics when data-model fit |

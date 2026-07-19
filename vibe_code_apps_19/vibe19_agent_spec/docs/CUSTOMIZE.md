@@ -18,7 +18,7 @@ App 19 is an **educational fork template**: keep the 50-rule cookbook + Streamli
 
 **Never silently drop a canonical rule** — skip with `SKIPPED_*` / `NOT_APPLICABLE_*`. Do not re-add Rust / FastAPI / Haystack RDF.
 
-**Do not vibe back:** mech-cooling OAT bins must stay **compressor / chiller-plant only** (never AHU CHW valve %). Overview occupancy calendar always → `occ_mode` (no optional checkbox). See root `AGENTS.md` hard rules 10–12.
+**Do not vibe back:** mech-cooling OAT bins must stay **compressor / chiller-plant only** (never AHU CHW valve %). Status proof stays the default; leave-temp is an explicit opt-out labeled inferred. Overview occupancy calendar always → `occ_mode` (no optional checkbox). WattLab dump always re-runs the complete cookbook. See root `AGENTS.md` hard rules 10–12.
 
 ---
 

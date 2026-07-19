@@ -135,6 +135,73 @@ def test_mech_cooling_coverage_flat_zero_chiller_excluded():
     assert "CHILLER_1" not in set(bins["equipment_id"])
 
 
+def test_mech_cooling_temperature_mode_uses_slider_and_labels_inference():
+    from app.analytics import MECH_COOL_TOTAL_ID, mech_cooling_coverage, mech_cooling_oat_bins
+
+    idx = pd.date_range("2024-06-01", periods=6, freq="1h", tz="UTC")
+    ch1 = pd.DataFrame(
+        {
+            "chiller-status": [0] * 6,
+            "chilled-water-supply-temp": [55.0, 49.0, 47.0, 44.0, 31.0, 0.0],
+            "outside-air-temp": [70.0] * 6,
+        },
+        index=idx,
+    )
+    ch1.attrs["equipment_type"] = "CHW_PLANT"
+
+    strict = mech_cooling_coverage({"CHILLER_1": ch1}, role_map={})
+    assert strict.iloc[0]["status"] == "excluded"
+    assert strict.iloc[0]["runtime_hours"] == pytest.approx(0.0)
+
+    inferred = mech_cooling_coverage(
+        {"CHILLER_1": ch1},
+        role_map={},
+        use_status_proof=False,
+        chw_leave_max_f=48.0,
+    )
+    row = inferred.iloc[0]
+    assert row["status"] == "included"
+    assert row["proof"] == "inferred: chw_leave_temp"
+    assert row["runtime_hours"] == pytest.approx(2.0)
+    assert "cold water can flow through an idle chiller" in row["reason"]
+
+    bins_48 = mech_cooling_oat_bins(
+        {"CHILLER_1": ch1},
+        role_map={},
+        use_status_proof=False,
+        chw_leave_max_f=48.0,
+        include_total=True,
+    )
+    assert set(bins_48["equipment_id"]) == {"CHILLER_1", MECH_COOL_TOTAL_ID}
+    assert bins_48[bins_48["equipment_id"] == "CHILLER_1"]["hours"].sum() == pytest.approx(2.0)
+    assert set(bins_48["source_kind"]) == {"inferred: chw_leave_temp", "total"}
+
+    bins_50 = mech_cooling_oat_bins(
+        {"CHILLER_1": ch1},
+        role_map={},
+        use_status_proof=False,
+        chw_leave_max_f=50.0,
+    )
+    assert bins_50["hours"].sum() == pytest.approx(3.0)
+
+
+def test_mech_cooling_temperature_mode_keeps_dx_status_proof():
+    from app.analytics import mech_cooling_coverage
+
+    idx = pd.date_range("2024-06-01", periods=4, freq="1h", tz="UTC")
+    ahu = pd.DataFrame(
+        {"compressor-status": [0, 1, 1, 0], "outside-air-temp": [72.0] * 4},
+        index=idx,
+    )
+    ahu.attrs["equipment_type"] = "AHU"
+    cov = mech_cooling_coverage(
+        {"AHU_DX": ahu}, role_map={}, use_status_proof=False
+    )
+    assert cov.iloc[0]["status"] == "included"
+    assert cov.iloc[0]["proof"] == "ahu_dx"
+    assert cov.iloc[0]["runtime_hours"] == pytest.approx(2.0)
+
+
 def test_mech_cooling_typed_heat_pump_detected_without_hp_name():
     """A heat pump typed via the data model (equipType) counts even when its
     name carries no HP hint — dispatch must be type-only, never name matching."""

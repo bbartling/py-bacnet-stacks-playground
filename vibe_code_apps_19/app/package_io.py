@@ -175,6 +175,7 @@ class SessionConfig(BaseModel):
     unit_system: str | None = None
     prefer_web_oat: bool | None = None
     chw_leave_max_f: float | None = None
+    use_mech_cooling_status_proof: bool | None = True
     include_ahu_chw_valve: bool | None = False  # deprecated; apply path forces False
     role_map: dict[str, dict[str, str]] | None = None
     params: dict[str, dict[str, Any]] | None = None
@@ -899,6 +900,10 @@ def apply_session_config(cfg: SessionConfig, *, equipment_ids: set[str]) -> list
         st.session_state.chw_leave_max_f = float(cfg.chw_leave_max_f)
         # Resync unit-aware display slider on next render
         st.session_state.pop("_chw_leave_max_f_ui_unit", None)
+    if cfg.use_mech_cooling_status_proof is not None:
+        st.session_state.use_mech_cooling_status_proof = bool(
+            cfg.use_mech_cooling_status_proof
+        )
     # Legacy session configs may still carry this key; never enable valve→mech-cooling bins.
     st.session_state.include_ahu_chw_valve = False
     if cfg.include_ahu_chw_valve:

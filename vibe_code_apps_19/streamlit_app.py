@@ -194,6 +194,7 @@ def _init_state() -> None:
         "unit_system": "imperial",
         "prefer_web_oat": True,
         "chw_leave_max_f": 48.0,
+        "use_mech_cooling_status_proof": True,
         "include_ahu_chw_valve": False,  # hard-coded; never offer in UI
         "occupancy_schedule": OccupancySchedule().to_dict(),
         "apply_occupancy_calendar": True,  # always on; Overview calendar → occ_mode
@@ -414,21 +415,25 @@ def _session_config_payload() -> dict:
         unit_system=st.session_state.get("unit_system", "imperial"),
         prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
         chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        use_mech_cooling_status_proof=bool(
+            st.session_state.get("use_mech_cooling_status_proof", True)
+        ),
         include_ahu_chw_valve=False,  # never export legacy valve→mech-cooling path
     )
 
 
 def _build_wattlab_dump_zip() -> tuple[bytes, str]:
-    """Run the agent-bundle export on the current session and zip it (in memory).
+    """Run a complete cookbook + agent-bundle export and zip it (in memory).
 
-    If no FDD results are in session yet, runs the full cookbook across all
-    mapped equipment so the dump always includes every FD rule.
+    Always re-runs the full active cookbook across all mapped equipment so the
+    dump never reuses a partial session `batch_results` set. The fresh complete
+    result set replaces session `batch_results` for vibe20 handoff.
     """
     import io
     import tempfile
     import zipfile
 
-    from app.agent_api import AgentDataset, AgentRun, export_agent_bundle, run_rules
+    from app.agent_api import AgentDataset, export_agent_bundle, run_rules
 
     building_id = st.session_state.get("building_id") or "BUILDING"
     dataset = AgentDataset(
@@ -439,21 +444,17 @@ def _build_wattlab_dump_zip() -> tuple[bytes, str]:
         params=st.session_state.get("params") or {},
         unit_system=st.session_state.get("unit_system", "imperial"),
         prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        use_mech_cooling_status_proof=bool(
+            st.session_state.get("use_mech_cooling_status_proof", True)
+        ),
         column_map=st.session_state.get("column_map"),
         package_report=st.session_state.get("package_report") or {},
         source_path=str(st.session_state.get("data_source") or ""),
     )
-    results = st.session_state.get("batch_results") or []
-    if results:
-        run = AgentRun(
-            results=results,
-            summary=results_summary_table(results),
-            params=dataset.params,
-        )
-    else:
-        # Guarantee "every FD rule ran" for the vibe20 agent handoff
-        run = run_rules(dataset)
-        st.session_state["batch_results"] = run.results
+    # Never reuse potentially partial session results for the vibe20 handoff.
+    run = run_rules(dataset)
+    st.session_state["batch_results"] = run.results
     buf = io.BytesIO()
     with tempfile.TemporaryDirectory(prefix="wattlab_dump_") as td:
         export_agent_bundle(dataset, run, td, include_bootstrap=False)
@@ -499,6 +500,9 @@ def _render_session_config_io(*, key_prefix: str) -> None:
             "schema_version": "openfdd_session_v1",
             "unit_system": st.session_state.get("unit_system", "imperial"),
             "prefer_web_oat": bool(st.session_state.get("prefer_web_oat", True)),
+            "use_mech_cooling_status_proof": bool(
+                st.session_state.get("use_mech_cooling_status_proof", True)
+            ),
             "role_map": st.session_state.get("role_map") or {},
             "params": st.session_state.get("params") or {},
         }
@@ -1982,6 +1986,15 @@ Agent brief: {_AGENTS_MD_URL}
         help="OAT-dependent views use weather CSV / wx_oa_t before BAS oa_t.",
         key="prefer_web_oat",
     )
+    use_status_proof = st.sidebar.checkbox(
+        "Use mapped mechanical-cooling status proof",
+        help=(
+            "Checked: pump/status → chiller status → amps → power. "
+            "Unchecked: CHW plants use the leaving-water threshold below; "
+            "temperature runtime is inferred and may include flow through an idle chiller."
+        ),
+        key="use_mech_cooling_status_proof",
+    )
     _temp_threshold_slider(
         label_base="CHW leave proof max",
         stored_key="chw_leave_max_f",
@@ -1989,10 +2002,12 @@ Agent brief: {_AGENTS_MD_URL}
         max_f=50.0,
         step_f=0.5,
         help=(
-            "If pump/chiller status is missing, treat CHW supply below this as mechanical cooling on. "
-            "Stored as °F; Units radio switches this slider between °F and °C."
+            "When mapped status proof is unchecked, treat valid CHW supply below "
+            "this threshold as inferred mechanical cooling. Stored as °F; Units "
+            "radio switches this slider between °F and °C."
         ),
         location=st.sidebar,
+        disabled=bool(use_status_proof),
     )
     st.session_state.include_ahu_chw_valve = False
     st.session_state.apply_occupancy_calendar = True
@@ -2011,6 +2026,7 @@ def _temp_threshold_slider(
     step_f: float = 0.5,
     help: str = "",
     location=None,
+    disabled: bool = False,
 ) -> float:
     """Temp slider that follows Units (°F/°C); always persists imperial °F in ``stored_key``."""
     loc = location if location is not None else st
@@ -2031,7 +2047,15 @@ def _temp_threshold_slider(
             st.session_state[unit_marker] = "metric"
         cur = float(st.session_state.get(widget_key, f_to_c(stored)))
         st.session_state[widget_key] = max(lo, min(hi, cur))
-        new_c = loc.slider(label, min_value=lo, max_value=hi, step=step, help=help, key=widget_key)
+        new_c = loc.slider(
+            label,
+            min_value=lo,
+            max_value=hi,
+            step=step,
+            help=help,
+            key=widget_key,
+            disabled=disabled,
+        )
         st.session_state[stored_key] = max(min_f, min(max_f, c_to_f(float(new_c))))
     else:
         label = f"{label_base} °F"
@@ -2041,7 +2065,13 @@ def _temp_threshold_slider(
         cur = float(st.session_state.get(widget_key, stored))
         st.session_state[widget_key] = max(min_f, min(max_f, cur))
         new_f = loc.slider(
-            label, min_value=min_f, max_value=max_f, step=step_f, help=help, key=widget_key
+            label,
+            min_value=min_f,
+            max_value=max_f,
+            step=step_f,
+            help=help,
+            key=widget_key,
+            disabled=disabled,
         )
         st.session_state[stored_key] = float(new_f)
 
@@ -2305,6 +2335,9 @@ def main() -> None:
                 chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
                 include_ahu_chw_valve=False,
                 include_total=True,
+                use_status_proof=bool(
+                    st.session_state.get("use_mech_cooling_status_proof", True)
+                ),
             )
             cool_coverage = mech_cooling_coverage(
                 frames,
@@ -2312,6 +2345,9 @@ def main() -> None:
                 weather=st.session_state.weather,
                 prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
                 chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+                use_status_proof=bool(
+                    st.session_state.get("use_mech_cooling_status_proof", True)
+                ),
             )
         except Exception as exc:
             st.warning(f"Mech-cooling OAT bins unavailable: {exc}")
@@ -2368,19 +2404,21 @@ def main() -> None:
 
         st.markdown("##### Mechanical cooling hours by OAT bin")
         st.caption(
-            "**Chillers** (mapped pump / status / amps / power — **no leave-temp**) + "
-            "**AHU/HP DX compressors** only. Never CHW cooling valves. "
+            "**Chillers** use the sidebar proof mode (default: mapped pump → status → "
+            "amps → power; optional inferred CHW leave temp when status proof is "
+            "unchecked) + **AHU/HP DX compressors** only. Never CHW cooling valves. "
             "Bins sorted cold→hot; OAT from **web** weather by default. "
-            "All mapped cooling devices are aggregated — the dark outlined bars are the "
-            "**total across devices**; the coverage table lists every cooling-capable "
-            "device per the data model (CHW-coil AHUs appear as informational rows — "
-            "their hours are carried by the plant chillers)."
+            "Aggregate bars are **device-hours**. The coverage table always lists every "
+            "cooling-capable device (name, included/excluded, selected proof, inferred "
+            "runtime, reason). Temperature-derived runtime is labeled inferred — cold "
+            "water can flow through an idle chiller."
         )
         cool_fig = mech_cooling_oat_histogram(cool_bins)
         if cool_fig is None:
             st.info(
-                "No compressor / chiller-plant proof found. Map chw_pump_status (or DX compressor). "
-                "Unmapped chillers are omitted (no leave-temp fake hours). AHU CHW valves excluded."
+                "No compressor / chiller-plant proof found for the selected mode. "
+                "Map chw_pump_status / chiller status / amps / power, or uncheck "
+                "status proof and set CHW leave proof max °F. AHU CHW valves excluded."
             )
         else:
             st.plotly_chart(
@@ -2399,22 +2437,31 @@ def main() -> None:
         if not cool_coverage.empty:
             n_inc = int((cool_coverage["status"] == "included").sum())
             n_exc = int((cool_coverage["status"] == "excluded").sum())
-            with st.expander(
-                f"Cooling device coverage — {n_inc} included, {n_exc} excluded",
-                expanded=n_exc > 0,
-            ):
-                for _, row in cool_coverage.iterrows():
-                    if row["status"] == "included":
-                        st.markdown(f"- **{row['equipment_id']}** — included, proof: `{row['proof']}`")
-                    else:
-                        st.markdown(f"- **{row['equipment_id']}** — excluded: {row['reason']}")
-                st.dataframe(cool_coverage, hide_index=True, width="stretch")
-                st.download_button(
-                    "Download cooling coverage CSV",
-                    to_csv_bytes(cool_coverage),
-                    "mech_cooling_coverage.csv",
-                    key="dl_cool_coverage_overview",
-                )
+            mode = (
+                "mapped pump/status/amps/power"
+                if st.session_state.get("use_mech_cooling_status_proof", True)
+                else "inferred CHW leaving temperature"
+            )
+            st.markdown(
+                f"###### Mechanical cooling devices — {n_inc} included, {n_exc} excluded"
+            )
+            st.caption(
+                f"Selected proof mode: **{mode}**. Every cooling-capable device stays "
+                "visible here even when it contributes no chart bins. Temperature-derived "
+                "runtime is inferred: cold water can flow through an idle chiller."
+            )
+            st.dataframe(
+                cool_coverage,
+                hide_index=True,
+                width="stretch",
+                height=min(360, 38 + 35 * max(1, len(cool_coverage))),
+            )
+            st.download_button(
+                "Download cooling coverage CSV",
+                to_csv_bytes(cool_coverage),
+                "mech_cooling_coverage.csv",
+                key="dl_cool_coverage_overview",
+            )
 
         st.markdown("##### Economizer weather opportunity / compliance")
         st.caption(

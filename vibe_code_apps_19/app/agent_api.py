@@ -60,6 +60,8 @@ class AgentDataset:
     params: dict[str, dict[str, Any]] = field(default_factory=dict)
     unit_system: str = "imperial"
     prefer_web_oat: bool = True
+    chw_leave_max_f: float = 48.0
+    use_mech_cooling_status_proof: bool = True
     column_map: dict[str, Any] | None = None
     package_report: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -95,6 +97,7 @@ def make_session_config(
     unit_system: str = "imperial",
     prefer_web_oat: bool = True,
     chw_leave_max_f: float | None = None,
+    use_mech_cooling_status_proof: bool = True,
     include_ahu_chw_valve: bool | None = None,
 ) -> dict[str, Any]:
     """Build an ``openfdd_session_v1`` dict suitable for JSON export.
@@ -107,6 +110,7 @@ def make_session_config(
         "schema_version": SESSION_SCHEMA,
         "unit_system": unit_system,
         "prefer_web_oat": bool(prefer_web_oat),
+        "use_mech_cooling_status_proof": bool(use_mech_cooling_status_proof),
         "role_map": role_map or {},
         "params": params or {},
         "include_ahu_chw_valve": False,
@@ -145,6 +149,8 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
     params: dict[str, dict[str, Any]] = {}
     unit_system = "imperial"
     prefer_web = True
+    chw_leave_max_f = 48.0
+    use_status_proof = True
     session_dict: dict[str, Any] | None = None
 
     if result.session_config is not None:
@@ -158,6 +164,10 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
             unit_system = cfg.unit_system
         if cfg.prefer_web_oat is not None:
             prefer_web = bool(cfg.prefer_web_oat)
+        if cfg.chw_leave_max_f is not None:
+            chw_leave_max_f = float(cfg.chw_leave_max_f)
+        if cfg.use_mech_cooling_status_proof is not None:
+            use_status_proof = bool(cfg.use_mech_cooling_status_proof)
 
     if result.column_map:
         role_map = merge_column_map_into_role_map(role_map, result.column_map, prefer_json=True)
@@ -181,6 +191,8 @@ def _dataset_from_package(result, *, source_path: str) -> AgentDataset:
         params=params,
         unit_system=unit_system,
         prefer_web_oat=prefer_web,
+        chw_leave_max_f=chw_leave_max_f,
+        use_mech_cooling_status_proof=use_status_proof,
         column_map=result.column_map,
         package_report=dict(result.report),
         warnings=list(result.warnings),
@@ -368,11 +380,18 @@ def run_analytics(
     """Motor hours, weekly motors, mech-cooling OAT bins, model-seed signatures."""
     p = params or {}
     prefer_web = bool(p.get("prefer_web_oat", dataset.prefer_web_oat))
+    chw_leave_max_f = float(p.get("chw_leave_max_f", dataset.chw_leave_max_f))
+    use_status_proof = bool(
+        p.get(
+            "use_mech_cooling_status_proof",
+            dataset.use_mech_cooling_status_proof,
+        )
+    )
     motor = motor_run_hours_table(dataset.frames, dataset.role_map)
     weekly = motor_run_hours_weekly(
         dataset.frames,
         dataset.role_map,
-        chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
+        chw_leave_max_f=chw_leave_max_f,
         weather=dataset.weather,
         prefer_web_oat=prefer_web,
     )
@@ -381,16 +400,18 @@ def run_analytics(
         dataset.role_map,
         weather=dataset.weather,
         prefer_web_oat=prefer_web,
-        chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
+        chw_leave_max_f=chw_leave_max_f,
         include_ahu_chw_valve=False,
         include_total=True,
+        use_status_proof=use_status_proof,
     )
     cool_cov = mech_cooling_coverage(
         dataset.frames,
         dataset.role_map,
         weather=dataset.weather,
         prefer_web_oat=prefer_web,
-        chw_leave_max_f=float(p.get("chw_leave_max_f", 48.0)),
+        chw_leave_max_f=chw_leave_max_f,
+        use_status_proof=use_status_proof,
     )
     econ = economizer_weather_summary(
         dataset.frames,

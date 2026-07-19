@@ -192,8 +192,32 @@ def test_streamlit_units_radio_toggles_session_and_slider_labels():
     assert not at.exception, f"startup exceptions: {list(at.exception)}"
 
     assert _ss("unit_system", "imperial") == "imperial"
+    proof_checkbox = next(
+        (
+            c
+            for c in at.sidebar.checkbox
+            if c.label == "Use mapped mechanical-cooling status proof"
+        ),
+        None,
+    )
+    assert proof_checkbox is not None
+    assert proof_checkbox.value is True
     labels_imp = [s.label for s in at.sidebar.slider]
     assert any("°F" in (lab or "") for lab in labels_imp), f"expected °F slider, got {labels_imp}"
+    chw_slider = next(s for s in at.sidebar.slider if "CHW leave proof max" in s.label)
+    assert chw_slider.disabled is True
+
+    proof_checkbox.set_value(False)
+    at.run()
+    assert not at.exception
+    proof_checkbox = next(
+        c
+        for c in at.sidebar.checkbox
+        if c.label == "Use mapped mechanical-cooling status proof"
+    )
+    assert proof_checkbox.value is False
+    chw_slider = next(s for s in at.sidebar.slider if "CHW leave proof max" in s.label)
+    assert chw_slider.disabled is False
 
     units_radio = next((r for r in at.sidebar.radio if r.label == "Units"), None)
     assert units_radio is not None, "Units radio missing from sidebar"

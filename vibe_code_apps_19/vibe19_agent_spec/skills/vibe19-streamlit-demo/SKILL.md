@@ -66,10 +66,11 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 - Building folder / **Zip package** uploader + **Load zip(s)** / **Clear session** (Clear also deletes `.last_browser_session.json`)
 - **Units** imperial / metric (display + CHW leave / zone comfort sliders; rules stay °F)
 - **Prefer web OAT** (default on)
-- **CHW leave proof max** (°F or °C from Units; stored °F)
+- **Use mapped mechanical-cooling status proof** (default checked; disables CHW leave slider while checked)
+- **CHW leave proof max** (°F or °C from Units; stored °F; active only when status proof unchecked)
 - **Occupancy calendar** on Overview (always → `occ_mode` for SCHED-1; not optional)
 - Rule tuning by category (no text filter) + operational-proof + **Rerun cat.**
-- Mech-cooling OAT bins: chillers + DX only — **no** AHU CHW valve UI/toggle
+- Mech-cooling OAT bins: chillers + DX only — **no** AHU CHW valve UI/toggle; Overview always shows device coverage table
 
 ### Overview extras (do not remove)
 

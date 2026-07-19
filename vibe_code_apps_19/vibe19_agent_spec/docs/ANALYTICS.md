@@ -6,13 +6,35 @@
 
 | Surface | Content |
 | --- | --- |
-| **Overview** | Dataset span, occupancy calendar, plant motor weekly, mech-cooling OAT bins, **BAS vs web OAT histogram** |
+| **Overview** | Dataset span, occupancy calendar, plant motor weekly, mech-cooling OAT bins + **always-visible device coverage**, **BAS vs web OAT histogram** |
 | **Metering** (main section) | Monthly electric/gas vs CDD/HDD (starts the Metering category; RCx still has metering presets at the end) |
 | **Export → analytics.docx** | Motor weekly, cool bins, RCx coverage, **fan All/on/off** and **pump All/on/off** leave-temp summary tables |
+| **Export → WattLab dump** | Complete cookbook FDD + analytic CSVs (`mech_cooling_oat_bins.csv`, `mech_cooling_coverage.csv`, …); always re-runs all rules before zip |
 | **RCx Plots** | Fan-mode summary stats on air-side presets; zone comfort ranking |
 | **Plots → FDD DOCX** | **Not** analytics — dumb template of description + equation + plot stub only |
 
 There is **no** duplicate Analytics main tab (removed intentionally). Overview owns building rollups. There is **no** Run Rules DOCX ZIP pack.
+
+## Mechanical-cooling proof modes
+
+Sidebar checkbox **Use mapped mechanical-cooling status proof** (`use_mech_cooling_status_proof`, default **checked**):
+
+| Mode | Behavior |
+| --- | --- |
+| Checked (default) | CHW plant: `chw_pump_*` → `chiller_status` → amps → power. DX devices keep compressor proof. |
+| Unchecked | CHW plants only: CHW leaving / supply temp below **CHW leave proof max °F**. Proof labeled `inferred: chw_leave_temp`. The leave-temp slider is **disabled** while status proof is checked. |
+
+Always show every cooling-capable device in Overview coverage with:
+
+- Device name
+- Included / excluded state
+- Selected proof
+- Inferred runtime hours
+- Exclusion / warning reason
+
+Temperature-derived runtime is clearly labeled **inferred** (cold water can flow through an idle chiller). Aggregate OAT-bin bars remain **device-hours** (`ALL` = sum across devices). Never use AHU CHW valve % as compressor proof.
+
+APIs: `mech_cooling_run_mask`, `mech_cooling_coverage`, `mech_cooling_oat_bins` (`use_status_proof=`).
 
 ## Operational filtering (the point)
 
@@ -40,3 +62,7 @@ APIs:
 ## Export analytics.docx
 
 **Export** can download `analytics.docx` with gated summary tables and a **Key findings** placeholder. The Plots **FDD DOCX** is a separate dumb equation template and does not include analytics.
+
+## WattLab dump completeness
+
+`Build WattLab dump (zip)` **always** executes `run_rules` for the complete active cookbook immediately before packaging. It does **not** reuse potentially partial session `batch_results`. The fresh complete result set replaces session `batch_results` and is what lands in `fdd_findings.csv` / timeseries.

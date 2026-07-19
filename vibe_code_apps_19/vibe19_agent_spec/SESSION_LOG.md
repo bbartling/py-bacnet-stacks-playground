@@ -8,6 +8,14 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-19 — Mech-cooling status vs leave-temp proof + complete WattLab dump
+
+- **Sidebar:** checkbox **Use mapped mechanical-cooling status proof** (default checked). Checked → pump → chiller status → amps → power. Unchecked → CHW leave temp via **CHW leave proof max °F** (`inferred: chw_leave_temp`); slider disabled while status proof is checked.
+- **Overview coverage:** always lists every cooling-capable device (name, included/excluded, selected proof, runtime hours, reason). Aggregate OAT bins remain device-hours. Never CHW valve %.
+- **WattLab dump:** `_build_wattlab_dump_zip` always `run_rules` for the complete cookbook and refreshes `batch_results` (never reuse partial session results). Spec: `docs/ANALYTICS.md`, design `docs/superpowers/specs/2026-07-19-mech-cooling-proof-export-design.md`.
+
+---
+
 ## 2026-07-18 — Remove Energy Model tab; beef up WattLab dump for vibe20
 
 - **Removed Energy Model tab/wizard:** deleted `app/energy_model.py`, `app/energy_wizard.py`, `configs/energy_defaults/`, and related contract entrypoints. Building characteristics are filled in vibe20; vibe19 Export is the sole handoff.
