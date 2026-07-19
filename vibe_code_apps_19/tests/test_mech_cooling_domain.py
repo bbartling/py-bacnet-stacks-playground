@@ -68,6 +68,30 @@ def test_analog_chiller_power_threshold():
     assert list(mask.astype(bool)) == [False, False, True, False]
 
 
+def test_flat_chiller_status_does_not_hide_active_power_proof():
+    frame = typed_frame(
+        "CHW_PLANT",
+        chiller_status=[0, 0, 0, 0],
+        chiller_power=[0.0, 5.0, 6.0, 0.0],
+    )
+    mask, proof = mech_cooling_run_mask(frame, equipment_type="CHW_PLANT")
+    assert mask is not None
+    assert proof == "chiller_power"
+    assert list(mask.astype(bool)) == [False, True, True, False]
+
+
+def test_flat_ahu_status_does_not_hide_active_compressor_command():
+    frame = typed_frame(
+        "AHU",
+        compressor_status=[0, 0, 0, 0],
+        compressor_cmd=[0, 1, 1, 0],
+    )
+    mask, proof = mech_cooling_run_mask(frame, equipment_type="AHU")
+    assert mask is not None
+    assert proof == "ahu_dx"
+    assert list(mask.astype(bool)) == [False, True, True, False]
+
+
 def test_flat_zero_chiller_is_eligible_no_runtime():
     coverage = mech_cooling_coverage(
         {"CHILLER_1": typed_frame("CHW_PLANT", chiller_status=[0, 0, 0])},
@@ -88,6 +112,31 @@ def test_flat_zero_chiller_is_eligible_no_runtime():
     assert mask is not None
     assert not mask.any()
     assert proof == "chiller-status"
+
+
+def test_chw_pump_only_is_excluded_missing_proof():
+    frame = typed_frame("CHW_PLANT", chw_pump_status=[0, 1, 1, 0])
+    mask, proof = mech_cooling_run_mask(frame, equipment_type="CHW_PLANT")
+    assert mask is None
+    assert proof == ""
+
+    row = mech_cooling_coverage({"CHW_1": frame}, role_map={}).iloc[0]
+    assert not row["included"]
+    assert row["eligibility_state"] == "excluded_missing_proof"
+    assert row["status"] == "excluded"
+    assert "compressor" in row["exclusion_reason"].lower()
+
+
+def test_flat_chw_pump_does_not_hide_active_chiller_status():
+    frame = typed_frame(
+        "CHW_PLANT",
+        chw_pump_status=[0, 0, 0, 0],
+        chiller_status=[0, 1, 1, 0],
+    )
+    mask, proof = mech_cooling_run_mask(frame, equipment_type="CHW_PLANT")
+    assert mask is not None
+    assert proof == "chiller-status"
+    assert list(mask.astype(bool)) == [False, True, True, False]
 
 
 def test_chilled_water_ahu_valve_never_proves_compressor():
@@ -134,6 +183,9 @@ def test_two_stage_rtu_unit_active_or_semantics():
     assert mask is not None
     assert list(mask.astype(bool)) == [False, True, True, False]
     assert "stage" in proof or proof in {"ahu_dx", "compressor-stage"}
+    row = mech_cooling_coverage({"RTU_1": frame}, role_map={}).iloc[0]
+    assert row["proof_role"] == "compressor-stage"
+    assert row["proof_column"] == "compressor-stage-1, compressor-stage-2"
 
 
 def test_heat_pump_heating_mode_does_not_count_as_cooling():
@@ -350,6 +402,40 @@ def test_oat_bins_irregular_timestamps_and_gap_cap():
     # 10 min + capped 30 min (3x nominal); final row 0 → 40 minutes (rounded to 0.67h)
     runtime = bins[bins.series_kind == "individual_device"]["runtime_hours"].sum()
     assert runtime == pytest.approx(round(40 / 60, 2))
+
+
+def test_active_hours_uses_conservative_source_cadence_cap():
+    fast_idx = pd.to_datetime(
+        [
+            "2024-06-01T00:00:00Z",
+            "2024-06-01T00:10:00Z",
+            "2024-06-01T01:00:00Z",
+        ]
+    )
+    slow_idx = pd.to_datetime(
+        [
+            "2024-06-01T00:00:00Z",
+            "2024-06-01T01:00:00Z",
+        ]
+    )
+    fast = pd.DataFrame(
+        {"chiller-status": [1, 1, 0], "outside-air-temp": [70.0] * 3},
+        index=fast_idx,
+    )
+    slow = pd.DataFrame(
+        {"chiller-status": [0, 1], "outside-air-temp": [70.0] * 2},
+        index=slow_idx,
+    )
+    fast.attrs.update({"equipment_type": "CHW_PLANT", "poll_seconds": 600.0})
+    slow.attrs.update({"equipment_type": "CHW_PLANT", "poll_seconds": 3600.0})
+
+    bins = mech_cooling_oat_bins(
+        {"FAST": fast, "SLOW": slow}, role_map={}, include_total=True
+    )
+    device = bins[bins.series_kind == "aggregate_device_hours"].runtime_hours.sum()
+    active = bins[bins.series_kind == "aggregate_active_hours"].runtime_hours.sum()
+    assert device == pytest.approx(round(40 / 60, 2))
+    assert active == pytest.approx(device)
 
 
 def test_oat_bins_duplicate_timestamps_collapse():

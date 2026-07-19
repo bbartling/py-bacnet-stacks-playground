@@ -1,3 +1,3 @@
 equipment_id,equipment_type,integrated_compliant_hours,integrated_noncompliant_hours,opportunity_hours,prohibited_mech_hours_below_60f,proof_source,weather_coverage,weather_source,winter_economizing_hours_below_25f
 AHU_1,AHU,0.000000,918.000000,1644.000000,0.000000,,1.000000,web_dewpoint,0.000000
-CHILLER_1,CHW_PLANT,0.000000,0.000000,1644.000000,0.000000,chw_pump,1.000000,web_dewpoint,0.000000
+CHILLER_1,CHW_PLANT,0.000000,0.000000,1644.000000,0.000000,chiller-status,1.000000,web_dewpoint,0.000000

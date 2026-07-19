@@ -37,18 +37,11 @@ MAPPED_PUMP_ROLES: tuple[str, ...] = (
     "pump-cmd",
 )
 
-# Mechanical cooling proof — chillers / DX compressors only (never CHW valves on OAT bins).
-# Pump / motor status first; temperature is backup only when status/cmd is missing or bad.
-CHILLER_PUMP_ROLES: tuple[str, ...] = (
-    "chw-pump-status",
-    "pump-status",
-    "chw-pump-cmd",
-    "pump-cmd",
-)
+# Mechanical cooling proof — compressor/chiller evidence only.
+# Pumps and cooling valves remain motor/load evidence, never compressor proof.
 CHILLER_STATUS_ROLES: tuple[str, ...] = (
     "chiller-status",
     "compressor-status",
-    "equipment-enable",
 )
 CHILLER_RUN_ROLES: tuple[str, ...] = CHILLER_STATUS_ROLES
 COMPRESSOR_STAGE_ROLES: tuple[str, ...] = (
@@ -955,6 +948,7 @@ def _select_mech_cooling_proof(
     chiller_amps_min: float = 5.0,
     chiller_power_kw_min: float = 1.0,
     use_status_proof: bool = True,
+    _cooling_mode: pd.Series | None = None,
 ) -> dict[str, Any]:
     """Deterministic proof selection. Mask may be all-False when proof is valid but idle."""
     empty = {
@@ -967,15 +961,37 @@ def _select_mech_cooling_proof(
     }
     et = _mech_cooling_type(equipment_type, equipment_id)
 
-    def _direct(mask: pd.Series, role: str, legacy: str) -> dict[str, Any]:
+    def _direct(
+        mask: pd.Series,
+        role: str,
+        legacy: str,
+        *,
+        column: str | None = None,
+    ) -> dict[str, Any]:
         return {
             "mask": mask.fillna(False).astype(bool),
             "proof_role": role,
-            "proof_column": role,
+            "proof_column": column or role,
             "proof_threshold": None,
             "proof_quality": "direct",
             "legacy_proof": legacy,
         }
+
+    def _choose(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+        """First active proof wins; otherwise retain highest-priority mapped proof."""
+        if _cooling_mode is not None:
+            gated: list[dict[str, Any]] = []
+            for candidate in candidates:
+                candidate = dict(candidate)
+                candidate["mask"] = candidate["mask"] & _cooling_mode.reindex(
+                    candidate["mask"].index
+                ).fillna(False)
+                gated.append(candidate)
+            candidates = gated
+        for candidate in candidates:
+            if bool(candidate["mask"].any()):
+                return candidate
+        return candidates[0] if candidates else empty
 
     def _analog(mask: pd.Series, role: str, thr: float, legacy: str) -> dict[str, Any]:
         return {
@@ -1003,18 +1019,19 @@ def _select_mech_cooling_proof(
                 "proof_quality": "inferred",
                 "legacy_proof": "inferred: chw_leave_temp",
             }
-        run = _first_on_mask(df, CHILLER_PUMP_ROLES)
-        if run is not None:
-            role = _mapped_role(df, CHILLER_PUMP_ROLES) or "chw-pump-status"
-            return _direct(run, role, "chw_pump")
+        candidates: list[dict[str, Any]] = []
         run = _first_on_mask(df, CHILLER_STATUS_ROLES)
         if run is not None:
             role = _mapped_role(df, CHILLER_STATUS_ROLES) or "chiller-status"
-            return _direct(run, role, "chiller-status")
+            candidates.append(_direct(run, role, "chiller-status"))
+        run = _first_on_mask(df, COMPRESSOR_CMD_ROLES)
+        if run is not None:
+            role = _mapped_role(df, COMPRESSOR_CMD_ROLES) or "compressor-cmd"
+            candidates.append(_direct(run, role, "chiller-status"))
         amps = _analog_threshold_mask(df, "chiller-amps", chiller_amps_min)
         if amps is not None:
             mask, role, thr = amps
-            return _analog(mask, role, thr, "chiller-amps")
+            candidates.append(_analog(mask, role, thr, "chiller-amps"))
         for role, thr, legacy in (
             ("chiller-power", chiller_power_kw_min, "chiller_power"),
             ("compressor-power", chiller_power_kw_min, "chiller_power"),
@@ -1023,24 +1040,37 @@ def _select_mech_cooling_proof(
             hit = _analog_threshold_mask(df, role, thr)
             if hit is not None:
                 mask, role_n, thr_n = hit
-                return _analog(mask, role_n, thr_n, legacy)
-        return empty
+                candidates.append(_analog(mask, role_n, thr_n, legacy))
+        return _choose(candidates)
 
     if et in {"AHU", "RTU"}:
+        candidates = []
         run = _first_on_mask(df, ("compressor-status",))
         if run is not None:
-            return _direct(run, "compressor-status", "ahu_dx")
+            candidates.append(_direct(run, "compressor-status", "ahu_dx"))
         run = _first_on_mask(df, COMPRESSOR_CMD_ROLES)
         if run is not None:
             role = _mapped_role(df, COMPRESSOR_CMD_ROLES) or "compressor-cmd"
-            return _direct(run, role, "ahu_dx")
+            candidates.append(_direct(run, role, "ahu_dx"))
         stages = _or_on_mask(df, COMPRESSOR_STAGE_ROLES)
         if stages is not None:
-            return _direct(stages, "compressor-stage", "ahu_dx")
+            stage_roles = [
+                role
+                for role in COMPRESSOR_STAGE_ROLES
+                if role in df.columns and df[role].notna().any()
+            ]
+            candidates.append(
+                _direct(
+                    stages,
+                    "compressor-stage",
+                    "ahu_dx",
+                    column=", ".join(stage_roles),
+                )
+            )
         run = _first_on_mask(df, ("dx-cooling", "unit-cooling-status"))
         if run is not None:
             role = _mapped_role(df, ("dx-cooling", "unit-cooling-status")) or "dx-cooling"
-            return _direct(run, role, "ahu_dx")
+            candidates.append(_direct(run, role, "ahu_dx"))
         for role, thr in (
             ("compressor-power", chiller_power_kw_min),
             ("compressor-current", chiller_amps_min),
@@ -1048,8 +1078,8 @@ def _select_mech_cooling_proof(
             hit = _analog_threshold_mask(df, role, thr)
             if hit is not None:
                 mask, role_n, thr_n = hit
-                return _analog(mask, role_n, thr_n, "ahu_dx")
-        return empty
+                candidates.append(_analog(mask, role_n, thr_n, "ahu_dx"))
+        return _choose(candidates)
 
     if et == "HP":
         mode = _or_on_mask(df, HEAT_PUMP_COOLING_MODE_ROLES)
@@ -1063,22 +1093,20 @@ def _select_mech_cooling_proof(
             chiller_amps_min=chiller_amps_min,
             chiller_power_kw_min=chiller_power_kw_min,
             use_status_proof=True,
+            _cooling_mode=mode,
         )
         if base["mask"] is None:
             return empty
-        gated = base["mask"].fillna(False).astype(bool) & mode.reindex(
-            base["mask"].index
-        ).fillna(False)
-        base["mask"] = gated
         base["legacy_proof"] = "heatpump"
         return base
 
     if et == "VRF":
-        run = _first_on_mask(df, VRF_RUN_ROLES)
-        if run is None:
-            return empty
-        role = _mapped_role(df, VRF_RUN_ROLES) or "vrf-outdoor-compressor-status"
-        return _direct(run, role, "vrf-outdoor-compressor-status")
+        candidates = []
+        for role in VRF_RUN_ROLES:
+            run = _first_on_mask(df, (role,))
+            if run is not None:
+                candidates.append(_direct(run, role, "vrf-outdoor-compressor-status"))
+        return _choose(candidates)
 
     return empty
 
@@ -1134,7 +1162,7 @@ def _mech_cooling_candidate_roles(
     et = _mech_cooling_type(equipment_type, equipment_id)
     if et == "CHW_PLANT":
         if use_status_proof:
-            roles = list(CHILLER_PUMP_ROLES + CHILLER_STATUS_ROLES) + [
+            roles = list(CHILLER_STATUS_ROLES + COMPRESSOR_CMD_ROLES) + [
                 "chiller-amps",
                 "chiller-power",
                 "compressor-power",
@@ -1220,7 +1248,7 @@ def _mechanical_cooling_devices(
             "cooling_technology": "unknown",
             "compressor_based": False,
             "included": False,
-            "eligibility_state": "excluded",
+            "eligibility_state": "excluded_missing_proof",
             "activity_state": "none",
             "proof_quality": "",
             "proof_role": "",
@@ -1244,6 +1272,7 @@ def _mechanical_cooling_devices(
             base["checked_roles"] = "cooling-valve (informational)"
             base["cooling_technology"] = "chilled_water_coil"
             base["compressor_based"] = False
+            base["eligibility_state"] = "excluded_non_compressor"
             base["exclusion_reason"] = (
                 "CHW-coil unit — cooling valve is never used as compressor proof; "
                 "its cooling hours are carried by the plant chillers"
@@ -1256,7 +1285,7 @@ def _mechanical_cooling_devices(
             base["exclusion_reason"] = (
                 "no CHW leaving-temperature role mapped"
                 if et == "CHW_PLANT" and not use_status_proof
-                else "no run-proof roles mapped (pump/status/amps/power or DX)"
+                else "no compressor/chiller status, command, power, or current proof mapped"
             )
             base["reason"] = base["exclusion_reason"]
             base["cooling_technology"] = _cooling_technology(et, compressor_based=True)
@@ -1289,7 +1318,7 @@ def _mechanical_cooling_devices(
             base["cooling_technology"] = _cooling_technology(et, compressor_based=True)
             base["compressor_based"] = True
             base["exclusion_reason"] = (
-                "no run-proof roles mapped (pump/status/amps/power or DX)"
+                "no compressor/chiller status, command, power, or current proof mapped"
             )
             base["reason"] = base["exclusion_reason"]
             devices.append(base)
@@ -1580,10 +1609,15 @@ def mech_cooling_oat_bins(
             union_idx = pd.DatetimeIndex(union_idx).drop_duplicates().sort_values()
             any_active = pd.Series(False, index=union_idx)
             oat_pieces: list[pd.Series] = []
-            nominal = float(np.median([p[2] for p in active_parts]))
+            # The shortest source cadence gives the conservative 3x gap cap.
+            # A median cadence can over-credit a sparse union interval when a
+            # fast device's last active sample precedes a slow device timestamp.
+            nominal = float(min(p[2] for p in active_parts))
             for run, oat, _poll in active_parts:
                 r = run.groupby(level=0).max().sort_index()
-                any_active = any_active | r.reindex(union_idx).fillna(False).astype(bool)
+                any_active = any_active | r.astype(bool).reindex(
+                    union_idx, fill_value=False
+                )
                 o = oat.groupby(level=0).max().sort_index().reindex(union_idx)
                 oat_pieces.append(o)
             oat_union = oat_pieces[0]

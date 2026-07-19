@@ -33,7 +33,7 @@ def test_mech_cooling_bins_flexible_proof():
 
     idx = pd.date_range("2024-06-01", periods=10, freq="1h", tz="UTC")
     ch = pd.DataFrame(
-        {"chw-pump-cmd": [100] * 10, "outside-air-temp": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]},
+        {"chiller-status": [1] * 10, "outside-air-temp": [50, 55, 60, 65, 70, 75, 80, 85, 90, 95]},
         index=idx,
     )
     ch.attrs["equipment_type"] = "CHW_PLANT"
@@ -47,7 +47,7 @@ def test_mech_cooling_bins_flexible_proof():
         index=idx,
     )
     ahu_dx.attrs["equipment_type"] = "AHU"
-    # CHW valves never appear; DX + chiller pump do
+    # CHW valves and pump-only evidence never appear; direct chiller + DX do.
     bins = mech_cooling_oat_bins(
         {"CHW_1": ch, "AHU_VALVE": ahu_valve, "AHU_DX": ahu_dx},
         role_map={},
@@ -294,7 +294,8 @@ def test_mech_cooling_coverage_no_roles_mapped():
     assert len(cov) == 1
     row = cov.iloc[0]
     assert row["status"] == "excluded"
-    assert "no run-proof roles mapped" in row["reason"]
+    assert row["eligibility_state"] == "excluded_missing_proof"
+    assert "no compressor/chiller" in row["reason"]
 
 
 def test_occupied_hours_and_weekly_oat():
