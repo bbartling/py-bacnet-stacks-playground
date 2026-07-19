@@ -183,7 +183,7 @@ Overview / Export bin **compressor runtime hours** by outdoor air temperature. P
 | Counts (map these) | Does **not** count |
 | --- | --- |
 | Chiller plant: `chiller-status` / `compressor-status`, verified `compressor-cmd`, `chiller-amps` / `chiller-power` / `compressor-power` / `compressor-current` | `chw_pump_status` / `chw_pump_cmd` alone, fan status, cooling demand alone |
-| AHU / HP / RTU DX: `compressor-status`, stage roles, `dx-cool-cmd`, `dx-cooling`, cooling-mode roles when required | AHU chilled-water cooling valve % (`clg_valve_pct` / `cooling_valve` / `chw_valve`) |
+| AHU / HP / RTU DX: `compressor-status`, stage roles, `dx-cool-cmd`, `dx-cooling` (heat-pump **cooling-mode** roles are a prerequisite/gate only — not standalone runtime proof) | AHU chilled-water cooling valve % (`clg_valve_pct` / `cooling_valve` / `chw_valve`); cooling-mode alone |
 
 - Mapped idle compressors → coverage `eligible_no_runtime` (included), not excluded.
 - Aggregates: `aggregate_device_hours` (sum) and `aggregate_active_hours` (any-active union).

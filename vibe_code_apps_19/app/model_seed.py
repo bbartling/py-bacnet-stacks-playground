@@ -129,7 +129,8 @@ def infer_schedules(
             mapped_col = eq_block.get(signal)
             if isinstance(mapped_col, str) and mapped_col:
                 source_column = mapped_col
-        # Confidence: more ON/OFF transitions and samples → higher (capped)
+        # Confidence proxy from duty-cycle balance (not literal edge-transition count):
+        # mid-range always_on_frac + more ON samples → higher (capped).
         edge_density = min(1.0, (on_samples / samples) * (1.0 - abs(always_on_frac - 0.5) * 0.5)) if samples else 0.0
         confidence = round(float(min(1.0, max(0.05, 0.35 + 0.55 * edge_density))), 3)
         method = "fan_transition_median_hour"

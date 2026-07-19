@@ -33,10 +33,11 @@ Cookbook rules read **logical roles** (`oa_t`, `sat`, `fan_status`, …). CSV co
 
 Mechanical cooling charts require a **compressor device**:
 
-- Chiller plant: chiller/compressor **status** → verified **command** → amps/power (see [`ANALYTICS.md`](ANALYTICS.md))
-- AHU / heat pump / RTU: DX / compressor roles above
+- Chiller plant: chiller/compressor **status** → verified **command** → unit-aware amps/power above validated thresholds (see [`ANALYTICS.md`](ANALYTICS.md))
+- AHU / heat pump / RTU: DX / compressor roles above; heat-pump/VRF compressors also require proven cooling mode
 - **Not** `chw_pump_status` / `chw_pump_cmd` alone — pumps are motor evidence
 - **Not** `clg_valve_pct` — valves often open with no chilled water / no compressor
+- **Not** cooling-mode alone — it gates heat-pump evidence and is not standalone compressor proof
 
 See [`../../docs/DATA_MODEL_DRIVEN.md`](../../docs/DATA_MODEL_DRIVEN.md) and [`../../docs/PACKAGE_SPEC.md`](../../docs/PACKAGE_SPEC.md).
 

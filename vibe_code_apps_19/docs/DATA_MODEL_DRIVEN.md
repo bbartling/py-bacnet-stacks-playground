@@ -37,9 +37,9 @@ Cookbook kinds (`infer_equipment_kind`) and RCx membership use the resolved type
 
 | Equipment | Acceptable proof (deterministic priority) |
 | --- | --- |
-| Chiller / CHW plant | `chiller-status` / `compressor-status` → verified `compressor-cmd` → `chiller-amps` / `chiller-power` / `compressor-power` / `compressor-current` |
-| AHU with DX (incl. RTU-as-AHU) | `compressor-status`, stage roles, `dx-cool-cmd`, `dx-cooling`, cooling-mode roles when required |
-| Heat pump / VRF | Compressor status only with proven cooling mode; VRF outdoor compressor status |
+| Chiller / CHW plant | `chiller-status` / `compressor-status` → verified `compressor-cmd` → unit-aware `chiller-amps` / `chiller-power` / `compressor-power` / `compressor-current` above validated thresholds |
+| AHU with DX (incl. RTU-as-AHU) | `compressor-status`, stage roles, `dx-cool-cmd`, `dx-cooling` (cooling-mode is a gate when required, not standalone proof) |
+| Heat pump / VRF | Compressor status only with proven cooling mode; VRF outdoor compressor status with cooling mode |
 
 **Does not count for OAT bins:** `chw-pump-status` / `chw-pump-cmd` / fan status alone, cooling demand alone, `cooling-valve` / `clg_valve_pct` / CHW AHU valve %. Pump roles remain for **motor weekly / plant circulation** analytics only (see table above). Optional inferred CHW leave-temp is labeled `inferred` and never applied to chilled-water AHU valves.
 
