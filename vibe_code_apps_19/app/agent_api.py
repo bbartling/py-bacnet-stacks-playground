@@ -6,7 +6,10 @@ coverage, then export a machine-readable bundle.
 
 from __future__ import annotations
 
+import io
 import json
+import time
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -478,8 +481,22 @@ def export_agent_bundle(
     out.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
     export_counts = None
+    stage_seconds: dict[str, float] = {
+        "rule_execution": 0.0,
+        "analytics": 0.0,
+        "serialization": 0.0,
+        "compression": 0.0,
+    }
 
     run = run or AgentRun(params=dataset.params)
+    # Rule execution is typically done before export; credit any recorded timing.
+    if isinstance(run.meta, dict) and run.meta.get("rule_execution_seconds") is not None:
+        try:
+            stage_seconds["rule_execution"] = float(run.meta["rule_execution_seconds"])
+        except (TypeError, ValueError):
+            stage_seconds["rule_execution"] = 0.0
+
+    t_analytics = time.perf_counter()
     analytics = run.analytics or {}
     if not analytics:
         analytics = run_analytics(dataset)
@@ -516,6 +533,16 @@ def export_agent_bundle(
             has_web_weather=dataset.has_web_weather,
             gap_report=gap if isinstance(gap, pd.DataFrame) else None,
         )
+    stage_seconds["analytics"] = round(time.perf_counter() - t_analytics, 6)
+
+    results_list = list(run.results or [])
+    status_counts = dict(run.status_counts or {})
+    if not status_counts and results_list:
+        from collections import Counter
+
+        status_counts = dict(Counter(r.status for r in results_list))
+    applicable_count = sum(1 for r in results_list if getattr(r, "applicable", False))
+    non_applicable_count = max(0, len(results_list) - applicable_count)
 
     report = {
         "building_id": dataset.building_id,
@@ -524,14 +551,21 @@ def export_agent_bundle(
         "package_health": (dataset.package_report or {}).get("package_health"),
         "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
         "warnings": dataset.warnings,
-        "status_counts": run.status_counts,
+        "status_counts": status_counts,
+        "applicable_count": applicable_count,
+        "non_applicable_count": non_applicable_count,
+        "result_count": len(results_list),
         "meta": run.meta,
         "tuning_report": run.tuning_report,
         "rule_catalog_count": len(RULES),
+        "export_profile": export_profile,
+        "stage_seconds": stage_seconds,
     }
     rp = out / "run_report.json"
     rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     written["run_report"] = rp
+
+    t_serialize = time.perf_counter()
 
     health = (dataset.package_report or {}).get("package_health")
     if health:
@@ -810,12 +844,46 @@ def export_agent_bundle(
         path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
         written["tuning_assistant_report"] = path
 
+    stage_seconds["serialization"] = round(time.perf_counter() - t_serialize, 6)
+
+    # Uncompressed + zip-compressed byte evidence for the directory as written so far
+    uncompressed_bytes = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
+    t_compress = time.perf_counter()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for p in sorted(out.rglob("*")):
+            if p.is_file():
+                zf.write(p, arcname=p.relative_to(out).as_posix())
+    compressed_bytes = len(buf.getvalue())
+    stage_seconds["compression"] = round(time.perf_counter() - t_compress, 6)
+
+    files_written = sum(1 for p in out.rglob("*") if p.is_file())
+    files_suppressed = 0
+    if export_counts is not None:
+        files_suppressed = int(sum(int(v) for v in export_counts.suppressed_status.values()))
+
+    # Refresh run_report with final stage timings / byte counts
+    report["stage_seconds"] = stage_seconds
+    report["files_written"] = files_written
+    report["files_suppressed"] = files_suppressed
+    report["compressed_bytes"] = compressed_bytes
+    report["uncompressed_bytes"] = uncompressed_bytes
+    rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+
     # Agent ingest index — write last so it sees every path above
     written["manifest"] = write_manifest(
         out,
         written,
         profile=export_profile,
         export_counts=export_counts,
+        result_status_counts=status_counts,
+        applicable_count=applicable_count,
+        non_applicable_count=non_applicable_count,
+        files_written=files_written,
+        files_suppressed=files_suppressed,
+        compressed_bytes=compressed_bytes,
+        uncompressed_bytes=uncompressed_bytes,
+        stage_seconds=stage_seconds,
     )
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run

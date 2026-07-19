@@ -122,6 +122,18 @@ def infer_schedules(
             we_start = we_start if we_start is not None else fs
             we_stop = we_stop if we_stop is not None else fe
 
+        # Map signal role → historian column when role_map provides it
+        eq_block = role_map.get(eq_id, {}) if isinstance(role_map, dict) else {}
+        source_column = signal
+        if isinstance(eq_block, dict):
+            mapped_col = eq_block.get(signal)
+            if isinstance(mapped_col, str) and mapped_col:
+                source_column = mapped_col
+        # Confidence: more ON/OFF transitions and samples → higher (capped)
+        edge_density = min(1.0, (on_samples / samples) * (1.0 - abs(always_on_frac - 0.5) * 0.5)) if samples else 0.0
+        confidence = round(float(min(1.0, max(0.05, 0.35 + 0.55 * edge_density))), 3)
+        method = "fan_transition_median_hour"
+
         row = {
             "equipment_id": eq_id,
             "equipment_type": et,
@@ -137,6 +149,13 @@ def infer_schedules(
             "weekend_start_hour": None if we_start is None else round(we_start, 2),
             "weekend_stop_hour": None if we_stop is None else round(we_stop, 2),
             "likely_always_on": always_on_frac >= 0.85,
+            "source_equipment": eq_id,
+            "source_role": signal,
+            "source_column": source_column,
+            "method": method,
+            "sample_count": samples,
+            "confidence": confidence,
+            "editable": True,
         }
         rows.append(row)
         by_eq[eq_id] = {k: v for k, v in row.items() if k != "equipment_id"}
@@ -156,10 +175,41 @@ def infer_schedules(
         "weekend_start_hour",
         "weekend_stop_hour",
         "likely_always_on",
+        "source_equipment",
+        "source_role",
+        "source_column",
+        "method",
+        "sample_count",
+        "confidence",
+        "editable",
     ]
     table = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
     if not table.empty:
         table = table.sort_values("equipment_id").reset_index(drop=True)
+
+    inferred_parameters: list[dict[str, Any]] = []
+    for row in rows:
+        for param_name in (
+            "weekday_start_hour",
+            "weekday_stop_hour",
+            "weekend_start_hour",
+            "weekend_stop_hour",
+        ):
+            if row.get(param_name) is None:
+                continue
+            inferred_parameters.append(
+                {
+                    "parameter": param_name,
+                    "value": row[param_name],
+                    "source_equipment": row["source_equipment"],
+                    "source_role": row["source_role"],
+                    "source_column": row["source_column"],
+                    "method": row["method"],
+                    "sample_count": row["sample_count"],
+                    "confidence": row["confidence"],
+                    "editable": True,
+                }
+            )
 
     span = dataset_time_span(frames)
     payload = {
@@ -170,6 +220,7 @@ def infer_schedules(
             "span_hours": span["span_hours"],
         },
         "equipment": by_eq,
+        "inferred_parameters": inferred_parameters,
         "summary": {
             "equipment_count": len(by_eq),
             "likely_always_on_count": int(sum(1 for v in by_eq.values() if v.get("likely_always_on"))),
@@ -305,6 +356,34 @@ def build_model_seed_dict(
             "likely_always_on": info.get("likely_always_on"),
         }
 
+    inferred = list(schedule_payload.get("inferred_parameters") or [])
+    if not inferred and equip:
+        # Rebuild provenance records from per-equipment schedule inference when present
+        for eq_id, info in equip.items():
+            if not isinstance(info, dict):
+                continue
+            for param_name in (
+                "weekday_start_hour",
+                "weekday_stop_hour",
+                "weekend_start_hour",
+                "weekend_stop_hour",
+            ):
+                if info.get(param_name) is None:
+                    continue
+                inferred.append(
+                    {
+                        "parameter": param_name,
+                        "value": info.get(param_name),
+                        "source_equipment": info.get("source_equipment") or eq_id,
+                        "source_role": info.get("source_role") or info.get("signal") or "",
+                        "source_column": info.get("source_column") or info.get("signal") or "",
+                        "method": info.get("method") or "fan_transition_median_hour",
+                        "sample_count": int(info.get("sample_count") or info.get("samples") or 0),
+                        "confidence": float(info.get("confidence") or 0.5),
+                        "editable": bool(info.get("editable", True)),
+                    }
+                )
+
     seed: dict[str, Any] = {
         "product": "OpenFDD Model Seed",
         "project_id": building_id or "unknown",
@@ -318,6 +397,7 @@ def build_model_seed_dict(
         "anonymized": True,
         "data_window": window,
         "schedule_hints": hint,
+        "inferred_parameters": inferred,
         "vibe19_evidence": {
             "source": "vibe19",
             "schedule_equipment_count": len(equip),
@@ -327,6 +407,7 @@ def build_model_seed_dict(
             "project_id": {"source": "vibe19"},
             "data_window": {"source": "vibe19"},
             "schedule_hints": {"source": "vibe19"},
+            "inferred_parameters": {"source": "vibe19"},
             "building_type": {"source": "user_required"},
             "floor_area_ft2": {"source": "user_required"},
             "floors": {"source": "user_required"},

@@ -173,7 +173,7 @@ def test_agent_api_load_run_export(tmp_path: Path):
         diurnal = pd.read_csv(out / "sensor_diurnal_24h.csv")
         assert {"day_type", "fan_state", "hour", "role"} <= set(diurnal.columns)
     manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "wattlab_dump_v2"
+    assert manifest["schema_version"] == "wattlab_dump_v3"
     assert manifest.get("export_profile") == "summary"
     assert any(f["path"] == "fdd_findings.csv" for f in manifest["files"])
     seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))

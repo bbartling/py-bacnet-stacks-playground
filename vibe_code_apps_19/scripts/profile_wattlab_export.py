@@ -324,6 +324,21 @@ def measure_export(
         uncompressed = _dir_uncompressed_bytes(out)
         compressed = len(_zip_bytes(out))
         status_counts = dict(Counter(r.status for r in (run.results or [])))
+        suppressed = 0
+        manifest_path = out / "MANIFEST.json"
+        if manifest_path.is_file():
+            try:
+                man = json.loads(manifest_path.read_text(encoding="utf-8"))
+                suppressed = int(man.get("files_suppressed") or 0)
+                if not suppressed:
+                    ec = man.get("export_counts") or {}
+                    suppressed = int(sum(int(v) for v in (ec.get("suppressed_status") or {}).values()))
+            except Exception:
+                suppressed = 0
+        if not suppressed:
+            from app.wattlab_dump import NEVER_TIMESERIES_STATUSES
+
+            suppressed = sum(1 for r in (run.results or []) if r.status in NEVER_TIMESERIES_STATUSES)
 
         return {
             "mode": normalized,
@@ -334,6 +349,7 @@ def measure_export(
             "uncompressed_bytes": uncompressed,
             "result_status_counts": status_counts,
             "per_rule_timeseries_count": per_rule,
+            "suppressed_combinations": suppressed,
             "artifact_keys": sorted(str(k) for k in written),
             "baseline_note": (
                 "live measures active export_agent_bundle; frozen before-metrics are "
@@ -395,6 +411,7 @@ def main(argv: list[str] | None = None) -> int:
                 "before": before.get("per_rule_timeseries_count"),
                 "after": metrics["per_rule_timeseries_count"],
             },
+            "suppressed_combinations": int(metrics.get("suppressed_combinations") or 0),
             "before_path": str(baseline_path),
             "before": before,
             "after": metrics,

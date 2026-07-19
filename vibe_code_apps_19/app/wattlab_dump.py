@@ -20,13 +20,16 @@ from typing import Any, Literal, Mapping
 import pandas as pd
 
 from app.column_map_json import POINT_DISPLAY, canonicalize_point
+from app.data_loader import infer_poll_seconds
 from app.daytypes import DAY_TYPES, day_type_series
 from app.occupancy import OccupancySchedule, occupied_mask
 from app.rcx_plots import hydronic_operating_mask, operating_mask
 from app.reports import debug_frame
 from app.role_map import apply_role_map
 from app.rules.base import RuleResult
+from app.runtime_intervals import interval_durations
 from app.site_model import resolve_equipment_type
+from app.units import resolve_role_unit
 
 # role_map meta keys that are not timeseries roles
 _META_KEYS = {"chw_pump_equipment", "notes", "equipment_type", "plant_group", "cooling_technology"}
@@ -85,32 +88,144 @@ def _role_series_for_frame(
     return out
 
 
-def _stats_row(
-    eq_id: str, et: str, role: str, s: pd.Series, proof: str, source: str = "role_map"
-) -> dict[str, Any] | None:
-    num = pd.to_numeric(s, errors="coerce").dropna()
+def _plausible_range(role: str, units: str) -> tuple[float, float] | None:
+    """Broad engineering bounds for out-of-range percentage (not design intent)."""
+    u = (units or "").strip()
+    r = str(role)
+    if u in {"°F", "degF", "F"} or r.endswith("-temp") or "-temp-" in r or r.endswith("-temp"):
+        return (-40.0, 200.0)
+    if u in {"°C", "degC", "C"}:
+        return (-40.0, 95.0)
+    if u in {"%", "percent"} or r.endswith("-cmd") or "valve" in r or "damper" in r:
+        return (-5.0, 105.0)
+    if u in {"in. w.c.", "inWC", "in_wc"}:
+        return (-1.0, 10.0)
+    if u in {"cfm", "L/s"}:
+        return (-10.0, 200_000.0)
+    if u in {"bool", "0/1"} or r.endswith("-status"):
+        return (-0.1, 1.1)
+    if u in {"kW", "A"}:
+        return (-1.0, 10_000.0)
+    return None
+
+
+def _median_or_none(values: pd.Series) -> float | None:
+    num = pd.to_numeric(values, errors="coerce").dropna()
     if num.empty:
         return None
+    return round(float(num.median()), 3)
+
+
+def _stats_row(
+    eq_id: str,
+    et: str,
+    role: str,
+    s: pd.Series,
+    proof: str,
+    source: str = "role_map",
+    *,
+    source_column: str | None = None,
+    fan_mask: pd.Series | None = None,
+    occ_mask: pd.Series | None = None,
+    nominal_seconds: float = 300.0,
+) -> dict[str, Any] | None:
+    raw_num = pd.to_numeric(s, errors="coerce")
+    num = raw_num.dropna()
+    if num.empty:
+        return None
+    count = int(len(raw_num))
+    valid_count = int(len(num))
+    missing_pct = round(100.0 * (count - valid_count) / count, 3) if count else 0.0
+
+    duration_hours = 0.0
+    start = end = None
+    if isinstance(s.index, pd.DatetimeIndex) and len(s.index):
+        durations = interval_durations(s.index, nominal_seconds=float(nominal_seconds))
+        # Coverage duration across valid samples (aligned to duration index)
+        valid_aligned = raw_num.reindex(durations.index).notna().astype(float)
+        duration_hours = round(float((valid_aligned * durations).sum() / 3600.0), 6)
+        start = str(pd.Timestamp(s.index.min()))
+        end = str(pd.Timestamp(s.index.max()))
+
+    units = resolve_role_unit(role)
+    bounds = _plausible_range(role, units)
+    if bounds is None:
+        oor_pct = 0.0
+    else:
+        lo, hi = bounds
+        oor_pct = round(100.0 * float(((num < lo) | (num > hi)).sum()) / valid_count, 3)
+
+    if len(num) >= 2:
+        flat = num.diff().fillna(0.0).abs() <= 1e-12
+        # first sample has no prior change; count consecutive equals among diffs
+        flatline_pct = round(100.0 * float(flat.iloc[1:].sum()) / max(valid_count - 1, 1), 3)
+    else:
+        flatline_pct = 0.0
+
+    weekday_mask = weekend_mask = None
+    if isinstance(s.index, pd.DatetimeIndex):
+        dow = pd.Series(s.index.dayofweek, index=s.index)
+        weekday_mask = dow < 5
+        weekend_mask = ~weekday_mask
+
+    def _masked_median(mask: pd.Series | None) -> float | None:
+        if mask is None:
+            return None
+        aligned = mask.reindex(s.index).fillna(False).astype(bool)
+        return _median_or_none(s.where(aligned))
+
+    fan_on = fan_off = None
+    if fan_mask is not None:
+        on = fan_mask.reindex(s.index).fillna(False).astype(bool)
+        fan_on = _median_or_none(s.where(on))
+        fan_off = _median_or_none(s.where(~on))
+
     return {
         "equipment_id": eq_id,
         "equipment_type": et,
         "role": role,
         "source": source,
+        "source_column": source_column or role,
         "proof": proof,
-        "n": int(len(num)),
+        "units": units,
+        "count": count,
+        "valid_count": valid_count,
+        "n": valid_count,  # legacy alias
+        "missing_pct": missing_pct,
+        "duration_hours": duration_hours,
         "mean": round(float(num.mean()), 3),
         "std": round(float(num.std(ddof=0)), 3) if len(num) > 1 else 0.0,
         "min": round(float(num.min()), 3),
+        "p01": round(float(num.quantile(0.01)), 3),
+        "p05": round(float(num.quantile(0.05)), 3),
         "p25": round(float(num.quantile(0.25)), 3),
         "p50": round(float(num.quantile(0.5)), 3),
         "p75": round(float(num.quantile(0.75)), 3),
+        "p95": round(float(num.quantile(0.95)), 3),
+        "p99": round(float(num.quantile(0.99)), 3),
         "max": round(float(num.max()), 3),
+        "median_occupied": _masked_median(occ_mask),
+        "median_unoccupied": (
+            _median_or_none(s.where(~occ_mask.reindex(s.index).fillna(False)))
+            if occ_mask is not None
+            else None
+        ),
+        "median_fan_on": fan_on,
+        "median_fan_off": fan_off,
+        "median_weekday": _masked_median(weekday_mask),
+        "median_weekend": _masked_median(weekend_mask),
+        "flatline_pct": flatline_pct,
+        "out_of_range_pct": oor_pct,
+        "start": start,
+        "end": end,
     }
 
 
 def sensor_stats_tables(
     frames: dict[str, pd.DataFrame],
     role_map: dict,
+    *,
+    schedule: OccupancySchedule | dict | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Summary stats for every mapped role, sliced by operating state.
 
@@ -118,7 +233,11 @@ def sensor_stats_tables(
     fan proof (fan-status → fan-cmd → VAV airflow) and fall back to hydronic
     pump proof for plant equipment; equipment without any proof appears only in
     the ``all`` table (its ``proof`` column says ``none``).
+
+    Rows retain legacy ``n``/quartile/mean columns and add v3 validity, coverage,
+    percentile, occupancy/fan/weekday slice medians, and provenance fields.
     """
+    sched = schedule if isinstance(schedule, OccupancySchedule) else OccupancySchedule.from_dict(schedule)
     rows_all: list[dict[str, Any]] = []
     rows_on: list[dict[str, Any]] = []
     rows_off: list[dict[str, Any]] = []
@@ -129,6 +248,7 @@ def sensor_stats_tables(
         role_series = _role_series_for_frame(mapped, roles)
         if not role_series:
             continue
+        eq_map = role_map.get(eq_id, {}) if isinstance(role_map, dict) else {}
         # Operating proof on a frame that also carries alias-resolved canonical
         # columns (so raw `fan_status` still proves the fan).
         aug = mapped.copy()
@@ -139,17 +259,32 @@ def sensor_stats_tables(
         if mask is None:
             mask, proof = hydronic_operating_mask(aug)
         proof_label = proof or "none"
+        nominal = float(raw.attrs.get("poll_seconds") or infer_poll_seconds(raw))
+        occ = None
+        if isinstance(mapped.index, pd.DatetimeIndex) and len(mapped.index):
+            occ = occupied_mask(mapped.index, sched)
         for role, (s, src) in role_series.items():
-            row = _stats_row(eq_id, et, role, s, proof_label, src)
+            src_col = None
+            if isinstance(eq_map, dict):
+                mapped_col = eq_map.get(role)
+                if isinstance(mapped_col, str) and mapped_col:
+                    src_col = mapped_col
+            kwargs = dict(
+                source_column=src_col or role,
+                fan_mask=mask,
+                occ_mask=occ,
+                nominal_seconds=nominal,
+            )
+            row = _stats_row(eq_id, et, role, s, proof_label, src, **kwargs)
             if row is not None:
                 rows_all.append(row)
             if mask is None:
                 continue
             on = mask.reindex(s.index).fillna(False)
-            row_on = _stats_row(eq_id, et, role, s.where(on), proof_label, src)
+            row_on = _stats_row(eq_id, et, role, s.where(on), proof_label, src, **kwargs)
             if row_on is not None:
                 rows_on.append(row_on)
-            row_off = _stats_row(eq_id, et, role, s.where(~on), proof_label, src)
+            row_off = _stats_row(eq_id, et, role, s.where(~on), proof_label, src, **kwargs)
             if row_off is not None:
                 rows_off.append(row_off)
     return {
@@ -816,8 +951,16 @@ def build_manifest(
     *,
     profile: ExportProfile | None = None,
     export_counts: ExportCounts | None = None,
+    result_status_counts: Mapping[str, int] | None = None,
+    applicable_count: int | None = None,
+    non_applicable_count: int | None = None,
+    files_written: int | None = None,
+    files_suppressed: int | None = None,
+    compressed_bytes: int | None = None,
+    uncompressed_bytes: int | None = None,
+    stage_seconds: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Build a MANIFEST.json describing every emitted file."""
+    """Build a MANIFEST.json describing every emitted file (wattlab_dump_v3)."""
     out = Path(out_dir)
     files: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -924,7 +1067,7 @@ def build_manifest(
 
     payload: dict[str, Any] = {
         "product": "OpenFDD WattLab Dump",
-        "schema_version": "wattlab_dump_v2",
+        "schema_version": "wattlab_dump_v3",
         "file_count": len(files),
         "files": files,
     }
@@ -936,6 +1079,26 @@ def build_manifest(
             "suppressed_status": dict(export_counts.suppressed_status),
             "written_status": dict(export_counts.written_status),
         }
+        if files_written is None:
+            files_written = len(export_counts.written)
+        if files_suppressed is None:
+            files_suppressed = int(sum(int(v) for v in export_counts.suppressed_status.values()))
+    if result_status_counts is not None:
+        payload["result_status_counts"] = dict(result_status_counts)
+    if applicable_count is not None:
+        payload["applicable_count"] = int(applicable_count)
+    if non_applicable_count is not None:
+        payload["non_applicable_count"] = int(non_applicable_count)
+    if files_written is not None:
+        payload["files_written"] = int(files_written)
+    if files_suppressed is not None:
+        payload["files_suppressed"] = int(files_suppressed)
+    if compressed_bytes is not None:
+        payload["compressed_bytes"] = int(compressed_bytes)
+    if uncompressed_bytes is not None:
+        payload["uncompressed_bytes"] = int(uncompressed_bytes)
+    if stage_seconds is not None:
+        payload["stage_seconds"] = {str(k): float(v) for k, v in stage_seconds.items()}
     return payload
 
 
@@ -945,9 +1108,30 @@ def write_manifest(
     *,
     profile: ExportProfile | None = None,
     export_counts: ExportCounts | None = None,
+    result_status_counts: Mapping[str, int] | None = None,
+    applicable_count: int | None = None,
+    non_applicable_count: int | None = None,
+    files_written: int | None = None,
+    files_suppressed: int | None = None,
+    compressed_bytes: int | None = None,
+    uncompressed_bytes: int | None = None,
+    stage_seconds: Mapping[str, float] | None = None,
 ) -> Path:
     out = Path(out_dir)
-    payload = build_manifest(written, out, profile=profile, export_counts=export_counts)
+    payload = build_manifest(
+        written,
+        out,
+        profile=profile,
+        export_counts=export_counts,
+        result_status_counts=result_status_counts,
+        applicable_count=applicable_count,
+        non_applicable_count=non_applicable_count,
+        files_written=files_written,
+        files_suppressed=files_suppressed,
+        compressed_bytes=compressed_bytes,
+        uncompressed_bytes=uncompressed_bytes,
+        stage_seconds=stage_seconds,
+    )
     path = out / "MANIFEST.json"
     path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return path
