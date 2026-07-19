@@ -12,6 +12,10 @@ on:
         description: "Rebuild without Buildx/GHA cache (use when GHCR tags point at missing blobs)"
         type: boolean
         default: false
+      candidate_publish:
+        description: "Publish only a feature-candidate tag (hypothesis-lab-<sha>); do NOT move :latest/:develop"
+        type: boolean
+        default: false
   push:
     branches: [develop, main]
     tags: ["vibe20-v*"]
@@ -57,6 +61,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.candidate_publish == true) }}
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
@@ -72,6 +77,19 @@ jobs:
             org.opencontainers.image.title=vibe20
             org.opencontainers.image.description=OpenFDD WattLab Studio — EnergyPlus twin + ESCO capital planning
 
+      - name: Candidate image tags (no latest/develop)
+        id: candidate
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_publish == true }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(echo "${{ github.sha }}" | cut -c1-12)"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${IMAGE}:hypothesis-lab-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "${IMAGE}:sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "verify_ref=${IMAGE}:hypothesis-lab-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         id: build
         uses: docker/build-push-action@v6
@@ -80,7 +98,7 @@ jobs:
           file: vibe_code_apps_20/Dockerfile
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || env.PUBLISH_PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ (github.event_name == 'workflow_dispatch' && inputs.candidate_publish == true) && steps.candidate.outputs.tags || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VIBE20_GIT_SHA=${{ github.sha }}
@@ -97,14 +115,20 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          CANDIDATE_REF: ${{ steps.candidate.outputs.verify_ref }}
+          CANDIDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_publish == true }}
         run: |
           set -euo pipefail
-          # Prefer :latest on default branch tip; fall back to :develop / first pushed tag.
-          REF="${IMAGE}:latest"
-          if ! docker buildx imagetools inspect "$REF" >/tmp/manifest.txt 2>/dev/null; then
-            REF="${IMAGE}:develop"
-            docker buildx imagetools inspect "$REF" >/tmp/manifest.txt
+          if [ "$CANDIDATE" = "true" ]; then
+            REF="$CANDIDATE_REF"
+          else
+            # Prefer :latest on default branch tip; fall back to :develop / first pushed tag.
+            REF="${IMAGE}:latest"
+            if ! docker buildx imagetools inspect "$REF" >/tmp/manifest.txt 2>/dev/null; then
+              REF="${IMAGE}:develop"
+            fi
           fi
+          docker buildx imagetools inspect "$REF" >/tmp/manifest.txt
           echo "Inspected $REF"
           cat /tmp/manifest.txt
           grep -q 'linux/amd64' /tmp/manifest.txt

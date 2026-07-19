@@ -1,0 +1,732 @@
+ecms:
+  - &defaults
+    ecm_id: ECM-AHU-SCHED-ALIGN
+    display_name: Align AHU operation with occupancy
+    short_name: AHU schedule alignment
+    category: scheduling
+    equipment_types: [air_handling_unit]
+    system_families: [all_air]
+    retrofit_classes: [controls, rcx]
+    description: End unnecessary fan and coil operation during unoccupied periods.
+    engineering_rationale: Reducing runtime avoids fan energy and coincident heating and cooling.
+    required_inputs: [baseline_annual_hours, proposed_annual_hours, equipment_kw]
+    optional_inputs: [average_load_fraction]
+    proxy_calculator: schedule_reduction
+    energyplus_patch: fan_avail_occupied_office
+    conceptual_surrogate: false
+    unit_contract: {equipment_kw: kW, baseline_annual_hours: h/year, savings: kWh/year}
+    applicability_checks: [Confirm occupancy schedule, Confirm safe warmup and cooldown]
+    incompatibilities: []
+    dependencies: []
+    default_cost_model: {basis: "$/AHU", low: 500.0, high: 3000.0}
+    default_measure_life: 10
+    default_maintenance_cost: 0.0
+    comfort_risk: low
+    iaq_risk: medium
+    humidity_risk: medium
+    implementation_complexity: low
+    confidence: medium
+    public_sources: [ASHRAE Guideline 36-2021, DOE Advanced Energy Retrofit Guides]
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-AHU-OPT-START-STOP
+    display_name: Add optimum start and stop
+    short_name: Optimum start-stop
+    category: scheduling
+    description: Adapt AHU start and stop times to weather and zone recovery.
+    engineering_rationale: Adaptive starts reduce excess runtime while preserving occupied comfort.
+    required_inputs: [occupied_schedule, zone_temperature_trends, outdoor_air_temperature]
+    optional_inputs: [thermal_mass_class]
+    proxy_calculator: schedule_reduction
+    energyplus_patch: null
+    unit_contract: {schedule: local_time, temperature: degC, savings: kWh/year}
+    applicability_checks: [Trend zone recovery before deployment]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-HOLIDAY-SCHED
+    display_name: Correct holiday and exception schedules
+    short_name: Holiday scheduling
+    category: scheduling
+    description: Add verified holidays and shutdown exceptions to occupied schedules.
+    engineering_rationale: Exception schedules prevent full operation on predictably vacant days.
+    required_inputs: [holiday_calendar, baseline_schedule]
+    optional_inputs: [special_event_calendar]
+    proxy_calculator: schedule_reduction
+    energyplus_patch: null
+    unit_contract: {schedule: local_time, savings: kWh/year}
+    applicability_checks: [Confirm facility holiday calendar]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-OA-DAMPER-REPAIR
+    display_name: Repair outside-air damper operation
+    short_name: OA damper repair
+    category: oa_ventilation
+    equipment_types: [air_handling_unit, outside_air_damper]
+    system_families: [all_air]
+    retrofit_classes: [rcx, controls]
+    description: Repair stuck, disconnected, or miscalibrated outside-air dampers.
+    engineering_rationale: Correct damper control avoids excess conditioning while maintaining ventilation.
+    required_inputs: [oa_damper_command, mixed_air_temperature, outdoor_air_temperature]
+    optional_inputs: [return_air_temperature, measured_oa_cfm]
+    proxy_calculator: outside_air_sensible
+    energyplus_patch: null
+    unit_contract: {outside_air_cfm: CFM, average_delta_t_f: deltaF, savings: kWh/year}
+    applicability_checks: [Verify damper linkage, Verify minimum ventilation]
+    iaq_risk: high
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-DCV-CO2
+    display_name: Demand-controlled ventilation
+    short_name: CO2 DCV
+    category: oa_ventilation
+    equipment_types: [air_handling_unit, co2_sensor]
+    system_families: [vav, single_zone]
+    retrofit_classes: [controls, sensors]
+    description: Reset outdoor airflow using occupancy or carbon-dioxide demand.
+    engineering_rationale: Ventilation tracks actual population instead of design peak occupancy.
+    required_inputs: [baseline_oa_cfm, proposed_oa_cfm, occupied_hours]
+    optional_inputs: [co2_trends, population_schedule]
+    proxy_calculator: demand_control_ventilation
+    energyplus_patch: null
+    unit_contract: {airflow: CFM, temperature_difference: deltaF, savings: kWh/year}
+    applicability_checks: [Confirm code permits DCV, Confirm calibrated CO2 sensors]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    iaq_risk: high
+    implementation_complexity: medium
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-OA-RESET
+    display_name: Reset minimum outdoor airflow
+    short_name: OA reset
+    category: oa_ventilation
+    equipment_types: [air_handling_unit]
+    system_families: [vav]
+    retrofit_classes: [controls, g36]
+    description: Reset outdoor-air intake with system population and zone ventilation demand.
+    engineering_rationale: System-level reset meets ventilation requirements with less conditioning load.
+    required_inputs: [zone_population, zone_oa_requirements, system_primary_airflow]
+    optional_inputs: [co2_trends]
+    proxy_calculator: demand_control_ventilation
+    energyplus_patch: null
+    unit_contract: {airflow: m3/s, savings: kWh/year}
+    applicability_checks: [Complete ASHRAE 62.1 system ventilation calculation]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    iaq_risk: high
+    implementation_complexity: high
+    confidence: low
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-ECON-REPAIR
+    display_name: Repair airside economizer
+    short_name: Economizer repair
+    category: oa_ventilation
+    equipment_types: [air_handling_unit, economizer]
+    system_families: [all_air]
+    retrofit_classes: [rcx, controls]
+    description: Restore dry-bulb or enthalpy economizer enable and modulation.
+    engineering_rationale: Suitable outdoor air displaces mechanical cooling.
+    required_inputs: [eligible_hours, average_cooling_load_tons, baseline_kw_per_ton]
+    optional_inputs: [outdoor_air_enthalpy, return_air_enthalpy]
+    proxy_calculator: economizer_proxy
+    energyplus_patch: null
+    unit_contract: {cooling_load: ton, efficiency: kW/ton, savings: kWh/year}
+    applicability_checks: [Verify climate suitability, Verify relief path]
+    humidity_risk: high
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-ERV
+    display_name: Add energy recovery ventilation
+    short_name: ERV
+    category: oa_ventilation
+    equipment_types: [air_handling_unit, energy_recovery_ventilator]
+    system_families: [dedicated_outdoor_air, all_air]
+    retrofit_classes: [capital]
+    description: Recover sensible and latent energy between exhaust and outdoor air.
+    engineering_rationale: Recovery lowers ventilation heating, cooling, and dehumidification loads.
+    required_inputs: [outside_air_cfm, annual_weather_bins, exhaust_air_availability]
+    optional_inputs: [latent_effectiveness, sensible_effectiveness]
+    proxy_calculator: null
+    energyplus_patch: null
+    conceptual_surrogate: true
+    unit_contract: {airflow: m3/s, effectiveness: fraction, savings: kWh/year}
+    applicability_checks: [Confirm exhaust and intake adjacency, Screen cross-contamination]
+    humidity_risk: medium
+    implementation_complexity: high
+    confidence: low
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-SAT-RESET
+    display_name: Supply-air temperature reset
+    short_name: SAT reset
+    category: airside_vav
+    equipment_types: [air_handling_unit]
+    system_families: [vav]
+    retrofit_classes: [controls]
+    description: Reset supply-air temperature using zone cooling demand.
+    engineering_rationale: Warmer SAT at light load reduces reheat and can reduce plant lift.
+    required_inputs: [design_kw, temperature_bins]
+    optional_inputs: [zone_cooling_requests]
+    proxy_calculator: temperature_reset_bins
+    energyplus_patch: sat_reset
+    conceptual_surrogate: true
+    unit_contract: {temperature: degC, design_power: kW, savings: kWh/year}
+    applicability_checks: [Confirm humidity control, Confirm terminal airflow authority]
+    humidity_risk: high
+    confidence: low
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-DSP-RESET
+    display_name: Duct static-pressure reset
+    short_name: DSP reset
+    category: airside_vav
+    equipment_types: [air_handling_unit, variable_speed_fan]
+    system_families: [vav]
+    retrofit_classes: [controls, g36]
+    description: Reset duct static pressure from terminal damper requests.
+    engineering_rationale: Lower pressure at part load reduces fan power by the affinity relationship.
+    required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
+    optional_inputs: [critical_zone_damper_trends]
+    proxy_calculator: fan_affinity
+    energyplus_patch: null
+    unit_contract: {design_power: kW, speed: fraction, savings: kWh/year}
+    applicability_checks: [Confirm VFD and reliable critical-zone signals]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-VAV-MIN-RESET
+    display_name: Reset VAV minimum airflow
+    short_name: VAV minimum reset
+    category: airside_vav
+    equipment_types: [vav_terminal]
+    system_families: [vav_reheat]
+    retrofit_classes: [controls, g36]
+    description: Reduce or reset terminal minimum airflow while meeting ventilation and heating needs.
+    engineering_rationale: Lower minimum flow reduces fan energy and simultaneous reheat.
+    required_inputs: [baseline_minimum_fraction, ventilation_minimum_cfm, heating_airflow_cfm]
+    optional_inputs: [zone_co2, occupancy]
+    proxy_calculator: fan_affinity
+    energyplus_patch: null
+    unit_contract: {airflow: CFM, minimum: fraction, savings: kWh/year}
+    applicability_checks: [Calculate zone ventilation minimum, Confirm heating airflow]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    iaq_risk: high
+    comfort_risk: high
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-PREMIUM-FAN-VFD
+    display_name: Premium-efficiency fan and VFD retrofit
+    short_name: Premium fan VFD
+    category: airside_vav
+    equipment_types: [supply_fan, variable_frequency_drive]
+    system_families: [vav]
+    retrofit_classes: [capital]
+    description: Replace or retrofit supply fan drive and efficiency parameters.
+    engineering_rationale: Efficient motors, drives, and lower pressure reduce fan electricity.
+    required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
+    optional_inputs: [motor_efficiency, fan_total_efficiency]
+    proxy_calculator: fan_affinity
+    energyplus_patch: premium_fan_vfd
+    conceptual_surrogate: true
+    unit_contract: {design_power: kW, speed: fraction, savings: kWh/year}
+    applicability_checks: [Confirm fan selection and turndown]
+    implementation_complexity: high
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-GL36-AIRSIDE
+    display_name: Guideline 36 airside conceptual package
+    short_name: G36 airside proxy
+    category: g36
+    equipment_types: [air_handling_unit, vav_terminal]
+    system_families: [vav_reheat]
+    retrofit_classes: [controls, g36]
+    description: Screen VAV minimum and fan-pressure changes representing part of G36.
+    engineering_rationale: Coordinated resets reduce fan energy and simultaneous heating and cooling.
+    required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
+    optional_inputs: [vav_min_fraction, fan_pressure_pa]
+    proxy_calculator: fan_affinity
+    energyplus_patch: gl36_airside_proxy
+    conceptual_surrogate: true
+    unit_contract: {fan_power: kW, pressure: Pa, savings: kWh/year}
+    applicability_checks: [Confirm VAV reheat system, Label result as partial conceptual proxy]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    implementation_complexity: high
+    confidence: low
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-G36-TRIM-RESPOND
+    display_name: G36 trim-and-respond resets
+    short_name: Trim and respond
+    category: g36
+    equipment_types: [building_automation_system]
+    system_families: [vav_reheat]
+    retrofit_classes: [controls, g36]
+    description: Implement request-based trim-and-respond logic for pressure and temperature loops.
+    engineering_rationale: Request aggregation minimizes setpoints while preserving zone service.
+    required_inputs: [zone_requests, loop_setpoint_limits, response_timing]
+    optional_inputs: [ignored_request_count]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {temperature: degC, pressure: Pa, timing: min}
+    applicability_checks: [Verify request logic and loop stability]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    implementation_complexity: high
+    confidence: low
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-G36-PLANT
+    display_name: G36 plant sequencing
+    short_name: G36 plant controls
+    category: g36
+    equipment_types: [chiller_plant, boiler_plant]
+    system_families: [central_plant]
+    retrofit_classes: [controls, g36]
+    description: Coordinate plant enable, staging, and setpoint resets using load requests.
+    engineering_rationale: Sequencing avoids unnecessary equipment and improves part-load efficiency.
+    required_inputs: [plant_equipment_map, load_trends, enable_requests]
+    optional_inputs: [equipment_curves]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {load: kW, temperature: degC, savings: kWh/year}
+    applicability_checks: [Complete plant sequence functional test]
+    implementation_complexity: high
+    confidence: low
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-SENSOR-CRITICAL-REFRESH
+    display_name: Refresh critical controls sensors
+    short_name: Critical sensor refresh
+    category: sensors_rcx
+    equipment_types: [temperature_sensor, pressure_sensor, airflow_sensor]
+    system_families: [all]
+    retrofit_classes: [sensors, rcx]
+    description: Calibrate or replace sensors required by advanced control sequences.
+    engineering_rationale: Reliable feedback is a prerequisite for stable and safe resets.
+    required_inputs: [sensor_inventory, calibration_records]
+    optional_inputs: [trend_data]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {temperature_error: deltaC, pressure_error: Pa, airflow_error: percent}
+    applicability_checks: [Identify sequence-critical sensors]
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-PNEU-DDC-CONVERT
+    display_name: Convert pneumatic controls to DDC
+    short_name: Pneumatic to DDC
+    category: pneumatic_to_ddc
+    equipment_types: [pneumatic_controller, ddc_controller]
+    system_families: [vav, hydronic]
+    retrofit_classes: [controls, capital]
+    description: Replace pneumatic loops and actuators with networked direct digital control.
+    engineering_rationale: DDC enables stable scheduling, trending, resets, and fault detection.
+    required_inputs: [point_inventory, actuator_inventory, sequence_of_operations]
+    optional_inputs: [pneumatic_air_leakage]
+    proxy_calculator: null
+    energyplus_patch: null
+    conceptual_surrogate: true
+    unit_contract: {points: count, cost: USD, savings: kWh/year}
+    applicability_checks: [Survey all end devices, Confirm network architecture]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    implementation_complexity: high
+    confidence: low
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-PNEU-LEAK-REPAIR
+    display_name: Repair pneumatic control-air leaks
+    short_name: Pneumatic leak repair
+    category: pneumatic_to_ddc
+    equipment_types: [pneumatic_controls, air_compressor]
+    system_families: [pneumatic]
+    retrofit_classes: [rcx]
+    description: Find and repair leaking pneumatic tubing, fittings, and actuators.
+    engineering_rationale: Leak repair reduces compressor runtime and restores control authority.
+    required_inputs: [compressor_kw, baseline_annual_hours, proposed_annual_hours]
+    optional_inputs: [leak_test_results]
+    proxy_calculator: schedule_reduction
+    energyplus_patch: null
+    unit_contract: {compressor_power: kW, runtime: h/year, savings: kWh/year}
+    applicability_checks: [Confirm controls air serves no safety process]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-BOILER-TUNE
+    display_name: Tune existing boiler combustion and controls
+    short_name: Boiler tune
+    category: heating_plant
+    equipment_types: [boiler]
+    system_families: [hot_water_plant]
+    retrofit_classes: [rcx]
+    description: Tune combustion, staging, and cycling on serviceable existing boilers.
+    engineering_rationale: Correct excess air and cycling improve seasonal fuel efficiency.
+    required_inputs: [annual_heating_load, baseline_efficiency, proposed_efficiency]
+    optional_inputs: [flue_gas_test, cycling_rate]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {heating_load: GJ/year, efficiency: fraction, savings: therm/year}
+    applicability_checks: [Require combustion safety test]
+    incompatibilities: [ECM-CONDENSING-BOILER, ECM-AWHP-SURROGATE]
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-BOILER-RESET
+    display_name: Hot-water supply-temperature reset
+    short_name: Boiler reset
+    category: heating_plant
+    equipment_types: [boiler, hot_water_loop]
+    system_families: [hot_water_plant]
+    retrofit_classes: [controls]
+    description: Reset hot-water supply temperature with outdoor temperature or valve demand.
+    engineering_rationale: Lower water temperature reduces distribution loss and can improve condensing efficiency.
+    required_inputs: [outdoor_air_bins, baseline_hwst, proposed_hwst]
+    optional_inputs: [valve_position_trends]
+    proxy_calculator: temperature_reset_bins
+    energyplus_patch: null
+    unit_contract: {temperature: degC, savings: therm/year}
+    applicability_checks: [Confirm terminal heating capacity and freeze protection]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-CONDENSING-BOILER
+    display_name: Condensing boiler replacement
+    short_name: Condensing boiler
+    category: heating_plant
+    equipment_types: [boiler]
+    system_families: [hot_water_plant]
+    retrofit_classes: [capital]
+    description: Screen replacement with a 95 percent nominal-efficiency boiler.
+    engineering_rationale: Higher combustion efficiency reduces gas input for delivered heat.
+    required_inputs: [annual_heating_load, baseline_efficiency]
+    optional_inputs: [return_water_temperature]
+    proxy_calculator: null
+    energyplus_patch: condensing_boiler
+    conceptual_surrogate: true
+    unit_contract: {heating_load: GJ/year, efficiency: fraction, savings: therm/year}
+    applicability_checks: [Confirm low return-water temperature opportunity, Engineer venting]
+    incompatibilities: [ECM-BOILER-TUNE, ECM-AWHP-SURROGATE]
+    implementation_complexity: high
+    status: CONCEPTUAL_ENERGYPLUS_PROXY
+
+  - <<: *defaults
+    ecm_id: ECM-AWHP-SURROGATE
+    display_name: Air-to-water heat-pump conceptual surrogate
+    short_name: AWHP surrogate
+    category: heating_plant
+    equipment_types: [air_to_water_heat_pump]
+    system_families: [hot_water_plant]
+    retrofit_classes: [electrification, capital]
+    description: Screen electrified heating as an electric-boiler object with COP above one.
+    engineering_rationale: The surrogate estimates fuel switching but not real heat-pump curves or defrost.
+    required_inputs: [annual_heating_load, proposed_cop]
+    optional_inputs: [design_outdoor_temperature, distribution_temperature]
+    proxy_calculator: null
+    energyplus_patch: awhp_surrogate
+    conceptual_surrogate: true
+    unit_contract: {heating_load: kWh_thermal/year, cop: W/W, savings: kWh/year}
+    applicability_checks: [Label as electric-boiler surrogate, Perform electrical capacity study]
+    incompatibilities: [ECM-BOILER-TUNE, ECM-CONDENSING-BOILER]
+    comfort_risk: high
+    implementation_complexity: high
+    confidence: low
+    status: CONCEPTUAL_ENERGYPLUS_PROXY
+
+  - <<: *defaults
+    ecm_id: ECM-CHILLER-LOCKOUT
+    display_name: Low-OAT chiller lockout
+    short_name: Chiller lockout
+    category: cooling_plant
+    equipment_types: [chiller]
+    system_families: [central_chilled_water, dx_cooling]
+    retrofit_classes: [controls, rcx]
+    description: Prevent mechanical cooling below an engineered outdoor-air threshold.
+    engineering_rationale: Economizer operation or low cooling demand can avoid compressor use.
+    required_inputs: [average_cooling_load_tons, eligible_hours, baseline_kw_per_ton]
+    optional_inputs: [mechanical_fraction_avoided]
+    proxy_calculator: economizer_proxy
+    energyplus_patch: chiller_lockout
+    conceptual_surrogate: true
+    unit_contract: {cooling_load: ton, efficiency: kW/ton, savings: kWh/year}
+    applicability_checks: [Confirm process cooling and humidity constraints]
+    humidity_risk: high
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-CHW-RESET
+    display_name: Chilled-water supply-temperature reset
+    short_name: CHW reset
+    category: cooling_plant
+    equipment_types: [chiller, chilled_water_loop]
+    system_families: [central_chilled_water]
+    retrofit_classes: [controls]
+    description: Raise chilled-water supply temperature when coil demand permits.
+    engineering_rationale: Reduced chiller lift improves compressor efficiency.
+    required_inputs: [annual_ton_hours, baseline_kw_per_ton, proposed_kw_per_ton]
+    optional_inputs: [critical_valve_position]
+    proxy_calculator: kw_per_ton_improvement
+    energyplus_patch: null
+    unit_contract: {cooling: ton-h/year, efficiency: kW/ton, savings: kWh/year}
+    applicability_checks: [Confirm dehumidification and critical coil capacity]
+    humidity_risk: high
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-CW-RESET
+    display_name: Condenser-water temperature reset
+    short_name: CW reset
+    category: cooling_plant
+    equipment_types: [chiller, cooling_tower]
+    system_families: [water_cooled_chiller]
+    retrofit_classes: [controls]
+    description: Optimize condenser-water setpoint against tower and chiller power.
+    engineering_rationale: The optimum balances lower condensing pressure against tower fan energy.
+    required_inputs: [annual_ton_hours, baseline_kw_per_ton, proposed_kw_per_ton]
+    optional_inputs: [wet_bulb_bins, tower_fan_power]
+    proxy_calculator: kw_per_ton_improvement
+    energyplus_patch: null
+    unit_contract: {temperature: degC, efficiency: kW/ton, savings: kWh/year}
+    applicability_checks: [Respect chiller minimum entering-water temperature]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-CHILLER-REPLACE-HIEFF
+    display_name: High-efficiency chiller replacement
+    short_name: Efficient chiller
+    category: cooling_plant
+    equipment_types: [chiller]
+    system_families: [central_chilled_water]
+    retrofit_classes: [capital]
+    description: Replace nominal chiller COP with a high-efficiency screening value.
+    engineering_rationale: Lower kW per ton reduces compressor electricity at equivalent load.
+    required_inputs: [annual_ton_hours, baseline_kw_per_ton, proposed_kw_per_ton]
+    optional_inputs: [part_load_curve]
+    proxy_calculator: kw_per_ton_improvement
+    energyplus_patch: high_efficiency_chiller
+    conceptual_surrogate: true
+    unit_contract: {cooling: ton-h/year, efficiency: kW/ton, savings: kWh/year}
+    applicability_checks: [Engineer chiller selection and part-load performance]
+    implementation_complexity: high
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-PUMP-VFD
+    display_name: Add variable-speed pumping
+    short_name: Pump VFD
+    category: cooling_plant
+    equipment_types: [pump, variable_frequency_drive]
+    system_families: [hydronic]
+    retrofit_classes: [controls, capital]
+    description: Reset pump speed or differential pressure to hydronic demand.
+    engineering_rationale: Pump power falls rapidly as speed is reduced.
+    required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
+    optional_inputs: [critical_valve_position]
+    proxy_calculator: pump_vfd
+    energyplus_patch: null
+    unit_contract: {design_power: kW, speed: fraction, savings: kWh/year}
+    applicability_checks: [Confirm minimum equipment flow and control-valve authority]
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-GEO-GSHP
+    display_name: Ground-source heat-pump conversion
+    short_name: GSHP conversion
+    category: geothermal
+    equipment_types: [ground_source_heat_pump, borefield]
+    system_families: [geothermal]
+    retrofit_classes: [electrification, capital]
+    description: Convert heating and cooling to a ground-coupled heat-pump system.
+    engineering_rationale: Stable ground temperatures can improve seasonal heat-pump efficiency.
+    required_inputs: [annual_heating_load, annual_cooling_load, site_area]
+    optional_inputs: [test_bore_data, geology]
+    proxy_calculator: null
+    energyplus_patch: null
+    conceptual_surrogate: true
+    unit_contract: {load: GJ/year, bore_length: m, cop: W/W}
+    applicability_checks: [Require geothermal feasibility and borefield design]
+    implementation_complexity: high
+    confidence: low
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-GEO-LOOP-OPT
+    display_name: Optimize existing geothermal loop
+    short_name: Geothermal loop optimization
+    category: geothermal
+    equipment_types: [ground_loop, heat_pump, pump]
+    system_families: [geothermal]
+    retrofit_classes: [controls, rcx]
+    description: Optimize loop pumping, temperature limits, and equipment staging.
+    engineering_rationale: Reduced pumping and improved heat-pump entering temperature lower electricity.
+    required_inputs: [loop_temperature_trends, pump_kw, heat_pump_runtime]
+    optional_inputs: [ground_loop_model]
+    proxy_calculator: pump_vfd
+    energyplus_patch: null
+    unit_contract: {temperature: degC, pump_power: kW, savings: kWh/year}
+    applicability_checks: [Confirm loop thermal balance]
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-HUMIDITY-DB-RESET
+    display_name: Reset dehumidification setpoints
+    short_name: Humidity deadband reset
+    category: humidity
+    equipment_types: [air_handling_unit, humidity_sensor]
+    system_families: [all_air]
+    retrofit_classes: [controls]
+    description: Widen or reset humidity control within approved indoor limits.
+    engineering_rationale: Avoiding unnecessary dehumidification and reheat reduces energy.
+    required_inputs: [zone_relative_humidity, baseline_setpoint, proposed_setpoint]
+    optional_inputs: [mold_risk_class, envelope_dewpoint_review]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {relative_humidity: percent, savings: kWh/year}
+    applicability_checks: [Complete envelope and IAQ humidity risk review]
+    humidity_risk: high
+    confidence: low
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-DESICCANT-OPT
+    display_name: Optimize desiccant system operation
+    short_name: Desiccant optimization
+    category: humidity
+    equipment_types: [desiccant_dehumidifier]
+    system_families: [dedicated_outdoor_air]
+    retrofit_classes: [controls]
+    description: Optimize wheel speed, regeneration temperature, and enable logic.
+    engineering_rationale: Matching latent treatment to demand reduces regeneration and fan energy.
+    required_inputs: [humidity_load, regeneration_energy, wheel_runtime]
+    optional_inputs: [wheel_performance_map]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {humidity_ratio: kg/kg, regeneration_energy: GJ/year}
+    applicability_checks: [Confirm process humidity requirements]
+    humidity_risk: high
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-REHEAT-HUMIDITY
+    display_name: Reduce humidity-control reheat
+    short_name: Humidity reheat reduction
+    category: humidity
+    equipment_types: [cooling_coil, reheat_coil]
+    system_families: [all_air]
+    retrofit_classes: [controls, rcx]
+    description: Coordinate cooling and reheat to avoid excessive latent-control reheat.
+    engineering_rationale: Stable deadbands and resets reduce simultaneous cooling and heating.
+    required_inputs: [cooling_valve_trend, reheat_valve_trend, zone_relative_humidity]
+    optional_inputs: [supply_air_dewpoint]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {temperature: degC, relative_humidity: percent, savings: kWh/year}
+    applicability_checks: [Verify humidity remains within approved range]
+    humidity_risk: high
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-SENSOR-CALIBRATION
+    display_name: Calibrate controls sensors
+    short_name: Sensor calibration
+    category: sensors_rcx
+    equipment_types: [building_automation_sensor]
+    system_families: [all]
+    retrofit_classes: [rcx, sensors]
+    description: Compare field sensors with traceable references and correct bias.
+    engineering_rationale: Bias can cause persistent simultaneous heating, cooling, or ventilation.
+    required_inputs: [sensor_inventory, reference_measurements]
+    optional_inputs: [trend_data]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {temperature_error: deltaC, pressure_error: Pa, airflow_error: percent}
+    applicability_checks: [Use traceable calibration procedure]
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-RCX-SETPOINT-REVIEW
+    display_name: Review BAS setpoints and overrides
+    short_name: Setpoint review
+    category: sensors_rcx
+    equipment_types: [building_automation_system]
+    system_families: [all]
+    retrofit_classes: [rcx]
+    description: Reconcile overrides and setpoints with approved sequences.
+    engineering_rationale: Stale overrides and conflicting setpoints commonly sustain avoidable loads.
+    required_inputs: [point_export, sequence_of_operations]
+    optional_inputs: [operator_log]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {setpoints: mixed, savings: kWh/year}
+    applicability_checks: [Require operator approval before releasing overrides]
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-RCX-SIMULTANEOUS-HC
+    display_name: Correct simultaneous heating and cooling
+    short_name: Simultaneous heat-cool RCx
+    category: sensors_rcx
+    equipment_types: [air_handling_unit, terminal_unit]
+    system_families: [vav_reheat]
+    retrofit_classes: [rcx, controls]
+    description: Correct valve leakage, deadbands, and sequence conflicts causing overlap.
+    engineering_rationale: Eliminating overlap directly avoids opposing thermal loads.
+    required_inputs: [heating_command, cooling_command, temperature_trends]
+    optional_inputs: [valve_leakage_test]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {valve_command: percent, temperature: degC, savings: kWh/year}
+    applicability_checks: [Distinguish required humidity reheat]
+    humidity_risk: medium
+    status: RESEARCH
+
+  - <<: *defaults
+    ecm_id: ECM-FDD-PERSISTENCE
+    display_name: Add fault-detection persistence workflow
+    short_name: FDD persistence
+    category: sensors_rcx
+    equipment_types: [building_automation_system, fdd_platform]
+    system_families: [all]
+    retrofit_classes: [rcx, software]
+    description: Add ongoing fault triage, disposition, and verification.
+    engineering_rationale: Persistence protects savings from overrides, drift, and failed components.
+    required_inputs: [fault_feed, owner_workflow]
+    optional_inputs: [cmms_integration]
+    proxy_calculator: null
+    energyplus_patch: null
+    unit_contract: {faults: count, persistence: days}
+    applicability_checks: [Assign accountable owner and response targets]
+    default_measure_life: 5
+    status: NEEDS_IMPLEMENTATION
+
+  - <<: *defaults
+    ecm_id: ECM-WINDOW-HP-GLAZING
+    display_name: High-performance glazing replacement
+    short_name: High-performance glazing
+    category: envelope
+    equipment_types: [window]
+    system_families: [building_envelope]
+    retrofit_classes: [capital, envelope]
+    description: Screen improved U-factor and solar heat-gain coefficient with simple glazing.
+    engineering_rationale: Better glazing reduces conductive and solar loads.
+    required_inputs: [window_area, baseline_u_factor, proposed_u_factor]
+    optional_inputs: [baseline_shgc, proposed_shgc]
+    proxy_calculator: null
+    energyplus_patch: high_performance_glazing
+    conceptual_surrogate: true
+    unit_contract: {u_factor: W/m2K, shgc: fraction, savings: kWh/year}
+    applicability_checks: [Confirm fenestration scope and condensation risk]
+    implementation_complexity: high
+    confidence: low
+    status: CONCEPTUAL_ENERGYPLUS_PROXY

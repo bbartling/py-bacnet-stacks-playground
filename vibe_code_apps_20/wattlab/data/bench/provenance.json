@@ -1,0 +1,47 @@
+{
+  "scheduling_fan_bins": {
+    "method_basis": "Fan power multiplied by independently derived schedule-hour reductions.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "scheduling_cooling_bins": {
+    "method_basis": "Outdoor-air enthalpy cooling loads integrated across weather and schedule bins.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "scheduling_heating_bins": {
+    "method_basis": "Outdoor-air sensible heating loads integrated below the balance point.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "oad_unoccupied_closed": {
+    "method_basis": "Avoided outdoor-air conditioning load during unoccupied schedule periods.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "dcv_bins": {
+    "method_basis": "Avoided ventilation airflow heating and cooling loads across occupied bins.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "static_pressure_reset": {
+    "method_basis": "Standard fan-law power relationships applied to pressure-reset speed reductions.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "dat_reset_bins": {
+    "method_basis": "Supply-air enthalpy reset and airflow fractions integrated by weather bin.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "hydronic_reset_bins": {
+    "method_basis": "Hydronic temperature-reset savings fractions integrated across load bins.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  },
+  "dewpoint_economizer": {
+    "method_basis": "Free-cooling enthalpy savings integrated across eligible weather bins.",
+    "statement": "Independently implemented from standard HVAC engineering relationships and validated numerically against private legacy calculations. The private workbook is not distributed, required, or embedded.",
+    "runtime_dependency": false
+  }
+}

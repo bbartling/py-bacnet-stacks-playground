@@ -1,0 +1,90 @@
+! Tiny synthetic IDF fixture for capacity / sizing / ventilation patch tests.
+! Object names intentionally match tests/fixtures/sizing_eplusout.eio rows.
+
+  Version,26.1;
+
+  Chiller:Electric,
+    Central Chiller,         !- Name
+    AirCooled,               !- Condenser Type
+    autosize,                !- Nominal Capacity {W}
+    3.2,                     !- Nominal COP {W/W}
+    Central Chiller Inlet Node,  !- Chilled Water Inlet Node Name
+    Central Chiller Outlet Node;  !- Chilled Water Outlet Node Name
+
+  Boiler:HotWater,
+    Central Boiler,          !- Name
+    NaturalGas,              !- Fuel Type
+    autosize,                !- Nominal Capacity {W}
+    0.8,                     !- Nominal Thermal Efficiency
+    Central Boiler Inlet Node,  !- Boiler Water Inlet Node Name
+    Central Boiler Outlet Node;  !- Boiler Water Outlet Node Name
+
+  Fan:VariableVolume,
+    Supply Fan 1,            !- Name
+    FanAvailSched,           !- Availability Schedule Name
+    0.7,                     !- Fan Total Efficiency
+    600.0,                   !- Pressure Rise {Pa}
+    autosize,                !- Maximum Flow Rate {m3/s}
+    Fraction,                !- Fan Power Minimum Flow Rate Input Method
+    0.25,                    !- Fan Power Minimum Flow Fraction
+    Main Heating Coil 1 Outlet Node,  !- Air Inlet Node Name
+    VAV Sys 1 Outlet Node;   !- Air Outlet Node Name
+
+  Coil:Cooling:Water,
+    Main Cooling Coil 1,     !- Name
+    CoolingCoilAvailSched,   !- Availability Schedule Name
+    autosize,                !- Design Water Flow Rate {m3/s}
+    autosize,                !- Design Air Flow Rate {m3/s}
+    Main Cooling Coil 1 Water Inlet Node,  !- Water Inlet Node Name
+    Main Cooling Coil 1 Water Outlet Node;  !- Water Outlet Node Name
+
+  Coil:Heating:Water,
+    Main Heating Coil 1,     !- Name
+    ReheatCoilAvailSched,    !- Availability Schedule Name
+    autosize,                !- U-Factor Times Area Value {W/K}
+    autosize,                !- Maximum Water Flow Rate {m3/s}
+    UFactorTimesAreaAndDesignWaterFlowRate,  !- Performance Input Method
+    autosize;                !- Rated Capacity {W}
+
+  AirTerminal:SingleDuct:VAV:Reheat,
+    SPACE1-1 VAV Reheat,     !- Name
+    ReheatCoilAvailSched,    !- Availability Schedule Name
+    SPACE1-1 Zone Coil Air In Node,  !- Damper Air Outlet Node Name
+    SPACE1-1 ATU In Node,    !- Air Inlet Node Name
+    autosize,                !- Maximum Air Flow Rate {m3/s}
+    Constant,                !- Zone Minimum Air Flow Input Method
+    0.3;                     !- Constant Minimum Air Flow Fraction
+
+  ZoneInfiltration:DesignFlowRate,
+    SPACE1-1 Infil 1,        !- Name
+    SPACE1-1,                !- Zone or ZoneList or Space or SpaceList Name
+    INFIL-SCH,               !- Schedule Name
+    flow/zone,               !- Design Flow Rate Calculation Method
+    0.032,                   !- Design Flow Rate {m3/s}
+    0,                       !- Constant Term Coefficient
+    0,                       !- Temperature Term Coefficient
+    0.2237,                  !- Velocity Term Coefficient
+    0;                       !- Velocity Squared Term Coefficient
+
+  Controller:OutdoorAir,
+    OA Controller 1,         !- Name
+    Relief Air Outlet Node 1,!- Relief Air Outlet Node Name
+    VAV Sys 1 Inlet Node,    !- Return Air Node Name
+    Mixed Air Node 1,        !- Mixed Air Node Name
+    Outside Air Inlet Node 1,!- Actuator Node Name
+    autosize,                !- Minimum Outdoor Air Flow Rate {m3/s}
+    autosize,                !- Maximum Outdoor Air Flow Rate {m3/s}
+    DifferentialDryBulb,     !- Economizer Control Type
+    ModulateFlow,            !- Economizer Control Action Type
+    19.,                     !- Economizer Maximum Limit Dry-Bulb Temperature {C}
+    4.6,                     !- Economizer Minimum Limit Dry-Bulb Temperature {C}
+    NoLockout,               !- Lockout Type
+    FixedMinimum,            !- Minimum Limit Type
+    Min OA Sched;            !- Minimum Outdoor Air Schedule Name
+
+  Schedule:Compact,
+    Min OA Sched,            !- Name
+    Fraction,                !- Schedule Type Limits Name
+    Through: 12/31,          !- Field 1
+    For: AllDays,            !- Field 2
+    Until: 24:00,1.0;        !- Field 3

@@ -91,7 +91,10 @@ Never silently substitute office / Madison / Chicago for a real dump.
 - Never skip Docker for live sims: image `energyplus-mcp-dev` (EnergyPlus 26.1) is required.
 - Never overwrite a prior run’s IDF without hashing (`input_hash` = SHA-256 of IDF); write `run_manifest.json` with model/weather hashes + EP pin.
 - Never silently substitute weather — stamp `weather_suitability` (`TYPICAL_YEAR_SCREENING` / `ACTUAL_YEAR_CALIBRATION` / `SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`) on every report.
-- Never claim `VALIDATED` without a held-out bill period (`--validation-months`) that passes Guideline-14 gates; no bills or substitute weather → `CONCEPTUAL_ONLY`.
+- Never claim `VALIDATED` without a held-out bill period (`--validation-months`) that passes Guideline-14 gates; no bills or substitute weather → `CONCEPTUAL_ONLY` / `CONCEPTUAL_HYPOTHESIS`.
+- Existing Building Hypothesis Lab badges: `CONCEPTUAL_HYPOTHESIS` (no bills), `MONTHLY_CALIBRATED` (bills present), `VALIDATED` only with `holdout_passed`.
+- Keep proprietary deny-list terms out of git — commit only SHA-256 hashes via `wattlab.privacy`.
+- Canonical ECM metadata is only `wattlab/measures/catalog.yaml`; Studio/CLI/docs must not invent parallel registries.
 - Never bundle interacting ECMs while reporting them as independent savings — apply one approved measure at a time.
 - Never publish utility savings or payback without listing rate and confidence assumptions.
 - Never expose the actual building location when the project is marked anonymized.
@@ -134,17 +137,21 @@ Evidence record · applicability decision · baseline parameters · proposed par
 
 WattLab is an installable package: `pip install -e .` → `import wattlab`, CLI `wattlab`
 (subcommands: `twin`, `defaults`, `easy-button`, `calibrate`, `bridge`, `epw`, `bench`,
-`crosscheck`, `benchmark`, `seed`, `studio`). Old flat scripts remain as shims.
+`crosscheck`, `benchmark`, `seed`, `explore-existing`, `ecm`, `studio`). Old flat scripts remain as shims.
 
 | Path | Role |
 |---|---|
-| `wattlab/twin.py` | **Start here** — dump zip → gap checklist → resolved profile → FDD bridge |
+| `wattlab/existing_building/` | Existing Building Hypothesis Lab (`wattlab explore-existing`) |
+| `wattlab/ecm/` + `wattlab/measures/catalog.yaml` | Canonical ECM registry, packages, Easy Buttons CLI |
+| `wattlab/units/` | SI-first quantity conversions and display helpers |
+| `wattlab/privacy/` | Hash-only proprietary-content scanner |
+| `wattlab/twin.py` | **Start here for dumps** — dump zip → gap checklist → resolved profile → FDD bridge |
 | `wattlab/defaults.py` | responsive-defaults resolver (`field_sources` provenance); data in `wattlab/data/defaults/` |
 | `wattlab/seed/` | vibe19 WattLab dump loader (`load_bundle`) + gap report |
 | `wattlab/benchmarks/` | EUI peer bands (`eui.py`), retrofit-cost bands (`costs.py`), shared-meter campus model + allocation scenarios (`meters.py`), ROI guardrail gate (`guardrails.py`); data in `wattlab/data/benchmarks/` |
 | `wattlab/weather/bins.py` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, NOAA DC table |
 | `wattlab/weather/epw.py` | AMY EPW builder |
-| `wattlab/bench/` | Proxy calculators + ESCO bin-method calculators (`esco.py`, golden-tested vs source workbooks) |
+| `wattlab/bench/` | Proxy calculators + bin-method calculators (`esco.py`, synthetic golden tests) |
 | `wattlab/finance.py` | Payback / ROI / NPV / capital-plan rollup + CSV/JSON export |
 | `wattlab/crosscheck.py` | E+ vs ESCO proxy referee (agreement ratio, G14 gates, verdicts) |
 | `wattlab/easy_button.py` | Prototype → baseline → ECM chain (`--measure-set`, `--minimal`); report gains a `crosscheck` block when `proxy_savings` present |

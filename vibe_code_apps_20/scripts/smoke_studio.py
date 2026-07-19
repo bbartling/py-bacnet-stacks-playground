@@ -16,7 +16,17 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PAGES = ["Ingest", "Model", "Benchmark", "Measures", "Twin loop", "Capital plan"]
+PAGES = [
+    "Ingest",
+    "Model",
+    "Benchmark",
+    "Measures",
+    "Twin loop",
+    "EP Results",
+    "Hypothesis Lab",
+    "ECM Easy Buttons",
+    "Capital plan",
+]
 
 
 def _fail(at, page: str) -> int:
@@ -54,9 +64,17 @@ def main() -> int:
         return _fail(at, "Benchmark(gas_share)")
 
     at.radio(key="studio_page").set_value("Model").run()
+    at.text_input(key="studio_btype").set_value("office")
+    at.text_input(key="studio_city").set_value("madison")
+    at.number_input(key="studio_area").set_value(75000.0)
     at.button[0].set_value(True).run()
     if at.exception:
         return _fail(at, "Model(resolve)")
+    try:
+        at.session_state["studio_profile"]
+    except KeyError:
+        print("FAIL on page 'Model(resolve)': profile was not resolved")
+        return 1
 
     at.radio(key="studio_page").set_value("Measures").run()
     at.button(key="studio_build_measures").click().run()

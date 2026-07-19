@@ -1,0 +1,10 @@
+Program Version,EnergyPlus, Version 26.1.0-fixture, YMD=2026.07.18 12:00,
+   ** Warning ** Weather file location will be used rather than entered (IDF) Location object.
+   **   ~~~   ** ..Location object=CHICAGO_IL_USA TMY2-94846
+   **   ~~~   ** ..Weather File Location=Chicago Ohare Intl Ap IL USA TMY3 WMO#=725300
+   ** Warning ** SetUpDesignDay: Entered DesignDay Barometric Pressure=101325 differs by more than 10% from Standard Barometric Pressure=98934.
+   ************* Testing Individual Branch Integrity
+   ************* All Branches passed integrity testing
+   ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
+   ************* EnergyPlus Sizing Error Summary. During Sizing: 2 Warning; 0 Severe Errors.
+   ************* EnergyPlus Completed Successfully-- 2 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  8.02sec

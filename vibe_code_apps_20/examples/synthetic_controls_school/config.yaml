@@ -1,0 +1,50 @@
+project_id: SYNTHETIC_CONTROLS_SCHOOL
+display_name: Synthetic mixed pneumatic/DDC school
+building_type: school
+city: detroit
+floor_area_ft2: 100000
+floors: 2
+hvac:
+  fuel: gas
+  airside: vav
+  plant: chw_hw
+notes:
+  - Mixed pneumatic zone controls and old DDC AHU panels
+  - Inlet guide vanes on major supply fans
+  - Pneumatic compressor still in service
+  - Fixed OA damper positions; incomplete schedules
+capacity_factors:
+  cooling_plant: [1.0, 0.7]
+  heating_plant: [1.0, 0.6]
+  supply_airflow: [1.0]
+  cooling_coils: [1.0, 0.7]
+  heating_coils: [1.0, 0.6]
+operating_hours:
+  occupied:
+    monday_friday: ["07:00", "17:00"]
+    saturday: ["08:00", "12:00"]
+    sunday: closed
+  weather_extensions:
+    hot:
+      outdoor_air_threshold_f: 88
+      early_start_hours: 2
+      late_stop_hours: 3
+      allow_overnight: false
+    cold:
+      outdoor_air_threshold_f: 10
+      early_start_hours: 3
+      late_stop_hours: 2
+      allow_overnight: true
+ventilation_scenarios:
+  - archetype
+  - 0.5
+  - 0.0
+  - stuck_closed
+max_scenarios: 40
+demo_packages:
+  - pneumatic-to-ddc
+  - partial-g36
+  - full-g36-conceptual
+  - controls-only
+  - plant-optimization
+  - no-capital-rcx

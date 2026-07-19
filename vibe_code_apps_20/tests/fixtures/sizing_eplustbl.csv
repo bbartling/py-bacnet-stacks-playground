@@ -1,0 +1,28 @@
+Program Version:,EnergyPlus, Version 26.1.0-fixture, YMD=2026.07.18 12:00
+Tabular Output Report in Format: ,Comma
+
+Report:,Equipment Summary
+For:,Entire Facility
+
+Central Plant
+
+,,Type,Nominal Capacity [W],Nominal Efficiency [W/W]
+,CENTRAL CHILLER,Chiller:Electric,34875.52,3.20
+,CENTRAL BOILER,Boiler:HotWater,41049.11,0.80
+
+Cooling Coils
+
+,,Type,Design Coil Load [W],Nominal Total Capacity [W],Nominal Sensible Capacity [W]
+,MAIN COOLING COIL 1,Coil:Cooling:Water,28911.62,28911.62,20139.55
+,OA COOLING COIL 1,Coil:Cooling:Water,4210.44,4210.44,3122.87
+
+Heating Coils
+
+,,Type,Design Coil Load [W],Nominal Total Capacity [W]
+,MAIN HEATING COIL 1,Coil:Heating:Water,12244.32,12244.32
+,SPACE1-1 ZONE COIL,Coil:Heating:Water,3524.30,3524.30
+
+Fans
+
+,,Type,Total Efficiency [W/W],Delta Pressure [pa],Max Air Flow Rate [m3/s],Rated Electricity Rate [W],Motor Heat In Air Fraction
+,SUPPLY FAN 1,Fan:VariableVolume,0.70,600.00,1.06,908.01,1.00

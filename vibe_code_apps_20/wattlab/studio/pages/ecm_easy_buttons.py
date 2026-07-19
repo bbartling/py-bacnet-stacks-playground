@@ -1,0 +1,140 @@
+"""Catalog-driven ECM Easy Buttons Studio page."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Callable
+from typing import Any
+
+import pandas as pd
+import streamlit as st
+
+from wattlab.ecm.catalog import ECMEntry, load_catalog
+from wattlab.ecm.interactions import detect_incompatibilities
+from wattlab.ecm.packages import PACKAGES, resolve_package
+from wattlab.studio.state import namespaced_key
+
+NS = "ecm_easy"
+ProxyEstimator = Callable[[dict[str, Any], list[str]], dict[str, dict[str, float]]]
+
+
+def _key(name: str) -> str:
+    return namespaced_key(NS, name)
+
+
+def _selected_entries(entries: list[ECMEntry], package_names: list[str]) -> list[str]:
+    selected = [
+        entry.ecm_id
+        for entry in entries
+        if st.session_state.get(_key(f"select.{entry.ecm_id}"), False)
+    ]
+    for package_name in package_names:
+        selected.extend(resolve_package(package_name))
+    return list(dict.fromkeys(selected))
+
+
+def render(
+    *,
+    profile: dict[str, Any] | None = None,
+    proxy_estimator: ProxyEstimator | None = None,
+) -> None:
+    """Render catalog cards, packages, compatibility checks, and safe actions."""
+
+    st.header("ECM Easy Buttons")
+    st.caption(
+        "Build a screening scenario from the canonical ECM catalog. "
+        "Availability and evidence status remain visible before every action."
+    )
+    try:
+        entries = load_catalog().list()
+    except (OSError, ValueError, ImportError) as exc:
+        st.info(f"The ECM catalog is unavailable: {exc}")
+        return
+
+    packages = st.multiselect(
+        "Bulk-select packages",
+        sorted(PACKAGES),
+        key=_key("packages"),
+        help="Packages include catalog dependencies automatically.",
+    )
+
+    grouped: dict[str, list[ECMEntry]] = defaultdict(list)
+    for entry in entries:
+        grouped[entry.category].append(entry)
+    for category in sorted(grouped):
+        with st.expander(category, expanded=False):
+            for entry in grouped[category]:
+                with st.container(border=True):
+                    left, right = st.columns([4, 1])
+                    left.markdown(f"**{entry.display_name}**  \n{entry.description}")
+                    right.checkbox(
+                        "Select",
+                        key=_key(f"select.{entry.ecm_id}"),
+                    )
+                    st.caption(
+                        f"`{entry.ecm_id}` · status **{entry.status}** · "
+                        f"confidence **{entry.confidence}** · "
+                        f"proxy {'✓' if entry.proxy_calculator else '—'} · "
+                        f"EnergyPlus {'✓' if entry.energyplus_patch else '—'}"
+                    )
+
+    selected = _selected_entries(entries, packages)
+    issues = detect_incompatibilities(selected) if selected else []
+    for issue in issues:
+        st.warning(issue.note)
+
+    a1, a2, a3 = st.columns(3)
+    if a1.button("Add to scenario", key=_key("add"), width="stretch"):
+        st.session_state[_key("scenario_ids")] = selected
+        if selected:
+            st.success(f"Added {len(selected)} ECMs to the scenario.")
+        else:
+            st.info("Select an ECM or package first.")
+
+    scenario_ids = st.session_state.get(_key("scenario_ids"), selected)
+    if a2.button(
+        "Calculate Proxy",
+        key=_key("calculate_proxy"),
+        width="stretch",
+        disabled=not scenario_ids,
+    ):
+        if proxy_estimator is None:
+            st.session_state[_key("proxy_results")] = {
+                ecm_id: {
+                    "savings_kwh": 0.0,
+                    "savings_therms": 0.0,
+                    "note": "No screening calculator is registered in this host.",
+                }
+                for ecm_id in scenario_ids
+            }
+        else:
+            st.session_state[_key("proxy_results")] = proxy_estimator(
+                profile or {}, scenario_ids
+            )
+
+    blocked = [
+        load_catalog().get(ecm_id)
+        for ecm_id in scenario_ids
+        if load_catalog().get(ecm_id).status in {"NEEDS_IMPLEMENTATION", "RESEARCH"}
+    ]
+    run_disabled = not scenario_ids or bool(blocked)
+    a3.button(
+        "Run EnergyPlus",
+        key=_key("run_energyplus"),
+        width="stretch",
+        disabled=run_disabled,
+        help=(
+            "Disabled for NEEDS_IMPLEMENTATION or RESEARCH ECMs. "
+            "Conceptual EnergyPlus proxies remain explicitly labeled and selectable."
+        ),
+    )
+    if blocked:
+        st.warning(
+            "EnergyPlus is disabled because the scenario contains: "
+            + ", ".join(f"{entry.ecm_id} ({entry.status})" for entry in blocked)
+        )
+
+    proxy_results = st.session_state.get(_key("proxy_results"))
+    if proxy_results:
+        rows = [{"ecm_id": ecm_id, **values} for ecm_id, values in proxy_results.items()]
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)

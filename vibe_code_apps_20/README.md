@@ -16,6 +16,9 @@ wattlab twin path\to\wattlab_dump.zip          # start here: gaps -> profile -> 
 wattlab twin path\to\wattlab_dump.zip --inputs answers.json --measure-set better
 wattlab seed path\to\wattlab_dump.zip          # inspect a vibe19 dump
 wattlab seed path\to\wattlab_dump.zip --gaps --strict   # exit 1 if required gaps missing
+wattlab explore-existing --config examples\poorly_documented_existing_building\config.yaml --dry-run
+wattlab ecm list                               # canonical ECM catalog
+wattlab ecm package partial-g36
 wattlab benchmark examples\liberty\campus.json # annualize bills + peer-band compare
 wattlab studio                                  # launch WattLab Studio (Streamlit)
 ```
@@ -31,24 +34,40 @@ Old flat-script entry points (`python easy_button.py …`) keep working via thin
 | `wattlab.benchmarks` | Benchmark governance: EUI peer bands (EPA/CBECS), retrofit-cost bands (LBNL/RMI, with unit basis + vintage + confidence), shared-meter allocation scenarios, and the ROI guardrail gate |
 | `wattlab.weather.bins` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, built-in NOAA Washington DC table, `from_hourly` for `weather_observed.csv` |
 | `wattlab.weather.epw` | AMY EPW builder |
-| `wattlab.bench` | Proxy calculators + **ESCO bin-method calculators** ported from the source ESCO workbooks (`wattlab.bench.esco`) with golden tests |
+| `wattlab.bench` | Proxy calculators + open, independently implemented **HVAC bin-method screening calculators** (`wattlab.bench.esco`) with synthetic golden tests |
 | `wattlab.finance` | Payback / ROI / NPV / escalated cash flows / capital-plan rollup + CSV/JSON export |
 | `wattlab.crosscheck` | EnergyPlus-vs-proxy referee: agreement ratios, ASHRAE G14 gates, `in_line` / `investigate` / `keep_iterating` verdicts |
 | `wattlab.energyplus` | Docker runner, MCP client, results parsing, run manifests, IDF patches |
 | `wattlab.measures` | Good/Better/Best measure sets |
 | `wattlab.bridge` / `wattlab.calibrate` / `wattlab.easy_button` | vibe19 bridge, calibration, progressive ECM runs |
 
-### ESCO bin-method calculators (`wattlab.bench.esco`)
+### Bin-method calculators (`wattlab.bench.esco`)
 
-Ported 1:1 from real ESCO retrofit calculator workbooks and verified against the
-spreadsheets' own cell values (see `tests/test_esco_golden.py`):
+Open, independently implemented HVAC bin-method screening calculators with
+synthetic golden tests (see `tests/test_esco_golden.py`):
 
 `scheduling_fan_bins` · `scheduling_cooling_bins` · `scheduling_heating_bins` ·
 `oad_unoccupied_closed` · `dcv_bins` · `static_pressure_reset` ·
-`dat_reset_bins` · `hydronic_reset_bins` · `dewpoint_economizer`
+`dat_reset_bins` · `hydronic_reset_bins` · `dewpoint_economizer` ·
+`chw_reset` · `condenser_water_reset` · `pneumatic_compressor`
 
 All are driven by a `WeatherBins` table (NOAA-style rows, hourly OAT series, or
 the built-in Washington DC table) plus shift schedules and equipment inventory.
+Privacy/provenance: [`docs/PRIVACY_AND_PROVENANCE.md`](docs/PRIVACY_AND_PROVENANCE.md).
+
+### Existing Building Hypothesis Lab
+
+`wattlab explore-existing` investigates sparse existing buildings (autosizing,
+capacity, weather-responsive schedules, ventilation hypotheses, proxy
+crosschecks). Badge stays `CONCEPTUAL_HYPOTHESIS` without held-out bills.
+Examples:
+[`examples/poorly_documented_existing_building/`](examples/poorly_documented_existing_building/),
+[`examples/synthetic_controls_school/`](examples/synthetic_controls_school/)
+(IP + SI configs). Docs: [ECM Easy Buttons](docs/ECM_EASY_BUTTONS.md),
+[units](docs/UNITS_AND_CONVERSIONS.md),
+[privacy](docs/PRIVACY_AND_PROVENANCE.md),
+[benchmarks](docs/CONTROLS_RETROFIT_BENCHMARKS.md),
+[interactions](docs/ECM_INTERACTIONS.md).
 
 ### WattLab Studio
 
@@ -58,9 +77,12 @@ cockpit, fully functional in dry-run without Docker:
 1. **Ingest** — upload the vibe19 WattLab dump zip → summary, gap checklist, fault highlights
 2. **Model** — profile editor seeded by defaults + dump, provenance table, calibration badge
 3. **Benchmark** — bills before models: annualized EUIs vs EPA/CBECS peer bands (Plotly), shared-meter allocation scenarios side-by-side, monthly gas/electric+demand signatures (Liberty example pre-filled)
-4. **Measures** — catalog + FDD-suggested measures with ESCO proxy savings and editable costs
-5. **Twin loop** — dry-run plan or Docker EnergyPlus runs, iteration history, crosscheck verdicts
-6. **Capital plan** — payback/ROI/NPV rollup gated by the benchmark guardrails (`PUBLISH` / `INVESTIGATE`), CSV/JSON export
+4. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
+5. **ECM Easy Buttons** — catalog-driven cards/packages with proxy and conceptual E+ actions
+6. **Measures** — catalog + FDD-suggested measures with proxy savings and editable costs
+7. **Twin loop** — dry-run plan or Docker EnergyPlus runs, iteration history, crosscheck verdicts
+8. **EP Results** — post-sim charts / scorecards
+9. **Capital plan** — payback/ROI/NPV rollup gated by the benchmark guardrails (`PUBLISH` / `INVESTIGATE`), CSV/JSON export
 
 ### Benchmark governance (`wattlab.benchmarks`)
 
@@ -324,7 +346,7 @@ cd vibe_code_apps_20
 python -m pytest tests -q
 ```
 
-Unit tests scrub legacy brand strings and exercise dry-run / IDF patches. Docker tests (`test_ep_docker_smoke.py`) skip if the image is missing. Golden tests (`test_esco_golden.py`) pin the ESCO calculators to the source workbook cell values; `test_studio_app.py` drives WattLab Studio via Streamlit AppTest (dry-run path); `test_package_shims.py` guards the legacy script entry points.
+Unit tests scrub proprietary terms and exercise dry-run / IDF patches. Docker tests (`test_ep_docker_smoke.py`) skip if the image is missing. Golden tests (`test_esco_golden.py`) pin calculators to synthetic engineering fixtures; `test_studio_app.py` drives WattLab Studio via Streamlit AppTest (dry-run path); `test_package_shims.py` guards the legacy script entry points.
 
 ## Cursor MCP (full toolkit)
 

@@ -1,0 +1,8 @@
+Program Version,EnergyPlus, Version 26.1.0-fixture, YMD=2026.07.18 12:00,
+   ** Warning ** Weather file location will be used rather than entered (IDF) Location object.
+   **   ~~~   ** ..Location object=CHICAGO_IL_USA TMY2-94846
+   ** Severe  ** Temperature (low) out of bounds [-104.62] for zone="SPACE1-1", for surface="WALL-1PF"
+   **   ~~~   ** During Warmup, Environment=CHICAGO ANN HTG 99% CONDNS DB, at Simulation time=01/21 00:10 - 00:12
+   **   ~~~   ** ..Zone air temperature = -87.55
+   ** Severe  ** Plant temperatures are getting far too cold, check controls and relative loads and capacities
+   ************* EnergyPlus Completed Successfully-- 1 Warning; 2 Severe Errors; Elapsed Time=00hr 00min  9.31sec

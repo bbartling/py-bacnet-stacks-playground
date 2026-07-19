@@ -10,6 +10,8 @@ pytest.importorskip("streamlit")
 
 from streamlit.testing.v1 import AppTest
 
+from wattlab.studio.state import invalidate_dependent_state, namespaced_key
+
 ROOT = Path(__file__).resolve().parents[1]
 STUDIO = ROOT / "studio.py"
 TIMEOUT = 60
@@ -23,6 +25,18 @@ def _boot(page: str | None = None) -> AppTest:
         at.radio(key="studio_page").set_value(page).run()
         assert not at.exception
     return at
+
+
+def test_studio_state_namespaces_and_invalidates_derived_results():
+    state = {"unrelated": "keep"}
+    assert namespaced_key("hypothesis_lab", "result") == "hypothesis_lab.result"
+    assert not invalidate_dependent_state(state, profile={"city": "madison"})
+    state["hypothesis_lab.result"] = {"badge": "CONCEPTUAL_HYPOTHESIS"}
+    state["ecm_easy.scenario_ids"] = ["ECM-AHU-SCHED-ALIGN"]
+    assert invalidate_dependent_state(state, profile={"city": "detroit"})
+    assert "hypothesis_lab.result" not in state
+    assert "ecm_easy.scenario_ids" not in state
+    assert state["unrelated"] == "keep"
 
 
 def test_studio_boots_on_ingest():
@@ -39,6 +53,30 @@ def test_studio_ep_results_page_loads_without_dump():
     # Empty state should hint, not crash
     info_text = " ".join(str(b.value) for b in at.info)
     assert "eplusout" in info_text.lower() or "dump" in info_text.lower() or "scorecard" in info_text.lower()
+
+
+@pytest.mark.parametrize("page", ["Hypothesis Lab", "ECM Easy Buttons"])
+def test_studio_new_pages_load_without_inputs(page):
+    at = _boot(page)
+    assert at.radio(key="studio_page").value == page
+    assert not at.exception
+
+
+def test_hypothesis_lab_dry_run_produces_conceptual_plan():
+    at = _boot("Hypothesis Lab")
+    at.button(key="hypothesis_lab.run_dry").click().run()
+    assert not at.exception
+    result = at.session_state["hypothesis_lab.result"]
+    assert result["badge"] == "CONCEPTUAL_HYPOTHESIS"
+    assert result["dry_run"] is True
+
+
+def test_ecm_easy_buttons_can_add_package_to_scenario():
+    at = _boot("ECM Easy Buttons")
+    at.multiselect(key="ecm_easy.packages").set_value(["low-cost"]).run()
+    at.button(key="ecm_easy.add").click().run()
+    assert not at.exception
+    assert at.session_state["ecm_easy.scenario_ids"]
 
 
 def test_studio_model_resolves_profile_with_defaults():
