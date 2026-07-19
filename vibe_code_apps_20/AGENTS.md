@@ -74,6 +74,12 @@ Never silently substitute office / Madison / Chicago for a real dump.
 
 > This is a conceptual, uncalibrated screening model. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific real property until bills + AMY weather pass Guideline-14 gates and the human confirms geometry.
 
+### Modeling honesty (operator scenarios)
+
+- **Autosizing ≠ existing capacity.** EnergyPlus autosizing sizes to modeled design loads; it does **not** recover reported undersized HVAC from fuel totals. Keep separate scenarios: (A) conceptual autosized baseline, (B) existing-capacity / nameplate cap, (C) AHU outage + recovery. Report unmet hours, zone excursions, peak deficit — never call autosized results “calibrated” from annual kWh/therms alone.
+- **Zero outside air is a verified operating scenario**, not a safe default. Compare against a minimum-ventilation sensitivity. Zero OA can mask undersized plant capacity.
+- **Bills must overlap the telemetry/AMY window on YYYY-MM.** `compare_bills_to_monthly` returns `period_mismatch` when bill years and sim/telemetry years do not overlap (e.g. Dec 2024–Nov 2025 bills vs Mar–Jul 2026 dump). Use `wattlab seed import-bills` for privacy-safe CSV → `utility_bills.csv` (never commit xlsx workbooks). Shared electric meters require an explicit `--allocation` / `--electric-share` scenario.
+
 ## Mandatory reading order
 
 1. This file (`AGENTS.md`)

@@ -291,18 +291,74 @@ def compare_signature_maps(
     }
 
 
+def normalize_bill_month_key(value: Any, *, default_year: int | None = None) -> str | None:
+    """Normalize bill/sim month keys to ``YYYY-MM`` when possible.
+
+    Accepts:
+    - ``YYYY-MM`` / ``YYYY-MM-DD`` strings
+    - integer month 1–12 (legacy) → ``{default_year}-{mm}`` when year known
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        s = value.strip()
+        if len(s) >= 7 and s[4] == "-":
+            return s[:7]
+        try:
+            m = int(float(s))
+        except (TypeError, ValueError):
+            return None
+    else:
+        try:
+            m = int(value)
+        except (TypeError, ValueError):
+            return None
+    if not 1 <= m <= 12:
+        return None
+    if default_year is None:
+        # Legacy bare month: keep as zero-padded sentinel year 0001 so same-month
+        # joins still work within a single synthetic year, but period overlap
+        # detection can see the missing calendar year.
+        return f"0001-{m:02d}"
+    return f"{int(default_year)}-{m:02d}"
+
+
+def _bill_calendar_years(bills: list[dict[str, Any]]) -> set[int]:
+    years: set[int] = set()
+    for b in bills:
+        key = normalize_bill_month_key(b.get("month") or b.get("period"))
+        if key and not key.startswith("0001-"):
+            years.add(int(key[:4]))
+    return years
+
+
 def load_utility_bills(bundle: Path, seed: dict[str, Any]) -> list[dict[str, Any]]:
     bills = seed.get("utility_bills")
     if isinstance(bills, list) and bills:
-        return bills
+        out: list[dict[str, Any]] = []
+        for b in bills:
+            if not isinstance(b, dict):
+                continue
+            key = normalize_bill_month_key(b.get("month") or b.get("period"))
+            if key is None:
+                continue
+            row = dict(b)
+            row["month"] = key
+            row["period"] = key
+            out.append(row)
+        return out
     path = bundle / "utility_bills.csv"
     rows = _read_csv(path)
-    out: list[dict[str, Any]] = []
+    out = []
     for r in rows:
         try:
+            key = normalize_bill_month_key(r.get("month") or r.get("period"))
+            if key is None:
+                continue
             out.append(
                 {
-                    "month": int(float(r.get("month") or 0)),
+                    "month": key,
+                    "period": key,
                     "kwh": float(r["kwh"]) if r.get("kwh") not in (None, "") else None,
                     "therms": float(r["therms"]) if r.get("therms") not in (None, "") else None,
                 }
@@ -315,20 +371,78 @@ def load_utility_bills(bundle: Path, seed: dict[str, Any]) -> list[dict[str, Any
 def compare_bills_to_monthly(
     bills: list[dict[str, Any]],
     monthly: list[dict[str, Any]],
+    *,
+    data_window: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Dual-fuel monthly G14 compare (electricity kWh + gas therms when present)."""
-    by_m = {int(m["month"]): m for m in monthly if m.get("month")}
+    """Dual-fuel monthly G14 compare (electricity kWh + gas therms when present).
+
+    Keys months as ``YYYY-MM`` when available. When bill years and simulation /
+    telemetry windows do not overlap, returns ``period_mismatch`` and does not
+    report a false G14 pass on coincidental month numbers.
+    """
+    sim_year: int | None = None
+    if data_window:
+        for k in ("start_utc", "end_utc", "start", "end"):
+            v = data_window.get(k)
+            if isinstance(v, str) and len(v) >= 4 and v[:4].isdigit():
+                sim_year = int(v[:4])
+                break
+
+    bill_years = _bill_calendar_years(bills)
+    # Infer sim year from monthly rows when present as YYYY-MM.
+    for m in monthly:
+        key = normalize_bill_month_key(m.get("month") or m.get("period"), default_year=sim_year)
+        if key and not key.startswith("0001-"):
+            sim_year = int(key[:4])
+            break
+
+    period_mismatch = False
+    mismatch_reason = ""
+    if bill_years and sim_year is not None and sim_year not in bill_years:
+        # Also accept adjacent-year windows that still share YYYY-MM keys below.
+        period_mismatch = True
+        mismatch_reason = (
+            f"bill_years={sorted(bill_years)} do not include simulation/telemetry "
+            f"year={sim_year}; refuse month-number-only join"
+        )
+
+    by_m: dict[str, dict[str, Any]] = {}
+    for m in monthly:
+        key = normalize_bill_month_key(m.get("month") or m.get("period"), default_year=sim_year)
+        if key:
+            by_m[key] = m
+
     obs_kwh: list[float] = []
     sim_kwh: list[float] = []
     obs_therms: list[float] = []
     sim_therms: list[float] = []
     per_month: list[dict[str, Any]] = []
+    unmatched_bills = 0
     for b in bills:
-        m = int(b.get("month") or 0)
-        if m not in by_m:
+        key = normalize_bill_month_key(b.get("month") or b.get("period"), default_year=sim_year)
+        if key is None:
             continue
-        row = by_m[m]
-        entry: dict[str, Any] = {"month": m}
+        # If bills are real YYYY-MM and sim is legacy 0001-MM, try month-only
+        # only when years are unknown/compatible — never across mismatched years.
+        row = by_m.get(key)
+        if row is None and key.startswith("0001-") is False and sim_year is None:
+            # Sim months are bare 1–12 → 0001-MM
+            row = by_m.get(f"0001-{key[5:]}")
+        if row is None and key.startswith("0001-"):
+            # Prefer exact year match from bills when sim is bare-month.
+            for y in sorted(bill_years):
+                cand = f"{y}-{key[5:]}"
+                if cand in by_m:
+                    row = by_m[cand]
+                    key = cand
+                    break
+        if row is None:
+            unmatched_bills += 1
+            continue
+        if period_mismatch and not key.startswith("0001-"):
+            # Do not accumulate metrics across non-overlapping calendar years.
+            continue
+        entry: dict[str, Any] = {"month": key, "period": key}
         o_kwh = b.get("kwh")
         s_kwh = row.get("electricity_kwh")
         if o_kwh is not None and s_kwh is not None:
@@ -345,8 +459,14 @@ def compare_bills_to_monthly(
             entry["observed_therms"] = float(o_th)
             entry["simulated_therms"] = float(s_th)
             entry["delta_therms"] = float(s_th) - float(o_th)
-        if len(entry) > 1:
+        if len(entry) > 2:
             per_month.append(entry)
+
+    # Recompute period_mismatch if no overlapping YYYY-MM keys joined.
+    if bill_years and per_month == [] and unmatched_bills:
+        period_mismatch = True
+        if not mismatch_reason:
+            mismatch_reason = "no overlapping YYYY-MM periods between bills and simulation"
 
     elec_stats = nmbe_cvrmse(obs_kwh, sim_kwh)
     gas_stats = nmbe_cvrmse(obs_therms, sim_therms)
@@ -362,8 +482,11 @@ def compare_bills_to_monthly(
         fuels_compared.append("natural_gas")
         fuel_results.append(gas_pf)
 
-    # Overall: pass only when every compared fuel passes; any fail → fail.
-    if not fuel_results:
+    if period_mismatch:
+        overall = "period_mismatch"
+        elec_pf = "period_mismatch" if elec_stats.get("n", 0) == 0 else elec_pf
+        gas_pf = "period_mismatch" if gas_stats.get("n", 0) == 0 else gas_pf
+    elif not fuel_results:
         overall = "insufficient_data"
     elif any(p == "fail" for p in fuel_results):
         overall = "fail"
@@ -383,6 +506,10 @@ def compare_bills_to_monthly(
         "pass_fail_electricity": elec_pf,
         "pass_fail_natural_gas": gas_pf,
         "pass_fail": overall,
+        "period_mismatch": period_mismatch,
+        "period_mismatch_reason": mismatch_reason,
+        "bill_years": sorted(bill_years),
+        "simulation_year": sim_year,
         "per_month": per_month,
         "thresholds": {"nmbe_pct": NMBE_PASS, "cvrmse_pct": CVRMSE_PASS},
     }
@@ -400,14 +527,35 @@ def split_bills_for_holdout(
     order as present in ``bills``). Optional ``validation_start`` (1–12) starts the
     holdout at that calendar month when present.
     """
+    def _month_sort_key(b: dict[str, Any]) -> tuple[int, int]:
+        key = normalize_bill_month_key(b.get("month") or b.get("period"))
+        if key is None:
+            return (0, 0)
+        try:
+            return (int(key[:4]), int(key[5:7]))
+        except ValueError:
+            return (0, 0)
+
+    def _month_num(b: dict[str, Any]) -> int:
+        key = normalize_bill_month_key(b.get("month") or b.get("period"))
+        if key is None:
+            return 0
+        try:
+            return int(key[5:7])
+        except ValueError:
+            try:
+                return int(b["month"])
+            except (TypeError, ValueError):
+                return 0
+
     meta: dict[str, Any] = {
         "validation_months_requested": validation_months,
         "validation_start": validation_start,
         "min_months_for_holdout": 6,
     }
     ordered = sorted(
-        [b for b in bills if b.get("month")],
-        key=lambda b: int(b["month"]),
+        [b for b in bills if b.get("month") or b.get("period")],
+        key=_month_sort_key,
     )
     if validation_months <= 0 or len(ordered) < 6:
         meta["applied"] = False
@@ -425,7 +573,7 @@ def split_bills_for_holdout(
         return ordered, [], meta
 
     if validation_start is not None:
-        months = [int(b["month"]) for b in ordered]
+        months = [_month_num(b) for b in ordered]
         if validation_start not in months:
             meta["applied"] = False
             meta["reason"] = f"validation_start_{validation_start}_not_in_bills"
@@ -435,15 +583,19 @@ def split_bills_for_holdout(
         for _ in range(n_val):
             val_set.add(m)
             m = 1 if m == 12 else m + 1
-        cal = [b for b in ordered if int(b["month"]) not in val_set]
-        val = [b for b in ordered if int(b["month"]) in val_set]
+        cal = [b for b in ordered if _month_num(b) not in val_set]
+        val = [b for b in ordered if _month_num(b) in val_set]
     else:
         cal = ordered[:-n_val]
         val = ordered[-n_val:]
 
     meta["applied"] = True
-    meta["calibration_months"] = [int(b["month"]) for b in cal]
-    meta["validation_months"] = [int(b["month"]) for b in val]
+    meta["calibration_months"] = [
+        normalize_bill_month_key(b.get("month") or b.get("period")) or b.get("month") for b in cal
+    ]
+    meta["validation_months"] = [
+        normalize_bill_month_key(b.get("month") or b.get("period")) or b.get("month") for b in val
+    ]
     meta["note"] = (
         "Signature shape comparison stays whole-window "
         "(operating_signatures.csv is OAT-binned, not timestamped)."
@@ -462,7 +614,12 @@ def resolve_calibration_status(
     """Map weather + bill gates to scorecard status enum."""
     if weather_mode == SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY:
         return STATUS_CONCEPTUAL_ONLY
-    if not has_bills or bills_pass_fail in {None, "bills_recommended", "insufficient_data"}:
+    if not has_bills or bills_pass_fail in {
+        None,
+        "bills_recommended",
+        "insufficient_data",
+        "period_mismatch",
+    }:
         return STATUS_CONCEPTUAL_ONLY
     if validation_applied:
         if validation_pass_fail == "pass":
@@ -662,6 +819,7 @@ def run_calibration(
         validation_months=validation_months,
         validation_start=validation_start,
     )
+    data_window = seed.get("data_window") if isinstance(seed.get("data_window"), dict) else None
 
     bills_cmp: dict[str, Any]
     validation_cmp: dict[str, Any] | None = None
@@ -672,12 +830,18 @@ def run_calibration(
             "note": "Upload monthly utility bills for ASHRAE-14 magnitude calibration.",
         }
     elif holdout_meta.get("applied"):
-        bills_cmp = compare_bills_to_monthly(cal_bills, annual.get("monthly") or [])
+        bills_cmp = compare_bills_to_monthly(
+            cal_bills, annual.get("monthly") or [], data_window=data_window
+        )
         bills_cmp["split"] = "calibration"
-        validation_cmp = compare_bills_to_monthly(val_bills, annual.get("monthly") or [])
+        validation_cmp = compare_bills_to_monthly(
+            val_bills, annual.get("monthly") or [], data_window=data_window
+        )
         validation_cmp["split"] = "validation"
     else:
-        bills_cmp = compare_bills_to_monthly(bills, annual.get("monthly") or [])
+        bills_cmp = compare_bills_to_monthly(
+            bills, annual.get("monthly") or [], data_window=data_window
+        )
 
     if bills and bills_cmp.get("pass_fail") in {"pass", "fail"}:
         overall = bills_cmp["pass_fail"]

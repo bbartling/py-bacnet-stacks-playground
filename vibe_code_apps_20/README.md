@@ -207,8 +207,11 @@ cd vibe_code_apps_20
 git clone https://github.com/LBNL-ETA/EnergyPlus-MCP.git third_party/EnergyPlus-MCP
 cd third_party/EnergyPlus-MCP
 git checkout 5a7d3bb1d2e537ba329d3412c8b79d22cedd7c70
-docker build -t energyplus-mcp-dev -f .devcontainer/Dockerfile .devcontainer
+# TARGETPLATFORM is required (plain docker build often fails with "parameter not set")
+docker build --build-arg TARGETPLATFORM=linux/amd64 \
+  -t energyplus-mcp-dev -f .devcontainer/Dockerfile .devcontainer
 cd ../..
+# or: bash scripts/build_energyplus_mcp.sh
 
 # Plan only (no Docker sim)
 python madison_office.py --dry-run
@@ -231,15 +234,18 @@ Multi-arch (`linux/amd64` + `linux/arm64`) images publish automatically from
 
 ```powershell
 docker pull ghcr.io/bbartling/vibe20:latest
-docker run -d --restart unless-stopped -p 8502:8501 --name vibe20 ghcr.io/bbartling/vibe20:latest
-# open http://localhost:8502  →  WattLab Studio
+docker rm -f vibe20 2>$null
+# Use 8520 when vibe19 already owns 8501/8502/8503 on the same host
+docker run -d --restart unless-stopped -p 8520:8501 --name vibe20 ghcr.io/bbartling/vibe20:latest
+# open http://localhost:8520  →  WattLab Studio → Ingest → upload wattlab_dump_*.zip
 ```
 
 Tags: `:latest` (tip of default branch), `:develop`, `:sha-<commit>`,
-`vibe20-v*` releases. The container serves Studio; the dry-run / benchmark /
-measures / capital-plan workflow is fully functional inside it. Real
-EnergyPlus simulations need a Docker daemon, so run those from a host checkout
-(`wattlab easy-button`) — not inside the container. Verify a published tip:
+`vibe20-v*` releases. The container serves Studio; **Ingest accepts a vibe19
+WattLab dump zip**, then dry-run / benchmark / measures / capital-plan work
+inside the container. Real EnergyPlus simulations need a Docker daemon on the
+**host** (`energyplus-mcp-dev` + `wattlab twin --live` / easy-button) — not
+inside the vibe20 container. Verify a published tip:
 
 ```powershell
 docker buildx imagetools inspect ghcr.io/bbartling/vibe20:latest   # must list amd64 + arm64

@@ -23,7 +23,9 @@ from wattlab.benchmarks import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-CAMPUS_JSON = ROOT / "examples" / "liberty" / "campus.json"
+# Checked-in privacy-safe fixture (examples/liberty/*.csv stay gitignored).
+CAMPUS_JSON = ROOT / "tests" / "fixtures" / "shared_meter_campus" / "campus.json"
+ELEC_CSV = CAMPUS_JSON.parent / "shared_electric_summary.csv"
 
 
 @pytest.fixture(scope="module")
@@ -42,7 +44,7 @@ def test_bill_loader_handles_thousands_and_duplicate_months(campus):
 
 
 def test_electric_loader_picks_kwh_and_demand():
-    elec = load_bill_csv(ROOT / "examples" / "liberty" / "Liberty_50_100_Electric_Summary.csv")
+    elec = load_bill_csv(ELEC_CSV)
     jan15 = elec[elec["month"] == "2015-01"]
     assert jan15["usage"].iloc[0] == pytest.approx(281890)
     assert jan15["demand_kw"].iloc[0] == pytest.approx(594)
