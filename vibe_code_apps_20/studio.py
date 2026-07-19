@@ -32,6 +32,8 @@ PAGES = [
     "Measures",
     "Twin loop",
     "EP Results",
+    "Hypothesis Lab",
+    "ECM Easy Buttons",
     "Capital plan",
 ]
 
@@ -1103,6 +1105,13 @@ def page_capital_plan() -> None:
 
 
 def main() -> None:
+    from wattlab.studio.state import invalidate_dependent_state
+
+    invalidate_dependent_state(
+        st.session_state,
+        profile=_state("studio_profile"),
+        bundle=_state("studio_bundle"),
+    )
     st.sidebar.title("WattLab Studio")
     st.sidebar.caption(
         "vibe19 dump → digital twin → ESCO capital plan. "
@@ -1121,6 +1130,17 @@ def main() -> None:
         page_twin_loop()
     elif page == "EP Results":
         page_ep_results()
+    elif page == "Hypothesis Lab":
+        from wattlab.studio.pages.hypothesis_lab import render
+
+        render(profile=_state("studio_profile"), bundle=_state("studio_bundle"))
+    elif page == "ECM Easy Buttons":
+        from wattlab.studio.pages.ecm_easy_buttons import render
+
+        render(
+            profile=_state("studio_profile"),
+            proxy_estimator=estimate_proxy_savings,
+        )
     else:
         page_capital_plan()
 
