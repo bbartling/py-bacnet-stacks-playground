@@ -33,3 +33,13 @@ def test_hours_under_mask_does_not_credit_final_row_or_large_gap():
     assert hours_under_mask(
         mask, nominal_seconds=600, max_gap_seconds=1800
     ) == pytest.approx(40 / 60)
+
+
+def test_interval_durations_preserves_timezone():
+    idx = pd.date_range(
+        "2026-07-01T00:00:00", periods=3, freq="10min", tz="America/Chicago"
+    )
+    result = interval_durations(idx, nominal_seconds=600, max_gap_seconds=1800)
+    assert result.index.tz is not None
+    assert str(result.index.tz) == "America/Chicago"
+    assert result.tolist() == [600.0, 600.0, 0.0]
