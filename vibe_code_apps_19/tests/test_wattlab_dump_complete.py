@@ -90,7 +90,7 @@ def test_build_wattlab_dump_always_reruns_complete_cookbook(monkeypatch: pytest.
             params=dataset.params,
         )
 
-    def fake_export_agent_bundle(dataset, run, out_dir, include_bootstrap=False):
+    def fake_export_agent_bundle(dataset, run, out_dir, include_bootstrap=False, **kwargs):
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         (out / "README_WATTLAB.md").write_text("ok\n", encoding="utf-8")

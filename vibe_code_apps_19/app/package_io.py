@@ -908,7 +908,7 @@ def apply_session_config(cfg: SessionConfig, *, equipment_ids: set[str]) -> list
     st.session_state.include_ahu_chw_valve = False
     if cfg.include_ahu_chw_valve:
         warnings.append(
-            "session_config include_ahu_chw_valve ignored — mech-cooling OAT bins are pump/DX/chiller only"
+            "session_config include_ahu_chw_valve ignored — mech-cooling OAT bins are compressor/chiller/DX only (not valves or pump-alone)"
         )
     st.session_state.apply_occupancy_calendar = True
     if cfg.params:

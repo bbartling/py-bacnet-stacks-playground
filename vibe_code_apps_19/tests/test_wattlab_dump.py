@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
+from app.model_seed import build_model_seed_dict, infer_schedules
 from app.rules.base import RuleResult
 from app.wattlab_dump import (
     critical_sensor_roles,
@@ -66,6 +69,135 @@ def test_sensor_stats_tables_slices_by_fan_proof():
     assert not (off["equipment_id"] == "METER_1").any()
     # proof column labels the mask source
     assert dat_on.iloc[0]["proof"] == "fan-status"
+
+
+_V3_SENSOR_STAT_COLS = {
+    "count",
+    "valid_count",
+    "missing_pct",
+    "duration_hours",
+    "min",
+    "max",
+    "mean",
+    "std",
+    "p01",
+    "p05",
+    "p25",
+    "p50",
+    "p75",
+    "p95",
+    "p99",
+    "median_occupied",
+    "median_unoccupied",
+    "median_fan_on",
+    "median_fan_off",
+    "median_weekday",
+    "median_weekend",
+    "flatline_pct",
+    "out_of_range_pct",
+    "units",
+    "source",
+    "source_column",
+    "equipment_id",
+    "start",
+    "end",
+    # legacy retained
+    "n",
+}
+
+
+def test_sensor_stats_tables_include_v3_expanded_fields():
+    """Additive v3 statistics with known multi-day occupied/fan/weekday medians."""
+    # Mon 2024-03-04 + Sat 2024-03-09 in America/Chicago (default occupancy TZ).
+    # Occupancy schedule: weekdays 06:00–18:00 occupied; Saturday never occupied.
+    mon = pd.date_range("2024-03-04 08:00", periods=4, freq="1h", tz="America/Chicago")
+    mon_night = pd.date_range("2024-03-04 20:00", periods=4, freq="1h", tz="America/Chicago")
+    sat = pd.date_range("2024-03-09 08:00", periods=4, freq="1h", tz="America/Chicago")
+    sat_night = pd.date_range("2024-03-09 20:00", periods=4, freq="1h", tz="America/Chicago")
+    idx = mon.union(mon_night).union(sat).union(sat_night)
+    # Known slice values:
+    #   occupied + fan-on (Mon 8–11): 55
+    #   unoccupied + fan-off (Mon 20–23): 40
+    #   weekend + fan-on (Sat 8–11): 70
+    #   weekend + fan-off (Sat 20–23): 30
+    #   one missing + one out-of-range spike on last weekend-off sample
+    dat = [55.0, 55.0, 55.0, 55.0, 40.0, 40.0, 40.0, 40.0, 70.0, 70.0, 70.0, 70.0, 30.0, 30.0, None, 999.0]
+    fan = [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0]
+    ahu = pd.DataFrame(
+        {"discharge-air-temp": dat, "fan-status": fan},
+        index=idx,
+    )
+    ahu.attrs["equipment_type"] = "AHU"
+    ahu.attrs["poll_seconds"] = 3600.0
+    frames = {"AHU_1": ahu}
+    role_map = {
+        "AHU_1": {
+            "discharge-air-temp": "discharge-air-temp",
+            "fan-status": "fan-status",
+            "equipment_type": "AHU",
+        }
+    }
+
+    tables = sensor_stats_tables(frames, role_map)
+    allt = tables["all"]
+    assert _V3_SENSOR_STAT_COLS <= set(allt.columns)
+
+    row = allt[(allt["equipment_id"] == "AHU_1") & (allt["role"] == "discharge-air-temp")].iloc[0]
+    assert row["count"] == 16
+    assert row["valid_count"] == 15
+    assert row["n"] == 15
+    assert row["missing_pct"] == pytest.approx(100.0 * 1 / 16, abs=0.01)
+    assert row["duration_hours"] > 0
+    assert row["min"] == pytest.approx(30.0)
+    assert row["max"] == pytest.approx(999.0)
+    assert row["median_occupied"] == pytest.approx(55.0)
+    assert row["median_unoccupied"] == pytest.approx(40.0)  # med of 40×4,70×4,30×2,999
+    assert row["median_fan_on"] == pytest.approx(62.5)  # med(55×4, 70×4)
+    assert row["median_fan_off"] == pytest.approx(40.0)  # med(40×4, 30×2, 999)
+    assert row["median_weekday"] == pytest.approx(47.5)  # med(55×4, 40×4)
+    assert row["median_weekend"] == pytest.approx(70.0)  # med(70×4, 30×2, 999)
+    assert row["out_of_range_pct"] == pytest.approx(100.0 * 1 / 15, abs=0.01)
+    assert row["units"] == "°F"
+    assert row["source"] == "role_map"
+    assert row["source_column"] == "discharge-air-temp"
+    assert "2024-03-04" in str(row["start"])
+    assert "2024-03-09" in str(row["end"])
+
+
+def test_model_seed_inferred_parameters_include_provenance():
+    """Inferred schedule params expose source equipment/role/column, method, n, confidence, editable."""
+    idx = pd.date_range("2024-01-01", periods=48, freq="1h", tz="UTC")
+    fan = [0.0] * 6 + [100.0] * 12 + [0.0] * 6
+    fan = fan + fan
+    df = pd.DataFrame({"fan-status": fan}, index=idx)
+    df.attrs.update({"poll_seconds": 3600.0, "equipment_type": "AHU"})
+    role_map = {"AHU_1": {"fan-status": "fan-status", "equipment_type": "AHU"}}
+    _table, payload = infer_schedules({"AHU_1": df}, role_map=role_map)
+    seed = build_model_seed_dict(building_id="B1", schedule_payload=payload)
+
+    inferred = seed.get("inferred_parameters") or payload.get("inferred_parameters")
+    assert inferred, "expected inferred_parameters on seed or schedule payload"
+    # Normalize to list of parameter records
+    records = inferred if isinstance(inferred, list) else list(inferred.values())
+    assert records
+    rec = records[0]
+    required = {
+        "source_equipment",
+        "source_role",
+        "source_column",
+        "method",
+        "sample_count",
+        "confidence",
+        "editable",
+    }
+    assert required <= set(rec)
+    assert rec["source_equipment"] == "AHU_1"
+    assert rec["source_role"]
+    assert rec["source_column"]
+    assert rec["method"]
+    assert int(rec["sample_count"]) > 0
+    assert 0.0 <= float(rec["confidence"]) <= 1.0
+    assert rec["editable"] is True or rec["editable"] is False
 
 
 def test_setpoints_table_occupied_unoccupied_medians():
@@ -200,7 +332,9 @@ def test_fdd_findings_and_timeseries(tmp_path: Path):
     assert paths[0].name == "FC1__AHU_1.csv"
     ts = pd.read_csv(paths[0])
     assert "raw_fault" in ts.columns and "confirmed_fault" in ts.columns
-    assert "discharge-air-temp" in ts.columns
+    # Compact evidence references shared telemetry instead of copying plot columns.
+    assert "telemetry_path" in ts.columns
+    assert "discharge-air-temp" not in ts.columns
 
 
 def test_write_manifest_and_readme(tmp_path: Path):
@@ -210,12 +344,52 @@ def test_write_manifest_and_readme(tmp_path: Path):
     seed = tmp_path / "model_seed.json"
     seed.write_text('{"project_id": "x"}', encoding="utf-8")
     written = {"model_seed": seed, "readme_wattlab": readme}
-    man = write_manifest(tmp_path, written)
+    man = write_manifest(
+        tmp_path,
+        written,
+        profile="summary",
+        result_status_counts={"FAULT": 1, "PASS": 2},
+        applicable_count=3,
+        non_applicable_count=1,
+        files_suppressed=3,
+        payload_file_count=2,
+        payload_uncompressed_bytes=500,
+        package_file_count=3,
+        metrics_scope={
+            "payload": "all files including final run_report.json, excluding MANIFEST.json",
+            "package_file_count": "on-disk files after MANIFEST.json is written",
+        },
+        stage_seconds={
+            "rule_execution": 0.1,
+            "analytics": 0.2,
+            "serialization": 0.3,
+            "compression": 0.05,
+        },
+        stage_scope={
+            "analytics": "compute-only analytics before writing payload files",
+            "serialization": "writing payload files including final run_report.json",
+            "compression": "optional in-memory zip of payload only (not whole-package claim)",
+        },
+    )
     assert man.is_file()
-    import json
 
     payload = json.loads(man.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "wattlab_dump_v2"
+    assert payload["schema_version"] == "wattlab_dump_v3"
+    assert payload["export_profile"] == "summary"
+    assert payload["result_status_counts"]["FAULT"] == 1
+    assert payload["applicable_count"] == 3
+    assert payload["non_applicable_count"] == 1
+    assert payload["files_suppressed"] == 3
+    assert payload["payload_file_count"] == 2
+    assert payload["payload_uncompressed_bytes"] == 500
+    assert payload["package_file_count"] == 3
+    assert "MANIFEST.json" in payload["metrics_scope"]["payload"] or "excluding MANIFEST" in payload["metrics_scope"]["payload"]
+    assert payload["stage_seconds"]["serialization"] == pytest.approx(0.3)
+    assert "serialization" in payload["stage_scope"]
     paths = {f["path"] for f in payload["files"]}
     assert "MANIFEST.json" in paths
     assert "model_seed.json" in paths
+    # Do not publish ambiguous whole-package compressed_bytes as exact
+    assert "compressed_bytes" not in payload or payload.get("metrics_scope", {}).get(
+        "compressed_bytes"
+    )

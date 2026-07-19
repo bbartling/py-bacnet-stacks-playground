@@ -65,7 +65,7 @@
 
 Proof priority (fan): `fan_status` → `fan_speed_feedback` → `fan_current` → `airflow_proof` → `fan_cmd` fallback.
 
-Hydronic: `pump_status` / `chw_flow` / `pump_cmd` fallback. Mech-cooling analytics default to mapped status/amps/power; CHW leave/supply &lt; adjustable °F is an **explicit** opt-out via sidebar `use_mech_cooling_status_proof=false` and is labeled `inferred: chw_leave_temp` (see [`ANALYTICS.md`](ANALYTICS.md)).
+Hydronic **rule gates**: `pump_status` / `chw_flow` / `pump_cmd` fallback. Mech-cooling **OAT-bin** analytics default to compressor/chiller status → verified cmd → amps/power (**not** pump-alone); CHW leave/supply &lt; adjustable °F is an **explicit** opt-out via sidebar `use_mech_cooling_status_proof=false` and is labeled `inferred: chw_leave_temp` (see [`ANALYTICS.md`](ANALYTICS.md)).
 
 ## Related: analytics summaries
 

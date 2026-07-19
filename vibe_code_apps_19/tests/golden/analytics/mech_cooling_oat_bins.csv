@@ -1,9 +1,13 @@
-bin_label,bin_start,equipment_id,hours,source,source_kind
-60–65,60.000000,ALL,678.000000,All mech cooling (total) — 1 device(s),total
-60–65,60.000000,CHILLER_1,678.000000,CHILLER_1 (chw_pump),chw_pump
-65–70,65.000000,ALL,720.000000,All mech cooling (total) — 1 device(s),total
-65–70,65.000000,CHILLER_1,720.000000,CHILLER_1 (chw_pump),chw_pump
-70–75,70.000000,ALL,384.000000,All mech cooling (total) — 1 device(s),total
-70–75,70.000000,CHILLER_1,384.000000,CHILLER_1 (chw_pump),chw_pump
-75–80,75.000000,ALL,12.000000,All mech cooling (total) — 1 device(s),total
-75–80,75.000000,CHILLER_1,12.000000,CHILLER_1 (chw_pump),chw_pump
+bin_label,bin_start,cooling_technology,coverage_pct,device_count,equipment_id,equipment_type,hours,proof_quality,proof_role,runtime_hours,series_id,series_kind,source,source_kind,valid_elapsed_hours
+60–65,60.000000,,100.000000,1.000000,ACTIVE,,678.000000,,,678.000000,aggregate_active_hours,aggregate_active_hours,Any compressor active,active,2154.000000
+60–65,60.000000,,100.000000,1.000000,ALL,,678.000000,,,678.000000,aggregate_device_hours,aggregate_device_hours,All mech cooling (total) — 1 device(s),total,2154.000000
+60–65,60.000000,chilled_water_plant,100.000000,1.000000,CHILLER_1,CHW_PLANT,678.000000,direct,chiller-status,678.000000,CHILLER_1,individual_device,CHILLER_1 (chiller-status),chiller-status,2154.000000
+65–70,65.000000,,100.000000,1.000000,ACTIVE,,720.000000,,,720.000000,aggregate_active_hours,aggregate_active_hours,Any compressor active,active,2154.000000
+65–70,65.000000,,100.000000,1.000000,ALL,,720.000000,,,720.000000,aggregate_device_hours,aggregate_device_hours,All mech cooling (total) — 1 device(s),total,2154.000000
+65–70,65.000000,chilled_water_plant,100.000000,1.000000,CHILLER_1,CHW_PLANT,720.000000,direct,chiller-status,720.000000,CHILLER_1,individual_device,CHILLER_1 (chiller-status),chiller-status,2154.000000
+70–75,70.000000,,100.000000,1.000000,ACTIVE,,378.000000,,,378.000000,aggregate_active_hours,aggregate_active_hours,Any compressor active,active,2154.000000
+70–75,70.000000,,100.000000,1.000000,ALL,,378.000000,,,378.000000,aggregate_device_hours,aggregate_device_hours,All mech cooling (total) — 1 device(s),total,2154.000000
+70–75,70.000000,chilled_water_plant,100.000000,1.000000,CHILLER_1,CHW_PLANT,378.000000,direct,chiller-status,378.000000,CHILLER_1,individual_device,CHILLER_1 (chiller-status),chiller-status,2154.000000
+75–80,75.000000,,100.000000,1.000000,ACTIVE,,12.000000,,,12.000000,aggregate_active_hours,aggregate_active_hours,Any compressor active,active,2154.000000
+75–80,75.000000,,100.000000,1.000000,ALL,,12.000000,,,12.000000,aggregate_device_hours,aggregate_device_hours,All mech cooling (total) — 1 device(s),total,2154.000000
+75–80,75.000000,chilled_water_plant,100.000000,1.000000,CHILLER_1,CHW_PLANT,12.000000,direct,chiller-status,12.000000,CHILLER_1,individual_device,CHILLER_1 (chiller-status),chiller-status,2154.000000

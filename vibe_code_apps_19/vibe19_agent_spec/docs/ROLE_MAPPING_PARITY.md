@@ -25,16 +25,19 @@ Cookbook rules read **logical roles** (`oa_t`, `sat`, `fan_status`, …). CSV co
 | `zone_t` | space_temp, zone_temp, spacetemp |
 | `occ_mode` | occ_mode, occupancy, schedule (also Overview calendar → always applied) |
 | `chw_supply_t` / `chw_return_t` | chws, chwr |
-| `chw_pump_status` / `chw_pump_cmd` | Designated CHW pump proof for chiller plant runtime / mech-cooling bins |
+| `chw_pump_status` / `chw_pump_cmd` | Designated CHW pump for **weekly motor / plant circulation** hours only — **not** mech-cooling OAT-bin compressor proof |
+| `chiller_status` / `compressor_status` / amps / power | Chiller/compressor proof for mech-cooling OAT bins |
 | `compressor_status` / `dx_stage` / `dx_cool_cmd` / `cool_stage` | AHU/HP/RTU DX compressor proof for mech-cooling OAT bins |
 
-## Mech-cooling OAT bins (do not confuse with valves)
+## Mech-cooling OAT bins (do not confuse with valves or pumps)
 
 Mechanical cooling charts require a **compressor device**:
 
-- Chiller plant: pump/status/amps/power roles above
-- AHU / heat pump / RTU: DX / compressor roles above
-- **Not** `clg_valve_pct` — valves often open with no chilled water
+- Chiller plant: chiller/compressor **status** → verified **command** → unit-aware amps/power above validated thresholds (see [`ANALYTICS.md`](ANALYTICS.md))
+- AHU / heat pump / RTU: DX / compressor roles above; heat-pump/VRF compressors also require proven cooling mode
+- **Not** `chw_pump_status` / `chw_pump_cmd` alone — pumps are motor evidence
+- **Not** `clg_valve_pct` — valves often open with no chilled water / no compressor
+- **Not** cooling-mode alone — it gates heat-pump evidence and is not standalone compressor proof
 
 See [`../../docs/DATA_MODEL_DRIVEN.md`](../../docs/DATA_MODEL_DRIVEN.md) and [`../../docs/PACKAGE_SPEC.md`](../../docs/PACKAGE_SPEC.md).
 

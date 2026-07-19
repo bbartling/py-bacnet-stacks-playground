@@ -153,15 +153,15 @@ Local agents: sidebar **Package zip path** → **Load zip from path**, or `scrip
 - Old `vibe19_*` dirs older than 6 hours may be swept on startup.
 - There is **no** guaranteed `on_session_end` on Streamlit Cloud — treat wipe as best-effort.
 
-## Designated CHW pump (chiller runtime — data model)
+## Designated CHW pump (weekly motor charts only)
 
-Weekly **Chiller plant** chart treats each chiller’s run hours as its **designated CHW pump status**, not chiller cmd/amps.
+Weekly **Chiller plant** motor charts may use each chiller’s **designated CHW pump status** for motor hours. That is **motor evidence**, not mechanical-cooling compressor proof (see next section).
 
 Map on the chiller equipment (role_map / `session_config.json` / `columns.csv` point_role):
 
 | Role | Meaning |
 | --- | --- |
-| `chw_pump_status` | Preferred — proven pump status column |
+| `chw_pump_status` | Preferred — proven pump status column (motors) |
 | `chw_pump_cmd` | Fallback if status missing |
 | `chw_pump_equipment` | Optional meta: other equipment_id that owns the pump column |
 
@@ -174,18 +174,26 @@ Example (`session_config.json` / role_map):
 }
 ```
 
-If no pump can be resolved, the chiller is **omitted** from weekly motor / mech-cooling charts (no leave-temp fake hours).
+If no pump can be resolved, the chiller is **omitted** from weekly **motor** charts (no leave-temp fake motor hours). Mech-cooling OAT bins use compressor/chiller proof instead.
 
 ## Mechanical cooling OAT bins — compressor proof (data model)
 
-Charts in Analytics / Overview bin **mechanical cooling run hours** by outdoor air temperature. Proof must be a **mechanical compressor device**, not a CHW valve:
+Overview / Export bin **compressor runtime hours** by outdoor air temperature. Proof must be a **mechanical compressor device**.
 
 | Counts (map these) | Does **not** count |
 | --- | --- |
-| Chiller plant: `chw_pump_status` / `chw_pump_cmd`, `chiller_status`, `compressor_status`, `chiller_amps`, `chiller_power_kw` | `clg_valve_pct` / `cooling_valve` / `chw_valve` alone |
-| AHU / HP / RTU DX: `compressor_status`, `dx_stage`, `dx_cool_cmd`, `dx_cooling`, `cool_stage` | AHU chilled-water cooling valve % |
+| Chiller plant: `chiller-status` / `compressor-status`, verified `compressor-cmd`, `chiller-amps` / `chiller-power` / `compressor-power` / `compressor-current` | `chw_pump_status` / `chw_pump_cmd` alone, fan status, cooling demand alone |
+| AHU / HP / RTU DX: `compressor-status`, stage roles, `dx-cool-cmd`, `dx-cooling` (heat-pump **cooling-mode** roles are a prerequisite/gate only — not standalone runtime proof) | AHU chilled-water cooling valve % (`clg_valve_pct` / `cooling_valve` / `chw_valve`); cooling-mode alone |
 
-Source of truth: `app/analytics.py` (`CHILLER_PUMP_ROLES`, `CHILLER_RUN_ROLES`, `DX_RUN_ROLES`). See also [`DATA_MODEL_DRIVEN.md`](DATA_MODEL_DRIVEN.md).
+- Mapped idle compressors → coverage `eligible_no_runtime` (included), not excluded.
+- Aggregates: `aggregate_device_hours` (sum) and `aggregate_active_hours` (any-active union).
+- Optional inferred CHW leave-temp only when status-proof checkbox is unchecked (CHW plants only; never CHW AHU valves).
+
+Source of truth: `app/analytics.py` (`CHILLER_STATUS_ROLES`, `COMPRESSOR_CMD_ROLES`, `DX_RUN_ROLES`, `MECH_COOL_SERIES_KINDS`). See also [`DATA_MODEL_DRIVEN.md`](DATA_MODEL_DRIVEN.md) and [`../vibe19_agent_spec/docs/ANALYTICS.md`](../vibe19_agent_spec/docs/ANALYTICS.md).
+
+## WattLab dump handoff (`wattlab_dump_v3`)
+
+Export builds an additive schema for vibe20. Default profile **`summary`**. Shared telemetry under `telemetry/`; legacy `fdd_timeseries/` is optional and not required for summary. Vibe 20 `load_bundle` accepts v2 and v3. This historian package (`openfdd_package_v1`) is the **input** to vibe19 — not the WattLab dump zip.
 
 ## Local vs Cloud (one app)
 

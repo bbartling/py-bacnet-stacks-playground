@@ -8,11 +8,20 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-19 — Compressor runtime + WattLab dump v3 handoff
+
+- **Compressor-only OAT bins:** CHW **pump status/cmd alone is not compressor proof**. Acceptable: compressor/chiller status, verified command, power/current. Chilled-water AHU valves excluded. Idle mapped compressors → `eligible_no_runtime`. Aggregates: `aggregate_device_hours` + `aggregate_active_hours` (one running device ⇒ equal). Design: `docs/superpowers/specs/2026-07-19-compressor-runtime-wattlab-release-design.md`.
+- **WattLab `wattlab_dump_v3`:** default profile **`summary`** (shared `telemetry/`, no required `fdd_timeseries`); also `diagnostic` / `forensic`. Expanded sensor stats + `inferred_parameters` provenance; manifest stage/byte metrics.
+- **Vibe 20 compatibility:** `load_bundle` accepts v2 + v3 additively; lazy telemetry path index. Docs: `docs/ANALYTICS.md`, root `AGENTS.md` / `README.md`.
+- **GHCR:** publish **Vibe 19 only** via `.github/workflows/vibe19-ghcr.yml` (`:develop`, `:latest`, `:sha-…`); do **not** publish Vibe 20 for this change.
+
+---
+
 ## 2026-07-19 — Mech-cooling status vs leave-temp proof + complete WattLab dump
 
-- **Sidebar:** checkbox **Use mapped mechanical-cooling status proof** (default checked). Checked → pump → chiller status → amps → power. Unchecked → CHW leave temp via **CHW leave proof max °F** (`inferred: chw_leave_temp`); slider disabled while status proof is checked.
-- **Overview coverage:** always lists every cooling-capable device (name, included/excluded, selected proof, runtime hours, reason). Aggregate OAT bins remain device-hours. Never CHW valve %.
-- **WattLab dump:** `_build_wattlab_dump_zip` always `run_rules` for the complete cookbook and refreshes `batch_results` (never reuse partial session results). Spec: `docs/ANALYTICS.md`, design `docs/superpowers/specs/2026-07-19-mech-cooling-proof-export-design.md`.
+- **Sidebar:** checkbox **Use mapped mechanical-cooling status proof** (default checked). *(Superseded for compressor proof: see entry above — pump alone is no longer OAT-bin proof.)* Unchecked → CHW leave temp via **CHW leave proof max °F** (`inferred: chw_leave_temp`); slider disabled while status proof is checked.
+- **Overview coverage:** always lists every cooling-capable device (name, included/excluded, selected proof, runtime hours, reason). Never CHW valve %.
+- **WattLab dump:** `_build_wattlab_dump_zip` always `run_rules` for the complete cookbook and refreshes `batch_results` (never reuse partial session results). Spec: `docs/ANALYTICS.md`.
 
 ---
 
@@ -376,9 +385,9 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 - Weekly motor charts: avg OAT °F while on (secondary axis); air-side bare-min occupied hours line from calendar
 - Overview: occupancy **time pickers** + zone comfort low/high → VAV-1 params / SCHED-1
-- Mech-cooling OAT bins: pump/DX first, leave-temp backup only; **never** CHW valves; bins sorted cold→hot
+- Mech-cooling OAT bins: pump/DX first, leave-temp backup only; **never** CHW valves; bins sorted cold→hot *(historical — superseded 2026-07-19: pump alone is not compressor proof; see top entry)*
 - `scripts/smoke_streamlit_app.py` for AppTest / import smoke
-- AGENTS.md HVAC context for Codex (pump-first, no valve bins)
+- AGENTS.md HVAC context for Codex (pump-first, no valve bins) *(historical — motor pump ≠ OAT compressor proof)*
 
 ---
 

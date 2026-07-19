@@ -128,6 +128,9 @@ def test_agent_api_load_run_export(tmp_path: Path):
     assert run.meta["rule_catalog_count"] == 59
     assert run.meta["result_count"] == 59  # one equipment × canonical rules
     assert sum(run.status_counts.values()) == 59
+    assert "rule_execution_seconds" in run.meta
+    assert float(run.meta["rule_execution_seconds"]) >= 0.0
+    assert float(run.meta["rule_execution_seconds"]) > 0.0
 
     analytics = run_analytics(ds)
     assert "motor_hours" in analytics
@@ -162,17 +165,35 @@ def test_agent_api_load_run_export(tmp_path: Path):
     findings = pd.read_csv(out / "fdd_findings.csv")
     assert {"rule_id", "equipment_id", "status", "confirmed_fault"} <= set(findings.columns)
     assert len(findings) == len(run.results)
-    # Per-rule timeseries directory (at least some rules emit masks)
+    # Default summary profile: shared telemetry, no Cartesian per-rule timeseries
+    tel_dir = out / "telemetry"
+    assert tel_dir.is_dir()
+    assert (tel_dir / "AHU_1.csv").is_file()
     ts_dir = out / "fdd_timeseries"
-    assert ts_dir.is_dir()
-    assert any(ts_dir.glob("*.csv"))
+    assert not ts_dir.is_dir() or not any(ts_dir.glob("*.csv"))
     # Diurnal may be empty for tiny short windows — only assert when present
     if (out / "sensor_diurnal_24h.csv").is_file():
         diurnal = pd.read_csv(out / "sensor_diurnal_24h.csv")
         assert {"day_type", "fan_state", "hour", "role"} <= set(diurnal.columns)
     manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "wattlab_dump_v2"
+    assert manifest["schema_version"] == "wattlab_dump_v3"
+    assert manifest.get("export_profile") == "summary"
     assert any(f["path"] == "fdd_findings.csv" for f in manifest["files"])
+    assert manifest["stage_seconds"]["rule_execution"] == pytest.approx(
+        float(run.meta["rule_execution_seconds"])
+    )
+    report = json.loads((out / "run_report.json").read_text(encoding="utf-8"))
+    assert report["stage_seconds"]["rule_execution"] == pytest.approx(
+        float(run.meta["rule_execution_seconds"])
+    )
+    payload_files = [p for p in out.rglob("*") if p.is_file() and p.name != "MANIFEST.json"]
+    all_files = [p for p in out.rglob("*") if p.is_file()]
+    assert manifest["payload_file_count"] == len(payload_files)
+    assert manifest["payload_uncompressed_bytes"] == sum(p.stat().st_size for p in payload_files)
+    assert manifest["package_file_count"] == len(all_files)
+    assert "metrics_scope" in manifest
+    assert "compressed_bytes" not in manifest  # profiler owns whole-package zip bytes
+    assert "serialization" in (manifest.get("stage_scope") or {})
     seed = json.loads((out / "model_seed.json").read_text(encoding="utf-8"))
     assert seed["project_id"] == "TINY_B1"
     assert "data_window" in seed
@@ -241,6 +262,8 @@ def test_cli_smoke(tmp_path: Path):
             "--out",
             str(out),
             "--run-all",
+            "--export-profile",
+            "summary",
         ],
         cwd=str(script.parents[1]),
         capture_output=True,
@@ -251,3 +274,6 @@ def test_cli_smoke(tmp_path: Path):
     assert (out / "run_report.json").is_file()
     assert (out / "fdd_summary.csv").is_file()
     assert (out / "motor_hours.csv").is_file()
+    manifest = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
+    assert manifest.get("export_profile") == "summary"
+    assert (out / "telemetry" / "AHU_1.csv").is_file()
