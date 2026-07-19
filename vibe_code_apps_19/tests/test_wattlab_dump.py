@@ -107,15 +107,24 @@ _V3_SENSOR_STAT_COLS = {
 
 
 def test_sensor_stats_tables_include_v3_expanded_fields():
-    """Additive v3 statistics: validity, coverage, percentiles, slices, provenance."""
-    idx = pd.date_range("2024-03-04 08:00", periods=10, freq="1h", tz="UTC")  # Mon
-    # Mix of valid/missing, weekday-only window, fan on then off, one out-of-range spike
-    dat = [55.0, 55.0, 55.0, 56.0, None, 56.0, 70.0, 70.0, 70.0, 999.0]
+    """Additive v3 statistics with known multi-day occupied/fan/weekday medians."""
+    # Mon 2024-03-04 + Sat 2024-03-09 in America/Chicago (default occupancy TZ).
+    # Occupancy schedule: weekdays 06:00–18:00 occupied; Saturday never occupied.
+    mon = pd.date_range("2024-03-04 08:00", periods=4, freq="1h", tz="America/Chicago")
+    mon_night = pd.date_range("2024-03-04 20:00", periods=4, freq="1h", tz="America/Chicago")
+    sat = pd.date_range("2024-03-09 08:00", periods=4, freq="1h", tz="America/Chicago")
+    sat_night = pd.date_range("2024-03-09 20:00", periods=4, freq="1h", tz="America/Chicago")
+    idx = mon.union(mon_night).union(sat).union(sat_night)
+    # Known slice values:
+    #   occupied + fan-on (Mon 8–11): 55
+    #   unoccupied + fan-off (Mon 20–23): 40
+    #   weekend + fan-on (Sat 8–11): 70
+    #   weekend + fan-off (Sat 20–23): 30
+    #   one missing + one out-of-range spike on last weekend-off sample
+    dat = [55.0, 55.0, 55.0, 55.0, 40.0, 40.0, 40.0, 40.0, 70.0, 70.0, 70.0, 70.0, 30.0, 30.0, None, 999.0]
+    fan = [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0]
     ahu = pd.DataFrame(
-        {
-            "discharge-air-temp": dat,
-            "fan-status": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-        },
+        {"discharge-air-temp": dat, "fan-status": fan},
         index=idx,
     )
     ahu.attrs["equipment_type"] = "AHU"
@@ -134,28 +143,25 @@ def test_sensor_stats_tables_include_v3_expanded_fields():
     assert _V3_SENSOR_STAT_COLS <= set(allt.columns)
 
     row = allt[(allt["equipment_id"] == "AHU_1") & (allt["role"] == "discharge-air-temp")].iloc[0]
-    assert row["count"] == 10
-    assert row["valid_count"] == 9
-    assert row["n"] == 9  # legacy valid count retained
-    assert row["missing_pct"] == pytest.approx(10.0, abs=0.1)
+    assert row["count"] == 16
+    assert row["valid_count"] == 15
+    assert row["n"] == 15
+    assert row["missing_pct"] == pytest.approx(100.0 * 1 / 16, abs=0.01)
     assert row["duration_hours"] > 0
-    assert row["min"] == pytest.approx(55.0)
+    assert row["min"] == pytest.approx(30.0)
     assert row["max"] == pytest.approx(999.0)
-    assert row["mean"] == pytest.approx(float(pd.Series([55, 55, 55, 56, 56, 70, 70, 70, 999]).mean()), abs=0.1)
-    assert row["std"] >= 0
-    for q in ("p01", "p05", "p25", "p50", "p75", "p95", "p99"):
-        assert pd.notna(row[q])
-    assert row["median_fan_on"] is not None and float(row["median_fan_on"]) < 60
-    assert row["median_fan_off"] is not None and float(row["median_fan_off"]) >= 70
-    assert row["median_weekday"] is not None
-    # Mon–only fixture: weekend median may be null
-    assert row["flatline_pct"] >= 0
-    assert row["out_of_range_pct"] > 0  # 999 °F spike
-    assert row["units"]  # non-empty engineering unit
+    assert row["median_occupied"] == pytest.approx(55.0)
+    assert row["median_unoccupied"] == pytest.approx(40.0)  # med of 40×4,70×4,30×2,999
+    assert row["median_fan_on"] == pytest.approx(62.5)  # med(55×4, 70×4)
+    assert row["median_fan_off"] == pytest.approx(40.0)  # med(40×4, 30×2, 999)
+    assert row["median_weekday"] == pytest.approx(47.5)  # med(55×4, 40×4)
+    assert row["median_weekend"] == pytest.approx(70.0)  # med(70×4, 30×2, 999)
+    assert row["out_of_range_pct"] == pytest.approx(100.0 * 1 / 15, abs=0.01)
+    assert row["units"] == "°F"
     assert row["source"] == "role_map"
     assert row["source_column"] == "discharge-air-temp"
     assert "2024-03-04" in str(row["start"])
-    assert "2024-03-04" in str(row["end"])
+    assert "2024-03-09" in str(row["end"])
 
 
 def test_model_seed_inferred_parameters_include_provenance():
@@ -345,15 +351,24 @@ def test_write_manifest_and_readme(tmp_path: Path):
         result_status_counts={"FAULT": 1, "PASS": 2},
         applicable_count=3,
         non_applicable_count=1,
-        files_written=2,
         files_suppressed=3,
-        compressed_bytes=100,
-        uncompressed_bytes=500,
+        payload_file_count=2,
+        payload_uncompressed_bytes=500,
+        package_file_count=3,
+        metrics_scope={
+            "payload": "all files including final run_report.json, excluding MANIFEST.json",
+            "package_file_count": "on-disk files after MANIFEST.json is written",
+        },
         stage_seconds={
             "rule_execution": 0.1,
             "analytics": 0.2,
             "serialization": 0.3,
             "compression": 0.05,
+        },
+        stage_scope={
+            "analytics": "compute-only analytics before writing payload files",
+            "serialization": "writing payload files including final run_report.json",
+            "compression": "optional in-memory zip of payload only (not whole-package claim)",
         },
     )
     assert man.is_file()
@@ -364,11 +379,17 @@ def test_write_manifest_and_readme(tmp_path: Path):
     assert payload["result_status_counts"]["FAULT"] == 1
     assert payload["applicable_count"] == 3
     assert payload["non_applicable_count"] == 1
-    assert payload["files_written"] == 2
     assert payload["files_suppressed"] == 3
-    assert payload["compressed_bytes"] == 100
-    assert payload["uncompressed_bytes"] == 500
+    assert payload["payload_file_count"] == 2
+    assert payload["payload_uncompressed_bytes"] == 500
+    assert payload["package_file_count"] == 3
+    assert "MANIFEST.json" in payload["metrics_scope"]["payload"] or "excluding MANIFEST" in payload["metrics_scope"]["payload"]
     assert payload["stage_seconds"]["serialization"] == pytest.approx(0.3)
+    assert "serialization" in payload["stage_scope"]
     paths = {f["path"] for f in payload["files"]}
     assert "MANIFEST.json" in paths
     assert "model_seed.json" in paths
+    # Do not publish ambiguous whole-package compressed_bytes as exact
+    assert "compressed_bytes" not in payload or payload.get("metrics_scope", {}).get(
+        "compressed_bytes"
+    )

@@ -18,6 +18,7 @@ from profile_wattlab_export import (  # noqa: E402
     build_profile_fixture,
     load_before_baseline,
     measure_export,
+    resolve_suppressed_combinations,
 )
 
 from app.agent_api import export_agent_bundle
@@ -66,9 +67,18 @@ def test_summary_file_count_below_cartesian_product(tmp_path: Path):
     manifest = json.loads((tmp_path / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["schema_version"] == "wattlab_dump_v3"
     assert "stage_seconds" in manifest
+    assert "stage_scope" in manifest
     assert "result_status_counts" in manifest
     assert "files_suppressed" in manifest
     assert manifest["files_suppressed"] >= 3  # skip statuses in fixture
+    assert "metrics_scope" in manifest
+    payload_files = [p for p in tmp_path.rglob("*") if p.is_file() and p.name != "MANIFEST.json"]
+    all_files = [p for p in tmp_path.rglob("*") if p.is_file()]
+    assert manifest["payload_file_count"] == len(payload_files)
+    assert manifest["payload_uncompressed_bytes"] == sum(p.stat().st_size for p in payload_files)
+    assert manifest["package_file_count"] == len(all_files)
+    assert manifest["package_file_count"] == manifest["payload_file_count"] + 1
+    assert "compressed_bytes" not in manifest
     assert "manifest" in written
 
 
@@ -130,6 +140,21 @@ def test_profiler_before_after_schema_includes_suppressed(tmp_path: Path):
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     loaded = json.loads(out.read_text(encoding="utf-8"))
     assert loaded["per_rule_timeseries"]["after"] < loaded["per_rule_timeseries"]["before"]
+
+
+def test_profiler_suppressed_zero_not_overridden_by_fallback():
+    """Manifest files_suppressed=0 must stay 0; fallback only when field absent."""
+    assert resolve_suppressed_combinations({"files_suppressed": 0}, results=[]) == 0
+    assert resolve_suppressed_combinations({"files_suppressed": 0}, results=None) == 0
+    # Absent → may fall back to NEVER status count on results
+    from app.rules.base import RuleResult
+
+    results = [
+        RuleResult(rule_id="FC4", equipment_id="VAV_1", status="SKIPPED_MISSING_ROLES", applicable=False),
+        RuleResult(rule_id="FC1", equipment_id="AHU_1", status="FAULT", applicable=True),
+    ]
+    assert resolve_suppressed_combinations({}, results=results) == 1
+    assert resolve_suppressed_combinations({"files_suppressed": 5}, results=results) == 5
 
 
 def test_summary_retains_sensor_setpoint_model_seed_artifacts(tmp_path: Path):

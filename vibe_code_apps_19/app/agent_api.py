@@ -309,6 +309,7 @@ def run_rules(
     merged_params = {**dataset.params, **(params or {})}
     _attach_role_map(dataset.frames, dataset.role_map)
     eq_filter = set(equipment_ids) if equipment_ids is not None else None
+    t_rules = time.perf_counter()
     if require_operational_gates:
         results = run_batch(
             dataset.frames,
@@ -342,6 +343,7 @@ def run_rules(
                     require_operational_gates=False,
                 )
             )
+    rule_execution_seconds = round(time.perf_counter() - t_rules, 6)
     if rule_ids is not None:
         allow = set(rule_ids)
         results = [r for r in results if r.rule_id in allow]
@@ -372,6 +374,7 @@ def run_rules(
             "has_web_weather": dataset.has_web_weather,
             "prefer_web_oat": dataset.prefer_web_oat,
             "require_operational_gates": require_operational_gates,
+            "rule_execution_seconds": rule_execution_seconds,
         },
     )
 
@@ -544,28 +547,22 @@ def export_agent_bundle(
     applicable_count = sum(1 for r in results_list if getattr(r, "applicable", False))
     non_applicable_count = max(0, len(results_list) - applicable_count)
 
-    report = {
-        "building_id": dataset.building_id,
-        "source_path": dataset.source_path,
-        "package_report": dataset.package_report,
-        "package_health": (dataset.package_report or {}).get("package_health"),
-        "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
-        "warnings": dataset.warnings,
-        "status_counts": status_counts,
-        "applicable_count": applicable_count,
-        "non_applicable_count": non_applicable_count,
-        "result_count": len(results_list),
-        "meta": run.meta,
-        "tuning_report": run.tuning_report,
-        "rule_catalog_count": len(RULES),
-        "export_profile": export_profile,
-        "stage_seconds": stage_seconds,
-    }
-    rp = out / "run_report.json"
-    rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
-    written["run_report"] = rp
-
+    # Serialization covers writing payload files (including final run_report.json).
+    # Analytics above is compute-only; MANIFEST is written after payload measurement.
     t_serialize = time.perf_counter()
+
+    from app.wattlab_dump import (
+        EXPORT_METRICS_SCOPE,
+        EXPORT_STAGE_SCOPE,
+        diurnal_profiles,
+        fdd_findings_table,
+        sensor_stats_tables,
+        setpoints_table,
+        write_fdd_evidence,
+        write_manifest,
+        write_shared_telemetry,
+        write_wattlab_readme,
+    )
 
     health = (dataset.package_report or {}).get("package_health")
     if health:
@@ -586,17 +583,6 @@ def export_agent_bundle(
             run.summary = summary
 
     # Long-format findings + profile-aware evidence + shared telemetry
-    from app.wattlab_dump import (
-        diurnal_profiles,
-        fdd_findings_table,
-        sensor_stats_tables,
-        setpoints_table,
-        write_fdd_evidence,
-        write_manifest,
-        write_shared_telemetry,
-        write_wattlab_readme,
-    )
-
     if run.results:
         findings = fdd_findings_table(run.results)
         if isinstance(findings, pd.DataFrame) and not findings.empty:
@@ -844,33 +830,56 @@ def export_agent_bundle(
         path.write_text(json.dumps(run.tuning_report, indent=2, default=str), encoding="utf-8")
         written["tuning_assistant_report"] = path
 
-    stage_seconds["serialization"] = round(time.perf_counter() - t_serialize, 6)
-
-    # Uncompressed + zip-compressed byte evidence for the directory as written so far
-    uncompressed_bytes = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
-    t_compress = time.perf_counter()
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for p in sorted(out.rglob("*")):
-            if p.is_file():
-                zf.write(p, arcname=p.relative_to(out).as_posix())
-    compressed_bytes = len(buf.getvalue())
-    stage_seconds["compression"] = round(time.perf_counter() - t_compress, 6)
-
-    files_written = sum(1 for p in out.rglob("*") if p.is_file())
     files_suppressed = 0
     if export_counts is not None:
         files_suppressed = int(sum(int(v) for v in export_counts.suppressed_status.values()))
 
-    # Refresh run_report with final stage timings / byte counts
-    report["stage_seconds"] = stage_seconds
-    report["files_written"] = files_written
-    report["files_suppressed"] = files_suppressed
-    report["compressed_bytes"] = compressed_bytes
-    report["uncompressed_bytes"] = uncompressed_bytes
+    # Finalize run_report once before measuring. Directory byte/file counts are
+    # recorded on MANIFEST under an explicit payload scope (excludes MANIFEST).
+    stage_seconds["serialization"] = round(time.perf_counter() - t_serialize, 6)
+    report = {
+        "building_id": dataset.building_id,
+        "source_path": dataset.source_path,
+        "package_report": dataset.package_report,
+        "package_health": (dataset.package_report or {}).get("package_health"),
+        "package_health_grade": (dataset.package_report or {}).get("package_health_grade"),
+        "warnings": dataset.warnings,
+        "status_counts": status_counts,
+        "applicable_count": applicable_count,
+        "non_applicable_count": non_applicable_count,
+        "result_count": len(results_list),
+        "meta": run.meta,
+        "tuning_report": run.tuning_report,
+        "rule_catalog_count": len(RULES),
+        "export_profile": export_profile,
+        "files_suppressed": files_suppressed,
+        "stage_seconds": {
+            "rule_execution": stage_seconds["rule_execution"],
+            "analytics": stage_seconds["analytics"],
+            "serialization": stage_seconds["serialization"],
+            # compression filled on MANIFEST after payload zip timing
+            "compression": 0.0,
+        },
+        "stage_scope": dict(EXPORT_STAGE_SCOPE),
+        "metrics_scope": dict(EXPORT_METRICS_SCOPE),
+    }
+    rp = out / "run_report.json"
     rp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    written["run_report"] = rp
 
-    # Agent ingest index — write last so it sees every path above
+    # Payload metrics after final run_report: all files except MANIFEST.
+    payload_paths = [p for p in out.rglob("*") if p.is_file() and p.name != "MANIFEST.json"]
+    payload_file_count = len(payload_paths)
+    payload_uncompressed_bytes = sum(p.stat().st_size for p in payload_paths)
+
+    t_compress = time.perf_counter()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for p in sorted(payload_paths):
+            zf.write(p, arcname=p.relative_to(out).as_posix())
+    payload_compressed_bytes = len(buf.getvalue())
+    stage_seconds["compression"] = round(time.perf_counter() - t_compress, 6)
+
     written["manifest"] = write_manifest(
         out,
         written,
@@ -879,12 +888,21 @@ def export_agent_bundle(
         result_status_counts=status_counts,
         applicable_count=applicable_count,
         non_applicable_count=non_applicable_count,
-        files_written=files_written,
         files_suppressed=files_suppressed,
-        compressed_bytes=compressed_bytes,
-        uncompressed_bytes=uncompressed_bytes,
+        payload_file_count=payload_file_count,
+        payload_uncompressed_bytes=payload_uncompressed_bytes,
+        payload_compressed_bytes=payload_compressed_bytes,
+        package_file_count=payload_file_count + 1,
+        metrics_scope=EXPORT_METRICS_SCOPE,
         stage_seconds=stage_seconds,
+        stage_scope=EXPORT_STAGE_SCOPE,
     )
+    package_file_count = sum(1 for p in out.rglob("*") if p.is_file())
+    man_path = out / "MANIFEST.json"
+    man_payload = json.loads(man_path.read_text(encoding="utf-8"))
+    if man_payload.get("package_file_count") != package_file_count:
+        man_payload["package_file_count"] = package_file_count
+        man_path.write_text(json.dumps(man_payload, indent=2, default=str), encoding="utf-8")
 
     # Streamlit bridge: write bootstrap so the next app start auto-loads this run
     if not include_bootstrap:

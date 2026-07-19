@@ -38,6 +38,35 @@ ExportProfile = Literal["summary", "diagnostic", "forensic"]
 
 EXPORT_PROFILES: tuple[ExportProfile, ...] = ("summary", "diagnostic", "forensic")
 
+# Stable package-metrics vocabulary for MANIFEST / run_report.
+EXPORT_METRICS_SCOPE: dict[str, str] = {
+    "payload": (
+        "All files under the export directory after final run_report.json is written, "
+        "excluding MANIFEST.json. payload_file_count / payload_uncompressed_bytes / "
+        "payload_compressed_bytes refer only to this set."
+    ),
+    "package_file_count": (
+        "On-disk file count after MANIFEST.json is written (includes MANIFEST)."
+    ),
+    "compressed_bytes": (
+        "Export does not publish whole-package compressed_bytes. "
+        "Profiler measures the final zip of the complete directory for reports."
+    ),
+}
+
+EXPORT_STAGE_SCOPE: dict[str, str] = {
+    "rule_execution": (
+        "Wall time of run_rules() via time.perf_counter, stored on "
+        "AgentRun.meta.rule_execution_seconds and propagated into stage_seconds."
+    ),
+    "analytics": "Compute-only analytics / coverage / gap / tuning preparation before writing files.",
+    "serialization": "Writing payload files including final run_report.json (excludes MANIFEST).",
+    "compression": (
+        "In-memory zip of the payload set for stage attribution and "
+        "payload_compressed_bytes only — not a whole-package compressed_bytes claim."
+    ),
+}
+
 # Never emit per-rule timeseries for these statuses (all profiles).
 NEVER_TIMESERIES_STATUSES: frozenset[str] = frozenset(
     {
@@ -958,7 +987,13 @@ def build_manifest(
     files_suppressed: int | None = None,
     compressed_bytes: int | None = None,
     uncompressed_bytes: int | None = None,
+    payload_file_count: int | None = None,
+    payload_uncompressed_bytes: int | None = None,
+    payload_compressed_bytes: int | None = None,
+    package_file_count: int | None = None,
+    metrics_scope: Mapping[str, str] | None = None,
     stage_seconds: Mapping[str, float] | None = None,
+    stage_scope: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build a MANIFEST.json describing every emitted file (wattlab_dump_v3)."""
     out = Path(out_dir)
@@ -1089,16 +1124,29 @@ def build_manifest(
         payload["applicable_count"] = int(applicable_count)
     if non_applicable_count is not None:
         payload["non_applicable_count"] = int(non_applicable_count)
-    if files_written is not None:
-        payload["files_written"] = int(files_written)
     if files_suppressed is not None:
         payload["files_suppressed"] = int(files_suppressed)
-    if compressed_bytes is not None:
-        payload["compressed_bytes"] = int(compressed_bytes)
-    if uncompressed_bytes is not None:
+    # Prefer explicit payload / package fields (non-circular scope).
+    if payload_file_count is not None:
+        payload["payload_file_count"] = int(payload_file_count)
+    elif files_written is not None:
+        payload["files_written"] = int(files_written)
+    if payload_uncompressed_bytes is not None:
+        payload["payload_uncompressed_bytes"] = int(payload_uncompressed_bytes)
+    elif uncompressed_bytes is not None:
+        # Legacy alias — do not treat as whole-package including MANIFEST.
         payload["uncompressed_bytes"] = int(uncompressed_bytes)
+    if payload_compressed_bytes is not None:
+        payload["payload_compressed_bytes"] = int(payload_compressed_bytes)
+    # Intentionally omit ambiguous whole-package compressed_bytes from export.
+    if compressed_bytes is not None and payload_compressed_bytes is None:
+        payload["payload_compressed_bytes"] = int(compressed_bytes)
+    if package_file_count is not None:
+        payload["package_file_count"] = int(package_file_count)
+    payload["metrics_scope"] = dict(metrics_scope or EXPORT_METRICS_SCOPE)
     if stage_seconds is not None:
         payload["stage_seconds"] = {str(k): float(v) for k, v in stage_seconds.items()}
+    payload["stage_scope"] = dict(stage_scope or EXPORT_STAGE_SCOPE)
     return payload
 
 
@@ -1115,7 +1163,13 @@ def write_manifest(
     files_suppressed: int | None = None,
     compressed_bytes: int | None = None,
     uncompressed_bytes: int | None = None,
+    payload_file_count: int | None = None,
+    payload_uncompressed_bytes: int | None = None,
+    payload_compressed_bytes: int | None = None,
+    package_file_count: int | None = None,
+    metrics_scope: Mapping[str, str] | None = None,
     stage_seconds: Mapping[str, float] | None = None,
+    stage_scope: Mapping[str, str] | None = None,
 ) -> Path:
     out = Path(out_dir)
     payload = build_manifest(
@@ -1130,7 +1184,13 @@ def write_manifest(
         files_suppressed=files_suppressed,
         compressed_bytes=compressed_bytes,
         uncompressed_bytes=uncompressed_bytes,
+        payload_file_count=payload_file_count,
+        payload_uncompressed_bytes=payload_uncompressed_bytes,
+        payload_compressed_bytes=payload_compressed_bytes,
+        package_file_count=package_file_count,
+        metrics_scope=metrics_scope,
         stage_seconds=stage_seconds,
+        stage_scope=stage_scope,
     )
     path = out / "MANIFEST.json"
     path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
@@ -1140,6 +1200,8 @@ def write_manifest(
 __all__ = [
     "ExportProfile",
     "EXPORT_PROFILES",
+    "EXPORT_METRICS_SCOPE",
+    "EXPORT_STAGE_SCOPE",
     "NEVER_TIMESERIES_STATUSES",
     "PROFILE_TIMESERIES_ALLOWLIST",
     "ExportCounts",

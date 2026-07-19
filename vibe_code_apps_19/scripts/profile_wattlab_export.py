@@ -269,6 +269,34 @@ def build_profile_fixture() -> tuple[AgentDataset, AgentRun]:
     return dataset, run
 
 
+def resolve_suppressed_combinations(
+    manifest: dict[str, Any] | None,
+    *,
+    results: list[Any] | None = None,
+) -> int:
+    """Resolve suppressed evidence count without treating an explicit 0 as missing.
+
+    Prefer ``files_suppressed`` when the key is present (including 0). Otherwise
+    fall back to ``export_counts.suppressed_status`` totals, then to counting
+    ``NEVER_TIMESERIES_STATUSES`` on ``results``.
+    """
+    if isinstance(manifest, dict) and "files_suppressed" in manifest:
+        try:
+            return int(manifest["files_suppressed"])
+        except (TypeError, ValueError):
+            pass
+    if isinstance(manifest, dict):
+        ec = manifest.get("export_counts") or {}
+        suppressed_status = ec.get("suppressed_status")
+        if isinstance(suppressed_status, dict) and suppressed_status:
+            return int(sum(int(v) for v in suppressed_status.values()))
+    if results:
+        from app.wattlab_dump import NEVER_TIMESERIES_STATUSES
+
+        return sum(1 for r in results if getattr(r, "status", None) in NEVER_TIMESERIES_STATUSES)
+    return 0
+
+
 def _dir_uncompressed_bytes(root: Path) -> int:
     total = 0
     for p in root.rglob("*"):
@@ -326,19 +354,13 @@ def measure_export(
         status_counts = dict(Counter(r.status for r in (run.results or [])))
         suppressed = 0
         manifest_path = out / "MANIFEST.json"
+        man: dict[str, Any] | None = None
         if manifest_path.is_file():
             try:
                 man = json.loads(manifest_path.read_text(encoding="utf-8"))
-                suppressed = int(man.get("files_suppressed") or 0)
-                if not suppressed:
-                    ec = man.get("export_counts") or {}
-                    suppressed = int(sum(int(v) for v in (ec.get("suppressed_status") or {}).values()))
             except Exception:
-                suppressed = 0
-        if not suppressed:
-            from app.wattlab_dump import NEVER_TIMESERIES_STATUSES
-
-            suppressed = sum(1 for r in (run.results or []) if r.status in NEVER_TIMESERIES_STATUSES)
+                man = None
+        suppressed = resolve_suppressed_combinations(man, results=list(run.results or []))
 
         return {
             "mode": normalized,
@@ -354,6 +376,11 @@ def measure_export(
             "baseline_note": (
                 "live measures active export_agent_bundle; frozen before-metrics are "
                 f"{CHECKED_IN_BASELINE_PATH.as_posix()}"
+            ),
+            "metrics_note": (
+                "file_count/compressed_bytes/uncompressed_bytes are whole-directory "
+                "profiler measurements of the final export (including MANIFEST). "
+                "MANIFEST payload_* fields exclude MANIFEST self-bytes."
             ),
         }
 
