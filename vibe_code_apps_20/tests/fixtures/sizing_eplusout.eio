@@ -1,0 +1,24 @@
+Program Version,EnergyPlus, Version 26.1.0-fixture, YMD=2026.07.18 12:00
+! <Zone Sizing Information>, Zone Name, Load Type, Calc Des Load {W}, User Des Load {W}, Calc Des Air Flow Rate {m3/s}, User Des Air Flow Rate {m3/s}, Design Day Name, Date/Time of Peak, Temperature at Peak {C}, Humidity Ratio at Peak {kgWater/kgDryAir}, Floor Area {m2}, # Occupants, Calc Outdoor Air Flow Rate {m3/s}
+ Zone Sizing Information, SPACE1-1, Cooling, 3644.06336, 4008.46969, 0.21419, 0.23561, CHICAGO ANN CLG 1% CONDNS DB=>MWB, 7/21 09:30:00, 31.02000, 0.01459, 99.16000, 11.00000, 0.05637
+ Zone Sizing Information, SPACE1-1, Heating, 2661.99118, 2928.19030, 0.07882, 0.08670, CHICAGO ANN HTG 99% CONDNS DB, 1/21 08:00:00, -17.30000, 0.00084, 99.16000, 11.00000, 0.05637
+ Zone Sizing Information, SPACE2-1, Cooling, 2542.72038, 2796.99242, 0.14944, 0.16439, CHICAGO ANN CLG 1% CONDNS DB=>MWB, 7/21 16:00:00, 32.80000, 0.01459, 42.73500, 5.00000, 0.02482
+! <System Sizing Information>, System Name, Load Type, Peak Load Kind, User Design Capacity, Calc Des Air Flow Rate [m3/s], User Des Air Flow Rate [m3/s], Design Day Name, Date/Time of Peak
+ System Sizing Information, VAV SYS 1, Cooling, Sensible, 24519.85074, 1.05935, 1.05935, CHICAGO ANN CLG 1% CONDNS DB=>MWB, 7/21 16:00:00
+ System Sizing Information, VAV SYS 1, Heating, Sensible, 17103.37307, 0.31780, 0.31780, CHICAGO ANN HTG 99% CONDNS DB, 1/21 08:00:00
+! <Component Sizing Information>, Component Type, Component Name, Input Field Description, Value
+ Component Sizing Information, Fan:VariableVolume, SUPPLY FAN 1, Design Size Maximum Flow Rate [m3/s], 1.05935
+ Component Sizing Information, Chiller:Electric, CENTRAL CHILLER, Design Size Nominal Capacity [W], 34875.51811
+ Component Sizing Information, Chiller:Electric, CENTRAL CHILLER, Design Size Design Chilled Water Flow Rate [m3/s], 2.08315E-003
+ Component Sizing Information, Boiler:HotWater, CENTRAL BOILER, Design Size Nominal Capacity [W], 41049.10513
+ Component Sizing Information, Boiler:HotWater, CENTRAL BOILER, Design Size Design Water Flow Rate [m3/s], 8.93069E-004
+ Component Sizing Information, Coil:Cooling:Water, MAIN COOLING COIL 1, Design Size Design Water Flow Rate [m3/s], 1.35079E-003
+ Component Sizing Information, Coil:Cooling:Water, MAIN COOLING COIL 1, Design Size Design Air Flow Rate [m3/s], 1.05935
+ Component Sizing Information, Coil:Heating:Water, MAIN HEATING COIL 1, Design Size Rated Capacity [W], 12244.31937
+ Component Sizing Information, Coil:Heating:Water, MAIN HEATING COIL 1, Design Size Maximum Water Flow Rate [m3/s], 2.66407E-004
+ Component Sizing Information, Coil:Heating:Water, MAIN HEATING COIL 1, Design Size U-Factor Times Area Value [W/K], 205.19095
+ Component Sizing Information, Coil:Heating:Water, SPACE1-1 ZONE COIL, Design Size Rated Capacity [W], 3524.29852
+ Component Sizing Information, Coil:Heating:Water, SPACE1-1 ZONE COIL, Design Size Maximum Water Flow Rate [m3/s], 7.66790E-005
+ Component Sizing Information, Coil:Heating:Water, SPACE1-1 ZONE COIL, Design Size U-Factor Times Area Value [W/K], 82.68851
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Air Flow Rate [m3/s], 0.23561
+ Component Sizing Information, AirTerminal:SingleDuct:VAV:Reheat, SPACE1-1 VAV REHEAT, Design Size Maximum Hot Water or Steam Flow Rate [m3/s], 7.66790E-005

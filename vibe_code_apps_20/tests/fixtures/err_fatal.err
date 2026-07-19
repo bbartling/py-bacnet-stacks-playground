@@ -1,0 +1,5 @@
+Program Version,EnergyPlus, Version 26.1.0-fixture, YMD=2026.07.18 12:00,
+   ** Severe  ** Line: 12 Index: 14 - "Chller:Electric" is not a valid Object Type.
+   **   ~~~   ** ..Only Object Types are allowed here.
+   **  Fatal  ** Errors occurred on processing input file. Preceding condition(s) cause termination.
+   ************* EnergyPlus Terminated--Fatal Error Detected. 0 Warning; 1 Severe Errors; Elapsed Time=00hr 00min  0.16sec

@@ -28,19 +28,8 @@ from wattlab.config import (
 )
 from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
 from wattlab.energyplus.mcp import simulate
-from wattlab.energyplus.patches import (
-    apply_air_to_water_heat_pump_surrogate,
-    apply_chiller_lockout,
-    apply_condensing_boiler_efficiency,
-    apply_fan_avail_continuous,
-    apply_fan_avail_occupied_office,
-    apply_gl36_airside_proxy,
-    apply_high_efficiency_chiller,
-    apply_high_performance_glazing,
-    apply_monthly_energy_tables,
-    apply_premium_fan_vfd,
-    apply_sat_reset,
-)
+from wattlab.energyplus.patches import apply_monthly_energy_tables
+from wattlab.energyplus.patches.registry import apply_patch as registry_apply_patch
 from wattlab.energyplus.results import (
     annual_from_output_dir,
     build_result_record,
@@ -225,72 +214,11 @@ def _rates(profile: dict) -> tuple[float, float]:
     )
 
 
-def _float_param(params: dict, name: str, default: float) -> float:
-    value = params.get(name)
-    return float(default if value is None else value)
-
-
 def _apply_patch(name: str, src: Path, dest: Path, measure: dict | None = None) -> dict:
+    """Compatibility facade over the patch registry (dispatch moved there)."""
     patch = (measure or {}).get("idf_patch") or {}
     params = patch.get("params") or {}
-    if name in {"fan_avail_continuous", "baseline_continuous"}:
-        return apply_fan_avail_continuous(src, dest)
-    if name in {"fan_avail_occupied_office", "schedule_occupied"}:
-        return apply_fan_avail_occupied_office(src, dest)
-    if name in {"gl36_airside_proxy", "gl36_proxy"}:
-        return apply_gl36_airside_proxy(
-            src,
-            dest,
-            vav_min_fraction=float(params.get("vav_min_fraction") or 0.15),
-            fan_pressure_pa=float(params.get("fan_pressure_pa") or 400.0),
-            fan_power_min_fraction=float(params.get("fan_power_min_fraction") or 0.15),
-        )
-    if name in {"chiller_lockout", "mech_oat_lockout"}:
-        return apply_chiller_lockout(
-            src,
-            dest,
-            oat_lockout_f=float(params.get("oat_lockout_f") or 55.0),
-        )
-    if name in {"sat_reset", "sat_reset_proxy"}:
-        return apply_sat_reset(src, dest)
-    if name == "high_performance_glazing":
-        return apply_high_performance_glazing(
-            src,
-            dest,
-            u_factor=_float_param(params, "u_factor", 1.4),
-            shgc=_float_param(params, "shgc", 0.30),
-            visible_transmittance=_float_param(
-                params, "visible_transmittance", 0.50
-            ),
-        )
-    if name == "condensing_boiler":
-        return apply_condensing_boiler_efficiency(
-            src,
-            dest,
-            efficiency=_float_param(params, "efficiency", 0.95),
-        )
-    if name == "high_efficiency_chiller":
-        return apply_high_efficiency_chiller(
-            src,
-            dest,
-            cop=_float_param(params, "cop", 6.1),
-        )
-    if name == "premium_fan_vfd":
-        return apply_premium_fan_vfd(
-            src,
-            dest,
-            total_efficiency=_float_param(params, "total_efficiency", 0.75),
-            motor_efficiency=_float_param(params, "motor_efficiency", 0.95),
-            pressure_pa=_float_param(params, "pressure_pa", 400.0),
-            min_flow_fraction=_float_param(params, "min_flow_fraction", 0.10),
-        )
-    if name == "awhp_surrogate":
-        return apply_air_to_water_heat_pump_surrogate(
-            src,
-            dest,
-            cop=_float_param(params, "cop", 2.8),
-        )
-    raise ValueError(f"Unknown idf_patch name: {name}")
+    return registry_apply_patch(name, src, dest, params)
 
 
 def run_easy_button(
