@@ -25,7 +25,15 @@ from wattlab.seed import gap_report, load_bundle
 
 st.set_page_config(page_title="WattLab Studio", page_icon="⚡", layout="wide")
 
-PAGES = ["Ingest", "Model", "Benchmark", "Measures", "Twin loop", "Capital plan"]
+PAGES = [
+    "Ingest",
+    "Model",
+    "Benchmark",
+    "Measures",
+    "Twin loop",
+    "EP Results",
+    "Capital plan",
+]
 
 LIBERTY_CAMPUS = Path(__file__).resolve().parent / "examples" / "liberty" / "campus.json"
 
@@ -313,6 +321,12 @@ def page_model() -> None:
         floors = c4.number_input("Floors", min_value=1, max_value=60, value=int(seed.get("floors") or 1), key="studio_floors")
         elec = c5.number_input("Electric $/kWh", min_value=0.01, max_value=1.0, value=0.12, step=0.01, key="studio_elec_rate")
         gas = c6.number_input("Gas $/therm", min_value=0.05, max_value=5.0, value=0.80, step=0.05, key="studio_gas_rate")
+        custom_idf = st.text_input(
+            "Custom / prototype IDF (optional)",
+            value=str(seed.get("custom_idf") or seed.get("prototype_idf") or ""),
+            placeholder="Leave blank for archetype 5ZoneAirCooled; advanced humans: path to your IDF",
+            key="studio_custom_idf",
+        )
         submitted = st.form_submit_button("Resolve profile with defaults")
 
     if submitted:
@@ -326,6 +340,8 @@ def page_model() -> None:
                 "floors": int(floors),
                 "utility": {"elec_usd_per_kwh": elec, "gas_usd_per_therm": gas},
             }
+            if str(custom_idf).strip():
+                minimal["custom_idf"] = str(custom_idf).strip()
             profile = resolve_profile(minimal)
             st.session_state["studio_profile"] = profile
             st.success("Profile resolved.")
@@ -728,6 +744,249 @@ def page_twin_loop() -> None:
         st.dataframe(pd.DataFrame(hist), width='stretch', hide_index=True)
 
 
+def page_ep_results() -> None:
+    """Post-sim EnergyPlus results viz (APIHelper-inspired, Docker-compatible)."""
+    st.header("EP Results — modeled vs bills + zone / HVAC timeseries")
+    st.caption(
+        "Charts from Docker sim outputs (``eplusout.csv`` / monthly meters). "
+        "No host-side pyenergyplus Runtime API — APIHelper patterns adapted for post-sim data."
+    )
+
+    default_sim = ""
+    plan = _state("studio_plan") or {}
+    if isinstance(plan, dict):
+        arts = plan.get("artifacts_dir") or plan.get("run_dir") or ""
+        if arts:
+            default_sim = str(arts)
+    sim_dir = st.text_input(
+        "Simulation output directory (contains eplusout.csv)",
+        value=default_sim,
+        key="studio_ep_sim_dir",
+        placeholder=str(ARTIFACTS / "wattlab_…/sim_baseline"),
+    )
+    scorecard_path = st.text_input(
+        "Optional calibration_scorecard.json",
+        value="",
+        key="studio_ep_scorecard",
+        placeholder="…/calibration_scorecard.json",
+    )
+
+    bundle = _state("studio_bundle")
+    monthly_model: list[dict[str, Any]] = []
+    bills_rows: list[dict[str, Any]] = []
+
+    if scorecard_path.strip():
+        sp = Path(scorecard_path.strip())
+        if sp.is_file():
+            try:
+                sc = json.loads(sp.read_text(encoding="utf-8"))
+                monthly_model = list((sc.get("annual") or {}).get("monthly") or [])
+                ub = sc.get("utility_bills") or {}
+                for pm in ub.get("per_month") or []:
+                    bills_rows.append(
+                        {
+                            "month": pm.get("month"),
+                            "observed_kwh": pm.get("observed_kwh"),
+                            "simulated_kwh": pm.get("simulated_kwh"),
+                            "observed_therms": pm.get("observed_therms"),
+                            "simulated_therms": pm.get("simulated_therms"),
+                        }
+                    )
+                st.success(
+                    f"Scorecard loaded — bills gate: {ub.get('pass_fail')} "
+                    f"(fuels: {ub.get('fuels_compared')})"
+                )
+            except Exception as exc:
+                st.error(f"Could not read scorecard: {exc}")
+
+    if not monthly_model and sim_dir.strip():
+        from wattlab.energyplus.results import annual_from_output_dir
+
+        try:
+            ann = annual_from_output_dir(Path(sim_dir.strip()))
+            monthly_model = list(ann.get("monthly") or [])
+        except Exception as exc:
+            st.warning(f"Could not parse monthly from sim dir: {exc}")
+
+    if not bills_rows and bundle is not None and bundle.has_bills:
+        for b in bundle.utility_bills.to_dict("records"):
+            bills_rows.append(
+                {
+                    "month": b.get("month"),
+                    "observed_kwh": b.get("kwh"),
+                    "observed_therms": b.get("therms"),
+                }
+            )
+        # Merge simulated from monthly_model
+        by_m = {int(m["month"]): m for m in monthly_model if m.get("month")}
+        for row in bills_rows:
+            m = int(row.get("month") or 0)
+            if m in by_m:
+                row["simulated_kwh"] = by_m[m].get("electricity_kwh")
+                row["simulated_therms"] = by_m[m].get("natural_gas_therm")
+
+    st.subheader("Monthly modeled vs billed")
+    if bills_rows or monthly_model:
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            st.warning("plotly not installed — `pip install plotly` or install the studio extra.")
+            go = None  # type: ignore[assignment]
+        if go is not None and bills_rows:
+            dfb = pd.DataFrame(bills_rows).sort_values("month")
+            fig = go.Figure()
+            if dfb["observed_kwh"].notna().any():
+                fig.add_trace(
+                    go.Bar(name="Billed kWh", x=dfb["month"], y=dfb["observed_kwh"])
+                )
+            if "simulated_kwh" in dfb.columns and dfb["simulated_kwh"].notna().any():
+                fig.add_trace(
+                    go.Bar(name="Modeled kWh", x=dfb["month"], y=dfb["simulated_kwh"])
+                )
+            fig.update_layout(
+                barmode="group",
+                title="Electricity (kWh)",
+                xaxis_title="Month",
+                height=360,
+            )
+            st.plotly_chart(fig, width="stretch")
+            if (
+                "observed_therms" in dfb.columns
+                and dfb["observed_therms"].notna().any()
+            ):
+                fig_g = go.Figure()
+                fig_g.add_trace(
+                    go.Bar(name="Billed therms", x=dfb["month"], y=dfb["observed_therms"])
+                )
+                if "simulated_therms" in dfb.columns and dfb["simulated_therms"].notna().any():
+                    fig_g.add_trace(
+                        go.Bar(
+                            name="Modeled therms",
+                            x=dfb["month"],
+                            y=dfb["simulated_therms"],
+                        )
+                    )
+                fig_g.update_layout(
+                    barmode="group",
+                    title="Natural gas (therms)",
+                    xaxis_title="Month",
+                    height=360,
+                )
+                st.plotly_chart(fig_g, width="stretch")
+            st.dataframe(dfb, width="stretch", hide_index=True)
+        elif monthly_model:
+            st.dataframe(pd.DataFrame(monthly_model), width="stretch", hide_index=True)
+    else:
+        st.info(
+            "No dump bills or scorecard yet — load a dump on Ingest, or point at a "
+            "calibration_scorecard.json / sim directory after a Docker run."
+        )
+
+    st.subheader("Outdoor + zone air temperature")
+    ts = None
+    if sim_dir.strip():
+        from wattlab.energyplus.timeseries import downsample_frame, load_sim_timeseries
+
+        ts = load_sim_timeseries(Path(sim_dir.strip()))
+    if ts is None or ts.outdoor.empty:
+        st.info("Provide a sim directory with eplusout.csv to chart zone / OA / HVAC.")
+    else:
+        try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+        except ImportError:
+            st.warning("plotly not installed.")
+            return
+
+        oa = downsample_frame(ts.outdoor)
+        fig_oa = go.Figure()
+        fig_oa.add_trace(
+            go.Scatter(
+                x=oa["timestamp"],
+                y=oa["outdoor_db_c"],
+                name="Outdoor DB",
+                line=dict(color="#1f77b4"),
+            )
+        )
+        if not ts.zones.empty:
+            zdf = downsample_frame(ts.zones)
+            for zone, g in zdf.groupby("zone"):
+                fig_oa.add_trace(
+                    go.Scatter(
+                        x=g["timestamp"],
+                        y=g["temp_c"],
+                        name=str(zone),
+                        opacity=0.75,
+                    )
+                )
+        fig_oa.update_layout(
+            title="Outdoor + zone mean air temperature",
+            yaxis_title="°C",
+            height=420,
+            legend_title="Series",
+        )
+        st.plotly_chart(fig_oa, width="stretch")
+
+        st.subheader("Zone temperature strip (mean)")
+        summary = ts.zone_mean_temps()
+        if not summary.empty:
+            # Lightweight heatmap cards (APIHelper 08 idea without canvas/Flask)
+            tmin = float(summary["mean_c"].min())
+            tmax = float(summary["mean_c"].max())
+            span = max(tmax - tmin, 1e-6)
+            cols = st.columns(min(len(summary), 6))
+            for i, row in enumerate(summary.itertuples(index=False)):
+                frac = (float(row.mean_c) - tmin) / span
+                # Cool → warm (blue → orange)
+                r = int(40 + frac * 200)
+                g = int(120 + (1 - abs(frac - 0.5) * 2) * 40)
+                b = int(220 - frac * 180)
+                color = f"#{r:02x}{g:02x}{b:02x}"
+                with cols[i % len(cols)]:
+                    st.markdown(
+                        f"<div style='background:{color};padding:12px;border-radius:6px;"
+                        f"color:#111;text-align:center;margin-bottom:8px'>"
+                        f"<div style='font-size:0.8rem;opacity:0.85'>{row.zone}</div>"
+                        f"<div style='font-size:1.4rem;font-weight:600'>"
+                        f"{row.mean_c:.1f}°C</div>"
+                        f"<div style='font-size:0.75rem'>"
+                        f"{row.min_c:.1f}–{row.max_c:.1f}</div></div>",
+                        unsafe_allow_html=True,
+                    )
+            fig_hm = px.bar(
+                summary,
+                x="zone",
+                y="mean_c",
+                color="mean_c",
+                color_continuous_scale="RdYlBu_r",
+                title="Zone mean air temperature",
+            )
+            fig_hm.update_layout(height=320)
+            st.plotly_chart(fig_hm, width="stretch")
+
+        st.subheader("Fan / coil power")
+        if not ts.hvac.empty and (
+            ts.hvac["fan_w"].notna().any()
+            or ts.hvac["cooling_w"].notna().any()
+            or ts.hvac["heating_w"].notna().any()
+        ):
+            hdf = downsample_frame(ts.hvac)
+            fig_h = go.Figure()
+            for col, label in (
+                ("fan_w", "Fan W"),
+                ("cooling_w", "Cooling coil W"),
+                ("heating_w", "Heating coil W"),
+            ):
+                if hdf[col].notna().any():
+                    fig_h.add_trace(
+                        go.Scatter(x=hdf["timestamp"], y=hdf[col], name=label)
+                    )
+            fig_h.update_layout(title="HVAC rates", yaxis_title="W", height=360)
+            st.plotly_chart(fig_h, width="stretch")
+        else:
+            st.caption("No fan/coil columns discovered in this eplusout.csv.")
+
+
 def page_capital_plan() -> None:
     st.header("Capital plan — payback / ROI / NPV rollup")
     measures = _state("studio_measures") or []
@@ -860,6 +1119,8 @@ def main() -> None:
         page_measures()
     elif page == "Twin loop":
         page_twin_loop()
+    elif page == "EP Results":
+        page_ep_results()
     else:
         page_capital_plan()
 

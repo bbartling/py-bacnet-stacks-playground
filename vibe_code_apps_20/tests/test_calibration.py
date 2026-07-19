@@ -211,6 +211,39 @@ def test_split_bills_holdout():
     assert val2 == []
 
 
+def test_compare_bills_dual_fuel_g14():
+    from wattlab.calibrate import compare_bills_to_monthly
+
+    bills = [
+        {"month": m, "kwh": 1000.0, "therms": 100.0} for m in range(1, 13)
+    ]
+    monthly = [
+        {"month": m, "electricity_kwh": 1000.0, "natural_gas_therm": 100.0}
+        for m in range(1, 13)
+    ]
+    cmp = compare_bills_to_monthly(bills, monthly)
+    assert cmp["pass_fail"] == "pass"
+    assert set(cmp["fuels_compared"]) == {"electricity", "natural_gas"}
+    assert cmp["pass_fail_electricity"] == "pass"
+    assert cmp["pass_fail_natural_gas"] == "pass"
+
+    bad_gas = [
+        {"month": m, "electricity_kwh": 1000.0, "natural_gas_therm": 200.0}
+        for m in range(1, 13)
+    ]
+    cmp2 = compare_bills_to_monthly(bills, bad_gas)
+    assert cmp2["pass_fail"] == "fail"
+    assert cmp2["pass_fail_electricity"] == "pass"
+    assert cmp2["pass_fail_natural_gas"] == "fail"
+
+    elec_only = compare_bills_to_monthly(
+        [{"month": m, "kwh": 1000.0, "therms": None} for m in range(1, 13)],
+        monthly,
+    )
+    assert elec_only["fuels_compared"] == ["electricity"]
+    assert elec_only["pass_fail"] == "pass"
+
+
 def test_resolve_calibration_status():
     assert (
         resolve_calibration_status(

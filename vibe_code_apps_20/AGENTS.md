@@ -41,12 +41,18 @@ wattlab twin path\to\wattlab_dump.zip --out .artifacts\twin_demo
 #      "utility": { "elec_usd_per_kwh": 0.12, "gas_usd_per_therm": 0.80 } }
 wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --measure-set better
 
-# 4) Calibrate dry-run (AMY plan) when weather_observed is in the dump:
+# 4) Calibrate dry-run (AMY plan) when weather_observed is in the dump,
+#    OR when answers include lat/lon + data_window (Open-Meteo AMY auto-fetch):
+#    { …, "lat": 42.33, "lon": -83.05,
+#      "data_window": { "start_utc": "2025-01-01", "end_utc": "2025-01-07" } }
 wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --calibrate
 
-# 5) Live EnergyPlus (needs Docker image energyplus-mcp-dev):
+# 5) Optional human IDF (advanced): add "custom_idf": "path\\to\\building.idf"
+
+# 6) Live EnergyPlus (needs Docker image energyplus-mcp-dev):
 wattlab twin path\to\wattlab_dump.zip --inputs answers.json --out .artifacts\twin_demo --calibrate --live
 wattlab easy-button --profile .artifacts\twin_demo\resolved_profile.json --measure-set better --dry-run
+# Studio → EP Results charts eplusout.csv / monthly vs bills after sims.
 ```
 
 ### What the dump already proves (do not re-ask)
@@ -212,6 +218,23 @@ simulation**. Before any capital plan or ROI narrative is emitted:
 | **Defaults only** | Form preview / UI | `python wattlab_defaults.py --type office --city madison` |
 | **vibe19 bridge** | Auto-suggest ECMs from FDD export | `python vibe19_bridge.py <export_dir>` |
 | **Full EnergyPlus-MCP** | Inspect loops, plots, custom run periods, validate IDF | Cursor MCP → Docker `energyplus-mcp-dev` (see `third_party/README.md`) |
+| **WattLab twin** | Dump → gaps → profile → optional Open-Meteo AMY + calibrate | `wattlab twin <dump.zip> --inputs answers.json` |
+
+### Archetype screening vs human-supplied IDF
+
+- **Default:** archetype-scaled `5ZoneAirCooled.idf` (or archetype `prototype_idf`) — geometry is a **screening surrogate**, not the real building. Keep `NEEDS_INPUT` / conceptual disclaimers honest.
+- **Bring your own IDF:** pass `custom_idf` or `prototype_idf` in twin `--inputs` / Studio Model — advanced modelers are first-class. Resolve_profile / easy-button use that path instead of the archetype file.
+- **Roles:** WattLab owns weather (Open-Meteo AMY / weather_observed), bills + dual-fuel G14, ECM patches, scorecards, Studio **EP Results** viz. Cursor MCP against a cloned vendor tree (`third_party/README.md`) owns deep IDF inspect/modify/plot. In-package MCP helpers are **simulate-via-Docker**; check `wattlab.energyplus.mcp.capability_status()`.
+
+### Actual weather + bills
+
+- Dump with `weather_observed.csv` → calibrate builds AMY EPW (`ACTUAL_YEAR_CALIBRATION`).
+- Dump **without** observed weather but with `lat`/`lon` + `data_window` → twin fetches Open-Meteo archive, writes `amy.epw` + `weather_observed.csv` into intake artifacts, stamps profile `energyplus.epw` for easy-button.
+- Dual-fuel G14: monthly electricity **and** gas therms when both are present (`compare_bills_to_monthly`).
+
+### EnergyPlusAPIHelper (patterns only)
+
+NREL `energyplus_api_helpers` demos (zone floor-plan heatmap, live OA vs zone charts, progress callbacks) inspired Studio **EP Results** post-sim Plotly charts from `eplusout.csv`. **Do not** vendor host-side `pyenergyplus` / mid-run actuators — WattLab stays Docker / `energyplus-mcp-dev` first.
 
 ### Calibration knobs MCP can vs cannot do
 

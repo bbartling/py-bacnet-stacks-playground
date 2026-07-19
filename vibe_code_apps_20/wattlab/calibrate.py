@@ -316,33 +316,73 @@ def compare_bills_to_monthly(
     bills: list[dict[str, Any]],
     monthly: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    """Dual-fuel monthly G14 compare (electricity kWh + gas therms when present)."""
     by_m = {int(m["month"]): m for m in monthly if m.get("month")}
     obs_kwh: list[float] = []
     sim_kwh: list[float] = []
+    obs_therms: list[float] = []
+    sim_therms: list[float] = []
     per_month: list[dict[str, Any]] = []
     for b in bills:
         m = int(b.get("month") or 0)
         if m not in by_m:
             continue
-        o = b.get("kwh")
-        s = by_m[m].get("electricity_kwh")
-        if o is None or s is None:
-            continue
-        obs_kwh.append(float(o))
-        sim_kwh.append(float(s))
-        per_month.append(
-            {
-                "month": m,
-                "observed_kwh": float(o),
-                "simulated_kwh": float(s),
-                "delta_kwh": float(s) - float(o),
-            }
-        )
-    stats = nmbe_cvrmse(obs_kwh, sim_kwh)
+        row = by_m[m]
+        entry: dict[str, Any] = {"month": m}
+        o_kwh = b.get("kwh")
+        s_kwh = row.get("electricity_kwh")
+        if o_kwh is not None and s_kwh is not None:
+            obs_kwh.append(float(o_kwh))
+            sim_kwh.append(float(s_kwh))
+            entry["observed_kwh"] = float(o_kwh)
+            entry["simulated_kwh"] = float(s_kwh)
+            entry["delta_kwh"] = float(s_kwh) - float(o_kwh)
+        o_th = b.get("therms")
+        s_th = row.get("natural_gas_therm")
+        if o_th is not None and s_th is not None:
+            obs_therms.append(float(o_th))
+            sim_therms.append(float(s_th))
+            entry["observed_therms"] = float(o_th)
+            entry["simulated_therms"] = float(s_th)
+            entry["delta_therms"] = float(s_th) - float(o_th)
+        if len(entry) > 1:
+            per_month.append(entry)
+
+    elec_stats = nmbe_cvrmse(obs_kwh, sim_kwh)
+    gas_stats = nmbe_cvrmse(obs_therms, sim_therms)
+    elec_pf = _pass_fail(elec_stats)
+    gas_pf = _pass_fail(gas_stats)
+
+    fuels_compared: list[str] = []
+    fuel_results: list[str] = []
+    if elec_stats.get("n", 0) > 0:
+        fuels_compared.append("electricity")
+        fuel_results.append(elec_pf)
+    if gas_stats.get("n", 0) > 0:
+        fuels_compared.append("natural_gas")
+        fuel_results.append(gas_pf)
+
+    # Overall: pass only when every compared fuel passes; any fail → fail.
+    if not fuel_results:
+        overall = "insufficient_data"
+    elif any(p == "fail" for p in fuel_results):
+        overall = "fail"
+    elif any(p == "insufficient_data" for p in fuel_results):
+        overall = "insufficient_data"
+    elif all(p == "pass" for p in fuel_results):
+        overall = "pass"
+    else:
+        overall = "fail"
+
     return {
         "months_compared": len(per_month),
-        "stats": stats,
-        "pass_fail": _pass_fail(stats),
+        "fuels_compared": fuels_compared,
+        "stats": elec_stats,
+        "stats_electricity": elec_stats,
+        "stats_natural_gas": gas_stats,
+        "pass_fail_electricity": elec_pf,
+        "pass_fail_natural_gas": gas_pf,
+        "pass_fail": overall,
         "per_month": per_month,
         "thresholds": {"nmbe_pct": NMBE_PASS, "cvrmse_pct": CVRMSE_PASS},
     }

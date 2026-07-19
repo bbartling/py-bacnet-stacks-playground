@@ -32,6 +32,15 @@ def test_studio_boots_on_ingest():
     assert any("No dump loaded" in str(block.value) for block in at.info)
 
 
+def test_studio_ep_results_page_loads_without_dump():
+    at = _boot("EP Results")
+    assert at.radio(key="studio_page").value == "EP Results"
+    assert not at.exception
+    # Empty state should hint, not crash
+    info_text = " ".join(str(b.value) for b in at.info)
+    assert "eplusout" in info_text.lower() or "dump" in info_text.lower() or "scorecard" in info_text.lower()
+
+
 def test_studio_model_resolves_profile_with_defaults():
     at = _boot("Model")
     at.text_input(key="studio_btype").set_value("office")

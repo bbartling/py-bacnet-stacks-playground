@@ -238,9 +238,21 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
     )
 
     epw_rel, epw_note = _epw_path(city_meta)
-    proto = arch.get("prototype_idf") or "examples/prototypes/5ZoneAirCooled.idf"
-    field_sources["prototype_idf"] = _tagged(proto, "default")
-    field_sources["epw"] = _tagged(epw_rel, "default", note=epw_note)
+    # Bring-your-own IDF: custom_idf / prototype_idf override archetype default.
+    user_idf = m.get("custom_idf") or m.get("prototype_idf")
+    if user_idf:
+        proto = str(user_idf)
+        field_sources["prototype_idf"] = _tagged(proto, "user", note="human-supplied IDF")
+    else:
+        proto = arch.get("prototype_idf") or "examples/prototypes/5ZoneAirCooled.idf"
+        field_sources["prototype_idf"] = _tagged(proto, "default")
+    user_epw = m.get("epw") or m.get("amy_epw")
+    if user_epw:
+        epw_rel = str(user_epw)
+        epw_note = m.get("epw_note") or "User / AMY EPW override"
+        field_sources["epw"] = _tagged(epw_rel, "user", note=epw_note)
+    else:
+        field_sources["epw"] = _tagged(epw_rel, "default", note=epw_note)
 
     lpd = float(arch.get("lpd_w_per_ft2") or 0.9) * float(
         code_meta.get("lpd_multiplier") or 1.0

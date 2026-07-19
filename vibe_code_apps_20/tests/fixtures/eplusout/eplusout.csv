@@ -1,0 +1,6 @@
+Date/Time,Environment:Site Outdoor Air Drybulb Temperature [C](Hourly),SPACE1-1:Zone Mean Air Temperature [C](Hourly),SPACE2-1:Zone Mean Air Temperature [C](Hourly),SPACE3-1:Zone Mean Air Temperature [C](Hourly),SUPPLY FAN 1:Fan Electricity Rate [W](Hourly),MAIN COOLING COIL 1:Cooling Coil Total Cooling Rate [W](Hourly),MAIN HEATING COIL 1:Heating Coil Heating Rate [W](Hourly),Electricity:Facility [J](Hourly),NaturalGas:Facility [J](Hourly)
+ 01/01  01:00:00,5.0,21.0,20.5,20.0,1200.0,0.0,8000.0,3.6e6,1.0e6
+ 01/01  02:00:00,4.5,21.1,20.6,20.1,1200.0,0.0,7500.0,3.5e6,0.9e6
+ 01/01  03:00:00,4.0,21.2,20.7,20.2,1100.0,0.0,7000.0,3.4e6,0.8e6
+ 07/01  14:00:00,32.0,23.0,23.5,24.0,1500.0,25000.0,0.0,5.0e6,0.1e6
+ 07/01  15:00:00,33.0,23.2,23.6,24.1,1550.0,27000.0,0.0,5.2e6,0.1e6
