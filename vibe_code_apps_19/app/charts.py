@@ -816,10 +816,19 @@ def format_mech_cooling_coverage_display(coverage: pd.DataFrame) -> pd.DataFrame
     }
     out = df.rename(columns={k: v for k, v in rename.items() if k in df.columns})
     if "Eligibility" in out.columns and "Activity" in out.columns:
+        runtime_hrs = (
+            pd.to_numeric(out["Runtime hours"], errors="coerce").fillna(0.0)
+            if "Runtime hours" in out.columns
+            else pd.Series(0.0, index=out.index)
+        )
+        if "Included" in out.columns:
+            included_mask = out["Included"].fillna(False).astype(bool)
+        else:
+            included_mask = pd.Series(True, index=out.index)
         no_runtime = out["Eligibility"].astype(str).eq("eligible_no_runtime") | (
             out["Activity"].astype(str).eq("inactive")
-            & pd.to_numeric(out.get("Runtime hours"), errors="coerce").fillna(0).eq(0)
-            & out.get("Included", True).fillna(False).astype(bool)
+            & runtime_hrs.eq(0)
+            & included_mask
         )
         if "Reason" in out.columns:
             out.loc[no_runtime, "Reason"] = out.loc[no_runtime, "Reason"].where(
@@ -896,8 +905,9 @@ def _mech_cooling_hover_customdata(sub: pd.DataFrame) -> list[list[Any]]:
             _cell("proof_quality"),
             [f"{float(v):.2f}" if pd.notna(v) else "—" for v in hours],
             _cell("device_count", "0"),
+            _cell("running_count", "0"),
+            _cell("sample_count", "0"),
             _cell("coverage_pct", "—"),
-            _cell("valid_elapsed_hours", "—"),
             strict=False,
         )
     )
@@ -912,8 +922,9 @@ _MECH_COOL_HOVER = (
     "Proof role: %{customdata[2]}<br>"
     "Proof quality: %{customdata[3]}<br>"
     "Device count: %{customdata[5]}<br>"
-    "Coverage %: %{customdata[6]}<br>"
-    "Valid elapsed hours: %{customdata[7]}"
+    "Running count: %{customdata[6]}<br>"
+    "Sample count: %{customdata[7]}<br>"
+    "Coverage %: %{customdata[8]}"
     "<extra></extra>"
 )
 

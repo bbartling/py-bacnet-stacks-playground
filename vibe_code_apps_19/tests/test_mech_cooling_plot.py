@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from app.charts import mech_cooling_oat_histogram, mech_cooling_runtime_message
+from app.charts import (
+    format_mech_cooling_coverage_display,
+    mech_cooling_oat_histogram,
+    mech_cooling_runtime_message,
+    mech_cooling_zero_eligible_warning,
+)
 
 
 def _bin_row(
@@ -13,7 +18,7 @@ def _bin_row(
     equipment_id: str,
     source: str,
     source_kind: str,
-    series_kind: str,
+    series_kind: str | None,
     series_id: str,
     bin_start: int,
     hours: float,
@@ -22,14 +27,15 @@ def _bin_row(
     proof_role: str = "chiller-status",
     proof_quality: str = "direct",
     device_count: int = 1,
+    running_count: int = 1,
+    sample_count: int = 12,
     coverage_pct: float = 100.0,
     valid_elapsed_hours: float = 4.0,
 ) -> dict:
-    return {
+    row = {
         "equipment_id": equipment_id,
         "source": source,
         "source_kind": source_kind,
-        "series_kind": series_kind,
         "series_id": series_id,
         "bin_start": bin_start,
         "bin_label": f"{bin_start}–{bin_start + 5}",
@@ -42,7 +48,12 @@ def _bin_row(
         "proof_role": proof_role,
         "proof_quality": proof_quality,
         "device_count": device_count,
+        "running_count": running_count,
+        "sample_count": sample_count,
     }
+    if series_kind is not None:
+        row["series_kind"] = series_kind
+    return row
 
 
 def one_device_rows() -> pd.DataFrame:
@@ -57,6 +68,9 @@ def one_device_rows() -> pd.DataFrame:
                 series_id="CHILLER_2",
                 bin_start=70,
                 hours=2.0,
+                running_count=1,
+                sample_count=24,
+                coverage_pct=97.5,
             ),
             _bin_row(
                 equipment_id="ALL",
@@ -71,6 +85,9 @@ def one_device_rows() -> pd.DataFrame:
                 proof_role="",
                 proof_quality="",
                 device_count=1,
+                running_count=1,
+                sample_count=24,
+                coverage_pct=97.5,
             ),
             _bin_row(
                 equipment_id="ACTIVE",
@@ -85,6 +102,9 @@ def one_device_rows() -> pd.DataFrame:
                 proof_role="",
                 proof_quality="",
                 device_count=1,
+                running_count=1,
+                sample_count=24,
+                coverage_pct=97.5,
             ),
         ]
     )
@@ -125,6 +145,7 @@ def two_device_equal_aggregate_rows() -> pd.DataFrame:
                 proof_role="",
                 proof_quality="",
                 device_count=2,
+                running_count=2,
             ),
             _bin_row(
                 equipment_id="ACTIVE",
@@ -139,9 +160,68 @@ def two_device_equal_aggregate_rows() -> pd.DataFrame:
                 proof_role="",
                 proof_quality="",
                 device_count=2,
+                running_count=1,
             ),
         ]
     )
+
+
+def legacy_source_kind_only_rows() -> pd.DataFrame:
+    """Pre-series_kind bins: only source_kind distinguishes total/active/devices."""
+    rows = [
+        _bin_row(
+            equipment_id="CHILLER_2",
+            source="CHILLER_2 (chiller-status)",
+            source_kind="chiller-status",
+            series_kind=None,
+            series_id="CHILLER_2",
+            bin_start=70,
+            hours=2.0,
+            proof_role="chiller-status",
+            proof_quality="direct",
+            device_count=1,
+            running_count=1,
+            sample_count=10,
+            coverage_pct=88.0,
+        ),
+        _bin_row(
+            equipment_id="ALL",
+            source="All mech cooling (total) — 1 device(s)",
+            source_kind="total",
+            series_kind=None,
+            series_id="ALL",
+            bin_start=70,
+            hours=2.0,
+            equipment_type="",
+            cooling_technology="",
+            proof_role="",
+            proof_quality="",
+            device_count=1,
+            running_count=1,
+            sample_count=10,
+            coverage_pct=88.0,
+        ),
+        _bin_row(
+            equipment_id="ACTIVE",
+            source="Any compressor active",
+            source_kind="active",
+            series_kind=None,
+            series_id="ACTIVE",
+            bin_start=70,
+            hours=2.0,
+            equipment_type="",
+            cooling_technology="",
+            proof_role="",
+            proof_quality="",
+            device_count=1,
+            running_count=1,
+            sample_count=10,
+            coverage_pct=88.0,
+        ),
+    ]
+    df = pd.DataFrame(rows)
+    assert "series_kind" not in df.columns
+    return df
 
 
 def test_empty_bins_return_none():
@@ -201,32 +281,46 @@ def test_two_device_stack_keeps_both_aggregate_lines():
     assert list(fig.data[3].y) == [1.5]
 
 
-def _hover_blob(trace) -> str:
-    parts = [str(trace.hovertemplate or "")]
-    if getattr(trace, "customdata", None) is not None:
-        parts.append(str(trace.customdata))
-    if getattr(trace, "hovertext", None) is not None:
-        parts.append(str(trace.hovertext))
-    return " ".join(parts).lower()
+def test_legacy_source_kind_only_bins_fallback():
+    fig = mech_cooling_oat_histogram(legacy_source_kind_only_rows())
+    assert fig is not None
+    assert [trace.name for trace in fig.data] == [
+        "CHILLER_2",
+        "Total compressor device-hours",
+        "Any compressor active",
+    ]
+    assert fig.data[0].type == "bar"
+    assert fig.data[1].type == "scatter"
+    assert fig.data[2].type == "scatter"
+    assert fig.layout.barmode == "stack"
 
 
-@pytest.mark.parametrize(
-    "field",
-    [
-        "proof",
-        "coverage",
-        "device",
-        "runtime",
-        "equipment",
-        "cooling",
-        "oat",
-    ],
-)
-def test_hover_includes_proof_count_coverage_metadata(field: str):
+def _customdata_rows(trace) -> list[list]:
+    raw = getattr(trace, "customdata", None)
+    assert raw is not None, f"trace {trace.name!r} missing customdata"
+    rows = [list(row) for row in raw]
+    assert rows, f"trace {trace.name!r} has empty customdata"
+    return rows
+
+
+def test_hover_customdata_carries_proof_count_coverage_values():
     fig = mech_cooling_oat_histogram(one_device_rows())
     assert fig is not None
-    blob = " ".join(_hover_blob(t) for t in fig.data)
-    assert field in blob
+    device_rows = _customdata_rows(fig.data[0])
+    # Indices: type, cooling, proof_role, proof_quality, runtime,
+    # device_count, running_count, sample_count, coverage_pct
+    assert device_rows[0][2] == "chiller-status"
+    assert device_rows[0][3] == "direct"
+    assert device_rows[0][5] == "1"
+    assert device_rows[0][6] == "1"
+    assert device_rows[0][7] == "24"
+    assert device_rows[0][8] == "97.5"
+
+    agg_rows = _customdata_rows(fig.data[1])
+    assert agg_rows[0][5] == "1"
+    assert agg_rows[0][6] == "1"
+    assert agg_rows[0][7] == "24"
+    assert agg_rows[0][8] == "97.5"
 
 
 def test_runtime_message_one_active_device():
@@ -289,3 +383,83 @@ def test_runtime_message_absent_when_no_runtime():
         ]
     )
     assert mech_cooling_runtime_message(coverage) is None
+
+
+def test_zero_eligible_warning_for_empty_and_excluded():
+    assert mech_cooling_zero_eligible_warning(None) is not None
+    assert mech_cooling_zero_eligible_warning(pd.DataFrame()) is not None
+    excluded = pd.DataFrame(
+        [
+            {
+                "equipment_id": "CHILLER_1",
+                "included": False,
+                "eligibility_state": "excluded_missing_proof",
+                "activity_state": "none",
+                "runtime_hours": 0.0,
+            }
+        ]
+    )
+    msg = mech_cooling_zero_eligible_warning(excluded)
+    assert msg is not None
+    assert "No eligible compressor devices with mapped compressor proof were found." in msg
+    assert (
+        "CHW pump status or cooling-valve signals alone do not count as compressor proof"
+        in msg
+    )
+
+
+def test_zero_eligible_warning_absent_when_included():
+    coverage = pd.DataFrame(
+        [
+            {
+                "equipment_id": "CHILLER_1",
+                "included": True,
+                "eligibility_state": "eligible_no_runtime",
+                "activity_state": "inactive",
+                "runtime_hours": 0.0,
+            }
+        ]
+    )
+    assert mech_cooling_zero_eligible_warning(coverage) is None
+
+
+def test_coverage_display_without_included_column_does_not_crash():
+    coverage = pd.DataFrame(
+        [
+            {
+                "equipment_id": "CHILLER_1",
+                "eligibility_state": "eligible_no_runtime",
+                "activity_state": "inactive",
+                "runtime_hours": 0.0,
+                "proof_role": "chiller-status",
+                "reason": "",
+            }
+        ]
+    )
+    display = format_mech_cooling_coverage_display(coverage)
+    assert not display.empty
+    assert "Eligibility" in display.columns
+    assert "Activity" in display.columns
+    assert display.iloc[0]["Activity"] == "No runtime observed"
+    assert "Included" not in display.columns
+
+
+def test_coverage_display_labels_and_no_runtime_phrase():
+    coverage = pd.DataFrame(
+        [
+            {
+                "equipment_id": "CHILLER_1",
+                "included": True,
+                "eligibility_state": "eligible_no_runtime",
+                "activity_state": "inactive",
+                "runtime_hours": 0.0,
+                "proof_role": "chiller-status",
+                "proof_quality": "direct",
+            }
+        ]
+    )
+    display = format_mech_cooling_coverage_display(coverage)
+    assert display.iloc[0]["Equipment"] == "CHILLER_1"
+    assert display.iloc[0]["Eligibility"] == "eligible_no_runtime"
+    assert display.iloc[0]["Activity"] == "No runtime observed"
+    assert display.iloc[0]["Proof role"] == "chiller-status"

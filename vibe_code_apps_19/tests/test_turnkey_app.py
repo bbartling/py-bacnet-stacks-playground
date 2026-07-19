@@ -17,6 +17,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -327,9 +328,20 @@ def test_mech_cooling_zero_eligible_warning(tmp_path: Path, monkeypatch: pytest.
     radio.set_value("Overview")
     at.run()
     assert not at.exception, f"Overview exceptions: {list(at.exception)}"
-    text = _main_text(at).lower()
-    assert "no eligible compressor" in text or "compressor proof" in text
-    assert at.warning or "warning" in text or "chw pump" in text
+
+    from app.charts import mech_cooling_zero_eligible_warning
+
+    expected = mech_cooling_zero_eligible_warning(pd.DataFrame())
+    assert expected is not None
+    warnings = list(at.main.warning or []) or list(at.warning or [])
+    assert warnings, "expected st.warning element for zero eligible compressors"
+    warning_text = "\n".join(str(getattr(w, "value", "") or "") for w in warnings)
+    assert expected in warning_text
+    # Must not pass solely from caption/markdown that merely mentions compressor proof.
+    captions = "\n".join(
+        str(getattr(c, "value", "") or "") for c in (at.main.caption or [])
+    )
+    assert expected not in captions
 
 
 @pytest.mark.timeout(300)
