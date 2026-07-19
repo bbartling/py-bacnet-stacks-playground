@@ -1,9 +1,8 @@
-"""Golden tests: reproduce the source ESCO workbook calculations.
+"""Synthetic golden tests for independently implemented HVAC calculations.
 
-Target values are transcribed straight from the source (School A / School B)
-"Post-Implementation" calculators (formulas and computed cell values), so a
-pass here means wattlab's bin-method calculators agree with the real ESCO
-spreadsheets to floating-point tolerance.
+Target values are synthetic numerical anchors and hand-computed checks. A pass
+means WattLab's bin-method calculators retain their public engineering behavior
+to floating-point tolerance.
 """
 
 from __future__ import annotations
@@ -79,7 +78,7 @@ def test_sat_enthalpy_close_to_sheet_values():
 
 
 def test_schedule_shift_weighting_matches_sheet():
-    # School A CV Scheduling_Fan: shifts 2/8/3, 5 days -> bin 97 (0,42,2) gives
+    # Synthetic CV scheduling: shifts 2/8/3, 5 days -> bin 97 (0,42,2) gives
     # 30.535714... total operating bin hours.
     sched = OperatingSchedule(shifts=(2, 8, 3), days_per_week=5)
     assert sched.total_operating_hours((0, 42, 2)) == pytest.approx(30.535714285714285)
@@ -90,10 +89,10 @@ def test_schedule_shift_weighting_matches_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School A: CV Scheduling (fan + cooling)
+# Synthetic CV scheduling (fan + cooling)
 # ---------------------------------------------------------------------------
 
-def test_scheduling_fan_bins_matches_school_a_cv_sheet():
+def test_scheduling_fan_bins_matches_synthetic_cv_fixture():
     result = get("scheduling_fan_bins")({
         "fan_kw_total": 8.579000000000002,
         "existing_schedule": {"shifts": [2, 8, 3], "days_per_week": 5},
@@ -110,7 +109,7 @@ def test_scheduling_fan_bins_matches_school_a_cv_sheet():
     assert result["hours_reduction_fraction"] == pytest.approx(0.11153846153846143)
 
 
-def test_scheduling_cooling_bins_matches_school_a_cv_sheet():
+def test_scheduling_cooling_bins_matches_synthetic_cv_fixture():
     result = get("scheduling_cooling_bins")({
         "oa_cfm_total": 20060,
         "supply_enthalpy": 23.2,
@@ -131,10 +130,10 @@ def test_scheduling_cooling_bins_matches_school_a_cv_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School B: CV Scheduling_Heating
+# Synthetic CV scheduling (heating)
 # ---------------------------------------------------------------------------
 
-def test_scheduling_heating_bins_matches_school_b_cv_sheet():
+def test_scheduling_heating_bins_matches_synthetic_cv_fixture():
     result = get("scheduling_heating_bins")({
         "oa_cfm_total": 30655,
         "balance_point_f": 55,
@@ -155,10 +154,10 @@ def test_scheduling_heating_bins_matches_school_b_cv_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School A: VV OAD 0% Unocc_Cooling
+# Synthetic VAV unoccupied outdoor-air cooling
 # ---------------------------------------------------------------------------
 
-def test_oad_unoccupied_closed_cooling_matches_school_a_vv_sheet():
+def test_oad_unoccupied_closed_cooling_matches_synthetic_vav_fixture():
     result = get("oad_unoccupied_closed")({
         "mode": "cooling",
         "oa_cfm_total": 5400,
@@ -178,10 +177,10 @@ def test_oad_unoccupied_closed_cooling_matches_school_a_vv_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School A: VV Static Pressure Reset
+# Synthetic VAV static pressure reset
 # ---------------------------------------------------------------------------
 
-def test_static_pressure_reset_matches_school_a_sheet():
+def test_static_pressure_reset_matches_synthetic_fixture():
     hours = 3289.0000000000005
     result = get("static_pressure_reset")({
         "pressure_ratio": 0.7,
@@ -204,10 +203,10 @@ def test_static_pressure_reset_matches_school_a_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School A: VV DAT Reset_Cooling
+# Synthetic VAV discharge-air-temperature reset cooling
 # ---------------------------------------------------------------------------
 
-def test_dat_reset_bins_matches_school_a_sheet():
+def test_dat_reset_bins_matches_synthetic_fixture():
     result = get("dat_reset_bins")({
         "total_cfm": 5400,
         "oa_cfm": 5400,
@@ -236,10 +235,10 @@ def test_dat_reset_bins_matches_school_a_sheet():
 
 
 # ---------------------------------------------------------------------------
-# School B: Hot Water Reset
+# Synthetic hot-water reset
 # ---------------------------------------------------------------------------
 
-def test_hydronic_reset_bins_matches_school_b_hw_sheet():
+def test_hydronic_reset_bins_matches_synthetic_hot_water_fixture():
     result = get("hydronic_reset_bins")({
         "mode": "hot_water",
         "capacity_mbh": 9515.789473684212,

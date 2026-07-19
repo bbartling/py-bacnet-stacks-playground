@@ -1,8 +1,7 @@
-"""ESCO bin-method calculators ported from real ESCO retrofit workbooks.
+"""Open, independently implemented HVAC bin-method screening calculators.
 
-Each calculator reproduces one ECM sheet family from the source ESCO
-calculator workbooks (anonymized here as School A / School B), driven by a
-Weather-Man OAT bin table
+Each calculator applies standard HVAC engineering relationships and is
+validated with synthetic golden tests. Calculations are driven by an OAT bin table
 (:mod:`wattlab.weather.bins`) plus an equipment inventory and daily-shift
 operating schedules:
 
@@ -16,7 +15,7 @@ operating schedules:
 - ``hydronic_reset_bins``       — "Hot Water Reset" (HW/CHW/CDW reset savings ladder)
 - ``dewpoint_economizer``       — "Enthalpy Econ" (economizer-eligible bins)
 
-Savings conventions match the sheets: 4.5 * CFM * dH Btu/h for total-enthalpy
+Savings conventions use 4.5 * CFM * dH Btu/h for total-enthalpy
 ventilation loads, 1.08 * CFM * dT Btu/h for sensible, 12,000 Btu/ton-h and
 kW/ton for cooling electricity, boiler efficiency for heating fuel.
 """

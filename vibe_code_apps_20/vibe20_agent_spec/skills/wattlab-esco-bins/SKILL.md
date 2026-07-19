@@ -11,10 +11,9 @@ description: >-
 
 # WattLab — ESCO bin-method calculators
 
-Screening-grade ECM savings the way ESCO engineers actually compute them:
-5°F OAT bins × 3 daily shifts, MCWB enthalpy, fan laws, kW/ton. Ported from
-real retrofit program workbooks (anonymized as **School A / School B** — never
-reintroduce client, district, contractor, or building names).
+Open, independently implemented HVAC bin-method screening calculators with
+synthetic golden tests: 5°F OAT bins × 3 daily shifts, MCWB enthalpy, fan laws,
+and kW/ton. Never introduce client, district, contractor, or building names.
 
 ## Files
 
@@ -23,7 +22,7 @@ reintroduce client, district, contractor, or building names).
 | `wattlab/bench/esco.py` | 9 registered calculators (dict in → dict out) |
 | `wattlab/weather/bins.py` | `WeatherBins`, `BinRow`, `OperatingSchedule`, psychrometrics, `washington_dc_noaa()` |
 | `wattlab/bench/registry.py` | `@register` / `get(name)` |
-| `tests/test_esco_golden.py` | Golden pins to source-workbook cell values |
+| `tests/test_esco_golden.py` | Synthetic golden and hand-computed checks |
 | `vibe20_agent_spec/docs/ESCO_CALCULATORS.md` | Formula + anchor documentation |
 
 ## Quick use
@@ -60,16 +59,14 @@ from vibe19 `weather_observed.csv` (timestamp + OAT columns).
 | `hydronic_reset_bins` | HW/CHW/CDW reset ladder | `capacity_mbh`, `mode`, `on_point_f`, `design_temp_f` |
 | `dewpoint_economizer` | free-cooling bins | `unit_cfm_total`, `return_enthalpy`, `discharge_enthalpy` |
 
-Sheet conventions everywhere: 4.5·CFM·Δh (total), 1.08·CFM·ΔT (sensible),
+Engineering conventions everywhere: 4.5·CFM·Δh (total), 1.08·CFM·ΔT (sensible),
 12,000 Btu/ton-h, therms = kBtu/100.
 
 ## Hard rules
 
-1. **Golden tests are physics** — `test_esco_golden.py` values come straight
-   from source-workbook cells (e.g. static reset RTU 7 → 2,092.198 kWh; CV fan
-   scheduling → 3,243.17 kWh). Changing math means changing goldens *with a
-   documented workbook basis*.
-2. **No client names** — School A / School B only. Scrub before commit.
+1. **Golden tests pin public engineering behavior** — changing math means
+   changing synthetic or hand-computed goldens with a documented basis.
+2. **No client names** — use synthetic labels and scrub before commit.
 3. **Everything flows through `WeatherBins` + `OperatingSchedule`** — no
    hardcoded 8760s, no invented hours.
 4. New calculator = `@register` + golden test + row in

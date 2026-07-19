@@ -2,6 +2,16 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-19 — Privacy and clean-room foundation
+
+- Added hash-only proprietary-term scanning, forbidden-workbook checks, and
+  read-only XLSX metadata audit helpers.
+- Added per-calculator clean-room provenance records and rewrote public
+  calculator descriptions around independent engineering implementations and
+  synthetic golden tests.
+- Added a repository privacy audit; private workbooks remain neither committed
+  nor required at runtime.
+
 ## 2026-07-18 (evening) — Generalized twin intake for vibe19 dumps
 
 - Added `wattlab twin` (`wattlab/twin.py`): dump zip → MANIFEST/gaps →
@@ -82,12 +92,11 @@ Newest first. One entry per shipped work session.
 
 ## 2026-07-18 — Name scrub + agent spec + benchmark viz + GHCR image
 
-- **Confidentiality scrub**: removed every client / district / contractor /
-  building name from the ESCO calculator lineage (now "real ESCO retrofit
-  calculator workbooks", anonymized School A / School B). Calculators, golden
-  values, and workflows unchanged. The two previously pushed vibe20 commits
-  were squash-rewritten into one clean commit and force-pushed so the names
-  are out of reachable GitHub history.
+- **Confidentiality scrub**: removed client, district, contractor, and building
+  identifiers from calculator lineage. Calculator behavior and workflows were
+  unchanged. The two previously pushed vibe20 commits were squash-rewritten
+  into one clean commit and force-pushed so the identifiers are out of
+  reachable GitHub history.
 - **`vibe20_agent_spec/`**: agent orientation tree mirroring vibe19's —
   `AGENTS.md` (19 quick rules + bootstrap order + repo map), `DATA_CONTRACT.md`
   (dump, campus.json, report/plan/gate shapes, unit conversions),
@@ -171,13 +180,13 @@ Newest first. One entry per shipped work session.
   Washington DC table, `WeatherBins.from_hourly` for `weather_observed.csv`,
   and `OperatingSchedule` with the sheets' shift weighting + 10% override
   allowance.
-- **ESCO calculators** (`wattlab.bench.esco`), ported from real ESCO retrofit
-  calculator workbooks (anonymized as School A / School B): `scheduling_fan_bins`,
+- **ESCO calculators** (`wattlab.bench.esco`), independently implemented from
+  standard HVAC engineering relationships: `scheduling_fan_bins`,
   `scheduling_cooling_bins`, `scheduling_heating_bins`,
   `oad_unoccupied_closed`, `dcv_bins`, `static_pressure_reset`,
   `dat_reset_bins`, `hydronic_reset_bins`, `dewpoint_economizer`. Golden tests
-  (`tests/test_esco_golden.py`) reproduce the spreadsheets' own cell values —
-  e.g. static reset RTU 7 = 2,092.198 kWh, sheet total 10,895.02 kWh; CV fan
+  (`tests/test_esco_golden.py`) pin numerical behavior with synthetic fixtures —
+  e.g. static reset unit 7 = 2,092.198 kWh, fixture total 10,895.02 kWh; CV fan
   scheduling totals 29,076.68 → 3,243.17 kWh saved; heating total
   106.239 MMBtu; hot-water reset total 49.736 MMBtu.
 - **Finance** (`wattlab.finance`): simple payback, ROI over measure life, NPV

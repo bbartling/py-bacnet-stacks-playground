@@ -31,7 +31,7 @@ Old flat-script entry points (`python easy_button.py …`) keep working via thin
 | `wattlab.benchmarks` | Benchmark governance: EUI peer bands (EPA/CBECS), retrofit-cost bands (LBNL/RMI, with unit basis + vintage + confidence), shared-meter allocation scenarios, and the ROI guardrail gate |
 | `wattlab.weather.bins` | Weather-Man OAT bin tables (5°F × 3 shifts + MCWB), psychrometrics, built-in NOAA Washington DC table, `from_hourly` for `weather_observed.csv` |
 | `wattlab.weather.epw` | AMY EPW builder |
-| `wattlab.bench` | Proxy calculators + **ESCO bin-method calculators** ported from the source ESCO workbooks (`wattlab.bench.esco`) with golden tests |
+| `wattlab.bench` | Proxy calculators + open, independently implemented **HVAC bin-method screening calculators** (`wattlab.bench.esco`) with synthetic golden tests |
 | `wattlab.finance` | Payback / ROI / NPV / escalated cash flows / capital-plan rollup + CSV/JSON export |
 | `wattlab.crosscheck` | EnergyPlus-vs-proxy referee: agreement ratios, ASHRAE G14 gates, `in_line` / `investigate` / `keep_iterating` verdicts |
 | `wattlab.energyplus` | Docker runner, MCP client, results parsing, run manifests, IDF patches |
@@ -40,8 +40,8 @@ Old flat-script entry points (`python easy_button.py …`) keep working via thin
 
 ### ESCO bin-method calculators (`wattlab.bench.esco`)
 
-Ported 1:1 from real ESCO retrofit calculator workbooks and verified against the
-spreadsheets' own cell values (see `tests/test_esco_golden.py`):
+Open, independently implemented HVAC bin-method screening calculators with
+synthetic golden tests (see `tests/test_esco_golden.py`):
 
 `scheduling_fan_bins` · `scheduling_cooling_bins` · `scheduling_heating_bins` ·
 `oad_unoccupied_closed` · `dcv_bins` · `static_pressure_reset` ·

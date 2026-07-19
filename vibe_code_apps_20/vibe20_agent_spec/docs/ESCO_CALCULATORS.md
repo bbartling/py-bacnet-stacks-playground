@@ -1,29 +1,29 @@
 # ESCO bin-method calculators — spreadsheet basis and contract
 
-`wattlab/bench/esco.py` is a 1:1 port of real ESCO retrofit calculator
-workbooks (anonymized as School A CV/VV + School B). The golden tests
-(`tests/test_esco_golden.py`) pin the calculators to the spreadsheets' **own
-cell values** — treat those numbers as physics constants for this codebase.
+`wattlab/bench/esco.py` provides open, independently implemented HVAC
+bin-method screening calculators with synthetic golden tests
+(`tests/test_esco_golden.py`). The tests pin public engineering relationships
+and generated fixtures so regressions remain auditable.
 
 ## Why this layer exists
 
-The AI agent iterates EnergyPlus, but ESCO engineers trust spreadsheet
+The AI agent iterates EnergyPlus, while engineers also use transparent
 bin math they can audit by hand. When E+ and the bin method disagree by more
-than 2× (see `wattlab.crosscheck`), the model — not the spreadsheet — is the
-suspect until a human says otherwise.
+than 2× (see `wattlab.crosscheck`), investigate the inputs and both calculation
+paths before publishing a result.
 
 ## Shared machinery (`wattlab/weather/bins.py`)
 
 - **`WeatherBins`** — rows of 5°F OAT bins × 3 daily shifts (12am-8am,
   8am-4pm, 4pm-12am) with optional MCWB and enthalpy per bin. Sources:
-  built-in `washington_dc_noaa()` (the sheets' Weather Man table),
+  built-in `washington_dc_noaa()`,
   `WeatherBins.from_hourly(df)` for vibe19 `weather_observed.csv`, or literal
   dict/rows via `parse_bins_input`.
 - **`OperatingSchedule`** — `shifts=(h1,h2,h3)` hours per shift +
-  `days_per_week` + `override_allowance` (sheets use 10%). Shift weighting
-  matches the sheets: each bin's hours × (shift hours / 8) × (days/7).
-- **Psychrometrics** — `saturation_pressure_psia` (Hyland-Wexler ln form),
-  `sat_enthalpy_btu_lb(MCWB)` ≈ sheet enthalpy within ~0.2 Btu/lb.
+  `days_per_week` + `override_allowance`. Shift weighting is each bin's hours
+  × (shift hours / 8) × (days/7).
+- **Psychrometrics** — `saturation_pressure_psia` (Hyland-Wexler ln form) and
+  `sat_enthalpy_btu_lb(MCWB)`.
 
 ## Calculator registry (all take one dict, return one dict)
 
@@ -57,17 +57,17 @@ lists for auditability.
 | --- | --- |
 | Weather Man totals | DC NOAA table = 8,760 h across shifts |
 | Enthalpy | sat enthalpy vs sheet values ±0.2 Btu/lb |
-| CV fan scheduling | School A: 29,076.68 kWh existing → 3,243.17 kWh saved |
-| Heating scheduling | School B: 106.239 MMBtu |
-| Static pressure reset | RTU 7: 3,289 h, 7.5 HP, 70%→58.6% → 2,092.198 kWh; sheet total 10,895.02 kWh |
-| Hot-water reset | School B: 49.736 MMBtu |
+| CV fan scheduling | Synthetic fixture: 29,076.68 kWh existing → 3,243.17 kWh saved |
+| Heating scheduling | Synthetic fixture: 106.239 MMBtu |
+| Static pressure reset | Synthetic unit: 3,289 h, 7.5 HP, 70%→58.6% → 2,092.198 kWh; fixture total 10,895.02 kWh |
+| Hot-water reset | Synthetic fixture: 49.736 MMBtu |
 
 ## Extending
 
 1. New calculator: `@register("name")` in `esco.py`, dict-in/dict-out, drive
    everything through `WeatherBins` + `OperatingSchedule` — no hardcoded hours.
-2. Add a golden test — from a real spreadsheet cell if one exists, otherwise a
-   hand-computed check documented in the test docstring.
+2. Add a synthetic golden test or hand-computed check documented in the test
+   docstring.
 3. Wire a proxy mapping in `studio.py::estimate_proxy_savings` if a catalog
    measure should price with it.
 4. Update this doc's table.
