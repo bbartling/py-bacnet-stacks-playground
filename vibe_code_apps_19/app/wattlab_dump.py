@@ -572,11 +572,14 @@ def write_shared_telemetry(
     out_dir: Path,
     *,
     profile: ExportProfile = "summary",
+    results: list[RuleResult] | None = None,
+    selected_evidence: set[tuple[str, str]] | None = None,
 ) -> dict[str, Path]:
     """Write one shared telemetry CSV per equipment under ``telemetry/``.
 
     * summary — timestamp + mapped roles only
-    * diagnostic — mapped roles (same as summary; evidence lives in fdd_timeseries)
+    * diagnostic — mapped roles plus every ``evidence_columns`` entry that exists
+      on the equipment frame for FAULT/ERROR/selected evidence results
     * forensic — mapped roles plus remaining processed frame columns
     """
     if profile not in EXPORT_PROFILES:
@@ -586,6 +589,23 @@ def write_shared_telemetry(
     if not frames:
         return written
 
+    evidence_extra: dict[str, list[str]] = {}
+    if profile == "diagnostic" and results:
+        for r in results:
+            if not _should_write_evidence(
+                r, profile="diagnostic", selected_evidence=selected_evidence
+            ):
+                continue
+            eq = r.equipment_id
+            cols = evidence_extra.setdefault(eq, [])
+            if r.plot_series:
+                for k, s in r.plot_series.items():
+                    if s is not None and str(k) not in cols:
+                        cols.append(str(k))
+            for role in _mapped_roles(role_map, eq):
+                if role not in cols:
+                    cols.append(role)
+
     for eq_id in sorted(frames):
         raw = frames[eq_id]
         if raw is None or (isinstance(raw, pd.DataFrame) and raw.empty):
@@ -594,8 +614,14 @@ def write_shared_telemetry(
         roles = _mapped_roles(role_map, eq_id)
         cols: list[str] = []
         for role in roles:
-            if role in mapped.columns:
+            if role in mapped.columns or role in raw.columns:
                 cols.append(role)
+        if profile == "diagnostic":
+            for c in evidence_extra.get(eq_id, []):
+                if c in cols:
+                    continue
+                if c in mapped.columns or c in raw.columns:
+                    cols.append(c)
         if profile == "forensic":
             for col in mapped.columns:
                 c = str(col)

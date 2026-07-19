@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """Deterministic WattLab export size/timing profiler.
 
-Builds a fixed multi-equipment fixture, runs the current export path, and
-writes comparable JSON metrics (before/after). Does not alter production
-export behavior when measuring ``--mode current``.
+Builds a fixed multi-equipment fixture and writes comparable JSON metrics.
+
+Modes
+-----
+``live`` (default)
+    Measure whatever ``export_agent_bundle`` does *now* (post-profile default
+    is ``summary``). This is **not** a frozen legacy baseline.
+
+``summary`` / ``diagnostic`` / ``forensic``
+    Explicitly pass that export profile.
+
+Frozen pre-change Cartesian metrics live in the checked-in fixture
+``tests/fixtures/wattlab_export_before.json``. Optionally re-measure a local
+copy under ``.artifacts/wattlab_export_before.json`` for Task 5 comparisons
+(``--baseline``); do not treat ``--mode live`` as that baseline.
 """
 
 from __future__ import annotations
@@ -26,6 +38,27 @@ if str(ROOT) not in sys.path:
 
 from app.agent_api import AgentDataset, AgentRun, export_agent_bundle  # noqa: E402
 from app.rules.base import RuleResult  # noqa: E402
+
+# Portable aggregate-only before metrics (checked in). Local re-measure for Task 5.
+CHECKED_IN_BASELINE_PATH = ROOT / "tests" / "fixtures" / "wattlab_export_before.json"
+LOCAL_ARTIFACT_BASELINE_PATH = ROOT / ".artifacts" / "wattlab_export_before.json"
+
+# ``current`` is a deprecated alias for ``live`` (kept so old docs/scripts still run).
+_LIVE_ALIASES = frozenset({"live", "current"})
+_PROFILE_MODES = frozenset({"summary", "diagnostic", "forensic"})
+
+
+def load_before_baseline(path: Path | str | None = None) -> dict[str, Any]:
+    """Load frozen pre-change aggregate metrics (checked-in fixture by default)."""
+    baseline = Path(path) if path is not None else CHECKED_IN_BASELINE_PATH
+    return json.loads(baseline.read_text(encoding="utf-8"))
+
+
+def resolve_before_baseline_path() -> Path:
+    """Prefer local measured artifact when present; else checked-in fixture."""
+    if LOCAL_ARTIFACT_BASELINE_PATH.is_file():
+        return LOCAL_ARTIFACT_BASELINE_PATH
+    return CHECKED_IN_BASELINE_PATH
 
 
 def _idx(periods: int = 24) -> pd.DatetimeIndex:
@@ -257,22 +290,32 @@ def _zip_bytes(root: Path) -> bytes:
 
 def measure_export(
     *,
-    mode: str = "current",
+    mode: str = "live",
     profile: str | None = None,
 ) -> dict[str, Any]:
-    """Export the fixed fixture and return comparable metrics."""
+    """Export the fixed fixture and return comparable metrics.
+
+    ``mode="live"`` (alias ``current``) measures the active default export path
+    — not the frozen pre-change baseline fixture.
+    """
+    normalized = "live" if mode in _LIVE_ALIASES else mode
     dataset, run = build_profile_fixture()
     with tempfile.TemporaryDirectory(prefix="wattlab_profile_") as td:
         out = Path(td)
         t0 = time.perf_counter()
-        kwargs: dict[str, Any] = {"include_bootstrap": False}
-        if mode != "current" or profile is not None:
-            # Profile-aware path (Task 4+). ``current`` uses legacy signature only.
-            kwargs["profile"] = profile or ("summary" if mode == "summary" else mode)
-        if mode == "current":
-            written = export_agent_bundle(dataset, run, out, include_bootstrap=False)
+        if normalized in _PROFILE_MODES:
+            export_profile = profile or normalized
         else:
-            written = export_agent_bundle(dataset, run, out, **kwargs)
+            # live: use export_agent_bundle default (summary) unless overridden
+            export_profile = profile
+        if export_profile is not None:
+            written = export_agent_bundle(
+                dataset, run, out, include_bootstrap=False, profile=export_profile
+            )
+            reported_profile = export_profile
+        else:
+            written = export_agent_bundle(dataset, run, out, include_bootstrap=False)
+            reported_profile = "summary"  # live default after Task 4
         elapsed = time.perf_counter() - t0
 
         ts_dir = out / "fdd_timeseries"
@@ -283,8 +326,8 @@ def measure_export(
         status_counts = dict(Counter(r.status for r in (run.results or [])))
 
         return {
-            "mode": mode,
-            "profile": kwargs.get("profile") if mode != "current" else "current",
+            "mode": normalized,
+            "profile": reported_profile,
             "elapsed_seconds": round(elapsed, 6),
             "file_count": file_count,
             "compressed_bytes": compressed,
@@ -292,23 +335,40 @@ def measure_export(
             "result_status_counts": status_counts,
             "per_rule_timeseries_count": per_rule,
             "artifact_keys": sorted(str(k) for k in written),
+            "baseline_note": (
+                "live measures active export_agent_bundle; frozen before-metrics are "
+                f"{CHECKED_IN_BASELINE_PATH.as_posix()}"
+            ),
         }
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Profile WattLab export size/timing")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Profile WattLab export size/timing. "
+            "'live' measures the active export path (not the frozen pre-change baseline)."
+        )
+    )
     parser.add_argument(
         "--mode",
-        choices=("current", "summary", "diagnostic", "forensic"),
-        default="current",
-        help="current = pre-profile baseline; others use export profile",
+        choices=("live", "current", "summary", "diagnostic", "forensic"),
+        default="live",
+        help=(
+            "live=measure active export_agent_bundle default (alias: current, deprecated); "
+            "summary/diagnostic/forensic=explicit profile. "
+            "Frozen before-metrics: tests/fixtures/wattlab_export_before.json"
+        ),
     )
     parser.add_argument("--out", type=str, required=True, help="JSON output path")
     parser.add_argument(
         "--baseline",
         type=str,
         default=None,
-        help="Optional before-JSON to embed as before/after comparison (Task 5)",
+        help=(
+            "Optional before-JSON for before/after comparison (Task 5). "
+            "Defaults are not applied; pass the checked-in fixture or "
+            ".artifacts/wattlab_export_before.json explicitly."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -316,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     payload: dict[str, Any] = metrics
     if args.baseline:
         baseline_path = Path(args.baseline)
-        before = json.loads(baseline_path.read_text(encoding="utf-8"))
+        before = load_before_baseline(baseline_path)
         payload = {
             "runtime_seconds": {
                 "before": before.get("elapsed_seconds"),
@@ -335,6 +395,7 @@ def main(argv: list[str] | None = None) -> int:
                 "before": before.get("per_rule_timeseries_count"),
                 "after": metrics["per_rule_timeseries_count"],
             },
+            "before_path": str(baseline_path),
             "before": before,
             "after": metrics,
         }

@@ -586,6 +586,8 @@ def export_agent_bundle(
         dataset.role_map,
         out,
         profile=export_profile,
+        results=run.results,
+        selected_evidence=selected_evidence,
     ).items():
         written[f"telemetry:{eq_id}"] = tel_path
 

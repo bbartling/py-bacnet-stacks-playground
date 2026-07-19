@@ -11,10 +11,16 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
+FIXTURES = ROOT / "tests" / "fixtures"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-from profile_wattlab_export import build_profile_fixture, measure_export  # noqa: E402
+from profile_wattlab_export import (  # noqa: E402
+    CHECKED_IN_BASELINE_PATH,
+    build_profile_fixture,
+    load_before_baseline,
+    measure_export,
+)
 
 from app.rules.base import RuleResult
 from app.wattlab_dump import write_fdd_evidence, write_shared_telemetry
@@ -108,8 +114,8 @@ def test_profile_fixture_covers_equipment_and_statuses():
     } <= statuses
 
 
-def test_measure_export_metrics_schema(tmp_path: Path):
-    metrics = measure_export(mode="current")
+def test_measure_export_live_metrics_schema(tmp_path: Path):
+    metrics = measure_export(mode="live")
     required = {
         "elapsed_seconds",
         "file_count",
@@ -119,6 +125,7 @@ def test_measure_export_metrics_schema(tmp_path: Path):
         "per_rule_timeseries_count",
     }
     assert required <= set(metrics)
+    assert metrics["mode"] == "live"
     assert metrics["file_count"] > 0
     assert metrics["uncompressed_bytes"] > 0
     assert metrics["compressed_bytes"] > 0
@@ -130,14 +137,21 @@ def test_measure_export_metrics_schema(tmp_path: Path):
     assert out.is_file()
 
 
-def test_prechange_baseline_artifact_exists():
-    """Captured before production profile changes; do not regenerate/commit."""
-    baseline = ROOT / ".artifacts" / "wattlab_export_before.json"
-    assert baseline.is_file(), "run: python scripts/profile_wattlab_export.py --mode current --out .artifacts/wattlab_export_before.json"
-    payload = json.loads(baseline.read_text(encoding="utf-8"))
-    assert payload["per_rule_timeseries_count"] >= 1
-    assert payload["file_count"] > 0
-    assert "result_status_counts" in payload
+def test_checked_in_prechange_baseline_fixture():
+    """Portable frozen before-metrics for clean clones (aggregate only)."""
+    baseline_path = FIXTURES / "wattlab_export_before.json"
+    assert baseline_path == CHECKED_IN_BASELINE_PATH
+    assert baseline_path.is_file()
+    payload = load_before_baseline()
+    assert payload["per_rule_timeseries_count"] == 6
+    assert payload["file_count"] == 34
+    assert payload["compressed_bytes"] == 20728
+    assert payload["uncompressed_bytes"] == 106660
+    assert payload["result_status_counts"]["FAULT"] == 1
+    assert payload["result_status_counts"]["NOT_APPLICABLE_EQUIPMENT_TYPE"] == 1
+    # Aggregate metrics only — no embedded historian series payloads.
+    assert "frames" not in payload
+    assert "telemetry" not in payload
 
 
 def test_summary_suppresses_cartesian_timeseries(tmp_path: Path):
@@ -224,6 +238,83 @@ def test_evidence_references_shared_telemetry_not_copy(tmp_path: Path):
     # Compact evidence must not duplicate full plot/live telemetry columns.
     assert "discharge-air-temp" not in ts.columns
     assert "noise-raw" not in ts.columns
+
+
+def test_diagnostic_telemetry_includes_non_mapped_evidence_columns(tmp_path: Path):
+    """Diagnostic CSV must include plot/evidence cols that summary omits."""
+    idx = _idx()
+    sat_error = pd.Series([1.0, 2.0, 3.0, 4.0], index=idx)
+    dat = pd.Series([55.0, 56.0, 57.0, 58.0], index=idx)
+    result = RuleResult(
+        rule_id="FC1",
+        equipment_id="AHU_1",
+        status="FAULT",
+        applicable=True,
+        equipment_type="AHU",
+        raw_fault=pd.Series([False, True, True, False], index=idx),
+        confirmed_fault=pd.Series([False, False, True, False], index=idx),
+        plot_series={"sat-error": sat_error, "discharge-air-temp": dat},
+        sample_count=4,
+    )
+    frames = {
+        "AHU_1": pd.DataFrame(
+            {
+                "discharge-air-temp": dat,
+                "fan-status": [1, 1, 1, 1],
+                "sat-error": sat_error,
+                "noise-raw": [9.0] * 4,
+            },
+            index=idx,
+        )
+    }
+    role_map = {
+        "AHU_1": {
+            "discharge-air-temp": "discharge-air-temp",
+            "fan-status": "fan-status",
+            "equipment_type": "AHU",
+        }
+    }
+
+    summary_tel = write_shared_telemetry(frames, role_map, tmp_path / "sum", profile="summary")
+    summary_df = pd.read_csv(summary_tel["AHU_1"])
+    assert "sat-error" not in summary_df.columns
+    assert "noise-raw" not in summary_df.columns
+
+    counts = write_fdd_evidence(
+        [result],
+        tmp_path / "diag",
+        profile="diagnostic",
+        frames=frames,
+        role_map=role_map,
+    )
+    assert len(counts.written) == 1
+    evidence = pd.read_csv(counts.written[0])
+    evidence_cols = {
+        c.strip()
+        for c in str(evidence["evidence_columns"].iloc[0]).split(",")
+        if c.strip()
+    }
+    assert "sat-error" in evidence_cols
+
+    diag_tel = write_shared_telemetry(
+        frames,
+        role_map,
+        tmp_path / "diag",
+        profile="diagnostic",
+        results=[result],
+        selected_evidence=None,
+    )
+    diag_df = pd.read_csv(diag_tel["AHU_1"])
+    assert "sat-error" in diag_df.columns
+    assert list(diag_df["sat-error"]) == [1.0, 2.0, 3.0, 4.0]
+    # Unrelated raw still excluded from diagnostic.
+    assert "noise-raw" not in diag_df.columns
+
+    forensic_tel = write_shared_telemetry(
+        frames, role_map, tmp_path / "for", profile="forensic"
+    )
+    forensic_df = pd.read_csv(forensic_tel["AHU_1"])
+    assert "noise-raw" in forensic_df.columns
 
 
 def test_shared_telemetry_one_file_per_equipment_deterministic(tmp_path: Path):
