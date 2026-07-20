@@ -74,15 +74,28 @@ Examples:
 `wattlab studio` (or `streamlit run studio.py`) — the ESCO / capital-planning
 cockpit, fully functional in dry-run without Docker:
 
-1. **Ingest** — upload the vibe19 WattLab dump zip → summary, gap checklist, fault highlights
-2. **Model** — profile editor seeded by defaults + dump, provenance table, calibration badge
-3. **Benchmark** — bills before models: annualized EUIs vs EPA/CBECS peer bands (Plotly), shared-meter allocation scenarios side-by-side, monthly gas/electric+demand signatures (Liberty example pre-filled)
-4. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
-5. **ECM Easy Buttons** — catalog-driven cards/packages with proxy and conceptual E+ actions
-6. **Measures** — catalog + FDD-suggested measures with proxy savings and editable costs
-7. **Twin loop** — dry-run plan or Docker EnergyPlus runs, iteration history, crosscheck verdicts
-8. **EP Results** — post-sim charts / scorecards
-9. **Capital plan** — payback/ROI/NPV rollup gated by the benchmark guardrails (`PUBLISH` / `INVESTIGATE`), CSV/JSON export
+1. **Ingest** — upload the vibe19 WattLab dump zip → summary, gap checklist, fault highlights, next-step framing
+2. **Data Explorer** — browse dump analytic tables + shared `telemetry/` CSVs (measured evidence)
+3. **Assumption Ledger** — read-only provenance (MEASURED / INFERRED / DEFAULTED / HUMAN / MISSING)
+4. **Model** — profile editor seeded by defaults + dump, provenance table, calibration badge
+5. **Benchmark** — bills before models: annualized EUIs vs EPA/CBECS peer bands (Plotly), shared-meter allocation scenarios side-by-side, monthly gas/electric+demand signatures (fixture campus pre-filled)
+6. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
+7. **ECM Easy Buttons** — catalog-driven cards/packages with proxy and conceptual E+ actions
+8. **Measures** — catalog + FDD-suggested measures with proxy savings and editable costs
+9. **Twin loop** — dry-run plan or Docker EnergyPlus runs, iteration history, crosscheck verdicts
+10. **EP Results** — post-sim charts / scorecards
+11. **Capital plan** — payback/ROI/NPV rollup gated by the benchmark guardrails (`PUBLISH` / `INVESTIGATE`), CSV/JSON export
+
+**Pre-ship / pre-GHCR Studio gate** (local agent checklist; GHCR CI builds the image only):
+
+```powershell
+python scripts/smoke_studio.py
+python -m pytest tests/test_studio_app.py -q
+# with Studio running on :8520 (host or Docker):
+python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
+```
+
+Vibe 19 and Vibe 20 stay separate apps: 19 = measured FDD; 20 = model/ECM/capital. No in-app chat, Mapping Studio, or full calibration workbench in this Phase 1 cockpit slice.
 
 ### Benchmark governance (`wattlab.benchmarks`)
 

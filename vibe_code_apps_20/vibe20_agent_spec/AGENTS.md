@@ -26,7 +26,17 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 12. **Weather** — AMY EPW from `weather_observed.csv` / Open-Meteo (`wattlab.weather.epw`); Weather-Man OAT bin tables (5°F × 3 shifts + MCWB) in `wattlab.weather.bins` (built-in NOAA Washington DC table + `from_hourly`). Calibration weather and degree-day benchmarking are separate use cases — don't conflate.
 13. **The vibe19 dump is the seed** — start with `wattlab twin <dump.zip>` (or `wattlab.seed.load_bundle` + `gap_report`). Read `MANIFEST.json` first. Required human fields: `building_type`, `city`, `floor_area_ft2` (plus `lat`/`lon` for AMY calibrate). **Never invent office/Madison/Chicago** for a real dump. Prefer `fdd_findings.csv` over `fdd_summary.csv`. See [`DATA_CONTRACT.md`](DATA_CONTRACT.md) and the **Tomorrow demo** section in [`../AGENTS.md`](../AGENTS.md).
 14. **No client data in git** — the Liberty CSVs are approved for the repo; any other building's bills/BAS exports need explicit user sign-off before committing.
-15. **Studio smoke before claiming done** — `python scripts/smoke_studio.py` (AppTest walk of all pages including Hypothesis Lab + ECM Easy Buttons + loaded Liberty walk, 0 exceptions), plus `python -m pytest -q`. For a live check: `wattlab studio`, then `http://localhost:8501/_stcore/health` → `ok`.
+15. **Studio smoke before claiming done / before GHCR merge** —
+    ```text
+    python scripts/smoke_studio.py
+    python -m pytest tests/test_studio_app.py -q
+    # with Studio running (wattlab studio or Docker :8520):
+    python scripts/browser_smoke_vibe20.py --url http://localhost:8520 \
+        --screenshots .artifacts/browser/native
+    ```
+    AppTest walk must cover all pages (including Data Explorer + Assumption
+    Ledger) with 0 exceptions; live check: `/_stcore/health` → `ok`. Playwright
+    is a local/agent gate (not inside vibe20-ghcr.yml).
 16. **Streamlit conventions** — `width='stretch'` (never deprecated `use_container_width`), unique `key=` on every widget/chart, Plotly for charts (look-and-feel follows vibe19).
 17. **Session log discipline** — append `../SESSION_LOG.md` (newest first) after every shipped session; update skills/docs here when behavior changes.
 18. **ASCII in console output** — Windows cp1252 chokes on arrows/em-dashes in `print()`; keep CLI/smoke output plain ASCII (tests set `PYTHONIOENCODING=utf-8` for subprocesses).

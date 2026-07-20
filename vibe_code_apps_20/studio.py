@@ -27,6 +27,8 @@ st.set_page_config(page_title="WattLab Studio", page_icon="⚡", layout="wide")
 
 PAGES = [
     "Ingest",
+    "Data Explorer",
+    "Assumption Ledger",
     "Model",
     "Benchmark",
     "Measures",
@@ -206,6 +208,34 @@ def page_ingest() -> None:
     c3.metric("Utility bills", "yes" if summary.get("has_bills") else "no")
     c4.metric("Observed weather", "yes" if summary.get("has_observed_weather") else "no")
 
+    # Light ESCO "what's next?" framing (not a full executive dashboard).
+    gaps_all = gap_report(bundle)
+    required_missing = [
+        g for g in gaps_all
+        if g.get("severity") == "required" and g.get("status") == "missing"
+    ]
+    findings_n = int(summary.get("findings_rows") or 0)
+    schema = summary.get("schema_version") or "—"
+    profile = summary.get("export_profile") or "—"
+    if required_missing:
+        next_step = (
+            "Next: fill required fields on **Model** ("
+            + ", ".join(str(g["field"]) for g in required_missing)
+            + "), then browse evidence on **Data Explorer** / **Assumption Ledger**."
+        )
+    elif not summary.get("has_bills"):
+        next_step = (
+            "Next: optional utility bills (Benchmark or `wattlab seed import-bills`), "
+            "then Measures → Twin loop. Dump schema "
+            f"{schema} / profile {profile}; FDD findings={findings_n}."
+        )
+    else:
+        next_step = (
+            f"Dump ready (schema {schema}, profile {profile}, findings={findings_n}). "
+            "Next: confirm Model provenance on **Assumption Ledger**, then Measures → Twin."
+        )
+    st.success(next_step)
+
     if bundle.manifest:
         with st.expander("MANIFEST.json — agent file index (read this first)", expanded=False):
             st.caption(
@@ -226,12 +256,8 @@ def page_ingest() -> None:
                 st.dataframe(pd.DataFrame(man_rows), width="stretch", hide_index=True)
 
     st.subheader("Gap checklist — what the human still provides")
-    gaps = pd.DataFrame(gap_report(bundle))
+    gaps = pd.DataFrame(gaps_all)
     st.dataframe(gaps, width='stretch', hide_index=True)
-    required_missing = [
-        g for g in gap_report(bundle)
-        if g.get("severity") == "required" and g.get("status") == "missing"
-    ]
     if required_missing:
         st.warning(
             "NEEDS_INPUT: "
@@ -1127,6 +1153,18 @@ def main() -> None:
     page = st.sidebar.radio("Workflow", PAGES, key="studio_page")
     if page == "Ingest":
         page_ingest()
+    elif page == "Data Explorer":
+        from wattlab.studio.pages.data_explorer import render
+
+        render(bundle=_state("studio_bundle"))
+    elif page == "Assumption Ledger":
+        from wattlab.studio.pages.assumption_ledger import render
+
+        render(
+            profile=_state("studio_profile"),
+            bundle=_state("studio_bundle"),
+            hypothesis_result=_state("hypothesis_lab.result"),
+        )
     elif page == "Model":
         page_model()
     elif page == "Benchmark":
