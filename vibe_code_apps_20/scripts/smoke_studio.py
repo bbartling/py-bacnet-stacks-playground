@@ -71,7 +71,7 @@ def main() -> int:
     at.text_input(key="twin_btype").set_value("office")
     at.text_input(key="twin_city").set_value("detroit")
     at.number_input(key="twin_area").set_value(75000.0)
-    at.button[0].set_value(True).run()
+    at.button(key="FormSubmitter:twin_profile_form-Resolve profile").click().run()
     if at.exception:
         return _fail(at, "Twin(resolve)")
     at.button(key="twin_dry_run").click().run()

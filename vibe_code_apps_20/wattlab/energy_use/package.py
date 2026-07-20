@@ -29,6 +29,8 @@ class EnergyUsePackage:
     monthly_long: pd.DataFrame = field(default_factory=pd.DataFrame)
     notes: list[str] = field(default_factory=list)
     source: str = ""
+    derived_from_excel: bool = False
+    fuel_ready: bool = False
 
     @property
     def lat(self) -> float | None:
@@ -162,9 +164,8 @@ def _load_interval_frames(root: Path, column_map: dict[str, Any]) -> dict[str, p
         if not d.is_dir():
             continue
         for csv in d.glob("*.csv"):
-            if csv.name.lower().startswith("liberty") or "summary" in csv.name.lower():
-                continue
-            if csv.name.lower() in {"campus.json"}:
+            # Skip bill-summary style CSVs; interval frames need timestamps.
+            if "summary" in csv.name.lower() and "interval" not in str(d).lower():
                 continue
             try:
                 df = pd.read_csv(csv)
@@ -180,11 +181,25 @@ def _load_interval_frames(root: Path, column_map: dict[str, Any]) -> dict[str, p
     return frames
 
 
-def load_energy_use_package(path: str | Path) -> EnergyUsePackage:
-    """Load a folder or zip containing campus bills and/or Haystack meter maps."""
+def load_energy_use_package(
+    path: str | Path,
+    *,
+    derive_dir: str | Path | None = None,
+    building_hints: list[dict[str, Any]] | None = None,
+    default_area_ft2: float | None = None,
+    property_type: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+) -> EnergyUsePackage:
+    """Load a folder or zip containing campus bills and/or Haystack meter maps.
+
+    When ``campus.json`` is missing but ``.xlsx`` workbooks are present, derive a
+    campus package under ``derive_dir`` (or ``<root>/derived``).
+    """
     p = Path(path)
     notes: list[str] = []
     cleanup: Path | None = None
+    derived_from_excel = False
     if p.is_file() and p.suffix.lower() == ".zip":
         root = _extract_zip(p)
         cleanup = root if root.parent.name.startswith("energy_use_") else root.parent
@@ -202,7 +217,28 @@ def load_energy_use_package(path: str | Path) -> EnergyUsePackage:
             campus = Campus.from_json(campus_path)
             notes.append(f"Loaded campus.json ({campus.campus_id})")
         else:
-            notes.append("No campus.json — monthly campus analytics unavailable until provided")
+            xlsx = list(root.rglob("*.xlsx"))
+            if xlsx:
+                from wattlab.energy_use.excel_campus import derive_campus_from_excel
+
+                out = Path(derive_dir) if derive_dir else (root / "derived")
+                result = derive_campus_from_excel(
+                    root,
+                    out_dir=out,
+                    building_hints=building_hints,
+                    default_area_ft2=default_area_ft2,
+                    property_type=property_type,
+                    lat=lat,
+                    lon=lon,
+                )
+                campus = Campus.from_json(result.campus_path)
+                notes.extend(result.notes)
+                derived_from_excel = True
+                root = result.out_dir
+            else:
+                notes.append(
+                    "No campus.json — monthly campus analytics unavailable until provided"
+                )
 
         column_map = _load_column_map(root)
         if column_map:
@@ -213,6 +249,7 @@ def load_energy_use_package(path: str | Path) -> EnergyUsePackage:
             notes.append(f"Interval meter frames: {', '.join(sorted(meter_frames))}")
 
         monthly = meter_monthly_long(campus) if campus is not None else pd.DataFrame()
+        fuel_ready = campus is not None and bool(campus.meters) and not monthly.empty
 
         return EnergyUsePackage(
             root=root,
@@ -222,12 +259,12 @@ def load_energy_use_package(path: str | Path) -> EnergyUsePackage:
             monthly_long=monthly,
             notes=notes,
             source=source,
+            derived_from_excel=derived_from_excel,
+            fuel_ready=fuel_ready,
         )
     finally:
-        # Keep extracted tree for the session; caller may copy into workspace.
-        # Only auto-clean if we want — for Studio we keep temp until process ends.
         _ = cleanup
-        _ = shutil  # retained for future copy helpers
+        _ = shutil
 
 
 __all__ = [

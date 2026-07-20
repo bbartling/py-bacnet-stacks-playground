@@ -9,21 +9,78 @@ import pandas as pd
 import streamlit as st
 
 from wattlab.energy_use import load_energy_use_package
+from wattlab.energy_use.excel_campus import campus_to_utility_bills_csv
 from wattlab.seed import gap_report, load_bundle
 from wattlab.studio.workspace import (
     ensure_workspace,
     list_workspace_summary,
+    reports_dir,
     save_upload_bytes,
     workspace_root,
 )
 
 
+def _hints_from_bundle() -> dict[str, Any]:
+    """Pull building/area/coords from the loaded dump — data-model, not site hardcodes."""
+    bundle = st.session_state.get("studio_bundle")
+    out: dict[str, Any] = {}
+    if bundle is None:
+        return out
+    seed = getattr(bundle, "model_seed", None) or {}
+    if isinstance(seed, dict):
+        area = seed.get("floor_area_ft2")
+        if area:
+            out["default_area_ft2"] = float(area)
+        if seed.get("building_type"):
+            out["property_type"] = str(seed["building_type"])
+        if seed.get("lat") is not None:
+            out["lat"] = float(seed["lat"])
+        if seed.get("lon") is not None:
+            out["lon"] = float(seed["lon"])
+        bid = seed.get("building_id") or getattr(bundle, "building_id", None)
+        if bid and area:
+            out["building_hints"] = [
+                {
+                    "building_id": str(bid),
+                    "label": str(seed.get("label") or bid),
+                    "floor_area_ft2": float(area),
+                    "property_type": str(seed.get("building_type") or "office"),
+                }
+            ]
+    return out
+
+
+def _load_energy(path: Path):
+    derive = ensure_workspace() / "uploads" / "energy" / "derived"
+    hints = _hints_from_bundle()
+    return load_energy_use_package(path, derive_dir=derive, **hints)
+
+
+def _bridge_utility_bills(pkg: Any) -> None:
+    """Write utility_bills.csv for Twin when campus bills exist."""
+    campus = getattr(pkg, "campus", None)
+    if campus is None or not campus.meters:
+        return
+    out = reports_dir() / "utility_bills.csv"
+    campus_to_utility_bills_csv(campus, out)
+    st.session_state["studio_utility_bills_path"] = str(out)
+    bundle = st.session_state.get("studio_bundle")
+    if bundle is not None:
+        try:
+            ub = pd.read_csv(out)
+            bundle.utility_bills = ub
+            st.session_state["studio_bundle"] = bundle
+        except Exception:
+            pass
+
+
 def render() -> None:
     st.header("Uploads — dump + energy use")
     st.caption(
-        "Drop a vibe19 **wattlab_dump_*.zip** (v3) and an **energy-use** zip "
-        "(campus.json + bill CSVs + optional Haystack column_map). "
-        "Chat with Codex/agents on this workspace folder — Studio only displays results."
+        "Drop a vibe19 **wattlab_dump_*.zip** (v3) and an **energy-use** package: "
+        "`campus.json` + bill CSVs, Haystack `column_map`, **or** Liberty-style monthly "
+        "Excel workbooks (auto-derived to campus). "
+        "Chat with any AI agent on this workspace folder — Studio only displays results."
     )
 
     root = ensure_workspace()
@@ -62,29 +119,29 @@ def render() -> None:
                 st.error(f"Dump load failed: {exc}")
 
     with c2:
-        st.subheader("2 · Energy use (Haystack / campus)")
+        st.subheader("2 · Energy use (campus / Excel / Haystack)")
         energy_up = st.file_uploader(
-            "energy-use zip (campus + maps)", type=["zip"], key="uploads_energy_zip"
+            "energy-use zip", type=["zip"], key="uploads_energy_zip"
         )
         energy_path = st.text_input(
             "…or path to campus folder / zip",
             key="uploads_energy_path",
-            help="Must contain campus.json and meter CSVs, or Haystack column_map + interval CSVs.",
+            help="campus.json + meter CSVs, Excel monthly fuel workbooks, or Haystack maps.",
         )
         if st.button("Load energy use", key="uploads_load_energy"):
             try:
                 if energy_up is not None:
                     saved = save_upload_bytes("energy", energy_up.name, energy_up.getvalue())
-                    pkg = load_energy_use_package(saved)
+                    pkg = _load_energy(saved)
                     st.session_state["studio_energy_path"] = str(saved)
                 elif energy_path.strip():
                     p = Path(energy_path.strip())
                     if p.is_file() and p.suffix.lower() == ".zip":
                         saved = save_upload_bytes("energy", p.name, p.read_bytes())
-                        pkg = load_energy_use_package(saved)
+                        pkg = _load_energy(saved)
                         st.session_state["studio_energy_path"] = str(saved)
                     else:
-                        pkg = load_energy_use_package(p)
+                        pkg = _load_energy(p)
                         st.session_state["studio_energy_path"] = str(p)
                 else:
                     st.warning("Upload an energy zip or enter a path.")
@@ -93,10 +150,19 @@ def render() -> None:
                 if pkg.campus is not None:
                     st.session_state["studio_campus"] = pkg.campus
                     st.session_state["fuel_weather_campus"] = pkg.campus
-                st.success(
-                    f"Energy package loaded"
-                    + (f" — campus {pkg.campus.campus_id}" if pkg.campus else "")
-                )
+                    _bridge_utility_bills(pkg)
+
+                if getattr(pkg, "fuel_ready", False):
+                    msg = f"Energy package ready for Fuel — campus {pkg.campus.campus_id}"
+                    if getattr(pkg, "derived_from_excel", False):
+                        msg += " (derived from Excel)"
+                    st.success(msg)
+                else:
+                    st.warning(
+                        "Energy package loaded but Fuel dashboard is empty — "
+                        "need campus.json + bill CSVs or a monthly Excel workbook "
+                        "with Month + kWh/Mcf columns."
+                    )
                 for note in pkg.notes:
                     st.caption(note)
             except Exception as exc:
@@ -123,7 +189,7 @@ def render() -> None:
             st.warning(
                 "NEEDS_INPUT: "
                 + ", ".join(str(g["field"]) for g in missing)
-                + " — fill on Twin / calibrate (or via Codex answers.json)."
+                + " — fill on Twin / calibrate (or via agent answers.json)."
             )
         if bundle.manifest:
             with st.expander("MANIFEST.json", expanded=False):
@@ -146,6 +212,7 @@ def render() -> None:
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.caption(
-        f"Agent tip: point Codex at `{workspace_root()}` — "
-        "uploads/dump, uploads/energy, runs/, reports/."
+        f"Agent tip: point any AI agent at `{workspace_root()}` — "
+        "uploads/dump, uploads/energy, runs/, reports/. "
+        "Publish Twin sims with publish_run_for_studio so the browser shows 08 panes."
     )

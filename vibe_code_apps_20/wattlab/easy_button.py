@@ -414,6 +414,19 @@ def run_easy_button(
     )
     if profile_path is not None and profile_path.is_file():
         shutil.copy2(profile_path, run_dir / "building_profile.json")
+
+    # Publish into Studio workspace so any external AI agent / human browser
+    # Twin page can show APIHelper-08 panes without copying by hand.
+    try:
+        from wattlab.studio.ep_viz import publish_run_for_studio
+        from wattlab.studio.workspace import workspace_root
+
+        _ = workspace_root()  # ensure env-aware root
+        published = publish_run_for_studio(run_dir, run_id=run_id, report=report)
+        report["studio_run_dir"] = str(published)
+    except Exception as exc:
+        report["studio_publish_error"] = str(exc)
+
     return report
 
 

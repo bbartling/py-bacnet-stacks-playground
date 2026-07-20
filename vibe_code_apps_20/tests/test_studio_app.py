@@ -97,11 +97,11 @@ def test_studio_fuel_dashboard_with_fixture_campus():
 
 def test_studio_twin_and_ecms_dry_path():
     at = _boot("Twin / calibrate")
-    # form submit is button[0]
     at.text_input(key="twin_btype").set_value("office")
     at.text_input(key="twin_city").set_value("detroit")
     at.number_input(key="twin_area").set_value(75000.0)
-    at.button[0].set_value(True).run()
+    # Form submit (Refresh agent runs is a separate button above the form)
+    at.button(key="FormSubmitter:twin_profile_form-Resolve profile").click().run()
     assert not at.exception
     assert "studio_profile" in at.session_state
 
