@@ -13,6 +13,9 @@ E+ iteration so Twin 08 panes appear in the browser
 Full paste prompt for QA + calibrate sessions:
 [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
 
+Sparse / poorly known buildings (TMY→autosize→constrain→AMY→FDD, ~6–10 runs):
+[`SPARSE_BUILDING_PLAYBOOK.md`](SPARSE_BUILDING_PLAYBOOK.md).
+
 ## Step 0 — Uploads (evidence)
 
 ```
@@ -63,13 +66,21 @@ wattlab easy-button --profile profile.json
 Studio Twin:
 
 - Dry-run → `reports/last_dry_run_plan.json`
-- Docker run → `runs/<run_id>/` (report, eplusout, manifest)
+- Docker run → `runs/<run_id>/` (report, eplusout, manifest); needs
+  `WATTLAB_HOST_WORKSPACE` + docker.sock for DinD; `-r` → `eplusout.csv`
 - Demo replay → fixture eplusout labeled replay (UI smoke without E+ image)
 - **08-style panes**: progress + console, outdoor DBT, classic 5Zone floor-plan
   heatmap (`wattlab.studio.ep_viz`) — viz patterns only, not host Runtime API
 
+**Order when little is known** (see [`SPARSE_BUILDING_PLAYBOOK.md`](SPARSE_BUILDING_PLAYBOOK.md)):
+TMY + autosize → observe sized plant → constrain to FM tons/hp → one schedule
+hypothesis → AMY with bill-aligned window → one FDD knob per run. QA floor ≥3
+live sims; sparse sites often need **6–10**. Stamp `prototype_area_scale` —
+5Zone ≈ 10k ft² is not the site.
+
 Baseline first. With bills (`reports/utility_bills.csv` or dump bills), G14
-monthly NMBE ±5% / CV(RMSE) ≤15% before calibrated savings claims.
+monthly NMBE ±5% / CV(RMSE) ≤15% before calibrated savings claims — only when
+months overlap and scale is honest.
 
 **Human-in-the-loop calibrate:** one hypothesis per run (schedules, setpoints,
 capacity, weather EPW from dump/Open-Meteo). New `runs/<id>/` each time. Ask
@@ -107,13 +118,16 @@ docker run -d --restart unless-stopped -p 8520:8501 \
   -v "$HOME/wattlab_workspace:/data" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE="$HOME/wattlab_workspace" \
+  -e WATTLAB_ROOT=/app \
   --name vibe20 ghcr.io/bbartling/vibe20:latest
 ```
 
 **Required for Twin calibrate PASS:** host image `energyplus-mcp-dev` plus a
 **multi-run live campaign** (≥3 successful Docker sims published to `runs/<id>/`
-for browser 08 panes — baseline + hypotheses). Build image per
-`third_party/README.md`. Probe: `wattlab.energyplus.mcp.capability_status()`.
-Prefer EnergyPlus-MCP inspect when the vendor tree is cloned. Demo replay ≠ PASS.
+for browser 08 panes — baseline + hypotheses; sparse sites → playbook 6–10).
+Build image per `third_party/README.md`. Probe:
+`wattlab.energyplus.mcp.capability_status()`. Prefer EnergyPlus-MCP inspect when
+the vendor tree is cloned. Demo replay ≠ PASS.
 
 Full campaign prompt: [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).

@@ -283,6 +283,16 @@ def render() -> None:
     report = st.session_state.get("studio_report")
     if report:
         st.subheader("Results vs ESCO proxies")
+        honesty = report.get("area_honesty")
+        scale = report.get("prototype_area_scale")
+        if honesty:
+            st.warning(honesty)
+        if scale:
+            st.caption(
+                f"prototype_area_scale ≈ {float(scale):.2f}× "
+                f"(target {report.get('target_floor_area_ft2')} ft² / "
+                f"prototype ~{report.get('prototype_area_ft2_nominal')} ft²)"
+            )
         savings = report.get("savings_by_measure") or []
         if savings:
             st.dataframe(pd.json_normalize(savings), width="stretch", hide_index=True)

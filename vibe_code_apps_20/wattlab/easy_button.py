@@ -23,7 +23,9 @@ from wattlab.config import (
     DEFAULT_GAS_RATE_USD_PER_THERM,
     DEFAULT_MADISON_EPW,
     DEFAULT_PROTOTYPE_IDF,
+    PROTOTYPE_AREA_FT2_NOMINAL,
     ROOT,
+    artifacts_root,
     weather_suitability,
 )
 from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
@@ -254,7 +256,8 @@ def run_easy_button(
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    run_dir = ARTIFACTS / f"wattlab_{run_id}"
+    art_root = artifacts_root()
+    run_dir = art_root / f"wattlab_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     measures = approved_measures(profile, measure_set)
@@ -392,6 +395,24 @@ def run_easy_button(
         "measure_set": measure_set or profile.get("measure_set"),
         "prototype_idf": str(prototype),
         "prototype_sha256": file_sha256(prototype),
+        "prototype_area_ft2_nominal": PROTOTYPE_AREA_FT2_NOMINAL,
+        "target_floor_area_ft2": float(
+            profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2") or 0
+        )
+        or None,
+        "prototype_area_scale": (
+            float(profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2") or 0)
+            / PROTOTYPE_AREA_FT2_NOMINAL
+            if float(profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2") or 0)
+            > 0
+            else None
+        ),
+        "area_honesty": (
+            "Results are for the unscaled 5ZoneAirCooled prototype footprint "
+            f"(~{PROTOTYPE_AREA_FT2_NOMINAL:.0f} ft2). Target floor_area_ft2 does not resize "
+            "the IDF — compare EUI / use prototype_area_scale for screening only; "
+            "do not claim calibrated building savings without a scaled or site-specific model."
+        ),
         "epw": str(epw),
         "epw_note": epw_note,
         "weather_suitability": wx,

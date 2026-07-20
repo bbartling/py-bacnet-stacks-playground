@@ -52,8 +52,10 @@ Twin 08 viz: `wattlab.studio.ep_viz` (classic 5Zone floor plan = prototype
 geometry convention, not a site id). Demo replay from
 `tests/fixtures/eplusout/eplusout.csv` when Docker E+ image missing.
 
-Docker sock: document `-v /var/run/docker.sock:/var/run/docker.sock` so Studio
-container can spawn `energyplus-mcp-dev`.
+Docker sock: `-v /var/run/docker.sock:/var/run/docker.sock` plus
+`WATTLAB_HOST_WORKSPACE=<host path of /data bind>` and `WATTLAB_ROOT=/app` so
+Twin → EnergyPlus DinD mounts resolve and prototypes are not under site-packages.
+Artifacts: `/data/.artifacts`. Sims default to ReadVars (`-r`) for `eplusout.csv`.
 
 ## Conventions (do not regress)
 

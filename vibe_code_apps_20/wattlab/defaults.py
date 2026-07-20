@@ -90,17 +90,37 @@ def resolve_building_type(raw: str | None, archetypes: dict | None = None) -> tu
 def resolve_city(raw: str | None, climate: dict | None = None) -> tuple[str, dict]:
     clim = climate or load_climate()
     cities = clim.get("cities") or {}
-    key = _norm(raw) or clim.get("default_city") or "madison"
+    key = _norm(raw)
+    if not key:
+        fb = clim.get("default_city") or "madison"
+        return fb, deepcopy(cities[fb])
     if key in cities:
         return key, deepcopy(cities[key])
     for cid, meta in cities.items():
         aliases = [_norm(a) for a in (meta.get("aliases") or [])]
         label = _norm(meta.get("label"))
-        if key in aliases or key == label or key in label:
+        if key in aliases or key == label or (label and key in label):
             return cid, deepcopy(meta)
-    # fallback
-    fb = clim.get("default_city") or "madison"
-    return fb, deepcopy(cities[fb])
+    # Unknown user city — keep the label; do NOT silently remap to madison.
+    from wattlab.config import DEFAULT_MADISON_EPW
+
+    try:
+        epw_rel = str(DEFAULT_MADISON_EPW.relative_to(ROOT))
+    except ValueError:
+        epw_rel = str(DEFAULT_MADISON_EPW)
+    label = str(raw).strip() if raw else key
+    return key, {
+        "label": label,
+        "state": None,
+        "climate_zone": None,
+        "epw": epw_rel,
+        "epw_note": (
+            f"No catalog EPW for city={label!r}; Chicago O'Hare TMY3 substitute "
+            "(conceptual only). Provide amy_epw / lat-lon AMY or a catalog city."
+        ),
+        "aliases": [],
+        "user_supplied": True,
+    }
 
 
 def resolve_code(raw: str | None, codes: dict | None = None) -> tuple[str, dict]:
@@ -167,7 +187,14 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
 
     city_raw = m.get("city") or m.get("climate_city")
     city_id, city_meta = resolve_city(city_raw)
-    field_sources["city"] = _tagged(city_id, "user" if city_raw else "default")
+    city_note = None
+    if city_raw and _norm(str(city_raw)) != city_id:
+        city_note = f"catalog id {city_id!r} from user city {str(city_raw).strip()!r}"
+    elif city_meta.get("user_supplied"):
+        city_note = city_meta.get("epw_note")
+    field_sources["city"] = _tagged(
+        city_id, "user" if city_raw else "default", note=city_note
+    )
 
     code_raw = m.get("code_year") or m.get("energy_code")
     code_id, code_meta = resolve_code(code_raw)
