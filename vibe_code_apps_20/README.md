@@ -32,6 +32,8 @@ docker run -d --restart unless-stopped -p 8520:8501 \
 `WATTLAB_HOST_WORKSPACE` must be the **host** path that matches the `/data` bind
 mount so Studio Twin → Run EnergyPlus can `docker run -v` into
 `energyplus-mcp-dev` (DinD-safe). Artifacts land under `/data/.artifacts`.
+Out/stage dirs are made world-writable and E+ runs as uid **1000** (override with
+`ENERGYPLUS_DOCKER_USER=` empty to disable). Streamlit entry: **`studio.py`**.
 
 Open **http://localhost:8520** (or `http://<host-ip>:8520`). Vibe19 typically uses **8502**.
 

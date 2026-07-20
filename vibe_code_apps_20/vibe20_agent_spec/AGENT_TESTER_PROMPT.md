@@ -156,9 +156,10 @@ publish_run_for_studio(Path("…/wattlab_<run_id>"), run_id="<run_id>")
 - Empty 08 panes = missing publish / `-r` / DinD — check env + sibling stage mounts.
 
 **Regression (this image):** Twin → **Run EnergyPlus (Docker)** once from Studio
-itself (not only host CLI). Expect `eplusout.csv` under `/data/.artifacts/…`
-and a published `runs/<id>/` after success. Nested `_stage_in` under out was the
-prior bug — sibling `…/sim__stage_in` should work.
+itself (not only host CLI). Expect `eplusout.csv` without chmod workarounds.
+Out dirs are world-writable + E+ `--user 1000:1000` (BUG-W1). Partial AMY
+auto-clips RunPeriod via `simulate()` (BUG-W2). Optional Twin **cooling_tons /
+fan_hp** → hard-size freeze after autosize (BUG-W3). Entry: `/app/studio.py`.
 
 ## TURNKEY CHECKLIST
 

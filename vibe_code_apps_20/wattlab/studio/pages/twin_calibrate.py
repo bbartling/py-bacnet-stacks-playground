@@ -325,12 +325,63 @@ def render() -> None:
     with st.expander("Resolved profile", expanded=False):
         st.json(profile)
 
+    try:
+        from wattlab.energyplus.mcp import capability_status
+
+        cap = capability_status(probe_docker=True)
+        mode = cap.get("mode") or "?"
+        if mode == "simulate_only":
+            st.info(
+                f"EnergyPlus capability: **{mode}** — Docker sims OK; LBNL MCP inspect "
+                "tools need a host vendor clone (`full_mcp_available`). "
+                f"{cap.get('note') or ''}"
+            )
+        elif mode == "full_mcp_available":
+            st.success(f"EnergyPlus capability: **{mode}**")
+        else:
+            st.warning(f"EnergyPlus capability: **{mode}** — {cap.get('note') or ''}")
+    except Exception as exc:
+        st.caption(f"capability_status unavailable: {exc}")
+
+    st.markdown("**Hard-size constrain (optional FM nameplate)**")
+    st.caption(
+        "Sparse ladder step 3: after autosize, freeze plant/fans toward FM tons/hp "
+        "(conceptual). Leave blank to keep autosize-only."
+    )
+    hs1, hs2 = st.columns(2)
+    cooling_tons = hs1.number_input(
+        "cooling_tons (nameplate)",
+        min_value=0.0,
+        value=0.0,
+        step=10.0,
+        key="twin_cooling_tons",
+        help="e.g. 200 for 2×100 ton chillers",
+    )
+    fan_hp = hs2.number_input(
+        "supply_fan_hp (nameplate)",
+        min_value=0.0,
+        value=0.0,
+        step=5.0,
+        key="twin_fan_hp",
+        help="e.g. 75 hp",
+    )
+
     measure_set = st.session_state.get("studio_measure_set") or profile.get("measure_set") or "best"
     proxies = st.session_state.get("studio_proxies") or {}
     run_profile = dict(profile)
     run_profile["measure_set"] = measure_set
     if proxies:
         run_profile["proxy_savings"] = proxies
+    hard_size: dict[str, float] = {}
+    if cooling_tons and float(cooling_tons) > 0:
+        hard_size["cooling_tons"] = float(cooling_tons)
+    if fan_hp and float(fan_hp) > 0:
+        hard_size["fan_hp"] = float(fan_hp)
+    if hard_size:
+        ep = dict(run_profile.get("energyplus") or {})
+        ep["hard_size"] = hard_size
+        run_profile["energyplus"] = ep
+        run_profile["hard_size"] = hard_size
 
     try:
         from wattlab.energyplus.docker import docker_info_ok, image_present

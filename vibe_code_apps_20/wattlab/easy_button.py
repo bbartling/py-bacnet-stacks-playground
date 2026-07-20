@@ -300,19 +300,68 @@ def run_easy_button(
     baseline_idf = run_dir / "baseline.idf"
     baseline_patch_name = ep.get("baseline_idf_patch") or "fan_avail_continuous"
     patch_meta = _apply_patch(baseline_patch_name, prepped_idf, baseline_idf)
+    patch_log: list[dict[str, Any]] = [monthly_meta, patch_meta]
+    if run_period_meta:
+        patch_log.insert(1, run_period_meta)
     base_out = run_dir / "sim_baseline"
     sim_meta = simulate(baseline_idf, epw, base_out)
+    sizing_scenario = "autosize"
+    hard_size = (ep.get("hard_size") or profile.get("hard_size") or {})
+    if isinstance(hard_size, dict) and (
+        hard_size.get("cooling_tons") is not None or hard_size.get("fan_hp") is not None
+    ):
+        from wattlab.energyplus.sizing import (
+            freeze_autosized_values,
+            nameplate_to_capacity_factors,
+            parse_sizing_inventory,
+        )
+
+        inv = parse_sizing_inventory(base_out)
+        factors, factor_meta = nameplate_to_capacity_factors(
+            inv,
+            cooling_tons=(
+                float(hard_size["cooling_tons"])
+                if hard_size.get("cooling_tons") is not None
+                else None
+            ),
+            fan_hp=(
+                float(hard_size["fan_hp"]) if hard_size.get("fan_hp") is not None else None
+            ),
+        )
+        patch_log.append({"patch": "hard_size_factors", **factor_meta, "factors": factors})
+        if factors:
+            hard_idf = run_dir / "baseline_hard_size.idf"
+            freeze_meta = freeze_autosized_values(
+                baseline_idf, hard_idf, inv, capacity_factors=factors
+            )
+            patch_log.append(freeze_meta)
+            baseline_idf = hard_idf
+            base_out = run_dir / "sim_baseline_hard"
+            sim_meta = simulate(baseline_idf, epw, base_out)
+            sizing_scenario = "hard_size"
+        else:
+            sizing_scenario = "autosize_observe_hard_size_unavailable"
+            patch_log.append(
+                {
+                    "patch": "hard_size",
+                    "ok": False,
+                    "note": "Nameplate provided but autosized inventory lacked comparable fields; kept autosize.",
+                }
+            )
     annual = annual_from_output_dir(
         base_out, elec_rate_usd_per_kwh=elec_rate, gas_rate_usd_per_therm=gas_rate
     )
     records: list[dict] = []
+    baseline_flags = ["uncalibrated", "conceptual_screening", "openfdd_wattlab"]
+    if sizing_scenario == "hard_size":
+        baseline_flags.append("hard_size_nameplate")
     baseline_record = build_result_record(
         run_id=f"{run_id}_baseline",
         measure_id=None,
         idf_path=baseline_idf,
         annual=annual,
         artifacts=[str(base_out / "eplustbl.htm"), str(baseline_idf)],
-        extra_flags=["uncalibrated", "conceptual_screening", "openfdd_wattlab"],
+        extra_flags=baseline_flags,
     )
     records.append(baseline_record)
     (run_dir / "result_record_baseline.json").write_text(
@@ -322,9 +371,6 @@ def run_easy_button(
     current_idf = baseline_idf
     after_ecm1_annual: dict | None = None
     after_ecm2_annual: dict | None = None
-    patch_log = [monthly_meta, patch_meta]
-    if run_period_meta:
-        patch_log.insert(1, run_period_meta)
 
     for m in measures:
         mid = m["measure_id"]
@@ -437,6 +483,8 @@ def run_easy_button(
             "the IDF — compare EUI / use prototype_area_scale for screening only; "
             "do not claim calibrated building savings without a scaled or site-specific model."
         ),
+        "sizing_scenario": sizing_scenario,
+        "hard_size": hard_size if isinstance(hard_size, dict) and hard_size else None,
         "epw": str(epw),
         "epw_note": epw_note,
         "weather_suitability": wx,
