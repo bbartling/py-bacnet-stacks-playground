@@ -31,6 +31,7 @@ PAGES = [
     "Assumption Ledger",
     "Model",
     "Benchmark",
+    "Fuel Weather",
     "Measures",
     "Twin loop",
     "EP Results",
@@ -1169,6 +1170,10 @@ def main() -> None:
         page_model()
     elif page == "Benchmark":
         page_benchmark()
+    elif page == "Fuel Weather":
+        from wattlab.studio.pages.fuel_weather import render
+
+        render(campus=_state("fuel_weather_campus") or _state("studio_campus"))
     elif page == "Measures":
         page_measures()
     elif page == "Twin loop":

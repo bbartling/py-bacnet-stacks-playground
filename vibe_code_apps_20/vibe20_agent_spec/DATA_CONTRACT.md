@@ -42,30 +42,68 @@ required fields are supplied — never invent office/Chicago defaults.
 
 ## 2. campus.json (utility-meter relationships)
 
-Loaded by `wattlab.benchmarks.Campus.from_json`. Canonical example:
-[`../examples/liberty/campus.json`](../examples/liberty/campus.json).
-Tests: `tests/test_benchmarks_liberty.py`.
+Loaded by `wattlab.benchmarks.Campus.from_json`. **Any site** uses this schema —
+`examples/liberty/` and `tests/fixtures/shared_meter_campus/` are **practice /
+CI examples only**. Never hardcode `campus_id`, building ids, city, or lat/lon
+in Python; put them in the JSON. Tests: `tests/test_benchmarks_liberty.py`.
 
 ```json
 {
-  "campus_id": "liberty",
+  "campus_id": "my_site",
+  "label": "Human label",
+  "siteRef": "optional_haystack_site",
+  "lat": 42.33,
+  "lon": -83.05,
+  "bill_columns": {
+    "month": "Bill Month",
+    "usage": "kWh Total",
+    "demand_kw": "Billed Demand (kW)",
+    "cost_usd": "Total Current Charges ($)"
+  },
   "buildings": [
-    {"building_id": "liberty_50", "floor_area_ft2": 140000, "property_type": "office"}
+    {"building_id": "b1", "floor_area_ft2": 140000, "property_type": "office"}
   ],
   "meters": [
     {"meter_id": "elec_shared", "fuel": "electricity", "unit": "kwh",
-     "file": "Liberty_50_100_Electric_Summary.csv",
-     "serves": ["liberty_50", "liberty_100"],
-     "allocation": {"method": "area_weighted"}}
+     "file": "electric.csv",
+     "serves": ["b1", "b2"],
+     "allocation": {"method": "area_weighted"},
+     "bill_columns": {"month": "Bill Month", "usage": "kWh Total"}}
   ]
 }
 ```
 
 - `serves` length > 1 ⇒ shared meter ⇒ allocation is a **scenario** (`area_weighted` / `equal` / `gas_share` / `manual`).
-- Bill CSVs: month column + usage column (kWh or Mcf) autodetected; thousands
-  separators OK; duplicate bill months summed; demand kW → month max.
+- Optional campus- or meter-level `bill_columns`: logical keys → **exact CSV
+  headers** (same spirit as vibe19 Haystack point→column maps). Heuristics
+  remain as fallback when the map is omitted.
+- Optional `lat`/`lon` (aliases `latitude`/`longitude`) and `siteRef` feed
+  Open-Meteo / Fuel Weather — never invent Detroit/Madison in code.
+- Bill CSVs: month + usage (kWh or Mcf); thousands separators OK; duplicate
+  bill months summed; demand kW → month max.
 - `annual_summary` picks the **latest common complete 12-month window** across
   all meters unless given one.
+
+### 2b. Haystack column maps (vibe19 interval meters — shared contract)
+
+Interval historian CSVs stay **unrewritten**. Mapping is Haystack-style JSON
+(`siteRef`, `equip`/`equipment`, `points`/`column_roles`: point → CSV header).
+Canonical docs live in vibe19:
+
+- [`../../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md`](../../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md)
+- Meter points: `elec-power`, `gas-flow` (rates) → monthly integrate in vibe19
+
+WattLab Studio **Fuel Weather** v1 is monthly campus bills; interval + Haystack
+UI is Phase 2 but **must reuse this map shape** when added — do not invent a
+parallel mapping dialect.
+
+## 2c. Fuel Weather analytics
+
+Modules: `wattlab.weather.degree_days` (HDD/CDD base **65°F**, vibe19 metering
+convention), `wattlab.benchmarks.fuel_weather` (align bills×DD, OLS R²).
+Studio page: **Fuel Weather**. Offline path uses synthetic seasonal OAT for
+AppTest; live path uses `wattlab.weather.open_meteo` with campus/form coords.
+Tests: `tests/test_degree_days_fuel_weather.py`.
 
 ## 3. Building profile (resolve_profile output)
 

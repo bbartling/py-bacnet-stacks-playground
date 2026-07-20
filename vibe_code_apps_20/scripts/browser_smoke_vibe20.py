@@ -44,6 +44,7 @@ PAGES = [
     "Assumption Ledger",
     "Model",
     "Benchmark",
+    "Fuel Weather",
     "Measures",
     "Twin loop",
     "EP Results",

@@ -28,6 +28,7 @@ ALL_PAGES = [
     "Assumption Ledger",
     "Model",
     "Benchmark",
+    "Fuel Weather",
     "Measures",
     "Twin loop",
     "EP Results",
@@ -94,7 +95,7 @@ def test_studio_ep_results_page_loads_without_dump():
 
 @pytest.mark.parametrize(
     "page",
-    ["Hypothesis Lab", "ECM Easy Buttons", "Data Explorer", "Assumption Ledger"],
+    ["Hypothesis Lab", "ECM Easy Buttons", "Data Explorer", "Assumption Ledger", "Fuel Weather"],
 )
 def test_studio_new_pages_load_without_inputs(page):
     at = _boot(page)
@@ -203,7 +204,7 @@ def test_studio_benchmark_page_loads_liberty_campus():
     at.button(key="studio_load_campus").click().run()
     assert not at.exception
     campus = at.session_state["studio_campus"]
-    assert campus.campus_id == "liberty"
+    assert campus.campus_id == "shared_meter_fixture"
     summary = at.session_state["studio_benchmark_summary"]
     assert summary["campus"]["site_eui_kbtu_ft2"] == 71.6
     assert summary["window"]["start"] == "2024-12"

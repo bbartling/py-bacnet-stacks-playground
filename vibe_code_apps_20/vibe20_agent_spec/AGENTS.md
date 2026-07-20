@@ -18,14 +18,16 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 4. **Crosscheck referees every E+ measure** — `wattlab.crosscheck`: agreement ratio E+/proxy in 0.5–2.0× → `in_line`; outside → `investigate`; wrong sign / missing → `keep_iterating` with hints. `easy_button` report gains a `crosscheck` block when the profile carries `proxy_savings`. **Always area-normalize**: the 5ZoneAirCooled prototype is ~10k ft², so raw E+ savings for a real building are meaningless — `prototype_area_scale` (target ft² / model ft² from `building_area_m2`) is applied automatically and stamped on each verdict as `area_scale` + `ep_savings_kwh_scaled`. Verified live in the Liberty rehearsal (`scripts/agent_twin_demo.py`).
 5. **ASHRAE G14 gates calibration** — monthly NMBE ±5%, CV(RMSE) ≤15% where bills exist. No calibrated-savings claims before the baseline passes. The gate needs a monthly series: `easy_button` patches monthly facility meters into every prototype (`apply_monthly_energy_tables`) and results parsing falls back to `eplusout.mtr` (`parse_monthly_from_mtr`) because E+ 26.1 emits no monthly tabular section for the bundled prototype. Empty `monthly` = fix outputs, never skip the gate.
 6. **Benchmark gate before ROI publication** — `wattlab.benchmarks.guardrails.gate_capital_plan` must run on every capital plan: baseline EUI vs peer band, savings fraction vs scope ceiling, implied post-retrofit EUI, per-measure cost bands, payback floors. Any hit → verdict `INVESTIGATE`; show the deltas, make the human override. Never quietly publish. See [`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md).
-7. **Shared meters are schema, not spreadsheet hacks** — `campus.json` declares meter → building relationships. Allocation modes (`area_weighted` / `equal` / `gas_share` / `manual`) are side-by-side **scenarios**, none is "truth" until submetered evidence exists. Liberty (`examples/liberty/`) is the canonical practice campus.
+7. **Shared meters are schema, not spreadsheet hacks** — `campus.json` declares meter → building relationships. Allocation modes (`area_weighted` / `equal` / `gas_share` / `manual`) are side-by-side **scenarios**, none is "truth" until submetered evidence exists. `examples/liberty/` is a **practice example** for both vibe19 and vibe20 — never hardcode Liberty ids, Detroit coords, or bill filenames in package logic; real sites ship their own `campus.json` + CSVs.
+7b. **Data-model driven sites** — Haystack-style maps (vibe19 `column_map` / `points` → CSV headers) and campus `bill_columns` are the portable contract. Heuristics are fallbacks only. Never invent office/Madison/Chicago/Detroit defaults for a production dump or campus.
+7c. **Fuel Weather** — Studio page for campus bills × Open-Meteo HDD/CDD (base 65°F) + R². Coords from `campus.json` or the form. Interval meter UI is Phase 2 using the vibe19 Haystack map shape.
 8. **Costs are range + basis + vintage + confidence** — `retrofit_costs_public.json` rows carry `unit_basis` (building_ft2 vs glazing_ft2 …), `currency_year`, `confidence`. Historical LBNL medians are reference bands, **never** current-year bids. Windows math on glazing area, chillers on building area — never mix.
 9. **EUI units are kBtu/ft²-year (site)** — conversions: 1 kWh = 3,412 Btu; 1 Mcf gas = 1.037 MMBtu; 1 therm = 100 kBtu. Peer bands from `benchmarks_public.json` (EPA PM medians, CBECS 70.6 fallback).
 10. **Docker-only EnergyPlus** — pinned image via `wattlab.energyplus.docker`; run manifests (`run_manifest.json`) record model/weather SHA + image on every run. Docker tests skip when the image is missing — that's fine.
 11. **Dry-run first** — `run_easy_button(profile, dry_run=True)` and the Studio "Dry-run plan" path must always work without Docker. Never make a feature Docker-mandatory when a plan/preview is possible.
 12. **Weather** — AMY EPW from `weather_observed.csv` / Open-Meteo (`wattlab.weather.epw`); Weather-Man OAT bin tables (5°F × 3 shifts + MCWB) in `wattlab.weather.bins` (built-in NOAA Washington DC table + `from_hourly`). Calibration weather and degree-day benchmarking are separate use cases — don't conflate.
 13. **The vibe19 dump is the seed** — start with `wattlab twin <dump.zip>` (or `wattlab.seed.load_bundle` + `gap_report`). Read `MANIFEST.json` first. Required human fields: `building_type`, `city`, `floor_area_ft2` (plus `lat`/`lon` for AMY calibrate). **Never invent office/Madison/Chicago** for a real dump. Prefer `fdd_findings.csv` over `fdd_summary.csv`. See [`DATA_CONTRACT.md`](DATA_CONTRACT.md) and the **Tomorrow demo** section in [`../AGENTS.md`](../AGENTS.md).
-14. **No client data in git** — the Liberty CSVs are approved for the repo; any other building's bills/BAS exports need explicit user sign-off before committing.
+14. **No client data in git** — example/practice CSVs under `examples/liberty/` are **gitignored**; CI uses `tests/fixtures/shared_meter_campus/`. Any other building's bills/BAS exports need explicit user sign-off before committing.
 15. **Studio smoke before claiming done / before GHCR merge** —
     ```text
     python scripts/smoke_studio.py
@@ -34,8 +36,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     python scripts/browser_smoke_vibe20.py --url http://localhost:8520 \
         --screenshots .artifacts/browser/native
     ```
-    AppTest walk must cover all pages (including Data Explorer + Assumption
-    Ledger) with 0 exceptions; live check: `/_stcore/health` → `ok`. Playwright
+    AppTest walk must cover all pages (including Data Explorer, Assumption
+    Ledger, **Fuel Weather**) with 0 exceptions; live check: `/_stcore/health` → `ok`. Playwright
     is a local/agent gate (not inside vibe20-ghcr.yml).
 16. **Streamlit conventions** — `width='stretch'` (never deprecated `use_container_width`), unique `key=` on every widget/chart, Plotly for charts (look-and-feel follows vibe19).
 17. **Session log discipline** — append `../SESSION_LOG.md` (newest first) after every shipped session; update skills/docs here when behavior changes.
@@ -96,7 +98,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `wattlab/privacy/` | Hash-only proprietary-content scanner |
 | `wattlab/studio/pages/` | Streamlit page modules (Hypothesis Lab, Easy Buttons, …) |
 | `wattlab/seed/` | vibe19 dump loader + gap report |
-| `wattlab/benchmarks/` | EUI peer bands, cost bands, campus/meters/allocation, ROI guardrail gate |
+| `wattlab/benchmarks/` | EUI peer bands, cost bands, campus/meters/allocation, fuel_weather, ROI guardrail gate |
+| `wattlab/weather/degree_days.py` | HDD/CDD (base 65°F) from hourly OAT |
 | `wattlab/weather/bins.py` | Weather-Man OAT bins (5°F × 3 shifts, MCWB, psychrometrics) |
 | `wattlab/weather/epw.py` | AMY EPW builder |
 | `wattlab/bench/` | Proxy calculators + ESCO bin-method calculators (`esco.py`) |
@@ -108,12 +111,13 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 | `wattlab/energyplus/` | Docker, MCP, results parse, manifests, IDF patches |
 | `wattlab/measures/` | Good / Better / Best measure sets |
 | `wattlab/cli.py` | `wattlab` CLI (defaults / easy-button / calibrate / bridge / epw / bench / crosscheck / benchmark / seed / studio) |
-| `studio.py` | WattLab Studio (Ingest / Model / Benchmark / Measures / Twin loop / Capital plan) |
-| `scripts/smoke_studio.py` | AppTest smoke walk (all pages + loaded Liberty walk) |
-| `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on Liberty (real Docker E+ baseline + ECMs) |
+| `studio.py` | WattLab Studio (Ingest / … / Benchmark / Fuel Weather / … / Capital plan) |
+| `scripts/smoke_studio.py` | AppTest smoke walk (all pages + fixture campus + Fuel Weather) |
+| `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on practice campus (real Docker E+ baseline + ECMs) |
 | `scripts/school_30yr_rehearsal.py` | Synthetic K-12 30-year hydronic/electrification rehearsal |
 | `examples/school_30yr/` | Fictional school profile and synthetic 2025 bills |
-| `examples/liberty/` | Real shared-meter practice campus (bills + campus.json) |
+| `examples/liberty/` | **Practice** shared-meter campus schema (bill CSVs gitignored) |
+| `tests/fixtures/shared_meter_campus/` | Privacy-safe CI campus + bill CSVs |
 | `wattlab/data/benchmarks/` | `benchmarks_public.json` + `retrofit_costs_public.json` |
 | `wattlab/data/defaults/` | Archetypes / climate / code vintages |
 | `tests/` | Pytest incl. golden ESCO + golden Liberty suites |

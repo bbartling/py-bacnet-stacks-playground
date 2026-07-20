@@ -1,7 +1,10 @@
 {
-  "campus_id": "liberty",
+  "campus_id": "shared_meter_fixture",
   "label": "Synthetic shared-electric + per-building-gas campus (CI fixture)",
-  "notes": "Privacy-safe fixture with stable golden anchors (same math as the published Liberty demo). Local customer CSVs under examples/liberty remain gitignored.",
+  "notes": "Privacy-safe fixture with stable golden anchors. building_ids mirror the published practice example for test continuity only — production sites use their own ids. Local customer CSVs under examples/liberty remain gitignored.",
+  "siteRef": "ci_shared_meter_fixture",
+  "lat": 42.33,
+  "lon": -83.05,
   "buildings": [
     {
       "building_id": "liberty_50",
@@ -22,31 +25,22 @@
       "fuel": "electricity",
       "unit": "kwh",
       "file": "shared_electric_summary.csv",
-      "serves": [
-        "liberty_50",
-        "liberty_100"
-      ],
-      "allocation": {
-        "method": "area_weighted"
-      }
+      "serves": ["liberty_50", "liberty_100"],
+      "allocation": { "method": "area_weighted" }
     },
     {
       "meter_id": "gas_50",
       "fuel": "gas",
       "unit": "mcf",
       "file": "building_a_gas_summary.csv",
-      "serves": [
-        "liberty_50"
-      ]
+      "serves": ["liberty_50"]
     },
     {
       "meter_id": "gas_100",
       "fuel": "gas",
       "unit": "mcf",
       "file": "building_b_gas_summary.csv",
-      "serves": [
-        "liberty_100"
-      ]
+      "serves": ["liberty_100"]
     }
   ]
 }
