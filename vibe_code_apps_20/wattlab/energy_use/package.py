@@ -11,6 +11,7 @@ import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 import pandas as pd
@@ -47,10 +48,55 @@ def _unwrap_root(path: Path) -> Path:
     return path
 
 
+def _zip_member_parts(filename: str) -> tuple[str, ...]:
+    """Normalize archive member paths and reject zip-slip / absolute entries.
+
+    Windows-created archives may store separators as ``\\``. On Linux that
+    backslash is a literal character, so ``folder\\\\campus.json`` otherwise
+    looks missing after extract. Also reject drive-letter and UNC forms —
+    ``PurePosixPath('C:/foo').is_absolute()`` is False, which would otherwise
+    allow escape on a Windows host.
+    """
+    normalized = filename.replace("\\", "/")
+    member_path = PurePosixPath(normalized)
+    parts = tuple(part for part in member_path.parts if part not in ("", "."))
+    if not parts:
+        return ()
+    if (
+        member_path.is_absolute()
+        or ".." in parts
+        or any(part.endswith(":") for part in parts)
+        or (len(parts) >= 2 and parts[0] in ("/", "//"))
+        or normalized.startswith("//")
+    ):
+        raise ValueError(f"Unsafe path in energy-use zip: {filename!r}")
+    return parts
+
+
 def _extract_zip(zip_path: Path) -> Path:
-    dest = Path(tempfile.mkdtemp(prefix="energy_use_"))
+    dest = Path(tempfile.mkdtemp(prefix="energy_use_")).resolve()
     with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(dest)
+        for member in zf.infolist():
+            parts = _zip_member_parts(member.filename)
+            if not parts:
+                continue
+
+            target = dest.joinpath(*parts).resolve()
+            try:
+                target.relative_to(dest)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Unsafe path in energy-use zip: {member.filename!r}"
+                ) from exc
+
+            normalized_name = member.filename.replace("\\", "/")
+            if member.is_dir() or normalized_name.endswith("/"):
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(member, "r") as source, target.open("wb") as sink:
+                shutil.copyfileobj(source, sink)
     return _unwrap_root(dest)
 
 
