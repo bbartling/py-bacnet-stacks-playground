@@ -15,7 +15,11 @@ Optimize for engineering defensibility, reproducibility, and honest limits (unca
 ## Tomorrow demo — vibe19 dump → EnergyPlus twin (generalized)
 
 Works for **any** building zip processed through vibe19 Export → **Build WattLab dump (zip)**.
-Do **not** hardcode BUILDING_100 (or any site) IDs, paths, or characteristics.
+Do **not** hardcode BUILDING_100, Liberty, Detroit, or any site IDs, paths,
+lat/lon, or bill filenames. Sites are **data-model driven**: vibe19 Haystack
+`column_map` / dump contracts, and vibe20 `campus.json` (+ optional
+`bill_columns`). `examples/liberty/` is practice data for both apps — production
+buildings ship their own JSON + CSVs.
 
 ### Human prep (vibe19)
 
@@ -78,8 +82,9 @@ python -m pytest tests/test_studio_app.py -q
 python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
 ```
 
-AppTest must cover all pages (including **Data Explorer** + **Assumption Ledger**)
-with 0 exceptions. Playwright is a local gate — not part of `vibe20-ghcr.yml`.
+AppTest must cover all pages (including **Data Explorer**, **Assumption Ledger**,
+**Fuel Weather**) with 0 exceptions. Playwright is a local gate — not part of
+`vibe20-ghcr.yml`.
 
 ### Conceptual disclaimer (required on anonymized / uncalibrated exports)
 

@@ -28,6 +28,7 @@ PAGES = [
     "Assumption Ledger",
     "Model",
     "Benchmark",
+    "Fuel Weather",
     "Measures",
     "Twin loop",
     "EP Results",
@@ -94,6 +95,15 @@ def main() -> int:
     at.selectbox(key="studio_allocation").set_value("gas_share").run()
     if at.exception:
         return _fail(at, "Benchmark(gas_share)")
+
+    at.radio(key="studio_page").set_value("Fuel Weather").run()
+    at.button(key="fuel_weather_load_campus").click().run()
+    if at.exception:
+        return _fail(at, "Fuel Weather(load)")
+    at.button(key="fuel_weather_synth").click().run()
+    if at.exception:
+        return _fail(at, "Fuel Weather(synth)")
+    print("OK: Fuel Weather loaded + synthetic OAT")
 
     at.radio(key="studio_page").set_value("Model").run()
     at.text_input(key="studio_btype").set_value("office")

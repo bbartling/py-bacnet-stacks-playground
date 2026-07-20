@@ -45,19 +45,42 @@ def _find_col(cols: list[str], *needles: str) -> str | None:
     return None
 
 
-def load_bill_csv(path: str | Path) -> pd.DataFrame:
+def load_bill_csv(
+    path: str | Path,
+    column_map: dict[str, str] | None = None,
+) -> pd.DataFrame:
     """Load a monthly utility bill summary CSV into a tidy frame.
 
     Returns columns: ``month`` (YYYY-MM str), ``usage`` (kWh or Mcf),
     ``cost_usd`` and, when present, ``demand_kw``. Duplicate bill months
     (split billing periods) are summed; demand takes the month max.
+
+    Optional ``column_map`` (data-model driven, same spirit as vibe19 Haystack
+    maps) remaps logical keys → exact CSV headers::
+
+        {"month": "Bill Month", "usage": "kWh Total",
+         "demand_kw": "Billed Demand (kW)", "cost_usd": "Total Current Charges ($)"}
+
+    When omitted, header heuristics still apply so example campuses keep working.
     """
     df = pd.read_csv(path, thousands=",")
     cols = list(df.columns)
-    month_col = _find_col(cols, "month") or cols[0]
-    usage_col = _find_col(cols, "kwh") or _find_col(cols, "usage") or cols[1]
-    cost_col = _find_col(cols, "charges") or _find_col(cols, "cost")
-    demand_col = _find_col(cols, "billed", "demand")
+    cmap = {str(k): str(v) for k, v in (column_map or {}).items()}
+
+    def _mapped(logical: str, *needles: str, fallback: str | None = None) -> str | None:
+        if logical in cmap and cmap[logical] in df.columns:
+            return cmap[logical]
+        found = _find_col(cols, *needles) if needles else None
+        return found or fallback
+
+    month_col = _mapped("month", "month", fallback=cols[0])
+    usage_col = (
+        _mapped("usage", "kwh")
+        or _mapped("usage", "usage")
+        or (cols[1] if len(cols) > 1 else cols[0])
+    )
+    cost_col = _mapped("cost_usd", "charges") or _mapped("cost_usd", "cost")
+    demand_col = _mapped("demand_kw", "billed", "demand") or _mapped("demand_kw", "demand")
 
     out = pd.DataFrame({
         "month": df[month_col].astype(str).str.strip().str[:7],
@@ -119,6 +142,10 @@ class Campus:
     meters: list[Meter]
     notes: str = ""
     source: str = ""
+    # Optional site coords for Open-Meteo / Fuel Weather — from campus.json, never code defaults.
+    lat: float | None = None
+    lon: float | None = None
+    site_ref: str | None = None
 
     @classmethod
     def from_json(cls, path: str | Path) -> "Campus":
@@ -127,8 +154,8 @@ class Campus:
             raise FileNotFoundError(
                 f"Campus config not found: {p}. "
                 "Checked-in demo: tests/fixtures/shared_meter_campus/campus.json. "
-                "Local Liberty CSVs under examples/liberty/ are gitignored — "
-                "copy them beside campus.json or point Studio at the fixture."
+                "Any campus.json + sibling bill CSVs work — examples/liberty/ is practice "
+                "data only (gitignored CSVs), not a production building id."
             )
         doc = json.loads(p.read_text(encoding="utf-8"))
         buildings = [
@@ -149,8 +176,8 @@ class Campus:
             raise FileNotFoundError(
                 f"Campus {p} references missing bill CSV(s): {', '.join(missing)}. "
                 "Use tests/fixtures/shared_meter_campus/ for the privacy-safe demo, "
-                "or place local meter CSVs next to campus.json (examples/liberty CSVs "
-                "are gitignored on purpose)."
+                "or place meter CSVs next to campus.json (example CSVs under "
+                "examples/liberty/ are gitignored on purpose)."
             )
         meters = [
             Meter(
@@ -158,11 +185,16 @@ class Campus:
                 fuel=str(m["fuel"]),
                 unit=str(m.get("unit") or ("kwh" if m["fuel"] == "electricity" else "mcf")),
                 serves=[str(s) for s in m.get("serves", [])],
-                bills=load_bill_csv(p.parent / m["file"]),
+                bills=load_bill_csv(
+                    p.parent / m["file"],
+                    column_map=m.get("bill_columns") or doc.get("bill_columns"),
+                ),
                 allocation=dict(m.get("allocation") or {}),
             )
             for m in doc.get("meters", [])
         ]
+        lat = doc.get("lat", doc.get("latitude"))
+        lon = doc.get("lon", doc.get("longitude"))
         return cls(
             campus_id=str(doc.get("campus_id") or p.stem),
             label=str(doc.get("label") or doc.get("campus_id") or p.stem),
@@ -170,6 +202,11 @@ class Campus:
             meters=meters,
             notes=str(doc.get("notes") or ""),
             source=str(p),
+            lat=float(lat) if lat is not None else None,
+            lon=float(lon) if lon is not None else None,
+            site_ref=str(doc["siteRef"]) if doc.get("siteRef") else (
+                str(doc["site_ref"]) if doc.get("site_ref") else None
+            ),
         )
 
     def building(self, building_id: str) -> BuildingRef:

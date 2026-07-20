@@ -1,7 +1,10 @@
 {
   "campus_id": "liberty",
   "label": "Liberty Buildings 50 + 100 (Detroit)",
-  "notes": "Two ~140k ft2 buildings sharing one electric meter; gas is metered per building. Practice campus for the WattLab benchmark + twin loop workflow using vibe19 dumps.",
+  "notes": "PRACTICE EXAMPLE ONLY — not a production template. Two ~140k ft2 buildings sharing one electric meter; gas is metered per building. Copy campus.json shape for real sites; never hardcode this campus_id in WattLab logic.",
+  "siteRef": "liberty_practice",
+  "lat": 42.33,
+  "lon": -83.05,
   "buildings": [
     {
       "building_id": "liberty_50",

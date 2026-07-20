@@ -35,15 +35,16 @@ wattlab studio
 2. **Data Explorer** — browse dump analytic tables + shared `telemetry/` CSVs (measured evidence)
 3. **Assumption Ledger** — read-only provenance (`MEASURED` / `INFERRED` / `DEFAULTED` / `HUMAN` / `MISSING`)
 4. **Model** — profile editor, provenance, calibration badge
-5. **Benchmark** — bills vs peer bands, shared-meter scenarios, monthly signatures
-6. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
-7. **ECM Easy Buttons** — catalog cards/packages (proxy + conceptual EnergyPlus)
-8. **Measures** — catalog + FDD-suggested measures, proxy savings, editable costs
-9. **Twin loop** — dry-run plan or Docker EnergyPlus runs, crosscheck verdicts
-10. **EP Results** — post-sim charts / scorecards
-11. **Capital plan** — payback / ROI / NPV gated by benchmark guardrails (`PUBLISH` / `INVESTIGATE`)
+5. **Benchmark** — bills vs peer bands, shared-meter scenarios, monthly signatures (`campus.json` — any site)
+6. **Fuel Weather** — campus bills × Open-Meteo/synthetic HDD/CDD, intensity/demand heatmaps, gas×HDD & elec×CDD R²
+7. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
+8. **ECM Easy Buttons** — catalog cards/packages (proxy + conceptual EnergyPlus)
+9. **Measures** — catalog + FDD-suggested measures, proxy savings, editable costs
+10. **Twin loop** — dry-run plan or Docker EnergyPlus runs, crosscheck verdicts
+11. **EP Results** — post-sim charts / scorecards
+12. **Capital plan** — payback / ROI / NPV gated by benchmark guardrails (`PUBLISH` / `INVESTIGATE`)
 
-Most pages work dry-run without EnergyPlus. Start on **Ingest** with a dump zip.
+Most pages work dry-run without EnergyPlus. Start on **Ingest** with a dump zip, or **Benchmark / Fuel Weather** with any `campus.json` + bill CSVs (`examples/liberty/` is a practice example only; CI uses the shared-meter fixture).
 
 ## Pre-ship smoke (local)
 

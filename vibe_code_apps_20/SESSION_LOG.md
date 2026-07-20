@@ -2,6 +2,15 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-20 — Fuel Weather dashboard (data-model driven)
+
+- Studio **Fuel Weather**: campus.json bills × Open-Meteo/synthetic HDD/CDD
+  (base 65°F), intensity/demand heatmaps, gas×HDD & elec×CDD R².
+- `bill_columns` maps on campus/meters; lat/lon/siteRef from JSON — no city
+  hardcodes. Liberty = practice example only; CI fixture for AppTest.
+- Haystack interval maps documented as shared vibe19 contract (Phase 2 UI).
+- Agent spec: `vibe20_agent_spec` DATA_CONTRACT + AGENTS + studio skill updated.
+
 ## 2026-07-20 — ESCO cockpit Phase 1 + Studio UI smoke gate
 
 - Studio pages: **Data Explorer** (dump tables/telemetry) + **Assumption Ledger**
