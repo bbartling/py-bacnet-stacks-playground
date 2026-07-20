@@ -48,25 +48,48 @@ def _unwrap_root(path: Path) -> Path:
     return path
 
 
-def _extract_zip(zip_path: Path) -> Path:
-    dest = Path(tempfile.mkdtemp(prefix="energy_use_"))
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        # Windows-created archives may store directory separators as ``\\``.
-        # On Linux that backslash is a literal character, so a valid
-        # ``folder\\campus.json`` entry otherwise looks like a missing campus
-        # file after extraction. Normalize separators and retain explicit
-        # zip-slip protection while extracting.
-        for member in zf.infolist():
-            normalized_name = member.filename.replace("\\", "/")
-            member_path = PurePosixPath(normalized_name)
-            if member_path.is_absolute() or ".." in member_path.parts:
-                raise ValueError(f"Unsafe path in energy-use zip: {member.filename!r}")
+def _zip_member_parts(filename: str) -> tuple[str, ...]:
+    """Normalize archive member paths and reject zip-slip / absolute entries.
 
-            parts = tuple(part for part in member_path.parts if part not in ("", "."))
+    Windows-created archives may store separators as ``\\``. On Linux that
+    backslash is a literal character, so ``folder\\\\campus.json`` otherwise
+    looks missing after extract. Also reject drive-letter and UNC forms —
+    ``PurePosixPath('C:/foo').is_absolute()`` is False, which would otherwise
+    allow escape on a Windows host.
+    """
+    normalized = filename.replace("\\", "/")
+    member_path = PurePosixPath(normalized)
+    parts = tuple(part for part in member_path.parts if part not in ("", "."))
+    if not parts:
+        return ()
+    if (
+        member_path.is_absolute()
+        or ".." in parts
+        or any(part.endswith(":") for part in parts)
+        or (len(parts) >= 2 and parts[0] in ("/", "//"))
+        or normalized.startswith("//")
+    ):
+        raise ValueError(f"Unsafe path in energy-use zip: {filename!r}")
+    return parts
+
+
+def _extract_zip(zip_path: Path) -> Path:
+    dest = Path(tempfile.mkdtemp(prefix="energy_use_")).resolve()
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for member in zf.infolist():
+            parts = _zip_member_parts(member.filename)
             if not parts:
                 continue
 
-            target = dest.joinpath(*parts)
+            target = dest.joinpath(*parts).resolve()
+            try:
+                target.relative_to(dest)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Unsafe path in energy-use zip: {member.filename!r}"
+                ) from exc
+
+            normalized_name = member.filename.replace("\\", "/")
             if member.is_dir() or normalized_name.endswith("/"):
                 target.mkdir(parents=True, exist_ok=True)
                 continue

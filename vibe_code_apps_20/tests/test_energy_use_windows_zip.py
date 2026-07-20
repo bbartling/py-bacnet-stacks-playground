@@ -6,7 +6,10 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from wattlab.energy_use import load_energy_use_package
+from wattlab.energy_use.package import _extract_zip
 
 
 def test_windows_zip_separators_discover_wrapped_campus_package(tmp_path: Path):
@@ -39,3 +42,22 @@ def test_windows_zip_separators_discover_wrapped_campus_package(tmp_path: Path):
 
     assert loaded.campus is not None
     assert loaded.campus.campus_id == "demo"
+
+
+@pytest.mark.parametrize(
+    "arcname",
+    [
+        "../escape.txt",
+        "/tmp/escape.txt",
+        "C:/Windows/escape.txt",
+        "C:\\Windows\\escape.txt",
+        "//server/share/escape.txt",
+    ],
+)
+def test_extract_zip_rejects_unsafe_member_paths(tmp_path: Path, arcname: str):
+    archive = tmp_path / "unsafe.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr(arcname, b"nope")
+
+    with pytest.raises(ValueError, match="Unsafe path"):
+        _extract_zip(archive)
