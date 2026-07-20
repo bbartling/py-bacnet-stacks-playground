@@ -180,22 +180,92 @@ def get_server_status_via_docker(*, check_mcp_import: bool = False) -> dict[str,
     return status
 
 
+def align_idf_to_epw(
+    idf: Path,
+    epw: Path,
+    out_idf: Path | None = None,
+) -> dict[str, Any]:
+    """Clip IDF RunPeriod to EPW data coverage (partial-year AMY safe).
+
+    Returns metadata; ``out`` is the IDF path to simulate (may equal ``idf``
+    when weather is a full calendar year and no clip is needed).
+    """
+    from wattlab.energyplus.patches import apply_run_period
+    from wattlab.weather.epw import epw_data_period
+
+    idf = Path(idf)
+    epw = Path(epw)
+    span = epw_data_period(epw)
+    if not span:
+        return {"patch": "run_period", "applied": False, "reason": "epw_span_unknown", "out": str(idf)}
+    if span.get("full_calendar_year"):
+        return {
+            "patch": "run_period",
+            "applied": False,
+            "reason": "full_calendar_year",
+            "epw_begin": span["begin"],
+            "epw_end": span["end"],
+            "out": str(idf),
+        }
+    dest = Path(out_idf) if out_idf is not None else idf.with_name(f"{idf.stem}_epw_aligned.idf")
+    # Prefer exact data-row dates (not header month/day without year).
+    begin = span["begin"]
+    end = span["end"]
+    meta = apply_run_period(idf, dest, begin=begin, end=end)
+    meta["applied"] = True
+    meta["reason"] = (
+        f"EPW data period {begin}→{end} is not a full calendar year; "
+        "RunPeriod auto-clipped (partial-year AMY)."
+    )
+    meta["epw_begin"] = begin
+    meta["epw_end"] = end
+    meta["n_days"] = span.get("n_days")
+    return meta
+
+
 def simulate(
     idf: Path,
     epw: Path,
     output_dir: Path,
     *,
     timeout: int | None = 3600,
+    align_run_period: bool = True,
 ) -> dict[str, Any]:
-    """Run EnergyPlus simulation (parity with MCP run_energyplus_simulation)."""
-    proc = run_energyplus(idf, epw, output_dir, timeout=timeout)
-    return {
+    """Run EnergyPlus simulation (parity with MCP run_energyplus_simulation).
+
+    When ``align_run_period`` is True (default), partial-year EPWs auto-clip
+    the IDF RunPeriod before Docker invoke — avoids FATAL GetNextEnvironment.
+    """
+    idf = Path(idf)
+    epw = Path(epw)
+    output_dir = Path(output_dir)
+    align_meta: dict[str, Any] | None = None
+    idf_run = idf
+    if align_run_period:
+        try:
+            aligned_path = output_dir.parent / f"{output_dir.name}__epw_aligned.idf"
+            # ensure parent exists for aligned idf (writable)
+            from wattlab.energyplus.docker import ensure_ep_writable
+
+            ensure_ep_writable(output_dir.parent)
+            align_meta = align_idf_to_epw(idf, epw, out_idf=aligned_path)
+            if align_meta.get("applied"):
+                idf_run = Path(align_meta["out"])
+        except Exception as exc:  # noqa: BLE001
+            align_meta = {"patch": "run_period", "applied": False, "error": str(exc)}
+
+    proc = run_energyplus(idf_run, epw, output_dir, timeout=timeout)
+    out: dict[str, Any] = {
         "returncode": proc.returncode,
         "stdout_tail": (proc.stdout or "")[-2000:],
         "stderr_tail": (proc.stderr or "")[-2000:],
         "output_dir": str(output_dir),
         "ok": proc.returncode == 0,
+        "idf_simulated": str(idf_run),
     }
+    if align_meta is not None:
+        out["run_period_align"] = align_meta
+    return out
 
 
 def copy_prototype(src: Path, dest: Path) -> Path:

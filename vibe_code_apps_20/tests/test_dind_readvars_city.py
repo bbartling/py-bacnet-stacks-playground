@@ -101,6 +101,7 @@ def test_run_energyplus_passes_readvars_and_host_mounts(
     host.mkdir()
     monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(data))
     monkeypatch.setenv("WATTLAB_HOST_WORKSPACE", str(host))
+    monkeypatch.delenv("ENERGYPLUS_DOCKER_USER", raising=False)
 
     idf = data / "baseline.idf"
     epw = data / "weather.epw"
@@ -123,15 +124,80 @@ def test_run_energyplus_passes_readvars_and_host_mounts(
     assert captured, "docker run was not invoked"
     args = captured[0]
     assert "-r" in args
+    assert "--user" in args
+    assert "1000:1000" in args
     host_ws = str(host.resolve()).replace("\\", "/")
     vol_flags = [args[i + 1] for i, a in enumerate(args) if a == "-v"]
     assert vol_flags
     joined = " ".join(v.replace("\\", "/") for v in vol_flags)
-    # Sibling stage (…/out__stage_in), not nested …/out/_stage_in
     assert "out__stage_in" in joined
     assert "/out/_stage_in" not in joined
     for v in vol_flags:
         assert host_ws in v.replace("\\", "/"), (v, host_ws)
+    # Out dir must be world-writable for E+ uid 1000
+    assert (out.stat().st_mode & 0o777) == 0o777 or (out.stat().st_mode & 0o222)
+
+
+def test_ensure_ep_writable_chmod(tmp_path: Path) -> None:
+    from wattlab.energyplus.docker import ensure_ep_writable
+
+    p = tmp_path / "sim"
+    ensure_ep_writable(p)
+    assert p.is_dir()
+    mode = p.stat().st_mode & 0o777
+    assert mode == 0o777 or (mode & 0o002)  # world-writable bit
+
+
+def test_align_idf_to_epw_partial(tmp_path: Path) -> None:
+    from wattlab.energyplus.mcp import align_idf_to_epw
+
+    idf = tmp_path / "b.idf"
+    idf.write_text(
+        "RunPeriod,\n  Annual,\n  1,\n  1,\n  2026,\n  12,\n  31,\n  2026,\n  Yes;\n",
+        encoding="utf-8",
+    )
+    epw = tmp_path / "partial.epw"
+    lines = [
+        "LOCATION,Test,MI,USA,AMY,0,42.5,-83.1,-5.0,200.0",
+        "DESIGN CONDITIONS,0",
+        "TYPICAL/EXTREME PERIODS,0",
+        "GROUND TEMPERATURES,0",
+        "HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0",
+        "COMMENTS 1,",
+        "COMMENTS 2,",
+        "DATA PERIODS,1,1,Data,Monday, 3/16, 7/16",
+        "2026,3,16,1,0," + ",".join(["0"] * 30),
+        "2026,7,16,24,0," + ",".join(["0"] * 30),
+    ]
+    epw.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out = tmp_path / "aligned.idf"
+    meta = align_idf_to_epw(idf, epw, out_idf=out)
+    assert meta.get("applied") is True
+    text = out.read_text(encoding="utf-8")
+    assert "3," in text  # begin month
+    assert "16," in text  # begin day
+    assert meta["epw_begin"] == "2026-03-16"
+
+
+def test_nameplate_to_capacity_factors() -> None:
+    from wattlab.energyplus.sizing import nameplate_to_capacity_factors
+
+    inv = {
+        "systems": [
+            {
+                "system": "VAV SYS 1",
+                "load_type": "Cooling",
+                "user_design_capacity_w": 351685.0,  # ~100 ton
+            }
+        ],
+        "components": [],
+        "tables": {},
+    }
+    factors, meta = nameplate_to_capacity_factors(inv, cooling_tons=200.0)
+    assert "cooling_plant" in factors
+    assert abs(factors["cooling_plant"] - 2.0) < 0.05
+    assert meta.get("cooling_factor")
+
 
 
 def test_run_energyplus_can_disable_readvars(

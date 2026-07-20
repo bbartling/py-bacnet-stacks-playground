@@ -277,3 +277,107 @@ def freeze_autosized_values(
         "screening_only",
     ]
     return meta
+
+
+# 1 refrigeration ton ≈ 3516.85 W; 1 mechanical hp ≈ 745.7 W
+_TON_W = 3516.8528420667
+_HP_W = 745.7
+
+
+def _autosized_cooling_w(inventory: Mapping[str, Any]) -> float | None:
+    """Best-effort total cooling plant capacity from sizing inventory (W)."""
+    total = 0.0
+    found = False
+    for sys in inventory.get("systems") or []:
+        load = str(sys.get("load_type") or "").lower()
+        cap = sys.get("user_design_capacity_w")
+        if cap is not None and ("cool" in load or "cooling" in load or not load):
+            total += float(cap)
+            found = True
+    for comp in inventory.get("components") or []:
+        desc = str(comp.get("description") or "").lower()
+        otype = str(comp.get("object_type") or "").lower()
+        val = comp.get("value")
+        if val is None:
+            continue
+        if "chiller" in otype and ("nominal capacity" in desc or "capacity" in desc):
+            total += float(val)
+            found = True
+        elif "cooling" in desc and "capacity" in desc and "coil" not in otype:
+            total += float(val)
+            found = True
+    plant = (inventory.get("tables") or {}).get("central_plant") or []
+    for row in plant:
+        for key, val in row.items():
+            if key == "name" or not isinstance(val, (int, float)):
+                continue
+            kl = key.lower()
+            if "capacity" in kl or "nominal" in kl:
+                total += float(val)
+                found = True
+    return total if found and total > 0 else None
+
+
+def _autosized_fan_power_w(inventory: Mapping[str, Any]) -> float | None:
+    fans = (inventory.get("tables") or {}).get("fans") or []
+    total = 0.0
+    found = False
+    for row in fans:
+        for key, val in row.items():
+            if not isinstance(val, (int, float)):
+                continue
+            kl = key.lower()
+            if "power" in kl or "rated electric" in kl:
+                total += float(val)
+                found = True
+    for comp in inventory.get("components") or []:
+        otype = str(comp.get("object_type") or "").lower()
+        desc = str(comp.get("description") or "").lower()
+        val = comp.get("value")
+        if val is None:
+            continue
+        if "fan" in otype and ("power" in desc or "max power" in desc):
+            total += float(val)
+            found = True
+    return total if found and total > 0 else None
+
+
+def nameplate_to_capacity_factors(
+    inventory: Mapping[str, Any],
+    *,
+    cooling_tons: float | None = None,
+    fan_hp: float | None = None,
+) -> tuple[dict[str, float], dict[str, Any]]:
+    """Map FM nameplate (tons / fan hp) → capacity_factors vs autosized inventory.
+
+    Returns ``(factors, meta)``. Empty factors when inventory lacks comparable
+    autosized values — caller should stamp NEEDS_INPUT / observe-only.
+    """
+    meta: dict[str, Any] = {
+        "cooling_tons_nameplate": cooling_tons,
+        "fan_hp_nameplate": fan_hp,
+    }
+    factors: dict[str, float] = {}
+    if cooling_tons is not None and float(cooling_tons) > 0:
+        auto_w = _autosized_cooling_w(inventory)
+        meta["autosized_cooling_w"] = auto_w
+        if auto_w and auto_w > 0:
+            target_w = float(cooling_tons) * _TON_W
+            factors["cooling_plant"] = target_w / auto_w
+            factors["cooling_coils"] = factors["cooling_plant"]
+            meta["cooling_factor"] = factors["cooling_plant"]
+        else:
+            meta["cooling_factor_error"] = "no_autosized_cooling_in_inventory"
+    if fan_hp is not None and float(fan_hp) > 0:
+        auto_w = _autosized_fan_power_w(inventory)
+        meta["autosized_fan_w"] = auto_w
+        if auto_w and auto_w > 0:
+            target_w = float(fan_hp) * _HP_W
+            ratio = target_w / auto_w
+            factors["fan_power"] = ratio
+            factors["fan_pressure"] = ratio
+            meta["fan_factor"] = ratio
+        else:
+            # No fan power in inventory — leave note; do not invent.
+            meta["fan_factor_error"] = "no_autosized_fan_power_in_inventory"
+    return factors, meta
