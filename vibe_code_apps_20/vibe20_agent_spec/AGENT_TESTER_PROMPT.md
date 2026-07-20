@@ -140,29 +140,51 @@ publish_run_for_studio(Path("…/wattlab_<run_id>"), run_id="<run_id>")
 
 ## BROWSER — what the human must see
 
-After **each** live run: progress/log, OA chart, 5Zone floor plan,
-and a growing iteration history. Empty panes = you did not publish (or missing
-`-r` / DinD path — check `WATTLAB_HOST_WORKSPACE`).
+**Fuel dashboard**
+
+- Campus site EUI metric + **peer typical (p50)** / p20–p80 / vs-median band
+  (spreadsheet-style). Example screening: bills **71.6** vs office p50 **~52.9**.
+- ≥1 monthly chart (human glance — AppTest may not count Plotly widgets).
+
+**Twin / calibrate**
+
+- **EUI index — bills vs peers vs model** (metrics + strip chart). Model EUI is
+  prototype-area intensity; call out `prototype_area_scale` (e.g. ≈14× for 140k).
+- After **each** live run: progress/log, OA chart, 5Zone floor plan, growing
+  iteration history (ideally with `model_eui_kbtu_ft2` column when `report.json`
+  is published).
+- Empty 08 panes = missing publish / `-r` / DinD — check env + sibling stage mounts.
+
+**Regression (this image):** Twin → **Run EnergyPlus (Docker)** once from Studio
+itself (not only host CLI). Expect `eplusout.csv` under `/data/.artifacts/…`
+and a published `runs/<id>/` after success. Nested `_stage_in` under out was the
+prior bug — sibling `…/sim__stage_in` should work.
 
 ## TURNKEY CHECKLIST
 
 1. Studio health ok; `energyplus-mcp-dev` present (`capability_status`).
-2. Dump + energy → Fuel charts green.
-3. Profile resolved with human (city provenance not Madison-leaked).
-4. Dry-run plan once (optional warm-up).
-5. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
-6. MCP inspect at least once if `full_mcp_available`.
-7. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
-8. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
-9. ECMs page exercised; capital gate noted.
-10. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
+2. Dump + energy → Fuel: EUI + **peer p50/p20/p80** metrics green.
+3. Profile resolved with human — city keeps user label (e.g. `troy`) with climate
+   catalog note (detroit); not silent Madison.
+4. Twin **EUI index** visible (bills vs peers; model after ≥1 published run).
+5. Dry-run plan once (optional warm-up).
+6. **Studio-native** Docker E+ once → `eplusout.csv` (DinD sibling-mount gate).
+7. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
+8. Partial-year AMY: RunPeriod auto-aligned (or document fatal if not).
+9. MCP inspect at least once if `full_mcp_available`.
+10. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
+11. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
+12. ECMs page exercised; capital gate noted.
+13. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
 
 ## PASS / FAIL
 
 | Gate | PASS |
 | --- | --- |
-| Fuel | ≥1 real chart |
+| Fuel | ≥1 real chart + bill EUI + peer p50/p20/p80 visible |
+| Twin EUI index | Bills vs peers vs model strip (model after publish) |
 | Twin UI smoke | 08 panes work (replay ok) |
+| **Studio DinD + `-r`** | ≥1 live sim **from Studio button** yields `eplusout.csv` |
 | **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted **or** honest mismatch logged when bills exist |
 | E+ MCP | ≥1 inspect/validate if MCP available; else document `simulate_only` |
 | Honesty | No calibrated ROI without G14 + area + weather stamps |
