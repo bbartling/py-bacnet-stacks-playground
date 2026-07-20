@@ -1,0 +1,2 @@
+rule_id,equipment_id,status,confirmed_fault,fault_hours
+FC1,AHU_1,FAULT,True,2.5

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import socket
+import subprocess
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -15,6 +20,21 @@ from wattlab.studio.state import invalidate_dependent_state, namespaced_key
 ROOT = Path(__file__).resolve().parents[1]
 STUDIO = ROOT / "studio.py"
 TIMEOUT = 60
+MINIMAL_DUMP = ROOT / "tests" / "fixtures" / "minimal_wattlab_dump"
+
+ALL_PAGES = [
+    "Ingest",
+    "Data Explorer",
+    "Assumption Ledger",
+    "Model",
+    "Benchmark",
+    "Measures",
+    "Twin loop",
+    "EP Results",
+    "Hypothesis Lab",
+    "ECM Easy Buttons",
+    "Capital plan",
+]
 
 
 def _boot(page: str | None = None) -> AppTest:
@@ -25,6 +45,12 @@ def _boot(page: str | None = None) -> AppTest:
         at.radio(key="studio_page").set_value(page).run()
         assert not at.exception
     return at
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
 
 
 def test_studio_state_namespaces_and_invalidates_derived_results():
@@ -46,19 +72,50 @@ def test_studio_boots_on_ingest():
     assert any("No dump loaded" in str(block.value) for block in at.info)
 
 
+@pytest.mark.parametrize("page", ALL_PAGES)
+def test_studio_every_page_loads_without_exception(page: str):
+    at = _boot(page)
+    assert at.radio(key="studio_page").value == page
+    assert not at.exception
+
+
 def test_studio_ep_results_page_loads_without_dump():
     at = _boot("EP Results")
     assert at.radio(key="studio_page").value == "EP Results"
     assert not at.exception
     # Empty state should hint, not crash
     info_text = " ".join(str(b.value) for b in at.info)
-    assert "eplusout" in info_text.lower() or "dump" in info_text.lower() or "scorecard" in info_text.lower()
+    assert (
+        "eplusout" in info_text.lower()
+        or "dump" in info_text.lower()
+        or "scorecard" in info_text.lower()
+    )
 
 
-@pytest.mark.parametrize("page", ["Hypothesis Lab", "ECM Easy Buttons"])
+@pytest.mark.parametrize(
+    "page",
+    ["Hypothesis Lab", "ECM Easy Buttons", "Data Explorer", "Assumption Ledger"],
+)
 def test_studio_new_pages_load_without_inputs(page):
     at = _boot(page)
     assert at.radio(key="studio_page").value == page
+    assert not at.exception
+
+
+def test_studio_data_explorer_and_ledger_with_minimal_dump():
+    assert MINIMAL_DUMP.is_dir(), f"missing fixture {MINIMAL_DUMP}"
+    at = _boot("Ingest")
+    at.text_input(key="studio_dump_folder").set_value(str(MINIMAL_DUMP)).run()
+    at.button(key="studio_load_dump").click().run()
+    assert not at.exception
+    assert "studio_bundle" in at.session_state
+    # Next-step framing should mention Model / Data Explorer / Ledger.
+    success_text = " ".join(str(b.value) for b in at.success)
+    assert "Next" in success_text or "Model" in success_text
+
+    at.radio(key="studio_page").set_value("Data Explorer").run()
+    assert not at.exception
+    at.radio(key="studio_page").set_value("Assumption Ledger").run()
     assert not at.exception
 
 
@@ -92,6 +149,18 @@ def test_studio_model_resolves_profile_with_defaults():
     assert profile.get("field_sources")
 
 
+def test_studio_assumption_ledger_shows_profile_provenance():
+    at = _boot("Model")
+    at.text_input(key="studio_btype").set_value("office")
+    at.text_input(key="studio_city").set_value("madison")
+    at.number_input(key="studio_area").set_value(75000.0)
+    at.button[0].set_value(True).run()
+    at.radio(key="studio_page").set_value("Assumption Ledger").run()
+    assert not at.exception
+    frames = list(at.dataframe)
+    assert frames, "expected ledger dataframe"
+
+
 def test_studio_measures_builds_list_with_proxy_savings():
     at = _boot("Model")
     at.text_input(key="studio_btype").set_value("office")
@@ -106,7 +175,6 @@ def test_studio_measures_builds_list_with_proxy_savings():
     assert measures, "expected measures from the selected set"
     proxies = at.session_state["studio_proxies"]
     assert set(proxies) == {m["measure_id"] for m in measures}
-    # Scheduling measures should get a nonzero ESCO proxy estimate.
     sched = [mid for mid in proxies if "SCHED" in mid]
     assert sched and proxies[sched[0]]["savings_kwh"] > 0
 
@@ -132,7 +200,6 @@ def test_studio_twin_loop_dry_run_plan():
 
 def test_studio_benchmark_page_loads_liberty_campus():
     at = _boot("Benchmark")
-    # Liberty example path is pre-filled; load and annualize.
     at.button(key="studio_load_campus").click().run()
     assert not at.exception
     campus = at.session_state["studio_campus"]
@@ -140,11 +207,12 @@ def test_studio_benchmark_page_loads_liberty_campus():
     summary = at.session_state["studio_benchmark_summary"]
     assert summary["campus"]["site_eui_kbtu_ft2"] == 71.6
     assert summary["window"]["start"] == "2024-12"
-    # Switching allocation reruns the summary with the new split.
     at.selectbox(key="studio_allocation").set_value("gas_share").run()
     assert not at.exception
-    euis = {b["building_id"]: b["site_eui_kbtu_ft2"]
-            for b in at.session_state["studio_benchmark_summary"]["buildings"]}
+    euis = {
+        b["building_id"]: b["site_eui_kbtu_ft2"]
+        for b in at.session_state["studio_benchmark_summary"]["buildings"]
+    }
     assert euis["liberty_50"] == 62.2 and euis["liberty_100"] == 81.0
 
 
@@ -163,7 +231,6 @@ def test_studio_capital_plan_gated_by_benchmarks():
     gate = at.session_state["studio_guardrail_gate"]
     assert gate["verdict"] in {"PUBLISH", "INVESTIGATE"}
     names = {c["check"] for c in gate["checks"]}
-    # With Liberty bills loaded, the EUI and savings checks must actually run.
     assert {"baseline_eui_band", "savings_fraction"} <= names
     statuses = {c["check"]: c["status"] for c in gate["checks"]}
     assert statuses["baseline_eui_band"] != "skipped"
@@ -182,6 +249,52 @@ def test_studio_capital_plan_rollup_and_downloads():
     totals = plan["totals"]
     assert totals["implementation_cost_usd"] > 0
     assert totals["annual_cost_saved_usd"] > 0
-    # Measures sorted by payback ascending (None last).
-    paybacks = [m["simple_payback_years"] for m in plan["measures"] if m["simple_payback_years"] is not None]
+    paybacks = [
+        m["simple_payback_years"]
+        for m in plan["measures"]
+        if m["simple_payback_years"] is not None
+    ]
     assert paybacks == sorted(paybacks)
+
+
+def test_studio_live_health_endpoint():
+    """Headless Streamlit process must answer /_stcore/health → ok."""
+    port = _free_port()
+    proc = subprocess.Popen(
+        [
+            "python",
+            "-m",
+            "streamlit",
+            "run",
+            str(STUDIO),
+            "--server.headless",
+            "true",
+            "--server.port",
+            str(port),
+            "--browser.gatherUsageStats",
+            "false",
+        ],
+        cwd=str(ROOT),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    url = f"http://127.0.0.1:{port}/_stcore/health"
+    try:
+        deadline = time.time() + 45
+        last_err = ""
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=2) as resp:
+                    body = resp.read().decode("utf-8", errors="replace").strip()
+                    assert body == "ok", body
+                    return
+            except (urllib.error.URLError, TimeoutError, AssertionError) as exc:
+                last_err = str(exc)
+                time.sleep(0.5)
+        raise AssertionError(f"health never ok on {url}: {last_err}")
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()

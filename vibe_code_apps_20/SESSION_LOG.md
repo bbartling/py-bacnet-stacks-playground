@@ -2,6 +2,15 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-20 — ESCO cockpit Phase 1 + Studio UI smoke gate
+
+- Studio pages: **Data Explorer** (dump tables/telemetry) + **Assumption Ledger**
+  (read-only MEASURED/INFERRED/DEFAULTED/HUMAN/MISSING provenance).
+- Ingest next-step framing from gaps / FDD / bills / schema.
+- Pre-ship gate: `smoke_studio.py` + `test_studio_app.py` (all pages + live
+  `/_stcore/health`) + Playwright `browser_smoke_vibe20.py`.
+- Keep Vibe 19/20 separate; no chat, Mapping Studio, or calibration workbench.
+
 ## 2026-07-19 — Existing Building Hypothesis Lab + clean-room ECM platform
 
 - Privacy: hash-only deny-list scanner, provenance records, clean-room wording.

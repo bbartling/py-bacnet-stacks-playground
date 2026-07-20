@@ -70,6 +70,17 @@ Read **`MANIFEST.json` first** — each file has `purpose` + `how_to_use`.
 
 Never silently substitute office / Madison / Chicago for a real dump.
 
+### Studio pre-ship gate (before GHCR)
+
+```text
+python scripts/smoke_studio.py
+python -m pytest tests/test_studio_app.py -q
+python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
+```
+
+AppTest must cover all pages (including **Data Explorer** + **Assumption Ledger**)
+with 0 exceptions. Playwright is a local gate — not part of `vibe20-ghcr.yml`.
+
 ### Conceptual disclaimer (required on anonymized / uncalibrated exports)
 
 > This is a conceptual, uncalibrated screening model. It is not a design load calculation, code-compliance model, calibrated energy model, or representation of a specific real property until bills + AMY weather pass Guideline-14 gates and the human confirms geometry.

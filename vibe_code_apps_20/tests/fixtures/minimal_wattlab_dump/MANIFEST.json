@@ -1,0 +1,1 @@
+{"schema_version": "wattlab_dump_v3", "export_profile": "summary", "file_count": 6, "files": [{"path": "fdd_findings.csv", "kind": "fdd", "purpose": "findings", "how_to_use": "read"}]}

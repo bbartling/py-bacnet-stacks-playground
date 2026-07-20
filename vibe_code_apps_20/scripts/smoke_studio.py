@@ -5,6 +5,12 @@ Usage (from vibe_code_apps_20):
 
 Mirrors vibe19's scripts/smoke_streamlit_app.py: AppTest catches script
 errors that a plain HTTP 200 on the SPA shell would miss.
+
+Pre-ship gate (with tests):
+  python scripts/smoke_studio.py
+  python -m pytest tests/test_studio_app.py -q
+  python scripts/browser_smoke_vibe20.py --url http://localhost:8520 \\
+      --screenshots .artifacts/browser/native
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ if str(ROOT) not in sys.path:
 
 PAGES = [
     "Ingest",
+    "Data Explorer",
+    "Assumption Ledger",
     "Model",
     "Benchmark",
     "Measures",
@@ -27,6 +35,8 @@ PAGES = [
     "ECM Easy Buttons",
     "Capital plan",
 ]
+
+MINIMAL_DUMP = ROOT / "tests" / "fixtures" / "minimal_wattlab_dump"
 
 
 def _fail(at, page: str) -> int:
@@ -51,14 +61,36 @@ def main() -> int:
             return _fail(at, page)
     print(f"OK: bare walk of {len(PAGES)} pages, 0 exceptions")
 
+    # Dump path: load minimal fixture → Data Explorer + Assumption Ledger.
+    if MINIMAL_DUMP.is_dir():
+        at.radio(key="studio_page").set_value("Ingest").run()
+        at.text_input(key="studio_dump_folder").set_value(str(MINIMAL_DUMP)).run()
+        at.button(key="studio_load_dump").click().run()
+        if at.exception:
+            return _fail(at, "Ingest(load dump)")
+        if "studio_bundle" not in at.session_state:
+            print("FAIL: studio_bundle missing after Load dump")
+            return 1
+        at.radio(key="studio_page").set_value("Data Explorer").run()
+        if at.exception:
+            return _fail(at, "Data Explorer(loaded)")
+        at.radio(key="studio_page").set_value("Assumption Ledger").run()
+        if at.exception:
+            return _fail(at, "Assumption Ledger(loaded)")
+        print("OK: minimal dump → Data Explorer + Assumption Ledger")
+    else:
+        print(f"WARN: missing fixture {MINIMAL_DUMP}; skipped dump walk")
+
     # Loaded walk: Liberty bills -> profile -> measures -> dry-run -> gated plan.
     at.radio(key="studio_page").set_value("Benchmark").run()
     at.button(key="studio_load_campus").click().run()
     if at.exception:
         return _fail(at, "Benchmark(load)")
     summary = at.session_state["studio_benchmark_summary"]
-    print(f"OK: Liberty loaded - campus EUI {summary['campus']['site_eui_kbtu_ft2']} kBtu/ft2, "
-          f"window {summary['window']['start']}..{summary['window']['end']}")
+    print(
+        f"OK: Liberty loaded - campus EUI {summary['campus']['site_eui_kbtu_ft2']} kBtu/ft2, "
+        f"window {summary['window']['start']}..{summary['window']['end']}"
+    )
     at.selectbox(key="studio_allocation").set_value("gas_share").run()
     if at.exception:
         return _fail(at, "Benchmark(gas_share)")
@@ -76,6 +108,10 @@ def main() -> int:
         print("FAIL on page 'Model(resolve)': profile was not resolved")
         return 1
 
+    at.radio(key="studio_page").set_value("Assumption Ledger").run()
+    if at.exception:
+        return _fail(at, "Assumption Ledger(profile)")
+
     at.radio(key="studio_page").set_value("Measures").run()
     at.button(key="studio_build_measures").click().run()
     if at.exception:
@@ -90,8 +126,10 @@ def main() -> int:
     if at.exception:
         return _fail(at, "Capital plan")
     gate = at.session_state["studio_guardrail_gate"]
-    print(f"OK: loaded walk complete - guardrail verdict {gate['verdict']} "
-          f"({gate['investigate_count']} investigate)")
+    print(
+        f"OK: loaded walk complete - guardrail verdict {gate['verdict']} "
+        f"({gate['investigate_count']} investigate)"
+    )
     return 0
 
 
