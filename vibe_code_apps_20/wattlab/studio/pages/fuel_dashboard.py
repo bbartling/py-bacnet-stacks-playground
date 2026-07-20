@@ -131,13 +131,23 @@ def render(*, campus: Campus | None = None) -> None:
     a3.metric("Gas", f"{summary['campus']['mcf']:,.0f} Mcf")
     a4.metric("Window", f"{w['start']} → {w['end']}")
 
-    # Peer strip
+    # Peer strip — explicit typical / band metrics (spreadsheet-style)
     st.subheader("Site EUI vs peers (same property type)")
+    st.caption(
+        "Peer p20 / p50 (typical) / p80 from public EPA Portfolio Manager / CBECS-style "
+        "registry (kBtu/ft²-yr). Twin page adds EnergyPlus model EUI beside these bands."
+    )
     rows = []
     for b in summary["buildings"]:
         cmp = compare_eui(b["site_eui_kbtu_ft2"], b["property_type"])
         rows.append({**b, **{f"peer_{k}": cmp[k] for k in ("p20", "p50", "p80", "band", "vs_median_pct")}})
     dfb = pd.DataFrame(rows)
+    b0 = rows[0]
+    p1, p2, p3, p4 = st.columns(4)
+    p1.metric("Bill site EUI", f"{b0['site_eui_kbtu_ft2']} kBtu/ft²")
+    p2.metric("Peer typical (p50)", f"{b0['peer_p50']} kBtu/ft²")
+    p3.metric("Peer p20–p80", f"{b0['peer_p20']} – {b0['peer_p80']}")
+    p4.metric("vs median", f"{b0['peer_vs_median_pct']:+.1f}% · {b0['peer_band']}")
     st.dataframe(
         dfb[
             [
@@ -146,7 +156,9 @@ def render(*, campus: Campus | None = None) -> None:
                 "kwh",
                 "mcf",
                 "site_eui_kbtu_ft2",
+                "peer_p20",
                 "peer_p50",
+                "peer_p80",
                 "peer_band",
                 "peer_vs_median_pct",
             ]
@@ -174,7 +186,7 @@ def render(*, campus: Campus | None = None) -> None:
         yaxis=dict(visible=False), xaxis_title="Site EUI (kBtu/ft²-yr)",
         showlegend=False,
     )
-    st.plotly_chart(fig_peer, width="stretch")
+    st.plotly_chart(fig_peer, width="stretch", key="fuel_peer_eui_chart")
 
     # Monthly tables + gap-aware charts
     st.subheader("Monthly fuel (gaps shown as blanks)")
@@ -194,7 +206,7 @@ def render(*, campus: Campus | None = None) -> None:
             title=f"{fuel.title()} — connectgaps=False",
             yaxis_title=unit,
         )
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, width="stretch", key=f"fuel_monthly_{fuel}_chart")
 
     # Heatmaps
     st.subheader("Intensity & demand calendars")
@@ -205,6 +217,7 @@ def render(*, campus: Campus | None = None) -> None:
             st.plotly_chart(
                 px.imshow(mat, aspect="auto", color_continuous_scale="YlOrRd", title="Elec kBtu/ft²"),
                 width="stretch",
+                key="fuel_heat_elec",
             )
     with h2:
         mat = intensity_heatmap_frame(campus, fuel="gas")
@@ -212,6 +225,7 @@ def render(*, campus: Campus | None = None) -> None:
             st.plotly_chart(
                 px.imshow(mat, aspect="auto", color_continuous_scale="Blues", title="Gas kBtu/ft²"),
                 width="stretch",
+                key="fuel_heat_gas",
             )
     with h3:
         mat = demand_heatmap_frame(campus)
@@ -219,6 +233,7 @@ def render(*, campus: Campus | None = None) -> None:
             st.plotly_chart(
                 px.imshow(mat, aspect="auto", color_continuous_scale="Viridis", title="Demand kW"),
                 width="stretch",
+                key="fuel_heat_demand",
             )
         else:
             st.caption("No demand_kw column in electric bills.")
