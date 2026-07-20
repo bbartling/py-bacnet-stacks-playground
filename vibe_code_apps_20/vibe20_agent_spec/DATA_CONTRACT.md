@@ -93,15 +93,42 @@ Canonical docs live in vibe19:
 - [`../../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md`](../../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md)
 - Meter points: `elec-power`, `gas-flow` (rates) → monthly integrate in vibe19
 
-WattLab Studio **Fuel Weather** v1 is monthly campus bills; interval + Haystack
+WattLab Studio **Fuel dashboard** uses monthly campus bills; interval + Haystack
 UI is Phase 2 but **must reuse this map shape** when added — do not invent a
 parallel mapping dialect.
 
-## 2c. Fuel Weather analytics
+## 2d. Excel → campus (fallback intake)
+
+When an energy zip/folder has **no** `campus.json` but has `.xlsx` monthly
+tables (Month + kWh/Mcf/therm/usage), `wattlab.energy_use.excel_campus` writes
+`uploads/energy/derived/campus.json` + bill CSVs. Building ids / areas / coords
+come from optional `buildings.json` / `campus_hint.json` or dump `model_seed`
+hints — **never** site-specific hardcodes. Tests: `tests/test_excel_campus.py`.
+
+## 2e. Studio workspace layout
+
+```
+uploads/dump/              # wattlab_dump_*.zip
+uploads/energy/            # energy zip or folder
+uploads/energy/derived/    # Excel-derived campus (if used)
+runs/<run_id>/             # Twin iterations: report.json, eplusout.csv,
+                           # run_manifest.json, progress.json, eplusout.err
+reports/                   # utility_bills.csv, dry-run plan, scorecards, BUG_REPORT.md
+```
+
+Twin 08-style panes read `runs/<id>/` post-sim artifacts (OA + zone floor plan).
+Agents publish with `wattlab.studio.ep_viz.publish_run_for_studio` so
+`runs/CURRENT_RUN.txt` points at the latest iteration for the browser Twin page.
+**Calibrate PASS** requires live Docker `energyplus-mcp-dev` (and EnergyPlus-MCP
+when vendor clone is present) — see [`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md).
+Demo replay uses `tests/fixtures/eplusout/eplusout.csv` labeled `REPLAY.txt` (UI smoke only).
+Tests: `tests/test_ep_viz.py`.
+
+## 2c. Fuel dashboard analytics (HDD/CDD)
 
 Modules: `wattlab.weather.degree_days` (HDD/CDD base **65°F**, vibe19 metering
 convention), `wattlab.benchmarks.fuel_weather` (align bills×DD, OLS R²).
-Studio page: **Fuel Weather**. Offline path uses synthetic seasonal OAT for
+Studio page: **Fuel dashboard**. Offline path uses synthetic seasonal OAT for
 AppTest; live path uses `wattlab.weather.open_meteo` with campus/form coords.
 Tests: `tests/test_degree_days_fuel_weather.py`.
 
@@ -185,7 +212,7 @@ Tests: `tests/test_benchmarks_guardrails.py`.
 
 ## 10. Studio workspace (agent + Streamlit)
 
-Shared tree for Uploads and external agents (Codex CLI). Default:
+Shared tree for Uploads and external AI agents. Default:
 `.artifacts/studio_workspace/` or env `WATTLAB_STUDIO_WORKSPACE` / `WATTLAB_WORKSPACE`.
 
 ```

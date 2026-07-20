@@ -1,6 +1,6 @@
 """Shared Studio workspace for uploads + agent artifacts.
 
-Codex / agents work on this tree outside Streamlit; Studio is a dropzone + viewer.
+Any AI agent works on this tree outside Streamlit; Studio is a dropzone + viewer.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ from wattlab.config import ARTIFACTS
 
 _WORKSPACE_MD = """# WattLab Studio workspace
 
-Shared between Streamlit Uploads and external agents (Codex CLI).
+Shared between Streamlit Uploads and external AI agents.
 
 ```
 uploads/dump/     # wattlab_dump_*.zip (vibe19 v3)
-uploads/energy/   # energy-use zip/folder (campus.json + Haystack maps)
-runs/             # twin / calibrate / easy-button run dirs
+uploads/energy/   # energy-use zip/folder (campus.json + Haystack maps + Excel)
+runs/             # twin / calibrate iterations (eplusout → browser 08 panes)
 reports/          # scorecards, dashboard JSON, capital plans
 ```
 

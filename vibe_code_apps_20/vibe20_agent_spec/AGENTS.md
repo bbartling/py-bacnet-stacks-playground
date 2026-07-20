@@ -1,8 +1,10 @@
 # Vibe20 / WattLab agent workspace — orientation
 
-Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and similar agents. Product code lives in `vibe_code_apps_20/` (the `wattlab` package); orchestration lives in **`vibe20_agent_spec/`**.
+Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Codex CLI, Claude Code, etc.). Product code lives in `vibe_code_apps_20/` (the `wattlab` package); orchestration lives in **`vibe20_agent_spec/`**.
 
 **Primary agent prompt (paste into new sessions):** [`../AGENTS.md`](../AGENTS.md)
+
+**Turnkey QA + E+ calibrate loop (any AI agent):** [`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)
 
 **App:** ESCO / energy-engineering toolkit — vibe19 FDD dumps in, calibrated EnergyPlus twins + benchmarked capital plans out. Where vibe19 is about **finding faults**, vibe20 is about **pricing the fixes credibly**: ESCO spreadsheet bin-method calculators, EnergyPlus crosschecks, public benchmarks, and ROI guardrails.
 
@@ -20,7 +22,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 6. **Benchmark gate before ROI publication** — `wattlab.benchmarks.guardrails.gate_capital_plan` must run on every capital plan: baseline EUI vs peer band, savings fraction vs scope ceiling, implied post-retrofit EUI, per-measure cost bands, payback floors. Any hit → verdict `INVESTIGATE`; show the deltas, make the human override. Never quietly publish. See [`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md).
 7. **Shared meters are schema, not spreadsheet hacks** — `campus.json` declares meter → building relationships. Allocation modes (`area_weighted` / `equal` / `gas_share` / `manual`) are side-by-side **scenarios**, none is "truth" until submetered evidence exists. `examples/liberty/` is a **practice example** for both vibe19 and vibe20 — never hardcode Liberty ids, Detroit coords, or bill filenames in package logic; real sites ship their own `campus.json` + CSVs.
 7b. **Data-model driven sites** — Haystack-style maps (vibe19 `column_map` / `points` → CSV headers) and campus `bill_columns` are the portable contract. Heuristics are fallbacks only. Never invent office/Madison/Chicago/Detroit defaults for a production dump or campus.
-7c. **Fuel Weather** — Studio page for campus bills × Open-Meteo HDD/CDD (base 65°F) + R². Coords from `campus.json` or the form. Interval meter UI is Phase 2 using the vibe19 Haystack map shape.
+7c. **Fuel dashboard** — campus bills × Open-Meteo HDD/CDD (base 65°F) + R² + peers.
+    Coords from `campus.json` / dump / form — never a baked-in city. Interval meter UI
+    is Phase 2 using the vibe19 Haystack map shape.
 8. **Costs are range + basis + vintage + confidence** — `retrofit_costs_public.json` rows carry `unit_basis` (building_ft2 vs glazing_ft2 …), `currency_year`, `confidence`. Historical LBNL medians are reference bands, **never** current-year bids. Windows math on glazing area, chillers on building area — never mix.
 9. **EUI units are kBtu/ft²-year (site)** — conversions: 1 kWh = 3,412 Btu; 1 Mcf gas = 1.037 MMBtu; 1 therm = 100 kBtu. Peer bands from `benchmarks_public.json` (EPA PM medians, CBECS 70.6 fallback).
 10. **Docker-only EnergyPlus** — pinned image via `wattlab.energyplus.docker`; run manifests (`run_manifest.json`) record model/weather SHA + image on every run. Docker tests skip when the image is missing — that's fine.
@@ -36,8 +40,8 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     python scripts/browser_smoke_vibe20.py --url http://localhost:8520 \
         --screenshots .artifacts/browser/native
     ```
-    AppTest walk must cover all pages (including Data Explorer, Assumption
-    Ledger, **Fuel Weather**) with 0 exceptions; live check: `/_stcore/health` → `ok`. Playwright
+    AppTest walk must cover all 4 Studio pages (Uploads, Fuel dashboard,
+    Twin/calibrate, ECMs) with 0 exceptions; live check: `/_stcore/health` → `ok`. Playwright
     is a local/agent gate (not inside vibe20-ghcr.yml).
 16. **Streamlit conventions** — `width='stretch'` (never deprecated `use_container_width`), unique `key=` on every widget/chart, Plotly for charts (look-and-feel follows vibe19).
 17. **Session log discipline** — append `../SESSION_LOG.md` (newest first) after every shipped session; update skills/docs here when behavior changes.
@@ -71,8 +75,11 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 25. **Canonical ECM catalog** — sole source is `wattlab/measures/catalog.yaml`
     (`wattlab ecm`, Studio Easy Buttons, packages, coverage matrix).
 26. **Studio is 4 pages only** — Uploads / Fuel dashboard / Twin·calibrate / ECMs.
-    Codex chats **outside** Streamlit against `.artifacts/studio_workspace/`
+    AI agents chat **outside** Streamlit against `.artifacts/studio_workspace/`
     (or `WATTLAB_STUDIO_WORKSPACE`). No in-app chat panel. No Liberty/city hardcodes.
+    Excel energy zips may derive campus under `uploads/energy/derived/`; Twin shows
+    APIHelper-08 panes from `runs/<id>/` that agents **publish for the browser**.
+    Tester prompt: [`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md).
 
 ---
 
@@ -80,14 +87,15 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 1. **`../AGENTS.md`** — mission, repo map, twin-loop + benchmark governance rules
 2. **AI quick rules above**
-3. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — vibe19 dump, campus.json, report/plan shapes
-4. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — the full agent + human iterate protocol
-5. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
-6. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
-7. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
-8. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
-9. **`skills/wattlab-studio/SKILL.md`** — Studio pages, state keys, smoke
-10. `.agents/` personas/workflows/checklists + `.agents/skills/*` (measure-specific domain skills) as needed
+3. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — dump, campus, Excel derive, workspace runs/
+4. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — human + agent iterate protocol
+5. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
+6. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
+7. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
+8. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
+9. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
+10. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke
+11. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
 
 ---
 
@@ -95,25 +103,24 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 | Path | Role |
 | --- | --- |
-| `wattlab/existing_building/` | Hypothesis Lab orchestration (`explore-existing`) |
-| `wattlab/ecm/` + `wattlab/measures/catalog.yaml` | Canonical ECM registry / packages |
-| `wattlab/units/` | SI-first quantities and IP/SI display |
-| `wattlab/privacy/` | Hash-only proprietary-content scanner |
-| `wattlab/studio/pages/` | Streamlit page modules (Hypothesis Lab, Easy Buttons, …) |
+| `wattlab/studio/pages/` | Uploads, Fuel dashboard, Twin/calibrate, ECMs |
+| `wattlab/studio/ep_viz.py` | APIHelper-08 floor plan / OA / progress helpers |
+| `wattlab/studio/workspace.py` | Shared uploads/runs/reports tree |
+| `wattlab/energy_use/` | campus + Haystack maps + Excel→campus fallback |
 | `wattlab/seed/` | vibe19 dump loader + gap report |
-| `wattlab/benchmarks/` | EUI peer bands, cost bands, campus/meters/allocation, fuel_weather, ROI guardrail gate |
-| `wattlab/weather/degree_days.py` | HDD/CDD (base 65°F) from hourly OAT |
-| `wattlab/weather/bins.py` | Weather-Man OAT bins (5°F × 3 shifts, MCWB, psychrometrics) |
-| `wattlab/weather/epw.py` | AMY EPW builder |
-| `wattlab/bench/` | Proxy calculators + ESCO bin-method calculators (`esco.py`) |
-| `wattlab/finance.py` | Payback / ROI / NPV / capital-plan rollup |
-| `wattlab/crosscheck.py` | E+ vs proxy referee + G14 gates |
-| `wattlab/easy_button.py` | Baseline + progressive measure runs (`--dry-run` works Docker-less) |
-| `wattlab/calibrate.py` | Overlap-window calibration vs vibe19 model seed |
-| `wattlab/bridge.py` | vibe19 faults → suggested measures |
-| `wattlab/energyplus/` | Docker, MCP, results parse, manifests, IDF patches |
-| `wattlab/measures/` | Good / Better / Best measure sets |
-| `wattlab/cli.py` | `wattlab` CLI (defaults / easy-button / calibrate / bridge / epw / bench / crosscheck / benchmark / seed / studio) |
+| `wattlab/benchmarks/` | EUI peers, campus/meters, fuel_weather, guardrails |
+| `wattlab/weather/` | degree_days, Open-Meteo, EPW, bins |
+| `wattlab/bench/` | ESCO bin-method calculators |
+| `wattlab/finance.py` | Capital-plan rollup |
+| `wattlab/crosscheck.py` | E+ vs proxy + G14 |
+| `wattlab/easy_button.py` | Baseline + progressive measures (`--dry-run`) |
+| `wattlab/calibrate.py` | Overlap-window calibration |
+| `wattlab/bridge.py` | vibe19 faults → measures |
+| `wattlab/energyplus/` | Docker, results, timeseries, IDF patches |
+| `wattlab/measures/` + `wattlab/ecm/` | Catalog / packages |
+| `wattlab/existing_building/` | Hypothesis Lab orchestration (CLI; not a Studio page) |
+| `wattlab/cli.py` | `wattlab` CLI |
+| `vibe20_agent_spec/` | Agent handbook, contracts, tester prompt, skills |
 | `studio.py` | WattLab Studio (Ingest / … / Benchmark / Fuel Weather / … / Capital plan) |
 | `scripts/smoke_studio.py` | AppTest smoke walk (all pages + fixture campus + Fuel Weather) |
 | `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on practice campus (real Docker E+ baseline + ECMs) |

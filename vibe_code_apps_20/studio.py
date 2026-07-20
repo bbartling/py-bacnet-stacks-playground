@@ -1,7 +1,7 @@
 """WattLab Studio — dump + energy upload → ESCO dashboard → twin → ECMs.
 
 Launch: ``wattlab studio`` or ``streamlit run studio.py``.
-AI agents (Codex) work on the shared workspace folder outside Streamlit.
+AI agents work on the shared workspace folder outside Streamlit; Studio is the browser viewer.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def main() -> None:
     st.sidebar.title("WattLab Studio")
     st.sidebar.caption(
         "Uploads → Fuel dashboard → Twin / calibrate → ECMs. "
-        "Chat with Codex on the workspace folder; this UI is the viewer."
+        "AI agents work on the workspace folder; this UI is the viewer."
     )
     page = st.sidebar.radio("Workflow", PAGES, key="studio_page")
 

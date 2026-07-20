@@ -1,188 +1,119 @@
 # The twin-iterate loop — human + AI agent protocol
 
-How an AI agent and an energy engineer take a building from vibe19 FDD dump to
-a benchmark-gated capital plan. Every step has a CLI path (agent) and a Studio
-page (human); both share the same `wattlab` modules, so numbers never diverge.
+How an AI agent and an energy engineer take **any** building from a vibe19 FDD
+dump + energy package to a benchmark-gated capital plan. Practice dumps on a
+test bench are examples only — never bake site ids into code or answers.
 
-## Step 0 — Ingest the evidence
+Every step has a CLI path (agent) and a Studio surface (human). Both share
+`wattlab` modules. Any AI agent chats **outside** Streamlit on the workspace folder;
+Studio refreshes from `uploads/`, `runs/`, `reports/`. Agents must **publish** each
+E+ iteration so Twin 08 panes appear in the browser
+(`publish_run_for_studio` / `runs/CURRENT_RUN.txt`).
+
+Full paste prompt for QA + calibrate sessions:
+[`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
+
+## Step 0 — Uploads (evidence)
 
 ```
 wattlab seed dump.zip            # summary
 wattlab seed dump.zip --gaps     # what the human still owes
 ```
 
-Studio: **Ingest** page. The gap report is the conversation starter: the agent
-asks the human for `required` gaps (building type, city, floor area) and
-`recommended` ones (bills, WWR, rates, measure costs). Never invent these.
+Studio: **Uploads**. Load dump v3 + energy package:
 
-## Step 1 — Benchmark the bills (before any model!)
+- Preferred: `campus.json` + bill CSVs (+ Haystack `column_map` if interval)
+- Fallback: monthly Excel → `uploads/energy/derived/` (verify with human)
+- Optional: `buildings.json` / dump `model_seed` for ids, area, type, lat/lon
+
+Gap report is the conversation starter. Ask for `required` gaps
+(`building_type`, `city`, `floor_area_ft2`) and recommended bills/rates/costs.
+**Never invent these.**
+
+## Step 1 — Fuel dashboard (before deep modeling)
+
+Studio: **Fuel dashboard**. Confirm:
+
+- Monthly kWh/gas/demand tables + ≥1 chart (Fuel-ready package)
+- Site EUI vs peer band; HDD/CDD + Open-Meteo only when lat/lon present
+- Shared-meter allocation scenarios are scenarios, not truth
+
+CLI: `wattlab benchmark campus.json` / `--scenarios`.
+
+If Fuel is empty after Excel load → bug or unmappable workbook; do not proceed
+to glossy ROI.
+
+## Step 2 — Resolve the Twin profile
+
+`resolve_profile(minimal)` with provenance. Studio: **Twin / calibrate** form
+prefilled from dump/campus — human confirms city, type, area, lat/lon.
+
+## Step 3 — ESCO proxies (screening)
+
+Measure list = catalog + FDD bridge. Bin-method proxies via `wattlab.bench.esco`.
+Studio: **ECMs** (and Twin crosscheck when proxies attached).
+
+## Step 4 — Run / iterate the twin (Docker EnergyPlus)
 
 ```
-wattlab benchmark campus.json                # annual EUIs + peer bands
-wattlab benchmark campus.json --scenarios    # shared-meter splits side-by-side
+wattlab easy-button --profile profile.json --dry-run
+wattlab easy-button --profile profile.json
 ```
 
-Studio: **Benchmark** page. Questions to answer *before* modeling:
+Studio Twin:
 
-- Is site EUI inside the peer band? Way below p20 with big savings claims
-  coming → something is wrong (area? allocation? vacancy?).
-- Does gas track heating degree days? Summer gas ≠ 0 → DHW/reheat baseload
-  the model must include.
-- Shared meters: which allocation scenario is being used, and does the story
-  change if you switch? If yes, flag it — don't pick silently.
+- Dry-run → `reports/last_dry_run_plan.json`
+- Docker run → `runs/<run_id>/` (report, eplusout, manifest)
+- Demo replay → fixture eplusout labeled replay (UI smoke without E+ image)
+- **08-style panes**: progress + console, outdoor DBT, classic 5Zone floor-plan
+  heatmap (`wattlab.studio.ep_viz`) — viz patterns only, not host Runtime API
 
-## Step 2 — Resolve the profile
+Baseline first. With bills (`reports/utility_bills.csv` or dump bills), G14
+monthly NMBE ±5% / CV(RMSE) ≤15% before calibrated savings claims.
 
-`resolve_profile(minimal)` fills archetype gaps with provenance
-(`field_sources`). Studio: **Model** page. The human confirms geometry and
-rates; everything defaulted stays visibly labeled as a default.
+**Human-in-the-loop calibrate:** one hypothesis per run (schedules, setpoints,
+capacity, weather EPW from dump/Open-Meteo). New `runs/<id>/` each time. Ask
+the engineer when gates fail or crosscheck is `investigate` / `keep_iterating`.
 
-## Step 3 — Price measures with ESCO proxies
+## Step 5 — Crosscheck
 
-Measure list = catalog measure set + FDD-suggested (bridge). Each measure gets
-a bin-method proxy estimate (`wattlab.bench.esco`) — screening-grade,
-spreadsheet-auditable. Studio: **Measures** page (editable costs).
-Agent: `wattlab bench` with explicit inputs.
-
-## Step 4 — Run the twin
-
-```
-python -m wattlab.easy_button --profile profile.json --dry-run   # plan only
-python -m wattlab.easy_button --profile profile.json             # Docker E+
-```
-
-Baseline first. If bills exist, the baseline must pass ASHRAE G14 monthly
-gates (NMBE ±5%, CV(RMSE) ≤15%) before any savings claim is "calibrated" —
-otherwise iterate: schedules from the dump, setpoints from `setpoints.csv`,
-envelope/LPD knobs from defaults, weather from the AMY EPW.
-
-Then measures run progressively; `savings_by_measure[].vs_previous` is each
-measure's incremental effect.
-
-## Step 5 — Crosscheck (the referee)
-
-Automatic when the profile carries `proxy_savings`; standalone:
-`wattlab crosscheck --report wattlab_report.json --proxies proxies.json`.
-
-| Verdict | Meaning | Agent action |
+| Verdict | Meaning | Action |
 | --- | --- | --- |
-| `in_line` (0.5–2.0×) | E+ and bin method agree | proceed |
-| `investigate` | outside band | check patch applied, schedule overlap, sizing; re-run |
-| `keep_iterating` | wrong sign / zero proxy vs big E+ | model bug until proven otherwise |
+| `in_line` (0.5–2.0×) | E+ ≈ proxy | proceed |
+| `investigate` | outside band | check patch/schedule/sizing; re-run |
+| `keep_iterating` | wrong sign / missing | model bug until proven otherwise |
 
-The spreadsheet method is the trust anchor: when they disagree, suspect the
-model first, then the proxy inputs, then (rarely) the method.
+Always area-normalize vs the 5ZoneAirCooled prototype footprint
+(`prototype_area_scale`). The prototype name is an EnergyPlus sample, not a site.
 
-**Area normalization (learned live on Liberty):** the bundled 5ZoneAirCooled
-prototype is only ~10k ft², so raw E+ kWh for a 140k ft² profile under-reports
-~14× and every verdict comes back `investigate` for the wrong reason. The
-crosscheck now auto-scales via `prototype_area_scale` (target ft² / model ft²
-from the baseline record's `building_area_m2`) and reports both raw and
-scaled values plus the `area_scale` used. G14 comparisons scale the modeled
-monthly series the same way. When the scaled ratio is *still* outside the
-band, the disagreement is real — schedule assumptions, W/cfm, kW/ton — not
-geometry. The long-term fix is a right-sized prototype; the scale factor is
-the honest screening bridge until then.
+## Step 6 — Capital guardrails
 
-**Monthly data prerequisite:** the G14 gate only fires when the baseline
-record has a `monthly` series. `easy_button` now patches monthly
-`Output:Meter,Electricity:Facility` / `NaturalGas:Facility` into every
-prototype (`apply_monthly_energy_tables`) and, because EnergyPlus 26.1 still
-writes no monthly tabular section for this prototype, results parsing falls
-back to `eplusout.mtr` (`parse_monthly_from_mtr`). If `monthly` is empty,
-fix the outputs — don't skip the gate.
+`gate_capital_plan` on every plan. Studio **ECMs** capital section. Any hit →
+`INVESTIGATE`; human overrides explicitly.
 
-Full rehearsal of steps 1–7 against the Liberty campus (real Docker E+ runs):
-`python scripts/agent_twin_demo.py --measure-set best`.
+## Workspace paths (shared with Studio)
 
-## Step 6 — Capital plan + benchmark gate
-
-`wattlab.finance.capital_plan` rolls up payback/ROI/NPV. Then — mandatory —
-`gate_capital_plan` (see [BENCHMARK_GOVERNANCE.md](BENCHMARK_GOVERNANCE.md)).
-Studio: **Capital plan** page shows `PUBLISH` / `INVESTIGATE` with the check
-table. An agent must never present ROI output from an `INVESTIGATE` plan
-without surfacing the failed checks verbatim.
-
-## Step 7 — Report ranges, not points
-
-Cost and savings statements carry range + basis + confidence, e.g. "major
-HVAC retrofit: reference band ~$3.8–7.0/ft² (median $4.6/ft², 2009$, adjust
-for market)". Single-point promises are an anti-pattern this tool exists to
-prevent.
-
-## Iteration bookkeeping
-
-Every E+ run writes `run_manifest.json` (model SHA, weather SHA, image pin).
-Studio Twin loop shows the last 10. Never compare savings across runs with
-different weather or prototype hashes.
-
-## School 30-year rehearsal
-
-`examples/school_30yr/` is a fictional 100,000 ft² K-12 school with twelve
-repository-authored 2025 bills labeled `synthetic_rehearsal`. It contains no
-measured or transformed customer, district, contractor, or utility data.
-
-Before network or simulation work, strict Pydantic contracts reject extra
-fields, invalid coordinates/date order, incomplete EPW variables, bad
-fuel-unit pairs, duplicate or non-consecutive bills, mixed fuels/units, and
-scenarios without unique measures or an explicit conceptual-surrogate flag.
-The Open-Meteo archive flow uses request-keyed atomic caching, source SHA and
-download provenance, bounded retries for timeout/429/5xx only, declared-unit
-and physical-bound validation, consecutive timestamps, and exact full-year
-coverage (8,760 rows; 8,784 in leap years).
-
-Open-Meteo archive rows arrive in UTC. A full-year frame must be rotated and
-restamped to the site's **local standard time** before EPW generation, with
-the same fixed UTC offset in the LOCATION header. DST is not applied. Writing
-UTC rows into a local EPW misaligns radiation and weather schedules.
-
-The two progressive scenarios are:
-
-- `school_30yr_hydronic`: schedule alignment → premium fan/VFD →
-  high-efficiency chiller → condensing boiler → glazing.
-- `school_30yr_electrify`: schedule alignment → premium fan/VFD →
-  high-efficiency chiller → AWHP surrogate → glazing.
-
-Both are conceptual. The AWHP is modeled as an electric boiler at a screening
-COP, glazing uses a simple-glazing envelope proxy, and fan/chiller/boiler
-replacements directly edit efficiencies or equipment parameters. These do not
-model heat-pump performance maps, plant redesign, controls integration,
-detailed fenestration, equipment selection, or constructability.
-
-```powershell
-cd vibe_code_apps_20
-
-# Focused unit suite; no network or Docker
-python -m pytest tests/test_input_contracts.py tests/test_open_meteo_weather.py tests/test_deep_retrofit_patches.py tests/test_school_30yr_rehearsal.py -q
-
-# Full suite
-python -m pytest -q
-
-# Opt-in live Open-Meteo + Docker integration
-$env:RUN_SCHOOL_30YR_LIVE="1"
-python -m pytest tests/test_school_30yr_rehearsal.py::test_live_school_30yr_rehearsal -q -s
-Remove-Item Env:RUN_SCHOOL_30YR_LIVE
-
-# Generate the canonical report directly
-python scripts/school_30yr_rehearsal.py
+```
+uploads/dump/  uploads/energy/  uploads/energy/derived/
+runs/<run_id>/eplusout.csv | run_manifest.json | progress.json | report.json
+reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_SESSION.md
 ```
 
-The script's process exit describes execution only: simulation/runtime failure
-is nonzero, while a completed `INVESTIGATE` rehearsal exits zero. The release
-guard requires separate monthly electricity and natural-gas G14 passes.
-Major-HVAC component costs use explicit shares that total one p50 package per
-scenario; controls and glazing remain separate.
+## Docker turnkey (Studio + EnergyPlus MCP image)
 
-The 2026-07-18 live rehearsal produced 12/12 `COMPLETE` records. Simulation
-completion is not publication approval: baseline electricity fails G14 at
-52.21% NMBE / 52.61% CV(RMSE), natural gas fails at 78.03% / 93.74%, and
-conceptual flags are present, so the fail-closed release guard returns
-`INVESTIGATE` for each scenario and overall.
+```bash
+docker pull ghcr.io/bbartling/vibe20:latest
+docker run -d --restart unless-stopped -p 8520:8501 \
+  -v "$HOME/wattlab_workspace:/data" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e WATTLAB_STUDIO_WORKSPACE=/data \
+  --name vibe20 ghcr.io/bbartling/vibe20:latest
+```
 
-Canonical report: `.artifacts/school_30yr_rehearsal.json`. Its `comparison`
-rollup reports:
+**Required for Twin calibrate PASS:** host image `energyplus-mcp-dev` plus a
+**multi-run live campaign** (≥3 successful Docker sims published to `runs/<id>/`
+for browser 08 panes — baseline + hypotheses). Build image per
+`third_party/README.md`. Probe: `wattlab.energyplus.mcp.capability_status()`.
+Prefer EnergyPlus-MCP inspect when the vendor tree is cloned. Demo replay ≠ PASS.
 
-- hydronic: 90,261.2 kWh and 4,864.5 therms saved/year; $17,986.53/year;
-  $716,806.94 implementation cost; -$346,521.59 NPV; `INVESTIGATE`.
-- electrify: 61,148.4 kWh and 8,085.7 therms saved/year; $17,133.43/year;
-  $716,806.94 implementation cost; -$364,084.16 NPV; `INVESTIGATE`.
+Full campaign prompt: [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
