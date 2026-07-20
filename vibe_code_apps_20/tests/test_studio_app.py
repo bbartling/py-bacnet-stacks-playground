@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import socket
 import subprocess
 import time
@@ -119,7 +120,7 @@ def test_turnkey_live_html_smoke():
     port = _free_port()
     proc = subprocess.Popen(
         [
-            "python",
+            sys.executable,
             "-m",
             "streamlit",
             "run",

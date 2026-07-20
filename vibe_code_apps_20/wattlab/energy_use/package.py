@@ -11,6 +11,7 @@ import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 import pandas as pd
@@ -50,7 +51,29 @@ def _unwrap_root(path: Path) -> Path:
 def _extract_zip(zip_path: Path) -> Path:
     dest = Path(tempfile.mkdtemp(prefix="energy_use_"))
     with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(dest)
+        # Windows-created archives may store directory separators as ``\\``.
+        # On Linux that backslash is a literal character, so a valid
+        # ``folder\\campus.json`` entry otherwise looks like a missing campus
+        # file after extraction. Normalize separators and retain explicit
+        # zip-slip protection while extracting.
+        for member in zf.infolist():
+            normalized_name = member.filename.replace("\\", "/")
+            member_path = PurePosixPath(normalized_name)
+            if member_path.is_absolute() or ".." in member_path.parts:
+                raise ValueError(f"Unsafe path in energy-use zip: {member.filename!r}")
+
+            parts = tuple(part for part in member_path.parts if part not in ("", "."))
+            if not parts:
+                continue
+
+            target = dest.joinpath(*parts)
+            if member.is_dir() or normalized_name.endswith("/"):
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(member, "r") as source, target.open("wb") as sink:
+                shutil.copyfileobj(source, sink)
     return _unwrap_root(dest)
 
 
