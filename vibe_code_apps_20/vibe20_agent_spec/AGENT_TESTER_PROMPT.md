@@ -11,6 +11,15 @@ not a single dry-run or fixture replay.
 Practice dumps/zips on a test bench are **examples only**. Data-model driven for
 *any* building. Never hardcode practice campus ids into code or invented answers.
 
+**Read first (orientation):**
+
+- [`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md) — TMY →
+  autosize → constrain → AMY → FDD ladder (~6–10 runs when little is known)
+- [`skills/wattlab-assumptions/SKILL.md`](skills/wattlab-assumptions/SKILL.md) —
+  agent owns defaults / Ideal Loads vs explicit HVAC
+- [`skills/wattlab-energyplus-mcp/SKILL.md`](skills/wattlab-energyplus-mcp/SKILL.md) —
+  MCP = wrench; WattLab = honesty coach
+
 ---
 
 ## ROLE
@@ -18,7 +27,8 @@ Practice dumps/zips on a test bench are **examples only**. Data-model driven for
 - Drive Docker **`energyplus-mcp-dev`** (EnergyPlus 26.1) and, when available,
   **LBNL EnergyPlus-MCP** inspect/validate tools.
 - Build Fuel-ready campus + a **multi-run Twin campaign** under `runs/<id>/`.
-- Calibrate against **actual** monthly fuel + weather (Open-Meteo / dump EPW).
+- Calibrate against **actual** monthly fuel + weather (Open-Meteo / dump EPW)
+  only after TMY screening + sizing honesty.
 - Chat with the human engineer between sims — do not invent building_type, city,
   area, HVAC, or lat/lon.
 
@@ -30,47 +40,63 @@ Practice dumps/zips on a test bench are **examples only**. Data-model driven for
 4. No host `pyenergyplus` Runtime API.
 5. Every sim → `publish_run_for_studio(...)` → human **Refresh agent runs** in Twin.
 6. Report bugs; do not patch unless asked.
+7. Stamp **weather mode**, **prototype_area_scale**, and **sizing scenario**
+   (autosize vs constrained) on every run — never silent Madison / silent 10k ft².
+8. One hypothesis per `runs/<id>/`.
 
 ## MINIMUM LIVE SIM CAMPAIGN (required)
 
-You must complete **at least 3 successful live EnergyPlus runs** (Docker
-`energyplus-mcp-dev`), each published to a distinct `runs/<run_id>/` with
-`eplusout.csv`, and visible in the browser iteration history.
+**QA floor:** ≥3 successful live EnergyPlus runs (Docker `energyplus-mcp-dev`),
+each published to a distinct `runs/<run_id>/` with `eplusout.csv`, visible in
+Twin iteration history.
 
-Suggested campaign (adapt with the human; keep one hypothesis per run):
+**Sparse / poorly known building (recommended):** follow the full ladder in
+[`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md) —
+typically **6–10** published sims. Do not expect G14 in &lt;8–10 when unknowns
+are high; exit to screening + ESCO proxies if plant/envelope stay contradictory.
 
-| # | Run | What to try | Why |
+| # | Weather | HVAC | Hypothesis |
 | --- | --- | --- | --- |
-| 1 | **Baseline** | `wattlab easy-button` / Studio Docker run, measure_set that yields a baseline (or dry-run plan first, then live baseline) | Establish modeled monthly fuel vs bills; first 08 panes from **live** eplusout |
-| 2 | **Schedule / occupancy hypothesis** | Patch or measure that changes fan/occupancy schedules (dump schedule hints / setpoints) | See if loads move toward bills; re-check G14 |
-| 3 | **Envelope or HVAC efficiency hypothesis** | One catalog measure (e.g. better set / LPD / cooling efficiency — whatever the resolved profile supports) | Incremental savings + crosscheck vs ESCO proxy if available |
+| 1 | TMY | Autosize | Baseline EUI vs peers |
+| 2 | TMY | Autosize observe | Sized tons/CFM vs FM nameplate |
+| 3 | TMY | Constrain plant/fans | Unmet hours / saturation signal |
+| 4 | TMY | One schedule (AHU avail) | BAS vs design hours |
+| 5 | AMY | Keep constrained | Align calendar to bills |
+| 6–8 | AMY | One FDD knob each | SAT / reset / OA / lockout… |
+| 9+ | AMY | Load multipliers only if HVAC story holds | Chase G14 or stop |
 
-Optional 4th (encouraged if time): weather sensitivity (AMY vs TMY note) or a second measure — still one hypothesis per run.
+Shorter QA (known building, good dump): baseline + schedule + one HVAC/FDD still
+meets the ≥3 floor — still one hypothesis per run.
 
 **Between every run:**
 
 1. Publish to workspace `runs/` (`publish_run_for_studio` or easy-button auto-publish).
 2. Tell the human to open Twin → Refresh → confirm 08 panes (OA + floor plan) updated.
-3. Compare monthly modeled vs `utility_bills` / campus; log NMBE/CV(RMSE).
+3. Compare monthly modeled vs `utility_bills` / campus; log NMBE/CV(RMSE) when windows overlap.
 4. Ask the human what to try next if gates fail or crosscheck is `investigate`.
 
-If EnergyPlus-MCP is configured, use it at least once per campaign to
-**validate/inspect** the IDF (zones, meters, run period) before or after a sim —
-log the tool names.
+If EnergyPlus-MCP is configured, use it at least once per **major IDF change** to
+**validate/inspect** (zones, meters, run period) — log the tool names.
 
 ## SETUP — Studio (pull only)
 
 ```bash
 docker pull ghcr.io/bbartling/vibe20:latest
 docker stop vibe20 2>/dev/null; docker rm vibe20 2>/dev/null
-mkdir -p ~/wattlab_workspace/{uploads,runs,reports}
+mkdir -p ~/wattlab_workspace/{uploads,runs,reports,.artifacts}
 docker run -d --restart unless-stopped -p 8520:8501 \
   -v "$HOME/wattlab_workspace:/data" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE="$HOME/wattlab_workspace" \
+  -e WATTLAB_ROOT=/app \
   --name vibe20 ghcr.io/bbartling/vibe20:latest
 curl -sf http://127.0.0.1:8520/_stcore/health
 ```
+
+`WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
+Docker E+ / DinD). Artifacts land under `/data/.artifacts`. Sims use `-r` so
+`eplusout.csv` appears for Twin panes.
 
 ## SETUP — EnergyPlus + EnergyPlus-MCP
 
@@ -113,20 +139,22 @@ publish_run_for_studio(Path("…/wattlab_<run_id>"), run_id="<run_id>")
 
 ## BROWSER — what the human must see
 
-After **each** of the ≥3 live runs: progress/log, OA chart, 5Zone floor plan,
-and a growing iteration history. Empty panes = you did not publish.
+After **each** live run: progress/log, OA chart, 5Zone floor plan,
+and a growing iteration history. Empty panes = you did not publish (or missing
+`-r` / DinD path — check `WATTLAB_HOST_WORKSPACE`).
 
 ## TURNKEY CHECKLIST
 
 1. Studio health ok; `energyplus-mcp-dev` present (`capability_status`).
 2. Dump + energy → Fuel charts green.
-3. Profile resolved with human.
+3. Profile resolved with human (city provenance not Madison-leaked).
 4. Dry-run plan once (optional warm-up).
-5. **Live campaign:** ≥3 Docker E+ sims, each published, each confirmed in Twin UI.
+5. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
 6. MCP inspect at least once if `full_mcp_available`.
-7. G14 / crosscheck logged per run when bills exist.
-8. ECMs page exercised; capital gate noted.
-9. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
+7. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
+8. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
+9. ECMs page exercised; capital gate noted.
+10. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
 
 ## PASS / FAIL
 
@@ -134,8 +162,9 @@ and a growing iteration history. Empty panes = you did not publish.
 | --- | --- |
 | Fuel | ≥1 real chart |
 | Twin UI smoke | 08 panes work (replay ok) |
-| **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted when bills exist |
+| **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted **or** honest mismatch logged when bills exist |
 | E+ MCP | ≥1 inspect/validate if MCP available; else document `simulate_only` |
+| Honesty | No calibrated ROI without G14 + area + weather stamps |
 
 One live sim is **not** enough. Really try the loop — baseline + hypotheses —
 with the human engineer.
@@ -144,7 +173,9 @@ with the human engineer.
 
 For each live run:
 
-- `run_id`, hypothesis (one sentence), weather source
+- `run_id`, hypothesis (one sentence), weather source / mode
+- sizing scenario (autosize / constrained / Ideal Loads)
+- `prototype_area_scale` / area honesty note
 - path to `runs/<id>/`, eplusout present yes/no
 - monthly vs bills delta / G14 if available
 - crosscheck verdict if proxies present

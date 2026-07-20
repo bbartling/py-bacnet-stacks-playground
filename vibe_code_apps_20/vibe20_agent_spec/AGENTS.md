@@ -6,7 +6,11 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 **Turnkey QA + E+ calibrate loop (any AI agent):** [`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)
 
+**Sparse-building physics ladder (TMY→constrain→AMY→FDD):** [`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)
+
 **App:** ESCO / energy-engineering toolkit — vibe19 FDD dumps in, calibrated EnergyPlus twins + benchmarked capital plans out. Where vibe19 is about **finding faults**, vibe20 is about **pricing the fixes credibly**: ESCO spreadsheet bin-method calculators, EnergyPlus crosschecks, public benchmarks, and ROI guardrails.
+
+**Stack honesty:** EnergyPlus = physics engine; EnergyPlus-MCP = inspect/modify/sim wrench (~35 tools); WattLab + assumption skills = defaults ledger, peers → bins → E+, G14. MCP is not a calibration coach — see [`skills/wattlab-energyplus-mcp/SKILL.md`](skills/wattlab-energyplus-mcp/SKILL.md) and [`skills/wattlab-assumptions/SKILL.md`](skills/wattlab-assumptions/SKILL.md).
 
 **Sibling app:** `../vibe_code_apps_19/` — Streamlit FDD demo that produces the WattLab dump this app consumes. Its spec: `../vibe_code_apps_19/vibe19_agent_spec/`.
 
@@ -89,13 +93,16 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 2. **AI quick rules above**
 3. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — dump, campus, Excel derive, workspace runs/
 4. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — human + agent iterate protocol
-5. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
-6. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
-7. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
-8. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
-9. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
-10. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke
-11. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
+5. **[`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)** — TMY→AMY→FDD when little is known (~6–10 sims)
+6. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
+7. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
+8. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
+9. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
+10. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
+11. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
+12. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
+13. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke
+14. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
 
 ---
 
@@ -141,6 +148,8 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 | Skill | When |
 | --- | --- |
+| `skills/wattlab-assumptions/` | Sparse twin defaults, Ideal Loads vs explicit HVAC, assumption ledger |
+| `skills/wattlab-energyplus-mcp/` | MCP tools, capability_status, DinD mounts, ReadVars CSV |
 | `skills/wattlab-esco-bins/` | **Primary math** — bin-method savings calculators + weather bins |
 | `skills/wattlab-benchmarking/` | Bills, EUI, allocation, cost bands, guardrail gate |
 | `skills/wattlab-studio/` | Studio UI work + smoke testing |

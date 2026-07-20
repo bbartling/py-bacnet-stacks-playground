@@ -117,12 +117,20 @@ def run_energyplus(
     output_dir: Path,
     *,
     timeout: int | None = 3600,
+    readvars: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    """Annual (or IDF run-period) EnergyPlus simulate via Docker."""
+    """Annual (or IDF run-period) EnergyPlus simulate via Docker.
+
+    ``readvars=True`` (default) passes ``-r`` so EnergyPlus writes
+    ``eplusout.csv`` for Twin APIHelper-08 timeseries panes.
+    Mount sources are translated via ``host_path_for_docker`` when Studio runs
+    with docker.sock + ``WATTLAB_HOST_WORKSPACE``.
+    """
+    from wattlab.config import host_path_for_docker
+
     output_dir.mkdir(parents=True, exist_ok=True)
     idf = idf.resolve()
     epw = epw.resolve()
-    # Mount parent dirs so container sees both files and can write outputs.
     work = output_dir.resolve()
     cmd = [
         "energyplus",
@@ -130,8 +138,10 @@ def run_energyplus(
         f"/work/in/{epw.name}",
         "-d",
         "/work/out",
-        f"/work/in/{idf.name}",
     ]
+    if readvars:
+        cmd.append("-r")
+    cmd.append(f"/work/in/{idf.name}")
     # Put idf+epw copies next to a shared mount if they differ in parents.
     stage = work / "_stage_in"
     stage.mkdir(parents=True, exist_ok=True)
@@ -141,14 +151,16 @@ def run_energyplus(
         shutil.copy2(idf, staged_idf)
     if staged_epw.resolve() != epw:
         shutil.copy2(epw, staged_epw)
+    host_stage = host_path_for_docker(stage)
+    host_work = host_path_for_docker(work)
     args = [
         docker_bin(),
         "run",
         "--rm",
         "-v",
-        f"{_win_mount(stage)}:/work/in",
+        f"{_win_mount(host_stage)}:/work/in",
         "-v",
-        f"{_win_mount(work)}:/work/out",
+        f"{_win_mount(host_work)}:/work/out",
         "-w",
         "/work/out",
         DOCKER_IMAGE,

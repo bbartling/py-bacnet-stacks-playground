@@ -19,13 +19,19 @@ EnergyPlus from inside Studio, also mount the Docker socket and ensure the
 ```bash
 docker pull ghcr.io/bbartling/vibe20:latest
 docker stop vibe20 2>/dev/null; docker rm vibe20 2>/dev/null
-mkdir -p ~/wattlab_workspace/{uploads,runs,reports}
+mkdir -p ~/wattlab_workspace/{uploads,runs,reports,.artifacts}
 docker run -d --restart unless-stopped -p 8520:8501 \
   -v /home/ben/wattlab_workspace:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE=/home/ben/wattlab_workspace \
+  -e WATTLAB_ROOT=/app \
   --name vibe20 ghcr.io/bbartling/vibe20:latest
 ```
+
+`WATTLAB_HOST_WORKSPACE` must be the **host** path that matches the `/data` bind
+mount so Studio Twin → Run EnergyPlus can `docker run -v` into
+`energyplus-mcp-dev` (DinD-safe). Artifacts land under `/data/.artifacts`.
 
 Open **http://localhost:8520** (or `http://<host-ip>:8520`). Vibe19 typically uses **8502**.
 

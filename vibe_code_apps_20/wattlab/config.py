@@ -6,9 +6,76 @@ import os
 from pathlib import Path
 from typing import Any
 
-# Repo root (vibe_code_apps_20) — one level above the wattlab package.
-ROOT = Path(__file__).resolve().parents[1]
-ARTIFACTS = ROOT / ".artifacts"
+
+def _detect_root() -> Path:
+    """Repo root (``vibe_code_apps_20``), even when wattlab is installed as a wheel.
+
+    Editable installs keep ``examples/`` next to the package parent. The GHCR
+    image ``pip install .`` puts code in site-packages while ``examples/`` stays
+    under ``/app`` — prefer ``WATTLAB_ROOT``, then a tree that contains prototypes.
+    """
+    env = (os.environ.get("WATTLAB_ROOT") or "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    pkg_parent = Path(__file__).resolve().parents[1]
+    if (pkg_parent / "examples" / "prototypes").is_dir():
+        return pkg_parent
+    for cand in (Path.cwd(), Path("/app"), pkg_parent.parent):
+        try:
+            resolved = cand.resolve()
+        except OSError:
+            continue
+        if (resolved / "examples" / "prototypes").is_dir():
+            return resolved
+    return pkg_parent
+
+
+def artifacts_root() -> Path:
+    """Writable run/artifact directory.
+
+    Prefer ``WATTLAB_ARTIFACTS``, else ``WATTLAB_STUDIO_WORKSPACE/.artifacts``
+    (bind-mounted host path — required for Docker-from-Studio / DinD), else
+    ``<ROOT>/.artifacts``.
+    """
+    env = (os.environ.get("WATTLAB_ARTIFACTS") or "").strip()
+    if env:
+        p = Path(env).expanduser().resolve()
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    ws = (os.environ.get("WATTLAB_STUDIO_WORKSPACE") or "").strip()
+    if ws:
+        p = Path(ws).expanduser().resolve() / ".artifacts"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    p = ROOT / ".artifacts"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def host_path_for_docker(path: Path | str) -> Path:
+    """Map container paths to host paths when the Docker daemon is the host.
+
+    With ``-v HOST:CONTAINER`` and docker.sock, ``docker run -v`` sources must be
+    **host** paths. Set ``WATTLAB_HOST_WORKSPACE`` to the host side of
+    ``WATTLAB_STUDIO_WORKSPACE`` (e.g. ``/home/ben/wattlab_workspace`` ↔ ``/data``).
+    """
+    p = Path(path).resolve()
+    host_ws = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip()
+    cont_ws = (os.environ.get("WATTLAB_STUDIO_WORKSPACE") or "").strip()
+    if not host_ws or not cont_ws:
+        return p
+    cont = Path(cont_ws).expanduser().resolve()
+    try:
+        rel = p.relative_to(cont)
+    except ValueError:
+        return p
+    return (Path(host_ws).expanduser().resolve() / rel)
+
+
+ROOT = _detect_root()
+# Backward-compat name: many modules import ARTIFACTS. Re-bind after env is set
+# at process start (Studio sets WATTLAB_STUDIO_WORKSPACE before importing wattlab).
+ARTIFACTS = artifacts_root()
 EXAMPLES = ROOT / "examples"
 PROTOTYPES = EXAMPLES / "prototypes"
 WEATHER = EXAMPLES / "weather"
@@ -40,6 +107,9 @@ STATUS_CALIBRATED_NOT_VALIDATED = "CALIBRATED_NOT_VALIDATED"
 STATUS_FAILED_VALIDATION = "FAILED_VALIDATION"
 STATUS_CONCEPTUAL_ONLY = "CONCEPTUAL_ONLY"
 
+# 5ZoneAirCooled prototype footprint (~927 m2) — for honesty banners / scale.
+PROTOTYPE_AREA_FT2_NOMINAL = 9977.0
+
 
 def weather_suitability(
     *,
@@ -69,6 +139,8 @@ def weather_suitability(
         "until",
         "screening only",
         "replace with",
+        "conceptual only",
+        "no catalog epw",
     )
     is_chicago_epw = "chicago" in epw_name or "ohare" in epw_name or "725300" in epw_name
     city_is_chicago = city in {"chicago", "chi", ""}
@@ -87,7 +159,7 @@ def weather_suitability(
                 "not valid for measured-year calibration."
             ),
         }
-    if epw is not None and epw.resolve() == DEFAULT_MADISON_EPW.resolve() and city and not city_is_chicago:
+    if epw is not None and DEFAULT_MADISON_EPW.is_file() and epw.resolve() == DEFAULT_MADISON_EPW.resolve() and city and not city_is_chicago:
         return {
             "mode": SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY,
             "reason": note or DEFAULT_EPW_NOTE,
