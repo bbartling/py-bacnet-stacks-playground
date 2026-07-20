@@ -39,18 +39,10 @@ FATAL_PAGE_PATTERNS = (
 )
 
 PAGES = [
-    "Ingest",
-    "Data Explorer",
-    "Assumption Ledger",
-    "Model",
-    "Benchmark",
-    "Fuel Weather",
-    "Measures",
-    "Twin loop",
-    "EP Results",
-    "Hypothesis Lab",
-    "ECM Easy Buttons",
-    "Capital plan",
+    "Uploads",
+    "Fuel dashboard",
+    "Twin / calibrate",
+    "ECMs",
 ]
 
 
@@ -138,8 +130,8 @@ def run_smoke(*, url: str, screenshots: Path, package: Path | None, headed: bool
             safe = label.lower().replace(" ", "_")
             page.screenshot(path=str(screenshots / f"page_{safe}.png"), full_page=True)
 
-        # Dump path: upload → Load dump → Data Explorer + Assumption Ledger
-        _click_workflow(page, "Ingest")
+        # Dump path: Uploads → Load dump → Fuel dashboard
+        _click_workflow(page, "Uploads")
         zip_path = package
         if zip_path is None:
             zip_path = screenshots / "_packages" / "browser_smoke_minimal.zip"
@@ -152,7 +144,6 @@ def run_smoke(*, url: str, screenshots: Path, package: Path | None, headed: bool
         file_input.set_input_files(str(zip_path))
         page.wait_for_timeout(1000)
         load_btn = page.get_by_role("button", name="Load dump")
-        # Streamlit may keep the button disabled briefly after upload.
         for _ in range(30):
             if load_btn.is_enabled():
                 break
@@ -162,15 +153,15 @@ def run_smoke(*, url: str, screenshots: Path, package: Path | None, headed: bool
         load_btn.click()
         page.wait_for_timeout(2500)
         _assert_no_fatal(page)
-        page.screenshot(path=str(screenshots / "ingest_loaded.png"), full_page=True)
+        page.screenshot(path=str(screenshots / "uploads_loaded.png"), full_page=True)
 
-        _click_workflow(page, "Data Explorer")
+        _click_workflow(page, "Fuel dashboard")
         _assert_no_fatal(page)
-        page.screenshot(path=str(screenshots / "data_explorer.png"), full_page=True)
+        page.screenshot(path=str(screenshots / "fuel_dashboard.png"), full_page=True)
 
-        _click_workflow(page, "Assumption Ledger")
+        _click_workflow(page, "Twin / calibrate")
         _assert_no_fatal(page)
-        page.screenshot(path=str(screenshots / "assumption_ledger.png"), full_page=True)
+        page.screenshot(path=str(screenshots / "twin_calibrate.png"), full_page=True)
 
         browser.close()
 
@@ -201,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
     print(
-        f"OK browser smoke: {len(PAGES)} pages + dump explorer/ledger "
+        f"OK browser smoke: {len(PAGES)} pages + dump upload "
         f"in {time.time() - t0:.1f}s -> {args.screenshots}"
     )
     return 0

@@ -70,6 +70,9 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
     must not auto-claim savings. Privacy: hash-only deny-list (`wattlab.privacy`).
 25. **Canonical ECM catalog** — sole source is `wattlab/measures/catalog.yaml`
     (`wattlab ecm`, Studio Easy Buttons, packages, coverage matrix).
+26. **Studio is 4 pages only** — Uploads / Fuel dashboard / Twin·calibrate / ECMs.
+    Codex chats **outside** Streamlit against `.artifacts/studio_workspace/`
+    (or `WATTLAB_STUDIO_WORKSPACE`). No in-app chat panel. No Liberty/city hardcodes.
 
 ---
 

@@ -182,3 +182,21 @@ Tests: `tests/test_benchmarks_guardrails.py`.
 | Gas (savings) | therms | 1 therm = 100 kBtu |
 | Enthalpy | Btu/lb dry air | Hyland-Wexler saturation (see `weather/bins.py`) |
 | OAT bins | 5°F wide × 3 daily shifts (12am-8am / 8am-4pm / 4pm-12am) | — |
+
+## 10. Studio workspace (agent + Streamlit)
+
+Shared tree for Uploads and external agents (Codex CLI). Default:
+`.artifacts/studio_workspace/` or env `WATTLAB_STUDIO_WORKSPACE` / `WATTLAB_WORKSPACE`.
+
+```
+uploads/dump/      # wattlab_dump_*.zip (vibe19 v3)
+uploads/energy/    # energy-use zip/folder (campus.json + Haystack maps)
+runs/              # twin / easy-button run dirs
+reports/           # dry-run plans, capital_plan.json, scorecards
+WORKSPACE.md
+```
+
+Streamlit pages (4 only): **Uploads** → **Fuel dashboard** → **Twin / calibrate** → **ECMs**.
+Agents read/write this tree outside Streamlit; Studio refreshes as a viewer.
+Energy-use loader: `wattlab.energy_use.load_energy_use_package` (campus +
+`column_map` / `bill_columns`). Tests: `tests/test_energy_use_package.py`.

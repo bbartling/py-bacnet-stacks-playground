@@ -1,59 +1,64 @@
 ﻿# OpenFDD WattLab Studio
 
-**WattLab Studio** is the Streamlit cockpit for [OpenFDD WattLab](AGENTS.md) (Vibe App 20): turn a [Vibe 19](../vibe_code_apps_19/) WattLab dump into model, benchmark, ECM, twin, and capital-plan workflows.
+**WattLab Studio** turns a [Vibe 19](../vibe_code_apps_19/) WattLab dump + energy-use
+package into an ESCO fuel dashboard, EnergyPlus twin/calibrate viewer, and ECM
+capital plan.
 
-Vibe 19 = measured FDD. Vibe 20 = model / ECM / capital. They stay separate apps.
-
-Agent / CLI / package detail lives in [`AGENTS.md`](AGENTS.md) — this README is for running the UI.
+Chat with **Codex / agents outside Streamlit** on the shared workspace folder.
+Studio is the upload dropzone + results viewer.
 
 ## Run (Docker / GHCR)
 
-Multi-arch images publish from `develop` via `.github/workflows/vibe20-ghcr.yml`:
+**Always pull, then recreate** (same easy-button as vibe19):
 
-```powershell
+```bash
 docker pull ghcr.io/bbartling/vibe20:latest
-docker rm -f vibe20 2>$null
-# Use 8520 when vibe19 already owns 8501/8502/8503 on the same host
-docker run -d --restart unless-stopped -p 8520:8501 --name vibe20 ghcr.io/bbartling/vibe20:latest
-# open http://localhost:8520
+docker stop vibe20 2>/dev/null; docker rm vibe20 2>/dev/null
+docker run -d --restart unless-stopped -p 8520:8501 --name vibe20 \
+  ghcr.io/bbartling/vibe20:latest
 ```
 
-Tags: `:latest`, `:develop`, `:sha-<commit>`. Real EnergyPlus sims need a host Docker image `energyplus-mcp-dev` (see [`AGENTS.md`](AGENTS.md)) — not inside this container.
+Open **http://localhost:8520** (or `http://<host-ip>:8520`). Vibe19 typically uses **8502**.
+
+```bash
+docker ps
+docker logs -f vibe20
+docker stop vibe20
+```
+
+Optional shared workspace with Codex on the host:
+
+```bash
+docker run -d --restart unless-stopped -p 8520:8501 \
+  -v /home/ben/wattlab_workspace:/data \
+  -e WATTLAB_STUDIO_WORKSPACE=/data \
+  --name vibe20 ghcr.io/bbartling/vibe20:latest
+```
 
 ## Run (local)
 
-```powershell
+```bash
 cd vibe_code_apps_20
 pip install -e ".[studio]"
 wattlab studio
 # or: streamlit run studio.py --server.port 8520
 ```
 
-## Studio pages
+Workspace default: `.artifacts/studio_workspace/` (`uploads/dump`, `uploads/energy`, `runs`, `reports`).
 
-1. **Ingest** — upload `wattlab_dump_*.zip` from vibe19 Export → summary, gaps, FDD highlights, next-step framing
-2. **Data Explorer** — browse dump analytic tables + shared `telemetry/` CSVs (measured evidence)
-3. **Assumption Ledger** — read-only provenance (`MEASURED` / `INFERRED` / `DEFAULTED` / `HUMAN` / `MISSING`)
-4. **Model** — profile editor, provenance, calibration badge
-5. **Benchmark** — bills vs peer bands, shared-meter scenarios, monthly signatures (`campus.json` — any site)
-6. **Fuel Weather** — campus bills × Open-Meteo/synthetic HDD/CDD, intensity/demand heatmaps, gas×HDD & elec×CDD R²
-7. **Existing Building Hypothesis Lab** — sparse-input scenario ladder + artifact downloads
-8. **ECM Easy Buttons** — catalog cards/packages (proxy + conceptual EnergyPlus)
-9. **Measures** — catalog + FDD-suggested measures, proxy savings, editable costs
-10. **Twin loop** — dry-run plan or Docker EnergyPlus runs, crosscheck verdicts
-11. **EP Results** — post-sim charts / scorecards
-12. **Capital plan** — payback / ROI / NPV gated by benchmark guardrails (`PUBLISH` / `INVESTIGATE`)
+## Studio pages (4 only)
 
-Most pages work dry-run without EnergyPlus. Start on **Ingest** with a dump zip, or **Benchmark / Fuel Weather** with any `campus.json` + bill CSVs (`examples/liberty/` is a practice example only; CI uses the shared-meter fixture).
+1. **Uploads** — `wattlab_dump_*.zip` (v3) + energy-use zip/folder (`campus.json` + bill CSVs + optional Haystack `column_map`)
+2. **Fuel dashboard** — ESCO monthly tables, peer EUI bands, Open-Meteo HDD/CDD, gap-aware charts
+3. **Twin / calibrate** — resolve profile, dry-run / Docker EnergyPlus, modeled vs bills, crosscheck vs ESCO proxies
+4. **ECMs** — catalog Easy Buttons + measure sets + capital plan guardrails
 
-## Pre-ship smoke (local)
+## Pre-ship smoke
 
-GHCR CI builds/pushes the image only. Before merge, run:
-
-```powershell
+```bash
 python scripts/smoke_studio.py
 python -m pytest tests/test_studio_app.py -q
-# with Studio on :8520 (host or Docker):
+# with Studio on :8520:
 python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
 ```
 
@@ -61,6 +66,6 @@ python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots
 
 | Doc | For |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | Agent handbook, CLI (`wattlab twin` / `seed` / …), hard rules |
-| [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) | Historian package layout that feeds dumps |
-| [`docs/`](docs/) | ECM briefs, units, privacy, benchmarks |
+| [`AGENTS.md`](AGENTS.md) | Agent handbook + twin CLI |
+| [`vibe20_agent_spec/`](vibe20_agent_spec/) | Data contract + Codex workspace rules |
+| [`../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md`](../vibe_code_apps_19/docs/COLUMN_MAP_JSON.md) | Haystack point → CSV header maps |

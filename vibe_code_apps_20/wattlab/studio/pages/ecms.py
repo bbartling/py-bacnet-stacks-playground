@@ -1,0 +1,180 @@
+"""ECMs + capital plan guardrails (folded Easy Buttons)."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import pandas as pd
+import streamlit as st
+
+from wattlab.finance import capital_plan, measure_economics, plan_to_csv
+from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
+from wattlab.studio.proxies import DEFAULT_MEASURE_COSTS, estimate_proxy_savings
+from wattlab.studio.workspace import reports_dir
+
+
+def render() -> None:
+    st.header("ECMs — measures + capital plan")
+    st.caption(
+        "Catalog Easy Buttons + measure sets. Capital plan is gated by benchmark "
+        "guardrails (PUBLISH / INVESTIGATE)."
+    )
+
+    profile = st.session_state.get("studio_profile")
+    if not profile:
+        st.info("Resolve a profile on **Twin / calibrate** first.")
+        return
+
+    # --- Easy Buttons catalog ---
+    from wattlab.studio.pages.ecm_easy_buttons import render as render_easy
+
+    render_easy(profile=profile, proxy_estimator=estimate_proxy_savings)
+
+    st.divider()
+    st.subheader("Measure set + proxy pricing")
+    sets = list_measure_sets()
+    set_ids = [s["id"] for s in sets] or ["best"]
+    labels = {s["id"]: f"{s['label']} — {', '.join(s['measure_ids'])}" for s in sets}
+    mset = st.selectbox(
+        "Measure set",
+        set_ids,
+        format_func=lambda k: labels.get(k, k),
+        index=max(0, len(set_ids) - 1),
+        key="ecm_measure_set",
+    )
+    if st.button("Build measures + proxies", key="ecm_build_measures"):
+        measure_rows = expand_measure_set(str(mset))
+        ids = [str(m.get("measure_id")) for m in measure_rows if m.get("measure_id")]
+        proxies = estimate_proxy_savings(profile, ids)
+        costs = {mid: DEFAULT_MEASURE_COSTS.get(mid, 10000.0) for mid in ids}
+        st.session_state["studio_measures"] = measure_rows
+        st.session_state["studio_proxies"] = proxies
+        st.session_state["studio_costs"] = costs
+        st.session_state["studio_measure_set"] = str(mset)
+        st.success(f"{len(ids)} measures priced.")
+
+    measure_rows = st.session_state.get("studio_measures") or []
+    if measure_rows and isinstance(measure_rows[0], str):
+        measure_rows = [{"measure_id": m} for m in measure_rows]
+    measures = [str(m.get("measure_id")) for m in measure_rows if isinstance(m, dict) and m.get("measure_id")]
+    proxies = st.session_state.get("studio_proxies") or {}
+    costs = st.session_state.get("studio_costs") or {}
+    if measures:
+        rows = []
+        for mid in measures:
+            p = proxies.get(mid) or {}
+            rows.append({
+                "measure_id": mid,
+                "savings_kwh": p.get("savings_kwh"),
+                "savings_therms": p.get("savings_therms"),
+                "cost_usd": costs.get(mid),
+            })
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+    st.divider()
+    st.subheader("Capital plan + guardrails")
+    if not measures:
+        st.info("Build measures above to roll up capital plan.")
+        return
+
+    econ_rows = []
+    rates = profile.get("utility") or {}
+    elec = float(rates.get("elec_usd_per_kwh") or 0.12)
+    gas = float(rates.get("gas_usd_per_therm") or 0.80)
+    for mid in measures:
+        p = proxies.get(mid) or {}
+        econ_rows.append(
+            measure_economics(
+                measure_id=mid,
+                implementation_cost_usd=float(costs.get(mid) or 10000.0),
+                kwh_saved=float(p.get("savings_kwh") or 0.0),
+                therms_saved=float(p.get("savings_therms") or 0.0),
+                elec_rate_usd_per_kwh=elec,
+                gas_rate_usd_per_therm=gas,
+            )
+        )
+    # Prefer EnergyPlus savings when a report exists
+    report = st.session_state.get("studio_report") or {}
+    ep_by = {}
+    for s in report.get("savings_by_measure") or []:
+        mid = s.get("measure_id")
+        vs = (s.get("vs_previous") or s.get("vs_baseline") or {})
+        if mid:
+            ep_by[mid] = vs
+    if ep_by:
+        for row in econ_rows:
+            mid = row.get("measure_id")
+            if mid in ep_by:
+                row["kwh_saved"] = float(ep_by[mid].get("kwh_saved") or row.get("kwh_saved") or 0)
+                row["therms_saved"] = float(ep_by[mid].get("therms_saved") or row.get("therms_saved") or 0)
+
+    plan = capital_plan(econ_rows)
+    st.session_state["studio_capital_plan"] = plan
+
+    from wattlab.benchmarks.guardrails import gate_capital_plan
+
+    bench = st.session_state.get("studio_benchmark_summary") or {}
+    area = float(
+        profile.get("conditioned_floor_area_ft2")
+        or profile.get("floor_area_ft2")
+        or 0
+    )
+    property_type = str(profile.get("building_type") or profile.get("property_type") or "office")
+    site_eui = None
+    if isinstance(bench, dict) and bench.get("campus"):
+        site_eui = bench["campus"].get("site_eui_kbtu_ft2")
+        area = float(bench["campus"].get("floor_area_ft2") or area)
+    gate = gate_capital_plan(
+        plan,
+        property_type=property_type,
+        floor_area_ft2=area,
+        site_eui_kbtu_ft2=site_eui,
+    )
+    st.session_state["studio_guardrail_gate"] = gate
+
+    if gate["verdict"] == "INVESTIGATE":
+        st.error(f"Benchmark gate: INVESTIGATE — {gate['investigate_count']} check(s)")
+    else:
+        st.success("Benchmark gate: PUBLISH")
+    with st.expander("Guardrail checks", expanded=gate["verdict"] == "INVESTIGATE"):
+        st.dataframe(
+            pd.DataFrame([
+                {"check": c["check"], "status": c["status"], "detail": c["detail"]}
+                for c in gate["checks"]
+            ]),
+            width="stretch",
+            hide_index=True,
+        )
+
+    totals = plan["totals"]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total cost", f"${totals['implementation_cost_usd']:,.0f}")
+    c2.metric("Annual savings", f"${totals['annual_cost_saved_usd']:,.0f}")
+    pb = totals.get("blended_simple_payback_years")
+    c3.metric("Blended payback", f"{pb:.1f} yr" if pb is not None else "—")
+    c4.metric("Portfolio NPV", f"${totals['npv_usd']:,.0f}")
+
+    st.dataframe(
+        pd.DataFrame(plan["measures"]).drop(columns=["assumptions"], errors="ignore"),
+        width="stretch",
+        hide_index=True,
+    )
+    out = reports_dir() / "capital_plan.json"
+    out.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    d1, d2 = st.columns(2)
+    d1.download_button(
+        "Download capital plan CSV",
+        data=plan_to_csv(plan),
+        file_name="wattlab_capital_plan.csv",
+        mime="text/csv",
+        key="ecm_dl_csv",
+    )
+    d2.download_button(
+        "Download capital plan JSON",
+        data=json.dumps(plan, indent=2),
+        file_name="wattlab_capital_plan.json",
+        mime="application/json",
+        key="ecm_dl_json",
+    )
+    st.caption(f"Also written to `{out}` for agents.")
