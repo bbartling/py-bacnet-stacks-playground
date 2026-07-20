@@ -187,13 +187,18 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
 
     city_raw = m.get("city") or m.get("climate_city")
     city_id, city_meta = resolve_city(city_raw)
+    user_city = str(city_raw).strip() if city_raw else None
+    # Keep the human's city wording in field_sources; catalog id is for EPW only.
     city_note = None
-    if city_raw and _norm(str(city_raw)) != city_id:
-        city_note = f"catalog id {city_id!r} from user city {str(city_raw).strip()!r}"
+    if user_city and _norm(user_city) != city_id:
+        city_note = (
+            f"climate catalog={city_id!r} ({city_meta.get('label')}); "
+            f"{city_meta.get('epw_note') or 'substitute EPW may apply'}"
+        )
     elif city_meta.get("user_supplied"):
         city_note = city_meta.get("epw_note")
     field_sources["city"] = _tagged(
-        city_id, "user" if city_raw else "default", note=city_note
+        user_city or city_id, "user" if city_raw else "default", note=city_note
     )
 
     code_raw = m.get("code_year") or m.get("energy_code")
@@ -292,7 +297,14 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
     field_sources["project_id"] = _tagged(
         project_id, "user" if m.get("project_id") else "default"
     )
-    display = m.get("display_name") or f"{city_meta.get('label')} {arch.get('label')}"
+    # Prefer user city label (e.g. troy) over silent remap to catalog city name.
+    if user_city and _norm(user_city) != city_id and not city_meta.get("user_supplied"):
+        climate_label = user_city
+        catalog_label = city_meta.get("label")
+    else:
+        climate_label = city_meta.get("label") or user_city or city_id
+        catalog_label = city_meta.get("label")
+    display = m.get("display_name") or f"{climate_label} {arch.get('label')}"
     field_sources["display_name"] = _tagged(
         display, "user" if m.get("display_name") else "default"
     )
@@ -326,9 +338,19 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
         "number_of_floors": int(floors),
         "floor_to_floor_ft": float(floor_to_floor),
         "wwr": float(wwr),
-        "climate_city": city_meta.get("label"),
+        "climate_city": climate_label,
+        "climate_catalog_id": city_id,
+        "climate_catalog_label": catalog_label,
         "climate_state": city_meta.get("state"),
         "climate_zone": city_meta.get("climate_zone"),
+        "location": {
+            "city_id": city_id,
+            "user_city": user_city,
+            "label": climate_label,
+            "catalog_label": catalog_label,
+            "state": city_meta.get("state"),
+            "climate_zone": city_meta.get("climate_zone"),
+        },
         "energy_code": code_meta.get("label") or code_id,
         "code_id": code_id,
         "shells": [

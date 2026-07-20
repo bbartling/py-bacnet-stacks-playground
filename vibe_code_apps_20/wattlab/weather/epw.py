@@ -332,6 +332,85 @@ def build_amy_epw(
     return metadata
 
 
+def epw_data_period(epw_path: Path | str) -> dict[str, Any] | None:
+    """Return begin/end dates covered by an EPW (DATA PERIODS + data rows).
+
+    Used to auto-align IDF ``RunPeriod`` when AMY weather is partial-year
+    (default annual RunPeriod + short EPW → EnergyPlus fatal EOF).
+    """
+    from datetime import date
+
+    path = Path(epw_path)
+    if not path.is_file():
+        return None
+    begin: date | None = None
+    end: date | None = None
+    header_begin: date | None = None
+    header_end: date | None = None
+    first_row: date | None = None
+    last_row: date | None = None
+
+    def _md(token: str, year: int | None = None) -> date | None:
+        parts = token.replace(" ", "").split("/")
+        if len(parts) != 2:
+            return None
+        try:
+            m, d = int(parts[0]), int(parts[1])
+            y = year or 2000
+            return date(y, m, d)
+        except ValueError:
+            return None
+
+    with path.open(encoding="utf-8", errors="replace") as fh:
+        for i, raw in enumerate(fh):
+            line = raw.strip()
+            if i < 8 and line.upper().startswith("DATA PERIODS"):
+                fields = [f.strip() for f in line.split(",")]
+                # DATA PERIODS,n,n,name,dow,start,end
+                if len(fields) >= 7:
+                    header_begin = _md(fields[5])
+                    header_end = _md(fields[6])
+                continue
+            if i < 8:
+                continue
+            # Data row: year,month,day,hour,...
+            parts = line.split(",")
+            if len(parts) < 4:
+                continue
+            try:
+                y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+                row_d = date(y, m, d)
+            except ValueError:
+                continue
+            if first_row is None:
+                first_row = row_d
+            last_row = row_d
+
+    begin = first_row or header_begin
+    end = last_row or header_end
+    if begin is None or end is None:
+        return None
+    full_year = begin.month == 1 and begin.day == 1 and end.month == 12 and end.day == 31
+    # Same calendar span without requiring Jan1–Dec31 when years differ in TMY
+    if header_begin and header_end:
+        full_year = full_year or (
+            header_begin.month == 1
+            and header_begin.day == 1
+            and header_end.month == 12
+            and header_end.day == 31
+            and (last_row is None or (last_row - first_row).days >= 360)
+        )
+    return {
+        "begin": begin.isoformat(),
+        "end": end.isoformat(),
+        "begin_date": begin,
+        "end_date": end,
+        "full_calendar_year": bool(full_year),
+        "n_days": (end - begin).days + 1,
+        "source": str(path),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Build AMY EPW from weather CSV")
     p.add_argument("weather_csv", type=Path)

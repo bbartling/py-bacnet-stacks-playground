@@ -142,8 +142,10 @@ def run_energyplus(
     if readvars:
         cmd.append("-r")
     cmd.append(f"/work/in/{idf.name}")
-    # Put idf+epw copies next to a shared mount if they differ in parents.
-    stage = work / "_stage_in"
+    # Sibling stage dir — NOT nested under output_dir. Nested mounts break
+    # ReadVars (-r): EnergyPlus cannot write /work/in/*.rvi when /work/in is a
+    # child of the /work/out volume (DinD host-path resolution).
+    stage = work.parent / f"{work.name}__stage_in"
     stage.mkdir(parents=True, exist_ok=True)
     staged_idf = stage / idf.name
     staged_epw = stage / epw.name

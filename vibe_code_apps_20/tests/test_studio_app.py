@@ -91,8 +91,19 @@ def test_studio_fuel_dashboard_with_fixture_campus():
     assert "studio_campus" in at.session_state or "studio_energy" in at.session_state
     at.radio(key="studio_page").set_value("Fuel dashboard").run()
     assert not at.exception
+    # Metrics must include campus EUI + peer typical bands
+    metric_labels = [m.label for m in at.metric]
+    assert any("EUI" in (lab or "") for lab in metric_labels)
+    assert any("p50" in (lab or "") or "typical" in (lab or "").lower() for lab in metric_labels)
     at.button(key="fuel_dash_synth").click().run()
     assert not at.exception
+
+
+def test_studio_twin_eui_index_section():
+    at = _boot("Twin / calibrate")
+    assert not at.exception
+    # EUI index subheader always renders
+    assert any("EUI" in str(getattr(el, "value", el)) for el in at.subheader)
 
 
 def test_studio_twin_and_ecms_dry_path():

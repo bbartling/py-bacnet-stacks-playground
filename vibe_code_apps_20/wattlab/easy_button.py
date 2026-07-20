@@ -275,6 +275,28 @@ def run_easy_button(
     # BUILDING ENERGY PERFORMANCE tables (G14 bill gate needs them).
     prepped_idf = run_dir / "prototype_prepped.idf"
     monthly_meta = apply_monthly_energy_tables(prototype, prepped_idf)
+    # Partial-year AMY / short EPW: align RunPeriod or EnergyPlus fatals on EOF.
+    run_period_meta: dict[str, Any] | None = None
+    try:
+        from wattlab.weather.epw import epw_data_period
+        from wattlab.energyplus.patches import apply_run_period
+
+        span = epw_data_period(epw)
+        if span and not span.get("full_calendar_year"):
+            aligned = run_dir / "prototype_runperiod.idf"
+            run_period_meta = apply_run_period(
+                prepped_idf,
+                aligned,
+                begin=span["begin"],
+                end=span["end"],
+            )
+            run_period_meta["reason"] = (
+                f"EPW span {span['begin']}→{span['end']} is not a full calendar year; "
+                "RunPeriod auto-aligned (partial-year AMY)."
+            )
+            prepped_idf = aligned
+    except Exception as exc:  # noqa: BLE001 — never block baseline on span probe
+        run_period_meta = {"patch": "run_period", "error": str(exc)}
     baseline_idf = run_dir / "baseline.idf"
     baseline_patch_name = ep.get("baseline_idf_patch") or "fan_avail_continuous"
     patch_meta = _apply_patch(baseline_patch_name, prepped_idf, baseline_idf)
@@ -301,6 +323,8 @@ def run_easy_button(
     after_ecm1_annual: dict | None = None
     after_ecm2_annual: dict | None = None
     patch_log = [monthly_meta, patch_meta]
+    if run_period_meta:
+        patch_log.insert(1, run_period_meta)
 
     for m in measures:
         mid = m["measure_id"]

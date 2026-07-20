@@ -96,7 +96,8 @@ curl -sf http://127.0.0.1:8520/_stcore/health
 
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
 Docker E+ / DinD). Artifacts land under `/data/.artifacts`. Sims use `-r` so
-`eplusout.csv` appears for Twin panes.
+`eplusout.csv` appears for Twin panes. Stage mounts are **siblings** of the
+output dir (`…/sim__stage_in` + `…/sim`), never nested `_stage_in` under out.
 
 ## SETUP — EnergyPlus + EnergyPlus-MCP
 
