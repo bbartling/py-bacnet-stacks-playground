@@ -2,6 +2,15 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-20 — Studio mega dumb-down (4 pages + workspace)
+
+- Replaced 12-page Studio with **Uploads / Fuel dashboard / Twin·calibrate / ECMs**.
+- Shared `.artifacts/studio_workspace/` for Codex outside Streamlit.
+- Energy-use package loader (campus + Haystack `column_map` / `bill_columns`).
+- Fuel dashboard: peer EUI, gap-aware charts, Open-Meteo HDD/CDD.
+- Twin dry-run / Docker + modeled vs bills; ECMs fold Easy Buttons + capital gate.
+- Ship gate: AppTest/browser smoke green before GHCR.
+
 ## 2026-07-20 — Fuel Weather dashboard (data-model driven)
 
 - Studio **Fuel Weather**: campus.json bills × Open-Meteo/synthetic HDD/CDD

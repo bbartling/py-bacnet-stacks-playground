@@ -82,8 +82,8 @@ python -m pytest tests/test_studio_app.py -q
 python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
 ```
 
-AppTest must cover all pages (including **Data Explorer**, **Assumption Ledger**,
-**Fuel Weather**) with 0 exceptions. Playwright is a local gate — not part of
+AppTest must cover all 4 pages (**Uploads**, **Fuel dashboard**, **Twin / calibrate**,
+**ECMs**) with 0 exceptions. Playwright is a local gate — not part of
 `vibe20-ghcr.yml`.
 
 ### Conceptual disclaimer (required on anonymized / uncalibrated exports)

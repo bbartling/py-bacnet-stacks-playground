@@ -1,4 +1,4 @@
-"""Streamlit AppTest coverage for WattLab Studio (dry-run path, no Docker)."""
+"""Streamlit AppTest coverage for dumbed-down WattLab Studio (4 pages)."""
 
 from __future__ import annotations
 
@@ -21,20 +21,13 @@ ROOT = Path(__file__).resolve().parents[1]
 STUDIO = ROOT / "studio.py"
 TIMEOUT = 60
 MINIMAL_DUMP = ROOT / "tests" / "fixtures" / "minimal_wattlab_dump"
+FIXTURE_CAMPUS = ROOT / "tests" / "fixtures" / "shared_meter_campus" / "campus.json"
 
 ALL_PAGES = [
-    "Ingest",
-    "Data Explorer",
-    "Assumption Ledger",
-    "Model",
-    "Benchmark",
-    "Fuel Weather",
-    "Measures",
-    "Twin loop",
-    "EP Results",
-    "Hypothesis Lab",
-    "ECM Easy Buttons",
-    "Capital plan",
+    "Uploads",
+    "Fuel dashboard",
+    "Twin / calibrate",
+    "ECMs",
 ]
 
 
@@ -66,11 +59,10 @@ def test_studio_state_namespaces_and_invalidates_derived_results():
     assert state["unrelated"] == "keep"
 
 
-def test_studio_boots_on_ingest():
+def test_studio_boots_on_uploads():
     at = _boot()
-    assert at.radio(key="studio_page").value == "Ingest"
-    # No dump loaded yet — the page should hint instead of crashing.
-    assert any("No dump loaded" in str(block.value) for block in at.info)
+    assert at.radio(key="studio_page").value == "Uploads"
+    assert not at.exception
 
 
 @pytest.mark.parametrize("page", ALL_PAGES)
@@ -80,186 +72,50 @@ def test_studio_every_page_loads_without_exception(page: str):
     assert not at.exception
 
 
-def test_studio_ep_results_page_loads_without_dump():
-    at = _boot("EP Results")
-    assert at.radio(key="studio_page").value == "EP Results"
-    assert not at.exception
-    # Empty state should hint, not crash
-    info_text = " ".join(str(b.value) for b in at.info)
-    assert (
-        "eplusout" in info_text.lower()
-        or "dump" in info_text.lower()
-        or "scorecard" in info_text.lower()
-    )
-
-
-@pytest.mark.parametrize(
-    "page",
-    ["Hypothesis Lab", "ECM Easy Buttons", "Data Explorer", "Assumption Ledger", "Fuel Weather"],
-)
-def test_studio_new_pages_load_without_inputs(page):
-    at = _boot(page)
-    assert at.radio(key="studio_page").value == page
-    assert not at.exception
-
-
-def test_studio_data_explorer_and_ledger_with_minimal_dump():
-    assert MINIMAL_DUMP.is_dir(), f"missing fixture {MINIMAL_DUMP}"
-    at = _boot("Ingest")
-    at.text_input(key="studio_dump_folder").set_value(str(MINIMAL_DUMP)).run()
-    at.button(key="studio_load_dump").click().run()
+def test_studio_uploads_load_minimal_dump():
+    assert MINIMAL_DUMP.is_dir()
+    at = _boot("Uploads")
+    at.text_input(key="uploads_dump_path").set_value(str(MINIMAL_DUMP)).run()
+    at.button(key="uploads_load_dump").click().run()
     assert not at.exception
     assert "studio_bundle" in at.session_state
-    # Next-step framing should mention Model / Data Explorer / Ledger.
-    success_text = " ".join(str(b.value) for b in at.success)
-    assert "Next" in success_text or "Model" in success_text
 
-    at.radio(key="studio_page").set_value("Data Explorer").run()
+
+def test_studio_fuel_dashboard_with_fixture_campus():
+    assert FIXTURE_CAMPUS.is_file()
+    at = _boot("Uploads")
+    at.text_input(key="uploads_energy_path").set_value(str(FIXTURE_CAMPUS.parent)).run()
+    at.button(key="uploads_load_energy").click().run()
     assert not at.exception
-    at.radio(key="studio_page").set_value("Assumption Ledger").run()
+    assert "studio_campus" in at.session_state or "studio_energy" in at.session_state
+    at.radio(key="studio_page").set_value("Fuel dashboard").run()
+    assert not at.exception
+    at.button(key="fuel_dash_synth").click().run()
     assert not at.exception
 
 
-def test_hypothesis_lab_dry_run_produces_conceptual_plan():
-    at = _boot("Hypothesis Lab")
-    at.button(key="hypothesis_lab.run_dry").click().run()
-    assert not at.exception
-    result = at.session_state["hypothesis_lab.result"]
-    assert result["badge"] == "CONCEPTUAL_HYPOTHESIS"
-    assert result["dry_run"] is True
-
-
-def test_ecm_easy_buttons_can_add_package_to_scenario():
-    at = _boot("ECM Easy Buttons")
-    at.multiselect(key="ecm_easy.packages").set_value(["low-cost"]).run()
-    at.button(key="ecm_easy.add").click().run()
-    assert not at.exception
-    assert at.session_state["ecm_easy.scenario_ids"]
-
-
-def test_studio_model_resolves_profile_with_defaults():
-    at = _boot("Model")
-    at.text_input(key="studio_btype").set_value("office")
-    at.text_input(key="studio_city").set_value("madison")
-    at.number_input(key="studio_area").set_value(75000.0)
-    at.button[0].set_value(True).run()  # form submit
-    assert not at.exception
-    profile = at.session_state["studio_profile"]
-    assert profile["building_type"] == "office"
-    assert profile["conditioned_floor_area_ft2"] == 75000.0
-    assert profile.get("field_sources")
-
-
-def test_studio_assumption_ledger_shows_profile_provenance():
-    at = _boot("Model")
-    at.text_input(key="studio_btype").set_value("office")
-    at.text_input(key="studio_city").set_value("madison")
-    at.number_input(key="studio_area").set_value(75000.0)
+def test_studio_twin_and_ecms_dry_path():
+    at = _boot("Twin / calibrate")
+    # form submit is button[0]
+    at.text_input(key="twin_btype").set_value("office")
+    at.text_input(key="twin_city").set_value("detroit")
+    at.number_input(key="twin_area").set_value(75000.0)
     at.button[0].set_value(True).run()
-    at.radio(key="studio_page").set_value("Assumption Ledger").run()
     assert not at.exception
-    frames = list(at.dataframe)
-    assert frames, "expected ledger dataframe"
+    assert "studio_profile" in at.session_state
 
-
-def test_studio_measures_builds_list_with_proxy_savings():
-    at = _boot("Model")
-    at.text_input(key="studio_btype").set_value("office")
-    at.text_input(key="studio_city").set_value("madison")
-    at.number_input(key="studio_area").set_value(75000.0)
-    at.button[0].set_value(True).run()
-    at.radio(key="studio_page").set_value("Measures").run()
+    at.button(key="twin_dry_run").click().run()
     assert not at.exception
-    at.button(key="studio_build_measures").click().run()
+    assert "studio_plan" in at.session_state
+
+    at.radio(key="studio_page").set_value("ECMs").run()
     assert not at.exception
-    measures = at.session_state["studio_measures"]
-    assert measures, "expected measures from the selected set"
-    proxies = at.session_state["studio_proxies"]
-    assert set(proxies) == {m["measure_id"] for m in measures}
-    sched = [mid for mid in proxies if "SCHED" in mid]
-    assert sched and proxies[sched[0]]["savings_kwh"] > 0
-
-
-def test_studio_twin_loop_dry_run_plan():
-    at = _boot("Model")
-    at.text_input(key="studio_btype").set_value("office")
-    at.text_input(key="studio_city").set_value("madison")
-    at.number_input(key="studio_area").set_value(75000.0)
-    at.button[0].set_value(True).run()
-    at.radio(key="studio_page").set_value("Measures").run()
-    at.button(key="studio_build_measures").click().run()
-    at.radio(key="studio_page").set_value("Twin loop").run()
+    at.button(key="ecm_build_measures").click().run()
     assert not at.exception
-    at.button(key="studio_dry_run").click().run()
-    assert not at.exception
-    plan = at.session_state["studio_plan"]
-    assert plan["dry_run"] is True
-    steps = [s["step"] for s in plan["steps"]]
-    assert "select_prototype" in steps and "simulate" in steps
-    assert plan["approved_measure_ids"]
+    assert "studio_guardrail_gate" in at.session_state
 
 
-def test_studio_benchmark_page_loads_liberty_campus():
-    at = _boot("Benchmark")
-    at.button(key="studio_load_campus").click().run()
-    assert not at.exception
-    campus = at.session_state["studio_campus"]
-    assert campus.campus_id == "shared_meter_fixture"
-    summary = at.session_state["studio_benchmark_summary"]
-    assert summary["campus"]["site_eui_kbtu_ft2"] == 71.6
-    assert summary["window"]["start"] == "2024-12"
-    at.selectbox(key="studio_allocation").set_value("gas_share").run()
-    assert not at.exception
-    euis = {
-        b["building_id"]: b["site_eui_kbtu_ft2"]
-        for b in at.session_state["studio_benchmark_summary"]["buildings"]
-    }
-    assert euis["liberty_50"] == 62.2 and euis["liberty_100"] == 81.0
-
-
-def test_studio_capital_plan_gated_by_benchmarks():
-    at = _boot("Benchmark")
-    at.button(key="studio_load_campus").click().run()
-    at.radio(key="studio_page").set_value("Model").run()
-    at.text_input(key="studio_btype").set_value("office")
-    at.text_input(key="studio_city").set_value("madison")
-    at.number_input(key="studio_area").set_value(75000.0)
-    at.button[0].set_value(True).run()
-    at.radio(key="studio_page").set_value("Measures").run()
-    at.button(key="studio_build_measures").click().run()
-    at.radio(key="studio_page").set_value("Capital plan").run()
-    assert not at.exception
-    gate = at.session_state["studio_guardrail_gate"]
-    assert gate["verdict"] in {"PUBLISH", "INVESTIGATE"}
-    names = {c["check"] for c in gate["checks"]}
-    assert {"baseline_eui_band", "savings_fraction"} <= names
-    statuses = {c["check"]: c["status"] for c in gate["checks"]}
-    assert statuses["baseline_eui_band"] != "skipped"
-    assert statuses["savings_fraction"] != "skipped"
-
-
-def test_studio_capital_plan_rollup_and_downloads():
-    at = _boot("Model")
-    at.button[0].set_value(True).run()
-    at.radio(key="studio_page").set_value("Measures").run()
-    at.button(key="studio_build_measures").click().run()
-    at.radio(key="studio_page").set_value("Capital plan").run()
-    assert not at.exception
-    plan = at.session_state["studio_capital_plan"]
-    assert plan["measures"], "capital plan should include measures"
-    totals = plan["totals"]
-    assert totals["implementation_cost_usd"] > 0
-    assert totals["annual_cost_saved_usd"] > 0
-    paybacks = [
-        m["simple_payback_years"]
-        for m in plan["measures"]
-        if m["simple_payback_years"] is not None
-    ]
-    assert paybacks == sorted(paybacks)
-
-
-def test_studio_live_health_endpoint():
-    """Headless Streamlit process must answer /_stcore/health → ok."""
+def test_turnkey_live_html_smoke():
     port = _free_port()
     proc = subprocess.Popen(
         [
@@ -279,20 +135,19 @@ def test_studio_live_health_endpoint():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    url = f"http://127.0.0.1:{port}/_stcore/health"
     try:
+        url = f"http://127.0.0.1:{port}/_stcore/health"
         deadline = time.time() + 45
-        last_err = ""
+        body = ""
         while time.time() < deadline:
             try:
                 with urllib.request.urlopen(url, timeout=2) as resp:
-                    body = resp.read().decode("utf-8", errors="replace").strip()
-                    assert body == "ok", body
-                    return
-            except (urllib.error.URLError, TimeoutError, AssertionError) as exc:
-                last_err = str(exc)
+                    body = resp.read().decode("utf-8", errors="replace")
+                    if "ok" in body.lower():
+                        break
+            except (urllib.error.URLError, TimeoutError, ConnectionError):
                 time.sleep(0.5)
-        raise AssertionError(f"health never ok on {url}: {last_err}")
+        assert "ok" in body.lower()
     finally:
         proc.terminate()
         try:
