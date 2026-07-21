@@ -14,9 +14,11 @@ from wattlab.defaults import resolve_profile
 from wattlab.energyplus.timeseries import find_eplusout_csv, load_sim_timeseries
 from wattlab.seed import gap_report
 from wattlab.studio.ep_viz import (
+    MULTIFLOOR_HONESTY,
     floor_plan_figure,
     install_demo_replay,
     list_iteration_runs,
+    multifloor_office_figure,
     outdoor_figure,
     publish_run_for_studio,
     read_run_progress,
@@ -179,7 +181,7 @@ def _resolve_active_run() -> Path | None:
     return None
 
 
-def _render_08_panes(run_dir: Path) -> None:
+def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
     st.subheader("EnergyPlus visualizer (APIHelper 08 — browser)")
     st.caption(
         "Populated by any AI agent (or Studio buttons) writing `runs/<id>/` "
@@ -214,11 +216,40 @@ def _render_08_panes(run_dir: Path) -> None:
     if ts2 is not None:
         roles = zone_mean_by_role(ts2)
         if roles:
-            st.plotly_chart(
-                floor_plan_figure(roles),
-                width="stretch",
-                key=f"twin_floor_{run_dir.name}",
-            )
+            floors = int(n_floors or 1)
+            profile = _profile() or {}
+            if floors < 2:
+                floors = int(
+                    profile.get("number_of_floors")
+                    or profile.get("floors")
+                    or st.session_state.get("twin_floors")
+                    or 1
+                )
+            btype = str(profile.get("building_type") or profile.get("property_type") or "").lower()
+            use_multi = floors >= 2 or ("office" in btype and floors >= 2)
+            if use_multi and floors >= 2:
+                highlight = None
+                if floors > 8:
+                    highlight = int(
+                        st.selectbox(
+                            "Highlight floor",
+                            options=list(range(1, floors + 1)),
+                            index=floors - 1,
+                            key=f"twin_floor_sel_{run_dir.name}",
+                        )
+                    )
+                st.plotly_chart(
+                    multifloor_office_figure(roles, n_floors=floors, highlight_floor=highlight),
+                    width="stretch",
+                    key=f"twin_multifloor_{run_dir.name}",
+                )
+                st.caption(MULTIFLOOR_HONESTY.replace("N-story", f"{floors}-story"))
+            else:
+                st.plotly_chart(
+                    floor_plan_figure(roles),
+                    width="stretch",
+                    key=f"twin_floor_{run_dir.name}",
+                )
         means = ts2.zone_mean_temps()
         if not means.empty:
             st.dataframe(means, width="stretch", hide_index=True)
@@ -346,7 +377,10 @@ def render() -> None:
     st.markdown("**Hard-size constrain (optional FM nameplate)**")
     st.caption(
         "Sparse ladder step 3: after autosize, freeze plant/fans toward FM tons/hp "
-        "(conceptual). Leave blank to keep autosize-only."
+        "(conceptual). When target floor area ≫ prototype (~10k ft²), nameplate is "
+        "scaled by 1/prototype_area_scale before factoring. Factors outside "
+        "[0.25, 4.0] refuse freeze (NEEDS_INPUT — site geometry or Ideal Loads). "
+        "Leave blank to keep autosize-only."
     )
     hs1, hs2 = st.columns(2)
     cooling_tons = hs1.number_input(
@@ -355,7 +389,7 @@ def render() -> None:
         value=0.0,
         step=10.0,
         key="twin_cooling_tons",
-        help="e.g. 200 for 2×100 ton chillers",
+        help="e.g. 200 for 2×100 ton chillers — scaled down when site ≫ prototype",
     )
     fan_hp = hs2.number_input(
         "supply_fan_hp (nameplate)",
@@ -363,7 +397,7 @@ def render() -> None:
         value=0.0,
         step=5.0,
         key="twin_fan_hp",
-        help="e.g. 75 hp",
+        help="e.g. 75 hp — scaled with area when site ≫ prototype",
     )
 
     measure_set = st.session_state.get("studio_measure_set") or profile.get("measure_set") or "best"
@@ -472,9 +506,32 @@ def render() -> None:
                 f"(target {report.get('target_floor_area_ft2')} ft² / "
                 f"prototype ~{report.get('prototype_area_ft2_nominal')} ft²)"
             )
+        sizing = report.get("sizing_scenario")
+        if sizing == "hard_size_refused":
+            refuse_note = None
+            for p in report.get("patches") or []:
+                if p.get("patch") == "hard_size" and p.get("needs_input"):
+                    refuse_note = p.get("note")
+                    break
+                if p.get("hard_size_refused"):
+                    refuse_note = p.get("refuse_reason")
+                    break
+            st.error(
+                "Hard-size **refused** (NEEDS_INPUT): capacity factors outside "
+                "[0.25, 4.0] after area scaling — kept autosize. "
+                f"{refuse_note or 'Provide site geometry or Ideal Loads.'}"
+            )
+        elif sizing == "hard_size":
+            st.info("Hard-size freeze applied (area-aware nameplate factors).")
         savings = report.get("savings_by_measure") or []
         if savings:
             st.dataframe(pd.json_normalize(savings), width="stretch", hide_index=True)
+            peak_rows = [s for s in savings if s.get("peak_demand_kw") is not None]
+            if peak_rows:
+                st.caption(
+                    "Peak demand (kW) shown alongside energy — from eplustbl Demand "
+                    "tables or max hourly Electricity:Facility when present."
+                )
         cross = report.get("crosscheck")
         if cross:
             st.subheader(f"Crosscheck: {cross.get('overall_verdict')}")
@@ -569,6 +626,8 @@ def render() -> None:
                 row["prototype_area_scale"] = model["prototype_area_scale"]
             if model.get("weather_mode"):
                 row["weather_mode"] = model["weather_mode"]
+            if model.get("peak_demand_kw") is not None:
+                row["peak_demand_kw"] = model["peak_demand_kw"]
             enriched.append(row)
         st.dataframe(pd.DataFrame(enriched), width="stretch", hide_index=True)
         pick = st.selectbox(

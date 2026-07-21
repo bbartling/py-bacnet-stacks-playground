@@ -198,6 +198,17 @@ def align_idf_to_epw(
     span = epw_data_period(epw)
     if not span:
         return {"patch": "run_period", "applied": False, "reason": "epw_span_unknown", "out": str(idf)}
+    if span.get("partial_day_only") or span.get("ok") is False or not span.get("end"):
+        return {
+            "patch": "run_period",
+            "applied": False,
+            "reason": span.get("reason") or "partial_day_only",
+            "epw_begin": span.get("begin"),
+            "epw_end": span.get("end"),
+            "last_row_hour": span.get("last_row_hour"),
+            "end_clipped_from_partial_day": span.get("end_clipped_from_partial_day"),
+            "out": str(idf),
+        }
     if span.get("full_calendar_year"):
         return {
             "patch": "run_period",
@@ -220,6 +231,8 @@ def align_idf_to_epw(
     meta["epw_begin"] = begin
     meta["epw_end"] = end
     meta["n_days"] = span.get("n_days")
+    meta["last_row_hour"] = span.get("last_row_hour")
+    meta["end_clipped_from_partial_day"] = span.get("end_clipped_from_partial_day")
     return meta
 
 

@@ -56,6 +56,8 @@ def load_model_eui_from_run(run_dir: Path | None) -> dict[str, Any]:
             (report.get("weather_suitability") or {}).get("mode")
             or report.get("weather_mode")
         )
+        if ann.get("peak_demand_kw") is not None:
+            out["peak_demand_kw"] = ann.get("peak_demand_kw")
         out["run_id"] = report.get("run_id") or root.name
         if out.get("model_eui_kbtu_ft2") is not None:
             return out

@@ -108,6 +108,23 @@ def render() -> None:
             if mid in ep_by:
                 row["kwh_saved"] = float(ep_by[mid].get("kwh_saved") or row.get("kwh_saved") or 0)
                 row["therms_saved"] = float(ep_by[mid].get("therms_saved") or row.get("therms_saved") or 0)
+                if ep_by[mid].get("peak_demand_kw_delta") is not None:
+                    row["peak_demand_kw_delta"] = ep_by[mid]["peak_demand_kw_delta"]
+
+    # Show demand columns from report when present
+    demand_preview = []
+    for s in report.get("savings_by_measure") or []:
+        if s.get("peak_demand_kw") is not None:
+            demand_preview.append(
+                {
+                    "measure_id": s.get("measure_id"),
+                    "peak_demand_kw": s.get("peak_demand_kw"),
+                    "vs_baseline_kw": (s.get("vs_baseline") or {}).get("peak_demand_kw_delta"),
+                }
+            )
+    if demand_preview:
+        st.markdown("**Peak demand (kW)** from EnergyPlus results")
+        st.dataframe(pd.DataFrame(demand_preview), width="stretch", hide_index=True)
 
     plan = capital_plan(econ_rows)
     st.session_state["studio_capital_plan"] = plan

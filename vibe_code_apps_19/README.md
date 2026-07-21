@@ -31,6 +31,7 @@ Suggested human→agent message:
 - **WattLab dump v3** (Export tab) — AI-agent handoff zip for vibe20: profiles `summary` (default) / `diagnostic` / `forensic`, shared `telemetry/`, mechanical series + coverage, FDD summary/findings, expanded sensor stats + provenance, `model_seed.json`, and `MANIFEST.json` (`wattlab_dump_v3`)
 - Headless agent API + CLI; session download/restore for Cloud-friendly handoff
 - **Docker / GHCR** image for self-host demos (**Vibe 19 only** — this work does not publish Vibe 20)
+- **Shared agent workspace with vibe20:** dump zips into a host volume both containers mount; agents use `docker exec` (no git clone). See vibe20 [`AGENT_DOCKER_WORKSPACE.md`](../vibe_code_apps_20/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md)
 
 ## Quick start (local)
 
