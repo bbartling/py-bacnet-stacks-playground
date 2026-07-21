@@ -77,6 +77,11 @@ def main() -> int:
     at.button(key="twin_dry_run").click().run()
     if at.exception:
         return _fail(at, "Twin(dry-run)")
+    # Client deliverable package (no live E+ required)
+    at.button(key="twin_build_deliverable").click().run()
+    if at.exception:
+        return _fail(at, "Twin(deliverable)")
+    print("OK: Twin deliverable build (no Streamlit exceptions)")
 
     at.radio(key="studio_page").set_value("ECMs").run()
     at.button(key="ecm_build_measures").click().run()

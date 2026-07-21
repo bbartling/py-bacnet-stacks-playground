@@ -165,7 +165,10 @@ RunPeriod end. Optional Twin **cooling_tons / fan_hp** → area-aware hard-size
 freeze → `sizing_scenario=hard_size_refused` (BUG-W3b). Results show **peak_demand_kw**
 alongside kWh. Multi-floor profiles (`floors` ≥ 2) get stacked schematic plates
 (not site CAD). Agent ops: [`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)
-(`docker exec` + shared volume — no git clone). Entry: `/app/studio.py`.
+(`docker exec` + shared volume — no git clone). **DinD:** image includes Docker
+CLI (sock alone insufficient). **G14 path:** `wattlab calibrate-campaign`
+(bill months → AMY window → scorecard → Twin publish). Twin **Build client package**
+downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 
 ## TURNKEY CHECKLIST
 
@@ -187,6 +190,8 @@ alongside kWh. Multi-floor profiles (`floors` ≥ 2) get stacked schematic plate
 15. ECMs page exercised; capital gate noted.
 16. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
 17. Agent path via shared volume / `docker exec` (see `docs/AGENT_DOCKER_WORKSPACE.md`).
+18. **calibrate-campaign** (or Twin scorecard) with bill-aligned AMY — G14 stats shown or honest fail.
+19. Twin **Build client package** → preview report + download md/xlsx/zip without Streamlit exceptions.
 
 ## PASS / FAIL
 
@@ -203,6 +208,9 @@ alongside kWh. Multi-floor profiles (`floors` ≥ 2) get stacked schematic plate
 | W3b hard-size | Area-scaled nameplate or refused + NEEDS_INPUT banner |
 | Demand kW | `peak_demand_kw` on results when meters/tbl present |
 | Multi-floor viz | floors≥2 → stacked schematic + honesty caption |
+| DinD CLI | `capability_status().docker_available` true with sock only (CLI in image) |
+| G14 campaign | bill-window AMY + scorecard NMBE/CV(RMSE) or honest fail |
+| Client package | Twin builds report + xlsx + zip; downloads work |
 
 One live sim is **not** enough. Really try the loop — baseline + hypotheses —
 with the human engineer.

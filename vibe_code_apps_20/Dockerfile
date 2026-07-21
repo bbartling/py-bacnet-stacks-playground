@@ -2,12 +2,15 @@
 #
 # EnergyPlus: mount the host Docker socket + set WATTLAB_HOST_WORKSPACE to the
 # host path of the /data bind so Twin → Run EnergyPlus (Docker) can spawn
-# energyplus-mcp-dev (DinD). Artifacts under /data/.artifacts; sibling stage
+# energyplus-mcp-dev (DinD). The image includes the Docker *client* binary
+# (sock alone is not enough). Artifacts under /data/.artifacts; sibling stage
 # mounts + world-writable out dirs + --user 1000:1000 for ReadVars CSV.
 # Without docker.sock, dry-run / Fuel / ECMs still work; agents can publish
-# runs/ from a host checkout (`wattlab easy-button`).
+# runs/ from ``docker exec vibe20 wattlab …`` (prefer that over host pip -e).
 #
 # Entry point: studio.py (not wattlab/studio/app.py).
+FROM docker:27-cli AS dockercli
+
 FROM python:3.12-slim
 
 ARG VIBE20_GIT_SHA=unknown
@@ -32,6 +35,9 @@ LABEL org.opencontainers.image.title="vibe20" \
       org.opencontainers.image.ref.name="${VIBE20_IMAGE_REF}:${VIBE20_IMAGE_TAG}"
 
 WORKDIR /app
+
+# DinD client — host still provides the daemon via /var/run/docker.sock
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 COPY . .
 RUN pip install --no-cache-dir ".[studio]"
