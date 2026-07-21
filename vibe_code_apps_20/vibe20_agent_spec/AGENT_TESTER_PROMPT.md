@@ -90,14 +90,16 @@ docker run -d --restart unless-stopped -p 8520:8501 \
   -e WATTLAB_STUDIO_WORKSPACE=/data \
   -e WATTLAB_HOST_WORKSPACE="$HOME/wattlab_workspace" \
   -e WATTLAB_ROOT=/app \
+  -e ENERGYPLUS_DOCKER_USER=1000:1000 \
   --name vibe20 ghcr.io/bbartling/vibe20:latest
 curl -sf http://127.0.0.1:8520/_stcore/health
 ```
 
+Tip image includes the **Docker CLI** (no host `docker` binary bind-mount).
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
-Docker E+ / DinD). Artifacts land under `/data/.artifacts`. Sims use `-r` so
-`eplusout.csv` appears for Twin panes. Stage mounts are **siblings** of the
-output dir (`…/sim__stage_in` + `…/sim`), never nested `_stage_in` under out.
+Docker E+ / DinD). Prefer agents: `docker exec vibe20 wattlab …`
+([`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)).
+G14 + client package: [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md).
 
 ## SETUP — EnergyPlus + EnergyPlus-MCP
 

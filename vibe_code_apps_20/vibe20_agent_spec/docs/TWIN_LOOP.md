@@ -78,6 +78,21 @@ hypothesis → AMY with bill-aligned window → one FDD knob per run. QA floor �
 live sims; sparse sites often need **6–10**. Stamp `prototype_area_scale` —
 5Zone ≈ 10k ft² is not the site.
 
+**AMY + G14 turnkey** (after TMY screening + plant honesty):
+
+```bash
+wattlab calibrate-campaign --bundle dump.zip --bills utility_bills.csv --lat … --lon …
+```
+
+See [`CALIBRATE_AND_DELIVERABLES.md`](CALIBRATE_AND_DELIVERABLES.md). Twin UI:
+scorecard metrics + **Build client package** (report / xlsx / zip).
+
+DinD: image includes Docker CLI; set `WATTLAB_HOST_WORKSPACE` + sock.
+Prefer `docker exec vibe20` — [`AGENT_DOCKER_WORKSPACE.md`](AGENT_DOCKER_WORKSPACE.md).
+
+**W2b:** last full EPW day. **W3b:** area-aware hard-size / refuse band.
+**peak_demand_kw** on results. Multi-floor (`floors`≥2) stacked schematic.
+
 Baseline first. With bills (`reports/utility_bills.csv` or dump bills), G14
 monthly NMBE ±5% / CV(RMSE) ≤15% before calibrated savings claims — only when
 months overlap and scale is honest.
