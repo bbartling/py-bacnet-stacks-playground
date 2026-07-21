@@ -337,18 +337,23 @@ def epw_data_period(epw_path: Path | str) -> dict[str, Any] | None:
 
     Used to auto-align IDF ``RunPeriod`` when AMY weather is partial-year
     (default annual RunPeriod + short EPW → EnergyPlus fatal EOF).
+
+    ``end`` is the last **complete** calendar day (max hour ≥ 23). A trailing
+    partial day (e.g. last row 10:00) is clipped so EnergyPlus does not EOF mid-day.
     """
+    from collections import defaultdict
     from datetime import date
 
     path = Path(epw_path)
     if not path.is_file():
         return None
-    begin: date | None = None
-    end: date | None = None
     header_begin: date | None = None
     header_end: date | None = None
     first_row: date | None = None
     last_row: date | None = None
+    last_row_hour: int | None = None
+    hours_by_day: dict[date, set[int]] = defaultdict(set)
+    day_order: list[date] = []
 
     def _md(token: str, year: int | None = None) -> date | None:
         parts = token.replace(" ", "").split("/")
@@ -379,26 +384,83 @@ def epw_data_period(epw_path: Path | str) -> dict[str, Any] | None:
                 continue
             try:
                 y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+                hour = int(float(parts[3]))
                 row_d = date(y, m, d)
             except ValueError:
                 continue
             if first_row is None:
                 first_row = row_d
             last_row = row_d
+            last_row_hour = hour
+            if row_d not in hours_by_day:
+                day_order.append(row_d)
+            hours_by_day[row_d].add(hour)
 
     begin = first_row or header_begin
-    end = last_row or header_end
-    if begin is None or end is None:
+    if begin is None:
         return None
+
+    def _day_complete(d: date) -> bool:
+        hrs = hours_by_day.get(d) or set()
+        # EPW hours are typically 1–24 (or 0–23). Treat max≥23 as a full day
+        # (trailing partial days end ~10:00 and must not set RunPeriod end).
+        return bool(hrs) and max(hrs) >= 23
+
+    end_clipped = False
+    end: date | None = None
+    # Walk days in **file appearance order** (TMY years differ by month — do not
+    # sort by absolute calendar date or Dec 31 1981 loses to Apr 2002).
+    if day_order:
+        for d in reversed(day_order):
+            if _day_complete(d):
+                end = d
+                break
+        if end is None:
+            # No complete day — cannot safely align annual-style RunPeriod
+            return {
+                "begin": begin.isoformat(),
+                "end": None,
+                "begin_date": begin,
+                "end_date": None,
+                "full_calendar_year": False,
+                "n_days": None,
+                "source": str(path),
+                "last_row_hour": last_row_hour,
+                "end_clipped_from_partial_day": True,
+                "partial_day_only": True,
+                "ok": False,
+                "reason": "partial_day_only",
+            }
+        if last_row is not None and end != last_row:
+            end_clipped = True
+        elif (
+            last_row is not None
+            and end == last_row
+            and last_row_hour is not None
+            and last_row_hour < 23
+        ):
+            # Incomplete last day — should have selected prior complete day above
+            end_clipped = True
+    else:
+        end = last_row or header_end
+        if end is None:
+            return None
+
+    # n_days: for mixed-year TMY use month/day span via header or row count of days
+    if day_order and len(day_order) >= 360:
+        n_days = len(day_order)
+    else:
+        n_days = (end - begin).days + 1 if end >= begin else len(day_order) or None
+
     full_year = begin.month == 1 and begin.day == 1 and end.month == 12 and end.day == 31
-    # Same calendar span without requiring Jan1–Dec31 when years differ in TMY
     if header_begin and header_end:
         full_year = full_year or (
             header_begin.month == 1
             and header_begin.day == 1
             and header_end.month == 12
             and header_end.day == 31
-            and (last_row is None or (last_row - first_row).days >= 360)
+            and (n_days is not None and n_days >= 360)
+            and not end_clipped
         )
     return {
         "begin": begin.isoformat(),
@@ -406,8 +468,12 @@ def epw_data_period(epw_path: Path | str) -> dict[str, Any] | None:
         "begin_date": begin,
         "end_date": end,
         "full_calendar_year": bool(full_year),
-        "n_days": (end - begin).days + 1,
+        "n_days": n_days,
         "source": str(path),
+        "last_row_hour": last_row_hour,
+        "end_clipped_from_partial_day": end_clipped,
+        "partial_day_only": False,
+        "ok": True,
     }
 
 

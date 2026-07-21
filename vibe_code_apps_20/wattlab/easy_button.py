@@ -317,6 +317,12 @@ def run_easy_button(
         )
 
         inv = parse_sizing_inventory(base_out)
+        area_ft2 = float(
+            profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2") or 0
+        )
+        area_scale = (
+            area_ft2 / PROTOTYPE_AREA_FT2_NOMINAL if area_ft2 > 0 else None
+        )
         factors, factor_meta = nameplate_to_capacity_factors(
             inv,
             cooling_tons=(
@@ -327,9 +333,22 @@ def run_easy_button(
             fan_hp=(
                 float(hard_size["fan_hp"]) if hard_size.get("fan_hp") is not None else None
             ),
+            prototype_area_scale=area_scale,
         )
         patch_log.append({"patch": "hard_size_factors", **factor_meta, "factors": factors})
-        if factors:
+        if factor_meta.get("hard_size_refused"):
+            sizing_scenario = "hard_size_refused"
+            patch_log.append(
+                {
+                    "patch": "hard_size",
+                    "ok": False,
+                    "needs_input": True,
+                    "note": factor_meta.get("refuse_reason")
+                    or "Hard-size factors out of band; kept autosize (NEEDS_INPUT).",
+                    "refused_factors": factor_meta.get("refused_factors"),
+                }
+            )
+        elif factors:
             hard_idf = run_dir / "baseline_hard_size.idf"
             freeze_meta = freeze_autosized_values(
                 baseline_idf, hard_idf, inv, capacity_factors=factors
@@ -355,6 +374,8 @@ def run_easy_button(
     baseline_flags = ["uncalibrated", "conceptual_screening", "openfdd_wattlab"]
     if sizing_scenario == "hard_size":
         baseline_flags.append("hard_size_nameplate")
+    elif sizing_scenario == "hard_size_refused":
+        baseline_flags.append("hard_size_refused_needs_input")
     baseline_record = build_result_record(
         run_id=f"{run_id}_baseline",
         measure_id=None,

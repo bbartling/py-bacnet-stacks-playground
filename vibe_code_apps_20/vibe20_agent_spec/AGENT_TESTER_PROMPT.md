@@ -158,8 +158,14 @@ publish_run_for_studio(Path("…/wattlab_<run_id>"), run_id="<run_id>")
 **Regression (this image):** Twin → **Run EnergyPlus (Docker)** once from Studio
 itself (not only host CLI). Expect `eplusout.csv` without chmod workarounds.
 Out dirs are world-writable + E+ `--user 1000:1000` (BUG-W1). Partial AMY
-auto-clips RunPeriod via `simulate()` (BUG-W2). Optional Twin **cooling_tons /
-fan_hp** → hard-size freeze after autosize (BUG-W3). Entry: `/app/studio.py`.
+auto-clips RunPeriod via `simulate()` (BUG-W2). **BUG-W2b:** EPW end is the last
+**full** day (max hour ≥ 23) — trailing partial hours (e.g. 10:00) must not set
+RunPeriod end. Optional Twin **cooling_tons / fan_hp** → area-aware hard-size
+(`1/prototype_area_scale` when scale > 1.5); factors outside `[0.25, 4.0]` refuse
+freeze → `sizing_scenario=hard_size_refused` (BUG-W3b). Results show **peak_demand_kw**
+alongside kWh. Multi-floor profiles (`floors` ≥ 2) get stacked schematic plates
+(not site CAD). Agent ops: [`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)
+(`docker exec` + shared volume — no git clone). Entry: `/app/studio.py`.
 
 ## TURNKEY CHECKLIST
 
@@ -171,12 +177,16 @@ fan_hp** → hard-size freeze after autosize (BUG-W3). Entry: `/app/studio.py`.
 5. Dry-run plan once (optional warm-up).
 6. **Studio-native** Docker E+ once → `eplusout.csv` (DinD sibling-mount gate).
 7. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
-8. Partial-year AMY: RunPeriod auto-aligned (or document fatal if not).
+8. Partial-year AMY: RunPeriod ends on last **full** EPW day (W2b); not trailing hour-10 day.
 9. MCP inspect at least once if `full_mcp_available`.
 10. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
 11. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
-12. ECMs page exercised; capital gate noted.
-13. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
+12. Hard-size: area-scaled nameplate or `hard_size_refused` banner when factors absurd (W3b).
+13. Peak demand kW visible on Twin results / ECM when eplustbl or eplusout has it.
+14. Multi-floor profile (≥2): stacked schematic + honesty caption (not site CAD).
+15. ECMs page exercised; capital gate noted.
+16. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
+17. Agent path via shared volume / `docker exec` (see `docs/AGENT_DOCKER_WORKSPACE.md`).
 
 ## PASS / FAIL
 
@@ -189,6 +199,10 @@ fan_hp** → hard-size freeze after autosize (BUG-W3). Entry: `/app/studio.py`.
 | **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted **or** honest mismatch logged when bills exist |
 | E+ MCP | ≥1 inspect/validate if MCP available; else document `simulate_only` |
 | Honesty | No calibrated ROI without G14 + area + weather stamps |
+| W2b full-day AMY | RunPeriod end = last complete EPW day (not partial trailing hours) |
+| W3b hard-size | Area-scaled nameplate or refused + NEEDS_INPUT banner |
+| Demand kW | `peak_demand_kw` on results when meters/tbl present |
+| Multi-floor viz | floors≥2 → stacked schematic + honesty caption |
 
 One live sim is **not** enough. Really try the loop — baseline + hypotheses —
 with the human engineer.

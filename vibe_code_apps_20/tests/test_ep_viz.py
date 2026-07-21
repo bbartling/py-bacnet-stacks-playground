@@ -35,6 +35,16 @@ def test_floor_plan_and_oa_from_fixture():
     assert oa is not None
 
 
+def test_multifloor_office_schematic_smoke():
+    from wattlab.studio.ep_viz import MULTIFLOOR_HONESTY, multifloor_office_figure
+
+    roles = {"north": 22.0, "south": 23.0, "east": 21.5, "west": 22.5, "center": 22.0}
+    fig = multifloor_office_figure(roles, n_floors=6)
+    assert fig is not None
+    assert "6-story" in (fig.layout.title.text or "")
+    assert "Schematic massing" in MULTIFLOOR_HONESTY
+
+
 def test_demo_replay_install(tmp_path: Path):
     dest = tmp_path / "demo_replay"
     install_demo_replay(dest, FIXTURE)

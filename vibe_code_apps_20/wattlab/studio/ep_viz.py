@@ -124,6 +124,78 @@ def floor_plan_figure(role_temps: dict[str, float]):
     return fig
 
 
+def multifloor_office_figure(
+    role_temps: dict[str, float],
+    *,
+    n_floors: int,
+    highlight_floor: int | None = None,
+):
+    """Stacked floor-plate schematic for multi-story office screening.
+
+    Each plate reuses the classic 5Zone compass vertices; temps are mapped from
+    the single-story prototype CSV (honesty: not site CAD / not true multi-floor IDF).
+    """
+    import plotly.graph_objects as go
+
+    n = max(2, int(n_floors))
+    fig = go.Figure()
+    gap = 0.35
+    plate_h = 3.0
+    show_floors = list(range(1, n + 1))
+    if n > 8 and highlight_floor is not None:
+        # Optional selector: show all but emphasize one; still draw all for ≤8
+        pass
+    for fi, floor in enumerate(show_floors):
+        y_off = fi * (plate_h + gap)
+        emph = highlight_floor is None or floor == int(highlight_floor)
+        for role, vertices in ZONE_VERTICES.items():
+            temp = role_temps.get(role)
+            fill = rgb_from_temperature(temp) if temp is not None else "rgb(200,200,200)"
+            if not emph:
+                fill = "rgba(180,180,180,0.35)"
+            xs = [v[0] for v in vertices] + [vertices[0][0]]
+            ys = [v[1] + y_off for v in vertices] + [vertices[0][1] + y_off]
+            label = f"F{floor} {role}"
+            if temp is not None and emph:
+                label = f"F{floor} {role}: {temp:.1f} C"
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    fill="toself",
+                    fillcolor=fill,
+                    line={"color": "#222" if emph else "#999", "width": 1},
+                    mode="lines",
+                    name=label,
+                    hoverinfo="name",
+                    showlegend=(floor == show_floors[-1]),
+                )
+            )
+        # Floor label
+        fig.add_annotation(
+            x=-0.4,
+            y=y_off + plate_h / 2,
+            text=f"F{floor}",
+            showarrow=False,
+            font={"size": 11},
+        )
+    fig.update_layout(
+        title=f"Schematic massing — {n}-story office (prototype zones per plate)",
+        xaxis={"visible": False, "scaleanchor": "y"},
+        yaxis={"visible": False},
+        showlegend=True,
+        height=min(900, 200 + n * 90),
+        margin={"l": 40, "r": 20, "t": 50, "b": 20},
+    )
+    return fig
+
+
+MULTIFLOOR_HONESTY = (
+    "Schematic massing for N-story office screening — not site CAD; "
+    "prototype 5Zone roles mapped to each plate until a multi-floor IDF exists."
+)
+
+
 def outdoor_figure(outdoor: pd.DataFrame):
     """OA drybulb over sim timesteps (08 right-hand chart)."""
     import plotly.graph_objects as go

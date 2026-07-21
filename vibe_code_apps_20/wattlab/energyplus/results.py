@@ -38,6 +38,7 @@ def _annual_fields(
     gas_gj: float | None,
     area_m2: float | None,
     source_file: Path,
+    peak_demand_kw: float | None = None,
 ) -> dict[str, Any]:
     out: dict[str, Any] = {
         "total_site_energy_gj": site_gj,
@@ -57,6 +58,8 @@ def _annual_fields(
     elif site_gj is not None and area_m2 and area_m2 > 0:
         mj_m2 = (site_gj * 1000.0) / area_m2
         out["site_eui_kbtu_ft2_year"] = round(mj_m2 * MJ_PER_M2_TO_KBTU_PER_FT2, 2)
+    if peak_demand_kw is not None:
+        out["peak_demand_kw"] = round(float(peak_demand_kw), 3)
     return out
 
 
@@ -101,6 +104,7 @@ def parse_eplustbl_csv(path: Path) -> dict[str, Any]:
     if facility_gj is not None and (elec_gj is None or elec_gj > facility_gj * 50):
         elec_gj = facility_gj
 
+    peak_kw = _peak_demand_kw_from_tbl_text(text)
 
     return _annual_fields(
         site_gj=site_gj,
@@ -109,7 +113,93 @@ def parse_eplustbl_csv(path: Path) -> dict[str, Any]:
         gas_gj=gas_gj,
         area_m2=area_m2,
         source_file=path,
+        peak_demand_kw=peak_kw,
     )
+
+
+def _peak_demand_kw_from_tbl_text(text: str) -> float | None:
+    """Best-effort peak kW from eplustbl CSV/HTML text (Demand End Use tables)."""
+    peak_w: float | None = None
+    in_demand = False
+    for raw in text.splitlines():
+        up = raw.upper()
+        if "DEMAND END USE" in up or "ELECTRICITY PEAK DEMAND" in up:
+            in_demand = True
+            continue
+        if in_demand and ("ANNUAL BUILDING" in up or "BUILDING ENERGY PERFORMANCE" in up):
+            in_demand = False
+        parts = [p.strip() for p in raw.split(",")]
+        if len(parts) < 3:
+            continue
+        label = parts[1]
+        val = _parse_float(parts[2])
+        if val is None:
+            continue
+        # Demand tables report Watts; energy tables report GJ (~hundreds).
+        if label in {"Total End Uses", "Electricity:Facility", "Cooling", "Interior Lighting"}:
+            if in_demand and val > 1000:  # W-scale
+                if peak_w is None or (label == "Total End Uses" and val > peak_w):
+                    if label == "Total End Uses":
+                        peak_w = val
+                    elif peak_w is None and label == "Electricity:Facility":
+                        peak_w = val
+        if "PEAK DEMAND" in label.upper() and val > 0:
+            # Already kW in some report styles, W in others
+            if val > 5000:
+                peak_w = val
+            else:
+                return round(val, 3)
+    if peak_w is not None:
+        return round(peak_w / 1000.0, 3)
+    return None
+
+
+def peak_demand_kw_from_eplusout_csv(path: Path) -> float | None:
+    """Max Electricity:Facility rate from hourly eplusout.csv (J or W columns)."""
+    if not path.is_file():
+        return None
+    try:
+        with path.open(encoding="utf-8", errors="replace", newline="") as fh:
+            reader = csv.reader(fh)
+            header = next(reader, None)
+            if not header:
+                return None
+            col_idx: int | None = None
+            col_is_joules = False
+            for i, name in enumerate(header):
+                low = name.lower()
+                if "electricity:facility" not in low:
+                    continue
+                if "[j]" in low or "joule" in low:
+                    col_idx = i
+                    col_is_joules = True
+                    break
+                if "[w]" in low or "watt" in low:
+                    col_idx = i
+                    col_is_joules = False
+                    break
+                col_idx = i
+            if col_idx is None:
+                return None
+            peak = 0.0
+            found = False
+            for row in reader:
+                if col_idx >= len(row):
+                    continue
+                v = _parse_float(row[col_idx])
+                if v is None:
+                    continue
+                found = True
+                if col_is_joules:
+                    # Hourly energy J → average kW over the hour
+                    kw = v / 3_600_000.0
+                else:
+                    kw = v / 1000.0 if v > 500 else v
+                if kw > peak:
+                    peak = kw
+            return round(peak, 3) if found and peak > 0 else None
+    except OSError:
+        return None
 
 
 def parse_eplustbl_htm(path: Path) -> dict[str, Any]:
@@ -396,6 +486,23 @@ def annual_from_output_dir(
         # the meter stream, which monthly Output:Meter requests always feed.
         monthly = parse_monthly_from_mtr(output_dir / "eplusout.mtr")
     parsed["monthly"] = monthly
+    if parsed.get("peak_demand_kw") is None:
+        peak = peak_demand_kw_from_eplusout_csv(output_dir / "eplusout.csv")
+        if peak is not None:
+            parsed["peak_demand_kw"] = peak
+            parsed.setdefault("peak_demand_source", "eplusout.csv")
+        elif csv_path.is_file():
+            # Re-scan tbl text if parse path used HTML only earlier
+            pass
+        else:
+            peak = _peak_demand_kw_from_tbl_text(
+                (htm_path.read_text(encoding="utf-8", errors="replace") if htm_path.is_file() else "")
+            )
+            if peak is not None:
+                parsed["peak_demand_kw"] = peak
+                parsed["peak_demand_source"] = "eplustbl.htm"
+    elif "peak_demand_source" not in parsed:
+        parsed["peak_demand_source"] = "eplustbl"
     return parsed
 
 
@@ -432,6 +539,7 @@ def savings_by_measure(result_records: list[dict[str, Any]]) -> list[dict[str, A
             "natural_gas_therm_year": ann.get("natural_gas_therm_year"),
             "site_eui_kbtu_ft2_year": ann.get("site_eui_kbtu_ft2_year"),
             "utility_cost_usd_year": ann.get("utility_cost_usd_year"),
+            "peak_demand_kw": ann.get("peak_demand_kw"),
             "vs_baseline": {
                 "kwh_saved": _delta(
                     baseline.get("electricity_kwh_year"), ann.get("electricity_kwh_year")
@@ -448,6 +556,9 @@ def savings_by_measure(result_records: list[dict[str, Any]]) -> list[dict[str, A
                     baseline.get("site_eui_kbtu_ft2_year"),
                     ann.get("site_eui_kbtu_ft2_year"),
                 ),
+                "peak_demand_kw_delta": _delta(
+                    baseline.get("peak_demand_kw"), ann.get("peak_demand_kw")
+                ),
                 "kwh_pct": _pct(
                     baseline.get("electricity_kwh_year"), ann.get("electricity_kwh_year")
                 ),
@@ -461,6 +572,9 @@ def savings_by_measure(result_records: list[dict[str, Any]]) -> list[dict[str, A
                 ),
                 "cost_saved_usd": _delta(
                     prev.get("utility_cost_usd_year"), ann.get("utility_cost_usd_year")
+                ),
+                "peak_demand_kw_delta": _delta(
+                    prev.get("peak_demand_kw"), ann.get("peak_demand_kw")
                 ),
                 "kwh_pct": _pct(
                     prev.get("electricity_kwh_year"), ann.get("electricity_kwh_year")
@@ -495,6 +609,7 @@ def build_result_record(
             "site_eui_kbtu_ft2_year": annual.get("site_eui_kbtu_ft2_year"),
             "utility_cost_usd_year": annual.get("utility_cost_usd_year"),
             "total_site_energy_gj": annual.get("total_site_energy_gj"),
+            "peak_demand_kw": annual.get("peak_demand_kw"),
             # Needed downstream to area-normalize prototype savings vs the
             # real building (crosscheck.prototype_area_scale).
             "building_area_m2": annual.get("building_area_m2"),

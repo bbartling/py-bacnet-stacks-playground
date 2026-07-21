@@ -342,37 +342,71 @@ def _autosized_fan_power_w(inventory: Mapping[str, Any]) -> float | None:
     return total if found and total > 0 else None
 
 
+# Acceptable hard-size factor band vs autosized inventory (outside → refuse freeze).
+HARD_SIZE_FACTOR_MIN = 0.25
+HARD_SIZE_FACTOR_MAX = 4.0
+# When site/target area ≫ prototype, scale nameplate down before factoring.
+AREA_SCALE_NAMEPLATE_THRESHOLD = 1.5
+
+
 def nameplate_to_capacity_factors(
     inventory: Mapping[str, Any],
     *,
     cooling_tons: float | None = None,
     fan_hp: float | None = None,
+    prototype_area_scale: float | None = None,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """Map FM nameplate (tons / fan hp) → capacity_factors vs autosized inventory.
 
+    When ``prototype_area_scale`` > 1.5, nameplate is scaled by ``1/scale`` so a
+    site 200 t / 140k ft² building does not apply ~20× factors to a ~10k ft²
+    5Zone prototype.
+
     Returns ``(factors, meta)``. Empty factors when inventory lacks comparable
-    autosized values — caller should stamp NEEDS_INPUT / observe-only.
+    autosized values, or when any factor falls outside ``[0.25, 4.0]``
+    (``hard_size_refused``) — caller should keep autosize and stamp NEEDS_INPUT.
     """
     meta: dict[str, Any] = {
         "cooling_tons_nameplate": cooling_tons,
         "fan_hp_nameplate": fan_hp,
+        "prototype_area_scale": prototype_area_scale,
+        "hard_size_refused": False,
     }
+    scale = float(prototype_area_scale) if prototype_area_scale else None
+    cool_eff = float(cooling_tons) if cooling_tons is not None else None
+    fan_eff = float(fan_hp) if fan_hp is not None else None
+    if scale is not None and scale > AREA_SCALE_NAMEPLATE_THRESHOLD:
+        meta["nameplate_area_scaled"] = True
+        meta["area_scale_applied"] = scale
+        if cool_eff is not None and cool_eff > 0:
+            cool_eff = cool_eff / scale
+            meta["cooling_tons_effective"] = round(cool_eff, 4)
+        if fan_eff is not None and fan_eff > 0:
+            fan_eff = fan_eff / scale
+            meta["fan_hp_effective"] = round(fan_eff, 4)
+    else:
+        meta["nameplate_area_scaled"] = False
+        if cool_eff is not None:
+            meta["cooling_tons_effective"] = cool_eff
+        if fan_eff is not None:
+            meta["fan_hp_effective"] = fan_eff
+
     factors: dict[str, float] = {}
-    if cooling_tons is not None and float(cooling_tons) > 0:
+    if cool_eff is not None and cool_eff > 0:
         auto_w = _autosized_cooling_w(inventory)
         meta["autosized_cooling_w"] = auto_w
         if auto_w and auto_w > 0:
-            target_w = float(cooling_tons) * _TON_W
+            target_w = cool_eff * _TON_W
             factors["cooling_plant"] = target_w / auto_w
             factors["cooling_coils"] = factors["cooling_plant"]
             meta["cooling_factor"] = factors["cooling_plant"]
         else:
             meta["cooling_factor_error"] = "no_autosized_cooling_in_inventory"
-    if fan_hp is not None and float(fan_hp) > 0:
+    if fan_eff is not None and fan_eff > 0:
         auto_w = _autosized_fan_power_w(inventory)
         meta["autosized_fan_w"] = auto_w
         if auto_w and auto_w > 0:
-            target_w = float(fan_hp) * _HP_W
+            target_w = fan_eff * _HP_W
             ratio = target_w / auto_w
             factors["fan_power"] = ratio
             factors["fan_pressure"] = ratio
@@ -380,4 +414,20 @@ def nameplate_to_capacity_factors(
         else:
             # No fan power in inventory — leave note; do not invent.
             meta["fan_factor_error"] = "no_autosized_fan_power_in_inventory"
+
+    if factors:
+        out_of_band = {
+            k: v
+            for k, v in factors.items()
+            if v < HARD_SIZE_FACTOR_MIN or v > HARD_SIZE_FACTOR_MAX
+        }
+        if out_of_band:
+            meta["hard_size_refused"] = True
+            meta["refused_factors"] = dict(factors)
+            meta["out_of_band_factors"] = out_of_band
+            meta["refuse_reason"] = (
+                f"capacity factors outside [{HARD_SIZE_FACTOR_MIN}, {HARD_SIZE_FACTOR_MAX}]; "
+                "kept autosize — provide site geometry or Ideal Loads (NEEDS_INPUT)"
+            )
+            return {}, meta
     return factors, meta

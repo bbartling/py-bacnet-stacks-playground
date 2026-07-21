@@ -199,6 +199,135 @@ def test_nameplate_to_capacity_factors() -> None:
     assert meta.get("cooling_factor")
 
 
+def test_nameplate_area_scale_liberty_style() -> None:
+    """140k ft² + 200 t → ~14.3 t effective on ~10k prototype (≈0.14× factor)."""
+    from wattlab.config import PROTOTYPE_AREA_FT2_NOMINAL
+    from wattlab.energyplus.sizing import nameplate_to_capacity_factors
+
+    inv = {
+        "systems": [
+            {
+                "system": "VAV SYS 1",
+                "load_type": "Cooling",
+                "user_design_capacity_w": 351685.0,  # ~100 ton autosized
+            }
+        ],
+        "components": [],
+        "tables": {},
+    }
+    scale = 140_000.0 / PROTOTYPE_AREA_FT2_NOMINAL
+    factors, meta = nameplate_to_capacity_factors(
+        inv, cooling_tons=200.0, prototype_area_scale=scale
+    )
+    # 14.3 t effective on ~100 t autosize → factor ~0.14 < 0.25 → refused
+    assert meta.get("nameplate_area_scaled") is True
+    assert abs(meta["cooling_tons_effective"] - (200.0 / scale)) < 0.01
+    assert abs(meta["cooling_tons_effective"] - 14.26) < 0.5
+    assert factors == {}
+    assert meta.get("hard_size_refused") is True
+    # Use a smaller autosize so scaled nameplate stays in band:
+    inv_small = {
+        "systems": [
+            {
+                "system": "VAV SYS 1",
+                "load_type": "Cooling",
+                "user_design_capacity_w": 35168.5,  # ~10 ton
+            }
+        ],
+        "components": [],
+        "tables": {},
+    }
+    factors2, meta2 = nameplate_to_capacity_factors(
+        inv_small, cooling_tons=200.0, prototype_area_scale=scale
+    )
+    assert meta2.get("nameplate_area_scaled") is True
+    assert abs(meta2["cooling_tons_effective"] - 14.26) < 0.5
+    assert "cooling_plant" in factors2
+    assert abs(factors2["cooling_plant"] - 1.426) < 0.1
+    assert meta2.get("hard_size_refused") is False
+
+
+def test_nameplate_hard_size_refused_extreme() -> None:
+    from wattlab.energyplus.sizing import nameplate_to_capacity_factors
+
+    inv = {
+        "systems": [
+            {
+                "system": "VAV SYS 1",
+                "load_type": "Cooling",
+                "user_design_capacity_w": 35168.5,  # ~10 ton
+            }
+        ],
+        "components": [],
+        "tables": {},
+    }
+    # No area scale: 200 t on 10 t → factor 20× → refuse
+    factors, meta = nameplate_to_capacity_factors(inv, cooling_tons=200.0)
+    assert factors == {}
+    assert meta.get("hard_size_refused") is True
+    assert meta.get("refused_factors")
+
+
+def test_peak_demand_kw_from_tbl_and_savings(tmp_path: Path) -> None:
+    from wattlab.energyplus.results import (
+        parse_eplustbl_csv,
+        peak_demand_kw_from_eplusout_csv,
+        savings_by_measure,
+    )
+
+    tbl = tmp_path / "eplustbl.csv"
+    tbl.write_text(
+        "\n".join(
+            [
+                "Report,Annual Building Utility Performance Summary",
+                ",Total Site Energy,100.0,50.0",
+                ",Total Building Area,927.2",
+                ",Total End Uses,80.0,20.0",
+                ",Electricity:Facility,80.0",
+                "Report,Demand End Use Components Summary",
+                ",Total End Uses,125000.0",
+                ",Electricity:Facility,125000.0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    parsed = parse_eplustbl_csv(tbl)
+    assert parsed.get("peak_demand_kw") == 125.0
+
+    csv_path = tmp_path / "eplusout.csv"
+    csv_path.write_text(
+        "Date/Time,Electricity:Facility [J](Hourly)\n"
+        "01/01  01:00:00,360000000\n"
+        "01/01  02:00:00,720000000\n",
+        encoding="utf-8",
+    )
+    assert peak_demand_kw_from_eplusout_csv(csv_path) == 200.0
+
+    rows = savings_by_measure(
+        [
+            {
+                "measure_id": None,
+                "annual": {
+                    "electricity_kwh_year": 1000.0,
+                    "peak_demand_kw": 125.0,
+                    "utility_cost_usd_year": 120.0,
+                },
+            },
+            {
+                "measure_id": "led",
+                "annual": {
+                    "electricity_kwh_year": 900.0,
+                    "peak_demand_kw": 110.0,
+                    "utility_cost_usd_year": 108.0,
+                },
+            },
+        ]
+    )
+    assert rows[0]["peak_demand_kw"] == 125.0
+    assert rows[1]["vs_baseline"]["peak_demand_kw_delta"] == 15.0
+
+
 
 def test_run_energyplus_can_disable_readvars(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -258,6 +387,40 @@ def test_epw_data_period_partial(tmp_path: Path) -> None:
     assert span["full_calendar_year"] is False
     assert span["begin"] == "2026-03-16"
     assert span["end"] == "2026-07-16"
+    assert span.get("ok") is True
+    assert span.get("end_clipped_from_partial_day") is False
+
+
+def test_epw_data_period_clips_trailing_partial_day(tmp_path: Path) -> None:
+    """BUG-W2b: last row hour 10 must not set RunPeriod end to that calendar day."""
+    from wattlab.weather.epw import epw_data_period
+
+    pad = ",".join(["0"] * 30)
+    epw = tmp_path / "partial_hour.epw"
+    lines = [
+        "LOCATION,Test,MI,USA,AMY,0,42.5,-83.1,-5.0,200.0",
+        "DESIGN CONDITIONS,0",
+        "TYPICAL/EXTREME PERIODS,0",
+        "GROUND TEMPERATURES,0",
+        "HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0",
+        "COMMENTS 1,",
+        "COMMENTS 2,",
+        "DATA PERIODS,1,1,Data,Monday, 7/15, 7/17",
+        f"2026,7,15,1,0,{pad}",
+        f"2026,7,15,24,0,{pad}",
+        f"2026,7,16,1,0,{pad}",
+        f"2026,7,16,24,0,{pad}",
+        f"2026,7,17,1,0,{pad}",
+        f"2026,7,17,10,0,{pad}",
+    ]
+    epw.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    span = epw_data_period(epw)
+    assert span is not None
+    assert span["begin"] == "2026-07-15"
+    assert span["end"] == "2026-07-16"
+    assert span["last_row_hour"] == 10
+    assert span["end_clipped_from_partial_day"] is True
+    assert span.get("ok") is True
 
 
 def test_build_eui_index_bills_peers_model() -> None:
