@@ -563,21 +563,53 @@ def render() -> None:
     )
     bills_rows: list[dict[str, Any]] = []
     monthly_model: list[dict[str, Any]] = []
+    scorecard: dict[str, Any] = {}
+
+    def _load_scorecard(sc: dict[str, Any]) -> list[dict[str, Any]]:
+        rows = list((sc.get("utility_bills") or {}).get("per_month") or [])
+        for pm in rows:
+            if pm.get("modeled_kwh") is None and pm.get("simulated_kwh") is not None:
+                pm["modeled_kwh"] = pm["simulated_kwh"]
+        return rows
+
     if scorecard_path.strip():
         sp = Path(scorecard_path.strip())
         if sp.is_file():
-            sc = json.loads(sp.read_text(encoding="utf-8"))
-            monthly_model = list((sc.get("annual") or {}).get("monthly") or [])
-            for pm in (sc.get("utility_bills") or {}).get("per_month") or []:
-                bills_rows.append(
-                    {
-                        "month": pm.get("month"),
-                        "observed_kwh": pm.get("observed_kwh"),
-                        "modeled_kwh": pm.get("modeled_kwh"),
-                        "delta_kwh": pm.get("delta_kwh"),
-                    }
+            try:
+                scorecard = json.loads(sp.read_text(encoding="utf-8"))
+                bills_rows = _load_scorecard(scorecard)
+                monthly_model = list((scorecard.get("annual") or {}).get("monthly") or [])
+                st.caption(
+                    f"G14 status={scorecard.get('status')} · pass_fail="
+                    f"{(scorecard.get('utility_bills') or {}).get('pass_fail')} · "
+                    f"scale={scorecard.get('g14_scale') or scorecard.get('prototype_area_scale')}"
                 )
-            st.caption(f"Scorecard status: {sc.get('status') or sc.get('overall')}")
+            except Exception as exc:
+                st.warning(f"scorecard read failed: {exc}")
+    else:
+        active_sc = _resolve_active_run()
+        if active_sc is not None:
+            for name in ("calibration_scorecard.json", "campaign_stamp.json"):
+                sp = Path(active_sc) / name
+                if not sp.is_file():
+                    continue
+                try:
+                    sc = json.loads(sp.read_text(encoding="utf-8"))
+                    if name == "campaign_stamp.json" and sc.get("scorecard_path"):
+                        sp2 = Path(sc["scorecard_path"])
+                        if sp2.is_file():
+                            sc = json.loads(sp2.read_text(encoding="utf-8"))
+                    scorecard = sc
+                    bills_rows = _load_scorecard(sc)
+                    monthly_model = list((sc.get("annual") or {}).get("monthly") or [])
+                    if bills_rows or sc.get("status"):
+                        st.caption(
+                            f"Autoloaded scorecard · status={sc.get('status')} · "
+                            f"pass_fail={(sc.get('utility_bills') or {}).get('pass_fail')}"
+                        )
+                    break
+                except Exception:
+                    continue
 
     if bundle is not None and not getattr(bundle, "utility_bills", pd.DataFrame()).empty:
         ub = bundle.utility_bills
@@ -593,8 +625,112 @@ def render() -> None:
         st.dataframe(bdf, width="stretch", hide_index=True)
         if "observed_kwh" in bdf.columns and "modeled_kwh" in bdf.columns:
             st.line_chart(bdf.set_index("month")[["observed_kwh", "modeled_kwh"]])
+        ubills = scorecard.get("utility_bills") or {}
+        stats = ubills.get("stats_electricity") or ubills.get("stats") or {}
+        if stats:
+            g1, g2, g3 = st.columns(3)
+            g1.metric("G14 NMBE %", f"{stats.get('nmbe_pct', '—')}")
+            g2.metric("G14 CV(RMSE) %", f"{stats.get('cvrmse_pct', '—')}")
+            g3.metric("Pass/fail", str(ubills.get("pass_fail") or "—"))
     elif monthly_model:
         st.dataframe(pd.DataFrame(monthly_model).head(24), width="stretch", hide_index=True)
+
+    st.subheader("Client deliverables")
+    st.caption(
+        "Professional handoff: executive report, results workbook, and model package "
+        "(IDF / EPW / selected EnergyPlus outputs). Screening or calibrated — stamped honestly."
+    )
+    studio_report = st.session_state.get("studio_report") or {}
+    profile = _profile() or {}
+    build_col, hint_col = st.columns([1, 2])
+    with build_col:
+        build_clicked = st.button(
+            "Build client package",
+            key="twin_build_deliverable",
+            type="primary",
+            help="Creates report.md + results.xlsx + zip under reports/",
+        )
+    with hint_col:
+        st.caption(
+            "Uses the active Twin run + calibration scorecard when present. "
+            "Agents can also run `wattlab calibrate-campaign` then refresh."
+        )
+    if build_clicked:
+        from wattlab.deliverables import package_deliverables
+
+        run_src = _resolve_active_run()
+        sc = scorecard
+        if not sc and run_src and (Path(run_src) / "calibration_scorecard.json").is_file():
+            sc = json.loads(
+                (Path(run_src) / "calibration_scorecard.json").read_text(encoding="utf-8")
+            )
+        if not sc and studio_report:
+            sc = {
+                "run_id": studio_report.get("run_id"),
+                "status": "screening",
+                "annual": ((studio_report.get("result_records") or [{}])[0] or {}).get("annual"),
+                "weather_suitability": studio_report.get("weather_suitability"),
+                "prototype_area_scale": studio_report.get("prototype_area_scale"),
+                "sizing_scenario": studio_report.get("sizing_scenario"),
+                "utility_bills": {},
+            }
+        if not sc and not studio_report and run_src is None:
+            st.warning("No scorecard or published run yet — run Twin / calibrate-campaign first.")
+        else:
+            rid = (sc or {}).get("run_id") or (Path(run_src).name if run_src else "latest")
+            dest = reports_dir() / f"deliverable_{rid}"
+            try:
+                meta = package_deliverables(
+                    out_dir=dest,
+                    run_dir=Path(run_src) if run_src else None,
+                    scorecard=sc or {},
+                    report=studio_report or None,
+                    profile=profile,
+                )
+                st.session_state["studio_deliverable"] = meta
+                st.success(f"Package ready → `{meta.get('out_dir')}`")
+            except Exception as exc:
+                st.error(f"Deliverable build failed: {exc}")
+
+    deliv = st.session_state.get("studio_deliverable") or {}
+    if deliv.get("report_md") and Path(str(deliv["report_md"])).is_file():
+        tab_report, tab_files = st.tabs(["Report preview", "Downloads"])
+        md_text = Path(str(deliv["report_md"])).read_text(encoding="utf-8")
+        with tab_report:
+            st.markdown(md_text)
+        with tab_files:
+            stamp = (deliv.get("stamp") or {})
+            if stamp:
+                st.json(stamp, expanded=False)
+            d1, d2, d3 = st.columns(3)
+            d1.download_button(
+                "Report (.md)",
+                data=md_text.encode("utf-8"),
+                file_name="Energy_Modeling_Report.md",
+                mime="text/markdown",
+                key="dl_report_md",
+            )
+            xlsx_p = deliv.get("workbook_xlsx")
+            if xlsx_p and Path(str(xlsx_p)).is_file():
+                d2.download_button(
+                    "Results workbook (.xlsx)",
+                    data=Path(str(xlsx_p)).read_bytes(),
+                    file_name="Energy_Model_Results.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_workbook_xlsx",
+                )
+            zip_p = deliv.get("zip_path")
+            if zip_p and Path(str(zip_p)).is_file():
+                d3.download_button(
+                    "Full package (.zip)",
+                    data=Path(str(zip_p)).read_bytes(),
+                    file_name=Path(str(zip_p)).name,
+                    mime="application/zip",
+                    key="dl_deliverable_zip",
+                )
+            st.caption(
+                "Zip layout: `01_Report` · `02_Results` · `03_Models` · `04_Outputs` · `06_Documentation`"
+            )
 
     st.subheader("Iteration history (agent + Studio)")
     hist = list_iteration_runs(runs_dir(), limit=15)

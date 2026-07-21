@@ -37,7 +37,13 @@ Full ladder: [`../../docs/SPARSE_BUILDING_PLAYBOOK.md`](../../docs/SPARSE_BUILDI
 | Schedules | Occupancy / lighting / equipment / HVAC avail |
 | Baseline | LPD, EPD, people density, ventilation, infil, setpoints |
 | Measures | One hypothesis per `runs/<id>/` |
-| Results | Monthly vs bills, unmet hours, area scale, weather mode |
+| Results | Monthly vs bills, unmet hours, area scale, weather mode, peak kW, G14 |
+
+After TMY screening: `wattlab calibrate-campaign` (bill months → AMY → G14) —
+[`../../docs/CALIBRATE_AND_DELIVERABLES.md`](../../docs/CALIBRATE_AND_DELIVERABLES.md).
+
+Hard-size nameplate: scale by `1/prototype_area_scale` when scale > 1.5; refuse
+outside [0.25, 4.0]. City `troy` → detroit catalog (user label preserved).
 
 ## Ideal Loads vs explicit system
 

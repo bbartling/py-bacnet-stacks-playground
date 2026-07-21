@@ -48,11 +48,17 @@ checkout often has `full_mcp_available`.
 
 When Studio runs in Docker with host docker.sock:
 
+- Image tip includes a **Docker CLI** binary — sock alone is insufficient.
 - Stage artifacts under `WATTLAB_STUDIO_WORKSPACE/.artifacts` (not `/app` only).
 - Set `WATTLAB_HOST_WORKSPACE` to the host side of the `/data` bind so volume
   sources resolve on the daemon host.
-- Set `WATTLAB_ROOT=/app` so prototypes resolve under `/app/examples/…`, not
-  site-packages.
+- Set `WATTLAB_ROOT=/app` so prototypes resolve under `/app/examples/…`.
+- Prefer `ENERGYPLUS_DOCKER_USER=1000:1000` for writable out dirs / ReadVars.
+- Prefer `docker exec vibe20 wattlab …` over host editable installs
+  ([`docs/AGENT_DOCKER_WORKSPACE.md`](../../docs/AGENT_DOCKER_WORKSPACE.md)).
+
+AMY RunPeriod: `simulate(align_run_period=True)` clips to last **full** EPW day
+(W2b). Calibrate path: [`docs/CALIBRATE_AND_DELIVERABLES.md`](../../docs/CALIBRATE_AND_DELIVERABLES.md).
 
 ## What MCP does not cover (yet)
 

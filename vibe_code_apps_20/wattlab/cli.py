@@ -19,6 +19,7 @@ def _usage() -> str:
         "  defaults     Resolve a building profile from minimal inputs\n"
         "  easy-button  Baseline + measure-set EnergyPlus runs (or --dry-run plan)\n"
         "  calibrate    Calibrate prototype against a vibe19 model-seed bundle\n"
+        "  calibrate-campaign  Bills→AMY window→G14 score→Twin publish (turnkey)\n"
         "  bridge       Map a vibe19 export bundle to WattLab measures\n"
         "  epw          Build an AMY EPW from observed weather CSV\n"
         "  bench        Deterministic proxy / ESCO bin-method calculators\n"
@@ -126,6 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         return int(m(rest) or 0)
     if cmd == "calibrate":
         from wattlab.calibrate import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"calibrate-campaign", "calibrate_campaign"}:
+        from wattlab.calibrate_campaign import main as m
 
         return int(m(rest) or 0)
     if cmd == "bridge":

@@ -40,6 +40,27 @@ NMBE_PASS = 5.0
 CVRMSE_PASS = 15.0
 
 
+def scale_monthly_energy(
+    monthly: list[dict[str, Any]],
+    *,
+    area_scale: float | None,
+) -> list[dict[str, Any]]:
+    """Scale prototype monthly kWh/therms toward site for G14 absolute compare."""
+    if not area_scale or area_scale <= 0:
+        return list(monthly or [])
+    out: list[dict[str, Any]] = []
+    for row in monthly or []:
+        r = dict(row)
+        if r.get("electricity_kwh") is not None:
+            r["electricity_kwh_unscaled"] = r["electricity_kwh"]
+            r["electricity_kwh"] = round(float(r["electricity_kwh"]) * area_scale, 2)
+        if r.get("natural_gas_therm") is not None:
+            r["natural_gas_therm_unscaled"] = r["natural_gas_therm"]
+            r["natural_gas_therm"] = round(float(r["natural_gas_therm"]) * area_scale, 2)
+        out.append(r)
+    return out
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
@@ -639,6 +660,9 @@ def run_calibration(
     lon: float | None = None,
     validation_months: int = 0,
     validation_start: int | None = None,
+    area_scale_for_g14: float | None = None,
+    publish_studio: bool = True,
+    hard_size: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir)
     # Accept WattLab dump zip as well as extracted folders
@@ -775,12 +799,60 @@ def run_calibration(
     apply_fan_avail_continuous(proto, idf1)
     idf2 = run_dir / "cal_runperiod.idf"
     rp_meta = apply_run_period(idf1, idf2, begin=begin, end=end)
-    idf3 = run_dir / "cal_ready.idf"
+    idf3 = run_dir / "cal_hourly.idf"
     out_meta = apply_hourly_outputs(idf2, idf3)
+    from wattlab.energyplus.patches.hourly_outputs import apply_monthly_energy_tables
 
+    idf4 = run_dir / "cal_ready.idf"
+    monthly_meta = apply_monthly_energy_tables(idf3, idf4)
+    sim_idf = idf4
+
+    # Optional area-aware hard-size after a first autosize pass is handled below
+    # when hard_size is set (freeze requires inventory from a completed sim).
     sim_dir = run_dir / "sim_calibrate"
     sim_dir.mkdir(parents=True, exist_ok=True)
-    sim_result = simulate(idf3, epw_path, sim_dir)
+    sim_result = simulate(sim_idf, epw_path, sim_dir)
+    sizing_scenario = "autosize"
+    if hard_size and isinstance(hard_size, dict) and (
+        hard_size.get("cooling_tons") is not None or hard_size.get("fan_hp") is not None
+    ):
+        from wattlab.config import PROTOTYPE_AREA_FT2_NOMINAL
+        from wattlab.energyplus.sizing import (
+            freeze_autosized_values,
+            nameplate_to_capacity_factors,
+            parse_sizing_inventory,
+        )
+
+        inv = parse_sizing_inventory(sim_dir)
+        area_ft2 = float(
+            seed.get("conditioned_floor_area_ft2") or seed.get("floor_area_ft2") or 0
+        )
+        scale = area_ft2 / PROTOTYPE_AREA_FT2_NOMINAL if area_ft2 > 0 else None
+        factors, factor_meta = nameplate_to_capacity_factors(
+            inv,
+            cooling_tons=(
+                float(hard_size["cooling_tons"])
+                if hard_size.get("cooling_tons") is not None
+                else None
+            ),
+            fan_hp=(
+                float(hard_size["fan_hp"]) if hard_size.get("fan_hp") is not None else None
+            ),
+            prototype_area_scale=scale,
+        )
+        if factor_meta.get("hard_size_refused"):
+            sizing_scenario = "hard_size_refused"
+        elif factors:
+            hard_idf = run_dir / "cal_hard_size.idf"
+            freeze_autosized_values(sim_idf, hard_idf, inv, capacity_factors=factors)
+            sim_dir = run_dir / "sim_calibrate_hard"
+            sim_dir.mkdir(parents=True, exist_ok=True)
+            sim_idf = hard_idf
+            sim_result = simulate(sim_idf, epw_path, sim_dir)
+            sizing_scenario = "hard_size"
+        else:
+            sizing_scenario = "autosize_observe_hard_size_unavailable"
+
     annual = annual_from_output_dir(sim_dir)
 
     hourly = parse_eplusout_hourly(sim_dir)
@@ -821,6 +893,23 @@ def run_calibration(
     )
     data_window = seed.get("data_window") if isinstance(seed.get("data_window"), dict) else None
 
+    monthly_for_g14 = list(annual.get("monthly") or [])
+    g14_scale_meta: dict[str, Any] = {"area_scale_applied": None, "mode": "prototype_raw"}
+    if area_scale_for_g14 is not None and float(area_scale_for_g14) > 0:
+        from wattlab.calibrate import scale_monthly_energy
+
+        monthly_for_g14 = scale_monthly_energy(
+            monthly_for_g14, area_scale=float(area_scale_for_g14)
+        )
+        g14_scale_meta = {
+            "area_scale_applied": round(float(area_scale_for_g14), 4),
+            "mode": "area_scaled_prototype",
+            "note": (
+                "Simulated monthly kWh/therms multiplied by prototype_area_scale "
+                "for absolute G14 vs site bills. Unscaled 5Zone geometry — not site CAD."
+            ),
+        }
+
     bills_cmp: dict[str, Any]
     validation_cmp: dict[str, Any] | None = None
     if not bills:
@@ -831,17 +920,20 @@ def run_calibration(
         }
     elif holdout_meta.get("applied"):
         bills_cmp = compare_bills_to_monthly(
-            cal_bills, annual.get("monthly") or [], data_window=data_window
+            cal_bills, monthly_for_g14, data_window=data_window
         )
         bills_cmp["split"] = "calibration"
         validation_cmp = compare_bills_to_monthly(
-            val_bills, annual.get("monthly") or [], data_window=data_window
+            val_bills, monthly_for_g14, data_window=data_window
         )
         validation_cmp["split"] = "validation"
     else:
         bills_cmp = compare_bills_to_monthly(
-            bills, annual.get("monthly") or [], data_window=data_window
+            bills, monthly_for_g14, data_window=data_window
         )
+    bills_cmp["g14_scale"] = g14_scale_meta
+    if validation_cmp is not None:
+        validation_cmp["g14_scale"] = g14_scale_meta
 
     if bills and bills_cmp.get("pass_fail") in {"pass", "fail"}:
         overall = bills_cmp["pass_fail"]
@@ -863,11 +955,13 @@ def run_calibration(
     )
 
     finished_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    patch_names = ["fan_avail_continuous", "run_period", "hourly_outputs"]
+    patch_names = ["fan_avail_continuous", "run_period", "hourly_outputs", "monthly_energy_tables"]
+    if sizing_scenario.startswith("hard_size"):
+        patch_names.append(sizing_scenario)
     manifest = build_run_manifest(
         run_id=run_id,
         run_dir=run_dir,
-        idf_path=idf3,
+        idf_path=sim_idf,
         epw_path=epw_path,
         patches=[{"name": n} for n in patch_names],
         weather_suitability=wx,
@@ -878,6 +972,7 @@ def run_calibration(
             "product": "OpenFDD WattLab Calibration",
             "prototype_sha256": file_sha256(proto) if proto.is_file() else None,
             "calibration_status": status,
+            "sizing_scenario": sizing_scenario,
         },
     )
     write_run_manifest(run_dir, manifest)
@@ -889,9 +984,16 @@ def run_calibration(
         "status": status,
         "data_window": window,
         "weather_suitability": wx,
+        "sizing_scenario": sizing_scenario,
+        "hard_size": hard_size,
+        "g14_scale": g14_scale_meta,
+        "prototype_area_scale": (
+            float(area_scale_for_g14) if area_scale_for_g14 else None
+        ),
         "epw": epw_meta,
         "run_period": rp_meta,
         "hourly_outputs": out_meta,
+        "monthly_energy_tables": monthly_meta,
         "alignment": alignment,
         "holdout": holdout_meta,
         "run_manifest": {
@@ -907,8 +1009,10 @@ def run_calibration(
         "annual": {
             "electricity_kwh_year": annual.get("electricity_kwh_year"),
             "site_eui_kbtu_ft2_year": annual.get("site_eui_kbtu_ft2_year"),
+            "peak_demand_kw": annual.get("peak_demand_kw"),
             "status": annual.get("status"),
             "monthly": annual.get("monthly") or [],
+            "building_area_m2": annual.get("building_area_m2"),
         },
         "signatures": {
             "fan": fan_cmp,
@@ -924,6 +1028,72 @@ def run_calibration(
     out_json = run_dir / "calibration_scorecard.json"
     out_json.write_text(json.dumps(scorecard, indent=2, default=str), encoding="utf-8")
     scorecard["scorecard_path"] = str(out_json)
+
+    if publish_studio:
+        try:
+            from wattlab.studio.ep_viz import publish_run_for_studio
+
+            published = publish_run_for_studio(
+                run_dir,
+                run_id=f"calibrate_{run_id}",
+                report={
+                    **scorecard,
+                    "result_records": [
+                        {
+                            "measure_id": None,
+                            "annual": scorecard.get("annual") or {},
+                            "monthly": (scorecard.get("annual") or {}).get("monthly") or [],
+                        }
+                    ],
+                },
+            )
+            # Stamp for Twin EUI / scorecard autoload
+            stamp = {
+                "run_id": run_id,
+                "calibration_status": status,
+                "overall": overall,
+                "pass_fail": bills_cmp.get("pass_fail"),
+                "weather_mode": (wx or {}).get("mode"),
+                "prototype_area_scale": scorecard.get("prototype_area_scale"),
+                "sizing_scenario": sizing_scenario,
+                "g14_scale": g14_scale_meta,
+                "scorecard_path": str(out_json),
+            }
+            (published / "campaign_stamp.json").write_text(
+                json.dumps(stamp, indent=2), encoding="utf-8"
+            )
+            shutil_copy = getattr(__import__("shutil"), "copy2")
+            if out_json.is_file():
+                shutil_copy(out_json, published / "calibration_scorecard.json")
+            scorecard["studio_run_dir"] = str(published)
+            try:
+                from wattlab.deliverables import package_deliverables
+                from wattlab.config import ARTIFACTS
+
+                deliv_dir = ARTIFACTS / f"deliverable_calibrate_{run_id}"
+                deliv = package_deliverables(
+                    out_dir=deliv_dir,
+                    run_dir=run_dir,
+                    scorecard=scorecard,
+                    report={
+                        "run_id": run_id,
+                        "prototype_area_scale": scorecard.get("prototype_area_scale"),
+                        "weather_suitability": wx,
+                        "sizing_scenario": sizing_scenario,
+                        "area_honesty": (
+                            "Area-scaled G14 uses prototype geometry × scale — not site CAD."
+                        ),
+                    },
+                    profile=profile,
+                )
+                scorecard["deliverable"] = deliv
+                if deliv.get("zip_path"):
+                    shutil_copy(deliv["zip_path"], Path(published) / Path(deliv["zip_path"]).name)
+            except Exception as exc:  # noqa: BLE001
+                scorecard["deliverable_error"] = str(exc)
+        except Exception as exc:  # noqa: BLE001
+            scorecard["studio_publish_error"] = str(exc)
+
     return scorecard
 
 

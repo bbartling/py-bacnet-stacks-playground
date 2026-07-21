@@ -8,6 +8,10 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 **Sparse-building physics ladder (TMY→constrain→AMY→FDD):** [`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)
 
+**Docker exec + shared volume (no git clone):** [`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)
+
+**G14 calibrate campaign + client report/xlsx/zip:** [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md)
+
 **App:** ESCO / energy-engineering toolkit — vibe19 FDD dumps in, calibrated EnergyPlus twins + benchmarked capital plans out. Where vibe19 is about **finding faults**, vibe20 is about **pricing the fixes credibly**: ESCO spreadsheet bin-method calculators, EnergyPlus crosschecks, public benchmarks, and ROI guardrails.
 
 **Stack honesty:** EnergyPlus = physics engine; EnergyPlus-MCP = inspect/modify/sim wrench (~35 tools); WattLab + assumption skills = defaults ledger, peers → bins → E+, G14. MCP is not a calibration coach — see [`skills/wattlab-energyplus-mcp/SKILL.md`](skills/wattlab-energyplus-mcp/SKILL.md) and [`skills/wattlab-assumptions/SKILL.md`](skills/wattlab-assumptions/SKILL.md).
@@ -31,7 +35,9 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
     is Phase 2 using the vibe19 Haystack map shape.
 8. **Costs are range + basis + vintage + confidence** — `retrofit_costs_public.json` rows carry `unit_basis` (building_ft2 vs glazing_ft2 …), `currency_year`, `confidence`. Historical LBNL medians are reference bands, **never** current-year bids. Windows math on glazing area, chillers on building area — never mix.
 9. **EUI units are kBtu/ft²-year (site)** — conversions: 1 kWh = 3,412 Btu; 1 Mcf gas = 1.037 MMBtu; 1 therm = 100 kBtu. Peer bands from `benchmarks_public.json` (EPA PM medians, CBECS 70.6 fallback).
-10. **Docker-only EnergyPlus** — pinned image via `wattlab.energyplus.docker`; run manifests (`run_manifest.json`) record model/weather SHA + image on every run. Docker tests skip when the image is missing — that's fine.
+10. **Docker-only EnergyPlus** — pinned image via `wattlab.energyplus.docker`; run manifests (`run_manifest.json`) record model/weather SHA + image on every run. Docker tests skip when the image is missing — that's fine. Studio image includes a **Docker CLI client**; mount `/var/run/docker.sock` + set `WATTLAB_HOST_WORKSPACE` + prefer `ENERGYPLUS_DOCKER_USER=1000:1000`. Prefer **`docker exec vibe20 wattlab …`** over host `pip install -e` (host drift bug).
+10b. **G14 calibrate campaign** — `wattlab calibrate-campaign --bundle … --bills … --lat --lon` derives AMY window from bill months, scores G14, publishes Twin + optional client zip. Details: [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md). No calibrated ROI without pass + stamps.
+10c. **Client deliverables** — Twin **Build client package** (also ECM) → markdown report + xlsx workbook + model zip (`01_Report`…`06_Documentation`). Humans must not need raw E+ trees to read conclusions.
 11. **Dry-run first** — `run_easy_button(profile, dry_run=True)` and the Studio "Dry-run plan" path must always work without Docker. Never make a feature Docker-mandatory when a plan/preview is possible.
 12. **Weather** — AMY EPW from `weather_observed.csv` / Open-Meteo (`wattlab.weather.epw`); Weather-Man OAT bin tables (5°F × 3 shifts + MCWB) in `wattlab.weather.bins` (built-in NOAA Washington DC table + `from_hourly`). Calibration weather and degree-day benchmarking are separate use cases — don't conflate.
 13. **The vibe19 dump is the seed** — start with `wattlab twin <dump.zip>` (or `wattlab.seed.load_bundle` + `gap_report`). Read `MANIFEST.json` first. Required human fields: `building_type`, `city`, `floor_area_ft2` (plus `lat`/`lon` for AMY calibrate). **Never invent office/Madison/Chicago** for a real dump. Prefer `fdd_findings.csv` over `fdd_summary.csv`. See [`DATA_CONTRACT.md`](DATA_CONTRACT.md) and the **Tomorrow demo** section in [`../AGENTS.md`](../AGENTS.md).
@@ -94,15 +100,17 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 3. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — dump, campus, Excel derive, workspace runs/
 4. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — human + agent iterate protocol
 5. **[`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)** — TMY→AMY→FDD when little is known (~6–10 sims)
-6. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
-7. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
-8. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
-9. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
-10. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
-11. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
-12. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
-13. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke
-14. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
+6. **[`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)** — `docker exec` vibe19/20 + shared `/data` (canonical agent surface)
+7. **[`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md)** — bill→AMY→G14 + client package downloads
+8. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
+9. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
+10. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
+11. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
+12. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
+13. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
+14. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
+15. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke, deliverables
+16. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
 
 ---
 
@@ -121,15 +129,18 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 | `wattlab/finance.py` | Capital-plan rollup |
 | `wattlab/crosscheck.py` | E+ vs proxy + G14 |
 | `wattlab/easy_button.py` | Baseline + progressive measures (`--dry-run`) |
-| `wattlab/calibrate.py` | Overlap-window calibration |
+| `wattlab/calibrate.py` | Overlap-window calibration + Studio publish |
+| `wattlab/calibrate_campaign.py` | Bills → AMY window → G14 → Twin + deliverable |
+| `wattlab/deliverables.py` | Client report.md / xlsx / model zip |
 | `wattlab/bridge.py` | vibe19 faults → measures |
-| `wattlab/energyplus/` | Docker, results, timeseries, IDF patches |
+| `wattlab/energyplus/` | Docker (CLI in image), results (`peak_demand_kw`), timeseries, IDF patches |
 | `wattlab/measures/` + `wattlab/ecm/` | Catalog / packages |
 | `wattlab/existing_building/` | Hypothesis Lab orchestration (CLI; not a Studio page) |
-| `wattlab/cli.py` | `wattlab` CLI |
-| `vibe20_agent_spec/` | Agent handbook, contracts, tester prompt, skills |
-| `studio.py` | WattLab Studio (Ingest / … / Benchmark / Fuel Weather / … / Capital plan) |
-| `scripts/smoke_studio.py` | AppTest smoke walk (all pages + fixture campus + Fuel Weather) |
+| `wattlab/cli.py` | `wattlab` CLI (`calibrate-campaign`, …) |
+| `studio.py` | WattLab Studio — Uploads / Fuel / Twin·calibrate / ECMs |
+| `scripts/smoke_studio.py` | AppTest smoke (all pages + Twin deliverable button) |
+| `vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md` | Shared volume + docker exec |
+| `vibe20_agent_spec/docs/CALIBRATE_AND_DELIVERABLES.md` | G14 campaign + client package |
 | `scripts/agent_twin_demo.py` | Full twin-loop rehearsal on practice campus (real Docker E+ baseline + ECMs) |
 | `scripts/school_30yr_rehearsal.py` | Synthetic K-12 30-year hydronic/electrification rehearsal |
 | `examples/school_30yr/` | Fictional school profile and synthetic 2025 bills |

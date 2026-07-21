@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -195,3 +196,43 @@ def render() -> None:
         key="ecm_dl_json",
     )
     st.caption(f"Also written to `{out}` for agents.")
+
+    st.subheader("Client energy-model package")
+    st.caption("Same Twin deliverable builder — report + workbook + model zip from the latest Studio report.")
+    if st.button("Build client package from ECM report", key="ecm_build_deliverable"):
+        from wattlab.deliverables import package_deliverables
+
+        if not report:
+            st.warning("No studio_report yet — run Twin / easy-button first.")
+        else:
+            rid = report.get("run_id") or "ecm_report"
+            dest = reports_dir() / f"deliverable_{rid}"
+            try:
+                sc = {
+                    "run_id": rid,
+                    "status": "screening",
+                    "annual": ((report.get("result_records") or [{}])[0] or {}).get("annual"),
+                    "weather_suitability": report.get("weather_suitability"),
+                    "prototype_area_scale": report.get("prototype_area_scale"),
+                    "sizing_scenario": report.get("sizing_scenario"),
+                    "utility_bills": {},
+                }
+                meta = package_deliverables(
+                    out_dir=dest,
+                    scorecard=sc,
+                    report=report,
+                    profile=profile,
+                )
+                st.session_state["studio_deliverable"] = meta
+                st.success(f"Package → {meta.get('out_dir')}")
+            except Exception as exc:
+                st.error(str(exc))
+    deliv = st.session_state.get("studio_deliverable") or {}
+    if deliv.get("zip_path") and Path(str(deliv["zip_path"])).is_file():
+        st.download_button(
+            "Download energy-model package (.zip)",
+            data=Path(str(deliv["zip_path"])).read_bytes(),
+            file_name=Path(str(deliv["zip_path"])).name,
+            mime="application/zip",
+            key="ecm_dl_deliverable_zip",
+        )

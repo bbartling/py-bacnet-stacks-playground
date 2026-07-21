@@ -30,8 +30,8 @@ Pages: `wattlab/studio/pages/{uploads,fuel_dashboard,twin_calibrate,ecms}.py`.
 | --- | --- | --- |
 | Uploads | dump v3 + energy package (campus / Excel / Haystack); workspace listing | `studio_bundle`, `studio_energy`, `studio_campus`, `studio_utility_bills_path` |
 | Fuel dashboard | monthly fuel, peers, HDD/CDD, gap-aware charts | `studio_campus` / `fuel_weather_*` |
-| Twin / calibrate | profile, dry-run, Docker E+, 08 panes (progress/OA/floor plan), modeled vs bills, iteration history | `studio_profile`, `studio_plan`, `studio_report`, `studio_active_run` |
-| ECMs | catalog Easy Buttons + capital guardrails | `studio_measures`, `studio_proxies`, `studio_capital_plan`, `studio_guardrail_gate` |
+| Twin / calibrate | profile, dry-run, Docker E+, 08 panes (progress/OA/floor or multi-floor schematic), EUI index, G14 scorecard, **client package** downloads, iteration history | `studio_profile`, `studio_plan`, `studio_report`, `studio_active_run`, `studio_deliverable` |
+| ECMs | catalog Easy Buttons + capital guardrails + optional client zip from report | `studio_measures`, `studio_proxies`, `studio_capital_plan`, `studio_guardrail_gate` |
 
 Navigation: `st.sidebar.radio(key="studio_page")` with only those four entries
 in `studio.py` `PAGES`.
@@ -53,9 +53,20 @@ geometry convention, not a site id). Demo replay from
 `tests/fixtures/eplusout/eplusout.csv` when Docker E+ image missing.
 
 Docker sock: `-v /var/run/docker.sock:/var/run/docker.sock` plus
-`WATTLAB_HOST_WORKSPACE=<host path of /data bind>` and `WATTLAB_ROOT=/app` so
-Twin → EnergyPlus DinD mounts resolve and prototypes are not under site-packages.
+`WATTLAB_HOST_WORKSPACE=<host path of /data bind>`, `WATTLAB_ROOT=/app`, and
+`ENERGYPLUS_DOCKER_USER=1000:1000`. The **image includes the Docker CLI**
+(sock alone is not enough — no host `/usr/bin/docker` bind required on tip).
+Prefer agent work via `docker exec vibe20 wattlab …`
+([`docs/AGENT_DOCKER_WORKSPACE.md`](../../docs/AGENT_DOCKER_WORKSPACE.md)).
+
 Artifacts: `/data/.artifacts`. Sims default to ReadVars (`-r`) for `eplusout.csv`.
+
+**Client deliverables (Twin):** Build client package → report preview + download
+`.md` / `.xlsx` / `.zip` (`wattlab.deliverables`). See
+[`docs/CALIBRATE_AND_DELIVERABLES.md`](../../docs/CALIBRATE_AND_DELIVERABLES.md).
+
+**G14:** scorecard NMBE/CV(RMSE) on Twin when `calibration_scorecard.json` is
+present; campaign CLI `wattlab calibrate-campaign`.
 
 ## Conventions (do not regress)
 
@@ -70,9 +81,11 @@ Artifacts: `/data/.artifacts`. Sims default to ReadVars (`-r`) for `eplusout.csv
 
 ```text
 python scripts/smoke_studio.py
-python -m pytest tests/test_studio_app.py tests/test_excel_campus.py tests/test_ep_viz.py -q
+python -m pytest tests/test_studio_app.py tests/test_excel_campus.py tests/test_ep_viz.py tests/test_deliverables_campaign.py -q
 # live: http://localhost:8520/_stcore/health → ok
 ```
+
+Smoke must exercise Twin **Build client package** with 0 Streamlit exceptions.
 
 Tester / calibrate loop prompt: `vibe20_agent_spec/AGENT_TESTER_PROMPT.md`
 (live `energyplus-mcp-dev` + optional EnergyPlus-MCP required for Twin calibrate PASS).

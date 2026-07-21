@@ -43,8 +43,17 @@ sizing scenario on every report.
 | 3 | Same TMY | Constrain to reported plant/fans | Unmet hours / saturation = undersized or bad envelope signal | — |
 | 4 | Still TMY | One schedule hypothesis (observed AHU vs design) | Biggest free lever when BAS exists | — |
 | 5 | AMY / actual (dump weather or Open-Meteo) | Keep constrained (or re-autosize once) | Align calendar to bills | period_mismatch |
+| 5b | **`wattlab calibrate-campaign`** | Same | Bill-month window → G14 scorecard → Twin publish + client zip | G14 fail → keep iterating or ESCO exit |
 | 6–8 | AMY | One FDD knob per run (SAT, SP reset, OA/econ, lockout…) | Move monthly shape toward bills | crosscheck `investigate` |
 | 9+ | AMY | Fine multipliers (LPD, people, infil) only after HVAC story holds | Chase G14 | Or declare conceptual-only |
+
+Step 5b details: [`CALIBRATE_AND_DELIVERABLES.md`](CALIBRATE_AND_DELIVERABLES.md).
+Ops surface: [`AGENT_DOCKER_WORKSPACE.md`](AGENT_DOCKER_WORKSPACE.md).
+
+**Hard-size (W3b):** when FM tons/hp known and `prototype_area_scale` > 1.5,
+nameplate is scaled by `1/scale` before factors; factors outside `[0.25, 4.0]`
+→ `hard_size_refused` (keep autosize, NEEDS_INPUT). **W2b:** AMY RunPeriod ends
+on the last complete EPW day (not a trailing partial hour).
 
 ### Ideal Loads vs explicit HVAC
 

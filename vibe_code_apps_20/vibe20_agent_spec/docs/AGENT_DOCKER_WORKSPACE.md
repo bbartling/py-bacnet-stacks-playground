@@ -30,6 +30,33 @@ Containers typically mount:
 vibe20 also needs `WATTLAB_HOST_WORKSPACE` set to the **host** path (sibling
 mounts for DinD) and preferably `ENERGYPLUS_DOCKER_USER=1000:1000`.
 
+The vibe20 image ships a **Docker CLI client** (sock alone is not enough). Prefer:
+
+```bash
+docker run … \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e WATTLAB_HOST_WORKSPACE="$HOME/wattlab_workspace" \
+  -e ENERGYPLUS_DOCKER_USER=1000:1000 \
+  ghcr.io/bbartling/vibe20:latest
+```
+
+Do **not** rely on host `pip install -e` wattlab — prefer `docker exec vibe20 wattlab …`
+so agents match the Studio image (avoids host package drift).
+
+## G14 calibrate campaign (bill months → Twin)
+
+```bash
+docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
+  wattlab calibrate-campaign \
+  --bundle /data/uploads/dump/wattlab_dump_BUILDING_100.zip \
+  --bills /data/uploads/energy/utility_bills.csv \
+  --lat 42.6 --lon -83.15 \
+  --cooling-tons 200 --fan-hp 75
+```
+
+Publishes `runs/calibrate_*` with scorecard + optional client zip under `.artifacts/deliverable_*`.
+In Studio Twin: **Build client package** → download report / xlsx / zip.
+
 ## Agent flow (no git)
 
 ```text
