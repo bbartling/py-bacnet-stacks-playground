@@ -31,15 +31,22 @@ docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
 
 What it does:
 
-1. Derives `data_window` from bill `YYYY-MM` months (first→last).
-2. Fetches Open-Meteo AMY when `weather_observed.csv` is missing (needs lat/lon).
+1. Derives `data_window` from bill `YYYY-MM` months (first→last) and **replaces**
+   any dump telemetry window (stale `span_hours` kept under `dump_data_window`).
+2. Fetches Open-Meteo AMY when `weather_observed.csv` is missing **or** does not
+   cover the bill window (off-window dump weather is renamed
+   `weather_observed_DUMP_STASH_*.csv`). Needs lat/lon.
 3. Runs `run_calibration` with monthly meters, W2b full-day EPW clip via `simulate`,
    optional hard-size (W3b refuse band).
-4. Scores dual-fuel monthly G14; may apply `prototype_area_scale` to modeled kWh
-   (stamped — not site CAD).
+4. Scores dual-fuel monthly G14 with **multi-year-aware** bare-month join
+   (Dec’24–Nov’25 bills → expect `months_compared` ≈ 12, not 1). May apply
+   `prototype_area_scale` to modeled kWh (stamped — not site CAD).
 5. Publishes `runs/calibrate_<id>/` + `calibration_scorecard.json` +
    `campaign_stamp.json`.
 6. Builds client package under `.artifacts/deliverable_calibrate_*`.
+
+Image tip: editable `pip install -e ".[studio]"` so `/app/wattlab` is the only
+import tree (no dual `/app` vs site-packages drift).
 
 Dry-run: `--dry-run` prints the plan without Docker.
 
@@ -80,3 +87,6 @@ constrain plant → schedules → **then** AMY + `calibrate-campaign`. Expect
 | Troy | User label `troy` → climate catalog detroit (not silent Madison) |
 | DinD | Image includes Docker **CLI**; sock alone is not enough |
 | Host drift | Prefer `docker exec vibe20 wattlab …` |
+| ARTIFACTS | No inner `ARTIFACTS` re-import in `run_calibration` (UnboundLocalError) |
+| G14 year | Cross-year bill windows join all months in `data_window` |
+| Dump wx | Off-window `weather_observed.csv` stashed before Open-Meteo |

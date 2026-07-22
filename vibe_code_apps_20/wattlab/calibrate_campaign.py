@@ -62,6 +62,112 @@ def data_window_from_bill_months(months: list[str]) -> dict[str, str]:
     }
 
 
+def weather_csv_covers_window(
+    wx_path: Path,
+    data_window: dict[str, Any],
+    *,
+    tolerance_hours: float = 48.0,
+) -> bool:
+    """True when ``weather_observed.csv`` timestamps cover bill ``data_window``."""
+    from wattlab.twin import _parse_window_date
+
+    start = _parse_window_date(
+        data_window.get("start_utc")
+        or data_window.get("start")
+        or data_window.get("start_date")
+    )
+    end = _parse_window_date(
+        data_window.get("end_utc")
+        or data_window.get("end")
+        or data_window.get("end_date")
+    )
+    if start is None or end is None or not Path(wx_path).is_file():
+        return False
+
+    import csv
+    from datetime import datetime, timedelta, timezone
+
+    ts_vals: list[datetime] = []
+    with Path(wx_path).open(encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for i, row in enumerate(reader):
+            raw = (
+                row.get("timestamp_utc")
+                or row.get("timestamp")
+                or row.get("datetime")
+                or ""
+            )
+            if not raw:
+                continue
+            try:
+                ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            ts_vals.append(ts)
+            if i > 200_000:
+                break
+    if not ts_vals:
+        return False
+
+    wx_start = min(ts_vals).date()
+    wx_end = max(ts_vals).date()
+    tol_days = max(1, int(timedelta(hours=tolerance_hours).total_seconds() // 86400))
+    return (wx_start <= start + timedelta(days=tol_days)) and (
+        wx_end >= end - timedelta(days=tol_days)
+    )
+
+
+def ensure_bill_aligned_weather(
+    work: Path,
+    seed: dict[str, Any],
+    data_window: dict[str, Any],
+    *,
+    fetch_open_meteo_if_missing: bool = True,
+) -> dict[str, Any]:
+    """Stash dump weather that misses the bill window; fetch Open-Meteo AMY if needed.
+
+    Returns plan fragment keys: ``weather_aligned``, ``stashed_weather``, ``open_meteo``.
+    """
+    from wattlab.twin import maybe_build_amy_from_open_meteo
+
+    out: dict[str, Any] = {"weather_aligned": False}
+    wx = Path(work) / "weather_observed.csv"
+    need_fetch = False
+
+    if wx.is_file():
+        if weather_csv_covers_window(wx, data_window):
+            out["weather_aligned"] = True
+            out["weather_source"] = "existing_weather_observed"
+            return out
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        stash = Path(work) / f"weather_observed_DUMP_STASH_{stamp}.csv"
+        wx.rename(stash)
+        out["stashed_weather"] = str(stash)
+        out["stash_reason"] = "dump weather does not cover bill data_window"
+        need_fetch = True
+    else:
+        need_fetch = True
+
+    if not fetch_open_meteo_if_missing:
+        out["weather_aligned"] = False
+        return out
+
+    amy_meta = maybe_build_amy_from_open_meteo(
+        seed, work, has_observed_weather=False
+    )
+    if amy_meta is None:
+        raise ValueError(
+            "NEEDS_INPUT: weather_observed.csv missing or off-window and Open-Meteo "
+            "AMY could not be built (need lat/lon + data_window)"
+        )
+    out["open_meteo"] = amy_meta
+    out["weather_aligned"] = True
+    out["weather_source"] = "open_meteo_amy"
+    return out
+
+
 def scale_monthly_energy(
     monthly: list[dict[str, Any]],
     *,
@@ -88,7 +194,6 @@ def run_calibrate_campaign(
 ) -> dict[str, Any]:
     """Bills → data_window → AMY (if needed) → ``run_calibration`` → Twin publish."""
     from wattlab.calibrate import load_utility_bills, run_calibration, _read_json
-    from wattlab.twin import maybe_build_amy_from_open_meteo
 
     bundle = Path(bundle)
     work = bundle
@@ -126,7 +231,11 @@ def run_calibrate_campaign(
     months = [str(b.get("month") or b.get("period") or "")[:7] for b in bills]
     window = data_window_from_bill_months(months)
     seed = dict(seed)
-    seed["data_window"] = {**(seed.get("data_window") or {}), **window}
+    dump_window = seed.get("data_window")
+    if isinstance(dump_window, dict) and dump_window:
+        seed["dump_data_window"] = dict(dump_window)
+    # Bill window replaces dump telemetry window (do not shallow-merge stale fields).
+    seed["data_window"] = dict(window)
     if lat is not None:
         seed["lat"] = float(lat)
     if lon is not None:
@@ -157,22 +266,21 @@ def run_calibrate_campaign(
             "until G14 passes with honest stamps (or document failure → ESCO proxies)."
         ),
     }
+    if seed.get("dump_data_window"):
+        plan["dump_data_window"] = seed["dump_data_window"]
     if dry_run:
         plan["dry_run"] = True
         return plan
 
-    has_wx = (work / "weather_observed.csv").is_file()
-    amy_meta = None
-    if fetch_open_meteo_if_missing and not has_wx:
-        amy_meta = maybe_build_amy_from_open_meteo(
-            seed, work, has_observed_weather=False
-        )
-        if amy_meta is None:
-            raise ValueError(
-                "NEEDS_INPUT: weather_observed.csv missing and Open-Meteo AMY could not "
-                "be built (need lat/lon + data_window)"
-            )
-        plan["open_meteo"] = amy_meta
+    wx_plan = ensure_bill_aligned_weather(
+        work,
+        seed,
+        window,
+        fetch_open_meteo_if_missing=fetch_open_meteo_if_missing,
+    )
+    plan.update({k: v for k, v in wx_plan.items() if k != "weather_aligned"})
+    if wx_plan.get("open_meteo"):
+        plan["open_meteo"] = wx_plan["open_meteo"]
 
     scorecard = run_calibration(
         work,

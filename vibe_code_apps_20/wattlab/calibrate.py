@@ -389,6 +389,73 @@ def load_utility_bills(bundle: Path, seed: dict[str, Any]) -> list[dict[str, Any
     return out
 
 
+def month_keys_for_data_window(data_window: dict[str, Any] | None) -> list[str]:
+    """Inclusive ``YYYY-MM`` keys from ``data_window`` start→end."""
+    if not data_window:
+        return []
+    start_raw = (
+        data_window.get("start_utc")
+        or data_window.get("start")
+        or data_window.get("start_date")
+    )
+    end_raw = (
+        data_window.get("end_utc")
+        or data_window.get("end")
+        or data_window.get("end_date")
+    )
+    if not isinstance(start_raw, str) or not isinstance(end_raw, str):
+        return []
+    if len(start_raw) < 7 or len(end_raw) < 7:
+        return []
+    try:
+        y0, m0 = int(start_raw[:4]), int(start_raw[5:7])
+        y1, m1 = int(end_raw[:4]), int(end_raw[5:7])
+    except (TypeError, ValueError):
+        return []
+    if not (1 <= m0 <= 12 and 1 <= m1 <= 12):
+        return []
+    keys: list[str] = []
+    y, m = y0, m0
+    # Cap at 36 months to avoid runaway loops on bad windows.
+    for _ in range(36):
+        keys.append(f"{y:04d}-{m:02d}")
+        if (y, m) >= (y1, m1):
+            break
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return keys
+
+
+def calendar_month_key_map(
+    window_keys: list[str],
+) -> tuple[dict[int, str], str | None]:
+    """Map calendar month 1–12 → unique ``YYYY-MM`` in the window.
+
+    Returns an empty map + reason when the same calendar month appears twice
+    (RunPeriod longer than 12 months) — refuse silent wrong joins.
+    """
+    by_m: dict[int, str] = {}
+    for key in window_keys:
+        if len(key) < 7 or key[4] != "-":
+            continue
+        try:
+            month_num = int(key[5:7])
+        except ValueError:
+            continue
+        if not 1 <= month_num <= 12:
+            continue
+        if month_num in by_m:
+            return (
+                {},
+                "data_window spans duplicate calendar months "
+                f"({by_m[month_num]} and {key}); refuse bare-month join",
+            )
+        by_m[month_num] = key
+    return by_m, None
+
+
 def compare_bills_to_monthly(
     bills: list[dict[str, Any]],
     monthly: list[dict[str, Any]],
@@ -397,12 +464,18 @@ def compare_bills_to_monthly(
 ) -> dict[str, Any]:
     """Dual-fuel monthly G14 compare (electricity kWh + gas therms when present).
 
-    Keys months as ``YYYY-MM`` when available. When bill years and simulation /
-    telemetry windows do not overlap, returns ``period_mismatch`` and does not
-    report a false G14 pass on coincidental month numbers.
+    Keys months as ``YYYY-MM`` when available. Bare E+ months (1–12) are stamped
+    from the full ``data_window`` span (multi-year aware). When bill years and
+    simulation / telemetry windows do not overlap, returns ``period_mismatch``
+    and does not report a false G14 pass on coincidental month numbers.
     """
+    window_keys = month_keys_for_data_window(data_window)
+    cal_map, cal_dup_reason = calendar_month_key_map(window_keys)
+
     sim_year: int | None = None
-    if data_window:
+    if window_keys:
+        sim_year = int(window_keys[0][:4])
+    elif data_window:
         for k in ("start_utc", "end_utc", "start", "end"):
             v = data_window.get(k)
             if isinstance(v, str) and len(v) >= 4 and v[:4].isdigit():
@@ -412,14 +485,29 @@ def compare_bills_to_monthly(
     bill_years = _bill_calendar_years(bills)
     # Infer sim year from monthly rows when present as YYYY-MM.
     for m in monthly:
-        key = normalize_bill_month_key(m.get("month") or m.get("period"), default_year=sim_year)
+        key = normalize_bill_month_key(m.get("month") or m.get("period"))
         if key and not key.startswith("0001-"):
             sim_year = int(key[:4])
             break
 
     period_mismatch = False
     mismatch_reason = ""
-    if bill_years and sim_year is not None and sim_year not in bill_years:
+    if cal_dup_reason:
+        period_mismatch = True
+        mismatch_reason = cal_dup_reason
+    elif bill_years and window_keys:
+        bill_keys = {
+            normalize_bill_month_key(b.get("month") or b.get("period"))
+            for b in bills
+        }
+        bill_keys.discard(None)
+        if bill_keys and not (bill_keys & set(window_keys)):
+            period_mismatch = True
+            mismatch_reason = (
+                f"bill months do not overlap data_window "
+                f"{window_keys[0]}…{window_keys[-1]}"
+            )
+    elif bill_years and sim_year is not None and sim_year not in bill_years:
         # Also accept adjacent-year windows that still share YYYY-MM keys below.
         period_mismatch = True
         mismatch_reason = (
@@ -429,8 +517,27 @@ def compare_bills_to_monthly(
 
     by_m: dict[str, dict[str, Any]] = {}
     for m in monthly:
-        key = normalize_bill_month_key(m.get("month") or m.get("period"), default_year=sim_year)
-        if key:
+        raw = m.get("month") or m.get("period")
+        key = normalize_bill_month_key(raw)
+        if key and not key.startswith("0001-"):
+            by_m[key] = m
+            continue
+        # Bare month 1–12: map via multi-year window when available.
+        month_num: int | None = None
+        if key and key.startswith("0001-"):
+            month_num = int(key[5:7])
+        elif isinstance(raw, (int, float)) or (
+            isinstance(raw, str) and raw.strip().isdigit()
+        ):
+            try:
+                month_num = int(float(raw))
+            except (TypeError, ValueError):
+                month_num = None
+        if month_num is not None and cal_map and month_num in cal_map:
+            by_m[cal_map[month_num]] = m
+        elif month_num is not None and sim_year is not None and not cal_map:
+            by_m[f"{sim_year}-{month_num:02d}"] = m
+        elif key:
             by_m[key] = m
 
     obs_kwh: list[float] = []
@@ -446,7 +553,7 @@ def compare_bills_to_monthly(
         # If bills are real YYYY-MM and sim is legacy 0001-MM, try month-only
         # only when years are unknown/compatible — never across mismatched years.
         row = by_m.get(key)
-        if row is None and key.startswith("0001-") is False and sim_year is None:
+        if row is None and key.startswith("0001-") is False and sim_year is None and not cal_map:
             # Sim months are bare 1–12 → 0001-MM
             row = by_m.get(f"0001-{key[5:]}")
         if row is None and key.startswith("0001-"):
@@ -531,6 +638,7 @@ def compare_bills_to_monthly(
         "period_mismatch_reason": mismatch_reason,
         "bill_years": sorted(bill_years),
         "simulation_year": sim_year,
+        "simulation_months": window_keys or None,
         "per_month": per_month,
         "thresholds": {"nmbe_pct": NMBE_PASS, "cvrmse_pct": CVRMSE_PASS},
     }
@@ -1068,7 +1176,6 @@ def run_calibration(
             scorecard["studio_run_dir"] = str(published)
             try:
                 from wattlab.deliverables import package_deliverables
-                from wattlab.config import ARTIFACTS
 
                 deliv_dir = ARTIFACTS / f"deliverable_calibrate_{run_id}"
                 deliv = package_deliverables(

@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from unittest.mock import patch
 
 from wattlab.calibrate import scale_monthly_energy
-from wattlab.calibrate_campaign import data_window_from_bill_months
+from wattlab.calibrate_campaign import (
+    data_window_from_bill_months,
+    ensure_bill_aligned_weather,
+    run_calibrate_campaign,
+    weather_csv_covers_window,
+)
 from wattlab.deliverables import (
     build_executive_markdown,
     build_results_workbook_bytes,
@@ -19,6 +26,121 @@ def test_data_window_from_bill_months():
     assert w["end"] == "2024-12-31"
     assert w["bill_months_first"] == "2024-01"
     assert w["bill_months_last"] == "2024-12"
+
+
+def test_campaign_replaces_dump_data_window(tmp_path: Path):
+    """BUG-W-SEED-WINDOW-MERGE: bill window replaces dump; dump kept under dump_data_window."""
+    seed = {
+        "building_type": "office",
+        "city": "troy",
+        "floor_area_ft2": 140000,
+        "lat": 42.56,
+        "lon": -83.12,
+        "data_window": {
+            "start_utc": "2026-03-16T00:00:00Z",
+            "end_utc": "2026-07-17T10:00:00Z",
+            "span_hours": 2961,
+        },
+    }
+    (tmp_path / "model_seed.json").write_text(json.dumps(seed), encoding="utf-8")
+    bills = tmp_path / "utility_bills.csv"
+    rows = ["month,kwh,therms"]
+    y, m = 2024, 12
+    for _ in range(12):
+        rows.append(f"{y:04d}-{m:02d},1000,50")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    bills.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    plan = run_calibrate_campaign(
+        bundle=tmp_path,
+        bills_csv=bills,
+        dry_run=True,
+    )
+    assert plan["data_window"]["start"] == "2024-12-01"
+    assert plan["data_window"]["end"] == "2025-11-30"
+    assert "span_hours" not in plan["data_window"]
+    assert plan["dump_data_window"]["span_hours"] == 2961
+
+    campaign_seed = json.loads(
+        (tmp_path / "model_seed_campaign.json").read_text(encoding="utf-8")
+    )
+    assert campaign_seed["data_window"]["start"] == "2024-12-01"
+    assert "span_hours" not in campaign_seed["data_window"]
+    assert campaign_seed["dump_data_window"]["span_hours"] == 2961
+
+
+def test_weather_csv_covers_window(tmp_path: Path):
+    window = {
+        "start": "2024-12-01",
+        "end": "2025-11-30",
+        "start_utc": "2024-12-01T00:00:00Z",
+        "end_utc": "2025-11-30T23:59:59Z",
+    }
+    covering = tmp_path / "wx_ok.csv"
+    covering.write_text(
+        "timestamp_utc,web-outside-air-temp\n"
+        "2024-12-01T00:00:00Z,30\n"
+        "2025-11-30T23:00:00Z,40\n",
+        encoding="utf-8",
+    )
+    assert weather_csv_covers_window(covering, window) is True
+
+    dump_partial = tmp_path / "wx_2026.csv"
+    dump_partial.write_text(
+        "timestamp_utc,web-outside-air-temp\n"
+        "2026-03-16T00:00:00Z,50\n"
+        "2026-07-17T10:00:00Z,70\n",
+        encoding="utf-8",
+    )
+    assert weather_csv_covers_window(dump_partial, window) is False
+
+
+def test_ensure_bill_aligned_weather_stashes_off_window(tmp_path: Path):
+    """BUG-W-DUMP-WX-VS-BILLS: off-window dump weather is stashed; Open-Meteo invoked."""
+    window = data_window_from_bill_months(["2024-12", "2025-11"])
+    wx = tmp_path / "weather_observed.csv"
+    wx.write_text(
+        "timestamp_utc,web-outside-air-temp\n"
+        "2026-03-16T00:00:00Z,50\n"
+        "2026-07-17T10:00:00Z,70\n",
+        encoding="utf-8",
+    )
+    seed = {"lat": 42.56, "lon": -83.12, "data_window": window}
+
+    with patch(
+        "wattlab.twin.maybe_build_amy_from_open_meteo",
+        return_value={"ok": True, "source": "open_meteo"},
+    ) as mock_amy:
+        out = ensure_bill_aligned_weather(
+            tmp_path, seed, window, fetch_open_meteo_if_missing=True
+        )
+    assert mock_amy.called
+    assert out["weather_source"] == "open_meteo_amy"
+    assert "stashed_weather" in out
+    assert not wx.is_file()
+    assert Path(out["stashed_weather"]).is_file()
+
+
+def test_ensure_bill_aligned_weather_keeps_covering(tmp_path: Path):
+    window = data_window_from_bill_months(["2024-12", "2025-11"])
+    wx = tmp_path / "weather_observed.csv"
+    wx.write_text(
+        "timestamp_utc,web-outside-air-temp\n"
+        "2024-12-01T00:00:00Z,30\n"
+        "2025-11-30T23:00:00Z,40\n",
+        encoding="utf-8",
+    )
+    seed = {"lat": 42.56, "lon": -83.12, "data_window": window}
+    with patch("wattlab.twin.maybe_build_amy_from_open_meteo") as mock_amy:
+        out = ensure_bill_aligned_weather(
+            tmp_path, seed, window, fetch_open_meteo_if_missing=True
+        )
+    assert not mock_amy.called
+    assert out["weather_source"] == "existing_weather_observed"
+    assert wx.is_file()
 
 
 def test_scale_monthly_energy():
