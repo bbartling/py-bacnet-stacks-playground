@@ -98,7 +98,7 @@ curl -sf http://127.0.0.1:8520/_stcore/health
 ```
 
 Tip image includes the **Docker CLI** (no host `docker` binary bind-mount).
-Prefer tip `c09d26b`+ (`ghcr.io/bbartling/vibe20:latest`).
+Prefer tip `b368842`+ (`ghcr.io/bbartling/vibe20:latest`) — notes-append upsert + Re-apply polish.
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
 Docker E+ / DinD). Prefer agents: `docker exec vibe20 wattlab …`
 ([`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)).
@@ -206,6 +206,9 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 22. After publish: open/refresh Studio (or sidebar **Re-apply bootstrap**). Publish already
     upserts `preferred_run_id` into `studio_bootstrap.json`; optional
     `wattlab studio-bootstrap --campus … --run-id …` when campus/dump paths still needed.
+23. **NEEDS_HUMAN (browser):** Fuel without Uploads clicks + Re-apply / stale cue cannot be
+    closed by headless API soak alone — leave an explicit **NEEDS_HUMAN** line in
+    `CALIBRATE_SESSION.md`. Pytest/AppTest is CI/host only (tip image has no pytest).
 
 ## PASS / FAIL
 

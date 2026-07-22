@@ -71,16 +71,20 @@ def test_upsert_bootstrap_preferred_run(tmp_path: Path, monkeypatch: pytest.Monk
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["preferred_run_id"] == "run_new"
     assert data["version"] == 1
-    # Merge preserves campus
+    # Merge preserves campus + prior --notes text
     write_bootstrap(
         build_bootstrap_payload(
-            energy_campus_dir="uploads/energy/x", preferred_run_id="old"
+            energy_campus_dir="uploads/energy/x",
+            preferred_run_id="old",
+            notes="agent campus handoff for Liberty",
         )
     )
     upsert_bootstrap_preferred_run("run_merged", workspace=tmp_path)
     merged = json.loads((tmp_path / "studio_bootstrap.json").read_text(encoding="utf-8"))
     assert merged["preferred_run_id"] == "run_merged"
     assert merged["energy_campus_dir"] == "uploads/energy/x"
+    assert "agent campus handoff for Liberty" in merged["notes"]
+    assert "preferred_run_id upserted by publish_run_for_studio @" in merged["notes"]
     monkeypatch.setenv("WATTLAB_STUDIO_BOOTSTRAP_DISABLE", "1")
     assert upsert_bootstrap_preferred_run("nope", workspace=tmp_path) is None
 

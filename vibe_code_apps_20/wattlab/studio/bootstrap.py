@@ -113,9 +113,13 @@ def upsert_bootstrap_preferred_run(
         payload["preferred_run_id"] = str(run_id)
         payload["auto_refresh_runs"] = bool(payload.get("auto_refresh_runs", True))
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        payload["notes"] = (
-            f"preferred_run_id upserted by publish_run_for_studio @ {stamp}"
-        )
+        stamp_line = f"preferred_run_id upserted by publish_run_for_studio @ {stamp}"
+        prev = str(payload.get("notes") or "").strip()
+        if prev and stamp_line not in prev:
+            payload["notes"] = f"{prev}\n{stamp_line}"
+        elif not prev:
+            payload["notes"] = stamp_line
+        # else: stamp already present — leave notes unchanged
         write_bootstrap(payload, path=path, also_fallback=True)
         return path
     except Exception:  # noqa: BLE001
