@@ -81,8 +81,20 @@ Archive root-owned runs when needed:
 docker exec -u 0 vibe20 bash -lc 'mkdir -p /data/runs/_archive && mv /data/runs/<old> /data/runs/_archive/'
 ```
 
-Studio bootstrap (zero-click Fuel/Twin): `wattlab studio-bootstrap …` writes
-`/data/studio_bootstrap.json` — see tip docs after that CLI ships.
+Studio bootstrap (zero-click Fuel/Twin):
+
+```bash
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 \
+  wattlab studio-bootstrap \
+  --campus /data/uploads/energy/my_campus \
+  --dump /data/uploads/dump/wattlab_dump.zip \
+  --run-id calibrate_YYYYMMDDTHHMMSSZ \
+  --answers /data/reports/answers.json
+```
+
+Writes `/data/studio_bootstrap.json` (+ `.last_studio_session.json`). Next Studio
+browser session auto-loads Fuel campus + Twin preferred run (sidebar banner).
+Disable in CI: `WATTLAB_STUDIO_BOOTSTRAP_DISABLE=1`.
 
 ## Agent flow (no git)
 

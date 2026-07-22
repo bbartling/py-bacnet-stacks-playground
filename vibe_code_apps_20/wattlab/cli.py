@@ -27,6 +27,7 @@ def _usage() -> str:
         "  benchmark    Campus bill EUIs, allocation scenarios, peer-band compare\n"
         "  seed         Inspect a vibe19 WattLab dump (summary + gap report)\n"
         "               also: wattlab seed import-bills --electric CSV --gas CSV --out utility_bills.csv\n"
+        "  studio-bootstrap  Write studio_bootstrap.json for Streamlit auto-load\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
@@ -158,6 +159,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_benchmark(rest)
     if cmd == "seed":
         return _cmd_seed(rest)
+    if cmd in {"studio-bootstrap", "studio_bootstrap"}:
+        from wattlab.studio.bootstrap import main as m
+
+        return int(m(rest) or 0)
     if cmd in {"explore-existing", "hypothesis-lab"}:
         from wattlab.existing_building.cli import main as m
 
