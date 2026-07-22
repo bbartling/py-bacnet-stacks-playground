@@ -36,6 +36,8 @@ Practice dumps/zips on a test bench are **examples only**. Data-model driven for
 
 1. Ask for NEEDS_INPUT — never invent.
 2. No calibrated-savings claims before G14 (NMBE ±5%, CV(RMSE) ≤15%) when bills exist.
+   A **screening twin** with honest G14 **fail** (and `months_compared` ≈ bill count)
+   is a valid Twin calibrate PASS path — do not chase “calibrated ASAP”.
 3. **Live sims only for Twin calibrate PASS.** Demo replay = UI smoke, not PASS.
 4. No host `pyenergyplus` Runtime API.
 5. Every sim → `publish_run_for_studio(...)` → human **Refresh agent runs** in Twin.
@@ -176,15 +178,16 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 
 1. Studio health ok; `energyplus-mcp-dev` present (`capability_status`).
 2. Dump + energy → Fuel: EUI + **peer p50/p20/p80** metrics green.
-3. Profile resolved with human — city keeps user label (e.g. `troy`) with climate
-   catalog note (detroit); not silent Madison.
+3. Profile resolved with human — city keeps user label when given, but **lat/lon
+   beat city string** for weather (e.g. Detroit coords for a Troy mailing label).
 4. Twin **EUI index** visible (bills vs peers; model after ≥1 published run).
 5. Dry-run plan once (optional warm-up).
 6. **Studio-native** Docker E+ once → `eplusout.csv` (DinD sibling-mount gate).
 7. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
 8. Partial-year AMY: RunPeriod ends on last **full** EPW day (W2b); not trailing hour-10 day.
-9. MCP inspect at least once if `full_mcp_available`.
+9. MCP inspect at least once if `full_mcp_available`; **optional** when `simulate_only`.
 10. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
+    Print NMBE/CV(RMSE) even when `months_compared` is already 12.
 11. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
 12. Hard-size: area-scaled nameplate or `hard_size_refused` banner when factors absurd (W3b).
 13. Peak demand kW visible on Twin results / ECM when eplustbl or eplusout has it.
@@ -192,11 +195,12 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 15. ECMs page exercised; capital gate noted.
 16. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
 17. Agent path via shared volume / `docker exec` (see `docs/AGENT_DOCKER_WORKSPACE.md`).
-18. **calibrate-campaign** (or Twin scorecard) with bill-aligned AMY — G14 stats shown or honest fail.
-    Cross-year bills (e.g. Dec’24–Nov’25): scorecard `utility_bills.months_compared`
-    should match bill count (~12), not collapse to 1. Dump weather that misses the
-    bill window must be stashed / Open-Meteo rebuilt — do not silently use 2026 dump wx.
+18. **calibrate-campaign** with `--answers` when dump seed fields are null; bill-aligned AMY;
+    assert `epw_bill_overlap` / dump-wx stash; G14 stats shown or honest fail.
+    Cross-year bills: `months_compared` ≈ bill count (~12), not collapse to 1.
 19. Twin **Build client package** → preview report + download md/xlsx/zip without Streamlit exceptions.
+20. **Schedule:File DinD:** File Name `/work/in/<csv>` + CSV staged (not absolute `/data/...`).
+21. Archive hygiene: root-owned `runs/` via `docker exec -u 0` when needed.
 
 ## PASS / FAIL
 
@@ -214,8 +218,10 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 | Demand kW | `peak_demand_kw` on results when meters/tbl present |
 | Multi-floor viz | floors≥2 → stacked schematic + honesty caption |
 | DinD CLI | `capability_status().docker_available` true with sock only (CLI in image) |
-| G14 campaign | bill-window AMY + `months_compared` ≈ bill months (cross-year OK) + NMBE/CV(RMSE) or honest fail |
+| Schedule:File DinD | `/work/in/<csv>` staged; no FATAL absolute `/data` path |
+| G14 campaign | bill-window AMY + `months_compared` ≈ bill months + NMBE/CV(RMSE) printed or honest fail |
 | Client package | Twin builds report + xlsx + zip; downloads work |
+| Screening honesty | Honest G14 fail + stamps = valid PASS (not calibrated ROI) |
 
 One live sim is **not** enough. Really try the loop — baseline + hypotheses —
 with the human engineer.

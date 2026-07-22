@@ -72,6 +72,44 @@ def test_campaign_replaces_dump_data_window(tmp_path: Path):
     assert campaign_seed["dump_data_window"]["span_hours"] == 2961
 
 
+def test_merge_answers_into_seed_and_campaign(tmp_path: Path):
+    from wattlab.calibrate_campaign import merge_answers_into_seed
+
+    seed = {"building_type": None, "city": None, "floor_area_ft2": None}
+    answers = {
+        "building_type": "office",
+        "city": "detroit",
+        "floor_area_ft2": 140000,
+        "lat": 42.3314,
+        "lon": -83.0458,
+        "floors": 6,
+    }
+    merged = merge_answers_into_seed(seed, answers)
+    assert merged["city"] == "detroit"
+    assert merged["lat"] == 42.3314
+    assert merged["weather_pin_rule"] == "lat_lon_overrides_city_label"
+
+    (tmp_path / "model_seed.json").write_text(json.dumps(seed), encoding="utf-8")
+    answers_path = tmp_path / "answers.json"
+    answers_path.write_text(json.dumps(answers), encoding="utf-8")
+    bills = tmp_path / "utility_bills.csv"
+    bills.write_text("month,kwh,therms\n2024-12,1000,50\n2025-01,1100,55\n", encoding="utf-8")
+    plan = run_calibrate_campaign(
+        bundle=tmp_path,
+        bills_csv=bills,
+        answers_path=answers_path,
+        dry_run=True,
+    )
+    campaign_seed = json.loads(
+        (tmp_path / "model_seed_campaign.json").read_text(encoding="utf-8")
+    )
+    assert campaign_seed["city"] == "detroit"
+    assert campaign_seed["floor_area_ft2"] == 140000.0
+    assert plan["weather_pin_rule"] == "lat_lon_overrides_city_label"
+    assert plan["prototype_area_scale"] is not None
+    assert plan["prototype_area_scale"] > 10
+
+
 def test_weather_csv_covers_window(tmp_path: Path):
     window = {
         "start": "2024-12-01",
