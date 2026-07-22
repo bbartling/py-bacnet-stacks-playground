@@ -41,21 +41,48 @@ docker run … \
 ```
 
 Do **not** rely on host `pip install -e` wattlab — prefer `docker exec vibe20 wattlab …`
-so agents match the Studio image (avoids host package drift).
+so agents match the Studio image (avoids host package drift). If the host git
+checkout is on a deleted branch or behind tip, ignore it — use `/app` docs inside
+the container and the tip image revision label.
+
+## Schedule:File + DinD (BUG-W-SCHEDULE-FILE-DIND)
+
+EnergyPlus only mounts `__stage_in` → `/work/in` and the out dir → `/work/out`.
+`apply_weather_schedule_file` writes File Name as **`/work/in/<basename>`** and
+copies the CSV beside the IDF; `run_energyplus` stages that CSV into `__stage_in`.
+Do **not** point Schedule:File at absolute `/data/...` host paths (FATAL file not found).
+
+Helpers: `wattlab.existing_building.schedules` + `wattlab.energyplus.patches.weather_schedules`.
 
 ## G14 calibrate campaign (bill months → Twin)
 
 ```bash
 docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
   wattlab calibrate-campaign \
-  --bundle /data/uploads/dump/wattlab_dump_BUILDING_100.zip \
-  --bills /data/uploads/energy/utility_bills.csv \
-  --lat 42.6 --lon -83.15 \
+  --bundle /data/reports/calibrate_seed_dir \
+  --bills /data/reports/utility_bills.csv \
+  --answers /data/reports/answers_building.json \
+  --lat 42.3314 --lon -83.0458 \
   --cooling-tons 200 --fan-hp 75
 ```
 
+- `--answers` merges human fields into null dump `model_seed` (non-null only).
+- **lat/lon beat city label** for weather (metro Troy vs Detroit).
+- Off-window dump `weather_observed.csv` is stashed → Open-Meteo for bill months.
+- Plan stamps `epw_bill_overlap` — assert before claiming AMY honesty.
+- Honest G14 fail with `months_compared` ≈ bill count is a valid screening PASS path.
+
 Publishes `runs/calibrate_*` with scorecard + optional client zip under `.artifacts/deliverable_*`.
 In Studio Twin: **Build client package** → download report / xlsx / zip.
+
+Archive root-owned runs when needed:
+
+```bash
+docker exec -u 0 vibe20 bash -lc 'mkdir -p /data/runs/_archive && mv /data/runs/<old> /data/runs/_archive/'
+```
+
+Studio bootstrap (zero-click Fuel/Twin): `wattlab studio-bootstrap …` writes
+`/data/studio_bootstrap.json` — see tip docs after that CLI ships.
 
 ## Agent flow (no git)
 

@@ -23,30 +23,36 @@ Required stamps on every run:
 ```bash
 docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
   wattlab calibrate-campaign \
-  --bundle /data/uploads/dump/wattlab_dump_BUILDING_100.zip \
+  --bundle /data/uploads/dump/enriched_seed_dir \
   --bills /data/uploads/energy/utility_bills.csv \
+  --answers /data/reports/answers.json \
   --lat 42.6 --lon -83.15 \
   --cooling-tons 200 --fan-hp 75   # optional; area-aware W3b
 ```
 
 What it does:
 
-1. Derives `data_window` from bill `YYYY-MM` months (first→last) and **replaces**
+1. Optional `--answers` merges human fields into null dump `model_seed` (non-null only).
+   **lat/lon override city label** for weather pin.
+2. Derives `data_window` from bill `YYYY-MM` months (first→last) and **replaces**
    any dump telemetry window (stale `span_hours` kept under `dump_data_window`).
-2. Fetches Open-Meteo AMY when `weather_observed.csv` is missing **or** does not
+3. Fetches Open-Meteo AMY when `weather_observed.csv` is missing **or** does not
    cover the bill window (off-window dump weather is renamed
-   `weather_observed_DUMP_STASH_*.csv`). Needs lat/lon.
-3. Runs `run_calibration` with monthly meters, W2b full-day EPW clip via `simulate`,
+   `weather_observed_DUMP_STASH_*.csv`). Needs lat/lon. Stamps `epw_bill_overlap`.
+4. Runs `run_calibration` with monthly meters, W2b full-day EPW clip via `simulate`,
    optional hard-size (W3b refuse band).
-4. Scores dual-fuel monthly G14 with **multi-year-aware** bare-month join
+5. Scores dual-fuel monthly G14 with **multi-year-aware** bare-month join
    (Dec’24–Nov’25 bills → expect `months_compared` ≈ 12, not 1). May apply
    `prototype_area_scale` to modeled kWh (stamped — not site CAD).
-5. Publishes `runs/calibrate_<id>/` + `calibration_scorecard.json` +
+6. Publishes `runs/calibrate_<id>/` + `calibration_scorecard.json` +
    `campaign_stamp.json`.
-6. Builds client package under `.artifacts/deliverable_calibrate_*`.
+7. Builds client package under `.artifacts/deliverable_calibrate_*`.
 
 Image tip: editable `pip install -e ".[studio]"` so `/app/wattlab` is the only
 import tree (no dual `/app` vs site-packages drift).
+
+Honest G14 **fail** with full months compared is a valid screening outcome —
+do not claim calibrated ROI.
 
 Dry-run: `--dry-run` prints the plan without Docker.
 
@@ -90,3 +96,5 @@ constrain plant → schedules → **then** AMY + `calibrate-campaign`. Expect
 | ARTIFACTS | No inner `ARTIFACTS` re-import in `run_calibration` (UnboundLocalError) |
 | G14 year | Cross-year bill windows join all months in `data_window` |
 | Dump wx | Off-window `weather_observed.csv` stashed before Open-Meteo |
+| Schedule:File | `/work/in/<csv>` + stage sidecar (not absolute `/data` paths) |
+| `--answers` | Merge human answers into null dump seed before campaign |

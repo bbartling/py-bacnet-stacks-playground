@@ -194,6 +194,26 @@ def run_energyplus(
         shutil.copy2(idf, staged_idf)
     if staged_epw.resolve() != epw:
         shutil.copy2(epw, staged_epw)
+    # Stage Schedule:File CSVs referenced as /work/in/<basename> (DinD contract).
+    try:
+        from wattlab.energyplus.patches.weather_schedules import (
+            schedule_file_basenames_in_idf,
+        )
+
+        idf_text = staged_idf.read_text(encoding="utf-8", errors="replace")
+        for base in schedule_file_basenames_in_idf(idf_text):
+            src_csv = idf.parent / base
+            if not src_csv.is_file():
+                # Sidecar may sit next to original IDF before copy.
+                alt = Path(idf).parent / base
+                src_csv = alt if alt.is_file() else src_csv
+            if src_csv.is_file():
+                dest_csv = stage / base
+                if dest_csv.resolve() != src_csv.resolve():
+                    shutil.copy2(src_csv, dest_csv)
+                _chmod_loose(dest_csv)
+    except OSError:
+        pass
     _chmod_loose(staged_idf)
     _chmod_loose(staged_epw)
     host_stage = host_path_for_docker(stage)

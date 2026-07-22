@@ -10,17 +10,24 @@ IDFs) at the new schedule.
 When no fan availability reference is found the patch still inserts the
 Schedule:File object but documents the manual-wiring surrogate in the
 returned metadata instead of failing silently.
+
+DinD: File Name defaults to ``/work/in/<basename>`` and the CSV is copied
+beside the destination IDF so ``run_energyplus`` can stage it into
+``__stage_in``. Absolute host paths are not visible inside energyplus-mcp-dev.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
 _HEADER = "! WattLab weather schedule patch: weather_schedule_file"
 _DEFAULT_TARGET = "FanAvailSched"
+# EnergyPlus DinD only mounts stage → /work/in; absolute host paths FATAL.
+_WORK_IN_PREFIX = "/work/in"
 
 
 def _schedule_file_object(name: str, csv_path: str, hours_of_data: int) -> str:
@@ -45,8 +52,14 @@ def apply_weather_schedule_file(
     schedule_name: str,
     *,
     target_schedule: str = _DEFAULT_TARGET,
+    dind_work_in: bool = True,
 ) -> dict:
-    """Insert a Schedule:File and repoint fan availability references to it."""
+    """Insert a Schedule:File and repoint fan availability references to it.
+
+    When ``dind_work_in`` is True (default), File Name is ``/work/in/<basename>``
+    and the CSV is copied beside the destination IDF so ``run_energyplus`` can
+    stage it into ``__stage_in``.
+    """
     src = Path(src)
     dest = Path(dest)
     schedule_csv = Path(schedule_csv)
@@ -74,8 +87,17 @@ def apply_weather_schedule_file(
         lambda m: f"{m.group(1)}{schedule_name}{m.group(2)}", text
     )
 
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dind_work_in:
+        sidecar = dest.parent / schedule_csv.name
+        if sidecar.resolve() != schedule_csv.resolve():
+            shutil.copy2(schedule_csv, sidecar)
+        csv_path_str = f"{_WORK_IN_PREFIX}/{schedule_csv.name}"
+        flags.append("schedule_file_dind_work_in")
+    else:
+        csv_path_str = str(schedule_csv)
+
     # Insert or replace the Schedule:File object (idempotent re-apply).
-    csv_path_str = str(schedule_csv)
     schedule_object = _schedule_file_object(schedule_name, csv_path_str, hours_of_data)
     existing_re = re.compile(
         rf"(?ms)^[ \t]*Schedule:File,[ \t]*\r?\n"
@@ -101,13 +123,13 @@ def apply_weather_schedule_file(
 
     if _HEADER not in text:
         text = f"{_HEADER}\n{text}"
-    dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
 
     meta: dict[str, Any] = {
         "patch": "weather_schedule_file",
         "schedule_name": schedule_name,
         "schedule_csv": csv_path_str,
+        "schedule_csv_host": str(schedule_csv),
         "csv_sha256": hashlib.sha256(csv_text.encode("utf-8")).hexdigest(),
         "csv_rows": data_rows,
         "number_of_hours_of_data": hours_of_data,
@@ -119,3 +141,16 @@ def apply_weather_schedule_file(
         "flags": flags,
     }
     return meta
+
+
+def schedule_file_basenames_in_idf(idf_text: str) -> list[str]:
+    """Return basenames referenced as ``/work/in/<file>`` on File Name fields."""
+    names: list[str] = []
+    for m in re.finditer(
+        rf"(?m)^[ \t]*{_WORK_IN_PREFIX}/([^,\s]+)\s*,\s*!- File Name",
+        idf_text,
+    ):
+        base = m.group(1).strip()
+        if base and base not in names:
+            names.append(base)
+    return names

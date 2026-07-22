@@ -369,6 +369,18 @@ def publish_run_for_studio(
     # Pointer so Twin auto-selects the latest agent publish
     pointer = dest.parent / "CURRENT_RUN.txt"
     pointer.write_text(str(dest.resolve()), encoding="utf-8")
+    # Best-effort world-writable so host agents can archive without root.
+    try:
+        import os
+
+        os.chmod(dest, 0o777)
+        for child in dest.rglob("*"):
+            try:
+                os.chmod(child, 0o666 if child.is_file() else 0o777)
+            except OSError:
+                pass
+    except OSError:
+        pass
     return dest
 
 

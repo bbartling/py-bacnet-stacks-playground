@@ -16,6 +16,77 @@ from typing import Any
 
 from wattlab.config import PROTOTYPE_AREA_FT2_NOMINAL
 
+# Human answers merge keys (non-null values only; never invent).
+_ANSWERS_MERGE_KEYS = (
+    "building_type",
+    "city",
+    "floor_area_ft2",
+    "conditioned_floor_area_ft2",
+    "lat",
+    "lon",
+    "floors",
+    "timezone",
+    "display_name",
+)
+
+
+def merge_answers_into_seed(
+    seed: dict[str, Any],
+    answers: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge human answers into dump ``model_seed`` (non-null only).
+
+    Weather pin rule: explicit ``lat``/``lon`` override city-label climate alone
+    (metro labels like Troy vs Detroit). Does not invent missing coordinates.
+    """
+    out = dict(seed or {})
+    if not answers:
+        return out
+    for key in _ANSWERS_MERGE_KEYS:
+        if key not in answers:
+            continue
+        val = answers[key]
+        if val is None or val == "":
+            continue
+        if key in ("lat", "lon", "floor_area_ft2", "conditioned_floor_area_ft2"):
+            try:
+                out[key] = float(val)
+            except (TypeError, ValueError):
+                continue
+        elif key == "floors":
+            try:
+                out[key] = int(val)
+            except (TypeError, ValueError):
+                continue
+        else:
+            out[key] = val
+    if out.get("lat") is not None and out.get("lon") is not None:
+        out["weather_pin_rule"] = "lat_lon_overrides_city_label"
+    return out
+
+
+def epw_bill_overlap_stamp(
+    work: Path,
+    data_window: dict[str, Any],
+) -> dict[str, Any]:
+    """Assert observed weather / AMY window overlaps bill ``data_window``."""
+    wx = Path(work) / "weather_observed.csv"
+    covers = weather_csv_covers_window(wx, data_window) if wx.is_file() else False
+    amy = Path(work) / "amy.epw"
+    stamp: dict[str, Any] = {
+        "weather_observed_covers_bills": covers,
+        "amy_epw_present": amy.is_file(),
+        "bill_start": data_window.get("start") or data_window.get("start_utc"),
+        "bill_end": data_window.get("end") or data_window.get("end_utc"),
+        "ok": covers or amy.is_file(),
+    }
+    if not stamp["ok"]:
+        stamp["warning"] = (
+            "NEEDS_INPUT: neither weather_observed.csv nor amy.epw covers bill "
+            "data_window — refuse silent wrong-period weather"
+        )
+    return stamp
+
 
 def _load_bills_csv(path: Path) -> list[dict[str, Any]]:
     import csv
@@ -186,6 +257,7 @@ def run_calibrate_campaign(
     lat: float | None = None,
     lon: float | None = None,
     seed_path: Path | None = None,
+    answers_path: Path | None = None,
     dry_run: bool = False,
     validation_months: int = 0,
     allow_area_scaled_g14: bool = True,
@@ -212,6 +284,11 @@ def run_calibrate_campaign(
         raise FileNotFoundError(f"model_seed.json not found: {seed_file}")
     seed = _read_json(seed_file)
 
+    answers: dict[str, Any] | None = None
+    if answers_path is not None and Path(answers_path).is_file():
+        answers = _read_json(Path(answers_path))
+        seed = merge_answers_into_seed(seed, answers)
+
     # Prefer explicit bills CSV; else dump utility_bills
     bills: list[dict[str, Any]] = []
     if bills_csv is not None and Path(bills_csv).is_file():
@@ -236,10 +313,13 @@ def run_calibrate_campaign(
         seed["dump_data_window"] = dict(dump_window)
     # Bill window replaces dump telemetry window (do not shallow-merge stale fields).
     seed["data_window"] = dict(window)
+    # CLI lat/lon win last (explicit weather pin).
     if lat is not None:
         seed["lat"] = float(lat)
+        seed["weather_pin_rule"] = "lat_lon_overrides_city_label"
     if lon is not None:
         seed["lon"] = float(lon)
+        seed["weather_pin_rule"] = "lat_lon_overrides_city_label"
     # Persist updated seed for calibrate
     campaign_seed = work / "model_seed_campaign.json"
     campaign_seed.write_text(json.dumps(seed, indent=2), encoding="utf-8")
@@ -268,6 +348,10 @@ def run_calibrate_campaign(
     }
     if seed.get("dump_data_window"):
         plan["dump_data_window"] = seed["dump_data_window"]
+    if answers_path is not None:
+        plan["answers_path"] = str(answers_path)
+    if seed.get("weather_pin_rule"):
+        plan["weather_pin_rule"] = seed["weather_pin_rule"]
     if dry_run:
         plan["dry_run"] = True
         return plan
@@ -281,6 +365,7 @@ def run_calibrate_campaign(
     plan.update({k: v for k, v in wx_plan.items() if k != "weather_aligned"})
     if wx_plan.get("open_meteo"):
         plan["open_meteo"] = wx_plan["open_meteo"]
+    plan["epw_bill_overlap"] = epw_bill_overlap_stamp(work, window)
 
     scorecard = run_calibration(
         work,
@@ -317,6 +402,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--lat", type=float, default=None)
     p.add_argument("--lon", type=float, default=None)
     p.add_argument("--seed", type=Path, default=None)
+    p.add_argument(
+        "--answers",
+        type=Path,
+        default=None,
+        help="Human answers JSON merged into model_seed before campaign (non-null fields)",
+    )
     p.add_argument("--validation-months", type=int, default=0)
     p.add_argument(
         "--no-area-scaled-g14",
@@ -343,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
             lat=args.lat,
             lon=args.lon,
             seed_path=args.seed,
+            answers_path=args.answers,
             dry_run=args.dry_run,
             validation_months=args.validation_months,
             allow_area_scaled_g14=not args.no_area_scaled_g14,

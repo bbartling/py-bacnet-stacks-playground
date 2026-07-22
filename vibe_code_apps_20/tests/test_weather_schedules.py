@@ -253,11 +253,42 @@ def test_patch_repoints_fan_availability_on_prototype(tmp_path: Path) -> None:
     text = dest.read_text(encoding="utf-8")
     assert "Schedule:File," in text
     assert "WattLab Weather Avail" in text
+    assert "/work/in/avail.csv" in text
+    assert (tmp_path / "avail.csv").is_file()  # sidecar beside patched IDF
     # No fan availability reference still points at the old compact schedule.
     assert "FanAvailSched;           !- Schedule Name" not in text
     assert "FanAvailSched,           !- Availability Schedule Name" not in text
     # The original schedule definition itself is left in place.
     assert "FanAvailSched,           !- Name" in text
+
+
+def test_patch_dind_stages_csv_into_work_in(tmp_path: Path) -> None:
+    """BUG-W-SCHEDULE-FILE-DIND: CSV staged next to IDF for /work/in mount."""
+    from wattlab.energyplus.docker import ensure_ep_writable, _chmod_loose
+    from wattlab.energyplus.patches.weather_schedules import (
+        schedule_file_basenames_in_idf,
+    )
+    import shutil
+
+    csv_path, _ = _annual_csv(tmp_path)
+    work = tmp_path / "sim_out"
+    work.mkdir()
+    dest = work / "patched.idf"
+    apply_weather_schedule_file(PROTOTYPE, dest, csv_path, "WattLab Weather Avail")
+    text = dest.read_text(encoding="utf-8")
+    assert schedule_file_basenames_in_idf(text) == ["avail.csv"]
+    assert (work / "avail.csv").is_file()
+
+    stage = work.parent / f"{work.name}__stage_in"
+    ensure_ep_writable(stage)
+    shutil.copy2(dest, stage / dest.name)
+    for base in schedule_file_basenames_in_idf(text):
+        src_csv = dest.parent / base
+        assert src_csv.is_file()
+        shutil.copy2(src_csv, stage / base)
+        _chmod_loose(stage / base)
+    assert (stage / "avail.csv").is_file()
+    assert (stage / "avail.csv").read_bytes() == csv_path.read_bytes()
 
 
 def test_patch_reapply_is_idempotent(tmp_path: Path) -> None:

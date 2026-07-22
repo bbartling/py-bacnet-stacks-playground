@@ -6,6 +6,15 @@ Plain Markdown on disk is the source of truth for **Cursor**, **Codex CLI**, and
 
 **Quick link — zip package layout:** [`../docs/PACKAGE_SPEC.md`](../docs/PACKAGE_SPEC.md) (`openfdd_package_v1`)
 
+## Shared volume handoff (co-located vibe20)
+
+When Studio WattLab (vibe20) shares `$WATTLAB_HOST_WORKSPACE` (e.g. `~/wattlab_workspace`):
+
+1. Export WattLab dump zip to **`$WATTLAB_HOST_WORKSPACE/uploads/dump/`** (not only a local Downloads folder).
+2. Stamp dump `data_window` / telemetry years on Export README — vibe20 agents must see if dump weather (often partial current year) ≠ utility bill years.
+3. Fuel/campus CSVs → `uploads/energy/`; bills for G14 → `reports/utility_bills.csv`.
+4. vibe20 agents use `docker exec vibe20 wattlab …` on the same volume — see vibe20 `AGENT_DOCKER_WORKSPACE.md`.
+
 **App:** Educational **Streamlit + pandas** FDD demo (`streamlit_app.py`).
 
 **Not this repo:** Production Rust/DataFusion Open-FDD → `C:\Users\ben\Documents\open-fdd`
