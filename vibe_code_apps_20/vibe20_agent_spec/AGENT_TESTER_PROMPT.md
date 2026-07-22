@@ -201,6 +201,8 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 19. Twin **Build client package** → preview report + download md/xlsx/zip without Streamlit exceptions.
 20. **Schedule:File DinD:** File Name `/work/in/<csv>` + CSV staged (not absolute `/data/...`).
 21. Archive hygiene: root-owned `runs/` via `docker exec -u 0` when needed.
+22. After publish: `wattlab studio-bootstrap --campus … --run-id …` so human opens Studio
+    with Fuel + Twin already loaded (no Uploads/Refresh clicks).
 
 ## PASS / FAIL
 

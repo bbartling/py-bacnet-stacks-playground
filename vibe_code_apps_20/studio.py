@@ -22,8 +22,27 @@ PAGES = [
 ]
 
 
+def _apply_studio_bootstrap_once() -> None:
+    """Auto-load Fuel/Twin from studio_bootstrap.json (once per browser session)."""
+    if st.session_state.get("_studio_bootstrapped"):
+        return
+    try:
+        from wattlab.studio.bootstrap import apply_bootstrap_to_session
+
+        result = apply_bootstrap_to_session(st.session_state)
+    except Exception as exc:  # noqa: BLE001 — never crash Studio on bootstrap
+        st.session_state["_studio_bootstrapped"] = True
+        st.sidebar.warning(f"Bootstrap skipped: {exc}")
+        return
+    if result.get("banner"):
+        st.sidebar.success(result["banner"])
+    for note in result.get("needs_input") or []:
+        st.sidebar.info(f"NEEDS_INPUT: {note}")
+
+
 def main() -> None:
     ensure_workspace()
+    _apply_studio_bootstrap_once()
     invalidate_dependent_state(
         st.session_state,
         profile=st.session_state.get("studio_profile"),
