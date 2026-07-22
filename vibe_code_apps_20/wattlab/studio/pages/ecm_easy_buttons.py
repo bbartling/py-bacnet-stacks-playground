@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -12,6 +13,7 @@ import streamlit as st
 from wattlab.ecm.catalog import ECMEntry, load_catalog
 from wattlab.ecm.interactions import detect_incompatibilities
 from wattlab.ecm.packages import PACKAGES, resolve_package
+from wattlab.studio.ecm_scenario import load_ecm_scenario, save_ecm_scenario
 from wattlab.studio.state import namespaced_key
 
 NS = "ecm_easy"
@@ -33,6 +35,27 @@ def _selected_entries(entries: list[ECMEntry], package_names: list[str]) -> list
     return list(dict.fromkeys(selected))
 
 
+def _scenario_path() -> Path | None:
+    raw = st.session_state.get("studio_ecm_scenario_path")
+    if raw:
+        return Path(str(raw))
+    return None
+
+
+def _ensure_checkbox_defaults(entries: list[ECMEntry], selected_ids: list[str]) -> None:
+    """Seed checkbox keys once from ecm_scenario.json (agent prefill)."""
+    if st.session_state.get(_key("scenario_seeded")):
+        return
+    want = set(selected_ids)
+    for entry in entries:
+        k = _key(f"select.{entry.ecm_id}")
+        if k not in st.session_state:
+            st.session_state[k] = entry.ecm_id in want
+    st.session_state[_key("scenario_seeded")] = True
+    if selected_ids:
+        st.session_state[_key("scenario_ids")] = list(selected_ids)
+
+
 def render(
     *,
     profile: dict[str, Any] | None = None,
@@ -43,6 +66,7 @@ def render(
     st.header("ECM Easy Buttons")
     st.caption(
         "Build a screening scenario from the canonical ECM catalog. "
+        "Agents write `reports/ecm_scenario.json`; Re-apply / open this page to pre-check. "
         "Availability and evidence status remain visible before every action."
     )
     try:
@@ -50,6 +74,15 @@ def render(
     except (OSError, ValueError, ImportError) as exc:
         st.info(f"The ECM catalog is unavailable: {exc}")
         return
+
+    scenario = load_ecm_scenario(_scenario_path())
+    _ensure_checkbox_defaults(entries, list(scenario.get("selected_ecm_ids") or []))
+    recs = scenario.get("recommendations") or []
+    if recs:
+        st.info(
+            "Agent recommendations (unchecked suggestions): "
+            + ", ".join(str(r) for r in recs[:12])
+        )
 
     packages = st.multiselect(
         "Bulk-select packages",
@@ -83,7 +116,7 @@ def render(
     for issue in issues:
         st.warning(issue.note)
 
-    a1, a2, a3 = st.columns(3)
+    a1, a2, a3, a4 = st.columns(4)
     if a1.button("Add to scenario", key=_key("add"), width="stretch"):
         st.session_state[_key("scenario_ids")] = selected
         if selected:
@@ -93,6 +126,22 @@ def render(
 
     scenario_ids = st.session_state.get(_key("scenario_ids"), selected)
     if a2.button(
+        "Save to ecm_scenario.json",
+        key=_key("save_scenario"),
+        width="stretch",
+    ):
+        path = save_ecm_scenario(
+            {
+                **scenario,
+                "selected_ecm_ids": list(scenario_ids or selected),
+                "measure_set": (profile or {}).get("measure_set") or scenario.get("measure_set"),
+                "notes": scenario.get("notes") or "Saved from Studio Easy Buttons",
+            },
+            path=_scenario_path(),
+        )
+        st.success(f"Wrote `{path}`")
+
+    if a3.button(
         "Calculate Proxy",
         key=_key("calculate_proxy"),
         width="stretch",
@@ -118,7 +167,7 @@ def render(
         if load_catalog().get(ecm_id).status in {"NEEDS_IMPLEMENTATION", "RESEARCH"}
     ]
     run_disabled = not scenario_ids or bool(blocked)
-    a3.button(
+    a4.button(
         "Run EnergyPlus",
         key=_key("run_energyplus"),
         width="stretch",

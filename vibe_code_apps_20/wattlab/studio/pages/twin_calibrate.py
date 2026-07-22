@@ -47,8 +47,10 @@ def _render_eui_index(
 
     st.subheader("EUI index — bills vs peers vs model")
     st.caption(
-        "Peer bands from public EPA/CBECS-style registry (kBtu/ft²-yr). "
-        "Model EUI is on the prototype footprint unless scaled — see note."
+        "**Bills** = your campus annualized site EUI. "
+        "**Peers** = EPA/CBECS-style registry p20/p50/p80 for this property type. "
+        "**Model** = EnergyPlus intensity on the prototype footprint "
+        "(comparable as EUI; absolute kWh is not site totals until geometry is scaled)."
     )
     bill_eui = None
     ptype = "office"
@@ -102,13 +104,26 @@ def _render_eui_index(
         model_label=str(model.get("run_id") or report.get("run_id") or "EnergyPlus"),
     )
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Bills site EUI", f"{idx['bill_eui_kbtu_ft2']} kBtu/ft²" if idx["bill_eui_kbtu_ft2"] is not None else "—")
-    m2.metric("Peer typical (p50)", f"{idx['peer_p50']} kBtu/ft²")
+    m1.metric(
+        "Bills site EUI",
+        f"{idx['bill_eui_kbtu_ft2']} kBtu/ft²" if idx["bill_eui_kbtu_ft2"] is not None else "—",
+        help="Annualized utility bills ÷ floor area (kBtu/ft²·yr).",
+    )
+    m2.metric(
+        "Peer typical (p50)",
+        f"{idx['peer_p50']} kBtu/ft²",
+        help="Median peer site EUI for this property type (public registry).",
+    )
     m3.metric(
         "Model EUI (prototype)",
         f"{idx['model_eui_kbtu_ft2']} kBtu/ft²" if idx["model_eui_kbtu_ft2"] is not None else "—",
+        help="EnergyPlus site EUI on prototype area (intensity comparable; scale absolute kWh).",
     )
-    m4.metric("Peer band", f"p20={idx['peer_p20']} · p80={idx['peer_p80']}")
+    m4.metric(
+        "Peer band",
+        f"p20={idx['peer_p20']} · p80={idx['peer_p80']}",
+        help="p20–p80 peer band: below p20 is efficient vs peers; above p80 needs attention.",
+    )
 
     df = pd.DataFrame(idx["rows"])
     st.dataframe(df, width="stretch", hide_index=True)
@@ -331,9 +346,22 @@ def render() -> None:
 
     if bundle is not None:
         gaps = gap_report(bundle)
-        missing = [g for g in gaps if g.get("severity") == "required" and g.get("status") == "missing"]
+        answers = st.session_state.get("studio_answers")
+        from wattlab.studio.status import required_gaps_still_missing, soften_required_gaps
+
+        soft = soften_required_gaps(gaps, answers if isinstance(answers, dict) else None)
+        missing = required_gaps_still_missing(gaps, answers if isinstance(answers, dict) else None)
+        answered_via = [
+            g for g in soft
+            if g.get("severity") == "required" and g.get("status") == "answered" and g.get("via")
+        ]
         if missing:
             st.warning("Dump still missing: " + ", ".join(g["field"] for g in missing))
+        elif answered_via:
+            st.info(
+                "Dump seed nulls covered by answers.json: "
+                + ", ".join(g["field"] for g in answered_via)
+            )
 
     profile = _profile()
     active_preview = _resolve_active_run()
@@ -729,10 +757,15 @@ def render() -> None:
                     key="dl_deliverable_zip",
                 )
             st.caption(
-                "Zip layout: `01_Report` · `02_Results` · `03_Models` · `04_Outputs` · `06_Documentation`"
+                "Zip: `01_Report` · `02_Results` · `03_Models` · `04_Outputs` · "
+                "`05_Source_Data` · `06_Documentation` — or download report/workbook alone."
             )
 
     st.subheader("Iteration history (agent + Studio)")
+    st.caption(
+        "Each published `runs/<id>/` after agent/CLI EnergyPlus. "
+        "Elapsed comes from `run_manifest.json` started_at → finished_at."
+    )
     hist = list_iteration_runs(runs_dir(), limit=15)
     if not hist:
         manifests = sorted(ARTIFACTS.glob("wattlab_*/run_manifest.json"), reverse=True)[:10]
@@ -745,6 +778,10 @@ def render() -> None:
                         "status": m.get("status"),
                         "dir": str(mp.parent),
                         "progress": 100 if m.get("status") in {"ok", "success", "SUCCESS"} else 0,
+                        "started_at": m.get("started_at"),
+                        "finished_at": m.get("finished_at"),
+                        "elapsed_s": None,
+                        "hypothesis": m.get("hypothesis") or m.get("notes"),
                     }
                 )
             except Exception:
@@ -752,20 +789,55 @@ def render() -> None:
     if not hist:
         st.caption("No prior runs in workspace runs/.")
     else:
+        st.metric("Published iterations shown", len(hist))
         enriched = []
         for h in hist:
-            row = dict(h)
+            row = {
+                "run_id": h.get("run_id"),
+                "hypothesis": h.get("hypothesis"),
+                "weather": h.get("weather_mode"),
+                "status": h.get("status"),
+                "eplusout": "yes" if h.get("has_eplusout") else "no",
+                "elapsed_s": h.get("elapsed_s"),
+                "progress": h.get("progress"),
+                "dir": h.get("dir"),
+            }
             model = load_model_eui_from_run(Path(str(h["dir"])) if h.get("dir") else None)
             if model.get("model_eui_kbtu_ft2") is not None:
                 row["model_eui_kbtu_ft2"] = model["model_eui_kbtu_ft2"]
             if model.get("prototype_area_scale") is not None:
                 row["prototype_area_scale"] = model["prototype_area_scale"]
-            if model.get("weather_mode"):
-                row["weather_mode"] = model["weather_mode"]
+            if model.get("weather_mode") and not row.get("weather"):
+                row["weather"] = model["weather_mode"]
             if model.get("peak_demand_kw") is not None:
                 row["peak_demand_kw"] = model["peak_demand_kw"]
+            if row.get("elapsed_s") is not None:
+                try:
+                    row["elapsed_min"] = round(float(row["elapsed_s"]) / 60.0, 2)
+                except (TypeError, ValueError):
+                    pass
             enriched.append(row)
-        st.dataframe(pd.DataFrame(enriched), width="stretch", hide_index=True)
+        show_cols = [
+            c
+            for c in (
+                "run_id",
+                "hypothesis",
+                "weather",
+                "status",
+                "eplusout",
+                "elapsed_min",
+                "elapsed_s",
+                "model_eui_kbtu_ft2",
+                "peak_demand_kw",
+                "prototype_area_scale",
+            )
+            if any(c in r for r in enriched)
+        ]
+        st.dataframe(
+            pd.DataFrame(enriched)[show_cols] if show_cols else pd.DataFrame(enriched),
+            width="stretch",
+            hide_index=True,
+        )
         pick = st.selectbox(
             "Inspect iteration",
             options=[h.get("dir") for h in hist if h.get("dir")],

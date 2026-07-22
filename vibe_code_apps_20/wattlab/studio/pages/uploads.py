@@ -184,12 +184,26 @@ def render() -> None:
         m3.metric("Tables", str(len(s.get("tables") or {})))
         m4.metric("Bills in dump", "yes" if s.get("has_bills") else "no")
         gaps = gap_report(bundle)
-        missing = [g for g in gaps if g.get("severity") == "required" and g.get("status") == "missing"]
+        answers = st.session_state.get("studio_answers")
+        from wattlab.studio.status import required_gaps_still_missing, soften_required_gaps
+
+        soft = soften_required_gaps(gaps, answers if isinstance(answers, dict) else None)
+        missing = required_gaps_still_missing(gaps, answers if isinstance(answers, dict) else None)
+        answered_via = [
+            g for g in soft
+            if g.get("severity") == "required" and g.get("status") == "answered" and g.get("via")
+        ]
         if missing:
             st.warning(
                 "NEEDS_INPUT: "
                 + ", ".join(str(g["field"]) for g in missing)
                 + " — fill on Twin / calibrate (or via agent answers.json)."
+            )
+        elif answered_via:
+            st.info(
+                "Dump seed nulls answered via answers.json: "
+                + ", ".join(str(g["field"]) for g in answered_via)
+                + " — Re-apply bootstrap or Twin form if profile not loaded."
             )
         if bundle.manifest:
             with st.expander("MANIFEST.json", expanded=False):

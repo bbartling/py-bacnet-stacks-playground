@@ -12,7 +12,27 @@
 
 Optimize for engineering defensibility, reproducibility, and honest limits (uncalibrated prototypes are screens, not calibrated models).
 
-## Tomorrow demo — vibe19 dump → EnergyPlus twin (generalized)
+## Tomorrow demo — vibe19 dump → EnergyPlus twin (GHCR-first)
+
+**Prefer the container** — see [`CONTAINER_AGENT.md`](CONTAINER_AGENT.md) and
+[`vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md`](vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md).
+No playground clone required for production soaks.
+
+```bash
+docker exec vibe20 cat /app/CONTAINER_AGENT.md
+
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
+  wattlab seed /data/uploads/dump/wattlab_dump.zip --gaps
+
+# Fill /data/reports/answers.json (never invent type/city/area), then:
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
+  wattlab twin /data/uploads/dump/wattlab_dump.zip \
+  --inputs /data/reports/answers.json --out /data/.artifacts/twin_demo --measure-set better
+
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab studio-status --write
+```
 
 Works for **any** building zip processed through vibe19 Export → **Build WattLab dump (zip)**.
 Do **not** hardcode BUILDING_100, Liberty, Detroit, or any site IDs, paths,
@@ -25,9 +45,9 @@ buildings ship their own JSON + CSVs.
 
 1. Load the historian package zip in vibe19 (Folder | Zip picker).
 2. Optionally run rules (Export auto-runs all rules if none have run yet).
-3. **Export** → **Build WattLab dump (zip)** → download `wattlab_dump_<id>.zip`.
+3. **Export** → **Build WattLab dump (zip)** → place under shared `/data/uploads/dump/`.
 
-### Agent prep (vibe20) — start with `wattlab twin`
+### Host contrib only (optional — not for GHCR soaks)
 
 ```powershell
 cd vibe_code_apps_20

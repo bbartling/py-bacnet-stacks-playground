@@ -2,10 +2,11 @@
 
 Produces a curated folder + zip:
 
-  01_Report/   executive markdown
-  02_Results/  workbook (xlsx) + scorecard JSON + eplustbl when present
+  01_Report/   executive markdown (14-section outline)
+  02_Results/  workbook (xlsx) + scorecard JSON + Iteration_Runs sheet
   03_Models/   IDF + EPW + README (reproducibility)
   04_Outputs/  selected native EnergyPlus files
+  05_Source_Data/  answers / bills / session_status when present
   06_Documentation/ assumption + change stamps
 
 Not a substitute for a signed PE report — stamps honesty / G14 / area scale.
@@ -50,7 +51,7 @@ def build_executive_markdown(
     report: dict[str, Any] | None = None,
     profile: dict[str, Any] | None = None,
 ) -> str:
-    """Readable engineering report (markdown) — client layer."""
+    """Readable engineering report (markdown) — client layer (14-section outline)."""
     sc = scorecard or {}
     rp = report or {}
     pr = profile or {}
@@ -60,6 +61,7 @@ def build_executive_markdown(
         ann = (rp["result_records"][0] or {}).get("annual") or {}
     wx = sc.get("weather_suitability") or rp.get("weather_suitability") or {}
     g14 = bills.get("stats_electricity") or bills.get("stats") or {}
+    gas = bills.get("stats_gas") or {}
     lines = [
         "# Energy modeling report (WattLab)",
         "",
@@ -79,25 +81,28 @@ def build_executive_markdown(
         "> This package supports existing-building screening / calibration. "
         "It is **not** final equipment selection, TAB, or construction documents.",
         "",
-        "## 2. Scope and objectives",
+        "## 2. Project scope and objectives",
         "",
         "Baseline EnergyPlus simulation with optional ASHRAE Guideline 14 monthly "
-        "gates (NMBE ±5%, CV(RMSE) ≤15%) when utility bills and AMY weather align.",
+        "gates (NMBE ±5%, CV(RMSE) ≤15%) when utility bills and AMY weather align. "
+        "Retrofit screening via catalog ECMs / measure sets when requested.",
         "",
-        "## 3. Building description (from profile / dump)",
+        "## 3. Existing-building description",
         "",
         f"- Building type: {pr.get('building_type') or '—'}",
         f"- City (user label): {pr.get('climate_city') or pr.get('city') or '—'}",
         f"- Floor area ft²: {pr.get('floor_area_ft2') or pr.get('conditioned_floor_area_ft2') or '—'}",
         f"- Floors: {pr.get('floors') or pr.get('number_of_floors') or '—'}",
+        f"- Lat/lon: {pr.get('lat') or '—'} / {pr.get('lon') or '—'}",
         "",
-        "## 4. Data sources",
+        "## 4. Data sources and site observations",
         "",
         f"- Data window: `{json.dumps(sc.get('data_window') or {})}`",
         f"- EPW / AMY: see `03_Models/`",
         f"- Utility bills compared: {bills.get('months_compared', 0)} months",
+        f"- Answers / source data: see `05_Source_Data/` when packaged",
         "",
-        "## 5. Methodology and assumptions",
+        "## 5. Modeling methodology",
         "",
         "- Engine: EnergyPlus via Docker (`energyplus-mcp-dev`)",
         "- Seed prototype: DOE 5ZoneAirCooled unless a custom IDF is supplied",
@@ -105,25 +110,31 @@ def build_executive_markdown(
         "prototype geometry is **not** site CAD",
         f"- G14 scale mode: `{json.dumps(sc.get('g14_scale') or {})}`",
         "",
+        "## 6. Major assumptions",
+        "",
         f"Area honesty: {rp.get('area_honesty') or sc.get('honesty') or '—'}",
         "",
-        "## 6. Baseline results",
+        "See `06_Documentation/Assumption_Register.csv` for input confidence tags.",
+        "",
+        "## 7. Baseline-model results",
         "",
         f"- Electricity kWh/yr: {(ann.get('electricity_kwh_year') if isinstance(ann, dict) else None)}",
         f"- Natural gas therm/yr: {(ann.get('natural_gas_therm_year') if isinstance(ann, dict) else None)}",
         f"- Peak demand kW: {(ann.get('peak_demand_kw') if isinstance(ann, dict) else None)}",
         "",
-        "## 7. Utility calibration (ASHRAE G14 monthly)",
+        "## 8. Utility calibration (ASHRAE G14 monthly)",
         "",
         f"- Pass/fail: **{bills.get('pass_fail')}**",
         f"- Electricity NMBE %: {g14.get('nmbe_pct')}",
         f"- Electricity CV(RMSE) %: {g14.get('cvrmse_pct')}",
+        f"- Gas NMBE %: {gas.get('nmbe_pct') if gas else '—'}",
+        f"- Gas CV(RMSE) %: {gas.get('cvrmse_pct') if gas else '—'}",
         f"- Period mismatch: {bills.get('period_mismatch')}",
         "",
         "Do not claim “calibrated” without these statistics and disclosure of "
         "which inputs were changed.",
         "",
-        "## 8. Measures / savings",
+        "## 9. Energy-conservation measures",
         "",
     ]
     savings = rp.get("savings_by_measure") or []
@@ -138,27 +149,41 @@ def build_executive_markdown(
                 f"{vs.get('kwh_saved')} |"
             )
     else:
-        lines.append("_No progressive ECM table in this package (baseline-only or calibrate run)._")
+        lines.append(
+            "_No progressive ECM table in this package (baseline-only or calibrate run). "
+            "See `reports/ecm_scenario.json` / Easy Buttons for screening selections._"
+        )
     lines.extend(
         [
             "",
-            "## 9. Limitations",
+            "## 10. Savings, cost and emissions",
+            "",
+            "_Cost / emissions: NEEDS_INPUT unless rates and carbon factors were provided._",
+            "",
+            "## 11. HVAC sizing and operational findings",
+            "",
+            f"- Sizing scenario: **{sc.get('sizing_scenario') or rp.get('sizing_scenario') or 'autosize'}**",
+            f"- Peak demand kW: **{(ann.get('peak_demand_kw') if isinstance(ann, dict) else None) or '—'}**",
+            "",
+            "## 12. Limitations",
             "",
             "- Unscaled prototype footprint unless a site-specific IDF is provided",
             "- Weather may be AMY (calibration) or TMY substitute (screening only)",
             "- Shared-meter electric splits are scenarios, not measured submeters",
             "",
-            "## 10. Conclusions and next steps",
+            "## 13. Conclusions and recommendations",
             "",
             "1. Confirm NEEDS_INPUT site facts (area, stories, plant nameplates, meter split).",
             "2. Iterate AMY + constrained HVAC until G14 passes or document failure → ESCO proxies.",
             "3. Do not publish calibrated ROI until G14 status is VALIDATED / CALIBRATED_NOT_VALIDATED.",
             "",
-            "## Appendices",
+            "## 14. Technical appendices",
             "",
-            "- `02_Results/` — workbook + scorecard",
-            "- `03_Models/` — IDF / EPW / rerun README",
+            "- `02_Results/` — workbook + scorecard + Iteration_Runs",
+            "- `03_Models/` — IDF / EPW / rerun README (EnergyPlus version pin)",
             "- `04_Outputs/` — selected EnergyPlus tabular / err files",
+            "- `05_Source_Data/` — answers / bills / session_status when present",
+            "- `06_Documentation/` — assumption register + package stamp",
             "",
         ]
     )
@@ -169,6 +194,7 @@ def build_results_workbook_bytes(
     *,
     scorecard: dict[str, Any] | None = None,
     report: dict[str, Any] | None = None,
+    iteration_runs: list[dict[str, Any]] | None = None,
 ) -> bytes:
     """Excel workbook (openpyxl) — engineering layer."""
     from openpyxl import Workbook
@@ -304,6 +330,46 @@ def build_results_workbook_bytes(
     ]:
         ws5.append(list(row))
 
+    # Iteration runs dashboard
+    ws6 = wb.create_sheet("Iteration_Runs")
+    ws6.append(
+        [
+            "run_id",
+            "hypothesis",
+            "status",
+            "elapsed_s",
+            "weather_mode",
+            "g14_pass_fail",
+            "nmbe_elec_pct",
+        ]
+    )
+    g14_snip = (sc.get("utility_bills") or {}).get("pass_fail")
+    nmbe = ((sc.get("utility_bills") or {}).get("stats_electricity") or {}).get("nmbe_pct")
+    for it in iteration_runs or []:
+        ws6.append(
+            [
+                it.get("run_id"),
+                it.get("hypothesis"),
+                it.get("status"),
+                it.get("elapsed_s"),
+                it.get("weather_mode") or it.get("weather"),
+                it.get("g14_pass_fail") or g14_snip,
+                it.get("nmbe_elec_pct") or nmbe,
+            ]
+        )
+    if not iteration_runs and sc.get("run_id"):
+        ws6.append(
+            [
+                sc.get("run_id"),
+                "primary scorecard run",
+                sc.get("status"),
+                None,
+                (sc.get("weather_suitability") or {}).get("mode"),
+                g14_snip,
+                nmbe,
+            ]
+        )
+
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
@@ -342,6 +408,8 @@ def package_deliverables(
     report: dict[str, Any] | None = None,
     profile: dict[str, Any] | None = None,
     zip_name: str | None = None,
+    source_files: list[Path] | None = None,
+    iteration_runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Write curated deliverable tree + zip; return paths/meta."""
     out = Path(out_dir)
@@ -352,6 +420,7 @@ def package_deliverables(
         "02_Results",
         "03_Models/Baseline",
         "04_Outputs/Baseline",
+        "05_Source_Data",
         "06_Documentation",
     ):
         (out / sub).mkdir(parents=True, exist_ok=True)
@@ -365,11 +434,24 @@ def package_deliverables(
     if not rp and run_dir:
         rp = _safe_read_json(Path(run_dir) / "wattlab_report.json")
 
+    # Collect iteration rows for workbook when not provided
+    iters = list(iteration_runs or [])
+    if not iters and run_dir is not None:
+        try:
+            from wattlab.studio.ep_viz import list_iteration_runs
+            from wattlab.studio.workspace import runs_dir
+
+            iters = list_iteration_runs(runs_dir(), limit=20)
+        except Exception:  # noqa: BLE001
+            iters = []
+
     md = build_executive_markdown(scorecard=sc, report=rp, profile=profile)
     report_path = out / "01_Report" / "Energy_Modeling_Report.md"
     report_path.write_text(md, encoding="utf-8")
 
-    xlsx_bytes = build_results_workbook_bytes(scorecard=sc, report=rp)
+    xlsx_bytes = build_results_workbook_bytes(
+        scorecard=sc, report=rp, iteration_runs=iters
+    )
     xlsx_path = out / "02_Results" / "Energy_Model_Results.xlsx"
     xlsx_path.write_bytes(xlsx_bytes)
 
@@ -442,11 +524,54 @@ def package_deliverables(
         manifest = _safe_read_json(root / "run_manifest.json")
         ep_ver = manifest.get("energyplus_version") or manifest.get("docker_image")
 
+        # Campaign change log if present
+        for name in ("campaign_stamp.json", "Model_Change_Log.json", "change_log.json"):
+            cl = root / name
+            if cl.is_file():
+                shutil.copy2(cl, out / "06_Documentation" / name)
+                break
+
     readme = build_rerun_readme(
         energyplus_version=str(ep_ver) if ep_ver else None,
         run_id=str(sc.get("run_id") or rp.get("run_id") or ""),
     )
     (out / "03_Models" / "Baseline" / "README.md").write_text(readme, encoding="utf-8")
+
+    # 05_Source_Data — answers / bills / session_status
+    src_dest = out / "05_Source_Data"
+    copied_src: list[str] = []
+    candidates = list(source_files or [])
+    try:
+        from wattlab.studio.workspace import reports_dir
+
+        reports = reports_dir()
+        for name in (
+            "answers.json",
+            "answers_building_100.json",
+            "answers_building_50.json",
+            "utility_bills.csv",
+            "session_status.json",
+            "ecm_scenario.json",
+        ):
+            p = reports / name
+            if p.is_file():
+                candidates.append(p)
+    except Exception:  # noqa: BLE001
+        pass
+    seen: set[str] = set()
+    for p in candidates:
+        p = Path(p)
+        if not p.is_file() or p.name in seen:
+            continue
+        seen.add(p.name)
+        shutil.copy2(p, src_dest / p.name)
+        copied_src.append(p.name)
+    (src_dest / "README.md").write_text(
+        "# Source data\n\n"
+        "Copies of answers / bills / session_status / ecm_scenario when present "
+        "on the Studio workspace at package time.\n",
+        encoding="utf-8",
+    )
 
     stamp = {
         "product": "WattLab deliverable package",
@@ -455,6 +580,8 @@ def package_deliverables(
         "g14_pass_fail": (sc.get("utility_bills") or {}).get("pass_fail"),
         "weather_mode": (sc.get("weather_suitability") or {}).get("mode"),
         "prototype_area_scale": sc.get("prototype_area_scale") or rp.get("prototype_area_scale"),
+        "source_data_files": copied_src,
+        "iteration_runs_count": len(iters),
         "intended_use": (
             "Existing-building energy analysis and retrofit screening. "
             "Not a substitute for detailed mechanical design."

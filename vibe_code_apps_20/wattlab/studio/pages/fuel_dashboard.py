@@ -114,14 +114,38 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
     )
 
     st.subheader("Site EUI vs peers (same property type)")
+    with st.expander("How buildings are benchmarked", expanded=False):
+        st.markdown(
+            "Site EUI is annualized utility energy ÷ floor area (kBtu/ft²·yr). "
+            "Peer **p20 / p50 / p80** come from a public EPA/CBECS-style registry "
+            "keyed by each building's `property_type` (office, school, …). "
+            "Below p20 ≈ efficient vs peers; above p80 ≈ needs attention. "
+            "This is a screening band — not ENERGY STAR scores or calibrated models."
+        )
     rows = _peer_rows(summary)
     dfb = pd.DataFrame(rows)
     b0 = rows[0]
     p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Bill site EUI", f"{b0['site_eui_kbtu_ft2']} kBtu/ft²")
-    p2.metric("Peer typical (p50)", f"{b0['peer_p50']} kBtu/ft²")
-    p3.metric("Peer p20–p80", f"{b0['peer_p20']} – {b0['peer_p80']}")
-    p4.metric("vs median", f"{b0['peer_vs_median_pct']:+.1f}% · {b0['peer_band']}")
+    p1.metric(
+        "Bill site EUI",
+        f"{b0['site_eui_kbtu_ft2']} kBtu/ft²",
+        help="Annualized campus/building bills ÷ floor area (kBtu/ft²·yr).",
+    )
+    p2.metric(
+        "Peer typical (p50)",
+        f"{b0['peer_p50']} kBtu/ft²",
+        help="Median peer site EUI for this property_type (EPA/CBECS-style registry).",
+    )
+    p3.metric(
+        "Peer p20–p80",
+        f"{b0['peer_p20']} – {b0['peer_p80']}",
+        help="Typical peer band: p20 (efficient side) to p80 (high side).",
+    )
+    p4.metric(
+        "vs median",
+        f"{b0['peer_vs_median_pct']:+.1f}% · {b0['peer_band']}",
+        help="Percent vs peer p50 and band label (efficient / typical / high).",
+    )
 
     fig_peer = go.Figure()
     p20 = float(dfb["peer_p20"].iloc[0])

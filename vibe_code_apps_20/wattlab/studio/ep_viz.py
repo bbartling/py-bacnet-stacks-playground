@@ -233,6 +233,27 @@ def outdoor_figure(outdoor: pd.DataFrame):
     return fig
 
 
+def _elapsed_seconds(manifest: dict[str, Any] | None) -> float | None:
+    """Parse started_at / finished_at ISO stamps into elapsed seconds."""
+    if not manifest:
+        return None
+    started = manifest.get("started_at")
+    finished = manifest.get("finished_at")
+    if not started or not finished:
+        return None
+    try:
+        from datetime import datetime
+
+        def _parse(s: str) -> datetime:
+            s = str(s).replace("Z", "+00:00")
+            return datetime.fromisoformat(s)
+
+        delta = _parse(finished) - _parse(started)
+        return max(0.0, float(delta.total_seconds()))
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def read_run_progress(run_dir: Path) -> dict[str, Any]:
     """Load progress/log/manifest for the 08 left-hand manage card."""
     run_dir = Path(run_dir)
@@ -243,6 +264,11 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
         "log_tail": "",
         "manifest": {},
         "replay": False,
+        "started_at": None,
+        "finished_at": None,
+        "elapsed_s": None,
+        "hypothesis": None,
+        "weather_mode": None,
     }
     manifest_path = run_dir / "run_manifest.json"
     if manifest_path.is_file():
@@ -250,8 +276,43 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
             out["manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
             out["status"] = str(out["manifest"].get("status") or out["status"])
             out["run_id"] = str(out["manifest"].get("run_id") or out["run_id"])
+            out["started_at"] = out["manifest"].get("started_at")
+            out["finished_at"] = out["manifest"].get("finished_at")
+            out["elapsed_s"] = _elapsed_seconds(out["manifest"])
+            out["hypothesis"] = (
+                out["manifest"].get("hypothesis")
+                or out["manifest"].get("notes")
+                or out["manifest"].get("label")
+            )
+            out["weather_mode"] = out["manifest"].get("weather_mode") or (
+                (out["manifest"].get("weather") or {}) if isinstance(out["manifest"].get("weather"), dict) else {}
+            )
+            if isinstance(out["weather_mode"], dict):
+                out["weather_mode"] = out["weather_mode"].get("mode")
         except (OSError, json.JSONDecodeError):
             pass
+    # Hypothesis from wattlab_report / scorecard when manifest lacks it
+    if not out["hypothesis"]:
+        for name in ("wattlab_report.json", "calibration_scorecard.json"):
+            rp = run_dir / name
+            if rp.is_file():
+                try:
+                    data = json.loads(rp.read_text(encoding="utf-8"))
+                    out["hypothesis"] = (
+                        data.get("hypothesis")
+                        or data.get("notes")
+                        or (data.get("weather_suitability") or {}).get("reason")
+                    )
+                    if not out["weather_mode"]:
+                        out["weather_mode"] = (data.get("weather_suitability") or {}).get("mode")
+                    if out["hypothesis"]:
+                        break
+                except (OSError, json.JSONDecodeError):
+                    continue
+    if not out["hypothesis"]:
+        # Readable stem: t10_b100_r2_amy_lockout60 → amy lockout60
+        stem = out["run_id"]
+        out["hypothesis"] = stem.replace("_", " ") if stem else None
     progress_path = run_dir / "progress.json"
     if progress_path.is_file():
         try:
@@ -260,7 +321,7 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
             out["status"] = str(prog.get("status") or out["status"])
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
-    elif out["status"] in {"ok", "success", "completed", "complete"}:
+    elif out["status"] in {"ok", "success", "completed", "complete", "published"}:
         out["progress"] = 100
     for log_name in ("eplusout.err", "energyplus.log", "console.log", "run.log"):
         lp = run_dir / log_name
@@ -275,6 +336,10 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
         out["replay"] = True
         out["progress"] = max(out["progress"], 100)
         out["status"] = out["status"] if out["status"] != "unknown" else "replay"
+    try:
+        out["mtime"] = float(run_dir.stat().st_mtime)
+    except OSError:
+        out["mtime"] = None
     return out
 
 
@@ -284,7 +349,7 @@ def list_iteration_runs(runs_root: Path, limit: int = 20) -> list[dict[str, Any]
         return []
     rows: list[dict[str, Any]] = []
     for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-        if not d.is_dir():
+        if not d.is_dir() or d.name.startswith("_"):
             continue
         info = read_run_progress(d)
         info["dir"] = str(d)

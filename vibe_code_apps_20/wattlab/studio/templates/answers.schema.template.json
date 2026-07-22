@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "_meta": {
+    "description": "Blank answers template — fill nulls; do not invent required site facts.",
+    "required": ["building_type", "city", "floor_area_ft2"],
+    "optional": ["floors", "lat", "lon", "wwr", "utility", "measure_set", "cooling_tons", "fan_hp"],
+    "phase2": ["interval_meters", "tariffs", "carbon"]
+  },
+  "building_type": null,
+  "city": null,
+  "floor_area_ft2": null,
+  "floors": null,
+  "lat": null,
+  "lon": null,
+  "wwr": null,
+  "measure_set": null,
+  "utility": {
+    "elec_usd_per_kwh": null,
+    "gas_usd_per_therm": null
+  },
+  "cooling_tons": null,
+  "fan_hp": null
+}
