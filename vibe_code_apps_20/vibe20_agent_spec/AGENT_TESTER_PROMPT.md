@@ -98,9 +98,9 @@ curl -sf http://127.0.0.1:8520/_stcore/health
 ```
 
 Tip image includes the **Docker CLI** (no host `docker` binary bind-mount).
-Prefer tip after agent/UI tip (`ghcr.io/bbartling/vibe20:latest`) — studio-status,
-profile→ECMs, ecm_scenario, iteration elapsed, richer deliverables.
+Prefer tip after live-08 + status fixes (`ghcr.io/bbartling/vibe20:latest`).
 Start inside the image: `docker exec vibe20 cat /app/CONTAINER_AGENT.md`.
+Live Twin 08 = DinD `progress.json` poll (not pyenergyplus).
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
 Docker E+ / DinD). Prefer agents: `docker exec vibe20 wattlab …`
 ([`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)).
@@ -215,6 +215,10 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
     **answered** when answers fill dump nulls; bootstrap answers → `studio_profile` unlocks ECMs.
 25. Twin iteration table shows **elapsed** when manifests have timestamps; client package
     zip includes `05_Source_Data` + report/workbook individual downloads.
+26. **Studio DinD live 08:** Run EnergyPlus button shows progress % updating from
+    `progress.json` (no Streamlit exception); OA/floor after CSV.
+27. `studio-status`: `ecm_scenario.status` reflects selected ids; `twin.g14` from
+    scorecard; `utility_bills` answered from answers/CSV; bootstrap `--ecm-scenario` merge-safe.
 
 ## PASS / FAIL
 

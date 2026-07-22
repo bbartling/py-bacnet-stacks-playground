@@ -105,6 +105,15 @@ def soften_required_gaps(
             row["status"] = "answered"
             row["value"] = answers.get(field)
             row["via"] = "answers.json"
+        # Align utility dual-view when answers.utility is filled
+        if (
+            field == "utility"
+            and row.get("status") == "missing"
+            and _truthy(answers.get("utility"))
+        ):
+            row["status"] = "answered"
+            row["value"] = answers.get("utility")
+            row["via"] = "answers.json"
         out.append(row)
     return out
 
@@ -217,28 +226,73 @@ def build_session_status(
     for name in PHASE2_FIELDS:
         fields[name] = _field_row(required=False, phase=2, answers=answers.get(name))
 
-    # utility_bills from gap or answers note
+    # utility_bills from dump gap, answers array, or reports CSV
     ub = gap_by_field.get("utility_bills") or {}
-    fields["utility_bills"] = {
-        "required": False,
-        "status": "answered" if ub.get("status") == "ok" else "missing",
-        "note": ub.get("value") or ub.get("why"),
-    }
+    bills_csv = root / "reports" / "utility_bills.csv"
+    if ub.get("status") == "ok":
+        fields["utility_bills"] = {
+            "required": False,
+            "status": "answered",
+            "note": ub.get("value") or ub.get("why"),
+        }
+    elif _truthy(answers.get("utility_bills")):
+        fields["utility_bills"] = {
+            "required": False,
+            "status": "answered",
+            "note": "from answers.json",
+            "answers": answers.get("utility_bills"),
+        }
+    elif bills_csv.is_file():
+        fields["utility_bills"] = {
+            "required": False,
+            "status": "answered",
+            "note": "reports/utility_bills.csv",
+        }
+    else:
+        fields["utility_bills"] = {
+            "required": False,
+            "status": "missing",
+            "note": ub.get("value") or ub.get("why"),
+        }
 
     run_p: Path | None = Path(run_dir) if run_dir else None
     if run_p is None and boot.get("preferred_run_id"):
-        cand = runs_dir() / str(boot["preferred_run_id"])
-        if workspace is not None:
-            cand = root / "runs" / str(boot["preferred_run_id"])
+        cand = root / "runs" / str(boot["preferred_run_id"])
         if cand.is_dir():
             run_p = cand
-    scorecard = _load_json(run_p / "calibration_scorecard.json") if run_p else {}
+    if run_p is None:
+        pointer = root / "runs" / "CURRENT_RUN.txt"
+        if pointer.is_file():
+            try:
+                p = Path(pointer.read_text(encoding="utf-8").strip())
+                if p.is_dir():
+                    run_p = p
+            except OSError:
+                pass
+
+    scorecard: dict[str, Any] = {}
+    if run_p is not None:
+        scorecard = _load_json(run_p / "calibration_scorecard.json")
+        if not scorecard:
+            stamp = _load_json(run_p / "campaign_stamp.json")
+            sp = stamp.get("scorecard_path")
+            if sp and Path(str(sp)).is_file():
+                scorecard = _load_json(Path(str(sp)))
+            elif stamp:
+                scorecard = stamp
+        if not scorecard:
+            report = _load_json(run_p / "wattlab_report.json")
+            if report.get("utility_bills") or report.get("calibration"):
+                scorecard = report
     g14_block: dict[str, Any] = {}
     bills = scorecard.get("utility_bills") or {}
     stats = bills.get("stats_electricity") or bills.get("stats") or {}
-    if bills or stats:
+    if bills or stats or scorecard.get("pass_fail") or scorecard.get("status"):
         g14_block = {
-            "overall": bills.get("pass_fail") or scorecard.get("status") or "n/a",
+            "overall": bills.get("pass_fail")
+            or scorecard.get("pass_fail")
+            or scorecard.get("status")
+            or "n/a",
             "nmbe_elec_pct": stats.get("nmbe_pct"),
             "cvrmse_elec_pct": stats.get("cvrmse_pct"),
             "months_compared": bills.get("months_compared"),
@@ -250,6 +304,10 @@ def build_session_status(
         if not cand.is_absolute():
             cand = root / cand
         ecm_path = cand
+    if ecm_path is None:
+        default_ecm = root / "reports" / "ecm_scenario.json"
+        if default_ecm.is_file():
+            ecm_path = default_ecm
     ecm = load_ecm_scenario(ecm_path)
 
     return {

@@ -150,6 +150,31 @@ workbook.xlsx, and full zip (`05_Source_Data` included when answers/bills presen
 
 Fuel **Portfolio** peer metrics have `?` help text + “How buildings are benchmarked”.
 
+## DinD live progress → APIHelper-08 panes
+
+While EnergyPlus runs in `energyplus-mcp-dev`, WattLab streams console lines into
+`runs/<id>/console.log` and updates `runs/<id>/progress.json` (percent + status).
+Studio Twin polls that folder (fragment / live status box) — **not** embedded
+`pyenergyplus`. OA / floor-plan charts appear after `eplusout.csv` (ReadVars `-r`).
+
+Agent path publishes the same files; human **Refresh agent runs** or leave Twin open.
+
+## studio-bootstrap --ecm-scenario (merge-safe)
+
+```bash
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 \
+  wattlab studio-bootstrap \
+  --run-id calibrate_… \
+  --ecm-scenario /data/reports/ecm_scenario.json
+```
+
+Rewrites **merge** existing `studio_bootstrap.json` keys (campus/dump/answers/ecm)
+so a partial CLI call does not drop `ecm_scenario_path`.
+
+`wattlab studio-status` fills `twin.g14` from scorecard / campaign_stamp, marks
+`utility_bills` answered from answers array or `reports/utility_bills.csv`, and
+normalizes `ecm_scenario.status` when ids are selected.
+
 ## Agent flow (no git)
 
 ```text

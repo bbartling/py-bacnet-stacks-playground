@@ -39,6 +39,7 @@ _CONTENT_KEYS = (
     "dump_zip",
     "preferred_run_id",
     "answers_path",
+    "ecm_scenario_path",
 )
 
 
@@ -151,15 +152,16 @@ def build_bootstrap_payload(
     dump_zip: str | Path | None = None,
     preferred_run_id: str | None = None,
     answers_path: str | Path | None = None,
+    ecm_scenario_path: str | Path | None = None,
     auto_refresh_runs: bool = True,
     notes: str = "",
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "version": BOOTSTRAP_VERSION,
         "auto_refresh_runs": bool(auto_refresh_runs),
-        "notes": notes
-        or "Written by agent after publish_run_for_studio for Studio auto-load",
     }
+    if notes:
+        payload["notes"] = notes
     if energy_campus_dir:
         payload["energy_campus_dir"] = str(energy_campus_dir)
     if dump_zip:
@@ -168,7 +170,39 @@ def build_bootstrap_payload(
         payload["preferred_run_id"] = str(preferred_run_id)
     if answers_path:
         payload["answers_path"] = str(answers_path)
+    if ecm_scenario_path:
+        payload["ecm_scenario_path"] = str(ecm_scenario_path)
     return payload
+
+
+def merge_bootstrap_payload(
+    new_fields: dict[str, Any],
+    *,
+    existing_path: Path | None = None,
+) -> dict[str, Any]:
+    """Merge into existing studio_bootstrap.json so unspecified keys survive."""
+    from wattlab.studio.workspace import ensure_workspace
+
+    root = ensure_workspace()
+    path = existing_path or (root / DEFAULT_BOOTSTRAP_NAME)
+    base: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                base = dict(raw)
+        except (OSError, json.JSONDecodeError):
+            base = {}
+    for k, v in new_fields.items():
+        if v is None or v == "":
+            continue
+        base[k] = v
+    base["version"] = BOOTSTRAP_VERSION
+    if "auto_refresh_runs" not in base:
+        base["auto_refresh_runs"] = True
+    if not base.get("notes"):
+        base["notes"] = "Written by agent after publish_run_for_studio for Studio auto-load"
+    return base
 
 
 def write_bootstrap(
@@ -425,6 +459,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dump", type=Path, default=None, help="dump zip or folder")
     p.add_argument("--run-id", type=str, default=None, help="preferred runs/<id>")
     p.add_argument("--answers", type=Path, default=None)
+    p.add_argument(
+        "--ecm-scenario",
+        type=Path,
+        default=None,
+        help="reports/ecm_scenario.json (persisted; merge keeps prior keys)",
+    )
     p.add_argument("--notes", type=str, default="")
     p.add_argument("--out", type=Path, default=None, help="override bootstrap path")
     p.add_argument("--no-fallback", action="store_true")
@@ -447,19 +487,27 @@ def main(argv: list[str] | None = None) -> int:
     if campus is not None and campus.is_file() and campus.name == "campus.json":
         campus = campus.parent
 
-    payload = build_bootstrap_payload(
+    new_fields = build_bootstrap_payload(
         energy_campus_dir=_rel(campus) if campus else None,
         dump_zip=_rel(args.dump) if args.dump else None,
         preferred_run_id=args.run_id,
         answers_path=_rel(args.answers) if args.answers else None,
+        ecm_scenario_path=_rel(args.ecm_scenario) if args.ecm_scenario else None,
         notes=args.notes,
     )
-    if not any(
-        payload.get(k)
-        for k in ("energy_campus_dir", "dump_zip", "preferred_run_id", "answers_path")
-    ):
+    # Drop empty notes so merge does not wipe richer prior notes unless --notes passed
+    if not args.notes:
+        new_fields.pop("notes", None)
+    existing = Path(args.out) if args.out else (root / DEFAULT_BOOTSTRAP_NAME)
+    payload = merge_bootstrap_payload(new_fields, existing_path=existing)
+    if not any(payload.get(k) for k in _CONTENT_KEYS):
         print(
-            json.dumps({"ok": False, "error": "NEEDS_INPUT: pass --campus and/or --dump and/or --run-id"}),
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": "NEEDS_INPUT: pass --campus and/or --dump and/or --run-id and/or --ecm-scenario",
+                }
+            ),
             file=sys.stderr,
         )
         return 1

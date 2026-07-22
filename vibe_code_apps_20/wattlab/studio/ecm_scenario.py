@@ -46,6 +46,10 @@ def load_ecm_scenario(path: Path | str | None = None) -> dict[str, Any]:
     if not isinstance(ids, list):
         ids = []
     out["selected_ecm_ids"] = [str(x) for x in ids]
+    if out["selected_ecm_ids"]:
+        out["status"] = f"{len(out['selected_ecm_ids'])} ECMs selected"
+    else:
+        out["status"] = "empty — waiting agent or Easy Buttons"
     return out
 
 

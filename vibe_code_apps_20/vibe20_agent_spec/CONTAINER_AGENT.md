@@ -3,6 +3,22 @@
 You are inside **`ghcr.io/bbartling/vibe20:latest`** (or vibe19). Work on the shared volume
 `/data` ↔ host `WATTLAB_HOST_WORKSPACE`. Streamlit is for the **human** browser only.
 
+## Behind the scenes (agent ↔ Studio)
+
+```text
+agent: wattlab twin | calibrate-campaign | easy-button | ecm_scenario.json
+        │
+        ▼  Docker energyplus-mcp-dev (DinD)
+runs/<id>/progress.json + console.log   ← live while sim runs
+runs/<id>/eplusout.csv                  ← after ReadVars (-r)
+publish_run_for_studio → CURRENT_RUN + bootstrap preferred_run_id
+        │
+        ▼
+Human Studio Twin: fragment polls progress; OA/floor charts after CSV
+```
+
+No HTTP wrapper. No embedded `pyenergyplus` in Streamlit — live 08 panes are **file polls**.
+
 ## Read first
 
 | Path | Why |
@@ -10,10 +26,9 @@ You are inside **`ghcr.io/bbartling/vibe20:latest`** (or vibe19). Work on the sh
 | `/app/CONTAINER_AGENT.md` | Root copy of this guide |
 | `/app/vibe20_agent_spec/CONTAINER_AGENT.md` | Same |
 | `/app/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md` | Shared volume + DinD + bootstrap |
-| `/app/vibe20_agent_spec/AGENTS.md` | Mission / agent OS (prefer over root clone demos) |
+| `/app/vibe20_agent_spec/AGENTS.md` | Mission / agent OS |
 | `/app/vibe20_agent_spec/DATA_CONTRACT.md` | Dump / answers / campus schemas |
 | `/app/vibe20_agent_spec/AGENT_TESTER_PROMPT.md` | Soak checklist |
-| `/app/vibe20_agent_spec/skills/wattlab-*/SKILL.md` | Procedure skills |
 
 ## Run (preferred)
 
@@ -23,17 +38,12 @@ docker exec -e WATTLAB_STUDIO_WORKSPACE=/data \
   wattlab <cmd>
 ```
 
-Useful commands:
-
-- `wattlab studio-status --write` → `reports/session_status.json` (missing vs answered)
-- `wattlab studio-bootstrap --campus … --dump … --run-id … --answers …`
-- `wattlab calibrate-campaign …` / `wattlab twin …` / `wattlab ecm list|packages`
-- Write `reports/ecm_scenario.json` → Studio ECMs Easy Buttons (after profile from answers)
-
-Human: open Studio → **refresh** or sidebar **Re-apply bootstrap**.
+- `wattlab studio-status --write`
+- `wattlab studio-bootstrap … --ecm-scenario /data/reports/ecm_scenario.json` (merge-safe)
+- Write `reports/ecm_scenario.json` for Easy Buttons
 
 ## Do not
 
-- Require `git clone` / `pip install -e` for production soaks (host contrib only)
-- Invent `building_type` / `city` / `floor_area_ft2` — write `reports/answers*.json`
+- Require git clone for soaks
+- Invent required site facts
 - Claim calibrated ROI without G14 stamps
