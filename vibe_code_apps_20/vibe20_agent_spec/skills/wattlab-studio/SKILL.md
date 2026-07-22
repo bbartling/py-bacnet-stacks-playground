@@ -1,18 +1,24 @@
 ---
 name: wattlab-studio
 description: >-
-  Use when working on WattLab Studio Streamlit: 4 pages (Uploads, Fuel dashboard,
-  Twin/calibrate, ECMs), workspace uploads/runs/reports, Excel→campus fallback,
-  APIHelper-08 Twin panes, AppTest smoke, Plotly. Triggers on: Studio, Streamlit,
-  studio.py, Uploads, Fuel dashboard, Twin, ECMs, AppTest, eplusout, floor plan.
+  Use when working on WattLab Studio Streamlit: 4 sidebar pages (Uploads, Fuel
+  dashboard with Phase-1 Plotly tabs, Twin/calibrate, ECMs), studio_bootstrap.json
+  auto-load, workspace uploads/runs/reports, APIHelper-08 Twin panes, AppTest smoke,
+  Plotly. Native Streamlit only — not FastAPI embedding Streamlit. Triggers on:
+  Studio, Streamlit, studio.py, Uploads, Fuel dashboard, Twin, ECMs, AppTest,
+  eplusout, floor plan, studio-bootstrap.
 ---
 
-# WattLab Studio — ESCO cockpit (4 pages)
+# WattLab Studio — ESCO cockpit (4 sidebar pages)
 
 Human-facing dropzone + results viewer. Launch: `wattlab studio` or GHCR
-`ghcr.io/bbartling/vibe20:latest` on `:8520`. Any AI agent chats **outside**
-Streamlit on `WATTLAB_STUDIO_WORKSPACE` and publishes Twin runs for the browser.
+`ghcr.io/bbartling/vibe20:latest` on `:8520`. **Native Streamlit only** — not
+FastAPI/Flask embedding Streamlit. Any AI agent chats **outside** Streamlit on
+`WATTLAB_STUDIO_WORKSPACE` (or `wattlab studio-bootstrap` for zero-click load)
+and publishes Twin runs for the browser.
 Pages: `wattlab/studio/pages/{uploads,fuel_dashboard,twin_calibrate,ecms}.py`.
+Fuel dashboard uses Phase-1 **tabs** (Portfolio / Monthly / Weather / Demand /
+Data Quality); interval EIS tabs stay Phase 2 NEEDS_INPUT.
 
 ## Hard rule — data-model driven sites
 
@@ -29,7 +35,7 @@ Pages: `wattlab/studio/pages/{uploads,fuel_dashboard,twin_calibrate,ecms}.py`.
 | Page | Does | Key session keys |
 | --- | --- | --- |
 | Uploads | dump v3 + energy package (campus / Excel / Haystack); workspace listing | `studio_bundle`, `studio_energy`, `studio_campus`, `studio_utility_bills_path` |
-| Fuel dashboard | monthly fuel, peers, HDD/CDD, gap-aware charts | `studio_campus` / `fuel_weather_*` |
+| Fuel dashboard | Phase-1 tabs: Portfolio / Monthly / Weather / Demand / Data Quality (+ Phase-2 stubs) | `studio_campus` / `fuel_weather_*` |
 | Twin / calibrate | profile, dry-run, Docker E+, 08 panes (progress/OA/floor or multi-floor schematic), EUI index, G14 scorecard, **client package** downloads, iteration history | `studio_profile`, `studio_plan`, `studio_report`, `studio_active_run`, `studio_deliverable` |
 | ECMs | catalog Easy Buttons + capital guardrails + optional client zip from report | `studio_measures`, `studio_proxies`, `studio_capital_plan`, `studio_guardrail_gate` |
 

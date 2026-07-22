@@ -223,7 +223,10 @@ reports/           # dry-run plans, capital_plan.json, scorecards
 WORKSPACE.md
 ```
 
-Streamlit pages (4 only): **Uploads** → **Fuel dashboard** → **Twin / calibrate** → **ECMs**.
-Agents read/write this tree outside Streamlit; Studio refreshes as a viewer.
+Streamlit pages (sidebar): **Uploads** → **Fuel dashboard** (Phase-1 Plotly tabs:
+Portfolio / Monthly / Weather / Demand / Data Quality; Phase-2 stubs for interval)
+→ **Twin / calibrate** → **ECMs**.
+Agents read/write this tree outside Streamlit; Studio refreshes as a viewer
+(or auto-loads via `studio_bootstrap.json`).
 Energy-use loader: `wattlab.energy_use.load_energy_use_package` (campus +
 `column_map` / `bill_columns`). Tests: `tests/test_energy_use_package.py`.

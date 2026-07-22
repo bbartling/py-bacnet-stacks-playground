@@ -22,6 +22,23 @@ from typing import Any
 BOOTSTRAP_VERSION = 1
 DEFAULT_BOOTSTRAP_NAME = "studio_bootstrap.json"
 FALLBACK_BOOTSTRAP_NAME = ".last_studio_session.json"
+_KNOWN_KEYS = frozenset(
+    {
+        "version",
+        "energy_campus_dir",
+        "dump_zip",
+        "preferred_run_id",
+        "answers_path",
+        "auto_refresh_runs",
+        "notes",
+    }
+)
+_CONTENT_KEYS = (
+    "energy_campus_dir",
+    "dump_zip",
+    "preferred_run_id",
+    "answers_path",
+)
 
 
 def bootstrap_disabled() -> bool:
@@ -32,6 +49,77 @@ def bootstrap_disabled() -> bool:
         "yes",
         "YES",
     }
+
+
+def bootstrap_file_mtime(path: Path | str | None) -> float | None:
+    """Return file mtime, or None if missing."""
+    if path is None:
+        return None
+    p = Path(path)
+    try:
+        return float(p.stat().st_mtime) if p.is_file() else None
+    except OSError:
+        return None
+
+
+def validate_bootstrap_payload(payload: dict[str, Any] | None) -> list[str]:
+    """Return soft warnings (never hard-fail). Empty list = looks fine."""
+    warnings: list[str] = []
+    if not isinstance(payload, dict):
+        return ["bootstrap payload is not an object"]
+    ver = payload.get("version")
+    if ver is None:
+        warnings.append("version missing (expected 1)")
+    elif ver != BOOTSTRAP_VERSION:
+        warnings.append(f"version={ver!r} (expected {BOOTSTRAP_VERSION})")
+    unknown = sorted(set(payload) - _KNOWN_KEYS)
+    if unknown:
+        warnings.append(f"unknown keys: {', '.join(unknown)}")
+    if not any(payload.get(k) for k in _CONTENT_KEYS):
+        warnings.append(
+            "empty bootstrap — set energy_campus_dir, dump_zip, preferred_run_id, and/or answers_path"
+        )
+    return warnings
+
+
+def upsert_bootstrap_preferred_run(
+    run_id: str,
+    *,
+    workspace: Path | None = None,
+) -> Path | None:
+    """Merge ``preferred_run_id`` into studio_bootstrap.json (best-effort).
+
+    Creates a minimal file when missing. No-op when bootstrap is disabled.
+    Never raises for callers — returns written path or None.
+    """
+    if bootstrap_disabled() or not run_id:
+        return None
+    try:
+        from datetime import datetime, timezone
+
+        from wattlab.studio.workspace import ensure_workspace
+
+        root = Path(workspace) if workspace is not None else ensure_workspace()
+        path = root / DEFAULT_BOOTSTRAP_NAME
+        payload: dict[str, Any] = {}
+        if path.is_file():
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    payload = dict(raw)
+            except (OSError, json.JSONDecodeError):
+                payload = {}
+        payload["version"] = BOOTSTRAP_VERSION
+        payload["preferred_run_id"] = str(run_id)
+        payload["auto_refresh_runs"] = bool(payload.get("auto_refresh_runs", True))
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        payload["notes"] = (
+            f"preferred_run_id upserted by publish_run_for_studio @ {stamp}"
+        )
+        write_bootstrap(payload, path=path, also_fallback=True)
+        return path
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def resolve_bootstrap_path(workspace: Path | None = None) -> Path | None:
@@ -151,6 +239,7 @@ def apply_bootstrap_to_session(
         "banner": None,
         "needs_input": [],
         "errors": [],
+        "warnings": [],
     }
     if _ss_get(session_state, "_studio_bootstrapped"):
         result["skipped"] = "already_bootstrapped"
@@ -166,7 +255,16 @@ def apply_bootstrap_to_session(
     except (OSError, json.JSONDecodeError) as exc:
         result["errors"].append(f"bootstrap unreadable: {exc}")
         _ss_set(session_state, "_studio_bootstrapped", True)
+        _ss_set(session_state, "_studio_bootstrap_path", str(path))
+        _ss_set(session_state, "_studio_bootstrap_applied_mtime", bootstrap_file_mtime(path))
         return result
+
+    if not isinstance(payload, dict):
+        result["errors"].append("bootstrap payload is not an object")
+        _ss_set(session_state, "_studio_bootstrapped", True)
+        return result
+
+    result["warnings"] = validate_bootstrap_payload(payload)
 
     from wattlab.studio.workspace import ensure_workspace, runs_dir
 
@@ -242,11 +340,14 @@ def apply_bootstrap_to_session(
             _ss_set(session_state, "studio_active_run", str(run_dir.resolve()))
             notes.append(f"Twin run ← {run_dir.name}")
 
+    mtime = bootstrap_file_mtime(path)
     _ss_set(session_state, "_studio_bootstrapped", True)
     _ss_set(session_state, "_studio_bootstrap_path", str(path))
     _ss_set(session_state, "_studio_bootstrap_notes", notes)
+    _ss_set(session_state, "_studio_bootstrap_applied_mtime", mtime)
     result["applied"] = True
     result["path"] = str(path)
+    result["mtime"] = mtime
     result["notes"] = notes
     if notes or result["needs_input"]:
         result["banner"] = (
@@ -256,6 +357,21 @@ def apply_bootstrap_to_session(
     else:
         result["banner"] = f"Bootstrapped from {path.name}"
     return result
+
+
+def clear_bootstrap_session_flags(session_state: Any) -> None:
+    """Clear once-per-session flags so Re-apply can run again."""
+    for key in (
+        "_studio_bootstrapped",
+        "_studio_bootstrap_notes",
+        "_studio_bootstrap_applied_mtime",
+    ):
+        try:
+            if key in session_state:
+                del session_state[key]
+        except (KeyError, TypeError, AttributeError):
+            if isinstance(session_state, dict):
+                session_state.pop(key, None)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -4,8 +4,9 @@ Agents use the **running containers** and a **shared host volume** — not a git
 clone of this repo on the agent machine. Studio (browser) is the human viewer;
 CLI/`docker exec` is the agent surface for this cycle.
 
-> Future: same workspace contract may gain a thin HTTP wrapper. Until then,
-> `docker exec` + shared volumes are the equal vibe19/20 ops path.
+Both vibe19 and vibe20 are **native Streamlit apps** (not FastAPI/Flask shells
+that embed Streamlit). Optional future: a thin HTTP wrapper around the **same**
+workspace contract — that is **not** the current product UI.
 
 ## Shared volume layout
 
@@ -94,6 +95,16 @@ docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 \
 
 Writes `/data/studio_bootstrap.json` (+ `.last_studio_session.json`). Next Studio
 browser session auto-loads Fuel campus + Twin preferred run (sidebar banner).
+
+**Human load path:** browser **page refresh** starts a new Streamlit session (auto-apply once).
+If the session is already open and the JSON changed, use sidebar **Re-apply bootstrap**
+(or refresh). No HTTP wrapper — file handoff only.
+
+**Publish auto-upsert:** `publish_run_for_studio` / `calibrate-campaign` merge
+`preferred_run_id` into `studio_bootstrap.json` (best-effort). Explicit
+`wattlab studio-bootstrap --campus …` is still useful for campus/dump/answers paths;
+run-id alone is often already set after publish.
+
 Disable in CI: `WATTLAB_STUDIO_BOOTSTRAP_DISABLE=1`.
 
 ## Agent flow (no git)

@@ -369,6 +369,13 @@ def publish_run_for_studio(
     # Pointer so Twin auto-selects the latest agent publish
     pointer = dest.parent / "CURRENT_RUN.txt"
     pointer.write_text(str(dest.resolve()), encoding="utf-8")
+    # Best-effort: keep studio_bootstrap.json preferred_run_id in sync.
+    try:
+        from wattlab.studio.bootstrap import upsert_bootstrap_preferred_run
+
+        upsert_bootstrap_preferred_run(rid)
+    except Exception:  # noqa: BLE001
+        pass
     # Best-effort world-writable so host agents can archive without root.
     try:
         import os

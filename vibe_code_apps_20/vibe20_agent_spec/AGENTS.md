@@ -14,9 +14,11 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 **App:** ESCO / energy-engineering toolkit — vibe19 FDD dumps in, calibrated EnergyPlus twins + benchmarked capital plans out. Where vibe19 is about **finding faults**, vibe20 is about **pricing the fixes credibly**: ESCO spreadsheet bin-method calculators, EnergyPlus crosschecks, public benchmarks, and ROI guardrails.
 
+**UI stack (do not confuse):** Native **Streamlit Studio** (`studio.py`) — not FastAPI/Flask embedding Streamlit. Agents drive work via `docker exec vibe20 wattlab …` + shared volume; Studio is the browser viewer. Bootstrap: `wattlab studio-bootstrap` → `studio_bootstrap.json` (same idea as vibe19 `.last_agent_session.json`). No mid-run HTTP API required.
+
 **Stack honesty:** EnergyPlus = physics engine; EnergyPlus-MCP = inspect/modify/sim wrench (~35 tools); WattLab + assumption skills = defaults ledger, peers → bins → E+, G14. MCP is not a calibration coach — see [`skills/wattlab-energyplus-mcp/SKILL.md`](skills/wattlab-energyplus-mcp/SKILL.md) and [`skills/wattlab-assumptions/SKILL.md`](skills/wattlab-assumptions/SKILL.md).
 
-**Sibling app:** `../vibe_code_apps_19/` — Streamlit FDD demo that produces the WattLab dump this app consumes. Its spec: `../vibe_code_apps_19/vibe19_agent_spec/`.
+**Sibling app:** `../vibe_code_apps_19/` — Streamlit FDD demo that produces the WattLab dump this app consumes. Its spec: `../vibe19_agent_spec/` (same Streamlit-native pattern; different mission).
 
 ---
 
