@@ -193,6 +193,9 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 16. Write `reports/CALIBRATE_SESSION.md` + `BUG_REPORT.md`.
 17. Agent path via shared volume / `docker exec` (see `docs/AGENT_DOCKER_WORKSPACE.md`).
 18. **calibrate-campaign** (or Twin scorecard) with bill-aligned AMY — G14 stats shown or honest fail.
+    Cross-year bills (e.g. Dec’24–Nov’25): scorecard `utility_bills.months_compared`
+    should match bill count (~12), not collapse to 1. Dump weather that misses the
+    bill window must be stashed / Open-Meteo rebuilt — do not silently use 2026 dump wx.
 19. Twin **Build client package** → preview report + download md/xlsx/zip without Streamlit exceptions.
 
 ## PASS / FAIL
@@ -211,7 +214,7 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 | Demand kW | `peak_demand_kw` on results when meters/tbl present |
 | Multi-floor viz | floors≥2 → stacked schematic + honesty caption |
 | DinD CLI | `capability_status().docker_available` true with sock only (CLI in image) |
-| G14 campaign | bill-window AMY + scorecard NMBE/CV(RMSE) or honest fail |
+| G14 campaign | bill-window AMY + `months_compared` ≈ bill months (cross-year OK) + NMBE/CV(RMSE) or honest fail |
 | Client package | Twin builds report + xlsx + zip; downloads work |
 
 One live sim is **not** enough. Really try the loop — baseline + hypotheses —

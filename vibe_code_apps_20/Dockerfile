@@ -7,6 +7,7 @@
 # mounts + world-writable out dirs + --user 1000:1000 for ReadVars CSV.
 # Without docker.sock, dry-run / Fuel / ECMs still work; agents can publish
 # runs/ from ``docker exec vibe20 wattlab …`` (prefer that over host pip -e).
+# Image uses editable install (``pip install -e``) so import wattlab == /app/wattlab.
 #
 # Entry point: studio.py (not wattlab/studio/app.py).
 FROM docker:27-cli AS dockercli
@@ -40,7 +41,8 @@ WORKDIR /app
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 COPY . .
-RUN pip install --no-cache-dir ".[studio]"
+# Editable install so ``import wattlab`` resolves to /app/wattlab (single tree).
+RUN pip install --no-cache-dir -e ".[studio]"
 
 EXPOSE 8501
 
