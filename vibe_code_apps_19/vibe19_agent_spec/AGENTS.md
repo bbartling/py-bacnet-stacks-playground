@@ -17,6 +17,11 @@ When Studio WattLab (vibe20) shares `$WATTLAB_HOST_WORKSPACE` (e.g. `~/wattlab_w
 
 **App:** Educational **Streamlit + pandas** FDD demo (`streamlit_app.py`).
 
+**UI stack (do not confuse):** Native **Streamlit only** — not FastAPI/Flask embedding
+Streamlit, not a mid-run HTTP server. Headless agent path is in-process Python
+(`app/agent_api.py` + `scripts/agent_afdd.py`), then bootstrap JSON → Streamlit
+session. Production Rust Open-FDD is a **separate** repo.
+
 **Not this repo:** Production Rust/DataFusion Open-FDD → `C:\Users\ben\Documents\open-fdd`
 
 ---
@@ -33,7 +38,7 @@ When Studio WattLab (vibe20) shares `$WATTLAB_HOST_WORKSPACE` (e.g. `~/wattlab_w
 8. **Building id = folder name** — any site; BUILDING_100 is a demo label only.
 9. **Update this spec after meaningful changes** — skills + `SESSION_LOG.md`.
 10. Run **`python -m pytest -q`** before claiming done (or `scripts/run_tests_local.ps1` on Windows).
-11. **Agent API** — `app/agent_api.py` + `scripts/agent_afdd.py` for headless load/run/export (no FastAPI/Flask).
+11. **Agent API (headless, not FastAPI)** — `app/agent_api.py` + `scripts/agent_afdd.py` for load/run/export without opening the browser. Same pandas cookbook; **no** FastAPI/Flask product UI.
 12. **Motor charts ≠ compressor proof** — motor/pump/DX status first for weekly motor charts. No pump in data model → **omit** that motor series (never invent motor hours from leave temp). Prefer mapped fan/pump roles over column-name invent. **CHW pump status/command alone does not prove compressor operation** for mech-cooling OAT bins (rule 13).
 13. **Mech-cooling OAT bins = compressor devices only** — chillers/CHW plants, DX AHU/RTU, cooling-mode HP, VRF outdoor, typed compressor equipment. Acceptable proof: compressor/chiller **status**, verified **command**, analog **power/current**. Never pump-alone, fan status, cooling demand, or `clg_valve_pct` / chilled-water AHU valves. Sidebar **Use mapped mechanical-cooling status proof** (default checked): status → verified cmd → amps/power. Unchecked: CHW plants may use **CHW leave proof max °F** (`inferred: chw_leave_temp`; never on CHW AHU valves). Coverage: `eligible_no_runtime` for idle mapped compressors. Aggregates: **device-hours** (sum) + **any-active** (union); one running device ⇒ aggregates equal. Sort bins by `bin_start` cold→hot. `include_ahu_chw_valve` deprecated/ignored. **WattLab dump** always `run_rules` complete cookbook; default profile **`summary`** / schema **`wattlab_dump_v3`** (shared `telemetry/`; legacy `fdd_timeseries/` optional). Publish GHCR via `vibe19-ghcr.yml` only — **do not publish Vibe 20** for this change.
 14. **Occupancy calendar is canonical** — Overview weekly time pickers **always** drive `occ_mode` for SCHED-1. Do not re-add “Apply calendar → occ_mode” checkbox or casually remove the schedule UI.

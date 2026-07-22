@@ -15,7 +15,10 @@ from streamlit.testing.v1 import AppTest
 from wattlab.studio.bootstrap import (
     apply_bootstrap_to_session,
     build_bootstrap_payload,
+    clear_bootstrap_session_flags,
     resolve_bootstrap_path,
+    upsert_bootstrap_preferred_run,
+    validate_bootstrap_payload,
     write_bootstrap,
 )
 
@@ -46,6 +49,40 @@ def test_bootstrap_disable_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     write_bootstrap(build_bootstrap_payload(preferred_run_id="x"))
     monkeypatch.setenv("WATTLAB_STUDIO_BOOTSTRAP_DISABLE", "1")
     assert resolve_bootstrap_path(tmp_path) is None
+
+
+def test_validate_bootstrap_payload_warnings():
+    assert any("version missing" in w for w in validate_bootstrap_payload({}))
+    assert any("empty bootstrap" in w for w in validate_bootstrap_payload({}))
+    bad = validate_bootstrap_payload({"version": 99, "extra_key": 1})
+    assert any("version=" in w for w in bad)
+    assert any("unknown keys" in w for w in bad)
+    ok = validate_bootstrap_payload(
+        {"version": 1, "preferred_run_id": "run_a", "auto_refresh_runs": True}
+    )
+    assert ok == []
+
+
+def test_upsert_bootstrap_preferred_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
+    monkeypatch.delenv("WATTLAB_STUDIO_BOOTSTRAP_DISABLE", raising=False)
+    path = upsert_bootstrap_preferred_run("run_new", workspace=tmp_path)
+    assert path is not None and path.is_file()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["preferred_run_id"] == "run_new"
+    assert data["version"] == 1
+    # Merge preserves campus
+    write_bootstrap(
+        build_bootstrap_payload(
+            energy_campus_dir="uploads/energy/x", preferred_run_id="old"
+        )
+    )
+    upsert_bootstrap_preferred_run("run_merged", workspace=tmp_path)
+    merged = json.loads((tmp_path / "studio_bootstrap.json").read_text(encoding="utf-8"))
+    assert merged["preferred_run_id"] == "run_merged"
+    assert merged["energy_campus_dir"] == "uploads/energy/x"
+    monkeypatch.setenv("WATTLAB_STUDIO_BOOTSTRAP_DISABLE", "1")
+    assert upsert_bootstrap_preferred_run("nope", workspace=tmp_path) is None
 
 
 def test_apply_bootstrap_loads_campus_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -183,3 +220,31 @@ def test_fuel_tabs_render_with_fixture_campus():
     assert any("EUI" in (lab or "") for lab in metric_labels)
     at.button(key="fuel_dash_synth").click().run()
     assert not at.exception
+
+
+def test_studio_reapply_bootstrap_button(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
+    monkeypatch.delenv("WATTLAB_STUDIO_BOOTSTRAP_DISABLE", raising=False)
+    write_bootstrap(build_bootstrap_payload(preferred_run_id="reapply_run"))
+    at = AppTest.from_file(str(STUDIO), default_timeout=TIMEOUT)
+    at.run()
+    assert not at.exception
+    assert "_studio_bootstrapped" in at.session_state
+    assert at.session_state["_studio_bootstrapped"] is True
+    # Re-apply present when bootstrap file exists
+    btn = at.button(key="studio_reapply_bootstrap")
+    btn.click().run()
+    assert not at.exception
+    assert at.session_state["_studio_bootstrapped"] is True
+
+
+def test_clear_bootstrap_session_flags():
+    state = {
+        "_studio_bootstrapped": True,
+        "_studio_bootstrap_notes": ["x"],
+        "_studio_bootstrap_applied_mtime": 1.0,
+        "studio_campus": "keep",
+    }
+    clear_bootstrap_session_flags(state)
+    assert "_studio_bootstrapped" not in state
+    assert state["studio_campus"] == "keep"

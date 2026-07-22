@@ -98,10 +98,12 @@ curl -sf http://127.0.0.1:8520/_stcore/health
 ```
 
 Tip image includes the **Docker CLI** (no host `docker` binary bind-mount).
+Prefer tip `c09d26b`+ (`ghcr.io/bbartling/vibe20:latest`).
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
 Docker E+ / DinD). Prefer agents: `docker exec vibe20 wattlab …`
 ([`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)).
 G14 + client package: [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md).
+Both vibe19 and vibe20 are **native Streamlit** (not FastAPI embedding Streamlit).
 
 ## SETUP — EnergyPlus + EnergyPlus-MCP
 
@@ -201,8 +203,9 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 19. Twin **Build client package** → preview report + download md/xlsx/zip without Streamlit exceptions.
 20. **Schedule:File DinD:** File Name `/work/in/<csv>` + CSV staged (not absolute `/data/...`).
 21. Archive hygiene: root-owned `runs/` via `docker exec -u 0` when needed.
-22. After publish: `wattlab studio-bootstrap --campus … --run-id …` so human opens Studio
-    with Fuel + Twin already loaded (no Uploads/Refresh clicks).
+22. After publish: open/refresh Studio (or sidebar **Re-apply bootstrap**). Publish already
+    upserts `preferred_run_id` into `studio_bootstrap.json`; optional
+    `wattlab studio-bootstrap --campus … --run-id …` when campus/dump paths still needed.
 
 ## PASS / FAIL
 
