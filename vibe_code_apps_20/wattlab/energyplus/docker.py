@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -117,6 +118,127 @@ def energyplus_docker_user() -> str | None:
     return raw or None
 
 
+def write_progress(
+    progress_dir: Path | str | None,
+    *,
+    percent: int,
+    status: str,
+    note: str | None = None,
+) -> None:
+    """Atomically write ``progress.json`` for Twin APIHelper-08 live panes."""
+    if progress_dir is None:
+        return
+    root = Path(progress_dir)
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        payload: dict = {
+            "percent": max(0, min(100, int(percent))),
+            "status": str(status),
+        }
+        if note:
+            payload["note"] = note
+        tmp = root / "progress.json.tmp"
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.replace(root / "progress.json")
+    except OSError:
+        pass
+
+
+def heuristic_ep_percent(line: str, current: int) -> int:
+    """Bump progress from EnergyPlus console tokens (best-effort)."""
+    low = line.lower()
+    pct = current
+    if "warmup" in low and pct < 15:
+        pct = max(pct, 10)
+    if "starting simulation" in low or "begin simulation" in low:
+        pct = max(pct, 25)
+    if "simulating" in low or "processing weather" in low:
+        pct = max(pct, 35)
+    # Month-ish tokens
+    months = (
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    )
+    for i, m in enumerate(months):
+        if m in low:
+            pct = max(pct, 40 + int((i + 1) * 4.5))
+    if "readvars" in low or "writing tabular" in low or "csv" in low:
+        pct = max(pct, 90)
+    if "energyplus completed" in low or "======= final" in low:
+        pct = max(pct, 98)
+    return min(99, pct)
+
+
+def _run_docker_streaming(
+    args: list[str],
+    *,
+    timeout: int | None,
+    progress_dir: Path | None,
+) -> subprocess.CompletedProcess[str]:
+    """Popen docker; stream lines to log + progress.json when progress_dir set."""
+    import time
+
+    write_progress(progress_dir, percent=1, status="running", note="docker starting")
+    log_path = Path(progress_dir) / "console.log" if progress_dir else None
+    if log_path is not None:
+        try:
+            log_path.write_text("", encoding="utf-8")
+        except OSError:
+            log_path = None
+
+    proc = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    chunks: list[str] = []
+    percent = 1
+    started = time.monotonic()
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            chunks.append(line)
+            if log_path is not None:
+                try:
+                    with log_path.open("a", encoding="utf-8", errors="replace") as fh:
+                        fh.write(line)
+                except OSError:
+                    pass
+            percent = heuristic_ep_percent(line, percent)
+            write_progress(progress_dir, percent=percent, status="running")
+            if timeout is not None and (time.monotonic() - started) > timeout:
+                proc.kill()
+                write_progress(progress_dir, percent=percent, status="failed", note="timeout")
+                break
+        rc = proc.wait(timeout=30)
+    except Exception as exc:  # noqa: BLE001
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        write_progress(progress_dir, percent=percent, status="failed", note=str(exc))
+        return subprocess.CompletedProcess(args, returncode=1, stdout="".join(chunks), stderr=str(exc))
+
+    out = "".join(chunks)
+    if rc == 0:
+        write_progress(progress_dir, percent=100, status="ok")
+    else:
+        write_progress(progress_dir, percent=percent, status="failed", note=f"returncode={rc}")
+    return subprocess.CompletedProcess(args, returncode=rc, stdout=out, stderr="")
+
+
 def run_in_container(
     cmd: list[str],
     *,
@@ -155,11 +277,14 @@ def run_energyplus(
     *,
     timeout: int | None = 3600,
     readvars: bool = True,
+    progress_dir: Path | str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Annual (or IDF run-period) EnergyPlus simulate via Docker.
 
     ``readvars=True`` (default) passes ``-r`` so EnergyPlus writes
     ``eplusout.csv`` for Twin APIHelper-08 timeseries panes.
+    When ``progress_dir`` is set, streams console into that folder's
+    ``console.log`` / ``progress.json`` for live Twin panes.
     Mount sources are translated via ``host_path_for_docker`` when Studio runs
     with docker.sock + ``WATTLAB_HOST_WORKSPACE``.
 
@@ -239,4 +364,7 @@ def run_energyplus(
         ]
     )
     ensure_image(build=False)
+    prog = Path(progress_dir) if progress_dir else None
+    if prog is not None:
+        return _run_docker_streaming(args, timeout=timeout, progress_dir=prog)
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)

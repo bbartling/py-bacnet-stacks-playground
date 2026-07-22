@@ -243,11 +243,13 @@ def simulate(
     *,
     timeout: int | None = 3600,
     align_run_period: bool = True,
+    progress_dir: Path | str | None = None,
 ) -> dict[str, Any]:
     """Run EnergyPlus simulation (parity with MCP run_energyplus_simulation).
 
     When ``align_run_period`` is True (default), partial-year EPWs auto-clip
     the IDF RunPeriod before Docker invoke — avoids FATAL GetNextEnvironment.
+    ``progress_dir`` streams console → Twin ``progress.json`` / ``console.log``.
     """
     idf = Path(idf)
     epw = Path(epw)
@@ -267,7 +269,9 @@ def simulate(
         except Exception as exc:  # noqa: BLE001
             align_meta = {"patch": "run_period", "applied": False, "error": str(exc)}
 
-    proc = run_energyplus(idf_run, epw, output_dir, timeout=timeout)
+    proc = run_energyplus(
+        idf_run, epw, output_dir, timeout=timeout, progress_dir=progress_dir
+    )
     out: dict[str, Any] = {
         "returncode": proc.returncode,
         "stdout_tail": (proc.stdout or "")[-2000:],

@@ -10,6 +10,10 @@ Studio refreshes from `uploads/`, `runs/`, `reports/`. Agents must **publish** e
 E+ iteration so Twin 08 panes appear in the browser
 (`publish_run_for_studio` / `runs/CURRENT_RUN.txt`).
 
+**Live 08:** DinD writes `progress.json` + `console.log` during the sim; Twin polls
+(progress/log live). OA + floor-plan charts update when `eplusout.csv` exists
+(after ReadVars). Not embedded pyenergyplus / not Flask APIHelper.
+
 Full paste prompt for QA + calibrate sessions:
 [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
 

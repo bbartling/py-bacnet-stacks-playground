@@ -199,75 +199,109 @@ def _resolve_active_run() -> Path | None:
 def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
     st.subheader("EnergyPlus visualizer (APIHelper 08 — browser)")
     st.caption(
-        "Populated by any AI agent (or Studio buttons) writing `runs/<id>/` "
-        "with eplusout.csv. Human: use **Refresh agent runs** after each iteration."
+        "Live progress from DinD console → `progress.json` / `console.log` "
+        "(APIHelper-08 style; not embedded pyenergyplus). "
+        "OA / floor charts appear after `eplusout.csv` is published. "
+        "Agents: publish to `runs/<id>/`; human: Refresh or watch live while Studio DinD runs."
     )
-    info = read_run_progress(run_dir)
-    if info.get("replay"):
-        st.info("Demo replay — fixture eplusout.csv (no live Docker EnergyPlus run).")
 
-    left, right = st.columns([2, 3])
-    with left:
-        st.markdown("**Manage simulation**")
-        st.progress(min(100, max(0, int(info.get("progress") or 0))) / 100.0)
-        st.caption(f"status={info.get('status')} · run_id={info.get('run_id')}")
-        log = info.get("log_tail") or "(no eplusout.err / console log yet)"
-        st.text_area("EnergyPlus output", value=log, height=220, key=f"twin_ep_log_{run_dir.name}")
-    with right:
-        ts = load_sim_timeseries(run_dir)
-        if ts is None:
-            nested = find_eplusout_csv(run_dir)
-            ts = load_sim_timeseries(nested.parent) if nested else None
-        if ts is not None and not ts.outdoor.empty:
-            st.plotly_chart(outdoor_figure(ts.outdoor), width="stretch", key=f"twin_oa_{run_dir.name}")
-        else:
-            st.caption("No outdoor timeseries yet (need eplusout.csv in this run folder).")
+    live = False
+    try:
+        info0 = read_run_progress(run_dir)
+        live = str(info0.get("status") or "").lower() in {"running", "starting"}
+    except Exception:
+        live = False
 
-    ts2 = load_sim_timeseries(run_dir)
-    if ts2 is None:
-        nested = find_eplusout_csv(run_dir)
-        if nested:
-            ts2 = load_sim_timeseries(nested.parent)
-    if ts2 is not None:
-        roles = zone_mean_by_role(ts2)
-        if roles:
-            floors = int(n_floors or 1)
-            profile = _profile() or {}
-            if floors < 2:
-                floors = int(
-                    profile.get("number_of_floors")
-                    or profile.get("floors")
-                    or st.session_state.get("twin_floors")
-                    or 1
-                )
-            btype = str(profile.get("building_type") or profile.get("property_type") or "").lower()
-            use_multi = floors >= 2 or ("office" in btype and floors >= 2)
-            if use_multi and floors >= 2:
-                highlight = None
-                if floors > 8:
-                    highlight = int(
-                        st.selectbox(
-                            "Highlight floor",
-                            options=list(range(1, floors + 1)),
-                            index=floors - 1,
-                            key=f"twin_floor_sel_{run_dir.name}",
-                        )
-                    )
+    def _draw() -> None:
+        info = read_run_progress(run_dir)
+        if info.get("replay"):
+            st.info("Demo replay — fixture eplusout.csv (no live Docker EnergyPlus run).")
+
+        left, right = st.columns([2, 3])
+        with left:
+            st.markdown("**Manage simulation**")
+            st.progress(min(100, max(0, int(info.get("progress") or 0))) / 100.0)
+            st.caption(f"status={info.get('status')} · run_id={info.get('run_id')}")
+            log = info.get("log_tail") or "(no eplusout.err / console log yet)"
+            st.text_area(
+                "EnergyPlus output",
+                value=log,
+                height=220,
+                key=f"twin_ep_log_{run_dir.name}_{info.get('progress')}",
+            )
+        with right:
+            ts = load_sim_timeseries(run_dir)
+            if ts is None:
+                nested = find_eplusout_csv(run_dir)
+                ts = load_sim_timeseries(nested.parent) if nested else None
+            if ts is not None and not ts.outdoor.empty:
                 st.plotly_chart(
-                    multifloor_office_figure(roles, n_floors=floors, highlight_floor=highlight),
+                    outdoor_figure(ts.outdoor),
                     width="stretch",
-                    key=f"twin_multifloor_{run_dir.name}",
+                    key=f"twin_oa_{run_dir.name}",
                 )
-                st.caption(MULTIFLOOR_HONESTY.replace("N-story", f"{floors}-story"))
             else:
-                st.plotly_chart(
-                    floor_plan_figure(roles),
-                    width="stretch",
-                    key=f"twin_floor_{run_dir.name}",
-                )
-        means = ts2.zone_mean_temps()
-        if not means.empty:
-            st.dataframe(means, width="stretch", hide_index=True)
+                st.caption("No outdoor timeseries yet (need eplusout.csv in this run folder).")
+
+        ts2 = load_sim_timeseries(run_dir)
+        if ts2 is None:
+            nested = find_eplusout_csv(run_dir)
+            if nested:
+                ts2 = load_sim_timeseries(nested.parent)
+        if ts2 is not None:
+            roles = zone_mean_by_role(ts2)
+            if roles:
+                floors = int(n_floors or 1)
+                profile = _profile() or {}
+                if floors < 2:
+                    floors = int(
+                        profile.get("number_of_floors")
+                        or profile.get("floors")
+                        or st.session_state.get("twin_floors")
+                        or 1
+                    )
+                btype = str(profile.get("building_type") or profile.get("property_type") or "").lower()
+                use_multi = floors >= 2 or ("office" in btype and floors >= 2)
+                if use_multi and floors >= 2:
+                    highlight = None
+                    if floors > 8:
+                        highlight = int(
+                            st.selectbox(
+                                "Highlight floor",
+                                options=list(range(1, floors + 1)),
+                                index=floors - 1,
+                                key=f"twin_floor_sel_{run_dir.name}",
+                            )
+                        )
+                    st.plotly_chart(
+                        multifloor_office_figure(roles, n_floors=floors, highlight_floor=highlight),
+                        width="stretch",
+                        key=f"twin_multifloor_{run_dir.name}",
+                    )
+                    st.caption(MULTIFLOOR_HONESTY.replace("N-story", f"{floors}-story"))
+                else:
+                    st.plotly_chart(
+                        floor_plan_figure(roles),
+                        width="stretch",
+                        key=f"twin_floor_{run_dir.name}",
+                    )
+            means = ts2.zone_mean_temps()
+            if not means.empty:
+                st.dataframe(means, width="stretch", hide_index=True)
+
+    if live:
+        try:
+            from datetime import timedelta
+
+            @st.fragment(run_every=timedelta(seconds=2))
+            def _live_fragment() -> None:
+                _draw()
+
+            _live_fragment()
+            return
+        except Exception:
+            pass
+    _draw()
 
 
 def render() -> None:
@@ -473,36 +507,71 @@ def render() -> None:
         st.success(f"Dry-run plan → {out}")
 
     if d2.button("Run EnergyPlus (Docker)", key="twin_real_run"):
+        from threading import Thread
+        import time
+
         from wattlab.easy_button import run_easy_button
+        from wattlab.energyplus.docker import write_progress
 
         if not img_ok:
             st.error(f"Cannot run: `{DOCKER_IMAGE}` missing. Use dry-run or demo replay.")
         else:
-            with st.spinner("Running EnergyPlus via Docker…"):
+            # Claim run id early so 08 panes can poll progress while DinD runs.
+            from datetime import datetime, timezone
+
+            rid = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            dest = runs_dir() / rid
+            dest.mkdir(parents=True, exist_ok=True)
+            write_progress(dest, percent=0, status="running", note="Studio Twin DinD")
+            st.session_state["studio_active_run"] = str(dest)
+            box: dict[str, Any] = {"report": None, "exc": None}
+
+            def _worker() -> None:
                 try:
-                    report = run_easy_button(profile=run_profile, measure_set=measure_set)
-                    st.session_state["studio_report"] = report
-                    rid = str(report.get("run_id") or "run")
-                    art = Path(
-                        report.get("studio_run_dir")
-                        or report.get("artifacts_dir")
-                        or report.get("artifact_dir")
-                        or ""
+                    box["report"] = run_easy_button(
+                        profile=run_profile,
+                        measure_set=measure_set,
+                        progress_dir=dest,
                     )
-                    if art.is_dir() and (runs_dir() / rid).is_dir():
-                        dest = runs_dir() / rid
-                    elif art.is_dir():
-                        dest = publish_run_for_studio(art, run_id=rid, report=report)
+                except Exception as exc:  # noqa: BLE001
+                    box["exc"] = exc
+
+            thr = Thread(target=_worker, daemon=True)
+            thr.start()
+            status_box = st.empty()
+            while thr.is_alive():
+                info = read_run_progress(dest)
+                with status_box.container():
+                    st.progress(min(100, max(0, int(info.get("progress") or 0))) / 100.0)
+                    st.caption(
+                        f"Live DinD · status={info.get('status')} · "
+                        f"{info.get('progress')}% · run_id={rid}"
+                    )
+                time.sleep(1.0)
+            thr.join(timeout=5)
+            if box["exc"] is not None:
+                write_progress(dest, percent=0, status="failed", note=str(box["exc"]))
+                st.error(f"EnergyPlus run failed: {box['exc']}")
+            else:
+                report = box["report"] or {}
+                st.session_state["studio_report"] = report
+                art = Path(
+                    report.get("studio_run_dir")
+                    or report.get("artifacts_dir")
+                    or report.get("artifact_dir")
+                    or ""
+                )
+                try:
+                    if art.is_dir():
+                        published = publish_run_for_studio(art, run_id=rid, report=report)
+                        st.session_state["studio_active_run"] = str(published)
+                        st.success(f"Run published for browser Twin panes → {published}")
                     else:
-                        dest = publish_run_for_studio(
-                            Path(report.get("artifacts_dir") or "."),
-                            run_id=rid,
-                            report=report,
-                        )
-                    st.session_state["studio_active_run"] = str(dest)
-                    st.success(f"Run published for browser Twin panes → {dest}")
+                        st.session_state["studio_active_run"] = str(dest)
+                        st.success(f"Run finished → {dest}")
                 except Exception as exc:
-                    st.error(f"EnergyPlus run failed: {exc}")
+                    st.error(f"Publish failed: {exc}")
+                st.rerun()
 
     if d3.button("Load demo replay (fixture eplusout)", key="twin_demo_replay"):
         fixture = _fixture_eplusout()

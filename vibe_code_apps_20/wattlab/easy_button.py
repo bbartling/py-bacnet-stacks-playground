@@ -230,6 +230,7 @@ def run_easy_button(
     skip_ecm2: bool = False,
     dry_run: bool = False,
     measure_set: str | None = None,
+    progress_dir: Path | str | None = None,
 ) -> dict[str, Any]:
     if profile is None:
         if profile_path is None:
@@ -257,6 +258,29 @@ def run_easy_button(
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     art_root = artifacts_root()
+
+    # Claim Studio runs/<id> early so Twin can poll progress.json mid-DinD.
+    studio_progress: Path | None = Path(progress_dir) if progress_dir else None
+    if studio_progress is not None:
+        run_id = studio_progress.name
+        studio_progress.mkdir(parents=True, exist_ok=True)
+        try:
+            from wattlab.energyplus.docker import write_progress
+
+            write_progress(studio_progress, percent=0, status="running", note="easy-button")
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        try:
+            from wattlab.energyplus.docker import write_progress
+            from wattlab.studio.workspace import runs_dir
+
+            studio_progress = runs_dir() / run_id
+            studio_progress.mkdir(parents=True, exist_ok=True)
+            write_progress(studio_progress, percent=0, status="running", note="easy-button claimed")
+        except Exception:  # noqa: BLE001
+            studio_progress = None
+
     run_dir = art_root / f"wattlab_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -304,7 +328,7 @@ def run_easy_button(
     if run_period_meta:
         patch_log.insert(1, run_period_meta)
     base_out = run_dir / "sim_baseline"
-    sim_meta = simulate(baseline_idf, epw, base_out)
+    sim_meta = simulate(baseline_idf, epw, base_out, progress_dir=studio_progress)
     sizing_scenario = "autosize"
     hard_size = (ep.get("hard_size") or profile.get("hard_size") or {})
     if isinstance(hard_size, dict) and (
@@ -356,7 +380,7 @@ def run_easy_button(
             patch_log.append(freeze_meta)
             baseline_idf = hard_idf
             base_out = run_dir / "sim_baseline_hard"
-            sim_meta = simulate(baseline_idf, epw, base_out)
+            sim_meta = simulate(baseline_idf, epw, base_out, progress_dir=studio_progress)
             sizing_scenario = "hard_size"
         else:
             sizing_scenario = "autosize_observe_hard_size_unavailable"
@@ -402,7 +426,7 @@ def run_easy_button(
         meta = _apply_patch(pname, current_idf, next_idf, m)
         patch_log.append(meta)
         out = run_dir / f"sim_{mid}"
-        simulate(next_idf, epw, out)
+        simulate(next_idf, epw, out, progress_dir=studio_progress)
         ann = annual_from_output_dir(
             out, elec_rate_usd_per_kwh=elec_rate, gas_rate_usd_per_therm=gas_rate
         )

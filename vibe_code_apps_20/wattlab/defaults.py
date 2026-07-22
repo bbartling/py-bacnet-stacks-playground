@@ -279,11 +279,28 @@ def resolve_profile(minimal: dict[str, Any] | None = None) -> dict[str, Any]:
         proto = arch.get("prototype_idf") or "examples/prototypes/5ZoneAirCooled.idf"
         field_sources["prototype_idf"] = _tagged(proto, "default")
     user_epw = m.get("epw") or m.get("amy_epw")
+    has_latlon = m.get("lat") is not None and m.get("lon") is not None
     if user_epw:
         epw_rel = str(user_epw)
         epw_note = m.get("epw_note") or "User / AMY EPW override"
         field_sources["epw"] = _tagged(epw_rel, "user", note=epw_note)
     else:
+        # Soften Chicago-substitute noise when lat/lon AMY campaigns will replace TMY
+        if has_latlon and epw_note and "Chicago" in str(epw_note):
+            epw_note = (
+                f"{epw_note} — screening TMY only; calibrate-campaign / AMY uses "
+                f"Open-Meteo from lat={m.get('lat')} lon={m.get('lon')}."
+            )
+        elif (
+            city_id == "detroit"
+            and epw_note
+            and "Chicago" in str(epw_note)
+            and not has_latlon
+        ):
+            epw_note = (
+                f"{epw_note} Provide lat/lon for Open-Meteo AMY "
+                "(Detroit preferred EPW path may be absent in the image)."
+            )
         field_sources["epw"] = _tagged(epw_rel, "default", note=epw_note)
 
     lpd = float(arch.get("lpd_w_per_ft2") or 0.9) * float(
