@@ -24,7 +24,18 @@ def render() -> None:
 
     profile = st.session_state.get("studio_profile")
     if not profile:
-        st.info("Resolve a profile on **Twin / calibrate** first.")
+        answers = st.session_state.get("studio_answers")
+        st.info(
+            "Resolve a profile on **Twin / calibrate** first — or bootstrap with "
+            "`answers_path` so Re-apply builds `studio_profile` automatically. "
+            "Agents: `wattlab studio-status --write` then fill answers / "
+            "`reports/ecm_scenario.json`."
+        )
+        if isinstance(answers, dict):
+            st.caption(
+                f"answers.json present (type={answers.get('building_type')}, "
+                f"city={answers.get('city')}) — Re-apply bootstrap to unlock ECMs."
+            )
         return
 
     # --- Easy Buttons catalog ---

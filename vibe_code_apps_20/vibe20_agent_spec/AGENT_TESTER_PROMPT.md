@@ -98,7 +98,9 @@ curl -sf http://127.0.0.1:8520/_stcore/health
 ```
 
 Tip image includes the **Docker CLI** (no host `docker` binary bind-mount).
-Prefer tip `b368842`+ (`ghcr.io/bbartling/vibe20:latest`) — notes-append upsert + Re-apply polish.
+Prefer tip after agent/UI tip (`ghcr.io/bbartling/vibe20:latest`) — studio-status,
+profile→ECMs, ecm_scenario, iteration elapsed, richer deliverables.
+Start inside the image: `docker exec vibe20 cat /app/CONTAINER_AGENT.md`.
 `WATTLAB_HOST_WORKSPACE` = host path for the `/data` bind (required for Twin →
 Docker E+ / DinD). Prefer agents: `docker exec vibe20 wattlab …`
 ([`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)).
@@ -209,6 +211,10 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 23. **NEEDS_HUMAN (browser):** Fuel without Uploads clicks + Re-apply / stale cue cannot be
     closed by headless API soak alone — leave an explicit **NEEDS_HUMAN** line in
     `CALIBRATE_SESSION.md`. Pytest/AppTest is CI/host only (tip image has no pytest).
+24. `wattlab studio-status --write` → `session_status.json` shows required fields
+    **answered** when answers fill dump nulls; bootstrap answers → `studio_profile` unlocks ECMs.
+25. Twin iteration table shows **elapsed** when manifests have timestamps; client package
+    zip includes `05_Source_Data` + report/workbook individual downloads.
 
 ## PASS / FAIL
 

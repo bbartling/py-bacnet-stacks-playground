@@ -29,6 +29,7 @@ _KNOWN_KEYS = frozenset(
         "dump_zip",
         "preferred_run_id",
         "answers_path",
+        "ecm_scenario_path",
         "auto_refresh_runs",
         "notes",
     }
@@ -322,6 +323,14 @@ def apply_bootstrap_to_session(
         except Exception as exc:  # noqa: BLE001
             result["needs_input"].append(f"answers load failed: {exc}")
 
+    ecm_rel = payload.get("ecm_scenario_path")
+    ecm_path = _resolve_under_workspace(root, ecm_rel) if ecm_rel else None
+    if ecm_rel and ecm_path is None:
+        result["needs_input"].append(f"ecm_scenario_path missing: {ecm_rel}")
+    elif ecm_path is not None:
+        _ss_set(session_state, "studio_ecm_scenario_path", str(ecm_path))
+        notes.append(f"ecm_scenario ← {ecm_rel}")
+
     if payload.get("auto_refresh_runs", True):
         rid = payload.get("preferred_run_id")
         run_dir: Path | None = None
@@ -343,6 +352,32 @@ def apply_bootstrap_to_session(
         if run_dir is not None:
             _ss_set(session_state, "studio_active_run", str(run_dir.resolve()))
             notes.append(f"Twin run ← {run_dir.name}")
+
+            # Prefer resolved_profile.json from the run when answers incomplete
+            if not _ss_get(session_state, "studio_profile"):
+                rp = run_dir / "resolved_profile.json"
+                if rp.is_file():
+                    try:
+                        profile = json.loads(rp.read_text(encoding="utf-8"))
+                        if isinstance(profile, dict) and profile:
+                            _ss_set(session_state, "studio_profile", profile)
+                            notes.append("studio_profile ← run resolved_profile.json")
+                    except (OSError, json.JSONDecodeError):
+                        pass
+
+    # Promote answers → studio_profile so ECMs unlock without Twin form click
+    answers = _ss_get(session_state, "studio_answers")
+    if isinstance(answers, dict) and not _ss_get(session_state, "studio_profile"):
+        try:
+            from wattlab.studio.status import answers_complete, profile_minimal_from_answers
+            from wattlab.defaults import resolve_profile
+
+            if answers_complete(answers):
+                profile = resolve_profile(profile_minimal_from_answers(answers))
+                _ss_set(session_state, "studio_profile", profile)
+                notes.append("studio_profile ← answers.json")
+        except Exception as exc:  # noqa: BLE001
+            result["warnings"].append(f"profile from answers skipped: {exc}")
 
     mtime = bootstrap_file_mtime(path)
     _ss_set(session_state, "_studio_bootstrapped", True)

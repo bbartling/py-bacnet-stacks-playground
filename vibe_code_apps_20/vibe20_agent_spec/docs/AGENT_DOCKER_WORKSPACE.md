@@ -112,6 +112,44 @@ AppTest lives in CI / host: `pip install -e ".[dev]"` then
 
 Disable in CI: `WATTLAB_STUDIO_BOOTSTRAP_DISABLE=1`.
 
+## Session status + answers vs dump
+
+```bash
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab studio-status --write
+# → /data/reports/session_status.json  (missing | answered | phase2)
+# Template: /app/wattlab/studio/templates/answers.schema.template.json
+```
+
+Dump `model_seed` may still have null type/city/area while answers are filled —
+that is dual-source honesty. Studio softens the NEEDS_INPUT banner when answers
+cover required fields. Bootstrap with `answers_path` also builds `studio_profile`
+so the ECMs page unlocks without a Twin form click.
+
+## ECM scenario (agent → Easy Buttons)
+
+Write `/data/reports/ecm_scenario.json`:
+
+```json
+{
+  "version": 1,
+  "selected_ecm_ids": ["fan_schedule_optimization"],
+  "measure_set": "best",
+  "notes": "from chat",
+  "recommendations": ["chiller_lockout_reset"]
+}
+```
+
+Human Re-apply / open ECMs → checkboxes prefilled. Studio **Save to ecm_scenario.json**
+writes back. Optional bootstrap key: `ecm_scenario_path`.
+
+## Twin iteration dashboard + client package
+
+Twin **Iteration history** shows run_id, hypothesis, weather, status, eplusout,
+elapsed (from `run_manifest.json`). **Build client package** downloads report.md,
+workbook.xlsx, and full zip (`05_Source_Data` included when answers/bills present).
+
+Fuel **Portfolio** peer metrics have `?` help text + “How buildings are benchmarked”.
+
 ## Agent flow (no git)
 
 ```text

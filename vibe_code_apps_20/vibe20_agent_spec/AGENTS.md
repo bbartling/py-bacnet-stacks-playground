@@ -10,6 +10,8 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 **Docker exec + shared volume (no git clone):** [`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)
 
+**Container start-here (in image):** [`CONTAINER_AGENT.md`](CONTAINER_AGENT.md) → also `/app/CONTAINER_AGENT.md`
+
 **G14 calibrate campaign + client report/xlsx/zip:** [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md)
 
 **App:** ESCO / energy-engineering toolkit — vibe19 FDD dumps in, calibrated EnergyPlus twins + benchmarked capital plans out. Where vibe19 is about **finding faults**, vibe20 is about **pricing the fixes credibly**: ESCO spreadsheet bin-method calculators, EnergyPlus crosschecks, public benchmarks, and ROI guardrails.
