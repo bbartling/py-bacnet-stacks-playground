@@ -101,9 +101,14 @@ If the session is already open and the JSON changed, use sidebar **Re-apply boot
 (or refresh). No HTTP wrapper — file handoff only.
 
 **Publish auto-upsert:** `publish_run_for_studio` / `calibrate-campaign` merge
-`preferred_run_id` into `studio_bootstrap.json` (best-effort). Explicit
+`preferred_run_id` into `studio_bootstrap.json` (best-effort) and **append** a
+timestamp line to `notes` (does not wipe `--notes` text). Explicit
 `wattlab studio-bootstrap --campus …` is still useful for campus/dump/answers paths;
 run-id alone is often already set after publish.
+
+**Pytest:** runtime `ghcr.io/bbartling/vibe20:latest` does **not** include pytest.
+AppTest lives in CI / host: `pip install -e ".[dev]"` then
+`python -m pytest tests/test_studio_bootstrap.py -q`. Do not `docker exec … pytest`.
 
 Disable in CI: `WATTLAB_STUDIO_BOOTSTRAP_DISABLE=1`.
 
