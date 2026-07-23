@@ -50,6 +50,7 @@ Zip load-on-button and rule-only-on-Run are already better than Folder/Export ea
 | Fix | Notes |
 | --- | --- |
 | Lazy main **radio** sections (not eager `st.tabs`) | Reintroducing `st.tabs` that evaluate every pane risks **SIGSEGV** on low-RAM hosts |
+| **Engineering Findings** generate-on-button only | Never rebuild evidence review / DOCX / charts on Overview visit or every rerun |
 | Sidebar sliders in `@st.fragment` | Slider drag must not re-run all rules |
 | Rules only on **Run** / **Rerun cat.** / prerun / bootstrap | Not on every slider move |
 | One Plotly at a time on **FDD Plots** | Chart panel + cards; downsample traces only |

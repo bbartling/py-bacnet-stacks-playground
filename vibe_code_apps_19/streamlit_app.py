@@ -2400,9 +2400,18 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
-        from app.report_downloads import render_overview_rcx_download
+        from app.report_downloads import (
+            render_engineering_findings_panel,
+            render_overview_rcx_download,
+        )
 
         render_overview_rcx_download(key="overview_generic_rcx_docx")
+        render_engineering_findings_panel(
+            batch_results=st.session_state.get("batch_results") or [],
+            building_name=str(st.session_state.get("building_id") or st.session_state.get("site_id") or ""),
+            analysis_period="",
+            key_prefix="overview_eng_findings",
+        )
 
         min_air_hours = _render_building_schedule_overview()
         _render_plant_motor_weekly(

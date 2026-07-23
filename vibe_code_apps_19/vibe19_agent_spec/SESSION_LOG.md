@@ -8,6 +8,17 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-23 — Engineering Findings Report (detection ≠ finding)
+
+- **Second reporting product** beside static Generic RCx: `app/reporting/` (evidence packets, Passes 1–7 reviewer, ≤7 prioritized findings, quality gate, Kaleido charts, DOCX+JSON).
+- Overview: **Generate Engineering Findings Report** button only (`render_engineering_findings_panel`); optional HITL include/note. Never rebuild on section visit.
+- Headless: `python -m app.reporting.cli --checklist-json … --out-dir … --docx --json` (also accepts WattLab dump + `--run-rules`).
+- Optional extras: `pip install '.[engineering-report]'` (`python-docx`, `kaleido`). Generic RCx path stays bytes-only / no python-docx.
+- Tests: `tests/test_report_*.py`, `test_finding_*.py`, `test_false_positive_review.py`, `test_near_continuous_fault_review.py`, `test_peer_common_mode_detection.py`.
+- Skill: [`skills/vibe19-engineering-report/SKILL.md`](skills/vibe19-engineering-report/SKILL.md). Docs: `PLOTS_DOCX_VALIDATION.md`, `DASHBOARD_CONTRACT.md`, root `AGENTS.md`.
+
+---
+
 ## 2026-07-19 — Compressor runtime + WattLab dump v3 handoff
 
 - **Compressor-only OAT bins:** CHW **pump status/cmd alone is not compressor proof**. Acceptable: compressor/chiller status, verified command, power/current. Chilled-water AHU valves excluded. Idle mapped compressors → `eligible_no_runtime`. Aggregates: `aggregate_device_hours` + `aggregate_active_hours` (one running device ⇒ equal). Design: `docs/superpowers/specs/2026-07-19-compressor-runtime-wattlab-release-design.md`.

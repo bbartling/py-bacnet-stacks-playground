@@ -45,13 +45,26 @@ Shared builder: `app.rule_card:build_rule_card` (+ `app.rule_plot_meta`).
 
 ## DOCX UX (required behavior)
 
-Exactly **one** committed template:
+**Product 1 — Generic RCx (unchanged):**
+
+Exactly **one** committed static template:
 
 - `assets/reports/Open-FDD_Generic_RCx_Report_v1.docx`
 - Primary download on **Overview** via `render_overview_rcx_download`
 - No per-equipment FDD DOCX, no family RCx DOCX pack, no Export ZIP pack
+- Engineers customize by replacing the file in place (same filename)
+- Served as bytes only — **no** python-docx on this path
 
-Engineers customize by replacing the file in place (same filename).
+**Product 2 — Engineering Findings Report (deliberate addition):**
+
+- Generated from active rule FAULTs / checklist JSON via `app/reporting/`
+- Overview: **Generate Engineering Findings Report** button only (never on section visit)
+- Optional extras: `pip install '.[engineering-report]'` (`python-docx`, `kaleido`)
+- Headless: `python -m app.reporting.cli --checklist-json … --out-dir … --docx --json`
+- Contract: detection ≠ finding; raw hits in appendix; ≤7 priority findings
+- Skill: [`../skills/vibe19-engineering-report/SKILL.md`](../skills/vibe19-engineering-report/SKILL.md)
+
+Do **not** commit generated Engineering Findings DOCX under `assets/reports/`.
 
 ---
 

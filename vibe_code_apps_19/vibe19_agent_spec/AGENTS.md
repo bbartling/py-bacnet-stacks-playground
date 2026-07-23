@@ -49,7 +49,7 @@ session. Production Rust Open-FDD is a **separate** repo.
 19. **Make it your own** — DB ingest pattern, branding, deploy forks: [`docs/CUSTOMIZE.md`](docs/CUSTOMIZE.md). **Browser upload 500 MB** / **agent-path 2048 MB** package defaults; GHCR: `ghcr.io/<owner>/vibe19` — see [`../docs/DOCKER.md`](../docs/DOCKER.md).
 20. **Dashboard contract** — RCx reset scatters (HW/CHW leave vs web OAT, CW/tower vs wet-bulb), AHU SAT vs web OAT, and AHU duct-static **box** are required. Do not delete presets in `REQUIRED_RCX_PRESET_IDS`. Overview must keep **Data inspection** (raw CSV Plotly stack) + BAS vs web OAT overlay. See [`docs/DASHBOARD_CONTRACT.md`](docs/DASHBOARD_CONTRACT.md).
 21. **FDD Plots = rule validation cards** — all applicable cookbook rules for the selected device (params + required/mapped points); one Plotly via plot focus; **Sensor health — per sensor**. Shared builder: `app/rule_card.py`. Spec: [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md). Per-rule Haystack tags / sliders / series: [`docs/RULE_PLOT_CATALOG.md`](docs/RULE_PLOT_CATALOG.md). Keep **Data Model** (`app/data_model_tree.py`).
-22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); zone comfort donut; opt-in coverage. Single Word template: Generic RCx on **Overview** (`app/docx_report.py`). Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md).
+22. **RCx Plots** — family → preset (`RCX_FAMILY_ORDER`); zone comfort donut; opt-in coverage. **Two reporting products on Overview:** (1) static Generic RCx (`app/docx_report.py`); (2) button-triggered Engineering Findings (`app/reporting/`, detection ≠ finding). Spec: [`docs/RCX_PLOTS.md`](docs/RCX_PLOTS.md), [`docs/PLOTS_DOCX_VALIDATION.md`](docs/PLOTS_DOCX_VALIDATION.md), skill [`skills/vibe19-engineering-report/SKILL.md`](skills/vibe19-engineering-report/SKILL.md).
 23. **Analytics golden baseline** — before perf/analytics edits run `pytest tests/test_analytics_golden.py`; regen with `VIBE19_UPDATE_ANALYTICS_GOLDEN=1`. Harness: `app/analytics_baseline.py`.
 24. **Perf bottlenecks** — eager Export/FDD DOCX + `rcx_preset_coverage`, Folder cache copies, rule-batch frame copies, `iterrows` scatters. Do not reintroduce eager `st.tabs`. Findings: [`docs/PERF_BOTTLENECKS.md`](docs/PERF_BOTTLENECKS.md).
 25. **README + GHCR pull-latest stay current** — after Docker/GHCR/deploy changes (and whenever shipping a new image), keep **`../README.md` → Docker / GHCR** and **`../docs/DOCKER.md`** aligned with the easy-button update path:
@@ -84,6 +84,7 @@ session. Production Rust Open-FDD is a **separate** repo.
 5d. **`docs/RULE_PLOT_CATALOG.md`** — per-rule chart points, Haystack tags, sliders (all 50)
 5e. **`docs/PERF_BOTTLENECKS.md`** — why the UI is slow; what not to regress; safe follow-ups
 5f. **`../README.md` (Docker / GHCR)** + **`../docs/DOCKER.md`** — when shipping images or changing pull/run instructions; keep easy-button pull-latest scripts documented; enforce **rule 30** (QEMU amd64+arm64, verify manifest, no-cache rebuild if tags are broken)
+5g. **`skills/vibe19-engineering-report/SKILL.md`** — when editing Engineering Findings / evidence review / report DOCX+JSON
 6. **`skills/vibe19-pandas-fdd-rules/SKILL.md`** — when editing rules
 7. **`skills/vibe19-hvac-data-import/SKILL.md`** — when touching CSV layout / BUILDING trees
 8. **`docs/OPERATIONAL_GATES.md`** / **`docs/RCX_PLOTS.md`** / **`docs/STREAMLIT_RULE_INVENTORY.md`** as needed
@@ -103,7 +104,9 @@ session. Production Rust Open-FDD is a **separate** repo.
 | `app/weather_resolver.py` | Effective OAT policy (web primary) |
 | `app/charts.py` | Rule plots, RCx multi-series / box / OAT scatter |
 | `app/rule_card.py` | FDD Plots/DOCX shared validation card content |
-| `app/docx_report.py` | Equipment FDD / data-model / analytics Word reports |
+| `app/docx_report.py` | Static Generic RCx template loader (+ legacy helper paths) |
+| `app/reporting/` | Engineering Findings (evidence review → DOCX/JSON/charts) |
+| `app/report_downloads.py` | Overview Generic RCx + Engineering Findings panel |
 | `app/data_model_tree.py` | Data Model inventory tree |
 | `app/dashboard_contract.py` | Frozen UI sections + chart/DOCX entrypoints |
 | `app/rcx_plots.py` | Prebuilt RCx presets + families + summary/outlier stats |
