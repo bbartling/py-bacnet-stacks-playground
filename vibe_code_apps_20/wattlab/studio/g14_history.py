@@ -174,19 +174,26 @@ def g14_epoch_figure(rows: list[dict[str, Any]], *, height: int = 440):
             line=dict(color="#9467bd", width=2, dash="dot"),
         )
 
-    fig.add_hline(
-        y=G14_NMBE_GATE,
-        line_dash="dash",
-        line_color="#d62728",
-        annotation_text=f"G14 |NMBE| ≤ {G14_NMBE_GATE:g}%",
-        annotation_position="top left",
+    # ASHRAE G14 monthly gates — as legend traces (add_hline annotations alone
+    # do not appear in the Plotly legend and look like anonymous dashboard lines).
+    x0, x1 = xs[0], xs[-1]
+    fig.add_scatter(
+        x=[x0, x1],
+        y=[G14_NMBE_GATE, G14_NMBE_GATE],
+        mode="lines",
+        name=f"G14 |NMBE| gate ≤{G14_NMBE_GATE:g}%",
+        line=dict(color="#d62728", width=2, dash="dash"),
+        hovertemplate=f"ASHRAE G14 monthly |NMBE| gate ≤ {G14_NMBE_GATE:g}%<extra></extra>",
+        showlegend=True,
     )
-    fig.add_hline(
-        y=G14_CVRMSE_GATE,
-        line_dash="dash",
-        line_color="#8c564b",
-        annotation_text=f"G14 CV(RMSE) ≤ {G14_CVRMSE_GATE:g}%",
-        annotation_position="bottom left",
+    fig.add_scatter(
+        x=[x0, x1],
+        y=[G14_CVRMSE_GATE, G14_CVRMSE_GATE],
+        mode="lines",
+        name=f"G14 CV(RMSE) gate ≤{G14_CVRMSE_GATE:g}%",
+        line=dict(color="#8c564b", width=2, dash="dash"),
+        hovertemplate=f"ASHRAE G14 monthly CV(RMSE) gate ≤ {G14_CVRMSE_GATE:g}%<extra></extra>",
+        showlegend=True,
     )
 
     plotly_layout_clean(
@@ -195,6 +202,16 @@ def g14_epoch_figure(rows: list[dict[str, Any]], *, height: int = 440):
         height=height,
         yaxis_title="% error",
         xaxis_title="Iteration (oldest → newest)",
+    )
+    fig.update_layout(
+        legend=dict(
+            title_text="Series (dashed = ASHRAE G14 monthly gates)",
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+        ),
     )
     fig.update_xaxes(dtick=1, showgrid=True, gridcolor="rgba(0,0,0,0.06)")
     fig.update_yaxes(rangemode="tozero", showgrid=True, gridcolor="rgba(0,0,0,0.08)")

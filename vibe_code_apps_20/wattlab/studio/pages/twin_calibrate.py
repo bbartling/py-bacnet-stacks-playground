@@ -177,12 +177,23 @@ def _fixture_eplusout() -> Path | None:
     return cand if cand.is_file() else None
 
 
-def _resolve_active_run() -> Path | None:
-    """Prefer session selection, then CURRENT_RUN.txt, then latest runs/ entry."""
-    active = st.session_state.get("studio_active_run")
-    if active and Path(active).is_dir():
-        return Path(active)
-    pointer = runs_dir() / "CURRENT_RUN.txt"
+def resolve_active_run_dir(
+    runs_root: Path,
+    *,
+    session_active: str | Path | None = None,
+    pinned: bool = False,
+) -> Path | None:
+    """Resolve Twin's active run.
+
+    Default: ``CURRENT_RUN.txt`` (agent publish pointer), else newest ``runs/``
+    by mtime. Sticky ``session_active`` wins only when ``pinned`` (human chose
+    Inspect → Show 08 panes).
+    """
+    if pinned and session_active:
+        p = Path(session_active)
+        if p.is_dir():
+            return p
+    pointer = Path(runs_root) / "CURRENT_RUN.txt"
     if pointer.is_file():
         try:
             p = Path(pointer.read_text(encoding="utf-8").strip())
@@ -190,10 +201,29 @@ def _resolve_active_run() -> Path | None:
                 return p
         except OSError:
             pass
-    hist = list_iteration_runs(runs_dir(), limit=1)
+    hist = list_iteration_runs(Path(runs_root), limit=1)
     if hist and hist[0].get("dir"):
         return Path(str(hist[0]["dir"]))
     return None
+
+
+def _resolve_active_run() -> Path | None:
+    """Streamlit wrapper: latest publish unless human pinned an Inspect selection."""
+    return resolve_active_run_dir(
+        runs_dir(),
+        session_active=st.session_state.get("studio_active_run"),
+        pinned=bool(st.session_state.get("studio_run_pinned")),
+    )
+
+
+def _clear_run_pin() -> None:
+    st.session_state.pop("studio_run_pinned", None)
+    st.session_state.pop("twin_iter_pick", None)
+
+
+def _pin_active_run(path: Path | str) -> None:
+    st.session_state["studio_active_run"] = str(path)
+    st.session_state["studio_run_pinned"] = True
 
 
 def _resolve_viz_run(preferred: Path | None = None) -> tuple[Path | None, str | None]:
@@ -397,6 +427,7 @@ def render() -> None:
     )
 
     if st.button("Refresh agent runs", key="twin_refresh_runs"):
+        _clear_run_pin()
         active = _resolve_active_run()
         if active is not None:
             st.session_state["studio_active_run"] = str(active)
@@ -955,7 +986,11 @@ def render() -> None:
             "Timestamps from `run_manifest.json`. G14 columns need `calibration_scorecard.json` per run."
         )
         from wattlab.studio.g14_history import g14_epoch_figure, iter_g14_history
-        from wattlab.studio.model_summary import build_model_summary, render_model_summary_panel
+        from wattlab.studio.model_summary import (
+            build_assumption_rows,
+            build_model_summary,
+            render_model_summary_panel,
+        )
 
         hist = list_iteration_runs(runs_dir(), limit=30)
         if not hist:
@@ -1047,8 +1082,10 @@ def render() -> None:
             st.markdown("**Calibration iterations (G14)**")
             st.caption(
                 "Like a training-loss curve: each published Twin run is an epoch. "
-                "Lower |NMBE| / CV(RMSE) is better. Dashed lines = ASHRAE G14 monthly gates "
-                "(±5% NMBE, 15% CVRMSE). Missing scorecards skip that point."
+                "Lower |NMBE| / CV(RMSE) is better. "
+                "**Dashed legend entries** are ASHRAE G14 monthly gates "
+                "(±5% |NMBE|, ≤15% CVRMSE) — not extra model series. "
+                "Missing scorecards skip that point."
             )
             st.plotly_chart(
                 g14_epoch_figure(g14_rows, height=440),
@@ -1056,9 +1093,27 @@ def render() -> None:
                 key="twin_g14_epoch",
             )
 
+            pick_opts = [h.get("dir") for h in hist if h.get("dir")]
+            active_now = _resolve_active_run()
+            default_ix = 0
+            if active_now is not None:
+                active_s = str(active_now.resolve()) if active_now.exists() else str(active_now)
+                for i, d in enumerate(pick_opts):
+                    try:
+                        if d and str(Path(str(d)).resolve()) == active_s:
+                            default_ix = i
+                            break
+                    except OSError:
+                        if str(d) == str(active_now):
+                            default_ix = i
+                            break
+            # Keep Inspect selection aligned with Twin active run when not mid-widget edit
+            if "twin_iter_pick" not in st.session_state and pick_opts:
+                st.session_state["twin_iter_pick"] = pick_opts[default_ix]
+
             pick = st.selectbox(
                 "Inspect iteration",
-                options=[h.get("dir") for h in hist if h.get("dir")],
+                options=pick_opts,
                 format_func=lambda d: Path(str(d)).name if d else "",
                 key="twin_iter_pick",
             )
@@ -1066,11 +1121,21 @@ def render() -> None:
                 answers = st.session_state.get("studio_answers")
                 if not isinstance(answers, dict):
                     answers = {}
-                summary = build_model_summary(answers, Path(str(pick)), profile=_profile())
-                with st.expander("Model summary (selected iteration)", expanded=True):
-                    render_model_summary_panel(summary)
+                profile = _profile()
+                summary = build_model_summary(answers, Path(str(pick)), profile=profile)
+                rows = build_assumption_rows(
+                    answers, Path(str(pick)), profile=profile, summary=summary
+                )
+                pin_note = (
+                    "Pinned to this Inspect selection."
+                    if st.session_state.get("studio_run_pinned")
+                    else "Twin panes follow latest CURRENT_RUN unless you pin below."
+                )
+                with st.expander("Model assumptions (selected iteration)", expanded=True):
+                    st.caption(pin_note)
+                    render_model_summary_panel(summary, rows)
                 if st.button("Show 08 panes for selection", key="twin_show_iter"):
-                    st.session_state["studio_active_run"] = pick
+                    _pin_active_run(pick)
                     st.rerun()
 
     st.divider()
