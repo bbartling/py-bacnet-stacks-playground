@@ -17,6 +17,7 @@ $WATTLAB_HOST_WORKSPACE/          # e.g. $HOME/wattlab_workspace
   uploads/                        # WattLab dump zips from vibe19
   runs/                           # published Twin iterations (eplusout.csv, reports)
   reports/                        # CALIBRATE_SESSION.md, capital plans, …
+  tools/                          # campaign scripts (/data/tools) — see AGENT_TOOLS.md
   .artifacts/                     # DinD EnergyPlus stage/out (container-managed)
 ```
 

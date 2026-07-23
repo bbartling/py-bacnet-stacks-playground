@@ -25,7 +25,8 @@ def test_cost_registry_has_all_scopes_with_basis_and_year():
     rows = load_registry()
     scopes = {r["scope"] for r in rows}
     assert {"rcx_tuning", "minor_hvac_controls", "major_hvac", "deep_retrofit",
-            "windows_full_replacement", "windows_secondary"} <= scopes
+            "windows_full_replacement", "windows_secondary",
+            "controls_first", "major_hvac_renewal", "deep_electrification"} <= scopes
     for r in rows:
         assert r["unit_basis"] and r["currency_year"] and r["confidence"]
         assert r["lo"] <= r["p50"] <= r["hi"]

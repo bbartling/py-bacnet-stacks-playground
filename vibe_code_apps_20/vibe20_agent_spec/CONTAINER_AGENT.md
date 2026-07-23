@@ -70,6 +70,9 @@ never bake building ids into discovery defaults or silent CLI defaults.
 | `/app/vibe20_agent_spec/AGENT_TESTER_PROMPT.md` | Soak checklist |
 | `/app/vibe20_agent_spec/docs/TWIN_LOOP.md` | Twin loop + geometry gate |
 | `/app/vibe20_agent_spec/skills/wattlab-*/SKILL.md` | Procedure skills |
+| `/app/vibe20_agent_spec/docs/AGENT_TOOLS.md` | `/data/tools` vs WattLab CLIs |
+| `/app/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md` | Lower-48 $/sf + ROI screening |
+| `/app/vibe20_agent_spec/skills/wattlab-controls-fdd/SKILL.md` | Dump checklist + vibe19 FP tuning |
 
 ## Run (preferred)
 
@@ -82,6 +85,8 @@ docker exec -e WATTLAB_STUDIO_WORKSPACE=/data \
 Useful commands:
 
 - `wattlab energyplus-ensure` — vendor + `energyplus-mcp-dev` (required once)
+- `wattlab controls-checklist --dump … --docx` — controls FDD handoff; iterate vibe19 if FP epidemic
+- `wattlab geo-idf` / `dial-loads` / `score-monthly` — geometry / loads / G14 monthly
 - `wattlab mcp-exec -- python -c '…'` — raw MCP one-shot
 - `wattlab studio-status --write` → `reports/session_status.json`
 - `wattlab studio-bootstrap --campus … --dump … --run-id … --answers … --ecm-scenario …`

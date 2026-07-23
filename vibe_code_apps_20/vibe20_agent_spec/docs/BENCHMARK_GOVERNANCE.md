@@ -41,12 +41,18 @@ Scope ladder with **explicit unit basis, currency year, confidence**:
 | `windows_full_replacement` | 30–60, p50 39.7 | **glazing_ft2** | 2022, medium |
 | `windows_secondary` | 25–45, p50 36.8 | glazing_ft2 | 2022, medium |
 | `deep_retrofit` | 25–150, p50 45 | building_ft2 | 2022, medium |
+| `controls_first` | 1–6, p50 3 | building_ft2 | **screening** (Lower-48 synthesis) |
+| `major_hvac_renewal` | 10–26, p50 18 | building_ft2 | **screening** (current major renewal) |
+| `deep_electrification` | 24–50, p50 32 | building_ft2 | **screening** (electrification / radical) |
 
 Rules: historical medians are reference bands, never bids; windows math needs
 glazing area (no glazing area → `no_reference`, not a guess);
 `scope_for_measure` maps measure ids to scopes (SCHED/LOCKOUT/RESET →
 rcx_tuning, GL36/DCV/ECON → minor_hvac_controls, BOILER/CHILLER-REPLACE →
 major_hvac, …).
+
+**Lower-48 screening synthesis + ROI takeaways:**
+[`ESCO_RETROFIT_COST_ROI.md`](ESCO_RETROFIT_COST_ROI.md).
 
 ## Meter allocation (`meters.py`)
 

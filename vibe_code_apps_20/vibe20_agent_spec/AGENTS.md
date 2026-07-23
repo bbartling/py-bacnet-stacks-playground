@@ -109,12 +109,15 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 8. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
 9. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
 10. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
-11. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
-12. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
-13. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
-14. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
-15. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke, deliverables
-16. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
+11. **[`docs/ESCO_RETROFIT_COST_ROI.md`](docs/ESCO_RETROFIT_COST_ROI.md)** — Lower-48 ESCO $/sf + ROI screening honesty
+12. **[`docs/AGENT_TOOLS.md`](docs/AGENT_TOOLS.md)** — `/data/tools` campaign scripts vs WattLab CLIs
+13. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
+14. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
+15. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
+16. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
+17. **`skills/wattlab-controls-fdd/SKILL.md`** — BAS dump checklist + vibe19 FDD FP tuning
+18. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke, deliverables
+19. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
 
 ---
 

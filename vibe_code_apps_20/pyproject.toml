@@ -18,8 +18,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-studio = ["streamlit>=1.37", "plotly>=5.20", "matplotlib>=3.8", "openpyxl>=3.1"]
+studio = ["streamlit>=1.37", "plotly>=5.20", "matplotlib>=3.8", "openpyxl>=3.1", "python-docx>=1.1"]
 excel = ["openpyxl>=3.1"]
+docx = ["python-docx>=1.1"]
 dev = ["pytest>=8.0", "ruff>=0.5", "playwright>=1.40"]
 
 [project.scripts]

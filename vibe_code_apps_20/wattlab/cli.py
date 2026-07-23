@@ -36,6 +36,7 @@ def _usage() -> str:
         "  mcp-exec         Run uv args inside energyplus-mcp-dev (IDF inspect/modify)\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
+        "  controls-checklist  vibe19 dump → controls FDD checklist (md/json/docx)\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
         "  studio       Launch the WattLab Studio web app (Streamlit)\n"
     )
@@ -195,6 +196,10 @@ def main(argv: list[str] | None = None) -> int:
         return int(m(rest) or 0)
     if cmd in {"explore-existing", "hypothesis-lab"}:
         from wattlab.existing_building.cli import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"controls-checklist", "controls_checklist"}:
+        from wattlab.existing_building.controls_checklist import main as m
 
         return int(m(rest) or 0)
     if cmd == "ecm":
