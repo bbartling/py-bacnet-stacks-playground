@@ -2,8 +2,16 @@
 
 OpenFDD WattLab uses the [LBNL-ETA/EnergyPlus-MCP](https://github.com/LBNL-ETA/EnergyPlus-MCP) Docker image for EnergyPlus 26.1.0.
 
+**Preferred (tip agents / bensbench):**
+
+```bash
+wattlab energyplus-ensure
+# clones pin → $WATTLAB_STUDIO_WORKSPACE/third_party/EnergyPlus-MCP
+# builds energyplus-mcp-dev once; capability_status() → ready
+```
+
 - Pin: see `VERSION.txt`
-- Local clone: `EnergyPlus-MCP/` (gitignored; re-clone from VERSION.txt)
+- Local clone: `EnergyPlus-MCP/` (gitignored; re-clone from VERSION.txt) **or** workspace `/data/third_party/EnergyPlus-MCP`
 - Image tag: `energyplus-mcp-dev`
 
 ## Build (required build-arg)

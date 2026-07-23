@@ -179,13 +179,16 @@ Default archetype remains 5Zone × `prototype_area_scale` — screening only.
 
 | Tool | CLI | Role |
 | --- | --- | --- |
-| `wattlab.energyplus.geo_idf` | `wattlab geo-idf` | DOE Large Office (or similar) → site-scale massing (stories, WWR, XY scale, lat/lon) |
-| `wattlab.energyplus.dial_loads` | `wattlab dial-loads` | MCP: lights / equip W/m² + infil mult (needs full MCP image) |
+| ensure | `wattlab energyplus-ensure` | Clone pin + build `energyplus-mcp-dev` → capability `ready` |
+| `wattlab.energyplus.geo_idf` | `wattlab geo-idf` | DOE Large Office → site-scale massing |
+| `wattlab.energyplus.dial_loads` | `wattlab dial-loads` | MCP lights / equip W/m² + infil (auto mcp-exec) |
 | `wattlab.energyplus.score_monthly` | `wattlab score-monthly` | Last-12 Monthly meters vs bills; `area_scale=1` |
+| mcp-exec | `wattlab mcp-exec -- …` | Raw `uv run` inside MCP image |
 
-Workflow: **geo-idf → custom_idf + area_scale=1 → DinD sim → score-monthly**. If elec high /
-gas low, dial loads via MCP before more schedule patches. Bills: area-weighted half
-elec once — never double-half. Twin shows IDF 3D massing from published `model.idf`.
+Workflow: **ensure → geo-idf → custom_idf + area_scale=1 → DinD sim → score-monthly**.
+If elec high / gas low, dial loads via MCP before more schedule patches. Bills:
+area-weighted half elec once — never double-half. Twin shows IDF 3D massing from
+published `model.idf`. Practice campus dumps = labeled rehearsal only.
 
 ---
 

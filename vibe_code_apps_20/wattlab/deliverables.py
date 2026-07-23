@@ -545,17 +545,14 @@ def package_deliverables(
         from wattlab.studio.workspace import reports_dir
 
         reports = reports_dir()
-        for name in (
-            "answers.json",
-            "answers_building_100.json",
-            "answers_building_50.json",
-            "utility_bills.csv",
-            "session_status.json",
-            "ecm_scenario.json",
-        ):
+        for name in ("answers.json", "utility_bills.csv", "session_status.json", "ecm_scenario.json"):
             p = reports / name
             if p.is_file():
                 candidates.append(p)
+        # Prefer bootstrap answers path already in candidates; else sole answers_*.json
+        extras = sorted(reports.glob("answers_*.json"))
+        if len(extras) == 1:
+            candidates.append(extras[0])
     except Exception:  # noqa: BLE001
         pass
     seen: set[str] = set()

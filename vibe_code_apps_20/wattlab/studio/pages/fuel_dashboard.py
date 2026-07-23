@@ -168,6 +168,10 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
         peer_p80=float(dfb["peer_p80"].iloc[0]),
         series=series,
         title="Site EUI vs peer p20–p80 band",
+        height=440,
+    )
+    st.caption(
+        "Upright peer band (green = p20–p80, dashed = p50). Diamonds = building site EUI from bills."
     )
     st.plotly_chart(fig_peer, width="stretch", key="fuel_peer_eui_chart")
 

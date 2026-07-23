@@ -30,8 +30,10 @@ def _usage() -> str:
         "  studio-bootstrap  Write studio_bootstrap.json for Streamlit auto-load\n"
         "  studio-status     Merge dump/answers/bootstrap/run → session_status.json\n"
         "  geo-idf          Adapt DOE Large Office IDF → site-scale massing (any building)\n"
-        "  dial-loads       Dial lights/equip/infil via EnergyPlus MCP (full MCP image)\n"
+        "  dial-loads       Dial lights/equip/infil via EnergyPlus MCP (auto mcp-exec)\n"
         "  score-monthly    Score eplusout Monthly vs bills (last-12, area_scale=1)\n"
+        "  energyplus-ensure  Clone pinned EnergyPlus-MCP + build energyplus-mcp-dev\n"
+        "  mcp-exec         Run uv args inside energyplus-mcp-dev (IDF inspect/modify)\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
@@ -181,6 +183,14 @@ def main(argv: list[str] | None = None) -> int:
         return int(m(rest) or 0)
     if cmd in {"score-monthly", "score_monthly"}:
         from wattlab.energyplus.score_monthly import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"energyplus-ensure", "energyplus_ensure"}:
+        from wattlab.energyplus.mcp_runtime import main_ensure as m
+
+        return int(m(rest) or 0)
+    if cmd in {"mcp-exec", "mcp_exec"}:
+        from wattlab.energyplus.mcp_runtime import main_mcp_exec as m
 
         return int(m(rest) or 0)
     if cmd in {"explore-existing", "hypothesis-lab"}:

@@ -54,6 +54,36 @@ def month_abbrev_columns(frame_or_cols: Any) -> Any:
     return [month_abbrev(c) for c in frame_or_cols]
 
 
+def plotly_layout_clean(
+    fig: Any,
+    *,
+    title: str | None = None,
+    height: int = 420,
+    yaxis_title: str | None = None,
+    xaxis_title: str | None = None,
+) -> Any:
+    """Apply consistent margins + horizontal legend above the plot (no title clash)."""
+    fig.update_layout(
+        height=int(height),
+        margin=dict(l=64, r=24, t=72 if title else 56, b=48),
+        title=dict(text=title, y=0.98, x=0.01, xanchor="left", yanchor="top") if title else None,
+        yaxis_title=yaxis_title,
+        xaxis_title=xaxis_title,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.08,
+            x=0,
+            xanchor="left",
+            bgcolor="rgba(255,255,255,0.75)",
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(size=12),
+    )
+    return fig
+
+
 def eui_peer_bullet_figure(
     *,
     peer_p20: float,
@@ -63,7 +93,7 @@ def eui_peer_bullet_figure(
     title: str | None = None,
     height: int | None = None,
 ):
-    """Horizontal bullet/box: peer p20–p80 band + p50 tick; one Y row per series.
+    """Upright peer-band chart: p20–p80 box per category + markers for Bills/Model/….
 
     Each item in ``series`` needs ``label`` and ``eui`` (kBtu/ft²·yr). Optional
     ``color`` (hex) and ``symbol`` (plotly marker symbol).
@@ -78,16 +108,16 @@ def eui_peer_bullet_figure(
     n = len(labels)
     fig = go.Figure()
 
-    # One peer band + p50 per category row (boxplot-like horizontal band)
-    for i, label in enumerate(labels):
+    # Vertical peer band + p50 tick under each category (boxplot-like upright)
+    for i, _label in enumerate(labels):
         fig.add_shape(
             type="rect",
             xref="x",
             yref="y",
-            x0=float(peer_p20),
-            x1=float(peer_p80),
-            y0=i - 0.35,
-            y1=i + 0.35,
+            x0=i - 0.35,
+            x1=i + 0.35,
+            y0=float(peer_p20),
+            y1=float(peer_p80),
             fillcolor="rgba(44,160,44,0.22)",
             line_width=0,
             layer="below",
@@ -96,29 +126,28 @@ def eui_peer_bullet_figure(
             type="line",
             xref="x",
             yref="y",
-            x0=float(peer_p50),
-            x1=float(peer_p50),
-            y0=i - 0.35,
-            y1=i + 0.35,
+            x0=i - 0.35,
+            x1=i + 0.35,
+            y0=float(peer_p50),
+            y1=float(peer_p50),
             line=dict(color="#2ca02c", width=2, dash="dash"),
             layer="below",
         )
 
-    xs = [float(r["eui"]) for r in rows]
+    ys = [float(r["eui"]) for r in rows]
     colors = [str(r.get("color") or "#1f77b4") for r in rows]
     symbols = [str(r.get("symbol") or "diamond") for r in rows]
     fig.add_scatter(
-        x=xs,
-        y=labels,
+        x=labels,
+        y=ys,
         mode="markers+text",
-        marker=dict(size=14, color=colors, symbol=symbols, line=dict(width=1, color="#333")),
-        text=[f"{x:.1f}" for x in xs],
-        textposition="middle right",
+        marker=dict(size=16, color=colors, symbol=symbols, line=dict(width=1, color="#333")),
+        text=[f"{y:.1f}" for y in ys],
+        textposition="top center",
         name="Site EUI",
-        hovertemplate="%{y}: %{x:.1f} kBtu/ft²<extra></extra>",
+        hovertemplate="%{x}: %{y:.1f} kBtu/ft²·yr<extra></extra>",
     )
 
-    # Invisible peer reference for legend clarity
     fig.add_scatter(
         x=[None],
         y=[None],
@@ -134,23 +163,21 @@ def eui_peer_bullet_figure(
         name=f"Peer p50 ({peer_p50:.1f})",
     )
 
-    h = height or max(160, 56 + 44 * n)
-    fig.update_layout(
-        height=h,
-        margin=dict(l=10, r=80, t=40 if title else 16, b=40),
+    h = height or max(420, 360 + 20 * max(0, n - 2))
+    plotly_layout_clean(
+        fig,
         title=title,
-        xaxis_title="Site EUI (kBtu/ft²·yr)",
-        yaxis=dict(
-            categoryorder="array",
-            categoryarray=list(reversed(labels)),
-            automargin=True,
-        ),
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        plot_bgcolor="rgba(0,0,0,0)",
+        height=h,
+        yaxis_title="Site EUI (kBtu/ft²·yr)",
+        xaxis_title=None,
     )
-    xmax = max(float(peer_p80), max(xs) if xs else float(peer_p80)) * 1.15
-    xmin = min(0.0, float(peer_p20) * 0.85, min(xs) if xs else 0.0)
-    fig.update_xaxes(range=[xmin, xmax], showgrid=True, gridcolor="rgba(0,0,0,0.08)")
-    fig.update_yaxes(showgrid=False)
+    ymax = max(float(peer_p80), max(ys) if ys else float(peer_p80)) * 1.18
+    ymin = min(0.0, float(peer_p20) * 0.85, min(ys) if ys else 0.0)
+    fig.update_yaxes(range=[ymin, ymax], showgrid=True, gridcolor="rgba(0,0,0,0.08)")
+    fig.update_xaxes(
+        categoryorder="array",
+        categoryarray=labels,
+        showgrid=False,
+        automargin=True,
+    )
     return fig
