@@ -5,13 +5,10 @@ area, fenestration height strip for WWR target, optional Site:Location + SHGC.
 No site hardcodes — stories/WWR/area/lat/lon via CLI args.
 
     wattlab geo-idf \\
-      --src uploads/prototypes/RefBldgLargeOfficeNew2004_Chicago.idf \\
+      --src uploads/prototypes/<DOE_LargeOffice>.idf \\
       --dst uploads/prototypes/geo_site.idf \\
       --target-area-ft2 <ft2> --stories <N> --wwr <0-1> \\
-      --lat <deg> --lon <deg> --site-name <Name>
-
-Practice example (Liberty B100 rehearsal only — do not reuse as defaults):
-  --target-area-ft2 140000 --stories 6 --wwr 0.60 --lat 42.33 --lon -83.05
+      --lat <deg> --lon <deg> --tz <hr> --elevation-m <m> --site-name <Name>
 """
 
 from __future__ import annotations
@@ -273,9 +270,14 @@ def build_site_scale_idf(
         )
 
     if lat is not None and lon is not None:
+        if tz_hr is None or elevation_m is None:
+            raise ValueError(
+                "Site:Location patch needs --tz and --elevation-m with --lat/--lon "
+                "(do not invent 0.0 timezone/elevation)"
+            )
         name = site_name or f"Site_{lat}_{lon}"
-        tz = 0.0 if tz_hr is None else float(tz_hr)
-        elev = 0.0 if elevation_m is None else float(elevation_m)
+        tz = float(tz_hr)
+        elev = float(elevation_m)
         text = re.sub(
             r"  Site:Location,\n    [^;]+;",
             f"""  Site:Location,

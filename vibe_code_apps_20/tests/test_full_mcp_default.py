@@ -42,10 +42,10 @@ def test_dial_loads_routes_via_docker_when_no_local_mcp(tmp_path: Path):
 
     real_import = builtins.__import__
 
-    def _imp(name, globals=None, locals=None, fromlist=(), level=0):
+    def _imp(name, globals_=None, locals_=None, fromlist=(), level=0):
         if name == "energyplus_mcp_server" or name.startswith("energyplus_mcp_server."):
             raise ImportError("forced missing MCP")
-        return real_import(name, globals, locals, fromlist, level)
+        return real_import(name, globals_, locals_, fromlist, level)
 
     with patch("builtins.__import__", side_effect=_imp):
         with patch(
@@ -73,7 +73,7 @@ def test_answers_discovery_answers_json_wins(tmp_path: Path):
     assert str(out["paths"]["answers"]).endswith("answers.json")
 
 
-def test_answers_discovery_glob_sorted_without_100_50_prefer(tmp_path: Path):
+def test_answers_discovery_glob_single_only(tmp_path: Path):
     from wattlab.studio.status import build_session_status
 
     reports = tmp_path / "reports"
@@ -81,5 +81,9 @@ def test_answers_discovery_glob_sorted_without_100_50_prefer(tmp_path: Path):
     (reports / "answers_building_100.json").write_text('{"id": "100"}', encoding="utf-8")
     (reports / "answers_building_50.json").write_text('{"id": "50"}', encoding="utf-8")
     out = build_session_status(workspace=tmp_path)
-    # Sorted: answers_building_100.json before answers_building_50.json
-    assert str(out["paths"]["answers"]).endswith("answers_building_100.json")
+    # Ambiguous multi-site answers → leave unset (NEEDS_INPUT)
+    assert out["paths"]["answers"] is None
+
+    (reports / "answers_building_50.json").unlink()
+    out2 = build_session_status(workspace=tmp_path)
+    assert str(out2["paths"]["answers"]).endswith("answers_building_100.json")

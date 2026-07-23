@@ -103,12 +103,14 @@ def clone_or_checkout_vendor(
             check=True,
             capture_output=True,
             text=True,
+            timeout=600,
         )
     subprocess.run(
         [git, "-C", str(dest), "fetch", "--all", "--tags"],
         check=True,
         capture_output=True,
         text=True,
+        timeout=600,
     )
     if commit:
         subprocess.run(
@@ -116,6 +118,7 @@ def clone_or_checkout_vendor(
             check=True,
             capture_output=True,
             text=True,
+            timeout=120,
         )
     if not (dest / "energyplus-mcp-server").is_dir():
         raise RuntimeError(f"Clone incomplete — missing energyplus-mcp-server under {dest}")
@@ -146,7 +149,7 @@ def build_energyplus_image(vendor: Path | None = None) -> str:
         str(vendor / ".devcontainer" / "Dockerfile"),
         str(vendor / ".devcontainer"),
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, timeout=3600)
     return DOCKER_IMAGE
 
 
@@ -220,22 +223,24 @@ def energyplus_ensure(
 def _container_data_path(path: Path) -> str:
     """Map a host/container workspace path to ``/data/...`` inside mcp-exec."""
     p = Path(path).resolve()
+    roots: list[Path] = []
     ws = (os.environ.get("WATTLAB_STUDIO_WORKSPACE") or "").strip()
     if ws:
-        cont = Path(ws).expanduser().resolve()
-        try:
-            rel = p.relative_to(cont)
-            return "/data/" + rel.as_posix()
-        except ValueError:
-            pass
+        roots.append(Path(ws).expanduser().resolve())
     host_ws = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip()
     if host_ws:
+        roots.append(Path(host_ws).expanduser().resolve())
+    # Same fallback mcp_exec mounts when env vars are unset
+    try:
+        roots.append(artifacts_root().parent.resolve())
+    except Exception:  # noqa: BLE001
+        pass
+    for root in roots:
         try:
-            rel = p.relative_to(Path(host_ws).expanduser().resolve())
+            rel = p.relative_to(root)
             return "/data/" + rel.as_posix()
         except ValueError:
-            pass
-    # Fall back: absolute path as-is (host docker without remapping)
+            continue
     return str(p).replace("\\", "/")
 
 

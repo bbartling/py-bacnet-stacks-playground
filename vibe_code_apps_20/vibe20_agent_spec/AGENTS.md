@@ -188,7 +188,7 @@ Default archetype remains 5Zone × `prototype_area_scale` — screening only.
 Workflow: **ensure → geo-idf → custom_idf + area_scale=1 → DinD sim → score-monthly**.
 If elec high / gas low, dial loads via MCP before more schedule patches. Bills:
 area-weighted half elec once — never double-half. Twin shows IDF 3D massing from
-published `model.idf`. Liberty B100/B50 = labeled practice only.
+published `model.idf`. Practice campus dumps = labeled rehearsal only.
 
 ---
 

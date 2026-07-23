@@ -56,7 +56,7 @@ For site-scale glass / multistory offices (any building):
 
 **Bills honesty:** campus area-weighted half elec + per-building gas — never double-half.
 
-Practice evidence (Liberty B100 / B50) may appear in docs as labeled rehearsal only —
+Practice evidence may appear in docs as labeled rehearsal only —
 never bake building ids into discovery defaults or silent CLI defaults.
 
 ## Read first

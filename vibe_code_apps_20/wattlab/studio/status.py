@@ -170,9 +170,9 @@ def build_session_status(
         if hit.is_file():
             ans_path = hit
         else:
-            # Any answers_*.json (sorted) — no preferred building-id filenames
+            # Exactly one answers_*.json → use it; multiple → leave unset (NEEDS_INPUT)
             matches = sorted(reports.glob("answers_*.json"))
-            if matches:
+            if len(matches) == 1:
                 ans_path = matches[0]
     answers = _load_json(ans_path)
 

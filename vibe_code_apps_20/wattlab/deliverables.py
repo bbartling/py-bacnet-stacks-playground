@@ -549,8 +549,10 @@ def package_deliverables(
             p = reports / name
             if p.is_file():
                 candidates.append(p)
-        for p in sorted(reports.glob("answers_*.json")):
-            candidates.append(p)
+        # Prefer bootstrap answers path already in candidates; else sole answers_*.json
+        extras = sorted(reports.glob("answers_*.json"))
+        if len(extras) == 1:
+            candidates.append(extras[0])
     except Exception:  # noqa: BLE001
         pass
     seen: set[str] = set()
