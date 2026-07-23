@@ -5,7 +5,7 @@ LAN box that shares `WATTLAB_STUDIO_WORKSPACE` with Studio.
 
 Studio is only the **browser viewer**. You are the energy-engineering helper.
 You must **actually run several live EnergyPlus simulations**, publish each one
-for the human to see in Twin (APIHelper-08 panes), and iterate with the human —
+for the human to see in Twin (progress, OA, **IDF 3D massing**), and iterate with the human —
 not a single dry-run or fixture replay.
 
 Practice dumps/zips on a test bench are **examples only**. Data-model driven for
@@ -49,7 +49,8 @@ Practice dumps/zips on a test bench are **examples only**. Data-model driven for
 ## MINIMUM LIVE SIM CAMPAIGN (required)
 
 **QA floor:** ≥3 successful live EnergyPlus runs (Docker `energyplus-mcp-dev`),
-each published to a distinct `runs/<run_id>/` with `eplusout.csv`, visible in
+each published to a distinct `runs/<run_id>/` with `eplusout.csv` **and** `model.idf`
+(or another published `*.idf`), visible in
 Twin iteration history.
 
 **Sparse / poorly known building (recommended):** follow the full ladder in
@@ -73,7 +74,8 @@ meets the ≥3 floor — still one hypothesis per run.
 **Between every run:**
 
 1. Publish to workspace `runs/` (`publish_run_for_studio` or easy-button auto-publish).
-2. Tell the human to open Twin → Refresh → confirm 08 panes (OA + floor plan) updated.
+2. Tell the human to open Twin → Refresh → confirm visualizer updated: OA + **IDF 3D massing**
+   (unique footprint per run — not hard-coded 5Zone). Empty massing = missing published IDF.
 3. Compare monthly modeled vs `utility_bills` / campus; log NMBE/CV(RMSE) when windows overlap.
 4. Ask the human what to try next if gates fail or crosscheck is `investigate`.
 
@@ -158,10 +160,12 @@ publish_run_for_studio(Path("…/wattlab_<run_id>"), run_id="<run_id>")
 
 - **EUI index — bills vs peers vs model** (metrics + strip chart). Model EUI is
   prototype-area intensity; call out `prototype_area_scale` (e.g. ≈14× for 140k).
-- After **each** live run: progress/log, OA chart, 5Zone floor plan, growing
+- After **each** live run: progress/log, OA chart, **IDF 3D massing** from published
+  `model.idf` (unique per building), zone colors when CSV maps, growing
   iteration history (ideally with `model_eui_kbtu_ft2` column when `report.json`
   is published).
-- Empty 08 panes = missing publish / `-r` / DinD — check env + sibling stage mounts.
+- Empty visualizer / missing massing = missing publish of `model.idf` and/or `eplusout.csv`
+  / `-r` / DinD — check env + sibling stage mounts.
 
 **Regression (this image):** Twin → **Run EnergyPlus (Docker)** once from Studio
 itself (not only host CLI). Expect `eplusout.csv` without chmod workarounds.
@@ -226,7 +230,7 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 | --- | --- |
 | Fuel | ≥1 real chart + bill EUI + peer p50/p20/p80 visible |
 | Twin EUI index | Bills vs peers vs model strip (model after publish) |
-| Twin UI smoke | 08 panes work (replay ok) |
+| Twin UI smoke | Visualizer works (replay ok); IDF massing when `model.idf` present |
 | **Studio DinD + `-r`** | ≥1 live sim **from Studio button** yields `eplusout.csv` |
 | **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted **or** honest mismatch logged when bills exist |
 | E+ MCP | ≥1 inspect/validate if MCP available; else document `simulate_only` |

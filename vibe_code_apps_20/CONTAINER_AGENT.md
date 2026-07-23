@@ -11,13 +11,15 @@ agent: wattlab twin | calibrate-campaign | easy-button | ecm_scenario.json
         ▼  Docker energyplus-mcp-dev (DinD)
 runs/<id>/progress.json + console.log   ← live while sim runs
 runs/<id>/eplusout.csv                  ← after ReadVars (-r)
+runs/<id>/model.idf                     ← for Twin 3D massing (unique per building)
 publish_run_for_studio → CURRENT_RUN + bootstrap preferred_run_id
         │
         ▼
 Human Studio Twin: fragment polls progress; OA/floor charts after CSV
 ```
 
-No HTTP wrapper. No embedded `pyenergyplus` in Streamlit — live 08 panes are **file polls**.
+No HTTP wrapper. No embedded `pyenergyplus` in Streamlit — live panes are **file polls**.
+Twin massing parses published IDF surfaces (not a hard-coded prototype footprint).
 
 ## Read first
 

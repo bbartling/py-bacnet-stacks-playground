@@ -11,8 +11,10 @@ E+ iteration so Twin 08 panes appear in the browser
 (`publish_run_for_studio` / `runs/CURRENT_RUN.txt`).
 
 **Live 08:** DinD writes `progress.json` + `console.log` during the sim; Twin polls
-(progress/log live). OA + floor-plan charts update when `eplusout.csv` exists
-(after ReadVars). Not embedded pyenergyplus / not Flask APIHelper.
+(progress/log live). OA charts update when `eplusout.csv` exists (after ReadVars).
+**Building massing** comes from published `model.idf` (BuildingSurface:Detailed) —
+unique per run / site. Zone colors apply when CSV zone names match. Not embedded
+pyenergyplus / not Flask APIHelper / not hard-coded Liberty footprints.
 
 Full paste prompt for QA + calibrate sessions:
 [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
@@ -73,7 +75,8 @@ Studio Twin:
 - Docker run → `runs/<run_id>/` (report, eplusout, manifest); needs
   `WATTLAB_HOST_WORKSPACE` + docker.sock for DinD; `-r` → `eplusout.csv`
 - Demo replay → fixture eplusout labeled replay (UI smoke without E+ image)
-- **08-style panes**: progress + console, outdoor DBT, classic 5Zone floor-plan
+- **Visualizer panes**: progress + console, outdoor DBT, **IDF 3D massing** from
+  `model.idf` (fallback classic 5Zone schematic only when no IDF published)
   heatmap (`wattlab.studio.ep_viz`) — viz patterns only, not host Runtime API
 
 **Order when little is known** (see [`SPARSE_BUILDING_PLAYBOOK.md`](SPARSE_BUILDING_PLAYBOOK.md)):
@@ -125,7 +128,7 @@ Always area-normalize vs the 5ZoneAirCooled prototype footprint
 
 ```
 uploads/dump/  uploads/energy/  uploads/energy/derived/
-runs/<run_id>/eplusout.csv | run_manifest.json | progress.json | report.json
+runs/<run_id>/eplusout.csv | model.idf | run_manifest.json | progress.json | report.json
 reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_SESSION.md
 ```
 

@@ -325,14 +325,18 @@ def render(*, campus: Campus | None = None) -> None:
                 value=True,
                 key="fuel_weather_fit_all",
             )
-        years_fit = st.slider(
-            "Fit window: last N years",
-            min_value=1,
-            max_value=max_y,
-            value=int(choices["default_years"]),
-            key="fuel_weather_fit_years",
-            disabled=bool(use_all and choices["available_n"] > max_y * 12),
-        )
+        if max_y <= 1:
+            years_fit = 1
+            st.caption("Fit window: last 1 year (only one full year of overlapping bills).")
+        else:
+            years_fit = st.slider(
+                "Fit window: last N years",
+                min_value=1,
+                max_value=max_y,
+                value=min(int(choices["default_years"]), max_y),
+                key="fuel_weather_fit_years",
+                disabled=bool(use_all and choices["available_n"] > max_y * 12),
+            )
     fit_months = months_for_fit_years(available, years_fit, use_all=use_all)
 
     if hourly is None:

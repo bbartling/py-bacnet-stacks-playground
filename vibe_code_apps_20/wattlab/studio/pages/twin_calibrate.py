@@ -15,6 +15,7 @@ from wattlab.energyplus.timeseries import find_eplusout_csv, load_sim_timeseries
 from wattlab.seed import gap_report
 from wattlab.studio.ep_viz import (
     MULTIFLOOR_HONESTY,
+    find_run_idf,
     floor_plan_figure,
     install_demo_replay,
     list_iteration_runs,
@@ -27,6 +28,11 @@ from wattlab.studio.ep_viz import (
 )
 from wattlab.studio.eui_charts import eui_peer_bullet_figure, month_abbrev
 from wattlab.studio.eui_compare import build_eui_index, load_model_eui_from_run
+from wattlab.studio.idf_geometry import (
+    idf_massing_figure,
+    parse_idf_geometry,
+    zone_mean_temps_by_name,
+)
 from wattlab.studio.workspace import reports_dir, runs_dir
 
 
@@ -190,7 +196,7 @@ def _resolve_active_run() -> Path | None:
 
 
 def _resolve_viz_run(preferred: Path | None = None) -> tuple[Path | None, str | None]:
-    """Prefer a run that has eplusout.csv for 08 panes; caption when falling back."""
+    """Prefer a run that has eplusout.csv and/or model.idf for Twin panes."""
     candidates: list[Path] = []
     for p in (preferred, _resolve_active_run()):
         if p is not None and p.is_dir():
@@ -199,35 +205,55 @@ def _resolve_viz_run(preferred: Path | None = None) -> tuple[Path | None, str | 
         if h.get("dir"):
             candidates.append(Path(str(h["dir"])))
     seen: set[str] = set()
+
+    def _key(c: Path) -> str:
+        try:
+            return str(c.resolve())
+        except OSError:
+            return str(c)
+
+    # Pass 1: has eplusout
     for c in candidates:
-        key = str(c.resolve()) if c.exists() else str(c)
+        key = _key(c)
         if key in seen:
             continue
         seen.add(key)
         if (c / "eplusout.csv").is_file() or find_eplusout_csv(c) is not None:
             note = None
-            if preferred is not None and c.resolve() != preferred.resolve():
+            if preferred is not None and _key(c) != _key(preferred):
                 note = (
                     f"Active run `{preferred.name}` has no eplusout.csv — "
-                    f"showing floor plan from `{c.name}`."
+                    f"showing panes from `{c.name}`."
                 )
+            return c, note
+    # Pass 2: IDF-only (geometry without sim yet)
+    seen.clear()
+    for c in candidates:
+        key = _key(c)
+        if key in seen:
+            continue
+        seen.add(key)
+        if find_run_idf(c) is not None:
+            note = None
+            if preferred is not None and _key(c) != _key(preferred):
+                note = f"Showing IDF geometry from `{c.name}` (no eplusout yet)."
             return c, note
     fallback = preferred or _resolve_active_run() or newest_run_with_eplusout(runs_dir())
     return fallback, None
 
 
 def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
-    st.subheader("EnergyPlus visualizer (APIHelper 08 — browser)")
+    st.subheader("EnergyPlus visualizer (browser)")
     st.caption(
-        "Live progress from DinD console → `progress.json` / `console.log` "
-        "(APIHelper-08 style; not embedded pyenergyplus). "
-        "OA / floor charts appear after `eplusout.csv` is published. "
-        "Agents: publish to `runs/<id>/`; human: Refresh or watch live while Studio DinD runs."
+        "Live progress from DinD → `progress.json` / console. "
+        "**Building massing** comes from the published IDF (`model.idf`) — unique per run, "
+        "not a hard-coded prototype. Zone colors appear when `eplusout.csv` maps by zone name. "
+        "Agents: publish IDF + CSV to `runs/<id>/`."
     )
 
     viz_dir, viz_note = _resolve_viz_run(run_dir)
     if viz_dir is None:
-        st.warning("No published Twin runs with `eplusout.csv` yet.")
+        st.warning("No published Twin runs yet (need `model.idf` and/or `eplusout.csv`).")
         return
     if viz_note:
         st.info(viz_note)
@@ -269,57 +295,82 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
                     key=f"twin_oa_{run_dir.name}",
                 )
             else:
-                st.warning(
-                    f"No outdoor timeseries — missing `eplusout.csv` under `runs/{run_dir.name}/`."
+                st.caption(
+                    f"No outdoor timeseries yet — publish `eplusout.csv` under `runs/{run_dir.name}/`."
                 )
 
-        if ts is not None:
-            roles = zone_mean_by_role(ts)
-            if roles:
-                floors = int(n_floors or 1)
-                profile = _profile() or {}
-                if floors < 2:
-                    floors = int(
-                        profile.get("number_of_floors")
-                        or profile.get("floors")
-                        or st.session_state.get("twin_floors")
-                        or 1
-                    )
-                btype = str(profile.get("building_type") or profile.get("property_type") or "").lower()
-                use_multi = floors >= 2 and ("office" in btype or floors >= 2)
-                if use_multi and floors >= 2:
-                    highlight = None
-                    if floors > 8:
-                        highlight = int(
-                            st.selectbox(
-                                "Highlight floor",
-                                options=list(range(1, floors + 1)),
-                                index=floors - 1,
-                                key=f"twin_floor_sel_{run_dir.name}",
-                            )
-                        )
-                    st.plotly_chart(
-                        multifloor_office_figure(roles, n_floors=floors, highlight_floor=highlight),
-                        width="stretch",
-                        key=f"twin_multifloor_{run_dir.name}",
-                    )
-                    st.caption(MULTIFLOOR_HONESTY.replace("N-story", f"{floors}-story"))
-                else:
-                    st.plotly_chart(
-                        floor_plan_figure(roles),
-                        width="stretch",
-                        key=f"twin_floor_{run_dir.name}",
-                    )
-            else:
-                st.warning(
-                    "eplusout.csv loaded but no zone mean temps mapped — "
-                    "check Output:Variable Zone Mean Air Temperature."
+        # IDF-driven 3D massing (unique per building / run)
+        idf_path = find_run_idf(run_dir)
+        zone_temps = zone_mean_temps_by_name(ts) if ts is not None else {}
+        if idf_path is not None:
+            try:
+                geom = parse_idf_geometry(idf_path)
+                summary = geom.summary()
+                st.markdown("**Building geometry (from published IDF)**")
+                st.caption(
+                    "Geometry from published IDF surfaces (not Map-traced CAD). "
+                    "Units: EnergyPlus meters. "
+                    f"Surfaces={summary.get('n_surfaces')} · zones={summary.get('n_zones')} · "
+                    f"file=`{idf_path.name}`."
                 )
+                if geom.surfaces:
+                    st.plotly_chart(
+                        idf_massing_figure(
+                            geom,
+                            zone_temps=zone_temps or None,
+                            title=f"IDF massing — {run_dir.name}",
+                        ),
+                        width="stretch",
+                        key=f"twin_idf_3d_{run_dir.name}",
+                    )
+                    if zone_temps:
+                        st.caption("Surfaces colored by zone mean air temp from eplusout.csv.")
+                    else:
+                        st.caption("Neutral massing — publish eplusout.csv to color by zone temp.")
+                else:
+                    st.warning(f"IDF `{idf_path.name}` has no BuildingSurface:Detailed objects.")
+            except Exception as exc:
+                st.error(f"IDF geometry parse failed: {exc}")
+        else:
+            st.warning(
+                f"No `model.idf` under `runs/{run_dir.name}/` — publish the EnergyPlus IDF "
+                "with the run to see this building's massing (unique per site)."
+            )
+            # Legacy fallback schematic — never claim it is site geometry
+            if ts is not None:
+                roles = zone_mean_by_role(ts)
+                if roles:
+                    st.caption(
+                        "Fallback: classic 5Zone prototype schematic only — "
+                        "not this building's IDF. Publish model.idf for real massing."
+                    )
+                    floors = int(n_floors or 1)
+                    profile = _profile() or {}
+                    if floors < 2:
+                        floors = int(
+                            profile.get("number_of_floors")
+                            or profile.get("floors")
+                            or st.session_state.get("twin_floors")
+                            or 1
+                        )
+                    if floors >= 2:
+                        st.plotly_chart(
+                            multifloor_office_figure(roles, n_floors=floors),
+                            width="stretch",
+                            key=f"twin_multifloor_{run_dir.name}",
+                        )
+                        st.caption(MULTIFLOOR_HONESTY.replace("N-story", f"{floors}-story"))
+                    else:
+                        st.plotly_chart(
+                            floor_plan_figure(roles),
+                            width="stretch",
+                            key=f"twin_floor_{run_dir.name}",
+                        )
+
+        if ts is not None:
             means = ts.zone_mean_temps()
             if not means.empty:
                 st.dataframe(means, width="stretch", hide_index=True)
-        elif (run_dir / "eplusout.csv").is_file() is False and find_eplusout_csv(run_dir) is None:
-            st.error(f"no eplusout.csv under runs/{run_dir.name}/")
 
     if live:
         try:

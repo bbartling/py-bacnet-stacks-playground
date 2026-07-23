@@ -361,6 +361,8 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
 
 
 def list_iteration_runs(runs_root: Path, limit: int = 20) -> list[dict[str, Any]]:
+    from wattlab.energyplus.timeseries import find_eplusout_csv
+
     root = Path(runs_root)
     if not root.is_dir():
         return []
@@ -370,31 +372,98 @@ def list_iteration_runs(runs_root: Path, limit: int = 20) -> list[dict[str, Any]
             continue
         info = read_run_progress(d)
         info["dir"] = str(d)
-        # Prefer shallow eplusout detection — avoid expensive **/ globs on fat trees
-        if (d / "eplusout.csv").is_file():
-            info["has_eplusout"] = True
-        else:
-            found = False
-            try:
-                for child in d.iterdir():
-                    if child.is_dir() and (child / "eplusout.csv").is_file():
-                        found = True
-                        break
-            except OSError:
-                found = False
-            info["has_eplusout"] = found
+        info["has_eplusout"] = _run_has_eplusout(d, find_eplusout_csv=find_eplusout_csv)
         rows.append(info)
         if len(rows) >= limit:
             break
     return rows
 
 
-def newest_run_with_eplusout(runs_root: Path, *, limit: int = 30) -> Path | None:
-    """Newest ``runs/<id>/`` that has an eplusout.csv (shallow search)."""
-    for row in list_iteration_runs(runs_root, limit=limit):
+def _run_has_eplusout(run_dir: Path, *, find_eplusout_csv) -> bool:
+    """Deterministic eplusout presence: root, sim_baseline/, one-level child."""
+    d = Path(run_dir)
+    if find_eplusout_csv(d) is not None:
+        return True
+    for prefer in ("sim_baseline",):
+        if find_eplusout_csv(d / prefer) is not None:
+            return True
+    try:
+        for child in sorted(d.iterdir(), key=lambda p: p.name):
+            if child.is_dir() and find_eplusout_csv(child) is not None:
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def newest_run_with_eplusout(runs_root: Path, *, limit: int | None = None) -> Path | None:
+    """Newest ``runs/<id>/`` that has an eplusout.csv (newest-first; default scans widely)."""
+    max_scan = limit if limit is not None else 10_000
+    for row in list_iteration_runs(runs_root, limit=max_scan):
         if row.get("has_eplusout") and row.get("dir"):
             return Path(str(row["dir"]))
     return None
+
+
+_IDF_PREFER_NAMES = (
+    "model.idf",
+    "cal_ready.idf",
+    "baseline_hard_size.idf",
+    "baseline.idf",
+    "cal_hard_size.idf",
+    "cal_base.idf",
+    "prototype_prepped.idf",
+    "Building_Baseline.idf",
+)
+
+
+def find_run_idf(run_dir: Path | str) -> Path | None:
+    """Locate a published EnergyPlus IDF for browser geometry (unique per run)."""
+    d = Path(run_dir)
+    if not d.is_dir():
+        return None
+    for name in _IDF_PREFER_NAMES:
+        p = d / name
+        if p.is_file():
+            return p
+    try:
+        root_idfs = sorted(d.glob("*.idf"), key=lambda p: p.name.lower())
+    except OSError:
+        root_idfs = []
+    if root_idfs:
+        return root_idfs[0]
+    # One-level nested (sim_baseline/, etc.)
+    try:
+        for child in sorted(d.iterdir(), key=lambda p: p.name):
+            if not child.is_dir():
+                continue
+            for name in _IDF_PREFER_NAMES:
+                p = child / name
+                if p.is_file():
+                    return p
+            nested = sorted(child.glob("*.idf"), key=lambda p: p.name.lower())
+            if nested:
+                return nested[0]
+    except OSError:
+        return None
+    return None
+
+
+def _pick_source_idf(src: Path) -> Path | None:
+    """Choose best IDF under a publish source tree or file."""
+    if src.is_file() and src.suffix.lower() == ".idf":
+        return src
+    if not src.is_dir():
+        return None
+    for name in _IDF_PREFER_NAMES:
+        p = src / name
+        if p.is_file():
+            return p
+    try:
+        found = sorted(src.rglob("*.idf"), key=lambda p: (len(p.parts), p.name.lower()))
+    except OSError:
+        found = []
+    return found[0] if found else None
 
 
 def publish_run_for_studio(
@@ -406,9 +475,9 @@ def publish_run_for_studio(
 ) -> Path:
     """Copy an EnergyPlus / easy-button artifact tree into Studio ``runs/<id>/``.
 
-    Agents and CLI write here so the human Twin page can render APIHelper-08
-    panes (progress, OA chart, classic 5Zone floor plan) in the browser.
-    Prefers ``sim_baseline/eplusout.csv`` when present.
+    Agents and CLI write here so the human Twin page can render progress, OA,
+    and **IDF-driven 3D massing** in the browser. Prefers ``sim_baseline/eplusout.csv``
+    when present; copies a primary IDF to ``model.idf`` for geometry.
     """
     from wattlab.studio.workspace import runs_dir
 
@@ -432,6 +501,16 @@ def publish_run_for_studio(
         candidates.extend(sorted(src.rglob("eplusout.csv")))
     if candidates:
         shutil.copy2(candidates[0], dest / "eplusout.csv")
+
+    idf_src = _pick_source_idf(src)
+    if idf_src is not None:
+        shutil.copy2(idf_src, dest / "model.idf")
+        # Keep original basename too when different (agent inspectability)
+        if idf_src.name.lower() != "model.idf":
+            try:
+                shutil.copy2(idf_src, dest / idf_src.name)
+            except OSError:
+                pass
 
     for name in ("eplusout.err", "run_manifest.json", "progress.json", "wattlab_report.json"):
         p = src / name if src.is_dir() else None
@@ -501,6 +580,17 @@ def install_demo_replay(run_dir: Path, fixture_csv: Path) -> Path:
         "Demo replay from fixture eplusout.csv — not a live EnergyPlus run.\n",
         encoding="utf-8",
     )
+    # Best-effort: attach prototype IDF so Twin can show massing in demo mode
+    try:
+        from wattlab.config import DEFAULT_PROTOTYPE_IDF, ROOT
+
+        proto = Path(DEFAULT_PROTOTYPE_IDF)
+        if not proto.is_file():
+            proto = ROOT / "examples" / "prototypes" / "5ZoneAirCooled.idf"
+        if proto.is_file():
+            shutil.copy2(proto, run_dir / "model.idf")
+    except Exception:  # noqa: BLE001
+        pass
     (run_dir / "run_manifest.json").write_text(
         json.dumps(
             {
@@ -518,17 +608,24 @@ def install_demo_replay(run_dir: Path, fixture_csv: Path) -> Path:
         encoding="utf-8",
     )
     pointer = run_dir.parent / "CURRENT_RUN.txt"
-    pointer.write_text(str(run_dir.resolve()), encoding="utf-8")
-    return dest
+    try:
+        pointer.write_text(str(run_dir.resolve()), encoding="utf-8")
+    except OSError:
+        pass
+    return run_dir
 
 
 __all__ = [
     "PROTOTYPE_ZONE_ROLES",
     "ZONE_VERTICES",
+    "MULTIFLOOR_HONESTY",
+    "find_run_idf",
     "floor_plan_figure",
     "install_demo_replay",
     "list_iteration_runs",
     "map_zones_to_roles",
+    "multifloor_office_figure",
+    "newest_run_with_eplusout",
     "outdoor_figure",
     "publish_run_for_studio",
     "read_run_progress",
