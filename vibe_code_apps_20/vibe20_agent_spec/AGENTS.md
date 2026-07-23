@@ -172,6 +172,23 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 ---
 
+## Site-scale geometry + load dial (any building)
+
+**Do not** expect `answers.floors` / `wwr` / `floor_area_ft2` to rebuild the IDF.
+Default archetype remains 5Zone × `prototype_area_scale` — screening only.
+
+| Tool | CLI | Role |
+| --- | --- | --- |
+| `wattlab.energyplus.geo_idf` | `wattlab geo-idf` | DOE Large Office (or similar) → site-scale massing (stories, WWR, XY scale, lat/lon) |
+| `wattlab.energyplus.dial_loads` | `wattlab dial-loads` | MCP: lights / equip W/m² + infil mult (needs full MCP image) |
+| `wattlab.energyplus.score_monthly` | `wattlab score-monthly` | Last-12 Monthly meters vs bills; `area_scale=1` |
+
+Workflow: **geo-idf → custom_idf + area_scale=1 → DinD sim → score-monthly**. If elec high /
+gas low, dial loads via MCP before more schedule patches. Bills: area-weighted half
+elec once — never double-half. Twin shows IDF 3D massing from published `model.idf`.
+
+---
+
 ## Smoke scripts (before claiming done)
 
 ```powershell

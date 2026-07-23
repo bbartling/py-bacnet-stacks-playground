@@ -16,6 +16,19 @@ E+ iteration so Twin 08 panes appear in the browser
 unique per run / site. Zone colors apply when CSV zone names match. Not embedded
 pyenergyplus / not Flask APIHelper / not hard-coded Liberty footprints.
 
+## Geometry gate (site-scale twins)
+
+Answers `floors` / `wwr` / `sqft` do **not** rebuild the IDF. Default = 5Zone ×
+`prototype_area_scale`. For glass multistory offices:
+
+1. `wattlab geo-idf` (DOE Large Office → site-scale; any building via CLI args)
+2. `custom_idf` + **`area_scale = 1`**
+3. Fuel mix: high elec / low gas → `wattlab dial-loads` (EnergyPlus MCP one-shot)
+4. `wattlab score-monthly` — last-12 Monthly meters vs area-weighted bills (never double-half)
+
+Annual simulate = WattLab DinD. MCP = inspect/modify loads only (`simulate_only` tip
+does not ship full MCP tools).
+
 Full paste prompt for QA + calibrate sessions:
 [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).
 
