@@ -19,11 +19,13 @@ from wattlab.studio.ep_viz import (
     install_demo_replay,
     list_iteration_runs,
     multifloor_office_figure,
+    newest_run_with_eplusout,
     outdoor_figure,
     publish_run_for_studio,
     read_run_progress,
     zone_mean_by_role,
 )
+from wattlab.studio.eui_charts import eui_peer_bullet_figure, month_abbrev
 from wattlab.studio.eui_compare import build_eui_index, load_model_eui_from_run
 from wattlab.studio.workspace import reports_dir, runs_dir
 
@@ -43,8 +45,6 @@ def _render_eui_index(
     chart_key: str = "twin_eui_index",
 ) -> None:
     """Bills vs peer typical EUI vs EnergyPlus model — always visible when data exists."""
-    import plotly.graph_objects as go
-
     st.subheader("EUI index — bills vs peers vs model")
     st.caption(
         "**Bills** = your campus annualized site EUI. "
@@ -128,38 +128,31 @@ def _render_eui_index(
     df = pd.DataFrame(idx["rows"])
     st.dataframe(df, width="stretch", hide_index=True)
 
-    fig = go.Figure()
-    fig.add_shape(
-        type="rect",
-        x0=idx["peer_p20"],
-        x1=idx["peer_p80"],
-        y0=-0.5,
-        y1=0.5,
-        fillcolor="rgba(44,160,44,0.18)",
-        line_width=0,
-    )
-    fig.add_vline(x=idx["peer_p50"], line_dash="dash", line_color="#2ca02c")
-    colors = {"Bills (site)": "#1f77b4", "Model (prototype EUI)": "#d62728"}
-    for _, r in df.iterrows():
-        series = str(r["series"])
-        if series.startswith("Peer"):
-            continue
-        fig.add_scatter(
-            x=[r["site_eui_kbtu_ft2"]],
-            y=[0],
-            mode="markers+text",
-            marker=dict(symbol="diamond", size=16, color=colors.get(series, "#333")),
-            text=[series],
-            textposition="top center",
-            name=series,
+    series = []
+    if idx.get("bill_eui_kbtu_ft2") is not None:
+        series.append(
+            {
+                "label": "Bills (site)",
+                "eui": float(idx["bill_eui_kbtu_ft2"]),
+                "color": "#1f77b4",
+                "symbol": "diamond",
+            }
         )
-    fig.update_layout(
-        height=200,
-        margin=dict(l=10, r=10, t=20, b=10),
-        yaxis=dict(visible=False),
-        xaxis_title="Site EUI (kBtu/ft²-yr)",
-        showlegend=False,
-        title=f"{idx.get('benchmark_name') or idx['property_type']} peers",
+    if idx.get("model_eui_kbtu_ft2") is not None:
+        series.append(
+            {
+                "label": "Model (prototype)",
+                "eui": float(idx["model_eui_kbtu_ft2"]),
+                "color": "#d62728",
+                "symbol": "circle",
+            }
+        )
+    fig = eui_peer_bullet_figure(
+        peer_p20=float(idx["peer_p20"]),
+        peer_p50=float(idx["peer_p50"]),
+        peer_p80=float(idx["peer_p80"]),
+        series=series,
+        title=f"{idx.get('benchmark_name') or idx['property_type']} — bills vs peers vs model",
     )
     st.plotly_chart(fig, width="stretch", key=chart_key)
     if scale and float(scale) > 1.05:
@@ -196,6 +189,33 @@ def _resolve_active_run() -> Path | None:
     return None
 
 
+def _resolve_viz_run(preferred: Path | None = None) -> tuple[Path | None, str | None]:
+    """Prefer a run that has eplusout.csv for 08 panes; caption when falling back."""
+    candidates: list[Path] = []
+    for p in (preferred, _resolve_active_run()):
+        if p is not None and p.is_dir():
+            candidates.append(p)
+    for h in list_iteration_runs(runs_dir(), limit=20):
+        if h.get("dir"):
+            candidates.append(Path(str(h["dir"])))
+    seen: set[str] = set()
+    for c in candidates:
+        key = str(c.resolve()) if c.exists() else str(c)
+        if key in seen:
+            continue
+        seen.add(key)
+        if (c / "eplusout.csv").is_file() or find_eplusout_csv(c) is not None:
+            note = None
+            if preferred is not None and c.resolve() != preferred.resolve():
+                note = (
+                    f"Active run `{preferred.name}` has no eplusout.csv — "
+                    f"showing floor plan from `{c.name}`."
+                )
+            return c, note
+    fallback = preferred or _resolve_active_run() or newest_run_with_eplusout(runs_dir())
+    return fallback, None
+
+
 def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
     st.subheader("EnergyPlus visualizer (APIHelper 08 — browser)")
     st.caption(
@@ -204,6 +224,14 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
         "OA / floor charts appear after `eplusout.csv` is published. "
         "Agents: publish to `runs/<id>/`; human: Refresh or watch live while Studio DinD runs."
     )
+
+    viz_dir, viz_note = _resolve_viz_run(run_dir)
+    if viz_dir is None:
+        st.warning("No published Twin runs with `eplusout.csv` yet.")
+        return
+    if viz_note:
+        st.info(viz_note)
+    run_dir = viz_dir
 
     live = False
     try:
@@ -227,7 +255,7 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
                 "EnergyPlus output",
                 value=log,
                 height=220,
-                key=f"twin_ep_log_{run_dir.name}_{info.get('progress')}",
+                key=f"twin_ep_log_{run_dir.name}",
             )
         with right:
             ts = load_sim_timeseries(run_dir)
@@ -241,15 +269,12 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
                     key=f"twin_oa_{run_dir.name}",
                 )
             else:
-                st.caption("No outdoor timeseries yet (need eplusout.csv in this run folder).")
+                st.warning(
+                    f"No outdoor timeseries — missing `eplusout.csv` under `runs/{run_dir.name}/`."
+                )
 
-        ts2 = load_sim_timeseries(run_dir)
-        if ts2 is None:
-            nested = find_eplusout_csv(run_dir)
-            if nested:
-                ts2 = load_sim_timeseries(nested.parent)
-        if ts2 is not None:
-            roles = zone_mean_by_role(ts2)
+        if ts is not None:
+            roles = zone_mean_by_role(ts)
             if roles:
                 floors = int(n_floors or 1)
                 profile = _profile() or {}
@@ -261,7 +286,7 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
                         or 1
                     )
                 btype = str(profile.get("building_type") or profile.get("property_type") or "").lower()
-                use_multi = floors >= 2 or ("office" in btype and floors >= 2)
+                use_multi = floors >= 2 and ("office" in btype or floors >= 2)
                 if use_multi and floors >= 2:
                     highlight = None
                     if floors > 8:
@@ -285,23 +310,30 @@ def _render_08_panes(run_dir: Path, *, n_floors: int | None = None) -> None:
                         width="stretch",
                         key=f"twin_floor_{run_dir.name}",
                     )
-            means = ts2.zone_mean_temps()
+            else:
+                st.warning(
+                    "eplusout.csv loaded but no zone mean temps mapped — "
+                    "check Output:Variable Zone Mean Air Temperature."
+                )
+            means = ts.zone_mean_temps()
             if not means.empty:
                 st.dataframe(means, width="stretch", hide_index=True)
+        elif (run_dir / "eplusout.csv").is_file() is False and find_eplusout_csv(run_dir) is None:
+            st.error(f"no eplusout.csv under runs/{run_dir.name}/")
 
     if live:
         try:
             from datetime import timedelta
 
             @st.fragment(run_every=timedelta(seconds=2))
-            def _live_fragment() -> None:
+            def _live_draw() -> None:
                 _draw()
 
-            _live_fragment()
-            return
+            _live_draw()
         except Exception:
-            pass
-    _draw()
+            _draw()
+    else:
+        _draw()
 
 
 def render() -> None:
@@ -644,12 +676,6 @@ def render() -> None:
     active = _resolve_active_run()
     if active is not None:
         st.session_state["studio_active_run"] = str(active)
-        _render_08_panes(active)
-    else:
-        st.info(
-            "No published Twin runs yet. An AI agent should write `runs/<id>/eplusout.csv` "
-            "(or click demo replay / Docker run). See AGENT_TESTER_PROMPT.md."
-        )
 
     st.subheader("Modeled vs actual fuel")
     ub_path = st.session_state.get("studio_utility_bills_path")
@@ -718,10 +744,49 @@ def render() -> None:
         st.dataframe(ub.head(24), width="stretch", hide_index=True)
 
     if bills_rows:
+        import plotly.graph_objects as go
+
         bdf = pd.DataFrame(bills_rows)
         st.dataframe(bdf, width="stretch", hide_index=True)
         if "observed_kwh" in bdf.columns and "modeled_kwh" in bdf.columns:
-            st.line_chart(bdf.set_index("month")[["observed_kwh", "modeled_kwh"]])
+            plot_df = bdf.copy()
+            if "month" in plot_df.columns:
+                # Prefer Jan…Dec labels when values look like month numbers / MM
+                mo = plot_df["month"].astype(str)
+                if mo.str.fullmatch(r"\d{1,2}").all() or mo.str.fullmatch(r"\d{4}-\d{2}").all():
+                    if mo.str.fullmatch(r"\d{1,2}").all():
+                        x_labels = [month_abbrev(m) for m in mo]
+                    else:
+                        x_labels = [
+                            f"{m[:4]}-{month_abbrev(m[5:7])}" if len(m) >= 7 else m for m in mo
+                        ]
+                else:
+                    x_labels = mo.tolist()
+            else:
+                x_labels = list(range(len(plot_df)))
+            fig_cal = go.Figure()
+            fig_cal.add_scatter(
+                x=x_labels,
+                y=plot_df["observed_kwh"],
+                mode="lines+markers",
+                name="Bills (observed)",
+                line=dict(color="#1f77b4"),
+            )
+            fig_cal.add_scatter(
+                x=x_labels,
+                y=plot_df["modeled_kwh"],
+                mode="lines+markers",
+                name="Model (calibrated)",
+                line=dict(color="#d62728"),
+            )
+            fig_cal.update_layout(
+                title="Monthly electricity — bills vs model",
+                height=360,
+                margin=dict(l=10, r=10, t=40, b=10),
+                yaxis_title="kWh",
+                legend=dict(orientation="h", y=1.12),
+            )
+            st.plotly_chart(fig_cal, width="stretch", key="twin_cal_overlay")
         ubills = scorecard.get("utility_bills") or {}
         stats = ubills.get("stats_electricity") or ubills.get("stats") or {}
         if stats:
@@ -915,10 +980,13 @@ def render() -> None:
         if pick and st.button("Show 08 panes for selection", key="twin_show_iter"):
             st.session_state["studio_active_run"] = pick
             st.rerun()
-        if pick and Path(str(pick)).is_dir():
-            st.markdown(f"**EUI index for** `{Path(str(pick)).name}`")
-            _render_eui_index(
-                profile=profile,
-                run_dir=Path(str(pick)),
-                chart_key=f"twin_eui_index_hist_{Path(str(pick)).name}",
-            )
+
+    # EnergyPlus visualizer last — APIHelper-08 floor plan / OA / progress
+    viz_run = _resolve_active_run()
+    if viz_run is not None:
+        _render_08_panes(viz_run)
+    else:
+        st.info(
+            "No published Twin runs yet. An AI agent should write `runs/<id>/eplusout.csv` "
+            "(or click demo replay / Docker run). See AGENT_TESTER_PROMPT.md."
+        )

@@ -24,6 +24,48 @@ from wattlab.weather.degree_days import DD_BASE_F, degree_day_meta, monthly_degr
 MIN_OVERLAP_MONTHS = 6
 
 
+def bill_overlap_months(campus: Campus) -> list[str]:
+    """Sorted YYYY-MM months present on every campus meter."""
+    if not campus.meters:
+        return []
+    common = set.intersection(*(set(m.bills["month"].astype(str)) for m in campus.meters))
+    return sorted(common)
+
+
+def fit_window_choices(available_months: list[str]) -> dict[str, Any]:
+    """UI choices for last-N-years / all-months fit windows.
+
+    Returns ``max_years``, ``default_years``, ``default_months``, ``available_n``.
+    """
+    n = len(available_months)
+    max_years = max(1, n // 12)
+    # Prefer full history when ≥12 months; still allow 1y …
+    default_years = max_years if n >= 12 else 1
+    default_months = min(n, default_years * 12) if n else 12
+    if n and default_months < n and n % 12 != 0:
+        # Allow "all overlapping months" as the max selection via months=n
+        pass
+    return {
+        "available_n": n,
+        "max_years": max_years,
+        "default_years": default_years,
+        "default_months": default_months,
+        "first": available_months[0] if available_months else None,
+        "last": available_months[-1] if available_months else None,
+    }
+
+
+def months_for_fit_years(available_months: list[str], years: int, *, use_all: bool = False) -> int:
+    """Resolve months= argument for align_fuel_and_degree_days from UI years."""
+    n = len(available_months)
+    if n <= 0:
+        return 12
+    if use_all:
+        return n
+    years = max(1, int(years))
+    return min(n, years * 12)
+
+
 @dataclass(frozen=True)
 class FuelFit:
     fuel: str
@@ -250,14 +292,23 @@ def build_fuel_weather_report(
     *,
     base_f: float = DD_BASE_F,
     weather_source: str = "synthetic_or_open_meteo",
+    months: int = 12,
 ) -> dict[str, Any]:
     """Bundle aligned series, fits, and provenance for Studio / tests."""
-    aligned, window = align_fuel_and_degree_days(campus, hourly_oat, base_f=base_f)
+    aligned, window = align_fuel_and_degree_days(
+        campus, hourly_oat, base_f=base_f, months=months
+    )
     fits = fit_weather_responses(aligned, base_f=base_f)
     return {
         "campus_id": campus.campus_id,
         "label": campus.label,
-        "window": {"start": window[0] if window else None, "end": window[-1] if window else None, "months": window},
+        "window": {
+            "start": window[0] if window else None,
+            "end": window[-1] if window else None,
+            "months": window,
+            "n": len(window),
+            "requested_months": int(months),
+        },
         "degree_days": degree_day_meta(base_f=base_f, source=weather_source),
         "fits": [f.as_dict() for f in fits],
         "aligned_rows": int(len(aligned)),
@@ -269,13 +320,16 @@ __all__ = [
     "FuelFit",
     "MIN_OVERLAP_MONTHS",
     "align_fuel_and_degree_days",
+    "bill_overlap_months",
     "build_fuel_weather_report",
     "campus_fuel_totals",
     "demand_heatmap_frame",
     "fit_weather_responses",
+    "fit_window_choices",
     "gas_usage_therms",
     "intensity_heatmap_frame",
     "meter_monthly_long",
+    "months_for_fit_years",
     "ols_fit",
     "residual_frame",
 ]

@@ -94,13 +94,21 @@ def floor_plan_figure(role_temps: dict[str, float]):
     """Plotly floor-plan heatmap matching APIHelper 08 zone layout."""
     import plotly.graph_objects as go
 
+    role_labels = {
+        "north": "N",
+        "south": "S",
+        "east": "E",
+        "west": "W",
+        "center": "Core",
+    }
     fig = go.Figure()
     for role, vertices in ZONE_VERTICES.items():
         temp = role_temps.get(role)
         fill = rgb_from_temperature(temp) if temp is not None else "rgb(200,200,200)"
         xs = [v[0] for v in vertices] + [vertices[0][0]]
         ys = [v[1] for v in vertices] + [vertices[0][1]]
-        label = f"{role}: {temp:.1f} C" if temp is not None else f"{role}: n/a"
+        short = role_labels.get(role, role)
+        label = f"{short}: {temp:.1f}°C" if temp is not None else f"{short}: n/a"
         fig.add_trace(
             go.Scatter(
                 x=xs,
@@ -113,12 +121,21 @@ def floor_plan_figure(role_temps: dict[str, float]):
                 hoverinfo="name",
             )
         )
+        cx = sum(v[0] for v in vertices) / len(vertices)
+        cy = sum(v[1] for v in vertices) / len(vertices)
+        fig.add_annotation(
+            x=cx,
+            y=cy,
+            text=f"{short}<br>{temp:.1f}°C" if temp is not None else short,
+            showarrow=False,
+            font={"size": 12, "color": "#111"},
+        )
     fig.update_layout(
-        title="Zone air temperatures (classic 5Zone floor plan)",
+        title="5Zone prototype schematic (not site geometry)",
         xaxis={"visible": False, "scaleanchor": "y"},
         yaxis={"visible": False},
         showlegend=True,
-        height=360,
+        height=400,
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
     return fig
@@ -353,13 +370,31 @@ def list_iteration_runs(runs_root: Path, limit: int = 20) -> list[dict[str, Any]
             continue
         info = read_run_progress(d)
         info["dir"] = str(d)
-        info["has_eplusout"] = (d / "eplusout.csv").is_file() or bool(
-            list(d.glob("**/eplusout.csv"))
-        )
+        # Prefer shallow eplusout detection — avoid expensive **/ globs on fat trees
+        if (d / "eplusout.csv").is_file():
+            info["has_eplusout"] = True
+        else:
+            found = False
+            try:
+                for child in d.iterdir():
+                    if child.is_dir() and (child / "eplusout.csv").is_file():
+                        found = True
+                        break
+            except OSError:
+                found = False
+            info["has_eplusout"] = found
         rows.append(info)
         if len(rows) >= limit:
             break
     return rows
+
+
+def newest_run_with_eplusout(runs_root: Path, *, limit: int = 30) -> Path | None:
+    """Newest ``runs/<id>/`` that has an eplusout.csv (shallow search)."""
+    for row in list_iteration_runs(runs_root, limit=limit):
+        if row.get("has_eplusout") and row.get("dir"):
+            return Path(str(row["dir"]))
+    return None
 
 
 def publish_run_for_studio(
