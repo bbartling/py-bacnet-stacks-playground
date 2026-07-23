@@ -56,8 +56,7 @@ gate = gate_capital_plan(plan, property_type="office", floor_area_ft2=140000,
 - Unknown property type → CBECS `commercial_all` fallback, labeled
   `fallback_commercial_all`.
 
-## Hard rules
-
+Hard rules:
 1. Shared-meter splits are **scenarios** — show side-by-side; never silently
    pick one in reports.
 2. Costs are **range + basis + vintage + confidence** — never single-point
@@ -67,4 +66,7 @@ gate = gate_capital_plan(plan, property_type="office", floor_area_ft2=140000,
 4. New registry rows need `source` + date/vintage + `confidence`.
 5. Real client bills need explicit user approval before entering git
    (Liberty is approved).
-6. Run `python -m pytest tests/test_benchmarks_liberty.py tests/test_benchmarks_guardrails.py -q` before claiming done.
+6. Screening scopes `controls_first` / `major_hvac_renewal` /
+   `deep_electrification` are Lower-48 bands — see
+   `docs/ESCO_RETROFIT_COST_ROI.md`; never publish as calibrated ROI without G14.
+7. Run `python -m pytest tests/test_benchmarks_liberty.py tests/test_benchmarks_guardrails.py -q` before claiming done.

@@ -52,7 +52,9 @@ Image tip: editable `pip install -e ".[studio]"` so `/app/wattlab` is the only
 import tree (no dual `/app` vs site-packages drift).
 
 Honest G14 **fail** with full months compared is a valid screening outcome —
-do not claim calibrated ROI.
+do not claim calibrated ROI. For Lower-48 ESCO $/sf screening bands and when
+ROI language is allowed vs forbidden, see
+[`ESCO_RETROFIT_COST_ROI.md`](ESCO_RETROFIT_COST_ROI.md).
 
 Dry-run: `--dry-run` prints the plan without Docker.
 

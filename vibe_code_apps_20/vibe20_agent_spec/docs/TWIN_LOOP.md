@@ -136,7 +136,9 @@ Always area-normalize vs the 5ZoneAirCooled prototype footprint
 ## Step 6 — Capital guardrails
 
 `gate_capital_plan` on every plan. Studio **ECMs** capital section. Any hit →
-`INVESTIGATE`; human overrides explicitly.
+`INVESTIGATE`; human overrides explicitly. Screening $/sf bands and ROI honesty:
+[`ESCO_RETROFIT_COST_ROI.md`](ESCO_RETROFIT_COST_ROI.md). Never publish
+calibrated ROI without G14 + stamps.
 
 ## Workspace paths (shared with Studio)
 
