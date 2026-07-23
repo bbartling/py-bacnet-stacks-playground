@@ -152,6 +152,8 @@ reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_S
 
 **Twin Model assumptions:** Inspect iteration shows Model-at-a-Glance + a provenance
 table from the **published IDF + meta + answers** (not a parallel editable form).
+When the run has `utility_bills.per_month`, Inspect also shows monthly % off
+narratives (model too high/low by month for elec and gas).
 Always publish `model.idf` and dial/geo meta into `runs/<id>/`. Twin panes follow
 `CURRENT_RUN.txt` / newest run; humans pin via **Show 08 panes for selection**.
 **Refresh agent runs** clears the pin. Code/reference basis wording is
