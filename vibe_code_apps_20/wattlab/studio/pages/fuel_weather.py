@@ -17,12 +17,15 @@ import streamlit as st
 
 from wattlab.benchmarks.fuel_weather import (
     align_fuel_and_degree_days,
+    bill_overlap_months,
     build_fuel_weather_report,
     campus_fuel_totals,
     demand_heatmap_frame,
     fit_weather_responses,
+    fit_window_choices,
     intensity_heatmap_frame,
     meter_monthly_long,
+    months_for_fit_years,
     residual_frame,
 )
 from wattlab.benchmarks.meters import Campus
@@ -268,9 +271,11 @@ def render(*, campus: Campus | None = None) -> None:
             st.plotly_chart(fig_d, width="stretch")
 
     st.subheader("Intensity & demand heatmaps")
+    from wattlab.studio.eui_charts import month_abbrev_columns
+
     h1, h2, h3 = st.columns(3)
     with h1:
-        mat_e = intensity_heatmap_frame(campus, fuel="electricity")
+        mat_e = month_abbrev_columns(intensity_heatmap_frame(campus, fuel="electricity"))
         if not mat_e.empty:
             fig = px.imshow(
                 mat_e, aspect="auto", color_continuous_scale="YlOrRd",
@@ -281,7 +286,7 @@ def render(*, campus: Campus | None = None) -> None:
         else:
             st.caption("No electric intensity matrix.")
     with h2:
-        mat_g = intensity_heatmap_frame(campus, fuel="gas")
+        mat_g = month_abbrev_columns(intensity_heatmap_frame(campus, fuel="gas"))
         if not mat_g.empty:
             fig = px.imshow(
                 mat_g, aspect="auto", color_continuous_scale="Blues",
@@ -292,7 +297,7 @@ def render(*, campus: Campus | None = None) -> None:
         else:
             st.caption("No gas intensity matrix.")
     with h3:
-        mat_d = demand_heatmap_frame(campus)
+        mat_d = month_abbrev_columns(demand_heatmap_frame(campus))
         if not mat_d.empty:
             fig = px.imshow(
                 mat_d, aspect="auto", color_continuous_scale="Viridis",
@@ -304,6 +309,36 @@ def render(*, campus: Campus | None = None) -> None:
             st.caption("No demand_kw in bill CSVs.")
 
     st.subheader("Weather response (HDD / CDD)")
+    available = bill_overlap_months(campus)
+    choices = fit_window_choices(available)
+    use_all = False
+    years_fit = int(choices["default_years"]) or 1
+    if available:
+        st.caption(
+            f"Open-Meteo pulls all bill years ({choices['first']}→{choices['last']}). "
+            "Fit window only changes the OLS months."
+        )
+        max_y = max(1, int(choices["max_years"]))
+        if choices["available_n"] > max_y * 12:
+            use_all = st.checkbox(
+                f"Use all {choices['available_n']} overlapping months",
+                value=True,
+                key="fuel_weather_fit_all",
+            )
+        if max_y <= 1:
+            years_fit = 1
+            st.caption("Fit window: last 1 year (only one full year of overlapping bills).")
+        else:
+            years_fit = st.slider(
+                "Fit window: last N years",
+                min_value=1,
+                max_value=max_y,
+                value=min(int(choices["default_years"]), max_y),
+                key="fuel_weather_fit_years",
+                disabled=bool(use_all and choices["available_n"] > max_y * 12),
+            )
+    fit_months = months_for_fit_years(available, years_fit, use_all=use_all)
+
     if hourly is None:
         st.info("Fetch Open-Meteo or use synthetic OAT to compute HDD/CDD regressions.")
         return
@@ -314,11 +349,11 @@ def render(*, campus: Campus | None = None) -> None:
             f"base {DD_BASE_F:g}°F"
         )
 
-    aligned, window = align_fuel_and_degree_days(campus, hourly)
+    aligned, window = align_fuel_and_degree_days(campus, hourly, months=fit_months)
     if not window:
         st.warning("No overlapping months between bills and weather.")
         return
-    st.caption(f"Analysis window: {window[0]} → {window[-1]} ({len(window)} months)")
+    st.caption(f"Fit window: {window[0]} → {window[-1]} ({len(window)} months)")
 
     fits = fit_weather_responses(aligned)
     if not fits:
@@ -362,6 +397,7 @@ def render(*, campus: Campus | None = None) -> None:
     report = build_fuel_weather_report(
         campus, hourly,
         weather_source=str(meta.get("source") or "unknown"),
+        months=fit_months,
     )
     with st.expander("Fuel weather report JSON"):
         st.json(report)

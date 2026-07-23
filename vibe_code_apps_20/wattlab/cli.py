@@ -29,6 +29,9 @@ def _usage() -> str:
         "               also: wattlab seed import-bills --electric CSV --gas CSV --out utility_bills.csv\n"
         "  studio-bootstrap  Write studio_bootstrap.json for Streamlit auto-load\n"
         "  studio-status     Merge dump/answers/bootstrap/run → session_status.json\n"
+        "  geo-idf          Adapt DOE Large Office IDF → site-scale massing (any building)\n"
+        "  dial-loads       Dial lights/equip/infil via EnergyPlus MCP (full MCP image)\n"
+        "  score-monthly    Score eplusout Monthly vs bills (last-12, area_scale=1)\n"
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
@@ -166,6 +169,18 @@ def main(argv: list[str] | None = None) -> int:
         return int(m(rest) or 0)
     if cmd in {"studio-status", "studio_status"}:
         from wattlab.studio.status import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"geo-idf", "geo_idf"}:
+        from wattlab.energyplus.geo_idf import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"dial-loads", "dial_loads"}:
+        from wattlab.energyplus.dial_loads import main as m
+
+        return int(m(rest) or 0)
+    if cmd in {"score-monthly", "score_monthly"}:
+        from wattlab.energyplus.score_monthly import main as m
 
         return int(m(rest) or 0)
     if cmd in {"explore-existing", "hypothesis-lab"}:

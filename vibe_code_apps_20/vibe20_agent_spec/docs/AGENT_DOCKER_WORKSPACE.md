@@ -55,6 +55,26 @@ Do **not** point Schedule:File at absolute `/data/...` host paths (FATAL file no
 
 Helpers: `wattlab.existing_building.schedules` + `wattlab.energyplus.patches.weather_schedules`.
 
+## Site-scale geometry + EnergyPlus MCP (batch)
+
+Tip image EnergyPlus MCP capability is often **`simulate_only`**. Annual sims use
+WattLab DinD (`run_energyplus`). For inspect/modify (lights, equipment, infil):
+
+```bash
+# Host: vendor tree + workspace mounted; run dial script inside MCP image
+docker run --rm \
+  -v "$WATTLAB_HOST_WORKSPACE":/data \
+  -v "$REPO/vibe_code_apps_20/third_party/EnergyPlus-MCP":/workspace \
+  -w /workspace/energyplus-mcp-server \
+  --entrypoint bash energyplus-mcp-dev \
+  -lc 'uv run wattlab dial-loads …'   # or python -m wattlab.energyplus.dial_loads
+```
+
+Geometry ladder (any building; CLI args — not Liberty-hardcoded):
+`wattlab geo-idf` → `custom_idf` + `area_scale=1` → DinD → `wattlab score-monthly`.
+Skip vendor `validate_idf` if eppy MSequence errors. See `CONTAINER_AGENT.md`
+geometry gate + `TWIN_LOOP.md`.
+
 ## G14 calibrate campaign (bill months → Twin)
 
 ```bash

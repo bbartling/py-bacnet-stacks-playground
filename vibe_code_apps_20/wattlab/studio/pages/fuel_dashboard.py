@@ -147,36 +147,27 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
         help="Percent vs peer p50 and band label (efficient / typical / high).",
     )
 
-    fig_peer = go.Figure()
-    p20 = float(dfb["peer_p20"].iloc[0])
-    p50 = float(dfb["peer_p50"].iloc[0])
-    p80 = float(dfb["peer_p80"].iloc[0])
-    fig_peer.add_shape(
-        type="rect",
-        x0=p20,
-        x1=p80,
-        y0=-0.5,
-        y1=0.5,
-        fillcolor="rgba(44,160,44,0.18)",
-        line_width=0,
-    )
-    fig_peer.add_vline(x=p50, line_dash="dash", line_color="#2ca02c")
+    from wattlab.studio.eui_charts import eui_peer_bullet_figure
+
+    # One band per property type when mixed; else shared band + one row per building
+    series = []
     for _, r in dfb.iterrows():
-        fig_peer.add_scatter(
-            x=[r["site_eui_kbtu_ft2"]],
-            y=[0],
-            mode="markers+text",
-            marker=dict(symbol="diamond", size=16),
-            text=[r["label"]],
-            textposition="top center",
-            name=r["label"],
+        series.append(
+            {
+                "label": str(r["label"]),
+                "eui": float(r["site_eui_kbtu_ft2"]),
+                "color": "#1f77b4",
+                "symbol": "diamond",
+            }
         )
-    fig_peer.update_layout(
-        height=180,
-        margin=dict(l=10, r=10, t=10, b=10),
-        yaxis=dict(visible=False),
-        xaxis_title="Site EUI (kBtu/ft²-yr)",
-        showlegend=False,
+    # Use first building's peers as the screening band (same-type campuses);
+    # per-building bands still show in the metrics / attention table.
+    fig_peer = eui_peer_bullet_figure(
+        peer_p20=float(dfb["peer_p20"].iloc[0]),
+        peer_p50=float(dfb["peer_p50"].iloc[0]),
+        peer_p80=float(dfb["peer_p80"].iloc[0]),
+        series=series,
+        title="Site EUI vs peer p20–p80 band",
     )
     st.plotly_chart(fig_peer, width="stretch", key="fuel_peer_eui_chart")
 
@@ -277,26 +268,79 @@ def _render_monthly(campus: Campus, summary: dict[str, Any], go) -> None:
 
     years = sorted({m[:4] for m in months})
     if len(years) >= 2:
+        from wattlab.studio.eui_charts import month_abbrev
+
         st.caption(f"YoY available across bill years {years[0]}…{years[-1]}.")
         yoy = totals.copy()
         yoy["year"] = yoy["month"].astype(str).str[:4]
-        yoy["mm"] = yoy["month"].astype(str).str[5:7]
+        yoy["mm"] = yoy["month"].astype(str).str[5:7].map(month_abbrev)
         pivot = yoy.pivot_table(
             index="mm", columns="year", values="kbtu", aggfunc="sum"
         )
+        # Keep calendar order Jan…Dec
+        from wattlab.studio.eui_charts import MONTH_ABBREV
+
+        pivot = pivot.reindex([m for m in MONTH_ABBREV if m in pivot.index])
         st.dataframe(pivot, width="stretch")
     else:
         st.caption("YoY compare: **NEEDS_INPUT** — need ≥2 calendar years of bills.")
 
     with st.expander("Year × month usage matrices", expanded=False):
+        from wattlab.studio.eui_charts import month_abbrev_columns
+
         for m in campus.meters:
             st.markdown(f"**{m.meter_id}** ({m.fuel})")
-            st.dataframe(year_month_matrix(m.bills), width="stretch")
+            mat = year_month_matrix(m.bills)
+            st.dataframe(month_abbrev_columns(mat), width="stretch")
 
 
 def _render_weather(campus: Campus, px, go) -> None:
+    from wattlab.benchmarks.fuel_weather import (
+        bill_overlap_months,
+        fit_window_choices,
+        months_for_fit_years,
+    )
+    from wattlab.studio.eui_charts import month_abbrev_columns
+
     st.subheader("Weather & baseline analytics")
-    st.caption(f"HDD/CDD base {DD_BASE_F:g}°F. Prefer Open-Meteo over synthetic OAT.")
+    st.caption(
+        f"HDD/CDD base {DD_BASE_F:g}°F. Prefer Open-Meteo over synthetic OAT. "
+        "Open-Meteo fetches **all** overlapping bill years; the fit window below "
+        "only changes how many trailing months feed the OLS model."
+    )
+    available = bill_overlap_months(campus)
+    choices = fit_window_choices(available)
+    if available:
+        st.caption(
+            f"Bills overlap {choices['first']} → {choices['last']} "
+            f"({choices['available_n']} months, up to {choices['max_years']} full year(s))."
+        )
+        max_y = max(1, int(choices["max_years"]))
+        use_all = False
+        if choices["available_n"] > max_y * 12:
+            use_all = st.checkbox(
+                f"Use all {choices['available_n']} overlapping months (not just full years)",
+                value=True,
+                key="fuel_dash_fit_all",
+            )
+        if max_y <= 1:
+            years_fit = 1
+            st.caption("Fit window: last 1 year (only one full year of overlapping bills).")
+        else:
+            years_fit = st.slider(
+                "Fit window: last N years",
+                min_value=1,
+                max_value=max_y,
+                value=min(int(choices["default_years"]), max_y),
+                key="fuel_dash_fit_years",
+                disabled=use_all and choices["available_n"] > max_y * 12,
+                help="OLS gas x HDD / elec x CDD uses the latest N x 12 months (or all overlap).",
+            )
+        fit_months = months_for_fit_years(available, years_fit, use_all=use_all)
+    else:
+        fit_months = 12
+        st.warning("No overlapping bill months across meters — cannot fit weather responses.")
+
     lat = campus.lat
     lon = campus.lon
     lat_s = st.text_input("Latitude", value="" if lat is None else str(lat), key="fuel_dash_lat")
@@ -309,11 +353,11 @@ def _render_weather(campus: Campus, px, go) -> None:
             if lat_u is None or lon_u is None:
                 st.error("lat/lon required on campus.json or form.")
             else:
-                with st.spinner("Open-Meteo…"):
+                with st.spinner("Open-Meteo (full bill span)…"):
                     df, meta = _fetch_open_meteo(campus, lat_u, lon_u)
                 st.session_state["fuel_dash_hourly"] = df
                 st.session_state["fuel_dash_meta"] = meta
-                st.success(f"Open-Meteo OK — {meta.get('rows')} rows")
+                st.success(f"Open-Meteo OK — {meta.get('rows')} rows (all bill years)")
         except Exception as exc:
             st.error(f"Open-Meteo failed: {exc}")
     if w2.button("Synthetic seasonal OAT (offline)", key="fuel_dash_synth"):
@@ -328,11 +372,14 @@ def _render_weather(campus: Campus, px, go) -> None:
         st.info("Fetch Open-Meteo or use synthetic OAT for degree-day fits.")
         return
 
-    aligned, window = align_fuel_and_degree_days(campus, hourly)
+    aligned, window = align_fuel_and_degree_days(campus, hourly, months=fit_months)
     if not window:
         st.warning("No overlapping months between bills and weather.")
         return
-    st.caption(f"Analysis window {window[0]} → {window[-1]} · weather={meta.get('source', '?')}")
+    st.caption(
+        f"Fit window {window[0]} → {window[-1]} ({len(window)} mo) · "
+        f"weather={meta.get('source', '?')}"
+    )
     fits = fit_weather_responses(aligned)
     if not fits:
         st.warning("Need ≥6 overlapping months for R².")
@@ -356,7 +403,7 @@ def _render_weather(campus: Campus, px, go) -> None:
             x=xs, y=fit.slope * xs + fit.intercept, mode="lines", name=f"R²={fit.r2:.3f}"
         )
         fig.update_layout(
-            title=f"{fit.fuel} vs {fit.x_name.upper()}",
+            title=f"{fit.fuel} vs {fit.x_name.upper()} ({len(sub)} mo)",
             height=340,
             margin=dict(l=10, r=10, t=40, b=10),
             xaxis_title=fit.x_name.upper(),
@@ -371,15 +418,17 @@ def _render_weather(campus: Campus, px, go) -> None:
         )
 
     report = build_fuel_weather_report(
-        campus, hourly, weather_source=str(meta.get("source") or "unknown")
+        campus, hourly, weather_source=str(meta.get("source") or "unknown"), months=fit_months
     )
     with st.expander("Fuel weather report JSON"):
         st.json(report)
 
 
 def _render_demand(campus: Campus, px) -> None:
+    from wattlab.studio.eui_charts import month_abbrev_columns
+
     st.subheader("Demand & peak analysis")
-    mat = demand_heatmap_frame(campus)
+    mat = month_abbrev_columns(demand_heatmap_frame(campus))
     if mat.empty:
         st.info(
             "NEEDS_INPUT: no `demand_kw` column in electric bills — peak/demand charts unavailable."
@@ -396,8 +445,8 @@ def _render_demand(campus: Campus, px) -> None:
         fig = px.bar(
             x=peaks.index.astype(str),
             y=peaks.values,
-            labels={"x": "month", "y": "peak_kw"},
-            title="Monthly peak demand (from bill demand_kw)",
+            labels={"x": "year", "y": "peak_kw"},
+            title="Peak demand by year (from bill demand_kw)",
         )
         st.plotly_chart(fig, width="stretch", key="fuel_monthly_peak")
 
@@ -424,9 +473,15 @@ def _render_data_quality(campus: Campus, summary: dict[str, Any]) -> None:
         mat = intensity_heatmap_frame(campus, fuel="electricity")
         if not mat.empty:
             import plotly.express as px
+            from wattlab.studio.eui_charts import month_abbrev_columns
 
             st.plotly_chart(
-                px.imshow(mat, aspect="auto", color_continuous_scale="YlOrRd", title="Elec kBtu/ft²"),
+                px.imshow(
+                    month_abbrev_columns(mat),
+                    aspect="auto",
+                    color_continuous_scale="YlOrRd",
+                    title="Elec kBtu/ft²",
+                ),
                 width="stretch",
                 key="fuel_heat_elec",
             )
@@ -434,9 +489,15 @@ def _render_data_quality(campus: Campus, summary: dict[str, Any]) -> None:
         mat = intensity_heatmap_frame(campus, fuel="gas")
         if not mat.empty:
             import plotly.express as px
+            from wattlab.studio.eui_charts import month_abbrev_columns
 
             st.plotly_chart(
-                px.imshow(mat, aspect="auto", color_continuous_scale="Blues", title="Gas kBtu/ft²"),
+                px.imshow(
+                    month_abbrev_columns(mat),
+                    aspect="auto",
+                    color_continuous_scale="Blues",
+                    title="Gas kBtu/ft²",
+                ),
                 width="stretch",
                 key="fuel_heat_gas",
             )
