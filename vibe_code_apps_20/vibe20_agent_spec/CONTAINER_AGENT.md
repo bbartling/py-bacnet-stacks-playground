@@ -48,11 +48,14 @@ For site-scale glass / multistory offices (any building):
 
 1. `wattlab geo-idf --src <DOE Large Office>.idf --dst … --target-area-ft2 … --stories … --wwr … [--lat … --lon …]`
 2. Profile / answers: `custom_idf` → that IDF, **`prototype_area_scale = 1`**
-3. Publish `model.idf` + `eplusout.csv` for Twin 3D massing
+3. Publish `model.idf` + `eplusout.csv` (+ `dial_meta.json` / `geo_build_meta.json` when used) for Twin 3D massing **and** Model assumptions dashboard
 4. Fuel-mix heuristic: high elec + low gas ⇒ excess internal gains — dial Lights/Equip down and
    infiltration up via **EnergyPlus MCP** (`wattlab dial-loads`), not more fan/DAT schedule
    patches on a tiny prototype.
 5. Score: `wattlab score-monthly eplusout.csv --bills … --area-ft2 …` (last-12 Monthly meters)
+
+Twin defaults to the latest `CURRENT_RUN.txt` publish unless the human pins an Inspect
+iteration. Do not treat sticky browser session as the source of truth after a new agent publish.
 
 **Bills honesty:** campus area-weighted half elec + per-building gas — never double-half.
 

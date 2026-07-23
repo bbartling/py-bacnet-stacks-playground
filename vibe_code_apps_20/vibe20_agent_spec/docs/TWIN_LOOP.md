@@ -145,8 +145,17 @@ calibrated ROI without G14 + stamps.
 ```
 uploads/dump/  uploads/energy/  uploads/energy/derived/
 runs/<run_id>/eplusout.csv | model.idf | run_manifest.json | progress.json | report.json
+runs/<run_id>/dial_meta.json | geo_build_meta.json   # stamp when dialing / geo-idf
+runs/CURRENT_RUN.txt          # Twin defaults to this publish (unless human pins Inspect)
 reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_SESSION.md
 ```
+
+**Twin Model assumptions:** Inspect iteration shows Model-at-a-Glance + a provenance
+table from the **published IDF + meta + answers** (not a parallel editable form).
+Always publish `model.idf` and dial/geo meta into `runs/<id>/`. Twin panes follow
+`CURRENT_RUN.txt` / newest run; humans pin via **Show 08 panes for selection**.
+**Refresh agent runs** clears the pin. Code/reference basis wording is
+“model reference/default” — never claim ASHRAE 90.1 compliance from defaults alone.
 
 ## Docker turnkey (Studio + EnergyPlus MCP image)
 
