@@ -877,6 +877,12 @@ def render() -> None:
             g1.metric("G14 NMBE %", f"{stats.get('nmbe_pct', '—')}")
             g2.metric("G14 CV(RMSE) %", f"{stats.get('cvrmse_pct', '—')}")
             g3.metric("Pass/fail", str(ubills.get("pass_fail") or "—"))
+        from wattlab.studio.monthly_pct_off import (
+            build_monthly_pct_off,
+            render_monthly_pct_off_panel,
+        )
+
+        render_monthly_pct_off_panel(build_monthly_pct_off(bills_rows))
     elif monthly_model:
         st.dataframe(pd.DataFrame(monthly_model).head(24), width="stretch", hide_index=True)
 
@@ -1107,7 +1113,10 @@ def render() -> None:
                         if str(d) == str(active_now):
                             default_ix = i
                             break
-            # Keep Inspect selection aligned with Twin active run when not mid-widget edit
+            # Avoid Streamlit "value not in options" when runs/ was pruned
+            cur_pick = st.session_state.get("twin_iter_pick")
+            if cur_pick is not None and cur_pick not in pick_opts:
+                st.session_state.pop("twin_iter_pick", None)
             if "twin_iter_pick" not in st.session_state and pick_opts:
                 st.session_state["twin_iter_pick"] = pick_opts[default_ix]
 
@@ -1134,6 +1143,14 @@ def render() -> None:
                 with st.expander("Model assumptions (selected iteration)", expanded=True):
                     st.caption(pin_note)
                     render_model_summary_panel(summary, rows)
+                    from wattlab.studio.monthly_pct_off import (
+                        build_monthly_pct_off,
+                        load_per_month_from_run,
+                        render_monthly_pct_off_panel,
+                    )
+
+                    pct_analysis = build_monthly_pct_off(load_per_month_from_run(pick))
+                    render_monthly_pct_off_panel(pct_analysis)
                 if st.button("Show 08 panes for selection", key="twin_show_iter"):
                     _pin_active_run(pick)
                     st.rerun()
