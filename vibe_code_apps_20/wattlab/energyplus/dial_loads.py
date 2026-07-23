@@ -1,8 +1,8 @@
 """Dial zone lights / electric equipment / infiltration on an existing IDF.
 
-Uses LBNL EnergyPlus-MCP ``EnergyPlusManager`` when available (full MCP tree /
-``energyplus-mcp-dev`` one-shot). Tip GHCR alone is ``simulate_only`` — run this
-inside the MCP docker workspace, then simulate with WattLab DinD.
+Uses LBNL EnergyPlus-MCP ``EnergyPlusManager`` when importable; otherwise
+auto-routes through ``wattlab mcp-exec`` (``energyplus-mcp-dev``). Run
+``wattlab energyplus-ensure`` once per host so capability is ``ready``.
 
     wattlab dial-loads --src model.idf --dst dialed.idf --lights 4.5 --equip 4.2 --infil-mult 1.4
 """
@@ -16,26 +16,15 @@ from pathlib import Path
 from typing import Any
 
 
-def dial_loads_mcp(
+def _dial_local(
     src_idf: Path,
     dst_idf: Path,
     *,
     lights_w_per_m2: float,
     equip_w_per_m2: float,
-    infil_mult: float | None = None,
+    infil_mult: float | None,
+    EnergyPlusManager: Any,
 ) -> dict[str, Any]:
-    """Apply Watts/Area lights+equip and optional infiltration multiplier via MCP."""
-    try:
-        from energyplus_mcp_server.energyplus_tools import EnergyPlusManager
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError(
-            "EnergyPlus MCP not importable. Tip image is simulate_only — run dial-loads "
-            "inside energyplus-mcp-dev with third_party/EnergyPlus-MCP mounted, e.g.\n"
-            "  docker run --rm -v $WORKSPACE:/data -v $REPO/third_party/EnergyPlus-MCP:/workspace "
-            "-w /workspace/energyplus-mcp-server --entrypoint bash energyplus-mcp-dev "
-            "-lc 'uv run wattlab dial-loads …'"
-        ) from exc
-
     src_idf = Path(src_idf)
     dst_idf = Path(dst_idf)
     dst_idf.parent.mkdir(parents=True, exist_ok=True)
@@ -91,8 +80,41 @@ def dial_loads_mcp(
         "infil_mult": None if infil_mult is None else float(infil_mult),
         "src": str(src_idf),
         "dst": str(dst_idf),
+        "via": "local",
         "hint": "High elec + low gas ⇒ cut internal gains / raise infil — not more 5Zone schedule patches.",
     }
+
+
+def dial_loads_mcp(
+    src_idf: Path,
+    dst_idf: Path,
+    *,
+    lights_w_per_m2: float,
+    equip_w_per_m2: float,
+    infil_mult: float | None = None,
+) -> dict[str, Any]:
+    """Apply Watts/Area lights+equip and optional infiltration multiplier via MCP."""
+    try:
+        from energyplus_mcp_server.energyplus_tools import EnergyPlusManager
+    except ImportError:
+        from wattlab.energyplus.mcp_runtime import dial_loads_via_docker
+
+        return dial_loads_via_docker(
+            Path(src_idf),
+            Path(dst_idf),
+            lights_w_per_m2=lights_w_per_m2,
+            equip_w_per_m2=equip_w_per_m2,
+            infil_mult=infil_mult,
+        )
+
+    return _dial_local(
+        Path(src_idf),
+        Path(dst_idf),
+        lights_w_per_m2=lights_w_per_m2,
+        equip_w_per_m2=equip_w_per_m2,
+        infil_mult=infil_mult,
+        EnergyPlusManager=EnergyPlusManager,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

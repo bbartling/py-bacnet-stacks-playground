@@ -2,9 +2,9 @@
 name: wattlab-energyplus-mcp
 description: >-
   Use when driving LBNL EnergyPlus-MCP or energyplus-mcp-dev Docker for WattLab
-  twins: inspect/validate/modify/simulate IDF, capability_status, ReadVars CSV,
-  DinD mounts. Triggers on: EnergyPlus-MCP, MCP tools, validate_idf, load_idf,
-  energyplus-mcp-dev, simulate_only, full_mcp_available, eplusout.csv, -r.
+  twins: ensure, inspect/validate/modify/simulate IDF, capability_status,
+  eplusout.csv, -r. Triggers on: EnergyPlus-MCP, MCP tools, energyplus-ensure,
+  mcp-exec, dial-loads, energyplus-mcp-dev, ready, eplusout.csv.
 ---
 
 # EnergyPlus-MCP — wrench, not calibration coach
@@ -22,53 +22,35 @@ layer; WattLab is the assumption + honesty framework.
 
 ```python
 from wattlab.energyplus.mcp import capability_status
-print(capability_status())  # simulate_only | full_mcp_available | …
+print(capability_status())  # ready | image_missing | vendor_missing | unavailable
 ```
 
 | Mode | Meaning |
 | --- | --- |
-| `full_mcp_available` | Vendor tree + image; inspect tools usable |
-| `simulate_only` | Docker `energyplus-mcp-dev` sims OK; no interactive MCP |
-| missing image | Build per `third_party/README.md` / `scripts/build_energyplus_mcp.sh` |
+| `ready` | Image + vendor — DinD sims **and** mcp-exec/dial-loads surgery |
+| `image_missing` | Vendor OK; run `wattlab energyplus-ensure` to build |
+| `vendor_missing` | Image OK; run ensure to clone under `/data/third_party/EnergyPlus-MCP` |
+| `unavailable` | No Docker / nothing present — ensure after sock + host workspace |
 
-Studio GHCR image may be `simulate_only` until vendor MCP is mounted; host
-checkout often has `full_mcp_available`.
+**Required:** agents call `wattlab energyplus-ensure` until `capability == ready`.
+There is no supported “simulate only” soak path.
 
 ## Campaign usage (required pattern)
 
-1. **Simulate** via WattLab Docker (`wattlab easy-button` / `run_energyplus`).
+1. **Ensure** once: `wattlab energyplus-ensure`
+2. **Simulate** via WattLab Docker (`wattlab easy-button` / `run_energyplus`).
    Default includes **`-r` (ReadVars)** → `eplusout.csv` for Twin 08 panes.
-2. **Inspect** with MCP at least once per major IDF change: validate, zones,
-   meters, run period, schedules/people/lights/equipment.
-3. Prefer MCP modify tools for common knobs (people, lights, equipment,
-   infiltration scale, …) when available; else WattLab IDF patches.
+3. **Inspect/modify** with MCP for every major IDF change: zones, meters,
+   people/lights/equipment, infiltration — `wattlab dial-loads` or
+   `wattlab mcp-exec -- …`.
 4. Publish every successful sim: `publish_run_for_studio` → `runs/<id>/`.
 
 ## DinD / Studio
 
 When Studio runs in Docker with host docker.sock:
 
-- Image tip includes a **Docker CLI** binary — sock alone is insufficient.
-- Stage artifacts under `WATTLAB_STUDIO_WORKSPACE/.artifacts` (not `/app` only).
-- Set `WATTLAB_HOST_WORKSPACE` to the host side of the `/data` bind so volume
-  sources resolve on the daemon host.
-- Set `WATTLAB_ROOT=/app` so prototypes resolve under `/app/examples/…`.
-- Prefer `ENERGYPLUS_DOCKER_USER=1000:1000` for writable out dirs / ReadVars.
-- Prefer `docker exec vibe20 wattlab …` over host editable installs
-  ([`docs/AGENT_DOCKER_WORKSPACE.md`](../../docs/AGENT_DOCKER_WORKSPACE.md)).
+- Annual sim: WattLab mounts stage dirs into `energyplus-mcp-dev`
+- MCP surgery: `mcp-exec` mounts `$WATTLAB_HOST_WORKSPACE→/data` + vendor→`/workspace`
+- Vendor lives on the **shared workspace**, not inside the vibe20 GHCR tip image
 
-AMY RunPeriod: `simulate(align_run_period=True)` clips to last **full** EPW day
-(W2b). Calibrate path: [`docs/CALIBRATE_AND_DELIVERABLES.md`](../../docs/CALIBRATE_AND_DELIVERABLES.md).
-
-## What MCP does not cover (yet)
-
-No first-class tools for: geometry synthesis from area/stories; code-baseline
-generation; building-type default packs; tariff/emissions authoring; full HVAC
-creation from narrative. Those belong in WattLab assumption engine + templates
-— see [`wattlab-assumptions`](../wattlab-assumptions/SKILL.md).
-
-## Hard rules
-
-- No host `pyenergyplus` Runtime API.
-- Demo replay ≠ Twin calibrate PASS.
-- Log tool names used in `reports/CALIBRATE_SESSION.md`.
+Cursor interactive MCP: see `third_party/README.md` / `cursor_mcp_config_snippet()`.

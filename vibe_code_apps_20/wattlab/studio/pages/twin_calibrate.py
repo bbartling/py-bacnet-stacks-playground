@@ -505,17 +505,16 @@ def render() -> None:
         from wattlab.energyplus.mcp import capability_status
 
         cap = capability_status(probe_docker=True)
-        mode = cap.get("mode") or "?"
-        if mode == "simulate_only":
-            st.info(
-                f"EnergyPlus capability: **{mode}** — Docker sims OK; LBNL MCP inspect "
-                "tools need a host vendor clone (`full_mcp_available`). "
+        mode = cap.get("capability") or "?"
+        if mode == "ready":
+            st.success(
+                f"EnergyPlus MCP: **{mode}** — DinD sims + dial-loads/mcp-exec inspect/modify OK."
+            )
+        else:
+            st.warning(
+                f"EnergyPlus MCP: **{mode}** — run `wattlab energyplus-ensure`. "
                 f"{cap.get('note') or ''}"
             )
-        elif mode == "full_mcp_available":
-            st.success(f"EnergyPlus capability: **{mode}**")
-        else:
-            st.warning(f"EnergyPlus capability: **{mode}** — {cap.get('note') or ''}")
     except Exception as exc:
         st.caption(f"capability_status unavailable: {exc}")
 

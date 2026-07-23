@@ -87,10 +87,10 @@ Default sources when sparse (log which you used):
 
 ### MCP in the campaign
 
-Use EnergyPlus-MCP (when `full_mcp_available`) at least once per **major IDF
-change**: validate zones, meters, run period, schedules/loads. WattLab Docker
-CLI remains the default simulate path; MCP is the wrench for inspect/modify —
-not a calibration coach.
+Use EnergyPlus-MCP at least once per **major IDF change**: validate zones, meters,
+run period, schedules/loads (`wattlab energyplus-ensure` → `ready`, then
+`dial-loads` / `mcp-exec`). WattLab Docker CLI remains the default annual
+simulate path; MCP is the wrench for inspect/modify — not a calibration coach.
 
 ### Studio live loop (required env)
 

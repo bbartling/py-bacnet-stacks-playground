@@ -268,14 +268,14 @@ simulation**. Before any capital plan or ROI narrative is emitted:
 | **Easy button** | Demo / default ECM screen | `python easy_button.py --building ...` or `--minimal '{...}' --measure-set best` |
 | **Defaults only** | Form preview / UI | `python wattlab_defaults.py --type office --city madison` |
 | **vibe19 bridge** | Auto-suggest ECMs from FDD export | `python vibe19_bridge.py <export_dir>` |
-| **Full EnergyPlus-MCP** | Inspect loops, plots, custom run periods, validate IDF | Cursor MCP → Docker `energyplus-mcp-dev` (see `third_party/README.md`) |
+| **Full EnergyPlus-MCP** | Inspect loops, plots, custom run periods, validate/modify IDF | `wattlab energyplus-ensure` → `ready`; then `wattlab mcp-exec` / `dial-loads` or Cursor MCP (`third_party/README.md`) |
 | **WattLab twin** | Dump → gaps → profile → optional Open-Meteo AMY + calibrate | `wattlab twin <dump.zip> --inputs answers.json` |
 
 ### Archetype screening vs human-supplied IDF
 
 - **Default:** archetype-scaled `5ZoneAirCooled.idf` (or archetype `prototype_idf`) — geometry is a **screening surrogate**, not the real building. Keep `NEEDS_INPUT` / conceptual disclaimers honest.
 - **Bring your own IDF:** pass `custom_idf` or `prototype_idf` in twin `--inputs` / Studio Model — advanced modelers are first-class. Resolve_profile / easy-button use that path instead of the archetype file.
-- **Roles:** WattLab owns weather (Open-Meteo AMY / weather_observed), bills + dual-fuel G14, ECM patches, scorecards, Studio **EP Results** viz. Cursor MCP against a cloned vendor tree (`third_party/README.md`) owns deep IDF inspect/modify/plot. In-package MCP helpers are **simulate-via-Docker**; check `wattlab.energyplus.mcp.capability_status()`.
+- **Roles:** WattLab owns weather (Open-Meteo AMY / weather_observed), bills + dual-fuel G14, ECM patches, scorecards, Studio **EP Results** viz. EnergyPlus-MCP (via `energyplus-ensure` + `mcp-exec` / Cursor) owns deep IDF inspect/modify/plot. Check `wattlab.energyplus.mcp.capability_status()` — production target is **`ready`**.
 
 ### Actual weather + bills
 

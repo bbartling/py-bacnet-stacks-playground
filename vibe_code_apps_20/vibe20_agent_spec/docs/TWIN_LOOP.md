@@ -21,13 +21,13 @@ pyenergyplus / not Flask APIHelper / not hard-coded Liberty footprints.
 Answers `floors` / `wwr` / `sqft` do **not** rebuild the IDF. Default = 5Zone ×
 `prototype_area_scale`. For glass multistory offices:
 
-1. `wattlab geo-idf` (DOE Large Office → site-scale; any building via CLI args)
-2. `custom_idf` + **`area_scale = 1`**
-3. Fuel mix: high elec / low gas → `wattlab dial-loads` (EnergyPlus MCP one-shot)
-4. `wattlab score-monthly` — last-12 Monthly meters vs area-weighted bills (never double-half)
+1. `wattlab energyplus-ensure` → capability `ready`
+2. `wattlab geo-idf` (DOE Large Office → site-scale; any building via CLI args)
+3. `custom_idf` + **`area_scale = 1`**
+4. Fuel mix: high elec / low gas → `wattlab dial-loads` (EnergyPlus MCP via mcp-exec)
+5. `wattlab score-monthly` — last-12 Monthly meters vs area-weighted bills (never double-half)
 
-Annual simulate = WattLab DinD. MCP = inspect/modify loads only (`simulate_only` tip
-does not ship full MCP tools).
+Annual simulate = WattLab DinD. MCP = inspect/modify loads (required for production dials).
 
 Full paste prompt for QA + calibrate sessions:
 [`../AGENT_TESTER_PROMPT.md`](../AGENT_TESTER_PROMPT.md).

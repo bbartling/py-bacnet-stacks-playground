@@ -166,15 +166,14 @@ def build_session_status(
         ans_path = cand if cand.is_file() else None
     reports = root / "reports"
     if ans_path is None:
-        for name in (
-            "answers.json",
-            "answers_building_100.json",
-            "answers_building_50.json",
-        ):
-            hit = reports / name
-            if hit.is_file():
-                ans_path = hit
-                break
+        hit = reports / "answers.json"
+        if hit.is_file():
+            ans_path = hit
+        else:
+            # Any answers_*.json (sorted) — no preferred building-id filenames
+            matches = sorted(reports.glob("answers_*.json"))
+            if matches:
+                ans_path = matches[0]
     answers = _load_json(ans_path)
 
     dump_p = Path(dump_path) if dump_path else None

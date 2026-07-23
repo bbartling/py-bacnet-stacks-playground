@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from wattlab.config import DOCKER_IMAGE, ENERGYPLUS_MCP, ROOT
+from wattlab.config import DOCKER_IMAGE, ROOT, resolve_energyplus_mcp_path
 
 # energyplus-mcp-dev image runs as vscode (uid 1000). Studio DinD often creates
 # bind-mounted dirs as root 755 → E+ cannot write eplusout.* under /work/out.
@@ -60,28 +60,17 @@ def ensure_image(*, build: bool = False) -> str:
     """Return image name; optionally build from vendored EnergyPlus-MCP."""
     if image_present():
         return DOCKER_IMAGE
+    vendor = resolve_energyplus_mcp_path()
     if not build:
         raise ImageMissing(
-            f"Docker image '{DOCKER_IMAGE}' not found. Build once from "
-            f"{ENERGYPLUS_MCP}: docker build -t {DOCKER_IMAGE} "
-            f"-f .devcontainer/Dockerfile .devcontainer"
+            f"Docker image '{DOCKER_IMAGE}' not found. Run: wattlab energyplus-ensure "
+            f"(or build from {vendor})"
         )
-    if not ENERGYPLUS_MCP.is_dir():
-        raise ImageMissing(
-            f"Missing {ENERGYPLUS_MCP}. Clone per third_party/VERSION.txt then rebuild."
-        )
-    dockerfile_dir = ENERGYPLUS_MCP / ".devcontainer"
-    cmd = [
-        docker_bin(),
-        "build",
-        "-t",
-        DOCKER_IMAGE,
-        "-f",
-        str(dockerfile_dir / "Dockerfile"),
-        str(dockerfile_dir),
-    ]
-    subprocess.run(cmd, check=True, cwd=str(ENERGYPLUS_MCP))
-    return DOCKER_IMAGE
+    if not vendor.is_dir():
+        raise ImageMissing(f"Missing {vendor}. Run: wattlab energyplus-ensure")
+    from wattlab.energyplus.mcp_runtime import build_energyplus_image
+
+    return build_energyplus_image(vendor)
 
 
 def _win_mount(path: Path) -> str:
@@ -256,8 +245,9 @@ def run_in_container(
     if user:
         args.extend(["--user", user])
     default_mounts: list[tuple[Path, str]] = [(ROOT, "/workspace/app")]
-    if ENERGYPLUS_MCP.is_dir():
-        default_mounts.append((ENERGYPLUS_MCP, "/workspace/EnergyPlus-MCP"))
+    _vendor = resolve_energyplus_mcp_path()
+    if _vendor.is_dir():
+        default_mounts.append((_vendor, "/workspace/EnergyPlus-MCP"))
     for host, container in mounts or default_mounts:
         args.extend(["-v", f"{_win_mount(host)}:{container}"])
     args.extend(["-w", workdir, tag, *cmd])

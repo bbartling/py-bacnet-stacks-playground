@@ -83,6 +83,29 @@ THIRD_PARTY = ROOT / "third_party"
 ENERGYPLUS_MCP = THIRD_PARTY / "EnergyPlus-MCP"
 
 DOCKER_IMAGE = (os.environ.get("ENERGYPLUS_MCP_IMAGE") or "energyplus-mcp-dev").strip()
+
+
+def resolve_energyplus_mcp_path() -> Path:
+    """Locate LBNL EnergyPlus-MCP vendor tree (workspace-first for tip agents).
+
+    Order: ``WATTLAB_ENERGYPLUS_MCP`` → ``$WATTLAB_STUDIO_WORKSPACE/third_party/EnergyPlus-MCP``
+    (if present) → legacy ``ROOT/third_party/EnergyPlus-MCP`` → workspace target if set.
+    """
+    env = (os.environ.get("WATTLAB_ENERGYPLUS_MCP") or "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    ws = (os.environ.get("WATTLAB_STUDIO_WORKSPACE") or "").strip()
+    ws_cand = (
+        Path(ws).expanduser().resolve() / "third_party" / "EnergyPlus-MCP" if ws else None
+    )
+    if ws_cand is not None and (ws_cand / "energyplus-mcp-server").is_dir():
+        return ws_cand
+    legacy = ENERGYPLUS_MCP.resolve()
+    if (legacy / "energyplus-mcp-server").is_dir():
+        return legacy
+    if ws_cand is not None:
+        return ws_cand
+    return legacy
 EP_VERSION_PIN = "26.1.0"
 DEFAULT_PROTOTYPE_IDF = PROTOTYPES / "5ZoneAirCooled.idf"
 # Closest bundled TMY3 for Madison WI conceptual screening (no WI EPW in vendor samples).

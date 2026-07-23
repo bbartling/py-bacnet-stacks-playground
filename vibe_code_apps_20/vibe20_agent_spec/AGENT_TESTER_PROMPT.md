@@ -112,15 +112,16 @@ Both vibe19 and vibe20 are **native Streamlit** (not FastAPI embedding Streamlit
 ## SETUP — EnergyPlus + EnergyPlus-MCP
 
 ```bash
-docker images energyplus-mcp-dev
-# Build if missing: vibe_code_apps_20/third_party/README.md + scripts/build_energyplus_mcp.sh
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data \
+  -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace vibe20 \
+  wattlab energyplus-ensure
 
-cd ~/py-bacnet-stacks-playground/vibe_code_apps_20   # if present
-python -c "from wattlab.energyplus.mcp import capability_status; import json; print(json.dumps(capability_status(), indent=2))"
+docker exec … vibe20 python -c \
+  "from wattlab.energyplus.mcp import capability_status; import json; print(json.dumps(capability_status(), indent=2))"
 ```
 
-Need `mode` = `simulate_only` or `full_mcp_available`.  
-MCP config: [`../third_party/README.md`](../third_party/README.md).
+**Required:** `capability` = `ready` (image + vendor under `/data/third_party/EnergyPlus-MCP`).
+Fail the soak if ensure cannot reach `ready`. MCP config: [`../third_party/README.md`](../third_party/README.md).
 
 How to run sims (host agent CLI preferred if Studio cannot reach Docker sock):
 
@@ -184,7 +185,7 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 
 ## TURNKEY CHECKLIST
 
-1. Studio health ok; `energyplus-mcp-dev` present (`capability_status`).
+1. Studio health ok; `wattlab energyplus-ensure` → `capability_status()["capability"] == "ready"`.
 2. Dump + energy → Fuel: EUI + **peer p50/p20/p80** metrics green.
 3. Profile resolved with human — city keeps user label when given, but **lat/lon
    beat city string** for weather (e.g. Detroit coords for a Troy mailing label).
@@ -193,7 +194,7 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 6. **Studio-native** Docker E+ once → `eplusout.csv` (DinD sibling-mount gate).
 7. **Live campaign:** ≥3 Docker E+ sims (≥6–10 if sparse), each published, each confirmed in Twin UI.
 8. Partial-year AMY: RunPeriod ends on last **full** EPW day (W2b); not trailing hour-10 day.
-9. MCP inspect at least once if `full_mcp_available`; **optional** when `simulate_only`.
+9. **MCP inspect/modify at least once** (`wattlab dial-loads` or `mcp-exec`) — required, not optional.
 10. G14 / crosscheck logged per run when bills exist — or honest period/scale mismatch.
     Print NMBE/CV(RMSE) even when `months_compared` is already 12.
 11. Area honesty / `prototype_area_scale` called out (5Zone ≠ site ft²).
@@ -233,7 +234,7 @@ downloads report.md / results.xlsx / model zip. Entry: `/app/studio.py`.
 | Twin UI smoke | Visualizer works (replay ok); IDF massing when `model.idf` present |
 | **Studio DinD + `-r`** | ≥1 live sim **from Studio button** yields `eplusout.csv` |
 | **Twin calibrate** | **≥3 live** `energyplus-mcp-dev` sims in `runs/`, each with eplusout; human saw updates; G14 attempted **or** honest mismatch logged when bills exist |
-| E+ MCP | ≥1 inspect/validate if MCP available; else document `simulate_only` |
+| E+ MCP | `capability == ready` after ensure; ≥1 inspect/modify (`dial-loads` / `mcp-exec`) |
 | Honesty | No calibrated ROI without G14 + area + weather stamps |
 | W2b full-day AMY | RunPeriod end = last complete EPW day (not partial trailing hours) |
 | W3b hard-size | Area-scaled nameplate or refused + NEEDS_INPUT banner |

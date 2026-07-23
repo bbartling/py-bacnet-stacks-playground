@@ -1,11 +1,8 @@
 ﻿"""Thin helpers mirroring EnergyPlus-MCP capabilities via Docker CLI / uv.
 
-Prefer driving the same toolkit the MCP server uses when the vendor tree is present.
-Full interactive MCP tool use is available via Cursor MCP config (see third_party/README.md).
-
-WattLab's in-package surface is **simulate-via-Docker**. Inspect/modify/plot tools
-from the LBNL EnergyPlus-MCP server require a cloned vendor tree + Cursor MCP —
-they are not reimplemented here.
+Production path: ``wattlab energyplus-ensure`` then MCP inspect/modify via
+``wattlab mcp-exec`` / ``wattlab dial-loads`` (docker ``energyplus-mcp-dev``),
+annual sims via WattLab DinD. Capability ``ready`` means image + vendor present.
 """
 
 from __future__ import annotations
@@ -16,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from wattlab.config import DOCKER_IMAGE, ENERGYPLUS_MCP, THIRD_PARTY
+from wattlab.config import DOCKER_IMAGE, THIRD_PARTY, resolve_energyplus_mcp_path
 from wattlab.energyplus.docker import (
     DockerUnavailable,
     docker_bin,
@@ -25,22 +22,32 @@ from wattlab.energyplus.docker import (
     image_present,
     run_energyplus,
 )
+from wattlab.energyplus.mcp_runtime import mcp_vendor_ready as _mcp_vendor_ready_runtime
+
+
+def mcp_vendor_path() -> Path:
+    return resolve_energyplus_mcp_path()
 
 
 def mcp_vendor_ready() -> bool:
-    return (ENERGYPLUS_MCP / "energyplus-mcp-server").is_dir()
+    return _mcp_vendor_ready_runtime(mcp_vendor_path())
 
 
 def mcp_vendor_readme() -> Path | None:
     readme = THIRD_PARTY / "README.md"
-    return readme if readme.is_file() else None
+    if readme.is_file():
+        return readme
+    vend = mcp_vendor_path().parent / "README.md"
+    return vend if vend.is_file() else None
 
 
 def capability_status(*, probe_docker: bool = True) -> dict[str, Any]:
-    """Honest capability report: image?, vendor clone?, simulate-only vs full MCP.
+    """Honest capability report: ``ready`` | ``image_missing`` | ``vendor_missing`` | ``unavailable``.
 
     Does not pull/build images. Optional Docker probe is best-effort and never raises.
+    Run ``wattlab energyplus-ensure`` to reach ``ready``.
     """
+    vendor_path = mcp_vendor_path()
     vendor = mcp_vendor_ready()
     docker_ok = False
     img = False
@@ -55,31 +62,35 @@ def capability_status(*, probe_docker: bool = True) -> dict[str, Any]:
             docker_ok = False
             img = False
 
-    if img and vendor:
-        mode = "full_mcp_available"
+    if not docker_ok and probe_docker:
+        mode = "unavailable"
         note = (
-            "Docker image present and vendor clone ready — WattLab can simulate; "
-            "Cursor MCP can expose full inspect/modify/plot tools "
-            "(see third_party/README.md)."
+            "Docker daemon not available. Install Docker, mount docker.sock into vibe20, "
+            "set WATTLAB_HOST_WORKSPACE, then run: wattlab energyplus-ensure"
         )
-    elif img:
-        mode = "simulate_only"
+    elif img and vendor:
+        mode = "ready"
         note = (
-            "Docker image present — WattLab batch simulate works. "
-            "Full LBNL MCP inspect/modify/plot tools need a vendor clone "
-            f"at {ENERGYPLUS_MCP}."
+            "EnergyPlus MCP ready — DinD annual sims + mcp-exec/dial-loads inspect/modify. "
+            "Use wattlab energyplus-ensure if tools fail after a host reboot."
         )
-    elif vendor:
-        mode = "vendor_only_no_image"
+    elif vendor and not img:
+        mode = "image_missing"
         note = (
-            "Vendor clone present but Docker image missing — build "
-            f"{DOCKER_IMAGE} per third_party/README.md before live sims."
+            f"Vendor clone present at {vendor_path} but Docker image '{DOCKER_IMAGE}' "
+            "missing — run: wattlab energyplus-ensure"
+        )
+    elif img and not vendor:
+        mode = "vendor_missing"
+        note = (
+            f"Docker image present but EnergyPlus-MCP vendor missing "
+            f"(expected under {vendor_path}). Run: wattlab energyplus-ensure"
         )
     else:
         mode = "unavailable"
         note = (
-            "No Docker image and no vendor clone — install Docker, build "
-            f"{DOCKER_IMAGE}, and optionally clone EnergyPlus-MCP for full MCP tools."
+            "No Docker image and no vendor clone — run: wattlab energyplus-ensure "
+            f"(clones pin into workspace third_party and builds {DOCKER_IMAGE})."
         )
 
     return {
@@ -87,7 +98,7 @@ def capability_status(*, probe_docker: bool = True) -> dict[str, Any]:
         "docker_available": docker_ok,
         "image_present": img,
         "vendor_present": vendor,
-        "vendor_path": str(ENERGYPLUS_MCP),
+        "vendor_path": str(vendor_path),
         "vendor_readme": str(mcp_vendor_readme()) if mcp_vendor_readme() else None,
         "capability": mode,
         "simulate_via_docker": bool(img),
@@ -102,7 +113,7 @@ def capability_status(*, probe_docker: bool = True) -> dict[str, Any]:
 
 
 def cursor_mcp_config_snippet(host_mcp_path: Path | None = None) -> dict[str, Any]:
-    root = host_mcp_path or ENERGYPLUS_MCP
+    root = host_mcp_path or mcp_vendor_path()
     win = str(root.resolve()).replace("\\", "\\\\")
     return {
         "mcpServers": {
@@ -153,7 +164,9 @@ def get_server_status_via_docker(*, check_mcp_import: bool = False) -> dict[str,
         status["error"] = str(exc)
 
     if check_mcp_import and mcp_vendor_ready() and status.get("image_present"):
-        mount = str(ENERGYPLUS_MCP.resolve()).replace("\\", "/")
+        from wattlab.config import host_path_for_docker
+
+        mount = str(host_path_for_docker(mcp_vendor_path())).replace("\\", "/")
         ir = subprocess.run(
             [
                 docker_bin(),
@@ -219,7 +232,6 @@ def align_idf_to_epw(
             "out": str(idf),
         }
     dest = Path(out_idf) if out_idf is not None else idf.with_name(f"{idf.stem}_epw_aligned.idf")
-    # Prefer exact data-row dates (not header month/day without year).
     begin = span["begin"]
     end = span["end"]
     meta = apply_run_period(idf, dest, begin=begin, end=end)
@@ -259,7 +271,6 @@ def simulate(
     if align_run_period:
         try:
             aligned_path = output_dir.parent / f"{output_dir.name}__epw_aligned.idf"
-            # ensure parent exists for aligned idf (writable)
             from wattlab.energyplus.docker import ensure_ep_writable
 
             ensure_ep_writable(output_dir.parent)

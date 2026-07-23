@@ -55,25 +55,31 @@ Do **not** point Schedule:File at absolute `/data/...` host paths (FATAL file no
 
 Helpers: `wattlab.existing_building.schedules` + `wattlab.energyplus.patches.weather_schedules`.
 
-## Site-scale geometry + EnergyPlus MCP (batch)
+## Site-scale geometry + EnergyPlus MCP (required)
 
-Tip image EnergyPlus MCP capability is often **`simulate_only`**. Annual sims use
-WattLab DinD (`run_energyplus`). For inspect/modify (lights, equipment, infil):
+Agents use the **same stack as a human in production**:
 
 ```bash
-# Host: vendor tree + workspace mounted; run dial script inside MCP image
-docker run --rm \
-  -v "$WATTLAB_HOST_WORKSPACE":/data \
-  -v "$REPO/vibe_code_apps_20/third_party/EnergyPlus-MCP":/workspace \
-  -w /workspace/energyplus-mcp-server \
-  --entrypoint bash energyplus-mcp-dev \
-  -lc 'uv run wattlab dial-loads …'   # or python -m wattlab.energyplus.dial_loads
+wattlab energyplus-ensure   # clone pin → /data/third_party/EnergyPlus-MCP + build energyplus-mcp-dev
+# capability_status()["capability"] must be "ready"
 ```
 
-Geometry ladder (any building; CLI args — not Liberty-hardcoded):
-`wattlab geo-idf` → `custom_idf` + `area_scale=1` → DinD → `wattlab score-monthly`.
-Skip vendor `validate_idf` if eppy MSequence errors. See `CONTAINER_AGENT.md`
-geometry gate + `TWIN_LOOP.md`.
+- **Annual sims:** WattLab DinD (`run_energyplus`)
+- **IDF surgery:** `wattlab dial-loads` / `wattlab mcp-exec -- …` (docker `energyplus-mcp-dev`)
+
+```bash
+# Host paths via WATTLAB_HOST_WORKSPACE; tip agents prefer workspace vendor
+wattlab mcp-exec -- python -c "import energyplus_mcp_server; print('ok')"
+wattlab dial-loads --src /data/uploads/prototypes/geo.idf --dst /data/uploads/prototypes/dialed.idf \
+  --lights 4.5 --equip 4.2 --infil-mult 1.4
+```
+
+Geometry ladder (any building; CLI args — not site-hardcoded):
+`wattlab geo-idf --stories … --wwr … --target-area-ft2 …` → `custom_idf` + `area_scale=1`
+→ DinD → `wattlab score-monthly`. Skip vendor `validate_idf` if eppy MSequence errors.
+
+Practice example (Liberty B100 rehearsal only): see campaign notes / `examples/liberty` —
+do not reuse B100/B50 numbers as silent defaults.
 
 ## G14 calibrate campaign (bill months → Twin)
 

@@ -1,16 +1,17 @@
 """Adapt a DOE Large Office (or similar) IDF to site-scale massing.
 
-Generalized from the Liberty B100 geometry campaign: mid-floor multipliers,
-XY scale to target conditioned area, fenestration height strip for WWR target,
-optional Site:Location + SHGC patches. No Liberty hardcodes — all via CLI args.
-
-Typical:
+Generalized geometry ladder: mid-floor multipliers, XY scale to target conditioned
+area, fenestration height strip for WWR target, optional Site:Location + SHGC.
+No site hardcodes — stories/WWR/area/lat/lon via CLI args.
 
     wattlab geo-idf \\
       --src uploads/prototypes/RefBldgLargeOfficeNew2004_Chicago.idf \\
       --dst uploads/prototypes/geo_site.idf \\
-      --target-area-ft2 140000 --stories 6 --wwr 0.60 \\
-      --lat 42.33 --lon -83.05 --site-name Detroit_MI
+      --target-area-ft2 <ft2> --stories <N> --wwr <0-1> \\
+      --lat <deg> --lon <deg> --site-name <Name>
+
+Practice example (Liberty B100 rehearsal only — do not reuse as defaults):
+  --target-area-ft2 140000 --stories 6 --wwr 0.60 --lat 42.33 --lon -83.05
 """
 
 from __future__ import annotations
@@ -205,17 +206,17 @@ def build_site_scale_idf(
     dst: Path,
     *,
     target_area_ft2: float,
-    stories: int = 6,
+    stories: int,
     floorplate_ft2: float = DEFAULT_FLOORPLATE_FT2,
-    wwr: float = 0.60,
+    wwr: float,
     mid_zones: list[str] | None = None,
     lat: float | None = None,
     lon: float | None = None,
-    elevation_m: float = 190.0,
-    tz_hr: float = -5.0,
+    elevation_m: float | None = None,
+    tz_hr: float | None = None,
     site_name: str | None = None,
     building_name: str | None = None,
-    shgc: float | None = 0.45,
+    shgc: float | None = None,
     enable_weather_run: bool = True,
     header_note: str | None = None,
 ) -> dict[str, Any]:
@@ -273,14 +274,16 @@ def build_site_scale_idf(
 
     if lat is not None and lon is not None:
         name = site_name or f"Site_{lat}_{lon}"
+        tz = 0.0 if tz_hr is None else float(tz_hr)
+        elev = 0.0 if elevation_m is None else float(elevation_m)
         text = re.sub(
             r"  Site:Location,\n    [^;]+;",
             f"""  Site:Location,
     {name},  !- Name
     {float(lat):.4f},                   !- Latitude {{deg}}
     {float(lon):.4f},                  !- Longitude {{deg}}
-    {float(tz_hr):.2f},                   !- Time Zone {{hr}}
-    {float(elevation_m):.2f};                  !- Elevation {{m}}""",
+    {tz:.2f},                   !- Time Zone {{hr}}
+    {elev:.2f};                  !- Elevation {{m}}""",
             text,
             count=1,
             flags=re.M,
@@ -340,25 +343,28 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--src", required=True, help="Source prototype IDF (e.g. DOE Large Office)")
     p.add_argument("--dst", required=True, help="Output site-scale IDF path")
     p.add_argument("--target-area-ft2", type=float, required=True)
-    p.add_argument("--stories", type=int, default=6)
+    p.add_argument("--stories", type=int, required=True)
     p.add_argument(
         "--floorplate-ft2",
         type=float,
         default=DEFAULT_FLOORPLATE_FT2,
         help="Source conditioned floorplate ft² (DOE Large Office ≈ 38476)",
     )
-    p.add_argument("--wwr", type=float, default=0.60)
+    p.add_argument("--wwr", type=float, required=True)
     p.add_argument("--lat", type=float, default=None)
     p.add_argument("--lon", type=float, default=None)
-    p.add_argument("--tz", type=float, default=-5.0)
-    p.add_argument("--elevation-m", type=float, default=190.0)
+    p.add_argument("--tz", type=float, default=None, help="Timezone hours (with --lat/--lon)")
+    p.add_argument(
+        "--elevation-m", type=float, default=None, help="Elevation m (with --lat/--lon)"
+    )
     p.add_argument("--site-name", default=None)
     p.add_argument("--building-name", default=None)
-    p.add_argument("--shgc", type=float, default=0.45)
-    p.add_argument("--no-shgc", action="store_true")
+    p.add_argument("--shgc", type=float, default=None, help="Optional glazing SHGC patch")
+    p.add_argument("--no-shgc", action="store_true", help="Explicitly skip SHGC patch")
     p.add_argument("--meta-out", default=None, help="Write provenance JSON")
     args = p.parse_args(argv)
 
+    shgc = None if args.no_shgc else args.shgc
     meta = build_site_scale_idf(
         Path(args.src),
         Path(args.dst),
@@ -372,7 +378,7 @@ def main(argv: list[str] | None = None) -> int:
         tz_hr=args.tz,
         site_name=args.site_name,
         building_name=args.building_name,
-        shgc=None if args.no_shgc else args.shgc,
+        shgc=shgc,
     )
     print(json.dumps(meta, indent=2))
     if args.meta_out:
