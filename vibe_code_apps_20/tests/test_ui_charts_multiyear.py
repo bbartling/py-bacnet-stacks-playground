@@ -33,10 +33,14 @@ def test_eui_peer_bullet_figure_has_band_and_rows():
             {"label": "Model (prototype)", "eui": 24.0, "color": "#d62728"},
         ],
         title="test",
+        height=420,
     )
-    # One rect + one p50 line per series row
+    # One upright rect + one p50 line per series row
     assert len(fig.layout.shapes) == 4
     assert any(t.mode and "markers" in str(t.mode) for t in fig.data)
+    assert fig.layout.height >= 420
+    # Y is EUI (upright); X is category labels
+    assert fig.layout.yaxis.title.text and "EUI" in str(fig.layout.yaxis.title.text)
 
 
 def test_fit_window_defaults_to_max_years():

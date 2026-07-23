@@ -13,8 +13,9 @@ E+ iteration so Twin 08 panes appear in the browser
 **Live 08:** DinD writes `progress.json` + `console.log` during the sim; Twin polls
 (progress/log live). OA charts update when `eplusout.csv` exists (after ReadVars).
 **Building massing** comes from published `model.idf` (BuildingSurface:Detailed) —
-unique per run / site. Zone colors apply when CSV zone names match. Not embedded
-pyenergyplus / not Flask APIHelper / not hard-coded Liberty footprints.
+unique per run / site. Zone colors apply when CSV zone names match. Twin shows a
+**G14 epoch chart** (NMBE/CVRMSE across published iterations) and a read-only
+**model summary** (area, WWR, loads, HVAC hints) for the selected run.
 
 ## Geometry gate (site-scale twins)
 

@@ -51,124 +51,125 @@ def _render_eui_index(
     chart_key: str = "twin_eui_index",
 ) -> None:
     """Bills vs peer typical EUI vs EnergyPlus model — always visible when data exists."""
-    st.subheader("EUI index — bills vs peers vs model")
-    st.caption(
-        "**Bills** = your campus annualized site EUI. "
-        "**Peers** = EPA/CBECS-style registry p20/p50/p80 for this property type. "
-        "**Model** = EnergyPlus intensity on the prototype footprint "
-        "(comparable as EUI; absolute kWh is not site totals until geometry is scaled)."
-    )
-    bill_eui = None
-    ptype = "office"
-    bench = st.session_state.get("studio_benchmark_summary") or {}
-    if bench.get("campus"):
-        bill_eui = bench["campus"].get("site_eui_kbtu_ft2")
-    campus = st.session_state.get("studio_campus")
-    if campus is not None and campus.buildings:
-        ptype = campus.buildings[0].property_type or ptype
-        if bill_eui is None:
-            try:
-                from wattlab.benchmarks import annual_summary
-
-                summary = annual_summary(campus)
-                bill_eui = summary["campus"]["site_eui_kbtu_ft2"]
-                st.session_state["studio_benchmark_summary"] = summary
-            except Exception:
-                pass
-    if profile:
-        ptype = profile.get("building_type") or ptype
-
-    model = load_model_eui_from_run(run_dir)
-    report = st.session_state.get("studio_report") or {}
-    model_eui = model.get("model_eui_kbtu_ft2")
-    scale = model.get("prototype_area_scale") or report.get("prototype_area_scale")
-    target = model.get("target_floor_area_ft2") or report.get("target_floor_area_ft2")
-    if model_eui is None:
-        ann = (report.get("baseline_annual") or report.get("annual") or {})
-        if ann.get("site_eui_kbtu_ft2_year") is not None:
-            model_eui = float(ann["site_eui_kbtu_ft2_year"])
-        else:
-            for rr in report.get("result_records") or report.get("records") or []:
-                a = (rr or {}).get("annual") or {}
-                if a.get("site_eui_kbtu_ft2_year") is not None:
-                    model_eui = float(a["site_eui_kbtu_ft2_year"])
-                    break
-
-    if bill_eui is None and model_eui is None:
-        st.info(
-            "Load Fuel campus bills and/or publish a Twin run with report.json to see "
-            "bill EUI vs peer p20/p50/p80 vs model."
+    with st.container(border=True):
+        st.subheader("EUI index — bills vs peers vs model")
+        st.caption(
+            "Upright peer band (p20–p80, dashed p50). **Bills** = annualized site EUI from utilities. "
+            "**Peers** = public registry for this property type. **Model** = EnergyPlus site intensity "
+            "(comparable as EUI; absolute kWh needs site-scale geometry + area_scale=1)."
         )
-        return
+        bill_eui = None
+        ptype = "office"
+        bench = st.session_state.get("studio_benchmark_summary") or {}
+        if bench.get("campus"):
+            bill_eui = bench["campus"].get("site_eui_kbtu_ft2")
+        campus = st.session_state.get("studio_campus")
+        if campus is not None and campus.buildings:
+            ptype = campus.buildings[0].property_type or ptype
+            if bill_eui is None:
+                try:
+                    from wattlab.benchmarks import annual_summary
 
-    idx = build_eui_index(
-        bill_eui_kbtu_ft2=float(bill_eui) if bill_eui is not None else None,
-        property_type=str(ptype),
-        model_eui_kbtu_ft2=float(model_eui) if model_eui is not None else None,
-        prototype_area_scale=float(scale) if scale is not None else None,
-        target_floor_area_ft2=float(target) if target is not None else None,
-        model_label=str(model.get("run_id") or report.get("run_id") or "EnergyPlus"),
-    )
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric(
-        "Bills site EUI",
-        f"{idx['bill_eui_kbtu_ft2']} kBtu/ft²" if idx["bill_eui_kbtu_ft2"] is not None else "—",
-        help="Annualized utility bills ÷ floor area (kBtu/ft²·yr).",
-    )
-    m2.metric(
-        "Peer typical (p50)",
-        f"{idx['peer_p50']} kBtu/ft²",
-        help="Median peer site EUI for this property type (public registry).",
-    )
-    m3.metric(
-        "Model EUI (prototype)",
-        f"{idx['model_eui_kbtu_ft2']} kBtu/ft²" if idx["model_eui_kbtu_ft2"] is not None else "—",
-        help="EnergyPlus site EUI on prototype area (intensity comparable; scale absolute kWh).",
-    )
-    m4.metric(
-        "Peer band",
-        f"p20={idx['peer_p20']} · p80={idx['peer_p80']}",
-        help="p20–p80 peer band: below p20 is efficient vs peers; above p80 needs attention.",
-    )
+                    summary = annual_summary(campus)
+                    bill_eui = summary["campus"]["site_eui_kbtu_ft2"]
+                    st.session_state["studio_benchmark_summary"] = summary
+                except Exception:
+                    pass
+        if profile:
+            ptype = profile.get("building_type") or ptype
 
-    df = pd.DataFrame(idx["rows"])
-    st.dataframe(df, width="stretch", hide_index=True)
+        model = load_model_eui_from_run(run_dir)
+        report = st.session_state.get("studio_report") or {}
+        model_eui = model.get("model_eui_kbtu_ft2")
+        scale = model.get("prototype_area_scale") or report.get("prototype_area_scale")
+        target = model.get("target_floor_area_ft2") or report.get("target_floor_area_ft2")
+        if model_eui is None:
+            ann = (report.get("baseline_annual") or report.get("annual") or {})
+            if ann.get("site_eui_kbtu_ft2_year") is not None:
+                model_eui = float(ann["site_eui_kbtu_ft2_year"])
+            else:
+                for rr in report.get("result_records") or report.get("records") or []:
+                    a = (rr or {}).get("annual") or {}
+                    if a.get("site_eui_kbtu_ft2_year") is not None:
+                        model_eui = float(a["site_eui_kbtu_ft2_year"])
+                        break
 
-    series = []
-    if idx.get("bill_eui_kbtu_ft2") is not None:
-        series.append(
-            {
-                "label": "Bills (site)",
-                "eui": float(idx["bill_eui_kbtu_ft2"]),
-                "color": "#1f77b4",
-                "symbol": "diamond",
-            }
+        if bill_eui is None and model_eui is None:
+            st.info(
+                "Load Fuel campus bills and/or publish a Twin run with report.json to see "
+                "bill EUI vs peer p20/p50/p80 vs model."
+            )
+            return
+
+        idx = build_eui_index(
+            bill_eui_kbtu_ft2=float(bill_eui) if bill_eui is not None else None,
+            property_type=str(ptype),
+            model_eui_kbtu_ft2=float(model_eui) if model_eui is not None else None,
+            prototype_area_scale=float(scale) if scale is not None else None,
+            target_floor_area_ft2=float(target) if target is not None else None,
+            model_label=str(model.get("run_id") or report.get("run_id") or "EnergyPlus"),
         )
-    if idx.get("model_eui_kbtu_ft2") is not None:
-        series.append(
-            {
-                "label": "Model (prototype)",
-                "eui": float(idx["model_eui_kbtu_ft2"]),
-                "color": "#d62728",
-                "symbol": "circle",
-            }
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric(
+            "Bills site EUI",
+            f"{idx['bill_eui_kbtu_ft2']} kBtu/ft²" if idx["bill_eui_kbtu_ft2"] is not None else "—",
+            help="Annualized utility bills ÷ floor area (kBtu/ft²·yr).",
         )
-    fig = eui_peer_bullet_figure(
-        peer_p20=float(idx["peer_p20"]),
-        peer_p50=float(idx["peer_p50"]),
-        peer_p80=float(idx["peer_p80"]),
-        series=series,
-        title=f"{idx.get('benchmark_name') or idx['property_type']} — bills vs peers vs model",
-    )
-    st.plotly_chart(fig, width="stretch", key=chart_key)
-    if scale and float(scale) > 1.05:
-        st.warning(
-            f"prototype_area_scale ≈ {float(scale):.2f}× — model intensity (EUI) is comparable; "
-            "absolute modeled kWh is NOT site totals until geometry is scaled."
+        m2.metric(
+            "Peer typical (p50)",
+            f"{idx['peer_p50']} kBtu/ft²",
+            help="Median peer site EUI for this property type (public registry).",
         )
-    honesty = model.get("area_honesty") or report.get("area_honesty")
-    if honesty:
-        st.caption(honesty)
+        m3.metric(
+            "Model EUI (prototype)",
+            f"{idx['model_eui_kbtu_ft2']} kBtu/ft²" if idx["model_eui_kbtu_ft2"] is not None else "—",
+            help="EnergyPlus site EUI on prototype area (intensity comparable; scale absolute kWh).",
+        )
+        m4.metric(
+            "Peer band",
+            f"p20={idx['peer_p20']} · p80={idx['peer_p80']}",
+            help="Peer p20–p80 screening band for this property type.",
+        )
+
+        df = pd.DataFrame(idx["rows"])
+        st.dataframe(df, width="stretch", hide_index=True)
+
+        series = []
+        if idx.get("bill_eui_kbtu_ft2") is not None:
+            series.append(
+                {
+                    "label": "Bills (site)",
+                    "eui": float(idx["bill_eui_kbtu_ft2"]),
+                    "color": "#1f77b4",
+                    "symbol": "diamond",
+                }
+            )
+        if idx.get("model_eui_kbtu_ft2") is not None:
+            series.append(
+                {
+                    "label": "Model (prototype)",
+                    "eui": float(idx["model_eui_kbtu_ft2"]),
+                    "color": "#d62728",
+                    "symbol": "circle",
+                }
+            )
+        fig = eui_peer_bullet_figure(
+            peer_p20=float(idx["peer_p20"]),
+            peer_p50=float(idx["peer_p50"]),
+            peer_p80=float(idx["peer_p80"]),
+            series=series,
+            title=f"{idx.get('benchmark_name') or idx['property_type']} — bills vs peers vs model",
+            height=440,
+        )
+        st.plotly_chart(fig, width="stretch", key=chart_key)
+        if scale and float(scale) > 1.05:
+            st.warning(
+                f"prototype_area_scale ≈ {float(scale):.2f}× — model intensity (EUI) is comparable; "
+                "absolute modeled kWh is NOT site totals until geometry is scaled."
+            )
+        honesty = model.get("area_honesty") or report.get("area_honesty")
+        if honesty:
+            st.caption(honesty)
 
 
 def _fixture_eplusout() -> Path | None:
@@ -487,6 +488,7 @@ def render() -> None:
         run_dir=active_preview,
         chart_key="twin_eui_index_active",
     )
+    st.divider()
 
     if not profile:
         st.info(
@@ -945,96 +947,138 @@ def render() -> None:
                 "`05_Source_Data` · `06_Documentation` — or download report/workbook alone."
             )
 
-    st.subheader("Iteration history (agent + Studio)")
-    st.caption(
-        "Each published `runs/<id>/` after agent/CLI EnergyPlus. "
-        "Elapsed comes from `run_manifest.json` started_at → finished_at."
-    )
-    hist = list_iteration_runs(runs_dir(), limit=15)
-    if not hist:
-        manifests = sorted(ARTIFACTS.glob("wattlab_*/run_manifest.json"), reverse=True)[:10]
-        for mp in manifests:
-            try:
-                m = json.loads(mp.read_text(encoding="utf-8"))
-                hist.append(
-                    {
-                        "run_id": m.get("run_id"),
-                        "status": m.get("status"),
-                        "dir": str(mp.parent),
-                        "progress": 100 if m.get("status") in {"ok", "success", "SUCCESS"} else 0,
-                        "started_at": m.get("started_at"),
-                        "finished_at": m.get("finished_at"),
-                        "elapsed_s": None,
-                        "hypothesis": m.get("hypothesis") or m.get("notes"),
-                    }
-                )
-            except Exception:
-                continue
-    if not hist:
-        st.caption("No prior runs in workspace runs/.")
-    else:
-        st.metric("Published iterations shown", len(hist))
-        enriched = []
-        for h in hist:
-            row = {
-                "run_id": h.get("run_id"),
-                "hypothesis": h.get("hypothesis"),
-                "weather": h.get("weather_mode"),
-                "status": h.get("status"),
-                "eplusout": "yes" if h.get("has_eplusout") else "no",
-                "elapsed_s": h.get("elapsed_s"),
-                "progress": h.get("progress"),
-                "dir": h.get("dir"),
-            }
-            model = load_model_eui_from_run(Path(str(h["dir"])) if h.get("dir") else None)
-            if model.get("model_eui_kbtu_ft2") is not None:
-                row["model_eui_kbtu_ft2"] = model["model_eui_kbtu_ft2"]
-            if model.get("prototype_area_scale") is not None:
-                row["prototype_area_scale"] = model["prototype_area_scale"]
-            if model.get("weather_mode") and not row.get("weather"):
-                row["weather"] = model["weather_mode"]
-            if model.get("peak_demand_kw") is not None:
-                row["peak_demand_kw"] = model["peak_demand_kw"]
-            if row.get("elapsed_s") is not None:
-                try:
-                    row["elapsed_min"] = round(float(row["elapsed_s"]) / 60.0, 2)
-                except (TypeError, ValueError):
-                    pass
-            enriched.append(row)
-        show_cols = [
-            c
-            for c in (
-                "run_id",
-                "hypothesis",
-                "weather",
-                "status",
-                "eplusout",
-                "elapsed_min",
-                "elapsed_s",
-                "model_eui_kbtu_ft2",
-                "peak_demand_kw",
-                "prototype_area_scale",
-            )
-            if any(c in r for r in enriched)
-        ]
-        st.dataframe(
-            pd.DataFrame(enriched)[show_cols] if show_cols else pd.DataFrame(enriched),
-            width="stretch",
-            hide_index=True,
+    st.divider()
+    with st.container(border=True):
+        st.subheader("Iteration history (agent + Studio)")
+        st.caption(
+            "Each published `runs/<id>/` after agent/CLI EnergyPlus. "
+            "Timestamps from `run_manifest.json`. G14 columns need `calibration_scorecard.json` per run."
         )
-        pick = st.selectbox(
-            "Inspect iteration",
-            options=[h.get("dir") for h in hist if h.get("dir")],
-            key="twin_iter_pick",
-        )
-        if pick and st.button("Show 08 panes for selection", key="twin_show_iter"):
-            st.session_state["studio_active_run"] = pick
-            st.rerun()
+        from wattlab.studio.g14_history import g14_epoch_figure, iter_g14_history
+        from wattlab.studio.model_summary import build_model_summary, render_model_summary_panel
 
-    # EnergyPlus visualizer last — APIHelper-08 floor plan / OA / progress
+        hist = list_iteration_runs(runs_dir(), limit=30)
+        if not hist:
+            manifests = sorted(ARTIFACTS.glob("wattlab_*/run_manifest.json"), reverse=True)[:10]
+            for mp in manifests:
+                try:
+                    m = json.loads(mp.read_text(encoding="utf-8"))
+                    hist.append(
+                        {
+                            "run_id": m.get("run_id"),
+                            "status": m.get("status"),
+                            "dir": str(mp.parent),
+                            "progress": 100 if m.get("status") in {"ok", "success", "SUCCESS"} else 0,
+                            "started_at": m.get("started_at"),
+                            "finished_at": m.get("finished_at"),
+                            "elapsed_s": None,
+                            "hypothesis": m.get("hypothesis") or m.get("notes"),
+                        }
+                    )
+                except Exception:
+                    continue
+        if not hist:
+            st.caption("No prior runs in workspace runs/.")
+        else:
+            st.metric("Published iterations shown", len(hist))
+            g14_rows = iter_g14_history(runs_dir(), limit=30)
+            g14_by_dir = {str(r.get("dir")): r for r in g14_rows if r.get("dir")}
+            enriched = []
+            for h in hist:
+                dkey = str(h.get("dir") or "")
+                g = g14_by_dir.get(dkey) or {}
+                row = {
+                    "started_at": h.get("started_at") or g.get("started_at"),
+                    "run_id": h.get("run_id"),
+                    "hypothesis": h.get("hypothesis"),
+                    "weather": h.get("weather_mode"),
+                    "status": h.get("status"),
+                    "eplusout": "yes" if h.get("has_eplusout") else "no",
+                    "elapsed_s": h.get("elapsed_s"),
+                    "nmbe_elec_pct": g.get("nmbe_elec_pct"),
+                    "cvrmse_elec_pct": g.get("cvrmse_elec_pct"),
+                    "nmbe_gas_pct": g.get("nmbe_gas_pct"),
+                    "cvrmse_gas_pct": g.get("cvrmse_gas_pct"),
+                    "g14": g.get("pass_fail"),
+                    "dir": h.get("dir"),
+                }
+                model = load_model_eui_from_run(Path(str(h["dir"])) if h.get("dir") else None)
+                if model.get("model_eui_kbtu_ft2") is not None:
+                    row["model_eui_kbtu_ft2"] = model["model_eui_kbtu_ft2"]
+                if model.get("prototype_area_scale") is not None:
+                    row["prototype_area_scale"] = model["prototype_area_scale"]
+                if model.get("weather_mode") and not row.get("weather"):
+                    row["weather"] = model["weather_mode"]
+                if model.get("peak_demand_kw") is not None:
+                    row["peak_demand_kw"] = model["peak_demand_kw"]
+                if row.get("elapsed_s") is not None:
+                    try:
+                        row["elapsed_min"] = round(float(row["elapsed_s"]) / 60.0, 2)
+                    except (TypeError, ValueError):
+                        pass
+                enriched.append(row)
+            show_cols = [
+                c
+                for c in (
+                    "started_at",
+                    "run_id",
+                    "hypothesis",
+                    "status",
+                    "eplusout",
+                    "nmbe_elec_pct",
+                    "cvrmse_elec_pct",
+                    "nmbe_gas_pct",
+                    "cvrmse_gas_pct",
+                    "g14",
+                    "model_eui_kbtu_ft2",
+                    "elapsed_min",
+                    "peak_demand_kw",
+                    "prototype_area_scale",
+                    "weather",
+                )
+                if any(c in r and r.get(c) is not None for r in enriched)
+            ]
+            st.dataframe(
+                pd.DataFrame(enriched)[show_cols] if show_cols else pd.DataFrame(enriched),
+                width="stretch",
+                hide_index=True,
+            )
+
+            st.markdown("**Calibration iterations (G14)**")
+            st.caption(
+                "Like a training-loss curve: each published Twin run is an epoch. "
+                "Lower |NMBE| / CV(RMSE) is better. Dashed lines = ASHRAE G14 monthly gates "
+                "(±5% NMBE, 15% CVRMSE). Missing scorecards skip that point."
+            )
+            st.plotly_chart(
+                g14_epoch_figure(g14_rows, height=440),
+                width="stretch",
+                key="twin_g14_epoch",
+            )
+
+            pick = st.selectbox(
+                "Inspect iteration",
+                options=[h.get("dir") for h in hist if h.get("dir")],
+                format_func=lambda d: Path(str(d)).name if d else "",
+                key="twin_iter_pick",
+            )
+            if pick:
+                answers = st.session_state.get("studio_answers")
+                if not isinstance(answers, dict):
+                    answers = {}
+                summary = build_model_summary(answers, Path(str(pick)), profile=_profile())
+                with st.expander("Model summary (selected iteration)", expanded=True):
+                    render_model_summary_panel(summary)
+                if st.button("Show 08 panes for selection", key="twin_show_iter"):
+                    st.session_state["studio_active_run"] = pick
+                    st.rerun()
+
+    st.divider()
+    # EnergyPlus visualizer last — IDF massing / OA / progress
     viz_run = _resolve_active_run()
     if viz_run is not None:
-        _render_08_panes(viz_run)
+        with st.container(border=True):
+            _render_08_panes(viz_run)
     else:
         st.info(
             "No published Twin runs yet. An AI agent should write `runs/<id>/eplusout.csv` "

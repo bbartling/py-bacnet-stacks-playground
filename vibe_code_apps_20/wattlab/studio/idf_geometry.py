@@ -76,7 +76,48 @@ class IdfGeometry:
                 "dy": round((ymax - ymin) * _M_TO_FT, 1),
                 "dz": round((zmax - zmin) * _M_TO_FT, 1),
             }
+        out.update(self.envelope_ratios())
         return out
+
+    def envelope_ratios(self) -> dict[str, Any]:
+        """Gross wall / window areas (m²) and WWR from parsed surfaces."""
+        wall_m2 = 0.0
+        fen_m2 = 0.0
+        roof_m2 = 0.0
+        for s in self.surfaces:
+            area = _polygon_area_m2(s.vertices)
+            stype = (s.surface_type or "").strip().upper()
+            if s.is_fenestration:
+                fen_m2 += area
+            elif stype in {"WALL"} or stype.startswith("WALL"):
+                wall_m2 += area
+            elif stype in {"ROOF", "CEILING"}:
+                roof_m2 += area
+            elif "WALL" in stype:
+                wall_m2 += area
+        wwr = (fen_m2 / wall_m2) if wall_m2 > 1e-6 else None
+        return {
+            "wall_area_m2": round(wall_m2, 2),
+            "window_area_m2": round(fen_m2, 2),
+            "roof_area_m2": round(roof_m2, 2),
+            "wwr": round(wwr, 3) if wwr is not None else None,
+            "wwr_pct": round(100.0 * wwr, 1) if wwr is not None else None,
+        }
+
+
+def _polygon_area_m2(verts: list[tuple[float, float, float]]) -> float:
+    """3D polygon area via Newell's method (m²)."""
+    if len(verts) < 3:
+        return 0.0
+    nx = ny = nz = 0.0
+    n = len(verts)
+    for i in range(n):
+        x1, y1, z1 = verts[i]
+        x2, y2, z2 = verts[(i + 1) % n]
+        nx += (y1 - y2) * (z1 + z2)
+        ny += (z1 - z2) * (x1 + x2)
+        nz += (x1 - x2) * (y1 + y2)
+    return 0.5 * (nx * nx + ny * ny + nz * nz) ** 0.5
 
 
 def _parse_block(object_type: str, body: str) -> IdfSurface | None:
