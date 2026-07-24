@@ -672,7 +672,13 @@ def erv_bins(i: dict[str, Any]) -> dict[str, Any]:
         h_oa = row.oa_enthalpy
         cool_ton_h = 0.0
         if h_oa is not None and h_oa > return_h:
-            dH = (h_oa - return_h) * max(sens_eff, lat_eff)
+            # Sensible-only screening uses sensible ε on enthalpy delta; when
+            # latent ε is set, blend toward total-enthalpy recovery without
+            # overstating sensible-only cases via max(sens, lat).
+            if lat_eff > 0:
+                dH = (h_oa - return_h) * (0.7 * sens_eff + 0.3 * lat_eff)
+            else:
+                dH = (h_oa - return_h) * sens_eff
             cool_ton_h = recovered_cfm * dH * 4.5 / 12000.0
         saved_kwh = cool_ton_h * op_hours * kw_per_ton
         kwh += saved_kwh

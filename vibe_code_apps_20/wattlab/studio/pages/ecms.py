@@ -201,6 +201,9 @@ def render() -> None:
         or profile.get("floor_area_ft2")
         or 50000.0
     )
+    bench = st.session_state.get("studio_benchmark_summary") or {}
+    if isinstance(bench, dict) and bench.get("campus"):
+        area = float(bench["campus"].get("floor_area_ft2") or area)
     rates = profile.get("utility") or {}
     from wattlab.finance import (
         DEFAULT_DISCOUNT_RATE,
@@ -216,8 +219,8 @@ def render() -> None:
         bands = {r["scope"]: r for r in load_registry()}
         if "controls_first" in bands:
             cost_usd_per_ft2_default = float(bands["controls_first"].get("p50") or 3.0)
-    except Exception:
-        pass
+    except Exception as exc:
+        st.caption(f"Retrofit cost-band prefill unavailable ({exc}); using ${cost_usd_per_ft2_default:g}/ft² default.")
 
     r1, r2, r3 = st.columns(3)
     with r1:
@@ -338,12 +341,10 @@ def render() -> None:
 
     from wattlab.benchmarks.guardrails import gate_capital_plan
 
-    bench = st.session_state.get("studio_benchmark_summary") or {}
     property_type = str(profile.get("building_type") or profile.get("property_type") or "office")
     site_eui = None
     if isinstance(bench, dict) and bench.get("campus"):
         site_eui = bench["campus"].get("site_eui_kbtu_ft2")
-        area = float(bench["campus"].get("floor_area_ft2") or area)
     gate = gate_capital_plan(
         plan,
         property_type=property_type,
@@ -400,6 +401,11 @@ def render() -> None:
             "floor_area_ft2": area,
         },
         "capital_plan_totals": totals,
+        "guardrail_gate": {
+            "verdict": gate.get("verdict"),
+            "investigate_count": gate.get("investigate_count"),
+            "checks": gate.get("checks"),
+        },
     }
     (reports_dir() / "ecm_scenario_results.json").write_text(
         json.dumps(scenario, indent=2), encoding="utf-8"

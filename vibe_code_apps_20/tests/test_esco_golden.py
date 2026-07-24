@@ -340,7 +340,7 @@ def test_erv_bins_hand_computed_heating_and_cooling():
     # Heat @32 F: 1.08 * 2000 * 0.5 * (75-32) / 1000 = 46.44 kBtu/h * 8 h / 1.0 / 1000
     assert by_temp[32]["saved_mmbtu"] == pytest.approx(46.44 * 8 / 1000.0)
     assert by_temp[32]["saved_kwh"] == pytest.approx(0.0)
-    # Cool @87: dH=(34-28.3)*0.5=2.85; tons=2000*2.85*4.5/12000=2.1375; *8*1.0 kWh
+    # Cool @87: sensible-only ε=0.5 on dH=(34-28.3) → 2.85; tons=2000*2.85*4.5/12000
     assert by_temp[87]["saved_kwh"] == pytest.approx(2000 * 2.85 * 4.5 / 12000.0 * 8 * 1.0)
     assert result["recovered_cfm"] == pytest.approx(2000.0)
 
