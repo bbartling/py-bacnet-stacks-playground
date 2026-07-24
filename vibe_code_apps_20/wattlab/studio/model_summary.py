@@ -658,6 +658,59 @@ def build_assumption_rows(
     return rows
 
 
+def build_dial_knobs_rows(
+    answers: dict[str, Any] | None,
+    run_dir: Path | str | None,
+    *,
+    profile: dict[str, Any] | None = None,
+    summary: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Compact dial / hypothesis knobs for Twin Inspect (above full assumptions)."""
+    answers = answers if isinstance(answers, dict) else {}
+    profile = profile if isinstance(profile, dict) else {}
+    summary = summary or build_model_summary(answers, run_dir, profile=profile)
+    meta = summary.get("meta") or {}
+    loads = summary.get("loads") or {}
+    geom = summary.get("geometry") or {}
+    run = summary.get("run") or {}
+    hvac = summary.get("hvac") or {}
+
+    def _val(*keys: str, default: Any = None) -> Any:
+        for src in (meta, loads, geom, answers, profile, hvac, run):
+            if not isinstance(src, dict):
+                continue
+            for k in keys:
+                if src.get(k) is not None and src.get(k) != "":
+                    return src[k]
+        return default
+
+    knobs = [
+        ("lights_w_per_m2", _val("lights_w_per_m2", "lights"), "W/m²"),
+        ("equip_w_per_m2", _val("equip_w_per_m2", "equip"), "W/m²"),
+        ("infil_mult", _val("infil_mult"), ""),
+        ("shgc", _val("shgc"), ""),
+        ("wwr", _val("wwr", "wwr_target", "wwr_from_idf_pct"), ""),
+        ("u_value", _val("u_value", "wall_u", "u_factor"), ""),
+        ("ach", _val("ach", "infil_ach", "ach50"), ""),
+        ("sat", _val("sat", "supply_air_temp_f", "sat_f"), "°F"),
+        ("oa", _val("oa", "design_oa", "oa_cfm_per_person", "oa_hint"), ""),
+        ("hypothesis", _val("hypothesis", "note"), ""),
+    ]
+    rows: list[dict[str, Any]] = []
+    for param, value, unit in knobs:
+        rows.append(
+            {
+                "knob": param,
+                "value": "—" if value is None or value == "" else value,
+                "unit": unit,
+                "source": "dial_meta / geo meta / answers"
+                if value is not None and value != ""
+                else "missing",
+            }
+        )
+    return rows
+
+
 def build_model_at_a_glance(
     summary: dict[str, Any],
     rows: list[dict[str, Any]] | None = None,

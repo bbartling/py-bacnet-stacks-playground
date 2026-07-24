@@ -47,6 +47,33 @@ so agents match the Studio image (avoids host package drift). If the host git
 checkout is on a deleted branch or behind tip, ignore it — use `/app` docs inside
 the container and the tip image revision label.
 
+## Uploads path gotchas (Docker GHCR)
+
+Studio process workspace is usually **`/data`** (`WATTLAB_STUDIO_WORKSPACE`).
+Cwd is often `/app`. Relative path-box inputs must resolve under `/data`
+(fixed BUG-001). Prefer the **file picker**.
+
+| Input | Works? |
+| --- | --- |
+| File picker → `wattlab_dump_*.zip` | Yes (recommended) |
+| `uploads/dump/<file>.zip` | Yes (joins `/data`) |
+| `/data/uploads/dump/<file>.zip` | Yes |
+| `/home/ben/…` host path | No — not mounted |
+| `openfdd_package_v1` / raw OpenFDD zip | No — need vibe19 **WattLab dump** v2/v3 |
+
+Listed dumps appear as absolute `/data/uploads/dump/…` chips on Uploads
+(BUG-002). Schema mismatch for OpenFDD packages raises a clear error (BUG-003).
+
+Session log / bug index often lives on the volume as `reports/BUG_REPORT.md`
+and `reports/CALIBRATE_SESSION.md` (not always in git).
+
+## Twin dial playbook (short/long fuel)
+
+Envelope first (WWR / leaky glass U / ACH), then LPD/EPD for elec, then banded
+SAT + VAV min-flow for monthly gas shape. Autosize plant stays.
+See [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md),
+[`AGENT_TOOLS.md`](AGENT_TOOLS.md), skill `wattlab-twin-calibrate-dial`.
+
 ## Schedule:File + DinD (BUG-W-SCHEDULE-FILE-DIND)
 
 EnergyPlus only mounts `__stage_in` → `/work/in` and the out dir → `/work/out`.

@@ -108,6 +108,13 @@ wattlab calibrate-campaign --bundle dump.zip --bills utility_bills.csv --lat …
 See [`CALIBRATE_AND_DELIVERABLES.md`](CALIBRATE_AND_DELIVERABLES.md). Twin UI:
 scorecard metrics + **Build client package** (report / xlsx / zip).
 
+**Site-scale dial order** (when annual or monthly fuels miss — not sparse TMY
+screening): envelope first (WWR / leaky glass U / ACH), then LPD/EPD for elec,
+then banded SAT + VAV min-flow for monthly gas shape. Autosize plant stays.
+Full playbook: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
+`wattlab-twin-calibrate-dial` · tools bin [`AGENT_TOOLS.md`](AGENT_TOOLS.md)
+(`score_g14_monthly` → `write_calibration_scorecard` → publish).
+
 DinD: image includes Docker CLI; set `WATTLAB_HOST_WORKSPACE` + sock.
 Prefer `docker exec vibe20` — [`AGENT_DOCKER_WORKSPACE.md`](AGENT_DOCKER_WORKSPACE.md).
 
@@ -152,12 +159,19 @@ reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_S
 
 **Twin Model assumptions:** Inspect iteration shows Model-at-a-Glance + a provenance
 table from the **published IDF + meta + answers** (not a parallel editable form).
+Iteration history lists chronological **run #** (1…N, oldest → newest) matching the
+G14 epoch chart; Inspect labels look like `#3 · run_id`. A compact **dial / hypothesis
+knobs** table (lights/equip/infil/SHGC/WWR/U/ACH/SAT/OA + hypothesis) sits above the
+full assumptions panel, sourced from `dial_meta` / geo meta / answers.
 When the run has `utility_bills.per_month`, Inspect also shows monthly % off
-narratives (model too high/low by month for elec and gas).
+narratives (model too high/low by month for elec and gas) plus elec **and gas**
+monthly bills-vs-model overlays when therms are present.
 Always publish `model.idf` and dial/geo meta into `runs/<id>/`. Twin panes follow
 `CURRENT_RUN.txt` / newest run; humans pin via **Show 08 panes for selection**.
 **Refresh agent runs** clears the pin. Code/reference basis wording is
 “model reference/default” — never claim ASHRAE 90.1 compliance from defaults alone.
+ECMs default the baseline Twin run to best G14 (`pick_best_g14_run`); override via
+`studio_ecm_baseline_run`.
 
 ## Docker turnkey (Studio + EnergyPlus MCP image)
 

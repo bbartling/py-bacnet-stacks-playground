@@ -5,9 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from wattlab.studio.g14_history import g14_epoch_figure, iter_g14_history
+from wattlab.studio.g14_history import (
+    assign_run_numbers,
+    g14_epoch_figure,
+    iter_g14_history,
+    pick_best_g14_run,
+)
 from wattlab.studio.idf_geometry import parse_idf_geometry
-from wattlab.studio.model_summary import build_model_summary
+from wattlab.studio.model_summary import build_dial_knobs_rows, build_model_summary
 
 
 def _wall_idf() -> str:
@@ -88,12 +93,50 @@ def test_iter_g14_history_and_epoch(tmp_path: Path):
     assert len(rows) == 3
     assert rows[0]["run_id"] == "run_1"
     assert rows[-1]["nmbe_elec_pct"] == 3.0
+    numbered = assign_run_numbers(rows)
+    assert [r["run"] for r in numbered] == [1, 2, 3]
+    best = pick_best_g14_run(numbered)
+    assert best is not None
+    assert best["run_id"] == "run_3"  # PASS + lowest error
+    # Prefer PASS over lower FAIL error
+    fail_better = [
+        {**numbered[0], "pass_fail": "FAIL", "nmbe_elec_pct": 1.0, "cvrmse_elec_pct": 2.0},
+        {**numbered[2], "pass_fail": "PASS", "nmbe_elec_pct": 4.0, "cvrmse_elec_pct": 10.0},
+    ]
+    assert pick_best_g14_run(fail_better)["run_id"] == "run_3"
     fig = g14_epoch_figure(rows)
     assert len(fig.data) >= 2
     assert fig.layout.height >= 400
     legend_names = [getattr(t, "name", "") or "" for t in fig.data]
     assert any("G14 |NMBE| gate" in n for n in legend_names)
     assert any("G14 CV(RMSE) gate" in n for n in legend_names)
+
+
+def test_build_dial_knobs_rows(tmp_path: Path):
+    run = tmp_path / "knobs"
+    run.mkdir()
+    (run / "dial_meta.json").write_text(
+        json.dumps(
+            {
+                "lights_w_per_m2": 5.0,
+                "equip_w_per_m2": 6.0,
+                "infil_mult": 1.2,
+                "shgc": 0.35,
+                "wwr": 0.4,
+                "hypothesis": "raise LPD",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "run_manifest.json").write_text(
+        json.dumps({"run_id": "knobs", "status": "ok"}),
+        encoding="utf-8",
+    )
+    rows = build_dial_knobs_rows({"building_type": "office"}, run)
+    by_knob = {r["knob"]: r["value"] for r in rows}
+    assert by_knob["lights_w_per_m2"] == 5.0
+    assert by_knob["hypothesis"] == "raise LPD"
+    assert by_knob["infil_mult"] == 1.2
 
 
 def test_build_model_summary(tmp_path: Path):

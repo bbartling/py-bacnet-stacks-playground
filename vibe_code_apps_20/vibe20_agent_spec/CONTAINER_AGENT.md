@@ -73,7 +73,9 @@ never bake building ids into discovery defaults or silent CLI defaults.
 | `/app/vibe20_agent_spec/AGENT_TESTER_PROMPT.md` | Soak checklist |
 | `/app/vibe20_agent_spec/docs/TWIN_LOOP.md` | Twin loop + geometry gate |
 | `/app/vibe20_agent_spec/skills/wattlab-*/SKILL.md` | Procedure skills |
-| `/app/vibe20_agent_spec/docs/AGENT_TOOLS.md` | `/data/tools` vs WattLab CLIs |
+| `/app/vibe20_agent_spec/docs/AGENT_TOOLS.md` | `/data/tools` vs WattLab CLIs + dial publish chain |
+| `/app/vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md` | Envelope → shape dial order (G14) |
+| `/app/vibe20_agent_spec/skills/wattlab-twin-calibrate-dial/SKILL.md` | Short/long fuel + monthly shape knobs |
 | `/app/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md` | Lower-48 $/sf + ROI screening |
 | `/app/vibe20_agent_spec/skills/wattlab-controls-fdd/SKILL.md` | Dump checklist + vibe19 FP tuning |
 
@@ -91,6 +93,8 @@ Useful commands:
 - `wattlab controls-checklist --dump … --docx` — controls FDD handoff; iterate vibe19 if FP epidemic
 - `wattlab geo-idf` / `dial-loads` / `score-monthly` — geometry / loads / G14 monthly
 - `wattlab mcp-exec -- python -c '…'` — raw MCP one-shot
+- Campaign ladders / dual-fuel scorecard mapping: `python /data/tools/<script>.py`
+  (see `docs/AGENT_TOOLS.md` — prefer product CLIs when they cover the job)
 - `wattlab studio-status --write` → `reports/session_status.json`
 - `wattlab studio-bootstrap --campus … --dump … --run-id … --answers … --ecm-scenario …`
   (merges existing keys — does not drop `ecm_scenario_path`)

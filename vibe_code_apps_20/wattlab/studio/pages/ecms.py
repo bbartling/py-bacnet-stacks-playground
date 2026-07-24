@@ -11,8 +11,96 @@ import streamlit as st
 
 from wattlab.finance import capital_plan, measure_economics, plan_to_csv
 from wattlab.measures.measure_sets import expand_measure_set, list_measure_sets
+from wattlab.studio.g14_history import assign_run_numbers, iter_g14_history, pick_best_g14_run
 from wattlab.studio.proxies import DEFAULT_MEASURE_COSTS, estimate_proxy_savings
-from wattlab.studio.workspace import reports_dir
+from wattlab.studio.workspace import reports_dir, runs_dir
+
+
+def _load_run_report(run_dir: Path | str | None) -> dict[str, Any]:
+    if not run_dir:
+        return {}
+    root = Path(run_dir)
+    for name in ("report.json", "wattlab_report.json", "calibration_scorecard.json"):
+        p = root / name
+        if p.is_file():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                return data if isinstance(data, dict) else {}
+            except (OSError, json.JSONDecodeError, TypeError):
+                continue
+    return {}
+
+
+def _render_baseline_run_picker() -> None:
+    """Selectbox of Twin runs; default = best G14; store studio_ecm_baseline_run."""
+    st.subheader("Twin baseline run")
+    st.caption(
+        "ECMs savings/deliverable context follows the selected Twin publish. "
+        "Default is best G14 (PASS preferred, else lowest |NMBE|+CVRMSE)."
+    )
+    try:
+        rows = assign_run_numbers(iter_g14_history(runs_dir(), limit=40))
+    except Exception:
+        rows = []
+    if not rows:
+        st.info("No published Twin runs yet — calibrate on Twin first.")
+        return
+
+    best = pick_best_g14_run(rows)
+    opts = [str(r["dir"]) for r in rows if r.get("dir")]
+    by_dir = {str(r["dir"]): r for r in rows if r.get("dir")}
+
+    stored = st.session_state.get("studio_ecm_baseline_run")
+    if stored and str(stored) in opts:
+        default_dir = str(stored)
+    elif best and best.get("dir"):
+        default_dir = str(best["dir"])
+    else:
+        default_dir = opts[-1] if opts else None
+
+    if default_dir and "studio_ecm_baseline_pick" not in st.session_state:
+        st.session_state["studio_ecm_baseline_pick"] = default_dir
+    cur = st.session_state.get("studio_ecm_baseline_pick")
+    if cur is not None and cur not in opts:
+        st.session_state.pop("studio_ecm_baseline_pick", None)
+        if default_dir:
+            st.session_state["studio_ecm_baseline_pick"] = default_dir
+
+    def _label(d: str) -> str:
+        r = by_dir.get(d) or {}
+        n = r.get("run")
+        rid = r.get("run_id") or Path(d).name
+        pf = r.get("pass_fail") or "—"
+        tag = " · best G14" if best and str(best.get("dir")) == d else ""
+        return f"#{n} · {rid} · {pf}{tag}" if n is not None else f"{rid} · {pf}{tag}"
+
+    pick = st.selectbox(
+        "Baseline Twin run",
+        options=opts,
+        format_func=_label,
+        key="studio_ecm_baseline_pick",
+    )
+    if pick:
+        st.session_state["studio_ecm_baseline_run"] = pick
+        report = _load_run_report(pick)
+        score = {}
+        sp = Path(pick) / "calibration_scorecard.json"
+        if sp.is_file():
+            try:
+                score = json.loads(sp.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError, TypeError):
+                score = {}
+        if report:
+            st.session_state["studio_report"] = {
+                **(st.session_state.get("studio_report") or {}),
+                **report,
+            }
+        meta = by_dir.get(pick) or {}
+        st.caption(
+            f"Active ECM baseline: #{meta.get('run')} · {meta.get('run_id')} · "
+            f"G14={meta.get('pass_fail') or (score.get('utility_bills') or {}).get('pass_fail') or '—'} "
+            f"· `{Path(pick).name}`"
+        )
 
 
 def render() -> None:
@@ -37,6 +125,9 @@ def render() -> None:
                 f"city={answers.get('city')}) — Re-apply bootstrap to unlock ECMs."
             )
         return
+
+    _render_baseline_run_picker()
+    st.divider()
 
     # --- Easy Buttons catalog ---
     from wattlab.studio.pages.ecm_easy_buttons import render as render_easy
