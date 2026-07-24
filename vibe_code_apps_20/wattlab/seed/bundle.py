@@ -90,9 +90,20 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     schema_s = str(schema)
     if schema_s not in _KNOWN_MANIFEST_SCHEMAS:
         known = ", ".join(sorted(_KNOWN_MANIFEST_SCHEMAS))
+        hint = ""
+        if "openfdd" in schema_s.lower() or schema_s.startswith("openfdd"):
+            hint = (
+                " This looks like an OpenFDD package (`openfdd_package_v1`), not a "
+                "WattLab dump. In vibe19 use Export → WattLab dump (MANIFEST "
+                f"`wattlab_dump_v2`/`v3`), not the raw OpenFDD zip. Accepted: {known}."
+            )
+        else:
+            hint = (
+                f" Accepted: {known} (or omit schema_version / MANIFEST). "
+                "Need vibe19 Export → WattLab dump, not an unrelated zip."
+            )
         raise ValueError(
-            f"Unsupported WattLab MANIFEST schema_version {schema_s!r} "
-            f"({path}); accepted: {known} (or omit schema_version / MANIFEST)"
+            f"Unsupported WattLab MANIFEST schema_version {schema_s!r} ({path}).{hint}"
         )
     return payload
 

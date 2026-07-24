@@ -11,6 +11,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -472,7 +473,7 @@ def test_turnkey_live_html_smoke():
     env.pop("VIBE19_BOOTSTRAP", None)
 
     cmd = [
-        env.get("VIBE19_WATTLAB_PYTHON") or "python",
+        env.get("VIBE19_WATTLAB_PYTHON") or sys.executable,
         "-m",
         "streamlit",
         "run",

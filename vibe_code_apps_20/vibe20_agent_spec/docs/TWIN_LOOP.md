@@ -108,6 +108,13 @@ wattlab calibrate-campaign --bundle dump.zip --bills utility_bills.csv --lat …
 See [`CALIBRATE_AND_DELIVERABLES.md`](CALIBRATE_AND_DELIVERABLES.md). Twin UI:
 scorecard metrics + **Build client package** (report / xlsx / zip).
 
+**Site-scale dial order** (when annual or monthly fuels miss — not sparse TMY
+screening): envelope first (WWR / leaky glass U / ACH), then LPD/EPD for elec,
+then banded SAT + VAV min-flow for monthly gas shape. Autosize plant stays.
+Full playbook: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
+`wattlab-twin-calibrate-dial` · tools bin [`AGENT_TOOLS.md`](AGENT_TOOLS.md)
+(`score_g14_monthly` → `write_calibration_scorecard` → publish).
+
 DinD: image includes Docker CLI; set `WATTLAB_HOST_WORKSPACE` + sock.
 Prefer `docker exec vibe20` — [`AGENT_DOCKER_WORKSPACE.md`](AGENT_DOCKER_WORKSPACE.md).
 

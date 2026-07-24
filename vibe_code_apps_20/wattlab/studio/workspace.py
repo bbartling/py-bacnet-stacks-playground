@@ -86,10 +86,16 @@ def list_workspace_summary() -> dict[str, Any]:
     energy = sorted((root / "uploads" / "energy").glob("*"))
     runs = sorted((root / "runs").glob("*"))
     reports = sorted((root / "reports").glob("*"))
+    host = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip() or None
+    dump_paths = [str(p) for p in dumps if p.is_file() or p.is_dir()]
+    energy_paths = [str(p) for p in energy if p.is_file() or p.is_dir()]
     return {
         "root": str(root),
+        "host_workspace": host,
         "dumps": [p.name for p in dumps if p.is_file() or p.is_dir()],
+        "dumps_abs": dump_paths,
         "energy": [p.name for p in energy if p.is_file() or p.is_dir()],
+        "energy_abs": energy_paths,
         "runs": [p.name for p in runs],
         "reports": [p.name for p in reports],
     }

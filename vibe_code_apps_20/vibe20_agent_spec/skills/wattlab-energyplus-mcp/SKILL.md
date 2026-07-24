@@ -13,7 +13,10 @@ LBNL EnergyPlus-MCP (~35 tools) is strong for **IDF surgery loops**: load,
 validate, zones/surfaces/schedules/loads, HVAC topology, outputs, simulate,
 plots, diagnostics. It will **not** decide TMY vs AMY, G14, or which FDD finding
 to trust — WattLab + [`docs/SPARSE_BUILDING_PLAYBOOK.md`](../../docs/SPARSE_BUILDING_PLAYBOOK.md)
-own that judgment.
+own that judgment. For **short/long fuel** dial order (WWR / U / ACH → LPD/EPD →
+banded SAT), see [`wattlab-twin-calibrate-dial`](../wattlab-twin-calibrate-dial/SKILL.md)
+and [`docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md) — MCP patches
+the IDF; the playbook chooses which knobs.
 
 DOE positions EnergyPlus as an **engine** third parties wrap. MCP is the access
 layer; WattLab is the assumption + honesty framework.

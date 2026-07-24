@@ -10,6 +10,9 @@ Prefer product CLIs when they exist (`wattlab geo-idf`, `dial-loads`,
 `score-monthly`, `controls-checklist`). Keep this folder for ladders and
 site experiments.
 
+**Twin dial order + script index:** `vibe20_agent_spec/docs/AGENT_TOOLS.md` and
+`vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md` (skill `wattlab-twin-calibrate-dial`).
+
 ## Controls checklist
 
 Product path (tip image):
@@ -40,6 +43,6 @@ See `vibe20_agent_spec/docs/AGENT_TOOLS.md` and skill `wattlab-controls-fdd`.
 | Controls | dump HWS peek, checklist wrapper |
 | Geometry | stacked-floor IDF builders |
 | Loads / envelope | vintage climate patches, reheat/SAT patches |
-| Score / ladders | gas G14 ladder, vintage ladder, Open-Meteo vs bills |
+| Score / ladders | `score_g14_monthly`, `write_calibration_scorecard`, gas/vintage ladders |
 
 Pass paths for **any** building — do not hardcode campus names into new scripts.

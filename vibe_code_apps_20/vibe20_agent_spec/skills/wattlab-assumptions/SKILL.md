@@ -3,8 +3,10 @@ name: wattlab-assumptions
 description: >-
   Use when building sparse / minimal-info EnergyPlus twins: defaults hierarchy,
   Ideal Loads vs explicit HVAC, PNNL infiltration/OA candidates, assumption
-  ledger, TMY→AMY ladder. Triggers on: sparse building, minimal info, defaults,
-  IdealLoads, assumption ledger, autosize, constrain plant, TMY, AMY, prototype.
+  ledger, TMY→AMY ladder, and short/long fuel G14 dial (WWR/glass/ACH then
+  banded SAT/reheat). Triggers on: sparse building, minimal info, defaults,
+  IdealLoads, assumption ledger, autosize, constrain plant, TMY, AMY, prototype,
+  short gas, CVRMSE, calibrate dial, WWR, infiltration.
 ---
 
 # WattLab assumptions — agent is the assumption-maker
@@ -13,6 +15,8 @@ EnergyPlus simulates; **you** choose, justify, and log defaults. EnergyPlus-MCP
 inspects/patches/sims — it does not pick TMY vs AMY or invent city/area.
 
 Full ladder: [`../../docs/SPARSE_BUILDING_PLAYBOOK.md`](../../docs/SPARSE_BUILDING_PLAYBOOK.md).
+Fuel dial depth: [`../wattlab-twin-calibrate-dial/SKILL.md`](../wattlab-twin-calibrate-dial/SKILL.md)
+· [`../../docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md).
 
 ## Hierarchy (strict order)
 
@@ -64,8 +68,42 @@ thermostat / fan hours, WWR, HVAC family, weather mode
 (`TYPICAL_YEAR_SCREENING` / `ACTUAL_YEAR_CALIBRATION` /
 `SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`), `prototype_area_scale`.
 
+## Short / long fuel playbook (Twin G14 dial)
+
+Autosized plant is fine for sparse twins — dial **envelope + loads + as-operated
+SAT/VAV**, not invented nameplate tons. Full playbook:
+[`../../docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md) (Cursor skill:
+`wattlab-twin-calibrate-dial`). Tools publish chain: [`../../docs/AGENT_TOOLS.md`](../../docs/AGENT_TOOLS.md).
+
+### Gas short annually (model ≪ bills)
+
+1. Lock **good geometry** (e.g. stacked `Floor_1`…`Floor_N` — not DOE mid×4 when
+   the human wants floor massing).
+2. Raise **WWR** toward site (curtain wall often 0.70–0.75).
+3. Leaky glass: **U ≈ 0.80–1.0 IP**, not pretty DOE U.
+4. **Infiltration ACH** ladder; stop near annual gas ±5%.
+5. Only then HVAC shape (below).
+
+### Elec short annually
+
+- Raise **LPD / EPD** (W/m²) before plant oversizing.
+
+### Annual flat but monthly gas CVRMSE fails (winter high / summer low)
+
+1. Read vibe19 **AHU discharge-air-temp / SP** by month (fan-on).
+2. Summer dump (often ~**50°F** when dump shows it) + higher **VAV min-flow** in
+   true summer only.
+3. Warmer winter SAT + shorter winter OA; **band** months — do **not** hold cold
+   dump across long shoulder seasons (blows Oct/Aug gas).
+4. If bills ≠ HDD (Feb peak / Oct tiny), band aggressively and document residual CV.
+
+G14 pass = both fuels \|NMBE\|≤5% **and** CVRMSE≤15%. Annual % alone ≠ calibrated.
+Always write `calibration_scorecard.json` in the Twin-expected nested shape.
+
 ## Do not
 
 - Invent office / Madison / Chicago for a real dump.
 - Claim G14 on TMY vs non-overlapping bills or unscaled ~10k ft² prototype.
 - Quietly publish ROI when guardrails hit `INVESTIGATE`.
+- Call stacked-twin calibrate “done” on DOE mid×4 zoning when the user expects Floor_1–N.
+- Start gas-short campaigns with plant oversizing before envelope / infil.

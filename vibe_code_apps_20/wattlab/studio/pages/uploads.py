@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,33 @@ from wattlab.studio.workspace import (
     save_upload_bytes,
     workspace_root,
 )
+
+
+def _resolve_upload_path(raw: str, *, root: Path) -> Path:
+    """Resolve path box input under Studio workspace (BUG-001).
+
+    Relative paths join ``workspace_root()``. Absolute paths keep as-is.
+    Missing paths raise ``FileNotFoundError`` with a Docker / workspace hint.
+    """
+    text = (raw or "").strip().strip('"').strip("'")
+    if not text:
+        raise FileNotFoundError("Empty path")
+    p = Path(text).expanduser()
+    if not p.is_absolute():
+        p = (root / p).resolve()
+    else:
+        p = p.resolve()
+    if p.exists():
+        return p
+    host = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip()
+    hint = (
+        f" Studio workspace is `{root}`"
+        + (f" (host bind `{host}` → `/data`)." if host else ".")
+        + " Use a path under that root (e.g. `uploads/dump/….zip` or "
+        f"`{root.as_posix()}/uploads/dump/….zip`), or the file picker — "
+        "host paths like `/home/…` are not mounted into the container."
+    )
+    raise FileNotFoundError(f"Path not found: {p}.{hint}")
 
 
 def _hints_from_bundle() -> dict[str, Any]:
@@ -78,13 +106,26 @@ def render() -> None:
     st.header("Uploads — dump + energy use")
     st.caption(
         "Drop a vibe19 **wattlab_dump_*.zip** (v3) and an **energy-use** package: "
-        "`campus.json` + bill CSVs, Haystack `column_map`, **or** Liberty-style monthly "
+        "`campus.json` + bill CSVs, Haystack `column_map`, **or** monthly "
         "Excel workbooks (auto-derived to campus). "
+        "Need vibe19 **Export → WattLab dump** (not `openfdd_package_v1`). "
         "Chat with any AI agent on this workspace folder — Studio only displays results."
     )
 
     root = ensure_workspace()
-    st.info(f"Workspace: `{root}`")
+    host = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip()
+    if host:
+        st.info(
+            f"Workspace: `{root}` · host bind: `{host}` → container `/data`. "
+            f"Process cwd is usually `/app` — relative paths resolve under `{root}` "
+            "(not `/app`). Prefer the **file picker**, or paste "
+            f"`{root.as_posix()}/uploads/dump/<file>.zip` / `uploads/dump/<file>.zip`."
+        )
+    else:
+        st.info(
+            f"Workspace: `{root}`. Relative paths join this root. "
+            "Prefer the file picker when unsure."
+        )
 
     c1, c2 = st.columns(2)
     with c1:
@@ -93,7 +134,11 @@ def render() -> None:
         dump_path = st.text_input(
             "…or path to dump zip/folder",
             key="uploads_dump_path",
-            help="Local path visible to this process (host Studio or bind-mounted /data).",
+            help=(
+                f"Relative paths join workspace `{root}` "
+                "(e.g. uploads/dump/wattlab_dump_….zip). Absolute paths must be "
+                "visible to this process (Docker: /data/…, not host /home/…)."
+            ),
         )
         if st.button("Load dump", key="uploads_load_dump"):
             try:
@@ -102,7 +147,7 @@ def render() -> None:
                     bundle = load_bundle(saved)
                     st.session_state["studio_dump_path"] = str(saved)
                 elif dump_path.strip():
-                    p = Path(dump_path.strip())
+                    p = _resolve_upload_path(dump_path, root=root)
                     if p.is_file() and p.suffix.lower() == ".zip":
                         saved = save_upload_bytes("dump", p.name, p.read_bytes())
                         bundle = load_bundle(saved)
@@ -126,7 +171,10 @@ def render() -> None:
         energy_path = st.text_input(
             "…or path to campus folder / zip",
             key="uploads_energy_path",
-            help="campus.json + meter CSVs, Excel monthly fuel workbooks, or Haystack maps.",
+            help=(
+                f"Relative paths join workspace `{root}`. "
+                "campus.json + meter CSVs, Excel monthly fuel workbooks, or Haystack maps."
+            ),
         )
         if st.button("Load energy use", key="uploads_load_energy"):
             try:
@@ -135,7 +183,7 @@ def render() -> None:
                     pkg = _load_energy(saved)
                     st.session_state["studio_energy_path"] = str(saved)
                 elif energy_path.strip():
-                    p = Path(energy_path.strip())
+                    p = _resolve_upload_path(energy_path, root=root)
                     if p.is_file() and p.suffix.lower() == ".zip":
                         saved = save_upload_bytes("energy", p.name, p.read_bytes())
                         pkg = _load_energy(saved)
@@ -173,6 +221,16 @@ def render() -> None:
 
     summary = st.session_state.get("studio_ws_summary") or list_workspace_summary()
     st.subheader("Workspace files")
+    dump_abs = summary.get("dumps_abs") or []
+    if dump_abs:
+        st.caption("Dump paths visible to Studio (copy into the path box if needed):")
+        for abs_p in dump_abs[:12]:
+            st.code(abs_p, language=None)
+    energy_abs = summary.get("energy_abs") or []
+    if energy_abs:
+        st.caption("Energy paths:")
+        for abs_p in energy_abs[:12]:
+            st.code(abs_p, language=None)
     st.json(summary)
 
     bundle = st.session_state.get("studio_bundle")

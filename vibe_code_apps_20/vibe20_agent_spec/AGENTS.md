@@ -111,7 +111,9 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 10. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
 11. **[`docs/ESCO_RETROFIT_COST_ROI.md`](docs/ESCO_RETROFIT_COST_ROI.md)** — Lower-48 ESCO $/sf + ROI screening honesty
 12. **[`docs/AGENT_TOOLS.md`](docs/AGENT_TOOLS.md)** — `/data/tools` campaign scripts vs WattLab CLIs
+12b. **[`docs/TWIN_DIAL_PLAYBOOK.md`](docs/TWIN_DIAL_PLAYBOOK.md)** — envelope → shape dial (G14)
 13. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
+13b. **`skills/wattlab-twin-calibrate-dial/SKILL.md`** — short/long fuel + monthly shape knobs
 14. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
 15. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
 16. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
@@ -166,11 +168,13 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 | Skill | When |
 | --- | --- |
-| `skills/wattlab-assumptions/` | Sparse twin defaults, Ideal Loads vs explicit HVAC, assumption ledger |
+| `skills/wattlab-assumptions/` | Sparse twin defaults, Ideal Loads vs explicit HVAC, assumption ledger, short/long fuel |
+| `skills/wattlab-twin-calibrate-dial/` | G14 dial: WWR/U/ACH then banded SAT/VAV; scorecard publish |
 | `skills/wattlab-energyplus-mcp/` | MCP tools, capability_status, DinD mounts, ReadVars CSV |
 | `skills/wattlab-esco-bins/` | **Primary math** — bin-method savings calculators + weather bins |
 | `skills/wattlab-benchmarking/` | Bills, EUI, allocation, cost bands, guardrail gate |
 | `skills/wattlab-studio/` | Studio UI work + smoke testing |
+| `skills/wattlab-controls-fdd/` | BAS dump checklist + vibe19 FDD FP tuning |
 | `.agents/skills/*` | Measure-domain depth (schedules, SAT reset, plant efficiency, …) |
 
 ---
@@ -189,9 +193,11 @@ Default archetype remains 5Zone × `prototype_area_scale` — screening only.
 | mcp-exec | `wattlab mcp-exec -- …` | Raw `uv run` inside MCP image |
 
 Workflow: **ensure → geo-idf → custom_idf + area_scale=1 → DinD sim → score-monthly**.
-If elec high / gas low, dial loads via MCP before more schedule patches. Bills:
-area-weighted half elec once — never double-half. Twin shows IDF 3D massing from
-published `model.idf`. Practice campus dumps = labeled rehearsal only.
+If elec high / gas low, dial loads via MCP before more schedule patches. When gas
+is **short** annually, raise **WWR / leaky glass U / ACH** before plant tweaks —
+[`docs/TWIN_DIAL_PLAYBOOK.md`](docs/TWIN_DIAL_PLAYBOOK.md). Bills: area-weighted
+half elec once — never double-half. Twin shows IDF 3D massing from published
+`model.idf`. Practice campus dumps = labeled rehearsal only.
 
 ---
 
