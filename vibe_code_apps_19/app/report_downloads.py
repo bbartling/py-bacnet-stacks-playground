@@ -1,6 +1,9 @@
-"""Streamlit helpers for the Generic RCx Word report download."""
+"""Streamlit helpers for Generic RCx + Engineering Findings Report downloads."""
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import streamlit as st
 
@@ -38,7 +41,8 @@ def report_download_button(
 
 def render_overview_rcx_download(*, key: str = "overview_generic_rcx_docx") -> bool:
     """Primary Overview download for the single Generic RCx Word template."""
-    st.markdown("##### RCx report template")
+    st.markdown("##### Reports")
+    st.markdown("**Generic RCx template** (static, editable)")
     st.caption(
         f"Download the Generic RCx Word report (`{GENERIC_RCX_DOCX}`) from "
         f"`{REPORTS_DIR.name}/`. Replace the file in place to customize narrative/layout."
@@ -50,6 +54,107 @@ def render_overview_rcx_download(*, key: str = "overview_generic_rcx_docx") -> b
         primary=True,
         help="Single committed Open-FDD Generic RCx Word template.",
     )
+
+
+def render_engineering_findings_panel(
+    *,
+    batch_results: list | None = None,
+    building_name: str = "",
+    analysis_period: str = "",
+    key_prefix: str = "eng_findings",
+) -> None:
+    """Generate Engineering Findings Report (button-triggered; never on section visit)."""
+    st.markdown("**Engineering Findings Report** (evidence-reviewed)")
+    st.caption(
+        "Generated Engineering Findings Report performs an automated evidence review of "
+        "FDD/RCx results before presenting prioritized findings. Findings remain advisory "
+        "and should be field-verified. Detection ≠ finding — raw rule hits stay in the appendix."
+    )
+    if not batch_results:
+        st.info("Run Rules first so FAULT rows are available for evidence review.")
+        return
+
+    if st.button(
+        "Generate Engineering Findings Report",
+        key=f"{key_prefix}_generate",
+        type="secondary",
+    ):
+        with st.spinner("Evidence review + charts…"):
+            from app.reporting.pipeline import build_engineering_findings, render_engineering_report
+
+            art = build_engineering_findings(
+                building=building_name or "Building",
+                analysis_period=analysis_period,
+                rule_results=list(batch_results),
+            )
+            buf_dir = Path(st.session_state.get("_eng_findings_tmpdir") or "/tmp/vibe19_eng_findings")
+            buf_dir.mkdir(parents=True, exist_ok=True)
+            st.session_state["_eng_findings_tmpdir"] = str(buf_dir)
+            written = render_engineering_report(
+                art, buf_dir, docx=True, json_out=True, charts=True
+            )
+            st.session_state[f"{key_prefix}_artifacts"] = art
+            st.session_state[f"{key_prefix}_written"] = {k: str(v) for k, v in written.items()}
+
+    art = st.session_state.get(f"{key_prefix}_artifacts")
+    written = st.session_state.get(f"{key_prefix}_written") or {}
+    if not art:
+        return
+
+    st.success(
+        f"Findings ready: {art.metrics.get('n_priority_findings')} priority · "
+        f"suppressed FP {art.metrics.get('n_suppressed')} · "
+        f"quality gate ok={art.quality_gate.get('ok')}"
+    )
+    if art.quality_gate.get("errors"):
+        st.warning("Quality gate errors: " + "; ".join(art.quality_gate["errors"]))
+    if art.quality_gate.get("warnings"):
+        st.caption("Warnings: " + "; ".join(art.quality_gate["warnings"]))
+
+    st.markdown("##### Engineer review (optional)")
+    for f in art.findings:
+        cols = st.columns([3, 2, 1, 3])
+        cols[0].markdown(f"**{f.finding_id}** {f.title[:60]}")
+        cols[1].caption(f.effective_classification.value)
+        include = cols[2].checkbox(
+            "Include",
+            value=f.include_in_report,
+            key=f"{key_prefix}_inc_{f.finding_id}",
+        )
+        note = cols[3].text_input(
+            "Note",
+            value=(f.engineer_override or {}).get("note", ""),
+            key=f"{key_prefix}_note_{f.finding_id}",
+            label_visibility="collapsed",
+        )
+        f.include_in_report = include
+        if note:
+            f.engineer_override = {
+                **(f.engineer_override or {}),
+                "note": note,
+                "automated_classification": f.classification.value,
+            }
+
+    jp = written.get("json")
+    dp = written.get("docx")
+    if jp and Path(jp).is_file():
+        Path(jp).write_text(json.dumps(art.to_dict(), indent=2) + "\n", encoding="utf-8")
+        st.download_button(
+            "Download engineering_findings.json",
+            data=Path(jp).read_bytes(),
+            file_name=Path(jp).name,
+            mime="application/json",
+            key=f"{key_prefix}_dl_json",
+        )
+    if dp and Path(dp).is_file():
+        st.download_button(
+            "Download Engineering Findings Report (DOCX)",
+            data=Path(dp).read_bytes(),
+            file_name=Path(dp).name,
+            mime=MIME_DOCX,
+            key=f"{key_prefix}_dl_docx",
+            type="primary",
+        )
 
 
 def generic_rcx_bytes_for_tests() -> bytes:

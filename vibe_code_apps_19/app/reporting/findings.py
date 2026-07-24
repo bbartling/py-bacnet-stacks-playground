@@ -1,0 +1,249 @@
+"""Cluster assessments into prioritized EngineeringFinding objects."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Any
+
+from app.reporting.models import (
+    CandidateDetection,
+    Classification,
+    EngineeringFinding,
+    EvidencePacket,
+    FindingAssessment,
+)
+from app.reporting.narrative import (
+    finding_title,
+    observed_behavior,
+    why_it_matters,
+)
+
+CLIENT_CLASSIFICATIONS = {
+    Classification.STRONGLY_SUPPORTED,
+    Classification.PROBABLE,
+    Classification.INCONCLUSIVE,
+}
+
+MAX_PRIORITY_FINDINGS = 7
+
+
+def cluster_and_prioritize(
+    candidates: list[CandidateDetection],
+    packets: dict[str, EvidencePacket],
+    assessments: dict[str, FindingAssessment],
+    *,
+    max_findings: int = MAX_PRIORITY_FINDINGS,
+) -> tuple[list[EngineeringFinding], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return (priority findings, suppressed rows, data_quality rows)."""
+    by_key = {c.key: c for c in candidates}
+    suppressed: list[dict[str, Any]] = []
+    data_quality: list[dict[str, Any]] = []
+
+    # Group keys for clustering
+    clusters: dict[str, list[str]] = defaultdict(list)
+    for key, a in assessments.items():
+        c = by_key.get(key)
+        if not c:
+            continue
+        if a.classification in {Classification.LIKELY_FALSE_POSITIVE, Classification.NOT_ACTIONABLE}:
+            suppressed.append(
+                {
+                    "candidate_key": key,
+                    "classification": a.classification.value,
+                    "score": a.score,
+                    "reasons": a.reasons,
+                    "equipment_id": c.equipment_id,
+                    "rule_id": c.rule_id,
+                }
+            )
+            continue
+        if a.classification == Classification.DATA_QUALITY:
+            data_quality.append(
+                {
+                    "candidate_key": key,
+                    "classification": a.classification.value,
+                    "score": a.score,
+                    "reasons": a.reasons,
+                    "equipment_id": c.equipment_id,
+                    "rule_id": c.rule_id,
+                    "mean_zone_t": (packets.get(key).sensor_quality or {}).get("mean_zone_t")
+                    if packets.get(key)
+                    else None,
+                }
+            )
+            # Still may surface as a DQ finding if high impact
+            clusters[_cluster_id(c, a)].append(key)
+            continue
+        clusters[_cluster_id(c, a)].append(key)
+
+    findings: list[EngineeringFinding] = []
+    fid = 0
+    ranked_keys = sorted(
+        clusters.keys(),
+        key=lambda ck: -_cluster_score(clusters[ck], assessments),
+    )
+
+    for ck in ranked_keys:
+        keys = clusters[ck]
+        members = [by_key[k] for k in keys if k in by_key]
+        assesses = [assessments[k] for k in keys if k in assessments]
+        if not members or not assesses:
+            continue
+        best = max(assesses, key=lambda x: x.score)
+        if best.classification not in CLIENT_CLASSIFICATIONS and best.classification != Classification.DATA_QUALITY:
+            continue
+        # Skip weak DQ noise unless implausible sensor
+        if best.classification == Classification.DATA_QUALITY and best.score < 10:
+            continue
+
+        fid += 1
+        equip_ids = sorted({m.equipment_id for m in members})
+        rule_ids = sorted({m.rule_id for m in members})
+        systems = sorted({_system(m.equipment_type, m.rule_id) for m in members})
+
+        # Common-mode VAV: one finding
+        title = finding_title(members, best)
+        evidence_bullets: list[str] = []
+        for a in sorted(assesses, key=lambda x: -x.score)[:3]:
+            evidence_bullets.extend(a.supporting[:2])
+        evidence_bullets = _uniq(evidence_bullets)[:6]
+        contradict = _uniq([x for a in assesses for x in a.contradicting])[:4]
+        causes = _uniq([x for a in assesses for x in a.likely_causes])[:4]
+        field = _uniq([x for a in assesses for x in a.field_verification])[:5]
+
+        chart_spec = _chart_spec_for(members[0], packets.get(members[0].key))
+
+        findings.append(
+            EngineeringFinding(
+                finding_id=f"F{fid:02d}",
+                title=title,
+                classification=best.classification,
+                priority=fid,
+                why_it_matters=why_it_matters(members, best),
+                observed_behavior=observed_behavior(members, best, packets),
+                evidence_bullets=evidence_bullets or best.reasons[:3],
+                contradicting_evidence=contradict or ["None material found in automated review"],
+                likely_causes=causes,
+                field_verification=field,
+                possible_corrective=_corrective(best, members),
+                rule_ids=rule_ids,
+                equipment_ids=equip_ids,
+                systems=systems,
+                chart_spec=chart_spec,
+                candidate_keys=keys,
+                automated_assessment=best.to_dict(),
+                data_confidence_notes=best.reasons[:3],
+            )
+        )
+
+    # Keep top max_findings for client body; rest → suppressed as lower priority
+    findings.sort(key=lambda f: (-_cls_rank(f.classification), -float(f.automated_assessment.get("score") or 0)))
+    for i, f in enumerate(findings, 1):
+        f.priority = i
+        f.finding_id = f"F{i:02d}"
+
+    primary = findings[:max_findings]
+    for f in findings[max_findings:]:
+        suppressed.append(
+            {
+                "candidate_key": ",".join(f.candidate_keys),
+                "classification": f.classification.value,
+                "score": f.automated_assessment.get("score"),
+                "reasons": [f"Deprioritized beyond top {max_findings}: {f.title}"],
+                "equipment_id": ",".join(f.equipment_ids),
+                "rule_id": ",".join(f.rule_ids),
+            }
+        )
+    return primary, suppressed, data_quality
+
+
+def _cluster_id(c: CandidateDetection, a: FindingAssessment) -> str:
+    if c.rule_id == "FAN-OFF-STATIC" or (c.extras or {}).get("fan_off_anomaly"):
+        return f"static|{c.equipment_id}"
+    if a.classification == Classification.DATA_QUALITY:
+        return f"dq|{c.equipment_id}|{c.rule_id}"
+    # Peer epidemic of same rule → one cluster
+    if a.common_mode_review and c.rule_id.startswith("VAV"):
+        return f"common|{c.rule_id}"
+    if c.rule_id.startswith("CHW") and a.common_mode_review:
+        return f"chw|{c.rule_id}"
+    # Same equipment + related VAV airflow family
+    if c.rule_id in {"VAV-5", "VAV-4", "VAV-7", "SV-RANGE"}:
+        return f"vavflow|{c.equipment_id}"
+    return f"solo|{c.equipment_id}|{c.rule_id}"
+
+
+def _cluster_score(keys: list[str], assessments: dict[str, FindingAssessment]) -> float:
+    return max((assessments[k].score for k in keys if k in assessments), default=0.0)
+
+
+def _cls_rank(c: Classification) -> int:
+    order = {
+        Classification.STRONGLY_SUPPORTED: 5,
+        Classification.PROBABLE: 4,
+        Classification.DATA_QUALITY: 3,
+        Classification.INCONCLUSIVE: 2,
+        Classification.LIKELY_FALSE_POSITIVE: 1,
+        Classification.NOT_ACTIONABLE: 0,
+    }
+    return order.get(c, 0)
+
+
+def _system(equipment_type: str, rule_id: str) -> str:
+    et = (equipment_type or "").upper()
+    if "AHU" in et or rule_id.startswith("SCHED") or rule_id == "FAN-OFF-STATIC":
+        return "AHU"
+    if "CHILL" in et or rule_id.startswith("CHW"):
+        return "CHW"
+    if "BOIL" in et or rule_id.startswith("HW"):
+        return "HW"
+    if "VAV" in et or rule_id.startswith("VAV"):
+        return "VAV"
+    return et or "Other"
+
+
+def _chart_spec_for(c: CandidateDetection, packet: EvidencePacket | None) -> dict[str, Any] | None:
+    if c.rule_id == "FAN-OFF-STATIC" or (c.extras or {}).get("fan_off_anomaly"):
+        fo = (c.extras or {}).get("fan_off_anomaly") or {}
+        return {
+            "kind": "fan_off_static",
+            "equipment_id": c.equipment_id,
+            "fan_off_p50": fo.get("fan_off_p50"),
+            "fan_on_p50": fo.get("fan_on_p50"),
+            "units": fo.get("units") or "in. w.c.",
+        }
+    if c.rule_id in {"VAV-5", "VAV5"}:
+        spot = (packet.telemetry_evidence if packet else {}).get("spot") or c.telemetry_spot
+        return {
+            "kind": "vav5_damper_flow",
+            "equipment_id": c.equipment_id,
+            "damper": spot.get("damper") or spot.get("damper-position"),
+            "airflow": spot.get("zone-airflow") or spot.get("airflow"),
+        }
+    if c.rule_id.startswith("VAV-1") or "comfort" in (c.rule_label or "").lower():
+        return {"kind": "comfort_rank", "equipment_id": c.equipment_id}
+    return {"kind": "fault_hours_bar", "equipment_id": c.equipment_id, "rule_id": c.rule_id, "fault_hours": c.fault_hours}
+
+
+def _corrective(best: FindingAssessment, members: list[CandidateDetection]) -> list[str]:
+    if best.classification in {Classification.STRONGLY_SUPPORTED, Classification.PROBABLE}:
+        if any(m.rule_id == "FAN-OFF-STATIC" for m in members):
+            return [
+                "After verifying zero/reference tubing, recalibrate or replace the duct static sensor if still wrong"
+            ]
+        if any(m.rule_id in {"VAV-5", "VAV5"} for m in members):
+            return [
+                "Inspect damper linkage and commanded vs actual position; if linkage is OK, validate airflow sensor zero/calibration"
+            ]
+    return ["Do not replace equipment solely from this telemetry review — complete field verification first"]
+
+
+def _uniq(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for x in items:
+        if not x or x in seen:
+            continue
+        seen.add(x)
+        out.append(x)
+    return out

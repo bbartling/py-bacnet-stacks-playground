@@ -74,6 +74,7 @@ Overview | **Data Model** (tree + mapping status) | Run Rules | Results by Categ
 
 ### Overview extras (do not remove)
 
+- **Reports:** Generic RCx static download + **Generate Engineering Findings Report** (button only; HITL include/note) — [`skills/vibe19-engineering-report/SKILL.md`](../vibe19-engineering-report/SKILL.md)
 - **BAS vs web OAT** overlay (±`oat_err`) + deviation histogram
 - **Data inspection — raw CSV**: equipment (or weather) dropdown → stacked Plotly lines for all plottable columns (`equipment_inspection_chart`)
 - Zip data **survives browser refresh** until Clear session (`app/browser_session.py`)

@@ -935,3 +935,38 @@ def export_agent_bundle(
         pass  # bootstrap is best-effort; never fail the export
 
     return written
+
+
+# ---------------------------------------------------------------------------
+# Engineering Findings Report (detection ≠ finding)
+# ---------------------------------------------------------------------------
+
+
+def list_candidate_faults(run: AgentRun, *, building: str = "") -> list:
+    """FAULT rows as CandidateDetection list for Engineering Findings."""
+    from app.reporting.candidates import candidates_from_rule_results
+
+    return candidates_from_rule_results(run.results, building=building or "")
+
+
+def review_candidate_finding(candidate, **kwargs):
+    """Build evidence packet + assessment for one candidate."""
+    from app.reporting.evidence import build_evidence_packet
+    from app.reporting.reviewer import review_evidence_packet
+
+    pkt = build_evidence_packet(candidate, **kwargs)
+    return review_evidence_packet(pkt), pkt
+
+
+def build_engineering_findings_report(**kwargs):
+    """Typed wrapper around ``app.reporting.pipeline.build_engineering_findings``."""
+    from app.reporting.pipeline import build_engineering_findings
+
+    return build_engineering_findings(**kwargs)
+
+
+def render_engineering_findings_report(artifacts, out_dir, **kwargs):
+    """Typed wrapper around ``app.reporting.pipeline.render_engineering_report``."""
+    from app.reporting.pipeline import render_engineering_report
+
+    return render_engineering_report(artifacts, out_dir, **kwargs)
