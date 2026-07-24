@@ -14,7 +14,8 @@ EnergyPlus **autosizes** plant/coils when fields are `autosize`. You dial
 **envelope + loads + as-operated HVAC setpoints** — not nameplate tons — unless
 the human supplies them.
 
-Canonical doc: [`../../docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md).
+**Start here:** [`../../docs/AGENT_CONTEXT.md`](../../docs/AGENT_CONTEXT.md).
+Depth: [`../../docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md).
 Tools bin: [`../../docs/AGENT_TOOLS.md`](../../docs/AGENT_TOOLS.md).
 Assumptions hierarchy: [`../wattlab-assumptions/SKILL.md`](../wattlab-assumptions/SKILL.md).
 
@@ -48,7 +49,7 @@ Ordered knobs (stop when annual gas enters ~±5% or overshoots):
 
 - Reverse the same knobs (tighter glass, less ACH, lower LPD/EPD).
 
-## Phase 2 — Monthly **shape** (annual flat but CVRMSE fails)
+## Phase 2 — Monthly gas shape (annual flat but CVRMSE fails)
 
 Classic failure: **winter/shoulder gas high, summer gas low** (annual cancels).
 
@@ -65,10 +66,16 @@ Classic failure: **winter/shoulder gas high, summer gas low** (annual cancels).
 | Summer gas low | Cooler summer **DAT/SAT**, raise **VAV min-flow** in true summer |
 | Winter gas high | Warmer winter SAT, **shorter winter OA** hours, lower winter min-flow |
 | Shoulder spikes from long cold-dump window | **Band** SAT (cold dump peak summer only; warmer shoulders) |
-| Bills ≠ HDD | Do not force physics-only; band months; note residual CV floor |
+| Bills ≠ HDD | Prefer OA-hours/ops over more glass; band months; note residual CV floor |
 
 Prefer **seasonal / banded** `Schedule:Compact` on cooling SAT + scheduled VAV
 min-flow fraction over year-round constant min-flow bumps.
+
+## Phase 2b — Monthly elec shape (after gas near/pass)
+
+Gas shape **before** elec shape. Prefer **month-aware light/equipment schedules**
+over blunt annual LPD cuts (flat cuts trade months and can break a gas pass).
+Use Twin **monthly ±% dial chart** to see over/under by season.
 
 ### Honesty
 
@@ -90,8 +97,9 @@ Stamp WWR / U / ACH / SAT bands / min-flow / OA on `dial_meta.json` /
 
 ## Workspace pointers
 
-- Playbook: `vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md` (and optional
-  `/data/tools/TWIN_DIAL_PLAYBOOK.md`)
+- Primary handoff: `vibe20_agent_spec/docs/AGENT_CONTEXT.md` (optional live
+  `/data/tools/AGENT_CONTEXT.md`)
+- Playbook: `vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md`
 - Session log: `/data/reports/CALIBRATE_SESSION.md`
 - Score / scorecard / ladders: `/data/tools/` — see `AGENT_TOOLS.md`
-- Studio: chronological run #, dial knobs table, ECMs best-G14 baseline
+- Studio: chronological run #, monthly ±% dial chart, dial knobs, ECMs best-G14

@@ -54,3 +54,36 @@ def test_checklist_json_loads_fan_off():
     cands, ctx = candidates_from_checklist_json(payload)
     assert any(c.rule_id == "FAN-OFF-STATIC" for c in cands)
     assert ctx["building"] == "Liberty 100"
+
+
+def test_fan_off_static_does_not_bleed_onto_unrelated_rules():
+    fan_off = {
+        "equipment_id": "AHU_2",
+        "fan_off_p50": 7.19,
+        "fan_on_p50": 1.61,
+        "units": "in. w.c.",
+    }
+    oat = CandidateDetection(
+        building="B100",
+        equipment_id="AHU_2",
+        equipment_type="AHU",
+        rule_id="OAT-METEO",
+        rule_label="BAS outdoor-air sensor vs Open-Meteo",
+        fault_hours=100.0,
+        fault_pct=10.0,
+    )
+    duct = CandidateDetection(
+        building="B100",
+        equipment_id="AHU_2",
+        equipment_type="AHU",
+        rule_id="AHU-DUCTHI",
+        rule_label="Duct static pressure high",
+        fault_hours=200.0,
+        fault_pct=40.0,
+    )
+    oat_pkt = build_evidence_packet(oat, fan_off_row=fan_off)
+    duct_pkt = build_evidence_packet(duct, fan_off_row=fan_off)
+    assert "fan_off_static_anomaly" not in (oat_pkt.sensor_quality or {}).get("issues", [])
+    assert not any("fan-OFF" in (i.text or "") for i in oat_pkt.corroboration)
+    assert "fan_off_static_anomaly" in (duct_pkt.sensor_quality or {}).get("issues", [])
+    assert any("fan-OFF" in (i.text or "") for i in duct_pkt.corroboration)

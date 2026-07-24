@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.reporting.models import CandidateDetection, EvidenceItem, EvidencePacket
+from app.reporting.rule_meta import is_duct_static_rule
 
 NEAR_CONTINUOUS_PCT = 95.0
 IMPLAUSIBLE_ZONE_T_F = 40.0  # mean below this → instrumentation, not comfort
@@ -121,6 +122,8 @@ def build_evidence_packet(
         sensor_quality["issues"].append("implausible_zone_temperature_spot")
         sensor_quality["spot_zone_t"] = zone_t
 
+    # Fan-off static anomaly: only score duct-static rules. Other rules on the same
+    # AHU get a context note only — avoids identical "duct static" evidence on every finding.
     if fan_off_row and fan_off_row.get("equipment_id") == cand.equipment_id:
         context["fan_off_static"] = fan_off_row
         off_p = _num(fan_off_row.get("fan_off_p50"))
@@ -130,17 +133,20 @@ def build_evidence_packet(
                 f"Duct static fan-OFF p50≈{off_p:.2f} vs fan-ON≈{on_p:.2f} "
                 f"{fan_off_row.get('units') or 'in. w.c.'} — strong instrumentation suspicion"
             )
-            corroboration.append(
-                EvidenceItem(
-                    "support",
-                    msg,
-                    weight=25.0,
-                    source="sensor_stats",
-                    values={"fan_off_p50": off_p, "fan_on_p50": on_p},
+            if is_duct_static_rule(cand.rule_id):
+                corroboration.append(
+                    EvidenceItem(
+                        "support",
+                        msg,
+                        weight=25.0,
+                        source="sensor_stats",
+                        values={"fan_off_p50": off_p, "fan_on_p50": on_p},
+                    )
                 )
-            )
-            items.append(corroboration[-1])
-            sensor_quality["issues"].append("fan_off_static_anomaly")
+                items.append(corroboration[-1])
+                sensor_quality["issues"].append("fan_off_static_anomaly")
+            else:
+                context["fan_off_static_note"] = msg
 
     # Fan-off anomaly as its own synthetic candidate uses extras
     if cand.extras.get("fan_off_anomaly"):
@@ -191,6 +197,9 @@ def build_evidence_packet(
 
     for rel in related_rules:
         if rel.key == cand.key:
+            continue
+        # Do not let FAN-OFF-STATIC / duct-static synthetic hits corroborate unrelated rules.
+        if is_duct_static_rule(rel.rule_id) and not is_duct_static_rule(cand.rule_id):
             continue
         corroboration.append(
             EvidenceItem(

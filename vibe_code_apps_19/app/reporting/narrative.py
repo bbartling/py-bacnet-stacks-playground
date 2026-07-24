@@ -5,22 +5,30 @@ from __future__ import annotations
 from typing import Any
 
 from app.reporting.models import CandidateDetection, Classification, EvidencePacket, FindingAssessment
+from app.reporting.rule_meta import rule_label, rule_summary
 
 
 def finding_title(members: list[CandidateDetection], best: FindingAssessment) -> str:
     m0 = members[0]
     if m0.rule_id == "FAN-OFF-STATIC" or any((m.extras or {}).get("fan_off_anomaly") for m in members):
-        return f"{m0.equipment_id} duct static sensor likely failed or mis-scaled"
+        return f"{m0.equipment_id}: duct static sensor likely failed or mis-scaled"
     if best.classification == Classification.DATA_QUALITY:
-        return f"{m0.equipment_id} temperature signal is instrumentation/data-quality — not ordinary comfort"
+        return f"{m0.equipment_id}: temperature signal is instrumentation/data-quality — not ordinary comfort"
     if len(members) > 1 and best.common_mode_review:
-        return f"Common-mode {m0.rule_id} across {len({m.equipment_id for m in members})} devices — verify mapping/threshold before fleet work orders"
+        label = rule_label(m0.rule_id, fallback=m0.rule_label)
+        return (
+            f"Common-mode {label} ({m0.rule_id}) across "
+            f"{len({m.equipment_id for m in members})} devices — verify mapping/threshold before fleet work orders"
+        )
     if m0.rule_id in {"VAV-5", "VAV5"}:
-        return f"{m0.equipment_id} airflow measurement/control requires field verification"
+        return f"{m0.equipment_id}: airflow measurement/control requires field verification (VAV-5)"
     if m0.rule_id.startswith("CHW"):
-        return f"{m0.equipment_id} / {m0.rule_id} near-continuous — verify compressor proof before operational finding"
-    label = m0.rule_label or m0.rule_id
-    return f"{m0.equipment_id}: {label}"
+        label = rule_label(m0.rule_id, fallback=m0.rule_label)
+        return f"{m0.equipment_id}: {label} ({m0.rule_id}) — verify compressor proof before operational finding"
+    label = rule_label(m0.rule_id, fallback=m0.rule_label)
+    if label == m0.rule_id:
+        return f"{m0.equipment_id}: {m0.rule_id}"
+    return f"{m0.equipment_id}: {label} ({m0.rule_id})"
 
 
 def why_it_matters(members: list[CandidateDetection], best: FindingAssessment) -> str:
@@ -53,15 +61,21 @@ def observed_behavior(
     m0 = members[0]
     pkt = packets.get(m0.key)
     parts: list[str] = []
+    label = rule_label(m0.rule_id, fallback=m0.rule_label)
+    summary = rule_summary(m0.rule_id)
+    if summary:
+        parts.append(summary.rstrip("."))
     if m0.fault_hours is not None:
-        parts.append(f"Rule {m0.rule_id} reports ~{m0.fault_hours:.0f} fault hours")
+        hours_bit = f"~{m0.fault_hours:.0f} fault hours"
         if m0.fault_pct is not None:
-            parts[-1] += f" ({m0.fault_pct:.1f}% of active samples)"
+            hours_bit += f" ({m0.fault_pct:.1f}% of active samples)"
+        parts.append(f"{label} ({m0.rule_id}) reports {hours_bit}")
     if pkt:
         for s in best.supporting[:2]:
-            parts.append(s)
+            if s and s not in parts:
+                parts.append(s)
     if not parts:
-        parts.append(m0.notes or m0.rule_label or m0.rule_id)
+        parts.append(m0.notes or label or m0.rule_id)
     return ". ".join(parts) + "."
 
 

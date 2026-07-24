@@ -317,6 +317,47 @@ def test_dewpoint_economizer_hand_computed():
     assert result["savings_kwh"] == pytest.approx(82.08)
 
 
+def test_erv_bins_hand_computed_heating_and_cooling():
+    """Sensible ERV: one cold bin (heat) + one warm-enthalpy bin (cool)."""
+    bins = [
+        {"temp": 32, "shift_hours": [0, 8, 0], "enthalpy": 11.0},
+        {"temp": 87, "shift_hours": [0, 8, 0], "enthalpy": 34.0},
+    ]
+    result = get("erv_bins")(
+        {
+            "oa_cfm": 2000,
+            "exhaust_cfm": 2000,
+            "sensible_effectiveness": 0.5,
+            "return_temp_f": 75.0,
+            "return_enthalpy": 28.3,
+            "kw_per_ton": 1.0,
+            "boiler_efficiency": 1.0,
+            "schedule": {"shifts": [0, 8, 0], "days_per_week": 7},
+            "bins": bins,
+        }
+    )
+    by_temp = {row["temp"]: row for row in result["bins"]}
+    # Heat @32 F: 1.08 * 2000 * 0.5 * (75-32) / 1000 = 46.44 kBtu/h * 8 h / 1.0 / 1000
+    assert by_temp[32]["saved_mmbtu"] == pytest.approx(46.44 * 8 / 1000.0)
+    assert by_temp[32]["saved_kwh"] == pytest.approx(0.0)
+    # Cool @87: sensible-only ε=0.5 on dH=(34-28.3) → 2.85; tons=2000*2.85*4.5/12000
+    assert by_temp[87]["saved_kwh"] == pytest.approx(2000 * 2.85 * 4.5 / 12000.0 * 8 * 1.0)
+    assert result["recovered_cfm"] == pytest.approx(2000.0)
+
+    toilet = get("toilet_exhaust_erv_bins")(
+        {
+            "oa_cfm": 800,
+            "toilet_exhaust_cfm": 600,
+            "sensible_effectiveness": 0.65,
+            "kw_per_ton": 0.9,
+            "schedule": {"shifts": [8, 8, 8], "days_per_week": 7},
+            "bins": washington_dc_noaa(),
+        }
+    )
+    assert toilet["recovered_cfm"] == pytest.approx(600.0)
+    assert toilet["savings_therms"] > 0 or toilet["savings_kwh"] > 0
+
+
 def test_weather_bins_from_hourly_roundtrip():
     import pandas as pd
 

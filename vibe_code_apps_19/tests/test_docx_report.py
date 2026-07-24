@@ -36,11 +36,15 @@ def test_generic_rcx_docx_is_valid_zip():
     assert generic_rcx_bytes_for_tests() == blob
 
 
-def test_overview_download_helper_and_streamlit_path():
+def test_overview_uses_engineering_findings_not_generic_rcx_download():
     app_root = REPORTS_DIR.parents[1]
     src = (app_root / "streamlit_app.py").read_text(encoding="utf-8")
-    assert "render_overview_rcx_download" in src
-    assert "Download Generic RCx Report" in src or "overview_generic_rcx_docx" in src
+    assert "render_engineering_findings_panel" in src
+    assert "Generate FDD Engineering Findings Report" in (
+        app_root / "app" / "report_downloads.py"
+    ).read_text(encoding="utf-8")
+    assert "render_overview_rcx_download" not in src
+    assert "Download Generic RCx Report" not in src
     assert "Download FDD DOCX" not in src
     assert "render_central_template_pack_section" not in src
     assert "build_equipment_fdd_docx" not in src

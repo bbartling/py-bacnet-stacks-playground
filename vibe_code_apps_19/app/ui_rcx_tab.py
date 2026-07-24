@@ -127,7 +127,7 @@ def render_rcx_plots_tab(
     st.caption(
         "Pick a **mechanical family** first (Zones / AHU / Boiler / Chiller / Heat pump / Metering / Weather), "
         "then one preset when charts exist for that family. "
-        "Word report: download the Generic RCx template from **Overview**."
+        "Word report: generate the FDD Engineering Findings Report from **Overview**."
     )
 
     schedule = (

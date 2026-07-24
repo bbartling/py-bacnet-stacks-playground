@@ -1,4 +1,4 @@
-"""Streamlit helpers for Generic RCx + Engineering Findings Report downloads."""
+"""Streamlit helpers for Engineering Findings Report downloads."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from app.docx_report import GENERIC_RCX_DOCX, REPORTS_DIR, load_generic_rcx_report, report_path
+from app.docx_report import load_generic_rcx_report, report_path
 
 MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -39,23 +39,6 @@ def report_download_button(
     return True
 
 
-def render_overview_rcx_download(*, key: str = "overview_generic_rcx_docx") -> bool:
-    """Primary Overview download for the single Generic RCx Word template."""
-    st.markdown("##### Reports")
-    st.markdown("**Generic RCx template** (static, editable)")
-    st.caption(
-        f"Download the Generic RCx Word report (`{GENERIC_RCX_DOCX}`) from "
-        f"`{REPORTS_DIR.name}/`. Replace the file in place to customize narrative/layout."
-    )
-    return report_download_button(
-        filename=GENERIC_RCX_DOCX,
-        label="Download Generic RCx Report (DOCX)",
-        key=key,
-        primary=True,
-        help="Single committed Open-FDD Generic RCx Word template.",
-    )
-
-
 def render_engineering_findings_panel(
     *,
     batch_results: list | None = None,
@@ -63,21 +46,22 @@ def render_engineering_findings_panel(
     analysis_period: str = "",
     key_prefix: str = "eng_findings",
 ) -> None:
-    """Generate Engineering Findings Report (button-triggered; never on section visit)."""
-    st.markdown("**Engineering Findings Report** (evidence-reviewed)")
+    """Generate FDD Engineering Findings Report (button-triggered; never on section visit)."""
+    st.markdown("##### Reports")
+    st.markdown("**FDD Engineering Findings Report** (evidence-reviewed)")
     st.caption(
-        "Generated Engineering Findings Report performs an automated evidence review of "
-        "FDD/RCx results before presenting prioritized findings. Findings remain advisory "
-        "and should be field-verified. Detection ≠ finding — raw rule hits stay in the appendix."
+        "Performs an automated evidence review of FDD/RCx rule results before presenting "
+        "prioritized findings. Findings remain advisory and should be field-verified. "
+        "Detection ≠ finding — raw rule hits and likely false positives stay in the appendices."
     )
     if not batch_results:
         st.info("Run Rules first so FAULT rows are available for evidence review.")
         return
 
     if st.button(
-        "Generate Engineering Findings Report",
+        "Generate FDD Engineering Findings Report",
         key=f"{key_prefix}_generate",
-        type="secondary",
+        type="primary",
     ):
         with st.spinner("Evidence review + charts…"):
             from app.reporting.pipeline import build_engineering_findings, render_engineering_report
@@ -148,7 +132,7 @@ def render_engineering_findings_panel(
         )
     if dp and Path(dp).is_file():
         st.download_button(
-            "Download Engineering Findings Report (DOCX)",
+            "Download FDD Engineering Findings Report (DOCX)",
             data=Path(dp).read_bytes(),
             file_name=Path(dp).name,
             mime=MIME_DOCX,
@@ -158,4 +142,5 @@ def render_engineering_findings_panel(
 
 
 def generic_rcx_bytes_for_tests() -> bytes:
+    """Bytes accessor for the committed Generic RCx asset (tests / agents)."""
     return load_generic_rcx_report()

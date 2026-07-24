@@ -67,14 +67,15 @@ never bake building ids into discovery defaults or silent CLI defaults.
 | Path | Why |
 | --- | --- |
 | `/app/CONTAINER_AGENT.md` | This file |
+| `/app/vibe20_agent_spec/docs/AGENT_CONTEXT.md` | **Primary** twin dial / G14 handoff (high-level) |
 | `/app/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md` | Shared volume + DinD + ensure |
 | `/app/vibe20_agent_spec/AGENTS.md` | Mission / agent OS |
 | `/app/vibe20_agent_spec/DATA_CONTRACT.md` | Dump / answers / campus schemas |
 | `/app/vibe20_agent_spec/AGENT_TESTER_PROMPT.md` | Soak checklist |
 | `/app/vibe20_agent_spec/docs/TWIN_LOOP.md` | Twin loop + geometry gate |
-| `/app/vibe20_agent_spec/skills/wattlab-*/SKILL.md` | Procedure skills |
+| `/app/vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md` | Envelope → shape dial order (G14) depth |
 | `/app/vibe20_agent_spec/docs/AGENT_TOOLS.md` | `/data/tools` vs WattLab CLIs + dial publish chain |
-| `/app/vibe20_agent_spec/docs/TWIN_DIAL_PLAYBOOK.md` | Envelope → shape dial order (G14) |
+| `/app/vibe20_agent_spec/skills/wattlab-*/SKILL.md` | Procedure skills |
 | `/app/vibe20_agent_spec/skills/wattlab-twin-calibrate-dial/SKILL.md` | Short/long fuel + monthly shape knobs |
 | `/app/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md` | Lower-48 $/sf + ROI screening |
 | `/app/vibe20_agent_spec/skills/wattlab-controls-fdd/SKILL.md` | Dump checklist + vibe19 FP tuning |

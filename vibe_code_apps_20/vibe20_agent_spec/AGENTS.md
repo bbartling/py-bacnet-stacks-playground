@@ -101,25 +101,26 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 
 1. **`../AGENTS.md`** — mission, repo map, twin-loop + benchmark governance rules
 2. **AI quick rules above**
-3. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — dump, campus, Excel derive, workspace runs/
-4. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — human + agent iterate protocol
-5. **[`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)** — TMY→AMY→FDD when little is known (~6–10 sims)
-6. **[`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)** — `docker exec` vibe19/20 + shared `/data` (canonical agent surface)
-7. **[`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md)** — bill→AMY→G14 + client package downloads
-8. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
-9. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
-10. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
-11. **[`docs/ESCO_RETROFIT_COST_ROI.md`](docs/ESCO_RETROFIT_COST_ROI.md)** — Lower-48 ESCO $/sf + ROI screening honesty
-12. **[`docs/AGENT_TOOLS.md`](docs/AGENT_TOOLS.md)** — `/data/tools` campaign scripts vs WattLab CLIs
-12b. **[`docs/TWIN_DIAL_PLAYBOOK.md`](docs/TWIN_DIAL_PLAYBOOK.md)** — envelope → shape dial (G14)
-13. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
-13b. **`skills/wattlab-twin-calibrate-dial/SKILL.md`** — short/long fuel + monthly shape knobs
-14. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
-15. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
-16. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
-17. **`skills/wattlab-controls-fdd/SKILL.md`** — BAS dump checklist + vibe19 FDD FP tuning
-18. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke, deliverables
-19. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
+3. **[`docs/AGENT_CONTEXT.md`](docs/AGENT_CONTEXT.md)** — **primary** twin dial / G14 handoff (high-level)
+4. **[`DATA_CONTRACT.md`](DATA_CONTRACT.md)** — dump, campus, Excel derive, workspace runs/
+5. **[`docs/TWIN_LOOP.md`](docs/TWIN_LOOP.md)** — human + agent iterate protocol
+6. **[`docs/SPARSE_BUILDING_PLAYBOOK.md`](docs/SPARSE_BUILDING_PLAYBOOK.md)** — TMY→AMY→FDD when little is known (~6–10 sims)
+7. **[`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md)** — `docker exec` vibe19/20 + shared `/data` (canonical agent surface)
+8. **[`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md)** — bill→AMY→G14 + client package downloads
+9. **[`AGENT_TESTER_PROMPT.md`](AGENT_TESTER_PROMPT.md)** — QA / calibrate on a bench (any agent)
+10. **[`docs/ESCO_CALCULATORS.md`](docs/ESCO_CALCULATORS.md)** — when touching `wattlab/bench/esco.py` or weather bins
+11. **[`docs/BENCHMARK_GOVERNANCE.md`](docs/BENCHMARK_GOVERNANCE.md)** — when touching benchmarks/guardrails/meters
+12. **[`docs/ESCO_RETROFIT_COST_ROI.md`](docs/ESCO_RETROFIT_COST_ROI.md)** — Lower-48 ESCO $/sf + ROI screening honesty
+13. **[`docs/TWIN_DIAL_PLAYBOOK.md`](docs/TWIN_DIAL_PLAYBOOK.md)** — envelope → shape dial (G14) depth
+14. **[`docs/AGENT_TOOLS.md`](docs/AGENT_TOOLS.md)** — `/data/tools` campaign scripts vs WattLab CLIs
+15. **`skills/wattlab-assumptions/SKILL.md`** — defaults hierarchy / Ideal Loads vs explicit HVAC
+16. **`skills/wattlab-twin-calibrate-dial/SKILL.md`** — short/long fuel + monthly shape knobs
+17. **`skills/wattlab-energyplus-mcp/SKILL.md`** — MCP inspect/sim; DinD + ReadVars
+18. **`skills/wattlab-esco-bins/SKILL.md`** — run/extend the bin-method calculators
+19. **`skills/wattlab-benchmarking/SKILL.md`** — bills → EUI → peer bands → gate
+20. **`skills/wattlab-controls-fdd/SKILL.md`** — BAS dump checklist + vibe19 FDD FP tuning
+21. **`skills/wattlab-studio/SKILL.md`** — 4 Studio pages, workspace, smoke, deliverables
+22. `.agents/` personas/workflows/checklists + `.agents/skills/*` as needed
 
 ---
 

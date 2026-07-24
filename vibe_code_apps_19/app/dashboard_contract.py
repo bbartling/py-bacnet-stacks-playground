@@ -45,7 +45,6 @@ REQUIRED_UI_ENTRYPOINTS: tuple[str, ...] = (
     "app.rule_card:build_rule_card",
     "app.docx_report:load_generic_rcx_report",
     "app.docx_report:applicable_rules_for_equipment",
-    "app.report_downloads:render_overview_rcx_download",
     "app.report_downloads:render_engineering_findings_panel",
     "app.reporting.pipeline:build_engineering_findings",
     "app.reporting.pipeline:render_engineering_report",

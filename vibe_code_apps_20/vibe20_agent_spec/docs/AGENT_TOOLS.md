@@ -18,16 +18,21 @@ floor IDFs, HWS peeks, dual-fuel G14 scorecards, or one-off site experiments.
 Seed themes: [`examples/workspace_tools/`](../../examples/workspace_tools/).
 Human workspace copies often live at `~/wattlab_workspace/tools/` (not in git).
 
+**Primary AI handoff (high-level):** [`AGENT_CONTEXT.md`](AGENT_CONTEXT.md).
+Deeper dial phases: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
+`skills/wattlab-twin-calibrate-dial/SKILL.md`.
+
 **Twin calibrate dial** (short/long gas & elec, monthly shape): envelope first
 (WWR / U / ACH), then banded SAT + VAV min-flow; EnergyPlus stays **autosize**.
-Playbook: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
-`skills/wattlab-twin-calibrate-dial/SKILL.md`.
+After gas shape near/pass, prefer **month-aware light/equipment schedules** over
+blunt annual LPD cuts.
 
 ## Layout
 
 ```text
 $WATTLAB_HOST_WORKSPACE/
   tools/                 # campaign scripts (this bin)
+  tools/AGENT_CONTEXT.md        # optional live copy of primary handoff
   tools/TWIN_DIAL_PLAYBOOK.md   # optional live workspace copy of dial playbook
   uploads/dump/          # vibe19 wattlab_dump_*.zip
   uploads/prototypes/    # geo / dial IDFs (+ optional best/ freeze)

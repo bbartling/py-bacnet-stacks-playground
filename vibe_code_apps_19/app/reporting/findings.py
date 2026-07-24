@@ -17,6 +17,7 @@ from app.reporting.narrative import (
     observed_behavior,
     why_it_matters,
 )
+from app.reporting.rule_meta import is_duct_static_rule
 
 CLIENT_CLASSIFICATIONS = {
     Classification.STRONGLY_SUPPORTED,
@@ -104,12 +105,20 @@ def cluster_and_prioritize(
         # Common-mode VAV: one finding
         title = finding_title(members, best)
         evidence_bullets: list[str] = []
-        for a in sorted(assesses, key=lambda x: -x.score)[:3]:
-            evidence_bullets.extend(a.supporting[:2])
+        # Prefer the top-scoring member's own evidence (avoid cross-rule bleed).
+        primary = max(zip(assesses, members), key=lambda pair: pair[0].score)
+        for text in primary[0].supporting[:4]:
+            if _evidence_relevant(text, primary[1].rule_id):
+                evidence_bullets.append(text)
         evidence_bullets = _uniq(evidence_bullets)[:6]
         contradict = _uniq([x for a in assesses for x in a.contradicting])[:4]
         causes = _uniq([x for a in assesses for x in a.likely_causes])[:4]
-        field = _uniq([x for a in assesses for x in a.field_verification])[:5]
+        # Drop duct-static field checks unless this finding is a duct-static rule
+        field_raw = _uniq([x for a in assesses for x in a.field_verification])
+        if not any(is_duct_static_rule(m.rule_id) for m in members):
+            field_raw = [x for x in field_raw if "duct static" not in x.lower()]
+            causes = [c for c in causes if "duct static" not in c.lower()]
+        field = field_raw[:5]
 
         chart_spec = _chart_spec_for(members[0], packets.get(members[0].key))
 
@@ -247,3 +256,12 @@ def _uniq(items: list[str]) -> list[str]:
         seen.add(x)
         out.append(x)
     return out
+
+
+def _evidence_relevant(text: str, rule_id: str) -> bool:
+    t = (text or "").lower()
+    if "duct static fan-off" in t or "fan-off static" in t:
+        return is_duct_static_rule(rule_id)
+    if "related rule fan-off-static" in t or "related rule ahu-ducthi" in t:
+        return is_duct_static_rule(rule_id)
+    return True

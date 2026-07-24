@@ -51,6 +51,28 @@ def build_report_charts(
     )
     charts.append(_export(fig, "confidence_summary", out_dir))
 
+    # 1b) Top detections by fault hours (Overview-adjacent summary)
+    top = sorted(
+        [c for c in (artifacts.candidates or []) if c.get("fault_hours") is not None],
+        key=lambda c: -float(c.get("fault_hours") or 0),
+    )[:12]
+    if top:
+        labels = [
+            f"{c.get('equipment_id')} · {c.get('rule_label') or c.get('rule_id')}"
+            for c in top
+        ][::-1]
+        hours = [float(c.get("fault_hours") or 0) for c in top][::-1]
+        fig_top = go.Figure(
+            data=[go.Bar(y=labels, x=hours, orientation="h", marker_color="#2b6cb0")]
+        )
+        fig_top.update_layout(
+            title="Top detections by fault hours",
+            xaxis_title="Fault hours",
+            height=max(360, 28 * len(top) + 80),
+            margin=dict(l=160, r=20, t=50, b=40),
+        )
+        charts.append(_export(fig_top, "top_detections", out_dir))
+
     # 2) Comfort ranking (valid sensors only)
     rows = comfort_rows or (artifacts.comfort_summary.get("rows") or [])
     valid = [
