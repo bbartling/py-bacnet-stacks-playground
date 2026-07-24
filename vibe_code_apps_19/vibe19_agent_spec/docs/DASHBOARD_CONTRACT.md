@@ -52,7 +52,7 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, **Generic RCx DOCX download**, **Engineering Findings Report** (button-triggered generate), occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
+| Overview | Metrics, **FDD Engineering Findings Report** (button-triggered generate), occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
 | Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
@@ -67,8 +67,8 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 
 - FDD Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
-- **Generic RCx:** exactly one static Word template: `assets/reports/Open-FDD_Generic_RCx_Report_v1.docx` via `load_generic_rcx_report` / Overview download. Do **not** resurrect per-equipment FDD DOCX, family RCx DOCX packs, or Export ZIP packs.
-- **Engineering Findings Report:** second product (`app/reporting/`, `render_engineering_findings_panel`). Button-triggered only; evidence review before client findings; optional `python-docx`/`kaleido` extras. Do **not** rebuild on every Streamlit rerun / section visit.
+- **Generic RCx asset (optional):** `assets/reports/Open-FDD_Generic_RCx_Report_v1.docx` via `load_generic_rcx_report` may remain for tests/agents. Do **not** resurrect Overview Generic RCx download, per-equipment FDD DOCX, family RCx DOCX packs, or Export ZIP packs.
+- **FDD Engineering Findings Report:** primary Overview report product (`app/reporting/`, `render_engineering_findings_panel`). Button-triggered only; evidence review before client findings; optional `python-docx`/`kaleido` extras. Do **not** rebuild on every Streamlit rerun / section visit.
 - Prefer prepare-then-download for all generated DOCX.
 
 ---
@@ -173,8 +173,8 @@ Why the dashboard feels slow/clunky — **eager work on Streamlit reruns**, not 
 
 - [ ] `REQUIRED_RCX_PRESET_IDS ⊆ {p.id for p in PRESETS}`
 - [ ] `REQUIRED_MAIN_SECTIONS` / `REQUIRED_CHART_APIS` still match UI
-- [ ] Plots cards + `build_rule_card` + Overview Generic RCx download still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
-- [ ] Engineering Findings stays button-triggered (`render_engineering_findings_panel`); Generic RCx remains static
+- [ ] Plots cards + `build_rule_card` still present ([`PLOTS_DOCX_VALIDATION.md`](PLOTS_DOCX_VALIDATION.md))
+- [ ] FDD Engineering Findings stays button-triggered (`render_engineering_findings_panel`); no Overview Generic RCx download
 - [ ] `docs/RCX_PLOTS.md` + this file still match `PRESETS`
 - [ ] `python -m pytest -q tests/test_rcx_presets.py tests/test_charts.py tests/test_rule_card.py tests/test_docx_report.py tests/test_analytics_golden.py tests/test_rule_param_sensitivity.py tests/test_report_*.py tests/test_finding_*.py tests/test_false_positive_review.py tests/test_near_continuous_fault_review.py tests/test_peer_common_mode_detection.py`
 - [ ] param-sensitivity green (declared sliders change raw masks; no same-side tol cancel)

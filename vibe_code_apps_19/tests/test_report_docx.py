@@ -69,3 +69,37 @@ def test_report_json_and_docx(tmp_path):
     assert written["docx"].is_file()
     # OOXML zip magic
     assert written["docx"].read_bytes()[:2] == b"PK"
+
+
+def test_docx_has_rule_descriptions_and_fp_appendix(tmp_path):
+    checklist = _mini_checklist()
+    checklist["fdd"]["all_faults"].append(
+        {
+            "equipment_id": "AHU_2",
+            "equipment_type": "AHU",
+            "rule_id": "OAT-METEO",
+            "label": "OAT",
+            "fault_hours": 50,
+            "fault_pct": 5,
+            "ecm_flag": "",
+            "missing_roles": "",
+            "notes": "",
+        }
+    )
+    art = build_engineering_findings(checklist=checklist)
+    # Unrelated AHU rule must not inherit duct-static evidence
+    oat = next((f for f in art.findings if "OAT-METEO" in f.rule_ids), None)
+    if oat:
+        joined = " ".join(oat.evidence_bullets).lower()
+        assert "fan-off" not in joined and "duct static fan-off" not in joined
+    written = render_engineering_report(art, tmp_path, docx=True, json_out=False, charts=False)
+    # Spot-check document.xml for legend / description / FP appendix headings
+    import io
+    import zipfile
+
+    with zipfile.ZipFile(written["docx"]) as zf:
+        xml = zf.read("word/document.xml").decode("utf-8")
+    assert "Fault / rule description legend" in xml
+    assert "Likely false positives" in xml
+    assert "Description" in xml
+    assert "FDD Engineering Findings Report" in xml

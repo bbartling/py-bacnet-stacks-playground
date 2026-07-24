@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from app.reporting.models import CandidateDetection
+from app.reporting.rule_meta import rule_label
 from app.rules.base import RuleResult
 
 
@@ -27,7 +28,7 @@ def candidates_from_rule_results(
                 equipment_id=r.equipment_id,
                 equipment_type=r.equipment_type or "UNKNOWN",
                 rule_id=r.rule_id,
-                rule_label=r.rule_id,
+                rule_label=rule_label(r.rule_id),
                 status=r.status,
                 fault_hours=r.fault_hours,
                 fault_pct=r.fault_pct,
@@ -82,7 +83,7 @@ def candidates_from_checklist_json(
                 equipment_id=eid,
                 equipment_type=str(row.get("equipment_type") or "UNKNOWN"),
                 rule_id=rid,
-                rule_label=str(row.get("label") or rid),
+                rule_label=rule_label(rid, fallback=str(row.get("label") or "")),
                 status="FAULT",
                 fault_hours=_f(row.get("fault_hours")),
                 fault_pct=_f(row.get("fault_pct")),

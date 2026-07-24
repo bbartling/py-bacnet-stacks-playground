@@ -143,10 +143,11 @@ def test_streamlit_main_sections_present():
     assert "Data Model" in dashboard_contract.REQUIRED_MAIN_SECTIONS
     assert "load_generic_rcx_report" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "build_rule_card" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
-    assert "render_overview_rcx_download" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "render_engineering_findings_panel" in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
+    assert "render_overview_rcx_download" not in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "render_energy_model_tab" not in " ".join(dashboard_contract.REQUIRED_UI_ENTRYPOINTS)
     assert "Economizer family" in src or "ECON-1" in src
-    assert "render_overview_rcx_download" in src
+    assert "render_engineering_findings_panel" in src
     assert "Download FDD DOCX" not in src
     assert "render_central_template_pack_section" not in src
     rcx_ui = (Path(__file__).resolve().parents[1] / "app" / "ui_rcx_tab.py").read_text(encoding="utf-8")

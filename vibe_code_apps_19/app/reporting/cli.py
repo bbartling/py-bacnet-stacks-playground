@@ -11,8 +11,8 @@ from pathlib import Path
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description=(
-            "Generate an Engineering Findings Report (evidence-reviewed). "
-            "Generic RCx DOCX remains a separate static Overview product."
+            "Generate an FDD Engineering Findings Report (evidence-reviewed). "
+            "Detection ≠ finding; likely false positives stay in Appendix C."
         )
     )
     p.add_argument("--checklist-json", type=Path, help="controls_service_checklist JSON")

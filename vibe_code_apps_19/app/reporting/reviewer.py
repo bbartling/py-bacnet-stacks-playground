@@ -9,6 +9,7 @@ from app.reporting.models import (
     FindingAssessment,
     classification_from_score,
 )
+from app.reporting.rule_meta import is_duct_static_rule
 
 
 def review_evidence_packet(
@@ -131,7 +132,9 @@ def review_evidence_packet(
             if item.source == "cross_rule":
                 breakdown["corroboration"] = min(15.0, breakdown["corroboration"] + 5.0)
 
-    if "fan_off_static_anomaly" in issues:
+    if "fan_off_static_anomaly" in issues and is_duct_static_rule(
+        str(packet.identity.get("rule_id") or "")
+    ):
         breakdown["telemetry"] = max(breakdown["telemetry"], 20.0)
         breakdown["corroboration"] = min(15.0, breakdown["corroboration"] + 10.0)
         likely_causes.append("Bad / stuck / mis-scaled duct static sensor or reference tubing")

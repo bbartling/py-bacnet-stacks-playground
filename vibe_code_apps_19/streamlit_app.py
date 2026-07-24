@@ -2400,12 +2400,8 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
-        from app.report_downloads import (
-            render_engineering_findings_panel,
-            render_overview_rcx_download,
-        )
+        from app.report_downloads import render_engineering_findings_panel
 
-        render_overview_rcx_download(key="overview_generic_rcx_docx")
         render_engineering_findings_panel(
             batch_results=st.session_state.get("batch_results") or [],
             building_name=str(st.session_state.get("building_id") or st.session_state.get("site_id") or ""),
@@ -2653,7 +2649,7 @@ def main() -> None:
         st.caption(
             "Point inventory: equipment → Haystack-like tags → raw CSV columns. "
             "AHU↔VAV topology is listed separately (from package `vav_to_ahu_simple.csv` when present). "
-            "Word report: use the Generic RCx download on **Overview**."
+            "Word report: generate the FDD Engineering Findings Report on **Overview**."
         )
         tree = build_data_model_tree(
             frames,
@@ -2948,7 +2944,7 @@ def main() -> None:
             "Pick a device → rules auto-run → **chart on top**. "
             "Cards below = params + mapping. Camera icon on chart → PNG/JPEG. "
             "One Plotly at a time (low-RAM). "
-            "Word report: Generic RCx template on **Overview**."
+            "Word report: FDD Engineering Findings Report on **Overview**."
         )
         st.caption(
             "Economizer **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT "
@@ -3533,7 +3529,7 @@ def main() -> None:
                     pass
 
         st.caption(
-            "Word report: download the Generic RCx template from the **Overview** section."
+            "Word report: generate the FDD Engineering Findings Report from the **Overview** section."
         )
 
 
