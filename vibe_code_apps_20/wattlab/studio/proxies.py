@@ -18,7 +18,27 @@ DEFAULT_MEASURE_COSTS = {
     "ECM-CHILLER-LOCKOUT": 6000.0,
     "ECM-SAT-RESET": 12000.0,
     "ECM-GL36-AIRSIDE": 45000.0,
+    "ECM-ERV": 85000.0,
+    "ECM-TOILET-EXH-ERV": 35000.0,
 }
+
+
+def _erv_proxy(get, *, oa_cfm: float, exhaust_cfm: float, kw_per_ton: float, bins, schedule) -> dict[str, float]:
+    res = get("erv_bins")(
+        {
+            "oa_cfm": oa_cfm,
+            "exhaust_cfm": exhaust_cfm,
+            "sensible_effectiveness": 0.65,
+            "kw_per_ton": kw_per_ton,
+            "boiler_efficiency": 0.8,
+            "schedule": schedule,
+            "bins": bins,
+        }
+    )
+    return {
+        "savings_kwh": round(float(res["savings_kwh"]), 1),
+        "savings_therms": round(float(res["savings_therms"]), 1),
+    }
 
 
 def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> dict[str, dict[str, float]]:
@@ -34,6 +54,7 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
     )
     supply_cfm = area * PROXY_ASSUMPTIONS["supply_cfm_per_ft2"]
     oa_cfm = supply_cfm * PROXY_ASSUMPTIONS["oa_fraction"]
+    toilet_cfm = max(0.05 * supply_cfm, 500.0)  # screening toilet exhaust fraction
     fan_kw = supply_cfm * PROXY_ASSUMPTIONS["fan_w_per_cfm"] / 1000.0
     kw_per_ton = PROXY_ASSUMPTIONS["kw_per_ton"]
     bins = washington_dc_noaa()
@@ -43,7 +64,20 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
     out: dict[str, dict[str, float]] = {}
     for mid in measure_ids:
         try:
-            if "SCHED" in mid:
+            if mid == "ECM-ERV" or (mid.endswith("-ERV") and "TOILET" not in mid):
+                out[mid] = _erv_proxy(
+                    get, oa_cfm=oa_cfm, exhaust_cfm=oa_cfm, kw_per_ton=kw_per_ton, bins=bins, schedule=existing
+                )
+            elif "TOILET" in mid and "ERV" in mid:
+                out[mid] = _erv_proxy(
+                    get,
+                    oa_cfm=toilet_cfm,
+                    exhaust_cfm=toilet_cfm,
+                    kw_per_ton=kw_per_ton,
+                    bins=bins,
+                    schedule=existing,
+                )
+            elif "SCHED" in mid:
                 fan = get("scheduling_fan_bins")({
                     "fan_kw_total": fan_kw,
                     "existing_schedule": existing,

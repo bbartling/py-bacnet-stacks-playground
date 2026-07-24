@@ -17,6 +17,7 @@ operating schedules:
 - ``condenser_water_reset``     — CW reset screening proxy (gentler ladder, no tower fan penalty)
 - ``pneumatic_compressor``      — control-air compressor kWh from avoided run hours
 - ``dewpoint_economizer``       — "Enthalpy Econ" (economizer-eligible bins)
+- ``erv_bins``                  — air-side energy recovery (AHU OA / toilet exhaust)
 
 Savings conventions use 4.5 * CFM * dH Btu/h for total-enthalpy
 ventilation loads, 1.08 * CFM * dT Btu/h for sensible, 12,000 Btu/ton-h and
@@ -626,3 +627,84 @@ def dewpoint_economizer(i: dict[str, Any]) -> dict[str, Any]:
             "saved_kwh": saved,
         })
     return {"savings_kwh": total, "bins": details}
+
+
+@register("erv_bins")
+def erv_bins(i: dict[str, Any]) -> dict[str, Any]:
+    """Air-side energy recovery — AHU OA or toilet-exhaust makeup screening.
+
+    Recovers a fraction of ventilation heating/cooling between outdoor air and
+    an exhaust / return stream. Balanced AHU ERV: pass ``oa_cfm`` (exhaust
+    defaults to OA). Toilet exhaust ER: pass ``exhaust_cfm`` (toilet) and
+    ``oa_cfm`` (makeup) — recovered CFM is ``min(oa, exhaust)``.
+
+    Inputs: ``oa_cfm``, optional ``exhaust_cfm``, ``sensible_effectiveness``
+    (default 0.65), optional ``latent_effectiveness`` (default 0 — sensible
+    screening), ``return_temp_f`` (75), ``return_enthalpy`` (28.3),
+    ``kw_per_ton``, ``boiler_efficiency``, ``schedule``, ``bins``.
+    """
+    oa_cfm = float(i["oa_cfm"] if "oa_cfm" in i else i.get("oa_cfm_total", 0.0))
+    exh_cfm = float(i["exhaust_cfm"]) if i.get("exhaust_cfm") is not None else oa_cfm
+    recovered_cfm = min(max(0.0, oa_cfm), max(0.0, exh_cfm))
+    if recovered_cfm <= 0:
+        raise ValueError("oa_cfm / exhaust_cfm must yield recovered CFM > 0")
+    sens_eff = float(i.get("sensible_effectiveness", 0.65))
+    lat_eff = float(i.get("latent_effectiveness", 0.0))
+    if not 0.0 <= sens_eff <= 1.0 or not 0.0 <= lat_eff <= 1.0:
+        raise ValueError("effectiveness must be in [0, 1]")
+    return_t = float(i.get("return_temp_f", 75.0))
+    return_h = float(i.get("return_enthalpy", 28.3))
+    kw_per_ton = float(i.get("kw_per_ton", 0.9))
+    efficiency = float(i.get("boiler_efficiency", 0.8))
+    if efficiency <= 0:
+        raise ValueError("boiler_efficiency must be > 0")
+    schedule = _schedule(i, "schedule")
+    bins = _bins(i)
+
+    kwh = 0.0
+    mmbtu = 0.0
+    details = []
+    for row in bins.rows:
+        op_hours = schedule.total_operating_hours(row.shift_hours)
+        dT_heat = max(0.0, return_t - float(row.temp))
+        heat_kbtu_h = 1.08 * recovered_cfm * sens_eff * dT_heat / 1000.0
+        saved_mmbtu = heat_kbtu_h * op_hours / efficiency / 1000.0
+        h_oa = row.oa_enthalpy
+        cool_ton_h = 0.0
+        if h_oa is not None and h_oa > return_h:
+            dH = (h_oa - return_h) * max(sens_eff, lat_eff)
+            cool_ton_h = recovered_cfm * dH * 4.5 / 12000.0
+        saved_kwh = cool_ton_h * op_hours * kw_per_ton
+        kwh += saved_kwh
+        mmbtu += saved_mmbtu
+        details.append(
+            {
+                "temp": row.temp,
+                "operating_hours": op_hours,
+                "saved_kwh": saved_kwh,
+                "saved_mmbtu": saved_mmbtu,
+            }
+        )
+    return {
+        "recovered_cfm": recovered_cfm,
+        "sensible_effectiveness": sens_eff,
+        "latent_effectiveness": lat_eff,
+        "savings_kwh": kwh,
+        "savings_mmbtu": mmbtu,
+        "savings_therms": mmbtu / MMBTU_PER_THERM,
+        "bins": details,
+    }
+
+
+@register("toilet_exhaust_erv_bins")
+def toilet_exhaust_erv_bins(i: dict[str, Any]) -> dict[str, Any]:
+    """Toilet / restroom exhaust energy recovery (thin wrapper on ``erv_bins``).
+
+    Requires ``exhaust_cfm`` (toilet exhaust) and ``oa_cfm`` (makeup OA).
+    """
+    payload = dict(i)
+    if "exhaust_cfm" not in payload and "toilet_exhaust_cfm" in payload:
+        payload["exhaust_cfm"] = payload["toilet_exhaust_cfm"]
+    if "exhaust_cfm" not in payload:
+        raise ValueError("toilet_exhaust_erv_bins requires exhaust_cfm (or toilet_exhaust_cfm)")
+    return erv_bins(payload)

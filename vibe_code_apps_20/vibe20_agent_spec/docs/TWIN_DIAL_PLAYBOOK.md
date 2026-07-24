@@ -1,6 +1,7 @@
 # Twin dial playbook (EnergyPlus × utility bills)
 
-Living playbook for agents dialing WattLab Studio twins. Skills:
+Living playbook for agents dialing WattLab Studio twins. **Start here (short):**
+[`AGENT_CONTEXT.md`](AGENT_CONTEXT.md). Skills:
 [`wattlab-twin-calibrate-dial`](../skills/wattlab-twin-calibrate-dial/SKILL.md),
 [`wattlab-assumptions`](../skills/wattlab-assumptions/SKILL.md) (§ Short/long fuel).
 Tools bin context: [`AGENT_TOOLS.md`](AGENT_TOOLS.md).
@@ -59,9 +60,20 @@ shoulder months gas +100%+. Cold-dump **peak summer only**; keep shoulders warme
 
 **Trap:** Bills may not track HDD (Feb bill ≫ Jan HDD; Oct bill tiny vs HDD).
 Residual CVRMSE ~25–30% can remain after honest HVAC banding — **document it**;
-do not invent physics to force a 15% CV.
+do not invent physics to force a 15% CV. Prefer **OA-hours / ops** over more glass
+when bills ≠ HDD.
 
-### 4. Score + publish
+### 4. Monthly elec shape (CVRMSE) — after gas near/pass
+
+Gas shape before elec shape. Once gas is near/pass:
+
+1. Prefer **month-aware light / equipment schedules** (seasonal Schedule:Compact)
+   over blunt annual LPD/EPD cuts.
+2. Flat annual LPD cuts often trade winter/summer months and can **break a hard-won
+   gas pass**.
+3. Use Twin monthly ±% chart (over/under by month) to see which seasons elec is wrong.
+
+### 5. Score + publish
 
 ```bash
 # inside vibe20 (paths are examples)
@@ -80,7 +92,8 @@ Stamp WWR / U / ACH / SAT bands / min-flow / OA / hypothesis on
 ## Studio UX (agent awareness)
 
 - Twin iteration history: chronological **run #** matching G14 epoch chart.
-- Inspect: dial/hypothesis knobs table + monthly % off + elec/gas overlays.
+- Inspect: dial/hypothesis knobs table + monthly % off + elec/gas overlays +
+  **monthly ±% dial chart** (over/under by month; optional dial-attempt history).
 - ECMs: default baseline = best G14 run (`pick_best_g14_run`); human override OK.
 - Fuel Weather: reuse Open-Meteo hourly cache for Demand cooling-season avg high.
 
@@ -89,6 +102,7 @@ Stamp WWR / U / ACH / SAT bands / min-flow / OA / hypothesis on
 | Path | Role |
 | --- | --- |
 | `/data/tools/` | Campaign scripts ([`AGENT_TOOLS.md`](AGENT_TOOLS.md)) |
+| `/data/tools/AGENT_CONTEXT.md` | Optional live copy of primary handoff |
 | `/data/tools/TWIN_DIAL_PLAYBOOK.md` | Optional live copy of this playbook |
 | `/data/reports/CALIBRATE_SESSION.md` | Session narrative (human/agent append) |
 | `/data/runs/CURRENT_RUN.txt` | Preferred Twin publish |

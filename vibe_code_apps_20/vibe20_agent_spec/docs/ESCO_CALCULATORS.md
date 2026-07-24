@@ -41,6 +41,8 @@ Registered in `wattlab.bench.registry`; run via `wattlab bench` or
 | `dat_reset_bins` | DAT/SAT Reset | Per-bin reset table: raised supply enthalpy × VAV fraction → avoided tons |
 | `hydronic_reset_bins` | HW/CHW/CDW Reset | Reset curve over bins from on-point to design temp; % savings of capacity; `mode: hot_water|chilled_water|condenser_water` |
 | `dewpoint_economizer` | Dewpoint Economizer | Free-cooling bins below dewpoint threshold: avoided (h_return − h_discharge) tons; CV vs VAV min fraction |
+| `erv_bins` | Air-side ERV (AHU OA) | Recovered CFM = min(OA, exhaust) × sensible ε: heating 1.08·CFM·ε·ΔT; cooling 4.5·CFM·ε·Δh / 12000 tons |
+| `toilet_exhaust_erv_bins` | Toilet exhaust ER | Same as `erv_bins`; requires toilet/exhaust CFM vs makeup OA |
 
 Common inputs: `bins` (anything `parse_bins_input` accepts),
 `schedule` / `existing_schedule` / `proposed_schedule`
@@ -69,5 +71,5 @@ lists for auditability.
 2. Add a synthetic golden test or hand-computed check documented in the test
    docstring.
 3. Wire a proxy mapping in `studio.py::estimate_proxy_savings` if a catalog
-   measure should price with it.
+   measure should price with it (`wattlab/studio/proxies.py`).
 4. Update this doc's table.

@@ -923,6 +923,47 @@ def render() -> None:
         )
 
         render_monthly_pct_off_panel(build_monthly_pct_off(bills_rows))
+
+        from wattlab.studio.g14_history import assign_run_numbers, iter_g14_history
+        from wattlab.studio.monthly_dial_chart import (
+            build_history_heatmap_figure,
+            build_monthly_pm_figure,
+            monthly_pct_series,
+            season_summary,
+        )
+
+        st.markdown("#### Monthly dial ±% (over / under)")
+        st.caption(
+            "Positive = model over-predicts bills; negative = under. "
+            "Use seasons to choose the next dial lever (OA hours, SAT bands, schedules)."
+        )
+        fig_e = build_monthly_pm_figure(bills_rows, fuel="elec")
+        if fig_e is not None:
+            st.plotly_chart(fig_e, width="stretch", key="twin_monthly_pm_elec")
+            seas_e = season_summary(monthly_pct_series(bills_rows, fuel="elec"))
+            if seas_e:
+                st.caption("Elec season mean ±%: " + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_e.items()))
+        fig_g = build_monthly_pm_figure(bills_rows, fuel="gas")
+        if fig_g is not None:
+            st.plotly_chart(fig_g, width="stretch", key="twin_monthly_pm_gas")
+            seas_g = season_summary(monthly_pct_series(bills_rows, fuel="gas"))
+            if seas_g:
+                st.caption("Gas season mean ±%: " + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_g.items()))
+
+        try:
+            hist_rows = assign_run_numbers(iter_g14_history(runs_dir(), limit=20))
+        except Exception:
+            hist_rows = []
+        if len(hist_rows) >= 2:
+            with st.expander("Dial-attempt history (monthly ±% by run)", expanded=False):
+                h_e = build_history_heatmap_figure(hist_rows, fuel="elec", limit=12)
+                if h_e is not None:
+                    st.plotly_chart(h_e, width="stretch", key="twin_hist_pm_elec")
+                h_g = build_history_heatmap_figure(hist_rows, fuel="gas", limit=12)
+                if h_g is not None:
+                    st.plotly_chart(h_g, width="stretch", key="twin_hist_pm_gas")
+                if h_e is None and h_g is None:
+                    st.caption("Prior runs lack utility_bills.per_month — publish scorecards to enable history.")
     elif monthly_model:
         st.dataframe(pd.DataFrame(monthly_model).head(24), width="stretch", hide_index=True)
 

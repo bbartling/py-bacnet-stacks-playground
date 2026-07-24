@@ -152,15 +152,37 @@ ecms:
     engineering_rationale: Recovery lowers ventilation heating, cooling, and dehumidification loads.
     required_inputs: [outside_air_cfm, annual_weather_bins, exhaust_air_availability]
     optional_inputs: [latent_effectiveness, sensible_effectiveness]
-    proxy_calculator: null
+    proxy_calculator: erv_bins
     energyplus_patch: null
     conceptual_surrogate: true
     unit_contract: {airflow: m3/s, effectiveness: fraction, savings: kWh/year}
     applicability_checks: [Confirm exhaust and intake adjacency, Screen cross-contamination]
     humidity_risk: medium
     implementation_complexity: high
-    confidence: low
-    status: NEEDS_IMPLEMENTATION
+    confidence: medium
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-TOILET-EXH-ERV
+    display_name: Toilet / restroom exhaust energy recovery
+    short_name: Toilet ER
+    category: oa_ventilation
+    equipment_types: [exhaust_fan, energy_recovery_ventilator]
+    system_families: [dedicated_outdoor_air, all_air]
+    retrofit_classes: [capital]
+    description: Recover heat from toilet/restroom exhaust against outdoor-air makeup.
+    engineering_rationale: Continuous restroom exhaust is a steady ventilation load; ER reduces makeup heating/cooling.
+    required_inputs: [toilet_exhaust_cfm, makeup_oa_cfm, annual_weather_bins]
+    optional_inputs: [sensible_effectiveness]
+    proxy_calculator: toilet_exhaust_erv_bins
+    energyplus_patch: null
+    conceptual_surrogate: true
+    unit_contract: {airflow: cfm, effectiveness: fraction, savings: kWh/year}
+    applicability_checks: [Confirm exhaust can be ducted to ER core, Screen cross-contamination]
+    humidity_risk: medium
+    implementation_complexity: medium
+    confidence: medium
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-SAT-RESET
