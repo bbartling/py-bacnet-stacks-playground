@@ -152,12 +152,19 @@ reports/utility_bills.csv | last_dry_run_plan.json | BUG_REPORT.md | CALIBRATE_S
 
 **Twin Model assumptions:** Inspect iteration shows Model-at-a-Glance + a provenance
 table from the **published IDF + meta + answers** (not a parallel editable form).
+Iteration history lists chronological **run #** (1…N, oldest → newest) matching the
+G14 epoch chart; Inspect labels look like `#3 · run_id`. A compact **dial / hypothesis
+knobs** table (lights/equip/infil/SHGC/WWR/U/ACH/SAT/OA + hypothesis) sits above the
+full assumptions panel, sourced from `dial_meta` / geo meta / answers.
 When the run has `utility_bills.per_month`, Inspect also shows monthly % off
-narratives (model too high/low by month for elec and gas).
+narratives (model too high/low by month for elec and gas) plus elec **and gas**
+monthly bills-vs-model overlays when therms are present.
 Always publish `model.idf` and dial/geo meta into `runs/<id>/`. Twin panes follow
 `CURRENT_RUN.txt` / newest run; humans pin via **Show 08 panes for selection**.
 **Refresh agent runs** clears the pin. Code/reference basis wording is
 “model reference/default” — never claim ASHRAE 90.1 compliance from defaults alone.
+ECMs default the baseline Twin run to best G14 (`pick_best_g14_run`); override via
+`studio_ecm_baseline_run`.
 
 ## Docker turnkey (Studio + EnergyPlus MCP image)
 

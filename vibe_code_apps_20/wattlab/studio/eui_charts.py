@@ -102,7 +102,7 @@ def eui_peer_bullet_figure(
 
     rows = [s for s in series if s.get("eui") is not None and s.get("label")]
     if not rows:
-        rows = [{"label": "Peers only", "eui": peer_p50, "color": "#888", "symbol": "circle"}]
+        rows = [{"label": "Same-type band only", "eui": peer_p50, "color": "#888", "symbol": "circle"}]
 
     labels = [str(r["label"]) for r in rows]
     n = len(labels)
@@ -153,14 +153,14 @@ def eui_peer_bullet_figure(
         y=[None],
         mode="markers",
         marker=dict(size=12, color="rgba(44,160,44,0.5)", symbol="square"),
-        name=f"Peer p20–p80 ({peer_p20:.0f}–{peer_p80:.0f})",
+        name=f"Same-type band p20–p80 ({peer_p20:.0f}–{peer_p80:.0f})",
     )
     fig.add_scatter(
         x=[None],
         y=[None],
         mode="lines",
         line=dict(color="#2ca02c", width=2, dash="dash"),
-        name=f"Peer p50 ({peer_p50:.1f})",
+        name=f"Typical same-type (p50={peer_p50:.1f})",
     )
 
     h = height or max(420, 360 + 20 * max(0, n - 2))

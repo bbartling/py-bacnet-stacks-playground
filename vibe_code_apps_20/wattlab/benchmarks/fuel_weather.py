@@ -279,6 +279,124 @@ def residual_frame(aligned: pd.DataFrame, fit: FuelFit) -> pd.DataFrame:
     return sub[["month", "usage", "predicted", "residual", fit.x_name]].reset_index(drop=True)
 
 
+FIT_VIEW_ELECTRIC = "Electric × CDD"
+FIT_VIEW_GAS = "Gas × HDD"
+FIT_VIEW_BOTH = "Both"
+FIT_VIEW_OPTIONS = (FIT_VIEW_BOTH, FIT_VIEW_ELECTRIC, FIT_VIEW_GAS)
+
+
+def select_fits_for_view(fits: list[FuelFit], view: str) -> list[FuelFit]:
+    """Filter OLS fits for the Weather-tab view selectbox."""
+    v = (view or FIT_VIEW_BOTH).strip()
+    if v == FIT_VIEW_ELECTRIC:
+        return [f for f in fits if f.fuel == "electricity"]
+    if v == FIT_VIEW_GAS:
+        return [f for f in fits if f.fuel == "gas"]
+    return list(fits)
+
+
+def _hourly_dry_bulb(hourly: pd.Series | pd.DataFrame, *, col: str = "dry_bulb_f") -> pd.Series:
+    if isinstance(hourly, pd.DataFrame):
+        if col not in hourly.columns:
+            raise KeyError(f"hourly frame missing {col!r}")
+        s = hourly[col].astype(float)
+    else:
+        s = hourly.astype(float)
+    if not isinstance(s.index, pd.DatetimeIndex):
+        raise TypeError("hourly series/frame must have a DatetimeIndex")
+    return s
+
+
+def daily_max_oat_f(hourly: pd.Series | pd.DataFrame, *, col: str = "dry_bulb_f") -> pd.Series:
+    """Daily maximum dry-bulb (°F) from hourly weather."""
+    s = _hourly_dry_bulb(hourly, col=col)
+    return s.groupby(s.index.floor("D")).max()
+
+
+def cooling_season_avg_high_by_year(
+    hourly: pd.Series | pd.DataFrame,
+    *,
+    col: str = "dry_bulb_f",
+    months: tuple[int, ...] = (5, 6, 7, 8, 9),
+) -> dict[int, float]:
+    """Per calendar year: mean of daily-max dry-bulb °F over cooling-season months.
+
+    Default cooling season is May–Sep (months 5–9).
+    """
+    daily_max = daily_max_oat_f(hourly, col=col)
+    if daily_max.empty:
+        return {}
+    idx = pd.DatetimeIndex(daily_max.index)
+    mask = idx.month.isin(months)
+    sub = daily_max.loc[mask]
+    if sub.empty:
+        return {}
+    out: dict[int, float] = {}
+    for year, g in sub.groupby(pd.DatetimeIndex(sub.index).year):
+        vals = g.dropna()
+        if len(vals) == 0:
+            continue
+        out[int(year)] = float(vals.mean())
+    return out
+
+
+def pearson_corr(x: np.ndarray | list[float], y: np.ndarray | list[float]) -> float:
+    """Pearson r; NaN when fewer than 2 finite paired points or zero variance."""
+    xa = np.asarray(x, dtype=float)
+    ya = np.asarray(y, dtype=float)
+    mask = np.isfinite(xa) & np.isfinite(ya)
+    xa, ya = xa[mask], ya[mask]
+    if xa.size < 2:
+        return float("nan")
+    if float(np.std(xa)) < 1e-12 or float(np.std(ya)) < 1e-12:
+        return float("nan")
+    return float(np.corrcoef(xa, ya)[0, 1])
+
+
+def daily_cdd_from_hourly(
+    hourly: pd.Series | pd.DataFrame,
+    *,
+    col: str = "dry_bulb_f",
+    base_f: float = DD_BASE_F,
+) -> pd.Series:
+    """Daily CDD series (index = day) from hourly OAT."""
+    from wattlab.weather.degree_days import daily_mean_oat_f, degree_days_from_daily
+
+    daily = degree_days_from_daily(daily_mean_oat_f(hourly, col=col), base_f=base_f)
+    return daily["cdd"]
+
+
+def weekday_weekend_elec_cdd_frames(
+    daily_kwh: pd.Series,
+    daily_cdd: pd.Series,
+) -> dict[str, pd.DataFrame]:
+    """Join daily electric kWh to daily CDD; split weekday vs weekend.
+
+    Returns ``{"weekday": DataFrame, "weekend": DataFrame}`` with columns
+    ``date``, ``kwh``, ``cdd``, ``day_type``.
+    """
+    kwh = daily_kwh.astype(float).copy()
+    cdd = daily_cdd.astype(float).copy()
+    kwh.index = pd.DatetimeIndex(kwh.index).floor("D")
+    cdd.index = pd.DatetimeIndex(cdd.index).floor("D")
+    joined = pd.DataFrame({"kwh": kwh, "cdd": cdd}).dropna()
+    if joined.empty:
+        empty = pd.DataFrame(columns=["date", "kwh", "cdd", "day_type"])
+        return {"weekday": empty.copy(), "weekend": empty.copy()}
+    dow = joined.index.dayofweek  # Mon=0 … Sun=6
+    joined = joined.assign(
+        day_type=np.where(dow >= 5, "weekend", "weekday"),
+        date=joined.index.strftime("%Y-%m-%d"),
+    )
+    out: dict[str, pd.DataFrame] = {}
+    for kind in ("weekday", "weekend"):
+        sub = joined[joined["day_type"] == kind][["date", "kwh", "cdd", "day_type"]].reset_index(
+            drop=True
+        )
+        out[kind] = sub
+    return out
+
+
 def gas_usage_therms(usage: float, unit: str) -> float:
     u = (unit or "").lower()
     if u in ("therm", "therms"):
@@ -317,12 +435,19 @@ def build_fuel_weather_report(
 
 
 __all__ = [
+    "FIT_VIEW_BOTH",
+    "FIT_VIEW_ELECTRIC",
+    "FIT_VIEW_GAS",
+    "FIT_VIEW_OPTIONS",
     "FuelFit",
     "MIN_OVERLAP_MONTHS",
     "align_fuel_and_degree_days",
     "bill_overlap_months",
     "build_fuel_weather_report",
     "campus_fuel_totals",
+    "cooling_season_avg_high_by_year",
+    "daily_cdd_from_hourly",
+    "daily_max_oat_f",
     "demand_heatmap_frame",
     "fit_weather_responses",
     "fit_window_choices",
@@ -331,5 +456,8 @@ __all__ = [
     "meter_monthly_long",
     "months_for_fit_years",
     "ols_fit",
+    "pearson_corr",
     "residual_frame",
+    "select_fits_for_view",
+    "weekday_weekend_elec_cdd_frames",
 ]

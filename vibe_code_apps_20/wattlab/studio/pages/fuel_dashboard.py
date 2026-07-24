@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -10,14 +11,23 @@ import pandas as pd
 import streamlit as st
 
 from wattlab.benchmarks import Campus, annual_summary, compare_eui
+from wattlab.benchmarks.eui import load_registry, normalize_property_type
 from wattlab.benchmarks.fuel_weather import (
+    FIT_VIEW_BOTH,
+    FIT_VIEW_OPTIONS,
     align_fuel_and_degree_days,
     build_fuel_weather_report,
     campus_fuel_totals,
+    cooling_season_avg_high_by_year,
+    daily_cdd_from_hourly,
     demand_heatmap_frame,
     fit_weather_responses,
     intensity_heatmap_frame,
+    ols_fit,
+    pearson_corr,
     residual_frame,
+    select_fits_for_view,
+    weekday_weekend_elec_cdd_frames,
 )
 from wattlab.benchmarks.meters import ALLOCATION_METHODS, year_month_matrix
 from wattlab.config import ARTIFACTS
@@ -92,14 +102,93 @@ def _fetch_open_meteo(campus: Campus, lat: float, lon: float) -> tuple[pd.DataFr
     return df, meta.model_dump(mode="json")
 
 
-def _peer_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
+def _same_type_rows(summary: dict[str, Any], property_type_override: str | None = None) -> list[dict[str, Any]]:
     rows = []
     for b in summary["buildings"]:
-        cmp = compare_eui(b["site_eui_kbtu_ft2"], b["property_type"])
+        ptype = property_type_override or b["property_type"]
+        cmp = compare_eui(b["site_eui_kbtu_ft2"], ptype)
         rows.append(
-            {**b, **{f"peer_{k}": cmp[k] for k in ("p20", "p50", "p80", "band", "vs_median_pct")}}
+            {
+                **b,
+                "property_type_used": cmp["property_type"],
+                **{f"peer_{k}": cmp[k] for k in ("p20", "p50", "p80", "band", "vs_median_pct")},
+            }
         )
     return rows
+
+
+def _property_type_choices() -> list[str]:
+    types = sorted(
+        {
+            str(r.get("property_type"))
+            for r in load_registry()
+            if r.get("property_type") and r.get("property_type") != "commercial_all"
+        }
+    )
+    return types or ["office"]
+
+
+def _resolve_building_type(campus: Campus, summary: dict[str, Any]) -> str:
+    answers = st.session_state.get("studio_answers")
+    if isinstance(answers, dict) and answers.get("building_type"):
+        return normalize_property_type(str(answers["building_type"]))
+    if campus.buildings:
+        return normalize_property_type(campus.buildings[0].property_type or "office")
+    if summary.get("buildings"):
+        return normalize_property_type(str(summary["buildings"][0].get("property_type") or "office"))
+    return "office"
+
+
+def _interval_electric_daily_kwh() -> pd.Series | None:
+    """Daily electric kWh from session/uploads interval meters, if present."""
+    ds = st.session_state.get("studio_interval")
+    frame = None
+    if ds is not None and getattr(ds, "frame", None) is not None:
+        frame = ds.frame
+    if frame is None:
+        path = None
+        answers = st.session_state.get("studio_answers")
+        if isinstance(answers, dict):
+            path = answers.get("interval_meters") or answers.get("interval_data_path")
+        if not path:
+            path = st.session_state.get("studio_interval_path")
+        if path:
+            p = Path(str(path))
+            if p.is_file():
+                try:
+                    from wattlab.existing_building.interval_meters import load_interval_csv
+
+                    loaded = load_interval_csv(p)
+                    st.session_state["studio_interval"] = loaded
+                    frame = loaded.frame
+                except Exception:
+                    return None
+    if frame is None or "electric_kwh" not in getattr(frame, "columns", []):
+        return None
+    s = frame["electric_kwh"].astype(float)
+    if not isinstance(s.index, pd.DatetimeIndex):
+        return None
+    daily = s.groupby(s.index.floor("D")).sum()
+    if daily.dropna().empty:
+        return None
+    return daily
+
+
+def _cache_hourly_wx(df: pd.DataFrame | pd.Series) -> None:
+    """Persist hourly weather for Weather + Demand tabs (plan key + legacy)."""
+    if isinstance(df, pd.Series):
+        frame = df.to_frame(name="dry_bulb_f")
+    else:
+        frame = df
+    st.session_state["fuel_dash_hourly"] = frame
+    st.session_state["fuel_dash_hourly_wx"] = frame
+
+
+def _hourly_wx_from_session() -> pd.DataFrame | pd.Series | None:
+    wx = st.session_state.get("fuel_dash_hourly_wx")
+    if wx is not None:
+        return wx
+    return st.session_state.get("fuel_dash_hourly")
 
 
 def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
@@ -113,16 +202,36 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
         "Cost / carbon / anomaly KPIs: **NEEDS_INPUT** (not in monthly campus package)."
     )
 
-    st.subheader("Site EUI vs peers (same property type)")
+    choices = _property_type_choices()
+    current = _resolve_building_type(campus, summary)
+    if current not in choices:
+        choices = [current, *choices]
+    ix = choices.index(current) if current in choices else 0
+    override = st.selectbox(
+        "Building type (benchmark override)",
+        choices,
+        index=ix,
+        key="fuel_dash_building_type",
+        help="Writes studio_answers['building_type'] and refreshes same-type EUI compare.",
+    )
+    answers = st.session_state.get("studio_answers")
+    if not isinstance(answers, dict):
+        answers = {}
+    if str(answers.get("building_type") or "") != override:
+        answers = {**answers, "building_type": override}
+        st.session_state["studio_answers"] = answers
+
+    st.subheader("Site EUI vs other buildings (same type)")
     with st.expander("How buildings are benchmarked", expanded=False):
         st.markdown(
             "Site EUI is annualized utility energy ÷ floor area (kBtu/ft²·yr). "
-            "Peer **p20 / p50 / p80** come from a public EPA/CBECS-style registry "
-            "keyed by each building's `property_type` (office, school, …). "
-            "Below p20 ≈ efficient vs peers; above p80 ≈ needs attention. "
+            "Typical same-type EUI uses a public EPA/CBECS-style registry keyed by "
+            "`building_type` / `property_type` (office, school, …). "
+            "Same-type band (efficient…attention): below registry **p20** ≈ efficient; "
+            "above **p80** ≈ needs attention. "
             "This is a screening band — not ENERGY STAR scores or calibrated models."
         )
-    rows = _peer_rows(summary)
+    rows = _same_type_rows(summary, property_type_override=override)
     dfb = pd.DataFrame(rows)
     b0 = rows[0]
     p1, p2, p3, p4 = st.columns(4)
@@ -132,24 +241,23 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
         help="Annualized campus/building bills ÷ floor area (kBtu/ft²·yr).",
     )
     p2.metric(
-        "Peer typical (p50)",
+        "Typical same-type EUI (p50)",
         f"{b0['peer_p50']} kBtu/ft²",
-        help="Median peer site EUI for this property_type (EPA/CBECS-style registry).",
+        help="Median site EUI for this building type (EPA/CBECS-style registry).",
     )
     p3.metric(
-        "Peer p20–p80",
+        "Same-type band (p20–p80)",
         f"{b0['peer_p20']} – {b0['peer_p80']}",
-        help="Typical peer band: p20 (efficient side) to p80 (high side).",
+        help="Efficient side (p20) to attention side (p80) for this building type.",
     )
     p4.metric(
-        "vs median",
+        "vs typical",
         f"{b0['peer_vs_median_pct']:+.1f}% · {b0['peer_band']}",
-        help="Percent vs peer p50 and band label (efficient / typical / high).",
+        help="Percent vs registry p50 and band label (efficient / typical / high).",
     )
 
     from wattlab.studio.eui_charts import eui_peer_bullet_figure
 
-    # One band per property type when mixed; else shared band + one row per building
     series = []
     for _, r in dfb.iterrows():
         series.append(
@@ -160,20 +268,56 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
                 "symbol": "diamond",
             }
         )
-    # Use first building's peers as the screening band (same-type campuses);
-    # per-building bands still show in the metrics / attention table.
     fig_peer = eui_peer_bullet_figure(
         peer_p20=float(dfb["peer_p20"].iloc[0]),
         peer_p50=float(dfb["peer_p50"].iloc[0]),
         peer_p80=float(dfb["peer_p80"].iloc[0]),
         series=series,
-        title="Site EUI vs peer p20–p80 band",
+        title="Site EUI vs same-type band (efficient…attention)",
         height=440,
     )
     st.caption(
-        "Upright peer band (green = p20–p80, dashed = p50). Diamonds = building site EUI from bills."
+        "Upright same-type band (green = p20–p80, dashed = p50). "
+        "Diamonds = building site EUI from bills."
     )
     st.plotly_chart(fig_peer, width="stretch", key="fuel_peer_eui_chart")
+
+    st.subheader("Intensity heatmaps")
+    h1, h2 = st.columns(2)
+    with h1:
+        mat = intensity_heatmap_frame(campus, fuel="electricity")
+        if not mat.empty:
+            from wattlab.studio.eui_charts import month_abbrev_columns
+
+            st.plotly_chart(
+                px.imshow(
+                    month_abbrev_columns(mat),
+                    aspect="auto",
+                    color_continuous_scale="YlOrRd",
+                    title="Elec kBtu/ft²",
+                ),
+                width="stretch",
+                key="fuel_heat_elec",
+            )
+        else:
+            st.caption("No electric intensity months.")
+    with h2:
+        mat = intensity_heatmap_frame(campus, fuel="gas")
+        if not mat.empty:
+            from wattlab.studio.eui_charts import month_abbrev_columns
+
+            st.plotly_chart(
+                px.imshow(
+                    month_abbrev_columns(mat),
+                    aspect="auto",
+                    color_continuous_scale="Blues",
+                    title="Gas kBtu/ft²",
+                ),
+                width="stretch",
+                key="fuel_heat_gas",
+            )
+        else:
+            st.caption("No gas intensity months.")
 
     # Stacked monthly by commodity
     totals = campus_fuel_totals(campus)
@@ -207,7 +351,13 @@ def _render_portfolio(summary: dict[str, Any], campus: Campus, px, go) -> None:
                 "peer_band",
                 "peer_vs_median_pct",
             ]
-        ],
+        ].rename(
+            columns={
+                "peer_p50": "typical_same_type_p50",
+                "peer_band": "same_type_band",
+                "peer_vs_median_pct": "vs_typical_pct",
+            }
+        ),
         width="stretch",
         hide_index=True,
     )
@@ -359,18 +509,18 @@ def _render_weather(campus: Campus, px, go) -> None:
             else:
                 with st.spinner("Open-Meteo (full bill span)…"):
                     df, meta = _fetch_open_meteo(campus, lat_u, lon_u)
-                st.session_state["fuel_dash_hourly"] = df
+                _cache_hourly_wx(df)
                 st.session_state["fuel_dash_meta"] = meta
                 st.success(f"Open-Meteo OK — {meta.get('rows')} rows (all bill years)")
         except Exception as exc:
             st.error(f"Open-Meteo failed: {exc}")
     if w2.button("Synthetic seasonal OAT (offline)", key="fuel_dash_synth"):
         s = _synthetic_hourly(campus)
-        st.session_state["fuel_dash_hourly"] = s.to_frame(name="dry_bulb_f")
+        _cache_hourly_wx(s)
         st.session_state["fuel_dash_meta"] = {"source": "synthetic_seasonal", "rows": int(len(s))}
         st.warning("Synthetic OAT — prefer Open-Meteo for real R².")
 
-    hourly = st.session_state.get("fuel_dash_hourly")
+    hourly = _hourly_wx_from_session()
     meta = st.session_state.get("fuel_dash_meta") or {}
     if hourly is None:
         st.info("Fetch Open-Meteo or use synthetic OAT for degree-day fits.")
@@ -388,11 +538,23 @@ def _render_weather(campus: Campus, px, go) -> None:
     if not fits:
         st.warning("Need ≥6 overlapping months for R².")
         return
-    mcols = st.columns(len(fits))
-    for col, fit in zip(mcols, fits):
+
+    view = st.selectbox(
+        "Fit view",
+        list(FIT_VIEW_OPTIONS),
+        index=list(FIT_VIEW_OPTIONS).index(FIT_VIEW_BOTH),
+        key="fuel_dash_fit_view",
+        help="Show electric×CDD, gas×HDD, or both OLS scatters.",
+    )
+    shown = select_fits_for_view(fits, view)
+    if not shown:
+        st.warning(f"No fit available for view “{view}” in this window.")
+        return
+    mcols = st.columns(len(shown))
+    for col, fit in zip(mcols, shown):
         col.metric(f"{fit.fuel} R² ({fit.x_name.upper()})", f"{fit.r2:.3f}")
 
-    for fit in fits:
+    for fit in shown:
         sub = aligned[aligned["fuel"] == fit.fuel]
         fig = go.Figure()
         fig.add_scatter(
@@ -421,6 +583,56 @@ def _render_weather(campus: Campus, px, go) -> None:
             key=f"fuel_wx_resid_{fit.fuel}",
         )
 
+    interval_daily = _interval_electric_daily_kwh()
+    has_interval = interval_daily is not None
+    weekends = st.checkbox(
+        "Weekends vs weekdays (electric × daily CDD)",
+        value=False,
+        key="fuel_dash_weekday_weekend",
+        disabled=not has_interval,
+    )
+    if not has_interval:
+        st.caption(
+            "Needs interval electric meters; monthly bills cannot split weekdays/weekends."
+        )
+    elif weekends:
+        try:
+            cdd = daily_cdd_from_hourly(hourly)
+            frames = weekday_weekend_elec_cdd_frames(interval_daily, cdd)
+            for kind, sub in frames.items():
+                if sub.empty or len(sub) < 3:
+                    st.caption(f"{kind.title()}: not enough overlapping days.")
+                    continue
+                fig_d = go.Figure()
+                fig_d.add_scatter(
+                    x=sub["cdd"],
+                    y=sub["kwh"],
+                    mode="markers",
+                    text=sub["date"],
+                    name=kind,
+                )
+                slope, intercept, r2 = ols_fit(
+                    sub["cdd"].to_numpy(), sub["kwh"].to_numpy()
+                )
+                if np.isfinite(r2):
+                    xs = np.linspace(float(sub["cdd"].min()), float(sub["cdd"].max()), 40)
+                    fig_d.add_scatter(
+                        x=xs,
+                        y=slope * xs + intercept,
+                        mode="lines",
+                        name=f"R²={r2:.3f}",
+                    )
+                fig_d.update_layout(
+                    title=f"{kind.title()} electric kWh vs daily CDD",
+                    height=320,
+                    margin=dict(l=10, r=10, t=40, b=10),
+                    xaxis_title="CDD",
+                    yaxis_title="kWh/day",
+                )
+                st.plotly_chart(fig_d, width="stretch", key=f"fuel_wx_daytype_{kind}")
+        except Exception as exc:
+            st.warning(f"Weekday/weekend chart failed: {exc}")
+
     report = build_fuel_weather_report(
         campus, hourly, weather_source=str(meta.get("source") or "unknown"), months=fit_months
     )
@@ -429,6 +641,8 @@ def _render_weather(campus: Campus, px, go) -> None:
 
 
 def _render_demand(campus: Campus, px) -> None:
+    import plotly.graph_objects as go
+
     from wattlab.studio.eui_charts import month_abbrev_columns
 
     st.subheader("Demand & peak analysis")
@@ -443,16 +657,71 @@ def _render_demand(campus: Campus, px) -> None:
         width="stretch",
         key="fuel_heat_demand",
     )
-    # Monthly peak bars when heatmap has numeric values
     peaks = mat.max(axis=1)
-    if not peaks.empty:
-        fig = px.bar(
-            x=peaks.index.astype(str),
-            y=peaks.values,
-            labels={"x": "year", "y": "peak_kw"},
-            title="Peak demand by year (from bill demand_kw)",
+    if peaks.empty:
+        return
+
+    hourly = _hourly_wx_from_session()
+    cool_by_year = cooling_season_avg_high_by_year(hourly) if hourly is not None else {}
+
+    years = [int(y) for y in peaks.index]
+    peak_vals = [float(peaks.loc[y]) for y in peaks.index]
+    cool_vals = [cool_by_year.get(int(y)) for y in years]
+
+    fig = go.Figure()
+    fig.add_bar(x=[str(y) for y in years], y=peak_vals, name="Peak kW", marker_color="#1f77b4")
+    if any(v is not None for v in cool_vals):
+        fig.add_scatter(
+            x=[str(y) for y in years],
+            y=cool_vals,
+            mode="lines+markers",
+            name="Cooling-season avg high °F (May–Sep)",
+            yaxis="y2",
+            line=dict(color="#d62728", width=2),
         )
-        st.plotly_chart(fig, width="stretch", key="fuel_monthly_peak")
+        fig.update_layout(
+            yaxis2=dict(
+                title="Avg daily-max °F",
+                overlaying="y",
+                side="right",
+                showgrid=False,
+            ),
+        )
+    else:
+        st.caption("Fetch Open-Meteo on Weather & Baseline first.")
+    fig.update_layout(
+        title="Peak demand by year + cooling-season avg high",
+        height=380,
+        margin=dict(l=10, r=10, t=40, b=10),
+        yaxis_title="peak_kw",
+        legend=dict(orientation="h", y=1.12),
+    )
+    st.plotly_chart(fig, width="stretch", key="fuel_monthly_peak")
+
+    pairs_x = []
+    pairs_y = []
+    for y, pk, cool in zip(years, peak_vals, cool_vals):
+        if cool is None or not np.isfinite(cool) or not np.isfinite(pk):
+            continue
+        pairs_x.append(float(cool))
+        pairs_y.append(float(pk))
+    if len(pairs_x) >= 2:
+        r = pearson_corr(pairs_x, pairs_y)
+        c1, c2 = st.columns(2)
+        c1.metric(
+            "r(peak kW, cool-season avg high)",
+            f"{r:.3f}" if np.isfinite(r) else "—",
+            help="Pearson correlation across bill years with weather cache.",
+        )
+        scatter = px.scatter(
+            x=pairs_x,
+            y=pairs_y,
+            labels={"x": "Cooling-season avg high °F", "y": "Peak kW"},
+            title="Peak kW vs cooling-season avg high",
+        )
+        c2.plotly_chart(scatter, width="stretch", key="fuel_peak_cool_scatter")
+    elif hourly is not None:
+        st.caption("Need ≥2 years with both peak kW and cooling-season highs for correlation.")
 
 
 def _render_data_quality(campus: Campus, summary: dict[str, Any]) -> None:
@@ -472,39 +741,7 @@ def _render_data_quality(campus: Campus, summary: dict[str, Any]) -> None:
         f"Allocation method is a scenario (not meter truth). Shared meters: "
         f"{[m.meter_id for m in campus.meters if m.shared] or 'none'}."
     )
-    h1, h2 = st.columns(2)
-    with h1:
-        mat = intensity_heatmap_frame(campus, fuel="electricity")
-        if not mat.empty:
-            import plotly.express as px
-            from wattlab.studio.eui_charts import month_abbrev_columns
-
-            st.plotly_chart(
-                px.imshow(
-                    month_abbrev_columns(mat),
-                    aspect="auto",
-                    color_continuous_scale="YlOrRd",
-                    title="Elec kBtu/ft²",
-                ),
-                width="stretch",
-                key="fuel_heat_elec",
-            )
-    with h2:
-        mat = intensity_heatmap_frame(campus, fuel="gas")
-        if not mat.empty:
-            import plotly.express as px
-            from wattlab.studio.eui_charts import month_abbrev_columns
-
-            st.plotly_chart(
-                px.imshow(
-                    month_abbrev_columns(mat),
-                    aspect="auto",
-                    color_continuous_scale="Blues",
-                    title="Gas kBtu/ft²",
-                ),
-                width="stretch",
-                key="fuel_heat_gas",
-            )
+    st.caption("Intensity heatmaps moved to **Portfolio Overview**.")
 
 
 def render(*, campus: Campus | None = None) -> None:

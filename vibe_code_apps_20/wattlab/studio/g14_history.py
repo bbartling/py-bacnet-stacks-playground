@@ -93,6 +93,67 @@ def iter_g14_history(runs_root: Path | str, *, limit: int = 30) -> list[dict[str
     return rows
 
 
+def assign_run_numbers(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add chronological ``run`` 1…N (oldest → newest). Mutates copies."""
+    out: list[dict[str, Any]] = []
+    for i, r in enumerate(rows, start=1):
+        out.append({**r, "run": i})
+    return out
+
+
+def _g14_error_score(row: dict[str, Any]) -> float:
+    """Lower is better: |NMBE|+CVRMSE elec (+ gas when present)."""
+    total = 0.0
+    n = 0
+    for nk, ck in (
+        ("nmbe_elec_pct", "cvrmse_elec_pct"),
+        ("nmbe_gas_pct", "cvrmse_gas_pct"),
+    ):
+        try:
+            nmbe = row.get(nk)
+            cv = row.get(ck)
+            if nmbe is None and cv is None:
+                continue
+            part = 0.0
+            if nmbe is not None:
+                part += abs(float(nmbe))
+            if cv is not None:
+                part += abs(float(cv))
+            total += part
+            n += 1
+        except (TypeError, ValueError):
+            continue
+    if n == 0:
+        return float("inf")
+    return total
+
+
+def _is_g14_pass(row: dict[str, Any]) -> bool:
+    pf = str(row.get("pass_fail") or "").strip().upper()
+    return pf in {"PASS", "PASSED", "OK", "SUCCESS"}
+
+
+def pick_best_g14_run(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Choose best published Twin run for ECM baseline.
+
+    Prefer G14 PASS; else minimize |NMBE|+CVRMSE (elec, plus gas when present).
+    """
+    if not rows:
+        return None
+    numbered = rows if all("run" in r for r in rows) else assign_run_numbers(list(rows))
+    with_metrics = [
+        r
+        for r in numbered
+        if r.get("nmbe_elec_pct") is not None
+        or r.get("cvrmse_elec_pct") is not None
+        or r.get("nmbe_gas_pct") is not None
+    ]
+    pool = with_metrics or numbered
+    passes = [r for r in pool if _is_g14_pass(r)]
+    candidates = passes if passes else pool
+    return min(candidates, key=_g14_error_score)
+
+
 def g14_epoch_figure(rows: list[dict[str, Any]], *, height: int = 440):
     """Plot |NMBE| and CV(RMSE) vs iteration index (training-loss style)."""
     import plotly.graph_objects as go

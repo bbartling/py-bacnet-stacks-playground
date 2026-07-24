@@ -50,12 +50,13 @@ def _render_eui_index(
     run_dir: Path | None = None,
     chart_key: str = "twin_eui_index",
 ) -> None:
-    """Bills vs peer typical EUI vs EnergyPlus model — always visible when data exists."""
+    """Bills vs typical same-type EUI vs EnergyPlus model — always visible when data exists."""
     with st.container(border=True):
-        st.subheader("EUI index — bills vs peers vs model")
+        st.subheader("EUI index — bills vs other buildings (same type) vs model")
         st.caption(
-            "Upright peer band (p20–p80, dashed p50). **Bills** = annualized site EUI from utilities. "
-            "**Peers** = public registry for this property type. **Model** = EnergyPlus site intensity "
+            "Upright same-type band (p20–p80, dashed p50). **Bills** = annualized site EUI from utilities. "
+            "**Other buildings (same type)** = public registry for this property type. "
+            "**Model** = EnergyPlus site intensity "
             "(comparable as EUI; absolute kWh needs site-scale geometry + area_scale=1)."
         )
         bill_eui = None
@@ -97,7 +98,7 @@ def _render_eui_index(
         if bill_eui is None and model_eui is None:
             st.info(
                 "Load Fuel campus bills and/or publish a Twin run with report.json to see "
-                "bill EUI vs peer p20/p50/p80 vs model."
+                "bill EUI vs typical same-type (p20/p50/p80) vs model."
             )
             return
 
@@ -116,9 +117,9 @@ def _render_eui_index(
             help="Annualized utility bills ÷ floor area (kBtu/ft²·yr).",
         )
         m2.metric(
-            "Peer typical (p50)",
+            "Typical same-type EUI (p50)",
             f"{idx['peer_p50']} kBtu/ft²",
-            help="Median peer site EUI for this property type (public registry).",
+            help="Median site EUI for this property type (public registry).",
         )
         m3.metric(
             "Model EUI (prototype)",
@@ -126,9 +127,9 @@ def _render_eui_index(
             help="EnergyPlus site EUI on prototype area (intensity comparable; scale absolute kWh).",
         )
         m4.metric(
-            "Peer band",
+            "Same-type band",
             f"p20={idx['peer_p20']} · p80={idx['peer_p80']}",
-            help="Peer p20–p80 screening band for this property type.",
+            help="Same-type band (efficient…attention) p20–p80 for this property type.",
         )
 
         df = pd.DataFrame(idx["rows"])
@@ -158,7 +159,7 @@ def _render_eui_index(
             peer_p50=float(idx["peer_p50"]),
             peer_p80=float(idx["peer_p80"]),
             series=series,
-            title=f"{idx.get('benchmark_name') or idx['property_type']} — bills vs peers vs model",
+            title=f"{idx.get('benchmark_name') or idx['property_type']} — bills vs same-type vs model",
             height=440,
         )
         st.plotly_chart(fig, width="stretch", key=chart_key)
@@ -831,22 +832,24 @@ def render() -> None:
 
         bdf = pd.DataFrame(bills_rows)
         st.dataframe(bdf, width="stretch", hide_index=True)
-        if "observed_kwh" in bdf.columns and "modeled_kwh" in bdf.columns:
+
+        def _month_labels(plot_df: pd.DataFrame) -> list[Any]:
+            if "month" not in plot_df.columns:
+                return list(range(len(plot_df)))
+            mo = plot_df["month"].astype(str)
+            if mo.str.fullmatch(r"\d{1,2}").all():
+                return [month_abbrev(m) for m in mo]
+            if mo.str.fullmatch(r"\d{4}-\d{2}").all():
+                return [f"{m[:4]}-{month_abbrev(m[5:7])}" if len(m) >= 7 else m for m in mo]
+            return mo.tolist()
+
+        if "observed_kwh" in bdf.columns and (
+            "modeled_kwh" in bdf.columns or "simulated_kwh" in bdf.columns
+        ):
             plot_df = bdf.copy()
-            if "month" in plot_df.columns:
-                # Prefer Jan…Dec labels when values look like month numbers / MM
-                mo = plot_df["month"].astype(str)
-                if mo.str.fullmatch(r"\d{1,2}").all() or mo.str.fullmatch(r"\d{4}-\d{2}").all():
-                    if mo.str.fullmatch(r"\d{1,2}").all():
-                        x_labels = [month_abbrev(m) for m in mo]
-                    else:
-                        x_labels = [
-                            f"{m[:4]}-{month_abbrev(m[5:7])}" if len(m) >= 7 else m for m in mo
-                        ]
-                else:
-                    x_labels = mo.tolist()
-            else:
-                x_labels = list(range(len(plot_df)))
+            if "modeled_kwh" not in plot_df.columns:
+                plot_df["modeled_kwh"] = plot_df.get("simulated_kwh")
+            x_labels = _month_labels(plot_df)
             fig_cal = go.Figure()
             fig_cal.add_scatter(
                 x=x_labels,
@@ -870,13 +873,50 @@ def render() -> None:
                 legend=dict(orientation="h", y=1.12),
             )
             st.plotly_chart(fig_cal, width="stretch", key="twin_cal_overlay")
+
+        has_gas_obs = "observed_therms" in bdf.columns and bdf["observed_therms"].notna().any()
+        has_gas_mod = (
+            ("modeled_therms" in bdf.columns and bdf["modeled_therms"].notna().any())
+            or ("simulated_therms" in bdf.columns and bdf["simulated_therms"].notna().any())
+        )
+        if has_gas_obs and has_gas_mod:
+            plot_g = bdf.copy()
+            if "modeled_therms" not in plot_g.columns:
+                plot_g["modeled_therms"] = plot_g.get("simulated_therms")
+            x_labels = _month_labels(plot_g)
+            fig_gas = go.Figure()
+            fig_gas.add_scatter(
+                x=x_labels,
+                y=plot_g["observed_therms"],
+                mode="lines+markers",
+                name="Bills (observed)",
+                line=dict(color="#1f77b4"),
+            )
+            fig_gas.add_scatter(
+                x=x_labels,
+                y=plot_g["modeled_therms"],
+                mode="lines+markers",
+                name="Model (calibrated)",
+                line=dict(color="#2ca02c"),
+            )
+            fig_gas.update_layout(
+                title="Monthly gas — bills vs model",
+                height=360,
+                margin=dict(l=10, r=10, t=40, b=10),
+                yaxis_title="therms",
+                legend=dict(orientation="h", y=1.12),
+            )
+            st.plotly_chart(fig_gas, width="stretch", key="twin_cal_overlay_gas")
+
         ubills = scorecard.get("utility_bills") or {}
-        stats = ubills.get("stats_electricity") or ubills.get("stats") or {}
-        if stats:
-            g1, g2, g3 = st.columns(3)
-            g1.metric("G14 NMBE %", f"{stats.get('nmbe_pct', '—')}")
-            g2.metric("G14 CV(RMSE) %", f"{stats.get('cvrmse_pct', '—')}")
-            g3.metric("Pass/fail", str(ubills.get("pass_fail") or "—"))
+        stats_e = ubills.get("stats_electricity") or ubills.get("stats") or {}
+        stats_g = ubills.get("stats_natural_gas") or ubills.get("stats_gas") or {}
+        g1, g2, g3, g4, g5 = st.columns(5)
+        g1.metric("G14 NMBE % (elec)", f"{stats_e.get('nmbe_pct', '—')}")
+        g2.metric("G14 CV(RMSE) % (elec)", f"{stats_e.get('cvrmse_pct', '—')}")
+        g3.metric("G14 NMBE % (gas)", f"{stats_g.get('nmbe_pct', '—')}" if stats_g else "—")
+        g4.metric("G14 CV(RMSE) % (gas)", f"{stats_g.get('cvrmse_pct', '—')}" if stats_g else "—")
+        g5.metric("Pass/fail", str(ubills.get("pass_fail") or "—"))
         from wattlab.studio.monthly_pct_off import (
             build_monthly_pct_off,
             render_monthly_pct_off_panel,
@@ -991,9 +1031,10 @@ def render() -> None:
             "Each published `runs/<id>/` after agent/CLI EnergyPlus. "
             "Timestamps from `run_manifest.json`. G14 columns need `calibration_scorecard.json` per run."
         )
-        from wattlab.studio.g14_history import g14_epoch_figure, iter_g14_history
+        from wattlab.studio.g14_history import assign_run_numbers, g14_epoch_figure, iter_g14_history
         from wattlab.studio.model_summary import (
             build_assumption_rows,
+            build_dial_knobs_rows,
             build_model_summary,
             render_model_summary_panel,
         )
@@ -1022,13 +1063,24 @@ def render() -> None:
             st.caption("No prior runs in workspace runs/.")
         else:
             st.metric("Published iterations shown", len(hist))
-            g14_rows = iter_g14_history(runs_dir(), limit=30)
+            g14_rows = assign_run_numbers(iter_g14_history(runs_dir(), limit=30))
             g14_by_dir = {str(r.get("dir")): r for r in g14_rows if r.get("dir")}
+
+            def _hist_sort_key(h: dict[str, Any]) -> tuple:
+                g = g14_by_dir.get(str(h.get("dir") or "")) or {}
+                ts = h.get("started_at") or g.get("started_at") or ""
+                if ts:
+                    return (0, str(ts), str(h.get("run_id") or ""))
+                mt = h.get("mtime") or g.get("mtime")
+                return (1, float(mt) if mt is not None else 0.0, str(h.get("run_id") or ""))
+
+            hist_chrono = sorted(hist, key=_hist_sort_key)
             enriched = []
-            for h in hist:
+            for i, h in enumerate(hist_chrono, start=1):
                 dkey = str(h.get("dir") or "")
                 g = g14_by_dir.get(dkey) or {}
                 row = {
+                    "run": g.get("run") or i,
                     "started_at": h.get("started_at") or g.get("started_at"),
                     "run_id": h.get("run_id"),
                     "hypothesis": h.get("hypothesis"),
@@ -1061,6 +1113,7 @@ def render() -> None:
             show_cols = [
                 c
                 for c in (
+                    "run",
                     "started_at",
                     "run_id",
                     "hypothesis",
@@ -1091,7 +1144,7 @@ def render() -> None:
                 "Lower |NMBE| / CV(RMSE) is better. "
                 "**Dashed legend entries** are ASHRAE G14 monthly gates "
                 "(±5% |NMBE|, ≤15% CVRMSE) — not extra model series. "
-                "Missing scorecards skip that point."
+                "Missing scorecards skip that point. X-axis run # matches the table (oldest → newest)."
             )
             st.plotly_chart(
                 g14_epoch_figure(g14_rows, height=440),
@@ -1099,7 +1152,8 @@ def render() -> None:
                 key="twin_g14_epoch",
             )
 
-            pick_opts = [h.get("dir") for h in hist if h.get("dir")]
+            pick_opts = [h.get("dir") for h in hist_chrono if h.get("dir")]
+            run_by_dir = {str(r.get("dir")): r for r in enriched if r.get("dir")}
             active_now = _resolve_active_run()
             default_ix = 0
             if active_now is not None:
@@ -1120,10 +1174,20 @@ def render() -> None:
             if "twin_iter_pick" not in st.session_state and pick_opts:
                 st.session_state["twin_iter_pick"] = pick_opts[default_ix]
 
+            def _inspect_label(d: str | None) -> str:
+                if not d:
+                    return ""
+                meta = run_by_dir.get(str(d)) or {}
+                n = meta.get("run")
+                rid = meta.get("run_id") or Path(str(d)).name
+                if n is not None:
+                    return f"#{n} · {rid}"
+                return str(rid)
+
             pick = st.selectbox(
                 "Inspect iteration",
                 options=pick_opts,
-                format_func=lambda d: Path(str(d)).name if d else "",
+                format_func=_inspect_label,
                 key="twin_iter_pick",
             )
             if pick:
@@ -1142,6 +1206,11 @@ def render() -> None:
                 )
                 with st.expander("Model assumptions (selected iteration)", expanded=True):
                     st.caption(pin_note)
+                    dial_rows = build_dial_knobs_rows(
+                        answers, Path(str(pick)), profile=profile, summary=summary
+                    )
+                    st.markdown("**Dial / hypothesis knobs**")
+                    st.dataframe(pd.DataFrame(dial_rows), width="stretch", hide_index=True)
                     render_model_summary_panel(summary, rows)
                     from wattlab.studio.monthly_pct_off import (
                         build_monthly_pct_off,

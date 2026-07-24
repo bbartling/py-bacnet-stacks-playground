@@ -119,3 +119,56 @@ def test_fuel_weather_on_fixture_campus():
     assert report["degree_days"]["base_f"] == 65.0
     # Even if polyfit fails on noisy bills, report still builds
     assert "fits" in report
+
+
+def test_select_fits_for_view_filters():
+    from wattlab.benchmarks.fuel_weather import (
+        FIT_VIEW_BOTH,
+        FIT_VIEW_ELECTRIC,
+        FIT_VIEW_GAS,
+        FuelFit,
+        select_fits_for_view,
+    )
+
+    fits = [
+        FuelFit("gas", "hdd", "usage", "mcf", 12, 0.1, 10.0, 0.9, 65.0),
+        FuelFit("electricity", "cdd", "usage", "kwh", 12, 0.2, 20.0, 0.8, 65.0),
+    ]
+    assert len(select_fits_for_view(fits, FIT_VIEW_BOTH)) == 2
+    assert [f.fuel for f in select_fits_for_view(fits, FIT_VIEW_ELECTRIC)] == ["electricity"]
+    assert [f.fuel for f in select_fits_for_view(fits, FIT_VIEW_GAS)] == ["gas"]
+
+
+def test_cooling_season_avg_high_and_pearson():
+    from wattlab.benchmarks.fuel_weather import (
+        cooling_season_avg_high_by_year,
+        pearson_corr,
+        weekday_weekend_elec_cdd_frames,
+    )
+
+    # May–Sep 2024: daily max ~80°F; Jan cold days ignored
+    idx = pd.date_range("2024-01-01", periods=24 * 200, freq="h")
+    temps = []
+    for ts in idx:
+        if ts.month in (5, 6, 7, 8, 9):
+            # Daytime high ~80, night ~70
+            temps.append(80.0 if ts.hour >= 12 else 70.0)
+        else:
+            temps.append(30.0)
+    hourly = pd.Series(temps, index=idx, name="dry_bulb_f")
+    by_year = cooling_season_avg_high_by_year(hourly)
+    assert 2024 in by_year
+    assert by_year[2024] == pytest.approx(80.0, abs=0.5)
+
+    r = pearson_corr([1.0, 2.0, 3.0, 4.0], [2.0, 4.0, 6.0, 8.0])
+    assert r == pytest.approx(1.0, abs=1e-9)
+    assert np.isnan(pearson_corr([1.0], [2.0]))
+
+    # Weekday/weekend split
+    days = pd.date_range("2024-06-03", periods=14, freq="D")  # Mon start
+    kwh = pd.Series([100.0 if d.dayofweek < 5 else 40.0 for d in days], index=days)
+    cdd = pd.Series([10.0] * 14, index=days)
+    frames = weekday_weekend_elec_cdd_frames(kwh, cdd)
+    assert len(frames["weekday"]) == 10
+    assert len(frames["weekend"]) == 4
+    assert frames["weekday"]["kwh"].mean() > frames["weekend"]["kwh"].mean()
