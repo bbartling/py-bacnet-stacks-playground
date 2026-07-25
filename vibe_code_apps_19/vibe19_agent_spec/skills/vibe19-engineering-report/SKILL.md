@@ -86,7 +86,23 @@ cd vibe_code_apps_19
   --docx --json
 ```
 
-Also: `--dump` WattLab zip/folder + optional `--run-rules`.
+Also: `--dump` / `--package` WattLab zip/folder + optional `--run-rules`.
+
+**Agent VAV/FD pack (BUG-019–023):**
+
+```bash
+python -m app.reporting.cli \
+  --package /path/to/BUILDING_100 \
+  --systems VAV \
+  --rule-ids VAV-4,VAV-5,SV-FLATLINE \
+  --max-findings 12 --allow-priority 12 \
+  --pin-finding VAV_22:VAV-5 \
+  --note 'VAV_22:VAV-5=FD flag intermittent; verify airflow sensor' \
+  --write-inventory \
+  --out /tmp/b100_vav_fd/ --docx --json --run-rules
+```
+
+Modules: `scope.py`, `hitl.py`, `fault_inventory.py`. UI mirrors filters under Run Rules → Agent / scope options.
 
 Liberty / WattLab workspace bridge: checklist under `reports/controls_checklist/`; findings under `reports/engineering_findings/` (see wattlab `tools/README.md`).
 
@@ -96,6 +112,7 @@ Liberty / WattLab workspace bridge: checklist under `reports/controls_checklist/
 .venv/bin/python -m pytest -q \
   tests/test_report_*.py \
   tests/test_finding_*.py \
+  tests/test_eng_findings_agent_knobs.py \
   tests/test_false_positive_review.py \
   tests/test_near_continuous_fault_review.py \
   tests/test_peer_common_mode_detection.py

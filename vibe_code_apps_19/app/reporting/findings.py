@@ -18,6 +18,12 @@ from app.reporting.narrative import (
     why_it_matters,
 )
 from app.reporting.rule_meta import is_duct_static_rule
+from app.reporting.scope import (
+    FindingScope,
+    filter_candidates,
+    sort_key_for_finding,
+    equipment_system,
+)
 
 CLIENT_CLASSIFICATIONS = {
     Classification.STRONGLY_SUPPORTED,
@@ -34,11 +40,30 @@ def cluster_and_prioritize(
     assessments: dict[str, FindingAssessment],
     *,
     max_findings: int = MAX_PRIORITY_FINDINGS,
+    scope: FindingScope | None = None,
 ) -> tuple[list[EngineeringFinding], list[dict[str, Any]], list[dict[str, Any]]]:
     """Return (priority findings, suppressed rows, data_quality rows)."""
-    by_key = {c.key: c for c in candidates}
+    # Scope filter affects ranking inputs (BUG-019) — not a post-DOCX filter.
+    scoped = filter_candidates(candidates, scope)
+    scoped_keys = {c.key for c in scoped}
+    by_key = {c.key: c for c in scoped}
     suppressed: list[dict[str, Any]] = []
     data_quality: list[dict[str, Any]] = []
+
+    for c in candidates:
+        if c.key in scoped_keys:
+            continue
+        a = assessments.get(c.key)
+        suppressed.append(
+            {
+                "candidate_key": c.key,
+                "classification": (a.classification.value if a else "OUT_OF_SCOPE"),
+                "score": a.score if a else None,
+                "reasons": [f"Out of report scope ({_scope_label(scope)})"],
+                "equipment_id": c.equipment_id,
+                "rule_id": c.rule_id,
+            }
+        )
 
     # Group keys for clustering
     clusters: dict[str, list[str]] = defaultdict(list)
@@ -100,7 +125,7 @@ def cluster_and_prioritize(
         fid += 1
         equip_ids = sorted({m.equipment_id for m in members})
         rule_ids = sorted({m.rule_id for m in members})
-        systems = sorted({_system(m.equipment_type, m.rule_id) for m in members})
+        systems = sorted({equipment_system(m.equipment_type, m.rule_id) for m in members})
 
         # Common-mode VAV: one finding
         title = finding_title(members, best)
@@ -145,8 +170,8 @@ def cluster_and_prioritize(
             )
         )
 
-    # Keep top max_findings for client body; rest → suppressed as lower priority
-    findings.sort(key=lambda f: (-_cls_rank(f.classification), -float(f.automated_assessment.get("score") or 0)))
+    boost = bool(scope and scope.boost_terminal)
+    findings.sort(key=lambda f: sort_key_for_finding(f, boost_terminal=boost))
     for i, f in enumerate(findings, 1):
         f.priority = i
         f.finding_id = f"F{i:02d}"
@@ -164,6 +189,19 @@ def cluster_and_prioritize(
             }
         )
     return primary, suppressed, data_quality
+
+
+def _scope_label(scope: FindingScope | None) -> str:
+    if scope is None:
+        return "none"
+    parts = []
+    if scope.systems:
+        parts.append("systems=" + ",".join(scope.systems))
+    if scope.equipment_prefixes:
+        parts.append("prefix=" + ",".join(scope.equipment_prefixes))
+    if scope.rule_ids:
+        parts.append("rules=" + ",".join(scope.rule_ids))
+    return "; ".join(parts) or "none"
 
 
 def _cluster_id(c: CandidateDetection, a: FindingAssessment) -> str:
@@ -199,16 +237,8 @@ def _cls_rank(c: Classification) -> int:
 
 
 def _system(equipment_type: str, rule_id: str) -> str:
-    et = (equipment_type or "").upper()
-    if "AHU" in et or rule_id.startswith("SCHED") or rule_id == "FAN-OFF-STATIC":
-        return "AHU"
-    if "CHILL" in et or rule_id.startswith("CHW"):
-        return "CHW"
-    if "BOIL" in et or rule_id.startswith("HW"):
-        return "HW"
-    if "VAV" in et or rule_id.startswith("VAV"):
-        return "VAV"
-    return et or "Other"
+    """Back-compat alias — prefer ``equipment_system``."""
+    return equipment_system(equipment_type, rule_id)
 
 
 def _chart_spec_for(c: CandidateDetection, packet: EvidencePacket | None) -> dict[str, Any] | None:

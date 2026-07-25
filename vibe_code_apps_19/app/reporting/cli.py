@@ -54,32 +54,118 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description=(
             "Generate an FDD Engineering Findings Report (evidence-reviewed). "
-            "Detection ≠ finding; likely false positives stay in Appendix C."
+            "Detection ≠ finding; likely false positives stay in Appendix C. "
+            "Agent knobs: --systems / --equipment-prefix / --rule-ids / "
+            "--allow-priority / --pin-finding / --drop-finding / --write-inventory."
         )
     )
     p.add_argument("--checklist-json", type=Path, help="controls_service_checklist JSON")
     p.add_argument("--dump", type=Path, help="WattLab dump / vibe19 package zip or folder")
+    p.add_argument("--package", type=Path, help="Alias for --dump (agent-friendly)")
     p.add_argument("--building", default="", help="Override building name")
-    p.add_argument("--out-dir", type=Path, required=True)
+    p.add_argument("--out-dir", type=Path, help="Output directory")
+    p.add_argument("--out", type=Path, help="Alias for --out-dir")
     p.add_argument("--docx", action="store_true")
     p.add_argument("--json", action="store_true", dest="json_out")
     p.add_argument("--no-charts", action="store_true")
-    p.add_argument("--max-findings", type=int, default=7)
+    p.add_argument("--max-findings", type=int, default=7, help="Priority pack size (default 7)")
+    p.add_argument(
+        "--allow-priority",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Explicit raise: authorize up to N priority findings (quality gate). "
+        "Required when --max-findings > 7.",
+    )
+    p.add_argument(
+        "--raise-max-findings",
+        action="store_true",
+        help="Shorthand: set --allow-priority to the same value as --max-findings",
+    )
+    p.add_argument("--systems", default="", help="Scope systems CSV e.g. VAV or VAV,AHU (BUG-019)")
+    p.add_argument(
+        "--equipment-prefix",
+        default="",
+        help="Scope equipment id prefixes CSV e.g. VAV (BUG-019)",
+    )
+    p.add_argument(
+        "--rule-ids",
+        default="",
+        help="Scope exact cookbook rule ids CSV e.g. VAV-4,VAV-5,SV-FLATLINE (BUG-019)",
+    )
+    p.add_argument(
+        "--boost-terminal",
+        action="store_true",
+        help="Prefer VAV/terminal FAULTs over plant when ranking (BUG-019)",
+    )
+    p.add_argument(
+        "--pin-finding",
+        action="append",
+        default=[],
+        metavar="REF",
+        help="Force-include finding (equipment:rule or equipment|rule). Repeatable (BUG-021)",
+    )
+    p.add_argument(
+        "--drop-finding",
+        action="append",
+        default=[],
+        metavar="REF",
+        help="Exclude finding from priority even if ranked high. Repeatable (BUG-021)",
+    )
+    p.add_argument(
+        "--note",
+        action="append",
+        default=[],
+        metavar="REF=TEXT",
+        help="Attach field note (BUG-021). Repeatable.",
+    )
+    p.add_argument("--notes-file", type=Path, help="JSON object of ref → note (BUG-021)")
+    p.add_argument(
+        "--write-inventory",
+        action="store_true",
+        default=True,
+        help="Write FAULT inventory JSON alongside report (default on) (BUG-023)",
+    )
+    p.add_argument("--no-inventory", action="store_true", help="Skip FAULT inventory export")
     p.add_argument("--run-rules", action="store_true", help="With --dump, also run cookbook FAULTs")
     args = p.parse_args(argv)
 
-    if not args.checklist_json and not args.dump:
-        p.error("Provide --checklist-json and/or --dump")
+    dump = args.dump or args.package
+    out_dir = args.out_dir or args.out
+    if out_dir is None:
+        p.error("Provide --out-dir / --out")
+    if not args.checklist_json and not dump:
+        p.error("Provide --checklist-json and/or --dump/--package")
 
+    allow_priority = args.allow_priority
+    if args.raise_max_findings:
+        allow_priority = args.max_findings
+
+    from app.reporting.hitl import load_notes_file, parse_note_arg
     from app.reporting.pipeline import build_engineering_findings, render_engineering_report
+    from app.reporting.scope import FindingScope
+
+    notes: dict[str, str] = {}
+    if args.notes_file:
+        notes.update(load_notes_file(args.notes_file))
+    for raw in args.note or []:
+        ref, text = parse_note_arg(raw)
+        notes[ref] = text
+
+    scope = FindingScope.from_cli(
+        systems=args.systems or None,
+        equipment_prefix=args.equipment_prefix or None,
+        rule_ids=args.rule_ids or None,
+        boost_terminal=bool(args.boost_terminal),
+    )
 
     rule_results = None
     overview_context = None
     building = args.building
-    if args.dump:
+    if dump:
         from app.agent_api import load_package_path, run_rules
 
-        ds = load_package_path(args.dump)
+        ds = load_package_path(dump)
         building = building or getattr(ds, "building_id", "") or ""
         try:
             overview_context = _overview_context_from_dataset(ds)
@@ -90,21 +176,29 @@ def main(argv: list[str] | None = None) -> int:
             run = run_rules(ds)
             rule_results = run.results
 
+    write_inv = bool(args.write_inventory) and not args.no_inventory
     artifacts = build_engineering_findings(
         building=building,
         checklist=args.checklist_json,
         rule_results=rule_results,
         overview_context=overview_context,
         max_findings=args.max_findings,
+        allow_priority=allow_priority,
+        scope=scope,
+        pin_findings=list(args.pin_finding or []),
+        drop_findings=list(args.drop_finding or []),
+        notes=notes,
+        write_inventory=write_inv,
     )
     written = render_engineering_report(
         artifacts,
-        args.out_dir,
+        out_dir,
         docx=args.docx,
         json_out=args.json_out or not args.docx,
         charts=not args.no_charts,
         overview_context=overview_context,
         rule_results=rule_results,
+        write_inventory=write_inv,
     )
     print(json.dumps({k: str(v) for k, v in written.items()}, indent=2))
     print("metrics", json.dumps(artifacts.metrics))

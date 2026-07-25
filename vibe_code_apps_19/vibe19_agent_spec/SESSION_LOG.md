@@ -8,6 +8,18 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-25 — Eng Findings BUG-019–024 (VAV/FD agent packs)
+
+- **BUG-019:** `--systems` / `--equipment-prefix` / `--rule-ids` / `--boost-terminal` scope ranking (`app/reporting/scope.py`).
+- **BUG-020:** `--allow-priority N` / `--raise-max-findings` + UI checkbox; quality gate honors explicit raise.
+- **BUG-021:** `--pin-finding` / `--drop-finding` / `--note` HITL (`app/reporting/hitl.py`).
+- **BUG-022:** `day_zoom_error` JSON alias; gate fails on silent zoom skip after chart pass.
+- **BUG-023:** FAULT inventory JSON (`*_fault_inventory.json`) with orphans + rollups.
+- **BUG-024:** Run Rules panel agent/scope expander + session `batch_results` fallback.
+- Tests: `tests/test_eng_findings_agent_knobs.py`.
+
+---
+
 ## 2026-07-25 — Eng Findings BUG-016/017/018 + DOCX UX
 
 - **BUG-016:** `attach_day_zoom_to_findings` records `skip_reason` (`no_result` / `no_fault_day` / `render_failed`) + `day_zoom_skip_reason`; DOCX muted note when zoom missing.

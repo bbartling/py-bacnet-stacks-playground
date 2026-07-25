@@ -76,6 +76,17 @@ def overview_context_from_session() -> dict[str, Any]:
     )
 
 
+def _resolve_batch_results(batch_results: list | None) -> list:
+    """Prefer explicit arg, else common session keys (BUG-024 cold-session path)."""
+    if batch_results:
+        return list(batch_results)
+    for key in ("batch_results", "rule_results", "last_rule_results"):
+        val = st.session_state.get(key)
+        if isinstance(val, list) and val:
+            return list(val)
+    return []
+
+
 def render_engineering_findings_panel(
     *,
     batch_results: list | None = None,
@@ -90,16 +101,84 @@ def render_engineering_findings_panel(
     st.caption(
         "Performs an automated evidence review of FDD/RCx rule results before presenting "
         "prioritized findings. Findings remain advisory and should be field-verified. "
-        "Detection ≠ finding — raw rule hits and likely false positives stay in the appendices."
+        "Detection ≠ finding — raw rule hits and likely false positives stay in the appendices. "
+        "Agent knobs: VAV scope, explicit raise past top-7, FAULT inventory."
     )
-    if not batch_results:
-        st.info("Run rules above first so FAULT rows are available for evidence review.")
-        return
+
+    results = _resolve_batch_results(batch_results)
+    if not results:
+        st.info(
+            "Run rules above first (or bootstrap with auto_run_rules) so FAULT rows are "
+            "available for evidence review. Filters below apply on Generate."
+        )
+
+    with st.expander("Agent / scope options (BUG-019–023)", expanded=bool(results)):
+        c1, c2 = st.columns(2)
+        with c1:
+            systems = st.text_input(
+                "Systems scope (CSV)",
+                value="",
+                placeholder="VAV",
+                key=f"{key_prefix}_systems",
+                help="Rank only these systems (e.g. VAV). Empty = default all.",
+            )
+            equip_prefix = st.text_input(
+                "Equipment prefix (CSV)",
+                value="",
+                placeholder="VAV",
+                key=f"{key_prefix}_prefix",
+            )
+            rule_ids = st.text_input(
+                "Rule IDs (CSV)",
+                value="",
+                placeholder="VAV-4,VAV-5,SV-FLATLINE",
+                key=f"{key_prefix}_rule_ids",
+            )
+            boost_terminal = st.checkbox(
+                "Boost terminal / VAV over plant",
+                value=False,
+                key=f"{key_prefix}_boost_terminal",
+            )
+        with c2:
+            max_findings = st.number_input(
+                "Max priority findings",
+                min_value=1,
+                max_value=50,
+                value=7,
+                key=f"{key_prefix}_max_findings",
+            )
+            allow_more = st.checkbox(
+                "Allow more than 7 priority findings (explicit raise)",
+                value=False,
+                key=f"{key_prefix}_allow_raise",
+                help="Required when max > 7 so the quality gate passes.",
+            )
+            allow_priority = None
+            if allow_more:
+                allow_priority = int(
+                    st.number_input(
+                        "Allow priority up to N",
+                        min_value=int(max_findings),
+                        max_value=50,
+                        value=int(max_findings),
+                        key=f"{key_prefix}_allow_priority",
+                    )
+                )
+            write_inventory = st.checkbox(
+                "Write FAULT inventory JSON",
+                value=True,
+                key=f"{key_prefix}_inventory",
+            )
+
+    gen_label = "Generate FDD Engineering Findings Report"
+    if systems.strip() or equip_prefix.strip() or rule_ids.strip():
+        gen_label = "Generate scoped FDD Engineering Findings Report"
 
     if st.button(
-        "Generate FDD Engineering Findings Report",
+        gen_label,
         key=f"{key_prefix}_generate",
         type="primary",
+        disabled=not results,
     ):
         try:
             import docx  # noqa: F401
@@ -115,6 +194,7 @@ def render_engineering_findings_panel(
                     build_engineering_findings,
                     render_engineering_report,
                 )
+                from app.reporting.scope import FindingScope
 
                 ctx = overview_context
                 if ctx is None:
@@ -122,11 +202,21 @@ def render_engineering_findings_panel(
                         ctx = overview_context_from_session()
                     except Exception:
                         ctx = None
+                scope = FindingScope.from_cli(
+                    systems=systems or None,
+                    equipment_prefix=equip_prefix or None,
+                    rule_ids=rule_ids or None,
+                    boost_terminal=bool(boost_terminal),
+                )
                 art = build_engineering_findings(
                     building=building_name or "Building",
                     analysis_period=analysis_period,
-                    rule_results=list(batch_results),
+                    rule_results=list(results),
                     overview_context=ctx,
+                    max_findings=int(max_findings),
+                    allow_priority=allow_priority,
+                    scope=scope,
+                    write_inventory=bool(write_inventory),
                 )
                 buf_dir = Path(
                     st.session_state.get("_eng_findings_tmpdir")
@@ -141,7 +231,8 @@ def render_engineering_findings_panel(
                     json_out=True,
                     charts=True,
                     overview_context=ctx,
-                    rule_results=list(batch_results),
+                    rule_results=list(results),
+                    write_inventory=bool(write_inventory),
                 )
                 st.session_state[f"{key_prefix}_artifacts"] = art
                 st.session_state[f"{key_prefix}_written"] = {
@@ -165,6 +256,25 @@ def render_engineering_findings_panel(
         st.warning("Quality gate errors: " + "; ".join(art.quality_gate["errors"]))
     if art.quality_gate.get("warnings"):
         st.caption("Warnings: " + "; ".join(art.quality_gate["warnings"]))
+
+    # Day-zoom visibility (BUG-022)
+    missing_zoom = [
+        f
+        for f in art.findings
+        if f.include_in_report and not f.day_zoom_path and f.day_zoom_skip_reason
+    ]
+    if missing_zoom:
+        with st.expander(f"Day-zoom unavailable ({len(missing_zoom)})", expanded=False):
+            for f in missing_zoom:
+                st.caption(f"{f.finding_id}: {f.day_zoom_label or f.day_zoom_skip_reason}")
+
+    inv = getattr(art, "fault_inventory", None) or {}
+    if inv.get("n_orphans"):
+        st.caption(
+            f"FAULT inventory: {inv.get('n_faults')} FAULTs · "
+            f"{inv.get('n_in_priority')} in priority · "
+            f"{inv.get('n_orphans')} orphans (not in DOCX body)"
+        )
 
     st.markdown("##### Engineer review (optional)")
     for f in art.findings:
@@ -192,6 +302,7 @@ def render_engineering_findings_panel(
 
     jp = written.get("json")
     dp = written.get("docx")
+    ip = written.get("fault_inventory")
     if jp and Path(jp).is_file():
         Path(jp).write_text(json.dumps(art.to_dict(), indent=2) + "\n", encoding="utf-8")
         st.download_button(
@@ -200,6 +311,14 @@ def render_engineering_findings_panel(
             file_name=Path(jp).name,
             mime="application/json",
             key=f"{key_prefix}_dl_json",
+        )
+    if ip and Path(ip).is_file():
+        st.download_button(
+            "Download FAULT inventory JSON",
+            data=Path(ip).read_bytes(),
+            file_name=Path(ip).name,
+            mime="application/json",
+            key=f"{key_prefix}_dl_inv",
         )
     if dp and Path(dp).is_file():
         st.download_button(
