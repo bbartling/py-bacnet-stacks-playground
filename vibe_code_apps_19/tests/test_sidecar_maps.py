@@ -50,6 +50,34 @@ def test_rejects_package_without_sidecar(tmp_path: Path):
         load_package_from_dir(root)
 
 
+def test_accepts_session_role_map_without_sidecars(tmp_path: Path):
+    """BUG-014: practice packages with session_config.role_map load without per-equip JSON."""
+    root = tmp_path / "pkg"
+    root.mkdir()
+    (root / "manifest.json").write_text(_manifest(), encoding="utf-8")
+    (root / "session_config.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "openfdd_session_v1",
+                "role_map": {
+                    "AHU_1": {
+                        "supply-fan-status": "fan_status",
+                        "outside-air-temp": "oa_t",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    eq = root / "AHU_1"
+    eq.mkdir()
+    (eq / "history_wide.csv").write_text(_hist(), encoding="utf-8")
+    result = load_package_from_dir(root)
+    assert "AHU_1" in result.frames
+    assert result.column_map is not None
+    assert any("role_map" in w.lower() or "sidecar" in w.lower() for w in result.warnings)
+
+
 def test_accepts_history_wide_json_and_column_map_json(tmp_path: Path):
     root = tmp_path / "pkg"
     root.mkdir()

@@ -1,5 +1,5 @@
-# Build and publish vibe_code_apps_20 (WattLab Studio) Docker image to GHCR.
-# Image: ghcr.io/<owner>/vibe20
+# GHCR rebuild note (BUG-013): if :latest points at a missing blob, re-run
+# workflow_dispatch with no_cache=true so multi-arch tags are republished cleanly.
 # Multi-arch via QEMU + Buildx:
 #   - linux/amd64  (x86_64 desktops / most cloud hosts)
 #   - linux/arm64  (Raspberry Pi 4/5 64-bit, Apple Silicon)

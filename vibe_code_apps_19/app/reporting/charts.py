@@ -219,7 +219,10 @@ def _export(fig, name: str, out_dir: Path | None) -> dict[str, Any]:
         return meta
     png = out_dir / f"{name}.png"
     try:
-        fig.write_image(str(png), scale=2, width=900, height=420)
+        from app.reporting.overview_export import _fig_for_kaleido
+
+        export_fig = _fig_for_kaleido(fig)
+        export_fig.write_image(str(png), scale=2, width=900, height=420)
         meta["path"] = str(png)
     except Exception as exc:  # kaleido optional / may fail headless
         meta["export_error"] = str(exc)

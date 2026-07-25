@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from app.reporting.models import ReportArtifacts
 
 
@@ -200,13 +202,54 @@ def build_overview_charts(
     return charts
 
 
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert pandas/numpy datetimes so Kaleido's orjson can encode."""
+    import numpy as np
+
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    if isinstance(obj, np.datetime64):
+        return pd.Timestamp(obj).isoformat()
+    if isinstance(obj, np.ndarray):
+        return [_json_safe(v) for v in obj.tolist()]
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, dict):
+        return {str(k): _json_safe(v) for k, v in obj.items()}
+    if hasattr(obj, "tolist"):
+        try:
+            return _json_safe(obj.tolist())
+        except Exception:
+            pass
+    # Fallback: stringify unknown scalars (keeps export from soft-failing)
+    try:
+        if pd.isna(obj):
+            return None
+    except Exception:
+        pass
+    return str(obj)
+
+
+def _fig_for_kaleido(fig: Any) -> Any:
+    """Re-encode figure so Kaleido never sees pandas Timestamp / numpy datetime."""
+    try:
+        from plotly.graph_objects import Figure
+
+        return Figure(_json_safe(fig.to_plotly_json()))
+    except Exception:
+        return fig
+
+
 def _export_plotly(
     fig: Any, name: str, out_dir: Path, *, title: str | None = None
 ) -> dict[str, Any]:
     meta: dict[str, Any] = {"name": name, "path": None, "title": title or name}
     png = out_dir / f"{name}.png"
+    export_fig = _fig_for_kaleido(fig)
     try:
-        fig.write_image(str(png), scale=2, width=900, height=480)
+        export_fig.write_image(str(png), scale=2, width=900, height=480)
         meta["path"] = str(png)
     except Exception as exc:
         meta["export_error"] = str(exc)

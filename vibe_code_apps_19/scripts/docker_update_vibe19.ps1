@@ -28,4 +28,4 @@ if ($LASTEXITCODE -ne 0) { throw "docker run failed" }
 Write-Host "==> Running:"
 docker ps --filter "name=$Name"
 Write-Host "Open http://localhost:${HostPort}  (or http://<host-ip>:${HostPort})"
-Write-Host "Note: a running container never auto-updates — re-run this script after GHCR builds."
+Write-Host "Note: a running container never auto-updates - re-run this script after GHCR builds."
