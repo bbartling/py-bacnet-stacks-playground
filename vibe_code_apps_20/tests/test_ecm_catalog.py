@@ -79,7 +79,7 @@ def test_package_resolution_expands_dependencies_without_duplicates() -> None:
     assert "ECM-ADVANCED-RTU" in esco
     assert "ECM-AHU-SCHED-ALIGN" in esco
     assert "ECM-OCC-STANDBY-DCV" in esco
-    assert esco.index("ECM-OCC-STANDBY-DCV") == esco.index("ECM-DCV-CO2") + 1
+    assert "ECM-DCV-CO2" not in esco  # standalone DCV superseded to avoid double-count
     assert "ECM-SENSOR-CRITICAL-REFRESH" in esco
     assert len(esco) == len(set(esco))
 
@@ -103,6 +103,11 @@ def test_occ_standby_dcv_is_a_production_proxy_oa_measure() -> None:
     assert measure.status == "PRODUCTION_PROXY_ONLY"
     assert measure.energyplus_patch is None
     assert measure.dependencies == ["ECM-SENSOR-CRITICAL-REFRESH"]
+    assert "ECM-DCV-CO2" in measure.incompatibilities
+
+    issues = detect_incompatibilities(["ECM-OCC-STANDBY-DCV", "ECM-DCV-CO2"])
+    assert len(issues) == 1
+    assert set(issues[0].ecm_ids) == {"ECM-OCC-STANDBY-DCV", "ECM-DCV-CO2"}
 
 
 def test_incompatibility_detection_is_symmetric_and_fail_closed() -> None:

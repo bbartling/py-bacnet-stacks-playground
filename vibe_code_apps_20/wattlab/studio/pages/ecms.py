@@ -638,10 +638,16 @@ def render() -> None:
                     "sizing_scenario": report.get("sizing_scenario"),
                     "utility_bills": {},
                 }
+                active_ids = {str(m) for m in (measures or [])}
+                proxy_for_pkg = {
+                    k: v
+                    for k, v in (proxies or {}).items()
+                    if str(k) in active_ids
+                }
                 meta = package_deliverables(
                     out_dir=dest,
                     scorecard=sc,
-                    report={**report, "proxy_savings": proxies},
+                    report={**report, "proxy_savings": proxy_for_pkg},
                     profile=profile,
                     include_docx=include_docx,
                 )

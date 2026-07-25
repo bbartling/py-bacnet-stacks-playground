@@ -1022,13 +1022,24 @@ def render() -> None:
             rid = (sc or {}).get("run_id") or (Path(run_src).name if run_src else "latest")
             dest = reports_dir() / f"deliverable_{rid}"
             try:
+                all_proxies = st.session_state.get("studio_proxies") or {}
+                plan_rows = (st.session_state.get("studio_capital_plan") or {}).get("measures") or []
+                active_ids = {str(r.get("measure_id")) for r in plan_rows if isinstance(r, dict)}
+                if not active_ids:
+                    scenario = st.session_state.get("ecm_easy__scenario_ids") or []
+                    active_ids = {str(x) for x in scenario}
+                proxy_for_pkg = (
+                    {k: v for k, v in all_proxies.items() if str(k) in active_ids}
+                    if active_ids
+                    else all_proxies
+                )
                 meta = package_deliverables(
                     out_dir=dest,
                     run_dir=Path(run_src) if run_src else None,
                     scorecard=sc or {},
                     report={
                         **studio_report,
-                        "proxy_savings": st.session_state.get("studio_proxies") or {},
+                        "proxy_savings": proxy_for_pkg,
                     }
                     or None,
                     profile=profile,

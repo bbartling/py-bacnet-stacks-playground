@@ -15,8 +15,7 @@ ESCO_TOP15: tuple[str, ...] = (
     "ECM-SAT-RESET",             # 6 Supply-air-temperature reset
     "ECM-VAV-MIN-RESET",         # 7 VAV minimum-airflow reduction
     "ECM-ECON-REPAIR",           # 8 Economizer repair / optimization
-    "ECM-DCV-CO2",               # 9 Demand-controlled ventilation
-    "ECM-OCC-STANDBY-DCV",       # 9a Occupied standby + DCV composite
+    "ECM-OCC-STANDBY-DCV",       # 9 Occupied standby + DCV (supersedes standalone DCV in Top-15)
     "ECM-BOILER-RESET",          # 10 Hot-water reset / boiler optimization
     "ECM-CHW-RESET",             # 11a Chilled-water plant optimization
     "ECM-CW-RESET",              # 11b

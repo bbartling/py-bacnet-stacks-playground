@@ -95,7 +95,7 @@ Bulk-select package **`esco-top15`** on Studio → ECMs → Easy Buttons.
 | 7 | VAV minimum airflow | `ECM-VAV-MIN-RESET` | `static_pressure_reset` | — |
 | 8 | Economizer repair | `ECM-ECON-REPAIR` | `dewpoint_economizer` | — |
 | 9 | Demand-controlled ventilation | `ECM-DCV-CO2` | `dcv_bins` | — |
-| 9a | Occupied standby + DCV | `ECM-OCC-STANDBY-DCV` | `oad_unoccupied_closed` + `dcv_bins` | — |
+| 9 | Occupied standby + DCV | `ECM-OCC-STANDBY-DCV` | `oad_unoccupied_closed` + `dcv_bins` | — |
 | 10 | Hot-water reset | `ECM-BOILER-RESET` | `hydronic_reset_bins` | — |
 | 11 | CHW / CW plant optimization | `ECM-CHW-RESET`, `ECM-CW-RESET`, `ECM-CHILLER-LOCKOUT` | hydronic / economizer | lockout on chiller |
 | 12 | Boiler combustion tune | `ECM-BOILER-TUNE` | `boiler_efficiency_improvement` | — |

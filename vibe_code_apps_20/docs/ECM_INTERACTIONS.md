@@ -12,7 +12,9 @@ WattLab preserves progressive one-change-at-a-time EnergyPlus accounting and add
 6. G36 packages encompass many component measures — do not stack full package + every component as independent savings.
 7. Pneumatic-to-DDC packages may include scheduling and compressor removal.
 8. `ECM-OCC-STANDBY-DCV` already sums unoccupied OA closure and occupied DCV;
-   do not stack its component estimates as independent savings.
+   do not stack its component estimates as independent savings. It is mutually
+   incompatible with standalone `ECM-DCV-CO2` (Easy Buttons warns; `esco-top15`
+   includes only the composite).
 
 ## Implementation
 
