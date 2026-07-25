@@ -148,6 +148,8 @@ class EngineeringFinding:
     systems: list[str]
     chart_spec: dict[str, Any] | None = None
     chart_path: str | None = None
+    day_zoom_path: str | None = None
+    day_zoom_label: str | None = None
     candidate_keys: list[str] = field(default_factory=list)
     automated_assessment: dict[str, Any] = field(default_factory=dict)
     engineer_override: dict[str, Any] | None = None
@@ -186,6 +188,8 @@ class ReportArtifacts:
     assumptions: dict[str, Any]
     quality_gate: dict[str, Any]
     charts: list[dict[str, Any]] = field(default_factory=list)
+    overview_settings: dict[str, Any] = field(default_factory=dict)
+    overview_charts: list[dict[str, Any]] = field(default_factory=list)
     disclaimer: str = (
         "Open-FDD / Vibe 19 educational analysis. Findings are telemetry-based "
         "and advisory; physical verification remains a human/field activity."
@@ -207,5 +211,7 @@ class ReportArtifacts:
             "assumptions": self.assumptions,
             "quality_gate": self.quality_gate,
             "charts": self.charts,
+            "overview_settings": self.overview_settings,
+            "overview_charts": self.overview_charts,
             "disclaimer": self.disclaimer,
         }

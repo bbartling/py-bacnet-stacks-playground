@@ -35,11 +35,15 @@ def build_engineering_findings(
     rule_results: list[RuleResult] | None = None,
     checklist: dict[str, Any] | Path | str | None = None,
     context: dict[str, Any] | None = None,
+    overview_context: dict[str, Any] | None = None,
     max_findings: int = 7,
 ) -> ReportArtifacts:
     """Calculate assessments and prioritized findings (no DOCX yet)."""
     ctx = dict(context or {})
     cands = list(candidates or [])
+    from app.reporting.overview_export import overview_settings_from_context
+
+    overview_settings = overview_settings_from_context(overview_context)
 
     if checklist is not None:
         loaded, cctx = candidates_from_checklist_json(checklist, building=building or None)
@@ -132,6 +136,7 @@ def build_engineering_findings(
             "detection_vs_finding": "Rule hits are candidates until evidence review",
         },
         quality_gate={},
+        overview_settings=overview_settings,
     )
     artifacts.quality_gate = run_quality_gate(artifacts)
     return artifacts
@@ -145,6 +150,8 @@ def render_engineering_report(
     json_out: bool = True,
     charts: bool = True,
     basename: str | None = None,
+    overview_context: dict[str, Any] | None = None,
+    rule_results: list[RuleResult] | None = None,
 ) -> dict[str, Path]:
     """Write JSON / DOCX / chart assets. Raises if quality gate fails critically."""
     out_dir = Path(out_dir)
@@ -158,6 +165,8 @@ def render_engineering_report(
             artifacts,
             out_dir=chart_dir,
             comfort_rows=(artifacts.comfort_summary or {}).get("rows"),
+            overview_context=overview_context,
+            rule_results=rule_results,
         )
         # re-run gate after charts attached
         artifacts.quality_gate = run_quality_gate(artifacts)

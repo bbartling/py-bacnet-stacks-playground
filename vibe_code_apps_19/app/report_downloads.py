@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
@@ -39,11 +40,48 @@ def report_download_button(
     return True
 
 
+def overview_context_from_session() -> dict[str, Any]:
+    """Build overview_context from Streamlit session for Engineering Findings charts."""
+    from app.analytics import dataset_time_span
+    from app.occupancy import OccupancySchedule, occupied_hours_per_week
+    from app.reporting.overview_export import build_overview_context
+
+    frames = st.session_state.get("equipment_frames") or {}
+    span = dataset_time_span(frames) if frames else {}
+    oat_err = 5.0
+    try:
+        oat_err = float(
+            (st.session_state.get("params") or {}).get("OAT-METEO", {}).get("oat_err", 5.0)
+        )
+    except (TypeError, ValueError):
+        oat_err = 5.0
+    sched = OccupancySchedule.from_dict(st.session_state.get("occupancy_schedule"))
+    return build_overview_context(
+        frames=frames,
+        role_map=st.session_state.get("role_map") or {},
+        weather=st.session_state.get("weather"),
+        prefer_web_oat=bool(st.session_state.get("prefer_web_oat", True)),
+        oat_err=oat_err,
+        chw_leave_max_f=float(st.session_state.get("chw_leave_max_f", 48.0)),
+        use_status_proof=bool(
+            st.session_state.get("use_mech_cooling_status_proof", True)
+        ),
+        zone_lo_f=float(st.session_state.get("zone_lo_f", 70.0)),
+        zone_hi_f=float(st.session_state.get("zone_hi_f", 75.0)),
+        bare_min_occ_hours=float(occupied_hours_per_week(sched)),
+        occupancy_schedule=sched.to_dict(),
+        dataset_start=span.get("start"),
+        dataset_end=span.get("end"),
+        span_hours=span.get("span_hours"),
+    )
+
+
 def render_engineering_findings_panel(
     *,
     batch_results: list | None = None,
     building_name: str = "",
     analysis_period: str = "",
+    overview_context: dict[str, Any] | None = None,
     key_prefix: str = "eng_findings",
 ) -> None:
     """Generate FDD Engineering Findings Report (button-triggered; never on section visit)."""
@@ -73,22 +111,43 @@ def render_engineering_findings_panel(
             return
         with st.spinner("Evidence review + charts…"):
             try:
-                from app.reporting.pipeline import build_engineering_findings, render_engineering_report
+                from app.reporting.pipeline import (
+                    build_engineering_findings,
+                    render_engineering_report,
+                )
 
+                ctx = overview_context
+                if ctx is None:
+                    try:
+                        ctx = overview_context_from_session()
+                    except Exception:
+                        ctx = None
                 art = build_engineering_findings(
                     building=building_name or "Building",
                     analysis_period=analysis_period,
                     rule_results=list(batch_results),
+                    overview_context=ctx,
                 )
-                buf_dir = Path(st.session_state.get("_eng_findings_tmpdir") or "/tmp/vibe19_eng_findings")
+                buf_dir = Path(
+                    st.session_state.get("_eng_findings_tmpdir")
+                    or "/tmp/vibe19_eng_findings"
+                )
                 buf_dir.mkdir(parents=True, exist_ok=True)
                 st.session_state["_eng_findings_tmpdir"] = str(buf_dir)
                 written = render_engineering_report(
-                    art, buf_dir, docx=True, json_out=True, charts=True
+                    art,
+                    buf_dir,
+                    docx=True,
+                    json_out=True,
+                    charts=True,
+                    overview_context=ctx,
+                    rule_results=list(batch_results),
                 )
                 st.session_state[f"{key_prefix}_artifacts"] = art
-                st.session_state[f"{key_prefix}_written"] = {k: str(v) for k, v in written.items()}
-            except Exception as exc:  # noqa: BLE001 — show friendly error, not Streamlit Traceback page
+                st.session_state[f"{key_prefix}_written"] = {
+                    k: str(v) for k, v in written.items()
+                }
+            except Exception as exc:  # noqa: BLE001 — show friendly error, not Traceback page
                 st.error(f"Engineering Findings report failed: {exc}")
                 return
 
