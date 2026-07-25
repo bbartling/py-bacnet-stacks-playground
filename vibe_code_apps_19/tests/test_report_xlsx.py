@@ -62,8 +62,31 @@ def test_render_findings_xlsx_sheets(tmp_path: Path):
                 "title": "Economizer free-cooling delta scatter",
             }
         ],
-        fault_inventory={"rows": [], "n_faults": 0, "n_in_priority": 0, "n_orphans": 0},
+        # Duplicate name in charts must not double-embed (BUG-038)
+        charts=[
+            {
+                "name": "overview_economizer_delta_scatter",
+                "path": str(png),
+                "title": "dup",
+            },
+            {
+                "name": "other_chart",
+                "path": str(png),
+            },
+        ],
+        fault_inventory={
+            "rows": [],
+            "n_faults": 0,
+            "n_in_priority": 1,
+            "n_priority_findings": 1,
+            "n_candidates_in_priority": 3,
+            "n_orphans": 0,
+        },
     )
+    # Absolute day_zoom path → relative cell
+    art.findings[0].day_zoom_path = str(tmp_path / "day_zoom_F01.png")
+    (tmp_path / "day_zoom_F01.png").write_bytes(png.read_bytes())
+
     out = tmp_path / "findings.xlsx"
     render_findings_xlsx(art, out, embed_images=True)
     assert out.is_file()
@@ -72,5 +95,14 @@ def test_render_findings_xlsx_sheets(tmp_path: Path):
     punch = wb["Punchlist"]
     assert punch["B2"].value == "Verify OA damper travel"
     ov = wb["Overview_Charts"]
-    assert ov["A3"].value == "overview_economizer_delta_scatter"
-    assert ov["C3"].value is True
+    names = [ov[f"A{r}"].value for r in range(3, 10) if ov[f"A{r}"].value]
+    assert names.count("overview_economizer_delta_scatter") == 1
+    assert "other_chart" in names
+    assert ov["B3"].value == "overview_economizer_delta_scatter.png"  # relative
+    find = wb["Findings"]
+    assert find["J2"].value == "day_zoom_F01.png"
+    inv = wb["FAULT_Inventory"]
+    # summary row uses findings count
+    assert inv["C12"].value == 1 or any(
+        inv.cell(r, 3).value == 1 for r in range(1, 20)
+    )

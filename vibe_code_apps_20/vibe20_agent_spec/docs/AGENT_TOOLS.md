@@ -62,10 +62,17 @@ Least→radical packages (`controls_first` … `deep_retrofit`) each produce one
 under `reports/notebooks/` plus `*.notebook_manifest.json` for agents.
 
 ```bash
-wattlab notebook build --package esco_top15 --out /data/reports/notebooks/
+wattlab notebook build --package esco_top15 --out /data/reports/notebooks/ \
+  --answers /data/reports/answers.json --from-run /data/runs/<ecm_capable>
+wattlab notebook prefill --xlsx /data/reports/notebooks/esco_top15.xlsx --elec-rate 0.22
+# prefill patches Inputs in-place (keeps EPlus_Results) — never rebuilds
 wattlab notebook validate --xlsx /data/reports/notebooks/esco_top15.xlsx
 wattlab notebook summarize --xlsx … --write
 ```
+
+Honesty: ESCO kWh/therms are baked at build; ROI cost/NPV formulas follow Inputs.
+Studio preview shows formula text + `npv_usd_at_build` (openpyxl does not calc Excel).
+Prefer Twin runs with `savings_by_measure` or Compare stays YELLOW (`validate` warns).
 
 Write `reports/ecm_scenario.json` v3 with `notebook_package_id`, `notebook_path`,
 `input_overrides` so Studio Re-apply / ECMs page stays in sync.

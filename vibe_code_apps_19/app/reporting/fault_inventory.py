@@ -98,6 +98,8 @@ def build_fault_inventory(
 
     orphans = [r for r in rows if not r["in_priority"]]
     orphans_sorted = sorted(orphans, key=lambda x: -float(x["fault_hours"] or 0))
+    n_priority_findings = sum(1 for f in findings if f.include_in_report)
+    n_candidates_in_priority = sum(1 for r in rows if r["in_priority"])
 
     return {
         "rows": rows,
@@ -105,7 +107,12 @@ def build_fault_inventory(
         "rollup_by_rule_id": dict(by_rule),
         "rollup_by_equipment_prefix": dict(by_prefix),
         "n_faults": len(rows),
-        "n_in_priority": sum(1 for r in rows if r["in_priority"]),
+        # Candidate FAULT rows covered by a priority finding (may be >> findings count)
+        "n_candidates_in_priority": n_candidates_in_priority,
+        # Body findings count — what agents usually mean by "in priority" (BUG-040)
+        "n_priority_findings": n_priority_findings,
+        # Back-compat: prefer findings count for n_in_priority (was candidate-row count)
+        "n_in_priority": n_priority_findings,
         "n_orphans": len(orphans),
     }
 

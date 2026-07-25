@@ -5,7 +5,9 @@ from __future__ import annotations
 from wattlab.notebooks.builder import (
     build_and_save_notebook,
     build_notebook_workbook,
+    prefill_notebook_inputs,
     preview_sheet_rows,
+    read_notebook_inputs,
     summarize_notebook,
     validate_notebook,
 )
@@ -16,7 +18,9 @@ __all__ = [
     "build_notebook_workbook",
     "get_notebook_package",
     "list_notebook_packages",
+    "prefill_notebook_inputs",
     "preview_sheet_rows",
+    "read_notebook_inputs",
     "summarize_notebook",
     "validate_notebook",
 ]

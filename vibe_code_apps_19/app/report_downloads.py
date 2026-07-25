@@ -273,8 +273,9 @@ def render_engineering_findings_panel(
     if inv.get("n_orphans"):
         st.caption(
             f"FAULT inventory: {inv.get('n_faults')} FAULTs · "
-            f"{inv.get('n_in_priority')} in priority · "
-            f"{inv.get('n_orphans')} orphans (not in DOCX body)"
+            f"{inv.get('n_priority_findings', inv.get('n_in_priority'))} findings in report · "
+            f"{inv.get('n_candidates_in_priority', '—')} candidate rows covered · "
+            f"{inv.get('n_orphans')} orphans (not in body)"
         )
 
     st.markdown("##### Engineer review (optional)")
