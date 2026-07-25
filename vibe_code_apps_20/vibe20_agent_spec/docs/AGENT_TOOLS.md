@@ -143,3 +143,16 @@ Details: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md).
 
 See also: [`AGENT_DOCKER_WORKSPACE.md`](AGENT_DOCKER_WORKSPACE.md),
 [`TWIN_LOOP.md`](TWIN_LOOP.md), [`ESCO_RETROFIT_COST_ROI.md`](ESCO_RETROFIT_COST_ROI.md).
+
+## ECM scenario and client package handoff
+
+Agents may write `reports/ecm_scenario.json` schema v2 with real catalog IDs
+only. In addition to `selected_ecm_ids`, use `sort_preference`,
+`package_hints`, `proxy_defaults`, and `roi_param_hints` when useful; Studio
+still accepts v1 selection-only files. For `ECM-OCC-STANDBY-DCV`, retain the
+proxy provenance from `oad_unoccupied_closed` + `dcv_bins`.
+
+The human selects **Include client DOCX** on Twin or ECM package builders.
+When available, the package writes
+`01_Report/Energy_Modeling_Report.docx`; this is separate from the controls
+FDD checklist DOCX.

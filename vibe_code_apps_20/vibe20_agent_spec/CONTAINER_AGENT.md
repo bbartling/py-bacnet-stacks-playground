@@ -101,9 +101,19 @@ Useful commands:
   (merges existing keys — does not drop `ecm_scenario_path`)
 - `wattlab geo-idf` / `wattlab dial-loads` / `wattlab score-monthly` — site-scale twin ladder
 - `wattlab calibrate-campaign …` / `wattlab twin …` / `wattlab benchmark …`
-- Write `reports/ecm_scenario.json` → Studio ECMs Easy Buttons after Re-apply
+- Write schema-v2 `reports/ecm_scenario.json` with real `ECM-*` ids (for
+  example `ECM-OCC-STANDBY-DCV`) → Studio ECMs Easy Buttons after Re-apply
 
 Human: open Studio → **refresh** or sidebar **Re-apply bootstrap**. Twin DinD shows live progress + IDF massing when `model.idf` is published.
+
+## ECM and client-DOCX handoff
+
+`ECM-OCC-STANDBY-DCV` combines verified unoccupied OA closure and occupied DCV;
+its Studio proxy reports `oad_unoccupied_closed` and `dcv_bins` provenance.
+Easy Buttons presents catalog cards low→medium→high complexity. The human can
+select **Include client DOCX** when building a Twin or ECM package; that writes
+`01_Report/Energy_Modeling_Report.docx` when `python-docx` is installed. It is
+not the controls-checklist DOCX.
 
 ## Do not
 

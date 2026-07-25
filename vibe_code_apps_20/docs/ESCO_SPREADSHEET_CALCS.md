@@ -95,6 +95,7 @@ Bulk-select package **`esco-top15`** on Studio → ECMs → Easy Buttons.
 | 7 | VAV minimum airflow | `ECM-VAV-MIN-RESET` | `static_pressure_reset` | — |
 | 8 | Economizer repair | `ECM-ECON-REPAIR` | `dewpoint_economizer` | — |
 | 9 | Demand-controlled ventilation | `ECM-DCV-CO2` | `dcv_bins` | — |
+| 9a | Occupied standby + DCV | `ECM-OCC-STANDBY-DCV` | `oad_unoccupied_closed` + `dcv_bins` | — |
 | 10 | Hot-water reset | `ECM-BOILER-RESET` | `hydronic_reset_bins` | — |
 | 11 | CHW / CW plant optimization | `ECM-CHW-RESET`, `ECM-CW-RESET`, `ECM-CHILLER-LOCKOUT` | hydronic / economizer | lockout on chiller |
 | 12 | Boiler combustion tune | `ECM-BOILER-TUNE` | `boiler_efficiency_improvement` | — |
@@ -115,6 +116,12 @@ Code: `algorithms.fan_affinity`, `algorithms.pump_vfd`, `esco.static_pressure_re
 ### Scheduling
 Removed operating hours × fan kW + OA vent cooling/heating loads.  
 Code: `esco.scheduling_fan_bins`, `scheduling_cooling_bins`, `scheduling_heating_bins`.
+
+### Occupied standby + DCV
+`ECM-OCC-STANDBY-DCV` is a Studio-composed proxy: `oad_unoccupied_closed`
+captures full OA closure during verified standby periods, while `dcv_bins`
+captures occupied airflow reduction. Its result stamps both calculator names;
+do not add either component again as independent savings.
 
 ### Boiler efficiency (ECM-12 / ECM-14)
 Delivered load MMBtu; input therms = `MMBtu × 10 / η`.  

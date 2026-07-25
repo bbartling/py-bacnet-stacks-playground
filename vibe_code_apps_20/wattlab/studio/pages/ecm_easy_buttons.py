@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,7 @@ import streamlit as st
 from wattlab.ecm.catalog import ECMEntry, load_catalog
 from wattlab.ecm.interactions import detect_incompatibilities
 from wattlab.ecm.packages import PACKAGES, resolve_package
+from wattlab.ecm.ranking import complexity_sort_key
 from wattlab.studio.ecm_scenario import load_ecm_scenario, save_ecm_scenario
 from wattlab.studio.state import namespaced_key
 
@@ -78,6 +78,8 @@ def render(
         return
 
     scenario = load_ecm_scenario(_scenario_path())
+    if scenario.get("sort_preference") == "implementation_complexity":
+        entries = sorted(entries, key=complexity_sort_key)
     _ensure_checkbox_defaults(entries, list(scenario.get("selected_ecm_ids") or []))
     recs = scenario.get("recommendations") or []
     if recs:
@@ -97,12 +99,17 @@ def render(
         ),
     )
 
-    grouped: dict[str, list[ECMEntry]] = defaultdict(list)
+    grouped: dict[str, list[ECMEntry]] = {}
     for entry in entries:
-        grouped[entry.category].append(entry)
-    for category in sorted(grouped):
-        with st.expander(category, expanded=False):
-            for entry in grouped[category]:
+        group = (
+            f"{entry.implementation_complexity.title()} complexity"
+            if scenario.get("sort_preference") == "implementation_complexity"
+            else entry.category
+        )
+        grouped.setdefault(group, []).append(entry)
+    for group, group_entries in grouped.items():
+        with st.expander(group, expanded=False):
+            for entry in group_entries:
                 with st.container(border=True):
                     left, right = st.columns([4, 1])
                     left.markdown(f"**{entry.display_name}**  \n{entry.description}")
@@ -112,6 +119,7 @@ def render(
                     )
                     st.caption(
                         f"`{entry.ecm_id}` · status **{entry.status}** · "
+                        f"category **{entry.category}** · complexity **{entry.implementation_complexity}** · "
                         f"confidence **{entry.confidence}** · "
                         f"proxy {'✓' if entry.proxy_calculator else '—'} · "
                         f"EnergyPlus {'✓' if entry.energyplus_patch else '—'}"

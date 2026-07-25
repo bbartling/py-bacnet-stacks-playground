@@ -153,6 +153,27 @@ def build_executive_markdown(
             "_No progressive ECM table in this package (baseline-only or calibrate run). "
             "See `reports/ecm_scenario.json` / Easy Buttons for screening selections._"
         )
+    proxy_savings = rp.get("proxy_savings") or rp.get("proxies") or {}
+    if isinstance(proxy_savings, dict) and proxy_savings:
+        lines.extend(
+            [
+                "",
+                "### Screening proxy provenance",
+                "",
+                "| measure | calculator provenance | kWh/yr | therms/yr |",
+                "| --- | --- | ---: | ---: |",
+            ]
+        )
+        for measure_id, proxy in proxy_savings.items():
+            if not isinstance(proxy, dict):
+                continue
+            calculators = proxy.get("calculators") or proxy.get("calculator") or "—"
+            if isinstance(calculators, list):
+                calculators = " + ".join(str(name) for name in calculators)
+            lines.append(
+                f"| {measure_id} | {calculators} | {proxy.get('savings_kwh', '—')} | "
+                f"{proxy.get('savings_therms', '—')} |"
+            )
     lines.extend(
         [
             "",
@@ -410,6 +431,7 @@ def package_deliverables(
     zip_name: str | None = None,
     source_files: list[Path] | None = None,
     iteration_runs: list[dict[str, Any]] | None = None,
+    include_docx: bool = False,
 ) -> dict[str, Any]:
     """Write curated deliverable tree + zip; return paths/meta."""
     out = Path(out_dir)
@@ -448,6 +470,20 @@ def package_deliverables(
     md = build_executive_markdown(scorecard=sc, report=rp, profile=profile)
     report_path = out / "01_Report" / "Energy_Modeling_Report.md"
     report_path.write_text(md, encoding="utf-8")
+    report_docx: Path | None = None
+    docx_note: str | None = None
+    if include_docx:
+        try:
+            from wattlab.deliverables_docx import render_energy_modeling_docx
+
+            report_docx = render_energy_modeling_docx(
+                out_path=out / "01_Report" / "Energy_Modeling_Report.docx",
+                scorecard=sc,
+                report=rp,
+                profile=profile,
+            )
+        except ImportError:
+            docx_note = "Client DOCX skipped: install the optional python-docx dependency."
 
     xlsx_bytes = build_results_workbook_bytes(
         scorecard=sc, report=rp, iteration_runs=iters
@@ -602,7 +638,7 @@ def package_deliverables(
             if p.is_file():
                 zf.write(p, arcname=str(p.relative_to(out.parent)))
 
-    return {
+    result = {
         "ok": True,
         "out_dir": str(out),
         "zip_path": str(zip_path),
@@ -610,3 +646,8 @@ def package_deliverables(
         "workbook_xlsx": str(xlsx_path),
         "stamp": stamp,
     }
+    if report_docx is not None:
+        result["report_docx"] = str(report_docx)
+    if docx_note:
+        result["docx_note"] = docx_note
+    return result

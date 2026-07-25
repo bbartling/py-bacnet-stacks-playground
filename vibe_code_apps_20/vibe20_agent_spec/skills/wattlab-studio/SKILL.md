@@ -67,9 +67,17 @@ Prefer agent work via `docker exec vibe20 wattlab …`
 
 Artifacts: `/data/.artifacts`. Sims default to ReadVars (`-r`) for `eplusout.csv`.
 
-**Client deliverables (Twin):** Build client package → report preview + download
-`.md` / `.xlsx` / `.zip` (`wattlab.deliverables`). See
+**Client deliverables (Twin and ECMs):** Build client package → report preview
+optional `.docx` / `.md` / `.xlsx` / `.zip` (`wattlab.deliverables`). The
+**Include client DOCX** checkbox defaults on when `python-docx` is available;
+it writes `01_Report/Energy_Modeling_Report.docx` and is distinct from the
+controls-checklist DOCX. See
 [`docs/CALIBRATE_AND_DELIVERABLES.md`](../../docs/CALIBRATE_AND_DELIVERABLES.md).
+
+**ECM scenario:** `reports/ecm_scenario.json` v2 accepts
+`sort_preference=implementation_complexity`, package/proxy/ROI hints, and
+real `ECM-*` ids. Cards sort low→medium→high complexity without changing
+`ESCO_TOP15` screening order.
 
 **G14:** scorecard NMBE/CV(RMSE) on Twin when `calibration_scorecard.json` is
 present; campaign CLI `wattlab calibrate-campaign`.

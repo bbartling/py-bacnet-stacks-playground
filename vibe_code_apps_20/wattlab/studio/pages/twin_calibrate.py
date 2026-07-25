@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -974,8 +975,15 @@ def render() -> None:
     )
     studio_report = st.session_state.get("studio_report") or {}
     profile = _profile() or {}
+    docx_available = find_spec("docx") is not None
     build_col, hint_col = st.columns([1, 2])
     with build_col:
+        include_docx = st.checkbox(
+            "Include client DOCX",
+            value=docx_available,
+            disabled=not docx_available,
+            key="twin_include_client_docx",
+        )
         build_clicked = st.button(
             "Build client package",
             key="twin_build_deliverable",
@@ -987,6 +995,8 @@ def render() -> None:
             "Uses the active Twin run + calibration scorecard when present. "
             "Agents can also run `wattlab calibrate-campaign` then refresh."
         )
+        if not docx_available:
+            st.caption("Client DOCX is unavailable until the optional `python-docx` dependency is installed.")
     if build_clicked:
         from wattlab.deliverables import package_deliverables
 
@@ -1016,11 +1026,18 @@ def render() -> None:
                     out_dir=dest,
                     run_dir=Path(run_src) if run_src else None,
                     scorecard=sc or {},
-                    report=studio_report or None,
+                    report={
+                        **studio_report,
+                        "proxy_savings": st.session_state.get("studio_proxies") or {},
+                    }
+                    or None,
                     profile=profile,
+                    include_docx=include_docx,
                 )
                 st.session_state["studio_deliverable"] = meta
                 st.success(f"Package ready → `{meta.get('out_dir')}`")
+                if meta.get("docx_note"):
+                    st.caption(str(meta["docx_note"]))
             except Exception as exc:
                 st.error(f"Deliverable build failed: {exc}")
 
@@ -1034,7 +1051,7 @@ def render() -> None:
             stamp = (deliv.get("stamp") or {})
             if stamp:
                 st.json(stamp, expanded=False)
-            d1, d2, d3 = st.columns(3)
+            d1, d2, d3, d4 = st.columns(4)
             d1.download_button(
                 "Report (.md)",
                 data=md_text.encode("utf-8"),
@@ -1051,9 +1068,18 @@ def render() -> None:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_workbook_xlsx",
                 )
+            docx_p = deliv.get("report_docx")
+            if docx_p and Path(str(docx_p)).is_file():
+                d3.download_button(
+                    "Client report (.docx)",
+                    data=Path(str(docx_p)).read_bytes(),
+                    file_name="Energy_Modeling_Report.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="dl_report_docx",
+                )
             zip_p = deliv.get("zip_path")
             if zip_p and Path(str(zip_p)).is_file():
-                d3.download_button(
+                d4.download_button(
                     "Full package (.zip)",
                     data=Path(str(zip_p)).read_bytes(),
                     file_name=Path(str(zip_p)).name,

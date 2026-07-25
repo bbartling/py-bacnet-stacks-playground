@@ -62,6 +62,11 @@ from vibe19 `weather_observed.csv` (timestamp + OAT columns).
 Engineering conventions everywhere: 4.5·CFM·Δh (total), 1.08·CFM·ΔT (sensible),
 12,000 Btu/ton-h, therms = kBtu/100.
 
+`ECM-OCC-STANDBY-DCV` is a Studio composite, not a new registration: combine
+`oad_unoccupied_closed` for verified standby hours with `dcv_bins` for
+occupied DCV and return both calculator names as provenance. Keep
+`ECM-DCV-CO2` on `dcv_bins` alone; do not double-count the component savings.
+
 ## Hard rules
 
 1. **Golden tests pin public engineering behavior** — changing math means

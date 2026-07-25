@@ -30,3 +30,12 @@ Magic numbers and defaults belong in versioned configuration with unit, source, 
 ## Goldens
 
 `tests/test_esco_golden.py` uses synthetic deterministic fixtures and transparent expected values. Private workbook cell addresses and client schedules are not required.
+
+## Composite ventilation proxy
+
+`ECM-OCC-STANDBY-DCV` is intentionally not a third registered ESCO calculator.
+Studio combines `oad_unoccupied_closed` (full OA closure only during verified
+unoccupied standby) and `dcv_bins` (occupied avoided OA) and records
+`calculators: ["oad_unoccupied_closed", "dcv_bins"]`. This keeps the two
+auditable methods separately golden-tested and prevents a duplicate DCV path.
+`ECM-DCV-CO2` continues to use `dcv_bins` alone.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,7 @@ from wattlab.studio.status import (
     required_gaps_still_missing,
     soften_required_gaps,
 )
+from wattlab.deliverables import build_executive_markdown
 
 
 def test_soften_required_gaps_when_answers_filled():
@@ -40,6 +42,54 @@ def test_ecm_scenario_roundtrip(tmp_path: Path):
     loaded = load_ecm_scenario(path)
     assert loaded["selected_ecm_ids"] == ["a", "b"]
     assert "2 ECMs" in loaded["status"]
+
+
+def test_ecm_scenario_v1_loads_and_v2_fields_roundtrip(tmp_path: Path):
+    path = tmp_path / "ecm_scenario.json"
+    path.write_text(
+        json.dumps({"version": 1, "selected_ecm_ids": ["ECM-A"]}),
+        encoding="utf-8",
+    )
+    migrated = load_ecm_scenario(path)
+    assert migrated["version"] == 2
+    assert migrated["sort_preference"] == "implementation_complexity"
+    assert migrated["package_hints"] == []
+    assert migrated["proxy_defaults"] == {}
+    assert migrated["roi_param_hints"] == {}
+
+    save_ecm_scenario(
+        {
+            "selected_ecm_ids": ["ECM-OCC-STANDBY-DCV"],
+            "sort_preference": "implementation_complexity",
+            "package_hints": ["esco-top15"],
+            "proxy_defaults": {"oa_fraction": 0.2},
+            "roi_param_hints": {"usd_per_ft2": 0.65},
+        },
+        path=path,
+    )
+    loaded = load_ecm_scenario(path)
+    assert loaded["version"] == 2
+    assert loaded["package_hints"] == ["esco-top15"]
+    assert loaded["proxy_defaults"] == {"oa_fraction": 0.2}
+    assert loaded["roi_param_hints"] == {"usd_per_ft2": 0.65}
+
+
+def test_executive_markdown_lists_proxy_calculator_provenance() -> None:
+    markdown = build_executive_markdown(
+        report={
+            "proxy_savings": {
+                "ECM-OCC-STANDBY-DCV": {
+                    "calculators": ["oad_unoccupied_closed", "dcv_bins"],
+                    "savings_kwh": 120.0,
+                    "savings_therms": 9.0,
+                }
+            }
+        }
+    )
+
+    assert "oad_unoccupied_closed + dcv_bins" in markdown
+    assert "120.0" in markdown
+    assert "9.0" in markdown
 
 
 def test_build_session_status_answers_answered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -106,3 +156,27 @@ def test_package_deliverables_has_source_and_iteration(tmp_path: Path, monkeypat
     assert "Executive summary" in Path(meta["report_md"]).read_text(encoding="utf-8")
     wb = load_workbook(io.BytesIO(Path(meta["workbook_xlsx"]).read_bytes()))
     assert "Iteration_Runs" in wb.sheetnames
+
+
+def test_package_deliverables_optionally_writes_client_docx(tmp_path: Path) -> None:
+    from wattlab.deliverables import package_deliverables
+
+    with_docx = package_deliverables(
+        out_dir=tmp_path / "with_docx",
+        scorecard={"run_id": "docx", "status": "screening"},
+        profile={"display_name": "Example Building"},
+        include_docx=True,
+    )
+    docx_path = Path(with_docx["report_docx"])
+    assert docx_path.is_file()
+    assert docx_path.read_bytes()[:2] == b"PK"
+    with zipfile.ZipFile(with_docx["zip_path"]) as packaged:
+        assert "with_docx/01_Report/Energy_Modeling_Report.docx" in packaged.namelist()
+
+    without_docx = package_deliverables(
+        out_dir=tmp_path / "without_docx",
+        scorecard={"run_id": "no-docx", "status": "screening"},
+        include_docx=False,
+    )
+    assert "report_docx" not in without_docx
+    assert not (tmp_path / "without_docx" / "01_Report" / "Energy_Modeling_Report.docx").exists()

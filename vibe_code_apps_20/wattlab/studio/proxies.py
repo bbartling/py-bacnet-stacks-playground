@@ -35,6 +35,7 @@ DEFAULT_MEASURE_COSTS = {
     "ECM-BOILER-TUNE": 12000.0,
     "ECM-BOILER-RESET": 10000.0,
     "ECM-DCV-CO2": 18000.0,
+    "ECM-OCC-STANDBY-DCV": 24000.0,
     "ECM-ECON-REPAIR": 15000.0,
     "ECM-VAV-MIN-RESET": 20000.0,
 }
@@ -120,7 +121,35 @@ def _schedule_proxy(get, *, fan_kw: float, oa_cfm: float, kw_per_ton: float, bin
     }
 
 
-def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> dict[str, dict[str, float]]:
+def _occ_standby_dcv_proxy(get, *, oa_cfm: float, kw_per_ton: float, bins, occupied) -> dict[str, Any]:
+    """Combine unoccupied damper closure with occupied DCV bin-method savings."""
+    unoccupied = {"shifts": [7, 0, 5], "days_per_week": 5}
+    common = {
+        "oa_cfm_total": oa_cfm,
+        "kw_per_ton": kw_per_ton,
+        "boiler_efficiency": PROXY_ASSUMPTIONS["boiler_efficiency"],
+        "bins": bins,
+    }
+    oad_cooling = get("oad_unoccupied_closed")({**common, "mode": "cooling", "vent_hours_schedule": unoccupied})
+    oad_heating = get("oad_unoccupied_closed")({**common, "mode": "heating", "vent_hours_schedule": unoccupied})
+    dcv = get("dcv_bins")(
+        {
+            "baseline_oa_cfm": oa_cfm,
+            "proposed_oa_cfm": oa_cfm * 0.65,
+            "kw_per_ton": kw_per_ton,
+            "boiler_efficiency": PROXY_ASSUMPTIONS["boiler_efficiency"],
+            "schedule": occupied,
+            "bins": bins,
+        }
+    )
+    return {
+        "savings_kwh": round(float(oad_cooling["savings_kwh"]) + float(dcv["savings_kwh"]), 1),
+        "savings_therms": round(float(oad_heating["savings_therms"]) + float(dcv["savings_therms"]), 1),
+        "calculators": ["oad_unoccupied_closed", "dcv_bins"],
+    }
+
+
+def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> dict[str, dict[str, Any]]:
     """Screening proxy savings per measure from the ESCO bin calculators."""
     from wattlab.bench import runner  # noqa: F401  (registers calculators)
     from wattlab.bench.registry import get
@@ -144,7 +173,7 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
     proposed = PROXY_ASSUMPTIONS["proposed_schedule"]
     capacity_mbh = max(area * 0.03, 500.0)  # screening plant capacity
 
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, Any]] = {}
     for mid in measure_ids:
         try:
             if mid == "ECM-ERV" or (mid.endswith("-ERV") and "TOILET" not in mid):
@@ -255,6 +284,10 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     }
                 )
                 out[mid] = {"savings_kwh": round(float(res["savings_kwh"]), 1), "savings_therms": 0.0}
+            elif mid == "ECM-OCC-STANDBY-DCV" or ("OCC-STANDBY" in mid and "DCV" in mid):
+                out[mid] = _occ_standby_dcv_proxy(
+                    get, oa_cfm=oa_cfm, kw_per_ton=kw_per_ton, bins=bins, occupied=proposed
+                )
             elif "DCV" in mid or mid in ("ECM-OA-RESET",) or "OA-RESET" in mid:
                 res = get("dcv_bins")(
                     {
@@ -269,6 +302,7 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                 out[mid] = {
                     "savings_kwh": round(float(res.get("savings_kwh") or 0.0), 1),
                     "savings_therms": round(float(res.get("savings_therms") or 0.0), 1),
+                    "calculators": ["dcv_bins"],
                 }
             elif "BOILER-RESET" in mid or mid == "ECM-BOILER-RESET":
                 res = get("hydronic_reset_bins")(

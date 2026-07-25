@@ -68,6 +68,10 @@ thermostat / fan hours, WWR, HVAC family, weather mode
 (`TYPICAL_YEAR_SCREENING` / `ACTUAL_YEAR_CALIBRATION` /
 `SUBSTITUTE_CLIMATE_CONCEPTUAL_ONLY`), `prototype_area_scale`.
 
+For `ECM-OCC-STANDBY-DCV`, record the verified occupied and standby schedules,
+minimum-ventilation constraint, sensor calibration evidence, and the source of
+the DCV airflow reduction. Never infer zero occupied OA from a screening proxy.
+
 ## Short / long fuel playbook (Twin G14 dial)
 
 Autosized plant is fine for sparse twins — dial **envelope + loads + as-operated
