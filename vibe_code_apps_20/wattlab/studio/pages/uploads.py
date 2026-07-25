@@ -103,42 +103,24 @@ def _bridge_utility_bills(pkg: Any) -> None:
 
 
 def render() -> None:
-    st.header("Uploads — dump + energy use")
-    st.caption(
-        "Drop a vibe19 **wattlab_dump_*.zip** (v3) and an **energy-use** package: "
-        "`campus.json` + bill CSVs, Haystack `column_map`, **or** monthly "
-        "Excel workbooks (auto-derived to campus). "
-        "Need vibe19 **Export → WattLab dump** (not `openfdd_package_v1`). "
-        "Chat with any AI agent on this workspace folder — Studio only displays results."
+    st.header("Uploads")
+    st.markdown(
+        "Upload a vibe19 **WattLab dump** and an **energy-use** package. "
+        "[Agent workspace & data-model docs]"
+        "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+        "vibe_code_apps_20/vibe20_agent_spec/docs/AGENT_DOCKER_WORKSPACE.md)"
     )
 
     root = ensure_workspace()
-    host = (os.environ.get("WATTLAB_HOST_WORKSPACE") or "").strip()
-    if host:
-        st.info(
-            f"Workspace: `{root}` · host bind: `{host}` → container `/data`. "
-            f"Process cwd is usually `/app` — relative paths resolve under `{root}` "
-            "(not `/app`). Prefer the **file picker**, or paste "
-            f"`{root.as_posix()}/uploads/dump/<file>.zip` / `uploads/dump/<file>.zip`."
-        )
-    else:
-        st.info(
-            f"Workspace: `{root}`. Relative paths join this root. "
-            "Prefer the file picker when unsure."
-        )
 
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("1 · WattLab dump (v3)")
         dump_up = st.file_uploader("wattlab_dump_*.zip", type=["zip"], key="uploads_dump_zip")
         dump_path = st.text_input(
-            "…or path to dump zip/folder",
+            "…or path under workspace",
             key="uploads_dump_path",
-            help=(
-                f"Relative paths join workspace `{root}` "
-                "(e.g. uploads/dump/wattlab_dump_….zip). Absolute paths must be "
-                "visible to this process (Docker: /data/…, not host /home/…)."
-            ),
+            placeholder="uploads/dump/wattlab_dump_….zip",
         )
         if st.button("Load dump", key="uploads_load_dump"):
             try:
@@ -164,17 +146,14 @@ def render() -> None:
                 st.error(f"Dump load failed: {exc}")
 
     with c2:
-        st.subheader("2 · Energy use (campus / Excel / Haystack)")
+        st.subheader("2 · Energy use")
         energy_up = st.file_uploader(
             "energy-use zip", type=["zip"], key="uploads_energy_zip"
         )
         energy_path = st.text_input(
-            "…or path to campus folder / zip",
+            "…or path under workspace",
             key="uploads_energy_path",
-            help=(
-                f"Relative paths join workspace `{root}`. "
-                "campus.json + meter CSVs, Excel monthly fuel workbooks, or Haystack maps."
-            ),
+            placeholder="uploads/energy/…",
         )
         if st.button("Load energy use", key="uploads_load_energy"):
             try:
@@ -219,19 +198,9 @@ def render() -> None:
     if st.button("Refresh workspace listing", key="uploads_refresh_ws"):
         st.session_state["studio_ws_summary"] = list_workspace_summary()
 
-    summary = st.session_state.get("studio_ws_summary") or list_workspace_summary()
-    st.subheader("Workspace files")
-    dump_abs = summary.get("dumps_abs") or []
-    if dump_abs:
-        st.caption("Dump paths visible to Studio (copy into the path box if needed):")
-        for abs_p in dump_abs[:12]:
-            st.code(abs_p, language=None)
-    energy_abs = summary.get("energy_abs") or []
-    if energy_abs:
-        st.caption("Energy paths:")
-        for abs_p in energy_abs[:12]:
-            st.code(abs_p, language=None)
-    st.json(summary)
+    with st.expander("Workspace files", expanded=False):
+        summary = st.session_state.get("studio_ws_summary") or list_workspace_summary()
+        st.json(summary)
 
     bundle = st.session_state.get("studio_bundle")
     if bundle is not None:
@@ -261,7 +230,6 @@ def render() -> None:
             st.info(
                 "Dump seed nulls answered via answers.json: "
                 + ", ".join(str(g["field"]) for g in answered_via)
-                + " — Re-apply bootstrap or Twin form if profile not loaded."
             )
         if bundle.manifest:
             with st.expander("MANIFEST.json", expanded=False):
@@ -283,8 +251,3 @@ def render() -> None:
         ]
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
-    st.caption(
-        f"Agent tip: point any AI agent at `{workspace_root()}` — "
-        "uploads/dump, uploads/energy, runs/, reports/. "
-        "Publish Twin sims with publish_run_for_studio so the browser shows 08 panes."
-    )

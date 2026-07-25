@@ -6,6 +6,8 @@ AI agents work on the shared workspace folder outside Streamlit; Studio is the b
 
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 
 from wattlab.studio.proxies import estimate_proxy_savings  # noqa: F401  (re-export for tests)
@@ -22,13 +24,24 @@ PAGES = [
 ]
 
 
+def _docker_image_caption() -> str | None:
+    """Human-readable GHCR/local image identity (matches vibe19 sidebar style)."""
+    ref = (os.environ.get("VIBE20_IMAGE_REF") or "").strip()
+    tag = (os.environ.get("VIBE20_IMAGE_TAG") or "").strip()
+    sha = (os.environ.get("VIBE20_GIT_SHA") or "").strip()
+    if not ref and not tag and not sha:
+        return None
+    name = f"{ref}:{tag}" if ref and tag else (ref or tag or "vibe20")
+    short = sha[:12] if sha and sha != "unknown" else ""
+    return f"Image: `{name}`" + (f" · sha `{short}`" if short else "")
+
+
 def _show_bootstrap_result(result: dict) -> None:
-    if result.get("banner"):
-        st.sidebar.success(result["banner"])
+    """Surface only actionable bootstrap issues (no long green success banners)."""
     for note in result.get("needs_input") or []:
         st.sidebar.info(f"NEEDS_INPUT: {note}")
     for warn in result.get("warnings") or []:
-        st.sidebar.caption(f"Bootstrap: {warn}")
+        st.sidebar.caption(str(warn))
     for err in result.get("errors") or []:
         st.sidebar.warning(err)
 
@@ -48,12 +61,12 @@ def _apply_studio_bootstrap_once() -> None:
         return
     if result.get("skipped") == "no_bootstrap_file":
         return
-    if result.get("applied") or result.get("errors") or result.get("needs_input"):
+    if result.get("errors") or result.get("needs_input") or result.get("warnings"):
         _show_bootstrap_result(result)
 
 
 def _render_bootstrap_sidebar_controls() -> None:
-    """Discoverability: path caption, stale-file warning, Re-apply button."""
+    """Short Re-apply control; warn only when bootstrap file changed on disk."""
     from wattlab.studio.bootstrap import (
         apply_bootstrap_to_session,
         bootstrap_file_mtime,
@@ -65,10 +78,6 @@ def _render_bootstrap_sidebar_controls() -> None:
     if path is None:
         return
 
-    st.sidebar.caption(
-        f"Bootstrap: `{path.name}` — page refresh starts a new session; "
-        "or use Re-apply below."
-    )
     applied_mtime = st.session_state.get("_studio_bootstrap_applied_mtime")
     current_mtime = bootstrap_file_mtime(path)
     if (
@@ -77,9 +86,13 @@ def _render_bootstrap_sidebar_controls() -> None:
         and current_mtime is not None
         and current_mtime > float(applied_mtime) + 0.01
     ):
-        st.sidebar.warning("Bootstrap file updated — Re-apply or refresh.")
+        st.sidebar.warning("Bootstrap file updated on disk.")
 
-    if st.sidebar.button("Re-apply bootstrap", key="studio_reapply_bootstrap"):
+    if st.sidebar.button(
+        "Re-apply bootstrap",
+        key="studio_reapply_bootstrap",
+        help="Reload Fuel/Twin/ECM session state from studio_bootstrap.json",
+    ):
         clear_bootstrap_session_flags(st.session_state)
         try:
             result = apply_bootstrap_to_session(st.session_state)
@@ -90,6 +103,8 @@ def _render_bootstrap_sidebar_controls() -> None:
         if result.get("skipped") == "no_bootstrap_file":
             st.sidebar.info("No bootstrap file found.")
             return
+        if result.get("applied") and not (result.get("errors") or result.get("needs_input")):
+            st.sidebar.caption("Bootstrap re-applied.")
         _show_bootstrap_result(result)
 
 
@@ -102,10 +117,10 @@ def main() -> None:
         bundle=st.session_state.get("studio_bundle"),
     )
     st.sidebar.title("OpenFDD Vibe 20")
-    st.sidebar.caption(
-        "WattLab Studio · Uploads → Fuel → Twin → ECMs. "
-        "AI agents work on the workspace folder; this UI is the viewer."
-    )
+    img_cap = _docker_image_caption()
+    if img_cap:
+        st.sidebar.caption(img_cap)
+    st.sidebar.caption("Uploads → Fuel → Twin → ECMs")
     _render_bootstrap_sidebar_controls()
     page = st.sidebar.radio("Workflow", PAGES, key="studio_page")
 

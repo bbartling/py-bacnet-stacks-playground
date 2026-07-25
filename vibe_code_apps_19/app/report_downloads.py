@@ -55,7 +55,7 @@ def render_engineering_findings_panel(
         "Detection ≠ finding — raw rule hits and likely false positives stay in the appendices."
     )
     if not batch_results:
-        st.info("Run Rules first so FAULT rows are available for evidence review.")
+        st.info("Run rules above first so FAULT rows are available for evidence review.")
         return
 
     if st.button(
@@ -63,22 +63,34 @@ def render_engineering_findings_panel(
         key=f"{key_prefix}_generate",
         type="primary",
     ):
+        try:
+            import docx  # noqa: F401
+        except ImportError:
+            st.error(
+                "python-docx is missing from this image. Rebuild/pull a tip that includes "
+                "engineering-report extras (`python-docx`, `kaleido`)."
+            )
+            return
         with st.spinner("Evidence review + charts…"):
-            from app.reporting.pipeline import build_engineering_findings, render_engineering_report
+            try:
+                from app.reporting.pipeline import build_engineering_findings, render_engineering_report
 
-            art = build_engineering_findings(
-                building=building_name or "Building",
-                analysis_period=analysis_period,
-                rule_results=list(batch_results),
-            )
-            buf_dir = Path(st.session_state.get("_eng_findings_tmpdir") or "/tmp/vibe19_eng_findings")
-            buf_dir.mkdir(parents=True, exist_ok=True)
-            st.session_state["_eng_findings_tmpdir"] = str(buf_dir)
-            written = render_engineering_report(
-                art, buf_dir, docx=True, json_out=True, charts=True
-            )
-            st.session_state[f"{key_prefix}_artifacts"] = art
-            st.session_state[f"{key_prefix}_written"] = {k: str(v) for k, v in written.items()}
+                art = build_engineering_findings(
+                    building=building_name or "Building",
+                    analysis_period=analysis_period,
+                    rule_results=list(batch_results),
+                )
+                buf_dir = Path(st.session_state.get("_eng_findings_tmpdir") or "/tmp/vibe19_eng_findings")
+                buf_dir.mkdir(parents=True, exist_ok=True)
+                st.session_state["_eng_findings_tmpdir"] = str(buf_dir)
+                written = render_engineering_report(
+                    art, buf_dir, docx=True, json_out=True, charts=True
+                )
+                st.session_state[f"{key_prefix}_artifacts"] = art
+                st.session_state[f"{key_prefix}_written"] = {k: str(v) for k, v in written.items()}
+            except Exception as exc:  # noqa: BLE001 — show friendly error, not Streamlit Traceback page
+                st.error(f"Engineering Findings report failed: {exc}")
+                return
 
     art = st.session_state.get(f"{key_prefix}_artifacts")
     written = st.session_state.get(f"{key_prefix}_written") or {}
