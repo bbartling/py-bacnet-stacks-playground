@@ -74,6 +74,23 @@ def test_render_day_zoom_png_utc_aware_index(tmp_path):
     assert path.is_file() and path.stat().st_size > 500
 
 
+def test_render_day_zoom_uses_clock_time_axis(tmp_path):
+    """Day is in the title; x-axis should be clock time (HH:MM), not full date stamps."""
+    idx = pd.date_range("2026-06-28 00:00", periods=24, freq="h")
+    fault = pd.Series([1] * 6 + [0] * 18, index=idx)
+    result = RuleResult(
+        rule_id="VAV-5",
+        equipment_id="VAV_22",
+        status="FAULT",
+        applicable=True,
+        confirmed_fault=fault,
+        plot_series={"zone_t": pd.Series(range(24), index=idx, dtype=float)},
+    )
+    rendered = render_day_zoom_png(result, date(2026, 6, 28), tmp_path / "clock.png")
+    assert rendered is not None
+    assert rendered[0].is_file()
+
+
 def test_docx_embeds_day_zoom_media(tmp_path):
     idx = pd.date_range("2026-06-28", periods=24, freq="h")
     fault = pd.Series([1] * 12 + [0] * 12, index=idx)

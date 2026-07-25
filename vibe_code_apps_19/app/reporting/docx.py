@@ -76,6 +76,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     _add_overview_charts(doc, artifacts)
     _add_chart_if_any(doc, artifacts, "confidence_summary")
     _add_chart_if_any(doc, artifacts, "top_detections")
+    _add_chart_if_any(doc, artifacts, "top_vav_detections")
     _add_chart_if_any(doc, artifacts, "comfort_ranking")
 
     # Prioritized findings detail
@@ -119,6 +120,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
         f"VAVs: {cs.get('n_vav', '—')}; below threshold: {cs.get('n_below', '—')}. "
         "Dead/implausible sensors are excluded from comfort conclusions."
     )
+    _add_chart_if_any(doc, artifacts, "top_vav_detections")
     _add_chart_if_any(doc, artifacts, "comfort_ranking")
     dq_zones = [
         r

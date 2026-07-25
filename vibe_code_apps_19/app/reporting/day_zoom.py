@@ -166,7 +166,7 @@ def render_day_zoom_png(
     ax_f.set_ylim(-0.1, 1.1)
     ax_f.set_yticks([0, 1])
     ax_f.set_yticklabels(["ok", "fault"])
-    ax_f.set_xlabel("Time")
+    ax_f.set_xlabel("Time of day")
     if fault_day is not None and not fault_day.empty:
         try:
             fnum = fault_day.astype(float).clip(0, 1)
@@ -207,7 +207,22 @@ def render_day_zoom_png(
         except Exception:
             fault_hours = float(fault_day.astype(bool).sum())
 
-    fig.subplots_adjust(hspace=0.12)
+    # Title already has the calendar day — x ticks are clock time only.
+    import matplotlib.dates as mdates
+
+    locator = mdates.AutoDateLocator(minticks=4, maxticks=10)
+    formatter = mdates.DateFormatter("%H:%M")
+    for axis in (ax, ax_f):
+        axis.xaxis.set_major_locator(locator)
+        axis.xaxis.set_major_formatter(formatter)
+        for label in axis.get_xticklabels():
+            label.set_rotation(45)
+            label.set_ha("right")
+            label.set_fontsize(8)
+    ax_f.tick_params(axis="x", which="both", labelbottom=True)
+    ax.tick_params(axis="x", which="both", labelbottom=False)
+
+    fig.subplots_adjust(hspace=0.12, bottom=0.22)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     buf = BytesIO()
