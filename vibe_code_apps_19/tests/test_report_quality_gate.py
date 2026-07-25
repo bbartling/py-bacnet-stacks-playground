@@ -138,3 +138,17 @@ def test_quality_gate_rejects_proactive_replace_on_inconclusive():
     gate = run_quality_gate(_artifacts(f))
     assert gate["ok"] is False
     assert any("replace" in e.lower() for e in gate["errors"])
+
+
+def test_quality_gate_allows_soft_negation_and_flags_replacement_noun():
+    ok_f = _base_finding(
+        possible_corrective=["No need to replace the actuator until field verification"],
+    )
+    assert run_quality_gate(_artifacts(ok_f))["ok"] is True
+
+    bad_f = _base_finding(
+        possible_corrective=["Replacement of the actuator is recommended"],
+    )
+    gate = run_quality_gate(_artifacts(bad_f))
+    assert gate["ok"] is False
+    assert any("replace" in e.lower() for e in gate["errors"])

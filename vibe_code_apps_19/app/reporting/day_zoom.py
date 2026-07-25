@@ -226,8 +226,9 @@ def attach_day_zoom_to_findings(
     """Write day-zoom PNGs and set ``day_zoom_path`` / ``day_zoom_label`` on findings.
 
     Always records a meta per included finding. Successful zooms include ``path``;
-    skips include ``skip_reason`` in ``{excluded, no_result, no_fault_day, render_failed}``
-    and set ``EngineeringFinding.day_zoom_skip_reason``.
+    skips include ``skip_reason`` in ``{no_result, no_fault_day, render_failed}``
+    and set ``EngineeringFinding.day_zoom_skip_reason``. Findings with
+    ``include_in_report=False`` are ignored (no meta).
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -261,7 +262,11 @@ def attach_day_zoom_to_findings(
             _skip(f, "no_fault_day")
             continue
         png = out_dir / f"day_zoom_{f.finding_id}.png"
-        rendered = render_day_zoom_png(result, day, png)
+        try:
+            rendered = render_day_zoom_png(result, day, png)
+        except Exception:
+            _skip(f, "render_failed")
+            continue
         if rendered is None:
             _skip(f, "render_failed")
             continue

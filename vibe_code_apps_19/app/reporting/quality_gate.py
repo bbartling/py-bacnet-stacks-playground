@@ -14,34 +14,35 @@ CLIENT_OK = {
     Classification.DATA_QUALITY,
 }
 
-# Negations that contain the substring "replace" but are honesty language, not a fix action.
+# Negations / soft-denials that mention replace but are not a fix action.
 _ANTI_REPLACE = re.compile(
-    r"\b(?:do\s+not|don't|dont|never|avoid)\s+replace\b",
+    r"\b(?:do\s+not|don't|dont|never|avoid|no\s+need\s+to|without)\s+"
+    r"(?:\w+\s+){0,3}replac(?:e|ement)\b"
+    r"|\breplac(?:e|ement)\b\s+(?:is\s+)?(?:not|unnecessary|unwarranted)\b",
     re.IGNORECASE,
 )
-# Proactive replace of equipment / instrumentation (weak classes need stronger evidence).
+# Proactive replace / replacement of equipment / instrumentation.
 _PROACTIVE_REPLACE = re.compile(
-    r"\breplace\b.{0,40}\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b"
-    r"|\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b.{0,40}\breplace\b",
+    r"\breplac(?:e|ement)\b.{0,48}\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b"
+    r"|\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b.{0,48}\breplac(?:e|ement)\b"
+    r"|\breplacement\s+of\b",
     re.IGNORECASE,
 )
 
 
 def _has_proactive_replace(corrective: list[str] | None) -> bool:
-    """True when corrective text recommends replacing hardware (not 'do not replace…')."""
+    """True when corrective text recommends replacing hardware (not honesty language)."""
     for raw in corrective or []:
         text = str(raw or "").strip()
         if not text:
             continue
-        if _ANTI_REPLACE.search(text):
-            # Strip anti-replace clauses; leftover may still recommend replace.
-            text = _ANTI_REPLACE.sub(" ", text)
-        if "replace" not in text.lower():
+        # Drop negated clauses before matching proactive language.
+        cleaned = _ANTI_REPLACE.sub(" ", text)
+        if not re.search(r"replac", cleaned, re.IGNORECASE):
             continue
-        if _PROACTIVE_REPLACE.search(text):
+        if _PROACTIVE_REPLACE.search(cleaned):
             return True
-        # Bare "replace …" without gear noun still counts if not anti-replace only.
-        if re.search(r"\breplace\b", text, re.IGNORECASE):
+        if re.search(r"\breplace\b", cleaned, re.IGNORECASE):
             return True
     return False
 

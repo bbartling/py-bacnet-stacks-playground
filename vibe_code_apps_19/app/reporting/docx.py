@@ -400,26 +400,29 @@ def _add_overview_charts(doc, artifacts: ReportArtifacts) -> None:
 def _add_finding_picture(doc, f) -> None:
     from docx.shared import Inches
 
+    skip_reason = getattr(f, "day_zoom_skip_reason", None)
+    skip_note = getattr(f, "day_zoom_label", None)
+    if skip_reason or (skip_note and "unavailable" in str(skip_note).lower()):
+        _muted(doc, str(skip_note or f"Day-zoom unavailable: {skip_reason}"))
+
     path = None
     caption = None
     if getattr(f, "day_zoom_path", None) and Path(f.day_zoom_path).is_file():
         path = f.day_zoom_path
         caption = getattr(f, "day_zoom_label", None)
+        if caption and "unavailable" in str(caption).lower():
+            caption = None
     elif getattr(f, "chart_path", None) and Path(f.chart_path).is_file():
         path = f.chart_path
     if not path:
-        reason = getattr(f, "day_zoom_skip_reason", None)
-        note = getattr(f, "day_zoom_label", None)
-        if reason or (note and "unavailable" in str(note).lower()):
-            _muted(doc, str(note or f"Day-zoom unavailable: {reason}"))
-        elif reason is None and note is None:
+        if not (skip_reason or (skip_note and "unavailable" in str(skip_note).lower())):
             _muted(doc, "Day-zoom unavailable: no chart")
         return
     try:
         doc.add_picture(str(path), width=Inches(5.8))
     except Exception:
-        reason = getattr(f, "day_zoom_skip_reason", None) or "render_failed"
-        _muted(doc, f"Day-zoom unavailable: {reason}")
+        if not skip_reason:
+            _muted(doc, "Day-zoom unavailable: render_failed")
         return
     if caption:
         _muted(doc, str(caption))
