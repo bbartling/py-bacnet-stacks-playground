@@ -95,6 +95,13 @@ def render_findings_xlsx(
     _hdr(find_ws)
     for i, f in enumerate(included, start=2):
         note = (f.engineer_override or {}).get("note", "")
+        # Relative basename for agent-friendly cells; PNG still embeds from absolute (BUG-039)
+        zoom_cell = ""
+        if f.day_zoom_path:
+            try:
+                zoom_cell = Path(str(f.day_zoom_path)).name
+            except Exception:
+                zoom_cell = str(f.day_zoom_path)
         find_ws.append(
             [
                 f.finding_id,
@@ -106,7 +113,7 @@ def render_findings_xlsx(
                 ", ".join(f.rule_ids or []),
                 f.why_it_matters,
                 f.observed_behavior,
-                f.day_zoom_path,
+                zoom_cell,
                 f.day_zoom_skip_reason,
                 note,
             ]
@@ -156,12 +163,21 @@ def render_findings_xlsx(
             ]
         )
     inv_ws.append([])
-    inv_ws.append(["rollup", "n_faults", "n_in_priority", "n_orphans"])
+    inv_ws.append(
+        [
+            "rollup",
+            "n_faults",
+            "n_in_priority_findings",
+            "n_candidates_in_priority",
+            "n_orphans",
+        ]
+    )
     inv_ws.append(
         [
             "summary",
             inv.get("n_faults"),
-            inv.get("n_in_priority"),
+            inv.get("n_priority_findings", inv.get("n_in_priority")),
+            inv.get("n_candidates_in_priority"),
             inv.get("n_orphans"),
         ]
     )
@@ -174,14 +190,30 @@ def render_findings_xlsx(
     _hdr(ov, row=2)
     r = 3
     img_row = 3
+    # Prefer overview_charts; fall back to charts — dedupe by name (BUG-038)
+    seen_names: set[str] = set()
+    chart_metas: list[dict[str, Any]] = []
     for meta in list(artifacts.overview_charts or []) + list(artifacts.charts or []):
         if not isinstance(meta, dict):
             continue
+        name = str(meta.get("name") or meta.get("title") or "").strip()
+        if not name or name in seen_names:
+            continue
+        seen_names.add(name)
+        chart_metas.append(meta)
+    for meta in chart_metas:
         name = meta.get("name") or meta.get("title") or ""
         path = meta.get("path")
+        # Prefer relative path for agent-friendly cells (BUG-039)
+        path_cell = path
+        if path:
+            try:
+                path_cell = str(Path(str(path)).name)
+            except Exception:
+                path_cell = path
         embedded = False
         ov[f"A{r}"] = name
-        ov[f"B{r}"] = path
+        ov[f"B{r}"] = path_cell
         if (
             embed_images
             and path

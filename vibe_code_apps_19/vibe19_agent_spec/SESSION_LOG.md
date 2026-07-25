@@ -8,6 +8,13 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-25 — BUG-030–040 notebook / xlsx agent fixes
+
+- vibe20: in-place `prefill` (no wipe); ROI B=H + live NPV formula + `npv_usd_at_build`; preview `data_only=False`; validate warns empty E+; ECMs Advanced expander; tests `test_notebook_builder.py`.
+- vibe19: Overview chart dedupe; relative day_zoom/Overview paths; inventory `n_priority_findings` (+ candidates covered).
+
+---
+
 ## 2026-07-25 — Economizer free-cooling diagnostic plots + Eng Findings xlsx
 
 - Overview: fan-on AHU/RTU delta scatter (MAT−RAT vs OAT−RAT), MAT residual, temps+damper overlay; |OAT−RAT|<10°F suppressed (G36).

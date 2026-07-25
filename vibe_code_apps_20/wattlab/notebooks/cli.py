@@ -145,36 +145,57 @@ def _cmd_build(args: argparse.Namespace) -> int:
 
 
 def _cmd_prefill(args: argparse.Namespace) -> int:
-    """Rebuild the same package id (stem) with new inputs — simplest prefill."""
-    from wattlab.notebooks.builder import build_and_save_notebook
-    from wattlab.notebooks.packages import get_notebook_package
+    """Patch Inputs yellow cells in-place — never rebuilds (BUG-030)."""
+    from wattlab.notebooks.builder import prefill_notebook_inputs
 
-    stem = args.xlsx.stem
-    try:
-        get_notebook_package(stem)
-        package_id = stem
-    except KeyError:
-        print(
-            f"Cannot map {stem!r} to a notebook package; rebuild with wattlab notebook build",
-            file=sys.stderr,
-        )
+    if not args.xlsx.is_file():
+        print(f"missing workbook: {args.xlsx}", file=sys.stderr)
         return 2
-    profile = _load_profile(args)
+
     overrides: dict[str, Any] = {}
+    # Explicit keys from profile / answers JSON only (no default fill)
+    for src in (_load_json(getattr(args, "profile", None)), _load_json(getattr(args, "answers", None))):
+        for k, v in src.items():
+            if v is None:
+                continue
+            if k in (
+                "conditioned_floor_area_ft2",
+                "floor_area_ft2",
+                "area_ft2",
+                "cooling_tons",
+                "fan_hp",
+                "supply_fan_hp",
+                "elec_rate",
+                "gas_rate",
+                "discount",
+                "escalation",
+                "life_years",
+                "usd_per_ft2",
+                "coverage",
+            ):
+                overrides[k] = v
+            if k == "utility" and isinstance(v, dict):
+                if v.get("elec_usd_per_kwh") is not None:
+                    overrides["elec_rate"] = v["elec_usd_per_kwh"]
+                if v.get("gas_usd_per_therm") is not None:
+                    overrides["gas_rate"] = v["gas_usd_per_therm"]
+    if getattr(args, "area", None) is not None:
+        overrides["area_ft2"] = float(args.area)
+    if getattr(args, "cooling_tons", None) is not None:
+        overrides["cooling_tons"] = float(args.cooling_tons)
+    if getattr(args, "fan_hp", None) is not None:
+        overrides["fan_hp"] = float(args.fan_hp)
     if args.elec_rate is not None:
         overrides["elec_rate"] = float(args.elec_rate)
     if args.gas_rate is not None:
         overrides["gas_rate"] = float(args.gas_rate)
-    report = _load_report(args.from_run)
-    written = build_and_save_notebook(
-        package_id,
-        args.xlsx.parent,
-        profile=profile,
-        report=report,
-        input_overrides=overrides or None,
-        write_manifest=True,
-    )
-    print(json.dumps({k: str(v) for k, v in written.items()}, indent=2))
+
+    try:
+        result = prefill_notebook_inputs(args.xlsx, overrides=overrides)
+    except Exception as exc:
+        print(f"prefill failed: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(result, indent=2, default=str))
     return 0
 
 

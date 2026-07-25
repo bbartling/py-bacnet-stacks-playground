@@ -211,7 +211,9 @@ def build_notebook_workbook(
         ("ESCO docs", ESCO_DOCS_URL),
         (
             "Note",
-            "Yellow cells on Inputs are engineer-editable. ESCO_Calcs / Compare / ROI use formulas where marked.",
+            "Yellow Inputs drive rate-linked formulas (annual $, payback, NPV, Compare). "
+            "ESCO kWh/therms are screening proxies baked at build (see Docs). "
+            "Workbook is generated in code — templates/ecm_package_v1.xlsx is a scaffold only.",
         ),
     ]
     for i, (k, v) in enumerate(rows, start=4):
@@ -269,7 +271,10 @@ def build_notebook_workbook(
         esco[f"D{i}"] = ",".join(calcs) if isinstance(calcs, list) else ""
         # Formula references Inputs named rates
         esco[f"E{i}"] = f"=B{i}*inp_elec_rate+C{i}*inp_gas_rate"
-        esco[f"F{i}"] = "Screening proxy from wattlab.studio.proxies / bench ESCO bins"
+        esco[f"F{i}"] = (
+            "B/C = Python screening proxy at build (not live Excel bins). "
+            "E updates when Inputs rates change."
+        )
     esco.column_dimensions["A"].width = 28
     esco.column_dimensions["D"].width = 28
     esco.column_dimensions["E"].width = 28
@@ -339,19 +344,31 @@ def build_notebook_workbook(
             "simple_payback_years",
             "npv_usd",
             "cost_formula",
+            "npv_usd_at_build",
         ]
     )
     _style_header(roi)
+    n_meas = max(len(measure_ids), 1)
+    # Closed-form NPV of escalated annuity (matches wattlab.finance.escalated_cash_flows + npv)
+    npv_formula = (
+        "=IF(ABS(inp_discount-inp_escalation)<1E-9,"
+        "-B{i}+E{i}*inp_life_years/(1+inp_discount),"
+        "-B{i}+E{i}*(1-((1+inp_escalation)/(1+inp_discount))^inp_life_years)"
+        "/(inp_discount-inp_escalation))"
+    )
     for i, row in enumerate(econ_rows, start=2):
         roi[f"A{i}"] = row["measure_id"]
-        roi[f"B{i}"] = row["implementation_cost_usd"]
+        # H = Inputs-driven equal-split cost; B mirrors H (engineer may overwrite B with a lump sum)
+        roi[f"H{i}"] = f"=inp_usd_per_ft2*inp_area_ft2*inp_coverage/{n_meas}"
+        roi[f"B{i}"] = f"=H{i}"
         roi[f"C{i}"] = row["kwh_saved"]
         roi[f"D{i}"] = row["therms_saved"]
         roi[f"E{i}"] = f"=C{i}*inp_elec_rate+D{i}*inp_gas_rate"
         roi[f"F{i}"] = f'=IF(E{i}=0,"",B{i}/E{i})'
-        roi[f"G{i}"] = row["npv_usd"]
-        roi[f"H{i}"] = f"=inp_usd_per_ft2*inp_area_ft2*inp_coverage/{max(len(measure_ids), 1)}"
-        _yellow(roi[f"B{i}"])  # engineer can override cost
+        roi[f"G{i}"] = npv_formula.format(i=i)
+        _yellow(roi[f"B{i}"])  # still highlight — overwrite formula with fixed $ if needed
+        # Cached build-time NPV for agents / Studio preview (not Excel-evaluated)
+        roi[f"I{i}"] = row["npv_usd"]
     # Totals
     n = len(econ_rows)
     if n:
@@ -360,9 +377,11 @@ def build_notebook_workbook(
         roi[f"B{tot}"] = f"=SUM(B2:B{n+1})"
         roi[f"E{tot}"] = f"=SUM(E2:E{n+1})"
         roi[f"G{tot}"] = f"=SUM(G2:G{n+1})"
+        roi[f"I{tot}"] = f"=SUM(I2:I{n+1})"
         roi[f"A{tot}"].font = Font(bold=True)
     roi.column_dimensions["A"].width = 28
     roi.column_dimensions["H"].width = 36
+    roi.column_dimensions["I"].width = 18
 
     # --- Guardrails ---
     gr = wb.create_sheet("Guardrails")
@@ -391,14 +410,28 @@ def build_notebook_workbook(
     docs["A5"] = "Crosscheck"
     docs["B5"] = "wattlab/crosscheck.py (~0.5–2× = reasonable)"
     docs["A6"] = "Finance / NPV"
-    docs["B6"] = "wattlab/finance.py"
+    docs["B6"] = (
+        "ROI_Capital G = live Excel closed-form NPV from Inputs rates + E; "
+        "I = Python NPV at build (wattlab/finance.py) for agents without Excel calc"
+    )
     docs["A7"] = "Catalog package"
     docs["B7"] = pkg.catalog_package
     docs["A8"] = "Measure ids"
     docs["B8"] = ", ".join(measure_ids)
+    docs["A9"] = "Template file"
+    docs["B9"] = (
+        "templates/ecm_package_v1.xlsx is a write-template scaffold only — "
+        "builds always generate Workbook() in builder.py (BUG-033 honesty)"
+    )
     docs["A10"] = "Agent CLI"
     docs["B10"] = (
-        f"wattlab notebook build --package {pkg.id} --out reports/notebooks/"
+        f"wattlab notebook build --package {pkg.id} --out reports/notebooks/ "
+        f"| wattlab notebook prefill --xlsx … --elec-rate 0.22  (in-place Inputs)"
+    )
+    docs["A11"] = "E+ Compare"
+    docs["B11"] = (
+        "YELLOW light when Twin report lacks savings_by_measure — "
+        "pick an ECM-capable run (validate warns)"
     )
     docs.column_dimensions["A"].width = 28
     docs.column_dimensions["B"].width = 80
@@ -413,6 +446,90 @@ def save_workbook(wb: Any, path: Path | str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path
+
+
+# Map CLI / profile override keys → Inputs parameter names (column A)
+_INPUT_PARAM_ALIASES: dict[str, str] = {
+    "area_ft2": "area_ft2",
+    "conditioned_floor_area_ft2": "area_ft2",
+    "floor_area_ft2": "area_ft2",
+    "cooling_tons": "cooling_tons",
+    "fan_hp": "fan_hp",
+    "supply_fan_hp": "fan_hp",
+    "elec_rate": "elec_rate",
+    "elec_usd_per_kwh": "elec_rate",
+    "gas_rate": "gas_rate",
+    "gas_usd_per_therm": "gas_rate",
+    "discount": "discount",
+    "escalation": "escalation",
+    "life_years": "life_years",
+    "usd_per_ft2": "usd_per_ft2",
+    "coverage": "coverage",
+}
+
+
+def read_notebook_inputs(path: Path | str) -> dict[str, Any]:
+    """Read Inputs!A/B yellow parameters from an existing workbook."""
+    from openpyxl import load_workbook
+
+    path = Path(path)
+    wb = load_workbook(path, data_only=False)
+    if "Inputs" not in wb.sheetnames:
+        return {}
+    out: dict[str, Any] = {}
+    for row in wb["Inputs"].iter_rows(min_row=2, max_col=2, values_only=True):
+        if row[0]:
+            out[str(row[0])] = row[1]
+    return out
+
+
+def prefill_notebook_inputs(
+    path: Path | str,
+    *,
+    overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Patch yellow Inputs cells in-place — keeps EPlus_Results / ESCO / formulas (BUG-030).
+
+    Only keys present in ``overrides`` are written. Does **not** rebuild the workbook
+    or refill unspecified Inputs from defaults.
+    """
+    from openpyxl import load_workbook
+    from openpyxl.styles import PatternFill
+
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+
+    patch: dict[str, Any] = {}
+    for k, v in (overrides or {}).items():
+        if v is None:
+            continue
+        param = _INPUT_PARAM_ALIASES.get(str(k), str(k))
+        patch[param] = v
+
+    if not patch:
+        return {"path": str(path), "updated": [], "inputs": read_notebook_inputs(path)}
+
+    wb = load_workbook(path, data_only=False)
+    if "Inputs" not in wb.sheetnames:
+        raise ValueError(f"Inputs sheet missing in {path}")
+    ws = wb["Inputs"]
+    row_by: dict[str, int] = {}
+    for r in range(2, (ws.max_row or 2) + 1):
+        key = ws.cell(r, 1).value
+        if key:
+            row_by[str(key)] = r
+    updated: list[str] = []
+    yellow = PatternFill("solid", fgColor=YELLOW)
+    for param, val in patch.items():
+        if param not in row_by:
+            continue
+        cell = ws.cell(row_by[param], 2)
+        cell.value = val
+        cell.fill = yellow
+        updated.append(param)
+    wb.save(path)
+    return {"path": str(path), "updated": updated, "inputs": read_notebook_inputs(path)}
 
 
 def build_and_save_notebook(
@@ -457,7 +574,38 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     for n in INPUT_NAMED_RANGES:
         if n not in defined:
             warnings.append(f"missing named range: {n}")
-    return {"ok": len(errors) == 0, "errors": errors, "warnings": warnings, "sheets": list(wb.sheetnames)}
+    # BUG-034: warn when E+ sheet has no savings
+    ep_filled = 0
+    ep_rows = 0
+    if "EPlus_Results" in wb.sheetnames:
+        for row in wb["EPlus_Results"].iter_rows(min_row=2, max_col=3, values_only=True):
+            if not row[0]:
+                continue
+            ep_rows += 1
+            if row[1] is not None or row[2] is not None:
+                ep_filled += 1
+    if ep_rows and ep_filled == 0:
+        warnings.append(
+            "EPlus_Results empty (no savings_by_measure) — Compare lights will be YELLOW; "
+            "pick a Twin ECM run with measure savings"
+        )
+    # Honesty: cost B should reference H when still formula-linked
+    if "ROI_Capital" in wb.sheetnames:
+        b2 = wb["ROI_Capital"]["B2"].value
+        h2 = wb["ROI_Capital"]["H2"].value
+        if isinstance(b2, (int, float)) and isinstance(h2, str) and h2.startswith("="):
+            warnings.append(
+                "ROI_Capital!B2 is a static cost while H2 is an Inputs formula — "
+                "prefer B=H so yellow Inputs move package cost (BUG-035)"
+            )
+    return {
+        "ok": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "sheets": list(wb.sheetnames),
+        "ep_measure_rows": ep_rows,
+        "ep_filled_rows": ep_filled,
+    }
 
 
 def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = None) -> dict[str, Any]:
@@ -491,11 +639,22 @@ def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = No
         for row in wb["Inputs"].iter_rows(min_row=2, max_col=2, values_only=True):
             if row[0]:
                 inputs[str(row[0])] = row[1]
+    # Prefer package from Cover / stem; load catalog label when possible
+    pkg_id = package.id if package else path.stem
+    pkg_label = package.label if package else None
+    if package is None:
+        try:
+            package = get_notebook_package(path.stem)
+            pkg_id = package.id
+            pkg_label = package.label
+        except Exception:
+            pass
+    validated = validate_notebook(path)
     return {
         "schema": "wattlab_notebook_manifest_v1",
         "path": str(path.resolve()),
-        "package_id": package.id if package else path.stem,
-        "package_label": package.label if package else None,
+        "package_id": pkg_id,
+        "package_label": pkg_label,
         "sheets": list(wb.sheetnames),
         "named_ranges": list(wb.defined_names.keys()),
         "measure_ids": measures,
@@ -503,14 +662,34 @@ def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = No
         "guardrail_verdict": gate,
         "inputs": inputs,
         "docs_url": ESCO_DOCS_URL,
-        "validated": validate_notebook(path),
+        "validated": validated,
+        "ep_coverage": {
+            "measure_rows": validated.get("ep_measure_rows"),
+            "filled_rows": validated.get("ep_filled_rows"),
+        },
+        "honesty": {
+            "esco_kwh_therms": "baked_at_build",
+            "roi_cost_npv": "excel_formulas_from_inputs",
+            "template_file": "scaffold_only",
+        },
     }
 
 
-def preview_sheet_rows(path: Path | str, sheet: str, *, max_rows: int = 40) -> list[list[Any]]:
+def preview_sheet_rows(
+    path: Path | str,
+    sheet: str,
+    *,
+    max_rows: int = 40,
+    data_only: bool = False,
+) -> list[list[Any]]:
+    """Preview sheet rows for Studio / agents.
+
+    Default ``data_only=False`` so formulas appear as strings and static caches
+    (e.g. npv_usd_at_build) remain readable — openpyxl never evaluates Excel (BUG-031).
+    """
     from openpyxl import load_workbook
 
-    wb = load_workbook(path, data_only=True)
+    wb = load_workbook(path, data_only=data_only)
     if sheet not in wb.sheetnames:
         return []
     ws = wb[sheet]
@@ -534,7 +713,9 @@ __all__ = [
     "build_notebook_workbook",
     "default_inputs_from_profile",
     "list_notebook_packages",
+    "prefill_notebook_inputs",
     "preview_sheet_rows",
+    "read_notebook_inputs",
     "save_workbook",
     "summarize_notebook",
     "validate_notebook",
