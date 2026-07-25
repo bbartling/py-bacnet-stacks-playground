@@ -49,6 +49,7 @@ Do not invent new FDD rules here. Do not derive compressor runtime from pump sta
 | `app/reporting/day_zoom.py` | Peak-fault-day PNG + skip reasons |
 | `app/reporting/overview_export.py` | Overview settings/PNGs + `format_analysis_period` |
 | `app/reporting/docx.py` | Engineering Findings DOCX (client cover tokens) |
+| `app/reporting/xlsx.py` | Punchlist-first Excel notebook (+ embedded PNGs) |
 | `app/reporting/pipeline.py` | `build_engineering_findings` / `render_engineering_report` |
 | `app/reporting/cli.py` | Headless CLI |
 | `app/report_downloads.py` | Overview panel + HITL include/note |
@@ -71,8 +72,12 @@ Regression smells (generic logic — not hard-coded building IDs):
 Overview → Reports
   Generic RCx download (unchanged)
   Generate Engineering Findings Report  ← button only
-  Engineer review (Include / Note) → download DOCX + JSON
+  Engineer review (Include / Note) → download Excel (.xlsx) + DOCX + JSON
 ```
+
+Overview also shows model-driven analytics by default (motor weekly, mech-cooling OAT bins,
+economizer weather table, **economizer free-cooling diagnostics** fan-on delta/MAT residual,
+BAS vs web OAT). Those Overview PNGs embed in Eng Findings DOCX §2 and Excel `Overview_Charts`.
 
 Wire: `streamlit_app.py` → `render_engineering_findings_panel(batch_results=…)`.
 
@@ -83,11 +88,11 @@ cd vibe_code_apps_19
 .venv/bin/python -m app.reporting.cli \
   --checklist-json /path/to/*_checklist.json \
   --out-dir /path/to/out \
-  --docx --json
+  --docx --json --xlsx
 ```
 
 Also: `--dump` / `--package` WattLab zip/folder + optional `--run-rules`.
-
+`--xlsx` writes the punchlist-first Excel notebook (`app/reporting/xlsx.py`).
 **Agent VAV/FD pack (BUG-019–023):**
 
 ```bash

@@ -185,11 +185,14 @@ Write `/data/reports/ecm_scenario.json`:
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "selected_ecm_ids": ["ECM-AHU-SCHED-ALIGN", "ECM-OCC-STANDBY-DCV"],
   "measure_set": "best",
   "sort_preference": "implementation_complexity",
   "package_hints": ["esco-top15"],
+  "notebook_package_id": "controls_first",
+  "notebook_path": "/data/reports/notebooks/controls_first.xlsx",
+  "input_overrides": {"elec_rate": 0.14},
   "proxy_defaults": {},
   "roi_param_hints": {},
   "notes": "from chat",
@@ -197,8 +200,15 @@ Write `/data/reports/ecm_scenario.json`:
 }
 ```
 
-Human Re-apply / open ECMs → checkboxes prefilled. Studio **Save to ecm_scenario.json**
-writes back. Optional bootstrap key: `ecm_scenario_path`.
+Prefer building the Excel notebook for deliverables:
+
+```bash
+wattlab notebook build --package controls_first --out /data/reports/notebooks/ \
+  --answers /data/reports/answers.json --from-run /data/runs/<id>
+```
+
+Human Re-apply / open ECMs → notebook package + Easy Buttons prefilled. Studio
+**Save to ecm_scenario.json** writes back. Optional bootstrap key: `ecm_scenario_path`.
 
 ## Twin iteration dashboard + client package
 

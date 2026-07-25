@@ -8,6 +8,23 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-25 — Economizer free-cooling diagnostic plots + Eng Findings xlsx
+
+- Overview: fan-on AHU/RTU delta scatter (MAT−RAT vs OAT−RAT), MAT residual, temps+damper overlay; |OAT−RAT|<10°F suppressed (G36).
+- Eng Findings: same PNGs via `build_overview_charts` → DOCX §2 + Excel `Overview_Charts`.
+- Analytics: `economizer_free_cooling_diagnostics`; charts in `app/charts.py`.
+- Punchlist-first Excel: `app/reporting/xlsx.py` (`--xlsx` / UI download).
+
+---
+
+## 2026-07-25 — Eng Findings Excel notebook (punchlist-first)
+
+- `--xlsx` / UI download: `app/reporting/xlsx.py` (Punchlist, Findings+day-zoom images, FAULT inventory, Overview charts, Suppressed_DQ, Quality_Gate).
+- openpyxl in `engineering-report` extras + `requirements.txt`.
+- Agents prefer `.xlsx`; DOCX remains available.
+
+---
+
 ## 2026-07-25 — Eng Findings BUG-019–024 (VAV/FD agent packs)
 
 - **BUG-019:** `--systems` / `--equipment-prefix` / `--rule-ids` / `--boost-terminal` scope ranking (`app/reporting/scope.py`).

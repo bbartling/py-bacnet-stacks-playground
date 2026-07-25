@@ -1379,3 +1379,191 @@ def bas_vs_web_oat_histogram(
         margin=dict(l=50, r=20, t=60, b=50),
     )
     return fig
+
+
+def economizer_delta_scatter(points: pd.DataFrame, *, dt_min_f: float = 10.0) -> go.Figure | None:
+    """(MAT−RAT) vs (OAT−RAT) mixing plot with OA-fraction reference lines (fan-on, identifiable)."""
+    if points is None or points.empty:
+        return None
+    df = points.copy()
+    if "identifiable" in df.columns:
+        df = df[df["identifiable"].astype(bool)]
+    need = {"delta_or_f", "delta_mr_f"}
+    if not need.issubset(df.columns) or df[list(need)].dropna().empty:
+        return None
+    df = df.dropna(subset=["delta_or_f", "delta_mr_f"])
+    if len(df) < 5:
+        return None
+
+    fig = go.Figure()
+    # Reference OA-fraction lines
+    x_lo = float(df["delta_or_f"].min())
+    x_hi = float(df["delta_or_f"].max())
+    if not np.isfinite(x_lo) or not np.isfinite(x_hi) or x_lo == x_hi:
+        x_lo, x_hi = -20.0, 20.0
+    xs = np.linspace(x_lo, x_hi, 80)
+    for frac, label in ((0.0, "0% OA"), (0.25, "25%"), (0.5, "50%"), (0.75, "75%"), (1.0, "100% OA")):
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=frac * xs,
+                mode="lines",
+                name=label,
+                line=dict(width=1, dash="dot", color="#94a3b8"),
+                hoverinfo="skip",
+                showlegend=True,
+            )
+        )
+
+    color_col = "damper_fb_pct" if "damper_fb_pct" in df.columns and df["damper_fb_pct"].notna().any() else None
+    eq_ids = list(df["equipment_id"].astype(str).unique()) if "equipment_id" in df.columns else ["AHU"]
+    for i, eq in enumerate(eq_ids):
+        sub = df[df["equipment_id"].astype(str) == eq] if "equipment_id" in df.columns else df
+        marker: dict[str, Any] = dict(size=6, opacity=0.65, color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)])
+        if color_col:
+            marker = dict(
+                size=6,
+                opacity=0.7,
+                color=sub[color_col],
+                colorscale="Viridis",
+                cmin=0,
+                cmax=100,
+                colorbar=dict(title="OA damper %") if i == 0 else None,
+                showscale=(i == 0),
+            )
+        fig.add_trace(
+            go.Scatter(
+                x=sub["delta_or_f"],
+                y=sub["delta_mr_f"],
+                mode="markers",
+                name=str(eq),
+                marker=marker,
+                customdata=np.column_stack(
+                    [
+                        sub["oat_f"] if "oat_f" in sub.columns else np.full(len(sub), np.nan),
+                        sub["rat_f"] if "rat_f" in sub.columns else np.full(len(sub), np.nan),
+                        sub["mat_f"] if "mat_f" in sub.columns else np.full(len(sub), np.nan),
+                    ]
+                ),
+                hovertemplate=(
+                    f"<b>{eq}</b><br>"
+                    "OAT−RAT: %{x:.1f}°F<br>"
+                    "MAT−RAT: %{y:.1f}°F<br>"
+                    "OAT %{customdata[0]:.1f} / RAT %{customdata[1]:.1f} / MAT %{customdata[2]:.1f}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title=f"Economizer free-cooling delta scatter (fan on, |OAT−RAT|≥{dt_min_f:.0f}°F)",
+        xaxis_title="OAT − RAT (°F)",
+        yaxis_title="MAT − RAT (°F)",
+        template="plotly_white",
+        height=420,
+        margin=dict(l=50, r=20, t=60, b=50),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def economizer_mat_residual_chart(points: pd.DataFrame) -> go.Figure | None:
+    """MAT residual vs time (measured − mixing-model prediction from damper feedback)."""
+    if points is None or points.empty or "mat_resid_f" not in points.columns:
+        return None
+    df = points.dropna(subset=["mat_resid_f"]).copy()
+    if "identifiable" in df.columns:
+        df = df[df["identifiable"].astype(bool)]
+    if df.empty or len(df) < 5:
+        return None
+    ts = df["timestamp"] if "timestamp" in df.columns else df.index
+    fig = go.Figure()
+    eq_ids = list(df["equipment_id"].astype(str).unique()) if "equipment_id" in df.columns else ["AHU"]
+    for i, eq in enumerate(eq_ids):
+        sub = df[df["equipment_id"].astype(str) == eq] if "equipment_id" in df.columns else df
+        x = sub["timestamp"] if "timestamp" in sub.columns else sub.index
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=sub["mat_resid_f"],
+                mode="lines",
+                name=str(eq),
+                line=dict(width=1.4, color=RAINBOW_PALETTE[i % len(RAINBOW_PALETTE)]),
+            )
+        )
+    fig.add_hline(y=2.0, line_dash="dash", line_color="#94a3b8", annotation_text="+2°F")
+    fig.add_hline(y=-2.0, line_dash="dash", line_color="#94a3b8", annotation_text="−2°F")
+    fig.update_layout(
+        title="MAT residual (meas − mixing model from OA damper) — fan on, identifiable",
+        xaxis_title="Time",
+        yaxis_title="MAT residual (°F)",
+        template="plotly_white",
+        height=380,
+        margin=dict(l=50, r=20, t=60, b=50),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def economizer_temps_overlay(points: pd.DataFrame, *, equipment_id: str | None = None) -> go.Figure | None:
+    """Time overlay of OAT/RAT/MAT/SAT + damper for one AHU (fan-on samples)."""
+    if points is None or points.empty:
+        return None
+    df = points.copy()
+    if equipment_id and "equipment_id" in df.columns:
+        df = df[df["equipment_id"].astype(str) == str(equipment_id)]
+    elif "equipment_id" in df.columns:
+        # Prefer the unit with most identifiable points
+        if "identifiable" in df.columns:
+            counts = df[df["identifiable"].astype(bool)].groupby("equipment_id").size()
+            if not counts.empty:
+                df = df[df["equipment_id"] == counts.idxmax()]
+        else:
+            df = df[df["equipment_id"] == df["equipment_id"].iloc[0]]
+    if len(df) < 5:
+        return None
+    x = df["timestamp"] if "timestamp" in df.columns else df.index
+    fig = go.Figure()
+    series = [
+        ("oat_f", "OAT", RAINBOW_PALETTE[0]),
+        ("rat_f", "RAT", RAINBOW_PALETTE[5]),
+        ("mat_f", "MAT", RAINBOW_PALETTE[3]),
+        ("sat_f", "SAT", RAINBOW_PALETTE[6]),
+    ]
+    for col, name, color in series:
+        if col not in df.columns or not df[col].notna().any():
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=df[col],
+                name=name,
+                mode="lines",
+                line=dict(width=1.5, color=color),
+                yaxis="y",
+            )
+        )
+    if "damper_fb_pct" in df.columns and df["damper_fb_pct"].notna().any():
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=df["damper_fb_pct"],
+                name="OA damper %",
+                mode="lines",
+                line=dict(width=1.5, color=RAINBOW_PALETTE[1], dash="dot"),
+                yaxis="y2",
+            )
+        )
+    eq_label = ""
+    if "equipment_id" in df.columns and len(df):
+        eq_label = f" — {df['equipment_id'].iloc[0]}"
+    fig.update_layout(
+        title=f"Free-cooling temps + OA damper (fan on){eq_label}",
+        template="plotly_white",
+        height=400,
+        margin=dict(l=50, r=50, t=60, b=50),
+        yaxis=dict(title="Temperature (°F)"),
+        yaxis2=dict(title="Damper %", overlaying="y", side="right", range=[0, 105]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig

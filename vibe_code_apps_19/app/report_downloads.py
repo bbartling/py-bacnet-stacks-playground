@@ -230,6 +230,7 @@ def render_engineering_findings_panel(
                     docx=True,
                     json_out=True,
                     charts=True,
+                    xlsx=True,
                     overview_context=ctx,
                     rule_results=list(results),
                     write_inventory=bool(write_inventory),
@@ -303,6 +304,7 @@ def render_engineering_findings_panel(
     jp = written.get("json")
     dp = written.get("docx")
     ip = written.get("fault_inventory")
+    xp = written.get("xlsx")
     if jp and Path(jp).is_file():
         Path(jp).write_text(json.dumps(art.to_dict(), indent=2) + "\n", encoding="utf-8")
         st.download_button(
@@ -311,6 +313,15 @@ def render_engineering_findings_panel(
             file_name=Path(jp).name,
             mime="application/json",
             key=f"{key_prefix}_dl_json",
+        )
+    if xp and Path(xp).is_file():
+        st.download_button(
+            "Download Eng Findings notebook (.xlsx)",
+            data=Path(xp).read_bytes(),
+            file_name=Path(xp).name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"{key_prefix}_dl_xlsx",
+            type="primary",
         )
     if ip and Path(ip).is_file():
         st.download_button(
@@ -327,7 +338,6 @@ def render_engineering_findings_panel(
             file_name=Path(dp).name,
             mime=MIME_DOCX,
             key=f"{key_prefix}_dl_docx",
-            type="primary",
         )
 
 

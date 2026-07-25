@@ -12,6 +12,7 @@ Prefer packaged WattLab commands when they cover the job:
 | Monthly vs bills score | `wattlab score-monthly` |
 | Controls FDD checklist + DOCX | `wattlab controls-checklist` |
 | Bills → EUI peer bands | `wattlab benchmark` |
+| ECM Excel notebooks (ESCO vs E+) | `wattlab notebook build/prefill/validate/summarize` |
 
 Use `/data/tools/<script>.py` for vintage ladders, gas G14 campaigns, stacked
 floor IDFs, HWS peeks, dual-fuel G14 scorecards, or one-off site experiments.
@@ -49,7 +50,25 @@ docker exec vibe20 wattlab geo-idf …
 docker exec vibe20 wattlab dial-loads …
 docker exec vibe20 wattlab score-monthly …
 docker exec vibe20 wattlab controls-checklist …
+docker exec vibe20 wattlab notebook list-packages
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook build \
+  --package controls_first --out /data/reports/notebooks/ \
+  --answers /data/reports/answers.json --from-run /data/runs/<id>
 ```
+
+## ECM engineering notebooks
+
+Least→radical packages (`controls_first` … `deep_retrofit`) each produce one `.xlsx`
+under `reports/notebooks/` plus `*.notebook_manifest.json` for agents.
+
+```bash
+wattlab notebook build --package esco_top15 --out /data/reports/notebooks/
+wattlab notebook validate --xlsx /data/reports/notebooks/esco_top15.xlsx
+wattlab notebook summarize --xlsx … --write
+```
+
+Write `reports/ecm_scenario.json` v3 with `notebook_package_id`, `notebook_path`,
+`input_overrides` so Studio Re-apply / ECMs page stays in sync.
 
 ```bash
 docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace \

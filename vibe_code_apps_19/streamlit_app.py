@@ -24,6 +24,7 @@ from app.analytics import (  # noqa: E402
     PLANT_BOILER,
     PLANT_CHILLER,
     dataset_time_span,
+    economizer_free_cooling_diagnostics,
     economizer_weather_summary,
     mech_cooling_coverage,
     mech_cooling_oat_bins,
@@ -36,6 +37,9 @@ from app.analytics import (  # noqa: E402
 from app.charts import (  # noqa: E402
     bas_vs_web_oat_histogram,
     bas_vs_web_oat_overlay,
+    economizer_delta_scatter,
+    economizer_mat_residual_chart,
+    economizer_temps_overlay,
     energy_degree_day_scatter,
     equipment_inspection_chart,
     format_mech_cooling_coverage_display,
@@ -2501,6 +2505,82 @@ def main() -> None:
                 "economizer_weather.csv",
                 key="dl_econ_weather_overview",
             )
+
+        st.markdown("##### Economizer free-cooling diagnostics (fan on)")
+        st.caption(
+            "Guideline 36–aligned mixing plots for AHU/RTU while the **supply fan is running**. "
+            "Delta scatter uses (x = OAT−RAT, y = MAT−RAT) with OA-fraction reference lines; "
+            f"points with |OAT−RAT| < 10°F are suppressed (identifiability). "
+            "MAT residual compares measured MAT to a damper-feedback mixing model. "
+            "These charts also embed in Engineering Findings Overview PNGs / Excel."
+        )
+        prefer_web = bool(st.session_state.get("prefer_web_oat", True))
+        try:
+            econ_diag = economizer_free_cooling_diagnostics(
+                frames,
+                st.session_state.role_map,
+                weather=st.session_state.weather,
+                prefer_web_oat=prefer_web,
+            )
+        except Exception as exc:
+            econ_diag = {"points": pd.DataFrame(), "metrics": pd.DataFrame(), "skipped": []}
+            st.warning(f"Economizer free-cooling diagnostics unavailable: {exc}")
+        econ_pts = econ_diag.get("points")
+        econ_metrics = econ_diag.get("metrics")
+        if econ_metrics is not None and not econ_metrics.empty:
+            st.dataframe(econ_metrics, hide_index=True, width="stretch", height=220)
+            st.download_button(
+                "Download economizer diagnostic metrics CSV",
+                to_csv_bytes(econ_metrics),
+                "economizer_free_cooling_metrics.csv",
+                key="dl_econ_diag_metrics_overview",
+            )
+        delta_fig = economizer_delta_scatter(
+            econ_pts, dt_min_f=float(econ_diag.get("dt_min_f") or 10.0)
+        )
+        if delta_fig is None:
+            st.info(
+                "Need AHU/RTU with fan-status (or fan-cmd) on, plus OAT, RAT, and MAT "
+                "with enough |OAT−RAT|≥10°F samples for the delta scatter."
+            )
+        else:
+            st.plotly_chart(
+                delta_fig,
+                width="stretch",
+                config=plotly_config(filename="economizer_delta_scatter"),
+                key="overview_econ_delta_scatter",
+            )
+        resid_fig = economizer_mat_residual_chart(econ_pts)
+        if resid_fig is not None:
+            st.plotly_chart(
+                resid_fig,
+                width="stretch",
+                config=plotly_config(filename="economizer_mat_residual"),
+                key="overview_econ_mat_resid",
+            )
+        with st.expander("Free-cooling temps + OA damper overlay", expanded=False):
+            overlay_eq = None
+            if econ_metrics is not None and not econ_metrics.empty:
+                choices = list(econ_metrics["equipment_id"].astype(str))
+                overlay_eq = st.selectbox(
+                    "AHU for overlay",
+                    choices,
+                    key="overview_econ_overlay_eq",
+                )
+            overlay_fig = economizer_temps_overlay(econ_pts, equipment_id=overlay_eq)
+            if overlay_fig is None:
+                st.caption("No fan-on temperature series for overlay.")
+            else:
+                st.plotly_chart(
+                    overlay_fig,
+                    width="stretch",
+                    config=plotly_config(filename="economizer_temps_overlay"),
+                    key="overview_econ_temps_overlay",
+                )
+        skipped = econ_diag.get("skipped") or []
+        if skipped:
+            with st.expander(f"Skipped units ({len(skipped)})", expanded=False):
+                st.dataframe(pd.DataFrame(skipped), hide_index=True, width="stretch")
 
         st.markdown("##### BAS vs web outdoor-air temperature")
         st.caption(
