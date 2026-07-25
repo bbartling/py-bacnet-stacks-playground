@@ -17,13 +17,16 @@ from app.reporting.candidates import (
 )
 from app.reporting.charts import build_report_charts
 from app.reporting.evidence import build_evidence_packet
+from app.reporting.fault_inventory import build_fault_inventory
 from app.reporting.findings import cluster_and_prioritize
+from app.reporting.hitl import apply_hitl_overrides, load_notes_file, parse_note_arg
 from app.reporting.models import (
     Classification,
     ReportArtifacts,
 )
 from app.reporting.quality_gate import run_quality_gate
 from app.reporting.reviewer import review_evidence_packet
+from app.reporting.scope import FindingScope, scope_to_dict
 from app.rules.base import RuleResult
 
 
@@ -37,6 +40,12 @@ def build_engineering_findings(
     context: dict[str, Any] | None = None,
     overview_context: dict[str, Any] | None = None,
     max_findings: int = 7,
+    allow_priority: int | None = None,
+    scope: FindingScope | None = None,
+    pin_findings: list[str] | None = None,
+    drop_findings: list[str] | None = None,
+    notes: dict[str, str] | None = None,
+    write_inventory: bool = True,
 ) -> ReportArtifacts:
     """Calculate assessments and prioritized findings (no DOCX yet)."""
     ctx = dict(context or {})
@@ -99,16 +108,64 @@ def build_engineering_findings(
         packets[c.key] = pkt
         assessments[c.key] = review_evidence_packet(pkt)
 
+    # When pinning orphans, temporarily allow a wider cluster cut so HITL can promote
+    cluster_cap = max_findings
+    if pin_findings:
+        cluster_cap = max(max_findings, min(len(cands), max_findings + len(pin_findings) + 5))
+
     findings, suppressed, data_quality = cluster_and_prioritize(
-        cands, packets, assessments, max_findings=max_findings
+        cands,
+        packets,
+        assessments,
+        max_findings=cluster_cap,
+        scope=scope,
     )
 
+    findings = apply_hitl_overrides(
+        findings,
+        pin_refs=pin_findings,
+        drop_refs=drop_findings,
+        notes=notes,
+        candidates=cands,
+        assessments=assessments,
+        suppressed=suppressed,
+    )
+
+    # Enforce max_findings on included set while always keeping pins
+    included = [f for f in findings if f.include_in_report]
+    pinned = [f for f in included if (f.engineer_override or {}).get("pinned")]
+    others = [f for f in included if f not in pinned]
+    keep = pinned + others
+    if len(keep) > max_findings:
+        keep_set = set(id(x) for x in (pinned + others[: max(0, max_findings - len(pinned))]))
+        for f in findings:
+            if f.include_in_report and id(f) not in keep_set:
+                f.include_in_report = False
+                suppressed.append(
+                    {
+                        "candidate_key": ",".join(f.candidate_keys),
+                        "classification": f.classification.value,
+                        "score": f.automated_assessment.get("score"),
+                        "reasons": [f"Deprioritized beyond top {max_findings}: {f.title}"],
+                        "equipment_id": ",".join(f.equipment_ids),
+                        "rule_id": ",".join(f.rule_ids),
+                    }
+                )
+    # Stable F-ids for included
+    included_final = [f for f in findings if f.include_in_report]
+    for i, f in enumerate(included_final, 1):
+        f.priority = i
+        f.finding_id = f"F{i:02d}"
+
     field_checklist: list[str] = []
-    for f in findings:
+    for f in included_final:
         field_checklist.extend(f.field_verification)
-    # unique preserve order
     seen: set[str] = set()
     field_checklist = [x for x in field_checklist if not (x in seen or seen.add(x))][:12]
+
+    inv: dict[str, Any] = {}
+    if write_inventory:
+        inv = build_fault_inventory(cands, findings, suppressed=suppressed)
 
     metrics = {
         "n_candidates": len(cands),
@@ -121,7 +178,10 @@ def build_engineering_findings(
         ),
         "n_suppressed": len(suppressed),
         "n_data_quality": len(data_quality),
-        "n_priority_findings": len(findings),
+        "n_priority_findings": len(included_final),
+        "max_findings": max_findings,
+        "allow_priority": allow_priority,
+        "scope": scope_to_dict(scope),
     }
 
     artifacts = ReportArtifacts(
@@ -142,11 +202,14 @@ def build_engineering_findings(
             "near_continuous_pct": 95.0,
             "evidence_score": "Explainable engineering score — not probability",
             "detection_vs_finding": "Rule hits are candidates until evidence review",
+            "allow_priority": allow_priority,
+            "scope": scope_to_dict(scope),
         },
         quality_gate={},
         overview_settings=overview_settings,
+        fault_inventory=inv,
     )
-    artifacts.quality_gate = run_quality_gate(artifacts)
+    artifacts.quality_gate = run_quality_gate(artifacts, allow_priority=allow_priority)
     return artifacts
 
 
@@ -160,6 +223,7 @@ def render_engineering_report(
     basename: str | None = None,
     overview_context: dict[str, Any] | None = None,
     rule_results: list[RuleResult] | None = None,
+    write_inventory: bool = True,
 ) -> dict[str, Path]:
     """Write JSON / DOCX / chart assets. Raises if quality gate fails critically."""
     out_dir = Path(out_dir)
@@ -176,8 +240,9 @@ def render_engineering_report(
             overview_context=overview_context,
             rule_results=rule_results,
         )
-        # re-run gate after charts attached
-        artifacts.quality_gate = run_quality_gate(artifacts)
+        # re-run gate after charts / day-zoom attached
+        allow = (artifacts.metrics or {}).get("allow_priority")
+        artifacts.quality_gate = run_quality_gate(artifacts, allow_priority=allow)
 
     if not artifacts.quality_gate.get("ok"):
         # Allow DOCX with warnings only; hard-fail on errors
@@ -187,6 +252,11 @@ def render_engineering_report(
         jp = out_dir / f"{base}.json"
         jp.write_text(json.dumps(artifacts.to_dict(), indent=2) + "\n", encoding="utf-8")
         written["json"] = jp
+
+    if write_inventory and artifacts.fault_inventory:
+        ip = out_dir / f"{base}_fault_inventory.json"
+        ip.write_text(json.dumps(artifacts.fault_inventory, indent=2) + "\n", encoding="utf-8")
+        written["fault_inventory"] = ip
 
     if docx:
         from app.reporting.docx import render_docx
@@ -203,3 +273,12 @@ def render_engineering_report(
 
 def _safe_name(s: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in s)[:80] or "Building"
+
+
+# Re-export helpers used by CLI
+__all__ = [
+    "build_engineering_findings",
+    "render_engineering_report",
+    "load_notes_file",
+    "parse_note_arg",
+]

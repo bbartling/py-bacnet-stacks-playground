@@ -47,14 +47,34 @@ def _has_proactive_replace(corrective: list[str] | None) -> bool:
     return False
 
 
-def run_quality_gate(artifacts: ReportArtifacts) -> dict[str, Any]:
-    """Return {ok, errors, warnings}. Reject if critical errors."""
+def run_quality_gate(
+    artifacts: ReportArtifacts,
+    *,
+    allow_priority: int | None = None,
+) -> dict[str, Any]:
+    """Return {ok, errors, warnings}. Reject if critical errors.
+
+    ``allow_priority`` (BUG-020): when set, authorizes up to that many included
+    priority findings. Default remains 7 without an explicit raise.
+    """
     errors: list[str] = []
     warnings: list[str] = []
 
+    # Prefer explicit arg; else artifacts.metrics / assumptions flag from pipeline
+    authorized = allow_priority
+    if authorized is None:
+        authorized = (artifacts.metrics or {}).get("allow_priority")
+    try:
+        authorized_n = int(authorized) if authorized is not None else None
+    except (TypeError, ValueError):
+        authorized_n = None
+
     findings = [f for f in artifacts.findings if f.include_in_report]
     if len(findings) > 7:
-        errors.append(f"More than 7 priority findings ({len(findings)}) without explicit raise")
+        if authorized_n is None or len(findings) > authorized_n:
+            errors.append(
+                f"More than 7 priority findings ({len(findings)}) without explicit raise"
+            )
 
     for f in findings:
         cls = f.effective_classification
@@ -65,6 +85,16 @@ def run_quality_gate(artifacts: ReportArtifacts) -> dict[str, Any]:
         if cls in {Classification.STRONGLY_SUPPORTED, Classification.PROBABLE}:
             if f.chart_spec is None and f.chart_path is None:
                 warnings.append(f"{f.finding_id}: chartable finding has no chart_spec")
+        # BUG-022: never silent-skip day zoom after charts attach
+        has_zoom = bool(getattr(f, "day_zoom_path", None))
+        has_zoom_err = bool(getattr(f, "day_zoom_skip_reason", None) or getattr(f, "day_zoom_error", None))
+        # Only enforce when chart pass has run (charts list non-empty or any finding has zoom fields set)
+        zoom_pass_done = bool(artifacts.charts) or any(
+            getattr(x, "day_zoom_path", None) or getattr(x, "day_zoom_skip_reason", None)
+            for x in artifacts.findings
+        )
+        if zoom_pass_done and f.include_in_report and not has_zoom and not has_zoom_err:
+            errors.append(f"{f.finding_id}: day-zoom missing path and error (silent skip)")
         title_l = f.title.lower()
         if "comfort" in title_l and cls != Classification.DATA_QUALITY:
             # dead sensor comfort

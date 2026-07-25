@@ -170,6 +170,8 @@ class EngineeringFinding:
         d = asdict(self)
         d["classification"] = self.classification.value
         d["effective_classification"] = self.effective_classification.value
+        # BUG-022 alias for agents expecting day_zoom_error
+        d["day_zoom_error"] = self.day_zoom_skip_reason
         return d
 
 
@@ -191,6 +193,7 @@ class ReportArtifacts:
     charts: list[dict[str, Any]] = field(default_factory=list)
     overview_settings: dict[str, Any] = field(default_factory=dict)
     overview_charts: list[dict[str, Any]] = field(default_factory=list)
+    fault_inventory: dict[str, Any] = field(default_factory=dict)
     disclaimer: str = (
         "Open-FDD / Vibe 19 educational analysis. Findings are telemetry-based "
         "and advisory; physical verification remains a human/field activity."
@@ -214,5 +217,6 @@ class ReportArtifacts:
             "charts": self.charts,
             "overview_settings": self.overview_settings,
             "overview_charts": self.overview_charts,
+            "fault_inventory": self.fault_inventory,
             "disclaimer": self.disclaimer,
         }
