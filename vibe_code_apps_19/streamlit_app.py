@@ -2809,14 +2809,23 @@ def main() -> None:
             )
 
         st.divider()
-        from app.report_downloads import render_engineering_findings_panel
+        from app.report_downloads import (
+            overview_context_from_session,
+            render_engineering_findings_panel,
+        )
 
+        _ov_ctx = None
+        try:
+            _ov_ctx = overview_context_from_session()
+        except Exception:
+            _ov_ctx = None
         render_engineering_findings_panel(
             batch_results=st.session_state.get("batch_results") or [],
             building_name=str(
                 st.session_state.get("building_id") or st.session_state.get("site_id") or ""
             ),
             analysis_period="",
+            overview_context=_ov_ctx,
             key_prefix="run_rules_eng_findings",
         )
 

@@ -77,11 +77,12 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
 
     # Building at a glance
     doc.add_heading("2. Building at a glance", level=1)
+    _add_overview_settings(doc, artifacts)
     doc.add_paragraph(
-        "Charts below are generated from this evidence review (Plotly → PNG). "
-        "They mirror Overview-style summaries where data is available; interactive "
-        "Overview session figures are not auto-copied into the Word file."
+        "Overview analytics below reuse the same Plotly builders as the live Overview tab "
+        "(exported via Kaleido when available). Data inspection and role tables are omitted."
     )
+    _add_overview_charts(doc, artifacts)
     _add_chart_if_any(doc, artifacts, "confidence_summary")
     _add_chart_if_any(doc, artifacts, "top_detections")
     _add_chart_if_any(doc, artifacts, "comfort_ranking")
@@ -99,11 +100,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
         doc.add_paragraph("Evidence:")
         for b in f.evidence_bullets:
             doc.add_paragraph(b, style="List Bullet")
-        if f.chart_path and Path(f.chart_path).is_file():
-            try:
-                doc.add_picture(f.chart_path, width=Inches(5.8))
-            except Exception:
-                pass
+        _add_finding_picture(doc, f)
         doc.add_paragraph("Contradicting evidence:")
         for b in f.contradicting_evidence:
             doc.add_paragraph(b, style="List Bullet")
@@ -320,3 +317,81 @@ def _add_chart_if_any(doc, artifacts: ReportArtifacts, name: str) -> None:
             except Exception:
                 pass
             return
+
+
+def _add_overview_settings(doc, artifacts: ReportArtifacts) -> None:
+    s = artifacts.overview_settings or {}
+    if not s:
+        doc.add_paragraph(
+            "Dataset window and Overview schedule/zone settings were not available "
+            "for this run (generate from Run Rules with a loaded package)."
+        )
+        return
+    start = s.get("dataset_start") or "—"
+    end = s.get("dataset_end") or "—"
+    span = s.get("span_hours")
+    span_s = f"{float(span):.1f} h" if isinstance(span, (int, float)) else "—"
+    doc.add_paragraph(f"Dataset window: {start} → {end} (span {span_s}).")
+    lo = s.get("zone_lo_f")
+    hi = s.get("zone_hi_f")
+    bare = s.get("bare_min_occ_hours")
+    bits = []
+    if lo is not None and hi is not None:
+        bits.append(f"zone band {float(lo):.0f}–{float(hi):.0f} °F")
+    if bare is not None:
+        bits.append(f"bare-min occupied hours/week ≈ {float(bare):.0f}")
+    oat_err = s.get("oat_err")
+    if oat_err is not None:
+        bits.append(f"OAT-METEO tolerance ±{float(oat_err):g} °F")
+    if bits:
+        doc.add_paragraph("Overview settings: " + "; ".join(bits) + ".")
+    sched = s.get("occupancy_schedule")
+    if isinstance(sched, dict) and sched:
+        doc.add_paragraph(
+            "Occupancy schedule is configured in the Overview weekly calendar "
+            "(same schedule applied to SCHED-1 / comfort occupied hours)."
+        )
+
+
+def _add_overview_charts(doc, artifacts: ReportArtifacts) -> None:
+    from docx.shared import Inches
+
+    charts = list(artifacts.overview_charts or [])
+    if not charts:
+        # Fall back to overview_* entries on charts list
+        charts = [
+            c
+            for c in (artifacts.charts or [])
+            if str(c.get("name") or "").startswith("overview_") and c.get("path")
+        ]
+    for ch in charts:
+        path = ch.get("path")
+        if not path or not Path(path).is_file():
+            continue
+        title = ch.get("title") or ch.get("name")
+        if title:
+            doc.add_paragraph(str(title))
+        try:
+            doc.add_picture(str(path), width=Inches(5.8))
+        except Exception:
+            pass
+
+
+def _add_finding_picture(doc, f) -> None:
+    from docx.shared import Inches
+
+    path = None
+    caption = None
+    if getattr(f, "day_zoom_path", None) and Path(f.day_zoom_path).is_file():
+        path = f.day_zoom_path
+        caption = getattr(f, "day_zoom_label", None)
+    elif getattr(f, "chart_path", None) and Path(f.chart_path).is_file():
+        path = f.chart_path
+    if not path:
+        return
+    try:
+        doc.add_picture(str(path), width=Inches(5.8))
+    except Exception:
+        return
+    if caption:
+        _muted(doc, str(caption))

@@ -71,6 +71,86 @@ def test_report_json_and_docx(tmp_path):
     assert written["docx"].read_bytes()[:2] == b"PK"
 
 
+def test_docx_embeds_overview_and_finding_pictures(tmp_path):
+    """With mocked chart paths on artifacts, §2/§3 pictures land in word/media."""
+    import zipfile
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from app.reporting.docx import render_docx
+    from app.reporting.models import Classification, EngineeringFinding, ReportArtifacts
+
+    def _write_png(path: Path, color: str) -> None:
+        fig, ax = plt.subplots(figsize=(2, 1))
+        ax.set_facecolor(color)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        fig.savefig(path, dpi=80)
+        plt.close(fig)
+
+    png = tmp_path / "fake.png"
+    png2 = tmp_path / "fake2.png"
+    _write_png(png, "#2b6cb0")
+    _write_png(png2, "#c53030")
+    finding = EngineeringFinding(
+        finding_id="F01",
+        title="Mock finding",
+        classification=Classification.PROBABLE,
+        priority=1,
+        why_it_matters="w",
+        observed_behavior="o",
+        evidence_bullets=["e"],
+        contradicting_evidence=[],
+        likely_causes=[],
+        field_verification=[],
+        possible_corrective=[],
+        rule_ids=["VAV-5"],
+        equipment_ids=["VAV_22"],
+        systems=["VAV"],
+        day_zoom_path=str(png2),
+        day_zoom_label="2026-06-28 · peak fault day",
+        include_in_report=True,
+    )
+    art = ReportArtifacts(
+        building="Liberty",
+        analysis_period="",
+        generated_at="2026-01-01T00:00:00Z",
+        findings=[finding],
+        suppressed=[],
+        candidates=[],
+        assessments=[],
+        data_quality=[],
+        comfort_summary={},
+        metrics={},
+        field_checklist=[],
+        assumptions={},
+        quality_gate={"ok": True},
+        overview_settings={
+            "dataset_start": "2026-06-01 00:00",
+            "dataset_end": "2026-06-30 23:00",
+            "span_hours": 720.0,
+            "zone_lo_f": 70.0,
+            "zone_hi_f": 75.0,
+            "bare_min_occ_hours": 50.0,
+        },
+        overview_charts=[
+            {"name": "overview_bas_vs_web_oat", "path": str(png), "title": "BAS vs web"}
+        ],
+        charts=[],
+    )
+    out = render_docx(art, tmp_path / "with_pics.docx")
+    with zipfile.ZipFile(out) as zf:
+        media = [n for n in zf.namelist() if n.startswith("word/media/")]
+        xml = zf.read("word/document.xml").decode("utf-8")
+    assert len(media) >= 2
+    assert "Dataset window" in xml
+    assert "BAS vs web" in xml
+    assert "peak fault day" in xml
+
+
 def test_docx_has_rule_descriptions_and_fp_appendix(tmp_path):
     checklist = _mini_checklist()
     checklist["fdd"]["all_faults"].append(
@@ -93,8 +173,6 @@ def test_docx_has_rule_descriptions_and_fp_appendix(tmp_path):
         joined = " ".join(oat.evidence_bullets).lower()
         assert "fan-off" not in joined and "duct static fan-off" not in joined
     written = render_engineering_report(art, tmp_path, docx=True, json_out=False, charts=False)
-    # Spot-check document.xml for legend / description / FP appendix headings
-    import io
     import zipfile
 
     with zipfile.ZipFile(written["docx"]) as zf:

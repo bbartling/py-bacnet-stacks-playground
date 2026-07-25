@@ -28,7 +28,7 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
- && python -c "import docx, kaleido; print('engineering-report extras ok')"
+ && python -c "import docx, kaleido, matplotlib; print('engineering-report extras ok')"
 
 # Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .

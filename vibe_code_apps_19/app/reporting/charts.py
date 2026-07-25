@@ -13,8 +13,10 @@ def build_report_charts(
     *,
     out_dir: Path | None = None,
     comfort_rows: list[dict[str, Any]] | None = None,
+    overview_context: dict[str, Any] | None = None,
+    rule_results: list | None = None,
 ) -> list[dict[str, Any]]:
-    """Attach chart metadata (and PNG paths when Kaleido works)."""
+    """Attach chart metadata (and PNG paths when Kaleido / matplotlib works)."""
     try:
         import plotly.graph_objects as go
     except ImportError:
@@ -25,6 +27,27 @@ def build_report_charts(
         out_dir.mkdir(parents=True, exist_ok=True)
 
     charts: list[dict[str, Any]] = []
+
+    # 0) Overview analytics (Plotly → Kaleido) when frames present
+    if out_dir is not None and overview_context:
+        try:
+            from app.reporting.overview_export import (
+                build_overview_charts,
+                overview_settings_from_context,
+            )
+
+            if not artifacts.overview_settings:
+                artifacts.overview_settings = overview_settings_from_context(
+                    overview_context
+                )
+            overview_meta = build_overview_charts(
+                artifacts, overview_context, out_dir=out_dir / "overview"
+            )
+            charts.extend(overview_meta)
+        except Exception as exc:
+            charts.append(
+                {"name": "overview_export", "path": None, "export_error": str(exc)}
+            )
 
     # 1) Confidence summary
     from collections import Counter
@@ -102,7 +125,7 @@ def build_report_charts(
         )
         charts.append(_export(fig2, "comfort_ranking", out_dir))
 
-    # 3) Per priority finding chart
+    # 3) Per priority finding chart (scalar fallback)
     for f in artifacts.findings:
         if not f.include_in_report or not f.chart_spec:
             continue
@@ -113,9 +136,24 @@ def build_report_charts(
         f.chart_path = meta.get("path")
         charts.append({**meta, "finding_id": f.finding_id})
 
+    # 4) Day-zoom matplotlib PNGs from RuleResult series
+    if out_dir is not None and rule_results:
+        try:
+            from app.reporting.day_zoom import attach_day_zoom_to_findings
+
+            day_meta = attach_day_zoom_to_findings(
+                artifacts.findings,
+                rule_results,
+                out_dir=out_dir / "day_zoom",
+            )
+            charts.extend(day_meta)
+        except Exception as exc:
+            charts.append(
+                {"name": "day_zoom", "path": None, "export_error": str(exc)}
+            )
+
     artifacts.charts = charts
     return charts
-
 
 def _figure_for_finding(f: EngineeringFinding, go):
     spec = f.chart_spec or {}
