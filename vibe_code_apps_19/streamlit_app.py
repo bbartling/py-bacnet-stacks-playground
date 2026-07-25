@@ -103,7 +103,7 @@ from app.site_model import (  # noqa: E402
 try:
     from shared.branding import APP_TITLE
 except ImportError:  # pragma: no cover
-    APP_TITLE = "Open FDD Vibe Coder"
+    APP_TITLE = "OpenFDD Vibe 19"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
@@ -1669,11 +1669,6 @@ def _load_data(cfg: AppConfig) -> None:
     img_cap = _docker_image_caption()
     if img_cap:
         st.sidebar.caption(img_cap)
-    mode_label = "Cloud-capable" if cfg.is_cloud else "Local + Cloud-capable"
-    st.sidebar.caption(
-        f"{mode_label} · same `openfdd_package_v1` zip everywhere "
-        f"(`docs/PACKAGE_SPEC.md`). Non-sensitive demo data on shared hosts."
-    )
 
     source_options = ["Zip package"]
     if cfg.allow_server_paths:
@@ -1765,12 +1760,6 @@ def _load_data(cfg: AppConfig) -> None:
         st.sidebar.caption(
             f"**{n_parts}** file(s) · **{parts_mb} MB** selected · "
             f"per-file ≤**{BROWSER_UPLOAD_MB} MB** · assembled job ≤**{agent_caps.max_zip_mb} MB**"
-        )
-        st.sidebar.caption(
-            f"Build check: zip-item limit **{agent_caps.max_entries}** "
-            f"(each file/folder inside the archive) · equip ≤**{agent_caps.max_equipment}**. "
-            f"If you still see **200**, `docker pull` the latest "
-            f"`ghcr.io/bbartling/vibe19:develop` — that machine is on an old image."
         )
         c1, c2 = st.sidebar.columns(2)
         load_clicked = c1.button(
@@ -2400,15 +2389,6 @@ def main() -> None:
         d2.metric("Dataset end", end_s)
         d3.metric("Span (h)", f"{span['span_hours']:.1f}")
 
-        from app.report_downloads import render_engineering_findings_panel
-
-        render_engineering_findings_panel(
-            batch_results=st.session_state.get("batch_results") or [],
-            building_name=str(st.session_state.get("building_id") or st.session_state.get("site_id") or ""),
-            analysis_period="",
-            key_prefix="overview_eng_findings",
-        )
-
         min_air_hours = _render_building_schedule_overview()
         _render_plant_motor_weekly(
             motor_weekly,
@@ -2649,7 +2629,7 @@ def main() -> None:
         st.caption(
             "Point inventory: equipment → Haystack-like tags → raw CSV columns. "
             "AHU↔VAV topology is listed separately (from package `vav_to_ahu_simple.csv` when present). "
-            "Word report: generate the FDD Engineering Findings Report on **Overview**."
+            "Word report: generate the FDD Engineering Findings Report on **Run Rules**."
         )
         tree = build_data_model_tree(
             frames,
@@ -2825,8 +2805,20 @@ def main() -> None:
             st.session_state.mapping_stale = False
             st.success(
                 f"Ran {len(st.session_state.batch_results)} evaluations — "
-                "open **FDD Plots** for the FDD Word template, or **RCx Plots**."
+                "open **FDD Plots** / **RCx Plots**, or generate the Engineering Findings report below."
             )
+
+        st.divider()
+        from app.report_downloads import render_engineering_findings_panel
+
+        render_engineering_findings_panel(
+            batch_results=st.session_state.get("batch_results") or [],
+            building_name=str(
+                st.session_state.get("building_id") or st.session_state.get("site_id") or ""
+            ),
+            analysis_period="",
+            key_prefix="run_rules_eng_findings",
+        )
 
     if section == "Results by Category":
         st.subheader("Results by equipment type")
@@ -2944,7 +2936,7 @@ def main() -> None:
             "Pick a device → rules auto-run → **chart on top**. "
             "Cards below = params + mapping. Camera icon on chart → PNG/JPEG. "
             "One Plotly at a time (low-RAM). "
-            "Word report: FDD Engineering Findings Report on **Overview**."
+            "Word report: FDD Engineering Findings Report on **Run Rules**."
         )
         st.caption(
             "Economizer **ECON-1…4**, **OA-1**, **DMP-1**, **FC8–11** need OA damper / MAT / OAT "
@@ -3529,7 +3521,7 @@ def main() -> None:
                     pass
 
         st.caption(
-            "Word report: generate the FDD Engineering Findings Report from the **Overview** section."
+            "Word report: generate the FDD Engineering Findings Report from the **Run Rules** section."
         )
 
 

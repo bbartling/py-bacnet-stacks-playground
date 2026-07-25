@@ -28,8 +28,9 @@ PRODUCTION_MEASURES = {
         "kw_per_ton_improvement",
         "high_efficiency_chiller",
     ),
-    "ECM-CONDENSING-BOILER": (None, "condensing_boiler"),
-    "ECM-AWHP-SURROGATE": (None, "awhp_surrogate"),
+    "ECM-CONDENSING-BOILER": ("boiler_efficiency_improvement", "condensing_boiler"),
+    "ECM-AWHP-SURROGATE": ("heat_pump_electrification", "awhp_surrogate"),
+    "ECM-DOAS-HP": ("heat_pump_electrification", "awhp_surrogate"),
     "ECM-WINDOW-HP-GLAZING": (None, "high_performance_glazing"),
 }
 
@@ -72,6 +73,20 @@ def test_package_resolution_expands_dependencies_without_duplicates() -> None:
     pneumatic = resolve_package("pneumatic-to-ddc")
     assert "ECM-PNEU-DDC-CONVERT" in pneumatic
     assert "ECM-SENSOR-CRITICAL-REFRESH" in pneumatic
+
+    esco = resolve_package("esco-top15")
+    assert "ECM-CONDENSING-BOILER" in esco
+    assert "ECM-ADVANCED-RTU" in esco
+    assert "ECM-AHU-SCHED-ALIGN" in esco
+    assert len(esco) == len(set(esco))
+
+    erv = resolve_package("energy-recovery")
+    assert erv == ["ECM-ERV", "ECM-TOILET-EXH-ERV"]
+
+    doas = resolve_package("deep-doas-heat-pump")
+    assert "ECM-DOAS-HP" in doas
+    assert "ECM-ERV" in doas  # dependency
+    assert "ECM-AHU-SCHED-ALIGN" in resolve_package("partial-g36")  # prior packages intact
 
     with pytest.raises(KeyError, match="Unknown ECM package"):
         resolve_package("not-a-package")

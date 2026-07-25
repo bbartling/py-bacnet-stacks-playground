@@ -19,7 +19,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 LABEL org.opencontainers.image.title="vibe19" \
-      org.opencontainers.image.description="Open FDD Vibe Coder Streamlit demo" \
+      org.opencontainers.image.description="OpenFDD Vibe 19 Streamlit FDD demo" \
       org.opencontainers.image.source="https://github.com/bbartling/py-bacnet-stacks-playground" \
       org.opencontainers.image.revision="${VIBE19_GIT_SHA}" \
       org.opencontainers.image.ref.name="${VIBE19_IMAGE_REF}:${VIBE19_IMAGE_TAG}"
@@ -27,7 +27,8 @@ LABEL org.opencontainers.image.title="vibe19" \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+ && python -c "import docx, kaleido; print('engineering-report extras ok')"
 
 # Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .

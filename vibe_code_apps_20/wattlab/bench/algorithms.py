@@ -154,3 +154,59 @@ def simple_payback(i: dict[str, Any]) -> dict[str, Any]:
     return _result(
         simple_payback_years=implementation_cost/annual_cost_savings if annual_cost_savings > 0 else None
     )
+
+@register("boiler_efficiency_improvement")
+def boiler_efficiency_improvement(i: dict[str, Any]) -> dict[str, Any]:
+    """Screening gas savings from raising boiler thermal efficiency.
+
+    ``annual_heating_mmbtu`` is delivered (output) load. Input fuel falls as
+    efficiency rises: therms = MMBtu × 10 / η.
+    """
+    load_mmbtu = _req(i, "annual_heating_mmbtu")
+    baseline = _req(i, "baseline_efficiency")
+    proposed = _req(i, "proposed_efficiency")
+    if baseline <= 0 or proposed <= 0:
+        raise ValueError("efficiencies must be > 0")
+    if proposed < baseline:
+        raise ValueError("proposed_efficiency must be >= baseline_efficiency")
+    baseline_therms = load_mmbtu * 10.0 / baseline
+    proposed_therms = load_mmbtu * 10.0 / proposed
+    return _result(
+        baseline_therms=baseline_therms,
+        proposed_therms=proposed_therms,
+        savings_therms=baseline_therms - proposed_therms,
+        savings_fraction=(baseline_therms - proposed_therms) / baseline_therms if baseline_therms else 0.0,
+        assumptions={"load_is_delivered_mmbtu": True},
+    )
+
+
+@register("heat_pump_electrification")
+def heat_pump_electrification(i: dict[str, Any]) -> dict[str, Any]:
+    """Screen gas→heat-pump fuel switch (screening-grade, not a real HP curve).
+
+    Delivered heating load MMBtu is currently served by a combustion plant at
+    ``baseline_efficiency``. Proposed plant uses electricity at ``proposed_cop``
+    (W_thermal/W_electric). Returns positive ``savings_therms`` (gas avoided)
+    and typically **negative** ``savings_kwh`` (electric load added) so net
+    dollar savings = therms×gas_rate + kwh×elec_rate still works.
+    """
+    load_mmbtu = _req(i, "annual_heating_mmbtu")
+    baseline = float(i.get("baseline_efficiency", 0.80))
+    cop = _req(i, "proposed_cop")
+    if baseline <= 0 or cop <= 0:
+        raise ValueError("baseline_efficiency and proposed_cop must be > 0")
+    # 1 MMBtu = 10 therms input at η=1; 1 MMBtu ≈ 293.071 kWh thermal
+    baseline_therms = load_mmbtu * 10.0 / baseline
+    thermal_kwh = load_mmbtu * 293.07107
+    proposed_kwh = thermal_kwh / cop
+    return _result(
+        baseline_therms=baseline_therms,
+        proposed_kwh=proposed_kwh,
+        savings_therms=baseline_therms,
+        savings_kwh=-proposed_kwh,
+        assumptions={
+            "load_is_delivered_mmbtu": True,
+            "heat_pump_curves": False,
+            "defrost_not_modeled": True,
+        },
+    )

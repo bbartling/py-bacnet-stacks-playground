@@ -68,7 +68,7 @@ def test_streamlit_app_imports_enrich():
     at = AppTest.from_file("streamlit_app.py", default_timeout=90)
     at.run()
     assert not at.exception, at.exception
-    assert any("Open FDD Vibe Coder" in t.value for t in at.title)
+    assert any("OpenFDD Vibe 19" in t.value for t in at.title)
 
 
 def test_apply_and_validate(tmp_path: Path):

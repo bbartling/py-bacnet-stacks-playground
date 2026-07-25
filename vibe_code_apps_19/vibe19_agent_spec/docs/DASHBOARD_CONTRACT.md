@@ -52,9 +52,9 @@ Frozen in `REQUIRED_MAIN_SECTIONS`:
 
 | Section | Must provide |
 | --- | --- |
-| Overview | Metrics, **FDD Engineering Findings Report** (button-triggered generate), occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
+| Overview | Metrics, occupancy calendar → `occ_mode`, motor weekly, mech-cooling OAT bins + **always-visible device coverage** (name / included|excluded / proof / runtime / reason), economizer weather summary, **BAS vs web OAT overlay** (±`oat_err`) + histogram, **Data inspection — raw CSV** (equipment dropdown → stacked Plotly lines for all numeric/status columns) |
 | **Data Model** | Equipment → cookbook role → Haystack tag → CSV tree + feeds/fedBy + mapping status |
-| Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx** |
+| Run Rules | Cookbook (+ custom); then review **FDD Plots** / **RCx**; **FDD Engineering Findings Report** (button-triggered) |
 | Results by Category | Per **equipment type** then per device tables (not rule-family dropdown) |
 | **FDD Plots** | Auto-run device rules; catalog-parity cards; **Sensor health — per sensor** matrix + chart (Word on Overview) |
 | **RCx Plots** | Family → preset (Zones / AHU / Boiler / Chiller / Metering); zone comfort donut; one chart at a time; opt-in coverage |
@@ -68,7 +68,7 @@ Do **not** reintroduce `st.tabs` that evaluate every heavy pane (SIGSEGV risk on
 - FDD Plots must render **N rule cards** for the applicable cookbook catalog for the selected device (not a sole one-rule selectbox as the only mode).
 - Shared builder: `app.rule_card:build_rule_card` (params + mapping rows + coverage + **summary** + equation).
 - **Generic RCx asset (optional):** `assets/reports/Open-FDD_Generic_RCx_Report_v1.docx` via `load_generic_rcx_report` may remain for tests/agents. Do **not** resurrect Overview Generic RCx download, per-equipment FDD DOCX, family RCx DOCX packs, or Export ZIP packs.
-- **FDD Engineering Findings Report:** primary Overview report product (`app/reporting/`, `render_engineering_findings_panel`). Button-triggered only; evidence review before client findings; optional `python-docx`/`kaleido` extras. Do **not** rebuild on every Streamlit rerun / section visit.
+- **FDD Engineering Findings Report:** primary **Run Rules** report product (`app/reporting/`, `render_engineering_findings_panel`). Button-triggered only; evidence review before client findings; `python-docx`/`kaleido` baked into GHCR image. Do **not** rebuild on every Streamlit rerun / section visit.
 - Prefer prepare-then-download for all generated DOCX.
 
 ---
