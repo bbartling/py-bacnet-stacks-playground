@@ -15,7 +15,13 @@ from app.reporting.models import (
 )
 from app.reporting.pipeline import build_engineering_findings
 from app.reporting.quality_gate import run_quality_gate
-from app.reporting.scope import FindingScope, TERMINAL_SCORE_BOOST
+from app.reporting.scope import FindingScope, TERMINAL_SCORE_BOOST, equipment_system
+
+
+def test_equipment_system_maps_rtu_and_heatpump():
+    assert equipment_system("RTU", "SCHED-1") == "AHU"
+    assert equipment_system("heatPump", "HP-1") == "HP"
+    assert equipment_system("VAV", "VAV-5") == "VAV"
 
 
 def _pkt(key: str) -> EvidencePacket:

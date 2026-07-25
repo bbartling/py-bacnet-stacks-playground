@@ -13,10 +13,15 @@ TERMINAL_SCORE_BOOST = 8.0
 
 
 def equipment_system(equipment_type: str, rule_id: str) -> str:
-    """AHU / CHW / HW / VAV / Other — shared with findings clustering."""
-    et = (equipment_type or "").upper()
-    if "AHU" in et or rule_id.startswith("SCHED") or rule_id == "FAN-OFF-STATIC":
+    """AHU / CHW / HW / VAV / HP / Other — shared with findings clustering.
+
+    RTU maps to AHU; heatPump / HP map to HP (dashboard contract).
+    """
+    et = (equipment_type or "").upper().replace(" ", "")
+    if "AHU" in et or "RTU" in et or rule_id.startswith("SCHED") or rule_id == "FAN-OFF-STATIC":
         return "AHU"
+    if "HEATPUMP" in et or et == "HP" or et.endswith("HP"):
+        return "HP"
     if "CHILL" in et or rule_id.startswith("CHW"):
         return "CHW"
     if "BOIL" in et or rule_id.startswith("HW"):

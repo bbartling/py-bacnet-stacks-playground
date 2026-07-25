@@ -51,13 +51,12 @@ def _refs_match_finding(ref: str, f: EngineeringFinding) -> bool:
         return False
     if ref == f.finding_id:
         return True
-    if ref in (f.candidate_keys or []):
+    keys = list(f.candidate_keys or [])
+    if ref in keys:
         return True
     if "|" in ref:
-        eid, rid = ref.split("|", 1)
-        if eid in (f.equipment_ids or []) and rid in (f.rule_ids or []):
-            return True
-        return False
+        # Exact equipment|rule membership only (avoid cluster cross-product false hits)
+        return ref in keys
     # bare equipment id
     return ref in (f.equipment_ids or [])
 

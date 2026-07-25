@@ -22,11 +22,14 @@ def build_fault_inventory(
     for f in findings:
         if not f.include_in_report:
             continue
-        for k in f.candidate_keys or []:
-            priority_keys.add(k)
-        for eid in f.equipment_ids or []:
-            for rid in f.rule_ids or []:
-                priority_keys.add(f"{eid}|{rid}")
+        keys = list(f.candidate_keys or [])
+        if keys:
+            priority_keys.update(keys)
+        else:
+            # Legacy / pin edge case: only then fall back to equipment×rule pairs
+            for eid in f.equipment_ids or []:
+                for rid in f.rule_ids or []:
+                    priority_keys.add(f"{eid}|{rid}")
 
     suppress_by_key: dict[str, str] = {}
     for row in suppressed or []:

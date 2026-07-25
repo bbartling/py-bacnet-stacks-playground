@@ -151,11 +151,12 @@ def build_engineering_findings(
                         "rule_id": ",".join(f.rule_ids),
                     }
                 )
-    # Stable F-ids for included
+    # Stable F-ids for included (preserve PIN* promotions from HITL)
     included_final = [f for f in findings if f.include_in_report]
     for i, f in enumerate(included_final, 1):
         f.priority = i
-        f.finding_id = f"F{i:02d}"
+        if not str(f.finding_id).startswith("PIN"):
+            f.finding_id = f"F{i:02d}"
 
     field_checklist: list[str] = []
     for f in included_final:
