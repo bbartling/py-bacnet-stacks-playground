@@ -127,3 +127,50 @@ def test_docx_embeds_day_zoom_media(tmp_path):
     with zipfile.ZipFile(docx_path) as zf:
         media = [n for n in zf.namelist() if n.startswith("word/media/")]
     assert media, "expected day-zoom PNG in word/media"
+
+
+def test_attach_day_zoom_records_no_result_skip(tmp_path):
+    finding = EngineeringFinding(
+        finding_id="F99",
+        title="No result",
+        classification=Classification.INCONCLUSIVE,
+        priority=1,
+        why_it_matters="x",
+        observed_behavior="y",
+        evidence_bullets=["e"],
+        contradicting_evidence=[],
+        likely_causes=["c"],
+        field_verification=["f"],
+        possible_corrective=["p"],
+        rule_ids=["VAV-5"],
+        equipment_ids=["VAV_99"],
+        systems=["VAV"],
+        candidate_keys=["VAV_99|VAV-5"],
+        include_in_report=True,
+    )
+    metas = attach_day_zoom_to_findings([finding], [], out_dir=tmp_path / "dz")
+    assert finding.day_zoom_skip_reason == "no_result"
+    assert any(m.get("skip_reason") == "no_result" for m in metas)
+    art = ReportArtifacts(
+        building="Test",
+        analysis_period="2026-01-01 → 2026-01-02 (~24 h)",
+        generated_at="2026-01-01T00:00:00Z",
+        findings=[finding],
+        suppressed=[],
+        candidates=[],
+        assessments=[],
+        data_quality=[],
+        comfort_summary={},
+        metrics={"n_candidates": 1},
+        field_checklist=[],
+        assumptions={},
+        quality_gate={"ok": True},
+    )
+    docx_path = render_docx(art, tmp_path / "skip.docx")
+    import zipfile
+
+    with zipfile.ZipFile(docx_path) as zf:
+        xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+    assert "Day-zoom unavailable" in xml
+    assert "no_result" in xml
+    assert "2026-01-01 → 2026-01-02" in xml

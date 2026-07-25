@@ -2819,12 +2819,20 @@ def main() -> None:
             _ov_ctx = overview_context_from_session()
         except Exception:
             _ov_ctx = None
+        _analysis_period = ""
+        if _ov_ctx:
+            try:
+                from app.reporting.overview_export import format_analysis_period
+
+                _analysis_period = format_analysis_period(_ov_ctx)
+            except Exception:
+                _analysis_period = ""
         render_engineering_findings_panel(
             batch_results=st.session_state.get("batch_results") or [],
             building_name=str(
                 st.session_state.get("building_id") or st.session_state.get("site_id") or ""
             ),
-            analysis_period="",
+            analysis_period=_analysis_period,
             overview_context=_ov_ctx,
             key_prefix="run_rules_eng_findings",
         )

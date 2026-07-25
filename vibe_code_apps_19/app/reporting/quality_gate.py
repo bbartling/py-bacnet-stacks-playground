@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.reporting.models import Classification, EngineeringFinding, ReportArtifacts
@@ -12,6 +13,38 @@ CLIENT_OK = {
     Classification.INCONCLUSIVE,
     Classification.DATA_QUALITY,
 }
+
+# Negations / soft-denials that mention replace but are not a fix action.
+_ANTI_REPLACE = re.compile(
+    r"\b(?:do\s+not|don't|dont|never|avoid|no\s+need\s+to|without)\s+"
+    r"(?:\w+\s+){0,3}replac(?:e|ement)\b"
+    r"|\breplac(?:e|ement)\b\s+(?:is\s+)?(?:not|unnecessary|unwarranted)\b",
+    re.IGNORECASE,
+)
+# Proactive replace / replacement of equipment / instrumentation.
+_PROACTIVE_REPLACE = re.compile(
+    r"\breplac(?:e|ement)\b.{0,48}\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b"
+    r"|\b(?:equipment|sensor|actuator|damper|valve|transmitter|transducer)\b.{0,48}\breplac(?:e|ement)\b"
+    r"|\breplacement\s+of\b",
+    re.IGNORECASE,
+)
+
+
+def _has_proactive_replace(corrective: list[str] | None) -> bool:
+    """True when corrective text recommends replacing hardware (not honesty language)."""
+    for raw in corrective or []:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        # Drop negated clauses before matching proactive language.
+        cleaned = _ANTI_REPLACE.sub(" ", text)
+        if not re.search(r"replac", cleaned, re.IGNORECASE):
+            continue
+        if _PROACTIVE_REPLACE.search(cleaned):
+            return True
+        if re.search(r"\breplace\b", cleaned, re.IGNORECASE):
+            return True
+    return False
 
 
 def run_quality_gate(artifacts: ReportArtifacts) -> dict[str, Any]:
@@ -37,7 +70,7 @@ def run_quality_gate(artifacts: ReportArtifacts) -> dict[str, Any]:
             # dead sensor comfort
             if any("implausible" in (b or "").lower() or "instrumentation" in (b or "").lower() for b in f.evidence_bullets):
                 errors.append(f"{f.finding_id}: dead/impossible sensor described as comfort problem")
-        if "replace" in " ".join(f.possible_corrective).lower() and cls not in {
+        if _has_proactive_replace(f.possible_corrective) and cls not in {
             Classification.STRONGLY_SUPPORTED,
             Classification.PROBABLE,
         }:

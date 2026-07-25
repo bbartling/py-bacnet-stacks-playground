@@ -12,8 +12,7 @@ from app.reporting.rule_meta import legend_rows, rule_label
 def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     try:
         from docx import Document
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-        from docx.shared import Inches, Pt
+        from docx.shared import Inches, Pt  # noqa: F401 — Pt used by helpers
     except ImportError as exc:
         raise RuntimeError(
             "python-docx is required for Engineering Findings DOCX. "
@@ -24,27 +23,23 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
 
-    # Cover
-    title = doc.add_heading("FDD Engineering Findings Report", 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(artifacts.building)
-    run.bold = True
-    run.font.size = Pt(16)
-    _muted(doc, f"Analysis period: {artifacts.analysis_period or 'see assumptions'}")
-    _muted(doc, f"Generated: {artifacts.generated_at}")
-    disc = doc.add_paragraph()
-    run = disc.add_run(
-        "Open-FDD advisory analysis. Findings are telemetry-based; physical verification "
-        "remains a field activity. Detection ≠ finding."
+    _cover(
+        doc,
+        title="FDD Engineering Findings Report",
+        subtitle=artifacts.building,
+        meta_lines=[
+            f"Analysis period: {artifacts.analysis_period or 'see assumptions'}",
+            f"Generated: {artifacts.generated_at}",
+        ],
+        advisory=(
+            "Open-FDD advisory analysis. Findings are telemetry-based; physical verification "
+            "remains a field activity. Detection ≠ finding."
+        ),
     )
-    run.italic = True
-    run.font.size = Pt(10)
     doc.add_page_break()
 
     # Executive summary
-    doc.add_heading("1. Executive summary", level=1)
+    _section_h1(doc, "1. Executive summary")
     m = artifacts.metrics or {}
     doc.add_paragraph(
         f"Detections reviewed: {m.get('n_candidates', '—')}. "
@@ -63,11 +58,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
         doc.add_heading("Priority index", level=2)
         table = doc.add_table(rows=1, cols=4)
         table.style = "Table Grid"
-        hdr = table.rows[0].cells
-        hdr[0].text = "Priority"
-        hdr[1].text = "Finding"
-        hdr[2].text = "Status"
-        hdr[3].text = "First field check"
+        _style_table_header(table, ["Priority", "Finding", "Status", "First field check"])
         for f in included:
             row = table.add_row().cells
             row[0].text = str(f.priority)
@@ -76,7 +67,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
             row[3].text = (f.field_verification or ["—"])[0]
 
     # Building at a glance
-    doc.add_heading("2. Building at a glance", level=1)
+    _section_h1(doc, "2. Building at a glance")
     _add_overview_settings(doc, artifacts)
     doc.add_paragraph(
         "Overview analytics below reuse the same Plotly builders as the live Overview tab "
@@ -88,7 +79,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     _add_chart_if_any(doc, artifacts, "comfort_ranking")
 
     # Prioritized findings detail
-    doc.add_heading("3. Prioritized engineering findings", level=1)
+    _section_h1(doc, "3. Prioritized engineering findings")
     for f in included:
         doc.add_heading(f"{f.finding_id}: {f.title}", level=2)
         doc.add_paragraph(f"Status: {confidence_badge(f.effective_classification)}")
@@ -122,7 +113,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
             )
 
     # Comfort
-    doc.add_heading("4. Comfort / zone performance", level=1)
+    _section_h1(doc, "4. Comfort / zone performance")
     cs = artifacts.comfort_summary or {}
     doc.add_paragraph(
         f"VAVs: {cs.get('n_vav', '—')}; below threshold: {cs.get('n_below', '—')}. "
@@ -143,7 +134,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
             )
 
     # Systems
-    doc.add_heading("5. AHU / plant / system findings", level=1)
+    _section_h1(doc, "5. AHU / plant / system findings")
     sys_findings = [
         f for f in included if any(s in f.systems for s in ("AHU", "CHW", "HW"))
     ]
@@ -158,7 +149,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
             )
 
     # Data quality
-    doc.add_heading("6. Data quality", level=1)
+    _section_h1(doc, "6. Data quality")
     if not artifacts.data_quality:
         doc.add_paragraph("No major data-quality exclusions beyond suppressed rows.")
     for r in artifacts.data_quality[:15]:
@@ -170,7 +161,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
         )
 
     # Field checklist
-    doc.add_heading("7. Recommended field checklist", level=1)
+    _section_h1(doc, "7. Recommended field checklist")
     for item in artifacts.field_checklist[:12]:
         doc.add_paragraph(f"[ ] {item}", style="List Bullet")
 
@@ -185,13 +176,9 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     class_by_key = _class_by_candidate_key(artifacts)
     table = doc.add_table(rows=1, cols=6)
     table.style = "Table Grid"
-    hdr = table.rows[0].cells
-    hdr[0].text = "Equipment"
-    hdr[1].text = "Rule ID"
-    hdr[2].text = "Description"
-    hdr[3].text = "Hours"
-    hdr[4].text = "Pct"
-    hdr[5].text = "Class"
+    _style_table_header(
+        table, ["Equipment", "Rule ID", "Description", "Hours", "Pct", "Class"]
+    )
     ranked = sorted(
         artifacts.candidates or [],
         key=lambda c: -(float(c.get("fault_hours") or 0)),
@@ -224,10 +211,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     if legend:
         ltab = doc.add_table(rows=1, cols=3)
         ltab.style = "Table Grid"
-        lh = ltab.rows[0].cells
-        lh[0].text = "Rule ID"
-        lh[1].text = "Title"
-        lh[2].text = "Summary"
+        _style_table_header(ltab, ["Rule ID", "Title", "Summary"])
         for row_data in legend:
             row = ltab.add_row().cells
             row[0].text = row_data["rule_id"]
@@ -254,11 +238,7 @@ def render_docx(artifacts: ReportArtifacts, path: Path | str) -> Path:
     else:
         ftab = doc.add_table(rows=1, cols=4)
         ftab.style = "Table Grid"
-        fh = ftab.rows[0].cells
-        fh[0].text = "Equipment"
-        fh[1].text = "Rule ID"
-        fh[2].text = "Description"
-        fh[3].text = "Class"
+        _style_table_header(ftab, ["Equipment", "Rule ID", "Description", "Class"])
         for s in fp_only + other_suppressed:
             rid = str(s.get("rule_id") or "")
             desc = ", ".join(rule_label(p.strip()) for p in rid.split(",") if p.strip()) or ""
@@ -290,6 +270,46 @@ def _muted(doc, text: str) -> None:
     run = p.add_run(text)
     run.font.size = Pt(10)
     run.font.color.rgb = RGBColor(0x4A, 0x55, 0x68)
+
+
+def _cover(
+    doc,
+    *,
+    title: str,
+    subtitle: str,
+    meta_lines: list[str],
+    advisory: str,
+) -> None:
+    """Shared WattLab / Open-FDD client cover (centered title, muted meta, italic advisory)."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt
+
+    h = doc.add_heading(title, 0)
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(subtitle or "—")
+    run.bold = True
+    run.font.size = Pt(16)
+    for line in meta_lines:
+        _muted(doc, line)
+    disc = doc.add_paragraph()
+    run = disc.add_run(advisory)
+    run.italic = True
+    run.font.size = Pt(10)
+
+
+def _section_h1(doc, text: str) -> None:
+    doc.add_heading(text, level=1)
+
+
+def _style_table_header(table, headers: list[str]) -> None:
+    hdr = table.rows[0].cells
+    for i, label in enumerate(headers):
+        hdr[i].text = label
+        for paragraph in hdr[i].paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
 
 
 def _class_by_candidate_key(artifacts: ReportArtifacts) -> dict[str, str]:
@@ -380,18 +400,29 @@ def _add_overview_charts(doc, artifacts: ReportArtifacts) -> None:
 def _add_finding_picture(doc, f) -> None:
     from docx.shared import Inches
 
+    skip_reason = getattr(f, "day_zoom_skip_reason", None)
+    skip_note = getattr(f, "day_zoom_label", None)
+    if skip_reason or (skip_note and "unavailable" in str(skip_note).lower()):
+        _muted(doc, str(skip_note or f"Day-zoom unavailable: {skip_reason}"))
+
     path = None
     caption = None
     if getattr(f, "day_zoom_path", None) and Path(f.day_zoom_path).is_file():
         path = f.day_zoom_path
         caption = getattr(f, "day_zoom_label", None)
+        if caption and "unavailable" in str(caption).lower():
+            caption = None
     elif getattr(f, "chart_path", None) and Path(f.chart_path).is_file():
         path = f.chart_path
     if not path:
+        if not (skip_reason or (skip_note and "unavailable" in str(skip_note).lower())):
+            _muted(doc, "Day-zoom unavailable: no chart")
         return
     try:
         doc.add_picture(str(path), width=Inches(5.8))
     except Exception:
+        if not skip_reason:
+            _muted(doc, "Day-zoom unavailable: render_failed")
         return
     if caption:
         _muted(doc, str(caption))

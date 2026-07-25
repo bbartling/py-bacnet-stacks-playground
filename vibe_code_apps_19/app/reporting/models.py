@@ -150,6 +150,7 @@ class EngineeringFinding:
     chart_path: str | None = None
     day_zoom_path: str | None = None
     day_zoom_label: str | None = None
+    day_zoom_skip_reason: str | None = None
     candidate_keys: list[str] = field(default_factory=list)
     automated_assessment: dict[str, Any] = field(default_factory=dict)
     engineer_override: dict[str, Any] | None = None

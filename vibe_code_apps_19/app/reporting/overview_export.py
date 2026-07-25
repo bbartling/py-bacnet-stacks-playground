@@ -10,23 +10,27 @@ import pandas as pd
 from app.reporting.models import ReportArtifacts
 
 
+def _ts_label(v: Any, *, date_only: bool = False) -> str | None:
+    if v is None:
+        return None
+    if hasattr(v, "strftime"):
+        try:
+            return v.strftime("%Y-%m-%d") if date_only else v.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return str(v)
+    s = str(v).strip()
+    if date_only and len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        return s[:10]
+    return s or None
+
+
 def overview_settings_from_context(ctx: dict[str, Any] | None) -> dict[str, Any]:
     """Lean settings block for DOCX §2 (no frames)."""
     ctx = ctx or {}
 
-    def _ts(v: Any) -> str | None:
-        if v is None:
-            return None
-        if hasattr(v, "strftime"):
-            try:
-                return v.strftime("%Y-%m-%d %H:%M")
-            except Exception:
-                return str(v)
-        return str(v)
-
     return {
-        "dataset_start": _ts(ctx.get("dataset_start")),
-        "dataset_end": _ts(ctx.get("dataset_end")),
+        "dataset_start": _ts_label(ctx.get("dataset_start")),
+        "dataset_end": _ts_label(ctx.get("dataset_end")),
         "span_hours": ctx.get("span_hours"),
         "zone_lo_f": ctx.get("zone_lo_f"),
         "zone_hi_f": ctx.get("zone_hi_f"),
@@ -35,6 +39,24 @@ def overview_settings_from_context(ctx: dict[str, Any] | None) -> dict[str, Any]
         "oat_err": ctx.get("oat_err"),
         "prefer_web_oat": ctx.get("prefer_web_oat"),
     }
+
+
+def format_analysis_period(ctx: dict[str, Any] | None) -> str:
+    """Human cover line from overview / dataset span (BUG-018)."""
+    ctx = ctx or {}
+    start = _ts_label(ctx.get("dataset_start"), date_only=True)
+    end = _ts_label(ctx.get("dataset_end"), date_only=True)
+    span = ctx.get("span_hours")
+    span_s = None
+    if isinstance(span, (int, float)) and span > 0:
+        span_s = f"{span:.0f}" if float(span).is_integer() else f"{float(span):.1f}"
+    if start and end and span_s:
+        return f"{start} → {end} (~{span_s} h)"
+    if start and end:
+        return f"{start} → {end}"
+    if span_s:
+        return f"~{span_s} h window"
+    return ""
 
 
 def build_overview_context(

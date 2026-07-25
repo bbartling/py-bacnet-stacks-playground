@@ -41,7 +41,10 @@ def build_engineering_findings(
     """Calculate assessments and prioritized findings (no DOCX yet)."""
     ctx = dict(context or {})
     cands = list(candidates or [])
-    from app.reporting.overview_export import overview_settings_from_context
+    from app.reporting.overview_export import (
+        format_analysis_period,
+        overview_settings_from_context,
+    )
 
     overview_settings = overview_settings_from_context(overview_context)
 
@@ -52,6 +55,11 @@ def build_engineering_findings(
             ctx.setdefault(k, v)
         building = building or cctx.get("building") or building
         analysis_period = analysis_period or cctx.get("analysis_period") or analysis_period
+
+    if not analysis_period:
+        analysis_period = format_analysis_period(overview_context) or format_analysis_period(
+            overview_settings
+        )
 
     if rule_results:
         cands.extend(

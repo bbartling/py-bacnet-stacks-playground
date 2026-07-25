@@ -223,33 +223,61 @@ def attach_day_zoom_to_findings(
     *,
     out_dir: Path,
 ) -> list[dict[str, Any]]:
-    """Write day-zoom PNGs and set ``day_zoom_path`` / ``day_zoom_label`` on findings."""
+    """Write day-zoom PNGs and set ``day_zoom_path`` / ``day_zoom_label`` on findings.
+
+    Always records a meta per included finding. Successful zooms include ``path``;
+    skips include ``skip_reason`` in ``{no_result, no_fault_day, render_failed}``
+    and set ``EngineeringFinding.day_zoom_skip_reason``. Findings with
+    ``include_in_report=False`` are ignored (no meta).
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     by_key = index_rule_results(rule_results)
     metas: list[dict[str, Any]] = []
+
+    def _skip(f: EngineeringFinding, reason: str) -> None:
+        f.day_zoom_path = None
+        f.day_zoom_skip_reason = reason
+        f.day_zoom_label = f"Day-zoom unavailable: {reason}"
+        metas.append(
+            {
+                "name": f"day_zoom_{f.finding_id}",
+                "finding_id": f.finding_id,
+                "skip_reason": reason,
+            }
+        )
+
     for f in findings:
         if not f.include_in_report:
             continue
         result = resolve_result_for_finding(f, by_key)
         if result is None:
+            _skip(f, "no_result")
             continue
         fault = getattr(result, "confirmed_fault", None)
         if fault is None or (hasattr(fault, "empty") and fault.empty):
             fault = getattr(result, "raw_fault", None)
         day = worst_fault_day(fault if isinstance(fault, pd.Series) else None)
         if day is None:
+            _skip(f, "no_fault_day")
             continue
         png = out_dir / f"day_zoom_{f.finding_id}.png"
-        rendered = render_day_zoom_png(result, day, png)
+        try:
+            rendered = render_day_zoom_png(result, day, png)
+        except Exception:
+            _skip(f, "render_failed")
+            continue
         if rendered is None:
+            _skip(f, "render_failed")
             continue
         path, hours = rendered
         if not path.is_file():
+            _skip(f, "render_failed")
             continue
         label = f"{day.isoformat()} · ~{hours:g} fault-h that day"
         f.day_zoom_path = str(path)
         f.day_zoom_label = label
+        f.day_zoom_skip_reason = None
         metas.append(
             {
                 "name": f"day_zoom_{f.finding_id}",

@@ -29,6 +29,10 @@ Do not invent new FDD rules here. Do not derive compressor runtime from pump sta
 3. **No new cookbook rules** in this package — review existing detections / checklist rows.
 4. **No compressor-from-pump** — respect compressor-proof analytics contract.
 5. Optional extras: `pip install '.[engineering-report]'` (`python-docx`, `kaleido`).
+6. **Analysis period** — from Overview / dataset span (`format_analysis_period`), not a hardcoded empty string.
+7. **Quality gate** — do not flag honesty language (“Do not replace…”); only proactive replace on weak classes.
+8. **Day-zoom** — every included finding gets a PNG or an observable skip reason / muted DOCX note.
+9. **DOCX visual language** — cover / muted meta / numbered H1 / bold table headers match vibe20 Energy Modeling client DOCX tokens (same family, different product).
 
 ## Package map
 
@@ -40,9 +44,11 @@ Do not invent new FDD rules here. Do not derive compressor runtime from pump sta
 | `app/reporting/candidates.py` | RuleResult / checklist JSON → candidates |
 | `app/reporting/findings.py` | Cluster, prioritize, peer/common-mode |
 | `app/reporting/narrative.py` | Finding prose |
-| `app/reporting/quality_gate.py` | Gate before ship |
+| `app/reporting/quality_gate.py` | Gate before ship (anti-replace aware) |
 | `app/reporting/charts.py` | Kaleido chart selection |
-| `app/reporting/docx.py` | Engineering Findings DOCX |
+| `app/reporting/day_zoom.py` | Peak-fault-day PNG + skip reasons |
+| `app/reporting/overview_export.py` | Overview settings/PNGs + `format_analysis_period` |
+| `app/reporting/docx.py` | Engineering Findings DOCX (client cover tokens) |
 | `app/reporting/pipeline.py` | `build_engineering_findings` / `render_engineering_report` |
 | `app/reporting/cli.py` | Headless CLI |
 | `app/report_downloads.py` | Overview panel + HITL include/note |
