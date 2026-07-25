@@ -45,19 +45,17 @@ def pct_off(modeled: float | None, observed: float | None) -> float | None:
 
 
 def _pair_from_row(row: dict[str, Any], fuel: str) -> tuple[float | None, float | None]:
+    from wattlab.studio.monthly_fuel_chart import normalize_per_month_rows
+
+    norm = normalize_per_month_rows([row])
+    r = norm[0] if norm else row
     if fuel == "elec":
-        obs = _safe_float(row.get("observed_kwh"))
-        sim = _safe_float(
-            row.get("modeled_kwh")
-            if row.get("modeled_kwh") is not None
-            else row.get("simulated_kwh")
-        )
+        obs = _safe_float(r.get("observed_kwh"))
+        sim = _safe_float(r.get("modeled_kwh") if r.get("modeled_kwh") is not None else r.get("simulated_kwh"))
         return sim, obs
-    obs = _safe_float(row.get("observed_therms"))
+    obs = _safe_float(r.get("observed_therms"))
     sim = _safe_float(
-        row.get("modeled_therms")
-        if row.get("modeled_therms") is not None
-        else row.get("simulated_therms")
+        r.get("modeled_therms") if r.get("modeled_therms") is not None else r.get("simulated_therms")
     )
     return sim, obs
 
@@ -152,7 +150,9 @@ def build_monthly_pct_off(
     ok_band_pct: float = DEFAULT_OK_BAND_PCT,
 ) -> dict[str, Any]:
     """Full elec + gas monthly % off analysis from scorecard ``per_month`` rows."""
-    rows = list(per_month or [])
+    from wattlab.studio.monthly_fuel_chart import normalize_per_month_rows
+
+    rows = normalize_per_month_rows(list(per_month or []))
     elec = analyze_fuel_months(rows, fuel="elec", ok_band_pct=ok_band_pct)
     gas = analyze_fuel_months(rows, fuel="gas", ok_band_pct=ok_band_pct)
     return {
@@ -195,16 +195,11 @@ def load_per_month_from_run(run_dir: Path | str | None) -> list[dict[str, Any]]:
             ub = (data.get("calibration") or {}).get("utility_bills") or {}
         rows = ub.get("per_month") if isinstance(ub, dict) else None
         if rows:
-            out = []
-            for pm in rows:
-                if not isinstance(pm, dict):
-                    continue
-                row = dict(pm)
-                if row.get("modeled_kwh") is None and row.get("simulated_kwh") is not None:
-                    row["modeled_kwh"] = row["simulated_kwh"]
-                if row.get("modeled_therms") is None and row.get("simulated_therms") is not None:
-                    row["modeled_therms"] = row["simulated_therms"]
-                out.append(row)
+            from wattlab.studio.monthly_fuel_chart import normalize_per_month_rows
+
+            out = normalize_per_month_rows(
+                [pm for pm in rows if isinstance(pm, dict)]
+            )
             if out:
                 return out
     return []

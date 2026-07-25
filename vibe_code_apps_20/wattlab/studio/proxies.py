@@ -149,29 +149,113 @@ def _occ_standby_dcv_proxy(get, *, oa_cfm: float, kw_per_ton: float, bins, occup
     }
 
 
+def resolve_proxy_inputs(profile: dict[str, Any]) -> dict[str, Any]:
+    """Derive ESCO bin inputs from profile area and optional nameplate sizing.
+
+    Prefers ``cooling_tons`` / ``fan_hp`` (or ``supply_fan_hp``) when present on
+    the profile, nested ``hard_size``, or ``model_seed`` — otherwise falls back
+    to the screening ``PROXY_ASSUMPTIONS`` intensities.
+    """
+    seed = profile.get("model_seed") if isinstance(profile.get("model_seed"), dict) else {}
+    hard = profile.get("hard_size") if isinstance(profile.get("hard_size"), dict) else {}
+
+    area = float(
+        profile.get("conditioned_floor_area_ft2")
+        or profile.get("floor_area_ft2")
+        or seed.get("conditioned_floor_area_ft2")
+        or seed.get("floor_area_ft2")
+        or 50000.0
+    )
+
+    def _num(*keys: str) -> float | None:
+        for src in (profile, hard, seed):
+            for k in keys:
+                v = src.get(k)
+                if v is None or v == "":
+                    continue
+                try:
+                    f = float(v)
+                except (TypeError, ValueError):
+                    continue
+                if f > 0:
+                    return f
+        return None
+
+    cooling_tons = _num("cooling_tons", "cooling_capacity_tons")
+    fan_hp = _num("fan_hp", "supply_fan_hp")
+
+    supply_cfm = area * PROXY_ASSUMPTIONS["supply_cfm_per_ft2"]
+    sources: list[str] = ["area_cfm_per_ft2"]
+    if cooling_tons is not None:
+        sources.append("cooling_tons")
+        # ~400 cfm/ton screening airside when nameplate known
+        tons_cfm = cooling_tons * 400.0
+        if tons_cfm > supply_cfm:
+            supply_cfm = tons_cfm
+
+    oa_cfm = supply_cfm * PROXY_ASSUMPTIONS["oa_fraction"]
+    toilet_cfm = max(0.05 * supply_cfm, 500.0)
+
+    if fan_hp is not None:
+        fan_kw = fan_hp * 0.746
+        sources.append("fan_hp")
+    else:
+        fan_kw = supply_cfm * PROXY_ASSUMPTIONS["fan_w_per_cfm"] / 1000.0
+
+    pump_kw = fan_kw * PROXY_ASSUMPTIONS["pump_kw_fraction_of_fan"]
+    kw_per_ton = PROXY_ASSUMPTIONS["kw_per_ton"]
+    heating_mmbtu = area * PROXY_ASSUMPTIONS["heating_mmbtu_per_ft2_year"]
+    if cooling_tons is not None:
+        # ~1,200 equivalent full-load hours screening
+        ton_hours = cooling_tons * 1200.0
+        sources.append("cooling_tons_eflh")
+    else:
+        ton_hours = area * PROXY_ASSUMPTIONS["cooling_ton_hours_per_ft2_year"]
+
+    capacity_mbh = max(area * 0.03, 500.0)
+    if cooling_tons is not None:
+        # rough boiler plant screening still area-based; chiller capacity from tons
+        capacity_mbh = max(capacity_mbh, cooling_tons * 12.0)
+
+    return {
+        "area_ft2": area,
+        "supply_cfm": supply_cfm,
+        "oa_cfm": oa_cfm,
+        "toilet_cfm": toilet_cfm,
+        "fan_kw": fan_kw,
+        "pump_kw": pump_kw,
+        "kw_per_ton": kw_per_ton,
+        "heating_mmbtu": heating_mmbtu,
+        "ton_hours": ton_hours,
+        "capacity_mbh": capacity_mbh,
+        "cooling_tons": cooling_tons,
+        "fan_hp": fan_hp,
+        "sources": sources,
+        "existing_schedule": PROXY_ASSUMPTIONS["existing_schedule"],
+        "proposed_schedule": PROXY_ASSUMPTIONS["proposed_schedule"],
+    }
+
+
 def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> dict[str, dict[str, Any]]:
     """Screening proxy savings per measure from the ESCO bin calculators."""
     from wattlab.bench import runner  # noqa: F401  (registers calculators)
     from wattlab.bench.registry import get
     from wattlab.weather.bins import washington_dc_noaa
 
-    area = float(
-        profile.get("conditioned_floor_area_ft2")
-        or profile.get("floor_area_ft2")
-        or 50000.0
-    )
-    supply_cfm = area * PROXY_ASSUMPTIONS["supply_cfm_per_ft2"]
-    oa_cfm = supply_cfm * PROXY_ASSUMPTIONS["oa_fraction"]
-    toilet_cfm = max(0.05 * supply_cfm, 500.0)
-    fan_kw = supply_cfm * PROXY_ASSUMPTIONS["fan_w_per_cfm"] / 1000.0
-    pump_kw = fan_kw * PROXY_ASSUMPTIONS["pump_kw_fraction_of_fan"]
-    kw_per_ton = PROXY_ASSUMPTIONS["kw_per_ton"]
-    heating_mmbtu = area * PROXY_ASSUMPTIONS["heating_mmbtu_per_ft2_year"]
-    ton_hours = area * PROXY_ASSUMPTIONS["cooling_ton_hours_per_ft2_year"]
+    inputs = resolve_proxy_inputs(profile)
+    area = float(inputs["area_ft2"])
+    supply_cfm = float(inputs["supply_cfm"])
+    oa_cfm = float(inputs["oa_cfm"])
+    toilet_cfm = float(inputs["toilet_cfm"])
+    fan_kw = float(inputs["fan_kw"])
+    pump_kw = float(inputs["pump_kw"])
+    kw_per_ton = float(inputs["kw_per_ton"])
+    heating_mmbtu = float(inputs["heating_mmbtu"])
+    ton_hours = float(inputs["ton_hours"])
     bins = washington_dc_noaa()
-    existing = PROXY_ASSUMPTIONS["existing_schedule"]
-    proposed = PROXY_ASSUMPTIONS["proposed_schedule"]
-    capacity_mbh = max(area * 0.03, 500.0)  # screening plant capacity
+    existing = inputs["existing_schedule"]
+    proposed = inputs["proposed_schedule"]
+    capacity_mbh = float(inputs["capacity_mbh"])
 
     out: dict[str, dict[str, Any]] = {}
     for mid in measure_ids:

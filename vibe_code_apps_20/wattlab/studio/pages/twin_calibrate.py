@@ -27,7 +27,7 @@ from wattlab.studio.ep_viz import (
     read_run_progress,
     zone_mean_by_role,
 )
-from wattlab.studio.eui_charts import eui_peer_bullet_figure, month_abbrev
+from wattlab.studio.eui_charts import eui_peer_bullet_figure
 from wattlab.studio.eui_compare import build_eui_index, load_model_eui_from_run
 from wattlab.studio.idf_geometry import (
     idf_massing_figure,
@@ -774,11 +774,10 @@ def render() -> None:
     scorecard: dict[str, Any] = {}
 
     def _load_scorecard(sc: dict[str, Any]) -> list[dict[str, Any]]:
+        from wattlab.studio.monthly_fuel_chart import normalize_per_month_rows
+
         rows = list((sc.get("utility_bills") or {}).get("per_month") or [])
-        for pm in rows:
-            if pm.get("modeled_kwh") is None and pm.get("simulated_kwh") is not None:
-                pm["modeled_kwh"] = pm["simulated_kwh"]
-        return rows
+        return normalize_per_month_rows(rows)
 
     if scorecard_path.strip():
         sp = Path(scorecard_path.strip())
@@ -829,85 +828,33 @@ def render() -> None:
         st.dataframe(ub.head(24), width="stretch", hide_index=True)
 
     if bills_rows:
-        import plotly.graph_objects as go
-
-        bdf = pd.DataFrame(bills_rows)
-        st.dataframe(bdf, width="stretch", hide_index=True)
-
-        def _month_labels(plot_df: pd.DataFrame) -> list[Any]:
-            if "month" not in plot_df.columns:
-                return list(range(len(plot_df)))
-            mo = plot_df["month"].astype(str)
-            if mo.str.fullmatch(r"\d{1,2}").all():
-                return [month_abbrev(m) for m in mo]
-            if mo.str.fullmatch(r"\d{4}-\d{2}").all():
-                return [f"{m[:4]}-{month_abbrev(m[5:7])}" if len(m) >= 7 else m for m in mo]
-            return mo.tolist()
-
-        if "observed_kwh" in bdf.columns and (
-            "modeled_kwh" in bdf.columns or "simulated_kwh" in bdf.columns
-        ):
-            plot_df = bdf.copy()
-            if "modeled_kwh" not in plot_df.columns:
-                plot_df["modeled_kwh"] = plot_df.get("simulated_kwh")
-            x_labels = _month_labels(plot_df)
-            fig_cal = go.Figure()
-            fig_cal.add_scatter(
-                x=x_labels,
-                y=plot_df["observed_kwh"],
-                mode="lines+markers",
-                name="Bills (observed)",
-                line=dict(color="#1f77b4"),
-            )
-            fig_cal.add_scatter(
-                x=x_labels,
-                y=plot_df["modeled_kwh"],
-                mode="lines+markers",
-                name="Model (calibrated)",
-                line=dict(color="#d62728"),
-            )
-            fig_cal.update_layout(
-                title="Monthly electricity — bills vs model",
-                height=360,
-                margin=dict(l=10, r=10, t=40, b=10),
-                yaxis_title="kWh",
-                legend=dict(orientation="h", y=1.12),
-            )
-            st.plotly_chart(fig_cal, width="stretch", key="twin_cal_overlay")
-
-        has_gas_obs = "observed_therms" in bdf.columns and bdf["observed_therms"].notna().any()
-        has_gas_mod = (
-            ("modeled_therms" in bdf.columns and bdf["modeled_therms"].notna().any())
-            or ("simulated_therms" in bdf.columns and bdf["simulated_therms"].notna().any())
+        from wattlab.studio.monthly_fuel_chart import (
+            build_modeled_vs_actual_figure,
+            normalize_per_month_rows,
         )
-        if has_gas_obs and has_gas_mod:
-            plot_g = bdf.copy()
-            if "modeled_therms" not in plot_g.columns:
-                plot_g["modeled_therms"] = plot_g.get("simulated_therms")
-            x_labels = _month_labels(plot_g)
-            fig_gas = go.Figure()
-            fig_gas.add_scatter(
-                x=x_labels,
-                y=plot_g["observed_therms"],
-                mode="lines+markers",
-                name="Bills (observed)",
-                line=dict(color="#1f77b4"),
+
+        bills_rows = normalize_per_month_rows(bills_rows)
+
+        st.markdown("#### Monthly electricity / gas — bills vs model")
+        fig_cal = build_modeled_vs_actual_figure(bills_rows, fuel="elec")
+        if fig_cal is not None:
+            st.plotly_chart(fig_cal, width="stretch", key="twin_cal_overlay")
+        else:
+            st.caption(
+                "No electricity month pairs (`observed_kwh` + `modeled_kwh`/`simulated_kwh`) "
+                "in this scorecard — G14 stats may still show from annual aggregates."
             )
-            fig_gas.add_scatter(
-                x=x_labels,
-                y=plot_g["modeled_therms"],
-                mode="lines+markers",
-                name="Model (calibrated)",
-                line=dict(color="#2ca02c"),
-            )
-            fig_gas.update_layout(
-                title="Monthly gas — bills vs model",
-                height=360,
-                margin=dict(l=10, r=10, t=40, b=10),
-                yaxis_title="therms",
-                legend=dict(orientation="h", y=1.12),
-            )
+        fig_gas = build_modeled_vs_actual_figure(bills_rows, fuel="gas")
+        if fig_gas is not None:
             st.plotly_chart(fig_gas, width="stretch", key="twin_cal_overlay_gas")
+        else:
+            st.caption(
+                "No gas month pairs (`observed_therms` + `modeled_therms`/`simulated_therms`) "
+                "in this scorecard."
+            )
+
+        with st.expander("Scorecard per-month table", expanded=False):
+            st.dataframe(pd.DataFrame(bills_rows), width="stretch", hide_index=True)
 
         ubills = scorecard.get("utility_bills") or {}
         stats_e = ubills.get("stats_electricity") or ubills.get("stats") or {}
@@ -967,6 +914,9 @@ def render() -> None:
                     st.caption("Prior runs lack utility_bills.per_month — publish scorecards to enable history.")
     elif monthly_model:
         st.dataframe(pd.DataFrame(monthly_model).head(24), width="stretch", hide_index=True)
+        st.caption(
+            "Annual monthly model series only — no utility_bills.per_month pairs for bills-vs-model overlay."
+        )
 
     st.subheader("Client deliverables")
     st.caption(

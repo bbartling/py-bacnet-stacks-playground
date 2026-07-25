@@ -32,6 +32,43 @@ def _load_run_report(run_dir: Path | str | None) -> dict[str, Any]:
     return {}
 
 
+def _enrich_profile_for_proxies(profile: dict[str, Any]) -> dict[str, Any]:
+    """Merge answers / hard_size nameplate into a profile copy for ESCO bins."""
+    out = dict(profile)
+    answers = st.session_state.get("studio_answers")
+    if isinstance(answers, dict):
+        for key in (
+            "cooling_tons",
+            "fan_hp",
+            "supply_fan_hp",
+            "conditioned_floor_area_ft2",
+            "floor_area_ft2",
+        ):
+            if out.get(key) is None and answers.get(key) is not None:
+                out[key] = answers[key]
+    hard = st.session_state.get("studio_hard_size")
+    if isinstance(hard, dict) and not isinstance(out.get("hard_size"), dict):
+        out["hard_size"] = hard
+    return out
+
+
+def _traffic_light(*, verdict: str | None, has_ep: bool) -> str:
+    """🟢 in-line · 🟡 method gap / ESCO-only · 🔴 investigate / implausible."""
+    if not has_ep:
+        return "🟡"
+    canon = str(verdict or "").upper()
+    legacy = str(verdict or "").lower()
+    if canon == "IN_LINE" or legacy == "in_line":
+        return "🟢"
+    if (
+        canon == "REASONABLE_METHOD_DIFFERENCE"
+        or canon == "INSUFFICIENT_EVIDENCE"
+        or legacy == "investigate"
+    ):
+        return "🟡"
+    return "🔴"
+
+
 def _render_baseline_run_picker() -> None:
     """Selectbox of Twin runs; default = best G14; store studio_ecm_baseline_run."""
     st.subheader("Twin baseline run")
@@ -169,12 +206,13 @@ def render() -> None:
         if scenario_ids:
             ids = list(dict.fromkeys([str(x) for x in scenario_ids] + ids))
             measure_rows = [{"measure_id": mid} for mid in ids]
-        proxies = estimate_proxy_savings(profile, ids)
+        proxy_profile = _enrich_profile_for_proxies(profile)
+        proxies = estimate_proxy_savings(proxy_profile, ids)
         from wattlab.studio.ecm_roi import rows_to_cost_map, seed_roi_cost_rows
 
         area0 = float(
-            profile.get("conditioned_floor_area_ft2")
-            or profile.get("floor_area_ft2")
+            proxy_profile.get("conditioned_floor_area_ft2")
+            or proxy_profile.get("floor_area_ft2")
             or 50000.0
         )
         roi_rows = seed_roi_cost_rows(
@@ -192,6 +230,9 @@ def render() -> None:
         st.session_state["studio_costs"] = costs
         st.session_state["studio_ecm_roi_rows"] = roi_rows
         st.session_state["studio_measure_set"] = str(mset)
+        # Default cherry-pick to first measure only (avoid dumping full capital stack)
+        if ids and not st.session_state.get("studio_ecm_cherry_pick"):
+            st.session_state["studio_ecm_cherry_pick"] = [ids[0]]
         st.success(f"{len(ids)} measures priced (proxy + $/ft² ROI seed).")
 
     measure_rows = st.session_state.get("studio_measures") or []
@@ -206,6 +247,59 @@ def render() -> None:
                 break
     proxies = st.session_state.get("studio_proxies") or {}
     costs = st.session_state.get("studio_costs") or {}
+
+    cherry: list[str] = []
+    if measures:
+        st.markdown("#### Cherry-pick package")
+        st.caption(
+            "Capital plan + ROI rollup use only the measures below. "
+            "Start with one ECM, compare ESCO ↔ EnergyPlus, then add more."
+        )
+        stored_cherry = st.session_state.get("studio_ecm_cherry_pick")
+        cur = [m for m in (stored_cherry or []) if m in measures]
+        if not cur:
+            cur = [measures[0]]
+        st.session_state["studio_ecm_cherry_pick"] = cur
+        cherry = st.multiselect(
+            "Active measures (capital plan)",
+            options=measures,
+            key="studio_ecm_cherry_pick",
+            help="Deselect everything you do not want in NPV / payback totals.",
+        )
+        c_run, c_hint = st.columns([1, 2])
+        with c_run:
+            if st.button("Recalc ESCO for cherry-pick", key="ecm_recalc_cherry"):
+                if not cherry:
+                    st.warning("Select at least one measure.")
+                else:
+                    proxy_profile = _enrich_profile_for_proxies(profile)
+                    from wattlab.studio.proxies import resolve_proxy_inputs
+
+                    inputs = resolve_proxy_inputs(proxy_profile)
+                    new_px = estimate_proxy_savings(proxy_profile, cherry)
+                    proxies = {**(st.session_state.get("studio_proxies") or {}), **new_px}
+                    st.session_state["studio_proxies"] = proxies
+                    src = ", ".join(inputs.get("sources") or [])
+                    st.success(
+                        f"ESCO proxies refreshed for {len(cherry)} measure(s) "
+                        f"(inputs: {src}; area={inputs['area_ft2']:,.0f} ft²"
+                        + (
+                            f", {inputs['cooling_tons']:g} tons"
+                            if inputs.get("cooling_tons")
+                            else ""
+                        )
+                        + (
+                            f", {inputs['fan_hp']:g} HP"
+                            if inputs.get("fan_hp")
+                            else ""
+                        )
+                        + ")."
+                    )
+        with c_hint:
+            st.caption(
+                "🟢 in-line · 🟡 method difference or ESCO-only · 🔴 investigate / implausible"
+            )
+
     if measures:
         from wattlab.crosscheck import crosscheck_measure
 
@@ -217,6 +311,7 @@ def render() -> None:
             vs = (s.get("vs_previous") or s.get("vs_baseline") or {})
             if mid:
                 ep_by[mid] = vs
+        focus = cherry or measures
         for mid in measures:
             p = proxies.get(mid) or {}
             ep = ep_by.get(mid) or {}
@@ -224,6 +319,7 @@ def render() -> None:
             esco_therms = p.get("savings_therms")
             ep_kwh = ep.get("kwh_saved")
             ep_therms = ep.get("therms_saved")
+            has_ep = ep_kwh is not None or ep_therms is not None
             xc = crosscheck_measure(
                 measure_id=mid,
                 ep_savings_kwh=None if ep_kwh is None else float(ep_kwh),
@@ -245,7 +341,10 @@ def render() -> None:
                 delta_therms = float(ep_therms) - float(esco_therms)
                 if abs(float(esco_therms)) > 1e-9:
                     pct_therms = 100.0 * delta_therms / float(esco_therms)
+            verdict = xc.get("verdict_canonical") or xc.get("verdict")
             rows.append({
+                "in_plan": "✓" if mid in focus else "",
+                "light": _traffic_light(verdict=verdict, has_ep=has_ep),
                 "measure_id": mid,
                 "esco_kwh": esco_kwh,
                 "ep_kwh": ep_kwh,
@@ -257,7 +356,7 @@ def render() -> None:
                 "pct_vs_esco_therms": None if pct_therms is None else round(pct_therms, 1),
                 "agreement_ratio": ratio,
                 "agreement_ratio_therms": ratio_th,
-                "verdict": xc.get("verdict_canonical") or xc.get("verdict"),
+                "verdict": verdict,
                 "cost_usd": costs.get(mid),
             })
         st.markdown("#### Selected measures — ESCO spreadsheet vs EnergyPlus")
@@ -265,9 +364,13 @@ def render() -> None:
             "ESCO = bin-method screening (`wattlab/studio/proxies.py`). "
             "EP = Twin `savings_by_measure` when present. "
             "Δ / % = EP − ESCO (positive ⇒ E+ saves more). "
-            "Verdict from `wattlab.crosscheck` (~0.5–2× = reasonable)."
+            "Verdict from `wattlab.crosscheck` (~0.5–2× = reasonable). "
+            "Yellow without EP columns means run Twin measure sims before trusting green."
         )
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+    # Capital plan / ROI use cherry-pick when set
+    plan_measures = cherry if cherry else measures
 
     st.divider()
     st.subheader("ROI screening parameters")
@@ -358,7 +461,7 @@ def render() -> None:
     st.caption(f"Floor area for $/ft² math: {area:,.0f} ft²")
 
     # --- Per-ECM ROI cost calculator ---
-    if measures:
+    if plan_measures:
         from wattlab.studio.ecm_roi import (
             implementation_cost_usd,
             rows_to_cost_map,
@@ -368,12 +471,12 @@ def render() -> None:
 
         st.markdown("#### Per-ECM ROI cost calculator")
         st.caption(
-            "Prefills are screening defaults. Edit **usd_per_ft2** and "
+            "Prefills are screening defaults for the **cherry-picked** set. Edit **usd_per_ft2** and "
             "**coverage_fraction** (0–1 of floor area) or set **fixed_usd** for a "
             "lump-sum quote. Example: G36 needs 50% DDC → coverage=0.5."
         )
         seed = seed_roi_cost_rows(
-            measures,
+            plan_measures,
             floor_area_ft2=area,
             existing=st.session_state.get("studio_ecm_roi_models"),
         )
@@ -446,24 +549,29 @@ def render() -> None:
 
     st.divider()
     st.subheader("Capital plan + guardrails")
-    if not measures:
-        st.info("Build measures above (or select Easy Buttons → Calculate Proxy) to roll up capital plan.")
+    if not plan_measures:
+        st.info(
+            "Cherry-pick at least one measure above (or Build measures / Easy Buttons) "
+            "to roll up capital plan."
+        )
         return
 
+    st.caption(f"Capital plan includes {len(plan_measures)} measure(s): {', '.join(plan_measures)}")
+    proxy_profile = _enrich_profile_for_proxies(profile)
     econ_rows = []
-    for mid in measures:
+    for mid in plan_measures:
         p = proxies.get(mid) or {}
         if mid not in proxies:
             # lazy proxy if engineer only checked Easy Buttons
             try:
-                proxies.update(estimate_proxy_savings(profile, [mid]))
+                proxies.update(estimate_proxy_savings(proxy_profile, [mid]))
                 p = proxies.get(mid) or {}
                 st.session_state["studio_proxies"] = proxies
             except Exception:
                 p = {}
         cost = float(costs.get(mid) or 0.0)
         if cost <= 0:
-            cost = (usd_per_ft2 * area) / max(len(measures), 1)
+            cost = (usd_per_ft2 * area) / max(len(plan_measures), 1)
         econ_rows.append(
             measure_economics(
                 measure_id=mid,
