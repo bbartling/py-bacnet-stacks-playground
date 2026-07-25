@@ -109,6 +109,12 @@ def render() -> None:
         "Catalog Easy Buttons + measure sets. Capital plan is gated by benchmark "
         "guardrails (PUBLISH / INVESTIGATE)."
     )
+    st.markdown(
+        "[ESCO spreadsheet calcs & Top-15 ECM map (GitHub)]"
+        "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+        "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md) · "
+        "local: `vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md`"
+    )
 
     profile = st.session_state.get("studio_profile")
     if not profile:
@@ -149,21 +155,59 @@ def render() -> None:
     if st.button("Build measures + proxies", key="ecm_build_measures"):
         measure_rows = expand_measure_set(str(mset))
         ids = [str(m.get("measure_id")) for m in measure_rows if m.get("measure_id")]
+        # Prefer Easy Button scenario if present
+        scenario_ids = st.session_state.get("ecm_easy__scenario_ids") or st.session_state.get(
+            "ecm_easy_scenario_ids"
+        )
+        if not scenario_ids:
+            # namespaced_key may use a different separator — also check common keys
+            for k, v in st.session_state.items():
+                if "scenario_ids" in str(k) and isinstance(v, list) and v:
+                    scenario_ids = v
+                    break
+        if scenario_ids:
+            ids = list(dict.fromkeys([str(x) for x in scenario_ids] + ids))
+            measure_rows = [{"measure_id": mid} for mid in ids]
         proxies = estimate_proxy_savings(profile, ids)
-        costs = {mid: DEFAULT_MEASURE_COSTS.get(mid, 10000.0) for mid in ids}
+        from wattlab.studio.ecm_roi import rows_to_cost_map, seed_roi_cost_rows
+
+        area0 = float(
+            profile.get("conditioned_floor_area_ft2")
+            or profile.get("floor_area_ft2")
+            or 50000.0
+        )
+        roi_rows = seed_roi_cost_rows(
+            ids,
+            floor_area_ft2=area0,
+            existing=st.session_state.get("studio_ecm_roi_models"),
+        )
+        costs = rows_to_cost_map(roi_rows)
+        # Blend with hard-coded lump sums when ROI model is tiny
+        for mid in ids:
+            if costs.get(mid, 0) <= 0:
+                costs[mid] = DEFAULT_MEASURE_COSTS.get(mid, 10000.0)
         st.session_state["studio_measures"] = measure_rows
         st.session_state["studio_proxies"] = proxies
         st.session_state["studio_costs"] = costs
+        st.session_state["studio_ecm_roi_rows"] = roi_rows
         st.session_state["studio_measure_set"] = str(mset)
-        st.success(f"{len(ids)} measures priced.")
+        st.success(f"{len(ids)} measures priced (proxy + $/ft² ROI seed).")
 
     measure_rows = st.session_state.get("studio_measures") or []
     if measure_rows and isinstance(measure_rows[0], str):
         measure_rows = [{"measure_id": m} for m in measure_rows]
     measures = [str(m.get("measure_id")) for m in measure_rows if isinstance(m, dict) and m.get("measure_id")]
+    # Also pull Easy Button scenario into comparison when measures empty
+    if not measures:
+        for k, v in st.session_state.items():
+            if "scenario_ids" in str(k) and isinstance(v, list) and v:
+                measures = [str(x) for x in v]
+                break
     proxies = st.session_state.get("studio_proxies") or {}
     costs = st.session_state.get("studio_costs") or {}
     if measures:
+        from wattlab.crosscheck import crosscheck_measure
+
         rows = []
         report = st.session_state.get("studio_report") or {}
         ep_by = {}
@@ -175,26 +219,60 @@ def render() -> None:
         for mid in measures:
             p = proxies.get(mid) or {}
             ep = ep_by.get(mid) or {}
+            esco_kwh = p.get("savings_kwh")
+            esco_therms = p.get("savings_therms")
+            ep_kwh = ep.get("kwh_saved")
+            ep_therms = ep.get("therms_saved")
+            xc = crosscheck_measure(
+                measure_id=mid,
+                ep_savings_kwh=None if ep_kwh is None else float(ep_kwh),
+                proxy_savings_kwh=None if esco_kwh is None else float(esco_kwh),
+                ep_savings_therms=None if ep_therms is None else float(ep_therms),
+                proxy_savings_therms=None if esco_therms is None else float(esco_therms),
+            )
+            ratio = xc.get("agreement_ratio")
+            ratio_th = xc.get("agreement_ratio_therms")
+            delta_kwh = None
+            pct_kwh = None
+            if ep_kwh is not None and esco_kwh is not None:
+                delta_kwh = float(ep_kwh) - float(esco_kwh)
+                if abs(float(esco_kwh)) > 1e-9:
+                    pct_kwh = 100.0 * delta_kwh / float(esco_kwh)
+            delta_therms = None
+            pct_therms = None
+            if ep_therms is not None and esco_therms is not None:
+                delta_therms = float(ep_therms) - float(esco_therms)
+                if abs(float(esco_therms)) > 1e-9:
+                    pct_therms = 100.0 * delta_therms / float(esco_therms)
             rows.append({
                 "measure_id": mid,
-                "esco_kwh": p.get("savings_kwh"),
-                "esco_therms": p.get("savings_therms"),
-                "ep_kwh": ep.get("kwh_saved"),
-                "ep_therms": ep.get("therms_saved"),
+                "esco_kwh": esco_kwh,
+                "ep_kwh": ep_kwh,
+                "delta_kwh": None if delta_kwh is None else round(delta_kwh, 1),
+                "pct_vs_esco_kwh": None if pct_kwh is None else round(pct_kwh, 1),
+                "esco_therms": esco_therms,
+                "ep_therms": ep_therms,
+                "delta_therms": None if delta_therms is None else round(delta_therms, 1),
+                "pct_vs_esco_therms": None if pct_therms is None else round(pct_therms, 1),
+                "agreement_ratio": ratio,
+                "agreement_ratio_therms": ratio_th,
+                "verdict": xc.get("verdict_canonical") or xc.get("verdict"),
                 "cost_usd": costs.get(mid),
             })
-        st.markdown("#### Selected measures — ESCO proxy vs EnergyPlus (when available)")
+        st.markdown("#### Selected measures — ESCO spreadsheet vs EnergyPlus")
         st.caption(
-            "ESCO column = bin-method screening. EP column = calibrated Twin report "
-            "`savings_by_measure` when present. Crosscheck when both exist."
+            "ESCO = bin-method screening (`wattlab/studio/proxies.py`). "
+            "EP = Twin `savings_by_measure` when present. "
+            "Δ / % = EP − ESCO (positive ⇒ E+ saves more). "
+            "Verdict from `wattlab.crosscheck` (~0.5–2× = reasonable)."
         )
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     st.divider()
     st.subheader("ROI screening parameters")
     st.caption(
-        "High-level ESCO economics ($/ft² capital, utility rates, discount). "
-        "Prefills from profile + public retrofit cost bands; adjust before capital plan."
+        "Utility rates + discount for NPV. Per-ECM capital uses $/ft² × coverage "
+        "below (Liberty-style: set coverage=0.5 when only half the building gets DDC/G36)."
     )
     area = float(
         profile.get("conditioned_floor_area_ft2")
@@ -211,7 +289,7 @@ def render() -> None:
         DEFAULT_MEASURE_LIFE_YEARS,
     )
 
-    # Prefill $/ft2 from controls_first / major_hvac_renewal bands
+    # Prefill package rollup $/ft2 from controls_first band
     cost_usd_per_ft2_default = 3.0
     try:
         from wattlab.benchmarks.costs import load_registry
@@ -268,28 +346,122 @@ def render() -> None:
             key="ecm_roi_life",
         )
         usd_per_ft2 = st.number_input(
-            "Capital $/ft² (optional rollup)",
+            "Fallback package $/ft²",
             min_value=0.0,
             max_value=100.0,
             value=float(cost_usd_per_ft2_default),
             step=0.25,
             key="ecm_roi_usd_ft2",
-            help="Screening band for package capital when measure costs are blank.",
+            help="Used only when a measure has no per-ECM $/ft² / fixed cost.",
         )
-    st.caption(f"Floor area for $/ft² math: {area:,.0f} ft² → package capital ≈ ${usd_per_ft2 * area:,.0f}")
+    st.caption(f"Floor area for $/ft² math: {area:,.0f} ft²")
+
+    # --- Per-ECM ROI cost calculator ---
+    if measures:
+        from wattlab.studio.ecm_roi import (
+            implementation_cost_usd,
+            rows_to_cost_map,
+            rows_to_models,
+            seed_roi_cost_rows,
+        )
+
+        st.markdown("#### Per-ECM ROI cost calculator")
+        st.caption(
+            "Prefills are screening defaults. Edit **usd_per_ft2** and "
+            "**coverage_fraction** (0–1 of floor area) or set **fixed_usd** for a "
+            "lump-sum quote. Example: G36 needs 50% DDC → coverage=0.5."
+        )
+        seed = seed_roi_cost_rows(
+            measures,
+            floor_area_ft2=area,
+            existing=st.session_state.get("studio_ecm_roi_models"),
+        )
+        edited = st.data_editor(
+            pd.DataFrame(seed),
+            width="stretch",
+            hide_index=True,
+            num_rows="fixed",
+            column_config={
+                "measure_id": st.column_config.TextColumn("ECM", disabled=True),
+                "usd_per_ft2": st.column_config.NumberColumn("$/ft²", min_value=0.0, step=0.05, format="%.2f"),
+                "coverage_fraction": st.column_config.NumberColumn(
+                    "Coverage", min_value=0.0, max_value=1.0, step=0.05, format="%.2f",
+                    help="Fraction of building floor area that receives this ECM",
+                ),
+                "applicable_ft2": st.column_config.NumberColumn("ft² applied", disabled=True),
+                "fixed_usd": st.column_config.NumberColumn(
+                    "Fixed $ (optional)", min_value=0.0, step=1000.0, format="%.0f",
+                ),
+                "implementation_cost_usd": st.column_config.NumberColumn(
+                    "Cost $", disabled=True, format="%.0f"
+                ),
+                "note": st.column_config.TextColumn("Note", width="large"),
+            },
+            key="ecm_roi_cost_editor",
+        )
+        # Recompute costs from edited $/ft2 + coverage / fixed
+        recomputed: list[dict] = []
+        for _, r in edited.iterrows():
+            mid = str(r["measure_id"])
+            usd = float(r.get("usd_per_ft2") or 0.0)
+            cov = float(r.get("coverage_fraction") or 1.0)
+            fixed_raw = r.get("fixed_usd")
+            fixed_f = None
+            if fixed_raw is not None and not (isinstance(fixed_raw, float) and pd.isna(fixed_raw)):
+                try:
+                    fv = float(fixed_raw)
+                    if fv > 0:
+                        fixed_f = fv
+                except (TypeError, ValueError):
+                    fixed_f = None
+            cost = implementation_cost_usd(
+                floor_area_ft2=area,
+                usd_per_ft2=usd,
+                coverage_fraction=cov,
+                fixed_usd=fixed_f,
+            )
+            recomputed.append(
+                {
+                    "measure_id": mid,
+                    "usd_per_ft2": usd,
+                    "coverage_fraction": cov,
+                    "applicable_ft2": round(area * max(0.0, min(1.0, cov)), 0),
+                    "fixed_usd": fixed_f,
+                    "implementation_cost_usd": round(cost, 0),
+                    "note": str(r.get("note") or ""),
+                }
+            )
+        st.session_state["studio_ecm_roi_rows"] = recomputed
+        st.session_state["studio_ecm_roi_models"] = rows_to_models(recomputed)
+        costs = rows_to_cost_map(recomputed)
+        st.session_state["studio_costs"] = costs
+        st.dataframe(
+            pd.DataFrame(recomputed)[
+                ["measure_id", "applicable_ft2", "implementation_cost_usd", "note"]
+            ],
+            width="stretch",
+            hide_index=True,
+        )
 
     st.divider()
     st.subheader("Capital plan + guardrails")
     if not measures:
-        st.info("Build measures above to roll up capital plan.")
+        st.info("Build measures above (or select Easy Buttons → Calculate Proxy) to roll up capital plan.")
         return
 
     econ_rows = []
     for mid in measures:
         p = proxies.get(mid) or {}
+        if mid not in proxies:
+            # lazy proxy if engineer only checked Easy Buttons
+            try:
+                proxies.update(estimate_proxy_savings(profile, [mid]))
+                p = proxies.get(mid) or {}
+                st.session_state["studio_proxies"] = proxies
+            except Exception:
+                p = {}
         cost = float(costs.get(mid) or 0.0)
         if cost <= 0:
-            # Spread package $/ft2 across selected measures as screening default
             cost = (usd_per_ft2 * area) / max(len(measures), 1)
         econ_rows.append(
             measure_economics(
@@ -391,12 +563,14 @@ def render() -> None:
         "measures": measures,
         "proxies": proxies,
         "costs": costs,
+        "ecm_roi_models": st.session_state.get("studio_ecm_roi_models") or {},
+        "ecm_roi_rows": st.session_state.get("studio_ecm_roi_rows") or [],
         "roi_params": {
             "elec_usd_per_kwh": elec,
             "gas_usd_per_therm": gas,
             "discount_rate": discount,
             "escalation_rate": escalation,
-            "life_years": life_years,
+            "measure_life_years": life_years,
             "usd_per_ft2": usd_per_ft2,
             "floor_area_ft2": area,
         },

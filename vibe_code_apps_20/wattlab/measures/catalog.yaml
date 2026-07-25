@@ -97,7 +97,7 @@ ecms:
     dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
     iaq_risk: high
     implementation_complexity: medium
-    status: RESEARCH
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-OA-RESET
@@ -242,7 +242,25 @@ ecms:
     dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
     iaq_risk: high
     comfort_risk: high
-    status: RESEARCH
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-ADVANCED-RTU
+    display_name: Advanced RTU / packaged-unit controls
+    short_name: Advanced RTU controls
+    category: airside_vav
+    equipment_types: [rooftop_unit, packaged_ac]
+    system_families: [dx_packaged]
+    retrofit_classes: [controls, capital]
+    description: Screen advanced packaged controls — VFD/multi-speed fan, economizer, DCV, occupancy staging (ESCO ECM-13).
+    engineering_rationale: Field studies show large RTU energy reductions when constant-volume packaged units gain supervisory controls.
+    required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
+    optional_inputs: [occupancy_schedule, co2_setpoint]
+    proxy_calculator: fan_affinity
+    energyplus_patch: null
+    unit_contract: {fan_power: kW, speed: fraction, savings: kWh/year}
+    applicability_checks: [Confirm RTU/packaged inventory, Label as screening package not full retrofit design]
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-PREMIUM-FAN-VFD
@@ -339,11 +357,11 @@ ecms:
     engineering_rationale: Reliable feedback is a prerequisite for stable and safe resets.
     required_inputs: [sensor_inventory, calibration_records]
     optional_inputs: [trend_data]
-    proxy_calculator: null
+    proxy_calculator: schedule_reduction
     energyplus_patch: null
     unit_contract: {temperature_error: deltaC, pressure_error: Pa, airflow_error: percent}
     applicability_checks: [Identify sequence-critical sensors]
-    status: NEEDS_IMPLEMENTATION
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-PNEU-DDC-CONVERT
@@ -393,16 +411,16 @@ ecms:
     equipment_types: [boiler]
     system_families: [hot_water_plant]
     retrofit_classes: [rcx]
-    description: Tune combustion, staging, and cycling on serviceable existing boilers.
+    description: Tune combustion, staging, and cycling on serviceable existing boilers (ESCO ECM-12 screening).
     engineering_rationale: Correct excess air and cycling improve seasonal fuel efficiency.
-    required_inputs: [annual_heating_load, baseline_efficiency, proposed_efficiency]
+    required_inputs: [annual_heating_mmbtu, baseline_efficiency, proposed_efficiency]
     optional_inputs: [flue_gas_test, cycling_rate]
-    proxy_calculator: null
+    proxy_calculator: boiler_efficiency_improvement
     energyplus_patch: null
-    unit_contract: {heating_load: GJ/year, efficiency: fraction, savings: therm/year}
+    unit_contract: {heating_load: MMBtu/year, efficiency: fraction, savings: therm/year}
     applicability_checks: [Require combustion safety test]
     incompatibilities: [ECM-CONDENSING-BOILER, ECM-AWHP-SURROGATE]
-    status: RESEARCH
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-BOILER-RESET
@@ -424,24 +442,24 @@ ecms:
 
   - <<: *defaults
     ecm_id: ECM-CONDENSING-BOILER
-    display_name: Condensing boiler replacement
-    short_name: Condensing boiler
+    display_name: High-efficiency / condensing boiler replacement
+    short_name: HE condensing boiler
     category: heating_plant
     equipment_types: [boiler]
     system_families: [hot_water_plant]
     retrofit_classes: [capital]
-    description: Screen replacement with a 95 percent nominal-efficiency boiler.
-    engineering_rationale: Higher combustion efficiency reduces gas input for delivered heat.
-    required_inputs: [annual_heating_load, baseline_efficiency]
+    description: Replace atmospheric/non-condensing boilers with ~95% nominal-efficiency plant (ESCO ECM-14 screening).
+    engineering_rationale: Higher combustion efficiency reduces gas input for delivered heat; often bundled with controls ECMs in ESPC packages.
+    required_inputs: [annual_heating_mmbtu, baseline_efficiency, proposed_efficiency]
     optional_inputs: [return_water_temperature]
-    proxy_calculator: null
+    proxy_calculator: boiler_efficiency_improvement
     energyplus_patch: condensing_boiler
     conceptual_surrogate: true
-    unit_contract: {heating_load: GJ/year, efficiency: fraction, savings: therm/year}
+    unit_contract: {heating_load: MMBtu/year, efficiency: fraction, savings: therm/year}
     applicability_checks: [Confirm low return-water temperature opportunity, Engineer venting]
     incompatibilities: [ECM-BOILER-TUNE, ECM-AWHP-SURROGATE]
     implementation_complexity: high
-    status: CONCEPTUAL_ENERGYPLUS_PROXY
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
 
   - <<: *defaults
     ecm_id: ECM-AWHP-SURROGATE
@@ -684,15 +702,15 @@ ecms:
     equipment_types: [building_automation_system]
     system_families: [all]
     retrofit_classes: [rcx]
-    description: Reconcile overrides and setpoints with approved sequences.
+    description: Reconcile overrides and setpoints with approved sequences (ESCO ECM-02 screening).
     engineering_rationale: Stale overrides and conflicting setpoints commonly sustain avoidable loads.
     required_inputs: [point_export, sequence_of_operations]
     optional_inputs: [operator_log]
-    proxy_calculator: null
+    proxy_calculator: schedule_reduction
     energyplus_patch: null
     unit_contract: {setpoints: mixed, savings: kWh/year}
     applicability_checks: [Require operator approval before releasing overrides]
-    status: NEEDS_IMPLEMENTATION
+    status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
     ecm_id: ECM-RCX-SIMULTANEOUS-HC

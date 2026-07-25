@@ -154,3 +154,27 @@ def simple_payback(i: dict[str, Any]) -> dict[str, Any]:
     return _result(
         simple_payback_years=implementation_cost/annual_cost_savings if annual_cost_savings > 0 else None
     )
+
+@register("boiler_efficiency_improvement")
+def boiler_efficiency_improvement(i: dict[str, Any]) -> dict[str, Any]:
+    """Screening gas savings from raising boiler thermal efficiency.
+
+    ``annual_heating_mmbtu`` is delivered (output) load. Input fuel falls as
+    efficiency rises: therms = MMBtu × 10 / η.
+    """
+    load_mmbtu = _req(i, "annual_heating_mmbtu")
+    baseline = _req(i, "baseline_efficiency")
+    proposed = _req(i, "proposed_efficiency")
+    if baseline <= 0 or proposed <= 0:
+        raise ValueError("efficiencies must be > 0")
+    if proposed < baseline:
+        raise ValueError("proposed_efficiency must be >= baseline_efficiency")
+    baseline_therms = load_mmbtu * 10.0 / baseline
+    proposed_therms = load_mmbtu * 10.0 / proposed
+    return _result(
+        baseline_therms=baseline_therms,
+        proposed_therms=proposed_therms,
+        savings_therms=baseline_therms - proposed_therms,
+        savings_fraction=(baseline_therms - proposed_therms) / baseline_therms if baseline_therms else 0.0,
+        assumptions={"load_is_delivered_mmbtu": True},
+    )

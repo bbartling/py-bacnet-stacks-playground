@@ -12,7 +12,7 @@ from wattlab.studio.proxies import estimate_proxy_savings  # noqa: F401  (re-exp
 from wattlab.studio.state import invalidate_dependent_state
 from wattlab.studio.workspace import ensure_workspace
 
-st.set_page_config(page_title="WattLab Studio", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="OpenFDD Vibe 20", page_icon="⚡", layout="wide")
 
 PAGES = [
     "Uploads",
@@ -101,9 +101,9 @@ def main() -> None:
         profile=st.session_state.get("studio_profile"),
         bundle=st.session_state.get("studio_bundle"),
     )
-    st.sidebar.title("WattLab Studio")
+    st.sidebar.title("OpenFDD Vibe 20")
     st.sidebar.caption(
-        "Uploads → Fuel dashboard → Twin / calibrate → ECMs. "
+        "WattLab Studio · Uploads → Fuel → Twin → ECMs. "
         "AI agents work on the workspace folder; this UI is the viewer."
     )
     _render_bootstrap_sidebar_controls()

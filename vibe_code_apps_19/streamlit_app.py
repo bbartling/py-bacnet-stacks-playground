@@ -103,7 +103,7 @@ from app.site_model import (  # noqa: E402
 try:
     from shared.branding import APP_TITLE
 except ImportError:  # pragma: no cover
-    APP_TITLE = "Open FDD Vibe Coder"
+    APP_TITLE = "OpenFDD Vibe 19"
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 

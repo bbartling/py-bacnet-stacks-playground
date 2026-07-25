@@ -66,6 +66,7 @@ def render(
     st.header("ECM Easy Buttons")
     st.caption(
         "Build a screening scenario from the canonical ECM catalog. "
+        "Bulk-select **esco-top15** for the DOE/FEMP/PNNL common HVAC ECM set. "
         "Agents write `reports/ecm_scenario.json`; Re-apply / open this page to pre-check. "
         "Availability and evidence status remain visible before every action."
     )
@@ -88,7 +89,10 @@ def render(
         "Bulk-select packages",
         sorted(PACKAGES),
         key=_key("packages"),
-        help="Packages include catalog dependencies automatically.",
+        help=(
+            "Packages include catalog dependencies automatically. "
+            "esco-top15 = common ESCO HVAC measures (schedules through plant capital)."
+        ),
     )
 
     grouped: dict[str, list[ECMEntry]] = defaultdict(list)
@@ -160,6 +164,31 @@ def render(
             st.session_state[_key("proxy_results")] = proxy_estimator(
                 profile or {}, scenario_ids
             )
+        # Push into capital-plan / ROI session state so ECMs page can roll up.
+        st.session_state["studio_measures"] = [{"measure_id": m} for m in scenario_ids]
+        st.session_state["studio_proxies"] = dict(
+            st.session_state.get(_key("proxy_results")) or {}
+        )
+        try:
+            from wattlab.studio.ecm_roi import rows_to_cost_map, seed_roi_cost_rows
+
+            area = float(
+                (profile or {}).get("conditioned_floor_area_ft2")
+                or (profile or {}).get("floor_area_ft2")
+                or 50000.0
+            )
+            roi_rows = seed_roi_cost_rows(
+                list(scenario_ids),
+                floor_area_ft2=area,
+                existing=st.session_state.get("studio_ecm_roi_models"),
+            )
+            st.session_state["studio_ecm_roi_rows"] = roi_rows
+            st.session_state["studio_costs"] = rows_to_cost_map(roi_rows)
+        except Exception as exc:
+            st.caption(f"ROI cost seed skipped: {exc}")
+        st.success(
+            f"Proxies for {len(scenario_ids)} ECMs — scroll to Per-ECM ROI / capital plan."
+        )
 
     blocked = [
         load_catalog().get(ecm_id)
