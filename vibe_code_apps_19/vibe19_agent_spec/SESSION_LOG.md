@@ -8,6 +8,17 @@ For onboarding your own site, start with [`TEMPLATE.md`](TEMPLATE.md) and [`docs
 
 ---
 
+## 2026-07-25 — Eng Findings BUG-016/017/018 + DOCX UX
+
+- **BUG-016:** `attach_day_zoom_to_findings` records `skip_reason` (`no_result` / `no_fault_day` / `render_failed`) + `day_zoom_skip_reason`; DOCX muted note when zoom missing.
+- **BUG-017:** Quality gate ignores anti-replace honesty (“Do not replace…”); still rejects proactive replace on weak classes.
+- **BUG-018:** `format_analysis_period` from Overview dataset span; pipeline + Run Rules panel fill cover period.
+- **DOCX UX:** Cover/section/table helpers aligned with vibe20 Energy Modeling client DOCX tokens (`_cover`, `_section_h1`, `_style_table_header`, muted `#4A5568`).
+- Tests: `test_report_quality_gate`, `test_report_day_zoom`, `test_report_overview_export`, `test_report_docx`.
+- Skill / validation: `skills/vibe19-engineering-report`, `docs/PLOTS_DOCX_VALIDATION.md`.
+
+---
+
 ## 2026-07-23 — Engineering Findings Report (detection ≠ finding)
 
 - **Second reporting product** beside static Generic RCx: `app/reporting/` (evidence packets, Passes 1–7 reviewer, ≤7 prioritized findings, quality gate, Kaleido charts, DOCX+JSON).

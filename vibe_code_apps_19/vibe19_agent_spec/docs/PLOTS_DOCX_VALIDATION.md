@@ -58,10 +58,14 @@ Exactly **one** committed static template:
 **Product 2 — Engineering Findings Report (deliberate addition):**
 
 - Generated from active rule FAULTs / checklist JSON via `app/reporting/`
-- Overview: **Generate Engineering Findings Report** button only (never on section visit)
+- Overview / Run Rules: **Generate Engineering Findings Report** button only (never on section visit)
 - Optional extras: `pip install '.[engineering-report]'` (`python-docx`, `kaleido`)
 - Headless: `python -m app.reporting.cli --checklist-json … --out-dir … --docx --json`
 - Contract: detection ≠ finding; raw hits in appendix; ≤7 priority findings
+- Cover **analysis period** from Overview dataset span (`format_analysis_period`)
+- Day-zoom PNG per finding **or** muted `Day-zoom unavailable: <reason>` note
+- Quality gate must not fail on “Do not replace…” honesty language
+- Visual tokens aligned with vibe20 Energy Modeling client DOCX (centered cover, muted meta `#4A5568`, numbered H1, bold table headers)
 - Skill: [`../skills/vibe19-engineering-report/SKILL.md`](../skills/vibe19-engineering-report/SKILL.md)
 
 Do **not** commit generated Engineering Findings DOCX under `assets/reports/`.
@@ -73,4 +77,5 @@ Do **not** commit generated Engineering Findings DOCX under `assets/reports/`.
 - [ ] `app.rule_card:build_rule_card` and `app.docx_report:load_generic_rcx_report` still in `REQUIRED_UI_ENTRYPOINTS`
 - [ ] Plots source contains card catalog (`Filter cards` / rule validation cards)
 - [ ] Overview contains Generic RCx download; FDD/RCx/Export do not serve other DOCX paths
-- [ ] `python -m pytest -q tests/test_rule_card.py tests/test_docx_report.py tests/test_rcx_presets.py`
+- [ ] Eng Findings DOCX: period filled when span exists; day-zoom or skip note; anti-replace gate OK
+- [ ] `python -m pytest -q tests/test_rule_card.py tests/test_docx_report.py tests/test_rcx_presets.py tests/test_report_day_zoom.py tests/test_report_quality_gate.py tests/test_report_docx.py`

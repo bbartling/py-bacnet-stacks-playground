@@ -11,6 +11,7 @@ from app.reporting.models import ReportArtifacts
 from app.reporting.overview_export import (
     build_overview_charts,
     build_overview_context,
+    format_analysis_period,
     overview_settings_from_context,
 )
 
@@ -33,6 +34,32 @@ def test_overview_settings_lean():
     assert settings["bare_min_occ_hours"] == 50
     assert settings["dataset_start"] == "2026-06-01 00:00"
     assert settings["span_hours"] == 720.0
+
+
+def test_format_analysis_period_from_span():
+    ctx = build_overview_context(
+        dataset_start=pd.Timestamp("2026-06-01"),
+        dataset_end=pd.Timestamp("2026-06-30"),
+        span_hours=720.0,
+    )
+    assert format_analysis_period(ctx) == "2026-06-01 → 2026-06-30 (~720 h)"
+
+
+def test_pipeline_fills_analysis_period_from_overview():
+    from app.reporting.pipeline import build_engineering_findings
+
+    art = build_engineering_findings(
+        building="B",
+        analysis_period="",
+        candidates=[],
+        checklist=None,
+        overview_context=build_overview_context(
+            dataset_start=pd.Timestamp("2026-01-01"),
+            dataset_end=pd.Timestamp("2026-01-31"),
+            span_hours=744.0,
+        ),
+    )
+    assert art.analysis_period == "2026-01-01 → 2026-01-31 (~744 h)"
 
 
 def test_overview_export_registers_or_skips(tmp_path):
