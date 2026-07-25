@@ -15,7 +15,9 @@
 - `vibe19_bridge.py`
 - `ep_docker.py` / `ep_mcp_client.py` / `results_parse.py`
 - `idf_patches/` (schedules, chiller_lockout, sat_reset, gl36_proxy)
-- `ecm_library/measure_sets.json`
+- `wattlab/measures/catalog.yaml` — canonical ECM catalog
+- `wattlab/measures/measure_sets.py` — progressive measure sets
+- `ecm_library/README.md` — deprecated import shim
 
 ## Examples
 

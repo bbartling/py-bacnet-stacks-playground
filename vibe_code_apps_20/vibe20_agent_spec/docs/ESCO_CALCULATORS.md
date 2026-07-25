@@ -53,6 +53,15 @@ Common inputs: `bins` (anything `parse_bins_input` accepts),
 Common outputs: `savings_kwh` and/or `savings_therms`, plus per-bin breakdown
 lists for auditability.
 
+## Studio composite: occupied standby + DCV
+
+`ECM-OCC-STANDBY-DCV` is a catalog measure, not a new registered calculator.
+`wattlab.studio.proxies.estimate_proxy_savings` composes
+`oad_unoccupied_closed` for verified unoccupied OA closure and `dcv_bins` for
+occupied ventilation reduction. The result carries
+`calculators: ["oad_unoccupied_closed", "dcv_bins"]`; preserve that provenance
+in reports. `ECM-DCV-CO2` remains `dcv_bins` only.
+
 ## Golden anchors (never drift)
 
 | Test | Anchor |

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -610,6 +611,15 @@ def render() -> None:
 
     st.subheader("Client energy-model package")
     st.caption("Same Twin deliverable builder — report + workbook + model zip from the latest Studio report.")
+    docx_available = find_spec("docx") is not None
+    include_docx = st.checkbox(
+        "Include client DOCX",
+        value=docx_available,
+        disabled=not docx_available,
+        key="ecm_include_client_docx",
+    )
+    if not docx_available:
+        st.caption("Client DOCX is unavailable until the optional `python-docx` dependency is installed.")
     if st.button("Build client package from ECM report", key="ecm_build_deliverable"):
         from wattlab.deliverables import package_deliverables
 
@@ -628,14 +638,23 @@ def render() -> None:
                     "sizing_scenario": report.get("sizing_scenario"),
                     "utility_bills": {},
                 }
+                active_ids = {str(m) for m in (measures or [])}
+                proxy_for_pkg = {
+                    k: v
+                    for k, v in (proxies or {}).items()
+                    if str(k) in active_ids
+                }
                 meta = package_deliverables(
                     out_dir=dest,
                     scorecard=sc,
-                    report=report,
+                    report={**report, "proxy_savings": proxy_for_pkg},
                     profile=profile,
+                    include_docx=include_docx,
                 )
                 st.session_state["studio_deliverable"] = meta
                 st.success(f"Package → {meta.get('out_dir')}")
+                if meta.get("docx_note"):
+                    st.caption(str(meta["docx_note"]))
             except Exception as exc:
                 st.error(str(exc))
     deliv = st.session_state.get("studio_deliverable") or {}

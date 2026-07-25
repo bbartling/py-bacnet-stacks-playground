@@ -95,6 +95,33 @@ ecms:
     unit_contract: {airflow: CFM, temperature_difference: deltaF, savings: kWh/year}
     applicability_checks: [Confirm code permits DCV, Confirm calibrated CO2 sensors]
     dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    incompatibilities: [ECM-OCC-STANDBY-DCV]
+    iaq_risk: high
+    implementation_complexity: medium
+    status: PRODUCTION_PROXY_ONLY
+
+  - <<: *defaults
+    ecm_id: ECM-OCC-STANDBY-DCV
+    display_name: Occupied-standby + demand-controlled ventilation
+    short_name: Occupancy standby + DCV
+    category: oa_ventilation
+    equipment_types: [air_handling_unit, outside_air_damper, co2_sensor]
+    system_families: [vav, single_zone]
+    retrofit_classes: [controls, sensors, rcx]
+    description: >
+      Close outdoor air during verified unoccupied standby periods and reset
+      occupied airflow from calibrated carbon-dioxide or population demand.
+    engineering_rationale: >
+      Combines schedule-aligned ventilation shutdown with occupied demand control
+      while retaining minimum ventilation and indoor-air-quality safeguards.
+    required_inputs: [baseline_oa_cfm, proposed_oa_cfm, occupied_hours, unoccupied_hours]
+    optional_inputs: [co2_trends, population_schedule, oa_damper_command]
+    proxy_calculator: occ_standby_dcv_composite
+    energyplus_patch: null
+    unit_contract: {airflow: CFM, temperature_difference: deltaF, savings: kWh/year}
+    applicability_checks: [Verify unoccupied ventilation requirements, Confirm calibrated CO2 sensors]
+    dependencies: [ECM-SENSOR-CRITICAL-REFRESH]
+    incompatibilities: [ECM-DCV-CO2]
     iaq_risk: high
     implementation_complexity: medium
     status: PRODUCTION_PROXY_ONLY

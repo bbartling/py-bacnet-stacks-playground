@@ -41,7 +41,7 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 9. **EUI units are kBtu/ft²-year (site)** — conversions: 1 kWh = 3,412 Btu; 1 Mcf gas = 1.037 MMBtu; 1 therm = 100 kBtu. Peer bands from `benchmarks_public.json` (EPA PM medians, CBECS 70.6 fallback).
 10. **Docker-only EnergyPlus** — pinned image via `wattlab.energyplus.docker`; run manifests (`run_manifest.json`) record model/weather SHA + image on every run. Docker tests skip when the image is missing — that's fine. Studio image includes a **Docker CLI client**; mount `/var/run/docker.sock` + set `WATTLAB_HOST_WORKSPACE` + prefer `ENERGYPLUS_DOCKER_USER=1000:1000`. Prefer **`docker exec vibe20 wattlab …`** over host `pip install -e` (host drift bug).
 10b. **G14 calibrate campaign** — `wattlab calibrate-campaign --bundle … --bills … [--answers …] --lat --lon` merges human answers into null dump seed, derives AMY window from bill months, stashes off-window dump weather, scores G14 (`months_compared` multi-year aware), publishes Twin + optional client zip. **lat/lon beat city label.** Schedule:File must use `/work/in/<csv>` (DinD). Details: [`docs/CALIBRATE_AND_DELIVERABLES.md`](docs/CALIBRATE_AND_DELIVERABLES.md) + [`docs/AGENT_DOCKER_WORKSPACE.md`](docs/AGENT_DOCKER_WORKSPACE.md). Honest G14 fail = screening twin — no calibrated ROI without pass + stamps.
-10c. **Client deliverables** — Twin **Build client package** (also ECM) → markdown report + xlsx workbook + model zip (`01_Report`…`06_Documentation`). Humans must not need raw E+ trees to read conclusions.
+10c. **Client deliverables** — Twin **Build client package** (also ECM) → markdown report + optional 14-section client DOCX + xlsx workbook + model zip (`01_Report`…`06_Documentation`). Humans must not need raw E+ trees to read conclusions.
 11. **Dry-run first** — `run_easy_button(profile, dry_run=True)` and the Studio "Dry-run plan" path must always work without Docker. Never make a feature Docker-mandatory when a plan/preview is possible.
 12. **Weather** — AMY EPW from `weather_observed.csv` / Open-Meteo (`wattlab.weather.epw`); Weather-Man OAT bin tables (5°F × 3 shifts + MCWB) in `wattlab.weather.bins` (built-in NOAA Washington DC table + `from_hourly`). Calibration weather and degree-day benchmarking are separate use cases — don't conflate.
 13. **The vibe19 dump is the seed** — start with `wattlab twin <dump.zip>` (or `wattlab.seed.load_bundle` + `gap_report`). Read `MANIFEST.json` first. Required human fields: `building_type`, `city`, `floor_area_ft2` (plus `lat`/`lon` for AMY calibrate). **Never invent office/Madison/Chicago** for a real dump. Prefer `fdd_findings.csv` over `fdd_summary.csv`. See [`DATA_CONTRACT.md`](DATA_CONTRACT.md) and the **Tomorrow demo** section in [`../AGENTS.md`](../AGENTS.md).
@@ -141,7 +141,7 @@ Plain Markdown on disk is the source of truth for **any AI agent** (Cursor, Code
 | `wattlab/easy_button.py` | Baseline + progressive measures (`--dry-run`) |
 | `wattlab/calibrate.py` | Overlap-window calibration + Studio publish |
 | `wattlab/calibrate_campaign.py` | Bills → AMY window → G14 → Twin + deliverable |
-| `wattlab/deliverables.py` | Client report.md / xlsx / model zip |
+| `wattlab/deliverables.py` + `deliverables_docx.py` | Client report.md / optional DOCX / xlsx / model zip |
 | `wattlab/bridge.py` | vibe19 faults → measures |
 | `wattlab/energyplus/` | Docker (CLI in image), results (`peak_demand_kw`), timeseries, IDF patches |
 | `wattlab/measures/` + `wattlab/ecm/` | Catalog / packages |

@@ -30,3 +30,15 @@ wattlab ecm audit
 Incompatibilities are checked before stacking contradictory economizer types, overlapping G36 packages, or zero-OA with occupied DCV.
 
 Coverage matrix: [`ecm_coverage_matrix.md`](ecm_coverage_matrix.md).
+
+## Presentation order and agent defaults
+
+Studio presents cards by `implementation_complexity` (`low` → `medium` →
+`high`), then category and ECM id, and labels every card with its complexity.
+This is a presentation order only: `ESCO_TOP15` remains in screening-rank
+order. `ECM-OCC-STANDBY-DCV` is a medium-complexity `esco-top15`,
+`controls-only`, and `no-capital-rcx` candidate adjacent to `ECM-DCV-CO2`.
+
+`reports/ecm_scenario.json` is schema v2. Agents may provide
+`sort_preference`, `package_hints`, `proxy_defaults`, and `roi_param_hints`;
+v1 files with only selections remain loadable.

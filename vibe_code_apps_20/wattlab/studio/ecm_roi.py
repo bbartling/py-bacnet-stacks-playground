@@ -59,6 +59,11 @@ DEFAULT_ECM_ROI_MODELS: dict[str, dict[str, Any]] = {
         "coverage_fraction": 1.0,
         "note": "CO₂ sensors + OA reset programming",
     },
+    "ECM-OCC-STANDBY-DCV": {
+        "usd_per_ft2": 0.65,
+        "coverage_fraction": 1.0,
+        "note": "Occupied standby scheduling + CO₂/DCV programming",
+    },
     "ECM-BOILER-RESET": {
         "usd_per_ft2": 0.20,
         "coverage_fraction": 1.0,

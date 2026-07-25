@@ -66,11 +66,13 @@ Also: `wattlab calibrate --bundle …` for an already-seeded dump with
 1. **Modeled vs actual fuel** — monthly table + chart; NMBE / CV(RMSE) / pass-fail metrics when a scorecard is present (path or autoload from active run).
 2. **Client deliverables** — **Build client package**:
    - Report preview (markdown)
-   - Downloads: `.md` · `.xlsx` · full `.zip`
+   - Optional client DOCX (checkbox defaults on when `python-docx` is available)
+   - Downloads: `.md` · `.xlsx` · `.docx` · full `.zip`
 3. Zip layout:
 
 ```text
 01_Report/Energy_Modeling_Report.md
+01_Report/Energy_Modeling_Report.docx  # selected client-rendered report
 02_Results/Energy_Model_Results.xlsx + calibration_scorecard.json
 03_Models/Baseline/Building_Baseline.idf + Weather.epw + README.md
 04_Outputs/Baseline/eplustbl.* eplusout.err …
@@ -78,6 +80,8 @@ Also: `wattlab calibrate --bundle …` for an already-seeded dump with
 ```
 
 ECM page can build the same zip from `studio_report` (screening package).
+The DOCX is an energy-modeling deliverable, not the separate
+`wattlab controls-checklist --docx` output.
 
 ## Ladder reminder (sparse sites)
 

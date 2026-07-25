@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from wattlab.studio.ecm_roi import (
+    default_model_for,
     implementation_cost_usd,
     seed_roi_cost_rows,
 )
@@ -45,3 +46,10 @@ def test_seed_roi_preserves_engineer_edits() -> None:
     assert by_id["ECM-GL36-AIRSIDE"]["coverage_fraction"] == 0.4
     assert by_id["ECM-GL36-AIRSIDE"]["implementation_cost_usd"] == 300_000.0
     assert by_id["ECM-AHU-SCHED-ALIGN"]["coverage_fraction"] == 1.0
+
+
+def test_occ_standby_dcv_has_a_documented_roi_seed() -> None:
+    model = default_model_for("ECM-OCC-STANDBY-DCV")
+
+    assert model["usd_per_ft2"] == 0.65
+    assert "standby" in model["note"].lower()

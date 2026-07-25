@@ -1,7 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "selected_ecm_ids": [],
   "measure_set": null,
+  "sort_preference": "implementation_complexity",
+  "package_hints": [],
+  "proxy_defaults": {},
+  "roi_param_hints": {},
   "notes": "",
   "recommendations": [],
   "status": "empty — waiting agent or Easy Buttons"

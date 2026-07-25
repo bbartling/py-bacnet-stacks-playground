@@ -185,11 +185,15 @@ Write `/data/reports/ecm_scenario.json`:
 
 ```json
 {
-  "version": 1,
-  "selected_ecm_ids": ["fan_schedule_optimization"],
+  "version": 2,
+  "selected_ecm_ids": ["ECM-AHU-SCHED-ALIGN", "ECM-OCC-STANDBY-DCV"],
   "measure_set": "best",
+  "sort_preference": "implementation_complexity",
+  "package_hints": ["esco-top15"],
+  "proxy_defaults": {},
+  "roi_param_hints": {},
   "notes": "from chat",
-  "recommendations": ["chiller_lockout_reset"]
+  "recommendations": ["ECM-CHILLER-LOCKOUT"]
 }
 ```
 
@@ -199,8 +203,10 @@ writes back. Optional bootstrap key: `ecm_scenario_path`.
 ## Twin iteration dashboard + client package
 
 Twin **Iteration history** shows run_id, hypothesis, weather, status, eplusout,
-elapsed (from `run_manifest.json`). **Build client package** downloads report.md,
-workbook.xlsx, and full zip (`05_Source_Data` included when answers/bills present).
+elapsed (from `run_manifest.json`). **Build client package** can include the
+14-section `01_Report/Energy_Modeling_Report.docx` alongside report.md,
+workbook.xlsx, and the full zip (`05_Source_Data` included when answers/bills
+are present). The Studio checkbox defaults on when `python-docx` is installed.
 
 Fuel **Portfolio** peer metrics have `?` help text + “How buildings are benchmarked”.
 

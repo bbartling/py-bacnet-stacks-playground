@@ -78,6 +78,9 @@ def test_package_resolution_expands_dependencies_without_duplicates() -> None:
     assert "ECM-CONDENSING-BOILER" in esco
     assert "ECM-ADVANCED-RTU" in esco
     assert "ECM-AHU-SCHED-ALIGN" in esco
+    assert "ECM-OCC-STANDBY-DCV" in esco
+    assert "ECM-DCV-CO2" not in esco  # standalone DCV superseded to avoid double-count
+    assert "ECM-SENSOR-CRITICAL-REFRESH" in esco
     assert len(esco) == len(set(esco))
 
     erv = resolve_package("energy-recovery")
@@ -90,6 +93,21 @@ def test_package_resolution_expands_dependencies_without_duplicates() -> None:
 
     with pytest.raises(KeyError, match="Unknown ECM package"):
         resolve_package("not-a-package")
+
+
+def test_occ_standby_dcv_is_a_production_proxy_oa_measure() -> None:
+    measure = get_ecm("ECM-OCC-STANDBY-DCV")
+
+    assert measure.category == "oa_ventilation"
+    assert measure.implementation_complexity == "medium"
+    assert measure.status == "PRODUCTION_PROXY_ONLY"
+    assert measure.energyplus_patch is None
+    assert measure.dependencies == ["ECM-SENSOR-CRITICAL-REFRESH"]
+    assert "ECM-DCV-CO2" in measure.incompatibilities
+
+    issues = detect_incompatibilities(["ECM-OCC-STANDBY-DCV", "ECM-DCV-CO2"])
+    assert len(issues) == 1
+    assert set(issues[0].ecm_ids) == {"ECM-OCC-STANDBY-DCV", "ECM-DCV-CO2"}
 
 
 def test_incompatibility_detection_is_symmetric_and_fail_closed() -> None:

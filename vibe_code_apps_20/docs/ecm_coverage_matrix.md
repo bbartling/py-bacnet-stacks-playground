@@ -1,6 +1,6 @@
 # ECM Coverage Matrix
 
-The canonical registry contains 37 fail-closed ECM definitions. Catalog status
+The canonical registry contains 38 fail-closed ECM definitions. Catalog status
 describes implementation maturity, not guaranteed savings. Every candidate
 still requires applicability review, evidence, and incremental interaction
 testing.
@@ -10,7 +10,7 @@ testing.
 | Category | ECMs | Current coverage |
 | --- | ---: | --- |
 | Scheduling | 3 | Schedule alignment has proxy and EnergyPlus support; optimum start and holidays have proxies. |
-| OA / ventilation | 5 | Damper and economizer proxies are usable; DCV, OA reset, and ERV need further engineering. |
+| OA / ventilation | 6 | Damper and economizer proxies are usable; DCV, OCC-STANDBY-DCV, OA reset, and ERV need further engineering. |
 | Airside / VAV | 4 | SAT, fan/VFD, and duct-pressure proxy paths are usable; VAV reset remains research. |
 | Guideline 36 | 3 | The airside entry is explicitly a partial conceptual proxy; full sequence and plant logic are not implemented. |
 | Pneumatic to DDC | 2 | Pneumatic leakage has a proxy; full conversion needs controls design and point inventory. |
@@ -42,6 +42,10 @@ Production proxy-only entries cover optimum start/stop, holidays, OA damper
 repair, economizer repair, duct static reset, pneumatic leak repair, boiler
 reset, chilled- and condenser-water reset, and pump VFD control.
 
+- `ECM-OCC-STANDBY-DCV`: medium-complexity OA measure; combines
+  `oad_unoccupied_closed` and `dcv_bins` in Studio with calculator provenance;
+  no EnergyPlus patch is registered.
+
 ## Package coverage
 
 Named packages are `pneumatic-to-ddc`, `partial-g36`,
@@ -50,3 +54,5 @@ Named packages are `pneumatic-to-ddc`, `partial-g36`,
 dependencies, preserves order, removes duplicates, and rejects unknown ECMs.
 The interaction checker reports incompatible alternatives and reminds callers
 not to sum interacting independent savings estimates.
+`ECM-OCC-STANDBY-DCV` is in `esco-top15`, `controls-only`, and
+`no-capital-rcx`; its sensor-refresh dependency is resolved automatically.
