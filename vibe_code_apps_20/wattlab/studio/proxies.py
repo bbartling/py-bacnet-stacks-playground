@@ -300,6 +300,34 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     "savings_kwh": 0.0,
                     "savings_therms": round(float(res["savings_therms"]), 1),
                 }
+            elif mid == "ECM-DOAS-HP" or "DOAS-HP" in mid:
+                # Mega package: ERV ventilation recovery + heat-pump electrification.
+                erv = _erv_proxy(
+                    get, oa_cfm=oa_cfm, exhaust_cfm=oa_cfm, kw_per_ton=kw_per_ton, bins=bins, schedule=existing
+                )
+                hp = get("heat_pump_electrification")(
+                    {
+                        "annual_heating_mmbtu": heating_mmbtu,
+                        "baseline_efficiency": PROXY_ASSUMPTIONS["boiler_efficiency"],
+                        "proposed_cop": 2.8,
+                    }
+                )
+                out[mid] = {
+                    "savings_kwh": round(erv["savings_kwh"] + float(hp["savings_kwh"]), 1),
+                    "savings_therms": round(erv["savings_therms"] + float(hp["savings_therms"]), 1),
+                }
+            elif "AWHP" in mid:
+                hp = get("heat_pump_electrification")(
+                    {
+                        "annual_heating_mmbtu": heating_mmbtu,
+                        "baseline_efficiency": PROXY_ASSUMPTIONS["boiler_efficiency"],
+                        "proposed_cop": 2.8,
+                    }
+                )
+                out[mid] = {
+                    "savings_kwh": round(float(hp["savings_kwh"]), 1),
+                    "savings_therms": round(float(hp["savings_therms"]), 1),
+                }
             elif "BOILER-TUNE" in mid:
                 res = get("boiler_efficiency_improvement")(
                     {

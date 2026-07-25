@@ -65,10 +65,11 @@ def render(
 
     st.header("ECM Easy Buttons")
     st.caption(
-        "Build a screening scenario from the canonical ECM catalog. "
-        "Bulk-select **esco-top15** for the DOE/FEMP/PNNL common HVAC ECM set. "
-        "Agents write `reports/ecm_scenario.json`; Re-apply / open this page to pre-check. "
-        "Availability and evidence status remain visible before every action."
+        "Full catalog stays available as checkboxes — packages only **add** selections "
+        "(they never remove prior ECMs). "
+        "**esco-top15** = common HVAC ESCO set · **energy-recovery** = ERV / toilet ER · "
+        "**deep-doas-heat-pump** = DOAS+HP mega what-if · **partial-g36** / **pneumatic-to-ddc** = prior controls packages. "
+        "Agents write `reports/ecm_scenario.json`; Re-apply / open this page to pre-check."
     )
     try:
         entries = load_catalog().list()
@@ -90,8 +91,9 @@ def render(
         sorted(PACKAGES),
         key=_key("packages"),
         help=(
-            "Packages include catalog dependencies automatically. "
-            "esco-top15 = common ESCO HVAC measures (schedules through plant capital)."
+            "Packages include catalog dependencies automatically and stack additively. "
+            "esco-top15 = common ESCO HVAC; energy-recovery = ERV; "
+            "deep-doas-heat-pump = DOAS+heat-pump deep retrofit screening."
         ),
     )
 

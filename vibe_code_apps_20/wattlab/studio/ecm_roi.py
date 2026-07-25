@@ -89,6 +89,26 @@ DEFAULT_ECM_ROI_MODELS: dict[str, dict[str, Any]] = {
         "coverage_fraction": 1.0,
         "note": "Packaged RTU advanced controls retrofit",
     },
+    "ECM-ERV": {
+        "usd_per_ft2": 2.5,
+        "coverage_fraction": 1.0,
+        "note": "AHU energy recovery — capital screening",
+    },
+    "ECM-TOILET-EXH-ERV": {
+        "usd_per_ft2": 0.70,
+        "coverage_fraction": 1.0,
+        "note": "Toilet/restroom exhaust energy recovery",
+    },
+    "ECM-AWHP-SURROGATE": {
+        "usd_per_ft2": 12.0,
+        "coverage_fraction": 1.0,
+        "note": "AWHP plant surrogate — deep electrification band",
+    },
+    "ECM-DOAS-HP": {
+        "usd_per_ft2": 32.0,
+        "coverage_fraction": 1.0,
+        "note": "DOAS+ERV+HP deep retrofit (mega) — edit coverage if phased",
+    },
     "ECM-CONDENSING-BOILER": {
         "usd_per_ft2": 8.0,
         "coverage_fraction": 1.0,

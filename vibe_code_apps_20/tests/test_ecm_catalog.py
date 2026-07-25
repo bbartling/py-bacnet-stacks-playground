@@ -29,7 +29,8 @@ PRODUCTION_MEASURES = {
         "high_efficiency_chiller",
     ),
     "ECM-CONDENSING-BOILER": ("boiler_efficiency_improvement", "condensing_boiler"),
-    "ECM-AWHP-SURROGATE": (None, "awhp_surrogate"),
+    "ECM-AWHP-SURROGATE": ("heat_pump_electrification", "awhp_surrogate"),
+    "ECM-DOAS-HP": ("heat_pump_electrification", "awhp_surrogate"),
     "ECM-WINDOW-HP-GLAZING": (None, "high_performance_glazing"),
 }
 
@@ -78,6 +79,14 @@ def test_package_resolution_expands_dependencies_without_duplicates() -> None:
     assert "ECM-ADVANCED-RTU" in esco
     assert "ECM-AHU-SCHED-ALIGN" in esco
     assert len(esco) == len(set(esco))
+
+    erv = resolve_package("energy-recovery")
+    assert erv == ["ECM-ERV", "ECM-TOILET-EXH-ERV"]
+
+    doas = resolve_package("deep-doas-heat-pump")
+    assert "ECM-DOAS-HP" in doas
+    assert "ECM-ERV" in doas  # dependency
+    assert "ECM-AHU-SCHED-ALIGN" in resolve_package("partial-g36")  # prior packages intact
 
     with pytest.raises(KeyError, match="Unknown ECM package"):
         resolve_package("not-a-package")

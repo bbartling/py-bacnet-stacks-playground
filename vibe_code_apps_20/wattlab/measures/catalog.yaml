@@ -260,6 +260,7 @@ ecms:
     energyplus_patch: null
     unit_contract: {fan_power: kW, speed: fraction, savings: kWh/year}
     applicability_checks: [Confirm RTU/packaged inventory, Label as screening package not full retrofit design]
+    incompatibilities: [ECM-DOAS-HP]
     status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
@@ -419,7 +420,7 @@ ecms:
     energyplus_patch: null
     unit_contract: {heating_load: MMBtu/year, efficiency: fraction, savings: therm/year}
     applicability_checks: [Require combustion safety test]
-    incompatibilities: [ECM-CONDENSING-BOILER, ECM-AWHP-SURROGATE]
+    incompatibilities: [ECM-CONDENSING-BOILER, ECM-AWHP-SURROGATE, ECM-DOAS-HP]
     status: PRODUCTION_PROXY_ONLY
 
   - <<: *defaults
@@ -457,7 +458,7 @@ ecms:
     conceptual_surrogate: true
     unit_contract: {heating_load: MMBtu/year, efficiency: fraction, savings: therm/year}
     applicability_checks: [Confirm low return-water temperature opportunity, Engineer venting]
-    incompatibilities: [ECM-BOILER-TUNE, ECM-AWHP-SURROGATE]
+    incompatibilities: [ECM-BOILER-TUNE, ECM-AWHP-SURROGATE, ECM-DOAS-HP]
     implementation_complexity: high
     status: PRODUCTION_PROXY_AND_ENERGYPLUS
 
@@ -471,18 +472,53 @@ ecms:
     retrofit_classes: [electrification, capital]
     description: Screen electrified heating as an electric-boiler object with COP above one.
     engineering_rationale: The surrogate estimates fuel switching but not real heat-pump curves or defrost.
-    required_inputs: [annual_heating_load, proposed_cop]
+    required_inputs: [annual_heating_mmbtu, proposed_cop]
     optional_inputs: [design_outdoor_temperature, distribution_temperature]
-    proxy_calculator: null
+    proxy_calculator: heat_pump_electrification
     energyplus_patch: awhp_surrogate
     conceptual_surrogate: true
-    unit_contract: {heating_load: kWh_thermal/year, cop: W/W, savings: kWh/year}
+    unit_contract: {heating_load: MMBtu/year, cop: W/W, savings: mixed}
     applicability_checks: [Label as electric-boiler surrogate, Perform electrical capacity study]
-    incompatibilities: [ECM-BOILER-TUNE, ECM-CONDENSING-BOILER]
+    incompatibilities: [ECM-BOILER-TUNE, ECM-CONDENSING-BOILER, ECM-DOAS-HP]
     comfort_risk: high
     implementation_complexity: high
     confidence: low
-    status: CONCEPTUAL_ENERGYPLUS_PROXY
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
+
+  - <<: *defaults
+    ecm_id: ECM-DOAS-HP
+    display_name: DOAS + heat-pump HVAC conversion (deep retrofit)
+    short_name: DOAS + heat pump
+    category: oa_ventilation
+    equipment_types: [dedicated_outdoor_air_system, heat_pump, energy_recovery_ventilator]
+    system_families: [dedicated_outdoor_air, heat_pump]
+    retrofit_classes: [electrification, capital, deep_retrofit]
+    description: >
+      Screening package for converting recirculating VAV/RTU HVAC to dedicated outdoor air
+      with energy recovery plus heat-pump heating/cooling (terminals or hydronic AWHP).
+      Mega capital — use for ESPC bundle what-if, not as a turnkey IDF rebuild.
+    engineering_rationale: >
+      DOAS right-sizes ventilation; ERV cuts OA loads; heat pumps displace boiler/chiller fuel.
+      Real projects need duct redesign, electrical capacity, and new sequences — EnergyPlus twin
+      only carries a heat-pump plant surrogate today.
+    required_inputs: [oa_cfm, exhaust_cfm, annual_heating_mmbtu, proposed_cop]
+    optional_inputs: [sensible_effectiveness, zone_terminal_type]
+    proxy_calculator: heat_pump_electrification
+    energyplus_patch: awhp_surrogate
+    conceptual_surrogate: true
+    unit_contract: {airflow: cfm, heating_load: MMBtu/year, cop: W/W, savings: mixed}
+    applicability_checks:
+      - Label as deep-retrofit screening not a calibrated twin redesign
+      - Confirm electrical service and outdoor unit placement
+      - Engineer DOAS duct and terminal conversion separately
+    dependencies: [ECM-ERV]
+    incompatibilities: [ECM-BOILER-TUNE, ECM-CONDENSING-BOILER, ECM-AWHP-SURROGATE, ECM-ADVANCED-RTU]
+    comfort_risk: high
+    iaq_risk: medium
+    humidity_risk: medium
+    implementation_complexity: high
+    confidence: low
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
 
   - <<: *defaults
     ecm_id: ECM-CHILLER-LOCKOUT

@@ -32,6 +32,54 @@ Golden anchors: `tests/test_esco_golden.py`.
 
 ---
 
+## Prior ECMs are not replaced
+
+Easy Buttons still lists **every** catalog measure (G36, pneumatic→DDC, ERV,
+windows, GSHP, humidity, …). Packages only **bulk-check** sets:
+
+| Package | Intent |
+| --- | --- |
+| `esco-top15` | Common ESCO HVAC screening list |
+| `energy-recovery` | `ECM-ERV` + `ECM-TOILET-EXH-ERV` |
+| `deep-doas-heat-pump` | `ECM-DOAS-HP` (+ dependency `ECM-ERV`) — mega what-if |
+| `electrification-awhp` | AWHP plant surrogate alone |
+| `partial-g36` / `full-g36-conceptual` / `pneumatic-to-ddc` / … | Prior controls packages |
+
+Stack packages freely (e.g. `esco-top15` + `energy-recovery`). Incompatibilities
+(e.g. condensing boiler vs DOAS+HP) still warn in the UI.
+
+---
+
+## Energy recovery
+
+| Catalog id | Proxy | Notes |
+| --- | --- | --- |
+| `ECM-ERV` | `erv_bins` | AHU OA ↔ exhaust sensible recovery |
+| `ECM-TOILET-EXH-ERV` | `toilet_exhaust_erv_bins` | Restroom exhaust ER |
+| Package | `energy-recovery` | Both |
+
+Code: `wattlab/bench/esco.py` · Studio wire: `wattlab/studio/proxies.py`.  
+EnergyPlus IDF ERV patch is still a stub (proxy-only savings today).
+
+---
+
+## DOAS + heat-pump deep retrofit (`ECM-DOAS-HP`)
+
+Screening what-if for converting recirculating VAV/RTU HVAC to **dedicated OA
+with ERV + heat-pump heating/cooling**. Mega capital — not a turnkey twin rebuild.
+
+| Piece | Screening treatment |
+| --- | --- |
+| Ventilation | Same `erv_bins` math as `ECM-ERV` (dependency auto-selected) |
+| Heating fuel switch | `heat_pump_electrification` — gas therms avoided, electric kWh **added** (often negative `savings_kwh`) |
+| EnergyPlus | Reuses `awhp_surrogate` plant patch only — **no** DOAS duct redesign in IDF |
+| ROI default | ~$32/ft² (`deep_electrification` band) — edit coverage for phased campuses |
+
+Incompatible with boiler tune / condensing boiler / standalone AWHP / advanced RTU
+controls (pick one heating path). Package: **`deep-doas-heat-pump`**.
+
+---
+
 ## Top-15 ESCO HVAC ECMs → catalog
 
 Bulk-select package **`esco-top15`** on Studio → ECMs → Easy Buttons.

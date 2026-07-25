@@ -27,7 +27,19 @@ ESCO_TOP15: tuple[str, ...] = (
 )
 
 PACKAGES: dict[str, tuple[str, ...]] = {
+    # Additive packages — they never remove other catalog checkboxes.
     "esco-top15": ESCO_TOP15,
+    "energy-recovery": (
+        "ECM-ERV",
+        "ECM-TOILET-EXH-ERV",
+    ),
+    # Deep retrofit what-if: DOAS + ERV + HP plant surrogate (mega capital).
+    "deep-doas-heat-pump": (
+        "ECM-DOAS-HP",
+    ),
+    "electrification-awhp": (
+        "ECM-AWHP-SURROGATE",
+    ),
     "pneumatic-to-ddc": (
         "ECM-SENSOR-CRITICAL-REFRESH",
         "ECM-PNEU-DDC-CONVERT",
