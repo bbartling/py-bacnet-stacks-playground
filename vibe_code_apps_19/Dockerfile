@@ -16,7 +16,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     VIBE19_IMAGE_REF=${VIBE19_IMAGE_REF} \
     VIBE19_IMAGE_TAG=${VIBE19_IMAGE_TAG} \
     STREAMLIT_SERVER_HEADLESS=true \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    # Kaleido/choreographer: distro Chromium (native amd64+arm64; avoid chrome-linux64 under QEMU)
+    BROWSER_PATH=/usr/bin/chromium
 
 LABEL org.opencontainers.image.title="vibe19" \
       org.opencontainers.image.description="OpenFDD Vibe 19 Streamlit FDD demo" \
@@ -26,18 +28,20 @@ LABEL org.opencontainers.image.title="vibe19" \
 
 WORKDIR /app
 
-# Chrome/Chromium shared libs required by Kaleido ≥1 (Plotly PNG export → DOCX).
+# Chromium + shared libs for Kaleido ≥1 Plotly→PNG (DOCX Overview charts).
+# Distro Chromium so multi-arch GHCR (amd64 + arm64) each get a native binary.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
+      chromium \
       fonts-liberation \
-      libasound2 \
-      libatk-bridge2.0-0 \
-      libatk1.0-0 \
-      libcups2 \
+      libasound2t64 \
+      libatk-bridge2.0-0t64 \
+      libatk1.0-0t64 \
+      libcups2t64 \
       libdbus-1-3 \
       libdrm2 \
       libgbm1 \
-      libgtk-3-0 \
+      libgtk-3-0t64 \
       libnspr4 \
       libnss3 \
       libpango-1.0-0 \
@@ -48,13 +52,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxkbcommon0 \
       libxrandr2 \
       xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && test -x /usr/bin/chromium \
+    && /usr/bin/chromium --version
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
- && python -c "import kaleido; kaleido.get_chrome_sync()" \
  && python -c "import docx, kaleido, matplotlib; print('engineering-report extras ok')" \
- && python -c "import plotly.graph_objects as go; from pathlib import Path; p=Path('/tmp/kaleido_smoke.png'); fig=go.Figure(data=[go.Bar(x=['a'], y=[1])]); fig.write_image(str(p)); assert p.is_file() and p.stat().st_size>100; print('kaleido png ok', p.stat().st_size)"
+ && python -c "\
+import os; \
+from pathlib import Path; \
+import plotly.graph_objects as go; \
+os.environ['BROWSER_PATH'] = '/usr/bin/chromium'; \
+p = Path('/tmp/kaleido_smoke.png'); \
+fig = go.Figure(data=[go.Bar(x=['a'], y=[1])]); \
+fig.write_image(str(p)); \
+assert p.is_file() and p.stat().st_size > 100; \
+print('kaleido png ok', p.stat().st_size)"
 
 # Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .
