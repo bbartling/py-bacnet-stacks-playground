@@ -1,0 +1,542 @@
+"""Build / validate / summarize ECM engineering notebooks (openpyxl)."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from wattlab.notebooks.packages import (
+    INPUT_NAMED_RANGES,
+    REQUIRED_SHEETS,
+    NotebookPackage,
+    get_notebook_package,
+    list_notebook_packages,
+)
+
+ESCO_DOCS_URL = (
+    "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+    "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md"
+)
+YELLOW = "FFFF99"
+HEADER_FILL = "1F4E79"
+HEADER_FONT = "FFFFFF"
+
+
+def _style_header(ws, row: int = 1) -> None:
+    from openpyxl.styles import Font, PatternFill
+
+    fill = PatternFill("solid", fgColor=HEADER_FILL)
+    font = Font(color=HEADER_FONT, bold=True)
+    for cell in ws[row]:
+        cell.fill = fill
+        cell.font = font
+
+
+def _yellow(cell) -> None:
+    from openpyxl.styles import PatternFill
+
+    cell.fill = PatternFill("solid", fgColor=YELLOW)
+
+
+def _define_name(wb, name: str, sheet: str, cell: str) -> None:
+    from openpyxl.workbook.defined_name import DefinedName
+
+    # Remove prior definition if rebuilding
+    if name in wb.defined_names:
+        del wb.defined_names[name]
+    wb.defined_names.add(DefinedName(name, attr_text=f"'{sheet}'!{cell}"))
+
+
+def default_inputs_from_profile(profile: dict[str, Any] | None = None) -> dict[str, Any]:
+    from wattlab.studio.proxies import resolve_proxy_inputs
+
+    profile = profile or {}
+    try:
+        resolved = resolve_proxy_inputs(profile)
+    except Exception:
+        resolved = {
+            "area_ft2": float(profile.get("conditioned_floor_area_ft2") or profile.get("floor_area_ft2") or 50000),
+            "cooling_tons": profile.get("cooling_tons"),
+            "fan_hp": profile.get("fan_hp") or profile.get("supply_fan_hp"),
+        }
+    rates = profile.get("utility") if isinstance(profile.get("utility"), dict) else {}
+    return {
+        "area_ft2": float(resolved.get("area_ft2") or 50000),
+        "cooling_tons": resolved.get("cooling_tons"),
+        "fan_hp": resolved.get("fan_hp"),
+        "elec_rate": float(rates.get("elec_usd_per_kwh") or 0.12),
+        "gas_rate": float(rates.get("gas_usd_per_therm") or 0.80),
+        "discount": 0.05,
+        "escalation": 0.02,
+        "life_years": 15,
+        "usd_per_ft2": 3.0,
+        "coverage": 1.0,
+        "building": str(profile.get("building_id") or profile.get("name") or "BUILDING"),
+        "property_type": str(profile.get("building_type") or profile.get("property_type") or "office"),
+    }
+
+
+def _ep_by_measure(report: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for s in (report or {}).get("savings_by_measure") or []:
+        mid = s.get("measure_id")
+        vs = s.get("vs_previous") or s.get("vs_baseline") or {}
+        if mid:
+            out[str(mid)] = vs
+    return out
+
+
+def build_notebook_workbook(
+    package: NotebookPackage | str,
+    *,
+    profile: dict[str, Any] | None = None,
+    report: dict[str, Any] | None = None,
+    input_overrides: dict[str, Any] | None = None,
+    proxies: dict[str, dict[str, Any]] | None = None,
+    costs: dict[str, float] | None = None,
+    gate: dict[str, Any] | None = None,
+) -> Any:
+    """Return an openpyxl Workbook for one package notebook."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    from wattlab.crosscheck import crosscheck_measure
+    from wattlab.finance import capital_plan, measure_economics
+    from wattlab.studio.ecm_roi import implementation_cost_usd
+    from wattlab.studio.proxies import DEFAULT_MEASURE_COSTS, estimate_proxy_savings
+
+    pkg = get_notebook_package(package) if isinstance(package, str) else package
+    inputs = default_inputs_from_profile(profile)
+    if input_overrides:
+        inputs.update({k: v for k, v in input_overrides.items() if v is not None})
+
+    measure_ids = list(pkg.measure_ids)
+    if proxies is None:
+        proxies = estimate_proxy_savings(profile or {"floor_area_ft2": inputs["area_ft2"]}, measure_ids)
+    ep_by = _ep_by_measure(report)
+
+    area = float(inputs["area_ft2"])
+    cov = float(inputs["coverage"])
+    usd_ft2 = float(inputs["usd_per_ft2"])
+    if costs is None:
+        costs = {}
+        for mid in measure_ids:
+            costs[mid] = implementation_cost_usd(
+                floor_area_ft2=area,
+                usd_per_ft2=usd_ft2,
+                coverage_fraction=cov,
+                fixed_usd=None,
+            )
+            if costs[mid] <= 0:
+                costs[mid] = float(DEFAULT_MEASURE_COSTS.get(mid, 10000.0))
+
+    econ_rows = []
+    compare_rows = []
+    for mid in measure_ids:
+        p = proxies.get(mid) or {}
+        ep = ep_by.get(mid) or {}
+        esco_kwh = float(p.get("savings_kwh") or 0.0)
+        esco_therms = float(p.get("savings_therms") or 0.0)
+        ep_kwh = ep.get("kwh_saved")
+        ep_therms = ep.get("therms_saved")
+        xc = crosscheck_measure(
+            measure_id=mid,
+            ep_savings_kwh=None if ep_kwh is None else float(ep_kwh),
+            proxy_savings_kwh=esco_kwh,
+            ep_savings_therms=None if ep_therms is None else float(ep_therms),
+            proxy_savings_therms=esco_therms,
+        )
+        # Prefer E+ for capital when present
+        kwh_for_econ = float(ep_kwh) if ep_kwh is not None else esco_kwh
+        therms_for_econ = float(ep_therms) if ep_therms is not None else esco_therms
+        econ_rows.append(
+            measure_economics(
+                measure_id=mid,
+                implementation_cost_usd=float(costs.get(mid) or 0),
+                kwh_saved=kwh_for_econ,
+                therms_saved=therms_for_econ,
+                elec_rate_usd_per_kwh=float(inputs["elec_rate"]),
+                gas_rate_usd_per_therm=float(inputs["gas_rate"]),
+                discount_rate=float(inputs["discount"]),
+                escalation_rate=float(inputs["escalation"]),
+                measure_life_years=int(inputs["life_years"]),
+            )
+        )
+        compare_rows.append(
+            {
+                "measure_id": mid,
+                "esco_kwh": esco_kwh,
+                "ep_kwh": ep_kwh,
+                "esco_therms": esco_therms,
+                "ep_therms": ep_therms,
+                "verdict": xc.get("verdict_canonical") or xc.get("verdict"),
+                "agreement_ratio": xc.get("agreement_ratio"),
+                "calculators": ",".join(p.get("calculators") or []) if isinstance(p.get("calculators"), list) else "",
+            }
+        )
+
+    plan = capital_plan(econ_rows)
+    if gate is None:
+        try:
+            from wattlab.benchmarks.guardrails import gate_capital_plan
+
+            gate = gate_capital_plan(
+                plan,
+                property_type=str(inputs.get("property_type") or "office"),
+                floor_area_ft2=area,
+                site_eui_kbtu_ft2=None,
+            )
+        except Exception:
+            gate = {"verdict": "UNKNOWN", "checks": [], "investigate_count": 0}
+
+    wb = Workbook()
+
+    # --- Cover ---
+    cover = wb.active
+    cover.title = "Cover"
+    cover["A1"] = "WattLab Engineering Notebook"
+    cover["A1"].font = Font(bold=True, size=16)
+    cover["A2"] = "ECM package screening (ESCO bin-method vs EnergyPlus)"
+    rows = [
+        ("Building", inputs.get("building")),
+        ("Package id", pkg.id),
+        ("Package", pkg.label),
+        ("Honesty", pkg.honesty),
+        ("Generated (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ("Catalog package", pkg.catalog_package),
+        ("n_measures", len(measure_ids)),
+        ("Guardrail verdict", gate.get("verdict")),
+        ("ESCO docs", ESCO_DOCS_URL),
+        (
+            "Note",
+            "Yellow cells on Inputs are engineer-editable. ESCO_Calcs / Compare / ROI use formulas where marked.",
+        ),
+    ]
+    for i, (k, v) in enumerate(rows, start=4):
+        cover[f"A{i}"] = k
+        cover[f"B{i}"] = v
+    cover.column_dimensions["A"].width = 22
+    cover.column_dimensions["B"].width = 72
+
+    # --- Inputs (yellow + named ranges) ---
+    inp = wb.create_sheet("Inputs")
+    inp.append(["parameter", "value", "unit", "notes"])
+    _style_header(inp)
+    input_rows = [
+        ("area_ft2", inputs["area_ft2"], "ft²", "Conditioned floor area", "inp_area_ft2"),
+        ("cooling_tons", inputs.get("cooling_tons") or "", "tons", "Optional nameplate", "inp_cooling_tons"),
+        ("fan_hp", inputs.get("fan_hp") or "", "HP", "Optional supply fan", "inp_fan_hp"),
+        ("elec_rate", inputs["elec_rate"], "$/kWh", "Blended electric rate", "inp_elec_rate"),
+        ("gas_rate", inputs["gas_rate"], "$/therm", "Blended gas rate", "inp_gas_rate"),
+        ("discount", inputs["discount"], "fraction", "NPV discount rate", "inp_discount"),
+        ("escalation", inputs["escalation"], "fraction", "Utility escalation", "inp_escalation"),
+        ("life_years", inputs["life_years"], "yr", "Measure life", "inp_life_years"),
+        ("usd_per_ft2", inputs["usd_per_ft2"], "$/ft²", "Fallback package cost intensity", "inp_usd_per_ft2"),
+        ("coverage", inputs["coverage"], "0–1", "Fraction of floor area receiving ECMs", "inp_coverage"),
+    ]
+    for i, (param, val, unit, notes, named) in enumerate(input_rows, start=2):
+        inp[f"A{i}"] = param
+        inp[f"B{i}"] = val
+        inp[f"C{i}"] = unit
+        inp[f"D{i}"] = notes
+        _yellow(inp[f"B{i}"])
+        _define_name(wb, named, "Inputs", f"$B${i}")
+    inp.column_dimensions["A"].width = 18
+    inp.column_dimensions["B"].width = 14
+    inp.column_dimensions["D"].width = 40
+
+    # --- ESCO_Calcs ---
+    esco = wb.create_sheet("ESCO_Calcs")
+    esco.append(
+        [
+            "measure_id",
+            "savings_kwh",
+            "savings_therms",
+            "calculators",
+            "annual_cost_saved_formula",
+            "notes",
+        ]
+    )
+    _style_header(esco)
+    for i, mid in enumerate(measure_ids, start=2):
+        p = proxies.get(mid) or {}
+        esco[f"A{i}"] = mid
+        esco[f"B{i}"] = float(p.get("savings_kwh") or 0)
+        esco[f"C{i}"] = float(p.get("savings_therms") or 0)
+        calcs = p.get("calculators")
+        esco[f"D{i}"] = ",".join(calcs) if isinstance(calcs, list) else ""
+        # Formula references Inputs named rates
+        esco[f"E{i}"] = f"=B{i}*inp_elec_rate+C{i}*inp_gas_rate"
+        esco[f"F{i}"] = "Screening proxy from wattlab.studio.proxies / bench ESCO bins"
+    esco.column_dimensions["A"].width = 28
+    esco.column_dimensions["D"].width = 28
+    esco.column_dimensions["E"].width = 28
+    esco.column_dimensions["F"].width = 48
+
+    # --- EPlus_Results ---
+    ep_ws = wb.create_sheet("EPlus_Results")
+    ep_ws.append(["measure_id", "kwh_saved", "therms_saved", "peak_kw_delta", "source"])
+    _style_header(ep_ws)
+    for i, mid in enumerate(measure_ids, start=2):
+        ep = ep_by.get(mid) or {}
+        ep_ws[f"A{i}"] = mid
+        ep_ws[f"B{i}"] = ep.get("kwh_saved")
+        ep_ws[f"C{i}"] = ep.get("therms_saved")
+        ep_ws[f"D{i}"] = ep.get("peak_demand_kw_delta")
+        ep_ws[f"E{i}"] = "Twin savings_by_measure" if ep else "E+ not run — ESCO only"
+    ep_ws.column_dimensions["A"].width = 28
+    ep_ws.column_dimensions["E"].width = 28
+
+    # --- Compare (formulas vs ESCO / E+ sheets) ---
+    cmp_ws = wb.create_sheet("Compare")
+    cmp_ws.append(
+        [
+            "measure_id",
+            "esco_kwh",
+            "ep_kwh",
+            "delta_kwh",
+            "ratio_ep_esco",
+            "esco_therms",
+            "ep_therms",
+            "verdict",
+            "light",
+        ]
+    )
+    _style_header(cmp_ws)
+    for i, row in enumerate(compare_rows, start=2):
+        cmp_ws[f"A{i}"] = row["measure_id"]
+        cmp_ws[f"B{i}"] = f"=ESCO_Calcs!B{i}"
+        cmp_ws[f"C{i}"] = f"=EPlus_Results!B{i}"
+        cmp_ws[f"D{i}"] = f'=IF(OR(C{i}="",C{i}=0),"",C{i}-B{i})'
+        cmp_ws[f"E{i}"] = f'=IF(OR(B{i}=0,C{i}=""),"",C{i}/B{i})'
+        cmp_ws[f"F{i}"] = f"=ESCO_Calcs!C{i}"
+        cmp_ws[f"G{i}"] = f"=EPlus_Results!C{i}"
+        cmp_ws[f"H{i}"] = row["verdict"]
+        has_ep = row["ep_kwh"] is not None or row["ep_therms"] is not None
+        v = str(row["verdict"] or "").upper()
+        if not has_ep:
+            light = "YELLOW"
+        elif v == "IN_LINE":
+            light = "GREEN"
+        elif "REASONABLE" in v or "INSUFFICIENT" in v:
+            light = "YELLOW"
+        else:
+            light = "RED"
+        cmp_ws[f"I{i}"] = light
+    cmp_ws.column_dimensions["A"].width = 28
+
+    # --- ROI_Capital ---
+    roi = wb.create_sheet("ROI_Capital")
+    roi.append(
+        [
+            "measure_id",
+            "implementation_cost_usd",
+            "kwh_saved",
+            "therms_saved",
+            "annual_cost_saved_usd",
+            "simple_payback_years",
+            "npv_usd",
+            "cost_formula",
+        ]
+    )
+    _style_header(roi)
+    for i, row in enumerate(econ_rows, start=2):
+        roi[f"A{i}"] = row["measure_id"]
+        roi[f"B{i}"] = row["implementation_cost_usd"]
+        roi[f"C{i}"] = row["kwh_saved"]
+        roi[f"D{i}"] = row["therms_saved"]
+        roi[f"E{i}"] = f"=C{i}*inp_elec_rate+D{i}*inp_gas_rate"
+        roi[f"F{i}"] = f'=IF(E{i}=0,"",B{i}/E{i})'
+        roi[f"G{i}"] = row["npv_usd"]
+        roi[f"H{i}"] = f"=inp_usd_per_ft2*inp_area_ft2*inp_coverage/{max(len(measure_ids), 1)}"
+        _yellow(roi[f"B{i}"])  # engineer can override cost
+    # Totals
+    n = len(econ_rows)
+    if n:
+        tot = n + 2
+        roi[f"A{tot}"] = "TOTAL"
+        roi[f"B{tot}"] = f"=SUM(B2:B{n+1})"
+        roi[f"E{tot}"] = f"=SUM(E2:E{n+1})"
+        roi[f"G{tot}"] = f"=SUM(G2:G{n+1})"
+        roi[f"A{tot}"].font = Font(bold=True)
+    roi.column_dimensions["A"].width = 28
+    roi.column_dimensions["H"].width = 36
+
+    # --- Guardrails ---
+    gr = wb.create_sheet("Guardrails")
+    gr.append(["check", "status", "detail"])
+    _style_header(gr)
+    gr["A2"] = "overall_verdict"
+    gr["B2"] = gate.get("verdict")
+    gr["C2"] = f"investigate_count={gate.get('investigate_count')}"
+    r = 3
+    for c in gate.get("checks") or []:
+        gr[f"A{r}"] = c.get("check")
+        gr[f"B{r}"] = c.get("status")
+        gr[f"C{r}"] = c.get("detail")
+        r += 1
+    gr.column_dimensions["A"].width = 28
+    gr.column_dimensions["C"].width = 60
+
+    # --- Docs ---
+    docs = wb.create_sheet("Docs")
+    docs["A1"] = "Documentation & calculator map"
+    docs["A1"].font = Font(bold=True, size=14)
+    docs["A3"] = "ESCO spreadsheet calcs (human map)"
+    docs["B3"] = ESCO_DOCS_URL
+    docs["A4"] = "Python bin calculators"
+    docs["B4"] = "wattlab/bench/esco.py · wattlab/studio/proxies.py"
+    docs["A5"] = "Crosscheck"
+    docs["B5"] = "wattlab/crosscheck.py (~0.5–2× = reasonable)"
+    docs["A6"] = "Finance / NPV"
+    docs["B6"] = "wattlab/finance.py"
+    docs["A7"] = "Catalog package"
+    docs["B7"] = pkg.catalog_package
+    docs["A8"] = "Measure ids"
+    docs["B8"] = ", ".join(measure_ids)
+    docs["A10"] = "Agent CLI"
+    docs["B10"] = (
+        f"wattlab notebook build --package {pkg.id} --out reports/notebooks/"
+    )
+    docs.column_dimensions["A"].width = 28
+    docs.column_dimensions["B"].width = 80
+
+    wb.properties.title = f"WattLab notebook · {pkg.id}"
+    wb.properties.creator = "WattLab"
+    return wb
+
+
+def save_workbook(wb: Any, path: Path | str) -> Path:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+    return path
+
+
+def build_and_save_notebook(
+    package_id: str,
+    out_dir: Path | str,
+    *,
+    profile: dict[str, Any] | None = None,
+    report: dict[str, Any] | None = None,
+    input_overrides: dict[str, Any] | None = None,
+    write_manifest: bool = True,
+) -> dict[str, Path]:
+    pkg = get_notebook_package(package_id)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    xlsx = out_dir / f"{pkg.id}.xlsx"
+    wb = build_notebook_workbook(
+        pkg, profile=profile, report=report, input_overrides=input_overrides
+    )
+    save_workbook(wb, xlsx)
+    written = {"xlsx": xlsx}
+    if write_manifest:
+        man = summarize_notebook(xlsx, package=pkg)
+        mp = out_dir / f"{pkg.id}.notebook_manifest.json"
+        mp.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
+        written["manifest"] = mp
+    return written
+
+
+def validate_notebook(path: Path | str) -> dict[str, Any]:
+    from openpyxl import load_workbook
+
+    path = Path(path)
+    errors: list[str] = []
+    warnings: list[str] = []
+    if not path.is_file():
+        return {"ok": False, "errors": [f"missing file: {path}"], "warnings": []}
+    wb = load_workbook(path, data_only=False)
+    for name in REQUIRED_SHEETS:
+        if name not in wb.sheetnames:
+            errors.append(f"missing sheet: {name}")
+    defined = set(wb.defined_names.keys())
+    for n in INPUT_NAMED_RANGES:
+        if n not in defined:
+            warnings.append(f"missing named range: {n}")
+    return {"ok": len(errors) == 0, "errors": errors, "warnings": warnings, "sheets": list(wb.sheetnames)}
+
+
+def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = None) -> dict[str, Any]:
+    from openpyxl import load_workbook
+
+    path = Path(path)
+    wb = load_workbook(path, data_only=False)
+    measures: list[str] = []
+    if "ESCO_Calcs" in wb.sheetnames:
+        ws = wb["ESCO_Calcs"]
+        for row in ws.iter_rows(min_row=2, max_col=1, values_only=True):
+            if row[0]:
+                measures.append(str(row[0]))
+    verdicts: list[dict[str, str]] = []
+    if "Compare" in wb.sheetnames:
+        ws = wb["Compare"]
+        for row in ws.iter_rows(min_row=2, max_col=9, values_only=True):
+            if row[0]:
+                verdicts.append(
+                    {
+                        "measure_id": str(row[0]),
+                        "verdict": str(row[7] or ""),
+                        "light": str(row[8] or ""),
+                    }
+                )
+    gate = None
+    if "Guardrails" in wb.sheetnames:
+        gate = wb["Guardrails"]["B2"].value
+    inputs: dict[str, Any] = {}
+    if "Inputs" in wb.sheetnames:
+        for row in wb["Inputs"].iter_rows(min_row=2, max_col=2, values_only=True):
+            if row[0]:
+                inputs[str(row[0])] = row[1]
+    return {
+        "schema": "wattlab_notebook_manifest_v1",
+        "path": str(path.resolve()),
+        "package_id": package.id if package else path.stem,
+        "package_label": package.label if package else None,
+        "sheets": list(wb.sheetnames),
+        "named_ranges": list(wb.defined_names.keys()),
+        "measure_ids": measures,
+        "compare": verdicts,
+        "guardrail_verdict": gate,
+        "inputs": inputs,
+        "docs_url": ESCO_DOCS_URL,
+        "validated": validate_notebook(path),
+    }
+
+
+def preview_sheet_rows(path: Path | str, sheet: str, *, max_rows: int = 40) -> list[list[Any]]:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, data_only=True)
+    if sheet not in wb.sheetnames:
+        return []
+    ws = wb[sheet]
+    rows: list[list[Any]] = []
+    for i, row in enumerate(ws.iter_rows(values_only=True)):
+        if i >= max_rows:
+            break
+        rows.append(list(row))
+    return rows
+
+
+def write_template_stub(path: Path | str) -> Path:
+    """Generate a blank package template (controls_first scaffold) for repo templates/."""
+    pkg = get_notebook_package("controls_first")
+    wb = build_notebook_workbook(pkg, profile={"floor_area_ft2": 50000})
+    return save_workbook(wb, path)
+
+
+__all__ = [
+    "build_and_save_notebook",
+    "build_notebook_workbook",
+    "default_inputs_from_profile",
+    "list_notebook_packages",
+    "preview_sheet_rows",
+    "save_workbook",
+    "summarize_notebook",
+    "validate_notebook",
+    "write_template_stub",
+]

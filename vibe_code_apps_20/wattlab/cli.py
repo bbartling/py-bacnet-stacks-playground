@@ -38,6 +38,7 @@ def _usage() -> str:
         "  hypothesis-lab    Alias for explore-existing\n"
         "  controls-checklist  vibe19 dump → controls FDD checklist (md/json/docx)\n"
         "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
+        "  notebook     ECM engineering Excel notebooks (build/prefill/validate)\n"
         "  studio       Launch the WattLab Studio web app (Streamlit)\n"
     )
 
@@ -204,6 +205,10 @@ def main(argv: list[str] | None = None) -> int:
         return int(m(rest) or 0)
     if cmd == "ecm":
         from wattlab.ecm.cli import main as m
+
+        return int(m(rest) or 0)
+    if cmd == "notebook":
+        from wattlab.notebooks.cli import main as m
 
         return int(m(rest) or 0)
     if cmd == "studio":

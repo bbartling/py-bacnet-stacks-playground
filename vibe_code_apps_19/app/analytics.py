@@ -1994,3 +1994,255 @@ def economizer_weather_summary(
     if not rows:
         return pd.DataFrame(columns=cols)
     return pd.DataFrame(rows).sort_values(["equipment_type", "equipment_id"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# AHU free-cooling economizer diagnostics (Guideline 36–aligned plotting)
+# ---------------------------------------------------------------------------
+
+ECON_DIAG_AIR_TYPES = frozenset({"AHU", "RTU"})
+ECON_DIAG_DT_MIN_F = 10.0  # Guideline 36 default ΔT_MIN for mixing diagnostics
+
+
+def _econ_fan_on_mask(mapped: pd.DataFrame) -> pd.Series:
+    """OR of mapped fan-status / fan-cmd (required for free-cooling plots)."""
+    masks: list[pd.Series] = []
+    for role in MAPPED_FAN_ROLES:
+        if role in mapped.columns and mapped[role].notna().any():
+            masks.append(_is_on(mapped[role]).fillna(False).astype(bool))
+    if not masks:
+        return pd.Series(False, index=mapped.index)
+    out = masks[0]
+    for m in masks[1:]:
+        out = out | m
+    return out
+
+
+def _econ_resolve_oat(mapped: pd.DataFrame, *, prefer_web_oat: bool = False) -> pd.Series | None:
+    bas = None
+    if "outside-air-temp" in mapped.columns and mapped["outside-air-temp"].notna().any():
+        bas = pd.to_numeric(mapped["outside-air-temp"], errors="coerce")
+    elif "bas-outside-air-temp" in mapped.columns and mapped["bas-outside-air-temp"].notna().any():
+        bas = pd.to_numeric(mapped["bas-outside-air-temp"], errors="coerce")
+    web = None
+    if "web-outside-air-temp" in mapped.columns and mapped["web-outside-air-temp"].notna().any():
+        web = pd.to_numeric(mapped["web-outside-air-temp"], errors="coerce")
+    elif "oa_t_effective" in mapped.columns and mapped["oa_t_effective"].notna().any():
+        web = pd.to_numeric(mapped["oa_t_effective"], errors="coerce")
+    if prefer_web_oat and web is not None and web.notna().any():
+        return web
+    if bas is not None and bas.notna().any():
+        return bas
+    return web
+
+
+def economizer_free_cooling_diagnostics(
+    frames: dict[str, pd.DataFrame],
+    role_map: dict,
+    *,
+    weather: pd.DataFrame | None = None,
+    prefer_web_oat: bool = False,
+    dt_min_f: float = ECON_DIAG_DT_MIN_F,
+    max_points_per_eq: int = 8000,
+) -> dict[str, Any]:
+    """Build fan-on free-cooling diagnostic points + per-AHU metric cards.
+
+    Filters to AHU/RTU with fan running. Mixing features use |OAT−RAT| ≥ dt_min_f
+    (Guideline 36 default 10°F). Returns ``points`` (long DF), ``metrics`` (summary),
+    and ``skipped`` (equipment without required signals).
+    """
+    from app.rules.cookbook_catalog import norm_cmd
+    from app.rules.runner import merge_weather
+
+    role_map = role_map or {}
+    point_rows: list[pd.DataFrame] = []
+    metrics_rows: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+
+    for eq_id, raw in (frames or {}).items():
+        if raw is None or raw.empty:
+            continue
+        et = resolve_equipment_type(eq_id, df=raw, role_map=role_map)
+        et_n = normalize_equipment_type(et) if et else ""
+        if et_n not in ECON_DIAG_AIR_TYPES and not str(eq_id).upper().startswith(("AHU", "RTU", "MAU")):
+            # Allow name-based AHU/RTU when type resolver is generic
+            if not any(tok in str(eq_id).upper() for tok in ("AHU", "RTU", "MAU", "AIRHAND")):
+                continue
+            et_n = et_n or "AHU"
+
+        mapped = apply_role_map(raw, eq_id, role_map)
+        mapped = merge_weather(mapped, weather)
+        fan_on = _econ_fan_on_mask(mapped)
+        if not fan_on.any():
+            skipped.append({"equipment_id": eq_id, "reason": "no_fan_running_or_unmapped"})
+            continue
+
+        oat = _econ_resolve_oat(mapped, prefer_web_oat=prefer_web_oat)
+        rat = (
+            pd.to_numeric(mapped["return-air-temp"], errors="coerce")
+            if "return-air-temp" in mapped.columns
+            else None
+        )
+        mat = (
+            pd.to_numeric(mapped["mixed-air-temp"], errors="coerce")
+            if "mixed-air-temp" in mapped.columns
+            else None
+        )
+        sat = (
+            pd.to_numeric(mapped["discharge-air-temp"], errors="coerce")
+            if "discharge-air-temp" in mapped.columns
+            else None
+        )
+        damper_fb = None
+        if "outside-air-damper" in mapped.columns and mapped["outside-air-damper"].notna().any():
+            damper_fb = norm_cmd(mapped["outside-air-damper"]) * 100.0
+
+        if oat is None or rat is None or mat is None:
+            missing = []
+            if oat is None:
+                missing.append("OAT")
+            if rat is None:
+                missing.append("RAT")
+            if mat is None:
+                missing.append("MAT")
+            skipped.append(
+                {
+                    "equipment_id": eq_id,
+                    "reason": "missing_" + "+".join(missing),
+                }
+            )
+            continue
+
+        sub = pd.DataFrame(
+            {
+                "equipment_id": eq_id,
+                "equipment_type": et_n or et or "AHU",
+                "oat_f": oat,
+                "rat_f": rat,
+                "mat_f": mat,
+                "sat_f": sat if sat is not None else np.nan,
+                "damper_fb_pct": damper_fb if damper_fb is not None else np.nan,
+                "fan_on": fan_on,
+            },
+            index=mapped.index,
+        )
+        sub = sub.loc[fan_on].copy()
+        if sub.empty:
+            skipped.append({"equipment_id": eq_id, "reason": "no_fan_on_rows"})
+            continue
+
+        delta_or = sub["oat_f"] - sub["rat_f"]
+        delta_mr = sub["mat_f"] - sub["rat_f"]
+        ident = delta_or.abs() >= float(dt_min_f)
+        sub["delta_or_f"] = delta_or
+        sub["delta_mr_f"] = delta_mr
+        sub["identifiable"] = ident
+        with np.errstate(divide="ignore", invalid="ignore"):
+            oa_frac = 100.0 * delta_mr / delta_or
+        oa_frac = oa_frac.where(ident)
+        # Physical clamp for display metrics only
+        sub["oa_frac_temp_pct"] = oa_frac.clip(-20, 120)
+        if damper_fb is not None:
+            mat_pred = sub["rat_f"] + (sub["damper_fb_pct"] / 100.0) * delta_or
+            sub["mat_pred_f"] = mat_pred
+            sub["mat_resid_f"] = sub["mat_f"] - mat_pred
+        else:
+            sub["mat_pred_f"] = np.nan
+            sub["mat_resid_f"] = np.nan
+
+        # Downsample for Plotly if needed
+        if len(sub) > int(max_points_per_eq):
+            step = max(1, len(sub) // int(max_points_per_eq))
+            sub = sub.iloc[::step].copy()
+
+        out_pts = sub.copy()
+        out_pts = out_pts.reset_index()
+        # Normalize timestamp column name from DatetimeIndex reset
+        if "timestamp" not in out_pts.columns:
+            # first column from index
+            first = out_pts.columns[0]
+            if first != "equipment_id":
+                out_pts = out_pts.rename(columns={first: "timestamp"})
+        point_rows.append(out_pts)
+
+        g = sub.loc[ident].dropna(subset=["oa_frac_temp_pct", "damper_fb_pct"])
+        slope = intercept = r2 = np.nan
+        if len(g) >= 8 and g["damper_fb_pct"].std() > 1e-6:
+            try:
+                coef = np.polyfit(g["damper_fb_pct"].to_numpy(), g["oa_frac_temp_pct"].to_numpy(), 1)
+                yhat = coef[0] * g["damper_fb_pct"] + coef[1]
+                ss_res = float(((g["oa_frac_temp_pct"] - yhat) ** 2).sum())
+                ss_tot = float(((g["oa_frac_temp_pct"] - g["oa_frac_temp_pct"].mean()) ** 2).sum())
+                slope, intercept = float(coef[0]), float(coef[1])
+                r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0 else np.nan
+            except Exception:
+                pass
+
+        resid = sub.loc[ident, "mat_resid_f"].dropna() if "mat_resid_f" in sub.columns else pd.Series(dtype=float)
+        fan_hours = round(_mask_hours_from_index(fan_on.reindex(mapped.index).fillna(False)), 2)
+        metrics_rows.append(
+            {
+                "equipment_id": eq_id,
+                "equipment_type": et_n or et or "AHU",
+                "fan_on_hours": round(fan_hours, 2),
+                "n_fan_on_samples": int(fan_on.sum()),
+                "n_identifiable": int(ident.sum()),
+                "has_damper": damper_fb is not None,
+                "median_mat_resid_f": round(float(resid.median()), 2) if len(resid) else np.nan,
+                "mat_resid_mae_f": round(float(resid.abs().mean()), 2) if len(resid) else np.nan,
+                "oa_frac_vs_damper_slope": round(slope, 3) if np.isfinite(slope) else np.nan,
+                "oa_frac_vs_damper_intercept": round(intercept, 2) if np.isfinite(intercept) else np.nan,
+                "oa_frac_vs_damper_r2": round(r2, 3) if np.isfinite(r2) else np.nan,
+                "dt_min_f": float(dt_min_f),
+            }
+        )
+
+    points = (
+        pd.concat(point_rows, ignore_index=True)
+        if point_rows
+        else pd.DataFrame(
+            columns=[
+                "timestamp",
+                "equipment_id",
+                "equipment_type",
+                "oat_f",
+                "rat_f",
+                "mat_f",
+                "sat_f",
+                "damper_fb_pct",
+                "fan_on",
+                "delta_or_f",
+                "delta_mr_f",
+                "identifiable",
+                "oa_frac_temp_pct",
+                "mat_pred_f",
+                "mat_resid_f",
+            ]
+        )
+    )
+    metrics = (
+        pd.DataFrame(metrics_rows).sort_values("equipment_id").reset_index(drop=True)
+        if metrics_rows
+        else pd.DataFrame(
+            columns=[
+                "equipment_id",
+                "equipment_type",
+                "fan_on_hours",
+                "n_fan_on_samples",
+                "n_identifiable",
+                "has_damper",
+                "median_mat_resid_f",
+                "mat_resid_mae_f",
+                "oa_frac_vs_damper_slope",
+                "oa_frac_vs_damper_intercept",
+                "oa_frac_vs_damper_r2",
+                "dt_min_f",
+            ]
+        )
+    )
+    return {
+        "points": points,
+        "metrics": metrics,
+        "skipped": skipped,
+        "dt_min_f": float(dt_min_f),
+    }

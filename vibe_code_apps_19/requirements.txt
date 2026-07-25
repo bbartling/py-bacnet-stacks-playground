@@ -6,7 +6,8 @@ plotly>=5.18
 duckdb>=0.9
 pydantic>=2.0
 requests>=2.31
-# Engineering Findings DOCX + Plotly→PNG (Overview / Run Rules report)
+# Engineering Findings DOCX + Excel notebook + Plotly→PNG (Overview / Run Rules report)
 python-docx>=1.1
+openpyxl>=3.1
 kaleido>=0.2.1
 matplotlib>=3.8

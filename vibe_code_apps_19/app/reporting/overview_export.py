@@ -220,6 +220,62 @@ def build_overview_charts(
             }
         )
 
+    # Economizer free-cooling diagnostics (fan-on, ΔT≥10°F)
+    try:
+        from app.analytics import economizer_free_cooling_diagnostics
+        from app.charts import (
+            economizer_delta_scatter,
+            economizer_mat_residual_chart,
+            economizer_temps_overlay,
+        )
+
+        diag = economizer_free_cooling_diagnostics(
+            frames,
+            role_map,
+            weather=weather,
+            prefer_web_oat=prefer_web,
+        )
+        pts = diag.get("points")
+        dt_min = float(diag.get("dt_min_f") or 10.0)
+        delta_fig = economizer_delta_scatter(pts, dt_min_f=dt_min)
+        if delta_fig is not None:
+            charts.append(
+                _export_plotly(
+                    delta_fig,
+                    "overview_economizer_delta_scatter",
+                    out_dir,
+                    title="Economizer free-cooling delta scatter (fan on)",
+                )
+            )
+        resid_fig = economizer_mat_residual_chart(pts)
+        if resid_fig is not None:
+            charts.append(
+                _export_plotly(
+                    resid_fig,
+                    "overview_economizer_mat_residual",
+                    out_dir,
+                    title="Economizer MAT residual (fan on)",
+                )
+            )
+        overlay_fig = economizer_temps_overlay(pts)
+        if overlay_fig is not None:
+            charts.append(
+                _export_plotly(
+                    overlay_fig,
+                    "overview_economizer_temps_overlay",
+                    out_dir,
+                    title="Economizer temps + OA damper (fan on)",
+                )
+            )
+    except Exception as exc:
+        charts.append(
+            {
+                "name": "overview_economizer_free_cool",
+                "path": None,
+                "export_error": str(exc),
+            }
+        )
+
     artifacts.overview_charts = [c for c in charts if c.get("path")]
     return charts
 

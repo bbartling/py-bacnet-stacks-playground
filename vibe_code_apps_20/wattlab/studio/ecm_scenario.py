@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_ECM_SCENARIO_NAME = "ecm_scenario.json"
-ECM_SCENARIO_VERSION = 2
+ECM_SCENARIO_VERSION = 3
 
 
 def default_ecm_scenario_path(workspace: Path | None = None) -> Path:
@@ -27,6 +27,9 @@ def empty_ecm_scenario() -> dict[str, Any]:
         "package_hints": [],
         "proxy_defaults": {},
         "roi_param_hints": {},
+        "notebook_package_id": None,
+        "notebook_path": None,
+        "input_overrides": {},
         "notes": "",
         "recommendations": [],
         "status": "empty — waiting agent or Easy Buttons",
@@ -54,10 +57,16 @@ def load_ecm_scenario(path: Path | str | None = None) -> dict[str, Any]:
     for key in ("package_hints",):
         value = out.get(key)
         out[key] = [str(item) for item in value] if isinstance(value, list) else []
-    for key in ("proxy_defaults", "roi_param_hints"):
+    for key in ("proxy_defaults", "roi_param_hints", "input_overrides"):
         out[key] = dict(out.get(key) or {}) if isinstance(out.get(key), dict) else {}
+    if out.get("notebook_package_id"):
+        out["notebook_package_id"] = str(out["notebook_package_id"])
+    if out.get("notebook_path"):
+        out["notebook_path"] = str(out["notebook_path"])
     if out["selected_ecm_ids"]:
         out["status"] = f"{len(out['selected_ecm_ids'])} ECMs selected"
+        if out.get("notebook_package_id"):
+            out["status"] += f" · notebook={out['notebook_package_id']}"
     else:
         out["status"] = "empty — waiting agent or Easy Buttons"
     return out
@@ -79,10 +88,16 @@ def save_ecm_scenario(
     body["package_hints"] = [
         str(item) for item in (body.get("package_hints") or [])
     ] if isinstance(body.get("package_hints"), list) else []
-    for key in ("proxy_defaults", "roi_param_hints"):
+    for key in ("proxy_defaults", "roi_param_hints", "input_overrides"):
         body[key] = dict(body.get(key) or {}) if isinstance(body.get(key), dict) else {}
+    if body.get("notebook_package_id"):
+        body["notebook_package_id"] = str(body["notebook_package_id"])
+    if body.get("notebook_path"):
+        body["notebook_path"] = str(body["notebook_path"])
     if body["selected_ecm_ids"]:
         body["status"] = f"{len(body['selected_ecm_ids'])} ECMs selected"
+        if body.get("notebook_package_id"):
+            body["status"] += f" · notebook={body['notebook_package_id']}"
     else:
         body["status"] = "empty — waiting agent or Easy Buttons"
     p.write_text(json.dumps(body, indent=2), encoding="utf-8")

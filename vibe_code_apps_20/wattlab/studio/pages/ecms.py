@@ -141,17 +141,115 @@ def _render_baseline_run_picker() -> None:
         )
 
 
-def render() -> None:
-    st.header("ECMs — measures + capital plan")
+def _render_engineering_notebook(profile: dict[str, Any]) -> None:
+    """Primary ECM deliverable: package Excel notebook (preview + download)."""
+    from wattlab.notebooks import (
+        build_and_save_notebook,
+        list_notebook_packages,
+        preview_sheet_rows,
+    )
+    from wattlab.studio.ecm_scenario import (
+        default_ecm_scenario_path,
+        load_ecm_scenario,
+        save_ecm_scenario,
+    )
+
+    st.subheader("Engineering notebook (Excel)")
     st.caption(
-        "Catalog Easy Buttons + measure sets. Capital plan is gated by benchmark "
-        "guardrails (PUBLISH / INVESTIGATE)."
+        "Pick a least→radical package, build a real spreadsheet (ESCO vs E+ + ROI formulas), "
+        "preview key sheets, download. Agents: `wattlab notebook build --package …`."
     )
     st.markdown(
-        "[ESCO spreadsheet calcs & Top-15 ECM map (GitHub)]"
+        "[ESCO formula map (GitHub)]"
         "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
-        "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md) · "
-        "local: `vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md`"
+        "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md)"
+    )
+    pkgs = list_notebook_packages()
+    by_id = {p.id: p for p in pkgs}
+    labels = {p.id: p.label for p in pkgs}
+    pick = st.selectbox(
+        "Package",
+        [p.id for p in pkgs],
+        format_func=lambda k: labels.get(k, k),
+        key="ecm_notebook_package",
+    )
+    pkg = by_id[pick]
+    st.caption(f"{pkg.honesty} · {len(pkg.measure_ids)} measures · catalog `{pkg.catalog_package}`")
+
+    out_dir = reports_dir() / "notebooks"
+    if st.button("Build / refresh notebook", type="primary", key="ecm_notebook_build"):
+        try:
+            proxy_profile = _enrich_profile_for_proxies(profile)
+            report = st.session_state.get("studio_report") or {}
+            run = st.session_state.get("studio_ecm_baseline_run")
+            if run and not report.get("savings_by_measure"):
+                report = {**report, **_load_run_report(run)}
+            written = build_and_save_notebook(
+                pick,
+                out_dir,
+                profile=proxy_profile,
+                report=report if isinstance(report, dict) else {},
+                write_manifest=True,
+            )
+            st.session_state["studio_notebook_path"] = str(written["xlsx"])
+            st.session_state["studio_notebook_manifest"] = str(written.get("manifest") or "")
+            # Persist for agents
+            scen = load_ecm_scenario()
+            scen["notebook_package_id"] = pick
+            scen["notebook_path"] = str(written["xlsx"])
+            scen["selected_ecm_ids"] = list(pkg.measure_ids)
+            save_ecm_scenario(scen)
+            st.success(f"Notebook → {written['xlsx']}")
+        except Exception as exc:
+            st.error(f"Notebook build failed: {exc}")
+            return
+
+    xlsx = st.session_state.get("studio_notebook_path")
+    if not xlsx or not Path(str(xlsx)).is_file():
+        # Autoload if package file already on disk
+        candidate = out_dir / f"{pick}.xlsx"
+        if candidate.is_file():
+            xlsx = str(candidate)
+            st.session_state["studio_notebook_path"] = xlsx
+    if xlsx and Path(str(xlsx)).is_file():
+        path = Path(str(xlsx))
+        tabs = st.tabs(["Inputs", "Compare", "ROI_Capital"])
+        for tab, sheet in zip(tabs, ("Inputs", "Compare", "ROI_Capital")):
+            with tab:
+                rows = preview_sheet_rows(path, sheet, max_rows=50)
+                if not rows:
+                    st.caption(f"Sheet `{sheet}` empty or missing (open Excel for formulas).")
+                else:
+                    st.dataframe(
+                        pd.DataFrame(rows[1:], columns=rows[0] if rows else None),
+                        width="stretch",
+                        hide_index=True,
+                    )
+        st.download_button(
+            "Download engineering notebook (.xlsx)",
+            data=path.read_bytes(),
+            file_name=path.name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="ecm_dl_notebook_xlsx",
+            type="primary",
+        )
+        man = path.parent / f"{path.stem}.notebook_manifest.json"
+        if man.is_file():
+            st.download_button(
+                "Download notebook_manifest.json (agents)",
+                data=man.read_bytes(),
+                file_name=man.name,
+                mime="application/json",
+                key="ecm_dl_notebook_manifest",
+            )
+        st.caption(f"Also on disk: `{path}` · scenario → `{default_ecm_scenario_path()}`")
+
+
+def render() -> None:
+    st.header("ECMs — engineering notebooks")
+    st.caption(
+        "Primary deliverable is an Excel notebook per package (ESCO vs EnergyPlus + ROI). "
+        "Easy Buttons / capital-plan details live under Advanced."
     )
 
     profile = st.session_state.get("studio_profile")
@@ -160,8 +258,7 @@ def render() -> None:
         st.info(
             "Resolve a profile on **Twin / calibrate** first — or bootstrap with "
             "`answers_path` so Re-apply builds `studio_profile` automatically. "
-            "Agents: `wattlab studio-status --write` then fill answers / "
-            "`reports/ecm_scenario.json`."
+            "Agents: `wattlab notebook build --package controls_first --out reports/notebooks/`."
         )
         if isinstance(answers, dict):
             st.caption(
@@ -172,14 +269,17 @@ def render() -> None:
 
     _render_baseline_run_picker()
     st.divider()
+    _render_engineering_notebook(profile)
+    st.divider()
 
-    # --- Easy Buttons catalog ---
-    from wattlab.studio.pages.ecm_easy_buttons import render as render_easy
+    with st.expander("Advanced — Easy Buttons catalog", expanded=False):
+        from wattlab.studio.pages.ecm_easy_buttons import render as render_easy
 
-    render_easy(profile=profile, proxy_estimator=estimate_proxy_savings)
+        render_easy(profile=profile, proxy_estimator=estimate_proxy_savings)
 
     st.divider()
     st.subheader("Measure set + proxy pricing")
+    st.caption("Optional legacy path — Engineering notebook above is preferred for deliverables.")
     sets = list_measure_sets()
     set_ids = [s["id"] for s in sets] or ["best"]
     labels = {s["id"]: f"{s['label']} — {', '.join(s['measure_ids'])}" for s in sets}
@@ -718,11 +818,14 @@ def render() -> None:
     st.caption(f"Also written to `{out}` for agents.")
 
     st.subheader("Client energy-model package")
-    st.caption("Same Twin deliverable builder — report + workbook + model zip from the latest Studio report.")
+    st.caption(
+        "Optional Twin zip (report + results xlsx). Prefer the Engineering notebook above for ECM ROI. "
+        "DOCX is off by default."
+    )
     docx_available = find_spec("docx") is not None
     include_docx = st.checkbox(
         "Include client DOCX",
-        value=docx_available,
+        value=False,
         disabled=not docx_available,
         key="ecm_include_client_docx",
     )

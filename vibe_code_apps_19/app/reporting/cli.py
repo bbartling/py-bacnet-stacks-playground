@@ -66,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out-dir", type=Path, help="Output directory")
     p.add_argument("--out", type=Path, help="Alias for --out-dir")
     p.add_argument("--docx", action="store_true")
+    p.add_argument("--xlsx", action="store_true", help="Punchlist-first Excel notebook (BUG notebook)")
     p.add_argument("--json", action="store_true", dest="json_out")
     p.add_argument("--no-charts", action="store_true")
     p.add_argument("--max-findings", type=int, default=7, help="Priority pack size (default 7)")
@@ -196,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
         docx=args.docx,
         json_out=args.json_out or not args.docx,
         charts=not args.no_charts,
+        xlsx=bool(args.xlsx),
         overview_context=overview_context,
         rule_results=rule_results,
         write_inventory=write_inv,

@@ -221,6 +221,7 @@ def render_engineering_report(
     docx: bool = True,
     json_out: bool = True,
     charts: bool = True,
+    xlsx: bool = False,
     basename: str | None = None,
     overview_context: dict[str, Any] | None = None,
     rule_results: list[RuleResult] | None = None,
@@ -258,6 +259,13 @@ def render_engineering_report(
         ip = out_dir / f"{base}_fault_inventory.json"
         ip.write_text(json.dumps(artifacts.fault_inventory, indent=2) + "\n", encoding="utf-8")
         written["fault_inventory"] = ip
+
+    if xlsx:
+        from app.reporting.xlsx import render_findings_xlsx
+
+        xp = out_dir / f"{base}.xlsx"
+        render_findings_xlsx(artifacts, xp, embed_images=True)
+        written["xlsx"] = xp
 
     if docx:
         from app.reporting.docx import render_docx
