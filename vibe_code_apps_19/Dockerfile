@@ -29,7 +29,6 @@ LABEL org.opencontainers.image.title="vibe19" \
 WORKDIR /app
 
 # Chromium + shared libs for Kaleido ≥1 Plotly→PNG (DOCX Overview charts).
-# Distro Chromium so multi-arch GHCR (amd64 + arm64) each get a native binary.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       chromium \
@@ -57,25 +56,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && /usr/bin/chromium --version
 
 COPY requirements.txt ./
+COPY scripts/docker_kaleido_smoke.py /tmp/docker_kaleido_smoke.py
 RUN pip install --no-cache-dir -r requirements.txt \
  && python -c "import docx, kaleido, matplotlib; print('engineering-report extras ok')" \
- && python -c "\
-import os, platform, sys; \
-from pathlib import Path; \
-import plotly.graph_objects as go; \
-os.environ['BROWSER_PATH'] = '/usr/bin/chromium'; \
-p = Path('/tmp/kaleido_smoke.png'); \
-fig = go.Figure(data=[go.Bar(x=['a'], y=[1])]); \
-try: \
-    fig.write_image(str(p)); \
-    assert p.is_file() and p.stat().st_size > 100; \
-    print('kaleido png ok', p.stat().st_size, platform.machine()); \
-except Exception as exc: \
-    # Buildx QEMU arm64 often cannot launch Chromium; real arm64 hosts still work at runtime. \
-    if platform.machine() in ('aarch64', 'arm64'): \
-        print('WARN kaleido smoke skipped on', platform.machine(), ':', exc); \
-        sys.exit(0); \
-    raise"
+ && python /tmp/docker_kaleido_smoke.py
 
 # Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .
