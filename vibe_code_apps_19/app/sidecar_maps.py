@@ -151,6 +151,59 @@ def load_equipment_sidecar_map(
     return data
 
 
+def column_map_from_role_map(
+    role_map: dict[str, Any],
+    *,
+    building_id: str = "",
+    site_ref: str = "default_site",
+    equipment_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Synthesize a package column_map from session_config / role_map.yaml style maps."""
+    from app.site_model import equipment_type_from_id
+
+    data = empty_column_map(
+        building_id=building_id or "UNNAMED_BUILDING",
+        site_ref=site_ref,
+        generated_by="session-role-map-fallback",
+    )
+    wanted = set(equipment_ids or []) or set(role_map or {})
+    for eq_id in sorted(wanted):
+        raw = role_map.get(eq_id) if isinstance(role_map, dict) else None
+        if not isinstance(raw, dict):
+            continue
+        # Drop non-point metadata keys commonly stored alongside roles
+        skip = {
+            "equipment_type",
+            "equipType",
+            "plant_group",
+            "device",
+            "notes",
+            "siteRef",
+            "building_id",
+        }
+        roles = {
+            str(k): str(v)
+            for k, v in raw.items()
+            if k not in skip and isinstance(v, str) and v.strip()
+        }
+        roles = normalize_point_roles(roles)
+        if not roles:
+            continue
+        etype = str(
+            raw.get("equipment_type")
+            or raw.get("equipType")
+            or equipment_type_from_id(eq_id)
+            or "UNKNOWN"
+        )
+        etype = haystack_equip_type_to_cookbook(etype, eq_id)
+        data["equipment"][eq_id] = {
+            "equipment_type": etype,
+            "device": eq_id,
+            "column_roles": roles,
+        }
+    return normalize_column_map(data)
+
+
 def merge_package_column_maps(
     building_root: Path,
     equipment: list[dict[str, Any]],
@@ -158,9 +211,48 @@ def merge_package_column_maps(
     building_id: str = "",
     site_ref: str = "default_site",
     root_column_map: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Require per-equip sidecars; merge them (+ optional root map as supplement)."""
-    require_equipment_sidecar_maps(equipment)
+    role_map_fallback: dict[str, Any] | None = None,
+    allow_role_map_fallback: bool = True,
+) -> tuple[dict[str, Any], list[str]]:
+    """Merge per-equip sidecars (+ optional root).
+
+    When sidecars are missing but ``role_map_fallback`` (session_config.role_map
+    or role_map.yaml) covers equipment, synthesize maps and return a warning
+    instead of rejecting the package (BUG-014 practice packages).
+    """
+    warnings: list[str] = []
+    try:
+        require_equipment_sidecar_maps(equipment)
+    except SidecarMapError as exc:
+        if not allow_role_map_fallback or not role_map_fallback:
+            raise
+        eq_ids = [str(e["equipment_id"]) for e in equipment]
+        synthesized = column_map_from_role_map(
+            role_map_fallback,
+            building_id=building_id or building_root.name,
+            site_ref=site_ref,
+            equipment_ids=eq_ids,
+        )
+        covered = set((synthesized.get("equipment") or {}).keys())
+        missing = [eid for eid in eq_ids if eid not in covered]
+        if missing:
+            raise SidecarMapError(
+                f"{exc} Also session/role_map fallback missing bindings for: "
+                + ", ".join(missing[:12])
+                + (f" … +{len(missing) - 12} more" if len(missing) > 12 else "")
+            ) from exc
+        warnings.append(
+            "No per-equip Haystack sidecar JSON; using session_config/role_map "
+            f"fallback for {len(covered)} equipment (prefer sibling column_map.json)."
+        )
+        if root_column_map:
+            # Root supplements; role_map-derived blocks already present
+            merged = normalize_column_map(root_column_map)
+            for eq_id, block in (synthesized.get("equipment") or {}).items():
+                merged.setdefault("equipment", {})[eq_id] = block
+            return normalize_column_map(merged), warnings
+        return synthesized, warnings
+
     merged = empty_column_map(
         building_id=building_id or building_root.name,
         site_ref=site_ref,
@@ -180,7 +272,7 @@ def merge_package_column_maps(
         )
         block = piece["equipment"][eq_id]
         merged["equipment"][eq_id] = block
-    return normalize_column_map(merged)
+    return normalize_column_map(merged), warnings
 
 
 def sidecar_maps_to_role_map(

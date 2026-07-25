@@ -551,13 +551,30 @@ def load_package_from_dir(
 
     from app.sidecar_maps import SidecarMapError, merge_package_column_maps
 
+    role_map_fallback: dict[str, Any] | None = None
+    if session_cfg is not None and getattr(session_cfg, "role_map", None):
+        role_map_fallback = {
+            str(k): dict(v) for k, v in session_cfg.role_map.items() if isinstance(v, dict)
+        }
+    # Optional package-root role_map.yaml (WattLab dumps)
+    rm_yaml = building_root / "role_map.yaml"
+    if role_map_fallback is None and rm_yaml.is_file():
+        try:
+            from app.role_map import load_role_map
+
+            role_map_fallback = load_role_map(rm_yaml)
+        except Exception as exc:
+            warnings.append(f"role_map.yaml unreadable: {exc}")
+
     try:
-        column_map = merge_package_column_maps(
+        column_map, map_warnings = merge_package_column_maps(
             building_root,
             equipment,
             building_id=manifest.building_id,
             root_column_map=root_map,
+            role_map_fallback=role_map_fallback,
         )
+        warnings.extend(map_warnings)
     except SidecarMapError as exc:
         raise PackageError(str(exc)) from exc
 

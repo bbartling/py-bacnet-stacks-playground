@@ -39,6 +39,24 @@ def resolve_result_for_finding(
     return None
 
 
+def _day_bounds(day: date, index: pd.DatetimeIndex) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Inclusive start / exclusive end for ``day``, timezone-aligned to ``index``."""
+    start = pd.Timestamp(day)
+    end = start + pd.Timedelta(days=1)
+    tz = getattr(index, "tz", None)
+    if tz is not None:
+        if start.tzinfo is None:
+            start = start.tz_localize(tz)
+            end = end.tz_localize(tz)
+        else:
+            start = start.tz_convert(tz)
+            end = end.tz_convert(tz)
+    elif start.tzinfo is not None:
+        start = start.tz_convert("UTC").tz_localize(None)
+        end = end.tz_convert("UTC").tz_localize(None)
+    return start, end
+
+
 def worst_fault_day(fault: pd.Series | None) -> date | None:
     """Calendar day with the most fault samples (True / 1)."""
     if fault is None or len(fault) == 0:
@@ -57,6 +75,8 @@ def worst_fault_day(fault: pd.Series | None) -> date | None:
             numeric.index = idx
         except Exception:
             return None
+    else:
+        numeric.index = s.index
     daily = numeric.groupby(numeric.index.normalize()).sum()
     if daily.empty or float(daily.max()) <= 0:
         return None
@@ -97,9 +117,6 @@ def render_day_zoom_png(
         fault = getattr(result, "raw_fault", None)
     plot_series = getattr(result, "plot_series", None) or {}
 
-    day_start = pd.Timestamp(day)
-    day_end = day_start + pd.Timedelta(days=1)
-
     def _slice(ser: pd.Series | None) -> pd.Series | None:
         if ser is None or len(ser) == 0:
             return None
@@ -109,6 +126,7 @@ def render_day_zoom_png(
                 s.index = pd.to_datetime(s.index)
             except Exception:
                 return None
+        day_start, day_end = _day_bounds(day, s.index)
         return s[(s.index >= day_start) & (s.index < day_end)]
 
     fault_day = _slice(fault)

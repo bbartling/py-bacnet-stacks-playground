@@ -53,6 +53,27 @@ def test_render_day_zoom_png(tmp_path):
     assert hours >= 0
 
 
+def test_render_day_zoom_png_utc_aware_index(tmp_path):
+    """BUG-012: UTC-aware DatetimeIndex must not crash against naive day bounds."""
+    idx = pd.date_range("2026-06-28", periods=24, freq="h", tz="UTC")
+    fault = pd.Series([0, 0, 1, 1, 1, 0] + [0] * 18, index=idx)
+    series = {"zone_t": pd.Series(range(24), index=idx, dtype=float)}
+    result = RuleResult(
+        rule_id="VAV-5",
+        equipment_id="VAV_22",
+        status="FAULT",
+        applicable=True,
+        confirmed_fault=fault,
+        plot_series=series,
+    )
+    day = worst_fault_day(fault)
+    assert day == date(2026, 6, 28)
+    rendered = render_day_zoom_png(result, day, tmp_path / "utc_zoom.png")
+    assert rendered is not None
+    path, _hours = rendered
+    assert path.is_file() and path.stat().st_size > 500
+
+
 def test_docx_embeds_day_zoom_media(tmp_path):
     idx = pd.date_range("2026-06-28", periods=24, freq="h")
     fault = pd.Series([1] * 12 + [0] * 12, index=idx)
