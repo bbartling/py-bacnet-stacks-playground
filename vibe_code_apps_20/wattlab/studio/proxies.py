@@ -420,6 +420,7 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                 }
             elif mid == "ECM-DOAS-HP" or "DOAS-HP" in mid:
                 # Mega package: ERV ventilation recovery + heat-pump electrification.
+                # HP returns negative savings_kwh (elec added) — keep as elec_delta, not "savings".
                 erv = _erv_proxy(
                     get, oa_cfm=oa_cfm, exhaust_cfm=oa_cfm, kw_per_ton=kw_per_ton, bins=bins, schedule=existing
                 )
@@ -430,9 +431,13 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                         "proposed_cop": 2.8,
                     }
                 )
+                hp_kwh = float(hp["savings_kwh"])
                 out[mid] = {
-                    "savings_kwh": round(erv["savings_kwh"] + float(hp["savings_kwh"]), 1),
+                    "savings_kwh": round(float(erv["savings_kwh"]) + hp_kwh, 1),
+                    "elec_delta_kwh": round(float(erv["savings_kwh"]) + hp_kwh, 1),
                     "savings_therms": round(erv["savings_therms"] + float(hp["savings_therms"]), 1),
+                    "basis": "fuel_switch",
+                    "calculators": ["erv_bins", "heat_pump_electrification"],
                 }
             elif "AWHP" in mid:
                 hp = get("heat_pump_electrification")(
@@ -442,9 +447,13 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                         "proposed_cop": 2.8,
                     }
                 )
+                hp_kwh = float(hp["savings_kwh"])
                 out[mid] = {
-                    "savings_kwh": round(float(hp["savings_kwh"]), 1),
+                    "savings_kwh": round(hp_kwh, 1),
+                    "elec_delta_kwh": round(hp_kwh, 1),
                     "savings_therms": round(float(hp["savings_therms"]), 1),
+                    "basis": "fuel_switch",
+                    "calculators": ["heat_pump_electrification"],
                 }
             elif "BOILER-TUNE" in mid:
                 res = get("boiler_efficiency_improvement")(

@@ -258,7 +258,7 @@ def test_agent_build_formula_esco_and_cli(tmp_path: Path):
         ]
     )
     assert rc == 0
-    assert (tmp_path / "cli_out" / "controls_first.xlsx").is_file()
+    assert (tmp_path / "cli_out" / "01_controls_first_rcx.xlsx").is_file()
 
 
 def test_sync_from_twin_soft(tmp_path: Path):
@@ -367,6 +367,8 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     written2 = build_and_save_notebook("deep_retrofit", tmp_path / "empty", report={})
     wb2 = openpyxl.load_workbook(written2["xlsx"], data_only=False)
     assert "Calibrated_Twin" in wb2.sheetnames
+    assert wb2.sheetnames[1] == "Screening_Results"
+    assert wb2.active.title == "Screening_Results"
     status = None
     for r in range(2, 20):
         if wb2["Calibrated_Twin"][f"A{r}"].value == "status":
@@ -381,10 +383,75 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     }
     assert str(by_mid["ECM-ERV"]).startswith("=")
 
+    # Screening_Results: fuel-switch honesty (no huge negative "savings_kwh")
+    scr2 = wb2["Screening_Results"]
+    hdr = [scr2.cell(1, c).value for c in range(1, 12)]
+    assert hdr[:5] == [
+        "measure_id",
+        "basis",
+        "elec_delta_kwh",
+        "savings_kwh",
+        "savings_therms",
+    ]
+    rows_by = {}
+    for r in range(2, (scr2.max_row or 1) + 1):
+        mid = scr2.cell(r, 1).value
+        if mid and mid != "TOTAL":
+            rows_by[str(mid)] = {
+                "basis": scr2.cell(r, 2).value,
+                "elec_delta_kwh": scr2.cell(r, 3).value,
+                "savings_kwh": scr2.cell(r, 4).value,
+            }
+    for mid in ("ECM-DOAS-HP", "ECM-AWHP-SURROGATE"):
+        assert mid in rows_by
+        assert rows_by[mid]["basis"] == "fuel_switch"
+        assert float(rows_by[mid]["savings_kwh"] or 0) >= 0
+    assert wb2["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
+    assert wb2["EPlus_Results"]["A2"].value == "note"
+
     base = extract_calibrated_baseline(scorecard, twin_run="geo_b100_x")
     assert base["model_site_eui"] == 77.8
     assert base["has_core"] is True
 
+    # Flat Liberty scorecard.json shape (model_* top-level + model_peer)
+    flat = {
+        "run_id": "geo_b100_6stack_shape_r56_sched_mild",
+        "model_kwh": 1462657.3,
+        "model_therms": 59060.4,
+        "model_site_eui": 77.8,
+        "bill_kwh": 1464449.0,
+        "bill_therms": 56845.2,
+        "g14_pass": True,
+        "elec": {"nmbe_pct": 0.122, "cvrmse_pct": 11.339},
+        "gas": {"nmbe_pct": -3.897, "cvrmse_pct": 12.976},
+        "model_peer": {"band": "above_p80", "vs_median_pct": 47.1},
+    }
+    flat_base = extract_calibrated_baseline(flat, twin_run=flat["run_id"])
+    assert flat_base["model_site_eui"] == 77.8
+    assert flat_base["model_kwh"] == 1462657.3
+    assert flat_base["g14_pass"] == "PASS"
+    assert flat_base["peer_band"] == "above_p80"
+    assert flat_base["nmbe_elec_pct"] == 0.122
+
+    # per_month observed bills must sum all months (not stop after month 1)
+    monthly_bills = {
+        "utility_bills": {
+            "per_month": [
+                {"observed_kwh": 100.0, "observed_therms": 10.0},
+                {"observed_kwh": 200.0, "observed_therms": 20.0},
+                {"observed_kwh": 50.0, "observed_therms": 5.0},
+            ]
+        }
+    }
+    monthly_base = extract_calibrated_baseline(monthly_bills)
+    assert monthly_base["bill_kwh"] == 350.0
+    assert monthly_base["bill_therms"] == 35.0
+
     man = summarize_notebook(written["xlsx"])
     assert man["docs_url"].endswith("ESCO_CALCULATORS.md")
     assert man["honesty"]["docs"]["retrofit_cost_roi"].endswith("ESCO_RETROFIT_COST_ROI.md")
+    # Honesty Compare rows must not leak as fake measures
+    assert all(
+        str(v.get("measure_id") or "").lower() not in ("(package)", "note")
+        for v in (man.get("compare") or [])
+    )

@@ -124,23 +124,58 @@ def extract_calibrated_baseline(
     twin_run: str | None = None,
     property_type: str = "office",
 ) -> dict[str, Any]:
-    """Pull G14 / annual / peer fields from Twin scorecard or report (BUG-057)."""
+    """Pull G14 / annual / peer fields from Twin scorecard or report (BUG-057).
+
+    Accepts both nested Studio shapes (``annual`` / ``utility_bills``) and the
+    flat Liberty ``scorecard.json`` fields (``model_kwh``, ``model_site_eui``,
+    ``model_peer``, …) plus ``g14`` / ``g14_score.json`` NMBE blocks.
+    """
     report = report or {}
     annual = report.get("annual") if isinstance(report.get("annual"), dict) else {}
     bills = report.get("utility_bills") if isinstance(report.get("utility_bills"), dict) else {}
     g14_blob = report.get("g14") if isinstance(report.get("g14"), dict) else {}
+    score = report.get("scorecard") if isinstance(report.get("scorecard"), dict) else {}
+    peer = (
+        report.get("model_peer")
+        if isinstance(report.get("model_peer"), dict)
+        else score.get("model_peer") if isinstance(score.get("model_peer"), dict) else {}
+    )
+
     stats_e = bills.get("stats_electricity") or bills.get("stats") or {}
     stats_g = bills.get("stats_natural_gas") or bills.get("stats_gas") or {}
     if not isinstance(stats_e, dict):
         stats_e = {}
     if not isinstance(stats_g, dict):
         stats_g = {}
+    # Flat g14_score / report.g14.elec|gas
+    elec_g = g14_blob.get("elec") if isinstance(g14_blob.get("elec"), dict) else {}
+    gas_g = g14_blob.get("gas") if isinstance(g14_blob.get("gas"), dict) else {}
+    if not elec_g and isinstance(report.get("elec"), dict):
+        elec_g = report["elec"]
+    if not gas_g and isinstance(report.get("gas"), dict):
+        gas_g = report["gas"]
+    if not stats_e and elec_g:
+        stats_e = elec_g
+    if not stats_g and gas_g:
+        stats_g = gas_g
 
-    model_kwh = annual.get("electricity_kwh_year")
-    model_therms = (
-        annual.get("natural_gas_therm_year")
-        or annual.get("gas_therms_year")
-        or annual.get("natural_gas_therms_year")
+    def _first(*vals: Any) -> Any:
+        for v in vals:
+            if v is not None and v != "":
+                return v
+        return None
+
+    model_kwh = _first(
+        annual.get("electricity_kwh_year"),
+        report.get("model_kwh"),
+        score.get("model_kwh"),
+    )
+    model_therms = _first(
+        annual.get("natural_gas_therm_year"),
+        annual.get("gas_therms_year"),
+        annual.get("natural_gas_therms_year"),
+        report.get("model_therms"),
+        score.get("model_therms"),
     )
     if model_therms is None:
         monthly = annual.get("monthly") or []
@@ -151,25 +186,61 @@ def extract_calibrated_baseline(
         ]
         if vals:
             model_therms = round(sum(vals), 1)
-    site_eui = annual.get("site_eui_kbtu_ft2_year") or g14_blob.get("site_eui_kbtu_ft2_year")
-    g14_pass = (
-        bills.get("pass_fail")
-        or report.get("pass_fail")
-        or report.get("overall")
-        or g14_blob.get("pass_fail")
+    site_eui = _first(
+        annual.get("site_eui_kbtu_ft2_year"),
+        g14_blob.get("site_eui_kbtu_ft2_year"),
+        report.get("model_site_eui"),
+        score.get("model_site_eui"),
     )
-    bill_kwh = None
-    bill_therms = None
-    for row in bills.get("per_month") or []:
-        if not isinstance(row, dict):
-            continue
-        if row.get("observed_kwh") is not None:
-            bill_kwh = (bill_kwh or 0.0) + float(row["observed_kwh"])
-        if row.get("observed_therms") is not None:
-            bill_therms = (bill_therms or 0.0) + float(row["observed_therms"])
 
-    peer_band = report.get("peer_band") or g14_blob.get("peer_band")
-    peer_vs = report.get("peer_vs_median_pct") or g14_blob.get("peer_vs_median_pct")
+    g14_raw = _first(
+        bills.get("pass_fail"),
+        report.get("pass_fail"),
+        report.get("overall"),
+        g14_blob.get("pass_fail"),
+        g14_blob.get("g14_pass"),
+        report.get("g14_pass"),
+        score.get("pass_fail"),
+    )
+    if g14_raw is True:
+        g14_pass: Any = "PASS"
+    elif g14_raw is False:
+        g14_pass = "FAIL"
+    else:
+        g14_pass = g14_raw
+
+    bill_kwh = _first(report.get("bill_kwh"), score.get("bill_kwh"))
+    bill_therms = _first(report.get("bill_therms"), score.get("bill_therms"))
+    if bill_kwh is None or bill_therms is None:
+        # Aggregate all months — do not stop after the first observed value
+        sum_kwh = 0.0
+        sum_therms = 0.0
+        n_kwh = 0
+        n_therms = 0
+        for row in bills.get("per_month") or []:
+            if not isinstance(row, dict):
+                continue
+            if row.get("observed_kwh") is not None:
+                sum_kwh += float(row["observed_kwh"])
+                n_kwh += 1
+            if row.get("observed_therms") is not None:
+                sum_therms += float(row["observed_therms"])
+                n_therms += 1
+        if bill_kwh is None and n_kwh:
+            bill_kwh = round(sum_kwh, 1)
+        if bill_therms is None and n_therms:
+            bill_therms = round(sum_therms, 1)
+
+    peer_band = _first(
+        report.get("peer_band"),
+        g14_blob.get("peer_band"),
+        peer.get("band"),
+    )
+    peer_vs = _first(
+        report.get("peer_vs_median_pct"),
+        g14_blob.get("peer_vs_median_pct"),
+        peer.get("vs_median_pct"),
+    )
     if peer_band is None and site_eui is not None:
         try:
             from wattlab.benchmarks.eui import compare_eui
@@ -451,7 +522,8 @@ def build_notebook_workbook(
     rows = [
         ("Building", inputs.get("building")),
         ("Package id", pkg.id),
-        ("Package", pkg.label),
+        ("Package", getattr(pkg, "story", None) or pkg.label),
+        ("Catalog label", pkg.label),
         ("Honesty", pkg.honesty),
         ("Generated (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
         ("Catalog package", pkg.catalog_package),
@@ -586,7 +658,13 @@ def build_notebook_workbook(
             esco[f"C{i}"] = float(p.get("savings_therms") or 0)
             calcs = p.get("calculators")
             esco[f"D{i}"] = ",".join(calcs) if isinstance(calcs, list) else ""
-            esco[f"F{i}"] = "proxy (not Excel yet) — Python screening at build"
+            if str(p.get("basis") or "") == "fuel_switch":
+                esco[f"F{i}"] = (
+                    "fuel_switch proxy — B is elec Δ (negative = added HP load), "
+                    "C is gas therms avoided; see Screening_Results"
+                )
+            else:
+                esco[f"F{i}"] = "proxy (not Excel yet) — Python screening at build"
         esco[f"E{i}"] = f"=B{i}*inp_elec_rate+C{i}*inp_gas_rate"
     esco.column_dimensions["A"].width = 28
     esco.column_dimensions["D"].width = 28
@@ -599,18 +677,110 @@ def build_notebook_workbook(
     ep_ws = wb.create_sheet("EPlus_Results")
     ep_ws.append(["measure_id", "kwh_saved", "therms_saved", "peak_kw_delta", "source"])
     _style_header(ep_ws)
-    for i, mid in enumerate(ids, start=2):
-        ep = ep_by.get(mid) or {}
-        ep_ws[f"A{i}"] = mid
-        ep_ws[f"B{i}"] = ep.get("kwh_saved")
-        ep_ws[f"C{i}"] = ep.get("therms_saved")
-        ep_ws[f"D{i}"] = ep.get("peak_demand_kw_delta")
-        if ep:
-            ep_ws[f"E{i}"] = f"Twin savings_by_measure{(' · ' + twin_note) if twin_note else ''}"
-        else:
-            ep_ws[f"E{i}"] = "E+ measure not attached — baseline is Calibrated_Twin"
+    if ep_missing:
+        # One honesty note — do not spam blank measure rows as the story
+        ep_ws["A2"] = "note"
+        ep_ws["B2"] = (
+            "No measure-level EnergyPlus savings attached — see Calibrated_Twin for G14 baseline. "
+            "Blank ≠ zero. Screening numbers are on Screening_Results (ESCO proxies)."
+        )
+        if twin_note:
+            ep_ws["E2"] = f"twin={twin_note}"
+    else:
+        for i, mid in enumerate(ids, start=2):
+            ep = ep_by.get(mid) or {}
+            ep_ws[f"A{i}"] = mid
+            ep_ws[f"B{i}"] = ep.get("kwh_saved")
+            ep_ws[f"C{i}"] = ep.get("therms_saved")
+            ep_ws[f"D{i}"] = ep.get("peak_demand_kw_delta")
+            if ep:
+                ep_ws[f"E{i}"] = f"Twin savings_by_measure{(' · ' + twin_note) if twin_note else ''}"
+            else:
+                ep_ws[f"E{i}"] = ""
     ep_ws.column_dimensions["A"].width = 28
     ep_ws.column_dimensions["E"].width = 40
+
+    # --- Screening_Results (numbers for Studio — formulas stay on other sheets) ---
+    if "Screening_Results" in wb.sheetnames:
+        del wb["Screening_Results"]
+    # First data sheet after Cover (Excel opens here; Studio mirrors these numbers)
+    scr = wb.create_sheet("Screening_Results", 1)
+    scr.append(
+        [
+            "measure_id",
+            "basis",
+            "elec_delta_kwh",
+            "savings_kwh",
+            "savings_therms",
+            "annual_cost_saved_usd",
+            "implementation_cost_usd",
+            "simple_payback_years",
+            "npv_usd",
+            "notes",
+        ]
+    )
+    _style_header(scr)
+    for i, row in enumerate(econ_rows, start=2):
+        mid = row["measure_id"]
+        p = proxies.get(mid) or {}
+        ep = ep_by.get(mid) or {}
+        has_ep = ep.get("kwh_saved") is not None or ep.get("therms_saved") is not None
+        if has_ep:
+            basis = "energyplus"
+            elec_delta = float(ep.get("kwh_saved") if ep.get("kwh_saved") is not None else row.get("kwh_saved") or 0)
+            therms = float(ep.get("therms_saved") if ep.get("therms_saved") is not None else row.get("therms_saved") or 0)
+        elif str(p.get("basis") or "") == "fuel_switch":
+            basis = "fuel_switch"
+            elec_delta = float(p.get("elec_delta_kwh", row.get("kwh_saved") or 0) or 0)
+            therms = float(row.get("therms_saved") or 0)
+        elif mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
+            basis = "excel_formula"
+            elec_delta = float(row.get("kwh_saved") or 0)
+            therms = float(row.get("therms_saved") or 0)
+        else:
+            basis = "python_proxy"
+            elec_delta = float(p.get("elec_delta_kwh", row.get("kwh_saved") or 0) or 0)
+            therms = float(row.get("therms_saved") or 0)
+        cost = float(row.get("implementation_cost_usd") or 0)
+        annual = float(row.get("annual_cost_saved_usd") or 0)
+        # Negative annual $ (fuel-switch at some rates) is not a meaningful payback
+        payback = (cost / annual) if annual > 0 else None
+        # Never label negative elec Δ as "savings" — fuel_switch uses elec_delta_kwh
+        savings_kwh = max(0.0, elec_delta) if basis == "fuel_switch" else elec_delta
+        if basis == "fuel_switch":
+            notes = (
+                "Fuel switch: elec_delta_kwh may be negative (HP load added); "
+                "therms = gas avoided; $/yr uses both. Not 'negative kWh savings'."
+            )
+        elif basis == "energyplus":
+            notes = "Twin measure EnergyPlus delta (vs baseline). Prefer over ESCO proxy when present."
+        else:
+            notes = (
+                "Build-time screening numbers for Studio. "
+                "Live Excel formulas are on ESCO_Calcs / ROI_Capital."
+            )
+        scr[f"A{i}"] = mid
+        scr[f"B{i}"] = basis
+        scr[f"C{i}"] = round(elec_delta, 1)
+        scr[f"D{i}"] = round(savings_kwh, 1)
+        scr[f"E{i}"] = round(therms, 1)
+        scr[f"F{i}"] = round(annual, 2)
+        scr[f"G{i}"] = round(cost, 2)
+        scr[f"H{i}"] = round(payback, 2) if payback is not None else ""
+        scr[f"I{i}"] = round(float(row.get("npv_usd") or 0), 2)
+        scr[f"J{i}"] = notes
+    if econ_rows:
+        tot = len(econ_rows) + 2
+        last = len(econ_rows) + 1
+        scr[f"A{tot}"] = "TOTAL"
+        scr[f"F{tot}"] = f"=SUM(F2:F{last})"
+        scr[f"G{tot}"] = f"=SUM(G2:G{last})"
+        scr[f"I{tot}"] = f"=SUM(I2:I{last})"
+        scr[f"A{tot}"].font = Font(bold=True)
+    scr.column_dimensions["A"].width = 28
+    scr.column_dimensions["B"].width = 14
+    scr.column_dimensions["C"].width = 16
+    scr.column_dimensions["J"].width = 64
 
     # --- Compare (formulas vs ESCO / E+ sheets) ---
     if "Compare" in wb.sheetnames:
@@ -630,26 +800,37 @@ def build_notebook_workbook(
         ]
     )
     _style_header(cmp_ws)
-    for i, row in enumerate(compare_rows, start=2):
-        cmp_ws[f"A{i}"] = row["measure_id"]
-        cmp_ws[f"B{i}"] = f"=ESCO_Calcs!B{i}"
-        cmp_ws[f"C{i}"] = f"=EPlus_Results!B{i}"
-        cmp_ws[f"D{i}"] = f'=IF(OR(C{i}="",C{i}=0),"",C{i}-B{i})'
-        cmp_ws[f"E{i}"] = f'=IF(OR(B{i}=0,C{i}=""),"",C{i}/B{i})'
-        cmp_ws[f"F{i}"] = f"=ESCO_Calcs!C{i}"
-        cmp_ws[f"G{i}"] = f"=EPlus_Results!C{i}"
-        cmp_ws[f"H{i}"] = row["verdict"]
-        has_ep = row["ep_kwh"] is not None or row["ep_therms"] is not None
-        v = str(row["verdict"] or "").upper()
-        if not has_ep:
-            light = "YELLOW"
-        elif v == "IN_LINE":
-            light = "GREEN"
-        elif "REASONABLE" in v or "INSUFFICIENT" in v:
-            light = "YELLOW"
-        else:
-            light = "RED"
-        cmp_ws[f"I{i}"] = light
+    if ep_missing:
+        # One honesty row — avoid YELLOW INSUFFICIENT_EVIDENCE spam per measure
+        cmp_ws["A2"] = "(package)"
+        cmp_ws["H2"] = "ESCO_ONLY_NO_EP"
+        cmp_ws["I2"] = "N/A"
+        cmp_ws["A3"] = "note"
+        cmp_ws["B3"] = (
+            "No measure-level EnergyPlus cascade — Calibrated_Twin is G14 baseline only. "
+            "Use Screening_Results for ESCO / proxy numbers (not Compare traffic lights)."
+        )
+    else:
+        for i, row in enumerate(compare_rows, start=2):
+            cmp_ws[f"A{i}"] = row["measure_id"]
+            cmp_ws[f"B{i}"] = f"=ESCO_Calcs!B{i}"
+            cmp_ws[f"C{i}"] = f"=EPlus_Results!B{i}"
+            cmp_ws[f"D{i}"] = f'=IF(OR(C{i}="",C{i}=0),"",C{i}-B{i})'
+            cmp_ws[f"E{i}"] = f'=IF(OR(B{i}=0,C{i}=""),"",C{i}/B{i})'
+            cmp_ws[f"F{i}"] = f"=ESCO_Calcs!C{i}"
+            cmp_ws[f"G{i}"] = f"=EPlus_Results!C{i}"
+            cmp_ws[f"H{i}"] = row["verdict"]
+            has_ep = row["ep_kwh"] is not None or row["ep_therms"] is not None
+            v = str(row["verdict"] or "").upper()
+            if not has_ep:
+                light = "YELLOW"
+            elif v == "IN_LINE":
+                light = "GREEN"
+            elif "REASONABLE" in v or "INSUFFICIENT" in v:
+                light = "YELLOW"
+            else:
+                light = "RED"
+            cmp_ws[f"I{i}"] = light
     cmp_ws.column_dimensions["A"].width = 28
 
     # --- ROI_Capital ---
@@ -780,6 +961,19 @@ def build_notebook_workbook(
 
     wb.properties.title = f"WattLab notebook · {pkg.id}"
     wb.properties.creator = "WattLab"
+    # Prefer Screening_Results immediately after Cover (numbers first when Excel opens)
+    if "Screening_Results" in wb.sheetnames and "Cover" in wb.sheetnames:
+        idx = wb.sheetnames.index("Screening_Results")
+        target = wb.sheetnames.index("Cover") + 1
+        if idx != target:
+            wb.move_sheet("Screening_Results", offset=target - idx)
+    if "Calibrated_Twin" in wb.sheetnames and "Screening_Results" in wb.sheetnames:
+        idx = wb.sheetnames.index("Calibrated_Twin")
+        target = wb.sheetnames.index("Screening_Results") + 1
+        if idx != target:
+            wb.move_sheet("Calibrated_Twin", offset=target - idx)
+    if "Screening_Results" in wb.sheetnames:
+        wb.active = wb["Screening_Results"]
     # Stash for summarize
     wb._wattlab_template_loaded = template_loaded  # type: ignore[attr-defined]
     wb._wattlab_formula_backed = list(formula_backed)  # type: ignore[attr-defined]
@@ -1098,11 +1292,19 @@ def build_and_save_notebook(
     twin_run: str | None = None,
     write_manifest: bool = True,
     use_template: bool = True,
+    file_stem: str | None = None,
 ) -> dict[str, Path]:
+    from wattlab.notebooks.packages import notebook_file_stem
+
     pkg = get_notebook_package(package_id)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    xlsx = out_dir / f"{pkg.id}.xlsx"
+    stem = (file_stem or notebook_file_stem(pkg.id) or pkg.id).strip() or pkg.id
+    # Bare filename only — never allow path traversal via caller-supplied stem
+    stem = Path(stem).name.replace("\\", "_").replace("/", "_").strip() or pkg.id
+    if stem in (".", ".."):
+        stem = pkg.id
+    xlsx = out_dir / f"{stem}.xlsx"
     wb = build_notebook_workbook(
         pkg,
         profile=profile,
@@ -1123,7 +1325,9 @@ def build_and_save_notebook(
             template_loaded=bool(getattr(wb, "_wattlab_template_loaded", False)),
             formula_backed=list(getattr(wb, "_wattlab_formula_backed", []) or []),
         )
-        mp = out_dir / f"{pkg.id}.notebook_manifest.json"
+        man["file_stem"] = stem
+        man["story"] = getattr(pkg, "story", "") or pkg.label
+        mp = out_dir / f"{stem}.notebook_manifest.json"
         mp.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
         written["manifest"] = mp
     return written
@@ -1197,18 +1401,61 @@ def sync_notebook_from_twin(
         note = "EPlus_Results sheet missing"
     else:
         ws = wb["EPlus_Results"]
+        # Existing measure rows (skip honesty "note")
+        measure_rows: list[tuple[int, str]] = []
         for r in range(2, (ws.max_row or 1) + 1):
             mid = ws.cell(r, 1).value
-            if not mid:
-                continue
-            ep = ep_by.get(str(mid)) or {}
-            if not ep:
-                continue
-            ws.cell(r, 2).value = ep.get("kwh_saved")
-            ws.cell(r, 3).value = ep.get("therms_saved")
-            ws.cell(r, 4).value = ep.get("peak_demand_kw_delta")
-            ws.cell(r, 5).value = f"Twin sync · {twin_label or 'report'}"
-            updated += 1
+            if mid and str(mid).strip().lower() not in ("note", "notes"):
+                measure_rows.append((r, str(mid)))
+        if not measure_rows:
+            # Honesty-only sheet → expand into measure rows from Twin paste
+            for c in range(1, 6):
+                ws.cell(2, c).value = None
+            for i, (mid, ep) in enumerate(sorted(ep_by.items()), start=2):
+                ws.cell(i, 1).value = mid
+                ws.cell(i, 2).value = ep.get("kwh_saved")
+                ws.cell(i, 3).value = ep.get("therms_saved")
+                ws.cell(i, 4).value = ep.get("peak_demand_kw_delta")
+                ws.cell(i, 5).value = f"Twin sync · {twin_label or 'report'}"
+                updated += 1
+        else:
+            for r, mid in measure_rows:
+                ep = ep_by.get(mid) or {}
+                if not ep:
+                    continue
+                ws.cell(r, 2).value = ep.get("kwh_saved")
+                ws.cell(r, 3).value = ep.get("therms_saved")
+                ws.cell(r, 4).value = ep.get("peak_demand_kw_delta")
+                ws.cell(r, 5).value = f"Twin sync · {twin_label or 'report'}"
+                updated += 1
+        if updated == 0:
+            note = "no matching measure rows for Twin savings"
+        elif "Compare" in wb.sheetnames and updated:
+            # Drop stale ESCO_ONLY_NO_EP honesty when E+ measure rows now exist
+            cmp = wb["Compare"]
+            if str(cmp["H2"].value or "") == "ESCO_ONLY_NO_EP":
+                for r in range(2, (cmp.max_row or 2) + 1):
+                    for c in range(1, 10):
+                        cmp.cell(r, c).value = None
+                # Rebuild lightweight per-measure Compare from EPlus + ESCO
+                esco_by: dict[str, tuple[Any, Any]] = {}
+                if "ESCO_Calcs" in wb.sheetnames:
+                    for r in range(2, (wb["ESCO_Calcs"].max_row or 1) + 1):
+                        mid = wb["ESCO_Calcs"].cell(r, 1).value
+                        if mid:
+                            esco_by[str(mid)] = (
+                                wb["ESCO_Calcs"].cell(r, 2).value,
+                                wb["ESCO_Calcs"].cell(r, 3).value,
+                            )
+                for i, (mid, ep) in enumerate(sorted(ep_by.items()), start=2):
+                    cmp.cell(i, 1).value = mid
+                    cmp.cell(i, 2).value = esco_by.get(mid, (None, None))[0]
+                    cmp.cell(i, 3).value = ep.get("kwh_saved")
+                    cmp.cell(i, 6).value = esco_by.get(mid, (None, None))[1]
+                    cmp.cell(i, 7).value = ep.get("therms_saved")
+                    cmp.cell(i, 8).value = "TWIN_SYNCED"
+                    cmp.cell(i, 9).value = "GREEN"
+                note = "ok — Compare refreshed after Twin E+ paste"
     if twin_label and "Cover" in wb.sheetnames:
         cover = wb["Cover"]
         for r in range(4, (cover.max_row or 4) + 1):
@@ -1252,15 +1499,17 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     ep_rows = 0
     if "EPlus_Results" in wb.sheetnames:
         for row in wb["EPlus_Results"].iter_rows(min_row=2, max_col=3, values_only=True):
-            if not row[0]:
+            mid = row[0]
+            if not mid or str(mid).strip().lower() in ("note", "notes", "measure_id"):
                 continue
             ep_rows += 1
             if row[1] is not None or row[2] is not None:
                 ep_filled += 1
-    if ep_rows and ep_filled == 0:
+    # BUG-034: warn when E+ sheet has no measure savings (honesty-only or blank rows)
+    if "EPlus_Results" in wb.sheetnames and ep_filled == 0:
         warnings.append(
-            "EPlus_Results empty (no savings_by_measure) — Compare lights will be YELLOW; "
-            "pick a Twin ECM run with measure savings"
+            "EPlus_Results empty (no savings_by_measure) — Calibrated_Twin is baseline; "
+            "Compare = ESCO_ONLY_NO_EP; Screening_Results has ESCO numbers"
         )
     # Honesty: cost B should reference H when still formula-linked
     if "ROI_Capital" in wb.sheetnames:
@@ -1304,14 +1553,19 @@ def summarize_notebook(
     if "Compare" in wb.sheetnames:
         ws = wb["Compare"]
         for row in ws.iter_rows(min_row=2, max_col=9, values_only=True):
-            if row[0]:
-                verdicts.append(
-                    {
-                        "measure_id": str(row[0]),
-                        "verdict": str(row[7] or ""),
-                        "light": str(row[8] or ""),
-                    }
-                )
+            mid = row[0]
+            if not mid:
+                continue
+            mid_s = str(mid).strip().lower()
+            if mid_s in ("(package)", "note", "notes", "honesty"):
+                continue
+            verdicts.append(
+                {
+                    "measure_id": str(row[0]),
+                    "verdict": str(row[7] or ""),
+                    "light": str(row[8] or ""),
+                }
+            )
     gate = None
     if "Guardrails" in wb.sheetnames:
         gate = wb["Guardrails"]["B2"].value
@@ -1323,6 +1577,7 @@ def summarize_notebook(
     cover_building = None
     cover_twin = None
     cover_template = None
+    cover_pkg_id = None
     if "Cover" in wb.sheetnames:
         for row in wb["Cover"].iter_rows(min_row=4, max_col=2, values_only=True):
             key = str(row[0] or "").strip().lower()
@@ -1332,12 +1587,14 @@ def summarize_notebook(
                 cover_twin = row[1]
             elif key == "template":
                 cover_template = row[1]
-    # Prefer package from Cover / stem; load catalog label when possible
-    pkg_id = package.id if package else path.stem
+            elif key == "package id":
+                cover_pkg_id = row[1]
+    # Prefer package from Cover / arg; stem may be a human-readable file name
+    pkg_id = package.id if package else (str(cover_pkg_id) if cover_pkg_id else path.stem)
     pkg_label = package.label if package else None
     if package is None:
         try:
-            package = get_notebook_package(path.stem)
+            package = get_notebook_package(str(cover_pkg_id or path.stem))
             pkg_id = package.id
             pkg_label = package.label
         except Exception:
