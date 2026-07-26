@@ -54,8 +54,8 @@ NOTEBOOK_PACKAGES: dict[str, dict] = {
 
 REQUIRED_SHEETS = (
     "Cover",
-    "Calibrated_Twin",
     "Screening_Results",
+    "Calibrated_Twin",
     "Inputs",
     "ESCO_Calcs",
     "EPlus_Results",

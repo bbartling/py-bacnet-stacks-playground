@@ -239,10 +239,22 @@ def render() -> None:
     else:
         safe = screen.copy()
         safe.columns = [str(c) if c is not None else "" for c in safe.columns]
-        st.dataframe(safe.astype(str), width="stretch", hide_index=True)
-        st.caption(
-            "Build-time screening (ESCO / Inputs). Open the downloaded `.xlsx` for live Excel formulas."
+        # Hard guard: never render Excel formula soup as the primary table
+        as_text = safe.astype(str)
+        has_formula = any(
+            isinstance(v, str) and str(v).startswith("=")
+            for col in as_text.columns
+            for v in as_text[col].tolist()
         )
+        if has_formula:
+            st.error(
+                "This workbook still has formula cells on Screening_Results — rebuild with tip agent-build."
+            )
+        else:
+            st.dataframe(as_text, width="stretch", hide_index=True)
+            st.caption(
+                "Build-time screening (ESCO / Inputs). Open the downloaded `.xlsx` for live Excel formulas."
+            )
 
     # Optional extra value sheets (no formula dump)
     present = _sheet_names(path)

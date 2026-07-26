@@ -140,10 +140,48 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert any("G36_airside" in o for o in opts)
     assert any("plant_chiller" in o for o in opts)
     assert any("ERV_IAQ_DOAS" in o for o in opts)
-    # No formula dump in Studio
-    assert not any("Formulas used" in str(getattr(el, "value", el)) for el in at.subheader)
-    assert any("Screening results" in str(getattr(el, "value", el)) for el in at.subheader)
+    # Results-only UI — no formula dump / formula-sheet primary surface
+    ui_blob = " ".join(
+        str(getattr(el, "value", el))
+        for group in (at.subheader, at.markdown, at.caption)
+        for el in group
+    )
+    assert "Formulas used" not in ui_blob
+    assert "Screening results" in ui_blob
+    assert "ESCO_Calcs" not in ui_blob
+    assert "ROI_Capital" not in ui_blob
     assert not at.exception
+
+    # Deep retrofit screening: fuel-switch rows must not present huge negative "savings_kwh"
+    deep = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "ERV_IAQ" in p.name)
+    from openpyxl import load_workbook
+
+    wb = load_workbook(deep, data_only=False)
+    assert wb.sheetnames[0] == "Cover"
+    assert wb.sheetnames[1] == "Screening_Results"
+    assert wb.active.title == "Screening_Results"
+    scr = wb["Screening_Results"]
+    headers = [scr.cell(1, c).value for c in range(1, 12)]
+    assert "elec_delta_kwh" in headers
+    assert "basis" in headers
+    i_mid = headers.index("measure_id") + 1
+    i_basis = headers.index("basis") + 1
+    i_delta = headers.index("elec_delta_kwh") + 1
+    i_sav = headers.index("savings_kwh") + 1
+    for r in range(2, (scr.max_row or 1) + 1):
+        mid = scr.cell(r, i_mid).value
+        if mid in ("ECM-DOAS-HP", "ECM-AWHP-SURROGATE"):
+            assert scr.cell(r, i_basis).value == "fuel_switch"
+            delta = float(scr.cell(r, i_delta).value or 0)
+            sav = float(scr.cell(r, i_sav).value or 0)
+            assert sav >= 0
+            if delta < 0:
+                assert sav == 0
+    assert wb["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
+    assert wb["Compare"]["I2"].value == "N/A"
+    assert "YELLOW" not in {
+        wb["Compare"].cell(r, 9).value for r in range(2, (wb["Compare"].max_row or 1) + 1)
+    }
 
 
 def test_turnkey_live_html_smoke():

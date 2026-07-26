@@ -367,6 +367,8 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     written2 = build_and_save_notebook("deep_retrofit", tmp_path / "empty", report={})
     wb2 = openpyxl.load_workbook(written2["xlsx"], data_only=False)
     assert "Calibrated_Twin" in wb2.sheetnames
+    assert wb2.sheetnames[1] == "Screening_Results"
+    assert wb2.active.title == "Screening_Results"
     status = None
     for r in range(2, 20):
         if wb2["Calibrated_Twin"][f"A{r}"].value == "status":
@@ -380,6 +382,32 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
         if esco2.cell(r, 1).value
     }
     assert str(by_mid["ECM-ERV"]).startswith("=")
+
+    # Screening_Results: fuel-switch honesty (no huge negative "savings_kwh")
+    scr2 = wb2["Screening_Results"]
+    hdr = [scr2.cell(1, c).value for c in range(1, 12)]
+    assert hdr[:5] == [
+        "measure_id",
+        "basis",
+        "elec_delta_kwh",
+        "savings_kwh",
+        "savings_therms",
+    ]
+    rows_by = {}
+    for r in range(2, (scr2.max_row or 1) + 1):
+        mid = scr2.cell(r, 1).value
+        if mid and mid != "TOTAL":
+            rows_by[str(mid)] = {
+                "basis": scr2.cell(r, 2).value,
+                "elec_delta_kwh": scr2.cell(r, 3).value,
+                "savings_kwh": scr2.cell(r, 4).value,
+            }
+    for mid in ("ECM-DOAS-HP", "ECM-AWHP-SURROGATE"):
+        assert mid in rows_by
+        assert rows_by[mid]["basis"] == "fuel_switch"
+        assert float(rows_by[mid]["savings_kwh"] or 0) >= 0
+    assert wb2["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
+    assert wb2["EPlus_Results"]["A2"].value == "note"
 
     base = extract_calibrated_baseline(scorecard, twin_run="geo_b100_x")
     assert base["model_site_eui"] == 77.8
