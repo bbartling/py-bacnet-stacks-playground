@@ -90,12 +90,14 @@ def main() -> int:
     if "Advanced — Easy Buttons" in page or "Include client DOCX" in page:
         print("FAIL: Advanced / DOCX still present on ECMs (BUG-043)")
         return 1
-    # Mirror UI — Reload / Rebuild from scenario (no invent Build)
     keys = [str(getattr(b, "key", "") or "") for b in at.button]
-    if not any("ecm_notebook_reload" in k or "ecm_notebook_rebuild_scenario" in k for k in keys):
-        print("FAIL: ECMs mirror buttons missing (BUG-050)")
+    if any("ecm_notebook_rebuild_scenario" in k or "ecm_notebook_build" in k for k in keys):
+        print("FAIL: invent/rebuild still on ECMs (BUG-051/054)")
         return 1
-    print("OK: ECMs disk-mirror page (no Streamlit exceptions)")
+    if not any("ecm_notebook_reload" in k for k in keys):
+        print("FAIL: Reload from disk missing")
+        return 1
+    print("OK: ECMs file viewer (no Streamlit exceptions)")
     return 0
 
 
