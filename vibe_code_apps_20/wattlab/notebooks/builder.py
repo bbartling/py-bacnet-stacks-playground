@@ -124,23 +124,58 @@ def extract_calibrated_baseline(
     twin_run: str | None = None,
     property_type: str = "office",
 ) -> dict[str, Any]:
-    """Pull G14 / annual / peer fields from Twin scorecard or report (BUG-057)."""
+    """Pull G14 / annual / peer fields from Twin scorecard or report (BUG-057).
+
+    Accepts both nested Studio shapes (``annual`` / ``utility_bills``) and the
+    flat Liberty ``scorecard.json`` fields (``model_kwh``, ``model_site_eui``,
+    ``model_peer``, …) plus ``g14`` / ``g14_score.json`` NMBE blocks.
+    """
     report = report or {}
     annual = report.get("annual") if isinstance(report.get("annual"), dict) else {}
     bills = report.get("utility_bills") if isinstance(report.get("utility_bills"), dict) else {}
     g14_blob = report.get("g14") if isinstance(report.get("g14"), dict) else {}
+    score = report.get("scorecard") if isinstance(report.get("scorecard"), dict) else {}
+    peer = (
+        report.get("model_peer")
+        if isinstance(report.get("model_peer"), dict)
+        else score.get("model_peer") if isinstance(score.get("model_peer"), dict) else {}
+    )
+
     stats_e = bills.get("stats_electricity") or bills.get("stats") or {}
     stats_g = bills.get("stats_natural_gas") or bills.get("stats_gas") or {}
     if not isinstance(stats_e, dict):
         stats_e = {}
     if not isinstance(stats_g, dict):
         stats_g = {}
+    # Flat g14_score / report.g14.elec|gas
+    elec_g = g14_blob.get("elec") if isinstance(g14_blob.get("elec"), dict) else {}
+    gas_g = g14_blob.get("gas") if isinstance(g14_blob.get("gas"), dict) else {}
+    if not elec_g and isinstance(report.get("elec"), dict):
+        elec_g = report["elec"]
+    if not gas_g and isinstance(report.get("gas"), dict):
+        gas_g = report["gas"]
+    if not stats_e and elec_g:
+        stats_e = elec_g
+    if not stats_g and gas_g:
+        stats_g = gas_g
 
-    model_kwh = annual.get("electricity_kwh_year")
-    model_therms = (
-        annual.get("natural_gas_therm_year")
-        or annual.get("gas_therms_year")
-        or annual.get("natural_gas_therms_year")
+    def _first(*vals: Any) -> Any:
+        for v in vals:
+            if v is not None and v != "":
+                return v
+        return None
+
+    model_kwh = _first(
+        annual.get("electricity_kwh_year"),
+        report.get("model_kwh"),
+        score.get("model_kwh"),
+    )
+    model_therms = _first(
+        annual.get("natural_gas_therm_year"),
+        annual.get("gas_therms_year"),
+        annual.get("natural_gas_therms_year"),
+        report.get("model_therms"),
+        score.get("model_therms"),
     )
     if model_therms is None:
         monthly = annual.get("monthly") or []
@@ -151,25 +186,50 @@ def extract_calibrated_baseline(
         ]
         if vals:
             model_therms = round(sum(vals), 1)
-    site_eui = annual.get("site_eui_kbtu_ft2_year") or g14_blob.get("site_eui_kbtu_ft2_year")
-    g14_pass = (
-        bills.get("pass_fail")
-        or report.get("pass_fail")
-        or report.get("overall")
-        or g14_blob.get("pass_fail")
+    site_eui = _first(
+        annual.get("site_eui_kbtu_ft2_year"),
+        g14_blob.get("site_eui_kbtu_ft2_year"),
+        report.get("model_site_eui"),
+        score.get("model_site_eui"),
     )
-    bill_kwh = None
-    bill_therms = None
-    for row in bills.get("per_month") or []:
-        if not isinstance(row, dict):
-            continue
-        if row.get("observed_kwh") is not None:
-            bill_kwh = (bill_kwh or 0.0) + float(row["observed_kwh"])
-        if row.get("observed_therms") is not None:
-            bill_therms = (bill_therms or 0.0) + float(row["observed_therms"])
 
-    peer_band = report.get("peer_band") or g14_blob.get("peer_band")
-    peer_vs = report.get("peer_vs_median_pct") or g14_blob.get("peer_vs_median_pct")
+    g14_raw = _first(
+        bills.get("pass_fail"),
+        report.get("pass_fail"),
+        report.get("overall"),
+        g14_blob.get("pass_fail"),
+        g14_blob.get("g14_pass"),
+        report.get("g14_pass"),
+        score.get("pass_fail"),
+    )
+    if g14_raw is True:
+        g14_pass: Any = "PASS"
+    elif g14_raw is False:
+        g14_pass = "FAIL"
+    else:
+        g14_pass = g14_raw
+
+    bill_kwh = _first(report.get("bill_kwh"), score.get("bill_kwh"))
+    bill_therms = _first(report.get("bill_therms"), score.get("bill_therms"))
+    if bill_kwh is None or bill_therms is None:
+        for row in bills.get("per_month") or []:
+            if not isinstance(row, dict):
+                continue
+            if bill_kwh is None and row.get("observed_kwh") is not None:
+                bill_kwh = (bill_kwh or 0.0) + float(row["observed_kwh"])
+            if bill_therms is None and row.get("observed_therms") is not None:
+                bill_therms = (bill_therms or 0.0) + float(row["observed_therms"])
+
+    peer_band = _first(
+        report.get("peer_band"),
+        g14_blob.get("peer_band"),
+        peer.get("band"),
+    )
+    peer_vs = _first(
+        report.get("peer_vs_median_pct"),
+        g14_blob.get("peer_vs_median_pct"),
+        peer.get("vs_median_pct"),
+    )
     if peer_band is None and site_eui is not None:
         try:
             from wattlab.benchmarks.eui import compare_eui

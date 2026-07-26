@@ -385,6 +385,26 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     assert base["model_site_eui"] == 77.8
     assert base["has_core"] is True
 
+    # Flat Liberty scorecard.json shape (model_* top-level + model_peer)
+    flat = {
+        "run_id": "geo_b100_6stack_shape_r56_sched_mild",
+        "model_kwh": 1462657.3,
+        "model_therms": 59060.4,
+        "model_site_eui": 77.8,
+        "bill_kwh": 1464449.0,
+        "bill_therms": 56845.2,
+        "g14_pass": True,
+        "elec": {"nmbe_pct": 0.122, "cvrmse_pct": 11.339},
+        "gas": {"nmbe_pct": -3.897, "cvrmse_pct": 12.976},
+        "model_peer": {"band": "above_p80", "vs_median_pct": 47.1},
+    }
+    flat_base = extract_calibrated_baseline(flat, twin_run=flat["run_id"])
+    assert flat_base["model_site_eui"] == 77.8
+    assert flat_base["model_kwh"] == 1462657.3
+    assert flat_base["g14_pass"] == "PASS"
+    assert flat_base["peer_band"] == "above_p80"
+    assert flat_base["nmbe_elec_pct"] == 0.122
+
     man = summarize_notebook(written["xlsx"])
     assert man["docs_url"].endswith("ESCO_CALCULATORS.md")
     assert man["honesty"]["docs"]["retrofit_cost_roi"].endswith("ESCO_RETROFIT_COST_ROI.md")
