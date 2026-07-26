@@ -66,13 +66,51 @@ wattlab notebook build --package esco_top15 --out /data/reports/notebooks/ \
   --answers /data/reports/answers.json --from-run /data/runs/<ecm_capable>
 wattlab notebook prefill --xlsx /data/reports/notebooks/esco_top15.xlsx --elec-rate 0.22
 # prefill patches Inputs in-place (keeps EPlus_Results) — never rebuilds
+wattlab notebook refresh-caches --xlsx /data/reports/notebooks/esco_top15.xlsx
+wattlab notebook show-formulas --xlsx /data/reports/notebooks/esco_top15.xlsx --sheet ROI_Capital
 wattlab notebook validate --xlsx /data/reports/notebooks/esco_top15.xlsx
 wattlab notebook summarize --xlsx … --write
 ```
 
-Honesty: ESCO kWh/therms are baked at build; ROI cost/NPV formulas follow Inputs.
-Studio preview shows formula text + `npv_usd_at_build` (openpyxl does not calc Excel).
+Honesty: ESCO kWh/therms are baked at build (not live Excel bins); ROI cost/NPV formulas follow Inputs.
+Studio ECMs page: Values + Formulas preview; no Easy Buttons / DOCX (BUG-043).
 Prefer Twin runs with `savings_by_measure` or Compare stays YELLOW (`validate` warns).
+
+### Easy-button → notebook (Docker sock required) — BUG-045
+
+Host must mount `/var/run/docker.sock` into vibe20 and pull the EnergyPlus image.
+Without the sock, `wattlab easy-button` plans OK but cannot run EP cascades.
+
+```bash
+# Host: recreate vibe20 with sock (see AGENT_DOCKER_WORKSPACE.md)
+# docker run … -v /var/run/docker.sock:/var/run/docker.sock \
+#   -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace …
+
+docker exec vibe20 wattlab energyplus-ensure
+docker exec -e WATTLAB_HOST_WORKSPACE=/data -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 \
+  wattlab easy-button --measure-set better \
+  --minimal-file /data/reports/answers_building_100.json
+# → publishes /data/runs/<id> with savings_by_measure when EP succeeds
+
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook build \
+  --package controls_first \
+  --answers /data/reports/answers_building_100.json \
+  --from-run /data/runs/<published_easy_button_run> \
+  --out /data/reports/notebooks/
+docker exec vibe20 wattlab notebook validate \
+  --xlsx /data/reports/notebooks/controls_first.xlsx
+```
+
+Liberty 5-pack (agents, no Easy Button UI clicks):
+
+```bash
+for pkg in controls_first schedules_economizer plant_optimization esco_top15 deep_retrofit; do
+  wattlab notebook build --package "$pkg" \
+    --answers /data/reports/answers_building_100.json \
+    --from-run /data/runs/<ecm_capable> \
+    --out /data/reports/notebooks/
+done
+```
 
 Write `reports/ecm_scenario.json` v3 with `notebook_package_id`, `notebook_path`,
 `input_overrides` so Studio Re-apply / ECMs page stays in sync.

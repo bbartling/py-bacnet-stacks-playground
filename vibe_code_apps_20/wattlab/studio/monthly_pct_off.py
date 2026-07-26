@@ -205,8 +205,18 @@ def load_per_month_from_run(run_dir: Path | str | None) -> list[dict[str, Any]]:
     return []
 
 
-def render_monthly_pct_off_panel(analysis: dict[str, Any]) -> None:
-    """Streamlit panel for Inspect / Modeled-vs-actual."""
+def render_monthly_pct_off_panel(
+    analysis: dict[str, Any],
+    *,
+    fuel_filter: str = "both",
+    key_prefix: str = "monthly_pct_off",
+) -> None:
+    """Streamlit panel for Inspect / Modeled-vs-actual.
+
+    ``fuel_filter``: ``elec`` | ``gas`` | ``both`` (default).
+    Always surfaces a caption when a requested fuel lacks monthly pairs,
+    even if the other fuel (or aggregate G14 stats) look fine.
+    """
     import streamlit as st
 
     if not analysis.get("has_data"):
@@ -223,13 +233,38 @@ def render_monthly_pct_off_panel(analysis: dict[str, Any]) -> None:
     )
     gas_n = (analysis.get("gas") or {}).get("n") or 0
     elec_n = (analysis.get("elec") or {}).get("n") or 0
-    if gas_n:
-        st.markdown(analysis.get("gas_narrative") or "")
-    if elec_n:
-        st.markdown(analysis.get("elec_narrative") or "")
-    # Compact table
+    want = (fuel_filter or "both").lower().strip()
+    show_elec = want in ("elec", "electricity", "both", "all")
+    show_gas = want in ("gas", "natural_gas", "ng", "both", "all")
+
+    if show_gas:
+        if gas_n:
+            st.markdown(analysis.get("gas_narrative") or "")
+        else:
+            st.info(
+                "Gas: no monthly bill↔model pairs in this scorecard "
+                "(`observed_therms` + `modeled_therms` / `simulated_therms`). "
+                "G14 gas metrics above may still come from annual aggregates."
+            )
+    if show_elec:
+        if elec_n:
+            st.markdown(analysis.get("elec_narrative") or "")
+        else:
+            st.info(
+                "Elec: no monthly bill↔model pairs in this scorecard "
+                "(`observed_kwh` + `modeled_kwh` / `simulated_kwh`). "
+                "G14 elec metrics above may still come from annual aggregates — "
+                "that is why PASS can show without an elec monthly ±% panel."
+            )
+
+    # Compact table (filtered)
     rows_out: list[dict[str, Any]] = []
-    for fuel_key, label in (("elec", "Elec"), ("gas", "Gas")):
+    fuels = []
+    if show_elec:
+        fuels.append(("elec", "Elec"))
+    if show_gas:
+        fuels.append(("gas", "Gas"))
+    for fuel_key, label in fuels:
         b = analysis.get(fuel_key) or {}
         for bucket_name, items in (
             ("over", b.get("over") or []),
@@ -248,4 +283,9 @@ def render_monthly_pct_off_panel(analysis: dict[str, Any]) -> None:
     if rows_out:
         import pandas as pd
 
-        st.dataframe(pd.DataFrame(rows_out), width="stretch", hide_index=True, height=220)
+        st.dataframe(
+            pd.DataFrame(rows_out),
+            width="stretch",
+            hide_index=True,
+            height=220,
+        )

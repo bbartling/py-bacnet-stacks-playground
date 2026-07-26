@@ -122,9 +122,22 @@ def test_studio_twin_and_ecms_dry_path():
 
     at.radio(key="studio_page").set_value("ECMs").run()
     assert not at.exception
-    at.button(key="ecm_build_measures").click().run()
+    # BUG-043: Advanced / DOCX / Easy Buttons removed
+    page = " ".join(str(x) for x in at.markdown) + " ".join(str(x) for x in at.caption)
+    assert "Advanced — Easy Buttons" not in page
+    assert "Include client DOCX" not in page
+    # Notebook primary path present
+    assert any(
+        "ecm_notebook_build" in str(getattr(b, "key", "") or "")
+        or "Build" in str(getattr(b, "label", "") or "")
+        for b in at.button
+    )
+    at.button(key="ecm_notebook_build").click().run()
     assert not at.exception
-    assert "studio_guardrail_gate" in at.session_state
+    # Preview mode radio (Formulas / Values)
+    assert any(
+        "ecm_notebook_preview_mode" in str(getattr(r, "key", "") or "") for r in at.radio
+    ) or "studio_notebook_path" in at.session_state
 
 
 def test_turnkey_live_html_smoke():
