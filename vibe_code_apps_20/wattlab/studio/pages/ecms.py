@@ -219,13 +219,20 @@ def render() -> None:
     if cal:
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("G14", str(cal.get("g14_pass") or "—"))
+            g14 = cal.get("g14_pass")
+            st.metric("G14", "—" if g14 is None else str(g14))
         with c2:
-            st.metric("Model site EUI", str(cal.get("model_site_eui") or "—"))
+            eui = cal.get("model_site_eui")
+            st.metric("Model site EUI", "—" if eui is None else str(eui))
         with c3:
-            st.metric("Model kWh/yr", f"{cal.get('model_kwh'):,.0f}" if isinstance(cal.get("model_kwh"), (int, float)) else str(cal.get("model_kwh") or "—"))
+            mk = cal.get("model_kwh")
+            st.metric(
+                "Model kWh/yr",
+                f"{mk:,.0f}" if isinstance(mk, (int, float)) else ("—" if mk is None else str(mk)),
+            )
         with c4:
-            st.metric("Peer band", str(cal.get("peer_band") or "—"))
+            peer = cal.get("peer_band")
+            st.metric("Peer band", "—" if peer is None else str(peer))
         st.caption(
             "Calibrated Twin baseline (fuel match). "
             "Measure-level EnergyPlus savings are optional — blank E+ ≠ zero; see download."

@@ -433,6 +433,25 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     assert flat_base["peer_band"] == "above_p80"
     assert flat_base["nmbe_elec_pct"] == 0.122
 
+    # per_month observed bills must sum all months (not stop after month 1)
+    monthly_bills = {
+        "utility_bills": {
+            "per_month": [
+                {"observed_kwh": 100.0, "observed_therms": 10.0},
+                {"observed_kwh": 200.0, "observed_therms": 20.0},
+                {"observed_kwh": 50.0, "observed_therms": 5.0},
+            ]
+        }
+    }
+    monthly_base = extract_calibrated_baseline(monthly_bills)
+    assert monthly_base["bill_kwh"] == 350.0
+    assert monthly_base["bill_therms"] == 35.0
+
     man = summarize_notebook(written["xlsx"])
     assert man["docs_url"].endswith("ESCO_CALCULATORS.md")
     assert man["honesty"]["docs"]["retrofit_cost_roi"].endswith("ESCO_RETROFIT_COST_ROI.md")
+    # Honesty Compare rows must not leak as fake measures
+    assert all(
+        str(v.get("measure_id") or "").lower() not in ("(package)", "note")
+        for v in (man.get("compare") or [])
+    )

@@ -212,13 +212,24 @@ def extract_calibrated_baseline(
     bill_kwh = _first(report.get("bill_kwh"), score.get("bill_kwh"))
     bill_therms = _first(report.get("bill_therms"), score.get("bill_therms"))
     if bill_kwh is None or bill_therms is None:
+        # Aggregate all months — do not stop after the first observed value
+        sum_kwh = 0.0
+        sum_therms = 0.0
+        n_kwh = 0
+        n_therms = 0
         for row in bills.get("per_month") or []:
             if not isinstance(row, dict):
                 continue
-            if bill_kwh is None and row.get("observed_kwh") is not None:
-                bill_kwh = (bill_kwh or 0.0) + float(row["observed_kwh"])
-            if bill_therms is None and row.get("observed_therms") is not None:
-                bill_therms = (bill_therms or 0.0) + float(row["observed_therms"])
+            if row.get("observed_kwh") is not None:
+                sum_kwh += float(row["observed_kwh"])
+                n_kwh += 1
+            if row.get("observed_therms") is not None:
+                sum_therms += float(row["observed_therms"])
+                n_therms += 1
+        if bill_kwh is None and n_kwh:
+            bill_kwh = round(sum_kwh, 1)
+        if bill_therms is None and n_therms:
+            bill_therms = round(sum_therms, 1)
 
     peer_band = _first(
         report.get("peer_band"),
@@ -712,17 +723,28 @@ def build_notebook_workbook(
     for i, row in enumerate(econ_rows, start=2):
         mid = row["measure_id"]
         p = proxies.get(mid) or {}
-        if str(p.get("basis") or "") == "fuel_switch":
+        ep = ep_by.get(mid) or {}
+        has_ep = ep.get("kwh_saved") is not None or ep.get("therms_saved") is not None
+        if has_ep:
+            basis = "energyplus"
+            elec_delta = float(ep.get("kwh_saved") if ep.get("kwh_saved") is not None else row.get("kwh_saved") or 0)
+            therms = float(ep.get("therms_saved") if ep.get("therms_saved") is not None else row.get("therms_saved") or 0)
+        elif str(p.get("basis") or "") == "fuel_switch":
             basis = "fuel_switch"
+            elec_delta = float(p.get("elec_delta_kwh", row.get("kwh_saved") or 0) or 0)
+            therms = float(row.get("therms_saved") or 0)
         elif mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
             basis = "excel_formula"
+            elec_delta = float(row.get("kwh_saved") or 0)
+            therms = float(row.get("therms_saved") or 0)
         else:
             basis = "python_proxy"
-        elec_delta = float(p.get("elec_delta_kwh", row.get("kwh_saved") or 0) or 0)
-        therms = float(row.get("therms_saved") or 0)
+            elec_delta = float(p.get("elec_delta_kwh", row.get("kwh_saved") or 0) or 0)
+            therms = float(row.get("therms_saved") or 0)
         cost = float(row.get("implementation_cost_usd") or 0)
         annual = float(row.get("annual_cost_saved_usd") or 0)
-        payback = (cost / annual) if annual else None
+        # Negative annual $ (fuel-switch at some rates) is not a meaningful payback
+        payback = (cost / annual) if annual > 0 else None
         # Never label negative elec Δ as "savings" — fuel_switch uses elec_delta_kwh
         savings_kwh = max(0.0, elec_delta) if basis == "fuel_switch" else elec_delta
         if basis == "fuel_switch":
@@ -730,6 +752,8 @@ def build_notebook_workbook(
                 "Fuel switch: elec_delta_kwh may be negative (HP load added); "
                 "therms = gas avoided; $/yr uses both. Not 'negative kWh savings'."
             )
+        elif basis == "energyplus":
+            notes = "Twin measure EnergyPlus delta (vs baseline). Prefer over ESCO proxy when present."
         else:
             notes = (
                 "Build-time screening numbers for Studio. "
@@ -1276,6 +1300,10 @@ def build_and_save_notebook(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = (file_stem or notebook_file_stem(pkg.id) or pkg.id).strip() or pkg.id
+    # Bare filename only — never allow path traversal via caller-supplied stem
+    stem = Path(stem).name.replace("\\", "_").replace("/", "_").strip() or pkg.id
+    if stem in (".", ".."):
+        stem = pkg.id
     xlsx = out_dir / f"{stem}.xlsx"
     wb = build_notebook_workbook(
         pkg,
@@ -1402,6 +1430,32 @@ def sync_notebook_from_twin(
                 updated += 1
         if updated == 0:
             note = "no matching measure rows for Twin savings"
+        elif "Compare" in wb.sheetnames and updated:
+            # Drop stale ESCO_ONLY_NO_EP honesty when E+ measure rows now exist
+            cmp = wb["Compare"]
+            if str(cmp["H2"].value or "") == "ESCO_ONLY_NO_EP":
+                for r in range(2, (cmp.max_row or 2) + 1):
+                    for c in range(1, 10):
+                        cmp.cell(r, c).value = None
+                # Rebuild lightweight per-measure Compare from EPlus + ESCO
+                esco_by: dict[str, tuple[Any, Any]] = {}
+                if "ESCO_Calcs" in wb.sheetnames:
+                    for r in range(2, (wb["ESCO_Calcs"].max_row or 1) + 1):
+                        mid = wb["ESCO_Calcs"].cell(r, 1).value
+                        if mid:
+                            esco_by[str(mid)] = (
+                                wb["ESCO_Calcs"].cell(r, 2).value,
+                                wb["ESCO_Calcs"].cell(r, 3).value,
+                            )
+                for i, (mid, ep) in enumerate(sorted(ep_by.items()), start=2):
+                    cmp.cell(i, 1).value = mid
+                    cmp.cell(i, 2).value = esco_by.get(mid, (None, None))[0]
+                    cmp.cell(i, 3).value = ep.get("kwh_saved")
+                    cmp.cell(i, 6).value = esco_by.get(mid, (None, None))[1]
+                    cmp.cell(i, 7).value = ep.get("therms_saved")
+                    cmp.cell(i, 8).value = "TWIN_SYNCED"
+                    cmp.cell(i, 9).value = "GREEN"
+                note = "ok — Compare refreshed after Twin E+ paste"
     if twin_label and "Cover" in wb.sheetnames:
         cover = wb["Cover"]
         for r in range(4, (cover.max_row or 4) + 1):
@@ -1499,14 +1553,19 @@ def summarize_notebook(
     if "Compare" in wb.sheetnames:
         ws = wb["Compare"]
         for row in ws.iter_rows(min_row=2, max_col=9, values_only=True):
-            if row[0]:
-                verdicts.append(
-                    {
-                        "measure_id": str(row[0]),
-                        "verdict": str(row[7] or ""),
-                        "light": str(row[8] or ""),
-                    }
-                )
+            mid = row[0]
+            if not mid:
+                continue
+            mid_s = str(mid).strip().lower()
+            if mid_s in ("(package)", "note", "notes", "honesty"):
+                continue
+            verdicts.append(
+                {
+                    "measure_id": str(row[0]),
+                    "verdict": str(row[7] or ""),
+                    "light": str(row[8] or ""),
+                }
+            )
     gate = None
     if "Guardrails" in wb.sheetnames:
         gate = wb["Guardrails"]["B2"].value
