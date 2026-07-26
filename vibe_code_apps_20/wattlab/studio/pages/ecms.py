@@ -1,8 +1,9 @@
-"""ECMs — disk mirror of agent-owned Excel notebooks (BUG-050)."""
+"""ECMs — file viewer for agent-owned Excel notebooks (BUG-051–056)."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +12,51 @@ import streamlit as st
 
 from wattlab.studio.workspace import reports_dir
 
+# Preferred tab order when sheets exist in the workbook
+_PREFERRED_SHEETS = (
+    "Calibrated_Twin",
+    "Cover",
+    "Inputs",
+    "ESCO_Calcs",
+    "EPlus_Results",
+    "Compare",
+    "ROI_Capital",
+)
+
+_FORMULA_CAP = 200
+
+
+def _list_notebook_files(out_dir: Path) -> list[Path]:
+    if not out_dir.is_dir():
+        return []
+    return sorted(out_dir.glob("*.xlsx"), key=lambda p: p.name.lower())
+
+
+def _sheet_names(path: Path) -> list[str]:
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(path, read_only=True, data_only=False)
+        names = list(wb.sheetnames)
+        wb.close()
+        return names
+    except Exception:
+        return []
+
+
+def _ordered_sheets(present: list[str]) -> list[str]:
+    ordered: list[str] = []
+    for name in _PREFERRED_SHEETS:
+        if name in present:
+            ordered.append(name)
+    for name in present:
+        if name not in ordered:
+            ordered.append(name)
+    return ordered
+
 
 def _preview_sheet_frame(path: Path, sheet: str, *, mode: str) -> pd.DataFrame | None:
-    """Build a Values or Formulas preview frame (never blank formula cells)."""
+    """Readonly Values or Formulas preview (never blank formula cells)."""
     from wattlab.notebooks.builder import preview_sheet_rows
 
     if mode == "values":
@@ -41,52 +84,97 @@ def _preview_sheet_frame(path: Path, sheet: str, *, mode: str) -> pd.DataFrame |
     return pd.DataFrame(rows[1:], columns=rows[0])
 
 
-def _list_notebook_files(out_dir: Path) -> list[Path]:
-    if not out_dir.is_dir():
-        return []
-    return sorted(out_dir.glob("*.xlsx"))
+def _cover_subtitle(path: Path) -> str:
+    """Building · twin · mtime from Cover / sidecar when available."""
+    parts: list[str] = []
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(path, read_only=True, data_only=False)
+        if "Cover" in wb.sheetnames:
+            cover = {str(r[0]).strip().lower(): r[1] for r in wb["Cover"].iter_rows(min_row=4, max_col=2, values_only=True) if r[0]}
+            building = cover.get("building")
+            twin = cover.get("twin run")
+            if building:
+                parts.append(str(building))
+            if twin and str(twin) not in ("(none — E+ optional)",):
+                parts.append(f"twin={twin}")
+        wb.close()
+    except Exception:
+        pass
+    man = path.parent / f"{path.stem}.notebook_manifest.json"
+    if man.is_file() and not parts:
+        try:
+            data = json.loads(man.read_text(encoding="utf-8"))
+            if data.get("building"):
+                parts.append(str(data["building"]))
+            if data.get("twin_run"):
+                parts.append(f"twin={data['twin_run']}")
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    try:
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        parts.append(f"mtime {mtime.strftime('%Y-%m-%d %H:%MZ')}")
+    except OSError:
+        pass
+    return " · ".join(parts) if parts else ""
 
 
-def _enrich_profile(profile: dict[str, Any] | None) -> dict[str, Any]:
-    out = dict(profile or {})
-    answers = st.session_state.get("studio_answers")
-    if isinstance(answers, dict):
-        for key in (
-            "display_name",
-            "project_id",
-            "building_name",
-            "building",
-            "name",
-            "building_id",
-            "cooling_tons",
-            "fan_hp",
-            "supply_fan_hp",
-            "conditioned_floor_area_ft2",
-            "floor_area_ft2",
-        ):
-            if out.get(key) is None and answers.get(key) is not None:
-                out[key] = answers[key]
-    return out
+def _load_formula_cells(path: Path) -> dict[str, dict[str, str]]:
+    """Prefer manifest formula_cells; fall back to show_formulas."""
+    man = path.parent / f"{path.stem}.notebook_manifest.json"
+    if man.is_file():
+        try:
+            data = json.loads(man.read_text(encoding="utf-8"))
+            cells = data.get("formula_cells")
+            if isinstance(cells, dict) and cells:
+                return {str(k): dict(v) for k, v in cells.items() if isinstance(v, dict)}
+        except (OSError, json.JSONDecodeError, TypeError):
+            pass
+    from wattlab.notebooks.builder import show_formulas
+
+    try:
+        dumped = show_formulas(path)
+        sheets = dumped.get("sheets") or {}
+        return {str(k): dict(v) for k, v in sheets.items() if isinstance(v, dict)}
+    except Exception:
+        return {}
 
 
-def _render_mirror() -> None:
-    from wattlab.notebooks import list_notebook_packages
-    from wattlab.notebooks.builder import (
-        agent_build_notebook,
-        refresh_notebook_caches,
-        validate_notebook,
-    )
-    from wattlab.studio.ecm_scenario import (
-        default_ecm_scenario_path,
-        load_ecm_scenario,
-        save_ecm_scenario,
-    )
+def _render_formulas_used(path: Path) -> None:
+    st.subheader("Formulas used")
+    cells_by_sheet = _load_formula_cells(path)
+    if not cells_by_sheet:
+        st.caption("No formula map in manifest — download the workbook or run `wattlab notebook show-formulas`.")
+        return
+    total = 0
+    lines: list[str] = []
+    for sheet in _ordered_sheets(list(cells_by_sheet.keys())):
+        mapping = cells_by_sheet.get(sheet) or {}
+        if not mapping:
+            continue
+        lines.append(f"**{sheet}**")
+        for addr in sorted(mapping.keys(), key=lambda a: (len(a), a)):
+            if total >= _FORMULA_CAP:
+                break
+            formula = mapping[addr]
+            lines.append(f"`{addr}` = `{formula}`")
+            total += 1
+        if total >= _FORMULA_CAP:
+            break
+    st.markdown("\n\n".join(lines) if lines else "_No formulas found._")
+    if total >= _FORMULA_CAP:
+        st.caption(f"Showing first {_FORMULA_CAP} formula cells — see download for full workbook.")
+    else:
+        st.caption(f"{total} formula cells.")
 
-    st.subheader("Engineering notebook (Excel mirror)")
+
+def render() -> None:
+    st.header("ECMs — engineering notebooks")
     st.caption(
-        "Agent owns the `.xlsx` under `reports/notebooks/`. "
-        "Refresh the browser or **Reload from disk** to see the latest bytes. "
-        "CLI: `wattlab notebook agent-build|prefill|refresh-caches|sync-from-twin|show-formulas`."
+        "Agent owns the file under `reports/notebooks/`. "
+        "Pick a workbook → readonly preview → formulas → download. "
+        "Use **Reload from disk** (or hard-refresh the browser) after a CLI write."
     )
     st.markdown(
         "[ESCO formula map (GitHub)]"
@@ -96,158 +184,72 @@ def _render_mirror() -> None:
 
     out_dir = reports_dir() / "notebooks"
     out_dir.mkdir(parents=True, exist_ok=True)
-    scen = load_ecm_scenario()
-    pkgs = list_notebook_packages()
-    by_id = {p.id: p for p in pkgs}
-    labels = {p.id: p.label for p in pkgs}
+    files = _list_notebook_files(out_dir)
 
-    on_disk = _list_notebook_files(out_dir)
-    disk_stems = {p.stem: p for p in on_disk}
+    if st.button("Reload from disk", key="ecm_notebook_reload"):
+        for key in (
+            "studio_notebook_path",
+            "studio_notebook_manifest",
+            "ecm_notebook_file",
+            "ecm_notebook_preview_mode",
+        ):
+            st.session_state.pop(key, None)
+        st.rerun()
 
-    default_pkg = scen.get("notebook_package_id") or (pkgs[0].id if pkgs else "controls_first")
-    if default_pkg not in by_id and disk_stems:
-        default_pkg = next(iter(disk_stems))
-    pkg_ids = [p.id for p in pkgs]
-    for stem in disk_stems:
-        if stem not in pkg_ids:
-            pkg_ids.append(stem)
-
-    if "ecm_notebook_package" not in st.session_state and default_pkg in pkg_ids:
-        st.session_state["ecm_notebook_package"] = default_pkg
-
-    pick = st.selectbox(
-        "Package / file",
-        pkg_ids,
-        format_func=lambda k: labels.get(k, k) + (" · on disk" if k in disk_stems else " · not built yet"),
-        key="ecm_notebook_package",
-    )
-    pkg = by_id.get(pick)
-    if pkg:
-        st.caption(f"{pkg.honesty} · {len(pkg.measure_ids)} catalog measures · `{pkg.catalog_package}`")
-    if scen.get("status"):
-        st.caption(f"Scenario: {scen.get('status')} · twin={scen.get('twin_run') or '—'}")
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        reload_clicked = st.button("Reload from disk", key="ecm_notebook_reload")
-    with c2:
-        refresh_clicked = st.button("Refresh caches only", key="ecm_notebook_refresh_caches")
-    with c3:
-        rebuild_clicked = st.button(
-            "Rebuild from scenario.json",
-            key="ecm_notebook_rebuild_scenario",
-            help="Same helper as `wattlab notebook agent-build --scenario …`",
-        )
-
-    if reload_clicked:
-        st.session_state.pop("studio_notebook_path", None)
-        st.session_state.pop("studio_notebook_manifest", None)
-        st.info("Session path cleared — re-reading disk.")
-
-    if rebuild_clicked:
-        try:
-            profile = _enrich_profile(st.session_state.get("studio_profile"))
-            scen = load_ecm_scenario()
-            package_id = scen.get("notebook_package_id") or pick
-            ecms = scen.get("selected_ecm_ids") or None
-            twin = scen.get("twin_run")
-            report: dict[str, Any] = {}
-            if twin:
-                root = Path(str(twin))
-                if not root.is_absolute():
-                    # allow run id relative to runs/
-                    from wattlab.studio.workspace import runs_dir
-
-                    cand = runs_dir() / str(twin)
-                    if cand.is_dir():
-                        root = cand
-                for name in ("report.json", "wattlab_report.json", "calibration_scorecard.json"):
-                    rp = root / name if root.is_dir() else Path()
-                    if rp.is_file():
-                        try:
-                            data = json.loads(rp.read_text(encoding="utf-8"))
-                            if isinstance(data, dict):
-                                report = data
-                        except (OSError, json.JSONDecodeError, TypeError):
-                            pass
-                        break
-            written = agent_build_notebook(
-                str(package_id),
-                out_dir,
-                profile=profile,
-                report=report,
-                input_overrides=scen.get("input_overrides") or None,
-                measure_ids=list(ecms) if ecms else None,
-                twin_run=twin,
-                write_manifest=True,
-            )
-            st.session_state["studio_notebook_path"] = str(written["xlsx"])
-            st.session_state["studio_notebook_manifest"] = str(written.get("manifest") or "")
-            scen["notebook_package_id"] = str(package_id)
-            scen["notebook_path"] = str(written["xlsx"])
-            if ecms:
-                scen["selected_ecm_ids"] = list(ecms)
-            save_ecm_scenario(scen)
-            for w in (validate_notebook(written["xlsx"]).get("warnings") or []):
-                st.warning(w)
-            st.success(f"Rebuilt from scenario → {written['xlsx']}")
-        except Exception as exc:
-            st.error(f"Rebuild from scenario failed: {exc}")
-
-    xlsx = st.session_state.get("studio_notebook_path")
-    scen_path = scen.get("notebook_path")
-    if scen_path and Path(str(scen_path)).is_file() and (
-        not xlsx or Path(str(xlsx)).stem != pick
-    ):
-        if Path(str(scen_path)).stem == pick:
-            xlsx = str(scen_path)
-            st.session_state["studio_notebook_path"] = xlsx
-    if not xlsx or not Path(str(xlsx)).is_file() or Path(str(xlsx)).stem != pick:
-        candidate = disk_stems.get(pick) or (out_dir / f"{pick}.xlsx")
-        if Path(candidate).is_file():
-            xlsx = str(candidate)
-            st.session_state["studio_notebook_path"] = xlsx
-        else:
-            xlsx = None
-
-    if refresh_clicked:
-        if not xlsx or not Path(str(xlsx)).is_file():
-            st.warning("No notebook on disk for this package yet — agent-build or Rebuild from scenario.")
-        else:
-            try:
-                result = refresh_notebook_caches(xlsx)
-                st.success(f"Caches refreshed: {result.get('updated_cells', 0)} cells")
-            except Exception as exc:
-                st.error(f"refresh-caches failed: {exc}")
-
-    if not xlsx or not Path(str(xlsx)).is_file():
+    if not files:
         st.info(
-            f"No `{pick}.xlsx` under `{out_dir}` yet. "
-            "Agent: `wattlab notebook agent-build --package … --out /data/reports/notebooks/` "
-            "or use **Rebuild from scenario.json**."
+            f"No `.xlsx` files under `{out_dir}` yet. "
+            "Agent: `wattlab notebook agent-build --package … --out reports/notebooks/`."
         )
-        st.caption(f"Scenario file → `{default_ecm_scenario_path()}`")
         return
 
-    path = Path(str(xlsx))
+    names = [p.name for p in files]
+    by_name = {p.name: p for p in files}
+    stored = st.session_state.get("ecm_notebook_file")
+    if stored not in names:
+        st.session_state["ecm_notebook_file"] = names[0]
+
+    pick_name = st.selectbox(
+        "Notebook file",
+        names,
+        key="ecm_notebook_file",
+        help="On-disk workbooks only — catalog packages without a file do not appear.",
+    )
+    path = by_name[pick_name]
+    st.session_state["studio_notebook_path"] = str(path)
+    subtitle = _cover_subtitle(path)
+    if subtitle:
+        st.caption(subtitle)
+
     mode = st.radio(
-        "Preview mode",
-        options=["formulas", "values"],
-        format_func=lambda k: "Formulas (Excel code)" if k == "formulas" else "Values (caches / static)",
+        "Preview",
+        options=["values", "formulas"],
+        format_func=lambda k: "Values" if k == "values" else "Formulas",
         horizontal=True,
         key="ecm_notebook_preview_mode",
-        help="Formulas = exact cell formula text. Values = numeric caches where Excel has not calc'd.",
     )
-    tabs = st.tabs(["Inputs", "ESCO_Calcs", "Compare", "ROI_Capital"])
-    for tab, sheet in zip(tabs, ("Inputs", "ESCO_Calcs", "Compare", "ROI_Capital")):
-        with tab:
-            df = _preview_sheet_frame(path, sheet, mode=mode)
-            if df is None or df.empty:
-                st.caption(f"Sheet `{sheet}` empty or missing.")
-            else:
-                st.dataframe(df, width="stretch", hide_index=True)
+
+    present = _sheet_names(path)
+    sheets = _ordered_sheets(present)
+    if not sheets:
+        st.warning("Workbook has no sheets (or could not be opened).")
+    else:
+        tabs = st.tabs(sheets)
+        for tab, sheet in zip(tabs, sheets):
+            with tab:
+                df = _preview_sheet_frame(path, sheet, mode=mode)
+                if df is None or df.empty:
+                    st.caption(f"Sheet `{sheet}` empty or unreadable.")
+                else:
+                    # Arrow-safe: stringify mixed formula/number columns
+                    safe = df.copy()
+                    safe.columns = [str(c) if c is not None else "" for c in safe.columns]
+                    st.dataframe(safe.astype(str), width="stretch", hide_index=True)
+
+    _render_formulas_used(path)
+
     st.download_button(
-        "Download engineering notebook (.xlsx)",
+        "Download .xlsx",
         data=path.read_bytes(),
         file_name=path.name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -257,20 +259,9 @@ def _render_mirror() -> None:
     man = path.parent / f"{path.stem}.notebook_manifest.json"
     if man.is_file():
         st.download_button(
-            "Download notebook_manifest.json (agents)",
+            "Download manifest (agents)",
             data=man.read_bytes(),
             file_name=man.name,
             mime="application/json",
             key="ecm_dl_notebook_manifest",
         )
-    st.caption(f"On disk: `{path}` · scenario → `{default_ecm_scenario_path()}`")
-
-
-def render() -> None:
-    st.header("ECMs — engineering notebooks")
-    st.caption(
-        "Studio is a **read-only mirror** of agent-written Excel under `reports/notebooks/`. "
-        "No Easy Buttons / capital-plan / client DOCX / OpenFDD. "
-        "Chat picks ECMs → agent writes `.xlsx` → refresh browser → download."
-    )
-    _render_mirror()

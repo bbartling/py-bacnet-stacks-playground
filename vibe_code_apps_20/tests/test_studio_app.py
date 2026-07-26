@@ -107,53 +107,49 @@ def test_studio_twin_eui_index_section():
 
 
 def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
-    # Seed agent-owned notebook so ECMs is a disk mirror (BUG-050)
+    # Seed three on-disk notebooks — ECMs is a file viewer (BUG-051–056)
     monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
     from wattlab.notebooks.builder import agent_build_notebook
 
     nb_dir = tmp_path / "reports" / "notebooks"
-    agent_build_notebook(
-        "controls_first",
-        nb_dir,
-        profile={
-            "display_name": "Liberty Building 100",
-            "conditioned_floor_area_ft2": 75_000,
-            "fan_hp": 40,
-            "cooling_tons": 200,
-        },
-    )
+    profile = {
+        "display_name": "Liberty Building 100",
+        "conditioned_floor_area_ft2": 75_000,
+        "fan_hp": 40,
+        "cooling_tons": 200,
+    }
+    for pkg in ("schedules_economizer", "plant_optimization", "deep_retrofit"):
+        agent_build_notebook(pkg, nb_dir, profile=profile)
 
-    at = _boot("Twin / calibrate")
-    at.text_input(key="twin_btype").set_value("office")
-    at.text_input(key="twin_city").set_value("detroit")
-    at.number_input(key="twin_area").set_value(75000.0)
-    # Form submit (Refresh agent runs is a separate button above the form)
-    at.button(key="FormSubmitter:twin_profile_form-Resolve profile").click().run()
+    at = _boot("ECMs")
     assert not at.exception
-    assert "studio_profile" in at.session_state
-
-    at.button(key="twin_dry_run").click().run()
-    assert not at.exception
-    assert "studio_plan" in at.session_state
-
-    at.radio(key="studio_page").set_value("ECMs").run()
-    assert not at.exception
-    # BUG-043/050: no Advanced / DOCX; mirror UI (no invent Build)
     page = " ".join(str(x) for x in at.markdown) + " ".join(str(x) for x in at.caption)
     assert "Advanced — Easy Buttons" not in page
     assert "Include client DOCX" not in page
-    assert any(
-        "ecm_notebook_reload" in str(getattr(b, "key", "") or "")
-        or "Reload" in str(getattr(b, "label", "") or "")
-        for b in at.button
+
+    btn_keys = [str(getattr(b, "key", "") or "") for b in at.button]
+    assert any("ecm_notebook_reload" in k for k in btn_keys)
+    assert not any("ecm_notebook_rebuild_scenario" in k for k in btn_keys)
+    assert not any("ecm_notebook_build" in k for k in btn_keys)
+    assert not any("ecm_notebook_refresh_caches" in k for k in btn_keys)
+
+    # File dropdown lists on-disk filenames only
+    assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
+    sel = at.selectbox(key="ecm_notebook_file")
+    opts = list(getattr(sel, "options", []) or [])
+    assert "schedules_economizer.xlsx" in opts
+    assert "plant_optimization.xlsx" in opts
+    assert "deep_retrofit.xlsx" in opts
+
+    assert any("ecm_dl_notebook_xlsx" in k for k in btn_keys) or any(
+        "Download" in str(getattr(b, "label", "") or "") for b in at.button
+    ) or any(
+        "ecm_dl_notebook_xlsx" in str(getattr(b, "key", "") or "") for b in getattr(at, "download_button", [])
     )
-    assert any(
-        "ecm_notebook_rebuild_scenario" in str(getattr(b, "key", "") or "") for b in at.button
+    # Formulas used section present
+    assert any("Formulas used" in str(getattr(el, "value", el)) for el in at.subheader) or any(
+        "Formulas used" in str(x) for x in at.markdown
     )
-    # Preview without clicking invent-build
-    assert any(
-        "ecm_notebook_preview_mode" in str(getattr(r, "key", "") or "") for r in at.radio
-    ) or "studio_notebook_path" in at.session_state
     assert not at.exception
 
 

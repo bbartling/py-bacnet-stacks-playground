@@ -85,7 +85,9 @@ wattlab notebook summarize --xlsx … --write
 Honesty: starter ESCO rows (schedule / fan VFD / chiller lockout) are **live Excel
 formulas** on Inputs; other measures may still be Python proxies. ROI cost/NPV
 follow Inputs. Twin E+ paste is optional — never blocks the workbook.
-Studio: Values + Formulas preview of on-disk file; no Easy Buttons / DOCX / OpenFDD.
+**Studio ECMs** = file dropdown of `reports/notebooks/*.xlsx` + readonly sheet
+preview + **Formulas used** breakdown + download (+ Reload). No Rebuild / Refresh
+caches / catalog Package ladder / Easy Buttons / DOCX / OpenFDD.
 
 ### Easy-button → notebook (Docker sock required) — BUG-045
 
