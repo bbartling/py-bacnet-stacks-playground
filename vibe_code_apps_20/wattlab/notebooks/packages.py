@@ -7,33 +7,44 @@ from dataclasses import dataclass
 from wattlab.ecm.packages import PACKAGES, resolve_package
 
 # Liberty-style screening ladder. Each id → one downloadable workbook.
+# ``file_stem`` = human-readable .xlsx name (narrative acts, not catalog jargon).
 NOTEBOOK_PACKAGES: dict[str, dict] = {
     "controls_first": {
         "label": "1 · Controls-first (no capital RCx)",
+        "file_stem": "01_controls_first_rcx",
+        "story": "Controls-first RCx / schedules / sensors",
         "rank": 1,
         "catalog_package": "no-capital-rcx",
         "honesty": "screening — schedules / sensors / standby+DCV",
     },
     "schedules_economizer": {
         "label": "2 · Schedules + airside resets",
+        "file_stem": "01_G36_airside_trim_respond",
+        "story": "G36 trim-and-respond — SAT/DSP, schedules, standby+DCV, chiller lockout",
         "rank": 2,
         "catalog_package": "controls-only",
         "honesty": "screening — controls package before plant capital",
     },
     "plant_optimization": {
         "label": "3 · Plant optimization",
+        "file_stem": "02_plant_chiller_boiler",
+        "story": "Plant — chiller lockout (out of the 40s), CHW/CW/HW reset, pumps / boilers",
         "rank": 3,
         "catalog_package": "plant-optimization",
         "honesty": "screening — CHW/HW/CW resets + pump VFD",
     },
     "esco_top15": {
         "label": "4 · ESCO Top-15 HVAC",
+        "file_stem": "04_esco_top15_hvac",
+        "story": "Full ESCO Top-15 HVAC screening ladder",
         "rank": 4,
         "catalog_package": "esco-top15",
         "honesty": "screening — full ESCO Top-15 map (see Docs sheet)",
     },
     "deep_retrofit": {
         "label": "5 · Deep retrofit (DOAS + HP)",
+        "file_stem": "03_ERV_IAQ_DOAS_heat_pump",
+        "story": "ERV / IAQ + DOAS heat-pump capital what-if",
         "rank": 5,
         "catalog_package": "deep-doas-heat-pump",
         "honesty": "what-if — radical capital; not investment-grade",
@@ -44,6 +55,7 @@ NOTEBOOK_PACKAGES: dict[str, dict] = {
 REQUIRED_SHEETS = (
     "Cover",
     "Calibrated_Twin",
+    "Screening_Results",
     "Inputs",
     "ESCO_Calcs",
     "EPlus_Results",
@@ -88,6 +100,8 @@ class NotebookPackage:
     catalog_package: str
     honesty: str
     measure_ids: tuple[str, ...]
+    file_stem: str = ""
+    story: str = ""
 
 
 def list_notebook_packages() -> list[NotebookPackage]:
@@ -105,9 +119,22 @@ def list_notebook_packages() -> list[NotebookPackage]:
                 catalog_package=str(meta["catalog_package"]),
                 honesty=str(meta["honesty"]),
                 measure_ids=tuple(ids),
+                file_stem=str(meta.get("file_stem") or pid),
+                story=str(meta.get("story") or meta.get("label") or pid),
             )
         )
     return out
+
+
+def notebook_file_stem(package_id: str) -> str:
+    """Human-readable workbook stem for ``reports/notebooks/{stem}.xlsx``."""
+    meta = NOTEBOOK_PACKAGES.get(package_id) or {}
+    return str(meta.get("file_stem") or package_id)
+
+
+def notebook_story(package_id: str) -> str:
+    meta = NOTEBOOK_PACKAGES.get(package_id) or {}
+    return str(meta.get("story") or meta.get("label") or package_id)
 
 
 def get_notebook_package(package_id: str) -> NotebookPackage:

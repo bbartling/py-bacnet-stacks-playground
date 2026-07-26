@@ -133,23 +133,16 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert not any("ecm_notebook_build" in k for k in btn_keys)
     assert not any("ecm_notebook_refresh_caches" in k for k in btn_keys)
 
-    # File dropdown lists on-disk filenames only
+    # File dropdown lists on-disk filenames only (human-readable stems)
     assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
     sel = at.selectbox(key="ecm_notebook_file")
     opts = list(getattr(sel, "options", []) or [])
-    assert "schedules_economizer.xlsx" in opts
-    assert "plant_optimization.xlsx" in opts
-    assert "deep_retrofit.xlsx" in opts
-
-    assert any("ecm_dl_notebook_xlsx" in k for k in btn_keys) or any(
-        "Download" in str(getattr(b, "label", "") or "") for b in at.button
-    ) or any(
-        "ecm_dl_notebook_xlsx" in str(getattr(b, "key", "") or "") for b in getattr(at, "download_button", [])
-    )
-    # Formulas used section present
-    assert any("Formulas used" in str(getattr(el, "value", el)) for el in at.subheader) or any(
-        "Formulas used" in str(x) for x in at.markdown
-    )
+    assert any("G36_airside" in o for o in opts)
+    assert any("plant_chiller" in o for o in opts)
+    assert any("ERV_IAQ_DOAS" in o for o in opts)
+    # No formula dump in Studio
+    assert not any("Formulas used" in str(getattr(el, "value", el)) for el in at.subheader)
+    assert any("Screening results" in str(getattr(el, "value", el)) for el in at.subheader)
     assert not at.exception
 
 

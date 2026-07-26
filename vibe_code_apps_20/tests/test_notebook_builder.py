@@ -258,7 +258,7 @@ def test_agent_build_formula_esco_and_cli(tmp_path: Path):
         ]
     )
     assert rc == 0
-    assert (tmp_path / "cli_out" / "controls_first.xlsx").is_file()
+    assert (tmp_path / "cli_out" / "01_controls_first_rcx.xlsx").is_file()
 
 
 def test_sync_from_twin_soft(tmp_path: Path):

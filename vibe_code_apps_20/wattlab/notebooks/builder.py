@@ -511,7 +511,8 @@ def build_notebook_workbook(
     rows = [
         ("Building", inputs.get("building")),
         ("Package id", pkg.id),
-        ("Package", pkg.label),
+        ("Package", getattr(pkg, "story", None) or pkg.label),
+        ("Catalog label", pkg.label),
         ("Honesty", pkg.honesty),
         ("Generated (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
         ("Catalog package", pkg.catalog_package),
@@ -668,9 +669,66 @@ def build_notebook_workbook(
         if ep:
             ep_ws[f"E{i}"] = f"Twin savings_by_measure{(' · ' + twin_note) if twin_note else ''}"
         else:
-            ep_ws[f"E{i}"] = "E+ measure not attached — baseline is Calibrated_Twin"
+            ep_ws[f"E{i}"] = ""
+    if ep_missing:
+        ep_ws["A" + str(len(ids) + 3)] = "note"
+        ep_ws["B" + str(len(ids) + 3)] = (
+            "No measure-level EnergyPlus savings attached — see Calibrated_Twin for G14 baseline. "
+            "Blank cells ≠ zero savings."
+        )
     ep_ws.column_dimensions["A"].width = 28
     ep_ws.column_dimensions["E"].width = 40
+
+    # --- Screening_Results (numbers for Studio — formulas stay on other sheets) ---
+    if "Screening_Results" in wb.sheetnames:
+        del wb["Screening_Results"]
+    # Insert after Calibrated_Twin when possible
+    scr = wb.create_sheet("Screening_Results", 2)
+    scr.append(
+        [
+            "measure_id",
+            "basis",
+            "savings_kwh",
+            "savings_therms",
+            "annual_cost_saved_usd",
+            "implementation_cost_usd",
+            "simple_payback_years",
+            "npv_usd",
+            "notes",
+        ]
+    )
+    _style_header(scr)
+    for i, row in enumerate(econ_rows, start=2):
+        mid = row["measure_id"]
+        basis = (
+            "excel_formula"
+            if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS
+            else "python_proxy"
+        )
+        cost = float(row.get("implementation_cost_usd") or 0)
+        annual = float(row.get("annual_cost_saved_usd") or 0)
+        payback = (cost / annual) if annual else None
+        scr[f"A{i}"] = mid
+        scr[f"B{i}"] = basis
+        scr[f"C{i}"] = round(float(row.get("kwh_saved") or 0), 1)
+        scr[f"D{i}"] = round(float(row.get("therms_saved") or 0), 1)
+        scr[f"E{i}"] = round(annual, 2)
+        scr[f"F{i}"] = round(cost, 2)
+        scr[f"G{i}"] = round(payback, 2) if payback is not None else ""
+        scr[f"H{i}"] = round(float(row.get("npv_usd") or 0), 2)
+        scr[f"I{i}"] = (
+            "Build-time screening numbers for Studio. Live Excel formulas are on ESCO_Calcs / ROI_Capital."
+        )
+    if econ_rows:
+        tot = len(econ_rows) + 2
+        scr[f"A{tot}"] = "TOTAL"
+        scr[f"E{tot}"] = f"=SUM(E2:E{len(econ_rows)+1})"
+        scr[f"F{tot}"] = f"=SUM(F2:F{len(econ_rows)+1})"
+        scr[f"H{tot}"] = f"=SUM(H2:H{len(econ_rows)+1})"
+        scr[f"A{tot}"].font = Font(bold=True)
+    scr.column_dimensions["A"].width = 28
+    scr.column_dimensions["B"].width = 14
+    scr.column_dimensions["I"].width = 56
 
     # --- Compare (formulas vs ESCO / E+ sheets) ---
     if "Compare" in wb.sheetnames:
@@ -1158,11 +1216,15 @@ def build_and_save_notebook(
     twin_run: str | None = None,
     write_manifest: bool = True,
     use_template: bool = True,
+    file_stem: str | None = None,
 ) -> dict[str, Path]:
+    from wattlab.notebooks.packages import notebook_file_stem
+
     pkg = get_notebook_package(package_id)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    xlsx = out_dir / f"{pkg.id}.xlsx"
+    stem = (file_stem or notebook_file_stem(pkg.id) or pkg.id).strip() or pkg.id
+    xlsx = out_dir / f"{stem}.xlsx"
     wb = build_notebook_workbook(
         pkg,
         profile=profile,
@@ -1183,7 +1245,9 @@ def build_and_save_notebook(
             template_loaded=bool(getattr(wb, "_wattlab_template_loaded", False)),
             formula_backed=list(getattr(wb, "_wattlab_formula_backed", []) or []),
         )
-        mp = out_dir / f"{pkg.id}.notebook_manifest.json"
+        man["file_stem"] = stem
+        man["story"] = getattr(pkg, "story", "") or pkg.label
+        mp = out_dir / f"{stem}.notebook_manifest.json"
         mp.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
         written["manifest"] = mp
     return written
@@ -1312,7 +1376,8 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     ep_rows = 0
     if "EPlus_Results" in wb.sheetnames:
         for row in wb["EPlus_Results"].iter_rows(min_row=2, max_col=3, values_only=True):
-            if not row[0]:
+            mid = row[0]
+            if not mid or str(mid).strip().lower() in ("note", "notes", "measure_id"):
                 continue
             ep_rows += 1
             if row[1] is not None or row[2] is not None:
@@ -1383,6 +1448,7 @@ def summarize_notebook(
     cover_building = None
     cover_twin = None
     cover_template = None
+    cover_pkg_id = None
     if "Cover" in wb.sheetnames:
         for row in wb["Cover"].iter_rows(min_row=4, max_col=2, values_only=True):
             key = str(row[0] or "").strip().lower()
@@ -1392,12 +1458,14 @@ def summarize_notebook(
                 cover_twin = row[1]
             elif key == "template":
                 cover_template = row[1]
-    # Prefer package from Cover / stem; load catalog label when possible
-    pkg_id = package.id if package else path.stem
+            elif key == "package id":
+                cover_pkg_id = row[1]
+    # Prefer package from Cover / arg; stem may be a human-readable file name
+    pkg_id = package.id if package else (str(cover_pkg_id) if cover_pkg_id else path.stem)
     pkg_label = package.label if package else None
     if package is None:
         try:
-            package = get_notebook_package(path.stem)
+            package = get_notebook_package(str(cover_pkg_id or path.stem))
             pkg_id = package.id
             pkg_label = package.label
         except Exception:
