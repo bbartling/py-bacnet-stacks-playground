@@ -84,18 +84,14 @@ def main() -> int:
     print("OK: Twin deliverable build (no Streamlit exceptions)")
 
     at.radio(key="studio_page").set_value("ECMs").run()
-    at.button(key="ecm_build_measures").click().run()
+    at.button(key="ecm_notebook_build").click().run()
     if at.exception:
-        return _fail(at, "ECMs(build)")
-    try:
-        gate = at.session_state["studio_guardrail_gate"]
-    except KeyError:
-        print("FAIL: studio_guardrail_gate missing after ECMs build")
+        return _fail(at, "ECMs(notebook_build)")
+    page = " ".join(str(x) for x in at.markdown) + " ".join(str(x) for x in at.caption)
+    if "Advanced — Easy Buttons" in page or "Include client DOCX" in page:
+        print("FAIL: Advanced / DOCX still present on ECMs (BUG-043)")
         return 1
-    print(
-        f"OK: loaded walk complete - guardrail verdict {gate.get('verdict')} "
-        f"({gate.get('investigate_count')} investigate)"
-    )
+    print("OK: ECMs Excel-only notebook build (no Streamlit exceptions)")
     return 0
 
 

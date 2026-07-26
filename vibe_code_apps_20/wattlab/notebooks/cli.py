@@ -92,6 +92,18 @@ def main(argv: list[str] | None = None) -> int:
     sm.add_argument("--write", action="store_true", help="Write sidecar next to xlsx")
     sm.set_defaults(func=_cmd_summarize)
 
+    rc = sub.add_parser(
+        "refresh-caches",
+        help="Recompute npv_usd_at_build from Inputs without wiping formulas (BUG-044)",
+    )
+    rc.add_argument("--xlsx", type=Path, required=True)
+    rc.set_defaults(func=_cmd_refresh)
+
+    sf = sub.add_parser("show-formulas", help="Dump Excel formula cells as JSON (BUG-044)")
+    sf.add_argument("--xlsx", type=Path, required=True)
+    sf.add_argument("--sheet", type=str, default=None, help="Limit to one sheet (e.g. ROI_Capital)")
+    sf.set_defaults(func=_cmd_show_formulas)
+
     tp = sub.add_parser("write-template", help="Write scaffold template xlsx under templates/")
     tp.add_argument(
         "--out",
@@ -213,11 +225,34 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     man = summarize_notebook(args.xlsx)
     print(json.dumps(man, indent=2))
     if args.write:
-        mp = args.xlsx.with_suffix("").with_name(args.xlsx.stem + ".notebook_manifest.json")
-        # stem.xlsx → stem.notebook_manifest.json
         mp = args.xlsx.parent / f"{args.xlsx.stem}.notebook_manifest.json"
         mp.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
         print(f"wrote {mp}", file=sys.stderr)
+    return 0
+
+
+def _cmd_refresh(args: argparse.Namespace) -> int:
+    from wattlab.notebooks.builder import refresh_notebook_caches
+
+    if not args.xlsx.is_file():
+        print(f"missing workbook: {args.xlsx}", file=sys.stderr)
+        return 2
+    try:
+        result = refresh_notebook_caches(args.xlsx)
+    except Exception as exc:
+        print(f"refresh-caches failed: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
+def _cmd_show_formulas(args: argparse.Namespace) -> int:
+    from wattlab.notebooks.builder import show_formulas
+
+    if not args.xlsx.is_file():
+        print(f"missing workbook: {args.xlsx}", file=sys.stderr)
+        return 2
+    print(json.dumps(show_formulas(args.xlsx, sheet=args.sheet), indent=2))
     return 0
 
 

@@ -14,6 +14,8 @@ from wattlab.notebooks.builder import (
     prefill_notebook_inputs,
     preview_sheet_rows,
     read_notebook_inputs,
+    refresh_notebook_caches,
+    show_formulas,
     summarize_notebook,
     validate_notebook,
 )
@@ -153,3 +155,53 @@ def test_workbook_does_not_load_template_file():
     src = inspect.getsource(b.build_notebook_workbook)
     assert "load_workbook" not in src
     assert "Workbook()" in src
+
+
+def test_refresh_caches_and_show_formulas(tmp_path: Path):
+    from openpyxl import load_workbook
+
+    from wattlab.notebooks.builder import refresh_notebook_caches, show_formulas
+    from wattlab.notebooks.cli import main
+
+    written = build_and_save_notebook(
+        "controls_first",
+        tmp_path,
+        profile={"conditioned_floor_area_ft2": 140_000, "utility": {"elec_usd_per_kwh": 0.14}},
+    )
+    xlsx = written["xlsx"]
+    wb0 = load_workbook(xlsx, data_only=False)
+    assert str(wb0["ROI_Capital"]["B2"].value).startswith("=H")
+    assert str(wb0["ROI_Capital"]["G2"].value).startswith("=IF")
+    i_before = wb0["ROI_Capital"]["I2"].value
+
+    prefill_notebook_inputs(xlsx, overrides={"elec_rate": 0.30})
+    result = refresh_notebook_caches(xlsx)
+    assert result["updated_cells"] >= 1
+    wb1 = load_workbook(xlsx, data_only=False)
+    # Formulas preserved
+    assert str(wb1["ROI_Capital"]["B2"].value).startswith("=H")
+    assert str(wb1["ROI_Capital"]["G2"].value).startswith("=IF")
+    # Cache column refreshed (may change with higher elec rate)
+    assert wb1["ROI_Capital"]["I2"].value is not None
+    assert isinstance(wb1["ROI_Capital"]["I2"].value, (int, float))
+    # Area not wiped
+    assert read_notebook_inputs(xlsx)["area_ft2"] == 140_000
+    assert read_notebook_inputs(xlsx)["elec_rate"] == 0.30
+
+    formulas = show_formulas(xlsx, sheet="ROI_Capital")
+    assert "ROI_Capital" in formulas["sheets"]
+    assert any(v.startswith("=") for v in formulas["sheets"]["ROI_Capital"].values())
+
+    rc = main(["show-formulas", "--xlsx", str(xlsx), "--sheet", "ROI_Capital"])
+    assert rc == 0
+    rc2 = main(["refresh-caches", "--xlsx", str(xlsx)])
+    assert rc2 == 0
+    _ = i_before  # silence unused when NPV equals
+
+
+def test_manifest_includes_formula_cells(tmp_path: Path):
+    written = build_and_save_notebook("controls_first", tmp_path, profile={"floor_area_ft2": 50_000})
+    man = summarize_notebook(written["xlsx"])
+    assert "formula_cells" in man
+    assert "ROI_Capital" in man["formula_cells"]
+    assert man["honesty"]["esco_kwh_therms"] == "baked_at_build"

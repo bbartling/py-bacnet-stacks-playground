@@ -8,6 +8,8 @@ from wattlab.notebooks.builder import (
     prefill_notebook_inputs,
     preview_sheet_rows,
     read_notebook_inputs,
+    refresh_notebook_caches,
+    show_formulas,
     summarize_notebook,
     validate_notebook,
 )
@@ -21,6 +23,8 @@ __all__ = [
     "prefill_notebook_inputs",
     "preview_sheet_rows",
     "read_notebook_inputs",
+    "refresh_notebook_caches",
+    "show_formulas",
     "summarize_notebook",
     "validate_notebook",
 ]

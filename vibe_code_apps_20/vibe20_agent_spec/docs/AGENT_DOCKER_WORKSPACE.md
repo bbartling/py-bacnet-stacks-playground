@@ -279,6 +279,12 @@ docker exec vibe20 ls -la /data/runs
 EnergyPlus itself runs in `energyplus-mcp-dev` via the mounted docker socket
 (DinD). Do **not** expect host `pyenergyplus` or a live Flask mid-run server.
 
+**bensbench / QA gap (BUG-045):** if `docker exec vibe20 ls /var/run/docker.sock`
+fails, easy-button EP cascades cannot run and Twin dials often lack
+`savings_by_measure`. Recreate the container with the sock mount above, then
+`wattlab energyplus-ensure`, then the one-shot recipe in `AGENT_TOOLS.md`
+(easy-button → notebook build `--from-run`).
+
 ## Equal look-and-feel (ops)
 
 | Concern | vibe19 | vibe20 |

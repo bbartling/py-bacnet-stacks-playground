@@ -211,9 +211,9 @@ def build_notebook_workbook(
         ("ESCO docs", ESCO_DOCS_URL),
         (
             "Note",
-            "Yellow Inputs drive rate-linked formulas (annual $, payback, NPV, Compare). "
-            "ESCO kWh/therms are screening proxies baked at build (see Docs). "
-            "Workbook is generated in code — templates/ecm_package_v1.xlsx is a scaffold only.",
+            "Yellow Inputs drive rate-linked Excel formulas (annual $, payback, NPV, cost B=H). "
+            "ESCO kWh/therms are Python screening proxies baked at build — not bin-method Excel "
+            "(see Docs + ESCO_SPREADSHEET_CALCS.md). Scaffold template is not loaded at build.",
         ),
     ]
     for i, (k, v) in enumerate(rows, start=4):
@@ -431,7 +431,17 @@ def build_notebook_workbook(
     docs["A11"] = "E+ Compare"
     docs["B11"] = (
         "YELLOW light when Twin report lacks savings_by_measure — "
-        "pick an ECM-capable run (validate warns)"
+        "pick an ECM-capable run (validate warns); easy-button needs Docker sock"
+    )
+    docs["A12"] = "ESCO kWh/therms honesty"
+    docs["B12"] = (
+        "Baked at build via wattlab.studio.proxies / bench/esco.py — "
+        "not live Excel bin blocks. Human map: docs/ESCO_SPREADSHEET_CALCS.md"
+    )
+    docs["A13"] = "Agent refresh"
+    docs["B13"] = (
+        "wattlab notebook prefill (Inputs) | refresh-caches (npv_usd_at_build) | "
+        "show-formulas --sheet ROI_Capital"
     )
     docs.column_dimensions["A"].width = 28
     docs.column_dimensions["B"].width = 80
@@ -530,6 +540,178 @@ def prefill_notebook_inputs(
         updated.append(param)
     wb.save(path)
     return {"path": str(path), "updated": updated, "inputs": read_notebook_inputs(path)}
+
+
+def collect_formula_cells(
+    path: Path | str,
+    *,
+    sheets: tuple[str, ...] = ("ESCO_Calcs", "Compare", "ROI_Capital"),
+    max_cells: int = 500,
+) -> dict[str, dict[str, str]]:
+    """Map sheet → {A1: formula} for agent formula UX (BUG-044)."""
+    from openpyxl import load_workbook
+    from openpyxl.utils import get_column_letter
+
+    path = Path(path)
+    wb = load_workbook(path, data_only=False)
+    out: dict[str, dict[str, str]] = {}
+    n = 0
+    for sheet in sheets:
+        if sheet not in wb.sheetnames:
+            continue
+        ws = wb[sheet]
+        cells: dict[str, str] = {}
+        for row in ws.iter_rows(min_row=1, max_row=ws.max_row or 1, max_col=ws.max_column or 1):
+            for cell in row:
+                val = cell.value
+                if isinstance(val, str) and val.startswith("="):
+                    addr = f"{get_column_letter(cell.column)}{cell.row}"
+                    cells[addr] = val
+                    n += 1
+                    if n >= max_cells:
+                        out[sheet] = cells
+                        return out
+        if cells:
+            out[sheet] = cells
+    return out
+
+
+def show_formulas(
+    path: Path | str,
+    *,
+    sheet: str | None = None,
+) -> dict[str, Any]:
+    """CLI-friendly formula dump for one sheet or all formula sheets."""
+    path = Path(path)
+    sheets = (sheet,) if sheet else ("ESCO_Calcs", "Compare", "ROI_Capital", "Inputs")
+    cells = collect_formula_cells(path, sheets=tuple(s for s in sheets if s))
+    return {"path": str(path.resolve()), "sheets": cells}
+
+
+def refresh_notebook_caches(path: Path | str) -> dict[str, Any]:
+    """Recompute Python cache columns without wiping formulas (BUG-044).
+
+    Updates ``ROI_Capital!I`` (npv_usd_at_build) from current Inputs rates +
+    ROI C/D savings and cost (H formula evaluated in Python from Inputs).
+    Does not rewrite Inputs, Compare formulas, ESCO B/C, or EPlus_Results.
+    """
+    from openpyxl import load_workbook
+
+    from wattlab.finance import measure_economics
+
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    wb = load_workbook(path, data_only=False)
+    if "Inputs" not in wb.sheetnames or "ROI_Capital" not in wb.sheetnames:
+        raise ValueError("Inputs and ROI_Capital sheets required")
+
+    inputs = {}
+    for row in wb["Inputs"].iter_rows(min_row=2, max_col=2, values_only=True):
+        if row[0]:
+            inputs[str(row[0])] = row[1]
+
+    def _f(key: str, default: float) -> float:
+        try:
+            v = inputs.get(key)
+            return float(v) if v is not None and v != "" else float(default)
+        except (TypeError, ValueError):
+            return float(default)
+
+    area = _f("area_ft2", 50000)
+    usd = _f("usd_per_ft2", 3.0)
+    cov = _f("coverage", 1.0)
+    elec = _f("elec_rate", 0.12)
+    gas = _f("gas_rate", 0.80)
+    disc = _f("discount", 0.05)
+    esc = _f("escalation", 0.02)
+    life = int(_f("life_years", 15))
+
+    roi = wb["ROI_Capital"]
+    # Count measure rows (stop at TOTAL / blank)
+    measure_rows: list[int] = []
+    for r in range(2, (roi.max_row or 2) + 1):
+        mid = roi.cell(r, 1).value
+        if mid is None or str(mid).strip() == "" or str(mid).upper() == "TOTAL":
+            break
+        measure_rows.append(r)
+    n_meas = max(len(measure_rows), 1)
+    package_cost = usd * area * cov / n_meas
+
+    updated = 0
+    for r in measure_rows:
+        mid = str(roi.cell(r, 1).value)
+        # Cost: if B is formula, use package_cost; else numeric override
+        bval = roi.cell(r, 2).value
+        if isinstance(bval, str) and bval.startswith("="):
+            cost = package_cost
+        else:
+            try:
+                cost = float(bval) if bval is not None else package_cost
+            except (TypeError, ValueError):
+                cost = package_cost
+        try:
+            kwh = float(roi.cell(r, 3).value or 0)
+        except (TypeError, ValueError):
+            kwh = 0.0
+        try:
+            therms = float(roi.cell(r, 4).value or 0)
+        except (TypeError, ValueError):
+            therms = 0.0
+        econ = measure_economics(
+            measure_id=mid,
+            implementation_cost_usd=cost,
+            kwh_saved=kwh,
+            therms_saved=therms,
+            elec_rate_usd_per_kwh=elec,
+            gas_rate_usd_per_therm=gas,
+            discount_rate=disc,
+            escalation_rate=esc,
+            measure_life_years=life,
+        )
+        # Column I = npv_usd_at_build (header row 1)
+        roi.cell(r, 9).value = econ["npv_usd"]
+        updated += 1
+
+    # Refresh TOTAL row I if present
+    tot_row = (measure_rows[-1] + 1) if measure_rows else None
+    if tot_row and str(roi.cell(tot_row + 1, 1).value or "").upper() == "TOTAL":
+        # TOTAL is n+2 in builder (blank line?) — builder uses tot = n+2 with A=TOTAL
+        pass
+    for r in range(2, (roi.max_row or 2) + 1):
+        if str(roi.cell(r, 1).value or "").upper() == "TOTAL":
+            # Leave SUM formula on I if present; else sum caches
+            ival = roi.cell(r, 9).value
+            if not (isinstance(ival, str) and ival.startswith("=")):
+                s = 0.0
+                for mr in measure_rows:
+                    try:
+                        s += float(roi.cell(mr, 9).value or 0)
+                    except (TypeError, ValueError):
+                        pass
+                roi.cell(r, 9).value = round(s, 2)
+            break
+
+    wb.save(path)
+    # Rewrite manifest formula map
+    man_path = path.parent / f"{path.stem}.notebook_manifest.json"
+    if man_path.is_file() or True:
+        man = summarize_notebook(path)
+        man_path.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
+    return {
+        "path": str(path),
+        "updated_cells": updated,
+        "manifest": str(man_path),
+        "inputs_used": {
+            "area_ft2": area,
+            "elec_rate": elec,
+            "gas_rate": gas,
+            "discount": disc,
+            "escalation": esc,
+            "life_years": life,
+            "package_cost_per_measure": round(package_cost, 2),
+        },
+    }
 
 
 def build_and_save_notebook(
@@ -650,6 +832,7 @@ def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = No
         except Exception:
             pass
     validated = validate_notebook(path)
+    formula_cells = collect_formula_cells(path)
     return {
         "schema": "wattlab_notebook_manifest_v1",
         "path": str(path.resolve()),
@@ -661,6 +844,7 @@ def summarize_notebook(path: Path | str, *, package: NotebookPackage | None = No
         "compare": verdicts,
         "guardrail_verdict": gate,
         "inputs": inputs,
+        "formula_cells": formula_cells,
         "docs_url": ESCO_DOCS_URL,
         "validated": validated,
         "ep_coverage": {
@@ -711,12 +895,15 @@ def write_template_stub(path: Path | str) -> Path:
 __all__ = [
     "build_and_save_notebook",
     "build_notebook_workbook",
+    "collect_formula_cells",
     "default_inputs_from_profile",
     "list_notebook_packages",
     "prefill_notebook_inputs",
     "preview_sheet_rows",
     "read_notebook_inputs",
+    "refresh_notebook_caches",
     "save_workbook",
+    "show_formulas",
     "summarize_notebook",
     "validate_notebook",
     "write_template_stub",
