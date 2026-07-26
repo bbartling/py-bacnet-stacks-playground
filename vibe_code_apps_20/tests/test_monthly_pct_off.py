@@ -108,3 +108,42 @@ def test_load_per_month_from_run(tmp_path: Path):
 def test_format_empty():
     empty = {"n": 0, "over": [], "under": [], "ok": [], "ok_band_pct": 15}
     assert "no monthly" in format_fuel_narrative(empty, label="Gas").lower()
+
+
+def test_gas_only_scorecard_elec_n_zero():
+    """G14 can still show elec aggregates while per_month lacks kWh pairs."""
+    rows = [
+        {"month": "2024-01", "observed_therms": 100, "modeled_therms": 110},
+        {"month": "2024-07", "observed_therms": 50, "modeled_therms": 40},
+        {"month": "2024-12", "observed_therms": 100, "modeled_therms": 130},
+    ]
+    analysis = build_monthly_pct_off(rows)
+    assert analysis["has_data"]
+    assert analysis["gas"]["n"] == 3
+    assert analysis["elec"]["n"] == 0
+    assert "Gas" in (analysis["gas_narrative"] or "")
+    assert analysis["elec_narrative"]  # still a "no monthly" style line from format
+
+
+def test_fuel_filter_both_vs_elec_only_counts():
+    rows = [
+        {
+            "month": "2024-01",
+            "observed_kwh": 100,
+            "modeled_kwh": 120,
+            "observed_therms": 50,
+            "modeled_therms": 40,
+        },
+        {
+            "month": "2024-07",
+            "observed_kwh": 100,
+            "modeled_kwh": 90,
+            "observed_therms": 20,
+            "modeled_therms": 20,
+        },
+    ]
+    a = build_monthly_pct_off(rows)
+    assert a["elec"]["n"] == 2
+    assert a["gas"]["n"] == 2
+    # Panel is Streamlit-only; filter semantics match analyze counts above
+    assert a["elec"]["over"] or a["elec"]["under"] or a["elec"]["ok"]
