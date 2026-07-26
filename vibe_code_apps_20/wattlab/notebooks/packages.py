@@ -43,6 +43,7 @@ NOTEBOOK_PACKAGES: dict[str, dict] = {
 
 REQUIRED_SHEETS = (
     "Cover",
+    "Calibrated_Twin",
     "Inputs",
     "ESCO_Calcs",
     "EPlus_Results",
@@ -68,6 +69,14 @@ INPUT_NAMED_RANGES = (
     "inp_fan_speed",
     "inp_kw_per_ton",
     "inp_lockout_hours",
+    "inp_standby_hours",
+    "inp_sat_hours",
+    "inp_erv_cfm",
+    "inp_erv_eff",
+    "inp_erv_hours",
+    "inp_heating_mmbtu",
+    "inp_boiler_eff_base",
+    "inp_boiler_eff_prop",
 )
 
 
