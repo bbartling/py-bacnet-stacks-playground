@@ -84,14 +84,18 @@ def main() -> int:
     print("OK: Twin deliverable build (no Streamlit exceptions)")
 
     at.radio(key="studio_page").set_value("ECMs").run()
-    at.button(key="ecm_notebook_build").click().run()
     if at.exception:
-        return _fail(at, "ECMs(notebook_build)")
+        return _fail(at, "ECMs")
     page = " ".join(str(x) for x in at.markdown) + " ".join(str(x) for x in at.caption)
     if "Advanced — Easy Buttons" in page or "Include client DOCX" in page:
         print("FAIL: Advanced / DOCX still present on ECMs (BUG-043)")
         return 1
-    print("OK: ECMs Excel-only notebook build (no Streamlit exceptions)")
+    # Mirror UI — Reload / Rebuild from scenario (no invent Build)
+    keys = [str(getattr(b, "key", "") or "") for b in at.button]
+    if not any("ecm_notebook_reload" in k or "ecm_notebook_rebuild_scenario" in k for k in keys):
+        print("FAIL: ECMs mirror buttons missing (BUG-050)")
+        return 1
+    print("OK: ECMs disk-mirror page (no Streamlit exceptions)")
     return 0
 
 

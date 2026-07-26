@@ -106,7 +106,23 @@ def test_studio_twin_eui_index_section():
     assert any("EUI" in str(getattr(el, "value", el)) for el in at.subheader)
 
 
-def test_studio_twin_and_ecms_dry_path():
+def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
+    # Seed agent-owned notebook so ECMs is a disk mirror (BUG-050)
+    monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
+    from wattlab.notebooks.builder import agent_build_notebook
+
+    nb_dir = tmp_path / "reports" / "notebooks"
+    agent_build_notebook(
+        "controls_first",
+        nb_dir,
+        profile={
+            "display_name": "Liberty Building 100",
+            "conditioned_floor_area_ft2": 75_000,
+            "fan_hp": 40,
+            "cooling_tons": 200,
+        },
+    )
+
     at = _boot("Twin / calibrate")
     at.text_input(key="twin_btype").set_value("office")
     at.text_input(key="twin_city").set_value("detroit")
@@ -122,22 +138,23 @@ def test_studio_twin_and_ecms_dry_path():
 
     at.radio(key="studio_page").set_value("ECMs").run()
     assert not at.exception
-    # BUG-043: Advanced / DOCX / Easy Buttons removed
+    # BUG-043/050: no Advanced / DOCX; mirror UI (no invent Build)
     page = " ".join(str(x) for x in at.markdown) + " ".join(str(x) for x in at.caption)
     assert "Advanced — Easy Buttons" not in page
     assert "Include client DOCX" not in page
-    # Notebook primary path present
     assert any(
-        "ecm_notebook_build" in str(getattr(b, "key", "") or "")
-        or "Build" in str(getattr(b, "label", "") or "")
+        "ecm_notebook_reload" in str(getattr(b, "key", "") or "")
+        or "Reload" in str(getattr(b, "label", "") or "")
         for b in at.button
     )
-    at.button(key="ecm_notebook_build").click().run()
-    assert not at.exception
-    # Preview mode radio (Formulas / Values)
+    assert any(
+        "ecm_notebook_rebuild_scenario" in str(getattr(b, "key", "") or "") for b in at.button
+    )
+    # Preview without clicking invent-build
     assert any(
         "ecm_notebook_preview_mode" in str(getattr(r, "key", "") or "") for r in at.radio
     ) or "studio_notebook_path" in at.session_state
+    assert not at.exception
 
 
 def test_turnkey_live_html_smoke():

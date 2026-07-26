@@ -63,6 +63,11 @@ INPUT_NAMED_RANGES = (
     "inp_life_years",
     "inp_usd_per_ft2",
     "inp_coverage",
+    "inp_sched_hours_saved",
+    "inp_fan_hours",
+    "inp_fan_speed",
+    "inp_kw_per_ton",
+    "inp_lockout_hours",
 )
 
 
