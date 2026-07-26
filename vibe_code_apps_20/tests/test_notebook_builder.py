@@ -10,8 +10,10 @@ openpyxl = pytest.importorskip("openpyxl")
 
 from wattlab.notebooks.builder import (
     FORMULA_ESCO_KWH,
+    FORMULA_ESCO_THERMS,
     agent_build_notebook,
     build_and_save_notebook,
+    extract_calibrated_baseline,
     prefill_notebook_inputs,
     preview_sheet_rows,
     read_notebook_inputs,
@@ -286,4 +288,103 @@ def test_formula_esco_constants_present():
         "ECM-AHU-SCHED-ALIGN",
         "ECM-PREMIUM-FAN-VFD",
         "ECM-CHILLER-LOCKOUT",
+        "ECM-OCC-STANDBY-DCV",
+        "ECM-SAT-RESET",
+        "ECM-DSP-RESET",
+        "ECM-ERV",
     }
+    assert set(FORMULA_ESCO_THERMS) >= {
+        "ECM-BOILER-RESET",
+        "ECM-ERV",
+    }
+
+
+def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
+    """BUG-057: Calibrated_Twin + Cover mirror G14 baseline from scorecard."""
+    scorecard = {
+        "run_id": "geo_b100_6stack_shape_r56_sched_mild",
+        "annual": {
+            "electricity_kwh_year": 1_460_000.0,
+            "natural_gas_therm_year": 59_000.0,
+            "site_eui_kbtu_ft2_year": 77.8,
+        },
+        "utility_bills": {
+            "pass_fail": "PASS",
+            "stats_electricity": {"nmbe_pct": 2.1, "cvrmse_pct": 8.5},
+            "stats_natural_gas": {"nmbe_pct": -1.4, "cvrmse_pct": 12.0},
+        },
+        "peer_band": "near_median",
+        "peer_vs_median_pct": -3.2,
+    }
+    written = agent_build_notebook(
+        "schedules_economizer",
+        tmp_path,
+        profile={
+            "display_name": "Liberty Building 100",
+            "conditioned_floor_area_ft2": 140_000,
+            "fan_hp": 80,
+            "cooling_tons": 250,
+        },
+        report=scorecard,
+        twin_run="geo_b100_6stack_shape_r56_sched_mild",
+    )
+    wb = openpyxl.load_workbook(written["xlsx"], data_only=False)
+    assert "Calibrated_Twin" in wb.sheetnames
+    cal = {
+        str(wb["Calibrated_Twin"][f"A{r}"].value): wb["Calibrated_Twin"][f"B{r}"].value
+        for r in range(2, 20)
+        if wb["Calibrated_Twin"][f"A{r}"].value
+    }
+    assert cal["model_site_eui"] == 77.8
+    assert cal["g14_pass"] == "PASS"
+    assert cal["model_kwh"] == 1_460_000.0
+    assert "geo_b100" in str(cal["twin_run"])
+    cover = {
+        str(wb["Cover"][f"A{r}"].value): wb["Cover"][f"B{r}"].value
+        for r in range(4, 30)
+        if wb["Cover"][f"A{r}"].value
+    }
+    assert cover.get("Model site EUI") == 77.8
+    assert cover.get("G14 pass") == "PASS"
+    assert "screening" in str(cover.get("Screening $/sf") or "").lower()
+    assert "ESCO_CALCULATORS" in str(cover.get("ESCO calculators") or "")
+
+    # Narrative Act 1: ≥3 formula-backed airside measures
+    esco = wb["ESCO_Calcs"]
+    formula_mids = []
+    for r in range(2, (esco.max_row or 1) + 1):
+        mid = esco.cell(r, 1).value
+        if mid and str(esco.cell(r, 2).value or "").startswith("="):
+            formula_mids.append(str(mid))
+    assert "ECM-AHU-SCHED-ALIGN" in formula_mids
+    assert "ECM-CHILLER-LOCKOUT" in formula_mids
+    assert len(set(formula_mids) & {
+        "ECM-OCC-STANDBY-DCV", "ECM-SAT-RESET", "ECM-DSP-RESET",
+    }) >= 1
+    assert len(formula_mids) >= 3
+
+    # Sheet still exists when scorecard missing
+    written2 = build_and_save_notebook("deep_retrofit", tmp_path / "empty", report={})
+    wb2 = openpyxl.load_workbook(written2["xlsx"], data_only=False)
+    assert "Calibrated_Twin" in wb2.sheetnames
+    status = None
+    for r in range(2, 20):
+        if wb2["Calibrated_Twin"][f"A{r}"].value == "status":
+            status = wb2["Calibrated_Twin"][f"B{r}"].value
+    assert status and "missing" in str(status).lower()
+    # Deep package: ERV Excel formula
+    esco2 = wb2["ESCO_Calcs"]
+    by_mid = {
+        str(esco2.cell(r, 1).value): esco2.cell(r, 2).value
+        for r in range(2, (esco2.max_row or 1) + 1)
+        if esco2.cell(r, 1).value
+    }
+    assert str(by_mid["ECM-ERV"]).startswith("=")
+
+    base = extract_calibrated_baseline(scorecard, twin_run="geo_b100_x")
+    assert base["model_site_eui"] == 77.8
+    assert base["has_core"] is True
+
+    man = summarize_notebook(written["xlsx"])
+    assert man["docs_url"].endswith("ESCO_CALCULATORS.md")
+    assert man["honesty"]["docs"]["retrofit_cost_roi"].endswith("ESCO_RETROFIT_COST_ROI.md")

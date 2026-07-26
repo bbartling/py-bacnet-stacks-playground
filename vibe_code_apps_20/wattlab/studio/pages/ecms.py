@@ -177,8 +177,11 @@ def render() -> None:
         "Use **Reload from disk** (or hard-refresh the browser) after a CLI write."
     )
     st.markdown(
-        "[ESCO formula map (GitHub)]"
-        "(https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+        "[ESCO calculators](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+        "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_CALCULATORS.md) · "
+        "[Retrofit cost / ROI](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+        "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md) · "
+        "[Spreadsheet map](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
         "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md)"
     )
 

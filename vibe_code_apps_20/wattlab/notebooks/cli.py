@@ -39,15 +39,36 @@ def _load_profile(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _load_report(run_dir: Path | None) -> dict[str, Any]:
+    """Merge Twin report + scorecard + optional g14_score (BUG-057)."""
     if run_dir is None:
         return {}
     root = Path(run_dir)
-    for name in ("report.json", "wattlab_report.json", "calibration_scorecard.json"):
+    out: dict[str, Any] = {}
+    for name in (
+        "report.json",
+        "wattlab_report.json",
+        "calibration_scorecard.json",
+        "scorecard.json",
+        "g14_score.json",
+        "campaign_stamp.json",
+    ):
         p = root / name
         if p.is_file():
-            return _load_json(p)
-    return {}
-
+            data = _load_json(p)
+            if data:
+                # Later files fill gaps; scorecard annual wins over sparse report
+                for k, v in data.items():
+                    if k not in out or out.get(k) in (None, {}, []):
+                        out[k] = v
+                    elif isinstance(out.get(k), dict) and isinstance(v, dict):
+                        merged = dict(out[k])
+                        merged.update({kk: vv for kk, vv in v.items() if vv is not None})
+                        out[k] = merged
+                    elif v is not None:
+                        out[k] = v
+    if root.name and not out.get("run_id"):
+        out["run_id"] = root.name
+    return out
 
 def _parse_ecms(raw: str | None) -> list[str] | None:
     if not raw:

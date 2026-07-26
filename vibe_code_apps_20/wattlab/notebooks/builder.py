@@ -19,33 +19,75 @@ ESCO_DOCS_URL = (
     "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
     "vibe_code_apps_20/docs/ESCO_SPREADSHEET_CALCS.md"
 )
+ESCO_CALCULATORS_URL = (
+    "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+    "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_CALCULATORS.md"
+)
+ESCO_RETROFIT_ROI_URL = (
+    "https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
+    "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md"
+)
 YELLOW = "FFFF99"
 HEADER_FILL = "1F4E79"
 HEADER_FONT = "FFFFFF"
 
-# Starter Phase 2 — live Excel ESCO screening formulas (BUG-050).
+# Package-level screening $/sf bands (office) — not a bid (BUG-060).
+PACKAGE_SCREENING_USD_SF: dict[str, tuple[float, str]] = {
+    "controls_first": (3.0, "controls-first screening band"),
+    "schedules_economizer": (3.0, "controls / airside screening band"),
+    "plant_optimization": (4.6, "major HVAC screening band"),
+    "esco_top15": (4.6, "major HVAC screening band"),
+    "deep_retrofit": (18.0, "deep renewal / electrification screening band"),
+}
+
+# Live Excel ESCO screening formulas (BUG-050 / BUG-059).
 # Other measures stay Python-proxy with an honest notes column.
 FORMULA_ESCO_KWH: dict[str, str] = {
-    # Fan kWh from avoided hours + light cooling lock-in via tons × kW/ton × fraction of hours
     "ECM-AHU-SCHED-ALIGN": (
         "=IF(OR(inp_fan_hp=\"\",inp_fan_hp=0),0,inp_fan_hp*0.746*inp_sched_hours_saved)"
         "+IF(OR(inp_cooling_tons=\"\",inp_cooling_tons=0),0,"
         "inp_cooling_tons*inp_kw_per_ton*inp_sched_hours_saved*0.15)"
     ),
-    # Affinity: design_kw × hours × (1 − speed³)
     "ECM-PREMIUM-FAN-VFD": (
         "=IF(OR(inp_fan_hp=\"\",inp_fan_hp=0),0,"
         "inp_fan_hp*0.746*inp_fan_hours*(1-inp_fan_speed^3))"
     ),
-    # Economizer / lockout hours × tons × kW/ton
     "ECM-CHILLER-LOCKOUT": (
         "=IF(OR(inp_cooling_tons=\"\",inp_cooling_tons=0),0,"
         "inp_cooling_tons*inp_kw_per_ton*inp_lockout_hours)"
+    ),
+    "ECM-OCC-STANDBY-DCV": (
+        "=IF(OR(inp_fan_hp=\"\",inp_fan_hp=0),0,inp_fan_hp*0.746*inp_standby_hours*0.45)"
+        "+IF(OR(inp_cooling_tons=\"\",inp_cooling_tons=0),0,"
+        "inp_cooling_tons*inp_kw_per_ton*inp_standby_hours*0.12)"
+    ),
+    "ECM-SAT-RESET": (
+        "=IF(OR(inp_cooling_tons=\"\",inp_cooling_tons=0),0,"
+        "inp_cooling_tons*inp_kw_per_ton*inp_sat_hours*0.08)"
+    ),
+    "ECM-DSP-RESET": (
+        "=IF(OR(inp_fan_hp=\"\",inp_fan_hp=0),0,"
+        "inp_fan_hp*0.746*inp_fan_hours*(1-0.85^3)*0.55)"
+    ),
+    "ECM-ERV": (
+        "=IF(OR(inp_erv_cfm=\"\",inp_erv_cfm=0),0,"
+        "inp_erv_cfm*inp_erv_eff*4.5*12*inp_erv_hours/12000*inp_kw_per_ton)"
     ),
 }
 FORMULA_ESCO_THERMS: dict[str, str] = {
     "ECM-AHU-SCHED-ALIGN": (
         "=IF(OR(inp_area_ft2=\"\",inp_area_ft2=0),0,inp_area_ft2*0.0004*inp_sched_hours_saved/10)"
+    ),
+    "ECM-OCC-STANDBY-DCV": (
+        "=IF(OR(inp_area_ft2=\"\",inp_area_ft2=0),0,inp_area_ft2*0.0003*inp_standby_hours/10)"
+    ),
+    "ECM-BOILER-RESET": (
+        "=IF(OR(inp_heating_mmbtu=\"\",inp_heating_mmbtu=0),0,"
+        "inp_heating_mmbtu*10*(1/inp_boiler_eff_base-1/inp_boiler_eff_prop)*0.35)"
+    ),
+    "ECM-ERV": (
+        "=IF(OR(inp_erv_cfm=\"\",inp_erv_cfm=0),0,"
+        "inp_erv_cfm*inp_erv_eff*1.08*25*inp_erv_hours/100000)"
     ),
 }
 
@@ -74,6 +116,97 @@ def resolve_building_label(profile: dict[str, Any] | None = None) -> str:
         if text:
             return text
     return "BUILDING"
+
+
+def extract_calibrated_baseline(
+    report: dict[str, Any] | None = None,
+    *,
+    twin_run: str | None = None,
+    property_type: str = "office",
+) -> dict[str, Any]:
+    """Pull G14 / annual / peer fields from Twin scorecard or report (BUG-057)."""
+    report = report or {}
+    annual = report.get("annual") if isinstance(report.get("annual"), dict) else {}
+    bills = report.get("utility_bills") if isinstance(report.get("utility_bills"), dict) else {}
+    g14_blob = report.get("g14") if isinstance(report.get("g14"), dict) else {}
+    stats_e = bills.get("stats_electricity") or bills.get("stats") or {}
+    stats_g = bills.get("stats_natural_gas") or bills.get("stats_gas") or {}
+    if not isinstance(stats_e, dict):
+        stats_e = {}
+    if not isinstance(stats_g, dict):
+        stats_g = {}
+
+    model_kwh = annual.get("electricity_kwh_year")
+    model_therms = (
+        annual.get("natural_gas_therm_year")
+        or annual.get("gas_therms_year")
+        or annual.get("natural_gas_therms_year")
+    )
+    if model_therms is None:
+        monthly = annual.get("monthly") or []
+        vals = [
+            float(m["natural_gas_therm"])
+            for m in monthly
+            if isinstance(m, dict) and m.get("natural_gas_therm") is not None
+        ]
+        if vals:
+            model_therms = round(sum(vals), 1)
+    site_eui = annual.get("site_eui_kbtu_ft2_year") or g14_blob.get("site_eui_kbtu_ft2_year")
+    g14_pass = (
+        bills.get("pass_fail")
+        or report.get("pass_fail")
+        or report.get("overall")
+        or g14_blob.get("pass_fail")
+    )
+    bill_kwh = None
+    bill_therms = None
+    for row in bills.get("per_month") or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("observed_kwh") is not None:
+            bill_kwh = (bill_kwh or 0.0) + float(row["observed_kwh"])
+        if row.get("observed_therms") is not None:
+            bill_therms = (bill_therms or 0.0) + float(row["observed_therms"])
+
+    peer_band = report.get("peer_band") or g14_blob.get("peer_band")
+    peer_vs = report.get("peer_vs_median_pct") or g14_blob.get("peer_vs_median_pct")
+    if peer_band is None and site_eui is not None:
+        try:
+            from wattlab.benchmarks.eui import compare_eui
+
+            cmp = compare_eui(float(site_eui), property_type=property_type)
+            peer_band = cmp.get("band")
+            peer_vs = cmp.get("vs_median_pct")
+        except Exception:
+            pass
+
+    twin_label = twin_run or report.get("run_id") or report.get("studio_run_dir") or ""
+    if twin_label:
+        twin_label = Path(str(twin_label)).name
+    has_core = any(v is not None for v in (model_kwh, model_therms, site_eui, g14_pass))
+    status = (
+        "ok — calibrated Twin baseline (≠ measure savings)"
+        if has_core
+        else "scorecard / annual missing — placeholder only; attach --twin-run with calibration_scorecard.json"
+    )
+    return {
+        "twin_run": twin_label or "(none)",
+        "g14_pass": g14_pass,
+        "model_kwh": model_kwh,
+        "model_therms": model_therms,
+        "model_site_eui": site_eui,
+        "bill_kwh": bill_kwh,
+        "bill_therms": bill_therms,
+        "nmbe_elec_pct": stats_e.get("nmbe_pct"),
+        "cvrmse_elec_pct": stats_e.get("cvrmse_pct"),
+        "nmbe_gas_pct": stats_g.get("nmbe_pct"),
+        "cvrmse_gas_pct": stats_g.get("cvrmse_pct"),
+        "peer_band": peer_band,
+        "peer_vs_median_pct": peer_vs,
+        "status": status,
+        "honesty": "Baseline calibrated model — not ECM measure savings (see EPlus_Results).",
+        "has_core": has_core,
+    }
 
 
 def _style_header(ws, row: int = 1) -> None:
@@ -133,6 +266,14 @@ def default_inputs_from_profile(profile: dict[str, Any] | None = None) -> dict[s
         "fan_speed": float(profile.get("fan_speed") or profile.get("fan_proposed_speed") or 0.7),
         "kw_per_ton": float(profile.get("kw_per_ton") or 0.65),
         "lockout_hours": float(profile.get("lockout_hours") or 800),
+        "standby_hours": float(profile.get("standby_hours") or 2000),
+        "sat_hours": float(profile.get("sat_hours") or 3500),
+        "erv_cfm": float(profile.get("erv_cfm") or profile.get("oa_cfm") or 8000),
+        "erv_eff": float(profile.get("erv_eff") or profile.get("erv_effectiveness") or 0.65),
+        "erv_hours": float(profile.get("erv_hours") or 4000),
+        "heating_mmbtu": float(profile.get("heating_mmbtu") or profile.get("annual_heating_mmbtu") or 4000),
+        "boiler_eff_base": float(profile.get("boiler_eff_base") or 0.80),
+        "boiler_eff_prop": float(profile.get("boiler_eff_prop") or 0.84),
     }
 
 
@@ -189,6 +330,16 @@ def build_notebook_workbook(
     elif isinstance(report, dict) and report.get("run_id"):
         twin_note = str(report.get("run_id"))
     ep_missing = not any(ep_by.get(mid) for mid in ids)
+    baseline = extract_calibrated_baseline(
+        report,
+        twin_run=twin_note or twin_run,
+        property_type=str(inputs.get("property_type") or "office"),
+    )
+    if baseline.get("twin_run") and baseline["twin_run"] != "(none)":
+        twin_note = str(baseline["twin_run"])
+    screening_usd, screening_label = PACKAGE_SCREENING_USD_SF.get(
+        pkg.id, (float(inputs["usd_per_ft2"]), "package Inputs $/ft² fallback")
+    )
 
     area = float(inputs["area_ft2"])
     cov = float(inputs["coverage"])
@@ -213,7 +364,7 @@ def build_notebook_workbook(
         ep = ep_by.get(mid) or {}
         esco_kwh = float(p.get("savings_kwh") or 0.0)
         esco_therms = float(p.get("savings_therms") or 0.0)
-        if mid in FORMULA_ESCO_KWH:
+        if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
             formula_backed.append(mid)
         ep_kwh = ep.get("kwh_saved")
         ep_therms = ep.get("therms_saved")
@@ -293,10 +444,10 @@ def build_notebook_workbook(
         "Yellow Inputs drive rate-linked Excel formulas (annual $, payback, NPV, cost B=H). "
         f"Formula-backed ESCO kWh: {', '.join(formula_backed) or '(none this package)'}. "
         "Other ESCO rows are Python screening proxies. Screening — not investment-grade. "
-        "See Docs + ESCO_SPREADSHEET_CALCS.md."
+        "See Docs · ESCO_CALCULATORS · ESCO_RETROFIT_COST_ROI."
     )
     if ep_missing:
-        note += " EPlus_Results empty — Twin attach optional (sync-from-twin when a good report exists)."
+        note += " EPlus_Results empty — measure savings optional; Calibrated_Twin is baseline."
     rows = [
         ("Building", inputs.get("building")),
         ("Package id", pkg.id),
@@ -306,8 +457,20 @@ def build_notebook_workbook(
         ("Catalog package", pkg.catalog_package),
         ("n_measures", len(ids)),
         ("Twin run", twin_note or "(none — E+ optional)"),
+        ("G14 pass", baseline.get("g14_pass")),
+        ("Model site EUI", baseline.get("model_site_eui")),
+        ("Model kWh/yr", baseline.get("model_kwh")),
+        ("Model therms/yr", baseline.get("model_therms")),
+        ("Peer band", baseline.get("peer_band")),
+        ("Peer vs median %", baseline.get("peer_vs_median_pct")),
+        (
+            "Screening $/sf",
+            f"{screening_usd} ({screening_label}) — screening ≠ bid / ≠ calibrated ROI",
+        ),
         ("Guardrail verdict", gate.get("verdict")),
-        ("ESCO docs", ESCO_DOCS_URL),
+        ("ESCO calculators", ESCO_CALCULATORS_URL),
+        ("Retrofit cost / ROI", ESCO_RETROFIT_ROI_URL),
+        ("Spreadsheet map", ESCO_DOCS_URL),
         ("Template", "loaded " + tpl.name if template_loaded else "Workbook() scaffold"),
         ("Note", note),
     ]
@@ -316,6 +479,39 @@ def build_notebook_workbook(
         cover[f"B{i}"] = v
     cover.column_dimensions["A"].width = 22
     cover.column_dimensions["B"].width = 72
+
+    # --- Calibrated_Twin (BUG-057) — always present ---
+    if "Calibrated_Twin" in wb.sheetnames:
+        del wb["Calibrated_Twin"]
+    cal = wb.create_sheet("Calibrated_Twin", 1)
+    cal["A1"] = "parameter"
+    cal["B1"] = "value"
+    cal["C1"] = "notes"
+    _style_header(cal)
+    cal_rows = [
+        ("twin_run", baseline.get("twin_run"), "Studio / runs/<id>"),
+        ("g14_pass", baseline.get("g14_pass"), "ASHRAE 14 monthly utility bills"),
+        ("model_kwh", baseline.get("model_kwh"), "E+ annual electricity"),
+        ("model_therms", baseline.get("model_therms"), "E+ annual gas"),
+        ("model_site_eui", baseline.get("model_site_eui"), "kBtu/ft²-yr"),
+        ("bill_kwh", baseline.get("bill_kwh"), "Observed bills (if joined)"),
+        ("bill_therms", baseline.get("bill_therms"), "Observed bills (if joined)"),
+        ("nmbe_elec_pct", baseline.get("nmbe_elec_pct"), "Electricity NMBE %"),
+        ("cvrmse_elec_pct", baseline.get("cvrmse_elec_pct"), "Electricity CV(RMSE) %"),
+        ("nmbe_gas_pct", baseline.get("nmbe_gas_pct"), "Gas NMBE %"),
+        ("cvrmse_gas_pct", baseline.get("cvrmse_gas_pct"), "Gas CV(RMSE) %"),
+        ("peer_band", baseline.get("peer_band"), "vs public EUI peers"),
+        ("peer_vs_median_pct", baseline.get("peer_vs_median_pct"), "+ worse than median"),
+        ("status", baseline.get("status"), ""),
+        ("honesty", baseline.get("honesty"), "baseline ≠ measure savings"),
+    ]
+    for i, (k, v, n) in enumerate(cal_rows, start=2):
+        cal[f"A{i}"] = k
+        cal[f"B{i}"] = v
+        cal[f"C{i}"] = n
+    cal.column_dimensions["A"].width = 22
+    cal.column_dimensions["B"].width = 28
+    cal.column_dimensions["C"].width = 40
 
     # --- Inputs (yellow + named ranges) ---
     if "Inputs" in wb.sheetnames:
@@ -339,6 +535,14 @@ def build_notebook_workbook(
         ("fan_speed", inputs["fan_speed"], "0–1", "Proposed VFD speed fraction", "inp_fan_speed"),
         ("kw_per_ton", inputs["kw_per_ton"], "kW/ton", "Cooling plant intensity", "inp_kw_per_ton"),
         ("lockout_hours", inputs["lockout_hours"], "h/yr", "Chiller lockout / econ hours", "inp_lockout_hours"),
+        ("standby_hours", inputs["standby_hours"], "h/yr", "Occupied-standby / DCV hours", "inp_standby_hours"),
+        ("sat_hours", inputs["sat_hours"], "h/yr", "SAT reset eligible hours", "inp_sat_hours"),
+        ("erv_cfm", inputs["erv_cfm"], "cfm", "ERV outdoor / exhaust CFM", "inp_erv_cfm"),
+        ("erv_eff", inputs["erv_eff"], "0–1", "ERV sensible effectiveness", "inp_erv_eff"),
+        ("erv_hours", inputs["erv_hours"], "h/yr", "ERV operating hours", "inp_erv_hours"),
+        ("heating_mmbtu", inputs["heating_mmbtu"], "MMBtu/yr", "Annual heating load", "inp_heating_mmbtu"),
+        ("boiler_eff_base", inputs["boiler_eff_base"], "fraction", "Baseline boiler η", "inp_boiler_eff_base"),
+        ("boiler_eff_prop", inputs["boiler_eff_prop"], "fraction", "Proposed boiler η (reset/tune)", "inp_boiler_eff_prop"),
     ]
     for i, (param, val, unit, notes, named) in enumerate(input_rows, start=2):
         inp[f"A{i}"] = param
@@ -369,13 +573,13 @@ def build_notebook_workbook(
     for i, mid in enumerate(ids, start=2):
         p = proxies.get(mid) or {}
         esco[f"A{i}"] = mid
-        if mid in FORMULA_ESCO_KWH:
-            esco[f"B{i}"] = FORMULA_ESCO_KWH[mid]
+        if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
+            esco[f"B{i}"] = FORMULA_ESCO_KWH.get(mid, 0.0)
             esco[f"C{i}"] = FORMULA_ESCO_THERMS.get(mid, 0.0)
             esco[f"D{i}"] = "excel_formula"
             esco[f"F{i}"] = (
                 "Excel formula referencing Inputs named ranges "
-                "(ESCO_SPREADSHEET_CALCS.md / bench analogs). Not a Python bake."
+                "(ESCO_CALCULATORS.md / wattlab-esco-bins). Not a silent Python bake."
             )
         else:
             esco[f"B{i}"] = float(p.get("savings_kwh") or 0)
@@ -404,7 +608,7 @@ def build_notebook_workbook(
         if ep:
             ep_ws[f"E{i}"] = f"Twin savings_by_measure{(' · ' + twin_note) if twin_note else ''}"
         else:
-            ep_ws[f"E{i}"] = "E+ not attached — leave blank; optional sync-from-twin"
+            ep_ws[f"E{i}"] = "E+ measure not attached — baseline is Calibrated_Twin"
     ep_ws.column_dimensions["A"].width = 28
     ep_ws.column_dimensions["E"].width = 40
 
@@ -480,7 +684,7 @@ def build_notebook_workbook(
         # H = Inputs-driven equal-split cost; B mirrors H (engineer may overwrite B with a lump sum)
         roi[f"H{i}"] = f"=inp_usd_per_ft2*inp_area_ft2*inp_coverage/{n_meas}"
         roi[f"B{i}"] = f"=H{i}"
-        if mid in FORMULA_ESCO_KWH:
+        if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
             roi[f"C{i}"] = f"=ESCO_Calcs!B{i}"
             roi[f"D{i}"] = f"=ESCO_Calcs!C{i}"
         else:
@@ -505,6 +709,13 @@ def build_notebook_workbook(
     roi.column_dimensions["A"].width = 28
     roi.column_dimensions["H"].width = 36
     roi.column_dimensions["I"].width = 18
+    note_row = (len(econ_rows) + 4) if econ_rows else 3
+    roi[f"A{note_row}"] = "Honesty"
+    roi[f"B{note_row}"] = (
+        f"Package screening ≈ ${screening_usd}/sf ({screening_label}). "
+        "Controls-first / major / deep bands are screening ≠ bid ≠ calibrated G14 ROI "
+        "(see ESCO_RETROFIT_COST_ROI.md · gate_capital_plan)."
+    )
 
     # --- Guardrails ---
     if "Guardrails" in wb.sheetnames:
@@ -530,55 +741,50 @@ def build_notebook_workbook(
     docs = wb.create_sheet("Docs")
     docs["A1"] = "Documentation & calculator map"
     docs["A1"].font = Font(bold=True, size=14)
-    docs["A3"] = "ESCO spreadsheet calcs (human map)"
-    docs["B3"] = ESCO_DOCS_URL
-    docs["A4"] = "Python bin calculators"
-    docs["B4"] = "wattlab/bench/esco.py · wattlab/studio/proxies.py"
-    docs["A5"] = "Crosscheck"
-    docs["B5"] = "wattlab/crosscheck.py (~0.5–2× = reasonable)"
-    docs["A6"] = "Finance / NPV"
-    docs["B6"] = (
-        "ROI_Capital G = live Excel closed-form NPV from Inputs rates + E; "
-        "I = Python NPV at build (wattlab/finance.py) for agents without Excel calc"
+    docs["A3"] = "ESCO calculators (agent-spec)"
+    docs["B3"] = ESCO_CALCULATORS_URL
+    docs["A4"] = "Retrofit cost / ROI screening"
+    docs["B4"] = ESCO_RETROFIT_ROI_URL
+    docs["A5"] = "Spreadsheet formula map"
+    docs["B5"] = ESCO_DOCS_URL
+    docs["A6"] = "Python bin calculators"
+    docs["B6"] = "wattlab/bench/esco.py · skill wattlab-esco-bins"
+    docs["A7"] = "Crosscheck / finance"
+    docs["B7"] = (
+        "crosscheck.py · ROI G=Excel NPV; I=Python cache; "
+        f"screening $/sf ≈ {screening_usd} ({screening_label}) — not calibrated ROI"
     )
-    docs["A7"] = "Catalog package"
-    docs["B7"] = pkg.catalog_package
-    docs["A8"] = "Measure ids"
-    docs["B8"] = ", ".join(ids)
-    docs["A9"] = "Template file"
-    docs["B9"] = (
+    docs["A8"] = "Catalog package"
+    docs["B8"] = pkg.catalog_package
+    docs["A9"] = "Measure ids"
+    docs["B9"] = ", ".join(ids)
+    docs["A10"] = "Calibrated Twin"
+    docs["B10"] = "Sheet Calibrated_Twin = G14 baseline (not measure savings)"
+    docs["A11"] = "Template file"
+    docs["B11"] = (
         f"templates/ecm_package_v1.xlsx {'LOADED then rebuilt' if template_loaded else 'missing — Workbook()'} "
         "(agent-owned Excel; Studio mirrors disk)"
     )
-    docs["A10"] = "Agent CLI"
-    docs["B10"] = (
-        f"wattlab notebook agent-build --package {pkg.id} --ecms … "
+    docs["A12"] = "Agent CLI"
+    docs["B12"] = (
+        f"wattlab notebook agent-build --package {pkg.id} --twin-run … "
         f"--out reports/notebooks/ | prefill | refresh-caches | sync-from-twin"
     )
-    docs["A11"] = "E+ Compare"
-    docs["B11"] = (
-        "YELLOW light when Twin report lacks savings_by_measure — "
-        "optional sync-from-twin; never blocks workbook ship"
-    )
-    docs["A12"] = "ESCO kWh/therms honesty"
-    docs["B12"] = (
-        f"Formula-backed: {', '.join(sorted(FORMULA_ESCO_KWH))}. "
-        "Others: Python proxy at build. Screening — not investment-grade."
-    )
-    docs["A13"] = "Agent refresh"
+    docs["A13"] = "ESCO kWh/therms honesty"
     docs["B13"] = (
-        "wattlab notebook prefill (Inputs) | refresh-caches (npv_usd_at_build) | "
-        "show-formulas --sheet ROI_Capital | sync-from-twin"
+        f"Formula-backed: {', '.join(sorted(set(FORMULA_ESCO_KWH) | set(FORMULA_ESCO_THERMS)))}. "
+        "Others: Python proxy at build. Screening — not investment-grade."
     )
     docs.column_dimensions["A"].width = 28
     docs.column_dimensions["B"].width = 80
 
     wb.properties.title = f"WattLab notebook · {pkg.id}"
     wb.properties.creator = "WattLab"
-    # Stash for summarize via custom prop isn't needed — Cover Template row is enough
+    # Stash for summarize
     wb._wattlab_template_loaded = template_loaded  # type: ignore[attr-defined]
     wb._wattlab_formula_backed = list(formula_backed)  # type: ignore[attr-defined]
     wb._wattlab_twin_run = twin_note  # type: ignore[attr-defined]
+    wb._wattlab_baseline = baseline  # type: ignore[attr-defined]
     return wb
 
 
@@ -613,6 +819,17 @@ _INPUT_PARAM_ALIASES: dict[str, str] = {
     "fan_proposed_speed": "fan_speed",
     "kw_per_ton": "kw_per_ton",
     "lockout_hours": "lockout_hours",
+    "standby_hours": "standby_hours",
+    "sat_hours": "sat_hours",
+    "erv_cfm": "erv_cfm",
+    "oa_cfm": "erv_cfm",
+    "erv_eff": "erv_eff",
+    "erv_effectiveness": "erv_eff",
+    "erv_hours": "erv_hours",
+    "heating_mmbtu": "heating_mmbtu",
+    "annual_heating_mmbtu": "heating_mmbtu",
+    "boiler_eff_base": "boiler_eff_base",
+    "boiler_eff_prop": "boiler_eff_prop",
 }
 
 
@@ -1128,7 +1345,7 @@ def summarize_notebook(
     validated = validate_notebook(path)
     formula_cells = collect_formula_cells(path)
     fb = list(formula_backed) if formula_backed is not None else [
-        m for m in measures if m in FORMULA_ESCO_KWH
+        m for m in measures if m in FORMULA_ESCO_KWH or m in FORMULA_ESCO_THERMS
     ]
     tpl_loaded = template_loaded
     if tpl_loaded is None:
@@ -1149,7 +1366,7 @@ def summarize_notebook(
         "inputs": inputs,
         "formula_cells": formula_cells,
         "formula_backed_measures": fb,
-        "docs_url": ESCO_DOCS_URL,
+        "docs_url": ESCO_CALCULATORS_URL,
         "validated": validated,
         "ep_coverage": {
             "measure_rows": validated.get("ep_measure_rows"),
@@ -1160,8 +1377,14 @@ def summarize_notebook(
             "esco_kwh_therms": "excel_formulas_for_subset_else_baked",
             "formula_backed": fb,
             "roi_cost_npv": "excel_formulas_from_inputs",
+            "roi_vs_calibrated": "screening_roi_not_calibrated_g14_roi",
             "template_file": "loaded" if tpl_loaded else "scaffold_only",
             "openfdd": "not_used",
+            "docs": {
+                "esco_calculators": ESCO_CALCULATORS_URL,
+                "retrofit_cost_roi": ESCO_RETROFIT_ROI_URL,
+                "spreadsheet_map": ESCO_DOCS_URL,
+            },
         },
     }
 
@@ -1201,12 +1424,14 @@ def write_template_stub(path: Path | str) -> Path:
 
 __all__ = [
     "FORMULA_ESCO_KWH",
+    "FORMULA_ESCO_THERMS",
     "agent_build_notebook",
     "build_and_save_notebook",
     "build_notebook_workbook",
     "collect_formula_cells",
     "default_inputs_from_profile",
     "default_template_path",
+    "extract_calibrated_baseline",
     "list_notebook_packages",
     "prefill_notebook_inputs",
     "preview_sheet_rows",
