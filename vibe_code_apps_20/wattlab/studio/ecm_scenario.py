@@ -1,13 +1,14 @@
-"""Load / save ``reports/ecm_scenario.json`` for Easy Buttons ↔ agent handoff."""
+"""Load / save ``reports/ecm_scenario.json`` for agent ↔ Studio ECMs mirror."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 DEFAULT_ECM_SCENARIO_NAME = "ecm_scenario.json"
-ECM_SCENARIO_VERSION = 3
+ECM_SCENARIO_VERSION = 4
 
 
 def default_ecm_scenario_path(workspace: Path | None = None) -> Path:
@@ -30,10 +31,24 @@ def empty_ecm_scenario() -> dict[str, Any]:
         "notebook_package_id": None,
         "notebook_path": None,
         "input_overrides": {},
+        "twin_run": None,
+        "updated_at": None,
         "notes": "",
         "recommendations": [],
-        "status": "empty — waiting agent or Easy Buttons",
+        "status": "empty — waiting agent or Rebuild from scenario",
     }
+
+
+def _normalize_status(body: dict[str, Any]) -> None:
+    ids = body.get("selected_ecm_ids") or []
+    if ids:
+        body["status"] = f"{len(ids)} ECMs selected"
+        if body.get("notebook_package_id"):
+            body["status"] += f" · notebook={body['notebook_package_id']}"
+        if body.get("twin_run"):
+            body["status"] += " · twin attached"
+    else:
+        body["status"] = "empty — waiting agent or Rebuild from scenario"
 
 
 def load_ecm_scenario(path: Path | str | None = None) -> dict[str, Any]:
@@ -63,12 +78,11 @@ def load_ecm_scenario(path: Path | str | None = None) -> dict[str, Any]:
         out["notebook_package_id"] = str(out["notebook_package_id"])
     if out.get("notebook_path"):
         out["notebook_path"] = str(out["notebook_path"])
-    if out["selected_ecm_ids"]:
-        out["status"] = f"{len(out['selected_ecm_ids'])} ECMs selected"
-        if out.get("notebook_package_id"):
-            out["status"] += f" · notebook={out['notebook_package_id']}"
+    if out.get("twin_run"):
+        out["twin_run"] = str(out["twin_run"])
     else:
-        out["status"] = "empty — waiting agent or Easy Buttons"
+        out["twin_run"] = None
+    _normalize_status(out)
     return out
 
 
@@ -94,11 +108,11 @@ def save_ecm_scenario(
         body["notebook_package_id"] = str(body["notebook_package_id"])
     if body.get("notebook_path"):
         body["notebook_path"] = str(body["notebook_path"])
-    if body["selected_ecm_ids"]:
-        body["status"] = f"{len(body['selected_ecm_ids'])} ECMs selected"
-        if body.get("notebook_package_id"):
-            body["status"] += f" · notebook={body['notebook_package_id']}"
+    if body.get("twin_run"):
+        body["twin_run"] = str(body["twin_run"])
     else:
-        body["status"] = "empty — waiting agent or Easy Buttons"
+        body["twin_run"] = None
+    body["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _normalize_status(body)
     p.write_text(json.dumps(body, indent=2), encoding="utf-8")
     return p

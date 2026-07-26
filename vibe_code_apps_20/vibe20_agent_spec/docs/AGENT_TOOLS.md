@@ -12,7 +12,7 @@ Prefer packaged WattLab commands when they cover the job:
 | Monthly vs bills score | `wattlab score-monthly` |
 | Controls FDD checklist + DOCX | `wattlab controls-checklist` |
 | Bills → EUI peer bands | `wattlab benchmark` |
-| ECM Excel notebooks (ESCO vs E+) | `wattlab notebook build/prefill/validate/summarize` |
+| ECM Excel notebooks (ESCO vs E+) | `wattlab notebook agent-build/prefill/validate/summarize` |
 
 Use `/data/tools/<script>.py` for vintage ladders, gas G14 campaigns, stacked
 floor IDFs, HWS peeks, dual-fuel G14 scorecards, or one-off site experiments.
@@ -51,30 +51,41 @@ docker exec vibe20 wattlab dial-loads …
 docker exec vibe20 wattlab score-monthly …
 docker exec vibe20 wattlab controls-checklist …
 docker exec vibe20 wattlab notebook list-packages
-docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook build \
-  --package controls_first --out /data/reports/notebooks/ \
-  --answers /data/reports/answers.json --from-run /data/runs/<id>
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook agent-build \
+  --package controls_first \
+  --ecms ECM-AHU-SCHED-ALIGN,ECM-CHILLER-LOCKOUT \
+  --answers /data/reports/answers.json \
+  --twin-run /data/runs/<calibrated_id> \
+  --out /data/reports/notebooks/ \
+  --write-scenario
 ```
 
-## ECM engineering notebooks
+## ECM engineering notebooks (agent-owned Excel)
 
 Least→radical packages (`controls_first` … `deep_retrofit`) each produce one `.xlsx`
-under `reports/notebooks/` plus `*.notebook_manifest.json` for agents.
+under `reports/notebooks/` plus `*.notebook_manifest.json`. **Studio ECMs is a disk
+mirror** — refresh the browser (or Reload) after the agent writes the file.
 
 ```bash
-wattlab notebook build --package esco_top15 --out /data/reports/notebooks/ \
-  --answers /data/reports/answers.json --from-run /data/runs/<ecm_capable>
-wattlab notebook prefill --xlsx /data/reports/notebooks/esco_top15.xlsx --elec-rate 0.22
-# prefill patches Inputs in-place (keeps EPlus_Results) — never rebuilds
-wattlab notebook refresh-caches --xlsx /data/reports/notebooks/esco_top15.xlsx
-wattlab notebook show-formulas --xlsx /data/reports/notebooks/esco_top15.xlsx --sheet ROI_Capital
-wattlab notebook validate --xlsx /data/reports/notebooks/esco_top15.xlsx
+# Liberty / controls_first recipe (BUG-050)
+wattlab notebook agent-build --package controls_first \
+  --ecms ECM-AHU-SCHED-ALIGN,ECM-PREMIUM-FAN-VFD,ECM-CHILLER-LOCKOUT \
+  --answers /data/reports/answers_building_100_geo.json \
+  --twin-run /data/runs/geo_b100_6stack_shape_r56_sched_mild \
+  --out /data/reports/notebooks/ --write-scenario
+wattlab notebook prefill --xlsx /data/reports/notebooks/controls_first.xlsx --elec-rate 0.14
+wattlab notebook refresh-caches --xlsx /data/reports/notebooks/controls_first.xlsx
+wattlab notebook show-formulas --xlsx /data/reports/notebooks/controls_first.xlsx --sheet ESCO_Calcs
+wattlab notebook sync-from-twin --xlsx /data/reports/notebooks/controls_first.xlsx \
+  --twin-run /data/runs/<good_report>
+wattlab notebook validate --xlsx /data/reports/notebooks/controls_first.xlsx
 wattlab notebook summarize --xlsx … --write
 ```
 
-Honesty: ESCO kWh/therms are baked at build (not live Excel bins); ROI cost/NPV formulas follow Inputs.
-Studio ECMs page: Values + Formulas preview; no Easy Buttons / DOCX (BUG-043).
-Prefer Twin runs with `savings_by_measure` or Compare stays YELLOW (`validate` warns).
+Honesty: starter ESCO rows (schedule / fan VFD / chiller lockout) are **live Excel
+formulas** on Inputs; other measures may still be Python proxies. ROI cost/NPV
+follow Inputs. Twin E+ paste is optional — never blocks the workbook.
+Studio: Values + Formulas preview of on-disk file; no Easy Buttons / DOCX / OpenFDD.
 
 ### Easy-button → notebook (Docker sock required) — BUG-045
 
@@ -92,11 +103,11 @@ docker exec -e WATTLAB_HOST_WORKSPACE=/data -e WATTLAB_STUDIO_WORKSPACE=/data vi
   --minimal-file /data/reports/answers_building_100.json
 # → publishes /data/runs/<id> with savings_by_measure when EP succeeds
 
-docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook build \
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 wattlab notebook agent-build \
   --package controls_first \
   --answers /data/reports/answers_building_100.json \
-  --from-run /data/runs/<published_easy_button_run> \
-  --out /data/reports/notebooks/
+  --twin-run /data/runs/<published_easy_button_run> \
+  --out /data/reports/notebooks/ --write-scenario
 docker exec vibe20 wattlab notebook validate \
   --xlsx /data/reports/notebooks/controls_first.xlsx
 ```
@@ -105,15 +116,15 @@ Liberty 5-pack (agents, no Easy Button UI clicks):
 
 ```bash
 for pkg in controls_first schedules_economizer plant_optimization esco_top15 deep_retrofit; do
-  wattlab notebook build --package "$pkg" \
+  wattlab notebook agent-build --package "$pkg" \
     --answers /data/reports/answers_building_100.json \
-    --from-run /data/runs/<ecm_capable> \
+    --twin-run /data/runs/<ecm_capable> \
     --out /data/reports/notebooks/
 done
 ```
 
-Write `reports/ecm_scenario.json` v3 with `notebook_package_id`, `notebook_path`,
-`input_overrides` so Studio Re-apply / ECMs page stays in sync.
+Write `reports/ecm_scenario.json` v4 with `notebook_package_id`, `notebook_path`,
+`selected_ecm_ids`, `twin_run`, `input_overrides` so Studio ECMs mirror stays in sync.
 
 ```bash
 docker exec -e WATTLAB_HOST_WORKSPACE=$HOME/wattlab_workspace \
