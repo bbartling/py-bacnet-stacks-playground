@@ -1,139 +1,169 @@
-# Agent prompt — Vibe 21 OpenFDD EnergyPlus Unity Digital Twin
+# AGENTS.md — Vibe 21 Physics-Trained ML Digital Twin
 
 ## Mission
 
-Build Vibe Code App 21 as the final integrated successor to Vibe Apps 19 and 20:
+Build Vibe Code App 21 as the lightweight final product of Vibe Apps 19 and 20:
 
-- preserve the Vibe 19 Open-FDD data package, mapping, schedule, weather, FDD, RCx, and reporting concepts;
-- preserve the Vibe 20 EnergyPlus, autosizing, calibration, scenario, ECM, and HVAC benchmark concepts;
-- add a browser-hosted Unity WebGL digital twin;
-- expose stable APIs so Unity, a web shell, Streamlit, CLI agents, and automated tests use the same backend contracts.
+1. consume Vibe 19 BAS/FDD/RCx outputs without changing Vibe 19 semantics;
+2. consume Vibe 20 calibrated/validated EnergyPlus artifacts without pretending an uncalibrated model is truth;
+3. generate synthetic EnergyPlus training scenarios offline;
+4. create an auditable feature-engineered ML dataset;
+5. train and validate scikit-learn models offline;
+6. package approved models as trusted `joblib` artifacts plus model cards and schemas;
+7. serve only lightweight inference, metadata, React assets, and Unity WebGL from Flask on PythonAnywhere;
+8. let Unity visualize and interact with the digital twin while keeping the Flask/backend contracts authoritative.
 
-Before implementation, read:
+Before implementation, read in order:
 
 1. `README.md`
 2. `vibe21_agent_spec/SPEC.md`
-3. `../vibe_code_apps_19/AGENTS.md`
-4. `../vibe_code_apps_19/vibe19_agent_spec/`
-5. `../vibe_code_apps_20/AGENTS.md`
-6. `../vibe_code_apps_20/vibe20_agent_spec/`
+3. `vibe21_agent_spec/ML_ARCHITECTURE.md`
+4. `vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`
+5. `vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md`
+6. `vibe21_agent_spec/SCHEMAS.md`
+7. `../vibe_code_apps_19/AGENTS.md`
+8. `../vibe_code_apps_19/docs/PACKAGE_SPEC.md`
+9. `../vibe_code_apps_20/AGENTS.md`
+10. relevant Vibe 20 calibration/result contracts
 
-Vibe 19 and Vibe 20 are source systems and behavioral references. Do not casually copy their entire trees into Vibe 21.
+Vibe 19 and Vibe 20 remain source systems and behavioral references. Do not rewrite them as part of Vibe 21.
 
+## Closed technology decisions for the first PythonAnywhere demo
 
-## Required backend stack
+- **Flask** is the HTTP framework.
+- The public deployment target is traditional **WSGI** on PythonAnywhere.
+- **scikit-learn** is the primary ML framework.
+- Trusted models are persisted with **joblib** along with exact dependency/version metadata.
+- **React** is the conventional web shell.
+- **Plotly** is preferred for engineering charts.
+- **Unity WebGL** is embedded/served as a first-class spatial view.
+- **Parquet** is the canonical ML training dataset format.
+- **JSON** is the canonical web/API interchange format.
+- Training and EnergyPlus simulation happen **offline**, not inside the public Flask app.
 
-The backend choice is closed:
-
-- **FastAPI** is the only HTTP API framework.
-- **Pydantic v2** models are the canonical validation and serialization layer.
-- **Uvicorn** is the required local/development ASGI server.
-- FastAPI-generated **OpenAPI 3.x** is the canonical API description used by browser, Unity, Streamlit, CLI, and generated clients.
-- Framework-neutral domain services may sit behind FastAPI, but no parallel Flask, Django, Sanic, Litestar, or Streamlit-owned backend may be introduced.
-- Streamlit, when present, is only an API client and analyst UI.
-- Redis remains optional and must sit behind a queue abstraction.
-
-## Product outcome
-
-A user opens one web address and can:
-
-- load an Open-FDD building package;
-- inspect BAS-derived equipment, data quality, schedules, faults, and RCx findings;
-- configure an EnergyPlus baseline and scenarios;
-- click a Unity building, zone, AHU, VAV, plant item, or meter and inspect its linked engineering data;
-- change approved scenario inputs with sliders and forms;
-- submit a simulation without blocking the browser request;
-- watch deterministic job state;
-- compare baseline, degraded, and ECM scenarios;
-- visualize comfort, energy, faults, runtime, and simulation outputs in 3D and conventional charts;
-- export all inputs, outputs, logs, reports, and provenance needed to reproduce the run.
+Do not re-introduce FastAPI into the first Vibe 21 PythonAnywhere implementation unless the specification is intentionally revised. The previous Vibe 21 scaffold locked FastAPI because it assumed server-side EnergyPlus jobs; that assumption is replaced by offline physics/training plus lightweight online inference.
 
 ## Hard rules
 
-1. **Specification first.** Keep `vibe21_agent_spec/SPEC.md` current before material architecture changes.
-2. **No hidden coupling to Streamlit.** Domain logic, API models, jobs, simulation runners, result parsers, and storage must be UI-independent.
-3. **No EnergyPlus execution inside a long-lived HTTP request.** Simulation submission returns a job identifier; a worker performs the run.
-4. **No invented building facts.** Estimated values must be labeled with source, confidence, assumption, and method.
-5. **Autosized, inferred, measured, defaulted, and user-entered values are distinct provenance classes.**
-6. **Never overwrite the immutable baseline model.** Every scenario is a patch or derived model with a manifest.
-7. **Never mutate the uploaded BAS source package.** Derived mappings and session settings are stored separately.
-8. **Unity is a client, not the source of truth.** Unity object state must be reconstructed from backend records.
-9. **Do not store critical state only in browser memory, Unity PlayerPrefs, Streamlit session state, or Redis.**
-10. **Redis is optional infrastructure.** The queue abstraction must permit a simple local worker for development and Redis-backed workers for deployment.
-11. **Durable records belong in a database or filesystem/object storage.** Redis may coordinate jobs, cache data, and publish transient progress.
-12. **Use same-origin routing by default.** Serve the web shell/Unity and reverse-proxy `/api/` and `/results/` under one origin.
-13. **All external paths are untrusted.** Prevent path traversal, zip-slip, symlink escape, decompression bombs, unsafe uploads, and arbitrary command arguments.
-14. **No shell interpolation for EnergyPlus execution.** Use validated argument arrays and isolated per-run directories.
-15. **Every job is idempotent or explicitly non-idempotent.** Repeated submissions must not silently corrupt or overwrite prior results.
-16. **Model and schema versions are mandatory.** API, scenario, package, Unity binding, and result schemas carry explicit versions.
-17. **Stable equipment identity is mandatory.** Do not link Unity objects to display names alone.
-18. **Missing data produces explicit status.** Use skipped, unavailable, not applicable, estimated, failed, or partial states rather than fabricated values.
-19. **Vibe 19 rule semantics remain testable.** Do not silently change fault definitions while integrating them.
-20. **Vibe 20 benchmark semantics remain independent from EnergyPlus.** Do not tune the benchmark merely to force agreement.
-21. **Simulation failures are first-class results.** Preserve `eplusout.err`, exit status, severe/fatal diagnostics, logs, and partial artifacts.
-22. **No fake progress percentages.** Progress is stage-based unless EnergyPlus provides defensible progress information.
-23. **Annual simulations and interactive playback are separate concerns.** Do not imply real-time co-simulation unless it is actually implemented.
-24. **Batch simulation comes before live co-simulation.**
-25. **Do not expose arbitrary EnergyPlus object editing to untrusted users.** Scenario fields use an allowlisted patch model.
-26. **No secrets in git, Unity builds, browser JavaScript, reports, logs, or downloadable manifests.**
-27. **Tests and reproducibility evidence are required before declaring a feature complete.**
-28. **Do not rewrite or delete Vibe Apps 19 or 20 as part of Vibe 21 work.**
-29. **Do not claim model calibration without reporting the target data, objective function, period, exclusions, and achieved metrics.**
-30. **Human-readable engineering warnings must accompany technically successful but questionable simulations.**
-31. **FastAPI is mandatory.** Reject proposals that replace it or add a second backend web framework.
-32. **Pydantic v2 schemas are authoritative.** Do not maintain separate handwritten request schemas that can drift from runtime validation.
-33. **OpenAPI compatibility is tested.** Breaking contract changes require an explicit API/schema version change.
+1. **Vibe 21 is inference-first in deployment.** No EnergyPlus execution on PythonAnywhere for the first release.
+2. **No training from a public HTTP request.** Training is a local/CI/offline workflow.
+3. **No arbitrary pickle/joblib uploads.** `joblib`/pickle artifacts can execute code when deserialized; only repository-approved or otherwise trusted artifacts with matching hashes may be loaded.
+4. **No invented building facts.** Preserve provenance: measured, mapped, inferred, autosized, calibrated, simulated, derived, unknown.
+5. **Synthetic is not measured.** Every ML training row carries source/scenario provenance.
+6. **Calibration claims follow Vibe 20 evidence.** An uncalibrated EnergyPlus prototype may create conceptual synthetic data, but its resulting ML model must be labeled conceptual.
+7. **Do not random-split adjacent timesteps.** Time-correlated and same-simulation rows must not leak across train/validation/test.
+8. **Split by simulation/scenario group first.** Hold out complete `simulation_id` groups; for real BAS validation also hold out contiguous time windows.
+9. **Never use future information as a feature.** No daily peak computed using future hours, no future rolling window, no target-derived feature leakage.
+10. **Runtime features must be reproducible.** Rolling, lag, slope, and occupancy features are created by one versioned feature compiler used by training and inference.
+11. **A single JSON row cannot recreate historical features.** APIs requiring lagged/rolling features must receive a sufficient lookback window or reference persisted recent state.
+12. **Demand and energy remain unit-consistent.** kW is power; kWh is energy. For fixed intervals derive kWh from average kW when that is the intended physical relationship.
+13. **Do not force every target into one model.** Separate target models are the default. Multi-output modeling is an experiment that must beat or justify itself against separate-model baselines.
+14. **FDD classification is separate from energy/demand regression.** It may share feature generation, not labels or validation logic.
+15. **Scenario surrogate and operational twin are separate model families.** Do not mix scenario-level annual targets with timestep-level rows in one estimator.
+16. **Use a model registry.** Every model has model ID, type, target(s), feature schema, training dataset hash, code version, sklearn version, metrics, validation split, status, and artifact hash.
+17. **No model is `APPROVED` because training score looks good.** Holdout performance and sanity checks are mandatory.
+18. **Compare to trivial baselines.** At minimum include persistence/previous-value where relevant and simple linear/Ridge baselines.
+19. **Real BAS validation is preferred.** Synthetic holdout success alone does not prove real-building accuracy.
+20. **Prediction responses expose provenance.** Return model ID/version, timestamp, units, feature coverage, warnings, and confidence/uncertainty status.
+21. **Out-of-domain detection is mandatory.** Warn when live/scenario inputs fall materially outside the training envelope.
+22. **Unity is a client, not the source of truth.** Unity object names never replace stable entity IDs.
+23. **React is for dense engineering controls; Unity is for spatial interaction.** Do not make Unity the only way to inspect numbers or provenance.
+24. **Same-origin by default.** React, Unity and `/api/v1/` use one deployment origin unless explicitly changed.
+25. **The Unity build is generated externally.** Do not pretend the Python agent created/edited Unity scenes unless it actually used the Unity tooling.
+26. **The final deployment zip contains generated web artifacts, not a Unity Editor project.** Source Unity project stays in the Unity workflow/repository chosen by the human.
+27. **No BAS commanding.** Vibe 21 is read-only prediction/visualization for the first release.
+28. **No secrets in React, Unity, model cards, JSON manifests, logs, or git.**
+29. **Do not expose raw customer historian data in a public demo bundle.** Use anonymized/demo data or precomputed safe state.
+30. **Keep model files small enough for the chosen hosting tier.** Benchmark memory/load time before approving large forests.
+31. **Load approved models once at process startup/lazy singleton, not on every prediction request.**
+32. **Prediction latency is measured.** Report p50/p95 on representative requests.
+33. **Never claim causal savings from ML prediction alone.** ECM savings remain rooted in a documented baseline/scenario method and Vibe 20 evidence.
+34. **EnergyPlus remains the physics reference, not an oracle.** Synthetic data inherits model assumptions and calibration error.
+35. **Keep independent Vibe 20 engineering benchmark comparisons.** Do not train the ML model to erase disagreements without engineering review.
+36. **Schema versions are mandatory.** Feature, target, model-bundle, prediction, scenario, Unity-binding, and deploy manifests are versioned.
+37. **Tests are mandatory.** Unit, contract, leakage, model-loading, prediction, React route, Unity asset, and deploy-bundle smoke tests are required.
+38. **Do not report done from screenshots.** Provide test output and reproducible artifact hashes.
 
-## Required conceptual boundaries
+## Model strategy
 
-Keep these concerns separable:
+### Operational demand model
 
-- package ingestion and validation;
-- canonical building/equipment/point identity;
-- Vibe 19 analytics;
-- weather resolution;
-- EnergyPlus model inventory;
-- assumption and provenance registry;
-- scenario definitions;
-- model patching;
-- job orchestration;
-- EnergyPlus execution;
-- result parsing;
-- HVAC benchmark calculations;
-- comparison and calibration;
-- report generation;
-- Unity binding and visualization;
-- authentication and authorization;
-- storage and retention.
+Default champion search:
+
+- Ridge baseline;
+- `HistGradientBoostingRegressor`;
+- `RandomForestRegressor`;
+- `ExtraTreesRegressor`.
+
+Primary target: average whole-building electric demand `building_kw` for the modeled interval.
+
+Optional horizon-specific models:
+
+- `building_kw_now`;
+- `building_kw_t_plus_15m`;
+- `building_kw_t_plus_60m`.
+
+For 15-minute average demand, derive interval energy:
+
+```text
+interval_kwh = predicted_building_kw * 0.25
+```
+
+Do not separately predict the same interval kWh unless there is a documented reason and a consistency test.
+
+### Scenario surrogate model
+
+Separate scenario-level models or a carefully validated multi-output experiment predict:
+
+- annual electricity kWh;
+- monthly electricity kWh;
+- peak demand kW;
+- natural gas therm/year;
+- unmet hours;
+- comfort violation hours;
+- selected end-use totals.
+
+### Multi-output experiments
+
+Allowed:
+
+- estimators with native multi-output support such as `RandomForestRegressor`;
+- `MultiOutputRegressor(base_estimator)` when the base estimator is single-target;
+- `RegressorChain` only when target-to-target dependence is intentionally modeled and leakage is controlled.
+
+Default production posture remains **one well-defined model per engineering target/horizon**, sharing one feature compiler.
 
 ## Preferred implementation order
 
-1. Freeze schemas and sample manifests.
-2. Build a deterministic local, single-worker simulation path.
-3. Add durable job and artifact records.
-4. Add API endpoints and generated API documentation.
-5. Add a plain browser proof of concept.
-6. Add Unity WebGL object binding and result coloring.
-7. Add Vibe 19 package/analytics bridge.
-8. Add Vibe 20 model/benchmark bridge.
-9. Add optional Streamlit analyst shell.
-10. Add Redis-backed queue and multiple workers only after local behavior is proven.
-11. Add calibration loops and agent workflows after reproducibility is proven.
-12. Consider live co-simulation only after batch workflows are stable.
+1. Freeze Vibe 19 → Vibe 21 and Vibe 20 → Vibe 21 handoff manifests.
+2. Define canonical feature and target schemas.
+3. Implement the versioned feature compiler with leakage tests.
+4. Build a tiny deterministic EnergyPlus synthetic dataset fixture.
+5. Build the offline simulation-farm runner and dataset manifest.
+6. Train baseline and candidate demand models.
+7. Train scenario surrogate models.
+8. Implement grouped/blocked validation and model cards.
+9. Export one approved model bundle.
+10. Build Flask inference endpoints and model registry loader.
+11. Build React engineering shell against fixture API responses.
+12. Add Unity WebGL external build handoff and object binding.
+13. Produce a PythonAnywhere deploy bundle and smoke test it locally under WSGI-like conditions.
+14. Only then scale the simulation farm or add optional FDD/virtual-sensor models.
 
 ## Completion discipline
 
-For each implementation session, record:
+Every implementation session records:
 
-- scope attempted;
+- scope;
 - files changed;
-- schemas changed;
-- commands run;
-- tests and outcomes;
-- sample job identifiers;
-- generated artifacts;
+- dataset/schema versions;
+- simulations created or consumed;
+- feature changes;
+- model candidates trained;
+- validation split definition;
+- metrics;
+- artifact hashes;
+- tests run and outcomes;
+- deployment smoke results;
 - known limitations;
-- follow-up tasks;
-- whether Vibe 19 or Vibe 20 behavior changed.
-
-Never report “done” using screenshots alone. Provide machine-verifiable evidence.
+- whether any Vibe 19/20 behavior changed.

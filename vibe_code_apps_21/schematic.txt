@@ -1,0 +1,34 @@
+                 VIBE 19
+        Real BAS / FDD / RCx
+                 │
+                 ▼
+                 VIBE 20
+       Calibrated EnergyPlus
+                 │
+                 ▼
+       OFFLINE SIMULATION FARM
+          1,000–100,000 runs
+                 │
+                 ▼
+             PARQUET
+                 │
+         feature engineering
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+ Operational ML      Scenario ML
+        │                 │
+    demand kW        annual kWh
+    virtual loads    peak kW
+    FDD optional     gas
+        │            comfort
+        └────────┬────────┘
+                 ▼
+             JOBLIB
+                 │
+                 ▼
+        PythonAnywhere
+             FLASK
+      ┌──────────┼──────────┐
+      ▼          ▼          ▼
+    React      Plotly    Unity WebGL

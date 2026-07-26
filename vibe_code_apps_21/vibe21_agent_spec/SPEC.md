@@ -1,31 +1,29 @@
-# Vibe 21 Agentic AI Specification
+# Vibe 21 Agentic AI Specification — Physics-Trained ML + Unity Digital Twin
 
-**Project:** OpenFDD EnergyPlus Unity Digital Twin Studio  
+**Project:** OpenFDD Physics-Trained ML Digital Twin  
 **Directory:** `vibe_code_apps_21`  
-**Status:** planning specification  
-**Implementation state:** no code  
+**Status:** revised planning specification  
+**Implementation state:** no code in this package  
 **Primary predecessors:** `vibe_code_apps_19`, `vibe_code_apps_20`
 
 ---
 
 ## 1. Purpose
 
-Vibe 21 joins operational building data, fault detection, physics simulation, engineering calculations, and spatial visualization into one reproducible workflow.
+Vibe 21 is the final deployable demonstration layer for the Vibe 19 → Vibe 20 workflow.
 
-The application is not merely a 3D building viewer. It is an engineering digital-twin studio whose visual state must be traceable to:
+It combines:
 
-- measured BAS data;
-- explicit equipment and point mappings;
-- weather data;
-- Open-FDD analytics;
-- an EnergyPlus model;
-- documented assumptions;
-- scenario patches;
-- simulation outputs;
-- local HVAC benchmark calculations;
-- and a versioned result manifest.
+- real building evidence from Vibe 19;
+- calibrated/validated or explicitly conceptual EnergyPlus physics from Vibe 20;
+- offline synthetic scenario generation;
+- engineered ML training datasets;
+- lightweight scikit-learn surrogate models;
+- Flask inference APIs;
+- a React engineering shell;
+- and Unity WebGL spatial visualization.
 
-The product must support incomplete existing-building records. It may estimate missing values, autosize systems, or use archetype defaults, but all such values must remain visible and attributable.
+Vibe 21 is **not** primarily an online EnergyPlus runner. EnergyPlus is used offline as a physics-based synthetic-data generator and validation reference. The public/demo runtime serves pre-trained models.
 
 ---
 
@@ -33,1039 +31,986 @@ The product must support incomplete existing-building records. It may estimate m
 
 ### 2.1 Vibe 19 contribution
 
-Vibe 19 provides the conceptual reference for:
+Vibe 19 already establishes useful operational contracts including:
 
-- `openfdd_package_v1`-style building packages;
-- historian CSV ingestion;
-- equipment and logical-role mapping;
-- typed equipment;
-- occupancy schedules;
-- BAS and web-weather reconciliation;
-- rule execution states;
-- FDD findings;
-- RCx charts;
-- engineering notes;
-- session restore;
-- and report generation.
+- `openfdd_package_v1` historian packages;
+- `wattlab_dump_v3` export to Vibe 20;
+- equipment typing and logical role mapping;
+- occupancy/calendar information;
+- BAS vs web-weather handling;
+- FDD rule results and explicit skip states;
+- RCx findings;
+- operating signatures;
+- sensor statistics and diurnal profiles;
+- setpoints;
+- motor/runtime analytics;
+- optional shared equipment telemetry;
+- utility bills when available.
 
-Vibe 21 must consume Vibe 19 outputs through a defined adapter or shared schema rather than scraping Streamlit state.
+Vibe 21 must consume structured Vibe 19/Vibe 20 artifacts, not screenshots or Streamlit session state.
 
 ### 2.2 Vibe 20 contribution
 
-Vibe 20 provides the conceptual reference for:
+Vibe 20 establishes:
 
-- EnergyPlus model management;
-- weather/EPW resolution;
-- autosizing;
-- scenario construction;
-- IDF or epJSON patching;
-- calibration;
-- ECM definitions;
-- local HVAC calculation benchmarks;
-- run manifests;
+- EnergyPlus model creation and management;
+- sparse-building modeling workflow;
+- autosizing with explicit provenance;
+- scenario/ECM patching;
+- AMY/TMY weather handling;
+- calibration and holdout validation posture;
 - result parsing;
-- and agentic simulation loops.
+- peak demand extraction;
+- annual electricity/gas results;
+- independent HVAC engineering benchmark calculations;
+- reproducibility hashes and run manifests.
 
-Vibe 21 must preserve an independent comparison between EnergyPlus and the local engineering benchmark.
+Vibe 21 must preserve the distinction between conceptual, calibrated, and validated physics models.
 
-### 2.3 Vibe 21 addition
+### 2.3 Vibe 21 contribution
 
 Vibe 21 adds:
 
-- a stable backend API;
-- asynchronous simulation jobs;
-- durable project and artifact storage;
-- a browser application shell;
-- Unity WebGL serving;
-- Unity-to-building identity bindings;
-- spatial result visualization;
-- scenario controls;
-- job progress and history;
-- baseline/scenario comparison;
-- and optional Streamlit analyst views.
+- an offline simulation-farm contract;
+- a versioned feature-engineering contract;
+- ML dataset manifests;
+- scikit-learn candidate/champion training;
+- grouped and blocked validation;
+- operational demand models;
+- energy aggregation and scenario-energy surrogate models;
+- model registry/model cards;
+- lightweight Flask inference;
+- React + Plotly web UI;
+- Unity WebGL visualization and scenario interaction;
+- PythonAnywhere deployment bundle generation.
 
 ---
 
-## 3. User stories
+## 3. Revised core architecture
 
-### 3.1 Existing-building analyst
-
-An analyst uploads a prepared building package, confirms mappings and schedules, reviews Vibe 19 findings, builds an estimated EnergyPlus model, and sees all uncertain model inputs listed before simulation.
-
-### 3.2 Undersized-system experiment
-
-An analyst begins with an autosized baseline, creates a scenario with a 70% cooling-capacity multiplier, extends operating hours, disables outdoor-air ventilation, selects extreme-weather periods, runs the model, and compares energy, peak demand, unmet hours, and zone comfort.
-
-### 3.3 Unity digital-twin viewer
-
-A user clicks an AHU in Unity and sees:
-
-- canonical equipment ID;
-- mapped BAS points;
-- current or selected-period state;
-- fault findings;
-- runtime;
-- EnergyPlus object bindings;
-- baseline and scenario results;
-- related zones and VAVs;
-- provenance and confidence.
-
-### 3.4 Engineering benchmark comparison
-
-A simulation result displays EnergyPlus values beside independent spreadsheet-derived or library-derived calculations, including percentage difference and an explanation of mismatched assumptions.
-
-### 3.5 Agent-driven workflow
-
-An agent may create a project, validate inputs, propose assumptions, create scenarios, submit simulations, inspect diagnostics, and generate a report. It may not hide assumptions, bypass validation, or silently accept severe EnergyPlus errors.
+```text
+                        REAL BUILDING
+                             │
+                             ▼
+                 VIBE 19 / Open-FDD evidence
+        BAS + mapping + weather + FDD + RCx + utility
+                             │
+                             ▼
+                      VIBE 20 WattLab
+          EnergyPlus baseline + calibration + scenarios
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+              ▼                             ▼
+      calibrated model              engineering benchmark
+              │
+              ▼
+      OFFLINE SIMULATION FARM
+ weather × schedules × controls × faults × capacities × uncertainty
+              │
+              ▼
+         raw run artifacts
+              │
+              ▼
+   FEATURE ENGINEERING / LABELING
+              │
+              ▼
+     partitioned Parquet datasets
+              │
+              ▼
+       SCIKIT-LEARN TRAINING
+     baselines + candidate models
+              │
+              ▼
+   grouped/blocked validation gates
+              │
+              ▼
+         APPROVED MODEL BUNDLE
+  joblib + schemas + cards + hashes + metrics
+              │
+              ▼
+        PYTHONANYWHERE / FLASK
+      ┌──────────────┼──────────────┐
+      ▼              ▼              ▼
+   REST API      React/Plotly     Unity WebGL
+```
 
 ---
 
-## 4. Non-goals for the first release
+## 4. Product modes
+
+### 4.1 Operational replay/live-safe mode
+
+Given a safe replay stream or read-only BAS-derived feature window, predict:
+
+- building demand kW;
+- optional future demand horizons;
+- derived interval energy kWh;
+- optional virtual sensors;
+- optional fault probabilities.
+
+### 4.2 Scenario preview mode
+
+Given approved scenario sliders/inputs, predict EnergyPlus-like outcomes instantly:
+
+- annual/monthly electricity;
+- peak kW;
+- annual gas;
+- unmet hours;
+- comfort metrics;
+- selected end uses.
+
+This is an ML surrogate of the sampled EnergyPlus scenario space, not a new EnergyPlus simulation.
+
+### 4.3 Evidence comparison mode
+
+Display:
+
+- actual BAS/meter data when available;
+- ML prediction;
+- residual;
+- EnergyPlus reference result when applicable;
+- independent Vibe 20 benchmark;
+- source/provenance/status.
+
+---
+
+## 5. Non-goals for first release
 
 The first release does not require:
 
-- millisecond real-time control;
-- direct BAS commanding;
-- multiplayer collaborative editing;
-- photorealistic rendering;
-- arbitrary IDF editing in the browser;
-- a general-purpose building-model authoring tool;
-- live EnergyPlus co-simulation;
+- direct BAS writes or control;
+- online EnergyPlus on PythonAnywhere;
+- EnergyPlus co-simulation;
+- online model training;
+- deep learning;
 - Kubernetes;
-- multiple queue technologies at once;
-- or automatic claims that an estimated model is calibrated.
+- Redis/Celery queues;
+- arbitrary IDF editing in the browser;
+- arbitrary user-uploaded ML models;
+- design-grade load calculations;
+- autonomous closed-loop optimization;
+- photorealistic Unity rendering;
+- a claim that synthetic holdout accuracy equals real-building accuracy.
 
 ---
 
-## 5. High-level architecture
+## 6. Fixed technology posture
 
-```text
-same-origin web address
-│
-├── /
-│   ├── web shell
-│   ├── Unity WebGL loader/build
-│   └── static assets
-│
-├── /api/v1/
-│   ├── projects
-│   ├── packages
-│   ├── buildings
-│   ├── equipment
-│   ├── analytics
-│   ├── models
-│   ├── scenarios
-│   ├── simulations
-│   ├── comparisons
-│   └── reports
-│
-└── /results/
-    └── immutable or content-addressed artifacts
-```
+### 6.1 Offline physics/training stack
 
-Required FastAPI backend and conceptual services:
+Preferred:
 
-```text
-API process
-├── validation
-├── authorization
-├── project records
-├── scenario records
-└── job submission/status
-        │
-        ▼
-queue abstraction
-        │
-        ▼
-simulation worker
-├── stage input files
-├── patch derived model
-├── run EnergyPlus
-├── preserve diagnostics
-├── parse outputs
-├── run HVAC benchmark
-├── build comparisons
-└── publish result manifest
-```
+- Python;
+- Vibe 20 EnergyPlus execution path;
+- Pandas and/or Polars;
+- Parquet;
+- scikit-learn;
+- joblib;
+- optional DuckDB for dataset exploration/aggregation;
+- optional Plotly/Jupyter for offline diagnostics.
+
+### 6.2 Deployment backend
+
+Flask is mandatory for the first PythonAnywhere demo.
+
+Flask responsibilities:
+
+- JSON API routing;
+- request validation/orchestration;
+- feature compilation for inference;
+- model registry loading;
+- prediction;
+- provenance/warning responses;
+- serving/bridging the application shell as needed.
+
+The deployed backend does not run EnergyPlus or training jobs.
+
+### 6.3 Frontend
+
+React is preferred and should own:
+
+- model status/metadata;
+- exact engineering values;
+- forms/sliders;
+- selected-period data;
+- Plotly charts;
+- residual/actual/predicted comparisons;
+- warnings and provenance;
+- scenario controls.
+
+Unity WebGL is embedded as a first-class spatial view.
 
 ---
 
-## 6. Technology posture
+## 7. Canonical identity
 
-### 6.1 Backend
+Stable IDs are mandatory across Vibe 19, Vibe 20, ML datasets, Flask, React, and Unity.
 
-FastAPI is mandatory.
+Minimum identity types:
 
-The required backend foundation is:
-
-- FastAPI for HTTP routing, dependency injection, exception handling, and OpenAPI generation;
-- Pydantic v2 for request, response, configuration, event, manifest, and persisted schema validation;
-- Uvicorn for local and development ASGI serving;
-- framework-neutral service modules behind the API layer for building packages, analytics, scenarios, jobs, EnergyPlus execution, result parsing, benchmarks, and reports.
-
-No implementation may introduce Flask, Django, Sanic, Litestar, or another competing backend framework. Streamlit is a client of the FastAPI API and must never own core domain execution.
-
-FastAPI's generated OpenAPI document is the canonical machine-readable API contract. Unity, the browser shell, Streamlit, CLI tools, and agents must consume the same versioned contract.
-
-Domain meaning must remain independent of FastAPI request objects, but the implementation stack itself is intentionally standardized.
-
-### 6.2 Queue
-
-Development must support a simple local queue or worker.
-
-Deployment may use Redis with RQ, Dramatiq, Celery, or another justified worker system.
-
-Redis may be used for:
-
-- pending job coordination;
-- worker leasing;
-- transient stage/status updates;
-- caching;
-- rate limiting;
-- and pub/sub notifications.
-
-Redis must not be the sole durable store for projects, scenarios, final job records, or simulation artifacts.
-
-### 6.3 Storage
-
-A local deployment may use:
-
-- SQLite for metadata;
-- local filesystem for artifacts.
-
-A larger deployment may use:
-
-- PostgreSQL for metadata;
-- S3-compatible object storage for artifacts.
-
-The storage interface must preserve identical domain behavior.
-
-### 6.4 Frontend
-
-The final shell may be React, Vue, Svelte, plain TypeScript, or another conventional web framework.
-
-Unity WebGL is embedded as a first-class view.
-
-Plotly is preferred for engineering charts.
-
-### 6.5 Streamlit
-
-Streamlit may be:
-
-- a prototype shell;
-- an internal analyst console;
-- a model calibration workbench;
-- a report-review interface;
-- or an embedded-Unity demonstration.
-
-Streamlit may call the same APIs as other clients. It must not become the only route to core functionality.
-
----
-
-## 7. Canonical identity model
-
-Every entity that crosses Vibe 19, Vibe 20, the API, and Unity requires a stable identifier.
-
-Minimum entity types:
-
-- organization;
-- site;
 - building;
-- project;
-- data package;
 - equipment;
-- point;
+- point/role;
 - zone;
-- EnergyPlus model;
-- EnergyPlus object binding;
+- physics model;
+- simulation;
 - scenario;
-- simulation job;
-- result set;
-- artifact;
-- report;
+- ML dataset;
+- feature schema;
+- target schema;
+- ML model;
 - Unity object binding.
 
-Display names are mutable and not identifiers.
-
-Example:
-
-```json
-{
-  "schema_version": "vibe21.identity.v1",
-  "building_id": "bldg_building_100",
-  "equipment_id": "equip_ahu_1",
-  "display_name": "AHU-1",
-  "equipment_type": "AHU",
-  "source_refs": {
-    "vibe19_equipment_id": "AHU_1",
-    "energyplus_object": "AirLoopHVAC:AHU_1",
-    "unity_object_key": "Building100/AHU_1"
-  }
-}
-```
+Display names are not stable identifiers.
 
 ---
 
-## 8. Provenance and assumptions
+## 8. Provenance classes
 
-Every model input must use one of these provenance classes:
-
-- `MEASURED`
-- `MAPPED_BAS`
-- `DRAWING`
-- `NAMEPLATE`
-- `UTILITY_RECORD`
-- `USER_ENTERED`
-- `AUTOSIZED`
-- `INFERRED`
-- `ARCHETYPE_DEFAULT`
-- `LIBRARY_DEFAULT`
-- `CALIBRATED`
-- `DERIVED`
-- `UNKNOWN`
-
-Each assumption record includes:
-
-```json
-{
-  "assumption_id": "asm_...",
-  "field_path": "hvac.air_loops.AHU_1.cooling_capacity_w",
-  "value": 123456.0,
-  "units": "W",
-  "provenance": "AUTOSIZED",
-  "method": "EnergyPlus sizing run",
-  "confidence": 0.72,
-  "source_artifact_ids": [],
-  "created_by": "agent-or-user-id",
-  "created_at": "ISO-8601 timestamp",
-  "notes": "No design schedule was available."
-}
-```
-
-No agent may convert an estimate into a measured value.
-
----
-
-## 9. Project model
-
-A project groups:
-
-- one building identity;
-- one or more building packages;
-- one canonical mapping set;
-- one or more EnergyPlus baseline models;
-- weather files;
-- utility targets;
-- assumptions;
-- scenarios;
-- jobs;
-- results;
-- reports;
-- Unity bindings.
-
-The project must be exportable as a portable manifest plus referenced artifacts.
-
----
-
-## 10. Scenario model
-
-A scenario is immutable after submission to a simulation job.
-
-Required fields:
-
-```json
-{
-  "schema_version": "vibe21.scenario.v1",
-  "scenario_id": "scn_...",
-  "project_id": "prj_...",
-  "name": "Undersized cooling, no OA, extended hours",
-  "base_model_id": "mdl_...",
-  "weather_id": "wx_...",
-  "simulation_period": {
-    "kind": "annual"
-  },
-  "patches": [],
-  "requested_outputs": [],
-  "created_by": "user-or-agent",
-  "created_at": "ISO-8601 timestamp"
-}
-```
-
-Supported initial patch families:
-
-- capacity multiplier;
-- fan sizing multiplier;
-- pump sizing multiplier;
-- outdoor-air fraction;
-- ventilation enable/disable;
-- economizer enable/disable;
-- occupied/unoccupied schedules;
-- temperature setpoints;
-- humidity setpoints;
-- equipment availability;
-- envelope multipliers;
-- infiltration multiplier;
-- internal-load multiplier;
-- lighting multiplier;
-- plug-load multiplier;
-- weather selection;
-- selected output variables and meters.
-
-Patches are allowlisted, validated, unit-aware, and recorded in a derived-model manifest.
-
----
-
-## 11. Simulation job lifecycle
-
-Canonical states:
-
-- `CREATED`
-- `QUEUED`
-- `VALIDATING`
-- `STAGING`
-- `PATCHING_MODEL`
-- `RUNNING_SIZING`
-- `RUNNING_ENERGYPLUS`
-- `PARSING_RESULTS`
-- `RUNNING_BENCHMARKS`
-- `BUILDING_COMPARISON`
-- `GENERATING_REPORT`
-- `COMPLETED`
-- `COMPLETED_WITH_WARNINGS`
-- `FAILED`
-- `CANCEL_REQUESTED`
-- `CANCELLED`
-
-A job status response includes:
-
-- job ID;
-- scenario ID;
-- state;
-- stage start time;
-- overall timestamps;
-- worker identity when applicable;
-- warning count;
-- error summary;
-- artifact links when available.
-
-Do not manufacture a smooth percentage. A client may display stage-based progress.
-
----
-
-## 12. Initial API contract
-
-### 12.1 FastAPI implementation rules
-
-- All public endpoints live under `/api/v1`.
-- Every request body and response body uses an explicit Pydantic v2 model.
-- Every route declares a response model and documented error responses.
-- API errors use one versioned problem-detail schema.
-- Dependency injection supplies authorization, project access, storage, queue, and service dependencies.
-- Long-running work is never executed in the route handler.
-- Startup and shutdown use FastAPI lifespan handling.
-- The OpenAPI schema is exported in CI and checked for unintended breaking changes.
-- Unity-facing payloads avoid Python-specific types and use JSON-safe primitives, ISO-8601 timestamps, stable enums, and explicit units.
-- API routes orchestrate services; they do not contain EnergyPlus patching or result-parsing logic.
-- WebSocket or Server-Sent Events may be added for progress, but polling remains supported.
-
-Suggested endpoints:
+Minimum classes:
 
 ```text
-GET    /api/v1/health
-POST   /api/v1/projects
-GET    /api/v1/projects/{project_id}
-POST   /api/v1/projects/{project_id}/packages
-GET    /api/v1/projects/{project_id}/building
-GET    /api/v1/projects/{project_id}/equipment
-GET    /api/v1/projects/{project_id}/analytics
-POST   /api/v1/projects/{project_id}/models
-GET    /api/v1/projects/{project_id}/models
-POST   /api/v1/projects/{project_id}/scenarios
-GET    /api/v1/projects/{project_id}/scenarios
-POST   /api/v1/simulations
-GET    /api/v1/simulations/{job_id}
-POST   /api/v1/simulations/{job_id}/cancel
-GET    /api/v1/simulations/{job_id}/results
-GET    /api/v1/simulations/{job_id}/timeseries
-POST   /api/v1/comparisons
-POST   /api/v1/reports
-GET    /api/v1/artifacts/{artifact_id}
-GET    /api/v1/projects/{project_id}/unity-bindings
+MEASURED
+MAPPED_BAS
+WEB_WEATHER
+UTILITY_RECORD
+DRAWING
+NAMEPLATE
+USER_ENTERED
+AUTOSIZED
+INFERRED
+ARCHETYPE_DEFAULT
+LIBRARY_DEFAULT
+CALIBRATED
+VALIDATED
+ENERGYPLUS_SIMULATED
+ML_PREDICTED
+DERIVED
+UNKNOWN
 ```
 
-Simulation submission returns promptly:
-
-```json
-{
-  "schema_version": "vibe21.job.v1",
-  "job_id": "job_...",
-  "scenario_id": "scn_...",
-  "state": "QUEUED"
-}
-```
+No transformation may relabel simulated or predicted values as measured.
 
 ---
 
-## 13. EnergyPlus execution contract
+## 9. Vibe 19 handoff contract
 
-Each run receives a unique isolated directory.
+Vibe 21 should preferentially build from the same structured evidence Vibe 20 already consumes.
 
-Required retained artifacts when produced:
+Relevant Vibe 19/Vibe 20 seed artifacts include:
 
-- original model reference;
-- derived IDF or epJSON;
-- scenario manifest;
-- weather file reference and checksum;
-- EnergyPlus command manifest;
-- stdout;
-- stderr;
-- `eplusout.err`;
-- `eplusout.sql`;
-- `eplusout.csv`;
-- `.eso` when retained;
-- HTML tables/report when generated;
-- sizing outputs;
-- parsed summary JSON;
-- timeseries artifacts;
-- benchmark result JSON;
-- comparison result JSON;
-- complete run manifest.
+- `MANIFEST.json`;
+- `model_seed.json`;
+- `schedule_inference.json`;
+- `operating_signatures.csv`;
+- `sensor_stats_all.csv`;
+- `sensor_diurnal_24h.csv`;
+- `setpoints.csv`;
+- `mech_cooling_oat_bins.csv`;
+- `mech_cooling_coverage.csv`;
+- `motor_hours.csv`;
+- `fdd_summary.csv`;
+- `fdd_findings.csv`;
+- `weather_observed.csv`;
+- `utility_bills.csv`;
+- `topology.csv`;
+- `data_model.csv`;
+- optional `telemetry/*.csv`.
 
-The worker must record:
+The exact source is versioned in the Vibe 21 dataset manifest.
 
+---
+
+## 10. Vibe 20 handoff contract
+
+Vibe 21 consumes Vibe 20 artifacts sufficient to establish:
+
+- EnergyPlus model identity/hash;
+- weather identity/hash;
 - EnergyPlus version;
-- container image digest or executable checksum;
-- operating system/runtime identity;
-- command arguments;
-- start/end times;
-- exit code;
-- severe and fatal counts;
-- model checksum;
-- weather checksum;
-- scenario checksum;
-- parser version.
+- calibration status;
+- calibration period and metrics;
+- validation/holdout status;
+- scenario parameters;
+- simulation ID;
+- annual electricity/gas;
+- peak kW;
+- selected timeseries outputs;
+- unmet/comfort outputs;
+- diagnostics/severe/fatal counts;
+- independent benchmark result where applicable.
+
+If a Vibe 20 model is only conceptual, all downstream Vibe 21 synthetic/model artifacts remain clearly conceptual until later evidence upgrades them.
 
 ---
 
-## 14. Autosizing workflow
+## 11. Simulation farm
 
-For incomplete buildings:
+### 11.1 Goal
 
-1. Validate geometry, loads, schedules, constructions, weather, and HVAC topology.
-2. Run EnergyPlus sizing.
-3. Parse autosized capacities and flows.
-4. Store autosized values as provenance `AUTOSIZED`.
-5. Create an immutable autosized baseline derivative.
-6. Permit scenario multipliers against autosized values.
-7. Report unmet hours and sizing warnings.
+Use one trusted Vibe 20 physics model as a controlled building laboratory.
 
-An intentionally undersized scenario must never overwrite autosized baseline values.
+### 11.2 Scenario families
 
----
+Sample defensible ranges for:
 
-## 15. Calibration workflow
+- weather;
+- occupancy/schedules;
+- internal loads;
+- setpoints;
+- ventilation;
+- economizer behavior;
+- SAT/duct-static/control strategies;
+- fan/pump power or sizing;
+- chiller/boiler capacity and efficiency;
+- envelope/infiltration uncertainty;
+- faults such as sensor bias, stuck damper, leaking valve, bad schedule;
+- calibrated parameter uncertainty.
 
-Calibration is optional and explicit.
+### 11.3 Scenario manifest
 
-Supported target levels may include:
+Every simulation records exact parameter values plus:
 
-- annual utility totals;
-- monthly electricity;
-- monthly gas;
-- interval whole-building power;
-- BAS equipment runtime;
-- BAS temperatures and setpoints;
-- seasonal peaks.
+- `simulation_id`;
+- `scenario_id`;
+- random/quasi-random seed;
+- physics model hash;
+- weather hash;
+- output schema;
+- EnergyPlus status/diagnostics;
+- feature/target eligibility.
 
-Every calibration run records:
-
-- target data;
-- included and excluded periods;
-- weather alignment;
-- adjustable parameters;
-- parameter bounds;
-- objective function;
-- optimizer or agent method;
-- number of evaluations;
-- best metrics;
-- validation period;
-- final assumptions.
-
-The UI must distinguish:
-
-- uncalibrated estimated model;
-- partially calibrated model;
-- calibrated model;
-- validated model.
+Failed EnergyPlus runs remain traceable but are not silently treated as valid training rows.
 
 ---
 
-## 16. HVAC benchmark contract
+## 12. Raw synthetic timeseries
 
-The independent benchmark library is run from the same scenario inputs where meaningful.
+Canonical raw fields should be selected based on the actual model and mapped equipment, but expected categories include:
 
-Possible outputs:
-
-- peak cooling load;
-- peak heating load;
-- fan power;
-- pump power;
-- ventilation load;
-- economizer opportunity;
-- runtime estimate;
-- annualized energy estimate;
-- equipment efficiency estimate;
-- schedule-hours estimate.
-
-Comparison output:
-
-```json
-{
-  "schema_version": "vibe21.comparison.v1",
-  "metric": "peak_cooling_load",
-  "units": "kW",
-  "energyplus_value": 512.4,
-  "benchmark_value": 486.1,
-  "difference": 26.3,
-  "difference_percent": 5.41,
-  "assumption_mismatches": [
-    "EnergyPlus includes latent load; benchmark uses simplified latent factor."
-  ]
-}
+```text
+timestamp
+weather
+occupancy
+zone temperatures/setpoints
+AHU SAT/setpoint
+airflow
+damper/valve state
+fan power
+cooling/heating load
+chiller/plant power
+whole-building electricity/demand
+natural gas
+fault labels
+control strategy
+simulation_id
+scenario_id
 ```
 
-Difference is information, not automatically an error.
+Do not request every EnergyPlus output variable by default. The dataset should be intentional and manageable.
 
 ---
 
-## 17. Vibe 19 analytics integration
+## 13. Feature engineering
 
-The Vibe 19 adapter must expose structured data rather than screenshots.
+The feature compiler converts raw physics/BAS rows into canonical ML features.
 
-Minimum integration outputs:
+Examples:
 
-- package validation report;
-- equipment inventory;
-- equipment types;
-- logical role mappings;
-- point inventory;
-- occupancy schedule;
-- effective weather series;
-- rule execution results;
-- skipped/not-applicable reasons;
-- fault intervals;
-- runtime analytics;
-- comfort analytics;
-- RCx findings;
-- engineering notes;
-- source artifact references.
+```text
+zone_temp_error
+sat_error
+oat_zone_delta
+oat_sat_delta
+damper_saturation_pct
+after_hours_runtime
+economizer_opportunity
+simultaneous_heat_cool
+fan_kw_per_cfm
+cooling_kw_per_ton
+rolling_kw_mean_15m
+rolling_kw_std_60m
+kw_rate_of_change
+zone_temp_slope
+sat_slope
+lag_kw_15m
+lag_kw_60m
+occupied
+hour_sin/hour_cos or equivalent time encoding
+```
 
-Unity may visualize a fault only when it can identify:
-
-- rule ID;
-- equipment ID;
-- time range or aggregate period;
-- severity;
-- status;
-- source result record.
+No feature may use values occurring after the prediction timestamp.
 
 ---
 
-## 18. Unity WebGL contract
+## 14. ML model families
 
-### 18.1 Serving
+### 14.1 Operational demand
 
-The Unity build must be served with correct MIME and content-encoding headers for:
+Default target:
 
-- loader JavaScript;
-- framework JavaScript;
-- `.wasm`;
-- `.data`;
-- compressed variants;
-- streaming assets.
+```text
+building_kw_avg_interval
+```
 
-Production should use a reverse proxy or static server optimized for Unity WebGL assets.
+Optional separate models for:
 
-### 18.2 Communication
+```text
+building_kw_t_plus_15m
+building_kw_t_plus_60m
+```
 
-Unity uses HTTPS requests for:
+Candidates:
 
-- project/building data;
-- equipment detail;
-- scenarios;
-- job submission;
-- job status;
-- result summaries;
-- spatial timeseries frames.
+- persistence baseline;
+- Ridge;
+- HistGradientBoostingRegressor;
+- RandomForestRegressor;
+- ExtraTreesRegressor.
 
-The web shell may communicate with Unity through:
+### 14.2 Energy
 
-- `unityInstance.SendMessage(...)`;
-- a Unity `.jslib` bridge;
-- browser `postMessage`;
-- or a documented equivalent.
+If demand target is average kW for a regular interval:
 
-### 18.3 Unity object binding
+```text
+interval_kwh = predicted_kw * interval_hours
+```
 
-Every visual object that represents engineering data carries a binding key.
+This derived value is preferred over a redundant second ML target for the same interval.
+
+For monthly/annual scenario energy, use dedicated scenario-level regression models or a validated multi-output surrogate.
+
+### 14.3 Scenario surrogate
+
+Targets:
+
+- annual/monthly electricity;
+- peak kW;
+- annual gas;
+- unmet hours;
+- comfort violations;
+- selected end uses.
+
+### 14.4 FDD classifier
+
+Optional separate classifier for labels intentionally injected into synthetic scenarios.
+
+### 14.5 Virtual sensors
+
+Optional models for quantities absent from BAS but available from EnergyPlus ground truth, such as:
+
+- cooling tons;
+- heating load;
+- equipment load fraction;
+- estimated airflow;
+- estimated occupancy where defensibly framed.
+
+---
+
+## 15. Multi-input / multi-output design
+
+### 15.1 Multi-input
+
+Yes: all primary ML models are naturally **multi-input** models. A feature row/window contains many columns/inputs simultaneously.
 
 Example:
 
-```json
-{
-  "schema_version": "vibe21.unity_binding.v1",
-  "unity_object_key": "Building100/Floor2/VAV_7",
-  "entity_type": "equipment",
-  "entity_id": "equip_vav_7",
-  "default_visualization": "comfort_status"
-}
+```text
+X = [
+  OAT,
+  humidity,
+  occupied,
+  hour,
+  zone_temp,
+  zone_setpoint,
+  SAT,
+  SAT_setpoint,
+  airflow,
+  fan_kw,
+  lag_kw_15m,
+  rolling_kw_60m,
+  ...
+]
 ```
 
-### 18.4 Initial visual modes
+### 15.2 Multi-output
 
-- equipment type;
-- operational status;
-- fault severity;
-- zone temperature;
-- zone comfort;
-- unmet hours;
-- annual energy intensity;
-- peak load;
-- airflow;
-- supply-air temperature;
-- baseline-versus-scenario delta;
-- data quality/confidence.
+Possible but not mandatory.
 
-### 18.5 Time playback
+A model could predict:
 
-Annual results are reduced into requested frames or timeseries.
+```text
+y = [annual_kwh, peak_kw, annual_gas_therm, unmet_hours]
+```
 
-The client must not download every raw simulation column by default.
+RandomForestRegressor can support multi-output directly; single-target estimators may be wrapped with `MultiOutputRegressor`.
 
-Time playback requests specify:
+However, Vibe 21 defaults to separate champion models per target/horizon so each target can be validated and replaced independently.
 
-- result ID;
-- metric;
-- entity IDs;
-- period;
-- aggregation;
-- maximum points.
+### 15.3 Important demand/energy relationship
+
+Do not train two independent models to predict average kW and the same interval kWh unless needed. Their outputs could conflict.
+
+Prefer:
+
+```text
+ML → average kW
+math → interval kWh
+```
+
+Use a distinct energy model only for a different horizon/problem such as monthly or annual energy.
 
 ---
 
-## 19. Browser shell
+## 16. Training dataset layout
+
+Suggested partitioned dataset:
+
+```text
+ml_data/
+├── operational/
+│   ├── features.parquet
+│   └── dataset_manifest.json
+├── scenario/
+│   ├── scenario_features_targets.parquet
+│   └── dataset_manifest.json
+└── catalogs/
+    ├── feature_schema.json
+    └── target_schema.json
+```
+
+Large datasets may be partitioned by building, simulation batch, weather year, or other stable dimensions.
+
+---
+
+## 17. Leakage controls
+
+Mandatory tests assert:
+
+- no target column appears in features;
+- no future timestep enters lag/rolling features;
+- no whole-day peak feature is used for a timestamp before that day is complete;
+- `simulation_id` groups do not cross train/test;
+- real BAS test windows are contiguous and future-held-out;
+- scaling/encoding is fitted only on training data;
+- feature compiler behavior is deterministic.
+
+---
+
+## 18. Validation gates
+
+Every candidate reports metrics by target and validation domain.
+
+Minimum:
+
+- synthetic train;
+- synthetic validation;
+- synthetic grouped test;
+- real BAS/meter holdout when available;
+- engineering sanity tests.
+
+A candidate may be excellent on synthetic test and still be rejected because it fails real BAS holdout or extreme-weather checks.
+
+---
+
+## 19. Model persistence
+
+Persist the complete fitted preprocessing/model object when appropriate:
+
+```text
+joblib model artifact
++
+feature schema
++
+target schema
++
+training manifest
++
+validation report
++
+model card
++
+checksums
+```
+
+Because joblib/pickle deserialization is unsafe for untrusted files, the public demo never accepts arbitrary user model uploads.
+
+---
+
+## 20. Flask runtime architecture
+
+```text
+Flask WSGI app
+├── health/model registry
+├── canonical feature compiler
+├── operational prediction service
+├── scenario surrogate service
+├── optional FDD/virtual-sensor service
+├── React asset routes/static mapping
+└── Unity asset routes/static mapping
+```
+
+Models are loaded once and cached per web worker/process.
+
+---
+
+## 21. API
+
+First-release API:
+
+```text
+GET  /api/v1/health
+GET  /api/v1/twin/manifest
+GET  /api/v1/building
+GET  /api/v1/equipment
+GET  /api/v1/unity-bindings
+GET  /api/v1/models
+POST /api/v1/predict/operational
+POST /api/v1/predict/scenario
+```
+
+Optional later:
+
+```text
+POST /api/v1/predict/faults
+POST /api/v1/predict/virtual-sensor
+```
+
+No `/simulations` job API is required for the PythonAnywhere demo because simulations are offline.
+
+---
+
+## 22. Operational prediction response requirements
+
+Return:
+
+- model ID/version;
+- prediction timestamp;
+- predicted kW;
+- interval duration;
+- derived interval kWh;
+- optional prediction horizons;
+- domain status;
+- feature coverage;
+- warnings;
+- provenance.
+
+When actual meter data is supplied for comparison, also return:
+
+```text
+actual_kw
+predicted_kw
+residual_kw
+residual_percent
+```
+
+Do not call residual energy waste without a documented baseline interpretation.
+
+---
+
+## 23. Scenario prediction response requirements
+
+Return:
+
+- surrogate model bundle ID;
+- exact normalized scenario input;
+- annual/monthly kWh as available;
+- peak kW;
+- gas;
+- comfort/unmet metrics;
+- training-domain status;
+- warnings;
+- clear label `ML_SURROGATE_OF_ENERGYPLUS`.
+
+When comparing to a baseline scenario, compute deltas explicitly and identify both model/scenario IDs.
+
+---
+
+## 24. React shell
 
 Recommended layout:
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│ Project / building / baseline / scenario / job state         │
-├───────────────┬────────────────────────────┬─────────────────┤
-│ Inputs        │ Unity WebGL digital twin   │ Results         │
-│               │                            │                 │
-│ schedules     │ building / systems / zones │ KPIs            │
-│ capacities    │ equipment selection        │ Plotly charts   │
-│ ventilation   │ spatial result coloring    │ diagnostics     │
-│ setpoints     │ time playback              │ assumptions     │
-│ weather       │                            │ artifacts       │
-│ [Run]         │                            │ [Export]        │
-└───────────────┴────────────────────────────┴─────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ Building | data source | physics status | ML model status     │
+├───────────────────┬──────────────────────────┬────────────────┤
+│ Scenario / Inputs │ Unity WebGL              │ Engineering    │
+│                   │                          │ Results        │
+│ occupancy         │ zones/equipment          │ actual/pred KW │
+│ setpoints         │ select equipment         │ interval kWh   │
+│ capacity          │ color by state           │ annual kWh     │
+│ ventilation       │ spatial scenario delta   │ peak kW        │
+│ economizer        │                          │ gas/comfort    │
+│ weather           │                          │ Plotly         │
+│ [Predict]         │                          │ provenance     │
+└───────────────────┴──────────────────────────┴────────────────┘
 ```
 
-Ordinary web controls are preferred for dense engineering forms, tables, and Plotly charts. Unity is preferred for spatial selection and visualization.
+React is authoritative for dense engineering values and provenance presentation.
 
 ---
 
-## 20. Streamlit prototype mode
+## 25. Unity WebGL
 
-A Streamlit prototype may:
+Unity is used for spatial context:
 
-- call the API;
-- embed Unity in an iframe or custom component;
-- create scenarios;
-- submit jobs;
-- poll job state;
-- render Plotly results;
-- display reports and artifacts.
+- building/floor/zone selection;
+- equipment selection;
+- color by fault/comfort/load/data status;
+- scenario-result coloring;
+- animated/replay state where useful.
 
-For a simple iframe, Unity and Streamlit communicate through the shared API.
+Unity consumes Flask APIs and stable binding IDs.
 
-For direct two-way interaction, implement a custom Streamlit component or a documented browser bridge.
-
-Core backend behavior must remain testable without launching Streamlit.
+Unity does not hold calibration state, trained models, or authoritative scenario definitions only in PlayerPrefs/browser memory.
 
 ---
 
-## 21. Agentic AI behavior
+## 26. Unity external-agent workflow
 
-Agents may:
+Expected human/agent workflow:
 
-- inspect project state;
-- validate packages;
-- propose mappings;
-- propose assumptions;
-- explain uncertainty;
-- create scenario drafts;
-- submit approved or policy-allowed jobs;
-- inspect EnergyPlus diagnostics;
-- revise a failed scenario;
-- compare results;
-- generate engineering narratives.
-
-Agents must not:
-
-- fabricate missing measurements;
-- hide severe/fatal errors;
-- silently broaden parameter bounds;
-- overwrite a baseline;
-- claim savings without a baseline and comparison method;
-- claim calibration without metrics;
-- issue BAS control commands;
-- expose secrets;
-- submit unlimited simulations;
-- or delete source artifacts.
-
-Every agent action that changes project state is auditable.
+1. Python/repo agent freezes API and binding schemas.
+2. Unity MCP/AI agent reads the schema/handoff document.
+3. Unity agent creates/updates the Unity project externally.
+4. Unity agent exports a WebGL build.
+5. Unity agent zips the built web assets.
+6. Human or packaging agent merges build under `static/unity/`.
+7. Deploy-bundle validator checks required files and hashes.
+8. Final PythonAnywhere zip is produced.
 
 ---
 
-## 22. Security requirements
+## 27. PythonAnywhere deployment
 
-- Validate and cap uploads.
-- Scan archive entries before extraction.
-- Use per-run isolated directories.
-- Do not permit user-selected executable paths.
-- Allowlist model patches.
-- Set request size limits.
-- Apply authentication before multi-user deployment.
-- Apply project-level authorization.
-- Rate-limit simulation submission.
-- Avoid serving arbitrary filesystem paths.
-- Use signed or authorized artifact downloads.
-- Set a Content Security Policy compatible with Unity.
-- Protect against CSRF where cookie authentication is used.
-- Keep secrets server-side.
-- Record audit events.
+The deployment target is one Flask WSGI application.
 
----
+Requirements:
 
-## 23. Observability
+- no `app.run()` during WSGI import;
+- virtualenv-based dependencies;
+- compiled React assets;
+- compiled Unity WebGL assets;
+- trusted model files only;
+- same-origin API calls;
+- small predictable memory footprint;
+- static file strategy tested on target hosting.
 
-Minimum structured events:
-
-- package accepted/rejected;
-- model created;
-- scenario created;
-- job submitted;
-- job leased;
-- stage changed;
-- EnergyPlus started/completed;
-- parser completed;
-- benchmark completed;
-- warning/error recorded;
-- report created;
-- artifact downloaded;
-- cancellation requested/completed.
-
-Metrics may include:
-
-- queued jobs;
-- running jobs;
-- job duration by stage;
-- success/failure counts;
-- severe/fatal counts;
-- worker availability;
-- artifact size;
-- API latency;
-- cache hit rate.
+For Unity, prefer Decompression Fallback or another tested configuration that does not depend on custom content-encoding server rules unavailable to the human.
 
 ---
 
-## 24. Testing strategy
+## 28. Security
 
-### 24.1 Contract tests
-
-- scenario schema;
-- job schema;
-- result schema;
-- Unity binding schema;
-- package adapter schema;
-- artifact manifest schema.
-
-### 24.2 Unit tests
-
-- patch validation;
-- unit conversion;
-- identity mapping;
-- provenance rules;
-- status transitions;
-- EnergyPlus diagnostic parsing;
-- comparison calculations.
-
-### 24.3 Integration tests
-
-- submit job through API;
-- worker executes a tiny deterministic model;
-- artifacts persist;
-- result parser completes;
-- Unity binding payload resolves;
-- Streamlit or browser client can poll state.
-
-### 24.4 Golden tests
-
-Maintain at least:
-
-- a tiny one-zone EnergyPlus model;
-- a small packaged Vibe 19 demonstration building;
-- a known autosizing scenario;
-- a known undersized scenario;
-- a no-outdoor-air scenario;
-- a failed EnergyPlus model;
-- a benchmark comparison fixture.
-
-### 24.5 End-to-end acceptance
-
-A browser test must:
-
-1. open the app;
-2. select a project;
-3. create a scenario;
-4. submit it;
-5. observe state transitions;
-6. receive a completed result;
-7. display a Unity-bound metric;
-8. display a Plotly comparison;
-9. download a run manifest.
+- Never load untrusted pickle/joblib artifacts.
+- Never accept executable paths from web input.
+- Never expose secrets in client bundles.
+- Cap request/history sizes.
+- Validate timestamps/units/ranges.
+- Do not expose private raw historian data in a public demo.
+- Add authentication before hosting sensitive customer-specific twins.
+- Rate-limit prediction endpoints when appropriate.
+- Treat all client-provided entity IDs/scenario fields as untrusted.
 
 ---
 
-## 25. Initial milestone plan
+## 29. Observability
 
-### Milestone 0 — specification
+Minimum runtime events:
 
-- create Vibe 21 directory;
-- freeze initial schemas;
-- define sample requests/responses;
-- identify Vibe 19 and Vibe 20 adapter boundaries.
+- app/model registry loaded;
+- model hash validation pass/fail;
+- prediction request accepted/rejected;
+- domain warning emitted;
+- prediction latency;
+- prediction failure;
+- React/Unity bootstrap failure where detectable.
 
-### Milestone 1 — deterministic local backend
+Offline pipeline records:
 
-- project/scenario/job records;
-- local single worker;
-- one EnergyPlus fixture;
-- durable artifacts;
-- result manifest.
-
-### Milestone 2 — web/API proof
-
-- FastAPI application;
-- Pydantic v2 request and response models;
-- generated and tested OpenAPI contract;
-- job polling;
-- plain HTML controls;
-- Plotly result;
-- same-origin static serving.
-
-### Milestone 3 — Unity proof
-
-- Unity WebGL served;
-- one building scene;
-- canonical equipment bindings;
-- scenario submission;
-- completed-result coloring;
-- selected-equipment details.
-
-### Milestone 4 — Vibe 19 bridge
-
-- load a building package;
-- expose equipment and analytics;
-- link findings to Unity objects.
-
-### Milestone 5 — Vibe 20 bridge
-
-- baseline model;
-- autosizing;
-- scenario patching;
-- HVAC benchmark;
-- baseline/scenario comparison.
-
-### Milestone 6 — analyst workbench
-
-- optional Streamlit shell;
-- assumptions review;
-- calibration inputs;
-- report generation;
-- session/project export.
-
-### Milestone 7 — deployable worker system
-
-- Redis-backed queue;
-- retries;
-- cancellation;
-- multiple workers;
-- authentication;
-- retention policy;
-- production hardening.
+- simulation batch started/completed;
+- failed EnergyPlus runs;
+- dataset build;
+- training run;
+- split definition;
+- candidate metrics;
+- champion selection;
+- bundle export.
 
 ---
 
-## 26. Definition of done for the first usable release
+## 30. Testing strategy
 
-The release is usable when:
+### 30.1 Unit
 
-- one web address serves the application and Unity WebGL;
-- a valid project can be created from a demonstration package;
-- equipment IDs are consistent across analytics, EnergyPlus bindings, API responses, and Unity;
-- a baseline model can be selected;
-- a user can create an undersized/no-OA/extended-hours scenario;
-- the FastAPI API validates the request with Pydantic and returns a job ID without blocking;
-- a worker completes the simulation;
-- diagnostics and artifacts are retained;
-- results include energy, peak, unmet hours, and comfort;
-- the independent HVAC benchmark is displayed;
-- Unity colors at least zones or equipment from result data;
-- Plotly displays a baseline/scenario comparison;
-- all assumptions and provenance are downloadable;
-- the run can be reproduced from exported manifests;
-- automated tests prove the workflow.
+- feature formulas;
+- lag/rolling windows;
+- kW → kWh integration;
+- unit conversions;
+- domain checks;
+- model registry hashes;
+- scenario normalization.
+
+### 30.2 Leakage
+
+- grouped simulation split;
+- no future rows in features;
+- no target contamination;
+- preprocessing fit only on train.
+
+### 30.3 Model
+
+- deterministic golden fixture;
+- baseline comparisons;
+- metric thresholds;
+- artifact reload reproduces predictions;
+- runtime dependency compatibility.
+
+### 30.4 Flask
+
+- WSGI import;
+- health endpoint;
+- valid/invalid prediction payloads;
+- model unavailable response;
+- history-limit enforcement.
+
+### 30.5 Frontend/Unity
+
+- React route loads;
+- same-origin API request;
+- Unity build files resolve;
+- Unity binding resolves;
+- one scenario interaction returns and renders energy + peak demand.
+
+### 30.6 Deployment
+
+- clean unzip;
+- install requirements;
+- import application;
+- verify checksums;
+- run golden operational request;
+- run golden scenario request.
 
 ---
 
-## 27. Open design decisions
+## 31. Milestone plan
 
-Agents must document a recommendation before implementation for:
+### Milestone 0 — specification and contracts
 
-- local queue abstraction;
-- Redis worker library;
-- SQLite versus PostgreSQL transition;
-- filesystem versus object storage;
-- IDF versus epJSON primary patch format;
-- Unity scene source and object naming;
-- web shell framework;
-- Unity-to-JavaScript bridge;
-- timeseries storage format;
-- project export format;
-- authentication model;
-- calibration optimization strategy.
+- freeze this spec;
+- freeze feature/target schemas;
+- freeze Vibe 19/20 handoff assumptions;
+- define Unity binding contract.
 
-FastAPI, Pydantic v2, Uvicorn, and OpenAPI are fixed decisions rather than prototype defaults. Remaining choices may use prototype defaults, but persisted schemas must avoid unnecessary infrastructure vendor lock-in.
+### Milestone 1 — tiny offline ML proof
+
+- use a tiny EnergyPlus fixture;
+- generate multiple scenarios;
+- build Parquet;
+- train demand model;
+- derive interval kWh;
+- train scenario annual-kWh and peak-kW models;
+- prove grouped validation.
+
+### Milestone 2 — Building 100-style model family
+
+- consume Vibe 19 WattLab dump;
+- consume Vibe 20 calibrated/validated model artifacts;
+- generate realistic scenario ranges;
+- build operational and scenario datasets;
+- compare candidate models.
+
+### Milestone 3 — Flask inference
+
+- registry/model loading;
+- feature compiler;
+- operational endpoint;
+- scenario endpoint;
+- model cards/domain warnings;
+- golden tests.
+
+### Milestone 4 — React
+
+- engineering shell;
+- actual/predicted/residual charts;
+- demand + energy cards;
+- scenario sliders;
+- model/provenance panel.
+
+### Milestone 5 — Unity
+
+- external Unity MCP build;
+- canonical bindings;
+- selected object details;
+- scenario response coloring;
+- WebGL deployment smoke.
+
+### Milestone 6 — PythonAnywhere bundle
+
+- merge React build;
+- merge Unity build;
+- include trusted ML models;
+- create deploy manifest/checksums;
+- create exact PythonAnywhere instructions;
+- smoke test final zip.
 
 ---
 
-## 28. Guiding principle
+## 32. Definition of done — first usable release
 
-A Vibe 21 digital twin is trustworthy only when a user can answer:
+The first release is complete when:
 
-- What came from the BAS?
-- What came from weather?
-- What was measured?
-- What was inferred?
-- What was autosized?
-- What did the user change?
-- What did EnergyPlus calculate?
-- What did the independent benchmark calculate?
-- Why do they differ?
-- Which Unity object represents which engineering entity?
-- Can this exact result be reproduced?
+- Vibe 19 evidence can be traced into the Vibe 20/Vibe 21 project identity;
+- a declared Vibe 20 physics model generated the synthetic dataset;
+- synthetic scenarios and dataset have reproducible manifests/hashes;
+- demand model predicts kW on grouped holdout data;
+- interval kWh is derived consistently from predicted average kW;
+- scenario surrogate predicts at minimum annual kWh and peak kW;
+- candidate models were compared to simple baselines;
+- validation is grouped/blocked rather than random-row leakage;
+- model artifacts reload reproducibly;
+- Flask serves model inference without EnergyPlus or training;
+- React displays predictions, residuals, energy, demand, status, and provenance;
+- Unity WebGL loads and resolves canonical equipment/zone bindings;
+- Unity or React can submit a scenario and display surrogate energy/peak-demand results;
+- final bundle unzips into a PythonAnywhere-friendly structure;
+- WSGI import works;
+- all tests/checksums pass;
+- limitations clearly state that the deployed ML twin is a surrogate whose quality depends on Vibe 20 physics and real-building validation.
 
-If those questions cannot be answered from the project artifacts, the feature is incomplete.
+---
+
+## 33. Guiding principle
+
+A Vibe 21 result is trustworthy only when a user can answer:
+
+- What came from the real BAS?
+- What came from utility/weather evidence?
+- What came from Vibe 19 analytics?
+- What EnergyPlus model generated the synthetic data?
+- Was that model conceptual, calibrated, or validated?
+- Which scenario generated this training row?
+- Which features were available at prediction time?
+- Was any future information leaked?
+- Which model/version made the prediction?
+- What was its held-out performance?
+- Is this request inside the training domain?
+- Is kWh measured, predicted directly, or derived from kW?
+- Which Unity object maps to which engineering entity?
+- Can the artifact hashes and prediction be reproduced?
+
+If those questions cannot be answered, the feature is incomplete.
+
+---
+
+## 34. Reference implementation posture
+
+Current public documentation used when revising this specification:
+
+- scikit-learn multi-output regression documentation: https://scikit-learn.org/stable/modules/multiclass.html#multioutput-regression and API docs for `MultiOutputRegressor` / `RandomForestRegressor`.
+- PythonAnywhere Flask deployment guidance: https://help.pythonanywhere.com/pages/Flask/
+- PythonAnywhere static mapping guidance: https://help.pythonanywhere.com/pages/StaticFiles/
+- Unity WebGL compressed-build/decompression-fallback guidance: https://docs.unity3d.com/Manual/webgl-deploying.html (or current equivalent for the selected Unity version).
+
+Pin exact package/Unity versions in the eventual implementation and record them in build manifests.

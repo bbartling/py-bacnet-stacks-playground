@@ -1,0 +1,259 @@
+# Agent prompt — vibe20 Excel-only ECMs + agent formula UX (+ EP cascade ops)
+
+Copy everything **below the line** into a new Cursor builder session.  
+Repos: **vibe_code_apps_20** (and ops/docs for Docker socket). QA evidence: `wattlab_workspace/reports/BUG_REPORT.md` (BUG-043–046, BUG-045).  
+**Do not** reinvent Twin calibration Excel; ECM notebooks stay a separate product.  
+**Local commit only** until the human asks to push/PR.
+
+---
+
+## Mission
+
+Flip vibe20 ECMs from “dashboard + Advanced Easy Buttons” to **Excel-as-contract**:
+
+1. **Pooge** Advanced Easy Buttons / measure-set editors / capital-plan walls / client DOCX from the ECMs page (BUG-043).  
+2. Make notebooks **AI-agent friendly**: agents edit Inputs + formula cells, **refresh** cached values, humans see **formulas and values** in Streamlit and download the same `.xlsx` (BUG-044).  
+3. Enable / document **`wattlab easy-button` EP cascade** so full packages get `savings_by_measure` (BUG-045) — Docker socket + EnergyPlus image on bensbench-style hosts.  
+4. Keep moving toward real Excel ESCO blocks where practical (BUG-046); do not pretend baked kWh are formulas.
+
+**Success look-and-feel**
+
+- ECMs tab: pick package → build/refresh → Values + Formulas preview → download `.xlsx` + manifest.  
+- Agent produces Liberty packages 1…5 as five files with no Easy Button clicks.  
+- Engineer (or agent) changes `$/kWh`, coverage, or a formula; refresh updates caches; UI shows the Excel formula text.  
+- With EP cascade wired, Compare is not stuck all-YELLOW for want of `savings_by_measure`.
+
+---
+
+## Locked product decisions
+
+- Excel is the **primary** ECM deliverable; **no** client DOCX on ECMs default path.  
+- One `.xlsx` per package (`controls_first`, `schedules_economizer`, …).  
+- Templates / formula sheets are the source of truth; Python fills named Inputs + EPlus_Results values + refresh caches.  
+- Twin `Energy_Model_Results.xlsx` stays separate.  
+- Screening honesty on Cover — not investment-grade M&V.
+
+---
+
+## BUG-043 — Remove Advanced stack
+
+In `wattlab/studio/pages/ecms.py`:
+
+- Delete or fully remove UI for: Easy Buttons, measure-set cherry-pick editors, ROI `data_editor`, capital-plan download walls, **client DOCX** checkbox/zip path on this page.  
+- Keep only: Twin baseline picker (prefer runs with `savings_by_measure` / “E+ measures”), package select, Build/refresh, Values+Formulas preview, download xlsx + `*.notebook_manifest.json`, one-line ESCO docs link.  
+- Update AppTests so they assert Advanced / DOCX controls are **gone** and notebook download still works.
+
+---
+
+## BUG-044 — Agent-friendly Excel UX
+
+### CLI / core
+
+Extend `wattlab notebook`:
+
+- `prefill` — Inputs named ranges only (already fixed in-place; keep).  
+- `refresh-caches` (or `build --refresh-caches`) — recompute Python-side cache columns (e.g. `npv_usd_at_build`, ESCO annual $ cache if any) **without** wiping engineer/agent formula edits on Compare/ROI/ESCO.  
+- Optional: `notebook show-formulas --xlsx … --sheet ROI_Capital` → JSON of cell→formula for agents.  
+- Manifest must list: sheets, named ranges, measure ids, Compare verdicts/lights, formula cell addresses of interest, paths.
+
+### Streamlit
+
+For Inputs / Compare / ROI_Capital:
+
+- Tab or toggle: **Values** (numeric caches / evaluated display) vs **Formulas** (exact formula strings — the “Excel code”).  
+- Never show blank `None` for formula cells (already addressed once; keep regression tests).  
+- Download button = bytes on disk under `reports/notebooks/` (same file agents write).
+
+### Tests
+
+- Golden: required sheets, named ranges, B mirrors H, NPV formula + cache.  
+- Prefill does not wipe formulas.  
+- Refresh-caches updates cache cols after Input rate change.  
+- AppTest: ECMs page has no Advanced/DOCX; has formula preview + download; zero Streamlit exceptions.
+
+---
+
+## BUG-045 — Easy-button EP cascade on agent hosts
+
+QA found vibe20 on bensbench **without**:
+
+- `/var/run/docker.sock`  
+- EnergyPlus / `energyplus-mcp-dev` image reachable from the container  
+
+So agents cannot produce full-package `savings_by_measure`.
+
+**Implement / document:**
+
+1. Compose / run flags: `-v /var/run/docker.sock:/var/run/docker.sock` + `WATTLAB_HOST_WORKSPACE=…` (match existing Twin DinD docs).  
+2. `wattlab energyplus-ensure` (or docs) pulls pinned EP image.  
+3. AGENT_TOOLS.md / AGENT_DOCKER_WORKSPACE.md: one-shot recipe  
+
+```bash
+wattlab easy-button --measure-set better --minimal-file /data/reports/answers_building_100.json
+wattlab notebook build --package controls_first \
+  --answers /data/reports/answers_building_100.json \
+  --from-run /data/runs/<published_easy_button_run> \
+  --out /data/reports/notebooks/
+wattlab notebook validate --xlsx /data/reports/notebooks/controls_first.xlsx
+```
+
+4. Validate already warns when E+ empty — keep; UI baseline picker keeps “E+ measures” preference.
+
+Optional: smoke test that skips if no docker.sock (pytest mark).
+
+---
+
+## BUG-046 — ESCO quantities (stretch in same PR if small)
+
+Prefer: seed ESCO kWh/therms as values with Cover honesty **or** start moving calculator rows into template formulas referencing Inputs. Do not claim bin-method Excel if still Python-baked. Document honesty band on Cover + Docs sheet.
+
+---
+
+## Out of scope
+
+- Rewriting OpenFDD rules / EnergyPlus IDF physics beyond existing easy-button patches  
+- Making Streamlit a full spreadsheet editor (preview + download only)  
+- vibe19 punchlist xlsx (already shipped; only touch if shared openpyxl helpers)
+
+---
+
+## Done definition
+
+- [ ] ECMs page Excel-only (BUG-043) — AppTest proves Advanced/DOCX gone  
+- [ ] Formulas + Values preview; refresh-caches CLI; manifest formula map (BUG-044)  
+- [ ] Docs + compose/run recipe for easy-button on sock-mounted hosts (BUG-045)  
+- [ ] Tests green; local commit; no push until asked  
+- [ ] PR body links BUG-043–046 and shows example agent CLI for Liberty 5-pack
+
+---
+
+## Suggested first steps
+
+1. Read `wattlab/studio/pages/ecms.py`, `wattlab/notebooks/{builder,cli}.py`, `docs` AGENT_*.md.  
+2. Strip Advanced UI; land AppTest red→green.  
+3. Add Formulas preview + `refresh-caches`.  
+4. Document Docker socket + EP ensure for easy-button.  
+5. Manual smoke: build `controls_first` with a measure-set run → Compare not all YELLOW for filled measures.
+ .... # Bug report — vibe19 / vibe20 Excel deliverables (open items)
+
+**Role:** QA / field agent — document gaps for Cursor builders. **No patches in this pass.**  
+**Tip last verified:** `14f35e8` (PR #49). Containers: `:8502` vibe19 · `:8520` vibe20.  
+**Archived prior writeups:**  
+- `_archive/20260726T133100Z_pr48_excel_soak/` (PR #48 soak)  
+- `_archive/20260726T152700Z_tip_pass_matrix/` (BUG-030–040 PASS matrix)
+
+**Builder prompt (copy into Cursor):** [`AGENT_PROMPT_EXCEL_ONLY_AGENT_UX.md`](AGENT_PROMPT_EXCEL_ONLY_AGENT_UX.md)
+
+---
+
+## Verdict
+
+Excel notebooks **work** for vibe20 packages and vibe19 punchlist FDD reports when data is present. Remaining gaps block the product thesis: **ECMs UI still ships Advanced Easy Buttons / DOCX**, agents cannot own a full **formula-visible / refreshable** Excel contract in Studio, and **bensbench vibe20 cannot run `wattlab easy-button` EP cascades** (no Docker socket / EnergyPlus image) so Compare stays mostly YELLOW unless an archived measure-set run is promoted.
+
+---
+
+## Index — open bugs / enhancements
+
+| ID | Sev | App | One-liner |
+| --- | --- | --- | --- |
+| **BUG-043** | **High** | vibe20 | ECMs **Advanced** stack (Easy Buttons, measure sets, capital plan, client DOCX) must be **removed** — Excel notebooks only |
+| **BUG-044** | **High** | vibe20 | Studio must show **Excel formulas + cached values**, support agent **edit → refresh**, and download same bytes humans edit |
+| **BUG-045** | **High** | vibe20 ops | `wattlab easy-button` EP cascade **blocked** on bensbench: vibe20 has **no `/var/run/docker.sock`**, no EnergyPlus image — cannot fill full-package `savings_by_measure` |
+| **BUG-046** | Medium | vibe20 | ESCO kWh/therms still **baked at build**; true template-driven ESCO_Calcs (bin-method Excel) not yet agent-editable formula blocks |
+| **BUG-041** | Low | both | Tip GHCR images omit **pytest** (host venv for AppTests) |
+
+Closed on tip (do not re-open): BUG-030–040, BUG-042 — see archived pass matrix.
+
+---
+
+## BUG-043 — Pooge Advanced Easy Buttons / DOCX (Excel only)
+
+| Field | Value |
+| --- | --- |
+| Severity | High (product thesis) |
+| Where | `wattlab/studio/pages/ecms.py` |
+
+### Observed
+ECMs page still has expander **“Advanced — Easy Buttons, measure sets, capital plan, client DOCX”** with `data_editor`, Easy Button flows, and optional client DOCX. Notebook is primary, but Advanced remains the old dashboard.
+
+### Expected
+ECMs tab = **pick package → build/refresh notebook → formula preview → download `.xlsx` (+ manifest)**. No Easy Buttons, no capital-plan card wall, no DOCX on this page (Twin calibration package may keep its own results xlsx elsewhere).
+
+---
+
+## BUG-044 — Agent-friendly Excel contract in Studio
+
+| Field | Value |
+| --- | --- |
+| Severity | High |
+| Where | notebooks builder + ECMs preview + CLI prefill/refresh |
+
+### Observed
+Preview shows formula **strings** + some cache columns; agents cannot comfortably: edit formula cells via CLI/API, refresh calculated caches, see a full “Excel code” view in UI, then download identical workbook.
+
+### Expected
+- UI tabs: **Values** (caches) + **Formulas** (exact Excel formula text for ESCO/Compare/ROI)  
+- CLI: `notebook prefill` (Inputs) + `notebook refresh-caches` (or build flag) after formula/input edits  
+- Manifest lists named ranges, formula cells, measure ids, Compare verdicts  
+- Human downloads same file agents wrote under `/data/reports/notebooks/`
+
+---
+
+## BUG-045 — Easy-button EP cascade unavailable on host
+
+| Field | Value |
+| --- | --- |
+| Severity | High (ops / agent workflow) |
+| Where | vibe20 container runtime on bensbench |
+
+### Observed
+```text
+docker exec vibe20 → no /var/run/docker.sock
+docker images inside vibe20 → cannot talk to daemon
+```
+`wattlab easy-button --measure-set better` dry-run plans OK; **live EP cascade cannot run**. Liberty dial Twin runs lack `savings_by_measure` → notebook validate warning / YELLOW Compare.
+
+**Workaround used in QA:** promote archived  
+`runs/b100_ecm_measure_set_better` (partial: AHU sched + chiller lockout only) and rebuild notebooks with `--from-run`. Not full `controls_first` (7 measures) or `deep_retrofit` coverage.
+
+### Expected
+Documented / scripted host setup: mount Docker socket (or sibling EP runner), pull `energyplus-mcp-dev` (or pinned image), so agents can:
+
+```bash
+wattlab easy-button --measure-set better --minimal-file /data/reports/answers_building_100.json
+# → publish run with savings_by_measure
+wattlab notebook build --package controls_first --from-run … --out /data/reports/notebooks/
+```
+
+---
+
+## BUG-046 — ESCO quantity formulas still scaffold
+
+Cover honesty admits Python proxies. Rates/payback/NPV/cost formulas move with Inputs; **ESCO kWh/therms do not**. Full `ESCO_SPREADSHEET_CALCS.md` bin blocks in-template remain enhancement (ties to BUG-044).
+
+---
+
+## vibe19 Excel FDD reports (status)
+
+Punchlist-first `.xlsx` on tip **works** (re-verified earlier soak; artifacts under `engineering_findings/Liberty_Building_{50,100}_tip_soak/`):
+
+| Check | B50 | B100 (VAV scope) |
+| --- | --- | --- |
+| Sheets Punchlist→…→Quality_Gate | OK | OK |
+| Day-zoom embeds + relative path cells | OK | OK |
+| Overview dedupe | OK | OK |
+| FAULT inventory `n_priority_findings` | OK | OK |
+| UI download next to DOCX | Present on tip | Present |
+
+No new High vibe19 xlsx bugs this pass. Agents should prefer `--xlsx` + inventory JSON over DOCX.
+
+---
+
+## Evidence (host)
+
+```
+vibe20: no docker.sock · easy-button live cascade blocked
+promoted: runs/b100_ecm_measure_set_better → notebooks/*.xlsx (partial E+)
+vibe19 tip soak xlsx: engineering_findings/Liberty_Building_*_tip_soak/
+```
+ pleas only test the app locally in python only for streaml

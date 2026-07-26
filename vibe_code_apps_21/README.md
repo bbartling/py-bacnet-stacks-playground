@@ -1,70 +1,121 @@
-# Vibe Code App 21 — OpenFDD EnergyPlus Digital Twin Studio
+# Vibe Code App 21 — Physics-Trained ML Digital Twin
 
-Vibe Code App 21 is the planned final integration of:
+Vibe Code App 21 is the deployment and visualization successor to:
 
-- **Vibe Code App 19** — BAS historian ingestion, equipment mapping, Open-FDD analytics, RCx findings, schedules, weather reconciliation, and engineering reports.
-- **Vibe Code App 20 / OpenFDD WattLab** — EnergyPlus model creation, autosizing, scenario simulation, calibration, ECM comparison, and independent HVAC calculation benchmarks.
-- **Unity WebGL** — an interactive browser-delivered 3D building digital twin used to select equipment, change scenario inputs, run simulations, and visualize results spatially.
+- **Vibe Code App 19** — real BAS historian ingestion, equipment/point mapping, schedules, weather reconciliation, Open-FDD analytics, RCx findings, and engineering exports.
+- **Vibe Code App 20 / OpenFDD WattLab** — EnergyPlus model creation, autosizing, calibration/validation, scenario simulation, ECM screening, and independent HVAC engineering benchmarks.
+- **Vibe Code App 21** — offline synthetic-data generation and ML training, a lightweight Flask inference backend, React engineering UI, and a Unity WebGL digital-twin view.
 
-This directory is intentionally **specification-only**. It contains no application code, generated Unity project, Docker files, Python package, or frontend implementation.
+This directory is intentionally **specification-only**. It contains no production implementation, no trained model, and no generated Unity build.
 
-## Product vision
+## Revised product vision
 
-Create a browser-based engineering workbench where a user can:
+Vibe 21 is not an EnergyPlus server. EnergyPlus remains the offline physics engine used to create and validate training data.
 
-1. Load or restore an Open-FDD building package.
-2. Review BAS data quality, schedules, equipment mappings, faults, and RCx findings.
-3. Generate or select an EnergyPlus baseline model.
-4. autosize the HVAC system when design information is incomplete.
-5. Create intentionally degraded scenarios, including undersized HVAC, unusual operating hours, missing outdoor-air ventilation, disabled economizers, and weather-extreme operation.
-6. Queue and run EnergyPlus simulations through a backend service.
-7. Compare EnergyPlus outputs against the local HVAC engineering calculation library from Vibe 20.
-8. Display building, equipment, zones, fault state, comfort state, energy use, airflow, and simulation results in Unity WebGL.
-9. Export reproducible scenario manifests, reports, charts, and model artifacts.
-
-## Intended deployment shape
+The deployable Vibe 21 demo is intentionally lightweight:
 
 ```text
-Browser
-├── Web application shell
-│   ├── forms, sliders, tables, job state, Plotly charts
-│   └── Unity WebGL canvas
-│
-└── HTTPS JSON API
-    ├── building/package service
-    ├── Open-FDD analytics service
-    ├── scenario/model service
-    ├── simulation job service
-    └── results/report service
-         │
-         ├── EnergyPlus worker container(s)
-         ├── Vibe 20 HVAC benchmark library
-         └── durable project/result storage
+Vibe 19 BAS/FDD evidence
+          +
+Vibe 20 calibrated/validated EnergyPlus model
+          │
+          ▼
+OFFLINE simulation farm
+weather × schedules × controls × faults × capacities × envelope uncertainty
+          │
+          ▼
+feature-engineered Parquet dataset
+          │
+          ▼
+scikit-learn training + blocked validation
+          │
+          ▼
+trusted model bundle
+.joblib + model cards + feature/target schemas + validation evidence
+          │
+          ▼
+PythonAnywhere Flask WSGI app
+├── REST inference API
+├── compiled React SPA
+└── compiled Unity WebGL build
 ```
 
-The backend is **FastAPI only**. Pydantic models define API request, response, configuration, and persisted manifest contracts; Uvicorn serves the ASGI application; and FastAPI's generated OpenAPI document is the canonical machine-readable client contract.
+## The two ML twins
 
-The persisted engineering domain remains framework-independent in meaning, but implementation agents must not introduce Flask, Django, Streamlit callbacks, or a second HTTP framework as an alternative backend.
+Vibe 21 should not force every engineering question into one model.
 
-## Streamlit position
+### 1. Operational time-series twin
 
-Streamlit may be used as an **engineering prototype or analyst workbench**, especially for:
+Consumes a current BAS/weather row plus a required lookback window and predicts operational quantities such as:
 
-- package upload and mapping,
-- fault and schedule tuning,
-- model configuration,
-- scenario comparison,
-- Plotly charts,
-- report export,
-- and embedding the Unity WebGL viewer.
+- whole-building electric demand, kW;
+- 15-minute / 1-hour demand forecast, kW;
+- selected virtual sensors such as cooling tons or equipment load;
+- optional fault probabilities.
 
-Streamlit is not required to be the final product shell. The core APIs, scenario schemas, job records, and result artifacts must remain usable by Unity, Streamlit, a conventional JavaScript frontend, CLI agents, and tests without importing Streamlit.
+For a fixed interval, electrical energy is derived from predicted average demand when physically appropriate:
+
+```text
+interval_kWh = predicted_average_kW × interval_hours
+```
+
+For example, a 15-minute interval uses `interval_hours = 0.25`.
+
+### 2. Scenario surrogate twin
+
+Consumes EnergyPlus scenario parameters and predicts whole-scenario outcomes such as:
+
+- annual/monthly electricity, kWh;
+- annual gas, therm or kWh-equivalent;
+- peak electric demand, kW;
+- unmet hours;
+- comfort metrics;
+- optional end-use energy.
+
+This is the fast model used by React/Unity sliders to approximate previously learned EnergyPlus behavior without executing EnergyPlus on PythonAnywhere.
+
+## Deployment goal
+
+The final implementation should produce a human-uploadable bundle that can be unzipped on PythonAnywhere and served from one web application:
+
+```text
+vibe21_deploy_bundle/
+├── flask_app.py
+├── requirements.txt
+├── vibe21/
+├── models/
+├── static/
+│   ├── react/
+│   └── unity/
+├── manifests/
+└── README_PYTHONANYWHERE.md
+```
+
+The Unity work is performed outside this Python project using Unity + Unity MCP/AI tooling. The Unity agent exports a WebGL build; the human copies or merges that generated build into the Vibe 21 deployment bundle.
+
+## Fixed first-release choices
+
+- Python 3.
+- Flask WSGI backend for the PythonAnywhere demo.
+- scikit-learn-first ML stack.
+- `joblib` model persistence for trusted local artifacts.
+- Pandas or Polars for feature generation; Parquet as the canonical training-table format.
+- React for dense engineering UI, forms, model metadata, and Plotly charts.
+- Unity WebGL for spatial equipment/zone visualization and scenario interaction.
+- SQLite optional for lightweight demo metadata; JSON/Parquet artifacts remain first-class.
+- No live EnergyPlus execution on the PythonAnywhere demo.
+- No model training in public HTTP requests.
+- No BAS commanding.
 
 ## Specification files
 
-- [`AGENTS.md`](AGENTS.md) — top-level agent mission, boundaries, and delivery rules.
-- [`vibe21_agent_spec/SPEC.md`](vibe21_agent_spec/SPEC.md) — product, architecture, data-contract, API, simulation, Unity, and acceptance specification.
+- [`AGENTS.md`](AGENTS.md) — agent mission, hard boundaries, implementation order, and completion rules.
+- [`vibe21_agent_spec/SPEC.md`](vibe21_agent_spec/SPEC.md) — full product and architecture specification.
+- [`vibe21_agent_spec/ML_ARCHITECTURE.md`](vibe21_agent_spec/ML_ARCHITECTURE.md) — feature/target design, multi-input/multi-output strategy, validation, and model registry.
+- [`vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`](vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md) — deploy-bundle contract.
+- [`vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md`](vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md) — Unity MCP/agent handoff and browser bridge.
+- [`vibe21_agent_spec/SCHEMAS.md`](vibe21_agent_spec/SCHEMAS.md) — initial JSON contracts.
 
 ## Status
 
-**Planning scaffold only. No code has been implemented.**
+**Revised planning scaffold only. No application code is included in this package.**
