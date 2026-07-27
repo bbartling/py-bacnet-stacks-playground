@@ -90,6 +90,12 @@ PACKAGES: dict[str, tuple[str, ...]] = {
         "ECM-SENSOR-CALIBRATION",
         "ECM-RCX-SETPOINT-REVIEW",
     ),
+    # Polished Liberty Act 1: DSP + SAT + chiller lockout only
+    "g36-airside-three": (
+        "ECM-DSP-RESET",
+        "ECM-SAT-RESET",
+        "ECM-CHILLER-LOCKOUT",
+    ),
 }
 
 

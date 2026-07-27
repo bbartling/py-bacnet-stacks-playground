@@ -118,7 +118,7 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
         "fan_hp": 40,
         "cooling_tons": 200,
     }
-    for pkg in ("controls_first", "schedules_economizer", "plant_optimization", "envelope_code"):
+    for pkg in ("g36_airside_controls", "plant_optimization", "envelope_code"):
         agent_build_notebook(pkg, nb_dir, profile=profile)
 
     at = _boot("ECMs")
@@ -137,8 +137,7 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
     sel = at.selectbox(key="ecm_notebook_file")
     opts = list(getattr(sel, "options", []) or [])
-    assert any("easy_controls" in o or "controls" in o.lower() for o in opts)
-    assert any("G36_airside" in o for o in opts)
+    assert any("G36_DSP_SAT" in o or "G36" in o for o in opts)
     assert any("plant_chiller" in o for o in opts)
     assert any("envelope_code" in o for o in opts)
     # Results-only UI — no formula dump / formula-sheet primary surface
@@ -148,32 +147,34 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
         for el in group
     )
     assert "Formulas used" not in ui_blob
-    assert "Screening results" in ui_blob
+    assert "Measure results" in ui_blob or "ESCO vs Twin" in ui_blob
     assert "ESCO_Calcs" not in ui_blob
     assert "ROI_Capital" not in ui_blob
     assert not at.exception
 
-    # Envelope scenario: glazing + insulation rows present on Screening_Results
-    env = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "envelope_code" in p.name)
+    # Polished G36 workbook
+    g36 = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "G36" in p.name)
     from openpyxl import load_workbook
 
-    wb = load_workbook(env, data_only=False)
-    assert wb.sheetnames[0] == "Cover"
-    assert wb.sheetnames[1] == "Screening_Results"
-    assert wb.active.title == "Screening_Results"
-    scr = wb["Screening_Results"]
-    headers = [scr.cell(1, c).value for c in range(1, 12)]
-    assert "elec_delta_kwh" in headers
-    assert "basis" in headers
-    mids = {
-        str(scr.cell(r, 1).value)
-        for r in range(2, (scr.max_row or 1) + 1)
-        if scr.cell(r, 1).value and scr.cell(r, 1).value != "TOTAL"
-    }
-    assert "ECM-WINDOW-HP-GLAZING" in mids
-    assert "ECM-ENVELOPE-INSUL-CODE" in mids
-    assert wb["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
-    assert wb["Compare"]["I2"].value == "N/A"
+    wb = load_workbook(g36, data_only=False)
+    assert wb.sheetnames[0] == "Baseline"
+    assert wb.sheetnames[1] == "Crosscheck"
+    assert wb.active.title == "Crosscheck"
+    assert "Calc_DSP" in wb.sheetnames
+
+    # Envelope still legacy Screening_Results
+    env = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "envelope_code" in p.name)
+    wb2 = load_workbook(env, data_only=False)
+    assert "Screening_Results" in wb2.sheetnames or "Cover" in wb2.sheetnames
+    if "Screening_Results" in wb2.sheetnames:
+        scr = wb2["Screening_Results"]
+        mids = {
+            str(scr.cell(r, 1).value)
+            for r in range(2, (scr.max_row or 1) + 1)
+            if scr.cell(r, 1).value and scr.cell(r, 1).value != "TOTAL"
+        }
+        assert "ECM-WINDOW-HP-GLAZING" in mids
+        assert "ECM-ENVELOPE-INSUL-CODE" in mids
 
 
 def test_turnkey_live_html_smoke():

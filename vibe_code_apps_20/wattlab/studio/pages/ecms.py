@@ -15,12 +15,18 @@ import streamlit as st
 
 from wattlab.studio.workspace import reports_dir
 
-# Results-first tabs (skip formula-heavy sheets in the default UI)
+# Results-first tabs (skip formula-heavy Calc_* sheets in the default UI)
 _RESULTS_SHEETS = (
+    "Crosscheck",
+    "Charts",
+    "Baseline",
+    "Calc_Cost",
+    "Twin_Measures",
+    "Guardrails",
+    # Legacy
     "Screening_Results",
     "Calibrated_Twin",
     "Inputs",
-    "Guardrails",
 )
 
 
@@ -42,15 +48,29 @@ def _sheet_names(path: Path) -> list[str]:
         return []
 
 
-def _preview_values(path: Path, sheet: str) -> pd.DataFrame | None:
+def _preview_values(path: Path, sheet: str, *, header_row: int = 1) -> pd.DataFrame | None:
     """Readonly numeric/text preview — never show formula strings as the main view."""
     from wattlab.notebooks.builder import preview_sheet_rows
 
-    formula_rows = preview_sheet_rows(path, sheet, max_rows=60, data_only=False)
-    value_rows = preview_sheet_rows(path, sheet, max_rows=60, data_only=True)
+    # Pull enough rows to cover header_row offset
+    formula_rows = preview_sheet_rows(path, sheet, max_rows=60 + header_row, data_only=False)
+    value_rows = preview_sheet_rows(path, sheet, max_rows=60 + header_row, data_only=True)
+    if not formula_rows or len(formula_rows) < header_row:
+        return None
+    # 1-indexed header_row → 0-indexed slice
+    formula_rows = formula_rows[header_row - 1 :]
+    value_rows = value_rows[header_row - 1 :] if value_rows else []
     if not formula_rows:
         return None
-    header = [str(c) if c is not None else "" for c in formula_rows[0]]
+    raw_header = [str(c) if c is not None else "" for c in formula_rows[0]]
+    # Dedupe empty / duplicate column names for Arrow
+    header: list[str] = []
+    seen: dict[str, int] = {}
+    for h in raw_header:
+        key = h or "col"
+        n = seen.get(key, 0)
+        seen[key] = n + 1
+        header.append(key if n == 0 else f"{key}_{n}")
     body: list[list[Any]] = []
     for i, frow in enumerate(formula_rows[1:]):
         vrow = value_rows[i + 1] if value_rows and i + 1 < len(value_rows) else []
@@ -58,12 +78,24 @@ def _preview_values(path: Path, sheet: str) -> pd.DataFrame | None:
         for j, cell in enumerate(frow):
             if isinstance(cell, str) and cell.startswith("="):
                 vc = vrow[j] if j < len(vrow) else None
-                # Prefer cached/static value; blank if Excel-only formula (openpyxl can't calc)
                 merged.append(vc if vc is not None else "—")
             else:
                 merged.append(cell)
-        body.append(merged)
+        # pad / trim to header width
+        while len(merged) < len(header):
+            merged.append(None)
+        body.append(merged[: len(header)])
     return pd.DataFrame(body, columns=header)
+
+
+def _screening_frame(path: Path) -> pd.DataFrame | None:
+    """Prefer Crosscheck (ESCO vs Twin); else Screening_Results / Calc_Cost."""
+    present = _sheet_names(path)
+    if "Crosscheck" in present:
+        return _preview_values(path, "Crosscheck", header_row=4)
+    if "Screening_Results" in present:
+        return _preview_values(path, "Screening_Results")
+    return None
 
 
 def _cover_subtitle(path: Path) -> str:
@@ -72,10 +104,11 @@ def _cover_subtitle(path: Path) -> str:
         from openpyxl import load_workbook
 
         wb = load_workbook(path, read_only=True, data_only=False)
-        if "Cover" in wb.sheetnames:
+        meta_sheet = "Baseline" if "Baseline" in wb.sheetnames else "Cover"
+        if meta_sheet in wb.sheetnames:
             cover = {
                 str(r[0]).strip().lower(): r[1]
-                for r in wb["Cover"].iter_rows(min_row=4, max_col=2, values_only=True)
+                for r in wb[meta_sheet].iter_rows(min_row=4, max_col=2, values_only=True)
                 if r[0]
             }
             if cover.get("building"):
@@ -98,55 +131,19 @@ def _cover_subtitle(path: Path) -> str:
     return " · ".join(parts) if parts else ""
 
 
-def _screening_frame(path: Path) -> pd.DataFrame | None:
-    """Prefer Screening_Results sheet; else build from ROI caches."""
-    present = _sheet_names(path)
-    if "Screening_Results" in present:
-        return _preview_values(path, "Screening_Results")
-    # Fallback: ROI measure id + numeric npv_usd_at_build + static kwh when present
-    from wattlab.notebooks.builder import preview_sheet_rows
-
-    rows = preview_sheet_rows(path, "ROI_Capital", max_rows=40, data_only=False)
-    if not rows or len(rows) < 2:
-        return None
-    header = [str(c) for c in rows[0]]
-    try:
-        i_npv = header.index("npv_usd_at_build")
-    except ValueError:
-        i_npv = 8 if len(header) > 8 else -1
-    out_rows = []
-    for row in rows[1:]:
-        mid = row[0] if row else None
-        if not mid or str(mid).upper() == "TOTAL" or str(mid) == "Honesty":
-            continue
-        kwh = row[2] if len(row) > 2 else None
-        therms = row[3] if len(row) > 3 else None
-        if isinstance(kwh, str) and kwh.startswith("="):
-            kwh = "—"
-        if isinstance(therms, str) and therms.startswith("="):
-            therms = "—"
-        npv = row[i_npv] if i_npv >= 0 and i_npv < len(row) else None
-        out_rows.append(
-            {
-                "measure_id": mid,
-                "kwh_saved": kwh,
-                "therms_saved": therms,
-                "npv_usd_at_build": npv,
-            }
-        )
-    return pd.DataFrame(out_rows) if out_rows else None
-
-
 def _calibrated_metrics(path: Path) -> dict[str, Any]:
-    df = _preview_values(path, "Calibrated_Twin")
-    if df is None or df.empty or df.shape[1] < 2:
-        return {}
-    out: dict[str, Any] = {}
-    for _, row in df.iterrows():
-        key = str(row.iloc[0] or "").strip()
-        if key:
-            out[key] = row.iloc[1]
-    return out
+    for sheet in ("Baseline", "Calibrated_Twin"):
+        df = _preview_values(path, sheet)
+        if df is None or df.empty or df.shape[1] < 2:
+            continue
+        out: dict[str, Any] = {}
+        for _, row in df.iterrows():
+            key = str(row.iloc[0] or "").strip()
+            if key and key not in ("parameter",):
+                out[key] = row.iloc[1]
+        if out:
+            return out
+    return {}
 
 
 def render() -> None:
@@ -234,38 +231,34 @@ def render() -> None:
             peer = cal.get("peer_band")
             st.metric("Peer band", "—" if peer is None else str(peer))
         st.caption(
-            "Calibrated Twin baseline (fuel match). "
-            "Measure-level EnergyPlus savings are optional — blank E+ ≠ zero; see download."
+            "Calibrated Twin baseline (G14). "
+            "Measure Twin deltas on Crosscheck / Twin_Measures after cascade-from-twin."
         )
 
-    # --- Screening results (numbers) ---
-    st.subheader("Screening results")
+    # --- Crosscheck / screening results (numbers) ---
+    st.subheader("Measure results — ESCO vs Twin")
     screen = _screening_frame(path)
     if screen is None or screen.empty:
-        st.warning("No screening numbers in this workbook yet — rebuild with tip agent-build.")
+        st.warning("No Crosscheck / screening numbers yet — rebuild with tip agent-build.")
     else:
         safe = screen.copy()
         safe.columns = [str(c) if c is not None else "" for c in safe.columns]
-        # Hard guard: never render Excel formula soup as the primary table
         as_text = safe.astype(str)
-        has_formula = any(
-            isinstance(v, str) and str(v).startswith("=")
-            for col in as_text.columns
-            for v in as_text[col].tolist()
-        )
+        flat = as_text.to_numpy().ravel().tolist()
+        has_formula = any(isinstance(v, str) and str(v).startswith("=") for v in flat)
         if has_formula:
             st.error(
-                "This workbook still has formula cells on Screening_Results — rebuild with tip agent-build."
+                "Workbook still exposes formula strings in the results table — rebuild with tip agent-build."
             )
         else:
             st.dataframe(as_text, width="stretch", hide_index=True)
             st.caption(
-                "Build-time screening (ESCO / Inputs). Open the downloaded `.xlsx` for live Excel formulas."
+                "Crosscheck = ESCO Calc_* vs Twin vs_baseline. Download `.xlsx` for live formulas + Charts."
             )
 
-    # Optional extra value sheets (no formula dump)
     present = _sheet_names(path)
-    extra = [s for s in _RESULTS_SHEETS if s in present and s not in ("Screening_Results", "Calibrated_Twin")]
+    primary = {"Crosscheck", "Screening_Results", "Baseline", "Calibrated_Twin"}
+    extra = [s for s in _RESULTS_SHEETS if s in present and s not in primary]
     if extra:
         with st.expander("More sheets (values)", expanded=False):
             tabs = st.tabs(extra)
