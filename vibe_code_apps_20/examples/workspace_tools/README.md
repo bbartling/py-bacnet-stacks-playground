@@ -42,6 +42,7 @@ Prefer product CLIs over fat copies of `build_geo_idf` / `dial_loads_mcp` /
 | Controls | `controls_service_checklist.py` (thin), `analyze_hws_reset.py` |
 | Geometry | `build_stacked_6floor_idf.py`, `build_geo_idf.py` (prefer `wattlab geo-idf`) |
 | Loads / envelope | `patch_reheat_envelope.py`, `apply_doe_vintage_5a.py`, `dial_loads_mcp.py` |
+| Twin pick / ECM packages | `pick_best_twin_run.py`, `agent_build_ecm_packages.py` |
 | Score / ladders | `score_g14_monthly.py`, `write_calibration_scorecard.py`, `save_best_model.py`, `score_b100_monthly.py`, `run_gas_g14_ladder.py`, `run_vintage_ladder.py`, `compare_open_meteo_bills.py` |
 
 Pass paths for **any** building — do not hardcode campus names into new scripts.
