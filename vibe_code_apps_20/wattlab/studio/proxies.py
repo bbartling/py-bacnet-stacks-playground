@@ -572,7 +572,7 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     "savings_therms": round(est_therms * 0.10, 1),
                     "basis": "envelope_proxy",
                     "calculators": ["envelope_insulation_screening"],
-                    "notes": "Conceptual wall/roof R upgrade — E+ via patch_reheat_envelope insulation mult when cascaded",
+                    "notes": "Conceptual wall/roof R upgrade — ESCO/proxy screening only (no EnergyPlus patch yet)",
                 }
             else:
                 out[mid] = {"savings_kwh": 0.0, "savings_therms": 0.0}

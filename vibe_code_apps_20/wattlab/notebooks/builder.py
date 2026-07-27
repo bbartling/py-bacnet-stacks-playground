@@ -390,9 +390,9 @@ def _define_name(wb, name: str, sheet: str, cell: str) -> None:
 
 
 def _short_measure_label(measure_id: str) -> str:
-    """Compact chart category — last token after final hyphen."""
-    parts = str(measure_id).split("-")
-    return parts[-1] if parts else measure_id
+    """Compact chart category — full measure id minus the ECM- prefix."""
+    mid = str(measure_id)
+    return mid[4:] if mid.startswith("ECM-") else mid
 
 
 def _build_charts_sheet(
