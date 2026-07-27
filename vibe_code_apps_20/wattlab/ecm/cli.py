@@ -72,6 +72,24 @@ def _cmd_audit(_: argparse.Namespace) -> int:
     return 0 if report["unique_ids"] else 1
 
 
+def _cmd_run_on_twin(args: argparse.Namespace) -> int:
+    from wattlab.ecm.run_on_twin import run_ecms_on_twin
+
+    mids = [x.strip() for x in str(args.ecms).split(",") if x.strip()] if args.ecms else None
+    result = run_ecms_on_twin(
+        workspace=args.workspace,
+        measure_ids=mids,
+        twin_run=args.twin_run,
+        prefix=args.prefix,
+        answers_path=args.answers,
+        dry_run=args.dry_run,
+    )
+    # Drop bulky nested plan/cascade noise for stdout
+    slim = {k: v for k, v in result.items() if k not in {"plan"}}
+    print(json.dumps(slim, indent=2, default=str))
+    return 0 if result.get("ok") else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wattlab ecm", description="Canonical ECM catalog tools")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -85,6 +103,18 @@ def main(argv: list[str] | None = None) -> int:
     pk.set_defaults(func=_cmd_package)
     sub.add_parser("packages", help="List packages").set_defaults(func=_cmd_packages)
     sub.add_parser("audit", help="Catalog integrity audit").set_defaults(func=_cmd_audit)
+
+    rt = sub.add_parser(
+        "run-on-twin",
+        help="Patch+simulate ECMs on best G14 Twin (EnergyPlus MCP/DinD) → ecm_compare.json",
+    )
+    rt.add_argument("--workspace", default="/data")
+    rt.add_argument("--twin-run", default=None)
+    rt.add_argument("--prefix", default=None)
+    rt.add_argument("--answers", default=None)
+    rt.add_argument("--ecms", default=None, help="Comma ids (default G36 three)")
+    rt.add_argument("--dry-run", action="store_true")
+    rt.set_defaults(func=_cmd_run_on_twin)
 
     args = p.parse_args(argv)
     return int(args.func(args) or 0)

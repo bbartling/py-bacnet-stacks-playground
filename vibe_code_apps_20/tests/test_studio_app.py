@@ -107,19 +107,9 @@ def test_studio_twin_eui_index_section():
 
 
 def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
-    # Seed three on-disk notebooks — ECMs is a file viewer (BUG-051–056)
+    # ECMs = spreadsheet vs EnergyPlus compare (no agent xlsx required)
     monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
-    from wattlab.notebooks.builder import agent_build_notebook
-
-    nb_dir = tmp_path / "reports" / "notebooks"
-    profile = {
-        "display_name": "Liberty Building 100",
-        "conditioned_floor_area_ft2": 75_000,
-        "fan_hp": 40,
-        "cooling_tons": 200,
-    }
-    for pkg in ("g36_airside_controls", "plant_optimization", "envelope_code"):
-        agent_build_notebook(pkg, nb_dir, profile=profile)
+    (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
 
     at = _boot("ECMs")
     assert not at.exception
@@ -128,53 +118,28 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert "Include client DOCX" not in page
 
     btn_keys = [str(getattr(b, "key", "") or "") for b in at.button]
-    assert any("ecm_notebook_reload" in k for k in btn_keys)
+    assert any("ecm_compare_run" in k for k in btn_keys)
     assert not any("ecm_notebook_rebuild_scenario" in k for k in btn_keys)
     assert not any("ecm_notebook_build" in k for k in btn_keys)
-    assert not any("ecm_notebook_refresh_caches" in k for k in btn_keys)
 
-    # File dropdown lists on-disk filenames only (human-readable stems)
-    assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
-    sel = at.selectbox(key="ecm_notebook_file")
-    opts = list(getattr(sel, "options", []) or [])
-    assert any("G36_DSP_SAT" in o or "G36" in o for o in opts)
-    assert any("plant_chiller" in o for o in opts)
-    assert any("envelope_code" in o for o in opts)
-    # Results-only UI — no formula dump / formula-sheet primary surface
     ui_blob = " ".join(
         str(getattr(el, "value", el))
         for group in (at.subheader, at.markdown, at.caption)
         for el in group
     )
+    assert "Spreadsheet" in ui_blob or "spreadsheet" in page.lower()
+    assert "EnergyPlus" in ui_blob or "EnergyPlus" in page
     assert "Formulas used" not in ui_blob
-    assert "Measure results" in ui_blob or "ESCO vs Twin" in ui_blob
     assert "ESCO_Calcs" not in ui_blob
-    assert "ROI_Capital" not in ui_blob
     assert not at.exception
 
-    # Polished G36 workbook
-    g36 = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "G36" in p.name)
-    from openpyxl import load_workbook
+    # Stub compare file written on first render
+    from wattlab.ecm.compare import compare_path, load_compare
 
-    wb = load_workbook(g36, data_only=False)
-    assert wb.sheetnames[0] == "Baseline"
-    assert wb.sheetnames[1] == "Crosscheck"
-    assert wb.active.title == "Crosscheck"
-    assert "Calc_DSP" in wb.sheetnames
-
-    # Envelope still legacy Screening_Results
-    env = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "envelope_code" in p.name)
-    wb2 = load_workbook(env, data_only=False)
-    assert "Screening_Results" in wb2.sheetnames or "Cover" in wb2.sheetnames
-    if "Screening_Results" in wb2.sheetnames:
-        scr = wb2["Screening_Results"]
-        mids = {
-            str(scr.cell(r, 1).value)
-            for r in range(2, (scr.max_row or 1) + 1)
-            if scr.cell(r, 1).value and scr.cell(r, 1).value != "TOTAL"
-        }
-        assert "ECM-WINDOW-HP-GLAZING" in mids
-        assert "ECM-ENVELOPE-INSUL-CODE" in mids
+    cmp = load_compare(compare_path(tmp_path / "reports"))
+    assert cmp is not None
+    assert cmp["spreadsheet"]["status"] == "pending_external"
+    assert len(cmp["measures"]) >= 3
 
 
 def test_turnkey_live_html_smoke():

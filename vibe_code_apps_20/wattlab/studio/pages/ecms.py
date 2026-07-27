@@ -1,291 +1,154 @@
-"""ECMs — file viewer: on-disk .xlsx → screening results → download.
+"""ECMs — simple spreadsheet vs EnergyPlus compare (energy, cost, ROI).
 
-Formulas live in the workbook for Excel; Studio shows numbers only.
+Spreadsheet calcs come from external sources later (columns stay pending).
+EnergyPlus side = cascade on best G14 Twin via MCP/DinD simulate.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from wattlab.studio.workspace import reports_dir
-
-# Results-first tabs (skip formula-heavy Calc_* sheets in the default UI)
-_RESULTS_SHEETS = (
-    "Crosscheck",
-    "Charts",
-    "Baseline",
-    "Calc_Cost",
-    "Twin_Measures",
-    "Guardrails",
-    # Legacy
-    "Screening_Results",
-    "Calibrated_Twin",
-    "Inputs",
+from wattlab.ecm.compare import (
+    compare_path,
+    empty_compare_stub,
+    load_compare,
+    write_compare,
 )
+from wattlab.ecm.run_on_twin import DEFAULT_G36_ECMS, run_ecms_on_twin
+from wattlab.studio.workspace import reports_dir, workspace_root
 
 
-def _list_notebook_files(out_dir: Path) -> list[Path]:
-    if not out_dir.is_dir():
-        return []
-    return sorted(out_dir.glob("*.xlsx"), key=lambda p: p.name.lower())
+def _fmt(v: Any) -> str:
+    if v is None or v == "":
+        return "—"
+    if isinstance(v, float):
+        if abs(v) >= 100:
+            return f"{v:,.0f}"
+        return f"{v:,.2f}"
+    return str(v)
 
 
-def _sheet_names(path: Path) -> list[str]:
-    from openpyxl import load_workbook
-
-    try:
-        wb = load_workbook(path, read_only=True, data_only=False)
-        names = list(wb.sheetnames)
-        wb.close()
-        return names
-    except Exception:
-        return []
-
-
-def _preview_values(path: Path, sheet: str, *, header_row: int = 1) -> pd.DataFrame | None:
-    """Readonly numeric/text preview — never show formula strings as the main view."""
-    from wattlab.notebooks.builder import preview_sheet_rows
-
-    # Pull enough rows to cover header_row offset
-    formula_rows = preview_sheet_rows(path, sheet, max_rows=60 + header_row, data_only=False)
-    value_rows = preview_sheet_rows(path, sheet, max_rows=60 + header_row, data_only=True)
-    if not formula_rows or len(formula_rows) < header_row:
-        return None
-    # 1-indexed header_row → 0-indexed slice
-    formula_rows = formula_rows[header_row - 1 :]
-    value_rows = value_rows[header_row - 1 :] if value_rows else []
-    if not formula_rows:
-        return None
-    raw_header = [str(c) if c is not None else "" for c in formula_rows[0]]
-    # Dedupe empty / duplicate column names for Arrow
-    header: list[str] = []
-    seen: dict[str, int] = {}
-    for h in raw_header:
-        key = h or "col"
-        n = seen.get(key, 0)
-        seen[key] = n + 1
-        header.append(key if n == 0 else f"{key}_{n}")
-    body: list[list[Any]] = []
-    for i, frow in enumerate(formula_rows[1:]):
-        vrow = value_rows[i + 1] if value_rows and i + 1 < len(value_rows) else []
-        merged: list[Any] = []
-        for j, cell in enumerate(frow):
-            if isinstance(cell, str) and cell.startswith("="):
-                vc = vrow[j] if j < len(vrow) else None
-                merged.append(vc if vc is not None else "—")
-            else:
-                merged.append(cell)
-        # pad / trim to header width
-        while len(merged) < len(header):
-            merged.append(None)
-        body.append(merged[: len(header)])
-    return pd.DataFrame(body, columns=header)
-
-
-def _screening_frame(path: Path) -> pd.DataFrame | None:
-    """Prefer Crosscheck (ESCO vs Twin); else Screening_Results / Calc_Cost."""
-    present = _sheet_names(path)
-    if "Crosscheck" in present:
-        return _preview_values(path, "Crosscheck", header_row=4)
-    if "Screening_Results" in present:
-        return _preview_values(path, "Screening_Results")
-    return None
-
-
-def _cover_subtitle(path: Path) -> str:
-    parts: list[str] = []
-    try:
-        from openpyxl import load_workbook
-
-        wb = load_workbook(path, read_only=True, data_only=False)
-        meta_sheet = "Baseline" if "Baseline" in wb.sheetnames else "Cover"
-        if meta_sheet in wb.sheetnames:
-            cover = {
-                str(r[0]).strip().lower(): r[1]
-                for r in wb[meta_sheet].iter_rows(min_row=4, max_col=2, values_only=True)
-                if r[0]
+def _compare_table(payload: dict[str, Any]) -> pd.DataFrame:
+    rows = []
+    for m in payload.get("measures") or []:
+        rows.append(
+            {
+                "measure": m.get("measure_id"),
+                "ss_kWh": m.get("ss_kwh"),
+                "ep_kWh": m.get("ep_kwh"),
+                "ss_$": m.get("ss_usd"),
+                "ep_$": m.get("ep_usd"),
+                "capital_$": m.get("capital_usd"),
+                "payback_ss_yr": m.get("payback_yr_ss"),
+                "payback_ep_yr": m.get("payback_yr_ep"),
+                "ROI_ss": m.get("roi_ss"),
+                "ROI_ep": m.get("roi_ep"),
+                "status": m.get("status"),
             }
-            if cover.get("building"):
-                parts.append(str(cover["building"]))
-            twin = cover.get("twin run")
-            if twin and str(twin) not in ("(none — E+ optional)", "(none)"):
-                parts.append(f"twin={twin}")
-            if cover.get("g14 pass") is not None:
-                parts.append(f"G14={cover['g14 pass']}")
-            if cover.get("model site eui") is not None:
-                parts.append(f"EUI={cover['model site eui']}")
-        wb.close()
-    except Exception:
-        pass
-    try:
-        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-        parts.append(f"mtime {mtime.strftime('%Y-%m-%d %H:%MZ')}")
-    except OSError:
-        pass
-    return " · ".join(parts) if parts else ""
+        )
+    return pd.DataFrame(rows)
 
 
-def _calibrated_metrics(path: Path) -> dict[str, Any]:
-    for sheet in ("Baseline", "Calibrated_Twin"):
-        df = _preview_values(path, sheet)
-        if df is None or df.empty or df.shape[1] < 2:
-            continue
-        out: dict[str, Any] = {}
-        for _, row in df.iterrows():
-            key = str(row.iloc[0] or "").strip()
-            if key and key not in ("parameter",):
-                out[key] = row.iloc[1]
-        if out:
-            return out
-    return {}
-
-
-def render() -> None:
-    st.header("ECMs — engineering notebooks")
+def render(*, profile: dict[str, Any] | None = None) -> None:
+    st.header("ECMs")
     st.caption(
-        "Pick an on-disk workbook → **screening results** (numbers) → download. "
-        "Excel formulas stay in the `.xlsx` for Excel — not shown here. "
-        "**Reload from disk** after an agent CLI write."
-    )
-    st.markdown(
-        "[ESCO calculators](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
-        "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_CALCULATORS.md) · "
-        "[Retrofit cost / ROI](https://github.com/bbartling/py-bacnet-stacks-playground/blob/develop/"
-        "vibe_code_apps_20/vibe20_agent_spec/docs/ESCO_RETROFIT_COST_ROI.md)"
+        "Two columns of truth: **spreadsheet** (external ESCO books — pending) vs "
+        "**EnergyPlus** (best calibrated Twin + MCP/DinD). "
+        "ROI is a first-year screening attempt, not a bid."
     )
 
-    out_dir = reports_dir() / "notebooks"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    files = _list_notebook_files(out_dir)
+    ws = workspace_root()
+    reports = reports_dir()
+    path = compare_path(reports)
+    payload = load_compare(path)
+    if payload is None:
+        payload = empty_compare_stub(measure_ids=list(DEFAULT_G36_ECMS))
+        write_compare(path, payload)
 
-    if st.button("Reload from disk", key="ecm_notebook_reload"):
-        for key in (
-            "studio_notebook_path",
-            "studio_notebook_manifest",
-            "ecm_notebook_file",
-            "ecm_notebook_preview_mode",
-        ):
-            st.session_state.pop(key, None)
-        st.rerun()
+    # --- Run controls ---
+    c1, c2, c3 = st.columns([2, 1, 1])
+    twin_hint = payload.get("twin_run") or "(pick best G14 Twin)"
+    c1.markdown(f"**Twin:** `{twin_hint}`")
+    dry = c2.checkbox("Dry-run only", value=False, key="ecm_compare_dry")
+    run = c3.button("Run EnergyPlus ECMs", type="primary", key="ecm_compare_run")
 
-    if not files:
-        st.info(
-            f"No `.xlsx` under `{out_dir}` yet. "
-            "Agent: `wattlab notebook agent-build` or `/data/tools/agent_build_ecm_packages.py`."
-        )
-        return
-
-    names = [p.name for p in files]
-    by_name = {p.name: p for p in files}
-
-    def _label(name: str) -> str:
-        man = out_dir / f"{Path(name).stem}.notebook_manifest.json"
-        story = ""
-        if man.is_file():
+    if run:
+        with st.spinner("Patching Twin IDF + EnergyPlus sims (MCP/DinD)…"):
             try:
-                data = json.loads(man.read_text(encoding="utf-8"))
-                story = str(data.get("story") or data.get("package_label") or "")
-            except (OSError, json.JSONDecodeError, TypeError):
-                story = ""
-        return f"{name} — {story}" if story else name
+                result = run_ecms_on_twin(
+                    workspace=ws,
+                    measure_ids=list(DEFAULT_G36_ECMS),
+                    profile=profile or {},
+                    dry_run=dry,
+                    write_compare=True,
+                )
+                payload = result.get("compare") or payload
+                if result.get("ok"):
+                    st.success(
+                        f"Wrote `{result.get('compare_path')}` · twin=`{result.get('twin_run')}`"
+                        + (" (dry-run)" if dry else "")
+                    )
+                else:
+                    st.error("ECM run failed — see logs")
+            except Exception as exc:
+                st.error(f"EnergyPlus ECM run failed: {exc}")
 
-    if st.session_state.get("ecm_notebook_file") not in names:
-        st.session_state["ecm_notebook_file"] = names[0]
-
-    pick_name = st.selectbox(
-        "Notebook file",
-        names,
-        format_func=_label,
-        key="ecm_notebook_file",
-        help="On-disk workbooks only — names follow the ECM narrative acts.",
-    )
-    path = by_name[pick_name]
-    st.session_state["studio_notebook_path"] = str(path)
-    subtitle = _cover_subtitle(path)
-    if subtitle:
-        st.caption(subtitle)
-
-    # --- Baseline metrics ---
-    cal = _calibrated_metrics(path)
-    if cal:
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            g14 = cal.get("g14_pass")
-            st.metric("G14", "—" if g14 is None else str(g14))
-        with c2:
-            eui = cal.get("model_site_eui")
-            st.metric("Model site EUI", "—" if eui is None else str(eui))
-        with c3:
-            mk = cal.get("model_kwh")
-            st.metric(
-                "Model kWh/yr",
-                f"{mk:,.0f}" if isinstance(mk, (int, float)) else ("—" if mk is None else str(mk)),
-            )
-        with c4:
-            peer = cal.get("peer_band")
-            st.metric("Peer band", "—" if peer is None else str(peer))
-        st.caption(
-            "Calibrated Twin baseline (G14). "
-            "Measure Twin deltas on Crosscheck / Twin_Measures after cascade-from-twin."
+    ss = payload.get("spreadsheet") or {}
+    ep = payload.get("energyplus") or {}
+    a, b = st.columns(2)
+    with a:
+        st.subheader("Spreadsheet calc")
+        st.info(
+            f"Status: **{ss.get('status', 'pending_external')}**  \n"
+            f"{ss.get('note') or 'Drop external ESCO workbooks later — columns stay blank for now.'}"
         )
+    with b:
+        st.subheader("EnergyPlus calc")
+        st.info(
+            f"Status: **{ep.get('status', 'empty')}** · source `{ep.get('source', '—')}`  \n"
+            f"Weather: `{((ep.get('weather_suitability') or payload.get('energyplus') or {}).get('mode') if isinstance(ep.get('weather_suitability'), dict) else (payload.get('weather') or '—'))}`"
+        )
+        wsuit = payload.get("energyplus", {}).get("weather_suitability") or {}
+        if isinstance(wsuit, dict) and wsuit.get("mode"):
+            st.caption(f"{wsuit.get('mode')}: {wsuit.get('reason', '')}")
 
-    # --- Crosscheck / screening results (numbers) ---
-    st.subheader("Measure results — ESCO vs Twin")
-    screen = _screening_frame(path)
-    if screen is None or screen.empty:
-        st.warning("No Crosscheck / screening numbers yet — rebuild with tip agent-build.")
+    st.subheader("Energy · cost · ROI")
+    df = _compare_table(payload)
+    if df.empty:
+        st.warning("No measures yet — click **Run EnergyPlus ECMs**.")
     else:
-        safe = screen.copy()
-        safe.columns = [str(c) if c is not None else "" for c in safe.columns]
-        as_text = safe.astype(str)
-        flat = as_text.to_numpy().ravel().tolist()
-        has_formula = any(isinstance(v, str) and str(v).startswith("=") for v in flat)
-        if has_formula:
-            st.error(
-                "Workbook still exposes formula strings in the results table — rebuild with tip agent-build."
-            )
-        else:
-            st.dataframe(as_text, width="stretch", hide_index=True)
-            st.caption(
-                "Crosscheck = ESCO Calc_* vs Twin vs_baseline. Download `.xlsx` for live formulas + Charts."
-            )
+        # Friendly display: blank spreadsheet cells as —
+        show = df.copy()
+        for col in show.columns:
+            if col == "measure":
+                continue
+            show[col] = show[col].map(_fmt)
+        st.dataframe(show, hide_index=True, width="stretch")
 
-    present = _sheet_names(path)
-    primary = {"Crosscheck", "Screening_Results", "Baseline", "Calibrated_Twin"}
-    extra = [s for s in _RESULTS_SHEETS if s in present and s not in primary]
-    if extra:
-        with st.expander("More sheets (values)", expanded=False):
-            tabs = st.tabs(extra)
-            for tab, sheet in zip(tabs, extra):
-                with tab:
-                    df = _preview_values(path, sheet)
-                    if df is None or df.empty:
-                        st.caption(f"`{sheet}` empty.")
-                    else:
-                        safe = df.copy()
-                        safe.columns = [str(c) if c is not None else "" for c in safe.columns]
-                        st.dataframe(safe.astype(str), width="stretch", hide_index=True)
-
-    st.download_button(
-        "Download .xlsx",
-        data=path.read_bytes(),
-        file_name=path.name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key="ecm_dl_notebook_xlsx",
-        type="primary",
-    )
-    man = path.parent / f"{path.stem}.notebook_manifest.json"
-    if man.is_file():
-        st.download_button(
-            "Download manifest (agents)",
-            data=man.read_bytes(),
-            file_name=man.name,
-            mime="application/json",
-            key="ecm_dl_notebook_manifest",
+    with st.expander("Honesty / contract", expanded=False):
+        st.write(payload.get("honesty") or "")
+        st.code(json.dumps({"path": str(path), "schema": payload.get("schema")}, indent=2))
+        st.caption(
+            "Agent-built WattLab screening xlsx files are retired from this page. "
+            "Use EnergyPlus for measure deltas; wire external spreadsheets into "
+            "`ss_*` fields when those books are ready."
         )
+
+    # Optional: still allow download of any leftover notebooks without promoting them
+    nb_dir = reports / "notebooks"
+    leftovers = sorted(nb_dir.glob("*.xlsx")) if nb_dir.is_dir() else []
+    if leftovers:
+        with st.expander("Legacy notebooks on disk (not the product path)", expanded=False):
+            for p in leftovers:
+                st.download_button(
+                    f"Download {p.name}",
+                    data=p.read_bytes(),
+                    file_name=p.name,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"legacy_dl_{p.name}",
+                )

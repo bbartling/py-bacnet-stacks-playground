@@ -37,8 +37,8 @@ def _usage() -> str:
         "  explore-existing  Existing Building Hypothesis Lab orchestration\n"
         "  hypothesis-lab    Alias for explore-existing\n"
         "  controls-checklist  vibe19 dump → controls FDD checklist (md/json/docx)\n"
-        "  ecm          Canonical ECM catalog (list/describe/package/audit)\n"
-        "  notebook     ECM engineering Excel notebooks (build/prefill/validate)\n"
+        "  ecm          Canonical ECM catalog + run-on-twin (E+ on calibrated Twin)\n"
+        "  notebook     Legacy ECM Excel notebooks (build/prefill/validate)\n"
         "  studio       Launch the WattLab Studio web app (Streamlit)\n"
     )
 

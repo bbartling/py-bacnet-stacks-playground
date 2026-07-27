@@ -288,4 +288,6 @@ def cascade_measures_on_twin(
     )
     twin_report.write_text(json.dumps(merged, indent=2, default=str) + "\n", encoding="utf-8")
     report["twin_report_path"] = str(twin_report)
+    report["out_dir"] = str(run_dir)
+    report["report_path"] = str(report_path)
     return report

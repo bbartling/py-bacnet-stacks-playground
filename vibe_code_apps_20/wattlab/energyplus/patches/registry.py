@@ -21,6 +21,7 @@ from wattlab.energyplus.patches.deep_retrofit import (
     apply_high_performance_glazing,
     apply_premium_fan_vfd,
 )
+from wattlab.energyplus.patches.dsp_reset import apply_dsp_reset
 from wattlab.energyplus.patches.gl36_proxy import apply_gl36_airside_proxy
 from wattlab.energyplus.patches.hourly_outputs import (
     apply_hourly_outputs,
@@ -67,12 +68,18 @@ def _gl36_airside_proxy(src: Path, dest: Path, params: Params) -> dict:
 
 def _chiller_lockout(src: Path, dest: Path, params: Params) -> dict:
     return apply_chiller_lockout(
-        src, dest, oat_lockout_f=_float_param(params, "oat_lockout_f", 55.0)
+        src, dest, oat_lockout_f=_float_param(params, "oat_lockout_f", 60.0)
     )
 
 
 def _sat_reset(src: Path, dest: Path, params: Params) -> dict:
     return apply_sat_reset(src, dest)
+
+
+def _dsp_reset(src: Path, dest: Path, params: Params) -> dict:
+    return apply_dsp_reset(
+        src, dest, fan_pressure_pa=_float_param(params, "fan_pressure_pa", 450.0)
+    )
 
 
 def _high_performance_glazing(src: Path, dest: Path, params: Params) -> dict:
@@ -152,6 +159,8 @@ _REGISTRY: dict[str, PatchFn] = {
     "mech_oat_lockout": _chiller_lockout,
     "sat_reset": _sat_reset,
     "sat_reset_proxy": _sat_reset,
+    "dsp_reset": _dsp_reset,
+    "duct_static_reset": _dsp_reset,
     "high_performance_glazing": _high_performance_glazing,
     "condensing_boiler": _condensing_boiler,
     "high_efficiency_chiller": _high_efficiency_chiller,

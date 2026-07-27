@@ -245,10 +245,10 @@ ecms:
     required_inputs: [design_kw, baseline_speed_fraction, proposed_speed_fraction, hours]
     optional_inputs: [critical_zone_damper_trends]
     proxy_calculator: fan_affinity
-    energyplus_patch: null
+    energyplus_patch: dsp_reset
     unit_contract: {design_power: kW, speed: fraction, savings: kWh/year}
     applicability_checks: [Confirm VFD and reliable critical-zone signals]
-    status: PRODUCTION_PROXY_ONLY
+    status: PRODUCTION_PROXY_AND_ENERGYPLUS
 
   - <<: *defaults
     ecm_id: ECM-VAV-MIN-RESET
