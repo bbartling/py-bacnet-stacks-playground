@@ -11,3 +11,5 @@ python-docx>=1.1
 openpyxl>=3.1
 kaleido>=0.2.1
 matplotlib>=3.8
+# Pandas oracle + reporting from PyPI (not production DataFusion FDD)
+open-fdd[vibe19]>=4.1.0,<5
