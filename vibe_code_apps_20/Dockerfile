@@ -42,6 +42,8 @@ COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 COPY . .
 # Editable install so ``import wattlab`` resolves to /app/wattlab (single tree).
+# open-fdd (PyPI) supplies shared ECM engineering calculators via
+# wattlab.engineering.openfdd_ecm — pin comes from pyproject.toml.
 RUN pip install --no-cache-dir -e ".[studio]"
 
 EXPOSE 8501
