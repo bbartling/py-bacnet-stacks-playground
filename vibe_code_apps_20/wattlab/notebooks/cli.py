@@ -171,6 +171,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     tp.set_defaults(func=_cmd_template)
 
+    cs = sub.add_parser(
+        "cascade-from-twin",
+        help="Run E+ measure cascade on calibrated model.idf (writes savings_by_measure)",
+    )
+    cs.add_argument("--twin-run", type=Path, dest="twin_run", required=True)
+    cs.add_argument("--package", help="Notebook package id (expands measure list)")
+    cs.add_argument("--ecms", help="Comma measure ids (overrides --package)")
+    cs.add_argument("--answers", type=Path, help="Profile merge for rates / epw")
+    cs.add_argument("--out", type=Path, help="Cascade output dir (default: twin/ecm_cascade_*)")
+    cs.add_argument("--dry-run", action="store_true")
+    cs.set_defaults(func=_cmd_cascade_twin)
+
     args = p.parse_args(argv)
     return int(args.func(args) or 0)
 
@@ -415,6 +427,33 @@ def _cmd_template(args: argparse.Namespace) -> int:
     out = args.out or root
     path = write_template_stub(out)
     print(json.dumps({"template": str(path)}, indent=2))
+    return 0
+
+
+def _cmd_cascade_twin(args: argparse.Namespace) -> int:
+    from wattlab.notebooks.packages import get_notebook_package
+    from wattlab.notebooks.twin_cascade import cascade_measures_on_twin
+
+    profile = _load_profile(args) if args.answers else {}
+    if args.ecms:
+        measure_ids = [x.strip() for x in str(args.ecms).split(",") if x.strip()]
+    elif args.package:
+        measure_ids = list(get_notebook_package(args.package).measure_ids)
+    else:
+        print("cascade-from-twin requires --package or --ecms", file=sys.stderr)
+        return 2
+    try:
+        report = cascade_measures_on_twin(
+            args.twin_run,
+            measure_ids,
+            profile=profile,
+            out_dir=args.out,
+            dry_run=bool(args.dry_run),
+        )
+    except Exception as exc:
+        print(f"cascade-from-twin failed: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report, indent=2, default=str))
     return 0
 
 

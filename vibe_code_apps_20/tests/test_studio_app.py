@@ -107,19 +107,9 @@ def test_studio_twin_eui_index_section():
 
 
 def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
-    # Seed three on-disk notebooks — ECMs is a file viewer (BUG-051–056)
+    # ECMs = spreadsheet vs EnergyPlus compare (no agent xlsx required)
     monkeypatch.setenv("WATTLAB_STUDIO_WORKSPACE", str(tmp_path))
-    from wattlab.notebooks.builder import agent_build_notebook
-
-    nb_dir = tmp_path / "reports" / "notebooks"
-    profile = {
-        "display_name": "Liberty Building 100",
-        "conditioned_floor_area_ft2": 75_000,
-        "fan_hp": 40,
-        "cooling_tons": 200,
-    }
-    for pkg in ("schedules_economizer", "plant_optimization", "deep_retrofit"):
-        agent_build_notebook(pkg, nb_dir, profile=profile)
+    (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
 
     at = _boot("ECMs")
     assert not at.exception
@@ -128,60 +118,28 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert "Include client DOCX" not in page
 
     btn_keys = [str(getattr(b, "key", "") or "") for b in at.button]
-    assert any("ecm_notebook_reload" in k for k in btn_keys)
+    assert any("ecm_compare_run" in k for k in btn_keys)
     assert not any("ecm_notebook_rebuild_scenario" in k for k in btn_keys)
     assert not any("ecm_notebook_build" in k for k in btn_keys)
-    assert not any("ecm_notebook_refresh_caches" in k for k in btn_keys)
 
-    # File dropdown lists on-disk filenames only (human-readable stems)
-    assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
-    sel = at.selectbox(key="ecm_notebook_file")
-    opts = list(getattr(sel, "options", []) or [])
-    assert any("G36_airside" in o for o in opts)
-    assert any("plant_chiller" in o for o in opts)
-    assert any("ERV_IAQ_DOAS" in o for o in opts)
-    # Results-only UI — no formula dump / formula-sheet primary surface
     ui_blob = " ".join(
         str(getattr(el, "value", el))
         for group in (at.subheader, at.markdown, at.caption)
         for el in group
     )
+    assert "Spreadsheet" in ui_blob or "spreadsheet" in page.lower()
+    assert "EnergyPlus" in ui_blob or "EnergyPlus" in page
     assert "Formulas used" not in ui_blob
-    assert "Screening results" in ui_blob
     assert "ESCO_Calcs" not in ui_blob
-    assert "ROI_Capital" not in ui_blob
     assert not at.exception
 
-    # Deep retrofit screening: fuel-switch rows must not present huge negative "savings_kwh"
-    deep = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "ERV_IAQ" in p.name)
-    from openpyxl import load_workbook
+    # Stub compare file written on first render
+    from wattlab.ecm.compare import compare_path, load_compare
 
-    wb = load_workbook(deep, data_only=False)
-    assert wb.sheetnames[0] == "Cover"
-    assert wb.sheetnames[1] == "Screening_Results"
-    assert wb.active.title == "Screening_Results"
-    scr = wb["Screening_Results"]
-    headers = [scr.cell(1, c).value for c in range(1, 12)]
-    assert "elec_delta_kwh" in headers
-    assert "basis" in headers
-    i_mid = headers.index("measure_id") + 1
-    i_basis = headers.index("basis") + 1
-    i_delta = headers.index("elec_delta_kwh") + 1
-    i_sav = headers.index("savings_kwh") + 1
-    for r in range(2, (scr.max_row or 1) + 1):
-        mid = scr.cell(r, i_mid).value
-        if mid in ("ECM-DOAS-HP", "ECM-AWHP-SURROGATE"):
-            assert scr.cell(r, i_basis).value == "fuel_switch"
-            delta = float(scr.cell(r, i_delta).value or 0)
-            sav = float(scr.cell(r, i_sav).value or 0)
-            assert sav >= 0
-            if delta < 0:
-                assert sav == 0
-    assert wb["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
-    assert wb["Compare"]["I2"].value == "N/A"
-    assert "YELLOW" not in {
-        wb["Compare"].cell(r, 9).value for r in range(2, (wb["Compare"].max_row or 1) + 1)
-    }
+    cmp = load_compare(compare_path(tmp_path / "reports"))
+    assert cmp is not None
+    assert cmp["spreadsheet"]["status"] == "pending_external"
+    assert len(cmp["measures"]) >= 3
 
 
 def test_turnkey_live_html_smoke():

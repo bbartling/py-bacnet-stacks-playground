@@ -38,6 +38,8 @@ DEFAULT_MEASURE_COSTS = {
     "ECM-OCC-STANDBY-DCV": 24000.0,
     "ECM-ECON-REPAIR": 15000.0,
     "ECM-VAV-MIN-RESET": 20000.0,
+    "ECM-WINDOW-HP-GLAZING": 350000.0,
+    "ECM-ENVELOPE-INSUL-CODE": 420000.0,
 }
 
 
@@ -304,7 +306,25 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     ),
                     "savings_therms": round(sched["savings_therms"], 1),
                 }
-            elif "SCHED" in mid or "RCX-SETPOINT" in mid:
+            elif mid == "ECM-RCX-SETPOINT-REVIEW" or "RCX-SETPOINT" in mid:
+                # Incremental RCx only — do NOT clone full schedule savings (would double-count)
+                sched = _schedule_proxy(
+                    get,
+                    fan_kw=fan_kw,
+                    oa_cfm=oa_cfm,
+                    kw_per_ton=kw_per_ton,
+                    bins=bins,
+                    existing=existing,
+                    proposed=proposed,
+                )
+                out[mid] = {
+                    "savings_kwh": round(float(sched["savings_kwh"]) * 0.20, 1),
+                    "savings_therms": round(float(sched["savings_therms"]) * 0.20, 1),
+                    "basis": "python_proxy",
+                    "calculators": ["scheduling_fan_bins", "rcx_incremental_0.20"],
+                    "notes": "Incremental RCx setpoint review — ~20% of schedule bin savings (not additive full clone)",
+                }
+            elif "SCHED" in mid:
                 out[mid] = _schedule_proxy(
                     get,
                     fan_kw=fan_kw,
@@ -330,7 +350,25 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     }
                 )
                 out[mid] = {"savings_kwh": round(float(res["savings_kwh"]), 1), "savings_therms": 0.0}
-            elif "LOCKOUT" in mid or "ECON" in mid:
+            elif "LOCKOUT" in mid:
+                # Align with FORMULA_ESCO_KWH: require cooling_tons (blank tons → 0)
+                tons = float(inputs.get("cooling_tons") or 0)
+                if tons <= 0:
+                    out[mid] = {
+                        "savings_kwh": 0.0,
+                        "savings_therms": 0.0,
+                        "basis": "python_proxy",
+                        "notes": "Chiller lockout needs cooling_tons on Baseline — blank ≠ zero forever",
+                    }
+                else:
+                    lockout_h = float(profile.get("lockout_hours") or 800)
+                    out[mid] = {
+                        "savings_kwh": round(tons * kw_per_ton * lockout_h, 1),
+                        "savings_therms": 0.0,
+                        "basis": "python_proxy",
+                        "calculators": ["chiller_lockout_hours"],
+                    }
+            elif "ECON" in mid:
                 res = get("dewpoint_economizer")(
                     {
                         "unit_cfm_total": supply_cfm,
@@ -344,6 +382,20 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                     }
                 )
                 out[mid] = {"savings_kwh": round(float(res["savings_kwh"]), 1), "savings_therms": 0.0}
+            elif mid in ("ECM-OA-DAMPER-REPAIR",) or "OA-DAMPER" in mid:
+                out[mid] = {
+                    "savings_kwh": 0.0,
+                    "savings_therms": 0.0,
+                    "basis": "scope_tbd",
+                    "notes": "OA damper repair — needs site OA leak hours; cost-only until scoped",
+                }
+            elif "SENSOR" in mid:
+                out[mid] = {
+                    "savings_kwh": 0.0,
+                    "savings_therms": 0.0,
+                    "basis": "scope_tbd",
+                    "notes": "Sensor work enables other ECMs — cost-only; not an energy claim",
+                }
             elif "SAT" in mid or "DAT" in mid:
                 res = get("dat_reset_bins")(
                     {
@@ -497,6 +549,30 @@ def estimate_proxy_savings(profile: dict[str, Any], measure_ids: list[str]) -> d
                 out[mid] = {
                     "savings_kwh": round(float(res["savings_kwh"]), 1),
                     "savings_therms": 0.0,
+                }
+            elif mid == "ECM-WINDOW-HP-GLAZING" or "WINDOW-HP-GLAZING" in mid:
+                # Conceptual simple-glazing proxy — ~3% site elec + ~6% heating therms at typical WWR
+                wwr = float(profile.get("wwr") or profile.get("window_to_wall_ratio") or 0.45)
+                wwr = max(0.15, min(wwr, 0.75))
+                est_kwh = area * 12.0  # rough site kWh/ft² screening
+                est_therms = heating_mmbtu * 9.8  # MMBtu → therms order-of-magnitude
+                out[mid] = {
+                    "savings_kwh": round(est_kwh * 0.03 * wwr / 0.45, 1),
+                    "savings_therms": round(est_therms * 0.06 * wwr / 0.45, 1),
+                    "basis": "envelope_proxy",
+                    "calculators": ["envelope_glazing_screening"],
+                    "notes": "Conceptual HP glazing — E+ via high_performance_glazing patch when cascaded",
+                }
+            elif mid == "ECM-ENVELOPE-INSUL-CODE" or "ENVELOPE-INSUL" in mid:
+                # Opaque envelope to code — screening ~10% gas / ~2% elec (not investment-grade)
+                est_kwh = area * 12.0
+                est_therms = heating_mmbtu * 9.8
+                out[mid] = {
+                    "savings_kwh": round(est_kwh * 0.02, 1),
+                    "savings_therms": round(est_therms * 0.10, 1),
+                    "basis": "envelope_proxy",
+                    "calculators": ["envelope_insulation_screening"],
+                    "notes": "Conceptual wall/roof R upgrade — ESCO/proxy screening only (no EnergyPlus patch yet)",
                 }
             else:
                 out[mid] = {"savings_kwh": 0.0, "savings_therms": 0.0}

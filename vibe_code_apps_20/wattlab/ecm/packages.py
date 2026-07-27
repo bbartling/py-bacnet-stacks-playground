@@ -37,6 +37,10 @@ PACKAGES: dict[str, tuple[str, ...]] = {
     "deep-doas-heat-pump": (
         "ECM-DOAS-HP",
     ),
+    "envelope-code": (
+        "ECM-WINDOW-HP-GLAZING",
+        "ECM-ENVELOPE-INSUL-CODE",
+    ),
     "electrification-awhp": (
         "ECM-AWHP-SURROGATE",
     ),
@@ -85,6 +89,12 @@ PACKAGES: dict[str, tuple[str, ...]] = {
         "ECM-CHILLER-LOCKOUT",
         "ECM-SENSOR-CALIBRATION",
         "ECM-RCX-SETPOINT-REVIEW",
+    ),
+    # Polished Liberty Act 1: DSP + SAT + chiller lockout only
+    "g36-airside-three": (
+        "ECM-DSP-RESET",
+        "ECM-SAT-RESET",
+        "ECM-CHILLER-LOCKOUT",
     ),
 }
 

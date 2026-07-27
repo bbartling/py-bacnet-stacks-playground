@@ -23,16 +23,16 @@ from wattlab.notebooks.builder import (
     sync_notebook_from_twin,
     validate_notebook,
 )
-from wattlab.notebooks.packages import INPUT_NAMED_RANGES, REQUIRED_SHEETS, list_notebook_packages
+from wattlab.notebooks.packages import INPUT_NAMED_RANGES, list_notebook_packages
 
 
 def test_list_notebook_packages_ladder():
     pkgs = list_notebook_packages()
     ids = [p.id for p in pkgs]
     assert ids == [
-        "controls_first",
-        "schedules_economizer",
+        "g36_airside_controls",
         "plant_optimization",
+        "envelope_code",
         "esco_top15",
         "deep_retrofit",
     ]
@@ -47,18 +47,20 @@ def test_resolve_building_label_display_name():
 
 def test_cover_uses_display_name_bug047(tmp_path: Path):
     written = build_and_save_notebook(
-        "controls_first",
+        "g36_airside_controls",
         tmp_path,
         profile={
             "display_name": "Liberty Building 100 — Detroit",
             "conditioned_floor_area_ft2": 140_000,
+            "fan_hp": 80,
+            "cooling_tons": 400,
         },
     )
     wb = openpyxl.load_workbook(written["xlsx"], data_only=False)
     labels = {
-        str(wb["Cover"][f"A{r}"].value): wb["Cover"][f"B{r}"].value
+        str(wb["Baseline"][f"A{r}"].value): wb["Baseline"][f"B{r}"].value
         for r in range(4, 20)
-        if wb["Cover"][f"A{r}"].value
+        if wb["Baseline"][f"A{r}"].value
     }
     assert labels.get("Building") == "Liberty Building 100 — Detroit"
     assert labels.get("Building") != "BUILDING"
@@ -66,38 +68,42 @@ def test_cover_uses_display_name_bug047(tmp_path: Path):
 
 def test_build_validate_named_ranges_and_roi_formulas(tmp_path: Path):
     written = build_and_save_notebook(
-        "controls_first",
+        "g36_airside_controls",
         tmp_path,
-        profile={"conditioned_floor_area_ft2": 140_000, "utility": {"elec_usd_per_kwh": 0.14}},
+        profile={
+            "conditioned_floor_area_ft2": 140_000,
+            "fan_hp": 80,
+            "cooling_tons": 400,
+            "utility": {"elec_usd_per_kwh": 0.14},
+        },
         report={},
     )
     xlsx = written["xlsx"]
     v = validate_notebook(xlsx)
     assert v["ok"] is True
-    assert set(REQUIRED_SHEETS) <= set(v["sheets"])
-    assert any("EPlus_Results empty" in w for w in v["warnings"])
+    assert "Charts" in v["sheets"]
+    assert v.get("polished") is True
 
     wb = openpyxl.load_workbook(xlsx, data_only=False)
     defined = set(wb.defined_names.keys())
-    for n in INPUT_NAMED_RANGES:
+    for n in ("inp_area_ft2", "inp_elec_rate", "inp_controls_usd_sf", "inp_lockout_oat_f"):
         assert n in defined
-    assert str(wb["ROI_Capital"]["B2"].value).startswith("=H")
-    assert "inp_usd_per_ft2" in str(wb["ROI_Capital"]["H2"].value)
-    assert str(wb["ROI_Capital"]["G2"].value).startswith("=IF")
-    assert isinstance(wb["ROI_Capital"]["I2"].value, (int, float))
-    notes = [str(wb["Cover"][f"B{r}"].value or "") for r in range(4, 20)]
-    assert any("screening" in n.lower() or "formula" in n.lower() for n in notes)
+    assert str(wb["Calc_Cost"]["B6"].value).startswith("=IF")
+    assert "B5<=0" in str(wb["Calc_Cost"]["B6"].value)
+    assert str(wb["Charts"]["B5"].value).startswith("=Crosscheck!")
+    notes = [str(wb["Baseline"][f"B{r}"].value or "") for r in range(4, 40)]
+    assert any("screening" in n.lower() or "crosscheck" in n.lower() for n in notes)
 
 
 def test_prefill_merges_in_place_keeps_eplus(tmp_path: Path):
     written = build_and_save_notebook(
-        "controls_first",
+        "plant_optimization",
         tmp_path,
         profile={"conditioned_floor_area_ft2": 140_000, "utility": {"elec_usd_per_kwh": 0.14, "gas_usd_per_therm": 0.9}},
         report={
             "savings_by_measure": [
                 {
-                    "measure_id": "ECM-AHU-SCHED-ALIGN",
+                    "measure_id": "ECM-CHILLER-LOCKOUT",
                     "vs_baseline": {"kwh_saved": 12345.0, "therms_saved": 100.0},
                 }
             ]
@@ -123,7 +129,7 @@ def test_prefill_merges_in_place_keeps_eplus(tmp_path: Path):
 
 
 def test_preview_shows_formulas_not_none(tmp_path: Path):
-    written = build_and_save_notebook("controls_first", tmp_path, profile={"floor_area_ft2": 50_000})
+    written = build_and_save_notebook("plant_optimization", tmp_path, profile={"floor_area_ft2": 50_000})
     rows = preview_sheet_rows(written["xlsx"], "ROI_Capital", data_only=False)
     assert rows
     header = rows[0]
@@ -137,7 +143,8 @@ def test_preview_shows_formulas_not_none(tmp_path: Path):
 def test_summarize_resolves_package_and_ep_coverage(tmp_path: Path):
     written = build_and_save_notebook("schedules_economizer", tmp_path, profile={"floor_area_ft2": 80_000})
     man = summarize_notebook(written["xlsx"])
-    assert man["package_id"] == "schedules_economizer"
+    # schedules_economizer aliases → polished g36 workbook
+    assert man["package_id"] == "g36_airside_controls"
     assert man["package_label"]
     assert man["ep_coverage"]["filled_rows"] == 0
     assert man["honesty"]["template_file"] in ("loaded", "scaffold_only")
@@ -148,7 +155,7 @@ def test_cli_prefill_elec_rate(tmp_path: Path):
     from wattlab.notebooks.cli import main
 
     written = build_and_save_notebook(
-        "controls_first",
+        "plant_optimization",
         tmp_path,
         profile={"conditioned_floor_area_ft2": 140_000, "utility": {"elec_usd_per_kwh": 0.14}},
     )
@@ -177,7 +184,7 @@ def test_refresh_caches_and_show_formulas(tmp_path: Path):
     from wattlab.notebooks.cli import main
 
     written = build_and_save_notebook(
-        "controls_first",
+        "plant_optimization",
         tmp_path,
         profile={"conditioned_floor_area_ft2": 140_000, "utility": {"elec_usd_per_kwh": 0.14}},
     )
@@ -205,19 +212,21 @@ def test_refresh_caches_and_show_formulas(tmp_path: Path):
 
 
 def test_manifest_includes_formula_cells(tmp_path: Path):
-    written = build_and_save_notebook("controls_first", tmp_path, profile={"floor_area_ft2": 50_000})
+    written = build_and_save_notebook("plant_optimization", tmp_path, profile={"floor_area_ft2": 50_000})
     man = summarize_notebook(written["xlsx"])
     assert "formula_cells" in man
     assert "ROI_Capital" in man["formula_cells"]
     assert man["honesty"]["esco_kwh_therms"] == "excel_formulas_for_subset_else_baked"
-    assert "ECM-AHU-SCHED-ALIGN" in man["formula_backed_measures"]
+    # plant package formula subset (lockout / boiler / ERV) — not AHU sched
+    assert "ECM-CHILLER-LOCKOUT" in man["formula_backed_measures"]
+    assert "ECM-BOILER-RESET" in man["formula_backed_measures"]
 
 
 def test_agent_build_formula_esco_and_cli(tmp_path: Path):
     from wattlab.notebooks.cli import main
 
     written = agent_build_notebook(
-        "controls_first",
+        "plant_optimization",
         tmp_path,
         profile={
             "display_name": "Liberty Building 100",
@@ -250,20 +259,18 @@ def test_agent_build_formula_esco_and_cli(tmp_path: Path):
         [
             "agent-build",
             "--package",
-            "controls_first",
-            "--ecms",
-            "ECM-AHU-SCHED-ALIGN,ECM-CHILLER-LOCKOUT",
+            "g36_airside_controls",
             "--out",
             str(tmp_path / "cli_out"),
         ]
     )
     assert rc == 0
-    assert (tmp_path / "cli_out" / "01_controls_first_rcx.xlsx").is_file()
+    assert (tmp_path / "cli_out" / "01_G36_DSP_SAT_chiller_lockout.xlsx").is_file()
 
 
 def test_sync_from_twin_soft(tmp_path: Path):
     written = build_and_save_notebook(
-        "controls_first",
+        "plant_optimization",
         tmp_path,
         profile={"floor_area_ft2": 50_000, "display_name": "X"},
     )
@@ -300,7 +307,7 @@ def test_formula_esco_constants_present():
 
 
 def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
-    """BUG-057: Calibrated_Twin + Cover mirror G14 baseline from scorecard."""
+    """BUG-057: Baseline mirrors G14 from scorecard on polished G36 workbook."""
     scorecard = {
         "run_id": "geo_b100_6stack_shape_r56_sched_mild",
         "annual": {
@@ -317,7 +324,7 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
         "peer_vs_median_pct": -3.2,
     }
     written = agent_build_notebook(
-        "schedules_economizer",
+        "g36_airside_controls",
         tmp_path,
         profile={
             "display_name": "Liberty Building 100",
@@ -329,41 +336,20 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
         twin_run="geo_b100_6stack_shape_r56_sched_mild",
     )
     wb = openpyxl.load_workbook(written["xlsx"], data_only=False)
-    assert "Calibrated_Twin" in wb.sheetnames
-    cal = {
-        str(wb["Calibrated_Twin"][f"A{r}"].value): wb["Calibrated_Twin"][f"B{r}"].value
-        for r in range(2, 20)
-        if wb["Calibrated_Twin"][f"A{r}"].value
+    assert wb.sheetnames[:3] == ["Baseline", "Crosscheck", "Charts"]
+    base = {
+        str(wb["Baseline"][f"A{r}"].value): wb["Baseline"][f"B{r}"].value
+        for r in range(4, 20)
+        if wb["Baseline"][f"A{r}"].value
     }
-    assert cal["model_site_eui"] == 77.8
-    assert cal["g14_pass"] == "PASS"
-    assert cal["model_kwh"] == 1_460_000.0
-    assert "geo_b100" in str(cal["twin_run"])
-    cover = {
-        str(wb["Cover"][f"A{r}"].value): wb["Cover"][f"B{r}"].value
-        for r in range(4, 30)
-        if wb["Cover"][f"A{r}"].value
-    }
-    assert cover.get("Model site EUI") == 77.8
-    assert cover.get("G14 pass") == "PASS"
-    assert "screening" in str(cover.get("Screening $/sf") or "").lower()
-    assert "ESCO_CALCULATORS" in str(cover.get("ESCO calculators") or "")
+    assert base["Model site EUI"] == 77.8
+    assert base["G14 pass"] == "PASS"
+    assert base["Model kWh/yr"] == 1_460_000.0
+    assert "geo_b100" in str(base["Twin run"])
+    assert "Calc_DSP" in wb.sheetnames
+    assert str(wb["Crosscheck"]["B5"].value).startswith("=Calc_DSP!")
 
-    # Narrative Act 1: ≥3 formula-backed airside measures
-    esco = wb["ESCO_Calcs"]
-    formula_mids = []
-    for r in range(2, (esco.max_row or 1) + 1):
-        mid = esco.cell(r, 1).value
-        if mid and str(esco.cell(r, 2).value or "").startswith("="):
-            formula_mids.append(str(mid))
-    assert "ECM-AHU-SCHED-ALIGN" in formula_mids
-    assert "ECM-CHILLER-LOCKOUT" in formula_mids
-    assert len(set(formula_mids) & {
-        "ECM-OCC-STANDBY-DCV", "ECM-SAT-RESET", "ECM-DSP-RESET",
-    }) >= 1
-    assert len(formula_mids) >= 3
-
-    # Sheet still exists when scorecard missing
+    # Sheet still exists when scorecard missing (legacy deep_retrofit)
     written2 = build_and_save_notebook("deep_retrofit", tmp_path / "empty", report={})
     wb2 = openpyxl.load_workbook(written2["xlsx"], data_only=False)
     assert "Calibrated_Twin" in wb2.sheetnames
@@ -409,9 +395,9 @@ def test_calibrated_twin_sheet_from_scorecard(tmp_path: Path):
     assert wb2["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
     assert wb2["EPlus_Results"]["A2"].value == "note"
 
-    base = extract_calibrated_baseline(scorecard, twin_run="geo_b100_x")
-    assert base["model_site_eui"] == 77.8
-    assert base["has_core"] is True
+    base_ex = extract_calibrated_baseline(scorecard, twin_run="geo_b100_x")
+    assert base_ex["model_site_eui"] == 77.8
+    assert base_ex["has_core"] is True
 
     # Flat Liberty scorecard.json shape (model_* top-level + model_peer)
     flat = {
