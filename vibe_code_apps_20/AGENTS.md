@@ -4,6 +4,12 @@
 
 **Product:** OpenFDD WattLab — AI helper that turns **Open-FDD / Vibe App 19** findings into auditable **EnergyPlus** ECM energy screens (Dockerized via LBNL EnergyPlus-MCP).
 
+**ECM math SoT:** Generic spreadsheet/ESCO calculators live on PyPI `open-fdd` (`open_fdd.ecm_engineering`). Call them through `wattlab.engineering.openfdd_ecm` — do not invent a second affinity/bin/finance stack. EnergyPlus, IDF, Studio, catalog IDs, and EP-vs-engineering presentation stay in WattLab.
+
+```text
+Open-FDD evidence → Open-FDD ECM engineering → Vibe 20 EnergyPlus → engineering vs EP cross-check
+```
+
 **Quick link (vibe19 historian zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout before bridging / calibrating.
 
 ## Mission
