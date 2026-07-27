@@ -1,6 +1,9 @@
 from __future__ import annotations
 from math import isfinite
 from typing import Any
+
+from wattlab.engineering import openfdd_ecm as _ofdd
+
 from .registry import register
 
 def _req(d: dict[str, Any], key: str) -> float:
@@ -16,55 +19,24 @@ def _result(**kwargs: Any) -> dict[str, Any]:
 
 @register("fan_affinity")
 def fan_affinity(i: dict[str, Any]) -> dict[str, Any]:
-    design_kw = _req(i, "design_kw")
-    baseline_speed = _req(i, "baseline_speed_fraction")
-    proposed_speed = _req(i, "proposed_speed_fraction")
-    hours = _req(i, "hours")
-    exponent = float(i.get("power_exponent", 3.0))
-    baseline_kwh = design_kw * baseline_speed**exponent * hours
-    proposed_kwh = design_kw * proposed_speed**exponent * hours
-    return _result(
-        baseline_kwh=baseline_kwh,
-        proposed_kwh=proposed_kwh,
-        savings_kwh=baseline_kwh-proposed_kwh,
-        savings_fraction=(baseline_kwh-proposed_kwh)/baseline_kwh if baseline_kwh else 0.0,
-        assumptions={"power_exponent": exponent},
-    )
+    """Delegate to Open-FDD; preserve WattLab savings_fraction key."""
+    out = dict(_ofdd.calculate("fan_affinity", dict(i)))
+    baseline = float(out.get("baseline_kwh") or 0.0)
+    savings = float(out.get("savings_kwh") or 0.0)
+    out.setdefault("savings_fraction", (savings / baseline) if baseline else 0.0)
+    out.setdefault("assumptions", {"power_exponent": float(i.get("power_exponent", 3.0))})
+    return out
 
 @register("schedule_reduction")
 def schedule_reduction(i: dict[str, Any]) -> dict[str, Any]:
-    kw = _req(i, "equipment_kw")
-    baseline_hours = _req(i, "baseline_annual_hours")
-    proposed_hours = _req(i, "proposed_annual_hours")
-    load_fraction = float(i.get("average_load_fraction", 1.0))
-    baseline_kwh = kw * baseline_hours * load_fraction
-    proposed_kwh = kw * proposed_hours * load_fraction
-    return _result(
-        baseline_kwh=baseline_kwh,
-        proposed_kwh=proposed_kwh,
-        savings_kwh=baseline_kwh-proposed_kwh,
-        reduced_hours=baseline_hours-proposed_hours,
-    )
+    return dict(_ofdd.calculate("schedule_reduction", dict(i)))
 
 @register("outside_air_sensible")
 def outside_air_sensible(i: dict[str, Any]) -> dict[str, Any]:
-    cfm = _req(i, "outside_air_cfm")
-    delta_t_f = _req(i, "average_delta_t_f")
-    hours = _req(i, "hours")
-    efficiency = float(i.get("system_efficiency", 1.0))
-    fuel = str(i.get("fuel", "electric")).lower()
-    load_btu = 1.08 * cfm * delta_t_f * hours
-    if efficiency <= 0:
-        raise ValueError("system_efficiency must be > 0")
-    input_btu = load_btu / efficiency
-    out = {"load_btu": load_btu, "input_btu": input_btu}
-    if fuel == "electric":
-        out["savings_kwh"] = input_btu / 3412.142
-    elif fuel == "natural_gas":
-        out["savings_therms"] = input_btu / 100000.0
-    else:
-        raise ValueError("fuel must be electric or natural_gas")
-    return out
+    # WattLab default fuel is electric; Open-FDD defaults to natural_gas.
+    payload = dict(i)
+    payload.setdefault("fuel", "electric")
+    return dict(_ofdd.calculate("outside_air_sensible", payload))
 
 @register("demand_control_ventilation")
 def demand_control_ventilation(i: dict[str, Any]) -> dict[str, Any]:
@@ -94,14 +66,7 @@ def economizer_proxy(i: dict[str, Any]) -> dict[str, Any]:
 
 @register("kw_per_ton_improvement")
 def kw_per_ton_improvement(i: dict[str, Any]) -> dict[str, Any]:
-    ton_hours = _req(i, "annual_ton_hours")
-    baseline = _req(i, "baseline_kw_per_ton")
-    proposed = _req(i, "proposed_kw_per_ton")
-    return _result(
-        baseline_kwh=ton_hours*baseline,
-        proposed_kwh=ton_hours*proposed,
-        savings_kwh=ton_hours*(baseline-proposed),
-    )
+    return dict(_ofdd.calculate("kw_per_ton_improvement", dict(i)))
 
 @register("pump_vfd")
 def pump_vfd(i: dict[str, Any]) -> dict[str, Any]:
@@ -157,27 +122,19 @@ def simple_payback(i: dict[str, Any]) -> dict[str, Any]:
 
 @register("boiler_efficiency_improvement")
 def boiler_efficiency_improvement(i: dict[str, Any]) -> dict[str, Any]:
-    """Screening gas savings from raising boiler thermal efficiency.
-
-    ``annual_heating_mmbtu`` is delivered (output) load. Input fuel falls as
-    efficiency rises: therms = MMBtu × 10 / η.
-    """
-    load_mmbtu = _req(i, "annual_heating_mmbtu")
+    """Screening gas savings from raising boiler thermal efficiency (Open-FDD)."""
     baseline = _req(i, "baseline_efficiency")
     proposed = _req(i, "proposed_efficiency")
     if baseline <= 0 or proposed <= 0:
         raise ValueError("efficiencies must be > 0")
     if proposed < baseline:
         raise ValueError("proposed_efficiency must be >= baseline_efficiency")
-    baseline_therms = load_mmbtu * 10.0 / baseline
-    proposed_therms = load_mmbtu * 10.0 / proposed
-    return _result(
-        baseline_therms=baseline_therms,
-        proposed_therms=proposed_therms,
-        savings_therms=baseline_therms - proposed_therms,
-        savings_fraction=(baseline_therms - proposed_therms) / baseline_therms if baseline_therms else 0.0,
-        assumptions={"load_is_delivered_mmbtu": True},
-    )
+    out = dict(_ofdd.calculate("boiler_efficiency_improvement", dict(i)))
+    bt = float(out.get("baseline_therms") or 0.0)
+    st = float(out.get("savings_therms") or 0.0)
+    out.setdefault("savings_fraction", (st / bt) if bt else 0.0)
+    out.setdefault("assumptions", {"load_is_delivered_mmbtu": True})
+    return out
 
 
 @register("heat_pump_electrification")

@@ -36,6 +36,8 @@ from wattlab.weather.bins import (
     parse_bins_input,
 )
 
+from wattlab.engineering import openfdd_ecm as _ofdd
+
 from .registry import register
 
 MMBTU_PER_THERM = 0.1
@@ -73,124 +75,20 @@ def _vent_heating_kbtu_per_hr(oa_cfm: float, bin_temp: float, balance_point: flo
 
 @register("scheduling_fan_bins")
 def scheduling_fan_bins(i: dict[str, Any]) -> dict[str, Any]:
-    """CV/VV Scheduling — fan power saved by tightening the operating schedule.
-
-    Inputs: ``fan_kw_total`` (SF+RF), ``existing_schedule``/``proposed_schedule``
-    (``{"shifts": [h1,h2,h3], "days_per_week": d, "override_allowance": a}``),
-    ``bins``.
-    """
-    fan_kw = float(i["fan_kw_total"]) if "fan_kw_total" in i else sum(
-        float(u.get("fan_kw", 0.0)) for u in i.get("units", [])
-    )
-    if fan_kw <= 0:
-        raise ValueError("fan_kw_total (or units[].fan_kw) must be > 0")
-    existing = _schedule(i, "existing_schedule")
-    proposed = _schedule(i, "proposed_schedule")
-    bins = _bins(i)
-    reduction = hours_reduction_fraction(existing, proposed)
-
-    baseline_kwh = 0.0
-    details = []
-    for row in bins.rows:
-        op_hours = existing.total_operating_hours(row.shift_hours)
-        existing_kwh = fan_kw * op_hours
-        baseline_kwh += existing_kwh
-        details.append({
-            "temp": row.temp,
-            "operating_hours": op_hours,
-            "existing_kwh": existing_kwh,
-            "saved_kwh": existing_kwh * reduction,
-        })
-    savings = baseline_kwh * reduction
-    return {
-        "baseline_kwh": baseline_kwh,
-        "proposed_kwh": baseline_kwh - savings,
-        "savings_kwh": savings,
-        "hours_reduction_fraction": reduction,
-        "bins": details,
-    }
+    """CV/VV Scheduling — fan power (Open-FDD bin method)."""
+    return dict(_ofdd.scheduling_fan_bins(i))
 
 
 @register("scheduling_cooling_bins")
 def scheduling_cooling_bins(i: dict[str, Any]) -> dict[str, Any]:
-    """CV/VV Scheduling — ventilation cooling saved during avoided run hours.
-
-    Inputs: ``oa_cfm_total``, ``kw_per_ton``, ``supply_enthalpy`` (default 23.2
-    Btu/lb at 55 F supply), ``existing_schedule``, ``proposed_schedule``, ``bins``.
-    """
-    oa_cfm = float(i["oa_cfm_total"])
-    kw_per_ton = float(i["kw_per_ton"])
-    supply_h = float(i.get("supply_enthalpy", 23.2))
-    existing = _schedule(i, "existing_schedule")
-    proposed = _schedule(i, "proposed_schedule")
-    bins = _bins(i)
-    reduction = hours_reduction_fraction(existing, proposed)
-
-    baseline_kwh = 0.0
-    details = []
-    for row in bins.rows:
-        op_hours = existing.total_operating_hours(row.shift_hours)
-        ton_hr = _vent_cooling_ton_per_hr(oa_cfm, row.oa_enthalpy, supply_h)
-        existing_kwh = ton_hr * op_hours * kw_per_ton
-        baseline_kwh += existing_kwh
-        details.append({
-            "temp": row.temp,
-            "operating_hours": op_hours,
-            "vent_cooling_ton_hr": ton_hr,
-            "existing_kwh": existing_kwh,
-            "saved_kwh": existing_kwh * reduction,
-        })
-    savings = baseline_kwh * reduction
-    return {
-        "baseline_kwh": baseline_kwh,
-        "proposed_kwh": baseline_kwh - savings,
-        "savings_kwh": savings,
-        "hours_reduction_fraction": reduction,
-        "bins": details,
-    }
+    """CV/VV Scheduling — ventilation cooling (Open-FDD bin method)."""
+    return dict(_ofdd.scheduling_cooling_bins(i))
 
 
 @register("scheduling_heating_bins")
 def scheduling_heating_bins(i: dict[str, Any]) -> dict[str, Any]:
-    """CV/VV Scheduling — ventilation heating saved during avoided run hours.
-
-    Inputs: ``oa_cfm_total``, ``balance_point_f`` (default 55),
-    ``boiler_efficiency`` (default 0.8), ``existing_schedule``,
-    ``proposed_schedule``, ``bins``. Outputs MMBtu and therms.
-    """
-    oa_cfm = float(i["oa_cfm_total"])
-    balance_point = float(i.get("balance_point_f", 55.0))
-    efficiency = float(i.get("boiler_efficiency", 0.8))
-    if efficiency <= 0:
-        raise ValueError("boiler_efficiency must be > 0")
-    existing = _schedule(i, "existing_schedule")
-    proposed = _schedule(i, "proposed_schedule")
-    bins = _bins(i)
-    reduction = hours_reduction_fraction(existing, proposed)
-
-    baseline_mmbtu = 0.0
-    details = []
-    for row in bins.rows:
-        op_hours = existing.total_operating_hours(row.shift_hours)
-        load_kbtu_h = _vent_heating_kbtu_per_hr(oa_cfm, row.temp, balance_point)
-        input_mmbtu = load_kbtu_h * op_hours / efficiency / 1000.0
-        baseline_mmbtu += input_mmbtu
-        details.append({
-            "temp": row.temp,
-            "operating_hours": op_hours,
-            "vent_heat_kbtu_hr": load_kbtu_h,
-            "existing_mmbtu": input_mmbtu,
-            "saved_mmbtu": input_mmbtu * reduction,
-        })
-    savings = baseline_mmbtu * reduction
-    return {
-        "baseline_mmbtu": baseline_mmbtu,
-        "proposed_mmbtu": baseline_mmbtu - savings,
-        "savings_mmbtu": savings,
-        "savings_therms": savings / MMBTU_PER_THERM,
-        "hours_reduction_fraction": reduction,
-        "bins": details,
-    }
+    """CV/VV Scheduling — ventilation heating (Open-FDD bin method)."""
+    return dict(_ofdd.scheduling_heating_bins(i))
 
 
 # ---------------------------------------------------------------------------
