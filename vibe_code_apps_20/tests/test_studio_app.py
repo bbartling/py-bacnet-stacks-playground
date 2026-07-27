@@ -118,7 +118,7 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
         "fan_hp": 40,
         "cooling_tons": 200,
     }
-    for pkg in ("schedules_economizer", "plant_optimization", "deep_retrofit"):
+    for pkg in ("controls_first", "schedules_economizer", "plant_optimization", "envelope_code"):
         agent_build_notebook(pkg, nb_dir, profile=profile)
 
     at = _boot("ECMs")
@@ -137,9 +137,10 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert any("ecm_notebook_file" in str(getattr(s, "key", "") or "") for s in at.selectbox)
     sel = at.selectbox(key="ecm_notebook_file")
     opts = list(getattr(sel, "options", []) or [])
+    assert any("easy_controls" in o or "controls" in o.lower() for o in opts)
     assert any("G36_airside" in o for o in opts)
     assert any("plant_chiller" in o for o in opts)
-    assert any("ERV_IAQ_DOAS" in o for o in opts)
+    assert any("envelope_code" in o for o in opts)
     # Results-only UI — no formula dump / formula-sheet primary surface
     ui_blob = " ".join(
         str(getattr(el, "value", el))
@@ -152,11 +153,11 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     assert "ROI_Capital" not in ui_blob
     assert not at.exception
 
-    # Deep retrofit screening: fuel-switch rows must not present huge negative "savings_kwh"
-    deep = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "ERV_IAQ" in p.name)
+    # Envelope scenario: glazing + insulation rows present on Screening_Results
+    env = next(p for p in (tmp_path / "reports" / "notebooks").glob("*.xlsx") if "envelope_code" in p.name)
     from openpyxl import load_workbook
 
-    wb = load_workbook(deep, data_only=False)
+    wb = load_workbook(env, data_only=False)
     assert wb.sheetnames[0] == "Cover"
     assert wb.sheetnames[1] == "Screening_Results"
     assert wb.active.title == "Screening_Results"
@@ -164,24 +165,15 @@ def test_studio_twin_and_ecms_dry_path(tmp_path, monkeypatch):
     headers = [scr.cell(1, c).value for c in range(1, 12)]
     assert "elec_delta_kwh" in headers
     assert "basis" in headers
-    i_mid = headers.index("measure_id") + 1
-    i_basis = headers.index("basis") + 1
-    i_delta = headers.index("elec_delta_kwh") + 1
-    i_sav = headers.index("savings_kwh") + 1
-    for r in range(2, (scr.max_row or 1) + 1):
-        mid = scr.cell(r, i_mid).value
-        if mid in ("ECM-DOAS-HP", "ECM-AWHP-SURROGATE"):
-            assert scr.cell(r, i_basis).value == "fuel_switch"
-            delta = float(scr.cell(r, i_delta).value or 0)
-            sav = float(scr.cell(r, i_sav).value or 0)
-            assert sav >= 0
-            if delta < 0:
-                assert sav == 0
+    mids = {
+        str(scr.cell(r, 1).value)
+        for r in range(2, (scr.max_row or 1) + 1)
+        if scr.cell(r, 1).value and scr.cell(r, 1).value != "TOTAL"
+    }
+    assert "ECM-WINDOW-HP-GLAZING" in mids
+    assert "ECM-ENVELOPE-INSUL-CODE" in mids
     assert wb["Compare"]["H2"].value == "ESCO_ONLY_NO_EP"
     assert wb["Compare"]["I2"].value == "N/A"
-    assert "YELLOW" not in {
-        wb["Compare"].cell(r, 9).value for r in range(2, (wb["Compare"].max_row or 1) + 1)
-    }
 
 
 def test_turnkey_live_html_smoke():

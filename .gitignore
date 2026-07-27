@@ -260,3 +260,7 @@ vibe_code_apps_16/bad_rusty_bacnet_app/data/
 
 # Local Ansible venv (create with python3 -m venv .ansible_venv; see vibe_code_apps_12)
 .ansible_venv/
+
+# Proprietary calculator reference — never commit
+**/calculators.zip
+wattlab_workspace/private/

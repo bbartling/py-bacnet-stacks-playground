@@ -37,6 +37,10 @@ PACKAGES: dict[str, tuple[str, ...]] = {
     "deep-doas-heat-pump": (
         "ECM-DOAS-HP",
     ),
+    "envelope-code": (
+        "ECM-WINDOW-HP-GLAZING",
+        "ECM-ENVELOPE-INSUL-CODE",
+    ),
     "electrification-awhp": (
         "ECM-AWHP-SURROGATE",
     ),

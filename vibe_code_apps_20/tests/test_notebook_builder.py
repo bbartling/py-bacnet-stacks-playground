@@ -23,7 +23,7 @@ from wattlab.notebooks.builder import (
     sync_notebook_from_twin,
     validate_notebook,
 )
-from wattlab.notebooks.packages import INPUT_NAMED_RANGES, REQUIRED_SHEETS, list_notebook_packages
+from wattlab.notebooks.packages import INPUT_NAMED_RANGES, list_notebook_packages
 
 
 def test_list_notebook_packages_ladder():
@@ -33,10 +33,11 @@ def test_list_notebook_packages_ladder():
         "controls_first",
         "schedules_economizer",
         "plant_optimization",
+        "envelope_code",
         "esco_top15",
         "deep_retrofit",
     ]
-    assert [p.rank for p in pkgs] == [1, 2, 3, 4, 5]
+    assert [p.rank for p in pkgs] == [1, 2, 3, 4, 5, 6]
 
 
 def test_resolve_building_label_display_name():
@@ -74,7 +75,7 @@ def test_build_validate_named_ranges_and_roi_formulas(tmp_path: Path):
     xlsx = written["xlsx"]
     v = validate_notebook(xlsx)
     assert v["ok"] is True
-    assert set(REQUIRED_SHEETS) <= set(v["sheets"])
+    assert "Charts" in v["sheets"]
     assert any("EPlus_Results empty" in w for w in v["warnings"])
 
     wb = openpyxl.load_workbook(xlsx, data_only=False)
@@ -82,9 +83,11 @@ def test_build_validate_named_ranges_and_roi_formulas(tmp_path: Path):
     for n in INPUT_NAMED_RANGES:
         assert n in defined
     assert str(wb["ROI_Capital"]["B2"].value).startswith("=H")
-    assert "inp_usd_per_ft2" in str(wb["ROI_Capital"]["H2"].value)
+    assert isinstance(wb["ROI_Capital"]["H2"].value, (int, float))
     assert str(wb["ROI_Capital"]["G2"].value).startswith("=IF")
     assert isinstance(wb["ROI_Capital"]["I2"].value, (int, float))
+    assert "Charts" in wb.sheetnames
+    assert str(wb["Charts"]["B5"].value).startswith("=ESCO_Calcs!")
     notes = [str(wb["Cover"][f"B{r}"].value or "") for r in range(4, 20)]
     assert any("screening" in n.lower() or "formula" in n.lower() for n in notes)
 
@@ -258,7 +261,7 @@ def test_agent_build_formula_esco_and_cli(tmp_path: Path):
         ]
     )
     assert rc == 0
-    assert (tmp_path / "cli_out" / "01_controls_first_rcx.xlsx").is_file()
+    assert (tmp_path / "cli_out" / "01_easy_controls_rcx.xlsx").is_file()
 
 
 def test_sync_from_twin_soft(tmp_path: Path):

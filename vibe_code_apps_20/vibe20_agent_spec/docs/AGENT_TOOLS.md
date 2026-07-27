@@ -78,6 +78,8 @@ wattlab notebook refresh-caches --xlsx /data/reports/notebooks/controls_first.xl
 wattlab notebook show-formulas --xlsx /data/reports/notebooks/controls_first.xlsx --sheet ESCO_Calcs
 wattlab notebook sync-from-twin --xlsx /data/reports/notebooks/controls_first.xlsx \
   --twin-run /data/runs/<good_report>
+wattlab notebook cascade-from-twin --twin-run /data/runs/geo_b100_6stack_shape_r56_sched_mild \
+  --package controls_first --answers /data/reports/answers_building_100_geo.json --dry-run
 wattlab notebook validate --xlsx /data/reports/notebooks/controls_first.xlsx
 wattlab notebook summarize --xlsx … --write
 ```

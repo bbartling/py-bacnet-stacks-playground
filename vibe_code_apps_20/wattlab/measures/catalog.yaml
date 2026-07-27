@@ -833,3 +833,24 @@ ecms:
     implementation_complexity: high
     confidence: low
     status: CONCEPTUAL_ENERGYPLUS_PROXY
+
+  - <<: *defaults
+    ecm_id: ECM-ENVELOPE-INSUL-CODE
+    display_name: Wall/roof insulation to current energy code
+    short_name: Envelope insulation (code)
+    category: envelope
+    equipment_types: [wall, roof]
+    system_families: [building_envelope]
+    retrofit_classes: [capital, envelope]
+    description: Screen continuous insulation / roof R-value upgrade to current commercial code (conceptual).
+    engineering_rationale: Better opaque envelope reduces conductive heating and cooling loads.
+    required_inputs: [conditioned_floor_area_ft2]
+    optional_inputs: [baseline_wall_r, proposed_wall_r, baseline_roof_r, proposed_roof_r]
+    proxy_calculator: null
+    energyplus_patch: null
+    conceptual_surrogate: true
+    unit_contract: {r_value: ft2Fhr/Btu, savings: kWh/year}
+    applicability_checks: [Confirm scope, dewpoint, and facade access]
+    implementation_complexity: high
+    confidence: low
+    status: NEEDS_IMPLEMENTATION

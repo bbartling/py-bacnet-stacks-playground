@@ -13,6 +13,7 @@ from wattlab.notebooks.packages import (
     NotebookPackage,
     get_notebook_package,
     list_notebook_packages,
+    notebook_has_sheet,
 )
 
 ESCO_DOCS_URL = (
@@ -38,6 +39,7 @@ PACKAGE_SCREENING_USD_SF: dict[str, tuple[float, str]] = {
     "plant_optimization": (4.6, "major HVAC screening band"),
     "esco_top15": (4.6, "major HVAC screening band"),
     "deep_retrofit": (18.0, "deep renewal / electrification screening band"),
+    "envelope_code": (8.0, "envelope / fenestration screening band"),
 }
 
 # Live Excel ESCO screening formulas (BUG-050 / BUG-059).
@@ -102,7 +104,89 @@ _BUILDING_LABEL_KEYS = (
 
 
 def default_template_path() -> Path:
+    v2 = Path(__file__).resolve().parent / "templates" / "ecm_notebook_v2.xlsx"
+    if v2.is_file():
+        return v2
     return Path(__file__).resolve().parent / "templates" / "ecm_package_v1.xlsx"
+
+
+def _num(val: Any, default: float = 0.0) -> float:
+    try:
+        if val is None or val == "":
+            return default
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def evaluate_formula_kwh(mid: str, inputs: dict[str, Any]) -> float:
+    """Python eval of FORMULA_ESCO_KWH using Baseline inputs (Studio cache)."""
+    fan = _num(inputs.get("fan_hp"))
+    tons = _num(inputs.get("cooling_tons"))
+    kwpt = _num(inputs.get("kw_per_ton"), 0.65)
+    sched_h = _num(inputs.get("sched_hours_saved"), 2500)
+    fan_h = _num(inputs.get("fan_hours"), 4000)
+    speed = _num(inputs.get("fan_speed"), 0.7)
+    lock_h = _num(inputs.get("lockout_hours"), 800)
+    standby_h = _num(inputs.get("standby_hours"), 2000)
+    sat_h = _num(inputs.get("sat_hours"), 3500)
+    erv_cfm = _num(inputs.get("erv_cfm"))
+    erv_eff = _num(inputs.get("erv_eff"), 0.65)
+    erv_h = _num(inputs.get("erv_hours"), 4000)
+    if mid == "ECM-AHU-SCHED-ALIGN":
+        return (fan * 0.746 * sched_h if fan else 0.0) + (
+            tons * kwpt * sched_h * 0.15 if tons else 0.0
+        )
+    if mid == "ECM-PREMIUM-FAN-VFD":
+        return fan * 0.746 * fan_h * (1 - speed**3) if fan else 0.0
+    if mid == "ECM-CHILLER-LOCKOUT":
+        return tons * kwpt * lock_h if tons else 0.0
+    if mid == "ECM-OCC-STANDBY-DCV":
+        return (fan * 0.746 * standby_h * 0.45 if fan else 0.0) + (
+            tons * kwpt * standby_h * 0.12 if tons else 0.0
+        )
+    if mid == "ECM-SAT-RESET":
+        return tons * kwpt * sat_h * 0.08 if tons else 0.0
+    if mid == "ECM-DSP-RESET":
+        return fan * 0.746 * fan_h * (1 - 0.85**3) * 0.55 if fan else 0.0
+    if mid == "ECM-ERV":
+        return erv_cfm * erv_eff * 4.5 * 12 * erv_h / 12000 * kwpt if erv_cfm else 0.0
+    return 0.0
+
+
+def evaluate_formula_therms(mid: str, inputs: dict[str, Any]) -> float:
+    area = _num(inputs.get("area_ft2"))
+    sched_h = _num(inputs.get("sched_hours_saved"), 2500)
+    standby_h = _num(inputs.get("standby_hours"), 2000)
+    heat = _num(inputs.get("heating_mmbtu"), 4000)
+    be = _num(inputs.get("boiler_eff_base"), 0.80) or 0.80
+    pe = _num(inputs.get("boiler_eff_prop"), 0.84) or 0.84
+    erv_cfm = _num(inputs.get("erv_cfm"))
+    erv_eff = _num(inputs.get("erv_eff"), 0.65)
+    erv_h = _num(inputs.get("erv_hours"), 4000)
+    if mid == "ECM-AHU-SCHED-ALIGN":
+        return area * 0.0004 * sched_h / 10 if area else 0.0
+    if mid == "ECM-OCC-STANDBY-DCV":
+        return area * 0.0003 * standby_h / 10 if area else 0.0
+    if mid == "ECM-BOILER-RESET":
+        return heat * 10 * (1 / be - 1 / pe) * 0.35 if heat else 0.0
+    if mid == "ECM-ERV":
+        return erv_cfm * erv_eff * 1.08 * 25 * erv_h / 100000 if erv_cfm else 0.0
+    return 0.0
+
+
+def _measure_cost_usd(mid: str, area: float) -> tuple[float, str]:
+    """Per-measure screening cost via default_model_for — never full-package $/ft²."""
+    from wattlab.studio.ecm_roi import default_model_for, implementation_cost_usd
+
+    model = default_model_for(mid)
+    cost = implementation_cost_usd(
+        floor_area_ft2=area,
+        usd_per_ft2=float(model.get("usd_per_ft2") or 0),
+        coverage_fraction=float(model.get("coverage_fraction") or 1.0),
+        fixed_usd=model.get("fixed_usd"),
+    )
+    return float(cost), str(model.get("note") or "")
 
 
 def resolve_building_label(profile: dict[str, Any] | None = None) -> str:
@@ -305,6 +389,133 @@ def _define_name(wb, name: str, sheet: str, cell: str) -> None:
     wb.defined_names.add(DefinedName(name, attr_text=f"'{sheet}'!{cell}"))
 
 
+def _short_measure_label(measure_id: str) -> str:
+    """Compact chart category — last token after final hyphen."""
+    parts = str(measure_id).split("-")
+    return parts[-1] if parts else measure_id
+
+
+def _build_charts_sheet(
+    wb: Any,
+    *,
+    ids: list[str],
+    ep_missing: bool,
+) -> None:
+    """Engineer-facing chart data + openpyxl charts linked to Compare / ESCO / Screening."""
+    from openpyxl.chart import BarChart, Reference
+    from openpyxl.styles import Font
+
+    if "Charts" in wb.sheetnames:
+        del wb["Charts"]
+    ch = wb.create_sheet("Charts")
+    ch["A1"] = "Measure charts (formula-linked — trace to Compare · ESCO_Calcs · Screening_Results)"
+    ch["A1"].font = Font(bold=True, size=13)
+    ch["A2"] = (
+        "Chart_Data rows reference live workbook formulas. "
+        "When Twin cascade is missing, twin_kwh and % diff stay blank; screening charts still plot."
+    )
+    ch.merge_cells("A2:G2")
+
+    hdr_row = 4
+    headers = (
+        "measure_id",
+        "screening_kwh",
+        "twin_kwh",
+        "pct_diff_twin_vs_screening",
+        "annual_usd",
+        "payback_yr",
+        "chart_label",
+    )
+    for col, title in enumerate(headers, start=1):
+        ch.cell(hdr_row, col, title)
+    _style_header(ch, row=hdr_row)
+
+    n = len(ids)
+    data_start = hdr_row + 1
+    for j, mid in enumerate(ids):
+        r = data_start + j
+        src = j + 2  # ESCO_Calcs / Screening_Results / Compare rows start at 2
+        ch.cell(r, 1, mid)
+        ch.cell(r, 2, f"=ESCO_Calcs!B{src}")
+        if ep_missing:
+            ch.cell(r, 3, "")
+            ch.cell(r, 4, "")
+        else:
+            ch.cell(r, 3, f"=EPlus_Results!B{src}")
+            ch.cell(r, 4, f'=IF(OR(B{r}=0,C{r}=""),"", (C{r}-B{r})/B{r})')
+        ch.cell(r, 5, f"=Screening_Results!F{src}")
+        ch.cell(r, 6, f"=Screening_Results!H{src}")
+        ch.cell(r, 7, _short_measure_label(mid))
+
+    for col, width in zip("ABCDEFG", (28, 14, 14, 22, 14, 12, 18), strict=False):
+        ch.column_dimensions[col].width = width
+
+    if n == 0:
+        ch["A6"] = "(no measures in package)"
+        return
+
+    data_end = data_start + n - 1
+    cats = Reference(ch, min_col=7, min_row=data_start, max_row=data_end)
+
+    # Screening kWh — always available
+    chart_screen = BarChart()
+    chart_screen.type = "col"
+    chart_screen.style = 10
+    chart_screen.title = "Electric savings — ESCO screening (kWh/yr)"
+    chart_screen.y_axis.title = "kWh/yr"
+    chart_screen.width = 20
+    chart_screen.height = 11
+    screen_data = Reference(ch, min_col=2, min_row=hdr_row, max_row=data_end)
+    chart_screen.add_data(screen_data, titles_from_data=True)
+    chart_screen.set_categories(cats)
+    ch.add_chart(chart_screen, "I4")
+
+    # Annual $ savings
+    chart_usd = BarChart()
+    chart_usd.type = "col"
+    chart_usd.style = 11
+    chart_usd.title = "Annual utility $ saved — screening"
+    chart_usd.y_axis.title = "$/yr"
+    chart_usd.width = 20
+    chart_usd.height = 11
+    usd_data = Reference(ch, min_col=5, min_row=hdr_row, max_row=data_end)
+    chart_usd.add_data(usd_data, titles_from_data=True)
+    chart_usd.set_categories(cats)
+    ch.add_chart(chart_usd, "I22")
+
+    if not ep_missing:
+        chart_cmp = BarChart()
+        chart_cmp.type = "col"
+        chart_cmp.grouping = "clustered"
+        chart_cmp.style = 12
+        chart_cmp.title = "ESCO screening vs Twin (kWh/yr)"
+        chart_cmp.y_axis.title = "kWh/yr"
+        chart_cmp.width = 20
+        chart_cmp.height = 11
+        cmp_data = Reference(ch, min_col=2, max_col=3, min_row=hdr_row, max_row=data_end)
+        chart_cmp.add_data(cmp_data, titles_from_data=True)
+        chart_cmp.set_categories(cats)
+        ch.add_chart(chart_cmp, "I40")
+
+        chart_pct = BarChart()
+        chart_pct.type = "col"
+        chart_pct.style = 13
+        chart_pct.title = "% difference — (Twin − Screening) / Screening"
+        chart_pct.y_axis.title = "ratio"
+        chart_pct.y_axis.numFmt = "0%"
+        chart_pct.width = 20
+        chart_pct.height = 11
+        pct_data = Reference(ch, min_col=4, min_row=hdr_row, max_row=data_end)
+        chart_pct.add_data(pct_data, titles_from_data=True)
+        chart_pct.set_categories(cats)
+        ch.add_chart(chart_pct, "I58")
+    else:
+        ch["I40"] = "Twin charts pending"
+        ch["I41"] = (
+            "No measure-level EnergyPlus cascade — attach savings_by_measure to populate "
+            "twin_kwh and % diff columns, then refresh Charts."
+        )
+
 def default_inputs_from_profile(profile: dict[str, Any] | None = None) -> dict[str, Any]:
     from wattlab.studio.proxies import resolve_proxy_inputs
 
@@ -377,7 +588,6 @@ def build_notebook_workbook(
 
     from wattlab.crosscheck import crosscheck_measure
     from wattlab.finance import capital_plan, measure_economics
-    from wattlab.studio.ecm_roi import implementation_cost_usd
     from wattlab.studio.proxies import DEFAULT_MEASURE_COSTS, estimate_proxy_savings
 
     pkg = get_notebook_package(package) if isinstance(package, str) else package
@@ -418,12 +628,8 @@ def build_notebook_workbook(
     if costs is None:
         costs = {}
         for mid in ids:
-            costs[mid] = implementation_cost_usd(
-                floor_area_ft2=area,
-                usd_per_ft2=usd_ft2,
-                coverage_fraction=cov,
-                fixed_usd=None,
-            )
+            cost_usd, _note = _measure_cost_usd(mid, area)
+            costs[mid] = cost_usd
             if costs[mid] <= 0:
                 costs[mid] = float(DEFAULT_MEASURE_COSTS.get(mid, 10000.0))
 
@@ -435,8 +641,13 @@ def build_notebook_workbook(
         ep = ep_by.get(mid) or {}
         esco_kwh = float(p.get("savings_kwh") or 0.0)
         esco_therms = float(p.get("savings_therms") or 0.0)
-        if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
+        if mid in FORMULA_ESCO_KWH:
+            esco_kwh = evaluate_formula_kwh(mid, inputs)
             formula_backed.append(mid)
+        if mid in FORMULA_ESCO_THERMS:
+            esco_therms = evaluate_formula_therms(mid, inputs)
+            if mid not in formula_backed:
+                formula_backed.append(mid)
         ep_kwh = ep.get("kwh_saved")
         ep_therms = ep.get("therms_saved")
         xc = crosscheck_measure(
@@ -851,7 +1062,6 @@ def build_notebook_workbook(
         ]
     )
     _style_header(roi)
-    n_meas = max(len(ids), 1)
     # Closed-form NPV of escalated annuity (matches wattlab.finance.escalated_cash_flows + npv)
     npv_formula = (
         "=IF(ABS(inp_discount-inp_escalation)<1E-9,"
@@ -862,8 +1072,8 @@ def build_notebook_workbook(
     for i, row in enumerate(econ_rows, start=2):
         mid = row["measure_id"]
         roi[f"A{i}"] = mid
-        # H = Inputs-driven equal-split cost; B mirrors H (engineer may overwrite B with a lump sum)
-        roi[f"H{i}"] = f"=inp_usd_per_ft2*inp_area_ft2*inp_coverage/{n_meas}"
+        cost_usd = round(float(costs.get(mid) or row.get("implementation_cost_usd") or 0), 2)
+        roi[f"H{i}"] = cost_usd
         roi[f"B{i}"] = f"=H{i}"
         if mid in FORMULA_ESCO_KWH or mid in FORMULA_ESCO_THERMS:
             roi[f"C{i}"] = f"=ESCO_Calcs!B{i}"
@@ -958,6 +1168,8 @@ def build_notebook_workbook(
     )
     docs.column_dimensions["A"].width = 28
     docs.column_dimensions["B"].width = 80
+
+    _build_charts_sheet(wb, ids=ids, ep_missing=ep_missing)
 
     wb.properties.title = f"WattLab notebook · {pkg.id}"
     wb.properties.creator = "WattLab"
@@ -1487,8 +1699,9 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     if not path.is_file():
         return {"ok": False, "errors": [f"missing file: {path}"], "warnings": []}
     wb = load_workbook(path, data_only=False)
+    sheetnames = list(wb.sheetnames)
     for name in REQUIRED_SHEETS:
-        if name not in wb.sheetnames:
+        if not notebook_has_sheet(sheetnames, name):
             errors.append(f"missing sheet: {name}")
     defined = set(wb.defined_names.keys())
     for n in INPUT_NAMED_RANGES:
@@ -1497,29 +1710,33 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     # BUG-034: warn when E+ sheet has no savings
     ep_filled = 0
     ep_rows = 0
-    if "EPlus_Results" in wb.sheetnames:
-        for row in wb["EPlus_Results"].iter_rows(min_row=2, max_col=3, values_only=True):
+    twin_sheet = "Twin_Measures" if "Twin_Measures" in sheetnames else "EPlus_Results"
+    if twin_sheet in sheetnames:
+        for row in wb[twin_sheet].iter_rows(min_row=2, max_col=3, values_only=True):
             mid = row[0]
             if not mid or str(mid).strip().lower() in ("note", "notes", "measure_id"):
                 continue
             ep_rows += 1
             if row[1] is not None or row[2] is not None:
                 ep_filled += 1
-    # BUG-034: warn when E+ sheet has no measure savings (honesty-only or blank rows)
-    if "EPlus_Results" in wb.sheetnames and ep_filled == 0:
+    if twin_sheet in sheetnames and ep_filled == 0:
         warnings.append(
             "EPlus_Results empty (no savings_by_measure) — Calibrated_Twin is baseline; "
             "Compare = ESCO_ONLY_NO_EP; Screening_Results has ESCO numbers"
         )
-    # Honesty: cost B should reference H when still formula-linked
-    if "ROI_Capital" in wb.sheetnames:
-        b2 = wb["ROI_Capital"]["B2"].value
-        h2 = wb["ROI_Capital"]["H2"].value
+    cost_sheet = "Calc_Cost" if "Calc_Cost" in sheetnames else "ROI_Capital"
+    if cost_sheet in sheetnames:
+        b2 = wb[cost_sheet]["B2"].value
+        h2 = wb[cost_sheet]["H2"].value
         if isinstance(b2, (int, float)) and isinstance(h2, str) and h2.startswith("="):
             warnings.append(
                 "ROI_Capital!B2 is a static cost while H2 is an Inputs formula — "
                 "prefer B=H so yellow Inputs move package cost (BUG-035)"
             )
+    if "Charts" in sheetnames:
+        ch = wb["Charts"]
+        if not str(ch["B5"].value or "").startswith("="):
+            warnings.append("Charts!B5 should reference ESCO_Calcs (formula-linked chart data)")
     return {
         "ok": len(errors) == 0,
         "errors": errors,

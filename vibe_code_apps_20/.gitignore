@@ -14,3 +14,6 @@ __pycache__/
 .venv/
 *.pyc
 pytest-cache-files-*/
+
+# Proprietary reference — never commit
+**/calculators.zip
