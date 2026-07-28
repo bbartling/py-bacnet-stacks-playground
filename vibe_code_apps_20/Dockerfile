@@ -44,7 +44,9 @@ COPY . .
 # Editable install so ``import wattlab`` resolves to /app/wattlab (single tree).
 # open-fdd (PyPI) supplies shared ECM engineering calculators via
 # wattlab.engineering.openfdd_ecm — pin comes from pyproject.toml.
-RUN pip install --no-cache-dir -e ".[studio]"
+# apptest extra adds pytest>=8 (no playwright) so AppTests can run
+# ``python -m pytest`` inside the GHCR image (BUG-041).
+RUN pip install --no-cache-dir -e ".[studio,apptest]"
 
 EXPOSE 8501
 

@@ -61,6 +61,11 @@ RUN pip install --no-cache-dir -r requirements.txt \
  && python -c "import docx, kaleido, matplotlib; print('engineering-report extras ok')" \
  && python /tmp/docker_kaleido_smoke.py
 
+# In-container test runner (BUG-041): pytest is not a runtime/cloud dependency,
+# so it stays out of requirements.txt and is installed Docker-only. Lets
+# AppTests run ``python -m pytest`` inside the GHCR image.
+RUN pip install --no-cache-dir "pytest>=8"
+
 # Includes .streamlit/config.toml (maxUploadSize=500) — do not lower OPENFDD_MAX_* here.
 COPY . .
 
