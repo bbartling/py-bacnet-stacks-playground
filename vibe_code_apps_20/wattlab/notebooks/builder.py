@@ -1781,6 +1781,42 @@ def validate_notebook(path: Path | str) -> dict[str, Any]:
     }
 
 
+def openfdd_honesty(*, max_calculators: int = 12) -> dict[str, Any]:
+    """BUG-062: honest Open-FDD ECM delegation status for the manifest.
+
+    Returns ``{"openfdd": "delegated", ...}`` with ``openfdd_version`` and a
+    (possibly truncated) ``openfdd_calculators`` list when the Open-FDD ECM
+    adapter is importable *and* reports available. Returns
+    ``{"openfdd": "not_used"}`` only when the package is missing or the adapter
+    is otherwise unavailable — never claim delegation that did not happen.
+    """
+    try:
+        from wattlab.engineering import openfdd_ecm
+
+        available = bool(openfdd_ecm.openfdd_available())
+    except Exception:
+        return {"openfdd": "not_used"}
+    if not available:
+        return {"openfdd": "not_used"}
+
+    info: dict[str, Any] = {"openfdd": "delegated"}
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            info["openfdd_version"] = version("open-fdd")
+        except PackageNotFoundError:
+            info["openfdd_version"] = None
+    except Exception:
+        info["openfdd_version"] = None
+    try:
+        calculators = list(openfdd_ecm.list_calculators())
+        info["openfdd_calculators"] = calculators[:max_calculators]
+    except Exception:
+        info["openfdd_calculators"] = []
+    return info
+
+
 def summarize_notebook(
     path: Path | str,
     *,
@@ -1912,7 +1948,7 @@ def summarize_notebook(
             "roi_cost_npv": "excel_formulas_from_inputs",
             "roi_vs_calibrated": "screening_roi_not_calibrated_g14_roi",
             "template_file": "loaded" if tpl_loaded else "scaffold_only",
-            "openfdd": "not_used",
+            **openfdd_honesty(),
             "docs": {
                 "esco_calculators": ESCO_CALCULATORS_URL,
                 "retrofit_cost_roi": ESCO_RETROFIT_ROI_URL,
@@ -1969,6 +2005,7 @@ __all__ = [
     "default_template_path",
     "extract_calibrated_baseline",
     "list_notebook_packages",
+    "openfdd_honesty",
     "prefill_notebook_inputs",
     "preview_sheet_rows",
     "read_notebook_inputs",

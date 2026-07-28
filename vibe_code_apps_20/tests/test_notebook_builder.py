@@ -14,6 +14,7 @@ from wattlab.notebooks.builder import (
     agent_build_notebook,
     build_and_save_notebook,
     extract_calibrated_baseline,
+    openfdd_honesty,
     prefill_notebook_inputs,
     preview_sheet_rows,
     read_notebook_inputs,
@@ -148,7 +149,36 @@ def test_summarize_resolves_package_and_ep_coverage(tmp_path: Path):
     assert man["package_label"]
     assert man["ep_coverage"]["filled_rows"] == 0
     assert man["honesty"]["template_file"] in ("loaded", "scaffold_only")
-    assert man["honesty"]["openfdd"] == "not_used"
+    # BUG-062: honesty reflects reality — "delegated" (+ version/calculators)
+    # when the Open-FDD ECM adapter is available, else "not_used".
+    assert man["honesty"]["openfdd"] in ("delegated", "not_used")
+    if man["honesty"]["openfdd"] == "delegated":
+        assert "openfdd_version" in man["honesty"]
+        assert isinstance(man["honesty"]["openfdd_calculators"], list)
+
+
+def test_openfdd_honesty_helper(monkeypatch):
+    """BUG-062: helper reports delegation honestly, never fabricates it."""
+    info = openfdd_honesty()
+    assert info["openfdd"] in ("delegated", "not_used")
+    if info["openfdd"] == "delegated":
+        assert "openfdd_version" in info
+        assert isinstance(info["openfdd_calculators"], list)
+
+    # With the adapter installed, forcing "unavailable" must downgrade to
+    # not_used rather than claim a delegation that did not happen.
+    pytest.importorskip("open_fdd")
+    from wattlab.engineering import openfdd_ecm
+
+    monkeypatch.setattr(openfdd_ecm, "openfdd_available", lambda: False)
+    assert openfdd_honesty() == {"openfdd": "not_used"}
+
+    # When delegating, calculators are truncated to max_calculators.
+    monkeypatch.setattr(openfdd_ecm, "openfdd_available", lambda: True)
+    monkeypatch.setattr(openfdd_ecm, "list_calculators", lambda: ["a", "b", "c", "d"])
+    trunc = openfdd_honesty(max_calculators=2)
+    assert trunc["openfdd"] == "delegated"
+    assert trunc["openfdd_calculators"] == ["a", "b"]
 
 
 def test_cli_prefill_elec_rate(tmp_path: Path):
