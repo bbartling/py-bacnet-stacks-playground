@@ -50,6 +50,34 @@ docker exec vibe20 wattlab notebook cascade-from-twin \
   --answers /data/reports/answers_building_100_geo.json
 ```
 
+### One-command cascade (BUG-063)
+
+`agent_build_ecm_packages.py` can run the EnergyPlus cascade for you so the
+Crosscheck sheet gets real `Twin_Measures` (`vs_baseline`) instead of an
+ESCO-only screen:
+
+| Flag | Behavior |
+|------|----------|
+| *(none)* | ESCO-only build. Always succeeds; `Crosscheck` shows `ESCO_ONLY_NO_EP`. |
+| `--cascade` | Force the E+ measure cascade first. Requires `/var/run/docker.sock` and the `energyplus-mcp-dev` image. |
+| `--cascade-if-ready` | Run the cascade **only if** `/var/run/docker.sock` exists **and** `docker image inspect energyplus-mcp-dev` succeeds; otherwise print a clear skip reason and continue ESCO-only with the honesty stamp. **Never fails the build.** |
+
+```bash
+# Cascade automatically when the environment is ready, else fall back cleanly:
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 \
+  python /data/tools/agent_build_ecm_packages.py \
+    --answers /data/reports/answers_building_100_geo.json \
+    --prefix geo_b100 \
+    --packages g36_airside_controls,plant_optimization,envelope_code \
+    --fan-hp 80 --write-scenario \
+    --cascade-if-ready
+```
+
+The JSON summary reports `cascade_mode` (`off` / `if_ready` / `forced`),
+`cascade_requested`, and `cascade_skip_reason` so agents can see whether the
+Compare numbers are twin-backed or ESCO-only. A build is never blocked on the
+cascade — a missing image just downgrades to an honest ESCO-only screen.
+
 ## Fable gates
 
 1. Only three measures in the G36 workbook.

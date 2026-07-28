@@ -28,6 +28,15 @@ Calibrated_Twin gets G14 baseline; measure EPlus_Results stay blank when no
 # Savings target (when E+ cascade exists):
 #   per ECM kWh/therms saved = calibrated baseline annual − ECM-on-Twin annual
 #   → savings_by_measure → Twin_Measures / Crosscheck (vs ESCO Calc_*)
+#
+# One-command build (BUG-063):
+#   ESCO-only (no EnergyPlus, always succeeds):
+#     python agent_build_ecm_packages.py --answers ... --prefix geo_b100
+#   Force the E+ measure cascade (requires docker + energyplus-mcp-dev image):
+#     python agent_build_ecm_packages.py --answers ... --prefix geo_b100 --cascade
+#   Cascade only when the environment is ready, else fall back to ESCO-only with
+#   a clear skip reason + honesty stamp (never fails the build):
+#     python agent_build_ecm_packages.py --answers ... --prefix geo_b100 --cascade-if-ready
 """
 
 from __future__ import annotations
@@ -48,6 +57,34 @@ DEFAULT_PACKAGES = (
     "plant_optimization",
     "envelope_code",
 )
+
+# EnergyPlus MCP dev image + docker socket required for an automatic cascade.
+DEFAULT_EP_IMAGE = "energyplus-mcp-dev"
+DOCKER_SOCK = Path("/var/run/docker.sock")
+
+
+def cascade_ready(image: str = DEFAULT_EP_IMAGE) -> tuple[bool, str]:
+    """BUG-063: True only when a real E+ cascade could run right now.
+
+    Requires (1) a Docker daemon socket at ``/var/run/docker.sock`` and (2) the
+    EnergyPlus MCP image present (``docker image inspect`` succeeds). Returns
+    ``(ready, reason)`` so callers can print a clear skip reason and continue
+    ESCO-only instead of failing the build.
+    """
+    if not DOCKER_SOCK.exists():
+        return False, f"{DOCKER_SOCK} not found (no Docker daemon reachable)"
+    try:
+        proc = subprocess.run(
+            ["docker", "image", "inspect", image],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return False, "docker CLI not found on PATH"
+    if proc.returncode != 0:
+        return False, f"docker image '{image}' not available (run its build first)"
+    return True, f"{DOCKER_SOCK} present and image '{image}' available"
 
 
 def _pick_twin(workspace: Path, *, prefix: str | None, twin_run: str | None) -> dict[str, Any]:
@@ -134,6 +171,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run E+ measure cascade on Twin first (writes savings_by_measure to wattlab_report.json)",
     )
+    p.add_argument(
+        "--cascade-if-ready",
+        action="store_true",
+        help=(
+            "Auto-cascade only if /var/run/docker.sock exists AND the "
+            f"'{DEFAULT_EP_IMAGE}' image is present; otherwise print a skip "
+            "reason and continue ESCO-only (never fails the build)."
+        ),
+    )
+    p.add_argument(
+        "--ep-image",
+        default=DEFAULT_EP_IMAGE,
+        help=f"EnergyPlus MCP image checked by --cascade-if-ready (default: {DEFAULT_EP_IMAGE})",
+    )
     p.add_argument("--dry-run-cascade", action="store_true", help="With --cascade: plan only, no EP")
     p.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
@@ -149,8 +200,27 @@ def main(argv: list[str] | None = None) -> int:
 
     packages = [x.strip() for x in str(args.packages).split(",") if x.strip()]
     env = {"WATTLAB_STUDIO_WORKSPACE": str(workspace)}
+
+    # BUG-063: resolve whether we actually run the cascade. --cascade forces it;
+    # --cascade-if-ready only runs it when docker + the E+ image are present, and
+    # otherwise falls back to ESCO-only with a clear skip reason (never fatal).
+    run_cascade = bool(args.cascade)
+    cascade_skip_reason: str | None = None
+    if args.cascade_if_ready and not run_cascade:
+        ready, reason = cascade_ready(args.ep_image)
+        if ready:
+            run_cascade = True
+            print(f"[cascade-if-ready] {reason} — running E+ cascade", file=sys.stderr)
+        else:
+            cascade_skip_reason = reason
+            print(
+                f"[cascade-if-ready] skipping cascade: {reason} — "
+                "continuing ESCO-only (honesty stamp applied)",
+                file=sys.stderr,
+            )
+
     cascade_result = None
-    if args.cascade and packages:
+    if run_cascade and packages:
         from wattlab.notebooks.packages import get_notebook_package
         from wattlab.notebooks.twin_cascade import cascade_measures_on_twin
 
@@ -190,6 +260,11 @@ def main(argv: list[str] | None = None) -> int:
         "packages": packages,
         "builds": builds,
         "cascade": cascade_result,
+        "cascade_requested": run_cascade,
+        "cascade_skip_reason": cascade_skip_reason,
+        "cascade_mode": (
+            "forced" if args.cascade else ("if_ready" if args.cascade_if_ready else "off")
+        ),
         "ok": all(b.get("returncode") == 0 for b in builds)
         and (
             cascade_result is None
