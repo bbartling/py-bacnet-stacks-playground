@@ -8,7 +8,7 @@ import openpyxl
 import pytest
 
 from wattlab.notebooks.builder import build_and_save_notebook, validate_notebook
-from wattlab.notebooks.g36_builder import G36_MEASURES
+from wattlab.notebooks.g36_builder import G36_MEASURES, _crosscheck_light
 from wattlab.notebooks.packages import G36_SHEET_ORDER, get_notebook_package, list_notebook_packages
 
 
@@ -114,3 +114,71 @@ def test_g36_with_twin_vs_baseline(tmp_path: Path):
     assert wb["Twin_Measures"]["B2"].value == 50000.0
     assert wb["Crosscheck"]["C5"].value == "=Twin_Measures!B2"
     assert wb["Crosscheck"]["I5"].value != "ESCO_ONLY_NO_EP"
+
+
+def test_crosscheck_light_zero_ep_is_yellow_not_red():
+    """BUG-064: stubbed / zero EP savings must not fake a RED input mismatch."""
+    # No twin attached at all → ESCO_ONLY.
+    assert _crosscheck_light(72_800.0, None) == ("ESCO_ONLY_NO_EP", "N/A")
+    # ESCO > 0 but EP ~0 (cascade pending) → YELLOW, not RED.
+    assert _crosscheck_light(72_800.0, 0.0) == ("INSUFFICIENT_EVIDENCE", "YELLOW")
+    # Both ~0 → still YELLOW insufficient evidence.
+    assert _crosscheck_light(0.0, 0.0) == ("INSUFFICIENT_EVIDENCE", "YELLOW")
+    # ESCO ~0 but EP has real savings → genuine RED input inconsistency.
+    assert _crosscheck_light(0.0, 20_000.0) == ("INVESTIGATE_INPUTS", "RED")
+    # In-line ratio stays GREEN; wild ratio stays RED.
+    assert _crosscheck_light(72_800.0, 70_000.0) == ("IN_LINE", "GREEN")
+    assert _crosscheck_light(72_800.0, 5_000.0) == ("INVESTIGATE_INPUTS", "RED")
+
+
+def test_g36_zero_ep_savings_are_yellow_not_red(tmp_path: Path):
+    """BUG-064: an attached-but-stubbed twin (all kwh_saved=0) → YELLOW rows, no RED note."""
+    report = {
+        "run_id": "stub_zero",
+        "savings_by_measure": [
+            {"measure_id": mid, "vs_baseline": {"kwh_saved": 0.0, "therms_saved": 0.0}}
+            for mid in G36_MEASURES
+        ],
+    }
+    written = build_and_save_notebook(
+        "g36_airside_controls",
+        tmp_path,
+        profile={"floor_area_ft2": 140_000, "fan_hp": 80, "cooling_tons": 400},
+        report=report,
+        twin_run="stub_zero",
+    )
+    wb = openpyxl.load_workbook(written["xlsx"], data_only=False)
+    xc = wb["Crosscheck"]
+    for r in range(5, 8):
+        assert xc.cell(r, 9).value == "INSUFFICIENT_EVIDENCE"
+        assert xc.cell(r, 10).value == "YELLOW"
+    # No RED driver note when nothing is RED.
+    assert xc["A9"].value != "note"
+
+
+def test_g36_red_ratio_adds_sat_driver_note(tmp_path: Path):
+    """BUG-064: a genuine bad SAT ratio lands RED and names SAT driver cells."""
+    # ESCO SAT ≈ 400 * 0.65 * 3500 * 0.08 = 72,800 kWh; tiny EP → ratio < 0.25 → RED.
+    report = {
+        "run_id": "sat_bad_ratio",
+        "savings_by_measure": [
+            {"measure_id": "ECM-DSP-RESET", "vs_baseline": {"kwh_saved": 50_000.0}},
+            {"measure_id": "ECM-SAT-RESET", "vs_baseline": {"kwh_saved": 5_000.0}},
+            {"measure_id": "ECM-CHILLER-LOCKOUT", "vs_baseline": {"kwh_saved": 200_000.0}},
+        ],
+    }
+    written = build_and_save_notebook(
+        "g36_airside_controls",
+        tmp_path,
+        profile={"floor_area_ft2": 140_000, "fan_hp": 80, "cooling_tons": 400},
+        report=report,
+        twin_run="sat_bad_ratio",
+    )
+    wb = openpyxl.load_workbook(written["xlsx"], data_only=False)
+    xc = wb["Crosscheck"]
+    # SAT is row 6 (index 1) — RED for the bad ratio.
+    assert xc.cell(6, 10).value == "RED"
+    assert xc["A9"].value == "note"
+    note = str(xc["B9"].value)
+    for driver in ("sat_hours", "sat_frac", "cooling_tons", "kw_per_ton"):
+        assert driver in note
