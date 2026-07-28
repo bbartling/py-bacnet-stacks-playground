@@ -73,11 +73,28 @@ def _ep_by_measure(report: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
 
 
 def _crosscheck_light(esco_kwh: float, ep_kwh: float | None) -> tuple[str, str]:
+    """Compare ESCO engineering savings against EnergyPlus twin savings.
+
+    BUG-064: a stubbed / not-yet-cascaded EnergyPlus result (``ep_kwh`` absent
+    or ~0) must never masquerade as a RED input inconsistency:
+
+    * ``ep_kwh is None`` → ESCO_ONLY (no twin attached).
+    * ``ep_kwh ≈ 0`` while ESCO > 0 → INSUFFICIENT_EVIDENCE / YELLOW — the twin
+      cascade is pending, so there is no evidence to contradict ESCO yet.
+    * ``ESCO ≈ 0`` while ``ep_kwh`` has meaningful savings → RED
+      INVESTIGATE_INPUTS (a genuine input inconsistency).
+    * both present and non-trivial → ratio bands (GREEN / YELLOW / RED).
+    """
     if ep_kwh is None:
         return "ESCO_ONLY_NO_EP", "N/A"
-    if abs(esco_kwh) < 1e-6 and abs(ep_kwh) < 1e-6:
+    esco_zero = abs(esco_kwh) < 1e-6
+    ep_zero = abs(ep_kwh) < 1e-6
+    if ep_zero:
+        # No twin savings yet (cascade pending or stubbed) — not a real
+        # disagreement, regardless of whether ESCO is zero or positive.
         return "INSUFFICIENT_EVIDENCE", "YELLOW"
-    if abs(esco_kwh) < 1e-6:
+    if esco_zero:
+        # Twin shows real savings but ESCO shows ~none → true input mismatch.
         return "INVESTIGATE_INPUTS", "RED"
     ratio = ep_kwh / esco_kwh
     if 0.5 <= ratio <= 1.5:
@@ -85,6 +102,15 @@ def _crosscheck_light(esco_kwh: float, ep_kwh: float | None) -> tuple[str, str]:
     if 0.25 <= ratio <= 2.5:
         return "REASONABLE_BAND", "YELLOW"
     return "INVESTIGATE_INPUTS", "RED"
+
+
+# Inputs/Baseline driver cells that dominate each ESCO measure — surfaced in the
+# Crosscheck note when a row lands RED so the engineer knows what to inspect.
+_MEASURE_DRIVERS: dict[str, str] = {
+    "ECM-DSP-RESET": "fan_hp, fan_hours, fan_speed_old, fan_speed_new",
+    "ECM-SAT-RESET": "sat_hours, sat_frac, cooling_tons, kw_per_ton",
+    "ECM-CHILLER-LOCKOUT": "cooling_tons, kw_per_ton, lockout_hours, lockout_oat_f",
+}
 
 
 def build_g36_workbook(
@@ -417,6 +443,7 @@ def build_g36_workbook(
         xc.cell(4, col, h)
     _style_header(xc, 4)
 
+    red_measures: list[str] = []
     for j, mid in enumerate(G36_MEASURES):
         r = 5 + j
         refs = CALC_RESULT_CELLS[mid]
@@ -424,6 +451,8 @@ def build_g36_workbook(
         ep_kwh = ep.get("kwh_saved")
         ep_therms = ep.get("therms_saved")
         verdict, light = _crosscheck_light(esco[mid]["kwh"], None if ep_kwh is None else float(ep_kwh))
+        if not ep_missing and light == "RED":
+            red_measures.append(mid)
         xc.cell(r, 1, mid)
         xc.cell(r, 2, f"={refs['kwh']}")
         if ep_missing:
@@ -444,6 +473,16 @@ def build_g36_workbook(
     if ep_missing:
         xc["A9"] = "note"
         xc["B9"] = "Twin cascade pending — ESCO columns still live from Calc_*. Run cascade-from-twin to fill ep_*."
+    elif red_measures:
+        drivers = " | ".join(
+            f"{mid} → check Inputs/Baseline drivers: {_MEASURE_DRIVERS.get(mid, 'inputs')}"
+            for mid in red_measures
+        )
+        xc["A9"] = "note"
+        xc["B9"] = (
+            "RED = ESCO vs Twin disagree (bad ratio or ESCO~0 with Twin savings). "
+            + drivers
+        )
 
     for col, w in zip("ABCDEFGHIJ", (26, 12, 12, 12, 14, 12, 12, 12, 28, 10), strict=False):
         xc.column_dimensions[col].width = w
