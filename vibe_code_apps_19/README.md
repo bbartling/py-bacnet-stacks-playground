@@ -150,6 +150,17 @@ python -m pytest -q
 .\scripts\run_tests_local.ps1
 ```
 
+The GHCR image installs `pytest` (Docker-only; it stays out of
+`requirements.txt` / Streamlit Cloud), so AppTests can also run inside the
+container (BUG-041):
+
+```bash
+docker exec vibe19 python -m pytest -q
+```
+
+Host-venv runs are still fine — `pytest` there comes from
+`requirements-dev` / your local install.
+
 ## Docs
 
 | Doc | Topic |

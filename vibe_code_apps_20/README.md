@@ -78,6 +78,18 @@ python -m pytest tests/test_studio_app.py -q
 python scripts/browser_smoke_vibe20.py --url http://localhost:8520 --screenshots .artifacts/browser/native
 ```
 
+### AppTests in the container (BUG-041)
+
+The GHCR image installs the lightweight `apptest` extra (`pytest>=8`, no
+playwright), so AppTests can run `python -m pytest` inside the container:
+
+```bash
+docker exec -e WATTLAB_STUDIO_WORKSPACE=/data vibe20 python -m pytest -q
+```
+
+Running tests from a host venv still works — install with
+`pip install -e ".[studio,apptest]"` (or `.[dev]` for the full toolchain).
+
 ## Related docs
 
 | Doc | For |
