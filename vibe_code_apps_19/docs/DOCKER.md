@@ -25,6 +25,10 @@ Foreground `docker run` (no `-d`) dies when you close the terminal. A **running*
 # Windows: .\scripts\docker_update_vibe19.ps1
 ```
 
+By default the script bind-mounts `$HOME/wattlab_workspace` → `/data` when that
+host directory exists (BUG-061). Override with `DATA_MOUNT=/path:/data` or
+`DATA_MOUNT=none` for zip-only demos without a shared workspace.
+
 Or by hand — prefer **`:latest`** (same tip as `:develop` while default branch is `develop`):
 
 1. **`docker pull ghcr.io/bbartling/vibe19:latest`**
@@ -42,15 +46,19 @@ Or by hand — prefer **`:latest`** (same tip as `:develop` while default branch
 | `-d` | Detached — process stays up after the shell closes |
 | `--restart unless-stopped` | Restart on crash or host/Docker reboot until you `docker stop` |
 | `-p HOST:8501` | Map a free host port to Streamlit inside the container |
+| `-v $HOME/wattlab_workspace:/data` | Shared agent workspace (AFDD / dumps / vibe20) |
 | `--name vibe19` | Stable name for stop / start / logs |
 | Do **not** pass `--rm` | `--rm` deletes the container on stop (fine for one-shot tests only) |
 
 **Linux / macOS / Raspberry Pi (64-bit):**
 
 ```bash
+mkdir -p "$HOME/wattlab_workspace"
 docker pull ghcr.io/bbartling/vibe19:latest
 docker stop vibe19 2>/dev/null; docker rm vibe19 2>/dev/null
-docker run -d --restart unless-stopped -p 8502:8501 --name vibe19 \
+docker run -d --restart unless-stopped -p 8502:8501 \
+  -v "$HOME/wattlab_workspace:/data" \
+  --name vibe19 \
   ghcr.io/bbartling/vibe19:latest
 # open http://localhost:8502  (or http://<pi-ip>:8502)
 ```
