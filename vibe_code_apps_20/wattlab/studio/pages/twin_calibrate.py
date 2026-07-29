@@ -1157,18 +1157,21 @@ def render() -> None:
             if fam not in filter_opts:
                 filter_opts.append(fam)
         filter_opts.append("All")
-        # Default = active building family (not All). Persist via widget key.
+        # Default = active building family when known; otherwise All (do not
+        # silently pick an unrelated geo_b* family for a non-geo active run).
+        default_filter = active_fam if active_fam else "All"
         if "twin_g14_building_filter" not in st.session_state:
-            st.session_state["twin_g14_building_filter"] = filter_opts[0]
+            st.session_state["twin_g14_building_filter"] = default_filter
         elif st.session_state["twin_g14_building_filter"] not in filter_opts:
-            st.session_state["twin_g14_building_filter"] = filter_opts[0]
+            st.session_state["twin_g14_building_filter"] = default_filter
         chosen_filter = st.selectbox(
             "Building filter",
             options=filter_opts,
             key="twin_g14_building_filter",
             help=(
                 "Scopes table + G14 chart to one building family. "
-                "Default follows CURRENT_RUN / active Twin run. "
+                "Default follows CURRENT_RUN / active Twin run when it has a "
+                "geo_bNN_ prefix; otherwise All. "
                 "All mixes campus runs — do not read as one training curve."
             ),
         )
@@ -1221,6 +1224,12 @@ def render() -> None:
                     building_family=fam_filter,
                 )
             )
+            # Align caption best with chart: only rows that have elec G14 metrics
+            g14_chart_rows = [
+                r
+                for r in g14_rows
+                if r.get("nmbe_elec_pct") is not None or r.get("cvrmse_elec_pct") is not None
+            ]
             g14_by_dir = {str(r.get("dir")): r for r in g14_rows if r.get("dir")}
 
             def _hist_sort_key(h: dict[str, Any]) -> tuple:
@@ -1299,7 +1308,7 @@ def render() -> None:
                 hide_index=True,
             )
 
-            best_in_filter = pick_best_g14_run(g14_rows)
+            best_in_filter = pick_best_g14_run(g14_chart_rows)
             if best_in_filter and best_in_filter.get("run_id"):
                 st.caption(
                     f"Best G14 within filter `{chosen_filter}`: "

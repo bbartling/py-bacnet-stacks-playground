@@ -62,12 +62,28 @@ def run_id_short_stem(run_id: str | None) -> str:
 
 
 def discover_building_families(runs_root: Path | str, *, limit: int = G14_HISTORY_SCAN_MAX) -> list[str]:
-    """Sorted unique ``geo_bNN`` families present under ``runs/``."""
+    """Sorted unique ``geo_bNN`` families present under ``runs/``.
+
+    Directory-name scan only (no scorecard / eplusout I/O).
+    """
+    root = Path(runs_root)
+    if not root.is_dir():
+        return []
     found: set[str] = set()
-    for h in list_iteration_runs(Path(runs_root), limit=limit):
-        fam = building_family_from_run_id(h.get("run_id") or Path(str(h.get("dir") or "")).name)
+    n = 0
+    try:
+        dirs = sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    for d in dirs:
+        if not d.is_dir() or d.name.startswith("_"):
+            continue
+        fam = building_family_from_run_id(d.name)
         if fam:
             found.add(fam)
+        n += 1
+        if n >= limit:
+            break
     return sorted(found)
 
 
@@ -89,6 +105,16 @@ def filter_rows_by_building_family(
         if fam == want:
             out.append(r)
     return out
+
+
+def _normalize_building_family(family: str | None) -> str | None:
+    """Return a concrete family prefix, or None for no filter (incl. all sentinels)."""
+    if not family:
+        return None
+    s = str(family).strip()
+    if not s or s.lower() in {"all", "*", "(all)"}:
+        return None
+    return s
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -149,7 +175,7 @@ def iter_g14_history(
     When ``building_family`` or ``prefix`` is set (e.g. ``geo_b100``), only matching
     run ids are kept and iteration renumbering is per-family dial history.
     """
-    fam = (building_family or prefix or "").strip() or None
+    fam = _normalize_building_family(building_family or prefix)
     # Scan widely when filtering so older B100 runs are not crowded out by B50 dials.
     scan_limit = max(limit, G14_HISTORY_SCAN_MAX) if fam else limit
     rows: list[dict[str, Any]] = []
@@ -297,6 +323,8 @@ def g14_epoch_figure(
         )
 
     numbered = usable if all("run" in r for r in usable) else assign_run_numbers(list(usable))
+    # Same pool as caption / pick_best: only rows with elec metrics (usable).
+    best = pick_best_g14_run(numbered)
     xs = [int(r.get("run") or i) for i, r in enumerate(numbered, start=1)]
     ticktext = [str(r.get("short_stem") or run_id_short_stem(r.get("run_id"))) for r in numbered]
     hover = []
@@ -394,7 +422,6 @@ def g14_epoch_figure(
             hovertemplate="<b>%{customdata}</b><br>G14 PASS<br>iter %{x}<extra></extra>",
         )
 
-    best = pick_best_g14_run(numbered)
     if best and best.get("run") is not None:
         fig.add_annotation(
             x=int(best["run"]),

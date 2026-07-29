@@ -233,6 +233,11 @@ def test_g14_chart_scopes_to_building_family(tmp_path: Path):
     mixed_ids = {r["run_id"] for r in mixed}
     assert "geo_b50_i32_freecool_julHW" in mixed_ids
     assert "geo_b100_6stack_shape_r56_sched_mild" in mixed_ids
+    # "all" sentinel must not filter to prefix="all" (empty)
+    assert len(iter_g14_history(runs, limit=80, building_family="all")) == len(mixed)
+    from wattlab.studio.g14_history import discover_building_families
+
+    assert discover_building_families(runs) == ["geo_b100", "geo_b50"]
 
 
 def test_build_dial_knobs_rows(tmp_path: Path):
