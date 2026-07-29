@@ -13,6 +13,8 @@ Workspace copies of artifacts live under Studio `/data` (`wattlab_workspace/repo
 
 Screening proof (full-parity book): **8 BALLPARK / 0 DIVERGE / 0 NO_EP** — not M&V.
 
+Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives in playground **vibe20**. open-fdd Jobs / ECM honesty (`honesty.openfdd`, cascade-if-ready) must stay aligned with this register when the combined UI surfaces Compare / ECMs.
+
 ---
 
 ## Open bugs
