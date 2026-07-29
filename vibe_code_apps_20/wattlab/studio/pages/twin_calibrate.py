@@ -946,7 +946,22 @@ def render() -> None:
                 )
 
         try:
-            hist_rows = assign_run_numbers(iter_g14_history(runs_dir(), limit=20))
+            from wattlab.studio.g14_history import (
+                DEFAULT_G14_HISTORY_LIMIT,
+                building_family_from_run_id,
+            )
+
+            _active_for_hist = _resolve_active_run()
+            _fam_hist = building_family_from_run_id(
+                _active_for_hist.name if _active_for_hist else None
+            )
+            hist_rows = assign_run_numbers(
+                iter_g14_history(
+                    runs_dir(),
+                    limit=DEFAULT_G14_HISTORY_LIMIT,
+                    building_family=_fam_hist,
+                )
+            )
         except Exception:
             hist_rows = []
         if len(hist_rows) >= 2:
@@ -1113,9 +1128,18 @@ def render() -> None:
         st.subheader("Iteration history (agent + Studio)")
         st.caption(
             "Each published `runs/<id>/` after agent/CLI EnergyPlus. "
-            "Timestamps from `run_manifest.json`. G14 columns need `calibration_scorecard.json` per run."
+            "Timestamps from `run_manifest.json`. G14 columns need `calibration_scorecard.json` per run. "
+            "**Iteration index is per-building dial history** (e.g. geo_b100_*), not a global mtime mix of B50+B100."
         )
-        from wattlab.studio.g14_history import assign_run_numbers, g14_epoch_figure, iter_g14_history
+        from wattlab.studio.g14_history import (
+            DEFAULT_G14_HISTORY_LIMIT,
+            assign_run_numbers,
+            building_family_from_run_id,
+            discover_building_families,
+            g14_epoch_figure,
+            iter_g14_history,
+            pick_best_g14_run,
+        )
         from wattlab.studio.model_summary import (
             build_assumption_rows,
             build_dial_knobs_rows,
@@ -1123,8 +1147,44 @@ def render() -> None:
             render_model_summary_panel,
         )
 
-        hist = list_iteration_runs(runs_dir(), limit=30)
-        if not hist:
+        active_now = _resolve_active_run()
+        active_fam = building_family_from_run_id(active_now.name if active_now else None)
+        families = discover_building_families(runs_dir())
+        filter_opts: list[str] = []
+        if active_fam:
+            filter_opts.append(active_fam)
+        for fam in families:
+            if fam not in filter_opts:
+                filter_opts.append(fam)
+        filter_opts.append("All")
+        # Default = active building family (not All). Persist via widget key.
+        if "twin_g14_building_filter" not in st.session_state:
+            st.session_state["twin_g14_building_filter"] = filter_opts[0]
+        elif st.session_state["twin_g14_building_filter"] not in filter_opts:
+            st.session_state["twin_g14_building_filter"] = filter_opts[0]
+        chosen_filter = st.selectbox(
+            "Building filter",
+            options=filter_opts,
+            key="twin_g14_building_filter",
+            help=(
+                "Scopes table + G14 chart to one building family. "
+                "Default follows CURRENT_RUN / active Twin run. "
+                "All mixes campus runs — do not read as one training curve."
+            ),
+        )
+        fam_filter = None if chosen_filter == "All" else chosen_filter
+        if chosen_filter == "All":
+            st.warning(
+                "Building filter = All mixes geo_b50_* and geo_b100_* (etc.). "
+                "Iteration numbers are **not** a single training curve — use a building filter for dial history."
+            )
+
+        hist = list_iteration_runs(
+            runs_dir(),
+            limit=DEFAULT_G14_HISTORY_LIMIT,
+            prefix=fam_filter,
+        )
+        if not hist and fam_filter is None:
             manifests = sorted(ARTIFACTS.glob("wattlab_*/run_manifest.json"), reverse=True)[:10]
             for mp in manifests:
                 try:
@@ -1144,10 +1204,23 @@ def render() -> None:
                 except Exception:
                     continue
         if not hist:
-            st.caption("No prior runs in workspace runs/.")
+            st.caption(
+                f"No prior runs in workspace runs/ for filter `{chosen_filter}`."
+                if fam_filter
+                else "No prior runs in workspace runs/."
+            )
         else:
-            st.metric("Published iterations shown", len(hist))
-            g14_rows = assign_run_numbers(iter_g14_history(runs_dir(), limit=30))
+            st.metric(
+                f"Published iterations shown ({chosen_filter})",
+                len(hist),
+            )
+            g14_rows = assign_run_numbers(
+                iter_g14_history(
+                    runs_dir(),
+                    limit=DEFAULT_G14_HISTORY_LIMIT,
+                    building_family=fam_filter,
+                )
+            )
             g14_by_dir = {str(r.get("dir")): r for r in g14_rows if r.get("dir")}
 
             def _hist_sort_key(h: dict[str, Any]) -> tuple:
@@ -1163,10 +1236,13 @@ def render() -> None:
             for i, h in enumerate(hist_chrono, start=1):
                 dkey = str(h.get("dir") or "")
                 g = g14_by_dir.get(dkey) or {}
+                rid = h.get("run_id") or (Path(dkey).name if dkey else None)
                 row = {
                     "run": g.get("run") or i,
                     "started_at": h.get("started_at") or g.get("started_at"),
-                    "run_id": h.get("run_id"),
+                    "run_id": rid,
+                    "building": g.get("building_family")
+                    or building_family_from_run_id(str(rid) if rid else None),
                     "hypothesis": h.get("hypothesis"),
                     "weather": h.get("weather_mode"),
                     "status": h.get("status"),
@@ -1200,6 +1276,7 @@ def render() -> None:
                     "run",
                     "started_at",
                     "run_id",
+                    "building",
                     "hypothesis",
                     "status",
                     "eplusout",
@@ -1222,23 +1299,31 @@ def render() -> None:
                 hide_index=True,
             )
 
+            best_in_filter = pick_best_g14_run(g14_rows)
+            if best_in_filter and best_in_filter.get("run_id"):
+                st.caption(
+                    f"Best G14 within filter `{chosen_filter}`: "
+                    f"`{best_in_filter.get('run_id')}` "
+                    f"(pass_fail={best_in_filter.get('pass_fail') or '—'})"
+                )
+
             st.markdown("**Calibration iterations (G14)**")
             st.caption(
-                "Like a training-loss curve: each published Twin run is an epoch. "
+                "Per-building dial history (not campus-wide mtime soup). "
                 "Lower |NMBE| / CV(RMSE) is better. "
                 "**Dashed legend entries** are ASHRAE G14 monthly gates "
-                "(±5% |NMBE|, ≤15% CVRMSE) — not extra model series. "
-                "Missing scorecards skip that point. X-axis run # matches the table (oldest → newest)."
+                "(±5% |NMBE|, ≤15% CVRMSE). "
+                "X ticks = dial stem (r56, i32); hover shows full run_id. "
+                "Star markers = G14 PASS. Best callout = pick_best within this filter."
             )
             st.plotly_chart(
-                g14_epoch_figure(g14_rows, height=440),
+                g14_epoch_figure(g14_rows, height=440, building_family=fam_filter),
                 width="stretch",
                 key="twin_g14_epoch",
             )
 
             pick_opts = [h.get("dir") for h in hist_chrono if h.get("dir")]
             run_by_dir = {str(r.get("dir")): r for r in enriched if r.get("dir")}
-            active_now = _resolve_active_run()
             default_ix = 0
             if active_now is not None:
                 active_s = str(active_now.resolve()) if active_now.exists() else str(active_now)

@@ -360,15 +360,29 @@ def read_run_progress(run_dir: Path) -> dict[str, Any]:
     return out
 
 
-def list_iteration_runs(runs_root: Path, limit: int = 20) -> list[dict[str, Any]]:
+def list_iteration_runs(
+    runs_root: Path,
+    limit: int = 20,
+    *,
+    prefix: str | None = None,
+) -> list[dict[str, Any]]:
+    """List newest published ``runs/<id>/`` dirs (mtime descending).
+
+    When ``prefix`` is set (e.g. ``geo_b100``), only run ids whose directory name
+    starts with that prefix are returned — scan continues until ``limit`` matches
+    or dirs are exhausted (so B50 dial spam does not crowd out B100 history).
+    """
     from wattlab.energyplus.timeseries import find_eplusout_csv
 
     root = Path(runs_root)
     if not root.is_dir():
         return []
+    want = (prefix or "").strip().lower() or None
     rows: list[dict[str, Any]] = []
     for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
         if not d.is_dir() or d.name.startswith("_"):
+            continue
+        if want and not d.name.lower().startswith(want):
             continue
         info = read_run_progress(d)
         info["dir"] = str(d)

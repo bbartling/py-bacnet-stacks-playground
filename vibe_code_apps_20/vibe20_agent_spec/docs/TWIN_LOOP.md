@@ -172,6 +172,11 @@ Always publish `model.idf` and dial/geo meta into `runs/<id>/`. Twin panes follo
 “model reference/default” — never claim ASHRAE 90.1 compliance from defaults alone.
 ECMs default the baseline Twin run to best G14 (`pick_best_g14_run`); override via
 `studio_ecm_baseline_run`.
+Studio **Calibration iterations (G14)** scopes the table + epoch chart to the
+active Twin building family (`geo_b100_*` vs `geo_b50_*`, from `CURRENT_RUN` /
+Building filter). Iteration index is **per-building dial history**, not a global
+mtime mix across campus. Hover shows full `run_id`; best callout is
+`pick_best_g14_run` within the filter.
 
 ## Docker turnkey (Studio + EnergyPlus MCP image)
 
