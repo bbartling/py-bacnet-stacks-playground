@@ -1594,12 +1594,20 @@ def agent_build_notebook(
     measure_ids: list[str] | tuple[str, ...] | None = None,
     twin_run: str | Path | None = None,
     write_manifest: bool = True,
+    export_evidence: bool = True,
+    evidence_dry_run: bool = False,
+    sizing: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
-    """Agent-owned workbook write (BUG-050). Soft Twin paste — never fails on missing E+."""
+    """Agent-owned workbook write (BUG-050). Soft Twin paste — never fails on missing E+.
+
+    When ``export_evidence`` is true, also writes Stage-1
+    ``ecm_simulation_evidence.json`` + dual-rail ``ecm_engineering_inputs.json``
+    sidecars beside the workbook (dry_run skips disk writes for evidence only).
+    """
     twin_label = None
     if twin_run is not None:
         twin_label = str(twin_run)
-    return build_and_save_notebook(
+    written = build_and_save_notebook(
         package_id,
         out_dir,
         profile=profile,
@@ -1610,6 +1618,25 @@ def agent_build_notebook(
         write_manifest=write_manifest,
         use_template=True,
     )
+    if export_evidence:
+        try:
+            from wattlab.ecm.evidence_export import maybe_export_from_agent_build
+
+            ev = maybe_export_from_agent_build(
+                out_dir,
+                report=report or {},
+                profile=profile,
+                sizing=sizing,
+                dry_run=evidence_dry_run,
+            )
+            if ev and ev.get("evidence_path"):
+                written["evidence"] = Path(ev["evidence_path"])
+            if ev and ev.get("inputs_path"):
+                written["engineering_inputs"] = Path(ev["inputs_path"])
+        except Exception:
+            # Soft path — workbook remains the primary agent-build artifact.
+            pass
+    return written
 
 
 def sync_notebook_from_twin(
