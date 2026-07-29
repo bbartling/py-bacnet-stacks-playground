@@ -2,6 +2,18 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-29 — ENH-VIBE-001/002 + Stage 1 evidence exporter
+
+- **ENH-VIBE-002 / BUG-ECM-015:** `merge_full_parity_ss` fills Studio `ss_*` from
+  `reports/ecm_full_parity_compare.json` when present; ECMs page + `load_compare`
+  wired; nested `reports/notebooks/**/*.xlsx` downloads.
+- **Stage 1:** `wattlab.ecm.evidence_export` writes `ecm_simulation_evidence_v1` +
+  dual-rail `ecm_engineering_inputs.json`; soft hook on `agent_build_notebook`.
+- **Ownership:** Open-FDD = schemas/workbook; vibe20 = IDF/sim/evidence export
+  (AGENTS.md).
+- **ENH-VIBE-001:** GHCR tip note — `ghcr.io/bbartling/vibe20:latest` (or
+  `:sha-<sha>`) via `scripts/docker_update_vibe20.sh`; recreate after publish.
+
 ## 2026-07-20 — Studio mega dumb-down (4 pages + workspace)
 
 - Replaced 12-page Studio with **Uploads / Fuel dashboard / Twin·calibrate / ECMs**.

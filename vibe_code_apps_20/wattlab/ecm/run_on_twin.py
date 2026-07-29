@@ -73,6 +73,7 @@ def run_ecms_on_twin(
     from wattlab.ecm.compare import (
         build_compare_from_cascade,
         compare_path,
+        merge_full_parity_ss,
         write_compare as _write,
     )
     from wattlab.notebooks.twin_cascade import cascade_measures_on_twin
@@ -97,6 +98,7 @@ def run_ecms_on_twin(
             twin_run=twin_dir.name,
         )
         stub["energyplus"]["status"] = "dry_run"
+        merge_full_parity_ss(stub, workspace / "reports")
         out: dict[str, Any] = {
             "ok": True,
             "dry_run": True,
@@ -118,6 +120,7 @@ def run_ecms_on_twin(
         cascade_dir=report.get("out_dir"),
         profile=profile,
     )
+    merge_full_parity_ss(compare, workspace / "reports")
     result: dict[str, Any] = {
         "ok": True,
         "dry_run": False,

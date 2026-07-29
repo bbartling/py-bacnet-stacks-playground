@@ -6,9 +6,28 @@
 
 **ECM math SoT:** Generic spreadsheet/ESCO calculators live on PyPI `open-fdd` (`open_fdd.ecm_engineering`). Call them through `wattlab.engineering.openfdd_ecm` — do not invent a second affinity/bin/finance stack. EnergyPlus, IDF, Studio, catalog IDs, and EP-vs-engineering presentation stay in WattLab.
 
+**Ownership (Stage 1+):**
+- **Open-FDD owns** schemas, equations, provenance, workbook/DOCX builders, publication gates, agent CLI/API, SQL FDD rules.
+- **Vibe20 owns** IDF/MCP/sim, G14, measure/package/cascade runs, and **evidence export** (`wattlab.ecm.evidence_export` → `ecm_simulation_evidence.json` + dual-rail `ecm_engineering_inputs.json`).
+- Studio ECMs merges `reports/ecm_full_parity_compare.json` into `ss_*` when present (BUG-ECM-015 / ENH-VIBE-002) — never invent spreadsheet numbers.
+
 ```text
 Open-FDD evidence → Open-FDD ECM engineering → Vibe 20 EnergyPlus → engineering vs EP cross-check
+Vibe20 cascade/sizing → ecm_simulation_evidence.json → Open-FDD import/validate → workbook
 ```
+
+### GHCR image tip (ENH-VIBE-001)
+
+Prefer a pulled tip — running containers never auto-update:
+
+```bash
+# Moving tip after CI publish (develop/latest), or pin immutable sha:
+./scripts/docker_update_vibe20.sh latest
+# ./scripts/docker_update_vibe20.sh sha-<shortsha>
+docker exec vibe20 sh -c 'echo "VIBE20_GIT_SHA=${VIBE20_GIT_SHA:-unset}"'
+```
+
+Image: `ghcr.io/bbartling/vibe20:<tag>` — see `scripts/docker_update_vibe20.sh` and `README.md` Run (Docker / GHCR).
 
 **Quick link (vibe19 historian zips):** [`../vibe_code_apps_19/docs/PACKAGE_SPEC.md`](../vibe_code_apps_19/docs/PACKAGE_SPEC.md) — `openfdd_package_v1` layout before bridging / calibrating.
 

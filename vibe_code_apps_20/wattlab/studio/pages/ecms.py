@@ -1,6 +1,6 @@
 """ECMs — simple spreadsheet vs EnergyPlus compare (energy, cost, ROI).
 
-Spreadsheet calcs come from external sources later (columns stay pending).
+Spreadsheet calcs come from external sources / full-parity merge when present.
 EnergyPlus side = cascade on best G14 Twin via MCP/DinD simulate.
 """
 
@@ -15,8 +15,10 @@ import streamlit as st
 
 from wattlab.ecm.compare import (
     compare_path,
+    discover_notebook_xlsx,
     empty_compare_stub,
     load_compare,
+    merge_full_parity_ss,
     write_compare,
 )
 from wattlab.ecm.run_on_twin import DEFAULT_G36_ECMS, run_ecms_on_twin
@@ -57,7 +59,7 @@ def _compare_table(payload: dict[str, Any]) -> pd.DataFrame:
 def render(*, profile: dict[str, Any] | None = None) -> None:
     st.header("ECMs")
     st.caption(
-        "Two columns of truth: **spreadsheet** (external ESCO books — pending) vs "
+        "Two columns of truth: **spreadsheet** (full-parity / external ESCO when present) vs "
         "**EnergyPlus** (best calibrated Twin + MCP/DinD). "
         "ROI is a first-year screening attempt, not a bid."
     )
@@ -65,9 +67,10 @@ def render(*, profile: dict[str, Any] | None = None) -> None:
     ws = workspace_root()
     reports = reports_dir()
     path = compare_path(reports)
-    payload = load_compare(path)
+    payload = load_compare(path, reports_dir=reports)
     if payload is None:
         payload = empty_compare_stub(measure_ids=list(DEFAULT_G36_ECMS))
+        merge_full_parity_ss(payload, reports)
         write_compare(path, payload)
 
     # --- Run controls ---
@@ -88,6 +91,7 @@ def render(*, profile: dict[str, Any] | None = None) -> None:
                     write_compare=True,
                 )
                 payload = result.get("compare") or payload
+                merge_full_parity_ss(payload, reports)
                 if result.get("ok"):
                     st.success(
                         f"Wrote `{result.get('compare_path')}` · twin=`{result.get('twin_run')}`"
@@ -105,7 +109,7 @@ def render(*, profile: dict[str, Any] | None = None) -> None:
         st.subheader("Spreadsheet calc")
         st.info(
             f"Status: **{ss.get('status', 'pending_external')}**  \n"
-            f"{ss.get('note') or 'Drop external ESCO workbooks later — columns stay blank for now.'}"
+            f"{ss.get('note') or 'Drop external ESCO / full-parity compare JSON — columns stay blank until present.'}"
         )
     with b:
         st.subheader("EnergyPlus calc")
@@ -134,21 +138,22 @@ def render(*, profile: dict[str, Any] | None = None) -> None:
         st.write(payload.get("honesty") or "")
         st.code(json.dumps({"path": str(path), "schema": payload.get("schema")}, indent=2))
         st.caption(
-            "Agent-built WattLab screening xlsx files are retired from this page. "
-            "Use EnergyPlus for measure deltas; wire external spreadsheets into "
-            "`ss_*` fields when those books are ready."
+            "Spreadsheet ``ss_*`` fills from ``reports/ecm_full_parity_compare.json`` when present "
+            "(BUG-ECM-015 / ENH-VIBE-002). EnergyPlus remains the Twin cascade path."
         )
 
-    # Optional: still allow download of any leftover notebooks without promoting them
+    # Nested notebooks under reports/notebooks/** (full_parity_ecm/, packages, …)
     nb_dir = reports / "notebooks"
-    leftovers = sorted(nb_dir.glob("*.xlsx")) if nb_dir.is_dir() else []
+    leftovers = discover_notebook_xlsx(nb_dir)
     if leftovers:
         with st.expander("Legacy notebooks on disk (not the product path)", expanded=False):
             for p in leftovers:
+                rel = p.relative_to(nb_dir) if p.is_relative_to(nb_dir) else Path(p.name)
+                key = f"legacy_dl_{rel.as_posix().replace('/', '__')}"
                 st.download_button(
-                    f"Download {p.name}",
+                    f"Download {rel.as_posix()}",
                     data=p.read_bytes(),
                     file_name=p.name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"legacy_dl_{p.name}",
+                    key=key,
                 )

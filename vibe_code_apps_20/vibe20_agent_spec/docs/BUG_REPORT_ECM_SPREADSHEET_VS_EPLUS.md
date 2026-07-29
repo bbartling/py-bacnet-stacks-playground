@@ -32,7 +32,7 @@ Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives
 | **BUG-ECM-011** | Open | Demand (kW) missing from py → Excel / Studio Compare API. |
 | **BUG-ECM-012** | Partial | Load-shed DR not in product agent Excel / cascade; workaround tool `load_shed_demand_screen.py` exists. |
 | **BUG-ECM-014** | Open (doc) | Calendar FanAvail / OAT-bin hours ≠ formula FLH. Pasting calendar into Inputs over-predicts vs E+. Fix: Matchup calendar + FLH Inputs (`build_eplus_matched_ecm_workbook.py` / full-parity builder). |
-| **BUG-ECM-015** | Open | Studio **ECMs** tab does not show full-parity sheet↔E+ results. Page uses `reports/ecm_compare.json` with spreadsheet side `pending_external`; agent xlsx retired; legacy download only globs top-level `notebooks/*.xlsx` (misses `full_parity_ecm/`). |
+| **BUG-ECM-015** | Fixed (ENH-VIBE-002) | Studio merges `ecm_full_parity_compare.json` → `ss_*` when present; nested `notebooks/**/*.xlsx` downloads. |
 
 ---
 
@@ -50,12 +50,12 @@ Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives
 
 | ID | Priority | Ask |
 |----|----------|-----|
-| **ENH-ECM-001** | High | Wire full-parity Compare into Studio ECMs: populate `ecm_compare.json` `ss_*` + `ep_*` from `ecm_full_parity_compare.json` (or rebuild path) so the Streamlit table shows the 8-measure ballpark. |
+| **ENH-ECM-001** | Done (ENH-VIBE-002) | Wire full-parity Compare into Studio ECMs: merge `ss_*` from `ecm_full_parity_compare.json` when present. |
 | **ENH-ECM-002** | High | Promote MCP prototypes (enthalpy econ, CHW OA reset, occ floor proxy) into product patch registry + cascade. |
 | **ENH-ECM-003** | High | Auto on `agent-build`: eio tons/fan HP + Twin AMY calendar + FLH Inputs (collapse BUG-ECM-003). |
 | **ENH-ECM-004** | Med | Write Compare status / ±50% honesty back into xlsx Compare sheet (BUG-ECM-001 / 007). |
 | **ENH-ECM-005** | Med | Demand + load-shed columns in Excel + Studio (BUG-ECM-011 / 012); default DR fraction from July MCP pair (~0.13 on B100 r56). |
-| **ENH-ECM-006** | Med | Nested notebook picker / download under `reports/notebooks/**` (or promote `ECM_FULL_PARITY.xlsx` to product path). |
+| **ENH-ECM-006** | Done (ENH-VIBE-002) | Nested notebook picker / download under `reports/notebooks/**`. |
 | **ENH-ECM-007** | Med | Honor `--ecms` on `g36_airside_controls` (BUG-ECM-004). |
 | **ENH-ECM-008** | Done | Filter Studio G14 chart / best-run picker by building — shipped with BUG-ECM-008 / [#65](https://github.com/bbartling/py-bacnet-stacks-playground/pull/65). |
 | **ENH-ECM-009** | Low | Default package builds from `VAV_AHU_CONTROLS_ECM_PACKAGE.json` (was BUG-ECM-013 — process/enhancement, not a defect). |
