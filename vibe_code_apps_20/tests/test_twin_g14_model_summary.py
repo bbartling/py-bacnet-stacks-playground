@@ -7,9 +7,11 @@ from pathlib import Path
 
 from wattlab.studio.g14_history import (
     assign_run_numbers,
+    building_family_from_run_id,
     g14_epoch_figure,
     iter_g14_history,
     pick_best_g14_run,
+    run_id_short_stem,
 )
 from wattlab.studio.idf_geometry import parse_idf_geometry
 from wattlab.studio.model_summary import build_dial_knobs_rows, build_model_summary
@@ -110,6 +112,132 @@ def test_iter_g14_history_and_epoch(tmp_path: Path):
     legend_names = [getattr(t, "name", "") or "" for t in fig.data]
     assert any("G14 |NMBE| gate" in n for n in legend_names)
     assert any("G14 CV(RMSE) gate" in n for n in legend_names)
+
+
+def _write_g14_run(
+    runs: Path,
+    run_id: str,
+    *,
+    day: int,
+    nmbe: float,
+    cvrmse: float,
+    pass_fail: str,
+) -> None:
+    d = runs / run_id
+    d.mkdir(parents=True)
+    (d / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "ok",
+                "started_at": f"2026-07-{day:02d}T12:00:00Z",
+                "finished_at": f"2026-07-{day:02d}T12:30:00Z",
+                "hypothesis": run_id,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (d / "calibration_scorecard.json").write_text(
+        json.dumps(
+            {
+                "utility_bills": {
+                    "pass_fail": pass_fail,
+                    "stats_electricity": {"nmbe_pct": nmbe, "cvrmse_pct": cvrmse},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_building_family_helpers():
+    assert building_family_from_run_id("geo_b100_6stack_shape_r56_sched_mild") == "geo_b100"
+    assert building_family_from_run_id("geo_b50_i32_freecool_julHW") == "geo_b50"
+    assert run_id_short_stem("geo_b100_6stack_shape_r56_sched_mild") == "r56"
+    assert run_id_short_stem("geo_b50_i32_freecool_julHW") == "i32"
+
+
+def test_g14_chart_scopes_to_building_family(tmp_path: Path):
+    """B100 filter must never plot B50 points; best PASS is r56-like, not B50 i32."""
+    runs = tmp_path / "runs"
+    # Newer B50 FAIL (would look like “late iter” in mixed mtime soup)
+    _write_g14_run(
+        runs,
+        "geo_b50_i32_freecool_julHW",
+        day=20,
+        nmbe=2.0,
+        cvrmse=19.5,
+        pass_fail="FAIL",
+    )
+    _write_g14_run(
+        runs,
+        "geo_b50_i31_earlier",
+        day=18,
+        nmbe=4.0,
+        cvrmse=18.0,
+        pass_fail="FAIL",
+    )
+    # Older B100 PASS (true best for B100)
+    _write_g14_run(
+        runs,
+        "geo_b100_6stack_shape_r56_sched_mild",
+        day=10,
+        nmbe=1.5,
+        cvrmse=8.0,
+        pass_fail="PASS",
+    )
+    _write_g14_run(
+        runs,
+        "geo_b100_6stack_shape_r55_prior",
+        day=8,
+        nmbe=6.0,
+        cvrmse=16.0,
+        pass_fail="FAIL",
+    )
+
+    b100 = assign_run_numbers(
+        iter_g14_history(runs, limit=80, building_family="geo_b100")
+    )
+    ids = [r["run_id"] for r in b100]
+    assert ids == [
+        "geo_b100_6stack_shape_r55_prior",
+        "geo_b100_6stack_shape_r56_sched_mild",
+    ]
+    assert all(str(r["run_id"]).startswith("geo_b100") for r in b100)
+    assert "geo_b50_i32_freecool_julHW" not in ids
+    best = pick_best_g14_run(b100)
+    assert best is not None
+    assert best["run_id"] == "geo_b100_6stack_shape_r56_sched_mild"
+    assert best["pass_fail"] == "PASS"
+
+    fig = g14_epoch_figure(b100, building_family="geo_b100")
+    customdatas = []
+    for t in fig.data:
+        cd = getattr(t, "customdata", None)
+        if cd is not None:
+            customdatas.extend([str(x) for x in cd if x])
+    hover_blob = " ".join(
+        str(getattr(t, "text", "") or "")
+        + " "
+        + " ".join(str(x) for x in (getattr(t, "customdata", None) or []))
+        for t in fig.data
+    )
+    assert "geo_b100_6stack_shape_r56_sched_mild" in hover_blob
+    assert "geo_b50_i32" not in hover_blob
+    assert "geo_b50" not in hover_blob
+    legend_names = [getattr(t, "name", "") or "" for t in fig.data]
+    assert any(n == "G14 PASS" for n in legend_names)
+
+    # Mixed / unfiltered still returns both families (explicit All path)
+    mixed = iter_g14_history(runs, limit=80)
+    mixed_ids = {r["run_id"] for r in mixed}
+    assert "geo_b50_i32_freecool_julHW" in mixed_ids
+    assert "geo_b100_6stack_shape_r56_sched_mild" in mixed_ids
+    # "all" sentinel must not filter to prefix="all" (empty)
+    assert len(iter_g14_history(runs, limit=80, building_family="all")) == len(mixed)
+    from wattlab.studio.g14_history import discover_building_families
+
+    assert discover_building_families(runs) == ["geo_b100", "geo_b50"]
 
 
 def test_build_dial_knobs_rows(tmp_path: Path):
