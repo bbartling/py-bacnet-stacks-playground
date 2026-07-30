@@ -20,8 +20,9 @@ Seed themes: [`examples/workspace_tools/`](../../examples/workspace_tools/).
 Human workspace copies often live at `~/wattlab_workspace/tools/` (not in git).
 
 **Primary AI handoff (high-level):** [`AGENT_CONTEXT.md`](AGENT_CONTEXT.md).
-Deeper dial phases: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
-`skills/wattlab-twin-calibrate-dial/SKILL.md`.
+Deeper dial phases: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skills
+`wattlab-twin-calibrate-dial` + `wattlab-twin-ops-reheat-dial`.
+Method SoT (ops/reheat chess, generic): [`BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`](BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md).
 
 ECM spreadsheet SoT: prefer `ECM_FULL_PARITY.xlsx` via
 `build_full_parity_ecm_workbook_v2.py` + `ecm_full_parity_compare.json` merge
@@ -29,9 +30,10 @@ ECM spreadsheet SoT: prefer `ECM_FULL_PARITY.xlsx` via
 
 **Twin calibrate dial** (short/long gas & elec, monthly shape): envelope first
 (WWR / U / ACH), then banded SAT + VAV min-flow; EnergyPlus stays **autosize**.
+**Adaptive fuel order:** when monthly ±% is cooling/runtime-shaped, dial ops
+(fans/OA/DAT) before more glass; recover gas with **daytime HW** (not plant kill).
 After gas shape near/pass, prefer **month-aware light/equipment schedules** over
-blunt annual LPD cuts.
-
+blunt annual LPD cuts unless residuals are clearly ops-shaped.
 ## Layout
 
 ```text

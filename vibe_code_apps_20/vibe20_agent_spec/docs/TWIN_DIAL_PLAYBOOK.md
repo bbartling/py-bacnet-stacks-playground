@@ -3,8 +3,10 @@
 Living playbook for agents dialing WattLab Studio twins. **Start here (short):**
 [`AGENT_CONTEXT.md`](AGENT_CONTEXT.md). Skills:
 [`wattlab-twin-calibrate-dial`](../skills/wattlab-twin-calibrate-dial/SKILL.md),
+[`wattlab-twin-ops-reheat-dial`](../skills/wattlab-twin-ops-reheat-dial/SKILL.md),
 [`wattlab-assumptions`](../skills/wattlab-assumptions/SKILL.md) (§ Short/long fuel).
 Tools bin context: [`AGENT_TOOLS.md`](AGENT_TOOLS.md).
+Method SoT (ops/reheat chess): [`BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`](BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md).
 
 Practice campus trajectories (Liberty-style stacked towers) are **labeled
 rehearsal evidence** — pass paths/args for any building; never bake site ids
@@ -63,12 +65,53 @@ Residual CVRMSE ~25–30% can remain after honest HVAC banding — **document it
 do not invent physics to force a 15% CV. Prefer **OA-hours / ops** over more glass
 when bills ≠ HDD.
 
-### 4. Monthly elec shape (CVRMSE) — after gas near/pass
+### 2c. As-operated schedules + HW availability (missing chapter)
 
-Gas shape before elec shape. Once gas is near/pass:
+**Method SoT:** [`BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`](BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md) ·
+skill `wattlab-twin-ops-reheat-dial`.
 
-1. Prefer **month-aware light / equipment schedules** (seasonal Schedule:Compact)
-   over blunt annual LPD/EPD cuts.
+#### Reheat coupling (always print)
+
+```
+more mechanical cooling (cool DAT, long fans, low OA)
+  → more reheat opportunity
+  → gas up unless HW is scheduled/softened
+```
+
+#### Elec-shape knobs (as-operated)
+
+| Symptom | Try |
+| --- | --- |
+| Shoulder months elec **long** | Shorten AHU fan hours those months |
+| Peak cool month elec **short** | Longer fans and/or cooler DAT and/or lower OA |
+| Peak month short + dump says recirc | **Fans on, OA ≈ 0** (even 24/7) |
+
+#### Gas recovery without killing elec
+
+| Symptom | Try | Trap |
+| --- | --- | --- |
+| Gas spike after cooler DAT / longer fans | **Daytime-only HW** in spike months | Full HW off → that month gas ≈ −100% vs bills |
+| Still high gas | Soften HW OA-reset high SP; warm DAT slightly; shorten HW hours | Cooler DAT alone without HW control |
+| Winter gas high | Shorter winter fan hours; softer HW | Cutting OA/fans can cut useful shoulder reheat |
+| Shoulder gas short | Cooler DAT and/or higher VAV min those months | Raises chiller elec — watch elec CV |
+| Near gas CV gate (~15–17) | Stack **small** knobs | One big plant-off usually overshoots |
+
+#### Score honesty
+
+- Barely-≤15% gas CV is **provisional** — freeze after a margin or stamp “edge pass.”
+- Never promote a run that flips the previously-passing fuel.
+- One hypothesis per run; score **both** fuels every time.
+
+### 4. Monthly elec / ops shape (CVRMSE) — adaptive order
+
+**Do not always wait for gas pass.** If monthly ±% shows elec long in shoulders
+or short in peak cool months while gas is near/pass (or gas is not the CV
+driver), dial **ops first** (fans / OA / DAT), then recover gas (§2c).
+
+When gas is the CV driver and elec already passes:
+
+1. Prefer **month-aware light / equipment schedules** only if residuals look
+   lighting-shaped — not when dump shows fan/OA/DAT mismatch.
 2. Flat annual LPD cuts often trade winter/summer months and can **break a hard-won
    gas pass**.
 3. Use Twin monthly ±% chart (over/under by month) to see which seasons elec is wrong.
@@ -106,4 +149,6 @@ Stamp WWR / U / ACH / SAT bands / min-flow / OA / hypothesis on
 | `/data/tools/TWIN_DIAL_PLAYBOOK.md` | Optional live copy of this playbook |
 | `/data/reports/CALIBRATE_SESSION.md` | Session narrative (human/agent append) |
 | `/data/runs/CURRENT_RUN.txt` | Preferred Twin publish |
-| `vibe20_agent_spec/skills/wattlab-twin-calibrate-dial/` | Cursor/agent skill |
+| `vibe20_agent_spec/skills/wattlab-twin-calibrate-dial/` | Cursor/agent skill (envelope → SAT) |
+| `vibe20_agent_spec/skills/wattlab-twin-ops-reheat-dial/` | As-operated + reheat / HW chess |
+| `vibe20_agent_spec/docs/BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md` | Method SoT (generic; no campus IDs) |
