@@ -20,42 +20,56 @@ SAT_RESET_BODY = """    Temperature,             !- Schedule Type Limits Name
 
 _SCHEDULE_NAME = "Seasonal Reset Supply Air Temp Sch"
 _LIBERTY_SAT_SCH = "WattLab SAT Reset Cooling"
-_LIBERTY_SAT_C = 14.0  # warmer leaving-air (°C) screening raise
+_LIBERTY_WINTER_SAT_C = 12.8
+_LIBERTY_COOLING_SAT_C = 14.0  # warmer leaving-air (°C) screening raise
 
 
-def _inject_liberty_cooling_sat(text: str) -> tuple[str, bool]:
-    """Point VAV cooling SPM at a constant warmer SAT schedule (Liberty / HVACTemplate)."""
+def _inject_liberty_cooling_sat(text: str) -> tuple[str, int]:
+    """Reset every Liberty VAV cooling SPM without changing its winter DAT path."""
     sch_block = (
         f"Schedule:Compact,\n"
         f"  {_LIBERTY_SAT_SCH},\n"
         f"  Temperature,\n"
+        f"  Through: 3/31,\n"
+        f"  For: AllDays,\n"
+        f"  Until: 24:00,{_LIBERTY_WINTER_SAT_C},\n"
+        f"  Through: 9/30,\n"
+        f"  For: AllDays,\n"
+        f"  Until: 24:00,{_LIBERTY_COOLING_SAT_C},\n"
         f"  Through: 12/31,\n"
         f"  For: AllDays,\n"
-        f"  Until: 24:00,{_LIBERTY_SAT_C};\n\n"
+        f"  Until: 24:00,{_LIBERTY_WINTER_SAT_C};\n\n"
     )
-    if _LIBERTY_SAT_SCH not in text:
-        anchor = "SetpointManager:Scheduled,\n  VAV Sys 1 Cooling Supply Air Temp Manager,"
-        if anchor in text:
-            text = text.replace(anchor, sch_block + anchor, 1)
-        else:
-            text = sch_block + text
 
-    new, n = re.subn(
-        r"(SetpointManager:Scheduled,\s*\n\s*VAV Sys 1 Cooling Supply Air Temp Manager,[^\n]*\n"
+    # Do not match the heating managers: their schedule is the winter DAT
+    # evidence and must remain untouched.  Match every cooling manager so a
+    # dual-AHU Liberty model cannot silently patch only VAV Sys 1.
+    cooling_spm = re.compile(
+        r"(SetpointManager:Scheduled,\s*\n\s*[^\n,]*Cooling Supply Air Temp Manager,[^\n]*\n"
         r"\s*Temperature,[^\n]*\n\s*)([^,\n]+)(,)",
+        re.IGNORECASE,
+    )
+    first = cooling_spm.search(text)
+    if first is None:
+        return text, 0
+
+    if _LIBERTY_SAT_SCH not in text:
+        text = text[: first.start()] + sch_block + text[first.start() :]
+
+    new, n = cooling_spm.subn(
         rf"\g<1>{_LIBERTY_SAT_SCH}\3",
         text,
-        count=1,
     )
-    return new, n > 0
+    return new, n
 
 
 def apply_sat_reset(idf_path: Path, out_path: Path) -> dict:
-    """Widen seasonal SAT band, or retarget Liberty cooling SPM to warmer SAT."""
+    """Widen seasonal SAT band, or reset all Liberty cooling AHUs."""
     text = idf_path.read_text(encoding="utf-8", errors="replace")
     flags: list[str] = ["sat_reset_proxy", "not_full_gl36_sat_reset"]
     ok = False
     mode = "none"
+    managers_patched = 0
 
     pattern = re.compile(
         rf"(  Schedule:Compact,\s*\n\s*{re.escape(_SCHEDULE_NAME)}\s*,[^\n]*\n)"
@@ -69,11 +83,11 @@ def apply_sat_reset(idf_path: Path, out_path: Path) -> dict:
         mode = "seasonal_schedule"
 
     if not ok:
-        text, hit = _inject_liberty_cooling_sat(text)
-        if hit:
+        text, managers_patched = _inject_liberty_cooling_sat(text)
+        if managers_patched:
             ok = True
-            mode = "liberty_cooling_spm"
-            flags.append("liberty_vav_sat_spm")
+            mode = "liberty_cooling_spms"
+            flags.extend(["liberty_vav_sat_spm", "liberty_dual_ahu_sat_spm"])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     header = f"! App20 IDF patch: sat_reset (mode={mode}; not full G36 SAT reset)\n"
@@ -85,4 +99,5 @@ def apply_sat_reset(idf_path: Path, out_path: Path) -> dict:
         "out": str(out_path),
         "ok": ok,
         "flags": flags,
+        "managers_patched": managers_patched,
     }

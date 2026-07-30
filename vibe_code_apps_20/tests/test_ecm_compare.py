@@ -123,6 +123,24 @@ SetpointManager:Scheduled,
   Temperature,                                             !- Control Variable
   HVACTemplate-Always 12.8,                                !- Schedule Name
   VAV Sys 1 Supply Fan Outlet;
+
+SetpointManager:Scheduled,
+  VAV Sys 2 Cooling Supply Air Temp Manager,               !- Name
+  Temperature,                                             !- Control Variable
+  HVACTemplate-Always 12.8,                                !- Schedule Name
+  VAV Sys 2 Supply Fan Outlet;
+
+SetpointManager:Scheduled,
+  VAV Sys 1 Heating Supply Air Temp Manager,               !- Name
+  Temperature,                                             !- Control Variable
+  Winter Dump DAT,                                         !- Schedule Name
+  VAV Sys 1 Supply Fan Outlet;
+
+SetpointManager:Scheduled,
+  VAV Sys 2 Heating Supply Air Temp Manager,               !- Name
+  Temperature,                                             !- Control Variable
+  Winter Dump DAT,                                         !- Schedule Name
+  VAV Sys 2 Supply Fan Outlet;
 """,
         encoding="utf-8",
     )
@@ -134,6 +152,12 @@ SetpointManager:Scheduled,
     assert sat["ok"], sat
     sat_txt = (tmp_path / "sat.idf").read_text()
     assert "WattLab SAT Reset Cooling" in sat_txt
+    assert sat["mode"] == "liberty_cooling_spms"
+    assert sat["managers_patched"] == 2
+    assert sat_txt.count("WattLab SAT Reset Cooling,") == 3
+    assert "Through: 3/31,\n  For: AllDays,\n  Until: 24:00,12.8," in sat_txt
+    assert "Through: 9/30,\n  For: AllDays,\n  Until: 24:00,14.0," in sat_txt
+    assert "Winter Dump DAT" in sat_txt
 
     lock = apply_chiller_lockout(idf, tmp_path / "lock.idf", oat_lockout_f=60.0)
     assert lock["ok"] and lock["managers_patched"] == 1
