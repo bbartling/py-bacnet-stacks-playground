@@ -915,33 +915,35 @@ def render() -> None:
             "Use seasons to choose the next dial lever (OA hours, SAT bands, schedules)."
         )
         if show_elec:
-            fig_e = build_monthly_pm_figure(bills_rows, fuel="elec")
-            if fig_e is not None:
-                st.plotly_chart(fig_e, width="stretch", key="twin_monthly_pm_elec")
-                seas_e = season_summary(monthly_pct_series(bills_rows, fuel="elec"))
-                if seas_e:
-                    st.caption(
-                        "Elec season mean ±%: "
-                        + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_e.items())
-                    )
-            else:
+            fig_e = build_monthly_pm_figure(
+                bills_rows, fuel="elec", placeholder_when_empty=True
+            )
+            st.plotly_chart(fig_e, width="stretch", key="twin_monthly_pm_elec")
+            seas_e = season_summary(monthly_pct_series(bills_rows, fuel="elec"))
+            if seas_e:
+                st.caption(
+                    "Elec season mean ±%: "
+                    + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_e.items())
+                )
+            elif not monthly_pct_series(bills_rows, fuel="elec"):
                 st.info(
-                    "Elec dial chart unavailable — no monthly `observed_kwh` + "
+                    "Elec dial: placeholder — no monthly `observed_kwh` + "
                     "`modeled_kwh`/`simulated_kwh` pairs in this scorecard."
                 )
         if show_gas:
-            fig_g = build_monthly_pm_figure(bills_rows, fuel="gas")
-            if fig_g is not None:
-                st.plotly_chart(fig_g, width="stretch", key="twin_monthly_pm_gas")
-                seas_g = season_summary(monthly_pct_series(bills_rows, fuel="gas"))
-                if seas_g:
-                    st.caption(
-                        "Gas season mean ±%: "
-                        + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_g.items())
-                    )
-            else:
+            fig_g = build_monthly_pm_figure(
+                bills_rows, fuel="gas", placeholder_when_empty=True
+            )
+            st.plotly_chart(fig_g, width="stretch", key="twin_monthly_pm_gas")
+            seas_g = season_summary(monthly_pct_series(bills_rows, fuel="gas"))
+            if seas_g:
+                st.caption(
+                    "Gas season mean ±%: "
+                    + ", ".join(f"{k} {v:+.0f}%" for k, v in seas_g.items())
+                )
+            elif not monthly_pct_series(bills_rows, fuel="gas"):
                 st.info(
-                    "Gas dial chart unavailable — no monthly `observed_therms` + "
+                    "Gas dial: placeholder — no monthly `observed_therms` + "
                     "`modeled_therms`/`simulated_therms` pairs in this scorecard."
                 )
 
@@ -987,6 +989,22 @@ def render() -> None:
         st.dataframe(pd.DataFrame(monthly_model).head(24), width="stretch", hide_index=True)
         st.caption(
             "Annual monthly model series only — no utility_bills.per_month pairs for bills-vs-model overlay."
+        )
+        from wattlab.studio.monthly_dial_chart import render_required_monthly_pct_charts
+
+        render_required_monthly_pct_charts(
+            [],
+            key_prefix="twin_monthly_pm_annual_only",
+            twin_hint=str(active) if active else None,
+        )
+    else:
+        # Keep chart frames visible even with no scorecard yet (ECM parity).
+        from wattlab.studio.monthly_dial_chart import render_required_monthly_pct_charts
+
+        render_required_monthly_pct_charts(
+            [],
+            key_prefix="twin_monthly_pm_empty",
+            twin_hint=str(active) if active else None,
         )
 
     st.subheader("Client deliverables")

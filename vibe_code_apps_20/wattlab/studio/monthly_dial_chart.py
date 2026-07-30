@@ -86,18 +86,100 @@ def bar_colors(pcts: list[float], *, ok_band_pct: float = DEFAULT_OK_BAND_PCT) -
     return colors
 
 
+PLACEHOLDER_MONTHS = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
+
+# Honest agent checklist when utility_bills.per_month JSON is missing.
+AGENT_MONTHLY_PCT_PROMPT_LINES = (
+    "Publish / attach `calibration_scorecard.json` (or `campaign_stamp.json` → scorecard_path).",
+    "Fill `utility_bills.per_month` with 12 months of pairs:",
+    "  • elec: `observed_kwh` + `modeled_kwh` (or `simulated_kwh`)",
+    "  • gas: `observed_therms` + `modeled_therms` (or `simulated_therms`)",
+    "Point ECMs / Twin at the same calibrated run under `runs/…`.",
+    "Re-open this tab — monthly ±% bars must stay visible once JSON is present.",
+)
+
+
+def build_empty_monthly_pm_figure(
+    *,
+    fuel: str,
+    title: str | None = None,
+    ok_band_pct: float = DEFAULT_OK_BAND_PCT,
+):
+    """Always-visible placeholder chart when monthly JSON pairs are absent."""
+    import plotly.graph_objects as go
+
+    fuel_label = "Electricity" if fuel == "elec" else "Natural gas"
+    zeros = [0.0] * len(PLACEHOLDER_MONTHS)
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=list(PLACEHOLDER_MONTHS),
+                y=zeros,
+                marker_color="#cbd5e0",
+                text=["—"] * len(PLACEHOLDER_MONTHS),
+                textposition="outside",
+                hovertemplate="%{x}: no bill↔E+ pair yet<extra></extra>",
+                name=f"{fuel} ±% (awaiting data)",
+            )
+        ]
+    )
+    fig.add_hline(y=ok_band_pct, line_dash="dot", line_color=BAND_COLOR)
+    fig.add_hline(y=-ok_band_pct, line_dash="dot", line_color=BAND_COLOR)
+    fig.add_hline(y=0, line_color="#2d3748", line_width=1)
+    fig.add_annotation(
+        text="Awaiting utility_bills.per_month — chart slot reserved",
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.55,
+        showarrow=False,
+        font=dict(size=13, color="#4a5568"),
+    )
+    fig.update_layout(
+        title=title or f"{fuel_label} — monthly dial ±% (model vs bills)",
+        yaxis_title="% off (model − bill) / bill",
+        yaxis=dict(range=[-ok_band_pct * 2, ok_band_pct * 2]),
+        height=360,
+        margin=dict(l=40, r=20, t=50, b=40),
+        showlegend=False,
+    )
+    return fig
+
+
 def build_monthly_pm_figure(
     per_month: list[dict[str, Any]] | None,
     *,
     fuel: str,
     title: str | None = None,
     ok_band_pct: float = DEFAULT_OK_BAND_PCT,
+    placeholder_when_empty: bool = False,
 ):
-    """Plotly diverging bar: monthly ±% for one fuel."""
+    """Plotly diverging bar: monthly ±% for one fuel.
+
+    When ``placeholder_when_empty`` is True, never returns None — reserves the
+    chart slot so ECM / Twin UI does not collapse when JSON is missing.
+    """
     import plotly.graph_objects as go
 
     series = monthly_pct_series(per_month, fuel=fuel)
     if not series:
+        if placeholder_when_empty:
+            return build_empty_monthly_pm_figure(
+                fuel=fuel, title=title, ok_band_pct=ok_band_pct
+            )
         return None
     months = [r["month"] for r in series]
     pcts = [float(r["pct_off"]) for r in series]
@@ -128,6 +210,56 @@ def build_monthly_pm_figure(
         showlegend=False,
     )
     return fig
+
+
+def agent_monthly_pct_prompt_text(*, twin_hint: str | None = None) -> str:
+    """Operator-visible checklist for agents when scorecard months are missing."""
+    lines = ["**Please have AI agent render / attach:**"]
+    lines.extend(f"- {line}" for line in AGENT_MONTHLY_PCT_PROMPT_LINES)
+    if twin_hint:
+        lines.append(f"- ECM Twin hint: `{twin_hint}`")
+    return "\n".join(lines)
+
+
+def render_required_monthly_pct_charts(
+    per_month: list[dict[str, Any]] | None,
+    *,
+    key_prefix: str = "monthly_pm",
+    twin_hint: str | None = None,
+    fuels: tuple[str, ...] = ("elec", "gas"),
+) -> dict[str, bool]:
+    """Always render monthly ±% chart slots (real data or placeholder).
+
+    Returns ``{fuel: has_series}`` for callers / tests.
+    """
+    import streamlit as st
+
+    from wattlab.studio.monthly_fuel_chart import normalize_per_month_rows
+
+    rows = normalize_per_month_rows(list(per_month or []))
+    st.markdown("#### Monthly dial ±% (E+ model vs actual bills)")
+    st.caption(
+        "Required on Twin and ECMs. Positive = model over-predicts bills; negative = under. "
+        "Chart frames stay visible even when JSON is missing."
+    )
+    status: dict[str, bool] = {}
+    any_series = False
+    for fuel in fuels:
+        series = monthly_pct_series(rows, fuel=fuel)
+        has = bool(series)
+        status[fuel] = has
+        any_series = any_series or has
+        fig = build_monthly_pm_figure(rows, fuel=fuel, placeholder_when_empty=True)
+        st.plotly_chart(fig, width="stretch", key=f"{key_prefix}_{fuel}")
+        if not has:
+            fuel_lab = "Electricity" if fuel == "elec" else "Natural gas"
+            st.info(
+                f"{fuel_lab}: no monthly bill↔E+ pairs yet — placeholder chart kept above."
+            )
+    if not any_series:
+        st.warning(agent_monthly_pct_prompt_text(twin_hint=twin_hint))
+    return status
+
 
 
 def history_heatmap_matrix(

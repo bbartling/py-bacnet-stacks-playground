@@ -61,3 +61,33 @@ def test_history_heatmap_empty_without_dirs():
     data = history_heatmap_matrix([{"run": 1}], fuel="elec")
     assert data["months"] == []
     assert data["runs"] == []
+
+
+def test_empty_monthly_pm_figure_never_none():
+    import pytest
+
+    pytest.importorskip("plotly")
+    from wattlab.studio.monthly_dial_chart import (
+        build_empty_monthly_pm_figure,
+        build_monthly_pm_figure,
+        agent_monthly_pct_prompt_text,
+    )
+
+    empty = build_empty_monthly_pm_figure(fuel="elec")
+    assert empty is not None
+    assert len(empty.data[0].x) == 12
+    ph = build_monthly_pm_figure([], fuel="gas", placeholder_when_empty=True)
+    assert ph is not None
+    assert build_monthly_pm_figure([], fuel="gas") is None
+    text = agent_monthly_pct_prompt_text(twin_hint="runs/foo")
+    assert "Please have AI agent render" in text
+    assert "utility_bills.per_month" in text
+    assert "runs/foo" in text
+
+
+def test_agent_monthly_pct_prompt_text_no_plotly():
+    from wattlab.studio.monthly_dial_chart import agent_monthly_pct_prompt_text
+
+    text = agent_monthly_pct_prompt_text()
+    assert "Please have AI agent render" in text
+    assert "observed_kwh" in text
