@@ -45,6 +45,9 @@ reset, chilled- and condenser-water reset, and pump VFD control.
 - `ECM-OCC-STANDBY-DCV`: medium-complexity OA measure; combines
   `oad_unoccupied_closed` and `dcv_bins` in Studio with calculator provenance;
   no EnergyPlus patch is registered.
+- `ECM-ERV` (workbook alias `ECM-AHU-ERV`): `erv_bins` proxy;
+  EnergyPlus path is **HAS_EP_PROTOTYPE** residual (`erv_ahu_prototype`) —
+  ECM-ERV-001; cascade stays `NO_EP` until Twin OA↔exhaust topology lands.
 
 ## Package coverage
 

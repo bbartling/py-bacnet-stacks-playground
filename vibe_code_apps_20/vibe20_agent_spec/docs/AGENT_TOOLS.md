@@ -23,6 +23,10 @@ Human workspace copies often live at `~/wattlab_workspace/tools/` (not in git).
 Deeper dial phases: [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) · skill
 `skills/wattlab-twin-calibrate-dial/SKILL.md`.
 
+ECM spreadsheet SoT: prefer `ECM_FULL_PARITY.xlsx` via
+`build_full_parity_ecm_workbook_v2.py` + `ecm_full_parity_compare.json` merge
+(BUG-ECM-015). Do **not** treat matched-hours workbooks as product SoT.
+
 **Twin calibrate dial** (short/long gas & elec, monthly shape): envelope first
 (WWR / U / ACH), then banded SAT + VAV min-flow; EnergyPlus stays **autosize**.
 After gas shape near/pass, prefer **month-aware light/equipment schedules** over

@@ -11,6 +11,11 @@ from .deep_retrofit import (
 )
 from .gl36_proxy import apply_gl36_airside_proxy
 from .hourly_outputs import apply_hourly_outputs, apply_monthly_energy_tables
+from .prototype_residuals import (
+    list_prototype_residuals,
+    residual_for_measure,
+    is_prototype_residual_patch,
+)
 from .registry import apply_patch, known_patch_names
 from .run_period import apply_run_period
 from .sat_reset import apply_sat_reset
@@ -35,4 +40,7 @@ __all__ = [
     "apply_outdoor_air_fraction",
     "apply_patch",
     "known_patch_names",
+    "list_prototype_residuals",
+    "residual_for_measure",
+    "is_prototype_residual_patch",
 ]

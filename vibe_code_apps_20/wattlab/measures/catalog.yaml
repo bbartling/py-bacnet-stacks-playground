@@ -167,6 +167,9 @@ ecms:
     humidity_risk: high
     status: PRODUCTION_PROXY_ONLY
 
+  # ECM-ERV-001 residual: full-parity workbook alias ECM-AHU-ERV; EnergyPlus path is
+  # HAS_EP_PROTOTYPE only (wattlab.energyplus.patches.prototype_residuals). Keep
+  # energyplus_patch null so cascade stays NO_EP until Twin ERV topology lands.
   - <<: *defaults
     ecm_id: ECM-ERV
     display_name: Add energy recovery ventilation
@@ -175,7 +178,10 @@ ecms:
     equipment_types: [air_handling_unit, energy_recovery_ventilator]
     system_families: [dedicated_outdoor_air, all_air]
     retrofit_classes: [capital]
-    description: Recover sensible and latent energy between exhaust and outdoor air.
+    description: >
+      Recover sensible and latent energy between exhaust and outdoor air.
+      Workbook / Compare alias ECM-AHU-ERV. Product EnergyPlus cascade is blocked
+      on Twin OA↔exhaust topology (HAS_EP_PROTOTYPE stub only — ECM-ERV-001).
     engineering_rationale: Recovery lowers ventilation heating, cooling, and dehumidification loads.
     required_inputs: [oa_cfm, annual_weather_bins, exhaust_cfm]
     optional_inputs: [sensible_effectiveness, latent_effectiveness, return_temp_f, return_enthalpy]

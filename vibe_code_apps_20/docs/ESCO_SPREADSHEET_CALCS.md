@@ -59,7 +59,10 @@ Stack packages freely (e.g. `esco-top15` + `energy-recovery`). Incompatibilities
 | Package | `energy-recovery` | Both |
 
 Code: `wattlab/bench/esco.py` · Studio wire: `wattlab/studio/proxies.py`.  
-EnergyPlus IDF ERV patch is still a stub (proxy-only savings today).
+EnergyPlus IDF ERV patch is **HAS_EP_PROTOTYPE** only (`erv_ahu_prototype` in
+`wattlab.energyplus.patches.prototype_residuals`) — not a product cascade patch
+(ECM-ERV-001). Twin stacked 1-zone topology lacks OA↔exhaust HX; cascade stays
+proxy-only / `NO_EP`. Workbook alias: `ECM-AHU-ERV`. Screen via full-parity `ss_*`.
 
 ---
 

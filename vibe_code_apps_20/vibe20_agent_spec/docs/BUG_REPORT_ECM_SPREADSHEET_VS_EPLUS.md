@@ -2,18 +2,19 @@
 
 **Date:** 2026-07-29  
 **Twin SoT:** `geo_b100_6stack_shape_r56_sched_mild` (G14 PASS)  
-**Artifacts (not bugs):** `reports/notebooks/full_parity_ecm/ECM_FULL_PARITY.xlsx` · `reports/ecm_full_parity_compare.json` · `tools/build_full_parity_ecm_workbook.py`
+**Artifacts (not bugs):** `reports/notebooks/full_parity_ecm/ECM_FULL_PARITY.xlsx` · `reports/ecm_full_parity_compare.json` · `tools/build_full_parity_ecm_workbook_v2.py` (prefer v2; matched-hours is **not** SoT)
 
 **Git SoT (keep in sync):**
 - playground vibe20: `vibe_code_apps_20/vibe20_agent_spec/docs/BUG_REPORT_ECM_SPREADSHEET_VS_EPLUS.md`
 - open-fdd (combined product): `docs/migration/BUG_REPORT_ECM_SPREADSHEET_VS_EPLUS.md`
 - vibe19 pointer: `vibe_code_apps_19/vibe19_agent_spec/docs/BUG_REPORT_ECM_SPREADSHEET_VS_EPLUS.md`
+- Agent handoff: `vibe20_agent_spec/docs/AGENT_CONTEXT.md` (+ `examples/workspace_tools/AGENT_CONTEXT.md` → `/data/tools`)
 
 Workspace copies of artifacts live under Studio `/data` (`wattlab_workspace/reports/…`). Do not commit client workbooks to git.
 
 Screening proof (full-parity book): **8 BALLPARK / 0 DIVERGE / 0 NO_EP** — not M&V.
 
-Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives in playground **vibe20**. open-fdd Jobs / ECM honesty (`honesty.openfdd`, cascade-if-ready) must stay aligned with this register when the combined UI surfaces Compare / ECMs.
+Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives in playground **vibe20**. open-fdd Jobs / ECM honesty (`honesty.openfdd`, cascade-if-ready) must stay aligned with this register when the combined UI surfaces Compare / ECMs. **OFDD-UI-V20** / **OFDD-MCP-CTX** keep Twin/ECM Excel on EnergyPlus-MCP + WattLab tools — not inside `openfdd-mcp`.
 
 ---
 
@@ -31,8 +32,9 @@ Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives
 | **BUG-ECM-010** | Open | Agents skip EnergyPlus-MCP and re-read old cascade when enhancing sims (process). |
 | **BUG-ECM-011** | Open | Demand (kW) missing from py → Excel / Studio Compare API. |
 | **BUG-ECM-012** | Partial | Load-shed DR not in product agent Excel / cascade; workaround tool `load_shed_demand_screen.py` exists. |
-| **BUG-ECM-014** | Open (doc) | Calendar FanAvail / OAT-bin hours ≠ formula FLH. Pasting calendar into Inputs over-predicts vs E+. Fix: Matchup calendar + FLH Inputs (`build_eplus_matched_ecm_workbook.py` / full-parity builder). |
-| **BUG-ECM-015** | Fixed (ENH-VIBE-002) | Studio merges `ecm_full_parity_compare.json` → `ss_*` when present; nested `notebooks/**/*.xlsx` downloads. |
+| **BUG-ECM-014** | Open (doc) | Calendar FanAvail / OAT-bin hours ≠ formula FLH. Pasting calendar into Inputs over-predicts vs E+. Fix: Matchup calendar + FLH Inputs in full-parity v2 (Matchup is supporting evidence — **not** matched-hours SoT). |
+| **BUG-ECM-015** | Fixed (ENH-VIBE-002) | Studio merges `ecm_full_parity_compare.json` → `ss_*` when present; accepts top-level `rows` + `annual_usd`→`ss_usd`; nested `notebooks/**/*.xlsx` downloads. |
+| **ECM-ERV-001** | Residual (HAS_EP_PROTOTYPE) | AHU ERV (`ECM-ERV` / workbook `ECM-AHU-ERV`) stub `erv_ahu_prototype` in `prototype_residuals` — **not** product cascade. Twin lacks OA↔exhaust HX topology; screen ~29.8k kWh via full-parity `ss_*`. Toilet-zone ERV later. |
 
 ---
 
@@ -59,7 +61,7 @@ Twin / WattLab Studio / EnergyPlus patch + notebook builder code primarily lives
 | **ENH-ECM-007** | Med | Honor `--ecms` on `g36_airside_controls` (BUG-ECM-004). |
 | **ENH-ECM-008** | Done | Filter Studio G14 chart / best-run picker by building — shipped with BUG-ECM-008 / [#65](https://github.com/bbartling/py-bacnet-stacks-playground/pull/65). |
 | **ENH-ECM-009** | Low | Default package builds from `VAV_AHU_CONTROLS_ECM_PACKAGE.json` (was BUG-ECM-013 — process/enhancement, not a defect). |
-| **ENH-ECM-010** | Low | Skills / `AGENT_CONTEXT` / companion doc prefer full-parity workbook + FLH rules (keep in sync with this file). |
+| **ENH-ECM-010** | Low | Skills / `AGENT_CONTEXT` / companion doc prefer full-parity workbook + FLH rules (keep in sync with this file). **Done for AGENT_CONTEXT** (full-parity SoT; matched-hours demoted). |
 
 ---
 

@@ -185,6 +185,16 @@ def apply_patch(
     params: Params | None = None,
 ) -> dict:
     """Dispatch a named IDF patch; raises ValueError for unknown names."""
+    from wattlab.energyplus.patches.prototype_residuals import PROTOTYPE_RESIDUALS
+
+    stub = PROTOTYPE_RESIDUALS.get(name)
+    if stub is not None:
+        # ECM-ERV-001: discoverable stub only — refuse silent / fake cascade.
+        raise ValueError(
+            f"idf_patch {name!r} is HAS_EP_PROTOTYPE only "
+            f"({stub.get('ticket')}: Twin ERV topology not productized). "
+            "Cascade must stay NO_EP; use full-parity spreadsheet ss_* for screening."
+        )
     handler = _REGISTRY.get(name)
     if handler is None:
         raise ValueError(f"Unknown idf_patch name: {name}")
