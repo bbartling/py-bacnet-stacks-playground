@@ -34,9 +34,10 @@ def test_cost_registry_has_all_scopes_with_basis_and_year():
 
 def test_scope_for_measure_hints():
     assert scope_for_measure("ECM-AHU-SCHED-ALIGN") == "rcx_tuning"
-    assert scope_for_measure("ECM-GL36-AIRSIDE") == "minor_hvac_controls"
+    assert scope_for_measure("ECM-GL36-AIRSIDE") == "bas_overlay"
     assert scope_for_measure("ECM-BOILER-SWAP") == "major_hvac"
     assert scope_for_measure("ECM-WINDOW-UPGRADE") == "windows_full_replacement"
+    assert scope_for_measure("ECM-AWHP-SURROGATE") == "deep_electrification"
     assert scope_for_measure("mystery") == "rcx_tuning"
 
 

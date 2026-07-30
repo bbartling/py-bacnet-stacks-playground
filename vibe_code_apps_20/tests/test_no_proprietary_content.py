@@ -31,7 +31,11 @@ def test_repository_text_has_no_deny_list_matches() -> None:
 
 
 def test_repository_contains_no_spreadsheet_workbooks() -> None:
-    binaries = find_forbidden_binaries(PROJECT_ROOT)
+    # Product template only — not client/customer workbooks (VIBE20-TIP-XLSX-IN-TIP).
+    allow = [
+        PROJECT_ROOT / "wattlab" / "notebooks" / "templates" / "ecm_package_v1.xlsx",
+    ]
+    binaries = find_forbidden_binaries(PROJECT_ROOT, allowlist=allow)
 
     assert binaries == [], "\n".join(str(path) for path in binaries)
 
