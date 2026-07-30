@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import date, datetime, timedelta
@@ -246,6 +247,8 @@ class TestCostScopesAndBases:
 class TestSchoolBills:
     def test_school_csvs_are_shipable_but_other_vibe20_csvs_remain_ignored(self):
         repo_root = ROOT.parent
+        if not shutil.which("git"):
+            pytest.skip("git not available in tip image")
 
         def ignored(relative_path: str) -> bool:
             completed = subprocess.run(
