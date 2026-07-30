@@ -3,9 +3,10 @@ name: wattlab-twin-calibrate-dial
 description: >-
   Dial EnergyPlus Twin models vs utility bills (G14). Use when gas/elec is short
   or long vs monthly bills, Twin calibrate, WWR/glass/infil ladders, seasonal SAT
-  / VAV reheat / DAT dump, or stacked Floor_1–N twins. Triggers on: calibrate,
-  G14, CVRMSE, short gas, short elec, dial knobs, WWR, infiltration, discharge
-  air temp, reheat, AMY bills, calibration_scorecard.
+  / VAV reheat / DAT dump, or stacked Floor_1–N twins. For as-operated fan/OA/HW
+  chess and adaptive elec-first order, also load wattlab-twin-ops-reheat-dial.
+  Triggers on: calibrate, G14, CVRMSE, short gas, short elec, dial knobs, WWR,
+  infiltration, discharge air temp, reheat, AMY bills, calibration_scorecard.
 ---
 
 # WattLab Twin calibrate dial playbook
@@ -16,6 +17,8 @@ the human supplies them.
 
 **Start here:** [`../../docs/AGENT_CONTEXT.md`](../../docs/AGENT_CONTEXT.md).
 Depth: [`../../docs/TWIN_DIAL_PLAYBOOK.md`](../../docs/TWIN_DIAL_PLAYBOOK.md).
+Ops/reheat Phase 2c: [`../wattlab-twin-ops-reheat-dial/SKILL.md`](../wattlab-twin-ops-reheat-dial/SKILL.md).
+Method SoT: [`../../docs/BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`](../../docs/BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md).
 Tools bin: [`../../docs/AGENT_TOOLS.md`](../../docs/AGENT_TOOLS.md).
 Assumptions hierarchy: [`../wattlab-assumptions/SKILL.md`](../wattlab-assumptions/SKILL.md).
 
@@ -71,16 +74,26 @@ Classic failure: **winter/shoulder gas high, summer gas low** (annual cancels).
 Prefer **seasonal / banded** `Schedule:Compact` on cooling SAT + scheduled VAV
 min-flow fraction over year-round constant min-flow bumps.
 
-## Phase 2b — Monthly elec shape (after gas near/pass)
+## Phase 2b — Monthly elec / ops shape (adaptive)
 
-Gas shape **before** elec shape. Prefer **month-aware light/equipment schedules**
-over blunt annual LPD cuts (flat cuts trade months and can break a gas pass).
-Use Twin **monthly ±% dial chart** to see over/under by season.
+Default is gas shape before elec shape. **Flip to elec-first ops** when monthly
+±% shows shoulder elec long / peak-cool elec short (fans, OA, DAT) — see
+[`wattlab-twin-ops-reheat-dial`](../wattlab-twin-ops-reheat-dial/SKILL.md) and
+playbook §2c. Prefer **month-aware light/equipment schedules** only when the
+residual is lighting-shaped. Blunt annual LPD cuts trade months and can break a
+gas pass. Use Twin **monthly ±% dial chart**.
 
-### Honesty
+## Phase 2c — As-operated + reheat / HW (required when ops-shaped)
+
+Always state reheat coupling: cool DAT + long fans + low OA → more reheat → gas
+up unless HW is scheduled/softened. Prefer **daytime-only HW** over full plant
+off. Full HW off → that month gas ≈ −100% vs bills. Barely-≤15% CV is provisional.
+
+## Honesty
 
 - G14 pass = both fuels \|NMBE\|≤5% **and** CVRMSE≤15%.
 - Annual % alone is **not** calibrated.
+- Never promote a run that flips the previously-passing fuel.
 - Document residual: bill shape may not track HDD (log it).
 
 ## Phase 3 — Publish / freeze

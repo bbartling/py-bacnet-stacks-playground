@@ -2,6 +2,15 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-30 — Twin dial AI context (ops/reheat) agent docs only
+
+- Method SoT: `vibe20_agent_spec/docs/BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`
+  (generic G14 recipe — no campus IDs).
+- Playbook §2c + adaptive fuel order; skill `wattlab-twin-ops-reheat-dial`;
+  calibrate-dial links Phase 2c; AGENT_CONTEXT / AGENT_TOOLS updated + synced
+  to `docs/`, `examples/workspace_tools/`, host `~/wattlab_workspace/tools/`.
+- Docs-only (no patch CLI / eval harness in this pass).
+
 ## 2026-07-30 — ECM-ERV-001 residual + AGENT_CONTEXT full-parity SoT
 
 - **BUG-ECM-015** (prior commit on branch): `merge_full_parity_ss` accepts

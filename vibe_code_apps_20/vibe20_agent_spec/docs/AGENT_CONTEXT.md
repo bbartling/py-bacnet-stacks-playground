@@ -59,7 +59,7 @@ must report `NO_EP` until topology + product patch land. Toilet-zone ERV later.
 
 ---
 
-## Dial order (do not skip)
+## Dial order (adaptive — do not skip geometry)
 
 1. **Geometry** — Confirm what the human wants (e.g. N stacked floors × 1 zone).
    DOE midrise×4 perimeter-core is a different twin; do not substitute silently.
@@ -67,17 +67,17 @@ must report `NO_EP` until topology + product patch land. Toilet-zone ERV later.
    building (shared elec allocation + **that** building’s gas).
 3. **Annual gas short → envelope first** — Raise WWR, then leakier glass U, then
    infiltration ACH. Do **not** start with plant oversizing.
-4. **Annual elec short → EPD / LPD** — Hold these steady while chasing gas
-   **shape** once annual elec is near gate.
-5. **Monthly gas CVRMSE** — After annual gas ~flat. Use **vibe19 AHU DAT** (or
-   site ops) before inventing SAT. Typical levers: seasonal/banded cooling SAT,
-   scheduled VAV min-flow, **seasonal outdoor-air hours** (often more powerful
-   than SAT alone when bills ≠ HDD).
-6. **Monthly elec CVRMSE** — After gas is near/pass. Prefer **month-aware light /
-   equipment schedules** over blunt annual LPD cuts (flat cuts trade months and
-   can break gas).
+4. **Annual elec short → EPD / LPD** — Hold these steady while chasing **shape**.
+5. **Monthly shape — which fuel’s CV fails?** (do **not** always gas-then-elec)
+   - Elec long in shoulders / short in peak cool months → **ops first** (fan
+     hours, OA, DAT) before more glass — see skill `wattlab-twin-ops-reheat-dial`.
+   - Gas CV fail with elec already pass → **reheat / HW / winter fans** only
+     (daytime HW, not full plant off). Do not undo elec knobs blindly.
+   - Classic gas shape after annual flat: banded SAT, VAV min-flow, seasonal OA.
+6. **Reheat coupling** — cool DAT + long fans + low OA → more reheat → gas up
+   unless HW is scheduled/softened. Dial **both sides** of the coil story.
 7. **Publish** — Score both fuels → write Twin G14 scorecard → promote CURRENT /
-   best model when the human asks.
+   best model when the human asks. Barely-≤15% CV is provisional (“edge pass”).
 
 ---
 
@@ -88,10 +88,12 @@ must report `NO_EP` until topology + product patch land. Toilet-zone ERV later.
 | Annual flat ≠ monthly good | Winter/summer can cancel; CVRMSE still fails. |
 | Bills ≠ HDD | Peak bill months may not match coldest weather — fix with OA/ops, not more glass. |
 | Cold summer SAT only where DAT dumps | Broad “Apr–Oct @ 50°F” can blow shoulder months (Oct/Aug). |
-| Gas shape before elec shape | Elec-first LPD cuts often wreck a hard-won gas pass. |
+| Adaptive fuel order | Default gas-then-elec; **flip to elec-first** when monthly ±% is cooling/runtime-shaped. |
+| Full HW off is a trap | Daytime-only HW in spike months; plant kill → gas ≈ −100% that month. |
+| Reheat coupling | More mechanical cooling raises gas unless HW hours/SP are dialed too. |
 | Autosize stays on | Dialing ≠ naming plant capacity. |
 | Paths/args for any building | Never bake one campus id into product defaults. |
-| G14 needs **both** fuels | Gas-only pass is not done. |
+| G14 needs **both** fuels | Gas-only pass is not done. Never promote a run that flips the other fuel. |
 | Full-parity ≠ matched-hours | Prefer `ECM_FULL_PARITY.xlsx` / v2 builder for Compare `ss_*`. |
 
 ---
@@ -100,7 +102,7 @@ must report `NO_EP` until topology + product patch land. Toilet-zone ERV later.
 
 - Scorecard + monthly charts for both fuels (including monthly ±% dial chart).
 - Preferred IDF / run promoted (Uploads + `CURRENT_RUN` / best-model freeze).
-- Assumptions logged (envelope + controls + schedule story in one place).
+- Assumptions logged (envelope + controls + **ops/HW schedule** story in one place).
 - ECMs Compare: `ss_*` from full-parity merge when present; `ep_*` only from real
   cascade (never invent).
 
@@ -110,8 +112,10 @@ must report `NO_EP` until topology + product patch land. Toilet-zone ERV later.
 
 | Doc | When |
 | --- | --- |
-| [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) | Ordered phases + practice trajectory |
-| Skill `wattlab-twin-calibrate-dial` | Agent skill frontmatter + same phases |
+| [`TWIN_DIAL_PLAYBOOK.md`](TWIN_DIAL_PLAYBOOK.md) | Ordered phases + §2c ops/HW |
+| Skill `wattlab-twin-calibrate-dial` | Envelope → SAT / VAV phases |
+| Skill `wattlab-twin-ops-reheat-dial` | As-operated + reheat chess |
+| [`BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md`](BUG_REPORT_TWIN_DIAL_AI_CONTEXT.md) | Method SoT (generic dial recipe) |
 | [`AGENT_TOOLS.md`](AGENT_TOOLS.md) | `/data/tools` campaign scripts vs product CLIs |
 | [`BUG_REPORT_ECM_SPREADSHEET_VS_EPLUS.md`](BUG_REPORT_ECM_SPREADSHEET_VS_EPLUS.md) | BUG-ECM-* / ENH-ECM-* register |
 | Product `wattlab-assumptions` | Short/long fuel + checklist |
