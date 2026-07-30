@@ -51,7 +51,7 @@ def test_ecm_scenario_v1_loads_and_v2_fields_roundtrip(tmp_path: Path):
         encoding="utf-8",
     )
     migrated = load_ecm_scenario(path)
-    assert migrated["version"] == 2
+    assert migrated["version"] == 4
     assert migrated["sort_preference"] == "implementation_complexity"
     assert migrated["package_hints"] == []
     assert migrated["proxy_defaults"] == {}
@@ -68,7 +68,7 @@ def test_ecm_scenario_v1_loads_and_v2_fields_roundtrip(tmp_path: Path):
         path=path,
     )
     loaded = load_ecm_scenario(path)
-    assert loaded["version"] == 2
+    assert loaded["version"] == 4
     assert loaded["package_hints"] == ["esco-top15"]
     assert loaded["proxy_defaults"] == {"oa_fraction": 0.2}
     assert loaded["roi_param_hints"] == {"usd_per_ft2": 0.65}

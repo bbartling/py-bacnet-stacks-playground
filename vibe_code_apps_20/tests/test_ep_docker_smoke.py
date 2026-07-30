@@ -33,6 +33,11 @@ def test_sample_sim_and_result_record_fields(docker_ready, tmp_path: Path) -> No
     from wattlab.energyplus.mcp import simulate
     from wattlab.energyplus.results import annual_from_output_dir, build_result_record
 
+    if not DEFAULT_PROTOTYPE_IDF.is_file():
+        pytest.skip(f"prototype IDF missing: {DEFAULT_PROTOTYPE_IDF}")
+    if not DEFAULT_MADISON_EPW.is_file():
+        pytest.skip(f"EPW missing: {DEFAULT_MADISON_EPW}")
+
     out = tmp_path / "sim"
     # Use shortened path: full 5Zone annual is fine for CI gate
     meta = simulate(DEFAULT_PROTOTYPE_IDF, DEFAULT_MADISON_EPW, out)

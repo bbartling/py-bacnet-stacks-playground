@@ -94,8 +94,11 @@ def main() -> int:
     if any("ecm_notebook_rebuild_scenario" in k or "ecm_notebook_build" in k for k in keys):
         print("FAIL: invent/rebuild still on ECMs (BUG-051/054)")
         return 1
-    if not any("ecm_notebook_reload" in k for k in keys):
-        print("FAIL: Reload from disk missing")
+    # Product path: Run EnergyPlus ECMs (compare). Legacy notebook reload optional.
+    if not any(
+        ("ecm_notebook_reload" in k) or ("ecm_compare_run" in k) for k in keys
+    ):
+        print("FAIL: ECM run/reload control missing")
         return 1
     print("OK: ECMs file viewer (no Streamlit exceptions)")
     return 0

@@ -166,7 +166,7 @@ class TestCostScopesAndBases:
             ("ECM-PREMIUM-FAN-VFD", "major_hvac"),
             ("ECM-CHILLER-REPLACE-HIEFF", "major_hvac"),
             ("ECM-CONDENSING-BOILER", "major_hvac"),
-            ("ECM-AWHP-SURROGATE", "major_hvac"),
+            ("ECM-AWHP-SURROGATE", "deep_electrification"),
             ("ECM-WINDOW-HP-GLAZING", "windows_full_replacement"),
         ],
     )
@@ -191,15 +191,16 @@ class TestCostScopesAndBases:
         assert cost["unit_basis"] == "building_ft2"
         assert cost["cost_usd"] == pytest.approx(0.4 * 4.6 * 100_000.0)
 
-    def test_awhp_cost_uses_major_hvac_share(self):
+    def test_awhp_cost_uses_deep_electrification_band(self):
         cost = rehearsal.measure_cost_usd(
             "ECM-AWHP-SURROGATE",
             floor_area_ft2=100_000.0,
             glazing_area_ft2=5_000.0,
         )
-        assert cost["scope"] == "major_hvac"
-        assert cost["package_share"] == pytest.approx(0.4)
-        assert cost["cost_usd"] == pytest.approx(0.4 * 4.6 * 100_000.0)
+        assert cost["scope"] == "deep_electrification"
+        assert cost["package_share"] is None
+        # registry p50 = $32/ft2 building area (no package share)
+        assert cost["cost_usd"] == pytest.approx(32.0 * 100_000.0)
 
     @pytest.mark.parametrize(
         "measure_set", ["school_30yr_hydronic", "school_30yr_electrify"]
@@ -215,11 +216,16 @@ class TestCostScopesAndBases:
             for m in measures
         ]
         hvac = [c for c in costs if c["scope"] == "major_hvac"]
-        assert sum(c["package_share"] for c in hvac) == pytest.approx(1.0)
-        assert sum(c["cost_usd"] for c in hvac) == pytest.approx(
-            4.6 * 100_000.0
-        )
         assert all(c["scope"] != "deep_retrofit" for c in costs)
+        if measure_set == "school_30yr_hydronic":
+            # fan 0.2 + chiller 0.4 + boiler 0.4
+            assert sum(c["package_share"] for c in hvac) == pytest.approx(1.0)
+            assert sum(c["cost_usd"] for c in hvac) == pytest.approx(4.6 * 100_000.0)
+        else:
+            # electrify: AWHP moved to deep_electrification; remaining major_hvac = 0.6
+            assert sum(c["package_share"] for c in hvac) == pytest.approx(0.6)
+            deep = [c for c in costs if c["scope"] == "deep_electrification"]
+            assert any(c["measure_id"] == "ECM-AWHP-SURROGATE" for c in deep)
 
     def test_glazing_area_estimate_geometry(self):
         # 100k ft2 / 2 floors -> 50k ft2 square footprint, 26 ft of wall height
@@ -950,7 +956,7 @@ class TestMockedOrchestration:
                 "release_verdict",
             }
 
-    def test_electrify_plan_prices_awhp_as_major_hvac_share(self, tmp_path):
+    def test_electrify_plan_prices_awhp_as_deep_electrification(self, tmp_path):
         report = _fake_report("school_30yr_electrify")
         deltas = rehearsal.scaled_measure_deltas(report, 100_000.0)
         plan = rehearsal.thirty_year_plan(
@@ -961,9 +967,9 @@ class TestMockedOrchestration:
         )
         rows = {r["measure_id"]: r for r in plan["measures"]}
         assert rows["ECM-AWHP-SURROGATE"]["implementation_cost_usd"] == (
-            pytest.approx(0.4 * 4.6 * 100_000.0)
+            pytest.approx(32.0 * 100_000.0)
         )
-        assert rows["ECM-AWHP-SURROGATE"]["cost_basis"]["scope"] == "major_hvac"
+        assert rows["ECM-AWHP-SURROGATE"]["cost_basis"]["scope"] == "deep_electrification"
 
 
 # ---------------------------------------------------------------------------
