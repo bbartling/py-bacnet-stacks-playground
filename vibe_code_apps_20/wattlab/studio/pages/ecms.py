@@ -134,6 +134,46 @@ def render(*, profile: dict[str, Any] | None = None) -> None:
             show[col] = show[col].map(_fmt)
         st.dataframe(show, hide_index=True, width="stretch")
 
+    # Required: monthly ±% fuel charts (E+ vs actual). Never collapse when JSON missing.
+    twin_run = payload.get("twin_run") or twin_hint
+    per_month: list[dict[str, Any]] = []
+    try:
+        from wattlab.studio.monthly_pct_off import load_per_month_from_run
+        from wattlab.studio.workspace import runs_dir
+
+        run_dir = None
+        if twin_run and twin_run not in ("(pick best G14 Twin)",):
+            cand = Path(str(twin_run))
+            if cand.is_dir():
+                run_dir = cand
+            else:
+                under = runs_dir() / str(twin_run)
+                if under.is_dir():
+                    run_dir = under
+        if run_dir is None:
+            # Best-effort: newest run with a scorecard
+            from wattlab.studio.g14_history import iter_g14_history
+
+            for row in iter_g14_history(runs_dir(), limit=8):
+                d = row.get("dir")
+                if d:
+                    per_month = load_per_month_from_run(d)
+                    if per_month:
+                        twin_run = str(d)
+                        break
+        else:
+            per_month = load_per_month_from_run(run_dir)
+    except Exception as exc:
+        st.caption(f"Monthly fuel load skipped: {exc}")
+
+    from wattlab.studio.monthly_dial_chart import render_required_monthly_pct_charts
+
+    render_required_monthly_pct_charts(
+        per_month,
+        key_prefix="ecm_monthly_pm",
+        twin_hint=str(twin_run) if twin_run else None,
+    )
+
     with st.expander("Honesty / contract", expanded=False):
         st.write(payload.get("honesty") or "")
         st.code(json.dumps({"path": str(path), "schema": payload.get("schema")}, indent=2))
