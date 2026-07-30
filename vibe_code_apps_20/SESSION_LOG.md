@@ -2,6 +2,19 @@
 
 Newest first. One entry per shipped work session.
 
+## 2026-07-30 — ECM-ERV-001 residual + AGENT_CONTEXT full-parity SoT
+
+- **BUG-ECM-015** (prior commit on branch): `merge_full_parity_ss` accepts
+  top-level `rows` + `annual_usd`→`ss_usd`.
+- **ECM-ERV-001:** honest `HAS_EP_PROTOTYPE` stub `erv_ahu_prototype` in
+  `wattlab.energyplus.patches.prototype_residuals` (not product `apply_patch`);
+  catalog `ECM-ERV` stays proxy-only / `energyplus_patch: null`; residual notes
+  in AGENTS.md + BUG_REPORT.
+- **AGENT_CONTEXT:** prefer `ECM_FULL_PARITY.xlsx` /
+  `build_full_parity_ecm_workbook_v2.py`; cite BUG-ECM-015, OFDD-UI-V20,
+  OFDD-MCP-CTX; stop matched-hours as SoT. Seeded
+  `examples/workspace_tools/AGENT_CONTEXT.md` (+ host tools copy when present).
+
 ## 2026-07-29 — ENH-VIBE-001/002 + Stage 1 evidence exporter
 
 - **ENH-VIBE-002 / BUG-ECM-015:** `merge_full_parity_ss` fills Studio `ss_*` from

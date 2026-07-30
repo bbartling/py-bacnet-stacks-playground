@@ -164,6 +164,11 @@ AppTest must cover all 4 pages (**Uploads**, **Fuel dashboard**, **Twin / calibr
 - Existing Building Hypothesis Lab badges: `CONCEPTUAL_HYPOTHESIS` (no bills), `MONTHLY_CALIBRATED` (bills present), `VALIDATED` only with `holdout_passed`.
 - Keep proprietary deny-list terms out of git — commit only SHA-256 hashes via `wattlab.privacy`.
 - Canonical ECM metadata is only `wattlab/measures/catalog.yaml`; Studio/CLI/docs must not invent parallel registries.
+- **ECM-ERV-001 residual:** `ECM-ERV` / workbook alias `ECM-AHU-ERV` has a
+  `HAS_EP_PROTOTYPE` stub (`wattlab.energyplus.patches.prototype_residuals.erv_ahu_prototype`)
+  — **not** a product `apply_patch`. Twin stacked 1-zone topology lacks OA↔exhaust
+  ERV HX; cascade stays `NO_EP` / proxy-only until topology + product patch land.
+  Screen via full-parity `ss_*` (`ECM_FULL_PARITY.xlsx` / `build_full_parity_ecm_workbook_v2.py`).
 - Never bundle interacting ECMs while reporting them as independent savings — apply one approved measure at a time.
 - Never publish utility savings or payback without listing rate and confidence assumptions.
 - Never expose the actual building location when the project is marked anonymized.

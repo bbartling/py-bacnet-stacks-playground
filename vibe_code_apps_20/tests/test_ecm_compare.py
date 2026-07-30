@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from wattlab.ecm.compare import build_compare_from_cascade, empty_compare_stub
+from wattlab.ecm.compare import (
+    build_compare_from_cascade,
+    empty_compare_stub,
+    merge_full_parity_ss,
+)
 from wattlab.energyplus.patches.chiller_lockout import apply_chiller_lockout
 from wattlab.energyplus.patches.dsp_reset import apply_dsp_reset
 from wattlab.energyplus.patches.sat_reset import apply_sat_reset
@@ -16,6 +21,47 @@ def test_empty_compare_stub_has_pending_spreadsheet():
     assert stub["spreadsheet"]["status"] == "pending_external"
     assert all(m["ss_kwh"] is None for m in stub["measures"])
     assert len(stub["measures"]) == 3
+
+
+def test_merge_full_parity_ss_accepts_agent_rows(tmp_path: Path):
+    """BUG-ECM-015: agent writer uses top-level rows + annual_usd."""
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    parity = {
+        "workbook": "ECM_FULL_PARITY.xlsx",
+        "rows": [
+            {
+                "measure_id": "ECM-ECON-REPAIR",
+                "sheet_kwh": 1000.0,
+                "eplus_kwh": 900.0,
+                "ss_kwh": 1000.0,
+                "ep_kwh": 900.0,
+                "annual_usd": 120.0,
+                "status": "BALLPARK",
+            },
+            {
+                "measure_id": "ECM-AHU-ERV",
+                "sheet_kwh": 29848.0,
+                "ss_kwh": 29848.0,
+                "annual_usd": 3581.0,
+                "status": "BALLPARK",
+            },
+        ],
+    }
+    (reports / "ecm_full_parity_compare.json").write_text(
+        json.dumps(parity), encoding="utf-8"
+    )
+    payload = empty_compare_stub(
+        measure_ids=["ECM-ECON-REPAIR", "ECM-AHU-ERV", "ECM-DSP-RESET"]
+    )
+    merge_full_parity_ss(payload, reports)
+    by_mid = {m["measure_id"]: m for m in payload["measures"]}
+    assert by_mid["ECM-ECON-REPAIR"]["ss_kwh"] == 1000.0
+    assert by_mid["ECM-ECON-REPAIR"]["ss_usd"] == 120.0
+    assert by_mid["ECM-AHU-ERV"]["ss_kwh"] == 29848.0
+    assert by_mid["ECM-AHU-ERV"]["ss_usd"] == 3581.0
+    assert payload["spreadsheet"]["status"] == "full_parity"
+    assert by_mid["ECM-DSP-RESET"]["ss_kwh"] is None
 
 
 def test_build_compare_from_cascade_fills_ep():
