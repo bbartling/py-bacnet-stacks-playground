@@ -193,51 +193,59 @@ def write_compare(path: Path | str, payload: dict[str, Any]) -> Path:
     return path
 
 
+def _normalize_parity_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Map agent / cascade aliases onto Studio ``ss_*`` fields (BUG-ECM-015)."""
+    mid = str(row.get("measure_id") or "")
+    return {
+        "measure_id": mid,
+        "ss_kwh": row.get(
+            "ss_kwh", row.get("kwh_saved", row.get("ss_kWh", row.get("sheet_kwh")))
+        ),
+        "ss_therms": row.get("ss_therms", row.get("therms_saved")),
+        "ss_usd": row.get(
+            "ss_usd",
+            row.get("annual_usd", row.get("cost_saved_usd", row.get("usd_saved"))),
+        ),
+        "payback_yr_ss": row.get("payback_yr_ss", row.get("payback_yr")),
+        "roi_ss": row.get("roi_ss", row.get("roi")),
+        "ss_note": row.get("ss_note"),
+    }
+
+
 def _parity_measure_rows(parity: dict[str, Any]) -> list[dict[str, Any]]:
-    """Normalize full-parity JSON shapes into measure dicts with ss_* fields."""
+    """Normalize full-parity JSON shapes into measure dicts with ss_* fields.
+
+    Agent full-parity writer emits top-level ``rows`` (+ ``annual_usd``); Studio
+    historically expected ``measures`` / ``savings_by_measure`` (BUG-ECM-015).
+    """
     rows = parity.get("measures")
     if isinstance(rows, list):
-        return [r for r in rows if isinstance(r, dict)]
+        return [_normalize_parity_row(r) for r in rows if isinstance(r, dict)]
     ss = parity.get("spreadsheet")
     if isinstance(ss, dict) and isinstance(ss.get("measures"), list):
-        return [r for r in ss["measures"] if isinstance(r, dict)]
-    by_mid = parity.get("savings_by_measure") or parity.get("by_measure")
+        return [_normalize_parity_row(r) for r in ss["measures"] if isinstance(r, dict)]
+    # Agent writer uses top-level "rows" (BUG-ECM-015).
+    by_mid = (
+        parity.get("rows")
+        or parity.get("savings_by_measure")
+        or parity.get("by_measure")
+    )
     if isinstance(by_mid, list):
         out: list[dict[str, Any]] = []
         for row in by_mid:
             if not isinstance(row, dict):
                 continue
-            mid = str(row.get("measure_id") or "")
-            if not mid:
-                continue
-            # Prefer explicit ss_*; else map common spreadsheet aliases.
-            mapped = {
-                "measure_id": mid,
-                "ss_kwh": row.get("ss_kwh", row.get("kwh_saved", row.get("ss_kWh"))),
-                "ss_therms": row.get("ss_therms", row.get("therms_saved")),
-                "ss_usd": row.get("ss_usd", row.get("cost_saved_usd", row.get("usd_saved"))),
-                "payback_yr_ss": row.get("payback_yr_ss", row.get("payback_yr")),
-                "roi_ss": row.get("roi_ss", row.get("roi")),
-                "ss_note": row.get("ss_note"),
-            }
-            out.append(mapped)
+            mapped = _normalize_parity_row(row)
+            if mapped["measure_id"]:
+                out.append(mapped)
         return out
     if isinstance(by_mid, dict):
         out = []
         for mid, row in by_mid.items():
             if not isinstance(row, dict):
                 continue
-            out.append(
-                {
-                    "measure_id": str(mid),
-                    "ss_kwh": row.get("ss_kwh", row.get("kwh_saved")),
-                    "ss_therms": row.get("ss_therms", row.get("therms_saved")),
-                    "ss_usd": row.get("ss_usd", row.get("cost_saved_usd")),
-                    "payback_yr_ss": row.get("payback_yr_ss", row.get("payback_yr")),
-                    "roi_ss": row.get("roi_ss", row.get("roi")),
-                    "ss_note": row.get("ss_note"),
-                }
-            )
+            mapped = _normalize_parity_row({**row, "measure_id": row.get("measure_id") or mid})
+            out.append(mapped)
         return out
     return []
 
