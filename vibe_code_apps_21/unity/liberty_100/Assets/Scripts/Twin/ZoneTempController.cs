@@ -15,7 +15,7 @@ namespace Vibe21.Twin
         public float floorStackBiasC = 0.35f;
         public float ahuSplitC = 0.6f;
         // Very light glass wash — “every so slightly”
-        public float glowStrength = 0.08f;
+        public float glowStrength = 0.18f;
 
         readonly Dictionary<string, float> _temps = new Dictionary<string, float>();
 

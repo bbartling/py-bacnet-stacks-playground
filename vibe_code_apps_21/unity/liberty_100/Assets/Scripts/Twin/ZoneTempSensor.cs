@@ -31,7 +31,7 @@ namespace Vibe21.Twin
             if (bulb != null)
                 RendererTint.SetColor(bulb, col, 0.55f);
             if (label != null)
-                label.text = $"{floorLabel}\n{tempC:0.0}°C";
+                label.text = $"{floorLabel}\n{TempUnits.Format(tempC)}";
         }
 
         void LateUpdate()

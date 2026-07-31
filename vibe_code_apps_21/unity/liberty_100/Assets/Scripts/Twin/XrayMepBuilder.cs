@@ -46,8 +46,8 @@ namespace Vibe21.Twin
             float roofY = Mathf.Max(s1.y, s2.y);
             float groundY = 1.2f;
 
-            // Chiller courtyard (south of massing) + tower near roof east
-            Vector3 chillerPos = new Vector3(28f, 0.3f, -8f);
+            // Roof plant: chiller between AHUs + tower on east roof
+            Vector3 chillerPos = new Vector3(28f, roofY + 0.4f, 12f);
             Vector3 towerPos = new Vector3(52f, roofY + 0.5f, 22f);
             XrayPlantFactory.Build(root.transform, chillerPos, towerPos);
 
@@ -66,27 +66,18 @@ namespace Vibe21.Twin
             Seg(root.transform, "RoofReturn_1", s1 + new Vector3(0.5f, -0.6f, -1.2f), new Vector3(returnShaft1.x, roofY - 0.4f, returnShaft1.z), ductW * 0.8f, returnMat);
             Seg(root.transform, "RoofReturn_2", s2 + new Vector3(-0.5f, -0.6f, -1.2f), new Vector3(returnShaft2.x, roofY - 0.4f, returnShaft2.z), ductW * 0.8f, returnMat);
 
-            // Fat CHW: chiller → vertical riser → both AHUs (supply + return legs)
+            // Fat CHW on roof: chiller ↔ both AHUs (short laterals)
             Vector3 chwBase = chillerPos + new Vector3(-2.2f, 1.0f, 0f);
-            Vector3 chwRiser = new Vector3(28f, 0f, 4f);
-            Seg(root.transform, "CHW_from_Chiller", chwBase, new Vector3(chwRiser.x, groundY + 1f, chwRiser.z), chwPipeW, chwMat);
-            Seg(root.transform, "CHW_Riser", new Vector3(chwRiser.x, groundY, chwRiser.z), new Vector3(chwRiser.x, roofY, chwRiser.z), chwPipeW, chwMat);
-            Seg(root.transform, "CHW_to_AHU1", new Vector3(chwRiser.x, roofY - 0.2f, chwRiser.z), s1 + Vector3.down * 0.4f, chwPipeW * 0.9f, chwMat);
-            Seg(root.transform, "CHW_to_AHU2", new Vector3(chwRiser.x, roofY - 0.2f, chwRiser.z), s2 + Vector3.down * 0.4f, chwPipeW * 0.9f, chwMat);
-            // CHW return leg (offset)
-            Vector3 chwRet = chwRiser + new Vector3(1.2f, 0f, 0f);
-            Seg(root.transform, "CHW_Return_Riser", new Vector3(chwRet.x, groundY, chwRet.z), new Vector3(chwRet.x, roofY - 0.5f, chwRet.z), chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
-            Seg(root.transform, "CHW_Return_to_Chiller", new Vector3(chwRet.x, groundY + 1f, chwRet.z), chwBase + Vector3.forward * 0.8f, chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
+            Seg(root.transform, "CHW_to_AHU1", chwBase, s1 + Vector3.down * 0.3f, chwPipeW, chwMat);
+            Seg(root.transform, "CHW_to_AHU2", chwBase, s2 + Vector3.down * 0.3f, chwPipeW, chwMat);
+            Seg(root.transform, "CHW_Return_AHU1", s1 + Vector3.down * 0.6f + Vector3.forward * 0.5f, chwBase + Vector3.forward * 0.8f, chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
+            Seg(root.transform, "CHW_Return_AHU2", s2 + Vector3.down * 0.6f + Vector3.forward * 0.5f, chwBase + Vector3.forward * 0.8f, chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
 
-            // CW loop: chiller ↔ tower
+            // CW loop on roof: chiller ↔ tower
             Vector3 cwChiller = chillerPos + new Vector3(0f, 2.5f, 0f);
             Vector3 cwTower = towerPos + new Vector3(0f, 0.8f, 0f);
-            Vector3 cwMid = new Vector3(52f, groundY + 1.5f, -4f);
-            Seg(root.transform, "CW_to_Tower_A", cwChiller, cwMid, cwPipeW, cwMat);
-            Seg(root.transform, "CW_to_Tower_B", cwMid, new Vector3(towerPos.x, groundY + 1.5f, towerPos.z), cwPipeW, cwMat);
-            Seg(root.transform, "CW_Tower_Riser", new Vector3(towerPos.x, groundY + 1.5f, towerPos.z), cwTower, cwPipeW, cwMat);
-            Seg(root.transform, "CW_Return_Riser", cwTower + Vector3.right * 1.0f, new Vector3(towerPos.x + 1f, groundY + 1.2f, towerPos.z), cwPipeW * 0.9f, Trans(new Color(0.2f, 0.8f, 0.75f, 0.6f)));
-            Seg(root.transform, "CW_Return_to_Chiller", new Vector3(towerPos.x + 1f, groundY + 1.2f, towerPos.z), cwChiller + Vector3.right * 0.8f, cwPipeW * 0.9f, Trans(new Color(0.2f, 0.8f, 0.75f, 0.6f)));
+            Seg(root.transform, "CW_to_Tower", cwChiller, cwTower, cwPipeW, cwMat);
+            Seg(root.transform, "CW_Return", cwTower + Vector3.right * 1.0f, cwChiller + Vector3.right * 0.8f, cwPipeW * 0.9f, Trans(new Color(0.2f, 0.8f, 0.75f, 0.6f)));
 
             int n = 0;
             foreach (var te in FindObjectsByType<TwinEntity>())

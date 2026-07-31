@@ -1,11 +1,15 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Vibe21.Twin
 {
     /// <summary>
     /// Greyscale flyable drone with SphereCast collision (bonk/scrape, never totalled).
-    /// WASD; E/PageUp climb; Q/PageDown descend. 2D motor hum.
+    /// WASD; E/PageUp climb; Q/PageDown descend. L = Land, R = Recover.
+    /// Pixabay motor loop (or procedural hum fallback).
     /// </summary>
     public class DroneController : MonoBehaviour
     {
@@ -25,6 +29,8 @@ namespace Vibe21.Twin
         public float collideRadius = 0.55f;
         public float bonkCooldown = 0.18f;
         public LayerMask collideMask = ~0;
+        public float landDropSpeed = 18f;
+        public float recoverZipSpeed = 42f;
 
         float _yaw;
         float _pitch;
@@ -36,6 +42,16 @@ namespace Vibe21.Twin
         float _bonkTimer;
         Vector3 _velocity;
         bool _scraping;
+
+        enum FlightMode { Flying, Landing, Landed, Recovering }
+        FlightMode _mode = FlightMode.Flying;
+        Vector3 _preLandPos;
+        Quaternion _preLandRot;
+        Vector3 _frozenCamPos;
+        Quaternion _frozenCamRot;
+        bool _cameraFrozen;
+        bool _flightAudioStarted;
+        float _idlePropRpm = 120f;
 
         void Awake()
         {
@@ -63,7 +79,18 @@ namespace Vibe21.Twin
             }
             EnsureMotorSound();
             EnsureCollisionAudio();
-            if (_motor != null && !IsMenuPaused())
+        }
+
+        /// <summary>Called from TwinMainMenu when Start Flight is pressed — begin Pixabay from start once, then loop.</summary>
+        public void NotifyFlightStarted()
+        {
+            _flightAudioStarted = true;
+            EnsureMotorSound();
+            if (_motor == null) return;
+            _motor.Stop();
+            _motor.time = 0f;
+            _motor.loop = true;
+            if (!IsMenuPaused())
                 _motor.Play();
         }
 
@@ -81,11 +108,11 @@ namespace Vibe21.Twin
 
         void EnsureMotorSound()
         {
-            if (_audioReady && _motor != null) return;
+            if (_audioReady && _motor != null && _motor.clip != null) return;
             _motor = gameObject.GetComponent<AudioSource>();
             if (_motor == null) _motor = gameObject.AddComponent<AudioSource>();
             if (_motor.clip == null)
-                _motor.clip = MakeHumClip();
+                _motor.clip = LoadPixabayClip() ?? MakeHumClip();
             _motor.loop = true;
             _motor.playOnAwake = false;
             _motor.spatialBlend = 0f;
@@ -94,6 +121,17 @@ namespace Vibe21.Twin
             _motor.ignoreListenerPause = true;
             _motor.priority = 64;
             _audioReady = true;
+        }
+
+        static AudioClip LoadPixabayClip()
+        {
+            var fromResources = Resources.Load<AudioClip>("Twin/pixaBayDrone");
+            if (fromResources != null) return fromResources;
+#if UNITY_EDITOR
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Twin/pixaBayDrone.mp3");
+            if (clip != null) return clip;
+#endif
+            return null;
         }
 
         void EnsureCollisionAudio()
@@ -197,7 +235,27 @@ namespace Vibe21.Twin
 
             EnsureMotorSound();
             EnsureCollisionAudio();
-            if (_motor != null && !_motor.isPlaying) _motor.Play();
+
+            float dt = Time.unscaledDeltaTime;
+
+            if (KeyDown(Key.L)) BeginLand();
+            if (KeyDown(Key.R)) BeginRecover();
+
+            switch (_mode)
+            {
+                case FlightMode.Landing:
+                    TickLanding(dt);
+                    return;
+                case FlightMode.Landed:
+                    TickLanded(dt);
+                    return;
+                case FlightMode.Recovering:
+                    TickRecovering(dt);
+                    return;
+            }
+
+            if (_flightAudioStarted && _motor != null && !_motor.isPlaying)
+                _motor.Play();
 
             float mx = MouseDeltaX();
             float my = MouseDeltaY();
@@ -206,7 +264,6 @@ namespace Vibe21.Twin
             _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
 
-            float dt = Time.unscaledDeltaTime;
             float boost = (KeyHeld(Key.LeftShift) || KeyHeld(Key.RightShift)) ? boostMultiplier : 1f;
 
             Vector3 wish = Vector3.zero;
@@ -226,10 +283,123 @@ namespace Vibe21.Twin
             _bonkTimer -= dt;
             _load = (wish.sqrMagnitude > 0.5f) ? 1.4f : 0.85f;
             SpinProps(_load, dt);
-            if (_motor != null)
+            if (_motor != null && _flightAudioStarted)
             {
                 _motor.pitch = 0.9f + 0.45f * (_load - 0.85f);
                 _motor.volume = motorVolume * (0.75f + 0.35f * (_load - 0.85f));
+            }
+            UpdateCamera();
+        }
+
+        void BeginLand()
+        {
+            if (_mode != FlightMode.Flying) return;
+            _preLandPos = transform.position;
+            _preLandRot = transform.rotation;
+            if (cameraRig != null)
+            {
+                _frozenCamPos = cameraRig.position;
+                _frozenCamRot = cameraRig.rotation;
+            }
+            _cameraFrozen = true;
+            _velocity = Vector3.zero;
+            _mode = FlightMode.Landing;
+        }
+
+        void BeginRecover()
+        {
+            if (_mode != FlightMode.Landed && _mode != FlightMode.Landing) return;
+            _mode = FlightMode.Recovering;
+            _cameraFrozen = false;
+            if (_motor != null && _flightAudioStarted)
+            {
+                _motor.volume = motorVolume;
+                if (!_motor.isPlaying) _motor.Play();
+            }
+        }
+
+        void TickLanding(float dt)
+        {
+            _bonkTimer -= dt;
+            // Drop straight down until ground
+            Vector3 drop = Vector3.down * (landDropSpeed * dt);
+            MoveWithCollision(drop);
+
+            bool onGround = false;
+            if (Physics.SphereCast(transform.position + Vector3.up * 2f, collideRadius * 0.9f, Vector3.down, out var ground, 4f, collideMask, QueryTriggerInteraction.Ignore))
+            {
+                if (!ground.collider.transform.IsChildOf(transform))
+                {
+                    float minY = ground.point.y + collideRadius + 0.05f;
+                    if (transform.position.y <= minY + 0.08f)
+                        onGround = true;
+                }
+            }
+
+            SpinProps(0.35f, dt);
+            if (_motor != null)
+            {
+                _motor.pitch = Mathf.Lerp(_motor.pitch, 0.55f, 0.08f);
+                _motor.volume = Mathf.Lerp(_motor.volume, motorVolume * 0.15f, 0.08f);
+            }
+            // Keep cam frozen at pre-land pose
+            if (_cameraFrozen && cameraRig != null)
+            {
+                cameraRig.position = _frozenCamPos;
+                cameraRig.rotation = _frozenCamRot;
+            }
+
+            if (onGround)
+            {
+                if (_bonkTimer <= 0f)
+                {
+                    PlayBonk(0.55f);
+                    _bonkTimer = 0.5f;
+                }
+                _mode = FlightMode.Landed;
+                _velocity = Vector3.zero;
+                if (_motor != null && _motor.isPlaying) _motor.Pause();
+            }
+        }
+
+        void TickLanded(float dt)
+        {
+            SpinProps(_idlePropRpm / Mathf.Max(1f, propRpm), dt);
+            if (_motor != null && _motor.isPlaying) _motor.Pause();
+            if (_scrape != null && _scrape.isPlaying) _scrape.Pause();
+            if (_cameraFrozen && cameraRig != null)
+            {
+                cameraRig.position = _frozenCamPos;
+                cameraRig.rotation = _frozenCamRot;
+            }
+        }
+
+        void TickRecovering(float dt)
+        {
+            Vector3 target = _preLandPos;
+            Vector3 to = target - transform.position;
+            float dist = to.magnitude;
+            if (dist < 0.15f)
+            {
+                transform.position = target;
+                transform.rotation = _preLandRot;
+                _yaw = _preLandRot.eulerAngles.y;
+                _velocity = Vector3.zero;
+                _mode = FlightMode.Flying;
+                if (_motor != null && _flightAudioStarted && !_motor.isPlaying)
+                    _motor.Play();
+                return;
+            }
+
+            Vector3 step = to.normalized * Mathf.Min(dist, recoverZipSpeed * dt);
+            transform.position += step;
+            _load = 1.5f;
+            SpinProps(_load, dt);
+            if (_motor != null && _flightAudioStarted)
+            {
+                if (!_motor.isPlaying) _motor.Play();
+                _motor.pitch = 1.2f;
+                _motor.volume = motorVolume;
             }
             UpdateCamera();
         }
@@ -336,10 +506,26 @@ namespace Vibe21.Twin
 
         void UpdateCamera()
         {
-            if (cameraRig == null) return;
+            if (cameraRig == null || _cameraFrozen) return;
             var targetPos = transform.TransformPoint(cameraOffset);
             cameraRig.position = Vector3.Lerp(cameraRig.position, targetPos, 14f * Time.unscaledDeltaTime);
             cameraRig.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
+        }
+
+        static bool KeyDown(Key key)
+        {
+            if (Keyboard.current != null && Keyboard.current[key].wasPressedThisFrame)
+                return true;
+            try
+            {
+                switch (key)
+                {
+                    case Key.L: return Input.GetKeyDown(KeyCode.L);
+                    case Key.R: return Input.GetKeyDown(KeyCode.R);
+                }
+            }
+            catch { }
+            return false;
         }
 
         static bool KeyHeld(Key key)

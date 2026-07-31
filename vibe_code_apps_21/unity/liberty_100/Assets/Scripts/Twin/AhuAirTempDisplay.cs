@@ -63,15 +63,15 @@ namespace Vibe21.Twin
         public void RefreshLabel()
         {
             if (oaLabel != null)
-                oaLabel.text = $"OA {oatC:0.0}°C";
+                oaLabel.text = $"OA {TempUnits.Format(oatC)}";
             if (leaveLabel != null)
-                leaveLabel.text = $"{airLoopName}\nLeave {leaveC:0.0}°C";
+                leaveLabel.text = $"{airLoopName}\nLeave {TempUnits.Format(leaveC)}";
             if (mixLabel != null)
-                mixLabel.text = $"Mix {mixC:0.0}°C";
+                mixLabel.text = $"Mix {TempUnits.Format(mixC)}";
             if (returnLabel != null)
-                returnLabel.text = $"Return {returnC:0.0}°C";
+                returnLabel.text = $"Return {TempUnits.Format(returnC)}";
             if (label != null && leaveLabel == null)
-                label.text = $"{airLoopName}\nDAT {leaveC:0.0}\nMix {mixC:0.0}\nRAT {returnC:0.0}";
+                label.text = $"{airLoopName}\nDAT {TempUnits.Format(leaveC)}\nMix {TempUnits.Format(mixC)}\nRAT {TempUnits.Format(returnC)}";
         }
 
         void LateUpdate()

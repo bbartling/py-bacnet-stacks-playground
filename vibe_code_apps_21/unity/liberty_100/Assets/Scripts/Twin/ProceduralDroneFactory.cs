@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Greyscale procedural quadcopter. SpinPivot local Y = prop spin axis.
-    /// Root keeps a SphereCollider for building/ground bounce (bonk).
+    /// Greyscale procedural quadcopter with airplane-style spinning blades.
+    /// SpinPivot local Y = prop spin axis. Root keeps a SphereCollider for bounce.
     /// </summary>
     public static class ProceduralDroneFactory
     {
@@ -58,34 +58,10 @@ namespace Vibe21.Twin
                 arm.GetComponent<MeshRenderer>().sharedMaterial = armMat;
                 KillCollider(arm);
 
-                var pivotGo = new GameObject($"SpinPivot_{i}");
-                pivotGo.transform.SetParent(root.transform, false);
-                pivotGo.transform.localPosition = corner;
-                pivotGo.transform.localRotation = Quaternion.identity;
-                spins.Add(pivotGo.transform);
-
-                var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                hub.name = $"Hub_{i}";
-                hub.transform.SetParent(pivotGo.transform, false);
-                hub.transform.localScale = new Vector3(0.1f, 0.03f, 0.1f);
-                hub.GetComponent<MeshRenderer>().sharedMaterial = hubMat;
-                KillCollider(hub);
-
-                var prop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                prop.name = $"Prop_{i}";
-                prop.transform.SetParent(pivotGo.transform, false);
-                prop.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-                prop.transform.localScale = new Vector3(0.42f, 0.012f, 0.42f);
-                prop.GetComponent<MeshRenderer>().sharedMaterial = propMat;
-                KillCollider(prop);
-
-                var blade = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                blade.name = $"Blade_{i}";
-                blade.transform.SetParent(pivotGo.transform, false);
-                blade.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-                blade.transform.localScale = new Vector3(0.5f, 0.01f, 0.06f);
-                blade.GetComponent<MeshRenderer>().sharedMaterial = propMat;
-                KillCollider(blade);
+                // Airplane-style blades (not flat disc) — spin about local Y / world up
+                var pivot = AirplanePropFactory.BuildFacingUp(
+                    root.transform, $"SpinPivot_{i}", corner, 0.28f, propMat, blades: 2);
+                spins.Add(pivot);
             }
 
             var te = root.AddComponent<TwinEntity>();

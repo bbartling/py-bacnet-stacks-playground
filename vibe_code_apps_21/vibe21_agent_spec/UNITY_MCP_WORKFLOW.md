@@ -22,10 +22,10 @@ geometry outside the Twin JSON.
 ## Milestone save checklist
 
 1. Geometry (+ colliders) / site
-2. Cool-focused x-ray AHUs ×2 + greyscale drone
-3. Fat MEP + chiller + cooling tower
-4. Sensors / glass tint
-5. Menu / DR playback / machine audio smoke
+2. Cool-focused x-ray AHUs ×2 + greyscale drone (`AirplanePropFactory` blades)
+3. Fat MEP + **roof** chiller + cooling tower (short roof CHW/CW laterals)
+4. Facade sensors outside glass + `GlassUtil` window fix
+5. Menu (°C/°F) / DR playback / Pixabay motor + machine audio smoke
 6. End of session
 
 ## Flight controls
@@ -36,9 +36,11 @@ geometry outside the Twin JSON.
 | **E / PageUp** | Climb |
 | **Q / PageDown** | Descend |
 | **Shift** | Boost |
-| **Esc** | Pause menu (large overlay) |
+| **L** | Land (drop, bonk, freeze camera) |
+| **R** | Recover (zip back to pre-land hover) |
+| **Esc** | Pause menu (large overlay; °C/°F) |
 
-Collision: bounce + bonk/scrape; craft stays flyable.
+Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades (not flat discs). Motor: `Assets/Audio/Twin/pixaBayDrone.mp3` after Start Flight.
 
 ## DR panel
 

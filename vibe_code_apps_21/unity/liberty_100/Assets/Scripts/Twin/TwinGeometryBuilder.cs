@@ -148,19 +148,7 @@ namespace Vibe21.Twin
             }
             if (windowMaterial == null)
             {
-                windowMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                // E+ Exterior Window Glass look — blue-ish translucent pane
-                windowMaterial.color = new Color(0.35f, 0.55f, 0.75f, 0.45f);
-                if (windowMaterial.HasProperty("_Surface"))
-                    windowMaterial.SetFloat("_Surface", 1f); // Transparent
-                if (windowMaterial.HasProperty("_Blend"))
-                    windowMaterial.SetFloat("_Blend", 0f);
-                if (windowMaterial.HasProperty("_BaseColor"))
-                    windowMaterial.SetColor("_BaseColor", new Color(0.35f, 0.55f, 0.75f, 0.45f));
-                windowMaterial.SetFloat("_Metallic", 0.1f);
-                windowMaterial.SetFloat("_Smoothness", 0.85f);
-                windowMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                windowMaterial.renderQueue = 3000;
+                windowMaterial = GlassUtil.MakeGlass(new Color(0.45f, 0.65f, 0.85f, 0.28f));
             }
         }
 

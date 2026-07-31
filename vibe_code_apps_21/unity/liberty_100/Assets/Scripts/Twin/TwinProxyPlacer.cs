@@ -5,8 +5,7 @@ using UnityEngine;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// DEMO zone temp sensors near exterior windows + optional legacy AHU boxes.
-    /// One bulb + one short label per zone (no stacked DEMO spam).
+    /// DEMO zone temp sensors on the facade (outside glass) — one per Floor×AHU zone.
     /// </summary>
     public class TwinProxyPlacer : MonoBehaviour
     {
@@ -21,9 +20,18 @@ namespace Vibe21.Twin
             {
                 if (te.entityType == "zone") zones.Add(te);
             }
-
-            // Sort for stable stagger index
             zones.Sort((a, b) => string.CompareOrdinal(a.displayName, b.displayName));
+
+            // Building centroid for "outside" outward push
+            Vector3 buildingCenter = Vector3.zero;
+            int zn = 0;
+            foreach (var z in zones)
+            {
+                buildingCenter += GetHierarchyBounds(z.transform).center;
+                zn++;
+            }
+            if (zn > 0) buildingCenter /= zn;
+            else buildingCenter = new Vector3(28f, 12f, 19f);
 
             int idx = 0;
             foreach (var z in zones)
@@ -34,24 +42,25 @@ namespace Vibe21.Twin
                 bool ahu2 = (z.displayName ?? "").Contains("AHU2");
                 string ahu = ahu2 ? "AHU2" : "AHU1";
 
-                var pos = WindowMidpointForZone(z.entityId);
-                if (!pos.HasValue)
-                {
-                    var bounds = GetHierarchyBounds(z.transform);
-                    pos = new Vector3(bounds.center.x, Mathf.Lerp(bounds.min.y, bounds.max.y, 0.55f), bounds.center.z);
-                }
+                var winCenter = WindowMidpointForZone(z.entityId);
+                var zoneBounds = GetHierarchyBounds(z.transform);
+                Vector3 pos = winCenter ?? new Vector3(zoneBounds.center.x, Mathf.Lerp(zoneBounds.min.y, zoneBounds.max.y, 0.55f), zoneBounds.center.z);
 
-                // Slight vertical stagger by floor×AHU so labels never share a pixel
-                float stagger = ((floor - 1) * 2 + (ahu2 ? 1 : 0)) * 0.12f + (idx % 3) * 0.05f;
-                var sensorPos = pos.Value + Vector3.up * (0.35f + stagger);
+                // Push slightly outside the glass so drone can read from exterior
+                Vector3 outward = pos - buildingCenter;
+                outward.y = 0f;
+                if (outward.sqrMagnitude < 0.01f) outward = Vector3.forward;
+                outward.Normalize();
+                float stagger = ((floor - 1) * 2 + (ahu2 ? 1 : 0)) * 0.1f + (idx % 3) * 0.04f;
+                var sensorPos = pos + outward * 0.55f + Vector3.up * stagger;
 
                 var sensor = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 sensor.name = $"TempProxy_{z.entityId}";
                 sensor.transform.SetParent(root.transform, false);
                 sensor.transform.position = sensorPos;
-                sensor.transform.localScale = Vector3.one * 0.4f;
+                sensor.transform.localScale = Vector3.one * 0.35f;
                 var sm = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                sm.color = new Color(0.75f, 0.78f, 0.82f);
+                sm.color = new Color(0.8f, 0.82f, 0.88f);
                 var bulb = sensor.GetComponent<MeshRenderer>();
                 bulb.sharedMaterial = sm;
                 var ste = sensor.AddComponent<TwinEntity>();
@@ -62,13 +71,13 @@ namespace Vibe21.Twin
 
                 var labelGo = new GameObject("Label");
                 labelGo.transform.SetParent(sensor.transform, false);
-                labelGo.transform.localPosition = new Vector3(0f, 0.75f, 0f);
+                labelGo.transform.localPosition = new Vector3(0f, 0.7f, 0f);
                 var tm = labelGo.AddComponent<TextMesh>();
-                tm.characterSize = 0.09f;
-                tm.fontSize = 40;
+                tm.characterSize = 0.1f;
+                tm.fontSize = 42;
                 tm.anchor = TextAnchor.MiddleCenter;
                 tm.alignment = TextAlignment.Center;
-                tm.color = new Color(0.95f, 0.95f, 0.95f);
+                tm.color = new Color(0.98f, 0.98f, 0.98f);
 
                 var zts = sensor.AddComponent<ZoneTempSensor>();
                 zts.zoneEntityId = z.entityId;
@@ -79,7 +88,6 @@ namespace Vibe21.Twin
                 idx++;
             }
 
-            // Do not place opaque AHU cubes when x-ray roof AHUs exist
             bool hasRoofAhu = false;
             foreach (var te in FindObjectsByType<TwinEntity>())
             {
@@ -92,22 +100,22 @@ namespace Vibe21.Twin
                     if (z.displayName == null || !z.displayName.StartsWith("Floor_6_AHU")) continue;
                     var bounds = GetHierarchyBounds(z.transform);
                     var apos = new Vector3(bounds.center.x, bounds.max.y + 1.2f, bounds.center.z);
-                    var ahu = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    ahu.name = $"AHU_Proxy_{z.entityId}";
-                    ahu.transform.SetParent(root.transform, false);
-                    ahu.transform.position = apos;
-                    ahu.transform.localScale = new Vector3(4f, 1.4f, 2.5f);
+                    var ahuGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    ahuGo.name = $"AHU_Proxy_{z.entityId}";
+                    ahuGo.transform.SetParent(root.transform, false);
+                    ahuGo.transform.position = apos;
+                    ahuGo.transform.localScale = new Vector3(4f, 1.4f, 2.5f);
                     var am = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                     am.color = new Color(0.55f, 0.55f, 0.6f);
-                    ahu.GetComponent<MeshRenderer>().sharedMaterial = am;
-                    var ate = ahu.AddComponent<TwinEntity>();
+                    ahuGo.GetComponent<MeshRenderer>().sharedMaterial = am;
+                    var ate = ahuGo.AddComponent<TwinEntity>();
                     ate.entityId = z.entityId.Replace("zone_", "ahu_proxy_");
                     ate.entityType = "ahu_proxy";
                     ate.displayName = "DEMO roof AHU proxy";
                     ate.isDemoProxy = true;
                 }
             }
-            Debug.Log($"TwinProxyPlacer: {zones.Count} window-side temp sensors (short labels)");
+            Debug.Log($"TwinProxyPlacer: {zones.Count} facade window-side temp sensors");
         }
 
         static Vector3? WindowMidpointForZone(string zoneEntityId)
