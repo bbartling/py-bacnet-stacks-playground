@@ -10,20 +10,25 @@ Twin SoT: `geo_b100_dual_ahu_shape_ops11` (G14 PASS).
 ## Multi-day farm (gaps-doc minimum)
 
 ```bash
-# Real EnergyPlus (needs Docker Desktop + energyplus-mcp-dev)
-python vibe_code_apps_21/tools/dm_hourly_farm.py --smoke
-python vibe_code_apps_21/tools/dm_hourly_farm.py            # 40 days × core + 10 full
+# Physics-grade — native Windows EnergyPlus (no Docker/WSL required)
+# Default exe: C:\EnergyPlusV26-1-0\energyplus.exe  (or set ENERGYPLUS_EXE)
+python vibe_code_apps_21/tools/dm_hourly_farm.py --engine native --smoke
+python vibe_code_apps_21/tools/dm_hourly_farm.py --engine native --reuse-existing
 
-# If WSL/Docker is down — interim Unity shapes only (NOT calibrated E+)
+# Hyperparam bake-off + Unity artifact
+python vibe_code_apps_21/ml/tune_demand_hourly.py
+python vibe_code_apps_21/ml/writeup_demand_hourly.py   # charts + MD writeup
+
+# Interim without EnergyPlus — Unity shapes only (NOT calibrated)
 python vibe_code_apps_21/tools/dm_hourly_farm.py --from-seed-proxy
-python vibe_code_apps_21/ml/train_demand_hourly.py
 ```
 
-Outputs: `dm_hourly_rows.parquet`, `farm_summary.json`, model
-`~/wattlab_workspace/models/demand_hourly_v1.joblib` (status `CANDIDATE`).
+Outputs: `~/wattlab_workspace/reports/dm_hourly_farm/`
+(`dm_hourly_rows.parquet`, `farm_summary.json`, `writeup/`).
+Model: `~/wattlab_workspace/models/demand_hourly_v1.joblib` (`CANDIDATE`).
 
 Unity end goal: scrub strategy knobs → predict hourly kW via this surrogate (Flask later).
-Re-run **without** `--from-seed-proxy` once Docker works before any `APPROVED` claim.
+Prefer `--engine native` (or Docker when WSL works) over `--from-seed-proxy` before any `APPROVED` claim.
 
 ## Implemented cases (hot July weekday 14:00–16:00 unless noted)
 

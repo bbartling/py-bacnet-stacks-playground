@@ -57,7 +57,7 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
     out["occupied"] = out["occupied"].astype(float)
     out["in_dr_window"] = out["in_dr_window"].astype(float)
     out["is_weekend"] = out["dow"].isin(["Saturday", "Sunday"]).astype(float)
-    out["deadband_target_f"] = out["deadband_target_f"].fillna(0.0)
+    out["deadband_target_f"] = pd.to_numeric(out["deadband_target_f"], errors="coerce").fillna(0.0)
     out["ghi"] = out["ghi"].fillna(0.0)
 
     # Lags within simulation_id (same day × strategy) — never cross midnight into next day

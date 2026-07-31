@@ -22,19 +22,22 @@ description: >-
 ## Runner
 
 ```bash
-# Multi-day ML farm (preferred)
-python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py --smoke
-python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py
-# Interim without Docker:
-python .../dm_hourly_farm.py --from-seed-proxy
-python .../ml/train_demand_hourly.py
+# Multi-day ML farm — native Windows EnergyPlus (preferred when Docker/WSL broken)
+python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py --engine native --smoke
+python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py --engine native --reuse-existing
+python /path/to/vibe_code_apps_21/ml/tune_demand_hourly.py
+python /path/to/vibe_code_apps_21/ml/writeup_demand_hourly.py
+# Exe: C:\EnergyPlusV26-1-0\energyplus.exe  or ENERGYPLUS_EXE=
 
-# Legacy single-day July portfolio
+# Interim without EnergyPlus:
+python .../dm_hourly_farm.py --from-seed-proxy
+
+# Legacy single-day July portfolio (Docker)
 docker exec vibe20 python /data/tools/july_demand_profiles_eplus.py --reuse-existing
-# optional: --only weekday_precool_shift weekday_deadband_10f
 ```
 
 Output (ML farm): `reports/dm_hourly_farm/dm_hourly_rows.parquet`  
+Writeup: `reports/dm_hourly_farm/writeup/DEMAND_HOURLY_SURROGATE_RESULTS.md`  
 Output (July seed): `reports/full_parity_july_demand/july_demand_profiles.json`  
 Playbook: `tools/DEMAND_MANAGEMENT_HOURLY_PLAYBOOK.md`  
 Unity massing: `tools/export_unity_twin_manifest.py`  

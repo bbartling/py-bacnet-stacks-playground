@@ -19,6 +19,7 @@ Writes reports/full_parity_july_demand/july_demand_profiles.json
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import json
 import re
@@ -27,6 +28,24 @@ import sys
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
+
+
+def _month_last_day(month: int, year: int = 2025) -> int:
+    return calendar.monthrange(year, month)[1]
+
+
+def _through_prev(month: int, day: int, year: int = 2025) -> str:
+    """Day before event for Schedule:Compact Through: (never invalid dates)."""
+    if day > 1:
+        return f"{month}/{day - 1}"
+    if month == 1:
+        return f"1/1"
+    prev_m = month - 1
+    return f"{prev_m}/{_month_last_day(prev_m, year)}"
+
+
+def _through_month_end(month: int, year: int = 2025) -> str:
+    return f"{month}/{_month_last_day(month, year)}"
 
 ROOT = Path("/data") if Path("/data/runs").is_dir() else Path.home() / "wattlab_workspace"
 TWIN_ID = "geo_b100_dual_ahu_shape_ops11"
@@ -191,11 +210,11 @@ def _clg_loadshed_block(
     occupied_c: float,
     shed_c: float,
 ) -> str:
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     return (
         f"Schedule:Compact,\n"
         f"    Clg-SetP-Sch, Temperature,\n"
-        f"    Through: {prev},\n"
+        f"    Through: {_through_prev(month, day)},\n"
         f"    For: Weekdays SummerDesignDay,\n"
         f"    Until: 6:00, 30.0, Until: 22:00, {occupied_c}, Until: 24:00, 30.0,\n"
         f"    For: Saturday,\n"
@@ -230,7 +249,7 @@ def _htg_loadshed_block(
     shed_c: float,
     setback_c: float = 15.6,
 ) -> str:
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     return (
         f"Schedule:Compact,\n"
         f"    Htg-SetP-Sch, Temperature,\n"
@@ -270,7 +289,7 @@ def _dump_july_loadshed(
     shed_c: float,
 ) -> str:
     """Rewrite Dump_* DAT so only event-day 14–16 raises SAT."""
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     months = {
         "Dump_AHU1_DAT_SP": [
             (1, 31, 27.78),
@@ -320,7 +339,7 @@ def _dump_july_loadshed(
         f"  {shed_c},",
         "  Until: 24:00,",
         f"  {july_c},",
-        f"  Through: {month}/31,",
+        f"  Through: {_through_month_end(month)},",
         "  For: AllDays,",
         "  Until: 24:00,",
         f"  {july_c},",
@@ -505,11 +524,11 @@ def _clg_precool_shift_block(
     relax_end_h: int,
 ) -> str:
     """Event-day Clg: setback → precool → afternoon relax → occupied → setback."""
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     return (
         f"Schedule:Compact,\n"
         f"    Clg-SetP-Sch, Temperature,\n"
-        f"    Through: {prev},\n"
+        f"    Through: {_through_prev(month, day)},\n"
         f"    For: Weekdays SummerDesignDay,\n"
         f"    Until: 6:00, 30.0, Until: 22:00, {occupied_c}, Until: 24:00, 30.0,\n"
         f"    For: Saturday,\n"
@@ -545,7 +564,7 @@ def _htg_precool_shift_block(
     setback_c: float = 15.6,
 ) -> str:
     """Afternoon Htg drop widens deadband after noon (precool morning keeps occupied Htg)."""
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     return (
         f"Schedule:Compact,\n"
         f"    Htg-SetP-Sch, Temperature,\n"
@@ -586,7 +605,7 @@ def _dump_precool_shift(
     relax_end_h: int,
 ) -> str:
     """Dump DAT cooler in morning, warmer after noon on event day."""
-    prev = f"{month}/{max(day - 1, 1)}"
+    prev = _through_prev(month, day)
     months = {
         "Dump_AHU1_DAT_SP": [
             (1, 31, 27.78),
@@ -632,7 +651,7 @@ def _dump_precool_shift(
         f"  {relax_c},",
         "  Until: 24:00,",
         f"  {july_c},",
-        f"  Through: {month}/31,",
+        f"  Through: {_through_month_end(month)},",
         "  For: AllDays,",
         "  Until: 24:00,",
         f"  {july_c},",
@@ -946,9 +965,13 @@ def run_case(
     day_meta: dict[str, Any],
     mode: Mode,
     mode_kwargs: dict[str, Any],
+    engine: str = "auto",
 ) -> dict[str, Any]:
-    from wattlab.energyplus.docker import run_energyplus
+    """Run one patched single-day sim.
 
+    ``engine``: ``native`` (host energyplus.exe), ``docker``, or ``auto``
+    (native if exe present, else docker).
+    """
     case_dir = out_dir / f"sim_{label}"
     case_dir.mkdir(parents=True, exist_ok=True)
     idf = out_dir / f"{label}.idf"
@@ -964,7 +987,37 @@ def run_case(
     )
     local_epw = idf.with_suffix(".epw")
     shutil.copy2(epw, local_epw)
-    proc = run_energyplus(idf, local_epw, case_dir, readvars=True, timeout=7200)
+
+    eng = (engine or "auto").lower().strip()
+    if eng == "auto":
+        try:
+            from native_energyplus import native_energyplus_available
+
+            eng = "native" if native_energyplus_available() else "docker"
+        except Exception:
+            # tools/ may not be on path — try ml/
+            ml = Path(__file__).resolve().parent.parent / "ml"
+            if str(ml) not in sys.path:
+                sys.path.insert(0, str(ml))
+            try:
+                from native_energyplus import native_energyplus_available
+
+                eng = "native" if native_energyplus_available() else "docker"
+            except Exception:
+                eng = "docker"
+
+    if eng == "native":
+        ml = Path(__file__).resolve().parent.parent / "ml"
+        if str(ml) not in sys.path:
+            sys.path.insert(0, str(ml))
+        from native_energyplus import run_energyplus_native
+
+        proc = run_energyplus_native(idf, local_epw, case_dir, readvars=True, timeout=7200)
+    else:
+        from wattlab.energyplus.docker import run_energyplus
+
+        proc = run_energyplus(idf, local_epw, case_dir, readvars=True, timeout=7200)
+
     csv_path = case_dir / "eplusout.csv"
     if not csv_path.is_file():
         found = list(case_dir.rglob("eplusout.csv"))
@@ -977,6 +1030,7 @@ def run_case(
         "dow": day_meta["dow"],
         "max_db_c": day_meta.get("max_db_c"),
         "mode": mode,
+        "engine": eng,
         "story": story,
         "rc": getattr(proc, "returncode", None),
         "eplusout_csv": str(csv_path) if csv_path.is_file() else None,

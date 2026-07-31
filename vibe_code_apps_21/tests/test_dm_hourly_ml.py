@@ -70,6 +70,16 @@ def test_feature_no_future_leakage():
     assert_no_future_leakage(df)
 
 
+def test_native_exe_resolves():
+    from native_energyplus import native_energyplus_available, resolve_energyplus_exe
+
+    if native_energyplus_available():
+        p = resolve_energyplus_exe()
+        assert p.name.lower() == "energyplus.exe" or p.name == "energyplus"
+    else:
+        pytest.skip("EnergyPlus not installed on this host")
+
+
 def test_actions_phase_precool():
     import dm_hourly_farm as farm
 

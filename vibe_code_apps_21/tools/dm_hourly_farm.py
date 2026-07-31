@@ -496,17 +496,25 @@ def run_eplus_jobs(
     *,
     reuse: bool,
     idf_sha: str,
+    engine: str = "auto",
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     runs = out_dir / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     for sid, day_meta, mode, kwargs in jobs:
-        case_dir = runs / sid
+        case_dir = runs / f"sim_{sid}"
         csv_path = case_dir / "eplusout.csv"
+        if not csv_path.is_file():
+            # also accept runs/<sid>/eplusout.csv from older layout
+            alt = runs / sid / "eplusout.csv"
+            if alt.is_file():
+                csv_path = alt
+                case_dir = runs / sid
         if reuse and csv_path.is_file():
+            print(f"reuse {sid}", flush=True)
             hourly = july.parse_hourly_facility_kw(csv_path)
         else:
-            print(f"sim {sid} mode={mode} …", flush=True)
+            print(f"sim {sid} mode={mode} engine={engine} …", flush=True)
             day_run = {
                 "year": day_meta["year"],
                 "month": day_meta["month"],
@@ -522,8 +530,16 @@ def run_eplus_jobs(
                 day_meta=day_run,
                 mode=mode,
                 mode_kwargs=kwargs,
+                engine=engine,
             )
             hourly = result.get("hourly_kw") or []
+            if not hourly:
+                print(f"  WARN empty hourly rc={result.get('rc')}", flush=True)
+            else:
+                print(
+                    f"  peak={result.get('peak_kw')} event={result.get('event_mean_kw_14_16')}",
+                    flush=True,
+                )
             csv_path = Path(result["eplusout_csv"]) if result.get("eplusout_csv") else csv_path
         rows.extend(
             rows_from_case(
@@ -555,6 +571,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="No Docker: expand july seed shapes across stratified EPW days (SEEDED_SHAPE_PROXY)",
     )
+    ap.add_argument(
+        "--engine",
+        choices=("auto", "native", "docker"),
+        default="auto",
+        help="EnergyPlus backend (auto→native if C:\\EnergyPlusV26-1-0 exists)",
+    )
     ap.add_argument("--write-jsonl", action="store_true")
     args = ap.parse_args(argv)
 
@@ -577,7 +599,19 @@ def main(argv: list[str] | None = None) -> int:
         # core only already; trim duplicate extras
         jobs = [j for j in jobs if j[2] in CORE_MODES]
 
-    print(f"days={len(days)} jobs={len(jobs)} out={out_dir}", flush=True)
+    engine = args.engine
+    if engine == "auto":
+        ml = Path(__file__).resolve().parent.parent / "ml"
+        if str(ml) not in sys.path:
+            sys.path.insert(0, str(ml))
+        try:
+            from native_energyplus import native_energyplus_available
+
+            engine = "native" if native_energyplus_available() else "docker"
+        except Exception:
+            engine = "docker"
+
+    print(f"days={len(days)} jobs={len(jobs)} engine={engine} out={out_dir}", flush=True)
     july = _load_july()
 
     if args.from_seed_proxy:
@@ -586,11 +620,21 @@ def main(argv: list[str] | None = None) -> int:
     else:
         try:
             rows = run_eplus_jobs(
-                july, twin, epw, out_dir, jobs, reuse=args.reuse_existing, idf_sha=idf_sha
+                july,
+                twin,
+                epw,
+                out_dir,
+                jobs,
+                reuse=args.reuse_existing,
+                idf_sha=idf_sha,
+                engine=engine,
             )
             source = "ENERGYPLUS_SIMULATED"
         except Exception as exc:
-            print(f"E+ farm failed ({exc}); hint: start Docker or pass --from-seed-proxy", file=sys.stderr)
+            print(
+                f"E+ farm failed ({exc}); hint: --engine native or --from-seed-proxy",
+                file=sys.stderr,
+            )
             return 3
 
     pq = out_dir / "dm_hourly_rows.parquet"
@@ -607,13 +651,14 @@ def main(argv: list[str] | None = None) -> int:
         "n_jobs": len(jobs),
         "n_rows": len(rows),
         "source": source,
+        "engine": engine if not args.from_seed_proxy else None,
         "days": [{"iso": d["iso"], "band": d["band"], "max_db_c": d["max_db_c"], "dow": d["dow"]} for d in days],
         "parquet": str(pq),
         "idf_sha256": idf_sha,
         "epw": str(epw),
     }
     (out_dir / "farm_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"n_rows": len(rows), "source": source, "parquet": str(pq)}, indent=2))
+    print(json.dumps({"n_rows": len(rows), "source": source, "engine": summary.get("engine"), "parquet": str(pq)}, indent=2))
     return 0
 
 
