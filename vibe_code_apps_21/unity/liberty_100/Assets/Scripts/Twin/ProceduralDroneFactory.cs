@@ -5,6 +5,7 @@ namespace Vibe21.Twin
 {
     /// <summary>
     /// Greyscale procedural quadcopter. SpinPivot local Y = prop spin axis.
+    /// Root keeps a SphereCollider for building/ground bounce (bonk).
     /// </summary>
     public static class ProceduralDroneFactory
     {
@@ -100,6 +101,7 @@ namespace Vibe21.Twin
             ctrl.motorVolume = 0.45f;
             ctrl.propRpm = 1800f;
             ctrl.verticalSpeed = 22f;
+            ctrl.collideRadius = 0.55f;
 
             if (Camera.main != null)
             {

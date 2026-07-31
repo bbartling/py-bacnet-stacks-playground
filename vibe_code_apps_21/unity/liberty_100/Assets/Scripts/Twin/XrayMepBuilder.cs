@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -7,13 +6,14 @@ using UnityEditor;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// X-ray DEMO MEP: blue supply + orange return risers, floor laterals,
-    /// thin CHW/HW pipes. Illustrative — not CAD.
+    /// Fat x-ray MEP: supply/return ducts + CHW/CW plant pipes (no HW to AHUs).
+    /// Builds chiller + cooling tower via XrayPlantFactory.
     /// </summary>
     public class XrayMepBuilder : MonoBehaviour
     {
-        public float ductW = 0.65f;
-        public float pipeW = 0.18f;
+        public float ductW = 0.95f;
+        public float chwPipeW = 0.55f;
+        public float cwPipeW = 0.48f;
 
 #if UNITY_EDITOR
         [MenuItem("Vibe21/Twin/Build X-Ray MEP")]
@@ -33,10 +33,10 @@ namespace Vibe21.Twin
             if (old2 != null) DestroyImmediate(old2);
 
             var root = new GameObject("TwinXrayMep");
-            var supplyMat = Trans(new Color(0.25f, 0.45f, 0.9f, 0.45f));
-            var returnMat = Trans(new Color(0.9f, 0.45f, 0.25f, 0.45f));
-            var chwMat = Trans(new Color(0.2f, 0.55f, 0.95f, 0.55f));
-            var hwMat = Trans(new Color(0.95f, 0.35f, 0.25f, 0.55f));
+            var supplyMat = Trans(new Color(0.25f, 0.45f, 0.9f, 0.5f));
+            var returnMat = Trans(new Color(0.9f, 0.45f, 0.25f, 0.5f));
+            var chwMat = Trans(new Color(0.2f, 0.55f, 0.95f, 0.65f));
+            var cwMat = Trans(new Color(0.1f, 0.7f, 0.72f, 0.65f));
 
             var ahu1 = FindAhu("ahu_proxy_vav_sys_1");
             var ahu2 = FindAhu("ahu_proxy_vav_sys_2");
@@ -46,34 +46,48 @@ namespace Vibe21.Twin
             float roofY = Mathf.Max(s1.y, s2.y);
             float groundY = 1.2f;
 
-            // Supply risers (slightly offset from return)
-            Vector3 supplyShaft1 = new Vector3(s1.x - 1.2f, 0f, s1.z + 1.5f);
-            Vector3 supplyShaft2 = new Vector3(s2.x + 1.2f, 0f, s2.z + 1.5f);
-            Vector3 returnShaft1 = new Vector3(s1.x + 1.0f, 0f, s1.z - 1.2f);
-            Vector3 returnShaft2 = new Vector3(s2.x - 1.0f, 0f, s2.z - 1.2f);
+            // Chiller courtyard (south of massing) + tower near roof east
+            Vector3 chillerPos = new Vector3(28f, 0.3f, -8f);
+            Vector3 towerPos = new Vector3(52f, roofY + 0.5f, 22f);
+            XrayPlantFactory.Build(root.transform, chillerPos, towerPos);
+
+            Vector3 supplyShaft1 = new Vector3(s1.x - 1.5f, 0f, s1.z + 2.0f);
+            Vector3 supplyShaft2 = new Vector3(s2.x + 1.5f, 0f, s2.z + 2.0f);
+            Vector3 returnShaft1 = new Vector3(s1.x + 1.2f, 0f, s1.z - 1.5f);
+            Vector3 returnShaft2 = new Vector3(s2.x - 1.2f, 0f, s2.z - 1.5f);
 
             Seg(root.transform, "SupplyRiser_AHU1", new Vector3(supplyShaft1.x, groundY, supplyShaft1.z), new Vector3(supplyShaft1.x, roofY, supplyShaft1.z), ductW, supplyMat);
             Seg(root.transform, "SupplyRiser_AHU2", new Vector3(supplyShaft2.x, groundY, supplyShaft2.z), new Vector3(supplyShaft2.x, roofY, supplyShaft2.z), ductW, supplyMat);
             Seg(root.transform, "ReturnRiser_AHU1", new Vector3(returnShaft1.x, groundY, returnShaft1.z), new Vector3(returnShaft1.x, roofY, returnShaft1.z), ductW * 0.9f, returnMat);
             Seg(root.transform, "ReturnRiser_AHU2", new Vector3(returnShaft2.x, groundY, returnShaft2.z), new Vector3(returnShaft2.x, roofY, returnShaft2.z), ductW * 0.9f, returnMat);
 
-            // Roof laterals AHU ↔ risers
-            Seg(root.transform, "RoofSupply_1", s1 + Vector3.right * 1.5f, new Vector3(supplyShaft1.x, roofY, supplyShaft1.z), ductW * 0.7f, supplyMat);
-            Seg(root.transform, "RoofSupply_2", s2 + Vector3.left * 1.5f, new Vector3(supplyShaft2.x, roofY, supplyShaft2.z), ductW * 0.7f, supplyMat);
-            Seg(root.transform, "RoofReturn_1", s1 + new Vector3(0.5f, -0.8f, -1f), new Vector3(returnShaft1.x, roofY - 0.5f, returnShaft1.z), ductW * 0.65f, returnMat);
-            Seg(root.transform, "RoofReturn_2", s2 + new Vector3(-0.5f, -0.8f, -1f), new Vector3(returnShaft2.x, roofY - 0.5f, returnShaft2.z), ductW * 0.65f, returnMat);
+            Seg(root.transform, "RoofSupply_1", s1 + Vector3.right * 2.0f, new Vector3(supplyShaft1.x, roofY, supplyShaft1.z), ductW * 0.85f, supplyMat);
+            Seg(root.transform, "RoofSupply_2", s2 + Vector3.left * 2.0f, new Vector3(supplyShaft2.x, roofY, supplyShaft2.z), ductW * 0.85f, supplyMat);
+            Seg(root.transform, "RoofReturn_1", s1 + new Vector3(0.5f, -0.6f, -1.2f), new Vector3(returnShaft1.x, roofY - 0.4f, returnShaft1.z), ductW * 0.8f, returnMat);
+            Seg(root.transform, "RoofReturn_2", s2 + new Vector3(-0.5f, -0.6f, -1.2f), new Vector3(returnShaft2.x, roofY - 0.4f, returnShaft2.z), ductW * 0.8f, returnMat);
 
-            // CHW / HW pipe risers (DEMO plant feed)
-            Vector3 pipe1 = new Vector3(28f, 0f, 8f);
-            Vector3 pipe2 = new Vector3(28f, 0f, 10f);
-            Seg(root.transform, "CHW_Riser", new Vector3(pipe1.x, groundY, pipe1.z), new Vector3(pipe1.x, roofY, pipe1.z), pipeW, chwMat);
-            Seg(root.transform, "HW_Riser", new Vector3(pipe2.x, groundY, pipe2.z), new Vector3(pipe2.x, roofY, pipe2.z), pipeW, hwMat);
-            Seg(root.transform, "CHW_to_AHU1", new Vector3(pipe1.x, roofY - 0.3f, pipe1.z), s1 + Vector3.down * 0.5f, pipeW * 0.85f, chwMat);
-            Seg(root.transform, "CHW_to_AHU2", new Vector3(pipe1.x, roofY - 0.3f, pipe1.z), s2 + Vector3.down * 0.5f, pipeW * 0.85f, chwMat);
-            Seg(root.transform, "HW_to_AHU1", new Vector3(pipe2.x, roofY - 0.5f, pipe2.z), s1 + Vector3.down * 0.7f, pipeW * 0.85f, hwMat);
-            Seg(root.transform, "HW_to_AHU2", new Vector3(pipe2.x, roofY - 0.5f, pipe2.z), s2 + Vector3.down * 0.7f, pipeW * 0.85f, hwMat);
+            // Fat CHW: chiller → vertical riser → both AHUs (supply + return legs)
+            Vector3 chwBase = chillerPos + new Vector3(-2.2f, 1.0f, 0f);
+            Vector3 chwRiser = new Vector3(28f, 0f, 4f);
+            Seg(root.transform, "CHW_from_Chiller", chwBase, new Vector3(chwRiser.x, groundY + 1f, chwRiser.z), chwPipeW, chwMat);
+            Seg(root.transform, "CHW_Riser", new Vector3(chwRiser.x, groundY, chwRiser.z), new Vector3(chwRiser.x, roofY, chwRiser.z), chwPipeW, chwMat);
+            Seg(root.transform, "CHW_to_AHU1", new Vector3(chwRiser.x, roofY - 0.2f, chwRiser.z), s1 + Vector3.down * 0.4f, chwPipeW * 0.9f, chwMat);
+            Seg(root.transform, "CHW_to_AHU2", new Vector3(chwRiser.x, roofY - 0.2f, chwRiser.z), s2 + Vector3.down * 0.4f, chwPipeW * 0.9f, chwMat);
+            // CHW return leg (offset)
+            Vector3 chwRet = chwRiser + new Vector3(1.2f, 0f, 0f);
+            Seg(root.transform, "CHW_Return_Riser", new Vector3(chwRet.x, groundY, chwRet.z), new Vector3(chwRet.x, roofY - 0.5f, chwRet.z), chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
+            Seg(root.transform, "CHW_Return_to_Chiller", new Vector3(chwRet.x, groundY + 1f, chwRet.z), chwBase + Vector3.forward * 0.8f, chwPipeW * 0.85f, Trans(new Color(0.35f, 0.65f, 1f, 0.6f)));
 
-            // Floor laterals + diffuser proxies from zone sensors / zones
+            // CW loop: chiller ↔ tower
+            Vector3 cwChiller = chillerPos + new Vector3(0f, 2.5f, 0f);
+            Vector3 cwTower = towerPos + new Vector3(0f, 0.8f, 0f);
+            Vector3 cwMid = new Vector3(52f, groundY + 1.5f, -4f);
+            Seg(root.transform, "CW_to_Tower_A", cwChiller, cwMid, cwPipeW, cwMat);
+            Seg(root.transform, "CW_to_Tower_B", cwMid, new Vector3(towerPos.x, groundY + 1.5f, towerPos.z), cwPipeW, cwMat);
+            Seg(root.transform, "CW_Tower_Riser", new Vector3(towerPos.x, groundY + 1.5f, towerPos.z), cwTower, cwPipeW, cwMat);
+            Seg(root.transform, "CW_Return_Riser", cwTower + Vector3.right * 1.0f, new Vector3(towerPos.x + 1f, groundY + 1.2f, towerPos.z), cwPipeW * 0.9f, Trans(new Color(0.2f, 0.8f, 0.75f, 0.6f)));
+            Seg(root.transform, "CW_Return_to_Chiller", new Vector3(towerPos.x + 1f, groundY + 1.2f, towerPos.z), cwChiller + Vector3.right * 0.8f, cwPipeW * 0.9f, Trans(new Color(0.2f, 0.8f, 0.75f, 0.6f)));
+
             int n = 0;
             foreach (var te in FindObjectsByType<TwinEntity>())
             {
@@ -84,28 +98,38 @@ namespace Vibe21.Twin
                 var b = BoundsOf(te.transform);
                 var center = b.center;
                 float y = center.y;
-                var jS = new Vector3(shaftS.x, y, shaftS.z);
-                var jR = new Vector3(shaftR.x, y + 0.35f, shaftR.z);
-                Seg(root.transform, $"SupplyLat_{te.entityId}", jS, center + Vector3.up * 0.8f, ductW * 0.35f, supplyMat);
-                Seg(root.transform, $"ReturnLat_{te.entityId}", center + Vector3.up * 1.1f, jR, ductW * 0.32f, returnMat);
+                Seg(root.transform, $"SupplyLat_{te.entityId}", new Vector3(shaftS.x, y, shaftS.z), center + Vector3.up * 0.8f, ductW * 0.45f, supplyMat);
+                Seg(root.transform, $"ReturnLat_{te.entityId}", center + Vector3.up * 1.1f, new Vector3(shaftR.x, y + 0.35f, shaftR.z), ductW * 0.4f, returnMat);
 
-                // Diffuser proxy
                 var diff = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 diff.name = $"Diffuser_{te.entityId}";
                 diff.transform.SetParent(root.transform, false);
                 diff.transform.position = center + Vector3.up * (b.extents.y * 0.85f);
-                diff.transform.localScale = new Vector3(0.7f, 0.08f, 0.7f);
+                diff.transform.localScale = new Vector3(0.9f, 0.1f, 0.9f);
                 diff.GetComponent<MeshRenderer>().sharedMaterial = supplyMat;
                 KillCol(diff);
                 n++;
             }
 
+            // Tag fat pipes
+            foreach (Transform c in root.transform)
+            {
+                if (c.name.StartsWith("CHW_") || c.name.StartsWith("CW_"))
+                {
+                    var pe = c.gameObject.GetComponent<TwinEntity>() ?? c.gameObject.AddComponent<TwinEntity>();
+                    pe.entityId = c.name.ToLowerInvariant();
+                    pe.entityType = "plant_pipe";
+                    pe.displayName = c.name;
+                    pe.isDemoProxy = true;
+                }
+            }
+
             var meta = root.AddComponent<TwinEntity>();
             meta.entityId = "mep_xray_demo";
             meta.entityType = "duct_proxy";
-            meta.displayName = "DEMO x-ray ducts/pipes";
+            meta.displayName = "DEMO x-ray ducts + CHW/CW plant";
             meta.isDemoProxy = true;
-            Debug.Log($"XrayMepBuilder: supply/return risers + {n} floor branches + CHW/HW (DEMO)");
+            Debug.Log($"XrayMepBuilder: fat ducts + CHW/CW plant + chiller/tower + {n} floor branches");
         }
 
         static Transform FindAhu(string entityId)
@@ -136,7 +160,7 @@ namespace Vibe21.Twin
             go.transform.localScale = new Vector3(width, width, len);
             go.transform.rotation = Quaternion.LookRotation((b - a).normalized, Vector3.up);
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            KillCol(go);
+            // Keep colliders on fat pipes for drone bonk
         }
 
         static void KillCol(GameObject go)

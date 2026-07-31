@@ -6,71 +6,41 @@ geometry outside the Twin JSON.
 
 ## Prerequisites
 
-1. Unity Editor open on `vibe_code_apps_21/unity/liberty_100` (or `Liberty100`).
-2. Package `com.coplaydev.unity-mcp` installed; **Window → MCP for Unity** shows
-   **Server ready on http://127.0.0.1:9999**.
-3. Cursor MCP server `user-unityMCP` connected (auth if prompted).
+1. Unity Editor open on `vibe_code_apps_21/unity/liberty_100`.
+2. Package `com.coplaydev.unity-mcp` installed; **Window → MCP for Unity** ready.
+3. Cursor MCP server `user-unityMCP` connected.
 4. Twin SoT: `assets/twin_b100_ops11/unity_geometry.json` + `unity_twin_manifest.json`.
 
-## Hard rules for agents
+## Hard rules
 
-1. **Do not invent room/VAV polygons.** Massing comes only from Twin surfaces.
-2. Roof AHUs, ducts/pipes, and zone temp sensors are **DEMO / x-ray proxies** — label honesty.
-3. **Save the scene via MCP after every milestone** (`manage_scene` action `save`).
-   Unity UI often locks up; MCP save preserves progress when the Editor is wedged.
-4. After `create_script` / script edits: wait until `editor_state.is_compiling` is
-   false, then `read_console` for errors.
-5. Unity never trains models or runs EnergyPlus — call Flask
-   `POST /api/v1/predict/demand_hourly` on localhost.
+1. **Do not invent room/VAV polygons.** Massing from Twin surfaces only (now with MeshColliders for drone bounce).
+2. AHUs / plant / ducts / sensors are **DEMO / x-ray** — label honesty (cool-focused AHU omits E+ HW coil).
+3. **`manage_scene` save after every milestone.**
+4. After script edits: wait until compile done, then `read_console`.
+5. Unity never trains models — Flask `POST /api/v1/predict/demand_hourly`.
 
 ## Milestone save checklist
 
-After each of these, call `manage_scene(action="save")`:
+1. Geometry (+ colliders) / site
+2. Cool-focused x-ray AHUs ×2 + greyscale drone
+3. Fat MEP + chiller + cooling tower
+4. Sensors / glass tint
+5. Menu / DR playback / machine audio smoke
+6. End of session
 
-1. Geometry import / massing built (+ E+ fenestration windows)
-2. Free-fly or drone camera + terrain site
-3. DR UI panel wired (large scrubber panel)
-4. Sensor / glass tint refresh
-5. X-ray AHUs (`XrayAhuFactory` ×2) + greyscale procedural drone
-6. X-ray MEP (`XrayMepBuilder`: supply/return + CHW/HW)
-7. End of session / before Play Mode experiments
-
-See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
-
-## Useful MCP tools
-
-| Tool | Use |
-| --- | --- |
-| `manage_scene` | `get_active`, `get_hierarchy`, `save`, `create`, `load` |
-| `create_script` / `script_apply_edits` | C# under `Assets/` |
-| `manage_gameobject` | Create/parent/transform |
-| `execute_code` | One-shot Editor C# (build meshes, etc.) |
-| `read_console` | Compile / runtime errors |
-| `manage_editor` | Play / stop (use sparingly while UI locked) |
-
-## Local demo loop
-
-```text
-1. python -m flask_app   # from vibe_code_apps_21, :5050
-2. Unity Play Mode — Start Flight → greyscale drone + x-ray AHU/MEP
-3. Optional: Blender MCP for FBX refresh (procedural builders are preferred)
-4. WebGL export later → flask static/unity (not required for Editor demo)
-```
-
-## Flight controls (Play Mode)
+## Flight controls
 
 | Key | Action |
 | --- | --- |
-| **W / ↑** | Forward |
-| **S / ↓** | Back |
-| **A / ←** | Strafe left |
-| **D / →** | Strafe right |
-| **E / PageUp** | Climb (prefer these; Space stolen by OnGUI) |
+| **W/A/S/D** | Move |
+| **E / PageUp** | Climb |
 | **Q / PageDown** | Descend |
 | **Shift** | Boost |
-| **Mouse** | Look / yaw |
-| **Esc** | Pause / menu |
+| **Esc** | Pause menu (large overlay) |
 
-Flight is on `DroneController` (greyscale `ProceduralDroneFactory` TwinDrone).
-Camera follows the drone; 2D motor hum ~0.45 volume after **Start Flight**.
-Roof has **exactly two** cutaway VAV AHUs (`XrayAhuFactory`, ~6×2.4×2.5 m).
+Collision: bounce + bonk/scrape; craft stays flyable.
+
+## DR panel
+
+- Predict once, or **Run DR Event** for a **2-hour** window compressed to **5 min / 1 min / 30 s**.
+- `chiller_off` / `hvac_off`: plant stops, fans idle, DEMO zone/AHU temps rise.

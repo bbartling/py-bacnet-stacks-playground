@@ -34,7 +34,7 @@ namespace Vibe21.Twin
                 if (strategyId.Contains("deadband") || strategyId.Contains("loadshed"))
                     strategyBias += 0.5f + relaxClgF * 0.15f;
                 if (strategyId.Contains("chiller") || strategyId.Contains("hvac_off"))
-                    strategyBias += 1.4f;
+                    strategyBias += 2.8f;
             }
 
             foreach (var te in FindObjectsByType<TwinEntity>())

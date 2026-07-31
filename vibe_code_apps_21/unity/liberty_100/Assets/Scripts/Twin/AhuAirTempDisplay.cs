@@ -14,15 +14,18 @@ namespace Vibe21.Twin
         public TextMesh leaveLabel;
         public TextMesh mixLabel;
         public TextMesh returnLabel;
+        public TextMesh oaLabel;
+        public float oatC = 32f;
 
         // Legacy single-label support
         public TextMesh label;
 
         public void BuildSeparateLabels(Transform parent, float ahuHeight)
         {
-            leaveLabel = MakeLabel(parent, "Label_Leave", new Vector3(-0.8f, ahuHeight + 0.55f, -1.4f), new Color(0.45f, 0.7f, 1f));
-            mixLabel = MakeLabel(parent, "Label_Mix", new Vector3(0.2f, ahuHeight + 0.95f, -1.4f), new Color(0.9f, 0.9f, 0.75f));
-            returnLabel = MakeLabel(parent, "Label_Return", new Vector3(1.2f, ahuHeight + 0.55f, -1.4f), new Color(1f, 0.65f, 0.45f));
+            oaLabel = MakeLabel(parent, "Label_OA", new Vector3(-2.2f, ahuHeight + 0.35f, -1.4f), new Color(0.45f, 0.85f, 0.55f));
+            leaveLabel = MakeLabel(parent, "Label_Leave", new Vector3(1.8f, ahuHeight + 0.55f, -1.4f), new Color(0.45f, 0.7f, 1f));
+            mixLabel = MakeLabel(parent, "Label_Mix", new Vector3(-0.2f, ahuHeight + 0.95f, -1.4f), new Color(0.9f, 0.9f, 0.75f));
+            returnLabel = MakeLabel(parent, "Label_Return", new Vector3(-1.4f, ahuHeight + 0.35f, -1.4f), new Color(1f, 0.65f, 0.45f));
             RefreshLabel();
         }
 
@@ -49,6 +52,7 @@ namespace Vibe21.Twin
                 if (strategyId.Contains("chiller") || strategyId.Contains("hvac_off")) dat += 6f;
                 if (strategyId.Contains("deadband") || strategyId.Contains("loadshed")) dat += 1.5f;
             }
+            this.oatC = oatC;
             leaveC = dat + (isAhu2 ? 0.3f : 0f);
             returnC = zoneAvgC + 0.8f + (isAhu2 ? 0.2f : 0f);
             float oa = 0.22f + Mathf.Clamp01((oatC - 10f) / 40f) * 0.1f;
@@ -58,6 +62,8 @@ namespace Vibe21.Twin
 
         public void RefreshLabel()
         {
+            if (oaLabel != null)
+                oaLabel.text = $"OA {oatC:0.0}°C";
             if (leaveLabel != null)
                 leaveLabel.text = $"{airLoopName}\nLeave {leaveC:0.0}°C";
             if (mixLabel != null)
@@ -70,6 +76,7 @@ namespace Vibe21.Twin
 
         void LateUpdate()
         {
+            Face(oaLabel);
             Face(leaveLabel);
             Face(mixLabel);
             Face(returnLabel);

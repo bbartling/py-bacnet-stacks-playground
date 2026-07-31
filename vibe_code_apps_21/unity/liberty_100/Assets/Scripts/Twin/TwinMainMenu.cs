@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Vibe21.Twin
 {
-    /// <summary>Game-style title / pause menu with drone control legend.</summary>
+    /// <summary>Professional full-overlay title / pause menu with drone control legend.</summary>
     public class TwinMainMenu : MonoBehaviour
     {
         public static TwinMainMenu Instance { get; private set; }
@@ -11,8 +11,10 @@ namespace Vibe21.Twin
         public bool IsPaused { get; private set; } = true;
 
         GUIStyle _title;
+        GUIStyle _subtitle;
         GUIStyle _body;
         GUIStyle _btn;
+        GUIStyle _card;
         bool _styles;
 
         void Awake()
@@ -37,7 +39,6 @@ namespace Vibe21.Twin
         public void SetPaused(bool paused)
         {
             IsPaused = paused;
-            // Don't freeze AudioListener / whole engine — only gate gameplay via IsPaused
             Time.timeScale = 1f;
             if (!paused)
             {
@@ -47,6 +48,7 @@ namespace Vibe21.Twin
                     var src = drone.GetComponent<AudioSource>();
                     if (src != null && !src.isPlaying) src.Play();
                 }
+                MachineAudioHub.Ensure();
             }
         }
 
@@ -55,23 +57,35 @@ namespace Vibe21.Twin
             if (_styles) return;
             _title = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 42,
+                fontSize = 56,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.85f, 0.95f, 0.9f) }
+                wordWrap = true,
+                normal = { textColor = new Color(0.92f, 0.96f, 0.94f) }
+            };
+            _subtitle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 22,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true,
+                normal = { textColor = new Color(0.65f, 0.78f, 0.75f) }
             };
             _body = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = 24,
                 alignment = TextAnchor.UpperLeft,
-                normal = { textColor = new Color(0.75f, 0.85f, 0.82f) },
+                normal = { textColor = new Color(0.82f, 0.88f, 0.86f) },
                 wordWrap = true
             };
             _btn = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 22,
+                fontSize = 28,
                 fontStyle = FontStyle.Bold,
-                fixedHeight = 52
+                fixedHeight = 68
+            };
+            _card = new GUIStyle(GUI.skin.box)
+            {
+                padding = new RectOffset(28, 28, 24, 24)
             };
             _styles = true;
         }
@@ -80,34 +94,38 @@ namespace Vibe21.Twin
         {
             if (!IsPaused) return;
             EnsureStyles();
-            float w = Mathf.Min(640f, Screen.width - 40f);
-            float h = 420f;
-            float x = (Screen.width - w) * 0.5f;
-            float y = (Screen.height - h) * 0.5f;
 
-            // Dim backdrop
-            GUI.color = new Color(0.05f, 0.1f, 0.1f, 0.72f);
+            // Near-fullscreen dim
+            GUI.color = new Color(0.04f, 0.07f, 0.09f, 0.82f);
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            GUI.Box(new Rect(x, y, w, h), "");
-            GUI.Label(new Rect(x + 16f, y + 24f, w - 32f, 56f), "Liberty Building 100 Digital Twin!", _title);
-            GUI.Label(new Rect(x + 40f, y + 100f, w - 80f, 200f),
-                "DRONE CONTROLS\n\n" +
-                "  W / ↑          Forward\n" +
-                "  S / ↓          Back\n" +
-                "  A / ←          Strafe left\n" +
-                "  D / →          Strafe right\n" +
-                "  E / PageUp     Climb\n" +
-                "  Q / PageDown   Descend\n" +
-                "  Shift          Boost\n" +
-                "  Mouse          Look\n" +
-                "  Esc            Pause / menu\n\n" +
-                "Roof AHUs: DEMO leave / mix / return °C (x-ray cutaway).\n" +
-                "Ducts + sensors are illustrative — not live BAS.",
+            float w = Mathf.Clamp(Screen.width * 0.55f, 720f, 920f);
+            float h = Mathf.Clamp(Screen.height * 0.72f, 560f, 720f);
+            float x = (Screen.width - w) * 0.5f;
+            float y = (Screen.height - h) * 0.5f;
+
+            GUI.Box(new Rect(x, y, w, h), "", _card);
+            GUI.Label(new Rect(x + 24f, y + 28f, w - 48f, 72f), "Liberty Building 100 Digital Twin", _title);
+            GUI.Label(new Rect(x + 40f, y + 100f, w - 80f, 40f),
+                "Demand-management flythrough  ·  DEMO plant & sensors  ·  not live BAS", _subtitle);
+
+            GUI.Label(new Rect(x + 56f, y + 160f, w - 112f, 320f),
+                "FLIGHT CONTROLS\n\n" +
+                "  W / ↑                 Forward\n" +
+                "  S / ↓                 Back\n" +
+                "  A / ←                 Strafe left\n" +
+                "  D / →                 Strafe right\n" +
+                "  E / PageUp            Climb\n" +
+                "  Q / PageDown          Descend\n" +
+                "  Shift                 Boost\n" +
+                "  Mouse                 Look\n" +
+                "  Esc                   Pause / menu\n\n" +
+                "Bonk the building — scrape, bounce, keep flying.\n" +
+                "Roof: cool-focused x-ray AHUs  ·  courtyard chiller + tower.",
                 _body);
 
-            if (GUI.Button(new Rect(x + 80f, y + h - 72f, w - 160f, 52f), "Start Flight", _btn))
+            if (GUI.Button(new Rect(x + 100f, y + h - 100f, w - 200f, 68f), "Start Flight", _btn))
                 SetPaused(false);
         }
     }

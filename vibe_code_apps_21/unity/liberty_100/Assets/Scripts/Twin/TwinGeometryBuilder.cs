@@ -110,6 +110,12 @@ namespace Vibe21.Twin
                     // Transparent glass needs alpha; URP Lit supports Surface Type Transparent when set.
                     mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
+                else
+                {
+                    // Solid walls/floors/roofs — drone bounce targets
+                    var mc = go.AddComponent<MeshCollider>();
+                    mc.sharedMesh = mf.sharedMesh;
+                }
                 var te = go.AddComponent<TwinEntity>();
                 te.entityType = IsWindow(s.surface_type) ? "window" : "surface";
                 te.displayName = s.name;

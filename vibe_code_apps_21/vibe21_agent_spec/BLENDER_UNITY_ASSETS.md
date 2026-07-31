@@ -1,37 +1,32 @@
 # Blender → Unity rooftop assets — Vibe 21
 
-Procedural / Blender-MCP models for **DEMO** roof equipment and the flyable
-drone. These are visual toys bound to Twin `entity_id`s — not CAD and not live BAS.
+Procedural / Blender-MCP models for **DEMO** roof equipment, plant, and the flyable
+drone. Visual toys bound to Twin `entity_id`s — not CAD and not live BAS.
 
-## IDF equipment teaser (Building 100 ops11)
+## IDF equipment (Building 100 ops11)
 
 From `assets/twin_b100_ops11/model.idf`:
 
-| Air loop | Type (inferred) | Key components |
+| Piece | IDF | Unity visual |
 | --- | --- | --- |
-| `VAV Sys 1` | Central **VAV** AHU (west / AHU1 plate) | OA mixer, `Coil:Cooling:Water`, `Coil:Heating:Water`, `Fan:VariableVolume` |
-| `VAV Sys 2` | Central **VAV** AHU (east / AHU2 plate) | same stack |
-| Plant | `Chiller:Electric:EIR` | CHW source for both AHUs |
-
-Unity visual contract (x-ray pass):
-
-- Exactly **2** roof AHUs via `XrayAhuFactory` (`ahu_proxy_vav_sys_1` / `_2`)
-- Cutaway shell: OA → filter → mix → CHW cool → HW heat → supply fan
-- Separate world labels: **Leave / Mix / Return** (`AhuAirTempDisplay`)
-- Fan spin via `AhuFanSpin` + `SpinUtil` (DEMO load from DR strategy)
-- Greyscale **procedural** drone (`ProceduralDroneFactory`) — FBX optional
-- `XrayMepBuilder`: blue supply / orange return risers + floor laterals + thin CHW/HW pipes (semi-transparent)
-- Zone `ZoneTempSensor`: one short label per zone (`F3 AHU1\n23.1°C`); subtle window tint via MaterialPropertyBlock
+| `VAV Sys 1/2` | OA mixer → CHW cool → **HW heat** → supply fan (return fan blank) | Cool-focused cutaway: OA/RA mix dampers, CHW coil, **supply + return-path fans**, leave/return/OA ducts. **HW coil omitted** on roof (boiler + zone reheat still in E+) |
+| Plant | `Chiller:Electric:EIR`, `CoolingTower:SingleSpeed`, CHW + CW loops | Courtyard chiller + roof tower + **fat** CHW/CW pipes |
+| Boiler / zone reheat | Present in IDF | Not shown in this pass |
 
 ## Agent workflow
 
-1. Prefer in-Editor procedural builders (`XrayAhuFactory`, `ProceduralDroneFactory`, `XrayMepBuilder`).
-2. Optional: Blender open with **BlenderMCP** for FBX refresh under `Assets/Models/Twin/`.
-3. Unity MCP menu / `execute_code`: `RoofAssetPlacer.Place()`, `XrayMepBuilder.Build()`, `TwinProxyPlacer.PlaceProxies()`.
-4. **`manage_scene` save after every milestone** (AHUs, MEP, sensors, drone, end).
+1. Prefer procedural builders: `XrayAhuFactory`, `XrayPlantFactory`, `XrayMepBuilder`, `ProceduralDroneFactory`.
+2. Unity MCP: `RoofAssetPlacer.Place()` → `XrayMepBuilder.Build()` → `TwinProxyPlacer.PlaceProxies()`.
+3. **`manage_scene` save after every milestone.**
+
+## Play-feel
+
+- Drone SphereCast bounce vs building MeshColliders + terrain; **bonk / scrape** audio; never totalled.
+- DR panel: 2-hour event playback in **5 min / 1 min / 30 s**; `chiller_off` stops plant spin/audio and warms DEMO temps.
+- `MachineAudioHub`: AHU whoosh, pump, chiller, tower (2D procedural).
 
 ## Honesty
 
-Roof AHUs, ducts/pipes, and the greyscale drone are **illustration / DEMO**.
+Roof AHUs, ducts/pipes, chiller/tower, and the greyscale drone are **illustration / DEMO**.
 Geometry massing remains IDF/`unity_geometry.json` only. ML predictions stay on
 Flask `POST /api/v1/predict/demand_hourly`.
