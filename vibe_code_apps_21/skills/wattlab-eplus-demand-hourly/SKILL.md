@@ -22,13 +22,23 @@ description: >-
 ## Runner
 
 ```bash
+# Multi-day ML farm (preferred)
+python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py --smoke
+python /path/to/vibe_code_apps_21/tools/dm_hourly_farm.py
+# Interim without Docker:
+python .../dm_hourly_farm.py --from-seed-proxy
+python .../ml/train_demand_hourly.py
+
+# Legacy single-day July portfolio
 docker exec vibe20 python /data/tools/july_demand_profiles_eplus.py --reuse-existing
 # optional: --only weekday_precool_shift weekday_deadband_10f
 ```
 
-Output: `reports/full_parity_july_demand/july_demand_profiles.json`  
+Output (ML farm): `reports/dm_hourly_farm/dm_hourly_rows.parquet`  
+Output (July seed): `reports/full_parity_july_demand/july_demand_profiles.json`  
 Playbook: `tools/DEMAND_MANAGEMENT_HOURLY_PLAYBOOK.md`  
-Unity massing: `tools/export_unity_twin_manifest.py`
+Unity massing: `tools/export_unity_twin_manifest.py`  
+Unity Editor project: `vibe_code_apps_21/unity/<ProjectName>/`
 
 ## Implemented strategies
 

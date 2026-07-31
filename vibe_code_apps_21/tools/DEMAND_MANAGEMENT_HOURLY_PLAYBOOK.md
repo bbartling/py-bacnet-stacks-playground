@@ -4,7 +4,26 @@ Target ML / Unity twin question: **given today’s outdoor conditions, what happ
 to hourly facility kW when we play with HVAC?**
 
 Twin SoT: `geo_b100_dual_ahu_shape_ops11` (G14 PASS).  
-Runner: `tools/july_demand_profiles_eplus.py` → `reports/full_parity_july_demand/`.
+**Multi-day farm (ML):** `tools/dm_hourly_farm.py` → `~/wattlab_workspace/reports/dm_hourly_farm/`  
+**Seed July portfolio:** `tools/july_demand_profiles_eplus.py` → `reports/full_parity_july_demand/`.
+
+## Multi-day farm (gaps-doc minimum)
+
+```bash
+# Real EnergyPlus (needs Docker Desktop + energyplus-mcp-dev)
+python vibe_code_apps_21/tools/dm_hourly_farm.py --smoke
+python vibe_code_apps_21/tools/dm_hourly_farm.py            # 40 days × core + 10 full
+
+# If WSL/Docker is down — interim Unity shapes only (NOT calibrated E+)
+python vibe_code_apps_21/tools/dm_hourly_farm.py --from-seed-proxy
+python vibe_code_apps_21/ml/train_demand_hourly.py
+```
+
+Outputs: `dm_hourly_rows.parquet`, `farm_summary.json`, model
+`~/wattlab_workspace/models/demand_hourly_v1.joblib` (status `CANDIDATE`).
+
+Unity end goal: scrub strategy knobs → predict hourly kW via this surrogate (Flask later).
+Re-run **without** `--from-seed-proxy` once Docker works before any `APPROVED` claim.
 
 ## Implemented cases (hot July weekday 14:00–16:00 unless noted)
 
