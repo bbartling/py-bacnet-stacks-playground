@@ -18,6 +18,12 @@ and root `.gitignore` Unity rules.
 agents must `manage_scene(action="save")` — Unity UI lockups discard
 unsaved progress even when MCP can still write the scene.
 
+**Editor twin status (2026-07-31):** flyable procedural drone + ortho MEP +
+flow particles + roof plant + large °C/°F pause menu are in
+`unity/liberty_100` (scene `Liberty100Twin`). Details:
+`UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.md`, `DEMAND_MANAGEMENT_TWIN.md`.
+WebGL export still follows the contracts below; do not invent room/VAV geometry.
+
 The Python/repository agent owns:
 
 - canonical entity IDs;
@@ -129,9 +135,10 @@ POST /api/v1/predict/demand_hourly   (local :5050)
       ↓
 facility_kw + model_id + provenance
       ↓
-Unity zone colors + HUD + React charts
+Unity zone colors + HUD + plant/flow FX + React charts
 ```
 
+`chiller_off` / `hvac_off` stop plant spin, machine audio, and `MepFlowFx` rates.
 Legacy `predict/operational` / `predict/scenario` names may appear in older
 shells; the DM twin contract is **`demand_hourly`**.
 

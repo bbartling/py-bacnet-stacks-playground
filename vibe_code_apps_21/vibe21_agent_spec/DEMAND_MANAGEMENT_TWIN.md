@@ -51,9 +51,20 @@ React charts   Unity Editor / WebGL (massing + DR phase colors)
 Local Editor project: `unity/liberty_100/`. Agents use Unity MCP; see
 `UNITY_MCP_WORKFLOW.md`. **Save the scene via MCP after every milestone.**
 
-Honesty: Floor×AHU lumped zones only; roof AHU / zone temp markers are
+Honesty: Floor×AHU lumped zones only; roof AHU / plant / zone temp markers are
 **DEMO proxies**, not CAD or live BAS. ML status remains **CANDIDATE** /
 `ENERGYPLUS_SIMULATED` until BAS-validated.
+
+## Unity Editor twin (current — `unity/liberty_100`)
+
+Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.md`):
+
+- Greyscale flyable drone (airplane blades, procedural motor hum, L land / R recover, bonk/scrape)
+- Cool-focused x-ray AHUs ×2 (OA/RA mix, CHW only; HW coil omitted on roof)
+- **Ortho** ducts/pipes (`OrthoMepRouter`) into named flange ports + elbow fittings
+- `MepFlowFx` particles: supply/return air, CHW/CW liquid, tower drip + heat-reject mist
+- Roof Main Chiller + Cooling Tower; facade glass + outside-window zone temp sensors
+- Large pause menu (°C/°F); DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly`
 
 ## Out of scope for DM twin v1
 
@@ -66,13 +77,12 @@ Honesty: Floor×AHU lumped zones only; roof AHU / zone temp markers are
 
 ## Unity agent needs (checklist)
 
-1. Import `unity_geometry.json` surfaces → mesh (E+ m → Unity Y-up)
+1. Import `unity_geometry.json` surfaces → mesh (E+ m → Unity Y-up) + MeshColliders
 2. Bind `entity_id` on zones / airloops / chiller / plant
-3. Free-fly or drone camera + green site ground
-4. Visual modes: hourly kW overlay, DR window, precool vs relax phase, plant avail
+3. Procedural drone + green site (not freefly-only)
+4. Visual modes: hourly kW overlay, DR window, plant on/off FX, zone/AHU temps
 5. Controls: strategy picker + knobs → Flask `predict/demand_hourly`
-6. Proxy zone temp markers + roof AHU boxes (labeled DEMO); optional Blender
-   VAV AHU meshes — see `BLENDER_UNITY_ASSETS.md`
+6. DEMO roof AHUs / plant / sensors — rebuild via MCP menus in `UNITY_MCP_WORKFLOW.md`
 7. Do **not** invent geometry beyond IDF; if rooms needed, say `NEEDS_ENH`
 8. MCP `manage_scene` **save** after each milestone above
 9. Keep `vibe21_agent_spec/` docs current when Unity/Flask/Blender contracts change

@@ -2,7 +2,9 @@
 
 > **Scope update (2026-07-31):** For Unity fine-tuning, Vibe 21 is narrowed to
 > **demand management only**. Canonical docs:
-> [`DEMAND_MANAGEMENT_TWIN.md`](DEMAND_MANAGEMENT_TWIN.md) and
+> [`DEMAND_MANAGEMENT_TWIN.md`](DEMAND_MANAGEMENT_TWIN.md),
+> [`UNITY_MCP_WORKFLOW.md`](UNITY_MCP_WORKFLOW.md),
+> [`BLENDER_UNITY_ASSETS.md`](BLENDER_UNITY_ASSETS.md), and
 > [`ML_SYNTHETIC_DATA_GAPS.md`](ML_SYNTHETIC_DATA_GAPS.md).
 > The sections below preserve the earlier broad physics-ML vision as legacy
 > context — do not implement the full annual-ECM / FDD stack unless scope is
@@ -10,7 +12,7 @@
 
 **Project:** OpenFDD Demand-Management ML + Unity Digital Twin  
 **Directory:** `vibe_code_apps_21`  
-**Status:** DM-focused planning + Twin assets + seed DR farm  
+**Status:** DM twin + ExtraTrees demand_hourly surrogate + Unity Editor polish  
 **Primary Twin:** `geo_b100_dual_ahu_shape_ops11`  
 **Primary predecessors:** `vibe_code_apps_19`, `vibe_code_apps_20`
 
