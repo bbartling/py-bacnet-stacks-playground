@@ -14,12 +14,13 @@ namespace Vibe21.Twin
         public float oatBiasScale = 0.12f;
         public float floorStackBiasC = 0.35f;
         public float ahuSplitC = 0.6f;
-        public float glowStrength = 0.35f;
+        // Very light glass wash — “every so slightly”
+        public float glowStrength = 0.08f;
 
         readonly Dictionary<string, float> _temps = new Dictionary<string, float>();
 
-        static readonly Color Cool = new Color(0.35f, 0.55f, 0.95f, 0.42f);
-        static readonly Color Warm = new Color(0.95f, 0.35f, 0.28f, 0.42f);
+        static readonly Color Cool = new Color(0.55f, 0.70f, 0.95f, 0.18f);
+        static readonly Color Warm = new Color(0.95f, 0.60f, 0.58f, 0.18f);
 
         public IReadOnlyDictionary<string, float> Temps => _temps;
 
@@ -89,7 +90,9 @@ namespace Vibe21.Twin
                 if (string.IsNullOrEmpty(zoneId) || !_temps.TryGetValue(zoneId, out var tempC))
                     continue;
                 float u = Mathf.InverseLerp(18f, 28f, tempC);
+                // Subtle blue↔rose wash; keep base glass alpha
                 var glass = Color.Lerp(Cool, Warm, u);
+                glass.a = 0.22f;
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                     RendererTint.SetColor(r, glass, glowStrength);
             }
@@ -112,7 +115,7 @@ namespace Vibe21.Twin
                     if (child != null && (child.entityType == "window" || child.entityType == "sensor_proxy"))
                         continue;
                     if (r.sharedMaterial == null) continue;
-                    RendererTint.LerpSharedColor(r, wash, 0.28f);
+                    RendererTint.LerpSharedColor(r, wash, 0.12f);
                 }
             }
         }

@@ -15,7 +15,7 @@ geometry outside the Twin JSON.
 ## Hard rules for agents
 
 1. **Do not invent room/VAV polygons.** Massing comes only from Twin surfaces.
-2. Roof AHU boxes and zone “temp sensors” are **DEMO proxies** — label them.
+2. Roof AHUs, ducts/pipes, and zone temp sensors are **DEMO / x-ray proxies** — label honesty.
 3. **Save the scene via MCP after every milestone** (`manage_scene` action `save`).
    Unity UI often locks up; MCP save preserves progress when the Editor is wedged.
 4. After `create_script` / script edits: wait until `editor_state.is_compiling` is
@@ -25,15 +25,15 @@ geometry outside the Twin JSON.
 
 ## Milestone save checklist
 
-After each of these, call `manage_scene(action="save")` (and optionally save-as
-`Assets/Scenes/Liberty100Twin.unity` once created):
+After each of these, call `manage_scene(action="save")`:
 
-1. Geometry import / massing built (+ E+ fenestration windows)  
-2. Free-fly or drone camera + terrain site  
-3. DR UI panel wired (large scrubber panel)  
-4. Sensor / roof AHU proxies + BAS-style temp glow  
-5. Blender FBX AHU/drone import + fan/drone animation hooks  
-6. End of session / before Play Mode experiments  
+1. Geometry import / massing built (+ E+ fenestration windows)
+2. Free-fly or drone camera + terrain site
+3. DR UI panel wired (large scrubber panel)
+4. Sensor / glass tint refresh
+5. X-ray AHUs (`XrayAhuFactory` ×2) + greyscale procedural drone
+6. X-ray MEP (`XrayMepBuilder`: supply/return + CHW/HW)
+7. End of session / before Play Mode experiments
 
 See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
 
@@ -52,9 +52,8 @@ See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
 
 ```text
 1. python -m flask_app   # from vibe_code_apps_21, :5050
-2. Unity Play Mode — fly + DR scrubbers + window temp glow
-3. Optional: Blender MCP for rooftop VAV AHU / drone FBX refresh
-   (see BLENDER_UNITY_ASSETS.md)
+2. Unity Play Mode — Start Flight → greyscale drone + x-ray AHU/MEP
+3. Optional: Blender MCP for FBX refresh (procedural builders are preferred)
 4. WebGL export later → flask static/unity (not required for Editor demo)
 ```
 
@@ -66,10 +65,12 @@ See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
 | **S / ↓** | Back |
 | **A / ←** | Strafe left |
 | **D / →** | Strafe right |
-| **Space / E** | Up |
-| **Ctrl / Q** | Down |
+| **E / PageUp** | Climb (prefer these; Space stolen by OnGUI) |
+| **Q / PageDown** | Descend |
 | **Shift** | Boost |
 | **Mouse** | Look / yaw |
+| **Esc** | Pause / menu |
 
-Flight is on `DroneController` (TwinDrone mesh). Camera follows the drone.
-Roof has **exactly two** VAV AHUs (`RoofAhu_VAV_Single.fbx` ×2).
+Flight is on `DroneController` (greyscale `ProceduralDroneFactory` TwinDrone).
+Camera follows the drone; 2D motor hum ~0.45 volume after **Start Flight**.
+Roof has **exactly two** cutaway VAV AHUs (`XrayAhuFactory`, ~6×2.4×2.5 m).

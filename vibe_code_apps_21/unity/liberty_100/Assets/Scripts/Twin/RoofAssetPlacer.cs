@@ -7,14 +7,15 @@ using UnityEditor;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Places exactly two VAV AHUs on the roof + one flyable drone (WASD).
-    /// Uses single-AHU FBX (not the dual-packed export).
+    /// Places exactly two cutaway x-ray VAV AHUs on the roof + greyscale flyable drone.
     /// </summary>
     public class RoofAssetPlacer : MonoBehaviour
     {
         public GameObject ahuFbx;
         public GameObject droneFbx;
         public Vector3 droneSpawn = new Vector3(40f, 30f, -35f);
+        public Vector3 ahuSize = new Vector3(6.0f, 2.4f, 2.5f);
+        public bool useXrayAhu = true;
 
 #if UNITY_EDITOR
         [MenuItem("Vibe21/Twin/Place Blender Roof AHUs + Drone")]
@@ -82,7 +83,7 @@ namespace Vibe21.Twin
             EnforceExactlyTwoAhus(root.transform);
 
             SpawnFlyableDrone(root.transform);
-            Debug.Log("RoofAssetPlacer: exactly 2 VAV AHUs + flyable TwinDrone (WASD)");
+            Debug.Log("RoofAssetPlacer: exactly 2 x-ray VAV AHUs + greyscale TwinDrone");
         }
 
         void EnforceExactlyTwoAhus(Transform root)
@@ -117,6 +118,15 @@ namespace Vibe21.Twin
 
         void PlaceOneAhu(Transform parent, string name, string entityId, string airLoop, Bounds roof, Vector3 nudge)
         {
+            var pos = new Vector3(roof.center.x, roof.max.y + 1.15f, roof.center.z) + nudge;
+
+            if (useXrayAhu)
+            {
+                var xray = XrayAhuFactory.Build(name, entityId, airLoop, pos, ahuSize);
+                xray.transform.SetParent(parent, true);
+                return;
+            }
+
             GameObject inst;
             if (ahuFbx != null)
                 inst = Instantiate(ahuFbx);
@@ -127,10 +137,8 @@ namespace Vibe21.Twin
             }
             inst.name = name;
             inst.transform.SetParent(parent, false);
-            var pos = new Vector3(roof.center.x, roof.max.y + 1.15f, roof.center.z) + nudge;
             inst.transform.position = pos;
 
-            // If this FBX still has two AHU roots, keep only the first mesh group
             StripDualAhuChildren(inst.transform);
 
             var te = inst.GetComponent<TwinEntity>() ?? inst.AddComponent<TwinEntity>();
@@ -152,21 +160,10 @@ namespace Vibe21.Twin
                 }
             }
 
-            // Leave / mix / return DEMO readout above cabinet
-            var labelGo = new GameObject("AirTempLabel");
-            labelGo.transform.SetParent(inst.transform, false);
-            labelGo.transform.localPosition = new Vector3(0f, 2.4f, 0f);
-            var tm = labelGo.AddComponent<TextMesh>();
-            tm.characterSize = 0.14f;
-            tm.fontSize = 48;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.color = new Color(0.95f, 0.95f, 0.7f);
             var air = inst.GetComponent<AhuAirTempDisplay>() ?? inst.AddComponent<AhuAirTempDisplay>();
             air.airLoopName = airLoop;
             air.isAhu2 = airLoop.Contains("2");
-            air.label = tm;
-            air.RefreshLabel();
+            air.BuildSeparateLabels(inst.transform, 2.4f);
         }
 
         static void StripDualAhuChildren(Transform root)

@@ -4,12 +4,13 @@ using UnityEngine.InputSystem;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Flyable drone — WASD / arrows. Props spin on SpinPivot local Y.
-    /// Loud 2D motor hum (audible over scene).
+    /// Greyscale flyable drone. WASD horizontal; E/PageUp climb; Q/PageDown descend.
+    /// Space avoided as primary climb (OnGUI steals it). Loud 2D motor.
     /// </summary>
     public class DroneController : MonoBehaviour
     {
         public float moveSpeed = 28f;
+        public float verticalSpeed = 22f;
         public float boostMultiplier = 2.5f;
         public float lookSensitivity = 2.0f;
         public float minPitch = -80f;
@@ -30,9 +31,7 @@ namespace Vibe21.Twin
 
         void Awake()
         {
-            // Build audio early so Play Mode always has a source
-            if (enableMotorSound)
-                EnsureMotorSound();
+            if (enableMotorSound) EnsureMotorSound();
         }
 
         void Start()
@@ -66,9 +65,8 @@ namespace Vibe21.Twin
                 _motor.clip = MakeHumClip();
             _motor.loop = true;
             _motor.playOnAwake = false;
-            _motor.spatialBlend = 0f; // 2D — always hear it
+            _motor.spatialBlend = 0f;
             _motor.volume = motorVolume;
-            _motor.pitch = 1f;
             _motor.bypassListenerEffects = true;
             _motor.ignoreListenerPause = true;
             _motor.priority = 64;
@@ -78,23 +76,19 @@ namespace Vibe21.Twin
         static AudioClip MakeHumClip()
         {
             const int sampleRate = 44100;
-            const float secs = 1.0f;
-            int n = sampleRate;
-            var data = new float[n];
-            for (int i = 0; i < n; i++)
+            var data = new float[sampleRate];
+            for (int i = 0; i < sampleRate; i++)
             {
                 float t = i / (float)sampleRate;
-                // Stronger buzzing motor — audible on laptop speakers
                 float s =
                     0.55f * Mathf.Sin(2f * Mathf.PI * 110f * t) +
                     0.35f * Mathf.Sin(2f * Mathf.PI * 220f * t) +
                     0.20f * Mathf.Sin(2f * Mathf.PI * 330f * t) +
                     0.08f * Mathf.Sin(2f * Mathf.PI * 55f * t);
-                // Light noise for "prop wash"
                 s += (Mathf.PerlinNoise(t * 40f, 0.3f) - 0.5f) * 0.15f;
                 data[i] = Mathf.Clamp(s * 0.55f, -1f, 1f);
             }
-            var clip = AudioClip.Create("DroneHumLoud", n, 1, sampleRate, false);
+            var clip = AudioClip.Create("DroneHumLoud", sampleRate, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }
@@ -114,12 +108,7 @@ namespace Vibe21.Twin
             }
 
             EnsureMotorSound();
-            if (_motor != null)
-            {
-                if (!_motor.isPlaying) _motor.Play();
-                // UnPause if previously paused
-                if (_motor.isPlaying == false) _motor.UnPause();
-            }
+            if (_motor != null && !_motor.isPlaying) _motor.Play();
 
             float mx = MouseDeltaX();
             float my = MouseDeltaY();
@@ -128,21 +117,25 @@ namespace Vibe21.Twin
             _pitch = Mathf.Clamp(_pitch, minPitch, maxPitch);
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
 
-            Vector3 wish = Vector3.zero;
-            if (KeyHeld(Key.W) || KeyHeld(Key.UpArrow)) wish += transform.forward;
-            if (KeyHeld(Key.S) || KeyHeld(Key.DownArrow)) wish -= transform.forward;
-            if (KeyHeld(Key.A) || KeyHeld(Key.LeftArrow)) wish -= transform.right;
-            if (KeyHeld(Key.D) || KeyHeld(Key.RightArrow)) wish += transform.right;
-            if (KeyHeld(Key.E) || KeyHeld(Key.Space)) wish += Vector3.up;
-            if (KeyHeld(Key.Q) || KeyHeld(Key.LeftCtrl)) wish -= Vector3.up;
-
-            float boost = (KeyHeld(Key.LeftShift) || KeyHeld(Key.RightShift)) ? boostMultiplier : 1f;
-            if (wish.sqrMagnitude > 0f)
-                transform.position += wish.normalized * (moveSpeed * boost * Time.unscaledDeltaTime);
-
-            // Use unscaledDeltaTime so props still spin if timescale glitches
             float dt = Time.unscaledDeltaTime;
-            _load = wish.sqrMagnitude > 0.01f ? 1.4f : 0.85f;
+            float boost = (KeyHeld(Key.LeftShift) || KeyHeld(Key.RightShift)) ? boostMultiplier : 1f;
+
+            Vector3 horiz = Vector3.zero;
+            if (KeyHeld(Key.W) || KeyHeld(Key.UpArrow)) horiz += transform.forward;
+            if (KeyHeld(Key.S) || KeyHeld(Key.DownArrow)) horiz -= transform.forward;
+            if (KeyHeld(Key.A) || KeyHeld(Key.LeftArrow)) horiz -= transform.right;
+            if (KeyHeld(Key.D) || KeyHeld(Key.RightArrow)) horiz += transform.right;
+            if (horiz.sqrMagnitude > 0f)
+                transform.position += horiz.normalized * (moveSpeed * boost * dt);
+
+            // Vertical — primary E/PageUp & Q/PageDown (Space/Ctrl secondary; OnGUI steals Space)
+            float vert = 0f;
+            if (KeyHeld(Key.E) || KeyHeld(Key.PageUp) || KeyHeld(Key.Space)) vert += 1f;
+            if (KeyHeld(Key.Q) || KeyHeld(Key.PageDown) || KeyHeld(Key.LeftCtrl)) vert -= 1f;
+            if (Mathf.Abs(vert) > 0.01f)
+                transform.position += Vector3.up * (vert * verticalSpeed * boost * dt);
+
+            _load = (horiz.sqrMagnitude > 0.01f || Mathf.Abs(vert) > 0.01f) ? 1.4f : 0.85f;
             SpinProps(_load, dt);
             if (_motor != null)
             {
@@ -159,7 +152,6 @@ namespace Vibe21.Twin
             foreach (var r in rotors)
             {
                 if (r == null) continue;
-                // Local Y = up for SpinPivot (procedural drone). Guaranteed correct.
                 r.Rotate(0f, deg, 0f, Space.Self);
             }
         }
@@ -194,6 +186,8 @@ namespace Vibe21.Twin
                     case Key.DownArrow: return Input.GetKey(KeyCode.DownArrow);
                     case Key.LeftArrow: return Input.GetKey(KeyCode.LeftArrow);
                     case Key.RightArrow: return Input.GetKey(KeyCode.RightArrow);
+                    case Key.PageUp: return Input.GetKey(KeyCode.PageUp);
+                    case Key.PageDown: return Input.GetKey(KeyCode.PageDown);
                 }
             }
             catch { }

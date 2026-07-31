@@ -98,13 +98,13 @@ namespace Vibe21.Twin
                 "  S / ↓          Back\n" +
                 "  A / ←          Strafe left\n" +
                 "  D / →          Strafe right\n" +
-                "  Space / E      Climb\n" +
-                "  Ctrl / Q       Descend\n" +
+                "  E / PageUp     Climb\n" +
+                "  Q / PageDown   Descend\n" +
                 "  Shift          Boost\n" +
                 "  Mouse          Look\n" +
                 "  Esc            Pause / menu\n\n" +
-                "Roof AHUs show DEMO leave / mix / return °C.\n" +
-                "Ducts + zone sensors are illustrative — not live BAS.",
+                "Roof AHUs: DEMO leave / mix / return °C (x-ray cutaway).\n" +
+                "Ducts + sensors are illustrative — not live BAS.",
                 _body);
 
             if (GUI.Button(new Rect(x + 80f, y + h - 72f, w - 160f, 52f), "Start Flight", _btn))

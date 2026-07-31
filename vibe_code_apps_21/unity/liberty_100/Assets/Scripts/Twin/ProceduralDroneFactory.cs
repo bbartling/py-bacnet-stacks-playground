@@ -4,8 +4,7 @@ using UnityEngine;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Builds a coherent flyable quadcopter in-engine (no FBX axis junk).
-    /// Each prop sits under a SpinPivot with identity rotation (local Y = world up).
+    /// Greyscale procedural quadcopter. SpinPivot local Y = prop spin axis.
     /// </summary>
     public static class ProceduralDroneFactory
     {
@@ -16,10 +15,10 @@ namespace Vibe21.Twin
             root.transform.position = spawn;
             root.transform.rotation = Quaternion.identity;
 
-            var bodyMat = Mat(new Color(0.1f, 0.55f, 0.35f));
-            var armMat = Mat(new Color(0.2f, 0.22f, 0.25f));
-            var propMat = Mat(new Color(0.95f, 0.85f, 0.15f));
-            var hubMat = Mat(new Color(0.15f, 0.15f, 0.18f));
+            var bodyMat = Mat(new Color(0.45f, 0.45f, 0.48f));
+            var armMat = Mat(new Color(0.28f, 0.28f, 0.30f));
+            var propMat = Mat(new Color(0.72f, 0.72f, 0.74f));
+            var hubMat = Mat(new Color(0.18f, 0.18f, 0.20f));
 
             var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.name = "Body";
@@ -67,8 +66,6 @@ namespace Vibe21.Twin
                 var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 hub.name = $"Hub_{i}";
                 hub.transform.SetParent(pivotGo.transform, false);
-                hub.transform.localPosition = Vector3.zero;
-                hub.transform.localRotation = Quaternion.identity;
                 hub.transform.localScale = new Vector3(0.1f, 0.03f, 0.1f);
                 hub.GetComponent<MeshRenderer>().sharedMaterial = hubMat;
                 KillCollider(hub);
@@ -77,7 +74,6 @@ namespace Vibe21.Twin
                 prop.name = $"Prop_{i}";
                 prop.transform.SetParent(pivotGo.transform, false);
                 prop.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-                prop.transform.localRotation = Quaternion.identity;
                 prop.transform.localScale = new Vector3(0.42f, 0.012f, 0.42f);
                 prop.GetComponent<MeshRenderer>().sharedMaterial = propMat;
                 KillCollider(prop);
@@ -103,6 +99,7 @@ namespace Vibe21.Twin
             ctrl.enableMotorSound = true;
             ctrl.motorVolume = 0.45f;
             ctrl.propRpm = 1800f;
+            ctrl.verticalSpeed = 22f;
 
             if (Camera.main != null)
             {

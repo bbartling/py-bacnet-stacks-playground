@@ -13,22 +13,25 @@ From `assets/twin_b100_ops11/model.idf`:
 | `VAV Sys 2` | Central **VAV** AHU (east / AHU2 plate) | same stack |
 | Plant | `Chiller:Electric:EIR` | CHW source for both AHUs |
 
-Unity visual contract:
+Unity visual contract (x-ray pass):
 
-- `entity_id` `ahu_proxy_floor_6_ahu1` / `ahu_proxy_floor_6_ahu2` (roof)
-- Fan spin rate scales with DEMO zone load / DR strategy (silly but readable)
-- Zone `ZoneTempSensor` labels remain DEMO °C proxies
+- Exactly **2** roof AHUs via `XrayAhuFactory` (`ahu_proxy_vav_sys_1` / `_2`)
+- Cutaway shell: OA → filter → mix → CHW cool → HW heat → supply fan
+- Separate world labels: **Leave / Mix / Return** (`AhuAirTempDisplay`)
+- Fan spin via `AhuFanSpin` + `SpinUtil` (DEMO load from DR strategy)
+- Greyscale **procedural** drone (`ProceduralDroneFactory`) — FBX optional
+- `XrayMepBuilder`: blue supply / orange return risers + floor laterals + thin CHW/HW pipes (semi-transparent)
+- Zone `ZoneTempSensor`: one short label per zone (`F3 AHU1\n23.1°C`); subtle window tint via MaterialPropertyBlock
 
 ## Agent workflow
 
-1. Blender open with **BlenderMCP** addon listening (see `C:\Users\ben\Documents\blender-mcp`).
-2. Cursor MCP server `user-blender` connected.
-3. Build / refresh `Assets/Models/Twin/` FBX (or GLB) via Blender MCP.
-4. Unity MCP: replace cube AHU proxies, attach `AhuFanSpin` + `DroneVisualBob`.
-5. **`manage_scene` save** after import and after animation wiring.
+1. Prefer in-Editor procedural builders (`XrayAhuFactory`, `ProceduralDroneFactory`, `XrayMepBuilder`).
+2. Optional: Blender open with **BlenderMCP** for FBX refresh under `Assets/Models/Twin/`.
+3. Unity MCP menu / `execute_code`: `RoofAssetPlacer.Place()`, `XrayMepBuilder.Build()`, `TwinProxyPlacer.PlaceProxies()`.
+4. **`manage_scene` save after every milestone** (AHUs, MEP, sensors, drone, end).
 
 ## Honesty
 
-Roof AHUs and the cartoon drone are **illustration**. Geometry massing remains
-IDF/`unity_geometry.json` only. ML predictions stay on Flask
-`POST /api/v1/predict/demand_hourly`.
+Roof AHUs, ducts/pipes, and the greyscale drone are **illustration / DEMO**.
+Geometry massing remains IDF/`unity_geometry.json` only. ML predictions stay on
+Flask `POST /api/v1/predict/demand_hourly`.

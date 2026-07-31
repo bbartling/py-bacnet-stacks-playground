@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Vibe21.Twin
 {
-    /// <summary>DEMO AHU air temperatures: leaving / mixed / return (°C).</summary>
+    /// <summary>DEMO AHU air temperatures with separate world labels (leave / mix / return).</summary>
     public class AhuAirTempDisplay : MonoBehaviour
     {
         public string airLoopName = "VAV Sys 1";
@@ -10,11 +10,38 @@ namespace Vibe21.Twin
         public float leaveC = 13.5f;
         public float mixC = 24.0f;
         public float returnC = 25.5f;
+
+        public TextMesh leaveLabel;
+        public TextMesh mixLabel;
+        public TextMesh returnLabel;
+
+        // Legacy single-label support
         public TextMesh label;
+
+        public void BuildSeparateLabels(Transform parent, float ahuHeight)
+        {
+            leaveLabel = MakeLabel(parent, "Label_Leave", new Vector3(-0.8f, ahuHeight + 0.55f, -1.4f), new Color(0.45f, 0.7f, 1f));
+            mixLabel = MakeLabel(parent, "Label_Mix", new Vector3(0.2f, ahuHeight + 0.95f, -1.4f), new Color(0.9f, 0.9f, 0.75f));
+            returnLabel = MakeLabel(parent, "Label_Return", new Vector3(1.2f, ahuHeight + 0.55f, -1.4f), new Color(1f, 0.65f, 0.45f));
+            RefreshLabel();
+        }
+
+        static TextMesh MakeLabel(Transform parent, string name, Vector3 localPos, Color col)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            var tm = go.AddComponent<TextMesh>();
+            tm.characterSize = 0.11f;
+            tm.fontSize = 42;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.alignment = TextAlignment.Center;
+            tm.color = col;
+            return tm;
+        }
 
         public void Apply(float oatC, string strategyId, float zoneAvgC)
         {
-            // Rough VAV psychrometrics toy model — DEMO only
             float dat = 12.5f + (oatC - 28f) * 0.08f;
             if (!string.IsNullOrEmpty(strategyId))
             {
@@ -24,7 +51,6 @@ namespace Vibe21.Twin
             }
             leaveC = dat + (isAhu2 ? 0.3f : 0f);
             returnC = zoneAvgC + 0.8f + (isAhu2 ? 0.2f : 0f);
-            // Mix ≈ OA fraction * OAT + (1-f) * RAT — toy OA fraction ~0.25
             float oa = 0.22f + Mathf.Clamp01((oatC - 10f) / 40f) * 0.1f;
             mixC = oa * oatC + (1f - oa) * returnC;
             RefreshLabel();
@@ -32,21 +58,30 @@ namespace Vibe21.Twin
 
         public void RefreshLabel()
         {
-            if (label == null) return;
-            label.text =
-                $"{airLoopName}\n" +
-                $"DAT/Leave  {leaveC:0.0} °C\n" +
-                $"Mix        {mixC:0.0} °C\n" +
-                $"Return     {returnC:0.0} °C\n" +
-                "DEMO";
+            if (leaveLabel != null)
+                leaveLabel.text = $"{airLoopName}\nLeave {leaveC:0.0}°C";
+            if (mixLabel != null)
+                mixLabel.text = $"Mix {mixC:0.0}°C";
+            if (returnLabel != null)
+                returnLabel.text = $"Return {returnC:0.0}°C";
+            if (label != null && leaveLabel == null)
+                label.text = $"{airLoopName}\nDAT {leaveC:0.0}\nMix {mixC:0.0}\nRAT {returnC:0.0}";
         }
 
         void LateUpdate()
         {
-            if (label == null) return;
+            Face(leaveLabel);
+            Face(mixLabel);
+            Face(returnLabel);
+            Face(label);
+        }
+
+        static void Face(TextMesh tm)
+        {
+            if (tm == null) return;
             var cam = Camera.main;
             if (cam == null) return;
-            label.transform.rotation = Quaternion.LookRotation(label.transform.position - cam.transform.position);
+            tm.transform.rotation = Quaternion.LookRotation(tm.transform.position - cam.transform.position);
         }
     }
 }
