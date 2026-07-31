@@ -8,11 +8,12 @@ Fine-tune Vibe 21 as a **demand-management digital twin** for Unity:
 2. run offline EnergyPlus **hourly** DR / load-shift farms (EnergyPlus-MCP as helper);
 3. build synthetic datasets whose target is **hourly facility kW under OA + HVAC actions**;
 4. train lightweight scikit-learn demand models offline;
-5. serve Flask inference + React charts + Unity WebGL massing/controls;
+5. serve Flask inference + React charts + Unity Editor/WebGL massing/controls;
 6. keep Excel product path on **open-fdd PyPI `ECMJob`** (WattLab workbook is oracle only).
 
 **Read first:** `vibe21_agent_spec/DEMAND_MANAGEMENT_TWIN.md`, then
-`ML_SYNTHETIC_DATA_GAPS.md`, then `skills/wattlab-eplus-demand-hourly/SKILL.md`.
+`UNITY_MCP_WORKFLOW.md`, then `ML_SYNTHETIC_DATA_GAPS.md`, then
+`skills/wattlab-eplus-demand-hourly/SKILL.md`.
 
 Broader physics-ML language in older `SPEC.md` / `ML_ARCHITECTURE.md` is
 **legacy context** — do not expand scope beyond DM without an explicit revise.
@@ -25,7 +26,11 @@ Broader physics-ML language in older `SPEC.md` / `ML_ARCHITECTURE.md` is
 - Trusted models are persisted with **joblib** along with exact dependency/version metadata.
 - **React** is the conventional web shell.
 - **Plotly** is preferred for engineering charts.
-- **Unity WebGL** is embedded/served as a first-class spatial view.
+- **Unity Editor + WebGL** is the spatial twin (`unity/liberty_100/`); WebGL is
+  the eventual embed path. Editor work is driven via **Unity MCP** with
+  **`manage_scene` save after every milestone** (UI lockups lose unsaved work).
+- Local Flask inference default port **`:5050`** (`flask_app/`). Unity calls
+  `POST /api/v1/predict/demand_hourly` — never loads joblib inside the Editor.
 - **Parquet** is the canonical ML training dataset format.
 - **JSON** is the canonical web/API interchange format.
 - Training and EnergyPlus simulation happen **offline**, not inside the public Flask app.
@@ -135,9 +140,16 @@ Default production posture remains **one well-defined model per engineering targ
 9. Export one approved model bundle.
 10. Build Flask inference endpoints and model registry loader.
 11. Build React engineering shell against fixture API responses.
-12. Add Unity WebGL external build handoff and object binding.
-13. Produce a PythonAnywhere deploy bundle and smoke test it locally under WSGI-like conditions.
-14. Only then scale the simulation farm or add optional FDD/virtual-sensor models.
+12. Editor twin via Unity MCP: IDF massing + free-fly/drone + DR UI → Flask.
+13. Add Unity WebGL external build handoff and object binding.
+14. Produce a PythonAnywhere deploy bundle and smoke test it locally under WSGI-like conditions.
+15. Only then scale the simulation farm or add optional FDD/virtual-sensor models.
+
+## Unity MCP save discipline
+
+When editing `unity/liberty_100` via MCP, call `manage_scene(action="save")`
+after each milestone (geometry, camera/site, DR UI, sensors/AHU, end of session).
+Editor UI freezes often; MCP save still works and prevents full restarts.
 
 ## Completion discipline
 
