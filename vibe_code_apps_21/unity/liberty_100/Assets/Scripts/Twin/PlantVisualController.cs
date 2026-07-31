@@ -12,6 +12,7 @@ namespace Vibe21.Twin
         public Transform towerRoot;
         public Transform chillerSpin;
         public Transform towerSpin;
+        public MepFlowFx flowFx;
         public float chillerRpm = 120f;
         public float towerRpm = 80f;
         [Range(0f, 1.5f)] public float plantLoad = 1f;
@@ -42,6 +43,8 @@ namespace Vibe21.Twin
 
             if (_audio != null)
                 _audio.SetPlantRunning(run, paused);
+            if (flowFx != null)
+                flowFx.SetRunning(plantRunning && !paused, run > 0f ? run : 0f);
         }
 
         public void ApplyStrategy(string strategyId, float facilityKw)
@@ -74,6 +77,8 @@ namespace Vibe21.Twin
 
             if (_audio != null)
                 _audio.SetAhuLoad(plantRunning ? plantLoad : 0.05f);
+            if (flowFx != null)
+                flowFx.SetRunning(plantRunning, plantRunning ? plantLoad : 0f);
         }
 
         void LateUpdate()

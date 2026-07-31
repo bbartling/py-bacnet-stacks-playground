@@ -33,6 +33,11 @@ namespace Vibe21.Twin
             Prim(PrimitiveType.Cube, "CHW_Header", chiller.transform, new Vector3(-2.2f, 1.0f, 0), new Vector3(0.9f, 0.7f, 1.4f), chwMat);
             Prim(PrimitiveType.Cube, "CW_Header", chiller.transform, new Vector3(0, 2.5f, 0), new Vector3(1.2f, 0.5f, 1.0f), cwMat);
 
+            OrthoMepRouter.MakePort(chiller.transform, "Port_CHW_Header", new Vector3(-2.7f, 1.0f, 0f), -Vector3.right);
+            OrthoMepRouter.MakePort(chiller.transform, "Port_CHW_Return", new Vector3(-2.7f, 1.0f, 0.7f), -Vector3.right);
+            OrthoMepRouter.MakePort(chiller.transform, "Port_CW_Out", new Vector3(0f, 2.5f, 0.6f), Vector3.forward);
+            OrthoMepRouter.MakePort(chiller.transform, "Port_CW_Return", new Vector3(0.8f, 2.5f, 0f), Vector3.right);
+
             var impellerPivot = AirplanePropFactory.BuildFacingX(
                 chiller.transform, "ChillerImpellerPivot", new Vector3(1.8f, 1.2f, 0), 0.55f, fanMat, 3);
 
@@ -59,6 +64,10 @@ namespace Vibe21.Twin
             Prim(PrimitiveType.Cube, "Basin", tower.transform, new Vector3(0, 0.4f, 0), new Vector3(4.5f, 0.8f, 4.5f), cwMat);
             Prim(PrimitiveType.Cube, "Fill", tower.transform, new Vector3(0, 2.2f, 0), new Vector3(4.0f, 2.8f, 4.0f), TransMat(new Color(0.4f, 0.55f, 0.6f, 0.35f)));
             Prim(PrimitiveType.Cube, "FanDeck", tower.transform, new Vector3(0, 4.0f, 0), new Vector3(4.2f, 0.25f, 4.2f), frameMat);
+
+            OrthoMepRouter.MakePort(tower.transform, "Port_CW_In", new Vector3(0f, 0.8f, -2.4f), -Vector3.forward);
+            OrthoMepRouter.MakePort(tower.transform, "Port_CW_Out", new Vector3(2.4f, 0.8f, 0f), Vector3.right);
+            OrthoMepRouter.MakePort(tower.transform, "Port_Basin", new Vector3(0f, 0.9f, 0f), Vector3.up);
 
             var towerPivot = AirplanePropFactory.BuildFacingUp(
                 tower.transform, "TowerFanPivot", new Vector3(0, 4.55f, 0), 1.6f, fanMat, 3);

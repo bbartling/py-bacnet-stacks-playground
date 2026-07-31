@@ -1,15 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace Vibe21.Twin
 {
     /// <summary>
     /// Greyscale flyable drone with SphereCast collision (bonk/scrape, never totalled).
     /// WASD; E/PageUp climb; Q/PageDown descend. L = Land, R = Recover.
-    /// Pixabay motor loop (or procedural hum fallback).
+    /// Procedural motor hum.
     /// </summary>
     public class DroneController : MonoBehaviour
     {
@@ -81,7 +78,7 @@ namespace Vibe21.Twin
             EnsureCollisionAudio();
         }
 
-        /// <summary>Called from TwinMainMenu when Start Flight is pressed — begin Pixabay from start once, then loop.</summary>
+        /// <summary>Called from TwinMainMenu when Start Flight is pressed — begin procedural hum from start.</summary>
         public void NotifyFlightStarted()
         {
             _flightAudioStarted = true;
@@ -112,7 +109,7 @@ namespace Vibe21.Twin
             _motor = gameObject.GetComponent<AudioSource>();
             if (_motor == null) _motor = gameObject.AddComponent<AudioSource>();
             if (_motor.clip == null)
-                _motor.clip = LoadPixabayClip() ?? MakeHumClip();
+                _motor.clip = MakeHumClip();
             _motor.loop = true;
             _motor.playOnAwake = false;
             _motor.spatialBlend = 0f;
@@ -121,17 +118,6 @@ namespace Vibe21.Twin
             _motor.ignoreListenerPause = true;
             _motor.priority = 64;
             _audioReady = true;
-        }
-
-        static AudioClip LoadPixabayClip()
-        {
-            var fromResources = Resources.Load<AudioClip>("Twin/pixaBayDrone");
-            if (fromResources != null) return fromResources;
-#if UNITY_EDITOR
-            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/Twin/pixaBayDrone.mp3");
-            if (clip != null) return clip;
-#endif
-            return null;
         }
 
         void EnsureCollisionAudio()

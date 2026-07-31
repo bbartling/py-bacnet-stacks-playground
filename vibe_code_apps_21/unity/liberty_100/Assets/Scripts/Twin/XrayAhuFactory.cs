@@ -87,6 +87,12 @@ namespace Vibe21.Twin
             Box("Discharge", root.transform, new Vector3(L * 0.48f, y * 0.95f, 0), new Vector3(0.65f, H * 0.55f, W * 0.6f), frameMat);
             Box("Leave_Duct", root.transform, new Vector3(L * 0.68f, y * 0.75f, 0), new Vector3(1.5f, 0.75f, 0.8f), supplyMat);
 
+            // Named MEP ports (forward = outward flange normal)
+            OrthoMepRouter.MakePort(root.transform, "Port_Leave", new Vector3(L * 0.78f, y * 0.75f, 0f), Vector3.right);
+            OrthoMepRouter.MakePort(root.transform, "Port_RA", new Vector3(-L * 0.08f, -0.15f, -W * 0.75f), -Vector3.forward);
+            OrthoMepRouter.MakePort(root.transform, "Port_CHW_In", new Vector3(L * 0.18f, 0.15f, W * 0.55f), Vector3.forward);
+            OrthoMepRouter.MakePort(root.transform, "Port_CHW_Out", new Vector3(L * 0.18f, 0.15f, -W * 0.55f), -Vector3.forward);
+
             // Colored airflow arrows (OA green, RA warm, Leave cool)
             Arrow("Arrow_OA", root.transform, new Vector3(-L * 0.48f, y + 0.15f, -W * 0.35f), new Vector3(0.55f, 0.12f, 0.22f), arrowOa, 0f);
             Arrow("Arrow_RA", root.transform, new Vector3(-L * 0.08f, H * 0.12f, -W * 0.55f), new Vector3(0.22f, 0.45f, 0.22f), arrowRa, -90f);

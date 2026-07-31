@@ -23,9 +23,9 @@ geometry outside the Twin JSON.
 
 1. Geometry (+ colliders) / site
 2. Cool-focused x-ray AHUs ×2 + greyscale drone (`AirplanePropFactory` blades)
-3. Fat MEP + **roof** chiller + cooling tower (short roof CHW/CW laterals)
+3. Fat **ortho** MEP (`OrthoMepRouter`) + roof chiller/tower + `MepFlowFx` particles
 4. Facade sensors outside glass + `GlassUtil` window fix
-5. Menu (°C/°F) / DR playback / Pixabay motor + machine audio smoke
+5. Menu (°C/°F, ~2× UI) / DR playback / procedural motor + machine audio smoke
 6. End of session
 
 ## Flight controls
@@ -40,7 +40,9 @@ geometry outside the Twin JSON.
 | **R** | Recover (zip back to pre-land hover) |
 | **Esc** | Pause menu (large overlay; °C/°F) |
 
-Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades (not flat discs). Motor: `Assets/Audio/Twin/pixaBayDrone.mp3` after Start Flight.
+Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades.
+Motor: procedural hum (`MakeHumClip`) after Start Flight.
+MEP: Manhattan stubs into named ports; cool/warm air + liquid particle streaks; tower drip + heat-reject mist.
 
 ## DR panel
 
