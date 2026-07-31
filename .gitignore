@@ -264,3 +264,41 @@ vibe_code_apps_16/bad_rusty_bacnet_app/data/
 # Proprietary calculator reference — never commit
 **/calculators.zip
 wattlab_workspace/private/
+
+# Local editor settings (machine-specific)
+.vscode/
+
+# vibe_code_apps_21 — Unity Editor project lives ONLY under unity/<ProjectName>/
+# Twin JSON/IDF stay in assets/. Do not open vibe_code_apps_21/ as a Unity project.
+# Full Unity ignore rules: vibe_code_apps_21/unity/.gitignore
+vibe_code_apps_21/[Ll]ibrary/
+vibe_code_apps_21/[Tt]emp/
+vibe_code_apps_21/[Oo]bj/
+vibe_code_apps_21/[Bb]uild/
+vibe_code_apps_21/[Bb]uilds/
+vibe_code_apps_21/[Ll]ogs/
+vibe_code_apps_21/[Uu]ser[Ss]ettings/
+vibe_code_apps_21/[Mm]emoryCaptures/
+vibe_code_apps_21/[Rr]ecordings/
+vibe_code_apps_21/.vs/
+vibe_code_apps_21/*.csproj
+vibe_code_apps_21/*.sln
+vibe_code_apps_21/*.suo
+vibe_code_apps_21/*.user
+vibe_code_apps_21/*.pidb
+vibe_code_apps_21/*.booproj
+vibe_code_apps_21/*.svd
+vibe_code_apps_21/*.pdb
+vibe_code_apps_21/*.mdb
+vibe_code_apps_21/*.opendb
+vibe_code_apps_21/*.VC.db
+# Accidental project beside assets/ (e.g. Liberty100/ at package root)
+vibe_code_apps_21/*/Library/
+vibe_code_apps_21/*/Temp/
+vibe_code_apps_21/*/Obj/
+vibe_code_apps_21/*/Logs/
+vibe_code_apps_21/*/UserSettings/
+vibe_code_apps_21/*/MemoryCaptures/
+vibe_code_apps_21/*/.vs/
+vibe_code_apps_21/*/*.csproj
+vibe_code_apps_21/*/*.sln

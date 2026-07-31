@@ -8,6 +8,11 @@ DR phase. Canonical product doc: `DEMAND_MANAGEMENT_TWIN.md`.
 
 Unity work is performed outside the Python Vibe 21 implementation using Unity plus Unity MCP/AI tooling.
 
+**Editor project path (mandatory):** `vibe_code_apps_21/unity/<ProjectName>/`
+(e.g. `unity/Liberty100/`). Twin data stays in `assets/twin_b100_ops11/`.
+Do **not** create a Unity project in `vibe_code_apps_21/` root — see
+[`../unity/README.md`](../unity/README.md) and root `.gitignore` Unity rules.
+
 The Python/repository agent owns:
 
 - canonical entity IDs;

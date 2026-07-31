@@ -21,12 +21,14 @@ vibe_code_apps_21/
 │   ├── july_demand_profiles_eplus.py
 │   ├── export_unity_twin_manifest.py
 │   └── DEMAND_MANAGEMENT_HOURLY_PLAYBOOK.md
-├── assets/twin_b100_ops11/            ← BEST Twin bundle
+├── assets/twin_b100_ops11/            ← BEST Twin bundle (JSON/IDF — not Unity)
 │   ├── model.idf
 │   ├── amy.epw
 │   ├── july_demand_profiles.json
 │   ├── unity_geometry.json
 │   └── unity_twin_manifest.json
+├── unity/                             ← Unity Editor projects ONLY (see unity/README.md)
+│   └── <ProjectName>/                 ← e.g. Liberty100 — Assets/Packages/ProjectSettings
 └── vibe21_agent_spec/
     ├── DEMAND_MANAGEMENT_TWIN.md      ← **start here**
     ├── ML_SYNTHETIC_DATA_GAPS.md
@@ -36,6 +38,10 @@ vibe_code_apps_21/
     ├── SCHEMAS.md
     └── PYTHONANYWHERE_DEPLOYMENT.md
 ```
+
+**Unity:** create the Editor project under `unity/<ProjectName>/` (never at
+`vibe_code_apps_21/` root — that dumps multi-GB `Library/` next to Python assets).
+Import geometry from `assets/twin_b100_ops11/`. Details: [`unity/README.md`](unity/README.md).
 
 ## Best Twin
 
