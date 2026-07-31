@@ -13,7 +13,14 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import (
+    ExtraTreesRegressor,
+    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+    StackingRegressor,
+    VotingRegressor,
+)
 from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, make_scorer
 from sklearn.model_selection import GroupKFold, RandomizedSearchCV
@@ -60,6 +67,23 @@ SEARCH_SPACES: dict[str, tuple[Any, dict[str, list]]] = {
             "min_samples_leaf": [1, 2, 4, 8],
         },
     ),
+    "extra_trees": (
+        ExtraTreesRegressor(random_state=21, n_jobs=-1),
+        {
+            "n_estimators": [80, 120, 200],
+            "max_depth": [6, 10, 16, None],
+            "min_samples_leaf": [1, 2, 4, 8],
+        },
+    ),
+    "gbr": (
+        GradientBoostingRegressor(random_state=21),
+        {
+            "learning_rate": [0.03, 0.05, 0.08, 0.12],
+            "max_depth": [2, 3, 5],
+            "n_estimators": [100, 200, 300],
+            "min_samples_leaf": [10, 20, 40],
+        },
+    ),
     "hgb": (
         HistGradientBoostingRegressor(random_state=21),
         {
@@ -72,12 +96,37 @@ SEARCH_SPACES: dict[str, tuple[Any, dict[str, list]]] = {
 }
 
 
+def _clone_fit_params(est: Any, params: dict[str, Any], *, random_state: int = 21) -> Any:
+    m = est.__class__(**params)
+    if "random_state" in m.get_params():
+        m.set_params(random_state=random_state)
+    if "n_jobs" in m.get_params():
+        m.set_params(n_jobs=-1)
+    return m
+
+
+def _oof_predict(
+    est_factory,
+    X: np.ndarray,
+    y: np.ndarray,
+    groups: np.ndarray,
+    gkf: GroupKFold,
+) -> np.ndarray:
+    oof = np.zeros_like(y, dtype=float)
+    for tr, te in gkf.split(X, y, groups):
+        m = est_factory()
+        m.fit(X[tr], y[tr])
+        oof[te] = m.predict(X[te])
+    return oof
+
+
 def tune(
     df: pd.DataFrame,
     *,
     n_splits: int = 5,
     n_iter: int = 40,
     random_state: int = 21,
+    champion_refine_iter: int = 60,
 ) -> dict[str, Any]:
     X, y, groups, cols = matrix_xy(df)
     peak = peak_mask(df)
@@ -96,10 +145,8 @@ def tune(
     }
 
     leaderboard: list[dict[str, Any]] = []
-    best_name = None
-    best_est = None
-    best_peak = float("inf")
-    best_params: dict[str, Any] = {}
+    tuned: dict[str, Any] = {}
+    tuned_params: dict[str, dict[str, Any]] = {}
 
     for name, (proto, space) in SEARCH_SPACES.items():
         n_combos = 1
@@ -118,17 +165,17 @@ def tune(
             refit=True,
         )
         search.fit(X, y, groups=groups)
-        pred = search.best_estimator_.predict(X)
-        # Holdout-style peak via CV predictions
-        oof = np.zeros_like(y)
-        for tr, te in gkf.split(X, y, groups):
-            m = search.best_estimator_.__class__(**search.best_params_)
-            if "random_state" in m.get_params():
-                m.set_params(random_state=random_state)
-            if "n_jobs" in m.get_params():
-                m.set_params(n_jobs=-1)
-            m.fit(X[tr], y[tr])
-            oof[te] = m.predict(X[te])
+        tuned[name] = search.best_estimator_
+        tuned_params[name] = dict(search.best_params_)
+        oof = _oof_predict(
+            lambda p=dict(search.best_params_), e=search.best_estimator_: _clone_fit_params(
+                e, p, random_state=random_state
+            ),
+            X,
+            y,
+            groups,
+            gkf,
+        )
         met = _metrics(y, oof, peak)
         entry = {
             "family": name,
@@ -143,20 +190,188 @@ def tune(
             f"vs pers={persistence['mae_peak_14_16']:.3f} params={search.best_params_}",
             flush=True,
         )
-        if met["mae_peak_14_16"] < best_peak:
-            best_peak = met["mae_peak_14_16"]
-            best_name = name
-            best_est = search.best_estimator_
-            best_params = search.best_params_
 
-    assert best_est is not None and best_name is not None
-    # Refit champion on all data with best params
-    champ = best_est.__class__(**best_params)
-    if "random_state" in champ.get_params():
-        champ.set_params(random_state=random_state)
-    if "n_jobs" in champ.get_params():
-        champ.set_params(n_jobs=-1)
-    champ.fit(X, y)
+    # Ensembles from tuned tree/boosting families
+    tree_keys = [k for k in ("hgb", "gbr", "rf", "extra_trees") if k in tuned]
+    if len(tree_keys) >= 2:
+        print(f"ensemble voting over {tree_keys} …", flush=True)
+        vote_estimators = [(k, tuned[k]) for k in tree_keys]
+        vote = VotingRegressor(estimators=vote_estimators)
+        oof_vote = _oof_predict(lambda: VotingRegressor(
+            estimators=[(k, _clone_fit_params(tuned[k], tuned_params[k], random_state=random_state)) for k in tree_keys]
+        ), X, y, groups, gkf)
+        met_v = _metrics(y, oof_vote, peak)
+        leaderboard.append(
+            {
+                "family": "voting",
+                "best_params": {"members": tree_keys, "weights": "uniform"},
+                "cv_neg_mae": -met_v["mae"],
+                "oof_metrics": met_v,
+                "beat_persistence_peak": met_v["mae_peak_14_16"] < persistence["mae_peak_14_16"],
+            }
+        )
+        print(f"  voting peak_mae={met_v['mae_peak_14_16']:.3f}", flush=True)
+        tuned["voting"] = vote
+        tuned_params["voting"] = {"members": tree_keys}
+
+        print(f"ensemble stacking over {tree_keys} (Ridge meta) …", flush=True)
+
+        def _make_stack():
+            return StackingRegressor(
+                estimators=[
+                    (k, _clone_fit_params(tuned[k], tuned_params[k], random_state=random_state))
+                    for k in tree_keys
+                ],
+                final_estimator=Ridge(alpha=1.0),
+                cv=min(3, n_splits),
+                n_jobs=-1,
+            )
+
+        oof_stack = _oof_predict(_make_stack, X, y, groups, gkf)
+        met_s = _metrics(y, oof_stack, peak)
+        leaderboard.append(
+            {
+                "family": "stacking",
+                "best_params": {"members": tree_keys, "final_estimator": "Ridge(alpha=1.0)"},
+                "cv_neg_mae": -met_s["mae"],
+                "oof_metrics": met_s,
+                "beat_persistence_peak": met_s["mae_peak_14_16"] < persistence["mae_peak_14_16"],
+            }
+        )
+        print(f"  stacking peak_mae={met_s['mae_peak_14_16']:.3f}", flush=True)
+        tuned["stacking"] = _make_stack()
+        tuned_params["stacking"] = {"members": tree_keys, "final_estimator": "Ridge(alpha=1.0)"}
+
+    # Pick champion by peak OOF MAE
+    best_name = None
+    best_peak = float("inf")
+    for e in leaderboard:
+        pk = e["oof_metrics"]["mae_peak_14_16"]
+        if pk < best_peak:
+            best_peak = pk
+            best_name = e["family"]
+    assert best_name is not None
+
+    # Extra hyperparam pass on the best *single-model* family (not ensemble)
+    single_families = set(SEARCH_SPACES.keys())
+    refine_family = best_name if best_name in single_families else min(
+        (e for e in leaderboard if e["family"] in single_families),
+        key=lambda e: e["oof_metrics"]["mae_peak_14_16"],
+    )["family"]
+
+    if refine_family in SEARCH_SPACES and champion_refine_iter > 0:
+        proto, space = SEARCH_SPACES[refine_family]
+        n_combos = 1
+        for v in space.values():
+            n_combos *= max(len(v), 1)
+        iters = min(champion_refine_iter, n_combos)
+        print(
+            f"champion refine: {refine_family} RandomizedSearchCV n_iter={iters} …",
+            flush=True,
+        )
+        search = RandomizedSearchCV(
+            proto,
+            space,
+            n_iter=iters,
+            scoring=mae_scorer,
+            cv=gkf,
+            random_state=random_state + 7,
+            n_jobs=-1,
+            refit=True,
+        )
+        search.fit(X, y, groups=groups)
+        oof = _oof_predict(
+            lambda: _clone_fit_params(search.best_estimator_, search.best_params_, random_state=random_state),
+            X,
+            y,
+            groups,
+            gkf,
+        )
+        met = _metrics(y, oof, peak)
+        # Replace / update leaderboard entry for this family
+        leaderboard = [e for e in leaderboard if e["family"] != refine_family]
+        leaderboard.append(
+            {
+                "family": refine_family,
+                "best_params": search.best_params_,
+                "cv_neg_mae": float(search.best_score_),
+                "oof_metrics": met,
+                "beat_persistence_peak": met["mae_peak_14_16"] < persistence["mae_peak_14_16"],
+                "refined": True,
+            }
+        )
+        tuned[refine_family] = search.best_estimator_
+        tuned_params[refine_family] = dict(search.best_params_)
+        print(
+            f"  refined {refine_family} peak_mae={met['mae_peak_14_16']:.3f} params={search.best_params_}",
+            flush=True,
+        )
+        # Rebuild voting/stacking with refined member if present
+        if "voting" in tuned and refine_family in tree_keys:
+            tree_keys = [k for k in ("hgb", "gbr", "rf", "extra_trees") if k in tuned]
+            oof_vote = _oof_predict(lambda: VotingRegressor(
+                estimators=[(k, _clone_fit_params(tuned[k], tuned_params[k], random_state=random_state)) for k in tree_keys]
+            ), X, y, groups, gkf)
+            met_v = _metrics(y, oof_vote, peak)
+            leaderboard = [e for e in leaderboard if e["family"] != "voting"]
+            leaderboard.append(
+                {
+                    "family": "voting",
+                    "best_params": {"members": tree_keys, "weights": "uniform"},
+                    "cv_neg_mae": -met_v["mae"],
+                    "oof_metrics": met_v,
+                    "beat_persistence_peak": met_v["mae_peak_14_16"] < persistence["mae_peak_14_16"],
+                    "refined": True,
+                }
+            )
+            tuned["voting"] = VotingRegressor(estimators=[(k, tuned[k]) for k in tree_keys])
+            print(f"  re-eval voting peak_mae={met_v['mae_peak_14_16']:.3f}", flush=True)
+
+            def _make_stack2():
+                return StackingRegressor(
+                    estimators=[
+                        (k, _clone_fit_params(tuned[k], tuned_params[k], random_state=random_state))
+                        for k in tree_keys
+                    ],
+                    final_estimator=Ridge(alpha=1.0),
+                    cv=min(3, n_splits),
+                    n_jobs=-1,
+                )
+
+            oof_stack = _oof_predict(_make_stack2, X, y, groups, gkf)
+            met_s = _metrics(y, oof_stack, peak)
+            leaderboard = [e for e in leaderboard if e["family"] != "stacking"]
+            leaderboard.append(
+                {
+                    "family": "stacking",
+                    "best_params": {"members": tree_keys, "final_estimator": "Ridge(alpha=1.0)"},
+                    "cv_neg_mae": -met_s["mae"],
+                    "oof_metrics": met_s,
+                    "beat_persistence_peak": met_s["mae_peak_14_16"] < persistence["mae_peak_14_16"],
+                    "refined": True,
+                }
+            )
+            tuned["stacking"] = _make_stack2()
+            print(f"  re-eval stacking peak_mae={met_s['mae_peak_14_16']:.3f}", flush=True)
+
+    # Final champion pick
+    best_name = None
+    best_peak = float("inf")
+    for e in leaderboard:
+        pk = e["oof_metrics"]["mae_peak_14_16"]
+        if pk < best_peak:
+            best_peak = pk
+            best_name = e["family"]
+    assert best_name is not None
+    best_params = next(e["best_params"] for e in leaderboard if e["family"] == best_name)
+
+    # Fit champion on all data
+    if best_name in ("voting", "stacking"):
+        champ = tuned[best_name]
+        champ.fit(X, y)
+    else:
+        champ = _clone_fit_params(tuned[best_name], tuned_params[best_name], random_state=random_state)
+        champ.fit(X, y)
 
     return {
         "model": champ,
@@ -169,6 +384,7 @@ def tune(
         "n_rows": int(len(df)),
         "n_days": int(df["day"].nunique()),
         "n_splits": n_splits,
+        "refined_family": refine_family,
     }
 
 
@@ -178,6 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--n-iter", type=int, default=40)
     ap.add_argument("--n-splits", type=int, default=5)
+    ap.add_argument("--champion-refine-iter", type=int, default=60)
     args = ap.parse_args(argv)
 
     ws = _workspace()
@@ -198,7 +415,12 @@ def main(argv: list[str] | None = None) -> int:
         src = farm_summary.get("source")
         print(f"training_source={src}", flush=True)
 
-    result = tune(df, n_splits=args.n_splits, n_iter=args.n_iter)
+    result = tune(
+        df,
+        n_splits=args.n_splits,
+        n_iter=args.n_iter,
+        champion_refine_iter=args.champion_refine_iter,
+    )
     artifact = out_dir / "demand_hourly_v1.joblib"
     joblib.dump(
         {
@@ -236,6 +458,9 @@ def main(argv: list[str] | None = None) -> int:
         "targets": ["facility_kw"],
         "champion": result["champion"],
         "best_params": result["best_params"],
+        "refined_family": result.get("refined_family"),
+        "targets": ["facility_kw"],
+        "feature_cols": FEATURE_COLS,
         "cv_metrics": {
             "persistence": result["persistence"],
             **{e["family"]: e["oof_metrics"] for e in result["leaderboard"]},
