@@ -19,7 +19,7 @@ namespace Vibe21.Twin
         {
             Instance = this;
             IsPaused = startPaused;
-            Time.timeScale = IsPaused ? 0f : 1f;
+            Time.timeScale = 1f;
         }
 
         void OnDestroy()
@@ -37,8 +37,17 @@ namespace Vibe21.Twin
         public void SetPaused(bool paused)
         {
             IsPaused = paused;
-            Time.timeScale = paused ? 0f : 1f;
-            // Keep audio ticking a bit when paused? mute motor via timescale 0 is ok
+            // Don't freeze AudioListener / whole engine — only gate gameplay via IsPaused
+            Time.timeScale = 1f;
+            if (!paused)
+            {
+                var drone = FindAnyObjectByType<DroneController>();
+                if (drone != null)
+                {
+                    var src = drone.GetComponent<AudioSource>();
+                    if (src != null && !src.isPlaying) src.Play();
+                }
+            }
         }
 
         void EnsureStyles()

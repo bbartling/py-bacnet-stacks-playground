@@ -1,11 +1,11 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Flyable drone — WASD / arrows + motor hum. Props spin around world-up.
+    /// Flyable drone — WASD / arrows. Props spin on SpinPivot local Y.
+    /// Loud 2D motor hum (audible over scene).
     /// </summary>
     public class DroneController : MonoBehaviour
     {
@@ -15,23 +15,31 @@ namespace Vibe21.Twin
         public float minPitch = -80f;
         public float maxPitch = 80f;
         public Transform cameraRig;
-        public Vector3 cameraOffset = new Vector3(0f, 1.2f, -3.5f);
+        public Vector3 cameraOffset = new Vector3(0f, 1.4f, -3.8f);
         public Transform[] rotors;
-        public float propRpm = 1400f;
+        public float propRpm = 1800f;
         public bool lockCursorOnPlay = false;
         public bool enableMotorSound = true;
-        [Range(0f, 0.4f)] public float motorVolume = 0.12f;
+        [Range(0f, 1f)] public float motorVolume = 0.45f;
 
         float _yaw;
         float _pitch;
         AudioSource _motor;
         float _load;
+        bool _audioReady;
+
+        void Awake()
+        {
+            // Build audio early so Play Mode always has a source
+            if (enableMotorSound)
+                EnsureMotorSound();
+        }
 
         void Start()
         {
             var e = transform.eulerAngles;
             _yaw = e.y;
-            _pitch = 15f;
+            _pitch = 12f;
             if (cameraRig == null && Camera.main != null)
                 cameraRig = Camera.main.transform;
             if (cameraRig != null)
@@ -44,53 +52,74 @@ namespace Vibe21.Twin
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
-            if (enableMotorSound)
-                SetupMotorSound();
+            EnsureMotorSound();
+            if (_motor != null && !IsMenuPaused())
+                _motor.Play();
         }
 
-        void SetupMotorSound()
+        void EnsureMotorSound()
         {
+            if (_audioReady && _motor != null) return;
             _motor = gameObject.GetComponent<AudioSource>();
             if (_motor == null) _motor = gameObject.AddComponent<AudioSource>();
-            _motor.clip = MakeHumClip();
+            if (_motor.clip == null)
+                _motor.clip = MakeHumClip();
             _motor.loop = true;
-            _motor.spatialBlend = 0.65f;
-            _motor.volume = motorVolume;
             _motor.playOnAwake = false;
-            _motor.Play();
+            _motor.spatialBlend = 0f; // 2D — always hear it
+            _motor.volume = motorVolume;
+            _motor.pitch = 1f;
+            _motor.bypassListenerEffects = true;
+            _motor.ignoreListenerPause = true;
+            _motor.priority = 64;
+            _audioReady = true;
         }
 
         static AudioClip MakeHumClip()
         {
-            const int sampleRate = 22050;
-            const float secs = 0.4f;
-            int n = Mathf.RoundToInt(sampleRate * secs);
+            const int sampleRate = 44100;
+            const float secs = 1.0f;
+            int n = sampleRate;
             var data = new float[n];
             for (int i = 0; i < n; i++)
             {
                 float t = i / (float)sampleRate;
-                // Soft multi-harmonic buzz (not a siren)
+                // Stronger buzzing motor — audible on laptop speakers
                 float s =
-                    0.45f * Mathf.Sin(2f * Mathf.PI * 85f * t) +
-                    0.25f * Mathf.Sin(2f * Mathf.PI * 170f * t) +
-                    0.12f * Mathf.Sin(2f * Mathf.PI * 255f * t);
-                data[i] = s * 0.35f;
+                    0.55f * Mathf.Sin(2f * Mathf.PI * 110f * t) +
+                    0.35f * Mathf.Sin(2f * Mathf.PI * 220f * t) +
+                    0.20f * Mathf.Sin(2f * Mathf.PI * 330f * t) +
+                    0.08f * Mathf.Sin(2f * Mathf.PI * 55f * t);
+                // Light noise for "prop wash"
+                s += (Mathf.PerlinNoise(t * 40f, 0.3f) - 0.5f) * 0.15f;
+                data[i] = Mathf.Clamp(s * 0.55f, -1f, 1f);
             }
-            var clip = AudioClip.Create("DroneHum", n, 1, sampleRate, false);
+            var clip = AudioClip.Create("DroneHumLoud", n, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }
 
+        static bool IsMenuPaused()
+        {
+            var menu = TwinMainMenu.Instance;
+            return menu != null && menu.IsPaused;
+        }
+
         void Update()
         {
-            // Menu may freeze us
-            var menu = TwinMainMenu.Instance;
-            if (menu != null && menu.IsPaused)
+            if (IsMenuPaused())
             {
                 if (_motor != null && _motor.isPlaying) _motor.Pause();
                 return;
             }
-            if (_motor != null && !_motor.isPlaying && enableMotorSound) _motor.UnPause();
+
+            EnsureMotorSound();
+            if (_motor != null)
+            {
+                if (!_motor.isPlaying) _motor.Play();
+                // UnPause if previously paused
+                if (_motor.isPlaying == false) _motor.UnPause();
+            }
 
             float mx = MouseDeltaX();
             float my = MouseDeltaY();
@@ -109,31 +138,37 @@ namespace Vibe21.Twin
 
             float boost = (KeyHeld(Key.LeftShift) || KeyHeld(Key.RightShift)) ? boostMultiplier : 1f;
             if (wish.sqrMagnitude > 0f)
-                transform.position += wish.normalized * (moveSpeed * boost * Time.deltaTime);
+                transform.position += wish.normalized * (moveSpeed * boost * Time.unscaledDeltaTime);
 
-            _load = wish.sqrMagnitude > 0.01f ? 1.35f : 0.75f;
-            SpinProps(_load);
+            // Use unscaledDeltaTime so props still spin if timescale glitches
+            float dt = Time.unscaledDeltaTime;
+            _load = wish.sqrMagnitude > 0.01f ? 1.4f : 0.85f;
+            SpinProps(_load, dt);
             if (_motor != null)
             {
-                _motor.pitch = 0.85f + 0.35f * (_load - 0.75f);
-                _motor.volume = motorVolume * (0.7f + 0.3f * _load);
+                _motor.pitch = 0.9f + 0.45f * (_load - 0.85f);
+                _motor.volume = motorVolume * (0.75f + 0.35f * (_load - 0.85f));
             }
             UpdateCamera();
         }
 
-        void SpinProps(float load)
+        void SpinProps(float load, float dt)
         {
             if (rotors == null) return;
-            float deg = propRpm * load * 6f * Time.deltaTime;
+            float deg = propRpm * load * 6f * dt;
             foreach (var r in rotors)
-                SpinUtil.SpinWorldUp(r, deg);
+            {
+                if (r == null) continue;
+                // Local Y = up for SpinPivot (procedural drone). Guaranteed correct.
+                r.Rotate(0f, deg, 0f, Space.Self);
+            }
         }
 
         void UpdateCamera()
         {
             if (cameraRig == null) return;
             var targetPos = transform.TransformPoint(cameraOffset);
-            cameraRig.position = Vector3.Lerp(cameraRig.position, targetPos, 12f * Time.deltaTime);
+            cameraRig.position = Vector3.Lerp(cameraRig.position, targetPos, 14f * Time.unscaledDeltaTime);
             cameraRig.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
         }
 

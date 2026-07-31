@@ -106,54 +106,13 @@ namespace Vibe21.Twin
 
         void SpawnFlyableDrone(Transform parent)
         {
-            GameObject drone;
-            if (droneFbx != null)
-                drone = Instantiate(droneFbx);
-            else
-            {
-                drone = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                drone.transform.localScale = new Vector3(0.8f, 0.35f, 0.5f);
-            }
-            drone.name = "TwinDrone";
-            drone.transform.SetParent(parent, false);
-            drone.transform.position = droneSpawn;
-            drone.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            // Remove any prior drone under parent / scene
+            var old = GameObject.Find("TwinDrone");
+            if (old != null) DestroyImmediate(old);
 
-            // Remove old follow-bob if present
-            var bob = drone.GetComponent<DroneVisualBob>();
-            if (bob != null) DestroyImmediate(bob);
-
-            var ctrl = drone.GetComponent<DroneController>() ?? drone.AddComponent<DroneController>();
-            ctrl.cameraRig = Camera.main != null ? Camera.main.transform : null;
-            var rotors = new List<Transform>();
-            foreach (var t in drone.GetComponentsInChildren<Transform>())
-            {
-                if (t.name.Contains("Rotor_"))
-                    rotors.Add(t);
-            }
-            // Fallback: prop meshes themselves
-            if (rotors.Count == 0)
-            {
-                foreach (var t in drone.GetComponentsInChildren<Transform>())
-                {
-                    if (t.name.Contains("Prop") && !t.name.Contains("PropB"))
-                        rotors.Add(t);
-                }
-            }
-            ctrl.rotors = rotors.ToArray();
-
-            var te = drone.GetComponent<TwinEntity>() ?? drone.AddComponent<TwinEntity>();
-            te.entityId = "drone_player";
-            te.entityType = "drone_proxy";
-            te.displayName = "Flyable DEMO drone";
-            te.isDemoProxy = true;
-
-            // Disable freefly on main camera
-            if (Camera.main != null)
-            {
-                var ff = Camera.main.GetComponent<DroneFlyCamera>();
-                if (ff != null) ff.enabled = false;
-            }
+            // Procedural drone — correct prop spin pivots + audible motor
+            var drone = ProceduralDroneFactory.Build(droneSpawn, parent);
+            Debug.Log("RoofAssetPlacer: procedural TwinDrone (SpinPivot props + motor hum)");
         }
 
         void PlaceOneAhu(Transform parent, string name, string entityId, string airLoop, Bounds roof, Vector3 nudge)
