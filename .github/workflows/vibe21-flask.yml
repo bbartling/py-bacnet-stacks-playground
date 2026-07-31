@@ -1,0 +1,39 @@
+name: vibe21-flask
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "vibe_code_apps_21/flask_app/**"
+      - "vibe_code_apps_21/ml/**"
+      - "vibe_code_apps_21/assets/twin_b100_ops11/**"
+      - ".github/workflows/vibe21-flask.yml"
+  pull_request:
+    paths:
+      - "vibe_code_apps_21/flask_app/**"
+      - "vibe_code_apps_21/ml/**"
+      - ".github/workflows/vibe21-flask.yml"
+
+jobs:
+  api-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_21
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r flask_app/requirements.txt
+          pip install pytest
+      - name: Unit tests (manifest / health; predict skips without artifact)
+        run: python -m pytest flask_app/tests/test_api.py -q --tb=short
+        env:
+          # Model artifact lives on local wattlab_workspace; CI still validates
+          # twin manifest + degraded health path.
+          VIBE21_MODEL_ARTIFACT: /nonexistent/demand_hourly_v1.joblib
+          VIBE21_MODEL_CARD: /nonexistent/demand_hourly_v1_model_card.json

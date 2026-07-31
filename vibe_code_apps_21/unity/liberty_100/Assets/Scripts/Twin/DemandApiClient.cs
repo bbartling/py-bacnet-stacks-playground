@@ -73,7 +73,12 @@ namespace Vibe21.Twin
                 onErr?.Invoke(uwr.error + " " + uwr.downloadHandler.text);
                 yield break;
             }
-            var resp = JsonUtility.FromJson<DemandPredictResponse>(uwr.downloadHandler.text);
+            // Unity JsonUtility cannot parse top-level string arrays (e.g. feature_cols);
+            // strip known non-scalar arrays before deserialize.
+            var text = uwr.downloadHandler.text;
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text, ",\\s*\"feature_cols\"\\s*:\\s*\\[[^\\]]*\\]", "");
+            var resp = JsonUtility.FromJson<DemandPredictResponse>(text);
             lastResponse = resp;
             onOk?.Invoke(resp);
         }

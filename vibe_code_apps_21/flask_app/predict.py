@@ -140,5 +140,4 @@ def predict_kw(model: Any, body: dict[str, Any], feature_cols: list[str] | None 
         "facility_kw": y,
         "unit": "kW",
         **meta,
-        "feature_cols": list(FEATURE_COLS),
     }

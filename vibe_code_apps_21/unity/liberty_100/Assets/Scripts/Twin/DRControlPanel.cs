@@ -2,10 +2,11 @@ using UnityEngine;
 
 namespace Vibe21.Twin
 {
-    /// <summary>On-screen DR scrubbers → Flask → zone tint + provenance HUD.</summary>
+    /// <summary>On-screen DR scrubbers → Flask → zone tint + temp gradients + provenance HUD.</summary>
     public class DRControlPanel : MonoBehaviour
     {
         public DemandApiClient api;
+        public ZoneTempController tempController;
         public float oatC = 32f;
         public float rhPct = 55f;
         public int hourEnding = 15;
@@ -24,54 +25,100 @@ namespace Vibe21.Twin
         float _lastKw = float.NaN;
         string _provenance = "";
         bool _busy;
+        GUIStyle _titleStyle;
+        GUIStyle _labelStyle;
+        GUIStyle _buttonStyle;
+        bool _stylesReady;
 
         void Awake()
         {
             if (api == null) api = GetComponent<DemandApiClient>() ?? gameObject.AddComponent<DemandApiClient>();
+            if (tempController == null)
+                tempController = GetComponent<ZoneTempController>() ?? gameObject.AddComponent<ZoneTempController>();
+        }
+
+        void Start()
+        {
+            // Seed DEMO floor temps so windows/sensors look alive before first predict
+            tempController.ApplyDemoDefaults(oatC);
+        }
+
+        void EnsureStyles()
+        {
+            if (_stylesReady) return;
+            _titleStyle = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                padding = new RectOffset(14, 14, 8, 8)
+            };
+            _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 16 };
+            _buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fixedHeight = 36 };
+            _stylesReady = true;
         }
 
         void OnGUI()
         {
-            const float w = 340f;
-            float x = Screen.width - w - 12f;
-            float y = 12f;
-            GUI.Box(new Rect(x, y, w, panelOpen ? 360f : 36f), "Liberty 100 — DR Twin");
-            if (GUI.Button(new Rect(x + w - 28f, y + 4f, 24f, 24f), panelOpen ? "–" : "+"))
+            EnsureStyles();
+            const float w = 520f;
+            const float rowH = 36f;
+            float panelH = panelOpen ? 520f : 48f;
+            float x = Screen.width - w - 16f;
+            float y = 16f;
+
+            GUI.Box(new Rect(x, y, w, panelH), "");
+            GUI.Label(new Rect(x + 12f, y + 6f, w - 70f, 36f), "Liberty 100 — DR Twin Sim", _titleStyle);
+            if (GUI.Button(new Rect(x + w - 44f, y + 8f, 36f, 32f), panelOpen ? "–" : "+", _buttonStyle))
                 panelOpen = !panelOpen;
             if (!panelOpen) return;
 
-            float row = y + 36f;
-            GUI.Label(new Rect(x + 12f, row, 120f, 20f), $"OAT °C {oatC:0.0}");
-            oatC = GUI.HorizontalSlider(new Rect(x + 130f, row + 4f, 190f, 20f), oatC, 10f, 42f);
-            row += 28f;
-            GUI.Label(new Rect(x + 12f, row, 120f, 20f), $"RH % {rhPct:0.0}");
-            rhPct = GUI.HorizontalSlider(new Rect(x + 130f, row + 4f, 190f, 20f), rhPct, 20f, 95f);
-            row += 28f;
-            GUI.Label(new Rect(x + 12f, row, 120f, 20f), $"Hour {hourEnding}");
-            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x + 130f, row + 4f, 190f, 20f), hourEnding, 1, 24));
-            row += 28f;
-            GUI.Label(new Rect(x + 12f, row, 120f, 20f), $"Precool °F {precoolF:0.0}");
-            precoolF = GUI.HorizontalSlider(new Rect(x + 130f, row + 4f, 190f, 20f), precoolF, 0f, 6f);
-            row += 28f;
-            GUI.Label(new Rect(x + 12f, row, 120f, 20f), $"Relax clg °F {relaxClgF:0.0}");
-            relaxClgF = GUI.HorizontalSlider(new Rect(x + 130f, row + 4f, 190f, 20f), relaxClgF, 0f, 10f);
-            row += 28f;
-            GUI.Label(new Rect(x + 12f, row, w - 24f, 20f), $"Strategy: {Strategies[strategyIndex]}");
-            row += 22f;
-            if (GUI.Button(new Rect(x + 12f, row, 150f, 24f), "◀ Prev"))
+            float row = y + 52f;
+            float labelW = 170f;
+            float sliderX = x + labelW + 8f;
+            float sliderW = w - labelW - 36f;
+
+            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"OAT °C  {oatC:0.0}", _labelStyle);
+            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), oatC, 10f, 42f);
+            row += rowH;
+
+            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"RH %  {rhPct:0.0}", _labelStyle);
+            rhPct = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), rhPct, 20f, 95f);
+            row += rowH;
+
+            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Hour ending  {hourEnding}", _labelStyle);
+            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), hourEnding, 1, 24));
+            row += rowH;
+
+            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Precool °F  {precoolF:0.0}", _labelStyle);
+            precoolF = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), precoolF, 0f, 6f);
+            row += rowH;
+
+            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Relax clg °F  {relaxClgF:0.0}", _labelStyle);
+            relaxClgF = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), relaxClgF, 0f, 10f);
+            row += rowH;
+
+            GUI.Label(new Rect(x + 16f, row, w - 32f, rowH), $"Strategy:  {Strategies[strategyIndex]}", _labelStyle);
+            row += 30f;
+            if (GUI.Button(new Rect(x + 16f, row, (w - 48f) * 0.5f, 40f), "◀  Prev strategy", _buttonStyle))
                 strategyIndex = (strategyIndex + Strategies.Length - 1) % Strategies.Length;
-            if (GUI.Button(new Rect(x + 170f, row, 150f, 24f), "Next ▶"))
+            if (GUI.Button(new Rect(x + 28f + (w - 48f) * 0.5f, row, (w - 48f) * 0.5f, 40f), "Next strategy  ▶", _buttonStyle))
                 strategyIndex = (strategyIndex + 1) % Strategies.Length;
-            row += 32f;
+            row += 52f;
+
             GUI.enabled = !_busy;
-            if (GUI.Button(new Rect(x + 12f, row, w - 24f, 28f), _busy ? "Predicting…" : "Predict facility kW"))
+            if (GUI.Button(new Rect(x + 16f, row, w - 32f, 48f),
+                    _busy ? "Predicting…" : "Predict facility kW  +  refresh zone temps", _buttonStyle))
                 StartCoroutine(RunPredict());
             GUI.enabled = true;
-            row += 36f;
-            GUI.Label(new Rect(x + 12f, row, w - 24f, 20f),
-                float.IsNaN(_lastKw) ? "kW: —" : $"Predicted facility kW: {_lastKw:0.0}");
-            row += 22f;
-            GUI.Label(new Rect(x + 12f, row, w - 24f, 60f), _status + "\n" + _provenance);
+            row += 58f;
+
+            GUI.Label(new Rect(x + 16f, row, w - 32f, 28f),
+                float.IsNaN(_lastKw) ? "Predicted facility kW:  —" : $"Predicted facility kW:  {_lastKw:0.0}",
+                _labelStyle);
+            row += 28f;
+            GUI.Label(new Rect(x + 16f, row, w - 32f, 70f),
+                _status + "\n" + _provenance + "\nZone °C = DEMO BAS-style (not live)", _labelStyle);
         }
 
         System.Collections.IEnumerator RunPredict()
@@ -92,6 +139,8 @@ namespace Vibe21.Twin
                 in_dr_window = sid == "baseline" ? 0 : 1,
                 oat_lag1 = oatC - 0.5f
             };
+            // Refresh DEMO temps immediately so scrubbing feels responsive even if API lags
+            tempController.RefreshFromDr(oatC, sid, precoolF, relaxClgF);
             yield return api.Predict(req,
                 ok =>
                 {
@@ -100,26 +149,30 @@ namespace Vibe21.Twin
                     _provenance = ok.provenance != null
                         ? $"{ok.provenance.source} / {ok.provenance.engine}"
                         : "";
-                    ApplyZoneTint(ok.facility_kw);
+                    ApplyKwWash(ok.facility_kw);
+                    tempController.RefreshFromDr(oatC, sid, precoolF, relaxClgF);
+                    foreach (var spin in FindObjectsByType<AhuFanSpin>())
+                        spin.SetLoadFromStrategy(sid, ok.facility_kw);
                 },
                 err => { _status = "API error: " + err; });
             _busy = false;
         }
 
-        void ApplyZoneTint(float kw)
+        void ApplyKwWash(float kw)
         {
-            // Map ~100–350 kW to green→amber→red for massing renderers
             float t = Mathf.InverseLerp(120f, 320f, kw);
             var col = Color.Lerp(new Color(0.35f, 0.75f, 0.4f), new Color(0.9f, 0.25f, 0.2f), t);
             foreach (var te in FindObjectsByType<TwinEntity>())
             {
-                if (te.entityType != "zone" && te.entityType != "surface") continue;
+                if (te.entityType != "zone") continue;
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                 {
+                    var child = r.GetComponent<TwinEntity>();
+                    if (child != null && (child.entityType == "window" || child.entityType == "sensor_proxy"))
+                        continue;
                     if (r.sharedMaterial == null) continue;
-                    var m = new Material(r.sharedMaterial);
-                    m.color = Color.Lerp(m.color, col, 0.55f);
-                    r.material = m;
+                    var m = r.material;
+                    m.color = Color.Lerp(m.color, col, 0.22f);
                 }
             }
         }

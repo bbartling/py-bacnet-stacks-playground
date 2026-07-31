@@ -18,6 +18,9 @@ namespace Vibe21.Twin
         public Material wallMaterial;
         public Material floorMaterial;
         public Material roofMaterial;
+        public Material windowMaterial;
+        /// <summary>Push windows slightly outward (m) to avoid z-fighting with parent walls.</summary>
+        public float windowOutsetM = 0.04f;
         public Transform root;
 
         [Serializable] class Vert { public float x, y, z; }
@@ -100,10 +103,15 @@ namespace Vibe21.Twin
                 go.transform.SetParent(parent, false);
                 var mf = go.AddComponent<MeshFilter>();
                 var mr = go.AddComponent<MeshRenderer>();
-                mf.sharedMesh = BuildQuadOrPoly(s.vertices_m);
+                mf.sharedMesh = BuildQuadOrPoly(s.vertices_m, s.surface_type);
                 mr.sharedMaterial = PickMaterial(s.surface_type);
+                if (IsWindow(s.surface_type))
+                {
+                    // Transparent glass needs alpha; URP Lit supports Surface Type Transparent when set.
+                    mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
                 var te = go.AddComponent<TwinEntity>();
-                te.entityType = "surface";
+                te.entityType = IsWindow(s.surface_type) ? "window" : "surface";
                 te.displayName = s.name;
                 if (!string.IsNullOrEmpty(s.zone) && zoneParents.TryGetValue(s.zone, out var zpt))
                 {
@@ -132,36 +140,73 @@ namespace Vibe21.Twin
                 roofMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 roofMaterial.color = new Color(0.35f, 0.38f, 0.42f, 1f);
             }
+            if (windowMaterial == null)
+            {
+                windowMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                // E+ Exterior Window Glass look — blue-ish translucent pane
+                windowMaterial.color = new Color(0.35f, 0.55f, 0.75f, 0.45f);
+                if (windowMaterial.HasProperty("_Surface"))
+                    windowMaterial.SetFloat("_Surface", 1f); // Transparent
+                if (windowMaterial.HasProperty("_Blend"))
+                    windowMaterial.SetFloat("_Blend", 0f);
+                if (windowMaterial.HasProperty("_BaseColor"))
+                    windowMaterial.SetColor("_BaseColor", new Color(0.35f, 0.55f, 0.75f, 0.45f));
+                windowMaterial.SetFloat("_Metallic", 0.1f);
+                windowMaterial.SetFloat("_Smoothness", 0.85f);
+                windowMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                windowMaterial.renderQueue = 3000;
+            }
         }
+
+        static bool IsWindow(string surfaceType) =>
+            !string.IsNullOrEmpty(surfaceType) && surfaceType.ToLowerInvariant().Contains("window");
 
         Material PickMaterial(string surfaceType)
         {
             if (string.IsNullOrEmpty(surfaceType)) return wallMaterial;
             var t = surfaceType.ToLowerInvariant();
+            if (t.Contains("window")) return windowMaterial;
             if (t.Contains("floor")) return floorMaterial;
             if (t.Contains("roof") || t.Contains("ceiling")) return roofMaterial;
             return wallMaterial;
         }
 
-        static Mesh BuildQuadOrPoly(Vert[] verts)
+        Mesh BuildQuadOrPoly(Vert[] verts, string surfaceType)
         {
             var mesh = new Mesh { name = "TwinSurface" };
             var v3 = new Vector3[verts.Length];
             for (int i = 0; i < verts.Length; i++) v3[i] = EpToUnity(verts[i]);
+
+            // Outset windows along face normal so they sit proud of the wall (IDF verts are coplanar).
+            if (IsWindow(surfaceType) && windowOutsetM > 0f && v3.Length >= 3)
+            {
+                var n = Vector3.Cross(v3[1] - v3[0], v3[2] - v3[0]).normalized;
+                for (int i = 0; i < v3.Length; i++) v3[i] += n * windowOutsetM;
+            }
+
             mesh.vertices = v3;
             if (verts.Length == 4)
             {
-                mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+                // Double-sided for glass visibility from outside/inside
+                if (IsWindow(surfaceType))
+                    mesh.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 };
+                else
+                    mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
             }
             else
             {
-                // fan triangulation (convex IDF polygons)
                 var tris = new List<int>();
                 for (int i = 1; i < verts.Length - 1; i++)
                 {
                     tris.Add(0);
                     tris.Add(i);
                     tris.Add(i + 1);
+                    if (IsWindow(surfaceType))
+                    {
+                        tris.Add(0);
+                        tris.Add(i + 1);
+                        tris.Add(i);
+                    }
                 }
                 mesh.triangles = tris.ToArray();
             }

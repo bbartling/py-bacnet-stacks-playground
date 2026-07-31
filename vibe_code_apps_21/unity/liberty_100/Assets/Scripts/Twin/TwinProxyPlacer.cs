@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// DEMO proxy markers: zone "temp sensors" + roof AHU boxes. Not CAD / not live BAS.
+    /// DEMO proxy markers: zone temp sensors (labeled) + roof AHU boxes. Not CAD / not live BAS.
     /// </summary>
     public class TwinProxyPlacer : MonoBehaviour
     {
@@ -24,23 +25,48 @@ namespace Vibe21.Twin
             {
                 var bounds = GetHierarchyBounds(z.transform);
                 var mid = bounds.center;
-                mid.y = bounds.max.y - 0.3f;
+                // Sit sensors near exterior so drone can read them through windows
+                mid.y = Mathf.Lerp(bounds.min.y, bounds.max.y, 0.55f);
                 var sensor = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 sensor.name = $"TempProxy_{z.entityId}";
                 sensor.transform.SetParent(root.transform, false);
                 sensor.transform.position = mid;
-                sensor.transform.localScale = Vector3.one * 0.45f;
+                sensor.transform.localScale = Vector3.one * 0.55f;
                 var sm = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
                 sm.color = new Color(0.2f, 0.85f, 0.95f);
-                sensor.GetComponent<MeshRenderer>().sharedMaterial = sm;
+                sm.EnableKeyword("_EMISSION");
+                if (sm.HasProperty("_EmissionColor"))
+                    sm.SetColor("_EmissionColor", new Color(0.15f, 0.4f, 0.5f));
+                var bulb = sensor.GetComponent<MeshRenderer>();
+                bulb.sharedMaterial = sm;
                 var ste = sensor.AddComponent<TwinEntity>();
                 ste.entityId = z.entityId + "_temp_proxy";
                 ste.entityType = "sensor_proxy";
                 ste.displayName = "DEMO zone temp proxy";
                 ste.isDemoProxy = true;
+
+                var labelGo = new GameObject("Label");
+                labelGo.transform.SetParent(sensor.transform, false);
+                labelGo.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                var tm = labelGo.AddComponent<TextMesh>();
+                tm.characterSize = 0.12f;
+                tm.fontSize = 48;
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.color = Color.white;
+                int floor = 1;
+                var m = Regex.Match(z.displayName ?? "", @"Floor_(\d+)");
+                if (m.Success) floor = int.Parse(m.Groups[1].Value);
+                string ahu = (z.displayName ?? "").Contains("AHU2") ? "AHU-2" : "AHU-1";
+
+                var zts = sensor.AddComponent<ZoneTempSensor>();
+                zts.zoneEntityId = z.entityId;
+                zts.floorLabel = $"F{floor} {ahu}";
+                zts.label = tm;
+                zts.bulb = bulb;
+                zts.SetTemp(22.5f);
             }
 
-            // Roof AHU boxes above each top-floor AHU zone (Floor_6)
             foreach (var z in zones)
             {
                 if (z.displayName == null || !z.displayName.StartsWith("Floor_6_AHU")) continue;
@@ -60,7 +86,7 @@ namespace Vibe21.Twin
                 ate.displayName = "DEMO roof AHU proxy";
                 ate.isDemoProxy = true;
             }
-            Debug.Log($"TwinProxyPlacer: {zones.Count} zone temp proxies + roof AHUs (DEMO)");
+            Debug.Log($"TwinProxyPlacer: {zones.Count} labeled temp proxies + roof AHUs (DEMO)");
         }
 
         static Bounds GetHierarchyBounds(Transform t)

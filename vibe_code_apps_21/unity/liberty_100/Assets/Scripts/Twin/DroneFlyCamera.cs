@@ -6,8 +6,8 @@ namespace Vibe21.Twin
     [RequireComponent(typeof(Camera))]
     public class DroneFlyCamera : MonoBehaviour
     {
-        public float moveSpeed = 18f;
-        public float boostMultiplier = 3f;
+        public float moveSpeed = 45f;
+        public float boostMultiplier = 4f;
         public float lookSensitivity = 2.2f;
         public float minPitch = -89f;
         public float maxPitch = 89f;

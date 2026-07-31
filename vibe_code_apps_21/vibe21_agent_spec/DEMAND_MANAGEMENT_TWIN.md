@@ -71,9 +71,11 @@ Honesty: Floor×AHU lumped zones only; roof AHU / zone temp markers are
 3. Free-fly or drone camera + green site ground
 4. Visual modes: hourly kW overlay, DR window, precool vs relax phase, plant avail
 5. Controls: strategy picker + knobs → Flask `predict/demand_hourly`
-6. Proxy zone temp markers + roof AHU boxes (labeled DEMO)
+6. Proxy zone temp markers + roof AHU boxes (labeled DEMO); optional Blender
+   VAV AHU meshes — see `BLENDER_UNITY_ASSETS.md`
 7. Do **not** invent geometry beyond IDF; if rooms needed, say `NEEDS_ENH`
 8. MCP `manage_scene` **save** after each milestone above
+9. Keep `vibe21_agent_spec/` docs current when Unity/Flask/Blender contracts change
 
 ## Excel
 

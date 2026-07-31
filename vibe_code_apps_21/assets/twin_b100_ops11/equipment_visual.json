@@ -1,0 +1,44 @@
+{
+  "schema_version": "vibe21.equipment_visual.v1",
+  "twin_run_id": "geo_b100_dual_ahu_shape_ops11",
+  "source_idf": "assets/twin_b100_ops11/model.idf",
+  "honesty": "Visual DEMO proxies inferred from IDF air loops — not CAD / not live BAS.",
+  "air_loops": [
+    {
+      "name": "VAV Sys 1",
+      "inferred_type": "VAV_CHW",
+      "fan": "Fan:VariableVolume",
+      "cooling": "Coil:Cooling:Water",
+      "heating": "Coil:Heating:Water",
+      "oa": "AirLoopHVAC:OutdoorAirSystem",
+      "serves": "west plate Floor_*_AHU1",
+      "unity_entity_id": "ahu_proxy_vav_sys_1",
+      "blender_root": "AHU_VAV_Sys1",
+      "fbx": "Assets/Models/Twin/RoofAhu_VAV.fbx"
+    },
+    {
+      "name": "VAV Sys 2",
+      "inferred_type": "VAV_CHW",
+      "fan": "Fan:VariableVolume",
+      "cooling": "Coil:Cooling:Water",
+      "heating": "Coil:Heating:Water",
+      "oa": "AirLoopHVAC:OutdoorAirSystem",
+      "serves": "east plate Floor_*_AHU2",
+      "unity_entity_id": "ahu_proxy_vav_sys_2",
+      "blender_root": "AHU_VAV_Sys2",
+      "fbx": "Assets/Models/Twin/RoofAhu_VAV.fbx"
+    }
+  ],
+  "plant": [
+    {
+      "name": "inferred_chiller",
+      "type": "Chiller:Electric:EIR",
+      "note": "CHW source for both VAV AHUs; no rooftop chiller mesh in v1"
+    }
+  ],
+  "drone": {
+    "fbx": "Assets/Models/Twin/TwinDrone.fbx",
+    "script": "DroneVisualBob",
+    "note": "Silly follow-cam visual; flight input remains DroneFlyCamera"
+  }
+}

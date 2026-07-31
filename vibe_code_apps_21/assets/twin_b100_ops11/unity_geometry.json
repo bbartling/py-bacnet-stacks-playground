@@ -97,7 +97,7 @@
       "entity_id": "zone_floor_6_ahu2"
     }
   ],
-  "n_surfaces": 72,
+  "n_surfaces": 108,
   "surfaces": [
     {
       "name": "Floor_1_AHU1_Floor",
@@ -2258,6 +2258,1086 @@
         }
       ],
       "entity_id": "surf_floor_6_ahu2_partition_w"
+    },
+    {
+      "name": "Floor_1_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 0.254
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_1_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 0.254
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_1_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 3.7084
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 3.7084
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 0.254
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_1_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 0.254
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_1_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 0.254
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_1_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_1_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 3.7084
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 3.7084
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 0.254
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 0.254
+        }
+      ],
+      "entity_id": "fen_floor_1_ahu2_wall_e_win"
+    },
+    {
+      "name": "Floor_2_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 4.2164
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_2_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 4.2164
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_2_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 7.6708
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 7.6708
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 4.2164
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_2_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 4.2164
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_2_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 4.2164
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_2_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_2_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 7.6708
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 7.6708
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 4.2164
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 4.2164
+        }
+      ],
+      "entity_id": "fen_floor_2_ahu2_wall_e_win"
+    },
+    {
+      "name": "Floor_3_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 8.1788
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_3_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 8.1788
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_3_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 11.6332
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 11.6332
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 8.1788
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_3_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 8.1788
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_3_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 8.1788
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_3_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_3_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 11.6332
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 11.6332
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 8.1788
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 8.1788
+        }
+      ],
+      "entity_id": "fen_floor_3_ahu2_wall_e_win"
+    },
+    {
+      "name": "Floor_4_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 12.1412
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_4_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 12.1412
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_4_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 15.5956
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 15.5956
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 12.1412
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_4_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 12.1412
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_4_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 12.1412
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_4_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_4_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 15.5956
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 15.5956
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 12.1412
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 12.1412
+        }
+      ],
+      "entity_id": "fen_floor_4_ahu2_wall_e_win"
+    },
+    {
+      "name": "Floor_5_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 16.1036
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_5_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 16.1036
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_5_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 19.558
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 19.558
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 16.1036
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_5_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 16.1036
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_5_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 16.1036
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_5_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_5_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 19.558
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 19.558
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 16.1036
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 16.1036
+        }
+      ],
+      "entity_id": "fen_floor_5_ahu2_wall_e_win"
+    },
+    {
+      "name": "Floor_6_AHU1_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 20.066
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu1_wall_s_win"
+    },
+    {
+      "name": "Floor_6_AHU1_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 20.066
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu1_wall_n_win"
+    },
+    {
+      "name": "Floor_6_AHU1_Wall_W_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU1",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 23.5204
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 23.5204
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 20.066
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu1_wall_w_win"
+    },
+    {
+      "name": "Floor_6_AHU2_Wall_S_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 20.066
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu2_wall_s_win"
+    },
+    {
+      "name": "Floor_6_AHU2_Wall_N_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 20.066
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu2_wall_n_win"
+    },
+    {
+      "name": "Floor_6_AHU2_Wall_E_Win",
+      "surface_type": "Window",
+      "construction": "Exterior Window",
+      "zone": "Floor_6_AHU2",
+      "n_vertices": 4,
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 23.5204
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 23.5204
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 20.066
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 20.066
+        }
+      ],
+      "entity_id": "fen_floor_6_ahu2_wall_e_win"
     }
   ],
   "fenestration": [
@@ -2265,217 +3345,1045 @@
       "name": "Floor_1_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU1_Wall_S"
+      "zone": "Floor_1_AHU1",
+      "building_surface": "Floor_1_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 0.254
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_1_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU1_Wall_N"
+      "zone": "Floor_1_AHU1",
+      "building_surface": "Floor_1_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 0.254
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_1_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU1_Wall_W"
+      "zone": "Floor_1_AHU1",
+      "building_surface": "Floor_1_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 3.7084
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 3.7084
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 0.254
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_1_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU2_Wall_S"
+      "zone": "Floor_1_AHU2",
+      "building_surface": "Floor_1_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 3.7084
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 0.254
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_1_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU2_Wall_N"
+      "zone": "Floor_1_AHU2",
+      "building_surface": "Floor_1_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 3.7084
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 0.254
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_1_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_1_AHU2_Wall_E"
+      "zone": "Floor_1_AHU2",
+      "building_surface": "Floor_1_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 3.7084
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 3.7084
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 0.254
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 0.254
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU1_Wall_S"
+      "zone": "Floor_2_AHU1",
+      "building_surface": "Floor_2_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 4.2164
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU1_Wall_N"
+      "zone": "Floor_2_AHU1",
+      "building_surface": "Floor_2_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 4.2164
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU1_Wall_W"
+      "zone": "Floor_2_AHU1",
+      "building_surface": "Floor_2_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 7.6708
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 7.6708
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 4.2164
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU2_Wall_S"
+      "zone": "Floor_2_AHU2",
+      "building_surface": "Floor_2_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 7.6708
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 4.2164
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU2_Wall_N"
+      "zone": "Floor_2_AHU2",
+      "building_surface": "Floor_2_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 7.6708
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 4.2164
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_2_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_2_AHU2_Wall_E"
+      "zone": "Floor_2_AHU2",
+      "building_surface": "Floor_2_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 7.6708
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 7.6708
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 4.2164
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 4.2164
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU1_Wall_S"
+      "zone": "Floor_3_AHU1",
+      "building_surface": "Floor_3_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 8.1788
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU1_Wall_N"
+      "zone": "Floor_3_AHU1",
+      "building_surface": "Floor_3_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 8.1788
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU1_Wall_W"
+      "zone": "Floor_3_AHU1",
+      "building_surface": "Floor_3_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 11.6332
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 11.6332
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 8.1788
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU2_Wall_S"
+      "zone": "Floor_3_AHU2",
+      "building_surface": "Floor_3_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 11.6332
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 8.1788
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU2_Wall_N"
+      "zone": "Floor_3_AHU2",
+      "building_surface": "Floor_3_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 11.6332
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 8.1788
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_3_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_3_AHU2_Wall_E"
+      "zone": "Floor_3_AHU2",
+      "building_surface": "Floor_3_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 11.6332
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 11.6332
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 8.1788
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 8.1788
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU1_Wall_S"
+      "zone": "Floor_4_AHU1",
+      "building_surface": "Floor_4_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 12.1412
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU1_Wall_N"
+      "zone": "Floor_4_AHU1",
+      "building_surface": "Floor_4_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 12.1412
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU1_Wall_W"
+      "zone": "Floor_4_AHU1",
+      "building_surface": "Floor_4_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 15.5956
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 15.5956
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 12.1412
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU2_Wall_S"
+      "zone": "Floor_4_AHU2",
+      "building_surface": "Floor_4_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 15.5956
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 12.1412
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU2_Wall_N"
+      "zone": "Floor_4_AHU2",
+      "building_surface": "Floor_4_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 15.5956
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 12.1412
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_4_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_4_AHU2_Wall_E"
+      "zone": "Floor_4_AHU2",
+      "building_surface": "Floor_4_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 15.5956
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 15.5956
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 12.1412
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 12.1412
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU1_Wall_S"
+      "zone": "Floor_5_AHU1",
+      "building_surface": "Floor_5_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 16.1036
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU1_Wall_N"
+      "zone": "Floor_5_AHU1",
+      "building_surface": "Floor_5_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 16.1036
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU1_Wall_W"
+      "zone": "Floor_5_AHU1",
+      "building_surface": "Floor_5_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 19.558
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 19.558
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 16.1036
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU2_Wall_S"
+      "zone": "Floor_5_AHU2",
+      "building_surface": "Floor_5_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 19.558
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 16.1036
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU2_Wall_N"
+      "zone": "Floor_5_AHU2",
+      "building_surface": "Floor_5_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 19.558
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 16.1036
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_5_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_5_AHU2_Wall_E"
+      "zone": "Floor_5_AHU2",
+      "building_surface": "Floor_5_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 19.558
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 19.558
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 16.1036
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 16.1036
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU1_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU1_Wall_S"
+      "zone": "Floor_6_AHU1",
+      "building_surface": "Floor_6_AHU1_Wall_S",
+      "vertices_m": [
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 26.6836,
+          "y": 0.0,
+          "z": 20.066
+        },
+        {
+          "x": 1.8279,
+          "y": 0.0,
+          "z": 20.066
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU1_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU1_Wall_N"
+      "zone": "Floor_6_AHU1",
+      "building_surface": "Floor_6_AHU1_Wall_N",
+      "vertices_m": [
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 1.8279,
+          "y": 38.0152,
+          "z": 20.066
+        },
+        {
+          "x": 26.6836,
+          "y": 38.0152,
+          "z": 20.066
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU1_Wall_W_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU1_Wall_W"
+      "zone": "Floor_6_AHU1",
+      "building_surface": "Floor_6_AHU1_Wall_W",
+      "vertices_m": [
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 23.5204
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 23.5204
+        },
+        {
+          "x": 0.0,
+          "y": 2.4372,
+          "z": 20.066
+        },
+        {
+          "x": 0.0,
+          "y": 35.5781,
+          "z": 20.066
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU2_Wall_S_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU2_Wall_S"
+      "zone": "Floor_6_AHU2",
+      "building_surface": "Floor_6_AHU2_Wall_S",
+      "vertices_m": [
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 23.5204
+        },
+        {
+          "x": 55.195,
+          "y": 0.0,
+          "z": 20.066
+        },
+        {
+          "x": 30.3393,
+          "y": 0.0,
+          "z": 20.066
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU2_Wall_N_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU2_Wall_N"
+      "zone": "Floor_6_AHU2",
+      "building_surface": "Floor_6_AHU2_Wall_N",
+      "vertices_m": [
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 23.5204
+        },
+        {
+          "x": 30.3393,
+          "y": 38.0152,
+          "z": 20.066
+        },
+        {
+          "x": 55.195,
+          "y": 38.0152,
+          "z": 20.066
+        }
+      ]
     },
     {
       "name": "Floor_6_AHU2_Wall_E_Win",
       "surface_type": "Window",
       "construction": "Exterior Window",
-      "building_surface": "Floor_6_AHU2_Wall_E"
+      "zone": "Floor_6_AHU2",
+      "building_surface": "Floor_6_AHU2_Wall_E",
+      "vertices_m": [
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 23.5204
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 23.5204
+        },
+        {
+          "x": 57.0229,
+          "y": 35.5781,
+          "z": 20.066
+        },
+        {
+          "x": 57.0229,
+          "y": 2.4372,
+          "z": 20.066
+        }
+      ]
     }
   ],
   "hvac": {
@@ -2532,5 +4440,6 @@
     "IDF BuildingSurface:Detailed vertices are the architectural massing source for Unity.",
     "Lumped Floor_N_AHU{1,2} zones \u2014 not room-level VAV geometry.",
     "Demand management ML targets hourly Electricity:Facility kW under OA + HVAC actions."
-  ]
+  ],
+  "n_fenestration": 36
 }

@@ -28,11 +28,14 @@ geometry outside the Twin JSON.
 After each of these, call `manage_scene(action="save")` (and optionally save-as
 `Assets/Scenes/Liberty100Twin.unity` once created):
 
-1. Geometry import / massing built  
-2. Free-fly or drone camera + site ground  
-3. DR UI panel wired  
-4. Sensor / roof AHU proxies placed  
-5. End of session / before Play Mode experiments  
+1. Geometry import / massing built (+ E+ fenestration windows)  
+2. Free-fly or drone camera + terrain site  
+3. DR UI panel wired (large scrubber panel)  
+4. Sensor / roof AHU proxies + BAS-style temp glow  
+5. Blender FBX AHU/drone import + fan/drone animation hooks  
+6. End of session / before Play Mode experiments  
+
+See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
 
 ## Useful MCP tools
 
@@ -48,7 +51,15 @@ After each of these, call `manage_scene(action="save")` (and optionally save-as
 ## Local demo loop
 
 ```text
-1. python -m vibe_code_apps_21.flask_app   # :5050
-2. Unity Play Mode — fly + DR scrubbers
-3. WebGL export later → flask static/unity (not required for Editor demo)
+1. python -m flask_app   # from vibe_code_apps_21, :5050
+2. Unity Play Mode — fly + DR scrubbers + window temp glow
+3. Optional: Blender MCP for rooftop VAV AHU / drone FBX refresh
+   (see BLENDER_UNITY_ASSETS.md)
+4. WebGL export later → flask static/unity (not required for Editor demo)
 ```
+
+## Blender MCP note
+
+Headless `blender -b` can export FBX (`tools/build_twin_roof_assets.py`) but the
+addon socket only stays up in GUI. Start Blender, then
+`tools/_start_blendermcp.py` or click **Connect to MCP server** on port 9876.
