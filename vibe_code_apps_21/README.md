@@ -1,121 +1,65 @@
-# Vibe Code App 21 — Physics-Trained ML Digital Twin
+# Vibe Code App 21 — Demand-Management Digital Twin (Unity)
 
-Vibe Code App 21 is the deployment and visualization successor to:
+**Fine-tuned scope:** hourly **electrical demand management** against a G14
+EnergyPlus Twin — not the broad annual-ECM / FDD ML product.
 
-- **Vibe Code App 19** — real BAS historian ingestion, equipment/point mapping, schedules, weather reconciliation, Open-FDD analytics, RCx findings, and engineering exports.
-- **Vibe Code App 20 / OpenFDD WattLab** — EnergyPlus model creation, autosizing, calibration/validation, scenario simulation, ECM screening, and independent HVAC engineering benchmarks.
-- **Vibe Code App 21** — offline synthetic-data generation and ML training, a lightweight Flask inference backend, React engineering UI, and a Unity WebGL digital-twin view.
+Unity + React + Flask demo the question:
 
-This directory is intentionally **specification-only**. It contains no production implementation, no trained model, and no generated Unity build.
+> Given today’s outdoor conditions, how does hourly kW move when we precool,
+> widen deadbands, or shed plant/HVAC?
 
-## Revised product vision
-
-Vibe 21 is not an EnergyPlus server. EnergyPlus remains the offline physics engine used to create and validate training data.
-
-The deployable Vibe 21 demo is intentionally lightweight:
+## Package layout
 
 ```text
-Vibe 19 BAS/FDD evidence
-          +
-Vibe 20 calibrated/validated EnergyPlus model
-          │
-          ▼
-OFFLINE simulation farm
-weather × schedules × controls × faults × capacities × envelope uncertainty
-          │
-          ▼
-feature-engineered Parquet dataset
-          │
-          ▼
-scikit-learn training + blocked validation
-          │
-          ▼
-trusted model bundle
-.joblib + model cards + feature/target schemas + validation evidence
-          │
-          ▼
-PythonAnywhere Flask WSGI app
-├── REST inference API
-├── compiled React SPA
-└── compiled Unity WebGL build
+vibe_code_apps_21/
+├── README.md                          ← you are here
+├── AGENTS.md                          ← agent rules (DM-first)
+├── skills/
+│   ├── wattlab-eplus-demand-hourly/   ← hourly DR farm + MCP
+│   └── wattlab-energyplus-mcp/        ← E+ IDF wrench
+├── tools/
+│   ├── july_demand_profiles_eplus.py
+│   ├── export_unity_twin_manifest.py
+│   └── DEMAND_MANAGEMENT_HOURLY_PLAYBOOK.md
+├── assets/twin_b100_ops11/            ← BEST Twin bundle
+│   ├── model.idf
+│   ├── amy.epw
+│   ├── july_demand_profiles.json
+│   ├── unity_geometry.json
+│   └── unity_twin_manifest.json
+└── vibe21_agent_spec/
+    ├── DEMAND_MANAGEMENT_TWIN.md      ← **start here**
+    ├── ML_SYNTHETIC_DATA_GAPS.md
+    ├── SPEC.md                        ← legacy broad spec (superseded for DM)
+    ├── ML_ARCHITECTURE.md
+    ├── UNITY_WEBGL_HANDOFF.md
+    ├── SCHEMAS.md
+    └── PYTHONANYWHERE_DEPLOYMENT.md
 ```
 
-## The two ML twins
+## Best Twin
 
-Vibe 21 should not force every engineering question into one model.
+`geo_b100_dual_ahu_shape_ops11` — dual-AHU Building 100, ASHRAE G14 PASS.
+Geometry for Unity comes from IDF `BuildingSurface:Detailed` vertices (12 lumped
+Floor×AHU zones).
 
-### 1. Operational time-series twin
+## Seed DR results (hot Thu 2025-07-24, window 14–16)
 
-Consumes a current BAS/weather row plus a required lookback window and predicts operational quantities such as:
+| Strategy | ΔkW vs baseline (14–16) | Shape note |
+| --- | ---: | --- |
+| +5°F Clg+DAT shed | ~23 | classic shed |
+| deadband →10°F + DAT | ~21 | comfort-band shed |
+| CHW plant OFF | ~231 | hard plant shed |
+| HVAC OFF | ~233 | fans+plant |
+| **precool −2°F 06–12 → relax 12–18** | ~22 | **load shift** (+57 kWh morning / −143 kWh afternoon) |
+| precool + CHW OFF 14–16 | ~231 | thermal mass + peak kill |
 
-- whole-building electric demand, kW;
-- 15-minute / 1-hour demand forecast, kW;
-- selected virtual sensors such as cooling tons or equipment load;
-- optional fault probabilities.
+## Excel / open-fdd
 
-For a fixed interval, electrical energy is derived from predicted average demand when physically appropriate:
-
-```text
-interval_kWh = predicted_average_kW × interval_hours
-```
-
-For example, a 15-minute interval uses `interval_hours = 0.25`.
-
-### 2. Scenario surrogate twin
-
-Consumes EnergyPlus scenario parameters and predicts whole-scenario outcomes such as:
-
-- annual/monthly electricity, kWh;
-- annual gas, therm or kWh-equivalent;
-- peak electric demand, kW;
-- unmet hours;
-- comfort metrics;
-- optional end-use energy.
-
-This is the fast model used by React/Unity sliders to approximate previously learned EnergyPlus behavior without executing EnergyPlus on PythonAnywhere.
-
-## Deployment goal
-
-The final implementation should produce a human-uploadable bundle that can be unzipped on PythonAnywhere and served from one web application:
-
-```text
-vibe21_deploy_bundle/
-├── flask_app.py
-├── requirements.txt
-├── vibe21/
-├── models/
-├── static/
-│   ├── react/
-│   └── unity/
-├── manifests/
-└── README_PYTHONANYWHERE.md
-```
-
-The Unity work is performed outside this Python project using Unity + Unity MCP/AI tooling. The Unity agent exports a WebGL build; the human copies or merges that generated build into the Vibe 21 deployment bundle.
-
-## Fixed first-release choices
-
-- Python 3.
-- Flask WSGI backend for the PythonAnywhere demo.
-- scikit-learn-first ML stack.
-- `joblib` model persistence for trusted local artifacts.
-- Pandas or Polars for feature generation; Parquet as the canonical training-table format.
-- React for dense engineering UI, forms, model metadata, and Plotly charts.
-- Unity WebGL for spatial equipment/zone visualization and scenario interaction.
-- SQLite optional for lightweight demo metadata; JSON/Parquet artifacts remain first-class.
-- No live EnergyPlus execution on the PythonAnywhere demo.
-- No model training in public HTTP requests.
-- No BAS commanding.
-
-## Specification files
-
-- [`AGENTS.md`](AGENTS.md) — agent mission, hard boundaries, implementation order, and completion rules.
-- [`vibe21_agent_spec/SPEC.md`](vibe21_agent_spec/SPEC.md) — full product and architecture specification.
-- [`vibe21_agent_spec/ML_ARCHITECTURE.md`](vibe21_agent_spec/ML_ARCHITECTURE.md) — feature/target design, multi-input/multi-output strategy, validation, and model registry.
-- [`vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`](vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md) — deploy-bundle contract.
-- [`vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md`](vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md) — Unity MCP/agent handoff and browser bridge.
-- [`vibe21_agent_spec/SCHEMAS.md`](vibe21_agent_spec/SCHEMAS.md) — initial JSON contracts.
+WattLab oracle Demand tab: `ECM_FULL_PARITY.xlsx`.  
+Product Excel path = **[open-fdd](https://pypi.org/project/open-fdd/) PyPI `ECMJob`**.
 
 ## Status
 
-**Revised planning scaffold only. No application code is included in this package.**
+Specification + Twin assets + DR seed farm + skills. No Unity build or trained
+model in-repo yet.

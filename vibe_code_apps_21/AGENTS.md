@@ -1,32 +1,21 @@
-# AGENTS.md — Vibe 21 Physics-Trained ML Digital Twin
+# AGENTS.md — Vibe 21 Demand-Management Digital Twin
 
 ## Mission
 
-Build Vibe Code App 21 as the lightweight final product of Vibe Apps 19 and 20:
+Fine-tune Vibe 21 as a **demand-management digital twin** for Unity:
 
-1. consume Vibe 19 BAS/FDD/RCx outputs without changing Vibe 19 semantics;
-2. consume Vibe 20 calibrated/validated EnergyPlus artifacts without pretending an uncalibrated model is truth;
-3. generate synthetic EnergyPlus training scenarios offline;
-4. create an auditable feature-engineered ML dataset;
-5. train and validate scikit-learn models offline;
-6. package approved models as trusted `joblib` artifacts plus model cards and schemas;
-7. serve only lightweight inference, metadata, React assets, and Unity WebGL from Flask on PythonAnywhere;
-8. let Unity visualize and interact with the digital twin while keeping the Flask/backend contracts authoritative.
+1. consume the G14 Twin IDF + AMY (`assets/twin_b100_ops11/`);
+2. run offline EnergyPlus **hourly** DR / load-shift farms (EnergyPlus-MCP as helper);
+3. build synthetic datasets whose target is **hourly facility kW under OA + HVAC actions**;
+4. train lightweight scikit-learn demand models offline;
+5. serve Flask inference + React charts + Unity WebGL massing/controls;
+6. keep Excel product path on **open-fdd PyPI `ECMJob`** (WattLab workbook is oracle only).
 
-Before implementation, read in order:
+**Read first:** `vibe21_agent_spec/DEMAND_MANAGEMENT_TWIN.md`, then
+`ML_SYNTHETIC_DATA_GAPS.md`, then `skills/wattlab-eplus-demand-hourly/SKILL.md`.
 
-1. `README.md`
-2. `vibe21_agent_spec/SPEC.md`
-3. `vibe21_agent_spec/ML_ARCHITECTURE.md`
-4. `vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`
-5. `vibe21_agent_spec/UNITY_WEBGL_HANDOFF.md`
-6. `vibe21_agent_spec/SCHEMAS.md`
-7. `../vibe_code_apps_19/AGENTS.md`
-8. `../vibe_code_apps_19/docs/PACKAGE_SPEC.md`
-9. `../vibe_code_apps_20/AGENTS.md`
-10. relevant Vibe 20 calibration/result contracts
-
-Vibe 19 and Vibe 20 remain source systems and behavioral references. Do not rewrite them as part of Vibe 21.
+Broader physics-ML language in older `SPEC.md` / `ML_ARCHITECTURE.md` is
+**legacy context** — do not expand scope beyond DM without an explicit revise.
 
 ## Closed technology decisions for the first PythonAnywhere demo
 

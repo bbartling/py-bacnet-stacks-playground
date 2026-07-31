@@ -1,9 +1,17 @@
-# Vibe 21 Agentic AI Specification — Physics-Trained ML + Unity Digital Twin
+# Vibe 21 Agentic AI Specification — Demand-Management Digital Twin
 
-**Project:** OpenFDD Physics-Trained ML Digital Twin  
+> **Scope update (2026-07-31):** For Unity fine-tuning, Vibe 21 is narrowed to
+> **demand management only**. Canonical docs:
+> [`DEMAND_MANAGEMENT_TWIN.md`](DEMAND_MANAGEMENT_TWIN.md) and
+> [`ML_SYNTHETIC_DATA_GAPS.md`](ML_SYNTHETIC_DATA_GAPS.md).
+> The sections below preserve the earlier broad physics-ML vision as legacy
+> context — do not implement the full annual-ECM / FDD stack unless scope is
+> explicitly widened again.
+
+**Project:** OpenFDD Demand-Management ML + Unity Digital Twin  
 **Directory:** `vibe_code_apps_21`  
-**Status:** revised planning specification  
-**Implementation state:** no code in this package  
+**Status:** DM-focused planning + Twin assets + seed DR farm  
+**Primary Twin:** `geo_b100_dual_ahu_shape_ops11`  
 **Primary predecessors:** `vibe_code_apps_19`, `vibe_code_apps_20`
 
 ---
