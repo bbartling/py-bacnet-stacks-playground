@@ -6,14 +6,14 @@ namespace Vibe21.Twin
 {
     /// <summary>
     /// Soft BAS-style floor/zone temperature gradients (DEMO, not live BAS).
-    /// Tints windows + zone shells cool-blue → warm-red; drives sensor labels.
+    /// Tints windows + zone shells via MaterialPropertyBlock (no material leaks).
     /// </summary>
     public class ZoneTempController : MonoBehaviour
     {
         public float baseComfortC = 22.5f;
-        public float oatBiasScale = 0.12f; // how hard OAT pushes zone temp
-        public float floorStackBiasC = 0.35f; // upper floors slightly warmer
-        public float ahuSplitC = 0.6f; // AHU1 vs AHU2 offset
+        public float oatBiasScale = 0.12f;
+        public float floorStackBiasC = 0.35f;
+        public float ahuSplitC = 0.6f;
         public float glowStrength = 0.35f;
 
         readonly Dictionary<string, float> _temps = new Dictionary<string, float>();
@@ -53,6 +53,17 @@ namespace Vibe21.Twin
             ApplyToSensors();
             ApplyWindowGlow();
             ApplyZoneShellTint();
+            ApplyAhuAirTemps(oatC, strategyId);
+        }
+
+        void ApplyAhuAirTemps(float oatC, string strategyId)
+        {
+            float sum = 0f;
+            int n = 0;
+            foreach (var kv in _temps) { sum += kv.Value; n++; }
+            float avg = n > 0 ? sum / n : baseComfortC;
+            foreach (var ahu in FindObjectsByType<AhuAirTempDisplay>())
+                ahu.Apply(oatC, strategyId, avg);
         }
 
         public void ApplyDemoDefaults(float oatC = 32f)
@@ -76,25 +87,11 @@ namespace Vibe21.Twin
                 if (te.entityType != "window") continue;
                 string zoneId = te.entityId;
                 if (string.IsNullOrEmpty(zoneId) || !_temps.TryGetValue(zoneId, out var tempC))
-                {
-                    // window entityId may be zone id from builder
                     continue;
-                }
                 float u = Mathf.InverseLerp(18f, 28f, tempC);
                 var glass = Color.Lerp(Cool, Warm, u);
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
-                {
-                    var m = r.material;
-                    m.color = glass;
-                    if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", glass);
-                    if (m.HasProperty("_EmissionColor"))
-                    {
-                        m.EnableKeyword("_EMISSION");
-                        var e = new Color(glass.r, glass.g, glass.b, 1f) * glowStrength;
-                        m.SetColor("_EmissionColor", e);
-                    }
-                    m.renderQueue = 3000;
-                }
+                    RendererTint.SetColor(r, glass, glowStrength);
             }
         }
 
@@ -115,13 +112,7 @@ namespace Vibe21.Twin
                     if (child != null && (child.entityType == "window" || child.entityType == "sensor_proxy"))
                         continue;
                     if (r.sharedMaterial == null) continue;
-                    // Soft wash — keep base albedo mostly, light lerp
-                    var m = r.material;
-                    var baseCol = m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.color;
-                    var mixed = Color.Lerp(baseCol, wash, 0.28f);
-                    mixed.a = baseCol.a;
-                    m.color = mixed;
-                    if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", mixed);
+                    RendererTint.LerpSharedColor(r, wash, 0.28f);
                 }
             }
         }

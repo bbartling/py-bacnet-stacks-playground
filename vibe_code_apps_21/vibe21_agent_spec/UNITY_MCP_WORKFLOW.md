@@ -58,8 +58,18 @@ See also `BLENDER_UNITY_ASSETS.md` for rooftop VAV AHU / drone visuals.
 4. WebGL export later → flask static/unity (not required for Editor demo)
 ```
 
-## Blender MCP note
+## Flight controls (Play Mode)
 
-Headless `blender -b` can export FBX (`tools/build_twin_roof_assets.py`) but the
-addon socket only stays up in GUI. Start Blender, then
-`tools/_start_blendermcp.py` or click **Connect to MCP server** on port 9876.
+| Key | Action |
+| --- | --- |
+| **W / ↑** | Forward |
+| **S / ↓** | Back |
+| **A / ←** | Strafe left |
+| **D / →** | Strafe right |
+| **Space / E** | Up |
+| **Ctrl / Q** | Down |
+| **Shift** | Boost |
+| **Mouse** | Look / yaw |
+
+Flight is on `DroneController` (TwinDrone mesh). Camera follows the drone.
+Roof has **exactly two** VAV AHUs (`RoofAhu_VAV_Single.fbx` ×2).

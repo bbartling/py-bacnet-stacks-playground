@@ -171,8 +171,7 @@ namespace Vibe21.Twin
                     if (child != null && (child.entityType == "window" || child.entityType == "sensor_proxy"))
                         continue;
                     if (r.sharedMaterial == null) continue;
-                    var m = r.material;
-                    m.color = Color.Lerp(m.color, col, 0.22f);
+                    RendererTint.LerpSharedColor(r, col, 0.22f);
                 }
             }
         }

@@ -6,8 +6,8 @@ namespace Vibe21.Twin
     public class AhuFanSpin : MonoBehaviour
     {
         public Transform fanWheel;
-        public float baseRpm = 40f;
-        public float loadRpmBoost = 80f;
+        public float baseRpm = 90f;
+        public float loadRpmBoost = 140f;
         [Range(0f, 1.5f)] public float loadFactor = 0.6f;
         public string airLoopName = "VAV Sys 1";
         public string ahuType = "VAV_CHW";
@@ -16,7 +16,7 @@ namespace Vibe21.Twin
         {
             if (fanWheel == null) return;
             float rpm = baseRpm + loadRpmBoost * Mathf.Clamp01(loadFactor);
-            fanWheel.Rotate(Vector3.forward, rpm * 6f * Time.deltaTime, Space.Self);
+            SpinUtil.SpinFanDisk(fanWheel, rpm * 6f * Time.deltaTime);
         }
 
         public void SetLoadFromStrategy(string strategyId, float facilityKw)

@@ -29,17 +29,7 @@ namespace Vibe21.Twin
                 ? Color.Lerp(Cool, Neutral, t * 2f)
                 : Color.Lerp(Neutral, Warm, (t - 0.5f) * 2f);
             if (bulb != null)
-            {
-                var m = bulb.material;
-                m.color = col;
-                if (m.HasProperty("_EmissionColor"))
-                {
-                    m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", col * 0.55f);
-                }
-                if (m.HasProperty("_BaseColor"))
-                    m.SetColor("_BaseColor", col);
-            }
+                RendererTint.SetColor(bulb, col, 0.55f);
             if (label != null)
                 label.text = $"{floorLabel}\n{tempC:0.0} °C\nDEMO";
         }
