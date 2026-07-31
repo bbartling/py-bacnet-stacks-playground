@@ -59,7 +59,7 @@ Do not re-introduce FastAPI into the first Vibe 21 PythonAnywhere implementation
 23. **React is for dense engineering controls; Unity is for spatial interaction.** Do not make Unity the only way to inspect numbers or provenance.
 24. **Same-origin by default.** React, Unity and `/api/v1/` use one deployment origin unless explicitly changed.
 25. **The Unity build is generated externally.** Do not pretend the Python agent created/edited Unity scenes unless it actually used the Unity tooling.
-26. **The final deployment zip contains generated web artifacts, not a Unity Editor project.** Source Unity project stays in the Unity workflow/repository chosen by the human.
+26. **The final deployment zip contains generated web artifacts, not a Unity Editor project.** Source Unity Editor project lives under `vibe_code_apps_21/unity/<ProjectName>/` (never the package root). Twin JSON/IDF stay in `assets/`.
 27. **No BAS commanding.** Vibe 21 is read-only prediction/visualization for the first release.
 28. **No secrets in React, Unity, model cards, JSON manifests, logs, or git.**
 29. **Do not expose raw customer historian data in a public demo bundle.** Use anonymized/demo data or precomputed safe state.
