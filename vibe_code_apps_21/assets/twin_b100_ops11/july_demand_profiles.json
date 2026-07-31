@@ -1,0 +1,996 @@
+{
+  "twin_id": "geo_b100_dual_ahu_shape_ops11",
+  "twin_idf": "/data/runs/geo_b100_dual_ahu_shape_ops11/model.idf",
+  "epw": "/data/runs/geo_b100_dual_ahu_shape_ops11__stage_in/amy.epw",
+  "best_model": true,
+  "algorithm": "DR portfolio on hot July weekday: +5\u00b0F Clg+DAT shed 14\u201316; deadband 5\u219210\u00b0F; CHW OFF; HVAC OFF; precool\u22122\u00b0F 06\u201312 then relax DB 12\u201318 (load shift); precool + CHW OFF 14\u201316",
+  "days_selected": {
+    "weekday": {
+      "year": 2025,
+      "month": 7,
+      "day": 24,
+      "dow": "Thursday",
+      "max_db_c": 36.9
+    },
+    "weekend": {
+      "year": 2025,
+      "month": 7,
+      "day": 5,
+      "dow": "Saturday",
+      "max_db_c": 34.3
+    }
+  },
+  "window": "14:00\u201316:00",
+  "cases": {
+    "weekday_baseline": {
+      "label": "weekday_baseline",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "baseline",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 196.459
+        },
+        {
+          "hour": 8,
+          "kw": 361.691
+        },
+        {
+          "hour": 9,
+          "kw": 402.915
+        },
+        {
+          "hour": 10,
+          "kw": 439.099
+        },
+        {
+          "hour": 11,
+          "kw": 438.67
+        },
+        {
+          "hour": 12,
+          "kw": 439.145
+        },
+        {
+          "hour": 13,
+          "kw": 429.824
+        },
+        {
+          "hour": 14,
+          "kw": 448.753
+        },
+        {
+          "hour": 15,
+          "kw": 458.928
+        },
+        {
+          "hour": 16,
+          "kw": 468.802
+        },
+        {
+          "hour": 17,
+          "kw": 471.696
+        },
+        {
+          "hour": 18,
+          "kw": 335.753
+        },
+        {
+          "hour": 19,
+          "kw": 320.137
+        },
+        {
+          "hour": 20,
+          "kw": 316.212
+        },
+        {
+          "hour": 21,
+          "kw": 313.854
+        },
+        {
+          "hour": 22,
+          "kw": 313.805
+        },
+        {
+          "hour": 23,
+          "kw": 208.456
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 463.87,
+      "peak_kw": 471.7
+    },
+    "weekend_baseline": {
+      "label": "weekend_baseline",
+      "day": "2025-07-05",
+      "dow": "Saturday",
+      "max_db_c": 34.3,
+      "mode": "baseline",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 38.044
+        },
+        {
+          "hour": 2,
+          "kw": 38.044
+        },
+        {
+          "hour": 3,
+          "kw": 38.044
+        },
+        {
+          "hour": 4,
+          "kw": 38.044
+        },
+        {
+          "hour": 5,
+          "kw": 38.044
+        },
+        {
+          "hour": 6,
+          "kw": 38.044
+        },
+        {
+          "hour": 7,
+          "kw": 272.963
+        },
+        {
+          "hour": 8,
+          "kw": 163.68
+        },
+        {
+          "hour": 9,
+          "kw": 283.686
+        },
+        {
+          "hour": 10,
+          "kw": 302.806
+        },
+        {
+          "hour": 11,
+          "kw": 304.071
+        },
+        {
+          "hour": 12,
+          "kw": 306.061
+        },
+        {
+          "hour": 13,
+          "kw": 310.211
+        },
+        {
+          "hour": 14,
+          "kw": 314.636
+        },
+        {
+          "hour": 15,
+          "kw": 315.848
+        },
+        {
+          "hour": 16,
+          "kw": 312.079
+        },
+        {
+          "hour": 17,
+          "kw": 307.211
+        },
+        {
+          "hour": 18,
+          "kw": 270.145
+        },
+        {
+          "hour": 19,
+          "kw": 197.272
+        },
+        {
+          "hour": 20,
+          "kw": 193.272
+        },
+        {
+          "hour": 21,
+          "kw": 38.044
+        },
+        {
+          "hour": 22,
+          "kw": 38.044
+        },
+        {
+          "hour": 23,
+          "kw": 38.044
+        },
+        {
+          "hour": 24,
+          "kw": 38.044
+        }
+      ],
+      "event_mean_kw_14_16": 313.96,
+      "peak_kw": 315.85
+    },
+    "weekday_loadshed_p5f": {
+      "label": "weekday_loadshed_p5f",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "setpoint_raise",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 196.463
+        },
+        {
+          "hour": 8,
+          "kw": 361.701
+        },
+        {
+          "hour": 9,
+          "kw": 402.929
+        },
+        {
+          "hour": 10,
+          "kw": 439.112
+        },
+        {
+          "hour": 11,
+          "kw": 438.685
+        },
+        {
+          "hour": 12,
+          "kw": 439.159
+        },
+        {
+          "hour": 13,
+          "kw": 429.828
+        },
+        {
+          "hour": 14,
+          "kw": 448.77
+        },
+        {
+          "hour": 15,
+          "kw": 435.508
+        },
+        {
+          "hour": 16,
+          "kw": 446.856
+        },
+        {
+          "hour": 17,
+          "kw": 472.938
+        },
+        {
+          "hour": 18,
+          "kw": 335.79
+        },
+        {
+          "hour": 19,
+          "kw": 320.153
+        },
+        {
+          "hour": 20,
+          "kw": 316.225
+        },
+        {
+          "hour": 21,
+          "kw": 313.865
+        },
+        {
+          "hour": 22,
+          "kw": 313.813
+        },
+        {
+          "hour": 23,
+          "kw": 208.672
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 441.18,
+      "peak_kw": 472.94,
+      "delta_kw_vs_weekday_baseline": 22.69,
+      "kwh_event_vs_weekday_baseline": 45.38,
+      "morning_kwh_delta_6_12": 0.07,
+      "afternoon_kwh_delta_12_18": -44.07
+    },
+    "weekday_deadband_10f": {
+      "label": "weekday_deadband_10f",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "deadband_widen",
+      "story": {
+        "mode": "deadband_widen",
+        "window": "14:00\u201316:00",
+        "target_db_f": 10.0,
+        "occupied_db_f": 5.4,
+        "htg_delta_f": 0.0,
+        "clg_delta_f": 4.6001,
+        "dat_delta_f": 4.6001,
+        "algorithm": "Zone deadband 5.4\u00b0F \u2192 10\u00b0F cooling-biased (Htg held 21.0\u00b0C, Clg \u2192 26.5556\u00b0C / +4.6001\u00b0F + Dump DAT +4.6001\u00b0F) during 14:00\u201316:00"
+      },
+      "rc": 0,
+      "eplusout_csv": "/data/reports/full_parity_july_demand/sim_weekday_deadband_10f/eplusout.csv",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 196.462
+        },
+        {
+          "hour": 8,
+          "kw": 361.698
+        },
+        {
+          "hour": 9,
+          "kw": 402.923
+        },
+        {
+          "hour": 10,
+          "kw": 439.106
+        },
+        {
+          "hour": 11,
+          "kw": 438.676
+        },
+        {
+          "hour": 12,
+          "kw": 439.15
+        },
+        {
+          "hour": 13,
+          "kw": 429.825
+        },
+        {
+          "hour": 14,
+          "kw": 448.762
+        },
+        {
+          "hour": 15,
+          "kw": 437.148
+        },
+        {
+          "hour": 16,
+          "kw": 448.682
+        },
+        {
+          "hour": 17,
+          "kw": 472.798
+        },
+        {
+          "hour": 18,
+          "kw": 335.778
+        },
+        {
+          "hour": 19,
+          "kw": 320.142
+        },
+        {
+          "hour": 20,
+          "kw": 316.212
+        },
+        {
+          "hour": 21,
+          "kw": 313.861
+        },
+        {
+          "hour": 22,
+          "kw": 313.806
+        },
+        {
+          "hour": 23,
+          "kw": 208.638
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 442.92,
+      "peak_kw": 472.8,
+      "delta_kw_vs_weekday_baseline": 20.95,
+      "kwh_event_vs_weekday_baseline": 41.9,
+      "morning_kwh_delta_6_12": 0.03,
+      "afternoon_kwh_delta_12_18": -40.77
+    },
+    "weekday_chiller_off": {
+      "label": "weekday_chiller_off",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "chiller_off",
+      "story": {
+        "mode": "chiller_off",
+        "window": "14:00\u201316:00",
+        "algorithm": "Chilled Water Loop AvailabilityManager:Scheduled OFF during 14:00\u201316:00 (AHUs remain available)"
+      },
+      "rc": 0,
+      "eplusout_csv": "/data/reports/full_parity_july_demand/sim_weekday_chiller_off/eplusout.csv",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 267.707
+        },
+        {
+          "hour": 8,
+          "kw": 330.205
+        },
+        {
+          "hour": 9,
+          "kw": 388.027
+        },
+        {
+          "hour": 10,
+          "kw": 439.85
+        },
+        {
+          "hour": 11,
+          "kw": 439.305
+        },
+        {
+          "hour": 12,
+          "kw": 439.747
+        },
+        {
+          "hour": 13,
+          "kw": 430.236
+        },
+        {
+          "hour": 14,
+          "kw": 449.416
+        },
+        {
+          "hour": 15,
+          "kw": 233.206
+        },
+        {
+          "hour": 16,
+          "kw": 233.206
+        },
+        {
+          "hour": 17,
+          "kw": 478.013
+        },
+        {
+          "hour": 18,
+          "kw": 336.944
+        },
+        {
+          "hour": 19,
+          "kw": 321.19
+        },
+        {
+          "hour": 20,
+          "kw": 317.223
+        },
+        {
+          "hour": 21,
+          "kw": 314.763
+        },
+        {
+          "hour": 22,
+          "kw": 314.526
+        },
+        {
+          "hour": 23,
+          "kw": 211.389
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 233.21,
+      "peak_kw": 478.01,
+      "delta_kw_vs_weekday_baseline": 230.66,
+      "kwh_event_vs_weekday_baseline": 461.32,
+      "morning_kwh_delta_6_12": 26.86,
+      "afternoon_kwh_delta_12_18": -452.74
+    },
+    "weekday_hvac_off": {
+      "label": "weekday_hvac_off",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "hvac_off",
+      "story": {
+        "mode": "hvac_off",
+        "window": "14:00\u201316:00",
+        "algorithm": "FanAvailSched=0 and CHW plant Scheduled OFF during 14:00\u201316:00 (all HVAC shed)"
+      },
+      "rc": 0,
+      "eplusout_csv": "/data/reports/full_parity_july_demand/sim_weekday_hvac_off/eplusout.csv",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 267.709
+        },
+        {
+          "hour": 8,
+          "kw": 330.206
+        },
+        {
+          "hour": 9,
+          "kw": 388.028
+        },
+        {
+          "hour": 10,
+          "kw": 439.851
+        },
+        {
+          "hour": 11,
+          "kw": 439.307
+        },
+        {
+          "hour": 12,
+          "kw": 439.747
+        },
+        {
+          "hour": 13,
+          "kw": 430.237
+        },
+        {
+          "hour": 14,
+          "kw": 449.417
+        },
+        {
+          "hour": 15,
+          "kw": 232.929
+        },
+        {
+          "hour": 16,
+          "kw": 229.044
+        },
+        {
+          "hour": 17,
+          "kw": 478.206
+        },
+        {
+          "hour": 18,
+          "kw": 336.948
+        },
+        {
+          "hour": 19,
+          "kw": 321.192
+        },
+        {
+          "hour": 20,
+          "kw": 317.224
+        },
+        {
+          "hour": 21,
+          "kw": 314.764
+        },
+        {
+          "hour": 22,
+          "kw": 314.528
+        },
+        {
+          "hour": 23,
+          "kw": 211.391
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 230.99,
+      "peak_kw": 478.21,
+      "delta_kw_vs_weekday_baseline": 232.88,
+      "kwh_event_vs_weekday_baseline": 465.76,
+      "morning_kwh_delta_6_12": 26.87,
+      "afternoon_kwh_delta_12_18": -456.98
+    },
+    "weekday_precool_shift": {
+      "label": "weekday_precool_shift",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "precool_shift",
+      "story": {
+        "mode": "precool_shift",
+        "window": "12:00\u201318:00",
+        "precool_f": 2.0,
+        "relax_clg_f": 5.0,
+        "relax_htg_f": 2.5,
+        "precool_window": "6:00\u201312:00",
+        "relax_window": "12:00\u201318:00",
+        "precool_clg_c": 22.8889,
+        "relax_clg_c": 26.7778,
+        "relax_htg_c": 19.6111,
+        "algorithm": "Load SHIFT: precool Clg/DAT \u22122\u00b0F 6:00\u201312:00; then relax Clg +5\u00b0F / Htg \u22122.5\u00b0F 12:00\u201318:00"
+      },
+      "rc": 0,
+      "eplusout_csv": "/data/reports/full_parity_july_demand/sim_weekday_precool_shift/eplusout.csv",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 274.553
+        },
+        {
+          "hour": 8,
+          "kw": 334.608
+        },
+        {
+          "hour": 9,
+          "kw": 391.629
+        },
+        {
+          "hour": 10,
+          "kw": 444.852
+        },
+        {
+          "hour": 11,
+          "kw": 444.35
+        },
+        {
+          "hour": 12,
+          "kw": 444.813
+        },
+        {
+          "hour": 13,
+          "kw": 401.754
+        },
+        {
+          "hour": 14,
+          "kw": 424.941
+        },
+        {
+          "hour": 15,
+          "kw": 436.119
+        },
+        {
+          "hour": 16,
+          "kw": 446.921
+        },
+        {
+          "hour": 17,
+          "kw": 450.206
+        },
+        {
+          "hour": 18,
+          "kw": 311.074
+        },
+        {
+          "hour": 19,
+          "kw": 321.258
+        },
+        {
+          "hour": 20,
+          "kw": 316.254
+        },
+        {
+          "hour": 21,
+          "kw": 313.886
+        },
+        {
+          "hour": 22,
+          "kw": 313.823
+        },
+        {
+          "hour": 23,
+          "kw": 208.907
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 441.52,
+      "peak_kw": 450.21,
+      "delta_kw_vs_weekday_baseline": 22.35,
+      "kwh_event_vs_weekday_baseline": 44.7,
+      "morning_kwh_delta_6_12": 56.82,
+      "afternoon_kwh_delta_12_18": -142.75
+    },
+    "weekday_precool_chiller_off": {
+      "label": "weekday_precool_chiller_off",
+      "day": "2025-07-24",
+      "dow": "Thursday",
+      "max_db_c": 36.9,
+      "mode": "precool_chiller_off",
+      "story": {
+        "mode": "precool_chiller_off",
+        "window": "14:00\u201316:00",
+        "precool_f": 2.0,
+        "precool_window": "6:00\u201312:00",
+        "algorithm": "Precool Clg/DAT \u22122\u00b0F 6:00\u201312:00; CHW plant OFF 14:00\u201316:00 (thermal mass through peak)"
+      },
+      "rc": 0,
+      "eplusout_csv": "/data/reports/full_parity_july_demand/sim_weekday_precool_chiller_off/eplusout.csv",
+      "hourly_kw": [
+        {
+          "hour": 1,
+          "kw": 48.449
+        },
+        {
+          "hour": 2,
+          "kw": 48.449
+        },
+        {
+          "hour": 3,
+          "kw": 48.449
+        },
+        {
+          "hour": 4,
+          "kw": 48.449
+        },
+        {
+          "hour": 5,
+          "kw": 48.449
+        },
+        {
+          "hour": 6,
+          "kw": 48.449
+        },
+        {
+          "hour": 7,
+          "kw": 274.267
+        },
+        {
+          "hour": 8,
+          "kw": 334.322
+        },
+        {
+          "hour": 9,
+          "kw": 392.078
+        },
+        {
+          "hour": 10,
+          "kw": 445.463
+        },
+        {
+          "hour": 11,
+          "kw": 444.933
+        },
+        {
+          "hour": 12,
+          "kw": 445.364
+        },
+        {
+          "hour": 13,
+          "kw": 429.4
+        },
+        {
+          "hour": 14,
+          "kw": 449.413
+        },
+        {
+          "hour": 15,
+          "kw": 233.206
+        },
+        {
+          "hour": 16,
+          "kw": 233.206
+        },
+        {
+          "hour": 17,
+          "kw": 478.009
+        },
+        {
+          "hour": 18,
+          "kw": 336.945
+        },
+        {
+          "hour": 19,
+          "kw": 321.193
+        },
+        {
+          "hour": 20,
+          "kw": 317.222
+        },
+        {
+          "hour": 21,
+          "kw": 314.76
+        },
+        {
+          "hour": 22,
+          "kw": 314.527
+        },
+        {
+          "hour": 23,
+          "kw": 211.385
+        },
+        {
+          "hour": 24,
+          "kw": 48.449
+        }
+      ],
+      "event_mean_kw_14_16": 233.21,
+      "peak_kw": 478.01,
+      "delta_kw_vs_weekday_baseline": 230.66,
+      "kwh_event_vs_weekday_baseline": 461.32,
+      "morning_kwh_delta_6_12": 58.45,
+      "afternoon_kwh_delta_12_18": -453.58
+    }
+  },
+  "deltas_vs_weekday_baseline": {
+    "weekday_loadshed_p5f": {
+      "delta_kw_14_16": 22.69,
+      "kwh_event_14_16": 45.38,
+      "morning_kwh_delta_6_12": 0.07,
+      "afternoon_kwh_delta_12_18": -44.07
+    },
+    "weekday_deadband_10f": {
+      "delta_kw_14_16": 20.95,
+      "kwh_event_14_16": 41.9,
+      "morning_kwh_delta_6_12": 0.03,
+      "afternoon_kwh_delta_12_18": -40.77
+    },
+    "weekday_chiller_off": {
+      "delta_kw_14_16": 230.66,
+      "kwh_event_14_16": 461.32,
+      "morning_kwh_delta_6_12": 26.86,
+      "afternoon_kwh_delta_12_18": -452.74
+    },
+    "weekday_hvac_off": {
+      "delta_kw_14_16": 232.88,
+      "kwh_event_14_16": 465.76,
+      "morning_kwh_delta_6_12": 26.87,
+      "afternoon_kwh_delta_12_18": -456.98
+    },
+    "weekday_precool_shift": {
+      "delta_kw_14_16": 22.35,
+      "kwh_event_14_16": 44.7,
+      "morning_kwh_delta_6_12": 56.82,
+      "afternoon_kwh_delta_12_18": -142.75
+    },
+    "weekday_precool_chiller_off": {
+      "delta_kw_14_16": 230.66,
+      "kwh_event_14_16": 461.32,
+      "morning_kwh_delta_6_12": 58.45,
+      "afternoon_kwh_delta_12_18": -453.58
+    }
+  },
+  "loadshed_delta_kw": 22.69,
+  "loadshed_kwh_event": 45.38
+}

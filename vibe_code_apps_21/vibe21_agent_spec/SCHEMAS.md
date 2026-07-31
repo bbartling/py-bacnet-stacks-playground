@@ -2,6 +2,46 @@
 
 This file defines conceptual JSON shapes. Implementation may use Pydantic, dataclasses, TypedDict, JSON Schema, or equivalent, but wire semantics and versions must remain explicit.
 
+**DM twin priority schema:** `vibe21.dm_hourly_row.v1` (section 0). Broader twin/scenario schemas below remain available but are secondary.
+
+## 0. Demand-management hourly training row
+
+```json
+{
+  "schema_version": "vibe21.dm_hourly_row.v1",
+  "simulation_id": "ops11_2025-07-24_precool_shift",
+  "twin_run_id": "geo_b100_dual_ahu_shape_ops11",
+  "day": "2025-07-24",
+  "hour_ending": 15,
+  "dow": "Thursday",
+  "oat_c": 35.1,
+  "rh_pct": 42.0,
+  "occupied": true,
+  "strategy_id": "precool_shift",
+  "phase": "relax",
+  "actions": {
+    "precool_f": 2.0,
+    "relax_clg_f": 5.0,
+    "relax_htg_f": 2.5,
+    "deadband_target_f": null,
+    "dat_delta_f": 5.0,
+    "chw_avail": 1.0,
+    "fan_avail": 1.0
+  },
+  "targets": {
+    "facility_kw": 441.5,
+    "cooling_kw": null,
+    "max_zone_temp_c": null,
+    "unmet_hours_flag": false
+  },
+  "provenance": {
+    "source": "ENERGYPLUS_SIMULATED",
+    "idf_sha256": "...",
+    "epw": "amy.epw"
+  }
+}
+```
+
 ## 1. Twin manifest
 
 ```json

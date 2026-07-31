@@ -2,6 +2,10 @@
 
 ## Boundary
 
+**DM twin fine-tune:** Unity visualizes Building 100 massing from
+`assets/twin_b100_ops11/unity_geometry.json` and overlays hourly demand /
+DR phase. Canonical product doc: `DEMAND_MANAGEMENT_TWIN.md`.
+
 Unity work is performed outside the Python Vibe 21 implementation using Unity plus Unity MCP/AI tooling.
 
 The Python/repository agent owns:
