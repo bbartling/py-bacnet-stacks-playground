@@ -46,13 +46,13 @@ namespace Vibe21.Twin
                 var zoneBounds = GetHierarchyBounds(z.transform);
                 Vector3 pos = winCenter ?? new Vector3(zoneBounds.center.x, Mathf.Lerp(zoneBounds.min.y, zoneBounds.max.y, 0.55f), zoneBounds.center.z);
 
-                // Push slightly outside the glass so drone can read from exterior
+                // Just inside the glass — drone must peer through glazing from outside
                 Vector3 outward = pos - buildingCenter;
                 outward.y = 0f;
                 if (outward.sqrMagnitude < 0.01f) outward = Vector3.forward;
                 outward.Normalize();
                 float stagger = ((floor - 1) * 2 + (ahu2 ? 1 : 0)) * 0.1f + (idx % 3) * 0.04f;
-                var sensorPos = pos + outward * 0.55f + Vector3.up * stagger;
+                var sensorPos = pos - outward * 0.35f + Vector3.up * stagger;
 
                 var sensor = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 sensor.name = $"TempProxy_{z.entityId}";
@@ -73,18 +73,19 @@ namespace Vibe21.Twin
                 labelGo.transform.SetParent(sensor.transform, false);
                 labelGo.transform.localPosition = new Vector3(0f, 0.7f, 0f);
                 var tm = labelGo.AddComponent<TextMesh>();
-                tm.characterSize = 0.1f;
-                tm.fontSize = 42;
+                tm.characterSize = 0.14f;
+                tm.fontSize = 56;
                 tm.anchor = TextAnchor.MiddleCenter;
                 tm.alignment = TextAlignment.Center;
                 tm.color = new Color(0.98f, 0.98f, 0.98f);
+                tm.text = $"F{floor} {ahu}\n--";
 
                 var zts = sensor.AddComponent<ZoneTempSensor>();
                 zts.zoneEntityId = z.entityId;
                 zts.floorLabel = $"F{floor} {ahu}";
                 zts.label = tm;
                 zts.bulb = bulb;
-                zts.SetTemp(22.5f);
+                zts.SetTemp(22.5f + (idx % 5) * 0.35f); // distinct individual seed until DR refresh
                 idx++;
             }
 

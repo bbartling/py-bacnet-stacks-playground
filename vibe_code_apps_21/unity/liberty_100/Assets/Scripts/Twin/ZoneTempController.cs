@@ -90,11 +90,21 @@ namespace Vibe21.Twin
                 if (string.IsNullOrEmpty(zoneId) || !_temps.TryGetValue(zoneId, out var tempC))
                     continue;
                 float u = Mathf.InverseLerp(18f, 28f, tempC);
-                // Subtle blue↔rose wash; keep base glass alpha
-                var glass = Color.Lerp(Cool, Warm, u);
-                glass.a = 0.22f;
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
+                {
+                    // Preserve glass alpha from shared material (never force opaque)
+                    float a = 0.28f;
+                    if (r.sharedMaterial != null)
+                    {
+                        var baseCol = r.sharedMaterial.HasProperty("_BaseColor")
+                            ? r.sharedMaterial.GetColor("_BaseColor")
+                            : r.sharedMaterial.color;
+                        if (baseCol.a > 0.01f && baseCol.a < 0.99f) a = baseCol.a;
+                    }
+                    var glass = Color.Lerp(Cool, Warm, u);
+                    glass.a = a;
                     RendererTint.SetColor(r, glass, glowStrength);
+                }
             }
         }
 

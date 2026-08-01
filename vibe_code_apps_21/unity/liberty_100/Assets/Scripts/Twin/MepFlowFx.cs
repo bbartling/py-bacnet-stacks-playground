@@ -5,13 +5,15 @@ namespace Vibe21.Twin
 {
     /// <summary>
     /// Runtime particle flow cues for ducts, pipes, and cooling-tower drip/mist.
+    /// Streaks stay inside duct/pipe cross-section and die at segment ends (no flange spray).
     /// </summary>
     public class MepFlowFx : MonoBehaviour
     {
-        public float airRate = 28f;
-        public float liquidRate = 18f;
+        public float airRate = 22f;
+        public float liquidRate = 14f;
         public float dripRate = 40f;
         public float mistRate = 22f;
+        public float minSegLen = 0.35f;
         [Range(0f, 1.5f)] public float flowLoad = 1f;
         public bool plantRunning = true;
 
@@ -32,13 +34,17 @@ namespace Vibe21.Twin
             _tower.Clear();
         }
 
-        public void AddAlongPath(IList<Vector3[]> segs, Color color, bool air, float speed)
+        public void AddAlongPath(IList<Vector3[]> segs, Color color, bool air, float speed, float ductWidth)
         {
             if (segs == null) return;
+            float rate = air ? airRate : liquidRate;
             foreach (var seg in segs)
             {
                 if (seg == null || seg.Length < 2) continue;
-                var ps = MakeStreak(seg[0], seg[1], color, air ? airRate : liquidRate, speed, air);
+                float len = Vector3.Distance(seg[0], seg[1]);
+                if (len < minSegLen) continue; // skip flange stubs that spray outside cabinets
+                var ps = MakeStreak(seg[0], seg[1], color, rate, speed, air, ductWidth);
+                if (ps == null) continue;
                 if (air) _air.Add(ps);
                 else _liquid.Add(ps);
             }
@@ -47,14 +53,13 @@ namespace Vibe21.Twin
         public void AddTowerFx(Transform towerRoot)
         {
             if (towerRoot == null) return;
+            var white = new Color(0.95f, 0.97f, 1f, 0.75f);
             var basin = towerRoot.Find("Port_Basin");
             Vector3 dripAt = basin != null ? basin.position : towerRoot.position + Vector3.up * 0.9f;
-            var drip = MakeDrip(dripAt, new Color(0.45f, 0.85f, 0.95f, 0.7f));
-            _tower.Add(drip);
+            _tower.Add(MakeDrip(dripAt, white));
 
             Vector3 mistAt = towerRoot.position + Vector3.up * 4.6f;
-            var mist = MakeMist(mistAt, new Color(1f, 0.55f, 0.35f, 0.35f));
-            _tower.Add(mist);
+            _tower.Add(MakeMist(mistAt, new Color(0.95f, 0.97f, 1f, 0.4f)));
         }
 
         public void SetRunning(bool running, float load)
@@ -102,40 +107,63 @@ namespace Vibe21.Twin
             if (rate <= 0.05f && ps.isPlaying) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
         }
 
-        ParticleSystem MakeStreak(Vector3 a, Vector3 b, Color color, float rate, float speed, bool air)
+        ParticleSystem MakeStreak(Vector3 a, Vector3 b, Color color, float rate, float speed, bool air, float ductWidth)
         {
+            Vector3 dir = b - a;
+            float len = dir.magnitude;
+            if (len < 0.05f) return null;
+            speed = Mathf.Max(0.5f, speed);
+
             var go = new GameObject(air ? "FlowAir" : "FlowLiquid");
             go.transform.SetParent(transform, false);
-            go.transform.position = (a + b) * 0.5f;
-            Vector3 dir = (b - a);
-            float len = dir.magnitude;
-            if (len < 0.05f) len = 0.05f;
+            // Emit from start of segment, travel toward end in local +Z
+            go.transform.position = a;
             go.transform.rotation = Quaternion.LookRotation(dir / len, Vector3.up);
+
+            float cross = Mathf.Clamp(ductWidth * 0.35f, 0.06f, 0.28f);
+            float life = len / speed;
 
             var ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
-            main.startLifetime = Mathf.Clamp(len / Mathf.Max(0.5f, speed), 0.35f, 4f);
+            main.startLifetime = life;
             main.startSpeed = speed;
-            main.startSize = air ? 0.12f : 0.08f;
+            main.startSize = air ? 0.06f : 0.045f;
             main.startColor = color;
-            main.maxParticles = 200;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 80;
+            main.simulationSpace = ParticleSystemSimulationSpace.Local;
             main.loop = true;
             main.playOnAwake = true;
+            main.gravityModifier = 0f;
+            main.startRotation = 0f;
 
             var em = ps.emission;
             em.rateOverTime = rate;
 
             var shape = ps.shape;
+            shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(0.15f, 0.15f, len * 0.9f);
+            // Thin cross-section at segment start; length along Z is tiny (point emit)
+            shape.scale = new Vector3(cross, cross, Mathf.Min(0.08f, len * 0.05f));
+            shape.randomDirectionAmount = 0f;
+            shape.sphericalDirectionAmount = 0f;
+
+            var vol = ps.velocityOverLifetime;
+            vol.enabled = false;
+
+            var noise = ps.noise;
+            noise.enabled = false;
+
+            var lim = ps.limitVelocityOverLifetime;
+            lim.enabled = true;
+            lim.limit = speed;
+            lim.dampen = 1f;
 
             var col = ps.colorOverLifetime;
             col.enabled = true;
             var grad = new Gradient();
             grad.SetKeys(
                 new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
-                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.7f, 0.2f), new GradientAlphaKey(0f, 1f) });
+                new[] { new GradientAlphaKey(0.55f, 0f), new GradientAlphaKey(0.7f, 0.5f), new GradientAlphaKey(0f, 1f) });
             col.color = grad;
 
             var renderer = go.GetComponent<ParticleSystemRenderer>();
@@ -208,7 +236,7 @@ namespace Vibe21.Twin
             col.enabled = true;
             var grad = new Gradient();
             grad.SetKeys(
-                new[] { new GradientColorKey(color, 0f), new GradientColorKey(new Color(1f, 0.7f, 0.5f), 1f) },
+                new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
                 new[] { new GradientAlphaKey(0.4f, 0f), new GradientAlphaKey(0f, 1f) });
             col.color = grad;
 

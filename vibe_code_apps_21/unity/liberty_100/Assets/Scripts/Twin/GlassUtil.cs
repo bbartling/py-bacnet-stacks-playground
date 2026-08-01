@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -19,22 +20,35 @@ namespace Vibe21.Twin
         public static void ApplyTransparent(Material m, Color tint)
         {
             if (m == null) return;
+            if (tint.a >= 0.99f) tint.a = 0.28f;
+
             m.color = tint;
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", tint);
             if (m.HasProperty("_Color")) m.SetColor("_Color", tint);
-            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f);
-            if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0f);
-            if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+            // URP Lit transparent surface
+            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // Transparent
+            if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0f); // Alpha
+            if (m.HasProperty("_AlphaClip")) m.SetFloat("_AlphaClip", 0f);
+            if (m.HasProperty("_SrcBlend")) m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            if (m.HasProperty("_DstBlend")) m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            if (m.HasProperty("_SrcBlendAlpha")) m.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            if (m.HasProperty("_DstBlendAlpha")) m.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
             if (m.HasProperty("_ZWrite")) m.SetFloat("_ZWrite", 0f);
             if (m.HasProperty("_Cull")) m.SetFloat("_Cull", 0f); // off — see both sides
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0.05f);
-            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.9f);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.DisableKeyword("_ALPHATEST_ON");
-            m.EnableKeyword("_ALPHABLEND_ON");
-            m.renderQueue = 3000;
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.85f);
+            if (m.HasProperty("_ReceiveShadows")) m.SetFloat("_ReceiveShadows", 0f);
+
             m.SetOverrideTag("RenderType", "Transparent");
+            m.SetOverrideTag("Queue", "Transparent");
+            m.renderQueue = (int)RenderQueue.Transparent; // 3000
+
+            m.DisableKeyword("_ALPHATEST_ON");
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
         }
 
         /// <summary>Force all window TwinEntity renderers to translucent glass.</summary>
@@ -43,13 +57,16 @@ namespace Vibe21.Twin
             int n = 0;
             var tint = new Color(0.45f, 0.65f, 0.85f, alpha);
             var shared = MakeGlass(tint);
-            foreach (var te in Object.FindObjectsByType<TwinEntity>(FindObjectsSortMode.None))
+            foreach (var te in Object.FindObjectsByType<TwinEntity>())
             {
                 if (te.entityType != "window") continue;
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                 {
                     r.sharedMaterial = shared;
-                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    r.shadowCastingMode = ShadowCastingMode.Off;
+                    r.receiveShadows = false;
+                    // Clear any opaque MPB leftover
+                    r.SetPropertyBlock(null);
                     n++;
                 }
             }

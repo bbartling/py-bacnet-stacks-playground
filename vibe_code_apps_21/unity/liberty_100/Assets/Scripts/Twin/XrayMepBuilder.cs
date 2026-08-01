@@ -150,10 +150,10 @@ namespace Vibe21.Twin
                 n++;
             }
 
-            fx.AddAlongPath(fxSupply, new Color(0.35f, 0.65f, 1f, 0.55f), true, 3.5f);
-            fx.AddAlongPath(fxReturn, new Color(1f, 0.5f, 0.25f, 0.55f), true, 3.0f);
-            fx.AddAlongPath(allChwSegs, new Color(0.3f, 0.7f, 1f, 0.65f), false, 1.8f);
-            fx.AddAlongPath(allCwSegs, new Color(0.2f, 0.9f, 0.85f, 0.65f), false, 1.6f);
+            fx.AddAlongPath(fxSupply, new Color(0.35f, 0.65f, 1f, 0.55f), true, 3.5f, ductW);
+            fx.AddAlongPath(fxReturn, new Color(1f, 0.5f, 0.25f, 0.55f), true, 3.0f, ductW * 0.9f);
+            fx.AddAlongPath(allChwSegs, new Color(0.3f, 0.7f, 1f, 0.65f), false, 1.8f, chwPipeW);
+            fx.AddAlongPath(allCwSegs, new Color(0.2f, 0.9f, 0.85f, 0.65f), false, 1.6f, cwPipeW);
             if (tower != null) fx.AddTowerFx(tower);
             fx.SetRunning(true, 1f);
 

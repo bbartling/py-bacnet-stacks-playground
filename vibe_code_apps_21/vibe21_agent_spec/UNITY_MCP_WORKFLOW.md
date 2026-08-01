@@ -42,7 +42,8 @@ geometry outside the Twin JSON.
 
 Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades.
 Motor: procedural hum (`MakeHumClip`) after Start Flight.
-MEP: Manhattan stubs into named ports; cool/warm air + liquid particle streaks; tower drip + heat-reject mist.
+Zone temps: individual facade sensor labels; visible through glazing / clear air only (occluded by walls).
+Roof: x-ray AHUs + ortho MEP + contained flow particles; tower drip/mist white.
 
 ## DR panel
 
