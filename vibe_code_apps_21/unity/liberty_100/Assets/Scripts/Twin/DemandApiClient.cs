@@ -34,6 +34,7 @@ namespace Vibe21.Twin
     public class DemandPredictResponse
     {
         public float facility_kw;
+        public TwinIoPayload twin_io;
         public string unit;
         public string model_id;
         public string model_status;

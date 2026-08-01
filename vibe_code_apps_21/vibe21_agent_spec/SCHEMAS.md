@@ -2,13 +2,16 @@
 
 This file defines conceptual JSON shapes. Implementation may use Pydantic, dataclasses, TypedDict, JSON Schema, or equivalent, but wire semantics and versions must remain explicit.
 
-**DM twin priority schema:** `vibe21.dm_hourly_row.v1` (section 0). Broader twin/scenario schemas below remain available but are secondary.
+**DM twin priority schema:** `vibe21.dm_hourly_row.v2` (section 0). Broader twin/scenario schemas below remain available but are secondary.
 
 ## 0. Demand-management hourly training row
 
+Additive twin I/O targets (AHU/plant/zone) on top of DR knobs + `facility_kw`.
+Terminal VAV damper positions are intentionally omitted in v2 (optional v2.1).
+
 ```json
 {
-  "schema_version": "vibe21.dm_hourly_row.v1",
+  "schema_version": "vibe21.dm_hourly_row.v2",
   "simulation_id": "ops11_2025-07-24_precool_shift",
   "twin_run_id": "geo_b100_dual_ahu_shape_ops11",
   "day": "2025-07-24",
@@ -16,6 +19,7 @@ This file defines conceptual JSON shapes. Implementation may use Pydantic, datac
   "dow": "Thursday",
   "oat_c": 35.1,
   "rh_pct": 42.0,
+  "ghi": 780.0,
   "occupied": true,
   "strategy_id": "precool_shift",
   "phase": "relax",
@@ -30,8 +34,28 @@ This file defines conceptual JSON shapes. Implementation may use Pydantic, datac
   },
   "targets": {
     "facility_kw": 441.5,
-    "cooling_kw": null,
-    "max_zone_temp_c": null,
+    "cooling_kw": 180.2,
+    "zone_temp_ahu1_mean_c": 24.1,
+    "zone_temp_ahu2_mean_c": 24.4,
+    "max_zone_temp_c": 25.2,
+    "ahu1_dat_c": 12.8,
+    "ahu1_mix_c": 23.5,
+    "ahu1_ra_c": 24.0,
+    "ahu1_oa_c": 35.0,
+    "ahu1_fan_plr": 0.72,
+    "ahu1_oa_frac": 0.25,
+    "ahu2_dat_c": 12.5,
+    "ahu2_mix_c": 23.8,
+    "ahu2_ra_c": 24.2,
+    "ahu2_oa_c": 35.0,
+    "ahu2_fan_plr": 0.68,
+    "ahu2_oa_frac": 0.22,
+    "chw_supply_c": 6.7,
+    "chw_return_c": 12.1,
+    "chw_pump_plr": 1.0,
+    "cw_pump_plr": 0.85,
+    "tower_fan_plr": 0.6,
+    "tower_leaving_c": 29.4,
     "unmet_hours_flag": false
   },
   "provenance": {
@@ -40,6 +64,18 @@ This file defines conceptual JSON shapes. Implementation may use Pydantic, datac
     "epw": "amy.epw"
   }
 }
+```
+
+Legacy `vibe21.dm_hourly_row.v1` rows remain readable; trainers prefer v2 columns when present.
+
+### Farm commands
+
+```text
+# Pilot (~15 sims) — turnkey multi-target path
+python tools/dm_hourly_farm.py --pilot --engine native
+
+# Full overnight farm (~190 sims)
+python tools/dm_hourly_farm.py --engine native --n-days 40 --n-full 10
 ```
 
 ## 1. Twin manifest

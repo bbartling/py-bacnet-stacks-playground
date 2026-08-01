@@ -70,19 +70,46 @@ This note documents a control-oriented **hourly facility electric demand** surro
 | `rf` | 17.17 | 16.99 | True |
 | `hgb` | 17.44 | 16.08 | True |
 
+## Multi-target twin I/O (v2)
+
+**Status:** `CANDIDATE` · **Farm profile:** `pilot` · **Artifact:** `flask_app/models/demand_hourly_v2.joblib`
+
+Additive ExtraTrees multi-output model over schema `vibe21.dm_hourly_row.v2` (23 targets: `facility_kw`, `cooling_kw`, AHU1/2 DAT/mix/RA/OA + fan PLR + OA frac, zone means, CHW/CW/tower). Fan/pump/tower PLR columns are **day-normalized electricity rates** (E+ does not emit Part Load Ratio for these objects without advanced diagnostics).
+
+| Item | Value |
+| --- | --- |
+| Train rows | 360 (3 days × core+extras, ENERGYPLUS_SIMULATED) |
+| Champion | `extra_trees` multi-output |
+| OOF MAE mean (all targets) | ~3.45 |
+| OOF MAE peak facility_kw | ~32.5 kW (pilot is thinner than 40-day v1) |
+| API | `POST /api/v1/predict/demand_hourly` → `facility_kw` + `twin_io` |
+| Unity | `TwinIoHub` + roof spreadsheet sheets |
+
+**Honesty:** card must say `farm_profile=pilot` vs `full`. Re-farm overnight before claiming parity with the 40-day facility-only champion:
+
+```bash
+python tools/dm_hourly_farm.py --engine native --n-days 40 --n-full 10
+python -m ml.tune_demand_hourly --multi-target
+```
+
+Loader prefers `demand_hourly_v2` then falls back to `demand_hourly_v1`.
+
 ## Honesty / limitations
 
 - Model status remains **CANDIDATE** until validated against measured BAS DR days.
 - Twin is Floor×AHU lumped zones (not room-level). Comfort / unmet hours are only partially labeled.
 - Screening surrogate for Unity / operator what-if — **not** a bid or M&V claim.
 - Synthetic EnergyPlus inherits Twin calibration error (G14 PASS on utility bills ≠ perfect hourly truth).
+- Pilot multi-target farm is thinner than the 40-day v1 facility champion.
 
 ## Reproduce
 
 ```bash
+python vibe_code_apps_21/tools/dm_hourly_farm.py --pilot --engine native --out-dir ~/wattlab_workspace/reports/dm_hourly_farm_pilot
+python -m ml.tune_demand_hourly --multi-target --parquet ~/wattlab_workspace/reports/dm_hourly_farm_pilot/dm_hourly_rows.parquet
+# Full facility-only path (v1):
 python vibe_code_apps_21/tools/dm_hourly_farm.py --engine native --reuse-existing
-python vibe_code_apps_21/ml/tune_demand_hourly.py
-python vibe_code_apps_21/ml/writeup_demand_hourly.py
+python -m ml.tune_demand_hourly
 ```
 
-*Generated from farm `C:\Users\ben\wattlab_workspace\reports\dm_hourly_farm\dm_hourly_rows.parquet` · model card `demand_hourly_v1`.*
+*Generated from farm `dm_hourly_farm_pilot` · model cards `demand_hourly_v1` + `demand_hourly_v2`.*

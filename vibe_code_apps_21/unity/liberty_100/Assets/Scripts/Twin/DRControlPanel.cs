@@ -59,6 +59,7 @@ namespace Vibe21.Twin
             if (api == null) api = GetComponent<DemandApiClient>() ?? gameObject.AddComponent<DemandApiClient>();
             if (tempController == null)
                 tempController = GetComponent<ZoneTempController>() ?? gameObject.AddComponent<ZoneTempController>();
+            TwinIoHub.Ensure();
             MachineAudioHub.Ensure();
         }
 
@@ -381,12 +382,15 @@ namespace Vibe21.Twin
                         : "";
                     ApplyKwWash(ok.facility_kw);
                     tempController.RefreshFromDr(oatC, sid, precoolF, relaxClgF);
+                    if (ok.twin_io != null)
+                        TwinIoHub.Ensure().Apply(ok.twin_io);
                     ApplyPlant(sid, ok.facility_kw);
                     done = true;
                 },
                 err =>
                 {
                     _status = "API error: " + err;
+                    TwinIoHub.Ensure().Clear();
                     ApplyPlant(sid, float.IsNaN(_lastKw) ? 180f : _lastKw);
                     done = true;
                 });

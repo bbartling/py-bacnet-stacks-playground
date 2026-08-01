@@ -72,6 +72,24 @@ namespace Vibe21.Twin
             RefreshFromDr(oatC, "baseline", 0f, 0f);
         }
 
+        /// <summary>Override zone means from multi-target ML (AHU1 / AHU2 aggregates).</summary>
+        public void ApplyTwinIoMeans(float ahu1MeanC, float ahu2MeanC)
+        {
+            if (ahu1MeanC < 1f && ahu2MeanC < 1f) return;
+            foreach (var te in FindObjectsByType<TwinEntity>())
+            {
+                if (te.entityType != "zone") continue;
+                bool ahu2 = te.displayName != null && te.displayName.Contains("AHU2");
+                float mean = ahu2 ? ahu2MeanC : ahu1MeanC;
+                if (mean < 1f) continue;
+                int floor = ParseFloor(te.displayName);
+                _temps[te.entityId] = mean + (floor - 3.5f) * 0.15f + HashJitter(te.entityId) * 0.25f;
+            }
+            ApplyToSensors();
+            ApplyWindowGlow();
+            ApplyZoneShellTint();
+        }
+
         void ApplyToSensors()
         {
             foreach (var s in FindObjectsByType<ZoneTempSensor>())

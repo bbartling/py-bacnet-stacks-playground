@@ -29,9 +29,18 @@ _ML = Path(__file__).resolve().parent
 if str(_ML) not in sys.path:
     sys.path.insert(0, str(_ML))
 
-from feature_compile_dm import FEATURE_COLS, compile_features, matrix_xy, peak_mask  # noqa: E402
+from feature_compile_dm import (  # noqa: E402
+    FEATURE_COLS,
+    TARGET_COLS,
+    available_target_cols,
+    compile_features,
+    matrix_xy,
+    peak_mask,
+)
 from train_demand_hourly import load_farm_frame, _workspace  # noqa: E402
 from artifact_paths import (  # noqa: E402
+    MODEL_STEM_V1,
+    MODEL_STEM_V2,
     default_model_dir,
     mirror_to_wattlab,
 )
@@ -398,6 +407,123 @@ def tune(
     }
 
 
+def _metrics_multi(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    target_names: list[str],
+    peak: np.ndarray | None = None,
+) -> dict[str, Any]:
+    """Per-target MAE/RMSE plus facility_kw peak MAE (index 0 assumed facility)."""
+    per: dict[str, dict[str, float]] = {}
+    for i, name in enumerate(target_names):
+        yt = y_true[:, i]
+        yp = y_pred[:, i]
+        per[name] = {
+            "mae": float(mean_absolute_error(yt, yp)),
+            "rmse": float(np.sqrt(mean_squared_error(yt, yp))),
+        }
+    out: dict[str, Any] = {"per_target": per, "mae_mean": float(np.mean([v["mae"] for v in per.values()]))}
+    # facility_kw peak for DR honesty
+    if peak is not None and peak.any() and "facility_kw" in target_names:
+        i = target_names.index("facility_kw")
+        out["mae_peak_14_16_facility_kw"] = float(
+            mean_absolute_error(y_true[peak, i], y_pred[peak, i])
+        )
+    elif "facility_kw" in target_names:
+        out["mae_peak_14_16_facility_kw"] = per["facility_kw"]["mae"]
+    return out
+
+
+def tune_multitarget(
+    df: pd.DataFrame,
+    *,
+    n_splits: int = 3,
+    n_iter: int = 24,
+    random_state: int = 21,
+    target_cols: list[str] | None = None,
+) -> dict[str, Any]:
+    """ExtraTrees multi-output surrogate over twin I/O TARGET_COLS."""
+    targets = target_cols or available_target_cols(df)
+    if "facility_kw" not in targets:
+        raise ValueError("facility_kw required in multi-target train")
+    # Keep canonical order
+    targets = [c for c in TARGET_COLS if c in targets]
+    work = df.dropna(subset=targets).copy()
+    if len(work) < 48:
+        raise ValueError(f"Too few complete twin I/O rows after dropna: {len(work)}")
+
+    X, y, groups, cols = matrix_xy(work, multi_target=True, target_cols=targets)
+    peak = peak_mask(work)
+    uniq = np.unique(groups)
+    n_splits = min(n_splits, max(2, len(uniq)))
+    gkf = GroupKFold(n_splits=n_splits)
+    mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+
+    # Persistence baseline on facility_kw only
+    lag_i = cols.index("facility_kw_lag1")
+    fac_i = targets.index("facility_kw")
+    pers_fold = []
+    for _, te in gkf.split(X, y, groups):
+        pers_fold.append(
+            {
+                "mae": float(mean_absolute_error(y[te, fac_i], X[te, lag_i])),
+                "rmse": float(np.sqrt(mean_squared_error(y[te, fac_i], X[te, lag_i]))),
+                "mae_peak_14_16": float(
+                    mean_absolute_error(y[te, fac_i][peak[te]], X[te, lag_i][peak[te]])
+                )
+                if peak[te].any()
+                else float(mean_absolute_error(y[te, fac_i], X[te, lag_i])),
+            }
+        )
+    persistence = {k: float(np.mean([f[k] for f in pers_fold])) for k in pers_fold[0]}
+
+    proto, space = SEARCH_SPACES["extra_trees"]
+    n_combos = 1
+    for v in space.values():
+        n_combos *= max(len(v), 1)
+    iters = min(n_iter, n_combos)
+    print(f"tune multitarget ExtraTrees n_iter={iters} targets={len(targets)} …", flush=True)
+    search = RandomizedSearchCV(
+        ExtraTreesRegressor(random_state=random_state, n_jobs=-1),
+        space,
+        n_iter=iters,
+        scoring=mae_scorer,
+        cv=gkf,
+        random_state=random_state,
+        n_jobs=-1,
+        refit=True,
+    )
+    search.fit(X, y, groups=groups)
+
+    def _factory():
+        return _clone_fit_params(search.best_estimator_, search.best_params_, random_state=random_state)
+
+    oof = np.zeros_like(y, dtype=float)
+    for tr, te in gkf.split(X, y, groups):
+        m = _factory()
+        m.fit(X[tr], y[tr])
+        oof[te] = m.predict(X[te])
+    met = _metrics_multi(y, oof, targets, peak)
+
+    champ = _factory()
+    champ.fit(X, y)
+    return {
+        "model": champ,
+        "champion": "extra_trees",
+        "best_params": dict(search.best_params_),
+        "feature_cols": cols,
+        "target_cols": targets,
+        "persistence": persistence,
+        "oof_metrics": met,
+        "beat_persistence_peak": met.get("mae_peak_14_16_facility_kw", 1e9)
+        < persistence["mae_peak_14_16"],
+        "n_rows": int(len(work)),
+        "n_days": int(work["day"].nunique()),
+        "n_splits": n_splits,
+        "schema": "vibe21.dm_hourly_row.v2",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--parquet", type=Path, default=None)
@@ -406,6 +532,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n-iter", type=int, default=40)
     ap.add_argument("--n-splits", type=int, default=5)
     ap.add_argument("--champion-refine-iter", type=int, default=60)
+    ap.add_argument(
+        "--multi-target",
+        action="store_true",
+        help="Train ExtraTrees multi-output twin I/O model → demand_hourly_v2",
+    )
     args = ap.parse_args(argv)
 
     ws = _workspace()
@@ -417,14 +548,94 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     df = load_farm_frame(pq)
-    # Prefer physics-grade farms; warn if proxy
     src = None
     fs = pq.parent / "farm_summary.json"
     farm_summary = {}
     if fs.is_file():
         farm_summary = json.loads(fs.read_text(encoding="utf-8"))
         src = farm_summary.get("source")
-        print(f"training_source={src}", flush=True)
+        print(f"training_source={src} profile={farm_summary.get('profile')}", flush=True)
+
+    if args.multi_target:
+        result = tune_multitarget(df, n_splits=min(args.n_splits, 3), n_iter=max(12, args.n_iter // 2))
+        stem = MODEL_STEM_V2
+        artifact = out_dir / f"{stem}.joblib"
+        joblib.dump(
+            {
+                "model": result["model"],
+                "feature_cols": result["feature_cols"],
+                "target_cols": result["target_cols"],
+                "champion": result["champion"],
+                "best_params": result["best_params"],
+                "schema": result["schema"],
+                "multi_target": True,
+            },
+            artifact,
+        )
+        sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        profile = farm_summary.get("profile", "unknown")
+        tuning = {
+            "mode": "multi_target",
+            "persistence_facility_kw": result["persistence"],
+            "oof_metrics": result["oof_metrics"],
+            "champion": result["champion"],
+            "best_params": result["best_params"],
+            "beat_persistence_peak": result["beat_persistence_peak"],
+            "n_rows": result["n_rows"],
+            "n_days": result["n_days"],
+            "feature_cols": FEATURE_COLS,
+            "target_cols": result["target_cols"],
+        }
+        (out_dir / f"{stem}_tuning.json").write_text(json.dumps(tuning, indent=2) + "\n", encoding="utf-8")
+        card = {
+            "schema_version": "vibe21.model_registry.v1",
+            "model_id": stem,
+            "family": "OPERATIONAL_DEMAND_MULTITARGET",
+            "artifact": str(artifact),
+            "artifact_sha256": sha,
+            "status": "CANDIDATE",
+            "farm_profile": profile,
+            "targets": result["target_cols"],
+            "champion": result["champion"],
+            "best_params": result["best_params"],
+            "feature_cols": FEATURE_COLS,
+            "cv_metrics": result["oof_metrics"],
+            "beat_persistence_peak": result["beat_persistence_peak"],
+            "n_rows": result["n_rows"],
+            "n_days": result["n_days"],
+            "training_parquet": str(pq),
+            "training_source": src or "unknown",
+            "engine": farm_summary.get("engine"),
+            "sklearn_version": __import__("sklearn").__version__,
+            "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "honesty": (
+                f"Multi-target ExtraTrees twin I/O surrogate (farm_profile={profile}). "
+                "CANDIDATE / ENERGYPLUS_SIMULATED until BAS-validated. "
+                "Pilot is thinner than the 40-day champion — re-farm full for production."
+            ),
+            "unity_contract": {
+                "inputs": ["oat_c", "rh_pct", "hour_ending", "strategy_id", "action knobs"],
+                "output": "facility_kw + twin_io dict",
+            },
+        }
+        (out_dir / f"{stem}_model_card.json").write_text(json.dumps(card, indent=2) + "\n", encoding="utf-8")
+        if args.also_wattlab:
+            mirror_to_wattlab(out_dir, stem=stem)
+        print(
+            json.dumps(
+                {
+                    "model_id": stem,
+                    "champion": result["champion"],
+                    "n_targets": len(result["target_cols"]),
+                    "mae_peak_facility": result["oof_metrics"].get("mae_peak_14_16_facility_kw"),
+                    "mae_mean": result["oof_metrics"].get("mae_mean"),
+                    "artifact": str(artifact),
+                    "farm_profile": profile,
+                },
+                indent=2,
+            )
+        )
+        return 0
 
     result = tune(
         df,
@@ -432,7 +643,8 @@ def main(argv: list[str] | None = None) -> int:
         n_iter=args.n_iter,
         champion_refine_iter=args.champion_refine_iter,
     )
-    artifact = out_dir / "demand_hourly_v1.joblib"
+    stem = MODEL_STEM_V1
+    artifact = out_dir / f"{stem}.joblib"
     joblib.dump(
         {
             "model": result["model"],
@@ -455,13 +667,11 @@ def main(argv: list[str] | None = None) -> int:
         "n_days": result["n_days"],
         "feature_cols": FEATURE_COLS,
     }
-    (out_dir / "demand_hourly_v1_tuning.json").write_text(
-        json.dumps(tuning, indent=2) + "\n", encoding="utf-8"
-    )
+    (out_dir / f"{stem}_tuning.json").write_text(json.dumps(tuning, indent=2) + "\n", encoding="utf-8")
 
     card = {
         "schema_version": "vibe21.model_registry.v1",
-        "model_id": "demand_hourly_v1",
+        "model_id": stem,
         "family": "OPERATIONAL_DEMAND",
         "artifact": str(artifact),
         "artifact_sha256": sha,
@@ -493,11 +703,9 @@ def main(argv: list[str] | None = None) -> int:
             "output": "facility_kw",
         },
     }
-    (out_dir / "demand_hourly_v1_model_card.json").write_text(
-        json.dumps(card, indent=2) + "\n", encoding="utf-8"
-    )
+    (out_dir / f"{stem}_model_card.json").write_text(json.dumps(card, indent=2) + "\n", encoding="utf-8")
     if args.also_wattlab:
-        mirror_to_wattlab(out_dir)
+        mirror_to_wattlab(out_dir, stem=stem)
     print(
         json.dumps(
             {

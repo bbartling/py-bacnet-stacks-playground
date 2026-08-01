@@ -11,15 +11,15 @@ EnergyPlus Twin IDF  (assets/twin_b100_ops11)
    + DR farm patches (tools/july_demand_profiles_eplus.py, dm_hourly_farm)
         │
         ▼
-hourly Parquet → scikit-learn demand_hourly surrogate (facility_kw)
+hourly Parquet → scikit-learn demand_hourly surrogate (facility_kw + twin_io)
         │
         ▼
 Flask  POST /api/v1/predict/demand_hourly   (:5050 local / PA)
         │
         ▼
 Unity DR Twin Sim panel  (strategy picker + knobs)
-   ├── ML: predicted facility kW + health light (green/yellow/red)
-   ├── DEMO: zone / AHU sensor temps (strategy + OAT heuristics)
+   ├── ML: predicted facility kW + twin_io (AHU/plant/zone) → roof spreadsheet sheets
+   ├── Fallback DEMO: zone / AHU heuristics when API offline
    └── Equipment FX: fans → air particles; chiller/pumps → liquid/tower
 ```
 
@@ -29,9 +29,29 @@ Unity [`DRControlPanel`](../unity/liberty_100/Assets/Scripts/Twin/DRControlPanel
 
 `baseline`, `precool_shift`, `deadband_10f`, `chiller_off`, `loadshed_p5f`, `hvac_off`, `precool_chiller_off`
 
-Knobs (OAT, RH, hour, precool °F, relax clg °F) + `strategy_id` + `chw_avail` / `fan_avail` (derived from strategy) POST to Flask. Response **`facility_kw`** drives plant load wash and provenance. Zone/AHU badges are **not** ML outputs yet — next link is per-zone twinning after BAS validation.
+Knobs (OAT, RH, hour, precool °F, relax clg °F) + `strategy_id` + `chw_avail` / `fan_avail` (derived from strategy) POST to Flask. Response **`facility_kw`** + **`twin_io`** (DAT/mix/RA/OA, fan/OA frac, CHW temps, pump/tower PLRs, zone means) drive roof spreadsheet sheets via [`TwinIoHub`](../unity/liberty_100/Assets/Scripts/Twin/TwinIoHub.cs). Chiller ON/OFF discrete state still follows strategy heuristics. When the API is offline, sheets fall back to DEMO heuristics / “—”.
 
-Also listed on `GET /api/v1/models` → `strategies` (Unity may load from API later).
+Also listed on `GET /api/v1/models` → `strategies` / `targets` (Unity may load from API later).
+
+## What is E+-backed vs still DEMO
+
+| E+ / ML-backed (schema v2) | Still DEMO / heuristic |
+| --- | --- |
+| `facility_kw`, `cooling_kw` | Chiller/tower ON/OFF discrete labels |
+| AHU DAT/mix/RA/OA °C, fan PLR, OA frac | Per-floor zone temps (mean applied + small jitter) |
+| CHW supply/return, pump/tower PLRs | Terminal VAV damper positions (deferred v2.1) |
+| Zone mean temps (AHU1 / AHU2) | Individual facade sensor “personality” |
+
+## Farm commands
+
+```bash
+# Pilot (~15 sims) — turnkey multi-target path used for demand_hourly_v2
+python tools/dm_hourly_farm.py --pilot --engine native --out-dir ~/wattlab_workspace/reports/dm_hourly_farm_pilot
+python -m ml.tune_demand_hourly --multi-target --parquet ~/wattlab_workspace/reports/dm_hourly_farm_pilot/dm_hourly_rows.parquet
+
+# Full overnight farm (~190 sims) then re-tune
+python tools/dm_hourly_farm.py --engine native --n-days 40 --n-full 10
+```
 
 ## What is in / out of scope
 

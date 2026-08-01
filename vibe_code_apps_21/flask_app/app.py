@@ -42,6 +42,8 @@ def create_app() -> Flask:
             b = load_bundle()
             detail["model_id"] = b["card"].get("model_id")
             detail["model_status"] = b["card"].get("status")
+            detail["targets"] = b["card"].get("targets")
+            detail["farm_profile"] = b["card"].get("farm_profile")
             detail["artifact_sha256"] = b["artifact_sha256"]
             detail["artifact_path"] = b.get("artifact_path")
         except Exception as exc:  # noqa: BLE001 — surface load errors in health
@@ -101,7 +103,12 @@ def create_app() -> Flask:
         body = request.get_json(silent=True) or {}
         try:
             b = load_bundle()
-            out = predict_kw(b["model"], body, b["feature_cols"])
+            out = predict_kw(
+                b["model"],
+                body,
+                b["feature_cols"],
+                target_cols=b.get("target_cols"),
+            )
         except FileNotFoundError as exc:
             return jsonify({"error": str(exc)}), 503
         except ValueError as exc:

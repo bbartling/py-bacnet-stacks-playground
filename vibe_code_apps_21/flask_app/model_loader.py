@@ -53,9 +53,11 @@ def load_bundle() -> dict[str, Any]:
     if isinstance(obj, dict) and "model" in obj:
         model = obj["model"]
         feature_cols = obj.get("feature_cols")
+        target_cols = obj.get("target_cols")
     else:
         model = obj
         feature_cols = None
+        target_cols = None
     if feature_cols is None:
         from feature_compile_dm import FEATURE_COLS  # noqa: WPS433
 
@@ -63,6 +65,7 @@ def load_bundle() -> dict[str, Any]:
     return {
         "model": model,
         "feature_cols": list(feature_cols),
+        "target_cols": list(target_cols) if target_cols else None,
         "card": card,
         "artifact_path": str(art),
         "artifact_sha256": digest,

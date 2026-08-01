@@ -95,6 +95,21 @@ def feature_importance_bar(model: Any, feature_names: list[str], top_n: int = 15
     return ax
 
 
+def multitarget_oof_mae_bars(per_target: dict[str, dict[str, float]], ax=None):
+    """Kaggle-readable OOF MAE bar chart for twin I/O targets."""
+    ax = ax or plt.gca()
+    names = list(per_target.keys())
+    maes = [float(per_target[n].get("mae", 0.0)) for n in names]
+    order = np.argsort(maes)[::-1]
+    names = [names[i] for i in order]
+    maes = [maes[i] for i in order]
+    colors = ["#e76f51" if n == "facility_kw" else "#457b9d" for n in names]
+    ax.barh(names[::-1], maes[::-1], color=colors[::-1])
+    ax.set_xlabel("OOF MAE")
+    ax.set_title("Multi-target OOF MAE by twin I/O column")
+    return ax
+
+
 def run_extratrees_search(
     df: pd.DataFrame,
     *,

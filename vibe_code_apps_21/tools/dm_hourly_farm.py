@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Multi-day EnergyPlus demand-management farm → vibe21.dm_hourly_row.v1 Parquet.
+"""Multi-day EnergyPlus demand-management farm → vibe21.dm_hourly_row.v2 Parquet.
 
 Gaps-doc minimum (default --profile min):
   40 AMY days × baseline
   same 40 × {precool_shift, deadband_widen, chiller_off}
   10 days × full strategy set (setpoint_raise, hvac_off, precool_chiller_off)
 
+Pilot (--pilot): ~3 days × core modes + 1 full-extra day (~15 sims) for turnkey
+multi-target twin I/O training without waiting on the full ~190-sim farm.
+
 Writes under ~/wattlab_workspace/reports/dm_hourly_farm/ (or --out-dir):
   runs/<simulation_id>/
   dm_hourly_rows.parquet
   farm_summary.json
 
-Requires energyplus-mcp-dev via wattlab.energyplus.docker (Docker Desktop).
+Requires energyplus-mcp-dev via wattlab.energyplus.docker (Docker Desktop)
+or native EnergyPlus (--engine native|auto).
 Fallback: --from-seed-proxy expands assets july_demand_profiles shapes across
 stratified EPW days (provenance SEEDED_SHAPE_PROXY) for Unity knob demos when
 Docker/WSL is down — replace with real E+ farm before claiming calibrated DR.
@@ -32,9 +36,40 @@ TOOLS = Path(__file__).resolve().parent
 PKG = TOOLS.parent
 ASSETS = PKG / "assets" / "twin_b100_ops11"
 TWIN_ID = "geo_b100_dual_ahu_shape_ops11"
+SCHEMA_VERSION = "vibe21.dm_hourly_row.v2"
+
+# Flat target columns written to Parquet (see SCHEMAS.md twin I/O v2).
+TWIN_IO_COLS: tuple[str, ...] = (
+    "facility_kw",
+    "cooling_kw",
+    "zone_temp_ahu1_mean_c",
+    "zone_temp_ahu2_mean_c",
+    "max_zone_temp_c",
+    "ahu1_dat_c",
+    "ahu1_mix_c",
+    "ahu1_ra_c",
+    "ahu1_oa_c",
+    "ahu1_fan_plr",
+    "ahu1_oa_frac",
+    "ahu2_dat_c",
+    "ahu2_mix_c",
+    "ahu2_ra_c",
+    "ahu2_oa_c",
+    "ahu2_fan_plr",
+    "ahu2_oa_frac",
+    "chw_supply_c",
+    "chw_return_c",
+    "chw_pump_plr",
+    "cw_pump_plr",
+    "tower_fan_plr",
+    "tower_leaving_c",
+)
 
 CORE_MODES = ("baseline", "precool_shift", "deadband_widen", "chiller_off")
 FULL_EXTRA = ("setpoint_raise", "hvac_off", "precool_chiller_off")
+# Pilot: small day×strategy subset for end-to-end multi-target turnkey
+PILOT_N_DAYS = 3
+PILOT_N_FULL = 1
 
 MODE_DEFAULTS: dict[str, dict[str, Any]] = {
     "baseline": {},
@@ -336,17 +371,26 @@ def rows_from_case(
     idf_sha: str,
     epw_name: str,
     source: str = "ENERGYPLUS_SIMULATED",
-    cooling_by_h: dict[int, float] | None = None,
+    twin_by_h: dict[int, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     wx_by_h = {int(w["hour"]): w for w in day_meta.get("hourly_wx") or []}
     occupied_hours = set(range(7, 23)) if not day_meta.get("weekend") else set(range(7, 19))
+    twin_by_h = twin_by_h or {}
     rows: list[dict[str, Any]] = []
     for pt in hourly_kw:
         hour = int(pt["hour"])
         actions, phase, in_win = actions_for_mode(mode, hour, mode_kwargs)
-        wx = wx_by_h.get(hour) or {"oat_c": day_meta.get("mean_db_c"), "rh_pct": day_meta.get("mean_rh_pct"), "ghi": 0.0}
+        wx = wx_by_h.get(hour) or {
+            "oat_c": day_meta.get("mean_db_c"),
+            "rh_pct": day_meta.get("mean_rh_pct"),
+            "ghi": 0.0,
+        }
+        twin = twin_by_h.get(hour) or {}
+        targets: dict[str, Any] = {k: twin.get(k) for k in TWIN_IO_COLS}
+        targets["facility_kw"] = float(pt["kw"]) if pt.get("kw") is not None else twin.get("facility_kw")
+        targets["unmet_hours_flag"] = False
         row = {
-            "schema_version": "vibe21.dm_hourly_row.v1",
+            "schema_version": SCHEMA_VERSION,
             "simulation_id": simulation_id,
             "twin_run_id": TWIN_ID,
             "day": day_meta["iso"],
@@ -360,12 +404,7 @@ def rows_from_case(
             "phase": phase,
             "in_dr_window": in_win,
             "actions": actions,
-            "targets": {
-                "facility_kw": float(pt["kw"]),
-                "cooling_kw": None if not cooling_by_h else cooling_by_h.get(hour),
-                "max_zone_temp_c": None,
-                "unmet_hours_flag": False,
-            },
+            "targets": targets,
             "provenance": {
                 "source": source,
                 "idf_sha256": idf_sha,
@@ -384,38 +423,36 @@ def write_parquet(rows: list[dict[str, Any]], path: Path) -> None:
 
         flat = []
         for r in rows:
-            flat.append(
-                {
-                    "schema_version": r["schema_version"],
-                    "simulation_id": r["simulation_id"],
-                    "twin_run_id": r["twin_run_id"],
-                    "day": r["day"],
-                    "hour_ending": r["hour_ending"],
-                    "dow": r["dow"],
-                    "oat_c": r["oat_c"],
-                    "rh_pct": r["rh_pct"],
-                    "ghi": r.get("ghi"),
-                    "occupied": r["occupied"],
-                    "strategy_id": r["strategy_id"],
-                    "phase": r["phase"],
-                    "in_dr_window": r["in_dr_window"],
-                    "precool_f": r["actions"]["precool_f"],
-                    "relax_clg_f": r["actions"]["relax_clg_f"],
-                    "relax_htg_f": r["actions"]["relax_htg_f"],
-                    "deadband_target_f": r["actions"]["deadband_target_f"],
-                    "dat_delta_f": r["actions"]["dat_delta_f"],
-                    "chw_avail": r["actions"]["chw_avail"],
-                    "fan_avail": r["actions"]["fan_avail"],
-                    "facility_kw": r["targets"]["facility_kw"],
-                    "cooling_kw": r["targets"]["cooling_kw"],
-                    "max_zone_temp_c": r["targets"]["max_zone_temp_c"],
-                    "unmet_hours_flag": r["targets"]["unmet_hours_flag"],
-                    "provenance_source": r["provenance"]["source"],
-                    "idf_sha256": r["provenance"]["idf_sha256"],
-                    "epw": r["provenance"]["epw"],
-                    "mode": r["provenance"]["mode"],
-                }
-            )
+            base = {
+                "schema_version": r["schema_version"],
+                "simulation_id": r["simulation_id"],
+                "twin_run_id": r["twin_run_id"],
+                "day": r["day"],
+                "hour_ending": r["hour_ending"],
+                "dow": r["dow"],
+                "oat_c": r["oat_c"],
+                "rh_pct": r["rh_pct"],
+                "ghi": r.get("ghi"),
+                "occupied": r["occupied"],
+                "strategy_id": r["strategy_id"],
+                "phase": r["phase"],
+                "in_dr_window": r["in_dr_window"],
+                "precool_f": r["actions"]["precool_f"],
+                "relax_clg_f": r["actions"]["relax_clg_f"],
+                "relax_htg_f": r["actions"]["relax_htg_f"],
+                "deadband_target_f": r["actions"]["deadband_target_f"],
+                "dat_delta_f": r["actions"]["dat_delta_f"],
+                "chw_avail": r["actions"]["chw_avail"],
+                "fan_avail": r["actions"]["fan_avail"],
+                "unmet_hours_flag": r["targets"].get("unmet_hours_flag", False),
+                "provenance_source": r["provenance"]["source"],
+                "idf_sha256": r["provenance"]["idf_sha256"],
+                "epw": r["provenance"]["epw"],
+                "mode": r["provenance"]["mode"],
+            }
+            for k in TWIN_IO_COLS:
+                base[k] = r["targets"].get(k)
+            flat.append(base)
         pd.DataFrame(flat).to_parquet(path, index=False)
     except Exception:
         # fallback jsonl if pyarrow missing
@@ -423,7 +460,10 @@ def write_parquet(rows: list[dict[str, Any]], path: Path) -> None:
         with alt.open("w", encoding="utf-8") as f:
             for r in rows:
                 f.write(json.dumps(r) + "\n")
-        path.write_text(json.dumps({"error": "parquet_unavailable", "jsonl": str(alt), "n_rows": len(rows)}), encoding="utf-8")
+        path.write_text(
+            json.dumps({"error": "parquet_unavailable", "jsonl": str(alt), "n_rows": len(rows)}),
+            encoding="utf-8",
+        )
 
 
 def seed_proxy_farm(
@@ -510,9 +550,18 @@ def run_eplus_jobs(
             if alt.is_file():
                 csv_path = alt
                 case_dir = runs / sid
+        twin_by_h: dict[int, dict[str, Any]] = {}
         if reuse and csv_path.is_file():
             print(f"reuse {sid}", flush=True)
-            hourly = july.parse_hourly_facility_kw(csv_path)
+            twin_list = july.parse_hourly_twin_io(csv_path)
+            twin_by_h = {int(r["hour"]): r for r in twin_list}
+            hourly = [
+                {"hour": int(r["hour"]), "kw": float(r["facility_kw"])}
+                for r in twin_list
+                if r.get("facility_kw") is not None
+            ]
+            if not hourly:
+                hourly = july.parse_hourly_facility_kw(csv_path)
         else:
             print(f"sim {sid} mode={mode} engine={engine} …", flush=True)
             day_run = {
@@ -533,6 +582,8 @@ def run_eplus_jobs(
                 engine=engine,
             )
             hourly = result.get("hourly_kw") or []
+            twin_list = result.get("hourly_twin_io") or []
+            twin_by_h = {int(r["hour"]): r for r in twin_list}
             if not hourly:
                 print(f"  WARN empty hourly rc={result.get('rc')}", flush=True)
             else:
@@ -551,6 +602,7 @@ def run_eplus_jobs(
                 idf_sha=idf_sha,
                 epw_name=epw.name,
                 source="ENERGYPLUS_SIMULATED",
+                twin_by_h=twin_by_h,
             )
         )
     return rows
@@ -565,6 +617,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n-full", type=int, default=10, help="Days that also get full strategy extras")
     ap.add_argument("--seed", type=int, default=21)
     ap.add_argument("--smoke", action="store_true", help="3 days × core modes only")
+    ap.add_argument(
+        "--pilot",
+        action="store_true",
+        help=f"Small multi-target farm ({PILOT_N_DAYS} days × core + {PILOT_N_FULL} full-extra day)",
+    )
     ap.add_argument("--reuse-existing", action="store_true")
     ap.add_argument(
         "--from-seed-proxy",
@@ -591,8 +648,15 @@ def main(argv: list[str] | None = None) -> int:
 
     idf_sha = sha256_file(twin)
     day_stats = parse_epw_day_stats(epw)
-    n_days = 3 if args.smoke else args.n_days
-    n_full = 0 if args.smoke else args.n_full
+    if args.pilot:
+        n_days = PILOT_N_DAYS
+        n_full = PILOT_N_FULL
+    elif args.smoke:
+        n_days = 3
+        n_full = 0
+    else:
+        n_days = args.n_days
+        n_full = args.n_full
     days = stratify_days(day_stats, n=n_days, seed=args.seed)
     jobs = build_job_list(days, n_full=n_full)
     if args.smoke:
@@ -611,7 +675,11 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             engine = "docker"
 
-    print(f"days={len(days)} jobs={len(jobs)} engine={engine} out={out_dir}", flush=True)
+    profile = "pilot" if args.pilot else ("smoke" if args.smoke else "full")
+    print(
+        f"profile={profile} days={len(days)} jobs={len(jobs)} engine={engine} out={out_dir}",
+        flush=True,
+    )
     july = _load_july()
 
     if args.from_seed_proxy:
@@ -647,18 +715,38 @@ def main(argv: list[str] | None = None) -> int:
 
     summary = {
         "twin_id": TWIN_ID,
+        "schema_version": SCHEMA_VERSION,
+        "profile": profile,
         "n_days": len(days),
         "n_jobs": len(jobs),
         "n_rows": len(rows),
         "source": source,
         "engine": engine if not args.from_seed_proxy else None,
-        "days": [{"iso": d["iso"], "band": d["band"], "max_db_c": d["max_db_c"], "dow": d["dow"]} for d in days],
+        "target_cols": list(TWIN_IO_COLS),
+        "days": [
+            {"iso": d["iso"], "band": d["band"], "max_db_c": d["max_db_c"], "dow": d["dow"]}
+            for d in days
+        ],
         "parquet": str(pq),
         "idf_sha256": idf_sha,
         "epw": str(epw),
+        "full_farm_hint": (
+            "python tools/dm_hourly_farm.py --engine native --n-days 40 --n-full 10"
+        ),
     }
     (out_dir / "farm_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"n_rows": len(rows), "source": source, "engine": summary.get("engine"), "parquet": str(pq)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "n_rows": len(rows),
+                "source": source,
+                "profile": profile,
+                "engine": summary.get("engine"),
+                "parquet": str(pq),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

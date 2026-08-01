@@ -60,7 +60,7 @@ def test_models_and_predict(client):
         pytest.skip(f"model not loadable: {h.get_json()}")
     m = client.get("/api/v1/models")
     assert m.status_code == 200
-    assert m.get_json()["models"][0]["model_id"] == "demand_hourly_v1"
+    assert m.get_json()["models"][0]["model_id"] in ("demand_hourly_v1", "demand_hourly_v2")
     r = client.post(
         "/api/v1/predict/demand_hourly",
         json={
@@ -79,6 +79,9 @@ def test_models_and_predict(client):
     assert r.status_code == 200, r.get_json()
     data = r.get_json()
     assert "facility_kw" in data
+    assert "twin_io" in data
+    assert "facility_kw" in data["twin_io"]
+    assert "oat_c" in data["twin_io"]
     assert data["unit"] == "kW"
     assert data["model_status"] == "CANDIDATE"
     assert data["provenance"]["source"] == "ENERGYPLUS_SIMULATED"

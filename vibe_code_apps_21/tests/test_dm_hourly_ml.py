@@ -29,9 +29,10 @@ def test_stratify_and_seed_proxy_smoke(tmp_path: Path):
     assert len(jobs) == 3 * 4  # core modes
     rows = farm.seed_proxy_farm(days, jobs, idf_sha="abc", epw_name="amy.epw")
     assert len(rows) >= 3 * 4 * 20
-    assert rows[0]["schema_version"] == "vibe21.dm_hourly_row.v1"
+    assert rows[0]["schema_version"] == "vibe21.dm_hourly_row.v2"
     assert rows[0]["provenance"]["source"] == "SEEDED_SHAPE_PROXY"
     assert "facility_kw" in rows[0]["targets"]
+    assert "ahu1_dat_c" in rows[0]["targets"]
 
     pq = tmp_path / "dm_hourly_rows.parquet"
     farm.write_parquet(rows, pq)

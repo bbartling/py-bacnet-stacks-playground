@@ -1,0 +1,175 @@
+{
+  "mode": "multi_target",
+  "persistence_facility_kw": {
+    "mae": 38.8475376984127,
+    "rmse": 70.34785861915995,
+    "mae_peak_14_16": 33.79423809523809
+  },
+  "oof_metrics": {
+    "per_target": {
+      "facility_kw": {
+        "mae": 29.17226462840844,
+        "rmse": 43.1600709819275
+      },
+      "cooling_kw": {
+        "mae": 22.628316824052067,
+        "rmse": 30.489161874710188
+      },
+      "zone_temp_ahu1_mean_c": {
+        "mae": 1.3241268999369962,
+        "rmse": 1.787180986017869
+      },
+      "zone_temp_ahu2_mean_c": {
+        "mae": 1.5411225181742074,
+        "rmse": 1.84552362751266
+      },
+      "max_zone_temp_c": {
+        "mae": 1.6944055539294696,
+        "rmse": 2.025758465379888
+      },
+      "ahu1_dat_c": {
+        "mae": 1.296105995052452,
+        "rmse": 1.8932718972983424
+      },
+      "ahu1_mix_c": {
+        "mae": 2.6277208275600996,
+        "rmse": 3.6074065674187077
+      },
+      "ahu1_ra_c": {
+        "mae": 1.0440195821154725,
+        "rmse": 1.4546707967739245
+      },
+      "ahu1_oa_c": {
+        "mae": 5.407762934311473,
+        "rmse": 6.290514762106582
+      },
+      "ahu1_fan_plr": {
+        "mae": 0.1199965082182105,
+        "rmse": 0.19557377915648963
+      },
+      "ahu1_oa_frac": {
+        "mae": 0.1756451102765171,
+        "rmse": 0.30319539914381555
+      },
+      "ahu2_dat_c": {
+        "mae": 1.1989614506641533,
+        "rmse": 2.0416366648564725
+      },
+      "ahu2_mix_c": {
+        "mae": 2.7671443622632523,
+        "rmse": 3.809006241165545
+      },
+      "ahu2_ra_c": {
+        "mae": 1.179233327101744,
+        "rmse": 1.420045288971987
+      },
+      "ahu2_oa_c": {
+        "mae": 5.407762934311473,
+        "rmse": 6.290514762106582
+      },
+      "ahu2_fan_plr": {
+        "mae": 0.10894665460978972,
+        "rmse": 0.16615199590613552
+      },
+      "ahu2_oa_frac": {
+        "mae": 0.18656427744114892,
+        "rmse": 0.30806074682159046
+      },
+      "chw_supply_c": {
+        "mae": 0.26485333782416054,
+        "rmse": 0.4497519158387655
+      },
+      "chw_return_c": {
+        "mae": 0.7693503653459669,
+        "rmse": 0.9721591797887043
+      },
+      "chw_pump_plr": {
+        "mae": 0.04684717427493702,
+        "rmse": 0.10222489632039646
+      },
+      "cw_pump_plr": {
+        "mae": 0.04684717427493702,
+        "rmse": 0.10222489632039646
+      },
+      "tower_fan_plr": {
+        "mae": 0.1419240901768125,
+        "rmse": 0.20949618406723308
+      },
+      "tower_leaving_c": {
+        "mae": 0.1814014727218141,
+        "rmse": 0.3249629761325689
+      }
+    },
+    "mae_mean": 3.449188000132417,
+    "mae_peak_14_16_facility_kw": 32.539580432203934
+  },
+  "champion": "extra_trees",
+  "best_params": {
+    "n_estimators": 100,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_leaf_nodes": null,
+    "max_features": 1.0,
+    "max_depth": 6,
+    "bootstrap": false
+  },
+  "beat_persistence_peak": true,
+  "n_rows": 360,
+  "n_days": 3,
+  "feature_cols": [
+    "hour_ending",
+    "oat_c",
+    "rh_pct",
+    "ghi",
+    "occupied",
+    "in_dr_window",
+    "precool_f",
+    "relax_clg_f",
+    "relax_htg_f",
+    "dat_delta_f",
+    "chw_avail",
+    "fan_avail",
+    "deadband_target_f",
+    "facility_kw_lag1",
+    "facility_kw_lag2",
+    "oat_lag1",
+    "phase_baseline",
+    "phase_precool",
+    "phase_relax",
+    "phase_shed",
+    "phase_recovery",
+    "strategy_baseline",
+    "strategy_precool_shift",
+    "strategy_deadband_10f",
+    "strategy_chiller_off",
+    "strategy_loadshed_p5f",
+    "strategy_hvac_off",
+    "strategy_precool_chiller_off",
+    "is_weekend"
+  ],
+  "target_cols": [
+    "facility_kw",
+    "cooling_kw",
+    "zone_temp_ahu1_mean_c",
+    "zone_temp_ahu2_mean_c",
+    "max_zone_temp_c",
+    "ahu1_dat_c",
+    "ahu1_mix_c",
+    "ahu1_ra_c",
+    "ahu1_oa_c",
+    "ahu1_fan_plr",
+    "ahu1_oa_frac",
+    "ahu2_dat_c",
+    "ahu2_mix_c",
+    "ahu2_ra_c",
+    "ahu2_oa_c",
+    "ahu2_fan_plr",
+    "ahu2_oa_frac",
+    "chw_supply_c",
+    "chw_return_c",
+    "chw_pump_plr",
+    "cw_pump_plr",
+    "tower_fan_plr",
+    "tower_leaving_c"
+  ]
+}

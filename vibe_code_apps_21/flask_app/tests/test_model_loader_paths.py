@@ -16,25 +16,27 @@ if str(_VIBE21) not in sys.path:
 
 
 def test_resolve_load_paths_prefers_flask_models():
-    from artifact_paths import JOBLIB_NAME, CARD_NAME, flask_models_dir, resolve_load_paths
+    from artifact_paths import MODEL_STEM_V1, MODEL_STEM_V2, flask_models_dir, resolve_load_paths
 
     art, card = resolve_load_paths()
     flask_dir = flask_models_dir()
-    if (flask_dir / JOBLIB_NAME).is_file() and (flask_dir / CARD_NAME).is_file():
-        assert art == flask_dir / JOBLIB_NAME
-        assert card == flask_dir / CARD_NAME
-    else:
-        pytest.skip("flask_app/models not populated")
+    for stem in (MODEL_STEM_V2, MODEL_STEM_V1):
+        if (flask_dir / f"{stem}.joblib").is_file() and (flask_dir / f"{stem}_model_card.json").is_file():
+            assert art == flask_dir / f"{stem}.joblib"
+            assert card == flask_dir / f"{stem}_model_card.json"
+            return
+    pytest.skip("flask_app/models not populated")
 
 
 def test_load_bundle_from_flask_models():
     from flask_app.model_loader import clear_bundle_cache, load_bundle
-    from artifact_paths import flask_models_dir, JOBLIB_NAME
+    from artifact_paths import flask_models_dir, MODEL_STEM_V1, MODEL_STEM_V2
 
-    if not (flask_models_dir() / JOBLIB_NAME).is_file():
+    has = any((flask_models_dir() / f"{s}.joblib").is_file() for s in (MODEL_STEM_V2, MODEL_STEM_V1))
+    if not has:
         pytest.skip("no bundled joblib")
     clear_bundle_cache()
     b = load_bundle()
-    assert b["card"]["model_id"] == "demand_hourly_v1"
+    assert b["card"]["model_id"] in ("demand_hourly_v1", "demand_hourly_v2")
     assert "facility_kw" in str(b["card"].get("targets", []))
     assert Path(b["artifact_path"]).is_file()

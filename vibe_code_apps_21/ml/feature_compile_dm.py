@@ -40,6 +40,31 @@ FEATURE_COLS = [
 ]
 
 TARGET_COL = "facility_kw"
+TARGET_COLS = [
+    "facility_kw",
+    "cooling_kw",
+    "zone_temp_ahu1_mean_c",
+    "zone_temp_ahu2_mean_c",
+    "max_zone_temp_c",
+    "ahu1_dat_c",
+    "ahu1_mix_c",
+    "ahu1_ra_c",
+    "ahu1_oa_c",
+    "ahu1_fan_plr",
+    "ahu1_oa_frac",
+    "ahu2_dat_c",
+    "ahu2_mix_c",
+    "ahu2_ra_c",
+    "ahu2_oa_c",
+    "ahu2_fan_plr",
+    "ahu2_oa_frac",
+    "chw_supply_c",
+    "chw_return_c",
+    "chw_pump_plr",
+    "cw_pump_plr",
+    "tower_fan_plr",
+    "tower_leaving_c",
+]
 GROUP_COL = "day"
 
 
@@ -102,13 +127,33 @@ def assert_no_future_leakage(df: pd.DataFrame) -> None:
                     raise AssertionError(f"leakage in {sid} at hour {hours[i]}")
 
 
-def matrix_xy(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+def matrix_xy(
+    df: pd.DataFrame,
+    *,
+    multi_target: bool = False,
+    target_cols: list[str] | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
     feat = compile_features(df)
-    # drop first hour of each sim where lag is self-filled? keep all for volume
     X = feat[FEATURE_COLS].to_numpy(dtype=float)
-    y = feat[TARGET_COL].to_numpy(dtype=float)
+    if multi_target:
+        cols = list(target_cols) if target_cols else list(TARGET_COLS)
+        missing = [c for c in cols if c not in feat.columns]
+        if missing:
+            raise ValueError(f"Farm missing twin I/O target columns: {missing}")
+        y = feat[cols].to_numpy(dtype=float)
+    else:
+        y = feat[TARGET_COL].to_numpy(dtype=float)
     groups = feat[GROUP_COL].to_numpy()
     return X, y, groups, FEATURE_COLS
+
+
+def available_target_cols(df: pd.DataFrame) -> list[str]:
+    """Return TARGET_COLS present and non-all-null in the frame."""
+    out = []
+    for c in TARGET_COLS:
+        if c in df.columns and df[c].notna().any():
+            out.append(c)
+    return out or [TARGET_COL]
 
 
 def peak_mask(df: pd.DataFrame) -> np.ndarray:

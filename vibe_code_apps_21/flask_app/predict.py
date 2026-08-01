@@ -129,15 +129,43 @@ def features_from_request(body: dict[str, Any]) -> tuple[np.ndarray, dict[str, A
     return x, meta
 
 
-def predict_kw(model: Any, body: dict[str, Any], feature_cols: list[str] | None = None) -> dict[str, Any]:
+def predict_kw(
+    model: Any,
+    body: dict[str, Any],
+    feature_cols: list[str] | None = None,
+    *,
+    target_cols: list[str] | None = None,
+) -> dict[str, Any]:
     x, meta = features_from_request(body)
     if feature_cols and list(feature_cols) != list(FEATURE_COLS):
-        # reorder if bundle stored alternate order
-        # rebuild via named columns from compile path already FEATURE_COLS
         pass
-    y = float(np.asarray(model.predict(x)).ravel()[0])
+    raw = np.asarray(model.predict(x))
+    if raw.ndim == 2:
+        vec = raw[0]
+    else:
+        vec = raw.ravel()
+
+    from feature_compile_dm import TARGET_COLS  # noqa: WPS433
+
+    twin_io: dict[str, float] = {}
+    if len(vec) > 1:
+        cols = list(target_cols) if target_cols else list(TARGET_COLS)[: len(vec)]
+        if len(cols) != len(vec):
+            cols = list(TARGET_COLS)[: len(vec)] if len(vec) <= len(TARGET_COLS) else [
+                f"t{i}" for i in range(len(vec))
+            ]
+        for name, val in zip(cols, vec):
+            twin_io[str(name)] = float(val)
+        y = float(twin_io.get("facility_kw", vec[0]))
+    else:
+        y = float(vec[0])
+        twin_io = {"facility_kw": y}
+
+    oat = body.get("oat_c", DEFAULTS["oat_c"])
+    twin_io["oat_c"] = float(oat)
     return {
         "facility_kw": y,
+        "twin_io": twin_io,
         "unit": "kW",
         **meta,
     }

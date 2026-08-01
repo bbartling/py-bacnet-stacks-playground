@@ -187,6 +187,8 @@ def _patch_runperiod(text: str, *, month: int, day: int, year: int, dow: str) ->
 
 def _ensure_hourly_meters(text: str) -> str:
     if "Output:Meter,Electricity:Facility,Hourly" in text:
+        if "Output:Meter,Cooling:Electricity,Hourly" not in text:
+            text += "\n  Output:Meter,Cooling:Electricity,Hourly;\n"
         return text
     if "Output:Meter,Electricity:Facility,Monthly;" not in text:
         text += "\n  Output:Meter,Electricity:Facility,Hourly;\n"
@@ -199,6 +201,297 @@ def _ensure_hourly_meters(text: str) -> str:
         "  Output:Meter,Cooling:Electricity,Hourly;",
         1,
     )
+
+
+# Twin I/O Output:Variable keys (ops11 dual-AHU + shared WC plant).
+_TWIN_IO_OV_LINES: tuple[str, ...] = (
+    "!- vibe21 twin_io outputs v2",
+    "  Output:Variable,VAV Sys 1 Supply Fan Outlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 1 Mixed Air Outlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 1 Air Loop Inlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 1 Outside Air Inlet,System Node Temperature,Hourly;",
+    # Fan/Pump/Tower Part Load Ratio needs advanced diagnostics that are unreliable here;
+    # electricity rate is always emitted — parsers normalize to 0–1 PLR within the day.
+    "  Output:Variable,VAV Sys 1 Supply Fan,Fan Electricity Rate,Hourly;",
+    "  Output:Variable,VAV Sys 1,Air System Outdoor Air Flow Fraction,Hourly;",
+    "  Output:Variable,VAV Sys 2 Supply Fan Outlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 2 Mixed Air Outlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 2 Air Loop Inlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 2 Outside Air Inlet,System Node Temperature,Hourly;",
+    "  Output:Variable,VAV Sys 2 Supply Fan,Fan Electricity Rate,Hourly;",
+    "  Output:Variable,VAV Sys 2,Air System Outdoor Air Flow Fraction,Hourly;",
+    "  Output:Variable,Main Chiller ChW Outlet,System Node Temperature,Hourly;",
+    "  Output:Variable,Main Chiller ChW Inlet,System Node Temperature,Hourly;",
+    "  Output:Variable,Chilled Water Loop ChW Supply Pump,Pump Electricity Rate,Hourly;",
+    "  Output:Variable,Chilled Water Loop CndW Supply Pump,Pump Electricity Rate,Hourly;",
+    "  Output:Variable,Main Tower,Cooling Tower Fan Electricity Rate,Hourly;",
+    "  Output:Variable,Main Tower CndW Outlet,System Node Temperature,Hourly;",
+)
+
+TWIN_IO_TARGET_KEYS: tuple[str, ...] = (
+    "facility_kw",
+    "cooling_kw",
+    "zone_temp_ahu1_mean_c",
+    "zone_temp_ahu2_mean_c",
+    "max_zone_temp_c",
+    "ahu1_dat_c",
+    "ahu1_mix_c",
+    "ahu1_ra_c",
+    "ahu1_oa_c",
+    "ahu1_fan_plr",
+    "ahu1_oa_frac",
+    "ahu2_dat_c",
+    "ahu2_mix_c",
+    "ahu2_ra_c",
+    "ahu2_oa_c",
+    "ahu2_fan_plr",
+    "ahu2_oa_frac",
+    "chw_supply_c",
+    "chw_return_c",
+    "chw_pump_plr",
+    "cw_pump_plr",
+    "tower_fan_plr",
+    "tower_leaving_c",
+)
+
+
+def _ensure_twin_io_outputs(text: str) -> str:
+    """Inject AHU/plant Output:Variable lines once (idempotent; upgrades v2→v2b)."""
+    # Drop any prior twin_io injection block so OV list can evolve
+    if "!- vibe21 twin_io outputs" in text:
+        # remove from sentinel through last tower/leaving OV or end of contiguous OV block
+        text = re.sub(
+            r"!-\s*vibe21 twin_io outputs[^\n]*\n(?:\s*Output:Variable[^\n]*\n)+",
+            "",
+            text,
+        )
+    block = "\n".join(_TWIN_IO_OV_LINES) + "\n"
+    needle = "Output:Variable,*,Zone Mean Air Temperature,Hourly;"
+    if needle in text:
+        return text.replace(needle, needle + "\n" + block, 1)
+    return text + "\n" + block
+
+
+def _col_matches(header: str, *, key_substr: str, var_substr: str) -> bool:
+    h = header.upper()
+    return key_substr.upper() in h and var_substr.upper() in h and "HOURLY" in h
+
+
+def _find_col(header: list[str], *, key_substr: str, var_substr: str) -> int | None:
+    for i, name in enumerate(header):
+        if _col_matches(name, key_substr=key_substr, var_substr=var_substr):
+            return i
+    return None
+
+
+def _parse_hour_stamp(stamp: str) -> int | None:
+    m = re.search(r"(\d{1,2}):\d{2}:\d{2}", stamp or "")
+    if not m:
+        return None
+    return int(m.group(1)) or 24
+
+
+def parse_hourly_facility_kw(eplusout_csv: Path) -> list[dict[str, float]]:
+    rows: list[dict[str, float]] = []
+    with eplusout_csv.open(newline="", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if not header:
+            return rows
+        col = None
+        for i, name in enumerate(header):
+            if "Electricity:Facility" in name and "Hourly" in name:
+                col = i
+                break
+        if col is None:
+            raise RuntimeError(f"No Electricity:Facility Hourly in {eplusout_csv}")
+        for row in reader:
+            if len(row) <= col:
+                continue
+            stamp = row[0] if row else ""
+            try:
+                val_j = float(row[col])
+            except ValueError:
+                continue
+            hour = _parse_hour_stamp(stamp)
+            if hour is None:
+                continue
+            rows.append({"hour": hour, "kw": val_j / 3_600_000.0})
+    by_h: dict[int, float] = {}
+    for r in rows:
+        by_h[int(r["hour"])] = float(r["kw"])
+    return [{"hour": h, "kw": round(by_h[h], 3)} for h in range(1, 25) if h in by_h]
+
+
+def parse_hourly_twin_io(eplusout_csv: Path) -> list[dict[str, Any]]:
+    """Parse facility + cooling + zone/AHU/plant twin I/O columns from eplusout.csv.
+
+    Returns one dict per hour-ending with keys in TWIN_IO_TARGET_KEYS (+ ``hour``).
+    Missing columns become None (older farms without twin OV injection).
+    """
+    with eplusout_csv.open(newline="", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if not header:
+            return []
+
+        fac = _find_col(header, key_substr="Electricity:Facility", var_substr="[J]")
+        # Facility meter header is "Electricity:Facility [J](Hourly)" — no key:var split
+        if fac is None:
+            for i, name in enumerate(header):
+                if "Electricity:Facility" in name and "Hourly" in name:
+                    fac = i
+                    break
+        cool = None
+        for i, name in enumerate(header):
+            if "Cooling:Electricity" in name and "Hourly" in name:
+                cool = i
+                break
+
+        zone_ahu1 = [
+            i
+            for i, name in enumerate(header)
+            if "AHU1" in name.upper() and "ZONE MEAN AIR TEMPERATURE" in name.upper() and "HOURLY" in name.upper()
+        ]
+        zone_ahu2 = [
+            i
+            for i, name in enumerate(header)
+            if "AHU2" in name.upper() and "ZONE MEAN AIR TEMPERATURE" in name.upper() and "HOURLY" in name.upper()
+        ]
+
+        cols = {
+            "ahu1_dat_c": _find_col(header, key_substr="VAV Sys 1 Supply Fan Outlet", var_substr="System Node Temperature"),
+            "ahu1_mix_c": _find_col(header, key_substr="VAV Sys 1 Mixed Air Outlet", var_substr="System Node Temperature"),
+            "ahu1_ra_c": _find_col(header, key_substr="VAV Sys 1 Air Loop Inlet", var_substr="System Node Temperature"),
+            "ahu1_oa_c": _find_col(header, key_substr="VAV Sys 1 Outside Air Inlet", var_substr="System Node Temperature"),
+            "ahu1_fan_w": _find_col(header, key_substr="VAV Sys 1 Supply Fan", var_substr="Fan Electricity Rate"),
+            "ahu1_oa_frac": _find_col(header, key_substr="VAV Sys 1", var_substr="Air System Outdoor Air Flow Fraction"),
+            "ahu2_dat_c": _find_col(header, key_substr="VAV Sys 2 Supply Fan Outlet", var_substr="System Node Temperature"),
+            "ahu2_mix_c": _find_col(header, key_substr="VAV Sys 2 Mixed Air Outlet", var_substr="System Node Temperature"),
+            "ahu2_ra_c": _find_col(header, key_substr="VAV Sys 2 Air Loop Inlet", var_substr="System Node Temperature"),
+            "ahu2_oa_c": _find_col(header, key_substr="VAV Sys 2 Outside Air Inlet", var_substr="System Node Temperature"),
+            "ahu2_fan_w": _find_col(header, key_substr="VAV Sys 2 Supply Fan", var_substr="Fan Electricity Rate"),
+            "ahu2_oa_frac": _find_col(header, key_substr="VAV Sys 2", var_substr="Air System Outdoor Air Flow Fraction"),
+            "chw_supply_c": _find_col(header, key_substr="Main Chiller ChW Outlet", var_substr="System Node Temperature"),
+            "chw_return_c": _find_col(header, key_substr="Main Chiller ChW Inlet", var_substr="System Node Temperature"),
+            "chw_pump_w": _find_col(
+                header, key_substr="Chilled Water Loop ChW Supply Pump", var_substr="Pump Electricity Rate"
+            ),
+            "cw_pump_w": _find_col(
+                header, key_substr="Chilled Water Loop CndW Supply Pump", var_substr="Pump Electricity Rate"
+            ),
+            "tower_fan_w": _find_col(header, key_substr="Main Tower", var_substr="Cooling Tower Fan Electricity Rate"),
+            "tower_leaving_c": _find_col(
+                header, key_substr="Main Tower CndW Outlet", var_substr="System Node Temperature"
+            ),
+        }
+
+        # Disambiguate OA-frac columns: key "VAV Sys 1" also matches "VAV Sys 1 Supply Fan…"
+        # Prefer headers that start with exact air-loop key before ':'.
+        def _airloop_frac(sys_name: str) -> int | None:
+            prefix = f"{sys_name.upper()}:"
+            for i, name in enumerate(header):
+                u = name.upper()
+                if u.startswith(prefix) and "AIR SYSTEM OUTDOOR AIR FLOW FRACTION" in u and "HOURLY" in u:
+                    return i
+            return None
+
+        cols["ahu1_oa_frac"] = _airloop_frac("VAV Sys 1")
+        cols["ahu2_oa_frac"] = _airloop_frac("VAV Sys 2")
+
+        def _equip_power(sys_key: str, var: str) -> int | None:
+            key = f"{sys_key.upper()}:"
+            for i, name in enumerate(header):
+                u = name.upper()
+                if key in u and var.upper() in u and "HOURLY" in u:
+                    return i
+            return None
+
+        cols["ahu1_fan_w"] = _equip_power("VAV Sys 1 Supply Fan", "Fan Electricity Rate")
+        cols["ahu2_fan_w"] = _equip_power("VAV Sys 2 Supply Fan", "Fan Electricity Rate")
+        cols["chw_pump_w"] = _equip_power("Chilled Water Loop ChW Supply Pump", "Pump Electricity Rate")
+        cols["cw_pump_w"] = _equip_power("Chilled Water Loop CndW Supply Pump", "Pump Electricity Rate")
+        cols["tower_fan_w"] = _equip_power("Main Tower", "Cooling Tower Fan Electricity Rate")
+
+        by_h: dict[int, dict[str, Any]] = {}
+        watt_series: dict[str, dict[int, float]] = {
+            "ahu1_fan_plr": {},
+            "ahu2_fan_plr": {},
+            "chw_pump_plr": {},
+            "cw_pump_plr": {},
+            "tower_fan_plr": {},
+        }
+        watt_src = {
+            "ahu1_fan_plr": "ahu1_fan_w",
+            "ahu2_fan_plr": "ahu2_fan_w",
+            "chw_pump_plr": "chw_pump_w",
+            "cw_pump_plr": "cw_pump_w",
+            "tower_fan_plr": "tower_fan_w",
+        }
+
+        for row in reader:
+            if not row:
+                continue
+            hour = _parse_hour_stamp(row[0])
+            if hour is None:
+                continue
+            rec: dict[str, Any] = {"hour": hour}
+            for k in TWIN_IO_TARGET_KEYS:
+                rec[k] = None
+
+            def _f(idx: int | None) -> float | None:
+                if idx is None or len(row) <= idx:
+                    return None
+                try:
+                    return float(row[idx])
+                except ValueError:
+                    return None
+
+            if fac is not None:
+                j = _f(fac)
+                if j is not None:
+                    rec["facility_kw"] = round(j / 3_600_000.0, 3)
+            if cool is not None:
+                j = _f(cool)
+                if j is not None:
+                    rec["cooling_kw"] = round(j / 3_600_000.0, 3)
+
+            z1 = [_f(i) for i in zone_ahu1]
+            z1v = [v for v in z1 if v is not None]
+            z2 = [_f(i) for i in zone_ahu2]
+            z2v = [v for v in z2 if v is not None]
+            if z1v:
+                rec["zone_temp_ahu1_mean_c"] = round(sum(z1v) / len(z1v), 3)
+            if z2v:
+                rec["zone_temp_ahu2_mean_c"] = round(sum(z2v) / len(z2v), 3)
+            all_z = z1v + z2v
+            if all_z:
+                rec["max_zone_temp_c"] = round(max(all_z), 3)
+
+            for k, idx in cols.items():
+                if k.endswith("_w"):
+                    continue
+                v = _f(idx)
+                if v is not None:
+                    rec[k] = round(v, 4) if "plr" in k or "frac" in k else round(v, 3)
+
+            for plr_key, w_key in watt_src.items():
+                w = _f(cols.get(w_key))
+                if w is not None:
+                    watt_series[plr_key][hour] = max(0.0, w)
+
+            by_h[hour] = rec
+
+    # Normalize equipment W → 0–1 PLR within this CSV day
+    for plr_key, series in watt_series.items():
+        if not series:
+            continue
+        peak = max(series.values()) or 1.0
+        for hour, w in series.items():
+            if hour in by_h:
+                by_h[hour][plr_key] = round(w / peak, 4)
+
+    return [by_h[h] for h in range(1, 25) if h in by_h]
 
 
 def _clg_loadshed_block(
@@ -802,6 +1095,7 @@ def patch_idf(
     text = src.read_text(encoding="utf-8", errors="replace")
     text = _patch_runperiod(text, month=month, day=day, year=year, dow=dow)
     text = _ensure_hourly_meters(text)
+    text = _ensure_twin_io_outputs(text)
     july_dat = july_dat or {"Dump_AHU1_DAT_SP": 11.44, "Dump_AHU2_DAT_SP": 7.55}
     story: dict[str, Any] = {"mode": mode, "window": f"{start_h}:00–{end_h}:00"}
 
@@ -912,41 +1206,6 @@ def patch_idf(
     return story
 
 
-def parse_hourly_facility_kw(eplusout_csv: Path) -> list[dict[str, float]]:
-    rows: list[dict[str, float]] = []
-    with eplusout_csv.open(newline="", encoding="utf-8", errors="replace") as f:
-        reader = csv.reader(f)
-        header = next(reader, None)
-        if not header:
-            return rows
-        col = None
-        for i, name in enumerate(header):
-            if "Electricity:Facility" in name and "Hourly" in name:
-                col = i
-                break
-        if col is None:
-            raise RuntimeError(f"No Electricity:Facility Hourly in {eplusout_csv}")
-        for row in reader:
-            if len(row) <= col:
-                continue
-            stamp = row[0] if row else ""
-            try:
-                val_j = float(row[col])
-            except ValueError:
-                continue
-            hour = None
-            m = re.search(r"(\d{1,2}):\d{2}:\d{2}", stamp)
-            if m:
-                hour = int(m.group(1)) or 24
-            if hour is None:
-                continue
-            rows.append({"hour": hour, "kw": val_j / 3_600_000.0})
-    by_h: dict[int, float] = {}
-    for r in rows:
-        by_h[int(r["hour"])] = float(r["kw"])
-    return [{"hour": h, "kw": round(by_h[h], 3)} for h in range(1, 25) if h in by_h]
-
-
 def _event_mean(hourly: list[dict[str, float]], start_h: int = 14, end_h: int = 16) -> float | None:
     vals = [r["kw"] for r in hourly if start_h < r["hour"] <= end_h]
     if not vals:
@@ -1022,7 +1281,15 @@ def run_case(
     if not csv_path.is_file():
         found = list(case_dir.rglob("eplusout.csv"))
         csv_path = found[0] if found else csv_path
-    hourly = parse_hourly_facility_kw(csv_path) if csv_path.is_file() else []
+    twin_io = parse_hourly_twin_io(csv_path) if csv_path.is_file() else []
+    if twin_io:
+        hourly = [
+            {"hour": int(r["hour"]), "kw": float(r["facility_kw"])}
+            for r in twin_io
+            if r.get("facility_kw") is not None
+        ]
+    else:
+        hourly = parse_hourly_facility_kw(csv_path) if csv_path.is_file() else []
     mean_kw = _event_mean(hourly)
     return {
         "label": label,
@@ -1035,6 +1302,7 @@ def run_case(
         "rc": getattr(proc, "returncode", None),
         "eplusout_csv": str(csv_path) if csv_path.is_file() else None,
         "hourly_kw": hourly,
+        "hourly_twin_io": twin_io,
         "event_mean_kw_14_16": None if mean_kw is None else round(mean_kw, 2),
         "peak_kw": None if not hourly else round(max(r["kw"] for r in hourly), 2),
     }
