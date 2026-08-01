@@ -35,8 +35,9 @@ namespace Vibe21.Twin
             if (old2 != null) DestroyImmediate(old2);
 
             var root = new GameObject("TwinXrayMep");
-            var supplyMat = Trans(new Color(0.25f, 0.45f, 0.9f, 0.5f));
-            var returnMat = Trans(new Color(0.9f, 0.45f, 0.25f, 0.5f));
+            // Air ducts: grey-green supply / amber return (not water-blue)
+            var supplyMat = Trans(new Color(0.42f, 0.56f, 0.48f, 0.55f)); // #6B8F7A
+            var returnMat = Trans(new Color(0.77f, 0.52f, 0.23f, 0.55f)); // #C4843A
             var chwMat = Trans(new Color(0.2f, 0.55f, 0.95f, 0.65f));
             var chwRetMat = Trans(new Color(0.35f, 0.65f, 1f, 0.6f));
             var cwMat = Trans(new Color(0.1f, 0.7f, 0.72f, 0.65f));
@@ -84,13 +85,13 @@ namespace Vibe21.Twin
             var shaftTopR2 = MakeTempPort(new Vector3(returnShaft2.x, roofY - 0.4f, returnShaft2.z), Vector3.up);
 
             fxSupply.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "RoofSupply_1", leave1, shaftTopS1, ductW * 0.85f, supplyMat, stubLen, OrthoMepRouter.AxisOrder.XZY));
+                root.transform, "RoofSupply_1", leave1, shaftTopS1, ductW * 0.85f, supplyMat, stubLen, OrthoMepRouter.AxisOrder.XZY, false, true));
             fxSupply.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "RoofSupply_2", leave2, shaftTopS2, ductW * 0.85f, supplyMat, stubLen, OrthoMepRouter.AxisOrder.XZY));
+                root.transform, "RoofSupply_2", leave2, shaftTopS2, ductW * 0.85f, supplyMat, stubLen, OrthoMepRouter.AxisOrder.XZY, false, true));
             fxReturn.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "RoofReturn_1", ra1, shaftTopR1, ductW * 0.8f, returnMat, stubLen, OrthoMepRouter.AxisOrder.YXZ));
+                root.transform, "RoofReturn_1", ra1, shaftTopR1, ductW * 0.8f, returnMat, stubLen, OrthoMepRouter.AxisOrder.YXZ, false, true));
             fxReturn.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "RoofReturn_2", ra2, shaftTopR2, ductW * 0.8f, returnMat, stubLen, OrthoMepRouter.AxisOrder.YXZ));
+                root.transform, "RoofReturn_2", ra2, shaftTopR2, ductW * 0.8f, returnMat, stubLen, OrthoMepRouter.AxisOrder.YXZ, false, true));
 
             var chwHdr = PortOrFallback(chiller, "Port_CHW_Header", chillerPos + new Vector3(-2.7f, 1f, 0f), -Vector3.right);
             var chwRetHdr = PortOrFallback(chiller, "Port_CHW_Return", chillerPos + new Vector3(-2.7f, 1f, 0.7f), -Vector3.right);
@@ -100,13 +101,13 @@ namespace Vibe21.Twin
             var chwOut2 = PortOrFallback(ahu2, "Port_CHW_Out", s2 + new Vector3(0f, 0.15f, -1.2f), -Vector3.forward);
 
             allChwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CHW_to_AHU1", chwHdr, chwIn1, chwPipeW, chwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CHW_to_AHU1", chwHdr, chwIn1, chwPipeW, chwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
             allChwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CHW_to_AHU2", chwHdr, chwIn2, chwPipeW, chwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CHW_to_AHU2", chwHdr, chwIn2, chwPipeW, chwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
             allChwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CHW_Return_AHU1", chwOut1, chwRetHdr, chwPipeW * 0.85f, chwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CHW_Return_AHU1", chwOut1, chwRetHdr, chwPipeW * 0.85f, chwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
             allChwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CHW_Return_AHU2", chwOut2, chwRetHdr, chwPipeW * 0.85f, chwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CHW_Return_AHU2", chwOut2, chwRetHdr, chwPipeW * 0.85f, chwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
 
             var cwOut = PortOrFallback(chiller, "Port_CW_Out", chillerPos + new Vector3(0f, 2.5f, 0.6f), Vector3.forward);
             var cwRet = PortOrFallback(chiller, "Port_CW_Return", chillerPos + new Vector3(0.8f, 2.5f, 0f), Vector3.right);
@@ -114,9 +115,9 @@ namespace Vibe21.Twin
             var cwTowerOut = PortOrFallback(tower, "Port_CW_Out", towerPos + new Vector3(2.4f, 0.8f, 0f), Vector3.right);
 
             allCwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CW_to_Tower", cwOut, cwTowerIn, cwPipeW, cwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CW_to_Tower", cwOut, cwTowerIn, cwPipeW, cwMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
             allCwSegs.AddRange(OrthoMepRouter.PathStubThenOrtho(
-                root.transform, "CW_Return", cwTowerOut, cwRet, cwPipeW * 0.9f, cwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true));
+                root.transform, "CW_Return", cwTowerOut, cwRet, cwPipeW * 0.9f, cwRetMat, stubLen, OrthoMepRouter.AxisOrder.XZY, true, false));
 
             int n = 0;
             foreach (var te in FindObjectsByType<TwinEntity>())
@@ -136,9 +137,9 @@ namespace Vibe21.Twin
                 var diffReturn = MakeTempPort(diffPos + Vector3.up * 0.45f, Vector3.up);
 
                 OrthoMepRouter.PathStubThenOrtho(
-                    root.transform, $"SupplyLat_{te.entityId}", shaftPortS, diffSupply, ductW * 0.45f, supplyMat, 0.35f, OrthoMepRouter.AxisOrder.XZY);
+                    root.transform, $"SupplyLat_{te.entityId}", shaftPortS, diffSupply, ductW * 0.45f, supplyMat, 0.35f, OrthoMepRouter.AxisOrder.XZY, false, true);
                 OrthoMepRouter.PathStubThenOrtho(
-                    root.transform, $"ReturnLat_{te.entityId}", diffReturn, shaftPortR, ductW * 0.4f, returnMat, 0.35f, OrthoMepRouter.AxisOrder.XZY);
+                    root.transform, $"ReturnLat_{te.entityId}", diffReturn, shaftPortR, ductW * 0.4f, returnMat, 0.35f, OrthoMepRouter.AxisOrder.XZY, false, true);
 
                 var diff = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 diff.name = $"Diffuser_{te.entityId}";
@@ -150,10 +151,11 @@ namespace Vibe21.Twin
                 n++;
             }
 
-            fx.AddAlongPath(fxSupply, new Color(0.35f, 0.65f, 1f, 0.55f), true, 3.5f, ductW);
-            fx.AddAlongPath(fxReturn, new Color(1f, 0.5f, 0.25f, 0.55f), true, 3.0f, ductW * 0.9f);
-            fx.AddAlongPath(allChwSegs, new Color(0.3f, 0.7f, 1f, 0.65f), false, 1.8f, chwPipeW);
-            fx.AddAlongPath(allCwSegs, new Color(0.2f, 0.9f, 0.85f, 0.65f), false, 1.6f, cwPipeW);
+            // Air: wispy green/amber; liquid: cyan/teal dots
+            fx.AddAlongPath(fxSupply, new Color(0.75f, 0.9f, 0.8f, 0.5f), true, 5.5f, ductW);
+            fx.AddAlongPath(fxReturn, new Color(1f, 0.78f, 0.45f, 0.5f), true, 5.0f, ductW * 0.9f);
+            fx.AddAlongPath(allChwSegs, new Color(0.25f, 0.65f, 1f, 0.75f), false, 1.4f, chwPipeW);
+            fx.AddAlongPath(allCwSegs, new Color(0.15f, 0.85f, 0.8f, 0.75f), false, 1.2f, cwPipeW);
             if (tower != null) fx.AddTowerFx(tower);
             fx.SetRunning(true, 1f);
 

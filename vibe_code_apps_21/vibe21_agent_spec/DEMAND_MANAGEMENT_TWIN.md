@@ -59,12 +59,13 @@ Honesty: Floor×AHU lumped zones only; roof AHU / plant / zone temp markers are
 
 Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.md`):
 
-- Greyscale flyable drone (airplane blades, procedural motor hum, L land / R recover, bonk/scrape)
+- Greyscale flyable drone (airplane blades, procedural motor hum, Space land/recover watch mode, bonk/scrape)
 - Cool-focused x-ray AHUs ×2 (OA/RA mix, CHW only; HW coil omitted on roof)
-- **Ortho** ducts/pipes (`OrthoMepRouter`) into named flange ports + elbow fittings
-- `MepFlowFx` particles: supply/return air, CHW/CW liquid, tower drip + heat-reject mist
-- Roof Main Chiller + Cooling Tower; facade glass + outside-window zone temp sensors
-- Large pause menu (°C/°F); DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly`
+- **Ortho** rectangular air ducts (grey-green/amber) + round blue water pipes; distinct air vs liquid particles
+- `MepFlowFx` + white tower drip/mist; roof Main Chiller + Cooling Tower
+- Facade glass + occluded window zone temps; **Spawn Sensor Badge Kit** for manual placement
+- Large pause menu (°C/°F matched toggles); enlarged right DR panel + Land Drone button
+- DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly`
 
 ## Out of scope for DM twin v1
 

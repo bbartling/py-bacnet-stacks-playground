@@ -1,0 +1,3 @@
+# Copyright PDFs — keep text extracts only
+PDF/*.pdf
+PDF/*.pdf.meta

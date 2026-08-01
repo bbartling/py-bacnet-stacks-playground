@@ -25,7 +25,8 @@ namespace Vibe21.Twin
             IList<Vector3> points,
             float width,
             Material mat,
-            bool tagPlantPipe = false)
+            bool tagPlantPipe = false,
+            bool asDuct = false)
         {
             var segments = new List<Vector3[]>();
             if (points == null || points.Count < 2) return segments;
@@ -38,11 +39,10 @@ namespace Vibe21.Twin
                 var a = points[i];
                 var b = points[i + 1];
                 if (Vector3.Distance(a, b) < 0.05f) continue;
-                Seg(pathRoot.transform, $"{name}_L{i}", a, b, width, mat);
+                Seg(pathRoot.transform, $"{name}_L{i}", a, b, width, mat, asDuct);
                 segments.Add(new[] { a, b });
-                // Elbow at interior corners
                 if (i > 0)
-                    Elbow(pathRoot.transform, $"{name}_E{i}", a, width * 1.15f, mat);
+                    Elbow(pathRoot.transform, $"{name}_E{i}", a, asDuct ? width * 0.85f : width * 1.15f, mat, asDuct);
             }
 
             if (tagPlantPipe)
@@ -56,10 +56,6 @@ namespace Vibe21.Twin
             return segments;
         }
 
-        /// <summary>
-        /// Stub along from-port forward, Manhattan midpoints to near to-port, stub into to-port.
-        /// Port transforms: position = flange, forward = outward normal.
-        /// </summary>
         public static List<Vector3[]> PathStubThenOrtho(
             Transform parent,
             string name,
@@ -69,7 +65,8 @@ namespace Vibe21.Twin
             Material mat,
             float stubLen = 0.55f,
             AxisOrder order = AxisOrder.YXZ,
-            bool tagPlantPipe = false)
+            bool tagPlantPipe = false,
+            bool asDuct = false)
         {
             Vector3 a = fromPort != null ? fromPort.position : Vector3.zero;
             Vector3 b = toPort != null ? toPort.position : a + Vector3.forward;
@@ -85,10 +82,9 @@ namespace Vibe21.Twin
                 pts.Add(beforeStub);
             pts.Add(b);
             Dedup(pts);
-            return Run(parent, name, pts, width, mat, tagPlantPipe);
+            return Run(parent, name, pts, width, mat, tagPlantPipe, asDuct);
         }
 
-        /// <summary>Ortho path between two world points (no stubs).</summary>
         public static List<Vector3[]> PathOrtho(
             Transform parent,
             string name,
@@ -97,17 +93,17 @@ namespace Vibe21.Twin
             float width,
             Material mat,
             AxisOrder order = AxisOrder.YXZ,
-            bool tagPlantPipe = false)
+            bool tagPlantPipe = false,
+            bool asDuct = false)
         {
             var pts = new List<Vector3> { from };
             AppendManhattan(pts, from, to, order);
             if (Vector3.Distance(pts[pts.Count - 1], to) > 0.05f)
                 pts.Add(to);
             Dedup(pts);
-            return Run(parent, name, pts, width, mat, tagPlantPipe);
+            return Run(parent, name, pts, width, mat, tagPlantPipe, asDuct);
         }
 
-        /// <summary>Vertical riser (already orthographic).</summary>
         public static List<Vector3[]> Riser(
             Transform parent,
             string name,
@@ -115,11 +111,12 @@ namespace Vibe21.Twin
             float y0,
             float y1,
             float width,
-            Material mat)
+            Material mat,
+            bool asDuct = true)
         {
             var a = new Vector3(xz.x, y0, xz.z);
             var b = new Vector3(xz.x, y1, xz.z);
-            return Run(parent, name, new[] { a, b }, width, mat);
+            return Run(parent, name, new[] { a, b }, width, mat, false, asDuct);
         }
 
         static void AppendManhattan(List<Vector3> pts, Vector3 from, Vector3 to, AxisOrder order)
@@ -161,7 +158,7 @@ namespace Vibe21.Twin
             }
         }
 
-        public static void Seg(Transform parent, string name, Vector3 a, Vector3 b, float width, Material mat)
+        public static void Seg(Transform parent, string name, Vector3 a, Vector3 b, float width, Material mat, bool asDuct = false)
         {
             float len = Vector3.Distance(a, b);
             if (len < 0.05f) return;
@@ -169,18 +166,23 @@ namespace Vibe21.Twin
             go.name = name;
             go.transform.SetParent(parent, false);
             go.transform.position = (a + b) * 0.5f;
-            go.transform.localScale = new Vector3(width, width, len);
+            // Ducts = flat rectangular sheet-metal; pipes = near-square
+            go.transform.localScale = asDuct
+                ? new Vector3(width, width * 0.45f, len)
+                : new Vector3(width, width, len);
             go.transform.rotation = Quaternion.LookRotation((b - a).normalized, Vector3.up);
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         }
 
-        static void Elbow(Transform parent, string name, Vector3 at, float size, Material mat)
+        static void Elbow(Transform parent, string name, Vector3 at, float size, Material mat, bool asDuct = false)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
             go.transform.SetParent(parent, false);
             go.transform.position = at;
-            go.transform.localScale = Vector3.one * size;
+            go.transform.localScale = asDuct
+                ? new Vector3(size, size * 0.45f, size)
+                : Vector3.one * size;
             go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         }
 

@@ -17,6 +17,7 @@ namespace Vibe21.Twin
         GUIStyle _btn;
         GUIStyle _btnSm;
         GUIStyle _card;
+        GUIStyle _toggle;
         bool _styles;
 
         void Awake()
@@ -93,6 +94,15 @@ namespace Vibe21.Twin
             {
                 padding = new RectOffset(64, 64, 56, 56)
             };
+            _toggle = new GUIStyle(GUI.skin.toggle)
+            {
+                fontSize = 44,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                fixedHeight = 72,
+                normal = { textColor = new Color(0.82f, 0.88f, 0.86f) },
+                onNormal = { textColor = new Color(0.92f, 0.96f, 0.94f) }
+            };
             _styles = true;
         }
 
@@ -121,9 +131,9 @@ namespace Vibe21.Twin
             float uy = y + 310f;
             GUI.Label(new Rect(ux, uy, 440f, 72f), "Temperature units:", _body);
             bool wantF = useFahrenheit;
-            if (GUI.Toggle(new Rect(ux + 440f, uy, 240f, 72f), !wantF, "  °C Metric"))
+            if (GUI.Toggle(new Rect(ux + 440f, uy, 280f, 72f), !wantF, "  °C Metric", _toggle))
                 wantF = false;
-            if (GUI.Toggle(new Rect(ux + 720f, uy, 320f, 72f), wantF, "  °F Imperial"))
+            if (GUI.Toggle(new Rect(ux + 760f, uy, 320f, 72f), wantF, "  °F Imperial", _toggle))
                 wantF = true;
             if (wantF != useFahrenheit)
             {
@@ -142,8 +152,8 @@ namespace Vibe21.Twin
                 "  Q / PageDown          Descend\n" +
                 "  Shift                 Boost\n" +
                 "  Mouse                 Look\n" +
-                "  L                     Land (drop + freeze camera)\n" +
-                "  R                     Recover (zip back up)\n" +
+                "  Space                 Land / Recover (watch plant)\n" +
+                "  L / R                 Land / Recover aliases\n" +
                 "  Esc                   Pause / menu\n\n" +
                 "Peer through glass for floor zone temps. Roof: x-ray AHUs + chiller + tower.",
                 _body);

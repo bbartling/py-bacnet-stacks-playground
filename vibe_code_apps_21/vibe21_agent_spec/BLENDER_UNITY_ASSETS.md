@@ -24,7 +24,9 @@ From `assets/twin_b100_ops11/model.idf`:
 - Drone SphereCast bounce vs building MeshColliders + terrain; **bonk / scrape** audio; never totalled.
 - Quad props: **2 airplane blades per motor** (`AirplanePropFactory.BuildFacingUp`) — not flat cylinder discs.
 - **L** land / **R** recover; procedural motor hum on Start Flight.
-- MEP: named flange ports + Manhattan stubs/elbows; particle air/liquid flows; tower drip + heat-reject mist (rate tied to `PlantVisualController`).
+- MEP: named flange ports + Manhattan stubs/elbows; **rectangular** grey-green/amber air ducts vs cyan water pipes; wispy air vs liquid particle FX; tower drip + heat-reject mist (white; rate tied to `PlantVisualController`).
+- **Space** / DR **Land Drone**: silly fall + crash, freeze cam to watch plant; Space again recovers.
+- Sensor badges: `Vibe21/Twin/Spawn Sensor Badge Kit` for manual Editor placement.
 - DR panel: 2-hour event playback in **5 min / 1 min / 30 s**; `chiller_off` stops plant spin/audio/FX and warms DEMO temps.
 - `MachineAudioHub`: AHU whoosh, pump, chiller, tower (2D procedural).
 

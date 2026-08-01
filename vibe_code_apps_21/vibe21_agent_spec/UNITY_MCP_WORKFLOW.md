@@ -36,14 +36,16 @@ geometry outside the Twin JSON.
 | **E / PageUp** | Climb |
 | **Q / PageDown** | Descend |
 | **Shift** | Boost |
-| **L** | Land (drop, bonk, freeze camera) |
-| **R** | Recover (zip back to pre-land hover) |
+| **Space** | Land / Recover watch mode (silly crash, freeze cam) |
+| **L / R** | Land / Recover aliases |
 | **Esc** | Pause menu (large overlay; °C/°F) |
 
 Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades.
 Motor: procedural hum (`MakeHumClip`) after Start Flight.
 Zone temps: individual facade sensor labels; visible through glazing / clear air only (occluded by walls).
-Roof: x-ray AHUs + ortho MEP + contained flow particles; tower drip/mist white.
+Placeable kit: **Vibe21/Twin/Spawn Sensor Badge Kit** (drag badges in Scene).
+Roof: rectangular grey-green/amber air ducts vs blue water pipes; wispy air FX vs liquid dots; tower drip/mist white.
+DR panel (right): enlarged UI + Land Drone button.
 
 ## DR panel
 

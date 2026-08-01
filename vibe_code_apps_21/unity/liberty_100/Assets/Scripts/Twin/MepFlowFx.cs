@@ -116,42 +116,41 @@ namespace Vibe21.Twin
 
             var go = new GameObject(air ? "FlowAir" : "FlowLiquid");
             go.transform.SetParent(transform, false);
-            // Emit from start of segment, travel toward end in local +Z
             go.transform.position = a;
             go.transform.rotation = Quaternion.LookRotation(dir / len, Vector3.up);
 
-            float cross = Mathf.Clamp(ductWidth * 0.35f, 0.06f, 0.28f);
+            float cross = Mathf.Clamp(ductWidth * (air ? 0.28f : 0.32f), 0.05f, air ? 0.22f : 0.2f);
             float life = len / speed;
 
             var ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
             main.startLifetime = life;
             main.startSpeed = speed;
-            main.startSize = air ? 0.06f : 0.045f;
+            main.startSize = air ? 0.045f : 0.07f;
             main.startColor = color;
-            main.maxParticles = 80;
+            main.maxParticles = air ? 60 : 100;
             main.simulationSpace = ParticleSystemSimulationSpace.Local;
             main.loop = true;
             main.playOnAwake = true;
             main.gravityModifier = 0f;
-            main.startRotation = 0f;
 
             var em = ps.emission;
-            em.rateOverTime = rate;
+            em.rateOverTime = air ? rate * 0.7f : rate;
 
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            // Thin cross-section at segment start; length along Z is tiny (point emit)
-            shape.scale = new Vector3(cross, cross, Mathf.Min(0.08f, len * 0.05f));
+            shape.scale = new Vector3(cross, air ? cross * 0.5f : cross, Mathf.Min(0.08f, len * 0.05f));
             shape.randomDirectionAmount = 0f;
             shape.sphericalDirectionAmount = 0f;
 
-            var vol = ps.velocityOverLifetime;
-            vol.enabled = false;
-
             var noise = ps.noise;
-            noise.enabled = false;
+            noise.enabled = air;
+            if (air)
+            {
+                noise.strength = 0.08f;
+                noise.frequency = 0.4f;
+            }
 
             var lim = ps.limitVelocityOverLifetime;
             lim.enabled = true;
@@ -161,13 +160,32 @@ namespace Vibe21.Twin
             var col = ps.colorOverLifetime;
             col.enabled = true;
             var grad = new Gradient();
-            grad.SetKeys(
-                new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
-                new[] { new GradientAlphaKey(0.55f, 0f), new GradientAlphaKey(0.7f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            if (air)
+            {
+                grad.SetKeys(
+                    new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+                    new[] { new GradientAlphaKey(0.15f, 0f), new GradientAlphaKey(0.55f, 0.35f), new GradientAlphaKey(0f, 1f) });
+            }
+            else
+            {
+                grad.SetKeys(
+                    new[] { new GradientColorKey(color, 0f), new GradientColorKey(color, 1f) },
+                    new[] { new GradientAlphaKey(0.75f, 0f), new GradientAlphaKey(0.85f, 0.5f), new GradientAlphaKey(0.2f, 1f) });
+            }
             col.color = grad;
 
             var renderer = go.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            if (air)
+            {
+                renderer.renderMode = ParticleSystemRenderMode.Stretch;
+                renderer.lengthScale = 3.2f;
+                renderer.velocityScale = 0.15f;
+                renderer.cameraVelocityScale = 0f;
+            }
+            else
+            {
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            }
             renderer.material = DefaultParticleMat(color);
 
             ps.Play();

@@ -4,9 +4,7 @@ using UnityEngine.InputSystem;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Greyscale flyable drone with SphereCast collision (bonk/scrape, never totalled).
-    /// WASD; E/PageUp climb; Q/PageDown descend. L = Land, R = Recover.
-    /// Procedural motor hum.
+    /// Greyscale flyable drone. Space/L land, Space/R recover (watch mode). Climb = E/PageUp only.
     /// </summary>
     public class DroneController : MonoBehaviour
     {
@@ -27,12 +25,16 @@ namespace Vibe21.Twin
         public float bonkCooldown = 0.18f;
         public LayerMask collideMask = ~0;
         public float landDropSpeed = 18f;
+        public float sillyLandDropSpeed = 38f;
         public float recoverZipSpeed = 42f;
+
+        public bool IsWatchParked => _mode == FlightMode.Landed || _mode == FlightMode.Landing;
 
         float _yaw;
         float _pitch;
         AudioSource _motor;
         AudioSource _bonk;
+        AudioSource _crash;
         AudioSource _scrape;
         float _load;
         bool _audioReady;
@@ -49,6 +51,8 @@ namespace Vibe21.Twin
         bool _cameraFrozen;
         bool _flightAudioStarted;
         float _idlePropRpm = 120f;
+        bool _sillyLand;
+        float _tumbleSpin;
 
         void Awake()
         {
@@ -78,7 +82,6 @@ namespace Vibe21.Twin
             EnsureCollisionAudio();
         }
 
-        /// <summary>Called from TwinMainMenu when Start Flight is pressed — begin procedural hum from start.</summary>
         public void NotifyFlightStarted()
         {
             _flightAudioStarted = true;
@@ -89,6 +92,14 @@ namespace Vibe21.Twin
             _motor.loop = true;
             if (!IsMenuPaused())
                 _motor.Play();
+        }
+
+        public void ToggleWatchLand()
+        {
+            if (_mode == FlightMode.Flying)
+                BeginLand(silly: true);
+            else if (_mode == FlightMode.Landed || _mode == FlightMode.Landing)
+                BeginRecover();
         }
 
         void EnsureBodyCollider()
@@ -132,6 +143,17 @@ namespace Vibe21.Twin
                 _bonk.playOnAwake = false;
                 _bonk.spatialBlend = 0f;
                 _bonk.volume = 0.7f;
+            }
+            if (_crash == null)
+            {
+                var go = new GameObject("CrashAudio");
+                go.transform.SetParent(transform, false);
+                _crash = go.AddComponent<AudioSource>();
+                _crash.clip = MakeCrashClip();
+                _crash.loop = false;
+                _crash.playOnAwake = false;
+                _crash.spatialBlend = 0f;
+                _crash.volume = 0.95f;
             }
             if (_scrape == null)
             {
@@ -187,6 +209,28 @@ namespace Vibe21.Twin
             return clip;
         }
 
+        static AudioClip MakeCrashClip()
+        {
+            const int sampleRate = 44100;
+            int n = sampleRate;
+            var data = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)sampleRate;
+                float env = Mathf.Exp(-t * 4.5f);
+                float s =
+                    0.9f * Mathf.Sin(2f * Mathf.PI * 55f * t) * env +
+                    0.7f * Mathf.Sin(2f * Mathf.PI * 90f * t) * env +
+                    0.5f * Mathf.Sin(2f * Mathf.PI * 140f * t) * env +
+                    (Random.value * 2f - 1f) * 0.55f * env +
+                    0.35f * Mathf.Sin(2f * Mathf.PI * (30f + t * 80f) * t) * env;
+                data[i] = Mathf.Clamp(s, -1f, 1f);
+            }
+            var clip = AudioClip.Create("DroneCrashSilly", n, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
         static AudioClip MakeScrapeClip()
         {
             const int sampleRate = 44100;
@@ -224,7 +268,8 @@ namespace Vibe21.Twin
 
             float dt = Time.unscaledDeltaTime;
 
-            if (KeyDown(Key.L)) BeginLand();
+            if (KeyDown(Key.Space)) ToggleWatchLand();
+            if (KeyDown(Key.L)) BeginLand(silly: false);
             if (KeyDown(Key.R)) BeginRecover();
 
             switch (_mode)
@@ -258,7 +303,7 @@ namespace Vibe21.Twin
             if (KeyHeld(Key.A) || KeyHeld(Key.LeftArrow)) wish -= transform.right;
             if (KeyHeld(Key.D) || KeyHeld(Key.RightArrow)) wish += transform.right;
             float vert = 0f;
-            if (KeyHeld(Key.E) || KeyHeld(Key.PageUp) || KeyHeld(Key.Space)) vert += 1f;
+            if (KeyHeld(Key.E) || KeyHeld(Key.PageUp)) vert += 1f;
             if (KeyHeld(Key.Q) || KeyHeld(Key.PageDown) || KeyHeld(Key.LeftCtrl)) vert -= 1f;
             if (wish.sqrMagnitude > 0f) wish = wish.normalized * (moveSpeed * boost);
             wish += Vector3.up * (vert * verticalSpeed * boost);
@@ -277,9 +322,11 @@ namespace Vibe21.Twin
             UpdateCamera();
         }
 
-        void BeginLand()
+        void BeginLand(bool silly)
         {
             if (_mode != FlightMode.Flying) return;
+            _sillyLand = silly;
+            _tumbleSpin = silly ? Random.Range(220f, 420f) * (Random.value > 0.5f ? 1f : -1f) : 0f;
             _preLandPos = transform.position;
             _preLandRot = transform.rotation;
             if (cameraRig != null)
@@ -295,6 +342,7 @@ namespace Vibe21.Twin
         void BeginRecover()
         {
             if (_mode != FlightMode.Landed && _mode != FlightMode.Landing) return;
+            _sillyLand = false;
             _mode = FlightMode.Recovering;
             _cameraFrozen = false;
             if (_motor != null && _flightAudioStarted)
@@ -307,9 +355,14 @@ namespace Vibe21.Twin
         void TickLanding(float dt)
         {
             _bonkTimer -= dt;
-            // Drop straight down until ground
-            Vector3 drop = Vector3.down * (landDropSpeed * dt);
-            MoveWithCollision(drop);
+            float dropSpd = _sillyLand ? sillyLandDropSpeed : landDropSpeed;
+            MoveWithCollision(Vector3.down * (dropSpd * dt));
+
+            if (_sillyLand)
+            {
+                _yaw += _tumbleSpin * dt;
+                transform.rotation = Quaternion.Euler(Random.Range(-25f, 25f), _yaw, Random.Range(-35f, 35f));
+            }
 
             bool onGround = false;
             if (Physics.SphereCast(transform.position + Vector3.up * 2f, collideRadius * 0.9f, Vector3.down, out var ground, 4f, collideMask, QueryTriggerInteraction.Ignore))
@@ -328,7 +381,6 @@ namespace Vibe21.Twin
                 _motor.pitch = Mathf.Lerp(_motor.pitch, 0.55f, 0.08f);
                 _motor.volume = Mathf.Lerp(_motor.volume, motorVolume * 0.15f, 0.08f);
             }
-            // Keep cam frozen at pre-land pose
             if (_cameraFrozen && cameraRig != null)
             {
                 cameraRig.position = _frozenCamPos;
@@ -339,11 +391,13 @@ namespace Vibe21.Twin
             {
                 if (_bonkTimer <= 0f)
                 {
-                    PlayBonk(0.55f);
-                    _bonkTimer = 0.5f;
+                    if (_sillyLand) PlayCrash();
+                    else PlayBonk(0.55f);
+                    _bonkTimer = 0.8f;
                 }
                 _mode = FlightMode.Landed;
                 _velocity = Vector3.zero;
+                transform.rotation = Quaternion.Euler(12f, _yaw, Random.Range(-8f, 8f));
                 if (_motor != null && _motor.isPlaying) _motor.Pause();
             }
         }
@@ -377,8 +431,7 @@ namespace Vibe21.Twin
                 return;
             }
 
-            Vector3 step = to.normalized * Mathf.Min(dist, recoverZipSpeed * dt);
-            transform.position += step;
+            transform.position += to.normalized * Mathf.Min(dist, recoverZipSpeed * dt);
             _load = 1.5f;
             SpinProps(_load, dt);
             if (_motor != null && _flightAudioStarted)
@@ -463,6 +516,14 @@ namespace Vibe21.Twin
             _bonk.Play();
         }
 
+        void PlayCrash()
+        {
+            if (_crash == null) return;
+            _crash.pitch = 0.85f + Random.Range(0f, 0.3f);
+            _crash.volume = 0.9f;
+            _crash.Play();
+        }
+
         void UpdateScrape()
         {
             if (_scrape == null) return;
@@ -508,6 +569,7 @@ namespace Vibe21.Twin
                 {
                     case Key.L: return Input.GetKeyDown(KeyCode.L);
                     case Key.R: return Input.GetKeyDown(KeyCode.R);
+                    case Key.Space: return Input.GetKeyDown(KeyCode.Space);
                 }
             }
             catch { }
@@ -528,7 +590,6 @@ namespace Vibe21.Twin
                     case Key.D: return Input.GetKey(KeyCode.D);
                     case Key.E: return Input.GetKey(KeyCode.E);
                     case Key.Q: return Input.GetKey(KeyCode.Q);
-                    case Key.Space: return Input.GetKey(KeyCode.Space);
                     case Key.LeftCtrl: return Input.GetKey(KeyCode.LeftControl);
                     case Key.LeftShift: return Input.GetKey(KeyCode.LeftShift);
                     case Key.RightShift: return Input.GetKey(KeyCode.RightShift);

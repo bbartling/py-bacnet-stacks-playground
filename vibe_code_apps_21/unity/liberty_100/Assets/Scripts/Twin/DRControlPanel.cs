@@ -63,13 +63,13 @@ namespace Vibe21.Twin
             if (_stylesReady) return;
             _titleStyle = new GUIStyle(GUI.skin.box)
             {
-                fontSize = 22,
+                fontSize = 38,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
-                padding = new RectOffset(14, 14, 8, 8)
+                padding = new RectOffset(18, 18, 12, 12)
             };
-            _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 16 };
-            _buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 16, fixedHeight = 36 };
+            _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 28 };
+            _buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 28, fixedHeight = 56 };
             _stylesReady = true;
         }
 
@@ -77,75 +77,75 @@ namespace Vibe21.Twin
         {
             if (TwinMainMenu.Instance != null && TwinMainMenu.Instance.IsPaused) return;
             EnsureStyles();
-            const float w = 540f;
-            const float rowH = 36f;
-            float panelH = panelOpen ? 640f : 48f;
+            float w = 920f;
+            float rowH = 52f;
+            float panelH = panelOpen ? Mathf.Min(1100f, Screen.height - 32f) : 64f;
             float x = Screen.width - w - 16f;
             float y = 16f;
 
             GUI.Box(new Rect(x, y, w, panelH), "");
-            GUI.Label(new Rect(x + 12f, y + 6f, w - 70f, 36f), "Liberty 100 — DR Twin Sim", _titleStyle);
-            if (GUI.Button(new Rect(x + w - 44f, y + 8f, 36f, 32f), panelOpen ? "–" : "+", _buttonStyle))
+            GUI.Label(new Rect(x + 16f, y + 10f, w - 90f, 48f), "Liberty 100 — DR Twin Sim", _titleStyle);
+            if (GUI.Button(new Rect(x + w - 56f, y + 12f, 44f, 44f), panelOpen ? "–" : "+", _buttonStyle))
                 panelOpen = !panelOpen;
             if (!panelOpen) return;
 
-            float row = y + 52f;
-            float labelW = 180f;
+            float row = y + 72f;
+            float labelW = 280f;
             float sliderX = x + labelW + 8f;
-            float sliderW = w - labelW - 36f;
+            float sliderW = w - labelW - 40f;
 
-            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"OAT °C  {oatC:0.0}", _labelStyle);
-            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), oatC, 10f, 42f);
+            GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"OAT °C  {oatC:0.0}", _labelStyle);
+            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), oatC, 10f, 42f);
             row += rowH;
 
-            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"RH %  {rhPct:0.0}", _labelStyle);
-            rhPct = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), rhPct, 20f, 95f);
+            GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"RH %  {rhPct:0.0}", _labelStyle);
+            rhPct = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), rhPct, 20f, 95f);
             row += rowH;
 
-            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Hour ending  {hourEnding}", _labelStyle);
-            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), hourEnding, 1, 24));
+            GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Hour ending  {hourEnding}", _labelStyle);
+            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), hourEnding, 1, 24));
             row += rowH;
 
-            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Precool °F  {precoolF:0.0}", _labelStyle);
-            precoolF = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), precoolF, 0f, 6f);
+            GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Precool °F  {precoolF:0.0}", _labelStyle);
+            precoolF = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), precoolF, 0f, 6f);
             row += rowH;
 
-            GUI.Label(new Rect(x + 16f, row, labelW, rowH), $"Relax clg °F  {relaxClgF:0.0}", _labelStyle);
-            relaxClgF = GUI.HorizontalSlider(new Rect(sliderX, row + 12f, sliderW, 20f), relaxClgF, 0f, 10f);
+            GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Relax clg °F  {relaxClgF:0.0}", _labelStyle);
+            relaxClgF = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), relaxClgF, 0f, 10f);
             row += rowH;
 
-            GUI.Label(new Rect(x + 16f, row, w - 32f, rowH), $"Strategy:  {Strategies[strategyIndex]}", _labelStyle);
-            row += 30f;
-            if (GUI.Button(new Rect(x + 16f, row, (w - 48f) * 0.5f, 40f), "◀  Prev strategy", _buttonStyle))
+            GUI.Label(new Rect(x + 20f, row, w - 40f, rowH), $"Strategy:  {Strategies[strategyIndex]}", _labelStyle);
+            row += 44f;
+            if (GUI.Button(new Rect(x + 20f, row, (w - 56f) * 0.5f, 56f), "◀  Prev strategy", _buttonStyle))
                 strategyIndex = (strategyIndex + Strategies.Length - 1) % Strategies.Length;
-            if (GUI.Button(new Rect(x + 28f + (w - 48f) * 0.5f, row, (w - 48f) * 0.5f, 40f), "Next strategy  ▶", _buttonStyle))
+            if (GUI.Button(new Rect(x + 36f + (w - 56f) * 0.5f, row, (w - 56f) * 0.5f, 56f), "Next strategy  ▶", _buttonStyle))
                 strategyIndex = (strategyIndex + 1) % Strategies.Length;
-            row += 52f;
+            row += 68f;
 
-            GUI.Label(new Rect(x + 16f, row, w - 32f, rowH),
+            GUI.Label(new Rect(x + 20f, row, w - 40f, rowH),
                 $"2-hr event plays in:  {PlaybackLabels[playbackDurationIndex]}", _labelStyle);
-            row += 28f;
-            float btnW = (w - 56f) / 3f;
+            row += 44f;
+            float btnW = (w - 64f) / 3f;
             for (int i = 0; i < 3; i++)
             {
                 GUI.enabled = !_eventRunning;
-                if (GUI.Button(new Rect(x + 16f + i * (btnW + 8f), row, btnW, 36f), PlaybackLabels[i], _buttonStyle))
+                if (GUI.Button(new Rect(x + 20f + i * (btnW + 10f), row, btnW, 52f), PlaybackLabels[i], _buttonStyle))
                     playbackDurationIndex = i;
                 GUI.enabled = true;
             }
-            row += 48f;
+            row += 64f;
 
             GUI.enabled = !_busy && !_eventRunning;
-            if (GUI.Button(new Rect(x + 16f, row, w - 32f, 44f),
+            if (GUI.Button(new Rect(x + 20f, row, w - 40f, 60f),
                     "Predict once  +  refresh temps", _buttonStyle))
                 StartCoroutine(RunPredictOnce());
             GUI.enabled = true;
-            row += 52f;
+            row += 72f;
 
             GUI.enabled = !_busy;
             if (!_eventRunning)
             {
-                if (GUI.Button(new Rect(x + 16f, row, w - 32f, 48f),
+                if (GUI.Button(new Rect(x + 20f, row, w - 40f, 64f),
                         $"Run DR Event ({PlaybackLabels[playbackDurationIndex]})", _buttonStyle))
                 {
                     if (_eventCo != null) StopCoroutine(_eventCo);
@@ -154,25 +154,38 @@ namespace Vibe21.Twin
             }
             else
             {
-                if (GUI.Button(new Rect(x + 16f, row, w - 32f, 48f), "Stop DR Event", _buttonStyle))
+                if (GUI.Button(new Rect(x + 20f, row, w - 40f, 64f), "Stop DR Event", _buttonStyle))
                     StopDrEvent();
             }
             GUI.enabled = true;
-            row += 56f;
+            row += 76f;
+
+            // Land / Recover watch mode
+            var drone = FindAnyObjectByType<DroneController>();
+            bool parked = drone != null && drone.IsWatchParked;
+            string landLabel = parked ? "Recover Drone  (Space)" : "Land Drone  (Space)";
+            if (GUI.Button(new Rect(x + 20f, row, w - 40f, 72f), landLabel, _buttonStyle))
+            {
+                if (drone != null) drone.ToggleWatchLand();
+            }
+            row += 80f;
+            GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
+                "Space — silly land / recover (freeze cam, watch plant)", _labelStyle);
+            row += 44f;
 
             if (_eventRunning)
             {
                 float pct = _simHourProgress / SimWindowHours;
-                GUI.Label(new Rect(x + 16f, row, w - 32f, 28f),
+                GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
                     $"Event progress: {_simHourProgress:0.00} / {SimWindowHours:0} h  ({pct * 100f:0}%)", _labelStyle);
-                row += 28f;
+                row += 40f;
             }
 
-            GUI.Label(new Rect(x + 16f, row, w - 32f, 28f),
+            GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
                 float.IsNaN(_lastKw) ? "Predicted facility kW:  —" : $"Predicted facility kW:  {_lastKw:0.0}",
                 _labelStyle);
-            row += 28f;
-            GUI.Label(new Rect(x + 16f, row, w - 32f, 70f),
+            row += 40f;
+            GUI.Label(new Rect(x + 20f, row, w - 40f, 100f),
                 _status + "\n" + _provenance + "\nZone °C = DEMO BAS-style (not live E+)", _labelStyle);
         }
 
