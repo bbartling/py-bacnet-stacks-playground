@@ -1,61 +1,68 @@
 # PythonAnywhere mirror (Vibe21 DM Twin)
 
-Keep this folder aligned with the CannonPhysicsSim PA pattern at
-`C:\Users\ben\Documents\CannonPhysicsSim\pythonanywhere_flask` while the live
-API lives in `vibe_code_apps_21/flask_app/`.
+Matches **CannonPhysicsSim** `pythonanywhere_flask`: flat `flask_app.py`,
+`webgl/` at app root, WSGI `from flask_app import app as application`.
 
-## Turnkey zip (preferred)
+Live package code stays in `vibe_code_apps_21/flask_app/` locally.
+The turnkey zip **renames** that package to `twin_api/` so it does not clash
+with the flat `flask_app.py` module name on mysite.
+
+## Turnkey zip (includes WebGL player)
+
+```powershell
+cd vibe_code_apps_21
+powershell -File tools/build_webgl_pa.ps1   # Unity WebGL → flask_app/webgl → pack
+# or, if webgl/ already built:
+python tools/pack_pa_bundle.py             # fails if webgl/index.html missing
+```
+
+## Extract into mysite (not `~`)
 
 ```bash
-cd vibe_code_apps_21
-python tools/pack_pa_bundle.py   # dist/vibe21_pa_bundle.zip — refuses >100 MiB
+unzip -o vibe21_pa_bundle.zip -d /home/bensApi/mysite
 ```
 
-PythonAnywhere **Files upload hard cap = 100 MiB**. Unzip on PA → point WSGI at `flask_app.app:create_app` → Reload.
-
-Models ship inside the zip at `flask_app/models/` (agent/CLI/notebook default dump).
-
-## Layout to upload
+Zip contents:
 
 ```
-pythonanywhere_mirror/
-  flask_app.py          # flat WSGI entry (create_app)
+mysite/
+  flask_app.py          # flat WSGI entry (Cannon-identical import)
   requirements.txt
-  webgl/                # Unity WebGL export (index.html + Build + TemplateData)
-  models/               # optional — prefer flask_app/models in the turnkey zip
+  twin_api/             # app + models + static
+  ml/
+  webgl/                # Unity twin WebGL when present
+  README_PA.md
 ```
 
-## WSGI (PythonAnywhere Web tab)
+## WSGI (same as tank-war)
 
 ```python
 import sys
-path = "/home/YOURUSER/vibe21_dm_twin"
-if path not in sys.path:
-    sys.path.insert(0, path)
-from flask_app import app as application  # flat module exports `app`
+
+project_home = "/home/bensApi/mysite"
+if project_home not in sys.path:
+    sys.path = [project_home] + sys.path
+
+from flask_app import app as application
 ```
 
-Or package form:
+## Virtualenv
 
-```python
-from flask_app.app import create_app
-application = create_app()
+Install with the **Web tab** virtualenv pip (not bare `pip` → `~/.local`):
+
+```bash
+workon YOUR_VENV
+pip install -r ~/mysite/requirements.txt
 ```
 
-## Static files (Web → Static files)
+Then Reload. Public URL: `https://bensapi.pythonanywhere.com/`  
+(not the Files browser URL under `pythonanywhere.com/user/.../files/...`).
+
+## Static maps (optional)
 
 | URL | Directory |
 |-----|-----------|
-| `/Build/` | `.../webgl/Build` |
-| `/TemplateData/` | `.../webgl/TemplateData` |
+| `/Build/` | `/home/bensApi/mysite/webgl/Build` |
+| `/TemplateData/` | `/home/bensApi/mysite/webgl/TemplateData` |
 
-API stays dynamic: `/api/v1/health`, `/api/v1/predict/demand_hourly`.
-
-## Checklist
-
-1. Export WebGL with **Decompression Fallback** (or uncompressed) into `webgl/`.
-2. Copy trained joblib + card; set env if not under default model paths.
-3. Reload PA web app; hit `/api/v1/health` then `/`.
-4. Unity `DemandApiClient` uses page origin on WebGL (same-origin).
-
-See also: `../vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`, `UNITY_WEBGL_HANDOFF.md`.
+See `../vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md`.

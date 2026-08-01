@@ -16,6 +16,9 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+# Unity WebGL player output (folder name Build/) must ship with PA/Flask
+!vibe_code_apps_21/flask_app/webgl/Build/
+!vibe_code_apps_21/flask_app/webgl/Build/**
 develop-eggs/
 dist/
 downloads/

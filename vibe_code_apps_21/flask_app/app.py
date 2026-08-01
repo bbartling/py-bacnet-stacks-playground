@@ -8,16 +8,33 @@ import os
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_from_directory
-from flask_cors import CORS
+
+try:
+    from flask_cors import CORS
+except ImportError:  # optional — same-origin WebGL on PA does not need it
+    CORS = None  # type: ignore[misc, assignment]
 
 from .model_loader import load_bundle
 from .predict import STRATEGIES, predict_kw
 
-_VIBE21 = Path(__file__).resolve().parents[1]
+_PKG = Path(__file__).resolve().parent
+_VIBE21 = _PKG.parents[0]  # repo root locally; app root on PA (twin_api parent)
 _TWIN = _VIBE21 / "assets" / "twin_b100_ops11"
-# WebGL build lives next to the package (or override with VIBE21_WEBGL_DIR)
-_WEBGL = Path(os.environ.get("VIBE21_WEBGL_DIR", str(_VIBE21 / "flask_app" / "webgl"))).resolve()
-_STATIC = Path(__file__).resolve().parent / "static"
+
+
+def _default_webgl_dir() -> Path:
+    """PA Cannon: <app>/webgl. Local: flask_app/webgl. Env wins."""
+    env = os.environ.get("VIBE21_WEBGL_DIR")
+    if env:
+        return Path(env).resolve()
+    # Package renamed to twin_api in PA zip → webgl sits beside twin_api/
+    if _PKG.name == "twin_api":
+        return (_VIBE21 / "webgl").resolve()
+    return (_VIBE21 / "flask_app" / "webgl").resolve()
+
+
+_WEBGL = _default_webgl_dir()
+_STATIC = _PKG / "static"
 _NOTEBOOK_HTML = _STATIC / "notebooks" / "demand_hourly_training_walkthrough.html"
 
 mimetypes.add_type("application/wasm", ".wasm")
@@ -27,7 +44,8 @@ mimetypes.add_type("text/javascript", ".js")
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    if CORS is not None:
+        CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     @app.after_request
     def add_unity_headers(response):
@@ -148,7 +166,7 @@ def create_app() -> Flask:
             return jsonify(
                 {
                     "service": "vibe21-dm-twin",
-                    "message": "API up. Drop a Unity WebGL build into flask_app/webgl/ (index.html + Build/).",
+                    "message": "API up. Drop Unity WebGL into webgl/ next to flask_app.py (index.html + Build/).",
                     "health": "/api/v1/health",
                     "predict": "/api/v1/predict/demand_hourly",
                     "notebook": "/notebooks/demand_hourly",

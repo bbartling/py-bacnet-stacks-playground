@@ -1,22 +1,20 @@
-# Unity WebGL build drop folder
+# Unity WebGL build drop folder (Cannon layout)
 
-Export the Liberty100Twin WebGL player here so Flask can serve it:
+Filled by:
+
+```powershell
+powershell -File tools/build_webgl_pa.ps1
+# or Unity menu: Vibe21 → Build WebGL → flask_app/webgl
+```
+
+Expected:
 
 ```
-flask_app/webgl/
+webgl/
   index.html
-  Build/
+  Build/WebGL.*
   TemplateData/
-  StreamingAssets/   (if used)
+  StreamingAssets/   (optional)
 ```
 
-Local:
-
-```bash
-cd vibe_code_apps_21
-python -m flask_app   # :5050 — / serves WebGL when present; /api/v1/* always
-```
-
-PythonAnywhere: map `/Build/` and `/TemplateData/` to this folder (see `vibe21_agent_spec/PYTHONANYWHERE_DEPLOYMENT.md` and `pythonanywhere_mirror/`).
-
-Until a build is present, `GET /` returns a JSON stub pointing at the API.
+`pack_pa_bundle.py` **refuses** to zip without `index.html`.

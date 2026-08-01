@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Pack a turnkey PythonAnywhere zip (Flask + models + optional WebGL).
+"""Pack a turnkey PythonAnywhere zip (Cannon-style mysite layout).
+
+Layout matches CannonPhysicsSim/pythonanywhere_flask:
+  flask_app.py   — flat WSGI module (from flask_app import app)
+  twin_api/      — Flask package + models (renamed so it cannot clash with flask_app.py)
+  webgl/         — Unity WebGL (optional; at mysite root like tank-war)
+  ml/            — feature compile helpers for the loader
+  requirements.txt
 
 Hard guard: refuse zips over 100 MiB unless --force (PA Files-page HTTP upload cap).
 """
@@ -7,7 +14,6 @@ Hard guard: refuse zips over 100 MiB unless --force (PA Files-page HTTP upload c
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -16,27 +22,24 @@ _VIBE21 = Path(__file__).resolve().parents[1]
 _MAX_MIB = 100
 _MAX_BYTES = _MAX_MIB * 1024 * 1024
 
-# Paths relative to vibe21 root included in the zip
-_INCLUDE = [
+# Source paths under vibe21 → archive name (mysite-ready)
+_PACKAGE_FILES = [
     "flask_app/__init__.py",
     "flask_app/__main__.py",
     "flask_app/app.py",
     "flask_app/model_loader.py",
     "flask_app/predict.py",
-    "flask_app/requirements.txt",
     "flask_app/models",
-    "flask_app/webgl",
     "flask_app/static",
     "flask_app/tests",
+]
+_ML_FILES = [
     "ml/__init__.py",
     "ml/artifact_paths.py",
     "ml/feature_compile_dm.py",
     "ml/notebook_plots.py",
     "ml/train_demand_hourly.py",
     "ml/tune_demand_hourly.py",
-    "pythonanywhere_mirror/flask_app.py",
-    "pythonanywhere_mirror/README.md",
-    "notebooks/demand_hourly_training_walkthrough.ipynb",
 ]
 
 
@@ -44,71 +47,153 @@ def _should_skip(path: Path) -> bool:
     parts = set(path.parts)
     if "__pycache__" in parts or path.suffix == ".pyc":
         return True
-    if path.name == ".gitkeep":
-        return False
     return False
 
 
+def _remap_package(rel: str) -> str:
+    """flask_app/... → twin_api/... (avoid clash with flat flask_app.py)."""
+    rel = rel.replace("\\", "/")
+    if rel == "flask_app" or rel.startswith("flask_app/"):
+        return "twin_api" + rel[len("flask_app") :]
+    return rel
+
+
 def collect_files(root: Path) -> list[tuple[Path, str]]:
-    """Return (absolute_path, archive_name) pairs."""
+    """Return (absolute_path, archive_name) pairs for mysite extract."""
     out: list[tuple[Path, str]] = []
-    for rel in _INCLUDE:
+
+    # Flat Cannon-style entry + root requirements
+    mirror = root / "pythonanywhere_mirror" / "flask_app.py"
+    if mirror.is_file():
+        out.append((mirror, "flask_app.py"))
+    req = root / "flask_app" / "requirements.txt"
+    if req.is_file():
+        out.append((req, "requirements.txt"))
+
+    for rel in _PACKAGE_FILES + _ML_FILES:
         p = root / rel
         if not p.exists():
             continue
         if p.is_file():
-            out.append((p, rel.replace("\\", "/")))
+            out.append((p, _remap_package(rel)))
             continue
         for f in p.rglob("*"):
             if not f.is_file() or _should_skip(f):
                 continue
-            arc = f.relative_to(root).as_posix()
-            out.append((f, arc))
-    # Top-level PA readme
+            arc_src = f.relative_to(root).as_posix()
+            # webgl inside package → also emit at zip-root webgl/ (Cannon)
+            if "/webgl/" in arc_src or arc_src.endswith("/webgl"):
+                continue
+            out.append((f, _remap_package(arc_src)))
+
+    # WebGL at zip root (Cannon: <app>/webgl) — real player required
+    webgl = root / "flask_app" / "webgl"
+    index = webgl / "index.html"
+    if not index.is_file():
+        raise SystemExit(
+            f"ERROR: missing {index}. Build WebGL first:\n"
+            "  powershell -File tools/build_webgl_pa.ps1\n"
+            "or Unity menu: Vibe21 → Build WebGL → flask_app/webgl"
+        )
+    for f in webgl.rglob("*"):
+        if not f.is_file() or _should_skip(f):
+            continue
+        if f.name in (".gitkeep",):
+            continue
+        rel = f.relative_to(webgl).as_posix()
+        out.append((f, f"webgl/{rel}"))
+
     readme = root / "dist" / "README_PA.md"
     if readme.is_file():
         out.append((readme, "README_PA.md"))
+
+    mirror_readme = root / "pythonanywhere_mirror" / "README.md"
+    if mirror_readme.is_file():
+        out.append((mirror_readme, "pythonanywhere_mirror/README.md"))
+
     return out
 
 
 def write_readme_pa(root: Path) -> Path:
     dist = root / "dist"
     dist.mkdir(parents=True, exist_ok=True)
-    text = """# Vibe21 PA turnkey bundle
+    text = """# Vibe21 PA turnkey — Cannon / mysite layout
 
-## Upload limit
+Same shape as `CannonPhysicsSim/pythonanywhere_flask`:
+flat `flask_app.py` + `webgl/` + WSGI `from flask_app import app as application`.
 
-PythonAnywhere **Files page / HTTP upload hard cap = 100 MiB**.
-If this zip is larger, use SFTP/SCP or split — do not rely on the orange upload button.
+## Build (required — zip refuses empty webgl/)
 
-## Deploy
+```powershell
+cd vibe_code_apps_21
+powershell -File tools/build_webgl_pa.ps1
+# → dist/vibe21_pa_bundle.zip with webgl/index.html + Build/
+```
 
-1. Upload `vibe21_pa_bundle.zip` (must be ≤100 MiB for Files upload).
-2. Bash: `unzip vibe21_pa_bundle.zip -d vibe21_dm_twin && cd vibe21_dm_twin`
-3. Web tab WSGI (example):
+PythonAnywhere **Files page upload hard cap = 100 MiB**. If larger, use SFTP.
+
+## Deploy (unzip into app root, e.g. `~` or `mysite`)
+
+```bash
+cd ~
+unzip -o vibe21_pa_bundle.zip
+ls webgl/Build
+```
+
+### Virtualenv (required)
+
+Bare `pip install` goes to `~/.local` and the Web worker often **cannot** see it.
+Use the venv path from the Web tab, e.g.:
+
+```bash
+# replace with the path shown under Web → Virtualenv
+mkvirtualenv --python=python3.10 vibe21
+workon vibe21
+pip install -r ~/mysite/requirements.txt
+```
+
+Or with the venv pip directly:
+
+```bash
+~/.virtualenvs/vibe21/bin/pip install -r ~/mysite/requirements.txt
+```
+
+Point the Web tab Virtualenv field at that venv, then **Reload**.
+
+### WSGI (`/var/www/bensapi_pythonanywhere_com_wsgi.py`)
 
 ```python
 import sys
-path = "/home/YOURUSER/vibe21_dm_twin"
-if path not in sys.path:
-    sys.path.insert(0, path)
-from flask_app.app import create_app
-application = create_app()
+
+project_home = "/home/bensApi/mysite"
+if project_home not in sys.path:
+    sys.path = [project_home] + sys.path
+
+from flask_app import app as application
 ```
 
-Or use flat `pythonanywhere_mirror/flask_app.py` as `flask_app.py` at the app root.
+### Static files (match wherever you unzipped)
 
-4. Install deps from `flask_app/requirements.txt` into the web-app virtualenv.
-5. **Reload** the web app.
+If zip is in `~` (`/home/bensApi`):
+
+| URL | Directory |
+|-----|-----------|
+| `/Build/` | `/home/bensApi/webgl/Build` |
+| `/TemplateData/` | `/home/bensApi/webgl/TemplateData` |
+
+## Public URL (not the Files browser)
+
+- App: `https://bensapi.pythonanywhere.com/`
+- Health: `https://bensapi.pythonanywhere.com/api/v1/health`
+- Files UI `pythonanywhere.com/user/.../files/...` is **not** the game/API URL.
 
 ## Smoke
 
-- `GET /api/v1/health` — green when `flask_app/models/demand_hourly_v1.joblib` loads
-- `POST /api/v1/predict/demand_hourly` — DR knobs → facility_kw
-- `GET /notebooks/demand_hourly` — read-only training notebook HTML
-- `GET /` — WebGL if `flask_app/webgl/index.html` present, else API stub JSON
+- `GET /api/v1/health`
+- `POST /api/v1/predict/demand_hourly`
+- `GET /` — WebGL if `webgl/index.html` present, else JSON stub
 
-Models are already under `flask_app/models/` (agent/CLI/notebook dump default).
+Models: `twin_api/models/` (env set by flat `flask_app.py`).
 """
     path = dist / "README_PA.md"
     path.write_text(text, encoding="utf-8")
@@ -120,15 +205,20 @@ def pack(root: Path, out_zip: Path, *, force: bool = False) -> Path:
     files = collect_files(root)
     if not files:
         raise SystemExit("nothing to pack")
+    # Deduplicate archive names (last wins)
+    by_arc: dict[str, Path] = {}
+    for abs_path, arc in files:
+        by_arc[arc] = abs_path
+    pairs = list(by_arc.items())
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     if out_zip.is_file():
         out_zip.unlink()
     with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for abs_path, arc in files:
+        for arc, abs_path in sorted(pairs):
             zf.write(abs_path, arcname=arc)
     size = out_zip.stat().st_size
     mib = size / (1024 * 1024)
-    print(f"wrote {out_zip} ({mib:.2f} MiB, {len(files)} files)")
+    print(f"wrote {out_zip} ({mib:.2f} MiB, {len(pairs)} files)")
     if size > _MAX_BYTES and not force:
         out_zip.unlink(missing_ok=True)
         raise SystemExit(
@@ -157,12 +247,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         write_readme_pa(root)
         files = collect_files(root)
-        total = sum(p.stat().st_size for p, _ in files)
-        print(f"would pack {len(files)} files, uncompressed ~{total/1024/1024:.2f} MiB")
-        for _, arc in files[:30]:
+        by_arc = {arc: p for p, arc in files}
+        total = sum(p.stat().st_size for p in by_arc.values())
+        print(f"would pack {len(by_arc)} files, uncompressed ~{total/1024/1024:.2f} MiB")
+        for arc in sorted(by_arc)[:40]:
             print(" ", arc)
-        if len(files) > 30:
-            print(f"  … +{len(files)-30} more")
+        if len(by_arc) > 40:
+            print(f"  … +{len(by_arc)-40} more")
         return 0
     pack(root, out, force=args.force)
     return 0
