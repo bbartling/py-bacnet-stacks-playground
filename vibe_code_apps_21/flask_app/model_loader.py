@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -13,24 +13,15 @@ import joblib
 
 _VIBE21 = Path(__file__).resolve().parents[1]
 _ML = _VIBE21 / "ml"
+if str(_ML) not in sys.path:
+    sys.path.insert(0, str(_ML))
 
-
-def _workspace() -> Path:
-    if Path("/data/runs").is_dir():
-        return Path("/data")
-    return Path.home() / "wattlab_workspace"
+from artifact_paths import resolve_load_paths  # noqa: E402
 
 
 def default_artifact_paths() -> tuple[Path, Path]:
-    env_art = os.environ.get("VIBE21_MODEL_ARTIFACT")
-    env_card = os.environ.get("VIBE21_MODEL_CARD")
-    if env_art and env_card:
-        return Path(env_art), Path(env_card)
-    ws = _workspace()
-    return (
-        ws / "models" / "demand_hourly_v1.joblib",
-        ws / "models" / "demand_hourly_v1_model_card.json",
-    )
+    art, card = resolve_load_paths()
+    return art, card
 
 
 def sha256_file(path: Path) -> str:
@@ -46,7 +37,8 @@ def load_bundle() -> dict[str, Any]:
     art, card_path = default_artifact_paths()
     if not art.is_file():
         raise FileNotFoundError(
-            f"Model artifact missing: {art}. Set VIBE21_MODEL_ARTIFACT or train first."
+            f"Model artifact missing: {art}. "
+            "Dump joblib into flask_app/models/ or set VIBE21_MODEL_ARTIFACT."
         )
     if not card_path.is_file():
         raise FileNotFoundError(f"Model card missing: {card_path}")
@@ -58,7 +50,6 @@ def load_bundle() -> dict[str, Any]:
             f"Artifact hash mismatch: card={expected} file={digest}. Refusing load."
         )
     obj = joblib.load(art)
-    # joblib may be {"model": ..., "feature_cols": ...} or bare estimator
     if isinstance(obj, dict) and "model" in obj:
         model = obj["model"]
         feature_cols = obj.get("feature_cols")
@@ -66,10 +57,6 @@ def load_bundle() -> dict[str, Any]:
         model = obj
         feature_cols = None
     if feature_cols is None:
-        import sys
-
-        if str(_ML) not in sys.path:
-            sys.path.insert(0, str(_ML))
         from feature_compile_dm import FEATURE_COLS  # noqa: WPS433
 
         feature_cols = list(FEATURE_COLS)

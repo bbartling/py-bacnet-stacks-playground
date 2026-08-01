@@ -31,6 +31,10 @@ if str(_ML) not in sys.path:
 
 from feature_compile_dm import FEATURE_COLS, compile_features, matrix_xy, peak_mask  # noqa: E402
 from train_demand_hourly import load_farm_frame, _workspace  # noqa: E402
+from artifact_paths import (  # noqa: E402
+    default_model_dir,
+    mirror_to_wattlab,
+)
 
 
 def _metrics(y_true: np.ndarray, y_pred: np.ndarray, peak: np.ndarray | None = None) -> dict[str, float]:
@@ -70,9 +74,13 @@ SEARCH_SPACES: dict[str, tuple[Any, dict[str, list]]] = {
     "extra_trees": (
         ExtraTreesRegressor(random_state=21, n_jobs=-1),
         {
-            "n_estimators": [80, 120, 200],
+            "n_estimators": [100, 200, 300, 400],
             "max_depth": [6, 10, 16, None],
             "min_samples_leaf": [1, 2, 4, 8],
+            "min_samples_split": [2, 5, 10],
+            "max_features": ["sqrt", "log2", 0.5, 0.8, 1.0],
+            "max_leaf_nodes": [None, 64, 128, 256],
+            "bootstrap": [False, True],
         },
     ),
     "gbr": (
@@ -152,7 +160,9 @@ def tune(
         n_combos = 1
         for v in space.values():
             n_combos *= max(len(v), 1)
-        iters = min(n_iter, n_combos)
+        # ExtraTrees gets a denser search after expanding the space
+        family_iter = int(n_iter * 1.5) if name == "extra_trees" else n_iter
+        iters = min(family_iter, n_combos)
         print(f"tune {name} n_iter={iters} …", flush=True)
         search = RandomizedSearchCV(
             proto,
@@ -391,7 +401,8 @@ def tune(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--out-dir", type=Path, default=None, help="Default: flask_app/models/")
+    ap.add_argument("--also-wattlab", action="store_true", help="Mirror artifacts to wattlab models/")
     ap.add_argument("--n-iter", type=int, default=40)
     ap.add_argument("--n-splits", type=int, default=5)
     ap.add_argument("--champion-refine-iter", type=int, default=60)
@@ -399,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ws = _workspace()
     pq = args.parquet or (ws / "reports" / "dm_hourly_farm" / "dm_hourly_rows.parquet")
-    out_dir = args.out_dir or (ws / "models")
+    out_dir = args.out_dir or default_model_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     if not pq.is_file():
         print(f"missing {pq}", file=sys.stderr)
@@ -459,7 +470,6 @@ def main(argv: list[str] | None = None) -> int:
         "champion": result["champion"],
         "best_params": result["best_params"],
         "refined_family": result.get("refined_family"),
-        "targets": ["facility_kw"],
         "feature_cols": FEATURE_COLS,
         "cv_metrics": {
             "persistence": result["persistence"],
@@ -486,6 +496,8 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "demand_hourly_v1_model_card.json").write_text(
         json.dumps(card, indent=2) + "\n", encoding="utf-8"
     )
+    if args.also_wattlab:
+        mirror_to_wattlab(out_dir)
     print(
         json.dumps(
             {

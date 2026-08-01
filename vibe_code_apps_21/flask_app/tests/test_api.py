@@ -37,6 +37,13 @@ def test_root_stub_without_webgl(client):
     data = r.get_json()
     assert data["service"] == "vibe21-dm-twin"
     assert "health" in data
+    assert data.get("notebook") == "/notebooks/demand_hourly"
+
+
+def test_notebook_html_route(client):
+    r = client.get("/notebooks/demand_hourly")
+    assert r.status_code == 200
+    assert "html" in r.content_type.lower() or r.data[:20].lower().startswith(b"<!doctype") or b"<html" in r.data[:200].lower()
 
 
 def test_twin_manifest(client):

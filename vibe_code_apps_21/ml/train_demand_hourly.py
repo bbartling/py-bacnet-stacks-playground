@@ -23,6 +23,7 @@ if str(_ML) not in sys.path:
     sys.path.insert(0, str(_ML))
 
 from feature_compile_dm import FEATURE_COLS, compile_features, matrix_xy, peak_mask  # noqa: E402
+from artifact_paths import default_model_dir, mirror_to_wattlab  # noqa: E402
 
 
 def _workspace() -> Path:
@@ -130,12 +131,13 @@ def train(df: pd.DataFrame, *, n_splits: int = 5) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--out-dir", type=Path, default=None, help="Default: flask_app/models/")
+    ap.add_argument("--also-wattlab", action="store_true")
     args = ap.parse_args(argv)
 
     ws = _workspace()
     pq = args.parquet or (ws / "reports" / "dm_hourly_farm" / "dm_hourly_rows.parquet")
-    out_dir = args.out_dir or (ws / "models")
+    out_dir = args.out_dir or default_model_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     if not pq.is_file():
         print(f"missing {pq}", file=sys.stderr)
@@ -190,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "demand_hourly_v1_model_card.json").write_text(
         json.dumps(card, indent=2) + "\n", encoding="utf-8"
     )
+    if args.also_wattlab:
+        mirror_to_wattlab(out_dir)
     print(
         json.dumps(
             {

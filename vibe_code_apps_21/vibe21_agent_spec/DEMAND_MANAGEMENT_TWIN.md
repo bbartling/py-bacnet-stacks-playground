@@ -67,6 +67,7 @@ Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.m
 - Large pause menu (°C/°F); enlarged DR panel (**H** hide, big sliders, Land Drone, ML backend R/Y/G health light)
 - DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly` — ML = **facility kW only**; zone/AHU temps are DEMO
 - Air FX follows fans; liquid/tower FX + pumps follow chiller plant (`chiller_off` kills pumps, not necessarily duct air)
+- Turnkey PA zip: `tools/pack_pa_bundle.py` (joblib in `flask_app/models/`); training notebook HTML at `/notebooks/demand_hourly`
 
 See **`STACK_JOURNEY.md`** for open-fdd Excel ↔ E+ farm ↔ ML ↔ twin linkage.
 

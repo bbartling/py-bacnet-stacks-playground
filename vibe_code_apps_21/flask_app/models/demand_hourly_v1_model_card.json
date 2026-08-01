@@ -1,0 +1,128 @@
+{
+  "schema_version": "vibe21.model_registry.v1",
+  "model_id": "demand_hourly_v1",
+  "family": "OPERATIONAL_DEMAND",
+  "artifact": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_21\\flask_app\\models\\demand_hourly_v1.joblib",
+  "artifact_sha256": "dedd40980e90fa26c262c1cd306ff111b63cc7412e4c22b6ebfd1a40382847f2",
+  "status": "CANDIDATE",
+  "targets": [
+    "facility_kw"
+  ],
+  "champion": "extra_trees",
+  "best_params": {
+    "n_estimators": 200,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_leaf_nodes": null,
+    "max_features": 0.8,
+    "max_depth": 10,
+    "bootstrap": false
+  },
+  "refined_family": "extra_trees",
+  "feature_cols": [
+    "hour_ending",
+    "oat_c",
+    "rh_pct",
+    "ghi",
+    "occupied",
+    "in_dr_window",
+    "precool_f",
+    "relax_clg_f",
+    "relax_htg_f",
+    "dat_delta_f",
+    "chw_avail",
+    "fan_avail",
+    "deadband_target_f",
+    "facility_kw_lag1",
+    "facility_kw_lag2",
+    "oat_lag1",
+    "phase_baseline",
+    "phase_precool",
+    "phase_relax",
+    "phase_shed",
+    "phase_recovery",
+    "strategy_baseline",
+    "strategy_precool_shift",
+    "strategy_deadband_10f",
+    "strategy_chiller_off",
+    "strategy_loadshed_p5f",
+    "strategy_hvac_off",
+    "strategy_precool_chiller_off",
+    "is_weekend"
+  ],
+  "cv_metrics": {
+    "persistence": {
+      "rmse": 48.117857637528644,
+      "mae": 21.005485087719297,
+      "rmse_peak_14_16": 54.19395961649222,
+      "mae_peak_14_16": 21.013802631578947
+    },
+    "ridge": {
+      "rmse": 44.41467143886196,
+      "mae": 27.106153104477837,
+      "rmse_peak_14_16": 50.112477322598295,
+      "mae_peak_14_16": 27.794732502460036
+    },
+    "elasticnet": {
+      "rmse": 44.63183566828089,
+      "mae": 27.067170508125276,
+      "rmse_peak_14_16": 51.47791496774764,
+      "mae_peak_14_16": 28.033679339415258
+    },
+    "rf": {
+      "rmse": 33.191117307431654,
+      "mae": 17.27444145174429,
+      "rmse_peak_14_16": 31.542527353302344,
+      "mae_peak_14_16": 16.60910990312081
+    },
+    "gbr": {
+      "rmse": 29.452746029035108,
+      "mae": 17.403356452382713,
+      "rmse_peak_14_16": 25.46814997465872,
+      "mae_peak_14_16": 16.532159303963788
+    },
+    "hgb": {
+      "rmse": 29.541960874784525,
+      "mae": 17.443239396666844,
+      "rmse_peak_14_16": 24.180172702761134,
+      "mae_peak_14_16": 16.07845918056977
+    },
+    "extra_trees": {
+      "rmse": 26.847172224978284,
+      "mae": 15.134896011746081,
+      "rmse_peak_14_16": 21.681724971653516,
+      "mae_peak_14_16": 11.937305868705081
+    },
+    "voting": {
+      "rmse": 28.349801567588663,
+      "mae": 16.044296099179444,
+      "rmse_peak_14_16": 23.84096158870461,
+      "mae_peak_14_16": 14.336884149013251
+    },
+    "stacking": {
+      "rmse": 26.51929178127009,
+      "mae": 15.538378007633133,
+      "rmse_peak_14_16": 21.512749886331733,
+      "mae_peak_14_16": 12.812349531330808
+    }
+  },
+  "beat_persistence_peak": true,
+  "n_rows": 4560,
+  "n_days": 40,
+  "training_parquet": "C:\\Users\\ben\\wattlab_workspace\\reports\\dm_hourly_farm\\dm_hourly_rows.parquet",
+  "training_source": "ENERGYPLUS_SIMULATED",
+  "engine": "native",
+  "sklearn_version": "1.8.0",
+  "created_utc": "2026-08-01T16:12:12Z",
+  "honesty": "Hyperparam-tuned surrogate for Unity DR knobs. CANDIDATE until BAS-validated. Source=ENERGYPLUS_SIMULATED.",
+  "unity_contract": {
+    "inputs": [
+      "oat_c",
+      "rh_pct",
+      "hour_ending",
+      "strategy_id",
+      "action knobs"
+    ],
+    "output": "facility_kw"
+  }
+}

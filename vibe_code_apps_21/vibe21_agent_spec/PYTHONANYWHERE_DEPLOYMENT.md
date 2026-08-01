@@ -18,23 +18,32 @@ Align with CannonPhysicsSim: `C:\Users\ben\Documents\CannonPhysicsSim\pythonanyw
 
 Live package for local + PA: `vibe_code_apps_21/flask_app/` (`create_app()` also serves `flask_app/webgl/` at `/` when present).
 
+**Turnkey pack:** `python tools/pack_pa_bundle.py` → `dist/vibe21_pa_bundle.zip`.  
+Joblib lives under **`flask_app/models/`** (not a separate top-level `models/` folder) so unzip + reload works without path surgery.
+
+## PythonAnywhere Files upload cap (100 MiB)
+
+The **Files page orange upload button** (and other HTTP uploads) hard-cap at **100 MiB**. This is a platform limit — it cannot be raised.
+
+- Keep the turnkey zip ≤100 MiB (API + joblib ~13 MiB + notebook HTML; add WebGL only if the zip still fits).
+- If over 100 MiB: **SFTP/SCP** (paid) or `split`/`cat` chunks — see [PA uploading help](https://help.pythonanywhere.com/pages/UploadingAndDownloadingFiles/).
+- `pack_pa_bundle.py` **exits non-zero** when the zip exceeds 100 MiB unless `--force`.
+
 ---
 
 ## Expected deployment bundle
 
 ```text
-vibe21_deploy_bundle/
-├── flask_app.py              # flat WSGI (see pythonanywhere_mirror/flask_app.py)
-├── requirements.txt
-├── README_PYTHONANYWHERE.md
-├── flask_app/                # or vibe21/ package — create_app + predict
-├── models/                   # approved joblib + card
-├── webgl/                    # Unity WebGL (preferred demo root)
-│   ├── index.html
-│   ├── Build/...
-│   └── TemplateData/...
-└── static/                   # optional React shell
-    └── react/...
+vibe21_pa_bundle.zip   # ≤100 MiB for Files upload
+├── README_PA.md
+├── flask_app/
+│   ├── app.py, model_loader.py, predict.py, requirements.txt
+│   ├── models/demand_hourly_v1.joblib (+ card, tuning)
+│   ├── static/notebooks/*.html
+│   └── webgl/                 # optional Unity export
+├── ml/                        # feature_compile + artifact_paths (+ tune helpers)
+├── notebooks/*.ipynb
+└── pythonanywhere_mirror/flask_app.py
 ```
 
 ---

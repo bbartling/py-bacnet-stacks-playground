@@ -13,21 +13,23 @@ This note documents a control-oriented **hourly facility electric demand** surro
 - **Farm size:** 40 days · 7 strategies · **4,560** hourly rows.
 - **Strategies:** baseline, precool_shift, deadband_10f, chiller_off (+ loadshed / HVAC off / precool+chiller on a subset of days).
 - **Features:** OAT, RH, hour, occupancy, DR phase, action knobs, same-day lags (no future leakage; GroupKFold by **day**).
-- **Model search:** Ridge, ElasticNet, RandomForest, HistGradientBoosting via `RandomizedSearchCV` (GroupKFold).
+- **Model search:** Ridge, ElasticNet, RF, **ExtraTrees** (expanded: `max_features`, `min_samples_split`, `max_leaf_nodes`, `bootstrap`, `n_estimators`≤400), GBR, HGB, Voting, Stacking via `RandomizedSearchCV` (GroupKFold).
 
 ## Champion model
 
 | Item | Value |
 | --- | --- |
 | Family | `extra_trees` (`ExtraTreesRegressor`) |
-| Best params | `{"n_estimators": 200, "min_samples_leaf": 1, "max_depth": 10}` |
-| OOF MAE (peak 14–16) | **~11.46 kW** (beats persistence ~21.01 kW) |
-| Also tried | Ridge, ElasticNet, RF, GBR, HGB, Voting, Stacking (+ champion refine hyperparam pass) |
-| Artifact | `C:\Users\ben\wattlab_workspace\models\demand_hourly_v1.joblib` |
+| Best params | `n_estimators=200`, `min_samples_split=5`, `min_samples_leaf=1`, `max_features=0.8`, `max_depth=10`, `bootstrap=False` |
+| OOF MAE (peak 14–16) | **~11.94 kW** (beats persistence ~21.01 kW) |
+| Also tried | Ridge, ElasticNet, RF, GBR, HGB, Voting, Stacking (+ champion refine) |
+| Artifact (turnkey) | `flask_app/models/demand_hourly_v1.joblib` |
 
 **Data note:** farm is **40 stratified days × strategies ≈ 4,560 hourly rows** — not a full year of 8,760 hours.
 
 **Target:** `facility_kw`. **Explainers:** 29 `FEATURE_COLS` (weather, DR knobs, same-day lags, strategy/phase one-hots).
+
+**Notebook:** `notebooks/demand_hourly_training_walkthrough.ipynb` (Kaggle-style CV / residual / importance plots). Read-only HTML: Flask `GET /notebooks/demand_hourly`. Dump path for agents/CLI: `flask_app/models/` (`ml/artifact_paths.py`).
 
 ## Figures
 

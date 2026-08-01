@@ -17,6 +17,8 @@ _VIBE21 = Path(__file__).resolve().parents[1]
 _TWIN = _VIBE21 / "assets" / "twin_b100_ops11"
 # WebGL build lives next to the package (or override with VIBE21_WEBGL_DIR)
 _WEBGL = Path(os.environ.get("VIBE21_WEBGL_DIR", str(_VIBE21 / "flask_app" / "webgl"))).resolve()
+_STATIC = Path(__file__).resolve().parent / "static"
+_NOTEBOOK_HTML = _STATIC / "notebooks" / "demand_hourly_training_walkthrough.html"
 
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("application/octet-stream", ".data")
@@ -41,6 +43,7 @@ def create_app() -> Flask:
             detail["model_id"] = b["card"].get("model_id")
             detail["model_status"] = b["card"].get("status")
             detail["artifact_sha256"] = b["artifact_sha256"]
+            detail["artifact_path"] = b.get("artifact_path")
         except Exception as exc:  # noqa: BLE001 — surface load errors in health
             ok = False
             detail["status"] = "degraded"
@@ -116,6 +119,19 @@ def create_app() -> Flask:
         }
         return jsonify(out)
 
+    @app.get("/notebooks/demand_hourly")
+    def notebook_demand_hourly():
+        """Read-only HTML export of the training notebook (GitHub-like)."""
+        if not _NOTEBOOK_HTML.is_file():
+            return jsonify(
+                {
+                    "error": "notebook HTML missing",
+                    "hint": "Run jupyter nbconvert on notebooks/demand_hourly_training_walkthrough.ipynb",
+                    "expected": str(_NOTEBOOK_HTML),
+                }
+            ), 404
+        return send_from_directory(_NOTEBOOK_HTML.parent, _NOTEBOOK_HTML.name)
+
     def _webgl_ready() -> bool:
         return (_WEBGL / "index.html").is_file()
 
@@ -128,6 +144,7 @@ def create_app() -> Flask:
                     "message": "API up. Drop a Unity WebGL build into flask_app/webgl/ (index.html + Build/).",
                     "health": "/api/v1/health",
                     "predict": "/api/v1/predict/demand_hourly",
+                    "notebook": "/notebooks/demand_hourly",
                     "webgl_dir": str(_WEBGL),
                 }
             )
@@ -135,8 +152,7 @@ def create_app() -> Flask:
 
     @app.get("/<path:filename>")
     def webgl_file(filename: str):
-        # Never shadow API routes (Flask matches more specific first, but be safe)
-        if filename.startswith("api/"):
+        if filename.startswith("api/") or filename.startswith("notebooks/"):
             abort(404)
         if not _webgl_ready():
             abort(404)
