@@ -1,12 +1,13 @@
-"""Flask WSGI app for Vibe 21 DM twin inference."""
+"""Flask WSGI app for Vibe 21 DM twin inference + optional WebGL static serve."""
 
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, abort, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from .model_loader import load_bundle
@@ -14,11 +15,22 @@ from .predict import STRATEGIES, predict_kw
 
 _VIBE21 = Path(__file__).resolve().parents[1]
 _TWIN = _VIBE21 / "assets" / "twin_b100_ops11"
+# WebGL build lives next to the package (or override with VIBE21_WEBGL_DIR)
+_WEBGL = Path(os.environ.get("VIBE21_WEBGL_DIR", str(_VIBE21 / "flask_app" / "webgl"))).resolve()
+
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("application/octet-stream", ".data")
+mimetypes.add_type("text/javascript", ".js")
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    @app.after_request
+    def add_unity_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     @app.get("/api/v1/health")
     def health():
@@ -103,6 +115,39 @@ def create_app() -> Flask:
             "honesty": card.get("honesty"),
         }
         return jsonify(out)
+
+    def _webgl_ready() -> bool:
+        return (_WEBGL / "index.html").is_file()
+
+    @app.get("/")
+    def index():
+        if not _webgl_ready():
+            return jsonify(
+                {
+                    "service": "vibe21-dm-twin",
+                    "message": "API up. Drop a Unity WebGL build into flask_app/webgl/ (index.html + Build/).",
+                    "health": "/api/v1/health",
+                    "predict": "/api/v1/predict/demand_hourly",
+                    "webgl_dir": str(_WEBGL),
+                }
+            )
+        return send_from_directory(_WEBGL, "index.html")
+
+    @app.get("/<path:filename>")
+    def webgl_file(filename: str):
+        # Never shadow API routes (Flask matches more specific first, but be safe)
+        if filename.startswith("api/"):
+            abort(404)
+        if not _webgl_ready():
+            abort(404)
+        requested = (_WEBGL / filename).resolve()
+        try:
+            requested.relative_to(_WEBGL)
+        except ValueError:
+            abort(404)
+        if not requested.is_file():
+            abort(404)
+        return send_from_directory(_WEBGL, filename)
 
     return app
 

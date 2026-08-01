@@ -52,11 +52,49 @@ namespace Vibe21.Twin
         public string honesty;
     }
 
-    /// <summary>HTTP client for local Flask demand_hourly inference.</summary>
+    [Serializable]
+    class HealthPayload
+    {
+        public string status;
+        public string model_id;
+        public string model_status;
+        public string model_error;
+    }
+
+    /// <summary>HTTP client for Flask demand_hourly inference (Editor :5050 or WebGL same-origin).</summary>
     public class DemandApiClient : MonoBehaviour
     {
+        public enum HealthState { Offline, Online, Degraded }
+
         public string baseUrl = "http://127.0.0.1:5050";
         public DemandPredictResponse lastResponse;
+
+        void Awake()
+        {
+            ResolveBaseUrl();
+        }
+
+        void ResolveBaseUrl()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            try
+            {
+                var abs = Application.absoluteURL;
+                if (!string.IsNullOrEmpty(abs))
+                {
+                    var uri = new Uri(abs);
+                    baseUrl = uri.GetLeftPart(UriPartial.Authority);
+                }
+            }
+            catch
+            {
+                // keep inspector default
+            }
+#else
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                baseUrl = "http://127.0.0.1:5050";
+#endif
+        }
 
         public IEnumerator Predict(DemandPredictRequest req, Action<DemandPredictResponse> onOk, Action<string> onErr)
         {
@@ -73,8 +111,6 @@ namespace Vibe21.Twin
                 onErr?.Invoke(uwr.error + " " + uwr.downloadHandler.text);
                 yield break;
             }
-            // Unity JsonUtility cannot parse top-level string arrays (e.g. feature_cols);
-            // strip known non-scalar arrays before deserialize.
             var text = uwr.downloadHandler.text;
             text = System.Text.RegularExpressions.Regex.Replace(
                 text, ",\\s*\"feature_cols\"\\s*:\\s*\\[[^\\]]*\\]", "");
@@ -85,10 +121,38 @@ namespace Vibe21.Twin
 
         public IEnumerator Health(Action<bool, string> done)
         {
+            yield return HealthDetailed((state, detail) => done?.Invoke(state == HealthState.Online, detail));
+        }
+
+        public IEnumerator HealthDetailed(Action<HealthState, string> done)
+        {
             var url = baseUrl.TrimEnd('/') + "/api/v1/health";
             using var uwr = UnityWebRequest.Get(url);
             yield return uwr.SendWebRequest();
-            done?.Invoke(uwr.result == UnityWebRequest.Result.Success, uwr.downloadHandler?.text);
+            if (uwr.result != UnityWebRequest.Result.Success)
+            {
+                done?.Invoke(HealthState.Offline, "Machine learning web app service unreachable");
+                yield break;
+            }
+            var text = uwr.downloadHandler?.text ?? "";
+            HealthPayload payload = null;
+            try { payload = JsonUtility.FromJson<HealthPayload>(text); }
+            catch { /* ignore */ }
+
+            int code = (int)uwr.responseCode;
+            string status = payload?.status ?? "";
+            if (code == 503 || string.Equals(status, "degraded", StringComparison.OrdinalIgnoreCase))
+            {
+                string err = !string.IsNullOrEmpty(payload?.model_error)
+                    ? payload.model_error
+                    : "Model missing or degraded";
+                done?.Invoke(HealthState.Degraded, err);
+                yield break;
+            }
+            string okDetail = !string.IsNullOrEmpty(payload?.model_id)
+                ? $"{payload.model_id} [{payload.model_status}]"
+                : "OK";
+            done?.Invoke(HealthState.Online, okDetail);
         }
     }
 }

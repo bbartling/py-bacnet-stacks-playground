@@ -18,11 +18,20 @@ and root `.gitignore` Unity rules.
 agents must `manage_scene(action="save")` — Unity UI lockups discard
 unsaved progress even when MCP can still write the scene.
 
-**Editor twin status (2026-07-31):** flyable procedural drone + ortho MEP +
-flow particles + roof plant + large °C/°F pause menu are in
+**Editor twin status:** flyable procedural drone + ortho MEP + split air/liquid
+flow FX + roof plant + ML health light + glass hot/cold glow in
 `unity/liberty_100` (scene `Liberty100Twin`). Details:
-`UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.md`, `DEMAND_MANAGEMENT_TWIN.md`.
-WebGL export still follows the contracts below; do not invent room/VAV geometry.
+`UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.md`, `DEMAND_MANAGEMENT_TWIN.md`,
+`STACK_JOURNEY.md`.
+
+## Flask serves WebGL (local + PA)
+
+1. Export WebGL (Decompression Fallback on) into `vibe_code_apps_21/flask_app/webgl/`.
+2. `python -m flask_app` on `:5050` — `/` serves `index.html` when present; `/api/v1/*` always.
+3. `DemandApiClient` uses `http://127.0.0.1:5050` in Editor; **page origin** on WebGL builds.
+4. PythonAnywhere mirror notes: `../pythonanywhere_mirror/README.md` (CannonPhysicsSim-style static maps).
+
+Until a build is dropped in, `GET /` returns a JSON stub describing the API.
 
 The Python/repository agent owns:
 

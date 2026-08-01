@@ -5,7 +5,7 @@ namespace Vibe21.Twin
 {
     /// <summary>
     /// Runtime particle flow cues for ducts, pipes, and cooling-tower drip/mist.
-    /// Streaks stay inside duct/pipe cross-section and die at segment ends (no flange spray).
+    /// Air and liquid rates are independent (fans vs pumps/chiller/tower).
     /// </summary>
     public class MepFlowFx : MonoBehaviour
     {
@@ -16,6 +16,10 @@ namespace Vibe21.Twin
         public float minSegLen = 0.35f;
         [Range(0f, 1.5f)] public float flowLoad = 1f;
         public bool plantRunning = true;
+        [Range(0f, 1.5f)] public float airLoad = 1f;
+        public bool airRunning = true;
+        [Range(0f, 1.5f)] public float liquidLoad = 1f;
+        public bool liquidRunning = true;
 
         readonly List<ParticleSystem> _air = new List<ParticleSystem>();
         readonly List<ParticleSystem> _liquid = new List<ParticleSystem>();
@@ -42,7 +46,7 @@ namespace Vibe21.Twin
             {
                 if (seg == null || seg.Length < 2) continue;
                 float len = Vector3.Distance(seg[0], seg[1]);
-                if (len < minSegLen) continue; // skip flange stubs that spray outside cabinets
+                if (len < minSegLen) continue;
                 var ps = MakeStreak(seg[0], seg[1], color, rate, speed, air, ductWidth);
                 if (ps == null) continue;
                 if (air) _air.Add(ps);
@@ -62,10 +66,27 @@ namespace Vibe21.Twin
             _tower.Add(MakeMist(mistAt, new Color(0.95f, 0.97f, 1f, 0.4f)));
         }
 
+        /// <summary>Legacy: sets both air and liquid (prefer SetAirFlow / SetLiquidFlow).</summary>
         public void SetRunning(bool running, float load)
         {
             plantRunning = running;
             flowLoad = Mathf.Clamp(load, 0f, 1.5f);
+            SetLiquidFlow(running, load);
+        }
+
+        public void SetAirFlow(bool running, float load)
+        {
+            airRunning = running;
+            airLoad = Mathf.Clamp(load, 0f, 1.5f);
+            ApplyRates();
+        }
+
+        public void SetLiquidFlow(bool running, float load)
+        {
+            liquidRunning = running;
+            liquidLoad = Mathf.Clamp(load, 0f, 1.5f);
+            plantRunning = running;
+            flowLoad = liquidLoad;
             ApplyRates();
         }
 
@@ -82,13 +103,14 @@ namespace Vibe21.Twin
 
         void ApplyRates()
         {
-            float mul = plantRunning ? flowLoad : 0f;
+            float airMul = airRunning ? airLoad : 0f;
+            float liqMul = liquidRunning ? liquidLoad : 0f;
             foreach (var ps in _air)
-                SetRate(ps, airRate * mul);
+                SetRate(ps, airRate * airMul);
             foreach (var ps in _liquid)
-                SetRate(ps, liquidRate * mul);
+                SetRate(ps, liquidRate * liqMul);
             foreach (var ps in _tower)
-                SetRate(ps, (ps.name.Contains("Mist") ? mistRate : dripRate) * mul);
+                SetRate(ps, (ps.name.Contains("Mist") ? mistRate : dripRate) * liqMul);
         }
 
         void SetEmissionAll(float rate)

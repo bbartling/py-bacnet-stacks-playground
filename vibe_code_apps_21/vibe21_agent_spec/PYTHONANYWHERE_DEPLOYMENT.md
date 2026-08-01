@@ -6,12 +6,17 @@ Produce one lightweight WSGI web application that a human can upload/unzip on Py
 
 The deployment serves:
 
-- Flask JSON inference endpoints;
-- compiled React assets;
-- compiled Unity WebGL assets;
+- Flask JSON inference endpoints (`/api/v1/health`, `/api/v1/predict/demand_hourly`);
+- compiled Unity WebGL assets (primary demo path);
+- optional compiled React assets;
 - model metadata and safe demonstration data.
 
 It does **not** execute EnergyPlus or train ML models.
+
+**Working mirror checklist:** [`../pythonanywhere_mirror/README.md`](../pythonanywhere_mirror/README.md)  
+Align with CannonPhysicsSim: `C:\Users\ben\Documents\CannonPhysicsSim\pythonanywhere_flask` (flat `flask_app.py`, `webgl/`, static maps for `/Build/` + `/TemplateData/`).
+
+Live package for local + PA: `vibe_code_apps_21/flask_app/` (`create_app()` also serves `flask_app/webgl/` at `/` when present).
 
 ---
 
@@ -19,33 +24,18 @@ It does **not** execute EnergyPlus or train ML models.
 
 ```text
 vibe21_deploy_bundle/
-├── flask_app.py
+├── flask_app.py              # flat WSGI (see pythonanywhere_mirror/flask_app.py)
 ├── requirements.txt
 ├── README_PYTHONANYWHERE.md
-├── vibe21/
-│   ├── api/
-│   ├── domain/
-│   ├── features/
-│   ├── inference/
-│   ├── model_registry/
-│   └── schemas/
-├── models/
-│   └── ... approved joblib + manifests ...
-├── manifests/
-│   ├── deploy_manifest.json
-│   └── unity_bindings.json
-├── static/
-│   ├── react/
-│   │   ├── index.html
-│   │   └── assets/...
-│   └── unity/
-│       ├── index.html
-│       ├── Build/...
-│       └── TemplateData/...
-└── tests/
+├── flask_app/                # or vibe21/ package — create_app + predict
+├── models/                   # approved joblib + card
+├── webgl/                    # Unity WebGL (preferred demo root)
+│   ├── index.html
+│   ├── Build/...
+│   └── TemplateData/...
+└── static/                   # optional React shell
+    └── react/...
 ```
-
-The implementation may adjust exact package names, but the build must remain relocatable under a PythonAnywhere home directory.
 
 ---
 
@@ -53,24 +43,21 @@ The implementation may adjust exact package names, but the build must remain rel
 
 The PythonAnywhere WSGI file imports the Flask application object. The deployed app must not depend on calling `app.run()`.
 
-Local development may use Flask's development server only behind an `if __name__ == "__main__"` guard or a CLI entrypoint.
+Local: `python -m flask_app` (:5050).
 
 ---
 
 ## Static asset strategy
 
-React and Unity are precompiled before deployment.
+Preferred **demo** mapping (CannonPhysicsSim style):
 
-Preferred production mapping:
+- `/` → `webgl/index.html` (Flask `send_from_directory` or PA static);
+- `/Build/` → `webgl/Build`;
+- `/TemplateData/` → `webgl/TemplateData`.
 
-- `/static/react/` → compiled React assets;
-- `/static/unity/` → compiled Unity WebGL assets.
+Flask owns `/api/v1/`. Unity WebGL `DemandApiClient` uses **same-origin** base URL.
 
-Flask owns `/api/v1/`.
-
-The root route `/` serves or redirects to the React application shell.
-
-For an easy demo, the React SPA may include an iframe or embedded container that loads `/static/unity/index.html`, or Flask may expose a friendly `/unity/` route.
+Optional React shell may live under `/static/react/` and iframe `/` or `/unity/`.
 
 ---
 

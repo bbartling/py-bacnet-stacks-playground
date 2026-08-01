@@ -37,17 +37,22 @@ geometry outside the Twin JSON.
 | **Q / PageDown** | Descend |
 | **Shift** | Boost |
 | **Space** | Land / Recover watch mode (silly crash, freeze cam) |
+| **H** | Hide / show DR Twin Sim panel |
 | **L / R** | Land / Recover aliases |
 | **Esc** | Pause menu (large overlay; °C/°F) |
 
 Collision: bounce + bonk/scrape; craft stays flyable. Props are airplane-style blades.
 Motor: procedural hum (`MakeHumClip`) after Start Flight.
 Zone temps: individual facade sensor labels; visible through glazing / clear air only (occluded by walls).
+Windows: `GlassUtil` translucent panes + `ZoneTempController` cool→warm glow (16–30 °C). Black panes → run **Vibe21/Twin/Fix Window Glass Transparency**, then re-predict / `RefreshFromDr`.
 Placeable kit: **Vibe21/Twin/Spawn Sensor Badge Kit** (drag badges in Scene).
-Roof: rectangular grey-green/amber air ducts vs blue water pipes; wispy air FX vs liquid dots; tower drip/mist white.
-DR panel (right): enlarged UI + Land Drone button.
+Roof: rectangular grey-green/amber air ducts vs blue water pipes; **air FX ↔ fans**, **liquid/tower FX ↔ plant/pumps**.
+DR panel (right): enlarged UI, big sliders, Land Drone, **ML backend R/Y/G health** (`/api/v1/health`), **H** to hide.
 
 ## DR panel
 
 - Predict once, or **Run DR Event** for a **2-hour** window compressed to **5 min / 1 min / 30 s**.
-- `chiller_off` / `hvac_off`: plant stops, fans idle, DEMO zone/AHU temps rise.
+- Strategies match Flask `predict.STRATEGIES`; sets `chw_avail` / `fan_avail` from strategy.
+- `chiller_off`: chiller + pumps + liquid/tower FX off; fans/air FX crawl; DEMO temps rise.
+- `hvac_off`: fans + plant hard stop.
+- ML returns **facility_kw** only — zone/AHU badges are DEMO (see `STACK_JOURNEY.md`).

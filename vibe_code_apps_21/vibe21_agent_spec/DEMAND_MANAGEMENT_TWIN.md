@@ -63,9 +63,16 @@ Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.m
 - Cool-focused x-ray AHUs ×2 (OA/RA mix, CHW only; HW coil omitted on roof)
 - **Ortho** rectangular air ducts (grey-green/amber) + round blue water pipes; distinct air vs liquid particles
 - `MepFlowFx` + white tower drip/mist; roof Main Chiller + Cooling Tower
-- Facade glass + occluded window zone temps; **Spawn Sensor Badge Kit** for manual placement
-- Large pause menu (°C/°F matched toggles); enlarged right DR panel + Land Drone button
-- DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly`
+- Facade glass with **hot/cold cool→warm gradients**; occluded window zone temps; **Spawn Sensor Badge Kit**
+- Large pause menu (°C/°F); enlarged DR panel (**H** hide, big sliders, Land Drone, ML backend R/Y/G health light)
+- DR 2h playback (5m / 1m / 30s) via Flask `predict/demand_hourly` — ML = **facility kW only**; zone/AHU temps are DEMO
+- Air FX follows fans; liquid/tower FX + pumps follow chiller plant (`chiller_off` kills pumps, not necessarily duct air)
+
+See **`STACK_JOURNEY.md`** for open-fdd Excel ↔ E+ farm ↔ ML ↔ twin linkage.
+
+## DR menu ↔ model
+
+Unity strategy IDs match Flask `predict.STRATEGIES`. Knobs + `strategy_id` (+ `chw_avail` / `fan_avail`) → `POST /api/v1/predict/demand_hourly`. Panel polls `GET /api/v1/health` for the green/yellow/red ML backend light.
 
 ## Out of scope for DM twin v1
 
@@ -75,6 +82,7 @@ Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.m
 - BAS commanding / live historian
 - Room-level VAV geometry (Twin is Floor×AHU lumped zones)
 - Loading joblib inside Unity
+- Per-zone ML sensor fields (future — keep DEMO temps until surrogate expands)
 
 ## Unity agent needs (checklist)
 
@@ -91,4 +99,5 @@ Shipped visuals / playfeel (see `UNITY_MCP_WORKFLOW.md`, `BLENDER_UNITY_ASSETS.m
 ## Excel
 
 Demand tab oracle lives in WattLab `ECM_FULL_PARITY.xlsx`.  
-Product workbook path = **open-fdd PyPI `ECMJob`** (not long-term vibe builder).
+Product workbook path = **open-fdd PyPI `ECMJob`** (not long-term vibe builder).  
+Agent-driven spreadsheet calcs and E+ dial-in stay interlinked upstream of the surrogate — see `STACK_JOURNEY.md`.

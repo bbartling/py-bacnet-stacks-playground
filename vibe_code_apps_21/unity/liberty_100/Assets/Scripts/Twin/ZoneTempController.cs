@@ -14,13 +14,13 @@ namespace Vibe21.Twin
         public float oatBiasScale = 0.12f;
         public float floorStackBiasC = 0.35f;
         public float ahuSplitC = 0.6f;
-        // Very light glass wash — “every so slightly”
-        public float glowStrength = 0.18f;
+        // Hot/cold glass wash — readable through translucent panes
+        public float glowStrength = 0.55f;
 
         readonly Dictionary<string, float> _temps = new Dictionary<string, float>();
 
-        static readonly Color Cool = new Color(0.55f, 0.70f, 0.95f, 0.18f);
-        static readonly Color Warm = new Color(0.95f, 0.60f, 0.58f, 0.18f);
+        static readonly Color Cool = new Color(0.35f, 0.62f, 0.98f, 0.32f);
+        static readonly Color Warm = new Color(0.98f, 0.42f, 0.32f, 0.32f);
 
         public IReadOnlyDictionary<string, float> Temps => _temps;
 
@@ -89,17 +89,17 @@ namespace Vibe21.Twin
                 string zoneId = te.entityId;
                 if (string.IsNullOrEmpty(zoneId) || !_temps.TryGetValue(zoneId, out var tempC))
                     continue;
-                float u = Mathf.InverseLerp(18f, 28f, tempC);
+                float u = Mathf.InverseLerp(16f, 30f, tempC);
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                 {
                     // Preserve glass alpha from shared material (never force opaque)
-                    float a = 0.28f;
+                    float a = 0.32f;
                     if (r.sharedMaterial != null)
                     {
                         var baseCol = r.sharedMaterial.HasProperty("_BaseColor")
                             ? r.sharedMaterial.GetColor("_BaseColor")
                             : r.sharedMaterial.color;
-                        if (baseCol.a > 0.01f && baseCol.a < 0.99f) a = baseCol.a;
+                        if (baseCol.a > 0.01f && baseCol.a < 0.99f) a = Mathf.Max(baseCol.a, 0.28f);
                     }
                     var glass = Color.Lerp(Cool, Warm, u);
                     glass.a = a;
@@ -114,10 +114,10 @@ namespace Vibe21.Twin
             {
                 if (te.entityType != "zone") continue;
                 if (!_temps.TryGetValue(te.entityId, out var tempC)) continue;
-                float u = Mathf.InverseLerp(18f, 28f, tempC);
+                float u = Mathf.InverseLerp(16f, 30f, tempC);
                 var wash = Color.Lerp(
-                    new Color(0.55f, 0.65f, 0.85f, 1f),
-                    new Color(0.88f, 0.55f, 0.48f, 1f),
+                    new Color(0.45f, 0.62f, 0.92f, 1f),
+                    new Color(0.92f, 0.45f, 0.38f, 1f),
                     u);
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                 {
@@ -125,7 +125,7 @@ namespace Vibe21.Twin
                     if (child != null && (child.entityType == "window" || child.entityType == "sensor_proxy"))
                         continue;
                     if (r.sharedMaterial == null) continue;
-                    RendererTint.LerpSharedColor(r, wash, 0.12f);
+                    RendererTint.LerpSharedColor(r, wash, 0.22f);
                 }
             }
         }

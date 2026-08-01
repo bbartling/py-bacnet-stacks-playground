@@ -31,6 +31,14 @@ def test_health(client):
     assert data["service"] == "vibe21-dm-twin"
 
 
+def test_root_stub_without_webgl(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["service"] == "vibe21-dm-twin"
+    assert "health" in data
+
+
 def test_twin_manifest(client):
     r = client.get("/api/v1/twin/manifest")
     assert r.status_code == 200

@@ -1,11 +1,13 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Vibe21.Twin
 {
     /// <summary>
     /// DR scrubbers + timed 2-hour event playback (wall clock 5 min / 1 min / 30 s).
     /// Drives Flask predict, zone temps, AHU fans, and plant (chiller/tower) visuals/audio.
+    /// H hides/shows panel. ML backend health light polls /api/v1/health.
     /// </summary>
     public class DRControlPanel : MonoBehaviour
     {
@@ -30,17 +32,26 @@ namespace Vibe21.Twin
         static readonly string[] PlaybackLabels = { "5 min", "1 min", "30 sec" };
         static readonly float[] PlaybackSeconds = { 300f, 60f, 30f };
         const float SimWindowHours = 2f;
+        const float HealthPollSec = 3f;
 
-        string _status = "Idle — start Flask on :5050";
+        string _status = "";
         float _lastKw = float.NaN;
         string _provenance = "";
         bool _busy;
         bool _eventRunning;
-        float _simHourProgress; // 0..2 hours into event
+        float _simHourProgress;
         Coroutine _eventCo;
+        Coroutine _healthCo;
+
+        enum MlHealth { Unknown, Online, Degraded, Offline }
+        MlHealth _mlHealth = MlHealth.Unknown;
+        string _mlHealthDetail = "Checking machine learning backend…";
+
         GUIStyle _titleStyle;
         GUIStyle _labelStyle;
         GUIStyle _buttonStyle;
+        GUIStyle _sliderStyle;
+        GUIStyle _sliderThumbStyle;
         bool _stylesReady;
 
         void Awake()
@@ -56,6 +67,34 @@ namespace Vibe21.Twin
             tempController.ApplyDemoDefaults(oatC);
             var plant = FindAnyObjectByType<PlantVisualController>();
             if (plant != null) plant.ApplyStrategy("baseline", 200f);
+            _healthCo = StartCoroutine(PollHealthLoop());
+        }
+
+        void Update()
+        {
+            if (TwinMainMenu.Instance != null && TwinMainMenu.Instance.IsPaused) return;
+            bool h = (Keyboard.current != null && Keyboard.current[Key.H].wasPressedThisFrame)
+                     || Input.GetKeyDown(KeyCode.H);
+            if (h)
+                panelOpen = !panelOpen;
+        }
+
+        IEnumerator PollHealthLoop()
+        {
+            while (true)
+            {
+                yield return api.HealthDetailed((state, detail) =>
+                {
+                    _mlHealth = state switch
+                    {
+                        DemandApiClient.HealthState.Online => MlHealth.Online,
+                        DemandApiClient.HealthState.Degraded => MlHealth.Degraded,
+                        _ => MlHealth.Offline
+                    };
+                    _mlHealthDetail = detail;
+                });
+                yield return new WaitForSecondsRealtime(HealthPollSec);
+            }
         }
 
         void EnsureStyles()
@@ -70,6 +109,16 @@ namespace Vibe21.Twin
             };
             _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 28 };
             _buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 28, fixedHeight = 56 };
+            _sliderStyle = new GUIStyle(GUI.skin.horizontalSlider)
+            {
+                fixedHeight = 28f,
+                margin = new RectOffset(0, 0, 10, 10)
+            };
+            _sliderThumbStyle = new GUIStyle(GUI.skin.horizontalSliderThumb)
+            {
+                fixedWidth = 36f,
+                fixedHeight = 44f
+            };
             _stylesReady = true;
         }
 
@@ -78,8 +127,8 @@ namespace Vibe21.Twin
             if (TwinMainMenu.Instance != null && TwinMainMenu.Instance.IsPaused) return;
             EnsureStyles();
             float w = 920f;
-            float rowH = 52f;
-            float panelH = panelOpen ? Mathf.Min(1100f, Screen.height - 32f) : 64f;
+            float rowH = 64f;
+            float panelH = panelOpen ? Mathf.Min(1180f, Screen.height - 32f) : 64f;
             float x = Screen.width - w - 16f;
             float y = 16f;
 
@@ -87,7 +136,11 @@ namespace Vibe21.Twin
             GUI.Label(new Rect(x + 16f, y + 10f, w - 90f, 48f), "Liberty 100 — DR Twin Sim", _titleStyle);
             if (GUI.Button(new Rect(x + w - 56f, y + 12f, 44f, 44f), panelOpen ? "–" : "+", _buttonStyle))
                 panelOpen = !panelOpen;
-            if (!panelOpen) return;
+            if (!panelOpen)
+            {
+                GUI.Label(new Rect(x + 16f, y + 16f, w - 100f, 36f), "H — show DR panel", _labelStyle);
+                return;
+            }
 
             float row = y + 72f;
             float labelW = 280f;
@@ -95,23 +148,23 @@ namespace Vibe21.Twin
             float sliderW = w - labelW - 40f;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"OAT °C  {oatC:0.0}", _labelStyle);
-            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), oatC, 10f, 42f);
+            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), oatC, 10f, 42f, _sliderStyle, _sliderThumbStyle);
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"RH %  {rhPct:0.0}", _labelStyle);
-            rhPct = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), rhPct, 20f, 95f);
+            rhPct = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), rhPct, 20f, 95f, _sliderStyle, _sliderThumbStyle);
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Hour ending  {hourEnding}", _labelStyle);
-            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), hourEnding, 1, 24));
+            hourEnding = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), hourEnding, 1, 24, _sliderStyle, _sliderThumbStyle));
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Precool °F  {precoolF:0.0}", _labelStyle);
-            precoolF = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), precoolF, 0f, 6f);
+            precoolF = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), precoolF, 0f, 6f, _sliderStyle, _sliderThumbStyle);
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"Relax clg °F  {relaxClgF:0.0}", _labelStyle);
-            relaxClgF = GUI.HorizontalSlider(new Rect(sliderX, row + 18f, sliderW, 24f), relaxClgF, 0f, 10f);
+            relaxClgF = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), relaxClgF, 0f, 10f, _sliderStyle, _sliderThumbStyle);
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, w - 40f, rowH), $"Strategy:  {Strategies[strategyIndex]}", _labelStyle);
@@ -160,7 +213,6 @@ namespace Vibe21.Twin
             GUI.enabled = true;
             row += 76f;
 
-            // Land / Recover watch mode
             var drone = FindAnyObjectByType<DroneController>();
             bool parked = drone != null && drone.IsWatchParked;
             string landLabel = parked ? "Recover Drone  (Space)" : "Land Drone  (Space)";
@@ -170,7 +222,7 @@ namespace Vibe21.Twin
             }
             row += 80f;
             GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
-                "Space — silly land / recover (freeze cam, watch plant)", _labelStyle);
+                "Space — land / recover   ·   H — hide DR panel", _labelStyle);
             row += 44f;
 
             if (_eventRunning)
@@ -181,12 +233,49 @@ namespace Vibe21.Twin
                 row += 40f;
             }
 
+            DrawMlHealth(x + 20f, row, w - 40f);
+            row += 52f;
+
             GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
                 float.IsNaN(_lastKw) ? "Predicted facility kW:  —" : $"Predicted facility kW:  {_lastKw:0.0}",
                 _labelStyle);
             row += 40f;
-            GUI.Label(new Rect(x + 20f, row, w - 40f, 100f),
-                _status + "\n" + _provenance + "\nZone °C = DEMO BAS-style (not live E+)", _labelStyle);
+            if (!string.IsNullOrEmpty(_status) || !string.IsNullOrEmpty(_provenance))
+            {
+                GUI.Label(new Rect(x + 20f, row, w - 40f, 72f),
+                    _status + (string.IsNullOrEmpty(_provenance) ? "" : "\n" + _provenance), _labelStyle);
+            }
+        }
+
+        void DrawMlHealth(float x, float y, float w)
+        {
+            Color light;
+            string text;
+            switch (_mlHealth)
+            {
+                case MlHealth.Online:
+                    light = new Color(0.2f, 0.85f, 0.35f);
+                    text = "●  Machine learning backend online";
+                    break;
+                case MlHealth.Degraded:
+                    light = new Color(0.95f, 0.8f, 0.15f);
+                    text = "●  Machine learning backend degraded";
+                    break;
+                case MlHealth.Offline:
+                    light = new Color(0.9f, 0.25f, 0.2f);
+                    text = "●  Machine learning backend offline";
+                    break;
+                default:
+                    light = new Color(0.6f, 0.65f, 0.7f);
+                    text = "●  Checking machine learning backend…";
+                    break;
+            }
+            var prev = GUI.color;
+            GUI.color = light;
+            GUI.Label(new Rect(x, y, w, 36f), text, _labelStyle);
+            GUI.color = prev;
+            if (!string.IsNullOrEmpty(_mlHealthDetail) && _mlHealth != MlHealth.Online)
+                GUI.Label(new Rect(x, y + 28f, w, 28f), _mlHealthDetail, _labelStyle);
         }
 
         void StopDrEvent()
@@ -225,7 +314,6 @@ namespace Vibe21.Twin
                     tickAccum = 0f;
                     yield return RunPredictAtHour(he);
                 }
-                // Soft temp drift between predicts
                 tempController.RefreshFromDr(oatC, Strategies[strategyIndex], precoolF, relaxClgF);
                 yield return null;
             }
@@ -241,12 +329,30 @@ namespace Vibe21.Twin
             yield return RunPredictAtHour(hourEnding);
         }
 
+        static void AvailFromStrategy(string sid, out float chw, out float fan)
+        {
+            chw = 1f;
+            fan = 1f;
+            if (string.IsNullOrEmpty(sid)) return;
+            if (sid.Contains("hvac_off"))
+            {
+                chw = 0f;
+                fan = 0f;
+            }
+            else if (sid.Contains("chiller_off") || sid.Contains("precool_chiller_off"))
+            {
+                chw = 0f;
+                fan = 0.15f;
+            }
+        }
+
         IEnumerator RunPredictAtHour(int he)
         {
             _busy = true;
             var sid = Strategies[strategyIndex];
             var phase = sid == "baseline" ? "baseline" :
                 (sid.Contains("precool") ? "precool" : (sid.Contains("chiller") || sid.Contains("hvac") ? "shed" : "relax"));
+            AvailFromStrategy(sid, out float chw, out float fan);
             var req = new DemandPredictRequest
             {
                 hour_ending = he,
@@ -257,7 +363,9 @@ namespace Vibe21.Twin
                 strategy_id = sid,
                 phase = phase,
                 in_dr_window = sid == "baseline" ? 0 : 1,
-                oat_lag1 = oatC - 0.5f
+                oat_lag1 = oatC - 0.5f,
+                chw_avail = chw,
+                fan_avail = fan
             };
             tempController.RefreshFromDr(oatC, sid, precoolF, relaxClgF);
             ApplyPlant(sid, float.IsNaN(_lastKw) ? 200f : _lastKw);
@@ -293,8 +401,13 @@ namespace Vibe21.Twin
             foreach (var spin in FindObjectsByType<AhuFanSpin>())
                 spin.SetLoadFromStrategy(sid, kw);
             var audio = MachineAudioHub.Ensure();
-            bool off = sid != null && (sid.Contains("chiller") || sid.Contains("hvac_off"));
-            audio.SetAhuLoad(off ? 0.05f : Mathf.InverseLerp(120f, 320f, kw));
+            float fanLoad = 0.6f;
+            foreach (var spin in FindObjectsByType<AhuFanSpin>())
+            {
+                fanLoad = spin.loadFactor;
+                break;
+            }
+            audio.SetAhuLoad(fanLoad);
         }
 
         void ApplyKwWash(float kw)

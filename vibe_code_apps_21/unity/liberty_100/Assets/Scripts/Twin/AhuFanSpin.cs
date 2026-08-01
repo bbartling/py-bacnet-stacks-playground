@@ -4,7 +4,7 @@ namespace Vibe21.Twin
 {
     /// <summary>
     /// Spins AHU supply + return SpinPivots around local Y (airflow axis).
-    /// Animates mix damper blades. Load drops hard on chiller_off / hvac_off.
+    /// Drives duct air particle rates from loadFactor (independent of plant/pumps).
     /// </summary>
     public class AhuFanSpin : MonoBehaviour
     {
@@ -18,13 +18,29 @@ namespace Vibe21.Twin
         public string ahuType = "VAV_CHW";
         [Range(0f, 1f)] public float damperOpen = 0.55f;
 
+        MepFlowFx _flowFx;
+
+        void Start()
+        {
+            _flowFx = FindAnyObjectByType<MepFlowFx>();
+            PushAirFx();
+        }
+
         void Update()
         {
+            bool paused = TwinMainMenu.Instance != null && TwinMainMenu.Instance.IsPaused;
+            if (paused)
+            {
+                if (_flowFx != null) _flowFx.SetAirFlow(false, 0f);
+                return;
+            }
+
             float rpm = baseRpm + loadRpmBoost * Mathf.Clamp01(loadFactor);
             float deg = rpm * 6f * Time.deltaTime;
             SpinLocalY(fanWheel, deg);
             SpinLocalY(returnFanWheel, deg * 0.85f);
             AnimateDampers();
+            PushAirFx();
         }
 
         static void SpinLocalY(Transform t, float degrees)
@@ -51,14 +67,25 @@ namespace Vibe21.Twin
         {
             float t = Mathf.InverseLerp(150f, 320f, facilityKw);
             float s = 0.7f;
+            bool hvacOff = !string.IsNullOrEmpty(strategyId) && strategyId.Contains("hvac_off");
             if (!string.IsNullOrEmpty(strategyId))
             {
-                if (strategyId.Contains("chiller") || strategyId.Contains("hvac_off")) s = 0.08f;
+                if (hvacOff) s = 0f;
+                else if (strategyId.Contains("chiller")) s = 0.12f;
                 else if (strategyId.Contains("precool")) s = 1.1f;
                 else if (strategyId.Contains("deadband") || strategyId.Contains("loadshed")) s = 0.55f;
             }
-            loadFactor = Mathf.Clamp(t * s, 0.02f, 1.4f);
-            damperOpen = strategyId != null && strategyId.Contains("hvac_off") ? 0.1f : 0.55f;
+            loadFactor = hvacOff ? 0f : Mathf.Clamp(t * s, 0.02f, 1.4f);
+            damperOpen = hvacOff ? 0.1f : 0.55f;
+            PushAirFx();
+        }
+
+        void PushAirFx()
+        {
+            if (_flowFx == null) _flowFx = FindAnyObjectByType<MepFlowFx>();
+            if (_flowFx == null) return;
+            bool running = loadFactor > 0.04f;
+            _flowFx.SetAirFlow(running, loadFactor);
         }
     }
 }

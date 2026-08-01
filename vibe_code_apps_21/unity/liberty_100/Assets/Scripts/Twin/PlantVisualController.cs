@@ -3,8 +3,9 @@ using UnityEngine;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// Drives chiller/tower spin + machine audio from DR strategy.
-    /// chiller_off / hvac_off → plant stops visually and audibly.
+    /// Drives chiller/tower spin + liquid FX + pump audio from DR strategy.
+    /// Air duct FX is driven by AhuFanSpin (fans), not this controller.
+    /// chiller_off → plant + pumps off; fans may still crawl.
     /// </summary>
     public class PlantVisualController : MonoBehaviour
     {
@@ -44,7 +45,7 @@ namespace Vibe21.Twin
             if (_audio != null)
                 _audio.SetPlantRunning(run, paused);
             if (flowFx != null)
-                flowFx.SetRunning(plantRunning && !paused, run > 0f ? run : 0f);
+                flowFx.SetLiquidFlow(plantRunning && !paused, run > 0f ? run : 0f);
         }
 
         public void ApplyStrategy(string strategyId, float facilityKw)
@@ -76,9 +77,18 @@ namespace Vibe21.Twin
                 spin.SetLoadFromStrategy(strategyId, facilityKw);
 
             if (_audio != null)
-                _audio.SetAhuLoad(plantRunning ? plantLoad : 0.05f);
+            {
+                // AHU audio follows fans; plant audio follows pumps/chiller
+                float fanLoad = 0.6f;
+                foreach (var spin in FindObjectsByType<AhuFanSpin>())
+                {
+                    fanLoad = spin.loadFactor;
+                    break;
+                }
+                _audio.SetAhuLoad(fanLoad);
+            }
             if (flowFx != null)
-                flowFx.SetRunning(plantRunning, plantRunning ? plantLoad : 0f);
+                flowFx.SetLiquidFlow(plantRunning, plantRunning ? plantLoad : 0f);
         }
 
         void LateUpdate()
