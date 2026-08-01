@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace Vibe21.Twin
 {
     /// <summary>
-    /// DR scrubbers + timed 2-hour event playback (wall clock 5 min / 1 min / 30 s).
+    /// DR scrubbers + timed 2-hour event playback + always-on ambient 24h loop (6h steps).
     /// Drives Flask predict, zone temps, AHU fans, and plant (chiller/tower) visuals/audio.
     /// H hides/shows panel. ML backend health light polls /api/v1/health.
     /// </summary>
@@ -33,6 +33,9 @@ namespace Vibe21.Twin
         static readonly float[] PlaybackSeconds = { 300f, 60f, 30f };
         const float SimWindowHours = 2f;
         const float HealthPollSec = 3f;
+        /// <summary>Wall seconds between ambient +6h steps (~32 s per full day).</summary>
+        const float AmbientStepSec = 8f;
+        const int AmbientHourStep = 6;
 
         string _status = "";
         float _lastKw = float.NaN;
@@ -42,6 +45,9 @@ namespace Vibe21.Twin
         float _simHourProgress;
         Coroutine _eventCo;
         Coroutine _healthCo;
+        Coroutine _ambientCo;
+        bool _ambientActive = true;
+        float _oatBase = 32f;
 
         enum MlHealth { Unknown, Online, Degraded, Offline }
         MlHealth _mlHealth = MlHealth.Unknown;
@@ -65,10 +71,14 @@ namespace Vibe21.Twin
 
         void Start()
         {
+            _oatBase = oatC;
+            int nGlass = GlassUtil.FixAllWindowsInScene(0.28f);
             tempController.ApplyDemoDefaults(oatC);
             var plant = FindAnyObjectByType<PlantVisualController>();
             if (plant != null) plant.ApplyStrategy("baseline", 200f);
             _healthCo = StartCoroutine(PollHealthLoop());
+            _ambientCo = StartCoroutine(AmbientDayLoop());
+            Debug.Log($"DRControlPanel: glass fixed={nGlass}, ambient 6h loop started");
         }
 
         void Update()
@@ -149,7 +159,12 @@ namespace Vibe21.Twin
             float sliderW = w - labelW - 40f;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"OAT °C  {oatC:0.0}", _labelStyle);
-            oatC = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), oatC, 10f, 42f, _sliderStyle, _sliderThumbStyle);
+            float oatSlider = GUI.HorizontalSlider(new Rect(sliderX, row + 10f, sliderW, 44f), _oatBase, 10f, 42f, _sliderStyle, _sliderThumbStyle);
+            if (Mathf.Abs(oatSlider - _oatBase) > 0.01f)
+            {
+                _oatBase = oatSlider;
+                oatC = oatSlider; // user override until next ambient diurnal tick
+            }
             row += rowH;
 
             GUI.Label(new Rect(x + 20f, row, labelW, rowH), $"RH %  {rhPct:0.0}", _labelStyle);
@@ -230,7 +245,17 @@ namespace Vibe21.Twin
             {
                 float pct = _simHourProgress / SimWindowHours;
                 GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
-                    $"Event progress: {_simHourProgress:0.00} / {SimWindowHours:0} h  ({pct * 100f:0}%)", _labelStyle);
+                    $"Mode: DR event  ·  {_simHourProgress:0.00} / {SimWindowHours:0} h  ({pct * 100f:0}%)",
+                    _labelStyle);
+                row += 40f;
+            }
+            else
+            {
+                GUI.Label(new Rect(x + 20f, row, w - 40f, 36f),
+                    _ambientActive
+                        ? $"Mode: Ambient 6h  ·  hour {hourEnding}  ·  day cycle ~32 s"
+                        : "Mode: Idle",
+                    _labelStyle);
                 row += 40f;
             }
 
@@ -287,12 +312,56 @@ namespace Vibe21.Twin
                 StopCoroutine(_eventCo);
                 _eventCo = null;
             }
-            _status = "DR event stopped";
+            _status = "DR event stopped — ambient 6h resumes";
+        }
+
+        /// <summary>
+        /// Always-on slow day: +6 hour-ending every AmbientStepSec.
+        /// Pauses while DR event or Predict is busy; hybrid Flask / DEMO.
+        /// </summary>
+        IEnumerator AmbientDayLoop()
+        {
+            // Let first glass + demo defaults settle
+            yield return new WaitForSecondsRealtime(1.5f);
+            while (true)
+            {
+                while (_eventRunning || _busy ||
+                       (TwinMainMenu.Instance != null && TwinMainMenu.Instance.IsPaused))
+                {
+                    _ambientActive = false;
+                    yield return new WaitForSecondsRealtime(0.5f);
+                }
+
+                _ambientActive = true;
+                hourEnding = ((hourEnding - 1 + AmbientHourStep) % 24) + 1;
+                // Mild diurnal OAT around panel base
+                float phase = (hourEnding / 24f) * Mathf.PI * 2f;
+                oatC = Mathf.Clamp(_oatBase + 4.5f * Mathf.Sin(phase - 0.6f), 10f, 42f);
+
+                if (_mlHealth == MlHealth.Online)
+                    yield return RunPredictAtHour(hourEnding);
+                else
+                    ApplyAmbientDemoStep(hourEnding);
+
+                yield return new WaitForSecondsRealtime(AmbientStepSec);
+            }
+        }
+
+        void ApplyAmbientDemoStep(int he)
+        {
+            var sid = Strategies[strategyIndex];
+            tempController.RefreshFromDr(oatC, sid, precoolF, relaxClgF);
+            float kw = float.IsNaN(_lastKw) ? 200f + (oatC - 24f) * 8f : _lastKw;
+            ApplyPlant(sid, kw);
+            ApplyKwWash(kw);
+            _status = $"Ambient DEMO  h={he}  (ML offline)";
+            _provenance = "SEEDED_SHAPE_PROXY / ambient";
         }
 
         IEnumerator RunDrEvent()
         {
             _eventRunning = true;
+            _ambientActive = false;
             _simHourProgress = 0f;
             float wallSec = PlaybackSeconds[Mathf.Clamp(playbackDurationIndex, 0, PlaybackSeconds.Length - 1)];
             float simHoursPerSec = SimWindowHours / wallSec;
@@ -322,7 +391,8 @@ namespace Vibe21.Twin
             yield return RunPredictAtHour(((startHour - 1 + Mathf.FloorToInt(SimWindowHours)) % 24) + 1);
             _eventRunning = false;
             _eventCo = null;
-            _status = "DR event complete";
+            _ambientActive = true;
+            _status = "DR event complete — ambient 6h resumes";
         }
 
         IEnumerator RunPredictOnce()

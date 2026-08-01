@@ -5,7 +5,9 @@ using UnityEditor;
 
 namespace Vibe21.Twin
 {
-    /// <summary>DEMO AHU air temperatures with separate world labels (leave / mix / return / OA).</summary>
+    /// <summary>
+    /// Roof AHU nameplate only — I/O temps live on the spreadsheet sheets.
+    /// </summary>
     public class AhuAirTempDisplay : MonoBehaviour
     {
         public string airLoopName = "VAV Sys 1";
@@ -13,77 +15,59 @@ namespace Vibe21.Twin
         public float leaveC = 13.5f;
         public float mixC = 24.0f;
         public float returnC = 25.5f;
+        public float oatC = 32f;
 
         public TextMesh leaveLabel;
         public TextMesh mixLabel;
         public TextMesh returnLabel;
         public TextMesh oaLabel;
-        public float oatC = 32f;
-
-        // Legacy single-label support
         public TextMesh label;
-
-        /// <summary>World-space vertical gap between stacked AHU readouts.</summary>
         public float labelStackPitch = 1.15f;
 
         public void BuildSeparateLabels(Transform parent, float ahuHeight)
         {
             ClearChildLabels(parent);
-            // Column off the front face so strings do not pile on the cabinet
+            leaveLabel = mixLabel = returnLabel = oaLabel = null;
             float x = isAhu2 ? 3.4f : -3.4f;
-            float z = -2.0f;
-            float y0 = ahuHeight + 0.4f;
-
-            oaLabel = MakeLabel(parent, "Label_OA", new Vector3(x, y0 + labelStackPitch * 3f, z),
-                new Color(0.45f, 0.85f, 0.55f));
-            mixLabel = MakeLabel(parent, "Label_Mix", new Vector3(x, y0 + labelStackPitch * 2f, z),
-                new Color(0.9f, 0.9f, 0.75f));
-            returnLabel = MakeLabel(parent, "Label_Return", new Vector3(x, y0 + labelStackPitch * 1f, z),
-                new Color(1f, 0.65f, 0.45f));
-            leaveLabel = MakeLabel(parent, "Label_Leave", new Vector3(x, y0, z),
-                new Color(0.45f, 0.7f, 1f));
+            label = MakeLabel(parent, "Label_Name", new Vector3(x, ahuHeight + 0.6f, -2.0f),
+                new Color(0.85f, 0.95f, 1f));
             RefreshLabel();
         }
 
-        /// <summary>Re-space labels already on this AHU (Play / Editor) without full AHU rebuild.</summary>
         public void RelayoutLabels()
         {
-            float x = isAhu2 ? 3.4f : -3.4f;
-            float z = -2.0f;
-            float y0 = 2.8f;
-            // Prefer current leave label height as base if present
-            if (leaveLabel != null)
-                y0 = leaveLabel.transform.localPosition.y;
-            else if (mixLabel != null)
-                y0 = mixLabel.transform.localPosition.y - labelStackPitch * 2f;
-
-            Place(oaLabel, new Vector3(x, y0 + labelStackPitch * 3f, z));
-            Place(mixLabel, new Vector3(x, y0 + labelStackPitch * 2f, z));
-            Place(returnLabel, new Vector3(x, y0 + labelStackPitch * 1f, z));
-            Place(leaveLabel, new Vector3(x, y0, z));
-
-            Style(oaLabel);
-            Style(mixLabel);
-            Style(returnLabel);
-            Style(leaveLabel);
-            if (leaveLabel != null) leaveLabel.lineSpacing = 1.55f;
-            RefreshLabel();
+            CollapseToNameOnly();
         }
 
-        static void Place(TextMesh tm, Vector3 localPos)
+        /// <summary>Strip OA/Mix/RA/SA stacks — keep a single equipment nameplate.</summary>
+        public void CollapseToNameOnly()
         {
-            if (tm == null) return;
-            tm.transform.localPosition = localPos;
+            ClearChildLabels(transform);
+            leaveLabel = mixLabel = returnLabel = oaLabel = null;
+            if (label == null)
+            {
+                float x = isAhu2 ? 3.4f : -3.4f;
+                label = MakeLabel(transform, "Label_Name", new Vector3(x, 3.0f, -2.0f),
+                    new Color(0.85f, 0.95f, 1f));
+            }
+            else
+            {
+                label.gameObject.name = "Label_Name";
+                float x = isAhu2 ? 3.4f : -3.4f;
+                label.transform.localPosition = new Vector3(x, 3.0f, -2.0f);
+                Style(label);
+            }
+            RefreshLabel();
         }
 
         static void Style(TextMesh tm)
         {
             if (tm == null) return;
-            tm.characterSize = 0.13f;
-            tm.fontSize = 48;
+            tm.characterSize = 0.14f;
+            tm.fontSize = 52;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
-            tm.lineSpacing = 1.45f;
+            tm.lineSpacing = 1.1f;
         }
 
         static void ClearChildLabels(Transform parent)
@@ -124,36 +108,27 @@ namespace Vibe21.Twin
             returnC = zoneAvgC + 0.8f + (isAhu2 ? 0.2f : 0f);
             float oa = 0.22f + Mathf.Clamp01((oatC - 10f) / 40f) * 0.1f;
             mixC = oa * oatC + (1f - oa) * returnC;
+            // Values feed TwinIoHub / sheets; roof plate stays name-only
             RefreshLabel();
         }
 
         public void RefreshLabel()
         {
-            if (oaLabel != null)
-                oaLabel.text = $"OA\n{TempUnits.Format(oatC)}";
-            if (leaveLabel != null)
-                leaveLabel.text = $"{airLoopName}\nSA {TempUnits.Format(leaveC)}";
-            if (mixLabel != null)
-                mixLabel.text = $"Mix\n{TempUnits.Format(mixC)}";
-            if (returnLabel != null)
-                returnLabel.text = $"RA\n{TempUnits.Format(returnC)}";
-            if (label != null && leaveLabel == null)
-                label.text = $"{airLoopName}\nDAT {TempUnits.Format(leaveC)}\nMix {TempUnits.Format(mixC)}\nRAT {TempUnits.Format(returnC)}";
+            if (label != null)
+                label.text = string.IsNullOrEmpty(airLoopName) ? "AHU" : airLoopName;
+            if (leaveLabel != null) leaveLabel.text = "";
+            if (mixLabel != null) mixLabel.text = "";
+            if (returnLabel != null) returnLabel.text = "";
+            if (oaLabel != null) oaLabel.text = "";
         }
 
         void Start()
         {
-            // Fix crowded labels from older spawns
-            if (leaveLabel != null || mixLabel != null)
-                RelayoutLabels();
+            CollapseToNameOnly();
         }
 
         void LateUpdate()
         {
-            Face(oaLabel);
-            Face(leaveLabel);
-            Face(mixLabel);
-            Face(returnLabel);
             Face(label);
         }
 
@@ -166,21 +141,16 @@ namespace Vibe21.Twin
         }
 
 #if UNITY_EDITOR
-        [MenuItem("Vibe21/Twin/Fix AHU Temp Label Spacing")]
-        public static void MenuFixAhuLabels()
+        [MenuItem("Vibe21/Twin/AHU Labels — Name Only")]
+        public static void MenuNameOnly()
         {
             int n = 0;
             foreach (var a in Object.FindObjectsByType<AhuAirTempDisplay>())
             {
-                a.labelStackPitch = 1.15f;
-                // Rebuild if missing any of the four
-                if (a.oaLabel == null || a.leaveLabel == null || a.mixLabel == null || a.returnLabel == null)
-                    a.BuildSeparateLabels(a.transform, 2.4f);
-                else
-                    a.RelayoutLabels();
+                a.CollapseToNameOnly();
                 n++;
             }
-            Debug.Log($"AhuAirTempDisplay: relayout {n} AHU label stacks");
+            Debug.Log($"AhuAirTempDisplay: name-only on {n} AHUs");
         }
 #endif
     }

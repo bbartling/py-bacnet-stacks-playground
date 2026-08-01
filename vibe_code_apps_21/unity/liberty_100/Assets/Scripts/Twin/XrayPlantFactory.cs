@@ -51,7 +51,7 @@ namespace Vibe21.Twin
             labelGo.transform.SetParent(chiller.transform, false);
             labelGo.transform.localPosition = new Vector3(0, 3.2f, 0);
             var tm = labelGo.AddComponent<TextMesh>();
-            tm.text = "Main Chiller\nCHW plant DEMO";
+            tm.text = "Main Chiller";
             tm.characterSize = 0.18f;
             tm.fontSize = 48;
             tm.anchor = TextAnchor.MiddleCenter;
@@ -82,7 +82,7 @@ namespace Vibe21.Twin
             tlabel.transform.SetParent(tower.transform, false);
             tlabel.transform.localPosition = new Vector3(0, 5.8f, 0);
             var ttm = tlabel.AddComponent<TextMesh>();
-            ttm.text = "Cooling Tower\nProp fan DEMO";
+            ttm.text = "Cooling Tower";
             ttm.characterSize = 0.16f;
             ttm.fontSize = 44;
             ttm.anchor = TextAnchor.MiddleCenter;

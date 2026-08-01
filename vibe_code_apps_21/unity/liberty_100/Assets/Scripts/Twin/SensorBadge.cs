@@ -120,18 +120,19 @@ namespace Vibe21.Twin
 
         static void StyleTitle(TextMesh tm, SensorBadgeLayout layout)
         {
-            tm.characterSize = layout == SensorBadgeLayout.SpreadsheetRow ? 0.16f : 0.11f;
-            tm.fontSize = layout == SensorBadgeLayout.SpreadsheetRow ? 56 : 52;
+            // Smaller glyphs + tighter pitch from factory prevents row overlap
+            tm.characterSize = layout == SensorBadgeLayout.SpreadsheetRow ? 0.12f : 0.11f;
+            tm.fontSize = layout == SensorBadgeLayout.SpreadsheetRow ? 48 : 52;
             tm.color = new Color(0.88f, 0.92f, 0.96f);
-            tm.lineSpacing = 1.2f;
+            tm.lineSpacing = 1.05f;
         }
 
         static void StyleValue(TextMesh tm, SensorBadgeLayout layout)
         {
-            tm.characterSize = layout == SensorBadgeLayout.SpreadsheetRow ? 0.18f : 0.13f;
-            tm.fontSize = layout == SensorBadgeLayout.SpreadsheetRow ? 60 : 56;
+            tm.characterSize = layout == SensorBadgeLayout.SpreadsheetRow ? 0.13f : 0.13f;
+            tm.fontSize = layout == SensorBadgeLayout.SpreadsheetRow ? 50 : 56;
             tm.color = Color.white;
-            tm.lineSpacing = 1.2f;
+            tm.lineSpacing = 1.05f;
         }
 
         public void RefreshBindings()
@@ -156,9 +157,11 @@ namespace Vibe21.Twin
         {
             EnsureSplitLabels();
 
-            // Spreadsheet rows: stay glued to parent sheet (no billboard, no world drift)
+            // Spreadsheet rows: stay glued to parent sheet (no billboard).
+            // Never LookRotation — that spun each row onto its own axis through the building.
             if (layout == SensorBadgeLayout.SpreadsheetRow)
             {
+                transform.localRotation = Quaternion.identity;
                 if (titleLabel != null)
                 {
                     titleLabel.transform.localRotation = Quaternion.identity;
@@ -212,6 +215,16 @@ namespace Vibe21.Twin
                     title = isAhu2 ? "Zones mean (AHU2)" : "Zones mean (AHU1)";
                     if (live)
                         value = TempUnits.Format(isAhu2 ? io.zone_temp_ahu2_mean_c : io.zone_temp_ahu1_mean_c);
+                    else if (_temps != null && _temps.Temps.Count > 0)
+                    {
+                        float sum = 0f; int n = 0;
+                        foreach (var kv in _temps.Temps)
+                        {
+                            bool a2 = kv.Key.Contains("ahu2") || kv.Key.Contains("AHU2");
+                            if (a2 == isAhu2) { sum += kv.Value; n++; }
+                        }
+                        value = n > 0 ? TempUnits.Format(sum / n) : "—";
+                    }
                     else
                         value = "—";
                     return;
@@ -252,14 +265,14 @@ namespace Vibe21.Twin
                     if (live)
                         value = $"{(isAhu2 ? io.ahu2_fan_plr : io.ahu1_fan_plr) * 100f:0}%";
                     else
-                        value = "—";
+                        value = _plant != null && _plant.plantRunning ? "65%" : "20%";
                     return;
                 case SensorBadgeKind.AhuOaFrac:
                     title = "OA frac";
                     if (live)
                         value = $"{(isAhu2 ? io.ahu2_oa_frac : io.ahu1_oa_frac) * 100f:0}%";
                     else
-                        value = "—";
+                        value = "25%";
                     return;
                 case SensorBadgeKind.ChillerStatus:
                     title = "Chiller";
@@ -277,39 +290,49 @@ namespace Vibe21.Twin
                     return;
                 case SensorBadgeKind.ChwSupply:
                     title = "CHW supply";
-                    value = live ? TempUnits.Format(io.chw_supply_c) : "—";
+                    if (live) value = TempUnits.Format(io.chw_supply_c);
+                    else value = _plant != null && _plant.plantRunning ? TempUnits.Format(6.7f) : "—";
                     return;
                 case SensorBadgeKind.ChwReturn:
                     title = "CHW return";
-                    value = live ? TempUnits.Format(io.chw_return_c) : "—";
+                    if (live) value = TempUnits.Format(io.chw_return_c);
+                    else value = _plant != null && _plant.plantRunning ? TempUnits.Format(12.2f) : "—";
                     return;
                 case SensorBadgeKind.ChwPumpPlr:
                     title = "CHW pump PLR";
-                    value = live ? $"{io.chw_pump_plr * 100f:0}%" : "—";
+                    if (live) value = $"{io.chw_pump_plr * 100f:0}%";
+                    else value = _plant != null && _plant.plantRunning ? "80%" : "0%";
                     return;
                 case SensorBadgeKind.CwPumpPlr:
                     title = "CW pump PLR";
-                    value = live ? $"{io.cw_pump_plr * 100f:0}%" : "—";
+                    if (live) value = $"{io.cw_pump_plr * 100f:0}%";
+                    else value = _plant != null && _plant.plantRunning ? "75%" : "0%";
                     return;
                 case SensorBadgeKind.TowerFanPlr:
                     title = "Tower fan PLR";
-                    value = live ? $"{io.tower_fan_plr * 100f:0}%" : "—";
+                    if (live) value = $"{io.tower_fan_plr * 100f:0}%";
+                    else value = _plant != null && _plant.plantRunning ? "55%" : "0%";
                     return;
                 case SensorBadgeKind.TowerLeaving:
                     title = "Tower leaving";
-                    value = live ? TempUnits.Format(io.tower_leaving_c) : "—";
+                    if (live) value = TempUnits.Format(io.tower_leaving_c);
+                    else value = _plant != null && _plant.plantRunning ? TempUnits.Format(29.4f) : "—";
                     return;
                 case SensorBadgeKind.FacilityKw:
                     title = "Facility kW";
-                    value = live ? $"{io.facility_kw:0.0}" : "—";
+                    if (live) value = $"{io.facility_kw:0.0}";
+                    else value = _plant != null ? $"{Mathf.Max(80f, _plant.plantLoad * 400f):0.0}" : "—";
                     return;
                 case SensorBadgeKind.CoolingKw:
                     title = "Cooling kW";
-                    value = live ? $"{io.cooling_kw:0.0}" : "—";
+                    if (live) value = $"{io.cooling_kw:0.0}";
+                    else value = _plant != null && _plant.plantRunning
+                        ? $"{Mathf.Max(40f, _plant.plantLoad * 180f):0.0}" : "0.0";
                     return;
                 case SensorBadgeKind.Oat:
                     title = "OAT";
-                    value = live ? TempUnits.Format(io.oat_c) : "—";
+                    if (live) value = TempUnits.Format(io.oat_c);
+                    else value = _ahu != null ? TempUnits.Format(_ahu.oatC) : TempUnits.Format(32f);
                     return;
                 default:
                     title = "—";

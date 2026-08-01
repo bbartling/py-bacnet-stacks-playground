@@ -110,7 +110,7 @@ namespace Vibe21.Twin
                 float u = Mathf.InverseLerp(16f, 30f, tempC);
                 foreach (var r in te.GetComponentsInChildren<MeshRenderer>())
                 {
-                    // Preserve glass alpha from shared material (never force opaque)
+                    EnsureGlassMaterial(r);
                     float a = 0.32f;
                     if (r.sharedMaterial != null)
                     {
@@ -124,6 +124,27 @@ namespace Vibe21.Twin
                     RendererTint.SetColor(r, glass, glowStrength);
                 }
             }
+        }
+
+        /// <summary>Re-apply URP transparent glass if the pane baked opaque/black.</summary>
+        static void EnsureGlassMaterial(MeshRenderer r)
+        {
+            if (r == null || r.sharedMaterial == null) return;
+            var m = r.sharedMaterial;
+            bool opaque = true;
+            if (m.HasProperty("_Surface") && m.GetFloat("_Surface") >= 0.5f)
+                opaque = false;
+            var col = m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.color;
+            if (col.a > 0.01f && col.a < 0.95f)
+                opaque = false;
+            if (!opaque) return;
+            var tint = new Color(0.45f, 0.65f, 0.85f, 0.28f);
+            // Instance so we do not mutate a shared wall material
+            var glass = new Material(m);
+            GlassUtil.ApplyTransparent(glass, tint);
+            r.sharedMaterial = glass;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
         }
 
         void ApplyZoneShellTint()

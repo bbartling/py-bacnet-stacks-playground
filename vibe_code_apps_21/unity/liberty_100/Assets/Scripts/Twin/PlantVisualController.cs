@@ -30,6 +30,8 @@ namespace Vibe21.Twin
                 _chillerLabel = chillerRoot.GetComponentInChildren<TextMesh>();
             if (towerRoot != null)
                 _towerLabel = towerRoot.GetComponentInChildren<TextMesh>();
+            if (_chillerLabel != null) _chillerLabel.text = "Main Chiller";
+            if (_towerLabel != null) _towerLabel.text = "Cooling Tower";
         }
 
         void Update()
@@ -64,14 +66,11 @@ namespace Vibe21.Twin
                     plantLoad = Mathf.Min(1.4f, plantLoad * 1.15f);
             }
 
+            // Roof plates stay name-only; ON/OFF + I/O live on spreadsheet sheets
             if (_chillerLabel != null)
-                _chillerLabel.text = plantRunning
-                    ? $"Main Chiller\nON  load {plantLoad:0.00}"
-                    : "Main Chiller\nOFF — DR shed";
+                _chillerLabel.text = "Main Chiller";
             if (_towerLabel != null)
-                _towerLabel.text = plantRunning
-                    ? "Cooling Tower\nON DEMO"
-                    : "Cooling Tower\nOFF";
+                _towerLabel.text = "Cooling Tower";
 
             foreach (var spin in FindObjectsByType<AhuFanSpin>())
                 spin.SetLoadFromStrategy(strategyId, facilityKw);
