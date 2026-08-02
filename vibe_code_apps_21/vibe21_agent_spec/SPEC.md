@@ -9,6 +9,10 @@
 > The sections below preserve the earlier broad physics-ML vision as legacy
 > context — do not implement the full annual-ECM / FDD stack unless scope is
 > explicitly widened again.
+>
+> **Mandatory for all agents:** read [`AGENT_DONT.md`](AGENT_DONT.md) before
+> editing Unity scenes, shipping WebGL, or packing PythonAnywhere zips.
+> Never gut `Liberty100Twin.unity` (see 2026-08-02 restore from `91a4746`).
 
 **Project:** OpenFDD Demand-Management ML + Unity Digital Twin  
 **Directory:** `vibe_code_apps_21`  

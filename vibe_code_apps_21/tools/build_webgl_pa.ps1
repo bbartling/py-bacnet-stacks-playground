@@ -55,7 +55,7 @@ if (-not $SkipBuild) {
 
 $webglIndex = Join-Path $vibe21 "flask_app\webgl\index.html"
 if (-not (Test-Path $webglIndex)) {
-    throw "Missing $webglIndex — WebGL build/deploy failed."
+    throw "Missing $webglIndex - WebGL build/deploy failed."
 }
 
 $packArgs = @()

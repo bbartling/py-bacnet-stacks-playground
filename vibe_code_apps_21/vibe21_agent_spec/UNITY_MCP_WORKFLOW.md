@@ -18,6 +18,11 @@ geometry outside the Twin JSON.
 3. **`manage_scene` save after every milestone.**
 4. After script edits: wait until compile done, then `read_console`.
 5. Unity never trains models — Flask `POST /api/v1/predict/demand_hourly`.
+6. **Never gut the scene YAML.** See [`AGENT_DONT.md`](AGENT_DONT.md). After any
+   scene save, verify drone `Body` + four `SpinPivot_*` still exist and scene
+   size did not collapse (~12 MB / ~1100+ GOs → ~8 MB / ~700 GOs is a red alert).
+   Do **not** add mass material-heal bootstraps; do **not** “fix” visuals by
+   wiping `Library/` alone; restore from last intact commit if hierarchy is gone.
 
 ## Milestone save checklist
 

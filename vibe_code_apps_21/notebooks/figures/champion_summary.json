@@ -1,0 +1,48 @@
+{
+  "single_target_champion": "extra_trees",
+  "single_target_best_params": {
+    "n_estimators": 200,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_leaf_nodes": null,
+    "max_features": 0.8,
+    "max_depth": 10,
+    "bootstrap": false
+  },
+  "single_target_mae": 15.13489601174608,
+  "single_target_rmse": 26.847172224978287,
+  "single_target_mae_peak_14_16": 11.937305868705085,
+  "beat_persistence_peak": true,
+  "extratrees_best_params": {
+    "n_estimators": 300,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_leaf_nodes": null,
+    "max_features": 1.0,
+    "max_depth": 10,
+    "bootstrap": true
+  },
+  "extratrees_oof": {
+    "rmse": 26.864478475122112,
+    "mae": 14.823596578226566,
+    "rmse_peak_14_16": 22.706495914498998,
+    "mae_peak_14_16": 12.020169339991863
+  },
+  "n_features": 29,
+  "n_targets_v2": 23,
+  "shipped_v2_champion": "extra_trees",
+  "shipped_v2_params": {
+    "n_estimators": 100,
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_leaf_nodes": null,
+    "max_features": 1.0,
+    "max_depth": 6,
+    "bootstrap": false
+  },
+  "shipped_v2_facility_kw": {
+    "mae": 29.17226462840844,
+    "rmse": 43.1600709819275
+  },
+  "honesty": "ENERGYPLUS_SIMULATED CANDIDATE \u2014 not BAS-validated"
+}

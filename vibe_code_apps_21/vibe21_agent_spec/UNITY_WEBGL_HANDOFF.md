@@ -18,6 +18,9 @@ and root `.gitignore` Unity rules.
 agents must `manage_scene(action="save")` — Unity UI lockups discard
 unsaved progress even when MCP can still write the scene.
 
+**Hard fail history:** never gut `Liberty100Twin.unity` or ship WebGL from a
+collapsed scene — see [`AGENT_DONT.md`](AGENT_DONT.md).
+
 **Editor twin status:** flyable procedural drone + ortho MEP + split air/liquid
 flow FX + roof plant + ML health light + glass hot/cold glow in
 `unity/liberty_100` (scene `Liberty100Twin`). Details:

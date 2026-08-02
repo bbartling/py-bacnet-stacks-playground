@@ -31,13 +31,19 @@ def test_health(client):
     assert data["service"] == "vibe21-dm-twin"
 
 
-def test_root_stub_without_webgl(client):
+def test_root_stub_or_webgl(client):
+    """JSON stub when no player; HTML index when flask_app/webgl is present."""
     r = client.get("/")
     assert r.status_code == 200
-    data = r.get_json()
-    assert data["service"] == "vibe21-dm-twin"
-    assert "health" in data
-    assert data.get("notebook") == "/notebooks/demand_hourly"
+    data = r.get_json(silent=True)
+    if data is not None:
+        assert data["service"] == "vibe21-dm-twin"
+        assert "health" in data
+        assert data.get("notebook") == "/notebooks/demand_hourly"
+        return
+    ctype = r.headers.get("Content-Type", "")
+    assert "html" in ctype.lower() or b"<html" in r.data[:500].lower()
+    assert b"createUnityInstance" in r.data or b"Unity" in r.data
 
 
 def test_notebook_html_route(client):

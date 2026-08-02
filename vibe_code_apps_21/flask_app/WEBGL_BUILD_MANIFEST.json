@@ -1,14 +1,14 @@
 {
-    "generatedUtc": "2026-08-01T20:56:54.0596546Z",
+    "generatedUtc": "2026-08-02T15:01:18.4390448Z",
     "unityVersion": "6000.4.6f1",
     "warningCount": 352,
     "fileCount": 19,
-    "totalSizeBytes": 70436128,
+    "totalSizeBytes": 70538774,
     "files": [
         {
             "path": "Build/WebGL.data",
-            "sizeBytes": 16018570,
-            "sha256": "977F0FCB00C91B49AF9CABB5F5856CB2581403DE268AD79BF8DD3E86C7580769"
+            "sizeBytes": 16121216,
+            "sha256": "B36AF0D223FEA0A364EEF53E092E4B754B87E5292FBD04534761AD551BACA639"
         },
         {
             "path": "Build/WebGL.framework.js",
