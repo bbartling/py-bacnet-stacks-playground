@@ -40,10 +40,12 @@ public static class LibertyWebGLBuildPipeline
         PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
         PlayerSettings.stripEngineCode = false;
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, true);
+        // Match Editor (PC URP). Mobile quality + variant strip → invisible meshes in browser.
+        QualitySettings.SetQualityLevel(1, true);
 
         EnsureTwinSceneInBuildSettings();
         AssetDatabase.SaveAssets();
-        Debug.Log("Configured Liberty WebGL for PythonAnywhere (compression disabled, no threads).");
+        Debug.Log("Configured Liberty WebGL for PythonAnywhere (PC quality, compression off, no threads).");
     }
 
     [MenuItem("Vibe21/Build WebGL → flask_app/webgl")]

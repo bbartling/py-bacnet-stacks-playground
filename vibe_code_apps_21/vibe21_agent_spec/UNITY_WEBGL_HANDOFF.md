@@ -21,6 +21,12 @@ unsaved progress even when MCP can still write the scene.
 **Hard fail history:** never gut `Liberty100Twin.unity` or ship WebGL from a
 collapsed scene — see [`AGENT_DONT.md`](AGENT_DONT.md).
 
+**WebGL blank-mesh incident (2026-08-02):** sounds OK / no meshes → WebGL was on
+**Mobile** quality + batch **`-nographics`**. Fix: quality **PC**, build
+**without** `-nographics`, keep URP unused-variant strip **on**. Do **not** disable
+stripping (hour-long 6k+ variant compiles). Blessed path:
+`powershell -File tools/build_webgl_pa.ps1` → `dist/vibe21_pa_bundle.zip` (~26 MiB).
+
 **Editor twin status:** flyable procedural drone + ortho MEP + split air/liquid
 flow FX + roof plant + ML health light + glass hot/cold glow in
 `unity/liberty_100` (scene `Liberty100Twin`). Details:
@@ -29,12 +35,12 @@ flow FX + roof plant + ML health light + glass hot/cold glow in
 
 ## Flask serves WebGL (local + PA)
 
-1. Export WebGL (Decompression Fallback on) into `vibe_code_apps_21/flask_app/webgl/`.
+1. Build via `tools/build_webgl_pa.ps1` or menu **Vibe21 → Build WebGL → flask_app/webgl**
+   (compression disabled for PA; PC quality).
 2. `python -m flask_app` on `:5050` — `/` serves `index.html` when present; `/api/v1/*` always.
 3. `DemandApiClient` uses `http://127.0.0.1:5050` in Editor; **page origin** on WebGL builds.
 4. PythonAnywhere mirror notes: `../pythonanywhere_mirror/README.md` (CannonPhysicsSim-style static maps).
-
-Until a build is dropped in, `GET /` returns a JSON stub describing the API.
+5. After replacing `flask_app/webgl/`, hard-refresh the browser (Ctrl+Shift+R).
 
 The Python/repository agent owns:
 

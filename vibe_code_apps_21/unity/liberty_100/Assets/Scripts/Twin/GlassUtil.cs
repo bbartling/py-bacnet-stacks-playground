@@ -9,9 +9,24 @@ namespace Vibe21.Twin
     /// <summary>URP-safe translucent glass setup (avoids opaque-black panes).</summary>
     public static class GlassUtil
     {
+        static Shader FindUrpLit()
+        {
+            // Prefer URP Lit; never return a null shader into new Material(...) on WebGL.
+            return Shader.Find("Universal Render Pipeline/Lit")
+                   ?? Shader.Find("Universal Render Pipeline/Simple Lit")
+                   ?? Shader.Find("Sprites/Default")
+                   ?? Shader.Find("UI/Default")
+                   ?? Shader.Find("Standard");
+        }
+
         public static Material MakeGlass(Color tint)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            var shader = FindUrpLit();
+            if (shader == null)
+            {
+                Debug.LogError("GlassUtil: no shader available (URP Lit stripped?). Skipping glass material.");
+                return null;
+            }
             var m = new Material(shader);
             ApplyTransparent(m, tint);
             return m;
@@ -57,6 +72,7 @@ namespace Vibe21.Twin
             int n = 0;
             var tint = new Color(0.45f, 0.65f, 0.85f, alpha);
             var shared = MakeGlass(tint);
+            if (shared == null) return 0;
             foreach (var te in Object.FindObjectsByType<TwinEntity>())
             {
                 if (te.entityType != "window") continue;

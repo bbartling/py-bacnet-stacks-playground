@@ -45,8 +45,10 @@ if (-not $SkipBuild) {
         }
     }
 
+    # Do NOT pass -nographics: URP WebGL builds need a real gfx device or
+    # shader variants get stripped and the twin renders as empty sky + audio.
     Invoke-PatientUnity -Name "liberty-webgl-build" -Arguments @(
-        "-batchmode", "-nographics", "-quit",
+        "-batchmode", "-quit",
         "-projectPath", $unityProject,
         "-executeMethod", "LibertyWebGLBuildPipeline.BuildFromCommandLine",
         "-logFile", (Join-Path $logs "liberty-webgl-build.log")

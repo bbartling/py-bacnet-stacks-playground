@@ -18,8 +18,13 @@ Align with CannonPhysicsSim: `C:\Users\ben\Documents\CannonPhysicsSim\pythonanyw
 
 Live package for local + PA: `vibe_code_apps_21/flask_app/` (`create_app()` also serves `flask_app/webgl/` at `/` when present).
 
-**Turnkey pack:** `python tools/pack_pa_bundle.py` → `dist/vibe21_pa_bundle.zip`.  
-Joblib lives under **`flask_app/models/`** (not a separate top-level `models/` folder) so unzip + reload works without path surgery.
+**Turnkey pack:** `powershell -File tools/build_webgl_pa.ps1` (rebuilds WebGL then
+runs `pack_pa_bundle.py`) → `dist/vibe21_pa_bundle.zip` typically **~25–27 MiB**.
+Joblib lives under **`flask_app/models/`** (zip remaps package to `twin_api/`) so
+unzip + reload works without path surgery.
+
+See also [`AGENT_DONT.md`](AGENT_DONT.md) for WebGL blank-mesh / `-nographics` /
+shader-strip traps learned 2026-08-02.
 
 ## PythonAnywhere Files upload cap (100 MiB)
 
