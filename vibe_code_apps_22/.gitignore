@@ -1,0 +1,8 @@
+# Local regenerable / heavy artifacts (data stays in sp_creekside)
+ml/artifacts/heating_dsm_bootstrap_hourly.parquet
+ml/artifacts/*.joblib
+ml/artifacts/__pycache__/
+**/__pycache__/
+.ipynb_checkpoints/
+*.pyc
+.venv/

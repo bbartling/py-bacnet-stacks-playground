@@ -1,0 +1,91 @@
+{
+  "schema_version": "creekside.model_registry.v1",
+  "model_id": "heating_dsm_hourly_v1",
+  "family": "HEATING_DSM_DEMAND",
+  "artifact": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\ml\\artifacts\\heating_dsm_hourly_v1.joblib",
+  "artifact_sha256": "8f1c304f809a42cffa81dbf9043aa735c50cada78f172f63f0db93ff94d40176",
+  "status": "CANDIDATE",
+  "targets": [
+    "facility_kw"
+  ],
+  "champion": "extra_trees",
+  "cv_metrics": {
+    "persistence": {
+      "rmse": 18.91438763245746,
+      "mae": 9.361539510763556,
+      "rmse_peak_05_09": 31.297366814790486,
+      "mae_peak_05_09": 17.778263226552376
+    },
+    "ridge": {
+      "rmse": 16.22092638172303,
+      "mae": 9.780114451975953,
+      "rmse_peak_05_09": 25.74078301570625,
+      "mae_peak_05_09": 15.494418123717583
+    },
+    "elasticnet": {
+      "rmse": 16.330929545006846,
+      "mae": 9.663490781842489,
+      "rmse_peak_05_09": 26.246868122097872,
+      "mae_peak_05_09": 15.398245182570525
+    },
+    "rf": {
+      "rmse": 10.227791686015962,
+      "mae": 5.7282010499424745,
+      "rmse_peak_05_09": 12.673300111659016,
+      "mae_peak_05_09": 8.048361787225431
+    },
+    "extra_trees": {
+      "rmse": 9.589315990328178,
+      "mae": 5.584245675373849,
+      "rmse_peak_05_09": 12.326192505188086,
+      "mae_peak_05_09": 7.994881819810281
+    },
+    "hgb": {
+      "rmse": 9.654936095154984,
+      "mae": 5.6734406819443715,
+      "rmse_peak_05_09": 12.945249251715717,
+      "mae_peak_05_09": 8.458466571663859
+    }
+  },
+  "beat_persistence_peak": true,
+  "peak_window": "HE_05_09_local",
+  "n_rows": 40320,
+  "n_days": 336,
+  "training_parquet": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\ml\\artifacts\\heating_dsm_bootstrap_hourly.parquet",
+  "training_source": "BAS_BOOTSTRAP_PROXY",
+  "sklearn_version": "1.8.0",
+  "created_utc": "2026-08-04T20:37:25Z",
+  "honesty": "Screening surrogate for 6-Area HP occupancy / preheat DSM. Trained on BAS_BOOTSTRAP_PROXY (physics-ish scenario tags), not EnergyPlus. Replace parquet with E+ DM farm before APPROVED. Not tariff-grade.",
+  "feature_cols": [
+    "hour_ending",
+    "sin_hour",
+    "cos_hour",
+    "month",
+    "doy",
+    "is_weekend",
+    "occupied",
+    "oat_f",
+    "oat_lag1",
+    "hdd65",
+    "rh_pct",
+    "ghi",
+    "occ_frac_1F_A",
+    "occ_frac_1F_B",
+    "occ_frac_1F_C",
+    "occ_frac_1F_D",
+    "occ_frac_2F_A",
+    "occ_frac_2F_B",
+    "sum_occ_frac",
+    "preheat_lead_h",
+    "stagger_min",
+    "unocc_htg_sp_f",
+    "occ_htg_sp_f",
+    "facility_kw_lag1",
+    "facility_kw_lag2",
+    "strategy_baseline",
+    "strategy_stagger_preheat",
+    "strategy_flat_24_7",
+    "strategy_deep_setback",
+    "strategy_morning_all_on"
+  ]
+}

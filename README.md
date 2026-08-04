@@ -7,6 +7,8 @@
 [![Rust BACnet lab](https://img.shields.io/badge/active-vibe__code__apps__16-009966)](vibe_code_apps_16/)
 [![Open FDD Vibe Coder](https://img.shields.io/badge/active-vibe__code__apps__19-009966)](vibe_code_apps_19/)
 [![OpenFDD WattLab](https://img.shields.io/badge/active-vibe__code__apps__20-009966)](vibe_code_apps_20/)
+[![DM Twin vibe21](https://img.shields.io/badge/active-vibe__code__apps__21-009966)](vibe_code_apps_21/)
+[![Heating DSM vibe22](https://img.shields.io/badge/active-vibe__code__apps__22-009966)](vibe_code_apps_22/)
 [![GHCR vibe19](https://img.shields.io/badge/GHCR-vibe19-blue?logo=docker&logoColor=white)](https://github.com/bbartling/py-bacnet-stacks-playground/pkgs/container/vibe19)
 [![EnergyPlus MCP](https://img.shields.io/badge/EnergyPlus-MCP%2026.1-blue?logo=docker&logoColor=white)](vibe_code_apps_20/third_party/README.md)
 [![Docs PDF](https://img.shields.io/badge/docs-PDF%20manual-blue)](vibe_code_apps_12/pdf/vibe12-edge-fdd-guide.pdf)
@@ -41,6 +43,8 @@ Come join the journey as we play around with Python, **Rust**, AI, BACnet, Hayst
 | **Linux LFCS (Raspberry Pi)** | 50-day crash course for the Linux Foundation Certified System Administrator exam | [LFCS 50-day crash course](#lfcs-50-day-crash-course) · [`lessons/lfcs/`](lessons/lfcs/) · [`lessons/lfcs/INDEX.md`](lessons/lfcs/INDEX.md) · Day 1: [`lessons/lfcs/day01.md`](lessons/lfcs/day01.md) |
 | **Open FDD Vibe Coder (app 19)** | Streamlit + pandas 50-rule cookbook lab; zip packages; agent CLI; `ghcr.io/bbartling/vibe19` | [`vibe_code_apps_19/`](vibe_code_apps_19/) · [AGENTS.md](vibe_code_apps_19/AGENTS.md) · [DOCKER.md](vibe_code_apps_19/docs/DOCKER.md) |
 | **OpenFDD WattLab (app 20)** | AI helper: Open-FDD / vibe19 evidence → Dockerized EnergyPlus ECM screens (easy button + IDF patches) | [`vibe_code_apps_20/`](vibe_code_apps_20/) · [README](vibe_code_apps_20/README.md) · [AGENTS.md](vibe_code_apps_20/AGENTS.md) |
+| **Demand twin (app 21)** | Liberty cooling DR: EnergyPlus hourly farm → sklearn → Flask / Unity | [`vibe_code_apps_21/`](vibe_code_apps_21/) · [AGENTS.md](vibe_code_apps_21/AGENTS.md) |
+| **Heating DSM ML (app 22)** | Creekside morning-peak / 6-Area HP occupancy surrogate (sklearn + ONNX); Excel cost playground | [`vibe_code_apps_22/`](vibe_code_apps_22/) · [AGENTS.md](vibe_code_apps_22/AGENTS.md) |
 
 ---
 
@@ -71,6 +75,8 @@ Hands-on milestones from BACnet scripting to cloud FDD. **Featured builds** are 
 | **18** | **[DIY BAS / Haystack data lake (Rust)](vibe_code_apps_18/)** · [Discussion #5](https://github.com/bbartling/py-bacnet-stacks-playground/discussions/5) | Read-only **`bas-haystack-lake-rs`**: Haystack collector, Postgres lake, admin API, sanitized Open-FDD JSON API, alerts, Docker/CI — agent prompt in [AGENTS.md](vibe_code_apps_18/AGENTS.md). | Active featured build |
 | **19** | **[Open FDD Vibe Coder (Streamlit)](vibe_code_apps_19/)** · [AGENTS.md](vibe_code_apps_19/AGENTS.md) | Streamlit + pandas twin of the [Open-FDD Pandas Cookbook](https://bbartling.github.io/open-fdd/rules/cookbook/pandas-cookbook.html) (50 rules): zip packages, role mapping, Plots / RCx, agent CLI, session restore. Container: `ghcr.io/bbartling/vibe19`. | Active featured build |
 | **20** | **[OpenFDD WattLab](vibe_code_apps_20/)** · [AGENTS.md](vibe_code_apps_20/AGENTS.md) | EnergyPlus companion to vibe19: approved MeasureBriefs → Docker `energyplus-mcp-dev` (EP 26.1) easy button → progressive schedule / GL36-proxy IDF patches → `result_record` QA. | Active featured build |
+| **21** | **[Demand-management twin](vibe_code_apps_21/)** · [AGENTS.md](vibe_code_apps_21/AGENTS.md) | Liberty Building cooling DR: G14 Twin → hourly E+ farm → sklearn `facility_kw` → Flask / Unity scrubbers (HE 14–16). | Active featured build |
+| **22** | **[Heating DSM ML](vibe_code_apps_22/)** · [AGENTS.md](vibe_code_apps_22/AGENTS.md) | Creekside ES heating-startup DSM: 6-Area HP occupancy / preheat → sklearn + PyTorch/ONNX surrogates (HE 05–09); Excel energy-vs-demand playground. Site data stays in `sp_creekside`. | Active featured build |
 
 
 
