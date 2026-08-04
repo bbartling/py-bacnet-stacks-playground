@@ -1,0 +1,4 @@
+iter,hypothesis,weather,nmbe_pct,cvrmse_pct,gl14_status,gl14_distance,heat_cop,cool_cop,knobs_json,obs_source
+101,util_I1.2_L0.9_rescore,amy,-5.955,13.206,fail,0.955,3.5,4.5,"{""infil_mult"": 1.2, ""lights_mult"": 0.9}",utility_bill
+102,util_I1.2_L0.85,amy,-3.011,11.944,pass,0.0,3.5,4.5,"{""infil_mult"": 1.2, ""lights_mult"": 0.85}",utility_bill
+103,util_I1.2_L0.8,amy,-0.079,11.444,pass,0.0,3.5,4.5,"{""infil_mult"": 1.2, ""lights_mult"": 0.8}",utility_bill

@@ -1,0 +1,36 @@
+{
+  "campus_id": "creekside_es",
+  "label": "Creekside Elementary (Sun Prairie ASD)",
+  "siteRef": "spasd_creekside_es",
+  "provenance": "utility_bills_CS351075",
+  "notes": "Monthly kWh / demand from client utility export (CS 351075). Billing-grade vs interval-integrated electricity.csv. GL14 utility window: 2025-08..2026-05.",
+  "lat": 43.16521,
+  "lon": -89.25408,
+  "location": {
+    "city": "Sun Prairie, WI",
+    "climate_zone": "6A"
+  },
+  "buildings": [
+    {
+      "building_id": "creekside_main",
+      "label": "Creekside Elementary",
+      "floor_area_ft2": 91210,
+      "property_type": "k12_school"
+    }
+  ],
+  "meters": [
+    {
+      "meter_id": "elec_utility",
+      "fuel": "electricity",
+      "unit": "kwh",
+      "file": "electricity_utility.csv",
+      "serves": [
+        "creekside_main"
+      ],
+      "bill_columns": {
+        "month": "Bill Month",
+        "usage": "kWh Total"
+      }
+    }
+  ]
+}
