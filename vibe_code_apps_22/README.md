@@ -4,8 +4,7 @@ Unified **code** workspace for Lakeside ES (southern Wisconsin):
 
 - ALC WebCTRL → openfdd package + thermal zones
 - EnergyPlus IdealLoads G14 (interval + utility bills)
-- Heating DSM ML (sklearn + ONNX) + Excel playground
-- OpenStudio OSM authoring (optional)
+- Heating DSM ML: E+ farm → sklearn notebook/`train_heating_dsm.py` → Rust ONNX desktop
 - Future BACnet live app slot (`bacnet/`)
 
 **Data stays outside git** — set:
@@ -18,10 +17,13 @@ $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 cd vibe_code_apps_22
 pip install -r requirements.txt
 python -c "from lakeside.paths import site_root, BUILDING_ID; print(BUILDING_ID, site_root())"
-python -u ml\build_bootstrap_dataset.py
+# Train + ship desktop ONNX (or open the sklearn notebook — same artifacts)
+python -u ml\train_heating_dsm.py
 jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
+cd desktop; cargo run --release
 ```
 
 See [AGENTS.md](AGENTS.md) for full run order and honesty stamps.
 
 **Not in scope:** Unity digital twin (that is [vibe21](../vibe_code_apps_21)).
+OpenStudio MCP bridge was removed — heating DSM is **EnergyPlus → ML** only.

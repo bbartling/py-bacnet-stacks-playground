@@ -17,10 +17,12 @@ Desktop ONNX walks should train on the farm parquet when present.
 
 ## Desktop ship (Rust)
 
-`python -u ml/train_heating_dsm.py` tunes ExtraTrees (wide RandomizedSearch; also
-compares RF / GradientBoosting / HGB / linear), exports `heating_dsm_hourly_v1.onnx`
-via `skl2onnx`, and copies artifacts to `desktop/artifacts/`. Meta includes model name,
-best params, MAE/RMSE, and ± precision (peak MAE band) for the Rust UI.
+`python -u ml/train_heating_dsm.py` **or** `notebooks/lakeside_heating_dsm_sklearn.ipynb`
+(section 8) tunes ExtraTrees, exports `heating_dsm_hourly_v1.onnx` via `skl2onnx`, and
+copies artifacts to `desktop/artifacts/`. Meta includes model name, best params, MAE/RMSE,
+and ± precision (peak MAE band) for the Rust UI.
+
+Desktop target is **`facility_kw` only** — not multi-output.
 
 ```powershell
 cd desktop

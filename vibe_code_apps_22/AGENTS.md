@@ -1,8 +1,8 @@
 # AGENTS.md — Vibe 22 Lakeside Elementary School
 
 **Single code home** for Lakeside ES (southern Wisconsin): ALC → openfdd package,
-EnergyPlus IdealLoads G14, utility-bill G14, heating DSM ML, OpenStudio OSM
-authoring. **Unity digital twin stays in vibe21** (Liberty) — not this app.
+EnergyPlus IdealLoads G14, utility-bill G14, heating DSM ML (E+ farm → sklearn →
+Rust ONNX desktop). **Unity digital twin stays in vibe21** (Liberty) — not this app.
 
 **Read first:** [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md),
 [`vibe22_agent_spec/UTILITY_GL14.md`](vibe22_agent_spec/UTILITY_GL14.md),
@@ -24,9 +24,8 @@ Last validated: **2026-08-05**.
 
 1. Process ALC WebCTRL dumps → vibe19 `openfdd_package_v1` + vibe20 utilities.
 2. Calibrate IdealLoads twin to ASHRAE G14 (interval + client utility bills).
-3. Train heating-startup DSM surrogates (sklearn + PyTorch/ONNX; HE 05–09).
-4. Optional OpenStudio OSM authoring (native SDK; no Docker required).
-5. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
+3. Train heating-startup DSM surrogates (sklearn ExtraTrees → ONNX; HE 05–09).
+4. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
 
 ---
 
@@ -36,15 +35,13 @@ Last validated: **2026-08-05**.
 vibe_code_apps_22/
   lakeside/paths.py          # SITE_ROOT + building constants
   models/eplus/              # Pinned G14-best IdealLoads IDFs + scorecards (git)
-  scripts/                   # ALC pipe, E+, OpenStudio, DSM Excel / E+ farm
+  scripts/                   # ALC pipe, E+, DSM Excel / E+ farm
   ml/                        # heating DSM train / features / artifacts
   desktop/                   # Rust egui + ONNX walk ($/kWh + $/kW)
-  notebooks/                 # lakeside_heating_dsm_*.ipynb
-  desktop/                   # Rust egui + ONNX Lakeside DSM walk (.exe)
+  notebooks/                 # lakeside_heating_dsm_sklearn.ipynb (ships desktop ONNX)
   dsm/                       # Excel playground + CSV exports
-  docs/                      # E+ plan, OpenStudio-MCP notes
+  docs/                      # E+ plan / DSM notes
   skills/                    # agent skills
-  openstudio_mcp_bridge/     # optional Docker MCP (not required)
   bacnet/                    # FUTURE — live BACnet app placeholder
   vibe22_agent_spec/
 ```
@@ -62,8 +59,6 @@ utility champion, scorecards). Campaign / farm scripts use **site**
 | `LAKESIDE_SITE_ROOT` | Preferred site data root |
 | `VIBE22_SITE_ROOT` | Alias |
 | `VIBE22_CREEKSIDE_ROOT` / `VIBE23_CREEKSIDE_ROOT` | Legacy aliases |
-
-OpenStudio SDK (if used): `{SITE}/tools/openstudio/sdk/…`
 
 ---
 
@@ -85,21 +80,17 @@ python -u scripts\thermal_zone_analytics.py
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM ML
+# Heating DSM ML (same ship path as the sklearn notebook)
 python -u ml\build_bootstrap_dataset.py
-# Prefer E+ farm when EnergyPlus is installed (synconn_build-style control walks):
+# Prefer E+ farm when EnergyPlus is installed:
 # python -u scripts\eplus_heating_dsm_farm.py
-python -u ml\train_heating_dsm.py
-python -u ml\train_heating_dsm_torch.py
+python -u ml\train_heating_dsm.py          # ExtraTrees → desktop ONNX
+# or: jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
 python -u scripts\build_dsm_excel.py
 
-# Notebooks
-jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
-
-# Desktop walk (Rust) — after ONNX exists
-# cd desktop && cargo build --release
+# Desktop walk (Rust) — loads heating_dsm_hourly_v1.onnx
+# cd desktop && cargo run --release
 ```
-
 ---
 
 ## Honesty

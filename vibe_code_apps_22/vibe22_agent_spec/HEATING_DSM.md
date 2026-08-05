@@ -129,10 +129,11 @@ cargo run --release
 
 | Notebook | Role |
 | --- | --- |
-| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | GroupKFold bake-off → joblib/ONNX; multi-target DEMO + 24h walk |
+| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | **Ships desktop ONNX** (ExtraTrees kW-only) + analysis; multi-target DEMO at end |
 
-Both should call `train_parquet_path()` (farm first). Re-execute before shipping GH
-so outputs show `ENERGYPLUS_SIMULATED` (+ `SYNTHETIC_ZONE_TEMPS` in DEMO sections).
+Re-execute the sklearn notebook (or `python -u ml/train_heating_dsm.py`) before shipping —
+both write `heating_dsm_hourly_v1.onnx` + meta. Desktop is **single-output `facility_kw`**;
+multi-output is notebook DEMO only until Phase B2.
 
 ## Phase B2 — E+ DM farm + multi-target (warm-by-start)
 

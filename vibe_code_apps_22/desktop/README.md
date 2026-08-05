@@ -37,10 +37,13 @@ cargo run --release
 
 Optional: `$env:LAKESIDE_ONNX_DIR = "...\ml\artifacts"`
 
-Train artifacts first:
+Train artifacts first (either CLI or the sklearn notebook — same ship files):
 
 ```powershell
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 python scripts\eplus_heating_dsm_farm.py
-python -u ml\train_heating_dsm_torch.py
+python -u ml\train_heating_dsm.py
+# or: jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb  (section 8 ships ONNX)
 ```
+
+Desktop predicts **`facility_kw` only** (not multi-output).

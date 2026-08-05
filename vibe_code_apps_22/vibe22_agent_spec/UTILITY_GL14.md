@@ -25,6 +25,7 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 - `eplus/scorecards/best_scorecard_utility.json`
 - `reports/eplus/observed_monthly_utility.csv`
 
-## OpenStudio MCP
+## Tooling note
 
-See `docs/OPENSTUDIO_MCP.md`. Optional; not required for G14.
+Heating DSM and IdealLoads G14 use **native EnergyPlus**. OpenStudio MCP bridge
+was removed from this app.
