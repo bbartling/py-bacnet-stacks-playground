@@ -109,10 +109,13 @@ proxy scaled by G14 scorecard COP. Replace with schedule-patched E+ runs when re
 
 - Midnight zone temps (display / B2 placeholder), 24h OAT, strategy, per-zone HP grid
 - ONNX 24h facility_kW walk using farm-trained scaler + model
-- Editable $/kWh and $/kW + annual stub
+- **Utility bill CSV load** → column aliases + guardrails → OLS \(c_e,c_d\)
+  (heating-season / all-months / single month). Bad files fail with a clear banner.
+- Schema: [`../data/sample/UTILITY_BILL_CSV.md`](../data/sample/UTILITY_BILL_CSV.md)
 
 ```powershell
 cd vibe_code_apps_22\desktop
+$env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 cargo run --release
 ```
 
@@ -150,5 +153,6 @@ Set `LAKESIDE_SITE_ROOT` for historian / full E+ runs. See [`../data/DATA.md`](.
 1. Prefer farm parquet; stamp `training_source` on cards.
 2. Keep HE 05–09 peak metrics (not vibe21 cooling HE 14–16).
 3. Expose $/kWh + $/kW on every cost surface (Excel, desktop, notebooks).
-4. Update this spec when farm mode, targets, or desktop contract changes.
-5. Do not claim tariff-grade or warm-by-start until B2 + customer rates land.
+4. Desktop bill CSV: validate aliases + guardrails; never silently invent rates.
+5. Update this spec when farm mode, targets, desktop contract, or bill schema changes.
+6. Do not claim tariff-grade or warm-by-start until B2 + full tariff land.
