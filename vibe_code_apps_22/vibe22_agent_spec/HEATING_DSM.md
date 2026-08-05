@@ -9,39 +9,45 @@
 ## Architecture
 
 ```text
-models/eplus/*_best.idf          scripts/eplus_heating_dsm_farm.py
+utility champion IDF (util_103)     scripts/eplus_stage_repair_and_rescore.py
         │                                      │
-        └────────── ENERGYPLUS_SIMULATED ──────┘
+        ▼                                      ▼
+  staged DSM IDF (0 severe) ──► eplus_native runner/validator
+        │                                      │
+        └──────── ENERGYPLUS_NATIVE_RUN ───────┘
                                │
-                         farm parquet (preferred)
+                    farm parquet (required in prod)
                                │
               ┌────────────────┴────────────────┐
               ▼                                 ▼
-     sklearn ExtraTrees (ship)           PyTorch (alternate)
+     sklearn bake-off (ship)             PyTorch (alternate)
               │                                 │
      joblib + skl2onnx ONNX              *_torch_v1.onnx
               │
-           desktop/ (Rust egui + ort)
-              └────── cost playground (c_e · kWh + c_d · peak kW) ──┘
+           desktop/ (egui + MVM + CP-2 tariff)
 
-Fallback if no farm yet: ml/build_bootstrap_dataset.py → BAS_BOOTSTRAP_PROXY
+DEMO only: LAKESIDE_DEMO_NOT_ENERGYPLUS=1 → bootstrap / proxy
 ```
 
-Pinned IdealLoads champions: [`../models/eplus/`](../models/eplus/).
+Pinned IdealLoads champions: [`../models/eplus/`](../models/eplus/).  
+DSM-eligible staged twin: site `eplus/models/staged/*_dsm_v1.idf` + `DSM_ELIGIBLE.json`.
 
 **Ship surfaces (2026-08-05):**
 
 | Surface | Path |
 | --- | --- |
-| Farm builder | `scripts/eplus_heating_dsm_farm.py` |
+| Native runner | `eplus_native/` |
+| Stage repair + GL14 | `scripts/eplus_stage_repair_and_rescore.py` |
+| Farm builder | `scripts/eplus_heating_dsm_farm.py` (`--smoke` / `--medium`) |
+| MVM validation | `scripts/validate_mvm.py` → `reports/eplus/mvm/` |
 | Farm parquet | `ml/artifacts/heating_dsm_eplus_farm_hourly.parquet` |
 | sklearn joblib + card | `ml/artifacts/heating_dsm_hourly_v1.joblib` (+ `_model_card.json`) |
-| **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — **bake-off champion** via `skl2onnx` (+ `_feature_meta.json`) |
-| Torch alternate ONNX | `heating_dsm_hourly_torch_v1.onnx` (does not overwrite ship) |
-| Notebooks | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
-| Desktop walk | `desktop/` — `cargo run --release`; **client zip** via `desktop/pack_client.ps1` → `desktop/dist/*.zip` |
+| **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — bake-off champion (+ `_feature_meta.json`) |
+| **Human SoT notebook** | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
+| Engineering report | [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) |
+| Desktop walk | `desktop/` — MVM panel + CP-2; client zip via `pack_client.ps1` |
 
-Train entrypoints prefer farm via `ml/artifact_paths.train_parquet_path()`.
+`ml/artifact_paths.train_parquet_path()` requires `ENERGYPLUS_NATIVE_RUN` unless DEMO env is set.
 
 ## Peak window
 
@@ -93,19 +99,22 @@ See **Phase B2** farm contract below. Deeper PyTorch alone does not replace the 
 
 | Tag | Meaning |
 | --- | --- |
-| `ENERGYPLUS_SIMULATED` | Preferred — IdealLoads+COP farm from `eplus_heating_dsm_farm.py` on pinned best IDF + site weather/BAS shape |
-| `BAS_BOOTSTRAP_PROXY` | Fallback screening data |
+| `ENERGYPLUS_NATIVE_RUN` | **Production** — native E+ IdealLoads+COP, zero severe/fatal, immutable manifest |
+| Ideal Loads + fixed-COP | Electric proxy (COP 3.5/4.5) — not a GSHP/GLHE plant |
+| `BAS_BOOTSTRAP_PROXY` | DEMO only (`LAKESIDE_DEMO_NOT_ENERGYPLUS=1`) |
 | `CANDIDATE` | Model registry status until BAS / tariff validated |
 
-**Current farm honesty:** not native `eplusout` CSV yet — twin-seeded IdealLoads+COP
-proxy scaled by G14 scorecard COP. Replace with schedule-patched E+ runs when ready
-(`--run-eplus` path).
+**Current farm:** schedule-patched native EnergyPlus on the **staged utility** twin
+(`*_best_utility_dsm_v1.idf`). Exit code alone is insufficient — `eplus_native.validate`
+requires zero severe/fatal. See [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
 
 ## Desktop (Rust)
 
 `desktop/` — egui + `ort` Windows `.exe`:
 
-- Banner shows bake-off **champion name**, hyperparameters, MAE/RMSE, ± peak MAE
+- Banner shows bake-off **champion name**, hyperparameters, MAE/RMSE
+- Peak MAE shown as **screening metric** (not an uncertainty ± interval)
+- **Measured vs modeled** panel (hashes, COP, IdealLoads+COP honesty, GL14 separate)
 - Portable tariff UI (Creekside CP-2 defaults) + dual walk **24/7 vs DSM**
 - Annual demand/dist savings rollup from monthly peaks CSV
 - 24h facility_kW ONNX walk (`heating_dsm_hourly_v1.onnx`)
@@ -130,42 +139,36 @@ cd desktop
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 cargo run --release                 # local dev
 .\pack_client.ps1                   # client package
-```## Notebooks
+```
+
+## Notebooks
 
 | Notebook | Role |
 | --- | --- |
-| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | **Ships desktop ONNX** (ExtraTrees kW-only) + analysis; multi-target DEMO at end |
+| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | **Human SoT** — provenance/MVM scoreboard + ships desktop ONNX; multi-target DEMO at end |
 
 Re-execute the sklearn notebook (or `python -u ml/train_heating_dsm.py`) before shipping —
 both write `heating_dsm_hourly_v1.onnx` + meta. Desktop is **single-output `facility_kw`**;
-multi-output is notebook DEMO only until Phase B2.
+multi-output is notebook DEMO only until Phase B2 zone-temp farm.
 
-## Phase B2 — E+ DM farm + multi-target (warm-by-start)
+## Phase B2 — multi-target (warm-by-start)
 
 **Goal:** unlock “will Area X be ≥ occupied SP by HE 07?” in the desktop walk.
 
-1. Seed: `models/eplus/lakeside_6zone_gshp_best.idf`
-2. Script: `scripts/eplus_heating_dsm_farm.py` — cold-day EPW slice; per-run vary
-   IdealLoads heating availability / setpoints / stagger (synconn_build-style)
-3. Emit hourly: `facility_kw`, `zone_temp_*_f` (6 Areas), controls, weather
-4. Retrain multi-target ExtraTrees + ONNX sequence (midnight T0 + OAT + hourly
-   `hp_on_*` → temps + kW)
-5. Swap desktop ONNX to multi-target; show at-temp flags
+1. Seed: staged DSM-eligible utility IDF (zero severe)
+2. Extend native farm to emit `zone_temp_*_f` from eplusout Timestep MAT
+3. Retrain multi-target ExtraTrees + ONNX; swap desktop ONNX
+4. Keep kW-only `heating_dsm_hourly_v1` as ship until B2 validated
 
-### Notebook DEMO path (until native B2 farm)
+### Notebook DEMO path (until native B2 zone temps)
 
 Both heating DSM notebooks attach **`SYNTHETIC_ZONE_TEMPS`** via
-`ml/synthetic_zone_temps.py` (visible DEMO knobs in-cell: midnight T, occ/unocc SP,
-UA proxy, HP gain). They train multi-output models and run a causal **24h forecast
-walk** (`ml/walk_24h_multitarget.py`) with fake OAT + strategy/`hp_on` grid → kW +
-zone temps + bill-rate cost stub + warm-by-start flags.
+`ml/synthetic_zone_temps.py`. DEMO artifacts must not overwrite v1.
 
 | Artifact | Role |
 | --- | --- |
 | `heating_dsm_hourly_v1.{joblib,onnx}` | **Production ship** — kW-only |
 | `heating_dsm_multitarget_demo.{joblib,onnx}` | DEMO only — does not overwrite v1 |
-
-Until native B2 zone-temp farm ships, desktop MVP still loads **kW-only** v1 ONNX.
 
 ## External data
 
@@ -173,9 +176,10 @@ Set `LAKESIDE_SITE_ROOT` for historian / full E+ runs. See [`../data/DATA.md`](.
 
 ## Agent checklist
 
-1. Prefer farm parquet; stamp `training_source` on cards.
+1. Require `ENERGYPLUS_NATIVE_RUN` farm; never ship proxy stamps as production.
 2. Keep HE 05–09 peak metrics (not vibe21 cooling HE 14–16).
-3. Expose $/kWh + $/kW on every cost surface (Excel, desktop, notebooks).
+3. Expose $/kWh + $/kW (and CP-2 TOD) on cost surfaces.
 4. Desktop bill CSV: validate aliases + guardrails; never silently invent rates.
-5. Update this spec when farm mode, targets, desktop contract, or bill schema changes.
+5. Update this spec + skills when farm mode, targets, or desktop contract changes.
 6. Do not claim tariff-grade or warm-by-start until B2 + full tariff land.
+7. Zero severe/fatal on every accepted E+ run; monthly GL14 ≠ interval MVM.

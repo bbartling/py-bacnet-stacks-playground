@@ -24,8 +24,12 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 - Site working copy: `eplus/models/lakeside_6zone_gshp_best_utility.idf`
 - `eplus/scorecards/best_scorecard_utility.json`
 - `reports/eplus/observed_monthly_utility.csv`
+- **DSM-eligible staged repair (0 severe):** `eplus/models/staged/*_dsm_v1.idf` + `DSM_ELIGIBLE.json`
+  (from `scripts/eplus_stage_repair_and_rescore.py`; monthly GL14 still pass after repair)
 
 ## Tooling note
 
-Heating DSM and IdealLoads G14 use **native EnergyPlus**. OpenStudio MCP bridge
-was removed from this app.
+Heating DSM and IdealLoads G14 use **native EnergyPlus** with fail-closed severe/fatal
+gates (`eplus_native/`). OpenStudio MCP bridge was removed from this app.
+Do not treat monthly utility GL14 as proof of interval demand fidelity — see
+[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).

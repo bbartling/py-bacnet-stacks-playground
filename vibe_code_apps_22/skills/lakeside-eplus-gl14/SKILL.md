@@ -29,6 +29,8 @@ description: >-
 
 **Honesty:** Passing G14 here = calibrated **IdealLoads + heat/cool COP proxy**, **not** a true water-to-air HP + GLHE plant. Condenser loop temps are BAS targets only until GSHP is modeled. Monthly kWh are **interval-derived**, not utility billing-grade.
 
+**DSM gate (2026-08):** champion `util_103` historically completed with **14 Severe** (design-day SP=0°C). Heating DSM must use the **staged repair** (`scripts/eplus_stage_repair_and_rescore.py`) with **0 severe/fatal** before farm/train. See [lakeside-heating-dsm](../lakeside-heating-dsm/SKILL.md) and `vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md`.
+
 **Agent session time to G14 (successful path):** ~**1–2 hours** wall-clock after the BAS openfdd package + IdealLoads twin already existed — fenestration/WWR → 9-zone massing → BAS heat/fan dials → campaign pass (iters **78** / **80**). Earlier opaque IdealLoads under-prediction was prior exploration; do **not** claim “blank repo → G14 in 2h.”
 
 ---

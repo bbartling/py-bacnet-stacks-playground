@@ -38,6 +38,13 @@ python -u scripts\eplus_campaign_utility.py
 
 Best IDF: repo `models/eplus/lakeside_6zone_gshp_best_utility.idf` (site: `eplus/models/…`).
 
+**For heating DSM:** do not train on `util_103` outputs that still have severes.
+Run `python -u scripts\eplus_stage_repair_and_rescore.py` → staged `*_dsm_v1.idf`
+with **0 severe** and re-scored monthly GL14 (still pass as of 2026-08-05).
+Pointer: `$SITE/eplus/models/staged/DSM_ELIGIBLE.json`.
+
+**Honesty:** IdealLoads + COP proxy ≠ GSHP plant. Monthly utility GL14 ≠ interval demand MVM.
+
 ## Engine note
 
 OpenStudio MCP optional (`docs/OPENSTUDIO_MCP.md`); Cursor cannot host ~150 OS-MCP tools.
