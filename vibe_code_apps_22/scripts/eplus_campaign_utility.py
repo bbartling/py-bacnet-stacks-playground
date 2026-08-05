@@ -26,6 +26,7 @@ from lakeside.paths import (  # noqa: E402
     eplus_dir,
     packages_dir,
     reports_dir,
+    resolve_eplus_model,
     site_root,
     utilities_dir,
 )
@@ -45,9 +46,9 @@ MODELS = EPLUS / "models"
 RUNS = EPLUS / "runs"
 LOG = EPLUS / "scorecards" / "campaign_log_utility.csv"
 LEDGER = EPLUS / "assumptions" / "ledger.json"
-SEED = MODELS / "lakeside_6zone_gshp_best.idf"
+SEED = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
 if not SEED.is_file():
-    SEED = MODELS / "lakeside_6zone_gshp_v0.idf"
+    SEED = resolve_eplus_model("lakeside_6zone_gshp_v0.idf")
 LATEST = MODELS / "lakeside_6zone_gshp_latest.idf"
 BEST = MODELS / "lakeside_6zone_gshp_best_utility.idf"
 BEST_SC = EPLUS / "scorecards" / "best_scorecard_utility.json"

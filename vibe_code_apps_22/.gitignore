@@ -7,3 +7,6 @@ ml/artifacts/__pycache__/
 *_executed.ipynb
 *.pyc
 .venv/
+
+# Rust desktop build
+desktop/target/

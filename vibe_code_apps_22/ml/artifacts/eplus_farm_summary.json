@@ -1,0 +1,17 @@
+{
+  "n_rows": 2880,
+  "n_days": 24,
+  "strategies": [
+    "baseline",
+    "deep_setback",
+    "flat_24_7",
+    "morning_all_on",
+    "stagger_preheat"
+  ],
+  "provenance": "ENERGYPLUS_SIMULATED",
+  "twin_idf": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\models\\lakeside_6zone_gshp_best.idf",
+  "heat_cop_proxy": 3.5,
+  "out": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_farm_hourly.parquet",
+  "site_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside",
+  "honesty": "IdealLoads+COP proxy farm seeded by G14-best twin + site weather/BAS shape. Not full GSHP/GLHE. Replace with native eplusout CSV farm when ready."
+}

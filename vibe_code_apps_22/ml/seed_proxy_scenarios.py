@@ -193,6 +193,18 @@ def expand_day_with_strategies(
             }
             for col, key in zip(OCC_FRAC_COLS, _ZONE_KEYS):
                 row[col] = float(occ[key])
+            for col, key in zip(
+                [
+                    "hp_on_1F_A",
+                    "hp_on_1F_B",
+                    "hp_on_1F_C",
+                    "hp_on_1F_D",
+                    "hp_on_2F_A",
+                    "hp_on_2F_B",
+                ],
+                _ZONE_KEYS,
+            ):
+                row[col] = 1.0 if float(occ[key]) > 0.05 else 0.0
             rows.append(row)
     return pd.DataFrame(rows)
 

@@ -1,0 +1,100 @@
+{
+  "iter": "iter_78",
+  "sim_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\runs\\iter_78\\sim",
+  "gl14": {
+    "n": 11,
+    "nmbe_pct": -3.329,
+    "cvrmse_pct": 12.052,
+    "mean_obs": 47980.909
+  },
+  "gl14_status": "pass",
+  "gl14_distance": 0.0,
+  "monthly": [
+    {
+      "month": "2025-08",
+      "kwh_obs": 33842.0,
+      "kwh_sim": 36138.4,
+      "pct_error": 6.79,
+      "peak_kw_obs": 156.0
+    },
+    {
+      "month": "2025-09",
+      "kwh_obs": 32214.5,
+      "kwh_sim": 34334.3,
+      "pct_error": 6.58,
+      "peak_kw_obs": 168.0
+    },
+    {
+      "month": "2025-10",
+      "kwh_obs": 33540.0,
+      "kwh_sim": 40928.0,
+      "pct_error": 22.03,
+      "peak_kw_obs": 156.0
+    },
+    {
+      "month": "2025-11",
+      "kwh_obs": 43353.0,
+      "kwh_sim": 50089.1,
+      "pct_error": 15.54,
+      "peak_kw_obs": 216.0
+    },
+    {
+      "month": "2025-12",
+      "kwh_obs": 69442.0,
+      "kwh_sim": 77566.8,
+      "pct_error": 11.7,
+      "peak_kw_obs": 276.0
+    },
+    {
+      "month": "2026-01",
+      "kwh_obs": 84223.5,
+      "kwh_sim": 78759.9,
+      "pct_error": -6.49,
+      "peak_kw_obs": 330.0
+    },
+    {
+      "month": "2026-02",
+      "kwh_obs": 68222.5,
+      "kwh_sim": 59432.2,
+      "pct_error": -12.88,
+      "peak_kw_obs": 294.0
+    },
+    {
+      "month": "2026-03",
+      "kwh_obs": 55178.5,
+      "kwh_sim": 54070.9,
+      "pct_error": -2.01,
+      "peak_kw_obs": 264.0
+    },
+    {
+      "month": "2026-04",
+      "kwh_obs": 43833.0,
+      "kwh_sim": 40944.2,
+      "pct_error": -6.59,
+      "peak_kw_obs": 198.0
+    },
+    {
+      "month": "2026-05",
+      "kwh_obs": 32404.5,
+      "kwh_sim": 36789.7,
+      "pct_error": 13.53,
+      "peak_kw_obs": 150.0
+    },
+    {
+      "month": "2026-06",
+      "kwh_obs": 31536.5,
+      "kwh_sim": 36304.1,
+      "pct_error": 15.12,
+      "peak_kw_obs": 198.0
+    }
+  ],
+  "geo_loop_and_zone_bas": {
+    "bas_jan_supply_f": 43.58062836021505,
+    "bas_jan_return_f": 42.760377464157706,
+    "bas_jan_zn_t_occ_f": 67.93,
+    "bas_jan_zn_t_unocc_f": 64.63,
+    "compare": "IdealLoads seed \u2014 geo loop temps for GLHE phase; zn_t used for SP"
+  },
+  "heat_cop_proxy": 3.5,
+  "cool_cop_proxy": 4.5
+}

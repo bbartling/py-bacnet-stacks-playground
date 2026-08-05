@@ -1,61 +1,67 @@
 {
-  "schema_version": "creekside.model_registry.v1",
+  "schema_version": "lakeside.model_registry.v1",
   "model_id": "heating_dsm_hourly_v1",
   "family": "HEATING_DSM_DEMAND",
-  "artifact": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\ml\\artifacts\\heating_dsm_hourly_v1.joblib",
-  "artifact_sha256": "8f1c304f809a42cffa81dbf9043aa735c50cada78f172f63f0db93ff94d40176",
+  "artifact": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_hourly_v1.joblib",
+  "artifact_sha256": "c482fc16ddc06a37615e99c3b6f442a49c3e3c80833c87b0ecd3735548066a2b",
   "status": "CANDIDATE",
   "targets": [
     "facility_kw"
   ],
-  "champion": "extra_trees",
+  "champion": "hgb",
+  "best_params": {
+    "min_samples_leaf": 10,
+    "max_iter": 250,
+    "max_depth": 8,
+    "learning_rate": 0.03
+  },
   "cv_metrics": {
     "persistence": {
-      "rmse": 18.91438763245746,
-      "mae": 9.361539510763556,
-      "rmse_peak_05_09": 31.297366814790486,
-      "mae_peak_05_09": 17.778263226552376
+      "rmse": 30.667727366663335,
+      "mae": 17.758100667656016,
+      "rmse_peak_05_09": 39.45528157781132,
+      "mae_peak_05_09": 24.08677924647111
     },
     "ridge": {
-      "rmse": 16.22092638172303,
-      "mae": 9.780114451975953,
-      "rmse_peak_05_09": 25.74078301570625,
-      "mae_peak_05_09": 15.494418123717583
+      "rmse": 27.50917603443379,
+      "mae": 18.388782403022255,
+      "rmse_peak_05_09": 36.74267777301183,
+      "mae_peak_05_09": 25.341300103267553
     },
     "elasticnet": {
-      "rmse": 16.330929545006846,
-      "mae": 9.663490781842489,
-      "rmse_peak_05_09": 26.246868122097872,
-      "mae_peak_05_09": 15.398245182570525
+      "rmse": 27.839920249846834,
+      "mae": 17.71537935949171,
+      "rmse_peak_05_09": 37.735858095336845,
+      "mae_peak_05_09": 24.476004053342592
     },
     "rf": {
-      "rmse": 10.227791686015962,
-      "mae": 5.7282010499424745,
-      "rmse_peak_05_09": 12.673300111659016,
-      "mae_peak_05_09": 8.048361787225431
+      "rmse": 22.502839234505384,
+      "mae": 14.228136800772763,
+      "rmse_peak_05_09": 27.268936232552115,
+      "mae_peak_05_09": 18.217973019132714
     },
     "extra_trees": {
-      "rmse": 9.589315990328178,
-      "mae": 5.584245675373849,
-      "rmse_peak_05_09": 12.326192505188086,
-      "mae_peak_05_09": 7.994881819810281
+      "rmse": 21.074258506791043,
+      "mae": 13.497806097590932,
+      "rmse_peak_05_09": 25.340417609221273,
+      "mae_peak_05_09": 17.86829724049553
     },
     "hgb": {
-      "rmse": 9.654936095154984,
-      "mae": 5.6734406819443715,
-      "rmse_peak_05_09": 12.945249251715717,
-      "mae_peak_05_09": 8.458466571663859
+      "rmse": 21.991797792511207,
+      "mae": 14.073985476082655,
+      "rmse_peak_05_09": 27.170464413183094,
+      "mae_peak_05_09": 17.80504783417551
     }
   },
   "beat_persistence_peak": true,
   "peak_window": "HE_05_09_local",
-  "n_rows": 40320,
-  "n_days": 336,
-  "training_parquet": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\ml\\artifacts\\heating_dsm_bootstrap_hourly.parquet",
-  "training_source": "BAS_BOOTSTRAP_PROXY",
+  "n_rows": 2880,
+  "n_days": 24,
+  "training_parquet": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_farm_hourly.parquet",
+  "training_source": "ENERGYPLUS_SIMULATED",
   "sklearn_version": "1.8.0",
-  "created_utc": "2026-08-04T20:37:25Z",
-  "honesty": "Screening surrogate for 6-Area HP occupancy / preheat DSM. Trained on BAS_BOOTSTRAP_PROXY (physics-ish scenario tags), not EnergyPlus. Replace parquet with E+ DM farm before APPROVED. Not tariff-grade.",
+  "created_utc": "2026-08-05T14:30:26Z",
+  "honesty": "Heating DSM surrogate for 6-Area HP occupancy / preheat. Source=ENERGYPLUS_SIMULATED. IdealLoads+COP proxy when ENERGYPLUS_SIMULATED. CANDIDATE \u2014 not tariff-grade. Zone-temp multi-target farm is Phase B2.",
   "feature_cols": [
     "hour_ending",
     "sin_hour",
@@ -67,6 +73,8 @@
     "oat_f",
     "oat_lag1",
     "hdd65",
+    "hdd65_cum_night",
+    "hours_to_occupy",
     "rh_pct",
     "ghi",
     "occ_frac_1F_A",
@@ -75,7 +83,14 @@
     "occ_frac_1F_D",
     "occ_frac_2F_A",
     "occ_frac_2F_B",
+    "hp_on_1F_A",
+    "hp_on_1F_B",
+    "hp_on_1F_C",
+    "hp_on_1F_D",
+    "hp_on_2F_A",
+    "hp_on_2F_B",
     "sum_occ_frac",
+    "sum_hp_on",
     "preheat_lead_h",
     "stagger_min",
     "unocc_htg_sp_f",

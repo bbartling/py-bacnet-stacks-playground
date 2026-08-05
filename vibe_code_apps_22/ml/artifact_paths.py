@@ -25,6 +25,7 @@ ONNX_NAME = f"{MODEL_STEM}.onnx"
 FEATURE_META_NAME = f"{MODEL_STEM}_feature_meta.json"
 CHAMPION_SUMMARY = "champion_summary.json"
 BOOTSTRAP_PARQUET = "heating_dsm_bootstrap_hourly.parquet"
+EPLUS_FARM_PARQUET = "heating_dsm_eplus_farm_hourly.parquet"
 SAMPLE_PARQUET = "heating_dsm_bootstrap_sample.parquet"
 
 # Back-compat aliases
@@ -36,6 +37,18 @@ creekside_data_root = site_root  # legacy
 def default_artifact_dir() -> Path:
     _ARTIFACTS.mkdir(parents=True, exist_ok=True)
     return _ARTIFACTS
+
+
+def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
+    """Prefer E+ twin farm parquet, then bootstrap, then sample."""
+    art = default_artifact_dir()
+    farm = art / EPLUS_FARM_PARQUET
+    if prefer_eplus_farm and farm.is_file():
+        return farm
+    ext = os.environ.get("VIBE22_TRAIN_PARQUET") or os.environ.get("LAKESIDE_TRAIN_PARQUET")
+    if ext and Path(ext).is_file():
+        return Path(ext)
+    return bootstrap_parquet_path(prefer_full=True)
 
 
 def bootstrap_parquet_path(*, prefer_full: bool = True) -> Path:
@@ -65,6 +78,7 @@ def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
         "feature_meta": d / FEATURE_META_NAME,
         "champion_summary": d / CHAMPION_SUMMARY,
         "bootstrap": d / BOOTSTRAP_PARQUET,
+        "eplus_farm": d / EPLUS_FARM_PARQUET,
         "figures": d / "figures",
     }
 
@@ -72,6 +86,7 @@ def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
 __all__ = [
     "artifact_paths",
     "bootstrap_parquet_path",
+    "train_parquet_path",
     "lakeside_data_root",
     "creekside_data_root",
     "default_artifact_dir",

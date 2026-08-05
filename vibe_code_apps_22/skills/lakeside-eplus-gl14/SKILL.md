@@ -25,7 +25,7 @@ description: >-
 | --- | --- | --- |
 | ASHRAE G14 monthly electric | \|NMBE\| ≤ 5% **and** CVRMSE ≤ 15% | **Pass** — iters **78** & **80** |
 | Observed series | Integrated 5-min `CS_ELEC_METER` `kw_demand` → monthly kWh | `utilities/electricity.csv` |
-| Twin | 9 IdealLoads zones + COP→site electric proxy | `eplus/models/lakeside_6zone_gshp_best.idf` |
+| Twin | 9 IdealLoads zones + COP→site electric proxy | Repo pin: `models/eplus/lakeside_6zone_gshp_best.idf` (site: `eplus/models/…`) |
 
 **Honesty:** Passing G14 here = calibrated **IdealLoads + heat/cool COP proxy**, **not** a true water-to-air HP + GLHE plant. Condenser loop temps are BAS targets only until GSHP is modeled. Monthly kWh are **interval-derived**, not utility billing-grade.
 
@@ -218,7 +218,7 @@ Per-month \|err\|≤5% is **informational**; G14 is **whole-series** NMBE/CVRMSE
 | `eplus/assumptions/ledger.json` | Iteration hypotheses |
 | `eplus/scorecards/campaign_log.csv` | All iters |
 | `eplus/scorecards/best_scorecard.json` | Canonical best |
-| `eplus/models/lakeside_6zone_gshp_best.idf` | Best IDF (9 zones) |
+| `models/eplus/lakeside_6zone_gshp_best.idf` (repo) / site `eplus/models/…` | Best IDF (9 zones IdealLoads) |
 | `docs/EPLUS_CALIBRATION_PLAN.md` | Longer plan doc |
 
 ---

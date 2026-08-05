@@ -36,7 +36,7 @@ python -u scripts\ingest_utility_bills.py
 python -u scripts\eplus_campaign_utility.py
 ```
 
-Best IDF on site: `eplus/models/lakeside_6zone_gshp_best_utility.idf`
+Best IDF: repo `models/eplus/lakeside_6zone_gshp_best_utility.idf` (site: `eplus/models/…`).
 
 ## Engine note
 

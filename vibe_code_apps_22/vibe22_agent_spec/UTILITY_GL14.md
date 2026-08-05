@@ -20,7 +20,8 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 
 ## Artifacts (on `LAKESIDE_SITE_ROOT`)
 
-- `eplus/models/lakeside_6zone_gshp_best_utility.idf`
+- Repo pin: `models/eplus/lakeside_6zone_gshp_best_utility.idf` (+ `best_scorecard_utility.json`)
+- Site working copy: `eplus/models/lakeside_6zone_gshp_best_utility.idf`
 - `eplus/scorecards/best_scorecard_utility.json`
 - `reports/eplus/observed_monthly_utility.csv`
 

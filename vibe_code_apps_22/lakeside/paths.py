@@ -87,3 +87,20 @@ def packages_dir() -> Path:
 
 def utilities_dir() -> Path:
     return site_root() / "utilities"
+
+
+def pinned_eplus_models_dir() -> Path:
+    """Repo-pinned IdealLoads champions (git). Prefer site copy when present."""
+    return APP_ROOT / "models" / "eplus"
+
+
+def resolve_eplus_model(name: str) -> Path:
+    """Resolve an IDF: site eplus/models first, then repo models/eplus/."""
+    site = eplus_dir() / "models" / name
+    if site.is_file():
+        return site
+    pinned = pinned_eplus_models_dir() / name
+    if pinned.is_file():
+        return pinned
+    return site
+

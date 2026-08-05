@@ -35,9 +35,12 @@ Last validated: **2026-08-05**.
 ```text
 vibe_code_apps_22/
   lakeside/paths.py          # SITE_ROOT + building constants
-  scripts/                   # ALC pipe, E+, OpenStudio, DSM Excel
+  models/eplus/              # Pinned G14-best IdealLoads IDFs + scorecards (git)
+  scripts/                   # ALC pipe, E+, OpenStudio, DSM Excel / E+ farm
   ml/                        # heating DSM train / features / artifacts
+  desktop/                   # Rust egui + ONNX walk ($/kWh + $/kW)
   notebooks/                 # lakeside_heating_dsm_*.ipynb
+  desktop/                   # Rust egui + ONNX Lakeside DSM walk (.exe)
   dsm/                       # Excel playground + CSV exports
   docs/                      # E+ plan, OpenStudio-MCP notes
   skills/                    # agent skills
@@ -45,6 +48,10 @@ vibe_code_apps_22/
   bacnet/                    # FUTURE — live BACnet app placeholder
   vibe22_agent_spec/
 ```
+
+Pinned twins: [`models/eplus/`](models/eplus/) (`lakeside_6zone_gshp_best.idf`,
+utility champion, scorecards). Campaign / farm scripts use **site**
+`eplus/models/` when present, else these repo pins via `resolve_eplus_model()`.
 
 ---
 
@@ -80,12 +87,17 @@ python -u scripts\eplus_observed_targets.py
 
 # Heating DSM ML
 python -u ml\build_bootstrap_dataset.py
+# Prefer E+ farm when EnergyPlus is installed (synconn_build-style control walks):
+# python -u scripts\eplus_heating_dsm_farm.py
 python -u ml\train_heating_dsm.py
 python -u ml\train_heating_dsm_torch.py
 python -u scripts\build_dsm_excel.py
 
 # Notebooks
 jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
+
+# Desktop walk (Rust) — after ONNX exists
+# cd desktop && cargo build --release
 ```
 
 ---
@@ -94,10 +106,10 @@ jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
 
 - IdealLoads + COP proxy ≠ full GSHP/GLHE plant.
 - Geometry = rectangular program massing, not CAD.
-- Heating DSM bootstrap rows are `BAS_BOOTSTRAP_PROXY` until an E+ DM farm exists.
+- Heating DSM prefers **`ENERGYPLUS_SIMULATED`** farm rows when present; else
+  `BAS_BOOTSTRAP_PROXY` until the farm is built.
 - Utility G14 ≠ interval-integrated G14.
 - Display name **Lakeside**; weather station may still be Madison (southern WI).
-
 ---
 
 ## Relationship

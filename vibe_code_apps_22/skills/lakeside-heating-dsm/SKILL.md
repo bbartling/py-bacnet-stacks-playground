@@ -23,23 +23,28 @@ management (not Liberty cooling DR / vibe21).
 ```powershell
 cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
-python -u ml\build_bootstrap_dataset.py
+python -u scripts\eplus_heating_dsm_farm.py   # preferred ENERGYPLUS_SIMULATED
 python -u ml\train_heating_dsm.py
 python -u ml\train_heating_dsm_torch.py
-python -u scripts\build_dsm_excel.py
+cd desktop; cargo run --release               # $/kWh + $/kW walk
 ```
+
+Fallback: `ml\build_bootstrap_dataset.py` if no farm yet.
 
 Notebooks: `notebooks/lakeside_heating_dsm_sklearn.ipynb`,
 `notebooks/lakeside_heating_dsm_pytorch_onnx.ipynb`
 
 ## Honesty
 
-`BAS_BOOTSTRAP_PROXY` · status `CANDIDATE`. G14 IdealLoads twin lives under
-`$LAKESIDE_SITE_ROOT/eplus/`.
+Prefer `ENERGYPLUS_SIMULATED` (IdealLoads+COP farm on pinned G14 twin). Fallback
+`BAS_BOOTSTRAP_PROXY`. Status `CANDIDATE` — not tariff-grade. Zone-temp
+multi-target (warm-by-start) is Phase B2.
 
 ## Key modules
 
-- `ml/feature_compile_heating_dsm.py`
+- `scripts/eplus_heating_dsm_farm.py`
+- `ml/feature_compile_heating_dsm.py` (`cost_from_hourly_kw`)
 - `ml/seed_proxy_scenarios.py`
 - `ml/train_heating_dsm.py` / `train_heating_dsm_torch.py`
+- `desktop/` — Rust egui + ONNX
 - `lakeside/paths.py`

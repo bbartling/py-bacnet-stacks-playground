@@ -28,6 +28,16 @@ OCC_FRAC_COLS = [
     "occ_frac_2F_B",
 ]
 
+# Per-zone heat-pump / IdealLoads availability (desktop toggle → model input)
+HP_ON_COLS = [
+    "hp_on_1F_A",
+    "hp_on_1F_B",
+    "hp_on_1F_C",
+    "hp_on_1F_D",
+    "hp_on_2F_A",
+    "hp_on_2F_B",
+]
+
 STRATEGY_IDS = [
     "baseline",
     "stagger_preheat",
@@ -47,10 +57,14 @@ FEATURE_COLS = [
     "oat_f",
     "oat_lag1",
     "hdd65",
+    "hdd65_cum_night",
+    "hours_to_occupy",
     "rh_pct",
     "ghi",
     *OCC_FRAC_COLS,
+    *HP_ON_COLS,
     "sum_occ_frac",
+    "sum_hp_on",
     "preheat_lead_h",
     "stagger_min",
     "unocc_htg_sp_f",
@@ -97,9 +111,20 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
         out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0).clip(0.0, 1.0)
     out["sum_occ_frac"] = out[OCC_FRAC_COLS].sum(axis=1)
 
+    for c in HP_ON_COLS:
+        if c not in out.columns:
+            # Default: HP available when zone has occupancy fraction > 0
+            short = c.replace("hp_on_", "occ_frac_")
+            out[c] = (out[short] > 0.05).astype(float) if short in out.columns else 0.0
+        else:
+            out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0).clip(0.0, 1.0)
+    out["sum_hp_on"] = out[HP_ON_COLS].sum(axis=1)
+
     for c in ("preheat_lead_h", "stagger_min", "unocc_htg_sp_f", "occ_htg_sp_f"):
         out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0)
 
+    # Morning recovery cues (DSM / desktop walk)
+    out["hours_to_occupy"] = np.clip(7.0 - he, 0.0, 12.0)
     gcol = "simulation_id" if "simulation_id" in out.columns else "day"
     g = out.groupby(gcol, sort=False)
     out["facility_kw_lag1"] = g[TARGET_COL].shift(1)
@@ -108,6 +133,17 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
     out["facility_kw_lag1"] = out["facility_kw_lag1"].fillna(out[TARGET_COL])
     out["facility_kw_lag2"] = out["facility_kw_lag2"].fillna(out["facility_kw_lag1"])
     out["oat_lag1"] = out["oat_lag1"].fillna(out["oat_f"])
+
+    # Cumulative night HDD within day (proxy for morning recovery severity)
+    cum: list[float] = []
+    for _, sub in out.groupby(gcol, sort=False):
+        sub = sub.sort_values("hour_ending")
+        acc = 0.0
+        for _, row in sub.iterrows():
+            if float(row["hour_ending"]) < 5 or float(row["hour_ending"]) >= 20:
+                acc += float(row["hdd65"])
+            cum.append(acc)
+    out["hdd65_cum_night"] = cum
 
     for sid in STRATEGY_IDS:
         out[f"strategy_{sid}"] = (out["strategy_id"] == sid).astype(float)
@@ -148,16 +184,24 @@ def cost_from_hourly_kw(
     energy_rate_per_kwh: float,
     demand_rate_per_kw: float,
     dt_hours: float = 1.0,
+    similar_days_per_year: float = 90.0,
 ) -> dict[str, float]:
-    """Simple energy + monthly-style demand charge on a 24h profile."""
+    """Energy + demand charge on a profile; optional crude annualization."""
     energy_kwh = float(np.sum(kw) * dt_hours)
     peak_kw = float(np.max(kw)) if len(kw) else 0.0
     energy_cost = energy_kwh * energy_rate_per_kwh
     demand_cost = peak_kw * demand_rate_per_kw
+    day_total = energy_cost + demand_cost
     return {
         "energy_kwh": energy_kwh,
         "peak_kw": peak_kw,
         "energy_cost": energy_cost,
         "demand_cost": demand_cost,
-        "total_cost": energy_cost + demand_cost,
+        "total_cost": day_total,
+        "annual_energy_cost_stub": energy_cost * float(similar_days_per_year),
+        "annual_demand_cost_stub": demand_cost * 12.0,  # monthly demand × 12
+        "annual_total_stub": energy_cost * float(similar_days_per_year) + demand_cost * 12.0,
+        "energy_rate_per_kwh": float(energy_rate_per_kwh),
+        "demand_rate_per_kw": float(demand_rate_per_kw),
+        "similar_days_per_year": float(similar_days_per_year),
     }

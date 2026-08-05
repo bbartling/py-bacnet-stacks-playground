@@ -20,7 +20,7 @@ _ML = Path(__file__).resolve().parent
 if str(_ML) not in sys.path:
     sys.path.insert(0, str(_ML))
 
-from artifact_paths import artifact_paths, bootstrap_parquet_path  # noqa: E402
+from artifact_paths import artifact_paths, train_parquet_path  # noqa: E402
 from feature_compile_heating_dsm import FEATURE_COLS, matrix_xy, morning_peak_mask  # noqa: E402
 
 
@@ -233,14 +233,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--device", type=str, default="cpu")
     args = ap.parse_args(argv)
 
-    pq = args.parquet or bootstrap_parquet_path()
+    pq = args.parquet or train_parquet_path()
     paths = artifact_paths(args.out_dir)
     if not pq.is_file():
         print(f"missing {pq}", file=sys.stderr)
         return 2
 
     df = pd.read_parquet(pq)
-    # Subsample days for faster default train if huge — use full set
+    src = "BAS_BOOTSTRAP_PROXY"
+    if "provenance" in df.columns and len(df):
+        src = str(df["provenance"].iloc[0])
     result = bake_off_torch(df, n_splits=args.n_splits, epochs=args.epochs, device=args.device)
 
     onnx_path = paths["onnx"]
@@ -253,8 +255,13 @@ def main(argv: list[str] | None = None) -> int:
         "champion": result["champion"],
         "cv": result["cv"],
         "schema": "lakeside.heating_dsm_hourly.v1",
+        "training_parquet": str(pq),
+        "training_source": src,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "honesty": "PyTorch CANDIDATE on BAS_BOOTSTRAP_PROXY; ONNX for later sim scrubbing.",
+        "honesty": (
+            f"PyTorch CANDIDATE on {src}. ONNX for desktop walk. "
+            "IdealLoads+COP proxy when ENERGYPLUS_SIMULATED — not tariff-grade."
+        ),
     }
     paths["feature_meta"].write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
