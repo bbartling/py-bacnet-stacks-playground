@@ -172,13 +172,18 @@ impl OnnxModel {
 }
 
 /// Resolve default artifact paths relative to the exe or CARGO_MANIFEST_DIR.
+///
+/// Client zip layout puts ONNX next to the `.exe` — prefer that before
+/// developer `ml/artifacts` paths so packaged builds stay self-contained.
 pub fn default_artifact_paths() -> (std::path::PathBuf, std::path::PathBuf) {
     let candidates = [
         std::env::var_os("LAKESIDE_ONNX_DIR").map(std::path::PathBuf::from),
-        option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
+        // Packaged client: model files sit beside the executable
         std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|d| d.to_path_buf())),
+        // Dev: `desktop/artifacts/` (copied by train_heating_dsm / pack script)
+        option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
         option_env!("CARGO_MANIFEST_DIR").map(|s| {
             Path::new(s)
                 .join("..")

@@ -39,7 +39,7 @@ Pinned IdealLoads champions: [`../models/eplus/`](../models/eplus/).
 | **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — **bake-off champion** via `skl2onnx` (+ `_feature_meta.json`) |
 | Torch alternate ONNX | `heating_dsm_hourly_torch_v1.onnx` (does not overwrite ship) |
 | Notebooks | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
-| Desktop walk | `desktop/` — `cargo run --release` (copies under `desktop/artifacts/`) |
+| Desktop walk | `desktop/` — `cargo run --release`; **client zip** via `desktop/pack_client.ps1` → `desktop/dist/*.zip` |
 
 Train entrypoints prefer farm via `ml/artifact_paths.train_parquet_path()`.
 
@@ -110,22 +110,30 @@ proxy scaled by G14 scorecard COP. Replace with schedule-patched E+ runs when re
 
 `desktop/` — egui + `ort` Windows `.exe`:
 
-- Banner shows **sklearn ExtraTrees** champion + training source + peak MAE
-- 24h facility_kW ONNX walk (`heating_dsm_hourly_v1.onnx` from `skl2onnx`)
-- Identity scaler in meta (raw features) — same FEATURE_COLS order as Python
-- **Utility bill CSV load** → column aliases + guardrails → OLS \(c_e,c_d\)
-  (heating-season / all-months / single month). Bad files fail with a clear banner.
+- Banner shows bake-off **champion name**, hyperparameters, MAE/RMSE, ± peak MAE
+- 24h facility_kW ONNX walk (`heating_dsm_hourly_v1.onnx`)
+- **Utility bill CSV load** → aliases + guardrails → OLS \(c_e,c_d\)
 - Schema: [`../data/sample/UTILITY_BILL_CSV.md`](../data/sample/UTILITY_BILL_CSV.md)
-- Artifacts also copied to `desktop/artifacts/` by `train_heating_dsm.py`
+
+### Client ZIP (easy ship)
+
+```powershell
+cd vibe_code_apps_22\desktop
+.\pack_client.ps1
+# → desktop\dist\lakeside-heating-dsm-windows-YYYYMMDD-<champion>.zip
+```
+
+Zip contains: `.exe` + ONNX + feature meta + sample bills + `CLIENT_README.md`.
+Client unzips and runs `lakeside-heating-dsm.exe` (keep files in the same folder).
 
 ```powershell
 cd vibe_code_apps_22
-python -u ml\train_heating_dsm.py
+python -u ml\train_heating_dsm.py   # refresh champion ONNX first if needed
 cd desktop
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
-cargo run --release
-```
-## Notebooks
+cargo run --release                 # local dev
+.\pack_client.ps1                   # client package
+```## Notebooks
 
 | Notebook | Role |
 | --- | --- |

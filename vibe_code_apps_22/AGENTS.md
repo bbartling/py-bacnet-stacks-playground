@@ -90,6 +90,7 @@ python -u scripts\build_dsm_excel.py
 
 # Desktop walk (Rust) — loads heating_dsm_hourly_v1.onnx
 # cd desktop && cargo run --release
+# Client ZIP (exe + model):  cd desktop; .\pack_client.ps1
 ```
 ---
 

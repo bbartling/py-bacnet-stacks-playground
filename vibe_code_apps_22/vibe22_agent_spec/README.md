@@ -6,7 +6,8 @@
 | [UTILITY_GL14.md](UTILITY_GL14.md) | Billing-grade utility G14 (util_103) |
 | ../docs/EPLUS_CALIBRATION_PLAN.md | IdealLoads interval G14 campaign |
 | ../bacnet/README.md | Future BACnet app (stub) |
-| ../desktop/README.md | Rust egui + ONNX walk |
+| ../desktop/README.md | Rust egui + ONNX walk + **client ZIP pack** |
+| ../desktop/CLIENT_README.md | Stakeholder readme (copied into the zip) |
 | ../ml/README.md | Train / farm / artifacts |
 | ../notebooks/lakeside_heating_dsm_sklearn.ipynb | Analysis + ships desktop ExtraTrees ONNX |
 

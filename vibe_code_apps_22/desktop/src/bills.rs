@@ -494,7 +494,7 @@ impl BillBook {
     }
 }
 
-/// Prefer sample under CARGO_MANIFEST_DIR, then site utilities via env.
+/// Prefer env / site utilities, then sample next to the exe (client zip), then repo sample.
 pub fn default_bill_csv_candidates() -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
     if let Ok(p) = std::env::var("LAKESIDE_UTILITY_BILLS_CSV") {
@@ -504,6 +504,12 @@ pub fn default_bill_csv_candidates() -> Vec<std::path::PathBuf> {
         let root = std::path::PathBuf::from(root);
         out.push(root.join("utilities").join("electricity_utility_demand.csv"));
         out.push(root.join("utilities").join("utility_bills_raw.csv"));
+    }
+    // Client package: sample CSV sits beside the .exe
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            out.push(dir.join("utility_bills_demand_sample.csv"));
+        }
     }
     let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
