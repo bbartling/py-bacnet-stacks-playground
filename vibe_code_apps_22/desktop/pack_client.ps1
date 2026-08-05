@@ -27,6 +27,8 @@ $Onnx = Join-Path $MlArt "heating_dsm_hourly_v1.onnx"
 $Meta = Join-Path $MlArt "heating_dsm_hourly_v1_feature_meta.json"
 $SampleCsv = Join-Path $Vibe22 "data\sample\utility_bills_demand_sample.csv"
 $SampleMd = Join-Path $Vibe22 "data\sample\UTILITY_BILL_CSV.md"
+$E1075Csv = Join-Path $Vibe22 "data\sample\creeksides_e1075_bills.csv"
+$Cp2Md = Join-Path $Vibe22 "data\sample\CP2_TARIFF.md"
 $ClientReadme = Join-Path $DesktopRoot "CLIENT_README.md"
 
 if (-not $OutDir) {
@@ -73,6 +75,12 @@ if (Test-Path $SampleCsv) {
 }
 if (Test-Path $SampleMd) {
   Copy-Item $SampleMd (Join-Path $stage "UTILITY_BILL_CSV.md")
+}
+if (Test-Path $E1075Csv) {
+  Copy-Item $E1075Csv (Join-Path $stage "creeksides_e1075_bills.csv")
+}
+if (Test-Path $Cp2Md) {
+  Copy-Item $Cp2Md (Join-Path $stage "CP2_TARIFF.md")
 }
 
 $manifest = [ordered]@{

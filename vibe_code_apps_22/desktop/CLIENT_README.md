@@ -1,14 +1,16 @@
 # Lakeside Heating DSM — desktop walk (client package)
 
 Windows app for a **24-hour facility kW** what-if walk (6 BAS Areas, strategies,
-HP on/off) with **$/kWh + $/kW** cost playground.
+HP on/off) with a **portable TOD + demand tariff** (Creekside CP-2 defaults
+prefilled) and **HVAC 24/7 vs DSM** compare + annual demand savings heuristic.
 
 ## Quick start
 
 1. Unzip this folder anywhere (keep all files together).
 2. Double-click **`lakeside-heating-dsm.exe`**.
-3. Optional: click **Load utility bills CSV…** (or use the included sample).
-4. Adjust OAT / strategy / HP grid → **Run 24h ONNX walk**.
+3. Tariff panel is prefilled for **Creekside CP-2** — edit any rate for another utility.
+4. Optional: load bill / monthly peaks CSV (samples included).
+5. Click **Compare HVAC 24/7 vs DSM** for overlay charts + annual rollup.
 
 Do **not** move the `.exe` away from the `.onnx` / `_feature_meta.json` files —
 the model must sit in the **same folder** as the executable.
@@ -20,7 +22,9 @@ the model must sit in the **same folder** as the executable.
 | `lakeside-heating-dsm.exe` | egui desktop app |
 | `heating_dsm_hourly_v1.onnx` | ML surrogate (facility_kW) |
 | `heating_dsm_hourly_v1_feature_meta.json` | Feature order, model name, params, MAE/RMSE, ± band |
-| `utility_bills_demand_sample.csv` | Example bill CSV for rate derivation |
+| `utility_bills_demand_sample.csv` | Example bill CSV for OLS rate derivation |
+| `creeksides_e1075_bills.csv` | Monthly demand / billed demand peaks (annual rollup) |
+| `CP2_TARIFF.md` | Portable tariff + Creekside defaults |
 | `UTILITY_BILL_CSV.md` | Bill CSV column aliases / schema |
 | `CLIENT_README.md` | This file |
 

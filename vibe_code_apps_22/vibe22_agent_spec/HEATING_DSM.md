@@ -64,29 +64,24 @@ vibe21 used HE 14–16 for cooling DR; do not copy that mask here.
 HDD night cum / hours-to-occupy / 6× `occ_frac_*` / 6× `hp_on_*` / strategy
 one-hots / facility_kw lags. Desktop toggles map to `hp_on_*`.
 
-## Cost playground (engineering inputs)
+## Cost playground (portable tariff)
 
-\[
-C_{\mathrm{day}} = c_e \sum_h \widehat{kW}_h \Delta t \;+\; c_d \max_h \widehat{kW}_h
-\]
+Desktop ships a **portable** TOD + dual-demand tariff (`desktop/src/tariff.rs`)
+with **Creekside CP-2 defaults prefilled** (on/off-peak $/kWh, PCA, $/kW demand +
+distribution demand, Aug+ step). Every field is editable for other utilities —
+see [`../data/sample/CP2_TARIFF.md`](../data/sample/CP2_TARIFF.md).
 
-\[
-C_{\mathrm{year}}^{\mathrm{stub}} \approx N_{\mathrm{similar\,days}} \cdot c_e \sum_h \widehat{kW}_h
-\;+\; 12 \cdot c_d \cdot \max_h \widehat{kW}_h
-\]
+**Day walk:** `Compare HVAC 24/7 vs DSM` dual ONNX walks → Δpeak / ΔkWh,
+kW overlay + kWh bars + cost breakdown.
 
-(PLACEHOLDER until full weather × tariff calendar.)
+**Annual heuristic** (monthly peaks CSV, e.g. `creeksides_e1075_bills.csv`):
 
-Desktop + Excel + `cost_from_hourly_kw()` expose editable:
+- Shave meter demand each month by Δpeak
+- Shave billed/distribution demand only near annual billed max (ratchet proxy)
+- Energy penalty = ΔkWh/day × similar cold days × blended on/off + PCA
 
-| Input | Typical default | Unit |
-| --- | --- | --- |
-| Energy charge \(c_e\) | 0.12 | $/kWh |
-| Demand charge \(c_d\) | 15.0 | $/kW applied to day peak (annual stub ×12) |
-| Billing similar cold days / year | 90 | count |
-| Δt | 1.0 | h |
-
-Honesty: rates are **PLACEHOLDER** engineering defaults — not the customer’s tariff until wired.
+Not a full 8760 / tariff-clause engine. Legacy flat `cost_from_hourly_kw()` remains
+in `features.rs` for notebooks / Excel stubs.
 
 ## Paper alignment (MethodsX synconn_build)
 
@@ -111,6 +106,8 @@ proxy scaled by G14 scorecard COP. Replace with schedule-patched E+ runs when re
 `desktop/` — egui + `ort` Windows `.exe`:
 
 - Banner shows bake-off **champion name**, hyperparameters, MAE/RMSE, ± peak MAE
+- Portable tariff UI (Creekside CP-2 defaults) + dual walk **24/7 vs DSM**
+- Annual demand/dist savings rollup from monthly peaks CSV
 - 24h facility_kW ONNX walk (`heating_dsm_hourly_v1.onnx`)
 - **Utility bill CSV load** → aliases + guardrails → OLS \(c_e,c_d\)
 - Schema: [`../data/sample/UTILITY_BILL_CSV.md`](../data/sample/UTILITY_BILL_CSV.md)
