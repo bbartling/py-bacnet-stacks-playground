@@ -36,7 +36,7 @@ Pinned IdealLoads champions: [`../models/eplus/`](../models/eplus/).
 | Farm builder | `scripts/eplus_heating_dsm_farm.py` |
 | Farm parquet | `ml/artifacts/heating_dsm_eplus_farm_hourly.parquet` |
 | sklearn joblib + card | `ml/artifacts/heating_dsm_hourly_v1.joblib` (+ `_model_card.json`) |
-| **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — **sklearn ExtraTrees** via `skl2onnx` (+ `_feature_meta.json`) |
+| **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — **bake-off champion** via `skl2onnx` (+ `_feature_meta.json`) |
 | Torch alternate ONNX | `heating_dsm_hourly_torch_v1.onnx` (does not overwrite ship) |
 | Notebooks | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
 | Desktop walk | `desktop/` — `cargo run --release` (copies under `desktop/artifacts/`) |

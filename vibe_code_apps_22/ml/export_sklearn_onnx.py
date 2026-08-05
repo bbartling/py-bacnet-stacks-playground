@@ -37,6 +37,92 @@ def _rename_output(model_onnx: Any, new_name: str = "facility_kw") -> None:
     model_onnx.graph.output[0].name = new_name
 
 
+DISPLAY_NAMES = {
+    "extra_trees": "ExtraTreesRegressor",
+    "rf": "RandomForestRegressor",
+    "gradient_boosting": "GradientBoostingRegressor",
+    "hgb": "HistGradientBoostingRegressor",
+    "ridge": "Ridge",
+    "elasticnet": "ElasticNet",
+}
+
+
+def _jsonable_params(params: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for k, v in params.items():
+        if v is None:
+            out[k] = None
+        elif isinstance(v, (np.floating, float)):
+            out[k] = float(v)
+        elif isinstance(v, (np.integer, int)):
+            out[k] = int(v)
+        elif isinstance(v, (np.bool_, bool)):
+            out[k] = bool(v)
+        else:
+            out[k] = v
+    return out
+
+
+def ship_desktop_champion(
+    result: dict[str, Any],
+    *,
+    onnx_path: Path,
+    meta_path: Path,
+    training_source: str,
+    honesty: str | None = None,
+) -> dict[str, Any]:
+    """Export bake-off winner to desktop ONNX; walk leaderboard if skl2onnx fails."""
+    preferred = result["champion"]
+    order = [preferred] + [
+        e["family"] for e in result["leaderboard"] if e["family"] != preferred
+    ]
+    errors: list[str] = []
+    for family in order:
+        model = result["tuned_models"][family]
+        params = _jsonable_params(result["best_params_by_family"][family])
+        cv = result["cv"][family]
+        display = DISPLAY_NAMES.get(family, family)
+        try:
+            meta = export_sklearn_onnx(
+                model,
+                n_features=len(result["feature_cols"]),
+                onnx_path=onnx_path,
+                meta_path=meta_path,
+                feature_cols=result["feature_cols"],
+                champion=family,
+                model_display_name=display,
+                best_params=params,
+                training_source=training_source,
+                honesty=honesty
+                or (
+                    f"sklearn bake-off champion → {display} via ONNX (skl2onnx). "
+                    f"Source={training_source}. Peak MAE {cv['mae_peak_05_09']:.2f} kW. "
+                    "CANDIDATE — not tariff-grade. Desktop kW-only."
+                ),
+                cv_metrics=cv,
+            )
+            max_abs = roundtrip_check(model, onnx_path, result["X"], n=48)
+            desk = copy_ship_to_desktop(onnx_path, meta_path)
+            return {
+                "desktop_family": family,
+                "model_name": display,
+                "best_params": params,
+                "cv": cv,
+                "meta": meta,
+                "roundtrip_max_abs": max_abs,
+                "desktop_copy": str(desk),
+                "fallback_from": None if family == preferred else preferred,
+                "export_errors": errors,
+            }
+        except Exception as exc:  # noqa: BLE001 — try next family
+            errors.append(f"{family}: {exc}")
+            continue
+    raise RuntimeError(
+        "No bake-off model could be exported to ONNX for desktop. Tried: "
+        + "; ".join(errors)
+    )
+
+
 def export_sklearn_onnx(
     model: Any,
     *,
@@ -91,12 +177,7 @@ def export_sklearn_onnx(
     # Desktop ± band uses peak-window MAE (morning HE 05–09) as screening uncertainty
     precision_pm_kw = mae_peak
 
-    display = model_display_name or {
-        "extra_trees": "ExtraTreesRegressor",
-        "rf": "RandomForestRegressor",
-        "gradient_boosting": "GradientBoostingRegressor",
-        "hgb": "HistGradientBoostingRegressor",
-    }.get(champion, champion)
+    display = model_display_name or DISPLAY_NAMES.get(champion, champion)
 
     honesty = honesty or (
         f"sklearn {display} via ONNX (skl2onnx). "
@@ -114,7 +195,7 @@ def export_sklearn_onnx(
         "champion": champion,
         "family": "sklearn",
         "model_backend": "skl2onnx",
-        "best_params": best_params or {},
+        "best_params": _jsonable_params(best_params or {}),
         "cv_metrics": {
             "mae": mae,
             "rmse": rmse,
@@ -166,7 +247,9 @@ def copy_ship_to_desktop(onnx_path: Path, meta_path: Path, desktop_dir: Path | N
 
 
 __all__ = [
+    "DISPLAY_NAMES",
     "copy_ship_to_desktop",
     "export_sklearn_onnx",
     "roundtrip_check",
+    "ship_desktop_champion",
 ]
