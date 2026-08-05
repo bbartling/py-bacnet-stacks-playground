@@ -16,11 +16,30 @@ use features::{
 };
 use model::{default_artifact_paths, OnnxModel};
 
+fn apply_theme(ctx: &egui::Context) {
+    let mut visuals = egui::Visuals::dark();
+    visuals.window_fill = egui::Color32::from_rgb(22, 28, 34);
+    visuals.panel_fill = egui::Color32::from_rgb(28, 35, 42);
+    visuals.extreme_bg_color = egui::Color32::from_rgb(18, 22, 28);
+    visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(34, 42, 50);
+    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(42, 52, 62);
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(55, 68, 80);
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(70, 88, 104);
+    visuals.selection.bg_fill = egui::Color32::from_rgb(196, 110, 48);
+    visuals.hyperlink_color = egui::Color32::from_rgb(232, 168, 96);
+    visuals.override_text_color = Some(egui::Color32::from_rgb(232, 236, 240));
+    ctx.set_visuals(visuals);
+    ctx.style_mut(|style| {
+        style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+        style.spacing.button_padding = egui::vec2(12.0, 6.0);
+    });
+}
+
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1220.0, 820.0])
-            .with_title("Lakeside Heating DSM — ONNX walk"),
+            .with_inner_size([1280.0, 860.0])
+            .with_title("Lakeside Heating DSM — sklearn ExtraTrees ONNX"),
         ..Default::default()
     };
     eframe::run_native(
@@ -35,6 +54,13 @@ struct DsmApp {
     load_error: Option<String>,
     honesty: String,
     training_source: String,
+    model_banner: String,
+    onnx_path_display: String,
+    model_name: String,
+    metrics_lines: Vec<String>,
+    param_rows: Vec<(String, String)>,
+    precision_pm: f32,
+    precision_note: String,
 
     // Day / weather
     month: f32,
@@ -73,9 +99,22 @@ struct DsmApp {
 }
 
 impl DsmApp {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        apply_theme(&cc.egui_ctx);
         let (onnx, meta) = default_artifact_paths();
-        let (model, load_error, honesty, training_source) = match OnnxModel::load(&onnx, &meta) {
+        let onnx_path_display = onnx.display().to_string();
+        let (
+            model,
+            load_error,
+            honesty,
+            training_source,
+            model_banner,
+            model_name,
+            metrics_lines,
+            param_rows,
+            precision_pm,
+            precision_note,
+        ) = match OnnxModel::load(&onnx, &meta) {
             Ok(m) => {
                 let h = m
                     .meta
@@ -87,7 +126,17 @@ impl DsmApp {
                     .training_source
                     .clone()
                     .unwrap_or_else(|| "unknown".into());
-                (Some(m), None, h, s)
+                let banner = m.meta.banner_line();
+                let name = m.meta.display_name();
+                let metrics = m.meta.metrics_lines();
+                let params = m.meta.params_sorted();
+                let pm = m.meta.precision_pm();
+                let note = m
+                    .meta
+                    .precision_note
+                    .clone()
+                    .unwrap_or_else(|| "± = peak MAE screening band".into());
+                (Some(m), None, h, s, banner, name, metrics, params, pm, note)
             }
             Err(e) => (
                 None,
@@ -97,6 +146,12 @@ impl DsmApp {
                     meta.display()
                 )),
                 String::new(),
+                String::new(),
+                "no model loaded".into(),
+                "—".into(),
+                Vec::new(),
+                Vec::new(),
+                0.0,
                 String::new(),
             ),
         };
@@ -121,6 +176,13 @@ impl DsmApp {
             load_error,
             honesty,
             training_source,
+            model_banner,
+            onnx_path_display,
+            model_name,
+            metrics_lines,
+            param_rows,
+            precision_pm,
+            precision_note,
             month: 1.0,
             doy: 15.0,
             is_weekend: false,
@@ -373,8 +435,8 @@ impl DsmApp {
         let peak = pred.iter().copied().fold(0.0_f32, f32::max);
         let energy: f32 = pred.iter().sum();
         self.status = format!(
-            "Walk OK — ΣkWh={energy:.1}  peak={peak:.1} kW  rates={}  ML={}",
-            self.rate_label, self.training_source
+            "Walk OK — ΣkWh={energy:.1}  peak={peak:.1} ±{:.1} kW  · {}",
+            self.precision_pm, self.model_name
         );
     }
 }
@@ -382,31 +444,48 @@ impl DsmApp {
 impl eframe::App for DsmApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("banner").show(ctx, |ui| {
+            ui.add_space(4.0);
             ui.horizontal(|ui| {
-                ui.heading("Lakeside Heating DSM");
+                ui.heading(
+                    egui::RichText::new("Lakeside Heating DSM")
+                        .color(egui::Color32::from_rgb(232, 168, 96)),
+                );
                 ui.separator();
-                ui.label(format!("ML: {}", self.training_source));
+                ui.label(
+                    egui::RichText::new(&self.model_banner)
+                        .strong()
+                        .color(egui::Color32::from_rgb(210, 220, 230)),
+                );
                 ui.separator();
                 ui.label(format!("Rates: {}", self.rate_label));
             });
+            ui.label(
+                egui::RichText::new(format!(
+                    "ONNX: {}  ·  training_source={}",
+                    self.onnx_path_display, self.training_source
+                ))
+                .small()
+                .weak(),
+            );
             if !self.honesty.is_empty() {
-                ui.colored_label(egui::Color32::from_rgb(180, 120, 40), &self.honesty);
+                ui.colored_label(egui::Color32::from_rgb(210, 150, 70), &self.honesty);
             }
             if !self.rate_honesty.is_empty() {
                 ui.colored_label(
-                    egui::Color32::from_rgb(60, 100, 140),
+                    egui::Color32::from_rgb(120, 160, 190),
                     &self.rate_honesty,
                 );
             }
             if let Some(err) = &self.load_error {
-                ui.colored_label(egui::Color32::RED, err);
+                ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
             }
             if let Some(err) = &self.bill_error {
                 ui.colored_label(
-                    egui::Color32::from_rgb(200, 60, 60),
+                    egui::Color32::from_rgb(220, 90, 90),
                     format!("Utility CSV: {err}"),
                 );
             }
+            ui.add_space(4.0);
         });
 
         egui::SidePanel::left("controls")
@@ -551,51 +630,150 @@ impl eframe::App for DsmApp {
 
                 ui.separator();
                 if ui
-                    .add_sized([320.0, 36.0], egui::Button::new("▶ Run 24h ONNX walk"))
+                    .add_sized(
+                        [320.0, 40.0],
+                        egui::Button::new(
+                            egui::RichText::new("▶  Run 24h ONNX walk")
+                                .size(16.0)
+                                .strong(),
+                        )
+                        .fill(egui::Color32::from_rgb(196, 110, 48)),
+                    )
                     .clicked()
                 {
                     self.run_walk();
                 }
-                ui.label(&self.status);
+                ui.label(
+                    egui::RichText::new(&self.status)
+                        .color(egui::Color32::from_rgb(180, 200, 190)),
+                );
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // Model scorecard
+            egui::Frame::group(ui.style())
+                .fill(egui::Color32::from_rgb(34, 42, 50))
+                .inner_margin(12.0)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading(
+                            egui::RichText::new(&self.model_name)
+                                .color(egui::Color32::from_rgb(232, 168, 96)),
+                        );
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(format!("precision ±{:.1} kW", self.precision_pm))
+                                .strong()
+                                .color(egui::Color32::from_rgb(140, 200, 160)),
+                        );
+                    });
+                    for line in &self.metrics_lines {
+                        ui.label(egui::RichText::new(line).monospace());
+                    }
+                    if !self.precision_note.is_empty() {
+                        ui.label(
+                            egui::RichText::new(&self.precision_note)
+                                .small()
+                                .italics()
+                                .weak(),
+                        );
+                    }
+                    ui.add_space(4.0);
+                    ui.collapsing("Tuned hyperparameters", |ui| {
+                        egui::Grid::new("param_grid")
+                            .num_columns(2)
+                            .striped(true)
+                            .spacing([16.0, 4.0])
+                            .show(ui, |ui| {
+                                for (k, v) in &self.param_rows {
+                                    ui.label(
+                                        egui::RichText::new(k)
+                                            .monospace()
+                                            .color(egui::Color32::from_rgb(160, 180, 200)),
+                                    );
+                                    ui.label(egui::RichText::new(v).monospace().strong());
+                                    ui.end_row();
+                                }
+                            });
+                    });
+                });
+
+            ui.add_space(10.0);
             ui.heading("Hourly facility kW");
-            let points: PlotPoints = (0..24)
+            let pm = self.precision_pm as f64;
+            let mid: PlotPoints = (0..24)
                 .map(|h| [h as f64, self.pred_kw[h] as f64])
                 .collect();
+            let lo: PlotPoints = (0..24)
+                .map(|h| [h as f64, (self.pred_kw[h] as f64 - pm).max(0.0)])
+                .collect();
+            let hi: PlotPoints = (0..24)
+                .map(|h| [h as f64, self.pred_kw[h] as f64 + pm])
+                .collect();
             Plot::new("kw_plot")
-                .height(260.0)
+                .height(280.0)
                 .legend(egui_plot::Legend::default())
                 .show(ui, |plot_ui| {
-                    plot_ui.line(Line::new(points).name("facility_kW"));
+                    plot_ui.line(
+                        Line::new(hi)
+                            .name(format!("+{pm:.0} kW"))
+                            .color(egui::Color32::from_rgb(90, 120, 140))
+                            .width(1.2),
+                    );
+                    plot_ui.line(
+                        Line::new(lo)
+                            .name(format!("−{pm:.0} kW"))
+                            .color(egui::Color32::from_rgb(90, 120, 140))
+                            .width(1.2),
+                    );
+                    plot_ui.line(
+                        Line::new(mid)
+                            .name("facility_kW")
+                            .color(egui::Color32::from_rgb(232, 140, 64))
+                            .width(2.6),
+                    );
                 });
 
             ui.separator();
             ui.heading("Cost playground");
             if let Some(c) = &self.cost {
-                egui::Grid::new("cost_grid")
-                    .num_columns(2)
-                    .striped(true)
+                egui::Frame::group(ui.style())
+                    .fill(egui::Color32::from_rgb(34, 42, 50))
+                    .inner_margin(10.0)
                     .show(ui, |ui| {
-                        ui.label("Energy");
-                        ui.label(format!("{:.1} kWh → ${:.2}", c.energy_kwh, c.energy_cost));
-                        ui.end_row();
-                        ui.label("Peak demand");
-                        ui.label(format!("{:.1} kW → ${:.2}", c.peak_kw, c.demand_cost));
-                        ui.end_row();
-                        ui.label("Day total");
-                        ui.strong(format!("${:.2}", c.total_cost));
-                        ui.end_row();
-                        ui.label("Annual energy stub");
-                        ui.label(format!("${:.0}", c.annual_energy_stub));
-                        ui.end_row();
-                        ui.label("Annual demand stub (×12)");
-                        ui.label(format!("${:.0}", c.annual_demand_stub));
-                        ui.end_row();
-                        ui.label("Annual total stub");
-                        ui.strong(format!("${:.0}", c.annual_total_stub));
-                        ui.end_row();
+                        egui::Grid::new("cost_grid")
+                            .num_columns(2)
+                            .striped(true)
+                            .show(ui, |ui| {
+                                ui.label("Energy");
+                                ui.label(format!(
+                                    "{:.1} kWh → ${:.2}",
+                                    c.energy_kwh, c.energy_cost
+                                ));
+                                ui.end_row();
+                                ui.label("Peak demand");
+                                ui.label(format!(
+                                    "{:.1} ±{:.1} kW → ${:.2}",
+                                    c.peak_kw, self.precision_pm, c.demand_cost
+                                ));
+                                ui.end_row();
+                                ui.label("Day total");
+                                ui.strong(
+                                    egui::RichText::new(format!("${:.2}", c.total_cost))
+                                        .size(18.0)
+                                        .color(egui::Color32::from_rgb(232, 168, 96)),
+                                );
+                                ui.end_row();
+                                ui.label("Annual energy stub");
+                                ui.label(format!("${:.0}", c.annual_energy_stub));
+                                ui.end_row();
+                                ui.label("Annual demand stub (×12)");
+                                ui.label(format!("${:.0}", c.annual_demand_stub));
+                                ui.end_row();
+                                ui.label("Annual total stub");
+                                ui.strong(format!("${:.0}", c.annual_total_stub));
+                                ui.end_row();
+                            });
                     });
             } else {
                 ui.label("Run a walk to see costs at the loaded bill rates.");
@@ -632,16 +810,22 @@ impl eframe::App for DsmApp {
             }
 
             ui.separator();
-            ui.collapsing("Hourly table", |ui| {
+            ui.collapsing("Hourly table (± peak MAE)", |ui| {
                 egui::Grid::new("hour_tbl").striped(true).show(ui, |ui| {
                     ui.label("HE");
                     ui.label("OAT °F");
                     ui.label("kW");
+                    ui.label("± band");
                     ui.end_row();
                     for h in 0..24 {
                         ui.label(format!("{h:02}"));
                         ui.label(format!("{:.1}", self.oat_at(h)));
                         ui.label(format!("{:.1}", self.pred_kw[h]));
+                        ui.label(format!(
+                            "{:.1} – {:.1}",
+                            (self.pred_kw[h] - self.precision_pm).max(0.0),
+                            self.pred_kw[h] + self.precision_pm
+                        ));
                         ui.end_row();
                     }
                 });

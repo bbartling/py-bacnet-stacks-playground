@@ -1,8 +1,7 @@
 {
-  "champion": "extra_trees",
+  "champion": "rf",
+  "desktop_onnx_family": "extra_trees",
   "beat_persistence_peak": true,
-  "training_source": "ENERGYPLUS_SIMULATED",
-  "training_parquet": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_farm_hourly.parquet",
   "cv": {
     "persistence": {
       "rmse": 30.667727366663335,
@@ -23,16 +22,16 @@
       "mae_peak_05_09": 24.476004053342592
     },
     "rf": {
-      "rmse": 22.502839234505384,
-      "mae": 14.228136800772763,
-      "rmse_peak_05_09": 27.268936232552115,
-      "mae_peak_05_09": 18.217973019132714
+      "rmse": 22.272315396575326,
+      "mae": 14.195285903300903,
+      "rmse_peak_05_09": 27.178052337228415,
+      "mae_peak_05_09": 18.35493805390841
     },
     "extra_trees": {
-      "rmse": 21.07425850679104,
-      "mae": 13.497806097590932,
-      "rmse_peak_05_09": 25.34041760922127,
-      "mae_peak_05_09": 17.86829724049553
+      "rmse": 21.482962536128017,
+      "mae": 13.66464034093329,
+      "rmse_peak_05_09": 26.886106930086296,
+      "mae_peak_05_09": 18.61958788403757
     },
     "hgb": {
       "rmse": 22.548535911331584,
@@ -43,21 +42,12 @@
   },
   "leaderboard": [
     {
-      "family": "extra_trees",
-      "oof_metrics": {
-        "rmse": 21.07425850679104,
-        "mae": 13.497806097590932,
-        "rmse_peak_05_09": 25.34041760922127,
-        "mae_peak_05_09": 17.86829724049553
-      }
-    },
-    {
       "family": "rf",
       "oof_metrics": {
-        "rmse": 22.502839234505384,
-        "mae": 14.228136800772763,
-        "rmse_peak_05_09": 27.268936232552115,
-        "mae_peak_05_09": 18.217973019132714
+        "rmse": 22.272315396575326,
+        "mae": 14.195285903300903,
+        "rmse_peak_05_09": 27.178052337228415,
+        "mae_peak_05_09": 18.35493805390841
       }
     },
     {
@@ -67,6 +57,15 @@
         "mae": 14.423967442016693,
         "rmse_peak_05_09": 28.159139386880245,
         "mae_peak_05_09": 18.541113704249362
+      }
+    },
+    {
+      "family": "extra_trees",
+      "oof_metrics": {
+        "rmse": 21.482962536128017,
+        "mae": 13.66464034093329,
+        "rmse_peak_05_09": 26.886106930086296,
+        "mae_peak_05_09": 18.61958788403757
       }
     },
     {

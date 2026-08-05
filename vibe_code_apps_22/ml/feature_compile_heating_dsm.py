@@ -2,6 +2,9 @@
 
 Peak window for metrics: local hour-ending **05–09** (morning heating startup),
 not Liberty vibe21 afternoon cooling HE 14–16.
+
+Single-target ship path: FEATURE_COLS → facility_kw.
+Multi-target demo path: FEATURE_COLS_MULTITARGET → facility_kw + 6 zone temps.
 """
 
 from __future__ import annotations
@@ -37,6 +40,18 @@ HP_ON_COLS = [
     "hp_on_2F_A",
     "hp_on_2F_B",
 ]
+
+# Zone air temps (°F) — multi-target / B2 warm-by-start
+ZONE_TEMP_COLS = [
+    "zone_temp_1F_A_f",
+    "zone_temp_1F_B_f",
+    "zone_temp_1F_C_f",
+    "zone_temp_1F_D_f",
+    "zone_temp_2F_A_f",
+    "zone_temp_2F_B_f",
+]
+
+ZONE_TEMP_LAG1_COLS = [f"{c}_lag1" for c in ZONE_TEMP_COLS]
 
 STRATEGY_IDS = [
     "baseline",
@@ -74,7 +89,14 @@ FEATURE_COLS = [
     *[f"strategy_{s}" for s in STRATEGY_IDS],
 ]
 
+# Multi-target walk: prior-hour zone temps as causal explainers
+FEATURE_COLS_MULTITARGET = [
+    *FEATURE_COLS,
+    *ZONE_TEMP_LAG1_COLS,
+]
+
 TARGET_COL = "facility_kw"
+TARGET_COLS = [TARGET_COL, *ZONE_TEMP_COLS]
 GROUP_COL = "day"
 
 MORNING_PEAK_HE_START = 5
@@ -87,7 +109,7 @@ def _ensure_flat(df: pd.DataFrame) -> pd.DataFrame:
     return df.copy()
 
 
-def compile_features(df: pd.DataFrame) -> pd.DataFrame:
+def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataFrame:
     """Add cyclic time, HDD, same-day lags, strategy one-hots. Sort by sim then hour."""
     out = _ensure_flat(df)
     sort_keys = [c for c in ("simulation_id", "day", "hour_ending") if c in out.columns]
@@ -113,7 +135,6 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
 
     for c in HP_ON_COLS:
         if c not in out.columns:
-            # Default: HP available when zone has occupancy fraction > 0
             short = c.replace("hp_on_", "occ_frac_")
             out[c] = (out[short] > 0.05).astype(float) if short in out.columns else 0.0
         else:
@@ -123,7 +144,6 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
     for c in ("preheat_lead_h", "stagger_min", "unocc_htg_sp_f", "occ_htg_sp_f"):
         out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0)
 
-    # Morning recovery cues (DSM / desktop walk)
     out["hours_to_occupy"] = np.clip(7.0 - he, 0.0, 12.0)
     gcol = "simulation_id" if "simulation_id" in out.columns else "day"
     g = out.groupby(gcol, sort=False)
@@ -134,7 +154,19 @@ def compile_features(df: pd.DataFrame) -> pd.DataFrame:
     out["facility_kw_lag2"] = out["facility_kw_lag2"].fillna(out["facility_kw_lag1"])
     out["oat_lag1"] = out["oat_lag1"].fillna(out["oat_f"])
 
-    # Cumulative night HDD within day (proxy for morning recovery severity)
+    if multitarget:
+        missing = [c for c in ZONE_TEMP_COLS if c not in out.columns]
+        if missing:
+            raise ValueError(
+                f"multitarget compile needs zone temp columns {missing}. "
+                "Call attach_synthetic_zone_temps() or supply native E+ temps."
+            )
+        for c in ZONE_TEMP_COLS:
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+            lag = f"{c}_lag1"
+            out[lag] = g[c].shift(1)
+            out[lag] = out[lag].fillna(out[c])
+
     cum: list[float] = []
     for _, sub in out.groupby(gcol, sort=False):
         sub = sub.sort_values("hour_ending")
@@ -172,6 +204,17 @@ def matrix_xy(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray, lis
     return X, y, groups, list(FEATURE_COLS)
 
 
+def matrix_xy_multi(
+    df: pd.DataFrame,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], list[str]]:
+    """Multi-target: Y shape (n, 7) = facility_kw + 6 zone temps."""
+    feat = compile_features(df, multitarget=True)
+    X = feat[FEATURE_COLS_MULTITARGET].to_numpy(dtype=float)
+    Y = feat[TARGET_COLS].to_numpy(dtype=float)
+    groups = feat[GROUP_COL].astype(str).to_numpy()
+    return X, Y, groups, list(FEATURE_COLS_MULTITARGET), list(TARGET_COLS)
+
+
 def morning_peak_mask(df: pd.DataFrame) -> np.ndarray:
     feat = compile_features(df)
     he = feat["hour_ending"].to_numpy(dtype=float)
@@ -199,9 +242,22 @@ def cost_from_hourly_kw(
         "demand_cost": demand_cost,
         "total_cost": day_total,
         "annual_energy_cost_stub": energy_cost * float(similar_days_per_year),
-        "annual_demand_cost_stub": demand_cost * 12.0,  # monthly demand × 12
+        "annual_demand_cost_stub": demand_cost * 12.0,
         "annual_total_stub": energy_cost * float(similar_days_per_year) + demand_cost * 12.0,
         "energy_rate_per_kwh": float(energy_rate_per_kwh),
         "demand_rate_per_kw": float(demand_rate_per_kw),
         "similar_days_per_year": float(similar_days_per_year),
     }
+
+
+def warm_by_start_flags(
+    zone_temps_by_hour: np.ndarray,
+    *,
+    occ_sp_f: float = 68.0,
+    start_hour: int = 7,
+) -> dict[str, bool]:
+    """zone_temps_by_hour: shape (24, 6) — True if zone ≥ occupied SP at start_hour."""
+    if zone_temps_by_hour.ndim != 2 or zone_temps_by_hour.shape[1] != 6:
+        raise ValueError("expected zone_temps_by_hour shape (24, 6)")
+    row = zone_temps_by_hour[int(start_hour)]
+    return {ZONE_TEMP_COLS[i]: bool(row[i] >= occ_sp_f) for i in range(6)}

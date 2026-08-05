@@ -245,7 +245,10 @@ def main(argv: list[str] | None = None) -> int:
         src = str(df["provenance"].iloc[0])
     result = bake_off_torch(df, n_splits=args.n_splits, epochs=args.epochs, device=args.device)
 
-    onnx_path = paths["onnx"]
+    # Do not overwrite desktop ship ONNX (sklearn ExtraTrees → heating_dsm_hourly_v1.onnx).
+    art = paths["onnx"].parent
+    onnx_path = art / "heating_dsm_hourly_torch_v1.onnx"
+    meta_path = art / "heating_dsm_hourly_torch_v1_feature_meta.json"
     export_onnx(result["model"], result["n_in"], onnx_path, device=args.device)
 
     meta = {
@@ -253,17 +256,20 @@ def main(argv: list[str] | None = None) -> int:
         "scaler_mean": result["scaler"].mean_.tolist(),
         "scaler_scale": result["scaler"].scale_.tolist(),
         "champion": result["champion"],
+        "family": "pytorch",
+        "model_backend": "torch.onnx",
         "cv": result["cv"],
-        "schema": "lakeside.heating_dsm_hourly.v1",
+        "schema": "lakeside.heating_dsm_hourly.torch_v1",
         "training_parquet": str(pq),
         "training_source": src,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "honesty": (
-            f"PyTorch CANDIDATE on {src}. ONNX for desktop walk. "
+            f"PyTorch CANDIDATE on {src}. Alternate ONNX (not desktop ship). "
+            "Desktop ship = sklearn ExtraTrees heating_dsm_hourly_v1.onnx. "
             "IdealLoads+COP proxy when ENERGYPLUS_SIMULATED — not tariff-grade."
         ),
     }
-    paths["feature_meta"].write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
     # Round-trip check
     import onnxruntime as ort
@@ -282,7 +288,8 @@ def main(argv: list[str] | None = None) -> int:
                 "champion": result["champion"],
                 "cv": result["cv"],
                 "onnx": str(onnx_path),
-                "feature_meta": str(paths["feature_meta"]),
+                "feature_meta": str(meta_path),
+                "note": "desktop ship remains heating_dsm_hourly_v1.onnx (sklearn)",
                 "onnx_roundtrip_max_abs": max_abs,
             },
             indent=2,

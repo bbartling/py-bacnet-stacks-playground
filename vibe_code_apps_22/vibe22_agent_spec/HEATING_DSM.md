@@ -17,9 +17,11 @@ models/eplus/*_best.idf          scripts/eplus_heating_dsm_farm.py
                                │
               ┌────────────────┴────────────────┐
               ▼                                 ▼
-     sklearn ExtraTrees/HGB              PyTorch → ONNX
+     sklearn ExtraTrees (ship)           PyTorch (alternate)
               │                                 │
-           joblib                      desktop/ (Rust egui)
+     joblib + skl2onnx ONNX              *_torch_v1.onnx
+              │
+           desktop/ (Rust egui + ort)
               └────── cost playground (c_e · kWh + c_d · peak kW) ──┘
 
 Fallback if no farm yet: ml/build_bootstrap_dataset.py → BAS_BOOTSTRAP_PROXY
@@ -34,9 +36,10 @@ Pinned IdealLoads champions: [`../models/eplus/`](../models/eplus/).
 | Farm builder | `scripts/eplus_heating_dsm_farm.py` |
 | Farm parquet | `ml/artifacts/heating_dsm_eplus_farm_hourly.parquet` |
 | sklearn joblib + card | `ml/artifacts/heating_dsm_hourly_v1.joblib` (+ `_model_card.json`) |
-| ONNX + scaler meta | `ml/artifacts/heating_dsm_hourly_v1.onnx` (+ `_feature_meta.json`) |
-| Notebooks | `notebooks/lakeside_heating_dsm_sklearn.ipynb`, `…_pytorch_onnx.ipynb` |
-| Desktop walk | `desktop/` — `cargo run --release` |
+| **Desktop ONNX** | `heating_dsm_hourly_v1.onnx` — **sklearn ExtraTrees** via `skl2onnx` (+ `_feature_meta.json`) |
+| Torch alternate ONNX | `heating_dsm_hourly_torch_v1.onnx` (does not overwrite ship) |
+| Notebooks | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
+| Desktop walk | `desktop/` — `cargo run --release` (copies under `desktop/artifacts/`) |
 
 Train entrypoints prefer farm via `ml/artifact_paths.train_parquet_path()`.
 
@@ -107,27 +110,29 @@ proxy scaled by G14 scorecard COP. Replace with schedule-patched E+ runs when re
 
 `desktop/` — egui + `ort` Windows `.exe`:
 
-- Midnight zone temps (display / B2 placeholder), 24h OAT, strategy, per-zone HP grid
-- ONNX 24h facility_kW walk using farm-trained scaler + model
+- Banner shows **sklearn ExtraTrees** champion + training source + peak MAE
+- 24h facility_kW ONNX walk (`heating_dsm_hourly_v1.onnx` from `skl2onnx`)
+- Identity scaler in meta (raw features) — same FEATURE_COLS order as Python
 - **Utility bill CSV load** → column aliases + guardrails → OLS \(c_e,c_d\)
   (heating-season / all-months / single month). Bad files fail with a clear banner.
 - Schema: [`../data/sample/UTILITY_BILL_CSV.md`](../data/sample/UTILITY_BILL_CSV.md)
+- Artifacts also copied to `desktop/artifacts/` by `train_heating_dsm.py`
 
 ```powershell
-cd vibe_code_apps_22\desktop
+cd vibe_code_apps_22
+python -u ml\train_heating_dsm.py
+cd desktop
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 cargo run --release
 ```
-
 ## Notebooks
 
 | Notebook | Role |
 | --- | --- |
-| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | GroupKFold bake-off → joblib |
-| `notebooks/lakeside_heating_dsm_pytorch_onnx.ipynb` | Torch bake-off → ONNX round-trip |
+| `notebooks/lakeside_heating_dsm_sklearn.ipynb` | GroupKFold bake-off → joblib/ONNX; multi-target DEMO + 24h walk |
 
 Both should call `train_parquet_path()` (farm first). Re-execute before shipping GH
-so outputs show `ENERGYPLUS_SIMULATED`.
+so outputs show `ENERGYPLUS_SIMULATED` (+ `SYNTHETIC_ZONE_TEMPS` in DEMO sections).
 
 ## Phase B2 — E+ DM farm + multi-target (warm-by-start)
 
@@ -141,8 +146,20 @@ so outputs show `ENERGYPLUS_SIMULATED`.
    `hp_on_*` → temps + kW)
 5. Swap desktop ONNX to multi-target; show at-temp flags
 
-Until B2 ships, desktop MVP predicts **facility_kw** from ONNX trained on the
-farm with honesty banner.
+### Notebook DEMO path (until native B2 farm)
+
+Both heating DSM notebooks attach **`SYNTHETIC_ZONE_TEMPS`** via
+`ml/synthetic_zone_temps.py` (visible DEMO knobs in-cell: midnight T, occ/unocc SP,
+UA proxy, HP gain). They train multi-output models and run a causal **24h forecast
+walk** (`ml/walk_24h_multitarget.py`) with fake OAT + strategy/`hp_on` grid → kW +
+zone temps + bill-rate cost stub + warm-by-start flags.
+
+| Artifact | Role |
+| --- | --- |
+| `heating_dsm_hourly_v1.{joblib,onnx}` | **Production ship** — kW-only |
+| `heating_dsm_multitarget_demo.{joblib,onnx}` | DEMO only — does not overwrite v1 |
+
+Until native B2 zone-temp farm ships, desktop MVP still loads **kW-only** v1 ONNX.
 
 ## External data
 

@@ -13,7 +13,12 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import ExtraTreesRegressor, HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import (
+    ExtraTreesRegressor,
+    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+)
 from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, make_scorer
 from sklearn.model_selection import GroupKFold, RandomizedSearchCV
@@ -50,7 +55,14 @@ def _mean_scores(scores: list[dict[str, float]]) -> dict[str, float]:
     return {k: float(np.mean([s[k] for s in scores])) for k in keys}
 
 
-def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[str, Any]:
+def bake_off(
+    df: pd.DataFrame,
+    *,
+    n_splits: int = 5,
+    n_iter: int = 24,
+    n_iter_extra_trees: int | None = None,
+) -> dict[str, Any]:
+    """GroupKFold bake-off. ExtraTrees gets a wider HVAC/tabular search + more trials."""
     assert_no_future_leakage(df)
     X, y, groups, cols = matrix_xy(df)
     peak = morning_peak_mask(df)
@@ -58,6 +70,8 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
     n_splits = min(n_splits, max(2, len(uniq)))
     gkf = GroupKFold(n_splits=n_splits)
     mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+    # Beefy ET budget: correlated weather/lag features + thin day groups
+    et_iters = int(n_iter_extra_trees if n_iter_extra_trees is not None else max(48, n_iter * 2))
 
     search_spaces: dict[str, tuple[Any, dict[str, list]]] = {
         "ridge": (Ridge(), {"alpha": np.logspace(-3, 3, 16).tolist()}),
@@ -68,20 +82,43 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
         "rf": (
             RandomForestRegressor(random_state=21, n_jobs=-1),
             {
-                "n_estimators": [100, 160, 240],
-                "max_depth": [8, 12, 16, None],
+                "n_estimators": [100, 160, 240, 320],
+                "max_depth": [8, 12, 16, 24, None],
                 "min_samples_leaf": [1, 2, 4],
+                "max_features": [0.5, 0.8, "sqrt"],
             },
         ),
+        # Classic GBM — strong on small tabular HVAC farms; sequential trees catch
+        # nonlinear OAT×lag interactions ExtraTrees sometimes under-smooths.
+        "gradient_boosting": (
+            GradientBoostingRegressor(random_state=21),
+            {
+                "n_estimators": [100, 150, 200, 300, 400],
+                "learning_rate": [0.03, 0.05, 0.08, 0.1, 0.15],
+                "max_depth": [2, 3, 4, 5, 6],
+                "min_samples_leaf": [2, 4, 8, 12, 20],
+                "min_samples_split": [2, 5, 10],
+                "subsample": [0.7, 0.85, 1.0],
+                "max_features": [0.5, 0.7, 1.0, "sqrt"],
+                "loss": ["squared_error", "huber"],
+            },
+        ),
+        # ExtraTrees: strong on noisy IdealLoads+COP + lag-heavy heating DSM rows.
+        # Wider grid covers depth vs leaf regularization, feature subsampling for
+        # correlated OAT/HDD/lag columns, and light CCP pruning.
         "extra_trees": (
             ExtraTreesRegressor(random_state=21, n_jobs=-1),
             {
-                "n_estimators": [120, 200, 300],
-                "max_depth": [8, 12, 16, None],
-                "min_samples_split": [2, 5, 10],
-                "min_samples_leaf": [1, 2, 4],
-                "max_features": [0.5, 0.8, 1.0, "sqrt"],
+                "n_estimators": [200, 300, 400, 500, 600],
+                "max_depth": [10, 14, 18, 24, 32, None],
+                "min_samples_split": [2, 4, 6, 10, 16],
+                "min_samples_leaf": [1, 2, 3, 5, 8],
+                "max_features": [0.35, 0.5, 0.65, 0.8, 1.0, "sqrt", "log2"],
                 "bootstrap": [False, True],
+                "criterion": ["squared_error", "friedman_mse"],
+                "ccp_alpha": [0.0, 1e-5, 1e-4, 5e-4, 1e-3],
+                "min_impurity_decrease": [0.0, 1e-5, 1e-4, 5e-4],
+                "max_leaf_nodes": [None, 256, 512, 1024],
             },
         ),
         "hgb": (
@@ -105,7 +142,9 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
         n_combos = 1
         for v in space.values():
             n_combos *= max(len(v), 1)
-        iters = min(n_iter, n_combos)
+        budget = et_iters if name == "extra_trees" else n_iter
+        iters = min(budget, n_combos)
+        # max_samples only valid when bootstrap=True — filter invalid draws via search
         search = RandomizedSearchCV(
             proto,
             space,
@@ -115,6 +154,7 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
             random_state=21,
             n_jobs=-1,
             refit=True,
+            error_score=np.nan,
         )
         search.fit(X, y, groups=groups)
         best_params[name] = dict(search.best_params_)
@@ -152,6 +192,8 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
         "model": champ,
         "champion": champ_name,
         "best_params": best_params[champ_name],
+        "best_params_by_family": best_params,
+        "tuned_models": tuned_models,
         "feature_cols": cols,
         "cv": summary,
         "leaderboard": leaderboard,
@@ -159,6 +201,7 @@ def bake_off(df: pd.DataFrame, *, n_splits: int = 5, n_iter: int = 24) -> dict[s
         "n_rows": int(len(df)),
         "n_days": int(df["day"].nunique()),
         "n_splits": n_splits,
+        "n_iter_extra_trees": et_iters,
         "X": X,
         "y": y,
         "groups": groups,
@@ -171,6 +214,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--parquet", type=Path, default=None)
     ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--n-splits", type=int, default=5)
+    ap.add_argument("--n-iter", type=int, default=24, help="RandomizedSearch trials per family")
+    ap.add_argument(
+        "--n-iter-extra-trees",
+        type=int,
+        default=56,
+        help="ExtraTrees trials (wider HVAC/tabular grid)",
+    )
+    ap.add_argument("--skip-onnx", action="store_true", help="Skip skl2onnx desktop export")
     args = ap.parse_args(argv)
 
     pq = args.parquet or train_parquet_path()
@@ -183,14 +234,26 @@ def main(argv: list[str] | None = None) -> int:
     src = "BAS_BOOTSTRAP_PROXY"
     if "provenance" in df.columns and len(df):
         src = str(df["provenance"].iloc[0])
-    result = bake_off(df, n_splits=args.n_splits)
+    result = bake_off(
+        df,
+        n_splits=args.n_splits,
+        n_iter=args.n_iter,
+        n_iter_extra_trees=args.n_iter_extra_trees,
+    )
+
+    # Desktop ONNX always ships ExtraTrees (best skl2onnx tree ensemble for this stack).
+    et_model = result["tuned_models"]["extra_trees"]
+    et_params = result["best_params_by_family"]["extra_trees"]
+    et_peak = float(result["cv"]["extra_trees"]["mae_peak_05_09"])
 
     joblib.dump(
         {
             "model": result["model"],
+            "extra_trees_model": et_model,
             "feature_cols": result["feature_cols"],
             "champion": result["champion"],
             "best_params": result.get("best_params"),
+            "extra_trees_params": et_params,
             "schema": "lakeside.heating_dsm_hourly.v1",
         },
         paths["joblib"],
@@ -207,11 +270,14 @@ def main(argv: list[str] | None = None) -> int:
         "targets": ["facility_kw"],
         "champion": result["champion"],
         "best_params": result.get("best_params"),
+        "desktop_onnx_family": "extra_trees",
+        "extra_trees_params": et_params,
         "cv_metrics": result["cv"],
         "beat_persistence_peak": result["beat_persistence_peak"],
         "peak_window": "HE_05_09_local",
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
+        "n_iter_extra_trees": result.get("n_iter_extra_trees"),
         "training_parquet": str(pq),
         "training_source": src,
         "sklearn_version": __import__("sklearn").__version__,
@@ -219,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         "honesty": (
             "Heating DSM surrogate for 6-Area HP occupancy / preheat. "
             f"Source={src}. IdealLoads+COP proxy when ENERGYPLUS_SIMULATED. "
+            "Desktop ONNX = sklearn ExtraTrees (skl2onnx). "
             "CANDIDATE — not tariff-grade. Zone-temp multi-target farm is Phase B2."
         ),
         "feature_cols": FEATURE_COLS,
@@ -227,6 +294,7 @@ def main(argv: list[str] | None = None) -> int:
 
     champ_summary = {
         "champion": result["champion"],
+        "desktop_onnx_family": "extra_trees",
         "beat_persistence_peak": result["beat_persistence_peak"],
         "cv": result["cv"],
         "leaderboard": [
@@ -237,19 +305,56 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(champ_summary, indent=2) + "\n", encoding="utf-8"
     )
 
+    onnx_info: dict[str, Any] = {}
+    if not args.skip_onnx:
+        from export_sklearn_onnx import (  # noqa: WPS433
+            copy_ship_to_desktop,
+            export_sklearn_onnx,
+            roundtrip_check,
+        )
+
+        meta = export_sklearn_onnx(
+            et_model,
+            n_features=len(result["feature_cols"]),
+            onnx_path=paths["onnx"],
+            meta_path=paths["feature_meta"],
+            feature_cols=result["feature_cols"],
+            champion="extra_trees",
+            model_display_name="ExtraTreesRegressor",
+            best_params=et_params,
+            training_source=src,
+            honesty=card["honesty"],
+            cv_metrics=result["cv"]["extra_trees"],
+            cv_peak_mae=et_peak,
+        )
+        max_abs = roundtrip_check(et_model, paths["onnx"], result["X"], n=48)
+        desk = copy_ship_to_desktop(paths["onnx"], paths["feature_meta"])
+        onnx_info = {
+            "onnx": str(paths["onnx"]),
+            "feature_meta": str(paths["feature_meta"]),
+            "desktop_copy": str(desk),
+            "roundtrip_max_abs": max_abs,
+            "cv_mae_peak_05_09": et_peak,
+        }
+        print(f"wrote ONNX {paths['onnx']}  roundtrip_max_abs={max_abs:.6g}")
+        print(f"copied ship artifacts → {desk}")
+
     print(
         json.dumps(
             {
                 "model_id": card["model_id"],
                 "status": card["status"],
                 "champion": card["champion"],
+                "desktop_onnx_family": "extra_trees",
                 "beat_persistence_peak": card["beat_persistence_peak"],
                 "cv_metrics": {
                     k: result["cv"][k]
-                    for k in ("persistence", result["champion"])
+                    for k in ("persistence", "extra_trees", result["champion"])
                     if k in result["cv"]
                 },
+                "extra_trees_params": et_params,
                 "artifact": card["artifact"],
+                "onnx": onnx_info,
             },
             indent=2,
         )
