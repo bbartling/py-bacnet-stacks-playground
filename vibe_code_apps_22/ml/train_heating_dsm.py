@@ -314,9 +314,10 @@ def main(argv: list[str] | None = None) -> int:
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "honesty": (
             "Heating DSM surrogate for 6-Area HP occupancy / preheat. "
-            f"Source={src}. IdealLoads+COP proxy when ENERGYPLUS_SIMULATED. "
+            f"Source={src}. Ideal Loads + fixed-COP electrical proxy "
+            "(not a GSHP/GLHE plant). "
             f"Desktop ONNX = bake-off champion ({champ}) via skl2onnx. "
-            "CANDIDATE — not tariff-grade. Zone-temp multi-target farm is Phase B2."
+            "CANDIDATE — not tariff-grade. Production requires ENERGYPLUS_NATIVE_RUN."
         ),
         "feature_cols": FEATURE_COLS,
     }

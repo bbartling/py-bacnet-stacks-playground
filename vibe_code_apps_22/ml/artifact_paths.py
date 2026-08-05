@@ -39,16 +39,38 @@ def default_artifact_dir() -> Path:
     return _ARTIFACTS
 
 
-def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
-    """Prefer E+ twin farm parquet, then bootstrap, then sample."""
+def train_parquet_path(*, prefer_eplus_farm: bool = True, allow_demo: bool | None = None) -> Path:
+    """Prefer native E+ farm parquet. Bootstrap only when DEMO / NOT ENERGYPLUS is set."""
+    if allow_demo is None:
+        allow_demo = os.environ.get("LAKESIDE_DEMO_NOT_ENERGYPLUS", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
     art = default_artifact_dir()
     farm = art / EPLUS_FARM_PARQUET
     if prefer_eplus_farm and farm.is_file():
+        summary = art / "eplus_farm_summary.json"
+        if summary.is_file():
+            import json
+
+            s = json.loads(summary.read_text(encoding="utf-8"))
+            prov = str(s.get("provenance", ""))
+            if prov != "ENERGYPLUS_NATIVE_RUN" and not allow_demo:
+                raise FileNotFoundError(
+                    f"farm parquet present but provenance={prov!r}; "
+                    "need ENERGYPLUS_NATIVE_RUN (or set LAKESIDE_DEMO_NOT_ENERGYPLUS=1)"
+                )
         return farm
     ext = os.environ.get("VIBE22_TRAIN_PARQUET") or os.environ.get("LAKESIDE_TRAIN_PARQUET")
-    if ext and Path(ext).is_file():
+    if ext and Path(ext).is_file() and allow_demo:
         return Path(ext)
-    return bootstrap_parquet_path(prefer_full=True)
+    if allow_demo:
+        return bootstrap_parquet_path(prefer_full=True)
+    raise FileNotFoundError(
+        f"missing native farm {farm} — run: python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium "
+        "(bootstrap disabled in production; set LAKESIDE_DEMO_NOT_ENERGYPLUS=1 for DEMO only)"
+    )
 
 
 def bootstrap_parquet_path(*, prefer_full: bool = True) -> Path:

@@ -80,12 +80,13 @@ python -u scripts\thermal_zone_analytics.py
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM ML (same ship path as the sklearn notebook)
-python -u ml\build_bootstrap_dataset.py
-# Prefer E+ farm when EnergyPlus is installed:
-# python -u scripts\eplus_heating_dsm_farm.py
-python -u ml\train_heating_dsm.py          # ExtraTrees → desktop ONNX
-# or: jupyter notebook notebooks\lakeside_heating_dsm_sklearn.ipynb
+# Heating DSM ML (same ship path as the sklearn notebook — human SoT)
+python -u scripts\eplus_stage_repair_and_rescore.py   # zero-severe staged IDF + GL14
+python -u scripts\eplus_heating_dsm_farm.py --medium   # ENERGYPLUS_NATIVE_RUN only
+python -u scripts\validate_mvm.py
+python -u ml\train_heating_dsm.py          # ExtraTrees bake-off → desktop ONNX
+# Notebook SoT: notebooks\lakeside_heating_dsm_sklearn.ipynb
+# DEMO bootstrap only if: $env:LAKESIDE_DEMO_NOT_ENERGYPLUS="1"
 python -u scripts\build_dsm_excel.py
 
 # Desktop walk (Rust) — loads heating_dsm_hourly_v1.onnx
@@ -98,10 +99,12 @@ python -u scripts\build_dsm_excel.py
 
 - IdealLoads + COP proxy ≠ full GSHP/GLHE plant.
 - Geometry = rectangular program massing, not CAD.
-- Heating DSM prefers **`ENERGYPLUS_SIMULATED`** farm rows when present; else
-  `BAS_BOOTSTRAP_PROXY` until the farm is built.
-- Utility G14 ≠ interval-integrated G14.
+- Heating DSM production labels require **`ENERGYPLUS_NATIVE_RUN`** (zero severe).
+  Bootstrap / proxy only behind `LAKESIDE_DEMO_NOT_ENERGYPLUS=1`.
+- Utility G14 ≠ interval-integrated demand fidelity.
 - Display name **Lakeside**; weather station may still be Madison (southern WI).
+- Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)
+  + report [`vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md`](vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md).
 ---
 
 ## Relationship

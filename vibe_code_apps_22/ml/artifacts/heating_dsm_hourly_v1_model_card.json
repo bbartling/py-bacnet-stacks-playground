@@ -3,7 +3,7 @@
   "model_id": "heating_dsm_hourly_v1",
   "family": "HEATING_DSM_DEMAND",
   "artifact": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_hourly_v1.joblib",
-  "artifact_sha256": "332e547770064884139263c6d949048c41cb4ab5bb38182758dcc9b17c23ee0b",
+  "artifact_sha256": "426a57cff74ad6da4da9e276a202e74d7216a0e968ac45883544de3c2111d3de",
   "status": "CANDIDATE",
   "targets": [
     "facility_kw"
@@ -13,79 +13,79 @@
     "tol": 0.001,
     "subsample": 1.0,
     "n_estimators": 550,
-    "min_samples_split": 16,
+    "min_samples_split": 2,
     "min_samples_leaf": 1,
-    "max_features": 0.85,
-    "max_depth": 7,
+    "max_features": 1.0,
+    "max_depth": 6,
     "loss": "huber",
     "learning_rate": 0.02,
-    "ccp_alpha": 0.0,
+    "ccp_alpha": 1e-05,
     "alpha": 0.85
   },
   "desktop_onnx_family": "gradient_boosting",
   "cv_metrics": {
     "persistence": {
-      "rmse": 30.667727366663335,
-      "mae": 17.758100667656016,
-      "rmse_peak_05_09": 39.45528157781132,
-      "mae_peak_05_09": 24.08677924647111
+      "rmse": 42.0937662808991,
+      "mae": 15.852117489537761,
+      "rmse_peak_05_09": 79.5149174082652,
+      "mae_peak_05_09": 45.13385012271961
     },
     "ridge": {
-      "rmse": 27.610238361302905,
-      "mae": 17.924129090570503,
-      "rmse_peak_05_09": 37.25939761035406,
-      "mae_peak_05_09": 24.720424076063477
+      "rmse": 31.841720325720654,
+      "mae": 18.98140091682738,
+      "rmse_peak_05_09": 55.2543445367062,
+      "mae_peak_05_09": 35.26923535057939
     },
     "elasticnet": {
-      "rmse": 28.104189644326233,
-      "mae": 17.610428402212797,
-      "rmse_peak_05_09": 38.17226139306028,
-      "mae_peak_05_09": 24.41773613894761
+      "rmse": 31.830267040447268,
+      "mae": 18.951545909058154,
+      "rmse_peak_05_09": 55.236663806051396,
+      "mae_peak_05_09": 35.126420626655715
     },
     "rf": {
-      "rmse": 22.32348435484651,
-      "mae": 14.216863901274344,
-      "rmse_peak_05_09": 27.202169010729776,
-      "mae_peak_05_09": 18.478741840120374
+      "rmse": 29.982049800122077,
+      "mae": 10.876931474686515,
+      "rmse_peak_05_09": 55.93361612105961,
+      "mae_peak_05_09": 34.638731252074145
     },
     "gradient_boosting": {
-      "rmse": 21.498215386682435,
-      "mae": 13.830184297946923,
-      "rmse_peak_05_09": 24.962712424473324,
-      "mae_peak_05_09": 17.446811146781947
+      "rmse": 20.4945430590087,
+      "mae": 8.397876715814323,
+      "rmse_peak_05_09": 36.034252934621755,
+      "mae_peak_05_09": 22.046446427292977
     },
     "extra_trees": {
-      "rmse": 21.16556507974276,
-      "mae": 13.49276871271508,
-      "rmse_peak_05_09": 26.388272111323175,
-      "mae_peak_05_09": 18.420465757912257
+      "rmse": 25.08732449103145,
+      "mae": 9.455307801362796,
+      "rmse_peak_05_09": 46.1652632165832,
+      "mae_peak_05_09": 27.863489147922117
     },
     "hgb": {
-      "rmse": 22.13348716941636,
-      "mae": 14.161364278166936,
-      "rmse_peak_05_09": 28.271501941189868,
-      "mae_peak_05_09": 19.04342944407618
+      "rmse": 28.705082263316875,
+      "mae": 10.649036171772721,
+      "rmse_peak_05_09": 54.843290379017034,
+      "mae_peak_05_09": 34.38583119635173
     }
   },
   "beat_persistence_peak": true,
   "peak_window": "HE_05_09_local",
-  "n_rows": 2880,
-  "n_days": 24,
-  "n_iter": 40,
-  "n_iter_extra_trees": 80,
+  "n_rows": 4176,
+  "n_days": 18,
+  "n_iter": 25,
+  "n_iter_extra_trees": 40,
   "search_iters": {
-    "ridge": 40,
-    "elasticnet": 40,
-    "rf": 50,
-    "gradient_boosting": 50,
-    "extra_trees": 80,
-    "hgb": 50
+    "ridge": 25,
+    "elasticnet": 25,
+    "rf": 31,
+    "gradient_boosting": 31,
+    "extra_trees": 40,
+    "hgb": 31
   },
   "training_parquet": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_farm_hourly.parquet",
-  "training_source": "ENERGYPLUS_SIMULATED",
+  "training_source": "ENERGYPLUS_NATIVE_RUN",
   "sklearn_version": "1.8.0",
-  "created_utc": "2026-08-05T17:58:57Z",
-  "honesty": "Heating DSM surrogate for 6-Area HP occupancy / preheat. Source=ENERGYPLUS_SIMULATED. IdealLoads+COP proxy when ENERGYPLUS_SIMULATED. Desktop ONNX = bake-off champion (gradient_boosting) via skl2onnx. CANDIDATE \u2014 not tariff-grade. Zone-temp multi-target farm is Phase B2.",
+  "created_utc": "2026-08-05T20:18:06Z",
+  "honesty": "Heating DSM surrogate for 6-Area HP occupancy / preheat. Source=ENERGYPLUS_NATIVE_RUN. IdealLoads+COP proxy when ENERGYPLUS_SIMULATED. Desktop ONNX = bake-off champion (gradient_boosting) via skl2onnx. CANDIDATE \u2014 not tariff-grade. Zone-temp multi-target farm is Phase B2.",
   "feature_cols": [
     "hour_ending",
     "sin_hour",

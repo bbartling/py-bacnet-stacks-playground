@@ -7,6 +7,7 @@ mod annual;
 mod bills;
 mod features;
 mod model;
+mod mvm;
 mod tariff;
 
 use annual::{rollup_annual_savings, AnnualRollup, MonthlyBook};
@@ -17,6 +18,7 @@ use features::{
     build_features, default_occ_frac, HourInputs, StrategyKnobs, STRATEGY_IDS, ZONE_LABELS,
 };
 use model::{default_artifact_paths, OnnxModel};
+use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
 use tariff::{cost_day_tod, creekside_cp2_defaults, DemandTariff, TodDayCost};
 
 fn apply_theme(ctx: &egui::Context) {
@@ -106,6 +108,7 @@ struct DsmApp {
     cost_compare: Option<TodDayCost>,
     cost_dsm: Option<TodDayCost>,
     annual: Option<AnnualRollup>,
+    mvm: MvmBundle,
     status: String,
 }
 
@@ -229,6 +232,7 @@ impl DsmApp {
             cost_compare: None,
             cost_dsm: None,
             annual: None,
+            mvm: load_mvm_bundle(),
             status: "Tariff defaults = Creekside CP-2 (editable). Run Compare 24/7 vs DSM."
                 .into(),
         };
@@ -993,6 +997,12 @@ impl eframe::App for DsmApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                egui::CollapsingHeader::new("Measured vs modeled validation")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        show_mvm_panel(ui, &self.mvm);
+                    });
+                ui.add_space(8.0);
                 egui::Frame::group(ui.style())
                     .fill(egui::Color32::from_rgb(34, 42, 50))
                     .inner_margin(12.0)
@@ -1005,7 +1015,7 @@ impl eframe::App for DsmApp {
                             ui.separator();
                             ui.label(
                                 egui::RichText::new(format!(
-                                    "precision ±{:.1} kW",
+                                    "screening peak MAE {:.1} kW (not an uncertainty interval)",
                                     self.precision_pm
                                 ))
                                 .strong()

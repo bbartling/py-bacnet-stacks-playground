@@ -1,0 +1,42 @@
+name: vibe22-ci
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "vibe_code_apps_22/**"
+      - ".github/workflows/vibe22-ci.yml"
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "vibe_code_apps_22/**"
+      - ".github/workflows/vibe22-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install pytest pandas numpy pyarrow
+      - name: Pytest eplus_native
+        run: python -m pytest tests/test_eplus_native.py -q
+
+  desktop-rust:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: vibe_code_apps_22/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cargo test
+        run: cargo test --quiet
