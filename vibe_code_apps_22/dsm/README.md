@@ -1,9 +1,9 @@
-# Creekside heating DSM playground (vibe22)
+# Lakeside heating DSM playground (vibe22)
 
 Excel + CSV hooks for **6 BAS Area** occupancy / preheat schedules and a simple
 **energy vs demand** cost compare.
 
-Site historian / openfdd data stays under `VIBE22_CREEKSIDE_ROOT` (`sp_creekside`).
+Site historian / openfdd data stays under `VIBE22_LAKESIDE_ROOT` (`sp_lakeside`).
 
 ## Rebuild
 
@@ -15,7 +15,7 @@ python -u scripts\build_dsm_excel.py
 
 | Path | Role |
 | --- | --- |
-| `creekside_zone_dsm_playground.xlsx` | Editable ZoneSchedule, Rates, Forecast24, Scenarios, CostCompare |
+| `lakeside_zone_dsm_playground.xlsx` | Editable ZoneSchedule, Rates, Forecast24, Scenarios, CostCompare |
 | `exports/zone_schedule_scenario.csv` | Default export (stagger_preheat) for notebooks |
 | `exports/zone_schedule_*.csv` | One CSV per named strategy |
 

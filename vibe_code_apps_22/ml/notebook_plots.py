@@ -1,4 +1,4 @@
-"""Plot helpers for Creekside heating DSM notebooks (Kaggle-style)."""
+"""Plot helpers for Lakeside heating DSM notebooks (Kaggle-style)."""
 
 from __future__ import annotations
 

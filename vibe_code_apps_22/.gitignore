@@ -1,8 +1,9 @@
-# Local regenerable / heavy artifacts (data stays in sp_creekside)
+# Local regenerable / heavy artifacts (data stays on LAKESIDE_SITE_ROOT)
 ml/artifacts/heating_dsm_bootstrap_hourly.parquet
 ml/artifacts/*.joblib
 ml/artifacts/__pycache__/
 **/__pycache__/
 .ipynb_checkpoints/
+*_executed.ipynb
 *.pyc
 .venv/

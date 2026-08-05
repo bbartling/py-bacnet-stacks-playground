@@ -1,4 +1,4 @@
-"""Feature compiler for Creekside heating DSM hourly rows (no future leakage).
+"""Feature compiler for Lakeside heating DSM hourly rows (no future leakage).
 
 Peak window for metrics: local hour-ending **05–09** (morning heating startup),
 not Liberty vibe21 afternoon cooling HE 14–16.

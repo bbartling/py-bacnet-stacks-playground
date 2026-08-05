@@ -5,7 +5,8 @@
   "n_simulations": 1680,
   "provenance": "BAS_BOOTSTRAP_PROXY",
   "demand_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\demand_vs_web_weather_hourly.csv",
-  "weather_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\clean_data\\CREEKSIDE_ES\\weather\\history_wide.csv",
+  "weather_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\clean_data\\LAKESIDE_ES\\weather\\history_wide.csv",
   "facility_kw_mean": 71.89078132130089,
-  "facility_kw_max": 452.75166666666667
+  "facility_kw_max": 452.75166666666667,
+  "lakeside_root": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside"
 }

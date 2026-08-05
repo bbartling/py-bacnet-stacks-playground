@@ -1,4 +1,4 @@
-# Vibe 22 — Heating DSM (Creekside)
+# Vibe 22 — Heating DSM (Lakeside)
 
 ## Product question
 
@@ -9,7 +9,7 @@
 ## Architecture
 
 ```text
-sp_creekside (data)          vibe_code_apps_22 (code)
+sp_lakeside (data)          vibe_code_apps_22 (code)
   reports/*.csv         →      ml/build_bootstrap_dataset.py
   weather/history       →      seed_proxy_scenarios.py
   thermal_zone_model    →      FEATURE_COLS (6 occ_frac_*)
@@ -58,4 +58,4 @@ Comfort-by-start is deferred to EnergyPlus sims. Excel rates are PLACEHOLDER.
 
 ## External data
 
-Set `VIBE22_CREEKSIDE_ROOT` to the site workspace. See [`../data/DATA.md`](../data/DATA.md).
+Set `VIBE22_LAKESIDE_ROOT` to the site workspace. See [`../data/DATA.md`](../data/DATA.md).

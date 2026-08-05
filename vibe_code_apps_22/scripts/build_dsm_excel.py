@@ -1,7 +1,28 @@
-"""Build dsm/creekside_zone_dsm_playground.xlsx + CSV export schema."""
+"""Build dsm/lakeside_zone_dsm_playground.xlsx + CSV export schema."""
 
 from __future__ import annotations
 
+
+import sys
+from pathlib import Path as _PathForLakeside
+
+_APP = _PathForLakeside(__file__).resolve().parents[1]
+if str(_APP) not in sys.path:
+    sys.path.insert(0, str(_APP))
+from lakeside.paths import (  # noqa: E402
+    BUILDING_LABEL,
+    CAMPUS_ID,
+    REGION_LABEL,
+    app_root,
+    clean_data_building_dir,
+    eplus_dir,
+    packages_dir,
+    reports_dir,
+    site_root,
+    utilities_dir,
+)
+from lakeside.paths import BUILDING_ID as _LAKESIDE_BUILDING_ID  # noqa: E402
+from lakeside.paths import SITE_REF as _LAKESIDE_SITE_REF  # noqa: E402
 import argparse
 from pathlib import Path
 
@@ -10,7 +31,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = app_root()  # Excel lives in app dsm/
 ZONE_COLS = [
     "occ_frac_1F_A",
     "occ_frac_1F_B",
@@ -180,7 +201,7 @@ def main() -> int:
     ap.add_argument(
         "--xlsx",
         type=Path,
-        default=_ROOT / "dsm" / "creekside_zone_dsm_playground.xlsx",
+        default=_ROOT / "dsm" / "lakeside_zone_dsm_playground.xlsx",
     )
     ap.add_argument(
         "--export-csv",

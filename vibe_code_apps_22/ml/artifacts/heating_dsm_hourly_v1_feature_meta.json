@@ -98,16 +98,14 @@
   "champion": "resmlp",
   "cv": {
     "mlp": {
-      "mae_peak_05_09": 14.447473127027116
+      "mae_peak_05_09": 12.316505779963
     },
     "resmlp": {
-      "mae_peak_05_09": 12.05169185505558
+      "mae_peak_05_09": 9.208266121120714
     },
     "hour_cnn": {
-      "mae_peak_05_09": 17.324386343971987
+      "mae_peak_05_09": 14.115212605620693
     }
   },
-  "schema": "creekside.heating_dsm_hourly.v1",
-  "created_utc": "2026-08-04T20:43:19Z",
-  "honesty": "PyTorch CANDIDATE on BAS_BOOTSTRAP_PROXY; ONNX for later sim scrubbing."
+  "schema": "lakeside.heating_dsm_hourly.v1"
 }

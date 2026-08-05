@@ -1,4 +1,4 @@
-"""Creekside heating demand-side management ML (hourly facility_kw surrogate)."""
+"""Lakeside heating demand-side management ML (hourly facility_kw surrogate)."""
 
 __all__ = [
     "FEATURE_COLS",

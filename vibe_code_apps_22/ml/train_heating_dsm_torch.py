@@ -252,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         "scaler_scale": result["scaler"].scale_.tolist(),
         "champion": result["champion"],
         "cv": result["cv"],
-        "schema": "creekside.heating_dsm_hourly.v1",
+        "schema": "lakeside.heating_dsm_hourly.v1",
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "honesty": "PyTorch CANDIDATE on BAS_BOOTSTRAP_PROXY; ONNX for later sim scrubbing.",
     }

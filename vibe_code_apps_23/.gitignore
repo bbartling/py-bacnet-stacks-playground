@@ -1,6 +1,0 @@
-third_party/openstudio-mcp/
-openstudio_mcp_bridge/runs/
-openstudio_mcp_bridge/measures/
-**/__pycache__/
-*.pyc
-.ipynb_checkpoints/

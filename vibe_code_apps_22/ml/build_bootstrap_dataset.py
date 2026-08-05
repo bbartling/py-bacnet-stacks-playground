@@ -2,7 +2,7 @@
 
 Reads:
   reports/demand_vs_web_weather_hourly.csv
-  clean_data/CREEKSIDE_ES/weather/history_wide.csv (RH / GHI hourly means)
+  clean_data/LAKESIDE_ES/weather/history_wide.csv (RH / GHI hourly means)
 
 Writes:
   ml/artifacts/heating_dsm_bootstrap_hourly.parquet
@@ -25,7 +25,7 @@ if str(_ML) not in sys.path:
 
 from artifact_paths import (  # noqa: E402
     bootstrap_parquet_path,
-    creekside_data_root,
+    lakeside_data_root,
     default_artifact_dir,
     demand_hourly_csv,
     weather_history_csv,
@@ -159,8 +159,8 @@ def main(argv: list[str] | None = None) -> int:
     if not demand.is_file():
         print(
             f"missing demand CSV: {demand}\n"
-            f"Set VIBE22_CREEKSIDE_ROOT to your sp_creekside checkout "
-            f"(resolved root={creekside_data_root()})",
+            f"Set VIBE22_CREEKSIDE_ROOT to your sp_lakeside checkout "
+            f"(resolved root={lakeside_data_root()})",
             file=sys.stderr,
         )
         return 2
@@ -172,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     df.to_parquet(out_path, index=False)
     summary_path = out_path.with_name("bootstrap_summary.json")
-    summary["creekside_root"] = str(creekside_data_root())
+    summary["lakeside_root"] = str(lakeside_data_root())
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({**summary, "parquet": str(out_path)}, indent=2))
     return 0

@@ -149,14 +149,14 @@ def main(argv: list[str] | None = None) -> int:
             "model": result["model"],
             "feature_cols": result["feature_cols"],
             "champion": result["champion"],
-            "schema": "creekside.heating_dsm_hourly.v1",
+            "schema": "lakeside.heating_dsm_hourly.v1",
         },
         paths["joblib"],
     )
     sha = hashlib.sha256(paths["joblib"].read_bytes()).hexdigest()
 
     card = {
-        "schema_version": "creekside.model_registry.v1",
+        "schema_version": "lakeside.model_registry.v1",
         "model_id": "heating_dsm_hourly_v1",
         "family": "HEATING_DSM_DEMAND",
         "artifact": str(paths["joblib"]),
