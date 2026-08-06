@@ -80,15 +80,15 @@ python -u scripts\thermal_zone_analytics.py
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM hybrid (Real+E+)
+# Heating DSM hybrid (Real+E+) — data prep OK from CLI; **train only via notebook**
 python -u scripts\eplus_stage_repair_and_rescore.py
 python -u scripts\build_real_15min_store.py
-python -u ml\train_real_baseline_15min.py
 python -u scripts\eplus_heating_dsm_farm.py --medium
-python -u ml\train_eplus_delta_15min.py
-python -u scripts\promote_hybrid_ship.py
+# Train + promote: open notebooks\lakeside_heating_dsm_sklearn.ipynb → Run All
+# (CLI ml\train_*.py / promote_hybrid_ship.py refuse unless VIBE22_ALLOW_CLI_TRAIN=1)
 python -u scripts\validate_mvm.py
 # Notebook SoT: notebooks\lakeside_heating_dsm_sklearn.ipynb
+# Torch alt train: notebooks\lakeside_heating_dsm_torch.ipynb
 
 # Desktop — hybrid 96-step walk JSON (fail-closed without it)
 # cd desktop && cargo run --release
@@ -101,6 +101,7 @@ python -u scripts\validate_mvm.py
 - Geometry = rectangular program massing, not CAD.
 - Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
   Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.
+- **Model training only via notebooks** (CLI gated). Cards/walk regenerate on Run All.
 - Utility G14 ≠ interval-integrated demand fidelity.
 - Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
 - Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)

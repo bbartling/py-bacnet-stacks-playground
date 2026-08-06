@@ -49,17 +49,15 @@ cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 $env:PYTHONUNBUFFERED="1"
 
-# A) Real 15-min store + baseline
+# Data prep (CLI OK — not model training)
 python -u scripts\build_real_15min_store.py
-python -u ml\train_real_baseline_15min.py --winter-only
-python -u ml\train_real_baseline_torch_15min.py --winter-only   # optional alt
-
-# B) Paired E+ farm + delta
 python -u scripts\eplus_heating_dsm_farm.py --smoke    # or --medium
-python -u ml\train_eplus_delta_15min.py
 
-# C) Hybrid promote + MVM + desktop
-python -u scripts\promote_hybrid_ship.py
+# TRAIN + PROMOTE — notebooks only (Run All)
+#   notebooks\lakeside_heating_dsm_sklearn.ipynb   # A + B + hybrid walk ship
+#   notebooks\lakeside_heating_dsm_torch.ipynb     # ResMLP alt (does not overwrite ship)
+# CLI ml\train_*.py and scripts\promote_hybrid_ship.py refuse unless VIBE22_ALLOW_CLI_TRAIN=1
+
 python -u scripts\validate_mvm.py
 cd desktop; cargo test hybrid_walk_loads --release
 cargo run --release
@@ -70,15 +68,15 @@ cargo run --release
 | Surface | Path |
 | --- | --- |
 | Real store | `scripts/build_real_15min_store.py` → site `ml/artifacts/real_baseline_15min_v1.parquet` |
-| Real baseline | `ml/train_real_baseline_15min.py` → `real_baseline_15min_v1.*` |
+| Real baseline | **sklearn notebook** → `real_baseline_15min_v1.*` (`ml/train_real_baseline_15min.py` helpers) |
 | Paired farm | `scripts/eplus_heating_dsm_farm.py` → `heating_dsm_eplus_paired_15min_v1.parquet` |
-| Delta model | `ml/train_eplus_delta_15min.py` → `eplus_delta_15min_v1.*` |
+| Delta model | **sklearn notebook** → `eplus_delta_15min_v1.*` |
 | Hybrid rollout | `ml/hybrid_rollout.py` + `contracts/hybrid_dsm_96_v1.json` |
-| Promote | `scripts/promote_hybrid_ship.py` → `desktop/artifacts/hybrid_dsm_96_v1_walk.json` |
+| Promote | **sklearn notebook** → `desktop/artifacts/hybrid_dsm_96_v1_walk.json` |
 | MVM (hourly **and** 15-min) | `scripts/validate_mvm.py` |
 | Desktop | `desktop/src/hybrid.rs` — baseline vs DSM trajectories |
-| Human SoT notebook | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
-| Torch notebook | `notebooks/lakeside_heating_dsm_torch.ipynb` |
+| Human SoT notebook | `notebooks/lakeside_heating_dsm_sklearn.ipynb` (**only train path**) |
+| Torch notebook | `notebooks/lakeside_heating_dsm_torch.ipynb` (**only ResMLP train path**) |
 
 ## Peak / metrics honesty
 

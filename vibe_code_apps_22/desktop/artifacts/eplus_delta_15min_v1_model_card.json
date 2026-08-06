@@ -2,35 +2,53 @@
   "stem": "eplus_delta_15min_v1",
   "honesty": "HYBRID_SCREENING",
   "provenance": "ENERGYPLUS_NATIVE_DELTA",
-  "champion": "random_forest",
+  "champion": "gradient_boosting",
   "best_params": {
-    "n_estimators": 350,
-    "min_samples_leaf": 4,
-    "max_features": "sqrt",
-    "max_depth": null
+    "alpha": 0.9,
+    "ccp_alpha": 0.0,
+    "criterion": "friedman_mse",
+    "init": null,
+    "learning_rate": 0.1,
+    "loss": "squared_error",
+    "max_depth": 3,
+    "max_features": null,
+    "max_leaf_nodes": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 1,
+    "min_samples_split": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "n_estimators": 80,
+    "n_iter_no_change": null,
+    "random_state": 21,
+    "subsample": 1.0,
+    "tol": 0.0001,
+    "validation_fraction": 0.1,
+    "verbose": 0,
+    "warm_start": false
   },
   "cv_teacher_forced": {
-    "gradient_boosting": {
-      "mae_delta_kw": 27.180196783586357,
-      "rmse_delta_kw": 52.742498669964675,
-      "mae_delta_kw_peak": 53.534060424150056,
-      "mae_delta_temp_mean": 2.3614000748492163
+    "random_forest": {
+      "mae_delta_kw": 11.221939511578299,
+      "rmse_delta_kw": 30.90975609554116,
+      "mae_delta_kw_peak": 37.73494391069087,
+      "mae_delta_temp_mean": 1.398965103162921
     },
     "extra_trees": {
-      "mae_delta_kw": 20.19295940794779,
-      "rmse_delta_kw": 44.34651874104421,
-      "mae_delta_kw_peak": 52.34739560921635,
-      "mae_delta_temp_mean": 1.8842467715951434
+      "mae_delta_kw": 17.23765242984798,
+      "rmse_delta_kw": 41.81523733578725,
+      "mae_delta_kw_peak": 38.601683392337186,
+      "mae_delta_temp_mean": 1.2122813520963975
     },
-    "random_forest": {
-      "mae_delta_kw": 20.372219249395584,
-      "rmse_delta_kw": 38.678830229219415,
-      "mae_delta_kw_peak": 47.475998665787955,
-      "mae_delta_temp_mean": 2.0330265007465456
+    "gradient_boosting": {
+      "mae_delta_kw": 16.010457497337203,
+      "rmse_delta_kw": 35.80432942779236,
+      "mae_delta_kw_peak": 37.226443703763316,
+      "mae_delta_temp_mean": 1.7290804449378705
     }
   },
   "n_rows": 576,
   "n_days": 6,
-  "built_at_utc": "2026-08-06T14:45:09.372523+00:00",
-  "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet"
+  "built_at_utc": "2026-08-06T17:02:18.162139+00:00",
+  "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet",
+  "trained_via": "notebook"
 }

@@ -220,32 +220,97 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--paired-parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--n-iter", type=int, default=4)
-    ap.add_argument("--outer-splits", type=int, default=3)
-    args = ap.parse_args(argv)
+def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
+    """Fixed-hyperparam delta bake-off (notebook default)."""
+    df = ensure_strategy_onehots(df)
+    X, Y, groups, cols, tcols, feat = matrix_xy_15min_multi(df)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    peak = morning_peak_mask_15min(feat)
+    families = {
+        "random_forest": RandomForestRegressor(
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+        ),
+        "extra_trees": ExtraTreesRegressor(
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+        ),
+        "gradient_boosting": GradientBoostingRegressor(
+            n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
+        ),
+    }
+    uniq = np.unique(groups)
+    gkf = GroupKFold(n_splits=min(n_splits, max(2, len(uniq))))
+    summary: dict[str, list] = {k: [] for k in families}
+    for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
+        print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
+        for name, proto in families.items():
+            m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+            m.fit(X[tr], Y[tr])
+            pred = m.predict(X[te])
+            summary[name].append(
+                {
+                    "mae_delta_kw": float(mean_absolute_error(Y[te, 0], pred[:, 0])),
+                    "rmse_delta_kw": float(np.sqrt(mean_squared_error(Y[te, 0], pred[:, 0]))),
+                    "mae_delta_kw_peak": float(
+                        mean_absolute_error(Y[te, 0][peak[te]], pred[:, 0][peak[te]])
+                    )
+                    if peak[te].any()
+                    else float(mean_absolute_error(Y[te, 0], pred[:, 0])),
+                    "mae_delta_temp_mean": float(np.mean(np.abs(Y[te, 1:] - pred[:, 1:]))),
+                }
+            )
+            print(f"  {name} peak ΔMAE={summary[name][-1]['mae_delta_kw_peak']:.3f}", flush=True)
 
-    out_dir = args.out_dir or (_ML / "artifacts")
+    def mean_scores(xs):
+        return {k: float(np.mean([s[k] for s in xs])) for k in xs[0]}
+
+    cv = {f: mean_scores(summary[f]) for f in families}
+    champ = min(families, key=lambda n: cv[n]["mae_delta_kw_peak"])
+    proto = families[champ]
+    model = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+    model.fit(X, Y)
+    return {
+        "model": model,
+        "champion": champ,
+        "best_params": proto.get_params(),
+        "cv_teacher_forced": cv,
+        "feature_cols": cols,
+        "target_cols": tcols,
+        "n_rows": len(feat),
+        "n_days": int(feat["day"].nunique()) if "day" in feat.columns else int(feat["pair_id"].nunique()),
+    }
+
+
+def load_paired_and_build_delta(
+    paired_path: Path | None = None,
+    *,
+    out_dir: Path | None = None,
+) -> tuple[pd.DataFrame, Path]:
+    """Load paired farm, hash-gate, write delta parquet; return (delta_df, paired_path)."""
+    out_dir = Path(out_dir or (_ML / "artifacts"))
     out_dir.mkdir(parents=True, exist_ok=True)
-    paired_path = args.paired_parquet or (out_dir / "heating_dsm_eplus_paired_15min_v1.parquet")
+    paired_path = Path(paired_path or (out_dir / "heating_dsm_eplus_paired_15min_v1.parquet"))
     paired = pd.read_parquet(paired_path)
-    # manifest hash gate
     if "provenance" in paired.columns and not (paired["provenance"] == "ENERGYPLUS_NATIVE_RUN").all():
         raise ValueError("refusing paired farm without ENERGYPLUS_NATIVE_RUN")
     if "input_hash" not in paired.columns or paired["input_hash"].isna().any():
         raise ValueError("hash gate failed: missing input_hash on rows")
     if "run_model_hash" in paired.columns and paired["run_model_hash"].isna().any():
         raise ValueError("hash gate failed: missing run_model_hash")
-
     delta = build_delta_frame(paired)
     delta_path = out_dir / DELTA_PARQUET
     delta.to_parquet(delta_path, index=False)
     print(f"delta rows={len(delta)} pairs={delta['pair_id'].nunique()} -> {delta_path}", flush=True)
+    return delta, paired_path
 
-    result = train_delta(delta, outer_splits=args.outer_splits, n_iter=args.n_iter)
+
+def export_delta_artifacts(
+    result: dict[str, Any],
+    out_dir: Path,
+    *,
+    paired_source: str,
+) -> dict[str, Path]:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(
         {
             "model": result["model"],
@@ -260,7 +325,6 @@ def main(argv: list[str] | None = None) -> int:
         export_onnx_multi(result["model"], len(result["feature_cols"]), out_dir / f"{STEM}.onnx")
     except Exception as e:
         print(f"ONNX export failed: {e}", flush=True)
-
     meta = {
         "stem": STEM,
         "feature_cols": result["feature_cols"],
@@ -271,8 +335,10 @@ def main(argv: list[str] | None = None) -> int:
         "honesty": HONESTY,
         "component": "B_eplus_delta",
         "targets_are_deltas": True,
+        "trained_via": "notebook",
     }
-    (out_dir / f"{STEM}_feature_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    meta_path = out_dir / f"{STEM}_feature_meta.json"
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     card = {
         "stem": STEM,
         "honesty": HONESTY,
@@ -283,10 +349,33 @@ def main(argv: list[str] | None = None) -> int:
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "paired_source": str(paired_path),
+        "paired_source": paired_source,
+        "trained_via": "notebook",
     }
-    (out_dir / f"{STEM}_model_card.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
-    print(json.dumps({"champion": result["champion"], "cv": result["cv_teacher_forced"]}, indent=2))
+    card_path = out_dir / f"{STEM}_model_card.json"
+    card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
+    return {"joblib": out_dir / f"{STEM}.joblib", "onnx": out_dir / f"{STEM}.onnx", "meta": meta_path, "card": card_path}
+
+
+def main(argv: list[str] | None = None) -> int:
+    from notebook_gate import cli_train_allowed, refuse_cli_train
+
+    if not cli_train_allowed():
+        return refuse_cli_train("E+ delta (component B)")
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--paired-parquet", type=Path, default=None)
+    ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--n-iter", type=int, default=4)
+    ap.add_argument("--outer-splits", type=int, default=3)
+    args = ap.parse_args(argv)
+
+    out_dir = args.out_dir or (_ML / "artifacts")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    delta, paired_path = load_paired_and_build_delta(args.paired_parquet, out_dir=out_dir)
+    result = train_delta(delta, outer_splits=args.outer_splits, n_iter=args.n_iter)
+    paths = export_delta_artifacts(result, out_dir, paired_source=str(paired_path))
+    print(json.dumps({"champion": result["champion"], "card": str(paths["card"])}, indent=2))
     return 0
 
 

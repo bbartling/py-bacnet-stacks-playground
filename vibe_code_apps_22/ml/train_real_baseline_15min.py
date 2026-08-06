@@ -280,39 +280,92 @@ def export_onnx_multi(model: MultiOutputRegressor, n_features: int, path: Path) 
     path.write_bytes(onx.SerializeToString())
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--outer-splits", type=int, default=3)
-    ap.add_argument("--inner-splits", type=int, default=2)
-    ap.add_argument("--n-iter", type=int, default=6)
-    ap.add_argument("--max-days", type=int, default=None, help="optional day subsample for speed")
-    ap.add_argument("--winter-only", action="store_true")
-    args = ap.parse_args(argv)
+def lean_bake_off(
+    df: pd.DataFrame,
+    *,
+    n_splits: int = 3,
+) -> dict[str, Any]:
+    """Fixed-hyperparam GroupKFold bake-off (notebook default — wall-clock honest)."""
+    from feature_compile_15min import ensure_strategy_onehots
 
-    site = site_root()
-    pq = args.parquet or (site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet")
-    if not pq.is_file():
-        raise FileNotFoundError(f"missing {pq} — run scripts/build_real_15min_store.py")
-    df = pd.read_parquet(pq)
-    if (df.get("provenance") is not None) and not (df["provenance"] == "REAL_BAS_15MIN").all():
-        raise ValueError("refusing non-REAL_BAS store")
-    if args.winter_only:
-        df = df[df["month"].isin([11, 12, 1, 2, 3])].copy()
-    if args.max_days:
-        days = sorted(df["day"].unique())[: args.max_days]
-        df = df[df["day"].isin(days)].copy()
+    df = ensure_strategy_onehots(df)
+    X, Y, groups, cols, tcols, feat = matrix_xy_15min_multi(df)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    peak = morning_peak_mask_15min(feat)
+    families = {
+        "random_forest": RandomForestRegressor(
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+        ),
+        "extra_trees": ExtraTreesRegressor(
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+        ),
+        "gradient_boosting": GradientBoostingRegressor(
+            n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
+        ),
+    }
+    uniq = np.unique(groups)
+    gkf = GroupKFold(n_splits=min(n_splits, max(2, len(uniq))))
+    tf: dict[str, list] = {k: [] for k in families}
+    for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
+        print(f"lean fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
+        for name, proto in families.items():
+            m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+            m.fit(X[tr], Y[tr])
+            pred = m.predict(X[te])
+            tf[name].append(_metrics_multi(Y[te], pred, peak[te]))
+            print(f"  {name} peak MAE={tf[name][-1]['facility_kw_mae_peak_05_09']:.3f}", flush=True)
 
-    out_dir = args.out_dir or (_ML / "artifacts")
+    def _mean(scores: list[dict]) -> dict:
+        out: dict[str, Any] = {}
+        for k in scores[0]:
+            if isinstance(scores[0][k], dict):
+                out[k] = {
+                    kk: float(np.mean([s[k][kk] for s in scores])) for kk in scores[0][k]
+                }
+            else:
+                out[k] = float(np.mean([s[k] for s in scores]))
+        return out
+
+    summary = {f: _mean(v) for f, v in tf.items()}
+    champ = min(families, key=lambda n: summary[n]["facility_kw_mae_peak_05_09"])
+    proto = families[champ]
+    model = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+    model.fit(X, Y)
+    # one-day recursive sample
+    sample_day = str(feat["day"].iloc[0])
+    sub = feat[feat["day"] == sample_day].sort_values("step_15")
+    yp = recursive_rollout_day(model, sub, cols, tcols)
+    yt = sub[TARGET_COLS].to_numpy(dtype=float)
+    rec = {
+        "sample_day": sample_day,
+        "facility_kw_mae": float(np.mean(np.abs(yp[:, 0] - yt[:, 0]))),
+        "zone_temp_mae_mean": float(np.mean(np.abs(yp[:, 1:] - yt[:, 1:]))),
+    }
+    return {
+        "model": model,
+        "champion": champ,
+        "best_params": proto.get_params(),
+        "best_params_by_family": {k: v.get_params() for k, v in families.items()},
+        "feature_cols": cols,
+        "target_cols": tcols,
+        "cv_teacher_forced": summary,
+        "cv_recursive_96": {champ: rec},
+        "n_rows": int(len(feat)),
+        "n_days": int(feat["day"].nunique()),
+        "outer_splits": int(gkf.get_n_splits()),
+        "n_iter": 0,
+        "frame": feat,
+        "X": X,
+        "Y": Y,
+        "groups": groups,
+        "peak": peak,
+    }
+
+
+def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dict[str, Path]:
+    """Write joblib / ONNX / meta / model card for component A."""
+    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    result = nested_bake_off(
-        df,
-        outer_splits=args.outer_splits,
-        inner_splits=args.inner_splits,
-        n_iter=args.n_iter,
-    )
     joblib_path = out_dir / f"{STEM}.joblib"
     onnx_path = out_dir / f"{STEM}.onnx"
     meta_path = out_dir / f"{STEM}_feature_meta.json"
@@ -342,6 +395,7 @@ def main(argv: list[str] | None = None) -> int:
         "honesty": HONESTY,
         "component": "A_real_baseline",
         "resolution": "15min",
+        "trained_via": "notebook",
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
@@ -360,9 +414,68 @@ def main(argv: list[str] | None = None) -> int:
         "n_iter_inner": result["n_iter"],
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "lag_init_policy": "measured_midnight_state_from_JSON_or_first_row",
+        "trained_via": "notebook",
     }
     card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
-    print(json.dumps({"champion": result["champion"], "card": str(card_path)}, indent=2))
+    return {
+        "joblib": joblib_path,
+        "onnx": onnx_path,
+        "meta": meta_path,
+        "card": card_path,
+    }
+
+
+def load_real_baseline_frame(
+    *,
+    parquet: Path | None = None,
+    winter_only: bool = True,
+    max_days: int | None = 36,
+) -> pd.DataFrame:
+    site = site_root()
+    pq = parquet or (site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet")
+    if not pq.is_file():
+        raise FileNotFoundError(f"missing {pq} — run scripts/build_real_15min_store.py")
+    df = pd.read_parquet(pq)
+    if (df.get("provenance") is not None) and not (df["provenance"] == "REAL_BAS_15MIN").all():
+        raise ValueError("refusing non-REAL_BAS store")
+    if winter_only:
+        df = df[df["month"].isin([11, 12, 1, 2, 3])].copy()
+    if max_days:
+        days = sorted(df["day"].unique())[: int(max_days)]
+        df = df[df["day"].isin(days)].copy()
+    return df
+
+
+def main(argv: list[str] | None = None) -> int:
+    from notebook_gate import cli_train_allowed, refuse_cli_train
+
+    if not cli_train_allowed():
+        return refuse_cli_train("real baseline (component A)")
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--parquet", type=Path, default=None)
+    ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--outer-splits", type=int, default=3)
+    ap.add_argument("--inner-splits", type=int, default=2)
+    ap.add_argument("--n-iter", type=int, default=6)
+    ap.add_argument("--max-days", type=int, default=None)
+    ap.add_argument("--winter-only", action="store_true")
+    args = ap.parse_args(argv)
+
+    df = load_real_baseline_frame(
+        parquet=args.parquet,
+        winter_only=args.winter_only,
+        max_days=args.max_days,
+    )
+    out_dir = args.out_dir or (_ML / "artifacts")
+    result = nested_bake_off(
+        df,
+        outer_splits=args.outer_splits,
+        inner_splits=args.inner_splits,
+        n_iter=args.n_iter,
+    )
+    paths = export_real_baseline_artifacts(result, out_dir)
+    print(json.dumps({"champion": result["champion"], "card": str(paths["card"])}, indent=2))
     return 0
 
 

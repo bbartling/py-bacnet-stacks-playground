@@ -192,12 +192,9 @@ def main(argv: list[str] | None = None) -> int:
     _ = argv
     print(
         "REFUSED: heating_dsm_hourly_v1 ship path is quarantined.\n"
-        "Use the hybrid Real+E+ pipeline instead:\n"
-        "  python -u scripts/build_real_15min_store.py\n"
-        "  python -u ml/train_real_baseline_15min.py\n"
-        "  python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium\n"
-        "  python -u ml/train_eplus_delta_15min.py\n"
-        "  python -u scripts/promote_hybrid_ship.py\n"
+        "Train hybrid models via notebook only:\n"
+        "  jupyter notebook notebooks/lakeside_heating_dsm_sklearn.ipynb\n"
+        "Data prep (not train): scripts/build_real_15min_store.py, eplus_heating_dsm_farm.py\n"
         "See vibe22_agent_spec/HEATING_DSM.md",
         file=sys.stderr,
     )

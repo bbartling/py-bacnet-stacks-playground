@@ -20,11 +20,13 @@ Peak window HE **05–09** local (steps 20–36). Honesty: **`HYBRID_SCREENING`*
 
 ```powershell
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
+# Data prep (CLI OK)
 python -u scripts\build_real_15min_store.py
-python -u ml\train_real_baseline_15min.py --winter-only
 python -u scripts\eplus_heating_dsm_farm.py --smoke   # or --medium
-python -u ml\train_eplus_delta_15min.py
-python -u scripts\promote_hybrid_ship.py
+# TRAIN + promote — notebooks only:
+#   notebooks\lakeside_heating_dsm_sklearn.ipynb
+#   notebooks\lakeside_heating_dsm_torch.ipynb
+# CLI ml\train_*.py / promote refuse unless VIBE22_ALLOW_CLI_TRAIN=1
 cd desktop; cargo run --release
 ```
 
@@ -38,6 +40,6 @@ cd desktop; cargo run --release
 | `hybrid_dsm_96_v1_walk.json` | Desktop ship walk |
 | `contracts/hybrid_dsm_96_v1.json` | Versioned I/O |
 
-Torch ResMLP: `train_real_baseline_torch_15min.py` / `*_torch_v1.*` — alternate only.
+Torch ResMLP: torch notebook → `*_torch_v1.*` — alternate only.
 
 Agent SoT: [`../vibe22_agent_spec/HEATING_DSM.md`](../vibe22_agent_spec/HEATING_DSM.md).

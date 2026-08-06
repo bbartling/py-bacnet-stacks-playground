@@ -22,23 +22,23 @@ cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 $env:PYTHONUNBUFFERED="1"
 
-# A) Real 15-min store + baseline (7 outs)
+# Data prep (CLI OK)
 python -u scripts\build_real_15min_store.py
-python -u ml\train_real_baseline_15min.py --winter-only
-python -u ml\train_real_baseline_torch_15min.py --winter-only
-
-# B) Paired E+ farm + delta model
 python -u scripts\eplus_heating_dsm_farm.py --smoke
-python -u ml\train_eplus_delta_15min.py
 
-# C) Hybrid 96-step + desktop ship
-python -u scripts\promote_hybrid_ship.py
-python -u scripts\validate_mvm.py   # includes 15-min peak metrics
+# TRAIN + PROMOTE — notebooks only (Run All)
+# notebooks\lakeside_heating_dsm_sklearn.ipynb
+# notebooks\lakeside_heating_dsm_torch.ipynb   # ResMLP alt
+# CLI train/promote refuse unless VIBE22_ALLOW_CLI_TRAIN=1
+
+python -u scripts\validate_mvm.py
 cd desktop; cargo run --release
 ```
 
 ## Key modules
 
+- `notebooks/lakeside_heating_dsm_sklearn.ipynb` — **only** sklearn train + hybrid promote
+- `notebooks/lakeside_heating_dsm_torch.ipynb` — **only** ResMLP train
 - `ml/real_store/` — measured 15-min feature store
 - `ml/hybrid_rollout.py` + `contracts/hybrid_dsm_96_v1.json`
 - `scripts/eplus_heating_dsm_farm.py` — paired baseline/DSM, 6-area controls, MAT

@@ -530,8 +530,8 @@ def main(argv: list[str] | None = None) -> int:
     _ = argv
     print(
         "REFUSED: heating_dsm_hourly_torch_v1 path is quarantined.\n"
-        "Use: python -u ml/train_real_baseline_torch_15min.py\n"
-        "Hybrid ship: python -u scripts/promote_hybrid_ship.py\n"
+        "Train ResMLP via notebook only:\n"
+        "  jupyter notebook notebooks/lakeside_heating_dsm_torch.ipynb\n"
         "See vibe22_agent_spec/HEATING_DSM.md",
         file=sys.stderr,
     )

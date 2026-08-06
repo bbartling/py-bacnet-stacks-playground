@@ -70,5 +70,6 @@
   "n_outputs": 7,
   "honesty": "HYBRID_SCREENING",
   "component": "B_eplus_delta",
-  "targets_are_deltas": true
+  "targets_are_deltas": true,
+  "trained_via": "notebook"
 }

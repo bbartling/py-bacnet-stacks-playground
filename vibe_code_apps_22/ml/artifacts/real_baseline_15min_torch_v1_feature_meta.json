@@ -155,5 +155,6 @@
     1.1576812604755835,
     1.720019108057979
   ],
-  "honesty": "HYBRID_SCREENING"
+  "honesty": "HYBRID_SCREENING",
+  "trained_via": "notebook"
 }

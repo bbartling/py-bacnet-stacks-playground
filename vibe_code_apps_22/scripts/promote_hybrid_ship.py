@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""Run hybrid 96-step rollout and promote artifacts for desktop ship."""
+"""Run hybrid 96-step rollout and promote artifacts for desktop ship.
+
+Prefer the sklearn notebook (Run All). CLI requires VIBE22_ALLOW_CLI_TRAIN=1.
+"""
 from __future__ import annotations
 
 import argparse
@@ -7,6 +10,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 _APP = Path(__file__).resolve().parents[1]
 _ML = _APP / "ml"
@@ -25,24 +29,25 @@ from hybrid_rollout import (  # noqa: E402
 )
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--artifacts", type=Path, default=_ML / "artifacts")
-    ap.add_argument("--desktop-artifacts", type=Path, default=_APP / "desktop" / "artifacts")
-    args = ap.parse_args(argv)
+def promote_hybrid(
+    *,
+    artifacts: Path | None = None,
+    desktop_artifacts: Path | None = None,
+) -> dict[str, Any]:
+    """Build hybrid walk + copy ship artifacts. Callable from notebooks."""
+    art = Path(artifacts or (_ML / "artifacts"))
+    desk = Path(desktop_artifacts or (_APP / "desktop" / "artifacts"))
 
-    art = args.artifacts
     base_job = art / "real_baseline_15min_v1.joblib"
     delta_job = art / "eplus_delta_15min_v1.joblib"
     if not base_job.is_file() or not delta_job.is_file():
         raise FileNotFoundError(
-            f"need {base_job.name} and {delta_job.name} — train components A/B first"
+            f"need {base_job.name} and {delta_job.name} — train A/B via sklearn notebook first"
         )
 
     base_m, cols_b, _ = load_joblib_model(base_job)
     delta_m, cols_d, _ = load_joblib_model(delta_job)
     if cols_b != cols_d:
-        # align to baseline feature list; delta must match
         raise ValueError("baseline/delta feature_cols mismatch — retrain with same FEATURE_COLS_15MIN_MT")
 
     base_card = json.loads((art / "real_baseline_15min_v1_model_card.json").read_text(encoding="utf-8"))
@@ -50,7 +55,6 @@ def main(argv: list[str] | None = None) -> int:
 
     models = HybridModels(baseline=base_m, delta=delta_m, feature_cols=cols_b)
     contract = make_fixture_contract()
-    # prefer measured midnight from real store if available
     site_store = Path(
         __import__("os").environ.get(
             "LAKESIDE_SITE_ROOT",
@@ -70,16 +74,21 @@ def main(argv: list[str] | None = None) -> int:
             row0 = sub.iloc[0]
             contract["init"] = {
                 "facility_kw": float(row0["facility_kw"]),
-                "facility_kw_lag2": float(row0.get("facility_kw_lag2", row0["facility_kw"]) or row0["facility_kw"]),
+                "facility_kw_lag2": float(
+                    row0.get("facility_kw_lag2", row0["facility_kw"]) or row0["facility_kw"]
+                ),
                 "oat_f": float(row0["oat_f"]),
-                **{c: float(row0[c]) for c in [
-                    "zone_temp_1F_A_f",
-                    "zone_temp_1F_B_f",
-                    "zone_temp_1F_C_f",
-                    "zone_temp_1F_D_f",
-                    "zone_temp_2F_A_f",
-                    "zone_temp_2F_B_f",
-                ]},
+                **{
+                    c: float(row0[c])
+                    for c in [
+                        "zone_temp_1F_A_f",
+                        "zone_temp_1F_B_f",
+                        "zone_temp_1F_C_f",
+                        "zone_temp_1F_D_f",
+                        "zone_temp_2F_A_f",
+                        "zone_temp_2F_B_f",
+                    ]
+                },
             }
             contract["calendar"]["month"] = int(row0["month"])
             contract["calendar"]["doy"] = int(row0["doy"])
@@ -98,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     result["delta_cv"] = delta_card.get("cv_teacher_forced")
     result["honesty"] = HONESTY
     result["contract_version"] = CONTRACT_VERSION
+    result["promoted_via"] = "notebook"
 
     walk_path = art / "hybrid_dsm_96_v1_walk.json"
     fix_dir = art / "fixtures"
@@ -106,18 +116,15 @@ def main(argv: list[str] | None = None) -> int:
     (fix_dir / "hybrid_dsm_96_v1_walk.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     (fix_dir / "hybrid_dsm_96_v1_init.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
 
-    desk = args.desktop_artifacts
     desk.mkdir(parents=True, exist_ok=True)
     shutil.copy2(walk_path, desk / "hybrid_dsm_96_v1_walk.json")
 
-    # copy hybrid component artifacts into desktop
     for stem in ("real_baseline_15min_v1", "eplus_delta_15min_v1"):
         for suffix in (".onnx", ".joblib", "_feature_meta.json", "_model_card.json"):
             src = art / f"{stem}{suffix}"
             if src.is_file():
                 shutil.copy2(src, desk / src.name)
 
-    # ship meta pointer (not old kW-only stem)
     ship = {
         "ship_mode": "hybrid_96",
         "honesty": HONESTY,
@@ -128,11 +135,31 @@ def main(argv: list[str] | None = None) -> int:
         "champion_baseline": result.get("champion_baseline"),
         "champion_delta": result.get("champion_delta"),
         "summary": result.get("summary"),
+        "promoted_via": "notebook",
     }
     (desk / "hybrid_ship_manifest.json").write_text(json.dumps(ship, indent=2), encoding="utf-8")
     (art / "hybrid_ship_manifest.json").write_text(json.dumps(ship, indent=2), encoding="utf-8")
+    return {"walk": walk_path, "desktop": desk, "summary": result["summary"], "result": result}
 
-    print(json.dumps({"walk": str(walk_path), "desktop": str(desk), "summary": result["summary"]}, indent=2))
+
+def main(argv: list[str] | None = None) -> int:
+    from notebook_gate import cli_train_allowed, refuse_cli_train
+
+    if not cli_train_allowed():
+        return refuse_cli_train("hybrid promote / 96-step walk")
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--artifacts", type=Path, default=_ML / "artifacts")
+    ap.add_argument("--desktop-artifacts", type=Path, default=_APP / "desktop" / "artifacts")
+    args = ap.parse_args(argv)
+
+    out = promote_hybrid(artifacts=args.artifacts, desktop_artifacts=args.desktop_artifacts)
+    print(
+        json.dumps(
+            {"walk": str(out["walk"]), "desktop": str(out["desktop"]), "summary": out["summary"]},
+            indent=2,
+        )
+    )
     return 0
 
 

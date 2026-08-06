@@ -485,4 +485,10 @@ def save_fig(path: Path, fig=None, dpi: int = 140) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig = fig or plt.gcf()
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    try:
+        from IPython.display import display
+
+        display(fig)
+    except Exception:
+        pass
     return path

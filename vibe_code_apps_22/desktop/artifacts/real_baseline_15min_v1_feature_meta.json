@@ -62,5 +62,6 @@
   "scaler": "identity",
   "honesty": "HYBRID_SCREENING",
   "component": "A_real_baseline",
-  "resolution": "15min"
+  "resolution": "15min",
+  "trained_via": "notebook"
 }
