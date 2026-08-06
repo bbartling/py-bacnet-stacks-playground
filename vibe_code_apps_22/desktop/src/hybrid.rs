@@ -3,6 +3,7 @@
 //! Fail-closed without hybrid artifacts (real baseline + E+ delta walk JSON).
 //! Honesty: HYBRID_SCREENING until field DSM trials.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -28,7 +29,7 @@ pub struct HybridSummary {
     pub delta_kwh: f64,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct HybridStep {
     pub step_15: i64,
     pub baseline_facility_kw: f64,
@@ -41,6 +42,12 @@ pub struct HybridStep {
     pub cumulative_kwh_hybrid: f64,
     #[serde(default)]
     pub comfort_violations_cum: i64,
+    #[serde(default)]
+    pub baseline_zone_temps_f: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub delta_zone_temps_f: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub hybrid_zone_temps_f: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -58,6 +65,14 @@ pub struct HybridWalk {
     pub outcome_flag: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
+    #[serde(default)]
+    pub weather_mode: Option<String>,
+    #[serde(default)]
+    pub comfort_htg_sp_f: Option<f64>,
+    #[serde(default)]
+    pub comfort_band_f: Option<f64>,
+    #[serde(default)]
+    pub ship_watermark: Option<String>,
 }
 
 pub fn default_hybrid_walk_paths() -> Vec<PathBuf> {
@@ -182,6 +197,50 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
             plot_ui.line(Line::new(base).name("baseline"));
             plot_ui.line(Line::new(hyb).name("hybrid DSM"));
         });
+
+    // Zone trajectories + comfort band (when present on live/regen walks)
+    let zone_keys: Vec<String> = walk
+        .steps
+        .first()
+        .map(|s| s.hybrid_zone_temps_f.keys().cloned().collect())
+        .unwrap_or_default();
+    if !zone_keys.is_empty() {
+        ui.separator();
+        ui.label("Zone temps (°F) — hybrid + comfort band");
+        let sp = walk.comfort_htg_sp_f.unwrap_or(68.0);
+        let band = walk.comfort_band_f.unwrap_or(2.0);
+        let lo = sp - band;
+        Plot::new("hybrid_zones")
+            .height(200.0)
+            .legend(egui_plot::Legend::default())
+            .show(ui, |plot_ui| {
+                for zk in &zone_keys {
+                    let pts: PlotPoints = walk
+                        .steps
+                        .iter()
+                        .filter_map(|st| {
+                            st.hybrid_zone_temps_f
+                                .get(zk)
+                                .map(|t| [st.step_15 as f64 / 4.0, *t])
+                        })
+                        .collect();
+                    plot_ui.line(Line::new(pts).name(zk.clone()));
+                }
+                let lo_line: PlotPoints = (0..96)
+                    .map(|i| [i as f64 / 4.0, lo])
+                    .collect();
+                plot_ui.line(Line::new(lo_line).name("comfort_lo"));
+            });
+    }
+    if let Some(wm) = &walk.weather_mode {
+        ui.label(format!("weather_mode: {wm}"));
+    }
+    if let Some(w) = &walk.ship_watermark {
+        ui.colored_label(
+            egui::Color32::from_rgb(230, 120, 40),
+            format!("ship watermark: {w}"),
+        );
+    }
 }
 
 #[cfg(test)]

@@ -21,6 +21,32 @@ from feature_compile_heating_dsm import (
 STEPS = 96
 CONTRACT_VERSION = "hybrid_dsm_96_v1"
 HONESTY = "HYBRID_SCREENING"
+CONTROL_CONTRACT_VERSION = "control_strategies_v1"
+_CONTROL_DIR = Path(__file__).resolve().parents[1] / "contracts" / CONTROL_CONTRACT_VERSION
+
+
+def load_strategy_control(strategy_id: str) -> dict[str, Any]:
+    """Load farm-SoT 96-step control fixture (desktop strategies only — no PRBS)."""
+    if strategy_id.startswith("prbs"):
+        raise ValueError("PRBS not offered on desktop; use farm-only PRBS arms")
+    path = _CONTROL_DIR / f"{strategy_id}.json"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"missing control contract {path} — run scripts/export_control_contracts.py"
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def schedule_from_strategy_fixture(strategy_id: str) -> dict[str, Any]:
+    """Build hybrid_rollout control_96 dict from versioned fixture."""
+    doc = load_strategy_control(strategy_id)
+    steps = doc["steps"]
+    out: dict[str, Any] = {"strategy_id": strategy_id}
+    for c in OCC_FRAC_COLS + HP_ON_COLS:
+        out[c] = [float(steps[i][c]) for i in range(STEPS)]
+    for k in ("preheat_lead_h", "stagger_min", "unocc_htg_sp_f", "occ_htg_sp_f"):
+        out[k] = float(steps[0][k])
+    return out
 
 
 @dataclass
@@ -101,6 +127,41 @@ def _control_at(schedule: dict[str, list[float]], step: int) -> dict[str, float]
     return out
 
 
+def build_row(
+    *,
+    step: int,
+    weather: dict[str, Any],
+    schedule: dict[str, Any],
+    state: dict[str, float],
+    meta: dict[str, Any],
+    hdd_acc: float,
+) -> tuple[dict[str, float], float]:
+    """Build one feature row at step t using weather[t] only (no future leak).
+
+    Returns (row, updated_hdd_acc). ``hdd_acc`` is caller-owned local state —
+    never written onto the contract dict.
+    """
+    if step < 0 or step >= STEPS:
+        raise ValueError(f"step must be in [0, {STEPS}), got {step}")
+    # Interval-end / hour-ending: prediction at t uses current-interval weather[t].
+    oat = float(weather["oat_f"][step])
+    rh = float(weather.get("rh_pct", [50.0] * 96)[step])
+    ghi = float(weather.get("ghi", [0.0] * 96)[step])
+    hdd = max(0.0, 65.0 - oat)
+    hdd_acc_next = hdd_acc + (hdd if step < 28 else 0.0)
+    cal = _calendar_features(step, meta)
+    wx = {
+        "oat_f": oat,
+        "oat_lag1": float(state["oat_lag1"]),
+        "rh_pct": rh,
+        "ghi": ghi,
+        "hdd65": hdd,
+        "hdd65_cum_night": hdd_acc_next,
+    }
+    row = {**cal, **wx, **_control_at(schedule, step), **state}
+    return row, hdd_acc_next
+
+
 def rollout_96(
     models: HybridModels,
     contract: dict[str, Any],
@@ -128,26 +189,29 @@ def rollout_96(
     peak_b = peak_d = -1e9
     peak_b_t = peak_d_t = 0
     viol = 0
+    hdd_acc = 0.0  # local night-HDD accumulator (never mutate the contract)
 
     for step in range(STEPS):
-        oat = float(weather["oat_f"][step])
-        rh = float(weather.get("rh_pct", [50.0] * 96)[step])
-        ghi = float(weather.get("ghi", [0.0] * 96)[step])
-        hdd = max(0.0, 65.0 - oat)
+        # Shared weather[t] / night HDD for both arms; controls+lags differ.
+        row_b, hdd_acc = build_row(
+            step=step,
+            weather=weather,
+            schedule=baseline_ctrl,
+            state=state_b,
+            meta=meta,
+            hdd_acc=hdd_acc,
+        )
         cal = _calendar_features(step, meta)
         wx = {
-            "oat_f": oat,
-            "oat_lag1": state_b["oat_lag1"],
-            "rh_pct": rh,
-            "ghi": ghi,
-            "hdd65": hdd,
-            "hdd65_cum_night": float(contract.get("_hdd_acc", 0.0)) + (hdd if step < 28 else 0.0),
+            "oat_f": row_b["oat_f"],
+            "oat_lag1": state_d["oat_lag1"],
+            "rh_pct": row_b["rh_pct"],
+            "ghi": row_b["ghi"],
+            "hdd65": row_b["hdd65"],
+            "hdd65_cum_night": hdd_acc,
         }
-        contract["_hdd_acc"] = wx["hdd65_cum_night"]
-
-        row_b = {**cal, **wx, **_control_at(baseline_ctrl, step), **state_b}
         row_d_ctrl = {**cal, **wx, **_control_at(dsm_ctrl, step), **state_d}
-        # delta model uses DSM controls with delta lags
+
         xb = _row_features(row_b, models.feature_cols)
         xd = _row_features(row_d_ctrl, models.feature_cols)
         base_y = _predict7(models.baseline, xb)
@@ -155,6 +219,7 @@ def rollout_96(
         hybrid_y = base_y + delta_y
 
         kw_b, kw_h = float(base_y[0]), float(hybrid_y[0])
+        oat = float(row_b["oat_f"])
         cum_kwh_b += kw_b * 0.25
         cum_kwh_d += kw_h * 0.25
         if kw_b > peak_b:
@@ -218,7 +283,7 @@ def rollout_96(
     }
 
 
-def make_fixture_contract(*, seed: int = 21) -> dict[str, Any]:
+def make_fixture_contract(*, seed: int = 21, dsm_strategy: str = "stagger_preheat") -> dict[str, Any]:
     rng = np.random.default_rng(seed)
     oat = 20.0 + 10.0 * np.sin(np.linspace(0, 2 * np.pi, 96)) + rng.normal(0, 1, 96)
     init = {
@@ -227,34 +292,18 @@ def make_fixture_contract(*, seed: int = 21) -> dict[str, Any]:
         "oat_f": float(oat[0]),
         **{c: 68.0 for c in ZONE_TEMP_COLS},
     }
-    ones = [1.0] * 96
-    zeros = [0.0] * 96
     occ = [1.0 if 28 <= i < 64 else 0.0 for i in range(96)]
-    baseline_control = {
-        "strategy_id": "baseline",
-        **{c: list(occ) for c in OCC_FRAC_COLS},
-        **{c: list(ones) for c in HP_ON_COLS},
-        "unocc_htg_sp_f": 64.0,
-        "occ_htg_sp_f": 68.0,
-        "preheat_lead_h": 0.0,
-        "stagger_min": 0.0,
-    }
-    # DSM: stagger morning HP
-    dsm_hp = {c: list(ones) for c in HP_ON_COLS}
-    for i, c in enumerate(HP_ON_COLS):
-        dsm_hp[c] = [0.0 if (20 + i * 2) <= step < (28 + i * 2) else 1.0 for step in range(96)]
-    dsm_control = {
-        "strategy_id": "stagger_preheat",
-        **{c: list(occ) for c in OCC_FRAC_COLS},
-        **dsm_hp,
-        "unocc_htg_sp_f": 62.0,
-        "occ_htg_sp_f": 68.0,
-        "preheat_lead_h": 2.0,
-        "stagger_min": 15.0,
-    }
+    baseline_control = schedule_from_strategy_fixture("baseline")
+    dsm_control = schedule_from_strategy_fixture(dsm_strategy)
     return {
         "contract_version": CONTRACT_VERSION,
         "honesty": HONESTY,
+        "control_contract_version": CONTROL_CONTRACT_VERSION,
+        "interval_semantics": {
+            "timestamp": "quarter_hour_interval_end_hour_ending",
+            "init": "measured_midnight_state_only",
+            "predictions": "96 steps covering 00:15 through 24:00",
+        },
         "init": init,
         "calendar": {
             "month": 1,
@@ -266,6 +315,7 @@ def make_fixture_contract(*, seed: int = 21) -> dict[str, Any]:
             "oat_f": oat.tolist(),
             "rh_pct": (50 + rng.normal(0, 5, 96)).tolist(),
             "ghi": np.clip(800 * np.sin(np.linspace(-0.2, 3.2, 96)), 0, None).tolist(),
+            "weather_mode": "synthetic_fixture",
         },
         "baseline_control_96": baseline_control,
         "dsm_control_96": dsm_control,

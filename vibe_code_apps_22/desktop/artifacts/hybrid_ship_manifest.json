@@ -1,5 +1,5 @@
 {
-  "ship_mode": "hybrid_96",
+  "ship_mode": "smoke_artifact",
   "honesty": "HYBRID_SCREENING",
   "contract_version": "hybrid_dsm_96_v1",
   "walk_json": "hybrid_dsm_96_v1_walk.json",
@@ -8,32 +8,33 @@
   "champion_baseline": "extra_trees",
   "champion_delta": "gradient_boosting",
   "summary": {
-    "cumulative_kwh_baseline": 2927.3686823431467,
-    "cumulative_kwh_hybrid": 5546.262077021475,
-    "peak_kw_baseline": 181.34444420370374,
-    "peak_kw_hybrid": 366.4145537819008,
+    "cumulative_kwh_baseline": 2833.527322839698,
+    "cumulative_kwh_hybrid": 5569.025284689587,
+    "peak_kw_baseline": 186.1777776041667,
+    "peak_kw_hybrid": 336.96265428055926,
     "peak_step_baseline": 21,
     "peak_step_hybrid": 20,
-    "comfort_violations": 23,
-    "delta_peak_kw": 185.07010957819705,
-    "delta_kwh": 2618.8933946783286
+    "comfort_violations": 9,
+    "delta_peak_kw": 150.78487667639257,
+    "delta_kwh": 2735.497961849889
   },
   "pair_count": 6,
   "idealloads_cop_disclaimer": "IdealLoads + fixed COP \u2260 GSHP/GLHE plant; hybrid screening only.",
   "baseline_cv_recursive_96_heldout": {
-    "facility_kw_mae": 5.965255902590981,
-    "facility_kw_mae_peak_05_09": 9.45980082527575,
-    "facility_kw_rmse": 8.45105537988215,
-    "zone_temp_mae_mean": 0.05118254650313698,
-    "n_heldout_days": 2
+    "facility_kw_mae": 30.660705351975064,
+    "facility_kw_mae_peak_05_09": 36.75966405775096,
+    "facility_kw_rmse": 37.66072988361366,
+    "zone_temp_mae_mean": 1.06456929384862,
+    "n_heldout_days": 24
   },
   "delta_cv_recursive_96_heldout": {
-    "facility_kw_mae": 16.010457497337203,
-    "facility_kw_mae_peak_05_09": 37.226443703763316,
-    "facility_kw_rmse": 35.80432942779236,
-    "zone_temp_mae_mean": 1.7290804449378705,
-    "note": "provisional_from_teacher_forced_until_notebook_retrain"
+    "mae_delta_kw": 30.145690569913626,
+    "mae_delta_kw_peak": 46.855804226768385,
+    "mae_delta_temp_mean": 5.003216776259825,
+    "n_heldout_days": 6
   },
   "promoted_via": "notebook",
-  "outcome_flag": "DSM_WORSENS_PEAK"
+  "watermark": "UNDERPOWERED_SMOKE_FARM",
+  "honesty_note": "UNDERPOWERED_SMOKE_FARM: usable both-arm pairs=6 < 12; screening-only smoke artifact, not a client-grade result",
+  "outcome_flag": "REJECTED_DSM_OUTCOME"
 }

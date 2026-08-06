@@ -4,9 +4,15 @@
 Prefer the sklearn notebook (Run All). CLI requires VIBE22_ALLOW_CLI_TRAIN=1.
 
 Promote gates (Audit P0):
-- Baseline card must include non-empty ``cv_recursive_96_heldout`` with facility metrics.
+- Baseline AND delta cards must include non-empty ``cv_recursive_96_heldout``
+  with usable facility metrics (facility_kw_mae / mae_delta_kw).
+- Held-out ``note``/``status`` must not carry provisional, teacher_forced, debug,
+  in_sample, not_evaluated, or insufficient tokens.
 - Usable both-arm pair count >= MIN_PAIRS (12), else refuse unless
-  ``VIBE22_ALLOW_SMOKE_PROMOTE=1``.
+  ``VIBE22_ALLOW_SMOKE_PROMOTE=1`` (which stamps the ship manifest with the
+  ``UNDERPOWERED_SMOKE_FARM`` watermark and ship_mode=smoke_artifact).
+- ``delta_peak_kw > 0`` or ``delta_kwh > 500`` → outcome_flag REJECTED_DSM_OUTCOME.
+- IdealLoads + fixed-COP disclaimer is always emitted.
 """
 from __future__ import annotations
 
@@ -39,6 +45,45 @@ IDEALLOADS_COP_DISCLAIMER = (
     "IdealLoads + fixed COP ≠ GSHP/GLHE plant; hybrid screening only."
 )
 SMOKE_ENV = "VIBE22_ALLOW_SMOKE_PROMOTE"
+SMOKE_WATERMARK = "UNDERPOWERED_SMOKE_FARM"
+REJECTED_DSM_OUTCOME = "REJECTED_DSM_OUTCOME"
+DELTA_KWH_REJECT_THRESHOLD = 500.0
+# Notes / statuses that betray a non-honest held-out metric.
+FORBIDDEN_NOTE_TOKENS = (
+    "provisional",
+    "teacher_forced",
+    "debug",
+    "in_sample",
+    "not_evaluated",
+    "insufficient",
+)
+
+
+def _find_forbidden_notes(obj: Any, path: str = "") -> list[str]:
+    """Return locations where a ``note``/``status`` field holds a forbidden token."""
+    hits: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            kp = f"{path}{k}"
+            if isinstance(v, str) and str(k).lower() in ("note", "status"):
+                low = v.lower()
+                if any(tok in low for tok in FORBIDDEN_NOTE_TOKENS):
+                    hits.append(f"{kp}={v!r}")
+            hits.extend(_find_forbidden_notes(v, kp + "."))
+    elif isinstance(obj, list):
+        for i, x in enumerate(obj):
+            hits.extend(_find_forbidden_notes(x, f"{path}[{i}]."))
+    return hits
+
+
+def _reject_provisional_heldout(held: Any, arm: str) -> None:
+    """Raise if a held-out block carries provisional / teacher-forced / etc notes."""
+    hits = _find_forbidden_notes(held)
+    if hits:
+        raise ValueError(
+            f"{arm} cv_recursive_96_heldout carries forbidden note/status "
+            f"({', '.join(hits)}); regenerate honest held-out recursive CV via notebook"
+        )
 
 
 def _heldout_has_facility_metrics(held: Any) -> bool:
@@ -46,6 +91,8 @@ def _heldout_has_facility_metrics(held: Any) -> bool:
     if not isinstance(held, dict) or not held:
         return False
     if held.get("note") == "insufficient_heldout_days":
+        return False
+    if held.get("status") == "not_evaluated":
         return False
     # champion-level flat metrics
     if "facility_kw_mae" in held and held["facility_kw_mae"] is not None:
@@ -138,22 +185,38 @@ def promote_hybrid(
     base_card = json.loads((art / "real_baseline_15min_v1_model_card.json").read_text(encoding="utf-8"))
     delta_card = json.loads((art / "eplus_delta_15min_v1_model_card.json").read_text(encoding="utf-8"))
 
-    held = base_card.get("cv_recursive_96_heldout")
-    if not _heldout_has_facility_metrics(held):
+    # --- Honesty gate: baseline held-out recursive CV ---
+    base_held = base_card.get("cv_recursive_96_heldout")
+    _reject_provisional_heldout(base_held, "baseline")
+    if not _heldout_has_facility_metrics(base_held):
         raise ValueError(
             "baseline model card missing usable cv_recursive_96_heldout "
             "(need non-empty dict with facility_kw_mae / family metrics). "
             "Retrain component A via sklearn notebook so held-out recursive CV is recorded."
         )
 
+    # --- Honesty gate: delta held-out recursive CV (real recursive, never TF copy) ---
+    delta_held = delta_card.get("cv_recursive_96_heldout")
+    _reject_provisional_heldout(delta_held, "delta")
+    if not _heldout_has_facility_metrics(delta_held):
+        raise ValueError(
+            "delta model card missing usable cv_recursive_96_heldout "
+            "(need non-empty dict with mae_delta_kw / facility_kw_mae). "
+            "Retrain component B via sklearn notebook so held-out recursive CV is recorded."
+        )
+
+    # --- Coverage gate: usable both-arm pairs ---
     pair_count = _count_both_arm_pairs(art, delta_card)
     allow_smoke = os.environ.get(SMOKE_ENV) == "1"
-    if pair_count < MIN_PAIRS and not allow_smoke:
-        raise ValueError(
-            f"usable both-arm pairs={pair_count} < MIN_PAIRS={MIN_PAIRS}. "
-            f"Refuse promote unless {SMOKE_ENV}=1 (smoke/dev only). "
-            "Grow the paired E+ farm or set the env explicitly."
-        )
+    is_smoke = False
+    if pair_count < MIN_PAIRS:
+        if not allow_smoke:
+            raise ValueError(
+                f"usable both-arm pairs={pair_count} < MIN_PAIRS={MIN_PAIRS}. "
+                f"Refuse promote unless {SMOKE_ENV}=1 (smoke/dev only). "
+                "Grow the paired E+ farm or set the env explicitly."
+            )
+        is_smoke = True
 
     models = HybridModels(baseline=base_m, delta=delta_m, feature_cols=cols_b)
     contract = make_fixture_contract()
@@ -215,9 +278,21 @@ def promote_hybrid(
     result["pair_count"] = pair_count
     result["idealloads_cop_disclaimer"] = IDEALLOADS_COP_DISCLAIMER
 
-    delta_peak = float((result.get("summary") or {}).get("delta_peak_kw") or 0.0)
-    if delta_peak > 0:
-        result["outcome_flag"] = "DSM_WORSENS_PEAK"
+    ship_mode = "hybrid_96"
+    if is_smoke:
+        ship_mode = "smoke_artifact"
+        result["watermark"] = SMOKE_WATERMARK
+        result["ship_mode"] = ship_mode
+        result["honesty_note"] = (
+            f"{SMOKE_WATERMARK}: usable both-arm pairs={pair_count} < {MIN_PAIRS}; "
+            "screening-only smoke artifact, not a client-grade result"
+        )
+
+    summary = result.get("summary") or {}
+    delta_peak = float(summary.get("delta_peak_kw") or 0.0)
+    delta_kwh = float(summary.get("delta_kwh") or 0.0)
+    if delta_peak > 0 or delta_kwh > DELTA_KWH_REJECT_THRESHOLD:
+        result["outcome_flag"] = REJECTED_DSM_OUTCOME
 
     walk_path = art / "hybrid_dsm_96_v1_walk.json"
     fix_dir = art / "fixtures"
@@ -236,7 +311,7 @@ def promote_hybrid(
                 shutil.copy2(src, desk / src.name)
 
     ship = {
-        "ship_mode": "hybrid_96",
+        "ship_mode": ship_mode,
         "honesty": HONESTY,
         "contract_version": CONTRACT_VERSION,
         "walk_json": "hybrid_dsm_96_v1_walk.json",
@@ -251,6 +326,9 @@ def promote_hybrid(
         "delta_cv_recursive_96_heldout": result.get("delta_cv_recursive_96_heldout"),
         "promoted_via": "notebook",
     }
+    if is_smoke:
+        ship["watermark"] = SMOKE_WATERMARK
+        ship["honesty_note"] = result.get("honesty_note")
     if result.get("outcome_flag"):
         ship["outcome_flag"] = result["outcome_flag"]
     (desk / "hybrid_ship_manifest.json").write_text(json.dumps(ship, indent=2), encoding="utf-8")

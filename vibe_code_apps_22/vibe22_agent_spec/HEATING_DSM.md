@@ -53,6 +53,14 @@ Defect list: [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
 
 Lag init = **measured midnight** from JSON contract (never hardcoded 80 °F / 35 kW).
 
+## Interval semantics (96 × 15-min)
+
+- Timestamps are **quarter-hour interval end / hour-ending** (same as E+ CSV stamps).
+- Contract `init` at **00:00** is **state only** (lags / midnight measured); not a prediction.
+- Rollout predictions are **96 steps**: interval ends **00:15 … 24:00** (`step_15=0…95`).
+- Weather features at step `t` use `weather_forecast_96[*][t]` — no future leak to `t+1`.
+- Night HDD accumulator is **local** to the rollout call (never mutate `contract["_hdd_acc"]`).
+
 ## Run order
 
 ```powershell

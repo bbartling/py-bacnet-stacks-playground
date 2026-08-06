@@ -102,3 +102,42 @@ def test_contract_schema_exists():
     assert p.is_file()
     doc = json.loads(p.read_text(encoding="utf-8"))
     assert doc["contract_version"] == CONTRACT_VERSION
+
+
+def _dummy_models():
+    cols = [
+        "step_15", "sin_step", "cos_step", "hour_ending", "month", "doy",
+        "is_weekend", "occupied", "oat_f", "oat_lag1", "hdd65", "hdd65_cum_night",
+        "hours_to_occupy", "rh_pct", "ghi",
+        "occ_frac_1F_A", "occ_frac_1F_B", "occ_frac_1F_C", "occ_frac_1F_D",
+        "occ_frac_2F_A", "occ_frac_2F_B",
+        "hp_on_1F_A", "hp_on_1F_B", "hp_on_1F_C", "hp_on_1F_D", "hp_on_2F_A", "hp_on_2F_B",
+        "sum_occ_frac", "sum_hp_on", "preheat_lead_h", "stagger_min",
+        "unocc_htg_sp_f", "occ_htg_sp_f", "facility_kw_lag1", "facility_kw_lag2",
+        "strategy_baseline", "strategy_stagger_preheat", "strategy_flat_24_7",
+        "strategy_deep_setback", "strategy_morning_all_on",
+        "zone_temp_1F_A_f_lag1", "zone_temp_1F_B_f_lag1", "zone_temp_1F_C_f_lag1",
+        "zone_temp_1F_D_f_lag1", "zone_temp_2F_A_f_lag1", "zone_temp_2F_B_f_lag1",
+    ]
+    base = _Const7([30.0, 68, 68, 68, 68, 68, 68])
+    delta = _Const7([-2.0, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5])
+    return HybridModels(baseline=base, delta=delta, feature_cols=cols)
+
+
+def test_rollout_does_not_mutate_contract():
+    models = _dummy_models()
+    contract = make_fixture_contract()
+    before = json.dumps(contract, sort_keys=True)
+    rollout_96(models, contract)
+    after = json.dumps(contract, sort_keys=True)
+    assert before == after
+    assert "_hdd_acc" not in contract
+
+
+def test_rollout_is_deterministic():
+    models = _dummy_models()
+    contract = make_fixture_contract()
+    out1 = rollout_96(models, contract)
+    out2 = rollout_96(models, contract)
+    assert out1["summary"] == out2["summary"]
+    assert out1["steps"] == out2["steps"]

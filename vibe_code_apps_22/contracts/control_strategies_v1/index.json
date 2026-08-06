@@ -1,0 +1,19 @@
+{
+  "contract_version": "control_strategies_v1",
+  "source": "scripts/eplus_heating_dsm_farm.py::build_area_controls",
+  "desktop_strategies": [
+    "baseline",
+    "flat_24_7",
+    "stagger_preheat",
+    "deep_setback",
+    "morning_all_on"
+  ],
+  "prbs": "not_offered_on_desktop",
+  "files": {
+    "baseline": "baseline.json",
+    "flat_24_7": "flat_24_7.json",
+    "stagger_preheat": "stagger_preheat.json",
+    "deep_setback": "deep_setback.json",
+    "morning_all_on": "morning_all_on.json"
+  }
+}

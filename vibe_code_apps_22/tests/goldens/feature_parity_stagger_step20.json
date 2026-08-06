@@ -1,0 +1,32 @@
+{
+  "description": "First 10 FEATURE_COLS_15MIN_MT values at step 20 for stagger_preheat; fixture seed=21, fixed init (no lag updates).",
+  "seed": 21,
+  "dsm_strategy": "stagger_preheat",
+  "step": 20,
+  "stagger_min": 60.0,
+  "n_features": 46,
+  "feature_cols_prefix": [
+    "step_15",
+    "sin_step",
+    "cos_step",
+    "hour_ending",
+    "month",
+    "doy",
+    "is_weekend",
+    "occupied",
+    "oat_f",
+    "oat_lag1"
+  ],
+  "values": [
+    20.0,
+    0.9659258262890683,
+    0.25881904510252074,
+    5.0,
+    1.0,
+    15.0,
+    0.0,
+    0.0,
+    30.322396923663636,
+    20.358773408003913
+  ]
+}

@@ -110,7 +110,56 @@ pub struct TodDayCost {
     pub total_cost: f32,
 }
 
-/// Cost one 24h profile under a portable TOD + dual-demand tariff.
+const QUARTER_H: f32 = 0.25;
+
+/// Energy-preserving downsample: mean of 4 quarter-hour kW → 24 hourly means.
+/// Using these as "kW for 1 hour" recovers Σ(kw_q × 0.25) energy.
+pub fn hourly_mean_from_quarters(kw96: &[f32; 96]) -> [f32; 24] {
+    let mut out = [0.0_f32; 24];
+    for h in 0..24 {
+        let mut s = 0.0_f32;
+        for q in 0..4 {
+            s += kw96[h * 4 + q];
+        }
+        out[h] = s / 4.0;
+    }
+    out
+}
+
+/// Cost a 96-step quarter-hour kW series (energy = Σ kw×0.25; demand = max interval kW).
+pub fn cost_day_tod_96(
+    kw96: &[f32; 96],
+    tariff: &DemandTariff,
+    weekend: bool,
+    month: u8,
+    include_customer_day_share: bool,
+) -> TodDayCost {
+    let mut on_kwh = 0.0_f32;
+    let mut off_kwh = 0.0_f32;
+    let mut peak_kw = 0.0_f32;
+    for step in 0..96 {
+        let kw = kw96[step].max(0.0);
+        peak_kw = peak_kw.max(kw);
+        let he = step / 4; // hour-ending bucket for TOD
+        let e = kw * QUARTER_H;
+        if tariff.is_on_peak(he, weekend) {
+            on_kwh += e;
+        } else {
+            off_kwh += e;
+        }
+    }
+    finalize_tod_cost(
+        on_kwh,
+        off_kwh,
+        peak_kw,
+        tariff,
+        month,
+        include_customer_day_share,
+    )
+}
+
+/// Cost one 24h profile where each slot is hourly mean kW (energy ≈ kWh for that hour).
+/// Prefer [`cost_day_tod_96`] when quarter-hour series is available (correct demand peak).
 pub fn cost_day_tod(
     kw: &[f32; 24],
     tariff: &DemandTariff,
@@ -128,15 +177,32 @@ pub fn cost_day_tod(
             off_kwh += e;
         }
     }
-    let energy_kwh = on_kwh + off_kwh;
     let peak_kw = kw.iter().copied().fold(0.0_f32, f32::max);
+    finalize_tod_cost(
+        on_kwh,
+        off_kwh,
+        peak_kw,
+        tariff,
+        month,
+        include_customer_day_share,
+    )
+}
+
+fn finalize_tod_cost(
+    on_kwh: f32,
+    off_kwh: f32,
+    peak_kw: f32,
+    tariff: &DemandTariff,
+    month: u8,
+    include_customer_day_share: bool,
+) -> TodDayCost {
+    let energy_kwh = on_kwh + off_kwh;
     let energy_on = on_kwh * tariff.energy_on_peak_per_kwh;
     let energy_off = off_kwh * tariff.energy_off_peak_per_kwh;
     let pca = energy_kwh * tariff.pca_per_kwh;
     let d_rate = tariff.demand_rate_for_month(month);
     let dist_rate = tariff.distribution_rate_for_month(month);
     let demand_cost = peak_kw * d_rate;
-    // Day playground: apply distribution demand to same-day peak (annual rollup uses billed demand)
     let distribution_demand_cost = peak_kw * dist_rate;
     let cust = if include_customer_day_share {
         tariff.customer_charge / 30.0
@@ -176,5 +242,23 @@ mod tests {
         assert!((c.peak_kw - 50.0).abs() < 1e-4);
         assert!(c.on_peak_kwh > 0.0 && c.off_peak_kwh > 0.0);
         assert!((c.demand_cost - 50.0 * 12.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn quarter_hour_energy_and_spike_peak() {
+        let t = creekside_cp2_defaults();
+        let flat = [100.0_f32; 96];
+        let c = cost_day_tod_96(&flat, &t, false, 6, false);
+        assert!((c.energy_kwh - 2400.0).abs() < 1e-2);
+        assert!((c.peak_kw - 100.0).abs() < 1e-4);
+
+        let mut spike = [0.0_f32; 96];
+        spike[40] = 200.0; // one quarter @ 200 kW → 50 kWh
+        let s = cost_day_tod_96(&spike, &t, false, 6, false);
+        assert!((s.energy_kwh - 50.0).abs() < 1e-3);
+        assert!((s.peak_kw - 200.0).abs() < 1e-4);
+
+        let means = hourly_mean_from_quarters(&flat);
+        assert!((means.iter().sum::<f32>() - 2400.0).abs() < 1e-2);
     }
 }

@@ -5,11 +5,13 @@
 
 mod annual;
 mod bills;
+mod control_contract;
 mod features;
 mod features_15min;
 mod hybrid;
 mod hybrid_onnx;
-mod model;
+#[allow(dead_code)]
+mod model; // quarantined hourly heating_dsm_hourly_v1 path — unused by live UI
 mod mvm;
 mod tariff;
 
@@ -22,7 +24,10 @@ use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
 use features_15min::STEPS_96;
 use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
-use tariff::{cost_day_tod, creekside_cp2_defaults, DemandTariff, TodDayCost};
+use tariff::{
+    cost_day_tod, cost_day_tod_96, creekside_cp2_defaults, hourly_mean_from_quarters, DemandTariff,
+    TodDayCost,
+};
 
 fn apply_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
@@ -537,6 +542,8 @@ impl DsmApp {
         }
         let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
         let oat96 = expand_oat_24_to_96(&oat24);
+        // Labeled fallbacks — not imported 96-step forecast
+        let weather_mode = "oat_24_expanded_piecewise_constant;rh_ghi_labeled_fallback";
         let rh96 = [55.0_f32; STEPS_96];
         let mut ghi96 = [0.0_f32; STEPS_96];
         for step in 0..STEPS_96 {
@@ -563,37 +570,43 @@ impl DsmApp {
             &sid,
             force_247_as_dsm,
         ) {
-            Ok(walk) => {
-                // Downsample hybrid kW to 24h for tariff charts (max of 4 quarters)
-                let mut hourly = [0.0_f32; 24];
-                for h in 0..24 {
-                    let mut mx = 0.0_f32;
-                    for q in 0..4 {
-                        let st = &walk.steps[h * 4 + q];
-                        mx = mx.max(st.hybrid_facility_kw as f32);
-                    }
-                    hourly[h] = mx;
+            Ok(mut walk) => {
+                walk.weather_mode = Some(weather_mode.into());
+                // Energy-preserving hourly means for charts; tariff uses true 96-step Σ(kW×0.25) + max demand
+                let mut kw96 = [0.0_f32; STEPS_96];
+                for (i, st) in walk.steps.iter().enumerate() {
+                    kw96[i] = st.hybrid_facility_kw as f32;
                 }
+                let hourly = hourly_mean_from_quarters(&kw96);
+                let month_u8 = month as u8;
+                let cost = cost_day_tod_96(
+                    &kw96,
+                    &self.tariff,
+                    self.is_weekend,
+                    month_u8,
+                    false,
+                );
                 if force_247_as_dsm {
                     self.pred_kw_compare = hourly;
                     self.compare_label = "HVAC 24/7 (live hybrid)".into();
-                    self.cost_compare = Some(self.day_cost(&self.pred_kw_compare));
+                    self.cost_compare = Some(cost);
                 } else {
                     self.pred_kw_dsm = hourly;
                     self.dsm_label = sid.clone();
-                    self.cost_dsm = Some(self.day_cost(&self.pred_kw_dsm));
+                    self.cost_dsm = Some(cost);
                 }
                 let flag = walk
                     .outcome_flag
                     .clone()
                     .unwrap_or_else(|| "ok".into());
                 self.status = format!(
-                    "Live hybrid OK — peak {:.1}→{:.1} (Δ{:.1}) · {} · {}",
+                    "Live hybrid OK — peak {:.1}→{:.1} (Δ{:.1}) · {} · {} · {}",
                     walk.summary.peak_kw_baseline,
                     walk.summary.peak_kw_hybrid,
                     walk.summary.delta_peak_kw,
                     flag,
-                    walk.honesty
+                    walk.honesty,
+                    weather_mode
                 );
                 self.hybrid_path = Some(std::path::PathBuf::from("live_onnx"));
                 self.hybrid_walk = Some(walk);
@@ -617,19 +630,21 @@ impl DsmApp {
         if !self.run_live_hybrid(false) {
             return;
         }
-        // Restore compare hourly from the 24/7 run summary peaks via stored pred_kw_compare
+        // Restore compare from 24/7 walk: hourly means for charts; 96-step tariff for demand/energy
         if let Some(w) = compare_walk {
-            let mut hourly = [0.0_f32; 24];
-            for h in 0..24 {
-                let mut mx = 0.0_f32;
-                for q in 0..4 {
-                    mx = mx.max(w.steps[h * 4 + q].hybrid_facility_kw as f32);
-                }
-                hourly[h] = mx;
+            let mut kw96 = [0.0_f32; STEPS_96];
+            for (i, st) in w.steps.iter().enumerate() {
+                kw96[i] = st.hybrid_facility_kw as f32;
             }
-            self.pred_kw_compare = hourly;
+            self.pred_kw_compare = hourly_mean_from_quarters(&kw96);
             self.compare_label = "HVAC 24/7 (live hybrid)".into();
-            self.cost_compare = Some(self.day_cost(&self.pred_kw_compare));
+            self.cost_compare = Some(cost_day_tod_96(
+                &kw96,
+                &self.tariff,
+                self.is_weekend,
+                self.month as u8,
+                false,
+            ));
         }
         self.refresh_annual();
         let pc = self

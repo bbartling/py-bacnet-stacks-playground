@@ -35,15 +35,47 @@ from feature_compile_15min import (  # noqa: E402
 )
 from feature_compile_heating_dsm import TARGET_COLS, ZONE_TEMP_COLS  # noqa: E402
 from train_real_baseline_15min import (  # noqa: E402
+    _agg_day_scores,
+    evaluate_recursive_days,
     export_onnx_multi,
-    heldout_recursive_metrics,
-    _mean_metric_dicts,
 )
 
 STEM = "eplus_delta_15min_v1"
 DELTA_PARQUET = "eplus_delta_15min_v1.parquet"
 HONESTY = "HYBRID_SCREENING"
 DELTA_TARGETS = ["delta_facility_kw", *[f"delta_{c}" for c in ZONE_TEMP_COLS]]
+# Confounding + underpowered-farm limitation string (must appear on every card).
+DELTA_LIMITATION = (
+    "strategy, date, and weather remain confounded; smoke farm underpowered"
+)
+COVERAGE_MIN_HELDOUT_DAYS = 12
+
+
+def _delta_recursive_summary(per_day_scores: list[dict]) -> dict[str, Any]:
+    """Aggregate real recursive per-day facility scores into delta vocabulary.
+
+    ``n_heldout_days`` is the count of unique held-out pair-days (never a mean of
+    fold counts) and metrics are the model's own recursive output — never a
+    teacher-forced copy.
+    """
+    agg = _agg_day_scores(per_day_scores)
+    n_days = int(agg.get("n_heldout_days", 0))
+    if n_days == 0:
+        return {"n_heldout_days": 0}
+    out: dict[str, Any] = {
+        "mae_delta_kw": agg.get("facility_kw_mae"),
+        "rmse_delta_kw": agg.get("facility_kw_rmse"),
+        "mae_delta_kw_peak": agg.get("facility_kw_mae_peak_05_09"),
+        "mae_delta_temp_mean": agg.get("zone_temp_mae_mean"),
+        "daily_peak_mag_error_kw": agg.get("daily_peak_mag_error_kw"),
+        "peak_timing_abs_error_steps": agg.get("peak_timing_abs_error_steps"),
+        "daily_kwh_error": agg.get("daily_kwh_error"),
+        "n_heldout_days": n_days,
+    }
+    for k, v in agg.items():
+        if k.startswith("horizon_mae_step_"):
+            out[k.replace("horizon_mae_step_", "horizon_mae_delta_step_")] = v
+    return {k: v for k, v in out.items() if v is not None}
 
 
 def build_delta_frame(paired: pd.DataFrame) -> pd.DataFrame:
@@ -177,10 +209,11 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
     gkf = GroupKFold(n_splits=min(outer_splits, max(2, len(uniq))))
     rng = np.random.RandomState(21)
     summary = {f: [] for f in families}
-    rec_held = {f: [] for f in families}
+    rec_per_day = {f: {} for f in families}
     params_last = {}
     for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
         print(f"delta outer fold {fold+1}", flush=True)
+        te_days = list(pd.unique(feat.iloc[te]["day"]))
         for fam in families:
             model, params, _ = _fit_family(fam, X[tr], Y[tr], groups[tr], n_iter, 2, rng)
             params_last[fam] = params
@@ -197,30 +230,17 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
                     "mae_delta_temp_mean": float(np.mean(np.abs(Y[te, 1:] - pred[:, 1:]))),
                 }
             )
-            # Recursive on delta targets (lags are delta lags in this frame)
-            held = heldout_recursive_metrics(model, feat, te, cols, tcols, peak[te])
-            if held:
-                # rename facility keys to delta vocabulary for card clarity
-                rec_held[fam].append(
-                    {
-                        "mae_delta_kw": held.get("facility_kw_mae"),
-                        "rmse_delta_kw": held.get("facility_kw_rmse"),
-                        "mae_delta_kw_peak": held.get("facility_kw_mae_peak_05_09"),
-                        "mae_delta_temp_mean": held.get("zone_temp_mae_mean"),
-                        "n_heldout_days": held.get("n_heldout_days"),
-                        **{
-                            k: v
-                            for k, v in held.items()
-                            if k.startswith("horizon_mae_step_")
-                        },
-                    }
-                )
+            # Real recursive on held-out pair-days (self-lag, never TF copy).
+            ev = evaluate_recursive_days(model, feat, te_days, cols, tcols)
+            rec_per_day[fam].update(ev.get("per_day", {}))
+
     def mean_scores(xs):
         return {k: float(np.mean([s[k] for s in xs if s.get(k) is not None])) for k in xs[0]}
 
     cv = {f: mean_scores(summary[f]) for f in families}
-    cv_rec = {f: _mean_metric_dicts(rec_held[f]) for f in families}
+    cv_rec = {f: _delta_recursive_summary(list(rec_per_day[f].values())) for f in families}
     champ = min(families, key=lambda f: cv[f]["mae_delta_kw_peak"])
+    n_heldout = int(cv_rec[champ].get("n_heldout_days", 0))
     proto = {
         "gradient_boosting": GradientBoostingRegressor(random_state=21),
         "extra_trees": ExtraTreesRegressor(random_state=21, n_jobs=1),
@@ -230,7 +250,7 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
         proto.__class__(**{**proto.get_params(), **params_last[champ]}), n_jobs=-1
     )
     model.fit(X, Y)
-    return {
+    out: dict[str, Any] = {
         "model": model,
         "champion": champ,
         "best_params": params_last[champ],
@@ -240,7 +260,14 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
         "target_cols": tcols,
         "n_rows": len(feat),
         "n_days": int(feat["day"].nunique()) if "day" in feat.columns else int(feat["pair_id"].nunique()),
+        "n_heldout_days": n_heldout,
     }
+    if n_heldout < COVERAGE_MIN_HELDOUT_DAYS:
+        out["coverage_warning"] = (
+            f"held-out recursive covers only {n_heldout} pair-day(s) "
+            f"(< {COVERAGE_MIN_HELDOUT_DAYS}); {DELTA_LIMITATION}"
+        )
+    return out
 
 
 def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
@@ -263,9 +290,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     uniq = np.unique(groups)
     gkf = GroupKFold(n_splits=min(n_splits, max(2, len(uniq))))
     summary: dict[str, list] = {k: [] for k in families}
-    rec_held: dict[str, list] = {k: [] for k in families}
+    rec_per_day: dict[str, dict] = {k: {} for k in families}
     for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
         print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
+        te_days = list(pd.unique(feat.iloc[te]["day"]))
         for name, proto in families.items():
             m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
             m.fit(X[tr], Y[tr])
@@ -282,34 +310,21 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
                     "mae_delta_temp_mean": float(np.mean(np.abs(Y[te, 1:] - pred[:, 1:]))),
                 }
             )
-            held = heldout_recursive_metrics(m, feat, te, cols, tcols, peak[te])
-            if held:
-                rec_held[name].append(
-                    {
-                        "mae_delta_kw": held.get("facility_kw_mae"),
-                        "rmse_delta_kw": held.get("facility_kw_rmse"),
-                        "mae_delta_kw_peak": held.get("facility_kw_mae_peak_05_09"),
-                        "mae_delta_temp_mean": held.get("zone_temp_mae_mean"),
-                        "n_heldout_days": held.get("n_heldout_days"),
-                        **{
-                            k: v
-                            for k, v in held.items()
-                            if k.startswith("horizon_mae_step_")
-                        },
-                    }
-                )
-            print(f"  {name} peak ΔMAE={summary[name][-1]['mae_delta_kw_peak']:.3f}", flush=True)
+            ev = evaluate_recursive_days(m, feat, te_days, cols, tcols)
+            rec_per_day[name].update(ev.get("per_day", {}))
+            print(f"  {name} peak dMAE={summary[name][-1]['mae_delta_kw_peak']:.3f}", flush=True)
 
     def mean_scores(xs):
         return {k: float(np.mean([s[k] for s in xs])) for k in xs[0]}
 
     cv = {f: mean_scores(summary[f]) for f in families}
-    cv_rec = {f: _mean_metric_dicts(rec_held[f]) for f in families}
+    cv_rec = {f: _delta_recursive_summary(list(rec_per_day[f].values())) for f in families}
     champ = min(families, key=lambda n: cv[n]["mae_delta_kw_peak"])
+    n_heldout = int(cv_rec[champ].get("n_heldout_days", 0))
     proto = families[champ]
     model = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
     model.fit(X, Y)
-    return {
+    out: dict[str, Any] = {
         "model": model,
         "champion": champ,
         "best_params": proto.get_params(),
@@ -319,7 +334,14 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
         "target_cols": tcols,
         "n_rows": len(feat),
         "n_days": int(feat["day"].nunique()) if "day" in feat.columns else int(feat["pair_id"].nunique()),
+        "n_heldout_days": n_heldout,
     }
+    if n_heldout < COVERAGE_MIN_HELDOUT_DAYS:
+        out["coverage_warning"] = (
+            f"held-out recursive covers only {n_heldout} pair-day(s) "
+            f"(< {COVERAGE_MIN_HELDOUT_DAYS}); {DELTA_LIMITATION}"
+        )
+    return out
 
 
 def load_paired_and_build_delta(
@@ -391,11 +413,17 @@ def export_delta_artifacts(
         "cv_recursive_96_heldout": result.get("cv_recursive_96_heldout", {}),
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
+        "n_heldout_days": result.get("n_heldout_days", 0),
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "paired_source": paired_source,
+        "feature_contract_version": "FEATURE_COLS_15MIN_MT",
+        "control_contract_version": "control_strategies_v1",
         "trained_via": "notebook",
         "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
+        "limitation": DELTA_LIMITATION,
     }
+    if result.get("coverage_warning"):
+        card["coverage_warning"] = result["coverage_warning"]
     card_path = out_dir / f"{STEM}_model_card.json"
     card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
     return {"joblib": out_dir / f"{STEM}.joblib", "onnx": out_dir / f"{STEM}.onnx", "meta": meta_path, "card": card_path}

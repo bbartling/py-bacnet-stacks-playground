@@ -31,13 +31,28 @@ from feature_compile_15min import (  # noqa: E402
     morning_peak_mask_15min,
 )
 from train_real_baseline_15min import (  # noqa: E402
-    heldout_recursive_metrics,
+    _agg_day_scores,
+    evaluate_recursive_days,
     load_real_baseline_frame,
-    _mean_metric_dicts,
 )
 
 STEM = "real_baseline_15min_torch_v1"
 HONESTY = "HYBRID_SCREENING"
+NOT_EVALUATED_RECURSIVE = {
+    "status": "not_evaluated",
+    "reason": "no held-out day had >=80 rows for a recursive 96-step rollout",
+}
+
+
+def _json_safe(obj):
+    """Recursively replace non-finite floats with None so JSON has no NaN."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, float):
+        return obj if np.isfinite(obj) else None
+    return obj
 
 
 class ResBlock(nn.Module):
@@ -132,36 +147,68 @@ def train_torch_baseline(
     n_splits: int = 3,
     epochs: int = 40,
     device: str | None = None,
+    split_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """GroupKFold ResMLP train; returns model/scaler/cv for export."""
+    """ResMLP train with **real** held-out recursive CV.
+
+    Folds come from ``split_manifest`` (leakage-safe chronological) when
+    provided; otherwise a GroupKFold-by-day fallback is used. Held-out recursive
+    metrics are computed with the same real self-lag rollout as the sklearn lean
+    path (never teacher-forced). If no held-out day is long enough to roll out,
+    ``cv_recursive_96_heldout`` is set to a ``not_evaluated`` status (which the
+    promote gate rejects) rather than a provisional / teacher-forced copy.
+    """
     X, Y, groups, cols, tcols, feat = matrix_xy_15min_multi(df)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
     Y = np.nan_to_num(Y, nan=0.0, posinf=0.0, neginf=0.0)
     peak = morning_peak_mask_15min(feat)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    gkf = GroupKFold(n_splits=min(n_splits, max(2, len(np.unique(groups)))))
+
+    def _day_mask(days: list[Any]) -> np.ndarray:
+        dset = {str(d) for d in days}
+        return feat["day"].astype(str).isin(dset).to_numpy()
 
     tf_scores: list[dict] = []
-    rec_scores: list[dict] = []
-    for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
-        print(f"fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
-        model, scaler, _ = _train_one(X[tr], Y[tr], X[te], Y[te], epochs=epochs, device=device)
+    rec_per_day: dict[str, dict] = {}
+
+    if split_manifest is not None and split_manifest.get("folds"):
+        fold_specs = [
+            (_day_mask(f["train"]), _day_mask(f["val"]), f["val"])
+            for f in split_manifest["folds"]
+        ]
+    else:
+        gkf = GroupKFold(n_splits=min(n_splits, max(2, len(np.unique(groups)))))
+        fold_specs = []
+        for tr, te in gkf.split(X, Y, groups):
+            tr_mask = np.zeros(len(feat), dtype=bool)
+            tr_mask[tr] = True
+            te_mask = np.zeros(len(feat), dtype=bool)
+            te_mask[te] = True
+            fold_specs.append((tr_mask, te_mask, list(pd.unique(feat.iloc[te]["day"]))))
+
+    for fold, (tr_mask, te_mask, te_days) in enumerate(fold_specs):
+        if not tr_mask.any() or not te_mask.any():
+            continue
+        print(f"fold {fold + 1}/{len(fold_specs)}", flush=True)
+        model, scaler, _ = _train_one(
+            X[tr_mask], Y[tr_mask], X[te_mask], Y[te_mask], epochs=epochs, device=device
+        )
         wrap = TorchMultiWrapper(model, scaler, device)
-        pred = wrap.predict(X[te])
+        pred = wrap.predict(X[te_mask])
+        pk = peak[te_mask]
         tf_scores.append(
             {
-                "facility_kw_mae": float(np.mean(np.abs(pred[:, 0] - Y[te, 0]))),
+                "facility_kw_mae": float(np.mean(np.abs(pred[:, 0] - Y[te_mask, 0]))),
                 "facility_kw_mae_peak_05_09": float(
-                    np.mean(np.abs(pred[peak[te], 0] - Y[te, 0][peak[te]]))
+                    np.mean(np.abs(pred[pk, 0] - Y[te_mask, 0][pk]))
                 )
-                if peak[te].any()
-                else float(np.mean(np.abs(pred[:, 0] - Y[te, 0]))),
-                "zone_temp_mae_mean": float(np.mean(np.abs(pred[:, 1:] - Y[te, 1:]))),
+                if pk.any()
+                else float(np.mean(np.abs(pred[:, 0] - Y[te_mask, 0]))),
+                "zone_temp_mae_mean": float(np.mean(np.abs(pred[:, 1:] - Y[te_mask, 1:]))),
             }
         )
-        held = heldout_recursive_metrics(wrap, feat, te, cols, tcols, peak[te])
-        if held:
-            rec_scores.append(held)
+        ev = evaluate_recursive_days(wrap, feat, te_days, cols, tcols)
+        rec_per_day.update(ev.get("per_day", {}))
         print(f"  TF peak MAE={tf_scores[-1]['facility_kw_mae_peak_05_09']:.3f}", flush=True)
 
     model, scaler, _ = _train_one(X, Y, X, Y, epochs=epochs, device=device)
@@ -170,26 +217,25 @@ def train_torch_baseline(
         keys = scores[0].keys()
         return {k: float(np.nanmean([s[k] for s in scores])) for k in keys}
 
-    cv_rec = _mean_metric_dicts(rec_scores)
+    cv_rec = _agg_day_scores(list(rec_per_day.values()))
     out: dict[str, Any] = {
         "model": model,
         "scaler": scaler,
         "feature_cols": cols,
         "target_cols": tcols,
-        "cv_teacher_forced": _mean(tf_scores),
+        "cv_teacher_forced": _mean(tf_scores) if tf_scores else {},
         "n_rows": int(len(feat)),
         "n_days": int(feat["day"].nunique()),
         "X_shape": X.shape,
         "Y_shape": Y.shape,
         "device": device,
     }
-    if cv_rec and np.isfinite(cv_rec.get("facility_kw_mae", float("nan"))):
+    if cv_rec.get("n_heldout_days", 0) and np.isfinite(
+        cv_rec.get("facility_kw_mae", float("nan"))
+    ):
         out["cv_recursive_96_heldout"] = cv_rec
     else:
-        out["cv_recursive_96_heldout"] = {
-            "note": "insufficient_heldout_days",
-            "n_heldout_days": 0,
-        }
+        out["cv_recursive_96_heldout"] = dict(NOT_EVALUATED_RECURSIVE)
     return out
 
 
@@ -237,18 +283,19 @@ def export_torch_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> di
         "family": "resmlp_multihead",
         "cv_teacher_forced": result["cv_teacher_forced"],
         "cv_recursive_96_heldout": result.get(
-            "cv_recursive_96_heldout",
-            {"note": "insufficient_heldout_days", "n_heldout_days": 0},
+            "cv_recursive_96_heldout", dict(NOT_EVALUATED_RECURSIVE)
         ),
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
+        "feature_contract_version": "FEATURE_COLS_15MIN_MT",
+        "control_contract_version": "control_strategies_v1",
         "feature_cols": cols,
         "target_cols": tcols,
         "trained_via": "notebook",
     }
     card_path = out_dir / f"{STEM}_model_card.json"
-    card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
+    card_path.write_text(json.dumps(_json_safe(card), indent=2), encoding="utf-8")
     meta = {
         "stem": STEM,
         "feature_cols": cols,

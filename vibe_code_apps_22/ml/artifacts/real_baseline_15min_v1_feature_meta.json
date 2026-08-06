@@ -63,5 +63,7 @@
   "honesty": "HYBRID_SCREENING",
   "component": "A_real_baseline",
   "resolution": "15min",
+  "feature_contract_version": "FEATURE_COLS_15MIN_MT",
+  "control_contract_version": "control_strategies_v1",
   "trained_via": "notebook"
 }

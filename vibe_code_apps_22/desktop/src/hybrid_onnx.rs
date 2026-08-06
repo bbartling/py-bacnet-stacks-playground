@@ -11,7 +11,7 @@ use ort::session::Session;
 use ort::value::Tensor;
 use serde::Deserialize;
 
-use crate::features::{default_occ_frac, StrategyKnobs};
+use crate::control_contract::{load_control_schedule, ControlSchedule, ControlStep};
 use crate::features_15min::{
     RowMap, FEATURE_COLS_15MIN_MT, HP_ON_COLS, N_FEATURES_15MIN_MT, N_OUTPUTS, OCC_FRAC_COLS,
     STEPS_96, STRATEGY_IDS_15, ZONE_TEMP_COLS,
@@ -162,17 +162,13 @@ impl HybridEngine {
             }
         }
 
-        let knobs_base = StrategyKnobs::for_id("baseline");
-        let knobs_dsm = if force_247_dsm {
-            StrategyKnobs::for_id("flat_24_7")
-        } else {
-            StrategyKnobs::for_id(strategy_id)
-        };
+        let sched_base = load_control_schedule("baseline")?;
         let sid_dsm = if force_247_dsm {
             "flat_24_7"
         } else {
             strategy_id
         };
+        let sched_dsm = load_control_schedule(sid_dsm)?;
 
         let mut state_b = BTreeMap::new();
         state_b.insert("facility_kw_lag1".into(), init_kw);
@@ -239,11 +235,9 @@ impl HybridEngine {
                 row.set("hours_to_occupy", ((28 - step as i32).max(0) as f32) / 4.0);
             }
 
-            // controls
-            let he = (step / 4).min(23);
-            let weekend = is_weekend > 0.5;
-            fill_controls(&mut row_b, "baseline", &knobs_base, he, weekend, false);
-            fill_controls(&mut row_d, sid_dsm, &knobs_dsm, he, weekend, force_247_dsm);
+            // controls from farm-SoT fixtures (not ad-hoc StrategyKnobs / default_occ_frac)
+            apply_schedule_controls(&mut row_b, "baseline", &sched_base, step);
+            apply_schedule_controls(&mut row_d, sid_dsm, &sched_dsm, step);
 
             row_b.set("oat_lag1", *state_b.get("oat_lag1").unwrap_or(&oat));
             row_d.set("oat_lag1", *state_d.get("oat_lag1").unwrap_or(&oat));
@@ -290,6 +284,21 @@ impl HybridEngine {
                 cumulative_kwh_baseline: cum_b,
                 cumulative_kwh_hybrid: cum_h,
                 comfort_violations_cum: viol,
+                baseline_zone_temps_f: ZONE_TEMP_COLS
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| (c.to_string(), base_y[1 + i] as f64))
+                    .collect(),
+                delta_zone_temps_f: ZONE_TEMP_COLS
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| (c.to_string(), delta_y[1 + i] as f64))
+                    .collect(),
+                hybrid_zone_temps_f: ZONE_TEMP_COLS
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| (c.to_string(), hybrid_y[1 + i] as f64))
+                    .collect(),
             });
 
             // lag updates
@@ -336,50 +345,35 @@ impl HybridEngine {
             champion_delta: self.delta.meta.champion.clone(),
             outcome_flag: outcome,
             source: Some("live_onnx".into()),
+            weather_mode: None,
+            comfort_htg_sp_f: Some(comfort_sp),
+            comfort_band_f: Some(comfort_band),
+            ship_watermark: None,
         })
     }
 }
 
-fn fill_controls(
+fn apply_schedule_controls(
     row: &mut RowMap,
     strategy_id: &str,
-    knobs: &StrategyKnobs,
-    he: usize,
-    weekend: bool,
-    force_247: bool,
+    schedule: &ControlSchedule,
+    step: usize,
 ) {
-    let (occ, hp) = if force_247 || strategy_id == "flat_24_7" {
-        ([1.0_f32; 6], [1.0_f32; 6])
-    } else {
-        let o = default_occ_frac(he, strategy_id, weekend);
-        let mut hp = [0.0_f32; 6];
-        for z in 0..6 {
-            hp[z] = if o[z] > 0.05 { 1.0 } else { 0.0 };
-        }
-        // morning stagger: delay HP for some zones during HE 05–07
-        if strategy_id == "stagger_preheat" && (5..7).contains(&he) {
-            for z in 0..6 {
-                if z > (he - 5) {
-                    hp[z] = 0.0;
-                }
-            }
-        }
-        (o, hp)
-    };
+    let cs: &ControlStep = &schedule.steps[step];
     let mut sum_occ = 0.0;
     let mut sum_hp = 0.0;
     for z in 0..6 {
-        row.set(OCC_FRAC_COLS[z], occ[z]);
-        row.set(HP_ON_COLS[z], hp[z]);
-        sum_occ += occ[z];
-        sum_hp += hp[z];
+        row.set(OCC_FRAC_COLS[z], cs.occ[z]);
+        row.set(HP_ON_COLS[z], cs.hp[z]);
+        sum_occ += cs.occ[z];
+        sum_hp += cs.hp[z];
     }
     row.set("sum_occ_frac", sum_occ);
     row.set("sum_hp_on", sum_hp);
-    row.set("preheat_lead_h", knobs.preheat_lead_h);
-    row.set("stagger_min", knobs.stagger_min);
-    row.set("unocc_htg_sp_f", knobs.unocc_htg_sp_f);
-    row.set("occ_htg_sp_f", knobs.occ_htg_sp_f);
+    row.set("preheat_lead_h", cs.preheat_lead_h);
+    row.set("stagger_min", cs.stagger_min);
+    row.set("unocc_htg_sp_f", cs.unocc_htg_sp_f);
+    row.set("occ_htg_sp_f", cs.occ_htg_sp_f);
     for s in STRATEGY_IDS_15 {
         row.set(
             &format!("strategy_{s}"),

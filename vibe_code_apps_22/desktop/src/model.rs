@@ -1,4 +1,7 @@
-//! ONNX Runtime session for heating DSM facility_kw.
+//! Quarantined hourly `heating_dsm_hourly_v1` ONNX path.
+//!
+//! Production UI uses `hybrid_onnx` (96×7 live). Kept for offline compare fixtures only;
+//! do not wire back into `main` without an explicit ship decision.
 
 use std::collections::BTreeMap;
 use std::path::Path;
