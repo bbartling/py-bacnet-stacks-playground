@@ -526,87 +526,16 @@ def load_gb_ship_peak_mae(art: Path | None = None) -> float | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--epochs", type=int, default=50)
-    ap.add_argument("--n-splits", type=int, default=5)
-    ap.add_argument("--device", type=str, default="cpu")
-    ap.add_argument("--no-quantile", action="store_true")
-    args = ap.parse_args(argv)
-
-    pq = args.parquet or train_parquet_path()
-    paths = artifact_paths(args.out_dir)
-    if not pq.is_file():
-        print(f"missing {pq}", file=sys.stderr)
-        return 2
-
-    df = pd.read_parquet(pq)
-    src = "ENERGYPLUS_NATIVE_RUN"
-    if "provenance" in df.columns and len(df):
-        src = str(df["provenance"].iloc[0])
-    result = bake_off_torch(
-        df,
-        n_splits=args.n_splits,
-        epochs=args.epochs,
-        device=args.device,
-        include_quantile=not args.no_quantile,
-    )
-
-    art = paths["onnx"].parent
-    onnx_path = art / "heating_dsm_hourly_torch_v1.onnx"
-    meta_path = art / "heating_dsm_hourly_torch_v1_feature_meta.json"
-    export_onnx(result["model"], result["n_in"], onnx_path, device=args.device)
-
-    gb_peak = load_gb_ship_peak_mae(art)
-    meta = {
-        "feature_cols": result["feature_cols"],
-        "scaler_mean": result["scaler"].mean_.tolist(),
-        "scaler_scale": result["scaler"].scale_.tolist(),
-        "champion": result["champion"],
-        "family": "pytorch",
-        "model_backend": "torch.onnx",
-        "cv": result["cv"],
-        "family_loss": result["family_loss"],
-        "schema": "lakeside.heating_dsm_hourly.torch_v1",
-        "training_parquet": str(pq),
-        "training_source": src,
-        "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "cv_mae_peak_05_09": result["cv"][result["champion"]]["mae_peak_05_09"],
-        "gb_ship_mae_peak_05_09": gb_peak,
-        "honesty": (
-            f"PyTorch CANDIDATE on {src}. Alternate ONNX (not desktop ship). "
-            "Desktop ship = sklearn heating_dsm_hourly_v1.onnx. "
-            "IdealLoads+COP proxy — not tariff-grade."
-        ),
-    }
-    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-
-    import onnxruntime as ort
-
-    X, y, _, _ = matrix_xy(df)
-    Xs = result["scaler"].transform(X[:8])
-    with torch.no_grad():
-        torch_pred = result["model"](torch.tensor(Xs, dtype=torch.float32)).numpy()
-    sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
-    onnx_pred = sess.run(None, {"features": Xs.astype(np.float32)})[0].reshape(-1)
-    max_abs = float(np.max(np.abs(torch_pred - onnx_pred)))
-
+    """Deprecated hourly torch ship — use real-baseline ResMLP trainer instead."""
+    _ = argv
     print(
-        json.dumps(
-            {
-                "champion": result["champion"],
-                "cv": result["cv"],
-                "onnx": str(onnx_path),
-                "feature_meta": str(meta_path),
-                "gb_ship_mae_peak_05_09": gb_peak,
-                "note": "desktop ship remains heating_dsm_hourly_v1.onnx (sklearn)",
-                "onnx_roundtrip_max_abs": max_abs,
-            },
-            indent=2,
-        )
+        "REFUSED: heating_dsm_hourly_torch_v1 path is quarantined.\n"
+        "Use: python -u ml/train_real_baseline_torch_15min.py\n"
+        "Hybrid ship: python -u scripts/promote_hybrid_ship.py\n"
+        "See vibe22_agent_spec/HEATING_DSM.md",
+        file=sys.stderr,
     )
-    return 0 if max_abs < 1e-3 else 1
+    return 2
 
 
 if __name__ == "__main__":

@@ -188,172 +188,20 @@ def bake_off(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--parquet", type=Path, default=None)
-    ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--n-splits", type=int, default=5)
-    ap.add_argument("--n-iter", type=int, default=40, help="RandomizedSearch trials per family")
-    ap.add_argument(
-        "--n-iter-extra-trees",
-        type=int,
-        default=80,
-        help="ExtraTrees trials (wider HVAC/tabular grid)",
-    )
-    ap.add_argument("--skip-onnx", action="store_true", help="Skip skl2onnx desktop export")
-    args = ap.parse_args(argv)
-
-    pq = args.parquet or train_parquet_path()
-    paths = artifact_paths(args.out_dir)
-    if not pq.is_file():
-        print(f"missing {pq} — run scripts/eplus_heating_dsm_farm.py", file=sys.stderr)
-        return 2
-
-    df = pd.read_parquet(pq)
-    if "provenance" not in df.columns or not len(df):
-        print("refusing train: parquet missing provenance column", file=sys.stderr)
-        return 3
-    src = str(df["provenance"].iloc[0])
-    if src != "ENERGYPLUS_NATIVE_RUN":
-        print(
-            f"refusing train: provenance={src!r} — need ENERGYPLUS_NATIVE_RUN "
-            "(site staged Lakeside utility twin via eplus_heating_dsm_farm.py).",
-            file=sys.stderr,
-        )
-        return 3
-    result = bake_off(
-        df,
-        n_splits=args.n_splits,
-        n_iter=args.n_iter,
-        n_iter_extra_trees=args.n_iter_extra_trees,
-    )
-
-    champ = result["champion"]
-    champ_params = result["best_params"]
-    champ_cv = result["cv"][champ]
-
-    joblib.dump(
-        {
-            "model": result["model"],
-            "tuned_models": result["tuned_models"],
-            "feature_cols": result["feature_cols"],
-            "champion": champ,
-            "best_params": champ_params,
-            "best_params_by_family": result["best_params_by_family"],
-            "schema": "lakeside.heating_dsm_hourly.v1",
-        },
-        paths["joblib"],
-    )
-    sha = hashlib.sha256(paths["joblib"].read_bytes()).hexdigest()
-
-    card = {
-        "schema_version": "lakeside.model_registry.v1",
-        "model_id": "heating_dsm_hourly_v1",
-        "family": "HEATING_DSM_DEMAND",
-        "artifact": str(paths["joblib"]),
-        "artifact_sha256": sha,
-        "status": "CANDIDATE",
-        "targets": ["facility_kw"],
-        "champion": champ,
-        "best_params": champ_params,
-        "desktop_onnx_family": champ,  # may be updated after ONNX export fallback
-        "cv_metrics": result["cv"],
-        "beat_persistence_peak": result["beat_persistence_peak"],
-        "peak_window": "HE_05_09_local",
-        "n_rows": result["n_rows"],
-        "n_days": result["n_days"],
-        "n_iter": result.get("n_iter"),
-        "n_iter_extra_trees": result.get("n_iter_extra_trees"),
-        "search_iters": result.get("search_iters"),
-        "training_parquet": str(pq),
-        "training_source": src,
-        "sklearn_version": __import__("sklearn").__version__,
-        "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "honesty": (
-            "Heating DSM surrogate for 6-Area HP occupancy / preheat. "
-            f"Source={src}. Ideal Loads + fixed-COP electrical proxy "
-            "(not a GSHP/GLHE plant). "
-            f"Desktop ONNX = bake-off champion ({champ}) via skl2onnx. "
-            "CANDIDATE — not tariff-grade. Production requires ENERGYPLUS_NATIVE_RUN."
-        ),
-        "feature_cols": FEATURE_COLS,
-    }
-
-    onnx_info: dict[str, Any] = {}
-    if not args.skip_onnx:
-        from export_sklearn_onnx import ship_desktop_champion  # noqa: WPS433
-
-        ship = ship_desktop_champion(
-            result,
-            onnx_path=paths["onnx"],
-            meta_path=paths["feature_meta"],
-            training_source=src,
-            honesty=card["honesty"],
-        )
-        card["desktop_onnx_family"] = ship["desktop_family"]
-        if ship.get("fallback_from"):
-            card["honesty"] += (
-                f" ONNX fallback: bake-off winner was {ship['fallback_from']}; "
-                f"shipped {ship['desktop_family']} (skl2onnx)."
-            )
-        onnx_info = {
-            "onnx": str(paths["onnx"]),
-            "feature_meta": str(paths["feature_meta"]),
-            "desktop_copy": ship["desktop_copy"],
-            "desktop_family": ship["desktop_family"],
-            "model_name": ship["model_name"],
-            "roundtrip_max_abs": ship["roundtrip_max_abs"],
-            "cv_mae_peak_05_09": ship["cv"]["mae_peak_05_09"],
-            "fallback_from": ship.get("fallback_from"),
-        }
-        print(
-            f"wrote ONNX {paths['onnx']}  family={ship['desktop_family']}  "
-            f"roundtrip_max_abs={ship['roundtrip_max_abs']:.6g}"
-        )
-        print(f"copied ship artifacts → {ship['desktop_copy']}")
-
-    paths["card"].write_text(json.dumps(card, indent=2) + "\n", encoding="utf-8")
-
-    champ_summary = {
-        "champion": champ,
-        "desktop_onnx_family": card["desktop_onnx_family"],
-        "beat_persistence_peak": result["beat_persistence_peak"],
-        "cv": result["cv"],
-        "best_params": champ_params,
-        "leaderboard": [
-            {
-                "family": e["family"],
-                "oof_metrics": e["oof_metrics"],
-                "n_iter_searched": e.get("n_iter_searched"),
-            }
-            for e in result["leaderboard"]
-        ],
-    }
-    paths["champion_summary"].write_text(
-        json.dumps(champ_summary, indent=2) + "\n", encoding="utf-8"
-    )
-
+    """Deprecated hourly ship path — hybrid Real+E+ is the only production train."""
+    _ = argv
     print(
-        json.dumps(
-            {
-                "model_id": card["model_id"],
-                "status": card["status"],
-                "champion": card["champion"],
-                "desktop_onnx_family": card["desktop_onnx_family"],
-                "beat_persistence_peak": card["beat_persistence_peak"],
-                "cv_metrics": {
-                    k: result["cv"][k]
-                    for k in ("persistence", champ, card["desktop_onnx_family"])
-                    if k in result["cv"]
-                },
-                "best_params": champ_params,
-                "artifact": card["artifact"],
-                "onnx": onnx_info,
-            },
-            indent=2,
-            default=str,
-        )
+        "REFUSED: heating_dsm_hourly_v1 ship path is quarantined.\n"
+        "Use the hybrid Real+E+ pipeline instead:\n"
+        "  python -u scripts/build_real_15min_store.py\n"
+        "  python -u ml/train_real_baseline_15min.py\n"
+        "  python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium\n"
+        "  python -u ml/train_eplus_delta_15min.py\n"
+        "  python -u scripts/promote_hybrid_ship.py\n"
+        "See vibe22_agent_spec/HEATING_DSM.md",
+        file=sys.stderr,
     )
-    return 0
+    return 2
 
 
 if __name__ == "__main__":

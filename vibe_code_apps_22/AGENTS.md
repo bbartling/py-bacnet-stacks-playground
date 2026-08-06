@@ -80,17 +80,18 @@ python -u scripts\thermal_zone_analytics.py
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM ML (same ship path as the sklearn notebook — human SoT)
-python -u scripts\eplus_stage_repair_and_rescore.py   # zero-severe staged IDF + GL14
-python -u scripts\eplus_heating_dsm_farm.py --medium   # ENERGYPLUS_NATIVE_RUN only
+# Heating DSM hybrid (Real+E+)
+python -u scripts\eplus_stage_repair_and_rescore.py
+python -u scripts\build_real_15min_store.py
+python -u ml\train_real_baseline_15min.py
+python -u scripts\eplus_heating_dsm_farm.py --medium
+python -u ml\train_eplus_delta_15min.py
+python -u scripts\promote_hybrid_ship.py
 python -u scripts\validate_mvm.py
-python -u ml\train_heating_dsm.py          # bake-off → desktop ONNX
-# Notebook SoT (proof load cell): notebooks\lakeside_heating_dsm_sklearn.ipynb
-python -u scripts\build_dsm_excel.py
+# Notebook SoT: notebooks\lakeside_heating_dsm_sklearn.ipynb
 
-# Desktop walk (Rust) — loads heating_dsm_hourly_v1.onnx
+# Desktop — hybrid 96-step walk JSON (fail-closed without it)
 # cd desktop && cargo run --release
-# Client ZIP (exe + model):  cd desktop; .\pack_client.ps1
 ```
 ---
 
@@ -98,12 +99,12 @@ python -u scripts\build_dsm_excel.py
 
 - IdealLoads + fixed-COP ≠ full GSHP/GLHE plant (still native E+ twin demand).
 - Geometry = rectangular program massing, not CAD.
-- Heating DSM labels require **`ENERGYPLUS_NATIVE_RUN`** only (zero severe).
-  BAS physics-proxy / bootstrap path has been **removed**.
+- Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
+  Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.
 - Utility G14 ≠ interval-integrated demand fidelity.
 - Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
 - Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)
-  + report [`vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md`](vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md).
+  + SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md).
 ---
 
 ## Relationship

@@ -100,10 +100,16 @@ def prove_native_farm_load(
         c
         for c in (
             "day",
+            "pair_id",
+            "arm",
             "hour_ending",
+            "quarter_index",
             "strategy_id",
+            "control_regime",
             "facility_kw",
+            "zone_temp_1F_A_f",
             "provenance",
+            "input_hash",
             "idf_sha256",
             "epw_sha256",
             "run_id",
@@ -114,9 +120,56 @@ def prove_native_farm_load(
     ]
     display(Markdown("#### First 12 farm rows (human inspection)"))
     display(df[show_cols].head(12))
-    display(Markdown("#### Provenance / strategy counts"))
+    display(Markdown("#### Provenance / strategy / arm counts"))
     display(pd.DataFrame({"count": df["provenance"].value_counts()}))
     if "strategy_id" in df.columns:
         display(pd.DataFrame({"count": df["strategy_id"].value_counts()}))
+    if "arm" in df.columns:
+        display(pd.DataFrame({"count": df["arm"].value_counts()}))
 
-    return df, {"farm_summary": fs, "eligible": ej, "champion_sha256": champ_sha, "staged_sha256": staged_sha}
+    return df, {
+        "farm_path": str(farm_pq),
+        "farm_summary": fs,
+        "eligible": ej,
+        "champion_sha256": champ_sha,
+        "staged_sha256": staged_sha,
+        "honesty": honesty,
+    }
+
+
+def prove_real_store_load(
+    *,
+    site: Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Load real BAS 15-min store (component A) — no EnergyPlus rows."""
+    site = site or Path(
+        os.environ.get(
+            "LAKESIDE_SITE_ROOT",
+            r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
+        )
+    )
+    pq = site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
+    man = site / "ml" / "artifacts" / "real_baseline_15min_v1_build_manifest.json"
+    assert pq.is_file(), f"missing {pq} — run scripts/build_real_15min_store.py"
+    df = pd.read_parquet(pq)
+    assert "provenance" in df.columns
+    assert (df["provenance"] == "REAL_BAS_15MIN").all(), df["provenance"].value_counts().to_dict()
+    assert "facility_kw" in df.columns
+    zcols = [c for c in df.columns if c.startswith("zone_temp_") and c.endswith("_f") and "_lag" not in c]
+    assert len(zcols) == 6, zcols
+    manifest = json.loads(man.read_text(encoding="utf-8")) if man.is_file() else {}
+    lines = [
+        "### Proof — real BAS 15-min store (component A)",
+        f"- **Parquet:** `{pq}`",
+        f"- **Rows / days:** {len(df)} / {df['day'].nunique()}",
+        f"- **Provenance:** `REAL_BAS_15MIN` (no EnergyPlus rows)",
+        f"- **Zone temp columns:** {zcols}",
+        f"- **Honesty:** measured BAS only — hybrid baseline component",
+    ]
+    if manifest:
+        lines.append(f"- **Build row_count:** {manifest.get('row_count')}")
+    display(Markdown("\n".join(lines)))
+    show = [c for c in ("day", "step_15", "facility_kw", "oat_f", *zcols[:2], "provenance") if c in df.columns]
+    display(df[show].head(8))
+    return df, {"path": str(pq), "manifest": manifest}
+

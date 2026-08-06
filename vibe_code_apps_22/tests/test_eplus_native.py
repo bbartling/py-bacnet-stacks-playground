@@ -169,5 +169,5 @@ def test_train_parquet_no_bootstrap_fallback(monkeypatch, tmp_path: Path):
     import artifact_paths as ap
 
     monkeypatch.setattr(ap, "default_artifact_dir", lambda: tmp_path)
-    with pytest.raises(FileNotFoundError, match="native farm"):
+    with pytest.raises(FileNotFoundError, match="paired farm|native farm"):
         ap.train_parquet_path()

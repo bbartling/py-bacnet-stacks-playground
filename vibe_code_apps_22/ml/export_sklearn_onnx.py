@@ -71,55 +71,10 @@ def ship_desktop_champion(
     training_source: str,
     honesty: str | None = None,
 ) -> dict[str, Any]:
-    """Export bake-off winner to desktop ONNX; walk leaderboard if skl2onnx fails."""
-    preferred = result["champion"]
-    order = [preferred] + [
-        e["family"] for e in result["leaderboard"] if e["family"] != preferred
-    ]
-    errors: list[str] = []
-    for family in order:
-        model = result["tuned_models"][family]
-        params = _jsonable_params(result["best_params_by_family"][family])
-        cv = result["cv"][family]
-        display = DISPLAY_NAMES.get(family, family)
-        try:
-            meta = export_sklearn_onnx(
-                model,
-                n_features=len(result["feature_cols"]),
-                onnx_path=onnx_path,
-                meta_path=meta_path,
-                feature_cols=result["feature_cols"],
-                champion=family,
-                model_display_name=display,
-                best_params=params,
-                training_source=training_source,
-                honesty=honesty
-                or (
-                    f"sklearn bake-off champion → {display} via ONNX (skl2onnx). "
-                    f"Source={training_source}. Peak MAE {cv['mae_peak_05_09']:.2f} kW. "
-                    "CANDIDATE — not tariff-grade. Desktop kW-only."
-                ),
-                cv_metrics=cv,
-            )
-            max_abs = roundtrip_check(model, onnx_path, result["X"], n=48)
-            desk = copy_ship_to_desktop(onnx_path, meta_path)
-            return {
-                "desktop_family": family,
-                "model_name": display,
-                "best_params": params,
-                "cv": cv,
-                "meta": meta,
-                "roundtrip_max_abs": max_abs,
-                "desktop_copy": str(desk),
-                "fallback_from": None if family == preferred else preferred,
-                "export_errors": errors,
-            }
-        except Exception as exc:  # noqa: BLE001 — try next family
-            errors.append(f"{family}: {exc}")
-            continue
+    """REFUSED — hourly desktop ship quarantined. Use hybrid promote instead."""
     raise RuntimeError(
-        "No bake-off model could be exported to ONNX for desktop. Tried: "
-        + "; ".join(errors)
+        "ship_desktop_champion refused: heating_dsm_hourly_v1 is quarantined. "
+        "Run scripts/promote_hybrid_ship.py for HYBRID_SCREENING artifacts."
     )
 
 

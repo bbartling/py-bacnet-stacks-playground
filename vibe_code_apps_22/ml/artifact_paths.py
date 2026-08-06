@@ -1,7 +1,7 @@
-"""Canonical paths for heating DSM joblib / ONNX / model cards + site data.
+"""Canonical paths for heating DSM hybrid artifacts + site data.
 
-Production train data: native EnergyPlus farm only (``ENERGYPLUS_NATIVE_RUN``).
-No bootstrap / physics-proxy fallback.
+Hybrid ship: real BAS baseline + E+ paired deltas (``HYBRID_SCREENING``).
+Paired farm provenance: ``ENERGYPLUS_NATIVE_RUN``.
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from lakeside.paths import (  # noqa: E402
 
 _ARTIFACTS = _VIBE22 / "ml" / "artifacts"
 
+# Legacy hourly stem (quarantined) — kept for path keys only
 MODEL_STEM = "heating_dsm_hourly_v1"
 JOBLIB_NAME = f"{MODEL_STEM}.joblib"
 CARD_NAME = f"{MODEL_STEM}_model_card.json"
@@ -29,11 +30,16 @@ ONNX_NAME = f"{MODEL_STEM}.onnx"
 FEATURE_META_NAME = f"{MODEL_STEM}_feature_meta.json"
 CHAMPION_SUMMARY = "champion_summary.json"
 EPLUS_FARM_PARQUET = "heating_dsm_eplus_farm_hourly.parquet"
+EPLUS_PAIRED_PARQUET = "heating_dsm_eplus_paired_15min_v1.parquet"
+EPLUS_PAIRED_SUMMARY = "heating_dsm_eplus_paired_15min_v1_summary.json"
 
-# Back-compat aliases
+REAL_BASELINE_STEM = "real_baseline_15min_v1"
+EPLUS_DELTA_STEM = "eplus_delta_15min_v1"
+HYBRID_WALK = "hybrid_dsm_96_v1_walk.json"
+
 vibe22_root = app_root
 lakeside_data_root = site_root
-creekside_data_root = site_root  # legacy
+creekside_data_root = site_root
 
 
 def default_artifact_dir() -> Path:
@@ -42,8 +48,20 @@ def default_artifact_dir() -> Path:
 
 
 def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
-    """Require native E+ farm parquet with ``ENERGYPLUS_NATIVE_RUN`` provenance."""
+    """Prefer paired 15-min native farm; fall back to legacy hourly if present."""
     art = default_artifact_dir()
+    paired = art / EPLUS_PAIRED_PARQUET
+    if prefer_eplus_farm and paired.is_file():
+        summary = art / EPLUS_PAIRED_SUMMARY
+        if summary.is_file():
+            import json
+
+            s = json.loads(summary.read_text(encoding="utf-8"))
+            if str(s.get("provenance", "")) != "ENERGYPLUS_NATIVE_RUN":
+                raise FileNotFoundError(
+                    f"paired farm provenance={s.get('provenance')!r}; need ENERGYPLUS_NATIVE_RUN"
+                )
+        return paired
     farm = art / EPLUS_FARM_PARQUET
     if prefer_eplus_farm and farm.is_file():
         summary = art / "eplus_farm_summary.json"
@@ -62,7 +80,6 @@ def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
         return farm
     ext = os.environ.get("VIBE22_TRAIN_PARQUET") or os.environ.get("LAKESIDE_TRAIN_PARQUET")
     if ext and Path(ext).is_file():
-        # Still require native stamp in the frame when an override path is set
         import pandas as pd
 
         df = pd.read_parquet(ext)
@@ -74,7 +91,7 @@ def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
                 )
         return Path(ext)
     raise FileNotFoundError(
-        f"missing native farm {farm} — run: python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium"
+        f"missing paired farm {paired} — run: python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium"
     )
 
 
@@ -88,6 +105,13 @@ def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
         "feature_meta": d / FEATURE_META_NAME,
         "champion_summary": d / CHAMPION_SUMMARY,
         "eplus_farm": d / EPLUS_FARM_PARQUET,
+        "eplus_paired": d / EPLUS_PAIRED_PARQUET,
+        "eplus_paired_summary": d / EPLUS_PAIRED_SUMMARY,
+        "real_baseline_card": d / f"{REAL_BASELINE_STEM}_model_card.json",
+        "real_baseline_onnx": d / f"{REAL_BASELINE_STEM}.onnx",
+        "delta_card": d / f"{EPLUS_DELTA_STEM}_model_card.json",
+        "delta_onnx": d / f"{EPLUS_DELTA_STEM}.onnx",
+        "hybrid_walk": d / HYBRID_WALK,
         "figures": d / "figures",
     }
 

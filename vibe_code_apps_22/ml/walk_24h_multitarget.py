@@ -68,13 +68,14 @@ def walk_24h_multitarget(
     stagger_min: float = 30.0,
     unocc_htg_sp_f: float = 60.0,
     occ_htg_sp_f: float = 68.0,
-    facility_kw0: float = 80.0,
+    facility_kw0: float | None = None,
 ) -> dict[str, Any]:
     """Autoregressive 24h sim: each hour predicts kW + 6 temps jointly.
 
-    ``model_predict`` receives a (1, n_features) row in FEATURE_COLS_MULTITARGET
-    order and returns length-7 array aligned with TARGET_COLS.
+    ``facility_kw0`` must be measured midnight kW — no hardcoded 80 kW default.
     """
+    if facility_kw0 is None or not np.isfinite(float(facility_kw0)):
+        raise ValueError("facility_kw0 must be measured midnight facility kW (no hardcoded default)")
     oat = np.asarray(oat_f_24, dtype=float).reshape(24)
     if hp_on_24x6 is None:
         hp_on_24x6 = default_strategy_hp_grid(strategy_id, weekend=bool(is_weekend))
