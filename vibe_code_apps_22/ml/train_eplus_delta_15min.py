@@ -29,14 +29,16 @@ if str(_APP) not in sys.path:
     sys.path.insert(0, str(_APP))
 
 from feature_compile_15min import (  # noqa: E402
-    FEATURE_COLS_15MIN_MT,
     ensure_strategy_onehots,
     matrix_xy_15min_multi,
     morning_peak_mask_15min,
-    recursive_rollout_day,
 )
 from feature_compile_heating_dsm import TARGET_COLS, ZONE_TEMP_COLS  # noqa: E402
-from train_real_baseline_15min import export_onnx_multi  # noqa: E402
+from train_real_baseline_15min import (  # noqa: E402
+    export_onnx_multi,
+    heldout_recursive_metrics,
+    _mean_metric_dicts,
+)
 
 STEM = "eplus_delta_15min_v1"
 DELTA_PARQUET = "eplus_delta_15min_v1.parquet"
@@ -125,21 +127,21 @@ def build_delta_frame(paired: pd.DataFrame) -> pd.DataFrame:
 def _fit_family(name, X, Y, groups, n_iter, inner_splits, rng):
     spaces = {
         "gradient_boosting": {
-            "n_estimators": [60, 100, 160],
-            "learning_rate": [0.05, 0.1, 0.15],
+            "n_estimators": [60, 100, 160, 300],
+            "learning_rate": [0.02, 0.05, 0.1, 0.15],
             "max_depth": [2, 3, 4],
             "min_samples_leaf": [2, 4, 8],
         },
         "extra_trees": {
-            "n_estimators": [120, 220, 350],
+            "n_estimators": [120, 220, 350, 500],
             "max_depth": [10, 18, None],
-            "min_samples_leaf": [1, 2, 4],
+            "min_samples_leaf": [1, 2, 4, 8],
             "max_features": [0.5, 0.8, "sqrt"],
         },
         "random_forest": {
-            "n_estimators": [120, 220, 350],
+            "n_estimators": [120, 220, 350, 500],
             "max_depth": [10, 18, None],
-            "min_samples_leaf": [1, 2, 4],
+            "min_samples_leaf": [1, 2, 4, 8],
             "max_features": [0.5, 0.8, "sqrt"],
         },
     }
@@ -175,6 +177,7 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
     gkf = GroupKFold(n_splits=min(outer_splits, max(2, len(uniq))))
     rng = np.random.RandomState(21)
     summary = {f: [] for f in families}
+    rec_held = {f: [] for f in families}
     params_last = {}
     for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
         print(f"delta outer fold {fold+1}", flush=True)
@@ -194,10 +197,29 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
                     "mae_delta_temp_mean": float(np.mean(np.abs(Y[te, 1:] - pred[:, 1:]))),
                 }
             )
+            # Recursive on delta targets (lags are delta lags in this frame)
+            held = heldout_recursive_metrics(model, feat, te, cols, tcols, peak[te])
+            if held:
+                # rename facility keys to delta vocabulary for card clarity
+                rec_held[fam].append(
+                    {
+                        "mae_delta_kw": held.get("facility_kw_mae"),
+                        "rmse_delta_kw": held.get("facility_kw_rmse"),
+                        "mae_delta_kw_peak": held.get("facility_kw_mae_peak_05_09"),
+                        "mae_delta_temp_mean": held.get("zone_temp_mae_mean"),
+                        "n_heldout_days": held.get("n_heldout_days"),
+                        **{
+                            k: v
+                            for k, v in held.items()
+                            if k.startswith("horizon_mae_step_")
+                        },
+                    }
+                )
     def mean_scores(xs):
-        return {k: float(np.mean([s[k] for s in xs])) for k in xs[0]}
+        return {k: float(np.mean([s[k] for s in xs if s.get(k) is not None])) for k in xs[0]}
 
     cv = {f: mean_scores(summary[f]) for f in families}
+    cv_rec = {f: _mean_metric_dicts(rec_held[f]) for f in families}
     champ = min(families, key=lambda f: cv[f]["mae_delta_kw_peak"])
     proto = {
         "gradient_boosting": GradientBoostingRegressor(random_state=21),
@@ -213,6 +235,7 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
         "champion": champ,
         "best_params": params_last[champ],
         "cv_teacher_forced": cv,
+        "cv_recursive_96_heldout": cv_rec,
         "feature_cols": cols,
         "target_cols": tcols,
         "n_rows": len(feat),
@@ -240,6 +263,7 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     uniq = np.unique(groups)
     gkf = GroupKFold(n_splits=min(n_splits, max(2, len(uniq))))
     summary: dict[str, list] = {k: [] for k in families}
+    rec_held: dict[str, list] = {k: [] for k in families}
     for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
         print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
         for name, proto in families.items():
@@ -258,12 +282,29 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
                     "mae_delta_temp_mean": float(np.mean(np.abs(Y[te, 1:] - pred[:, 1:]))),
                 }
             )
+            held = heldout_recursive_metrics(m, feat, te, cols, tcols, peak[te])
+            if held:
+                rec_held[name].append(
+                    {
+                        "mae_delta_kw": held.get("facility_kw_mae"),
+                        "rmse_delta_kw": held.get("facility_kw_rmse"),
+                        "mae_delta_kw_peak": held.get("facility_kw_mae_peak_05_09"),
+                        "mae_delta_temp_mean": held.get("zone_temp_mae_mean"),
+                        "n_heldout_days": held.get("n_heldout_days"),
+                        **{
+                            k: v
+                            for k, v in held.items()
+                            if k.startswith("horizon_mae_step_")
+                        },
+                    }
+                )
             print(f"  {name} peak ΔMAE={summary[name][-1]['mae_delta_kw_peak']:.3f}", flush=True)
 
     def mean_scores(xs):
         return {k: float(np.mean([s[k] for s in xs])) for k in xs[0]}
 
     cv = {f: mean_scores(summary[f]) for f in families}
+    cv_rec = {f: _mean_metric_dicts(rec_held[f]) for f in families}
     champ = min(families, key=lambda n: cv[n]["mae_delta_kw_peak"])
     proto = families[champ]
     model = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
@@ -273,6 +314,7 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
         "champion": champ,
         "best_params": proto.get_params(),
         "cv_teacher_forced": cv,
+        "cv_recursive_96_heldout": cv_rec,
         "feature_cols": cols,
         "target_cols": tcols,
         "n_rows": len(feat),
@@ -346,11 +388,13 @@ def export_delta_artifacts(
         "champion": result["champion"],
         "best_params": result["best_params"],
         "cv_teacher_forced": result["cv_teacher_forced"],
+        "cv_recursive_96_heldout": result.get("cv_recursive_96_heldout", {}),
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
         "built_at_utc": datetime.now(timezone.utc).isoformat(),
         "paired_source": paired_source,
         "trained_via": "notebook",
+        "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
     }
     card_path = out_dir / f"{STEM}_model_card.json"
     card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")

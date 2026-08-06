@@ -8,15 +8,32 @@
   "champion_baseline": "extra_trees",
   "champion_delta": "gradient_boosting",
   "summary": {
-    "cumulative_kwh_baseline": 2927.3686823431476,
+    "cumulative_kwh_baseline": 2927.3686823431467,
     "cumulative_kwh_hybrid": 5546.262077021475,
-    "peak_kw_baseline": 181.34444420370366,
-    "peak_kw_hybrid": 366.41455378190085,
+    "peak_kw_baseline": 181.34444420370374,
+    "peak_kw_hybrid": 366.4145537819008,
     "peak_step_baseline": 21,
     "peak_step_hybrid": 20,
     "comfort_violations": 23,
-    "delta_peak_kw": 185.0701095781972,
-    "delta_kwh": 2618.8933946783277
+    "delta_peak_kw": 185.07010957819705,
+    "delta_kwh": 2618.8933946783286
   },
-  "promoted_via": "notebook"
+  "pair_count": 6,
+  "idealloads_cop_disclaimer": "IdealLoads + fixed COP \u2260 GSHP/GLHE plant; hybrid screening only.",
+  "baseline_cv_recursive_96_heldout": {
+    "facility_kw_mae": 5.965255902590981,
+    "facility_kw_mae_peak_05_09": 9.45980082527575,
+    "facility_kw_rmse": 8.45105537988215,
+    "zone_temp_mae_mean": 0.05118254650313698,
+    "n_heldout_days": 2
+  },
+  "delta_cv_recursive_96_heldout": {
+    "facility_kw_mae": 16.010457497337203,
+    "facility_kw_mae_peak_05_09": 37.226443703763316,
+    "facility_kw_rmse": 35.80432942779236,
+    "zone_temp_mae_mean": 1.7290804449378705,
+    "note": "provisional_from_teacher_forced_until_notebook_retrain"
+  },
+  "promoted_via": "notebook",
+  "outcome_flag": "DSM_WORSENS_PEAK"
 }

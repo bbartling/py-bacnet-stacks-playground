@@ -2,11 +2,17 @@
 """Run hybrid 96-step rollout and promote artifacts for desktop ship.
 
 Prefer the sklearn notebook (Run All). CLI requires VIBE22_ALLOW_CLI_TRAIN=1.
+
+Promote gates (Audit P0):
+- Baseline card must include non-empty ``cv_recursive_96_heldout`` with facility metrics.
+- Usable both-arm pair count >= MIN_PAIRS (12), else refuse unless
+  ``VIBE22_ALLOW_SMOKE_PROMOTE=1``.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -27,6 +33,85 @@ from hybrid_rollout import (  # noqa: E402
     make_fixture_contract,
     rollout_96,
 )
+
+MIN_PAIRS = 12
+IDEALLOADS_COP_DISCLAIMER = (
+    "IdealLoads + fixed COP ≠ GSHP/GLHE plant; hybrid screening only."
+)
+SMOKE_ENV = "VIBE22_ALLOW_SMOKE_PROMOTE"
+
+
+def _heldout_has_facility_metrics(held: Any) -> bool:
+    """True if cv_recursive_96_heldout is a non-empty dict with facility MAE somewhere."""
+    if not isinstance(held, dict) or not held:
+        return False
+    if held.get("note") == "insufficient_heldout_days":
+        return False
+    # champion-level flat metrics
+    if "facility_kw_mae" in held and held["facility_kw_mae"] is not None:
+        return True
+    if "mae_delta_kw" in held and held["mae_delta_kw"] is not None:
+        return True
+    # by-family
+    for v in held.values():
+        if isinstance(v, dict) and (
+            v.get("facility_kw_mae") is not None or v.get("mae_delta_kw") is not None
+        ):
+            return True
+    return False
+
+
+def _count_both_arm_pairs(art: Path, delta_card: dict[str, Any]) -> int:
+    """Count usable both-arm pair_ids from paired parquet, else card/summary fallbacks."""
+    paired = art / "heating_dsm_eplus_paired_15min_v1.parquet"
+    if paired.is_file():
+        import pandas as pd
+
+        df = pd.read_parquet(paired, columns=["pair_id", "arm"])
+        counts = df.groupby("pair_id")["arm"].nunique()
+        return int((counts >= 2).sum())
+
+    summary_path = art / "heating_dsm_eplus_paired_15min_v1_summary.json"
+    if summary_path.is_file():
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        for key in ("n_pair_ids", "n_pairs", "n_usable_pairs"):
+            if key in summary:
+                return int(summary[key])
+
+    if "n_days" in delta_card and delta_card["n_days"] is not None:
+        return int(delta_card["n_days"])
+    return 0
+
+
+def _heldout_headlines(card: dict[str, Any]) -> dict[str, Any]:
+    held = card.get("cv_recursive_96_heldout") or {}
+    if not isinstance(held, dict):
+        return {}
+    # Prefer champion family if present
+    champ = card.get("champion")
+    if champ and isinstance(held.get(champ), dict):
+        src = held[champ]
+    else:
+        # first family dict with facility metrics, else flat
+        src = held
+        for v in held.values():
+            if isinstance(v, dict) and (
+                "facility_kw_mae" in v or "mae_delta_kw" in v
+            ):
+                src = v
+                break
+    keys = (
+        "facility_kw_mae",
+        "facility_kw_mae_peak_05_09",
+        "facility_kw_rmse",
+        "zone_temp_mae_mean",
+        "mae_delta_kw",
+        "mae_delta_kw_peak",
+        "mae_delta_temp_mean",
+        "n_heldout_days",
+        "note",
+    )
+    return {k: src[k] for k in keys if isinstance(src, dict) and k in src}
 
 
 def promote_hybrid(
@@ -53,10 +138,27 @@ def promote_hybrid(
     base_card = json.loads((art / "real_baseline_15min_v1_model_card.json").read_text(encoding="utf-8"))
     delta_card = json.loads((art / "eplus_delta_15min_v1_model_card.json").read_text(encoding="utf-8"))
 
+    held = base_card.get("cv_recursive_96_heldout")
+    if not _heldout_has_facility_metrics(held):
+        raise ValueError(
+            "baseline model card missing usable cv_recursive_96_heldout "
+            "(need non-empty dict with facility_kw_mae / family metrics). "
+            "Retrain component A via sklearn notebook so held-out recursive CV is recorded."
+        )
+
+    pair_count = _count_both_arm_pairs(art, delta_card)
+    allow_smoke = os.environ.get(SMOKE_ENV) == "1"
+    if pair_count < MIN_PAIRS and not allow_smoke:
+        raise ValueError(
+            f"usable both-arm pairs={pair_count} < MIN_PAIRS={MIN_PAIRS}. "
+            f"Refuse promote unless {SMOKE_ENV}=1 (smoke/dev only). "
+            "Grow the paired E+ farm or set the env explicitly."
+        )
+
     models = HybridModels(baseline=base_m, delta=delta_m, feature_cols=cols_b)
     contract = make_fixture_contract()
     site_store = Path(
-        __import__("os").environ.get(
+        os.environ.get(
             "LAKESIDE_SITE_ROOT",
             r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
         )
@@ -105,9 +207,17 @@ def promote_hybrid(
     result["champion_delta"] = delta_card.get("champion")
     result["baseline_cv"] = base_card.get("cv_teacher_forced")
     result["delta_cv"] = delta_card.get("cv_teacher_forced")
+    result["baseline_cv_recursive_96_heldout"] = _heldout_headlines(base_card)
+    result["delta_cv_recursive_96_heldout"] = _heldout_headlines(delta_card)
     result["honesty"] = HONESTY
     result["contract_version"] = CONTRACT_VERSION
     result["promoted_via"] = "notebook"
+    result["pair_count"] = pair_count
+    result["idealloads_cop_disclaimer"] = IDEALLOADS_COP_DISCLAIMER
+
+    delta_peak = float((result.get("summary") or {}).get("delta_peak_kw") or 0.0)
+    if delta_peak > 0:
+        result["outcome_flag"] = "DSM_WORSENS_PEAK"
 
     walk_path = art / "hybrid_dsm_96_v1_walk.json"
     fix_dir = art / "fixtures"
@@ -135,8 +245,14 @@ def promote_hybrid(
         "champion_baseline": result.get("champion_baseline"),
         "champion_delta": result.get("champion_delta"),
         "summary": result.get("summary"),
+        "pair_count": pair_count,
+        "idealloads_cop_disclaimer": IDEALLOADS_COP_DISCLAIMER,
+        "baseline_cv_recursive_96_heldout": result.get("baseline_cv_recursive_96_heldout"),
+        "delta_cv_recursive_96_heldout": result.get("delta_cv_recursive_96_heldout"),
         "promoted_via": "notebook",
     }
+    if result.get("outcome_flag"):
+        ship["outcome_flag"] = result["outcome_flag"]
     (desk / "hybrid_ship_manifest.json").write_text(json.dumps(ship, indent=2), encoding="utf-8")
     (art / "hybrid_ship_manifest.json").write_text(json.dumps(ship, indent=2), encoding="utf-8")
     return {"walk": walk_path, "desktop": desk, "summary": result["summary"], "result": result}

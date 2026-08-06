@@ -54,6 +54,10 @@ pub struct HybridWalk {
     pub champion_baseline: Option<String>,
     #[serde(default)]
     pub champion_delta: Option<String>,
+    #[serde(default)]
+    pub outcome_flag: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 pub fn default_hybrid_walk_paths() -> Vec<PathBuf> {
@@ -94,7 +98,10 @@ pub fn load_hybrid_walk() -> Result<(HybridWalk, PathBuf)> {
         if p.is_file() {
             let txt = std::fs::read_to_string(&p)
                 .with_context(|| format!("read {}", p.display()))?;
-            let walk: HybridWalk = serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
+            let mut walk: HybridWalk = serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
+            if walk.source.is_none() {
+                walk.source = Some("precomputed_ship_walk".into());
+            }
             if walk.steps.len() != 96 {
                 bail!(
                     "hybrid walk must have 96 steps, got {} ({})",
@@ -116,9 +123,30 @@ pub fn load_hybrid_walk() -> Result<(HybridWalk, PathBuf)> {
 
 pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
     ui.heading("Hybrid 96-step (real baseline + E+ delta)");
+    let src = walk
+        .source
+        .as_deref()
+        .unwrap_or(if path.as_os_str().is_empty() {
+            "live_onnx"
+        } else {
+            "precomputed_ship_walk"
+        });
+    ui.label(format!("source: {src}"));
     ui.label(format!("contract: {}", walk.contract_version));
     ui.label(format!("honesty: {}", walk.honesty));
-    ui.label(format!("source: {}", path.display()));
+    if !path.as_os_str().is_empty() {
+        ui.label(format!("file: {}", path.display()));
+    }
+    ui.colored_label(
+        egui::Color32::from_rgb(210, 150, 70),
+        "IdealLoads+COP screening twin — not calibrated GSHP plant / not operational DSM.",
+    );
+    if let Some(flag) = &walk.outcome_flag {
+        ui.colored_label(
+            egui::Color32::from_rgb(230, 100, 80),
+            format!("outcome_flag: {flag} — not a recommended DSM strategy"),
+        );
+    }
     if let Some(b) = &walk.champion_baseline {
         ui.label(format!("baseline champion: {b}"));
     }

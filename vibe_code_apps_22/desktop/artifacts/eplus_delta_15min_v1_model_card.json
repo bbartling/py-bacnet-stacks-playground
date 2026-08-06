@@ -50,5 +50,15 @@
   "n_days": 6,
   "built_at_utc": "2026-08-06T17:02:18.162139+00:00",
   "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet",
-  "trained_via": "notebook"
+  "trained_via": "notebook",
+  "cv_recursive_96_heldout": {
+    "gradient_boosting": {
+      "facility_kw_mae": 16.010457497337203,
+      "facility_kw_rmse": 35.80432942779236,
+      "facility_kw_mae_peak_05_09": 37.226443703763316,
+      "zone_temp_mae_mean": 1.7290804449378705,
+      "n_days": 6.0,
+      "note": "provisional_from_teacher_forced_until_notebook_retrain"
+    }
+  }
 }

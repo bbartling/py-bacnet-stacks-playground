@@ -29,10 +29,12 @@ if str(_APP) not in sys.path:
 from feature_compile_15min import (  # noqa: E402
     matrix_xy_15min_multi,
     morning_peak_mask_15min,
-    recursive_rollout_day,
 )
-from feature_compile_heating_dsm import TARGET_COLS  # noqa: E402
-from train_real_baseline_15min import load_real_baseline_frame  # noqa: E402
+from train_real_baseline_15min import (  # noqa: E402
+    heldout_recursive_metrics,
+    load_real_baseline_frame,
+    _mean_metric_dicts,
+)
 
 STEM = "real_baseline_15min_torch_v1"
 HONESTY = "HYBRID_SCREENING"
@@ -157,15 +159,9 @@ def train_torch_baseline(
                 "zone_temp_mae_mean": float(np.mean(np.abs(pred[:, 1:] - Y[te, 1:]))),
             }
         )
-        rec_maes = []
-        for _day, sub in feat.iloc[te].groupby("day"):
-            if len(sub) < 80:
-                continue
-            sub = sub.sort_values("step_15")
-            yp = recursive_rollout_day(wrap, sub, cols, tcols)
-            yt = sub[TARGET_COLS].to_numpy(dtype=float)
-            rec_maes.append(float(np.mean(np.abs(yp[:, 0] - yt[:, 0]))))
-        rec_scores.append({"facility_kw_mae": float(np.mean(rec_maes)) if rec_maes else float("nan")})
+        held = heldout_recursive_metrics(wrap, feat, te, cols, tcols, peak[te])
+        if held:
+            rec_scores.append(held)
         print(f"  TF peak MAE={tf_scores[-1]['facility_kw_mae_peak_05_09']:.3f}", flush=True)
 
     model, scaler, _ = _train_one(X, Y, X, Y, epochs=epochs, device=device)
@@ -174,19 +170,27 @@ def train_torch_baseline(
         keys = scores[0].keys()
         return {k: float(np.nanmean([s[k] for s in scores])) for k in keys}
 
-    return {
+    cv_rec = _mean_metric_dicts(rec_scores)
+    out: dict[str, Any] = {
         "model": model,
         "scaler": scaler,
         "feature_cols": cols,
         "target_cols": tcols,
         "cv_teacher_forced": _mean(tf_scores),
-        "cv_recursive_96": _mean(rec_scores),
         "n_rows": int(len(feat)),
         "n_days": int(feat["day"].nunique()),
         "X_shape": X.shape,
         "Y_shape": Y.shape,
         "device": device,
     }
+    if cv_rec and np.isfinite(cv_rec.get("facility_kw_mae", float("nan"))):
+        out["cv_recursive_96_heldout"] = cv_rec
+    else:
+        out["cv_recursive_96_heldout"] = {
+            "note": "insufficient_heldout_days",
+            "n_heldout_days": 0,
+        }
+    return out
 
 
 def export_torch_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dict[str, Path]:
@@ -232,7 +236,10 @@ def export_torch_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> di
         "honesty": HONESTY,
         "family": "resmlp_multihead",
         "cv_teacher_forced": result["cv_teacher_forced"],
-        "cv_recursive_96": result["cv_recursive_96"],
+        "cv_recursive_96_heldout": result.get(
+            "cv_recursive_96_heldout",
+            {"note": "insufficient_heldout_days", "n_heldout_days": 0},
+        ),
         "n_rows": result["n_rows"],
         "n_days": result["n_days"],
         "built_at_utc": datetime.now(timezone.utc).isoformat(),

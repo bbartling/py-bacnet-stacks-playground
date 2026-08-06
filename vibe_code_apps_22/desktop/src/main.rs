@@ -6,7 +6,9 @@
 mod annual;
 mod bills;
 mod features;
+mod features_15min;
 mod hybrid;
+mod hybrid_onnx;
 mod model;
 mod mvm;
 mod tariff;
@@ -15,11 +17,10 @@ use annual::{rollup_annual_savings, AnnualRollup, MonthlyBook};
 use bills::{try_autoload_bills, BillBook, DerivedRates};
 use eframe::egui;
 use egui_plot::{Bar, BarChart, Line, Plot, PlotPoints};
-use features::{
-    build_features, default_occ_frac, HourInputs, StrategyKnobs, STRATEGY_IDS, ZONE_LABELS,
-};
+use features::{default_occ_frac, STRATEGY_IDS, ZONE_LABELS};
 use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
-use model::{default_artifact_paths, OnnxModel};
+use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
+use features_15min::STEPS_96;
 use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
 use tariff::{cost_day_tod, creekside_cp2_defaults, DemandTariff, TodDayCost};
 
@@ -57,7 +58,7 @@ fn main() -> eframe::Result<()> {
 }
 
 struct DsmApp {
-    model: Option<OnnxModel>,
+    hybrid_engine: Option<HybridEngine>,
     load_error: Option<String>,
     honesty: String,
     training_source: String,
@@ -76,6 +77,7 @@ struct DsmApp {
     oat_amplitude_f: f32,
     oat_manual: [f32; 24],
     use_manual_oat: bool,
+    midnight_facility_kw: f32,
     midnight_zone_f: [f32; 6],
 
     strategy_idx: usize,
@@ -102,7 +104,7 @@ struct DsmApp {
     on_peak_energy_share: f32,
     ratchet_tol_kw: f32,
 
-    // Dual walk results
+    // Dual walk results (hourly downsample of live hybrid for tariff charts)
     pred_kw_compare: [f32; 24],
     pred_kw_dsm: [f32; 24],
     compare_label: String,
@@ -114,16 +116,16 @@ struct DsmApp {
     hybrid_walk: Option<HybridWalk>,
     hybrid_path: Option<std::path::PathBuf>,
     hybrid_error: Option<String>,
+    ship_walk: Option<HybridWalk>,
+    ship_path: Option<std::path::PathBuf>,
     status: String,
 }
 
 impl DsmApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         apply_theme(&cc.egui_ctx);
-        let (onnx, meta) = default_artifact_paths();
-        let onnx_path_display = onnx.display().to_string();
         let (
-            model,
+            hybrid_engine,
             load_error,
             honesty,
             training_source,
@@ -133,45 +135,60 @@ impl DsmApp {
             param_rows,
             precision_pm,
             precision_note,
-        ) = match OnnxModel::load(&onnx, &meta) {
-            Ok(m) => {
-                let h = m
+            onnx_path_display,
+        ) = match HybridEngine::load_default() {
+            Ok(eng) => {
+                let path = format!(
+                    "{} + {}",
+                    eng.baseline_path.display(),
+                    eng.delta_path.display()
+                );
+                let h = eng
+                    .baseline
                     .meta
                     .honesty
                     .clone()
-                    .unwrap_or_else(|| "CANDIDATE model".into());
-                let s = m
-                    .meta
-                    .training_source
-                    .clone()
-                    .unwrap_or_else(|| "unknown".into());
-                let banner = m.meta.banner_line();
-                let name = m.meta.display_name();
-                let metrics = m.meta.metrics_lines();
-                let params = m.meta.params_sorted();
-                let pm = m.meta.precision_pm();
-                let note = m
-                    .meta
-                    .precision_note
-                    .clone()
-                    .unwrap_or_else(|| "± = peak MAE screening band".into());
-                (Some(m), None, h, s, banner, name, metrics, params, pm, note)
+                    .unwrap_or_else(|| "HYBRID_SCREENING".into());
+                let banner = format!(
+                    "hybrid live ONNX · baseline={} · delta={} · IdealLoads+COP screening",
+                    eng.baseline.meta.champion.as_deref().unwrap_or("?"),
+                    eng.delta.meta.champion.as_deref().unwrap_or("?")
+                );
+                let name = format!(
+                    "hybrid {}+{}",
+                    eng.baseline.meta.champion.as_deref().unwrap_or("base"),
+                    eng.delta.meta.champion.as_deref().unwrap_or("delta")
+                );
+                (
+                    Some(eng),
+                    None,
+                    h,
+                    "notebook_hybrid_15min".into(),
+                    banner,
+                    name,
+                    vec![
+                        "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
+                        "Honesty: HYBRID_SCREENING · IdealLoads+COP ≠ GSHP plant".into(),
+                    ],
+                    Vec::new(),
+                    0.0,
+                    "Promote gates require held-out recursive metrics; smoke farm needs VIBE22_ALLOW_SMOKE_PROMOTE=1"
+                        .into(),
+                    path,
+                )
             }
             Err(e) => (
                 None,
-                Some(format!(
-                    "Failed to load ONNX from {} / {}: {e:#}",
-                    onnx.display(),
-                    meta.display()
-                )),
+                Some(format!("Failed to load hybrid ONNX pair: {e:#}")),
                 String::new(),
                 String::new(),
-                "no model loaded".into(),
+                "no hybrid models loaded".into(),
                 "—".into(),
                 Vec::new(),
                 Vec::new(),
                 0.0,
                 String::new(),
+                "(missing real_baseline_15min_v1 + eplus_delta_15min_v1)".into(),
             ),
         };
 
@@ -192,7 +209,7 @@ impl DsmApp {
 
         let tariff = creekside_cp2_defaults();
         let mut app = Self {
-            model,
+            hybrid_engine,
             load_error,
             honesty,
             training_source,
@@ -210,6 +227,7 @@ impl DsmApp {
             oat_amplitude_f: 10.0,
             oat_manual: oat,
             use_manual_oat: true,
+            midnight_facility_kw: 45.0,
             midnight_zone_f: [62.0; 6],
             strategy_idx: 1, // stagger_preheat default DSM
             hp_on,
@@ -241,20 +259,34 @@ impl DsmApp {
             hybrid_walk: None,
             hybrid_path: None,
             hybrid_error: None,
-            status: "Tariff defaults = Creekside CP-2 (editable). Run Compare 24/7 vs DSM."
+            ship_walk: None,
+            ship_path: None,
+            status: "Tariff defaults = Creekside CP-2. Run live hybrid 96-step from UI inputs."
                 .into(),
         };
         match load_hybrid_walk() {
             Ok((walk, path)) => {
-                app.status = format!(
-                    "Hybrid 96-step loaded ({}). Peak Δ {:.1} kW.",
-                    walk.honesty, walk.summary.delta_peak_kw
-                );
-                app.hybrid_path = Some(path);
-                app.hybrid_walk = Some(walk);
+                app.ship_path = Some(path.clone());
+                app.ship_walk = Some(walk.clone());
+                // Prefer live engine; keep ship walk as compare fallback until first Run.
+                if app.hybrid_engine.is_none() {
+                    app.hybrid_path = Some(path);
+                    app.hybrid_walk = Some(walk);
+                    app.status = format!(
+                        "Precomputed ship walk only (no live ONNX). Peak Δ {:.1} kW.",
+                        app.hybrid_walk.as_ref().unwrap().summary.delta_peak_kw
+                    );
+                } else {
+                    app.status = format!(
+                        "Hybrid ONNX loaded. Ship walk available for compare (Δpeak {:.1} kW).",
+                        walk.summary.delta_peak_kw
+                    );
+                }
             }
             Err(e) => {
-                app.hybrid_error = Some(format!("{e:#}"));
+                if app.hybrid_engine.is_none() {
+                    app.hybrid_error = Some(format!("{e:#}"));
+                }
             }
         }
 
@@ -494,139 +526,136 @@ impl DsmApp {
         ));
     }
 
-    /// Run one 24h ONNX walk for a strategy id with optional forced 24/7 grid.
-    fn predict_profile(&mut self, strategy_id: &str, force_247: bool) -> Option<[f32; 24]> {
-        if self.model.is_none() {
+    /// Live hybrid 96-step from UI midnight state + weather + strategy.
+    fn run_live_hybrid(&mut self, force_247_as_dsm: bool) -> bool {
+        if self.hybrid_engine.is_none() {
             self.status = self
                 .load_error
                 .clone()
-                .unwrap_or_else(|| "No model loaded".into());
-            return None;
+                .unwrap_or_else(|| "No hybrid ONNX loaded (hourly path quarantined)".into());
+            return false;
         }
-
-        let oat_profile: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
-        let knobs = StrategyKnobs::for_id(strategy_id);
-        let weekend = self.is_weekend;
+        let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
+        let oat96 = expand_oat_24_to_96(&oat24);
+        let rh96 = [55.0_f32; STEPS_96];
+        let mut ghi96 = [0.0_f32; STEPS_96];
+        for step in 0..STEPS_96 {
+            let h = step / 4;
+            ghi96[step] = if (8..17).contains(&h) { 200.0 } else { 0.0 };
+        }
+        let sid = STRATEGY_IDS[self.strategy_idx].to_string();
         let month = self.month;
         let doy = self.doy;
-        let use_strategy_occ = self.use_strategy_occ;
-        let hp_on = self.hp_on;
-        let occ_override = self.occ_override;
+        let weekend = if self.is_weekend { 1.0 } else { 0.0 };
+        let init_kw = self.midnight_facility_kw;
+        let zones = self.midnight_zone_f;
 
-        let mut lag1 = 35.0_f32;
-        let mut lag2 = 35.0_f32;
-        let mut cum_hdd_night = 0.0_f32;
-        let mut pred = [0.0_f32; 24];
-        let model = self.model.as_mut().unwrap();
-
-        for h in 0..24 {
-            let oat = oat_profile[h];
-            let oat_lag1 = if h == 0 { oat } else { oat_profile[h - 1] };
-            let hdd = (65.0 - oat).max(0.0);
-            if h < 5 || h >= 20 {
-                cum_hdd_night += hdd;
+        let eng = self.hybrid_engine.as_mut().unwrap();
+        match eng.rollout(
+            init_kw,
+            zones,
+            &oat96,
+            &rh96,
+            &ghi96,
+            month,
+            doy,
+            weekend,
+            &sid,
+            force_247_as_dsm,
+        ) {
+            Ok(walk) => {
+                // Downsample hybrid kW to 24h for tariff charts (max of 4 quarters)
+                let mut hourly = [0.0_f32; 24];
+                for h in 0..24 {
+                    let mut mx = 0.0_f32;
+                    for q in 0..4 {
+                        let st = &walk.steps[h * 4 + q];
+                        mx = mx.max(st.hybrid_facility_kw as f32);
+                    }
+                    hourly[h] = mx;
+                }
+                if force_247_as_dsm {
+                    self.pred_kw_compare = hourly;
+                    self.compare_label = "HVAC 24/7 (live hybrid)".into();
+                    self.cost_compare = Some(self.day_cost(&self.pred_kw_compare));
+                } else {
+                    self.pred_kw_dsm = hourly;
+                    self.dsm_label = sid.clone();
+                    self.cost_dsm = Some(self.day_cost(&self.pred_kw_dsm));
+                }
+                let flag = walk
+                    .outcome_flag
+                    .clone()
+                    .unwrap_or_else(|| "ok".into());
+                self.status = format!(
+                    "Live hybrid OK — peak {:.1}→{:.1} (Δ{:.1}) · {} · {}",
+                    walk.summary.peak_kw_baseline,
+                    walk.summary.peak_kw_hybrid,
+                    walk.summary.delta_peak_kw,
+                    flag,
+                    walk.honesty
+                );
+                self.hybrid_path = Some(std::path::PathBuf::from("live_onnx"));
+                self.hybrid_walk = Some(walk);
+                self.hybrid_error = None;
+                true
             }
-
-            let (occ, hp) = if force_247 {
-                ([1.0_f32; 6], [1.0_f32; 6])
-            } else if use_strategy_occ {
-                let o = default_occ_frac(h, strategy_id, weekend);
-                let mut hp = [0.0_f32; 6];
-                for z in 0..6 {
-                    hp[z] = if o[z] > 0.05 { 1.0 } else { 0.0 };
-                }
-                (o, hp)
-            } else {
-                let mut hp = [0.0_f32; 6];
-                for z in 0..6 {
-                    hp[z] = if hp_on[h][z] { 1.0 } else { 0.0 };
-                }
-                (occ_override[h], hp)
-            };
-
-            let inputs = HourInputs {
-                hour_ending: h as f32,
-                month,
-                doy,
-                is_weekend: if weekend { 1.0 } else { 0.0 },
-                oat_f: oat,
-                oat_lag1,
-                rh_pct: 55.0,
-                ghi: if (8..17).contains(&h) { 200.0 } else { 0.0 },
-                occ_frac: occ,
-                hp_on: hp,
-                knobs: knobs.clone(),
-                strategy_id: strategy_id.to_string(),
-                facility_kw_lag1: lag1,
-                facility_kw_lag2: lag2,
-                hdd65_cum_night: cum_hdd_night,
-            };
-
-            let feat = build_features(&inputs);
-            match model.predict_kw(&feat) {
-                Ok(kw) => {
-                    let kw = kw.max(5.0);
-                    pred[h] = kw;
-                    lag2 = lag1;
-                    lag1 = kw;
-                }
-                Err(e) => {
-                    self.status = format!("ONNX infer failed at hour {h}: {e:#}");
-                    return None;
-                }
+            Err(e) => {
+                self.status = format!("Live hybrid failed: {e:#}");
+                false
             }
         }
-        Some(pred)
     }
 
     fn run_compare_247_vs_dsm(&mut self) {
-        let dsm_sid = STRATEGY_IDS[self.strategy_idx].to_string();
-        let Some(kw247) = self.predict_profile("flat_24_7", true) else {
+        // Baseline arm uses strategy baseline controls; DSM arm uses selected strategy.
+        // Compare chart: run flat_24_7 as DSM-side for left bar, then real DSM.
+        if !self.run_live_hybrid(true) {
             return;
-        };
-        let Some(kw_dsm) = self.predict_profile(&dsm_sid, false) else {
+        }
+        let compare_walk = self.hybrid_walk.clone();
+        if !self.run_live_hybrid(false) {
             return;
-        };
-        self.pred_kw_compare = kw247;
-        self.pred_kw_dsm = kw_dsm;
-        self.compare_label = "HVAC 24/7".into();
-        self.dsm_label = dsm_sid;
-        self.cost_compare = Some(self.day_cost(&self.pred_kw_compare));
-        self.cost_dsm = Some(self.day_cost(&self.pred_kw_dsm));
+        }
+        // Restore compare hourly from the 24/7 run summary peaks via stored pred_kw_compare
+        if let Some(w) = compare_walk {
+            let mut hourly = [0.0_f32; 24];
+            for h in 0..24 {
+                let mut mx = 0.0_f32;
+                for q in 0..4 {
+                    mx = mx.max(w.steps[h * 4 + q].hybrid_facility_kw as f32);
+                }
+                hourly[h] = mx;
+            }
+            self.pred_kw_compare = hourly;
+            self.compare_label = "HVAC 24/7 (live hybrid)".into();
+            self.cost_compare = Some(self.day_cost(&self.pred_kw_compare));
+        }
         self.refresh_annual();
-        let pc = self.cost_compare.as_ref().unwrap().peak_kw;
-        let pd = self.cost_dsm.as_ref().unwrap().peak_kw;
-        let ec = self.cost_compare.as_ref().unwrap().energy_kwh;
-        let ed = self.cost_dsm.as_ref().unwrap().energy_kwh;
+        let pc = self
+            .cost_compare
+            .as_ref()
+            .map(|c| c.peak_kw)
+            .unwrap_or(0.0);
+        let pd = self.cost_dsm.as_ref().map(|c| c.peak_kw).unwrap_or(0.0);
         self.status = format!(
-            "Compare OK — 24/7 peak {:.1} vs DSM {:.1} (Δpeak {:.1} kW) · ΣkWh {:.0}→{:.0}",
+            "Live compare OK — 24/7 peak {:.1} vs DSM {:.1} (Δpeak {:.1} kW)",
             pc,
             pd,
-            (pc - pd).max(0.0),
-            ec,
-            ed
+            (pc - pd).max(0.0)
         );
     }
 
     fn run_dsm_only(&mut self) {
-        let dsm_sid = STRATEGY_IDS[self.strategy_idx].to_string();
-        let Some(kw) = self.predict_profile(&dsm_sid, false) else {
+        if !self.run_live_hybrid(false) {
             return;
-        };
-        self.pred_kw_dsm = kw;
-        self.dsm_label = dsm_sid;
-        self.cost_dsm = Some(self.day_cost(&self.pred_kw_dsm));
+        }
         if self.pred_kw_compare.iter().all(|v| *v == 0.0) {
             self.pred_kw_compare = self.pred_kw_dsm;
             self.compare_label = self.dsm_label.clone();
             self.cost_compare = self.cost_dsm.clone();
         }
         self.refresh_annual();
-        let peak = self.pred_kw_dsm.iter().copied().fold(0.0_f32, f32::max);
-        self.status = format!(
-            "DSM walk OK — peak={peak:.1} ±{:.1} kW · {}",
-            self.precision_pm, self.model_name
-        );
     }
 }
 
@@ -994,7 +1023,7 @@ impl eframe::App for DsmApp {
                         .add_sized(
                             [340.0, 42.0],
                             egui::Button::new(
-                                egui::RichText::new("▶  Compare HVAC 24/7 vs DSM")
+                                egui::RichText::new("▶  Live hybrid: 24/7 vs DSM")
                                     .size(15.0)
                                     .strong(),
                             )
@@ -1005,7 +1034,10 @@ impl eframe::App for DsmApp {
                         self.run_compare_247_vs_dsm();
                     }
                     if ui
-                        .add_sized([340.0, 28.0], egui::Button::new("Run DSM walk only"))
+                        .add_sized(
+                            [340.0, 28.0],
+                            egui::Button::new("Run live hybrid DSM (96-step)"),
+                        )
                         .clicked()
                     {
                         self.run_dsm_only();
@@ -1015,8 +1047,12 @@ impl eframe::App for DsmApp {
                             .color(egui::Color32::from_rgb(180, 200, 190)),
                     );
 
-                    ui.collapsing("Midnight zone temps (°F)", |ui| {
-                        ui.weak("Placeholder — kW model only.");
+                    ui.collapsing("Midnight measured state (required)", |ui| {
+                        ui.label("Lag init = measured midnight — never hardcoded 35 kW / 80°F.");
+                        ui.add(
+                            egui::Slider::new(&mut self.midnight_facility_kw, 5.0..=200.0)
+                                .text("facility kW @ midnight"),
+                        );
                         for z in 0..6 {
                             ui.add(
                                 egui::Slider::new(&mut self.midnight_zone_f[z], 50.0..=75.0)
@@ -1024,6 +1060,17 @@ impl eframe::App for DsmApp {
                             );
                         }
                     });
+                    if let Some(ship) = &self.ship_walk {
+                        ui.collapsing("Precomputed ship walk (compare only)", |ui| {
+                            ui.label(format!(
+                                "Ship Δpeak {:.1} kW · not driven by UI until you Run live",
+                                ship.summary.delta_peak_kw
+                            ));
+                            if let Some(p) = &self.ship_path {
+                                ui.label(format!("{}", p.display()));
+                            }
+                        });
+                    }
                 });
             });
 

@@ -171,47 +171,29 @@ impl OnnxModel {
     }
 }
 
-/// Resolve default artifact paths relative to the exe or CARGO_MANIFEST_DIR.
-///
-/// Client zip layout puts ONNX next to the `.exe` — prefer that before
-/// developer `ml/artifacts` paths so packaged builds stay self-contained.
+/// Resolve default artifact paths — hybrid 15-min stems only (hourly quarantined).
 pub fn default_artifact_paths() -> (std::path::PathBuf, std::path::PathBuf) {
     let candidates = [
         std::env::var_os("LAKESIDE_ONNX_DIR").map(std::path::PathBuf::from),
-        // Packaged client: model files sit beside the executable
         std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(|d| d.to_path_buf())),
-        // Dev: `desktop/artifacts/` (copied by train_heating_dsm / pack script)
         option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
         option_env!("CARGO_MANIFEST_DIR").map(|s| {
             Path::new(s)
                 .join("..")
                 .join("ml")
                 .join("artifacts")
-                .canonicalize()
-                .unwrap_or_else(|_| Path::new(s).join("..").join("ml").join("artifacts"))
         }),
         Some(Path::new("ml").join("artifacts")),
         Some(Path::new("..").join("ml").join("artifacts")),
     ];
 
     for base in candidates.into_iter().flatten() {
-        let onnx = base.join("heating_dsm_hourly_v1.onnx");
-        let meta = base.join("heating_dsm_hourly_v1_feature_meta.json");
+        let onnx = base.join("real_baseline_15min_v1.onnx");
+        let meta = base.join("real_baseline_15min_v1_feature_meta.json");
         if onnx.is_file() && meta.is_file() {
             return (onnx, meta);
-        }
-        let onnx2 = base
-            .join("ml")
-            .join("artifacts")
-            .join("heating_dsm_hourly_v1.onnx");
-        let meta2 = base
-            .join("ml")
-            .join("artifacts")
-            .join("heating_dsm_hourly_v1_feature_meta.json");
-        if onnx2.is_file() && meta2.is_file() {
-            return (onnx2, meta2);
         }
     }
 
@@ -220,7 +202,7 @@ pub fn default_artifact_paths() -> (std::path::PathBuf, std::path::PathBuf) {
         .join("ml")
         .join("artifacts");
     (
-        fallback.join("heating_dsm_hourly_v1.onnx"),
-        fallback.join("heating_dsm_hourly_v1_feature_meta.json"),
+        fallback.join("real_baseline_15min_v1.onnx"),
+        fallback.join("real_baseline_15min_v1_feature_meta.json"),
     )
 }

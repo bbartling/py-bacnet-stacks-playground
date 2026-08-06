@@ -1,12 +1,22 @@
 # Vibe 22 — Heating DSM (Lakeside) — Hybrid Real+E+
 
-**Last validated:** 2026-08-06 · tip `040ae18` on `develop` · vibe22-ci green.
+**Last validated:** 2026-08-06 · Audit P0 honesty/desktop fixes · tip on `develop`.
 
 ## Product question
 
 > For a chosen outdoor day, what is the **15-min × 96** facility kW and 6 area
 > temps under **baseline** vs **DSM**, using
 > `hybrid = real_baseline + eplus_delta`?
+
+## Release posture
+
+**Not operational DSM.** Product claim is **`HYBRID_SCREENING`** only:
+
+- IdealLoads + fixed COP ≠ calibrated GSHP / electrical plant.
+- Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
+- Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
+- Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
+- Desktop **Run** uses **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback, not the interactive engine.
 
 ## Architecture
 
@@ -15,7 +25,7 @@ Real BAS 15-min store ──► real baseline 7-out (GB / ExtraTrees / RF + ResM
                                     │
 Paired E+ farm (6-area) ──► E+ delta 7-out     │
                                     │          │
-                                    └────► hybrid 96-step rollout
+                                    └────► hybrid 96-step rollout (Python + Rust live ONNX)
                                                  │
                                           desktop hybrid panel
 ```
@@ -24,9 +34,10 @@ Paired E+ farm (6-area) ──► E+ delta 7-out     │
 
 - Keep sklearn (`gradient_boosting`, `extra_trees`, `random_forest`) and PyTorch ResMLP.
 - Do **not** mix real BAS and EnergyPlus rows in one train table.
+- Train + promote via notebooks only (`VIBE22_ALLOW_CLI_TRAIN=1` emergency).
 - No cost optimizer yet — JSON contract is ready for a future optimizer.
 - Never overwrite raw site inputs or canonical `*_best_utility.idf`.
-- Honesty: **`HYBRID_SCREENING`** until field DSM trials.
+- Honesty: **`HYBRID_SCREENING`** until field DSM trials + designed E+ farm + interval demand validation.
 
 Prior kW-only stems live under `ml/artifacts/_quarantine_20260806/`.  
 Defect list: [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
@@ -35,9 +46,9 @@ Defect list: [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
 
 | Component | Family | Notes |
 | --- | --- | --- |
-| A — real baseline | **ExtraTrees** multi-output | ~10.4 kW peak MAE (teacher-forced, winter subsample) |
-| B — E+ delta | **RandomForest** multi-output | Smoke paired farm (expand with `--medium`) |
-| C — hybrid walk | `hybrid_dsm_96_v1_walk.json` | Desktop fail-closed without this file |
+| A — real baseline | **ExtraTrees** multi-output | Teacher-forced + **held-out recursive** on cards |
+| B — E+ delta | bake-off champion | Smoke paired farm (expand with `--medium`) |
+| C — hybrid walk | live ONNX + ship JSON | Desktop fail-closed without hybrid ONNX pair |
 | Torch alt | ResMLP multi-head | Does **not** overwrite ship walk |
 
 Lag init = **measured midnight** from JSON contract (never hardcoded 80 °F / 35 kW).

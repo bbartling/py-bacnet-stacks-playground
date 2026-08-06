@@ -102,6 +102,9 @@ python -u scripts\validate_mvm.py
 - Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
   Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.
 - **Model training only via notebooks** (CLI gated). Cards/walk regenerate on Run All.
+- Desktop **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback.
+- Promote requires held-out recursive metrics; &lt;12 E+ pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
+- IdealLoads+COP ≠ GSHP; smoke farm underpowered — **not operational DSM**.
 - Utility G14 ≠ interval-integrated demand fidelity.
 - Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
 - Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)

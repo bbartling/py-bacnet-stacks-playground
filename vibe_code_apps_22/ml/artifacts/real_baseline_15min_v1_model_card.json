@@ -244,5 +244,21 @@
   "n_iter_inner": 0,
   "built_at_utc": "2026-08-06T17:02:00.273207+00:00",
   "lag_init_policy": "measured_midnight_state_from_JSON_or_first_row",
-  "trained_via": "notebook"
+  "trained_via": "notebook",
+  "cv_recursive_96_heldout": {
+    "extra_trees": {
+      "n_heldout_days": 2,
+      "facility_kw_mae": 5.965255902590981,
+      "facility_kw_mae_peak_05_09": 9.45980082527575,
+      "facility_kw_rmse": 8.45105537988215,
+      "horizon_mae_step_1": 0.5521408112884796,
+      "horizon_mae_step_12": 1.5267083076492014,
+      "horizon_mae_step_24": 5.8620038687169185,
+      "horizon_mae_step_4": 1.7789589409154782,
+      "horizon_mae_step_48": 4.074154177930303,
+      "horizon_mae_step_96": 15.775913029029327,
+      "n_steps": 96.0,
+      "zone_temp_mae_mean": 0.05118254650313698
+    }
+  }
 }
