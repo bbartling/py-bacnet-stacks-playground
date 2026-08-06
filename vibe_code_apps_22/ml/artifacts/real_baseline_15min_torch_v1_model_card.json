@@ -3,16 +3,19 @@
   "honesty": "HYBRID_SCREENING",
   "family": "resmlp_multihead",
   "cv_teacher_forced": {
-    "facility_kw_mae": 29.02991873136185,
-    "facility_kw_mae_peak_05_09": 39.683332263942546,
-    "zone_temp_mae_mean": 7.103480926911421
+    "facility_kw_mae": 17.00208605512054,
+    "facility_kw_mae_peak_05_09": 35.65610541620392,
+    "zone_temp_mae_mean": 24.316458216762808
   },
-  "cv_recursive_96": {
-    "facility_kw_mae": NaN
+  "cv_recursive_96_heldout": {
+    "status": "not_evaluated",
+    "reason": "no held-out day had >=80 rows for a recursive 96-step rollout"
   },
   "n_rows": 2304,
   "n_days": 24,
-  "built_at_utc": "2026-08-06T17:04:25.882240+00:00",
+  "built_at_utc": "2026-08-06T19:59:36.379101+00:00",
+  "feature_contract_version": "FEATURE_COLS_15MIN_MT",
+  "control_contract_version": "control_strategies_v1",
   "feature_cols": [
     "step_15",
     "sin_step",
