@@ -710,12 +710,15 @@ def lean_bake_off(
 
 def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dict[str, Path]:
     """Write joblib / ONNX / meta / model card for component A."""
+    from run_provenance import make_run_id, print_artifact_registry, artifact_registry
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     joblib_path = out_dir / f"{STEM}.joblib"
     onnx_path = out_dir / f"{STEM}.onnx"
     meta_path = out_dir / f"{STEM}_feature_meta.json"
     card_path = out_dir / f"{STEM}_model_card.json"
+    run_id = result.get("run_id") or make_run_id(prefix="sklearn_a")
 
     joblib.dump(
         {
@@ -723,6 +726,7 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
             "feature_cols": result["feature_cols"],
             "target_cols": result["target_cols"],
             "champion": result["champion"],
+            "run_id": run_id,
         },
         joblib_path,
     )
@@ -733,6 +737,7 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
 
     meta = {
         "stem": STEM,
+        "run_id": run_id,
         "feature_cols": result["feature_cols"],
         "target_cols": result["target_cols"],
         "n_features": len(result["feature_cols"]),
@@ -755,11 +760,13 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
 
     hashes = {
         "onnx_sha256": _sha256_file(onnx_path),
+        "joblib_sha256": _sha256_file(joblib_path),
         "split_manifest_sha256": _sha256_file(split_manifest_path) if split_manifest_path else None,
     }
 
     card = {
         "stem": STEM,
+        "run_id": run_id,
         "honesty": HONESTY,
         "provenance": "REAL_BAS_15MIN",
         "champion": result["champion"],
@@ -790,12 +797,16 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
         card["debug_in_sample_recursive"] = dbg
     _assert_no_provisional_heldout(card["cv_recursive_96_heldout"])
     card_path.write_text(json.dumps(card, indent=2), encoding="utf-8")
-    return {
+    paths = {
         "joblib": joblib_path,
         "onnx": onnx_path,
         "meta": meta_path,
         "card": card_path,
     }
+    print_artifact_registry(
+        artifact_registry({k: str(v) for k, v in paths.items()}, run_id=run_id)
+    )
+    return paths
 
 
 def _assert_no_provisional_heldout(held: Any) -> None:

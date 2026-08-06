@@ -1,5 +1,6 @@
 {
   "stem": "real_baseline_15min_v1",
+  "run_id": "sklearn_tutorial_20260806T203515Z_eb4a7d",
   "feature_cols": [
     "step_15",
     "sin_step",

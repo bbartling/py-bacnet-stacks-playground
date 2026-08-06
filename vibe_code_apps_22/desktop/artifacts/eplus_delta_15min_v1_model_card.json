@@ -1,5 +1,6 @@
 {
   "stem": "eplus_delta_15min_v1",
+  "run_id": "sklearn_tutorial_20260806T203515Z_eb4a7d",
   "honesty": "HYBRID_SCREENING",
   "provenance": "ENERGYPLUS_NATIVE_DELTA",
   "champion": "gradient_boosting",
@@ -28,7 +29,7 @@
   },
   "cv_teacher_forced": {
     "random_forest": {
-      "mae_delta_kw": 11.221939511578297,
+      "mae_delta_kw": 11.221939511578299,
       "rmse_delta_kw": 30.90975609554116,
       "mae_delta_kw_peak": 37.73494391069087,
       "mae_delta_temp_mean": 1.398965103162921
@@ -36,7 +37,7 @@
     "extra_trees": {
       "mae_delta_kw": 17.23765242984798,
       "rmse_delta_kw": 41.81523733578725,
-      "mae_delta_kw_peak": 38.601683392337186,
+      "mae_delta_kw_peak": 38.60168339233719,
       "mae_delta_temp_mean": 1.2122813520963975
     },
     "gradient_boosting": {
@@ -50,14 +51,14 @@
     "random_forest": {
       "mae_delta_kw": 27.575935515823275,
       "rmse_delta_kw": 45.78169232060396,
-      "mae_delta_kw_peak": 52.7403967493428,
-      "mae_delta_temp_mean": 2.796736699967905,
-      "daily_peak_mag_error_kw": 185.84464858447384,
+      "mae_delta_kw_peak": 52.74039674934281,
+      "mae_delta_temp_mean": 2.7967366999679046,
+      "daily_peak_mag_error_kw": 185.8446485844739,
       "peak_timing_abs_error_steps": 0.5,
       "daily_kwh_error": 417.86482153402955,
       "n_heldout_days": 6,
-      "horizon_mae_delta_step_1": 5.603603669053837,
-      "horizon_mae_delta_step_12": 24.161993660469467,
+      "horizon_mae_delta_step_1": 5.603603669053842,
+      "horizon_mae_delta_step_12": 24.161993660469474,
       "horizon_mae_delta_step_24": 85.85328811094938,
       "horizon_mae_delta_step_4": 18.663708157001142,
       "horizon_mae_delta_step_48": 14.567189281068778,
@@ -65,19 +66,19 @@
     },
     "extra_trees": {
       "mae_delta_kw": 33.70723343295866,
-      "rmse_delta_kw": 51.91617628493103,
-      "mae_delta_kw_peak": 49.86807308592955,
+      "rmse_delta_kw": 51.916176284931026,
+      "mae_delta_kw_peak": 49.868073085929545,
       "mae_delta_temp_mean": 4.841405567303914,
       "daily_peak_mag_error_kw": 150.33481574897385,
       "peak_timing_abs_error_steps": 0.16666666666666666,
-      "daily_kwh_error": 603.4475775273855,
+      "daily_kwh_error": 603.4475775273854,
       "n_heldout_days": 6,
-      "horizon_mae_delta_step_1": 4.833220227259685,
-      "horizon_mae_delta_step_12": 5.413443179983929,
-      "horizon_mae_delta_step_24": 58.97739451940725,
-      "horizon_mae_delta_step_4": 7.206552829075771,
-      "horizon_mae_delta_step_48": 31.758305044256527,
-      "horizon_mae_delta_step_96": 43.000309009731666
+      "horizon_mae_delta_step_1": 4.83322022725968,
+      "horizon_mae_delta_step_12": 5.4134431799839335,
+      "horizon_mae_delta_step_24": 58.977394519407255,
+      "horizon_mae_delta_step_4": 7.206552829075766,
+      "horizon_mae_delta_step_48": 31.75830504425652,
+      "horizon_mae_delta_step_96": 43.00030900973166
     },
     "gradient_boosting": {
       "mae_delta_kw": 30.145690569913626,
@@ -99,12 +100,15 @@
   "n_rows": 576,
   "n_days": 6,
   "n_heldout_days": 6,
-  "built_at_utc": "2026-08-06T19:25:58.556676+00:00",
+  "built_at_utc": "2026-08-06T20:57:43.777296+00:00",
   "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet",
   "feature_contract_version": "FEATURE_COLS_15MIN_MT",
   "control_contract_version": "control_strategies_v1",
   "trained_via": "notebook",
   "recursive_note": "held-out recursive on delta targets (lags are DSM\u2212baseline deltas)",
   "limitation": "strategy, date, and weather remain confounded; smoke farm underpowered",
+  "hashes": {
+    "onnx_sha256": "cba460a65551f7bfd4ee01c6a146005f054ebe2131db0fb3e5a9cd665e6a0340"
+  },
   "coverage_warning": "held-out recursive covers only 6 pair-day(s) (< 12); strategy, date, and weather remain confounded; smoke farm underpowered"
 }

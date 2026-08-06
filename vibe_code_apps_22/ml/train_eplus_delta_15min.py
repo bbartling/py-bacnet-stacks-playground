@@ -391,6 +391,7 @@ def export_delta_artifacts(
         print(f"ONNX export failed: {e}", flush=True)
     meta = {
         "stem": STEM,
+        "run_id": result.get("run_id"),
         "feature_cols": result["feature_cols"],
         "target_cols": result["target_cols"],
         "delta_target_names": DELTA_TARGETS,
@@ -403,8 +404,12 @@ def export_delta_artifacts(
     }
     meta_path = out_dir / f"{STEM}_feature_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    from run_provenance import make_run_id, sha256_file
+
+    run_id = result.get("run_id") or make_run_id(prefix="sklearn_b")
     card = {
         "stem": STEM,
+        "run_id": run_id,
         "honesty": HONESTY,
         "provenance": "ENERGYPLUS_NATIVE_DELTA",
         "champion": result["champion"],
@@ -421,6 +426,11 @@ def export_delta_artifacts(
         "trained_via": "notebook",
         "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
         "limitation": DELTA_LIMITATION,
+        "hashes": {
+            "onnx_sha256": sha256_file(out_dir / f"{STEM}.onnx")
+            if (out_dir / f"{STEM}.onnx").is_file()
+            else None,
+        },
     }
     if result.get("coverage_warning"):
         card["coverage_warning"] = result["coverage_warning"]

@@ -492,3 +492,280 @@ def save_fig(path: Path, fig=None, dpi: int = 140) -> Path:
     except Exception:
         pass
     return path
+
+
+# ---------------------------------------------------------------------------
+# Tutorial-quality multi-output visualizations
+# ---------------------------------------------------------------------------
+
+_STYLE = {
+    "actual": "#264653",
+    "pred": "#e76f51",
+    "baseline": "#2a9d8f",
+    "hybrid": "#e9c46a",
+    "comfort": "#e63946",
+}
+
+
+def coverage_timeline(df: pd.DataFrame, ax=None, *, day_col: str = "day"):
+    """Show available calendar coverage (one mark per day)."""
+    ax = ax or plt.gca()
+    days = pd.to_datetime(sorted(df[day_col].astype(str).unique()))
+    ax.scatter(days, np.ones(len(days)), s=18, c=_STYLE["baseline"], marker="|")
+    ax.set_yticks([])
+    ax.set_xlabel("Calendar day")
+    ax.set_title(f"Available training days (n={len(days)} independent days)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    return ax
+
+
+def missingness_summary(df: pd.DataFrame, cols: list[str], ax=None):
+    ax = ax or plt.gca()
+    rates = [float(df[c].isna().mean()) if c in df.columns else 1.0 for c in cols]
+    ax.barh(cols[::-1], rates[::-1], color="#457b9d")
+    ax.set_xlabel("Fraction missing")
+    ax.set_title("Missingness summary (descriptive)")
+    ax.set_xlim(0, max(0.05, max(rates) * 1.1 if rates else 0.05))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def target_distributions(df: pd.DataFrame, *, target_cols: list[str] | None = None, fig=None):
+    from feature_compile_heating_dsm import TARGET_COLS
+
+    cols = target_cols or list(TARGET_COLS)
+    fig = fig or plt.figure(figsize=(12, 8))
+    axes = fig.subplots(3, 3)
+    axes = axes.ravel()
+    for i, c in enumerate(cols):
+        ax = axes[i]
+        if c in df.columns:
+            ax.hist(df[c].dropna(), bins=40, color="#4C78A8", alpha=0.85)
+        unit = "kW" if c == "facility_kw" else "°F"
+        ax.set_title(c)
+        ax.set_xlabel(unit)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+    for j in range(len(cols), len(axes)):
+        axes[j].axis("off")
+    fig.suptitle("Target distributions (facility kW + six thermal-area temps)", y=1.01)
+    fig.tight_layout()
+    return fig
+
+
+def winter_day_panel(df: pd.DataFrame, day: str, *, fig=None):
+    """OAT + facility kW + six zone temps for one example winter day."""
+    from feature_compile_heating_dsm import ZONE_TEMP_COLS
+
+    sub = df[df["day"].astype(str) == str(day)].sort_values(
+        "step_15" if "step_15" in df.columns else "hour_ending"
+    )
+    fig = fig or plt.figure(figsize=(11, 8))
+    ax0 = fig.add_subplot(3, 1, 1)
+    x = sub["step_15"] / 4.0 if "step_15" in sub.columns else sub["hour_ending"]
+    if "oat_f" in sub.columns:
+        ax0.plot(x, sub["oat_f"], color="#1d3557", label="OAT")
+    ax0.set_ylabel("OAT [°F]")
+    ax0.set_title(f"Example winter day {day} — outdoor air, demand, zone temps")
+    ax0.legend(frameon=False)
+    ax0.spines["top"].set_visible(False)
+    ax0.spines["right"].set_visible(False)
+
+    ax1 = fig.add_subplot(3, 1, 2, sharex=ax0)
+    if "facility_kw" in sub.columns:
+        ax1.plot(x, sub["facility_kw"], color=_STYLE["pred"], label="facility_kw")
+    ax1.set_ylabel("kW")
+    ax1.legend(frameon=False)
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+
+    ax2 = fig.add_subplot(3, 1, 3, sharex=ax0)
+    for zc in ZONE_TEMP_COLS:
+        if zc in sub.columns:
+            ax2.plot(x, sub[zc], lw=1.2, label=zc.replace("zone_temp_", "").replace("_f", ""))
+    ax2.set_ylabel("Zone temp [°F]")
+    ax2.set_xlabel("Hour of day")
+    ax2.legend(fontsize=7, ncol=3, frameon=False)
+    ax2.spines["top"].set_visible(False)
+    ax2.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return fig
+
+
+def descriptive_corr_heatmap(df: pd.DataFrame, cols: list[str], ax=None):
+    ax = ax or plt.gca()
+    sub = df[[c for c in cols if c in df.columns]].corr()
+    im = ax.imshow(sub.values, cmap="coolwarm", vmin=-1, vmax=1, aspect="auto")
+    ax.set_xticks(range(len(sub.columns)))
+    ax.set_yticks(range(len(sub.columns)))
+    ax.set_xticklabels(sub.columns, rotation=45, ha="right", fontsize=7)
+    ax.set_yticklabels(sub.columns, fontsize=7)
+    ax.set_title("Correlation heatmap (descriptive — not causal)")
+    plt.colorbar(im, ax=ax, fraction=0.046)
+    return ax
+
+
+def actual_vs_pred_timeseries(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    *,
+    x=None,
+    ylabel: str = "facility_kw [kW]",
+    title: str = "Actual vs predicted",
+    split_label: str = "validation",
+    ax=None,
+):
+    ax = ax or plt.gca()
+    yt = np.asarray(y_true, dtype=float).ravel()
+    yp = np.asarray(y_pred, dtype=float).ravel()
+    xx = np.arange(len(yt)) if x is None else np.asarray(x)
+    ax.plot(xx, yt, color=_STYLE["actual"], lw=1.6, label="actual")
+    ax.plot(xx, yp, color=_STYLE["pred"], lw=1.4, alpha=0.9, label="predicted")
+    ax.set_ylabel(ylabel)
+    ax.set_title(f"{title} ({split_label})")
+    ax.legend(frameon=False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def residuals_by_hour(y_true, y_pred, hour_ending, ax=None):
+    ax = ax or plt.gca()
+    resid = np.asarray(y_true) - np.asarray(y_pred)
+    he = np.asarray(hour_ending)
+    means = [float(np.mean(resid[he == h])) if np.any(he == h) else np.nan for h in range(24)]
+    ax.bar(range(24), means, color="#a8dadc", edgecolor="#1d3557")
+    ax.axhline(0, color="#e63946", ls="--")
+    ax.set_xlabel("Hour ending")
+    ax.set_ylabel("Mean residual (actual − pred)")
+    ax.set_title("Residuals by hour of day")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def residuals_vs_oat(y_true, y_pred, oat_f, ax=None):
+    ax = ax or plt.gca()
+    resid = np.asarray(y_true) - np.asarray(y_pred)
+    ax.scatter(oat_f, resid, s=8, alpha=0.35, c="#457b9d")
+    ax.axhline(0, color="#e63946", ls="--")
+    ax.set_xlabel("OAT [°F]")
+    ax.set_ylabel("Residual [kW]")
+    ax.set_title("Residuals versus outdoor-air temperature")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def horizon_mae_plot(horizon_dict: dict[str, float], ax=None, *, ylabel: str = "MAE"):
+    ax = ax or plt.gca()
+    steps, vals = [], []
+    for k, v in sorted(horizon_dict.items()):
+        if "horizon_mae_step_" in k and v is not None:
+            steps.append(int(k.rsplit("_", 1)[-1]))
+            vals.append(float(v))
+    ax.plot(steps, vals, marker="o", color=_STYLE["pred"])
+    ax.set_xlabel("Forecast horizon (15-min step)")
+    ax.set_ylabel(ylabel)
+    ax.set_title("Recursive error by forecast horizon (step 1 → 96)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def zone_small_multiples(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    *,
+    zone_names: list[str] | None = None,
+    split_label: str = "validation",
+    fig=None,
+):
+    from feature_compile_heating_dsm import ZONE_TEMP_COLS
+
+    names = zone_names or [c.replace("zone_temp_", "").replace("_f", "") for c in ZONE_TEMP_COLS]
+    yt = np.asarray(y_true)
+    yp = np.asarray(y_pred)
+    fig = fig or plt.figure(figsize=(12, 8))
+    axes = fig.subplots(2, 3)
+    for i, ax in enumerate(axes.ravel()):
+        if i >= yt.shape[1]:
+            ax.axis("off")
+            continue
+        ax.plot(yt[:, i], color=_STYLE["actual"], lw=1.0, label="actual")
+        ax.plot(yp[:, i], color=_STYLE["pred"], lw=1.0, alpha=0.85, label="pred")
+        ax.set_title(names[i])
+        ax.set_ylabel("°F")
+        if i == 0:
+            ax.legend(fontsize=7, frameon=False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+    fig.suptitle(f"Zone temperatures — actual vs predicted ({split_label})")
+    fig.tight_layout()
+    return fig
+
+
+def model_comparison_bars(rows: list[dict[str, Any]], metric: str, ax=None, *, ylabel: str | None = None):
+    ax = ax or plt.gca()
+    names = [r["model"] for r in rows]
+    vals = [r.get(metric) for r in rows]
+    ax.barh(names[::-1], vals[::-1], color="#2a9d8f")
+    ax.set_xlabel(ylabel or metric)
+    ax.set_title(f"Model comparison — {metric} (lower is better)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def pareto_peak_vs_worst_zone(rows: list[dict[str, Any]], ax=None):
+    ax = ax or plt.gca()
+    for r in rows:
+        ax.scatter(
+            r.get("facility_peak_mae"),
+            r.get("worst_zone_mae"),
+            s=60,
+            label=r["model"],
+        )
+        ax.annotate(r["model"], (r.get("facility_peak_mae"), r.get("worst_zone_mae")), fontsize=7)
+    ax.set_xlabel("Facility morning-peak MAE [kW]")
+    ax.set_ylabel("Worst-zone temperature MAE [°F]")
+    ax.set_title("Pareto: peak demand error vs worst-zone temp error")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def hybrid_walk_panel(walk: dict[str, Any], *, fig=None, comfort_sp: float = 68.0, comfort_band: float = 2.0):
+    """Baseline vs hybrid facility kW + zone temps with comfort bounds."""
+    steps = walk.get("steps") or []
+    fig = fig or plt.figure(figsize=(11, 8))
+    ax0 = fig.add_subplot(2, 1, 1)
+    t = [s["step_15"] / 4.0 for s in steps]
+    ax0.plot(t, [s["baseline_facility_kw"] for s in steps], color=_STYLE["baseline"], label="baseline")
+    ax0.plot(t, [s["hybrid_facility_kw"] for s in steps], color=_STYLE["hybrid"], label="hybrid DSM")
+    ax0.axvspan(5, 9, color="#f4a261", alpha=0.15, label="morning peak HE 05–09")
+    ax0.set_ylabel("facility_kw [kW]")
+    ax0.set_title("Hybrid DSM walk — predicted baseline vs hybrid (not measured actual)")
+    ax0.legend(frameon=False, fontsize=8)
+    ax0.spines["top"].set_visible(False)
+    ax0.spines["right"].set_visible(False)
+
+    ax1 = fig.add_subplot(2, 1, 2, sharex=ax0)
+    lo = comfort_sp - comfort_band
+    for s in steps:
+        hz = s.get("hybrid_zone_temps_f") or {}
+        break
+    zone_keys = list((steps[0].get("hybrid_zone_temps_f") or {}).keys()) if steps else []
+    for zk in zone_keys:
+        ax1.plot(t, [s.get("hybrid_zone_temps_f", {}).get(zk, np.nan) for s in steps], lw=1.0, label=zk)
+    ax1.axhline(lo, color=_STYLE["comfort"], ls="--", label=f"comfort_lo {lo:.0f}°F")
+    ax1.set_ylabel("Zone temp [°F]")
+    ax1.set_xlabel("Hour of day")
+    ax1.legend(fontsize=6, ncol=3, frameon=False)
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+    fig.tight_layout()
+    return fig

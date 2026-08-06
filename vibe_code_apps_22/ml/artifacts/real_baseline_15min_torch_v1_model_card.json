@@ -1,19 +1,104 @@
 {
   "stem": "real_baseline_15min_torch_v1",
   "honesty": "HYBRID_SCREENING",
-  "family": "resmlp_multihead",
+  "family": "resmlp_dualhead",
+  "seed": 11,
+  "n_params": 61063,
   "cv_teacher_forced": {
-    "facility_kw_mae": 17.00208605512054,
-    "facility_kw_mae_peak_05_09": 35.65610541620392,
-    "zone_temp_mae_mean": 24.316458216762808
+    "facility_kw_mae": 10.992330510791122,
+    "facility_kw_mae_peak_05_09": 13.189503662602213,
+    "zone_temp_mae_mean": 0.3650058460429573,
+    "worst_zone_mae": 0.5577212650952882
   },
   "cv_recursive_96_heldout": {
-    "status": "not_evaluated",
-    "reason": "no held-out day had >=80 rows for a recursive 96-step rollout"
+    "n_heldout_days": 24,
+    "daily_kwh_error": 456.13206052449465,
+    "daily_peak_mag_error_kw": 43.07634679865624,
+    "facility_kw_mae": 26.15022986639721,
+    "facility_kw_mae_peak_05_09": 32.67064727886265,
+    "facility_kw_rmse": 31.600126944095603,
+    "horizon_mae_step_1": 4.113373443735633,
+    "horizon_mae_step_12": 27.330070534927568,
+    "horizon_mae_step_24": 33.813661033725,
+    "horizon_mae_step_4": 10.431635906359572,
+    "horizon_mae_step_48": 32.02524199002349,
+    "horizon_mae_step_96": 13.441169336153962,
+    "n_steps": 96.0,
+    "peak_timing_abs_error_steps": 11.583333333333334,
+    "zone_mae_zone_temp_1F_A_f": 0.798218163252543,
+    "zone_mae_zone_temp_1F_B_f": 0.9641677050029553,
+    "zone_mae_zone_temp_1F_C_f": 0.6592928864585935,
+    "zone_mae_zone_temp_1F_D_f": 1.239870416369205,
+    "zone_mae_zone_temp_2F_A_f": 0.8963707936604141,
+    "zone_mae_zone_temp_2F_B_f": 1.3638254335894089,
+    "zone_temp_mae_mean": 0.9869575663888535
   },
-  "n_rows": 2304,
-  "n_days": 24,
-  "built_at_utc": "2026-08-06T19:59:36.379101+00:00",
+  "locked_final_winter_test": {
+    "n_heldout_days": 1,
+    "daily_kwh_error": 74.07466763802199,
+    "daily_peak_mag_error_kw": 10.672910903748395,
+    "facility_kw_mae": 4.993770156802028,
+    "facility_kw_mae_peak_05_09": 7.138970693144688,
+    "facility_kw_rmse": 6.281524970219109,
+    "horizon_mae_step_1": 1.5561561974878018,
+    "horizon_mae_step_12": 5.434339027598796,
+    "horizon_mae_step_24": 6.6030847677296265,
+    "horizon_mae_step_4": 6.850798664655919,
+    "horizon_mae_step_48": 0.38578199570336835,
+    "horizon_mae_step_96": 1.6313723207574853,
+    "n_steps": 96.0,
+    "peak_timing_abs_error_steps": 63.0,
+    "zone_mae_zone_temp_1F_A_f": 1.1557161997674719,
+    "zone_mae_zone_temp_1F_B_f": 0.735163943089483,
+    "zone_mae_zone_temp_1F_C_f": 0.7055808230764177,
+    "zone_mae_zone_temp_1F_D_f": 0.9766192145347095,
+    "zone_mae_zone_temp_2F_A_f": 0.5220545079891257,
+    "zone_mae_zone_temp_2F_B_f": 2.6693388658536286,
+    "zone_temp_mae_mean": 1.1274122590518059,
+    "status": "evaluated"
+  },
+  "leaderboard": [
+    {
+      "key": "resmlp_dualhead_seed11",
+      "family": "resmlp_dualhead",
+      "seed": 11,
+      "n_params": 61063,
+      "train_seconds": 49.389522400000715,
+      "cv_teacher_forced": {
+        "facility_kw_mae": 10.992330510791122,
+        "facility_kw_mae_peak_05_09": 13.189503662602213,
+        "zone_temp_mae_mean": 0.3650058460429573,
+        "worst_zone_mae": 0.5577212650952882
+      },
+      "cv_recursive_96_heldout": {
+        "n_heldout_days": 24,
+        "daily_kwh_error": 456.13206052449465,
+        "daily_peak_mag_error_kw": 43.07634679865624,
+        "facility_kw_mae": 26.15022986639721,
+        "facility_kw_mae_peak_05_09": 32.67064727886265,
+        "facility_kw_rmse": 31.600126944095603,
+        "horizon_mae_step_1": 4.113373443735633,
+        "horizon_mae_step_12": 27.330070534927568,
+        "horizon_mae_step_24": 33.813661033725,
+        "horizon_mae_step_4": 10.431635906359572,
+        "horizon_mae_step_48": 32.02524199002349,
+        "horizon_mae_step_96": 13.441169336153962,
+        "n_steps": 96.0,
+        "peak_timing_abs_error_steps": 11.583333333333334,
+        "zone_mae_zone_temp_1F_A_f": 0.798218163252543,
+        "zone_mae_zone_temp_1F_B_f": 0.9641677050029553,
+        "zone_mae_zone_temp_1F_C_f": 0.6592928864585935,
+        "zone_mae_zone_temp_1F_D_f": 1.239870416369205,
+        "zone_mae_zone_temp_2F_A_f": 0.8963707936604141,
+        "zone_mae_zone_temp_2F_B_f": 1.3638254335894089,
+        "zone_temp_mae_mean": 0.9869575663888535
+      },
+      "selection_score": 26.24148132790795
+    }
+  ],
+  "n_rows": 3456,
+  "n_days": 36,
+  "built_at_utc": "2026-08-06T20:34:32.856685+00:00",
   "feature_contract_version": "FEATURE_COLS_15MIN_MT",
   "control_contract_version": "control_strategies_v1",
   "feature_cols": [
@@ -73,5 +158,22 @@
     "zone_temp_2F_A_f",
     "zone_temp_2F_B_f"
   ],
-  "trained_via": "notebook"
+  "trained_via": "notebook",
+  "loss": "huber_normalized_dual_head",
+  "w_kw": 1.0,
+  "w_zone": 1.0,
+  "onnx_parity": {
+    "status": "ok",
+    "max_abs_norm_space": 1.52587890625e-05,
+    "n": 8
+  },
+  "scaling_note": "X StandardScaler + per-target Y StandardScaler fit on train days only; ONNX emits normalized outputs \u2014 apply y_scaler.inverse_transform for \u00b0F/kW",
+  "run_id": "torch_tutorial_20260806T203340Z_db42a8",
+  "artifact_sha256": {
+    "pt": "252c7befa80507c48dd96fc11f080cc79425357914f968c3a72909a9e2bdf91a",
+    "onnx": "67225faed1006d2ff9d3558584c25f43613699866bde5a506fe94d97cd16128d",
+    "meta": "19657470a0c4c62981bed40cb5618dc11aa4cae621039cba6dd8dd117fee88a6",
+    "card": "5f39115d09fe7e342ecd4e721950a847501e51bbeaff27646e8bc42f608aa12a",
+    "eval": "260fabb8feda6740ab5dd946195c970c23113dfc0137d1bcafd7ae9a5a788853"
+  }
 }
