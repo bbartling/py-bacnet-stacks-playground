@@ -1,7 +1,12 @@
-"""UTC measured demand ↔ EnergyPlus local-standard-time alignment (Chicago)."""
+"""UTC measured demand ↔ EnergyPlus local-standard-time alignment.
+
+EnergyPlus weather / CSV stamps are **local standard time** (no DST). For Lakeside
+(southern WI / Madison AMY), that is fixed **CST = UTC−6**. Do **not** apply
+America/Chicago DST when converting E+ LST stamps to UTC.
+"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -10,17 +15,35 @@ import pandas as pd
 TZ_CHICAGO = ZoneInfo("America/Chicago")
 TZ_UTC = ZoneInfo("UTC")
 
+# EnergyPlus LST for this site (Madison AMY built as CST-6) — never DST.
+EPLUS_LST_OFFSET = timezone(timedelta(hours=-6))
+CST = EPLUS_LST_OFFSET
+
 
 def utc_to_chicago_local(ts_utc: pd.Series) -> pd.Series:
-    """Convert UTC timestamps to America/Chicago (DST-aware wall clock)."""
+    """Convert UTC timestamps to America/Chicago (DST-aware wall clock).
+
+    Use for **measured** BAS/utility series, not for EnergyPlus LST stamps.
+    """
     s = pd.to_datetime(ts_utc, utc=True)
     return s.dt.tz_convert(TZ_CHICAGO)
 
 
 def chicago_local_to_utc(ts_local: pd.Series) -> pd.Series:
+    """DST-aware Chicago wall clock → UTC (measured series only)."""
     s = pd.to_datetime(ts_local)
     if s.dt.tz is None:
         s = s.dt.tz_localize(TZ_CHICAGO, ambiguous="infer", nonexistent="shift_forward")
+    return s.dt.tz_convert(TZ_UTC)
+
+
+def eplus_lst_to_utc(ts_lst: pd.Series) -> pd.Series:
+    """Convert EnergyPlus LST (fixed CST−6) timestamps to UTC."""
+    s = pd.to_datetime(ts_lst)
+    if getattr(s.dt, "tz", None) is None:
+        s = s.dt.tz_localize(EPLUS_LST_OFFSET)
+    else:
+        s = s.dt.tz_convert(EPLUS_LST_OFFSET)
     return s.dt.tz_convert(TZ_UTC)
 
 
@@ -47,8 +70,8 @@ def aggregate_5min_to_15min_mean(df: pd.DataFrame, *, ts_col: str, kw_col: str) 
 def parse_eplus_csv_timestamp(stamp: str, year_hint: int | None = None) -> datetime | None:
     """Parse EnergyPlus CSV Date/Time like '01/15  14:15:00' or '01/15  24:00:00' as LST.
 
-    Returns timezone-aware America/Chicago datetime marking **interval end**.
-    ``24:00`` becomes next day 00:00.
+    Returns timezone-aware datetime in **fixed CST (UTC−6)** marking **interval end**.
+    ``24:00`` becomes next day 00:00. Does **not** use America/Chicago DST.
     """
     s = str(stamp).strip()
     m = re_match_eplus(s)
@@ -59,10 +82,9 @@ def parse_eplus_csv_timestamp(stamp: str, year_hint: int | None = None) -> datet
     if hour == 24:
         # end of day → next calendar day 00:00
         base = datetime(y, month, day, 0, 0, 0) + timedelta(days=1)
-        dt = base.replace(tzinfo=TZ_CHICAGO)
-        return dt
+        return base.replace(tzinfo=EPLUS_LST_OFFSET)
     try:
-        return datetime(y, month, day, hour, minute, second, tzinfo=TZ_CHICAGO)
+        return datetime(y, month, day, hour, minute, second, tzinfo=EPLUS_LST_OFFSET)
     except ValueError:
         return None
 

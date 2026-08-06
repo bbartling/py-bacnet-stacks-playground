@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-"""Native EnergyPlus heating DSM farm (fail-closed).
+"""Native EnergyPlus paired heating DSM farm (fail-closed, hybrid Phase 3).
 
-Every accepted training label comes from a validated native E+ run of the
-staged DSM-eligible utility champion. No BAS physics_proxy / bootstrap path.
+Produces 15-min rows with facility IdealLoads+COP kW + 6-area MAT (°F), paired
+baseline/DSM arms, per-area thermostat + IdealLoads availability controls,
+stable hashlib seeds, and hash-gated immutable manifests.
+
+Provenance: ENERGYPLUS_NATIVE_RUN · honesty: HYBRID_SCREENING
 """
 from __future__ import annotations
 
@@ -12,8 +15,9 @@ import json
 import os
 import shutil
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -27,16 +31,205 @@ if str(_ML) not in sys.path:
 
 from lakeside.paths import site_root  # noqa: E402
 from eplus_native.extract import (  # noqa: E402
+    ZONE_TEMP_COLS,
+    attach_utc_timestamps,
     filter_stamps_for_day,
-    load_timestep_proxy_kw,
-    to_hourly_mean_kw,
+    load_timestep_proxy_and_mat,
 )
 from eplus_native.hashes import sha256_file  # noqa: E402
-from eplus_native.idf_stage import patch_run_period  # noqa: E402
+from eplus_native.idf_stage import (  # noqa: E402
+    DSM_ZONES,
+    ensure_per_area_dsm_schedules,
+    patch_run_period,
+)
 from eplus_native.runner import run_energyplus  # noqa: E402
-from feature_compile_heating_dsm import STRATEGY_IDS  # noqa: E402
+from feature_compile_heating_dsm import (  # noqa: E402
+    HP_ON_COLS,
+    STRATEGY_IDS,
+    ZONE_TEMP_COLS as ML_ZONE_TEMP_COLS,
+)
 
-ZONE_LABELS = ["1F-A", "1F-B", "1F-C", "1F-D", "2F-A", "2F-B"]
+SCHEMA_VERSION = "lakeside.heating_dsm_farm.paired_15min.v1"
+OUT_STEM = "heating_dsm_eplus_paired_15min_v1"
+PROVENANCE = "ENERGYPLUS_NATIVE_RUN"
+HONESTY = "HYBRID_SCREENING"
+
+# °C setpoints written into IDF schedules
+OCC_HTG_C = 20.0  # 68°F
+UNOCC_HTG_C = 18.33  # ~65°F
+DEEP_SETBACK_C = 15.56  # 60°F
+FLAT_HTG_C = 20.0
+
+ZONE_SHORT = {
+    "1F_Area_A": "1F_A",
+    "1F_Area_B": "1F_B",
+    "1F_Area_C": "1F_C",
+    "1F_Area_D": "1F_D",
+    "2F_Area_A": "2F_A",
+    "2F_Area_B": "2F_B",
+}
+assert list(ZONE_TEMP_COLS.values()) == list(ML_ZONE_TEMP_COLS)
+
+
+def _jsonable(obj: Any) -> Any:
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {str(k): _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(v) for v in obj]
+    return obj
+
+
+def stable_seed_from_scenario(scenario: dict) -> int:
+    """Deterministic seed from scenario dict via hashlib — never Python hash()."""
+    payload = {k: v for k, v in scenario.items() if k != "seed"}
+    digest = hashlib.sha256(
+        json.dumps(_jsonable(payload), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return int(digest[:8], 16)
+
+
+def input_hash(idf_text: str, scenario: dict) -> str:
+    h = hashlib.sha256()
+    h.update(idf_text.encode("utf-8"))
+    h.update(
+        json.dumps(_jsonable(scenario), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
+    return h.hexdigest()
+
+
+def control_regime_for(strategy_id: str) -> str:
+    if strategy_id == "baseline":
+        return "baseline"
+    if strategy_id.startswith("prbs"):
+        return "prbs"
+    if strategy_id in STRATEGY_IDS:
+        return strategy_id
+    return strategy_id
+
+
+def _blocks_from_hourly(values_c: list[float]) -> list[tuple[int, int, float]]:
+    """24 hourly values → Schedule:Compact Until blocks (merge consecutive equals)."""
+    assert len(values_c) == 24
+    blocks: list[tuple[int, int, float]] = []
+    i = 0
+    while i < 24:
+        v = float(values_c[i])
+        j = i + 1
+        while j < 24 and float(values_c[j]) == v:
+            j += 1
+        until_h = j  # end at j:00; when j==24 → 24:00
+        blocks.append((until_h if until_h < 24 else 24, 0, v))
+        i = j
+    return blocks
+
+
+def _avail_from_hp(hp_hourly: list[float]) -> list[tuple[int, int, float]]:
+    return _blocks_from_hourly([1.0 if x >= 0.5 else 0.0 for x in hp_hourly])
+
+
+def _baseline_htg_hourly() -> list[float]:
+    # K-12-ish: unocc overnight, occ 07–16
+    return [OCC_HTG_C if 7 <= h < 16 else UNOCC_HTG_C for h in range(24)]
+
+
+def _baseline_hp_hourly() -> list[float]:
+    # IdealLoads available ~05:30–15:30 weekday-like (AllDays for farm single-day)
+    return [1.0 if 6 <= h < 16 else 0.0 for h in range(24)]
+
+
+def build_area_controls(strategy_id: str, seed: int) -> dict[str, Any]:
+    """Per-area heating SP (°C hourly) + hp_on (0/1 hourly) + regime metadata."""
+    rng = np.random.default_rng(seed)
+    zones = list(DSM_ZONES)
+    htg: dict[str, list[float]] = {}
+    hp: dict[str, list[float]] = {}
+    meta: dict[str, Any] = {
+        "strategy_id": strategy_id,
+        "control_regime": control_regime_for(strategy_id),
+        "preheat_lead_h": 0.0,
+        "stagger_min": 0.0,
+        "unocc_htg_sp_f": UNOCC_HTG_C * 9 / 5 + 32,
+        "occ_htg_sp_f": OCC_HTG_C * 9 / 5 + 32,
+    }
+
+    if strategy_id == "baseline":
+        base_h = _baseline_htg_hourly()
+        base_a = _baseline_hp_hourly()
+        for z in zones:
+            htg[z] = list(base_h)
+            hp[z] = list(base_a)
+        meta["preheat_lead_h"] = 1.0
+
+    elif strategy_id == "flat_24_7":
+        for z in zones:
+            htg[z] = [FLAT_HTG_C] * 24
+            hp[z] = [1.0] * 24
+        meta["unocc_htg_sp_f"] = FLAT_HTG_C * 9 / 5 + 32
+
+    elif strategy_id == "deep_setback":
+        for z in zones:
+            htg[z] = [OCC_HTG_C if 7 <= h < 16 else DEEP_SETBACK_C for h in range(24)]
+            hp[z] = [1.0 if 5 <= h < 16 else 0.0 for h in range(24)]
+        meta["unocc_htg_sp_f"] = DEEP_SETBACK_C * 9 / 5 + 32
+        meta["preheat_lead_h"] = 2.0
+
+    elif strategy_id == "morning_all_on":
+        for z in zones:
+            htg[z] = [OCC_HTG_C if 5 <= h < 16 else UNOCC_HTG_C for h in range(24)]
+            hp[z] = [1.0 if 5 <= h < 16 else 0.0 for h in range(24)]
+        meta["preheat_lead_h"] = 2.0
+
+    elif strategy_id == "stagger_preheat":
+        # Spread Area wake-up across hours 05..10 (one hour offset per area)
+        starts = [5, 6, 7, 8, 5, 6]
+        meta["stagger_min"] = 60.0
+        meta["preheat_lead_h"] = 2.0
+        for zi, z in enumerate(zones):
+            start_h = starts[zi % len(starts)]
+            vals = []
+            av = []
+            for h in range(24):
+                if start_h <= h < 16:
+                    vals.append(OCC_HTG_C)
+                    av.append(1.0)
+                else:
+                    vals.append(UNOCC_HTG_C)
+                    av.append(0.0)
+            htg[z] = vals
+            hp[z] = av
+
+    elif strategy_id.startswith("prbs"):
+        meta["control_regime"] = "prbs"
+        night = UNOCC_HTG_C
+        day_opts = np.array([18.33, 19.0, 20.0, 20.0])
+        for zi, z in enumerate(zones):
+            zrng = np.random.default_rng(int(seed) + (zi + 1) * 9973)
+            vals = [night] * 24
+            av = [0.0] * 24
+            h = 5
+            while h < 16:
+                dwell = int(zrng.integers(2, 5))
+                until = min(16, h + dwell)
+                sp = float(zrng.choice(day_opts))
+                for hh in range(h, until):
+                    vals[hh] = sp
+                    av[hh] = 1.0
+                h = until
+            htg[z] = vals
+            hp[z] = av
+
+    else:
+        raise ValueError(f"unknown strategy_id={strategy_id!r}")
+
+    return {"htg_c": htg, "hp_on": hp, "meta": meta}
+
+
+def controls_to_idf_blocks(controls: dict[str, Any]) -> tuple[dict, dict]:
+    htg_blocks = {z: _blocks_from_hourly(controls["htg_c"][z]) for z in DSM_ZONES}
+    avail_blocks = {z: _avail_from_hp(controls["hp_on"][z]) for z in DSM_ZONES}
+    return htg_blocks, avail_blocks
 
 
 def _eligible_idf(root: Path) -> Path:
@@ -52,200 +245,255 @@ def _eligible_idf(root: Path) -> Path:
     return p
 
 
-def _input_hash(idf_text: str, scenario: dict) -> str:
-    h = hashlib.sha256()
-    h.update(idf_text.encode("utf-8"))
-    safe = {
-        k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in scenario.items()
-    }
-    h.update(json.dumps(safe, sort_keys=True).encode("utf-8"))
-    return h.hexdigest()[:16]
-
-
-def _patch_htg_schedule_for_strategy(text: str, strategy_id: str, seed: int) -> str:
-    """Documented control patch: only SCH_HtgSP (and optional availability)."""
-    rng = np.random.default_rng(seed)
-    if strategy_id == "flat_24_7":
-        # constant occupied heating SP
-        body = """SCHEDULE:COMPACT,
-    SCH_HtgSP,                !- Name
-    Temperature,              !- Schedule Type Limits Name
-    Through: 12/31,           !- Field 1
-    For: AllDays,             !- Field 2
-    Until: 24:00,             !- Field 3
-    20.00;                    !- Field 4
-"""
-    elif strategy_id == "deep_setback":
-        body = """SCHEDULE:COMPACT,
-    SCH_HtgSP,                !- Name
-    Temperature,              !- Schedule Type Limits Name
-    Through: 12/31,           !- Field 1
-    For: AllDays,             !- Field 2
-    Until: 07:00,             !- Field 3
-    15.56,                    !- Field 4
-    Until: 16:00,             !- Field 5
-    20.00,                    !- Field 6
-    Until: 24:00,             !- Field 7
-    15.56;                    !- Field 8
-"""
-    elif strategy_id == "stagger_preheat":
-        body = """SCHEDULE:COMPACT,
-    SCH_HtgSP,                !- Name
-    Temperature,              !- Schedule Type Limits Name
-    Through: 12/31,           !- Field 1
-    For: AllDays,             !- Field 2
-    Until: 05:00,             !- Field 3
-    17.78,                    !- Field 4
-    Until: 08:00,             !- Field 5
-    20.00,                    !- Field 6
-    Until: 16:00,             !- Field 7
-    20.00,                    !- Field 8
-    Until: 24:00,             !- Field 9
-    17.78;                    !- Field 10
-"""
-    elif strategy_id == "morning_all_on":
-        body = """SCHEDULE:COMPACT,
-    SCH_HtgSP,                !- Name
-    Temperature,              !- Schedule Type Limits Name
-    Through: 12/31,           !- Field 1
-    For: AllDays,             !- Field 2
-    Until: 05:00,             !- Field 3
-    16.67,                    !- Field 4
-    Until: 16:00,             !- Field 5
-    20.00,                    !- Field 6
-    Until: 24:00,             !- Field 7
-    16.67;                    !- Field 8
-"""
-    elif strategy_id.startswith("prbs_"):
-        # PRBS-like: random daytime SP between setback and occupied, dwell ≥2h blocks
-        night = 17.78
-        day_vals = [18.33, 19.0, 20.0, 20.0]
-        blocks = []
-        h = 0
-        while h < 24:
-            dwell = int(rng.integers(2, 5))
-            until = min(24, h + dwell)
-            sp = night if h < 5 or h >= 16 else float(rng.choice(day_vals))
-            blocks.append((until, sp))
-            h = until
-        lines = [
-            "SCHEDULE:COMPACT,",
-            "    SCH_HtgSP,                !- Name",
-            "    Temperature,              !- Schedule Type Limits Name",
-            "    Through: 12/31,           !- Field 1",
-            "    For: AllDays,             !- Field 2",
-        ]
-        fi = 3
-        for until, sp in blocks:
-            lines.append(f"    Until: {until:02d}:00,             !- Field {fi}")
-            fi += 1
-            end = ";" if until == 24 else ","
-            lines.append(f"    {sp:.2f}{end}                    !- Field {fi}")
-            fi += 1
-        body = "\n".join(lines) + "\n"
-    else:
-        # baseline — leave schedule as staged
-        return text
-
-    import re
-
-    pat = re.compile(r"SCHEDULE:COMPACT,\s*\n\s*SCH_HtgSP\s*,.*?;", re.I | re.S)
-    if not pat.search(text):
-        raise ValueError("SCH_HtgSP not found for strategy patch")
-    return pat.sub(body.rstrip(), text, count=1)
-
-
 def _cold_shoulder_days(n_cold: int = 12, n_shoulder: int = 6) -> list[date]:
-    """Deterministic day list inside AMY window (2025-08-01 .. 2026-07-02)."""
-    # Cold: Jan–Feb 2026; shoulder: Oct–Nov 2025
     cold = [date(2026, 1, 5 + i * 2) for i in range(n_cold)]
     shoulder = [date(2025, 10, 6 + i * 3) for i in range(n_shoulder)]
     return cold + shoulder
 
 
 def build_scenarios(*, smoke: bool, medium: bool) -> list[dict]:
-    days = _cold_shoulder_days(4, 2) if smoke else _cold_shoulder_days(12, 6)
-    scenarios = []
-    # Always include paired baseline + named strategies
-    strategies = list(STRATEGY_IDS)
+    """Paired scenarios: one baseline run per day + DSM arms; smoke ≈ 12 runs."""
     if smoke:
-        strategies = ["baseline", "stagger_preheat", "flat_24_7", "prbs_z1"]
-        days = days[:3]
+        days = _cold_shoulder_days(4, 2)  # 6 days
+        # one DSM strategy per day → 6 baseline + 6 dsm = 12
+        dsm_cycle = [
+            "stagger_preheat",
+            "flat_24_7",
+            "deep_setback",
+            "morning_all_on",
+            "prbs_z0",
+            "prbs_z1",
+        ]
+        day_strategies = {d: [dsm_cycle[i]] for i, d in enumerate(days)}
     elif medium:
-        strategies = list(STRATEGY_IDS) + [f"prbs_{i}" for i in range(4)]
+        days = _cold_shoulder_days(12, 6)
+        strats = list(STRATEGY_IDS)
+        strats = [s for s in strats if s != "baseline"] + [f"prbs_z{i}" for i in range(4)]
+        day_strategies = {d: list(strats) for d in days}
+    else:
+        days = _cold_shoulder_days(4, 2)
+        day_strategies = {d: ["stagger_preheat"] for d in days}
+
+    scenarios: list[dict] = []
     for d in days:
-        for sid in strategies:
-            scenarios.append(
-                {
-                    "scenario_id": f"{d.isoformat()}_{sid}",
-                    "day": d.isoformat(),
-                    "strategy_id": sid,
-                    "begin": d,
-                    "end": d,
-                    "seed": int(d.toordinal() * 17 + hash(sid) % 997),
-                }
-            )
+        base = {
+            "day": d.isoformat(),
+            "begin": d,
+            "end": d,
+            "arm": "baseline",
+            "strategy_id": "baseline",
+            "control_regime": "baseline",
+            "pair_id": f"{d.isoformat()}__baseline",
+            "scenario_id": f"{d.isoformat()}_baseline",
+        }
+        base["seed"] = stable_seed_from_scenario(base)
+        scenarios.append(base)
+        for sid in day_strategies[d]:
+            sc = {
+                "day": d.isoformat(),
+                "begin": d,
+                "end": d,
+                "arm": "dsm",
+                "strategy_id": sid,
+                "control_regime": control_regime_for(sid),
+                "pair_id": f"{d.isoformat()}__{sid}",
+                "scenario_id": f"{d.isoformat()}_{sid}",
+            }
+            sc["seed"] = stable_seed_from_scenario(sc)
+            scenarios.append(sc)
     return scenarios
 
 
-def _rows_from_run(
-    hourly: pd.DataFrame,
+def _quarter_index(stamp: str) -> tuple[int, int, int]:
+    """hour_ending (1..24 style clock hour of interval end), minute, q0..95."""
+    parts = str(stamp).strip().split()
+    if len(parts) < 2:
+        return 0, 0, 0
+    hm = parts[1].split(":")
+    h = int(hm[0])
+    mi = int(hm[1]) if len(hm) > 1 else 0
+    if h == 24:
+        return 24, 0, 95
+    # E+ timestep stamps are interval end; map to hour_ending 1..24
+    if mi == 0:
+        he = h if h > 0 else 24
+        q = (he * 4 - 1) % 96
+    else:
+        he = h
+        q = h * 4 + (mi // 15) - 1
+    return he, mi, int(q) % 96
+
+
+def _control_at_hour(controls: dict[str, Any], hour_0_23: int) -> dict[str, float]:
+    h = max(0, min(23, hour_0_23))
+    out: dict[str, float] = {}
+    for z in DSM_ZONES:
+        short = ZONE_SHORT[z]
+        out[f"hp_on_{short}"] = float(controls["hp_on"][z][h])
+        out[f"htg_sp_{short}_c"] = float(controls["htg_c"][z][h])
+        out[f"htg_sp_{short}_f"] = float(controls["htg_c"][z][h]) * 9 / 5 + 32
+        out[f"occ_frac_{short}"] = float(controls["hp_on"][z][h])
+    return out
+
+
+def rows_from_timestep(
+    ts: pd.DataFrame,
     *,
     scenario: dict,
     run_id: str,
+    input_hash_hex: str,
     idf_sha: str,
     epw_sha: str,
+    run_model_hash: str,
+    controls: dict[str, Any],
 ) -> list[dict]:
-    rows = []
     d = scenario["day"]
-    sid = scenario["strategy_id"]
-    for i, r in hourly.iterrows():
-        he = int(i % 24) if False else None
-        # Prefer parse hour from stamp
-        stamp = str(r.get("eplus_stamp", ""))
-        hour_ending = 0
-        import re
-
-        m = re.search(r"(\d{1,2}):(\d{2}):(\d{2})$", stamp)
-        if m:
-            hour_ending = int(m.group(1)) % 24
-        dt = date.fromisoformat(d)
-        rows.append(
-            {
-                "day": d,
-                "hour_ending": hour_ending,
-                "month": dt.month,
-                "doy": int(dt.timetuple().tm_yday),
-                "is_weekend": 1.0 if dt.weekday() >= 5 else 0.0,
-                "facility_kw": float(r["site_electric_proxy_kw"]),
-                "strategy_id": sid if sid.startswith("prbs") else sid,
-                "simulation_id": run_id,
-                "run_id": run_id,
-                "scenario_id": scenario["scenario_id"],
-                "provenance": "ENERGYPLUS_NATIVE_RUN",
-                "idf_sha256": idf_sha,
-                "epw_sha256": epw_sha,
-                "heat_cop_proxy": 3.5,
-                "cool_cop_proxy": 4.5,
-                "schema_version": "lakeside.heating_dsm_farm.native.v1",
-                "oat_f": np.nan,  # filled later from weather if available
-                "rh_pct": 50.0,
-                "ghi": 0.0,
-                "occupied": 1.0 if 7 <= hour_ending < 16 else 0.0,
-                "facility_kw_bas": float(r["site_electric_proxy_kw"]),
-            }
-        )
+    dt = date.fromisoformat(d)
+    year = dt.year
+    ts = attach_utc_timestamps(ts, year_hint=year)
+    meta = controls["meta"]
+    rows = []
+    seen_stamps: set[str] = set()
+    for _, r in ts.iterrows():
+        stamp = str(r["eplus_stamp"])
+        if stamp in seen_stamps:
+            continue
+        seen_stamps.add(stamp)
+        he, minute, q = _quarter_index(stamp)
+        # control hour: use floor of interval end
+        ctrl_h = 0 if he == 24 else (he - 1 if minute == 0 else he)
+        if he == 24:
+            ctrl_h = 23
+        elif minute == 0:
+            ctrl_h = (he - 1) % 24
+        else:
+            ctrl_h = he % 24
+        ctrl = _control_at_hour(controls, ctrl_h)
+        row = {
+            "day": d,
+            "pair_id": scenario["pair_id"],
+            "arm": scenario["arm"],
+            "strategy_id": scenario["strategy_id"],
+            "control_regime": scenario["control_regime"],
+            "scenario_id": scenario["scenario_id"],
+            "run_id": run_id,
+            "simulation_id": run_id,
+            "input_hash": input_hash_hex,
+            "run_model_hash": run_model_hash,
+            "eplus_stamp": stamp,
+            "timestamp_utc": r.get("timestamp_utc"),
+            "hour_ending": int(he if he != 0 else 24),
+            "minute": int(minute),
+            "quarter_index": int(q),
+            "month": dt.month,
+            "doy": int(dt.timetuple().tm_yday),
+            "is_weekend": 1.0 if dt.weekday() >= 5 else 0.0,
+            "occupied": 1.0 if 7 <= (he % 24 if he < 24 else 0) < 16 else 0.0,
+            "facility_kw": float(r["site_electric_proxy_kw"]),
+            "heat_cop_proxy": 3.5,
+            "cool_cop_proxy": 4.5,
+            "provenance": PROVENANCE,
+            "honesty": HONESTY,
+            "idf_sha256": idf_sha,
+            "epw_sha256": epw_sha,
+            "schema_version": SCHEMA_VERSION,
+            "oat_f": np.nan,
+            "rh_pct": 50.0,
+            "ghi": 0.0,
+            "preheat_lead_h": float(meta.get("preheat_lead_h", 0.0)),
+            "stagger_min": float(meta.get("stagger_min", 0.0)),
+            "unocc_htg_sp_f": float(meta.get("unocc_htg_sp_f", 65.0)),
+            "occ_htg_sp_f": float(meta.get("occ_htg_sp_f", 68.0)),
+            **ctrl,
+        }
+        for col in ZONE_TEMP_COLS.values():
+            row[col] = float(r[col]) if col in r and pd.notna(r[col]) else np.nan
+        rows.append(row)
     return rows
+
+
+def _patch_idf_for_scenario(base_text: str, scenario: dict, controls: dict) -> str:
+    htg_blocks, avail_blocks = controls_to_idf_blocks(controls)
+    text = ensure_per_area_dsm_schedules(
+        base_text,
+        htg_blocks_by_zone=htg_blocks,
+        avail_blocks_by_zone=avail_blocks,
+    )
+    d0: date = scenario["begin"]
+    text = patch_run_period(
+        text,
+        begin_month=d0.month,
+        begin_day=d0.day,
+        end_month=d0.month,
+        end_day=d0.day,
+        begin_year=d0.year,
+        end_year=d0.year,
+        name=f"DSM_{d0.isoformat()}_{scenario['arm']}",
+    )
+    return text
+
+
+def _day_profile_key(df: pd.DataFrame) -> pd.Series:
+    """Fingerprint facility_kw path for duplicate detection."""
+    def _one(g: pd.DataFrame) -> str:
+        kw = g.sort_values(["quarter_index", "hour_ending"])["facility_kw"].to_numpy(dtype=float)
+        return hashlib.sha256(kw.tobytes()).hexdigest()[:16]
+
+    return df.groupby(["arm", "day", "strategy_id"], sort=False).apply(
+        lambda g: _one(g), include_groups=False
+    )
+
+
+def dedupe_day_profiles(farm: pd.DataFrame) -> pd.DataFrame:
+    """Keep first unique day-profile per (arm, day, strategy_id)."""
+    if farm.empty:
+        return farm
+    keys = []
+    keep_idx = []
+    seen: set[tuple] = set()
+    for (arm, day, sid), g in farm.groupby(["arm", "day", "strategy_id"], sort=False):
+        kw = g.sort_values(["quarter_index", "hour_ending"])["facility_kw"].to_numpy(dtype=float)
+        sig = hashlib.sha256(kw.tobytes()).hexdigest()
+        key = (arm, day, sid, sig)
+        # uniqueness: one profile per arm+day+strategy (already one group); also
+        # drop if identical profile reused under same arm+day+strategy via resume bugs
+        group_key = (arm, day, sid)
+        if group_key in seen:
+            continue
+        seen.add(group_key)
+        keep_idx.extend(g.index.tolist())
+        keys.append(key)
+    return farm.loc[sorted(set(keep_idx))].reset_index(drop=True)
+
+
+def assert_training_gate(farm: pd.DataFrame, manifests: dict[str, dict]) -> None:
+    """Every row reconciles to a unique accepted manifest + run_model_hash."""
+    if farm.empty:
+        raise ValueError("empty farm")
+    for col in ("input_hash", "run_model_hash", "run_id", "facility_kw", *ML_ZONE_TEMP_COLS):
+        if col not in farm.columns:
+            raise ValueError(f"training gate: missing column {col}")
+    for h, sub in farm.groupby("input_hash"):
+        if h not in manifests:
+            raise ValueError(f"row input_hash {h} has no accepted manifest")
+        man = manifests[h]
+        if not man.get("accepted"):
+            raise ValueError(f"manifest {h} not accepted")
+        rmh = set(sub["run_model_hash"].astype(str).unique())
+        if len(rmh) != 1:
+            raise ValueError(f"input_hash {h} maps to multiple run_model_hash={rmh}")
+        if man.get("run_model_hash") and man["run_model_hash"] not in rmh:
+            raise ValueError(f"manifest run_model_hash mismatch for {h}")
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--smoke", action="store_true", help="~8–12 short native runs")
-    ap.add_argument("--medium", action="store_true", help="~80–120 scenario-days")
+    ap.add_argument("--smoke", action="store_true", help="~12 paired runs (6 days × baseline+dsm)")
+    ap.add_argument("--medium", action="store_true", help="full cold+shoulder × strategies")
     ap.add_argument(
         "--out",
         type=Path,
-        default=_APP / "ml" / "artifacts" / "heating_dsm_eplus_farm_hourly.parquet",
+        default=_APP / "ml" / "artifacts" / f"{OUT_STEM}.parquet",
     )
     args = ap.parse_args(argv)
     if not args.smoke and not args.medium:
@@ -258,7 +506,7 @@ def main(argv: list[str] | None = None) -> int:
     root = site_root()
     idf_src = _eligible_idf(root)
     epw = root / "eplus" / "weather" / "madison_amy_202508_202607.epw"
-    farm_root = root / "eplus" / "dsm_farm"
+    farm_root = root / "eplus" / "dsm_farm_paired"
     farm_root.mkdir(parents=True, exist_ok=True)
     index_path = farm_root / "farm_index.jsonl"
 
@@ -266,123 +514,268 @@ def main(argv: list[str] | None = None) -> int:
     idf_sha = sha256_file(idf_src)
     epw_sha = sha256_file(epw)
     scenarios = build_scenarios(smoke=args.smoke, medium=args.medium)
-    print(f"farm scenarios={len(scenarios)} idf={idf_src.name}", flush=True)
+    print(
+        f"paired farm scenarios={len(scenarios)} "
+        f"baseline={sum(1 for s in scenarios if s['arm']=='baseline')} "
+        f"dsm={sum(1 for s in scenarios if s['arm']=='dsm')} idf={idf_src.name}",
+        flush=True,
+    )
 
-    all_rows: list[dict] = []
+    # Cache accepted timestep frames by input_hash for pair expansion
+    run_cache: dict[str, dict] = {}
     accepted = 0
     rejected = 0
-    for sc in scenarios:
-        run_id = sc["scenario_id"].replace(":", "")
-        scen_hash = _input_hash(base_text, sc)
-        run_dir = farm_root / f"{run_id}_{scen_hash}"
-        man_path = run_dir / "run_manifest.json"
-        if man_path.is_file():
-            man = json.loads(man_path.read_text(encoding="utf-8"))
-            if man.get("accepted"):
-                # resume cache hit
-                hourly_path = run_dir / "hourly_proxy.parquet"
-                if hourly_path.is_file():
-                    hourly = pd.read_parquet(hourly_path)
-                    all_rows.extend(
-                        _rows_from_run(
-                            hourly, scenario=sc, run_id=run_id, idf_sha=idf_sha, epw_sha=epw_sha
-                        )
-                    )
-                    accepted += 1
-                    continue
+    manifests: dict[str, dict] = {}
 
-        text = _patch_htg_schedule_for_strategy(base_text, sc["strategy_id"], sc["seed"])
-        d0: date = sc["begin"]
-        text = patch_run_period(
-            text,
-            begin_month=d0.month,
-            begin_day=d0.day,
-            end_month=d0.month,
-            end_day=d0.day,
-            begin_year=d0.year,
-            end_year=d0.year,
-            name=f"DSM_{d0.isoformat()}",
-        )
+    for sc in scenarios:
+        controls = build_area_controls(sc["strategy_id"], sc["seed"])
+        text = _patch_idf_for_scenario(base_text, sc, controls)
+        scen_hash = input_hash(text, sc)
+        run_id = f"{sc['scenario_id'].replace(':', '')}_{scen_hash[:12]}"
+        run_dir = farm_root / f"{run_id}"
+        man_path = run_dir / "run_manifest.json"
+        ts_path = run_dir / "timestep_proxy_mat.parquet"
+
+        if man_path.is_file() and ts_path.is_file():
+            man = json.loads(man_path.read_text(encoding="utf-8"))
+            if man.get("accepted") and man.get("input_hash") == scen_hash:
+                ts = pd.read_parquet(ts_path)
+                run_model_hash = man.get("run_model_hash") or sha256_file(run_dir / "model.idf")
+                run_cache[scen_hash] = {
+                    "scenario": sc,
+                    "controls": controls,
+                    "ts": ts,
+                    "run_id": run_id,
+                    "input_hash": scen_hash,
+                    "run_model_hash": run_model_hash,
+                    "manifest": man,
+                }
+                manifests[scen_hash] = man
+                accepted += 1
+                print(f"RESUME {run_id}", flush=True)
+                continue
+
         if run_dir.exists():
             shutil.rmtree(run_dir, ignore_errors=True)
         run_dir.mkdir(parents=True)
         idf_path = run_dir / "model.idf"
         idf_path.write_text(text, encoding="utf-8")
+        run_model_hash = sha256_file(idf_path)
 
-        man = run_energyplus(
-            run_id=run_id,
-            scenario_id=sc["scenario_id"],
-            idf_path=idf_path,
-            epw_path=epw,
-            output_dir=run_dir / "sim",
-            require_zero_severe=True,
-            allow_staged_idf=True,
+        try:
+            man_obj = run_energyplus(
+                run_id=run_id,
+                scenario_id=sc["scenario_id"],
+                idf_path=idf_path,
+                epw_path=epw,
+                output_dir=run_dir / "sim",
+                require_zero_severe=True,
+                allow_staged_idf=True,
+            )
+        except FileNotFoundError as e:
+            print(
+                f"EnergyPlus missing or path error: {e}\n"
+                f"Install EnergyPlus and/or set eplus_native.DEFAULT_EPLUS_EXE.\n"
+                f"Then: python -u scripts/eplus_heating_dsm_farm.py --smoke",
+                file=sys.stderr,
+            )
+            return 2
+
+        man = man_obj.to_dict()
+        man["input_hash"] = scen_hash
+        man["run_model_hash"] = run_model_hash
+        man["arm"] = sc["arm"]
+        man["pair_id"] = sc["pair_id"]
+        man["strategy_id"] = sc["strategy_id"]
+        man["control_regime"] = sc["control_regime"]
+        man["seed"] = sc["seed"]
+        (run_dir / "run_manifest.json").write_text(
+            json.dumps(man, indent=2) + "\n", encoding="utf-8"
         )
         with index_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(man.to_dict()) + "\n")
-        if not man.accepted:
+            f.write(json.dumps(man) + "\n")
+
+        if not man_obj.accepted:
             rejected += 1
-            print(f"REJECT {run_id}: {man.reject_reasons}", flush=True)
+            print(f"REJECT {run_id}: {man_obj.reject_reasons}", flush=True)
             continue
+
         try:
-            ts = load_timestep_proxy_kw(run_dir / "sim", interval_hours=0.25)
+            ts = load_timestep_proxy_and_mat(run_dir / "sim", interval_hours=0.25)
             ts = filter_stamps_for_day(ts, sc["day"])
-            hourly = to_hourly_mean_kw(ts)
-            hourly.to_parquet(run_dir / "hourly_proxy.parquet", index=False)
+            ts = ts.drop_duplicates(subset=["eplus_stamp"], keep="last").reset_index(drop=True)
+            if ts.empty:
+                raise ValueError("no run-period stamps after design-day filter")
+            ts.to_parquet(ts_path, index=False)
         except Exception as e:
             rejected += 1
             print(f"EXTRACT FAIL {run_id}: {e}", flush=True)
             continue
+
         accepted += 1
-        all_rows.extend(
-            _rows_from_run(hourly, scenario=sc, run_id=run_id, idf_sha=idf_sha, epw_sha=epw_sha)
-        )
-        print(f"OK {run_id} hours={len(hourly)}", flush=True)
+        manifests[scen_hash] = man
+        run_cache[scen_hash] = {
+            "scenario": sc,
+            "controls": controls,
+            "ts": ts,
+            "run_id": run_id,
+            "input_hash": scen_hash,
+            "run_model_hash": run_model_hash,
+            "manifest": man,
+        }
+        print(f"OK {run_id} timesteps={len(ts)} arm={sc['arm']} sid={sc['strategy_id']}", flush=True)
 
     if accepted == 0:
         print("NO ACCEPTED RUNS — farm failed closed", file=sys.stderr)
         return 1
 
+    # Expand paired rows: each DSM pair_id gets matching baseline rows + dsm rows
+    by_day_baseline: dict[str, dict] = {}
+    dsm_runs: list[dict] = []
+    for payload in run_cache.values():
+        sc = payload["scenario"]
+        if sc["arm"] == "baseline":
+            by_day_baseline[sc["day"]] = payload
+        else:
+            dsm_runs.append(payload)
+
+    all_rows: list[dict] = []
+    # Also keep standalone baseline arm rows (pair_id …__baseline) for provenance
+    for day, payload in by_day_baseline.items():
+        all_rows.extend(
+            rows_from_timestep(
+                payload["ts"],
+                scenario=payload["scenario"],
+                run_id=payload["run_id"],
+                input_hash_hex=payload["input_hash"],
+                idf_sha=idf_sha,
+                epw_sha=epw_sha,
+                run_model_hash=payload["run_model_hash"],
+                controls=payload["controls"],
+            )
+        )
+
+    for payload in dsm_runs:
+        sc = payload["scenario"]
+        day = sc["day"]
+        base = by_day_baseline.get(day)
+        if base is None:
+            print(f"WARN no baseline for day {day}; skipping pair {sc['pair_id']}", flush=True)
+            continue
+        # Paired baseline copy under DSM pair_id — strategy_id is the matched DSM
+        # so (arm, day, strategy_id) uniquely identifies one 96-step profile.
+        base_sc = dict(base["scenario"])
+        base_sc["pair_id"] = sc["pair_id"]
+        base_sc["arm"] = "baseline"
+        base_sc["strategy_id"] = sc["strategy_id"]
+        base_sc["control_regime"] = sc["control_regime"]
+        all_rows.extend(
+            rows_from_timestep(
+                base["ts"],
+                scenario=base_sc,
+                run_id=base["run_id"],
+                input_hash_hex=base["input_hash"],
+                idf_sha=idf_sha,
+                epw_sha=epw_sha,
+                run_model_hash=base["run_model_hash"],
+                controls=base["controls"],
+            )
+        )
+        all_rows.extend(
+            rows_from_timestep(
+                payload["ts"],
+                scenario=sc,
+                run_id=payload["run_id"],
+                input_hash_hex=payload["input_hash"],
+                idf_sha=idf_sha,
+                epw_sha=epw_sha,
+                run_model_hash=payload["run_model_hash"],
+                controls=payload["controls"],
+            )
+        )
+
     farm = pd.DataFrame(all_rows)
-    # Attach weather OAT when available
+    farm = dedupe_day_profiles(farm)
+
+    # Weather attach (optional hourly OAT)
     try:
         from artifact_paths import weather_history_csv, demand_hourly_csv
-        from build_bootstrap_dataset import _load_weather_hourly, _load_hourly_demand
+        from site_weather import load_weather_hourly, load_hourly_demand
 
-        wx = _load_weather_hourly(weather_history_csv())
-        if len(wx):
-            farm = farm.merge(wx, on=["day", "hour_ending"], how="left", suffixes=("", "_wx"))
-            if "oat_f_wx" in farm.columns:
-                farm["oat_f"] = farm["oat_f"].fillna(farm["oat_f_wx"])
-        dem = _load_hourly_demand(demand_hourly_csv())
+        wx = load_weather_hourly(weather_history_csv())
+        if len(wx) and "oat_f" in wx.columns:
+            w = wx[["day", "hour_ending", "oat_f"]].copy()
+            w["hour_ending"] = w["hour_ending"].astype(int) % 24
+            w = w.rename(columns={"oat_f": "oat_wx", "hour_ending": "_he"})
+            farm["_he"] = farm["hour_ending"].astype(int) % 24
+            farm = farm.merge(w, on=["day", "_he"], how="left")
+            farm["oat_f"] = farm["oat_f"].fillna(farm["oat_wx"])
+            farm.drop(columns=["_he", "oat_wx"], inplace=True, errors="ignore")
+        dem = load_hourly_demand(demand_hourly_csv())
         if len(dem) and "oat_f" in dem.columns:
-            # fill remaining oat from demand file
-            m = dem[["day", "hour_ending", "oat_f"]].rename(columns={"oat_f": "oat_dem"})
-            farm = farm.merge(m, on=["day", "hour_ending"], how="left")
+            m = dem[["day", "hour_ending", "oat_f"]].copy()
+            m["hour_ending"] = m["hour_ending"].astype(int) % 24
+            m = m.rename(columns={"oat_f": "oat_dem", "hour_ending": "_he"})
+            farm["_he"] = farm["hour_ending"].astype(int) % 24
+            farm = farm.merge(m, on=["day", "_he"], how="left")
             farm["oat_f"] = farm["oat_f"].fillna(farm["oat_dem"])
+            farm.drop(columns=["_he", "oat_dem"], inplace=True, errors="ignore")
     except Exception as e:
         print(f"weather attach skipped: {e}", flush=True)
 
     farm["oat_f"] = farm["oat_f"].fillna(25.0)
+
+    # Training gate
+    try:
+        assert_training_gate(farm, manifests)
+    except ValueError as e:
+        print(f"TRAINING GATE FAIL: {e}", file=sys.stderr)
+        return 1
+
+    # hp_on variation check
+    hp_std = {c: float(farm[c].std()) for c in HP_ON_COLS if c in farm.columns}
+    if all(v < 1e-9 for v in hp_std.values()):
+        print("WARN: hp_on_* have zero variance across farm", flush=True)
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     farm.to_parquet(args.out, index=False)
+
+    # Optional site copy
+    site_out = farm_root / f"{OUT_STEM}.parquet"
+    try:
+        farm.to_parquet(site_out, index=False)
+    except Exception as e:
+        print(f"site parquet copy skipped: {e}", flush=True)
+
     summary = {
         "n_rows": int(len(farm)),
-        "n_scenarios_accepted": accepted,
-        "n_scenarios_rejected": rejected,
+        "n_runs_accepted": accepted,
+        "n_runs_rejected": rejected,
         "n_days": int(farm["day"].nunique()),
+        "n_pair_ids": int(farm["pair_id"].nunique()),
+        "arms": sorted(farm["arm"].astype(str).unique().tolist()),
         "strategies": sorted(farm["strategy_id"].astype(str).unique().tolist()),
-        "provenance": "ENERGYPLUS_NATIVE_RUN",
+        "control_regimes": sorted(farm["control_regime"].astype(str).unique().tolist()),
+        "provenance": PROVENANCE,
+        "honesty": HONESTY,
+        "schema_version": SCHEMA_VERSION,
         "idf_sha256": idf_sha,
         "epw_sha256": epw_sha,
         "staged_idf": str(idf_src),
         "out": str(args.out),
-        "honesty": (
-            "Native EnergyPlus IdealLoads + fixed-COP electrical proxy. "
-            "Not a detailed GSHP/GLHE plant. Fail-closed: rejected runs excluded."
+        "site_out": str(site_out),
+        "farm_root": str(farm_root),
+        "hp_on_std": hp_std,
+        "absolute_targets": ["facility_kw", *ML_ZONE_TEMP_COLS],
+        "notes": (
+            "Paired native EnergyPlus IdealLoads+COP + 6-area MAT. "
+            "PRBS uses control_regime=prbs (not stagger one-hots). "
+            "E+ LST→UTC uses fixed CST−6. Canonical *_best_utility.idf never overwritten."
         ),
     }
-    (args.out.parent / "eplus_farm_summary.json").write_text(
+    summary_path = args.out.parent / f"{OUT_STEM}_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (farm_root / f"{OUT_STEM}_summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     print(json.dumps(summary, indent=2))

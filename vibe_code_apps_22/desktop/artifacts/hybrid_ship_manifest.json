@@ -1,0 +1,21 @@
+{
+  "ship_mode": "hybrid_96",
+  "honesty": "HYBRID_SCREENING",
+  "contract_version": "hybrid_dsm_96_v1",
+  "walk_json": "hybrid_dsm_96_v1_walk.json",
+  "baseline_stem": "real_baseline_15min_v1",
+  "delta_stem": "eplus_delta_15min_v1",
+  "champion_baseline": "extra_trees",
+  "champion_delta": "random_forest",
+  "summary": {
+    "cumulative_kwh_baseline": 3113.4350569859967,
+    "cumulative_kwh_hybrid": 3456.7328377293816,
+    "peak_kw_baseline": 212.84379514148876,
+    "peak_kw_hybrid": 214.88454193907543,
+    "peak_step_baseline": 42,
+    "peak_step_hybrid": 42,
+    "comfort_violations": 28,
+    "delta_peak_kw": 2.040746797586678,
+    "delta_kwh": 343.2977807433849
+  }
+}

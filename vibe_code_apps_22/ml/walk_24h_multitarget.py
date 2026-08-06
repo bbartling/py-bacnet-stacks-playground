@@ -27,30 +27,29 @@ PredictFn = Callable[[np.ndarray], np.ndarray]  # (1, n_feat) → (n_targets,)
 
 
 def default_strategy_hp_grid(strategy_id: str, *, weekend: bool = False) -> np.ndarray:
-    """Return (24, 6) hp_on floats for a named strategy (weekday K12-ish)."""
-    from seed_proxy_scenarios import expand_day_with_strategies  # local import
+    """Return (24, 6) hp_on floats for a named strategy (weekday K12-ish).
 
-    # Build a tiny stub day and reuse strategy occ → hp mapping
-    rows = []
+    Schedule shapes only — not facility_kw labels. Labels come from native E+.
+    """
+    out = np.zeros((24, 6), dtype=float)
+    if weekend:
+        return out
     for h in range(24):
-        rows.append(
-            {
-                "day": "2099-01-01",
-                "hour_ending": h,
-                "month": 1,
-                "doy": 15,
-                "is_weekend": float(weekend),
-                "occupied": float((not weekend) and 7 <= h < 16),
-                "oat_f": 20.0,
-                "facility_kw_bas": 100.0,
-                "rh_pct": 50.0,
-                "ghi": 0.0,
-            }
-        )
-    day_df = pd.DataFrame(rows)
-    expanded = expand_day_with_strategies(day_df, strategies=[strategy_id])
-    sub = expanded[expanded["strategy_id"] == strategy_id].sort_values("hour_ending")
-    return sub[HP_ON_COLS].to_numpy(dtype=float)
+        if strategy_id == "flat_24_7":
+            out[h, :] = 1.0
+        elif strategy_id == "deep_setback":
+            out[h, :] = 1.0 if 8 <= h < 16 else 0.0
+        elif strategy_id == "morning_all_on":
+            out[h, :] = 1.0 if 5 <= h < 16 else 0.0
+        elif strategy_id == "stagger_preheat":
+            if h >= 8 and h < 16:
+                out[h, :] = 1.0
+            elif 5 <= h < 8:
+                n_on = min(6, max(0, (h - 4)))
+                out[h, :n_on] = 1.0
+        else:  # baseline
+            out[h, :] = 1.0 if 7 <= h < 16 else 0.0
+    return out
 
 
 def walk_24h_multitarget(

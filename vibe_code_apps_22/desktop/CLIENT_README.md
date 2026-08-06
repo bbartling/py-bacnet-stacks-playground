@@ -31,7 +31,7 @@ the model must sit in the **same folder** as the executable.
 ## Honesty (read this)
 
 - Status: **CANDIDATE** screening tool — **not** tariff-grade or APPROVED.
-- Training labels: EnergyPlus IdealLoads + COP proxy farm (`ENERGYPLUS_SIMULATED`)
+- Training labels: native EnergyPlus IdealLoads + fixed-COP farm (`ENERGYPLUS_NATIVE_RUN`) on the site Lakeside staged utility twin
   unless your package notes otherwise.
 - Predicts **facility electric kW only** (not zone air temps yet).
 - The ± kW band on the plot is **peak-window MAE** (morning HE 05–09) —

@@ -1,0 +1,36 @@
+{
+  "stem": "eplus_delta_15min_v1",
+  "honesty": "HYBRID_SCREENING",
+  "provenance": "ENERGYPLUS_NATIVE_DELTA",
+  "champion": "random_forest",
+  "best_params": {
+    "n_estimators": 350,
+    "min_samples_leaf": 4,
+    "max_features": "sqrt",
+    "max_depth": null
+  },
+  "cv_teacher_forced": {
+    "gradient_boosting": {
+      "mae_delta_kw": 27.180196783586357,
+      "rmse_delta_kw": 52.742498669964675,
+      "mae_delta_kw_peak": 53.534060424150056,
+      "mae_delta_temp_mean": 2.3614000748492163
+    },
+    "extra_trees": {
+      "mae_delta_kw": 20.19295940794779,
+      "rmse_delta_kw": 44.34651874104421,
+      "mae_delta_kw_peak": 52.34739560921635,
+      "mae_delta_temp_mean": 1.8842467715951434
+    },
+    "random_forest": {
+      "mae_delta_kw": 20.372219249395584,
+      "rmse_delta_kw": 38.678830229219415,
+      "mae_delta_kw_peak": 47.475998665787955,
+      "mae_delta_temp_mean": 2.0330265007465456
+    }
+  },
+  "n_rows": 576,
+  "n_days": 6,
+  "built_at_utc": "2026-08-06T14:45:09.372523+00:00",
+  "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet"
+}

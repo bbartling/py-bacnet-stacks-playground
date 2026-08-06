@@ -159,7 +159,7 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
         if missing:
             raise ValueError(
                 f"multitarget compile needs zone temp columns {missing}. "
-                "Call attach_synthetic_zone_temps() or supply native E+ temps."
+                "Supply native E+ zone MAT columns (Phase B2) — synthetic temps removed."
             )
         for c in ZONE_TEMP_COLS:
             out[c] = pd.to_numeric(out[c], errors="coerce")

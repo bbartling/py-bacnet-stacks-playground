@@ -16,10 +16,7 @@ import pandas as pd
 from sklearn.ensemble import (
     ExtraTreesRegressor,
     GradientBoostingRegressor,
-    HistGradientBoostingRegressor,
-    RandomForestRegressor,
 )
-from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, make_scorer
 from sklearn.model_selection import GroupKFold, RandomizedSearchCV
 
@@ -73,39 +70,7 @@ def bake_off(
     et_iters = int(n_iter_extra_trees if n_iter_extra_trees is not None else max(80, n_iter * 2))
 
     search_spaces: dict[str, tuple[Any, dict[str, list]]] = {
-        "ridge": (
-            Ridge(),
-            {
-                "alpha": np.logspace(-4, 4, 32).tolist(),
-                "fit_intercept": [True, False],
-                "solver": ["auto", "svd", "cholesky", "lsqr", "sag"],
-            },
-        ),
-        "elasticnet": (
-            ElasticNet(max_iter=8000, random_state=21),
-            {
-                "alpha": np.logspace(-4, 1.5, 20).tolist(),
-                "l1_ratio": [0.05, 0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9, 0.95],
-                "fit_intercept": [True, False],
-                "selection": ["cyclic", "random"],
-                "tol": [1e-4, 1e-3, 1e-2],
-            },
-        ),
-        "rf": (
-            RandomForestRegressor(random_state=21, n_jobs=-1),
-            {
-                "n_estimators": [80, 120, 160, 200, 280, 360, 480],
-                "max_depth": [6, 8, 10, 12, 16, 20, 28, None],
-                "min_samples_split": [2, 4, 6, 10],
-                "min_samples_leaf": [1, 2, 3, 5, 8],
-                "max_features": [0.3, 0.5, 0.65, 0.8, 1.0, "sqrt", "log2"],
-                "bootstrap": [True, False],
-                "criterion": ["squared_error", "friedman_mse"],
-                "ccp_alpha": [0.0, 1e-5, 1e-4, 5e-4],
-                "max_leaf_nodes": [None, 128, 256, 512],
-                "min_impurity_decrease": [0.0, 1e-5, 1e-4],
-            },
-        ),
+        # Slim bake-off: linear/RF/HGB lost to GB on peak MAE; keep GB + ExtraTrees.
         "gradient_boosting": (
             GradientBoostingRegressor(random_state=21),
             {
@@ -137,22 +102,6 @@ def bake_off(
                 "max_leaf_nodes": [None, 128, 256, 512, 1024, 2048],
             },
         ),
-        "hgb": (
-            HistGradientBoostingRegressor(random_state=21),
-            {
-                "learning_rate": [0.02, 0.03, 0.05, 0.07, 0.1, 0.12, 0.15],
-                "max_depth": [3, 4, 5, 6, 8, 10, 12, None],
-                "max_iter": [100, 150, 200, 280, 400, 550, 700],
-                "min_samples_leaf": [5, 10, 15, 20, 30, 50],
-                "l2_regularization": [0.0, 1e-4, 1e-3, 1e-2, 0.1],
-                "max_bins": [64, 128, 255],
-                "max_leaf_nodes": [15, 31, 63, 127, None],
-                "early_stopping": [False, True],
-                "validation_fraction": [0.1, 0.15, 0.2],
-                "n_iter_no_change": [10, 20, 30],
-                "tol": [1e-7, 1e-6],
-            },
-        ),
     }
 
     cv_scores: dict[str, list[dict[str, float]]] = {k: [] for k in search_spaces}
@@ -167,8 +116,7 @@ def bake_off(
         for v in space.values():
             n_combos *= max(len(v), 1)
         budget = et_iters if name == "extra_trees" else n_iter
-        # Boosted families get a bit more budget than linear
-        if name in ("gradient_boosting", "hgb", "rf") and name != "extra_trees":
+        if name == "gradient_boosting":
             budget = max(budget, int(n_iter * 1.25))
         iters = min(budget, n_combos)
         search_iters[name] = iters
@@ -257,13 +205,21 @@ def main(argv: list[str] | None = None) -> int:
     pq = args.parquet or train_parquet_path()
     paths = artifact_paths(args.out_dir)
     if not pq.is_file():
-        print(f"missing {pq} — run eplus_heating_dsm_farm.py or build_bootstrap_dataset.py", file=sys.stderr)
+        print(f"missing {pq} — run scripts/eplus_heating_dsm_farm.py", file=sys.stderr)
         return 2
 
     df = pd.read_parquet(pq)
-    src = "BAS_BOOTSTRAP_PROXY"
-    if "provenance" in df.columns and len(df):
-        src = str(df["provenance"].iloc[0])
+    if "provenance" not in df.columns or not len(df):
+        print("refusing train: parquet missing provenance column", file=sys.stderr)
+        return 3
+    src = str(df["provenance"].iloc[0])
+    if src != "ENERGYPLUS_NATIVE_RUN":
+        print(
+            f"refusing train: provenance={src!r} — need ENERGYPLUS_NATIVE_RUN "
+            "(site staged Lakeside utility twin via eplus_heating_dsm_farm.py).",
+            file=sys.stderr,
+        )
+        return 3
     result = bake_off(
         df,
         n_splits=args.n_splits,

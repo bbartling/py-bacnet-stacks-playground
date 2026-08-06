@@ -1,0 +1,17 @@
+{
+  "contract_version": "hybrid_dsm_96_v1",
+  "description": "96-step hybrid DSM I/O for desktop/tests/future optimizer",
+  "init_required": [
+    "facility_kw",
+    "oat_f",
+    "zone_temp_1F_A_f",
+    "zone_temp_1F_B_f",
+    "zone_temp_1F_C_f",
+    "zone_temp_1F_D_f",
+    "zone_temp_2F_A_f",
+    "zone_temp_2F_B_f"
+  ],
+  "steps": 96,
+  "honesty": "HYBRID_SCREENING",
+  "lag_init_policy": "measured_midnight_from_init_JSON"
+}

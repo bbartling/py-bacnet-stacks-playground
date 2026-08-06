@@ -1,4 +1,8 @@
-"""Canonical paths for heating DSM joblib / ONNX / model cards + site data."""
+"""Canonical paths for heating DSM joblib / ONNX / model cards + site data.
+
+Production train data: native EnergyPlus farm only (``ENERGYPLUS_NATIVE_RUN``).
+No bootstrap / physics-proxy fallback.
+"""
 from __future__ import annotations
 
 import os
@@ -24,9 +28,7 @@ CARD_NAME = f"{MODEL_STEM}_model_card.json"
 ONNX_NAME = f"{MODEL_STEM}.onnx"
 FEATURE_META_NAME = f"{MODEL_STEM}_feature_meta.json"
 CHAMPION_SUMMARY = "champion_summary.json"
-BOOTSTRAP_PARQUET = "heating_dsm_bootstrap_hourly.parquet"
 EPLUS_FARM_PARQUET = "heating_dsm_eplus_farm_hourly.parquet"
-SAMPLE_PARQUET = "heating_dsm_bootstrap_sample.parquet"
 
 # Back-compat aliases
 vibe22_root = app_root
@@ -39,55 +41,41 @@ def default_artifact_dir() -> Path:
     return _ARTIFACTS
 
 
-def train_parquet_path(*, prefer_eplus_farm: bool = True, allow_demo: bool | None = None) -> Path:
-    """Prefer native E+ farm parquet. Bootstrap only when DEMO / NOT ENERGYPLUS is set."""
-    if allow_demo is None:
-        allow_demo = os.environ.get("LAKESIDE_DEMO_NOT_ENERGYPLUS", "").strip().lower() in {
-            "1",
-            "true",
-            "yes",
-        }
+def train_parquet_path(*, prefer_eplus_farm: bool = True) -> Path:
+    """Require native E+ farm parquet with ``ENERGYPLUS_NATIVE_RUN`` provenance."""
     art = default_artifact_dir()
     farm = art / EPLUS_FARM_PARQUET
     if prefer_eplus_farm and farm.is_file():
         summary = art / "eplus_farm_summary.json"
-        if summary.is_file():
-            import json
+        if not summary.is_file():
+            raise FileNotFoundError(
+                f"missing {summary} — run scripts/eplus_heating_dsm_farm.py"
+            )
+        import json
 
-            s = json.loads(summary.read_text(encoding="utf-8"))
-            prov = str(s.get("provenance", ""))
-            if prov != "ENERGYPLUS_NATIVE_RUN" and not allow_demo:
-                raise FileNotFoundError(
-                    f"farm parquet present but provenance={prov!r}; "
-                    "need ENERGYPLUS_NATIVE_RUN (or set LAKESIDE_DEMO_NOT_ENERGYPLUS=1)"
-                )
+        s = json.loads(summary.read_text(encoding="utf-8"))
+        prov = str(s.get("provenance", ""))
+        if prov != "ENERGYPLUS_NATIVE_RUN":
+            raise FileNotFoundError(
+                f"farm parquet present but provenance={prov!r}; need ENERGYPLUS_NATIVE_RUN"
+            )
         return farm
     ext = os.environ.get("VIBE22_TRAIN_PARQUET") or os.environ.get("LAKESIDE_TRAIN_PARQUET")
-    if ext and Path(ext).is_file() and allow_demo:
-        return Path(ext)
-    if allow_demo:
-        return bootstrap_parquet_path(prefer_full=True)
-    raise FileNotFoundError(
-        f"missing native farm {farm} — run: python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium "
-        "(bootstrap disabled in production; set LAKESIDE_DEMO_NOT_ENERGYPLUS=1 for DEMO only)"
-    )
-
-
-def bootstrap_parquet_path(*, prefer_full: bool = True) -> Path:
-    """Prefer full train parquet in artifacts; fall back to shipped sample."""
-    full = default_artifact_dir() / BOOTSTRAP_PARQUET
-    sample = _VIBE22 / "data" / "sample" / SAMPLE_PARQUET
-    if prefer_full and full.is_file():
-        return full
-    ext = os.environ.get("VIBE22_BOOTSTRAP_PARQUET") or os.environ.get("LAKESIDE_BOOTSTRAP_PARQUET")
     if ext and Path(ext).is_file():
+        # Still require native stamp in the frame when an override path is set
+        import pandas as pd
+
+        df = pd.read_parquet(ext)
+        if "provenance" in df.columns and len(df):
+            src = str(df["provenance"].iloc[0])
+            if src != "ENERGYPLUS_NATIVE_RUN":
+                raise FileNotFoundError(
+                    f"override parquet provenance={src!r}; need ENERGYPLUS_NATIVE_RUN"
+                )
         return Path(ext)
-    site_full = site_root() / "ml" / "artifacts" / BOOTSTRAP_PARQUET
-    if prefer_full and site_full.is_file():
-        return site_full
-    if sample.is_file():
-        return sample
-    return full
+    raise FileNotFoundError(
+        f"missing native farm {farm} — run: python -u scripts/eplus_heating_dsm_farm.py --smoke|--medium"
+    )
 
 
 def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
@@ -99,7 +87,6 @@ def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
         "onnx": d / ONNX_NAME,
         "feature_meta": d / FEATURE_META_NAME,
         "champion_summary": d / CHAMPION_SUMMARY,
-        "bootstrap": d / BOOTSTRAP_PARQUET,
         "eplus_farm": d / EPLUS_FARM_PARQUET,
         "figures": d / "figures",
     }
@@ -107,7 +94,6 @@ def artifact_paths(out_dir: Path | None = None) -> dict[str, Path]:
 
 __all__ = [
     "artifact_paths",
-    "bootstrap_parquet_path",
     "train_parquet_path",
     "lakeside_data_root",
     "creekside_data_root",

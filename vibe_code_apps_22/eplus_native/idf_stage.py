@@ -188,6 +188,136 @@ def stage_repair_idf(source_idf: Path | str, dest_idf: Path | str) -> Path:
     return dst
 
 
+def htg_schedule_name(zone: str) -> str:
+    return f"SCH_HtgSP_{zone}"
+
+
+def avail_schedule_name(zone: str) -> str:
+    return f"SCH_Avail_{zone}"
+
+
+def format_schedule_compact(
+    name: str,
+    *,
+    schedule_type: str,
+    blocks: list[tuple[int, int, float]],
+) -> str:
+    """Build Schedule:Compact from (until_hour, until_minute, value) blocks covering 24h.
+
+    ``until`` is exclusive end-of-interval clock on the day (minute 0..59).
+    Last block must end at 24:00.
+    """
+    if not blocks:
+        raise ValueError("empty schedule blocks")
+    lines = [
+        "SCHEDULE:COMPACT,",
+        f"    {name},                !- Name",
+        f"    {schedule_type},              !- Schedule Type Limits Name",
+        "    Through: 12/31,           !- Field 1",
+        "    For: AllDays,             !- Field 2",
+    ]
+    fi = 3
+    for i, (uh, um, val) in enumerate(blocks):
+        until = f"{uh:02d}:{um:02d}" if not (uh == 24 and um == 0) else "24:00"
+        if uh == 24:
+            until = "24:00"
+        end = ";" if i == len(blocks) - 1 else ","
+        lines.append(f"    Until: {until},             !- Field {fi}")
+        fi += 1
+        lines.append(f"    {val:.4g}{end}                    !- Field {fi}")
+        fi += 1
+    return "\n".join(lines) + "\n"
+
+
+def rewire_dualsetpoint_heating(text: str, zone: str, htg_sch: str) -> str:
+    """Point ``{zone}_DualSP`` heating schedule at ``htg_sch``; cooling unchanged."""
+    dual = f"{zone}_DualSP"
+    # Match the DualSetpoint *object* whose Name field is dual (not ZoneControl refs).
+    pat = re.compile(
+        rf"(THERMOSTATSETPOINT:DUALSETPOINT,\s*\r?\n\s*{re.escape(dual)}\s*,[^\r\n]*\r?\n\s*)([^,!\r\n]+)",
+        re.I,
+    )
+
+    def _sub(m: re.Match) -> str:
+        return f"{m.group(1)}{htg_sch}"
+
+    new, n = pat.subn(_sub, text, count=1)
+    if n != 1:
+        raise ValueError(f"could not rewire DualSetpoint heating for {dual}")
+    return new
+
+
+def rewire_ideal_loads_availability(text: str, zone: str, avail_sch: str) -> str:
+    """Set IdealLoads availability + heating availability for ``{zone}_Ideal``."""
+    ideal = f"{zone}_Ideal"
+    obj_pat = re.compile(
+        rf"ZONEHVAC:IDEALLOADSAIRSYSTEM,\s*\r?\n\s*{re.escape(ideal)}\s*,.*?;",
+        re.I | re.S,
+    )
+    om = obj_pat.search(text)
+    if not om:
+        raise ValueError(f"IdealLoads {ideal} not found")
+    block = om.group(0)
+    lines = block.splitlines()
+    out_lines = []
+    for line in lines:
+        if "Heating Availability Schedule Name" in line:
+            mm = re.match(r"^(\s*)([^,!]+)(.*)$", line)
+            if mm:
+                line = f"{mm.group(1)}{avail_sch}{mm.group(3)}"
+        elif "!- Availability Schedule Name" in line and "Heating" not in line and "Cooling" not in line:
+            mm = re.match(r"^(\s*)([^,!]+)(.*)$", line)
+            if mm:
+                line = f"{mm.group(1)}{avail_sch}{mm.group(3)}"
+        out_lines.append(line)
+    # Preserve original newline style roughly via join with \n (E+ accepts)
+    return text[: om.start()] + "\n".join(out_lines) + text[om.end() :]
+
+
+def upsert_schedule_compact(text: str, name: str, body: str) -> str:
+    """Replace existing Schedule:Compact ``name`` or append if missing."""
+    pat = re.compile(
+        rf"SCHEDULE:COMPACT,\s*\r?\n\s*{re.escape(name)}\s*,.*?;",
+        re.I | re.S,
+    )
+    if pat.search(text):
+        return pat.sub(body.rstrip(), text, count=1)
+    return text.rstrip() + "\n\n" + body
+
+
+def ensure_per_area_dsm_schedules(
+    text: str,
+    *,
+    htg_blocks_by_zone: dict[str, list[tuple[int, int, float]]],
+    avail_blocks_by_zone: dict[str, list[tuple[int, int, float]]] | None = None,
+    zones: tuple[str, ...] = DSM_ZONES,
+) -> str:
+    """Create per-area heating (+ optional avail) schedules and rewire 6 DSM zones.
+
+    Program zones (Library/Cafe/Gym) keep baseline ``SCH_HtgSP`` / ``SCH_HVAC``.
+    """
+    text = _ensure_timestep_outputs(text)
+    for z in zones:
+        hname = htg_schedule_name(z)
+        body = format_schedule_compact(
+            hname,
+            schedule_type="Temperature",
+            blocks=htg_blocks_by_zone[z],
+        )
+        text = upsert_schedule_compact(text, hname, body)
+        text = rewire_dualsetpoint_heating(text, z, hname)
+        if avail_blocks_by_zone is not None:
+            aname = avail_schedule_name(z)
+            abody = format_schedule_compact(
+                aname,
+                schedule_type="Fraction",
+                blocks=avail_blocks_by_zone[z],
+            )
+            text = upsert_schedule_compact(text, aname, abody)
+            text = rewire_ideal_loads_availability(text, z, aname)
+    return text
+
+
 def patch_run_period(
     text: str,
     *,

@@ -4,8 +4,8 @@ Windows egui + ONNX Runtime walk for the 6-Area heating DSM spreadsheet.
 
 ## What it does
 
-- Loads `heating_dsm_hourly_v1.onnx` + feature meta (bake-off champion;
-  `ENERGYPLUS_SIMULATED` farm when trained that way).
+- Loads `heating_dsm_hourly_v1.onnx` + feature meta (bake-off champion from
+  `ENERGYPLUS_NATIVE_RUN` native farm on the site Lakeside staged twin).
 - Shows **model name, tuned params, MAE/RMSE, ± peak MAE** in the UI.
 - 24h facility kW walk from OAT profile, strategy, and per-zone HP on/off.
 - **Load utility bill CSV** → validate columns (aliases OK) → OLS **$/kWh + $/kW**.

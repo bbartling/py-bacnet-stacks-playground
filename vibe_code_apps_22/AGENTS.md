@@ -16,7 +16,7 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`
 
-Last validated: **2026-08-05**.
+Last validated: **2026-08-06** (hybrid Real+E+ rebuild).
 
 ---
 
@@ -24,7 +24,7 @@ Last validated: **2026-08-05**.
 
 1. Process ALC WebCTRL dumps → vibe19 `openfdd_package_v1` + vibe20 utilities.
 2. Calibrate IdealLoads twin to ASHRAE G14 (interval + client utility bills).
-3. Train heating-startup DSM surrogates (sklearn ExtraTrees → ONNX; HE 05–09).
+3. Train hybrid heating DSM (real 15-min baseline + E+ delta → 96-step rollout).
 4. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
 
 ---
@@ -84,9 +84,8 @@ python -u scripts\eplus_observed_targets.py
 python -u scripts\eplus_stage_repair_and_rescore.py   # zero-severe staged IDF + GL14
 python -u scripts\eplus_heating_dsm_farm.py --medium   # ENERGYPLUS_NATIVE_RUN only
 python -u scripts\validate_mvm.py
-python -u ml\train_heating_dsm.py          # ExtraTrees bake-off → desktop ONNX
-# Notebook SoT: notebooks\lakeside_heating_dsm_sklearn.ipynb
-# DEMO bootstrap only if: $env:LAKESIDE_DEMO_NOT_ENERGYPLUS="1"
+python -u ml\train_heating_dsm.py          # bake-off → desktop ONNX
+# Notebook SoT (proof load cell): notebooks\lakeside_heating_dsm_sklearn.ipynb
 python -u scripts\build_dsm_excel.py
 
 # Desktop walk (Rust) — loads heating_dsm_hourly_v1.onnx
@@ -97,12 +96,12 @@ python -u scripts\build_dsm_excel.py
 
 ## Honesty
 
-- IdealLoads + COP proxy ≠ full GSHP/GLHE plant.
+- IdealLoads + fixed-COP ≠ full GSHP/GLHE plant (still native E+ twin demand).
 - Geometry = rectangular program massing, not CAD.
-- Heating DSM production labels require **`ENERGYPLUS_NATIVE_RUN`** (zero severe).
-  Bootstrap / proxy only behind `LAKESIDE_DEMO_NOT_ENERGYPLUS=1`.
+- Heating DSM labels require **`ENERGYPLUS_NATIVE_RUN`** only (zero severe).
+  BAS physics-proxy / bootstrap path has been **removed**.
 - Utility G14 ≠ interval-integrated demand fidelity.
-- Display name **Lakeside**; weather station may still be Madison (southern WI).
+- Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
 - Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)
   + report [`vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md`](vibe22_agent_spec/NATIVE_EPLUS_DSM_REPORT.md).
 ---

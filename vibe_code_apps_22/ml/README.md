@@ -7,22 +7,22 @@ Hourly **facility_kW** surrogate for Lakeside Elementary demand-side management
 
 | Stamp | Meaning |
 | --- | --- |
-| `ENERGYPLUS_NATIVE_RUN` | **Production** — native E+ IdealLoads+COP, zero severe, manifests |
-| Ideal Loads + fixed-COP | Electric proxy (COP 3.5/4.5) — not GSHP/GLHE |
-| `BAS_BOOTSTRAP_PROXY` | DEMO only (`LAKESIDE_DEMO_NOT_ENERGYPLUS=1`) |
-| `SYNTHETIC_ZONE_TEMPS` | Notebook DEMO zone temps — not eplusout |
+| `ENERGYPLUS_NATIVE_RUN` | **Only production path** — native E+ IdealLoads+fixed-COP on the site Lakeside staged utility champion |
+| Ideal Loads + fixed-COP | Electric demand from the twin (COP 3.5/4.5) — not a detailed GSHP/GLHE plant |
 | `CANDIDATE` | Screening model — not APPROVED / not tariff-grade |
 
-`artifact_paths.train_parquet_path()` **fails closed** without a native farm
-summary provenance of `ENERGYPLUS_NATIVE_RUN` (unless DEMO env is set).
+`artifact_paths.train_parquet_path()` **fails closed** unless farm summary provenance is
+`ENERGYPLUS_NATIVE_RUN`. The old BAS physics-proxy / bootstrap path has been **removed**.
+
+Site twin: `$LAKESIDE_SITE_ROOT` (Creekside site disk) → `eplus/models/lakeside_6zone_gshp_best_utility.idf`
+(byte-identical `creekside_*` alias; Lakeside = client rename) → staged DSM IDF under
+`eplus/models/staged/`.
 
 ## Desktop ship (Rust)
 
 `python -u ml/train_heating_dsm.py` **or** `notebooks/lakeside_heating_dsm_sklearn.ipynb`
-(human SoT scoreboard + bake-off) export the **peak-MAE champion** to
+(human SoT + proof load cell) export the **peak-MAE champion** to
 `heating_dsm_hourly_v1.onnx` and copy to `desktop/artifacts/`.
-
-Desktop target is **`facility_kw` only**. Peak MAE is a screening metric, not ± uncertainty.
 
 ```powershell
 # Prefer after: eplus_stage_repair_and_rescore → eplus_heating_dsm_farm --medium → validate_mvm
@@ -31,10 +31,17 @@ cd desktop
 cargo run --release
 ```
 
-## Multi-target DEMO (notebooks)
+## Experimental bake-offs (do not overwrite desktop v1)
 
-Native farm parquet is still **kW-only**. Notebooks may attach synthetic zone temps
-for DEMO; never overwrite `heating_dsm_hourly_v1`.
+| Notebook / script | Artifact |
+| --- | --- |
+| `notebooks/lakeside_heating_dsm_torch.ipynb` · `train_heating_dsm_torch.py` | `heating_dsm_hourly_torch_v1.onnx` (ResMLP focus) |
+
+CatBoost was dropped (peak MAE ~36 kW vs GB ~22). Sklearn bake-off slimmed to
+**GradientBoosting + ExtraTrees**. Torch slimmed to **ResMLP / gated_mlp / mlp**.
+
+Each notebook opens with a **proof cell** that loads the farm parquet and shows
+provenance + IDF SHA-256 for human inspection.
 
 ## Key scripts
 
@@ -44,4 +51,5 @@ for DEMO; never overwrite `heating_dsm_hourly_v1`.
 | `../scripts/eplus_heating_dsm_farm.py` | Native farm `--smoke` / `--medium` |
 | `../scripts/validate_mvm.py` | Measured vs modeled |
 | `train_heating_dsm.py` | Bake-off + ONNX ship |
+| `train_heating_dsm_torch.py` | PyTorch ResMLP bake-off |
 | `../eplus_native/` | Runner / validator / meters / align |

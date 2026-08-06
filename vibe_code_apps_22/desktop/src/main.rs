@@ -6,6 +6,7 @@
 mod annual;
 mod bills;
 mod features;
+mod hybrid;
 mod model;
 mod mvm;
 mod tariff;
@@ -17,6 +18,7 @@ use egui_plot::{Bar, BarChart, Line, Plot, PlotPoints};
 use features::{
     build_features, default_occ_frac, HourInputs, StrategyKnobs, STRATEGY_IDS, ZONE_LABELS,
 };
+use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use model::{default_artifact_paths, OnnxModel};
 use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
 use tariff::{cost_day_tod, creekside_cp2_defaults, DemandTariff, TodDayCost};
@@ -109,6 +111,9 @@ struct DsmApp {
     cost_dsm: Option<TodDayCost>,
     annual: Option<AnnualRollup>,
     mvm: MvmBundle,
+    hybrid_walk: Option<HybridWalk>,
+    hybrid_path: Option<std::path::PathBuf>,
+    hybrid_error: Option<String>,
     status: String,
 }
 
@@ -233,9 +238,25 @@ impl DsmApp {
             cost_dsm: None,
             annual: None,
             mvm: load_mvm_bundle(),
+            hybrid_walk: None,
+            hybrid_path: None,
+            hybrid_error: None,
             status: "Tariff defaults = Creekside CP-2 (editable). Run Compare 24/7 vs DSM."
                 .into(),
         };
+        match load_hybrid_walk() {
+            Ok((walk, path)) => {
+                app.status = format!(
+                    "Hybrid 96-step loaded ({}). Peak Δ {:.1} kW.",
+                    walk.honesty, walk.summary.delta_peak_kw
+                );
+                app.hybrid_path = Some(path);
+                app.hybrid_walk = Some(walk);
+            }
+            Err(e) => {
+                app.hybrid_error = Some(format!("{e:#}"));
+            }
+        }
 
         match try_autoload_bills() {
             Ok(Some(book)) => app.apply_bill_book(book),
@@ -668,6 +689,17 @@ impl eframe::App for DsmApp {
             if let Some(err) = &self.load_error {
                 ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
             }
+            if let Some(err) = &self.hybrid_error {
+                ui.colored_label(
+                    egui::Color32::from_rgb(230, 80, 80),
+                    format!("Hybrid fail-closed: {err}"),
+                );
+            } else if self.hybrid_walk.is_some() {
+                ui.colored_label(
+                    egui::Color32::from_rgb(140, 200, 160),
+                    "Hybrid 96-step walk loaded (HYBRID_SCREENING)",
+                );
+            }
             ui.add_space(4.0);
         });
 
@@ -997,8 +1029,23 @@ impl eframe::App for DsmApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                egui::CollapsingHeader::new("Measured vs modeled validation")
+                egui::CollapsingHeader::new("Hybrid Real+E+ 96-step DSM")
                     .default_open(true)
+                    .show(ui, |ui| {
+                        if let (Some(walk), Some(path)) =
+                            (self.hybrid_walk.as_ref(), self.hybrid_path.as_ref())
+                        {
+                            show_hybrid_panel(ui, walk, path);
+                        } else if let Some(err) = &self.hybrid_error {
+                            ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
+                            ui.label(
+                                "Promote hybrid artifacts via scripts/promote_hybrid_ship.py after training.",
+                            );
+                        }
+                    });
+                ui.add_space(8.0);
+                egui::CollapsingHeader::new("Measured vs modeled validation")
+                    .default_open(false)
                     .show(ui, |ui| {
                         show_mvm_panel(ui, &self.mvm);
                     });

@@ -286,7 +286,7 @@ def lag_dependence_panel(
     return ax
 
 
-def torch_family_mae_bars(cv: dict[str, dict[str, float]], ax=None):
+def torch_family_mae_bars(cv: dict[str, dict[str, float]], ax=None, title: str | None = None):
     ax = ax or plt.gca()
     names = list(cv.keys())
     maes = [float(cv[n]["mae_peak_05_09"]) for n in names]
@@ -295,7 +295,30 @@ def torch_family_mae_bars(cv: dict[str, dict[str, float]], ax=None):
     maes = [maes[i] for i in order]
     ax.barh(names, maes, color="#4C78A8")
     ax.set_xlabel("OOF morning-peak MAE [kW]")
-    ax.set_title("PyTorch architecture bake-off (peak HE 05–09)")
+    ax.set_title(title or "PyTorch architecture bake-off (peak HE 05–09)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def family_mae_bars(
+    cv: dict[str, dict[str, float]],
+    ax=None,
+    *,
+    title: str = "Family bake-off (peak HE 05–09)",
+    highlight: str | None = None,
+):
+    """Horizontal peak-MAE bars for any family dict (CatBoost / Torch / sklearn)."""
+    ax = ax or plt.gca()
+    names = list(cv.keys())
+    maes = [float(cv[n]["mae_peak_05_09"]) for n in names]
+    order = np.argsort(maes)
+    names = [names[i] for i in order]
+    maes = [maes[i] for i in order]
+    colors = ["#F58518" if highlight and n == highlight else "#4C78A8" for n in names]
+    ax.barh(names, maes, color=colors)
+    ax.set_xlabel("OOF morning-peak MAE [kW]")
+    ax.set_title(title)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     return ax

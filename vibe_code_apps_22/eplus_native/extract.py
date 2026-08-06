@@ -1,11 +1,23 @@
-"""Extract IdealLoads+COP site electric proxy time series from eplusout/eplusmtr CSV."""
+"""Extract IdealLoads+COP site electric proxy and zone MAT from eplusout/eplusmtr CSV."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pandas as pd
 
+from eplus_native.align import parse_eplus_csv_timestamp
+from eplus_native.idf_stage import DSM_ZONES
 from eplus_native.meters import site_electric_proxy_kw
+
+# Short column names used by ML / farm parquet
+ZONE_TEMP_COLS = {
+    "1F_Area_A": "zone_temp_1F_A_f",
+    "1F_Area_B": "zone_temp_1F_B_f",
+    "1F_Area_C": "zone_temp_1F_C_f",
+    "1F_Area_D": "zone_temp_1F_D_f",
+    "2F_Area_A": "zone_temp_2F_A_f",
+    "2F_Area_B": "zone_temp_2F_B_f",
+}
 
 
 def _find_col(columns: list[str], *needles: str) -> str | None:
@@ -14,6 +26,36 @@ def _find_col(columns: list[str], *needles: str) -> str | None:
         if all(n.lower() in lc for n in needles):
             return c
     return None
+
+
+def _c_to_f(c: float) -> float:
+    return float(c) * 9.0 / 5.0 + 32.0
+
+
+def _find_zone_mat_col(columns: list[str], zone: str, *, prefer_freq: str = "timestep") -> str | None:
+    """Match ``ZONE:Zone Mean Air Temperature … (TimeStep)`` case-insensitively."""
+    z_l = zone.lower()
+    candidates: list[str] = []
+    for c in columns:
+        cl = c.lower()
+        if z_l not in cl:
+            continue
+        if "mean air temperature" not in cl:
+            continue
+        if "monthly" in cl or "daily" in cl:
+            continue
+        candidates.append(c)
+    if not candidates:
+        return None
+    freq = prefer_freq.lower()
+    if freq == "timestep":
+        for c in candidates:
+            if "timestep" in c.lower() or "time step" in c.lower():
+                return c
+    for c in candidates:
+        if "hourly" not in c.lower():
+            return c
+    return candidates[0]
 
 
 def load_timestep_proxy_kw(
@@ -91,6 +133,96 @@ def load_timestep_proxy_kw(
     return out
 
 
+def load_timestep_zone_mat_f(
+    sim_dir: Path | str,
+    *,
+    zones: tuple[str, ...] = DSM_ZONES,
+    prefer_freq: str = "timestep",
+) -> pd.DataFrame:
+    """Timestep Zone Mean Air Temperature (°F) for DSM areas from eplusout.csv."""
+    sim = Path(sim_dir)
+    src = sim / "eplusout.csv"
+    if not src.is_file():
+        raise FileNotFoundError(f"missing {src}")
+    df = pd.read_csv(src)
+    cols = list(df.columns)
+    ts_col = cols[0]
+    zone_cols: dict[str, str] = {}
+    missing = []
+    for z in zones:
+        c = _find_zone_mat_col(cols, z, prefer_freq=prefer_freq)
+        if c is None:
+            missing.append(z)
+        else:
+            zone_cols[z] = c
+    if missing:
+        raise ValueError(
+            f"Zone Mean Air Temperature columns missing for {missing} in {src.name}. "
+            "Ensure Output:Variable Zone Mean Air Temperature Timestep is in the run IDF."
+        )
+
+    rows = []
+    for _, r in df.iterrows():
+        stamp = str(r[ts_col]).strip()
+        if not stamp or stamp.lower().startswith("date"):
+            continue
+        rec: dict = {"eplus_stamp": stamp}
+        ok = True
+        for z, c in zone_cols.items():
+            if pd.isna(r[c]):
+                ok = False
+                break
+            rec[ZONE_TEMP_COLS[z]] = _c_to_f(float(r[c]))
+        if ok:
+            rows.append(rec)
+    out = pd.DataFrame(rows)
+    out.attrs["source_csv"] = str(src)
+    out.attrs["zone_cols"] = zone_cols
+    return out
+
+
+def load_timestep_proxy_and_mat(
+    sim_dir: Path | str,
+    *,
+    heat_cop: float = 3.5,
+    cool_cop: float = 4.5,
+    interval_hours: float = 0.25,
+    zones: tuple[str, ...] = DSM_ZONES,
+) -> pd.DataFrame:
+    """Join facility IdealLoads+COP proxy kW with 6-area MAT (°F) on eplus_stamp."""
+    kw = load_timestep_proxy_kw(
+        sim_dir,
+        heat_cop=heat_cop,
+        cool_cop=cool_cop,
+        interval_hours=interval_hours,
+    )
+    mat = load_timestep_zone_mat_f(sim_dir, zones=zones)
+    # Deduplicate stamp collisions (keep last)
+    kw = kw.drop_duplicates(subset=["eplus_stamp"], keep="last")
+    mat = mat.drop_duplicates(subset=["eplus_stamp"], keep="last")
+    merged = kw.merge(mat, on="eplus_stamp", how="inner")
+    if merged.empty:
+        raise ValueError("proxy/MAT join produced empty frame (stamp mismatch)")
+    return merged
+
+
+def attach_utc_timestamps(
+    df: pd.DataFrame,
+    *,
+    year_hint: int,
+    stamp_col: str = "eplus_stamp",
+) -> pd.DataFrame:
+    """Add timestamp_utc from E+ stamps (fixed CST−6 → UTC)."""
+    from datetime import timezone as _tz
+
+    out = df.copy()
+    dts = [parse_eplus_csv_timestamp(s, year_hint=year_hint) for s in out[stamp_col].astype(str)]
+    out["timestamp_utc"] = [
+        d.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if d is not None else None for d in dts
+    ]
+    return out
+
+
 def filter_stamps_for_day(df: pd.DataFrame, day_iso: str) -> pd.DataFrame:
     """Keep rows whose E+ stamp month/day matches ``YYYY-MM-DD`` (drops design days)."""
     y, m, d = [int(x) for x in day_iso.split("-")]
@@ -124,9 +256,35 @@ def to_hourly_mean_kw(timestep_df: pd.DataFrame) -> pd.DataFrame:
         return f"{parts[0]} {h:02d}"
 
     df["hour_key"] = df["eplus_stamp"].map(hour_key)
-    g = df.groupby("hour_key", as_index=False).agg(
-        site_electric_proxy_kw=("site_electric_proxy_kw", "mean"),
-        site_electric_proxy_kwh=("site_electric_proxy_kwh", "sum"),
-        eplus_stamp=("eplus_stamp", "last"),
-    )
+    agg: dict = {
+        "site_electric_proxy_kw": ("site_electric_proxy_kw", "mean"),
+        "site_electric_proxy_kwh": ("site_electric_proxy_kwh", "sum"),
+        "eplus_stamp": ("eplus_stamp", "last"),
+    }
+    for col in ZONE_TEMP_COLS.values():
+        if col in df.columns:
+            agg[col] = (col, "mean")
+    g = df.groupby("hour_key", as_index=False).agg(**{k: v for k, v in agg.items()})
     return g
+
+
+def interval_ending_local(stamp: str) -> tuple[int, int, int]:
+    """Return (hour_ending_0_23, minute, quarter_index_0_95) from E+ stamp."""
+    parts = str(stamp).strip().split()
+    if len(parts) < 2:
+        return 0, 0, 0
+    hm = parts[1].split(":")
+    h = int(hm[0])
+    mi = int(hm[1]) if len(hm) > 1 else 0
+    if h == 24:
+        h, mi = 0, 0
+    # interval end → hour_ending for clock hour that just closed when mi==0
+    he = h if mi > 0 else (h if h > 0 else 0)
+    if mi == 0 and h > 0:
+        he = h  # XX:00 is end of previous hour's last quarter in E+? keep as h
+    q = h * 4 + (mi // 15) - 1
+    if mi == 0:
+        q = (h * 4 - 1) % 96 if h > 0 else 95
+    else:
+        q = h * 4 + (mi // 15) - 1
+    return he % 24, mi, int(q) % 96

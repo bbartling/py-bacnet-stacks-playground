@@ -98,6 +98,34 @@ def main() -> int:
     stats = mae_rmse_mbe(aligned["kw_meas"].to_numpy(), aligned["kw_mod"].to_numpy())
     cv = cvrmse_pct(aligned["kw_meas"].to_numpy(), aligned["kw_mod"].to_numpy())
 
+    # --- 15-min MVM (primary screening resolution) ---
+    mod_15 = (
+        mod.set_index("timestamp_utc")["kw_mod"]
+        .resample("15min", label="right", closed="right")
+        .mean()
+        .rename("kw_mod")
+        .to_frame()
+        .reset_index()
+    )
+    aligned_15 = q15_m.merge(mod_15, on="timestamp_utc", how="inner").rename(
+        columns={"kw_mean": "kw_meas"}
+    )
+    aligned_15 = aligned_15.dropna(subset=["kw_meas", "kw_mod"])
+    # exclude design-day-ish zeros / stamp collisions already filtered upstream
+    aligned_15.to_csv(out / "aligned_15min_kw.csv", index=False)
+    aligned_15.to_csv(desk / "aligned_15min_kw.csv", index=False)
+    stats_15 = mae_rmse_mbe(aligned_15["kw_meas"].to_numpy(), aligned_15["kw_mod"].to_numpy())
+    cv_15 = cvrmse_pct(aligned_15["kw_meas"].to_numpy(), aligned_15["kw_mod"].to_numpy())
+    # peak: daily 15-min max demand error
+    a15 = aligned_15.copy()
+    a15["day"] = pd.to_datetime(a15["timestamp_utc"], utc=True).dt.tz_convert("America/Chicago").dt.strftime("%Y-%m-%d")
+    peak_errs = []
+    for _, g in a15.groupby("day"):
+        if len(g) < 80:
+            continue
+        peak_errs.append(float(g["kw_mod"].max() - g["kw_meas"].max()))
+    peak_mag_mae = float(np.mean(np.abs(peak_errs))) if peak_errs else float("nan")
+
     # Monthly utility vs modeled from scorecard
     sc_path = root / "eplus" / "dsm_native" / "phase1" / "scorecard_after_dsm_v1.json"
     monthly = {}
@@ -116,9 +144,10 @@ def main() -> int:
         "honesty": "Ideal Loads + fixed-COP electrical proxy — not GSHP plant",
         "alignment_policy": {
             "measured_tz": "UTC",
-            "modeled_tz": "America/Chicago wall clock from E+ LST stamps",
-            "interval": "hourly mean of 5-min measured vs hourly mean of 15-min modeled",
-            "timestamp": "interval end (hour-ending)",
+            "modeled_tz": "E+ LST → UTC via fixed CST−6 (no Chicago DST on E+ stamps)",
+            "interval_hourly": "hourly mean of 5-min measured vs hourly mean of 15-min modeled",
+            "interval_15min": "15-min mean of 5-min measured vs 15-min modeled timestep",
+            "timestamp": "interval end",
         },
         "n_hourly": int(stats["n"]),
         "hourly_mae_kw": stats["mae"],
@@ -126,6 +155,13 @@ def main() -> int:
         "hourly_mbe_kw": stats["mbe"],
         "hourly_nmbe_pct": stats["nmbe_pct"],
         "hourly_cvrmse_pct": cv["cvrmse_pct"],
+        "n_15min": int(stats_15["n"]),
+        "q15_mae_kw": stats_15["mae"],
+        "q15_rmse_kw": stats_15["rmse"],
+        "q15_mbe_kw": stats_15["mbe"],
+        "q15_nmbe_pct": stats_15["nmbe_pct"],
+        "q15_cvrmse_pct": cv_15["cvrmse_pct"],
+        "q15_daily_peak_mag_mae_kw": peak_mag_mae,
         "cvrmse_denominator": cv["denominator"],
         "time_span_utc": [
             str(aligned["timestamp_utc"].min()) if len(aligned) else None,
@@ -136,7 +172,7 @@ def main() -> int:
         "heat_cop": 3.5,
         "cool_cop": 4.5,
         "monthly_utility_gl14": monthly,
-        "missingness_note": "inner join only; incomplete months dropped",
+        "missingness_note": "inner join only; incomplete months dropped; design-day stamps filtered at extract",
     }
     (out / "mvm_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     (desk / "mvm_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

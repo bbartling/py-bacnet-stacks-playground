@@ -133,7 +133,7 @@ def export_sklearn_onnx(
     champion: str = "extra_trees",
     model_display_name: str | None = None,
     best_params: dict[str, Any] | None = None,
-    training_source: str = "ENERGYPLUS_SIMULATED",
+    training_source: str = "ENERGYPLUS_NATIVE_RUN",
     honesty: str | None = None,
     cv_metrics: dict[str, float] | None = None,
     cv_peak_mae: float | None = None,
@@ -181,8 +181,9 @@ def export_sklearn_onnx(
 
     honesty = honesty or (
         f"sklearn {display} via ONNX (skl2onnx). "
-        f"Source={training_source}. IdealLoads+COP farm when ENERGYPLUS_SIMULATED. "
-        "CANDIDATE — not tariff-grade. Desktop kW-only."
+        f"Source={training_source}. Native E+ IdealLoads+fixed-COP "
+        "(ENERGYPLUS_NATIVE_RUN) on site Lakeside utility twin. "
+        "CANDIDATE — not tariff-grade. Desktop kW-only. Not a detailed GSHP plant."
     )
     meta = {
         "schema": "lakeside.heating_dsm_hourly.v1",

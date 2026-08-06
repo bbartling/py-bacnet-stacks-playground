@@ -20,5 +20,5 @@ Building: **Lakeside ES** · region: southern Wisconsin · code: vibe22 · data:
 **Keep these specs current** when changing farm provenance, FEATURE_COLS, cost
 inputs, desktop contract, or notebook ship paths — agents read here first.
 
-**Production provenance:** `ENERGYPLUS_NATIVE_RUN` only (zero severe). Bootstrap /
-proxy requires explicit `LAKESIDE_DEMO_NOT_ENERGYPLUS=1`.
+**Production provenance:** `ENERGYPLUS_NATIVE_RUN` only (zero severe). BAS proxy /
+bootstrap path has been removed.

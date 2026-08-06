@@ -35,7 +35,6 @@ pub struct MvmBundle {
     pub parity_path: Option<PathBuf>,
     pub monthly_path: Option<PathBuf>,
     pub aligned_csv: Option<PathBuf>,
-    pub demo_mode: bool,
 }
 
 fn candidate_dirs() -> Vec<PathBuf> {
@@ -54,10 +53,6 @@ fn candidate_dirs() -> Vec<PathBuf> {
 }
 
 pub fn load_mvm_bundle() -> MvmBundle {
-    let demo = std::env::var("LAKESIDE_DEMO_NOT_ENERGYPLUS")
-        .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
-        .unwrap_or(false);
-
     for dir in candidate_dirs() {
         let sum = dir.join("mvm_summary.json");
         if !sum.is_file() {
@@ -74,7 +69,6 @@ pub fn load_mvm_bundle() -> MvmBundle {
                         parity_path: some_if_file(dir.join("mvm_parity.png")),
                         monthly_path: some_if_file(dir.join("mvm_monthly_gl14.png")),
                         aligned_csv: some_if_file(dir.join("aligned_hourly_kw.csv")),
-                        demo_mode: demo,
                     };
                 }
                 Err(e) => {
@@ -86,7 +80,6 @@ pub fn load_mvm_bundle() -> MvmBundle {
                         parity_path: None,
                         monthly_path: None,
                         aligned_csv: None,
-                        demo_mode: demo,
                     };
                 }
             },
@@ -99,7 +92,6 @@ pub fn load_mvm_bundle() -> MvmBundle {
                     parity_path: None,
                     monthly_path: None,
                     aligned_csv: None,
-                    demo_mode: demo,
                 };
             }
         }
@@ -108,7 +100,7 @@ pub fn load_mvm_bundle() -> MvmBundle {
         summary: None,
         error: Some(
             "Measured-vs-modeled artifacts missing. Run scripts/validate_mvm.py \
-             (or set LAKESIDE_DEMO_NOT_ENERGYPLUS=1 only for DEMO)."
+             against the site Lakeside staged twin."
                 .into(),
         ),
         summary_path: "(not found)".into(),
@@ -116,7 +108,6 @@ pub fn load_mvm_bundle() -> MvmBundle {
         parity_path: None,
         monthly_path: None,
         aligned_csv: None,
-        demo_mode: demo,
     }
 }
 
@@ -130,12 +121,6 @@ fn some_if_file(p: PathBuf) -> Option<PathBuf> {
 
 pub fn show_mvm_panel(ui: &mut egui::Ui, bundle: &MvmBundle) {
     ui.heading("Measured vs modeled (native E+)");
-    if bundle.demo_mode {
-        ui.colored_label(
-            egui::Color32::from_rgb(220, 120, 80),
-            "DEMO / NOT ENERGYPLUS mode — do not treat as production validation",
-        );
-    }
     if let Some(err) = &bundle.error {
         ui.colored_label(egui::Color32::from_rgb(230, 90, 90), err);
         return;
@@ -148,7 +133,7 @@ pub fn show_mvm_panel(ui: &mut egui::Ui, bundle: &MvmBundle) {
         egui::RichText::new(
             s.honesty
                 .clone()
-                .unwrap_or_else(|| "Ideal Loads + fixed-COP proxy".into()),
+                .unwrap_or_else(|| "Ideal Loads + fixed-COP (native E+ twin)".into()),
         )
         .italics()
         .color(egui::Color32::from_rgb(200, 170, 120)),
