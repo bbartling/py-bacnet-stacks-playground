@@ -29,7 +29,8 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 
 ## Tooling note
 
-Heating DSM and IdealLoads G14 use **native EnergyPlus** with fail-closed severe/fatal
+Heating DSM uses **Hybrid Real+E+** (`HYBRID_SCREENING`) — see [`HEATING_DSM.md`](HEATING_DSM.md).
+IdealLoads G14 still uses **native EnergyPlus** with fail-closed severe/fatal
 gates (`eplus_native/`). OpenStudio MCP bridge was removed from this app.
 Do not treat monthly utility GL14 as proof of interval demand fidelity — see
-[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
+[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts).
