@@ -27,12 +27,13 @@ for p in (_APP, _ML, _APP / "scripts"):
         sys.path.insert(0, str(p))
 
 from lakeside.paths import site_root  # noqa: E402
-from eplus_calib_diagnostics import write_diagnostic_suite  # noqa: E402
 from eplus_multires_metrics import (  # noqa: E402
     build_validation_document,
     gl14_distance,
     resolution_block,
 )
+# Diagnostics (matplotlib) imported lazily in main() so unit tests can import
+# ranking helpers without CI matplotlib.
 from eplus_native.align import (  # noqa: E402
     aggregate_5min_to_15min_mean,
     aggregate_5min_to_hourly_mean,
@@ -227,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
     aligned, aligned_15 = _load_aligned(root)
     aligned.to_csv(camp / "aligned_hourly.csv", index=False)
     aligned_15.to_csv(camp / "aligned_15min.csv", index=False)
+
+    from eplus_calib_diagnostics import write_diagnostic_suite
 
     diag_manifest = write_diagnostic_suite(aligned, diag_dir, aligned_15=aligned_15)
 

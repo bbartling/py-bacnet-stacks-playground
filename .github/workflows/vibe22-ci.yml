@@ -26,7 +26,7 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install pytest pandas numpy pyarrow joblib scikit-learn
+          pip install pytest pandas numpy pyarrow joblib scikit-learn matplotlib
       - name: Pytest (full vibe22 suite)
         run: python -m pytest tests -q --tb=short
 

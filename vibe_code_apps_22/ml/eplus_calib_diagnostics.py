@@ -5,10 +5,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -81,6 +77,11 @@ def write_diagnostic_suite(
     aligned_15: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Write Phase-3 residual gallery under campaign diagnostics/."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     out = _ensure(Path(out_dir))
     plots = _ensure(out / "plots")
     manifest: dict[str, Any] = {"artifacts": [], "questions": {}}
@@ -112,7 +113,6 @@ def write_diagnostic_suite(
         ]
     )
 
-    # Schedule question: is residual systematic by hour?
     peak_hour_bias = float(by_hour.loc[by_hour["resid_mae"].idxmax(), "hour"]) if len(by_hour) else None
     manifest["questions"]["schedule_or_shape"] = {
         "worst_hour_local": peak_hour_bias,
@@ -133,7 +133,6 @@ def write_diagnostic_suite(
         "lag_shifts_applied": False,
     }
 
-    # Plots
     fig, ax = plt.subplots(figsize=(8, 3.5))
     ax.bar(by_hour["hour"], by_hour["resid_mean"], color="steelblue", alpha=0.85)
     ax.axhline(0, color="k", lw=0.6)
