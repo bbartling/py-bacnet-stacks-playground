@@ -154,7 +154,7 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
     }
     ui.colored_label(
         egui::Color32::from_rgb(210, 150, 70),
-        "IdealLoads+COP screening twin — not calibrated GSHP plant / not operational DSM.",
+        "IdealLoads + fixed-COP screening twin — not GSHP plant / not operational DSM (filename gshp is naming only).",
     );
     if let Some(flag) = &walk.outcome_flag {
         ui.colored_label(

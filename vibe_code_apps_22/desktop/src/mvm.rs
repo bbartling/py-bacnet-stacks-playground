@@ -1,10 +1,14 @@
-//! Measured-vs-modeled provenance panel (loads bundled JSON/CSV/PNG artifacts).
+//! Measured-vs-modeled + EnergyPlus multi-resolution validation (Wave 5 UX).
 
 use std::fs;
 use std::path::PathBuf;
 
 use eframe::egui;
 use serde::Deserialize;
+
+/// Canonical physics honesty — filename `*gshp*` is naming only, not plant type.
+pub const PHYSICS_LABEL_IDEALLOADS: &str =
+    "IdealLoads + fixed-COP electrical proxy (not GSHP/GLHE plant)";
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct MvmSummary {
@@ -37,6 +41,82 @@ pub struct MvmBundle {
     pub aligned_csv: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResolutionBlock {
+    pub resolution: String,
+    pub status: String,
+    pub n: u64,
+    pub p: u64,
+    #[serde(default, deserialize_with = "deserialize_opt_f64")]
+    pub nmbe_pct: Option<f64>,
+    #[serde(default, deserialize_with = "deserialize_opt_f64")]
+    pub cvrmse_pct: Option<f64>,
+    #[serde(default, deserialize_with = "deserialize_opt_f64")]
+    pub mean_obs: Option<f64>,
+    #[serde(default)]
+    pub labeled_as_gl14: bool,
+    #[serde(default)]
+    pub partial_year_monthly: bool,
+    pub gates: Option<serde_json::Value>,
+    pub formula: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_opt_f64")]
+    pub distance_to_gate: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Resolutions {
+    pub monthly: Option<ResolutionBlock>,
+    pub hourly: Option<ResolutionBlock>,
+    pub q15_dsm: Option<ResolutionBlock>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MultiresOverall {
+    pub monthly_pass: bool,
+    pub hourly_pass: bool,
+    pub recommendation_allowed: bool,
+    pub blocker_reason: Option<String>,
+    #[serde(default)]
+    pub optimizer_ready: bool,
+    #[serde(default = "default_true")]
+    pub operational_dsm_prohibited_until_gates_clear: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MultiresValidation {
+    pub schema: String,
+    pub acceptance_policy_id: String,
+    pub physics_label: String,
+    pub idf_sha256: Option<String>,
+    pub epw_sha256: Option<String>,
+    pub formula: Option<String>,
+    #[serde(default)]
+    pub resolutions: Resolutions,
+    pub overall: MultiresOverall,
+    pub alignment: Option<serde_json::Value>,
+    pub extra: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MultiresBundle {
+    pub doc: Option<MultiresValidation>,
+    pub error: Option<String>,
+    pub path: String,
+}
+
+/// Runtime inputs that further suppress recommendation language.
+#[derive(Debug, Clone, Default)]
+pub struct RecommendGateExtras {
+    pub smoke_farm: bool,
+    pub ood: bool,
+    pub comfort_fail: bool,
+    pub hash_mismatch: bool,
+}
+
 fn candidate_dirs() -> Vec<PathBuf> {
     let mut out = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
@@ -47,7 +127,9 @@ fn candidate_dirs() -> Vec<PathBuf> {
     }
     out.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("artifacts").join("mvm"));
     if let Ok(site) = std::env::var("LAKESIDE_SITE_ROOT") {
-        out.push(PathBuf::from(site).join("reports").join("eplus").join("mvm"));
+        let root = PathBuf::from(site);
+        out.push(root.join("reports").join("eplus").join("mvm"));
+        out.push(root.join("reports").join("eplus").join("multires"));
     }
     out
 }
@@ -111,11 +193,354 @@ pub fn load_mvm_bundle() -> MvmBundle {
     }
 }
 
+/// Load `eplus_multires_validation.json` (schema eplus_multires_validation_v1).
+/// Missing file is a soft fallback — UI shows unavailable badges, not a hard crash.
+pub fn load_multires_validation() -> MultiresBundle {
+    for dir in candidate_dirs() {
+        let path = dir.join("eplus_multires_validation.json");
+        if !path.is_file() {
+            continue;
+        }
+        match fs::read_to_string(&path) {
+            Ok(txt) => match parse_multires_json(&txt) {
+                Ok(doc) => {
+                    if doc.schema != "eplus_multires_validation_v1" {
+                        return MultiresBundle {
+                            doc: None,
+                            error: Some(format!(
+                                "Unexpected schema {:?} (want eplus_multires_validation_v1)",
+                                doc.schema
+                            )),
+                            path: path.display().to_string(),
+                        };
+                    }
+                    return MultiresBundle {
+                        doc: Some(doc),
+                        error: None,
+                        path: path.display().to_string(),
+                    };
+                }
+                Err(e) => {
+                    return MultiresBundle {
+                        doc: None,
+                        error: Some(format!("Multi-res validation parse error: {e}")),
+                        path: path.display().to_string(),
+                    };
+                }
+            },
+            Err(e) => {
+                return MultiresBundle {
+                    doc: None,
+                    error: Some(format!("Multi-res validation read error: {e}")),
+                    path: path.display().to_string(),
+                };
+            }
+        }
+    }
+    MultiresBundle {
+        doc: None,
+        error: Some(
+            "eplus_multires_validation.json missing — run scripts/validate_eplus_multires.py \
+             (mirrors into desktop/artifacts/mvm/)."
+                .into(),
+        ),
+        path: "(not found)".into(),
+    }
+}
+
+/// Python `json.dumps` may emit bare `NaN`; normalize before serde.
+pub fn parse_multires_json(raw: &str) -> Result<MultiresValidation, serde_json::Error> {
+    let cleaned = sanitize_json_nan(raw);
+    serde_json::from_str(&cleaned)
+}
+
+fn sanitize_json_nan(raw: &str) -> String {
+    // Replace unquoted NaN / Infinity tokens that Python allow_nan emits.
+    let mut out = String::with_capacity(raw.len());
+    let bytes = raw.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if matches_token(bytes, i, b"NaN") {
+            out.push_str("null");
+            i += 3;
+        } else if matches_token(bytes, i, b"Infinity") {
+            out.push_str("null");
+            i += 8;
+        } else if matches_token(bytes, i, b"-Infinity") {
+            out.push_str("null");
+            i += 9;
+        } else {
+            out.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+    out
+}
+
+fn matches_token(bytes: &[u8], i: usize, tok: &[u8]) -> bool {
+    if i + tok.len() > bytes.len() {
+        return false;
+    }
+    if &bytes[i..i + tok.len()] != tok {
+        return false;
+    }
+    let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+    let after_i = i + tok.len();
+    let after_ok = after_i >= bytes.len() || !bytes[after_i].is_ascii_alphanumeric();
+    before_ok && after_ok
+}
+
 fn some_if_file(p: PathBuf) -> Option<PathBuf> {
     if p.is_file() {
         Some(p)
     } else {
         None
+    }
+}
+
+/// Force IdealLoads + fixed-COP wording; never imply GSHP plant from filename.
+pub fn display_physics_label(raw: Option<&str>) -> String {
+    let s = raw.unwrap_or("").trim();
+    if s.is_empty() {
+        return PHYSICS_LABEL_IDEALLOADS.into();
+    }
+    let lower = s.to_ascii_lowercase();
+    // Reject labels that claim GSHP without the "not GSHP" honesty clause.
+    let claims_gshp = lower.contains("gshp") || lower.contains("glhe");
+    let denies_gshp = lower.contains("not gshp") || lower.contains("≠ gshp") || lower.contains("!= gshp")
+        || lower.contains("!=gshp")
+        || lower.contains("not a gshp")
+        || lower.contains("(not gshp");
+    if claims_gshp && !denies_gshp {
+        return PHYSICS_LABEL_IDEALLOADS.into();
+    }
+    if lower.contains("idealloads") || lower.contains("ideal loads") {
+        return s.to_string();
+    }
+    PHYSICS_LABEL_IDEALLOADS.into()
+}
+
+/// Whether UI may speak in recommendation language, plus one blocker reason.
+pub fn recommendation_language_gate(
+    multires: Option<&MultiresValidation>,
+    extras: &RecommendGateExtras,
+) -> (bool, Option<String>) {
+    if extras.hash_mismatch {
+        return (false, Some("hash_mismatch".into()));
+    }
+    if extras.smoke_farm {
+        return (false, Some("smoke_farm_screening_only".into()));
+    }
+    if extras.ood {
+        return (false, Some("OUT_OF_DISTRIBUTION".into()));
+    }
+    if extras.comfort_fail {
+        return (false, Some("comfort_fail".into()));
+    }
+    let Some(doc) = multires else {
+        return (false, Some("multires_validation_missing".into()));
+    };
+    if !doc.overall.recommendation_allowed {
+        return (
+            false,
+            doc.overall
+                .blocker_reason
+                .clone()
+                .or_else(|| Some("gates_not_met".into())),
+        );
+    }
+    if !doc.overall.monthly_pass || !doc.overall.hourly_pass {
+        return (false, Some("gates_not_met".into()));
+    }
+    (true, None)
+}
+
+/// Detect IDF hash disagreement between MVM summary and multi-res doc (when both present).
+pub fn idf_hash_mismatch(mvm: &MvmBundle, multires: &MultiresBundle) -> bool {
+    let a = mvm
+        .summary
+        .as_ref()
+        .and_then(|s| s.idf_sha256.as_deref())
+        .map(|h| h.trim().to_ascii_uppercase());
+    let b = multires
+        .doc
+        .as_ref()
+        .and_then(|d| d.idf_sha256.as_deref())
+        .map(|h| h.trim().to_ascii_uppercase());
+    match (a, b) {
+        (Some(x), Some(y)) if !x.is_empty() && !y.is_empty() => x != y,
+        _ => false,
+    }
+}
+
+fn status_color(status: &str) -> egui::Color32 {
+    match status {
+        "pass" => egui::Color32::from_rgb(120, 190, 130),
+        "fail" => egui::Color32::from_rgb(230, 100, 90),
+        "insufficient_data" => egui::Color32::from_rgb(210, 160, 80),
+        "diagnostic_only" | "waived" => egui::Color32::from_rgb(140, 170, 210),
+        _ => egui::Color32::from_rgb(160, 160, 170),
+    }
+}
+
+fn badge_label(name: &str, block: Option<&ResolutionBlock>) -> (String, egui::Color32) {
+    match block {
+        Some(b) => (format!("{name}: {}", b.status), status_color(&b.status)),
+        None => (
+            format!("{name}: —"),
+            egui::Color32::from_rgb(140, 140, 150),
+        ),
+    }
+}
+
+/// Compact main-screen strip: 3 badges + physics + recommendation + one blocker.
+pub fn show_multires_badge_strip(ui: &mut egui::Ui, bundle: &MultiresBundle, extras: &RecommendGateExtras) {
+    ui.horizontal_wrapped(|ui| {
+        ui.strong("E+ multi-res");
+        ui.separator();
+        match &bundle.doc {
+            Some(doc) => {
+                let (m, cm) = badge_label("monthly", doc.resolutions.monthly.as_ref());
+                let (h, ch) = badge_label("hourly", doc.resolutions.hourly.as_ref());
+                let (q, cq) = badge_label("15-min DSM", doc.resolutions.q15_dsm.as_ref());
+                ui.colored_label(cm, m);
+                ui.colored_label(ch, h);
+                ui.colored_label(cq, q);
+            }
+            None => {
+                ui.colored_label(
+                    egui::Color32::from_rgb(210, 160, 80),
+                    "monthly: —  hourly: —  15-min DSM: —",
+                );
+            }
+        }
+    });
+
+    let physics = display_physics_label(bundle.doc.as_ref().map(|d| d.physics_label.as_str()));
+    ui.label(
+        egui::RichText::new(format!("Physics: {physics}"))
+            .italics()
+            .color(egui::Color32::from_rgb(200, 170, 120)),
+    );
+
+    let (allowed, blocker) = recommendation_language_gate(bundle.doc.as_ref(), extras);
+    if allowed {
+        ui.colored_label(
+            egui::Color32::from_rgb(120, 190, 130),
+            "Recommendation: allowed (gates clear)",
+        );
+    } else {
+        ui.colored_label(
+            egui::Color32::from_rgb(230, 120, 90),
+            format!(
+                "Recommendation: blocked · {}",
+                blocker.as_deref().unwrap_or("gates_not_met")
+            ),
+        );
+    }
+}
+
+/// Detailed Validation tab contents (multi-res metrics + legacy MVM).
+pub fn show_validation_tab(ui: &mut egui::Ui, multires: &MultiresBundle, mvm: &MvmBundle) {
+    ui.heading("EnergyPlus multi-resolution validation");
+    if let Some(err) = &multires.error {
+        ui.colored_label(egui::Color32::from_rgb(230, 90, 90), err);
+    }
+    if let Some(doc) = &multires.doc {
+        ui.label(format!("schema: {}", doc.schema));
+        ui.label(format!("policy: {}", doc.acceptance_policy_id));
+        ui.label(format!(
+            "Physics: {}",
+            display_physics_label(Some(&doc.physics_label))
+        ));
+        ui.label(format!("file: {}", multires.path));
+        if let Some(f) = &doc.formula {
+            ui.weak(f);
+        }
+
+        egui::Grid::new("multires_overall")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("monthly_pass");
+                ui.label(doc.overall.monthly_pass.to_string());
+                ui.end_row();
+                ui.label("hourly_pass");
+                ui.label(doc.overall.hourly_pass.to_string());
+                ui.end_row();
+                ui.label("recommendation_allowed");
+                ui.label(doc.overall.recommendation_allowed.to_string());
+                ui.end_row();
+                ui.label("blocker_reason");
+                ui.label(
+                    doc.overall
+                        .blocker_reason
+                        .clone()
+                        .unwrap_or_else(|| "—".into()),
+                );
+                ui.end_row();
+                ui.label("optimizer_ready");
+                ui.label(doc.overall.optimizer_ready.to_string());
+                ui.end_row();
+                ui.label("operational DSM");
+                ui.label(if doc.overall.operational_dsm_prohibited_until_gates_clear {
+                    "prohibited until gates clear"
+                } else {
+                    "not prohibited"
+                });
+                ui.end_row();
+                ui.label("IDF SHA-256");
+                ui.monospace(doc.idf_sha256.clone().unwrap_or_else(|| "—".into()));
+                ui.end_row();
+                ui.label("EPW SHA-256");
+                ui.monospace(doc.epw_sha256.clone().unwrap_or_else(|| "—".into()));
+                ui.end_row();
+            });
+
+        ui.separator();
+        ui.heading("Resolutions");
+        for (title, block) in [
+            ("Monthly (GL14-style)", doc.resolutions.monthly.as_ref()),
+            ("Hourly (calibrated-sim screen)", doc.resolutions.hourly.as_ref()),
+            ("15-min DSM (diagnostic only)", doc.resolutions.q15_dsm.as_ref()),
+        ] {
+            ui.strong(title);
+            match block {
+                Some(b) => {
+                    ui.label(format!(
+                        "status={}  n={}  p={}  |NMBE|≈{}%  CVRMSE≈{}%  GL14-label={}",
+                        b.status,
+                        b.n,
+                        b.p,
+                        fmt_opt(b.nmbe_pct),
+                        fmt_opt(b.cvrmse_pct),
+                        b.labeled_as_gl14
+                    ));
+                    if b.partial_year_monthly {
+                        ui.weak("partial-year monthly (n < 12) — labeled honestly");
+                    }
+                    if b.resolution.contains("15") || title.contains("15-min") {
+                        ui.weak("Never marketed as 15-minute GL14.");
+                    }
+                }
+                None => {
+                    ui.weak("not present in validation JSON");
+                }
+            }
+        }
+    } else {
+        ui.weak("Multi-res validation unavailable — badges fall back to unavailable.");
+    }
+
+    ui.add_space(10.0);
+    ui.separator();
+    show_mvm_panel(ui, mvm);
+}
+
+fn fmt_opt(v: Option<f64>) -> String {
+    match v {
+        Some(x) if x.is_finite() => format!("{x:.2}"),
+        _ => "—".into(),
     }
 }
 
@@ -130,13 +555,9 @@ pub fn show_mvm_panel(ui: &mut egui::Ui, bundle: &MvmBundle) {
         return;
     };
     ui.label(
-        egui::RichText::new(
-            s.honesty
-                .clone()
-                .unwrap_or_else(|| "Ideal Loads + fixed-COP (native E+ twin)".into()),
-        )
-        .italics()
-        .color(egui::Color32::from_rgb(200, 170, 120)),
+        egui::RichText::new(display_physics_label(s.honesty.as_deref()))
+            .italics()
+            .color(egui::Color32::from_rgb(200, 170, 120)),
     );
     egui::Grid::new("mvm_prov")
         .num_columns(2)
@@ -176,7 +597,9 @@ pub fn show_mvm_panel(ui: &mut egui::Ui, bundle: &MvmBundle) {
             ui.label(format!(
                 "{:.1}% (denom={})",
                 s.hourly_cvrmse_pct.unwrap_or(f64::NAN),
-                s.cvrmse_denominator.clone().unwrap_or_else(|| "mean_obs".into())
+                s.cvrmse_denominator
+                    .clone()
+                    .unwrap_or_else(|| "mean_obs".into())
             ));
             ui.end_row();
         });
@@ -205,5 +628,214 @@ pub fn show_mvm_panel(ui: &mut egui::Ui, bundle: &MvmBundle) {
     }
     if let Some(note) = &s.missingness_note {
         ui.weak(note);
+    }
+}
+
+fn deserialize_opt_f64<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match v {
+        None | Some(serde_json::Value::Null) => None,
+        Some(serde_json::Value::Number(n)) => n.as_f64().filter(|x| x.is_finite()),
+        Some(serde_json::Value::String(s)) => {
+            let t = s.trim();
+            if t.eq_ignore_ascii_case("nan")
+                || t.eq_ignore_ascii_case("inf")
+                || t.eq_ignore_ascii_case("-inf")
+                || t.eq_ignore_ascii_case("infinity")
+                || t.eq_ignore_ascii_case("-infinity")
+            {
+                None
+            } else {
+                t.parse::<f64>().ok().filter(|x| x.is_finite())
+            }
+        }
+        _ => None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_FAIL: &str = r#"{
+        "schema": "eplus_multires_validation_v1",
+        "acceptance_policy_id": "eplus_dsm_acceptance_policy_v1",
+        "physics_label": "IdealLoads + fixed-COP electrical proxy (not GSHP/GLHE plant)",
+        "idf_sha256": "AAA",
+        "epw_sha256": "BBB",
+        "formula": "NREL / older G14 practice",
+        "resolutions": {
+            "monthly": {
+                "resolution": "monthly",
+                "status": "pass",
+                "n": 11,
+                "p": 1,
+                "nmbe_pct": 2.7,
+                "cvrmse_pct": 11.5,
+                "mean_obs": 100.0,
+                "labeled_as_gl14": true,
+                "partial_year_monthly": true
+            },
+            "hourly": {
+                "resolution": "hourly",
+                "status": "fail",
+                "n": 8000,
+                "p": 1,
+                "nmbe_pct": 3.1,
+                "cvrmse_pct": 97.0,
+                "mean_obs": 50.0,
+                "labeled_as_gl14": false,
+                "partial_year_monthly": false
+            },
+            "q15_dsm": {
+                "resolution": "15min",
+                "status": "diagnostic_only",
+                "n": 0,
+                "p": 1,
+                "nmbe_pct": null,
+                "cvrmse_pct": null,
+                "labeled_as_gl14": false,
+                "partial_year_monthly": false
+            }
+        },
+        "overall": {
+            "monthly_pass": true,
+            "hourly_pass": false,
+            "recommendation_allowed": false,
+            "blocker_reason": "hourly=fail",
+            "optimizer_ready": false,
+            "operational_dsm_prohibited_until_gates_clear": true
+        }
+    }"#;
+
+    #[test]
+    fn parses_multires_schema_v1() {
+        let doc = parse_multires_json(SAMPLE_FAIL).unwrap();
+        assert_eq!(doc.schema, "eplus_multires_validation_v1");
+        assert!(doc.overall.monthly_pass);
+        assert!(!doc.overall.hourly_pass);
+        assert!(!doc.overall.recommendation_allowed);
+        assert_eq!(doc.overall.blocker_reason.as_deref(), Some("hourly=fail"));
+        assert_eq!(doc.resolutions.hourly.as_ref().unwrap().status, "fail");
+        assert_eq!(
+            doc.resolutions.q15_dsm.as_ref().unwrap().status,
+            "diagnostic_only"
+        );
+    }
+
+    #[test]
+    fn sanitizes_python_nan_tokens() {
+        let raw = r#"{
+            "schema": "eplus_multires_validation_v1",
+            "acceptance_policy_id": "p",
+            "physics_label": "IdealLoads + fixed-COP (not GSHP)",
+            "resolutions": {
+                "monthly": {
+                    "resolution": "monthly",
+                    "status": "insufficient_data",
+                    "n": 0,
+                    "p": 1,
+                    "nmbe_pct": NaN,
+                    "cvrmse_pct": NaN,
+                    "labeled_as_gl14": true
+                }
+            },
+            "overall": {
+                "monthly_pass": false,
+                "hourly_pass": false,
+                "recommendation_allowed": false,
+                "blocker_reason": "incomplete",
+                "optimizer_ready": false,
+                "operational_dsm_prohibited_until_gates_clear": true
+            }
+        }"#;
+        let doc = parse_multires_json(raw).unwrap();
+        assert!(doc.resolutions.monthly.as_ref().unwrap().nmbe_pct.is_none());
+    }
+
+    #[test]
+    fn physics_label_rejects_bare_gshp_claim() {
+        assert!(display_physics_label(Some("GSHP plant twin")).contains("IdealLoads"));
+        assert!(display_physics_label(Some("IdealLoads + fixed-COP (not GSHP/GLHE)"))
+            .contains("IdealLoads"));
+        assert_eq!(
+            display_physics_label(None),
+            PHYSICS_LABEL_IDEALLOADS
+        );
+    }
+
+    #[test]
+    fn recommendation_gate_blocks_smoke_ood_comfort_hash() {
+        let doc = parse_multires_json(SAMPLE_FAIL).unwrap();
+        // Even if we forged recommendation_allowed, extras still block.
+        let mut ok = doc.clone();
+        ok.overall.recommendation_allowed = true;
+        ok.overall.monthly_pass = true;
+        ok.overall.hourly_pass = true;
+        ok.overall.blocker_reason = None;
+
+        let (a, r) = recommendation_language_gate(
+            Some(&ok),
+            &RecommendGateExtras {
+                smoke_farm: true,
+                ..Default::default()
+            },
+        );
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("smoke_farm_screening_only"));
+
+        let (a, r) = recommendation_language_gate(
+            Some(&ok),
+            &RecommendGateExtras {
+                ood: true,
+                ..Default::default()
+            },
+        );
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("OUT_OF_DISTRIBUTION"));
+
+        let (a, r) = recommendation_language_gate(
+            Some(&ok),
+            &RecommendGateExtras {
+                comfort_fail: true,
+                ..Default::default()
+            },
+        );
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("comfort_fail"));
+
+        let (a, r) = recommendation_language_gate(
+            Some(&ok),
+            &RecommendGateExtras {
+                hash_mismatch: true,
+                ..Default::default()
+            },
+        );
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("hash_mismatch"));
+
+        let (a, r) = recommendation_language_gate(Some(&doc), &RecommendGateExtras::default());
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("hourly=fail"));
+
+        let (a, r) = recommendation_language_gate(None, &RecommendGateExtras::default());
+        assert!(!a);
+        assert_eq!(r.as_deref(), Some("multires_validation_missing"));
+    }
+
+    #[test]
+    fn missing_file_is_graceful_bundle() {
+        // load_multires_validation may or may not find a file in CI; ensure type compiles
+        // and missing path message is non-empty when absent.
+        let b = MultiresBundle {
+            doc: None,
+            error: Some("missing".into()),
+            path: "(not found)".into(),
+        };
+        assert!(b.doc.is_none());
+        assert!(b.error.is_some());
     }
 }

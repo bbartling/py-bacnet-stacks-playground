@@ -41,8 +41,13 @@
       "active": false,
       "approved_by": null,
       "reason": null,
-      "note": "Wave 4 farm/promote blocked until hourly pass OR this waiver is explicitly activated"
+      "note": "Wave 4 farm/promote blocked until hourly pass OR this waiver is explicitly activated. Wave 3 IdealLoads structural limit: do not waive casually — see docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md"
     }
+  },
+  "structural_checkpoint": {
+    "idealloads_hourly_adequate": false,
+    "decision": "stop_idealloads_tuning",
+    "report": "docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md"
   },
   "physics_honesty": {
     "label": "IdealLoads + fixed-COP electrical proxy (not GSHP/GLHE plant)",

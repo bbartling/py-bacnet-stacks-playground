@@ -175,7 +175,15 @@ pub fn metrics_from_manifest(ship: &ShipManifest) -> (Vec<String>, f32, String) 
         }
     }
 
-    lines.push("Honesty: HYBRID_SCREENING · IdealLoads+COP != GSHP plant".into());
+    lines.push(
+        "Honesty: HYBRID_SCREENING · IdealLoads + fixed-COP (not GSHP) — filename gshp is naming only"
+            .into(),
+    );
+    if is_smoke_screening(ship) {
+        lines.push(
+            "Smoke/screening farm — operational DSM recommendations disabled".into(),
+        );
+    }
     if let Some(flag) = &ship.outcome_flag {
         lines.push(format!("outcome_flag: {flag}"));
     }
@@ -191,6 +199,25 @@ pub fn metrics_from_manifest(ship: &ShipManifest) -> (Vec<String>, f32, String) 
     (lines, pm, note)
 }
 
+/// Smoke / underpowered farm — refuse recommendation language (acceptance policy).
+pub fn is_smoke_screening(ship: &ShipManifest) -> bool {
+    if ship.ship_mode.as_deref() == Some("smoke_artifact") {
+        return true;
+    }
+    if let Some(w) = ship.watermark.as_deref() {
+        let u = w.to_ascii_uppercase();
+        if u.contains("SMOKE") || u.contains("UNDERPOWERED") {
+            return true;
+        }
+    }
+    if let Some(n) = ship.pair_count {
+        if n >= 0 && n < 12 {
+            return true;
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,6 +229,7 @@ mod tests {
             "champion_baseline": "extra_trees",
             "champion_delta": "gradient_boosting",
             "watermark": "UNDERPOWERED_SMOKE_FARM",
+            "pair_count": 6,
             "mv_precision": {
                 "primary": ["nmbe", "cv_rmse"],
                 "precision_pm_kw": 12.5,
@@ -218,5 +246,22 @@ mod tests {
         assert!(lines.iter().any(|l| l.contains("extra_trees")));
         assert!(lines.iter().any(|l| l.contains("NMBE=")));
         assert!(lines.iter().any(|l| l.contains("CV(RMSE)=")));
+        assert!(lines.iter().any(|l| l.contains("IdealLoads + fixed-COP")));
+        assert!(is_smoke_screening(&ship));
+    }
+
+    #[test]
+    fn smoke_screening_from_pair_count() {
+        let ship = ShipManifest {
+            pair_count: Some(6),
+            ..Default::default()
+        };
+        assert!(is_smoke_screening(&ship));
+        let ship2 = ShipManifest {
+            pair_count: Some(24),
+            ship_mode: Some("full".into()),
+            ..Default::default()
+        };
+        assert!(!is_smoke_screening(&ship2));
     }
 }

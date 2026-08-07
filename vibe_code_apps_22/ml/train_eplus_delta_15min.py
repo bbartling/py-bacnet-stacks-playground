@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -405,7 +406,7 @@ def export_delta_artifacts(
         "honesty": HONESTY,
         "component": "B_eplus_delta",
         "targets_are_deltas": True,
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
     }
     meta_path = out_dir / f"{STEM}_feature_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -428,7 +429,7 @@ def export_delta_artifacts(
         "paired_source": paired_source,
         "feature_contract_version": "FEATURE_COLS_15MIN_MT",
         "control_contract_version": "control_strategies_v1",
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
         "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
         "limitation": DELTA_LIMITATION,
         "hashes": {

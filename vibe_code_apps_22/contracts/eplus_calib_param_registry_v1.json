@@ -1,0 +1,121 @@
+{
+  "registry_id": "eplus_calib_param_registry_v1",
+  "version": 1,
+  "physics": "IdealLoads + fixed-COP proxy (filename gshp is naming only)",
+  "default_p": 1,
+  "champion_protection": {
+    "never_overwrite_staged_without_promote": true,
+    "staged_pointer": "eplus/models/staged/DSM_ELIGIBLE.json",
+    "campaign_writes_only_under": "eplus/campaigns/<run_id>/"
+  },
+  "parameters": [
+    {
+      "id": "sched_occ_shift_h",
+      "category": "A_schedule_alignment",
+      "description": "Shift occupied HVAC schedule by hours (diagnostic; physical semantics required before apply)",
+      "bounds": [-2.0, 2.0],
+      "unit": "h",
+      "approval_required": true,
+      "stage": "A"
+    },
+    {
+      "id": "unocc_heat_sp_f",
+      "category": "A_schedule_alignment",
+      "description": "Unoccupied heating setpoint (°F)",
+      "bounds": [60.0, 68.0],
+      "unit": "F",
+      "approval_required": false,
+      "stage": "A"
+    },
+    {
+      "id": "occ_heat_sp_f",
+      "category": "A_schedule_alignment",
+      "description": "Occupied heating setpoint (°F)",
+      "bounds": [66.0, 72.0],
+      "unit": "F",
+      "approval_required": false,
+      "stage": "A"
+    },
+    {
+      "id": "equip_mult",
+      "category": "B_base_load",
+      "description": "Electric equipment Watts/Area multiplier",
+      "bounds": [0.7, 1.3],
+      "unit": "mult",
+      "approval_required": false,
+      "stage": "B"
+    },
+    {
+      "id": "lights_mult",
+      "category": "B_base_load",
+      "description": "Lights Watts/Area multiplier",
+      "bounds": [0.7, 1.2],
+      "unit": "mult",
+      "approval_required": false,
+      "stage": "B"
+    },
+    {
+      "id": "fan_w_per_m2_mult",
+      "category": "B_base_load",
+      "description": "Fan proxy electric equipment multiplier",
+      "bounds": [0.5, 1.5],
+      "unit": "mult",
+      "approval_required": false,
+      "stage": "B"
+    },
+    {
+      "id": "infil_mult",
+      "category": "C_envelope_temp",
+      "description": "Infiltration Flow/ExteriorArea multiplier",
+      "bounds": [0.8, 1.5],
+      "unit": "mult",
+      "approval_required": false,
+      "stage": "C"
+    },
+    {
+      "id": "window_u",
+      "category": "C_envelope_temp",
+      "description": "SimpleGlazingSystem U-factor (IP)",
+      "bounds": [0.25, 0.55],
+      "unit": "Btu/h-ft2-F",
+      "approval_required": true,
+      "stage": "C"
+    },
+    {
+      "id": "heat_cop",
+      "category": "D_plant_proxy",
+      "description": "Heating COP for IdealLoads electric proxy (scoring)",
+      "bounds": [2.5, 4.5],
+      "unit": "-",
+      "approval_required": true,
+      "stage": "D",
+      "note": "Only after IdealLoads structure passes Wave 3 gate"
+    },
+    {
+      "id": "cool_cop",
+      "category": "D_plant_proxy",
+      "description": "Cooling COP for IdealLoads electric proxy (scoring)",
+      "bounds": [3.0, 5.5],
+      "unit": "-",
+      "approval_required": true,
+      "stage": "D"
+    }
+  ],
+  "ranking": {
+    "order": [
+      "monthly_hard_gate",
+      "hourly_distance",
+      "dsm_zone_plausibility",
+      "param_plausibility"
+    ],
+    "monthly_hard_gate": "status must be pass (or waived)",
+    "hourly_distance": "minimize gl14_distance with hourly 10/30 gates",
+    "do_not_peek_final_holdout_during_tuning": true
+  },
+  "stages": {
+    "A": "schedule/alignment diagnostics + bounded setpoint search",
+    "B": "base-load (lights/equip/fan proxy)",
+    "C": "envelope / infiltration / window diagnostics",
+    "D": "plant-proxy COP — blocked until IdealLoads structure adequate"
+  }
+}

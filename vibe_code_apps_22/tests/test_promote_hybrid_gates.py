@@ -252,6 +252,9 @@ def test_promote_flags_rejected_dsm_outcome(tmp_path, monkeypatch):
 
     with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
         "promote_hybrid_ship.rollout_96", _fake_rollout(summary)
+    ), patch(
+        "promote_hybrid_ship._multires_gate",
+        return_value={"ok": True, "operational": True, "reason": None, "path": None},
     ):
         load.return_value = (MagicMock(), ["a"], ["facility_kw"])
         out = promote_hybrid(artifacts=art, desktop_artifacts=desk)
@@ -277,7 +280,30 @@ def test_promote_flags_rejected_on_high_kwh(tmp_path, monkeypatch):
 
     with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
         "promote_hybrid_ship.rollout_96", _fake_rollout(summary)
+    ), patch(
+        "promote_hybrid_ship._multires_gate",
+        return_value={"ok": True, "operational": True, "reason": None, "path": None},
     ):
         load.return_value = (MagicMock(), ["a"], ["facility_kw"])
         out = promote_hybrid(artifacts=art, desktop_artifacts=desk)
     assert out["result"]["outcome_flag"] == REJECTED_DSM_OUTCOME
+
+
+def test_promote_refuses_operational_when_hourly_fails(tmp_path, monkeypatch):
+    art = tmp_path / "art"
+    desk = tmp_path / "desk"
+    _write_minimal_cards(
+        art,
+        heldout=_GOOD_BASE_HELDOUT,
+        delta_heldout=_GOOD_DELTA_HELDOUT,
+        n_days=20,
+    )
+    monkeypatch.delenv(SMOKE_ENV, raising=False)
+    _patch_env(monkeypatch, tmp_path)
+    with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
+        "promote_hybrid_ship._multires_gate",
+        side_effect=ValueError("Refuse operational promote: multi-res gates not met"),
+    ):
+        load.return_value = (MagicMock(), ["a"], ["facility_kw"])
+        with pytest.raises(ValueError, match="multi-res gates"):
+            promote_hybrid(artifacts=art, desktop_artifacts=desk)

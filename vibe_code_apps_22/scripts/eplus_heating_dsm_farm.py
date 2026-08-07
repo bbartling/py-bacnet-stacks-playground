@@ -246,14 +246,68 @@ def _eligible_idf(root: Path) -> Path:
 
 
 def _cold_shoulder_days(n_cold: int = 12, n_shoulder: int = 6) -> list[date]:
-    cold = [date(2026, 1, 5 + i * 2) for i in range(n_cold)]
-    shoulder = [date(2025, 10, 6 + i * 3) for i in range(n_shoulder)]
-    return cold + shoulder
+    """Build weather-day list without inventing invalid calendar dates."""
+    cold_pool = [
+        date(2026, 1, d) for d in range(5, 32, 2)
+    ] + [
+        date(2026, 2, d) for d in range(2, 28, 2)
+    ] + [
+        date(2025, 12, d) for d in range(2, 31, 2)
+    ]
+    shoulder_pool = [
+        date(2025, 10, d) for d in range(6, 31, 3)
+    ] + [
+        date(2025, 11, d) for d in range(3, 30, 3)
+    ] + [
+        date(2026, 3, d) for d in range(3, 31, 3)
+    ]
+    cold = cold_pool[: max(0, int(n_cold))]
+    shoulder = shoulder_pool[: max(0, int(n_shoulder))]
+    # If pools exhausted, cycle with unique keys via offset months already listed
+    while len(cold) < n_cold and cold_pool:
+        cold.append(cold_pool[len(cold) % len(cold_pool)])
+    while len(shoulder) < n_shoulder and shoulder_pool:
+        shoulder.append(shoulder_pool[len(shoulder) % len(shoulder_pool)])
+    # Deduplicate preserving order
+    seen: set[date] = set()
+    out: list[date] = []
+    for d in cold + shoulder:
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
 
 
-def build_scenarios(*, smoke: bool, medium: bool) -> list[dict]:
-    """Paired scenarios: one baseline run per day + DSM arms; smoke ≈ 12 runs."""
-    if smoke:
+def build_scenarios(
+    *,
+    smoke: bool = False,
+    medium: bool = False,
+    crossed: bool = False,
+    n_weather_days: int = 40,
+) -> list[dict]:
+    """Paired scenarios: one baseline run per day + DSM arms.
+
+    Modes
+    -----
+    - smoke: ~6 days × 1 DSM strategy (screening; underpowered)
+    - medium: cold+shoulder × all strategies including PRBS
+    - crossed: ≥30–60 weather days × all **deployable** strategies (no PRBS)
+      + matched baselines; PRBS remains farm-only via medium/smoke cycles
+    """
+    if crossed:
+        # 30 cold-ish + 10 shoulder ≈ 40 default; clamp to [30, 60]
+        n = max(30, min(60, int(n_weather_days)))
+        n_cold = max(20, n - 10)
+        n_shoulder = n - n_cold
+        days = _cold_shoulder_days(n_cold, n_shoulder)[:n]
+        # Deployable strategies only — PRBS is farm/research-only
+        deployable = [
+            s
+            for s in STRATEGY_IDS
+            if s != "baseline" and not str(s).startswith("prbs")
+        ]
+        day_strategies = {d: list(deployable) for d in days}
+    elif smoke:
         days = _cold_shoulder_days(4, 2)  # 6 days
         # one DSM strategy per day → 6 baseline + 6 dsm = 12
         dsm_cycle = [
@@ -302,6 +356,22 @@ def build_scenarios(*, smoke: bool, medium: bool) -> list[dict]:
             sc["seed"] = stable_seed_from_scenario(sc)
             scenarios.append(sc)
     return scenarios
+
+
+def pair_integrity_hashes(scenarios: list[dict]) -> dict[str, Any]:
+    """Summarize pair coverage for promote / farm manifests."""
+    by_day: dict[str, set[str]] = {}
+    for sc in scenarios:
+        by_day.setdefault(str(sc["day"]), set()).add(str(sc["arm"]))
+    both = [d for d, arms in by_day.items() if "baseline" in arms and "dsm" in arms]
+    return {
+        "n_scenarios": len(scenarios),
+        "n_days": len(by_day),
+        "n_days_with_both_arms": len(both),
+        "n_baseline": sum(1 for s in scenarios if s["arm"] == "baseline"),
+        "n_dsm": sum(1 for s in scenarios if s["arm"] == "dsm"),
+        "prbs_farm_only": True,
+    }
 
 
 def _quarter_index(stamp: str) -> tuple[int, int, int]:
@@ -491,13 +561,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--smoke", action="store_true", help="~12 paired runs (6 days × baseline+dsm)")
     ap.add_argument("--medium", action="store_true", help="full cold+shoulder × strategies")
     ap.add_argument(
+        "--crossed",
+        action="store_true",
+        help="Crossed farm: 30–60 weather days × deployable strategies (no PRBS); matched baselines",
+    )
+    ap.add_argument(
+        "--n-weather-days",
+        type=int,
+        default=40,
+        help="With --crossed: weather day count (clamped 30–60)",
+    )
+    ap.add_argument(
         "--out",
         type=Path,
         default=_APP / "ml" / "artifacts" / f"{OUT_STEM}.parquet",
     )
     args = ap.parse_args(argv)
-    if not args.smoke and not args.medium:
+    if not args.smoke and not args.medium and not args.crossed:
         args.smoke = True
+    if args.crossed and (args.smoke or args.medium):
+        raise SystemExit("choose one of --smoke / --medium / --crossed")
 
     os.environ.setdefault(
         "LAKESIDE_SITE_ROOT",
@@ -513,12 +596,34 @@ def main(argv: list[str] | None = None) -> int:
     base_text = idf_src.read_text(encoding="utf-8")
     idf_sha = sha256_file(idf_src)
     epw_sha = sha256_file(epw)
-    scenarios = build_scenarios(smoke=args.smoke, medium=args.medium)
+    scenarios = build_scenarios(
+        smoke=args.smoke,
+        medium=args.medium,
+        crossed=args.crossed,
+        n_weather_days=args.n_weather_days,
+    )
+    integrity = pair_integrity_hashes(scenarios)
     print(
         f"paired farm scenarios={len(scenarios)} "
-        f"baseline={sum(1 for s in scenarios if s['arm']=='baseline')} "
-        f"dsm={sum(1 for s in scenarios if s['arm']=='dsm')} idf={idf_src.name}",
+        f"baseline={integrity['n_baseline']} "
+        f"dsm={integrity['n_dsm']} days={integrity['n_days']} "
+        f"mode={'crossed' if args.crossed else 'medium' if args.medium else 'smoke'} "
+        f"idf={idf_src.name}",
         flush=True,
+    )
+    (farm_root / "pair_integrity.json").write_text(
+        json.dumps(
+            {
+                **integrity,
+                "idf_sha256": idf_sha,
+                "epw_sha256": epw_sha,
+                "physics": "IdealLoads + fixed-COP (gshp filename naming only)",
+                "blocked_operational_until_hourly_gate_or_waiver": True,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
     # Cache accepted timestep frames by input_hash for pair expansion

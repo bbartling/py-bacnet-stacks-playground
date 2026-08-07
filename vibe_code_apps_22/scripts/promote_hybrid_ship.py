@@ -3,7 +3,7 @@
 
 Prefer the sklearn notebook (Run All). CLI requires VIBE22_ALLOW_CLI_TRAIN=1.
 
-Promote gates (Audit P0):
+Promote gates (Audit P0 + Wave 4):
 - Baseline AND delta cards must include non-empty ``cv_recursive_96_heldout``
   with usable facility metrics (facility_kw_mae / mae_delta_kw).
 - Held-out ``note``/``status`` must not carry provisional, teacher_forced, debug,
@@ -11,8 +11,13 @@ Promote gates (Audit P0):
 - Usable both-arm pair count >= MIN_PAIRS (12), else refuse unless
   ``VIBE22_ALLOW_SMOKE_PROMOTE=1`` (which stamps the ship manifest with the
   ``UNDERPOWERED_SMOKE_FARM`` watermark and ship_mode=smoke_artifact).
+- Multi-res monthly+hourly gates must pass (``eplus_multires_validation.json``)
+  OR acceptance-policy ``hourly_gate_waiver.active`` must be true. Smoke promote
+  never counts as operational even with waiver.
 - ``delta_peak_kw > 0`` or ``delta_kwh > 500`` → outcome_flag REJECTED_DSM_OUTCOME.
 - IdealLoads + fixed-COP disclaimer is always emitted.
+- Transactional desktop switch: write candidate bundle → verify → atomic replace
+  with rollback on failure.
 """
 from __future__ import annotations
 
@@ -48,6 +53,7 @@ SMOKE_ENV = "VIBE22_ALLOW_SMOKE_PROMOTE"
 SMOKE_WATERMARK = "UNDERPOWERED_SMOKE_FARM"
 REJECTED_DSM_OUTCOME = "REJECTED_DSM_OUTCOME"
 DELTA_KWH_REJECT_THRESHOLD = 500.0
+POLICY_PATH = _APP / "contracts" / "eplus_dsm_acceptance_policy_v1.json"
 # Notes / statuses that betray a non-honest held-out metric.
 FORBIDDEN_NOTE_TOKENS = (
     "provisional",
@@ -58,6 +64,121 @@ FORBIDDEN_NOTE_TOKENS = (
     "insufficient",
 )
 
+
+def _promoted_via() -> str:
+    return "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook"
+
+
+def _load_acceptance_policy() -> dict[str, Any]:
+    if not POLICY_PATH.is_file():
+        return {}
+    try:
+        return json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _multires_gate(*, is_smoke: bool) -> dict[str, Any]:
+    """Require monthly+hourly pass, or explicit hourly waiver (never operational on smoke)."""
+    policy = _load_acceptance_policy()
+    waiver = (policy.get("waivers") or {}).get("hourly_gate_waiver") or {}
+    waiver_active = bool(waiver.get("active"))
+    candidates = [
+        _APP / "desktop" / "artifacts" / "mvm" / "eplus_multires_validation.json",
+        _ML / "artifacts" / "eplus_campaigns" / "latest_validation.json",
+        Path(
+            os.environ.get(
+                "LAKESIDE_SITE_ROOT",
+                r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
+            )
+        )
+        / "reports"
+        / "eplus"
+        / "multires"
+        / "eplus_multires_validation.json",
+    ]
+    doc = None
+    path_used = None
+    for p in candidates:
+        if p.is_file():
+            try:
+                doc = json.loads(p.read_text(encoding="utf-8"))
+                path_used = str(p)
+                break
+            except json.JSONDecodeError:
+                continue
+    if doc is None:
+        if is_smoke:
+            return {
+                "ok": True,
+                "operational": False,
+                "reason": "smoke_promote_without_multires_doc",
+                "path": None,
+            }
+        raise ValueError(
+            "Missing eplus_multires_validation.json — run scripts/validate_eplus_multires.py "
+            "before operational promote (or use smoke env for screening only)."
+        )
+    overall = doc.get("overall") or {}
+    monthly_ok = bool(overall.get("monthly_pass"))
+    hourly_ok = bool(overall.get("hourly_pass"))
+    if monthly_ok and hourly_ok:
+        return {
+            "ok": True,
+            "operational": not is_smoke,
+            "reason": None,
+            "path": path_used,
+            "waiver": False,
+        }
+    if monthly_ok and waiver_active and not is_smoke:
+        return {
+            "ok": True,
+            "operational": False,
+            "reason": f"hourly_waived:{waiver.get('reason')}",
+            "path": path_used,
+            "waiver": True,
+            "note": "Waiver allows research promote only — operational DSM still prohibited",
+        }
+    if is_smoke:
+        return {
+            "ok": True,
+            "operational": False,
+            "reason": overall.get("blocker_reason") or "hourly_fail_smoke_ok",
+            "path": path_used,
+            "waiver": False,
+        }
+    raise ValueError(
+        "Refuse operational promote: multi-res gates not met "
+        f"(monthly_pass={monthly_ok}, hourly_pass={hourly_ok}, "
+        f"blocker={overall.get('blocker_reason')}). "
+        "Activate contracts/eplus_dsm_acceptance_policy_v1.json "
+        "waivers.hourly_gate_waiver only with explicit approval, "
+        "or keep VIBE22_ALLOW_SMOKE_PROMOTE=1 for screening."
+    )
+
+
+def _atomic_desktop_switch(candidate: Path, desk: Path) -> None:
+    """Replace desktop artifacts from candidate dir; restore backup on failure."""
+    backup = desk.parent / f"{desk.name}._promote_bak"
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+    if desk.exists():
+        shutil.copytree(desk, backup)
+    try:
+        desk.mkdir(parents=True, exist_ok=True)
+        for src in candidate.iterdir():
+            dst = desk / src.name
+            if src.is_file():
+                shutil.copy2(src, dst)
+    except Exception:
+        if backup.exists():
+            if desk.exists():
+                shutil.rmtree(desk, ignore_errors=True)
+            shutil.copytree(backup, desk)
+        raise
+    finally:
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
 
 def _find_forbidden_notes(obj: Any, path: str = "") -> list[str]:
     """Return locations where a ``note``/``status`` field holds a forbidden token."""
@@ -295,6 +416,8 @@ def promote_hybrid(
             )
         is_smoke = True
 
+    multires = _multires_gate(is_smoke=is_smoke)
+
     models = HybridModels(baseline=base_m, delta=delta_m, feature_cols=cols_b)
     contract = make_fixture_contract()
     site_store = Path(
@@ -368,9 +491,11 @@ def promote_hybrid(
     result["mv_precision"] = mv_precision
     result["honesty"] = HONESTY
     result["contract_version"] = CONTRACT_VERSION
-    result["promoted_via"] = "notebook"
+    result["promoted_via"] = _promoted_via()
     result["pair_count"] = pair_count
     result["idealloads_cop_disclaimer"] = IDEALLOADS_COP_DISCLAIMER
+    result["multires_gate"] = multires
+    result["operational_dsm"] = bool(multires.get("operational"))
 
     ship_mode = "hybrid_96"
     if is_smoke:
@@ -380,6 +505,14 @@ def promote_hybrid(
         result["honesty_note"] = (
             f"{SMOKE_WATERMARK}: usable both-arm pairs={pair_count} < {MIN_PAIRS}; "
             "screening-only smoke artifact, not a client-grade result"
+        )
+    elif not multires.get("operational"):
+        ship_mode = "research_artifact"
+        result["ship_mode"] = ship_mode
+        result["honesty_note"] = (
+            multires.get("note")
+            or multires.get("reason")
+            or "multi-res gates incomplete — research promote only"
         )
 
     summary = result.get("summary") or {}
@@ -395,8 +528,24 @@ def promote_hybrid(
     (fix_dir / "hybrid_dsm_96_v1_walk.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     (fix_dir / "hybrid_dsm_96_v1_init.json").write_text(json.dumps(contract, indent=2), encoding="utf-8")
 
-    desk.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(walk_path, desk / "hybrid_dsm_96_v1_walk.json")
+    # Candidate bundle → verify → atomic desktop switch
+    cand = art / "_promote_candidate"
+    if cand.exists():
+        shutil.rmtree(cand, ignore_errors=True)
+    cand.mkdir(parents=True)
+    shutil.copy2(walk_path, cand / "hybrid_dsm_96_v1_walk.json")
+    for stem in ("real_baseline_15min_v1", "eplus_delta_15min_v1"):
+        for suffix in (".onnx", ".joblib", "_feature_meta.json", "_model_card.json"):
+            src = art / f"{stem}{suffix}"
+            if src.is_file():
+                shutil.copy2(src, cand / src.name)
+    # Gate check on candidate presence (joblib required; onnx optional for unit tests)
+    for req in ("hybrid_dsm_96_v1_walk.json", "real_baseline_15min_v1.joblib", "eplus_delta_15min_v1.joblib"):
+        if not (cand / req).is_file():
+            shutil.rmtree(cand, ignore_errors=True)
+            raise FileNotFoundError(f"promote candidate missing required {req}")
+    _atomic_desktop_switch(cand, desk)
+    shutil.rmtree(cand, ignore_errors=True)
 
     for stem in ("real_baseline_15min_v1", "eplus_delta_15min_v1"):
         for suffix in (".onnx", ".joblib", "_feature_meta.json", "_model_card.json"):
@@ -437,7 +586,9 @@ def promote_hybrid(
         "baseline_cv_recursive_96_heldout": result.get("baseline_cv_recursive_96_heldout"),
         "delta_cv_recursive_96_heldout": result.get("delta_cv_recursive_96_heldout"),
         "mv_precision": mv_precision,
-        "promoted_via": "notebook",
+        "promoted_via": _promoted_via(),
+        "multires_gate": multires,
+        "operational_dsm": bool(multires.get("operational")),
     }
     if is_smoke:
         ship["watermark"] = SMOKE_WATERMARK

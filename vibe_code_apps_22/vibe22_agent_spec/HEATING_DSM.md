@@ -43,9 +43,12 @@ Paired E+ farm (6-area) ──► E+ delta 7-out     │
 - Honesty: **`HYBRID_SCREENING`** until field DSM trials + designed E+ farm + interval demand validation.
 - Torch never overwrites sklearn desktop hybrid stems.
 
-Prior kW-only stems live under `ml/artifacts/_quarantine_20260806/`.  
-Defect list: [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).  
-Scripts map: [`../scripts/README.md`](../scripts/README.md).
+**Multi-res campaign (2026-08):** see [`EPLUS_MULTIRES.md`](EPLUS_MULTIRES.md),
+IdealLoads structural limit
+[`../docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md`](../docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md),
+final audit
+[`../docs/superpowers/specs/2026-08-07-eplus-multires-final-audit.md`](../docs/superpowers/specs/2026-08-07-eplus-multires-final-audit.md).
+Hourly gate **fail** → operational DSM prohibited; crossed farm is research-ready scaffolding only.
 
 ## Ship champions (screening)
 

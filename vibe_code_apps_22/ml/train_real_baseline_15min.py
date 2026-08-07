@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -800,7 +801,7 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
         "resolution": "15min",
         "feature_contract_version": FEATURE_CONTRACT_VERSION,
         "control_contract_version": CONTROL_CONTRACT_VERSION,
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
@@ -838,7 +839,7 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
         "feature_contract_version": FEATURE_CONTRACT_VERSION,
         "control_contract_version": CONTROL_CONTRACT_VERSION,
         "hashes": hashes,
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
     }
     if split_manifest_path is not None:
         card["split_manifest_path"] = str(split_manifest_path)

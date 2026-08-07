@@ -26,9 +26,12 @@ use features::{default_occ_frac, STRATEGY_IDS, ZONE_LABELS};
 use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
 use features_15min::STEPS_96;
-use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
+use mvm::{
+    idf_hash_mismatch, load_mvm_bundle, load_multires_validation, recommendation_language_gate,
+    show_multires_badge_strip, show_validation_tab, MultiresBundle, MvmBundle, RecommendGateExtras,
+};
 use nearest_day::{billing_period_demand_kw, NearestDayEngine, NearestDayResult};
-use ship_manifest::{load_ship_manifest, metrics_from_manifest};
+use ship_manifest::{is_smoke_screening, load_ship_manifest, metrics_from_manifest};
 use simulation::{
     incremental_demand, AnnualReplayPlan, StrategyEnumRow, UNSUPPORTED_CONTROL_SCHEDULE,
 };
@@ -134,6 +137,8 @@ struct DsmApp {
     cost_dsm: Option<TodDayCost>,
     annual: Option<AnnualRollup>,
     mvm: MvmBundle,
+    multires: MultiresBundle,
+    ship_smoke: bool,
     hybrid_walk: Option<HybridWalk>,
     hybrid_path: Option<std::path::PathBuf>,
     hybrid_error: Option<String>,
@@ -143,6 +148,47 @@ struct DsmApp {
 }
 
 impl DsmApp {
+    fn recommend_gate_extras(&self) -> RecommendGateExtras {
+        let comfort_fail = self
+            .nearest_result
+            .as_ref()
+            .map(|r| r.walk.summary.comfort_violations > 0)
+            .or_else(|| {
+                self.hybrid_walk
+                    .as_ref()
+                    .map(|w| w.summary.comfort_violations > 0)
+            })
+            .unwrap_or(false);
+        let ood = self
+            .nearest_result
+            .as_ref()
+            .map(|r| r.ood)
+            .unwrap_or(false);
+        RecommendGateExtras {
+            smoke_farm: self.ship_smoke,
+            ood,
+            comfort_fail,
+            hash_mismatch: idf_hash_mismatch(&self.mvm, &self.multires),
+        }
+    }
+
+    /// Format recommend status for UI — never claim recommend when gates block.
+    fn format_recommend_ui(&self, raw_recommend: bool) -> String {
+        let extras = self.recommend_gate_extras();
+        let (allowed, blocker) =
+            recommendation_language_gate(self.multires.doc.as_ref(), &extras);
+        if !allowed {
+            format!(
+                "recommend=blocked ({})",
+                blocker.as_deref().unwrap_or("gates_not_met")
+            )
+        } else if raw_recommend {
+            "recommend=true".into()
+        } else {
+            "recommend=false".into()
+        }
+    }
+
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         apply_theme(&cc.egui_ctx);
         let (
@@ -172,7 +218,8 @@ impl DsmApp {
                         (
                             vec![
                                 "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
-                                "Honesty: HYBRID_SCREENING · IdealLoads+COP != GSHP plant".into(),
+                                "Honesty: HYBRID_SCREENING · IdealLoads + fixed-COP (not GSHP)"
+                                    .into(),
                                 "No hybrid_ship_manifest.json — promote via notebook to fill G14 metrics"
                                     .into(),
                             ],
@@ -206,7 +253,7 @@ impl DsmApp {
                     .or_else(|| eng.baseline.meta.honesty.clone())
                     .unwrap_or_else(|| "HYBRID_SCREENING".into());
                 let banner = format!(
-                    "hybrid live ONNX · baseline={} · delta={} · IdealLoads+COP screening",
+                    "hybrid live ONNX · baseline={} · delta={} · IdealLoads + fixed-COP screening",
                     champ_b.as_deref().unwrap_or("?"),
                     champ_d.as_deref().unwrap_or("?")
                 );
@@ -271,6 +318,13 @@ impl DsmApp {
         };
 
         let tariff = creekside_cp2_defaults();
+        let ship_smoke = load_ship_manifest()
+            .as_ref()
+            .map(|(m, _)| is_smoke_screening(m))
+            .unwrap_or(true);
+        let mvm = load_mvm_bundle();
+        let multires = load_multires_validation();
+
         let mut app = Self {
             hybrid_engine,
             nearest_engine,
@@ -326,7 +380,9 @@ impl DsmApp {
             cost_compare: None,
             cost_dsm: None,
             annual: None,
-            mvm: load_mvm_bundle(),
+            mvm,
+            multires,
+            ship_smoke,
             hybrid_walk: None,
             hybrid_path: None,
             hybrid_error: None,
@@ -712,12 +768,20 @@ impl DsmApp {
                     self.existing_billing_peak_kw as f64,
                     res.hybrid_peak_kw,
                 );
-                self.status = format!(
-                    "Nearest-Day+E+Delta peak={:.1} kW · kWh={:.0} · billing_demand={:.1} · ood={} · recommend={}",
-                    res.hybrid_peak_kw, res.hybrid_kwh, bill, res.ood, res.recommend
-                );
+                let peak = res.hybrid_peak_kw;
+                let kwh = res.hybrid_kwh;
+                let ood = res.ood;
+                let raw_rec = res.recommend;
                 self.nearest_error = None;
                 self.nearest_result = Some(res);
+                self.status = format!(
+                    "Nearest-Day+E+Delta peak={:.1} kW · kWh={:.0} · billing_demand={:.1} · ood={} · {}",
+                    peak,
+                    kwh,
+                    bill,
+                    ood,
+                    self.format_recommend_ui(raw_rec)
+                );
                 true
             }
             Err(e) => {
@@ -949,6 +1013,8 @@ impl eframe::App for DsmApp {
             if !self.honesty.is_empty() {
                 ui.colored_label(egui::Color32::from_rgb(210, 150, 70), &self.honesty);
             }
+            let extras = self.recommend_gate_extras();
+            show_multires_badge_strip(ui, &self.multires, &extras);
             if let Some(err) = &self.load_error {
                 ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
             }
@@ -1377,8 +1443,11 @@ impl eframe::App for DsmApp {
                             let path = std::path::PathBuf::from("live://nearest_day");
                             show_hybrid_panel(ui, &res.walk, &path);
                             ui.label(format!(
-                                "OOD={} · nearest_distance={:?} · thr={:.3} · recommend={}",
-                                res.ood, res.nearest_distance, res.ood_threshold, res.recommend
+                                "OOD={} · nearest_distance={:?} · thr={:.3} · {}",
+                                res.ood,
+                                res.nearest_distance,
+                                res.ood_threshold,
+                                self.format_recommend_ui(res.recommend)
                             ));
                             if !res.failed_criteria.is_empty() {
                                 ui.label(format!("failed: {:?}", res.failed_criteria));
@@ -1485,10 +1554,10 @@ impl eframe::App for DsmApp {
                     });
 
                 ui.add_space(8.0);
-                egui::CollapsingHeader::new("Measured vs modeled validation")
+                egui::CollapsingHeader::new("Validation")
                     .default_open(false)
                     .show(ui, |ui| {
-                        show_mvm_panel(ui, &self.mvm);
+                        show_validation_tab(ui, &self.multires, &self.mvm);
                     });
                 ui.add_space(8.0);
                 egui::Frame::group(ui.style())

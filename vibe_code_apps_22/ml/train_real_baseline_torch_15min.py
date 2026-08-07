@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -604,7 +605,7 @@ def export_torch_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> di
             "control_contract_version": "control_strategies_v1",
             "feature_cols": cols,
             "target_cols": tcols,
-            "trained_via": "notebook",
+            "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
             "loss": "huber_normalized_dual_head",
             "w_kw": result["w_kw"],
             "w_zone": result["w_zone"],
@@ -629,7 +630,7 @@ def export_torch_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> di
         "scaler_scale": x_scaler.scale_.tolist(),
         "y_scaler": y_scaler.to_dict(),
         "honesty": HONESTY,
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
         "family": result["family"],
         "onnx_output_space": "normalized_targets",
     }
