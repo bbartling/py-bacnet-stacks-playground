@@ -17,6 +17,12 @@ description: >-
 
 **Do not** reinvent the ALC→openfdd pipe. Prefer re-running scripts in AGENTS.md.
 
+**Multi-resolution SoT (2026-08):** formulas + monthly/hourly/15-min gates live in
+`ml/eplus_multires_metrics.py` and `vibe22_agent_spec/EPLUS_MULTIRES.md`.
+Monthly G14 pass ≠ hourly calibrated-sim pass. Run
+`python -u scripts/validate_eplus_multires.py` for the authoritative report.
+Filename `*gshp*` is naming only — physics is IdealLoads + fixed COP.
+
 ---
 
 ## Goal (what “done” means)

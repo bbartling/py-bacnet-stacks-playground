@@ -33,4 +33,5 @@ Heating DSM uses **Hybrid Real+E+** (`HYBRID_SCREENING`) — see [`HEATING_DSM.m
 IdealLoads G14 still uses **native EnergyPlus** with fail-closed severe/fatal
 gates (`eplus_native/`). OpenStudio MCP bridge was removed from this app.
 Do not treat monthly utility GL14 as proof of interval demand fidelity — see
-[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts).
+[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts)
+and [`EPLUS_MULTIRES.md`](EPLUS_MULTIRES.md) (monthly + hourly + 15-min DSM gates).

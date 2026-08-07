@@ -36,7 +36,11 @@ python -u scripts\ingest_utility_bills.py
 python -u scripts\eplus_campaign_utility.py
 ```
 
-Best IDF: repo `models/eplus/lakeside_6zone_gshp_best_utility.idf` (site: `eplus/models/…`).
+## Multi-res (required context)
+
+Monthly utility GL14 ≠ hourly/15-min demand fidelity. Authoritative engine:
+`ml/eplus_multires_metrics.py` · `vibe22_agent_spec/EPLUS_MULTIRES.md` ·
+`python -u scripts/validate_eplus_multires.py`. Filename `*gshp*` is IdealLoads naming only.
 
 **For heating DSM:** do not train on `util_103` outputs that still have severes.
 Run `python -u scripts\eplus_stage_repair_and_rescore.py` → staged `*_dsm_v1.idf`
