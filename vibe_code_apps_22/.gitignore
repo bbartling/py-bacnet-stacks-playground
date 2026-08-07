@@ -1,16 +1,38 @@
-# Local regenerable / heavy artifacts (data stays on LAKESIDE_SITE_ROOT)
-ml/artifacts/heating_dsm_bootstrap_hourly.parquet
-ml/artifacts/*.joblib
-ml/artifacts/**/*.joblib
-ml/artifacts/*.pt
-ml/artifacts/*.onnx.data
-ml/artifacts/__pycache__/
-ml/artifacts/runs/
+# Local regenerable / heavy artifacts (models + data packs live on Drive / LAKESIDE_SITE_ROOT)
+# Keep only small fixtures + READMEs in git so GH stays learnable.
+
+ml/artifacts/**
+!ml/artifacts/README.md
+!ml/artifacts/INTEGRITY_INVENTORY_20260806.md
+!ml/artifacts/fixtures/
+!ml/artifacts/fixtures/**
+!ml/artifacts/_quarantine_20260806/
+!ml/artifacts/_quarantine_20260806/README.md
+
+# Desktop ship outputs (populate via promote / Drive pack)
+desktop/artifacts/**
+!desktop/artifacts/.gitignore
+!desktop/artifacts/README.md
+
+# Rust build + packaged client binaries
+desktop/target/
+desktop/dist/**
+!desktop/dist/.gitignore
+
 **/__pycache__/
 .ipynb_checkpoints/
 *_executed.ipynb
 *.pyc
 .venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Rust desktop build
-desktop/target/
+# Local notebook / OS noise
+*.onnx
+*.onnx.data
+*.joblib
+*.pt
+*.parquet
+Thumbs.db
+Desktop.ini

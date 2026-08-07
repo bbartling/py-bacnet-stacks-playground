@@ -13,33 +13,33 @@ Peak window HE **05–09** local (steps 20–36). Honesty: **`HYBRID_SCREENING`*
 | `ENERGYPLUS_NATIVE_DELTA` | DSM − baseline targets |
 | Ideal Loads + fixed-COP | Twin electric demand (COP 3.5/4.5) — not GSHP/GLHE |
 
-**Do not** concat real BAS and E+ rows. Old kW-only stems:
-`ml/artifacts/_quarantine_20260806/`.
+**Do not** concat real BAS and E+ rows. Old kW-only stems notes:
+`ml/artifacts/_quarantine_20260806/README.md`.
 
-## Pipeline
+## Pipeline (CLI SoT)
 
 ```powershell
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
-# Data prep (CLI OK)
+$env:VIBE22_ALLOW_CLI_TRAIN="1"
 python -u scripts\build_real_15min_store.py
-python -u scripts\eplus_heating_dsm_farm.py --smoke   # or --medium
-# TRAIN + promote — notebooks only:
-#   notebooks\lakeside_heating_dsm_sklearn.ipynb
-#   notebooks\lakeside_heating_dsm_torch.ipynb
-# CLI ml\train_*.py / promote refuse unless VIBE22_ALLOW_CLI_TRAIN=1
-cd desktop; cargo run --release
+python -u scripts\eplus_heating_dsm_farm.py --smoke   # or --crossed / --medium
+python -u scripts\train_four_arms.py --profile full_evaluation
+$env:VIBE22_ALLOW_SMOKE_PROMOTE="1"
+python -u scripts\ship_best_to_desktop.py
 ```
 
-## Artifacts
+Notebooks are **viewers** only. Models/parquets are **not** committed — see [`artifacts/README.md`](artifacts/README.md).
+
+## Artifacts (local / Drive)
 
 | Stem | Role |
 | --- | --- |
-| `real_baseline_15min_v1.*` | 7-out real baseline (ExtraTrees ship) |
-| `eplus_delta_15min_v1.*` | 7-out E+ delta (RandomForest) |
+| `real_baseline_15min_v1.*` | 7-out real baseline (sklearn ship) |
+| `eplus_delta_15min_v1.*` | 7-out E+ delta |
 | `heating_dsm_eplus_paired_15min_v1.parquet` | Paired farm |
 | `hybrid_dsm_96_v1_walk.json` | Desktop ship walk |
-| `contracts/hybrid_dsm_96_v1.json` | Versioned I/O |
+| `contracts/hybrid_dsm_96_v1.json` | Versioned I/O (in git) |
 
-Torch ResMLP: torch notebook → `*_torch_v1.*` — alternate only.
+Torch ResMLP → `*_torch_v1.*` under `artifacts/runs/torch_*` (research only).
 
 Agent SoT: [`../vibe22_agent_spec/HEATING_DSM.md`](../vibe22_agent_spec/HEATING_DSM.md).
