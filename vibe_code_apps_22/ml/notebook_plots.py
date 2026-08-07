@@ -932,3 +932,83 @@ def actual_eplus_ml_overlay(
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     return ax
+
+
+def nearest_day_facility_overlay(
+    *,
+    steps: np.ndarray | list,
+    actual_kw: np.ndarray | list | None = None,
+    nearest_baseline_kw: np.ndarray | list | None = None,
+    simple_hybrid_kw: np.ndarray | list | None = None,
+    ml_hybrid_kw: np.ndarray | list | None = None,
+    p10_kw: np.ndarray | list | None = None,
+    p90_kw: np.ndarray | list | None = None,
+    title: str = "Poor Man's Benchmark — facility kW (held-out day)",
+    ax=None,
+):
+    """Actual vs nearest-day baseline vs simple hybrid vs ML; P10-P90 neighbor range."""
+    ax = ax or plt.gca()
+    x = np.asarray(steps, dtype=float)
+    if p10_kw is not None and p90_kw is not None:
+        ax.fill_between(
+            x,
+            np.asarray(p10_kw, dtype=float),
+            np.asarray(p90_kw, dtype=float),
+            color="#94d2bd",
+            alpha=0.35,
+            label="Neighbor P10-P90 (empirical range, not a CI)",
+        )
+    if actual_kw is not None:
+        ax.plot(x, actual_kw, color=_STYLE["actual"], lw=2.0, label="Actual (held-out)")
+    if nearest_baseline_kw is not None:
+        ax.plot(x, nearest_baseline_kw, color=_STYLE["baseline"], lw=1.6, label="Nearest-day baseline")
+    if simple_hybrid_kw is not None:
+        ax.plot(x, simple_hybrid_kw, color="#e9c46a", lw=1.8, label="Simple hybrid (NN + E+ delta)")
+    if ml_hybrid_kw is not None:
+        ax.plot(x, ml_hybrid_kw, color=_STYLE["pred"], lw=1.6, ls="--", label="sklearn/ONNX hybrid")
+    ax.axvspan(20, 36, color="#f4a261", alpha=0.15, label="morning peak steps 20-35")
+    ax.set_xlabel("step_15")
+    ax.set_ylabel("facility_kw [kW]")
+    ax.set_title(title)
+    ax.legend(frameon=False, fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def nearest_day_zone_panels(
+    *,
+    actual: np.ndarray,
+    nearest_baseline: np.ndarray,
+    simple_hybrid: np.ndarray,
+    ml_hybrid: np.ndarray | None = None,
+    zone_cols: list[str] | None = None,
+    comfort_lo: float = 66.0,
+    comfort_hi: float = 78.0,
+    fig=None,
+):
+    """Six-panel zone temps: actual / nearest / simple hybrid / ML + comfort bounds."""
+    from feature_compile_heating_dsm import ZONE_TEMP_COLS
+
+    cols = list(zone_cols or ZONE_TEMP_COLS)
+    fig = fig or plt.figure(figsize=(12, 8))
+    axes = fig.subplots(2, 3, sharex=True)
+    axes = np.atleast_1d(axes).ravel()
+    t = np.arange(actual.shape[0])
+    for i, name in enumerate(cols):
+        ax = axes[i]
+        ax.plot(t, actual[:, i + 1], color=_STYLE["actual"], lw=1.2, label="actual")
+        ax.plot(t, nearest_baseline[:, i + 1], color=_STYLE["baseline"], lw=1.0, label="nearest")
+        ax.plot(t, simple_hybrid[:, i + 1], color="#e9c46a", lw=1.1, label="simple hybrid")
+        if ml_hybrid is not None:
+            ax.plot(t, ml_hybrid[:, i + 1], color=_STYLE["pred"], lw=1.0, ls="--", label="ML hybrid")
+        ax.axhline(comfort_lo, color=_STYLE["comfort"], ls="--", lw=0.8)
+        ax.axhline(comfort_hi, color=_STYLE["comfort"], ls="--", lw=0.8)
+        ax.set_title(name.replace("zone_temp_", "").replace("_f", ""), fontsize=10)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        if i == 0:
+            ax.legend(fontsize=7, frameon=False)
+    fig.suptitle("Zone temperatures — actual vs nearest-day vs simple hybrid vs ML")
+    fig.tight_layout()
+    return fig

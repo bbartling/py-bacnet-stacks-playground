@@ -855,8 +855,18 @@ def load_real_baseline_frame(
     *,
     parquet: Path | None = None,
     winter_only: bool = True,
-    max_days: int | None = 36,
+    max_days: int | None = None,
+    profile: "object | None" = None,
 ) -> pd.DataFrame:
+    """Load REAL_BAS 15-min store.
+
+    ``max_days`` defaults to ``None`` (all days). Pass ``profile=TrainingProfile...``
+    to apply profile caps — never silently assume smoke ``MAX_DAYS=36``.
+    """
+    if profile is not None:
+        max_days = getattr(profile, "max_days", max_days)
+        if getattr(profile, "heating_only", False):
+            winter_only = True
     site = site_root()
     pq = parquet or (site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet")
     if not pq.is_file():

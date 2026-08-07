@@ -314,7 +314,8 @@ CLI trainers refuse unless `VIBE22_ALLOW_CLI_TRAIN=1`.
 | B | Paired E+ IdealLoads+COP deltas | `ENERGYPLUS_NATIVE_RUN` -> delta |
 | C | Hybrid 96-step walk | `HYBRID_SCREENING` |
 
-Lean defaults (`FULL=False`, `MAX_DAYS=36`) keep Run All CI-ish. Set `FULL=True` for nested CV on all winter days.
+Lean defaults use `PROFILE=full_evaluation` (all eligible days) unless
+`VIBE22_TRAINING_PROFILE=smoke` is set for fast debugging (`SMOKE_ONLY`).
 """
  )
  )
@@ -361,6 +362,7 @@ from notebook_plots import (
  winter_day_panel, descriptive_corr_heatmap, feature_target_catalogs,
  family_mae_bars, zone_small_multiples, hybrid_walk_panel, model_comparison_bars,
  apply_notebook_theme, metric_cards_html,
+ nearest_day_facility_overlay, nearest_day_zone_panels,
 )
 from metrics_report import per_target_table, explain_error_metrics_markdown, scalar_block
 from run_provenance import make_run_id, print_artifact_registry, artifact_registry, sha256_file
@@ -383,8 +385,11 @@ OUT = PATHS["figures"].parent # ml/artifacts
 SITE = Path(os.environ.get("LAKESIDE_SITE_ROOT", r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"))
 
 FULL = False
-WINTER_ONLY = True
-MAX_DAYS = 36 if not FULL else None
+PROFILE_NAME = os.environ.get("VIBE22_TRAINING_PROFILE", "full_evaluation")
+from training_profile import require_profile
+PROFILE = require_profile(PROFILE_NAME)
+WINTER_ONLY = PROFILE.heating_only
+MAX_DAYS = PROFILE.max_days
 N_SPLITS = 3
 run_id = make_run_id(prefix="sklearn_tutorial")
 TIMINGS = TimingReport()
@@ -393,7 +398,7 @@ print("ROOT", ROOT)
 print("SITE", SITE)
 print("OUT", OUT)
 print("run_id", run_id)
-print("FULL", FULL, "MAX_DAYS", MAX_DAYS)
+print("PROFILE", PROFILE.mode, "MAX_DAYS", MAX_DAYS, "watermark", PROFILE.watermark)
 print("honesty HYBRID_SCREENING - DO NOT RELEASE FOR OPERATIONAL DSM")
 display(Markdown(explain_error_metrics_markdown()))
 """
@@ -428,7 +433,7 @@ print("TARGET_COLS", list(TARGET_COLS))
  code(
  r"""
 real_df, real_meta = prove_real_store_load(site=SITE)
-train_df = load_real_baseline_frame(winter_only=WINTER_ONLY, max_days=MAX_DAYS)
+train_df = load_real_baseline_frame(winter_only=WINTER_ONLY, max_days=MAX_DAYS, profile=PROFILE)
 print("train rows", len(train_df), "days", train_df["day"].nunique())
 print("provenance check", train_df["provenance"].value_counts().to_dict() if "provenance" in train_df.columns else "n/a")
 """
@@ -780,6 +785,138 @@ with TIMINGS.time("inference_load_hybrid_walk_json"):
  )
  )
 
+ cells.append(
+ md(
+ """
+## Poor Man's Benchmark - Nearest Historical Days + EnergyPlus Delta
+
+Simple engineering benchmark (not ML): find similar **past** BAS days, take the
+pointwise median trajectory, then add an EnergyPlus IdealLoads+COP **counterfactual**
+DSM delta. Labels: `SIMPLE_HYBRID_SCREENING`, `NEAREST_DAY_BASELINE`,
+`EPLUS_COUNTERFACTUAL_DELTA`. Empirical P10-P90 are neighbor ranges - **not** CIs.
+See `docs/NEAREST_DAY_EPLUS_DELTA_BENCHMARK.md`.
+"""
+ )
+ )
+ cells.append(
+ code(
+ r"""
+from nearest_day_delta_benchmark import (
+ build_library_from_frame,
+ run_simple_hybrid,
+ score_day,
+ evaluate_benchmark_on_days,
+ typical_weekend_median,
+ persistence_forecast,
+)
+from feature_compile_15min import matrix_xy_15min_multi, recursive_rollout_day
+from hybrid_rollout import load_joblib_model
+
+with TIMINGS.time("nearest_day_benchmark_build"):
+ nd = build_library_from_frame(
+ train_df,
+ profile=PROFILE,
+ out_dir=OUT,
+ desktop_dir=None,
+ run_id=run_id,
+ strategy_id="stagger_preheat",
+ )
+display(Markdown("### Profile day counts"))
+display(pd.Series({k: v for k, v in (nd["summary"] or {}).items() if k not in ("folds", "profile")}).to_frame("value"))
+print("PROFILE", PROFILE.mode, "ood_threshold", nd["ood_threshold"], "n_eplus", len(nd["eplus_library"]))
+
+manifest = nd["manifest"]
+locked = [str(d) for d in (manifest.get("final_winter_test") or [])]
+records = nd["records"]
+by_day = {r.day: r for r in records}
+eval_day = locked[-1] if locked and locked[-1] in by_day else records[-1].day
+truth = by_day[eval_day]
+res = run_simple_hybrid(
+ truth,
+ records,
+ nd["eplus_library"],
+ nd["scales"],
+ strategy_id="stagger_preheat",
+ k=10,
+ ood_threshold=nd["ood_threshold"],
+ before_day=eval_day,
+)
+print("eval_day", eval_day, "ood", res.ood, "nearest", res.nearest_distance, "recommend", res.recommend)
+
+ml_y = None
+try:
+ model_a, cols_a, tcols_a = load_joblib_model(OUT / "real_baseline_15min_v1.joblib")
+ _, _, _, _, _, feat_all = matrix_xy_15min_multi(train_df)
+ mask = feat_all["day"].astype(str) == eval_day
+ if mask.any():
+ sub = feat_all.loc[mask].sort_values("step_15")
+ ml_y = recursive_rollout_day(model_a, sub, cols_a, tcols_a)
+except Exception as e:
+ print("ML overlay unavailable:", e)
+
+yt = np.asarray(truth.y_96x7, dtype=float)
+fig, ax = plt.subplots(figsize=(10, 4))
+nearest_day_facility_overlay(
+ steps=np.arange(96),
+ actual_kw=yt[:, 0],
+ nearest_baseline_kw=res.baseline_y[:, 0],
+ simple_hybrid_kw=res.hybrid_y[:, 0],
+ ml_hybrid_kw=ml_y[:, 0] if ml_y is not None else None,
+ p10_kw=res.p10_y[:, 0],
+ p90_kw=res.p90_y[:, 0],
+ ax=ax,
+)
+save_fig(PATHS["figures"] / "sklearn_nearest_day_facility.png", fig)
+plt.close(fig)
+
+figz = nearest_day_zone_panels(
+ actual=yt,
+ nearest_baseline=res.baseline_y,
+ simple_hybrid=res.hybrid_y,
+ ml_hybrid=ml_y,
+)
+save_fig(PATHS["figures"] / "sklearn_nearest_day_zones.png", figz)
+plt.close(figz)
+
+display(Markdown("### Selected historical neighbors"))
+display(pd.DataFrame([n.__dict__ for n in res.neighbors]))
+
+sc_nn = score_day(yt, res.hybrid_y)
+typ = typical_weekend_median(records, is_weekend=bool(truth.is_weekend))
+sc_typ = score_day(yt, typ)
+idx = [i for i, r in enumerate(records) if r.day == truth.day][0]
+rows_cmp = [
+ {"method": "nearest_day_eplus_delta", "facility_kw_mae": sc_nn["facility_kw_mae"], "peak_mae": sc_nn["facility_kw_mae_peak_05_09"], "worst_zone_mae": sc_nn["worst_zone_mae"], "comfort_violations": sc_nn["comfort_violations"]},
+ {"method": "typical_weekend_median", "facility_kw_mae": sc_typ["facility_kw_mae"], "peak_mae": sc_typ["facility_kw_mae_peak_05_09"], "worst_zone_mae": sc_typ["worst_zone_mae"], "comfort_violations": sc_typ["comfort_violations"]},
+]
+if idx > 0:
+ sc_p = score_day(yt, persistence_forecast(np.asarray(records[idx - 1].y_96x7)))
+ rows_cmp.append({"method": "persistence", "facility_kw_mae": sc_p["facility_kw_mae"], "peak_mae": sc_p["facility_kw_mae_peak_05_09"], "worst_zone_mae": sc_p["worst_zone_mae"], "comfort_violations": sc_p["comfort_violations"]})
+if ml_y is not None:
+ sc_ml = score_day(yt, ml_y)
+ rows_cmp.append({"method": "sklearn_recursive", "facility_kw_mae": sc_ml["facility_kw_mae"], "peak_mae": sc_ml["facility_kw_mae_peak_05_09"], "worst_zone_mae": sc_ml["worst_zone_mae"], "comfort_violations": sc_ml["comfort_violations"]})
+display(Markdown("### Method comparison (this held-out day)"))
+display(pd.DataFrame(rows_cmp))
+
+if locked:
+ ev = evaluate_benchmark_on_days(
+ records, locked, nd["eplus_library"], nd["scales"],
+ ood_threshold=nd["ood_threshold"], strategy_id="stagger_preheat",
+ )
+ print("locked-test n_days", ev["n_evaluated_days"], "ood_refusal_rate", ev["ood_refusal_rate"])
+ (OUT / "eval").mkdir(parents=True, exist_ok=True)
+ (OUT / "eval" / "nearest_day_locked_eval.json").write_text(json.dumps(ev, indent=2, default=str), encoding="utf-8")
+
+display(HTML(metric_cards_html([
+ {"label": "Eval day", "value": str(eval_day), "sub": "held-out"},
+ {"label": "OOD", "value": str(res.ood), "sub": res.ood_status or "in-distribution"},
+ {"label": "NN distance", "value": f"{res.nearest_distance:.3f}" if res.nearest_distance is not None else "n/a", "sub": f"thr {nd['ood_threshold']:.3f}"},
+ {"label": "Facility MAE", "value": f"{sc_nn['facility_kw_mae']:.2f} kW", "sub": "simple hybrid"},
+], title="Nearest-day + E+ delta (SIMPLE_HYBRID_SCREENING)")))
+"""
+ )
+ )
+
  cells.append(md(_shared_limits_md()))
  cells.append(md(_shared_repro_md()))
 
@@ -978,8 +1115,14 @@ SITE = Path(os.environ.get("LAKESIDE_SITE_ROOT", r"C:\Users\ben\OneDrive\Desktop
 
 FULL = False
 LEAN = True # lean: 1 seed / ResMLP only; full tutorial uses 5 seeds + GRU
-WINTER_ONLY = True
-MAX_DAYS = 36 if (LEAN or not FULL) else None
+PROFILE_NAME = os.environ.get("VIBE22_TRAINING_PROFILE", "full_evaluation")
+from training_profile import require_profile
+PROFILE = require_profile(PROFILE_NAME)
+WINTER_ONLY = PROFILE.heating_only
+MAX_DAYS = PROFILE.max_days if not LEAN else (PROFILE.max_days if PROFILE.mode != "full_evaluation" else (36 if LEAN else PROFILE.max_days))
+# Lean torch keeps a day cap for runtime even under full_evaluation
+if LEAN and PROFILE.mode == "full_evaluation":
+ MAX_DAYS = 36
 EPOCHS = 25 if LEAN else 40
 run_id = make_run_id(prefix="torch_tutorial")
 TIMINGS = TimingReport()
@@ -1024,7 +1167,7 @@ print("scaler round-trip max|delta|", float(np.max(np.abs(Ydemo - Yh))))
  code(
  r"""
 real_df, meta = prove_real_store_load(site=SITE)
-train_df = load_real_baseline_frame(winter_only=WINTER_ONLY, max_days=MAX_DAYS)
+train_df = load_real_baseline_frame(winter_only=WINTER_ONLY, max_days=MAX_DAYS, profile=PROFILE)
 print("train rows", len(train_df), "days", train_df["day"].nunique())
 
 fig, ax = plt.subplots(figsize=(10, 2.2))

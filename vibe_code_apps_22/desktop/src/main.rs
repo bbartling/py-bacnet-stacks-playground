@@ -10,6 +10,8 @@ mod features;
 mod features_15min;
 mod hybrid;
 mod hybrid_onnx;
+mod nearest_day;
+mod simulation;
 #[allow(dead_code)]
 mod model; // quarantined hourly heating_dsm_hourly_v1 path — unused by live UI
 mod mvm;
@@ -25,7 +27,11 @@ use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
 use features_15min::STEPS_96;
 use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
+use nearest_day::{billing_period_demand_kw, NearestDayEngine, NearestDayResult};
 use ship_manifest::{load_ship_manifest, metrics_from_manifest};
+use simulation::{
+    incremental_demand, AnnualReplayPlan, StrategyEnumRow, UNSUPPORTED_CONTROL_SCHEDULE,
+};
 use tariff::{
     cost_day_tod, cost_day_tod_96, creekside_cp2_defaults, hourly_mean_from_quarters, DemandTariff,
     TodDayCost,
@@ -66,6 +72,14 @@ fn main() -> eframe::Result<()> {
 
 struct DsmApp {
     hybrid_engine: Option<HybridEngine>,
+    nearest_engine: Option<NearestDayEngine>,
+    nearest_result: Option<NearestDayResult>,
+    nearest_error: Option<String>,
+    strategy_enum_rows: Vec<StrategyEnumRow>,
+    show_ml_hybrid: bool,
+    show_nearest_day: bool,
+    show_actual_replay: bool,
+    existing_billing_peak_kw: f32,
     load_error: Option<String>,
     honesty: String,
     training_source: String,
@@ -248,9 +262,25 @@ impl DsmApp {
             }
         }
 
+        let nearest_engine = match NearestDayEngine::load_default() {
+            Ok(e) => Some(e),
+            Err(e) => {
+                eprintln!("nearest-day library not loaded: {e:#}");
+                None
+            }
+        };
+
         let tariff = creekside_cp2_defaults();
         let mut app = Self {
             hybrid_engine,
+            nearest_engine,
+            nearest_result: None,
+            nearest_error: None,
+            strategy_enum_rows: Vec::new(),
+            show_ml_hybrid: true,
+            show_nearest_day: true,
+            show_actual_replay: false,
+            existing_billing_peak_kw: 120.0,
             load_error,
             honesty,
             training_source,
@@ -654,6 +684,159 @@ impl DsmApp {
                 false
             }
         }
+    }
+
+    /// Nearest-Day + E+ Delta engineering benchmark (not ML).
+    fn run_nearest_day(&mut self) -> bool {
+        let Some(eng) = self.nearest_engine.as_ref() else {
+            self.nearest_error = Some(
+                "Nearest-Day library not loaded (export with PROFILE=full_deployment)".into(),
+            );
+            self.status = self.nearest_error.clone().unwrap();
+            return false;
+        };
+        let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
+        let oat96 = expand_oat_24_to_96(&oat24);
+        let sid = STRATEGY_IDS[self.strategy_idx];
+        match eng.rollout(
+            self.midnight_facility_kw,
+            self.midnight_zone_f,
+            &oat96,
+            self.is_weekend,
+            sid,
+            None,
+            self.existing_billing_peak_kw,
+        ) {
+            Ok(res) => {
+                let bill = billing_period_demand_kw(
+                    self.existing_billing_peak_kw as f64,
+                    res.hybrid_peak_kw,
+                );
+                self.status = format!(
+                    "Nearest-Day+E+Delta peak={:.1} kW · kWh={:.0} · billing_demand={:.1} · ood={} · recommend={}",
+                    res.hybrid_peak_kw, res.hybrid_kwh, bill, res.ood, res.recommend
+                );
+                self.nearest_error = None;
+                self.nearest_result = Some(res);
+                true
+            }
+            Err(e) => {
+                self.nearest_error = Some(format!("{e:#}"));
+                self.status = format!("nearest-day failed: {e:#}");
+                false
+            }
+        }
+    }
+
+    /// STRATEGY ENUMERATION — evaluate all named strategies (not mathematical optimization).
+    fn run_strategy_enumeration(&mut self) {
+        let Some(eng) = self.nearest_engine.as_ref() else {
+            self.status =
+                "STRATEGY ENUMERATION needs Nearest-Day library (PROFILE=full_deployment export)"
+                    .into();
+            return;
+        };
+        let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
+        let oat96 = expand_oat_24_to_96(&oat24);
+        let month_u8 = self.month as u8;
+        let demand_rate = self.tariff.demand_rate_for_month(month_u8) as f64;
+        let mut rows: Vec<StrategyEnumRow> = Vec::new();
+        for sid in STRATEGY_IDS {
+            match eng.rollout(
+                self.midnight_facility_kw,
+                self.midnight_zone_f,
+                &oat96,
+                self.is_weekend,
+                sid,
+                None,
+                self.existing_billing_peak_kw,
+            ) {
+                Ok(res) => {
+                    let mut kw96 = [0.0_f32; STEPS_96];
+                    for (i, st) in res.walk.steps.iter().enumerate().take(STEPS_96) {
+                        kw96[i] = st.hybrid_facility_kw as f32;
+                    }
+                    let cost = cost_day_tod_96(
+                        &kw96,
+                        &self.tariff,
+                        self.is_weekend,
+                        month_u8,
+                        false,
+                    );
+                    let (_new_p, inc_kw, inc_cost) = incremental_demand(
+                        self.existing_billing_peak_kw as f64,
+                        res.hybrid_peak_kw,
+                        demand_rate,
+                    );
+                    let unsupported = res.failed_criteria.iter().any(|c| {
+                        c == UNSUPPORTED_CONTROL_SCHEDULE || c.contains("no_eplus_records")
+                    });
+                    let mut reject = None;
+                    let mut feasible = true;
+                    if unsupported {
+                        feasible = false;
+                        reject = Some(UNSUPPORTED_CONTROL_SCHEDULE.into());
+                    } else if res.ood {
+                        feasible = false;
+                        reject = Some(
+                            res.ood_status
+                                .clone()
+                                .unwrap_or_else(|| "OUT_OF_DISTRIBUTION".into()),
+                        );
+                    } else if res.walk.summary.comfort_violations > 0 {
+                        feasible = false;
+                        reject = Some("comfort_fail".into());
+                    }
+                    let energy_cost = (cost.energy_on_peak_cost
+                        + cost.energy_off_peak_cost
+                        + cost.pca_cost) as f64;
+                    rows.push(StrategyEnumRow {
+                        strategy_id: sid.into(),
+                        peak_kw: res.hybrid_peak_kw,
+                        daily_kwh: res.hybrid_kwh,
+                        energy_cost,
+                        incremental_demand_kw: inc_kw,
+                        incremental_demand_cost: inc_cost,
+                        total_incremental_cost: energy_cost + inc_cost,
+                        comfort_violations: res.walk.summary.comfort_violations,
+                        ood: res.ood,
+                        feasible,
+                        reject_reason: reject,
+                    });
+                }
+                Err(e) => {
+                    rows.push(StrategyEnumRow {
+                        strategy_id: sid.into(),
+                        peak_kw: f64::NAN,
+                        daily_kwh: f64::NAN,
+                        energy_cost: f64::NAN,
+                        incremental_demand_kw: f64::NAN,
+                        incremental_demand_cost: f64::NAN,
+                        total_incremental_cost: f64::NAN,
+                        comfort_violations: -1,
+                        ood: true,
+                        feasible: false,
+                        reject_reason: Some(format!("{e:#}")),
+                    });
+                }
+            }
+        }
+        rows.sort_by(|a, b| match (a.feasible, b.feasible) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a
+                .total_incremental_cost
+                .partial_cmp(&b.total_incremental_cost)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        });
+        let n_ok = rows.iter().filter(|r| r.feasible).count();
+        self.status = format!(
+            "STRATEGY ENUMERATION: {}/{} feasible · annual rollup remains HEURISTIC · {}",
+            n_ok,
+            rows.len(),
+            AnnualReplayPlan::stub().note
+        );
+        self.strategy_enum_rows = rows;
     }
 
     fn run_compare_247_vs_dsm(&mut self) {
@@ -1093,6 +1276,43 @@ impl eframe::App for DsmApp {
                     {
                         self.run_dsm_only();
                     }
+                    if ui
+                        .add_sized(
+                            [340.0, 28.0],
+                            egui::Button::new("Run Nearest-Day + E+ Delta (not ML)"),
+                        )
+                        .clicked()
+                    {
+                        self.run_nearest_day();
+                    }
+                    if ui
+                        .add_sized(
+                            [340.0, 28.0],
+                            egui::Button::new("Evaluate all available strategies"),
+                        )
+                        .clicked()
+                    {
+                        self.run_strategy_enumeration();
+                    }
+                    ui.label(
+                        egui::RichText::new(
+                            "STRATEGY ENUMERATION ranks named strategies — not mathematical optimization",
+                        )
+                        .small()
+                        .italics(),
+                    );
+                    ui.checkbox(&mut self.show_ml_hybrid, "Show sklearn hybrid series");
+                    ui.checkbox(&mut self.show_nearest_day, "Show Nearest-Day + E+ Delta");
+                    ui.checkbox(
+                        &mut self.show_actual_replay,
+                        "Show actual (historical replay only — off for counterfactual Live Run)",
+                    );
+                    ui.add(
+                        egui::DragValue::new(&mut self.existing_billing_peak_kw)
+                            .speed(1.0)
+                            .range(0.0..=2000.0)
+                            .suffix(" kW existing billing-period peak"),
+                    );
                     ui.label(
                         egui::RichText::new(&self.status)
                             .color(egui::Color32::from_rgb(180, 200, 190)),
@@ -1135,12 +1355,135 @@ impl eframe::App for DsmApp {
                         {
                             show_hybrid_panel(ui, walk, path);
                         } else if let Some(err) = &self.hybrid_error {
-                            ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
-                            ui.label(
-                                "Promote hybrid artifacts via scripts/promote_hybrid_ship.py after training.",
-                            );
+                            ui.colored_label(egui::Color32::LIGHT_RED, err);
+                        } else {
+                            ui.label("Run live hybrid to populate this panel.");
                         }
                     });
+
+                egui::CollapsingHeader::new("Nearest-Day + E+ Delta (engineering benchmark)")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.label(
+                            egui::RichText::new(
+                                "SIMPLE_HYBRID_SCREENING · not ML · P10-P90 are neighbor ranges, not CIs",
+                            )
+                            .italics(),
+                        );
+                        if let Some(err) = &self.nearest_error {
+                            ui.colored_label(egui::Color32::LIGHT_RED, err);
+                        }
+                        if let Some(res) = &self.nearest_result {
+                            let path = std::path::PathBuf::from("live://nearest_day");
+                            show_hybrid_panel(ui, &res.walk, &path);
+                            ui.label(format!(
+                                "OOD={} · nearest_distance={:?} · thr={:.3} · recommend={}",
+                                res.ood, res.nearest_distance, res.ood_threshold, res.recommend
+                            ));
+                            if !res.failed_criteria.is_empty() {
+                                ui.label(format!("failed: {:?}", res.failed_criteria));
+                            }
+                            egui::Grid::new("nearest_vs_ml_table").show(ui, |ui| {
+                                ui.label("Metric");
+                                ui.label("Nearest-Day + E+ Delta");
+                                ui.label("ML Hybrid");
+                                ui.end_row();
+                                let ml_peak = self
+                                    .hybrid_walk
+                                    .as_ref()
+                                    .map(|w| w.summary.peak_kw_hybrid)
+                                    .unwrap_or(f64::NAN);
+                                let ml_kwh = self
+                                    .hybrid_walk
+                                    .as_ref()
+                                    .map(|w| w.summary.cumulative_kwh_hybrid)
+                                    .unwrap_or(f64::NAN);
+                                let ml_viol = self
+                                    .hybrid_walk
+                                    .as_ref()
+                                    .map(|w| w.summary.comfort_violations as f64)
+                                    .unwrap_or(f64::NAN);
+                                ui.label("Facility peak kW");
+                                ui.label(format!("{:.1}", res.hybrid_peak_kw));
+                                ui.label(format!("{:.1}", ml_peak));
+                                ui.end_row();
+                                ui.label("Daily kWh");
+                                ui.label(format!("{:.0}", res.hybrid_kwh));
+                                ui.label(format!("{:.0}", ml_kwh));
+                                ui.end_row();
+                                let bill_n = billing_period_demand_kw(
+                                    self.existing_billing_peak_kw as f64,
+                                    res.hybrid_peak_kw,
+                                );
+                                let bill_m = billing_period_demand_kw(
+                                    self.existing_billing_peak_kw as f64,
+                                    ml_peak,
+                                );
+                                ui.label("Billing demand exposure kW");
+                                ui.label(format!("{:.1}", bill_n));
+                                ui.label(format!("{:.1}", bill_m));
+                                ui.end_row();
+                                ui.label("Comfort violations");
+                                ui.label(format!("{}", res.walk.summary.comfort_violations));
+                                ui.label(format!("{:.0}", ml_viol));
+                                ui.end_row();
+                                ui.label("OOD status");
+                                ui.label(res.ood_status.clone().unwrap_or_else(|| "ok".into()));
+                                ui.label("n/a");
+                                ui.end_row();
+                            });
+                        } else {
+                            ui.label("Run Nearest-Day + E+ Delta to populate.");
+                        }
+                    });
+
+                egui::CollapsingHeader::new("STRATEGY ENUMERATION (not optimization)")
+                    .default_open(!self.strategy_enum_rows.is_empty())
+                    .show(ui, |ui| {
+                        ui.label(
+                            egui::RichText::new(
+                                "Same midnight + weather · reject OOD/comfort · rank by energy + incremental demand",
+                            )
+                            .italics(),
+                        );
+                        if self.strategy_enum_rows.is_empty() {
+                            ui.label("Click Evaluate all available strategies to populate the full table.");
+                        } else {
+                            egui::Grid::new("strategy_enum_table")
+                                .striped(true)
+                                .show(ui, |ui| {
+                                    ui.label("strategy");
+                                    ui.label("peak kW");
+                                    ui.label("kWh");
+                                    ui.label("$ energy");
+                                    ui.label("inc dem kW");
+                                    ui.label("$ inc dem");
+                                    ui.label("$ total inc");
+                                    ui.label("comfort");
+                                    ui.label("feasible");
+                                    ui.label("reject");
+                                    ui.end_row();
+                                    for row in &self.strategy_enum_rows {
+                                        ui.label(&row.strategy_id);
+                                        ui.label(format!("{:.1}", row.peak_kw));
+                                        ui.label(format!("{:.0}", row.daily_kwh));
+                                        ui.label(format!("{:.2}", row.energy_cost));
+                                        ui.label(format!("{:.1}", row.incremental_demand_kw));
+                                        ui.label(format!("{:.2}", row.incremental_demand_cost));
+                                        ui.label(format!("{:.2}", row.total_incremental_cost));
+                                        ui.label(format!("{}", row.comfort_violations));
+                                        ui.label(if row.feasible { "yes" } else { "no" });
+                                        ui.label(
+                                            row.reject_reason
+                                                .clone()
+                                                .unwrap_or_else(|| "—".into()),
+                                        );
+                                        ui.end_row();
+                                    }
+                                });
+                        }
+                    });
+
                 ui.add_space(8.0);
                 egui::CollapsingHeader::new("Measured vs modeled validation")
                     .default_open(false)
@@ -1354,7 +1697,12 @@ impl eframe::App for DsmApp {
                 }
 
                 ui.separator();
-                ui.heading("Annual demand savings (heuristic)");
+                ui.heading("Annual demand savings (HEURISTIC — not Annual Replay)");
+                ui.label(
+                    egui::RichText::new(AnnualReplayPlan::stub().note)
+                        .small()
+                        .italics(),
+                );
                 if let Some(a) = &self.annual {
                     egui::Frame::group(ui.style())
                         .fill(egui::Color32::from_rgb(34, 42, 50))
