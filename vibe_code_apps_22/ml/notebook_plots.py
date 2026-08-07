@@ -769,3 +769,99 @@ def hybrid_walk_panel(walk: dict[str, Any], *, fig=None, comfort_sp: float = 68.
     ax1.spines["right"].set_visible(False)
     fig.tight_layout()
     return fig
+
+
+def typical_weekday_weekend_profile(demand: pd.DataFrame, *, kw_col: str = "kw_demand", ax=None):
+    """Mean diurnal kW for weekday vs weekend (expects hour + is_weekend or day_type)."""
+    ax = ax or plt.gca()
+    df = demand.copy()
+    if "hour" not in df.columns and "ts_local" in df.columns:
+        df["hour"] = pd.to_datetime(df["ts_local"]).dt.hour
+    if "day_type" not in df.columns:
+        if "is_weekend" in df.columns:
+            df["day_type"] = np.where(df["is_weekend"], "Weekend", "Weekday")
+        else:
+            raise ValueError("need day_type or is_weekend")
+    for day_type, color in (("Weekday", _STYLE["baseline"]), ("Weekend", _STYLE["pred"])):
+        sub = df[df["day_type"] == day_type]
+        if sub.empty:
+            continue
+        g = sub.groupby("hour")[kw_col].mean().sort_index()
+        ax.plot(g.index, g.values, lw=2.0, color=color, label=day_type)
+        ax.fill_between(g.index, g.values, alpha=0.12, color=color)
+    ax.set_xlabel("Hour (local)")
+    ax.set_ylabel("Mean demand [kW]")
+    ax.set_title("Typical load shape — weekday vs weekend (meter)")
+    ax.set_xlim(0, 23)
+    ax.legend(frameon=False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax
+
+
+def monthly_diurnal_overlay(demand: pd.DataFrame, *, kw_col: str = "kw_demand", fig=None):
+    """One small panel per month: weekday vs weekend mean kW by hour."""
+    df = demand.copy()
+    if "month" not in df.columns and "ts_local" in df.columns:
+        df["month"] = pd.to_datetime(df["ts_local"]).dt.to_period("M").astype(str)
+    if "hour" not in df.columns and "ts_local" in df.columns:
+        df["hour"] = pd.to_datetime(df["ts_local"]).dt.hour
+    if "day_type" not in df.columns and "is_weekend" in df.columns:
+        df["day_type"] = np.where(df["is_weekend"], "Weekend", "Weekday")
+    months = sorted(df["month"].dropna().unique())
+    ncols = 3
+    nrows = int(np.ceil(max(1, len(months)) / ncols))
+    fig = fig or plt.figure(figsize=(12, 3.0 * nrows))
+    axes = fig.subplots(nrows, ncols, sharey=True)
+    axes = np.atleast_1d(axes).ravel()
+    for i, month in enumerate(months):
+        ax = axes[i]
+        sub = df[df["month"] == month]
+        for day_type, color in (("Weekday", _STYLE["baseline"]), ("Weekend", _STYLE["pred"])):
+            s = sub[sub["day_type"] == day_type]
+            if s.empty:
+                continue
+            g = s.groupby("hour")[kw_col].mean().sort_index()
+            ax.plot(g.index, g.values, color=color, lw=1.6, label=day_type)
+        ax.set_title(str(month), fontsize=10)
+        ax.set_xlim(0, 23)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        if i == 0:
+            ax.legend(fontsize=7, frameon=False)
+    for j in range(len(months), len(axes)):
+        axes[j].axis("off")
+    fig.suptitle("Monthly diurnal shapes — weekday vs weekend (meter)")
+    fig.tight_layout()
+    return fig
+
+
+def actual_eplus_ml_overlay(
+    *,
+    hour: np.ndarray | list,
+    actual_kw: np.ndarray | list | None = None,
+    eplus_kw: np.ndarray | list | None = None,
+    ml_baseline_kw: np.ndarray | list | None = None,
+    ml_hybrid_kw: np.ndarray | list | None = None,
+    title: str = "Load profile overlay — Actual vs E+ vs ML",
+    ax=None,
+):
+    """Overlay diurnal kW series. Never label ML hybrid as actual."""
+    ax = ax or plt.gca()
+    x = np.asarray(hour, dtype=float)
+    if actual_kw is not None:
+        ax.plot(x, actual_kw, color=_STYLE["actual"], lw=2.0, label="Actual meter / BAS")
+    if eplus_kw is not None:
+        ax.plot(x, eplus_kw, color="#457b9d", lw=1.6, ls="--", label="EnergyPlus (IdealLoads screening)")
+    if ml_baseline_kw is not None:
+        ax.plot(x, ml_baseline_kw, color=_STYLE["baseline"], lw=1.6, label="ML baseline (predicted)")
+    if ml_hybrid_kw is not None:
+        ax.plot(x, ml_hybrid_kw, color=_STYLE["hybrid"], lw=1.8, label="ML hybrid DSM (predicted, not actual)")
+    ax.axvspan(5, 9, color="#f4a261", alpha=0.12, label="morning peak HE 05–09")
+    ax.set_xlabel("Hour of day")
+    ax.set_ylabel("facility_kw [kW]")
+    ax.set_title(title)
+    ax.legend(frameon=False, fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    return ax

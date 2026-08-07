@@ -57,6 +57,7 @@ from target_scaling import (  # noqa: E402
     assert_output_order,
     assert_target_cols,
 )
+from timing_utils import format_hms  # noqa: E402
 from train_real_baseline_15min import (  # noqa: E402
     _agg_day_scores,
     evaluate_recursive_days,
@@ -423,7 +424,7 @@ def train_torch_baseline(
             }
             print(
                 f"  params={n_params} selection_score={entry['selection_score']:.3f} "
-                f"zone_TF={zone_sel:.2f}°F",
+                f"zone_TF={zone_sel:.2f}°F train={format_hms(elapsed)}",
                 flush=True,
             )
 

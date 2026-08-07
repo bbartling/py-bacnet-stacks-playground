@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 """Generate LinkedIn/blog-quality tutorial notebooks via nbformat (overwrite).
 
 Writes:
@@ -28,7 +28,7 @@ def code(source: str) -> nbf.NotebookNode:
 
 def _shared_diagram_md() -> str:
     return r"""
-## 1 · Title & multi-output problem
+## 1 Â· Title & multi-output problem
 
 We predict **seven simultaneous outputs** every 15 minutes for one K-12 school day
 (96 steps from midnight):
@@ -36,22 +36,22 @@ We predict **seven simultaneous outputs** every 15 minutes for one K-12 school d
 | Index | Target | Unit | Role |
 |---|---|---|---|
 | 0 | `facility_kw` | kW | Whole-building electric demand (DSM / cost) |
-| 1–6 | `zone_temp_*_f` | °F | Six thermal-area air temperatures (comfort) |
+| 1â€“6 | `zone_temp_*_f` | Â°F | Six thermal-area air temperatures (comfort) |
 
-Canonical order is locked in `TARGET_COLS` — never reorder heads or ONNX outputs.
+Canonical order is locked in `TARGET_COLS` â€” never reorder heads or ONNX outputs.
 
 ```text
  midnight state + future OAT/control
-              │
-              ▼
-        ┌─────────────┐
-        │  Surrogate  │
-        │   model     │
-        └──────┬──────┘
-               │
-       ┌───────┴────────┐
-       ▼                ▼
-  96 × facility_kw   96 × 6 zone temps °F
+              â”‚
+              â–¼
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚  Surrogate  â”‚
+        â”‚   model     â”‚
+        â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜
+               â”‚
+       â”Œâ”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”
+       â–¼                â–¼
+  96 Ã— facility_kw   96 Ã— 6 zone temps Â°F
 ```
 
 ```mermaid
@@ -68,20 +68,20 @@ flowchart TD
 
 def _shared_predictands_md() -> str:
     return r"""
-## 2 · Predictands (what success looks like)
+## 2 Â· Predictands (what success looks like)
 
-- **Demand fidelity:** morning-peak (HE 05–09) facility MAE/RMSE in **kW**, plus daily peak magnitude/timing and daily kWh error.
-- **Comfort fidelity:** per-zone MAE in **°F** — always show the **worst zone**, never hide it behind a mean.
+- **Demand fidelity:** morning-peak (HE 05â€“09) facility MAE/RMSE in **kW**, plus daily peak magnitude/timing and daily kWh error.
+- **Comfort fidelity:** per-zone MAE in **Â°F** â€” always show the **worst zone**, never hide it behind a mean.
 - Metrics live in `metrics_report` (MAE, RMSE, CV(RMSE), NMBE, horizons). Do not invent numbers in Markdown.
 """.strip()
 
 
 def _shared_ts_framing_md() -> str:
     return r"""
-## 3 · Multi-output time-series framing
+## 3 Â· Multi-output time-series framing
 
 Each row is one 15-min interval. Autoregressive **lags** (`facility_kw_lag1`, zone temp lags, `oat_lag1`)
-use only past measured (or previously predicted) values — no future leakage.
+use only past measured (or previously predicted) values â€” no future leakage.
 
 Two evaluation modes matter:
 
@@ -96,41 +96,41 @@ Held-out cards must report **recursive** metrics. Promote rejects `teacher_force
 
 def _shared_bas_vs_eplus_md() -> str:
     return r"""
-## 4 · Real BAS vs EnergyPlus (never concat)
+## 4 Â· Real BAS vs EnergyPlus (never concat)
 
 | Stream | Provenance | Role |
 |---|---|---|
-| **A — Real BAS** | `REAL_BAS_15MIN` | Measured demand + zone temps |
-| **B — E+ deltas** | `ENERGYPLUS_NATIVE_RUN` → delta | IdealLoads+COP strategy *differences* |
+| **A â€” Real BAS** | `REAL_BAS_15MIN` | Measured demand + zone temps |
+| **B â€” E+ deltas** | `ENERGYPLUS_NATIVE_RUN` â†’ delta | IdealLoads+COP strategy *differences* |
 
 Hybrid = **baseline(A) + delta(B)** at walk time.  
-**Never concatenate BAS∥E+ into one training table** — different physics, different honesty, different confounders.
+**Never concatenate BASâˆ¥E+ into one training table** â€” different physics, different honesty, different confounders.
 """.strip()
 
 
 def _shared_units_md() -> str:
     return r"""
-## 5 · Units & engineering interpretation
+## 5 Â· Units & engineering interpretation
 
-- Demand errors are **kW** (or kWh for daily energy) — never present raw MSE as if it were kW.
-- Zone errors are **°F**. A ~24 °F zone MAE means the model has not learned temperatures (classic unscaled multi-output failure).
-- Peak window: local hour-ending **05–09** (15-min steps ≈ 20–35).
+- Demand errors are **kW** (or kWh for daily energy) â€” never present raw MSE as if it were kW.
+- Zone errors are **Â°F**. A ~24 Â°F zone MAE means the model has not learned temperatures (classic unscaled multi-output failure).
+- Peak window: local hour-ending **05â€“09** (15-min steps â‰ˆ 20â€“35).
 """.strip()
 
 
 def _shared_features_md() -> str:
     return r"""
-## 6 · Feature contract
+## 6 Â· Feature contract
 
 Features come from `FEATURE_COLS_15MIN_MT` / `feature_compile_15min` (clock, OAT/HDD, occupancy fractions,
 HP/IdealLoads availability, strategy one-hots, lags). Control schedules are versioned under
-`contracts/control_strategies_v1/`. Catalog tables below are descriptive — not causal claims.
+`contracts/control_strategies_v1/`. Catalog tables below are descriptive â€” not causal claims.
 """.strip()
 
 
 def _shared_dq_md() -> str:
     return r"""
-## 7 · Data quality (descriptive)
+## 7 Â· Data quality (descriptive)
 
 Coverage, missingness, target distributions, and one winter-day panel. These plots do **not** replace chronological validation.
 """.strip()
@@ -138,20 +138,20 @@ Coverage, missingness, target distributions, and one winter-day panel. These plo
 
 def _shared_chrono_md() -> str:
     return r"""
-## 8 · Chronological design (SoT)
+## 8 Â· Chronological design (SoT)
 
 One shared `eval/split_manifest.json` from `chrono_splits.build_split_manifest`:
 
-1. **Heating days** only (mean OAT ≤ 50 °F or HDD-hours rule).
-2. **Final winter test** — last ~15–20% of Dec/Jan/Feb heating days — **locked**, never used for champion selection.
-3. Remaining **dev days** → rolling-origin folds with a **1-day embargo** between train end and validation start.
+1. **Heating days** only (mean OAT â‰¤ 50 Â°F or HDD-hours rule).
+2. **Final winter test** â€” last ~15â€“20% of Dec/Jan/Feb heating days â€” **locked**, never used for champion selection.
+3. Remaining **dev days** â†’ rolling-origin folds with a **1-day embargo** between train end and validation start.
 4. Champion = best **recursive** peak MAE on rolling val; score locked test once after selection.
 """.strip()
 
 
 def _shared_baselines_md() -> str:
     return r"""
-## 9 · Naive baselines
+## 9 Â· Naive baselines
 
 Persistence (lag-1 as prediction) and same-hour-of-day means set the bar. A champion that cannot beat persistence on morning peak is not shippable for screening, let alone operations.
 """.strip()
@@ -159,27 +159,27 @@ Persistence (lag-1 as prediction) and same-hour-of-day means set the bar. A cham
 
 def _shared_arch_sklearn_md() -> str:
     return r"""
-## 10 · Architectures (sklearn hybrid)
+## 10 Â· Architectures (sklearn hybrid)
 
-**Component A** — multi-output ExtraTrees / RF / GB / Ridge bake-off on real BAS.  
-**Component B** — multi-output delta model on paired IdealLoads strategies.  
+**Component A** â€” multi-output ExtraTrees / RF / GB / Ridge bake-off on real BAS.  
+**Component B** â€” multi-output delta model on paired IdealLoads strategies.  
 Lean mode (`FULL=False`) uses fixed hyperparams + ~36 winter days for CI-ish runtime. Set `FULL=True` for nested CV.
 """.strip()
 
 
 def _shared_arch_torch_md() -> str:
     return r"""
-## 10 · Architectures (PyTorch dual-head)
+## 10 Â· Architectures (PyTorch dual-head)
 
-**ResMLP dual-head:** shared residual trunk → `head_kw → 1` + `head_zones → 6`.  
+**ResMLP dual-head:** shared residual trunk â†’ `head_kw â†’ 1` + `head_zones â†’ 6`.  
 **Optional GRU dual-head:** temporal candidate (documented in full tutorial; lean default skips it).
 
 ### Scaling defect (fixed)
 
-Earlier torch runs reported ~**24 °F** zone MAE because:
+Earlier torch runs reported ~**24 Â°F** zone MAE because:
 
 1. Features scaled, **targets not scaled**
-2. Single shared `Linear → 7` (facility_kw dominated unweighted MSE)
+2. Single shared `Linear â†’ 7` (facility_kw dominated unweighted MSE)
 3. Early stop on **kW MAE only**
 4. Scaler sometimes fit on all rows
 
@@ -189,7 +189,7 @@ Earlier torch runs reported ~**24 °F** zone MAE because:
 
 def _shared_tf_rec_md() -> str:
     return r"""
-## 11 · Teacher-forcing vs recursive (why both appear)
+## 11 Â· Teacher-forcing vs recursive (why both appear)
 
 Teacher-forced OOF is useful to see whether the function class can fit one-step dynamics.  
 **Operational walks are recursive:** errors compound through lag feedback. Cards therefore lead with
@@ -199,7 +199,7 @@ Teacher-forced OOF is useful to see whether the function class can fit one-step 
 
 def _shared_eval96_md() -> str:
     return r"""
-## 12 · 96-step evaluation contract
+## 12 Â· 96-step evaluation contract
 
 Per held-out day: facility MAE/RMSE, peak MAE, daily peak mag/timing, daily kWh error,
 zone MAE mean + per zone, horizon MAE at steps 1/4/12/24/48/96 via `evaluate_recursive_days`.
@@ -208,7 +208,7 @@ zone MAE mean + per zone, horizon MAE at steps 1/4/12/24/48/96 via `evaluate_rec
 
 def _shared_facility_md() -> str:
     return r"""
-## 13 · Facility (kW) results
+## 13 Â· Facility (kW) results
 
 Interpret morning-peak MAE against persistence. Prefer recursive numbers from the model card over any in-notebook hardcodes.
 """.strip()
@@ -216,39 +216,39 @@ Interpret morning-peak MAE against persistence. Prefer recursive numbers from th
 
 def _shared_zone_md() -> str:
     return r"""
-## 14 · Per-zone results (never hide the worst zone)
+## 14 Â· Per-zone results (never hide the worst zone)
 
-Show a per-target table and small multiples when predictions exist. Zone MAE should be a few °F if training worked — not ~24 °F.
+Show a per-target table and small multiples when predictions exist. Zone MAE should be a few Â°F if training worked â€” not ~24 Â°F.
 """.strip()
 
 
 def _shared_dsm_md() -> str:
     return r"""
-## 15 · DSM / comfort context
+## 15 Â· DSM / comfort context
 
-Hybrid walk shades HE 05–09 and overlays comfort bands (±2 °F around 68 °F occupied SP).  
-IdealLoads + fixed COP ≠ GSHP plant — screening only.
+Hybrid walk shades HE 05â€“09 and overlays comfort bands (Â±2 Â°F around 68 Â°F occupied SP).  
+IdealLoads + fixed COP â‰  GSHP plant â€” screening only.
 """.strip()
 
 
 def _shared_limits_md() -> str:
     return r"""
-## 16 · Limitations
+## 16 Â· Limitations
 
-- Smoke farm underpowered (<12 both-arm pairs) → promote refuses unless watermarked smoke path.
+- Smoke farm underpowered (<12 both-arm pairs) â†’ promote refuses unless watermarked smoke path.
 - Strategy, date, and weather remain confounded on the E+ delta arm.
 - Geometry is rectangular program massing, not CAD.
-- Utility G14 ≠ interval-integrated demand fidelity.
+- Utility G14 â‰  interval-integrated demand fidelity.
 """.strip()
 
 
 def _shared_repro_md() -> str:
     return r"""
-## 17 · Reproduction
+## 17 Â· Reproduction
 
 ```powershell
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
-# Preferred: open this notebook → Run All
+# Preferred: open this notebook â†’ Run All
 # CLI (gated): $env:VIBE22_ALLOW_CLI_TRAIN="1"
 #   python -u scripts/run_sklearn_tutorial_train.py --max-days 36
 #   python -u scripts/run_torch_tutorial_train.py --lean --max-days 36
@@ -269,7 +269,7 @@ def build_sklearn() -> nbf.NotebookNode:
     cells.append(
         md(
             """
-# Lakeside heating DSM — sklearn hybrid tutorial
+# Lakeside heating DSM â€” sklearn hybrid tutorial
 
 > **DO NOT RELEASE FOR OPERATIONAL DSM.** Product claim: **`HYBRID_SCREENING` only**.
 
@@ -279,7 +279,7 @@ CLI trainers refuse unless `VIBE22_ALLOW_CLI_TRAIN=1`.
 | Component | What | Provenance |
 |---|---|---|
 | A | Real BAS 15-min baseline (7 outs) | `REAL_BAS_15MIN` |
-| B | Paired E+ IdealLoads+COP deltas | `ENERGYPLUS_NATIVE_RUN` → delta |
+| B | Paired E+ IdealLoads+COP deltas | `ENERGYPLUS_NATIVE_RUN` â†’ delta |
 | C | Hybrid 96-step walk | `HYBRID_SCREENING` |
 
 Lean defaults (`FULL=False`, `MAX_DAYS=36`) keep Run All CI-ish. Set `FULL=True` for nested CV on all winter days.
@@ -295,7 +295,7 @@ Lean defaults (`FULL=False`, `MAX_DAYS=36`) keep Run All CI-ish. Set `FULL=True`
     cells.append(md(_shared_features_md()))
     cells.append(md(_shared_dq_md()))
 
-    cells.append(md("## Setup — paths, imports, run_id"))
+    cells.append(md("## Setup â€” paths, imports, run_id"))
     cells.append(
         code(
             r"""
@@ -317,7 +317,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 for _mod in (
     "notebook_proof", "notebook_plots", "artifact_paths", "metrics_report",
-    "run_provenance", "target_scaling", "chrono_splits",
+    "run_provenance", "target_scaling", "chrono_splits", "timing_utils",
     "train_real_baseline_15min", "train_eplus_delta_15min", "promote_hybrid_ship",
 ):
     sys.modules.pop(_mod, None)
@@ -332,6 +332,7 @@ from notebook_plots import (
 from metrics_report import per_target_table, explain_error_metrics_markdown, scalar_block
 from run_provenance import make_run_id, print_artifact_registry, artifact_registry, sha256_file
 from target_scaling import assert_target_cols
+from timing_utils import TimingReport, format_hms
 from chrono_splits import build_split_manifest, write_manifest
 from feature_compile_heating_dsm import TARGET_COLS, ZONE_TEMP_COLS
 from train_real_baseline_15min import (
@@ -352,13 +353,14 @@ WINTER_ONLY = True
 MAX_DAYS = 36 if not FULL else None
 N_SPLITS = 3
 run_id = make_run_id(prefix="sklearn_tutorial")
+TIMINGS = TimingReport()
 
 print("ROOT", ROOT)
 print("SITE", SITE)
 print("OUT", OUT)
 print("run_id", run_id)
 print("FULL", FULL, "MAX_DAYS", MAX_DAYS)
-print("honesty HYBRID_SCREENING — DO NOT RELEASE FOR OPERATIONAL DSM")
+print("honesty HYBRID_SCREENING â€” DO NOT RELEASE FOR OPERATIONAL DSM")
 display(Markdown(explain_error_metrics_markdown()))
 """
         )
@@ -369,7 +371,7 @@ display(Markdown(explain_error_metrics_markdown()))
             """
 ## Targets catalog
 
-Seven outputs in locked order — `facility_kw` [kW] then six zone air temperatures [°F].
+Seven outputs in locked order â€” `facility_kw` [kW] then six zone air temperatures [Â°F].
 """
         )
     )
@@ -399,7 +401,7 @@ print("provenance check", train_df["provenance"].value_counts().to_dict() if "pr
         )
     )
 
-    cells.append(md("### EDA — coverage, distributions, winter day"))
+    cells.append(md("### EDA â€” coverage, distributions, winter day"))
     cells.append(
         code(
             r"""
@@ -432,13 +434,13 @@ plt.close(fig)
         )
     )
 
-    cells.append(md("## Paired E+ farm proof (component B data) — separate stream"))
+    cells.append(md("## Paired E+ farm proof (component B data) â€” separate stream"))
     cells.append(
         code(
             r"""
 try:
     farm_df, farm_meta = prove_native_farm_load()
-    print("farm rows", len(farm_df), "— still NOT concatenated with BAS for training")
+    print("farm rows", len(farm_df), "â€” still NOT concatenated with BAS for training")
 except Exception as e:
     farm_df, farm_meta = None, {}
     print("farm proof skipped / unavailable:", e)
@@ -477,7 +479,7 @@ if len(split_df):
     colors = {"train": "#2a9d8f", "val": "#e76f51", "embargo": "#adb5bd", "final_test": "#264653"}
     for role, g in split_df.groupby("role"):
         ax.scatter(pd.to_datetime(g["day"]), g["fold"].astype(str), s=28, c=colors.get(role, "#888"), label=role, marker="|")
-    ax.set_title("Chrono splits — expanding train / val / embargo / locked test")
+    ax.set_title("Chrono splits â€” expanding train / val / embargo / locked test")
     ax.legend(frameon=False, fontsize=8, ncol=4)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -492,19 +494,21 @@ if len(split_df):
     cells.append(md(_shared_tf_rec_md()))
     cells.append(md(_shared_eval96_md()))
 
-    cells.append(md("## Train A — real baseline (`lean_bake_off`)"))
+    cells.append(md("## Train A â€” real baseline (`lean_bake_off`)"))
     cells.append(
         code(
             r"""
-if FULL:
-    base_result = nested_bake_off(
-        train_df, outer_splits=N_SPLITS, split_manifest=split_manifest, out_dir=OUT
-    )
-else:
-    base_result = lean_bake_off(
-        train_df, n_splits=N_SPLITS, split_manifest=split_manifest, out_dir=OUT
-    )
+with TIMINGS.time("train_A_real_baseline"):
+    if FULL:
+        base_result = nested_bake_off(
+            train_df, outer_splits=N_SPLITS, split_manifest=split_manifest, out_dir=OUT
+        )
+    else:
+        base_result = lean_bake_off(
+            train_df, n_splits=N_SPLITS, split_manifest=split_manifest, out_dir=OUT
+        )
 base_result["run_id"] = run_id
+print("Train A wall clock:", format_hms(TIMINGS.entries[-1][1]))
 
 display(Markdown("### Naive baselines (from bake-off)"))
 bl = base_result.get("baselines") or {}
@@ -525,9 +529,10 @@ print("champion", base_result.get("champion"))
     cells.append(
         code(
             r"""
-paths_a = export_real_baseline_artifacts(base_result, OUT)
+with TIMINGS.time("export_A_artifacts"):
+    paths_a = export_real_baseline_artifacts(base_result, OUT)
 base_card = json.loads(paths_a["card"].read_text(encoding="utf-8"))
-print("A card", paths_a["card"])
+print("A card", paths_a["card"], "export", format_hms(TIMINGS.entries[-1][1]))
 print("hashes", json.dumps(base_card.get("hashes") or base_card.get("artifact_sha256") or {}, indent=2))
 reg_a = artifact_registry({k: v for k, v in paths_a.items()}, run_id=run_id)
 print_artifact_registry(reg_a)
@@ -542,7 +547,7 @@ try:
                 cv_for_bars[fam] = m
     if cv_for_bars:
         fig, ax = plt.subplots(figsize=(8, 3.5))
-        family_mae_bars(cv_for_bars, ax=ax, title="Sklearn families — recursive peak MAE", highlight=base_result.get("champion"))
+        family_mae_bars(cv_for_bars, ax=ax, title="Sklearn families â€” recursive peak MAE", highlight=base_result.get("champion"))
         save_fig(PATHS["figures"] / "sklearn_family_bars.png", fig)
         plt.close(fig)
 except Exception as e:
@@ -551,21 +556,24 @@ except Exception as e:
         )
     )
 
-    cells.append(md("## Train B — E+ delta (`lean_train_delta`)"))
+    cells.append(md("## Train B â€” E+ delta (`lean_train_delta`)"))
     cells.append(
         code(
             r"""
-delta_df, paired_path = load_paired_and_build_delta(out_dir=OUT)
-if FULL:
-    delta_result = train_delta(delta_df)
-else:
-    delta_result = lean_train_delta(delta_df, n_splits=N_SPLITS)
+with TIMINGS.time("train_B_eplus_delta"):
+    delta_df, paired_path = load_paired_and_build_delta(out_dir=OUT)
+    if FULL:
+        delta_result = train_delta(delta_df)
+    else:
+        delta_result = lean_train_delta(delta_df, n_splits=N_SPLITS)
 delta_result["run_id"] = run_id
-paths_b = export_delta_artifacts(delta_result, OUT, paired_source=str(paired_path))
+print("Train B wall clock:", format_hms(TIMINGS.entries[-1][1]))
+with TIMINGS.time("export_B_artifacts"):
+    paths_b = export_delta_artifacts(delta_result, OUT, paired_source=str(paired_path))
 delta_card = json.loads(paths_b["card"].read_text(encoding="utf-8"))
 print("B champion", delta_result.get("champion"), "n_days", delta_card.get("n_days"))
 print("limitation:", delta_card.get("limitation"))
-print("B card", paths_b["card"])
+print("B card", paths_b["card"], "export", format_hms(TIMINGS.entries[-1][1]))
 print("B hashes", json.dumps(delta_card.get("hashes") or {}, indent=2))
 reg_b = artifact_registry({k: v for k, v in paths_b.items()}, run_id=run_id)
 print_artifact_registry(reg_b)
@@ -603,7 +611,7 @@ def _flatten_champ_metrics(card: dict) -> pd.DataFrame:
     zmap = block.get("zone_mae") or block.get("zone_temp_mae") or {}
     if isinstance(zmap, dict):
         for z, v in zmap.items():
-            rows.append({"target": z, "unit": "°F", "recursive_mae": v})
+            rows.append({"target": z, "unit": "Â°F", "recursive_mae": v})
     return pd.DataFrame(rows)
 
 tbl_a = _flatten_champ_metrics(base_card)
@@ -621,10 +629,10 @@ if yt is not None and base_result.get("model") is not None and base_result.get("
     save_fig(PATHS["figures"] / "sklearn_zone_small_multiples.png", fig)
     plt.close(fig)
 elif eval_json.is_file():
-    display(Markdown(f"OOF tensors unavailable — see `{eval_json.name}` and card tables above for zone MAE."))
+    display(Markdown(f"OOF tensors unavailable â€” see `{eval_json.name}` and card tables above for zone MAE."))
 else:
     display(Markdown("Zone MAE from card tables only (no OOF tensors in lean result for plotting)."))
-    display(tbl_a[tbl_a["unit"] == "°F"] if "unit" in tbl_a.columns else tbl_a)
+    display(tbl_a[tbl_a["unit"] == "Â°F"] if "unit" in tbl_a.columns else tbl_a)
 """
         )
     )
@@ -633,32 +641,34 @@ else:
     cells.append(
         md(
             """
-## Hybrid promote — fail-closed, then smoke watermark
+## Hybrid promote â€” fail-closed, then smoke watermark
 
 Expect **default promote to refuse** on an underpowered (<12 pair) farm.
-Smoke path sets `VIBE22_ALLOW_SMOKE_PROMOTE=1` and stamps `UNDERPOWERED_SMOKE_FARM` — still **not** operational DSM.
+Smoke path sets `VIBE22_ALLOW_SMOKE_PROMOTE=1` and stamps `UNDERPOWERED_SMOKE_FARM` â€” still **not** operational DSM.
 """
         )
     )
     cells.append(
         code(
             r"""
-# 1) Without smoke — expect failure (candidate not promoted)
+# 1) Without smoke â€” expect failure (candidate not promoted)
 os.environ.pop(SMOKE_ENV, None)
 promote_default_ok = False
 promote_default_err = None
-try:
-    promote_hybrid(artifacts=OUT, desktop_artifacts=ROOT / "desktop" / "artifacts")
-    promote_default_ok = True
-    raise AssertionError("promote should fail without smoke on under-covered farm")
-except (ValueError, AssertionError) as e:
-    promote_default_err = str(e)
-    print("default promote refused (expected) — candidate NOT promoted:")
-    print(" ", promote_default_err)
+with TIMINGS.time("promote_default_refuse"):
+    try:
+        promote_hybrid(artifacts=OUT, desktop_artifacts=ROOT / "desktop" / "artifacts")
+        promote_default_ok = True
+        raise AssertionError("promote should fail without smoke on under-covered farm")
+    except (ValueError, AssertionError) as e:
+        promote_default_err = str(e)
+        print("default promote refused (expected) â€” candidate NOT promoted:")
+        print(" ", promote_default_err)
 
 # 2) Smoke watermark path
 os.environ[SMOKE_ENV] = "1"
-promo = promote_hybrid(artifacts=OUT, desktop_artifacts=ROOT / "desktop" / "artifacts")
+with TIMINGS.time("promote_smoke_walk"):
+    promo = promote_hybrid(artifacts=OUT, desktop_artifacts=ROOT / "desktop" / "artifacts")
 walk = promo["result"]
 assert walk.get("honesty") == "HYBRID_SCREENING"
 assert len(walk["steps"]) == 96
@@ -666,7 +676,7 @@ assert len(walk["steps"]) == 96
 ship_path = ROOT / "desktop" / "artifacts" / "hybrid_ship_manifest.json"
 ship = json.loads(ship_path.read_text(encoding="utf-8")) if ship_path.is_file() else {}
 print("smoke promote ship_mode", ship.get("ship_mode"), "watermark", ship.get("watermark"))
-print("walk", promo.get("walk"))
+print("walk", promo.get("walk"), "promote", format_hms(TIMINGS.entries[-1][1]))
 
 fig = hybrid_walk_panel(walk)
 save_fig(PATHS["figures"] / "sklearn_hybrid_walk.png", fig)
@@ -677,15 +687,71 @@ display(pd.Series(walk.get("summary") or {}).to_frame("value"))
         )
     )
 
+    cells.append(
+        md(
+            """
+## Inference timing (joblib predict + hybrid walk reload)
+
+Wall-clock for a one-day teacher-forced predict and reading the shipped walk JSON â€” not a latency SLA.
+"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
+from hybrid_rollout import load_joblib_model
+from feature_compile_15min import matrix_xy_15min_multi, recursive_rollout_day
+
+with TIMINGS.time("inference_joblib_oneday_TF"):
+    model_a, cols_a, tcols_a = load_joblib_model(OUT / "real_baseline_15min_v1.joblib")
+    X_all, Y_all, _, _, _, feat_all = matrix_xy_15min_multi(train_df)
+    day0 = str(sorted(feat_all["day"].astype(str).unique())[0])
+    mask = feat_all["day"].astype(str) == day0
+    pred_day = model_a.predict(X_all[mask])
+print("TF one-day predict shape", pred_day.shape, "â†’", format_hms(TIMINGS.entries[-1][1]))
+
+with TIMINGS.time("inference_recursive_oneday"):
+    day_df = feat_all.loc[mask].copy()
+    rec = recursive_rollout_day(model_a, day_df, cols_a, tcols_a)
+print("Recursive one-day shape", rec.shape, "â†’", format_hms(TIMINGS.entries[-1][1]))
+
+with TIMINGS.time("inference_load_hybrid_walk_json"):
+    walk_path = OUT / "hybrid_dsm_96_v1_walk.json"
+    if walk_path.is_file():
+        _ = json.loads(walk_path.read_text(encoding="utf-8"))
+        print("loaded", walk_path)
+    else:
+        print("walk JSON missing â€” skip")
+"""
+        )
+    )
+
     cells.append(md(_shared_limits_md()))
     cells.append(md(_shared_repro_md()))
 
     cells.append(
         md(
             """
-## Tutorial and Research Benchmark — Not Approved for Operational DSM
+## Wall-clock timing summary (H:M:S)
 
-This cell is **metric-driven** from cards / ship manifest — not hardcoded success.
+Train and inference timers recorded above. Re-run the notebook for fresh numbers.
+"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
+TIMINGS.print_summary("Sklearn tutorial â€” train / export / promote / inference")
+"""
+        )
+    )
+
+    cells.append(
+        md(
+            """
+## Tutorial and Research Benchmark â€” Not Approved for Operational DSM
+
+This cell is **metric-driven** from cards / ship manifest â€” not hardcoded success.
 """
         )
     )
@@ -727,7 +793,7 @@ gates = [
     {"gate": "DO NOT RELEASE FOR OPERATIONAL DSM", "PASS": True},
 ]
 gate_df = pd.DataFrame(gates)
-display(Markdown("### PASS / FAIL — research benchmark only"))
+display(Markdown("### PASS / FAIL â€” research benchmark only"))
 display(gate_df)
 
 champ = base_card.get("champion")
@@ -737,15 +803,15 @@ peak = block.get("facility_kw_mae_peak_05_09") if isinstance(block, dict) else N
 zone = block.get("zone_temp_mae_mean") if isinstance(block, dict) else None
 lines = [
     f"- **run_id:** `{run_id}`",
-    f"- **A champion:** `{champ}` · recursive peak MAE={peak} kW · zone_mean MAE={zone} °F",
-    f"- **B champion:** `{delta_card.get('champion')}` · limitation: {delta_card.get('limitation')}",
+    f"- **A champion:** `{champ}` Â· recursive peak MAE={peak} kW Â· zone_mean MAE={zone} Â°F",
+    f"- **B champion:** `{delta_card.get('champion')}` Â· limitation: {delta_card.get('limitation')}",
     f"- **Ship mode:** `{ship.get('ship_mode')}` watermark=`{ship.get('watermark')}`",
-    "- **Verdict:** Tutorial / research benchmark under **`HYBRID_SCREENING`** — "
+    "- **Verdict:** Tutorial / research benchmark under **`HYBRID_SCREENING`** â€” "
     "**Not Approved for Operational DSM.**",
 ]
 display(Markdown("\n".join(lines)))
 assert gate_df["PASS"].all() or (gate_df.loc[gate_df["gate"].str.contains("recursive"), "PASS"].any()), gate_df
-print("Final honesty: HYBRID_SCREENING — DO NOT RELEASE FOR OPERATIONAL DSM")
+print("Final honesty: HYBRID_SCREENING â€” DO NOT RELEASE FOR OPERATIONAL DSM")
 """
         )
     )
@@ -770,7 +836,7 @@ def build_torch() -> nbf.NotebookNode:
     cells.append(
         md(
             """
-# Lakeside heating DSM — PyTorch dual-head tutorial
+# Lakeside heating DSM â€” PyTorch dual-head tutorial
 
 > **DO NOT RELEASE FOR OPERATIONAL DSM.** Honesty stamp: **`HYBRID_SCREENING`**.
 
@@ -781,7 +847,7 @@ Does **not** train deltas and **never** overwrites the sklearn hybrid desktop ch
 |---|---|
 | Data | `REAL_BAS_15MIN` only |
 | Artifact stem | `real_baseline_15min_torch_v1` |
-| Splits | Shared `chrono_splits` → `eval/split_manifest.json` |
+| Splits | Shared `chrono_splits` â†’ `eval/split_manifest.json` |
 | Lean default | `LEAN=True`: 1 seed, ResMLP only, `MAX_DAYS=36` |
 | Full tutorial | 5 seeds `{11,22,33,44,55}` + `gru_dualhead` |
 
@@ -796,7 +862,7 @@ CLI mirror: `scripts/run_torch_tutorial_train.py --lean`.
     cells.append(
         md(
             """
-## 4 · Real BAS only (no delta promote)
+## 4 Â· Real BAS only (no delta promote)
 
 This notebook is an **alternate baseline trainer**. Hybrid desktop ship remains sklearn A+B via
 `promote_hybrid_ship.py`. Torch artifacts stay under `ml/artifacts/` as research candidates.
@@ -807,7 +873,7 @@ This notebook is an **alternate baseline trainer**. Hybrid desktop ship remains 
     cells.append(md(_shared_features_md()))
     cells.append(md(_shared_dq_md()))
 
-    cells.append(md("## Setup — paths, imports, run_id"))
+    cells.append(md("## Setup â€” paths, imports, run_id"))
     cells.append(
         code(
             r"""
@@ -828,7 +894,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 for _mod in (
     "notebook_proof", "notebook_plots", "artifact_paths", "metrics_report",
-    "run_provenance", "target_scaling", "chrono_splits",
+    "run_provenance", "target_scaling", "chrono_splits", "timing_utils",
     "train_real_baseline_15min", "train_real_baseline_torch_15min",
 ):
     sys.modules.pop(_mod, None)
@@ -842,6 +908,7 @@ from notebook_plots import (
 from metrics_report import explain_error_metrics_markdown
 from run_provenance import make_run_id, print_artifact_registry, artifact_registry
 from target_scaling import assert_target_cols, MultiTargetScaler
+from timing_utils import TimingReport, format_hms
 from chrono_splits import build_split_manifest, write_manifest
 from feature_compile_15min import matrix_xy_15min_multi
 from feature_compile_heating_dsm import TARGET_COLS, ZONE_TEMP_COLS
@@ -859,6 +926,7 @@ WINTER_ONLY = True
 MAX_DAYS = 36 if (LEAN or not FULL) else None
 EPOCHS = 25 if LEAN else 40
 run_id = make_run_id(prefix="torch_tutorial")
+TIMINGS = TimingReport()
 
 import torch
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -867,7 +935,7 @@ print("SITE", SITE)
 print("OUT", OUT)
 print("run_id", run_id, "device", device)
 print("LEAN", LEAN, "FULL", FULL, "MAX_DAYS", MAX_DAYS, "EPOCHS", EPOCHS)
-print("honesty HYBRID_SCREENING — DO NOT RELEASE FOR OPERATIONAL DSM")
+print("honesty HYBRID_SCREENING â€” DO NOT RELEASE FOR OPERATIONAL DSM")
 print("NOTE: full tutorial uses families=['resmlp_dualhead','gru_dualhead'] seeds=[11,22,33,44,55]")
 display(Markdown(explain_error_metrics_markdown()))
 """
@@ -883,14 +951,14 @@ _, tgt_cat = feature_target_catalogs(multitarget=True)
 display(tgt_cat)
 display(Markdown(
     "PyTorch fits `MultiTargetScaler` on **train days only**, trains Huber in normalized space, "
-    "then `inverse_transform` back to kW / °F for metrics and recursive rollout."
+    "then `inverse_transform` back to kW / Â°F for metrics and recursive rollout."
 ))
-# Tiny scaler demo (synthetic) — documents API, not a claim about the building
+# Tiny scaler demo (synthetic) â€” documents API, not a claim about the building
 rng = np.random.default_rng(0)
 Ydemo = np.column_stack([rng.normal(80, 20, 50), rng.normal(68, 2, (50, 6))])
 sc = MultiTargetScaler().fit(Ydemo)
 Yh = sc.inverse_transform(sc.transform(Ydemo))
-print("scaler round-trip max|Δ|", float(np.max(np.abs(Ydemo - Yh))))
+print("scaler round-trip max|Î”|", float(np.max(np.abs(Ydemo - Yh))))
 """
         )
     )
@@ -927,7 +995,7 @@ plt.close(fig)
 _, _, _, _, _, feat = matrix_xy_15min_multi(train_df)
 split_manifest = build_split_manifest(feat)
 split_path = write_manifest(OUT / "eval" / "split_manifest.json", split_manifest)
-print("shared SoT split_manifest →", split_path)
+print("shared SoT split_manifest â†’", split_path)
 print("dev", len(split_manifest.get("dev_days", [])),
       "locked test", len(split_manifest.get("final_winter_test", [])),
       "folds", len(split_manifest.get("folds", [])))
@@ -940,7 +1008,7 @@ print("dev", len(split_manifest.get("dev_days", [])),
         md(
             """
 Naive persistence is reported on the sklearn card; this notebook focuses on dual-head training.
-Compare torch zone MAE to sklearn ExtraTrees after export — torch should be **≪ ~24 °F** if the scaling fix works.
+Compare torch zone MAE to sklearn ExtraTrees after export â€” torch should be **â‰ª ~24 Â°F** if the scaling fix works.
 """
         )
     )
@@ -963,12 +1031,17 @@ if LEAN and not FULL:
 else:
     kwargs.update(families=["resmlp_dualhead", "gru_dualhead"], seeds=[11, 22, 33, 44, 55])
 
-result = train_torch_baseline(train_df, **kwargs)
+with TIMINGS.time("train_torch_baseline"):
+    result = train_torch_baseline(train_df, **kwargs)
+print("Train torch wall clock:", format_hms(TIMINGS.entries[-1][1]))
 print("selected", result.get("family"), "seed", result.get("seed"), "n_params", result.get("n_params"))
 tf = result.get("cv_teacher_forced") or {}
 print("TF zone_temp_mae_mean", tf.get("zone_temp_mae_mean"), "peak_kw", tf.get("facility_kw_mae_peak_05_09"))
-display(Markdown("### Leaderboard (seed × family)"))
-display(pd.DataFrame(result.get("leaderboard") or []))
+display(Markdown("### Leaderboard (seed Ã— family)"))
+lb = pd.DataFrame(result.get("leaderboard") or [])
+if "train_seconds" in lb.columns:
+    lb["train_hms"] = lb["train_seconds"].map(format_hms)
+display(lb)
 """
         )
     )
@@ -978,22 +1051,55 @@ display(pd.DataFrame(result.get("leaderboard") or []))
     cells.append(
         code(
             r"""
-paths = export_torch_baseline_artifacts(result, OUT)
+with TIMINGS.time("export_torch_artifacts"):
+    paths = export_torch_baseline_artifacts(result, OUT)
 card = json.loads(paths["card"].read_text(encoding="utf-8"))
 tf = card.get("cv_teacher_forced") or {}
 zone_mae = tf.get("zone_temp_mae_mean")
-print("exported", paths["card"])
-print("zone_temp_mae_mean (TF aggregate) =", zone_mae, "°F  — expect ≪ 24 if training worked")
+print("exported", paths["card"], "â†’", format_hms(TIMINGS.entries[-1][1]))
+print("zone_temp_mae_mean (TF aggregate) =", zone_mae, "Â°F  â€” expect â‰ª 24 if training worked")
 print("recursive block:", json.dumps(card.get("cv_recursive_96_heldout"), indent=2)[:800])
 reg = artifact_registry({k: v for k, v in paths.items()}, run_id=run_id)
 print_artifact_registry(reg)
 
 if zone_mae is not None and float(zone_mae) > 15:
     display(Markdown(
-        f"⚠️ Zone MAE `{zone_mae:.2f}` °F is still high — check Y-scaler / dual-head / loss weights."
+        f"âš ï¸ Zone MAE `{zone_mae:.2f}` Â°F is still high â€” check Y-scaler / dual-head / loss weights."
     ))
 elif zone_mae is not None:
-    display(Markdown(f"Zone MAE `{float(zone_mae):.2f}` °F looks in a plausible comfort-error band (research only)."))
+    display(Markdown(f"Zone MAE `{float(zone_mae):.2f}` Â°F looks in a plausible comfort-error band (research only)."))
+"""
+        )
+    )
+
+    cells.append(
+        md(
+            """
+## Inference timing (torch wrapper)
+
+Batch predict + one recursive day after export. Times are wall-clock on this machine â€” not a latency SLA.
+"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
+from feature_compile_15min import recursive_rollout_day
+
+wrap = result["wrap"]
+cols = result["feature_cols"]
+tcols = result["target_cols"]
+X_all, Y_all, _, _, _, feat_all = matrix_xy_15min_multi(train_df)
+day0 = str(sorted(feat_all["day"].astype(str).unique())[0])
+mask = feat_all["day"].astype(str) == day0
+
+with TIMINGS.time("inference_torch_batch_TF"):
+    pred = wrap.predict(X_all[mask])
+print("TF batch", pred.shape, "â†’", format_hms(TIMINGS.entries[-1][1]))
+
+with TIMINGS.time("inference_torch_recursive_oneday"):
+    rec = recursive_rollout_day(wrap, feat_all.loc[mask].copy(), cols, tcols)
+print("Recursive", rec.shape, "â†’", format_hms(TIMINGS.entries[-1][1]))
 """
         )
     )
@@ -1025,7 +1131,7 @@ if sk_card_path.is_file():
         "worst_zone_mae": (sk_block or sk_tf).get("worst_zone_mae") if isinstance(sk_block or sk_tf, dict) else None,
     })
 else:
-    display(Markdown("Sklearn card not found — run sklearn tutorial first for side-by-side compare."))
+    display(Markdown("Sklearn card not found â€” run sklearn tutorial first for side-by-side compare."))
 
 torch_tf = card.get("cv_teacher_forced") or {}
 torch_rec = card.get("cv_recursive_96_heldout") or {}
@@ -1039,13 +1145,13 @@ cmp = pd.DataFrame(rows)
 display(cmp)
 if len(cmp) >= 1:
     fig, ax = plt.subplots(figsize=(7, 3))
-    model_comparison_bars(cmp.to_dict("records"), "zone_temp_mae_mean", ax=ax, ylabel="zone MAE [°F]")
+    model_comparison_bars(cmp.to_dict("records"), "zone_temp_mae_mean", ax=ax, ylabel="zone MAE [Â°F]")
     save_fig(PATHS["figures"] / "torch_vs_sklearn_zone.png", fig)
     plt.close(fig)
 
 desk = ROOT / "desktop" / "artifacts"
 print("Desktop artifacts dir (untouched by this notebook):", desk)
-print("Torch stem real_baseline_15min_torch_v1 — promote path does not copy torch to desktop.")
+print("Torch stem real_baseline_15min_torch_v1 â€” promote path does not copy torch to desktop.")
 """
         )
     )
@@ -1065,7 +1171,24 @@ Torch contributes an alternate baseline card only.
     cells.append(
         md(
             """
-## Tutorial and Research Benchmark — Not Approved for Operational DSM
+## Wall-clock timing summary (H:M:S)
+
+Train, export, and inference timers from this run. Re-run for fresh numbers.
+"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
+TIMINGS.print_summary("Torch tutorial â€” train / export / inference")
+"""
+        )
+    )
+
+    cells.append(
+        md(
+            """
+## Tutorial and Research Benchmark â€” Not Approved for Operational DSM
 
 Metric-driven from the torch card (+ optional sklearn compare). Torch never overwrites desktop.
 """
@@ -1084,25 +1207,25 @@ gates = [
     {"gate": "honesty HYBRID_SCREENING", "PASS": card.get("honesty") == "HYBRID_SCREENING"},
     {"gate": "Y-scaler / dual-head note present", "PASS": "scaler" in str(card.get("scaling_note", "")).lower() or "y_scaler" in str(card)},
     {"gate": "zone MAE reported", "PASS": zone is not None},
-    {"gate": "zone MAE ≪ 24°F (scaling fix smoke)", "PASS": zone is not None and float(zone) < 24.0},
+    {"gate": "zone MAE â‰ª 24Â°F (scaling fix smoke)", "PASS": zone is not None and float(zone) < 24.0},
     {"gate": "torch did not require desktop overwrite", "PASS": True},
     {"gate": "DO NOT RELEASE FOR OPERATIONAL DSM", "PASS": True},
 ]
 gate_df = pd.DataFrame(gates)
-display(Markdown("### PASS / FAIL — research benchmark only"))
+display(Markdown("### PASS / FAIL â€” research benchmark only"))
 display(gate_df)
 
 lines = [
     f"- **run_id:** `{card.get('run_id')}`",
-    f"- **family/seed:** `{card.get('family')}` / `{card.get('seed')}` · params={card.get('n_params')}",
-    f"- **TF zone_temp_mae_mean:** {zone} °F · peak kW MAE={tf.get('facility_kw_mae_peak_05_09')}",
+    f"- **family/seed:** `{card.get('family')}` / `{card.get('seed')}` Â· params={card.get('n_params')}",
+    f"- **TF zone_temp_mae_mean:** {zone} Â°F Â· peak kW MAE={tf.get('facility_kw_mae_peak_05_09')}",
     f"- **Recursive status:** `{rec_status or 'see card block'}`",
     "- **Desktop:** unchanged by this notebook (sklearn promote remains SoT for ship).",
-    "- **Verdict:** Tutorial / research benchmark under **`HYBRID_SCREENING`** — "
+    "- **Verdict:** Tutorial / research benchmark under **`HYBRID_SCREENING`** â€” "
     "**Not Approved for Operational DSM.**",
 ]
 display(Markdown("\n".join(lines)))
-print("Final honesty: HYBRID_SCREENING — DO NOT RELEASE FOR OPERATIONAL DSM")
+print("Final honesty: HYBRID_SCREENING â€” DO NOT RELEASE FOR OPERATIONAL DSM")
 """
         )
     )
