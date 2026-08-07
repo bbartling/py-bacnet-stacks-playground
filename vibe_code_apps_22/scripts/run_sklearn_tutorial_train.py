@@ -58,8 +58,9 @@ def main(argv: list[str] | None = None) -> int:
         os.environ["VIBE22_ALLOW_SMOKE_PROMOTE"] = "1"
         from promote_hybrid_ship import promote_hybrid
 
-        promote_result = promote_hybrid(out, desktop_dir=ROOT / "desktop" / "artifacts")
-    else:
+        promote_result = promote_hybrid(
+            artifacts=out, desktop_artifacts=ROOT / "desktop" / "artifacts"
+        )    else:
         print("skip promote (pass --promote-smoke for underpowered watermark path)", flush=True)
 
     print(

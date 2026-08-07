@@ -10,21 +10,21 @@
   "summary": {
     "cumulative_kwh_baseline": 2833.5273228396977,
     "cumulative_kwh_hybrid": 5569.025284689587,
-    "peak_kw_baseline": 186.17777760416666,
+    "peak_kw_baseline": 186.1777776041667,
     "peak_kw_hybrid": 336.96265428055926,
     "peak_step_baseline": 21,
     "peak_step_hybrid": 20,
     "comfort_violations": 9,
-    "delta_peak_kw": 150.7848766763926,
+    "delta_peak_kw": 150.78487667639257,
     "delta_kwh": 2735.4979618498896
   },
   "pair_count": 6,
   "idealloads_cop_disclaimer": "IdealLoads + fixed COP \u2260 GSHP/GLHE plant; hybrid screening only.",
   "baseline_cv_recursive_96_heldout": {
-    "facility_kw_mae": 30.660705351975057,
+    "facility_kw_mae": 30.660705351975064,
     "facility_kw_mae_peak_05_09": 36.75966405775096,
     "facility_kw_rmse": 37.66072988361366,
-    "zone_temp_mae_mean": 1.0645692938486202,
+    "zone_temp_mae_mean": 1.06456929384862,
     "n_heldout_days": 24
   },
   "delta_cv_recursive_96_heldout": {

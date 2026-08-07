@@ -66,6 +66,8 @@ def _delta_recursive_summary(per_day_scores: list[dict]) -> dict[str, Any]:
         "mae_delta_kw": agg.get("facility_kw_mae"),
         "rmse_delta_kw": agg.get("facility_kw_rmse"),
         "mae_delta_kw_peak": agg.get("facility_kw_mae_peak_05_09"),
+        "cv_rmse_delta_kw": agg.get("facility_kw_cv_rmse"),
+        "nmbe_delta_kw": agg.get("facility_kw_nmbe"),
         "mae_delta_temp_mean": agg.get("zone_temp_mae_mean"),
         "daily_peak_mag_error_kw": agg.get("daily_peak_mag_error_kw"),
         "peak_timing_abs_error_steps": agg.get("peak_timing_abs_error_steps"),

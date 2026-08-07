@@ -507,6 +507,73 @@ _STYLE = {
 }
 
 
+def apply_notebook_theme() -> None:
+    """Shared report-style matplotlib defaults for Lakeside notebooks."""
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "#f7f5f2",
+            "axes.facecolor": "#ffffff",
+            "axes.edgecolor": "#5c6b73",
+            "axes.labelcolor": "#1f2a30",
+            "axes.titleweight": "semibold",
+            "axes.titlesize": 12,
+            "axes.labelsize": 10,
+            "xtick.color": "#3d4a52",
+            "ytick.color": "#3d4a52",
+            "grid.color": "#d9e0e4",
+            "grid.linestyle": "-",
+            "grid.linewidth": 0.6,
+            "axes.grid": True,
+            "axes.axisbelow": True,
+            "font.size": 10,
+            "legend.frameon": False,
+            "figure.dpi": 110,
+            "savefig.dpi": 140,
+            "savefig.facecolor": "#f7f5f2",
+        }
+    )
+
+
+def metric_cards_html(
+    cards: list[dict[str, Any]],
+    *,
+    title: str | None = None,
+) -> str:
+    """Compact HTML metric strip for notebook Display(HTML(...)).
+
+    Each card: ``{"label": str, "value": str, "sub": optional str}``.
+    """
+    bits = [
+        '<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;'
+        'display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px 0;">'
+    ]
+    if title:
+        bits.insert(
+            0,
+            f'<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;'
+            f'font-weight:600;font-size:13px;color:#1f2a30;margin:4px 0;">{title}</div>',
+        )
+    for c in cards:
+        label = str(c.get("label", ""))
+        value = str(c.get("value", ""))
+        sub = c.get("sub")
+        sub_html = (
+            f'<div style="font-size:11px;color:#5c6b73;margin-top:4px;">{sub}</div>'
+            if sub
+            else ""
+        )
+        bits.append(
+            '<div style="min-width:140px;flex:1;background:#fff;border:1px solid #d9e0e4;'
+            'border-radius:8px;padding:10px 12px;box-shadow:0 1px 2px rgba(31,42,48,0.06);">'
+            f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;'
+            f'color:#5c6b73;">{label}</div>'
+            f'<div style="font-size:20px;font-weight:600;color:#1f2a30;margin-top:2px;">{value}</div>'
+            f"{sub_html}</div>"
+        )
+    bits.append("</div>")
+    return "".join(bits)
+
+
 def coverage_timeline(df: pd.DataFrame, ax=None, *, day_col: str = "day"):
     """Show available calendar coverage (one mark per day)."""
     ax = ax or plt.gca()

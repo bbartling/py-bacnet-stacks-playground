@@ -63,7 +63,7 @@
       "family": "resmlp_dualhead",
       "seed": 11,
       "n_params": 61063,
-      "train_seconds": 49.389522400000715,
+      "train_seconds": 60.737183799996274,
       "cv_teacher_forced": {
         "facility_kw_mae": 10.992330510791122,
         "facility_kw_mae_peak_05_09": 13.189503662602213,
@@ -98,7 +98,7 @@
   ],
   "n_rows": 3456,
   "n_days": 36,
-  "built_at_utc": "2026-08-06T20:34:32.856685+00:00",
+  "built_at_utc": "2026-08-07T12:40:53.208479+00:00",
   "feature_contract_version": "FEATURE_COLS_15MIN_MT",
   "control_contract_version": "control_strategies_v1",
   "feature_cols": [
@@ -168,12 +168,12 @@
     "n": 8
   },
   "scaling_note": "X StandardScaler + per-target Y StandardScaler fit on train days only; ONNX emits normalized outputs \u2014 apply y_scaler.inverse_transform for \u00b0F/kW",
-  "run_id": "torch_tutorial_20260806T203340Z_db42a8",
+  "run_id": "torch_tutorial_20260807T123948Z_bf44f5",
   "artifact_sha256": {
-    "pt": "252c7befa80507c48dd96fc11f080cc79425357914f968c3a72909a9e2bdf91a",
+    "pt": "997f19c0863f178b46ab035c4ca5f9a28dd5a65d3a96c7f3302ca7233ba3b89f",
     "onnx": "67225faed1006d2ff9d3558584c25f43613699866bde5a506fe94d97cd16128d",
-    "meta": "19657470a0c4c62981bed40cb5618dc11aa4cae621039cba6dd8dd117fee88a6",
-    "card": "5f39115d09fe7e342ecd4e721950a847501e51bbeaff27646e8bc42f608aa12a",
-    "eval": "260fabb8feda6740ab5dd946195c970c23113dfc0137d1bcafd7ae9a5a788853"
+    "meta": "9516002aac6a309c6fab5d7d58628a6bc07a8a986e118bbffba26e5e40572890",
+    "card": "c59c8602a7b4edb13cdc1458333d7c3882d1a9c93680e689d102482eba59e382",
+    "eval": "99763c9ae9b857b723b9b589df1aeda5f3dbaca8e552e3d2f9252d570bb55984"
   }
 }

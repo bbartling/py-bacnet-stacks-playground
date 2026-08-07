@@ -1,6 +1,6 @@
 {
   "stem": "real_baseline_15min_torch_v1",
-  "run_id": "torch_tutorial_20260806T203340Z_db42a8",
+  "run_id": "torch_tutorial_20260807T123948Z_bf44f5",
   "feature_cols": [
     "step_15",
     "sin_step",

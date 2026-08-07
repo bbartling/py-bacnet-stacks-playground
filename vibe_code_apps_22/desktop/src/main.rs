@@ -13,6 +13,7 @@ mod hybrid_onnx;
 #[allow(dead_code)]
 mod model; // quarantined hourly heating_dsm_hourly_v1 path — unused by live UI
 mod mvm;
+mod ship_manifest;
 mod tariff;
 
 use annual::{rollup_annual_savings, AnnualRollup, MonthlyBook};
@@ -24,6 +25,7 @@ use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
 use features_15min::STEPS_96;
 use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
+use ship_manifest::{load_ship_manifest, metrics_from_manifest};
 use tariff::{
     cost_day_tod, cost_day_tod_96, creekside_cp2_defaults, hourly_mean_from_quarters, DemandTariff,
     TodDayCost,
@@ -148,22 +150,60 @@ impl DsmApp {
                     eng.baseline_path.display(),
                     eng.delta_path.display()
                 );
-                let h = eng
-                    .baseline
-                    .meta
-                    .honesty
-                    .clone()
+                let ship = load_ship_manifest();
+                let (mut metrics_lines, mut precision_pm, mut precision_note) = ship
+                    .as_ref()
+                    .map(|(m, _)| metrics_from_manifest(m))
+                    .unwrap_or_else(|| {
+                        (
+                            vec![
+                                "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
+                                "Honesty: HYBRID_SCREENING · IdealLoads+COP != GSHP plant".into(),
+                                "No hybrid_ship_manifest.json — promote via notebook to fill G14 metrics"
+                                    .into(),
+                            ],
+                            0.0,
+                            "Promote gates require held-out recursive metrics; smoke farm needs VIBE22_ALLOW_SMOKE_PROMOTE=1"
+                                .into(),
+                        )
+                    });
+                // Prefer meta precision if manifest missing pm but ONNX meta stamped.
+                if precision_pm == 0.0 {
+                    if let Some(pm) = eng.baseline.meta.precision_pm_kw {
+                        if pm > 0.0 {
+                            precision_pm = pm;
+                            precision_note =
+                                "screening +/- from feature_meta.precision_pm_kw (notebook promote)"
+                                    .into();
+                        }
+                    }
+                }
+                let champ_b = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.champion_baseline.clone())
+                    .or_else(|| eng.baseline.meta.champion.clone());
+                let champ_d = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.champion_delta.clone())
+                    .or_else(|| eng.delta.meta.champion.clone());
+                let h = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.honesty.clone())
+                    .or_else(|| eng.baseline.meta.honesty.clone())
                     .unwrap_or_else(|| "HYBRID_SCREENING".into());
                 let banner = format!(
                     "hybrid live ONNX · baseline={} · delta={} · IdealLoads+COP screening",
-                    eng.baseline.meta.champion.as_deref().unwrap_or("?"),
-                    eng.delta.meta.champion.as_deref().unwrap_or("?")
+                    champ_b.as_deref().unwrap_or("?"),
+                    champ_d.as_deref().unwrap_or("?")
                 );
                 let name = format!(
                     "hybrid {}+{}",
-                    eng.baseline.meta.champion.as_deref().unwrap_or("base"),
-                    eng.delta.meta.champion.as_deref().unwrap_or("delta")
+                    champ_b.as_deref().unwrap_or("base"),
+                    champ_d.as_deref().unwrap_or("delta")
                 );
+                if let Some((_, p)) = &ship {
+                    metrics_lines.insert(0, format!("ship manifest: {}", p.display()));
+                }
                 (
                     Some(eng),
                     None,
@@ -171,14 +211,10 @@ impl DsmApp {
                     "notebook_hybrid_15min".into(),
                     banner,
                     name,
-                    vec![
-                        "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
-                        "Honesty: HYBRID_SCREENING · IdealLoads+COP ≠ GSHP plant".into(),
-                    ],
+                    metrics_lines,
                     Vec::new(),
-                    0.0,
-                    "Promote gates require held-out recursive metrics; smoke farm needs VIBE22_ALLOW_SMOKE_PROMOTE=1"
-                        .into(),
+                    precision_pm,
+                    precision_note,
                     path,
                 )
             }

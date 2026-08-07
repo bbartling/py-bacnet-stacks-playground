@@ -34,6 +34,7 @@ if str(_APP) not in sys.path:
     sys.path.insert(0, str(_APP))
 
 from chrono_splits import build_split_manifest, write_manifest  # noqa: E402
+from metrics_report import cv_rmse as _cv_rmse, nmbe as _nmbe  # noqa: E402
 from feature_compile_15min import (  # noqa: E402
     FEATURE_COLS_15MIN_MT,
     ensure_strategy_onehots,
@@ -100,6 +101,16 @@ HORIZON_STEPS = (1, 4, 12, 24, 48, 96)
 PEAK_STEP_LO, PEAK_STEP_HI = 20, 36  # HE 05–09 window on step_15
 
 
+def facility_g14_metrics(y_true_kw: np.ndarray, y_pred_kw: np.ndarray) -> dict[str, float | None]:
+    """ASHRAE G14-style interval NMBE / CV(RMSE) on facility kW (fractions)."""
+    yt = np.asarray(y_true_kw, dtype=float).reshape(-1)
+    yp = np.asarray(y_pred_kw, dtype=float).reshape(-1)
+    return {
+        "facility_kw_cv_rmse": _cv_rmse(yt, yp),
+        "facility_kw_nmbe": _nmbe(yt, yp),
+    }
+
+
 def _day_mask(feat: pd.DataFrame, days: list[Any]) -> np.ndarray:
     dset = {str(d) for d in days}
     return feat["day"].astype(str).isin(dset).to_numpy()
@@ -138,12 +149,15 @@ def evaluate_recursive_days(
         pk = morning_peak_mask_15min(s)
         fac_p, fac_t = yp[:, 0], yt[:, 0]
         err = np.abs(fac_p - fac_t)
+        g14 = facility_g14_metrics(fac_t, fac_p)
         score: dict[str, Any] = {
             "facility_kw_mae": float(np.mean(err)),
             "facility_kw_rmse": float(np.sqrt(np.mean((fac_p - fac_t) ** 2))),
             "facility_kw_mae_peak_05_09": float(np.mean(err[pk]))
             if np.any(pk)
             else float(np.mean(err)),
+            "facility_kw_cv_rmse": g14["facility_kw_cv_rmse"],
+            "facility_kw_nmbe": g14["facility_kw_nmbe"],
             "daily_peak_mag_error_kw": float(abs(float(np.max(fac_p)) - float(np.max(fac_t)))),
             "peak_timing_abs_error_steps": float(
                 abs(int(np.argmax(fac_p)) - int(np.argmax(fac_t)))
@@ -324,12 +338,15 @@ def heldout_recursive_metrics(
         n = len(sub_sorted)
         pk = morning_peak_mask_15min(sub_sorted)
         fac_err = np.abs(yp[:, 0] - yt[:, 0])
+        g14 = facility_g14_metrics(yt[:, 0], yp[:, 0])
         score: dict[str, Any] = {
             "facility_kw_mae": float(np.mean(fac_err)),
             "facility_kw_rmse": float(np.sqrt(np.mean((yp[:, 0] - yt[:, 0]) ** 2))),
             "facility_kw_mae_peak_05_09": float(np.mean(fac_err[pk]))
             if np.any(pk)
             else float(np.mean(fac_err)),
+            "facility_kw_cv_rmse": g14["facility_kw_cv_rmse"],
+            "facility_kw_nmbe": g14["facility_kw_nmbe"],
             "zone_temp_mae_mean": float(np.mean(np.abs(yp[:, 1:] - yt[:, 1:]))),
             "n_steps": int(n),
         }
@@ -347,7 +364,11 @@ def heldout_recursive_metrics(
         keys.update(s.keys())
     out: dict[str, Any] = {"n_heldout_days": int(len(day_scores))}
     for k in sorted(keys):
-        vals = [s[k] for s in day_scores if k in s]
+        vals = [
+            s[k]
+            for s in day_scores
+            if k in s and s[k] is not None and np.isfinite(s[k])
+        ]
         if vals:
             out[k] = float(np.mean(vals))
     return out

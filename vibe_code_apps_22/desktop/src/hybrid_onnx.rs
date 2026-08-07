@@ -36,6 +36,8 @@ pub struct HybridFeatureMeta {
     pub honesty: Option<String>,
     #[serde(default)]
     pub champion: Option<String>,
+    #[serde(default)]
+    pub precision_pm_kw: Option<f32>,
 }
 
 pub struct MultiOutOnnx {

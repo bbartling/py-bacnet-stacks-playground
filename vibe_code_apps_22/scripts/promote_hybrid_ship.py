@@ -151,14 +151,91 @@ def _heldout_headlines(card: dict[str, Any]) -> dict[str, Any]:
         "facility_kw_mae",
         "facility_kw_mae_peak_05_09",
         "facility_kw_rmse",
+        "facility_kw_cv_rmse",
+        "facility_kw_nmbe",
         "zone_temp_mae_mean",
         "mae_delta_kw",
         "mae_delta_kw_peak",
         "mae_delta_temp_mean",
+        "cv_rmse_delta_kw",
+        "nmbe_delta_kw",
+        "rmse_delta_kw",
         "n_heldout_days",
         "note",
     )
     return {k: src[k] for k in keys if isinstance(src, dict) and k in src}
+
+
+G14_MONTHLY_REFERENCE = {
+    "nmbe_abs_max": 0.05,
+    "cv_rmse_max": 0.15,
+    "note": (
+        "ASHRAE Guideline 14 monthly calibrated reference (|NMBE|<=5%, CV(RMSE)<=15%); "
+        "hybrid 15-min held-out metrics are screening only, not a monthly G14 compliance claim"
+    ),
+}
+
+
+def _build_mv_precision(
+    *,
+    champion_baseline: Any,
+    champion_delta: Any,
+    baseline_held: dict[str, Any],
+    delta_held: dict[str, Any],
+) -> dict[str, Any]:
+    """Display block for desktop: G14 primary, MAE secondary, screening +/- kW."""
+    peak = baseline_held.get("facility_kw_mae_peak_05_09")
+    mae = baseline_held.get("facility_kw_mae")
+    precision_pm = peak if peak is not None else mae
+    return {
+        "primary": ["nmbe", "cv_rmse"],
+        "secondary": ["mae", "rmse", "mae_peak_05_09"],
+        "precision_pm_kw": float(precision_pm) if precision_pm is not None else None,
+        "precision_label": "screening +/- kW from held-out morning-peak MAE (not a CI)",
+        "g14_monthly_reference": dict(G14_MONTHLY_REFERENCE),
+        "champion_baseline": champion_baseline,
+        "champion_delta": champion_delta,
+        "baseline": {
+            "nmbe": baseline_held.get("facility_kw_nmbe"),
+            "cv_rmse": baseline_held.get("facility_kw_cv_rmse"),
+            "mae": baseline_held.get("facility_kw_mae"),
+            "rmse": baseline_held.get("facility_kw_rmse"),
+            "mae_peak_05_09": baseline_held.get("facility_kw_mae_peak_05_09"),
+            "zone_temp_mae_mean": baseline_held.get("zone_temp_mae_mean"),
+            "n_heldout_days": baseline_held.get("n_heldout_days"),
+        },
+        "delta": {
+            "nmbe": delta_held.get("nmbe_delta_kw"),
+            "cv_rmse": delta_held.get("cv_rmse_delta_kw"),
+            "mae": delta_held.get("mae_delta_kw"),
+            "rmse": delta_held.get("rmse_delta_kw"),
+            "mae_peak_05_09": delta_held.get("mae_delta_kw_peak"),
+            "n_heldout_days": delta_held.get("n_heldout_days"),
+        },
+    }
+
+
+def _stamp_feature_meta_precision(
+    art: Path,
+    desk: Path,
+    *,
+    stem: str,
+    precision_pm_kw: float | None,
+    champion: Any,
+    honesty: str,
+) -> None:
+    """Write precision_pm_kw + champion into feature_meta for Rust ONNX load path."""
+    for root in (art, desk):
+        meta_path = root / f"{stem}_feature_meta.json"
+        if not meta_path.is_file():
+            continue
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if precision_pm_kw is not None:
+            meta["precision_pm_kw"] = float(precision_pm_kw)
+        if champion is not None:
+            meta["champion"] = champion
+        meta["honesty"] = honesty
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 def promote_hybrid(
@@ -272,6 +349,13 @@ def promote_hybrid(
     result["delta_cv"] = delta_card.get("cv_teacher_forced")
     result["baseline_cv_recursive_96_heldout"] = _heldout_headlines(base_card)
     result["delta_cv_recursive_96_heldout"] = _heldout_headlines(delta_card)
+    mv_precision = _build_mv_precision(
+        champion_baseline=result.get("champion_baseline"),
+        champion_delta=result.get("champion_delta"),
+        baseline_held=result["baseline_cv_recursive_96_heldout"],
+        delta_held=result["delta_cv_recursive_96_heldout"],
+    )
+    result["mv_precision"] = mv_precision
     result["honesty"] = HONESTY
     result["contract_version"] = CONTRACT_VERSION
     result["promoted_via"] = "notebook"
@@ -310,6 +394,24 @@ def promote_hybrid(
             if src.is_file():
                 shutil.copy2(src, desk / src.name)
 
+    pm = mv_precision.get("precision_pm_kw")
+    _stamp_feature_meta_precision(
+        art,
+        desk,
+        stem="real_baseline_15min_v1",
+        precision_pm_kw=pm,
+        champion=result.get("champion_baseline"),
+        honesty=HONESTY,
+    )
+    _stamp_feature_meta_precision(
+        art,
+        desk,
+        stem="eplus_delta_15min_v1",
+        precision_pm_kw=pm,
+        champion=result.get("champion_delta"),
+        honesty=HONESTY,
+    )
+
     ship = {
         "ship_mode": ship_mode,
         "honesty": HONESTY,
@@ -324,6 +426,7 @@ def promote_hybrid(
         "idealloads_cop_disclaimer": IDEALLOADS_COP_DISCLAIMER,
         "baseline_cv_recursive_96_heldout": result.get("baseline_cv_recursive_96_heldout"),
         "delta_cv_recursive_96_heldout": result.get("delta_cv_recursive_96_heldout"),
+        "mv_precision": mv_precision,
         "promoted_via": "notebook",
     }
     if is_smoke:
