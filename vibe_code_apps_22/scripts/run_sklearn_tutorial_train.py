@@ -1,7 +1,12 @@
 #!/usr/bin/env python
-"""CLI reproduction entry for sklearn hybrid tutorial training (A + B + optional promote).
+"""LEGACY: single-process sklearn A (baseline) + B (delta) + optional smoke promote.
 
-Calls the same functions as lakeside_heating_dsm_sklearn.ipynb.
+Prefer ``scripts/train_four_arms.py`` for baseline bake-offs and
+``scripts/ship_best_to_desktop.py`` for promote + desktop launch.
+
+Keep this entry when you need to **retrain the E+ delta** (component B) —
+the four-arm matrix does not retrain delta.
+
 Requires VIBE22_ALLOW_CLI_TRAIN=1.
 """
 from __future__ import annotations

@@ -16,7 +16,7 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`
 
-Last validated: **2026-08-06** (hybrid Real+E+ rebuild).
+Last validated: **2026-08-07** (CLI four-arm train + ship-best-to-desktop).
 
 ---
 
@@ -35,10 +35,10 @@ Last validated: **2026-08-06** (hybrid Real+E+ rebuild).
 vibe_code_apps_22/
   lakeside/paths.py          # SITE_ROOT + building constants
   models/eplus/              # Pinned G14-best IdealLoads IDFs + scorecards (git)
-  scripts/                   # ALC pipe, E+, DSM Excel / E+ farm
+  scripts/                   # ALC pipe, E+, train_four_arms / ship_best (see scripts/README.md)
   ml/                        # heating DSM train / features / artifacts
   desktop/                   # Rust egui + ONNX walk ($/kWh + $/kW)
-  notebooks/                 # lakeside_heating_dsm_sklearn.ipynb (ships desktop ONNX)
+  notebooks/                 # results viewers + load-profile / desktop playground
   dsm/                       # Excel playground + CSV exports
   docs/                      # E+ plan / DSM notes
   skills/                    # agent skills
@@ -80,17 +80,17 @@ python -u scripts\thermal_zone_analytics.py
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM hybrid (Real+E+) — data prep OK from CLI; **train only via notebook**
+# Heating DSM hybrid (Real+E+) — train via CLI (notebooks are viewers)
 python -u scripts\eplus_stage_repair_and_rescore.py
 python -u scripts\build_real_15min_store.py
 python -u scripts\eplus_heating_dsm_farm.py --medium
-# Train + promote: open notebooks\lakeside_heating_dsm_sklearn.ipynb → Run All
-# (CLI ml\train_*.py / promote_hybrid_ship.py refuse unless VIBE22_ALLOW_CLI_TRAIN=1)
+python -u scripts\train_four_arms.py --profile full_evaluation
+python -u scripts\ship_best_to_desktop.py
+# Viewers: notebooks\lakeside_heating_dsm_{sklearn,torch}.ipynb
+# Scripts map: scripts\README.md
 python -u scripts\validate_mvm.py
-# Notebook SoT: notebooks\lakeside_heating_dsm_sklearn.ipynb
-# Torch alt train: notebooks\lakeside_heating_dsm_torch.ipynb
 
-# Desktop — hybrid 96-step walk JSON (fail-closed without it)
+# Desktop — also launched by ship_best_to_desktop.py
 # cd desktop && cargo run --release
 ```
 ---
@@ -101,14 +101,14 @@ python -u scripts\validate_mvm.py
 - Geometry = rectangular program massing, not CAD.
 - Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
   Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.
-- **Model training only via notebooks** (CLI gated). Cards/walk regenerate on Run All.
+- **Model training via CLI** (`train_four_arms`); notebooks view `ml/artifacts/runs/` only.
 - Desktop **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback.
 - Promote requires held-out recursive metrics; &lt;12 E+ pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
 - IdealLoads+COP ≠ GSHP; smoke farm underpowered — **not operational DSM**.
 - Utility G14 ≠ interval-integrated demand fidelity.
 - Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
-- Human proof notebook: [`notebooks/lakeside_heating_dsm_sklearn.ipynb`](notebooks/lakeside_heating_dsm_sklearn.ipynb)
-  + SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md).
+- SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md)
+  + scripts map [`scripts/README.md`](scripts/README.md).
 ---
 
 ## Relationship

@@ -26,19 +26,25 @@ $env:PYTHONUNBUFFERED="1"
 python -u scripts\build_real_15min_store.py
 python -u scripts\eplus_heating_dsm_farm.py --smoke
 
-# TRAIN + PROMOTE — notebooks only (Run All)
+# TRAIN — four arms in parallel (not Jupyter)
+python -u scripts\train_four_arms.py --profile full_evaluation
+
+# VIEW — notebooks are results viewers only
 # notebooks\lakeside_heating_dsm_sklearn.ipynb
-# notebooks\lakeside_heating_dsm_torch.ipynb   # ResMLP alt
-# CLI train/promote refuse unless VIBE22_ALLOW_CLI_TRAIN=1
+# notebooks\lakeside_heating_dsm_torch.ipynb
+
+# SHIP best sklearn arm → desktop + launch sim
+python -u scripts\ship_best_to_desktop.py
 
 python -u scripts\validate_mvm.py
-cd desktop; cargo run --release
 ```
 
 ## Key modules
 
-- `notebooks/lakeside_heating_dsm_sklearn.ipynb` — **only** sklearn train + hybrid promote
-- `notebooks/lakeside_heating_dsm_torch.ipynb` — **only** ResMLP train
+- `scripts/train_four_arms.py` / `train_arm.py` — parallel baseline train SoT
+- `scripts/ship_best_to_desktop.py` — auto-select sklearn winner + promote + cargo
+- `scripts/README.md` — live vs legacy vs removed scripts
+- `notebooks/lakeside_heating_dsm_*.ipynb` — **viewers** (timings + metrics)
 - `ml/real_store/` — measured 15-min feature store
 - `ml/hybrid_rollout.py` + `contracts/hybrid_dsm_96_v1.json`
 - `scripts/eplus_heating_dsm_farm.py` — paired baseline/DSM, 6-area controls, MAT

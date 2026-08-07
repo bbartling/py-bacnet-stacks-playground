@@ -7,6 +7,7 @@ Usage (from vibe_code_apps_22)::
     python scripts/train_four_arms.py --profile smoke          # fast debug
     python scripts/train_four_arms.py --profile full_evaluation
     python scripts/train_four_arms.py --arms sklearn_winter torch_winter
+    python scripts/train_four_arms.py --profile full_evaluation --ship-desktop
 
 Each arm writes under ``ml/artifacts/runs/<arm>/`` (cards, timing.json, result.json).
 When all finish, writes ``ml/artifacts/runs/index.json`` for notebook viewers.
@@ -181,6 +182,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--jobs", type=int, default=4, help="Max parallel subprocesses")
     ap.add_argument("--full-torch", action="store_true")
     ap.add_argument("--epochs", type=int, default=None)
+    ap.add_argument(
+        "--ship-desktop",
+        action="store_true",
+        help="After all arms succeed, run ship_best_to_desktop (promote + cargo run)",
+    )
+    ap.add_argument(
+        "--ship-no-launch",
+        action="store_true",
+        help="With --ship-desktop: promote only, do not start cargo",
+    )
     args = ap.parse_args(argv)
 
     RUNS.mkdir(parents=True, exist_ok=True)
@@ -232,7 +243,21 @@ def main(argv: list[str] | None = None) -> int:
     _safe_print(
         f"wall={wall:.1f}s ok={index['ok_count']} fail={index['fail_count']} index={index_path}"
     )
-    return 0 if index["fail_count"] == 0 else 1
+
+    if index["fail_count"] != 0:
+        if args.ship_desktop:
+            _safe_print("skip --ship-desktop: one or more arms failed")
+        return 1
+
+    if args.ship_desktop:
+        ship_cmd = [sys.executable, "-u", str(ROOT / "scripts" / "ship_best_to_desktop.py")]
+        if args.ship_no_launch:
+            ship_cmd.append("--no-launch")
+        _safe_print(f"=== ship desktop === {' '.join(ship_cmd)}")
+        ship_rc = subprocess.run(ship_cmd, cwd=str(ROOT), check=False).returncode
+        return int(ship_rc)
+
+    return 0
 
 
 if __name__ == "__main__":
