@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from eplus_multires_metrics import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+
+from eplus_multires_metrics import (  # noqa: E402
     HOURLY_CVRMSE_MAX,
     MONTHLY_CVRMSE_MAX,
     MONTHLY_NMBE_ABS_MAX,

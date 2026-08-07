@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-from eplus_calibrate_multires import _rank_candidate, _sensitivity_screen
-from eplus_multires_metrics import resolution_block
-
 _ROOT = Path(__file__).resolve().parents[1]
+_SCRIPTS = _ROOT / "scripts"
+_ML = _ROOT / "ml"
+sys.path.insert(0, str(_SCRIPTS))
+sys.path.insert(0, str(_ML))
+
+from eplus_calibrate_multires import _rank_candidate, _sensitivity_screen  # noqa: E402
+from eplus_multires_metrics import resolution_block  # noqa: E402
+
 REGISTRY = _ROOT / "contracts" / "eplus_calib_param_registry_v1.json"
 
 
