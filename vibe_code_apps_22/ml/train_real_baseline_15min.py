@@ -267,18 +267,32 @@ def _manifest_eval_families(
     """
     per_day_rec: dict[str, dict] = {f: {} for f in family_names}
     tf_scores: dict[str, list] = {f: [] for f in family_names}
-    for fold in manifest.get("folds", []):
+    folds = list(manifest.get("folds", []))
+    n_folds = len(folds)
+    for fold_i, fold in enumerate(folds, start=1):
         tr_days, va_days = fold["train"], fold["val"]
         tr_mask = _day_mask(feat, tr_days)
         va_mask = _day_mask(feat, va_days)
         if not tr_mask.any() or not va_mask.any():
+            print(
+                f"lean manifest fold {fold_i}/{n_folds}: skip (empty train/val)",
+                flush=True,
+            )
             continue
+        print(
+            f"lean manifest fold {fold_i}/{n_folds}: "
+            f"train_days={len(tr_days)} val_days={len(va_days)}",
+            flush=True,
+        )
         for f in family_names:
+            print(f"  fit+eval {f} ...", flush=True)
             model = fit_fn(f, tr_mask)
             pred = model.predict(X[va_mask])
             tf_scores[f].append(_metrics_multi(Y[va_mask], pred, peak[va_mask]))
             ev = evaluate_recursive_days(model, feat, va_days, cols, tcols)
             per_day_rec[f].update(ev.get("per_day", {}))
+            peak_mae = tf_scores[f][-1].get("facility_kw_mae_peak_05_09")
+            print(f"  {f} peak MAE={peak_mae}", flush=True)
     summary_tf = {f: _mean_metric_dicts(tf_scores[f]) for f in family_names}
     summary_rec = {f: _agg_day_scores(list(per_day_rec[f].values())) for f in family_names}
     pool = [
@@ -287,6 +301,12 @@ def _manifest_eval_families(
         if summary_rec[f].get("facility_kw_mae_peak_05_09") is not None
     ] or list(family_names)
     champ = min(pool, key=lambda f: summary_rec[f].get("facility_kw_mae_peak_05_09", 1e9))
+    print("lean bake-off leaderboard (recursive peak MAE):", flush=True)
+    for f in family_names:
+        peak = summary_rec[f].get("facility_kw_mae_peak_05_09")
+        zone = summary_rec[f].get("zone_temp_mae_mean")
+        mark = " <-- WINNER" if f == champ else ""
+        print(f"  {f}: peak={peak} zone={zone}{mark}", flush=True)
     return summary_tf, summary_rec, per_day_rec, champ
 
 
@@ -613,12 +633,14 @@ def export_onnx_multi(model: MultiOutputRegressor, n_features: int, path: Path) 
 
 
 def _lean_families() -> dict[str, Any]:
+    # n_jobs=1 on forest models: avoid Windows joblib oversubscription that
+    # freezes the notebook kernel (parent looks idle while workers thrash).
     return {
         "random_forest": RandomForestRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "extra_trees": ExtraTreesRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "gradient_boosting": GradientBoostingRegressor(
             n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
@@ -652,14 +674,23 @@ def lean_bake_off(
 
     def fit_fn(name: str, tr_mask: np.ndarray) -> Any:
         proto = families[name]
-        m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+        params = dict(proto.get_params())
+        if "n_jobs" in params:
+            params["n_jobs"] = 1
+        m = MultiOutputRegressor(proto.__class__(**params), n_jobs=1)
         m.fit(X[tr_mask], Y[tr_mask])
         return m
 
+    print(
+        f"lean_bake_off start: rows={len(feat)} days={feat['day'].nunique()} "
+        f"families={fam_names} manifest={'yes' if split_manifest else 'no'}",
+        flush=True,
+    )
     if split_manifest is not None:
         summary_tf, summary_rec, per_day_rec, champ = _manifest_eval_families(
             feat, X, Y, cols, tcols, fam_names, fit_fn, split_manifest, peak
         )
+        print(f"lean_bake_off champion={champ}; refitting on dev_days...", flush=True)
         dev_mask = _day_mask(feat, split_manifest.get("dev_days", []))
         if not dev_mask.any():
             raise ValueError("split_manifest dev_days match no rows in this frame")
@@ -861,12 +892,13 @@ def load_real_baseline_frame(
     """Load REAL_BAS 15-min store.
 
     ``max_days`` defaults to ``None`` (all days). Pass ``profile=TrainingProfile...``
-    to apply profile caps — never silently assume smoke ``MAX_DAYS=36``.
+    to apply day caps — never silently assume smoke ``MAX_DAYS=36``.
+
+    ``winter_only`` is owned by the caller (notebook / CLI). Profile ``heating_only``
+    is a *default hint* only — it does not override an explicit ``winter_only=False``.
     """
     if profile is not None:
         max_days = getattr(profile, "max_days", max_days)
-        if getattr(profile, "heating_only", False):
-            winter_only = True
     site = site_root()
     pq = parquet or (site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet")
     if not pq.is_file():

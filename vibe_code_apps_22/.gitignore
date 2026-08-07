@@ -5,6 +5,7 @@ ml/artifacts/**/*.joblib
 ml/artifacts/*.pt
 ml/artifacts/*.onnx.data
 ml/artifacts/__pycache__/
+ml/artifacts/runs/
 **/__pycache__/
 .ipynb_checkpoints/
 *_executed.ipynb

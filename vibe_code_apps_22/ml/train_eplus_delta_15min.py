@@ -280,10 +280,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     peak = morning_peak_mask_15min(feat)
     families = {
         "random_forest": RandomForestRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "extra_trees": ExtraTreesRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "gradient_boosting": GradientBoostingRegressor(
             n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
@@ -297,7 +297,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
         print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
         te_days = list(pd.unique(feat.iloc[te]["day"]))
         for name, proto in families.items():
-            m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+            params = dict(proto.get_params())
+            if "n_jobs" in params:
+                params["n_jobs"] = 1
+            m = MultiOutputRegressor(proto.__class__(**params), n_jobs=1)
             m.fit(X[tr], Y[tr])
             pred = m.predict(X[te])
             summary[name].append(

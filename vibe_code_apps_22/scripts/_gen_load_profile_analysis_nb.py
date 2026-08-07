@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Generate lakeside_load_profile_analysis.ipynb (site meter + Actual/E+/ML overlays)."""
+"""Generate lakeside_load_profile_analysis.ipynb (meter analytics + clearer overlays)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,42 +44,36 @@ def _reindent_py(src: str, width: int = 4) -> str:
 
 
 def md(s: str):
- return nbf.v4.new_markdown_cell(s.strip() + "\n")
+    return nbf.v4.new_markdown_cell(s.strip() + "\n")
 
 
 def code(s: str):
- return nbf.v4.new_code_cell(_reindent_py(s))
+    return nbf.v4.new_code_cell(_reindent_py(s))
 
 
 def code_raw(s: str):
- """Already-correct 4-space Python (skip reindent heuristics)."""
- return nbf.v4.new_code_cell(s.strip("\n") + "\n")
+    """Already-correct 4-space Python (skip reindent heuristics)."""
+    return nbf.v4.new_code_cell(s.strip("\n") + "\n")
 
 
 def build() -> nbf.NotebookNode:
- cells = []
- cells.append(
- md(
- """
-# Lakeside load-profile analysis - meter shapes + Actual vs E+ vs ML
+    cells = []
+    cells.append(
+        md(
+            """
+# Lakeside load-profile analysis
 
-Exploratory notebook for **typical electric demand shapes** at Lakeside ES and a
-side-by-side overlay of **actual meter/BAS**, **EnergyPlus IdealLoads**, and
-**ML hybrid predictions**.
+Simple site look at **meter demand shapes**, **weather vs kW**, and **GL14 calibration
+progress** — then a careful side-by-side of Actual / EnergyPlus / ML (often *different*
+calendar days; compare shape, not lock-step magnitude).
 
-| Claim | Value |
-|---|---|
-| Honesty | `HYBRID_SCREENING` / exploratory |
-| Operational DSM | **Not approved** |
-| Site | `$LAKESIDE_SITE_ROOT` (default Desktop `sp_creekside`) |
-
-Hybrid ML traces are **counterfactual predictions** - never labeled as measured actual.
+Set `LAKESIDE_SITE_ROOT` if needed (default Desktop `sp_creekside`).
 """
- )
- )
- cells.append(
- code(
- r"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
 %matplotlib inline
 import json
 import os
@@ -89,25 +83,18 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from IPython.display import display, Markdown, Image, HTML
+from IPython.display import display, Markdown, Image
 
 ROOT = Path("..").resolve()
 if not (ROOT / "ml").is_dir():
- ROOT = Path(".").resolve()
+    ROOT = Path(".").resolve()
 sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT))
 
 from lakeside.paths import site_root, clean_data_building_dir
 from artifact_paths import artifact_paths
-from notebook_plots import (
- save_fig,
- typical_weekday_weekend_profile,
- monthly_diurnal_overlay,
- actual_eplus_ml_overlay,
- winter_day_panel,
- apply_notebook_theme,
- metric_cards_html,
-)
+from notebook_plots import save_fig, winter_day_panel, apply_notebook_theme
 
 apply_notebook_theme()
 SITE = Path(os.environ.get("LAKESIDE_SITE_ROOT", str(site_root())))
@@ -122,289 +109,241 @@ FIG.mkdir(parents=True, exist_ok=True)
 
 print("SITE", SITE, "exists", SITE.is_dir())
 print("METER", METER, "exists", METER.is_file())
-print("honesty HYBRID_SCREENING - exploratory load shapes only")
+print("ANALYTICS", ANALYTICS)
 """
- )
- )
+        )
+    )
 
- cells.append(md("## Inventory - site plots + meter"))
- cells.append(
- code(
- r"""
+    cells.append(md("## Inventory"))
+    cells.append(
+        code(
+            r"""
 rows = []
 for label, p in [
- ("site_root", SITE),
- ("meter_csv", METER),
- ("plots", PLOTS),
- ("plots/analytics", ANALYTICS),
- ("real_baseline_parquet", OUT / "real_baseline_15min_v1.parquet"),
- ("eplus_paired_parquet", OUT / "heating_dsm_eplus_paired_15min_v1.parquet"),
- ("hybrid_walk", OUT / "hybrid_dsm_96_v1_walk.json"),
+    ("site_root", SITE),
+    ("meter_csv", METER),
+    ("plots/analytics", ANALYTICS),
+    ("weather_csv", CLEAN / "weather" / "history_wide.csv"),
+    ("gl14_campaign_log", SITE / "eplus" / "scorecards" / "campaign_log.csv"),
+    ("hybrid_walk", OUT / "hybrid_dsm_96_v1_walk.json"),
 ]:
- rows.append({
- "name": label,
- "path": str(p),
- "exists": p.is_file() if p.suffix else p.is_dir(),
- })
+    rows.append({
+        "name": label,
+        "path": str(p),
+        "exists": p.is_file() if p.suffix else p.is_dir(),
+    })
 display(pd.DataFrame(rows))
-
-pngs = []
-if PLOTS.is_dir():
- pngs = sorted(PLOTS.rglob("*.png"))[:40]
-print(f"PNG files under plots/ (showing up to 40): {len(pngs)}")
-for p in pngs[:15]:
- print(" ", p.relative_to(SITE) if SITE in p.parents or p.is_relative_to(SITE) else p)
 """
- )
- )
-
- cells.append(
- md(
- """
-## Typical meter load shapes
-
-Weekday vs weekend mean diurnal kW from `CS_ELEC_METER/history_wide.csv`.
-If the CSV is missing (OneDrive not synced), this section skips with a clear message.
-"""
- )
- )
- cells.append(
- code(
- r"""
-demand = None
-if not METER.is_file():
- display(Markdown(
- f"**Meter CSV missing** - tried `{METER}`. "
- "Hydrate OneDrive / run `scripts/process_lakeside.py` then re-open this notebook."
- ))
-else:
- demand = pd.read_csv(METER)
- demand["timestamp_utc"] = pd.to_datetime(demand["timestamp_utc"], utc=True)
- demand = demand.sort_values("timestamp_utc").dropna(subset=["kw_demand"])
- demand["ts_local"] = demand["timestamp_utc"].dt.tz_convert("America/Chicago")
- demand["hour"] = demand["ts_local"].dt.hour
- demand["month"] = demand["ts_local"].dt.to_period("M").astype(str)
- demand["is_weekend"] = demand["ts_local"].dt.dayofweek >= 5
- demand["day_type"] = np.where(demand["is_weekend"], "Weekend", "Weekday")
- print("meter rows", len(demand), "span", demand["ts_local"].min(), "->", demand["ts_local"].max())
-
- fig, ax = plt.subplots(figsize=(9, 3.5))
- typical_weekday_weekend_profile(demand, ax=ax)
- save_fig(FIG / "analysis_typical_weekday_weekend.png", fig)
- plt.close(fig)
-
- fig = monthly_diurnal_overlay(demand)
- save_fig(FIG / "analysis_monthly_diurnal.png", fig)
- plt.close(fig)
-
- display(Markdown(
- "**Caption:** Weekday morning rise and weekend setback are the signatures a DSM "
- "surrogate must respect. Monthly panels show seasonality in the same shape family."
- ))
-"""
- )
- )
-
- cells.append(md("## Existing analytics PNGs (site `plots/analytics`)"))
- cells.append(
- code(
- r"""
-shown = 0
-if ANALYTICS.is_dir():
- for p in sorted(ANALYTICS.glob("*.png"))[:8]:
- display(Markdown(f"### `{p.name}`"))
- try:
- display(Image(filename=str(p)))
- shown += 1
- except Exception as e:
- print("skip", p, e)
-else:
- display(Markdown(f"No analytics dir at `{ANALYTICS}` - optional; meter charts above still apply."))
-print("displayed", shown, "analytics PNGs")
-"""
- )
- )
-
- cells.append(
- md(
- """
-## Example winter day - BAS / ML frame
-
-Uses the real-baseline training frame when available (15-min facility_kw + zones + OAT).
-"""
- )
- )
- cells.append(
- code(
- r"""
-bas_day = None
-try:
- from train_real_baseline_15min import load_real_baseline_frame
- bas = load_real_baseline_frame(winter_only=True, max_days=36)
- days = sorted(bas["day"].astype(str).unique())
- bas_day = days[len(days) // 2]
- fig = winter_day_panel(bas, bas_day)
- save_fig(FIG / "analysis_bas_winter_day.png", fig)
- plt.close(fig)
- print("BAS example day", bas_day, "rows", (bas["day"].astype(str) == bas_day).sum())
-except Exception as e:
- display(Markdown(f"BAS frame unavailable: `{e}`"))
-"""
- )
- )
-
- cells.append(
- md(
- """
-## Overlay - Actual vs EnergyPlus vs ML
-
-When sources exist:
-
-1. **Actual** - meter (hourly mean) or BAS `facility_kw` for a winter day 
-2. **EnergyPlus** - paired farm baseline arm for a comparable day 
-3. **ML** - hybrid walk JSON baseline + hybrid traces (predicted - **not actual**)
-
-If a source is missing, the overlay still plots whatever is available and notes gaps.
-"""
- )
- )
- cells.append(
- code_raw(
- r'''
-hour = np.arange(24, dtype=float)
-actual_kw = eplus_kw = ml_base = ml_hyb = None
-notes = []
-
-# --- Actual from meter (hourly mean of a cold-ish day) or BAS ---
-if demand is not None and len(demand):
-    dlocal = demand.copy()
-    dlocal["day"] = dlocal["ts_local"].dt.strftime("%Y-%m-%d")
-    winter = dlocal[dlocal["ts_local"].dt.month.isin([12, 1, 2]) & (~dlocal["is_weekend"])]
-    pick = winter if len(winter) else dlocal
-    day_counts = pick.groupby("day")["kw_demand"].count()
-    day_pick = day_counts[day_counts >= 20].index
-    if len(day_pick):
-        d0 = str(sorted(day_pick)[len(day_pick) // 2])
-        sub = dlocal[dlocal["day"] == d0]
-        g = sub.groupby("hour")["kw_demand"].mean().reindex(range(24))
-        actual_kw = g.values
-        notes.append(f"actual meter day={d0}")
-    else:
-        notes.append("meter present but no usable day with >=20 intervals")
-elif bas_day is not None:
-    try:
-        sub = bas[bas["day"].astype(str) == bas_day].sort_values(
-            "step_15" if "step_15" in bas.columns else "hour_ending"
         )
-        if "step_15" in sub.columns:
-            kw = sub["facility_kw"].to_numpy()
-            actual_kw = np.array([kw[i * 4 : (i + 1) * 4].mean() for i in range(24)])
-        else:
-            actual_kw = sub.groupby("hour_ending")["facility_kw"].mean().reindex(range(24)).values
-        notes.append(f"actual from BAS frame day={bas_day}")
-    except Exception as e:
-        notes.append(f"BAS actual failed: {e}")
-else:
-    notes.append("no actual series")
+    )
 
-# --- E+ paired baseline arm ---
-paired = OUT / "heating_dsm_eplus_paired_15min_v1.parquet"
-if paired.is_file():
-    try:
-        ep = pd.read_parquet(paired)
-        if "control_regime" in ep.columns:
-            ep_b = ep[ep["control_regime"].astype(str).str.contains("baseline", case=False, na=False)]
-        elif "strategy_id" in ep.columns:
-            ep_b = ep[ep["strategy_id"].astype(str) == "baseline"]
-        else:
-            ep_b = ep
-        if "day" in ep_b.columns and "facility_kw" in ep_b.columns:
-            edays = sorted(ep_b["day"].astype(str).unique())
-            ed = edays[min(len(edays) // 2, len(edays) - 1)]
-            esub = ep_b[ep_b["day"].astype(str) == ed].sort_values(
-                "step_15" if "step_15" in ep_b.columns else "hour_ending"
-            )
-            if "step_15" in esub.columns and len(esub) >= 96:
-                kw = esub["facility_kw"].to_numpy()[:96]
-                eplus_kw = np.array([kw[i * 4 : (i + 1) * 4].mean() for i in range(24)])
-            else:
-                eplus_kw = esub.groupby("hour_ending")["facility_kw"].mean().reindex(range(24)).values
-            notes.append(f"E+ baseline day={ed} (IdealLoads screening twin)")
-        else:
-            notes.append("E+ parquet missing day/facility_kw columns")
-    except Exception as e:
-        notes.append(f"E+ load failed: {e}")
-else:
-    notes.append(f"E+ paired parquet missing: {paired.name}")
+    cells.append(
+        md(
+            """
+## Site analytics charts (regenerated here)
 
-# --- ML hybrid walk ---
-walk_path = OUT / "hybrid_dsm_96_v1_walk.json"
-if walk_path.is_file():
-    try:
-        walk = json.loads(walk_path.read_text(encoding="utf-8"))
-        steps = walk.get("steps") or []
-        if len(steps) >= 96:
-            b = np.array([float(s["baseline_facility_kw"]) for s in steps[:96]])
-            h = np.array([float(s["hybrid_facility_kw"]) for s in steps[:96]])
-            ml_base = np.array([b[i * 4 : (i + 1) * 4].mean() for i in range(24)])
-            ml_hyb = np.array([h[i * 4 : (i + 1) * 4].mean() for i in range(24)])
-            notes.append(
-                f"ML walk source={walk.get('source')} honesty={walk.get('honesty')} "
-                f"(predicted baseline + hybrid - NOT measured actual)"
-            )
-    except Exception as e:
-        notes.append(f"ML walk failed: {e}")
-else:
-    notes.append("hybrid walk JSON missing - run sklearn promote first")
+Runs the same Python that built `plots/analytics/*.png` — meter weekday/weekend,
+demand vs Open-Meteo weather, and GL14 iteration charts. No duplicate hand-rolled
+diurnal section above this.
+"""
+        )
+    )
+    cells.append(
+        code_raw(
+            r'''
+from demand_weather_charts import regenerate_analytics_charts
 
-display(Markdown("### Overlay notes\n- " + "\n- ".join(notes)))
+ALLOW_WEATHER_FETCH = os.environ.get("VIBE22_ALLOW_WEATHER_FETCH", "0") == "1"
+written = regenerate_analytics_charts(allow_weather_fetch=ALLOW_WEATHER_FETCH)
+print("wrote/refreshed", len(written), "charts")
 
-fig, ax = plt.subplots(figsize=(10, 4))
-actual_eplus_ml_overlay(
-    hour=hour,
-    actual_kw=actual_kw,
-    eplus_kw=eplus_kw,
-    ml_baseline_kw=ml_base,
-    ml_hybrid_kw=ml_hyb,
-    ax=ax,
+WANT = [
+    "demand_weekday_weekend_summary.png",
+    "demand_monthly_weekday_weekend_profiles.png",
+    "demand_vs_web_weather_scatter.png",
+    "demand_vs_web_weather_density.png",
+    "demand_vs_web_weather_scatter_peak_day.png",
+    "gl14_progress_by_iteration.png",
+    "gl14_status_by_iteration.png",
+    "monthly_error_heatmap.png",
+]
+
+shown = 0
+for name in WANT:
+    p = ANALYTICS / name
+    display(Markdown(f"### `{name}`"))
+    if p.is_file():
+        try:
+            display(Image(filename=str(p)))
+            shown += 1
+        except Exception as e:
+            print("display failed", p, e)
+    else:
+        display(Markdown(
+            f"*Missing `{p}` — meter/weather/GL14 inputs may be absent. "
+            f"Set `VIBE22_ALLOW_WEATHER_FETCH=1` to pull Open-Meteo if weather CSV is missing.*"
+        ))
+print("displayed", shown, "/", len(WANT))
+'''
+        )
+    )
+
+    cells.append(
+        md(
+            """
+## Example winter day (BAS frame)
+
+One cold-season day from the real-baseline training store — facility kW + zones + OAT.
+"""
+        )
+    )
+    cells.append(
+        code(
+            r"""
+bas_day = None
+bas = None
+try:
+    from train_real_baseline_15min import load_real_baseline_frame
+    from training_profile import require_profile
+    prof = require_profile(os.environ.get("VIBE22_TRAINING_PROFILE", "smoke"))
+    bas = load_real_baseline_frame(winter_only=True, max_days=prof.max_days, profile=prof)
+    days = sorted(bas["day"].astype(str).unique())
+    bas_day = days[len(days) // 2]
+    fig = winter_day_panel(bas, bas_day)
+    save_fig(FIG / "analysis_bas_winter_day.png", fig)
+    plt.close(fig)
+    print("BAS example day", bas_day, "rows", (bas["day"].astype(str) == bas_day).sum())
+except Exception as e:
+    display(Markdown(f"BAS frame unavailable: `{e}`"))
+"""
+        )
+    )
+
+    cells.append(
+        md(
+            """
+## Shape gallery — peak demand day (+ E+ weather match)
+
+Uses the **exact same peak day** as `demand_vs_web_weather_scatter_peak_day.png`
+(local calendar day of max 5-min meter kW).
+
+- **Actual / ML** — that calendar day  
+- **EnergyPlus** — same day if farmed; otherwise **best OAT-matched** baseline farm day
+  (labeled with OAT RMSE — a shape proxy, not a silent day swap)
+"""
+        )
+    )
+    cells.append(
+        code_raw(
+            r'''
+import sys
+sys.modules.pop("peak_day_shape_gallery", None)
+from peak_day_shape_gallery import build_peak_day_gallery
+
+# Prefer full BAS coverage so the peak day is present for ONNX init/weather
+bas_full = None
+try:
+    from train_real_baseline_15min import load_real_baseline_frame
+    bas_full = load_real_baseline_frame(winter_only=False, max_days=None)
+except Exception as e:
+    print("BAS full load skipped:", e)
+    bas_full = bas  # fall back to earlier smoke/profile frame if any
+
+gallery = build_peak_day_gallery(
+    meter_csv=METER,
+    paired_parquet=OUT / "heating_dsm_eplus_paired_15min_v1.parquet",
+    artifacts_dir=OUT,
+    bas=bas_full,
+    strategy_id="stagger_preheat",
+    weather_csv=CLEAN / "weather" / "history_wide.csv",
+    allow_eplus_weather_match=True,
 )
-save_fig(FIG / "analysis_actual_eplus_ml_overlay.png", fig)
+
+hour = np.arange(24, dtype=float)
+actual_kw = gallery.actual_kw
+eplus_kw = gallery.eplus_kw
+ml_base = gallery.ml_baseline_kw
+ml_hyb = gallery.ml_hybrid_kw
+labels = gallery.labels
+
+display(Markdown("### Notes\n- " + "\n- ".join(gallery.notes)))
+
+fig, axes = plt.subplots(1, 3, figsize=(12.5, 3.6), sharey=True)
+panels = [
+    (axes[0], actual_kw, None, labels["actual"], "1 · Actual meter", "#264653"),
+    (axes[1], eplus_kw, None, labels["eplus"], "2 · EnergyPlus baseline", "#457b9d"),
+    (axes[2], ml_base, ml_hyb, labels["ml"], "3 · ML ONNX (baseline + DSM)", "#e76f51"),
+]
+eplus_is_proxy = "weather-match" in str(labels.get("eplus", ""))
+for ax, a, b, lab, title, color in panels:
+    ax.axvspan(5, 9, color="#f4a261", alpha=0.15)
+    ls = "--" if (ax is axes[1] and eplus_is_proxy) else "-"
+    if a is not None and np.isfinite(a).any():
+        ax.plot(
+            hour,
+            a,
+            color=color,
+            lw=2.0,
+            ls=ls,
+            label=("OAT proxy" if ls == "--" else "series") if b is None else "baseline",
+        )
+    if b is not None and np.isfinite(b).any():
+        ax.plot(hour, b, color="#2a9d8f", lw=2.0, label="hybrid DSM")
+    ax.set_title(f"{title}\n{lab}", fontsize=9)
+    ax.set_xlabel("Hour")
+    ax.set_xlim(0, 23)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    if a is None or not np.isfinite(np.asarray(a, dtype=float)).any():
+        ax.text(0.5, 0.5, "no data\nfor peak day", ha="center", va="center",
+                transform=ax.transAxes, color="#888", fontsize=10)
+    else:
+        ax.legend(frameon=False, fontsize=8)
+axes[0].set_ylabel("kW")
+fig.suptitle(
+    f"Peak demand day {gallery.peak_day} · max 5-min {gallery.peak_kw:.0f} kW · HE 05–09 band",
+    fontsize=12,
+    y=1.02,
+)
+fig.tight_layout()
+save_fig(FIG / "analysis_shape_gallery_peak_day.png", fig)
 plt.close(fig)
 
 display(Markdown(
-    "**Caption:** Compare morning-peak timing and magnitude across sources. "
-    "E+ is an IdealLoads+COP screening twin; ML hybrid is a counterfactual prediction. "
-    "Gaps in coverage (underpowered farm / smoke ship) mean this is **exploratory**, not a savings claim."
+    f"- **Peak day:** `{gallery.peak_day}` at `{gallery.peak_ts_local}` ({gallery.peak_kw:.1f} kW)\n"
+    f"- Actual: **{labels['actual']}**\n"
+    f"- EnergyPlus: **{labels['eplus']}**\n"
+    f"- ML: **{labels['ml']}**\n"
 ))
 '''
- )
- )
+        )
+    )
 
- cells.append(
- md(
- """
-## Interpretation checklist
+    cells.append(
+        md(
+            """
+## Quick read
 
-- Weekday profiles should show a **morning heating ramp** (roughly HE 05-09).
-- Weekend profiles are often flatter / lower - occupancy and setback.
-- E+ IdealLoads will not match plant kW exactly; treat shape similarity as screening evidence.
-- ML hybrid must never be read as a measured bill or field DSM outcome under `HYBRID_SCREENING`.
-
-**Status:** RESEARCH / EXPLORATORY - not approved for operational DSM.
+- Gallery anchor is the **meter peak day** (same as the peak-day weather scatter).
+- If E+ has no farm day for that date, the middle panel uses the **best OAT-matched** IdealLoads day (dashed = proxy).
+- ML panel is a live ONNX hybrid walk for the peak calendar day.
 """
- )
- )
+        )
+    )
 
- nb = nbf.v4.new_notebook(cells=cells, metadata={"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}})
- return nb
+    nb = nbf.v4.new_notebook(
+        cells=cells,
+        metadata={"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+    )
+    return nb
 
 
 def main() -> None:
- NB.parent.mkdir(parents=True, exist_ok=True)
- nb = build()
- nbf.write(nb, NB)
- print("wrote", NB, "cells", len(nb.cells))
+    NB.parent.mkdir(parents=True, exist_ok=True)
+    nb = build()
+    nbf.write(nb, NB)
+    print("wrote", NB, "cells", len(nb.cells))
 
 
 if __name__ == "__main__":
- main()
+    main()

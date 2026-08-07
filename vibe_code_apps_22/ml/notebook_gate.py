@@ -1,6 +1,11 @@
-"""Force hybrid model training through notebooks (human SoT).
+"""CLI training is allowed for the parallel arm launcher.
 
-CLI entry points refuse unless ``VIBE22_ALLOW_CLI_TRAIN=1`` (emergency only).
+Preferred::
+
+    python scripts/train_four_arms.py --profile full_evaluation
+
+Set ``VIBE22_ALLOW_CLI_TRAIN=1`` (the launcher sets this automatically).
+Notebooks are results viewers only.
 """
 from __future__ import annotations
 
@@ -18,10 +23,11 @@ def cli_train_allowed() -> bool:
 def refuse_cli_train(component: str, *, notebook: str = SKLEARN_NOTEBOOK) -> int:
     """Print refuse message and return exit code 2."""
     print(
-        f"REFUSED: {component} training must run via the notebook (human SoT).\n"
-        f"  Open and Run All: vibe_code_apps_22/{notebook}\n"
-        f"Emergency CLI only: set VIBE22_ALLOW_CLI_TRAIN=1\n"
-        "See vibe22_agent_spec/HEATING_DSM.md",
+        f"REFUSED: {component} — use the parallel trainer (not an in-kernel notebook fit).\n"
+        f"  cd vibe_code_apps_22\n"
+        f"  python scripts/train_four_arms.py --profile full_evaluation\n"
+        f"  # then open {notebook} as a results viewer\n"
+        f"Or set VIBE22_ALLOW_CLI_TRAIN=1 for legacy single-arm CLIs.",
         file=sys.stderr,
     )
     return 2

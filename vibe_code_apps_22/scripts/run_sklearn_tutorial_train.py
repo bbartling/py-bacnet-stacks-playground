@@ -60,7 +60,8 @@ def main(argv: list[str] | None = None) -> int:
 
         promote_result = promote_hybrid(
             artifacts=out, desktop_artifacts=ROOT / "desktop" / "artifacts"
-        )    else:
+        )
+    else:
         print("skip promote (pass --promote-smoke for underpowered watermark path)", flush=True)
 
     print(

@@ -78,6 +78,22 @@ class TimingReport:
     def total_seconds(self) -> float:
         return float(sum(s for _, s in self.entries))
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entries": [{"name": n, "seconds": s, "hms": format_hms(s)} for n, s in self.entries],
+            "total_seconds": self.total_seconds(),
+            "total_hms": format_hms(self.total_seconds()),
+        }
+
+    def write_json(self, path: Any, *, extra: dict[str, Any] | None = None) -> None:
+        from pathlib import Path
+        import json
+
+        doc = self.to_dict()
+        if extra:
+            doc.update(extra)
+        Path(path).write_text(json.dumps(doc, indent=2), encoding="utf-8")
+
     def print_summary(self, title: str = "Timing summary") -> None:
         print(f"\n=== {title} ===", flush=True)
         if not self.entries:

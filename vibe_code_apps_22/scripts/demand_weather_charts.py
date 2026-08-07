@@ -537,6 +537,72 @@ def validate_has_weather(zip_path: Path) -> None:
     print(f"vibe19 validate: equip={len(result.frames)} has_weather={has_wx} wx_cols={cols}")
 
 
+def load_weather_frame(demand: pd.DataFrame, *, allow_fetch: bool = True) -> pd.DataFrame:
+    """Load Madison weather for demand charts: prefer site CSV, else optional Open-Meteo fetch."""
+    wx_path = CLEAN / "weather" / "history_wide.csv"
+    if wx_path.is_file():
+        wx = pd.read_csv(wx_path)
+        wx["timestamp_utc"] = pd.to_datetime(wx["timestamp_utc"], utc=True)
+        if "web-outside-air-temp" not in wx.columns:
+            raise ValueError(f"{wx_path} missing web-outside-air-temp")
+        print(f"weather from {wx_path} rows={len(wx)}")
+        return wx.sort_values("timestamp_utc")
+    if not allow_fetch:
+        raise FileNotFoundError(f"missing {wx_path} and fetch disabled")
+    start = demand["timestamp_utc"].min().strftime("%Y-%m-%d")
+    end = demand["timestamp_utc"].max().strftime("%Y-%m-%d")
+    return fetch_open_meteo(start, end)
+
+
+def regenerate_analytics_charts(*, allow_weather_fetch: bool = True) -> list[Path]:
+    """Rebuild the demand + GL14 analytics PNGs used by the load-profile notebook."""
+    outs: list[Path] = []
+    if not METER.is_file():
+        print(f"skip demand charts — missing {METER}")
+    else:
+        demand = load_demand()
+        CHARTS.mkdir(parents=True, exist_ok=True)
+        REPORTS.mkdir(parents=True, exist_ok=True)
+        outs.append(chart_monthly_load_profiles(demand))
+        outs.append(chart_overall_weekday_weekend(demand))
+        try:
+            wx = load_weather_frame(demand, allow_fetch=allow_weather_fetch)
+            outs.extend(chart_demand_vs_weather(demand, wx))
+        except Exception as e:
+            print(f"skip demand-vs-weather charts: {e}")
+
+    # GL14 calibration progress (copies into plots/analytics)
+    try:
+        scripts_dir = str(_APP / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from eplus_calibration_plots import (  # type: ignore
+            LOG,
+            ANALYTICS as GL14_ANALYTICS,
+            PLOTS as GL14_PLOTS,
+            plot_gl14_progress,
+            plot_gl14_status_strip,
+            plot_error_heatmap,
+        )
+
+        if LOG.is_file():
+            GL14_PLOTS.mkdir(parents=True, exist_ok=True)
+            GL14_ANALYTICS.mkdir(parents=True, exist_ok=True)
+            log = pd.read_csv(LOG)
+            for fn in (plot_gl14_progress, plot_gl14_status_strip, plot_error_heatmap):
+                p = fn(log)
+                if p and p.is_file():
+                    dest = GL14_ANALYTICS / p.name
+                    dest.write_bytes(p.read_bytes())
+                    outs.append(dest)
+                    print(f"chart: {dest}")
+        else:
+            print(f"skip GL14 charts — missing {LOG}")
+    except Exception as e:
+        print(f"skip GL14 charts: {e}")
+    return outs
+
+
 def main() -> int:
     if not METER.is_file():
         raise SystemExit(f"Missing demand CSV: {METER}")

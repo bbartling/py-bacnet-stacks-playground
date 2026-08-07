@@ -56,6 +56,46 @@ class HybridModels:
     feature_cols: list[str]
 
 
+def load_onnx_model(path: Path) -> Any:
+    """ONNX session wrapper with sklearn-like ``predict`` → (1, 7)."""
+    import onnxruntime as ort
+
+    sess = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    in_name = sess.get_inputs()[0].name
+
+    class _Onnx7:
+        def predict(self, x: np.ndarray) -> np.ndarray:
+            x = np.asarray(x, dtype=np.float32)
+            if x.ndim == 1:
+                x = x.reshape(1, -1)
+            out = sess.run(None, {in_name: x})[0]
+            return np.asarray(out, dtype=float)
+
+    return _Onnx7()
+
+
+def load_hybrid_onnx(
+    baseline_onnx: Path,
+    delta_onnx: Path,
+    feature_meta: Path | None = None,
+) -> HybridModels:
+    """Load the same ONNX pair the Rust desktop uses."""
+    cols = list(FEATURE_COLS_15MIN_MT)
+    meta_path = feature_meta
+    if meta_path is None:
+        cand = baseline_onnx.with_name(baseline_onnx.name.replace(".onnx", "_feature_meta.json"))
+        if cand.is_file():
+            meta_path = cand
+    if meta_path is not None and meta_path.is_file():
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        cols = list(meta.get("feature_cols") or cols)
+    return HybridModels(
+        baseline=load_onnx_model(baseline_onnx),
+        delta=load_onnx_model(delta_onnx),
+        feature_cols=cols,
+    )
+
+
 def load_joblib_model(path: Path) -> tuple[Any, list[str], list[str]]:
     import joblib
 
