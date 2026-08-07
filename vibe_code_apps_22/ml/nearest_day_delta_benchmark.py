@@ -321,14 +321,19 @@ def loo_nearest_distances(
     *,
     weights: dict[str, float] | None = None,
 ) -> list[float]:
-    """Leave-one-day-out nearest-neighbor distances on development data only."""
+    """Chronological LOO nearest-neighbor distances (past-only candidates).
+
+    Days with no strictly earlier neighbors are skipped — never use future
+    days for LOO scale fitting (that would break the leakage-safe claim).
+    """
     traj = _oat_mean_traj(records)
     dists: list[float] = []
     for i, q in enumerate(records):
-        cands = [r for j, r in enumerate(records) if j != i and _day_order_key(r.day) < _day_order_key(q.day)]
-        if not cands:
-            # allow any other earlier-or-any for LOO scale when chronology blocks
-            cands = [r for j, r in enumerate(records) if j != i]
+        cands = [
+            r
+            for j, r in enumerate(records)
+            if j != i and _day_order_key(r.day) < _day_order_key(q.day)
+        ]
         if not cands:
             continue
         hits = rank_neighbors(q, cands, scales, k=1, weights=weights, oat_mean_traj=traj)
@@ -338,8 +343,12 @@ def loo_nearest_distances(
 
 
 def ood_threshold_from_loo(distances: Sequence[float], *, percentile: float = OOD_PERCENTILE) -> float:
+    """Return LOO percentile threshold. Empty LOO → fail-closed (threshold 0).
+
+    Previously returned +inf which made the OOD gate fail-open (never refuse).
+    """
     if not distances:
-        return float("inf")
+        return 0.0
     return float(np.percentile(np.asarray(distances, dtype=float), percentile))
 
 
@@ -510,6 +519,9 @@ def run_simple_hybrid(
         flags.append(DSM_WORSENS_ENERGY)
         recommend = False
     if ood:
+        # Fail-closed for operational recommend; exploratory callers may still
+        # inspect trajectories when allow_exploratory_if_ood=True but must not
+        # get recommend=True under OOD.
         recommend = False
 
     return SimpleHybridResult(
@@ -519,7 +531,7 @@ def run_simple_hybrid(
         nearest_distance=nearest,
         ood_threshold=ood_threshold,
         failed_criteria=failed,
-        recommend=recommend if not (ood and not allow_exploratory_if_ood) else recommend,
+        recommend=recommend,
         outcome_flags=flags,
         neighbors=hits,
         baseline_y=baseline,
@@ -821,6 +833,13 @@ def result_to_walk_dict(res: SimpleHybridResult, *, contract_version: str = "nea
             }
         )
     summ = res.summary_kw()
+    comfort_violations = 0
+    if res.hybrid_y is not None:
+        hy = np.asarray(res.hybrid_y, dtype=float)
+        for t in range(len(hy)):
+            for z in range(1, min(7, hy.shape[1])):
+                if hy[t, z] < 66.0 or hy[t, z] > 78.0:
+                    comfort_violations += 1
     return {
         "contract_version": contract_version,
         "honesty": res.honesty,
@@ -845,6 +864,6 @@ def result_to_walk_dict(res: SimpleHybridResult, *, contract_version: str = "nea
             "peak_kw_hybrid": summ["peak_kw_hybrid"],
             "delta_peak_kw": summ["delta_peak_kw"],
             "delta_kwh": summ["delta_kwh"],
-            "comfort_violations": 0,
+            "comfort_violations": int(comfort_violations),
         },
     }

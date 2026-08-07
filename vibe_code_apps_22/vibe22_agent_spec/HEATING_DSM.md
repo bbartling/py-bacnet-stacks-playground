@@ -1,6 +1,6 @@
 # Vibe 22 — Heating DSM (Lakeside) — Hybrid Real+E+
 
-**Last validated:** 2026-08-07 · Parallel CLI train arms + ship-best-to-desktop · tip on `feat/vibe22-multioutput-tutorial-notebooks`.
+**Last validated:** 2026-08-07 · Multi-res calibration campaign Wave 0 + parallel CLI train/ship · tip on `feat/vibe22-multioutput-tutorial-notebooks`.
 
 ## Product question
 
@@ -15,8 +15,10 @@
 - IdealLoads + fixed COP ≠ calibrated GSHP / electrical plant.
 - Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
 - Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
-- Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
+- Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` and is **screening-only** (`smoke_artifact`), never operational DSM.
+- Staged twin filename may say `gshp` — physics is IdealLoads + fixed COP (see multi-res baseline ledger).
 - Desktop **Run** uses **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback, not the interactive engine.
+- Ship selection uses **recursive held-out peak MAE only** (no teacher-forced fallback); `--ship-desktop` requires both sklearn arms ok.
 
 ## Architecture
 

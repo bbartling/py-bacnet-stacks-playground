@@ -102,6 +102,16 @@ def train_sklearn_arm(*, out: Path, winter_only: bool, max_days: int | None, pro
         "card": str(paths["card"]),
         "timing_hms": format_hms(timings.total_seconds()),
         "n_days": int(df["day"].nunique()),
+        "peak_mae_kw": (result.get("cv_recursive_96_heldout") or {})
+        .get(result.get("champion") or "", {})
+        .get("facility_kw_mae_peak_05_09")
+        if isinstance(result.get("cv_recursive_96_heldout"), dict)
+        else None,
+        "zone_mae": (result.get("cv_recursive_96_heldout") or {})
+        .get(result.get("champion") or "", {})
+        .get("zone_temp_mae_mean")
+        if isinstance(result.get("cv_recursive_96_heldout"), dict)
+        else None,
     }
 
 
@@ -157,7 +167,11 @@ def train_torch_arm(
         "card": str(paths["card"]),
         "timing_hms": format_hms(timings.total_seconds()),
         "n_days": int(df["day"].nunique()),
-        "zone_mae": (result.get("cv_teacher_forced") or {}).get("zone_temp_mae_mean"),
+        "peak_mae_kw": (result.get("cv_recursive_96_heldout") or {}).get(
+            "facility_kw_mae_peak_05_09"
+        ),
+        "zone_mae": (result.get("cv_recursive_96_heldout") or {}).get("zone_temp_mae_mean")
+        or (result.get("cv_teacher_forced") or {}).get("zone_temp_mae_mean"),
     }
 
 

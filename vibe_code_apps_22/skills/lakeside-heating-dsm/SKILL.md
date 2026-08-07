@@ -13,7 +13,8 @@ description: >-
 `C:\Users\ben\OneDrive\Desktop\testing\sp_creekside`
 
 **Do not** concat real BAS and EnergyPlus rows into one training table.  
-**Honesty:** `HYBRID_SCREENING` until field DSM trials. IdealLoads+COP ≠ GSHP plant.
+**Honesty:** `HYBRID_SCREENING` until field DSM trials. IdealLoads+COP ≠ GSHP plant.  
+Filename `*gshp*` on staged twin is **naming only** — physics is IdealLoads + fixed COP.
 
 ## Pipeline
 
@@ -33,21 +34,31 @@ python -u scripts\train_four_arms.py --profile full_evaluation
 # notebooks\lakeside_heating_dsm_sklearn.ipynb
 # notebooks\lakeside_heating_dsm_torch.ipynb
 
-# SHIP best sklearn arm → desktop + launch sim
+# SHIP best sklearn arm → desktop (needs BOTH sklearn arms ok)
+# Smoke farm (<12 pairs): screening-only; set env before promote/ship:
+$env:VIBE22_ALLOW_SMOKE_PROMOTE="1"
 python -u scripts\ship_best_to_desktop.py
 
 python -u scripts\validate_mvm.py
+python -u scripts\validate_eplus_multires.py   # multi-res gates (Wave 1+)
 ```
+
+## Smoke farm honesty
+
+- Usable both-arm pairs **&lt; 12** → `ship_mode=smoke_artifact` / `UNDERPOWERED_SMOKE_FARM`
+- Promote **refuses** unless `VIBE22_ALLOW_SMOKE_PROMOTE=1`
+- Screening-only — **not** client-grade / operational DSM recommendations
 
 ## Key modules
 
 - `scripts/train_four_arms.py` / `train_arm.py` — parallel baseline train SoT
-- `scripts/ship_best_to_desktop.py` — auto-select sklearn winner + promote + cargo
+- `scripts/ship_best_to_desktop.py` — held-out peak MAE only; copy into `--artifacts`
 - `scripts/README.md` — live vs legacy vs removed scripts
 - `notebooks/lakeside_heating_dsm_*.ipynb` — **viewers** (timings + metrics)
 - `ml/real_store/` — measured 15-min feature store
 - `ml/hybrid_rollout.py` + `contracts/hybrid_dsm_96_v1.json`
 - `scripts/eplus_heating_dsm_farm.py` — paired baseline/DSM, 6-area controls, MAT
+- `ml/eplus_multires_metrics.py` — monthly / hourly / 15-min DSM validation engine
 - `eplus_native/align.py` — E+ LST→UTC fixed CST−6 (no DST on E+ stamps)
 - `desktop/` — hybrid 96-step panel (fail-closed without walk JSON)
 

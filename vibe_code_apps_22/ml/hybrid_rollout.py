@@ -80,14 +80,25 @@ def load_hybrid_onnx(
     feature_meta: Path | None = None,
 ) -> HybridModels:
     """Load the same ONNX pair the Rust desktop uses."""
+    if baseline_onnx is None or delta_onnx is None:
+        raise FileNotFoundError(
+            "baseline_onnx and delta_onnx are required "
+            "(got None — check artifact paths / _find helper)"
+        )
+    baseline_onnx = Path(baseline_onnx)
+    delta_onnx = Path(delta_onnx)
+    if not baseline_onnx.is_file():
+        raise FileNotFoundError(baseline_onnx)
+    if not delta_onnx.is_file():
+        raise FileNotFoundError(delta_onnx)
     cols = list(FEATURE_COLS_15MIN_MT)
     meta_path = feature_meta
     if meta_path is None:
         cand = baseline_onnx.with_name(baseline_onnx.name.replace(".onnx", "_feature_meta.json"))
         if cand.is_file():
             meta_path = cand
-    if meta_path is not None and meta_path.is_file():
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if meta_path is not None and Path(meta_path).is_file():
+        meta = json.loads(Path(meta_path).read_text(encoding="utf-8"))
         cols = list(meta.get("feature_cols") or cols)
     return HybridModels(
         baseline=load_onnx_model(baseline_onnx),
@@ -103,11 +114,22 @@ def load_joblib_model(path: Path) -> tuple[Any, list[str], list[str]]:
     return blob["model"], list(blob["feature_cols"]), list(blob["target_cols"])
 
 
+def _finite(val: Any, fallback: float) -> float:
+    """Coerce to float; replace NaN/inf/None with fallback (NaN is truthy in Python)."""
+    try:
+        x = float(val)
+    except (TypeError, ValueError):
+        return float(fallback)
+    return x if np.isfinite(x) else float(fallback)
+
+
 def _row_features(row: dict[str, float], feature_cols: list[str]) -> np.ndarray:
-    return np.array([float(row.get(c, 0.0)) for c in feature_cols], dtype=float)
+    x = np.array([float(row.get(c, 0.0)) for c in feature_cols], dtype=float)
+    return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
 
 
 def _predict7(model: Any, x: np.ndarray) -> np.ndarray:
+    x = np.nan_to_num(np.asarray(x, dtype=float).reshape(-1), nan=0.0, posinf=0.0, neginf=0.0)
     y = np.asarray(model.predict(x.reshape(1, -1)), dtype=float).reshape(-1)
     if y.size < 7:
         raise ValueError(f"expected 7 outputs, got {y.size}")
@@ -120,9 +142,10 @@ def init_state_from_contract(init: dict[str, Any]) -> dict[str, float]:
     for k in required:
         if k not in init or init[k] is None or not np.isfinite(float(init[k])):
             raise ValueError(f"init missing finite {k} (measured midnight required)")
+    kw = float(init["facility_kw"])
     state = {
-        "facility_kw_lag1": float(init["facility_kw"]),
-        "facility_kw_lag2": float(init.get("facility_kw_lag2", init["facility_kw"])),
+        "facility_kw_lag1": kw,
+        "facility_kw_lag2": _finite(init.get("facility_kw_lag2"), kw),
         "oat_lag1": float(init["oat_f"]),
     }
     for c in ZONE_TEMP_COLS:

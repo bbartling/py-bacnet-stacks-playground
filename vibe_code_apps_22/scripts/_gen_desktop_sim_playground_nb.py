@@ -77,7 +77,7 @@ Needs `real_baseline_15min_v1.onnx` + `eplus_delta_15min_v1.onnx` under `ml/arti
         )
     )
     cells.append(
-        code(
+        code_raw(
             r"""
 %matplotlib inline
 from datetime import datetime
@@ -116,13 +116,17 @@ FIG.mkdir(parents=True, exist_ok=True)
 DESK = ROOT / "desktop" / "artifacts"
 
 def _find(name: str) -> Path:
-    for d in (OUT, DESK, Path(os.environ.get("LAKESIDE_ONNX_DIR", ""))):
-        if not d or not str(d):
-            continue
+    candidates = [OUT, DESK]
+    env_dir = os.environ.get("LAKESIDE_ONNX_DIR", "").strip()
+    if env_dir:
+        candidates.append(Path(env_dir))
+    for d in candidates:
         p = Path(d) / name
         if p.is_file():
             return p
-    raise FileNotFoundError(name)
+    raise FileNotFoundError(
+        f"missing {name} under {OUT} or {DESK} — run ship_best_to_desktop.py first"
+    )
 
 base_onnx = _find("real_baseline_15min_v1.onnx")
 delta_onnx = _find("eplus_delta_15min_v1.onnx")

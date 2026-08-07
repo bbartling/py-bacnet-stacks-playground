@@ -250,6 +250,23 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.ship_desktop:
+        # Ship selection needs both sklearn arms present/ok (torch optional).
+        from ship_best_to_desktop import SKLEARN_ARMS, score_arm
+
+        missing = []
+        for arm in SKLEARN_ARMS:
+            if arm not in arms:
+                missing.append(f"{arm} (not in --arms)")
+                continue
+            scored = score_arm(arm)
+            if not scored["ok"]:
+                missing.append(f"{arm} (not shippable: peak={scored['peak_mae']})")
+        if missing:
+            _safe_print(
+                "refuse --ship-desktop: both sklearn arms must be present and ok; "
+                + "; ".join(missing)
+            )
+            return 2
         ship_cmd = [sys.executable, "-u", str(ROOT / "scripts" / "ship_best_to_desktop.py")]
         if args.ship_no_launch:
             ship_cmd.append("--no-launch")

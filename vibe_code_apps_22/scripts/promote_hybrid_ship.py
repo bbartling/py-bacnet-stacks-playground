@@ -314,11 +314,18 @@ def promote_hybrid(
             d0 = str(sorted(day)[len(day) // 2])
             sub = winter[winter["day"] == d0].sort_values("step_15")
             row0 = sub.iloc[0]
+            kw0 = float(row0["facility_kw"])
+            # NaN is truthy in Python — never use ``nan or fallback``.
+            lag2_raw = row0["facility_kw_lag2"] if "facility_kw_lag2" in row0.index else kw0
+            try:
+                lag2 = float(lag2_raw)
+            except (TypeError, ValueError):
+                lag2 = kw0
+            if lag2 != lag2:  # NaN
+                lag2 = kw0
             contract["init"] = {
-                "facility_kw": float(row0["facility_kw"]),
-                "facility_kw_lag2": float(
-                    row0.get("facility_kw_lag2", row0["facility_kw"]) or row0["facility_kw"]
-                ),
+                "facility_kw": kw0,
+                "facility_kw_lag2": lag2,
                 "oat_f": float(row0["oat_f"]),
                 **{
                     c: float(row0[c])
@@ -335,11 +342,14 @@ def promote_hybrid(
             contract["calendar"]["month"] = int(row0["month"])
             contract["calendar"]["doy"] = int(row0["doy"])
             contract["calendar"]["is_weekend"] = float(row0["is_weekend"])
-            contract["weather_forecast_96"]["oat_f"] = sub["oat_f"].tolist()[:96]
+            oat = pd.to_numeric(sub["oat_f"], errors="coerce")
+            contract["weather_forecast_96"]["oat_f"] = oat.ffill().bfill().fillna(20.0).tolist()[:96]
             if "rh_pct" in sub.columns:
-                contract["weather_forecast_96"]["rh_pct"] = sub["rh_pct"].fillna(50).tolist()[:96]
+                rh = pd.to_numeric(sub["rh_pct"], errors="coerce")
+                contract["weather_forecast_96"]["rh_pct"] = rh.fillna(50.0).tolist()[:96]
             if "ghi" in sub.columns:
-                contract["weather_forecast_96"]["ghi"] = sub["ghi"].fillna(0).tolist()[:96]
+                ghi = pd.to_numeric(sub["ghi"], errors="coerce")
+                contract["weather_forecast_96"]["ghi"] = ghi.fillna(0.0).tolist()[:96]
             contract["init_day"] = d0
 
     result = rollout_96(models, contract)

@@ -53,22 +53,23 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 
 def peak_mae_from_card(card: dict[str, Any]) -> float | None:
-    """Recursive held-out peak MAE for the champion (lower is better)."""
+    """Recursive held-out peak MAE only (no teacher-forced fallback).
+
+    Ship selection must not silently use TF metrics when recursive held-out
+    is missing — that would mix incompatible evaluation regimes.
+    """
     champ = card.get("champion")
     rec = card.get("cv_recursive_96_heldout") or {}
-    if isinstance(rec, dict) and champ and isinstance(rec.get(champ), dict):
+    if not isinstance(rec, dict):
+        return None
+    if champ and isinstance(rec.get(champ), dict):
         block = rec[champ]
-    elif isinstance(rec, dict):
-        block = rec
     else:
+        # Flat held-out block (single-champion cards)
+        block = rec if "facility_kw_mae_peak_05_09" in rec else None
+    if not isinstance(block, dict):
         return None
     val = block.get("facility_kw_mae_peak_05_09")
-    if val is None:
-        tf = card.get("cv_teacher_forced") or {}
-        if isinstance(tf, dict) and champ and isinstance(tf.get(champ), dict):
-            val = tf[champ].get("facility_kw_mae_peak_05_09")
-        elif isinstance(tf, dict):
-            val = tf.get("facility_kw_mae_peak_05_09")
     try:
         return float(val) if val is not None else None
     except (TypeError, ValueError):
@@ -121,9 +122,10 @@ def pick_best_arm(*, force: str | None = None) -> dict[str, Any]:
     return ok[0]
 
 
-def copy_baseline_into_artifacts(arm_dir: Path) -> list[str]:
-    """Overwrite ml/artifacts baseline stems from the winning arm."""
-    ART.mkdir(parents=True, exist_ok=True)
+def copy_baseline_into_artifacts(arm_dir: Path, artifacts: Path) -> list[str]:
+    """Overwrite baseline stems under ``artifacts`` (honors ``--artifacts``)."""
+    artifacts = Path(artifacts)
+    artifacts.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for suf in BASELINE_SUFFIXES:
         src = arm_dir / f"{BASELINE_STEM}{suf}"
@@ -131,13 +133,13 @@ def copy_baseline_into_artifacts(arm_dir: Path) -> list[str]:
             if suf == ".joblib":
                 raise FileNotFoundError(f"missing required {src}")
             continue
-        dst = ART / src.name
+        dst = artifacts / src.name
         shutil.copy2(src, dst)
         copied.append(src.name)
     # Also copy eval recursive days if present (useful for desktop honesty UI)
     eval_src = arm_dir / "eval" / "baseline_recursive_days.json"
     if eval_src.is_file():
-        eval_dst = ART / "eval" / "baseline_recursive_days.json"
+        eval_dst = artifacts / "eval" / "baseline_recursive_days.json"
         eval_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(eval_src, eval_dst)
         copied.append("eval/baseline_recursive_days.json")
@@ -185,8 +187,9 @@ def main(argv: list[str] | None = None) -> int:
             f"Missing {delta_job} — need an existing E+ delta train before hybrid promote."
         )
 
-    copied = copy_baseline_into_artifacts(winner["arm_dir"])
-    print(f"Copied baseline into {args.artifacts}: {', '.join(copied)}", flush=True)
+    art = Path(args.artifacts)
+    copied = copy_baseline_into_artifacts(winner["arm_dir"], art)
+    print(f"Copied baseline into {art}: {', '.join(copied)}", flush=True)
 
     # Record selection for notebooks / audit
     selection = {

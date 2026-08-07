@@ -270,16 +270,11 @@ def test_full_deployment_export(tmp_path):
     (tmp_path / "desk" / "nearest_day_parity_fixture.json").write_text(
         json.dumps(golden, indent=2), encoding="utf-8"
     )
-    # also write under ml fixtures for Rust
-    fix = _ROOT / "ml" / "artifacts" / "fixtures"
-    fix.mkdir(parents=True, exist_ok=True)
-    (fix / "nearest_day_parity_fixture.json").write_text(
-        json.dumps(golden, indent=2), encoding="utf-8"
-    )
+    # Do NOT overwrite shipped ml/artifacts/fixtures parity file from tests.
 
 
 def test_python_rust_parity_fixture_exists():
-    # Created by test_full_deployment_export when run; ensure structure if present
+    # Read-only check of shipped fixture if present
     fix = _ROOT / "ml" / "artifacts" / "fixtures" / "nearest_day_parity_fixture.json"
     if fix.is_file():
         doc = json.loads(fix.read_text(encoding="utf-8"))

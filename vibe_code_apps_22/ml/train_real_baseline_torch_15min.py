@@ -359,9 +359,12 @@ def train_torch_baseline(
                 ev = evaluate_recursive_days(wrap, feat, te_days, cols, tcols)
                 rec_per_day.update(ev.get("per_day", {}))
                 last_model, last_xs, last_ys = model, x_sc, y_sc
+                rec_fold = _agg_day_scores(list(ev.get("per_day", {}).values())) if ev.get("per_day") else {}
+                rec_peak = rec_fold.get("facility_kw_mae_peak_05_09")
                 print(
-                    f"  fold{fold+1} TF peak={tf_scores[-1]['facility_kw_mae_peak_05_09']:.2f} "
-                    f"zone_mean={tf_scores[-1]['zone_temp_mae_mean']:.2f}°F",
+                    f"  fold{fold+1} TF_peak={tf_scores[-1]['facility_kw_mae_peak_05_09']:.2f} "
+                    f"rec_peak={rec_peak if rec_peak is not None else float('nan'):.2f} "
+                    f"zone_TF={tf_scores[-1]['zone_temp_mae_mean']:.2f}F",
                     flush=True,
                 )
 
@@ -408,12 +411,13 @@ def train_torch_baseline(
                 if cv_rec.get("n_heldout_days", 0)
                 else dict(NOT_EVALUATED_RECURSIVE),
             }
-            # Selection metric: recursive facility peak MAE if available else TF zone+kw
-            sel = cv_rec.get("facility_kw_mae_peak", cv_rec.get("facility_kw_mae"))
-            zone_sel = entry["cv_teacher_forced"].get("zone_temp_mae_mean", 99.0)
-            if sel is None or not np.isfinite(sel):
-                sel = entry["cv_teacher_forced"].get("facility_kw_mae_peak_05_09", 99.0) + zone_sel
-            entry["selection_score"] = float(sel) + 0.25 * float(zone_sel)
+            # Same selection metric as sklearn lean bake-off: recursive peak MAE.
+            peak_rec = cv_rec.get("facility_kw_mae_peak_05_09")
+            zone_tf = entry["cv_teacher_forced"].get("zone_temp_mae_mean", 99.0)
+            if peak_rec is None or not np.isfinite(peak_rec):
+                peak_rec = entry["cv_teacher_forced"].get("facility_kw_mae_peak_05_09", 99.0)
+            entry["peak_mae_kw"] = float(peak_rec)
+            entry["selection_score"] = float(peak_rec)  # apples-to-apples with sklearn champion
             leaderboard.append(entry)
             candidates[key] = {
                 "model": model,
@@ -423,24 +427,41 @@ def train_torch_baseline(
                 "entry": entry,
             }
             print(
-                f"  params={n_params} selection_score={entry['selection_score']:.3f} "
-                f"zone_TF={zone_sel:.2f}°F train={format_hms(elapsed)}",
+                f"  {key} recursive peak MAE={entry['peak_mae_kw']:.3f} "
+                f"zone_TF={zone_tf:.2f}F params={n_params} train={format_hms(elapsed)}",
                 flush=True,
             )
 
     leaderboard.sort(key=lambda e: e["selection_score"])
     champ_key = leaderboard[0]["key"]
     champ = candidates[champ_key]
-    print(f"champion={champ_key} (recursive-aware selection)", flush=True)
+    print("torch bake-off leaderboard (recursive peak MAE):", flush=True)
+    for e in leaderboard:
+        mark = " <-- WINNER" if e["key"] == champ_key else ""
+        peak = e.get("peak_mae_kw")
+        zone = (e.get("cv_teacher_forced") or {}).get("zone_temp_mae_mean")
+        print(f"  {e['key']}: peak={peak} zone_TF={zone}{mark}", flush=True)
+    print(f"champion={champ_key} (recursive peak MAE)", flush=True)
 
     # Locked final winter test — evaluate exactly once after selection
     final_days = [str(d) for d in split_manifest.get("final_winter_test", [])]
     locked: dict[str, Any]
     if final_days:
         locked_ev = evaluate_recursive_days(champ["wrap"], feat, final_days, cols, tcols)
-        locked = locked_ev if locked_ev.get("n_heldout_days", 0) else dict(NOT_EVALUATED_RECURSIVE)
-        if "per_day" in locked_ev:
-            locked = {**_agg_day_scores(list(locked_ev["per_day"].values())), "status": "evaluated"}
+        n_scored = int(locked_ev.get("n_heldout_days") or 0)
+        per_day = locked_ev.get("per_day") or {}
+        if n_scored <= 0 or not per_day:
+            locked = {
+                **dict(NOT_EVALUATED_RECURSIVE),
+                "reason": "final_winter_test days present but none scored",
+                "requested_days": final_days,
+            }
+        else:
+            locked = {
+                **_agg_day_scores(list(per_day.values())),
+                "status": "evaluated",
+                "n_heldout_days": n_scored,
+            }
     else:
         locked = {"status": "not_evaluated", "reason": "no final_winter_test days in manifest"}
 
