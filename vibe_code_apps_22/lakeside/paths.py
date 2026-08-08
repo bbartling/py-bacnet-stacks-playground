@@ -1,13 +1,16 @@
 """Lakeside Elementary — site data + app path resolution.
 
 Code lives in vibe_code_apps_22. Historian / packages / E+ runs stay on the
-site workspace (default: Desktop/testing/sp_creekside until folder renamed).
+site workspace.
 
 Env (any one works; first wins):
   LAKESIDE_SITE_ROOT
   VIBE22_SITE_ROOT
   VIBE22_CREEKSIDE_ROOT   # legacy
   VIBE23_CREEKSIDE_ROOT   # legacy
+
+No personal machine-path fallbacks. Set an env var or place the site next to
+the repo parent as ``sp_creekside`` / ``sp_lakeside``.
 """
 from __future__ import annotations
 
@@ -21,8 +24,6 @@ BUILDING_LABEL = "Lakeside Elementary School"
 SITE_REF = "spasd_lakeside_es"
 CAMPUS_ID = "lakeside_es"
 REGION_LABEL = "southern Wisconsin"
-
-_DEFAULT_SITE = Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
 
 
 def app_root() -> Path:
@@ -38,19 +39,24 @@ def site_root() -> Path:
     ):
         val = os.environ.get(key)
         if val:
-            return Path(val)
+            p = Path(val)
+            if not p.is_dir():
+                raise FileNotFoundError(f"{key}={val} is not a directory")
+            return p
 
     candidates = [
         APP_ROOT.parent.parent / "sp_creekside",
         APP_ROOT.parent.parent / "sp_lakeside",
-        Path.home() / "OneDrive" / "Desktop" / "testing" / "sp_creekside",
-        Path.home() / "OneDrive" / "Desktop" / "testing" / "sp_lakeside",
-        _DEFAULT_SITE,
+        APP_ROOT.parent / "sp_creekside",
+        APP_ROOT.parent / "sp_lakeside",
     ]
     for c in candidates:
         if c.is_dir() and (c / "reports").is_dir():
             return c
-    return _DEFAULT_SITE
+    raise FileNotFoundError(
+        "Set LAKESIDE_SITE_ROOT (or VIBE22_SITE_ROOT) to the site workspace "
+        "(expected reports/ under the site root)."
+    )
 
 
 def clean_data_building_dir() -> Path:
@@ -103,4 +109,3 @@ def resolve_eplus_model(name: str) -> Path:
     if pinned.is_file():
         return pinned
     return site
-

@@ -20,10 +20,6 @@ from eplus_calibrate_multires import _score_sim  # noqa: E402
 
 
 def main() -> int:
-    os.environ.setdefault(
-        "LAKESIDE_SITE_ROOT",
-        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-    )
     root = site_root()
     sim = root / "eplus" / "dsm_native" / "runs" / "dsm_repair_v1_full" / "sim"
     out = root / "reports" / "eplus" / "multires"
@@ -33,11 +29,11 @@ def main() -> int:
     aligned = products["hourly"]
     decomp = write_residual_decomposition(aligned, out / "decomposition")
     grey = write_greybox_report(aligned, out / "greybox")
-    raw = _score_sim(root, sim)
+    raw = _score_sim(root, sim, include_locked_holdout=False)
 
     comparison = {
         "operational_dsm_readiness": "NO-GO",
-        "product_claim": "HYBRID_SCREENING",
+        "product_claim": "DIAGNOSTIC_ONLY",
         "families": {
             "RAW_EPLUS_IDEALLOADS_FIXED_COP": {
                 "utility": {
@@ -46,12 +42,14 @@ def main() -> int:
                     "status": (raw.get("monthly_utility") or {}).get("status"),
                 },
                 "chrono_val_hourly": raw.get("hourly_chronological_validation"),
-                "locked_winter_hourly": raw.get("hourly_locked_winter_holdout"),
+                "note": "locked winter evaluated only via champion holdout report",
             },
-            "EPLUS_GREYBOX_PLANT_TRANSLATOR": {
+            "EPLUS_PROXY_CORRECTOR_DIAGNOSTIC": {
                 "champion": grey.get("champion"),
+                "product_claim": grey.get("product_claim"),
                 "chrono_val_leaderboard": grey.get("leaderboard_chrono_val"),
                 "locked_winter_holdout": grey.get("locked_winter_holdout"),
+                "post_holdout_generalization": grey.get("post_holdout_generalization"),
             },
             "RAW_EPLUS_PHYSICAL_HP_PLANT": {
                 "status": "design_only",

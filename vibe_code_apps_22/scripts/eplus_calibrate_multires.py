@@ -178,7 +178,7 @@ def _promotion_gate(metrics: dict[str, Any]) -> dict[str, Any]:
     util = metrics.get("monthly_utility") or {}
     interv = metrics.get("monthly_interval") or {}
     chrono = metrics.get("hourly_chronological_validation") or {}
-    winter = metrics.get("hourly_locked_winter_holdout") or {}
+    winter = metrics.get("hourly_locked_winter_holdout")
     q15 = metrics.get("q15") or {}
     reasons: list[str] = []
     if util.get("status") != "pass":
@@ -189,10 +189,15 @@ def _promotion_gate(metrics: dict[str, Any]) -> dict[str, Any]:
         reasons.append(f"monthly_interval={interv.get('status')}")
     if chrono.get("status") != "pass":
         reasons.append(f"chrono_val_hourly={chrono.get('status')}")
-    if winter.get("status") != "pass":
+    # Locked winter is only required when present (champion holdout report).
+    if winter is not None and winter.get("status") != "pass":
         reasons.append(f"locked_winter_hourly={winter.get('status')}")
-    if q15.get("status") not in {"diagnostic_only", "pass"} and q15.get("n", 0) < 96:
-        reasons.append("q15_peak_response_insufficient")
+    q15_n = int(q15.get("n") or 0)
+    q15_status = q15.get("status")
+    if q15_status not in {"diagnostic_only", "pass"} or q15_n < 96:
+        reasons.append(
+            f"q15_peak_response_insufficient(status={q15_status},n={q15_n})"
+        )
     # Zone/comfort: IdealLoads campaign does not yet publish zone MAE — fail closed
     zone = metrics.get("zone_temperature")
     if not zone or zone.get("status") not in {"pass"}:
@@ -210,13 +215,49 @@ def _promotion_gate(metrics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _post_run_metrics_from_score(
+    metrics: dict[str, Any],
+    *,
+    include_locked_holdout: bool = False,
+) -> dict[str, Any]:
+    """Shared schema for execute_trial and rescore trial metric documents."""
+    out: dict[str, Any] = {
+        "family_label": metrics.get("family_label"),
+        "monthly_utility": metrics["monthly_utility"],
+        "monthly_interval": metrics["monthly_interval"],
+        "hourly": metrics["hourly"],
+        "hourly_chronological_validation": metrics.get("hourly_chronological_validation"),
+        "hourly_calibration_development": metrics.get("hourly_calibration_development"),
+        "hourly_winter_peak_validation": metrics.get("hourly_winter_peak_validation"),
+        "hourly_annual_summer_generalization": metrics.get(
+            "hourly_annual_summer_generalization"
+        ),
+        "hourly_post_holdout_generalization": metrics.get(
+            "hourly_post_holdout_generalization"
+        ),
+        "q15": metrics["q15"],
+        "q15_chronological_validation": metrics.get("q15_chronological_validation"),
+        "day_level_peaks_chrono_val": metrics.get("day_level_peaks_chrono_val"),
+        "aligned_hourly_n": metrics["aligned_hourly_n"],
+        "aligned_15_n": metrics["aligned_15_n"],
+        "provenance": metrics.get("provenance"),
+        "include_locked_holdout": bool(include_locked_holdout),
+    }
+    if include_locked_holdout:
+        out["hourly_locked_winter_holdout"] = metrics.get("hourly_locked_winter_holdout")
+    return out
+
+
 def _score_sim(
     root: Path,
     sim_dir: Path,
     *,
     heat_cop: float = 3.5,
     cool_cop: float = 4.5,
+    include_locked_holdout: bool = False,
 ) -> dict[str, Any]:
+    from eplus_validation_contract import day_level_peak_metrics, period_mask
+
     products = build_hourly_and_15min(root, sim_dir, heat_cop=heat_cop, cool_cop=cool_cop)
     aligned_h = products["hourly"]
     aligned_15 = products["q15"]
@@ -230,19 +271,32 @@ def _score_sim(
         "hourly_calibration_development": score_period(aligned_h, "calibration_development"),
         "hourly_chronological_validation": score_period(aligned_h, "chronological_validation"),
         "hourly_winter_peak_validation": score_period(aligned_h, "winter_peak_validation"),
-        "hourly_locked_winter_holdout": score_period(aligned_h, "locked_winter_holdout"),
+        "hourly_post_holdout_generalization": score_period(
+            aligned_h, "post_holdout_generalization"
+        ),
         "hourly_annual_summer_generalization": score_period(
             aligned_h, "annual_summer_generalization"
         ),
     }
-    # 15-min ramp diagnostic on chrono val
-    try:
-        from eplus_validation_contract import period_mask
+    # Candidate scoring never computes locked holdout metrics.
+    if include_locked_holdout:
+        period_scores["hourly_locked_winter_holdout"] = score_period(
+            aligned_h, "locked_winter_holdout"
+        )
 
+    try:
         m15 = period_mask(aligned_15, "chronological_validation")
         q15_val = score_aligned(aligned_15.loc[m15], resolution="15min") if m15.any() else None
     except Exception:
         q15_val = None
+
+    try:
+        m_val = period_mask(aligned_h, "chronological_validation")
+        day_peaks = (
+            day_level_peak_metrics(aligned_h.loc[m_val]) if m_val.any() else None
+        )
+    except Exception:
+        day_peaks = None
 
     ranking = _rank_candidate(
         util, interv, period_scores["hourly_chronological_validation"]
@@ -255,6 +309,7 @@ def _score_sim(
         "monthly_interval": interv,
         "chronological_periods": periods,
         **period_scores,
+        "day_level_peaks_chrono_val": day_peaks,
         "aligned_hourly_n": int(len(aligned_h)),
         "aligned_15_n": int(len(aligned_15)),
         "provenance": {
@@ -263,9 +318,59 @@ def _score_sim(
         },
         "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
         "ranking": ranking,
+        "include_locked_holdout": bool(include_locked_holdout),
     }
     out["promotion"] = _promotion_gate(out)
     return out
+
+
+def evaluate_selected_champion_holdout(
+    root: Path,
+    sim_dir: Path,
+    *,
+    champion_id: str,
+    selection_artifact_hash: str,
+    heat_cop: float = 3.5,
+    cool_cop: float = 4.5,
+) -> dict[str, Any]:
+    """Immutable locked-winter report for the selected champion only — never reranks."""
+    from eplus_validation_contract import day_level_peak_metrics, period_mask
+
+    scored = _score_sim(
+        root,
+        sim_dir,
+        heat_cop=heat_cop,
+        cool_cop=cool_cop,
+        include_locked_holdout=True,
+    )
+    winter = scored.get("hourly_locked_winter_holdout")
+    day_peaks = None
+    try:
+        products = build_hourly_and_15min(
+            root, sim_dir, heat_cop=heat_cop, cool_cop=cool_cop
+        )
+        aligned_h = products["hourly"]
+        m_w = period_mask(aligned_h, "locked_winter_holdout")
+        if m_w.any():
+            day_peaks = day_level_peak_metrics(aligned_h.loc[m_w])
+    except Exception as e:
+        day_peaks = {"status": "error", "error": str(e)}
+    return {
+        "schema": "champion_locked_holdout_report_v1",
+        "champion_id": champion_id,
+        "selection_artifact_hash": selection_artifact_hash,
+        "evaluated_utc": _utc(),
+        "hourly_locked_winter_holdout": winter,
+        "day_level_peaks_locked_winter": day_peaks,
+        "chronological_periods": scored.get("chronological_periods"),
+        "reranked_after_holdout": False,
+        "operational_dsm_readiness": "NO-GO",
+        "holdout_pass": (winter or {}).get("status") == "pass",
+        "note": (
+            "Holdout failure retains the selected champion; report failure only. "
+            "Never rerank after seeing holdout."
+        ),
+    }
 
 
 def _write_trial_result(trial_dir: Path, payload: dict[str, Any]) -> None:
@@ -370,7 +475,9 @@ def execute_trial(
             _write_trial_result(trial_dir, result)
             return result
 
-        metrics = _score_sim(root, sim_dir, heat_cop=heat_cop, cool_cop=cool_cop)
+        metrics = _score_sim(
+            root, sim_dir, heat_cop=heat_cop, cool_cop=cool_cop, include_locked_holdout=False
+        )
         # Persist trial-specific monthly pairs beside result
         pairs = (metrics.get("monthly_utility") or {}).get("monthly_pairs") or []
         if pairs:
@@ -380,24 +487,9 @@ def execute_trial(
                 w = csv.DictWriter(f, fieldnames=["month", "kwh_obs", "kwh_sim"])
                 w.writeheader()
                 w.writerows(pairs)
-        result["post_run_metrics"] = {
-            "family_label": metrics.get("family_label"),
-            "monthly_utility": metrics["monthly_utility"],
-            "monthly_interval": metrics["monthly_interval"],
-            "hourly": metrics["hourly"],
-            "hourly_chronological_validation": metrics.get("hourly_chronological_validation"),
-            "hourly_locked_winter_holdout": metrics.get("hourly_locked_winter_holdout"),
-            "hourly_calibration_development": metrics.get("hourly_calibration_development"),
-            "hourly_winter_peak_validation": metrics.get("hourly_winter_peak_validation"),
-            "hourly_annual_summer_generalization": metrics.get(
-                "hourly_annual_summer_generalization"
-            ),
-            "q15": metrics["q15"],
-            "q15_chronological_validation": metrics.get("q15_chronological_validation"),
-            "aligned_hourly_n": metrics["aligned_hourly_n"],
-            "aligned_15_n": metrics["aligned_15_n"],
-            "provenance": metrics.get("provenance"),
-        }
+        result["post_run_metrics"] = _post_run_metrics_from_score(
+            metrics, include_locked_holdout=False
+        )
         result["chronological_periods"] = metrics["chronological_periods"]
         result["ranking"] = metrics["ranking"]
         promo = metrics["promotion"]
@@ -418,28 +510,49 @@ def execute_trial(
 
 
 def _rescore_existing_campaign(camp: Path) -> int:
-    """Recompute trial-specific utility + period metrics for existing E+ outputs."""
-    os.environ.setdefault(
-        "LAKESIDE_SITE_ROOT",
-        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-    )
+    """Recompute trial metrics without mutating the original execution summary.
+
+    Writes ``summary_rescored_<timestamp>.json`` and a pointer file. Never
+    overwrites ``summary.json``. Preserves failed/rejected trial statuses.
+    """
     root = site_root()
+    camp = Path(camp)
     trials_dir = camp / "trials"
     if not trials_dir.is_dir():
         print(f"missing trials dir {trials_dir}", file=sys.stderr)
         return 2
+
+    original_summary_path = camp / "summary.json"
+    original_summary = None
+    original_summary_sha = None
+    if original_summary_path.is_file():
+        raw = original_summary_path.read_bytes()
+        original_summary_sha = hashlib.sha256(raw).hexdigest()
+        try:
+            original_summary = json.loads(raw.decode("utf-8"))
+        except Exception as e:
+            print(f"WARNING: could not parse original summary.json: {e}", file=sys.stderr)
+
     executed: list[dict[str, Any]] = []
     for td in sorted(trials_dir.iterdir()):
-        sim = td / "sim"
-        if not (sim / "eplusmtr.csv").is_file():
+        if not td.is_dir():
             continue
-        prev = {}
         trp = td / "trial_result.json"
+        prev: dict[str, Any] = {}
         if trp.is_file():
             prev = json.loads(trp.read_text(encoding="utf-8"))
-        print(f"RESCORE {td.name}", flush=True)
+        original_status = prev.get("status")
+        sim = td / "sim"
+        # Only rescore trials that previously succeeded with meters present.
+        if original_status in {"failed", "rejected", "planned", "running"}:
+            executed.append(prev)
+            continue
+        if not (sim / "eplusmtr.csv").is_file():
+            executed.append(prev)
+            continue
+        print(f"RESCORE {td.name} (preserving status={original_status})", flush=True)
         try:
-            metrics = _score_sim(root, sim)
+            metrics = _score_sim(root, sim, include_locked_holdout=False)
             pairs = (metrics.get("monthly_utility") or {}).get("monthly_pairs") or []
             if pairs:
                 import csv
@@ -450,34 +563,18 @@ def _rescore_existing_campaign(camp: Path) -> int:
                     w = csv.DictWriter(f, fieldnames=["month", "kwh_obs", "kwh_sim"])
                     w.writeheader()
                     w.writerows(pairs)
-            prev["post_run_metrics"] = {
-                "family_label": metrics.get("family_label"),
-                "monthly_utility": metrics["monthly_utility"],
-                "monthly_interval": metrics["monthly_interval"],
-                "hourly": metrics["hourly"],
-                "hourly_chronological_validation": metrics.get(
-                    "hourly_chronological_validation"
-                ),
-                "hourly_locked_winter_holdout": metrics.get("hourly_locked_winter_holdout"),
-                "hourly_calibration_development": metrics.get(
-                    "hourly_calibration_development"
-                ),
-                "hourly_winter_peak_validation": metrics.get(
-                    "hourly_winter_peak_validation"
-                ),
-                "hourly_annual_summer_generalization": metrics.get(
-                    "hourly_annual_summer_generalization"
-                ),
-                "q15": metrics["q15"],
-                "aligned_hourly_n": metrics["aligned_hourly_n"],
-                "aligned_15_n": metrics["aligned_15_n"],
-                "provenance": metrics.get("provenance"),
-            }
+            prev["post_run_metrics"] = _post_run_metrics_from_score(
+                metrics, include_locked_holdout=False
+            )
             prev["ranking"] = metrics["ranking"]
             prev["promote_allowed"] = metrics["promotion"]["promote_allowed"]
             prev["promote_block_reasons"] = metrics["promotion"]["promote_block_reasons"]
             prev["operational_dsm_readiness"] = "NO-GO"
-            prev["status"] = "succeeded"
+            # Never promote failed/rejected → succeeded
+            if original_status:
+                prev["status"] = original_status
+            elif prev.get("status") not in {"succeeded", "failed", "rejected"}:
+                prev["status"] = "succeeded"
             prev["rescored_utc"] = _utc()
             prev["trial_id"] = td.name
             prev["knobs"] = prev.get("knobs") or {}
@@ -485,10 +582,18 @@ def _rescore_existing_campaign(camp: Path) -> int:
             executed.append(prev)
         except Exception as e:
             print(f"  FAIL {td.name}: {e}", file=sys.stderr)
-    # Build leaderboard (same as main)
+            prev["rescore_error"] = str(e)
+            executed.append(prev)
+
     board = []
     for r in executed:
+        if r.get("status") != "succeeded":
+            continue
         prm = r.get("post_run_metrics") or {}
+        if "hourly_locked_winter_holdout" in prm:
+            raise RuntimeError(
+                "candidate post_run_metrics must not contain locked holdout after rescore"
+            )
         util = prm.get("monthly_utility") or {}
         interv = prm.get("monthly_interval") or {}
         chrono = prm.get("hourly_chronological_validation") or {}
@@ -512,19 +617,50 @@ def _rescore_existing_campaign(camp: Path) -> int:
             }
         )
     board.sort(key=lambda x: x.get("rank_key") or (1, 1, 1e9))
-    champion_winter = None
+
+    selection_blob = json.dumps(board, sort_keys=True, default=str).encode()
+    selection_hash = hashlib.sha256(selection_blob).hexdigest()
+    holdout_report = None
     if board:
         champ = board[0]["trial_id"]
-        for r in executed:
-            if r["trial_id"] == champ:
-                champion_winter = (r.get("post_run_metrics") or {}).get(
-                    "hourly_locked_winter_holdout"
-                )
+        champ_sim = camp / "trials" / champ / "sim"
+        if (champ_sim / "eplusmtr.csv").is_file():
+            holdout_report = evaluate_selected_champion_holdout(
+                root,
+                champ_sim,
+                champion_id=champ,
+                selection_artifact_hash=selection_hash,
+            )
+            (camp / "champion_locked_holdout_report.json").write_text(
+                json.dumps(holdout_report, indent=2, default=str) + "\n",
+                encoding="utf-8",
+            )
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     summary = {
         "run_id": camp.name,
         "campaign_dir": str(camp.resolve()),
         "rescored": True,
-        "n_succeeded": len(executed),
+        "rescored_utc": _utc(),
+        "original_summary_path": str(original_summary_path) if original_summary_path.is_file() else None,
+        "original_summary_sha256": original_summary_sha,
+        "original_execution_provenance": {
+            "parent_idf_sha256": (original_summary or {}).get("parent_idf_sha256"),
+            "epw_sha256": (original_summary or {}).get("epw_sha256"),
+            "n_executed_attempted": (original_summary or {}).get("n_executed_attempted"),
+            "n_succeeded": (original_summary or {}).get("n_succeeded"),
+            "n_failed": (original_summary or {}).get("n_failed"),
+            "n_rejected": (original_summary or {}).get("n_rejected"),
+            "energyplus_version": (original_summary or {}).get("energyplus_version"),
+            "note": (
+                "Original summary.json is immutable. If these fields are null, "
+                "provenance was previously overwritten and must be reconstructed "
+                "from trial manifests / ledger."
+            ),
+        },
+        "n_succeeded": sum(1 for r in executed if r.get("status") == "succeeded"),
+        "n_failed": sum(1 for r in executed if r.get("status") == "failed"),
+        "n_rejected": sum(1 for r in executed if r.get("status") == "rejected"),
         "leaderboard": board,
         "utility_monthly_table": [
             {
@@ -536,19 +672,39 @@ def _rescore_existing_campaign(camp: Path) -> int:
             for b in board
         ],
         "best_after": board[0] if board else None,
-        "champion_locked_winter_evaluated_once": champion_winter,
+        "selection_artifact_hash": selection_hash,
+        "champion_locked_holdout_report": holdout_report,
         "operational_dsm_readiness": "NO-GO",
         "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
+        "baseline_parent_note": (
+            "If best trial knobs are identity (equip_mult=1.0 etc.), that is the "
+            "unchanged parent/baseline — not a materially improved model."
+        ),
     }
-    (camp / "summary_rescored.json").write_text(
-        json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
+    out_name = f"summary_rescored_{ts}.json"
+    out_path = camp / out_name
+    out_path.write_text(json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8")
+    (camp / "summary_rescored_latest.json").write_text(
+        json.dumps(
+            {
+                "pointer": out_name,
+                "sha256": hashlib.sha256(out_path.read_bytes()).hexdigest(),
+                "original_summary_sha256": original_summary_sha,
+                "written_utc": _utc(),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
-    (camp / "summary.json").write_text(
-        json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
-    )
+    # CRITICAL: never overwrite original summary.json
+    if original_summary_path.is_file():
+        after = hashlib.sha256(original_summary_path.read_bytes()).hexdigest()
+        if original_summary_sha and after != original_summary_sha:
+            raise RuntimeError("rescore mutated summary.json — abort")
     mirror = _APP / "ml" / "artifacts" / "eplus_campaigns"
     mirror.mkdir(parents=True, exist_ok=True)
-    (mirror / "latest_summary.json").write_text(
+    (mirror / "latest_summary_rescored.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"
     )
     print(json.dumps(summary, indent=2, default=str))
@@ -604,10 +760,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    os.environ.setdefault(
-        "LAKESIDE_SITE_ROOT",
-        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-    )
     root = site_root()
     registry = _load_registry()
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
@@ -665,7 +817,7 @@ def main(argv: list[str] | None = None) -> int:
 
     max_n = 2 if args.smoke else int(args.max_trials)
     if args.multi_param_smoke:
-        plan = _multi_param_smoke_plan()[: max(3, max_n)]
+        plan = _multi_param_smoke_plan()[:max_n]
         rejected_audit = []
     elif args.stage == "all":
         plan = _bounded_executable_plan(registry, max_trials=max_n)
@@ -712,12 +864,14 @@ def main(argv: list[str] | None = None) -> int:
     n_fail = sum(1 for r in executed if r.get("status") == "failed")
     n_rej = sum(1 for r in executed if r.get("status") == "rejected") + len(rejected_audit)
 
-    # Leaderboard from succeeded only — rank on chrono-val + trial utility (NOT all-period / holdout)
+    # Leaderboard from succeeded only — rank on chrono-val + trial utility (NOT holdout)
     board = []
     for r in executed:
         if r.get("status") != "succeeded":
             continue
         prm = r.get("post_run_metrics") or {}
+        if "hourly_locked_winter_holdout" in prm:
+            raise RuntimeError("candidate metrics must not include locked holdout")
         util = prm.get("monthly_utility") or {}
         interv = prm.get("monthly_interval") or {}
         chrono = prm.get("hourly_chronological_validation") or {}
@@ -733,7 +887,6 @@ def main(argv: list[str] | None = None) -> int:
                 "chrono_val_hourly_cvrmse_pct": chrono.get("cvrmse_pct"),
                 "chrono_val_hourly_rmse_kw": chrono.get("rmse_kw"),
                 "chrono_val_hourly_status": chrono.get("status"),
-                # all-period published for audit only — not used in rank_key
                 "all_period_hourly_cvrmse_pct": (prm.get("hourly") or {}).get("cvrmse_pct"),
                 "rank_key": (r.get("ranking") or {}).get("rank_key"),
                 "ranking_uses_holdout": False,
@@ -743,39 +896,54 @@ def main(argv: list[str] | None = None) -> int:
         )
     board.sort(key=lambda x: x.get("rank_key") or (1, 1, 1e9))
 
-    # Evaluate locked winter holdout ONCE on the selected champion (already scored per trial;
-    # surface only the winner's winter metrics as the official post-selection evaluation).
-    champion_winter = None
-    if board:
+    selection_blob = json.dumps(board, sort_keys=True, default=str).encode()
+    selection_hash = hashlib.sha256(selection_blob).hexdigest()
+    holdout_report = None
+    if board and args.run_eplus:
         champ_id = board[0]["trial_id"]
-        for r in executed:
-            if r.get("trial_id") == champ_id and r.get("status") == "succeeded":
-                champion_winter = (r.get("post_run_metrics") or {}).get(
-                    "hourly_locked_winter_holdout"
-                )
-                break
+        champ_sim = camp / "trials" / champ_id / "sim"
+        if (champ_sim / "eplusmtr.csv").is_file():
+            holdout_report = evaluate_selected_champion_holdout(
+                root,
+                champ_sim,
+                champion_id=champ_id,
+                selection_artifact_hash=selection_hash,
+            )
+            (camp / "champion_locked_holdout_report.json").write_text(
+                json.dumps(holdout_report, indent=2, default=str) + "\n",
+                encoding="utf-8",
+            )
 
-    # Structural verdict: chrono-val hourly gate
+    # Structural verdict: distinguish FAIL vs INSUFFICIENT_DATA
+    statuses = [b.get("chrono_val_hourly_status") for b in board]
+    all_fail = bool(board) and all(s == "fail" for s in statuses)
+    all_insufficient = bool(board) and all(s == "insufficient_data" for s in statuses)
+    mixed_or_partial = bool(board) and not all_fail and not all_insufficient and all(
+        s != "pass" for s in statuses
+    )
     structural = {
         "physics": registry.get("physics"),
         "n_executed_succeeded": n_succ,
-        "all_succeeded_fail_chrono_val_hourly": bool(board)
-        and all(b.get("chrono_val_hourly_status") != "pass" for b in board),
+        "all_succeeded_fail_chrono_val_hourly": all_fail,
+        "all_succeeded_insufficient_chrono_val_hourly": all_insufficient,
         "verdict": None,
         "recommendation": None,
-        "champion_locked_winter_holdout": champion_winter,
+        "champion_locked_holdout_report": holdout_report,
         "family_label": "RAW_EPLUS_IDEALLOADS_FIXED_COP",
     }
     if args.run_eplus and n_succ >= 1:
-        if structural["all_succeeded_fail_chrono_val_hourly"]:
-            structural["verdict"] = (
-                "BOUNDED_SEARCH_FAILED_HOURLY — IdealLoads+fixed-COP did not meet "
-                "chrono-validation hourly screen under executed knobs; do not claim GSHP plant fidelity"
+        if all_insufficient:
+            structural["verdict"] = "INSUFFICIENT_DATA"
+            structural["recommendation"] = (
+                "Chrono-validation windows empty or too short — expand AMY overlap "
+                "before interpreting IdealLoads+fixed-COP screen failure"
             )
+        elif all_fail or mixed_or_partial:
+            structural["verdict"] = "FAIL"
             structural["recommendation"] = (
                 "A) Build physically meaningful plant/heat-pump model, or "
                 "B) Restrict E+ to monthly/engineering benchmark; use measured-data ML "
-                "for absolute facility kW and zone temperatures / grey-box translator"
+                "for absolute facility kW. Proxy corrector remains DIAGNOSTIC_ONLY."
             )
         else:
             structural["verdict"] = "at_least_one_trial_passed_chrono_val_hourly_screen"
@@ -790,6 +958,7 @@ def main(argv: list[str] | None = None) -> int:
         "plan_only": bool(args.plan_only),
         "run_eplus": bool(args.run_eplus),
         "smoke": bool(args.smoke),
+        "energyplus_version": energyplus_version(),
         "parent_idf_sha256": sha256_file(idf),
         "epw_sha256": sha256_file(epw),
         "n_planned_executable": len(plan),
@@ -799,6 +968,7 @@ def main(argv: list[str] | None = None) -> int:
         "n_rejected": n_rej,
         "n_planned_not_counted_as_success": len(plan) if args.plan_only else 0,
         "leaderboard": board,
+        "selection_artifact_hash": selection_hash,
         "utility_monthly_table": [
             {
                 "trial_id": b["trial_id"],
@@ -823,7 +993,11 @@ def main(argv: list[str] | None = None) -> int:
             "n": before_util.get("n"),
         },
         "best_after": after_best,
-        "champion_locked_winter_evaluated_once": champion_winter,
+        "baseline_parent_note": (
+            "If best trial knobs are identity multipliers, that is the unchanged "
+            "parent/baseline — not a materially improved model."
+        ),
+        "champion_locked_holdout_report": holdout_report,
         "structural": structural,
         "validation_before_overall": validation["overall"],
         "champion_protected": True,
@@ -835,6 +1009,7 @@ def main(argv: list[str] | None = None) -> int:
             "annual_summer_generalization"
         ),
         "operational_dsm_readiness": "NO-GO",
+        "written_utc": _utc(),
     }
     (camp / "summary.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n", encoding="utf-8"

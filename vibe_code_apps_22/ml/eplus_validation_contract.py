@@ -264,6 +264,26 @@ def observed_monthly_utility_path(root: Path) -> Path:
     return Path(root) / "reports" / "eplus" / "observed_monthly_utility.csv"
 
 
+def parse_complete_month_flag(val: Any) -> bool:
+    """Parse textual/numeric ``complete_month`` values fail-closed."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, np.integer)):
+        if int(val) in (0, 1):
+            return bool(int(val))
+        raise AlignmentError(f"unparseable complete_month int: {val!r}")
+    if isinstance(val, float):
+        if val in (0.0, 1.0) and val == val:
+            return bool(int(val))
+        raise AlignmentError(f"unparseable complete_month float: {val!r}")
+    s = str(val).strip().lower()
+    if s in {"true", "1", "yes", "y"}:
+        return True
+    if s in {"false", "0", "no", "n", ""}:
+        return False
+    raise AlignmentError(f"unparseable complete_month value: {val!r}")
+
+
 def load_observed_monthly_utility(root: Path) -> pd.DataFrame:
     """Load the 10 complete utility-bill months (fixed measured source)."""
     path = observed_monthly_utility_path(root)
@@ -274,7 +294,8 @@ def load_observed_monthly_utility(root: Path) -> pd.DataFrame:
     if not need.issubset(df.columns):
         raise AlignmentError(f"{path} needs columns {need}")
     if "complete_month" in df.columns:
-        df = df[df["complete_month"].astype(bool)].copy()
+        mask = df["complete_month"].map(parse_complete_month_flag)
+        df = df.loc[mask].copy()
     if "source" in df.columns and (df["source"] != "utility_bill").any():
         raise AlignmentError("observed_monthly_utility.csv contains non-utility_bill rows")
     if df.empty:
@@ -282,24 +303,36 @@ def load_observed_monthly_utility(root: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+# Expected 15-min intervals in a non-DST month (31d * 96); DST months vary ±1h.
+_MIN_COMPLETE_MONTH_INTERVALS = 28 * 96  # fail incomplete calendar months
+
+
 def trial_simulated_monthly_kwh(
     sim_dir: Path,
     *,
     heat_cop: float = 3.5,
     cool_cop: float = 4.5,
+    min_intervals: int = _MIN_COMPLETE_MONTH_INTERVALS,
 ) -> pd.DataFrame:
-    """Aggregate trial proxy kW → monthly kWh (interval-end LST→UTC policy)."""
+    """Aggregate trial proxy kW → monthly kWh with interval-completeness guard."""
     mod = parse_eplus_proxy_to_utc(sim_dir, heat_cop=heat_cop, cool_cop=cool_cop)
     # 15-min mean kW × 0.25 h = kWh
     df = mod.copy()
     df["kwh"] = df["simulated_kw"].astype(float) * 0.25
-    df["month"] = (
-        pd.to_datetime(df["interval_end_utc"], utc=True)
-        .dt.tz_convert("America/Chicago")
-        .dt.strftime("%Y-%m")
+    local = pd.to_datetime(df["interval_end_utc"], utc=True).dt.tz_convert("America/Chicago")
+    df["month"] = local.dt.strftime("%Y-%m")
+    grouped = df.groupby("month", as_index=False).agg(
+        kwh_sim=("kwh", "sum"),
+        n_intervals=("kwh", "count"),
     )
-    out = df.groupby("month", as_index=False)["kwh"].sum().rename(columns={"kwh": "kwh_sim"})
-    return out
+    # Drop incomplete months (edge AMY months); pairing later fails closed if needed.
+    complete = grouped[grouped["n_intervals"] >= int(min_intervals)].copy()
+    dropped = grouped[grouped["n_intervals"] < int(min_intervals)]
+    if len(dropped):
+        complete.attrs["dropped_incomplete_months"] = dropped[
+            ["month", "n_intervals"]
+        ].to_dict(orient="records")
+    return complete[["month", "kwh_sim"]]
 
 
 def utility_monthly_from_trial_sim(
@@ -479,60 +512,99 @@ def json_load(path: Path) -> dict:
 
 
 # Fixed a-priori winter holdout for Lakeside AMY (chosen before examining trial metrics).
+# Forward-only policy: train → selection val → locked January → Feb–Mar post-holdout only.
 LOCKED_WINTER_HOLDOUT_START = pd.Timestamp("2026-01-01", tz="UTC")
 LOCKED_WINTER_HOLDOUT_END = pd.Timestamp("2026-02-01", tz="UTC")
+CALIB_END = pd.Timestamp("2025-12-15", tz="UTC")
+SELECTION_VAL_END = pd.Timestamp("2026-01-01", tz="UTC")  # Dec 15 → Jan 1 (exclusive)
+POST_HOLDOUT_START = pd.Timestamp("2026-02-01", tz="UTC")
+POST_HOLDOUT_END = pd.Timestamp("2026-04-01", tz="UTC")
 
 
 def chronological_splits(
     aligned: pd.DataFrame,
     *,
     ts_col: str = "interval_end_utc",
+    require_nonempty: bool = True,
 ) -> dict[str, Any]:
-    """Explicit chronological periods — no random split; winter holdout never ranks.
+    """Explicit forward chronological periods — no random split; winter never ranks.
 
-    Periods (AMY ~ Aug 2025 .. Jul 2026):
-      - calibration_development: data start → 2025-12-15 (tuning)
-      - chronological_validation: 2025-12-15 → 2026-01-01 and 2026-02-01 → 2026-04-01
-        (candidate selection ONLY; January excluded)
-      - winter_peak_validation: Feb 2026 peak-window diagnostics (not for ranking)
-      - locked_winter_holdout: 2026-01-01 → 2026-02-01 (evaluate once after champion)
-      - annual_summer_generalization: final 30 days (June-ish; never for ranking)
+    Locked January cold-month policy (AMY ~ Aug 2025 .. Jul 2026):
+      - calibration_development: data start → 2025-12-15
+      - chronological_validation: 2025-12-15 → 2026-01-01 (selection only; forward)
+      - locked_winter_holdout: 2026-01-01 → 2026-02-01 (champion only, after selection)
+      - post_holdout_generalization: 2026-02-01 → 2026-04-01 (never for training/selection)
+      - winter_peak_validation: Feb 1–15 diagnostics (subset of post-holdout)
+      - annual_summer_generalization: final 30 days (never for ranking)
 
-    Legacy key ``locked_final_holdout`` aliases ``annual_summer_generalization`` for
-    older readers; do not treat it as winter.
+    Every training timestamp precedes every validation timestamp precedes holdout.
+    Not nested chronological CV (no rolling-origin inner folds).
     """
     ts = pd.to_datetime(aligned[ts_col], utc=True)
+    if ts.empty:
+        raise AlignmentError("chronological_splits: empty aligned series")
     t_min = ts.min()
     t_max = ts.max()
-    calib_end = pd.Timestamp("2025-12-15", tz="UTC")
+    calib_end = CALIB_END
+    val_end = SELECTION_VAL_END
     jan_start = LOCKED_WINTER_HOLDOUT_START
     jan_end = LOCKED_WINTER_HOLDOUT_END
-    val_resume = jan_end
-    val_end = pd.Timestamp("2026-04-01", tz="UTC")
+    post_start = POST_HOLDOUT_START
+    post_end = POST_HOLDOUT_END
     peak_start = pd.Timestamp("2026-02-01", tz="UTC")
     peak_end = pd.Timestamp("2026-02-15", tz="UTC")
     summer_start = t_max - pd.Timedelta(days=30)
 
+    # Fail loudly if critical forward-policy anchors are outside the data span.
+    # post_holdout_end may extend past t_max (partial Feb–Mar still OK).
+    required_anchors = {
+        "calib_end": calib_end,
+        "selection_val_end": val_end,
+        "locked_winter_start": jan_start,
+        "locked_winter_end": jan_end,
+    }
+    for name, anchor in required_anchors.items():
+        if anchor < t_min or anchor > t_max + pd.Timedelta(hours=1):
+            raise AlignmentError(
+                f"AMY period anchor {name}={anchor} outside data range "
+                f"[{t_min} .. {t_max}]"
+            )
+
     def mask_range(start, end):
         return (ts >= start) & (ts < end)
 
-    chrono_mask = mask_range(calib_end, jan_start) | mask_range(val_resume, val_end)
+    # Strict forward order assertions
+    if not (t_min < calib_end <= val_end <= jan_start < jan_end <= post_start < post_end):
+        raise AlignmentError("chronological period anchors violate forward-time order")
+
+    n_calib = int(mask_range(t_min, calib_end).sum())
+    n_val = int(mask_range(calib_end, val_end).sum())
+    n_winter = int(mask_range(jan_start, jan_end).sum())
+    n_post = int(mask_range(post_start, post_end).sum())
+    if require_nonempty:
+        for label, n in (
+            ("calibration_development", n_calib),
+            ("chronological_validation", n_val),
+            ("locked_winter_holdout", n_winter),
+        ):
+            if n <= 0:
+                raise AlignmentError(f"chronological period {label} is empty")
+
     periods = {
         "calibration_development": {
             "start": str(t_min),
             "end": str(calib_end),
-            "n": int(mask_range(t_min, calib_end).sum()),
+            "n": n_calib,
             "role": "tuning_allowed",
         },
         "chronological_validation": {
-            "start": f"{calib_end.isoformat()}/{val_resume.isoformat()}",
+            "start": str(calib_end),
             "end": str(val_end),
-            "segments": [
-                {"start": str(calib_end), "end": str(jan_start)},
-                {"start": str(val_resume), "end": str(val_end)},
-            ],
-            "n": int(chrono_mask.sum()),
+            "segments": [{"start": str(calib_end), "end": str(val_end)}],
+            "n": n_val,
             "role": "selection_allowed_not_final",
+            "forward_only": True,
+            "excludes_post_january": True,
         },
         "winter_peak_validation": {
             "start": str(peak_start),
@@ -543,10 +615,20 @@ def chronological_splits(
         "locked_winter_holdout": {
             "start": str(jan_start),
             "end": str(jan_end),
-            "n": int(mask_range(jan_start, jan_end).sum()),
+            "n": n_winter,
             "role": "locked_no_tuning_evaluate_once",
             "chosen_a_priori": True,
-            "rationale": "Full January 2026 locked before any trial ranking (cold-weather DSM)",
+            "rationale": (
+                "Full January 2026 locked before any trial ranking; never train/refit "
+                "on Feb–Mar before this evaluation"
+            ),
+        },
+        "post_holdout_generalization": {
+            "start": str(post_start),
+            "end": str(post_end),
+            "n": n_post,
+            "role": "external_post_holdout_only",
+            "note": "Feb–Mar never used for training or candidate selection",
         },
         "annual_summer_generalization": {
             "start": str(summer_start),
@@ -562,11 +644,17 @@ def chronological_splits(
             "role": "alias_of_annual_summer_generalization",
             "warning": "Not a winter holdout — use locked_winter_holdout",
         },
+        "policy": {
+            "name": "forward_january_locked_cold_month_v2",
+            "nested_chronological_cv": False,
+            "train_before_val_before_holdout": True,
+        },
     }
     periods["notes"] = (
-        "Rank candidates on chronological_validation hourly (+ monthly gates) only. "
+        "Rank candidates on chronological_validation (Dec 15–31) hourly (+ monthly gates) only. "
         "Evaluate locked_winter_holdout exactly once after champion selection. "
-        "annual_summer_generalization (former last-30-days) never influences ranking."
+        "Feb–Mar is post_holdout_generalization only — never train/refit before January eval. "
+        "Not nested chronological CV."
     )
     if periods["locked_winter_holdout"]["n"] < 24 * 7:
         periods["limitation"] = (
@@ -583,7 +671,7 @@ def period_mask(
 ) -> pd.Series:
     """Boolean mask for a named chronological period (no leakage helpers)."""
     ts = pd.to_datetime(aligned[ts_col], utc=True)
-    periods = chronological_splits(aligned, ts_col=ts_col)
+    periods = chronological_splits(aligned, ts_col=ts_col, require_nonempty=False)
     if period_name == "chronological_validation":
         segs = periods["chronological_validation"]["segments"]
         mask = pd.Series(False, index=aligned.index)
@@ -599,6 +687,88 @@ def period_mask(
     if period_name == "annual_summer_generalization" or period_name == "locked_final_holdout":
         return ts >= start
     return (ts >= start) & (ts < end)
+
+
+def day_level_peak_metrics(
+    aligned: pd.DataFrame,
+    *,
+    ts_col: str = "interval_end_utc",
+    obs_col: str = "observed_kw",
+    sim_col: str = "simulated_kw",
+    local_tz: str = "America/Chicago",
+) -> dict[str, Any]:
+    """Per-complete-day peak magnitude/timing (circular hours) — never multi-month argmax."""
+    df = aligned.copy()
+    df[ts_col] = pd.to_datetime(df[ts_col], utc=True)
+    local = df[ts_col].dt.tz_convert(local_tz)
+    df["local_date"] = local.dt.strftime("%Y-%m-%d")
+    df["local_hour"] = local.dt.hour + local.dt.minute / 60.0
+    rows: list[dict[str, Any]] = []
+    for day, g in df.groupby("local_date"):
+        # Complete civil day ≈ 24 hourly points (allow 23–25 for DST)
+        if len(g) < 23:
+            continue
+        yt = g[obs_col].to_numpy(dtype=float)
+        yp = g[sim_col].to_numpy(dtype=float)
+        hours = g["local_hour"].to_numpy(dtype=float)
+        i_obs = int(np.argmax(yt))
+        i_sim = int(np.argmax(yp))
+        h_obs = float(hours[i_obs])
+        h_sim = float(hours[i_sim])
+        circ = abs(h_obs - h_sim)
+        circ = min(circ, 24.0 - circ)
+        morning = g[(g["local_hour"] >= 5.0) & (g["local_hour"] < 9.0)]
+        morning_mae = (
+            float(np.mean(np.abs(morning[sim_col] - morning[obs_col])))
+            if len(morning)
+            else None
+        )
+        rows.append(
+            {
+                "day": day,
+                "measured_peak_kw": float(yt.max()),
+                "predicted_peak_kw": float(yp.max()),
+                "abs_peak_magnitude_error_kw": float(abs(yt.max() - yp.max())),
+                "measured_peak_hour": h_obs,
+                "predicted_peak_hour": h_sim,
+                "circular_abs_peak_timing_error_h": circ,
+                "morning_he05_09_mae_kw": morning_mae,
+                "daily_kwh_error": float(yp.sum() - yt.sum()),
+                "n_intervals": int(len(g)),
+            }
+        )
+    if not rows:
+        return {
+            "n_complete_days": 0,
+            "status": "insufficient_data",
+            "days": [],
+            "note": "No complete days for day-level peak metrics",
+        }
+
+    def _agg(key: str, *, absolute: bool = False) -> dict[str, float]:
+        vals = np.asarray([r[key] for r in rows if r.get(key) is not None], dtype=float)
+        if absolute:
+            vals = np.abs(vals)
+        if len(vals) == 0:
+            return {}
+        return {
+            "median": float(np.median(vals)),
+            "mean": float(np.mean(vals)),
+            "p90": float(np.percentile(vals, 90)),
+            "worst": float(np.max(vals)),
+        }
+
+    return {
+        "n_complete_days": len(rows),
+        "status": "ok",
+        "abs_peak_magnitude_error_kw": _agg("abs_peak_magnitude_error_kw"),
+        "circular_abs_peak_timing_error_h": _agg("circular_abs_peak_timing_error_h"),
+        "morning_he05_09_mae_kw": _agg("morning_he05_09_mae_kw"),
+        "daily_kwh_error_abs": _agg("daily_kwh_error", absolute=True),
+        "days": rows,
+        "forbidden_metric": "multi_month_global_argmax_timing_hours",
+        "note": "Peak timing is circular hours within each civil day — never multi-month argmax",
+    }
 
 
 def score_period(

@@ -46,10 +46,6 @@ def _git_sha() -> str:
 
 
 def main() -> int:
-    os.environ.setdefault(
-        "LAKESIDE_SITE_ROOT",
-        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-    )
     root = site_root()
     sim = root / "eplus" / "dsm_native" / "runs" / "dsm_repair_v1_full" / "sim"
     ptr = root / "eplus" / "models" / "staged" / "DSM_ELIGIBLE.json"
@@ -162,18 +158,20 @@ def main() -> int:
     if path.is_file():
         try:
             prev = json.loads(path.read_text(encoding="utf-8"))
-            prev_fp = prev.get("baseline_fingerprint_sha256")
-            if prev_fp and prev_fp != report["baseline_fingerprint_sha256"]:
-                archive = out_site / f"immutable_baseline_superseded_{prev_fp[:16]}.json"
-                if not archive.is_file():
-                    archive.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
-                report["supersedes_fingerprint"] = prev_fp
-                report["immutability_note"] = (
-                    "Prior baseline archived; this file is a new freeze pointer, "
-                    "not an in-place silent rewrite of the same scientific record."
-                )
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError(
+                f"corrupt baseline pointer {path}; refuse to overwrite: {e}"
+            ) from e
+        prev_fp = prev.get("baseline_fingerprint_sha256")
+        if prev_fp and prev_fp != report["baseline_fingerprint_sha256"]:
+            archive = out_site / f"immutable_baseline_superseded_{prev_fp[:16]}.json"
+            if not archive.is_file():
+                archive.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+            report["supersedes_fingerprint"] = prev_fp
+            report["immutability_note"] = (
+                "Prior baseline archived; this file is a new freeze pointer, "
+                "not an in-place silent rewrite of the same scientific record."
+            )
     stamped.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
     path.write_text(stamped.read_text(encoding="utf-8"), encoding="utf-8")
 

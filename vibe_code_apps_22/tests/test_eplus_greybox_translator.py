@@ -1,4 +1,4 @@
-"""Grey-box translator unit tests (no future-target leakage)."""
+"""Proxy corrector diagnostic unit tests (no future-target leakage)."""
 from __future__ import annotations
 
 import sys
@@ -9,7 +9,13 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "ml"))
 
-from eplus_greybox_plant_translator import FEATURE_COLS, build_greybox_frame, run_greybox_bakeoff  # noqa: E402
+from eplus_proxy_corrector_diagnostic import (  # noqa: E402
+    FEATURE_COLS,
+    FAMILY,
+    PRODUCT_CLAIM,
+    build_greybox_frame,
+    run_proxy_corrector_bakeoff,
+)
 
 
 def test_features_exclude_future_measured_targets():
@@ -17,8 +23,8 @@ def test_features_exclude_future_measured_targets():
     assert "observed_kw" not in FEATURE_COLS
 
 
-def test_greybox_bakeoff_runs_on_synthetic():
-    idx = pd.date_range("2025-08-01", periods=200 * 24, freq="h", tz="UTC")
+def test_proxy_corrector_bakeoff_forward_winter():
+    idx = pd.date_range("2025-08-01", periods=300 * 24, freq="h", tz="UTC")
     df = pd.DataFrame(
         {
             "interval_end_utc": idx,
@@ -26,8 +32,15 @@ def test_greybox_bakeoff_runs_on_synthetic():
             "simulated_kw": 30 + (idx.hour * 3),
         }
     )
-    out = run_greybox_bakeoff(df, evaluate_winter=True)
-    assert out["family_label"] == "EPLUS_GREYBOX_PLANT_TRANSLATOR"
+    out = run_proxy_corrector_bakeoff(df, evaluate_winter=True)
+    assert out["family_label"] == FAMILY == "EPLUS_PROXY_CORRECTOR_DIAGNOSTIC"
+    assert out["product_claim"] == PRODUCT_CLAIM == "DIAGNOSTIC_ONLY"
+    assert out["nested_chronological_cv"] is False
+    assert out["is_plant_translator"] is False
     assert out["operational_dsm_readiness"] == "NO-GO"
     assert out["champion"] is not None
     assert out["leaderboard_chrono_val"]
+    winter = out["locked_winter_holdout"]
+    assert winter is not None
+    assert winter.get("trained_on_feb_mar_before_january") is False
+    assert "day_level_peaks" in winter

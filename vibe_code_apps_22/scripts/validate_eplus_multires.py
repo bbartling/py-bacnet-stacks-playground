@@ -51,10 +51,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--plots", action="store_true", help="Write diagnostic plots")
     args = ap.parse_args(argv)
 
-    os.environ.setdefault(
-        "LAKESIDE_SITE_ROOT",
-        r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-    )
     root = site_root()
     out = args.out or (root / "reports" / "eplus" / "multires")
     out.mkdir(parents=True, exist_ok=True)

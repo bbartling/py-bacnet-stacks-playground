@@ -76,7 +76,7 @@ def test_refuse_swapped_source_types():
 
 
 def test_chronological_holdout_locked():
-    idx = pd.date_range("2025-08-01", periods=200 * 24, freq="h", tz="UTC")
+    idx = pd.date_range("2025-08-01", periods=330 * 24, freq="h", tz="UTC")
     df = pd.DataFrame(
         {
             "interval_end_utc": idx,
@@ -89,6 +89,8 @@ def test_chronological_holdout_locked():
     assert periods["calibration_development"]["role"] == "tuning_allowed"
     assert periods["locked_winter_holdout"]["n"] > 0
     assert periods["annual_summer_generalization"]["n"] > 0
+    assert periods["chronological_validation"]["excludes_post_january"] is True
+    assert periods["post_holdout_generalization"]["role"] == "external_post_holdout_only"
 
 
 def test_p_published_with_scores():

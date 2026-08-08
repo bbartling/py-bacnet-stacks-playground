@@ -41,23 +41,61 @@ def decompose_aligned_hourly(
     weekend = df[df["is_weekend"]]
     weekday = df[~df["is_weekend"]]
 
+    overnight_resid = float(overnight["resid"].mean()) if len(overnight) else None
+    daytime_resid = float(daytime["resid"].mean()) if len(daytime) else None
+    narrative: list[str] = []
+    # resid = sim − obs: negative ⇒ underprediction; positive ⇒ overprediction
+    if overnight_resid is not None:
+        if overnight_resid < 0:
+            narrative.append(
+                f"Overnight (00–05) mean residual {overnight_resid:.2f} kW: model underpredicts "
+                "(missing persistent baseload / pump / fan / DOAS electricity is consistent)."
+            )
+        elif overnight_resid > 0:
+            narrative.append(
+                f"Overnight (00–05) mean residual {overnight_resid:.2f} kW: model overpredicts "
+                "(not the classic missing-baseload pattern)."
+            )
+        else:
+            narrative.append("Overnight (00–05) mean residual ≈ 0 kW.")
+    if daytime_resid is not None:
+        if daytime_resid > 0:
+            narrative.append(
+                f"Daytime (07–15) mean residual {daytime_resid:.2f} kW: model overpredicts "
+                "(excessive / mis-shaped fixed-COP heating electricity is consistent)."
+            )
+        elif daytime_resid < 0:
+            narrative.append(
+                f"Daytime (07–15) mean residual {daytime_resid:.2f} kW: model underpredicts "
+                "(not the classic daytime-overprediction pattern)."
+            )
+        else:
+            narrative.append("Daytime (07–15) mean residual ≈ 0 kW.")
+    if (
+        overnight_resid is not None
+        and daytime_resid is not None
+        and overnight_resid < 0
+        and daytime_resid > 0
+    ):
+        narrative.append("Opposing overnight under / daytime over errors — a single multiplier cannot fix both.")
+    elif overnight_resid is not None and daytime_resid is not None:
+        narrative.append(
+            "Overnight and daytime residual signs are not opposing; interpret multipliers cautiously."
+        )
+    if not narrative:
+        narrative.append("Insufficient overnight/daytime residuals to form a structural narrative.")
+
     summary = {
         "n": int(len(df)),
         "mean_obs_kw": float(df[obs_col].mean()),
         "mean_sim_kw": float(df[sim_col].mean()),
-        "overnight_00_05_mean_resid_kw": float(overnight["resid"].mean()) if len(overnight) else None,
-        "daytime_07_15_mean_resid_kw": float(daytime["resid"].mean()) if len(daytime) else None,
+        "overnight_00_05_mean_resid_kw": overnight_resid,
+        "daytime_07_15_mean_resid_kw": daytime_resid,
         "weekend_mean_sim_kw": float(weekend[sim_col].mean()) if len(weekend) else None,
         "weekend_mean_obs_kw": float(weekend[obs_col].mean()) if len(weekend) else None,
         "weekday_peak_obs_kw": float(weekday[obs_col].max()) if len(weekday) else None,
         "weekday_peak_sim_kw": float(weekday[sim_col].max()) if len(weekday) else None,
-        "structural_narrative": [
-            "Missing persistent overnight baseload / pump / fan / DOAS electricity "
-            "(model underpredicts hours 00–05).",
-            "Excessive / incorrectly shaped fixed-COP heating electricity "
-            "(model overpredicts hours 07–15 and cold weekday peaks).",
-            "A single multiplier cannot fix both opposing errors.",
-        ],
+        "structural_narrative": narrative,
         "unavailable_true_splits": [
             "lights",
             "plug_equipment",
@@ -69,7 +107,7 @@ def decompose_aligned_hourly(
             "ground_loop_EWT",
         ],
         "note": "IdealLoads+fixed-COP proxy does not expose true component meters; "
-        "decomposition is residual-pattern based.",
+        "decomposition is residual-pattern based. Narrative derived from computed residual signs.",
     }
     return {"summary": summary, "by_hod": by_hod, "frame": df}
 
