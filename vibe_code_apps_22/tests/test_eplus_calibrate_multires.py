@@ -42,8 +42,9 @@ def test_rank_monthly_gate_outranks_hourly():
         "nmbe_pct": 20.0,
         "cvrmse_pct": 40.0,
     }
+    interv = resolution_block([100] * 11, [102] * 11, resolution="monthly")
     hourly_bad = resolution_block([50.0] * 50, [90.0] * 50, resolution="hourly")
     hourly_ok = resolution_block([50.0] * 50, [51.0] * 50, resolution="hourly")
-    r_fail = _rank_candidate(monthly_fail, hourly_ok)
-    r_pass = _rank_candidate(monthly_pass, hourly_bad)
+    r_fail = _rank_candidate(monthly_fail, interv, hourly_ok)
+    r_pass = _rank_candidate(monthly_pass, interv, hourly_bad)
     assert r_fail["rank_key"][0] > r_pass["rank_key"][0]

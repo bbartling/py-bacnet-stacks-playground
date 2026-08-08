@@ -260,8 +260,118 @@ def score_aligned(aligned: pd.DataFrame, *, resolution: str, p: int = 1) -> dict
     return block
 
 
+def observed_monthly_utility_path(root: Path) -> Path:
+    return Path(root) / "reports" / "eplus" / "observed_monthly_utility.csv"
+
+
+def load_observed_monthly_utility(root: Path) -> pd.DataFrame:
+    """Load the 10 complete utility-bill months (fixed measured source)."""
+    path = observed_monthly_utility_path(root)
+    if not path.is_file():
+        raise AlignmentError(f"missing observed utility monthly CSV: {path}")
+    df = pd.read_csv(path)
+    need = {"month", "kwh_obs"}
+    if not need.issubset(df.columns):
+        raise AlignmentError(f"{path} needs columns {need}")
+    if "complete_month" in df.columns:
+        df = df[df["complete_month"].astype(bool)].copy()
+    if "source" in df.columns and (df["source"] != "utility_bill").any():
+        raise AlignmentError("observed_monthly_utility.csv contains non-utility_bill rows")
+    if df.empty:
+        raise AlignmentError("no complete utility months")
+    return df.reset_index(drop=True)
+
+
+def trial_simulated_monthly_kwh(
+    sim_dir: Path,
+    *,
+    heat_cop: float = 3.5,
+    cool_cop: float = 4.5,
+) -> pd.DataFrame:
+    """Aggregate trial proxy kW → monthly kWh (interval-end LST→UTC policy)."""
+    mod = parse_eplus_proxy_to_utc(sim_dir, heat_cop=heat_cop, cool_cop=cool_cop)
+    # 15-min mean kW × 0.25 h = kWh
+    df = mod.copy()
+    df["kwh"] = df["simulated_kw"].astype(float) * 0.25
+    df["month"] = (
+        pd.to_datetime(df["interval_end_utc"], utc=True)
+        .dt.tz_convert("America/Chicago")
+        .dt.strftime("%Y-%m")
+    )
+    out = df.groupby("month", as_index=False)["kwh"].sum().rename(columns={"kwh": "kwh_sim"})
+    return out
+
+
+def utility_monthly_from_trial_sim(
+    root: Path,
+    sim_dir: Path,
+    *,
+    heat_cop: float = 3.5,
+    cool_cop: float = 4.5,
+) -> dict[str, Any]:
+    """Product A for a trial: pair observed utility months with THIS trial's sim kWh.
+
+    Never imports pass/fail from best_scorecard_utility.json / gl14_status.
+    Fail-closed if months cannot be paired.
+    """
+    from eplus_multires_metrics import gate_monthly
+
+    obs_path = observed_monthly_utility_path(root)
+    obs = load_observed_monthly_utility(root)
+    sim = trial_simulated_monthly_kwh(sim_dir, heat_cop=heat_cop, cool_cop=cool_cop)
+    paired = obs.merge(sim, on="month", how="inner")
+    if len(paired) != len(obs):
+        missing = sorted(set(obs["month"]) - set(paired["month"]))
+        raise AlignmentError(
+            f"trial monthly utility pairing incomplete: need {len(obs)} months, "
+            f"got {len(paired)}; missing={missing}"
+        )
+    reject_shape_mismatch(paired["kwh_obs"].to_numpy(), paired["kwh_sim"].to_numpy(), label="utility_monthly")
+    stats = nmbe_cvrmse_pct(paired["kwh_obs"], paired["kwh_sim"], p=1)
+    status = gate_monthly(stats)
+    rows = [
+        {
+            "month": str(r["month"]),
+            "kwh_obs": float(r["kwh_obs"]),
+            "kwh_sim": float(r["kwh_sim"]),
+        }
+        for _, r in paired.iterrows()
+    ]
+    return {
+        "resolution": "monthly",
+        "source_type": "utility_bill_monthly",
+        "status": status,
+        "n": int(stats["n"]),
+        "p": 1,
+        "nmbe_pct": stats["nmbe_pct"],
+        "cvrmse_pct": stats["cvrmse_pct"],
+        "mean_obs": stats["mean_obs"],
+        "rmse_kw": None,
+        "mae_kw": None,
+        "labeled_as_gl14": False,
+        "partial_period_monthly_threshold_screen": True,
+        "label": "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN (utility bills, trial-specific)",
+        "complete_months": int(len(paired)),
+        "gates": {"nmbe_abs_max_pct": 5.0, "cvrmse_max_pct": 15.0},
+        "p_rationale": "p=1 calibrated-sim convention; n=complete utility months paired to trial sim",
+        "formula": stats.get("formula"),
+        "denominator": "n-p",
+        "observed_source_path": str(obs_path.resolve()),
+        "observed_source_sha256": sha256_file(obs_path),
+        "sim_dir": str(Path(sim_dir).resolve()),
+        "heat_cop": float(heat_cop),
+        "cool_cop": float(cool_cop),
+        "monthly_pairs": rows,
+        "scorecard_gl14_status_imported": False,
+    }
+
+
 def utility_monthly_from_scorecard(root: Path) -> dict[str, Any] | None:
-    """Product A: utility-bill monthly GL14 from best_scorecard_utility.json."""
+    """Champion REFERENCE ONLY — never use for trial scoring or promotion.
+
+    Prefer ``utility_monthly_from_trial_sim`` for any campaign trial.
+    Recomputes gates from stored nmbe/cvrmse numbers; ignores gl14_status for pass/fail.
+    """
     sc = Path(root) / "eplus" / "scorecards" / "best_scorecard_utility.json"
     if not sc.is_file():
         return None
@@ -274,7 +384,6 @@ def utility_monthly_from_scorecard(root: Path) -> dict[str, Any] | None:
         "source_type": "utility_bill_monthly",
         "source_path": str(sc.resolve()),
         "source_sha256": sha256_file(sc),
-        "status": doc.get("gl14_status") or "fail",
         "n": n,
         "p": 1,
         "nmbe_pct": g.get("nmbe_pct"),
@@ -282,20 +391,25 @@ def utility_monthly_from_scorecard(root: Path) -> dict[str, Any] | None:
         "mean_obs": g.get("mean_obs"),
         "rmse_kw": None,
         "mae_kw": None,
-        "labeled_as_gl14": False,  # partial-period screen only
+        "labeled_as_gl14": False,
         "partial_period_monthly_threshold_screen": True,
-        "label": "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN (utility bills)",
+        "label": "CHAMPION REFERENCE ONLY (not trial-specific) — PARTIAL-PERIOD SCREEN",
         "complete_months": n,
         "gates": {"nmbe_abs_max_pct": 5.0, "cvrmse_max_pct": 15.0},
         "p_rationale": (
-            "p=1 calibrated-sim convention; n=complete utility months in scorecard"
+            "p=1 calibrated-sim convention; champion scorecard reference — do not use for trials"
         ),
         "formula": "NMBE%=100*sum(m-ŷ)/((n-p)*mean(m)); CVRMSE%=100*sqrt(sum((m-ŷ)^2)/(n-p))/mean(m)",
+        "champion_reference_only": True,
+        "scorecard_gl14_status_imported": False,
+        "scorecard_gl14_status_raw": doc.get("gl14_status"),
     }
     from eplus_multires_metrics import gate_monthly
 
     if block["nmbe_pct"] is not None and block["cvrmse_pct"] is not None:
         block["status"] = gate_monthly(block)
+    else:
+        block["status"] = "insufficient_data"
     return block
 
 
@@ -364,59 +478,146 @@ def json_load(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+# Fixed a-priori winter holdout for Lakeside AMY (chosen before examining trial metrics).
+LOCKED_WINTER_HOLDOUT_START = pd.Timestamp("2026-01-01", tz="UTC")
+LOCKED_WINTER_HOLDOUT_END = pd.Timestamp("2026-02-01", tz="UTC")
+
+
 def chronological_splits(
     aligned: pd.DataFrame,
     *,
     ts_col: str = "interval_end_utc",
 ) -> dict[str, Any]:
-    """Explicit chronological periods — no random split; holdout never used for tuning."""
-    ts = pd.to_datetime(aligned[ts_col], utc=True)
-    # AMY window ~ 2025-08 .. 2026-07
-    calib_end = pd.Timestamp("2026-01-31", tz="UTC")
-    val_end = pd.Timestamp("2026-03-31", tz="UTC")
-    peak_end = pd.Timestamp("2026-02-28", tz="UTC")
-    # Locked holdout: last 30 days of available data
-    t_max = ts.max()
-    holdout_start = t_max - pd.Timedelta(days=30)
+    """Explicit chronological periods — no random split; winter holdout never ranks.
 
-    def mask_period(start, end):
+    Periods (AMY ~ Aug 2025 .. Jul 2026):
+      - calibration_development: data start → 2025-12-15 (tuning)
+      - chronological_validation: 2025-12-15 → 2026-01-01 and 2026-02-01 → 2026-04-01
+        (candidate selection ONLY; January excluded)
+      - winter_peak_validation: Feb 2026 peak-window diagnostics (not for ranking)
+      - locked_winter_holdout: 2026-01-01 → 2026-02-01 (evaluate once after champion)
+      - annual_summer_generalization: final 30 days (June-ish; never for ranking)
+
+    Legacy key ``locked_final_holdout`` aliases ``annual_summer_generalization`` for
+    older readers; do not treat it as winter.
+    """
+    ts = pd.to_datetime(aligned[ts_col], utc=True)
+    t_min = ts.min()
+    t_max = ts.max()
+    calib_end = pd.Timestamp("2025-12-15", tz="UTC")
+    jan_start = LOCKED_WINTER_HOLDOUT_START
+    jan_end = LOCKED_WINTER_HOLDOUT_END
+    val_resume = jan_end
+    val_end = pd.Timestamp("2026-04-01", tz="UTC")
+    peak_start = pd.Timestamp("2026-02-01", tz="UTC")
+    peak_end = pd.Timestamp("2026-02-15", tz="UTC")
+    summer_start = t_max - pd.Timedelta(days=30)
+
+    def mask_range(start, end):
         return (ts >= start) & (ts < end)
 
+    chrono_mask = mask_range(calib_end, jan_start) | mask_range(val_resume, val_end)
     periods = {
         "calibration_development": {
-            "start": str(ts.min()),
+            "start": str(t_min),
             "end": str(calib_end),
-            "n": int(mask_period(ts.min(), calib_end).sum()),
+            "n": int(mask_range(t_min, calib_end).sum()),
             "role": "tuning_allowed",
         },
         "chronological_validation": {
-            "start": str(calib_end),
+            "start": f"{calib_end.isoformat()}/{val_resume.isoformat()}",
             "end": str(val_end),
-            "n": int(mask_period(calib_end, val_end).sum()),
+            "segments": [
+                {"start": str(calib_end), "end": str(jan_start)},
+                {"start": str(val_resume), "end": str(val_end)},
+            ],
+            "n": int(chrono_mask.sum()),
             "role": "selection_allowed_not_final",
         },
         "winter_peak_validation": {
-            "start": "2026-01-01T00:00:00+00:00",
+            "start": str(peak_start),
             "end": str(peak_end),
-            "n": int(mask_period(pd.Timestamp("2026-01-01", tz="UTC"), peak_end).sum()),
-            "role": "peak_diagnostics",
+            "n": int(mask_range(peak_start, peak_end).sum()),
+            "role": "peak_diagnostics_not_ranking",
         },
-        "locked_final_holdout": {
-            "start": str(holdout_start),
+        "locked_winter_holdout": {
+            "start": str(jan_start),
+            "end": str(jan_end),
+            "n": int(mask_range(jan_start, jan_end).sum()),
+            "role": "locked_no_tuning_evaluate_once",
+            "chosen_a_priori": True,
+            "rationale": "Full January 2026 locked before any trial ranking (cold-weather DSM)",
+        },
+        "annual_summer_generalization": {
+            "start": str(summer_start),
             "end": str(t_max),
-            "n": int((ts >= holdout_start).sum()),
-            "role": "locked_no_tuning",
+            "n": int((ts >= summer_start).sum()),
+            "role": "generalization_diagnostic_not_ranking",
+        },
+        # Back-compat alias — explicitly NOT winter
+        "locked_final_holdout": {
+            "start": str(summer_start),
+            "end": str(t_max),
+            "n": int((ts >= summer_start).sum()),
+            "role": "alias_of_annual_summer_generalization",
+            "warning": "Not a winter holdout — use locked_winter_holdout",
         },
     }
-    # Overlap note: winter peak may overlap calib — document
     periods["notes"] = (
-        "Locked holdout is the final 30 days of aligned coverage. "
-        "Parameter selection must use only calibration_development "
-        "(and optionally chronological_validation for ranking). "
-        "locked_final_holdout must not influence knobs, early stop, or weights."
+        "Rank candidates on chronological_validation hourly (+ monthly gates) only. "
+        "Evaluate locked_winter_holdout exactly once after champion selection. "
+        "annual_summer_generalization (former last-30-days) never influences ranking."
     )
-    if periods["locked_final_holdout"]["n"] < 24 * 7:
+    if periods["locked_winter_holdout"]["n"] < 24 * 7:
         periods["limitation"] = (
-            "Holdout shorter than 7 days of hours — state prominently; do not invent coverage"
+            "locked_winter_holdout shorter than 7 days of hours — state prominently"
         )
     return periods
+
+
+def period_mask(
+    aligned: pd.DataFrame,
+    period_name: str,
+    *,
+    ts_col: str = "interval_end_utc",
+) -> pd.Series:
+    """Boolean mask for a named chronological period (no leakage helpers)."""
+    ts = pd.to_datetime(aligned[ts_col], utc=True)
+    periods = chronological_splits(aligned, ts_col=ts_col)
+    if period_name == "chronological_validation":
+        segs = periods["chronological_validation"]["segments"]
+        mask = pd.Series(False, index=aligned.index)
+        for seg in segs:
+            start = pd.Timestamp(seg["start"])
+            end = pd.Timestamp(seg["end"])
+            mask = mask | ((ts >= start) & (ts < end))
+        return mask
+    if period_name not in periods or not isinstance(periods[period_name], dict):
+        raise KeyError(period_name)
+    start = pd.Timestamp(periods[period_name]["start"])
+    end = pd.Timestamp(periods[period_name]["end"])
+    if period_name == "annual_summer_generalization" or period_name == "locked_final_holdout":
+        return ts >= start
+    return (ts >= start) & (ts < end)
+
+
+def score_period(
+    aligned: pd.DataFrame,
+    period_name: str,
+    *,
+    resolution: str = "hourly",
+    ts_col: str = "interval_end_utc",
+) -> dict[str, Any] | None:
+    mask = period_mask(aligned, period_name, ts_col=ts_col)
+    sub = aligned.loc[mask]
+    if len(sub) < 24:
+        return {
+            "resolution": resolution,
+            "period": period_name,
+            "status": "insufficient_data",
+            "n": int(len(sub)),
+            "p": 1,
+        }
+    block = score_aligned(sub, resolution=resolution)
+    block["period"] = period_name
+    return block

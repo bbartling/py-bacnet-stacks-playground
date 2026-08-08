@@ -43,10 +43,11 @@ def test_planned_not_counted_as_succeeded_in_summary_shape():
 
 def test_promotion_refused_when_hourly_fails():
     monthly = resolution_block([100] * 10, [101] * 10, resolution="monthly")
+    interv = resolution_block([100] * 10, [101] * 10, resolution="monthly")
     hourly = resolution_block([50.0] * 50, [90.0] * 50, resolution="hourly")
-    rank = _rank_candidate(monthly, hourly)
+    rank = _rank_candidate(monthly, interv, hourly)
     assert hourly["status"] == "fail"
-    assert rank["hourly_status"] == "fail"
+    assert rank["chrono_val_hourly_status"] == "fail"
 
 
 def test_execute_trial_failed_energyplus(tmp_path):

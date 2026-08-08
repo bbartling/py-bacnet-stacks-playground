@@ -145,17 +145,14 @@ pub fn result_from_series(
             ];
         }
     }
-    let peak_kw = facility_kw
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
-    let peak_timestep = facility_kw
+    let peak_kw = fac[..n].iter().copied().fold(f32::NEG_INFINITY, f32::max) as f64;
+    let peak_timestep = fac[..n]
         .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(i, _)| i)
         .unwrap_or(0);
-    let daily_kwh = facility_kw.iter().sum::<f64>() * 0.25;
+    let daily_kwh = fac[..n].iter().map(|x| *x as f64).sum::<f64>() * 0.25;
     let (new_billing_peak_kw, incremental_demand_kw, incremental_demand_cost) =
         incremental_demand(existing_billing_peak_kw, peak_kw, demand_rate_per_kw);
     SimulationResult {

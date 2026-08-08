@@ -36,7 +36,7 @@ from eplus_validation_contract import (  # noqa: E402
     chronological_splits,
     interval_monthly_from_aligned_hourly,
     score_aligned,
-    utility_monthly_from_scorecard,
+    utility_monthly_from_trial_sim,
 )
 
 
@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
 
     hourly_block = score_aligned(aligned, resolution="hourly")
     q15_block = score_aligned(aligned_15, resolution="15min")
-    monthly_utility = utility_monthly_from_scorecard(root)
+    monthly_utility = utility_monthly_from_trial_sim(root, sim)
     monthly_interval = interval_monthly_from_aligned_hourly(aligned)
     periods = chronological_splits(aligned)
 

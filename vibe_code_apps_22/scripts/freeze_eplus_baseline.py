@@ -28,7 +28,7 @@ from eplus_validation_contract import (  # noqa: E402
     chronological_splits,
     interval_monthly_from_aligned_hourly,
     score_aligned,
-    utility_monthly_from_scorecard,
+    utility_monthly_from_trial_sim,
 )
 
 
@@ -64,7 +64,7 @@ def main() -> int:
     aligned_15 = products["q15"]
     hourly = score_aligned(aligned_h, resolution="hourly")
     q15 = score_aligned(aligned_15, resolution="15min")
-    util = utility_monthly_from_scorecard(root)
+    util = utility_monthly_from_trial_sim(root, sim)
     interv = interval_monthly_from_aligned_hourly(aligned_h)
     periods = chronological_splits(aligned_h)
     xcorr = cross_correlation_lags(
@@ -155,14 +155,34 @@ def main() -> int:
 
     out_site = root / "reports" / "eplus" / "baseline"
     out_site.mkdir(parents=True, exist_ok=True)
+    fp = report["baseline_fingerprint_sha256"][:16]
+    stamped = out_site / f"immutable_baseline_v1_{fp}.json"
     path = out_site / "immutable_baseline_v1.json"
-    path.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+    # Never silently overwrite a different frozen baseline — write stamped + pointer
+    if path.is_file():
+        try:
+            prev = json.loads(path.read_text(encoding="utf-8"))
+            prev_fp = prev.get("baseline_fingerprint_sha256")
+            if prev_fp and prev_fp != report["baseline_fingerprint_sha256"]:
+                archive = out_site / f"immutable_baseline_superseded_{prev_fp[:16]}.json"
+                if not archive.is_file():
+                    archive.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+                report["supersedes_fingerprint"] = prev_fp
+                report["immutability_note"] = (
+                    "Prior baseline archived; this file is a new freeze pointer, "
+                    "not an in-place silent rewrite of the same scientific record."
+                )
+        except Exception:
+            pass
+    stamped.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+    path.write_text(stamped.read_text(encoding="utf-8"), encoding="utf-8")
 
     mirror = _ML / "artifacts" / "eplus_baseline"
     mirror.mkdir(parents=True, exist_ok=True)
     (mirror / "immutable_baseline_v1.json").write_text(
         path.read_text(encoding="utf-8"), encoding="utf-8"
     )
+    (mirror / stamped.name).write_text(stamped.read_text(encoding="utf-8"), encoding="utf-8")
 
     print(json.dumps({
         "wrote": str(path),

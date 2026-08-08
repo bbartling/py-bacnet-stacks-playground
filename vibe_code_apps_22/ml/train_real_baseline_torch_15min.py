@@ -412,11 +412,15 @@ def train_torch_baseline(
                 if cv_rec.get("n_heldout_days", 0)
                 else dict(NOT_EVALUATED_RECURSIVE),
             }
-            # Same selection metric as sklearn lean bake-off: recursive peak MAE.
+            # Selection must use recursive peak MAE only — never fall back to teacher-forced.
             peak_rec = cv_rec.get("facility_kw_mae_peak_05_09")
             zone_tf = entry["cv_teacher_forced"].get("zone_temp_mae_mean", 99.0)
-            if peak_rec is None or not np.isfinite(peak_rec):
-                peak_rec = entry["cv_teacher_forced"].get("facility_kw_mae_peak_05_09", 99.0)
+            if peak_rec is None or not np.isfinite(float(peak_rec)):
+                print(
+                    f"  skip {key}: recursive peak MAE missing — refuse teacher-forced selection",
+                    flush=True,
+                )
+                continue
             entry["peak_mae_kw"] = float(peak_rec)
             entry["selection_score"] = float(peak_rec)  # apples-to-apples with sklearn champion
             leaderboard.append(entry)
@@ -433,6 +437,10 @@ def train_torch_baseline(
                 flush=True,
             )
 
+    if not leaderboard:
+        raise ValueError(
+            "every torch candidate lacked recursive peak MAE — refuse champion export"
+        )
     leaderboard.sort(key=lambda e: e["selection_score"])
     champ_key = leaderboard[0]["key"]
     champ = candidates[champ_key]

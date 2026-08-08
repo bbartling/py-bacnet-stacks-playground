@@ -388,13 +388,20 @@ impl NearestDayEngine {
         let _billing = billing_period_demand_kw(existing_billing_peak_kw as f64, peak_h);
 
         let mut steps = Vec::with_capacity(STEPS_96);
+        let htg_sp = 68.0_f64;
+        let band = 2.0_f64;
+        let mut comfort_cum = 0_i64;
         for t in 0..STEPS_96 {
             let mut bz = std::collections::BTreeMap::new();
             let mut hz = std::collections::BTreeMap::new();
             let mut dz = std::collections::BTreeMap::new();
             for (zi, name) in ZONE_TEMP_COLS.iter().enumerate() {
+                let zt = hybrid[t][zi + 1];
+                if zt < htg_sp - band {
+                    comfort_cum += 1;
+                }
                 bz.insert((*name).to_string(), baseline[t][zi + 1]);
-                hz.insert((*name).to_string(), hybrid[t][zi + 1]);
+                hz.insert((*name).to_string(), zt);
                 dz.insert((*name).to_string(), delta[t][zi + 1]);
             }
             steps.push(HybridStep {
@@ -404,12 +411,25 @@ impl NearestDayEngine {
                 delta_facility_kw: delta[t][0],
                 cumulative_kwh_baseline: base_kw[..=t].iter().sum::<f64>() * 0.25,
                 cumulative_kwh_hybrid: hyb_kw[..=t].iter().sum::<f64>() * 0.25,
-                comfort_violations_cum: 0,
+                comfort_violations_cum: comfort_cum,
                 baseline_zone_temps_f: bz,
                 delta_zone_temps_f: dz,
                 hybrid_zone_temps_f: hz,
             });
         }
+
+        let peak_step_b = base_kw
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(i, _)| i as i64)
+            .unwrap_or(0);
+        let peak_step_h = hyb_kw
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(i, _)| i as i64)
+            .unwrap_or(0);
 
         let walk = HybridWalk {
             contract_version: "nearest_day_eplus_delta_v1".into(),
@@ -424,9 +444,9 @@ impl NearestDayEngine {
                 cumulative_kwh_hybrid: kwh_h,
                 peak_kw_baseline: peak_b,
                 peak_kw_hybrid: peak_h,
-                peak_step_baseline: 0,
-                peak_step_hybrid: 0,
-                comfort_violations: 0,
+                peak_step_baseline: peak_step_b,
+                peak_step_hybrid: peak_step_h,
+                comfort_violations: comfort_cum,
                 delta_peak_kw: peak_h - peak_b,
                 delta_kwh: kwh_h - kwh_b,
             },
@@ -435,8 +455,8 @@ impl NearestDayEngine {
             outcome_flag: flags.first().cloned(),
             source: Some("nearest_day_engine".into()),
             weather_mode: None,
-            comfort_htg_sp_f: Some(68.0),
-            comfort_band_f: Some(2.0),
+            comfort_htg_sp_f: Some(htg_sp),
+            comfort_band_f: Some(band),
             ship_watermark: self
                 .library
                 .watermark

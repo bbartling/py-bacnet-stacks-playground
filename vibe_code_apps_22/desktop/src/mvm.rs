@@ -131,7 +131,13 @@ pub struct RecommendGateExtras {
 }
 
 fn candidate_dirs() -> Vec<PathBuf> {
+    // Site live reports take precedence over stale local/exe-bundled artifacts.
     let mut out = Vec::new();
+    if let Ok(site) = std::env::var("LAKESIDE_SITE_ROOT") {
+        let root = PathBuf::from(site);
+        out.push(root.join("reports").join("eplus").join("multires"));
+        out.push(root.join("reports").join("eplus").join("mvm"));
+    }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             out.push(dir.join("mvm"));
@@ -143,11 +149,6 @@ fn candidate_dirs() -> Vec<PathBuf> {
             .join("artifacts")
             .join("mvm"),
     );
-    if let Ok(site) = std::env::var("LAKESIDE_SITE_ROOT") {
-        let root = PathBuf::from(site);
-        out.push(root.join("reports").join("eplus").join("mvm"));
-        out.push(root.join("reports").join("eplus").join("multires"));
-    }
     out
 }
 

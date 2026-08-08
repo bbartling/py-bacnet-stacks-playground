@@ -85,9 +85,10 @@ def test_chronological_holdout_locked():
         }
     )
     periods = chronological_splits(df)
-    assert periods["locked_final_holdout"]["role"] == "locked_no_tuning"
+    assert periods["locked_winter_holdout"]["role"] == "locked_no_tuning_evaluate_once"
     assert periods["calibration_development"]["role"] == "tuning_allowed"
-    assert periods["locked_final_holdout"]["n"] > 0
+    assert periods["locked_winter_holdout"]["n"] > 0
+    assert periods["annual_summer_generalization"]["n"] > 0
 
 
 def test_p_published_with_scores():

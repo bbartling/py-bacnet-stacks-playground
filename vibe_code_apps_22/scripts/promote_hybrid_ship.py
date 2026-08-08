@@ -83,20 +83,19 @@ def _multires_gate(*, is_smoke: bool) -> dict[str, Any]:
     policy = _load_acceptance_policy()
     waiver = (policy.get("waivers") or {}).get("hourly_gate_waiver") or {}
     waiver_active = bool(waiver.get("active"))
-    candidates = [
-        _APP / "desktop" / "artifacts" / "mvm" / "eplus_multires_validation.json",
-        _ML / "artifacts" / "eplus_campaigns" / "latest_validation.json",
-        Path(
-            os.environ.get(
-                "LAKESIDE_SITE_ROOT",
-                r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside",
-            )
+    site = os.environ.get("LAKESIDE_SITE_ROOT")
+    candidates: list[Path] = []
+    if site:
+        candidates.append(
+            Path(site) / "reports" / "eplus" / "multires" / "eplus_multires_validation.json"
         )
-        / "reports"
-        / "eplus"
-        / "multires"
-        / "eplus_multires_validation.json",
-    ]
+    # Local mirrors are fallback only — never preferred over live site reports
+    candidates.extend(
+        [
+            _APP / "desktop" / "artifacts" / "mvm" / "eplus_multires_validation.json",
+            _ML / "artifacts" / "eplus_campaigns" / "latest_validation.json",
+        ]
+    )
     doc = None
     path_used = None
     for p in candidates:
