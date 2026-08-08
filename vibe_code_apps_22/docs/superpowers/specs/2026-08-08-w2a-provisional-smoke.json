@@ -1,0 +1,17 @@
+{
+  "campaign_id": "w2a_provisional_smoke_20260808T152340Z",
+  "created_utc": "2026-08-08T15:24:05Z",
+  "provenance": "PROVISIONAL_W2A_HVACTEMPLATE",
+  "honesty": "Provisional Zone WSHP via HVACTemplate + MixedWaterLoop/Tower/Boiler \u2014 NOT as-built 67-unit GSHP/GLHE; curves ASSUMED; DSM NO-GO until raw gates.",
+  "idf_sha256": "597C2FF082E484F4F3CD5C6319380138C7EE0DDCF7D9B01A3B8B68B0AB239AF8",
+  "expanded_idf_sha256": "74CBFA59701F9AF8E1E9680109B7138199C2313FC2F56E13C7AD50530EC61DED",
+  "expanded_contains_w2a": true,
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "exit_code": 0,
+  "accepted": true,
+  "severe_count": 0,
+  "fatal_count": 0,
+  "reject_reasons": [],
+  "runtime_sec": 23.637,
+  "status": "succeeded"
+}

@@ -88,5 +88,9 @@
     }
   },
   "honesty": "diagnostic zone validation; IdealLoads+COP still not DSM-eligible",
-  "sim_trial_id": "S3_cap_mid_2p7"
+  "sim_trial_id": "S3_cap_mid_2p7",
+  "stratified_available": true,
+  "unmet_heating_sum_zone_hours": 2148.5,
+  "gallery_plot": "reports/eplus/zone_validation/plots/zone_gallery_cold_weekday.png",
+  "updated_utc": "2026-08-08T15:14:22Z"
 }

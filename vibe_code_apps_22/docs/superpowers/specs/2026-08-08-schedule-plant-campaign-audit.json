@@ -3,24 +3,36 @@
   "verdict": "NO-GO",
   "dsm_status": "NO-GO",
   "freeze_git_sha": "093958429f47ca68cfa95a2bf1c5884f6fd13b48",
+  "updated_utc": "2026-08-08T15:24:05Z",
   "phases": {
-    "P0_defects": "done",
+    "P0_defects": {
+      "status": "done",
+      "ledger": "docs/superpowers/specs/2026-08-08-eplus-defect-ledger.json",
+      "characterization_tests": "pass_on_champion_defect_facts"
+    },
     "P1_schedule_sanity": {
       "status": "PASS_structure_gate",
       "campaign_id": "schedule_sanity_20260808T150000Z",
       "succeeded": 6,
       "failed": 0,
-      "weekend_kw_mod": {"baseline": 12.41, "repaired": 167.54}
+      "weekend_kw_mod": {"baseline": 12.41, "repaired": 167.54},
+      "enrichment": "unmet_heating_hours + day_level_peaks + winter_weekend plots"
     },
     "P2_zone_validation": {
       "status": "SCREENING_ONLY",
       "mae_f_range": [2.44, 2.77],
-      "contract": "eplus_nine_to_six_zone_agg_v1"
+      "contract": "eplus_nine_to_six_zone_agg_v1",
+      "stratified_metrics": true,
+      "gallery_plot": "reports/eplus/zone_validation/plots/zone_gallery_cold_weekday.png",
+      "notebook": "notebooks/eplus_six_zone_temp_validation.ipynb"
     },
     "P3_plant": {
-      "status": "PROVISIONAL_IDEALLOADS_PLANT_PROXY",
-      "w2a_executable": false,
-      "scaffold_site_relative": "eplus/campaigns/w2a_scaffold_eplus26_1"
+      "status": "PROVISIONAL_W2A_SMOKE_OK",
+      "w2a_executable": true,
+      "smoke_campaign_id": "w2a_provisional_smoke_20260808T152340Z",
+      "topology": "HVACTemplate Zone WSHP + MixedWaterLoop/Tower/Boiler (ExpandObjects)",
+      "not_asbuilt_67_unit_glhe": true,
+      "supplemental_strip_capacity_w": 0
     },
     "P4_calib": {
       "campaign_id": "plant_proxy_calib_20260808T150000Z",
@@ -28,7 +40,9 @@
       "succeeded": 24,
       "failed": 0,
       "raw_eplus_gates_any_pass": false,
-      "best_trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8"
+      "best_trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8",
+      "enrichment": "day_level_peaks + HE05-09 + unmet_heating on all 24 trials",
+      "note": "Multiobjective search executed on IdealLoads plant-proxy family; W2A smoke landed after search — full W2A 20-40 trial re-calib deferred (gates already NO-GO)"
     },
     "P5_hybrid_dsm_96_v2": {
       "contract_published": true,
@@ -42,6 +56,7 @@
   },
   "honesty": [
     "IdealLoads monthly engineering / screening only",
+    "Provisional W2A smoke succeeds but is not as-built GSHP/GLHE",
     "Measured ML may continue for forecasting",
     "DSM NO-GO — no prettier proxy",
     "hybrid_dsm_96_v1 not overwritten"

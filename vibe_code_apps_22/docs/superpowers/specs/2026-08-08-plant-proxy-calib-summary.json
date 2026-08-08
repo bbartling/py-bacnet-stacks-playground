@@ -138,5 +138,76 @@
         "weekend_ratio": 2.4246736185914783
       }
     }
-  ]
+  ],
+  "enrichment": {
+    "day_level_peaks_and_he05_09": true,
+    "unmet_heating_hours": true,
+    "raw_eplus_gates_any_pass": false,
+    "leaderboard_top5": [
+      "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8",
+      "P00_cap2p3_u62p0_oa0p75_os0p0_f0p8",
+      "P01_cap2p3_u62p0_oa1p0_os0p0_f1p0",
+      "P21_cap3p2_u62p0_oa0p75_os1p0_f0p8",
+      "P22_cap3p2_u62p0_oa1p0_os1p0_f1p0"
+    ],
+    "updated_utc": "2026-08-08T15:19:21Z"
+  },
+  "best_enriched": {
+    "knobs": {
+      "heating_capacity_mmbtu_h": 2.5,
+      "unocc_heat_sp_f": 62.0,
+      "occ_heat_sp_f": 70.0,
+      "oa_occupied_frac": 1.0,
+      "optimum_start_hours": 0.0,
+      "fan_proxy_mult": 0.8
+    },
+    "composite_score": 284.1084491118431,
+    "gates": {
+      "utility_partial_period_screen": false,
+      "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+      "hourly_structure_ratio_ok": false,
+      "hourly_cvrmse_aspirational_ok": false,
+      "hourly_not_called_gl14": true,
+      "dsm_eligible": false,
+      "raw_eplus_gates_pass": false,
+      "nmbe_pct": -57.9302660908168,
+      "cvrmse_pct": 74.17537471837831,
+      "hourly_cvrmse_pct": 90.67509826240199,
+      "weekend_ratio": 2.428075352924613
+    },
+    "day_level_peaks": {
+      "n_complete_days": 335,
+      "status": "ok",
+      "abs_peak_magnitude_error_kw": {
+        "median": 56.28682200885379,
+        "mean": 62.29169052095263,
+        "p90": 112.5977110540684,
+        "worst": 218.9307841114013
+      },
+      "circular_abs_peak_timing_error_h": {
+        "median": 2.0,
+        "mean": 3.074626865671642,
+        "p90": 9.0,
+        "worst": 12.0
+      },
+      "morning_he05_09_mae_kw": {
+        "median": 36.379485318851366,
+        "mean": 48.310658900171966,
+        "p90": 107.75913080632749,
+        "worst": 261.18840049534515
+      },
+      "daily_kwh_error_abs": {
+        "median": 474.9506932288202,
+        "mean": 812.4288614054683,
+        "p90": 2089.03030416798,
+        "worst": 4854.514232863121
+      },
+      "forbidden_metric": "multi_month_global_argmax_timing_hours",
+      "note": "Peak timing is circular hours within each civil day \u2014 never multi-month argmax"
+    },
+    "he05_09_mae_median": 36.379485318851366,
+    "unmet_heating_sum_zone_hours": 33203.0,
+    "utility_nmbe_pct": -57.9302660908168,
+    "utility_cvrmse_pct": 74.17537471837831
+  }
 }
