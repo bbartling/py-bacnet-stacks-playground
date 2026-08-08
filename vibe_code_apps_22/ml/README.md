@@ -39,7 +39,12 @@ Notebooks are **viewers** only. Models/parquets are **not** committed — see [`
 | `heating_dsm_eplus_paired_15min_v1.parquet` | Paired farm |
 | `hybrid_dsm_96_v1_walk.json` | Desktop ship walk |
 | `contracts/hybrid_dsm_96_v1.json` | Versioned I/O (in git) |
+| `contracts/hybrid_dsm_96_v2.json` | **Contract-only** sibling — farm **unimplemented**; do not train/promote |
 
 Torch ResMLP → `*_torch_v1.*` under `artifacts/runs/torch_*` (research only).
+
+### Schedule / plant integrity (2026-08-08)
+
+Integrity-first W2A closure (`w2a_integrity_closure_*`): 8 unique post-ExpandObjects live-knob trials; raw gates **FAIL**; DSM **NO-GO**. Prior unreproducible W2A “20/20” / W15–W19 **retracted**. P1 structure gate is **improvement-to-observed** (historical weekend overshoot FAIL). See [`../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md`](../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md).
 
 Agent SoT: [`../vibe22_agent_spec/HEATING_DSM.md`](../vibe22_agent_spec/HEATING_DSM.md).

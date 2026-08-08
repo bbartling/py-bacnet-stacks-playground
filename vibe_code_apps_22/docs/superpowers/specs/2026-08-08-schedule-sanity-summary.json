@@ -3,10 +3,39 @@
   "succeeded": 6,
   "failed": 0,
   "p1_gate": {
-    "hourly_structure_improved": true,
+    "gate_kind": "improvement_to_observed",
+    "hourly_structure_improved": false,
+    "weekend": {
+      "label": "winter_weekend",
+      "pass": false,
+      "meas_mean": 63.835833262499996,
+      "baseline_sim_mean": 12.40685110938112,
+      "repaired_sim_mean": 167.53695164824424,
+      "baseline_abs_err": 51.428982153118874,
+      "repaired_abs_err": 103.70111838574425,
+      "repaired_ratio_sim_over_meas": 2.624496980548743,
+      "err_improved_materially": false,
+      "ratio_in_band": false,
+      "overshoot_fail": true,
+      "reason": "winter_weekend: sim 12.41\u2192167.54 vs meas 63.84; |err| 51.43\u2192103.70; ratio=2.624; OVERSHOOT; FAIL"
+    },
+    "overnight": {
+      "label": "winter_overnight",
+      "pass": false,
+      "meas_mean": 74.87037024691357,
+      "baseline_sim_mean": 12.40685110938112,
+      "repaired_sim_mean": 190.15043583034378,
+      "baseline_abs_err": 62.463519137532444,
+      "repaired_abs_err": 115.28006558343021,
+      "repaired_ratio_sim_over_meas": 2.5397288033069727,
+      "err_improved_materially": false,
+      "ratio_in_band": false,
+      "overshoot_fail": true,
+      "reason": "winter_overnight: sim 12.41\u2192190.15 vs meas 74.87; |err| 62.46\u2192115.28; ratio=2.540; OVERSHOOT; FAIL"
+    },
     "reasons": [
-      "weekend_kw_mod 12.41 \u2192 167.54",
-      "overnight_kw_mod 12.41 \u2192 190.15"
+      "winter_weekend: sim 12.41\u2192167.54 vs meas 63.84; |err| 51.43\u2192103.70; ratio=2.624; OVERSHOOT; FAIL",
+      "winter_overnight: sim 12.41\u2192190.15 vs meas 74.87; |err| 62.46\u2192115.28; ratio=2.540; OVERSHOOT; FAIL"
     ],
     "baseline_structural": {
       "winter_weekend_kw_mod_mean": 12.40685110938112,
@@ -26,7 +55,7 @@
       "winter_weekday_kw_meas_mean": 117.67467910844016,
       "weekend_collapse_ratio_mod_over_meas": 2.624496980548743
     },
-    "next": "continue_P2_P3_P4"
+    "next": "NO-GO_structure_overshoot_or_no_error_reduction"
   },
   "dsm_status": "NO-GO",
   "trial_ids": [
@@ -44,5 +73,7 @@
     "S3_cap_mid_2p7": "succeeded",
     "S4_cap_high_3p2": "succeeded",
     "S5_opt_start_sens": "succeeded"
-  }
+  },
+  "p1_gate_rescored_utc": "2026-08-08Tintegrity",
+  "p1_gate_note": "Rescored with improvement-to-observed; historical overshoot FAIL"
 }

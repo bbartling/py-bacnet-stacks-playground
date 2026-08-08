@@ -194,31 +194,83 @@ def run_one(
     return result
 
 
+def _slice_improvement_to_observed(
+    *,
+    label: str,
+    b_sim: float | None,
+    r_sim: float | None,
+    meas: float | None,
+    ratio_lo: float = 0.5,
+    ratio_hi: float = 1.5,
+    err_improve_frac: float = 0.15,
+) -> dict[str, Any]:
+    """PASS only if |sim−meas| decreases materially AND sim/meas moves into [lo, hi]."""
+    if b_sim is None or r_sim is None or meas is None or meas == 0:
+        return {
+            "label": label,
+            "pass": False,
+            "reason": f"{label}: missing sim/meas",
+        }
+    b_err = abs(float(b_sim) - float(meas))
+    r_err = abs(float(r_sim) - float(meas))
+    ratio = float(r_sim) / float(meas)
+    err_ok = r_err <= b_err * (1.0 - err_improve_frac)
+    ratio_ok = ratio_lo <= ratio <= ratio_hi
+    # Explicit overshoot reject (historical S1: meas~64, sim~168)
+    overshoot_fail = ratio > ratio_hi
+    ok = bool(err_ok and ratio_ok and not overshoot_fail)
+    return {
+        "label": label,
+        "pass": ok,
+        "meas_mean": float(meas),
+        "baseline_sim_mean": float(b_sim),
+        "repaired_sim_mean": float(r_sim),
+        "baseline_abs_err": b_err,
+        "repaired_abs_err": r_err,
+        "repaired_ratio_sim_over_meas": ratio,
+        "err_improved_materially": err_ok,
+        "ratio_in_band": ratio_ok,
+        "overshoot_fail": overshoot_fail,
+        "reason": (
+            f"{label}: sim {b_sim:.2f}→{r_sim:.2f} vs meas {meas:.2f}; "
+            f"|err| {b_err:.2f}→{r_err:.2f}; ratio={ratio:.3f}"
+            + ("; OVERSHOOT" if overshoot_fail else "")
+            + ("; PASS" if ok else "; FAIL")
+        ),
+    }
+
+
 def gate_structural(baseline: dict[str, Any], repaired: dict[str, Any]) -> dict[str, Any]:
+    """Improvement-to-observed gate (not 'sim went up').
+
+    Weekend/overnight slices must reduce |sim−meas| materially and land
+    sim/meas in [0.5, 1.5]. Historical overshoot 12.4→167 vs meas~64 FAILs.
+    """
     b = (baseline.get("metrics") or {}).get("structural") or {}
     r = (repaired.get("metrics") or {}).get("structural") or {}
-    b_wk = b.get("winter_weekend_kw_mod_mean")
-    r_wk = r.get("winter_weekend_kw_mod_mean")
-    b_nt = b.get("winter_overnight_kw_mod_mean")
-    r_nt = r.get("winter_overnight_kw_mod_mean")
-    improved = False
-    reasons = []
-    if b_wk is not None and r_wk is not None:
-        # material improvement: leave ~12.4 kW floor
-        if r_wk >= max(b_wk * 1.5, 25.0):
-            improved = True
-            reasons.append(f"weekend_kw_mod {b_wk:.2f} → {r_wk:.2f}")
-        else:
-            reasons.append(f"weekend_kw_mod insufficient {b_wk:.2f} → {r_wk:.2f}")
-    if b_nt is not None and r_nt is not None and r_nt >= max(b_nt * 1.5, 25.0):
-        improved = True
-        reasons.append(f"overnight_kw_mod {b_nt:.2f} → {r_nt:.2f}")
+    weekend = _slice_improvement_to_observed(
+        label="winter_weekend",
+        b_sim=b.get("winter_weekend_kw_mod_mean"),
+        r_sim=r.get("winter_weekend_kw_mod_mean"),
+        meas=r.get("winter_weekend_kw_meas_mean") or b.get("winter_weekend_kw_meas_mean"),
+    )
+    overnight = _slice_improvement_to_observed(
+        label="winter_overnight",
+        b_sim=b.get("winter_overnight_kw_mod_mean"),
+        r_sim=r.get("winter_overnight_kw_mod_mean"),
+        meas=r.get("winter_overnight_kw_meas_mean") or b.get("winter_overnight_kw_meas_mean"),
+    )
+    improved = bool(weekend["pass"] and overnight["pass"])
+    reasons = [weekend["reason"], overnight["reason"]]
     return {
+        "gate_kind": "improvement_to_observed",
         "hourly_structure_improved": improved,
+        "weekend": weekend,
+        "overnight": overnight,
         "reasons": reasons,
         "baseline_structural": b,
         "repaired_structural": r,
-        "next": "continue_P2_P3_P4" if improved else "NO-GO_skip_large_P3_P4_may_finish_P2_diagnostics",
+        "next": "continue_P2_P3_P4" if improved else "NO-GO_structure_overshoot_or_no_error_reduction",
     }
 
 

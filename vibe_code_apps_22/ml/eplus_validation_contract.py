@@ -791,3 +791,168 @@ def score_period(
     block = score_aligned(sub, resolution=resolution)
     block["period"] = period_name
     return block
+
+
+# ---------------------------------------------------------------------------
+# W2A integrity closure — rolling-origin selection (Nov–Dec only); Jan consumed
+# ---------------------------------------------------------------------------
+# Prior IdealLoads January locked holdout is CONSUMED for this building/family
+# and must not be treated as pristine for W2A selection ranking.
+JANUARY_HOLDOUT_CONSUMED = True
+JANUARY_HOLDOUT_NOTE = (
+    "IdealLoads January 2026 locked holdout was consumed during prior schedule/"
+    "plant-proxy work for this building family — not pristine for W2A selection."
+)
+
+# Predeclared exploratory selection folds (local America/Chicago civil dates).
+# Score the next `horizon_days` local days after each origin (exclusive of training
+# through origin). Reserved final winter audit is February local month — never
+# fed back into ranking.
+ROLLING_ORIGIN_SELECTION_FOLDS: list[dict[str, Any]] = [
+    {"origin_local": "2025-11-15", "horizon_days": 10, "fold_id": "ro_nov15"},
+    {"origin_local": "2025-11-30", "horizon_days": 10, "fold_id": "ro_nov30"},
+    {"origin_local": "2025-12-15", "horizon_days": 10, "fold_id": "ro_dec15"},
+]
+RESERVED_FINAL_WINTER_AUDIT = {
+    "period_id": "reserved_final_winter_audit",
+    "local_month": "2026-02",
+    "tz": "America/Chicago",
+    "role": "evaluate_once_after_selection_never_rank",
+}
+
+
+def rolling_origin_selection_mask(
+    aligned: pd.DataFrame,
+    *,
+    origin_local: str,
+    horizon_days: int = 10,
+    ts_col: str = "interval_end_utc",
+    local_tz: str = "America/Chicago",
+) -> pd.Series:
+    """Mask for the score window: local days (origin, origin+horizon].
+
+    Training-through-origin is implied for documentation only; this mask is the
+    held-forward score slice used for exploratory ranking.
+    """
+    ts = pd.to_datetime(aligned[ts_col], utc=True)
+    local = ts.dt.tz_convert(local_tz)
+    origin = pd.Timestamp(origin_local, tz=local_tz)
+    end = origin + pd.Timedelta(days=int(horizon_days))
+    return (local > origin) & (local <= end)
+
+
+def reserved_final_winter_audit_mask(
+    aligned: pd.DataFrame,
+    *,
+    ts_col: str = "interval_end_utc",
+    local_tz: str = "America/Chicago",
+    local_month: str = "2026-02",
+) -> pd.Series:
+    """February local month — reserved final audit; never used for selection."""
+    ts = pd.to_datetime(aligned[ts_col], utc=True)
+    local = ts.dt.tz_convert(local_tz)
+    year_s, month_s = local_month.split("-")
+    year, month = int(year_s), int(month_s)
+    return (local.dt.year == year) & (local.dt.month == month)
+
+
+def score_rolling_origin_selection(
+    aligned: pd.DataFrame,
+    *,
+    folds: list[dict[str, Any]] | None = None,
+    ts_col: str = "interval_end_utc",
+    obs_col: str = "observed_kw",
+    sim_col: str = "simulated_kw",
+) -> dict[str, Any]:
+    """Median fold CVRMSE on Nov–Dec rolling origins only (exploratory ranking)."""
+    folds = folds or ROLLING_ORIGIN_SELECTION_FOLDS
+    fold_scores: list[dict[str, Any]] = []
+    cvs: list[float] = []
+    for fold in folds:
+        mask = rolling_origin_selection_mask(
+            aligned,
+            origin_local=str(fold["origin_local"]),
+            horizon_days=int(fold.get("horizon_days", 10)),
+            ts_col=ts_col,
+        )
+        # Guard: never include reserved February in selection
+        feb = reserved_final_winter_audit_mask(aligned, ts_col=ts_col)
+        if bool((mask & feb).any()):
+            raise AlignmentError("rolling-origin selection mask leaked into reserved February")
+        sub = aligned.loc[mask]
+        if len(sub) < 24:
+            fold_scores.append(
+                {
+                    "fold_id": fold.get("fold_id"),
+                    "status": "insufficient_data",
+                    "n": int(len(sub)),
+                }
+            )
+            continue
+        # score_aligned expects observed_kw / simulated_kw
+        work = sub
+        if obs_col != "observed_kw" or sim_col != "simulated_kw":
+            work = sub.rename(columns={obs_col: "observed_kw", sim_col: "simulated_kw"})
+        block = score_aligned(work, resolution="hourly")
+        cv = block.get("cvrmse_pct")
+        if cv is not None:
+            cvs.append(float(cv))
+        fold_scores.append(
+            {
+                "fold_id": fold.get("fold_id"),
+                "origin_local": fold.get("origin_local"),
+                "horizon_days": fold.get("horizon_days"),
+                "n": int(len(sub)),
+                "cvrmse_pct": cv,
+                "nmbe_pct": block.get("nmbe_pct"),
+                "status": "ok",
+            }
+        )
+    median_cv = float(np.median(cvs)) if cvs else None
+    return {
+        "role": "exploratory_selection_only",
+        "january_holdout_consumed": JANUARY_HOLDOUT_CONSUMED,
+        "january_holdout_note": JANUARY_HOLDOUT_NOTE,
+        "folds": fold_scores,
+        "median_fold_cvrmse_pct": median_cv,
+        "selection_score": median_cv,  # lower is better
+        "excludes_reserved_february": True,
+        "excludes_january_from_ranking": True,
+    }
+
+
+def score_reserved_final_winter_audit(
+    aligned: pd.DataFrame,
+    *,
+    ts_col: str = "interval_end_utc",
+) -> dict[str, Any]:
+    """Evaluate February once after selection — never feed into ranking."""
+    mask = reserved_final_winter_audit_mask(aligned, ts_col=ts_col)
+    sub = aligned.loc[mask]
+    out: dict[str, Any] = {
+        **RESERVED_FINAL_WINTER_AUDIT,
+        "n": int(len(sub)),
+        "used_for_selection": False,
+    }
+    if len(sub) < 24:
+        out["status"] = "insufficient_data"
+        return out
+    block = score_aligned(sub, resolution="hourly")
+    peaks = day_level_peak_metrics(sub, ts_col=ts_col)
+    out.update(
+        {
+            "status": "ok",
+            "hourly_score": block,
+            "day_level_peaks": {
+                k: peaks.get(k)
+                for k in (
+                    "n_complete_days",
+                    "status",
+                    "abs_peak_magnitude_error_kw",
+                    "circular_abs_peak_timing_error_h",
+                    "morning_he05_09_mae_kw",
+                )
+            },
+        }
+    )
+    return out

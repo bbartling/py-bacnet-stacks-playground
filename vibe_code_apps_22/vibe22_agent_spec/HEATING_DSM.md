@@ -19,6 +19,8 @@
 - Staged twin filename may say `gshp` — physics is IdealLoads + fixed COP (see multi-res baseline ledger).
 - Desktop **Run** uses **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback, not the interactive engine.
 - Ship selection uses **recursive held-out peak MAE only** (no teacher-forced fallback); `--ship-desktop` requires both sklearn arms ok.
+- **`hybrid_dsm_96_v2`**: contract published only — **paired farm unimplemented**. Integrity closure (2026-08-08) raw E+ gates **NO-GO**; do not promote v2 training from provisional W2A.
+- Cite [`../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md`](../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md) — prior W2A “20/20” retracted; P1 overshoot FAIL under improvement-to-observed.
 
 ## Architecture
 
