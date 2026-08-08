@@ -29,7 +29,9 @@ def test_sensitivity_screen_stage_a_bounds():
     trials = _sensitivity_screen(reg, "A")
     assert trials
     assert all(t["stage"] == "A" for t in trials)
-    assert all(t["status"] == "planned" for t in trials)
+    # Non-executable schedule knobs are rejected; executable ones stay planned
+    assert all(t["status"] in {"planned", "rejected"} for t in trials)
+    assert any(t["status"] == "rejected" for t in trials)
 
 
 def test_rank_monthly_gate_outranks_hourly():

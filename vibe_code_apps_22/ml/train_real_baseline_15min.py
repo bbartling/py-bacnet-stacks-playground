@@ -294,6 +294,11 @@ def _manifest_eval_families(
             per_day_rec[f].update(ev.get("per_day", {}))
             peak_mae = tf_scores[f][-1].get("facility_kw_mae_peak_05_09")
             print(f"  {f} peak MAE={peak_mae}", flush=True)
+    if not any(tf_scores[f] for f in family_names):
+        raise ValueError(
+            "every chronological fold was empty/invalid — refuse champion export "
+            "(fail-closed; do not fall back to first model family)"
+        )
     summary_tf = {f: _mean_metric_dicts(tf_scores[f]) for f in family_names}
     summary_rec = {f: _agg_day_scores(list(per_day_rec[f].values())) for f in family_names}
     pool = [

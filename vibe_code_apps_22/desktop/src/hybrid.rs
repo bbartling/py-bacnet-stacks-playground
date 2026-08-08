@@ -111,9 +111,10 @@ pub fn load_hybrid_walk() -> Result<(HybridWalk, PathBuf)> {
     for p in default_hybrid_walk_paths() {
         tried.push(p.display().to_string());
         if p.is_file() {
-            let txt = std::fs::read_to_string(&p)
-                .with_context(|| format!("read {}", p.display()))?;
-            let mut walk: HybridWalk = serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
+            let txt =
+                std::fs::read_to_string(&p).with_context(|| format!("read {}", p.display()))?;
+            let mut walk: HybridWalk =
+                serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
             if walk.source.is_none() {
                 walk.source = Some("precomputed_ship_walk".into());
             }
@@ -178,7 +179,10 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
         "Energy kWh  baseline {:.1} → hybrid {:.1}   Δ {:.1}",
         s.cumulative_kwh_baseline, s.cumulative_kwh_hybrid, s.delta_kwh
     ));
-    ui.label(format!("Comfort violations (15-min): {}", s.comfort_violations));
+    ui.label(format!(
+        "Comfort violations (15-min): {}",
+        s.comfort_violations
+    ));
 
     let base: PlotPoints = walk
         .steps
@@ -226,9 +230,7 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
                         .collect();
                     plot_ui.line(Line::new(pts).name(zk.clone()));
                 }
-                let lo_line: PlotPoints = (0..96)
-                    .map(|i| [i as f64 / 4.0, lo])
-                    .collect();
+                let lo_line: PlotPoints = (0..96).map(|i| [i as f64 / 4.0, lo]).collect();
                 plot_ui.line(Line::new(lo_line).name("comfort_lo"));
             });
     }

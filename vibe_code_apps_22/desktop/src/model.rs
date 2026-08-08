@@ -84,10 +84,7 @@ impl FeatureMeta {
         let cv = self.cv_metrics.clone().unwrap_or_default();
         let mae = cv.mae.unwrap_or(0.0);
         let rmse = cv.rmse.unwrap_or(0.0);
-        let mae_p = cv
-            .mae_peak_05_09
-            .or(self.cv_mae_peak_05_09)
-            .unwrap_or(mae);
+        let mae_p = cv.mae_peak_05_09.or(self.cv_mae_peak_05_09).unwrap_or(mae);
         let rmse_p = cv.rmse_peak_05_09.unwrap_or(rmse);
         let pm = self.precision_pm();
         vec![
@@ -182,12 +179,8 @@ pub fn default_artifact_paths() -> (std::path::PathBuf, std::path::PathBuf) {
             .ok()
             .and_then(|p| p.parent().map(|d| d.to_path_buf())),
         option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
-        option_env!("CARGO_MANIFEST_DIR").map(|s| {
-            Path::new(s)
-                .join("..")
-                .join("ml")
-                .join("artifacts")
-        }),
+        option_env!("CARGO_MANIFEST_DIR")
+            .map(|s| Path::new(s).join("..").join("ml").join("artifacts")),
         Some(Path::new("ml").join("artifacts")),
         Some(Path::new("..").join("ml").join("artifacts")),
     ];

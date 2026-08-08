@@ -180,17 +180,13 @@ pub fn metrics_from_manifest(ship: &ShipManifest) -> (Vec<String>, f32, String) 
             .into(),
     );
     if is_smoke_screening(ship) {
-        lines.push(
-            "Smoke/screening farm — operational DSM recommendations disabled".into(),
-        );
+        lines.push("Smoke/screening farm — operational DSM recommendations disabled".into());
     }
     if let Some(flag) = &ship.outcome_flag {
         lines.push(format!("outcome_flag: {flag}"));
     }
 
-    let pm = mv
-        .and_then(|m| m.precision_pm_kw)
-        .unwrap_or(0.0);
+    let pm = mv.and_then(|m| m.precision_pm_kw).unwrap_or(0.0);
     let note = mv
         .and_then(|m| m.precision_label.clone())
         .unwrap_or_else(|| {

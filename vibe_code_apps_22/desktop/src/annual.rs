@@ -129,7 +129,8 @@ pub fn rollup_annual_savings(
         dsm_d += dsm_demand * d_rate;
 
         base_dist += billed * dist_rate;
-        let near_ratchet = (max_billed - billed).abs() <= ratchet_tol_kw || billed >= max_billed - 1e-3;
+        let near_ratchet =
+            (max_billed - billed).abs() <= ratchet_tol_kw || billed >= max_billed - 1e-3;
         let dsm_billed = if near_ratchet && shave > 0.0 {
             ratchet_n += 1;
             (billed - shave).max(0.0)
@@ -169,10 +170,7 @@ pub fn rollup_annual_savings(
              billed/distribution demand shaved only near annual max (tol {:.1} kW). \
              Energy penalty = ΔkWh/day × {:.0} similar cold days × blended rate. \
              Not a full 8760 / ratchet-clause engine.",
-            n,
-            book.path,
-            ratchet_tol_kw,
-            similar_cold_days
+            n, book.path, ratchet_tol_kw, similar_cold_days
         ),
     }
 }

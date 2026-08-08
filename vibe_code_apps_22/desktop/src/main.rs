@@ -10,12 +10,12 @@ mod features;
 mod features_15min;
 mod hybrid;
 mod hybrid_onnx;
-mod nearest_day;
-mod simulation;
 #[allow(dead_code)]
 mod model; // quarantined hourly heating_dsm_hourly_v1 path — unused by live UI
 mod mvm;
+mod nearest_day;
 mod ship_manifest;
+mod simulation;
 mod tariff;
 
 use annual::{rollup_annual_savings, AnnualRollup, MonthlyBook};
@@ -23,11 +23,11 @@ use bills::{try_autoload_bills, BillBook, DerivedRates};
 use eframe::egui;
 use egui_plot::{Bar, BarChart, Line, Plot, PlotPoints};
 use features::{default_occ_frac, STRATEGY_IDS, ZONE_LABELS};
+use features_15min::STEPS_96;
 use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
-use features_15min::STEPS_96;
 use mvm::{
-    idf_hash_mismatch, load_mvm_bundle, load_multires_validation, recommendation_language_gate,
+    idf_hash_mismatch, load_multires_validation, load_mvm_bundle, recommendation_language_gate,
     show_multires_badge_strip, show_validation_tab, MultiresBundle, MvmBundle, RecommendGateExtras,
 };
 use nearest_day::{billing_period_demand_kw, NearestDayEngine, NearestDayResult};
@@ -159,11 +159,7 @@ impl DsmApp {
                     .map(|w| w.summary.comfort_violations > 0)
             })
             .unwrap_or(false);
-        let ood = self
-            .nearest_result
-            .as_ref()
-            .map(|r| r.ood)
-            .unwrap_or(false);
+        let ood = self.nearest_result.as_ref().map(|r| r.ood).unwrap_or(false);
         RecommendGateExtras {
             smoke_farm: self.ship_smoke,
             ood,
@@ -175,8 +171,7 @@ impl DsmApp {
     /// Format recommend status for UI — never claim recommend when gates block.
     fn format_recommend_ui(&self, raw_recommend: bool) -> String {
         let extras = self.recommend_gate_extras();
-        let (allowed, blocker) =
-            recommendation_language_gate(self.multires.doc.as_ref(), &extras);
+        let (allowed, blocker) = recommendation_language_gate(self.multires.doc.as_ref(), &extras);
         if !allowed {
             format!(
                 "recommend=blocked ({})",
@@ -428,10 +423,7 @@ impl DsmApp {
             }
         }
 
-        if let Some(path) = annual_sample_candidates()
-            .into_iter()
-            .find(|p| p.is_file())
-        {
+        if let Some(path) = annual_sample_candidates().into_iter().find(|p| p.is_file()) {
             match MonthlyBook::load_csv(&path) {
                 Ok(book) => {
                     app.status = format!(
@@ -701,13 +693,7 @@ impl DsmApp {
                 }
                 let hourly = hourly_mean_from_quarters(&kw96);
                 let month_u8 = month as u8;
-                let cost = cost_day_tod_96(
-                    &kw96,
-                    &self.tariff,
-                    self.is_weekend,
-                    month_u8,
-                    false,
-                );
+                let cost = cost_day_tod_96(&kw96, &self.tariff, self.is_weekend, month_u8, false);
                 if force_247_as_dsm {
                     self.pred_kw_compare = hourly;
                     self.compare_label = "HVAC 24/7 (live hybrid)".into();
@@ -717,10 +703,7 @@ impl DsmApp {
                     self.dsm_label = sid.clone();
                     self.cost_dsm = Some(cost);
                 }
-                let flag = walk
-                    .outcome_flag
-                    .clone()
-                    .unwrap_or_else(|| "ok".into());
+                let flag = walk.outcome_flag.clone().unwrap_or_else(|| "ok".into());
                 self.status = format!(
                     "Live hybrid OK — peak {:.1}→{:.1} (Δ{:.1}) · {} · {} · {}",
                     walk.summary.peak_kw_baseline,
@@ -745,9 +728,8 @@ impl DsmApp {
     /// Nearest-Day + E+ Delta engineering benchmark (not ML).
     fn run_nearest_day(&mut self) -> bool {
         let Some(eng) = self.nearest_engine.as_ref() else {
-            self.nearest_error = Some(
-                "Nearest-Day library not loaded (export with PROFILE=full_deployment)".into(),
-            );
+            self.nearest_error =
+                Some("Nearest-Day library not loaded (export with PROFILE=full_deployment)".into());
             self.status = self.nearest_error.clone().unwrap();
             return false;
         };
@@ -820,13 +802,8 @@ impl DsmApp {
                     for (i, st) in res.walk.steps.iter().enumerate().take(STEPS_96) {
                         kw96[i] = st.hybrid_facility_kw as f32;
                     }
-                    let cost = cost_day_tod_96(
-                        &kw96,
-                        &self.tariff,
-                        self.is_weekend,
-                        month_u8,
-                        false,
-                    );
+                    let cost =
+                        cost_day_tod_96(&kw96, &self.tariff, self.is_weekend, month_u8, false);
                     let (_new_p, inc_kw, inc_cost) = incremental_demand(
                         self.existing_billing_peak_kw as f64,
                         res.hybrid_peak_kw,
@@ -930,11 +907,7 @@ impl DsmApp {
             ));
         }
         self.refresh_annual();
-        let pc = self
-            .cost_compare
-            .as_ref()
-            .map(|c| c.peak_kw)
-            .unwrap_or(0.0);
+        let pc = self.cost_compare.as_ref().map(|c| c.peak_kw).unwrap_or(0.0);
         let pd = self.cost_dsm.as_ref().map(|c| c.peak_kw).unwrap_or(0.0);
         self.status = format!(
             "Live compare OK — 24/7 peak {:.1} vs DSM {:.1} (Δpeak {:.1} kW)",

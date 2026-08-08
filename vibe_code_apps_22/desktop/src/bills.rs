@@ -75,11 +75,9 @@ fn resolve_field(norm: &str) -> Option<&'static str> {
         "billeddemandkw" | "billeddemand" | "billingdemand" => Some("billed_demand_kw"),
         "days" | "nrdays" | "billingdays" => Some("days"),
         "unitcost" | "effectiveunitcost" | "costperkwh" => Some("unit_cost"),
-        "account" | "accountnumber" | "useunit" | "useperday" | "billid" | "imageurl"
-        | "void" | "accrual" | "flagstatusid" | "flagtype" | "exporthold" | "analyzing"
-        | "costunitcodesource" | "costunitsource" | "accrualreversed" => {
-            Some("_ignore")
-        }
+        "account" | "accountnumber" | "useunit" | "useperday" | "billid" | "imageurl" | "void"
+        | "accrual" | "flagstatusid" | "flagtype" | "exporthold" | "analyzing"
+        | "costunitcodesource" | "costunitsource" | "accrualreversed" => Some("_ignore"),
         _ => None,
     }
 }
@@ -195,9 +193,7 @@ fn make_ols_rates(
     let mut warnings = Vec::new();
     let used_actual = subset.iter().any(|r| r.billed_demand_kw.is_none());
     if used_actual {
-        warnings.push(
-            "Some rows lack billed_demand_kw — used demand_kw for the fit.".into(),
-        );
+        warnings.push("Some rows lack billed_demand_kw — used demand_kw for the fit.".into());
     }
     let Some((ce, cd)) = ols_ce_cd(&subset, demand_for_fit) else {
         return Ok(None);
@@ -342,8 +338,7 @@ pub fn load_bill_csv(path: &Path) -> Result<BillBook, BillLoadError> {
     }
     if !col_map.contains_key("billed_demand_kw") {
         warnings.push(
-            "No Billed Demand column — using Demand for $/kW fits (ratchet not visible)."
-                .into(),
+            "No Billed Demand column — using Demand for $/kW fits (ratchet not visible).".into(),
         );
     }
 
@@ -353,12 +348,7 @@ pub fn load_bill_csv(path: &Path) -> Result<BillBook, BillLoadError> {
         let rec = rec.map_err(|e| BillLoadError {
             message: format!("Row {row_num}: CSV parse error: {e}"),
         })?;
-        let get = |key: &str| -> &str {
-            col_map
-                .get(key)
-                .and_then(|&i| rec.get(i))
-                .unwrap_or("")
-        };
+        let get = |key: &str| -> &str { col_map.get(key).and_then(|&i| rec.get(i)).unwrap_or("") };
 
         let month_key = if let Some(m) = month_from_period(get("month")) {
             m
@@ -378,14 +368,12 @@ pub fn load_bill_csv(path: &Path) -> Result<BillBook, BillLoadError> {
             });
         };
 
-        let kwh = parse_f32(get("kwh"), "kwh", row_num)?
-            .ok_or_else(|| BillLoadError {
-                message: format!("Row {row_num}: kwh / Use is empty."),
-            })?;
-        let cost = parse_f32(get("cost_usd"), "cost", row_num)?
-            .ok_or_else(|| BillLoadError {
-                message: format!("Row {row_num}: Meter Cost is empty."),
-            })?;
+        let kwh = parse_f32(get("kwh"), "kwh", row_num)?.ok_or_else(|| BillLoadError {
+            message: format!("Row {row_num}: kwh / Use is empty."),
+        })?;
+        let cost = parse_f32(get("cost_usd"), "cost", row_num)?.ok_or_else(|| BillLoadError {
+            message: format!("Row {row_num}: Meter Cost is empty."),
+        })?;
         if kwh <= 0.0 {
             return Err(BillLoadError {
                 message: format!("Row {row_num} ({month_key}): kwh must be > 0 (got {kwh})."),
@@ -400,8 +388,7 @@ pub fn load_bill_csv(path: &Path) -> Result<BillBook, BillLoadError> {
         }
 
         let demand_kw = parse_f32(get("demand_kw"), "demand_kw", row_num)?;
-        let billed_demand_kw =
-            parse_f32(get("billed_demand_kw"), "billed_demand_kw", row_num)?;
+        let billed_demand_kw = parse_f32(get("billed_demand_kw"), "billed_demand_kw", row_num)?;
         if demand_for_fit(&BillRow {
             month_key: month_key.clone(),
             kwh,
@@ -444,7 +431,8 @@ pub fn load_bill_csv(path: &Path) -> Result<BillBook, BillLoadError> {
 
     rows.sort_by(|a, b| a.month_key.cmp(&b.month_key));
 
-    let heating_season = make_ols_rates(&rows, |r| is_heating_month(&r.month_key), "heating season")?;
+    let heating_season =
+        make_ols_rates(&rows, |r| is_heating_month(&r.month_key), "heating season")?;
     let all_months_ols = make_ols_rates(&rows, |_| true, "all months")?;
 
     if heating_season.is_none() && all_months_ols.is_none() && rows.len() < 3 {
@@ -502,7 +490,10 @@ pub fn default_bill_csv_candidates() -> Vec<std::path::PathBuf> {
     }
     if let Ok(root) = std::env::var("LAKESIDE_SITE_ROOT") {
         let root = std::path::PathBuf::from(root);
-        out.push(root.join("utilities").join("electricity_utility_demand.csv"));
+        out.push(
+            root.join("utilities")
+                .join("electricity_utility_demand.csv"),
+        );
         out.push(root.join("utilities").join("utility_bills_raw.csv"));
     }
     // Client package: sample CSV sits beside the .exe

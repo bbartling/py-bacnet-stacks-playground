@@ -180,7 +180,15 @@ impl NearestDayEngine {
         (value - mu) / sd
     }
 
-    fn distance(&self, q_weekend: f64, q_oat: &[f64], q_mo: f64, q_kw: f64, q_zones: &[f64], d: &LibDay) -> NeighborHit {
+    fn distance(
+        &self,
+        q_weekend: f64,
+        q_oat: &[f64],
+        q_mo: f64,
+        q_kw: f64,
+        q_zones: &[f64],
+        d: &LibDay,
+    ) -> NeighborHit {
         let weekend_mismatch = if (q_weekend - d.is_weekend).abs() < 0.5 {
             0.0
         } else {
@@ -193,7 +201,13 @@ impl NearestDayEngine {
             oat_l2 += e * e;
         }
         let oat_l2 = oat_l2.sqrt();
-        let oat_sd = self.library.scale_stds.get("oat_traj_l2").copied().unwrap_or(1.0).max(1e-9);
+        let oat_sd = self
+            .library
+            .scale_stds
+            .get("oat_traj_l2")
+            .copied()
+            .unwrap_or(1.0)
+            .max(1e-9);
         let oat_z = oat_l2 / oat_sd;
         let mid_oat = (self.z("midnight_oat", q_mo) - self.z("midnight_oat", d.midnight_oat)).abs();
         let mid_kw = (self.z("midnight_kw", q_kw) - self.z("midnight_kw", d.midnight_kw)).abs();
@@ -278,8 +292,12 @@ impl NearestDayEngine {
         let mut p10 = baseline.clone();
         let mut p90 = baseline.clone();
         if !hits.is_empty() {
-            let by: std::collections::BTreeMap<_, _> =
-                self.library.days.iter().map(|d| (d.day.as_str(), d)).collect();
+            let by: std::collections::BTreeMap<_, _> = self
+                .library
+                .days
+                .iter()
+                .map(|d| (d.day.as_str(), d))
+                .collect();
             for t in 0..STEPS_96 {
                 for c in 0..7 {
                     let mut vals: Vec<f64> = hits
@@ -419,7 +437,11 @@ impl NearestDayEngine {
             weather_mode: None,
             comfort_htg_sp_f: Some(68.0),
             comfort_band_f: Some(2.0),
-            ship_watermark: self.library.watermark.clone().or(self.library.eplus_watermark.clone()),
+            ship_watermark: self
+                .library
+                .watermark
+                .clone()
+                .or(self.library.eplus_watermark.clone()),
         };
 
         Ok(NearestDayResult {
@@ -436,7 +458,11 @@ impl NearestDayEngine {
             failed_criteria: failed,
             recommend,
             outcome_flags: flags,
-            watermark: self.library.watermark.clone().or(self.library.eplus_watermark.clone()),
+            watermark: self
+                .library
+                .watermark
+                .clone()
+                .or(self.library.eplus_watermark.clone()),
             baseline_peak_kw: peak_b,
             hybrid_peak_kw: peak_h,
             baseline_kwh: kwh_b,

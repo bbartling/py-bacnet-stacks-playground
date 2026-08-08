@@ -35,16 +35,26 @@ FORMULA_CITATION = (
 )
 
 
+class ShapeMismatchError(ValueError):
+    """Observed and simulated series lengths/shapes disagree — refuse silent truncate."""
+
+
 def _finite_pairs(
-    observed: Iterable[float], simulated: Iterable[float]
+    observed: Iterable[float],
+    simulated: Iterable[float],
+    *,
+    allow_truncate: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    o = np.asarray(list(observed), dtype=float)
-    s = np.asarray(list(simulated), dtype=float)
+    o = np.asarray(list(observed), dtype=float).reshape(-1)
+    s = np.asarray(list(simulated), dtype=float).reshape(-1)
     if o.shape != s.shape:
+        if not allow_truncate:
+            raise ShapeMismatchError(
+                f"observed shape {o.shape} != simulated shape {s.shape}; "
+                "refuse silent truncation — align by timestamp keys upstream"
+            )
         n = min(o.size, s.size)
-        o, s = o.reshape(-1)[:n], s.reshape(-1)[:n]
-    else:
-        o, s = o.reshape(-1), s.reshape(-1)
+        o, s = o[:n], s[:n]
     mask = np.isfinite(o) & np.isfinite(s)
     return o[mask], s[mask]
 
@@ -200,6 +210,8 @@ def resolution_block(
 def build_validation_document(
     *,
     monthly: Mapping[str, Any] | None = None,
+    monthly_utility: Mapping[str, Any] | None = None,
+    monthly_interval: Mapping[str, Any] | None = None,
     hourly: Mapping[str, Any] | None = None,
     q15: Mapping[str, Any] | None = None,
     physics_label: str = "IdealLoads + fixed-COP proxy (not GSHP/GLHE)",
@@ -209,27 +221,62 @@ def build_validation_document(
     acceptance_policy_id: str = "eplus_dsm_acceptance_policy_v1",
     recommendation_allowed: bool | None = None,
     blocker_reason: str | None = None,
+    chronological_periods: Mapping[str, Any] | None = None,
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble schema-shaped multi-res validation JSON."""
+    """Assemble schema-shaped multi-res validation JSON.
+
+    ``monthly`` is a legacy alias. Prefer ``monthly_utility`` and
+    ``monthly_interval`` — never present interval aggregates as utility bills.
+    """
+    util = dict(monthly_utility) if monthly_utility else (dict(monthly) if monthly else None)
+    interv = dict(monthly_interval) if monthly_interval else None
+    # Never allow interval block to claim utility_bill source
+    if interv and interv.get("source_type") == "utility_bill_monthly":
+        raise ValueError("monthly_interval must not use source_type=utility_bill_monthly")
+    if util and util.get("source_type") == "interval_meter_monthly":
+        raise ValueError("monthly_utility must not use source_type=interval_meter_monthly")
+
     blocks = {
-        "monthly": dict(monthly) if monthly else None,
+        "monthly_utility": util,
+        "monthly_interval": interv,
+        # Legacy key: prefer utility when present, else interval — but stamp source
+        "monthly": util or interv,
         "hourly": dict(hourly) if hourly else None,
         "q15_dsm": dict(q15) if q15 else None,
     }
-    monthly_ok = (blocks["monthly"] or {}).get("status") == "pass"
+    util_ok = (util or {}).get("status") == "pass"
+    interv_ok = (interv or {}).get("status") == "pass" if interv else False
+    monthly_ok = bool(util_ok)  # utility is the bill calibration product
     hourly_ok = (blocks["hourly"] or {}).get("status") == "pass"
     if recommendation_allowed is None:
+        # DSM requires utility monthly screen + hourly — interval monthly alone is insufficient
         recommendation_allowed = bool(monthly_ok and hourly_ok)
     if blocker_reason is None and not recommendation_allowed:
         reasons = []
-        if blocks["monthly"] and blocks["monthly"].get("status") != "pass":
-            reasons.append(f"monthly={blocks['monthly'].get('status')}")
+        if util and util.get("status") != "pass":
+            reasons.append(f"monthly_utility={util.get('status')}")
         if blocks["hourly"] and blocks["hourly"].get("status") != "pass":
             reasons.append(f"hourly={blocks['hourly'].get('status')}")
-        if not blocks["monthly"] or not blocks["hourly"]:
+        if not util or not blocks["hourly"]:
             reasons.append("incomplete_resolutions")
+        if interv and interv.get("status") != "pass":
+            reasons.append(f"monthly_interval={interv.get('status')}")
         blocker_reason = "; ".join(reasons) if reasons else "gates_not_met"
+
+    # Stamp partial-period honesty on monthly products
+    for key in ("monthly_utility", "monthly_interval", "monthly"):
+        b = blocks.get(key)
+        if not b:
+            continue
+        n = int(b.get("n") or 0)
+        if 0 < n < 12:
+            b["partial_year_monthly"] = True
+            b["labeled_as_gl14"] = False
+            b.setdefault(
+                "label",
+                "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN",
+            )
 
     doc: dict[str, Any] = {
         "schema": "eplus_multires_validation_v1",
@@ -241,13 +288,17 @@ def build_validation_document(
         "resolutions": blocks,
         "overall": {
             "monthly_pass": monthly_ok,
+            "monthly_utility_pass": util_ok,
+            "monthly_interval_pass": interv_ok,
             "hourly_pass": hourly_ok,
             "recommendation_allowed": bool(recommendation_allowed),
             "blocker_reason": blocker_reason if not recommendation_allowed else None,
             "optimizer_ready": False,
+            "operational_dsm_readiness": "BLOCKED",
             "operational_dsm_prohibited_until_gates_clear": True,
         },
         "alignment": dict(alignment) if alignment else None,
+        "chronological_periods": dict(chronological_periods) if chronological_periods else None,
     }
     if extra:
         doc["extra"] = dict(extra)

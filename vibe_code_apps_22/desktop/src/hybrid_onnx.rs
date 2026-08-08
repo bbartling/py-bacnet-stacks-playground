@@ -391,7 +391,8 @@ pub fn default_hybrid_artifact_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
             .ok()
             .and_then(|p| p.parent().map(|d| d.to_path_buf())),
         option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
-        option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("..").join("ml").join("artifacts")),
+        option_env!("CARGO_MANIFEST_DIR")
+            .map(|s| Path::new(s).join("..").join("ml").join("artifacts")),
         Some(Path::new("ml").join("artifacts")),
         Some(Path::new("..").join("ml").join("artifacts")),
     ];

@@ -65,7 +65,14 @@ pub struct ResolutionBlock {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Resolutions {
+    /// Legacy alias — prefer monthly_utility when present.
     pub monthly: Option<ResolutionBlock>,
+    /// Utility-bill monthly product (never interval aggregates).
+    #[serde(default)]
+    pub monthly_utility: Option<ResolutionBlock>,
+    /// Interval-meter aggregated to monthly (NOT utility bills).
+    #[serde(default)]
+    pub monthly_interval: Option<ResolutionBlock>,
     pub hourly: Option<ResolutionBlock>,
     pub q15_dsm: Option<ResolutionBlock>,
 }
@@ -73,11 +80,17 @@ pub struct Resolutions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct MultiresOverall {
     pub monthly_pass: bool,
+    #[serde(default)]
+    pub monthly_utility_pass: Option<bool>,
+    #[serde(default)]
+    pub monthly_interval_pass: Option<bool>,
     pub hourly_pass: bool,
     pub recommendation_allowed: bool,
     pub blocker_reason: Option<String>,
     #[serde(default)]
     pub optimizer_ready: bool,
+    #[serde(default)]
+    pub operational_dsm_readiness: Option<String>,
     #[serde(default = "default_true")]
     pub operational_dsm_prohibited_until_gates_clear: bool,
 }
@@ -125,7 +138,11 @@ fn candidate_dirs() -> Vec<PathBuf> {
             out.push(dir.join("artifacts").join("mvm"));
         }
     }
-    out.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("artifacts").join("mvm"));
+    out.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("artifacts")
+            .join("mvm"),
+    );
     if let Ok(site) = std::env::var("LAKESIDE_SITE_ROOT") {
         let root = PathBuf::from(site);
         out.push(root.join("reports").join("eplus").join("mvm"));
@@ -307,7 +324,9 @@ pub fn display_physics_label(raw: Option<&str>) -> String {
     let lower = s.to_ascii_lowercase();
     // Reject labels that claim GSHP without the "not GSHP" honesty clause.
     let claims_gshp = lower.contains("gshp") || lower.contains("glhe");
-    let denies_gshp = lower.contains("not gshp") || lower.contains("≠ gshp") || lower.contains("!= gshp")
+    let denies_gshp = lower.contains("not gshp")
+        || lower.contains("≠ gshp")
+        || lower.contains("!= gshp")
         || lower.contains("!=gshp")
         || lower.contains("not a gshp")
         || lower.contains("(not gshp");
@@ -386,31 +405,51 @@ fn status_color(status: &str) -> egui::Color32 {
 fn badge_label(name: &str, block: Option<&ResolutionBlock>) -> (String, egui::Color32) {
     match block {
         Some(b) => (format!("{name}: {}", b.status), status_color(&b.status)),
-        None => (
-            format!("{name}: —"),
-            egui::Color32::from_rgb(140, 140, 150),
-        ),
+        None => (format!("{name}: —"), egui::Color32::from_rgb(140, 140, 150)),
     }
 }
 
-/// Compact main-screen strip: 3 badges + physics + recommendation + one blocker.
-pub fn show_multires_badge_strip(ui: &mut egui::Ui, bundle: &MultiresBundle, extras: &RecommendGateExtras) {
+/// Compact main-screen strip: utility vs interval monthly + hourly + DSM readiness.
+pub fn show_multires_badge_strip(
+    ui: &mut egui::Ui,
+    bundle: &MultiresBundle,
+    extras: &RecommendGateExtras,
+) {
     ui.horizontal_wrapped(|ui| {
-        ui.strong("E+ multi-res");
+        ui.strong("E+ validation");
         ui.separator();
         match &bundle.doc {
             Some(doc) => {
-                let (m, cm) = badge_label("monthly", doc.resolutions.monthly.as_ref());
+                let util = doc
+                    .resolutions
+                    .monthly_utility
+                    .as_ref()
+                    .or(doc.resolutions.monthly.as_ref());
+                let interv = doc.resolutions.monthly_interval.as_ref();
+                let (mu, cmu) = badge_label("utility monthly", util);
+                let (mi, cmi) = badge_label("interval monthly", interv);
                 let (h, ch) = badge_label("hourly", doc.resolutions.hourly.as_ref());
                 let (q, cq) = badge_label("15-min DSM", doc.resolutions.q15_dsm.as_ref());
-                ui.colored_label(cm, m);
+                ui.colored_label(cmu, mu);
+                ui.colored_label(cmi, mi);
                 ui.colored_label(ch, h);
                 ui.colored_label(cq, q);
+                let ready = doc
+                    .overall
+                    .operational_dsm_readiness
+                    .as_deref()
+                    .unwrap_or("BLOCKED");
+                let rc = if ready.eq_ignore_ascii_case("READY") {
+                    egui::Color32::from_rgb(120, 190, 130)
+                } else {
+                    egui::Color32::from_rgb(230, 120, 90)
+                };
+                ui.colored_label(rc, format!("DSM: {ready}"));
             }
             None => {
                 ui.colored_label(
                     egui::Color32::from_rgb(210, 160, 80),
-                    "monthly: —  hourly: —  15-min DSM: —",
+                    "utility monthly: —  interval monthly: —  hourly: —  DSM: BLOCKED",
                 );
             }
         }
@@ -483,11 +522,13 @@ pub fn show_validation_tab(ui: &mut egui::Ui, multires: &MultiresBundle, mvm: &M
                 ui.label(doc.overall.optimizer_ready.to_string());
                 ui.end_row();
                 ui.label("operational DSM");
-                ui.label(if doc.overall.operational_dsm_prohibited_until_gates_clear {
-                    "prohibited until gates clear"
-                } else {
-                    "not prohibited"
-                });
+                ui.label(
+                    if doc.overall.operational_dsm_prohibited_until_gates_clear {
+                        "prohibited until gates clear"
+                    } else {
+                        "not prohibited"
+                    },
+                );
                 ui.end_row();
                 ui.label("IDF SHA-256");
                 ui.monospace(doc.idf_sha256.clone().unwrap_or_else(|| "—".into()));
@@ -498,11 +539,24 @@ pub fn show_validation_tab(ui: &mut egui::Ui, multires: &MultiresBundle, mvm: &M
             });
 
         ui.separator();
-        ui.heading("Resolutions");
+        ui.heading("Resolutions (sources kept separate)");
         for (title, block) in [
-            ("Monthly (GL14-style)", doc.resolutions.monthly.as_ref()),
-            ("Hourly (calibrated-sim screen)", doc.resolutions.hourly.as_ref()),
-            ("15-min DSM (diagnostic only)", doc.resolutions.q15_dsm.as_ref()),
+            (
+                "A. Monthly utility bills (PARTIAL-PERIOD SCREEN)",
+                doc.resolutions
+                    .monthly_utility
+                    .as_ref()
+                    .or(doc.resolutions.monthly.as_ref()),
+            ),
+            (
+                "B. Monthly interval-meter reconciliation (NOT utility bills)",
+                doc.resolutions.monthly_interval.as_ref(),
+            ),
+            (
+                "C. Hourly demand (calibrated-sim screen)",
+                doc.resolutions.hourly.as_ref(),
+            ),
+            ("D. 15-min DSM diagnostic", doc.resolutions.q15_dsm.as_ref()),
         ] {
             ui.strong(title);
             match block {
@@ -516,8 +570,10 @@ pub fn show_validation_tab(ui: &mut egui::Ui, multires: &MultiresBundle, mvm: &M
                         fmt_opt(b.cvrmse_pct),
                         b.labeled_as_gl14
                     ));
-                    if b.partial_year_monthly {
-                        ui.weak("partial-year monthly (n < 12) — labeled honestly");
+                    if b.partial_year_monthly || b.n < 12 {
+                        ui.weak(
+                            "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN — not unqualified GL14 PASS",
+                        );
                     }
                     if b.resolution.contains("15") || title.contains("15-min") {
                         ui.weak("Never marketed as 15-minute GL14.");
@@ -759,12 +815,11 @@ mod tests {
     #[test]
     fn physics_label_rejects_bare_gshp_claim() {
         assert!(display_physics_label(Some("GSHP plant twin")).contains("IdealLoads"));
-        assert!(display_physics_label(Some("IdealLoads + fixed-COP (not GSHP/GLHE)"))
-            .contains("IdealLoads"));
-        assert_eq!(
-            display_physics_label(None),
-            PHYSICS_LABEL_IDEALLOADS
+        assert!(
+            display_physics_label(Some("IdealLoads + fixed-COP (not GSHP/GLHE)"))
+                .contains("IdealLoads")
         );
+        assert_eq!(display_physics_label(None), PHYSICS_LABEL_IDEALLOADS);
     }
 
     #[test]

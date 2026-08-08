@@ -76,7 +76,12 @@ def daily_peak_errors(
 def horizon_mae_curve(
     y_true: np.ndarray, y_pred: np.ndarray, *, horizons: Sequence[int] | None = None
 ) -> dict[str, float]:
-    """Per-step MAE along a recursive day (rows = steps, cols = targets or 1-D kw)."""
+    """Per-step MAE along a recursive day (rows = steps, cols = targets or 1-D kw).
+
+    For multi-output arrays, the scalar ``horizon_mae_step_*`` keys use **facility_kw
+    only** (column 0) so kW is never averaged with °F zone errors. Zone curves are
+    published separately as ``horizon_mae_zone_mean_step_*`` (°F).
+    """
     yt = np.asarray(y_true, dtype=float)
     yp = np.asarray(y_pred, dtype=float)
     if yt.ndim == 1:
@@ -88,8 +93,12 @@ def horizon_mae_curve(
     for h in hs:
         if h > n:
             continue
-        # MAE at that horizon step (0-indexed step h-1)
-        out[f"horizon_mae_step_{h}"] = float(np.mean(np.abs(yt[h - 1] - yp[h - 1])))
+        # Facility kW only — never mix with zone °F
+        out[f"horizon_mae_step_{h}"] = float(np.abs(yt[h - 1, 0] - yp[h - 1, 0]))
+        if yt.shape[1] > 1:
+            out[f"horizon_mae_zone_mean_step_{h}"] = float(
+                np.mean(np.abs(yt[h - 1, 1:] - yp[h - 1, 1:]))
+            )
     return out
 
 

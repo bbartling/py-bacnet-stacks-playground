@@ -160,12 +160,19 @@ def build_day_records(
     out: list[DayRecord] = []
     for day, sub in df.groupby("day"):
         sub = sub.sort_values(step_col or "hour_ending")
-        if require_complete and len(sub) < STEPS_96:
-            continue
         if len(sub) > STEPS_96:
             sub = sub.iloc[:STEPS_96]
-        if len(sub) < STEPS_96:
-            continue
+        if require_complete:
+            if len(sub) < STEPS_96:
+                continue
+        else:
+            # Incomplete days allowed: right-pad with last observed row (explicit).
+            if len(sub) == 0:
+                continue
+            if len(sub) < STEPS_96:
+                pad_n = STEPS_96 - len(sub)
+                last = sub.iloc[[-1]]
+                sub = pd.concat([sub] + [last] * pad_n, ignore_index=True)
         oat = sub["oat_f"].to_numpy(dtype=float)
         if heating_only and not is_heating_day(oat):
             continue
@@ -389,14 +396,23 @@ def build_eplus_delta_library(paired: pd.DataFrame) -> list[dict[str, Any]]:
     return records
 
 
+# Refuse E+ deltas farther than this unscaled distance (OAT L2 + zone L2).
+EPLUS_DELTA_MAX_COMPAT_DISTANCE = 80.0
+
+
 def match_eplus_delta(
     library: Sequence[dict[str, Any]],
     *,
     strategy_id: str,
     oat_96: Sequence[float],
     init_zones: Sequence[float],
+    max_distance: float = EPLUS_DELTA_MAX_COMPAT_DISTANCE,
 ) -> tuple[np.ndarray | None, str | None, list[str]]:
-    """Closest compatible E+ delta for strategy; returns (delta[96,7], pair_id, failed)."""
+    """Closest compatible E+ delta for strategy; returns (delta[96,7], pair_id, failed).
+
+    Applies a hard compatibility cap so a weather/zone-mismatched record cannot
+    silently modify a measured baseline.
+    """
     failed: list[str] = []
     pool = [r for r in library if str(r.get("strategy_id")) == str(strategy_id)]
     if not pool:
@@ -415,6 +431,11 @@ def match_eplus_delta(
             best_d = dist
             best = np.asarray(r["delta_96x7"], dtype=float)
             best_id = str(r["pair_id"])
+    if best is None or best_d > float(max_distance):
+        failed.append(
+            f"eplus_delta_incompatible dist={best_d:.3f} max={max_distance}"
+        )
+        return None, None, failed
     return best, best_id, failed
 
 

@@ -145,7 +145,10 @@ pub fn result_from_series(
             ];
         }
     }
-    let peak_kw = facility_kw.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let peak_kw = facility_kw
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
     let peak_timestep = facility_kw
         .iter()
         .enumerate()
@@ -202,12 +205,10 @@ pub struct AnnualReplayPlan {
 impl AnnualReplayPlan {
     pub fn stub() -> Self {
         Self {
-            note: (
-                "FUTURE Annual Replay: 365 weather/init days, chronological sim, \
+            note: ("FUTURE Annual Replay: 365 weather/init days, chronological sim, \
                  monthly peak-to-date, verified tariff/ratchet, baseline vs DSM bills. \
-                 Current annual rollup is HEURISTIC only."
-            )
-            .into(),
+                 Current annual rollup is HEURISTIC only.")
+                .into(),
         }
     }
 }

@@ -188,7 +188,11 @@ pub fn build_features(h: &HourInputs) -> [f32; N_FEATURES] {
 pub fn scale_features(raw: &[f32; N_FEATURES], mean: &[f32], scale: &[f32]) -> [f32; N_FEATURES] {
     let mut out = [0.0_f32; N_FEATURES];
     for i in 0..N_FEATURES {
-        let s = if scale[i].abs() < 1e-12 { 1.0 } else { scale[i] };
+        let s = if scale[i].abs() < 1e-12 {
+            1.0
+        } else {
+            scale[i]
+        };
         out[i] = (raw[i] - mean[i]) / s;
     }
     out
