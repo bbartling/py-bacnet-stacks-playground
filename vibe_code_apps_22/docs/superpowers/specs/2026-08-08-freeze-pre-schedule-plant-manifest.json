@@ -1,0 +1,127 @@
+{
+  "freeze_id": "freeze_pre_schedule_plant_20260808T143015Z",
+  "created_utc": "2026-08-08T14:30:15Z",
+  "git_sha": "093958429f47ca68cfa95a2bf1c5884f6fd13b48",
+  "git_branch_base": "feat/vibe22-multioutput-tutorial-notebooks",
+  "campaign_branch": "feat/vibe22-eplus-schedule-plant-calib",
+  "champion_trial_id": "B_equip_mult_mid",
+  "champion_note": "B_equip_mult_mid = unchanged parent/baseline (equip_mult=1.0); not an improved IdealLoads calibration",
+  "site_alias": "LAKESIDE",
+  "dsm_status": "NO-GO",
+  "artifacts": [
+    {
+      "role": "champion_B_equip_mult_mid_model.idf",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/trials/B_equip_mult_mid/model.idf",
+      "sha256": "c97b1a2edbd84fe9279e12ae7ae9c8d0c6927b1e518858daab144fcc2cbd6b32",
+      "bytes": 254073
+    },
+    {
+      "role": "champion_run_manifest.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/trials/B_equip_mult_mid/run_manifest.json",
+      "sha256": "a4a947a5c45c99bedf40b6125acfc8b1c6e7264e1e7f3b076984d3fc4679f84e",
+      "bytes": 1839
+    },
+    {
+      "role": "champion_trial_result.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/trials/B_equip_mult_mid/trial_result.json",
+      "sha256": "900a52101268414cfc95435a20a21f92b7f6ed067f5ae8ce9eb129d374cde901",
+      "bytes": 24598
+    },
+    {
+      "role": "madison_amy_202508_202607.epw",
+      "source_path": "eplus/weather/madison_amy_202508_202607.epw",
+      "sha256": "dbfd1148a6627b53a1c6d5ba5e7b5fe7c4733fbe03865873d707d04ee22608d3",
+      "bytes": 1528567
+    },
+    {
+      "role": "summary.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/summary.json",
+      "sha256": "154657995801c2f05afe7227597486e3674109f20e2689518930496b8245873c",
+      "bytes": 11223
+    },
+    {
+      "role": "summary_rescored_latest.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/summary_rescored_latest.json",
+      "sha256": "1dcd662f7a6e5d68ce0ef275b069ee1745d15089d83e13f93f851495bb670c1f",
+      "bytes": 294
+    },
+    {
+      "role": "summary_rescored_20260808T133305Z.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/summary_rescored_20260808T133305Z.json",
+      "sha256": "bd9243110f9354464c7019bcbe04893135a5aeb056023d215db2071dffa7296e",
+      "bytes": 30213
+    },
+    {
+      "role": "champion_locked_holdout_report.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/champion_locked_holdout_report.json",
+      "sha256": "4c6191343ef35bc3a512c0adf60260585773b8d9bf59ac2aa91a19ed9c232cb7",
+      "bytes": 18200
+    },
+    {
+      "role": "structural_verdict.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/structural_verdict.json",
+      "sha256": "deb5fc02ea9cc90f623960eba558606b2ed2f404c3f08999ecef8e1e657e55be",
+      "bytes": 504
+    },
+    {
+      "role": "validation_before.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/validation_before.json",
+      "sha256": "f483f4c5f5b798de5159dada54234513b53a334d8deb5bed106a2a0c6659b128",
+      "bytes": 6759
+    },
+    {
+      "role": "diagnostics_manifest.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/diagnostics/diagnostics_manifest.json",
+      "sha256": "8d5e57571dbea15cdd7a873bd11003662297e567e4fc3e640060b78f92250985",
+      "bytes": 679
+    },
+    {
+      "role": "hourly_block.json",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/diagnostics/hourly_block.json",
+      "sha256": "89bd103c40ca574dea3ae938e7a0045adecb71438158153583c73316b0199669",
+      "bytes": 482
+    },
+    {
+      "role": "residual_by_hour.csv",
+      "source_path": "eplus/campaigns/bounded_exec_20260807/diagnostics/residual_by_hour.csv",
+      "sha256": "b11a795c6aaca2369ae7e2856ec136bd1de096a7ba103785033d6ffdb512aa7c",
+      "bytes": 1097
+    },
+    {
+      "role": "eplus_multires_validation.json",
+      "source_path": "reports/eplus/multires/eplus_multires_validation.json",
+      "sha256": "129187a463fcff9a27128d91f0d98295c9dc1b295305c2acb2a51b421dc00ab1",
+      "bytes": 8485
+    },
+    {
+      "role": "greybox_plant_translator_report.json",
+      "source_path": "reports/eplus/multires/greybox/greybox_plant_translator_report.json",
+      "sha256": "eb29f9cf4a57b2bf58394dd20b36833bfb5c4443c103fe6a13be19f1296be366",
+      "bytes": 3808
+    },
+    {
+      "role": "residual_by_hod.csv",
+      "source_path": "reports/eplus/multires/decomposition/residual_by_hod.csv",
+      "sha256": "7ef3033cdc6075f1973f14bce7c59fbcfc2cfc09196ed023fd83fee330bde145",
+      "bytes": 1116
+    },
+    {
+      "role": "thermal_zone_model.json",
+      "source_path": "reports/thermal_zone_model.json",
+      "sha256": "4aa6f2c03188c89b64fd99ffc05136e37735f48a75168777b6237c9e4aba3b63",
+      "bytes": 23709
+    },
+    {
+      "role": "immutable_baseline_v1.json",
+      "source_path": "reports/eplus/baseline/immutable_baseline_v1.json",
+      "sha256": "3ed401de92846e3e872e1a10500d3c9558c7141799062f35e390e61c20506e38",
+      "bytes": 7446
+    },
+    {
+      "role": "mvm_summary.json",
+      "source_path": "reports/eplus/mvm/mvm_summary.json",
+      "sha256": "47ed7ccccfc1147cd69d787a421a2c85443af16cc4aa6ec9aa3e0b338c83139a",
+      "bytes": 1250
+    }
+  ]
+}
