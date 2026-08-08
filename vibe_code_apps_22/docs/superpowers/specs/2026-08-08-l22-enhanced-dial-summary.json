@@ -1,0 +1,262 @@
+{
+  "campaign_id": "w2a_l22_enhanced_20260808T205123Z",
+  "created_utc": "2026-08-08T21:13:35Z",
+  "family": "W2A_l22_enhanced_plugs_lights",
+  "l22_anchor_peak_kw": 260.98,
+  "l22_anchor_overnight_kw": 126.4,
+  "overnight_max_kw": 140.0,
+  "peak_target_kw": 285.0,
+  "peak_design_day": "2026-01-26",
+  "n_trials": 20,
+  "gl14_passers": 2,
+  "dual_candidates": [
+    "E20_peakplant_eq075_li110_cop120"
+  ],
+  "best_dual": {
+    "trial_id": "E20_peakplant_eq075_li110_cop120",
+    "jan26_peak_kw": 270.83241862075334,
+    "overnight_0_4_sim_kw": 134.7226709442396,
+    "nmbe_pct": -4.9064872484842725,
+    "cvrmse_pct": 13.515095840985426,
+    "knobs": {
+      "htg_coil_capacity_mult": 1.7,
+      "htg_coil_cop_mult": 1.2,
+      "fan_delta_p_mult": 1.0,
+      "fan_eff_mult": 1.0,
+      "pump_power_mult": 1.0,
+      "loop_setpoint_c": null,
+      "oa_frac_scale": 1.0,
+      "optimum_start_h": 3.5,
+      "setback_heat_sp_c": 7.78,
+      "oa_shoulder_scale": 1.0,
+      "fan_avail_use_sch_hvac": false,
+      "people_density_mult": 1.0,
+      "equip_w_area_mult": 0.75,
+      "lights_w_area_mult": 1.1
+    }
+  },
+  "improved_vs_l22": true,
+  "champion_recommendation": "E20_peakplant_eq075_li110_cop120",
+  "trials": [
+    {
+      "trial_id": "E01_eq125_li110",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 274.7625083993614,
+      "overnight_0_4_sim_kw": 128.3367252270905,
+      "gl14_pass": false,
+      "nmbe_pct": -13.557627713215576,
+      "cvrmse_pct": 20.08350659249372,
+      "overnight_ok": true,
+      "peak_near_285": false
+    },
+    {
+      "trial_id": "E02_eq140_li115",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 282.564736340246,
+      "overnight_0_4_sim_kw": 129.45291525030368,
+      "gl14_pass": false,
+      "nmbe_pct": -18.7888240384989,
+      "cvrmse_pct": 24.03202300911697,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E03_cap155_eq150_li120",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 293.25287174307414,
+      "overnight_0_4_sim_kw": 132.70801704684817,
+      "gl14_pass": false,
+      "nmbe_pct": -23.90617434073153,
+      "cvrmse_pct": 27.93976616251936,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E04_cap155_cop118_eq135_li115",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 292.65231773321034,
+      "overnight_0_4_sim_kw": 136.55487111367054,
+      "gl14_pass": false,
+      "nmbe_pct": -20.419051981670005,
+      "cvrmse_pct": 24.361931406963222,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E05_cap160_cop120_eq140_opt40",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 289.56219672705873,
+      "overnight_0_4_sim_kw": 151.8556181599805,
+      "gl14_pass": false,
+      "nmbe_pct": -21.600071484422056,
+      "cvrmse_pct": 25.168843321990742,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E06_cap150_cop115_eq130_li120_opt40",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 292.9177295155816,
+      "overnight_0_4_sim_kw": 153.56502343992247,
+      "gl14_pass": false,
+      "nmbe_pct": -22.244152086656843,
+      "cvrmse_pct": 25.476195423069065,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E07_cap165_cop122_eq145_li115",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 294.2172555232747,
+      "overnight_0_4_sim_kw": 136.17152925473607,
+      "gl14_pass": false,
+      "nmbe_pct": -22.924750904005098,
+      "cvrmse_pct": 26.623930242326164,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E08_cap155_cop128_eq120_li125",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 280.1463435074631,
+      "overnight_0_4_sim_kw": 128.12427037256757,
+      "gl14_pass": false,
+      "nmbe_pct": -16.544463140302103,
+      "cvrmse_pct": 22.472965303785728,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E09_cap150_cop130_eq155_opt40",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 280.25832165886993,
+      "overnight_0_4_sim_kw": 140.753039616632,
+      "gl14_pass": false,
+      "nmbe_pct": -21.484007826213805,
+      "cvrmse_pct": 26.453093872367802,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E10_cap170_cop120_eq135_li115",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 294.0802254560732,
+      "overnight_0_4_sim_kw": 138.45208528682852,
+      "gl14_pass": false,
+      "nmbe_pct": -21.518479894708822,
+      "cvrmse_pct": 25.116664152313263,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E16_peakplant_eq090_li110",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 287.6050885364825,
+      "overnight_0_4_sim_kw": 163.12089770608907,
+      "gl14_pass": false,
+      "nmbe_pct": -13.529646509822069,
+      "cvrmse_pct": 17.485788806539944,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E17_peakplant_eq080_li105",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 292.8769971128125,
+      "overnight_0_4_sim_kw": 166.3803538809705,
+      "gl14_pass": false,
+      "nmbe_pct": -11.009630238554442,
+      "cvrmse_pct": 15.44271619121577,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E18_peakplant_eq070_li100",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 304.1626153362494,
+      "overnight_0_4_sim_kw": 189.219283501745,
+      "gl14_pass": false,
+      "nmbe_pct": -10.450480688601132,
+      "cvrmse_pct": 14.781921941046607,
+      "overnight_ok": false,
+      "peak_near_285": false
+    },
+    {
+      "trial_id": "E19_peakplant_eq085_li120_cop115",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 282.21504419773424,
+      "overnight_0_4_sim_kw": 155.9141789079694,
+      "gl14_pass": false,
+      "nmbe_pct": -12.617739826153263,
+      "cvrmse_pct": 17.391077714152438,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E20_peakplant_eq075_li110_cop120",
+      "status": "ok_dual_candidate",
+      "jan26_peak_kw": 270.83241862075334,
+      "overnight_0_4_sim_kw": 134.7226709442396,
+      "gl14_pass": true,
+      "nmbe_pct": -4.9064872484842725,
+      "cvrmse_pct": 13.515095840985426,
+      "overnight_ok": true,
+      "peak_near_285": false
+    },
+    {
+      "trial_id": "E21_cap175_cop115_eq075_li110",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 278.14815966236114,
+      "overnight_0_4_sim_kw": 140.43886258312872,
+      "gl14_pass": false,
+      "nmbe_pct": -7.100589474348016,
+      "cvrmse_pct": 13.830477536750607,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E22_cap180_cop118_eq070_li115_opt40",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 275.3729114561411,
+      "overnight_0_4_sim_kw": 156.52718172820457,
+      "gl14_pass": false,
+      "nmbe_pct": -8.127919525322547,
+      "cvrmse_pct": 14.349256548489977,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E23_cap170_cop110_eq070_li110",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 283.301557697387,
+      "overnight_0_4_sim_kw": 143.84411054373595,
+      "gl14_pass": false,
+      "nmbe_pct": -7.054979675390064,
+      "cvrmse_pct": 13.40609012187618,
+      "overnight_ok": false,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E24_cap185_cop120_eq080_li105",
+      "status": "ok_gl14_fail",
+      "jan26_peak_kw": 276.41713888142476,
+      "overnight_0_4_sim_kw": 138.2906680816547,
+      "gl14_pass": false,
+      "nmbe_pct": -6.472125271749945,
+      "cvrmse_pct": 13.812673492447258,
+      "overnight_ok": true,
+      "peak_near_285": true
+    },
+    {
+      "trial_id": "E25_cap175_cop122_eq065_li115_opt40",
+      "status": "ok_gl14_high_overnight",
+      "jan26_peak_kw": 265.3873098201907,
+      "overnight_0_4_sim_kw": 150.53506010353456,
+      "gl14_pass": true,
+      "nmbe_pct": -4.990620978392208,
+      "cvrmse_pct": 13.350391978509819,
+      "overnight_ok": false,
+      "peak_near_285": false
+    }
+  ]
+}

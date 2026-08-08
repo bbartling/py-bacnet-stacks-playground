@@ -110,12 +110,16 @@ def test_monthly_hold_rejects_bad_utility():
     from eplus_native.w2a_monthly_hold import (
         early_stop_no_feb_gain,
         monthly_gl14_style_pass,
+        peak_band_pass,
         rank_key_monthly_hold_hourly,
+        rank_key_monthly_hold_peak,
     )
 
     assert monthly_gl14_style_pass({"nmbe_pct": -4.4, "cvrmse_pct": 12.4})["pass"] is True
     assert monthly_gl14_style_pass({"nmbe_pct": -10.0, "cvrmse_pct": 12.0})["pass"] is False
     assert monthly_gl14_style_pass({"nmbe_pct": -2.0, "cvrmse_pct": 16.0})["pass"] is False
+    assert peak_band_pass(275.0)["pass"] is True
+    assert peak_band_pass(191.0)["pass"] is False
     good = {
         "monthly_hold": {"pass": True},
         "metrics": {"feb_cvrmse_pct": 30.0, "he05_09_mae_median": 20.0, "weekend_abs_err": 10.0},
@@ -127,6 +131,89 @@ def test_monthly_hold_rejects_bad_utility():
     assert rank_key_monthly_hold_hourly(good) < rank_key_monthly_hold_hourly(bad)
     assert early_stop_no_feb_gain([36.5, 36.0, 37.0], baseline_feb_cv=36.85) is True
     assert early_stop_no_feb_gain([30.0, 36.0, 37.0], baseline_feb_cv=36.85) is False
+    dual = {
+        "monthly_hold": {"pass": True},
+        "peak_hold": {"pass": True, "peak_kw": 272.0},
+        "metrics": {"feb_cvrmse_pct": 35.0},
+    }
+    monthly_only = {
+        "monthly_hold": {"pass": True},
+        "peak_hold": {"pass": False, "peak_kw": 191.0},
+        "metrics": {"feb_cvrmse_pct": 20.0},
+    }
+    assert rank_key_monthly_hold_peak(dual) < rank_key_monthly_hold_peak(monthly_only)
+
+
+def test_internal_gain_knobs_skip_fanproxy():
+    idf = _minimal_expanded_idf() + """
+People,
+  Z_People,                !- Name
+  ZoneA,                   !- Zone or ZoneList or Space or SpaceList Name
+  AlwaysOn,                !- Number of People Schedule Name
+  People/Area,             !- Number of People Calculation Method
+  ,                        !- Number of People
+  0.05,                    !- People per Floor Area
+  ,                        !- Floor Area per Person
+  0.3,                     !- Fraction Radiant
+  autocalculate,           !- Sensible Heat Fraction
+  AlwaysOn;                !- Activity Level Schedule Name
+
+ElectricEquipment,
+  Z_Equip,                 !- Name
+  ZoneA,                   !- Zone or ZoneList or Space or SpaceList Name
+  AlwaysOn,                !- Schedule Name
+  Watts/Area,              !- Design Level Calculation Method
+  ,                        !- Design Level
+  5.0,                     !- Watts per Floor Area
+  ,                        !- Watts per Person
+  0,                       !- Fraction Latent
+  0.3,                     !- Fraction Radiant
+  0,                       !- Fraction Lost
+  General;                 !- EndUse Subcategory
+
+ElectricEquipment,
+  Z_FanProxy,              !- Name
+  ZoneA,                   !- Zone or ZoneList or Space or SpaceList Name
+  AlwaysOn,                !- Schedule Name
+  Watts/Area,              !- Design Level Calculation Method
+  ,                        !- Design Level
+  1.2,                     !- Watts per Floor Area
+  ,                        !- Watts per Person
+  0,                       !- Fraction Latent
+  0,                       !- Fraction Radiant
+  0,                       !- Fraction Lost
+  Fans;                    !- EndUse Subcategory
+
+Lights,
+  Z_Lights,                !- Name
+  ZoneA,                   !- Zone or ZoneList or Space or SpaceList Name
+  AlwaysOn,                !- Schedule Name
+  Watts/Area,              !- Design Level Calculation Method
+  ,                        !- Lighting Level
+  8.0,                     !- Watts per Floor Area
+  ,                        !- Watts per Person
+  0,                       !- Return Air Fraction
+  0.2,                     !- Fraction Radiant
+  0.2,                     !- Fraction Visible
+  1,                       !- Fraction Replaceable
+  General;                 !- EndUse Subcategory
+"""
+    out = apply_w2a_plant_knobs(
+        idf,
+        W2APlantKnobs(
+            htg_coil_capacity_mult=1.0,
+            people_density_mult=1.2,
+            equip_w_area_mult=1.5,
+            lights_w_area_mult=1.1,
+        ),
+    )
+    names = {f["object_name"] for f in out["fields_changed"]}
+    assert "Z_People" in names
+    assert "Z_Equip" in names
+    assert "Z_Lights" in names
+    assert "Z_FanProxy" not in names
+    assert "0.06," in out["text"] or "0.06" in out["text"]
+    assert "7.5," in out["text"] or "7.5" in out["text"]
 
 
 def test_knob_mutator_changes_sha_and_ledger():

@@ -1,0 +1,124 @@
+{
+  "title": "Lakeside / Creekside W2A C02 \u2014 GL14-style monthly champion",
+  "created_utc": "2026-08-08T18:49:17Z",
+  "model_id": "C02_setback58_cap45",
+  "campaign": "w2a_creative_push_20260808T165522Z",
+  "sim_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_creative_push_20260808T165522Z\\trials\\C02_setback58_cap45\\sim",
+  "plant": {
+    "family": "W2A post-ExpandObjects live knobs",
+    "knobs": {
+      "htg_coil_capacity_mult": 0.45,
+      "htg_coil_cop_mult": 1.0,
+      "fan_delta_p_mult": 1.0,
+      "fan_eff_mult": 1.0,
+      "pump_power_mult": 1.0,
+      "loop_setpoint_c": null,
+      "oa_frac_scale": 1.0,
+      "optimum_start_h": 0.0,
+      "setback_heat_sp_c": 14.44,
+      "oa_shoulder_scale": 1.0,
+      "fan_avail_use_sch_hvac": false
+    },
+    "notes": [
+      "setback_heat_sp_c=14.44 (~58 F)",
+      "htg_coil_capacity_mult=0.45 on Rated Heating Capacity",
+      "no optimal start",
+      "fan_avail\u2192SCH_HVAC banned"
+    ]
+  },
+  "gl14_style_monthly": {
+    "label": "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN (utility bills, trial-specific)",
+    "source_type": "utility_bill_monthly",
+    "observed_source_path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus\\observed_monthly_utility.csv",
+    "observed_source_sha256": "F860C0E9C1AB158B73F54F4C7989FABA119C99287B01E9060DCA78DEE11D379D",
+    "not_bas": true,
+    "bas_note": "Interval/peak plots use CS_ELEC_METER / demand_interval_kw.csv (BACnet). Monthly GL14 uses utility bills only.",
+    "nmbe_pct": -4.431548753998289,
+    "cvrmse_pct": 12.363209002831512,
+    "gates": {
+      "nmbe_abs_max_pct": 5.0,
+      "cvrmse_max_pct": 15.0
+    },
+    "pass": true,
+    "n_months": 10,
+    "status": "pass"
+  },
+  "hourly_vs_gl14_gap": {
+    "feb_reserved_hourly_cvrmse_pct": 36.84633193377527,
+    "feb_note": "Reserved Feb hourly shape fails badly while monthly kWh passes",
+    "jan26_design_day": {
+      "design_day": "2026-01-26",
+      "bas_15min_peak_obs_kw": 298.0,
+      "bas_15min_peak_sim_kw": 190.5003096228118,
+      "bas_15min_peak_shortfall_kw": 107.49969037718819,
+      "utility_jan2026_billed_demand_kw": 284.82,
+      "sim_vs_utility_demand_shortfall_kw": 94.31969037718818
+    },
+    "peak_dial_campaign": {
+      "campaign_id": "w2a_peak_monthly_dial_20260808T182253Z",
+      "attempted_runs": 23,
+      "cap_note": "User cap: do not iterate past 20 new attempts for further dialing; peak dial already exhausted plant/gain levers (23 total incl. bridges).",
+      "dual_passers": 0,
+      "monthly_passers": 1,
+      "peak_band_passers": 10,
+      "conclusion": "No trial hit both monthly GL14 and ~275 kW design-day peak. Raising peak breaks monthly kWh."
+    }
+  },
+  "dsm_status": "NO-GO",
+  "artifacts": {
+    "per_month_full_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\reports\\gl14_c02_champion\\c02_gl14_per_month_off.csv",
+    "per_month_delta_csv": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\reports\\gl14_c02_champion\\c02_gl14_monthly_delta.csv",
+    "monthly_pairs": [
+      {
+        "month": "2025-08",
+        "kwh_obs": 32789.0,
+        "kwh_sim": 39529.84754211154
+      },
+      {
+        "month": "2025-09",
+        "kwh_obs": 31350.0,
+        "kwh_sim": 35477.45848440547
+      },
+      {
+        "month": "2025-10",
+        "kwh_obs": 32552.0,
+        "kwh_sim": 36512.025669836
+      },
+      {
+        "month": "2025-11",
+        "kwh_obs": 42097.0,
+        "kwh_sim": 51130.191603726416
+      },
+      {
+        "month": "2025-12",
+        "kwh_obs": 67328.0,
+        "kwh_sim": 75421.54950290524
+      },
+      {
+        "month": "2026-01",
+        "kwh_obs": 81491.0,
+        "kwh_sim": 76635.32955980606
+      },
+      {
+        "month": "2026-02",
+        "kwh_obs": 67205.0,
+        "kwh_sim": 60627.58945159186
+      },
+      {
+        "month": "2026-03",
+        "kwh_obs": 51938.0,
+        "kwh_sim": 53083.949737834475
+      },
+      {
+        "month": "2026-04",
+        "kwh_obs": 42296.0,
+        "kwh_sim": 37804.170672959146
+      },
+      {
+        "month": "2026-05",
+        "kwh_obs": 31398.0,
+        "kwh_sim": 33383.886860917366
+      }
+    ]
+  }
+}

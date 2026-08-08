@@ -62,3 +62,45 @@ def early_stop_no_feb_gain(
         return False
     recent = monthly_passer_feb_cvs[-streak:]
     return all((baseline_feb_cv - float(cv)) < min_improve_pt for cv in recent)
+
+
+# Peak dial: utility bill Jan-2026 demand ≈ 284.8 kW; target mid-band ~275.
+PEAK_TARGET_KW = 275.0
+PEAK_BAND_LO_KW = 250.0
+PEAK_BAND_HI_KW = 290.0
+PEAK_DESIGN_DAY = "2026-01-26"
+UTILITY_JAN2026_DEMAND_KW = 284.82
+
+
+def peak_band_pass(peak_kw: float | None) -> dict[str, Any]:
+    ok = peak_kw is not None and PEAK_BAND_LO_KW <= float(peak_kw) <= PEAK_BAND_HI_KW
+    return {
+        "pass": bool(ok),
+        "peak_kw": peak_kw,
+        "target_kw": PEAK_TARGET_KW,
+        "band_lo_kw": PEAK_BAND_LO_KW,
+        "band_hi_kw": PEAK_BAND_HI_KW,
+        "utility_jan2026_demand_kw": UTILITY_JAN2026_DEMAND_KW,
+        "design_day": PEAK_DESIGN_DAY,
+    }
+
+
+def rank_key_monthly_hold_peak(trial: dict[str, Any]) -> tuple:
+    """Lower is better. Require monthly GL14; prefer peak in band near 275."""
+    hold = trial.get("monthly_hold") or {}
+    if not hold.get("pass"):
+        return (1, 1e9, 1e9, 1e9)
+    peak = trial.get("peak_hold") or {}
+    pk = peak.get("peak_kw")
+    if pk is None:
+        return (0, 1e9, 1e9, 1e9)
+    in_band = 0 if peak.get("pass") else 1
+    err = abs(float(pk) - PEAK_TARGET_KW)
+    m = trial.get("metrics") or {}
+    feb = m.get("feb_cvrmse_pct")
+    return (
+        0,
+        in_band,
+        err,
+        float(feb) if feb is not None else 1e9,
+    )

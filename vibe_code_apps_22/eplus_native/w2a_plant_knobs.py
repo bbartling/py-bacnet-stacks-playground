@@ -39,6 +39,9 @@ LIVE_KNOB_NAMES = frozenset(
         "setback_heat_sp_c",
         "oa_shoulder_scale",
         "fan_avail_use_sch_hvac",
+        "people_density_mult",
+        "equip_w_area_mult",
+        "lights_w_area_mult",
     }
 )
 
@@ -60,6 +63,10 @@ class W2APlantKnobs:
     setback_heat_sp_c: float | None = None  # None → leave 18.33 setbacks
     oa_shoulder_scale: float = 1.0  # scale 0<OA frac<1 shoulders only
     fan_avail_use_sch_hvac: bool = False  # Fan:OnOff avail → SCH_HVAC (off weekends)
+    # Internal gains (research-report people/plug/lighting dials)
+    people_density_mult: float = 1.0  # scale People per Floor Area
+    equip_w_area_mult: float = 1.0  # scale ElectricEquipment W/area (skip FanProxy)
+    lights_w_area_mult: float = 1.0  # scale Lights W/area
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -543,6 +550,124 @@ def _mutate_oa_shoulder(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, 
     return text[: m.start()] + "".join(new_lines) + text[m.end() :]
 
 
+def _scale_w_per_area_field(
+    block: str,
+    *,
+    object_type: str,
+    object_name: str,
+    mult: float,
+    comment_substr: str,
+    ledger: list[dict[str, Any]],
+) -> str:
+    m = re.search(
+        rf"(?im)^(\s*)([^,;]+)([,;])(.*!-?\s*{re.escape(comment_substr)}.*)$",
+        block,
+    )
+    if not m:
+        return block
+    old = m.group(2).strip()
+    try:
+        new_v = f"{float(old) * mult:.6g}"
+    except ValueError:
+        return block
+    if old == new_v:
+        return block
+    ledger.append(
+        {
+            "object_type": object_type,
+            "object_name": object_name,
+            "field_comment": comment_substr,
+            "old": old,
+            "new": new_v,
+        }
+    )
+    return (
+        block[: m.start()]
+        + f"{m.group(1)}{new_v}{m.group(3)}{m.group(4)}"
+        + block[m.end() :]
+    )
+
+
+def _mutate_people_density(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    if knobs.people_density_mult == 1.0:
+        return text
+    spans = _iter_objects(text, "People")
+    if not spans:
+        spans = _iter_objects(text, "PEOPLE")
+    pieces: list[str] = []
+    last = 0
+    for start, end, block in spans:
+        pieces.append(text[last:start])
+        name = _object_name(block)
+        new_block = _scale_w_per_area_field(
+            block,
+            object_type="People",
+            object_name=name,
+            mult=knobs.people_density_mult,
+            comment_substr="People per Floor Area",
+            ledger=ledger,
+        )
+        pieces.append(new_block)
+        last = end
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
+def _mutate_equip_w_area(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Scale plug/process ElectricEquipment only — never FanProxy (HVAC proxy)."""
+    if knobs.equip_w_area_mult == 1.0:
+        return text
+    spans = _iter_objects(text, "ElectricEquipment")
+    if not spans:
+        spans = _iter_objects(text, "ELECTRICEQUIPMENT")
+    pieces: list[str] = []
+    last = 0
+    for start, end, block in spans:
+        pieces.append(text[last:start])
+        name = _object_name(block)
+        if "fanproxy" in name.lower():
+            pieces.append(block)
+            last = end
+            continue
+        new_block = _scale_w_per_area_field(
+            block,
+            object_type="ElectricEquipment",
+            object_name=name,
+            mult=knobs.equip_w_area_mult,
+            comment_substr="Watts per Floor Area",
+            ledger=ledger,
+        )
+        pieces.append(new_block)
+        last = end
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
+def _mutate_lights_w_area(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    if knobs.lights_w_area_mult == 1.0:
+        return text
+    spans = _iter_objects(text, "Lights")
+    if not spans:
+        spans = _iter_objects(text, "LIGHTS")
+    pieces: list[str] = []
+    last = 0
+    for start, end, block in spans:
+        pieces.append(text[last:start])
+        name = _object_name(block)
+        new_block = _scale_w_per_area_field(
+            block,
+            object_type="Lights",
+            object_name=name,
+            mult=knobs.lights_w_area_mult,
+            comment_substr="Watts per Floor Area",
+            ledger=ledger,
+        )
+        pieces.append(new_block)
+        last = end
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
 def _mutate_fan_avail_sch_hvac(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
     """Point Fan:OnOff availability at SCH_HVAC so weekends/overnight can idle."""
     if not knobs.fan_avail_use_sch_hvac:
@@ -599,6 +724,9 @@ def apply_w2a_plant_knobs(expanded_idf_text: str, knobs: W2APlantKnobs | dict[st
     text = _mutate_setback_heat_sp(text, knobs, ledger)
     text = _mutate_optimum_start(text, knobs, ledger)
     text = _mutate_fan_avail_sch_hvac(text, knobs, ledger)
+    text = _mutate_people_density(text, knobs, ledger)
+    text = _mutate_equip_w_area(text, knobs, ledger)
+    text = _mutate_lights_w_area(text, knobs, ledger)
     return {
         "text": text,
         "expanded_idf_sha256": sha256_text(text),
