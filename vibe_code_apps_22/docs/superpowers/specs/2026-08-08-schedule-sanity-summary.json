@@ -1,0 +1,48 @@
+{
+  "campaign_id": "schedule_sanity_20260808T150000Z",
+  "succeeded": 6,
+  "failed": 0,
+  "p1_gate": {
+    "hourly_structure_improved": true,
+    "reasons": [
+      "weekend_kw_mod 12.41 \u2192 167.54",
+      "overnight_kw_mod 12.41 \u2192 190.15"
+    ],
+    "baseline_structural": {
+      "winter_weekend_kw_mod_mean": 12.40685110938112,
+      "winter_weekend_kw_meas_mean": 63.835833262499996,
+      "winter_overnight_kw_mod_mean": 12.40685110938112,
+      "winter_overnight_kw_meas_mean": 74.87037024691357,
+      "winter_weekday_kw_mod_mean": 128.71469421792347,
+      "winter_weekday_kw_meas_mean": 117.67467910844016,
+      "weekend_collapse_ratio_mod_over_meas": 0.1943555911358246
+    },
+    "repaired_structural": {
+      "winter_weekend_kw_mod_mean": 167.53695164824424,
+      "winter_weekend_kw_meas_mean": 63.835833262499996,
+      "winter_overnight_kw_mod_mean": 190.15043583034378,
+      "winter_overnight_kw_meas_mean": 74.87037024691357,
+      "winter_weekday_kw_mod_mean": 186.81975600884172,
+      "winter_weekday_kw_meas_mean": 117.67467910844016,
+      "weekend_collapse_ratio_mod_over_meas": 2.624496980548743
+    },
+    "next": "continue_P2_P3_P4"
+  },
+  "dsm_status": "NO-GO",
+  "trial_ids": [
+    "S0_frozen_original",
+    "S1_schedule_calendar_oa",
+    "S2_cap_low_2p3",
+    "S3_cap_mid_2p7",
+    "S4_cap_high_3p2",
+    "S5_opt_start_sens"
+  ],
+  "trial_status": {
+    "S0_frozen_original": "succeeded",
+    "S1_schedule_calendar_oa": "succeeded",
+    "S2_cap_low_2p3": "succeeded",
+    "S3_cap_mid_2p7": "succeeded",
+    "S4_cap_high_3p2": "succeeded",
+    "S5_opt_start_sens": "succeeded"
+  }
+}
