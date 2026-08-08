@@ -40,27 +40,51 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = site_root()
-EPLUS = ROOT / "eplus"
-MODELS = EPLUS / "models"
-RUNS = EPLUS / "runs"
-LOG = EPLUS / "scorecards" / "campaign_log.csv"
-LEDGER = EPLUS / "assumptions" / "ledger.json"
-SEED = resolve_eplus_model("lakeside_6zone_gshp_v0.idf")
-if not SEED.is_file():
-    SEED = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
-LATEST = MODELS / "lakeside_6zone_gshp_latest.idf"
-BEST = MODELS / "lakeside_6zone_gshp_best.idf"
-PINNED_BEST = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
-BEST_SC = EPLUS / "scorecards" / "best_scorecard.json"
-AMY = EPLUS / "weather" / "madison_amy_202508_202607.epw"
-TMY = EPLUS / "weather" / "madison_tmy_screening.epw"
+# Deferred site paths — importing apply_knobs must work without LAKESIDE_SITE_ROOT (CI).
+ROOT: Path | None = None
+EPLUS: Path | None = None
+MODELS: Path | None = None
+RUNS: Path | None = None
+LOG: Path | None = None
+LEDGER: Path | None = None
+SEED: Path | None = None
+LATEST: Path | None = None
+BEST: Path | None = None
+PINNED_BEST: Path | None = None
+BEST_SC: Path | None = None
+AMY: Path | None = None
+TMY: Path | None = None
 EXE = Path(r"C:\EnergyPlusV26-1-0\energyplus.exe")
 IDD = Path(r"C:\EnergyPlusV26-1-0\Energy+.idd")
-MCP_VENV = ROOT.parent / "EnergyPlus-MCP" / "energyplus-mcp-server" / ".venv" / "Lib" / "site-packages"
+MCP_VENV: Path | None = None
+
+
+def _ensure_site_globals() -> Path:
+    """Resolve site-rooted paths on first use (not at import)."""
+    global ROOT, EPLUS, MODELS, RUNS, LOG, LEDGER, SEED, LATEST, BEST
+    global PINNED_BEST, BEST_SC, AMY, TMY, MCP_VENV
+    if ROOT is not None:
+        return ROOT
+    ROOT = site_root()
+    EPLUS = ROOT / "eplus"
+    MODELS = EPLUS / "models"
+    RUNS = EPLUS / "runs"
+    LOG = EPLUS / "scorecards" / "campaign_log.csv"
+    LEDGER = EPLUS / "assumptions" / "ledger.json"
+    SEED = resolve_eplus_model("lakeside_6zone_gshp_v0.idf")
+    if not SEED.is_file():
+        SEED = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
+    LATEST = MODELS / "lakeside_6zone_gshp_latest.idf"
+    BEST = MODELS / "lakeside_6zone_gshp_best.idf"
+    PINNED_BEST = resolve_eplus_model("lakeside_6zone_gshp_best.idf")
+    BEST_SC = EPLUS / "scorecards" / "best_scorecard.json"
+    AMY = EPLUS / "weather" / "madison_amy_202508_202607.epw"
+    TMY = EPLUS / "weather" / "madison_tmy_screening.epw"
+    MCP_VENV = ROOT.parent / "EnergyPlus-MCP" / "energyplus-mcp-server" / ".venv" / "Lib" / "site-packages"
+    return ROOT
+
 
 sys.path.insert(0, str(APP / "scripts"))
-from eplus_score_run import score_run  # noqa: E402
 
 
 def _scale_after_method(text: str, method: str, mult: float, starts: tuple[str, ...]) -> str:
@@ -261,6 +285,8 @@ def iteration_plan() -> list[dict]:
 
 
 def append_log(row: dict) -> None:
+    _ensure_site_globals()
+    assert LOG is not None
     LOG.parent.mkdir(parents=True, exist_ok=True)
     fields = [
         "iter", "hypothesis", "weather", "nmbe_pct", "cvrmse_pct",
@@ -275,6 +301,8 @@ def append_log(row: dict) -> None:
 
 
 def update_ledger(entry: dict) -> None:
+    _ensure_site_globals()
+    assert LEDGER is not None
     data = json.loads(LEDGER.read_text(encoding="utf-8")) if LEDGER.is_file() else {
         "version": 1, "iterations": []
     }
@@ -288,6 +316,12 @@ def update_ledger(entry: dict) -> None:
 
 
 def main() -> int:
+    from eplus_score_run import score_run
+
+    _ensure_site_globals()
+    assert LOG is not None and SEED is not None and LEDGER is not None
+    assert RUNS is not None and LATEST is not None and AMY is not None and TMY is not None
+    assert BEST is not None and BEST_SC is not None
     max_iter = int(os.environ.get("EPLUS_MAX_ITER", "80"))
     start_iter = int(os.environ.get("EPLUS_START_ITER", "75"))
     if LOG.is_file() and start_iter == 1:
