@@ -35,14 +35,19 @@
       "supplemental_strip_capacity_w": 0
     },
     "P4_calib": {
-      "campaign_id": "plant_proxy_calib_20260808T150000Z",
-      "planned": 24,
-      "succeeded": 24,
-      "failed": 0,
-      "raw_eplus_gates_any_pass": false,
-      "best_trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8",
-      "enrichment": "day_level_peaks + HE05-09 + unmet_heating on all 24 trials",
-      "note": "Multiobjective search executed on IdealLoads plant-proxy family; W2A smoke landed after search — full W2A 20-40 trial re-calib deferred (gates already NO-GO)"
+      "ideal_loads_plant_proxy": {
+        "campaign_id": "plant_proxy_calib_20260808T150000Z",
+        "succeeded": 24,
+        "failed": 0,
+        "raw_eplus_gates_any_pass": false
+      },
+      "provisional_w2a": {
+        "campaign_id": "w2a_plant_calib_20260808T152458Z",
+        "succeeded": 20,
+        "failed": 0,
+        "raw_eplus_gates_any_pass": false
+      },
+      "note": "Both families fail raw promotion gates; DSM NO-GO"
     },
     "P5_hybrid_dsm_96_v2": {
       "contract_published": true,
