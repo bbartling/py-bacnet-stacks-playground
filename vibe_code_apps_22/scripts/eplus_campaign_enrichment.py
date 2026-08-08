@@ -43,32 +43,40 @@ def _site() -> Path:
 
 
 def load_nine_zone_temps(sim_dir: Path) -> pd.DataFrame:
+    """Vectorized MAT extract (°F) — avoid iterrows on annual CSVs."""
     src = sim_dir / "eplusout.csv"
     if not src.is_file():
         src = sim_dir / "eplusmtr.csv"
     raw = pd.read_csv(src)
     cols = list(raw.columns)
     ts_col = cols[0]
-    rows = []
-    for _, r in raw.iterrows():
-        stamp = str(r[ts_col]).strip()
-        if not stamp or stamp.lower().startswith("date"):
-            continue
+    zone_cols: dict[str, str] = {}
+    for z in NINE_ZONES:
+        c = _find_zone_mat_col(cols, z)
+        if c is None:
+            return pd.DataFrame()
+        zone_cols[z] = c
+    stamp = raw[ts_col].astype(str).str.strip()
+    keep = stamp.ne("") & ~stamp.str.lower().str.startswith("date")
+    sub = raw.loc[keep].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    ts_vals = []
+    ok_idx = []
+    for i, s in enumerate(sub[ts_col].astype(str).str.strip().tolist()):
         try:
-            ts = parse_eplus_csv_timestamp(stamp)
+            ts_vals.append(parse_eplus_csv_timestamp(s))
+            ok_idx.append(sub.index[i])
         except Exception:
             continue
-        rec: dict[str, Any] = {"interval_end_utc": ts}
-        ok = True
-        for z in NINE_ZONES:
-            c = _find_zone_mat_col(cols, z)
-            if c is None or pd.isna(r[c]):
-                ok = False
-                break
-            rec[z] = _c_to_f(float(r[c]))
-        if ok:
-            rows.append(rec)
-    return pd.DataFrame(rows)
+    if not ok_idx:
+        return pd.DataFrame()
+    sub = sub.loc[ok_idx]
+    out = pd.DataFrame({"interval_end_utc": ts_vals}, index=sub.index)
+    for z, c in zone_cols.items():
+        out[z] = pd.to_numeric(sub[c], errors="coerce") * 9.0 / 5.0 + 32.0
+    out = out.dropna()
+    return out.reset_index(drop=True)
 
 
 def unmet_heating_hours(nine: pd.DataFrame, unocc_sp_f: float = 65.0, occ_sp_f: float = 70.0) -> dict[str, Any]:

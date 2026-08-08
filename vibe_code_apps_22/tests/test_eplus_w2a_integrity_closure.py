@@ -106,6 +106,29 @@ def test_refuse_dead_knobs():
         refuse_dead_knobs({"heating_capacity_mmbtu_h": 2.7})
 
 
+def test_monthly_hold_rejects_bad_utility():
+    from eplus_native.w2a_monthly_hold import (
+        early_stop_no_feb_gain,
+        monthly_gl14_style_pass,
+        rank_key_monthly_hold_hourly,
+    )
+
+    assert monthly_gl14_style_pass({"nmbe_pct": -4.4, "cvrmse_pct": 12.4})["pass"] is True
+    assert monthly_gl14_style_pass({"nmbe_pct": -10.0, "cvrmse_pct": 12.0})["pass"] is False
+    assert monthly_gl14_style_pass({"nmbe_pct": -2.0, "cvrmse_pct": 16.0})["pass"] is False
+    good = {
+        "monthly_hold": {"pass": True},
+        "metrics": {"feb_cvrmse_pct": 30.0, "he05_09_mae_median": 20.0, "weekend_abs_err": 10.0},
+    }
+    bad = {
+        "monthly_hold": {"pass": False},
+        "metrics": {"feb_cvrmse_pct": 10.0, "he05_09_mae_median": 1.0, "weekend_abs_err": 1.0},
+    }
+    assert rank_key_monthly_hold_hourly(good) < rank_key_monthly_hold_hourly(bad)
+    assert early_stop_no_feb_gain([36.5, 36.0, 37.0], baseline_feb_cv=36.85) is True
+    assert early_stop_no_feb_gain([30.0, 36.0, 37.0], baseline_feb_cv=36.85) is False
+
+
 def test_knob_mutator_changes_sha_and_ledger():
     base = _minimal_expanded_idf()
     a = apply_w2a_plant_knobs(base, W2APlantKnobs(htg_coil_capacity_mult=1.0))

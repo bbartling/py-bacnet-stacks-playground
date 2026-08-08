@@ -1,0 +1,297 @@
+{
+  "campaign_id": "w2a_monthly_hold_hourly_dial_20260808T171328Z",
+  "created_utc": "2026-08-08T17:37:31Z",
+  "family": "W2A_C02_neighborhood_monthly_hold_hourly_dial",
+  "c02_baseline_feb_cvrmse": 36.84633193377527,
+  "monthly_constraint": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023",
+  "attempted_runs": 8,
+  "unique_models": 8,
+  "uniqueness_ok": true,
+  "monthly_passers": 3,
+  "monthly_rejects": 5,
+  "failed_energyplus": 0,
+  "stopped_early": true,
+  "stop_reason": "finalize: 3 monthly-passers failed to beat C02 Feb CVRMSE (36.85) by >=1 pt",
+  "raw_eplus_gates_any_pass": false,
+  "hybrid_dsm_96_v2_farm_run": false,
+  "dsm_status": "NO-GO",
+  "best_monthly_hold_by_feb_hourly": {
+    "trial_id": "H00_c02_ref",
+    "selection_score": 42.89906104790942,
+    "weekend_ratio": 1.1997995021632257,
+    "weekend_kw_mod": 76.59020096852218,
+    "weekend_kw_meas": 63.835833262499996,
+    "weekend_abs_err": 12.754367706022187,
+    "util_cvrmse_pct": 12.363209002831512,
+    "util_nmbe_pct": -4.431548753998289,
+    "feb_cvrmse_pct": 36.84633193377527,
+    "feb_nmbe_pct": 11.049316242384364,
+    "he05_09_mae_median": 38.601885860668794,
+    "peak_mag_mae_median": 29.24940581324909,
+    "unmet_sum": 35905.5,
+    "six_zone_status": "ok",
+    "monthly_hold": {
+      "pass": true,
+      "nmbe_pct": -4.431548753998289,
+      "cvrmse_pct": 12.363209002831512,
+      "nmbe_abs_max": 5.0,
+      "cvrmse_max": 15.0,
+      "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+    },
+    "raw_pass": false,
+    "beats_c02_feb": false
+  },
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "trial_status": {
+    "H00_c02_ref": "succeeded_monthly_hold",
+    "H01_sb60_cap45": "rejected_monthly_hold_fail",
+    "H02_sb59_cap45": "rejected_monthly_hold_fail",
+    "H03_sb58_cap40": "succeeded_monthly_hold",
+    "H04_sb58_cap50": "rejected_monthly_hold_fail",
+    "H05_sb61_cap42": "rejected_monthly_hold_fail",
+    "H06_opt_sb58": "rejected_monthly_hold_fail",
+    "H07_oa_loop": "succeeded_monthly_hold"
+  },
+  "trials_slim": [
+    {
+      "trial_id": "H00_c02_ref",
+      "status": "succeeded_monthly_hold",
+      "ranked": true,
+      "monthly_hold": {
+        "pass": true,
+        "nmbe_pct": -4.431548753998289,
+        "cvrmse_pct": 12.363209002831512,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.89906104790942,
+        "weekend_ratio": 1.1997995021632257,
+        "weekend_kw_mod": 76.59020096852218,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 12.754367706022187,
+        "util_cvrmse_pct": 12.363209002831512,
+        "util_nmbe_pct": -4.431548753998289,
+        "feb_cvrmse_pct": 36.84633193377527,
+        "feb_nmbe_pct": 11.049316242384364,
+        "he05_09_mae_median": 38.601885860668794,
+        "peak_mag_mae_median": 29.24940581324909,
+        "unmet_sum": 35905.5,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "ee989d50f6c374cfde875a4d7255ea8479639347356b2453e03c7e754a0edb8d"
+    },
+    {
+      "trial_id": "H01_sb60_cap45",
+      "status": "rejected_monthly_hold_fail",
+      "ranked": false,
+      "monthly_hold": {
+        "pass": false,
+        "nmbe_pct": -7.866712321562209,
+        "cvrmse_pct": 13.639962493370257,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.67305724000686,
+        "weekend_ratio": 1.2528264198811851,
+        "weekend_kw_mod": 79.97521844639014,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 16.13938518389015,
+        "util_cvrmse_pct": 13.639962493370257,
+        "util_nmbe_pct": -7.866712321562209,
+        "feb_cvrmse_pct": 35.497252743655004,
+        "feb_nmbe_pct": 8.149434314413007,
+        "he05_09_mae_median": 34.31146411579164,
+        "peak_mag_mae_median": 26.174119854535668,
+        "unmet_sum": 35451.25,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "e06141dbac11210074d486cfdd9be7323e2ac85f99214e7c53e378514433497b"
+    },
+    {
+      "trial_id": "H02_sb59_cap45",
+      "status": "rejected_monthly_hold_fail",
+      "ranked": false,
+      "monthly_hold": {
+        "pass": false,
+        "nmbe_pct": -6.129821453937248,
+        "cvrmse_pct": 12.87342917185322,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.67631034595471,
+        "weekend_ratio": 1.2267405825987117,
+        "weekend_kw_mod": 78.31000728711346,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 14.474174024613468,
+        "util_cvrmse_pct": 12.87342917185322,
+        "util_nmbe_pct": -6.129821453937248,
+        "feb_cvrmse_pct": 36.12055068276396,
+        "feb_nmbe_pct": 9.579767988376714,
+        "he05_09_mae_median": 36.52267448012178,
+        "peak_mag_mae_median": 27.931697490105265,
+        "unmet_sum": 35675.75,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "2198c4c410f496e6fbf4da68170b2ab3752eaf2069807f51ca4c71ad29471f91"
+    },
+    {
+      "trial_id": "H03_sb58_cap40",
+      "status": "succeeded_monthly_hold",
+      "ranked": true,
+      "monthly_hold": {
+        "pass": true,
+        "nmbe_pct": -2.0578825154257143,
+        "cvrmse_pct": 12.644023841678644,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.53225337084249,
+        "weekend_ratio": 1.1433429544025822,
+        "weekend_kw_mod": 72.98625019909737,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 9.150416936597374,
+        "util_cvrmse_pct": 12.644023841678644,
+        "util_nmbe_pct": -2.0578825154257143,
+        "feb_cvrmse_pct": 37.29724587988723,
+        "feb_nmbe_pct": 13.495477929329883,
+        "he05_09_mae_median": 39.07322288892908,
+        "peak_mag_mae_median": 27.9969559858111,
+        "unmet_sum": 36494.5,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "8f83ba0332a074ddbe8bf06ef5d1177265d7400a71da443f8f7ea77c7aa30b8f"
+    },
+    {
+      "trial_id": "H04_sb58_cap50",
+      "status": "rejected_monthly_hold_fail",
+      "ranked": false,
+      "monthly_hold": {
+        "pass": false,
+        "nmbe_pct": -6.438604009492558,
+        "cvrmse_pct": 12.782015903423781,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 43.416618051731334,
+        "weekend_ratio": 1.24732577752021,
+        "weekend_kw_mod": 79.62408035779829,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 15.788247095298296,
+        "util_cvrmse_pct": 12.782015903423781,
+        "util_nmbe_pct": -6.438604009492558,
+        "feb_cvrmse_pct": 36.68200531077633,
+        "feb_nmbe_pct": 9.085562749450428,
+        "he05_09_mae_median": 37.592036082337195,
+        "peak_mag_mae_median": 24.77868290402165,
+        "unmet_sum": 35432.25,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "75df2f5497030d67a64b1734ff336a52dbfaa59d524ccc0740f8cc86bc6bb533"
+    },
+    {
+      "trial_id": "H05_sb61_cap42",
+      "status": "rejected_monthly_hold_fail",
+      "ranked": false,
+      "monthly_hold": {
+        "pass": false,
+        "nmbe_pct": -8.0262024728974,
+        "cvrmse_pct": 14.048394201964186,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.23299059777251,
+        "weekend_ratio": 1.2378506294803402,
+        "weekend_kw_mod": 79.01922638738766,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 15.183393124887665,
+        "util_cvrmse_pct": 14.048394201964186,
+        "util_nmbe_pct": -8.0262024728974,
+        "feb_cvrmse_pct": 35.11767998468064,
+        "feb_nmbe_pct": 8.417860877250781,
+        "he05_09_mae_median": 34.02009043220913,
+        "peak_mag_mae_median": 24.899996897641373,
+        "unmet_sum": 35528.5,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "1d6b0a9979f54cebc1a414c55916103b9ce708b41a2eb492f28dd7d39a565f66"
+    },
+    {
+      "trial_id": "H06_opt_sb58",
+      "status": "rejected_monthly_hold_fail",
+      "ranked": false,
+      "monthly_hold": {
+        "pass": false,
+        "nmbe_pct": -5.211882200156561,
+        "cvrmse_pct": 12.649023178572598,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.5884042447821,
+        "weekend_ratio": 1.199052080023197,
+        "weekend_kw_mod": 76.54248865341461,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 12.706655390914612,
+        "util_cvrmse_pct": 12.649023178572598,
+        "util_nmbe_pct": -5.211882200156561,
+        "feb_cvrmse_pct": 36.31530026380491,
+        "feb_nmbe_pct": 10.830049514458251,
+        "he05_09_mae_median": 33.06034271555846,
+        "peak_mag_mae_median": 26.648787554631355,
+        "unmet_sum": 34916.0,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "c0d25a1707114d53c5ef78f2d23cd7878bf2e013131c9793274d89afcd4f9c11"
+    },
+    {
+      "trial_id": "H07_oa_loop",
+      "status": "succeeded_monthly_hold",
+      "ranked": true,
+      "monthly_hold": {
+        "pass": true,
+        "nmbe_pct": -4.111720397733424,
+        "cvrmse_pct": 12.118115461693131,
+        "nmbe_abs_max": 5.0,
+        "cvrmse_max": 15.0,
+        "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+      },
+      "metrics": {
+        "selection_score": 42.89906104790939,
+        "weekend_ratio": 1.1997995021632257,
+        "weekend_kw_mod": 76.59020096852218,
+        "weekend_kw_meas": 63.835833262499996,
+        "weekend_abs_err": 12.754367706022187,
+        "util_cvrmse_pct": 12.118115461693131,
+        "util_nmbe_pct": -4.111720397733424,
+        "feb_cvrmse_pct": 36.846331933775275,
+        "feb_nmbe_pct": 11.04931624238436,
+        "he05_09_mae_median": 38.60188586066884,
+        "peak_mag_mae_median": 29.249405813249098,
+        "unmet_sum": 35908.25,
+        "six_zone_status": "ok"
+      },
+      "raw_pass": false,
+      "sha": "b6187244daa0f4cb0552269b1d6025c0aeea772af1880888c7bc3e5f29605b25"
+    }
+  ]
+}

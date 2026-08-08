@@ -1,0 +1,225 @@
+{
+  "campaign_id": "w2a_creative_push_20260808T165522Z",
+  "created_utc": "2026-08-08T17:01:10Z",
+  "hypothesis": "Weekend overshoot persists at 65\u00b0F setback with always-on fans; try deeper setback, SCH_HVAC fan avail, OA shoulder cut, lower capacity.",
+  "parent_expanded_from": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_integrity_closure_20260808T161626Z\\shared\\expand\\expanded.idf",
+  "attempted_runs": 6,
+  "unique_models": 6,
+  "uniqueness_ok": true,
+  "succeeded": 6,
+  "failed": 0,
+  "raw_eplus_gates_any_pass": false,
+  "hybrid_dsm_96_v2_farm_run": false,
+  "dsm_status": "NO-GO",
+  "prior_integrity_best": {
+    "trial_id": "I07_blend",
+    "weekend_ratio": 1.598,
+    "weekend_kw_mod": 102.0,
+    "util_cvrmse_pct": 26.94,
+    "selection_score": 47.13
+  },
+  "creative_best": {
+    "trial_id": "C06_blend_setback60",
+    "selection_score": 42.751213697376464,
+    "weekend_ratio": 1.341701475421431,
+    "weekend_kw_mod": 85.6486316730527,
+    "weekend_kw_meas": 63.835833262499996,
+    "overnight_kw_mod": 92.41188842615563,
+    "util_cvrmse_pct": 14.98925711820172,
+    "util_nmbe_pct": -10.769863511199294,
+    "feb_cvrmse_pct": 35.858681750497425,
+    "unmet_sum": 33920.0,
+    "raw_pass": false
+  },
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "trial_status": {
+    "C01_setback60_cap55": "succeeded",
+    "C02_setback58_cap45": "succeeded",
+    "C03_fanHVAC_cap60": "succeeded",
+    "C04_combo_struct": "succeeded",
+    "C05_oa_shoulder_setback": "succeeded",
+    "C06_blend_setback60": "succeeded"
+  },
+  "trials_slim": [
+    {
+      "trial_id": "C01_setback60_cap55",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.55,
+        "htg_coil_cop_mult": 1.0,
+        "fan_delta_p_mult": 1.0,
+        "fan_eff_mult": 1.0,
+        "pump_power_mult": 1.0,
+        "loop_setpoint_c": null,
+        "oa_frac_scale": 1.0,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": 15.56,
+        "oa_shoulder_scale": 1.0,
+        "fan_avail_use_sch_hvac": false
+      },
+      "metrics": {
+        "selection_score": 43.92074714389763,
+        "weekend_ratio": 1.3530950585648431,
+        "weekend_kw_mod": 86.375950546858,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 92.35660801768674,
+        "util_cvrmse_pct": 15.979591951277465,
+        "util_nmbe_pct": -11.982201888869751,
+        "feb_cvrmse_pct": 35.54748197038111,
+        "unmet_sum": 34658.0
+      },
+      "raw_pass": false,
+      "sha": "245fb6e6a6b1399e168295fb013febb67c5b8497336e32b6f583efc273751652"
+    },
+    {
+      "trial_id": "C02_setback58_cap45",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.45,
+        "htg_coil_cop_mult": 1.0,
+        "fan_delta_p_mult": 1.0,
+        "fan_eff_mult": 1.0,
+        "pump_power_mult": 1.0,
+        "loop_setpoint_c": null,
+        "oa_frac_scale": 1.0,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": 14.44,
+        "oa_shoulder_scale": 1.0,
+        "fan_avail_use_sch_hvac": false
+      },
+      "metrics": {
+        "selection_score": 42.89906104790942,
+        "weekend_ratio": 1.1997995021632257,
+        "weekend_kw_mod": 76.59020096852218,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 81.06884570710858,
+        "util_cvrmse_pct": 12.363209002831512,
+        "util_nmbe_pct": -4.431548753998289,
+        "feb_cvrmse_pct": 36.84633193377527,
+        "unmet_sum": 35905.5
+      },
+      "raw_pass": false,
+      "sha": "ee989d50f6c374cfde875a4d7255ea8479639347356b2453e03c7e754a0edb8d"
+    },
+    {
+      "trial_id": "C03_fanHVAC_cap60",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.6,
+        "htg_coil_cop_mult": 1.0,
+        "fan_delta_p_mult": 1.0,
+        "fan_eff_mult": 1.0,
+        "pump_power_mult": 1.0,
+        "loop_setpoint_c": null,
+        "oa_frac_scale": 1.0,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": null,
+        "oa_shoulder_scale": 1.0,
+        "fan_avail_use_sch_hvac": true
+      },
+      "metrics": {
+        "selection_score": 54.898671356024934,
+        "weekend_ratio": 0.1943555911358246,
+        "weekend_kw_mod": 12.40685110938112,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 12.40685110938112,
+        "util_cvrmse_pct": 29.12811256680371,
+        "util_nmbe_pct": 15.814902620968985,
+        "feb_cvrmse_pct": 55.443595318597396,
+        "unmet_sum": 33353.0
+      },
+      "raw_pass": false,
+      "sha": "b68e295a90a210d80315cf737c9a2534bdb6f73cc3da76b2f501eeb4d23fc7a5"
+    },
+    {
+      "trial_id": "C04_combo_struct",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.55,
+        "htg_coil_cop_mult": 1.0,
+        "fan_delta_p_mult": 0.7,
+        "fan_eff_mult": 1.0,
+        "pump_power_mult": 1.0,
+        "loop_setpoint_c": 28.0,
+        "oa_frac_scale": 1.0,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": 16.67,
+        "oa_shoulder_scale": 1.0,
+        "fan_avail_use_sch_hvac": true
+      },
+      "metrics": {
+        "selection_score": 55.68286746259603,
+        "weekend_ratio": 0.1943555911358246,
+        "weekend_kw_mod": 12.40685110938112,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 12.40685110938112,
+        "util_cvrmse_pct": 31.443431772173934,
+        "util_nmbe_pct": 18.90141295818988,
+        "feb_cvrmse_pct": 56.22288128746399,
+        "unmet_sum": 36879.5
+      },
+      "raw_pass": false,
+      "sha": "6356173cb216ba93349e174190015e30af3c1b5444e8bfcaafb7126c2680d780"
+    },
+    {
+      "trial_id": "C05_oa_shoulder_setback",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.5,
+        "htg_coil_cop_mult": 1.0,
+        "fan_delta_p_mult": 1.0,
+        "fan_eff_mult": 1.0,
+        "pump_power_mult": 1.0,
+        "loop_setpoint_c": null,
+        "oa_frac_scale": 0.85,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": 15.56,
+        "oa_shoulder_scale": 0.35,
+        "fan_avail_use_sch_hvac": false
+      },
+      "metrics": {
+        "selection_score": 43.25288713457849,
+        "weekend_ratio": 1.3070114083023927,
+        "weekend_kw_mod": 83.43416233257685,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 88.78538024068594,
+        "util_cvrmse_pct": 14.685588179047956,
+        "util_nmbe_pct": -10.080125556570097,
+        "feb_cvrmse_pct": 35.44212720207664,
+        "unmet_sum": 35007.75
+      },
+      "raw_pass": false,
+      "sha": "2952f37a7a0305c1421902768d368baf61afc03843945b1b5f406655a52c88eb"
+    },
+    {
+      "trial_id": "C06_blend_setback60",
+      "status": "succeeded",
+      "knobs": {
+        "htg_coil_capacity_mult": 0.7,
+        "htg_coil_cop_mult": 1.1,
+        "fan_delta_p_mult": 1.0,
+        "fan_eff_mult": 0.95,
+        "pump_power_mult": 0.9,
+        "loop_setpoint_c": null,
+        "oa_frac_scale": 1.0,
+        "optimum_start_h": 0.0,
+        "setback_heat_sp_c": 15.56,
+        "oa_shoulder_scale": 1.0,
+        "fan_avail_use_sch_hvac": false
+      },
+      "metrics": {
+        "selection_score": 42.751213697376464,
+        "weekend_ratio": 1.341701475421431,
+        "weekend_kw_mod": 85.6486316730527,
+        "weekend_kw_meas": 63.835833262499996,
+        "overnight_kw_mod": 92.41188842615563,
+        "util_cvrmse_pct": 14.98925711820172,
+        "util_nmbe_pct": -10.769863511199294,
+        "feb_cvrmse_pct": 35.858681750497425,
+        "unmet_sum": 33920.0
+      },
+      "raw_pass": false,
+      "sha": "bdffe07c580281bc6c656e2ad1a714d451ef844664bd1db1ddc2484e506bdd90"
+    }
+  ]
+}

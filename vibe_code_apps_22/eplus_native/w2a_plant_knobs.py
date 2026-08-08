@@ -36,8 +36,14 @@ LIVE_KNOB_NAMES = frozenset(
         "loop_setpoint_c",
         "oa_frac_scale",
         "optimum_start_h",
+        "setback_heat_sp_c",
+        "oa_shoulder_scale",
+        "fan_avail_use_sch_hvac",
     }
 )
+
+# Default expanded setback / shoulder values (post schedule repair).
+DEFAULT_SETBACK_HEAT_SP_C = 18.33
 
 
 @dataclass(frozen=True)
@@ -50,6 +56,10 @@ class W2APlantKnobs:
     loop_setpoint_c: float | None = None  # None → leave HVACTemplate-Always 34
     oa_frac_scale: float = 1.0
     optimum_start_h: float = 0.0
+    # Creative structural knobs (expanded schedules / fan avail)
+    setback_heat_sp_c: float | None = None  # None → leave 18.33 setbacks
+    oa_shoulder_scale: float = 1.0  # scale 0<OA frac<1 shoulders only
+    fan_avail_use_sch_hvac: bool = False  # Fan:OnOff avail → SCH_HVAC (off weekends)
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -454,6 +464,124 @@ def _mutate_optimum_start(text: str, knobs: W2APlantKnobs, ledger: list[dict[str
     return text[: m.start()] + "".join(new_lines) + text[m.end() :]
 
 
+def _mutate_setback_heat_sp(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Replace SCH_HtgSP setback values (≈18.33°C) with a deeper setback."""
+    if knobs.setback_heat_sp_c is None:
+        return text
+    target = f"{float(knobs.setback_heat_sp_c):.6g}"
+    pat = re.compile(r"(?mi)^(Schedule:Compact,\s*\n\s*SCH_HtgSP\s*,.*?;)", re.S)
+    m = pat.search(text)
+    if not m:
+        return text
+    block = m.group(1)
+    new_lines: list[str] = []
+    for line in block.splitlines(keepends=True):
+        mm = re.match(r"^(\s*)([0-9]*\.?[0-9]+)([,;])(.*)$", line)
+        if not mm or "Through" in line or "For" in line or "Until" in line:
+            new_lines.append(line)
+            continue
+        old = mm.group(2)
+        try:
+            val = float(old)
+        except ValueError:
+            new_lines.append(line)
+            continue
+        # Setback band only — leave occupied ~21.11 alone
+        if abs(val - DEFAULT_SETBACK_HEAT_SP_C) < 0.05:
+            if old != target:
+                ledger.append(
+                    {
+                        "object_type": "Schedule:Compact",
+                        "object_name": "SCH_HtgSP",
+                        "field_comment": "setback heating SP",
+                        "old": old,
+                        "new": target,
+                    }
+                )
+                line = f"{mm.group(1)}{target}{mm.group(3)}{mm.group(4)}"
+                if not line.endswith("\n"):
+                    line += "\n"
+        new_lines.append(line)
+    return text[: m.start()] + "".join(new_lines) + text[m.end() :]
+
+
+def _mutate_oa_shoulder(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Scale SCH_OA shoulder fractions (0 < frac < 1); leave 0/1 alone."""
+    if knobs.oa_shoulder_scale == 1.0:
+        return text
+    pat = re.compile(r"(?mi)^(Schedule:Compact,\s*\n\s*SCH_OA\s*,.*?;)", re.S)
+    m = pat.search(text)
+    if not m:
+        return text
+    block = m.group(1)
+    new_lines: list[str] = []
+    for line in block.splitlines(keepends=True):
+        mm = re.match(r"^(\s*)([0-9]*\.?[0-9]+)([,;])(.*)$", line)
+        if mm and "Through" not in line and "For" not in line and "Until" not in line:
+            old = mm.group(2)
+            try:
+                val = float(old)
+            except ValueError:
+                new_lines.append(line)
+                continue
+            if 0.0 < val < 1.0:
+                new_v = f"{min(1.0, max(0.0, val * knobs.oa_shoulder_scale)):.6g}"
+                if new_v != old:
+                    ledger.append(
+                        {
+                            "object_type": "Schedule:Compact",
+                            "object_name": "SCH_OA",
+                            "field_comment": "shoulder OA fraction",
+                            "old": old,
+                            "new": new_v,
+                        }
+                    )
+                    line = f"{mm.group(1)}{new_v}{mm.group(3)}{mm.group(4)}"
+                    if not line.endswith("\n"):
+                        line += "\n"
+        new_lines.append(line)
+    return text[: m.start()] + "".join(new_lines) + text[m.end() :]
+
+
+def _mutate_fan_avail_sch_hvac(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Point Fan:OnOff availability at SCH_HVAC so weekends/overnight can idle."""
+    if not knobs.fan_avail_use_sch_hvac:
+        return text
+    spans = _iter_objects(text, "Fan:OnOff")
+    pieces: list[str] = []
+    last = 0
+    for start, end, block in spans:
+        pieces.append(text[last:start])
+        name = _object_name(block)
+        new_block = block
+        m = re.search(
+            r"(?im)^(\s*)([^,;]+)([,;])(.*!-?\s*Availability Schedule Name.*)$",
+            new_block,
+        )
+        if m:
+            old = m.group(2).strip()
+            new_v = "SCH_HVAC"
+            if old != new_v:
+                ledger.append(
+                    {
+                        "object_type": "Fan:OnOff",
+                        "object_name": name,
+                        "field_comment": "Availability Schedule Name",
+                        "old": old,
+                        "new": new_v,
+                    }
+                )
+                new_block = (
+                    new_block[: m.start()]
+                    + f"{m.group(1)}{new_v}{m.group(3)}{m.group(4)}"
+                    + new_block[m.end() :]
+                )
+        pieces.append(new_block)
+        last = end
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
 def apply_w2a_plant_knobs(expanded_idf_text: str, knobs: W2APlantKnobs | dict[str, Any]) -> dict[str, Any]:
     """Mutate expanded IDF text; return text, sha256, fields_changed, knobs."""
     if isinstance(knobs, dict):
@@ -467,7 +595,10 @@ def apply_w2a_plant_knobs(expanded_idf_text: str, knobs: W2APlantKnobs | dict[st
     text = _mutate_pumps(text, knobs, ledger)
     text = _mutate_loop_setpoint(text, knobs, ledger)
     text = _mutate_oa_frac(text, knobs, ledger)
+    text = _mutate_oa_shoulder(text, knobs, ledger)
+    text = _mutate_setback_heat_sp(text, knobs, ledger)
     text = _mutate_optimum_start(text, knobs, ledger)
+    text = _mutate_fan_avail_sch_hvac(text, knobs, ledger)
     return {
         "text": text,
         "expanded_idf_sha256": sha256_text(text),

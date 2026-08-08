@@ -48,12 +48,20 @@ def aggregate_zone_temp_frame(
     mode: WeightMode = "hp_count",
     eplus_zone_cols: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """``eplus_zone_cols`` maps E+ zone name → column in ``df`` (°F)."""
+    """``eplus_zone_cols`` maps E+ zone name → column in ``df`` (°F).
+
+    Vectorized (no ``iterrows``) — annual 15-min frames are ~30k+ rows.
+    """
     cal = contract or load_agg_contract()
     if eplus_zone_cols is None:
         eplus_zone_cols = {z: z for z in cal["eplus_zones_nine"]}
-    rows = []
-    for _, r in df.iterrows():
-        temps = {z: float(r[eplus_zone_cols[z]]) for z in cal["eplus_zones_nine"]}
-        rows.append(aggregate_zone_temps_row(temps, cal, mode=mode))
-    return pd.DataFrame(rows, index=df.index)
+    out: dict[str, Any] = {}
+    for bas, out_col in cal["output_cols"].items():
+        w = member_weights(cal, bas, mode)
+        series = None
+        for member, weight in w.items():
+            col = eplus_zone_cols[member]
+            part = df[col].astype(float) * float(weight)
+            series = part if series is None else series + part
+        out[out_col] = series
+    return pd.DataFrame(out, index=df.index)

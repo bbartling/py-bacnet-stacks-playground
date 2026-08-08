@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "ml"))
@@ -89,20 +91,73 @@ INTEGRITY_TRIALS: list[tuple[str, W2APlantKnobs]] = [
 ]
 
 
-def _six_zone_metrics(site: Path, sim_dir: Path) -> dict[str, Any]:
+def _score_integrity(site: Path, sim_dir: Path, *, expanded_text: str) -> dict[str, Any]:
+    print(f"  score: align hourly…", flush=True)
+    packed = build_hourly_and_15min(site, sim_dir, heat_cop=3.5, cool_cop=4.5)
+    hourly = packed["hourly"].copy()
+    # structural expects kw_mod / kw_meas / timestamp_utc
+    struct_df = hourly.rename(
+        columns={
+            "observed_kw": "kw_meas",
+            "simulated_kw": "kw_mod",
+            "interval_end_utc": "timestamp_utc",
+        }
+    )
+    print(f"  score: selection/reserved/utility…", flush=True)
+    selection = score_rolling_origin_selection(hourly)
+    reserved = score_reserved_final_winter_audit(hourly)
+    util = utility_monthly_from_trial_sim(site, sim_dir, heat_cop=3.5, cool_cop=4.5)
+    print(f"  score: zone MAT extract…", flush=True)
     nine = load_nine_zone_temps(sim_dir)
+    unmet = unmet_heating_hours(nine) if not nine.empty else {"status": "empty"}
+    print(f"  score: six-zone metrics (n_zone={len(nine)})…", flush=True)
+    zones = _six_zone_metrics_from_nine(site, nine)
+    plant = plant_plausibility_check(expanded_text)
+    metrics: dict[str, Any] = {
+        "hourly_score": score_aligned(hourly, resolution="hourly"),
+        "utility_monthly": util,
+        "structural": structural_metrics(struct_df),
+        "rolling_origin_selection": selection,
+        "reserved_final_winter_audit": reserved,
+        "six_zone_metrics": zones,
+        "unmet_heating": unmet,
+        "plant_plausibility": plant,
+        "selection_score": selection.get("selection_score"),
+    }
+    metrics["gates"] = integrity_promotion_gates(metrics, expanded_idf_text=expanded_text)
+    print(f"  score: done", flush=True)
+    return metrics
+
+
+def _six_zone_metrics_from_nine(site: Path, nine: pd.DataFrame) -> dict[str, Any]:
+    """Six-zone MAE vs BAS; accepts preloaded nine-zone frame (no second CSV pass)."""
     if nine.empty:
         return {}
     cal = load_agg_contract()
     agg = aggregate_zone_temp_frame(nine, contract=cal, mode="hp_count")
-    meas_path = site / "clean_data" / "LAKESIDE_ES" / "zone_temp_15min.parquet"
-    if not meas_path.is_file():
+    candidates = [
+        site / "clean_data" / "LAKESIDE_ES" / "zone_temp_15min.parquet",
+        site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet",
+    ]
+    meas_path = next((p for p in candidates if p.is_file()), None)
+    if meas_path is None:
         return {"status": "no_measured_zone_parquet"}
-    meas = __import__("pandas").read_parquet(meas_path)
-    meas["interval_end_utc"] = __import__("pandas").to_datetime(meas["interval_end_utc"], utc=True)
+    meas = pd.read_parquet(meas_path)
+    if "interval_end_utc" not in meas.columns and "timestamp_utc" in meas.columns:
+        meas = meas.rename(columns={"timestamp_utc": "interval_end_utc"})
+    if "interval_end_utc" not in meas.columns:
+        return {"status": "measured_missing_timestamp", "path": str(meas_path)}
+    meas["interval_end_utc"] = pd.to_datetime(meas["interval_end_utc"], utc=True)
     agg = agg.copy()
-    agg["interval_end_utc"] = __import__("pandas").to_datetime(agg["interval_end_utc"], utc=True)
+    if "interval_end_utc" not in agg.columns:
+        agg["interval_end_utc"] = pd.to_datetime(nine["interval_end_utc"], utc=True).to_numpy()
+    else:
+        agg["interval_end_utc"] = pd.to_datetime(agg["interval_end_utc"], utc=True)
     out: dict[str, Any] = {}
+    try:
+        out["measured_source"] = str(meas_path.relative_to(site))
+    except ValueError:
+        out["measured_source"] = str(meas_path)
     for col in [c for c in agg.columns if c.startswith("zone_temp_")]:
         if col not in meas.columns:
             continue
@@ -122,40 +177,13 @@ def _six_zone_metrics(site: Path, sim_dir: Path) -> dict[str, Any]:
             "mae": float(abs(err).mean()),
             "bias": float(err.mean()),
         }
+    if len([k for k in out if k.startswith("zone_temp_")]) == 0:
+        out["status"] = "no_zone_overlap"
     return out
 
 
-def _score_integrity(site: Path, sim_dir: Path, *, expanded_text: str) -> dict[str, Any]:
-    packed = build_hourly_and_15min(site, sim_dir, heat_cop=3.5, cool_cop=4.5)
-    hourly = packed["hourly"].copy()
-    # structural expects kw_mod / kw_meas / timestamp_utc
-    struct_df = hourly.rename(
-        columns={
-            "observed_kw": "kw_meas",
-            "simulated_kw": "kw_mod",
-            "interval_end_utc": "timestamp_utc",
-        }
-    )
-    selection = score_rolling_origin_selection(hourly)
-    reserved = score_reserved_final_winter_audit(hourly)
-    util = utility_monthly_from_trial_sim(site, sim_dir, heat_cop=3.5, cool_cop=4.5)
-    nine = load_nine_zone_temps(sim_dir)
-    unmet = unmet_heating_hours(nine) if not nine.empty else {"status": "empty"}
-    zones = _six_zone_metrics(site, sim_dir)
-    plant = plant_plausibility_check(expanded_text)
-    metrics: dict[str, Any] = {
-        "hourly_score": score_aligned(hourly, resolution="hourly"),
-        "utility_monthly": util,
-        "structural": structural_metrics(struct_df),
-        "rolling_origin_selection": selection,
-        "reserved_final_winter_audit": reserved,
-        "six_zone_metrics": zones,
-        "unmet_heating": unmet,
-        "plant_plausibility": plant,
-        "selection_score": selection.get("selection_score"),
-    }
-    metrics["gates"] = integrity_promotion_gates(metrics, expanded_idf_text=expanded_text)
-    return metrics
+def _six_zone_metrics(site: Path, sim_dir: Path) -> dict[str, Any]:
+    return _six_zone_metrics_from_nine(site, load_nine_zone_temps(sim_dir))
 
 
 def main() -> int:

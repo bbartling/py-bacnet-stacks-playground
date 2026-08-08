@@ -60,7 +60,19 @@
         "january_holdout_consumed": true,
         "hybrid_dsm_96_v2_farm_run": false
       },
-      "note": "Integrity closure NO-GO; DSM NO-GO"
+      "monthly_hold_hourly_dial": {
+        "campaign_id": "w2a_monthly_hold_hourly_dial_20260808T171328Z",
+        "attempted_runs": 8,
+        "monthly_passers": 3,
+        "monthly_rejects": 5,
+        "stopped_early": true,
+        "best_trial_id": "H00_c02_ref",
+        "best_feb_cvrmse_pct": 36.85,
+        "beats_c02_feb": false,
+        "raw_eplus_gates_any_pass": false,
+        "note": "Rank only among monthly GL14-style passers; IdealLoads S0 is historical monthly floor only"
+      },
+      "note": "Integrity closure + monthly-held dial NO-GO; DSM NO-GO"
     },
     "P5_hybrid_dsm_96_v2": {
       "contract_published": true,
