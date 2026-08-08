@@ -1,0 +1,142 @@
+{
+  "campaign_id": "plant_proxy_calib_20260808T150000Z",
+  "created_utc": "2026-08-08T15:05:57Z",
+  "provenance": "PROVISIONAL_IDEALLOADS_PLANT_PROXY",
+  "honesty": "Provisional plant-proxy on repaired IdealLoads \u2014 NOT ZoneHVAC:WaterToAirHeatPump; NOT as-built 67-unit map; curve/plant coefficients ASSUMED until BAS-verified; DSM NO-GO until raw gates + treatment-effect evidence.",
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "planned": 24,
+  "succeeded": 24,
+  "failed": 0,
+  "best_trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8",
+  "best_composite_score": 284.1084491118431,
+  "best_gates": {
+    "utility_partial_period_screen": false,
+    "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+    "hourly_structure_ratio_ok": false,
+    "hourly_cvrmse_aspirational_ok": false,
+    "hourly_not_called_gl14": true,
+    "dsm_eligible": false,
+    "raw_eplus_gates_pass": false,
+    "nmbe_pct": -57.9302660908168,
+    "cvrmse_pct": 74.17537471837831,
+    "hourly_cvrmse_pct": 90.67509826240199,
+    "weekend_ratio": 2.428075352924613
+  },
+  "raw_eplus_gates_any_pass": false,
+  "dsm_status": "NO-GO",
+  "audit": "NO-GO",
+  "note": "January prior IdealLoads = historical audit only for this family",
+  "trial_status": {
+    "P00_cap2p3_u62p0_oa0p75_os0p0_f0p8": "succeeded",
+    "P01_cap2p3_u62p0_oa1p0_os0p0_f1p0": "succeeded",
+    "P02_cap2p3_u65p0_oa0p75_os0p0_f1p2": "succeeded",
+    "P03_cap2p3_u65p0_oa1p0_os1p0_f0p8": "succeeded",
+    "P04_cap2p3_u68p0_oa0p75_os1p0_f1p0": "succeeded",
+    "P05_cap2p3_u68p0_oa1p0_os1p0_f1p2": "succeeded",
+    "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8": "succeeded",
+    "P07_cap2p5_u65p0_oa0p75_os0p0_f1p0": "succeeded",
+    "P08_cap2p5_u65p0_oa1p0_os0p0_f1p2": "succeeded",
+    "P09_cap2p5_u68p0_oa0p75_os1p0_f0p8": "succeeded",
+    "P10_cap2p5_u68p0_oa1p0_os1p0_f1p0": "succeeded",
+    "P11_cap2p7_u62p0_oa0p75_os1p0_f1p2": "succeeded",
+    "P12_cap2p7_u65p0_oa0p75_os0p0_f0p8": "succeeded",
+    "P13_cap2p7_u65p0_oa1p0_os0p0_f1p0": "succeeded",
+    "P14_cap2p7_u68p0_oa0p75_os0p0_f1p2": "succeeded",
+    "P15_cap2p7_u68p0_oa1p0_os1p0_f0p8": "succeeded",
+    "P16_cap2p9_u62p0_oa0p75_os1p0_f1p0": "succeeded",
+    "P17_cap2p9_u62p0_oa1p0_os1p0_f1p2": "succeeded",
+    "P18_cap2p9_u65p0_oa1p0_os0p0_f0p8": "succeeded",
+    "P19_cap2p9_u68p0_oa0p75_os0p0_f1p0": "succeeded",
+    "P20_cap2p9_u68p0_oa1p0_os0p0_f1p2": "succeeded",
+    "P21_cap3p2_u62p0_oa0p75_os1p0_f0p8": "succeeded",
+    "P22_cap3p2_u62p0_oa1p0_os1p0_f1p0": "succeeded",
+    "P23_cap3p2_u65p0_oa0p75_os1p0_f1p2": "succeeded"
+  },
+  "leaderboard_top5": [
+    {
+      "trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8",
+      "composite_score": 284.1084491118431,
+      "gates": {
+        "utility_partial_period_screen": false,
+        "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+        "hourly_structure_ratio_ok": false,
+        "hourly_cvrmse_aspirational_ok": false,
+        "hourly_not_called_gl14": true,
+        "dsm_eligible": false,
+        "raw_eplus_gates_pass": false,
+        "nmbe_pct": -57.9302660908168,
+        "cvrmse_pct": 74.17537471837831,
+        "hourly_cvrmse_pct": 90.67509826240199,
+        "weekend_ratio": 2.428075352924613
+      }
+    },
+    {
+      "trial_id": "P00_cap2p3_u62p0_oa0p75_os0p0_f0p8",
+      "composite_score": 285.237728586368,
+      "gates": {
+        "utility_partial_period_screen": false,
+        "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+        "hourly_structure_ratio_ok": false,
+        "hourly_cvrmse_aspirational_ok": false,
+        "hourly_not_called_gl14": true,
+        "dsm_eligible": false,
+        "raw_eplus_gates_pass": false,
+        "nmbe_pct": -58.129192526466966,
+        "cvrmse_pct": 74.47147916612896,
+        "hourly_cvrmse_pct": 90.90118468925043,
+        "weekend_ratio": 2.43565136389985
+      }
+    },
+    {
+      "trial_id": "P01_cap2p3_u62p0_oa1p0_os0p0_f1p0",
+      "composite_score": 285.237728586368,
+      "gates": {
+        "utility_partial_period_screen": false,
+        "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+        "hourly_structure_ratio_ok": false,
+        "hourly_cvrmse_aspirational_ok": false,
+        "hourly_not_called_gl14": true,
+        "dsm_eligible": false,
+        "raw_eplus_gates_pass": false,
+        "nmbe_pct": -58.129192526466966,
+        "cvrmse_pct": 74.47147916612896,
+        "hourly_cvrmse_pct": 90.90118468925043,
+        "weekend_ratio": 2.43565136389985
+      }
+    },
+    {
+      "trial_id": "P21_cap3p2_u62p0_oa0p75_os1p0_f0p8",
+      "composite_score": 294.8476191618998,
+      "gates": {
+        "utility_partial_period_screen": false,
+        "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+        "hourly_structure_ratio_ok": false,
+        "hourly_cvrmse_aspirational_ok": false,
+        "hourly_not_called_gl14": true,
+        "dsm_eligible": false,
+        "raw_eplus_gates_pass": false,
+        "nmbe_pct": -61.39684615864613,
+        "cvrmse_pct": 77.76328852573529,
+        "hourly_cvrmse_pct": 92.22782955719326,
+        "weekend_ratio": 2.4246736185914783
+      }
+    },
+    {
+      "trial_id": "P22_cap3p2_u62p0_oa1p0_os1p0_f1p0",
+      "composite_score": 294.8476191618998,
+      "gates": {
+        "utility_partial_period_screen": false,
+        "utility_screen_label": "partial-period utility screen (not pristine holdout)",
+        "hourly_structure_ratio_ok": false,
+        "hourly_cvrmse_aspirational_ok": false,
+        "hourly_not_called_gl14": true,
+        "dsm_eligible": false,
+        "raw_eplus_gates_pass": false,
+        "nmbe_pct": -61.39684615864613,
+        "cvrmse_pct": 77.76328852573529,
+        "hourly_cvrmse_pct": 92.22782955719326,
+        "weekend_ratio": 2.4246736185914783
+      }
+    }
+  ]
+}

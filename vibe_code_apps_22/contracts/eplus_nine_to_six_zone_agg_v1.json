@@ -1,0 +1,90 @@
+{
+  "contract_version": "eplus_nine_to_six_zone_agg_v1",
+  "description": "Preserve nine EnergyPlus zones; aggregate Library/Cafe/Gym into BAS six for ML/validation overlays",
+  "eplus_zones_nine": [
+    "1F_Library_IMC",
+    "1F_Cafe_Kitchen",
+    "1F_Gym",
+    "1F_Area_A",
+    "1F_Area_B",
+    "1F_Area_C",
+    "1F_Area_D",
+    "2F_Area_A",
+    "2F_Area_B"
+  ],
+  "bas_six": [
+    "1F_Area_A",
+    "1F_Area_B",
+    "1F_Area_C",
+    "1F_Area_D",
+    "2F_Area_A",
+    "2F_Area_B"
+  ],
+  "aggregation": {
+    "1F_Area_A": {
+      "members": ["1F_Area_A", "1F_Library_IMC"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    },
+    "1F_Area_B": {
+      "members": ["1F_Area_B"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    },
+    "1F_Area_C": {
+      "members": ["1F_Area_C", "1F_Cafe_Kitchen"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    },
+    "1F_Area_D": {
+      "members": ["1F_Area_D", "1F_Gym"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    },
+    "2F_Area_A": {
+      "members": ["2F_Area_A"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    },
+    "2F_Area_B": {
+      "members": ["2F_Area_B"],
+      "primary_weights": "hp_count",
+      "sensitivity_weights": "floor_area"
+    }
+  },
+  "default_hp_counts": {
+    "1F_Area_A": 15,
+    "1F_Library_IMC": 2,
+    "1F_Area_B": 10,
+    "1F_Area_C": 11,
+    "1F_Cafe_Kitchen": 3,
+    "1F_Area_D": 10,
+    "1F_Gym": 4,
+    "2F_Area_A": 12,
+    "2F_Area_B": 12
+  },
+  "default_floor_area_ft2": {
+    "1F_Library_IMC": 4000.0,
+    "1F_Cafe_Kitchen": 6600.0,
+    "1F_Gym": 7500.0,
+    "1F_Area_A": 12000.0,
+    "1F_Area_B": 8000.0,
+    "1F_Area_C": 8800.0,
+    "1F_Area_D": 8000.0,
+    "2F_Area_A": 10000.0,
+    "2F_Area_B": 10000.0
+  },
+  "output_cols": {
+    "1F_Area_A": "zone_temp_1F_A_f",
+    "1F_Area_B": "zone_temp_1F_B_f",
+    "1F_Area_C": "zone_temp_1F_C_f",
+    "1F_Area_D": "zone_temp_1F_D_f",
+    "2F_Area_A": "zone_temp_2F_A_f",
+    "2F_Area_B": "zone_temp_2F_B_f"
+  },
+  "sources": [
+    "thermal_zone_model.json",
+    "BAS HP-area map",
+    "scripts/eplus_seed_6zone.py program zone parent hints"
+  ]
+}

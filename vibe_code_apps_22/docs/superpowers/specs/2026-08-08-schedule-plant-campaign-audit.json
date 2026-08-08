@@ -1,0 +1,49 @@
+{
+  "audit_id": "2026-08-08-schedule-plant-hybrid-v2",
+  "verdict": "NO-GO",
+  "dsm_status": "NO-GO",
+  "freeze_git_sha": "093958429f47ca68cfa95a2bf1c5884f6fd13b48",
+  "phases": {
+    "P0_defects": "done",
+    "P1_schedule_sanity": {
+      "status": "PASS_structure_gate",
+      "campaign_id": "schedule_sanity_20260808T150000Z",
+      "succeeded": 6,
+      "failed": 0,
+      "weekend_kw_mod": {"baseline": 12.41, "repaired": 167.54}
+    },
+    "P2_zone_validation": {
+      "status": "SCREENING_ONLY",
+      "mae_f_range": [2.44, 2.77],
+      "contract": "eplus_nine_to_six_zone_agg_v1"
+    },
+    "P3_plant": {
+      "status": "PROVISIONAL_IDEALLOADS_PLANT_PROXY",
+      "w2a_executable": false,
+      "scaffold_site_relative": "eplus/campaigns/w2a_scaffold_eplus26_1"
+    },
+    "P4_calib": {
+      "campaign_id": "plant_proxy_calib_20260808T150000Z",
+      "planned": 24,
+      "succeeded": 24,
+      "failed": 0,
+      "raw_eplus_gates_any_pass": false,
+      "best_trial_id": "P06_cap2p5_u62p0_oa1p0_os0p0_f0p8"
+    },
+    "P5_hybrid_dsm_96_v2": {
+      "contract_published": true,
+      "training_promoted": false,
+      "reason": "raw_eplus_gates_failed"
+    },
+    "P6_paired_farm": {
+      "run": false,
+      "reason": "raw_eplus_gates_failed"
+    }
+  },
+  "honesty": [
+    "IdealLoads monthly engineering / screening only",
+    "Measured ML may continue for forecasting",
+    "DSM NO-GO — no prettier proxy",
+    "hybrid_dsm_96_v1 not overwritten"
+  ]
+}
