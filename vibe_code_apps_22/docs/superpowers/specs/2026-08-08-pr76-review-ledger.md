@@ -59,4 +59,7 @@ Welcome (default) · 10-step tutorial ending at SIM · Workspace folders. `cargo
 
 ### Live unresolved count (after resolve)
 
-_Filled after push + resolve script:_
+- CI (`python-tests`, `desktop-rust`): **pass** @ `11a905f` / run 31260039303
+- Review threads: **0 unresolved** / 61 total (resolved after reply on remaining Critical/Major items)
+- Operational DSM: **NO-GO**
+- STOP this PR — no optimizer / no physical plant in this pass.
