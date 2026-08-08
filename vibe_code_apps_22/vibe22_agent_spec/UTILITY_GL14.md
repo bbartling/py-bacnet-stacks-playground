@@ -27,6 +27,19 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 - **DSM-eligible staged repair (0 severe):** `eplus/models/staged/*_dsm_v1.idf` + `DSM_ELIGIBLE.json`
   (from `scripts/eplus_stage_repair_and_rescore.py`; monthly GL14 still pass after repair)
 
+## W2A plant dual (separate twin)
+
+Utility monthly GL14 is also the hard constraint for the **W2A plant** dial
+(post-ExpandObjects coils / schedules). That path is **not** IdealLoads and
+must not overwrite `*_best_utility.idf`.
+
+| Twin | Current dual champion | Spec / skill |
+| --- | --- | --- |
+| IdealLoads + COP | util_103 / staged `DSM_ELIGIBLE` | this doc · `lakeside-utility-gl14` |
+| W2A plant | **E20** (~271 kW Jan‑26, GL14 pass) | [`W2A_PLANT_DIAL.md`](W2A_PLANT_DIAL.md) · `lakeside-w2a-plant-dial` |
+
+Tutorial: `notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`.
+
 ## Tooling note
 
 Heating DSM uses **Hybrid Real+E+** (`HYBRID_SCREENING`) — see [`HEATING_DSM.md`](HEATING_DSM.md).

@@ -8,8 +8,6 @@ use std::path::Path;
 pub struct MonthlyPeakRow {
     pub month: String,
     #[serde(default)]
-    pub billing_period: Option<i64>,
-    #[serde(default)]
     pub kwh: Option<f32>,
     #[serde(default)]
     pub cost_usd: Option<f32>,
@@ -17,8 +15,6 @@ pub struct MonthlyPeakRow {
     pub demand_kw: Option<f32>,
     #[serde(default)]
     pub billed_demand_kw: Option<f32>,
-    #[serde(default)]
-    pub days: Option<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -187,21 +183,17 @@ mod tests {
             rows: vec![
                 MonthlyPeakRow {
                     month: "2025-01".into(),
-                    billing_period: None,
                     kwh: Some(1000.0),
                     cost_usd: None,
                     demand_kw: Some(200.0),
                     billed_demand_kw: Some(280.0),
-                    days: Some(31.0),
                 },
                 MonthlyPeakRow {
                     month: "2025-06".into(),
-                    billing_period: None,
                     kwh: Some(800.0),
                     cost_usd: None,
                     demand_kw: Some(170.0),
                     billed_demand_kw: Some(287.0),
-                    days: Some(30.0),
                 },
             ],
         };

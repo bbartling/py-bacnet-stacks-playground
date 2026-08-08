@@ -17,18 +17,12 @@ pub struct MvArmMetrics {
     pub nmbe: Option<f64>,
     pub cv_rmse: Option<f64>,
     pub mae: Option<f64>,
-    pub rmse: Option<f64>,
     pub mae_peak_05_09: Option<f64>,
     pub zone_temp_mae_mean: Option<f64>,
-    pub n_heldout_days: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct MvPrecision {
-    #[serde(default)]
-    pub primary: Vec<String>,
-    #[serde(default)]
-    pub secondary: Vec<String>,
     pub precision_pm_kw: Option<f32>,
     pub precision_label: Option<String>,
     pub g14_monthly_reference: Option<G14Reference>,
@@ -49,10 +43,8 @@ pub struct ShipManifest {
     pub watermark: Option<String>,
     pub honesty_note: Option<String>,
     pub outcome_flag: Option<String>,
-    pub promoted_via: Option<String>,
     pub pair_count: Option<i64>,
     pub mv_precision: Option<MvPrecision>,
-    pub idealloads_cop_disclaimer: Option<String>,
 }
 
 fn candidate_manifest_paths() -> Vec<PathBuf> {

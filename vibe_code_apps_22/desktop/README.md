@@ -4,11 +4,13 @@ Windows egui app for the **Hybrid Real+E+** 15-min × 96 DSM walk.
 
 ## Information architecture
 
-- **Welcome** (default landing) — honesty stamp, DSM BLOCKED / NO-GO note, entry to Tutorial or Workspace.
-- **Tutorial** — 10 guided steps (Welcome → Site → Validation glance → Tariff → Day → Baseline → Strategy → Nearest-Day → Day cost → **SIM**). Chrome: Back / Next / Skip to SIM / Exit to Workspace.
+- **Welcome** (default landing) — large centered intro; savings-claim status in M&V plain language.
+- **Tutorial** — 10 guided steps with large centered copy (Welcome → Site → Fit screens → Tariff → Day → Baseline → Strategy → Nearest-Day → Day cost → **SIM**). Chrome: Back / Next / Skip to SIM / Exit to Workspace.
 - **Workspace** — one folder at a time: Site & models · Tariff · Day & weather · Strategies · Validation · SIM Lab · Annual.
 
-Thin top chrome: brand · mode switcher · one-line `DSM: BLOCKED/READY`. Full multi-res badge strip only under Workspace → Validation. Operational recommendations stay fail-closed when gates say NO-GO.
+Thin top chrome: brand · mode switcher · one-line **Savings claim: …** · **Light/Dark** theme button. Fit screens speak NMBE / CV(RMSE) / n. Full multi-res detail under Workspace → Validation. Operator recommendation language stays fail-closed when screens fail.
+
+IdealLoads + fixed-COP ≠ ground-source heat-pump plant.
 
 ## What it does
 

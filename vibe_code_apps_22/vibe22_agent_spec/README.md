@@ -4,7 +4,9 @@
 | --- | --- |
 | [HEATING_DSM.md](HEATING_DSM.md) | **Hybrid Real+E+** 15-min DSM (baseline + delta → 96-step) |
 | [NATIVE_EPLUS_DSM_REPORT.md](NATIVE_EPLUS_DSM_REPORT.md) | Quarantine report — superseded kW-only path + twin facts |
-| [UTILITY_GL14.md](UTILITY_GL14.md) | Billing-grade utility G14 (util_103) |
+| [UTILITY_GL14.md](UTILITY_GL14.md) | Billing-grade utility G14 (util_103 IdealLoads) |
+| [W2A_PLANT_DIAL.md](W2A_PLANT_DIAL.md) | **W2A plant** dual dial — monthly GL14 + Jan‑26 peak (~E20) |
+| [EPLUS_MULTIRES.md](EPLUS_MULTIRES.md) | Monthly / hourly / 15-min gates (monthly ≠ DSM GO) |
 | ../docs/EPLUS_CALIBRATION_PLAN.md | IdealLoads interval G14 campaign |
 | ../scripts/README.md | **Live vs legacy vs removed scripts** |
 | ../desktop/README.md | Rust egui hybrid panel + tariff walk + client ZIP |
@@ -15,9 +17,11 @@
 | ../notebooks/lakeside_heating_dsm_torch.ipynb | Results viewer (torch arms + timings) |
 | ../notebooks/lakeside_load_profile_analysis.ipynb | Site load / weather analytics |
 | ../notebooks/lakeside_desktop_sim_playground.ipynb | ONNX hybrid playground (mirrors desktop) |
+| ../notebooks/lakeside_eplus_gl14_vs_peak285.ipynb | **Tutorial** — W2A dial C02 / PK285 / L22 / E20 |
 | ../skills/lakeside-heating-dsm/SKILL.md | Agent skill — hybrid run order |
-| ../skills/lakeside-eplus-gl14/SKILL.md | Interval G14 campaign |
-| ../skills/lakeside-utility-gl14/SKILL.md | Utility-bill G14 |
+| ../skills/lakeside-eplus-gl14/SKILL.md | IdealLoads interval G14 campaign |
+| ../skills/lakeside-utility-gl14/SKILL.md | Utility-bill G14 (IdealLoads) |
+| ../skills/lakeside-w2a-plant-dial/SKILL.md | **W2A plant dial** playbook (opt-start / setback / plugs) |
 
 Building: **Lakeside ES** · region: southern Wisconsin · code: vibe22 · data: `LAKESIDE_SITE_ROOT`
 
