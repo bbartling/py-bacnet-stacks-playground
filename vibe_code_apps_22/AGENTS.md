@@ -20,7 +20,8 @@ Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`
 Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
 Last validated: **2026-08-09** — W2A plant dual **A04** (~287 kW Jan‑26 + monthly GL14);
-prior CLI four-arm train 2026-08-07.
+four-arm baseline bake-off + smoke desktop ship (`sklearn_allyear` /
+`gradient_boosting`, peak MAE ~29.4 kW; `UNDERPOWERED_SMOKE_FARM`).
 
 ---
 

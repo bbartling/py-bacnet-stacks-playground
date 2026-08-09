@@ -6,6 +6,7 @@ Usage (from vibe_code_apps_22)::
     python scripts/ship_best_to_desktop.py
     python scripts/ship_best_to_desktop.py --arm sklearn_winter   # force arm
     python scripts/ship_best_to_desktop.py --no-launch            # promote only
+    python scripts/ship_best_to_desktop.py --no-launch --allow-smoke-promote
 
 Selection (when --arm omitted): among ok sklearn_winter / sklearn_allyear,
 lowest recursive peak MAE wins; winter wins ties. Torch never ships.
@@ -13,6 +14,10 @@ lowest recursive peak MAE wins; winter wins ties. Torch never ships.
 Copies winner baseline into ml/artifacts/ (keeps existing E+ delta), runs
 promote_hybrid, then ``cargo run --release`` in desktop/ unless --no-launch.
 Promote gate failure stops the script (does not launch).
+
+When the paired E+ farm has fewer than 12 usable both-arm pairs, promote
+refuses unless ``--allow-smoke-promote`` (or ``VIBE22_ALLOW_SMOKE_PROMOTE=1``)
+is set — that stamps ``UNDERPOWERED_SMOKE_FARM`` / ``HYBRID_SCREENING``.
 """
 from __future__ import annotations
 
@@ -41,6 +46,7 @@ os.environ.setdefault("VIBE22_ALLOW_CLI_TRAIN", "1")
 SKLEARN_ARMS = ("sklearn_winter", "sklearn_allyear")
 BASELINE_STEM = "real_baseline_15min_v1"
 BASELINE_SUFFIXES = (".joblib", ".onnx", "_feature_meta.json", "_model_card.json")
+SMOKE_ENV = "VIBE22_ALLOW_SMOKE_PROMOTE"
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -164,6 +170,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--arm", choices=SKLEARN_ARMS, default=None, help="Force this sklearn arm")
     ap.add_argument("--no-launch", action="store_true", help="Promote only; do not start cargo")
     ap.add_argument(
+        "--allow-smoke-promote",
+        action="store_true",
+        help=(
+            f"Set {SMOKE_ENV}=1 for underpowered farms (<12 pairs). "
+            "Stamps UNDERPOWERED_SMOKE_FARM; not operational DSM."
+        ),
+    )
+    ap.add_argument(
         "--artifacts",
         type=Path,
         default=ART,
@@ -173,6 +187,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     os.environ["VIBE22_ALLOW_CLI_TRAIN"] = "1"
+    if args.allow_smoke_promote:
+        os.environ[SMOKE_ENV] = "1"
 
     winner = pick_best_arm(force=args.arm)
     print(
