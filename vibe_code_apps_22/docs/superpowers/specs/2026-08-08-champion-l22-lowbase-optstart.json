@@ -1,0 +1,61 @@
+{
+  "title": "Champion L22 \u2014 low baseload + opt-start + monthly GL14",
+  "created_utc": "2026-08-08T19:43:12Z",
+  "trial_id": "L22_cap145_cop124_sb46_opt35",
+  "campaign_id": "w2a_lowbase_optstart_20260808T190216Z",
+  "champion_rule": "highest Jan-26 peak among monthly GL14 passers after L25-L32 dial batch",
+  "sim_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_lowbase_optstart_20260808T190216Z\\trials\\L22_cap145_cop124_sb46_opt35\\sim",
+  "idf_pinned_site": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\models\\lakeside_w2a_l22_lowbase_optstart_champion.idf",
+  "idf_pinned_repo": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\models\\eplus\\lakeside_w2a_l22_lowbase_optstart_champion.idf",
+  "knobs": {
+    "htg_coil_capacity_mult": 1.45,
+    "htg_coil_cop_mult": 1.24,
+    "fan_delta_p_mult": 1.0,
+    "fan_eff_mult": 1.0,
+    "pump_power_mult": 1.0,
+    "loop_setpoint_c": null,
+    "oa_frac_scale": 1.0,
+    "optimum_start_h": 3.5,
+    "setback_heat_sp_c": 7.78,
+    "oa_shoulder_scale": 1.0,
+    "fan_avail_use_sch_hvac": false,
+    "people_density_mult": 1.0,
+    "equip_w_area_mult": 1.0,
+    "lights_w_area_mult": 1.0
+  },
+  "expanded_idf_sha256": null,
+  "jan26": {
+    "peak_kw": 260.98479955792976,
+    "peak_local": "2026-01-26 07:45:00-06:00",
+    "overnight_0_4_sim_kw": 126.3990169669636,
+    "bas_peak_kw": 298.0,
+    "utility_jan2026_demand_kw": 284.82,
+    "peak_shortfall_vs_285": 24.01520044207024
+  },
+  "gl14_style_monthly": {
+    "nmbe_pct": -4.4371812254198995,
+    "cvrmse_pct": 14.875283911063118,
+    "pass": true,
+    "source": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus\\observed_monthly_utility.csv",
+    "label": "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN (utility bills, trial-specific)"
+  },
+  "comparisons": {
+    "C02": {
+      "peak": 190.5003096228118,
+      "nmbe": -4.431548753998289,
+      "cv": 12.363209002831512
+    },
+    "PK285": {
+      "peak": 286.5593461880115,
+      "nmbe": -28.706997068497937,
+      "cv": 34.521879712551076
+    },
+    "L22": {
+      "peak": 260.98479955792976,
+      "nmbe": -4.4371812254198995,
+      "cv": 14.875283911063118
+    }
+  },
+  "dsm_honesty": "Monthly GL14 pass with ~261 kW design-day peak; still short of utility ~285 kW. Interval-shape / reserved Feb integrity not claimed GO.",
+  "dial_batch_note": "L25-L32 (8 sims) did not beat L22 dual; champion remains L22."
+}

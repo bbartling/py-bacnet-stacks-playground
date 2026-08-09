@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "eplus_multires_validation_v1.schema.json",
+  "title": "EnergyPlus multi-resolution validation v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "acceptance_policy_id",
+    "physics_label",
+    "resolutions",
+    "overall"
+  ],
+  "properties": {
+    "schema": { "const": "eplus_multires_validation_v1" },
+    "acceptance_policy_id": { "type": "string" },
+    "physics_label": { "type": "string" },
+    "idf_sha256": { "type": ["string", "null"] },
+    "epw_sha256": { "type": ["string", "null"] },
+    "formula": { "type": "string" },
+    "resolutions": {
+      "type": "object",
+      "properties": {
+        "monthly": { "$ref": "#/$defs/resolution_block" },
+        "hourly": { "$ref": "#/$defs/resolution_block" },
+        "q15_dsm": { "$ref": "#/$defs/resolution_block" }
+      }
+    },
+    "overall": {
+      "type": "object",
+      "required": [
+        "monthly_pass",
+        "hourly_pass",
+        "recommendation_allowed",
+        "optimizer_ready",
+        "operational_dsm_prohibited_until_gates_clear"
+      ],
+      "properties": {
+        "monthly_pass": { "type": "boolean" },
+        "hourly_pass": { "type": "boolean" },
+        "recommendation_allowed": { "type": "boolean" },
+        "blocker_reason": { "type": ["string", "null"] },
+        "optimizer_ready": { "type": "boolean" },
+        "operational_dsm_prohibited_until_gates_clear": { "type": "boolean" }
+      }
+    },
+    "alignment": { "type": ["object", "null"] },
+    "extra": { "type": "object" }
+  },
+  "$defs": {
+    "resolution_block": {
+      "type": ["object", "null"],
+      "properties": {
+        "resolution": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "insufficient_data", "diagnostic_only", "waived"]
+        },
+        "n": { "type": "integer", "minimum": 0 },
+        "p": { "type": "integer", "minimum": 0 },
+        "nmbe_pct": { "type": ["number", "null"] },
+        "cvrmse_pct": { "type": ["number", "null"] },
+        "mean_obs": { "type": ["number", "null"] },
+        "labeled_as_gl14": { "type": "boolean" },
+        "partial_year_monthly": { "type": "boolean" },
+        "gates": { "type": ["object", "null"] },
+        "formula": { "type": "string" },
+        "distance_to_gate": { "type": ["number", "null"] }
+      },
+      "required": ["resolution", "status", "n", "p", "labeled_as_gl14"]
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "policy_id": "eplus_dsm_acceptance_policy_v1",
+  "version": 1,
+  "description": "Provisional multi-resolution gates for Lakeside IdealLoads twin + hybrid DSM screening. Not ASHRAE G14-2023 verbatim.",
+  "formula_citation": "commonly cited calibrated-simulation thresholds (NREL / older G14 practice); ASHRAE G14-2023 text not purchased",
+  "default_p": 1,
+  "gates": {
+    "monthly": {
+      "nmbe_abs_max_pct": 5.0,
+      "cvrmse_max_pct": 15.0,
+      "labeled_as_gl14": true,
+      "partial_year_ok": true,
+      "partial_year_note": "n months < 12 must be labeled partial-year monthly calibration"
+    },
+    "hourly": {
+      "nmbe_abs_max_pct": 10.0,
+      "cvrmse_max_pct": 30.0,
+      "labeled_as_gl14": false,
+      "note": "calibrated-simulation hourly screen; not marketed as monthly G14"
+    },
+    "q15_dsm": {
+      "labeled_as_gl14": false,
+      "role": "diagnostic_only",
+      "provisional_screens": {
+        "facility_kw_mae_peak_05_09_max": null,
+        "note": "15-min DSM metrics are screening diagnostics — never claim 15-minute GL14"
+      }
+    }
+  },
+  "recommendation": {
+    "require_monthly_pass": true,
+    "require_hourly_pass": true,
+    "refuse_on_smoke_farm": true,
+    "refuse_on_ood": true,
+    "refuse_on_comfort_fail": true,
+    "refuse_on_hash_mismatch": true,
+    "min_both_arm_pairs_operational": 12
+  },
+  "waivers": {
+    "hourly_gate_waiver": {
+      "active": false,
+      "approved_by": null,
+      "reason": null,
+      "note": "Wave 4 farm/promote blocked until hourly pass OR this waiver is explicitly activated. Wave 3 IdealLoads structural limit: do not waive casually — see docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md"
+    }
+  },
+  "structural_checkpoint": {
+    "idealloads_hourly_adequate": false,
+    "decision": "stop_idealloads_tuning",
+    "report": "docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md"
+  },
+  "physics_honesty": {
+    "label": "IdealLoads + fixed-COP electrical proxy (not GSHP/GLHE plant)",
+    "filename_gshp_is_naming_only": true
+  },
+  "optimizer_ready": false
+}

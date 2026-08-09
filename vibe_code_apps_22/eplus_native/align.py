@@ -119,24 +119,47 @@ def mae_rmse_mbe(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     mae = float(np.mean(np.abs(err)))
     rmse = float(np.sqrt(np.mean(err**2)))
     mbe = float(np.mean(err))
-    mean_obs = float(np.mean(y_true))
-    nmbe = float(np.sum(y_true - y_pred) / (n * mean_obs) * 100.0) if abs(mean_obs) > 1e-12 else float("nan")
+    # Authoritative NMBE% from multires engine (m − ŷ, dof = n − p)
+    try:
+        from eplus_multires_metrics import nmbe_cvrmse_pct
+
+        stats = nmbe_cvrmse_pct(y_true, y_pred, p=1)
+        nmbe = float(stats["nmbe_pct"])
+    except Exception:
+        mean_obs = float(np.mean(y_true))
+        nmbe = (
+            float(np.sum(y_true - y_pred) / ((n - 1) * mean_obs) * 100.0)
+            if n > 1 and abs(mean_obs) > 1e-12
+            else float("nan")
+        )
     return {"n": n, "mae": mae, "rmse": rmse, "mbe": mbe, "nmbe_pct": nmbe}
 
 
 def cvrmse_pct(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
-    """CVRMSE with denominator = |mean(observed)| (Guideline 14 style)."""
-    y_true = np.asarray(y_true, dtype=float)
-    y_pred = np.asarray(y_pred, dtype=float)
-    mask = np.isfinite(y_true) & np.isfinite(y_pred)
-    y_true, y_pred = y_true[mask], y_pred[mask]
-    n = len(y_true)
-    if n < 2:
-        return {"n": n, "cvrmse_pct": float("nan"), "denominator": "mean_obs"}
-    mean_obs = float(np.mean(y_true))
-    mse = float(np.sum((y_true - y_pred) ** 2) / (n - 1))
-    cv = float(np.sqrt(mse) / abs(mean_obs) * 100.0) if abs(mean_obs) > 1e-12 else float("nan")
-    return {"n": n, "cvrmse_pct": cv, "denominator": "mean_obs", "mean_obs": mean_obs}
+    """CVRMSE with denominator = |mean(observed)| — delegates to multires engine."""
+    try:
+        from eplus_multires_metrics import nmbe_cvrmse_pct
+
+        stats = nmbe_cvrmse_pct(y_true, y_pred, p=1)
+        return {
+            "n": int(stats["n"]),
+            "cvrmse_pct": float(stats["cvrmse_pct"]),
+            "denominator": "mean_obs",
+            "mean_obs": float(stats["mean_obs"]),
+            "p": int(stats["p"]),
+        }
+    except Exception:
+        y_true = np.asarray(y_true, dtype=float)
+        y_pred = np.asarray(y_pred, dtype=float)
+        mask = np.isfinite(y_true) & np.isfinite(y_pred)
+        y_true, y_pred = y_true[mask], y_pred[mask]
+        n = len(y_true)
+        if n < 2:
+            return {"n": n, "cvrmse_pct": float("nan"), "denominator": "mean_obs"}
+        mean_obs = float(np.mean(y_true))
+        mse = float(np.sum((y_true - y_pred) ** 2) / (n - 1))
+        cv = float(np.sqrt(mse) / abs(mean_obs) * 100.0) if abs(mean_obs) > 1e-12 else float("nan")
+        return {"n": n, "cvrmse_pct": cv, "denominator": "mean_obs", "mean_obs": mean_obs}
 
 
 def peak_magnitude_timing_error(

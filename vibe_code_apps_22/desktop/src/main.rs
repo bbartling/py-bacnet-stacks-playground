@@ -13,39 +13,96 @@ mod hybrid_onnx;
 #[allow(dead_code)]
 mod model; // quarantined hourly heating_dsm_hourly_v1 path — unused by live UI
 mod mvm;
+mod nav;
+mod nearest_day;
+mod ship_manifest;
+mod simulation;
 mod tariff;
+mod tutorial;
 
 use annual::{rollup_annual_savings, AnnualRollup, MonthlyBook};
 use bills::{try_autoload_bills, BillBook, DerivedRates};
 use eframe::egui;
 use egui_plot::{Bar, BarChart, Line, Plot, PlotPoints};
 use features::{default_occ_frac, STRATEGY_IDS, ZONE_LABELS};
+use features_15min::STEPS_96;
 use hybrid::{load_hybrid_walk, show_hybrid_panel, HybridWalk};
 use hybrid_onnx::{expand_oat_24_to_96, HybridEngine};
-use features_15min::STEPS_96;
-use mvm::{load_mvm_bundle, show_mvm_panel, MvmBundle};
+use mvm::{
+    idf_hash_mismatch, load_multires_validation, load_mvm_bundle, mv_savings_claim_line,
+    recommendation_language_gate, show_multires_badge_strip, show_tutorial_mv_glance,
+    show_validation_tab, MultiresBundle, MvmBundle, RecommendGateExtras,
+};
+use nav::{AppMode, WorkspaceFolder};
+use nearest_day::{billing_period_demand_kw, NearestDayEngine, NearestDayResult};
+use ship_manifest::{is_smoke_screening, load_ship_manifest, metrics_from_manifest};
+use simulation::{
+    incremental_demand, AnnualReplayPlan, StrategyEnumRow, UNSUPPORTED_CONTROL_SCHEDULE,
+};
 use tariff::{
     cost_day_tod, cost_day_tod_96, creekside_cp2_defaults, hourly_mean_from_quarters, DemandTariff,
     TodDayCost,
 };
+use tutorial::{step_content, strategy_blurb, STEP_COUNT};
 
-fn apply_theme(ctx: &egui::Context) {
-    let mut visuals = egui::Visuals::dark();
-    visuals.window_fill = egui::Color32::from_rgb(22, 28, 34);
-    visuals.panel_fill = egui::Color32::from_rgb(28, 35, 42);
-    visuals.extreme_bg_color = egui::Color32::from_rgb(18, 22, 28);
-    visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(34, 42, 50);
-    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(42, 52, 62);
-    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(55, 68, 80);
-    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(70, 88, 104);
+fn apply_theme(ctx: &egui::Context, dark: bool) {
+    let mut visuals = if dark {
+        egui::Visuals::dark()
+    } else {
+        egui::Visuals::light()
+    };
+    if dark {
+        visuals.window_fill = egui::Color32::from_rgb(22, 28, 34);
+        visuals.panel_fill = egui::Color32::from_rgb(28, 35, 42);
+        visuals.extreme_bg_color = egui::Color32::from_rgb(18, 22, 28);
+        visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(34, 42, 50);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(42, 52, 62);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(55, 68, 80);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(70, 88, 104);
+        visuals.override_text_color = Some(egui::Color32::from_rgb(232, 236, 240));
+    } else {
+        visuals.window_fill = egui::Color32::from_rgb(245, 246, 248);
+        visuals.panel_fill = egui::Color32::from_rgb(252, 252, 253);
+        visuals.extreme_bg_color = egui::Color32::from_rgb(236, 238, 242);
+        visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(255, 255, 255);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(240, 242, 245);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(230, 234, 240);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(220, 226, 234);
+        visuals.override_text_color = Some(egui::Color32::from_rgb(28, 32, 38));
+    }
+    // Shared accent (works on both themes)
     visuals.selection.bg_fill = egui::Color32::from_rgb(196, 110, 48);
-    visuals.hyperlink_color = egui::Color32::from_rgb(232, 168, 96);
-    visuals.override_text_color = Some(egui::Color32::from_rgb(232, 236, 240));
+    visuals.hyperlink_color = egui::Color32::from_rgb(180, 100, 40);
     ctx.set_visuals(visuals);
     ctx.style_mut(|style| {
         style.spacing.item_spacing = egui::vec2(8.0, 6.0);
         style.spacing.button_padding = egui::vec2(12.0, 6.0);
     });
+}
+
+/// Accent for headings — slightly brighter on dark, deeper on light.
+fn accent_color(dark: bool) -> egui::Color32 {
+    if dark {
+        egui::Color32::from_rgb(232, 168, 96)
+    } else {
+        egui::Color32::from_rgb(160, 80, 28)
+    }
+}
+
+fn claim_ok_color(dark: bool) -> egui::Color32 {
+    if dark {
+        egui::Color32::from_rgb(120, 190, 130)
+    } else {
+        egui::Color32::from_rgb(30, 120, 55)
+    }
+}
+
+fn claim_fail_color(dark: bool) -> egui::Color32 {
+    if dark {
+        egui::Color32::from_rgb(230, 120, 90)
+    } else {
+        egui::Color32::from_rgb(180, 50, 40)
+    }
 }
 
 fn main() -> eframe::Result<()> {
@@ -63,15 +120,26 @@ fn main() -> eframe::Result<()> {
 }
 
 struct DsmApp {
+    /// `true` = dark theme, `false` = light theme.
+    dark_mode: bool,
+    mode: AppMode,
     hybrid_engine: Option<HybridEngine>,
+    nearest_engine: Option<NearestDayEngine>,
+    nearest_result: Option<NearestDayResult>,
+    nearest_error: Option<String>,
+    strategy_enum_rows: Vec<StrategyEnumRow>,
+    show_ml_hybrid: bool,
+    show_nearest_day: bool,
+    show_actual_replay: bool,
+    existing_billing_peak_kw: f32,
     load_error: Option<String>,
+    /// Product / screening claim stamp from ship manifest or ONNX meta.
     honesty: String,
     training_source: String,
     model_banner: String,
     onnx_path_display: String,
     model_name: String,
     metrics_lines: Vec<String>,
-    param_rows: Vec<(String, String)>,
     precision_pm: f32,
     precision_note: String,
 
@@ -118,6 +186,8 @@ struct DsmApp {
     cost_dsm: Option<TodDayCost>,
     annual: Option<AnnualRollup>,
     mvm: MvmBundle,
+    multires: MultiresBundle,
+    ship_smoke: bool,
     hybrid_walk: Option<HybridWalk>,
     hybrid_path: Option<std::path::PathBuf>,
     hybrid_error: Option<String>,
@@ -127,8 +197,45 @@ struct DsmApp {
 }
 
 impl DsmApp {
+    fn recommend_gate_extras(&self) -> RecommendGateExtras {
+        let comfort_fail = self
+            .nearest_result
+            .as_ref()
+            .map(|r| r.walk.summary.comfort_violations > 0)
+            .or_else(|| {
+                self.hybrid_walk
+                    .as_ref()
+                    .map(|w| w.summary.comfort_violations > 0)
+            })
+            .unwrap_or(false);
+        let ood = self.nearest_result.as_ref().map(|r| r.ood).unwrap_or(false);
+        RecommendGateExtras {
+            smoke_farm: self.ship_smoke,
+            ood,
+            comfort_fail,
+            hash_mismatch: idf_hash_mismatch(&self.mvm, &self.multires),
+        }
+    }
+
+    /// Format recommend status for UI — never claim recommend when gates block.
+    fn format_recommend_ui(&self, raw_recommend: bool) -> String {
+        let extras = self.recommend_gate_extras();
+        let (allowed, blocker) = recommendation_language_gate(self.multires.doc.as_ref(), &extras);
+        if !allowed {
+            format!(
+                "recommend=blocked ({})",
+                blocker.as_deref().unwrap_or("gates_not_met")
+            )
+        } else if raw_recommend {
+            "recommend=true".into()
+        } else {
+            "recommend=false".into()
+        }
+    }
+
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        apply_theme(&cc.egui_ctx);
+        let dark_mode = true;
+        apply_theme(&cc.egui_ctx, dark_mode);
         let (
             hybrid_engine,
             load_error,
@@ -137,7 +244,6 @@ impl DsmApp {
             model_banner,
             model_name,
             metrics_lines,
-            param_rows,
             precision_pm,
             precision_note,
             onnx_path_display,
@@ -148,22 +254,61 @@ impl DsmApp {
                     eng.baseline_path.display(),
                     eng.delta_path.display()
                 );
-                let h = eng
-                    .baseline
-                    .meta
-                    .honesty
-                    .clone()
+                let ship = load_ship_manifest();
+                let (mut metrics_lines, mut precision_pm, mut precision_note) = ship
+                    .as_ref()
+                    .map(|(m, _)| metrics_from_manifest(m))
+                    .unwrap_or_else(|| {
+                        (
+                            vec![
+                                "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
+                                "Honesty: HYBRID_SCREENING · IdealLoads + fixed-COP (not GSHP)"
+                                    .into(),
+                                "No hybrid_ship_manifest.json — promote via notebook to fill G14 metrics"
+                                    .into(),
+                            ],
+                            0.0,
+                            "Promote gates require held-out recursive metrics; smoke farm needs VIBE22_ALLOW_SMOKE_PROMOTE=1"
+                                .into(),
+                        )
+                    });
+                // Prefer meta precision if manifest missing pm but ONNX meta stamped.
+                if precision_pm == 0.0 {
+                    if let Some(pm) = eng.baseline.meta.precision_pm_kw {
+                        if pm > 0.0 {
+                            precision_pm = pm;
+                            precision_note =
+                                "screening +/- from feature_meta.precision_pm_kw (notebook promote)"
+                                    .into();
+                        }
+                    }
+                }
+                let champ_b = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.champion_baseline.clone())
+                    .or_else(|| eng.baseline.meta.champion.clone());
+                let champ_d = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.champion_delta.clone())
+                    .or_else(|| eng.delta.meta.champion.clone());
+                let h = ship
+                    .as_ref()
+                    .and_then(|(m, _)| m.honesty.clone())
+                    .or_else(|| eng.baseline.meta.honesty.clone())
                     .unwrap_or_else(|| "HYBRID_SCREENING".into());
                 let banner = format!(
-                    "hybrid live ONNX · baseline={} · delta={} · IdealLoads+COP screening",
-                    eng.baseline.meta.champion.as_deref().unwrap_or("?"),
-                    eng.delta.meta.champion.as_deref().unwrap_or("?")
+                    "hybrid live ONNX · baseline={} · delta={} · IdealLoads + fixed-COP screening",
+                    champ_b.as_deref().unwrap_or("?"),
+                    champ_d.as_deref().unwrap_or("?")
                 );
                 let name = format!(
                     "hybrid {}+{}",
-                    eng.baseline.meta.champion.as_deref().unwrap_or("base"),
-                    eng.delta.meta.champion.as_deref().unwrap_or("delta")
+                    champ_b.as_deref().unwrap_or("base"),
+                    champ_d.as_deref().unwrap_or("delta")
                 );
+                if let Some((_, p)) = &ship {
+                    metrics_lines.insert(0, format!("ship manifest: {}", p.display()));
+                }
                 (
                     Some(eng),
                     None,
@@ -171,14 +316,9 @@ impl DsmApp {
                     "notebook_hybrid_15min".into(),
                     banner,
                     name,
-                    vec![
-                        "Live 96-step hybrid from UI inputs (not static JSON alone)".into(),
-                        "Honesty: HYBRID_SCREENING · IdealLoads+COP ≠ GSHP plant".into(),
-                    ],
-                    Vec::new(),
-                    0.0,
-                    "Promote gates require held-out recursive metrics; smoke farm needs VIBE22_ALLOW_SMOKE_PROMOTE=1"
-                        .into(),
+                    metrics_lines,
+                    precision_pm,
+                    precision_note,
                     path,
                 )
             }
@@ -189,7 +329,6 @@ impl DsmApp {
                 String::new(),
                 "no hybrid models loaded".into(),
                 "—".into(),
-                Vec::new(),
                 Vec::new(),
                 0.0,
                 String::new(),
@@ -212,9 +351,34 @@ impl DsmApp {
             }
         }
 
+        let nearest_engine = match NearestDayEngine::load_default() {
+            Ok(e) => Some(e),
+            Err(e) => {
+                eprintln!("nearest-day library not loaded: {e:#}");
+                None
+            }
+        };
+
         let tariff = creekside_cp2_defaults();
+        let ship_smoke = load_ship_manifest()
+            .as_ref()
+            .map(|(m, _)| is_smoke_screening(m))
+            .unwrap_or(true);
+        let mvm = load_mvm_bundle();
+        let multires = load_multires_validation();
+
         let mut app = Self {
+            dark_mode,
+            mode: AppMode::welcome(),
             hybrid_engine,
+            nearest_engine,
+            nearest_result: None,
+            nearest_error: None,
+            strategy_enum_rows: Vec::new(),
+            show_ml_hybrid: true,
+            show_nearest_day: true,
+            show_actual_replay: false,
+            existing_billing_peak_kw: 120.0,
             load_error,
             honesty,
             training_source,
@@ -222,7 +386,6 @@ impl DsmApp {
             onnx_path_display,
             model_name,
             metrics_lines,
-            param_rows,
             precision_pm,
             precision_note,
             month: 1.0,
@@ -260,7 +423,9 @@ impl DsmApp {
             cost_compare: None,
             cost_dsm: None,
             annual: None,
-            mvm: load_mvm_bundle(),
+            mvm,
+            multires,
+            ship_smoke,
             hybrid_walk: None,
             hybrid_path: None,
             hybrid_error: None,
@@ -306,10 +471,7 @@ impl DsmApp {
             }
         }
 
-        if let Some(path) = annual_sample_candidates()
-            .into_iter()
-            .find(|p| p.is_file())
-        {
+        if let Some(path) = annual_sample_candidates().into_iter().find(|p| p.is_file()) {
             match MonthlyBook::load_csv(&path) {
                 Ok(book) => {
                     app.status = format!(
@@ -579,13 +741,7 @@ impl DsmApp {
                 }
                 let hourly = hourly_mean_from_quarters(&kw96);
                 let month_u8 = month as u8;
-                let cost = cost_day_tod_96(
-                    &kw96,
-                    &self.tariff,
-                    self.is_weekend,
-                    month_u8,
-                    false,
-                );
+                let cost = cost_day_tod_96(&kw96, &self.tariff, self.is_weekend, month_u8, false);
                 if force_247_as_dsm {
                     self.pred_kw_compare = hourly;
                     self.compare_label = "HVAC 24/7 (live hybrid)".into();
@@ -595,10 +751,7 @@ impl DsmApp {
                     self.dsm_label = sid.clone();
                     self.cost_dsm = Some(cost);
                 }
-                let flag = walk
-                    .outcome_flag
-                    .clone()
-                    .unwrap_or_else(|| "ok".into());
+                let flag = walk.outcome_flag.clone().unwrap_or_else(|| "ok".into());
                 self.status = format!(
                     "Live hybrid OK — peak {:.1}→{:.1} (Δ{:.1}) · {} · {} · {}",
                     walk.summary.peak_kw_baseline,
@@ -618,6 +771,161 @@ impl DsmApp {
                 false
             }
         }
+    }
+
+    /// Nearest-Day + E+ Delta engineering benchmark (not ML).
+    fn run_nearest_day(&mut self) -> bool {
+        let Some(eng) = self.nearest_engine.as_ref() else {
+            self.nearest_error =
+                Some("Nearest-Day library not loaded (export with PROFILE=full_deployment)".into());
+            self.status = self.nearest_error.clone().unwrap();
+            return false;
+        };
+        let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
+        let oat96 = expand_oat_24_to_96(&oat24);
+        let sid = STRATEGY_IDS[self.strategy_idx];
+        match eng.rollout(
+            self.midnight_facility_kw,
+            self.midnight_zone_f,
+            &oat96,
+            self.is_weekend,
+            sid,
+            None,
+            self.existing_billing_peak_kw,
+        ) {
+            Ok(res) => {
+                let bill = billing_period_demand_kw(
+                    self.existing_billing_peak_kw as f64,
+                    res.hybrid_peak_kw,
+                );
+                let peak = res.hybrid_peak_kw;
+                let kwh = res.hybrid_kwh;
+                let ood = res.ood;
+                let raw_rec = res.recommend;
+                self.nearest_error = None;
+                self.nearest_result = Some(res);
+                self.status = format!(
+                    "Nearest-Day+E+Delta peak={:.1} kW · kWh={:.0} · billing_demand={:.1} · ood={} · {}",
+                    peak,
+                    kwh,
+                    bill,
+                    ood,
+                    self.format_recommend_ui(raw_rec)
+                );
+                true
+            }
+            Err(e) => {
+                self.nearest_error = Some(format!("{e:#}"));
+                self.status = format!("nearest-day failed: {e:#}");
+                false
+            }
+        }
+    }
+
+    /// STRATEGY ENUMERATION — evaluate all named strategies (not mathematical optimization).
+    fn run_strategy_enumeration(&mut self) {
+        let Some(eng) = self.nearest_engine.as_ref() else {
+            self.status =
+                "STRATEGY ENUMERATION needs Nearest-Day library (PROFILE=full_deployment export)"
+                    .into();
+            return;
+        };
+        let oat24: [f32; 24] = std::array::from_fn(|h| self.oat_at(h));
+        let oat96 = expand_oat_24_to_96(&oat24);
+        let month_u8 = self.month as u8;
+        let demand_rate = self.tariff.demand_rate_for_month(month_u8) as f64;
+        let mut rows: Vec<StrategyEnumRow> = Vec::new();
+        for sid in STRATEGY_IDS {
+            match eng.rollout(
+                self.midnight_facility_kw,
+                self.midnight_zone_f,
+                &oat96,
+                self.is_weekend,
+                sid,
+                None,
+                self.existing_billing_peak_kw,
+            ) {
+                Ok(res) => {
+                    let mut kw96 = [0.0_f32; STEPS_96];
+                    for (i, st) in res.walk.steps.iter().enumerate().take(STEPS_96) {
+                        kw96[i] = st.hybrid_facility_kw as f32;
+                    }
+                    let cost =
+                        cost_day_tod_96(&kw96, &self.tariff, self.is_weekend, month_u8, false);
+                    let (_new_p, inc_kw, inc_cost) = incremental_demand(
+                        self.existing_billing_peak_kw as f64,
+                        res.hybrid_peak_kw,
+                        demand_rate,
+                    );
+                    let unsupported = res.failed_criteria.iter().any(|c| {
+                        c == UNSUPPORTED_CONTROL_SCHEDULE || c.contains("no_eplus_records")
+                    });
+                    let mut reject = None;
+                    let mut feasible = true;
+                    if unsupported {
+                        feasible = false;
+                        reject = Some(UNSUPPORTED_CONTROL_SCHEDULE.into());
+                    } else if res.ood {
+                        feasible = false;
+                        reject = Some(
+                            res.ood_status
+                                .clone()
+                                .unwrap_or_else(|| "OUT_OF_DISTRIBUTION".into()),
+                        );
+                    } else if res.walk.summary.comfort_violations > 0 {
+                        feasible = false;
+                        reject = Some("comfort_fail".into());
+                    }
+                    let energy_cost = (cost.energy_on_peak_cost
+                        + cost.energy_off_peak_cost
+                        + cost.pca_cost) as f64;
+                    rows.push(StrategyEnumRow {
+                        strategy_id: sid.into(),
+                        peak_kw: res.hybrid_peak_kw,
+                        daily_kwh: res.hybrid_kwh,
+                        energy_cost,
+                        incremental_demand_kw: inc_kw,
+                        incremental_demand_cost: inc_cost,
+                        total_incremental_cost: energy_cost + inc_cost,
+                        comfort_violations: res.walk.summary.comfort_violations,
+                        ood: res.ood,
+                        feasible,
+                        reject_reason: reject,
+                    });
+                }
+                Err(e) => {
+                    rows.push(StrategyEnumRow {
+                        strategy_id: sid.into(),
+                        peak_kw: f64::NAN,
+                        daily_kwh: f64::NAN,
+                        energy_cost: f64::NAN,
+                        incremental_demand_kw: f64::NAN,
+                        incremental_demand_cost: f64::NAN,
+                        total_incremental_cost: f64::NAN,
+                        comfort_violations: -1,
+                        ood: true,
+                        feasible: false,
+                        reject_reason: Some(format!("{e:#}")),
+                    });
+                }
+            }
+        }
+        rows.sort_by(|a, b| match (a.feasible, b.feasible) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a
+                .total_incremental_cost
+                .partial_cmp(&b.total_incremental_cost)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        });
+        let n_ok = rows.iter().filter(|r| r.feasible).count();
+        self.status = format!(
+            "STRATEGY ENUMERATION: {}/{} feasible · annual rollup remains HEURISTIC · {}",
+            n_ok,
+            rows.len(),
+            AnnualReplayPlan::stub().note
+        );
+        self.strategy_enum_rows = rows;
     }
 
     fn run_compare_247_vs_dsm(&mut self) {
@@ -647,11 +955,7 @@ impl DsmApp {
             ));
         }
         self.refresh_annual();
-        let pc = self
-            .cost_compare
-            .as_ref()
-            .map(|c| c.peak_kw)
-            .unwrap_or(0.0);
+        let pc = self.cost_compare.as_ref().map(|c| c.peak_kw).unwrap_or(0.0);
         let pd = self.cost_dsm.as_ref().map(|c| c.peak_kw).unwrap_or(0.0);
         self.status = format!(
             "Live compare OK — 24/7 peak {:.1} vs DSM {:.1} (Δpeak {:.1} kW)",
@@ -698,726 +1002,1441 @@ fn cost_bars(c: &TodDayCost, offset: f64) -> Vec<Bar> {
         Bar::new(2.0 + offset, c.pca_cost as f64).name("PCA $"),
         Bar::new(3.0 + offset, c.demand_cost as f64).name("demand $"),
         Bar::new(4.0 + offset, c.distribution_demand_cost as f64).name("dist $"),
+        Bar::new(5.0 + offset, c.customer_charge_day_share as f64).name("cust $"),
     ]
 }
 
-impl eframe::App for DsmApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("banner").show(ctx, |ui| {
+
+impl DsmApp {
+    fn dsm_readiness(&self) -> (String, egui::Color32) {
+        mv_savings_claim_line(self.multires.doc.as_ref())
+    }
+
+    fn recommend_blocked_line(&self) -> String {
+        let extras = self.recommend_gate_extras();
+        let (allowed, blocker) = recommendation_language_gate(self.multires.doc.as_ref(), &extras);
+        if allowed {
+            "Operator recommendation language: allowed (gates clear)".into()
+        } else {
+            format!(
+                "Operator recommendation language: withheld · {}",
+                blocker
+                    .as_deref()
+                    .unwrap_or("fit screens not met")
+                    .replace('_', " ")
+            )
+        }
+    }
+
+    fn show_top_chrome(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("chrome").show(ctx, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 ui.heading(
                     egui::RichText::new("Lakeside Heating DSM")
-                        .color(egui::Color32::from_rgb(232, 168, 96)),
+                        .size(22.0)
+                        .color(accent_color(self.dark_mode)),
                 );
                 ui.separator();
-                ui.label(
-                    egui::RichText::new(&self.model_banner)
-                        .strong()
-                        .color(egui::Color32::from_rgb(210, 220, 230)),
-                );
+                let mut mode_kind = match self.mode {
+                    AppMode::Welcome => 0,
+                    AppMode::Tutorial { .. } => 1,
+                    AppMode::Workspace { .. } => 2,
+                };
+                for (i, label) in ["Welcome", "Tutorial", "Workspace"].iter().enumerate() {
+                    if ui.selectable_label(mode_kind == i, *label).clicked() {
+                        mode_kind = i;
+                        self.mode = match i {
+                            1 => match self.mode {
+                                AppMode::Tutorial { step } => AppMode::Tutorial { step },
+                                _ => AppMode::tutorial_start(),
+                            },
+                            2 => match self.mode {
+                                AppMode::Workspace { folder } => AppMode::Workspace { folder },
+                                _ => AppMode::workspace_default(),
+                            },
+                            _ => AppMode::welcome(),
+                        };
+                    }
+                }
                 ui.separator();
-                ui.label(format!("Tariff: {}", self.tariff.label));
-            });
-            ui.label(
-                egui::RichText::new(format!(
-                    "ONNX: {}  ·  training_source={}",
-                    self.onnx_path_display, self.training_source
-                ))
-                .small()
-                .weak(),
-            );
-            if !self.honesty.is_empty() {
-                ui.colored_label(egui::Color32::from_rgb(210, 150, 70), &self.honesty);
-            }
-            if let Some(err) = &self.load_error {
-                ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
-            }
-            if let Some(err) = &self.hybrid_error {
-                ui.colored_label(
-                    egui::Color32::from_rgb(230, 80, 80),
-                    format!("Hybrid fail-closed: {err}"),
-                );
-            } else if self.hybrid_walk.is_some() {
-                ui.colored_label(
-                    egui::Color32::from_rgb(140, 200, 160),
-                    "Hybrid 96-step walk loaded (HYBRID_SCREENING)",
-                );
-            }
-            ui.add_space(4.0);
-        });
-
-        egui::SidePanel::left("controls")
-            .default_width(380.0)
-            .show(ctx, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.heading("Portable tariff");
-                    ui.label("Any utility demand/TOD rates — Creekside CP-2 prefilled.");
-                    ui.checkbox(&mut self.use_tod_tariff, "Use TOD + dual demand tariff");
-                    if ui.button("↺ Reset to Creekside CP-2 defaults").clicked() {
-                        self.reset_tariff_defaults();
-                    }
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.tariff.label)
-                            .desired_width(340.0)
-                            .hint_text("tariff label"),
-                    );
-                    egui::Grid::new("tariff_grid")
-                        .num_columns(2)
-                        .spacing([8.0, 4.0])
-                        .show(ui, |ui| {
-                            ui.label("On-peak $/kWh");
-                            if ui
-                                .add(
-                                    egui::DragValue::new(&mut self.tariff.energy_on_peak_per_kwh)
-                                        .speed(0.001)
-                                        .range(0.0..=2.0),
-                                )
-                                .changed()
-                            {
-                                self.reprice_days();
-                            }
-                            ui.end_row();
-                            ui.label("Off-peak $/kWh");
-                            if ui
-                                .add(
-                                    egui::DragValue::new(&mut self.tariff.energy_off_peak_per_kwh)
-                                        .speed(0.001)
-                                        .range(0.0..=2.0),
-                                )
-                                .changed()
-                            {
-                                self.reprice_days();
-                            }
-                            ui.end_row();
-                            ui.label("PCA $/kWh");
-                            if ui
-                                .add(
-                                    egui::DragValue::new(&mut self.tariff.pca_per_kwh)
-                                        .speed(0.0001)
-                                        .range(0.0..=0.5),
-                                )
-                                .changed()
-                            {
-                                self.reprice_days();
-                            }
-                            ui.end_row();
-                            ui.label("Demand $/kW");
-                            if ui
-                                .add(
-                                    egui::DragValue::new(&mut self.tariff.demand_per_kw)
-                                        .speed(0.25)
-                                        .range(0.0..=100.0),
-                                )
-                                .changed()
-                            {
-                                self.reprice_days();
-                            }
-                            ui.end_row();
-                            ui.label("Dist demand $/kW");
-                            if ui
-                                .add(
-                                    egui::DragValue::new(
-                                        &mut self.tariff.distribution_demand_per_kw,
-                                    )
-                                    .speed(0.05)
-                                    .range(0.0..=50.0),
-                                )
-                                .changed()
-                            {
-                                self.reprice_days();
-                            }
-                            ui.end_row();
-                            ui.label("Customer $/mo");
-                            ui.add(
-                                egui::DragValue::new(&mut self.tariff.customer_charge)
-                                    .speed(1.0)
-                                    .range(0.0..=5000.0),
-                            );
-                            ui.end_row();
-                            ui.label("On-peak HE start");
-                            ui.add(
-                                egui::DragValue::new(&mut self.tariff.on_peak_he_start)
-                                    .range(0..=23),
-                            );
-                            ui.end_row();
-                            ui.label("On-peak HE end");
-                            ui.add(
-                                egui::DragValue::new(&mut self.tariff.on_peak_he_end).range(1..=24),
-                            );
-                            ui.end_row();
-                        });
-                    ui.checkbox(&mut self.tariff.weekends_off_peak, "Weekends off-peak");
-                    ui.checkbox(&mut self.tariff.use_step_up, "Aug+ rate step-up");
-                    if self.tariff.use_step_up {
-                        ui.horizontal(|ui| {
-                            ui.label("from month");
-                            ui.add(
-                                egui::DragValue::new(&mut self.tariff.step_up_from_month)
-                                    .range(1..=12),
-                            );
-                            ui.label("dem");
-                            ui.add(
-                                egui::DragValue::new(&mut self.tariff.demand_per_kw_step)
-                                    .speed(0.05),
-                            );
-                            ui.label("dist");
-                            ui.add(
-                                egui::DragValue::new(
-                                    &mut self.tariff.distribution_demand_per_kw_step,
-                                )
-                                .speed(0.05),
-                            );
-                        });
-                    }
-                    ui.colored_label(
-                        egui::Color32::from_rgb(120, 160, 190),
-                        &self.tariff.honesty,
-                    );
-
-                    if !self.use_tod_tariff {
-                        ui.separator();
-                        ui.heading("Flat rates (legacy)");
-                        ui.add(
-                            egui::DragValue::new(&mut self.energy_rate_per_kwh)
-                                .speed(0.001)
-                                .prefix("$")
-                                .suffix(" /kWh"),
-                        );
-                        ui.add(
-                            egui::DragValue::new(&mut self.demand_rate_per_kw)
-                                .speed(0.25)
-                                .prefix("$")
-                                .suffix(" /kW"),
-                        );
-                    }
-
-                    ui.separator();
-                    ui.heading("Utility / monthly peaks");
-                    if ui
-                        .add_sized(
-                            [340.0, 26.0],
-                            egui::Button::new("📂 Load bill CSV (OLS rates)…"),
-                        )
-                        .clicked()
-                    {
-                        self.pick_and_load_bills();
-                    }
-                    if ui
-                        .add_sized(
-                            [340.0, 26.0],
-                            egui::Button::new("📂 Load monthly peaks CSV…"),
-                        )
-                        .clicked()
-                    {
-                        self.pick_and_load_monthly();
-                    }
-                    if let Some(book) = &self.monthly_book {
-                        ui.label(format!(
-                            "Peaks: {} mo · max demand {:.0} · max billed {:.0}",
-                            book.rows.len(),
-                            book.max_demand_kw(),
-                            book.max_billed_demand_kw()
-                        ));
-                    }
-                    if let Some(err) = &self.monthly_error {
-                        ui.colored_label(egui::Color32::from_rgb(220, 90, 90), err);
-                    }
-                    if let Some(book) = &self.bill_book {
-                        ui.label(format!("OLS bills: {} mo", book.rows.len()));
-                        let prev = self.rate_preset_idx;
-                        let mut labels: Vec<String> = vec![
-                            "Heating season OLS".into(),
-                            "All months OLS".into(),
-                        ];
-                        for r in &book.rows {
-                            labels.push(format!("Month {}", r.month_key));
-                        }
-                        let selected = labels
-                            .get(self.rate_preset_idx)
-                            .cloned()
-                            .unwrap_or_else(|| "(none)".into());
-                        egui::ComboBox::from_label("OLS preset")
-                            .selected_text(selected)
-                            .width(260.0)
-                            .show_ui(ui, |ui| {
-                                for (i, lab) in labels.iter().enumerate() {
-                                    ui.selectable_value(&mut self.rate_preset_idx, i, lab);
-                                }
-                            });
-                        if prev != self.rate_preset_idx {
-                            self.apply_rate_preset();
-                        }
-                    }
-                    for w in &self.bill_warnings {
-                        ui.colored_label(
-                            egui::Color32::from_rgb(160, 120, 40),
-                            format!("⚠ {w}"),
-                        );
-                    }
-                    if let Some(err) = &self.bill_error {
-                        ui.colored_label(egui::Color32::from_rgb(220, 90, 90), err);
-                    }
-
-                    ui.separator();
-                    ui.heading("Day / weather");
-                    ui.add(egui::Slider::new(&mut self.month, 1.0..=12.0).text("month"));
-                    ui.add(egui::Slider::new(&mut self.doy, 1.0..=366.0).text("day of year"));
-                    ui.checkbox(&mut self.is_weekend, "Weekend");
-                    ui.checkbox(&mut self.use_manual_oat, "Edit 24h OAT (°F)");
-                    if !self.use_manual_oat {
-                        ui.add(
-                            egui::Slider::new(&mut self.oat_midnight_f, -20.0..=50.0)
-                                .text("OAT base °F"),
-                        );
-                        ui.add(
-                            egui::Slider::new(&mut self.oat_amplitude_f, 0.0..=25.0)
-                                .text("diurnal amp °F"),
-                        );
+                let (claim, _) = self.dsm_readiness();
+                let claim_color = if claim.to_ascii_lowercase().contains("eligible") {
+                    claim_ok_color(self.dark_mode)
+                } else {
+                    claim_fail_color(self.dark_mode)
+                };
+                ui.colored_label(claim_color, egui::RichText::new(claim).size(15.0));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let theme_label = if self.dark_mode {
+                        "☀ Light"
                     } else {
-                        egui::ScrollArea::vertical()
-                            .max_height(90.0)
-                            .id_salt("oat_scroll")
-                            .show(ui, |ui| {
-                                for h in 0..24 {
-                                    ui.add(
-                                        egui::Slider::new(&mut self.oat_manual[h], -30.0..=70.0)
-                                            .text(format!("OAT HE{h:02}")),
-                                    );
-                                }
-                            });
-                    }
-
-                    ui.separator();
-                    ui.heading("DSM strategy");
-                    let prev = self.strategy_idx;
-                    egui::ComboBox::from_label("strategy")
-                        .selected_text(STRATEGY_IDS[self.strategy_idx])
-                        .show_ui(ui, |ui| {
-                            for (i, s) in STRATEGY_IDS.iter().enumerate() {
-                                ui.selectable_value(&mut self.strategy_idx, i, *s);
-                            }
-                        });
-                    if prev != self.strategy_idx {
-                        self.apply_strategy_defaults();
-                    }
-                    ui.checkbox(&mut self.use_strategy_occ, "Use strategy occ fractions");
-                    if ui.button("Reset HP grid from strategy").clicked() {
-                        self.apply_strategy_defaults();
-                    }
-                    if ui.button("Fill grid = HVAC all day (24/7)").clicked() {
-                        self.apply_flat_24_7_grid();
-                    }
-
-                    ui.separator();
-                    ui.heading("Annual rollup knobs");
-                    ui.add(
-                        egui::DragValue::new(&mut self.similar_days_per_year)
-                            .speed(1.0)
-                            .range(1.0..=200.0)
-                            .suffix(" similar cold days"),
-                    );
-                    ui.add(
-                        egui::DragValue::new(&mut self.on_peak_energy_share)
-                            .speed(0.01)
-                            .range(0.0..=1.0)
-                            .suffix(" on-peak energy share"),
-                    );
-                    ui.add(
-                        egui::DragValue::new(&mut self.ratchet_tol_kw)
-                            .speed(0.5)
-                            .range(0.0..=50.0)
-                            .suffix(" kW ratchet tol"),
-                    );
-                    if ui.button("Refresh annual rollup").clicked() {
-                        self.refresh_annual();
-                    }
-
-                    ui.separator();
+                        "☾ Dark"
+                    };
                     if ui
-                        .add_sized(
-                            [340.0, 42.0],
+                        .add(
+                            egui::Button::new(egui::RichText::new(theme_label).size(15.0))
+                                .min_size(egui::vec2(88.0, 28.0)),
+                        )
+                        .on_hover_text("Toggle light / dark theme")
+                        .clicked()
+                    {
+                        self.dark_mode = !self.dark_mode;
+                        apply_theme(ctx, self.dark_mode);
+                    }
+                    ui.label(
+                        egui::RichText::new(self.mode.mode_label())
+                            .size(13.0)
+                            .weak(),
+                    );
+                });
+            });
+            ui.add_space(2.0);
+        });
+    }
+
+    fn show_welcome(&mut self, ui: &mut egui::Ui) {
+        let avail = ui.available_size();
+        ui.allocate_ui_with_layout(
+            egui::vec2(avail.x, avail.y),
+            egui::Layout::top_down(egui::Align::Center),
+            |ui| {
+                ui.add_space((avail.y * 0.12).clamp(24.0, 80.0));
+                ui.label(
+                    egui::RichText::new("Lakeside Heating DSM")
+                        .size(42.0)
+                        .strong()
+                        .color(accent_color(self.dark_mode)),
+                );
+                ui.add_space(16.0);
+                ui.label(
+                    egui::RichText::new(
+                        "Screen a school day’s energy cost under a portable tariff,\nusing measured demand as the baseline.",
+                    )
+                    .size(22.0)
+                    .color(egui::Color32::from_rgb(220, 220, 230)),
+                );
+                ui.add_space(18.0);
+                let (claim, _) = self.dsm_readiness();
+                let claim_color = if claim.to_ascii_lowercase().contains("eligible") {
+                    claim_ok_color(self.dark_mode)
+                } else {
+                    claim_fail_color(self.dark_mode)
+                };
+                ui.colored_label(claim_color, egui::RichText::new(claim).size(20.0).strong());
+                ui.add_space(8.0);
+                if !self.honesty.is_empty() {
+                    ui.label(
+                        egui::RichText::new(format!("Screening stamp: {}", self.honesty))
+                            .size(16.0)
+                            .weak(),
+                    );
+                }
+                ui.label(
+                    egui::RichText::new(
+                        "IdealLoads + fixed-COP is not a ground-source heat-pump plant.\nDo not treat strategy gaps as verified savings until hourly/monthly screens clear.",
+                    )
+                    .size(17.0)
+                    .weak(),
+                );
+                ui.add_space(28.0);
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(
                             egui::Button::new(
-                                egui::RichText::new("▶  Live hybrid: 24/7 vs DSM")
-                                    .size(15.0)
-                                    .strong(),
+                                egui::RichText::new("Start tutorial").size(20.0).strong(),
                             )
+                            .min_size(egui::vec2(180.0, 44.0))
                             .fill(egui::Color32::from_rgb(196, 110, 48)),
                         )
                         .clicked()
                     {
-                        self.run_compare_247_vs_dsm();
+                        self.mode = AppMode::tutorial_start();
                     }
+                    ui.add_space(12.0);
                     if ui
-                        .add_sized(
-                            [340.0, 28.0],
-                            egui::Button::new("Run live hybrid DSM (96-step)"),
+                        .add(
+                            egui::Button::new(egui::RichText::new("Open Workspace").size(18.0))
+                                .min_size(egui::vec2(160.0, 44.0)),
                         )
                         .clicked()
                     {
-                        self.run_dsm_only();
+                        self.mode = AppMode::workspace_default();
                     }
-                    ui.label(
-                        egui::RichText::new(&self.status)
-                            .color(egui::Color32::from_rgb(180, 200, 190)),
-                    );
+                });
+                ui.add_space(20.0);
+                ui.label(egui::RichText::new(&self.model_banner).size(13.0).weak());
+            },
+        );
+    }
 
-                    ui.collapsing("Midnight measured state (required)", |ui| {
-                        ui.label("Lag init = measured midnight — never hardcoded 35 kW / 80°F.");
-                        ui.add(
-                            egui::Slider::new(&mut self.midnight_facility_kw, 5.0..=200.0)
-                                .text("facility kW @ midnight"),
+    fn show_tutorial_chrome(&mut self, ui: &mut egui::Ui, step: u8) {
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new(format!("Step {step} of {STEP_COUNT}"))
+                    .size(18.0)
+                    .strong(),
+            );
+            ui.separator();
+            if ui
+                .add_enabled(
+                    step > AppMode::TUTORIAL_FIRST,
+                    egui::Button::new(egui::RichText::new("Back").size(16.0)),
+                )
+                .clicked()
+            {
+                self.mode = self.mode.back_tutorial();
+            }
+            if ui
+                .add_enabled(
+                    step < AppMode::TUTORIAL_LAST,
+                    egui::Button::new(egui::RichText::new("Next").size(16.0)),
+                )
+                .clicked()
+            {
+                self.mode = self.mode.next_tutorial();
+            }
+            if ui
+                .button(egui::RichText::new("Skip to SIM").size(16.0))
+                .clicked()
+            {
+                self.mode = self.mode.skip_to_sim();
+            }
+            if ui
+                .button(egui::RichText::new("Exit to Workspace").size(16.0))
+                .clicked()
+            {
+                self.mode = self.mode.exit_to_workspace();
+            }
+        });
+        ui.separator();
+    }
+
+    fn show_tutorial(&mut self, ui: &mut egui::Ui, step: u8) {
+        self.show_tutorial_chrome(ui, step);
+        let content = step_content(step);
+        let avail = ui.available_size();
+        // SIM keeps a full-width chart; other steps are large centered copy + controls.
+        if step == 10 {
+            ui.add_space(8.0);
+            ui.vertical_centered(|ui| {
+                ui.label(
+                    egui::RichText::new(content.title)
+                        .size(34.0)
+                        .strong()
+                        .color(accent_color(self.dark_mode)),
+                );
+                ui.add_space(6.0);
+                ui.label(
+                    egui::RichText::new(content.blurb)
+                        .size(18.0)
+                        .color(egui::Color32::from_rgb(210, 210, 220)),
+                );
+            });
+            ui.add_space(10.0);
+            self.show_sim_overlay(ui, true);
+            return;
+        }
+
+        ui.allocate_ui_with_layout(
+            egui::vec2(avail.x, avail.y),
+            egui::Layout::top_down(egui::Align::Center),
+            |ui| {
+                ui.add_space((avail.y * 0.08).clamp(16.0, 56.0));
+                ui.label(
+                    egui::RichText::new(content.title)
+                        .size(36.0)
+                        .strong()
+                        .color(accent_color(self.dark_mode)),
+                );
+                ui.add_space(14.0);
+                ui.set_max_width(720.0);
+                ui.label(
+                    egui::RichText::new(content.blurb)
+                        .size(20.0)
+                        .color(egui::Color32::from_rgb(210, 210, 220)),
+                );
+                ui.add_space(22.0);
+                ui.set_max_width(760.0);
+                match step {
+                    1 => {
+                        let (claim, _) = self.dsm_readiness();
+                        let claim_color = if claim.to_ascii_lowercase().contains("eligible") {
+                            claim_ok_color(self.dark_mode)
+                        } else {
+                            claim_fail_color(self.dark_mode)
+                        };
+                        ui.colored_label(
+                            claim_color,
+                            egui::RichText::new(claim).size(20.0).strong(),
                         );
-                        for z in 0..6 {
-                            ui.add(
-                                egui::Slider::new(&mut self.midnight_zone_f[z], 50.0..=75.0)
-                                    .text(ZONE_LABELS[z]),
-                            );
-                        }
-                    });
-                    if let Some(ship) = &self.ship_walk {
-                        ui.collapsing("Precomputed ship walk (compare only)", |ui| {
-                            ui.label(format!(
-                                "Ship Δpeak {:.1} kW · not driven by UI until you Run live",
-                                ship.summary.delta_peak_kw
-                            ));
-                            if let Some(p) = &self.ship_path {
-                                ui.label(format!("{}", p.display()));
+                        ui.add_space(8.0);
+                        ui.label(
+                            egui::RichText::new(
+                                "NMBE = bias · CV(RMSE) = scatter. Screens are approximate calibrated-sim gates, not a purchased ASHRAE citation.",
+                            )
+                            .size(16.0)
+                            .weak(),
+                        );
+                    }
+                    2 => self.show_site_status_compact(ui),
+                    3 => show_tutorial_mv_glance(ui, &self.multires),
+                    4 => self.show_tariff_basics(ui),
+                    5 => self.show_day_pickers(ui),
+                    6 => self.show_baseline_glance(ui),
+                    7 => self.show_strategy_picker(ui),
+                    8 => self.show_nearest_day_glance(ui),
+                    9 => self.show_day_cost_glance(ui),
+                    _ => {}
+                }
+            },
+        );
+    }
+
+    fn show_site_status_compact(&self, ui: &mut egui::Ui) {
+        let onnx = if self.hybrid_engine.is_some() {
+            format!("Hybrid model: loaded ({})", self.model_name)
+        } else {
+            format!(
+                "Hybrid model: not loaded · {}",
+                self.load_error
+                    .as_deref()
+                    .unwrap_or(self.onnx_path_display.as_str())
+            )
+        };
+        ui.label(egui::RichText::new(onnx).size(18.0));
+        if !self.training_source.is_empty() {
+            ui.label(
+                egui::RichText::new(format!("Training source: {}", self.training_source))
+                    .size(16.0),
+            );
+        }
+        let nearest = if let Some(eng) = &self.nearest_engine {
+            format!(
+                "Nearest-day library: loaded · schema={} · {}",
+                eng.library.schema,
+                eng.library_path().display()
+            )
+        } else {
+            format!(
+                "Nearest-day library: not loaded · {}",
+                self.nearest_error
+                    .as_deref()
+                    .unwrap_or("export with PROFILE=full_deployment")
+            )
+        };
+        ui.label(egui::RichText::new(nearest).size(18.0));
+        if !self.honesty.is_empty() {
+            ui.label(
+                egui::RichText::new(format!("Screening stamp: {}", self.honesty))
+                    .size(16.0)
+                    .color(accent_color(self.dark_mode)),
+            );
+        }
+        if !self.rate_honesty.is_empty() {
+            ui.label(
+                egui::RichText::new(format!("Tariff note: {}", self.rate_honesty))
+                    .size(14.0)
+                    .weak(),
+            );
+        }
+        ui.add_space(8.0);
+        ui.label(
+            egui::RichText::new(
+                "These assets feed the screening walk. They are not, by themselves, an M&V savings claim.",
+            )
+            .size(15.0)
+            .weak(),
+        );
+    }
+
+    fn show_tariff_basics(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            egui::RichText::new(format!("Tariff: {}", self.tariff.label)).size(18.0),
+        );
+        if ui
+            .button(egui::RichText::new("↺ Reset to Creekside CP-2 defaults").size(16.0))
+            .clicked()
+        {
+            self.reset_tariff_defaults();
+        }
+        ui.add_space(8.0);
+        egui::Grid::new("tutorial_tariff_3")
+            .num_columns(2)
+            .spacing([12.0, 8.0])
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new("On-peak $/kWh").size(17.0));
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.energy_on_peak_per_kwh)
+                            .speed(0.001)
+                            .range(0.0..=2.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label(egui::RichText::new("Off-peak $/kWh").size(17.0));
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.energy_off_peak_per_kwh)
+                            .speed(0.001)
+                            .range(0.0..=2.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label(egui::RichText::new("Demand $/kW").size(17.0));
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.demand_per_kw)
+                            .speed(0.25)
+                            .range(0.0..=100.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+            });
+    }
+
+    fn show_day_pickers(&mut self, ui: &mut egui::Ui) {
+        ui.set_min_width(420.0);
+        ui.add(egui::Slider::new(&mut self.month, 1.0..=12.0).text("Month"));
+        ui.add(egui::Slider::new(&mut self.doy, 1.0..=366.0).text("Day of year"));
+        ui.checkbox(&mut self.is_weekend, "Weekend");
+    }
+
+    fn show_baseline_glance(&mut self, ui: &mut egui::Ui) {
+        if ui
+            .button(egui::RichText::new("Run HVAC 24/7 baseline (live hybrid)").size(17.0))
+            .clicked()
+        {
+            let _ = self.run_live_hybrid(true);
+        }
+        ui.add_space(10.0);
+        if let Some(cc) = &self.cost_compare {
+            ui.label(
+                egui::RichText::new(format!("Peak demand: {:.1} kW", cc.peak_kw)).size(22.0),
+            );
+            ui.label(
+                egui::RichText::new(format!("Daily energy: {:.0} kWh", cc.energy_kwh)).size(22.0),
+            );
+            ui.label(
+                egui::RichText::new("Point estimates from the walk — not ± uncertainty bands.")
+                    .size(15.0)
+                    .weak(),
+            );
+        } else {
+            ui.label(
+                egui::RichText::new("No baseline yet — run the button above.").size(18.0),
+            );
+        }
+    }
+
+    fn show_strategy_picker(&mut self, ui: &mut egui::Ui) {
+        let prev = self.strategy_idx;
+        egui::ComboBox::from_label("Strategy")
+            .selected_text(STRATEGY_IDS[self.strategy_idx])
+            .show_ui(ui, |ui| {
+                for (i, s) in STRATEGY_IDS.iter().enumerate() {
+                    ui.selectable_value(&mut self.strategy_idx, i, *s);
+                }
+            });
+        if prev != self.strategy_idx {
+            self.apply_strategy_defaults();
+        }
+        ui.add_space(8.0);
+        ui.label(
+            egui::RichText::new(strategy_blurb(STRATEGY_IDS[self.strategy_idx])).size(18.0),
+        );
+    }
+
+    fn show_nearest_day_glance(&mut self, ui: &mut egui::Ui) {
+        if ui
+            .button(egui::RichText::new("Run nearest-day + E+ delta (engineering check)").size(17.0))
+            .clicked()
+        {
+            self.run_nearest_day();
+        }
+        if let Some(err) = &self.nearest_error {
+            ui.colored_label(egui::Color32::LIGHT_RED, egui::RichText::new(err).size(16.0));
+        }
+        ui.add_space(8.0);
+        if let Some(res) = &self.nearest_result {
+            ui.label(
+                egui::RichText::new(format!("Peak demand: {:.1} kW", res.hybrid_peak_kw))
+                    .size(20.0),
+            );
+            ui.label(
+                egui::RichText::new(format!("Daily energy: {:.0} kWh", res.hybrid_kwh)).size(20.0),
+            );
+            ui.label(
+                egui::RichText::new(format!(
+                    "Out-of-distribution: {}",
+                    if res.ood { "yes — treat with caution" } else { "no" }
+                ))
+                .size(18.0),
+            );
+            ui.label(egui::RichText::new(self.format_recommend_ui(res.recommend)).size(16.0));
+        } else {
+            ui.label(
+                egui::RichText::new("Run the check to populate peak / kWh / OOD.").size(18.0),
+            );
+        }
+    }
+
+    fn show_day_cost_glance(&self, ui: &mut egui::Ui) {
+        match (&self.cost_compare, &self.cost_dsm) {
+            (Some(cc), Some(cd)) => {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{} · ${:.2} total  (energy ${:.2} · demand ${:.2})",
+                        self.compare_label,
+                        cc.total_cost,
+                        cc.energy_on_peak_cost + cc.energy_off_peak_cost + cc.pca_cost,
+                        cc.demand_cost
+                    ))
+                    .size(20.0),
+                );
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{} · ${:.2} total  (energy ${:.2} · demand ${:.2})",
+                        self.dsm_label,
+                        cd.total_cost,
+                        cd.energy_on_peak_cost + cd.energy_off_peak_cost + cd.pca_cost,
+                        cd.demand_cost
+                    ))
+                    .size(20.0),
+                );
+                ui.label(
+                    egui::RichText::new(
+                        "Screening estimate under the portable tariff — not a settled utility bill.",
+                    )
+                    .size(15.0)
+                    .weak(),
+                );
+            }
+            (Some(cc), None) => {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "Total ${:.2}  ·  energy ${:.2}  ·  demand ${:.2}",
+                        cc.total_cost,
+                        cc.energy_on_peak_cost + cc.energy_off_peak_cost + cc.pca_cost,
+                        cc.demand_cost
+                    ))
+                    .size(20.0),
+                );
+                ui.label(
+                    egui::RichText::new(
+                        "Run Compare in Workspace → SIM Lab for the strategy cost split.",
+                    )
+                    .size(16.0)
+                    .weak(),
+                );
+            }
+            _ => {
+                ui.label(
+                    egui::RichText::new(
+                        "No day cost yet — run live compare in SIM Lab or finish the SIM step.",
+                    )
+                    .size(18.0),
+                );
+            }
+        }
+    }
+
+    fn show_sim_overlay(&mut self, ui: &mut egui::Ui, tutorial: bool) {
+        if tutorial {
+            ui.horizontal(|ui| {
+                if ui
+                    .add(
+                        egui::Button::new("▶ Live hybrid: 24/7 vs DSM")
+                            .fill(egui::Color32::from_rgb(196, 110, 48)),
+                    )
+                    .clicked()
+                {
+                    self.run_compare_247_vs_dsm();
+                }
+            });
+            ui.colored_label(
+                egui::Color32::from_rgb(230, 120, 90),
+                self.recommend_blocked_line(),
+            );
+        }
+        ui.heading("kW overlay — 24/7 vs DSM");
+        let pm = self.precision_pm as f64;
+        let cmp: PlotPoints = (0..24)
+            .map(|h| [h as f64, self.pred_kw_compare[h] as f64])
+            .collect();
+        let dsm: PlotPoints = (0..24)
+            .map(|h| [h as f64, self.pred_kw_dsm[h] as f64])
+            .collect();
+        let dsm_lo: PlotPoints = (0..24)
+            .map(|h| [h as f64, (self.pred_kw_dsm[h] as f64 - pm).max(0.0)])
+            .collect();
+        let dsm_hi: PlotPoints = (0..24)
+            .map(|h| [h as f64, self.pred_kw_dsm[h] as f64 + pm])
+            .collect();
+        Plot::new(if tutorial {
+            "tutorial_kw_overlay"
+        } else {
+            "kw_overlay"
+        })
+        .height(if tutorial { 220.0 } else { 260.0 })
+        .legend(egui_plot::Legend::default())
+        .show(ui, |plot_ui| {
+            plot_ui.line(
+                Line::new(dsm_hi)
+                    .name(format!("DSM +{pm:.0}"))
+                    .color(egui::Color32::from_rgb(70, 100, 120))
+                    .width(1.0),
+            );
+            plot_ui.line(
+                Line::new(dsm_lo)
+                    .name(format!("DSM −{pm:.0}"))
+                    .color(egui::Color32::from_rgb(70, 100, 120))
+                    .width(1.0),
+            );
+            plot_ui.line(
+                Line::new(cmp)
+                    .name(&self.compare_label)
+                    .color(egui::Color32::from_rgb(180, 90, 90))
+                    .width(2.2),
+            );
+            plot_ui.line(
+                Line::new(dsm)
+                    .name(&self.dsm_label)
+                    .color(egui::Color32::from_rgb(232, 140, 64))
+                    .width(2.6),
+            );
+        });
+        if self.pred_kw_compare.iter().all(|v| *v == 0.0)
+            && self.pred_kw_dsm.iter().all(|v| *v == 0.0)
+        {
+            ui.label("No walk loaded yet — run live compare.");
+        }
+    }
+
+    fn show_workspace(&mut self, ui: &mut egui::Ui, folder: WorkspaceFolder) {
+        ui.horizontal_wrapped(|ui| {
+            for f in WorkspaceFolder::ALL {
+                if ui.selectable_label(folder == f, f.label()).clicked() {
+                    self.mode = AppMode::Workspace { folder: f };
+                }
+            }
+        });
+        ui.separator();
+        match folder {
+            WorkspaceFolder::Site => self.show_folder_site(ui),
+            WorkspaceFolder::Tariff => self.show_folder_tariff(ui),
+            WorkspaceFolder::DayWeather => self.show_folder_day_weather(ui),
+            WorkspaceFolder::Strategies => self.show_folder_strategies(ui),
+            WorkspaceFolder::Validation => self.show_folder_validation(ui),
+            WorkspaceFolder::SimLab => self.show_folder_sim_lab(ui),
+            WorkspaceFolder::Annual => self.show_folder_annual(ui),
+        }
+    }
+
+    fn show_folder_site(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Site & models");
+        self.show_site_status_compact(ui);
+        ui.separator();
+        ui.label(
+            egui::RichText::new(format!(
+                "training_source={} · model={}",
+                self.training_source, self.model_name
+            ))
+            .small()
+            .weak(),
+        );
+        for line in &self.metrics_lines {
+            ui.label(egui::RichText::new(line).monospace());
+        }
+        if !self.precision_note.is_empty() {
+            ui.label(
+                egui::RichText::new(&self.precision_note)
+                    .small()
+                    .italics()
+                    .weak(),
+            );
+        }
+        ui.collapsing("Midnight measured state (required)", |ui| {
+            ui.label("Lag init = measured midnight — never hardcoded 35 kW / 80°F.");
+            ui.add(
+                egui::Slider::new(&mut self.midnight_facility_kw, 5.0..=200.0)
+                    .text("facility kW @ midnight"),
+            );
+            for z in 0..6 {
+                ui.add(
+                    egui::Slider::new(&mut self.midnight_zone_f[z], 50.0..=75.0)
+                        .text(ZONE_LABELS[z]),
+                );
+            }
+        });
+        if let Some(ship) = &self.ship_walk {
+            ui.collapsing("Precomputed ship walk (compare only)", |ui| {
+                ui.label(format!(
+                    "Ship Δpeak {:.1} kW · not driven by UI until you Run live",
+                    ship.summary.delta_peak_kw
+                ));
+                if let Some(p) = &self.ship_path {
+                    ui.label(format!("{}", p.display()));
+                }
+            });
+        }
+        if let Some(err) = &self.load_error {
+            ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
+        }
+        if let Some(err) = &self.hybrid_error {
+            ui.colored_label(
+                egui::Color32::from_rgb(230, 80, 80),
+                format!("Hybrid fail-closed: {err}"),
+            );
+        }
+    }
+
+    fn show_folder_tariff(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Portable tariff");
+        ui.label("Any utility demand/TOD rates — Creekside CP-2 prefilled.");
+        ui.checkbox(&mut self.use_tod_tariff, "Use TOD + dual demand tariff");
+        if ui.button("↺ Reset to Creekside CP-2 defaults").clicked() {
+            self.reset_tariff_defaults();
+        }
+        ui.add(
+            egui::TextEdit::singleline(&mut self.tariff.label)
+                .desired_width(340.0)
+                .hint_text("tariff label"),
+        );
+        egui::Grid::new("tariff_grid")
+            .num_columns(2)
+            .spacing([8.0, 4.0])
+            .show(ui, |ui| {
+                ui.label("On-peak $/kWh");
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.energy_on_peak_per_kwh)
+                            .speed(0.001)
+                            .range(0.0..=2.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label("Off-peak $/kWh");
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.energy_off_peak_per_kwh)
+                            .speed(0.001)
+                            .range(0.0..=2.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label("PCA $/kWh");
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.pca_per_kwh)
+                            .speed(0.0001)
+                            .range(0.0..=0.5),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label("Demand $/kW");
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.demand_per_kw)
+                            .speed(0.25)
+                            .range(0.0..=100.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label("Dist demand $/kW");
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut self.tariff.distribution_demand_per_kw)
+                            .speed(0.05)
+                            .range(0.0..=50.0),
+                    )
+                    .changed()
+                {
+                    self.reprice_days();
+                }
+                ui.end_row();
+                ui.label("Customer $/mo");
+                ui.add(
+                    egui::DragValue::new(&mut self.tariff.customer_charge)
+                        .speed(1.0)
+                        .range(0.0..=5000.0),
+                );
+                ui.end_row();
+                ui.label("On-peak HE start");
+                ui.add(egui::DragValue::new(&mut self.tariff.on_peak_he_start).range(0..=23));
+                ui.end_row();
+                ui.label("On-peak HE end");
+                ui.add(egui::DragValue::new(&mut self.tariff.on_peak_he_end).range(1..=24));
+                ui.end_row();
+            });
+        ui.checkbox(&mut self.tariff.weekends_off_peak, "Weekends off-peak");
+        ui.checkbox(&mut self.tariff.use_step_up, "Aug+ rate step-up");
+        if self.tariff.use_step_up {
+            ui.horizontal(|ui| {
+                ui.label("from month");
+                ui.add(egui::DragValue::new(&mut self.tariff.step_up_from_month).range(1..=12));
+                ui.label("dem");
+                ui.add(egui::DragValue::new(&mut self.tariff.demand_per_kw_step).speed(0.05));
+                ui.label("dist");
+                ui.add(
+                    egui::DragValue::new(&mut self.tariff.distribution_demand_per_kw_step)
+                        .speed(0.05),
+                );
+            });
+        }
+        ui.colored_label(
+            egui::Color32::from_rgb(120, 160, 190),
+            &self.tariff.honesty,
+        );
+
+        if !self.use_tod_tariff {
+            ui.separator();
+            ui.heading("Flat rates (legacy)");
+            ui.add(
+                egui::DragValue::new(&mut self.energy_rate_per_kwh)
+                    .speed(0.001)
+                    .prefix("$")
+                    .suffix(" /kWh"),
+            );
+            ui.add(
+                egui::DragValue::new(&mut self.demand_rate_per_kw)
+                    .speed(0.25)
+                    .prefix("$")
+                    .suffix(" /kW"),
+            );
+        }
+
+        ui.separator();
+        ui.heading("Utility / monthly peaks");
+        if ui
+            .add_sized(
+                [340.0, 26.0],
+                egui::Button::new("📂 Load bill CSV (OLS rates)…"),
+            )
+            .clicked()
+        {
+            self.pick_and_load_bills();
+        }
+        if ui
+            .add_sized(
+                [340.0, 26.0],
+                egui::Button::new("📂 Load monthly peaks CSV…"),
+            )
+            .clicked()
+        {
+            self.pick_and_load_monthly();
+        }
+        if let Some(book) = &self.monthly_book {
+            ui.label(format!(
+                "Peaks: {} mo · max demand {:.0} · max billed {:.0}",
+                book.rows.len(),
+                book.max_demand_kw(),
+                book.max_billed_demand_kw()
+            ));
+        }
+        if let Some(err) = &self.monthly_error {
+            ui.colored_label(egui::Color32::from_rgb(220, 90, 90), err);
+        }
+        if let Some(book) = &self.bill_book {
+            ui.label(format!(
+                "OLS bills: {} mo · {}",
+                book.rows.len(),
+                book.path
+            ));
+            let prev = self.rate_preset_idx;
+            let mut labels: Vec<String> = vec![
+                "Heating season OLS".into(),
+                "All months OLS".into(),
+            ];
+            for r in &book.rows {
+                labels.push(format!("Month {}", r.month_key));
+            }
+            let selected = labels
+                .get(self.rate_preset_idx)
+                .cloned()
+                .unwrap_or_else(|| "(none)".into());
+            egui::ComboBox::from_label("OLS preset")
+                .selected_text(selected)
+                .width(260.0)
+                .show_ui(ui, |ui| {
+                    for (i, lab) in labels.iter().enumerate() {
+                        ui.selectable_value(&mut self.rate_preset_idx, i, lab);
+                    }
+                });
+            if prev != self.rate_preset_idx {
+                self.apply_rate_preset();
+            }
+        }
+        for w in &self.bill_warnings {
+            ui.colored_label(
+                egui::Color32::from_rgb(160, 120, 40),
+                format!("⚠ {w}"),
+            );
+        }
+        if let Some(err) = &self.bill_error {
+            ui.colored_label(egui::Color32::from_rgb(220, 90, 90), err);
+        }
+    }
+
+    fn show_folder_day_weather(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Day / weather");
+        self.show_day_pickers(ui);
+        ui.checkbox(&mut self.use_manual_oat, "Edit 24h OAT (°F)");
+        if !self.use_manual_oat {
+            ui.add(
+                egui::Slider::new(&mut self.oat_midnight_f, -20.0..=50.0).text("OAT base °F"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.oat_amplitude_f, 0.0..=25.0).text("diurnal amp °F"),
+            );
+        } else {
+            egui::ScrollArea::vertical()
+                .max_height(240.0)
+                .id_salt("oat_scroll")
+                .show(ui, |ui| {
+                    for h in 0..24 {
+                        ui.add(
+                            egui::Slider::new(&mut self.oat_manual[h], -30.0..=70.0)
+                                .text(format!("OAT HE{h:02}")),
+                        );
+                    }
+                });
+        }
+    }
+
+    fn show_folder_strategies(&mut self, ui: &mut egui::Ui) {
+        ui.heading("DSM strategy");
+        self.show_strategy_picker(ui);
+        ui.checkbox(&mut self.use_strategy_occ, "Use strategy occ fractions");
+        if ui.button("Reset HP grid from strategy").clicked() {
+            self.apply_strategy_defaults();
+        }
+        if ui.button("Fill grid = HVAC all day (24/7)").clicked() {
+            self.apply_flat_24_7_grid();
+        }
+        ui.separator();
+        if ui
+            .add_sized(
+                [340.0, 28.0],
+                egui::Button::new("Evaluate all available strategies"),
+            )
+            .clicked()
+        {
+            self.run_strategy_enumeration();
+        }
+        ui.label(
+            egui::RichText::new(
+                "STRATEGY ENUMERATION ranks named strategies — not mathematical optimization",
+            )
+            .small()
+            .italics(),
+        );
+        ui.add_space(8.0);
+        egui::CollapsingHeader::new("STRATEGY ENUMERATION (not optimization)")
+            .default_open(!self.strategy_enum_rows.is_empty())
+            .show(ui, |ui| {
+                if self.strategy_enum_rows.is_empty() {
+                    ui.label("Click Evaluate all available strategies to populate the full table.");
+                } else {
+                    egui::Grid::new("strategy_enum_table")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("strategy");
+                            ui.label("peak kW");
+                            ui.label("kWh");
+                            ui.label("$ energy");
+                            ui.label("inc dem kW");
+                            ui.label("$ inc dem");
+                            ui.label("$ total inc");
+                            ui.label("comfort");
+                            ui.label("ood");
+                            ui.label("feasible");
+                            ui.label("reject");
+                            ui.end_row();
+                            for row in &self.strategy_enum_rows {
+                                ui.label(&row.strategy_id);
+                                ui.label(format!("{:.1}", row.peak_kw));
+                                ui.label(format!("{:.0}", row.daily_kwh));
+                                ui.label(format!("{:.2}", row.energy_cost));
+                                ui.label(format!("{:.1}", row.incremental_demand_kw));
+                                ui.label(format!("{:.2}", row.incremental_demand_cost));
+                                ui.label(format!("{:.2}", row.total_incremental_cost));
+                                ui.label(format!("{}", row.comfort_violations));
+                                ui.label(if row.ood { "yes" } else { "no" });
+                                ui.label(if row.feasible { "yes" } else { "no" });
+                                ui.label(
+                                    row.reject_reason
+                                        .clone()
+                                        .unwrap_or_else(|| "—".into()),
+                                );
+                                ui.end_row();
                             }
                         });
+                }
+            });
+    }
+
+    fn show_folder_validation(&mut self, ui: &mut egui::Ui) {
+        let extras = self.recommend_gate_extras();
+        show_multires_badge_strip(ui, &self.multires, &extras);
+        ui.add_space(8.0);
+        show_validation_tab(ui, &self.multires, &self.mvm);
+    }
+
+    fn show_folder_sim_lab(&mut self, ui: &mut egui::Ui) {
+        ui.heading("SIM Lab");
+        ui.horizontal_wrapped(|ui| {
+            if ui
+                .add(
+                    egui::Button::new(
+                        egui::RichText::new("▶  Live hybrid: 24/7 vs DSM")
+                            .size(15.0)
+                            .strong(),
+                    )
+                    .fill(egui::Color32::from_rgb(196, 110, 48)),
+                )
+                .clicked()
+            {
+                self.run_compare_247_vs_dsm();
+            }
+            if ui.button("Run live hybrid DSM (96-step)").clicked() {
+                self.run_dsm_only();
+            }
+            if ui.button("Run Nearest-Day + E+ Delta (not ML)").clicked() {
+                self.run_nearest_day();
+            }
+        });
+        ui.checkbox(&mut self.show_ml_hybrid, "Show sklearn hybrid series");
+        ui.checkbox(&mut self.show_nearest_day, "Show Nearest-Day + E+ Delta");
+        ui.checkbox(
+            &mut self.show_actual_replay,
+            "Show actual (historical replay only — off for counterfactual Live Run)",
+        );
+        ui.add(
+            egui::DragValue::new(&mut self.existing_billing_peak_kw)
+                .speed(1.0)
+                .range(0.0..=2000.0)
+                .suffix(" kW existing billing-period peak"),
+        );
+        ui.label(
+            egui::RichText::new(&self.status).color(egui::Color32::from_rgb(180, 200, 190)),
+        );
+        ui.colored_label(
+            egui::Color32::from_rgb(230, 120, 90),
+            self.recommend_blocked_line(),
+        );
+
+        ui.add_space(8.0);
+        egui::CollapsingHeader::new("Hybrid Real+E+ 96-step DSM")
+            .default_open(true)
+            .show(ui, |ui| {
+                if let (Some(walk), Some(path)) =
+                    (self.hybrid_walk.as_ref(), self.hybrid_path.as_ref())
+                {
+                    show_hybrid_panel(ui, walk, path);
+                } else if let Some(err) = &self.hybrid_error {
+                    ui.colored_label(egui::Color32::LIGHT_RED, err);
+                } else {
+                    ui.label("Run live hybrid to populate this panel.");
+                }
+            });
+
+        egui::CollapsingHeader::new("Nearest-Day + E+ Delta (engineering benchmark)")
+            .default_open(true)
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(
+                        "SIMPLE_HYBRID_SCREENING · not ML · P10-P90 are neighbor ranges, not CIs",
+                    )
+                    .italics(),
+                );
+                if let Some(err) = &self.nearest_error {
+                    ui.colored_label(egui::Color32::LIGHT_RED, err);
+                }
+                if let Some(res) = &self.nearest_result {
+                    let path = std::path::PathBuf::from("live://nearest_day");
+                    show_hybrid_panel(ui, &res.walk, &path);
+                    ui.label(format!(
+                        "OOD={} · nearest_distance={:?} · thr={:.3} · {}",
+                        res.ood,
+                        res.nearest_distance,
+                        res.ood_threshold,
+                        self.format_recommend_ui(res.recommend)
+                    ));
+                    if let Some(wm) = &res.watermark {
+                        ui.label(format!("watermark: {wm}"));
+                    }
+                    if !res.outcome_flags.is_empty() {
+                        ui.label(format!("outcome_flags: {:?}", res.outcome_flags));
+                    }
+                    if let Some(n0) = res.neighbors.first() {
+                        ui.label(format!("nearest neighbor: {}", n0.distance_summary()));
+                    }
+                    if !res.failed_criteria.is_empty() {
+                        ui.label(format!("failed: {:?}", res.failed_criteria));
+                    }
+                    egui::Grid::new("nearest_vs_ml_table").show(ui, |ui| {
+                        ui.label("Metric");
+                        ui.label("Nearest-Day + E+ Delta");
+                        ui.label("ML Hybrid");
+                        ui.end_row();
+                        let ml_peak = self
+                            .hybrid_walk
+                            .as_ref()
+                            .map(|w| w.summary.peak_kw_hybrid)
+                            .unwrap_or(f64::NAN);
+                        let ml_kwh = self
+                            .hybrid_walk
+                            .as_ref()
+                            .map(|w| w.summary.cumulative_kwh_hybrid)
+                            .unwrap_or(f64::NAN);
+                        let ml_viol = self
+                            .hybrid_walk
+                            .as_ref()
+                            .map(|w| w.summary.comfort_violations as f64)
+                            .unwrap_or(f64::NAN);
+                        ui.label("Facility peak kW");
+                        ui.label(format!(
+                            "{:.1} (base {:.1})",
+                            res.hybrid_peak_kw, res.baseline_peak_kw
+                        ));
+                        ui.label(format!("{:.1}", ml_peak));
+                        ui.end_row();
+                        ui.label("Daily kWh");
+                        ui.label(format!(
+                            "{:.0} (base {:.0})",
+                            res.hybrid_kwh, res.baseline_kwh
+                        ));
+                        ui.label(format!("{:.0}", ml_kwh));
+                        ui.end_row();
+                        let bill_n = billing_period_demand_kw(
+                            self.existing_billing_peak_kw as f64,
+                            res.hybrid_peak_kw,
+                        );
+                        let bill_m = billing_period_demand_kw(
+                            self.existing_billing_peak_kw as f64,
+                            ml_peak,
+                        );
+                        ui.label("Billing demand exposure kW");
+                        ui.label(format!("{:.1}", bill_n));
+                        ui.label(format!("{:.1}", bill_m));
+                        ui.end_row();
+                        ui.label("Comfort violations");
+                        ui.label(format!("{}", res.walk.summary.comfort_violations));
+                        ui.label(format!("{:.0}", ml_viol));
+                        ui.end_row();
+                        ui.label("OOD status");
+                        ui.label(res.ood_status.clone().unwrap_or_else(|| "ok".into()));
+                        ui.label("n/a");
+                        ui.end_row();
+                    });
+                } else {
+                    ui.label("Run Nearest-Day + E+ Delta to populate.");
+                }
+            });
+
+        ui.add_space(8.0);
+        egui::Frame::group(ui.style())
+            .fill(egui::Color32::from_rgb(34, 42, 50))
+            .inner_margin(12.0)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading(
+                        egui::RichText::new(&self.model_name)
+                            .color(egui::Color32::from_rgb(232, 168, 96)),
+                    );
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "screening peak MAE {:.1} kW (not an uncertainty interval)",
+                            self.precision_pm
+                        ))
+                        .strong()
+                        .color(egui::Color32::from_rgb(140, 200, 160)),
+                    );
+                });
+                for line in &self.metrics_lines {
+                    ui.label(egui::RichText::new(line).monospace());
+                }
+            });
+
+        self.show_sim_overlay(ui, false);
+
+        ui.add_space(6.0);
+        ui.heading("Hourly kWh (same as kW · 1h)");
+        let bars_cmp: Vec<Bar> = (0..24)
+            .map(|h| {
+                Bar::new(h as f64 - 0.15, self.pred_kw_compare[h] as f64)
+                    .width(0.28)
+                    .name(&self.compare_label)
+            })
+            .collect();
+        let bars_dsm: Vec<Bar> = (0..24)
+            .map(|h| {
+                Bar::new(h as f64 + 0.15, self.pred_kw_dsm[h] as f64)
+                    .width(0.28)
+                    .name(&self.dsm_label)
+            })
+            .collect();
+        Plot::new("kwh_bars")
+            .height(180.0)
+            .legend(egui_plot::Legend::default())
+            .show(ui, |plot_ui| {
+                plot_ui.bar_chart(
+                    BarChart::new(bars_cmp).color(egui::Color32::from_rgb(160, 80, 80)),
+                );
+                plot_ui.bar_chart(
+                    BarChart::new(bars_dsm).color(egui::Color32::from_rgb(220, 130, 50)),
+                );
+            });
+
+        ui.separator();
+        ui.heading("Day cost breakdown");
+        match (&self.cost_compare, &self.cost_dsm) {
+            (Some(cc), Some(cd)) => {
+                egui::Grid::new("day_cost_cmp")
+                    .num_columns(3)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        ui.strong(&self.compare_label);
+                        ui.strong(&self.dsm_label);
+                        ui.end_row();
+                        ui.label("Peak kW");
+                        ui.label(format!("{:.1}", cc.peak_kw));
+                        ui.label(format!("{:.1}", cd.peak_kw));
+                        ui.end_row();
+                        ui.label("Σ kWh");
+                        ui.label(format!("{:.0}", cc.energy_kwh));
+                        ui.label(format!("{:.0}", cd.energy_kwh));
+                        ui.end_row();
+                        ui.label("On-peak kWh");
+                        ui.label(format!("{:.0}", cc.on_peak_kwh));
+                        ui.label(format!("{:.0}", cd.on_peak_kwh));
+                        ui.end_row();
+                        ui.label("Off-peak kWh");
+                        ui.label(format!("{:.0}", cc.off_peak_kwh));
+                        ui.label(format!("{:.0}", cd.off_peak_kwh));
+                        ui.end_row();
+                        ui.label("Energy $");
+                        ui.label(format!(
+                            "{:.2}",
+                            cc.energy_on_peak_cost + cc.energy_off_peak_cost + cc.pca_cost
+                        ));
+                        ui.label(format!(
+                            "{:.2}",
+                            cd.energy_on_peak_cost + cd.energy_off_peak_cost + cd.pca_cost
+                        ));
+                        ui.end_row();
+                        ui.label("Demand $");
+                        ui.label(format!("{:.2}", cc.demand_cost));
+                        ui.label(format!("{:.2}", cd.demand_cost));
+                        ui.end_row();
+                        ui.label("Dist demand $");
+                        ui.label(format!("{:.2}", cc.distribution_demand_cost));
+                        ui.label(format!("{:.2}", cd.distribution_demand_cost));
+                        ui.end_row();
+                        ui.label("Customer day share $");
+                        ui.label(format!("{:.2}", cc.customer_charge_day_share));
+                        ui.label(format!("{:.2}", cd.customer_charge_day_share));
+                        ui.end_row();
+                        ui.label("Day total $");
+                        ui.strong(format!("{:.2}", cc.total_cost));
+                        ui.strong(format!("{:.2}", cd.total_cost));
+                        ui.end_row();
+                        ui.label("Δpeak / ΔkWh");
+                        ui.label("—");
+                        ui.strong(format!(
+                            "{:.1} kW / {:+.0} kWh",
+                            (cc.peak_kw - cd.peak_kw).max(0.0),
+                            cd.energy_kwh - cc.energy_kwh
+                        ));
+                        ui.end_row();
+                    });
+
+                Plot::new("cost_bars").height(160.0).show(ui, |plot_ui| {
+                    plot_ui.bar_chart(
+                        BarChart::new(cost_bars(cc, -0.18))
+                            .width(0.32)
+                            .color(egui::Color32::from_rgb(160, 80, 80))
+                            .name(&self.compare_label),
+                    );
+                    plot_ui.bar_chart(
+                        BarChart::new(cost_bars(cd, 0.18))
+                            .width(0.32)
+                            .color(egui::Color32::from_rgb(220, 130, 50))
+                            .name(&self.dsm_label),
+                    );
+                });
+            }
+            _ => {
+                ui.label("Run Compare HVAC 24/7 vs DSM to populate charts.");
+            }
+        }
+    }
+
+    fn show_folder_annual(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Annual demand savings (HEURISTIC — not Annual Replay)");
+        ui.label(
+            egui::RichText::new(AnnualReplayPlan::stub().note)
+                .small()
+                .italics(),
+        );
+        ui.heading("Annual rollup knobs");
+        ui.add(
+            egui::DragValue::new(&mut self.similar_days_per_year)
+                .speed(1.0)
+                .range(1.0..=200.0)
+                .suffix(" similar cold days"),
+        );
+        ui.add(
+            egui::DragValue::new(&mut self.on_peak_energy_share)
+                .speed(0.01)
+                .range(0.0..=1.0)
+                .suffix(" on-peak energy share"),
+        );
+        ui.add(
+            egui::DragValue::new(&mut self.ratchet_tol_kw)
+                .speed(0.5)
+                .range(0.0..=50.0)
+                .suffix(" kW ratchet tol"),
+        );
+        if ui.button("Refresh annual rollup").clicked() {
+            self.refresh_annual();
+        }
+        if let Some(a) = &self.annual {
+            egui::Frame::group(ui.style())
+                .fill(egui::Color32::from_rgb(34, 42, 50))
+                .inner_margin(10.0)
+                .show(ui, |ui| {
+                    egui::Grid::new("annual_grid")
+                        .num_columns(2)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("Months used");
+                            ui.label(format!("{}", a.months_used));
+                            ui.end_row();
+                            ui.label("Baseline demand $");
+                            ui.label(format!("${:.0}", a.baseline_demand_cost));
+                            ui.end_row();
+                            ui.label("DSM demand $");
+                            ui.label(format!("${:.0}", a.dsm_demand_cost));
+                            ui.end_row();
+                            ui.label("Baseline dist $");
+                            ui.label(format!("${:.0}", a.baseline_dist_cost));
+                            ui.end_row();
+                            ui.label("DSM dist $");
+                            ui.label(format!("${:.0}", a.dsm_dist_cost));
+                            ui.end_row();
+                            ui.label("Δpeak applied");
+                            ui.label(format!("{:.1} kW", a.delta_peak_kw));
+                            ui.end_row();
+                            ui.label("Demand $ savings");
+                            ui.label(format!("${:.0}", a.demand_savings));
+                            ui.end_row();
+                            ui.label("Dist demand $ savings");
+                            ui.label(format!("${:.0}", a.dist_savings));
+                            ui.end_row();
+                            ui.label("Energy penalty (cold days)");
+                            ui.label(format!(
+                                "${:.0}  (Δ{:+.0} kWh/day × {:.0})",
+                                a.energy_penalty, a.delta_kwh_day, a.similar_cold_days
+                            ));
+                            ui.end_row();
+                            ui.label("Net annual savings");
+                            ui.strong(
+                                egui::RichText::new(format!("${:.0}", a.net_annual_savings))
+                                    .size(18.0)
+                                    .color(egui::Color32::from_rgb(140, 200, 160)),
+                            );
+                            ui.end_row();
+                            ui.label("Ratchet months shaved");
+                            ui.label(format!("{}", a.ratchet_months_shaved));
+                            ui.end_row();
+                        });
+                    ui.colored_label(egui::Color32::from_rgb(160, 170, 180), &a.note);
+                });
+        } else {
+            ui.label(
+                "Load monthly peaks CSV and run Compare to estimate annual demand savings.",
+            );
+        }
+
+        if let Some(book) = &self.monthly_book {
+            ui.collapsing("Monthly peaks table", |ui| {
+                egui::Grid::new("mo_tbl").striped(true).show(ui, |ui| {
+                    ui.label("Month");
+                    ui.label("kWh");
+                    ui.label("Demand");
+                    ui.label("Billed");
+                    ui.label("Cost $");
+                    ui.end_row();
+                    for r in &book.rows {
+                        ui.label(&r.month);
+                        ui.label(
+                            r.kwh
+                                .map(|v| format!("{v:.0}"))
+                                .unwrap_or_else(|| "—".into()),
+                        );
+                        ui.label(
+                            r.demand_kw
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "—".into()),
+                        );
+                        ui.label(
+                            r.billed_demand_kw
+                                .map(|v| format!("{v:.1}"))
+                                .unwrap_or_else(|| "—".into()),
+                        );
+                        ui.label(
+                            r.cost_usd
+                                .map(|v| format!("{v:.0}"))
+                                .unwrap_or_else(|| "—".into()),
+                        );
+                        ui.end_row();
                     }
                 });
             });
+        }
+    }
+}
+
+impl eframe::App for DsmApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.show_top_chrome(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                egui::CollapsingHeader::new("Hybrid Real+E+ 96-step DSM")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        if let (Some(walk), Some(path)) =
-                            (self.hybrid_walk.as_ref(), self.hybrid_path.as_ref())
-                        {
-                            show_hybrid_panel(ui, walk, path);
-                        } else if let Some(err) = &self.hybrid_error {
-                            ui.colored_label(egui::Color32::from_rgb(230, 80, 80), err);
-                            ui.label(
-                                "Promote hybrid artifacts via scripts/promote_hybrid_ship.py after training.",
-                            );
+                let mode = self.mode;
+                match mode {
+                    AppMode::Welcome => self.show_welcome(ui),
+                    AppMode::Tutorial { .. } => {
+                        if let Some(step) = mode.tutorial_step() {
+                            self.show_tutorial(ui, step);
                         }
-                    });
-                ui.add_space(8.0);
-                egui::CollapsingHeader::new("Measured vs modeled validation")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        show_mvm_panel(ui, &self.mvm);
-                    });
-                ui.add_space(8.0);
-                egui::Frame::group(ui.style())
-                    .fill(egui::Color32::from_rgb(34, 42, 50))
-                    .inner_margin(12.0)
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.heading(
-                                egui::RichText::new(&self.model_name)
-                                    .color(egui::Color32::from_rgb(232, 168, 96)),
-                            );
-                            ui.separator();
-                            ui.label(
-                                egui::RichText::new(format!(
-                                    "screening peak MAE {:.1} kW (not an uncertainty interval)",
-                                    self.precision_pm
-                                ))
-                                .strong()
-                                .color(egui::Color32::from_rgb(140, 200, 160)),
-                            );
-                        });
-                        for line in &self.metrics_lines {
-                            ui.label(egui::RichText::new(line).monospace());
-                        }
-                        if !self.precision_note.is_empty() {
-                            ui.label(
-                                egui::RichText::new(&self.precision_note)
-                                    .small()
-                                    .italics()
-                                    .weak(),
-                            );
-                        }
-                        ui.collapsing("Tuned hyperparameters", |ui| {
-                            egui::Grid::new("param_grid")
-                                .num_columns(2)
-                                .striped(true)
-                                .show(ui, |ui| {
-                                    for (k, v) in &self.param_rows {
-                                        ui.label(
-                                            egui::RichText::new(k)
-                                                .monospace()
-                                                .color(egui::Color32::from_rgb(160, 180, 200)),
-                                        );
-                                        ui.label(egui::RichText::new(v).monospace().strong());
-                                        ui.end_row();
-                                    }
-                                });
-                        });
-                    });
-
-                ui.add_space(8.0);
-                ui.heading("kW overlay — 24/7 vs DSM");
-                let pm = self.precision_pm as f64;
-                let cmp: PlotPoints = (0..24)
-                    .map(|h| [h as f64, self.pred_kw_compare[h] as f64])
-                    .collect();
-                let dsm: PlotPoints = (0..24)
-                    .map(|h| [h as f64, self.pred_kw_dsm[h] as f64])
-                    .collect();
-                let dsm_lo: PlotPoints = (0..24)
-                    .map(|h| [h as f64, (self.pred_kw_dsm[h] as f64 - pm).max(0.0)])
-                    .collect();
-                let dsm_hi: PlotPoints = (0..24)
-                    .map(|h| [h as f64, self.pred_kw_dsm[h] as f64 + pm])
-                    .collect();
-                Plot::new("kw_overlay")
-                    .height(260.0)
-                    .legend(egui_plot::Legend::default())
-                    .show(ui, |plot_ui| {
-                        plot_ui.line(
-                            Line::new(dsm_hi)
-                                .name(format!("DSM +{pm:.0}"))
-                                .color(egui::Color32::from_rgb(70, 100, 120))
-                                .width(1.0),
-                        );
-                        plot_ui.line(
-                            Line::new(dsm_lo)
-                                .name(format!("DSM −{pm:.0}"))
-                                .color(egui::Color32::from_rgb(70, 100, 120))
-                                .width(1.0),
-                        );
-                        plot_ui.line(
-                            Line::new(cmp)
-                                .name(&self.compare_label)
-                                .color(egui::Color32::from_rgb(180, 90, 90))
-                                .width(2.2),
-                        );
-                        plot_ui.line(
-                            Line::new(dsm)
-                                .name(&self.dsm_label)
-                                .color(egui::Color32::from_rgb(232, 140, 64))
-                                .width(2.6),
-                        );
-                    });
-
-                ui.add_space(6.0);
-                ui.heading("Hourly kWh (same as kW · 1h)");
-                let bars_cmp: Vec<Bar> = (0..24)
-                    .map(|h| {
-                        Bar::new(h as f64 - 0.15, self.pred_kw_compare[h] as f64)
-                            .width(0.28)
-                            .name(&self.compare_label)
-                    })
-                    .collect();
-                let bars_dsm: Vec<Bar> = (0..24)
-                    .map(|h| {
-                        Bar::new(h as f64 + 0.15, self.pred_kw_dsm[h] as f64)
-                            .width(0.28)
-                            .name(&self.dsm_label)
-                    })
-                    .collect();
-                Plot::new("kwh_bars")
-                    .height(180.0)
-                    .legend(egui_plot::Legend::default())
-                    .show(ui, |plot_ui| {
-                        plot_ui.bar_chart(
-                            BarChart::new(bars_cmp)
-                                .color(egui::Color32::from_rgb(160, 80, 80)),
-                        );
-                        plot_ui.bar_chart(
-                            BarChart::new(bars_dsm)
-                                .color(egui::Color32::from_rgb(220, 130, 50)),
-                        );
-                    });
-
-                ui.separator();
-                ui.heading("Day cost breakdown");
-                match (&self.cost_compare, &self.cost_dsm) {
-                    (Some(cc), Some(cd)) => {
-                        egui::Grid::new("day_cost_cmp")
-                            .num_columns(3)
-                            .striped(true)
-                            .show(ui, |ui| {
-                                ui.label("");
-                                ui.strong(&self.compare_label);
-                                ui.strong(&self.dsm_label);
-                                ui.end_row();
-                                ui.label("Peak kW");
-                                ui.label(format!("{:.1}", cc.peak_kw));
-                                ui.label(format!("{:.1}", cd.peak_kw));
-                                ui.end_row();
-                                ui.label("Σ kWh");
-                                ui.label(format!("{:.0}", cc.energy_kwh));
-                                ui.label(format!("{:.0}", cd.energy_kwh));
-                                ui.end_row();
-                                ui.label("On-peak kWh");
-                                ui.label(format!("{:.0}", cc.on_peak_kwh));
-                                ui.label(format!("{:.0}", cd.on_peak_kwh));
-                                ui.end_row();
-                                ui.label("Off-peak kWh");
-                                ui.label(format!("{:.0}", cc.off_peak_kwh));
-                                ui.label(format!("{:.0}", cd.off_peak_kwh));
-                                ui.end_row();
-                                ui.label("Energy $");
-                                ui.label(format!(
-                                    "{:.2}",
-                                    cc.energy_on_peak_cost + cc.energy_off_peak_cost + cc.pca_cost
-                                ));
-                                ui.label(format!(
-                                    "{:.2}",
-                                    cd.energy_on_peak_cost + cd.energy_off_peak_cost + cd.pca_cost
-                                ));
-                                ui.end_row();
-                                ui.label("Demand $");
-                                ui.label(format!("{:.2}", cc.demand_cost));
-                                ui.label(format!("{:.2}", cd.demand_cost));
-                                ui.end_row();
-                                ui.label("Dist demand $");
-                                ui.label(format!("{:.2}", cc.distribution_demand_cost));
-                                ui.label(format!("{:.2}", cd.distribution_demand_cost));
-                                ui.end_row();
-                                ui.label("Day total $");
-                                ui.strong(format!("{:.2}", cc.total_cost));
-                                ui.strong(format!("{:.2}", cd.total_cost));
-                                ui.end_row();
-                                ui.label("Δpeak / ΔkWh");
-                                ui.label("—");
-                                ui.strong(format!(
-                                    "{:.1} kW / {:+.0} kWh",
-                                    (cc.peak_kw - cd.peak_kw).max(0.0),
-                                    cd.energy_kwh - cc.energy_kwh
-                                ));
-                                ui.end_row();
-                            });
-
-                        Plot::new("cost_bars")
-                            .height(160.0)
-                            .show(ui, |plot_ui| {
-                                plot_ui.bar_chart(
-                                    BarChart::new(cost_bars(cc, -0.18))
-                                        .width(0.32)
-                                        .color(egui::Color32::from_rgb(160, 80, 80))
-                                        .name(&self.compare_label),
-                                );
-                                plot_ui.bar_chart(
-                                    BarChart::new(cost_bars(cd, 0.18))
-                                        .width(0.32)
-                                        .color(egui::Color32::from_rgb(220, 130, 50))
-                                        .name(&self.dsm_label),
-                                );
-                            });
                     }
-                    _ => {
-                        ui.label("Run Compare HVAC 24/7 vs DSM to populate charts.");
-                    }
-                }
-
-                ui.separator();
-                ui.heading("Annual demand savings (heuristic)");
-                if let Some(a) = &self.annual {
-                    egui::Frame::group(ui.style())
-                        .fill(egui::Color32::from_rgb(34, 42, 50))
-                        .inner_margin(10.0)
-                        .show(ui, |ui| {
-                            egui::Grid::new("annual_grid")
-                                .num_columns(2)
-                                .striped(true)
-                                .show(ui, |ui| {
-                                    ui.label("Months used");
-                                    ui.label(format!("{}", a.months_used));
-                                    ui.end_row();
-                                    ui.label("Baseline demand $");
-                                    ui.label(format!("${:.0}", a.baseline_demand_cost));
-                                    ui.end_row();
-                                    ui.label("DSM demand $");
-                                    ui.label(format!("${:.0}", a.dsm_demand_cost));
-                                    ui.end_row();
-                                    ui.label("Baseline dist $");
-                                    ui.label(format!("${:.0}", a.baseline_dist_cost));
-                                    ui.end_row();
-                                    ui.label("DSM dist $");
-                                    ui.label(format!("${:.0}", a.dsm_dist_cost));
-                                    ui.end_row();
-                                    ui.label("Δpeak applied");
-                                    ui.label(format!("{:.1} kW", a.delta_peak_kw));
-                                    ui.end_row();
-                                    ui.label("Demand $ savings");
-                                    ui.label(format!("${:.0}", a.demand_savings));
-                                    ui.end_row();
-                                    ui.label("Dist demand $ savings");
-                                    ui.label(format!("${:.0}", a.dist_savings));
-                                    ui.end_row();
-                                    ui.label("Energy penalty (cold days)");
-                                    ui.label(format!(
-                                        "${:.0}  (Δ{:+.0} kWh/day × {:.0})",
-                                        a.energy_penalty, a.delta_kwh_day, a.similar_cold_days
-                                    ));
-                                    ui.end_row();
-                                    ui.label("Net annual savings");
-                                    ui.strong(
-                                        egui::RichText::new(format!(
-                                            "${:.0}",
-                                            a.net_annual_savings
-                                        ))
-                                        .size(18.0)
-                                        .color(egui::Color32::from_rgb(140, 200, 160)),
-                                    );
-                                    ui.end_row();
-                                    ui.label("Ratchet months shaved");
-                                    ui.label(format!("{}", a.ratchet_months_shaved));
-                                    ui.end_row();
-                                });
-                            ui.colored_label(
-                                egui::Color32::from_rgb(160, 170, 180),
-                                &a.note,
-                            );
-                        });
-                } else {
-                    ui.label(
-                        "Load monthly peaks CSV and run Compare to estimate annual demand savings.",
-                    );
-                }
-
-                if let Some(book) = &self.monthly_book {
-                    ui.collapsing("Monthly peaks table", |ui| {
-                        egui::Grid::new("mo_tbl").striped(true).show(ui, |ui| {
-                            ui.label("Month");
-                            ui.label("kWh");
-                            ui.label("Demand");
-                            ui.label("Billed");
-                            ui.label("Cost $");
-                            ui.end_row();
-                            for r in &book.rows {
-                                ui.label(&r.month);
-                                ui.label(
-                                    r.kwh
-                                        .map(|v| format!("{v:.0}"))
-                                        .unwrap_or_else(|| "—".into()),
-                                );
-                                ui.label(
-                                    r.demand_kw
-                                        .map(|v| format!("{v:.1}"))
-                                        .unwrap_or_else(|| "—".into()),
-                                );
-                                ui.label(
-                                    r.billed_demand_kw
-                                        .map(|v| format!("{v:.1}"))
-                                        .unwrap_or_else(|| "—".into()),
-                                );
-                                ui.label(
-                                    r.cost_usd
-                                        .map(|v| format!("{v:.0}"))
-                                        .unwrap_or_else(|| "—".into()),
-                                );
-                                ui.end_row();
-                            }
-                        });
-                    });
+                    AppMode::Workspace { folder } => self.show_workspace(ui, folder),
                 }
             });
         });

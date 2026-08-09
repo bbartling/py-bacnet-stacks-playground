@@ -36,6 +36,8 @@ pub struct HybridFeatureMeta {
     pub honesty: Option<String>,
     #[serde(default)]
     pub champion: Option<String>,
+    #[serde(default)]
+    pub precision_pm_kw: Option<f32>,
 }
 
 pub struct MultiOutOnnx {
@@ -70,13 +72,44 @@ impl MultiOutOnnx {
                 meta_path.display()
             );
         }
+        for (i, expected) in FEATURE_COLS_15MIN_MT.iter().enumerate() {
+            let got = meta.feature_cols.get(i).map(|s| s.as_str());
+            if got != Some(*expected) {
+                bail!(
+                    "feature_cols[{i}]={:?} != expected {expected} ({})",
+                    got,
+                    meta_path.display()
+                );
+            }
+        }
+        if let Some(n_out) = meta.n_outputs {
+            if n_out != N_OUTPUTS {
+                bail!(
+                    "n_outputs {n_out} != expected {N_OUTPUTS} ({})",
+                    meta_path.display()
+                );
+            }
+        }
+        if !meta.target_cols.is_empty() && meta.target_cols.len() != N_OUTPUTS {
+            bail!(
+                "target_cols len {} != {N_OUTPUTS} ({})",
+                meta.target_cols.len(),
+                meta_path.display()
+            );
+        }
+        let scaler_note = meta.scaler.as_deref().unwrap_or("embedded");
         let session = Session::builder()
             .map_err(ort_err)?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(ort_err)?
             .commit_from_file(onnx_path)
             .map_err(ort_err)
-            .with_context(|| format!("load ONNX {}", onnx_path.display()))?;
+            .with_context(|| {
+                format!(
+                    "load ONNX {} (scaler={scaler_note})",
+                    onnx_path.display()
+                )
+            })?;
         Ok(Self {
             session,
             feature_cols: meta.feature_cols.clone(),
@@ -163,12 +196,24 @@ impl HybridEngine {
         }
 
         let sched_base = load_control_schedule("baseline")?;
+        if sched_base.strategy_id != "baseline" {
+            bail!(
+                "baseline control fixture strategy_id={}",
+                sched_base.strategy_id
+            );
+        }
         let sid_dsm = if force_247_dsm {
             "flat_24_7"
         } else {
             strategy_id
         };
         let sched_dsm = load_control_schedule(sid_dsm)?;
+        if sched_dsm.strategy_id != sid_dsm {
+            bail!(
+                "DSM control fixture strategy_id={} != requested {sid_dsm}",
+                sched_dsm.strategy_id
+            );
+        }
 
         let mut state_b = BTreeMap::new();
         state_b.insert("facility_kw_lag1".into(), init_kw);
@@ -280,20 +325,6 @@ impl HybridEngine {
                 step_15: step as i64,
                 baseline_facility_kw: kw_b,
                 hybrid_facility_kw: kw_h,
-                delta_facility_kw: delta_y[0] as f64,
-                cumulative_kwh_baseline: cum_b,
-                cumulative_kwh_hybrid: cum_h,
-                comfort_violations_cum: viol,
-                baseline_zone_temps_f: ZONE_TEMP_COLS
-                    .iter()
-                    .enumerate()
-                    .map(|(i, c)| (c.to_string(), base_y[1 + i] as f64))
-                    .collect(),
-                delta_zone_temps_f: ZONE_TEMP_COLS
-                    .iter()
-                    .enumerate()
-                    .map(|(i, c)| (c.to_string(), delta_y[1 + i] as f64))
-                    .collect(),
                 hybrid_zone_temps_f: ZONE_TEMP_COLS
                     .iter()
                     .enumerate()
@@ -389,7 +420,8 @@ pub fn default_hybrid_artifact_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
             .ok()
             .and_then(|p| p.parent().map(|d| d.to_path_buf())),
         option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("artifacts")),
-        option_env!("CARGO_MANIFEST_DIR").map(|s| Path::new(s).join("..").join("ml").join("artifacts")),
+        option_env!("CARGO_MANIFEST_DIR")
+            .map(|s| Path::new(s).join("..").join("ml").join("artifacts")),
         Some(Path::new("ml").join("artifacts")),
         Some(Path::new("..").join("ml").join("artifacts")),
     ];

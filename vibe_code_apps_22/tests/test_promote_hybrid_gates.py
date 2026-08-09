@@ -25,8 +25,25 @@ from promote_hybrid_ship import (  # noqa: E402
     promote_hybrid,
 )
 
-_GOOD_BASE_HELDOUT = {"extra_trees": {"facility_kw_mae": 3.0, "facility_kw_rmse": 4.0}}
-_GOOD_DELTA_HELDOUT = {"random_forest": {"mae_delta_kw": 0.4, "mae_delta_kw_peak": 0.6}}
+_GOOD_BASE_HELDOUT = {
+    "extra_trees": {
+        "facility_kw_mae": 3.0,
+        "facility_kw_rmse": 4.0,
+        "facility_kw_mae_peak_05_09": 5.5,
+        "facility_kw_cv_rmse": 0.18,
+        "facility_kw_nmbe": 0.04,
+        "n_heldout_days": 3,
+    }
+}
+_GOOD_DELTA_HELDOUT = {
+    "random_forest": {
+        "mae_delta_kw": 0.4,
+        "mae_delta_kw_peak": 0.6,
+        "cv_rmse_delta_kw": 0.22,
+        "nmbe_delta_kw": -0.03,
+        "n_heldout_days": 3,
+    }
+}
 
 
 def _write_minimal_cards(
@@ -209,6 +226,14 @@ def test_promote_smoke_sets_watermark(tmp_path, monkeypatch):
     assert ship["watermark"] == SMOKE_WATERMARK
     assert SMOKE_WATERMARK in ship["honesty_note"]
     assert out["result"].get("outcome_flag") is None
+    mv = ship["mv_precision"]
+    assert mv["primary"] == ["nmbe", "cv_rmse"]
+    assert mv["precision_pm_kw"] == 5.5
+    assert mv["champion_baseline"] == "extra_trees"
+    assert mv["champion_delta"] == "random_forest"
+    assert mv["baseline"]["nmbe"] == 0.04
+    assert mv["baseline"]["cv_rmse"] == 0.18
+    assert "g14_monthly_reference" in mv
 
 
 def test_promote_flags_rejected_dsm_outcome(tmp_path, monkeypatch):
@@ -227,6 +252,9 @@ def test_promote_flags_rejected_dsm_outcome(tmp_path, monkeypatch):
 
     with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
         "promote_hybrid_ship.rollout_96", _fake_rollout(summary)
+    ), patch(
+        "promote_hybrid_ship._multires_gate",
+        return_value={"ok": True, "operational": True, "reason": None, "path": None},
     ):
         load.return_value = (MagicMock(), ["a"], ["facility_kw"])
         out = promote_hybrid(artifacts=art, desktop_artifacts=desk)
@@ -252,7 +280,30 @@ def test_promote_flags_rejected_on_high_kwh(tmp_path, monkeypatch):
 
     with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
         "promote_hybrid_ship.rollout_96", _fake_rollout(summary)
+    ), patch(
+        "promote_hybrid_ship._multires_gate",
+        return_value={"ok": True, "operational": True, "reason": None, "path": None},
     ):
         load.return_value = (MagicMock(), ["a"], ["facility_kw"])
         out = promote_hybrid(artifacts=art, desktop_artifacts=desk)
     assert out["result"]["outcome_flag"] == REJECTED_DSM_OUTCOME
+
+
+def test_promote_refuses_operational_when_hourly_fails(tmp_path, monkeypatch):
+    art = tmp_path / "art"
+    desk = tmp_path / "desk"
+    _write_minimal_cards(
+        art,
+        heldout=_GOOD_BASE_HELDOUT,
+        delta_heldout=_GOOD_DELTA_HELDOUT,
+        n_days=20,
+    )
+    monkeypatch.delenv(SMOKE_ENV, raising=False)
+    _patch_env(monkeypatch, tmp_path)
+    with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
+        "promote_hybrid_ship._multires_gate",
+        side_effect=ValueError("Refuse operational promote: multi-res gates not met"),
+    ):
+        load.return_value = (MagicMock(), ["a"], ["facility_kw"])
+        with pytest.raises(ValueError, match="multi-res gates"):
+            promote_hybrid(artifacts=art, desktop_artifacts=desk)

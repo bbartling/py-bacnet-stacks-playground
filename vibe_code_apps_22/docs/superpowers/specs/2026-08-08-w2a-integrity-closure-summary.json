@@ -1,0 +1,66 @@
+{
+  "campaign_id": "w2a_integrity_closure_20260808T161626Z",
+  "created_utc": "2026-08-08T16:26:34Z",
+  "provenance": "PROVISIONAL_W2A_HVACTEMPLATE_INTEGRITY_CLOSURE",
+  "honesty": "Post-expand live knobs only; rolling-origin Nov\u2013Dec selection; Feb reserved final audit; January IdealLoads holdout consumed. IdealLoads January 2026 locked holdout was consumed during prior schedule/plant-proxy work for this building family \u2014 not pristine for W2A selection.",
+  "planned_trials": 8,
+  "attempted_runs": 8,
+  "unique_models": 8,
+  "unique_energyplus_runs": 8,
+  "duplicate_collisions": [],
+  "empty_fields_changed": [],
+  "uniqueness_ok": true,
+  "uniqueness_fail_closed": false,
+  "succeeded": 8,
+  "failed": 0,
+  "raw_eplus_gates_any_pass": false,
+  "hybrid_dsm_96_v2_farm_run": false,
+  "hybrid_dsm_96_v2_farm_reason": "not run \u2014 raw gates did not all pass",
+  "dsm_status": "NO-GO",
+  "audit": "NO-GO",
+  "best_trial_id": "I07_blend",
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "declared_trial_ids": [
+    "I00_cap1p0",
+    "I01_cap0p75",
+    "I02_cap1p25",
+    "I03_cop0p85",
+    "I04_fan_pump",
+    "I05_loop_oa",
+    "I06_optstart",
+    "I07_blend"
+  ],
+  "supersedes_nonreproducible_w2a_calib": {
+    "prior_campaign_id": "w2a_plant_calib_20260808T152458Z",
+    "retracted": [
+      "W15",
+      "W16",
+      "W17",
+      "W18",
+      "W19",
+      "claimed_20_of_20"
+    ],
+    "reason": "ad-hoc runner / dead IdealLoads capacity knobs; not in declared script grid"
+  },
+  "updated_utc": "2026-08-08T16:31:16Z",
+  "trial_status": {
+    "I00_cap1p0": "succeeded",
+    "I01_cap0p75": "succeeded",
+    "I02_cap1p25": "succeeded",
+    "I03_cop0p85": "succeeded",
+    "I04_fan_pump": "succeeded",
+    "I05_loop_oa": "succeeded",
+    "I06_optstart": "succeeded",
+    "I07_blend": "succeeded"
+  },
+  "trial_sha256": {
+    "I00_cap1p0": "8ba5600070975e718f2679b3eb22ff511408380ffe4c35baff75270d5f8fa3e7",
+    "I01_cap0p75": "8b4608aabacc77cdceb09efc92af0d1d42dea96447ce739d4a75af0367b21322",
+    "I02_cap1p25": "8d852bb7b47d4393b0cb52932f6fb9845674d42fa959f8ed276fb3924d1eaf7c",
+    "I03_cop0p85": "867608edd5aa95374fba784255624851388520a8ca679272646095e0660de5a4",
+    "I04_fan_pump": "10c25dec2f1565ac9c85c3de9464fcf03681cdae068a7e8cbd56ae49e35a85b0",
+    "I05_loop_oa": "4cab356a45a7847ee3523e97f652896491bb280cffbb92ddc615e979bc3d1870",
+    "I06_optstart": "d41b6c852a44348e6ead912ccac02b9ab881044958f339377016ffd1a6140df2",
+    "I07_blend": "d733e9fbc33be0bf18c1551339e9819bc42c46d3b051ed63bec0de79431e1ce1"
+  }
+}

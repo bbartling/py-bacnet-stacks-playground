@@ -1,0 +1,15 @@
+{
+  "status": "RETRACTED_NONREPRODUCIBLE",
+  "prior_campaign_id": "w2a_plant_calib_20260808T152458Z",
+  "reason": "Committed runner was a 15-trial cap\u00d7unocc IdealLoads grid; W15\u2013W19 came from an ad-hoc runner; heating_capacity_mmbtu_h was stripped before ExpandObjects (dead knob). Superseded by integrity closure.",
+  "superseded_by": "w2a_integrity_closure_20260808T161626Z",
+  "superseded_by_mirror": "2026-08-08-w2a-integrity-closure-summary.json",
+  "retracted_trial_ids": [
+    "W15_cap2p4_u64p0_os0p0",
+    "W16_cap2p6_u66p0_os1p0",
+    "W17_cap2p8_u63p0_os0p0",
+    "W18_cap3p0_u67p0_os1p0",
+    "W19_cap3p1_u65p0_os0p5"
+  ],
+  "do_not_cite_as_20_of_20": true
+}

@@ -1,0 +1,96 @@
+{
+  "status": "OK",
+  "created_utc": "2026-08-08T14:44:14Z",
+  "contract": "eplus_nine_to_six_zone_agg_v1",
+  "n_timesteps_nine": 32448,
+  "agg_hp_count_means_f": {
+    "zone_temp_1F_A_f": 68.78861752168766,
+    "zone_temp_1F_B_f": 68.76015382713247,
+    "zone_temp_1F_C_f": 68.81783068463513,
+    "zone_temp_1F_D_f": 68.81897171635478,
+    "zone_temp_2F_A_f": 68.52148742348204,
+    "zone_temp_2F_B_f": 68.58172254318812
+  },
+  "agg_area_means_f": {
+    "zone_temp_1F_A_f": 68.84045169498194,
+    "zone_temp_1F_B_f": 68.76015382713247,
+    "zone_temp_1F_C_f": 68.89472075878204,
+    "zone_temp_1F_D_f": 68.85143241873936,
+    "zone_temp_2F_A_f": 68.52148742348204,
+    "zone_temp_2F_B_f": 68.58172254318812
+  },
+  "zone_metrics_vs_bas": {
+    "zone_temp_1F_A_f": {
+      "n": 14593,
+      "mae": 2.443483947713069,
+      "rmse": 3.0951758914302685,
+      "bias": 0.7719108813538008,
+      "p95_abs_err": 6.661755209026026,
+      "meas_min": 61.65384615384615,
+      "meas_max": 74.42564102564103,
+      "sim_min": 64.99399999999999,
+      "sim_max": 84.99199999999911
+    },
+    "zone_temp_1F_B_f": {
+      "n": 14593,
+      "mae": 2.5648719989975586,
+      "rmse": 3.1953063993485102,
+      "bias": -0.19953422441715643,
+      "p95_abs_err": 6.192767609814766,
+      "meas_min": 61.13666666666666,
+      "meas_max": 74.73333333333333,
+      "sim_min": 64.99399999999999,
+      "sim_max": 84.992
+    },
+    "zone_temp_1F_C_f": {
+      "n": 14593,
+      "mae": 2.6279060053990144,
+      "rmse": 3.214497772699781,
+      "bias": 0.2564100652896158,
+      "p95_abs_err": 6.5334619584341445,
+      "meas_min": 62.01666666666667,
+      "meas_max": 73.81666666666668,
+      "sim_min": 64.99399999999999,
+      "sim_max": 84.99199999999999
+    },
+    "zone_temp_1F_D_f": {
+      "n": 14593,
+      "mae": 2.450366495115655,
+      "rmse": 3.0626229723959995,
+      "bias": 0.2844339779805019,
+      "p95_abs_err": 6.16885508435455,
+      "meas_min": 61.45000000000001,
+      "meas_max": 75.26,
+      "sim_min": 63.53032417773565,
+      "sim_max": 84.99199999999993
+    },
+    "zone_temp_2F_A_f": {
+      "n": 14593,
+      "mae": 2.7120936886869753,
+      "rmse": 3.3418537059454336,
+      "bias": -1.3450017569919868,
+      "p95_abs_err": 6.479223648983199,
+      "meas_min": 62.160606060606064,
+      "meas_max": 77.76060606060607,
+      "sim_min": 58.791607158586906,
+      "sim_max": 84.49243314385917
+    },
+    "zone_temp_2F_B_f": {
+      "n": 14593,
+      "mae": 2.769533316906386,
+      "rmse": 3.4599226962141647,
+      "bias": -0.8736343331683506,
+      "p95_abs_err": 6.671790572273163,
+      "meas_min": 60.43666666666667,
+      "meas_max": 77.53999999999999,
+      "sim_min": 61.420927074670196,
+      "sim_max": 84.60865006502812
+    }
+  },
+  "honesty": "diagnostic zone validation; IdealLoads+COP still not DSM-eligible",
+  "sim_trial_id": "S3_cap_mid_2p7",
+  "stratified_available": true,
+  "unmet_heating_sum_zone_hours": 2148.5,
+  "gallery_plot": "reports/eplus/zone_validation/plots/zone_gallery_cold_weekday.png",
+  "updated_utc": "2026-08-08T15:14:22Z"
+}

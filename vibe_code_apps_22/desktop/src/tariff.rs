@@ -59,13 +59,11 @@ pub fn creekside_cp2_defaults() -> DemandTariff {
         distribution_demand_per_kw_step: 1.75,
         step_up_from_month: 8,
         use_step_up: true,
-        honesty: (
-            "Defaults from Creekside June CP-2 bill snippet (on/off-peak energy, \
+        honesty: ("Defaults from Creekside June CP-2 bill snippet (on/off-peak energy, \
              $12/kW demand + $1.50/kW distribution). Aug+ step $12.25/$1.75 enabled. \
              On-peak HE 08–20 weekdays is an engineering assumption — edit for your tariff. \
-             CANDIDATE playground — not a bill replica."
-        )
-        .into(),
+             CANDIDATE playground — not a bill replica.")
+            .into(),
     }
 }
 

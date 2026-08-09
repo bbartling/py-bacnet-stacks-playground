@@ -15,7 +15,20 @@ description: >-
 
 **Read first:** [AGENTS.md](../../AGENTS.md) · site `deep-research-report.md` under `LAKESIDE_SITE_ROOT` · this skill · [lakeside-utility-gl14](../lakeside-utility-gl14/SKILL.md) for billing-grade G14.
 
+**W2A plant (different physics):** For post-ExpandObjects coil/setback/opt-start dials
+toward Jan‑26 ~285 kW **while holding utility monthly GL14**, use
+[lakeside-w2a-plant-dial](../lakeside-w2a-plant-dial/SKILL.md) and
+`vibe22_agent_spec/W2A_PLANT_DIAL.md`. Tutorial notebook:
+`notebooks/lakeside_eplus_gl14_vs_peak285.ipynb` (E20 → SC02 → R02 → **A04**).
+Do **not** overwrite IdealLoads `*_best_utility.idf` with W2A champions.
+
 **Do not** reinvent the ALC→openfdd pipe. Prefer re-running scripts in AGENTS.md.
+
+**Multi-resolution SoT (2026-08):** formulas + monthly/hourly/15-min gates live in
+`ml/eplus_multires_metrics.py` and `vibe22_agent_spec/EPLUS_MULTIRES.md`.
+Monthly G14 pass ≠ hourly calibrated-sim pass. Run
+`python -u scripts/validate_eplus_multires.py` for the authoritative report.
+Filename `*gshp*` is naming only — physics is IdealLoads + fixed COP.
 
 ---
 
@@ -229,7 +242,7 @@ Per-month \|err\|≤5% is **informational**; G14 is **whole-series** NMBE/CVRMSE
 
 1. **Heating DSM ML** (vibe22): morning-peak / 6-Area occupancy surrogates — see playground `vibe_code_apps_22/`.
 2. **Utility-bill GL14** (vibe23): CS 351075 bills; `eplus_campaign_utility.py`; best `lakeside_6zone_gshp_best_utility.idf`. OpenStudio-MCP via Docker when Desktop is up (Cursor tool-cap).
-3. Replace IdealLoads with **zone W2A HP + condenser / GLHE**; calibrate to BAS `hp_sup_t`/`hp_ret_t` (~43°F Jan).
+3. **W2A plant dual dial** (live): [lakeside-w2a-plant-dial](../lakeside-w2a-plant-dial/SKILL.md) — **A04** champion ~287 kW / GL14 pass (+1.0%/10.4%); Aug in-session + Jun–Jul summer. Full GSHP/GLHE as-built remains open.
 4. Explicit Semco DOAS + pump VFDs (BAS loop pumps ~62% / DP 11 psi screenshots).
 5. EnergyPlus DM farm (schedule patches per Area) feeding vibe22 `FEATURE_COLS` — pattern: vibe21 `tools/dm_hourly_farm.py`.
 

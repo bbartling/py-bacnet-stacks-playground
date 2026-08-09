@@ -1,6 +1,6 @@
 # Vibe 22 — Heating DSM (Lakeside) — Hybrid Real+E+
 
-**Last validated:** 2026-08-06 · Audit P0 honesty/desktop fixes · tip on `develop`.
+**Last validated:** 2026-08-07 · Multi-res calibration campaign Wave 0 + parallel CLI train/ship · tip on `feat/vibe22-multioutput-tutorial-notebooks`.
 
 ## Product question
 
@@ -15,8 +15,12 @@
 - IdealLoads + fixed COP ≠ calibrated GSHP / electrical plant.
 - Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
 - Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
-- Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
+- Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` and is **screening-only** (`smoke_artifact`), never operational DSM.
+- Staged twin filename may say `gshp` — physics is IdealLoads + fixed COP (see multi-res baseline ledger).
 - Desktop **Run** uses **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback, not the interactive engine.
+- Ship selection uses **recursive held-out peak MAE only** (no teacher-forced fallback); `--ship-desktop` requires both sklearn arms ok.
+- **`hybrid_dsm_96_v2`**: contract published only — **paired farm unimplemented**. Integrity closure (2026-08-08) raw E+ gates **NO-GO**; do not promote v2 training from provisional W2A.
+- Cite [`../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md`](../docs/superpowers/specs/2026-08-08-schedule-plant-campaign-audit.md) — prior W2A “20/20” retracted; P1 overshoot FAIL under improvement-to-observed.
 
 ## Architecture
 
@@ -34,22 +38,28 @@ Paired E+ farm (6-area) ──► E+ delta 7-out     │
 
 - Keep sklearn (`gradient_boosting`, `extra_trees`, `random_forest`) and PyTorch ResMLP.
 - Do **not** mix real BAS and EnergyPlus rows in one train table.
-- Train + promote via notebooks only (`VIBE22_ALLOW_CLI_TRAIN=1` emergency).
+- **Train outside Jupyter** via `scripts/train_four_arms.py` (notebooks are **results viewers** only).
+- Ship desktop via `scripts/ship_best_to_desktop.py` (auto-picks best sklearn arm + promote + `cargo run`).
 - No cost optimizer yet — JSON contract is ready for a future optimizer.
 - Never overwrite raw site inputs or canonical `*_best_utility.idf`.
 - Honesty: **`HYBRID_SCREENING`** until field DSM trials + designed E+ farm + interval demand validation.
+- Torch never overwrites sklearn desktop hybrid stems.
 
-Prior kW-only stems live under `ml/artifacts/_quarantine_20260806/`.  
-Defect list: [`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md).
+**Multi-res campaign (2026-08):** see [`EPLUS_MULTIRES.md`](EPLUS_MULTIRES.md),
+IdealLoads structural limit
+[`../docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md`](../docs/superpowers/specs/2026-08-07-idealloads-structural-limit.md),
+final audit
+[`../docs/superpowers/specs/2026-08-07-eplus-multires-final-audit.md`](../docs/superpowers/specs/2026-08-07-eplus-multires-final-audit.md).
+Hourly gate **fail** → operational DSM prohibited; crossed farm is research-ready scaffolding only.
 
 ## Ship champions (screening)
 
 | Component | Family | Notes |
 | --- | --- | --- |
-| A — real baseline | **ExtraTrees** multi-output | Teacher-forced + **held-out recursive** on cards |
+| A — real baseline | bake-off winner per arm | Teacher-forced + **held-out recursive** on cards |
 | B — E+ delta | bake-off champion | Smoke paired farm (expand with `--medium`) |
 | C — hybrid walk | live ONNX + ship JSON | Desktop fail-closed without hybrid ONNX pair |
-| Torch alt | ResMLP multi-head | Does **not** overwrite ship walk |
+| Torch alt | ResMLP multi-head | Research under `ml/artifacts/runs/torch_*` only |
 
 Lag init = **measured midnight** from JSON contract (never hardcoded 80 °F / 35 kW).
 
@@ -72,30 +82,41 @@ $env:PYTHONUNBUFFERED="1"
 python -u scripts\build_real_15min_store.py
 python -u scripts\eplus_heating_dsm_farm.py --smoke    # or --medium
 
-# TRAIN + PROMOTE — notebooks only (Run All)
-#   notebooks\lakeside_heating_dsm_sklearn.ipynb   # A + B + hybrid walk ship
-#   notebooks\lakeside_heating_dsm_torch.ipynb     # ResMLP alt (does not overwrite ship)
-# CLI ml\train_*.py and scripts\promote_hybrid_ship.py refuse unless VIBE22_ALLOW_CLI_TRAIN=1
+# TRAIN — four arms in parallel (not Jupyter)
+python -u scripts\train_four_arms.py --profile full_evaluation
+# optional: --ship-desktop  (promote best sklearn + cargo run when arms OK)
+
+# VIEW results (no training in-kernel)
+#   notebooks\lakeside_heating_dsm_sklearn.ipynb
+#   notebooks\lakeside_heating_dsm_torch.ipynb
+
+# SHIP best sklearn baseline + existing delta → desktop, then launch sim
+python -u scripts\ship_best_to_desktop.py
+# promote-only: python -u scripts\ship_best_to_desktop.py --no-launch
 
 python -u scripts\validate_mvm.py
-cd desktop; cargo test hybrid_walk_loads --release
-cargo run --release
 ```
+
+If you need to **retrain the E+ delta** (component B), use legacy  
+`scripts/run_sklearn_tutorial_train.py` (sets `VIBE22_ALLOW_CLI_TRAIN=1`) — four-arm matrix trains baselines only.
 
 ## Ship surfaces
 
 | Surface | Path |
 | --- | --- |
 | Real store | `scripts/build_real_15min_store.py` → site `ml/artifacts/real_baseline_15min_v1.parquet` |
-| Real baseline | **sklearn notebook** → `real_baseline_15min_v1.*` (`ml/train_real_baseline_15min.py` helpers) |
+| Real baseline arms | `scripts/train_four_arms.py` → `ml/artifacts/runs/sklearn_{winter,allyear}/` |
+| Torch arms | same launcher → `ml/artifacts/runs/torch_{winter,allyear}/` |
 | Paired farm | `scripts/eplus_heating_dsm_farm.py` → `heating_dsm_eplus_paired_15min_v1.parquet` |
-| Delta model | **sklearn notebook** → `eplus_delta_15min_v1.*` |
+| Delta model | `ml/artifacts/eplus_delta_15min_v1.*` (retrain via `run_sklearn_tutorial_train.py` if needed) |
 | Hybrid rollout | `ml/hybrid_rollout.py` + `contracts/hybrid_dsm_96_v1.json` |
-| Promote | **sklearn notebook** → `desktop/artifacts/hybrid_dsm_96_v1_walk.json` |
+| Promote + launch | `scripts/ship_best_to_desktop.py` → `desktop/artifacts/` + `cargo run --release` |
 | MVM (hourly **and** 15-min) | `scripts/validate_mvm.py` |
 | Desktop | `desktop/src/hybrid.rs` — baseline vs DSM trajectories |
-| Human SoT notebook | `notebooks/lakeside_heating_dsm_sklearn.ipynb` (**only train path**) |
-| Torch notebook | `notebooks/lakeside_heating_dsm_torch.ipynb` (**only ResMLP train path**) |
+| Sklearn viewer | `notebooks/lakeside_heating_dsm_sklearn.ipynb` |
+| Torch viewer | `notebooks/lakeside_heating_dsm_torch.ipynb` |
+| Load profile | `notebooks/lakeside_load_profile_analysis.ipynb` |
+| Desktop playground | `notebooks/lakeside_desktop_sim_playground.ipynb` |
 
 ## Peak / metrics honesty
 

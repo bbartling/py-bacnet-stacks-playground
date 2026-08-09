@@ -1,0 +1,201 @@
+{
+  "title": "Peak~285 kW cold-Monday model + GL14 distance",
+  "created_utc": "2026-08-08T18:53:55Z",
+  "campaign_id": "w2a_peak285_gl14_gap_20260808T185308Z",
+  "trial_id": "PK285_cap86_cop79",
+  "energyplus_version": "EnergyPlus, Version 26.1.0-6f2e40d102",
+  "knobs": {
+    "htg_coil_capacity_mult": 0.86,
+    "htg_coil_cop_mult": 0.79,
+    "fan_delta_p_mult": 1.0,
+    "fan_eff_mult": 1.0,
+    "pump_power_mult": 1.0,
+    "loop_setpoint_c": null,
+    "oa_frac_scale": 1.0,
+    "optimum_start_h": 0.0,
+    "setback_heat_sp_c": 14.44,
+    "oa_shoulder_scale": 1.0,
+    "fan_avail_use_sch_hvac": false,
+    "people_density_mult": 1.0,
+    "equip_w_area_mult": 1.0,
+    "lights_w_area_mult": 1.0
+  },
+  "expanded_idf_sha256": "72f35a1734a7f985f5c09f482a498c0e2b2d29a359d02747b302dd4d19dc535b",
+  "n_fields_changed": 24,
+  "sim_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_peak285_gl14_gap_20260808T185308Z\\trials\\PK285_cap86_cop79\\sim",
+  "idf_path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_peak285_gl14_gap_20260808T185308Z\\trials\\PK285_cap86_cop79\\trial.idf",
+  "peak_target_kw": 285.0,
+  "utility_jan2026_demand_kw": 284.82,
+  "jan26_design_day": {
+    "sim_peak_kw": 286.5593461880115,
+    "sim_peak_local": "2026-01-26 07:45:00-06:00",
+    "bas_meas_peak_kw": 298.0,
+    "err_vs_285": 1.5593461880114887,
+    "err_vs_utility_28482": 1.7393461880114955,
+    "peak_band": {
+      "pass": true,
+      "peak_kw": 286.5593461880115,
+      "target_kw": 275.0,
+      "band_lo_kw": 250.0,
+      "band_hi_kw": 290.0,
+      "utility_jan2026_demand_kw": 284.82,
+      "design_day": "2026-01-26"
+    }
+  },
+  "cold_monday_mornings_top": [
+    {
+      "d": "2026-01-26",
+      "sim_max": 278.4621578979162,
+      "meas_max": 259.9999966666667
+    },
+    {
+      "d": "2026-01-19",
+      "sim_max": 275.45877117100844,
+      "meas_max": 236.5
+    },
+    {
+      "d": "2025-12-08",
+      "sim_max": 268.6315733577453,
+      "meas_max": 218.0
+    },
+    {
+      "d": "2025-12-01",
+      "sim_max": 262.9252521738517,
+      "meas_max": 225.5
+    },
+    {
+      "d": "2025-12-15",
+      "sim_max": 262.87577600883884,
+      "meas_max": 223.5
+    },
+    {
+      "d": "2026-02-23",
+      "sim_max": 255.5536496271633,
+      "meas_max": 249.0
+    },
+    {
+      "d": "2026-02-09",
+      "sim_max": 250.0965881312465,
+      "meas_max": 227.0
+    },
+    {
+      "d": "2025-12-29",
+      "sim_max": 247.79584723274027,
+      "meas_max": 163.5
+    }
+  ],
+  "gl14_style_monthly": {
+    "nmbe_pct": -28.706997068497937,
+    "cvrmse_pct": 34.521879712551076,
+    "n": 10,
+    "label": "PARTIAL-PERIOD MONTHLY THRESHOLD SCREEN (utility bills, trial-specific)",
+    "source_type": "utility_bill_monthly",
+    "observed_source_path": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\eplus\\observed_monthly_utility.csv",
+    "hold": {
+      "pass": false,
+      "nmbe_pct": -28.706997068497937,
+      "cvrmse_pct": 34.521879712551076,
+      "nmbe_abs_max": 5.0,
+      "cvrmse_max": 15.0,
+      "label": "partial-period utility / GL14-style screen (|NMBE|<5%, CVRMSE<15%); not purchased ASHRAE G14-2023"
+    },
+    "distance_from_gates": {
+      "nmbe_pct": -28.706997068497937,
+      "cvrmse_pct": 34.521879712551076,
+      "nmbe_gate": 5.0,
+      "cvrmse_gate": 15.0,
+      "nmbe_over_gate_pct_pts": 23.706997068497937,
+      "cvrmse_over_gate_pct_pts": 19.521879712551076,
+      "pass": false,
+      "vs_c02_champion": {
+        "c02_nmbe_pct": -4.431548753998289,
+        "c02_cvrmse_pct": 12.363209002831512,
+        "delta_nmbe_pct_pts": -24.27544831449965,
+        "delta_cvrmse_pct_pts": 22.158670709719566
+      }
+    }
+  },
+  "monthly_pairs": [
+    {
+      "month": "2025-08",
+      "kwh_obs": 32789.0,
+      "kwh_sim": 40377.1743750458,
+      "kwh_error": 7588.174375045797,
+      "kwh_error_pct": 23.14243915656408,
+      "nmbe_contribution_pct_pts": 1.5794087084125927
+    },
+    {
+      "month": "2025-09",
+      "kwh_obs": 31350.0,
+      "kwh_sim": 36438.449117584074,
+      "kwh_error": 5088.449117584074,
+      "kwh_error_pct": 16.231097663745054,
+      "nmbe_contribution_pct_pts": 1.0591138858189661
+    },
+    {
+      "month": "2025-10",
+      "kwh_obs": 32552.0,
+      "kwh_sim": 40079.36217172947,
+      "kwh_error": 7527.362171729474,
+      "kwh_error_pct": 23.124115789289363,
+      "nmbe_contribution_pct_pts": 1.5667512075766319
+    },
+    {
+      "month": "2025-11",
+      "kwh_obs": 42097.0,
+      "kwh_sim": 61865.72244581161,
+      "kwh_error": 19768.72244581161,
+      "kwh_error_pct": 46.9599316953978,
+      "nmbe_contribution_pct_pts": 4.114677765943921
+    },
+    {
+      "month": "2025-12",
+      "kwh_obs": 67328.0,
+      "kwh_sim": 99737.53675953847,
+      "kwh_error": 32409.536759538474,
+      "kwh_error_pct": 48.13678820036014,
+      "nmbe_contribution_pct_pts": 6.745747008920596
+    },
+    {
+      "month": "2026-01",
+      "kwh_obs": 81491.0,
+      "kwh_sim": 106533.39304084038,
+      "kwh_error": 25042.393040840383,
+      "kwh_error_pct": 30.730256152017255,
+      "nmbe_contribution_pct_pts": 5.212343798827831
+    },
+    {
+      "month": "2026-02",
+      "kwh_obs": 67205.0,
+      "kwh_sim": 77180.03399951676,
+      "kwh_error": 9975.03399951676,
+      "kwh_error_pct": 14.842696227240177,
+      "nmbe_contribution_pct_pts": 2.0762115875142073
+    },
+    {
+      "month": "2026-03",
+      "kwh_obs": 51938.0,
+      "kwh_sim": 64200.872173577955,
+      "kwh_error": 12262.872173577955,
+      "kwh_error_pct": 23.610597584770215,
+      "nmbe_contribution_pct_pts": 2.55240406240435
+    },
+    {
+      "month": "2026-04",
+      "kwh_obs": 42296.0,
+      "kwh_sim": 42590.34247762289,
+      "kwh_error": 294.34247762289306,
+      "kwh_error_pct": 0.6959109079413964,
+      "nmbe_contribution_pct_pts": 0.06126467967606902
+    },
+    {
+      "month": "2026-05",
+      "kwh_obs": 31398.0,
+      "kwh_sim": 35570.05393492941,
+      "kwh_error": 4172.053934929412,
+      "kwh_error_pct": 13.28764231775722,
+      "nmbe_contribution_pct_pts": 0.8683746565529827
+    }
+  ],
+  "dsm_status": "NO-GO"
+}

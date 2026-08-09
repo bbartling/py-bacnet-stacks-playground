@@ -1,0 +1,61 @@
+{
+  "contract_version": "hybrid_dsm_96_v2",
+  "description": "Immutable v2 civil-day hybrid DSM I/O — never overwrites hybrid_dsm_96_v1",
+  "timezone": "America/Chicago",
+  "interval_semantics": {
+    "civil_day": "local America/Chicago midnight-bounded day",
+    "init": "00:00 measured midnight state only (lags); not a prediction step",
+    "predictions": "96 steps: step0→00:15 … step95→24:00 (interval end / hour-ending)",
+    "step_index": "step_15=0 → 00:15; step_15=95 → 24:00",
+    "lag1_policy": "from midnight init only (never same-row fill of target)",
+    "lag2_policy": "from prior civil-day 23:45 when available; else explicit missing",
+    "explicit_target_timestamps": true,
+    "shared_real_eplus_semantics": true,
+    "weather_at_step_t": "uses weather_forecast_96[*][t] (current interval), never t+1",
+    "dst_policy": {
+      "spring_forward_steps": 92,
+      "fall_back_steps": 100,
+      "note": "publish and test; reject silent 96-only on DST transition days"
+    }
+  },
+  "calendar_features_from": "eplus_school_calendar_v1",
+  "control_feature_naming": {
+    "rename_misleading_hp_on": true,
+    "preferred_names": ["avail_htg_*", "compressor_cmd_*"],
+    "note": "do not label availability as compressor runtime"
+  },
+  "init_required": [
+    "facility_kw",
+    "oat_f",
+    "zone_temp_1F_A_f",
+    "zone_temp_1F_B_f",
+    "zone_temp_1F_C_f",
+    "zone_temp_1F_D_f",
+    "zone_temp_2F_A_f",
+    "zone_temp_2F_B_f"
+  ],
+  "steps": 96,
+  "architecture": {
+    "real_to_baseline": true,
+    "paired_eplus_to_delta": true,
+    "never_concat_real_and_eplus_tables": true,
+    "no_eplus_treatment_promote_without_raw_gates": true
+  },
+  "benchmarks": [
+    "persistence",
+    "nearest_day",
+    "ridge",
+    "trees",
+    "pytorch_causal_sequence_challenger_only_if_true_BTF"
+  ],
+  "pytorch_causal_sequence_requirements": {
+    "tensor_layout": "[B,T,F]",
+    "recursive_selection": true,
+    "day_grouped_splits": true,
+    "onnx_only_if_beats_trees_and_parity": true,
+    "forbids_feature_axis_cnn_unroll": true
+  },
+  "honesty": "HYBRID_SCREENING",
+  "dsm_default": "NO-GO_until_raw_eplus_gates_and_treatment_effect",
+  "parent_contract": "hybrid_dsm_96_v1"
+}

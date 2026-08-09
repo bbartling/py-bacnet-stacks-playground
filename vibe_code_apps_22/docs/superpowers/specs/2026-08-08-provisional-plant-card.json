@@ -1,0 +1,29 @@
+{
+  "provenance": "PROVISIONAL_IDEALLOADS_PLANT_PROXY",
+  "product_label_target": "RAW_EPLUS_PHYSICAL_HP_PLANT",
+  "honesty": "Provisional plant-proxy on repaired IdealLoads \u2014 NOT ZoneHVAC:WaterToAirHeatPump; NOT as-built 67-unit map; curve/plant coefficients ASSUMED until BAS-verified; DSM NO-GO until raw gates + treatment-effect evidence.",
+  "topology_provisional": {
+    "zones": 9,
+    "intended": [
+      "ZoneHVAC:WaterToAirHeatPump",
+      "Coil:Heating/Cooling:WaterToAirHeatPump:EquationFit",
+      "Fan:SystemModel",
+      "condenser/ground loop + VSD pump",
+      "DOAS/ERV",
+      "scheduled EWT diagnostic (not DSM exogenous counterfactual)"
+    ],
+    "current_executable": "IdealLoads + calendar/OA/capacity/fan-proxy knobs",
+    "eplus_26_1_references": [
+      "ZoneWSHP_wDOAS.idf",
+      "HeatPumpWaterToAirEquationFit.idf",
+      "GSHP-GLHE.idf"
+    ],
+    "no_supplemental_electric_heat_without_evidence": true,
+    "aggregate_banks_not_asbuilt_67": true
+  },
+  "heating_activity_diagnostic": {
+    "rule": "DAT_minus_zone_F thresholds 6/8/10",
+    "frozen_threshold_f": 8.0,
+    "never_as_ml_feature_with_future_leakage": true
+  }
+}

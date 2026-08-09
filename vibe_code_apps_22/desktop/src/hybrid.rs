@@ -35,18 +35,6 @@ pub struct HybridStep {
     pub baseline_facility_kw: f64,
     pub hybrid_facility_kw: f64,
     #[serde(default)]
-    pub delta_facility_kw: f64,
-    #[serde(default)]
-    pub cumulative_kwh_baseline: f64,
-    #[serde(default)]
-    pub cumulative_kwh_hybrid: f64,
-    #[serde(default)]
-    pub comfort_violations_cum: i64,
-    #[serde(default)]
-    pub baseline_zone_temps_f: BTreeMap<String, f64>,
-    #[serde(default)]
-    pub delta_zone_temps_f: BTreeMap<String, f64>,
-    #[serde(default)]
     pub hybrid_zone_temps_f: BTreeMap<String, f64>,
 }
 
@@ -111,9 +99,10 @@ pub fn load_hybrid_walk() -> Result<(HybridWalk, PathBuf)> {
     for p in default_hybrid_walk_paths() {
         tried.push(p.display().to_string());
         if p.is_file() {
-            let txt = std::fs::read_to_string(&p)
-                .with_context(|| format!("read {}", p.display()))?;
-            let mut walk: HybridWalk = serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
+            let txt =
+                std::fs::read_to_string(&p).with_context(|| format!("read {}", p.display()))?;
+            let mut walk: HybridWalk =
+                serde_json::from_str(&txt).context("parse hybrid walk JSON")?;
             if walk.source.is_none() {
                 walk.source = Some("precomputed_ship_walk".into());
             }
@@ -154,7 +143,7 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
     }
     ui.colored_label(
         egui::Color32::from_rgb(210, 150, 70),
-        "IdealLoads+COP screening twin — not calibrated GSHP plant / not operational DSM.",
+        "IdealLoads + fixed-COP screening twin — not GSHP plant / not operational DSM (filename gshp is naming only).",
     );
     if let Some(flag) = &walk.outcome_flag {
         ui.colored_label(
@@ -171,14 +160,21 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
     ui.separator();
     let s = &walk.summary;
     ui.label(format!(
-        "Peak kW  baseline {:.1} → hybrid {:.1}   Δ {:.1}",
-        s.peak_kw_baseline, s.peak_kw_hybrid, s.delta_peak_kw
+        "Peak kW  baseline {:.1} → hybrid {:.1}   Δ {:.1}   (steps {} → {})",
+        s.peak_kw_baseline,
+        s.peak_kw_hybrid,
+        s.delta_peak_kw,
+        s.peak_step_baseline,
+        s.peak_step_hybrid
     ));
     ui.label(format!(
         "Energy kWh  baseline {:.1} → hybrid {:.1}   Δ {:.1}",
         s.cumulative_kwh_baseline, s.cumulative_kwh_hybrid, s.delta_kwh
     ));
-    ui.label(format!("Comfort violations (15-min): {}", s.comfort_violations));
+    ui.label(format!(
+        "Comfort violations (15-min): {}",
+        s.comfort_violations
+    ));
 
     let base: PlotPoints = walk
         .steps
@@ -226,9 +222,7 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
                         .collect();
                     plot_ui.line(Line::new(pts).name(zk.clone()));
                 }
-                let lo_line: PlotPoints = (0..96)
-                    .map(|i| [i as f64 / 4.0, lo])
-                    .collect();
+                let lo_line: PlotPoints = (0..96).map(|i| [i as f64 / 4.0, lo]).collect();
                 plot_ui.line(Line::new(lo_line).name("comfort_lo"));
             });
     }

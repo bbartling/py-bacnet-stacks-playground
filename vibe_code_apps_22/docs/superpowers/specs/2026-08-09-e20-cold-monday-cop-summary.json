@@ -1,0 +1,96 @@
+{
+  "campaign_id": "w2a_e20_cold_monday_cop_20260809T130806Z",
+  "created_utc": "2026-08-09T13:10:04Z",
+  "family": "W2A_e20_cold_monday_cop_26_28",
+  "hypothesis": {
+    "jan_well_return_f": 43.0,
+    "cold_monday_operating_cop": [
+      2.6,
+      2.8
+    ],
+    "note": "Rated COP dialed to 2.6\u20132.8; optional loop high SP \u2192 43\u00b0F (6.11\u00b0C)"
+  },
+  "e20_anchor": {
+    "peak_kw": 270.8,
+    "rated_cop": 5.04,
+    "gl14": true
+  },
+  "n_trials": 6,
+  "gl14_passers": 0,
+  "dual_candidates": [],
+  "best_dual": null,
+  "trials": [
+    {
+      "trial_id": "CM01_cop26",
+      "status": "ok_gl14_fail",
+      "effective_rated_htg_cop": 2.6,
+      "target_rated_cop": 2.6,
+      "loop_f": null,
+      "jan26_peak_kw": 478.87162210033017,
+      "overnight_0_4_sim_kw": 231.84481070757147,
+      "gl14_pass": false,
+      "nmbe_pct": -40.0707910078026,
+      "cvrmse_pct": 45.95568060628266
+    },
+    {
+      "trial_id": "CM02_cop27",
+      "status": "ok_gl14_fail",
+      "effective_rated_htg_cop": 2.7,
+      "target_rated_cop": 2.7,
+      "loop_f": null,
+      "jan26_peak_kw": 462.33191618820905,
+      "overnight_0_4_sim_kw": 224.41470165460515,
+      "gl14_pass": false,
+      "nmbe_pct": -37.38224895322421,
+      "cvrmse_pct": 42.747256125819945
+    },
+    {
+      "trial_id": "CM03_cop28",
+      "status": "ok_gl14_fail",
+      "effective_rated_htg_cop": 2.8,
+      "target_rated_cop": 2.8,
+      "loop_f": null,
+      "jan26_peak_kw": 446.9736178412424,
+      "overnight_0_4_sim_kw": 217.51531467685948,
+      "gl14_pass": false,
+      "nmbe_pct": -34.88541569831097,
+      "cvrmse_pct": 39.79155570141421
+    },
+    {
+      "trial_id": "CM04_cop27_loop43F",
+      "status": "failed_energyplus",
+      "effective_rated_htg_cop": 2.7,
+      "target_rated_cop": 2.7,
+      "loop_f": 43.0,
+      "jan26_peak_kw": null,
+      "overnight_0_4_sim_kw": null,
+      "gl14_pass": null,
+      "nmbe_pct": null,
+      "cvrmse_pct": null
+    },
+    {
+      "trial_id": "CM05_cop27_loop43F_cap145",
+      "status": "failed_energyplus",
+      "effective_rated_htg_cop": 2.7,
+      "target_rated_cop": 2.7,
+      "loop_f": 43.0,
+      "jan26_peak_kw": null,
+      "overnight_0_4_sim_kw": null,
+      "gl14_pass": null,
+      "nmbe_pct": null,
+      "cvrmse_pct": null
+    },
+    {
+      "trial_id": "CM06_cop26_loop43F_cap170",
+      "status": "failed_energyplus",
+      "effective_rated_htg_cop": 2.6,
+      "target_rated_cop": 2.6,
+      "loop_f": 43.0,
+      "jan26_peak_kw": null,
+      "overnight_0_4_sim_kw": null,
+      "gl14_pass": null,
+      "nmbe_pct": null,
+      "cvrmse_pct": null
+    }
+  ]
+}

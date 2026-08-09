@@ -9,7 +9,7 @@
   },
   "init": {
     "facility_kw": 56.0,
-    "facility_kw_lag2": NaN,
+    "facility_kw_lag2": 56.0,
     "oat_f": 14.016666666666666,
     "zone_temp_1F_A_f": 64.63846153846154,
     "zone_temp_1F_B_f": 65.59666666666668,

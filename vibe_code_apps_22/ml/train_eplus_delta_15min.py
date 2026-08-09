@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -66,6 +67,8 @@ def _delta_recursive_summary(per_day_scores: list[dict]) -> dict[str, Any]:
         "mae_delta_kw": agg.get("facility_kw_mae"),
         "rmse_delta_kw": agg.get("facility_kw_rmse"),
         "mae_delta_kw_peak": agg.get("facility_kw_mae_peak_05_09"),
+        "cv_rmse_delta_kw": agg.get("facility_kw_cv_rmse"),
+        "nmbe_delta_kw": agg.get("facility_kw_nmbe"),
         "mae_delta_temp_mean": agg.get("zone_temp_mae_mean"),
         "daily_peak_mag_error_kw": agg.get("daily_peak_mag_error_kw"),
         "peak_timing_abs_error_steps": agg.get("peak_timing_abs_error_steps"),
@@ -278,10 +281,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     peak = morning_peak_mask_15min(feat)
     families = {
         "random_forest": RandomForestRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "extra_trees": ExtraTreesRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=-1
+            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
         ),
         "gradient_boosting": GradientBoostingRegressor(
             n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
@@ -295,7 +298,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
         print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
         te_days = list(pd.unique(feat.iloc[te]["day"]))
         for name, proto in families.items():
-            m = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+            params = dict(proto.get_params())
+            if "n_jobs" in params:
+                params["n_jobs"] = 1
+            m = MultiOutputRegressor(proto.__class__(**params), n_jobs=1)
             m.fit(X[tr], Y[tr])
             pred = m.predict(X[te])
             summary[name].append(
@@ -391,6 +397,7 @@ def export_delta_artifacts(
         print(f"ONNX export failed: {e}", flush=True)
     meta = {
         "stem": STEM,
+        "run_id": result.get("run_id"),
         "feature_cols": result["feature_cols"],
         "target_cols": result["target_cols"],
         "delta_target_names": DELTA_TARGETS,
@@ -399,12 +406,16 @@ def export_delta_artifacts(
         "honesty": HONESTY,
         "component": "B_eplus_delta",
         "targets_are_deltas": True,
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
     }
     meta_path = out_dir / f"{STEM}_feature_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    from run_provenance import make_run_id, sha256_file
+
+    run_id = result.get("run_id") or make_run_id(prefix="sklearn_b")
     card = {
         "stem": STEM,
+        "run_id": run_id,
         "honesty": HONESTY,
         "provenance": "ENERGYPLUS_NATIVE_DELTA",
         "champion": result["champion"],
@@ -418,9 +429,14 @@ def export_delta_artifacts(
         "paired_source": paired_source,
         "feature_contract_version": "FEATURE_COLS_15MIN_MT",
         "control_contract_version": "control_strategies_v1",
-        "trained_via": "notebook",
+        "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
         "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
         "limitation": DELTA_LIMITATION,
+        "hashes": {
+            "onnx_sha256": sha256_file(out_dir / f"{STEM}.onnx")
+            if (out_dir / f"{STEM}.onnx").is_file()
+            else None,
+        },
     }
     if result.get("coverage_warning"):
         card["coverage_warning"] = result["coverage_warning"]

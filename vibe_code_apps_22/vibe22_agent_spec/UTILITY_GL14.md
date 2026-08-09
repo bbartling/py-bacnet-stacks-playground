@@ -27,10 +27,24 @@ slightly over-predicted true bills (NMBE −5.96% on util obs).
 - **DSM-eligible staged repair (0 severe):** `eplus/models/staged/*_dsm_v1.idf` + `DSM_ELIGIBLE.json`
   (from `scripts/eplus_stage_repair_and_rescore.py`; monthly GL14 still pass after repair)
 
+## W2A plant dual (separate twin)
+
+Utility monthly GL14 is also the hard constraint for the **W2A plant** dial
+(post-ExpandObjects coils / schedules). That path is **not** IdealLoads and
+must not overwrite `*_best_utility.idf`.
+
+| Twin | Current dual champion | Spec / skill |
+| --- | --- | --- |
+| IdealLoads + COP | util_103 / staged `DSM_ELIGIBLE` | this doc · `lakeside-utility-gl14` |
+| W2A plant | **A04** (~287 kW Jan‑26, GL14 pass +1.0%/10.4%) | [`W2A_PLANT_DIAL.md`](W2A_PLANT_DIAL.md) · `lakeside-w2a-plant-dial` |
+
+Tutorial: `notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`.
+
 ## Tooling note
 
 Heating DSM uses **Hybrid Real+E+** (`HYBRID_SCREENING`) — see [`HEATING_DSM.md`](HEATING_DSM.md).
 IdealLoads G14 still uses **native EnergyPlus** with fail-closed severe/fatal
 gates (`eplus_native/`). OpenStudio MCP bridge was removed from this app.
 Do not treat monthly utility GL14 as proof of interval demand fidelity — see
-[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts).
+[`NATIVE_EPLUS_DSM_REPORT.md`](NATIVE_EPLUS_DSM_REPORT.md) (quarantine / twin facts)
+and [`EPLUS_MULTIRES.md`](EPLUS_MULTIRES.md) (monthly + hourly + 15-min DSM gates).

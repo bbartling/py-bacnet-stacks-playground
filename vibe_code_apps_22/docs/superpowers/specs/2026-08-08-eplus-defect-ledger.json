@@ -1,0 +1,115 @@
+{
+  "ledger_id": "2026-08-08-eplus-defect-ledger",
+  "created_utc": "2026-08-08T14:30:15Z",
+  "git_sha_freeze": "093958429f47ca68cfa95a2bf1c5884f6fd13b48",
+  "champion_trial_id": "B_equip_mult_mid",
+  "champion_note": "unchanged parent/baseline (equip_mult=1.0); not an improved IdealLoads calibration",
+  "site_alias": "LAKESIDE",
+  "dsm_status": "NO-GO",
+  "freeze_dir_site_relative": "eplus/campaigns/freeze_pre_schedule_plant_20260808T143015Z",
+  "defects": [
+    {
+      "id": "DEF-SCH-HVAC-OFF",
+      "status": "remediated_in_repaired_family",
+      "summary": "SCH_HVAC is 0 overnight and all weekends/holidays; IdealLoads avail/heat/cool all bound to it",
+      "evidence": [
+        "models/eplus/lakeside_6zone_gshp_best.idf Schedule:Compact SCH_HVAC",
+        "site freeze champion_B_equip_mult_mid_model.idf IdealLoads Availability/Heating/Cooling = SCH_HVAC"
+      ],
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    },
+    {
+      "id": "DEF-IDEAL-NOLIMIT",
+      "status": "remediated_in_repaired_family",
+      "summary": "All IdealLoads Heating Limit and Cooling Limit are NoLimit",
+      "evidence": [
+        "champion IdealLoads Heating Limit = NoLimit"
+      ],
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    },
+    {
+      "id": "DEF-WEEKEND-KW-COLLAPSE",
+      "status": "remediated_in_repaired_family_overshoot",
+      "summary": "Winter weekend facility proxy collapses to ~12.41 kW constant while measured ~64 kW",
+      "evidence": [
+        "eplus/campaigns/bounded_exec_20260807/aligned_hourly.csv winter weekend kw_mod mean=12.40685"
+      ],
+      "metrics": {
+        "winter_weekend_kw_mod_mean": 12.40685110938112,
+        "winter_weekend_kw_meas_mean": 63.835833262499996
+      },
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    },
+    {
+      "id": "DEF-JAN-ZONE-TEMP-BIAS",
+      "status": "open",
+      "summary": "January overnight/weekend IdealLoads zone temps collapse vs BAS when HVAC availability is forced off",
+      "evidence": [
+        "structural IdealLoads availability off overnight; zone MAT cannot be heated to unoccupied SP"
+      ]
+    },
+    {
+      "id": "DEF-EPW-CALENDAR",
+      "status": "open",
+      "summary": "EPW HOLIDAYS/DAYLIGHT SAVINGS=No; DATA PERIODS weekday label Friday for 8/1 which is inconsistent with civil calendar; Christmas/break treated as ordinary weekdays in IDF",
+      "evidence": [
+        "eplus/weather/madison_amy_202508_202607.epw header HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0",
+        "DATA PERIODS,1,1,Data,Friday,8/1,7/2"
+      ]
+    },
+    {
+      "id": "DEF-ZONE-AGG-MISSING",
+      "status": "contract_added_extractor_still_bas_six",
+      "summary": "Six-zone extractor ZONE_TEMP_COLS omits Library/Gym/Cafe aggregation into BAS six",
+      "evidence": [
+        "eplus_native/extract.py ZONE_TEMP_COLS only 1F_Area_*/2F_Area_*"
+      ],
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    },
+    {
+      "id": "DEF-STEP0-LAG",
+      "status": "open",
+      "summary": "Real baseline step0=00:00 vs E+ farm step0=00:15; first-step lag filled from same-row target",
+      "evidence": [
+        "contracts/hybrid_dsm_96_v1.json init midnight vs farm timestep ends",
+        "ml/feature_compile_heating_dsm.py facility_kw_lag1.fillna(TARGET_COL)"
+      ]
+    },
+    {
+      "id": "DEF-TORCH-FAKE-UNROLL",
+      "status": "open",
+      "summary": "PyTorch HourCNN treats feature vector as 1-channel sequence of length n_features (not true [B,T,F] time unroll)",
+      "evidence": [
+        "ml/train_heating_dsm_torch.py class HourCNN docstring"
+      ]
+    },
+    {
+      "id": "DEF-RESID-HOD-UTC",
+      "status": "open",
+      "summary": "Residual HOD computed from UTC hour while narrative says overnight/daytime local structure; plot xlabel hour of day (UTC)",
+      "evidence": [
+        "ml/eplus_residual_decomposition.py df['hod']=df[ts_col].dt.hour with utc=True"
+      ]
+    },
+    {
+      "id": "DEF-OA-UNSCHEDULED",
+      "status": "remediated_in_repaired_family",
+      "summary": "DesignSpecification:OutdoorAir objects lack Outdoor Air Schedule Name; OA not set back when unoccupied",
+      "evidence": [
+        "champion DesignSpecification:OutdoorAir blocks end with Flow ACH=0 and no schedule field"
+      ],
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    },
+    {
+      "id": "DEF-GROUND-TEMP-SILENT",
+      "status": "remediated_in_repaired_family",
+      "summary": "No Site:GroundTemperature:BuildingSurface; E+ silent default ~18C ground",
+      "evidence": [
+        "idf_inspect.has_ground_temp_building_surface == false on champion"
+      ],
+      "remediation_note": "Repaired via eplus_school_calendar_v1 / schedule_sanity campaign; champion frozen IDF unchanged for characterization."
+    }
+  ],
+  "campaign_audit": "NO-GO",
+  "updated_utc": "2026-08-08T15:00:00Z"
+}

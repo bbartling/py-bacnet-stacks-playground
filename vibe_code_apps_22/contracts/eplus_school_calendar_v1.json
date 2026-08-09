@@ -1,0 +1,74 @@
+{
+  "contract_version": "eplus_school_calendar_v1",
+  "timezone": "America/Chicago",
+  "civil_day_policy": "validation_peaks_and_occupancy_use_local_civil_days",
+  "never_fit_calendar_to_facility_kw": true,
+  "school_year_label": "2025-26_with_2026_summer_school",
+  "regular_day": {
+    "doors_open_local": "07:30",
+    "attendance_local": "07:40",
+    "dismissal_mon_tue_wed_fri_local": "14:40",
+    "dismissal_thu_local": "13:30",
+    "after_care_end_local": "18:00",
+    "hvac_warmup_start_local": "05:30",
+    "source": "deep-research locked hours + BAS occupancy where available",
+    "confidence": "high_for_bell_times_low_for_zone_extent"
+  },
+  "setpoints_f": {
+    "occupied_heating_f": 70.0,
+    "unoccupied_heating_f": 65.0,
+    "occupied_cooling_f": 75.0,
+    "unoccupied_cooling_f": 85.0,
+    "confidence": "assumption"
+  },
+  "heating_capacity_mmbtu_h_variants": [2.3, 2.7, 3.2],
+  "heating_capacity_check_mmbtu_h": 2.7,
+  "schedules": {
+    "hvac_system_availability": "SCH_SysAvail",
+    "heating_availability": "SCH_HeatAvail",
+    "cooling_availability": "SCH_CoolAvail",
+    "occupancy": "SCH_Occ",
+    "oa_fraction": "SCH_OA",
+    "fan_proxy": "SCH_FanProxy",
+    "lights": "SCH_Lights",
+    "equip": "SCH_Equip",
+    "notes": [
+      "Heating availability allows overnight/weekend cycle to unoccupied heating SP",
+      "Do NOT force SCH_HVAC always-on for OA/fan proxy",
+      "OA fraction schedule drives DesignSpecification:OutdoorAir Outdoor Air Schedule Name"
+    ]
+  },
+  "holidays_and_breaks_local": {
+    "gaps_documented": [
+      "Exact 2025-26 district calendar holiday list not fully locked in public deep-research; use WinterBreak/Holiday placeholders below and label ASSUMED where noted"
+    ],
+    "winter_break_inclusive": ["2025-12-22", "2026-01-02"],
+    "assumed_holidays": [
+      "2025-09-01",
+      "2025-11-27",
+      "2025-11-28",
+      "2025-12-24",
+      "2025-12-25",
+      "2026-01-01",
+      "2026-01-19",
+      "2026-02-16",
+      "2026-03-27",
+      "2026-05-25"
+    ],
+    "summer_school_2026": {
+      "inclusive_start": "2026-06-24",
+      "inclusive_end": "2026-07-23",
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+      "student_contact_local": ["08:00", "13:00"],
+      "source": "deep-research summer school hours"
+    }
+  },
+  "ground_temperature_building_surface_c": {
+    "justification": "Madison WI shallow soil monthly means (engineering estimate; not fitted to facility kW)",
+    "jan_dec_c": [2.0, 1.5, 3.0, 7.0, 12.0, 16.0, 18.0, 18.5, 16.0, 11.0, 6.0, 3.0]
+  },
+  "honesty": {
+    "dsm_status": "NO-GO_until_raw_gates",
+    "calendar_not_calibrated_to_kw": true
+  }
+}

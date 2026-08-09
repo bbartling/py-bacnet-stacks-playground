@@ -1,0 +1,159 @@
+{
+  "model": "E20_peakplant_eq075_li110_cop120",
+  "sim_dir": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\eplus\\campaigns\\w2a_l22_enhanced_20260808T205123Z\\trials\\E20_peakplant_eq075_li110_cop120\\sim",
+  "winter_overnight_0_4_obs_mean_kw": 68.05833324768518,
+  "winter_overnight_0_4_sim_mean_kw": 73.0773846502411,
+  "winter_overnight_0_4_obs_p50_kw": 56.0,
+  "winter_overnight_0_4_obs_p90_kw": 106.0,
+  "peak_day": "2026-01-26",
+  "peak_day_obs_max_kw": 298.0,
+  "peak_day_sim_max_kw": 270.83241862075334,
+  "monthly_enduse_j": {
+    "lights": 528805718607.1057,
+    "equip": 416202012150.2006,
+    "facility": 1989135381239.9773
+  },
+  "hp_fan_runtime": {
+    "source": "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\reports\\zone_avg_fan_run_hours_monthly.csv",
+    "jan_feb_avg_fan_run_hours_by_zone": [
+      {
+        "floor": "First Floor",
+        "area": "Area A",
+        "zone_id": "1F_Area_A",
+        "month": "2026-01",
+        "n_heat_pumps": 15,
+        "avg_fan_run_hours": 81.94,
+        "total_fan_run_hours": 1229.17,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 372.67
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area A",
+        "zone_id": "1F_Area_A",
+        "month": "2026-02",
+        "n_heat_pumps": 15,
+        "avg_fan_run_hours": 46.12,
+        "total_fan_run_hours": 691.83,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 196.83
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area B",
+        "zone_id": "1F_Area_B",
+        "month": "2026-01",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 39.75,
+        "total_fan_run_hours": 397.5,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 240.0
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area B",
+        "zone_id": "1F_Area_B",
+        "month": "2026-02",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 9.2,
+        "total_fan_run_hours": 92.0,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 57.25
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area C",
+        "zone_id": "1F_Area_C",
+        "month": "2026-01",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 7.92,
+        "total_fan_run_hours": 79.25,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 66.25
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area C",
+        "zone_id": "1F_Area_C",
+        "month": "2026-02",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 25.81,
+        "total_fan_run_hours": 258.08,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 138.08
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area D",
+        "zone_id": "1F_Area_D",
+        "month": "2026-01",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 28.8,
+        "total_fan_run_hours": 288.0,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 120.0
+      },
+      {
+        "floor": "First Floor",
+        "area": "Area D",
+        "zone_id": "1F_Area_D",
+        "month": "2026-02",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 21.39,
+        "total_fan_run_hours": 213.92,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 96.0
+      },
+      {
+        "floor": "Second Floor",
+        "area": "Area A",
+        "zone_id": "2F_Area_A",
+        "month": "2026-01",
+        "n_heat_pumps": 11,
+        "avg_fan_run_hours": 40.61,
+        "total_fan_run_hours": 446.75,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 324.0
+      },
+      {
+        "floor": "Second Floor",
+        "area": "Area A",
+        "zone_id": "2F_Area_A",
+        "month": "2026-02",
+        "n_heat_pumps": 11,
+        "avg_fan_run_hours": 0.0,
+        "total_fan_run_hours": 0.0,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 0.0
+      },
+      {
+        "floor": "Second Floor",
+        "area": "Area B",
+        "zone_id": "2F_Area_B",
+        "month": "2026-01",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 68.43,
+        "total_fan_run_hours": 684.33,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 297.42
+      },
+      {
+        "floor": "Second Floor",
+        "area": "Area B",
+        "zone_id": "2F_Area_B",
+        "month": "2026-02",
+        "n_heat_pumps": 10,
+        "avg_fan_run_hours": 29.82,
+        "total_fan_run_hours": 298.17,
+        "min_fan_run_hours": 0.0,
+        "max_fan_run_hours": 109.0
+      }
+    ],
+    "jan_building_avg_fan_run_hours": 44.574999999999996,
+    "note": "Fan run hours from clean BAS HP status analytics. Use as qualitative runtime check when cutting equip_w_area_mult after a peak\u2248285 / GL14-fail trial."
+  },
+  "plots": [
+    "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\plots\\analytics\\eplus_gl14_vs_peak285\\peak_day_enduse_stack_E20_peakplant_eq075_li110_cop120.png",
+    "C:\\Users\\ben\\OneDrive\\Desktop\\testing\\sp_creekside\\plots\\analytics\\eplus_gl14_vs_peak285\\winter_wd_avg_enduse_E20_peakplant_eq075_li110_cop120.png"
+  ]
+}
