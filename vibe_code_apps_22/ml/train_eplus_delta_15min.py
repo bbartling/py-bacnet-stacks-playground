@@ -22,6 +22,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import GroupKFold, ParameterSampler
 from sklearn.multioutput import MultiOutputRegressor
 
+from multioutput_families import (  # noqa: E402
+    lean_family_protos,
+    pick_recursive_champion,
+    spike_stats_from_per_day,
+    wrap_family,
+)
+
 _ML = Path(__file__).resolve().parent
 _APP = _ML.parent
 if str(_ML) not in sys.path:
@@ -242,7 +249,8 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
 
     cv = {f: mean_scores(summary[f]) for f in families}
     cv_rec = {f: _delta_recursive_summary(list(rec_per_day[f].values())) for f in families}
-    champ = min(families, key=lambda f: cv[f]["mae_delta_kw_peak"])
+    # Recursive peak MAE selects champion (never teacher-forced).
+    champ = pick_recursive_champion(families, cv_rec, peak_key="mae_delta_kw_peak")
     n_heldout = int(cv_rec[champ].get("n_heldout_days", 0))
     proto = {
         "gradient_boosting": GradientBoostingRegressor(random_state=21),
@@ -253,9 +261,11 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
         proto.__class__(**{**proto.get_params(), **params_last[champ]}), n_jobs=-1
     )
     model.fit(X, Y)
+    spike = spike_stats_from_per_day(rec_per_day.get(champ) or {})
     out: dict[str, Any] = {
         "model": model,
         "champion": champ,
+        "champion_selected_by": "recursive_mae_delta_kw_peak",
         "best_params": params_last[champ],
         "cv_teacher_forced": cv,
         "cv_recursive_96_heldout": cv_rec,
@@ -264,6 +274,9 @@ def train_delta(df: pd.DataFrame, *, outer_splits: int = 3, n_iter: int = 4) -> 
         "n_rows": len(feat),
         "n_days": int(feat["day"].nunique()) if "day" in feat.columns else int(feat["pair_id"].nunique()),
         "n_heldout_days": n_heldout,
+        "recursive_peak_mae": (cv_rec.get(champ) or {}).get("mae_delta_kw_peak"),
+        "max_abs_delta_kw_heldout": spike.get("max_abs_delta_kw_heldout"),
+        "frac_days_spike_over_cap": spike.get("frac_days_spike_over_cap"),
     }
     if n_heldout < COVERAGE_MIN_HELDOUT_DAYS:
         out["coverage_warning"] = (
@@ -279,29 +292,17 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     X, Y, groups, cols, tcols, feat = matrix_xy_15min_multi(df)
     X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
     peak = morning_peak_mask_15min(feat)
-    families = {
-        "random_forest": RandomForestRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
-        ),
-        "extra_trees": ExtraTreesRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
-        ),
-        "gradient_boosting": GradientBoostingRegressor(
-            n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
-        ),
-    }
+    families = lean_family_protos(n_jobs=1)
+    fam_names = list(families)
     uniq = np.unique(groups)
     gkf = GroupKFold(n_splits=min(n_splits, max(2, len(uniq))))
-    summary: dict[str, list] = {k: [] for k in families}
-    rec_per_day: dict[str, dict] = {k: {} for k in families}
+    summary: dict[str, list] = {k: [] for k in fam_names}
+    rec_per_day: dict[str, dict] = {k: {} for k in fam_names}
     for fold, (tr, te) in enumerate(gkf.split(X, Y, groups)):
         print(f"lean delta fold {fold + 1}/{gkf.get_n_splits()}", flush=True)
         te_days = list(pd.unique(feat.iloc[te]["day"]))
-        for name, proto in families.items():
-            params = dict(proto.get_params())
-            if "n_jobs" in params:
-                params["n_jobs"] = 1
-            m = MultiOutputRegressor(proto.__class__(**params), n_jobs=1)
+        for name in fam_names:
+            m = wrap_family(name, families[name], n_jobs=1)
             m.fit(X[tr], Y[tr])
             pred = m.predict(X[te])
             summary[name].append(
@@ -323,17 +324,18 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
     def mean_scores(xs):
         return {k: float(np.mean([s[k] for s in xs])) for k in xs[0]}
 
-    cv = {f: mean_scores(summary[f]) for f in families}
-    cv_rec = {f: _delta_recursive_summary(list(rec_per_day[f].values())) for f in families}
-    champ = min(families, key=lambda n: cv[n]["mae_delta_kw_peak"])
+    cv = {f: mean_scores(summary[f]) for f in fam_names}
+    cv_rec = {f: _delta_recursive_summary(list(rec_per_day[f].values())) for f in fam_names}
+    champ = pick_recursive_champion(fam_names, cv_rec, peak_key="mae_delta_kw_peak")
     n_heldout = int(cv_rec[champ].get("n_heldout_days", 0))
-    proto = families[champ]
-    model = MultiOutputRegressor(proto.__class__(**proto.get_params()), n_jobs=1)
+    model = wrap_family(champ, families[champ], n_jobs=1)
     model.fit(X, Y)
+    spike = spike_stats_from_per_day(rec_per_day.get(champ) or {})
     out: dict[str, Any] = {
         "model": model,
         "champion": champ,
-        "best_params": proto.get_params(),
+        "champion_selected_by": "recursive_mae_delta_kw_peak",
+        "best_params": families[champ].get_params(),
         "cv_teacher_forced": cv,
         "cv_recursive_96_heldout": cv_rec,
         "feature_cols": cols,
@@ -341,6 +343,10 @@ def lean_train_delta(df: pd.DataFrame, *, n_splits: int = 3) -> dict[str, Any]:
         "n_rows": len(feat),
         "n_days": int(feat["day"].nunique()) if "day" in feat.columns else int(feat["pair_id"].nunique()),
         "n_heldout_days": n_heldout,
+        "recursive_peak_mae": (cv_rec.get(champ) or {}).get("mae_delta_kw_peak"),
+        "max_abs_delta_kw_heldout": spike.get("max_abs_delta_kw_heldout"),
+        "frac_days_spike_over_cap": spike.get("frac_days_spike_over_cap"),
+        "families_baked": fam_names,
     }
     if n_heldout < COVERAGE_MIN_HELDOUT_DAYS:
         out["coverage_warning"] = (
@@ -419,6 +425,9 @@ def export_delta_artifacts(
         "honesty": HONESTY,
         "provenance": "ENERGYPLUS_NATIVE_DELTA",
         "champion": result["champion"],
+        "champion_selected_by": result.get(
+            "champion_selected_by", "recursive_mae_delta_kw_peak"
+        ),
         "best_params": result["best_params"],
         "cv_teacher_forced": result["cv_teacher_forced"],
         "cv_recursive_96_heldout": result.get("cv_recursive_96_heldout", {}),
@@ -431,6 +440,10 @@ def export_delta_artifacts(
         "control_contract_version": "control_strategies_v1",
         "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
         "recursive_note": "held-out recursive on delta targets (lags are DSM−baseline deltas)",
+        "recursive_peak_mae": result.get("recursive_peak_mae"),
+        "max_abs_delta_kw_heldout": result.get("max_abs_delta_kw_heldout"),
+        "frac_days_spike_over_cap": result.get("frac_days_spike_over_cap"),
+        "families_baked": result.get("families_baked"),
         "limitation": DELTA_LIMITATION,
         "hashes": {
             "onnx_sha256": sha256_file(out_dir / f"{STEM}.onnx")

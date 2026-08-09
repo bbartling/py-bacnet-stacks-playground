@@ -27,6 +27,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import GroupKFold, ParameterSampler
 from sklearn.multioutput import MultiOutputRegressor
 
+from multioutput_families import (  # noqa: E402
+    lean_family_protos,
+    pick_recursive_champion,
+    spike_stats_from_per_day,
+    wrap_family,
+)
+
 _ML = Path(__file__).resolve().parent
 _APP = _ML.parent
 if str(_ML) not in sys.path:
@@ -306,7 +313,7 @@ def _manifest_eval_families(
         for f in family_names
         if summary_rec[f].get("facility_kw_mae_peak_05_09") is not None
     ] or list(family_names)
-    champ = min(pool, key=lambda f: summary_rec[f].get("facility_kw_mae_peak_05_09", 1e9))
+    champ = pick_recursive_champion(pool, summary_rec)
     print("lean bake-off leaderboard (recursive peak MAE):", flush=True)
     for f in family_names:
         peak = summary_rec[f].get("facility_kw_mae_peak_05_09")
@@ -641,17 +648,8 @@ def export_onnx_multi(model: MultiOutputRegressor, n_features: int, path: Path) 
 def _lean_families() -> dict[str, Any]:
     # n_jobs=1 on forest models: avoid Windows joblib oversubscription that
     # freezes the notebook kernel (parent looks idle while workers thrash).
-    return {
-        "random_forest": RandomForestRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
-        ),
-        "extra_trees": ExtraTreesRegressor(
-            n_estimators=120, max_depth=16, min_samples_leaf=2, random_state=21, n_jobs=1
-        ),
-        "gradient_boosting": GradientBoostingRegressor(
-            n_estimators=80, max_depth=3, learning_rate=0.1, random_state=21
-        ),
-    }
+    # Includes MultiOutput / Chain / native-multi families for bake-off.
+    return lean_family_protos(n_jobs=1)
 
 
 def lean_bake_off(
@@ -679,11 +677,7 @@ def lean_bake_off(
     fam_names = list(families)
 
     def fit_fn(name: str, tr_mask: np.ndarray) -> Any:
-        proto = families[name]
-        params = dict(proto.get_params())
-        if "n_jobs" in params:
-            params["n_jobs"] = 1
-        m = MultiOutputRegressor(proto.__class__(**params), n_jobs=1)
+        m = wrap_family(name, families[name], n_jobs=1)
         m.fit(X[tr_mask], Y[tr_mask])
         return m
 
@@ -731,7 +725,7 @@ def lean_bake_off(
         pool = [
             f for f in fam_names if summary_rec[f].get("facility_kw_mae_peak_05_09") is not None
         ] or fam_names
-        champ = min(pool, key=lambda n: summary_rec[n].get("facility_kw_mae_peak_05_09", 1e9))
+        champ = pick_recursive_champion(pool, summary_rec)
         model = fit_fn(champ, np.ones(len(feat), dtype=bool))
         tuned = {champ: model}
         all_days = list(pd.unique(feat["day"]))
@@ -742,6 +736,7 @@ def lean_bake_off(
     if out_dir is not None:
         _write_eval_per_day(Path(out_dir), champ, per_day_rec, final_test_rec)
 
+    spike = spike_stats_from_per_day(per_day_rec.get(champ) or {})
     return {
         "model": model,
         "champion": champ,
@@ -763,6 +758,9 @@ def lean_bake_off(
         "Y": Y,
         "groups": groups,
         "peak": peak,
+        "recursive_peak_mae": (summary_rec.get(champ) or {}).get("facility_kw_mae_peak_05_09"),
+        "max_abs_delta_kw_heldout": spike.get("max_abs_delta_kw_heldout"),
+        "frac_days_spike_over_cap": spike.get("frac_days_spike_over_cap"),
     }
 
 
@@ -845,6 +843,10 @@ def export_real_baseline_artifacts(result: dict[str, Any], out_dir: Path) -> dic
         "control_contract_version": CONTROL_CONTRACT_VERSION,
         "hashes": hashes,
         "trained_via": "cli" if os.environ.get("VIBE22_ALLOW_CLI_TRAIN") == "1" else "notebook",
+        "recursive_peak_mae": result.get("recursive_peak_mae"),
+        "max_abs_delta_kw_heldout": result.get("max_abs_delta_kw_heldout"),
+        "frac_days_spike_over_cap": result.get("frac_days_spike_over_cap"),
+        "families_baked": list((result.get("best_params_by_family") or {}).keys()),
     }
     if split_manifest_path is not None:
         card["split_manifest_path"] = str(split_manifest_path)

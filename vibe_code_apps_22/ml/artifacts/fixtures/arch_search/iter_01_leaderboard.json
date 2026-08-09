@@ -1,0 +1,184 @@
+{
+  "iter": 1,
+  "n": 10,
+  "n_pass": 10,
+  "plant_peak_cap_kw": 450.0,
+  "rows": [
+    {
+      "name": "sklearn_et_native",
+      "family": "extra_trees_native_multi",
+      "pass": true,
+      "score": 1.542281542547413,
+      "peak_kw": 117.54872394174608,
+      "mae": 1.542281542547413,
+      "backend": "sklearn",
+      "theme": "native multi ET",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "sklearn_chain_kw",
+      "family": "regressor_chain_kw_first",
+      "pass": true,
+      "score": 2.244247168755993,
+      "peak_kw": 117.17553949663267,
+      "mae": 2.244247168755993,
+      "backend": "sklearn",
+      "theme": "RegressorChain",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "sklearn_hgb_multi",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 12.928958256794342,
+      "peak_kw": 96.35374856579537,
+      "mae": 12.928958256794342,
+      "backend": "sklearn",
+      "theme": "HGB MultiOutput",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_tcn_forecast",
+      "family": "torch_phys_tcn",
+      "pass": true,
+      "score": 55.77214813232422,
+      "peak_kw": 162.80857488236512,
+      "loss": 55.77214813232422,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.77214813232422,
+        "recon_peak_kw": 162.80857488236512,
+        "pass": true,
+        "score": 55.77214813232422
+      },
+      "theme": "TCN over forecast",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_lstm_teacher_sched",
+      "family": "torch_phys_lstm",
+      "pass": true,
+      "score": 55.77938461303711,
+      "peak_kw": 162.61715651772107,
+      "loss": 55.77938461303711,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.77938461303711,
+        "recon_peak_kw": 162.61715651772107,
+        "pass": true,
+        "score": 55.77938461303711
+      },
+      "theme": "scheduled sampling",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_lstm_delta_only",
+      "family": "torch_phys_lstm",
+      "pass": true,
+      "score": 55.82242202758789,
+      "peak_kw": 162.57033037862863,
+      "loss": 55.82242202758789,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.82242202758789,
+        "recon_peak_kw": 162.57033037862863,
+        "pass": true,
+        "score": 55.82242202758789
+      },
+      "theme": "delta sequence",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_lstm_48h_direct",
+      "family": "torch_phys_lstm",
+      "pass": true,
+      "score": 55.86769485473633,
+      "peak_kw": 161.9972518952855,
+      "loss": 55.86769485473633,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.86769485473633,
+        "recon_peak_kw": 161.9972518952855,
+        "pass": true,
+        "score": 55.86769485473633
+      },
+      "theme": "48h forecast encode",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_gru_rc_state",
+      "family": "torch_phys_gru",
+      "pass": true,
+      "score": 55.90069580078125,
+      "peak_kw": 162.52487817130174,
+      "loss": 55.90069580078125,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.90069580078125,
+        "recon_peak_kw": 162.52487817130174,
+        "pass": true,
+        "score": 55.90069580078125
+      },
+      "theme": "RC-state GRU",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "phys_lstm_hdd_residual",
+      "family": "torch_phys_lstm",
+      "pass": true,
+      "score": 55.9742546081543,
+      "peak_kw": 162.11232569537248,
+      "loss": 55.9742546081543,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "residual",
+        "loss": 55.9742546081543,
+        "recon_peak_kw": 162.11232569537248,
+        "pass": true,
+        "score": 55.9742546081543
+      },
+      "theme": "HDD residual LSTM",
+      "parent": null,
+      "mutation": null
+    },
+    {
+      "name": "multi_horizon_48_96",
+      "family": "torch_multi_horizon",
+      "pass": true,
+      "score": 77.81494140625,
+      "peak_kw": 0.4900330603122711,
+      "loss": 77.81494140625,
+      "backend": "torch",
+      "detail": {
+        "ok": true,
+        "kind": "multi_horizon",
+        "loss": 77.81494140625,
+        "recon_peak_kw": 0.4900330603122711,
+        "pass": true,
+        "score": 77.81494140625
+      },
+      "theme": "H=48/96 heads",
+      "parent": null,
+      "mutation": null
+    }
+  ]
+}

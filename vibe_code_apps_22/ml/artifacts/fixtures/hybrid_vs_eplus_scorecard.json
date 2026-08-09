@@ -1,0 +1,194 @@
+{
+  "USE_EPLUS_ONLY": false,
+  "plant_peak_cap_kw": 450.0,
+  "corr_floor": 0.35,
+  "peak_mae_max": 200.0,
+  "n_pass": 1,
+  "n_eval": 12,
+  "snap_days": [
+    "2026-01-23",
+    "2026-01-25",
+    "2026-01-27"
+  ],
+  "rows": [
+    {
+      "day": "2026-01-23",
+      "weekday": "Friday",
+      "strategy": "flat_24_7",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=821.2 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 278.1552008545889,
+      "corr_vs_eplus": -0.47641080852321627,
+      "hybrid_peak_kw": 821.1624984741211,
+      "eplus_peak_kw": 758.7327294336717,
+      "pass": false
+    },
+    {
+      "day": "2026-01-23",
+      "weekday": "Friday",
+      "strategy": "deep_setback",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=676.3 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 344.945006076112,
+      "corr_vs_eplus": 0.43662486971496955,
+      "hybrid_peak_kw": 676.3448944091797,
+      "eplus_peak_kw": 902.0617292766728,
+      "pass": false
+    },
+    {
+      "day": "2026-01-23",
+      "weekday": "Friday",
+      "strategy": "stagger_preheat",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_below_floor",
+        "detail": "min hybrid_facility_kw=-112.0 < HYBRID_KW_FLOOR=0"
+      },
+      "peak_mae_vs_eplus_he0509": 330.3020485438519,
+      "corr_vs_eplus": 0.38228861122120905,
+      "hybrid_peak_kw": 393.2012939453125,
+      "eplus_peak_kw": 740.9554627177305,
+      "pass": false
+    },
+    {
+      "day": "2026-01-23",
+      "weekday": "Friday",
+      "strategy": "morning_all_on",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=718.2 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 369.1371863914477,
+      "corr_vs_eplus": 0.4863329380925674,
+      "hybrid_peak_kw": 718.1681060791016,
+      "eplus_peak_kw": 1083.003125068139,
+      "pass": false
+    },
+    {
+      "day": "2026-01-25",
+      "weekday": "Sunday",
+      "strategy": "flat_24_7",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=848.5 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 126.49140242635966,
+      "corr_vs_eplus": 0.12551993720272608,
+      "hybrid_peak_kw": 848.5308532714844,
+      "eplus_peak_kw": 260.27453997756135,
+      "pass": false
+    },
+    {
+      "day": "2026-01-25",
+      "weekday": "Sunday",
+      "strategy": "deep_setback",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=580.1 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 141.20814264897956,
+      "corr_vs_eplus": 0.5152759497641126,
+      "hybrid_peak_kw": 580.1374206542969,
+      "eplus_peak_kw": 773.8695194039303,
+      "pass": false
+    },
+    {
+      "day": "2026-01-25",
+      "weekday": "Sunday",
+      "strategy": "stagger_preheat",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_below_floor",
+        "detail": "min hybrid_facility_kw=-110.2 < HYBRID_KW_FLOOR=0"
+      },
+      "peak_mae_vs_eplus_he0509": 143.41445076314585,
+      "corr_vs_eplus": 0.40486669904483175,
+      "hybrid_peak_kw": 395.2056121826172,
+      "eplus_peak_kw": 494.46366165422097,
+      "pass": false
+    },
+    {
+      "day": "2026-01-25",
+      "weekday": "Sunday",
+      "strategy": "morning_all_on",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=684.4 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 156.16191391695602,
+      "corr_vs_eplus": 0.4796888494087583,
+      "hybrid_peak_kw": 684.3506469726562,
+      "eplus_peak_kw": 952.7490922456425,
+      "pass": false
+    },
+    {
+      "day": "2026-01-27",
+      "weekday": "Tuesday",
+      "strategy": "flat_24_7",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=664.8 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 167.52240831652847,
+      "corr_vs_eplus": -0.5195808190979626,
+      "hybrid_peak_kw": 664.7980270385742,
+      "eplus_peak_kw": 522.0097178079632,
+      "pass": false
+    },
+    {
+      "day": "2026-01-27",
+      "weekday": "Tuesday",
+      "strategy": "deep_setback",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=460.9 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 197.27153959970155,
+      "corr_vs_eplus": 0.601074913728793,
+      "hybrid_peak_kw": 460.9280090332031,
+      "eplus_peak_kw": 584.4344531443438,
+      "pass": false
+    },
+    {
+      "day": "2026-01-27",
+      "weekday": "Tuesday",
+      "strategy": "stagger_preheat",
+      "sane": true,
+      "reject": null,
+      "peak_mae_vs_eplus_he0509": 190.5968762120444,
+      "corr_vs_eplus": 0.6135572060169229,
+      "hybrid_peak_kw": 329.7814483642578,
+      "eplus_peak_kw": 529.7663268084265,
+      "pass": true
+    },
+    {
+      "day": "2026-01-27",
+      "weekday": "Tuesday",
+      "strategy": "morning_all_on",
+      "sane": false,
+      "reject": {
+        "code": "hybrid_above_plant_cap",
+        "detail": "max hybrid_facility_kw=550.4 > PLANT_PEAK_CAP_KW=450"
+      },
+      "peak_mae_vs_eplus_he0509": 221.91776446049187,
+      "corr_vs_eplus": 0.6062053459425746,
+      "hybrid_peak_kw": 550.3710327148438,
+      "eplus_peak_kw": 747.065518023074,
+      "pass": false
+    }
+  ],
+  "honesty": "HYBRID_SCREENING",
+  "note": "IdealLoads+COP farm is strategy shape reference, not W2A plant twin. USE_EPLUS_ONLY=true means no ML strategy-day cleared sanity+fidelity gates."
+}

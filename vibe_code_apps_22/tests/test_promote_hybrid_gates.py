@@ -197,7 +197,23 @@ def test_promote_refuses_low_pair_count_without_smoke(tmp_path, monkeypatch):
 
 def _fake_rollout(summary: dict):
     def _inner(models, contract):
-        return {"contract_version": "hybrid_dsm_96_v1", "steps": [], "summary": dict(summary)}
+        from hybrid_sanity import annotate_walk_sanity
+
+        steps = [
+            {
+                "step_15": i,
+                "hybrid_facility_kw": 100.0,
+                "delta_facility_kw": -1.0,
+                "baseline_facility_kw": 101.0,
+            }
+            for i in range(96)
+        ]
+        walk = {
+            "contract_version": "hybrid_dsm_96_v1",
+            "steps": steps,
+            "summary": dict(summary),
+        }
+        return annotate_walk_sanity(walk)
 
     return _inner
 
@@ -263,6 +279,34 @@ def test_promote_flags_rejected_dsm_outcome(tmp_path, monkeypatch):
     assert ship["ship_mode"] == "hybrid_96"
     assert ship["outcome_flag"] == REJECTED_DSM_OUTCOME
     assert out["result"]["outcome_flag"] == REJECTED_DSM_OUTCOME
+
+
+def test_promote_refuses_card_peak_mag_spike(tmp_path, monkeypatch):
+    art = tmp_path / "art"
+    desk = tmp_path / "desk"
+    bad_delta = {
+        "random_forest": {
+            "mae_delta_kw": 0.4,
+            "mae_delta_kw_peak": 0.6,
+            "daily_peak_mag_error_kw": 900.0,
+            "n_heldout_days": 3,
+        }
+    }
+    _write_minimal_cards(
+        art,
+        heldout=_GOOD_BASE_HELDOUT,
+        delta_heldout=bad_delta,
+        n_days=20,
+    )
+    monkeypatch.delenv(SMOKE_ENV, raising=False)
+    _patch_env(monkeypatch, tmp_path)
+    with patch("promote_hybrid_ship.load_joblib_model") as load, patch(
+        "promote_hybrid_ship._multires_gate",
+        return_value={"ok": True, "operational": True, "reason": None, "path": None},
+    ):
+        load.return_value = (MagicMock(), ["a"], ["facility_kw"])
+        with pytest.raises(ValueError, match="spike risk"):
+            promote_hybrid(artifacts=art, desktop_artifacts=desk)
 
 
 def test_promote_flags_rejected_on_high_kwh(tmp_path, monkeypatch):

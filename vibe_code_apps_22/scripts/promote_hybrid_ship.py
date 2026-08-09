@@ -15,6 +15,7 @@ Promote gates (Audit P0 + Wave 4):
   OR acceptance-policy ``hourly_gate_waiver.active`` must be true. Smoke promote
   never counts as operational even with waiver.
 - ``delta_peak_kw > 0`` or ``delta_kwh > 500`` → outcome_flag REJECTED_DSM_OUTCOME.
+- Walk / card plant-cap spike gates (``hybrid_sanity``) refuse promote on impossible kW.
 - IdealLoads + fixed-COP disclaimer is always emitted.
 - Transactional desktop switch: write candidate bundle → verify → atomic replace
   with rollback on failure.
@@ -43,6 +44,12 @@ from hybrid_rollout import (  # noqa: E402
     load_joblib_model,
     make_fixture_contract,
     rollout_96,
+)
+from hybrid_sanity import (  # noqa: E402
+    PLANT_PEAK_CAP_KW,
+    REJECTED_SPIKE_OUTCOME,
+    annotate_walk_sanity,
+    card_reports_spike_risk,
 )
 
 MIN_PAIRS = 12
@@ -474,7 +481,29 @@ def promote_hybrid(
                 contract["weather_forecast_96"]["ghi"] = ghi.fillna(0.0).tolist()[:96]
             contract["init_day"] = d0
 
+    for label, card in (("baseline", base_card), ("delta", delta_card)):
+        spike = card_reports_spike_risk(card)
+        if spike is not None:
+            raise ValueError(
+                f"refuse promote: {label} card spike risk ({spike.code}): {spike.detail}"
+            )
+
     result = rollout_96(models, contract)
+    if "sane" not in (result.get("summary") or {}):
+        annotate_walk_sanity(result)
+    summary0 = result.get("summary") or {}
+    if summary0.get("sane") is False:
+        reasons = summary0.get("reject_reasons") or []
+        raise ValueError(
+            f"refuse promote: hybrid walk failed plant sanity "
+            f"(cap={PLANT_PEAK_CAP_KW:g} kW): {reasons}"
+        )
+    peak_h = float(summary0.get("max_kw_hybrid") or summary0.get("peak_kw_hybrid") or 0.0)
+    if peak_h > PLANT_PEAK_CAP_KW:
+        raise ValueError(
+            f"refuse promote: hybrid peak {peak_h:.1f} kW > PLANT_PEAK_CAP_KW={PLANT_PEAK_CAP_KW:g}"
+        )
+
     result["champion_baseline"] = base_card.get("champion")
     result["champion_delta"] = delta_card.get("champion")
     result["baseline_cv"] = base_card.get("cv_teacher_forced")
@@ -519,6 +548,8 @@ def promote_hybrid(
     delta_kwh = float(summary.get("delta_kwh") or 0.0)
     if delta_peak > 0 or delta_kwh > DELTA_KWH_REJECT_THRESHOLD:
         result["outcome_flag"] = REJECTED_DSM_OUTCOME
+    if summary.get("outcome_flag") == REJECTED_SPIKE_OUTCOME:
+        result["outcome_flag"] = REJECTED_SPIKE_OUTCOME
 
     walk_path = art / "hybrid_dsm_96_v1_walk.json"
     fix_dir = art / "fixtures"

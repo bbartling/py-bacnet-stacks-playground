@@ -17,6 +17,7 @@ from feature_compile_heating_dsm import (
     TARGET_COLS,
     ZONE_TEMP_COLS,
 )
+from hybrid_sanity import annotate_walk_sanity
 
 STEPS = 96
 CONTRACT_VERSION = "hybrid_dsm_96_v1"
@@ -328,7 +329,7 @@ def rollout_96(
         for i, c in enumerate(ZONE_TEMP_COLS):
             state_d[f"{c}_lag1"] = float(delta_y[1 + i])
 
-    return {
+    walk = {
         "contract_version": CONTRACT_VERSION,
         "honesty": HONESTY,
         "steps": steps_out,
@@ -344,6 +345,7 @@ def rollout_96(
             "delta_kwh": cum_kwh_d - cum_kwh_b,
         },
     }
+    return annotate_walk_sanity(walk)
 
 
 def make_fixture_contract(*, seed: int = 21, dsm_strategy: str = "stagger_preheat") -> dict[str, Any]:
