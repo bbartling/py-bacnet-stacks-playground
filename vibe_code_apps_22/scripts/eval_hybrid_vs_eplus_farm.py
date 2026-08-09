@@ -33,6 +33,12 @@ CORR_FLOOR = 0.35
 PEAK_MAE_MAX = 200.0
 
 
+def decide_use_eplus_only(n_pass: int, n_eval: int) -> tuple[bool, int]:
+    """Return (USE_EPLUS_ONLY, min_pass_for_ml). Majority of eval rows must pass for ML."""
+    min_pass = max(1, (int(n_eval) + 1) // 2) if n_eval else 1
+    return int(n_pass) < min_pass, min_pass
+
+
 def _site() -> Path:
     for key in ("LAKESIDE_SITE_ROOT", "VIBE22_SITE_ROOT"):
         v = os.environ.get(key, "").strip()
@@ -194,7 +200,7 @@ def main() -> int:
                 }
             )
 
-    use_eplus_only = n_pass == 0
+    use_eplus_only, min_pass = decide_use_eplus_only(n_pass, len(rows))
     scorecard = {
         "USE_EPLUS_ONLY": use_eplus_only,
         "plant_peak_cap_kw": PLANT_PEAK_CAP_KW,
@@ -202,12 +208,13 @@ def main() -> int:
         "peak_mae_max": PEAK_MAE_MAX,
         "n_pass": n_pass,
         "n_eval": len(rows),
+        "min_pass_for_ml": min_pass,
         "snap_days": snap,
         "rows": rows,
         "honesty": "HYBRID_SCREENING",
         "note": (
             "IdealLoads+COP farm is strategy shape reference, not W2A plant twin. "
-            "USE_EPLUS_ONLY=true means no ML strategy-day cleared sanity+fidelity gates."
+            "USE_EPLUS_ONLY=true unless a majority of strategy-days clear sanity+fidelity gates."
         ),
     }
     out.parent.mkdir(parents=True, exist_ok=True)

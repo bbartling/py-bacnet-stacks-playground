@@ -17,6 +17,16 @@ def test_iter01_has_ten():
     assert any("phys_lstm" in c["name"] for c in ITER_01)
 
 
+def test_fixtures_cover_iters_01_through_10():
+    root = _APP / "ml" / "artifacts" / "fixtures" / "arch_search"
+    for i in range(1, 11):
+        p = root / f"iter_{i:02d}_leaderboard.json"
+        assert p.is_file(), p
+        doc = json.loads(p.read_text(encoding="utf-8"))
+        assert doc.get("iter") == i or doc.get("n") == 10
+        assert len(doc.get("rows") or []) == 10
+
+
 def test_mutate_produces_ten():
     fake = [{"name": c["name"], "pass": True, "score": float(i)} for i, c in enumerate(ITER_01)]
     nxt = mutate_for_next_iter(fake, iter_n=2)
