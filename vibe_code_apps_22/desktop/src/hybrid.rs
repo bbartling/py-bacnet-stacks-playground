@@ -35,18 +35,6 @@ pub struct HybridStep {
     pub baseline_facility_kw: f64,
     pub hybrid_facility_kw: f64,
     #[serde(default)]
-    pub delta_facility_kw: f64,
-    #[serde(default)]
-    pub cumulative_kwh_baseline: f64,
-    #[serde(default)]
-    pub cumulative_kwh_hybrid: f64,
-    #[serde(default)]
-    pub comfort_violations_cum: i64,
-    #[serde(default)]
-    pub baseline_zone_temps_f: BTreeMap<String, f64>,
-    #[serde(default)]
-    pub delta_zone_temps_f: BTreeMap<String, f64>,
-    #[serde(default)]
     pub hybrid_zone_temps_f: BTreeMap<String, f64>,
 }
 
@@ -172,8 +160,12 @@ pub fn show_hybrid_panel(ui: &mut egui::Ui, walk: &HybridWalk, path: &Path) {
     ui.separator();
     let s = &walk.summary;
     ui.label(format!(
-        "Peak kW  baseline {:.1} → hybrid {:.1}   Δ {:.1}",
-        s.peak_kw_baseline, s.peak_kw_hybrid, s.delta_peak_kw
+        "Peak kW  baseline {:.1} → hybrid {:.1}   Δ {:.1}   (steps {} → {})",
+        s.peak_kw_baseline,
+        s.peak_kw_hybrid,
+        s.delta_peak_kw,
+        s.peak_step_baseline,
+        s.peak_step_hybrid
     ));
     ui.label(format!(
         "Energy kWh  baseline {:.1} → hybrid {:.1}   Δ {:.1}",

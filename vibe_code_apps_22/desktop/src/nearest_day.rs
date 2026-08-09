@@ -27,8 +27,6 @@ pub struct NearestDayLibrary {
     #[serde(default)]
     pub scale_stds: std::collections::BTreeMap<String, f64>,
     #[serde(default)]
-    pub oat_mean_traj: Vec<f64>,
-    #[serde(default)]
     pub days: Vec<LibDay>,
     #[serde(default)]
     pub eplus_delta_records: Vec<EplusDeltaRec>,
@@ -102,6 +100,20 @@ pub struct NeighborHit {
     pub weekend_match: bool,
 }
 
+impl NeighborHit {
+    pub fn distance_summary(&self) -> String {
+        format!(
+            "{} d={:.3} (oat={:.2} kw={:.2} zone={:.2} weekend_ok={})",
+            self.day,
+            self.total_distance,
+            self.oat_distance,
+            self.midnight_kw_distance,
+            self.midnight_zone_distance,
+            self.weekend_match
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NearestDayResult {
     pub walk: HybridWalk,
@@ -165,10 +177,17 @@ impl NearestDayEngine {
         let txt = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
         let library: NearestDayLibrary =
             serde_json::from_str(&txt).context("parse nearest_day library")?;
+        if library.schema.is_empty() {
+            bail!("nearest-day library missing schema ({})", path.display());
+        }
         Ok(Self {
             library,
             path: path.to_path_buf(),
         })
+    }
+
+    pub fn library_path(&self) -> &Path {
+        &self.path
     }
 
     fn z(&self, key: &str, value: f64) -> f64 {
@@ -318,6 +337,7 @@ impl NearestDayEngine {
 
         // E+ delta match
         let mut delta = vec![vec![0.0_f64; 7]; STEPS_96];
+        let mut matched_pair_id: Option<String> = None;
         let pool: Vec<_> = self
             .library
             .eplus_delta_records
@@ -351,6 +371,7 @@ impl NearestDayEngine {
                 }
             }
             if let Some(r) = best {
+                matched_pair_id = Some(r.pair_id.clone());
                 for t in 0..STEPS_96.min(r.delta_96x7.len()) {
                     for c in 0..7.min(r.delta_96x7[t].len()) {
                         delta[t][c] = r.delta_96x7[t][c];
@@ -373,6 +394,9 @@ impl NearestDayEngine {
         let kwh_b = base_kw.iter().sum::<f64>() * 0.25;
         let kwh_h = hyb_kw.iter().sum::<f64>() * 0.25;
         let mut flags = Vec::new();
+        if let Some(pid) = matched_pair_id {
+            flags.push(format!("eplus_delta_pair={pid}"));
+        }
         let mut recommend = !ood;
         if peak_h - peak_b > 0.0 {
             flags.push("DSM_WORSENS_PEAK".into());
@@ -392,28 +416,18 @@ impl NearestDayEngine {
         let band = 2.0_f64;
         let mut comfort_cum = 0_i64;
         for t in 0..STEPS_96 {
-            let mut bz = std::collections::BTreeMap::new();
             let mut hz = std::collections::BTreeMap::new();
-            let mut dz = std::collections::BTreeMap::new();
             for (zi, name) in ZONE_TEMP_COLS.iter().enumerate() {
                 let zt = hybrid[t][zi + 1];
                 if zt < htg_sp - band {
                     comfort_cum += 1;
                 }
-                bz.insert((*name).to_string(), baseline[t][zi + 1]);
                 hz.insert((*name).to_string(), zt);
-                dz.insert((*name).to_string(), delta[t][zi + 1]);
             }
             steps.push(HybridStep {
                 step_15: t as i64,
                 baseline_facility_kw: baseline[t][0],
                 hybrid_facility_kw: hybrid[t][0],
-                delta_facility_kw: delta[t][0],
-                cumulative_kwh_baseline: base_kw[..=t].iter().sum::<f64>() * 0.25,
-                cumulative_kwh_hybrid: hyb_kw[..=t].iter().sum::<f64>() * 0.25,
-                comfort_violations_cum: comfort_cum,
-                baseline_zone_temps_f: bz,
-                delta_zone_temps_f: dz,
                 hybrid_zone_temps_f: hz,
             });
         }

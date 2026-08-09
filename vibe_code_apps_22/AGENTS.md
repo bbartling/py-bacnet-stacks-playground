@@ -52,9 +52,10 @@ vibe_code_apps_22/
   vibe22_agent_spec/
 ```
 
-Pinned twins: [`models/eplus/`](models/eplus/) (`lakeside_6zone_gshp_best.idf`,
-utility champion, scorecards). Campaign / farm scripts use **site**
-`eplus/models/` when present, else these repo pins via `resolve_eplus_model()`.
+Pinned twins: [`models/eplus/`](models/eplus/) (IdealLoads util/interval,
+W2A **A04** dual `lakeside_w2a_a04_dual_champion.idf` + scorecards). Campaign /
+farm scripts use **site** `eplus/` when present, else these repo pins via
+`resolve_eplus_model()`.
 
 ---
 

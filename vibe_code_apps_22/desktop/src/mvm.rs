@@ -24,8 +24,6 @@ pub struct MvmSummary {
     pub epw_sha256: Option<String>,
     pub heat_cop: Option<f64>,
     pub cool_cop: Option<f64>,
-    pub time_span_utc: Option<Vec<Option<String>>>,
-    pub alignment_policy: Option<serde_json::Value>,
     pub monthly_utility_gl14: Option<serde_json::Value>,
     pub missingness_note: Option<String>,
 }
@@ -51,16 +49,10 @@ pub struct ResolutionBlock {
     pub nmbe_pct: Option<f64>,
     #[serde(default, deserialize_with = "deserialize_opt_f64")]
     pub cvrmse_pct: Option<f64>,
-    #[serde(default, deserialize_with = "deserialize_opt_f64")]
-    pub mean_obs: Option<f64>,
     #[serde(default)]
     pub labeled_as_gl14: bool,
     #[serde(default)]
     pub partial_year_monthly: bool,
-    pub gates: Option<serde_json::Value>,
-    pub formula: Option<String>,
-    #[serde(default, deserialize_with = "deserialize_opt_f64")]
-    pub distance_to_gate: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -80,10 +72,6 @@ pub struct Resolutions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct MultiresOverall {
     pub monthly_pass: bool,
-    #[serde(default)]
-    pub monthly_utility_pass: Option<bool>,
-    #[serde(default)]
-    pub monthly_interval_pass: Option<bool>,
     pub hourly_pass: bool,
     pub recommendation_allowed: bool,
     pub blocker_reason: Option<String>,
@@ -110,8 +98,6 @@ pub struct MultiresValidation {
     #[serde(default)]
     pub resolutions: Resolutions,
     pub overall: MultiresOverall,
-    pub alignment: Option<serde_json::Value>,
-    pub extra: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -403,21 +389,72 @@ fn status_color(status: &str) -> egui::Color32 {
     }
 }
 
-fn badge_label(name: &str, block: Option<&ResolutionBlock>) -> (String, egui::Color32) {
-    match block {
-        Some(b) => (format!("{name}: {}", b.status), status_color(&b.status)),
-        None => (format!("{name}: —"), egui::Color32::from_rgb(140, 140, 150)),
+/// M&V / calibrated-sim plain language for a resolution status code.
+pub fn mv_verdict_phrase(status: &str) -> &'static str {
+    match status {
+        "pass" => "within screen",
+        "fail" => "outside screen",
+        "insufficient_data" => "insufficient sample",
+        "diagnostic_only" => "informational only (not a savings gate)",
+        "waived" => "waived",
+        _ => "not assessed",
     }
 }
 
-/// Compact main-screen strip: utility vs interval monthly + hourly + DSM readiness.
+fn fmt_pct(v: Option<f64>) -> String {
+    match v {
+        Some(x) if x.is_finite() => format!("{x:.1}%"),
+        _ => "—".into(),
+    }
+}
+
+/// Typical M&V one-liner: NMBE · CV(RMSE) · n · verdict.
+pub fn mv_metric_line(name: &str, block: Option<&ResolutionBlock>) -> (String, egui::Color32) {
+    match block {
+        Some(b) => {
+            let line = format!(
+                "{name}: NMBE {nmbe} · CV(RMSE) {cv} · n={n} · {verdict}",
+                nmbe = fmt_pct(b.nmbe_pct),
+                cv = fmt_pct(b.cvrmse_pct),
+                n = b.n,
+                verdict = mv_verdict_phrase(&b.status),
+            );
+            (line, status_color(&b.status))
+        }
+        None => (
+            format!("{name}: not assessed"),
+            egui::Color32::from_rgb(140, 140, 150),
+        ),
+    }
+}
+
+/// Operator-facing readiness (avoid "DSM: BLOCKED" / "diagnostic_only" jargon).
+pub fn mv_savings_claim_line(doc: Option<&MultiresValidation>) -> (String, egui::Color32) {
+    let ready = doc
+        .and_then(|d| d.overall.operational_dsm_readiness.as_deref())
+        .unwrap_or("BLOCKED");
+    if ready.eq_ignore_ascii_case("READY") {
+        (
+            "Savings claim: eligible for screening language (gates clear)".into(),
+            egui::Color32::from_rgb(120, 190, 130),
+        )
+    } else {
+        (
+            "Savings claim: not verified — fail-closed (hourly / interval fit outside screen)"
+                .into(),
+            egui::Color32::from_rgb(230, 120, 90),
+        )
+    }
+}
+
+/// Compact main-screen strip: utility vs interval monthly + hourly + savings claim.
 pub fn show_multires_badge_strip(
     ui: &mut egui::Ui,
     bundle: &MultiresBundle,
     extras: &RecommendGateExtras,
 ) {
     ui.horizontal_wrapped(|ui| {
-        ui.strong("E+ validation");
+        ui.strong("M&V screens");
         ui.separator();
         match &bundle.doc {
             Some(doc) => {
@@ -427,30 +464,24 @@ pub fn show_multires_badge_strip(
                     .as_ref()
                     .or(doc.resolutions.monthly.as_ref());
                 let interv = doc.resolutions.monthly_interval.as_ref();
-                let (mu, cmu) = badge_label("utility monthly", util);
-                let (mi, cmi) = badge_label("interval monthly", interv);
-                let (h, ch) = badge_label("hourly", doc.resolutions.hourly.as_ref());
-                let (q, cq) = badge_label("15-min DSM", doc.resolutions.q15_dsm.as_ref());
+                let (mu, cmu) = mv_metric_line("Utility bills (mo)", util);
+                let (mi, cmi) = mv_metric_line("Interval→month", interv);
+                let (h, ch) = mv_metric_line("Hourly kW", doc.resolutions.hourly.as_ref());
+                let (q, cq) = mv_metric_line(
+                    "15-min shape",
+                    doc.resolutions.q15_dsm.as_ref(),
+                );
                 ui.colored_label(cmu, mu);
                 ui.colored_label(cmi, mi);
                 ui.colored_label(ch, h);
                 ui.colored_label(cq, q);
-                let ready = doc
-                    .overall
-                    .operational_dsm_readiness
-                    .as_deref()
-                    .unwrap_or("BLOCKED");
-                let rc = if ready.eq_ignore_ascii_case("READY") {
-                    egui::Color32::from_rgb(120, 190, 130)
-                } else {
-                    egui::Color32::from_rgb(230, 120, 90)
-                };
-                ui.colored_label(rc, format!("DSM: {ready}"));
+                let (claim, rc) = mv_savings_claim_line(Some(doc));
+                ui.colored_label(rc, claim);
             }
             None => {
                 ui.colored_label(
                     egui::Color32::from_rgb(210, 160, 80),
-                    "utility monthly: —  interval monthly: —  hourly: —  DSM: BLOCKED",
+                    "M&V report not loaded · Savings claim: not verified",
                 );
             }
         }
@@ -458,25 +489,102 @@ pub fn show_multires_badge_strip(
 
     let physics = display_physics_label(bundle.doc.as_ref().map(|d| d.physics_label.as_str()));
     ui.label(
-        egui::RichText::new(format!("Physics: {physics}"))
-            .italics()
-            .color(egui::Color32::from_rgb(200, 170, 120)),
+        egui::RichText::new(format!(
+            "Model class: {physics} (IdealLoads + fixed-COP ≠ ground-source heat-pump plant)"
+        ))
+        .italics()
+        .color(egui::Color32::from_rgb(200, 170, 120)),
     );
 
     let (allowed, blocker) = recommendation_language_gate(bundle.doc.as_ref(), extras);
     if allowed {
         ui.colored_label(
             egui::Color32::from_rgb(120, 190, 130),
-            "Recommendation: allowed (gates clear)",
+            "Operator recommendation language: allowed (gates clear)",
         );
     } else {
         ui.colored_label(
             egui::Color32::from_rgb(230, 120, 90),
             format!(
-                "Recommendation: blocked · {}",
-                blocker.as_deref().unwrap_or("gates_not_met")
+                "Operator recommendation language: withheld · {}",
+                blocker
+                    .as_deref()
+                    .unwrap_or("fit screens not met")
+                    .replace('_', " ")
             ),
         );
+    }
+}
+
+/// Large, centered M&V glance for the tutorial (no jargon badges).
+pub fn show_tutorial_mv_glance(ui: &mut egui::Ui, bundle: &MultiresBundle) {
+    let title_size = 22.0;
+    let body_size = 18.0;
+    match &bundle.doc {
+        Some(doc) => {
+            let util = doc
+                .resolutions
+                .monthly_utility
+                .as_ref()
+                .or(doc.resolutions.monthly.as_ref());
+            let hourly = doc.resolutions.hourly.as_ref();
+            let q15 = doc.resolutions.q15_dsm.as_ref();
+
+            ui.label(
+                egui::RichText::new("How close is the model to measured data?")
+                    .size(title_size)
+                    .strong(),
+            );
+            ui.add_space(10.0);
+
+            let (u_line, u_c) = mv_metric_line("Utility bills (monthly energy)", util);
+            ui.colored_label(u_c, egui::RichText::new(u_line).size(body_size));
+            ui.label(
+                egui::RichText::new(
+                    "Typical monthly screen ≈ |NMBE| ≤ 5% and CV(RMSE) ≤ 15% (partial year).",
+                )
+                .size(15.0)
+                .weak(),
+            );
+            ui.add_space(8.0);
+
+            let (h_line, h_c) = mv_metric_line("Hourly demand (facility kW)", hourly);
+            ui.colored_label(h_c, egui::RichText::new(h_line).size(body_size));
+            ui.label(
+                egui::RichText::new(
+                    "Typical calibrated-sim hourly screen ≈ CV(RMSE) ≤ ~30% — higher means shape/level miss.",
+                )
+                .size(15.0)
+                .weak(),
+            );
+            ui.add_space(8.0);
+
+            let (q_line, q_c) = mv_metric_line("15-minute demand shape", q15);
+            ui.colored_label(q_c, egui::RichText::new(q_line).size(body_size));
+            ui.label(
+                egui::RichText::new(
+                    "15-min is informational for peak timing — not used alone to claim savings.",
+                )
+                .size(15.0)
+                .weak(),
+            );
+            ui.add_space(12.0);
+
+            let (claim, cc) = mv_savings_claim_line(Some(doc));
+            ui.colored_label(cc, egui::RichText::new(claim).size(body_size).strong());
+        }
+        None => {
+            ui.label(
+                egui::RichText::new("No multi-resolution M&V report loaded yet.")
+                    .size(body_size),
+            );
+            ui.colored_label(
+                egui::Color32::from_rgb(230, 120, 90),
+                egui::RichText::new("Savings claim: not verified")
+                    .size(body_size)
+                    .strong(),
+            );
+        }
     }
 }
 

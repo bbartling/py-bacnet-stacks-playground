@@ -1,0 +1,48 @@
+{
+  "trial_id": "A04_r02_sum040_clg48_augSchool",
+  "campaign": "w2a_sc02_aug_in_session_20260809T134542Z",
+  "role": "W2A plant dual champion — Jan-26 peak ~287 kW + monthly utility GL14",
+  "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+  "sha256": "080AB87797C78DF0C8EFB257A52BBA97F550EE628EC4BD1333801B2E104B21EB",
+  "validated": "2026-08-09",
+  "knobs": {
+    "htg_coil_capacity_mult": 1.7,
+    "htg_coil_cop_mult": 1.071429,
+    "clg_coil_cop_mult": 1.371429,
+    "fan_delta_p_mult": 1.0,
+    "fan_eff_mult": 1.0,
+    "pump_power_mult": 1.0,
+    "loop_setpoint_c": null,
+    "oa_frac_scale": 1.0,
+    "optimum_start_h": 3.5,
+    "setback_heat_sp_c": 7.78,
+    "oa_shoulder_scale": 1.0,
+    "fan_avail_use_sch_hvac": false,
+    "people_density_mult": 1.0,
+    "equip_w_area_mult": 0.6,
+    "lights_w_area_mult": 0.95,
+    "summer_sch_scale": 0.4,
+    "summer_include_hvac": false
+  },
+  "meta": {
+    "note": "R02 + milder Jun-Jul 40% + clg 4.8; Aug school",
+    "htg_cop_effective": 4.5,
+    "clg_cop_effective": 4.8,
+    "summer_out": "Jun-Jul only (Through: 7/31); August in-session"
+  },
+  "jan26_peak_kw": 287.48570097106887,
+  "overnight_0_4_sim_kw": 144.47345936672963,
+  "nmbe_pct": 0.9840073365963864,
+  "cvrmse_pct": 10.447455889521603,
+  "gl14_pass": true,
+  "gl14_gates": {"nmbe_abs_lt": 5.0, "cvrmse_lt": 15.0},
+  "err_pct_2025-08": 1.6714747520271482,
+  "err_pct_2025-09": 2.9267602791579814,
+  "overnight_ok": true,
+  "peak_near_285": true,
+  "honesty": [
+    "W2A plant twin (expanded IDF + live knobs), not IdealLoads *_best_utility",
+    "Monthly utility GL14 ≠ interval/DSM GO",
+    "Do not overwrite lakeside_6zone_gshp_best_utility.idf with this pin"
+  ]
+}
