@@ -8,8 +8,9 @@ import numpy as np
 import pytest
 
 _APP = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_APP / "ml"))
+sys.path[:0] = [str(_APP / "ml"), str(_APP / "scripts")]
 
+from eval_hybrid_vs_eplus_farm import decide_use_eplus_only  # noqa: E402
 from hybrid_sanity import PLANT_PEAK_CAP_KW, assert_walk_sane  # noqa: E402
 
 
@@ -52,3 +53,14 @@ def test_sane_aligned_series_passes_corr_floor():
     ]
     assert assert_walk_sane({"steps": steps, "summary": {}}) is None
     assert _corr(hybrid, eplus) >= 0.85
+
+
+def test_use_eplus_only_requires_majority_pass():
+    use, min_pass = decide_use_eplus_only(n_pass=1, n_eval=12)
+    assert min_pass == 6
+    assert use is True
+    use2, min2 = decide_use_eplus_only(n_pass=6, n_eval=12)
+    assert min2 == 6
+    assert use2 is False
+    use3, _ = decide_use_eplus_only(n_pass=0, n_eval=12)
+    assert use3 is True

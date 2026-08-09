@@ -1,10 +1,11 @@
 {
-  "USE_EPLUS_ONLY": false,
+  "USE_EPLUS_ONLY": true,
   "plant_peak_cap_kw": 450.0,
   "corr_floor": 0.35,
   "peak_mae_max": 200.0,
   "n_pass": 1,
   "n_eval": 12,
+  "min_pass_for_ml": 6,
   "snap_days": [
     "2026-01-23",
     "2026-01-25",
@@ -190,5 +191,5 @@
     }
   ],
   "honesty": "HYBRID_SCREENING",
-  "note": "IdealLoads+COP farm is strategy shape reference, not W2A plant twin. USE_EPLUS_ONLY=true means no ML strategy-day cleared sanity+fidelity gates."
+  "note": "IdealLoads+COP farm is strategy shape reference, not W2A plant twin. USE_EPLUS_ONLY=true unless a majority of strategy-days clear sanity+fidelity gates."
 }
