@@ -6,8 +6,8 @@
 | --- | --- |
 | `train_four_arms.py` | Parallel sklearn/torch × winter/allyear → `ml/artifacts/runs/` |
 | `train_arm.py` | One arm worker (spawned by four-arm launcher) |
-| `ship_best_to_desktop.py` | Pick best sklearn arm (held-out peak MAE only) → promote → `cargo run --release` |
-| `promote_hybrid_ship.py` | Hybrid walk + copy into `desktop/artifacts/` (smoke &lt;12 pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`) |
+| `ship_best_to_desktop.py` | Pick best sklearn arm (held-out peak MAE only) → promote → `cargo run --release`; `--allow-smoke-promote` for &lt;12 pairs |
+| `promote_hybrid_ship.py` | Hybrid walk + copy into `desktop/artifacts/` (smoke &lt;12 pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` or ship `--allow-smoke-promote`) |
 | `validate_eplus_multires.py` | Monthly / hourly / 15-min DSM multi-res validation JSON |
 | `_gen_results_viewer_notebooks.py` | Regen sklearn/torch **viewer** notebooks |
 | `_gen_load_profile_analysis_nb.py` | Regen load-profile analysis notebook |

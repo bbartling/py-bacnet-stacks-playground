@@ -22,9 +22,9 @@ IdealLoads + fixed-COP ≠ ground-source heat-pump plant.
 Promote artifacts:
 
 ```powershell
-python -u ..\scripts\promote_hybrid_ship.py
+python -u ..\scripts\ship_best_to_desktop.py --no-launch --allow-smoke-promote
 cd vibe_code_apps_22\desktop
-cargo test hybrid_walk_loads --release
+cargo test --release
 cargo run --release
 ```
 
