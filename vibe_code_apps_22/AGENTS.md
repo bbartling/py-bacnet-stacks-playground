@@ -6,17 +6,21 @@ Rust ONNX desktop). **Unity digital twin stays in vibe21** (Liberty) — not thi
 
 **Read first:** [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md),
 [`vibe22_agent_spec/UTILITY_GL14.md`](vibe22_agent_spec/UTILITY_GL14.md),
+[`vibe22_agent_spec/W2A_PLANT_DIAL.md`](vibe22_agent_spec/W2A_PLANT_DIAL.md),
 [`skills/lakeside-heating-dsm/SKILL.md`](skills/lakeside-heating-dsm/SKILL.md),
 [`skills/lakeside-eplus-gl14/SKILL.md`](skills/lakeside-eplus-gl14/SKILL.md),
 [`skills/lakeside-utility-gl14/SKILL.md`](skills/lakeside-utility-gl14/SKILL.md),
+[`skills/lakeside-w2a-plant-dial/SKILL.md`](skills/lakeside-w2a-plant-dial/SKILL.md),
 [`ml/README.md`](ml/README.md).
 
 Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 (default `…\Desktop\testing\sp_creekside`). This repo holds **code + small artifacts**.
 
-Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`
+Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`  
+Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
-Last validated: **2026-08-07** (CLI four-arm train + ship-best-to-desktop).
+Last validated: **2026-08-09** — W2A plant dual **A04** (~287 kW Jan‑26 + monthly GL14);
+prior CLI four-arm train 2026-08-07.
 
 ---
 
@@ -24,8 +28,10 @@ Last validated: **2026-08-07** (CLI four-arm train + ship-best-to-desktop).
 
 1. Process ALC WebCTRL dumps → vibe19 `openfdd_package_v1` + vibe20 utilities.
 2. Calibrate IdealLoads twin to ASHRAE G14 (interval + client utility bills).
-3. Train hybrid heating DSM (real 15-min baseline + E+ delta → 96-step rollout).
-4. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
+3. Dial **W2A plant** twin for utility monthly GL14 + Jan‑26 ~285 kW (**A04** champion —
+   see `W2A_PLANT_DIAL.md` / `lakeside_eplus_gl14_vs_peak285.ipynb`).
+4. Train hybrid heating DSM (real 15-min baseline + E+ delta → 96-step rollout).
+5. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
 
 ---
 
@@ -106,8 +112,11 @@ python -u scripts\validate_mvm.py
 - Promote requires held-out recursive metrics; &lt;12 E+ pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
 - IdealLoads+COP ≠ GSHP; smoke farm underpowered — **not operational DSM**.
 - Utility G14 ≠ interval-integrated demand fidelity.
-- Display name **Lakeside**; site disk may still be `sp_creekside` (client rename).
-- SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md)
+- Display name **Lakeside**; research/docs may say **Creekside** (fictionalized);
+  site disk may still be `sp_creekside`.
+- W2A **A04** ≠ IdealLoads util champion; do not overwrite `*_best_utility.idf`.
+- SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md),
+  [`vibe22_agent_spec/W2A_PLANT_DIAL.md`](vibe22_agent_spec/W2A_PLANT_DIAL.md)
   + scripts map [`scripts/README.md`](scripts/README.md).
 ---
 

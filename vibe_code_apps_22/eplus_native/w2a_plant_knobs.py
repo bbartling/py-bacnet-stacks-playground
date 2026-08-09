@@ -30,6 +30,7 @@ LIVE_KNOB_NAMES = frozenset(
     {
         "htg_coil_capacity_mult",
         "htg_coil_cop_mult",
+        "clg_coil_cop_mult",
         "fan_delta_p_mult",
         "fan_eff_mult",
         "pump_power_mult",
@@ -42,6 +43,8 @@ LIVE_KNOB_NAMES = frozenset(
         "people_density_mult",
         "equip_w_area_mult",
         "lights_w_area_mult",
+        "summer_sch_scale",
+        "summer_include_hvac",
     }
 )
 
@@ -53,6 +56,7 @@ DEFAULT_SETBACK_HEAT_SP_C = 18.33
 class W2APlantKnobs:
     htg_coil_capacity_mult: float = 1.0
     htg_coil_cop_mult: float = 1.0
+    clg_coil_cop_mult: float = 1.0  # Rated Cooling COP (base 3.5)
     fan_delta_p_mult: float = 1.0
     fan_eff_mult: float = 1.0
     pump_power_mult: float = 1.0
@@ -67,6 +71,9 @@ class W2APlantKnobs:
     people_density_mult: float = 1.0  # scale People per Floor Area
     equip_w_area_mult: float = 1.0  # scale ElectricEquipment W/area (skip FanProxy)
     lights_w_area_mult: float = 1.0  # scale Lights W/area
+    # School-out Jun–Jul only (Aug treated as in-session). None = year-round Through:12/31.
+    summer_sch_scale: float | None = None  # e.g. 0.25 ≈ summer-school fraction of design
+    summer_include_hvac: bool = False  # True also shortens SCH_HVAC Jun–Jul
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -221,6 +228,167 @@ def _mutate_coils(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]])
         last = end
     pieces.append(text[last:])
     return "".join(pieces)
+
+
+def _mutate_cooling_cop(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Scale Rated Cooling COP on equation-fit WAHP cooling coils (base 3.5)."""
+    if knobs.clg_coil_cop_mult == 1.0:
+        return text
+    spans = _iter_objects(text, "Coil:Cooling:WaterToAirHeatPump:EquationFit")
+    if not spans:
+        return text
+    pieces: list[str] = []
+    last = 0
+    for start, end, block in spans:
+        pieces.append(text[last:start])
+        name = _object_name(block)
+        new_block = block
+        m = re.search(
+            r"(?im)^(\s*)([^,;]+)([,;])(.*!-?\s*Rated Cooling Coefficient of Performance.*)$",
+            new_block,
+        )
+        if m:
+            old = m.group(2).strip()
+            try:
+                new_v = f"{float(old) * knobs.clg_coil_cop_mult:.6g}"
+            except ValueError:
+                new_v = f"{3.5 * knobs.clg_coil_cop_mult:.6g}"
+            if old != new_v:
+                ledger.append(
+                    {
+                        "object_type": "Coil:Cooling:WaterToAirHeatPump:EquationFit",
+                        "object_name": name,
+                        "field_comment": "Rated Cooling COP",
+                        "old": old,
+                        "new": new_v,
+                    }
+                )
+                new_block = (
+                    new_block[: m.start()]
+                    + f"{m.group(1)}{new_v}{m.group(3)}{m.group(4)}"
+                    + new_block[m.end() :]
+                )
+        pieces.append(new_block)
+        last = end
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
+# Default: people / plugs / lights / kitchen only.
+# SCH_HVAC optional — hard HVAC cut over-corrected Aug bills (~−60% in first pass).
+_SUMMER_SCH_NAMES_CORE = (
+    "SCH_Occ_Class",
+    "SCH_Occ_Library",
+    "SCH_Occ_Cafe",
+    "SCH_Occ_Gym",
+    "SCH_Lights",
+    "SCH_Lights_Gym",
+    "SCH_Equip",
+    "SCH_Kitchen",
+)
+_SUMMER_SCH_NAMES_WITH_HVAC = _SUMMER_SCH_NAMES_CORE + ("SCH_HVAC",)
+_SUMMER_SCH_NAMES = _SUMMER_SCH_NAMES_CORE  # back-compat alias
+
+
+def _summer_low_body(name: str, scale: float) -> str:
+    """Jun–Aug body: Mon–Thu summer-school hours; Fri/weekend essentially off."""
+    s = max(0.02, min(1.0, float(scale)))
+    if name == "SCH_HVAC":
+        return (
+            "    For: Weekends Holidays Friday,\n"
+            "    Until: 24:00,\n"
+            "    0.0,\n"
+            "    For: Monday Tuesday Wednesday Thursday,\n"
+            "    Until: 07:00,\n"
+            "    0.0,\n"
+            "    Until: 07:30,\n"
+            "    0.25,\n"
+            "    Until: 13:30,\n"
+            "    1.0,\n"
+            "    Until: 24:00,\n"
+            "    0.0,\n"
+            "    For: AllOtherDays,\n"
+            "    Until: 24:00,\n"
+            "    0.0;\n"
+        )
+    # Occ / lights / equip / kitchen — short occupied window, scaled peak
+    return (
+        "    For: Weekends Holidays Friday,\n"
+        "    Until: 24:00,\n"
+        "    0.02,\n"
+        "    For: Monday Tuesday Wednesday Thursday,\n"
+        "    Until: 07:30,\n"
+        "    0.02,\n"
+        "    Until: 08:00,\n"
+        "    0.10,\n"
+        "    Until: 13:00,\n"
+        f"    {s:.4g},\n"
+        "    Until: 24:00,\n"
+        "    0.02,\n"
+        "    For: AllOtherDays,\n"
+        "    Until: 24:00,\n"
+        "    0.0;\n"
+    )
+
+
+def _mutate_summer_schedules(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
+    """Split year-round Through:12/31 into school-year + Jun–Jul summer-out + Aug–Dec.
+
+    August is treated as in-session (early occupancy / staff prep). Summer-out is
+    Through: 7/31 only. Research summer school: Mon–Thu ~8:00–13:00 contact.
+    """
+    if knobs.summer_sch_scale is None:
+        return text
+    scale = float(knobs.summer_sch_scale)
+    names = (
+        _SUMMER_SCH_NAMES_WITH_HVAC
+        if knobs.summer_include_hvac
+        else _SUMMER_SCH_NAMES_CORE
+    )
+    for sch_name in names:
+        pat = re.compile(
+            rf"(?ms)^(Schedule:Compact,\s*\n\s*{re.escape(sch_name)}\s*,.*?;)\s*",
+            re.I,
+        )
+        m = pat.search(text)
+        if not m:
+            continue
+        block = m.group(1)
+        tm = re.search(r"(?im)^(\s*Through:\s*12/31\s*,.*)$", block)
+        if not tm:
+            continue
+        head = block[: tm.start()]
+        body = block[tm.end() :]  # For/Until… ending with ;
+        body_mid = body.rstrip()
+        if body_mid.endswith(";"):
+            body_mid = body_mid[:-1].rstrip() + ","
+        summer_mid = _summer_low_body(sch_name, scale).rstrip()
+        if summer_mid.endswith(";"):
+            summer_mid = summer_mid[:-1] + ","
+        fall = body.lstrip() if body.lstrip().startswith("For") else body
+        if not fall.rstrip().endswith(";"):
+            fall = fall.rstrip().rstrip(",") + ";"
+        # Jan–May school · Jun–Jul summer-out · Aug–Dec school (Aug in-session)
+        new_block = (
+            f"{head}"
+            f"    Through: 5/31,\n"
+            f"{body_mid}\n"
+            f"    Through: 7/31,\n"
+            f"{summer_mid}\n"
+            f"    Through: 12/31,\n"
+            f"{fall}\n"
+        )
+        text = text[: m.start()] + new_block + text[m.end() :]
+        ledger.append(
+            {
+                "object_type": "Schedule:Compact",
+                "object_name": sch_name,
+                "field_comment": "summer Through:7/31 school-out (Aug in-session)",
+                "old": "Through: 12/31 (year-round)",
+                "new": f"Through: 5/31 + 7/31@{scale:g} + 12/31 (Aug school)",
+            }
+        )
+    return text
 
 
 def _mutate_fans(text: str, knobs: W2APlantKnobs, ledger: list[dict[str, Any]]) -> str:
@@ -716,6 +884,7 @@ def apply_w2a_plant_knobs(expanded_idf_text: str, knobs: W2APlantKnobs | dict[st
     text = expanded_idf_text
     ledger: list[dict[str, Any]] = []
     text = _mutate_coils(text, knobs, ledger)
+    text = _mutate_cooling_cop(text, knobs, ledger)
     text = _mutate_fans(text, knobs, ledger)
     text = _mutate_pumps(text, knobs, ledger)
     text = _mutate_loop_setpoint(text, knobs, ledger)
@@ -727,6 +896,7 @@ def apply_w2a_plant_knobs(expanded_idf_text: str, knobs: W2APlantKnobs | dict[st
     text = _mutate_people_density(text, knobs, ledger)
     text = _mutate_equip_w_area(text, knobs, ledger)
     text = _mutate_lights_w_area(text, knobs, ledger)
+    text = _mutate_summer_schedules(text, knobs, ledger)
     return {
         "text": text,
         "expanded_idf_sha256": sha256_text(text),

@@ -1,7 +1,10 @@
-# W2A plant dial — monthly GL14 + design-day peak (Lakeside)
+# W2A plant dial — monthly GL14 + design-day peak (Creekside / Lakeside)
 
 **Physics:** post-`ExpandObjects` water-to-air plant knobs (`eplus_native/w2a_plant_knobs.py`).  
 **Not** IdealLoads. Do not overwrite `*_best_utility.idf` with W2A champions.
+
+**Display / research name:** fictional **Creekside** (scrubbed site `deep-research-report.md`).  
+Building id remains `LAKESIDE_ES` / disk `sp_creekside`.
 
 **Tutorial notebook:** [`../notebooks/lakeside_eplus_gl14_vs_peak285.ipynb`](../notebooks/lakeside_eplus_gl14_vs_peak285.ipynb)  
 **Agent skill:** [`../skills/lakeside-w2a-plant-dial/SKILL.md`](../skills/lakeside-w2a-plant-dial/SKILL.md)
@@ -12,21 +15,26 @@
 > while shaping **Jan‑26 peak** toward billed demand (~285 kW) and keeping
 > overnight baseload from exploding?
 
-## Proven dual champions (2026-08-08)
+## Current dual champion — **A04** (2026-08-09)
 
-| Model | Cap | COP | Setback | Opt-start | Equip | Lights | Overnight 0–4 | Jan‑26 peak | Monthly GL14 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| C02 | 0.45 | 1.00 | 14.44°C (~58°F) | 0 | 1.0 | 1.0 | ~97 kW | ~191 kW | **pass** (−4.4% / 12.4%) |
-| PK285 | 0.86 | 0.79 | 14.44°C | 0 | 1.0 | 1.0 | ~179 kW | ~287 kW | **fail** (−29% / 35%) |
-| L22 | 1.45 | 1.24 | 7.78°C (~46°F) | 3.5 h | 1.0 | 1.0 | ~126 kW | ~261 kW | **pass** (−4.4% / 14.9%) |
-| **E20** | **1.70** | **1.20** | 7.78°C | **3.5 h** | **0.75** | **1.10** | ~135 kW | **~271 kW** | **pass** (−4.9% / 13.5%) |
+| Model | Cap | Htg COP (rated) | Clg COP | Setback | Opt | Equip | Lights | Summer | Overnight | Jan‑26 | GL14 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- |
+| E20 (prior) | 1.70 | 5.04 (×1.20) | 3.5 | 7.78°C | 3.5 h | 0.75 | 1.10 | none | ~135 | ~271 | pass (−4.9% / 13.5%) |
+| SC02 | 1.70 | **4.5** | 3.5 | 7.78°C | 3.5 h | 0.75 | 1.10 | none | ~147 | ~290 | **fail** (−9.4% / 14.6%) |
+| R02 | 1.70 | 4.5 | 3.5 | 7.78°C | 3.5 h | **0.60** | **0.95** | none | ~146 | ~289 | pass (−1.6% / 11.0%) |
+| **A04** | **1.70** | **4.5** | **4.8** | 7.78°C | 3.5 h | **0.60** | **0.95** | **Jun–Jul ×0.40; Aug in-session** | ~144 | **~287** | **pass (+1.0% / 10.4%)** |
 
-**Current dual champion:** E20 (`E20_peakplant_eq075_li110_cop120`).  
-Still ~14 kW short of utility Jan‑2026 billed demand **284.82 kW**.
+**A04 trial:** `A04_r02_sum040_clg48_augSchool`  
+**Campaign:** `eplus/campaigns/w2a_sc02_aug_in_session_20260809T134542Z`  
+Peak ~**+2 kW** vs utility billed **284.82 kW** (honest near-band dual).
 
-Pinned IDF: `eplus/models/lakeside_w2a_e20_l22_enhanced_champion.idf`  
-Campaign: `eplus/campaigns/w2a_l22_enhanced_20260808T205123Z`  
-Report: `eplus/reports/champion_l22_enhanced/`
+### How we dialed it (short)
+
+1. **E20** held GL14 but peak ~271 (short of 285).
+2. Soft year-round heating COP **4.5 (SC02)** hit ~290 peak; monthly NMBE broke (~−9%).
+3. **R02** cut plugs/lights (0.60 / 0.95) → dual ~289 / GL14 pass.
+4. Full Jun–**Aug** summer-out over-corrected August (~−50%).
+5. **August in-session** (summer-out **Jun–Jul only**, `Through: 7/31`) + cooling COP **4.8** + mild Jun–Jul internal-gain scale → **A04**.
 
 ## Where agents may dial (live knobs only)
 
@@ -35,14 +43,16 @@ Mutate **expanded** IDF only. Dead IdealLoads / pre-expand capacity knobs are re
 | Knob | Correct area | Effect |
 | --- | --- | --- |
 | `htg_coil_capacity_mult` | Coil rated heating capacity | Morning recovery / peak height |
-| `htg_coil_cop_mult` | Coil COP → electric intensity | ↑COP lowers kWh & peak electric; ↓COP inflates peak and often breaks monthly |
-| `setback_heat_sp_c` | Unocc heating SP in `SCH_HtgSP` | Deep setback (~46°F) → low overnight + sharp morning climb |
-| `optimum_start_h` | Shift morning Until times earlier | Extra run hours before occupancy (keep &gt;0 for dual hunt) |
-| `equip_w_area_mult` | ElectricEquipment W/area (skip FanProxy) | Plugs / “runtime” proxy for monthly kWh; cut when peak≈285 but GL14 fails |
+| `htg_coil_cop_mult` | Heating COP (base 4.2) | Primary winter peak ↔ monthly tradeoff |
+| `clg_coil_cop_mult` | Cooling COP (base 3.5) | Summer electric; research ~4.5–4.8 |
+| `setback_heat_sp_c` | Unocc heating SP in `SCH_HtgSP` | Deep setback (~46°F) → low overnight |
+| `optimum_start_h` | Shift morning Until times earlier | Extra run hours before occupancy |
+| `equip_w_area_mult` | ElectricEquipment W/area | Cut when peak≈285 but GL14 fails |
 | `lights_w_area_mult` | Lights W/area | Modest bump OK; large bumps hurt monthly |
+| `summer_sch_scale` | Jun–Jul occ/plugs/lights (Through:7/31) | School-out; **August stays in-session** |
+| `summer_include_hvac` | Also cut `SCH_HVAC` Jun–Jul | Aggressive — often over-cuts Aug if window wrong |
 | `people_density_mult` | People/area | Occupant gains (use sparingly) |
 | `oa_frac_scale` / `oa_shoulder_scale` | OA fractions | Ventilation load |
-| `fan_delta_p_mult` / `pump_power_mult` | Aux power | Parasitic electric |
 
 ### Banned / dangerous
 
@@ -50,23 +60,20 @@ Mutate **expanded** IDF only. Dead IdealLoads / pre-expand capacity knobs are re
 | --- | --- |
 | `fan_avail_use_sch_hvac=True` | Collapses weekend/overnight load unrealistically |
 | Pre-expand / IdealLoads capacity knobs | No effect on expanded W2A plant |
+| Year-round rated heating COP ≤2.8 | Explodes peak (~450+) and kills monthly (cold-Monday hypothesis ≠ fixed dial) |
+| Summer-out Through **8/31** (includes August) | Over-corrected Aug bills (~−50%); use **7/31** + Aug school |
 
 ## Dial playbook (agent order)
 
 ```text
-1. Hold monthly utility GL14 as hard constraint (reports/eplus/observed_monthly_utility.csv).
-2. Score Jan-26 peak (design day) + overnight 0–4 mean on America/Chicago.
-3. Overnight gate: prefer ≤ ~140 kW on design-day night (winter mean obs ~68 kW is
-   not the same as Jan-26 night ~161 kW — do not overfit winter mean alone).
-4. Recipe that works for dual:
-     cold setback (~46°F) + optimum_start ≥ 3.5 h + high capacity + high-ish COP.
-5. If peak short of 285: raise capacity modestly and/or lower COP slightly —
-   re-check GL14 every trial.
-6. If peak ∈ 275–295 but GL14 fails: CUT equip_w_area_mult (0.70–0.90) before
-   cutting opt-start. District can live with lower plug/runtime intensity.
-7. If plugs/lights alone push peak to ~285: expect monthly fail — do not promote.
-8. Champion rule: highest Jan-26 peak among (GL14 pass ∧ overnight_ok).
-   If no dual beats prior champion by ≥5 kW, keep prior (L22 → E20 path).
+1. Hold monthly utility GL14 (reports/eplus/observed_monthly_utility.csv).
+2. Score Jan-26 peak + overnight 0–4 (America/Chicago). Prefer overnight ≲150 kW.
+3. Soften heating COP toward 4.5–4.7 if peak short of 285 — rescore GL14 every trial.
+4. If peak ∈ 275–295 but GL14 fails: CUT equip/lights (R02 path: 0.60 / 0.95).
+5. Summer: Jun–Jul school-out via summer_sch_scale; keep August in-session.
+   Raise clg_coil_cop_mult toward 4.6–4.8. Do not put August in summer-out.
+6. Champion rule: nearest dual to 285 among (GL14 pass ∧ overnight_ok).
+7. Never overwrite IdealLoads *_best_utility.idf with W2A pins.
 ```
 
 ## CLI
@@ -75,12 +82,13 @@ Mutate **expanded** IDF only. Dead IdealLoads / pre-expand capacity knobs are re
 cd vibe_code_apps_22   # or worktree copy
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 $env:PYTHONUNBUFFERED="1"
-# Base expanded IDF from integrity closure campaign (shared/expand/expanded.idf)
-python -u scripts/eplus_w2a_l22_enhanced_dial.py --max-trials 20
-# After dual found, optional neighborhood:
-python -u scripts/eplus_w2a_l22_enhanced_dial.py --resume w2a_l22_enhanced_* --phase-c-only
-# End-use tutorial plots (schedule-scaled monthly meters):
-python -u scripts/eplus_l22_enduse_profile_plots.py
+
+# Soft COP screen (SC01–SC03)
+python -u scripts/eplus_w2a_e20_soft_cop_trim.py
+# SC02 GL14 recover via plugs/lights
+python -u scripts/eplus_w2a_sc02_gl14_recover.py
+# August in-session + Jun–Jul summer (A0x → A04)
+python -u scripts/eplus_w2a_sc02_aug_in_session.py
 ```
 
 Base expanded path (required):  
@@ -90,11 +98,16 @@ Base expanded path (required):
 
 - Monthly GL14 pass ≠ interval-shape / DSM GO (`EPLUS_MULTIRES.md`).
 - W2A plant champion ≠ IdealLoads `*_best_utility` / `DSM_ELIGIBLE` twin.
-- End-use stacks in the notebook are **estimated** (monthly lights/equip meters × school schedule fractions + HVAC residual) — E+ mtr file lacks hourly end-use here.
-- BAS `zone_avg_fan_run_hours_monthly.csv` is a qualitative HP runtime check, not a W2A knob.
+- End-use stacks in the notebook are **estimated** (monthly lights/equip × schedule fractions + HVAC residual).
+- Cold-Monday **operating** COP ~2.6–2.8 (BAS well return ~43°F) is **not** the same as year-round rated COP 2.6.
+- Research report summer school: Mon–Thu ~8–13; model uses Jun–Jul low schedules + **August school** for calibration window.
 
-## Campaign evidence (enhanced dial)
+## Campaign evidence ladder
 
-- Phase A (E01–E10): equip/lights up → peaks **275–294 kW**, all monthly GL14 **fail**.
-- Phase B equip-cut (E16–E20): recovered **E20** dual (~271 kW).
-- Phase C (E21–E25): E23 ~283 kW but GL14/overnight fail; dual champion stayed **E20**.
+| Campaign | Result |
+| --- | --- |
+| `w2a_l22_enhanced_*` | E20 dual ~271 / GL14 |
+| `w2a_e20_soft_cop_trim_*` | SC02 ~290 peak, GL14 fail |
+| `w2a_sc02_gl14_recover_*` | R02 dual ~289 / GL14 |
+| `w2a_sc02_summer_school_*` | Aug-as-summer-out → Aug ~−50%, CV fail |
+| `w2a_sc02_aug_in_session_*` | **A04** dual ~287 / GL14 (+1.0% / 10.4%) |

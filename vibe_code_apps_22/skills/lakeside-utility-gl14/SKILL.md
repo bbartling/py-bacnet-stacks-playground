@@ -51,7 +51,7 @@ Pointer: `$SITE/eplus/models/staged/DSM_ELIGIBLE.json`.
 
 **Related (W2A plant twin):** same utility monthly gates, different IDF family — see
 [lakeside-w2a-plant-dial](../lakeside-w2a-plant-dial/SKILL.md). Current W2A dual
-champion **E20** (~271 kW Jan‑26). Do not overwrite this IdealLoads best with W2A.
+champion **A04** (~287 kW Jan‑26, GL14 +1.0%/10.4%). Do not overwrite this IdealLoads best with W2A.
 
 ## Engine note
 
