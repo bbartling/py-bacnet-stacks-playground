@@ -2,7 +2,8 @@
 """Run rule-DR strategies on Lakeside E+ gym (live or farm lookup).
 
 Examples:
-  python -u scripts/run_eplus_gym_rules.py --mode lookup --strategies baseline,deep_setback
+  python -u scripts/run_eplus_gym_rules.py --mode lookup
+  python -u scripts/run_eplus_gym_rules.py --mode lookup --month 2026-01
   python -u scripts/run_eplus_gym_rules.py --mode live --epw PATH --idf PATH
 """
 from __future__ import annotations
@@ -11,31 +12,84 @@ import argparse
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from eplus_gym.controllers import list_strategies  # noqa: E402
-from eplus_gym.simulate import run_rule_episode, trajectory_frame  # noqa: E402
+from eplus_gym.lookup_emulator import list_farm_days  # noqa: E402
+from eplus_gym.month_calendar import write_month_scorecard  # noqa: E402
+from eplus_gym.simulate import (  # noqa: E402
+    run_rule_episode,
+    run_rule_month_lookup,
+    trajectory_frame,
+)
 from lakeside.paths import site_root  # noqa: E402
+
+
+def _run_month(site: Path, month: str, strategies: list[str], out: Path, fig_dir: Path) -> int:
+    result = run_rule_month_lookup(site_root=site, month=month, strategies=strategies)
+    summary = []
+    fig, ax = plt.subplots(figsize=(11, 4))
+    colors = ["#264653", "#2a9d8f", "#e76f51", "#e9c46a", "#6c757d"]
+    for i, sid in enumerate(strategies):
+        pack = result["strategies"].get(sid) or {}
+        df = pack.get("frame")
+        if df is None or getattr(df, "empty", True):
+            print(f"WARN no data for {sid} in {month}")
+            continue
+        pq = out / f"month_{month}_{sid}.parquet"
+        df.to_parquet(pq, index=False)
+        peak = float(df["facility_kw"].max()) if "facility_kw" in df.columns else float("nan")
+        kwh = float(df["facility_kw"].sum() * 0.25) if "facility_kw" in df.columns else float("nan")
+        row = {
+            "strategy_id": sid,
+            "month": month,
+            "n_days": int(pack.get("n_days") or 0),
+            "peak_kw": peak,
+            "kwh": kwh,
+            "parquet": str(pq),
+        }
+        summary.append(row)
+        print(json.dumps(row))
+        # mean daily profile
+        if "step" in df.columns and "facility_kw" in df.columns:
+            profile = df.groupby("step")["facility_kw"].mean()
+            ax.plot(profile.index / 4.0, profile.values, color=colors[i % len(colors)], lw=1.8, label=sid)
+    ax.set_xlabel("hour")
+    ax.set_ylabel("mean facility kW")
+    ax.set_title(f"E+ gym month lookup · {month}")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig_path = fig_dir / f"month_{month}_overlay.png"
+    fig.savefig(fig_path, dpi=120)
+    plt.close(fig)
+    monthly = out / "monthly"
+    write_month_scorecard(monthly, yyyy_mm=month, strategies=strategies, site=site)
+    card = {"month": month, "strategies": summary, "figure": str(fig_path), "kpis": result["kpis"]}
+    (out / f"month_{month}_scorecard.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
+    print("wrote", fig_path)
+    return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--mode", choices=("auto", "live", "lookup"), default="auto")
+    ap.add_argument("--mode", choices=("auto", "live", "lookup"), default="lookup")
     ap.add_argument(
         "--strategies",
         default="baseline,flat_24_7,deep_setback",
         help="comma-separated strategy ids",
     )
-    ap.add_argument("--day", default=None, help="YYYY-MM-DD (lookup); default=last farm day")
+    ap.add_argument("--day", default=None, help="YYYY-MM-DD (lookup); default=best shared day")
+    ap.add_argument("--month", default=None, help="YYYY-MM — lookup all available days in month")
     ap.add_argument("--epw", type=Path, default=None)
     ap.add_argument("--idf", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=ROOT / "reports" / "eplus_gym")
@@ -56,10 +110,8 @@ def main() -> int:
         print(f"WARN missing contracts: {missing}; available={sorted(available)}")
     strategies = [s for s in wanted if s in available] or sorted(available)[:3]
 
-    # Pick a farm day covering as many requested strategies as possible.
-    from collections import defaultdict
-
-    from eplus_gym.lookup_emulator import list_farm_days
+    if args.month:
+        return _run_month(site, args.month, strategies, out, fig_dir)
 
     day = args.day
     if day is None and strategies:

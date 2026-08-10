@@ -1,7 +1,8 @@
-"""Canonical paths for heating DSM hybrid artifacts + site data.
+"""Canonical paths for E+ farm parquet keys + Lakeside site data.
 
-Hybrid ship: real BAS baseline + E+ paired deltas (``HYBRID_SCREENING``).
-Paired farm provenance: ``ENERGYPLUS_NATIVE_RUN``.
+Live farm provenance must be ``ENERGYPLUS_NATIVE_RUN``.
+Legacy hybrid ONNX/joblib filename keys are retained for archaeology path maps only;
+hybrid ship artifacts live under ``archive/2026-08-10_pre_eplus_gym/``.
 """
 from __future__ import annotations
 

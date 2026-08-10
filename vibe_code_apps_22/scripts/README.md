@@ -7,7 +7,11 @@ Archived hybrid/greybox/lab scripts: [`../archive/2026-08-10_pre_eplus_gym/scrip
 
 | Script | Role |
 | --- | --- |
-| `run_eplus_gym_rules.py` | Rule DR on IdealLoads gym (`lookup` / `live` / `auto`) → `reports/eplus_gym/` |
+| `run_eplus_gym_rules.py` | Rule DR on IdealLoads gym (`lookup` / `live` / `auto`; `--month YYYY-MM`) → `reports/eplus_gym/` |
+| `run_eplus_gym_month_farm.py` | Calendar-month farm grow (`--dry-run` / `--execute`) |
+| `run_eplus_gym_month_live.py` | CLI-only closed-loop month (staged IDF RunPeriod) |
+
+UI: `streamlit run eplus_gym_app/streamlit_app.py --server.port 8765`
 
 ## Twin foundation (live)
 

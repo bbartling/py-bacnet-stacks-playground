@@ -30,16 +30,20 @@ cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 pip install -r requirements.txt
 python -u scripts\run_eplus_gym_rules.py --mode lookup
+python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
+python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
+streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 ```
 
 Notebook: `notebooks/lakeside_eplus_gym_playground.ipynb` — **results viewer only**
 (plots `reports/eplus_gym/`). Do **not** run live `pyenergyplus` inside Jupyter
-(ctypes callbacks crash Cursor).
+(ctypes callbacks crash Cursor). Streamlit also never starts EnergyPlus.
 
 Live mode needs EnergyPlus + `ENERGYPLUS_ROOT` + EPW/IDF (CLI only):
 
 ```powershell
 python -u scripts\run_eplus_gym_rules.py --mode live --epw PATH.epw --idf PATH.idf
+python -u scripts\run_eplus_gym_month_live.py --month 2026-01 --strategy baseline --max-steps 96
 ```
 
 ## Controllers

@@ -34,8 +34,9 @@ grey-box, control-twin lab, and exploratory notebooks live under
    never overwrite champions).
 4. Run **rule demand-response** on the twin via [`eplus_gym/`](eplus_gym/)
    (rllib-energyplus-inspired step API; farm lookup when live E+ unavailable).
-5. Optional later: RLlib PPO on the same env (`eplus_gym/train_rllib.py` stub).
-6. Leave room for a future **BACnet** app under `bacnet/` (stub only — **no writes**).
+5. Chart months/strategies in **Streamlit + Plotly** ([`eplus_gym_app/`](eplus_gym_app/)) — no E+ in the UI.
+6. Optional later: RLlib PPO on the same env (`eplus_gym/train_rllib.py` stub).
+7. Leave room for a future **BACnet** app under `bacnet/` (stub only — **no writes**).
 
 ---
 
@@ -44,13 +45,14 @@ grey-box, control-twin lab, and exploratory notebooks live under
 ```text
 vibe_code_apps_22/
   eplus_gym/                 # PRODUCT — live/lookup E+ control gym + rule controllers
+  eplus_gym_app/             # Streamlit + Plotly month/strategy UI (farm parquet only)
   lakeside/paths.py          # SITE_ROOT + building constants
   models/eplus/              # Pinned IdealLoads + W2A A04 IDFs (git)
   eplus_native/              # IDF stage / meters / schedule repair
   contracts/control_strategies_v1/  # named DR schedules
-  scripts/                   # ALC, twin calibrate, run_eplus_gym_rules
+  scripts/                   # ALC, twin calibrate, gym farm/rules/live
   ml/                        # thin shared helpers (interval15, physics_families, …)
-  notebooks/lakeside_eplus_gym_playground.ipynb   # ONLY live sim notebook
+  notebooks/lakeside_eplus_gym_playground.ipynb   # CLI artifact viewer
   docs/audits/eplus_gym_v1.md
   archive/2026-08-10_pre_eplus_gym/  # hybrid/desktop/greybox/lab/old notebooks
   skills/
@@ -90,7 +92,11 @@ python -u scripts\eplus_observed_targets.py
 
 # PRODUCT — rule DR gym (lookup works offline; live needs E+ API + EPW/IDF)
 python -u scripts\run_eplus_gym_rules.py --mode lookup
+python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
+python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
+streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
 # Viewer: notebooks\lakeside_eplus_gym_playground.ipynb
+# Live month (CLI only): scripts\run_eplus_gym_month_live.py
 ```
 
 ---

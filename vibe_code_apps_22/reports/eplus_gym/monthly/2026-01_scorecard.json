@@ -1,0 +1,130 @@
+{
+  "month": "2026-01",
+  "strategies": [
+    "baseline",
+    "flat_24_7",
+    "deep_setback",
+    "stagger_preheat",
+    "morning_all_on"
+  ],
+  "coverage": {
+    "month": "2026-01",
+    "wanted_days": [
+      "2026-01-01",
+      "2026-01-02",
+      "2026-01-03",
+      "2026-01-04",
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-10",
+      "2026-01-11",
+      "2026-01-12",
+      "2026-01-13",
+      "2026-01-14",
+      "2026-01-15",
+      "2026-01-16",
+      "2026-01-17",
+      "2026-01-18",
+      "2026-01-19",
+      "2026-01-20",
+      "2026-01-21",
+      "2026-01-22",
+      "2026-01-23",
+      "2026-01-24",
+      "2026-01-25",
+      "2026-01-26",
+      "2026-01-27",
+      "2026-01-28",
+      "2026-01-29",
+      "2026-01-30",
+      "2026-01-31"
+    ],
+    "n_wanted_days": 31,
+    "strategies": {
+      "baseline": {
+        "days_present": [
+          "2026-01-05",
+          "2026-01-07",
+          "2026-01-09",
+          "2026-01-11"
+        ],
+        "n_days": 4,
+        "coverage_frac": 0.12903225806451613
+      },
+      "flat_24_7": {
+        "days_present": [
+          "2026-01-07"
+        ],
+        "n_days": 1,
+        "coverage_frac": 0.03225806451612903
+      },
+      "deep_setback": {
+        "days_present": [
+          "2026-01-09"
+        ],
+        "n_days": 1,
+        "coverage_frac": 0.03225806451612903
+      },
+      "stagger_preheat": {
+        "days_present": [
+          "2026-01-05"
+        ],
+        "n_days": 1,
+        "coverage_frac": 0.03225806451612903
+      },
+      "morning_all_on": {
+        "days_present": [
+          "2026-01-11"
+        ],
+        "n_days": 1,
+        "coverage_frac": 0.03225806451612903
+      }
+    },
+    "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+    "provenance": "FARM_LOOKUP_EMULATOR",
+    "promote": false
+  },
+  "kpis": [
+    {
+      "strategy_id": "baseline",
+      "month": "2026-01",
+      "n_days": 4,
+      "peak_kw": 525.4944814713728,
+      "kwh": 9027.875131101027
+    },
+    {
+      "strategy_id": "flat_24_7",
+      "month": "2026-01",
+      "n_days": 1,
+      "peak_kw": 294.11093252496215,
+      "kwh": 3651.1328085325827
+    },
+    {
+      "strategy_id": "deep_setback",
+      "month": "2026-01",
+      "n_days": 1,
+      "peak_kw": 280.5837482753583,
+      "kwh": 2186.3449007425074
+    },
+    {
+      "strategy_id": "stagger_preheat",
+      "month": "2026-01",
+      "n_days": 1,
+      "peak_kw": 331.60129535428666,
+      "kwh": 2515.618411159487
+    },
+    {
+      "strategy_id": "morning_all_on",
+      "month": "2026-01",
+      "n_days": 1,
+      "peak_kw": 576.7689811841107,
+      "kwh": 1982.2522003949487
+    }
+  ],
+  "honesty": "STRUCTURAL_LOAD_DIAGNOSTIC",
+  "promote": false,
+  "note": "IdealLoads STRUCTURAL_LOAD_DIAGNOSTIC \u2014 not BAS meter truth"
+}

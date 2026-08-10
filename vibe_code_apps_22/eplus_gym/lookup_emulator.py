@@ -13,7 +13,6 @@ import pandas as pd
 
 from .honesty import HONESTY_IDEALLOADS, LOOKUP_EMULATOR, PROMOTE
 
-
 STEPS = 96
 
 
@@ -21,36 +20,46 @@ def resolve_farm_root(site: Path) -> Path:
     return Path(site) / "eplus" / "dsm_farm_paired"
 
 
+def _paired_parquet_candidates(farm: Path) -> list[Path]:
+    from .month_calendar import MONTHLY_PARQUET, PAIRED_PARQUET
+
+    out = []
+    for name in (MONTHLY_PARQUET, PAIRED_PARQUET):
+        p = farm / name
+        if p.is_file():
+            out.append(p)
+    return out
+
+
 def _from_paired_parquet(
     farm: Path, day: str, strategy: str
 ) -> Optional[Tuple[np.ndarray, Optional[np.ndarray]]]:
-    pq = farm / "heating_dsm_eplus_paired_15min_v1.parquet"
-    if not pq.is_file():
-        return None
-    df = pd.read_parquet(pq)
-    mask = (df["day"].astype(str) == str(day)) & (
-        df["strategy_id"].astype(str) == str(strategy)
-    )
-    df = df.loc[mask].copy()
-    if df.empty:
-        return None
-    sort_col = "timestamp_utc" if "timestamp_utc" in df.columns else "quarter_index"
-    if sort_col in df.columns:
-        df = df.sort_values(sort_col)
-    col = (
-        "site_electric_proxy_kw"
-        if "site_electric_proxy_kw" in df.columns
-        else "facility_kw"
-    )
-    kw = df[col].to_numpy(dtype=float)[:STEPS]
-    oat = df["oat_f"].to_numpy(dtype=float)[:STEPS] if "oat_f" in df.columns else None
-    if len(kw) < STEPS:
-        return None
-    return kw[:STEPS], (oat[:STEPS] if oat is not None and len(oat) >= STEPS else oat)
+    for pq in _paired_parquet_candidates(farm):
+        df = pd.read_parquet(pq)
+        mask = (df["day"].astype(str) == str(day)) & (
+            df["strategy_id"].astype(str) == str(strategy)
+        )
+        sub = df.loc[mask].copy()
+        if sub.empty:
+            continue
+        sort_col = "timestamp_utc" if "timestamp_utc" in sub.columns else "quarter_index"
+        if sort_col in sub.columns:
+            sub = sub.sort_values(sort_col)
+        col = (
+            "site_electric_proxy_kw"
+            if "site_electric_proxy_kw" in sub.columns
+            else "facility_kw"
+        )
+        kw = sub[col].to_numpy(dtype=float)[:STEPS]
+        oat = sub["oat_f"].to_numpy(dtype=float)[:STEPS] if "oat_f" in sub.columns else None
+        if len(kw) >= STEPS:
+            return kw[:STEPS], (
+                oat[:STEPS] if oat is not None and len(oat) >= STEPS else oat
+            )
+    return None
 
 
 def _load_run_kw(farm: Path, day: str, strategy: str) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-    # Prefer paired parquet (canonical farm product)
     got = _from_paired_parquet(farm, day, strategy)
     if got is not None:
         return got
@@ -60,7 +69,12 @@ def _load_run_kw(farm: Path, day: str, strategy: str) -> Tuple[np.ndarray, Optio
         raise FileNotFoundError(f"no farm run for {day}/{strategy} under {farm}")
     run_dir = runs[0]
     ts = None
-    for name in ("timeseries.parquet", "plant_15min.parquet", "facility_15min.parquet"):
+    for name in (
+        "timeseries.parquet",
+        "plant_15min.parquet",
+        "facility_15min.parquet",
+        "timestep_proxy_mat.parquet",
+    ):
         p = run_dir / name
         if p.is_file():
             ts = pd.read_parquet(p)
@@ -132,7 +146,6 @@ class FarmLookupEnv:
         }
 
     def step(self, action_c: float):
-        """Advance one 15-min step. action_c ignored for lookup (trajectory fixed)."""
         _ = action_c
         self.t += 1
         done = self.t >= STEPS
@@ -154,19 +167,29 @@ class FarmLookupEnv:
         return None
 
 
-def list_farm_days(site_root: Path, strategy: str = "baseline") -> List[str]:
-    """Days with usable trajectories. Prefer paired parquet when present."""
+def list_farm_days(
+    site_root: Path,
+    strategy: str = "baseline",
+    month: Optional[str] = None,
+) -> List[str]:
+    """Days with usable trajectories. Prefer paired/monthly parquet when present."""
+    from .month_calendar import filter_days_for_month
+
     farm = resolve_farm_root(site_root)
-    pq = farm / "heating_dsm_eplus_paired_15min_v1.parquet"
-    if pq.is_file():
+    days: list[str] = []
+    for pq in _paired_parquet_candidates(farm):
         df = pd.read_parquet(pq, columns=["day", "strategy_id"])
         m = df["strategy_id"].astype(str) == str(strategy)
         days = sorted(set(df.loc[m, "day"].astype(str).unique()))
         if days:
-            return days
-    days = set()
-    for p in farm.glob(f"*_{strategy}_*"):
-        day = p.name.split("_")[0]
-        if len(day) == 10 and day[4] == "-":
-            days.add(day)
-    return sorted(days)
+            break
+    if not days:
+        found = set()
+        for p in farm.glob(f"*_{strategy}_*"):
+            day = p.name.split("_")[0]
+            if len(day) == 10 and day[4] == "-":
+                found.add(day)
+        days = sorted(found)
+    if month:
+        days = filter_days_for_month(days, month)
+    return days

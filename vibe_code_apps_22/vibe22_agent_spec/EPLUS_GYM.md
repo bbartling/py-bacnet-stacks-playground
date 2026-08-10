@@ -33,17 +33,29 @@ as the shipped product.
 | [`eplus_gym/envs/lakeside_idealloads.py`](../eplus_gym/envs/lakeside_idealloads.py) | Lakeside IdealLoads — actuate `SCH_HtgSP` |
 | [`eplus_gym/controllers.py`](../eplus_gym/controllers.py) | Rule policies from `contracts/control_strategies_v1` |
 | [`eplus_gym/lookup_emulator.py`](../eplus_gym/lookup_emulator.py) | Farm parquet stand-in |
-| [`eplus_gym/simulate.py`](../eplus_gym/simulate.py) | `run_rule_episode` |
+| [`eplus_gym/month_calendar.py`](../eplus_gym/month_calendar.py) | Calendar-month farm/coverage helpers |
+| [`eplus_gym/simulate.py`](../eplus_gym/simulate.py) | `run_rule_episode` / `run_rule_month_lookup` |
+| [`eplus_gym_app/`](../eplus_gym_app/) | **Streamlit + Plotly** month/strategy UI (no E+) |
 | [`eplus_gym/train_rllib.py`](../eplus_gym/train_rllib.py) | RLlib stub (not shipped) |
 
 ## Run
 
 ```powershell
+# Day or month lookup (CLI)
 python -u scripts\run_eplus_gym_rules.py --mode lookup
-# notebook
-notebooks\lakeside_eplus_gym_playground.ipynb
+python -u scripts\run_eplus_gym_rules.py --mode lookup --month 2026-01
+
+# Grow IdealLoads farm for full months (dry-run first; --execute needs EnergyPlus)
+python -u scripts\run_eplus_gym_month_farm.py --months 2026-01,2026-02 --dry-run
+
+# Streamlit UI (farm parquet only — never live E+)
+streamlit run eplus_gym_app\streamlit_app.py --server.port 8765
+
+# Live month closed-loop (CLI only; slow)
+# python -u scripts\run_eplus_gym_month_live.py --month 2026-01 --strategy baseline --max-steps 96
 ```
 
+Notebook viewer: `notebooks\lakeside_eplus_gym_playground.ipynb`  
 Artifacts: `reports/eplus_gym/`.
 
 ## Twin foundation (still live)

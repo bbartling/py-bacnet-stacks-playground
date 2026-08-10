@@ -2,7 +2,8 @@
 
 | Spec | Topic |
 | --- | --- |
-| [EPLUS_GYM.md](EPLUS_GYM.md) | **PRODUCT** — E+ control gym (rule DR + optional RL) |
+| [EPLUS_GYM.md](EPLUS_GYM.md) | **PRODUCT** — E+ control gym + Streamlit month UI |
+| ../eplus_gym_app/streamlit_app.py | Streamlit + Plotly month/strategy charts |
 | [HEATING_DSM.md](HEATING_DSM.md) | **ARCHIVED** — former hybrid Real+E+ ONNX path |
 | [NATIVE_EPLUS_DSM_REPORT.md](NATIVE_EPLUS_DSM_REPORT.md) | Quarantine report — superseded kW-only path |
 | [UTILITY_GL14.md](UTILITY_GL14.md) | Billing-grade utility G14 (IdealLoads) |

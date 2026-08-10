@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -10,6 +10,7 @@ from .controllers import RuleController
 from .discover import energyplus_available
 from .honesty import HONESTY_IDEALLOADS, LOOKUP_EMULATOR, PROMOTE
 from .lookup_emulator import FarmLookupEnv, list_farm_days
+from .month_calendar import DEPLOYABLE_STRATEGIES, month_kpis
 
 
 def run_rule_episode(
@@ -17,14 +18,15 @@ def run_rule_episode(
     site_root: Path,
     strategy_id: str = "baseline",
     day: Optional[str] = None,
-    mode: str = "auto",  # auto | live | lookup
+    mode: str = "auto",
     epw: Optional[Path] = None,
     idf: Optional[Path] = None,
     output: Optional[Path] = None,
     max_steps: int = 96,
     verbose: bool = False,
+    month: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Return trajectory dict with rows + meta. Prefer live when available."""
+    """Return trajectory dict with rows + meta."""
     site_root = Path(site_root)
     ctrl = RuleController(strategy_id)
     want_live = mode == "live" or (mode == "auto" and energyplus_available())
@@ -38,7 +40,6 @@ def run_rule_episode(
 
     if want_live and mode != "lookup":
         if epw is None or idf is None:
-            # fall through to lookup if paths missing
             want_live = False
             meta["live_skip_reason"] = "epw/idf not provided"
         else:
@@ -55,7 +56,7 @@ def run_rule_episode(
                         "verbose": verbose,
                     }
                 )
-                obs, info = env.reset()
+                _obs, info = env.reset()
                 meta.update(
                     {
                         "provenance": info.get("provenance"),
@@ -65,7 +66,7 @@ def run_rule_episode(
                 )
                 for t in range(max_steps):
                     action = ctrl.action_c(t)
-                    obs_vec, reward, done, truncated, step_info = env.step(action)
+                    _obs_vec, reward, done, truncated, step_info = env.step(action)
                     od = step_info.get("obs_dict") or {}
                     rows.append(
                         {
@@ -84,8 +85,7 @@ def run_rule_episode(
                 meta["live_error"] = str(exc)
                 want_live = False
 
-    # Lookup path
-    days = list_farm_days(site_root, strategy_id)
+    days = list_farm_days(site_root, strategy_id, month=month)
     if day is None:
         if not days:
             raise FileNotFoundError(
@@ -99,12 +99,13 @@ def run_rule_episode(
         strategy_id=strategy_id,
         htg_setpoints_f=ctrl.series_f(),
     )
-    obs, info = env_l.reset()
+    obs, _info = env_l.reset()
     meta.update(
         {
             "provenance": LOOKUP_EMULATOR,
             "mode": "lookup",
             "day": day,
+            "month": month,
             "honesty": HONESTY_IDEALLOADS,
         }
     )
@@ -132,6 +133,49 @@ def run_rule_episode(
             break
     env_l.close()
     return {"rows": rows, "meta": meta, "controller": ctrl}
+
+
+def run_rule_month_lookup(
+    *,
+    site_root: Path,
+    month: str,
+    strategies: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Stack all available farm days in a month for each strategy (no EnergyPlus)."""
+    site_root = Path(site_root)
+    strats = list(strategies or DEPLOYABLE_STRATEGIES)
+    by_strategy: Dict[str, Any] = {}
+    for sid in strats:
+        days = list_farm_days(site_root, sid, month=month)
+        day_frames = []
+        for d in days:
+            try:
+                result = run_rule_episode(
+                    site_root=site_root,
+                    strategy_id=sid,
+                    day=d,
+                    mode="lookup",
+                    month=month,
+                )
+                df = trajectory_frame(result)
+                df["day"] = d
+                df["strategy_id"] = sid
+                day_frames.append(df)
+            except FileNotFoundError:
+                continue
+        by_strategy[sid] = {
+            "days": days,
+            "n_days": len(day_frames),
+            "frame": pd.concat(day_frames, ignore_index=True) if day_frames else pd.DataFrame(),
+        }
+    return {
+        "month": month,
+        "strategies": by_strategy,
+        "kpis": month_kpis(site_root, month, strats),
+        "honesty": HONESTY_IDEALLOADS,
+        "provenance": LOOKUP_EMULATOR,
+        "promote": PROMOTE,
+    }
 
 
 def trajectory_frame(result: Dict[str, Any]) -> pd.DataFrame:

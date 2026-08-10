@@ -43,8 +43,11 @@ Prior tiny clock/billing legacies sit under `legacy_pre/` (see files there).
 | `scripts/` | Hybrid train/ship, greybox, lab, one-off W2A dial helpers |
 | `tests/` | Tests that only asserted archived surfaces |
 | `docs/` | Audits/specs for hybrid / greybox / lab / nearest-day |
+| `docs/live_docs_sweep/` | Hybrid/greybox audits removed from live `docs/audits/` |
+| `contracts/` | `hybrid_dsm_96_v1.json` / `v2.json` (no longer live) |
 | `dsm_excel/` | Excel DSM playground + CSV exports |
 | `legacy_pre/` | Earlier interval/billing legacies |
+| `ml_modules/` also | `simulation_contract.py`, `notebook_plots.py`, `feature_compile_15min.py` |
 
 ---
 
