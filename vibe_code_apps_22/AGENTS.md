@@ -19,13 +19,12 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`  
 Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
-Last validated: **2026-08-10** — hybrid **contract rebuild** complete (A–L):
-canonical [`ml/interval15.py`](ml/interval15.py), q0 lag leakage removed,
-E+ same-run weather export, MTD billing + month replay, grey-box **manifest**
-+ [`GREYBOX_SHADOW_V1`](docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md)
-design-only. IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Recommendation:
-**`RETRAIN_AFTER_CONTRACT_FIX`** — do not promote solely because scores moved.
-Audits: [`docs/audits/`](docs/audits/).
+Last validated: **2026-08-10** — hybrid contract on `develop`; grey-box **PR1**:
+sensor manifest + one-zone 1R1C (`ml/greybox/`, `NON_PROMOTABLE`). IdealLoads =
+`STRUCTURAL_LOAD_DIAGNOSTIC` screening. Hybrid retrain after contract fix is
+independent of grey-box — **do not promote** solely because scores moved.
+Audits: [`docs/audits/`](docs/audits/). Spec:
+[`GREYBOX_SHADOW_V1`](docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md).
 
 ---
 
@@ -52,7 +51,8 @@ vibe_code_apps_22/
   ml/billing_counterfactual.py  # MTD peak before target day
   ml/billing_month_replay.py # month peak-to-date (ILLUSTRATIVE tariff)
   ml/physics_families.py     # STRUCTURAL_LOAD_DIAGNOSTIC vs W2A_PHYSICAL_DSM
-  docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md  # next phase design only
+  ml/greybox/                # GREYBOX_SHADOW_V1 1R1C (NON_PROMOTABLE parallel path)
+  docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md
   desktop/                   # Rust egui + ONNX walk ($/kWh + $/kW)
   notebooks/                 # results viewers + load-profile / desktop playground
   dsm/                       # Excel playground + CSV exports
@@ -128,7 +128,9 @@ python -u scripts\validate_mvm.py
   (`ml/billing_counterfactual.py`) — never the actual peak of the day being resimulated.
 - **q0 lags:** never fill from same-row targets; delta arm intervention lags start at 0.
 - **24/7:** distinguish SAME_STATE_TREATMENT_TEST vs FULL_OVERNIGHT_COUNTERFACTUAL.
-- **Next model:** GREYBOX_SHADOW_V1 design doc — not another NAS; no BACnet writes.
+- **Next model:** GREYBOX_SHADOW_V1 — PR1 one-zone 1R1C shadow (`ml/greybox/`);
+  IdealLoads hybrid remains screening until grey-box earns treatment claims.
+  Rollback = keep hybrid. No BACnet writes.
 - Geometry = rectangular program massing, not CAD.
 - Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
   Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.

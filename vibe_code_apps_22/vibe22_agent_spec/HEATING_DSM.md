@@ -31,7 +31,8 @@ Prior multi-res / A04 work still stands for plant monthly/peak screening — not
 - Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
   Prefer `--crossed` for production-training claims.
 - Next modeling phase: [`../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`](../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md)
-  — design only in this PR.
+  — PR1 one-zone 1R1C shadow (`NON_PROMOTABLE`); IdealLoads hybrid remains screening.
+  No extra `train_four_arms` for grey-box fits.
 - Pre-roll: `--pre-roll-days {0,3,7,14}`; short pre-roll ≠ GLHE seasonal history.
 - Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
 - Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` and is **screening-only** (`smoke_artifact`), never operational DSM.

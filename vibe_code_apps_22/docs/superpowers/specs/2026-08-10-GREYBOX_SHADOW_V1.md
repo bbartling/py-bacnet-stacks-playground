@@ -1,7 +1,10 @@
-# GREYBOX_SHADOW_V1 — design only (next modeling phase)
+# GREYBOX_SHADOW_V1 — shadow thermal path (PR1 landed)
 
-**Status:** SPEC / NON-IMPLEMENTATION in the hybrid contract rebuild PR.  
-**App:** `vibe_code_apps_22` · **Honesty:** does not replace IdealLoads `STRUCTURAL_LOAD_DIAGNOSTIC` screening.
+**Status:** PR1 — sensor manifest repair + **one-zone 1R1C** (`zone_temp_1F_A_f`)  
+**non-promotable**. Does **not** replace IdealLoads `STRUCTURAL_LOAD_DIAGNOSTIC` hybrid screening.  
+**No** hybrid `train_four_arms` retrain required for this slice.
+
+**App:** `vibe_code_apps_22`
 
 ## Why this exists
 
@@ -57,17 +60,26 @@ Use only points present in site export / Haystack / FDD lookup. Missing → `UNK
 `NOT_IN_SITE_EXPORT`. No fabricated object IDs. Inventory script:
 `scripts/inventory_greybox_sensors.py`.
 
-## Explicit non-goals for this PR
+## Explicit non-goals (still)
 
-- No GREYBOX_SHADOW_V1 training or desktop promote.
+- No GREYBOX_SHADOW_V1 desktop promote.
 - No BACnet writes / advisory controller.
 - No claim that IdealLoads deltas are tariff-grade W2A peaks.
 - No architecture search as a substitute for this design.
+- No mandatory hybrid `train_four_arms` re-run for grey-box fits.
+
+## PR1 delivered
+
+1. Sensor inventory scans `real_baseline_15min_v1.parquet` — PRESENT columns are parquet names.
+2. `ml/greybox/rc_1r1c.py` + `scripts/train_greybox_shadow_v1.py` — one-zone open-loop, `Q_eff_DIAGNOSTIC`.
+3. Tests: `tests/test_greybox_shadow_v1.py`.
+4. Cards/CSV under `ml/artifacts/runs/greybox_shadow_v1/` + `reports/ml/greybox_shadow_v1_*`.
 
 ## Next PR checklist (future)
 
-1. Fit per-area RC on measured data with positive constraints.
-2. Effective heat-pump map using available stage/fan/OA only.
-3. Shadow residual bounded ML (optional).
-4. 96/128-step economic MPC behind honesty gates.
-5. Field trial protocol — still no unsupervised BACnet writes.
+1. Six areas open-loop 1R1C (if one-zone gate stays healthy).
+2. Kalman/EKF on measured `T_zone`.
+3. Effective heat-pump map using available stage/fan/OA only.
+4. Shadow residual bounded ML (optional).
+5. 96/128-step economic MPC behind honesty gates.
+6. Field trial protocol — still no unsupervised BACnet writes.
