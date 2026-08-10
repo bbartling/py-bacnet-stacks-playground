@@ -82,11 +82,11 @@ def _strings_from_csv(path: Path) -> list[tuple[str, str]]:
     for c in df.columns:
         rows.append(("__header__", str(c)))
     for c in df.columns:
-        if df[c].dtype == object:
-            for v in df[c].dropna().astype(str).head(500):
-                s = v.strip()
-                if s:
-                    rows.append((str(c), s))
+        series = df[c].dropna().astype(str).head(500)
+        for v in series:
+            s = v.strip()
+            if s and s.lower() not in {"nan", "none"}:
+                rows.append((str(c), s))
     return rows
 
 
