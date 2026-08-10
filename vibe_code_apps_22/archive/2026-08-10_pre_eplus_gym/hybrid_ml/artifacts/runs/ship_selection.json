@@ -1,0 +1,13 @@
+{
+  "selected_arm": "sklearn_allyear",
+  "champion": "gradient_boosting",
+  "peak_mae_kw": 29.366962557757546,
+  "winter_only": false,
+  "copied": [
+    "real_baseline_15min_v1.joblib",
+    "real_baseline_15min_v1.onnx",
+    "real_baseline_15min_v1_feature_meta.json",
+    "real_baseline_15min_v1_model_card.json",
+    "eval/baseline_recursive_days.json"
+  ]
+}

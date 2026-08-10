@@ -1,0 +1,116 @@
+{
+  "stem": "eplus_delta_15min_v1",
+  "run_id": "sklearn_tutorial_20260808T195131Z_2625e5",
+  "honesty": "HYBRID_SCREENING",
+  "provenance": "ENERGYPLUS_NATIVE_DELTA",
+  "champion": "extra_trees",
+  "best_params": {
+    "bootstrap": false,
+    "ccp_alpha": 0.0,
+    "criterion": "squared_error",
+    "max_depth": 16,
+    "max_features": 1.0,
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 2,
+    "min_samples_split": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 120,
+    "n_jobs": 1,
+    "oob_score": false,
+    "random_state": 21,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "cv_teacher_forced": {
+    "random_forest": {
+      "mae_delta_kw": 3.3470031798209057,
+      "rmse_delta_kw": 13.815589522465666,
+      "mae_delta_kw_peak": 14.207229685550566,
+      "mae_delta_temp_mean": 0.16467446013428969
+    },
+    "extra_trees": {
+      "mae_delta_kw": 3.6674033191610644,
+      "rmse_delta_kw": 14.997273635578026,
+      "mae_delta_kw_peak": 13.379273154486619,
+      "mae_delta_temp_mean": 0.2360218437771419
+    },
+    "gradient_boosting": {
+      "mae_delta_kw": 7.734310953932341,
+      "rmse_delta_kw": 30.757487444316343,
+      "mae_delta_kw_peak": 29.548002481072462,
+      "mae_delta_temp_mean": 0.3721203054946602
+    }
+  },
+  "cv_recursive_96_heldout": {
+    "random_forest": {
+      "mae_delta_kw": 60.12839796118536,
+      "rmse_delta_kw": 88.24636004179769,
+      "mae_delta_kw_peak": 48.8106851410904,
+      "cv_rmse_delta_kw": 9.274726743154336,
+      "nmbe_delta_kw": 4.9051867526306525,
+      "mae_delta_temp_mean": 7.616621358175296,
+      "daily_peak_mag_error_kw": 315.7897765606083,
+      "peak_timing_abs_error_steps": 82.05555555555556,
+      "daily_kwh_error": 8740.234926689605,
+      "n_heldout_days": 18,
+      "horizon_mae_delta_step_1": 5.003035172667648,
+      "horizon_mae_delta_step_12": 141.95720409889634,
+      "horizon_mae_delta_step_24": 143.6707441239172,
+      "horizon_mae_delta_step_4": 136.13586953524452,
+      "horizon_mae_delta_step_48": 143.46398045868438,
+      "horizon_mae_delta_step_96": 144.98031511321224
+    },
+    "extra_trees": {
+      "mae_delta_kw": 36.1251093754303,
+      "rmse_delta_kw": 62.34991203526535,
+      "mae_delta_kw_peak": 50.94708482312881,
+      "cv_rmse_delta_kw": 5.8969481525962575,
+      "nmbe_delta_kw": 2.042103916355713,
+      "mae_delta_temp_mean": 5.947793345207825,
+      "daily_peak_mag_error_kw": 290.4694333319119,
+      "peak_timing_abs_error_steps": 120.05555555555556,
+      "daily_kwh_error": 4448.9984276420555,
+      "n_heldout_days": 18,
+      "horizon_mae_delta_step_1": 13.96053940994952,
+      "horizon_mae_delta_step_12": 92.3029370903798,
+      "horizon_mae_delta_step_24": 91.23170288886749,
+      "horizon_mae_delta_step_4": 111.10033046037084,
+      "horizon_mae_delta_step_48": 99.36682872405284,
+      "horizon_mae_delta_step_96": 105.7331394107468
+    },
+    "gradient_boosting": {
+      "mae_delta_kw": 64.18718182488193,
+      "rmse_delta_kw": 83.27067022122952,
+      "mae_delta_kw_peak": 70.57086381923308,
+      "cv_rmse_delta_kw": 8.939704280684685,
+      "nmbe_delta_kw": 2.4352653920630427,
+      "mae_delta_temp_mean": 8.49200669549915,
+      "daily_peak_mag_error_kw": 264.5015985316934,
+      "peak_timing_abs_error_steps": 69.66666666666667,
+      "daily_kwh_error": 6057.5376667063865,
+      "n_heldout_days": 18,
+      "horizon_mae_delta_step_1": 12.114248783611028,
+      "horizon_mae_delta_step_12": 110.77793051262357,
+      "horizon_mae_delta_step_24": 108.33382873667203,
+      "horizon_mae_delta_step_4": 118.76284719966579,
+      "horizon_mae_delta_step_48": 109.11693912945167,
+      "horizon_mae_delta_step_96": 114.16151793385585
+    }
+  },
+  "n_rows": 13824,
+  "n_days": 18,
+  "n_heldout_days": 18,
+  "built_at_utc": "2026-08-08T21:27:55.814993+00:00",
+  "paired_source": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\heating_dsm_eplus_paired_15min_v1.parquet",
+  "feature_contract_version": "FEATURE_COLS_15MIN_MT",
+  "control_contract_version": "control_strategies_v1",
+  "trained_via": "cli",
+  "recursive_note": "held-out recursive on delta targets (lags are DSM\u2212baseline deltas)",
+  "limitation": "strategy, date, and weather remain confounded; smoke farm underpowered",
+  "hashes": {
+    "onnx_sha256": "3c290fe02cee928b325df38afe8f9b4ee9c50d67df0e79fffdb68f8263fdab9a"
+  }
+}

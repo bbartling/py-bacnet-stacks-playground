@@ -1,17 +1,16 @@
 # AGENTS.md — Vibe 22 Lakeside Elementary School
 
 **Single code home** for Lakeside ES (southern Wisconsin): ALC → openfdd package,
-EnergyPlus IdealLoads G14, utility-bill G14, heating DSM ML (E+ farm → sklearn →
-Rust ONNX desktop). **Unity digital twin stays in vibe21** (Liberty) — not this app.
+EnergyPlus IdealLoads / W2A twin pins, **EnergyPlus control gym** (rule DR now,
+optional RL later). **Unity digital twin stays in vibe21** (Liberty) — not this app.
 
-**Read first:** [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md),
+**Read first:** [`vibe22_agent_spec/EPLUS_GYM.md`](vibe22_agent_spec/EPLUS_GYM.md),
 [`vibe22_agent_spec/UTILITY_GL14.md`](vibe22_agent_spec/UTILITY_GL14.md),
 [`vibe22_agent_spec/W2A_PLANT_DIAL.md`](vibe22_agent_spec/W2A_PLANT_DIAL.md),
-[`skills/lakeside-heating-dsm/SKILL.md`](skills/lakeside-heating-dsm/SKILL.md),
+[`skills/lakeside-eplus-gym/SKILL.md`](skills/lakeside-eplus-gym/SKILL.md),
 [`skills/lakeside-eplus-gl14/SKILL.md`](skills/lakeside-eplus-gl14/SKILL.md),
 [`skills/lakeside-utility-gl14/SKILL.md`](skills/lakeside-utility-gl14/SKILL.md),
-[`skills/lakeside-w2a-plant-dial/SKILL.md`](skills/lakeside-w2a-plant-dial/SKILL.md),
-[`ml/README.md`](ml/README.md).
+[`skills/lakeside-w2a-plant-dial/SKILL.md`](skills/lakeside-w2a-plant-dial/SKILL.md).
 
 Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 (default `…\Desktop\testing\sp_creekside`). This repo holds **code + small artifacts**.
@@ -19,12 +18,11 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`  
 Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
-Last validated: **2026-08-10** — Control Twin Lab V1 + grey-box ID honesty on `develop`.
-W2A lab = `SYNTHETIC_W2A_PROVENANCE` / `NON_PROMOTABLE` (never overwrite A04).
-Grey-box remains diagnostic until plant sensors exist (`NOT_IN_HISTORIAN` archaeology).
-IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Audits:
-[`docs/audits/control_twin_lab_v1.md`](docs/audits/control_twin_lab_v1.md),
-[`docs/audits/greybox_forecast_honesty.md`](docs/audits/greybox_forecast_honesty.md).
+Last validated: **2026-08-10** — product cut to **`eplus_gym`**. Hybrid ONNX desktop,
+grey-box, control-twin lab, and exploratory notebooks live under
+[`archive/2026-08-10_pre_eplus_gym/`](archive/2026-08-10_pre_eplus_gym/README.md)
+(do **not** import). IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Audit:
+[`docs/audits/eplus_gym_v1.md`](docs/audits/eplus_gym_v1.md).
 
 ---
 
@@ -32,10 +30,12 @@ IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Audits:
 
 1. Process ALC WebCTRL dumps → vibe19 `openfdd_package_v1` + vibe20 utilities.
 2. Calibrate IdealLoads twin to ASHRAE G14 (interval + client utility bills).
-3. Dial **W2A plant** twin for utility monthly GL14 + Jan‑26 ~285 kW (**A04** champion —
-   see `W2A_PLANT_DIAL.md` / `lakeside_eplus_gl14_vs_peak285.ipynb`).
-4. Train hybrid heating DSM (real 15-min baseline + E+ delta → 96-step rollout).
-5. Leave room for a future **BACnet** app under `bacnet/` (stub only for now).
+3. Dial **W2A plant** twin for utility monthly GL14 + Jan‑26 peak (**A04** champion —
+   never overwrite champions).
+4. Run **rule demand-response** on the twin via [`eplus_gym/`](eplus_gym/)
+   (rllib-energyplus-inspired step API; farm lookup when live E+ unavailable).
+5. Optional later: RLlib PPO on the same env (`eplus_gym/train_rllib.py` stub).
+6. Leave room for a future **BACnet** app under `bacnet/` (stub only — **no writes**).
 
 ---
 
@@ -43,32 +43,20 @@ IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Audits:
 
 ```text
 vibe_code_apps_22/
+  eplus_gym/                 # PRODUCT — live/lookup E+ control gym + rule controllers
   lakeside/paths.py          # SITE_ROOT + building constants
-  models/eplus/              # Pinned G14-best IdealLoads IDFs + scorecards (git)
-  scripts/                   # ALC pipe, E+, train_four_arms / ship_best (see scripts/README.md)
-  ml/                        # heating DSM train / features / artifacts
-  ml/interval15.py           # CANONICAL 15-min clock (BAS / E+ / Python / Rust)
-  ml/billing_counterfactual.py  # MTD peak before target day
-  ml/billing_month_replay.py # month peak-to-date (ILLUSTRATIVE tariff)
-  ml/physics_families.py     # STRUCTURAL_LOAD_DIAGNOSTIC vs W2A_PHYSICAL_DSM
-  ml/greybox/                # GREYBOX_SHADOW_V1 1R1C (NON_PROMOTABLE parallel path)
-  docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md
-  desktop/                   # Rust egui + ONNX walk ($/kWh + $/kW)
-  notebooks/                 # results viewers + load-profile / desktop playground
-  dsm/                       # Excel playground + CSV exports
-  docs/                      # E+ plan / DSM notes
-  docs/audits/               # interval + root-cause audits (evidence-first)
-  archive/                   # superseded helpers (do not import)
-  skills/                    # agent skills
-  bacnet/                    # FUTURE — live BACnet app placeholder
+  models/eplus/              # Pinned IdealLoads + W2A A04 IDFs (git)
+  eplus_native/              # IDF stage / meters / schedule repair
+  contracts/control_strategies_v1/  # named DR schedules
+  scripts/                   # ALC, twin calibrate, run_eplus_gym_rules
+  ml/                        # thin shared helpers (interval15, physics_families, …)
+  notebooks/lakeside_eplus_gym_playground.ipynb   # ONLY live sim notebook
+  docs/audits/eplus_gym_v1.md
+  archive/2026-08-10_pre_eplus_gym/  # hybrid/desktop/greybox/lab/old notebooks
+  skills/
+  bacnet/                    # FUTURE — read-only placeholder
   vibe22_agent_spec/
-  reports/eplus/             # spinup / timestep sensitivity scaffolds
 ```
-
-Pinned twins: [`models/eplus/`](models/eplus/) (IdealLoads util/interval,
-W2A **A04** dual `lakeside_w2a_a04_dual_champion.idf` + scorecards). Campaign /
-farm scripts use **site** `eplus/` when present, else these repo pins via
-`resolve_eplus_model()`.
 
 ---
 
@@ -77,8 +65,8 @@ farm scripts use **site** `eplus/` when present, else these repo pins via
 | Var | Purpose |
 | --- | --- |
 | `LAKESIDE_SITE_ROOT` | Preferred site data root |
+| `ENERGYPLUS_ROOT` | EnergyPlus install (for live gym / `pyenergyplus`) |
 | `VIBE22_SITE_ROOT` | Alias |
-| `VIBE22_CREEKSIDE_ROOT` / `VIBE23_CREEKSIDE_ROOT` | Legacy aliases |
 
 ---
 
@@ -88,65 +76,36 @@ farm scripts use **site** `eplus/` when present, else these repo pins via
 cd C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22
 $env:LAKESIDE_SITE_ROOT="C:\Users\ben\OneDrive\Desktop\testing\sp_creekside"
 $env:PYTHONUNBUFFERED="1"
-$env:PYTHONIOENCODING="utf-8"
 pip install -r requirements.txt
 
 # ALC → package (writes into SITE)
 python -u scripts\process_lakeside.py
-python -u scripts\demand_weather_charts.py
-python -u scripts\thermal_zone_analytics.py
 
-# E+ targets / campaigns (needs local EnergyPlus; do not resim unless asked)
+# Twin foundation (needs local EnergyPlus; do not resim unless asked)
 python -u scripts\eplus_observed_targets.py
 # python -u scripts\eplus_campaign_utility.py
 
-# Heating DSM hybrid (Real+E+) — train via CLI (notebooks are viewers)
-python -u scripts\eplus_stage_repair_and_rescore.py
-python -u scripts\build_real_15min_store.py
-python -u scripts\eplus_heating_dsm_farm.py --medium
-python -u scripts\train_four_arms.py --profile full_evaluation
-python -u scripts\ship_best_to_desktop.py
-# Viewers: notebooks\lakeside_heating_dsm_{sklearn,torch}.ipynb
-# Scripts map: scripts\README.md
-python -u scripts\validate_mvm.py
+# Optional: refresh IdealLoads DSM farm (feeds gym lookup mode)
+# python -u scripts\eplus_heating_dsm_farm.py --medium
 
-# Desktop — also launched by ship_best_to_desktop.py
-# cd desktop && cargo run --release
+# PRODUCT — rule DR gym (lookup works offline; live needs E+ API + EPW/IDF)
+python -u scripts\run_eplus_gym_rules.py --mode lookup
+# Viewer: notebooks\lakeside_eplus_gym_playground.ipynb
 ```
+
 ---
 
 ## Honesty
 
-- IdealLoads + fixed-COP ≠ full GSHP/GLHE plant (still native E+ twin demand).
-  Farm physics family: **`STRUCTURAL_LOAD_DIAGNOSTIC`**. W2A path is
-  **`W2A_PHYSICAL_DSM`** (A04 seed) — do not silently call IdealLoads a GSHP treatment.
-- **Interval contract:** `step_15=0 → 00:15`, `step_15=95 → 24:00` via `ml/interval15.py`.
-  Joins prefer UTC; E+ stamps stay local-standard (CST−6). See docs/audits/.
-- **Weather:** promotable farm **fail-closed** without OAT/RH/GHI attach.
-  `--allow-weather-fallback` (oat=25/rh=50/ghi=0) is STRUCTURAL_DIAGNOSTIC only.
-- **Billing:** `existing_billing_peak_kw` = month-to-date peak **before** the target day
-  (`ml/billing_counterfactual.py`) — never the actual peak of the day being resimulated.
-- **q0 lags:** never fill from same-row targets; delta arm intervention lags start at 0.
-- **24/7:** distinguish SAME_STATE_TREATMENT_TEST vs FULL_OVERNIGHT_COUNTERFACTUAL.
-- **Next model:** GREYBOX_SHADOW_V1 — PR1 one-zone 1R1C shadow (`ml/greybox/`);
-  IdealLoads hybrid remains screening until grey-box earns treatment claims.
-  Rollback = keep hybrid. No BACnet writes.
-- Geometry = rectangular program massing, not CAD.
-- Heating DSM is **Hybrid Real+E+** (`HYBRID_SCREENING`): real BAS baseline + paired E+ deltas.
-  Hourly `heating_dsm_hourly_v1` ship is **quarantined**. Proxy/bootstrap **removed**.
-- **Model training via CLI** (`train_four_arms`); notebooks view `ml/artifacts/runs/` only.
-- Desktop **live hybrid ONNX** from UI midnight state; ship JSON is compare/fallback.
-- Promote requires held-out recursive metrics; &lt;12 E+ pairs needs `VIBE22_ALLOW_SMOKE_PROMOTE=1`.
-- Smoke farm underpowered — **not operational DSM**. Prefer `--crossed` for training claims.
-- Pre-roll (`--pre-roll-days` 3/7/14) scaffolds thermal history; short pre-roll ≠ GLHE seasonal.
-- Utility G14 ≠ interval-integrated demand fidelity.
-- Display name **Lakeside**; research/docs may say **Creekside** (fictionalized);
-  site disk may still be `sp_creekside`.
-- W2A **A04** ≠ IdealLoads util champion; do not overwrite `*_best_utility.idf`.
-- Superseded helpers live under [`archive/`](archive/) — **do not import**.
-- SoT [`vibe22_agent_spec/HEATING_DSM.md`](vibe22_agent_spec/HEATING_DSM.md),
-  [`vibe22_agent_spec/W2A_PLANT_DIAL.md`](vibe22_agent_spec/W2A_PLANT_DIAL.md)
-  + scripts map [`scripts/README.md`](scripts/README.md).
+- IdealLoads + fixed-COP ≠ GSHP/GLHE plant. Label: **`STRUCTURAL_LOAD_DIAGNOSTIC`**.
+- W2A path: **`W2A_PHYSICAL_DSM`** (A04 seed) — do not overwrite `*_best_utility.idf` or A04.
+- Gym **lookup** mode = `FARM_LOOKUP_EMULATOR` (not closed-loop dynamics).
+- Gym **live** mode = `ENERGYPLUS_PYTHON_API` (rllib-energyplus-style callbacks).
+- `promote=False` for IdealLoads gym products — screening / structural only.
+- Interval clock: `ml/interval15.py` (`step_15=0 → 00:15`).
+- No BACnet WriteProperty.
+- Archived hybrid/greybox/lab paths: see [`archive/2026-08-10_pre_eplus_gym/`](archive/2026-08-10_pre_eplus_gym/README.md).
+
 ---
 
 ## Relationship

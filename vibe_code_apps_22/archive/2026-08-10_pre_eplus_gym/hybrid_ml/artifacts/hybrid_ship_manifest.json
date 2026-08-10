@@ -1,0 +1,90 @@
+{
+  "ship_mode": "smoke_artifact",
+  "honesty": "HYBRID_SCREENING",
+  "contract_version": "hybrid_dsm_96_v1",
+  "walk_json": "hybrid_dsm_96_v1_walk.json",
+  "baseline_stem": "real_baseline_15min_v1",
+  "delta_stem": "eplus_delta_15min_v1",
+  "champion_baseline": "gradient_boosting",
+  "champion_delta": "extra_trees",
+  "summary": {
+    "cumulative_kwh_baseline": 3295.315447372036,
+    "cumulative_kwh_hybrid": 3300.343003895915,
+    "peak_kw_baseline": 197.54077644684327,
+    "peak_kw_hybrid": 298.02297606312595,
+    "peak_step_baseline": 36,
+    "peak_step_hybrid": 20,
+    "comfort_violations": 157,
+    "delta_peak_kw": 100.48219961628268,
+    "delta_kwh": 5.027556523878957
+  },
+  "pair_count": 6,
+  "idealloads_cop_disclaimer": "IdealLoads + fixed COP \u2260 GSHP/GLHE plant; hybrid screening only.",
+  "baseline_cv_recursive_96_heldout": {
+    "facility_kw_mae": 20.891771789214673,
+    "facility_kw_mae_peak_05_09": 29.366962557757546,
+    "facility_kw_rmse": 26.02933595071006,
+    "facility_kw_cv_rmse": 0.41127952815812213,
+    "facility_kw_nmbe": 0.11996000258783467,
+    "zone_temp_mae_mean": 1.2694277902530042,
+    "n_heldout_days": 216
+  },
+  "delta_cv_recursive_96_heldout": {
+    "mae_delta_kw": 36.1251093754303,
+    "mae_delta_kw_peak": 50.94708482312881,
+    "mae_delta_temp_mean": 5.947793345207825,
+    "cv_rmse_delta_kw": 5.8969481525962575,
+    "nmbe_delta_kw": 2.042103916355713,
+    "rmse_delta_kw": 62.34991203526535,
+    "n_heldout_days": 18
+  },
+  "mv_precision": {
+    "primary": [
+      "nmbe",
+      "cv_rmse"
+    ],
+    "secondary": [
+      "mae",
+      "rmse",
+      "mae_peak_05_09"
+    ],
+    "precision_pm_kw": 29.366962557757546,
+    "precision_label": "screening +/- kW from held-out morning-peak MAE (not a CI)",
+    "g14_monthly_reference": {
+      "nmbe_abs_max": 0.05,
+      "cv_rmse_max": 0.15,
+      "note": "ASHRAE Guideline 14 monthly calibrated reference (|NMBE|<=5%, CV(RMSE)<=15%); hybrid 15-min held-out metrics are screening only, not a monthly G14 compliance claim"
+    },
+    "champion_baseline": "gradient_boosting",
+    "champion_delta": "extra_trees",
+    "baseline": {
+      "nmbe": 0.11996000258783467,
+      "cv_rmse": 0.41127952815812213,
+      "mae": 20.891771789214673,
+      "rmse": 26.02933595071006,
+      "mae_peak_05_09": 29.366962557757546,
+      "zone_temp_mae_mean": 1.2694277902530042,
+      "n_heldout_days": 216
+    },
+    "delta": {
+      "nmbe": 2.042103916355713,
+      "cv_rmse": 5.8969481525962575,
+      "mae": 36.1251093754303,
+      "rmse": 62.34991203526535,
+      "mae_peak_05_09": 50.94708482312881,
+      "n_heldout_days": 18
+    }
+  },
+  "promoted_via": "cli",
+  "multires_gate": {
+    "ok": true,
+    "operational": false,
+    "reason": "hourly=fail",
+    "path": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\desktop\\artifacts\\mvm\\eplus_multires_validation.json",
+    "waiver": false
+  },
+  "operational_dsm": false,
+  "watermark": "UNDERPOWERED_SMOKE_FARM",
+  "honesty_note": "UNDERPOWERED_SMOKE_FARM: usable both-arm pairs=6 < 12; screening-only smoke artifact, not a client-grade result",
+  "outcome_flag": "REJECTED_DSM_OUTCOME"
+}

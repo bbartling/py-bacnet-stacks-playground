@@ -1,8 +1,0 @@
-role,status,raw_name,source_path,source_column,score,note
-hp_enable_or_stage,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-fan_status,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-sat_rat,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-loop_ewt,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-loop_lwt,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-pump_speed_or_kw,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site
-doas_or_oa_signal,NOT_IN_HISTORIAN,,NONE,,0,No FDD/Haystack/bacnet CSV maps found under site

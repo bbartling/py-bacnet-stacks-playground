@@ -1,0 +1,128 @@
+{
+  "iter": 5,
+  "n": 10,
+  "n_pass": 10,
+  "plant_peak_cap_kw": 450.0,
+  "rows": [
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_wider",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.210688404421145,
+      "peak_kw": 102.45440875932556,
+      "mae": 9.210688404421145,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider via wider",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider",
+      "mutation": "wider"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_ensemble_pair",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.485386832340074,
+      "peak_kw": 93.34080546123782,
+      "mae": 9.485386832340074,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair via ensemble_pair",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair",
+      "mutation": "ensemble_pair"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_longer_horizon",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.548299812205995,
+      "peak_kw": 105.88927420993643,
+      "mae": 9.548299812205995,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair via longer_horizon",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair",
+      "mutation": "longer_horizon"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy__i05_ablate_strategy",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.721357055927765,
+      "peak_kw": 97.80124314402299,
+      "mae": 9.721357055927765,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy via ablate_strategy",
+      "parent": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy",
+      "mutation": "ablate_strategy"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_weaker_physics",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 9.81923991429223,
+      "peak_kw": 103.45372923498735,
+      "mae": 9.81923991429223,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider via weaker_physics",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider",
+      "mutation": "weaker_physics"
+    },
+    {
+      "name": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair__i05_deeper",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 10.212666771972176,
+      "peak_kw": 100.24690296721144,
+      "mae": 10.212666771972176,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair via deeper",
+      "parent": "sklearn_chain_kw__i02_deeper__i03_deeper__i04_ensemble_pair",
+      "mutation": "deeper"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_more_dropout",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 11.025739689485565,
+      "peak_kw": 100.13182198656274,
+      "mae": 11.025739689485565,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider via more_dropout",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider",
+      "mutation": "more_dropout"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy__i05_lower_lr",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 11.383397698773868,
+      "peak_kw": 95.1254784249518,
+      "mae": 11.383397698773868,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy via lower_lr",
+      "parent": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy",
+      "mutation": "lower_lr"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider__i05_ablate_forecast",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 12.044149168973025,
+      "peak_kw": 102.46223347677024,
+      "mae": 12.044149168973025,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider via ablate_forecast",
+      "parent": "sklearn_hgb_multi__i02_ablate_strategy__i03_more_dropout__i04_wider",
+      "mutation": "ablate_forecast"
+    },
+    {
+      "name": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy__i05_stronger_physics",
+      "family": "hist_gradient_boosting",
+      "pass": true,
+      "score": 13.777942562549304,
+      "peak_kw": 100.36937049996405,
+      "mae": 13.777942562549304,
+      "backend": "sklearn",
+      "theme": "iter5 mutate sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy via stronger_physics",
+      "parent": "sklearn_hgb_multi__i02_lower_lr__i03_lower_lr__i04_ablate_strategy",
+      "mutation": "stronger_physics"
+    }
+  ]
+}

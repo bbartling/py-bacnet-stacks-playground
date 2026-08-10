@@ -1,0 +1,33 @@
+{
+  "entries": [
+    {
+      "name": "load_frame",
+      "seconds": 0.08334179999656044,
+      "hms": "0h 00m 0.1s"
+    },
+    {
+      "name": "split_manifest",
+      "seconds": 0.34236710000550374,
+      "hms": "0h 00m 0.3s"
+    },
+    {
+      "name": "train_torch_baseline",
+      "seconds": 402.7764441000036,
+      "hms": "0h 06m 43s"
+    },
+    {
+      "name": "export_artifacts",
+      "seconds": 0.40461390001291875,
+      "hms": "0h 00m 0.4s"
+    }
+  ],
+  "total_seconds": 403.60676690001856,
+  "total_hms": "0h 06m 44s",
+  "arm": "torch_allyear",
+  "run_id": "torch_20260810T133048Z_b68dc8",
+  "winter_only": false,
+  "n_rows": 32156,
+  "n_days": 335,
+  "family": "resmlp_dualhead",
+  "card": "C:\\Users\\ben\\Documents\\py-bacnet-stacks-playground\\vibe_code_apps_22\\ml\\artifacts\\runs\\torch_allyear\\real_baseline_15min_torch_v1_model_card.json"
+}
