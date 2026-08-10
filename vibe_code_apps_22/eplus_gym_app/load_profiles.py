@@ -31,19 +31,48 @@ DIAL_COLORS = {
 }
 
 
-def load_bas_demand_oat(bundle: SiteUiBundle) -> pd.DataFrame:
-    """Hourly BAS demand × Open-Meteo OAT from the bundle CSV layer."""
-    df = pd.read_csv(bundle.bas_demand_oat_csv)
-    need = {"hour_utc", "kw_avg", "oat_f"}
+def load_bas_demand_oat(
+    bundle: SiteUiBundle | None = None, *, csv_path: Path | None = None
+) -> pd.DataFrame:
+    """Hourly BAS demand × OAT from bundle CSV or an explicit picker path."""
+    path = Path(csv_path) if csv_path else None
+    if path is None:
+        if bundle is None:
+            raise ValueError("bundle or csv_path required")
+        path = bundle.bas_demand_oat_csv
+    df = pd.read_csv(path)
+    # Normalize common interval / hourly shapes to hour_utc, kw_avg, oat_f
+    colmap = {c.lower(): c for c in df.columns}
+    if "hour_utc" not in df.columns:
+        for alt in ("timestamp_utc", "timestamp", "time", "datetime"):
+            if alt in colmap:
+                df = df.rename(columns={colmap[alt]: "hour_utc"})
+                break
+    if "kw_avg" not in df.columns:
+        for alt in ("facility_kw", "kw", "demand_kw", "kw_demand", "kw_avg"):
+            if alt in colmap:
+                df = df.rename(columns={colmap[alt]: "kw_avg"})
+                break
+    if "oat_f" not in df.columns:
+        for alt in ("oat_f", "oat", "temp_f", "outdoor_f"):
+            if alt in colmap and colmap[alt] in df.columns:
+                df = df.rename(columns={colmap[alt]: "oat_f"})
+                break
+        if "oat_f" not in df.columns:
+            df["oat_f"] = float("nan")
+
+    need = {"hour_utc", "kw_avg"}
     missing = need - set(df.columns)
     if missing:
-        raise ValueError(f"bas_demand_oat_csv missing columns {sorted(missing)}")
+        raise ValueError(
+            f"interval/demand CSV {path} missing columns {sorted(missing)}; "
+            "need hour_utc (or timestamp) + kw_avg (or facility_kw)"
+        )
     out = df.copy()
     out["hour_utc"] = pd.to_datetime(out["hour_utc"], utc=True, errors="coerce")
     out["kw_avg"] = pd.to_numeric(out["kw_avg"], errors="coerce")
     out["oat_f"] = pd.to_numeric(out["oat_f"], errors="coerce")
     if "day_type" not in out.columns:
-        # Mon-Fri weekday in America/Chicago
         local = out["hour_utc"].dt.tz_convert("America/Chicago")
         out["day_type"] = np.where(local.dt.dayofweek < 5, "Weekday", "Weekend")
     out["local_day"] = (
@@ -52,7 +81,29 @@ def load_bas_demand_oat(bundle: SiteUiBundle) -> pd.DataFrame:
     out["hod"] = out["hour_utc"].dt.tz_convert("America/Chicago").dt.hour + (
         out["hour_utc"].dt.tz_convert("America/Chicago").dt.minute / 60.0
     )
-    return out.dropna(subset=["hour_utc", "kw_avg"])
+    out = out.dropna(subset=["hour_utc", "kw_avg"]).sort_values("hour_utc")
+    # Sub-hourly interval → hourly mean for period charts
+    if len(out) >= 3:
+        dt = out["hour_utc"].diff().dt.total_seconds().median()
+        if dt is not None and dt == dt and dt < 1200:
+            out = out.set_index("hour_utc")
+            agg = {"kw_avg": "mean", "oat_f": "mean"}
+            hourly = out.resample("h").agg(agg).dropna(subset=["kw_avg"]).reset_index()
+            hourly["day_type"] = np.where(
+                hourly["hour_utc"].dt.tz_convert("America/Chicago").dt.dayofweek < 5,
+                "Weekday",
+                "Weekend",
+            )
+            hourly["local_day"] = (
+                hourly["hour_utc"]
+                .dt.tz_convert("America/Chicago")
+                .dt.strftime("%Y-%m-%d")
+            )
+            hourly["hod"] = hourly["hour_utc"].dt.tz_convert(
+                "America/Chicago"
+            ).dt.hour.astype(float)
+            out = hourly
+    return out
 
 
 def find_peak_demand_day(bas: pd.DataFrame) -> tuple[str, float, pd.Timestamp]:
@@ -159,6 +210,7 @@ def facility_kw_for_day(sim_dir: Path, day: str) -> Optional[pd.DataFrame]:
     """Extract facility electric kW vs hour-of-day for a local civil day from eplusout.
 
     EnergyPlus Date/Time stamps are simulation-local (often CST without TZ).
+    Prefer ``Electricity:Facility [J](Hourly)`` (J per hour → kW = J / 3.6e6).
     Returns columns ``hod``, ``simulated_kw`` or None if unavailable.
     """
     path = _find_eplusout(sim_dir)
@@ -168,8 +220,13 @@ def facility_kw_for_day(sim_dir: Path, day: str) -> Optional[pd.DataFrame]:
         _y, m, d = (int(x) for x in day.split("-"))
     except ValueError:
         return None
-    target_md = f"{m:02d}/{d:02d}"
-    target_md_loose = f"{m}/{d}"
+    # Strict MM/DD match — do NOT use loose "1/26" (matches 11/26 too).
+    day_re = re.compile(
+        rf"(?:^|[\s/])0*{m}/0*{d}(?:\s|$)",
+        re.IGNORECASE,
+    )
+    # Also accept zero-padded " 01/26  07:00:00"
+    day_re_pad = re.compile(rf"(?:^|\s){m:02d}/{d:02d}\s")
 
     with path.open(encoding="utf-8", errors="replace", newline="") as f:
         reader = csv.reader(f)
@@ -179,39 +236,60 @@ def facility_kw_for_day(sim_dir: Path, day: str) -> Optional[pd.DataFrame]:
             return None
         headers = [_norm(h) for h in header_raw]
         i_date = next((i for i, h in enumerate(headers) if "date" in h), 0)
-        i_elec = next(
-            (i for i, h in enumerate(headers) if "electricity:facility" in h),
-            None,
-        )
+        # Prefer Hourly J column; avoid Timestep duplicate series.
+        i_elec = None
+        for i, h in enumerate(headers):
+            if "electricity:facility" in h and "(hourly)" in h:
+                i_elec = i
+                break
+        if i_elec is None:
+            i_elec = next(
+                (i for i, h in enumerate(headers) if "electricity:facility" in h),
+                None,
+            )
         if i_elec is None:
             return None
+        header_elec = headers[i_elec]
+        is_joules = "[j]" in header_elec
 
         rows: list[dict[str, float]] = []
         for raw in reader:
             if not raw or i_date >= len(raw) or i_elec >= len(raw):
                 continue
             stamp = raw[i_date].strip()
-            compact = stamp.replace(" ", "")
-            if target_md not in compact and target_md_loose not in compact:
+            if not (day_re_pad.search(stamp) or day_re.search(stamp)):
+                continue
+            token = (raw[i_elec] or "").strip()
+            if not token:
                 continue
             try:
-                kw = float(raw[i_elec])
+                val = float(token)
             except ValueError:
                 continue
-            # Lakeside W2A eplusout Electricity:Facility is typically W.
-            if kw > 1e6:
-                kw = kw / 3_600_000.0  # J/timestep → rough kW
-            elif kw > 5000:
-                kw = kw / 1000.0  # W → kW
+            if is_joules:
+                # Hourly meter: Joules integrated over the hour → mean kW
+                kw = val / 3_600_000.0
+            elif val > 5000:
+                kw = val / 1000.0  # W → kW
+            else:
+                kw = val
+            # EP hour-ending stamps (01:00 … 24:00). Align to Actual civil hour 0..23:
+            # HE 01:00 covers 00:00–01:00 → hod 0; HE 24:00 → hod 23.
             hod = 0.0
             m_hm = re.search(r"(\d{1,2}):(\d{2})", stamp)
             if m_hm:
-                hod = int(m_hm.group(1)) + int(m_hm.group(2)) / 60.0
+                hh = int(m_hm.group(1))
+                mm = int(m_hm.group(2))
+                he = hh + mm / 60.0
+                hod = max(0.0, he - 1.0)
             rows.append({"hod": hod, "simulated_kw": kw})
 
     if not rows:
         return None
-    return pd.DataFrame(rows).sort_values("hod")
+    df = pd.DataFrame(rows).sort_values("hod")
+    # One point per hod if duplicates slipped through
+    df = df.groupby("hod", as_index=False)["simulated_kw"].mean()
+    return df
 
 
 def dial_peak_day_overlay(bundle: SiteUiBundle) -> dict[str, Any]:

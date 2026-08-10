@@ -52,15 +52,17 @@ UI binds only to [`SiteUiBundle`](../../eplus_gym_app/site_bundle.py) resolved f
 `{site}/reports/site_ui_bundle_v1.json` (fallback:
 [`contracts/site_ui_bundle_v1.lakeside.example.json`](../../contracts/site_ui_bundle_v1.lakeside.example.json)):
 
-| Tab | Layers | Honesty |
-|---|---|---|
-| IdealLoads farm month | farm parquet | `STRUCTURAL_LOAD_DIAGNOSTIC` |
-| Load profiles (Actual vs E+) | `campus.json` + BAS×OAT CSV + dial closeness / W2A sims | `BAS_INTERVAL_METER` / `W2A_PHYSICAL_DSM` |
-| Building massing | IDF pin → Plotly Mesh3d (vibe20 `idf_geometry`) | `PUBLISHED_IDF_GEOMETRY` |
+### Streamlit = picker viewer only
 
-Closeness % uses the archived dial-ladder formula
-`max(0, 100 − |sim−obs|/obs×100)` (weekday/weekend segments). Prefer the
-precomputed CSV on the bundle; do not invent physics in the browser.
+Sidebar pickers (no live E+):
+
+| Picker | Discovers | Renders |
+|---|---|---|
+| Catalog model / IDF file | `model_catalog` + `models/eplus/*.idf` + site `eplus/models` | Period overlay, massing, GL14 tiles |
+| `campus.json` | `utilities/campus*.json` (vibe20 Campus) | Fuel tab monthly kWh / EUI |
+| Demand / interval CSV | `reports/*demand*` / utilities interval | Actual traces in Period + Load profiles |
+
+Agents still own GL14 dialing and publish scorecards / sim dirs on the bundle.
 
 ## Explicit non-claims
 

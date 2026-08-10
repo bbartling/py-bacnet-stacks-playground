@@ -18,6 +18,95 @@ COLORS = {
 }
 
 
+def fuel_monthly_figure(elec: pd.DataFrame, *, title: str = "Monthly electric") -> go.Figure:
+    """vibe20-style monthly fuel bars from Campus electric meter bills."""
+    fig = go.Figure()
+    if elec.empty:
+        fig.update_layout(title="No fuel/bill rows", template="plotly_white", height=360)
+        return fig
+    g = elec.groupby("month", as_index=False)["usage"].sum()
+    fig.add_trace(
+        go.Bar(
+            x=g["month"],
+            y=g["usage"],
+            name="kWh",
+            marker_color="#264653",
+        )
+    )
+    if "demand_kw" in elec.columns and elec["demand_kw"].notna().any():
+        d = elec.groupby("month", as_index=False)["demand_kw"].max()
+        fig.add_trace(
+            go.Scatter(
+                x=d["month"],
+                y=d["demand_kw"],
+                name="Billed demand kW",
+                yaxis="y2",
+                mode="lines+markers",
+                line=dict(color="#e76f51", width=2),
+            )
+        )
+        fig.update_layout(
+            yaxis2=dict(title="Demand kW", overlaying="y", side="right"),
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Month",
+        yaxis_title="kWh",
+        template="plotly_white",
+        height=400,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
+def period_overlay_figure(overlay: Mapping[str, Any]) -> go.Figure:
+    """Actual BAS vs one selected dial model over a period (clear 2-series legend)."""
+    fig = go.Figure()
+    actual = overlay.get("actual")
+    sim = overlay.get("sim")
+    util = float(overlay.get("utility_peak_kw") or 284.8)
+    preset = overlay.get("preset", "")
+    n_days = overlay.get("n_days", 0)
+    sim_id = overlay.get("sim_id") or overlay.get("model_id") or "Sim"
+
+    if actual is not None and not getattr(actual, "empty", True):
+        fig.add_trace(
+            go.Scatter(
+                x=actual["t_hours"],
+                y=actual["kw"],
+                mode="lines",
+                name="Actual (BAS meter)",
+                line=dict(color="#1f2a30", width=2.4),
+            )
+        )
+    if sim is not None and not getattr(sim, "empty", True):
+        fig.add_trace(
+            go.Scatter(
+                x=sim["t_hours"],
+                y=sim["kw"],
+                mode="lines",
+                name=f"E+ {sim_id} (selected)",
+                line=dict(color="#e76f51", width=2.2),
+            )
+        )
+    fig.add_hline(
+        y=util,
+        line_dash="dot",
+        line_color="#6c757d",
+        annotation_text=f"Utility {util:.1f} kW",
+        annotation_position="top left",
+    )
+    fig.update_layout(
+        title=f"{preset} · {n_days} day(s) · Actual vs {sim_id}",
+        xaxis_title="Hours from period start",
+        yaxis_title="kW",
+        template="plotly_white",
+        height=460,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    return fig
+
+
 def facility_overlay_figure(
     profiles: pd.DataFrame,
     *,
@@ -44,12 +133,12 @@ def facility_overlay_figure(
             )
         )
     fig.update_layout(
-        title=f"IdealLoads mean daily kW · {month}{title_suffix}",
+        title=f"IdealLoads DIAGNOSTIC mean daily kW · {month}{title_suffix}",
         xaxis_title="Hour",
-        yaxis_title="facility kW (mean over days present)",
+        yaxis_title="IdealLoads facility kW (NOT W2A / NOT BAS)",
         template="plotly_white",
         height=440,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, title_text="DR strategy"),
         margin=dict(l=40, r=20, t=60, b=40),
     )
     return fig

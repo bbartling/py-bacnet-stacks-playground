@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from eplus_gym_app.geom_tables import envelope_table, zones_table
 from eplus_gym_app.idf_geometry import parse_idf_geometry
 from eplus_gym_app.load_profiles import (
     closeness_pivot,
@@ -16,7 +17,12 @@ from eplus_gym_app.load_profiles import (
     shape_closeness_from_hourly,
 )
 from eplus_gym_app.plots import demand_vs_oat_figure, dial_progression_figure
-from eplus_gym_app.site_bundle import SCHEMA, load_site_ui_bundle
+from eplus_gym_app.site_bundle import (
+    SCHEMA,
+    catalog_gl14_table,
+    load_normalized_scorecard,
+    load_site_ui_bundle,
+)
 
 
 def _write_min_site(tmp: Path) -> Path:
@@ -100,13 +106,32 @@ def _write_min_site(tmp: Path) -> Path:
         "campus_json": "utilities/campus.json",
         "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
         "utility_peak_kw": 284.8,
-        "idf_pin": None,
+        "default_model_id": "A04",
+        "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
         "farm_parquet": None,
         "honesty": {
             "bas": "BAS_INTERVAL_METER",
             "dial_ladder": "W2A_PHYSICAL_DSM",
             "farm": "STRUCTURAL_LOAD_DIAGNOSTIC",
         },
+        "model_catalog": [
+            {
+                "id": "A04",
+                "label": "A04 W2A dual champion",
+                "family": "W2A_PHYSICAL_DSM",
+                "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+                "scorecard": "models/eplus/best_scorecard_a04_dual.json",
+                "champion": True,
+                "dial_id": "A04",
+            },
+            {
+                "id": "IDEAL_INTERVAL",
+                "label": "IdealLoads interval",
+                "family": "STRUCTURAL_LOAD_DIAGNOSTIC",
+                "idf_pin": "lakeside_6zone_gshp_best.idf",
+                "scorecard": "models/eplus/best_scorecard.json",
+            },
+        ],
         "dial_ladder": {
             "peak_day": "2026-01-26",
             "precomputed_closeness_csv": str(
@@ -128,6 +153,65 @@ def test_site_bundle_loads_campus_and_layers(tmp_path: Path):
     assert b.bas_demand_oat_csv.is_file()
     assert b.dial_ladder.peak_day == "2026-01-26"
     assert b.promote is False
+    assert b.default_model_id == "A04"
+    assert len(b.model_catalog) >= 1
+    a04 = b.get_model("A04")
+    assert a04 is not None
+    assert a04.champion is True
+    assert a04.metrics is not None
+    assert a04.metrics.gl14_pass is True
+    assert a04.metrics.peak_kw is not None
+    assert a04.metrics.peak_kw > 280
+
+
+def test_normalize_a04_scorecard():
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "models"
+        / "eplus"
+        / "best_scorecard_a04_dual.json"
+    )
+    if not path.is_file():
+        pytest.skip("A04 scorecard missing")
+    m = load_normalized_scorecard(path)
+    assert m.gl14_pass is True
+    assert m.peak_kw == pytest.approx(287.4857, rel=1e-3)
+    assert m.nmbe_pct is not None
+    assert m.cvrmse_pct is not None
+
+
+def test_normalize_ideal_loads_scorecard():
+    path = (
+        Path(__file__).resolve().parents[1] / "models" / "eplus" / "best_scorecard.json"
+    )
+    if not path.is_file():
+        pytest.skip("IdealLoads scorecard missing")
+    m = load_normalized_scorecard(path)
+    assert m.gl14_pass is True
+    assert m.nmbe_pct is not None
+    assert m.peak_kw is not None  # max monthly peak_kw_obs
+
+
+def test_catalog_gl14_table(tmp_path: Path):
+    site = _write_min_site(tmp_path)
+    b = load_site_ui_bundle(site)
+    rows = catalog_gl14_table(b)
+    assert any(r["id"] == "A04" and r["gl14"] == "PASS" for r in rows)
+
+
+def test_geom_summary_tables():
+    idf = (
+        Path(__file__).resolve().parents[1]
+        / "models"
+        / "eplus"
+        / "lakeside_6zone_gshp_best.idf"
+    )
+    if not idf.is_file():
+        pytest.skip("IdealLoads IDF not in repo")
+    summary = parse_idf_geometry(idf).summary()
+    env = envelope_table(summary)
+    assert "Surfaces" in env["Metric"].tolist()
+    assert not zones_table(summary).empty
 
 
 def test_bas_peak_and_closeness(tmp_path: Path):
@@ -174,7 +258,25 @@ def test_demand_vs_oat_figure(tmp_path: Path):
     assert len(fig2.data) >= 2
 
 
-def test_idf_geometry_lakeside_pin():
+def test_facility_day_does_not_match_november_as_january(tmp_path: Path):
+    """Regression: loose '1/26' must not also pull 11/26 rows (zigzag plot)."""
+    sim = tmp_path / "sim"
+    sim.mkdir()
+    # Minimal eplusout: Nov 26 low + Jan 26 high hourly J
+    lines = [
+        "Date/Time,Electricity:Facility [J](Hourly)",
+        " 11/26  01:00:00,3600000",  # 1 kW
+        " 11/26  02:00:00,3600000",
+        " 01/26  01:00:00,720000000",  # 200 kW
+        " 01/26  02:00:00,900000000",  # 250 kW
+    ]
+    (sim / "eplusout.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    from eplus_gym_app.load_profiles import facility_kw_for_day
+
+    df = facility_kw_for_day(sim, "2026-01-26")
+    assert df is not None
+    assert len(df) == 2
+    assert float(df["simulated_kw"].min()) > 100  # not the 1 kW Nov rows
     idf = (
         Path(__file__).resolve().parents[1]
         / "models"

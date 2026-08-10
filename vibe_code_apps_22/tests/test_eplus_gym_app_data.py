@@ -1,6 +1,7 @@
 """Tests for eplus_gym month helpers + Streamlit data layer (no EnergyPlus / no Streamlit server)."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -106,6 +107,66 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
+    # Minimal site UI bundle + farm so overview + tabs load
+    (tmp_path / "utilities").mkdir(parents=True)
+    (tmp_path / "reports").mkdir(parents=True)
+    (tmp_path / "utilities" / "campus.json").write_text(
+        json.dumps(
+            {
+                "campus_id": "test_es",
+                "label": "Test ES",
+                "lat": 43.0,
+                "lon": -89.0,
+                "buildings": [
+                    {
+                        "building_id": "main",
+                        "floor_area_ft2": 90000,
+                        "property_type": "k12_school",
+                    }
+                ],
+                "meters": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    rows_h = [
+        {
+            "hour_utc": f"2026-01-26T{h:02d}:00:00+00:00",
+            "day_type": "Weekday",
+            "kw_avg": 100.0 + h,
+            "oat_f": -5.0,
+        }
+        for h in range(24)
+    ]
+    pd.DataFrame(rows_h).to_csv(
+        tmp_path / "reports" / "demand_vs_web_weather_hourly.csv", index=False
+    )
+    (tmp_path / "reports" / "site_ui_bundle_v1.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "site_ui_bundle_v1",
+                "campus_json": "utilities/campus.json",
+                "bas_demand_oat_csv": "reports/demand_vs_web_weather_hourly.csv",
+                "default_model_id": "A04",
+                "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+                "model_catalog": [
+                    {
+                        "id": "A04",
+                        "label": "A04 champion",
+                        "family": "W2A_PHYSICAL_DSM",
+                        "idf_pin": "lakeside_w2a_a04_dual_champion.idf",
+                        "scorecard": "models/eplus/best_scorecard_a04_dual.json",
+                        "champion": True,
+                        "dial_id": "A04",
+                    }
+                ],
+                "dial_ladder": {"peak_day": "2026-01-26", "models": []},
+                "honesty": {"bas": "BAS_INTERVAL_METER"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
     farm = tmp_path / "eplus" / "dsm_farm_paired"
     farm.mkdir(parents=True)
     rows = [
@@ -126,7 +187,8 @@ def test_streamlit_apptest_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     at = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "eplus_gym_app" / "streamlit_app.py")
     )
-    at.run()
+    at.run(timeout=90)
     assert not at.exception
-    titles = [el.value for el in at.title]
-    assert any("Lakeside E+ gym" in str(t) for t in titles)
+    assert any("Lakeside E+ gym" in str(t.value) for t in at.title)
+    assert len(at.selectbox) >= 1
+    assert len(at.dataframe) >= 1
