@@ -58,6 +58,13 @@ def simulate(
     b: float,
     c: float,
 ) -> np.ndarray:
+    """Open-loop roll: ``pred[i]`` is the predicted state *after* step ``i``.
+
+    Init ``t0`` is the measured state *before* the first exogenous sample.
+    With ``len(oat)==n``, returns length ``n`` where ``pred[i] ≈ T[i+1]``
+    when ``oat[i]/q_eff[i]`` are the inputs for that step. Compare to
+    ``t_meas[1:]`` (not ``t_meas`` aligned at index 0).
+    """
     oat = np.asarray(oat, dtype=float)
     q_eff = np.asarray(q_eff, dtype=float)
     if len(oat) != len(q_eff):
@@ -76,9 +83,12 @@ def _positive_rc_from_abc(a: float, b: float, c: float) -> tuple[float, float]:
 
     Continuous 1R1C: C dT/dt = (OAT - T)/R + Q
     Forward Euler dt: T' = (1 - dt/(RC)) T + (dt/(RC)) OAT + (dt/C) Q
-    → a = 1 - dt/(RC), b = dt/(RC), c = dt/C
+    → a = 1 - dt/(RC), b = dt/(RC), c = dt/C, and **a + b = 1**.
+    Caller must enforce ``a + b ≈ 1`` before interpreting R,C.
     """
     dt = DT_H
+    if abs((a + b) - 1.0) > 0.05:
+        raise ValueError(f"a+b must be ~1 for R,C export (got a={a}, b={b})")
     if b <= 1e-9:
         R = 1.0
         C = max(dt / max(abs(c), 1e-6), 1e-3)
@@ -118,14 +128,15 @@ def fit_1r1c(
     coef = np.linalg.solve(xtx, xty)
     a, b, c = float(coef[0]), float(coef[1]), float(coef[2])
 
-    # Soft project: a in (0,1), b>=0, c>=0
+    # Soft project: a in (0,1), b>0, c>=0, then enforce Euler a+b=1
     a = float(np.clip(a, 1e-4, 0.999))
     b = float(max(b, 1e-6))
     c = float(max(c, 0.0))
-    # renormalize mild mass if a+b far from 1 (free response)
     s = a + b
-    if s > 1.05:
-        a, b = a / s * 0.99, b / s * 0.99
+    a, b = a / s, b / s
+    if a >= 1.0:
+        a = 0.999
+        b = 1.0 - a
 
     R, C = _positive_rc_from_abc(a, b, c)
     return RC1R1CParams(a=a, b=b, c=c, R=R, C=C, zone=zone)

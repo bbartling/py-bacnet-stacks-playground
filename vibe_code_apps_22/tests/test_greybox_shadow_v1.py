@@ -67,10 +67,13 @@ def test_fit_1r1c_recovers_positive_rc_on_synthetic():
     assert p.R > 0 and p.C > 0
     assert 0 < p.a < 1
     assert p.b > 0
+    assert abs((p.a + p.b) - 1.0) < 1e-9
     assert p.honesty == "GREYBOX_SHADOW_V1"
     assert p.promote == "NON_PROMOTABLE"
-    pred = simulate(t[0], oat, q, a=p.a, b=p.b, c=p.c)
+    # pred[i] aligns with t[i+1]
+    pred = simulate(t[0], oat[:-1], q[:-1], a=p.a, b=p.b, c=p.c)
     assert np.isfinite(pred).all()
+    assert len(pred) == len(t) - 1
 
 
 def test_step_inputs_ignore_mutated_current_target():

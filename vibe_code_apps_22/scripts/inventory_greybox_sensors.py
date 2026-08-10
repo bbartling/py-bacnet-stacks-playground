@@ -59,46 +59,40 @@ def _site() -> Path:
 
 
 def _columns_from_parquet(p: Path) -> set[str]:
-    try:
-        import pandas as pd
+    import pandas as pd
 
-        return set(map(str, pd.read_parquet(p, columns=None).columns))
-    except Exception:
-        return set()
+    return set(map(str, pd.read_parquet(p, columns=None).columns))
 
 
 def _scan_paths(site: Path) -> tuple[set[str], list[str]]:
+    """Scan *site* exports only — never repo fixtures (avoids false PRESENT)."""
     found_cols: set[str] = set()
     sources: list[str] = []
+    read_errors: list[str] = []
     candidates = [
         site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet",
         site / "ml" / "artifacts" / "real_15min_store.parquet",
         site / "reports" / "master_long.parquet",
         site / "clean_data" / "weather" / "history_wide.csv",
         site / "fdd_device_lookup.csv",
-        _APP / "ml" / "artifacts" / "fixtures",
     ]
     for p in candidates:
-        if p.is_dir():
-            for q in p.glob("*.parquet"):
-                found_cols |= _columns_from_parquet(q)
-                sources.append(str(q))
-            continue
         if not p.is_file():
             continue
         sources.append(str(p))
-        if p.suffix == ".parquet":
-            found_cols |= _columns_from_parquet(p)
-        elif p.suffix == ".csv":
-            try:
+        try:
+            if p.suffix == ".parquet":
+                found_cols |= _columns_from_parquet(p)
+            elif p.suffix == ".csv":
                 import pandas as pd
 
                 found_cols |= set(map(str, pd.read_csv(p, nrows=2).columns))
-            except Exception:
-                pass
+        except Exception as e:
+            read_errors.append(f"{p}: {e}")
     # schema JSON next to real store (column list without loading full parquet twice)
     schema = site / "ml" / "artifacts" / "real_baseline_15min_v1_schema.json"
     if schema.is_file():
+        sources.append(str(schema))
         try:
             import json
 
@@ -107,9 +101,12 @@ def _scan_paths(site: Path) -> tuple[set[str], list[str]]:
                 cols = raw.get("columns") or raw.get("fields") or []
                 if isinstance(cols, list):
                     found_cols |= {str(c) for c in cols}
-                    sources.append(str(schema))
-        except Exception:
-            pass
+        except Exception as e:
+            read_errors.append(f"{schema}: {e}")
+    if read_errors:
+        raise RuntimeError(
+            "inventory source(s) present but unreadable:\n  " + "\n  ".join(read_errors)
+        )
     return found_cols, sources
 
 

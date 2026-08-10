@@ -91,15 +91,29 @@ def main(argv: list[str] | None = None) -> int:
 
     params = fit_1r1c(t[:n_train], oat[:n_train], q[:n_train], zone=z)
 
-    # Holdout: SAME_STATE open-loop per calendar day (96 steps) — not multi-day free run
+    # Holdout: SAME_STATE open-loop per complete calendar day (96 rows) —
+    # init = measured first sample; pred[i] aligns with measured T[i+1].
     hold = df.iloc[n_train:].copy()
     day_col = "day" if "day" in hold.columns else None
     day_maes: list[float] = []
     walk_rows: list[dict] = []
+
+    def _day_complete(g: pd.DataFrame) -> bool:
+        if len(g) != 96:
+            return False
+        ts_col = "timestamp_utc" if "timestamp_utc" in g.columns else None
+        if ts_col is None:
+            return True
+        ts = pd.to_datetime(g[ts_col], utc=True, errors="coerce")
+        if ts.isna().any():
+            return False
+        deltas = ts.diff().iloc[1:].dt.total_seconds()
+        return bool((deltas - 900.0).abs().max() <= 1.0)
+
     if day_col:
         for day, g in hold.groupby(day_col, sort=True):
             g = g.reset_index(drop=True)
-            if len(g) < 8:
+            if not _day_complete(g):
                 continue
             tt = g[z].to_numpy(dtype=float)
             oo = g["oat_f"].to_numpy(dtype=float)
@@ -108,15 +122,18 @@ def main(argv: list[str] | None = None) -> int:
                 g["occupied"].to_numpy(dtype=float) if "occupied" in g.columns else None,
                 non_hvac_floor_kw=args.non_hvac_floor_kw,
             )
-            pred = simulate(float(tt[0]), oo, qq, a=params.a, b=params.b, c=params.c)
-            day_maes.append(mae(tt, pred))
-            if len(walk_rows) < 96:
-                for i in range(min(96 - len(walk_rows), len(tt))):
+            # 95 steps: inputs at 0..94 predict targets 1..95
+            pred = simulate(
+                float(tt[0]), oo[:-1], qq[:-1], a=params.a, b=params.b, c=params.c
+            )
+            day_maes.append(mae(tt[1:], pred))
+            if len(walk_rows) < 95:
+                for i in range(min(95 - len(walk_rows), len(pred))):
                     walk_rows.append(
                         {
                             "day": str(day),
                             "step_i": i,
-                            "T_meas_f": float(tt[i]),
+                            "T_meas_f": float(tt[i + 1]),
                             "T_pred_f": float(pred[i]),
                             "oat_f": float(oo[i]),
                             "Q_eff_diagnostic": float(qq[i]),
@@ -125,17 +142,24 @@ def main(argv: list[str] | None = None) -> int:
                         }
                     )
     else:
-        pred = simulate(float(t[n_train]), oat[n_train:], q[n_train:], a=params.a, b=params.b, c=params.c)
-        day_maes.append(mae(t[n_train:], pred))
-        for i in range(min(96, len(pred))):
+        tt = t[n_train:]
+        oo = oat[n_train:]
+        qq = q[n_train:]
+        if len(tt) < 2:
+            raise SystemExit("holdout too short for open-loop alignment")
+        pred = simulate(
+            float(tt[0]), oo[:-1], qq[:-1], a=params.a, b=params.b, c=params.c
+        )
+        day_maes.append(mae(tt[1:], pred))
+        for i in range(min(95, len(pred))):
             walk_rows.append(
                 {
                     "day": "holdout",
                     "step_i": i,
-                    "T_meas_f": float(t[n_train + i]),
+                    "T_meas_f": float(tt[i + 1]),
                     "T_pred_f": float(pred[i]),
-                    "oat_f": float(oat[n_train + i]),
-                    "Q_eff_diagnostic": float(q[n_train + i]),
+                    "oat_f": float(oo[i]),
+                    "Q_eff_diagnostic": float(qq[i]),
                     "honesty": HONESTY,
                     "promote": PROMOTE,
                 }

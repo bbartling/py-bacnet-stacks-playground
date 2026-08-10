@@ -2,7 +2,7 @@
 
 **Last validated:** 2026-08-10 · Hybrid **contract rebuild A–L** (interval15, q0 lag leak closed,
 weather identity, billing MTD/month replay, treatment gates, grey-box manifest,
-GREYBOX_SHADOW_V1 design-only). **`RETRAIN_AFTER_CONTRACT_FIX`** before trusting new scores.
+GREYBOX_SHADOW_V1 PR1 one-zone shadow landed / ``NON_PROMOTABLE``). **`RETRAIN_AFTER_CONTRACT_FIX`** before trusting new hybrid scores.
 Prior multi-res / A04 work still stands for plant monthly/peak screening — not IdealLoads treatment fidelity.
 
 ## Product question
