@@ -186,6 +186,7 @@ def test_no_production_bacnet_write_api():
     skip_parts = {"node_modules", ".venv", "__pycache__", ".git"}
     skip_files = {
         "test_greybox_identification_honesty.py",
+        "test_control_twin_lab_v1.py",
         "greybox_forecast_honesty.md",
     }
     hits: list[str] = []

@@ -92,4 +92,5 @@ Use only points present in site export / Haystack / FDD lookup. Missing → `UNK
 4. Shadow residual bounded ML (optional).
 5. 96/128-step economic MPC behind honesty gates.
 6. Field trial protocol — still no unsupervised BACnet writes.
-7. PR B W2A spin-up/timestep sensitivity — separate PR; never overwrite A04.
+7. PR B / Control Twin Lab — W2A A04 staged lab (`ml/control_twin_lab/`, never overwrite A04);
+   see `docs/audits/control_twin_lab_v1.md`.

@@ -23,6 +23,8 @@
 | `spinup_sensitivity.py` | Pre-roll 0/3/7/14 scaffold CSV (`--from-farm-root`) |
 | `timestep_sensitivity.py` | Timestep 4/6/12 scaffold (`--stage-w2a`) |
 | `inventory_greybox_sensors.py` | Grey-box sensor manifest (UNKNOWN ok) |
+| `run_control_twin_lab.py` | W2A Control Twin Lab smoke/full (SYNTHETIC provenance; never overwrite A04) |
+| `mine_plant_point_candidates.py` | Sensor archaeology from site FDD/Haystack (no invented BACnet IDs) |
 | `train_greybox_identification_v1.py` | Blocking ID honesty gates (deployable vs diagnostic; nonzero exit) |
 | `train_greybox_shadow_v1.py` | Diagnostic-only one-zone fit (meter Q holdout ≠ deployable) |
 | `export_nearest_day_library.py` | Nearest-day library for desktop |
