@@ -2,7 +2,8 @@
 
 **Last validated:** 2026-08-10 · Hybrid **contract rebuild A–L** (interval15, q0 lag leak closed,
 weather identity, billing MTD/month replay, treatment gates, grey-box manifest,
-GREYBOX_SHADOW_V1 PR1 one-zone shadow landed / ``NON_PROMOTABLE``). **`RETRAIN_AFTER_CONTRACT_FIX`** before trusting new hybrid scores.
+GREYBOX_SHADOW_V1 PR A identification honesty landed / ``NON_PROMOTABLE``;
+~0.48 °F shadow MAE is diagnostic-only). **`RETRAIN_AFTER_CONTRACT_FIX`** before trusting new hybrid scores.
 Prior multi-res / A04 work still stands for plant monthly/peak screening — not IdealLoads treatment fidelity.
 
 ## Product question
@@ -31,8 +32,8 @@ Prior multi-res / A04 work still stands for plant monthly/peak screening — not
 - Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
   Prefer `--crossed` for production-training claims.
 - Next modeling phase: [`../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`](../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md)
-  — PR1 one-zone 1R1C shadow (`NON_PROMOTABLE`); IdealLoads hybrid remains screening.
-  No extra `train_four_arms` for grey-box fits.
+  — PR A honesty gates; audit [`../docs/audits/greybox_forecast_honesty.md`](../docs/audits/greybox_forecast_honesty.md).
+  No six-zone until verdict A; IdealLoads hybrid remains screening.
 - Pre-roll: `--pre-roll-days {0,3,7,14}`; short pre-roll ≠ GLHE seasonal history.
 - Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
 - Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` and is **screening-only** (`smoke_artifact`), never operational DSM.

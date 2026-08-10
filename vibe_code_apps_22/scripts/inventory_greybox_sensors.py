@@ -59,9 +59,33 @@ def _site() -> Path:
 
 
 def _columns_from_parquet(p: Path) -> set[str]:
-    import pandas as pd
+    """Column names only — prefer schema metadata; never invent points."""
+    try:
+        import pyarrow.parquet as pq
 
-    return set(map(str, pd.read_parquet(p, columns=None).columns))
+        return set(map(str, pq.ParquetFile(str(p)).schema_arrow.names))
+    except Exception:
+        import pandas as pd
+
+        return set(map(str, pd.read_parquet(p, columns=None).columns))
+
+
+def _ingest_file(p: Path, found_cols: set[str], sources: list[str], read_errors: list[str]) -> None:
+    if not p.is_file():
+        return
+    sources.append(str(p))
+    try:
+        if p.suffix == ".parquet":
+            found_cols |= _columns_from_parquet(p)
+        elif p.suffix == ".csv":
+            import pandas as pd
+
+            # Headers only — do not treat arbitrary cell strings as PRESENT identities
+            # (avoids false matches on short aliases like "sat" / "ewt").
+            raw = pd.read_csv(p, nrows=2)
+            found_cols |= set(map(str, raw.columns))
+    except Exception as e:
+        read_errors.append(f"{p}: {e}")
 
 
 def _scan_paths(site: Path) -> tuple[set[str], list[str]]:
@@ -75,20 +99,19 @@ def _scan_paths(site: Path) -> tuple[set[str], list[str]]:
         site / "reports" / "master_long.parquet",
         site / "clean_data" / "weather" / "history_wide.csv",
         site / "fdd_device_lookup.csv",
+        site / "haystack" / "points.csv",
+        site / "haystack" / "point_map.csv",
+        site / "maps" / "haystack_points.csv",
+        site / "bacnet" / "point_map.csv",
+        site / "reports" / "fdd_export.csv",
     ]
     for p in candidates:
-        if not p.is_file():
-            continue
-        sources.append(str(p))
-        try:
-            if p.suffix == ".parquet":
-                found_cols |= _columns_from_parquet(p)
-            elif p.suffix == ".csv":
-                import pandas as pd
-
-                found_cols |= set(map(str, pd.read_csv(p, nrows=2).columns))
-        except Exception as e:
-            read_errors.append(f"{p}: {e}")
+        _ingest_file(p, found_cols, sources, read_errors)
+    for dname in ("haystack", "maps", "bacnet", "fdd"):
+        d = site / dname
+        if d.is_dir():
+            for q in sorted(d.glob("*.csv")) + sorted(d.glob("*.parquet")):
+                _ingest_file(q, found_cols, sources, read_errors)
     # schema JSON next to real store (column list without loading full parquet twice)
     schema = site / "ml" / "artifacts" / "real_baseline_15min_v1_schema.json"
     if schema.is_file():
@@ -128,6 +151,39 @@ def inventory(site: Path) -> list[dict[str, str]]:
         "rh_pct": {"rh_pct", "rh", "relative_humidity"},
         "solar_ghi": {"ghi", "solar", "global_horizontal", "solar_ghi"},
         "occupancy": {"occupied", "occ_frac", "occupancy"},
+        "htg_setpoint": {
+            "htg_setpoint",
+            "heating_setpoint",
+            "occ_htg_sp_f",
+            "unocc_htg_sp_f",
+            "zone_htg_sp",
+        },
+        "hp_enable_or_stage": {
+            "hp_enable",
+            "hp_stage",
+            "hp_on",
+            "compressor_stage",
+            "hp_runtime",
+            "heat_pump_enable",
+        },
+        "fan_status": {"fan_status", "fan_on", "supply_fan_status", "fan_cmd"},
+        "sat_rat": {"sat", "rat", "sat_f", "rat_f", "supply_air_temp", "return_air_temp"},
+        "loop_ewt": {"loop_ewt", "ewt", "entering_water_temp", "source_ewt"},
+        "loop_lwt": {"loop_lwt", "lwt", "leaving_water_temp", "source_lwt"},
+        "pump_speed_or_kw": {
+            "pump_speed",
+            "pump_kw",
+            "loop_pump_kw",
+            "pump_flow",
+            "gpm",
+        },
+        "doas_or_oa_signal": {
+            "doas",
+            "oa_damper",
+            "oa_status",
+            "doas_enable",
+            "outdoor_air_cmd",
+        },
     }
 
     rows = []

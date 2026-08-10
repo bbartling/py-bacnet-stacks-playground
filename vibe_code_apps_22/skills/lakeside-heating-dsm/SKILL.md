@@ -94,10 +94,12 @@ Keep `HYBRID_SCREENING`.
 ## Grey-box shadow (parallel)
 
 - Spec: `docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`
-- Inventory: `scripts/inventory_greybox_sensors.py` (scans `real_baseline_15min_v1.parquet`)
-- Fit: `python -u scripts/train_greybox_shadow_v1.py` — **no** extra `train_four_arms`
-- Honesty: `GREYBOX_SHADOW_V1` / `NON_PROMOTABLE` / `Q_eff_DIAGNOSTIC`
-- Rollback if one-zone gate fails: keep hybrid screening only
+- Honesty audit: `docs/audits/greybox_forecast_honesty.md`
+- Inventory: `scripts/inventory_greybox_sensors.py` (site exports only; never invent IDs)
+- Blocking ID: `python -u scripts/train_greybox_identification_v1.py` (nonzero on gate fail)
+- Diagnostic-only fit: `scripts/train_greybox_shadow_v1.py` — meter Q holdout ≠ deployable
+- Honesty: `GREYBOX_SHADOW_V1` / `NON_PROMOTABLE`; no six-zone until verdict A
+- Rollback: keep hybrid `HYBRID_SCREENING` / W2A A04
 
 ## Key modules
 
@@ -111,7 +113,8 @@ Keep `HYBRID_SCREENING`.
 - `scripts/ship_best_to_desktop.py` — held-out peak MAE only; copy into `--artifacts`
 - `scripts/eplus_w2a_dsm_farm_scaffold.py` — staged W2A seed (no champion overwrite)
 - `scripts/inventory_greybox_sensors.py` — sensor manifest (UNKNOWN ok)
-- `scripts/train_greybox_shadow_v1.py` — one-zone 1R1C fit
+- `scripts/train_greybox_identification_v1.py` — blocking ID honesty gates
+- `scripts/train_greybox_shadow_v1.py` — diagnostic-only one-zone fit
 - `scripts/README.md` — live vs legacy vs removed scripts
 - `notebooks/lakeside_heating_dsm_*.ipynb` — **viewers** (timings + metrics)
 - `ml/real_store/` — measured 15-min feature store
