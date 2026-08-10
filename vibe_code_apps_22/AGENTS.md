@@ -19,12 +19,13 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`  
 Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
-Last validated: **2026-08-10** — hybrid contract on `develop`; grey-box **PR1**:
-sensor manifest + one-zone 1R1C (`ml/greybox/`, `NON_PROMOTABLE`). IdealLoads =
-`STRUCTURAL_LOAD_DIAGNOSTIC` screening. Hybrid retrain after contract fix is
-independent of grey-box — **do not promote** solely because scores moved.
-Audits: [`docs/audits/`](docs/audits/). Spec:
-[`GREYBOX_SHADOW_V1`](docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md).
+Last validated: **2026-08-10** — hybrid contract on `develop`; grey-box **PR A**:
+identification honesty (`IDENTIFICATION_DIAGNOSTIC` vs `DEPLOYABLE_FORECAST`);
+blocking `train_greybox_identification_v1.py`. Prior ~0.48 °F shadow MAE is
+**diagnostic only** (meter Q on holdout). IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`.
+**Do not promote**; do not six-zone clone until ID verdict is A.
+Audits: [`docs/audits/greybox_forecast_honesty.md`](docs/audits/greybox_forecast_honesty.md).
+Spec: [`GREYBOX_SHADOW_V1`](docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md).
 
 ---
 

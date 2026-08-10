@@ -31,9 +31,16 @@ class RC1R1CParams:
     q_policy: str = Q_POLICY
     honesty: str = HONESTY
     promote: str = PROMOTE
+    bound_hit: bool = False
+    a_near_one: bool = False
+    b_at_floor: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+Q_POLICY_DEPLOYABLE = "Q_hvac_ZERO_FREE_RESPONSE"
+Q_POLICY_FORBIDDEN_RUNTIME = Q_POLICY
 
 
 def step_open_loop(
@@ -139,7 +146,57 @@ def fit_1r1c(
         b = 1.0 - a
 
     R, C = _positive_rc_from_abc(a, b, c)
-    return RC1R1CParams(a=a, b=b, c=c, R=R, C=C, zone=zone)
+    a_near = a >= 0.999
+    b_floor = b <= 1e-6 * 1.01
+    return RC1R1CParams(
+        a=a,
+        b=b,
+        c=c,
+        R=R,
+        C=C,
+        zone=zone,
+        bound_hit=bool(a_near and b_floor),
+        a_near_one=bool(a_near),
+        b_at_floor=bool(b_floor),
+    )
+
+
+def simulate_deployable(
+    t0: float,
+    oat: np.ndarray,
+    *,
+    a: float,
+    b: float,
+    c: float = 0.0,
+    q_eff: np.ndarray | None = None,
+    q_policy: str = Q_POLICY_DEPLOYABLE,
+    **kwargs: Any,
+) -> np.ndarray:
+    """Deployable open-loop roll — no target-day facility_kw / diagnostic Q.
+
+    Default exogenous heat is zero (free-response / envelope). Passing
+    ``Q_eff_DIAGNOSTIC`` or ``facility_kw`` is a hard error.
+    """
+    if "facility_kw" in kwargs:
+        raise ValueError(
+            "deployable forecast forbids facility_kw (future meter leakage)"
+        )
+    if kwargs:
+        raise TypeError(f"unexpected deployable kwargs: {sorted(kwargs)}")
+    if q_policy == Q_POLICY or "DIAGNOSTIC" in str(q_policy).upper():
+        raise ValueError(
+            "Q_eff_DIAGNOSTIC forbidden in deployable/runtime rollout"
+        )
+    oat = np.asarray(oat, dtype=float)
+    if q_policy == Q_POLICY_DEPLOYABLE:
+        q = np.zeros(len(oat), dtype=float)
+        return simulate(t0, oat, q, a=a, b=b, c=0.0)
+    if q_eff is None:
+        q = np.zeros(len(oat), dtype=float)
+    else:
+        q = np.asarray(q_eff, dtype=float)
+    return simulate(t0, oat, q, a=a, b=b, c=float(c))
+
 
 
 def q_eff_diagnostic(

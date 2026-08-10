@@ -1,0 +1,59 @@
+{
+  "run_id": "greybox_id_20260810T164655Z",
+  "honesty": "GREYBOX_SHADOW_V1",
+  "promote": "NON_PROMOTABLE",
+  "zone": "zone_temp_1F_A_f",
+  "verdict": "INSUFFICIENT_HVAC_INPUT_SENSOR_HUNT_REQUIRED",
+  "gates": {
+    "physics_pass": false,
+    "deployable_ok": false,
+    "bound_hit": true,
+    "beats_persistence": false,
+    "physics_reason": "BOUND_HIT",
+    "n_free_response_days": 26,
+    "persistence_margin_rule": "mae_1r1c < 0.95 * mae_persistence"
+  },
+  "params": {
+    "a": 0.999998999000001,
+    "b": 1.000999998999e-06,
+    "c": 0.00019779221217209084,
+    "R": 197.59461775213094,
+    "C": 1263.952696896303,
+    "zone": "zone_temp_1F_A_f",
+    "q_policy": "Q_eff_DIAGNOSTIC",
+    "honesty": "GREYBOX_SHADOW_V1",
+    "promote": "NON_PROMOTABLE",
+    "bound_hit": true,
+    "a_near_one": true,
+    "b_at_floor": true
+  },
+  "identification_diagnostic": {
+    "metric_class": "IDENTIFICATION_DIAGNOSTIC",
+    "q_policy": "Q_eff_DIAGNOSTIC",
+    "note": "May use facility_kw-derived Q_eff \u2014 NOT a deployable 96-step forecast gate.",
+    "holdout_day_mae_f_mean": 0.481802702267438,
+    "n_holdout_days": 66,
+    "legacy_0p48F_note": "Prior ~0.48F shadow card used meter Q on holdout; treat as diagnostic only."
+  },
+  "deployable_forecast": {
+    "metric_class": "DEPLOYABLE_FORECAST",
+    "q_policy": "Q_hvac_ZERO_FREE_RESPONSE",
+    "note": "Q_hvac=0 free-response; target-day facility_kw forbidden.",
+    "n_free_response_days": 26,
+    "mae_1r1c_mean": 0.32996424681516195,
+    "mae_persistence_mean": 0.33003529533893955,
+    "mae_oat_only_mean": 7.003081982258968,
+    "residual_acf_lag1_mean": 0.9864882862830959,
+    "horizons_mean": {
+      "mae_1h": 0.05305461198859071,
+      "rmse_1h": 0.058339591431226696,
+      "mae_4h": 0.16372422287923857,
+      "rmse_4h": 0.18404161218583565,
+      "mae_8h": 0.26444898078797646,
+      "rmse_8h": 0.2952788895474573,
+      "mae_24h": 0.32996424681516195,
+      "rmse_24h": 0.3963758020736009
+    }
+  },
+  "interval_contract": "interval15; init=measured midnight; SAME_STATE"
+}

@@ -75,11 +75,21 @@ Use only points present in site export / Haystack / FDD lookup. Missing → `UNK
 3. Tests: `tests/test_greybox_shadow_v1.py`.
 4. Cards/CSV under `ml/artifacts/runs/greybox_shadow_v1/` + `reports/ml/greybox_shadow_v1_*`.
 
+## PR A delivered (identification honesty)
+
+1. Split `IDENTIFICATION_DIAGNOSTIC` vs `DEPLOYABLE_FORECAST` (no target-day `facility_kw`).
+2. `scripts/train_greybox_identification_v1.py` — blocking gates, nonzero exit on fail.
+3. `ml/greybox/benchmarks.py` — persistence / horizons / bound flags / free-response days.
+4. Hybrid rollout fail-closed weather/features (`ml/hybrid_rollout.py`).
+5. Audit: `docs/audits/greybox_forecast_honesty.md`.
+6. Verdict recorded on scorecard (do not choose six-zone from diagnostic MAE alone).
+
 ## Next PR checklist (future)
 
-1. Six areas open-loop 1R1C (if one-zone gate stays healthy).
-2. Kalman/EKF on measured `T_zone`.
+1. Six areas open-loop 1R1C (**only** if identification verdict is A).
+2. Kalman on measured `T_zone` after honest exogenous Q exists.
 3. Effective heat-pump map using available stage/fan/OA only.
 4. Shadow residual bounded ML (optional).
 5. 96/128-step economic MPC behind honesty gates.
 6. Field trial protocol — still no unsupervised BACnet writes.
+7. PR B W2A spin-up/timestep sensitivity — separate PR; never overwrite A04.

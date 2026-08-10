@@ -125,12 +125,44 @@ def _finite(val: Any, fallback: float) -> float:
 
 
 def _row_features(row: dict[str, float], feature_cols: list[str]) -> np.ndarray:
-    x = np.array([float(row.get(c, 0.0)) for c in feature_cols], dtype=float)
-    return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+    """Fail closed: every required feature must be present and finite."""
+    missing = [c for c in feature_cols if c not in row]
+    if missing:
+        raise ValueError(f"missing required feature(s): {missing[:8]}")
+    x = np.empty(len(feature_cols), dtype=float)
+    for i, c in enumerate(feature_cols):
+        try:
+            v = float(row[c])
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"non-finite/required feature {c}") from e
+        if not np.isfinite(v):
+            raise ValueError(f"non-finite required feature {c}")
+        x[i] = v
+    return x
+
+
+def _require_weather_series(weather: dict[str, Any], key: str) -> list[float]:
+    if key not in weather or weather[key] is None:
+        raise ValueError(f"weather_forecast_96 missing required finite series {key}")
+    series = weather[key]
+    if not isinstance(series, (list, tuple, np.ndarray)) or len(series) < STEPS:
+        raise ValueError(f"weather_forecast_96.{key} must have length >= {STEPS}")
+    out: list[float] = []
+    for i, v in enumerate(series[:STEPS]):
+        try:
+            x = float(v)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"weather_forecast_96.{key}[{i}] not finite") from e
+        if not np.isfinite(x):
+            raise ValueError(f"weather_forecast_96.{key}[{i}] not finite")
+        out.append(x)
+    return out
 
 
 def _predict7(model: Any, x: np.ndarray) -> np.ndarray:
-    x = np.nan_to_num(np.asarray(x, dtype=float).reshape(-1), nan=0.0, posinf=0.0, neginf=0.0)
+    x = np.asarray(x, dtype=float).reshape(-1)
+    if not np.isfinite(x).all():
+        raise ValueError("feature vector has non-finite values")
     y = np.asarray(model.predict(x.reshape(1, -1)), dtype=float).reshape(-1)
     if y.size < 7:
         raise ValueError(f"expected 7 outputs, got {y.size}")
@@ -205,10 +237,13 @@ def build_row(
     """
     if step < 0 or step >= STEPS:
         raise ValueError(f"step must be in [0, {STEPS}), got {step}")
-    # Interval-end / hour-ending: prediction at t uses current-interval weather[t].
-    oat = float(weather["oat_f"][step])
-    rh = float(weather.get("rh_pct", [50.0] * 96)[step])
-    ghi = float(weather.get("ghi", [0.0] * 96)[step])
+    # Fail closed: oat/rh/ghi required — never invent RH=50 or GHI=0.
+    oat_s = _require_weather_series(weather, "oat_f")
+    rh_s = _require_weather_series(weather, "rh_pct")
+    ghi_s = _require_weather_series(weather, "ghi")
+    oat = float(oat_s[step])
+    rh = float(rh_s[step])
+    ghi = float(ghi_s[step])
     hdd = max(0.0, 65.0 - oat)
     hdd_acc_next = hdd_acc + (hdd if step < 28 else 0.0)
     cal = _calendar_features(step, meta)

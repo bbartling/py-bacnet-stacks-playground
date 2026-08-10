@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-"""Fit GREYBOX_SHADOW_V1 one-zone 1R1C on the real 15-min store (non-promotable).
+"""DIAGNOSTIC-ONLY grey-box shadow fit (NON_PROMOTABLE).
 
-Does NOT retrain hybrid IdealLoads arms. Writes JSON card + residual CSV under
-ml/artifacts/runs/greybox_shadow_v1/ and reports/ml/.
+Holdout metrics here may use facility_kw-derived Q_eff — that is
+IDENTIFICATION_DIAGNOSTIC only, not a deployable day-ahead forecast.
+
+For blocking honesty gates + deployable free-response metrics, use:
+  scripts/train_greybox_identification_v1.py
+See: docs/audits/greybox_forecast_honesty.md
 """
 from __future__ import annotations
 
