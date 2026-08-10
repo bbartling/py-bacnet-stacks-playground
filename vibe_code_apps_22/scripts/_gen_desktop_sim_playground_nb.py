@@ -200,7 +200,21 @@ ghi_96 = peak_day_df["ghi"].to_numpy(dtype=float) if "ghi" in peak_day_df else n
 midnight_facility_kw = float(kw_actual[0])
 midnight_zones_f = [float(peak_day_df.iloc[0][c]) for c in ZONE_TEMP_COLS]
 oat_midnight_f = float(oat_96[0])
-existing_billing_peak_kw = float(np.nanmax(kw_actual))  # this day sets the peak
+# Demand counterfactual: peak established BEFORE this day (not this day's actual peak).
+try:
+    _all = pd.read_parquet(REAL_PARQUET)
+    _all["timestamp_local"] = pd.to_datetime(_all["timestamp_local"])
+    _all["day"] = _all["timestamp_local"].dt.strftime("%Y-%m-%d")
+    _daily_peaks = _all.groupby("day")["facility_kw"].max().to_dict()
+    from billing_counterfactual import mtd_peak_before_day as _mtd
+    existing_billing_peak_kw = float(_mtd(_daily_peaks, str(peak_day)))
+except Exception as _e:
+    print("MTD billing peak fallback:", _e)
+    existing_billing_peak_kw = 0.0
+print(
+    "existing_billing_peak_kw (MTD before target day; ILLUSTRATIVE tariff later)=",
+    existing_billing_peak_kw,
+)
 cal_month = float(peak_day_df.iloc[0].get("month", pd.Timestamp(peak_day).month))
 cal_doy = float(peak_day_df.iloc[0].get("doy", pd.Timestamp(peak_day).dayofyear))
 cal_weekend = float(peak_day_df.iloc[0].get("is_weekend", int(pd.Timestamp(peak_day).dayofweek >= 5)))

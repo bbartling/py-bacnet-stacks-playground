@@ -269,22 +269,16 @@ def to_hourly_mean_kw(timestep_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def interval_ending_local(stamp: str) -> tuple[int, int, int]:
-    """Return (hour_ending_0_23, minute, quarter_index_0_95) from E+ stamp."""
-    parts = str(stamp).strip().split()
-    if len(parts) < 2:
-        return 0, 0, 0
-    hm = parts[1].split(":")
-    h = int(hm[0])
-    mi = int(hm[1]) if len(hm) > 1 else 0
-    if h == 24:
-        h, mi = 0, 0
-    # interval end → hour_ending for clock hour that just closed when mi==0
-    he = h if mi > 0 else (h if h > 0 else 0)
-    if mi == 0 and h > 0:
-        he = h  # XX:00 is end of previous hour's last quarter in E+? keep as h
-    q = h * 4 + (mi // 15) - 1
-    if mi == 0:
-        q = (h * 4 - 1) % 96 if h > 0 else 95
-    else:
-        q = h * 4 + (mi // 15) - 1
-    return he % 24, mi, int(q) % 96
+    """Return (hour_ending_1_24, minute, quarter_index_0_95) from E+ stamp.
+
+    Delegates to ``interval15.from_eplus_stamp`` so farm and extract agree.
+    """
+    try:
+        from interval15 import from_eplus_stamp
+    except ImportError:  # pragma: no cover
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+        from interval15 import from_eplus_stamp
+    return from_eplus_stamp(stamp)

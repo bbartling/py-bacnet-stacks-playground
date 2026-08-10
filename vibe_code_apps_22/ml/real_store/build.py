@@ -253,10 +253,24 @@ def build_real_15min_store(
     if frame.columns[0] != "timestamp_utc":
         frame = frame.rename(columns={frame.columns[0]: "timestamp_utc"})
     frame["timestamp_local"] = pd.DatetimeIndex(local).tz_localize(None)
-    frame["day"] = pd.DatetimeIndex(local).strftime("%Y-%m-%d")
     loc_idx = pd.DatetimeIndex(local)
-    frame["step_15"] = (loc_idx.hour * 4 + loc_idx.minute // 15).astype(int)
-    frame["hour_ending"] = (loc_idx.hour + (loc_idx.minute + 14) // 15 * 0.25).astype(float)
+    # Canonical contract: 00:15 → step 0 … 24:00/00:00 → step 95 (prior site_date).
+    from interval15 import hour_ending_from_quarter, quarter_from_interval_end_hms, site_date_for_interval_end
+
+    steps = []
+    days = []
+    hes = []
+    for ts in loc_idx:
+        naive = ts.to_pydatetime().replace(tzinfo=None) if hasattr(ts, "to_pydatetime") else ts
+        if getattr(naive, "tzinfo", None) is not None:
+            naive = naive.replace(tzinfo=None)
+        q = quarter_from_interval_end_hms(int(naive.hour), int(naive.minute))
+        steps.append(q)
+        days.append(site_date_for_interval_end(naive).isoformat())
+        hes.append(hour_ending_from_quarter(q))
+    frame["step_15"] = np.asarray(steps, dtype=int)
+    frame["hour_ending"] = np.asarray(hes, dtype=float)
+    frame["day"] = days
     frame["month"] = loc_idx.month.astype(int)
     frame["doy"] = loc_idx.dayofyear.astype(int)
     frame["dow"] = loc_idx.day_name()
@@ -282,8 +296,8 @@ def build_real_15min_store(
         .groupby("day", sort=False)["_n"]
         .cumsum()
     )
-    # hours to occupy (K-12 07:00)
-    occ_step = 7 * 4
+    # hours to occupy (K-12 07:00) — contract step 28 ≈ 07:15
+    occ_step = 28
     frame["hours_to_occupy"] = np.maximum(0.0, (occ_step - frame["step_15"]) / 4.0)
 
     # baseline control placeholders (real store = measured operation)

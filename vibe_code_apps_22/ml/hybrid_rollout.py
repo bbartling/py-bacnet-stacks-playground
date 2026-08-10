@@ -155,18 +155,16 @@ def init_state_from_contract(init: dict[str, Any]) -> dict[str, float]:
 
 
 def _calendar_features(step: int, meta: dict[str, Any]) -> dict[str, float]:
-    hour = step / 4.0
+    from interval15 import calendar_features_for_step
+
     occupied = float(meta.get("occupied_schedule", [0.0] * 96)[step])
+    cal = calendar_features_for_step(step)
     return {
-        "step_15": float(step),
-        "sin_step": float(np.sin(2 * np.pi * step / 96.0)),
-        "cos_step": float(np.cos(2 * np.pi * step / 96.0)),
-        "hour_ending": float(hour),
+        **cal,
         "month": float(meta.get("month", 1)),
         "doy": float(meta.get("doy", 1)),
         "is_weekend": float(meta.get("is_weekend", 0)),
         "occupied": occupied,
-        "hours_to_occupy": float(max(0.0, (28 - step) / 4.0)),
     }
 
 

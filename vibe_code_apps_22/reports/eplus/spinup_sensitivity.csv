@@ -1,0 +1,5 @@
+eval_day,pre_roll_days,daily_kwh,peak_kw,peak_step,zone_mae_vs_pr7,ewt_mean,note,glhe_seasonal_ok
+2026-01-26,0,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 0 offline; GLHE seasonal history NOT captured by short pre-roll,false
+2026-01-26,3,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 3 offline; GLHE seasonal history NOT captured by short pre-roll,false
+2026-01-26,7,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 7 offline; GLHE seasonal history NOT captured by short pre-roll,false
+2026-01-26,14,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 14 offline; GLHE seasonal history NOT captured by short pre-roll,false
