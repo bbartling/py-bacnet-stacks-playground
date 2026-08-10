@@ -76,16 +76,32 @@ python -u scripts\timestep_sensitivity.py      # 4/6/12 scaffold CSV
 
 `existing_billing_peak_kw` = month-to-date peak **before** the target day
 (`ml/billing_counterfactual.mtd_peak_before_day`). Never set it to the actual
-peak of the day being resimulated.
+peak of the day being resimulated. Month replay: `ml/billing_month_replay.py`
+(ILLUSTRATIVE rates).
+
+## 24/7 semantics
+
+- **SAME_STATE_TREATMENT_TEST** — identical measured 00:00 for all strategies.
+- **FULL_OVERNIGHT_COUNTERFACTUAL** — controls begin D−1; include pre-midnight energy.
+Do not label a warm-at-temp midnight as a fair daily energy comparison vs setback.
+
+## Retrain after contract fix
+
+Clock + q0 lag leakage corrupt old feature maps → **`RETRAIN_AFTER_CONTRACT_FIX`**.
+Do not promote a new desktop champion solely because repaired scores moved.
+Keep `HYBRID_SCREENING`. Next model phase: `docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`.
 
 ## Key modules
 
 - `ml/interval15.py` — canonical 15-min clock
-- `ml/billing_counterfactual.py` — MTD peak before day
+- `ml/billing_counterfactual.py` / `billing_month_replay.py` — MTD / month peak-to-date
 - `ml/physics_families.py` — STRUCTURAL vs W2A labels
+- `ml/treatment_validation.py` — ΔkW / ranking / economic regret gates
 - `ml/hybrid_sanity.py` — plant peak cap / reject gates
 - `scripts/train_four_arms.py` / `train_arm.py` — parallel baseline train SoT
 - `scripts/ship_best_to_desktop.py` — held-out peak MAE only; copy into `--artifacts`
+- `scripts/eplus_w2a_dsm_farm_scaffold.py` — staged W2A seed (no champion overwrite)
+- `scripts/inventory_greybox_sensors.py` — sensor manifest (UNKNOWN ok)
 - `scripts/README.md` — live vs legacy vs removed scripts
 - `notebooks/lakeside_heating_dsm_*.ipynb` — **viewers** (timings + metrics)
 - `ml/real_store/` — measured 15-min feature store
@@ -94,6 +110,6 @@ peak of the day being resimulated.
 - `ml/eplus_multires_metrics.py` — monthly / hourly / 15-min DSM validation engine
 - `eplus_native/align.py` — E+ LST→UTC fixed CST−6 (no DST on E+ stamps)
 - `desktop/` — hybrid 96-step panel (fail-closed without walk JSON)
-- `archive/` — superseded clock/billing snippets
+- `archive/` — superseded clock/billing/lag snippets
 
 Prior kW-only ship stems live under `ml/artifacts/_quarantine_*`.

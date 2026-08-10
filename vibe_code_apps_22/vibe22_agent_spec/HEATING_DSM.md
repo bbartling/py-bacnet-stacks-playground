@@ -1,8 +1,9 @@
 # Vibe 22 — Heating DSM (Lakeside) — Hybrid Real+E+
 
-**Last validated:** 2026-08-10 · Hybrid **contract rebuild** (interval15 + weather fail-closed +
-billing MTD + STRUCTURAL_LOAD_DIAGNOSTIC labels). Prior multi-res / A04 work still stands for plant
-monthly/peak screening — not for IdealLoads treatment fidelity.
+**Last validated:** 2026-08-10 · Hybrid **contract rebuild A–L** (interval15, q0 lag leak closed,
+weather identity, billing MTD/month replay, treatment gates, grey-box manifest,
+GREYBOX_SHADOW_V1 design-only). **`RETRAIN_AFTER_CONTRACT_FIX`** before trusting new scores.
+Prior multi-res / A04 work still stands for plant monthly/peak screening — not IdealLoads treatment fidelity.
 
 ## Product question
 
@@ -23,9 +24,14 @@ monthly/peak screening — not for IdealLoads treatment fidelity.
 - Promotable farm **refuses** silent `oat=25` / `rh=50` / `ghi=0`. Use
   `--allow-weather-fallback` only for structural diagnostic smoke.
 - Billing counterfactual: MTD peak **before** target day
-  ([`../ml/billing_counterfactual.py`](../ml/billing_counterfactual.py)).
+  ([`../ml/billing_counterfactual.py`](../ml/billing_counterfactual.py));
+  month replay [`../ml/billing_month_replay.py`](../ml/billing_month_replay.py).
+- q0 lag features ∩ targets = empty; delta intervention lags = 0 at serve and train.
+- 24/7: SAME_STATE vs FULL_OVERNIGHT — do not give warm midnight “for free” as daily energy.
 - Smoke paired farm (~6 both-arm pairs) is underpowered; strategy×weather confounded.
   Prefer `--crossed` for production-training claims.
+- Next modeling phase: [`../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`](../docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md)
+  — design only in this PR.
 - Pre-roll: `--pre-roll-days {0,3,7,14}`; short pre-roll ≠ GLHE seasonal history.
 - Monthly GL14 energy pass ≠ 15-min peak / DSM transient validation.
 - Promote refuses unless `cv_recursive_96_heldout` exists; pair count `< 12` needs `VIBE22_ALLOW_SMOKE_PROMOTE=1` and is **screening-only** (`smoke_artifact`), never operational DSM.

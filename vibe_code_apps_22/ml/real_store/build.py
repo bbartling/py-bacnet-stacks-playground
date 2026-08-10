@@ -277,14 +277,14 @@ def build_real_15min_store(
     frame["is_weekend"] = (loc_idx.dayofweek >= 5).astype(float)
     frame["occupied"] = _occupied_from_schedule(pd.Series(loc_idx), schedule).to_numpy()
 
-    # causal same-day lags (prior 15-min step only; no cross-day fill)
+    # Causal lags across wall time (incl. midnight): q0 uses prior interval state,
+    # not same-row targets. First 1–2 rows of the whole series may be NaN → dropped at train.
     frame = frame.sort_values("timestamp_utc").reset_index(drop=True)
-    g = frame.groupby("day", sort=False)
-    frame["facility_kw_lag1"] = g["facility_kw"].shift(1)
-    frame["facility_kw_lag2"] = g["facility_kw"].shift(2)
-    frame["oat_lag1"] = g["oat_f"].shift(1)
+    frame["facility_kw_lag1"] = frame["facility_kw"].shift(1)
+    frame["facility_kw_lag2"] = frame["facility_kw"].shift(2)
+    frame["oat_lag1"] = frame["oat_f"].shift(1)
     for c in ZONE_TEMP_COLS:
-        frame[f"{c}_lag1"] = g[c].shift(1)
+        frame[f"{c}_lag1"] = frame[c].shift(1)
 
     frame["sin_step"] = np.sin(2 * np.pi * frame["step_15"] / 96.0)
     frame["cos_step"] = np.cos(2 * np.pi * frame["step_15"] / 96.0)

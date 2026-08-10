@@ -131,12 +131,13 @@ def build_delta_frame(paired: pd.DataFrame) -> pd.DataFrame:
         out["day"] = out["pair_id"].astype(str)
     out = out.sort_values(["pair_id", "day"] + [k for k in keys if k != "pair_id"]).reset_index(drop=True)
     g = out.groupby("pair_id", sort=False)
-    out["facility_kw_lag1"] = g["facility_kw"].shift(1)
-    out["facility_kw_lag2"] = g["facility_kw"].shift(2)
+    # Intervention-state: Δ lags at pair start are 0 (match hybrid_rollout serve).
+    out["facility_kw_lag1"] = g["facility_kw"].shift(1).fillna(0.0)
+    out["facility_kw_lag2"] = g["facility_kw"].shift(2).fillna(0.0)
     if "oat_f" in out.columns:
-        out["oat_lag1"] = g["oat_f"].shift(1)
+        out["oat_lag1"] = g["oat_f"].shift(1)  # weather exogenous — may stay NaN → dropped
     for c in ZONE_TEMP_COLS:
-        out[f"{c}_lag1"] = g[c].shift(1)
+        out[f"{c}_lag1"] = g[c].shift(1).fillna(0.0)
     # calendar features if missing
     if "step_15" not in out.columns:
         if "quarter_index" in out.columns:

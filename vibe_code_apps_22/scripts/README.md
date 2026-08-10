@@ -18,7 +18,11 @@
 | Script | Role |
 | --- | --- |
 | `build_real_15min_store.py` | Real BAS parquet store |
-| `eplus_heating_dsm_farm.py` | Paired E+ DSM farm |
+| `eplus_heating_dsm_farm.py` | Paired E+ DSM farm (`--crossed` / `--pre-roll-days` / weather fail-closed) |
+| `eplus_w2a_dsm_farm_scaffold.py` | Stage W2A_PHYSICAL_DSM IDF copy (no champion overwrite) |
+| `spinup_sensitivity.py` | Pre-roll 0/3/7/14 scaffold CSV (`--from-farm-root`) |
+| `timestep_sensitivity.py` | Timestep 4/6/12 scaffold (`--stage-w2a`) |
+| `inventory_greybox_sensors.py` | Grey-box sensor manifest (UNKNOWN ok) |
 | `export_nearest_day_library.py` | Nearest-day library for desktop |
 | `export_control_contracts.py` | Control strategy contracts |
 | `validate_mvm.py` | MVM hourly + 15-min (delegates formulas to `ml/eplus_multires_metrics`) |

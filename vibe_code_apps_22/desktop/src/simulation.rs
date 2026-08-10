@@ -37,7 +37,7 @@ pub struct StrategyEnumRow {
     pub reject_reason: Option<String>,
 }
 
-/// Future Annual Replay interface (not implemented — HEURISTIC annual remains).
+/// Future Annual Replay interface (Python has month replay; full annual still future).
 #[derive(Debug, Clone, Default)]
 pub struct AnnualReplayPlan {
     pub note: String,
@@ -46,11 +46,34 @@ pub struct AnnualReplayPlan {
 impl AnnualReplayPlan {
     pub fn stub() -> Self {
         Self {
-            note: ("FUTURE Annual Replay: 365 weather/init days, chronological sim, \
-                 monthly peak-to-date, verified tariff/ratchet, baseline vs DSM bills. \
-                 Current annual rollup is HEURISTIC only.")
+            note: ("Month peak-to-date replay exists in Python (`billing_month_replay`); \
+                 full 365-day Annual Replay with verified Lakeside tariff/ratchet is FUTURE. \
+                 Current desktop annual rollup remains HEURISTIC only. \
+                 `existing_billing_peak_kw` must be peak BEFORE the target day.")
                 .into(),
         }
+    }
+}
+
+/// Peak established strictly before ``target_day`` (YYYY-MM-DD) within the same month.
+/// Mirrors Python `billing_counterfactual.mtd_peak_before_day`.
+pub fn mtd_peak_before_day(daily_peaks: &[(String, f64)], target_day: &str) -> f64 {
+    if target_day.len() < 10 {
+        return 0.0;
+    }
+    let month = &target_day[..7];
+    let mut m = 0.0_f64;
+    let mut any = false;
+    for (d, v) in daily_peaks {
+        if d.len() >= 7 && &d[..7] == month && d.as_str() < target_day {
+            m = m.max(*v);
+            any = true;
+        }
+    }
+    if any {
+        m
+    } else {
+        0.0
     }
 }
 
@@ -245,6 +268,17 @@ mod tests {
         assert!((new_p - 120.0).abs() < 1e-9);
         assert!((inc_kw - 20.0).abs() < 1e-9);
         assert!((inc_cost - 240.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn mtd_peak_before_day_excludes_target() {
+        let peaks = vec![
+            ("2026-01-10".into(), 200.0),
+            ("2026-01-15".into(), 310.0),
+            ("2026-01-20".into(), 180.0),
+        ];
+        assert!((mtd_peak_before_day(&peaks, "2026-01-15") - 200.0).abs() < 1e-9);
+        assert!(mtd_peak_before_day(&peaks, "2026-01-10").abs() < 1e-9);
     }
 
     #[test]

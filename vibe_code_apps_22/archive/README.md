@@ -9,6 +9,8 @@ context when reviewing interval / weather / IdealLoads honesty fixes.
 | `legacy_quarter_index.py` | [`ml/interval15.py`](../ml/interval15.py) | Mapped 00:15/00:30 → `hour_ending=24`; disagreed with extract |
 | `legacy_hybrid_calendar.py` | `interval15.calendar_features_for_step` | `hour_ending = step/4` → step0=`0.0` vs contract 0.25 |
 | `legacy_billing_peak_day.py` | [`ml/billing_counterfactual.py`](../ml/billing_counterfactual.py) | Used actual-day peak as pre-existing billing peak |
+| `legacy_same_row_lag_fill.md` | `feature_compile_15min` + real_store cross-midnight shift | q0 lags filled from `y[q0]` (DEF-STEP0-LAG) |
 
 Live audits: [`docs/audits/interval_semantics_audit.md`](../docs/audits/interval_semantics_audit.md),
-[`docs/audits/simulation_root_cause_audit.md`](../docs/audits/simulation_root_cause_audit.md).
+[`docs/audits/simulation_root_cause_audit.md`](../docs/audits/simulation_root_cause_audit.md),
+[`docs/audits/lag_train_serve_parity.md`](../docs/audits/lag_train_serve_parity.md).

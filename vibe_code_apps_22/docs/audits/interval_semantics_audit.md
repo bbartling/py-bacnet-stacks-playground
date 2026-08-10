@@ -1,64 +1,51 @@
-# Interval semantics audit — vibe_code_apps_22
+# Interval semantics audit — vibe_code_apps_22 (post interval15 fix)
 
 **Date:** 2026-08-10  
-**Scope:** Prove 15-min timestamp / index / clock-feature semantics across REAL BAS, EnergyPlus farm, Python hybrid rollout, and Rust desktop.  
-**Contract SoT:** [`contracts/hybrid_dsm_96_v1.json`](../../contracts/hybrid_dsm_96_v1.json)
+**Canonical SoT:** [`ml/interval15.py`](../../ml/interval15.py) + [`contracts/hybrid_dsm_96_v1.json`](../../contracts/hybrid_dsm_96_v1.json)
 
-## Canonical contract
+## Contract (current)
 
 | Field | Meaning |
 |---|---|
-| `q0` / `step_15=0` | Interval `[00:00, 00:15)`, prediction stamped **00:15**, `hour_ending=0.25` |
-| `q95` / `step_15=95` | Interval `[23:45, 24:00)`, stamped **24:00**, `hour_ending=24.0` |
-| Init | Measured **00:00** midnight state only (lags); not a prediction |
-| Weather at step `t` | `weather_forecast_96[*][t]` — never `t+1` |
+| `q0` / `step_15=0` | `[00:00, 00:15)` stamped **00:15**, `hour_ending=0.25` |
+| `q95` / `step_15=95` | `[23:45, 24:00)` stamped **24:00**, `hour_ending=24.0` |
+| Init | Measured **00:00** midnight (lags only) |
+| Weather | `weather[*][t]` never `t+1` |
 
-Implementation SoT after this rebuild: [`ml/interval15.py`](../../ml/interval15.py).
+## Physical-time × subsystem (POST-FIX)
 
-## Physical-time table (pre-fix evidence)
+Assumes Lakeside local-standard CST−6 for E+ stamps; REAL joins via America/Chicago civil then maps through `interval15`.
 
-| Clock | REAL BAS (`build.py`) | E+ farm (`_quarter_index`) | Python hybrid | Rust `hybrid_onnx` |
+| Clock | REAL BAS | E+ farm | Python hybrid | Rust hybrid_onnx |
 |---|---|---|---|---|
-| **00:00** | `step_15=0`, `hour_ending=0.0` | `he=24`, `q=95` (collides w/ 24:00) | init only | init only |
-| **00:15** | `step_15=1`, `hour_ending=0.25` | `he=24` (**BUG**), `q=0` | doc 00:15; code `hour_ending=0.0` | same as Python |
-| **00:30** | `step_15=2`, `hour_ending=0.5` | `he=24` (**BUG**), `q=1` | `hour_ending=0.25` | same |
-| **01:00** | `step_15=4`, `hour_ending=1.0` | `he=1`, `q=3` | step4 → `1.0` | same |
-| **23:45** | `step_15=95`, `hour_ending=23.75` | `he=23`, `q=94` | step95 → `23.75` | same |
-| **24:00** | next-day 00:00 stamp | `he=24`, `q=95` | doc step95=24:00; code HE `23.75` | same |
+| **00:00** | site_date=prior day, q=95, HE=24.0; init only | stamp 00:00 → q=95 HE_int=24 | init JSON only | midnight init |
+| **00:15** | q=0, HE=0.25, weather index 0 | q=0, HE_int=1 (not 24) | step0 HE=0.25, weather[0] | step0 HE=0.25 |
+| **00:30** | q=1, HE=0.5 | q=1, HE_int=1 | step1 HE=0.5 | same |
+| **01:00** | q=3, HE=1.0 | q=3, HE_int=1 | step3 HE=1.0 | same |
+| **23:45** | q=94, HE=23.75 | q=94, HE_int=24 | step94 HE=23.75 | same |
+| **24:00** | q=95 on that site_date | q=95, HE_int=24 | step95 HE=24.0 | same |
 
-### Citations (pre-fix)
+### Lag source at first prediction
 
-- REAL: `ml/real_store/build.py` — `step_15 = hour*4 + minute//15`, `hour_ending = hour + (minute+14)//15*0.25`
-- E+ farm: `scripts/eplus_heating_dsm_farm.py` — `_quarter_index` (legacy); `extract.interval_ending_local` disagreed
-- Hybrid: `ml/hybrid_rollout.py` — `_calendar_features`: `hour_ending = step/4.0`
-- Rust: `desktop/src/hybrid_onnx.rs` — `hour = step as f32 / 4.0`
-- Tests: `tests/test_interval_semantics.py` protected weather[t] but not cross-subsystem step parity
+| Subsystem | Lag source |
+|---|---|
+| REAL train | wall-time causal `.shift(1/2)` across midnight; compile **dropna** (never same-row `y[t]`) |
+| E+ delta train | Δ shifts; pair-start → **0** to match serve |
+| Python/Rust serve baseline | `init` midnight facility/zones/OAT |
+| Python/Rust serve delta | facility/zone Δ lags **0**; oat_lag1 from init |
 
-## Weather / lag / demand notes
+### Occupied / hours_to_occupy
 
-| Concern | REAL | E+ farm | Hybrid / Rust |
-|---|---|---|---|
-| Weather[t] | same-row join | hourly attach + **oat fill 25 / rh 50 / ghi 0** | `weather[t]`; rh/ghi defaults 50/0 |
-| First-step lags | same-day shift → NaN → same-row fill | same-row fill | midnight init; delta lags 0 |
-| Demand peak | N/A | N/A | Playground used **actual-day peak** as `existing_billing_peak` (invalid counterfactual) |
+Hybrid: occupied ≈ steps `[28,64)`; `hours_to_occupy = max(0,(28-step)/4)`.
 
-## Ranked findings
+## Pre-fix bugs (historical)
 
-### CONFIRMED BUG
-1. E+ farm mapped 00:15/00:30 → `hour_ending=24`.
-2. E+ `00:00` and `24:00` both yielded `q=95`.
-3. Farm `_quarter_index` ≠ `extract.interval_ending_local`.
-4. Playground `existing_billing_peak_kw = nanmax(actual_day)`.
+See archive/`legacy_quarter_index.py`, `legacy_hybrid_calendar.py`, `legacy_same_row_lag_fill.md`.
+Farm mapped 00:15→HE24; hybrid used `hour_ending=step/4`; compile filled q0 lags from targets.
 
-### HIGH-CONFIDENCE MODEL DEFECT
-5. Contract `step0=00:15` vs REAL `00:15→step1` vs hybrid `hour_ending=step/4→0.0`.
-6. Farm weather placeholders not EPW-native 15-min meteorology.
-7. IdealLoads+COP DSM farm labeled as treatment while W2A champion is separate.
+## Verification
 
-### PLAUSIBLE CONTRIBUTOR
-8. Phase-shift between REAL and E+ clock features in hybrid sum.
-9. One-day E+ RunPeriod warmup ≠ true thermal history.
-
-### NOT SUPPORTED
-10. REAL store hardcoding oat=25 / rh=50 / ghi=0.
-11. EnergyPlus numerical divergence as primary cause of 97% hourly CVRMSE.
+- `tests/test_interval_golden_cross_subsystems.py`
+- `tests/test_al_mission_gates.py` / `test_247_counterfactual_semantics.py`
+- Rust `hour_ending_matches_interval15_contract`
+- Wave 8 checklist in `simulation_root_cause_audit.md`

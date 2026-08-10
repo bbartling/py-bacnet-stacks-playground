@@ -168,12 +168,11 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
     out["hours_to_occupy"] = np.clip(7.0 - he, 0.0, 12.0)
     gcol = "simulation_id" if "simulation_id" in out.columns else "day"
     g = out.groupby(gcol, sort=False)
+    # Causal lags only — never fill q0 lags from same-row targets (leakage).
     out["facility_kw_lag1"] = g[TARGET_COL].shift(1)
     out["facility_kw_lag2"] = g[TARGET_COL].shift(2)
     out["oat_lag1"] = g["oat_f"].shift(1)
-    out["facility_kw_lag1"] = out["facility_kw_lag1"].fillna(out[TARGET_COL])
     out["facility_kw_lag2"] = out["facility_kw_lag2"].fillna(out["facility_kw_lag1"])
-    out["oat_lag1"] = out["oat_lag1"].fillna(out["oat_f"])
 
     if multitarget:
         missing = [c for c in ZONE_TEMP_COLS if c not in out.columns]
@@ -186,7 +185,6 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
             out[c] = pd.to_numeric(out[c], errors="coerce")
             lag = f"{c}_lag1"
             out[lag] = g[c].shift(1)
-            out[lag] = out[lag].fillna(out[c])
 
     cum: list[float] = []
     for _, sub in out.groupby(gcol, sort=False):

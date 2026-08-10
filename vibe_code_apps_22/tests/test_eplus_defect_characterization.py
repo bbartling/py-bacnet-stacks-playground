@@ -109,10 +109,13 @@ def test_residual_hod_uses_utc_hour():
     assert "hour of day (UTC)" in src
 
 
-def test_feature_lag_same_row_fillna():
-    src = (_ROOT / "ml" / "feature_compile_heating_dsm.py").read_text(encoding="utf-8")
-    assert 'fillna(out[TARGET_COL])' in src or "fillna(out[TARGET_COL])" in src
-
+def test_feature_lag_same_row_fillna_removed():
+    """DEF-STEP0-LAG closed: no same-row target fill in heating_dsm or 15min compile."""
+    h = (_ROOT / "ml" / "feature_compile_heating_dsm.py").read_text(encoding="utf-8")
+    f = (_ROOT / "ml" / "feature_compile_15min.py").read_text(encoding="utf-8")
+    assert "fillna(out[TARGET_COL])" not in h
+    assert 'fillna(feat[TARGET_COL])' not in f
+    assert "same-row targets" in f or "same-row target" in f
 
 def test_torch_hourcnn_is_feature_axis_not_time_unroll():
     src = (_ROOT / "ml" / "train_heating_dsm_torch.py").read_text(encoding="utf-8")

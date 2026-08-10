@@ -459,10 +459,14 @@ def rows_from_timestep(
             "idf_sha256": idf_sha,
             "epw_sha256": epw_sha,
             "schema_version": SCHEMA_VERSION,
-            "oat_f": np.nan,
-            "rh_pct": np.nan,
-            "ghi": np.nan,
-            "weather_source": "pending_attach",
+            "oat_f": float(r["oat_f"]) if "oat_f" in r and pd.notna(r["oat_f"]) else np.nan,
+            "rh_pct": float(r["rh_pct"]) if "rh_pct" in r and pd.notna(r["rh_pct"]) else np.nan,
+            "ghi": float(r["ghi"]) if "ghi" in r and pd.notna(r["ghi"]) else np.nan,
+            "weather_source": (
+                "eplus_run_export"
+                if ("oat_f" in r and pd.notna(r["oat_f"]))
+                else "pending_attach"
+            ),
             "preheat_lead_h": float(meta.get("preheat_lead_h", 0.0)),
             "stagger_min": float(meta.get("stagger_min", 0.0)),
             "unocc_htg_sp_f": float(meta.get("unocc_htg_sp_f", 65.0)),
@@ -825,56 +829,65 @@ def main(argv: list[str] | None = None) -> int:
     farm = pd.DataFrame(all_rows)
     farm = dedupe_day_profiles(farm)
 
-    # Weather attach (optional hourly OAT) — promotable farms fail closed on missing OAT.
+    # Weather attach — prefer eplus_run_export already on rows; else hourly attach.
     weather_ok = False
+    if len(farm) and "weather_source" in farm.columns:
+        n_ep = int((farm["weather_source"].astype(str) == "eplus_run_export").sum())
+        if n_ep == len(farm) and farm["oat_f"].notna().all():
+            weather_ok = True
+            # RH/GHI may still be NaN — handled below
     try:
-        from artifact_paths import weather_history_csv, demand_hourly_csv
-        from site_weather import load_weather_hourly, load_hourly_demand
+        if not weather_ok:
+            from artifact_paths import weather_history_csv, demand_hourly_csv
+            from site_weather import load_weather_hourly, load_hourly_demand
 
-        wx = load_weather_hourly(weather_history_csv())
-        if len(wx) and "oat_f" in wx.columns:
-            w = wx[["day", "hour_ending", "oat_f"]].copy()
-            w["hour_ending"] = w["hour_ending"].astype(int)
-            w.loc[w["hour_ending"] == 0, "hour_ending"] = 24
-            w = w.rename(columns={"oat_f": "oat_wx", "hour_ending": "_he"})
-            farm["_he"] = farm["hour_ending"].astype(int)
-            farm = farm.merge(w, on=["day", "_he"], how="left")
-            farm["oat_f"] = farm["oat_f"].fillna(farm["oat_wx"])
-            farm.drop(columns=["_he", "oat_wx"], inplace=True, errors="ignore")
-            if "rh_pct" in wx.columns:
-                wr = wx[["day", "hour_ending", "rh_pct"]].copy()
-                wr["hour_ending"] = wr["hour_ending"].astype(int)
-                wr.loc[wr["hour_ending"] == 0, "hour_ending"] = 24
-                wr = wr.rename(columns={"rh_pct": "rh_wx", "hour_ending": "_he"})
+            wx = load_weather_hourly(weather_history_csv())
+            if len(wx) and "oat_f" in wx.columns:
+                w = wx[["day", "hour_ending", "oat_f"]].copy()
+                w["hour_ending"] = w["hour_ending"].astype(int)
+                w.loc[w["hour_ending"] == 0, "hour_ending"] = 24
+                w = w.rename(columns={"oat_f": "oat_wx", "hour_ending": "_he"})
                 farm["_he"] = farm["hour_ending"].astype(int)
-                farm = farm.merge(wr, on=["day", "_he"], how="left")
-                farm["rh_pct"] = farm["rh_pct"].fillna(farm["rh_wx"])
-                farm.drop(columns=["_he", "rh_wx"], inplace=True, errors="ignore")
-            if "ghi" in wx.columns:
-                wg = wx[["day", "hour_ending", "ghi"]].copy()
-                wg["hour_ending"] = wg["hour_ending"].astype(int)
-                wg.loc[wg["hour_ending"] == 0, "hour_ending"] = 24
-                wg = wg.rename(columns={"ghi": "ghi_wx", "hour_ending": "_he"})
+                farm = farm.merge(w, on=["day", "_he"], how="left")
+                farm["oat_f"] = farm["oat_f"].fillna(farm["oat_wx"])
+                farm.drop(columns=["_he", "oat_wx"], inplace=True, errors="ignore")
+                if "rh_pct" in wx.columns:
+                    wr = wx[["day", "hour_ending", "rh_pct"]].copy()
+                    wr["hour_ending"] = wr["hour_ending"].astype(int)
+                    wr.loc[wr["hour_ending"] == 0, "hour_ending"] = 24
+                    wr = wr.rename(columns={"rh_pct": "rh_wx", "hour_ending": "_he"})
+                    farm["_he"] = farm["hour_ending"].astype(int)
+                    farm = farm.merge(wr, on=["day", "_he"], how="left")
+                    farm["rh_pct"] = farm["rh_pct"].fillna(farm["rh_wx"])
+                    farm.drop(columns=["_he", "rh_wx"], inplace=True, errors="ignore")
+                if "ghi" in wx.columns:
+                    wg = wx[["day", "hour_ending", "ghi"]].copy()
+                    wg["hour_ending"] = wg["hour_ending"].astype(int)
+                    wg.loc[wg["hour_ending"] == 0, "hour_ending"] = 24
+                    wg = wg.rename(columns={"ghi": "ghi_wx", "hour_ending": "_he"})
+                    farm["_he"] = farm["hour_ending"].astype(int)
+                    farm = farm.merge(wg, on=["day", "_he"], how="left")
+                    farm["ghi"] = farm["ghi"].fillna(farm["ghi_wx"])
+                    farm.drop(columns=["_he", "ghi_wx"], inplace=True, errors="ignore")
+            dem = load_hourly_demand(demand_hourly_csv())
+            if len(dem) and "oat_f" in dem.columns:
+                m = dem[["day", "hour_ending", "oat_f"]].copy()
+                m["hour_ending"] = m["hour_ending"].astype(int)
+                m.loc[m["hour_ending"] == 0, "hour_ending"] = 24
+                m = m.rename(columns={"oat_f": "oat_dem", "hour_ending": "_he"})
                 farm["_he"] = farm["hour_ending"].astype(int)
-                farm = farm.merge(wg, on=["day", "_he"], how="left")
-                farm["ghi"] = farm["ghi"].fillna(farm["ghi_wx"])
-                farm.drop(columns=["_he", "ghi_wx"], inplace=True, errors="ignore")
-        dem = load_hourly_demand(demand_hourly_csv())
-        if len(dem) and "oat_f" in dem.columns:
-            m = dem[["day", "hour_ending", "oat_f"]].copy()
-            m["hour_ending"] = m["hour_ending"].astype(int)
-            m.loc[m["hour_ending"] == 0, "hour_ending"] = 24
-            m = m.rename(columns={"oat_f": "oat_dem", "hour_ending": "_he"})
-            farm["_he"] = farm["hour_ending"].astype(int)
-            farm = farm.merge(m, on=["day", "_he"], how="left")
-            farm["oat_f"] = farm["oat_f"].fillna(farm["oat_dem"])
-            farm.drop(columns=["_he", "oat_dem"], inplace=True, errors="ignore")
-        weather_ok = bool(farm["oat_f"].notna().all()) if len(farm) else False
-        if weather_ok:
-            farm["weather_source"] = "hourly_history_or_demand_attach"
+                farm = farm.merge(m, on=["day", "_he"], how="left")
+                farm["oat_f"] = farm["oat_f"].fillna(farm["oat_dem"])
+                farm.drop(columns=["_he", "oat_dem"], inplace=True, errors="ignore")
+            weather_ok = bool(farm["oat_f"].notna().all()) if len(farm) else False
+            if weather_ok and (
+                "weather_source" not in farm.columns
+                or (farm["weather_source"].astype(str) == "pending_attach").any()
+            ):
+                farm["weather_source"] = "hourly_history_or_demand_attach"
     except Exception as e:
-        print(f"weather attach skipped: {e}", flush=True)
-        weather_ok = False
+        if not weather_ok:
+            print(f"weather attach skipped: {e}", flush=True)
 
     if not weather_ok:
         if args.allow_weather_fallback:
