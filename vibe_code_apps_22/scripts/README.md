@@ -23,6 +23,7 @@
 | `spinup_sensitivity.py` | Pre-roll 0/3/7/14 scaffold CSV (`--from-farm-root`) |
 | `timestep_sensitivity.py` | Timestep 4/6/12 scaffold (`--stage-w2a`) |
 | `inventory_greybox_sensors.py` | Grey-box sensor manifest (UNKNOWN ok) |
+| `train_greybox_shadow_v1.py` | One-zone 1R1C GREYBOX_SHADOW_V1 fit (NON_PROMOTABLE; no hybrid retrain) |
 | `export_nearest_day_library.py` | Nearest-day library for desktop |
 | `export_control_contracts.py` | Control strategy contracts |
 | `validate_mvm.py` | MVM hourly + 15-min (delegates formulas to `ml/eplus_multires_metrics`) |

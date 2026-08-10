@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Inventory candidate sensors for a 6-zone grey-box model — never invent points.
 
-Scans LAKESIDE_SITE_ROOT for fdd_device_lookup / master_long / weather exports.
-Missing points are recorded as UNKNOWN / NOT_IN_SITE_EXPORT.
+Scans LAKESIDE_SITE_ROOT for the live real 15-min store, FDD lookup, master_long,
+and weather exports. Missing points are recorded as UNKNOWN / NOT_IN_SITE_EXPORT.
 """
 from __future__ import annotations
 
@@ -37,6 +37,18 @@ REQUIRED = [
     "doas_or_oa_signal",
 ]
 
+# Plant / setpoint points — never invent BACnet object IDs
+_PLANT_POINTS = {
+    "hp_enable_or_stage",
+    "fan_status",
+    "sat_rat",
+    "loop_ewt",
+    "loop_lwt",
+    "pump_speed_or_kw",
+    "doas_or_oa_signal",
+    "htg_setpoint",
+}
+
 
 def _site() -> Path:
     for k in ("LAKESIDE_SITE_ROOT", "VIBE22_SITE_ROOT"):
@@ -47,47 +59,63 @@ def _site() -> Path:
 
 
 def _columns_from_parquet(p: Path) -> set[str]:
-    try:
-        import pandas as pd
+    import pandas as pd
 
-        return set(map(str, pd.read_parquet(p, columns=None).columns))
-    except Exception:
-        return set()
+    return set(map(str, pd.read_parquet(p, columns=None).columns))
 
 
-def inventory(site: Path) -> list[dict[str, str]]:
+def _scan_paths(site: Path) -> tuple[set[str], list[str]]:
+    """Scan *site* exports only — never repo fixtures (avoids false PRESENT)."""
     found_cols: set[str] = set()
     sources: list[str] = []
-    for rel in (
-        "reports/master_long.parquet",
-        "ml/artifacts/real_15min_store.parquet",
-        "clean_data/weather/history_wide.csv",
-    ):
-        p = site / rel
+    read_errors: list[str] = []
+    candidates = [
+        site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet",
+        site / "ml" / "artifacts" / "real_15min_store.parquet",
+        site / "reports" / "master_long.parquet",
+        site / "clean_data" / "weather" / "history_wide.csv",
+        site / "fdd_device_lookup.csv",
+    ]
+    for p in candidates:
         if not p.is_file():
-            # also try under vibe22 app artifacts
             continue
         sources.append(str(p))
-        if p.suffix == ".parquet":
-            found_cols |= _columns_from_parquet(p)
-        else:
-            try:
+        try:
+            if p.suffix == ".parquet":
+                found_cols |= _columns_from_parquet(p)
+            elif p.suffix == ".csv":
                 import pandas as pd
 
                 found_cols |= set(map(str, pd.read_csv(p, nrows=2).columns))
-            except Exception:
-                pass
+        except Exception as e:
+            read_errors.append(f"{p}: {e}")
+    # schema JSON next to real store (column list without loading full parquet twice)
+    schema = site / "ml" / "artifacts" / "real_baseline_15min_v1_schema.json"
+    if schema.is_file():
+        sources.append(str(schema))
+        try:
+            import json
 
-    # App-local real store if present
-    local_store = _APP / "ml" / "artifacts" / "fixtures"
-    for p in local_store.glob("*.parquet"):
-        found_cols |= _columns_from_parquet(p)
-        sources.append(str(p))
+            raw = json.loads(schema.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                cols = raw.get("columns") or raw.get("fields") or []
+                if isinstance(cols, list):
+                    found_cols |= {str(c) for c in cols}
+        except Exception as e:
+            read_errors.append(f"{schema}: {e}")
+    if read_errors:
+        raise RuntimeError(
+            "inventory source(s) present but unreadable:\n  " + "\n  ".join(read_errors)
+        )
+    return found_cols, sources
+
+
+def inventory(site: Path) -> list[dict[str, str]]:
+    found_cols, sources = _scan_paths(site)
 
     fdd = site / "fdd_device_lookup.csv"
     fdd_note = str(fdd) if fdd.is_file() else "NOT_IN_SITE_EXPORT"
 
-    # Heuristic aliases
     aliases = {
         "facility_kw": {"facility_kw", "kw", "demand_kw", "site_kw"},
         "zone_temp_1F_A_f": {"zone_temp_1F_A_f", "1F_Area_A", "zn_t_1f_a"},
@@ -98,7 +126,7 @@ def inventory(site: Path) -> list[dict[str, str]]:
         "zone_temp_2F_B_f": {"zone_temp_2F_B_f", "2F_Area_B"},
         "oat_f": {"oat_f", "oa_t", "outdoor_temp_f"},
         "rh_pct": {"rh_pct", "rh", "relative_humidity"},
-        "solar_ghi": {"ghi", "solar", "global_horizontal"},
+        "solar_ghi": {"ghi", "solar", "global_horizontal", "solar_ghi"},
         "occupancy": {"occupied", "occ_frac", "occupancy"},
     }
 
@@ -116,22 +144,12 @@ def inventory(site: Path) -> list[dict[str, str]]:
                 if a.lower() in low or a in found_cols:
                     status = "PRESENT_IN_EXPORT"
                     identity = low.get(a.lower(), a)
-                    sample = "see_source_export"
+                    sample = "15min_or_source_export"
                     miss = "NOT_COMPUTED"
                     stuck = "NOT_COMPUTED"
                     usable = "PARTIAL — column present; quality not scored in this inventory"
                     break
-        # Plant points we do not invent
-        if req in {
-            "hp_enable_or_stage",
-            "fan_status",
-            "sat_rat",
-            "loop_ewt",
-            "loop_lwt",
-            "pump_speed_or_kw",
-            "doas_or_oa_signal",
-            "htg_setpoint",
-        } and status != "PRESENT_IN_EXPORT":
+        if req in _PLANT_POINTS and status != "PRESENT_IN_EXPORT":
             status = "NOT_IN_SITE_EXPORT"
             identity = "UNKNOWN — do not invent BACnet object-id"
         rows.append(
@@ -163,13 +181,16 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 def write_md(path: Path, rows: list[dict[str, str]], site: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    n_ok = sum(1 for r in rows if r["status"] == "PRESENT_IN_EXPORT")
     lines = [
         "# Grey-box sensor manifest (Lakeside)",
         "",
         f"**Site scanned:** `{site}`",
+        f"**Present:** {n_ok}/{len(rows)}",
         "",
         "Honesty: missing points are **UNKNOWN / NOT_IN_SITE_EXPORT**. "
-        "No BACnet object IDs were invented.",
+        "No BACnet object IDs were invented. Identities for PRESENT rows are "
+        "**parquet/CSV column names** from the real 15-min store (not BACnet objects).",
         "",
         "| Point | Status | Identity |",
         "|---|---|---|",
@@ -179,7 +200,7 @@ def write_md(path: Path, rows: list[dict[str, str]], site: Path) -> None:
             f"| `{r['point']}` | {r['status']} | {r['bacnet_or_column_identity']} |"
         )
     lines.append("")
-    lines.append("See also `reports/ml/greybox_sensor_manifest.csv`.")
+    lines.append("See also `reports/ml/greybox_sensor_manifest.csv` (local / gitignored OK).")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

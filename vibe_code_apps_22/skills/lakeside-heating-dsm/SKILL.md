@@ -89,19 +89,29 @@ Do not label a warm-at-temp midnight as a fair daily energy comparison vs setbac
 
 Clock + q0 lag leakage corrupt old feature maps → **`RETRAIN_AFTER_CONTRACT_FIX`**.
 Do not promote a new desktop champion solely because repaired scores moved.
-Keep `HYBRID_SCREENING`. Next model phase: `docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`.
+Keep `HYBRID_SCREENING`.
+
+## Grey-box shadow (parallel)
+
+- Spec: `docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`
+- Inventory: `scripts/inventory_greybox_sensors.py` (scans `real_baseline_15min_v1.parquet`)
+- Fit: `python -u scripts/train_greybox_shadow_v1.py` — **no** extra `train_four_arms`
+- Honesty: `GREYBOX_SHADOW_V1` / `NON_PROMOTABLE` / `Q_eff_DIAGNOSTIC`
+- Rollback if one-zone gate fails: keep hybrid screening only
 
 ## Key modules
 
 - `ml/interval15.py` — canonical 15-min clock
 - `ml/billing_counterfactual.py` / `billing_month_replay.py` — MTD / month peak-to-date
 - `ml/physics_families.py` — STRUCTURAL vs W2A labels
+- `ml/greybox/` — 1R1C shadow thermal (non-promotable)
 - `ml/treatment_validation.py` — ΔkW / ranking / economic regret gates
 - `ml/hybrid_sanity.py` — plant peak cap / reject gates
 - `scripts/train_four_arms.py` / `train_arm.py` — parallel baseline train SoT
 - `scripts/ship_best_to_desktop.py` — held-out peak MAE only; copy into `--artifacts`
 - `scripts/eplus_w2a_dsm_farm_scaffold.py` — staged W2A seed (no champion overwrite)
 - `scripts/inventory_greybox_sensors.py` — sensor manifest (UNKNOWN ok)
+- `scripts/train_greybox_shadow_v1.py` — one-zone 1R1C fit
 - `scripts/README.md` — live vs legacy vs removed scripts
 - `notebooks/lakeside_heating_dsm_*.ipynb` — **viewers** (timings + metrics)
 - `ml/real_store/` — measured 15-min feature store
