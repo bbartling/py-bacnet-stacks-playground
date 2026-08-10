@@ -1,5 +1,5 @@
-eval_day,pre_roll_days,daily_kwh,peak_kw,peak_step,zone_mae_vs_pr7,ewt_mean,note,glhe_seasonal_ok,recommendation
-2026-01-26,0,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 0 offline; GLHE seasonal history NOT captured by short pre-roll,false,UNRESOLVED
-2026-01-26,3,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 3 offline; GLHE seasonal history NOT captured by short pre-roll,false,UNRESOLVED
-2026-01-26,7,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 7 offline; GLHE seasonal history NOT captured by short pre-roll,false,UNRESOLVED
-2026-01-26,14,,,,,,SCAFFOLD — run eplus_heating_dsm_farm.py --pre-roll-days 14 offline; GLHE seasonal history NOT captured by short pre-roll,false,UNRESOLVED
+eval_day,pre_roll_days,daily_kwh,peak_kw,peak_step,zone_mae_vs_pr7,ewt_mean,note,glhe_seasonal_ok,recommendation,provenance,physics_family
+2026-01-26,0,1025.6055028048895,54.62954509365171,,,46.54619923619282,CONTROL_TWIN_LAB filled n=2; short pre-roll ≠ GLHE seasonal continuous ground init,false,LAB_FILLED,SYNTHETIC_W2A_PROVENANCE,W2A_PHYSICAL_DSM
+2026-01-26,3,,,,,,No case at this pre_roll in profile — run --profile full_lab,false,MISSING_IN_PROFILE,SYNTHETIC_W2A_PROVENANCE,W2A_PHYSICAL_DSM
+2026-01-26,7,,,,,,No case at this pre_roll in profile — run --profile full_lab,false,MISSING_IN_PROFILE,SYNTHETIC_W2A_PROVENANCE,W2A_PHYSICAL_DSM
+2026-01-26,14,,,,,,No case at this pre_roll in profile — run --profile full_lab,false,MISSING_IN_PROFILE,SYNTHETIC_W2A_PROVENANCE,W2A_PHYSICAL_DSM

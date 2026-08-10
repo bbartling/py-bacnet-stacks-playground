@@ -1,0 +1,2 @@
+eval_day,strategy,baseline_peak_kw,strategy_peak_kw,delta_peak_kw,baseline_kwh,strategy_kwh,delta_kwh,sign_peak_reduction,provenance,honesty,promote,note
+2026-01-26,stagger_preheat,54.62954509365171,50.58625524657751,-4.043289847074199,1064.6868072892403,986.524198320539,-78.1626089687013,True,SYNTHETIC_W2A_PROVENANCE,CONTROL_TWIN_LAB_V1,NON_PROMOTABLE,SYNTHETIC_W2A_PROVENANCE treatment deltas — not IdealLoads field claims

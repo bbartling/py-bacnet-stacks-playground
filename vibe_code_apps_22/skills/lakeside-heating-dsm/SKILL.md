@@ -91,6 +91,14 @@ Clock + q0 lag leakage corrupt old feature maps → **`RETRAIN_AFTER_CONTRACT_FI
 Do not promote a new desktop champion solely because repaired scores moved.
 Keep `HYBRID_SCREENING`.
 
+## Control Twin Lab (parallel to grey-box)
+
+- Design: `docs/audits/control_twin_lab_v1.md`
+- Run: `python -u scripts/run_control_twin_lab.py --profile smoke`
+- Archaeology: `python -u scripts/mine_plant_point_candidates.py`
+- Honesty: `SYNTHETIC_W2A_PROVENANCE` / `NON_PROMOTABLE` — not field compressor kW
+- Never overwrite A04 champion IDF
+
 ## Grey-box shadow (parallel)
 
 - Spec: `docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md`

@@ -1,4 +1,4 @@
-eval_day,zone_timesteps_per_hour,physics_family,daily_kwh,peak_kw,peak_step,hvac_iter_warnings,staged_idf,note
-2026-01-26,4,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
-2026-01-26,6,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
-2026-01-26,12,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
+eval_day,zone_timesteps_per_hour,physics_family,daily_kwh,peak_kw,peak_step,hvac_iter_warnings,staged_idf,note,provenance
+2026-01-26,4,W2A_PHYSICAL_DSM,,,,,,No case at this timestep in profile — run --profile full_lab,SYNTHETIC_W2A_PROVENANCE
+2026-01-26,6,W2A_PHYSICAL_DSM,1025.6055028048895,54.62954509365171,,,C:\Users\ben\Documents\py-bacnet-stacks-playground\vibe_code_apps_22\ml\artifacts\w2a_dsm_lab\idf\w2a_ctl_lab_baseline_pr0_ts6.idf,CONTROL_TWIN_LAB filled n=2,SYNTHETIC_W2A_PROVENANCE
+2026-01-26,12,W2A_PHYSICAL_DSM,,,,,,No case at this timestep in profile — run --profile full_lab,SYNTHETIC_W2A_PROVENANCE

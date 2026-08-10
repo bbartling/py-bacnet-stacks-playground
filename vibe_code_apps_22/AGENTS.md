@@ -19,13 +19,12 @@ Site SoT (data, E+ runs, ALC historian): set `LAKESIDE_SITE_ROOT`
 Building id: `LAKESIDE_ES` · `siteRef`: `spasd_lakeside_es`  
 Research / notebook display name: fictional **Creekside** (scrubbed site report).
 
-Last validated: **2026-08-10** — hybrid contract on `develop`; grey-box **PR A**:
-identification honesty (`IDENTIFICATION_DIAGNOSTIC` vs `DEPLOYABLE_FORECAST`);
-blocking `train_greybox_identification_v1.py`. Prior ~0.48 °F shadow MAE is
-**diagnostic only** (meter Q on holdout). IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`.
-**Do not promote**; do not six-zone clone until ID verdict is A.
-Audits: [`docs/audits/greybox_forecast_honesty.md`](docs/audits/greybox_forecast_honesty.md).
-Spec: [`GREYBOX_SHADOW_V1`](docs/superpowers/specs/2026-08-10-GREYBOX_SHADOW_V1.md).
+Last validated: **2026-08-10** — Control Twin Lab V1 + grey-box ID honesty on `develop`.
+W2A lab = `SYNTHETIC_W2A_PROVENANCE` / `NON_PROMOTABLE` (never overwrite A04).
+Grey-box remains diagnostic until plant sensors exist (`NOT_IN_HISTORIAN` archaeology).
+IdealLoads = `STRUCTURAL_LOAD_DIAGNOSTIC`. Audits:
+[`docs/audits/control_twin_lab_v1.md`](docs/audits/control_twin_lab_v1.md),
+[`docs/audits/greybox_forecast_honesty.md`](docs/audits/greybox_forecast_honesty.md).
 
 ---
 
