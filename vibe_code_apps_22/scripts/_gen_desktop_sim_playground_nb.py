@@ -200,7 +200,43 @@ ghi_96 = peak_day_df["ghi"].to_numpy(dtype=float) if "ghi" in peak_day_df else n
 midnight_facility_kw = float(kw_actual[0])
 midnight_zones_f = [float(peak_day_df.iloc[0][c]) for c in ZONE_TEMP_COLS]
 oat_midnight_f = float(oat_96[0])
-existing_billing_peak_kw = float(np.nanmax(kw_actual))  # this day sets the peak
+# Demand counterfactual: peak established BEFORE this day (not this day's actual peak).
+try:
+    _all = pd.read_parquet(REAL_PARQUET)
+    _all["timestamp_local"] = pd.to_datetime(_all["timestamp_local"])
+    _all["day"] = _all["timestamp_local"].dt.strftime("%Y-%m-%d")
+    _daily_peaks = _all.groupby("day")["facility_kw"].max().to_dict()
+    from billing_counterfactual import mtd_peak_before_day as _mtd
+    existing_billing_peak_kw = float(_mtd(_daily_peaks, str(peak_day)))
+except Exception as _e:
+    print("MTD billing peak fallback:", _e)
+    existing_billing_peak_kw = 0.0
+print(
+    "existing_billing_peak_kw (MTD before target day; ILLUSTRATIVE tariff later)=",
+    existing_billing_peak_kw,
+)
+# Month peak-to-date replay summary (ILLUSTRATIVE $/kW · $/kWh)
+try:
+    from billing_month_replay import replay_month
+    _month = str(peak_day)[:7]
+    _kwh = (
+        _all.groupby("day")["facility_kw"].sum().mul(0.25).to_dict()
+        if "_all" in dir()
+        else {str(peak_day): float(kw_actual.sum() * 0.25)}
+    )
+    _peaks = _daily_peaks if "_daily_peaks" in dir() else {str(peak_day): float(kw_actual.max())}
+    _rep = replay_month(_kwh, _peaks, month=_month)
+    print(
+        "month_replay",
+        _rep.month,
+        "peak_kw",
+        round(_rep.month_peak_kw, 1),
+        "total_incremental_$",
+        round(_rep.total_cost, 1),
+        _rep.tariff_note,
+    )
+except Exception as _e:
+    print("month_replay skipped:", _e)
 cal_month = float(peak_day_df.iloc[0].get("month", pd.Timestamp(peak_day).month))
 cal_doy = float(peak_day_df.iloc[0].get("doy", pd.Timestamp(peak_day).dayofyear))
 cal_weekend = float(peak_day_df.iloc[0].get("is_weekend", int(pd.Timestamp(peak_day).dayofweek >= 5)))
@@ -268,9 +304,17 @@ print("BAU schedule", baseline_id, "| (enum still uses all)", list(STRATEGY_IDS)
 Weather is the peaking day's measured OAT/RH/GHI for every arm.  
 `hybrid = real_baseline_ONNX + eplus_delta_ONNX`.
 
-**Init differs for 24/7:** actual / BAU / DSM start from the **metered midnight**
-(setback ~61°F on this day). **`flat_24_7` assumes the building was already held at
-the occupied heating setpoint overnight** — no fake morning recovery from a cold start.
+**Two distinct 24/7 experiments (do not conflate):**
+
+1. **SAME_STATE_TREATMENT_TEST** — every strategy (incl. 24/7) starts from the
+   **same measured 00:00** state. Tests action response from now forward.
+2. **FULL_OVERNIGHT_COUNTERFACTUAL** — controls begin on D−1; each strategy creates
+   its own midnight; pre-midnight energy belongs in the economics. Future optimizer
+   default.
+
+This notebook's gray **`flat_24_7` at-temp init** is a *partial* overnight story
+(warm midnight assumed) — **not** a fair daily energy comparison against setback
+BAU, and **not** Experiment 1. Labels stay ILLUSTRATIVE / HYBRID_SCREENING.
 
 **Read this chart carefully:** IdealLoads delta is still **HYBRID_SCREENING /
 smoke**. A DSM strategy can raise peak vs actual — that is a model/farm limit,

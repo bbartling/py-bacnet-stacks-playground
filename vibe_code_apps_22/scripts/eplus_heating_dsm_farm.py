@@ -15,7 +15,7 @@ import json
 import os
 import shutil
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +53,9 @@ SCHEMA_VERSION = "lakeside.heating_dsm_farm.paired_15min.v1"
 OUT_STEM = "heating_dsm_eplus_paired_15min_v1"
 PROVENANCE = "ENERGYPLUS_NATIVE_RUN"
 HONESTY = "HYBRID_SCREENING"
+# IdealLoads+COP is structural / screening only — not a W2A plant twin.
+PHYSICS_FAMILY = "STRUCTURAL_LOAD_DIAGNOSTIC"
+PHYSICS_DETAIL = "IdealLoads + fixed-COP (gshp filename naming only; not W2A_PHYSICAL_DSM)"
 
 # °C setpoints written into IDF schedules
 OCC_HTG_C = 20.0  # 68°F
@@ -375,23 +378,10 @@ def pair_integrity_hashes(scenarios: list[dict]) -> dict[str, Any]:
 
 
 def _quarter_index(stamp: str) -> tuple[int, int, int]:
-    """hour_ending (1..24 style clock hour of interval end), minute, q0..95."""
-    parts = str(stamp).strip().split()
-    if len(parts) < 2:
-        return 0, 0, 0
-    hm = parts[1].split(":")
-    h = int(hm[0])
-    mi = int(hm[1]) if len(hm) > 1 else 0
-    if h == 24:
-        return 24, 0, 95
-    # E+ timestep stamps are interval end; map to hour_ending 1..24
-    if mi == 0:
-        he = h if h > 0 else 24
-        q = (he * 4 - 1) % 96
-    else:
-        he = h
-        q = h * 4 + (mi // 15) - 1
-    return he, mi, int(q) % 96
+    """hour_ending_int (1..24), minute, quarter_index 0..95 — via canonical interval15."""
+    from interval15 import from_eplus_stamp
+
+    return from_eplus_stamp(stamp)
 
 
 def _control_at_hour(controls: dict[str, Any], hour_0_23: int) -> dict[str, float]:
@@ -464,12 +454,19 @@ def rows_from_timestep(
             "cool_cop_proxy": 4.5,
             "provenance": PROVENANCE,
             "honesty": HONESTY,
+            "physics_family": PHYSICS_FAMILY,
+            "physics": PHYSICS_DETAIL,
             "idf_sha256": idf_sha,
             "epw_sha256": epw_sha,
             "schema_version": SCHEMA_VERSION,
-            "oat_f": np.nan,
-            "rh_pct": 50.0,
-            "ghi": 0.0,
+            "oat_f": float(r["oat_f"]) if "oat_f" in r and pd.notna(r["oat_f"]) else np.nan,
+            "rh_pct": float(r["rh_pct"]) if "rh_pct" in r and pd.notna(r["rh_pct"]) else np.nan,
+            "ghi": float(r["ghi"]) if "ghi" in r and pd.notna(r["ghi"]) else np.nan,
+            "weather_source": (
+                "eplus_run_export"
+                if ("oat_f" in r and pd.notna(r["oat_f"]))
+                else "pending_attach"
+            ),
             "preheat_lead_h": float(meta.get("preheat_lead_h", 0.0)),
             "stagger_min": float(meta.get("stagger_min", 0.0)),
             "unocc_htg_sp_f": float(meta.get("unocc_htg_sp_f", 65.0)),
@@ -482,7 +479,9 @@ def rows_from_timestep(
     return rows
 
 
-def _patch_idf_for_scenario(base_text: str, scenario: dict, controls: dict) -> str:
+def _patch_idf_for_scenario(
+    base_text: str, scenario: dict, controls: dict, *, pre_roll_days: int = 0
+) -> str:
     htg_blocks, avail_blocks = controls_to_idf_blocks(controls)
     text = ensure_per_area_dsm_schedules(
         base_text,
@@ -490,17 +489,24 @@ def _patch_idf_for_scenario(base_text: str, scenario: dict, controls: dict) -> s
         avail_blocks_by_zone=avail_blocks,
     )
     d0: date = scenario["begin"]
+    pre = max(0, int(pre_roll_days))
+    begin = d0 - timedelta(days=pre) if pre else d0
     text = patch_run_period(
         text,
-        begin_month=d0.month,
-        begin_day=d0.day,
+        begin_month=begin.month,
+        begin_day=begin.day,
         end_month=d0.month,
         end_day=d0.day,
-        begin_year=d0.year,
+        begin_year=begin.year,
         end_year=d0.year,
-        name=f"DSM_{d0.isoformat()}_{scenario['arm']}",
+        name=f"DSM_{d0.isoformat()}_{scenario['arm']}_pr{pre}",
     )
     return text
+
+
+def filter_rows_to_evaluation_day(rows: list[dict], eval_day: str) -> list[dict]:
+    """Keep only rows whose ``day`` equals the evaluation day (drop pre-roll)."""
+    return [r for r in rows if str(r.get("day")) == str(eval_day)]
 
 
 def _day_profile_key(df: pd.DataFrame) -> pd.Series:
@@ -576,6 +582,18 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=_APP / "ml" / "artifacts" / f"{OUT_STEM}.parquet",
     )
+    ap.add_argument(
+        "--pre-roll-days",
+        type=int,
+        default=0,
+        choices=(0, 3, 7, 14),
+        help="Simulate N days before evaluation day; only eval-day rows are kept",
+    )
+    ap.add_argument(
+        "--allow-weather-fallback",
+        action="store_true",
+        help="STRUCTURAL_DIAGNOSTIC only: allow oat=25/rh=50/ghi=0 placeholders (never promotable)",
+    )
     args = ap.parse_args(argv)
     if not args.smoke and not args.medium and not args.crossed:
         args.smoke = True
@@ -617,7 +635,9 @@ def main(argv: list[str] | None = None) -> int:
                 **integrity,
                 "idf_sha256": idf_sha,
                 "epw_sha256": epw_sha,
-                "physics": "IdealLoads + fixed-COP (gshp filename naming only)",
+                "physics_family": PHYSICS_FAMILY,
+                "physics": PHYSICS_DETAIL,
+                "pre_roll_days": int(args.pre_roll_days),
                 "blocked_operational_until_hourly_gate_or_waiver": True,
             },
             indent=2,
@@ -634,7 +654,9 @@ def main(argv: list[str] | None = None) -> int:
 
     for sc in scenarios:
         controls = build_area_controls(sc["strategy_id"], sc["seed"])
-        text = _patch_idf_for_scenario(base_text, sc, controls)
+        text = _patch_idf_for_scenario(
+            base_text, sc, controls, pre_roll_days=int(args.pre_roll_days)
+        )
         scen_hash = input_hash(text, sc)
         run_id = f"{sc['scenario_id'].replace(':', '')}_{scen_hash[:12]}"
         run_dir = farm_root / f"{run_id}"
@@ -747,18 +769,17 @@ def main(argv: list[str] | None = None) -> int:
     all_rows: list[dict] = []
     # Also keep standalone baseline arm rows (pair_id …__baseline) for provenance
     for day, payload in by_day_baseline.items():
-        all_rows.extend(
-            rows_from_timestep(
-                payload["ts"],
-                scenario=payload["scenario"],
-                run_id=payload["run_id"],
-                input_hash_hex=payload["input_hash"],
-                idf_sha=idf_sha,
-                epw_sha=epw_sha,
-                run_model_hash=payload["run_model_hash"],
-                controls=payload["controls"],
-            )
+        rows = rows_from_timestep(
+            payload["ts"],
+            scenario=payload["scenario"],
+            run_id=payload["run_id"],
+            input_hash_hex=payload["input_hash"],
+            idf_sha=idf_sha,
+            epw_sha=epw_sha,
+            run_model_hash=payload["run_model_hash"],
+            controls=payload["controls"],
         )
+        all_rows.extend(filter_rows_to_evaluation_day(rows, day))
 
     for payload in dsm_runs:
         sc = payload["scenario"]
@@ -775,60 +796,130 @@ def main(argv: list[str] | None = None) -> int:
         base_sc["strategy_id"] = sc["strategy_id"]
         base_sc["control_regime"] = sc["control_regime"]
         all_rows.extend(
-            rows_from_timestep(
-                base["ts"],
-                scenario=base_sc,
-                run_id=base["run_id"],
-                input_hash_hex=base["input_hash"],
-                idf_sha=idf_sha,
-                epw_sha=epw_sha,
-                run_model_hash=base["run_model_hash"],
-                controls=base["controls"],
+            filter_rows_to_evaluation_day(
+                rows_from_timestep(
+                    base["ts"],
+                    scenario=base_sc,
+                    run_id=base["run_id"],
+                    input_hash_hex=base["input_hash"],
+                    idf_sha=idf_sha,
+                    epw_sha=epw_sha,
+                    run_model_hash=base["run_model_hash"],
+                    controls=base["controls"],
+                ),
+                day,
             )
         )
         all_rows.extend(
-            rows_from_timestep(
-                payload["ts"],
-                scenario=sc,
-                run_id=payload["run_id"],
-                input_hash_hex=payload["input_hash"],
-                idf_sha=idf_sha,
-                epw_sha=epw_sha,
-                run_model_hash=payload["run_model_hash"],
-                controls=payload["controls"],
+            filter_rows_to_evaluation_day(
+                rows_from_timestep(
+                    payload["ts"],
+                    scenario=sc,
+                    run_id=payload["run_id"],
+                    input_hash_hex=payload["input_hash"],
+                    idf_sha=idf_sha,
+                    epw_sha=epw_sha,
+                    run_model_hash=payload["run_model_hash"],
+                    controls=payload["controls"],
+                ),
+                day,
             )
         )
 
     farm = pd.DataFrame(all_rows)
     farm = dedupe_day_profiles(farm)
 
-    # Weather attach (optional hourly OAT)
+    # Weather attach — prefer eplus_run_export already on rows; else hourly attach.
+    weather_ok = False
+    if len(farm) and "weather_source" in farm.columns:
+        n_ep = int((farm["weather_source"].astype(str) == "eplus_run_export").sum())
+        if n_ep == len(farm) and farm["oat_f"].notna().all():
+            weather_ok = True
+            # RH/GHI may still be NaN — handled below
     try:
-        from artifact_paths import weather_history_csv, demand_hourly_csv
-        from site_weather import load_weather_hourly, load_hourly_demand
+        if not weather_ok:
+            from artifact_paths import weather_history_csv, demand_hourly_csv
+            from site_weather import load_weather_hourly, load_hourly_demand
 
-        wx = load_weather_hourly(weather_history_csv())
-        if len(wx) and "oat_f" in wx.columns:
-            w = wx[["day", "hour_ending", "oat_f"]].copy()
-            w["hour_ending"] = w["hour_ending"].astype(int) % 24
-            w = w.rename(columns={"oat_f": "oat_wx", "hour_ending": "_he"})
-            farm["_he"] = farm["hour_ending"].astype(int) % 24
-            farm = farm.merge(w, on=["day", "_he"], how="left")
-            farm["oat_f"] = farm["oat_f"].fillna(farm["oat_wx"])
-            farm.drop(columns=["_he", "oat_wx"], inplace=True, errors="ignore")
-        dem = load_hourly_demand(demand_hourly_csv())
-        if len(dem) and "oat_f" in dem.columns:
-            m = dem[["day", "hour_ending", "oat_f"]].copy()
-            m["hour_ending"] = m["hour_ending"].astype(int) % 24
-            m = m.rename(columns={"oat_f": "oat_dem", "hour_ending": "_he"})
-            farm["_he"] = farm["hour_ending"].astype(int) % 24
-            farm = farm.merge(m, on=["day", "_he"], how="left")
-            farm["oat_f"] = farm["oat_f"].fillna(farm["oat_dem"])
-            farm.drop(columns=["_he", "oat_dem"], inplace=True, errors="ignore")
+            wx = load_weather_hourly(weather_history_csv())
+            if len(wx) and "oat_f" in wx.columns:
+                w = wx[["day", "hour_ending", "oat_f"]].copy()
+                w["hour_ending"] = w["hour_ending"].astype(int)
+                w.loc[w["hour_ending"] == 0, "hour_ending"] = 24
+                w = w.rename(columns={"oat_f": "oat_wx", "hour_ending": "_he"})
+                farm["_he"] = farm["hour_ending"].astype(int)
+                farm = farm.merge(w, on=["day", "_he"], how="left")
+                farm["oat_f"] = farm["oat_f"].fillna(farm["oat_wx"])
+                farm.drop(columns=["_he", "oat_wx"], inplace=True, errors="ignore")
+                if "rh_pct" in wx.columns:
+                    wr = wx[["day", "hour_ending", "rh_pct"]].copy()
+                    wr["hour_ending"] = wr["hour_ending"].astype(int)
+                    wr.loc[wr["hour_ending"] == 0, "hour_ending"] = 24
+                    wr = wr.rename(columns={"rh_pct": "rh_wx", "hour_ending": "_he"})
+                    farm["_he"] = farm["hour_ending"].astype(int)
+                    farm = farm.merge(wr, on=["day", "_he"], how="left")
+                    farm["rh_pct"] = farm["rh_pct"].fillna(farm["rh_wx"])
+                    farm.drop(columns=["_he", "rh_wx"], inplace=True, errors="ignore")
+                if "ghi" in wx.columns:
+                    wg = wx[["day", "hour_ending", "ghi"]].copy()
+                    wg["hour_ending"] = wg["hour_ending"].astype(int)
+                    wg.loc[wg["hour_ending"] == 0, "hour_ending"] = 24
+                    wg = wg.rename(columns={"ghi": "ghi_wx", "hour_ending": "_he"})
+                    farm["_he"] = farm["hour_ending"].astype(int)
+                    farm = farm.merge(wg, on=["day", "_he"], how="left")
+                    farm["ghi"] = farm["ghi"].fillna(farm["ghi_wx"])
+                    farm.drop(columns=["_he", "ghi_wx"], inplace=True, errors="ignore")
+            dem = load_hourly_demand(demand_hourly_csv())
+            if len(dem) and "oat_f" in dem.columns:
+                m = dem[["day", "hour_ending", "oat_f"]].copy()
+                m["hour_ending"] = m["hour_ending"].astype(int)
+                m.loc[m["hour_ending"] == 0, "hour_ending"] = 24
+                m = m.rename(columns={"oat_f": "oat_dem", "hour_ending": "_he"})
+                farm["_he"] = farm["hour_ending"].astype(int)
+                farm = farm.merge(m, on=["day", "_he"], how="left")
+                farm["oat_f"] = farm["oat_f"].fillna(farm["oat_dem"])
+                farm.drop(columns=["_he", "oat_dem"], inplace=True, errors="ignore")
+            weather_ok = bool(farm["oat_f"].notna().all()) if len(farm) else False
+            if weather_ok and (
+                "weather_source" not in farm.columns
+                or (farm["weather_source"].astype(str) == "pending_attach").any()
+            ):
+                farm["weather_source"] = "hourly_history_or_demand_attach"
     except Exception as e:
-        print(f"weather attach skipped: {e}", flush=True)
+        if not weather_ok:
+            print(f"weather attach skipped: {e}", flush=True)
 
-    farm["oat_f"] = farm["oat_f"].fillna(25.0)
+    if not weather_ok:
+        if args.allow_weather_fallback:
+            farm["oat_f"] = farm["oat_f"].fillna(25.0)
+            farm["rh_pct"] = farm["rh_pct"].fillna(50.0)
+            farm["ghi"] = farm["ghi"].fillna(0.0)
+            farm["weather_source"] = "STRUCTURAL_DIAGNOSTIC_FALLBACK_25_50_0"
+            farm["honesty"] = "HYBRID_SCREENING"
+            print(
+                "WARN: weather fallback oat=25/rh=50/ghi=0 — STRUCTURAL_DIAGNOSTIC only; not promotable",
+                flush=True,
+            )
+        else:
+            print(
+                "TRAINING GATE FAIL: missing farm weather (OAT). "
+                "Refuse silent oat=25/rh=50/ghi=0. "
+                "Pass --allow-weather-fallback only for STRUCTURAL_DIAGNOSTIC smoke.",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        # RH/GHI may still be missing; fail closed unless diagnostic fallback
+        if farm["rh_pct"].isna().any() or farm["ghi"].isna().any():
+            if args.allow_weather_fallback:
+                farm["rh_pct"] = farm["rh_pct"].fillna(50.0)
+                farm["ghi"] = farm["ghi"].fillna(0.0)
+            else:
+                print(
+                    "TRAINING GATE FAIL: missing RH/GHI on farm rows after weather attach.",
+                    file=sys.stderr,
+                )
+                return 1
 
     # Training gate
     try:

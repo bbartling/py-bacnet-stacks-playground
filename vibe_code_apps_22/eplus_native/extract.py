@@ -181,6 +181,71 @@ def load_timestep_zone_mat_f(
     return out
 
 
+def load_timestep_site_weather(
+    sim_dir: Path | str,
+    *,
+    prefer_freq: str = "timestep",
+) -> pd.DataFrame:
+    """Extract outdoor dry-bulb (°F), RH (%), and GHI proxy from the same E+ CSV.
+
+    Columns are matched case-insensitively. Missing RH/GHI become NaN (caller
+    fail-closes or uses STRUCTURAL fallback — never invent here).
+    """
+    sim = Path(sim_dir)
+    src = sim / "eplusout.csv"
+    if not src.is_file():
+        # some installs put env vars only in eplusmtr — try both
+        alt = sim / "eplusmtr.csv"
+        src = alt if alt.is_file() else src
+    if not src.is_file():
+        raise FileNotFoundError(f"missing eplusout/eplusmtr in {sim}")
+    df = pd.read_csv(src)
+    cols = list(df.columns)
+    ts_col = cols[0]
+    freq = prefer_freq.lower()
+    oat_c = (
+        _find_col(cols, "site outdoor air drybulb", freq)
+        or _find_col(cols, "outdoor air drybulb", freq)
+        or _find_col(cols, "site outdoor air drybulb", "hourly")
+        or _find_col(cols, "outdoor air drybulb temperature")
+    )
+    rh_c = (
+        _find_col(cols, "site outdoor air relative humidity", freq)
+        or _find_col(cols, "outdoor air relative humidity", freq)
+        or _find_col(cols, "relative humidity")
+    )
+    ghi_c = (
+        _find_col(cols, "site diffuse solar", freq)
+        or _find_col(cols, "diffuse solar radiation rate")
+        or _find_col(cols, "site direct solar", freq)
+        or _find_col(cols, "global horizontal")
+    )
+    if oat_c is None:
+        raise ValueError(
+            f"Site Outdoor Air Drybulb not found in {src.name}. "
+            "Add Output:Variable,*,Site Outdoor Air Drybulb Temperature,Timestep;"
+        )
+    rows = []
+    for _, r in df.iterrows():
+        stamp = str(r[ts_col]).strip()
+        if not stamp or stamp.lower().startswith("date"):
+            continue
+        if pd.isna(r[oat_c]):
+            continue
+        oat_f = _c_to_f(float(r[oat_c]))
+        rh = float(r[rh_c]) if rh_c and pd.notna(r[rh_c]) else float("nan")
+        # solar often W/m2; keep as ghi proxy numeric
+        ghi = float(r[ghi_c]) if ghi_c and pd.notna(r[ghi_c]) else float("nan")
+        rows.append({"eplus_stamp": stamp, "oat_f": oat_f, "rh_pct": rh, "ghi": ghi})
+    out = pd.DataFrame(rows)
+    out.attrs["source_csv"] = str(src)
+    out.attrs["oat_col"] = oat_c
+    out.attrs["rh_col"] = rh_c
+    out.attrs["ghi_col"] = ghi_c
+    out.attrs["weather_source"] = "eplus_run_export"
+    return out
+
+
 def load_timestep_proxy_and_mat(
     sim_dir: Path | str,
     *,
@@ -188,8 +253,13 @@ def load_timestep_proxy_and_mat(
     cool_cop: float = 4.5,
     interval_hours: float = 0.25,
     zones: tuple[str, ...] = DSM_ZONES,
+    include_weather: bool = True,
 ) -> pd.DataFrame:
-    """Join facility IdealLoads+COP proxy kW with 6-area MAT (°F) on eplus_stamp."""
+    """Join facility IdealLoads+COP proxy kW with 6-area MAT (°F) on eplus_stamp.
+
+    When ``include_weather`` is True, also join outdoor weather from the same run
+    (fail closed later if OAT missing).
+    """
     kw = load_timestep_proxy_kw(
         sim_dir,
         heat_cop=heat_cop,
@@ -203,6 +273,20 @@ def load_timestep_proxy_and_mat(
     merged = kw.merge(mat, on="eplus_stamp", how="inner")
     if merged.empty:
         raise ValueError("proxy/MAT join produced empty frame (stamp mismatch)")
+    if include_weather:
+        try:
+            wx = load_timestep_site_weather(sim_dir)
+            wx = wx.drop_duplicates(subset=["eplus_stamp"], keep="last")
+            merged = merged.merge(wx, on="eplus_stamp", how="left")
+            merged.attrs["weather_source"] = "eplus_run_export"
+            merged.attrs["weather_cols"] = {
+                "oat": wx.attrs.get("oat_col"),
+                "rh": wx.attrs.get("rh_col"),
+                "ghi": wx.attrs.get("ghi_col"),
+            }
+        except (FileNotFoundError, ValueError) as e:
+            merged.attrs["weather_source"] = "missing"
+            merged.attrs["weather_error"] = str(e)
     return merged
 
 
@@ -269,22 +353,16 @@ def to_hourly_mean_kw(timestep_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def interval_ending_local(stamp: str) -> tuple[int, int, int]:
-    """Return (hour_ending_0_23, minute, quarter_index_0_95) from E+ stamp."""
-    parts = str(stamp).strip().split()
-    if len(parts) < 2:
-        return 0, 0, 0
-    hm = parts[1].split(":")
-    h = int(hm[0])
-    mi = int(hm[1]) if len(hm) > 1 else 0
-    if h == 24:
-        h, mi = 0, 0
-    # interval end → hour_ending for clock hour that just closed when mi==0
-    he = h if mi > 0 else (h if h > 0 else 0)
-    if mi == 0 and h > 0:
-        he = h  # XX:00 is end of previous hour's last quarter in E+? keep as h
-    q = h * 4 + (mi // 15) - 1
-    if mi == 0:
-        q = (h * 4 - 1) % 96 if h > 0 else 95
-    else:
-        q = h * 4 + (mi // 15) - 1
-    return he % 24, mi, int(q) % 96
+    """Return (hour_ending_1_24, minute, quarter_index_0_95) from E+ stamp.
+
+    Delegates to ``interval15.from_eplus_stamp`` so farm and extract agree.
+    """
+    try:
+        from interval15 import from_eplus_stamp
+    except ImportError:  # pragma: no cover
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ml"))
+        from interval15 import from_eplus_stamp
+    return from_eplus_stamp(stamp)

@@ -252,7 +252,7 @@ impl HybridEngine {
             if step < 28 {
                 hdd_acc += hdd;
             }
-            let hour = step as f32 / 4.0;
+            let hour = (step as f32 + 1.0) / 4.0;
             let occupied = if (28..64).contains(&step) { 1.0 } else { 0.0 };
 
             let mut row_b = RowMap::default();
@@ -463,8 +463,18 @@ mod tests {
     fn expand_oat_length() {
         let oat = [20.0_f32; 24];
         let e = expand_oat_24_to_96(&oat);
+        assert_eq!(e.len(), STEPS_96);
         assert_eq!(e.len(), 96);
         assert!((e[0] - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn hour_ending_matches_interval15_contract() {
+        // q0 → 0.25, q95 → 24.0 (canonical hybrid_dsm_96_v1)
+        let he0 = (0_f32 + 1.0) / 4.0;
+        let he95 = (95_f32 + 1.0) / 4.0;
+        assert!((he0 - 0.25).abs() < 1e-6);
+        assert!((he95 - 24.0).abs() < 1e-6);
     }
 
     #[test]

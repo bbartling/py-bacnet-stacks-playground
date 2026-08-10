@@ -1,0 +1,2 @@
+strategy,delta_peak_err,delta_kw_mae,delta_kw_rmse,delta_kwh_err,sign_acc,pred_peak_delta
+stagger_preheat,0.0,0.0,0.0,0.0,1.0,25.0

@@ -74,17 +74,9 @@ def matrix_xy_15min_multi(
                 feat[c] = 0.0
             else:
                 raise ValueError(f"missing feature column {c}")
-    # first step of day may lack lags — seed from same-row targets (midnight measured)
-    for c in ["facility_kw_lag1", "facility_kw_lag2", "oat_lag1", *ZONE_TEMP_LAG1_COLS]:
-        if c in feat.columns and TARGET_COL in feat.columns:
-            if c == "oat_lag1" and "oat_f" in feat.columns:
-                feat[c] = feat[c].fillna(feat["oat_f"])
-            elif c.startswith("facility_kw"):
-                feat[c] = feat[c].fillna(feat[TARGET_COL])
-            else:
-                base = c.replace("_lag1", "")
-                if base in feat.columns:
-                    feat[c] = feat[c].fillna(feat[base])
+    # q0 lags must NOT be filled from same-row targets (forbidden leakage).
+    # Upstream (real_store / delta builder) must supply causal prior-state lags;
+    # rows still missing lags are dropped — never seed from y[t].
     feat = feat.dropna(subset=FEATURE_COLS_15MIN_MT + TARGET_COLS).reset_index(drop=True)
     X = feat[FEATURE_COLS_15MIN_MT].to_numpy(dtype=float)
     Y = feat[TARGET_COLS].to_numpy(dtype=float)
@@ -109,25 +101,33 @@ def recursive_rollout_day(
 ) -> np.ndarray:
     """Teacher-forced exogenous + recursive lags for one day (96 steps).
 
-    Lag init = measured midnight state (first row lags / values), never hardcoded.
+    Lag init = measured midnight / prior-state lags only — never same-row targets.
     """
     day = day_df.sort_values("step_15").reset_index(drop=True)
     if day.empty:
         return np.zeros((0, len(target_cols)))
     preds = np.zeros((len(day), len(target_cols)), dtype=float)
-    # seed lags from measured first row (or explicit init)
+    # seed lags from measured first row (or explicit init) — finite lag columns required
     seed = init_row if init_row is not None else day.iloc[0]
-    lag_kw1 = float(seed.get("facility_kw_lag1", seed[TARGET_COL]))
-    lag_kw2 = float(seed.get("facility_kw_lag2", lag_kw1))
+    lag_kw1 = float(seed["facility_kw_lag1"]) if "facility_kw_lag1" in seed.index and np.isfinite(seed["facility_kw_lag1"]) else float("nan")
+    lag_kw2 = float(seed["facility_kw_lag2"]) if "facility_kw_lag2" in seed.index and np.isfinite(seed["facility_kw_lag2"]) else lag_kw1
     if not np.isfinite(lag_kw1):
-        lag_kw1 = float(seed[TARGET_COL])
+        raise ValueError(
+            "recursive_rollout_day requires finite facility_kw_lag1 (midnight/prior state); "
+            "same-row target fill is forbidden"
+        )
     if not np.isfinite(lag_kw2):
         lag_kw2 = lag_kw1
     zone_lags = []
     for c in ZONE_TEMP_COLS:
-        v = seed.get(f"{c}_lag1", seed[c])
-        v = float(v) if np.isfinite(v) else float(seed[c])
-        zone_lags.append(v)
+        lc = f"{c}_lag1"
+        if lc in seed.index and np.isfinite(seed[lc]):
+            zone_lags.append(float(seed[lc]))
+        else:
+            raise ValueError(
+                f"recursive_rollout_day requires finite {lc} (prior state); "
+                "same-row target fill is forbidden"
+            )
 
     for i, row in day.iterrows():
         feat = row[feature_cols].to_numpy(dtype=float).copy()

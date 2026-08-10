@@ -253,24 +253,38 @@ def build_real_15min_store(
     if frame.columns[0] != "timestamp_utc":
         frame = frame.rename(columns={frame.columns[0]: "timestamp_utc"})
     frame["timestamp_local"] = pd.DatetimeIndex(local).tz_localize(None)
-    frame["day"] = pd.DatetimeIndex(local).strftime("%Y-%m-%d")
     loc_idx = pd.DatetimeIndex(local)
-    frame["step_15"] = (loc_idx.hour * 4 + loc_idx.minute // 15).astype(int)
-    frame["hour_ending"] = (loc_idx.hour + (loc_idx.minute + 14) // 15 * 0.25).astype(float)
+    # Canonical contract: 00:15 → step 0 … 24:00/00:00 → step 95 (prior site_date).
+    from interval15 import hour_ending_from_quarter, quarter_from_interval_end_hms, site_date_for_interval_end
+
+    steps = []
+    days = []
+    hes = []
+    for ts in loc_idx:
+        naive = ts.to_pydatetime().replace(tzinfo=None) if hasattr(ts, "to_pydatetime") else ts
+        if getattr(naive, "tzinfo", None) is not None:
+            naive = naive.replace(tzinfo=None)
+        q = quarter_from_interval_end_hms(int(naive.hour), int(naive.minute))
+        steps.append(q)
+        days.append(site_date_for_interval_end(naive).isoformat())
+        hes.append(hour_ending_from_quarter(q))
+    frame["step_15"] = np.asarray(steps, dtype=int)
+    frame["hour_ending"] = np.asarray(hes, dtype=float)
+    frame["day"] = days
     frame["month"] = loc_idx.month.astype(int)
     frame["doy"] = loc_idx.dayofyear.astype(int)
     frame["dow"] = loc_idx.day_name()
     frame["is_weekend"] = (loc_idx.dayofweek >= 5).astype(float)
     frame["occupied"] = _occupied_from_schedule(pd.Series(loc_idx), schedule).to_numpy()
 
-    # causal same-day lags (prior 15-min step only; no cross-day fill)
+    # Causal lags across wall time (incl. midnight): q0 uses prior interval state,
+    # not same-row targets. First 1–2 rows of the whole series may be NaN → dropped at train.
     frame = frame.sort_values("timestamp_utc").reset_index(drop=True)
-    g = frame.groupby("day", sort=False)
-    frame["facility_kw_lag1"] = g["facility_kw"].shift(1)
-    frame["facility_kw_lag2"] = g["facility_kw"].shift(2)
-    frame["oat_lag1"] = g["oat_f"].shift(1)
+    frame["facility_kw_lag1"] = frame["facility_kw"].shift(1)
+    frame["facility_kw_lag2"] = frame["facility_kw"].shift(2)
+    frame["oat_lag1"] = frame["oat_f"].shift(1)
     for c in ZONE_TEMP_COLS:
-        frame[f"{c}_lag1"] = g[c].shift(1)
+        frame[f"{c}_lag1"] = frame[c].shift(1)
 
     frame["sin_step"] = np.sin(2 * np.pi * frame["step_15"] / 96.0)
     frame["cos_step"] = np.cos(2 * np.pi * frame["step_15"] / 96.0)
@@ -282,8 +296,8 @@ def build_real_15min_store(
         .groupby("day", sort=False)["_n"]
         .cumsum()
     )
-    # hours to occupy (K-12 07:00)
-    occ_step = 7 * 4
+    # hours to occupy (K-12 07:00) — contract step 28 ≈ 07:15
+    occ_step = 28
     frame["hours_to_occupy"] = np.maximum(0.0, (occ_step - frame["step_15"]) / 4.0)
 
     # baseline control placeholders (real store = measured operation)

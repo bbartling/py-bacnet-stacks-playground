@@ -9,6 +9,8 @@ Multi-target demo path: FEATURE_COLS_MULTITARGET → facility_kw + 6 zone temps.
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -126,8 +128,27 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
 
     out["oat_f"] = pd.to_numeric(out["oat_f"], errors="coerce")
     out["hdd65"] = np.maximum(0.0, 65.0 - out["oat_f"].to_numpy(dtype=float))
-    out["rh_pct"] = pd.to_numeric(out.get("rh_pct", 50.0), errors="coerce").fillna(50.0)
-    out["ghi"] = pd.to_numeric(out.get("ghi", 0.0), errors="coerce").fillna(0.0)
+    out["oat_f"] = pd.to_numeric(out["oat_f"], errors="coerce")
+    out["rh_pct"] = pd.to_numeric(out.get("rh_pct"), errors="coerce")
+    out["ghi"] = pd.to_numeric(out.get("ghi"), errors="coerce")
+    if out["oat_f"].isna().any():
+        raise ValueError(
+            "oat_f missing on heating DSM rows — refuse silent weather invention "
+            "(export/attach weather or rebuild farm with --allow-weather-fallback for STRUCTURAL_DIAGNOSTIC only)"
+        )
+    # RH/GHI placeholders only when farm marked diagnostic fallback
+    ws = out.get("weather_source")
+    diagnostic = False
+    if ws is not None:
+        diagnostic = out["weather_source"].astype(str).str.contains("FALLBACK", na=False).any()
+    if out["rh_pct"].isna().any() or out["ghi"].isna().any():
+        if diagnostic or os.environ.get("VIBE22_ALLOW_WEATHER_PLACEHOLDERS") == "1":
+            out["rh_pct"] = out["rh_pct"].fillna(50.0)
+            out["ghi"] = out["ghi"].fillna(0.0)
+        else:
+            raise ValueError(
+                "rh_pct/ghi missing — refuse rh=50/ghi=0 placeholders on promotable path"
+            )
 
     for c in OCC_FRAC_COLS:
         out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0).clip(0.0, 1.0)
@@ -147,12 +168,11 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
     out["hours_to_occupy"] = np.clip(7.0 - he, 0.0, 12.0)
     gcol = "simulation_id" if "simulation_id" in out.columns else "day"
     g = out.groupby(gcol, sort=False)
+    # Causal lags only — never fill q0 lags from same-row targets (leakage).
     out["facility_kw_lag1"] = g[TARGET_COL].shift(1)
     out["facility_kw_lag2"] = g[TARGET_COL].shift(2)
     out["oat_lag1"] = g["oat_f"].shift(1)
-    out["facility_kw_lag1"] = out["facility_kw_lag1"].fillna(out[TARGET_COL])
     out["facility_kw_lag2"] = out["facility_kw_lag2"].fillna(out["facility_kw_lag1"])
-    out["oat_lag1"] = out["oat_lag1"].fillna(out["oat_f"])
 
     if multitarget:
         missing = [c for c in ZONE_TEMP_COLS if c not in out.columns]
@@ -165,7 +185,6 @@ def compile_features(df: pd.DataFrame, *, multitarget: bool = False) -> pd.DataF
             out[c] = pd.to_numeric(out[c], errors="coerce")
             lag = f"{c}_lag1"
             out[lag] = g[c].shift(1)
-            out[lag] = out[lag].fillna(out[c])
 
     cum: list[float] = []
     for _, sub in out.groupby(gcol, sort=False):

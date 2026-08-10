@@ -1,0 +1,4 @@
+eval_day,zone_timesteps_per_hour,physics_family,daily_kwh,peak_kw,peak_step,hvac_iter_warnings,staged_idf,note
+2026-01-26,4,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
+2026-01-26,6,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
+2026-01-26,12,STRUCTURAL_LOAD_DIAGNOSTIC,,,,,,SCAFFOLD — run offline on IdealLoads diagnostic and/or W2A_PHYSICAL_DSM
