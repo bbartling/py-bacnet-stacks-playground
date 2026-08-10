@@ -59,9 +59,15 @@ def _site() -> Path:
 
 
 def _columns_from_parquet(p: Path) -> set[str]:
-    import pandas as pd
+    """Column names only — prefer schema metadata; never invent points."""
+    try:
+        import pyarrow.parquet as pq
 
-    return set(map(str, pd.read_parquet(p, columns=None).columns))
+        return set(map(str, pq.ParquetFile(str(p)).schema_arrow.names))
+    except Exception:
+        import pandas as pd
+
+        return set(map(str, pd.read_parquet(p, columns=None).columns))
 
 
 def _ingest_file(p: Path, found_cols: set[str], sources: list[str], read_errors: list[str]) -> None:
@@ -74,12 +80,10 @@ def _ingest_file(p: Path, found_cols: set[str], sources: list[str], read_errors:
         elif p.suffix == ".csv":
             import pandas as pd
 
-            raw = pd.read_csv(p, nrows=500)
+            # Headers only — do not treat arbitrary cell strings as PRESENT identities
+            # (avoids false matches on short aliases like "sat" / "ewt").
+            raw = pd.read_csv(p, nrows=2)
             found_cols |= set(map(str, raw.columns))
-            for col in raw.columns:
-                if raw[col].dtype == object:
-                    for v in raw[col].dropna().astype(str).head(200):
-                        found_cols.add(v.strip())
     except Exception as e:
         read_errors.append(f"{p}: {e}")
 

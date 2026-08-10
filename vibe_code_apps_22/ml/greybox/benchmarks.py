@@ -197,10 +197,19 @@ def block_bootstrap_params(
     n = len(t_meas)
     rng = np.random.default_rng(seed)
     rows: list[dict[str, float]] = []
-    n_blocks = max(1, n // block)
+    n_blocks = max(1, (n + block - 1) // block)
     for _ in range(int(n_boot)):
         starts = rng.integers(0, max(1, n - block + 1), size=n_blocks)
-        idx = np.concatenate([np.arange(s, min(s + block, n)) for s in starts])[:n]
+        idx = np.concatenate([np.arange(s, min(s + block, n)) for s in starts])
+        if len(idx) > n:
+            idx = idx[:n]
+        elif len(idx) < n:
+            # Pad by resampling blocks until length n
+            extra = []
+            while len(idx) + len(extra) < n:
+                s = int(rng.integers(0, max(1, n - block + 1)))
+                extra.extend(range(s, min(s + block, n)))
+            idx = np.concatenate([idx, np.asarray(extra, dtype=int)])[:n]
         if len(idx) < 50:
             continue
         try:

@@ -1,5 +1,5 @@
 {
-  "run_id": "greybox_id_20260810T164655Z",
+  "run_id": "greybox_id_20260810T165817Z",
   "honesty": "GREYBOX_SHADOW_V1",
   "promote": "NON_PROMOTABLE",
   "zone": "zone_temp_1F_A_f",
@@ -11,7 +11,9 @@
     "beats_persistence": false,
     "physics_reason": "BOUND_HIT",
     "n_free_response_days": 26,
-    "persistence_margin_rule": "mae_1r1c < 0.95 * mae_persistence"
+    "persistence_margin_rule": "mae_1r1c < 0.95 * mae_persistence",
+    "plant_present": [],
+    "plant_missing": true
   },
   "params": {
     "a": 0.999998999000001,

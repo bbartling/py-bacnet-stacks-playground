@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 _APP = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(_APP / "ml"), str(_APP)]
+sys.path[:0] = [str(_APP / "ml"), str(_APP / "scripts"), str(_APP)]
 
 from greybox.benchmarks import (  # noqa: E402
     block_bootstrap_params,
@@ -54,8 +54,10 @@ def _site() -> Path:
         v = os.environ.get(k, "").strip()
         if v and Path(v).is_dir():
             return Path(v)
-    return Path(r"C:\Users\ben\OneDrive\Desktop\testing\sp_creekside")
-
+    raise SystemExit(
+        "LAKESIDE_SITE_ROOT (or VIBE22_SITE_ROOT) must point at the Lakeside site tree; "
+        "refusing hard-coded fallback building path"
+    )
 
 def _store_path(site: Path) -> Path:
     p = site / "ml" / "artifacts" / "real_baseline_15min_v1.parquet"
@@ -220,20 +222,35 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     # Verdict (evidence-first; MAE alone never selects A)
+    from inventory_greybox_sensors import inventory as _inventory
+
+    inv_rows = _inventory(site)
+    plant_keys = {
+        "hp_enable_or_stage",
+        "fan_status",
+        "sat_rat",
+        "loop_ewt",
+        "loop_lwt",
+        "pump_speed_or_kw",
+        "doas_or_oa_signal",
+    }
+    plant_present = {
+        r["point"]
+        for r in inv_rows
+        if r["point"] in plant_keys and r["status"] == "PRESENT_IN_EXPORT"
+    }
+    plant_missing = len(plant_present) == 0
+    gates["plant_present"] = sorted(plant_present)
+    gates["plant_missing"] = plant_missing
+
     if gates["physics_pass"] and gates["deployable_ok"]:
-        # Structured residual → B; clean → A. Bound already fails above.
         ac = float(np.nanmean(resid_ac)) if resid_ac else 0.0
         if abs(ac) > 0.4:
             verdict = "ONE_ZONE_SIGNAL_REAL_BUT_NEEDS_2R2C_FORWARD_TEST"
         else:
             verdict = "IDENTIFIABLE_1R1C_CONTINUE_TO_SIX_ZONE"
-    elif params.bound_hit or not beats:
-        # Prefer C when plant inputs missing and free-response cannot earn Q
-        plant_missing = True  # inventory: HP/EWT still UNKNOWN in current site
-        if plant_missing and (params.bound_hit or not dep_maes):
-            verdict = "INSUFFICIENT_HVAC_INPUT_SENSOR_HUNT_REQUIRED"
-        else:
-            verdict = "GREYBOX_NOT_EARNING_COMPLEXITY_KEEP_W2A_HYBRID"
+    elif plant_missing and (params.bound_hit or not beats or not dep_maes):
+        verdict = "INSUFFICIENT_HVAC_INPUT_SENSOR_HUNT_REQUIRED"
     else:
         verdict = "GREYBOX_NOT_EARNING_COMPLEXITY_KEEP_W2A_HYBRID"
 

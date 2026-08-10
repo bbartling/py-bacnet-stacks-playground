@@ -183,20 +183,20 @@ def simulate_deployable(
         )
     if kwargs:
         raise TypeError(f"unexpected deployable kwargs: {sorted(kwargs)}")
-    if q_policy == Q_POLICY or "DIAGNOSTIC" in str(q_policy).upper():
+    allowed = {Q_POLICY_DEPLOYABLE}
+    if q_policy not in allowed:
         raise ValueError(
-            "Q_eff_DIAGNOSTIC forbidden in deployable/runtime rollout"
+            f"q_policy={q_policy!r} forbidden in deployable rollout; "
+            f"allowed={sorted(allowed)} (DIAGNOSTIC / arbitrary Q rejected)"
         )
     oat = np.asarray(oat, dtype=float)
-    if q_policy == Q_POLICY_DEPLOYABLE:
-        q = np.zeros(len(oat), dtype=float)
-        return simulate(t0, oat, q, a=a, b=b, c=0.0)
-    if q_eff is None:
-        q = np.zeros(len(oat), dtype=float)
-    else:
-        q = np.asarray(q_eff, dtype=float)
-    return simulate(t0, oat, q, a=a, b=b, c=float(c))
-
+    if q_eff is not None and np.any(np.abs(np.asarray(q_eff, dtype=float)) > 1e-12):
+        raise ValueError(
+            "deployable free-response path requires q_eff=0 / omitted "
+            "(no meter-derived Q)"
+        )
+    q = np.zeros(len(oat), dtype=float)
+    return simulate(t0, oat, q, a=a, b=b, c=0.0)
 
 
 def q_eff_diagnostic(
