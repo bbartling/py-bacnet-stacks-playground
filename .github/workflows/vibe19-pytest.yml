@@ -28,11 +28,11 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -e ".[dev,engineering-report]" -c constraints.txt
-          # Occupied-string + hydronic-ungate live on this branch until merged to master.
-          # Override with repo variable OPENFDD_GIT_SHA after the library PR lands.
+          # Overlay git OpenFDD so occupied-string + hydronic-ungate land before PyPI 4.3.1.
+          # Override with repo variable OPENFDD_GIT_SHA to pin a SHA.
           OFDD_REF="${{ vars.OPENFDD_GIT_SHA }}"
           if [ -z "$OFDD_REF" ]; then
-            OFDD_REF="feat/oracle-quality-hydronic-wattlab-parity"
+            OFDD_REF="master"
           fi
           pip install --upgrade --force-reinstall --no-deps \
             "open-fdd[reporting] @ git+https://github.com/bbartling/open-fdd.git@${OFDD_REF}"

@@ -345,6 +345,7 @@ def run_rules(
             weather=dataset.weather,
             equipment_filter=eq_filter,
         )
+        frames_for_rules.clear()
     else:
         from app.role_map import apply_role_map
         from app.rules.runner import run_all_cookbook_rules
